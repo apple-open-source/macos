@@ -56,7 +56,6 @@ static void tests_negative(void)
 {
 	CFErrorRef testError = NULL;
 
-	// Sanity
 	ok(SecPaddingCompute(SecPaddingTypeMMCS, 0, &testError) == 64 && testError==NULL);
 
 	// Wrong type

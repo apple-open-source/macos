@@ -48,7 +48,9 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* zoneError = nil;
-        NSArray<CKKSOutgoingQueueEntry*>* entries = [CKKSOutgoingQueueEntry all:view.zoneID error:&zoneError];
+        NSArray<CKKSOutgoingQueueEntry*>* entries = [CKKSOutgoingQueueEntry allWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                      zoneID:view.zoneID
+                                                                                       error:&zoneError];
         XCTAssertNil(zoneError, "should be no error fetching all OQEs");
 
         result = (size_t)entries.count;
@@ -61,7 +63,9 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* zoneError = nil;
-        NSArray<CKKSIncomingQueueEntry*>* entries = [CKKSIncomingQueueEntry all:view.zoneID error:&zoneError];
+        NSArray<CKKSIncomingQueueEntry*>* entries = [CKKSIncomingQueueEntry allWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                      zoneID:view.zoneID
+                                                                                       error:&zoneError];
         XCTAssertNil(zoneError, "should be no error fetching all IQEs");
 
         result = (size_t)entries.count;
@@ -121,12 +125,12 @@
     [self findGenericPassword: @"account0" expecting:errSecItemNotFound];
 
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D00" withAccount:@"account0"]];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(1, [self incomingQueueSize:self.keychainView], "There should be one pending item in the incoming queue");
 
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-0000-5A507ACB2D00" withAccount:@"account1"]];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(2, [self incomingQueueSize:self.keychainView], "There should be two pending item in the incoming queue");
 

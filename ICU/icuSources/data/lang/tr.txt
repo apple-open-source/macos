@@ -45,6 +45,7 @@ tr{
         an{"Aragonca"}
         ang{"Eski İngilizce"}
         anp{"Angika"}
+        apw{"Apaçice, Batı"}
         ar{"Arapça"}
         ar_001{"Modern Standart Arapça"}
         arc{"Aramice"}

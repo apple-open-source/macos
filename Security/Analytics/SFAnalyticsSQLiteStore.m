@@ -33,6 +33,7 @@ NSString* const SFAnalyticsColumnEventType = @"event_type";
 NSString* const SFAnalyticsColumnDate = @"timestamp";
 NSString* const SFAnalyticsColumnData = @"data";
 NSString* const SFAnalyticsUploadDate = @"upload_date";
+NSString* const SFAnalyticsMetricsAccountID = @"account_id";
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -93,24 +94,11 @@ NS_ASSUME_NONNULL_END
         return nil;
     }
 
-    SFAnalyticsSQLiteStore* store = nil;
-    @synchronized([SFAnalyticsSQLiteStore class]) {
-        static NSMutableDictionary* loggingStores = nil;
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            loggingStores = [[NSMutableDictionary alloc] init];
-        });
-
-        NSString* standardizedPath = path.stringByStandardizingPath;
-        store = loggingStores[standardizedPath];
-        if (!store) {
-            store = [[self alloc] initWithPath:standardizedPath schema:schema];
-            loggingStores[standardizedPath] = store;
-        }
-        NSError* error = nil;
-        if (![store openWithError:&error] && !(error && error.code == SQLITE_AUTH)) {
-            secerror("SFAnalytics: could not open db at init, will try again later. Error: %@", error);
-        }
+    NSString* standardizedPath = path.stringByStandardizingPath;
+    SFAnalyticsSQLiteStore* store = [[self alloc] initWithPath:standardizedPath schema:schema];
+    NSError* error = nil;
+    if (![store openWithError:&error] && !(error && error.code == SQLITE_AUTH)) {
+        secerror("SFAnalytics: could not open db at init, will try again later. Error: %@", error);
     }
 
     return store;
@@ -325,6 +313,26 @@ NS_ASSUME_NONNULL_END
     }
     [self setDateProperty:uploadDate forKey:SFAnalyticsUploadDate];
 }
+
+- (NSString*)metricsAccountID
+{
+    if (![self tryToOpenDatabase]) {
+        return nil;
+    }
+    return [self propertyForKey:SFAnalyticsMetricsAccountID];
+}
+
+- (void)setMetricsAccountID:(NSString *)accountID {
+    if (![self tryToOpenDatabase]) {
+        return;
+    }
+    if (accountID == nil) {
+        [self removePropertyForKey:SFAnalyticsMetricsAccountID];
+    } else {
+        [self setProperty:accountID forKey:SFAnalyticsMetricsAccountID];
+    }
+}
+
 
 - (void)clearAllData
 {

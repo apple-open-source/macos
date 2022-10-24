@@ -40,14 +40,12 @@ char *utf8(CFStringRef s) {
 	return (char*)buf;
 }
 
-void CFfprintf(FILE *f, const char *format, ...) {
+void CFfprintf(FILE *f, CFStringRef format, ...) {
 	va_list ap;
 	va_start(ap, format);
 	
-	CFStringRef fmt = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
-	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
+	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, format, ap);
 	va_end(ap);
-	CFReleaseNull(fmt);
 	
 	CFIndex sz = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8);
 	sz += 1;
@@ -84,81 +82,9 @@ CFErrorRef fancy_error(CFStringRef domain, CFIndex code, CFStringRef description
 	return err;
 }
 
-static
-void add_t2ca(CFMutableDictionaryRef t2ca, CFStringRef t, CFStringRef a) {
-	CFMutableSetRef ca = (CFMutableSetRef)CFDictionaryGetValue(t2ca, t);
-	if (!ca) {
-		ca = CFSetCreateMutable(NULL, 0, &kCFCopyStringSetCallBacks);
-		CFDictionarySetValue(t2ca, t, ca);
-	}
-	CFSetAddValue(ca, a);
-}
-
 void CFSafeRelease(CFTypeRef object) {
 	if (object) {
 		CFReleaseNull(object);
 	}
 }
 
-void graphviz(FILE *f, SecTransformRef tr) {
-	CFDictionaryRef d = SecTransformCopyExternalRepresentation(tr);
-	
-	CFfprintf(f, "digraph TR {\n\tnode [shape=plaintext];\n\n");
-	CFIndex i, j;
-	CFArrayRef transforms = CFDictionaryGetValue(d, CFSTR("TRANSFORMS"));
-	CFArrayRef connections = CFDictionaryGetValue(d, CFSTR("ARRAY"));
-	
-	
-	// map transforms to connected attributes
-	CFMutableDictionaryRef t2ca = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	for(i = 0; i < CFArrayGetCount(connections); i++) {
-		CFDictionaryRef c = CFArrayGetValueAtIndex(connections, i);
-		
-		CFStringRef t_from = CFDictionaryGetValue(c, CFSTR("FROM_NAME"));
-		CFStringRef t_to = CFDictionaryGetValue(c, CFSTR("TO_NAME"));
-		CFStringRef a_from = CFDictionaryGetValue(c, CFSTR("FROM_ATTRIBUTE"));
-		CFStringRef a_to = CFDictionaryGetValue(c, CFSTR("TO_ATTRIBUTE"));
-		
-		add_t2ca(t2ca, t_from, a_from);
-		add_t2ca(t2ca, t_to, a_to);
-	}
-	
-	
-	for(i = 0; i < CFArrayGetCount(transforms); i++) {
-		CFDictionaryRef t = CFArrayGetValueAtIndex(transforms, i);
-		// NAME STATE(dict) TYPE
-		CFStringRef name = CFDictionaryGetValue(t, CFSTR("NAME"));		
-		
-		CFfprintf(f, "\tsubgraph \"cluster_%@\"{\n", name);
-		
-		CFMutableSetRef ca = (CFMutableSetRef)CFDictionaryGetValue(t2ca, name);
-		if (ca) {
-			CFIndex cnt = CFSetGetCount(ca);
-			CFStringRef *attrs = malloc(cnt * sizeof(CFStringRef));
-			CFSetGetValues(ca, (const void **)attrs);
-			
-			for(j = 0; j < cnt; j++) {
-				CFfprintf(f, "\t\t\"%@#%@\" [label=\"%@\"];\n", name, attrs[j], attrs[j]);
-			}
-			CFfprintf(f, "\t\t\"%@\" [fontcolor=blue, fontsize=20];\n\t}\n");
-            free(attrs);
-		}
-	}
-	
-	CFfprintf(f, "\n");
-	
-	for(i = 0; i < CFArrayGetCount(connections); i++) {
-		CFDictionaryRef c = CFArrayGetValueAtIndex(connections, i);
-		
-		CFStringRef t_from = CFDictionaryGetValue(c, CFSTR("FROM_NAME"));
-		CFStringRef t_to = CFDictionaryGetValue(c, CFSTR("TO_NAME"));
-		CFStringRef a_from = CFDictionaryGetValue(c, CFSTR("FROM_ATTRIBUTE"));
-		CFStringRef a_to = CFDictionaryGetValue(c, CFSTR("TO_ATTRIBUTE"));
-		
-		CFfprintf(f, "\t\"%@#%@\" -> \"%@#%@\";\n", t_from, a_from, t_to, a_to);
-	}
-	
-	CFfprintf(f, "}\n");
-	
-	CFfprintf(f, "\n/*\n%@\n/*\n", d);
-}

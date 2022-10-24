@@ -36,8 +36,6 @@
 //  dcerpc
 //
 
-VALID_ARCHS=ppc i386 x86_64 armv5 armv6 armv7
-
 // I don't think that we should be using the headermap, since we
 // have files with the same name. However, dependency tracking for
 // the IDL files, and dtrace header generation depends on this,
@@ -55,6 +53,8 @@ HEADERMAP_INCLUDES_FLAT_ENTRIES_FOR_TARGET_BEING_BUILT=NO
 ALWAYS_SEARCH_USER_PATHS=NO
 
 VERSIONING_SYSTEM=apple-generic
+CURRENT_PROJECT_VERSION=$(RC_ProjectSourceVersion)
+DYLIB_CURRENT_VERSION=$(CURRENT_PROJECT_VERSION)
 
 RPC_OPTIMIZATION_Debug=0
 RPC_OPTIMIZATION_Release=s

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #import "Connection.h"
 #import "PasteboardAccessIntent.h"
 #import "SandboxExtension.h"
+#import "WebCoreArgumentCoders.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import "WebProcessMessages.h"
@@ -215,7 +216,7 @@ void WebPasteboardProxy::getPasteboardStringsForType(IPC::Connection& connection
     });
 }
 
-void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, std::optional<PageIdentifier> pageID, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
+void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, std::optional<PageIdentifier> pageID, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler({ }));
 
@@ -226,19 +227,7 @@ void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection,
     MESSAGE_CHECK_COMPLETION(dataOwner, completionHandler({ }));
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
-        auto buffer = PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
-        if (!buffer)
-            return completionHandler({ });
-        uint64_t size = buffer->size();
-        if (!size)
-            return completionHandler({ });
-        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
-        if (!sharedMemoryBuffer)
-            return completionHandler({ });
-        SharedMemory::Handle handle;
-        if (!sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly))
-            return completionHandler({ });
-        completionHandler(SharedMemory::IPCHandle { WTFMove(handle), size });
+        completionHandler(PlatformPasteboard(pasteboardName).bufferForType(pasteboardType));
     });
 }
 
@@ -399,7 +388,7 @@ void WebPasteboardProxy::urlStringSuitableForLoading(IPC::Connection& connection
     });
 }
 
-void WebPasteboardProxy::setPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, const SharedMemory::IPCHandle& ipcHandle, std::optional<PageIdentifier> pageID, CompletionHandler<void(int64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardBufferForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, RefPtr<SharedBuffer>&& buffer, std::optional<PageIdentifier> pageID, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), completionHandler(0));
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler(0));
@@ -409,17 +398,12 @@ void WebPasteboardProxy::setPasteboardBufferForType(IPC::Connection& connection,
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         auto previousChangeCount = PlatformPasteboard(pasteboardName).changeCount();
-        if (ipcHandle.handle.isNull()) {
+        if (!buffer) {
             auto newChangeCount = PlatformPasteboard(pasteboardName).setBufferForType(nullptr, pasteboardType);
             didModifyContentsOfPasteboard(connection, pasteboardName, previousChangeCount, newChangeCount);
             return completionHandler(newChangeCount);
         }
-
-        auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-        if (!sharedMemoryBuffer)
-            return completionHandler(0);
-        auto buffer = sharedMemoryBuffer->createSharedBuffer(ipcHandle.dataSize);
-        auto newChangeCount = PlatformPasteboard(pasteboardName).setBufferForType(buffer.ptr(), pasteboardType);
+        auto newChangeCount = PlatformPasteboard(pasteboardName).setBufferForType(buffer.get(), pasteboardType);
         didModifyContentsOfPasteboard(connection, pasteboardName, previousChangeCount, newChangeCount);
         completionHandler(newChangeCount);
     });
@@ -537,7 +521,7 @@ void WebPasteboardProxy::readURLFromPasteboard(IPC::Connection& connection, size
     });
 }
 
-void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, std::optional<size_t> index, const String& pasteboardType, const String& pasteboardName, std::optional<PageIdentifier> pageID, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
+void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, std::optional<size_t> index, const String& pasteboardType, const String& pasteboardName, std::optional<PageIdentifier> pageID, CompletionHandler<void(RefPtr<SharedBuffer>&&)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler({ }));
 
@@ -548,19 +532,7 @@ void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, s
     MESSAGE_CHECK_COMPLETION(dataOwner, completionHandler({ }));
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
-        auto buffer = PlatformPasteboard(pasteboardName).readBuffer(index, pasteboardType);
-        if (!buffer)
-            return completionHandler({ });
-        uint64_t size = buffer->size();
-        if (!size)
-            return completionHandler({ });
-        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
-        if (!sharedMemoryBuffer)
-            return completionHandler({ });
-        SharedMemory::Handle handle;
-        if (!sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly))
-            return completionHandler({ });
-        completionHandler(SharedMemory::IPCHandle { WTFMove(handle), size });
+        completionHandler(PlatformPasteboard(pasteboardName).readBuffer(index, pasteboardType));
     });
 }
 
@@ -681,7 +653,7 @@ std::optional<DataOwnerType> WebPasteboardProxy::determineDataOwner(IPC::Connect
 
 void WebPasteboardProxy::PasteboardAccessInformation::grantAccess(WebProcessProxy& process, PasteboardAccessType type)
 {
-    auto matchIndex = processes.findMatching([&](auto& processAndType) {
+    auto matchIndex = processes.findIf([&](auto& processAndType) {
         return processAndType.first == &process;
     });
 
@@ -707,7 +679,7 @@ void WebPasteboardProxy::PasteboardAccessInformation::revokeAccess(WebProcessPro
 
 std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::PasteboardAccessInformation::accessType(WebProcessProxy& process) const
 {
-    auto matchIndex = processes.findMatching([&](auto& processAndType) {
+    auto matchIndex = processes.findIf([&](auto& processAndType) {
         return processAndType.first == &process;
     });
 
@@ -716,6 +688,23 @@ std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::Past
 
     return processes[matchIndex].second;
 }
+
+#if ENABLE(IPC_TESTING_API)
+void WebPasteboardProxy::testIPCSharedMemory(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, SharedMemory::IPCHandle&& handle, std::optional<PageIdentifier> pageID, CompletionHandler<void(int64_t, String)>&& completionHandler)
+{
+    MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), completionHandler(-1, makeString("error")));
+    MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler(-1, makeString("error")));
+
+    auto sharedMemoryBuffer = SharedMemory::map(handle.handle, SharedMemory::Protection::ReadOnly);
+    if (!sharedMemoryBuffer) {
+        completionHandler(-1, makeString("error EOM"));
+        return;
+    }
+
+    String message = { static_cast<char*>(sharedMemoryBuffer->data()), unsigned(handle.dataSize) };
+    completionHandler(handle.dataSize, WTFMove(message));
+}
+#endif
 
 } // namespace WebKit
 

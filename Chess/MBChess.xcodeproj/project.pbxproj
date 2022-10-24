@@ -239,6 +239,11 @@
 		95D8521B13E710B80045366C /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 95D8521613E710B80045366C /* MainMenu.xib */; };
 		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
 		95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */ = {isa = PBXBuildFile; fileRef = 95ECDE261491C5B100DFD47B /* container-migration.plist */; };
+		A504584D26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A504584C26F95A2A004F32CF /* MBCSharePlayManager.swift */; };
+		A504584E26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A504584C26F95A2A004F32CF /* MBCSharePlayManager.swift */; };
+		A59F261C26FE44C600F7A5E8 /* MBCSharePlayMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59F261B26FE44C600F7A5E8 /* MBCSharePlayMessages.swift */; };
+		A5CF31A32707D14200815825 /* MBCSharePlayDelegates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CF31A22707D14200815825 /* MBCSharePlayDelegates.swift */; };
+		A5CF31A7270D062900815825 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5CF31A6270D062800815825 /* UserNotifications.framework */; };
 		D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97324FDCFA39411CA2CEA /* AppKit.framework */; };
 		D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */; };
 		D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */; };
@@ -403,6 +408,12 @@
 		95ECDE261491C5B100DFD47B /* container-migration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "container-migration.plist"; path = "Resources/container-migration.plist"; sourceTree = "<group>"; };
 		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
 		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
+		A504584A26F95A29004F32CF /* MBChess-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MBChess-Bridging-Header.h"; sourceTree = "<group>"; };
+		A504584B26F95A29004F32CF /* ChessTuner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ChessTuner-Bridging-Header.h"; sourceTree = "<group>"; };
+		A504584C26F95A2A004F32CF /* MBCSharePlayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MBCSharePlayManager.swift; sourceTree = "<group>"; };
+		A59F261B26FE44C600F7A5E8 /* MBCSharePlayMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MBCSharePlayMessages.swift; sourceTree = "<group>"; };
+		A5CF31A22707D14200815825 /* MBCSharePlayDelegates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MBCSharePlayDelegates.swift; sourceTree = "<group>"; };
+		A5CF31A6270D062800815825 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		CA51FF1E1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Board.xib; sourceTree = "<group>"; };
 		CA51FF1F1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/About.xib; sourceTree = "<group>"; };
 		CA51FF201768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
@@ -459,6 +470,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A5CF31A7270D062900815825 /* UserNotifications.framework in Frameworks */,
 				D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */,
 				D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */,
 				D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */,
@@ -578,9 +590,9 @@
 				950EE08907769701004ED524 /* Chess.txt */,
 				72527B4D229F534100070CBF /* COPYING */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
+				F5775A1C02F917A901D8996C /* bug.opn */,
 				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
 				95D4D5191327E29E0063FA06 /* Spoken.strings */,
-				F5775A1C02F917A901D8996C /* bug.opn */,
 				F5775A1D02F917A901D8996C /* losers.opn */,
 				F5775A1E02F917A901D8996C /* nbook.db */,
 				F5775A1F02F917A901D8996C /* suicide.opn */,
@@ -598,6 +610,7 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A5CF31A6270D062800815825 /* UserNotifications.framework */,
 				D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */,
 				D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */,
 				D7AA0A7719E7692300A65121 /* GameCenterUI.framework */,
@@ -709,6 +722,11 @@
 				9575D08014254A8100E65579 /* MBCBoardWin.mm */,
 				95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */,
 				95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */,
+				A504584C26F95A2A004F32CF /* MBCSharePlayManager.swift */,
+				A5CF31A22707D14200815825 /* MBCSharePlayDelegates.swift */,
+				A59F261B26FE44C600F7A5E8 /* MBCSharePlayMessages.swift */,
+				A504584A26F95A29004F32CF /* MBChess-Bridging-Header.h */,
+				A504584B26F95A29004F32CF /* ChessTuner-Bridging-Header.h */,
 			);
 			name = Controllers;
 			sourceTree = "<group>";
@@ -1007,6 +1025,12 @@
 						CreatedOnToolsVersion = 12.0;
 						ProvisioningStyle = Automatic;
 					};
+					950BD10E0A1E582B00395116 = {
+						LastSwiftMigration = 1300;
+					};
+					95844C920A670C280068CA82 = {
+						LastSwiftMigration = 1300;
+					};
 				};
 			};
 			buildConfigurationList = 950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */;
@@ -1163,10 +1187,12 @@
 				950BD15A0A1E582B00395116 /* MBCInteractivePlayer.mm in Sources */,
 				950BD15B0A1E582B00395116 /* MBCDocument.mm in Sources */,
 				950BD15C0A1E582B00395116 /* MBCBoardAnimation.mm in Sources */,
+				A504584D26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */,
 				950BD15D0A1E582B00395116 /* MBCGameInfo.mm in Sources */,
 				950BD15E0A1E582B00395116 /* MBCFloatingBoardWindow.mm in Sources */,
 				950BD15F0A1E582B00395116 /* MBCMoveGenerator.mm in Sources */,
 				950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */,
+				A59F261C26FE44C600F7A5E8 /* MBCSharePlayMessages.swift in Sources */,
 				950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */,
 				950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */,
 				95C31C59125E2E020085159C /* MBCMoveTableView.mm in Sources */,
@@ -1176,6 +1202,7 @@
 				95B65BFB1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */,
 				953A40B6148D8E220005E53D /* MBCMoveTableViewAccessibility.mm in Sources */,
 				95459B771492B9160083FCE3 /* MBCDebug.cp in Sources */,
+				A5CF31A32707D14200815825 /* MBCSharePlayDelegates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1216,6 +1243,7 @@
 				95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */,
 				95C31C5B125E2E020085159C /* MBCMoveTableView.mm in Sources */,
 				95C31D6C125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,
+				A504584E26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */,
 				9575D08414254A8100E65579 /* MBCBoardWin.mm in Sources */,
 				95A726711426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */,
 				95B65BFC1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */,
@@ -1414,6 +1442,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
@@ -1432,13 +1461,17 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
 				PROVISIONING_PROFILE = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "MBChess-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1454,6 +1487,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
@@ -1469,13 +1503,16 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
 				PROVISIONING_PROFILE = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "MBChess-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1491,6 +1528,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = 3.18;
@@ -1505,12 +1543,15 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				PRODUCT_NAME = Chess;
 				PROVISIONING_PROFILE = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "MBChess-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1582,7 +1623,9 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_LDFLAGS = "";
+				SWIFT_VERSION = "";
 			};
 			name = Development;
 		};
@@ -1592,6 +1635,8 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Deployment;
 		};
@@ -1601,7 +1646,9 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_LDFLAGS = "";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Default;
 		};
@@ -1614,7 +1661,7 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1639,7 +1686,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1663,7 +1710,7 @@
 			buildSettings = {
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1684,6 +1731,7 @@
 		95844CEE0A670C280068CA82 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1695,11 +1743,15 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "Chess Tuner";
 				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "ChessTuner-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1713,6 +1765,7 @@
 		95844CEF0A670C280068CA82 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1721,11 +1774,14 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "Chess Tuner";
 				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "ChessTuner-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1739,6 +1795,7 @@
 		95844CF00A670C280068CA82 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
@@ -1746,11 +1803,14 @@
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "Chess Tuner";
 				SECTORDER_FLAGS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "ChessTuner-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

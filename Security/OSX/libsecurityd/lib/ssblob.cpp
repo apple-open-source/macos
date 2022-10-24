@@ -106,7 +106,7 @@ void CommonBlob::initialize(uint32 version)
 
 
 //
-// Verify the blob header for basic sane-ness.
+// Verify the blob header for basic structure.
 //
 bool CommonBlob::isValid() const
 {

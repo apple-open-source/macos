@@ -132,7 +132,7 @@ AUTH_TYPE_INSTANCE(auth_token,
                    .copyDebugDesc = _auth_token_copy_description
                    );
 
-static CFTypeID auth_token_get_type_id() {
+static CFTypeID auth_token_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     

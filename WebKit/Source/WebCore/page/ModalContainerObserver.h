@@ -54,7 +54,7 @@ public:
     inline bool shouldHide(const Element&) const;
     void updateModalContainerIfNeeded(const FrameView&);
 
-    inline void overrideSearchTermForTesting(const String&);
+    inline void overrideSearchTermForTesting(AtomString&&);
 
 private:
     friend class ModalContainerPolicyDecisionScope;
@@ -71,13 +71,13 @@ private:
     Element* container() const;
     HTMLFrameOwnerElement* frameOwnerForControls() const;
 
-    std::pair<Vector<WeakPtr<HTMLElement>>, Vector<String>> collectClickableElements();
+    std::pair<Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>>, Vector<String>> collectClickableElements();
     void hideUserInteractionBlockingElementIfNeeded();
 
-    WeakHashSet<Element> m_elementsToIgnoreWhenSearching;
-    std::pair<WeakPtr<Element>, WeakPtr<HTMLFrameOwnerElement>> m_containerAndFrameOwnerForControls;
-    WeakHashMap<HTMLFrameOwnerElement, WeakPtr<Element>> m_frameOwnersAndContainersToSearchAgain;
-    WeakPtr<Element> m_userInteractionBlockingElement;
+    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_elementsToIgnoreWhenSearching;
+    std::pair<WeakPtr<Element, WeakPtrImplWithEventTargetData>, WeakPtr<HTMLFrameOwnerElement, WeakPtrImplWithEventTargetData>> m_containerAndFrameOwnerForControls;
+    WeakHashMap<HTMLFrameOwnerElement, WeakPtr<Element, WeakPtrImplWithEventTargetData>, WeakPtrImplWithEventTargetData> m_frameOwnersAndContainersToSearchAgain;
+    WeakPtr<Element, WeakPtrImplWithEventTargetData> m_userInteractionBlockingElement;
     AtomString m_overrideSearchTermForTesting;
     Timer m_collectClickableElementsTimer;
     bool m_collectingClickableElements { false };
@@ -86,9 +86,9 @@ private:
     bool m_makeDocumentElementScrollable { false };
 };
 
-inline void ModalContainerObserver::overrideSearchTermForTesting(const String& searchTerm)
+inline void ModalContainerObserver::overrideSearchTermForTesting(AtomString&& searchTerm)
 {
-    m_overrideSearchTermForTesting = searchTerm;
+    m_overrideSearchTermForTesting = WTFMove(searchTerm);
 }
 
 inline bool ModalContainerObserver::shouldHide(const Element& element) const

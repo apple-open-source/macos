@@ -1,0 +1,12 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tabs</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-09-23</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/tabs?id=cbc83e378a7ee8f8aea9811906a2786a8f3bdeb3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-01-19</string>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

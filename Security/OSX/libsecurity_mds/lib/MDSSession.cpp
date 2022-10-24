@@ -1398,7 +1398,7 @@ MDSSession::DbFilesInfo::DbFilesInfo(
 	
 	/* stat the two DB files, snag the later timestamp */
 	char path[MAXPATHLEN];
-	sprintf(path, "%s/%s", mDbPath, MDS_OBJECT_DB_NAME);
+	snprintf(path, sizeof(path), "%s/%s", mDbPath, MDS_OBJECT_DB_NAME);
 	struct stat sb;
 	MSIoDbg("stat %s in DbFilesInfo()", path);
 	int rtn = ::stat(path, &sb);
@@ -1408,7 +1408,7 @@ MDSSession::DbFilesInfo::DbFilesInfo(
 		UnixError::throwMeNoLogging(error);
 	}
 	mLaterTimestamp = sb.st_mtimespec.tv_sec;
-	sprintf(path, "%s/%s", mDbPath, MDS_DIRECT_DB_NAME);
+	snprintf(path, sizeof(path), "%s/%s", mDbPath, MDS_DIRECT_DB_NAME);
 	MSIoDbg("stat %s in DbFilesInfo()", path);
 	rtn = ::stat(path, &sb);
 	if(rtn) {
@@ -1447,7 +1447,7 @@ CSSM_DB_HANDLE MDSSession::DbFilesInfo::objDbHand()
 		return mObjDbHand;
 	}
 	char fullPath[MAXPATHLEN + 1];
-	sprintf(fullPath, "%s/%s", mDbPath, MDS_OBJECT_DB_NAME);
+	snprintf(fullPath, sizeof(fullPath), "%s/%s", mDbPath, MDS_OBJECT_DB_NAME);
 	MSIoDbg("open %s in objDbHand()", fullPath);
 	mObjDbHand = mSession.dbOpen(fullPath, true);	// batch mode
 	return mObjDbHand;
@@ -1459,7 +1459,7 @@ CSSM_DB_HANDLE MDSSession::DbFilesInfo::directDbHand()
 		return mDirectDbHand;
 	}
 	char fullPath[MAXPATHLEN + 1];
-	sprintf(fullPath, "%s/%s", mDbPath, MDS_DIRECT_DB_NAME);
+	snprintf(fullPath, sizeof(fullPath), "%s/%s", mDbPath, MDS_DIRECT_DB_NAME);
 	MSIoDbg("open %s in directDbHand()", fullPath);
 	mDirectDbHand = mSession.dbOpen(fullPath, true);	// batch mode
 	return mDirectDbHand;
@@ -1727,7 +1727,7 @@ void MDSSession::DbFilesInfo::updateForBundleDir(
 	char fullPath[MAXPATHLEN];
 	while ((dp = readdir(dir)) != NULL) {
 		if(isBundle(dp)) {
-			sprintf(fullPath, "%s/%s", bundleDirPath, dp->d_name);
+			snprintf(fullPath, sizeof(fullPath), "%s/%s", bundleDirPath, dp->d_name);
 			updateForBundle(fullPath);
 		}
 	}

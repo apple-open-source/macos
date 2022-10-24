@@ -38,23 +38,22 @@ CLEANFILES = .memdump
 
 test-current:
 	@(echo > .memdump)
-	@echo \<doc/\> >current.xml
-	@echo "#"
-	@echo "# Inspect the following for correctness"
-	@echo "#"
-	@(for i in $(srcdir)/current.xsl ; do \
-	  name=`basename $$i .xsl` ; \
-	  if [ ! -f $(srcdir)/$$name.xml ] ; then continue ; fi ; \
-	  $(top_builddir)/xsltproc/xsltproc $(srcdir)/$$name.xsl $(srcdir)/$$name.xml;\
-	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true;\
-	  done)
-	@rm -f current.xml
+	@(if [ -z "$$CI" ]; then \
+	    echo \<doc/\> >current.xml ; \
+	    echo "#" ; \
+	    echo "# Inspect the following for correctness" ; \
+	    echo "#" ; \
+	    for i in $(srcdir)/current.xsl ; do \
+	      name=`basename $$i .xsl` ; \
+	      if [ ! -f $(srcdir)/$$name.xml ] ; then continue ; fi ; \
+	      $(top_builddir)/xsltproc/xsltproc $(srcdir)/$$name.xsl $(srcdir)/$$name.xml;\
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true;\
+	    done ; \
+	    rm -f current.xml ; \
+	  fi)
 
-test-logall:
+test tests: $(top_builddir)/xsltproc/xsltproc test-current
 	@echo '## Running exslt date tests'
-
-test tests: $(top_builddir)/xsltproc/xsltproc test-logall test-current
-	@echo '## Running exslt common tests'
 	@(echo > .memdump)
 	@(for i in $(srcdir)/*.xsl ; do \
 	  name=`basename $$i .xsl` ; \

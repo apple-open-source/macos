@@ -1,0 +1,1 @@
+http://get-ocsp.certificat.com/opentrustrootcag3

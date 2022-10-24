@@ -6,7 +6,7 @@
 // XBS sets RC_SUPPORT_ADDRESS_SANITIZATION=1 to trigger the ASanified normal variant.
 ASAN_IN_NORMAL_VARIANT_DK_ = YES
 ASAN_IN_NORMAL_VARIANT_DK_1 = NO
-ASAN_IN_NORMAL_VARIANT_RC_1 = $(ASAN_IN_NORMAL_VARIANT_DK_$(DRIVERKIT))
+ASAN_IN_NORMAL_VARIANT_RC_1 = $(ASAN_IN_NORMAL_VARIANT_DK_$(DRIVERKIT)
 ASAN_IN_NORMAL_VARIANT_RC_ = NO
 ASAN_IN_NORMAL_VARIANT = $(ASAN_IN_NORMAL_VARIANT_RC_$(RC_SUPPORT_ADDRESS_SANITIZATION))
 
@@ -39,11 +39,10 @@ EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_NO =
 EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_YES = no_asan
 EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT = $(EXTRA_BUILD_VARIANTS_ASAN_IN_NORMAL_VARIANT_$(ASAN_IN_NORMAL_VARIANT))
 
-SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
-SDK_INSTALL_VARIANT_1 = driverkit
-SDK_INSTALL_VARIANT_ = default
+SDK_INSTALL_VARIANT = default
+SDK_INSTALL_VARIANT[sdk=driverkit*] = driverkit
 SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
-SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT)
+SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT) // TODO: switch to SYSTEM_PREFIX?
 SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
 SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
 SDK_RUNTIME_HEADERS_PREFIX = Runtime
@@ -81,7 +80,9 @@ OTHER_LDFLAGS_no_asan = $(NOASAN_LDFLAGS_YES)
 
 
 // whitelist of libraries in DriverKit SDK allowed to link directly against libSystem.dylib (outside of the umbrella)
-DRIVERKIT_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit
+// "clang" is the allowable client string for the sanitizer runtimes, like
+// "libclang_rt.asan_osx_dynamic.dylib"
+DRIVERKIT_LDFLAGS[sdk=driverkit*] = -Wl,-allowable_client,c++ -Wl,-allowable_client,c++abi -Wl,-allowable_client,DriverKit -Wl,-allowable_client,clang
 LD_GENERATE_MAP_FILE = YES
 EXECUTABLE_PREFIX = lib
 PRIVATE_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/os
@@ -108,6 +109,7 @@ EXCLUDED_SOURCE_FILE_NAMES[sdk=driverkit*] = Info.plist
 EXCLUDED_SOURCE_FILE_NAMES = $(inherited) i386.c
 INCLUDED_SOURCE_FILE_NAMES[sdk=macos*][arch=i386] = $(inherited) i386.c
 EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*][arch=i386] = $(inherited) init.c CompatibilityHacks.c
+
 
 // override presence of $(EXECUTABLE_VARIANT_SUFFIX) in the default EXECUTABLE_NAME rdar://26234727
 DYLIB_INSTALL_NAME_EXECUTABLE_NAME = $(EXECUTABLE_PREFIX)$(PRODUCT_NAME)$(EXECUTABLE_SUFFIX)

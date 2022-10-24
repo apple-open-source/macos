@@ -1,0 +1,1 @@
+http://application-certificates-ca-3-1-2013.ocsp.d-trust.net

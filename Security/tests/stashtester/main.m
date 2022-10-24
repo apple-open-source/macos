@@ -9,7 +9,7 @@ static void print(NSString* str) {
     [str writeToFile:@"/dev/stdout" atomically:NO encoding:NSUTF8StringEncoding error:nil];
 }
 
-static void usage() {
+static void usage(void) {
     print(@"Usage: stashtester [commands]");
     print(@"");
     print(@"Commands:");
@@ -19,14 +19,14 @@ static void usage() {
     print(@"  -t          Test the complete operation");
 }
 
-static bool performStash() {
+static bool performStash(void) {
     NSLog(@"attempting stash");
     OSStatus result = SecKeychainStash();
     NSLog(@"result from stash: %ld", (long)result);
     return result == errSecSuccess;
 }
 
-static bool performLoad() {
+static bool performLoad(void) {
     NSLog(@"attempting load");
     OSStatus result = SecKeychainLogin(0, NULL, 0, NULL);
     NSLog(@"result from load: %ld", (long)result);
@@ -45,7 +45,7 @@ static NSMutableDictionary* makeQuery(bool includeData) {
     return query;
 }
 
-static bool performTest() {
+static bool performTest(void) {
     NSLog(@"Begin test");
     NSLog(@"Adding item to keychain");
     NSMutableDictionary* addQ = makeQuery(true);
@@ -129,7 +129,7 @@ static bool performTest() {
     return true;
 }
 
-static bool cleanup() {
+static bool cleanup(void) {
     NSLog(@"Cleaning up");
     NSMutableDictionary* query = makeQuery(false);
     OSStatus result = SecItemDelete((__bridge CFDictionaryRef)query);

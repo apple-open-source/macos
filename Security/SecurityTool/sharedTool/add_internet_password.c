@@ -34,6 +34,8 @@
 
 #include "SecurityCommands.h"
 
+#include "tool_auth_helpers.h"
+
 typedef uint32_t SecProtocolType;
 typedef uint32_t SecAuthenticationType;
 
@@ -120,6 +122,7 @@ int keychain_add_internet_password(int argc, char * const *argv)
     SecAuthenticationType authenticationType = 0;
 	int ch, result = 0;
 	const char *keychainName = NULL;
+    bool authSucceeded = false;
     /*
      -s Use servername\n"
      "    -e Use securitydomain\n"
@@ -130,7 +133,7 @@ int keychain_add_internet_password(int argc, char * const *argv)
      "    -c Use SecAuthenticationType  \n"
      "    -w Use passwordData  \n"
      */
-	while ((ch = getopt(argc, argv, "s:d:a:p:P:r:t:w:h")) != -1)
+	while ((ch = getopt(argc, argv, "s:d:a:p:P:r:t:w:hyY:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -159,12 +162,28 @@ int keychain_add_internet_password(int argc, char * const *argv)
             case 'w':
                 passwordData = optarg;
                 break;
+            case 'y':
+                if (!promptForAndCheckPassphrase()) {
+                    return 1;
+                }
+                authSucceeded = true;
+                break;
+            case 'Y':
+                if (!checkPassphrase(optarg, 0) ) {
+                    return 1;
+                }
+                authSucceeded = true;
+                break;
             case '?':
             default:
                 return SHOW_USAGE_MESSAGE;
 		}
 	}
     
+    if (!authSucceeded && authRequired()) {
+        return 1;
+    }
+
 	argc -= optind;
 	argv += optind;
     

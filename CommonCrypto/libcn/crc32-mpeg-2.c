@@ -24,7 +24,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc32_mpeg_2 = {
+const crcDescriptor CC_crc32_mpeg_2 = {
     .name = "crc32-mpeg-2",
     .defType = model,
     .def.parms.width = 4,

@@ -59,6 +59,15 @@ typedef struct Pair
     const void *value;
 } Pair;
 
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+typedef enum
+{
+    SystemKeychainFlag_NEITHER = 0,
+    SystemKeychainFlag_EDUMODE = 1,
+    SystemKeychainFlag_ALWAYS  = 2,
+} SystemKeychainFlag;
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+
 /* Nothing in this struct is retained since all the
  values below are extracted from the dictionary passed in by the
  caller. */
@@ -140,8 +149,10 @@ typedef struct Query
     /* Caller acces groups for AKS */
     CFArrayRef q_caller_access_groups;
 
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+    SystemKeychainFlag q_system_keychain;
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-    bool q_system_keychain;
     int32_t q_sync_bubble;
 #endif
     bool q_spindump_on_failure;
@@ -180,14 +191,14 @@ void query_set_policy(Query *q, SecPolicyRef policy);
 void query_set_valid_on_date(Query *q, CFDateRef policy);
 void query_set_trusted_only(Query *q, CFBooleanRef trusted_only);
 
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 CFDataRef
 SecMUSRCopySystemKeychainUUID(void);
 
 CFDataRef
 SecMUSRGetSystemKeychainUUID(void);
 
-#endif  // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#endif  // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 
 CFDataRef
 SecMUSRGetSingleUserKeychainUUID(void);
@@ -214,9 +225,12 @@ SecMUSRCreateBothUserAndSystemUUID(uid_t uid);
 bool
 SecMUSRGetBothUserAndSystemUUID(CFDataRef musr, uid_t *uid);
 
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 bool
 SecMUSRIsMultiuserKeyDiversified(CFDataRef musr);
-#endif
+#endif // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
 
 __END_DECLS

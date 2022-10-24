@@ -28,9 +28,16 @@
 #import <sys/sysctl.h>
 #import <os/log.h>
 #import <limits.h>
+#import "utilities/debugging.h"
+#include <CoreFoundation/CFBundlePriv.h>
 
 NSString* const SecCoreAnalyticsValue = @"value";
 
+@interface SecCoreAnalytics ()
+
++ (NSString*)appNameFromPath:(NSString*)path;
+
+@end
 
 void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value)
 {
@@ -160,6 +167,29 @@ void SecCoreAnalyticsSendKernEntropyAnalytics(void)
     SecCoreAnalyticsSendKernEntropyFilterAnalytics();
 }
 
+void SecCoreAnalyticsSendLegacyKeychainUIEvent(const char* dialogType, const char* clientPath)
+{
+    // Turn clientName into a string representing a sensible name
+    NSString* processedClientName = [SecCoreAnalytics appNameFromPath:[NSString stringWithUTF8String:clientPath]];
+    NSString* dialogTypeStr = [NSString stringWithCString:dialogType encoding:NSUTF8StringEncoding];
+
+    if (!processedClientName) {
+        processedClientName = @"unknown";
+    }
+
+    if (!dialogTypeStr) {
+        secerror("Logging keychain UI event failed: couldn't turn dialog type c_str into NSString");
+        return;
+    }
+
+    [SecCoreAnalytics sendEventLazy:@"com.apple.security.LegacyAPICounts" builder:^NSDictionary<NSString *,NSObject *> * _Nonnull{
+        return @{
+            @"app" : processedClientName,
+            @"api" : dialogTypeStr,
+        };
+    }];
+}
+
 @implementation SecCoreAnalytics
 
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CoreAnalytics);
@@ -180,6 +210,65 @@ SOFT_LINK_FUNCTION(CoreAnalytics, AnalyticsSendEventLazy, soft_AnalyticsSendEven
 {
     if (isCoreAnalyticsAvailable()) {
         soft_AnalyticsSendEventLazy(eventName, builder);
+    }
+}
+
++ (NSString*)appNameFromPath:(NSString*)path
+{
+    NSString* candidateName = nil;
+
+    NSBundle* callerBundle = [NSBundle bundleWithPath:path];
+    if (!callerBundle) {
+        NSURL *url = [NSURL fileURLWithPath:path isDirectory:NO];
+
+        if (url) {
+            // <rdar://problem/17746301> 'Network Diagnostics' is not localized on security alert pane
+            // AGENT_HINT_CLIENT_PATH is the full path to the binary, not (as expected) the bundle path
+            NSBundle *createdBundle = CFBridgingRelease(_CFBundleCreateWithExecutableURLIfLooksLikeBundle(kCFAllocatorDefault, (__bridge CFURLRef)(url)));
+
+            if (createdBundle) {
+                url = CFBridgingRelease(CFBundleCopyBundleURL((__bridge CFBundleRef)createdBundle));
+                if (url) {
+                    callerBundle = [NSBundle bundleWithURL:url];
+                }
+            }
+        }
+    }
+
+    if (callerBundle) {
+        NSDictionary *bundleInfo = [callerBundle infoDictionary];
+        candidateName = [bundleInfo objectForKey:@"CFBundleVisibleComponentName"] ?:
+                            [bundleInfo objectForKey:@"CFBundleDisplayName"] ?:
+                                [bundleInfo objectForKey:@"CFBundleName"];
+    } else {
+        // Un-bundled executable?
+        NSURL *url = [NSURL fileURLWithPath:path isDirectory:NO];
+        NSDictionary *infoDict = CFBridgingRelease(url ? CFBundleCopyInfoDictionaryForURL((__bridge CFURLRef)url) : NULL);
+
+        if (infoDict) {
+            candidateName = infoDict[@"CFBundleVisibleComponentName"] ?:
+            infoDict[@"CFBundleDisplayName"] ?:
+            infoDict[@"CFBundleName"];
+        }
+
+        if (url && !candidateName) {
+            id outparam = nil;
+            if ([url getResourceValue:&outparam forKey:NSURLNameKey error:nil] && [outparam isKindOfClass:[NSString class]]) {
+                candidateName = outparam;
+            }
+        }
+    }
+
+    // Apps shouldn't call themselves one of these, that's not nice.
+    if ([@[@"macOS", @"mac OS", @"MacOS", @"Mac OS"] indexOfObject:candidateName] != NSNotFound) {
+        candidateName = [path.lastPathComponent stringByDeletingPathExtension];
+    }
+
+    if (candidateName) {
+        return candidateName;
+    } else {
+        NSString* name = [path.lastPathComponent stringByDeletingPathExtension];
+        return name;
     }
 }
 

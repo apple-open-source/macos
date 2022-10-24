@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-07-09</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>avoid crashes if argv[0] == NULL (4384130)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>ul</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-10-07</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/ul?id=d643ff21f427e359be18ddbd254641e2118237a3</string>
+</dict>

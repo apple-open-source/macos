@@ -135,28 +135,32 @@ DESCRIPTION
      ustar format to create the "pax interchange" format.
 
    Cpio Formats
-     The libarchive library can read a number of common cpio variants and can
-     write "odc" and "newc" format archives.  A cpio archive stores each entry
-     as a fixed-size header followed by a variable-length filename and vari-
-     able-length data.	Unlike the tar format, the cpio format does only mini-
-     mal padding of the header or file data.  There are several cpio variants,
-     which differ primarily in how they store the initial header: some store
-     the values as octal or hexadecimal numbers in ASCII, others as binary
-     values of varying byte order and length.
+     The libarchive library can read and write a number of common cpio vari-
+     ants.  A cpio archive stores each entry as a fixed-size header followed
+     by a variable-length filename and variable-length data.  Unlike the tar
+     format, the cpio format does only minimal padding of the header or file
+     data.  There are several cpio variants, which differ primarily in how
+     they store the initial header: some store the values as octal or hexadec-
+     imal numbers in ASCII, others as binary values of varying byte order and
+     length.
 
      binary  The libarchive library transparently reads both big-endian and
-	     little-endian variants of the original binary cpio format.  This
-	     format used 32-bit binary values for file size and mtime, and
-	     16-bit binary values for the other fields.
+	     little-endian variants of the the two binary cpio formats; the
+	     original one from PWB/UNIX, and the later, more widely used,
+	     variant.  This format used 32-bit binary values for file size and
+	     mtime, and 16-bit binary values for the other fields.  The for-
+	     mats support only the file types present in UNIX at the time of
+	     their creation.  File sizes are limited to 24 bits in the PWB
+	     format, because of the limits of the file system, and to 31 bits
+	     in the newer binary format, where signed 32 bit longs were used.
 
-     odc     The libarchive library can both read and write this POSIX-stan-
-	     dard format, which is officially known as the "cpio interchange
-	     format" or the "octet-oriented cpio archive format" and sometimes
-	     unofficially referred to as the "old character format".  This
-	     format stores the header contents as octal values in ASCII.  It
-	     is standard, portable, and immune from byte-order confusion.
-	     File sizes and mtime are limited to 33 bits (8GB file size),
-	     other fields are limited to 18 bits.
+     odc     This is the POSIX standardized format, which is officially known
+	     as the "cpio interchange format" or the "octet-oriented cpio
+	     archive format" and sometimes unofficially referred to as the
+	     "old character format".  This format stores the header contents
+	     as octal values in ASCII.	It is standard, portable, and immune
+	     from byte-order confusion.  File sizes and mtime are limited to
+	     33 bits (8GB file size), other fields are limited to 18 bits.
 
      SVR4/newc
 	     The libarchive library can read both CRC and non-CRC variants of

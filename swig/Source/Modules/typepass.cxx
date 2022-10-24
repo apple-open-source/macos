@@ -1007,7 +1007,7 @@ class TypePass:private Dispatcher {
 show_overloaded(n);
 #endif
 		int cnt = 0;
-		Node *debugnode = n;
+		__unused Node *debugnode = n;
 		if (!firstChild(n)) {
 		  // Remove from overloaded list ('using' node does not actually end up adding in any methods)
 		  Node *ps = Getattr(n, "sym:previousSibling");

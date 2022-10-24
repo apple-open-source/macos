@@ -1,0 +1,320 @@
+# To run modern fuzzers:
+#     make -f Makefile.fuzz fuzz-html DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-reader DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-regexp DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-schema DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-uri DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-xml DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-xpath DYLD_LIBRARY_PATH=/path/to/build/products
+# To merge modern corpuses:
+#     make -f Makefile.fuzz merge-corpus DYLD_LIBRARY_PATH=/path/to/build/products
+#
+# To run old fuzzers:
+#     make -f Makefile.fuzz fuzz-libxml2_xml_pushparser_fuzzer DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-libxml2_xml_read_memory_fuzzer DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-libxml2_xml_regexp_compile_fuzzer DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-libxml2_xml_saxparser_fuzzer DYLD_LIBRARY_PATH=/path/to/build/products
+# To merge old corpuses:
+#     make -f Makefile.fuzz merge-old-corpus DYLD_LIBRARY_PATH=/path/to/build/products
+#
+# To build dylib with fuzzing enabled (for use with libxslt fuzzers):
+#     make -f Makefile.fuzz dylib
+
+fuzz_dir = ./libxml2/fuzz
+fuzz_old_dir = ./libxml2/fuzz-old
+top_srcdir = ./..
+
+XCODEBUILD_FUZZER_FLAGS = ENABLE_LIBFUZZER=YES ENABLE_ADDRESS_SANITIZER=YES ENABLE_UNDEFINED_BEHAVIOR_SANITIZER=YES
+
+.PHONY: $(fuzz_dir)/genSeed $(fuzz_dir)/html $(fuzz_dir)/reader $(fuzz_dir)/regexp $(fuzz_dir)/schema $(fuzz_dir)/uri $(fuzz_dir)/xml $(fuzz_dir)/xpath
+
+all: genSeed html reader regexp schema uri xml xpath
+
+genSeed: $(fuzz_dir)/genSeed
+$(fuzz_dir)/genSeed: $(fuzz_dir)/genSeed.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/genSeed
+	xcodebuild -target genSeed -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+
+html: $(fuzz_dir)/html
+$(fuzz_dir)/html: $(fuzz_dir)/html.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-html $(fuzz_dir)/html
+	xcodebuild -target fuzz-html -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-html $(fuzz_dir)/html
+
+reader: $(fuzz_dir)/reader
+$(fuzz_dir)/reader: $(fuzz_dir)/reader.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-reader $(fuzz_dir)/reader
+	xcodebuild -target fuzz-reader -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-reader $(fuzz_dir)/reader
+
+regexp: $(fuzz_dir)/regexp
+$(fuzz_dir)/regexp: $(fuzz_dir)/regexp.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-regexp $(fuzz_dir)/regexp
+	xcodebuild -target fuzz-regexp -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-regexp $(fuzz_dir)/regexp
+
+schema: $(fuzz_dir)/schema
+$(fuzz_dir)/schema: $(fuzz_dir)/schema.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-schema $(fuzz_dir)/schema
+	xcodebuild -target fuzz-schema -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-schema $(fuzz_dir)/schema
+
+uri: $(fuzz_dir)/uri
+$(fuzz_dir)/uri: $(fuzz_dir)/uri.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-uri $(fuzz_dir)/uri
+	xcodebuild -target fuzz-uri -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-uri $(fuzz_dir)/uri
+
+xml: $(fuzz_dir)/xml
+$(fuzz_dir)/xml: $(fuzz_dir)/xml.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-xml $(fuzz_dir)/xml
+	xcodebuild -target fuzz-xml -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-xml $(fuzz_dir)/xml
+
+xpath: $(fuzz_dir)/xpath
+$(fuzz_dir)/xpath: $(fuzz_dir)/xpath.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
+	xcodebuild -target fuzz-xpath -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+	mv -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
+
+.PHONY: corpus clean-corpus merge-corpus
+
+corpus: $(fuzz_dir)/seed/html.stamp $(fuzz_dir)/seed/reader.stamp $(fuzz_dir)/seed/regexp.stamp $(fuzz_dir)/seed/schema.stamp $(fuzz_dir)/seed/uri.stamp $(fuzz_dir)/seed/xml.stamp $(fuzz_dir)/seed/xpath.stamp
+
+clean-corpus:
+	rm -rf $(fuzz_dir)/seed/html.stamp $(fuzz_dir)/seed/html
+	rm -rf $(fuzz_dir)/seed/reader.stamp $(fuzz_dir)/seed/reader
+	rm -rf $(fuzz_dir)/seed/regexp.stamp $(fuzz_dir)/seed/regexp
+	rm -rf $(fuzz_dir)/seed/schema.stamp $(fuzz_dir)/seed/schema
+	rm -rf $(fuzz_dir)/seed/uri.stamp $(fuzz_dir)/seed/uri
+	rm -rf $(fuzz_dir)/seed/xml.stamp $(fuzz_dir)/seed/xml
+	rm -rf $(fuzz_dir)/seed/xpath.stamp $(fuzz_dir)/seed/xpath
+
+merge-%-corpus: %
+	cd $(fuzz_dir); \
+	for D in $^; do \
+	    echo "Merging corpus/$$D..." && \
+	    mkdir -p corpus/$$D-merge && \
+	    DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$$D corpus/$$D-merge corpus/$$D -merge=1 && \
+	    mv corpus/$$D corpus/$$D-old && \
+	    mv corpus/$$D-merge corpus/$$D && \
+	    echo "Before/after merge: " && \
+	    du -sh corpus/$$D-old corpus/$$D && \
+	    rm -rf corpus/$$D-old; \
+	done
+
+merge-corpus: merge-html-corpus merge-reader-corpus merge-regexp-corpus merge-schema-corpus merge-uri-corpus merge-xml-corpus merge-xpath-corpus
+
+# XML fuzzer
+
+XML_MAX_LEN = 80000
+# Single quotes to avoid wildcard expansion by the shell
+XML_SEED_CORPUS_SRC = \
+    '$(top_srcdir)/test/*' \
+    '$(top_srcdir)/test/errors/*.xml' \
+    '$(top_srcdir)/test/errors10/*.xml' \
+    '$(top_srcdir)/test/namespaces/*' \
+    '$(top_srcdir)/test/valid/*.xml' \
+    '$(top_srcdir)/test/VC/*' \
+    '$(top_srcdir)/test/VCM/*' \
+    '$(top_srcdir)/test/XInclude/docs/*' \
+    '$(top_srcdir)/test/xmlid/*'
+
+$(fuzz_dir)/seed/xml.stamp: $(fuzz_dir)/genSeed
+	cd $(fuzz_dir); \
+	mkdir -p seed/xml; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./genSeed xml $(XML_SEED_CORPUS_SRC); \
+	touch seed/xml.stamp
+
+fuzz-xml: $(fuzz_dir)/xml $(fuzz_dir)/seed/xml.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/xml; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./xml \
+	    -dict=xml.dict \
+	    -max_len=$(XML_MAX_LEN) \
+	    -rss_limit_mb=8192 \
+	    -timeout=20 \
+	    corpus/xml seed/xml
+
+# HTML fuzzer
+#
+# Single quotes to avoid wildcard expansion by the shell
+HTML_SEED_CORPUS_SRC = \
+    '$(top_srcdir)/doc/*.html' \
+    '$(top_srcdir)/doc/devhelp/*.html' \
+    '$(top_srcdir)/doc/html/*.html' \
+    '$(top_srcdir)/test/HTML/*'
+
+$(fuzz_dir)/seed/html.stamp: $(fuzz_dir)/genSeed
+	cd $(fuzz_dir); \
+	mkdir -p seed/html; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./genSeed html $(HTML_SEED_CORPUS_SRC); \
+	touch seed/html.stamp
+
+fuzz-html: $(fuzz_dir)/html $(fuzz_dir)/seed/html.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/html; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./html \
+	    -dict=html.dict \
+	    -max_len=1000000 \
+	    -timeout=10 \
+	    corpus/html seed/html
+
+# XML Reader fuzzer
+#
+# Reuses XML fuzzer seeds
+$(fuzz_dir)/seed/reader.stamp: $(fuzz_dir)/genSeed
+	cd $(fuzz_dir); \
+	mkdir -p seed/reader; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./genSeed reader $(XML_SEED_CORPUS_SRC); \
+	touch seed/reader.stamp
+
+fuzz-reader: $(fuzz_dir)/reader $(fuzz_dir)/seed/reader.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/reader; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./reader \
+	    -dict=reader.dict \
+	    -max_len=$(XML_MAX_LEN) \
+	    -rss_limit_mb=8192 \
+	    -timeout=20 \
+	    corpus/reader seed/reader
+
+$(fuzz_dir)/seed/regexp.stamp:
+	mkdir -p $(fuzz_dir)seed/regexp
+	cp -r $(fuzz_dir)/static_seed/regexp $(fuzz_dir)/seed
+	touch $(fuzz_dir)/seed/regexp.stamp
+
+fuzz-regexp: $(fuzz_dir)/regexp $(fuzz_dir)/seed/regexp.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/regexp; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./regexp \
+	    -dict=regexp.dict \
+	    -max_len=200 \
+	    -timeout=5 \
+	    corpus/regexp seed/regexp
+
+$(fuzz_dir)/seed/uri.stamp:
+	mkdir -p $(fuzz_dir)/seed/uri
+	cp -r $(fuzz_dir)/static_seed/uri $(fuzz_dir)/seed
+	touch $(fuzz_dir)/seed/uri.stamp
+
+fuzz-uri: $(fuzz_dir)/uri $(fuzz_dir)/seed/uri.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/uri; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./uri \
+	    -dict=uri.dict \
+	    -max_len=10000 \
+	    -timeout=2 \
+	    corpus/uri seed/uri
+
+# XML Schema fuzzer
+
+$(fuzz_dir)/seed/schema.stamp: $(fuzz_dir)/genSeed
+	cd $(fuzz_dir); \
+	mkdir -p seed/schema; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./genSeed schema '$(top_srcdir)/test/schemas/*.xsd'; \
+	touch seed/schema.stamp
+
+fuzz-schema: $(fuzz_dir)/schema $(fuzz_dir)/seed/schema.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/schema; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./schema \
+	    -dict=schema.dict \
+	    -max_len=$(XML_MAX_LEN) \
+	    -timeout=20 \
+	    corpus/schema seed/schema
+
+# XPath fuzzer
+
+$(fuzz_dir)/seed/xpath.stamp: $(fuzz_dir)/genSeed
+	cd $(fuzz_dir); \
+	mkdir -p seed/xpath; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./genSeed xpath "$(top_builddir)/test/XPath"; \
+	touch seed/xpath.stamp
+
+fuzz-xpath: $(fuzz_dir)/xpath $(fuzz_dir)/seed/xpath.stamp
+	cd $(fuzz_dir); \
+	mkdir -p corpus/xpath; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./xpath \
+	    -dict=xpath.dict \
+	    -max_len=10000 \
+	    -timeout=20 \
+	    corpus/xpath seed/xpath
+
+# Old libxml2_xml_pushparser_fuzzer
+
+all-old: libxml2_xml_pushparser_fuzzer libxml2_xml_read_memory_fuzzer libxml2_xml_regexp_compile_fuzzer libxml2_xml_saxparser_fuzzer
+
+libxml2_xml_pushparser_fuzzer:
+	rm -f $(fuzz_old_dir)/$@
+	xcodebuild -target $@ -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+
+fuzz-libxml2_xml_pushparser_fuzzer: libxml2_xml_pushparser_fuzzer
+	cd $(fuzz_old_dir); \
+	mkdir -p $<-corpus; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$< \
+	    -dict=xml.dict \
+	    -max_len=1048576 \
+	    -rss_limit_mb=8192 \
+	    $<-corpus
+
+libxml2_xml_read_memory_fuzzer:
+	rm -f $(fuzz_old_dir)/$@
+	xcodebuild -target $@ -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+
+fuzz-libxml2_xml_read_memory_fuzzer: libxml2_xml_read_memory_fuzzer
+	cd $(fuzz_old_dir); \
+	mkdir -p $<-corpus; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$< \
+	    -dict=xml.dict \
+	    -max_len=1048576 \
+	    -rss_limit_mb=8192 \
+	    $<-corpus
+
+libxml2_xml_regexp_compile_fuzzer:
+	rm -f $(fuzz_old_dir)/$@
+	xcodebuild -target $@ -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+
+fuzz-libxml2_xml_regexp_compile_fuzzer: libxml2_xml_regexp_compile_fuzzer
+	cd $(fuzz_old_dir); \
+	mkdir -p $<-corpus; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$< \
+	    -dict=regexp.dict \
+	    -max_len=1048576 \
+	    -rss_limit_mb=8192 \
+	    $<-corpus
+
+libxml2_xml_saxparser_fuzzer:
+	rm -f $(fuzz_old_dir)/$@
+	xcodebuild -target $@ -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)
+
+fuzz-libxml2_xml_saxparser_fuzzer: libxml2_xml_saxparser_fuzzer
+	cd $(fuzz_old_dir); \
+	mkdir -p $<-corpus; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$< \
+	    -dict=xml.dict \
+	    -max_len=1048576 \
+	    -rss_limit_mb=8192 \
+	    $<-corpus
+
+clean-old-corpus:
+	rm -rf $(fuzz_old_dir)/libxml2_xml_pushparser_fuzzer-corpus
+	rm -rf $(fuzz_old_dir)/libxml2_xml_read_memory_fuzzer-corpus
+	rm -rf $(fuzz_old_dir)/libxml2_xml_regexp_compile_fuzzer-corpus
+	rm -rf $(fuzz_old_dir)/libxml2_xml_saxparser_fuzzer-corpus
+
+merge-old-corpus: libxml2_xml_pushparser_fuzzer libxml2_xml_read_memory_fuzzer libxml2_xml_regexp_compile_fuzzer libxml2_xml_saxparser_fuzzer
+	cd $(fuzz_old_dir); \
+	for D in $^; do \
+	    echo "Merging $$D-corpus..." && \
+	    mkdir -p $$D-corpus-merge && \
+	    DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$$D $$D-corpus-merge $$D-corpus -merge=1 && \
+	    mv $$D-corpus $$D-corpus-old && \
+	    mv $$D-corpus-merge $$D-corpus && \
+	    echo "Before/after merge: " && \
+	    du -sh $$D-corpus-old $$D-corpus && \
+	    rm -rf $$D-corpus-old; \
+	done
+
+dylib:
+	xcodebuild -target All -configuration Debug $(XCODEBUILD_FUZZER_FLAGS)

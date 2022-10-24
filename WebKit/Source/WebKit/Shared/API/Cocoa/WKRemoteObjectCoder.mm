@@ -42,15 +42,39 @@
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/CString.h>
 
-static const char* const classNameKey = "$class";
-static const char* const objectStreamKey = "$objectStream";
-static const char* const stringKey = "$string";
+static constexpr auto classNameKey = "$class"_s;
+static constexpr auto objectStreamKey = "$objectStream"_s;
+static constexpr auto stringKey = "$string"_s;
 
 static NSString * const selectorKey = @"selector";
 static NSString * const typeStringKey = @"typeString";
 static NSString * const isReplyBlockKey = @"isReplyBlock";
 
 static RefPtr<API::Dictionary> createEncodedObject(WKRemoteObjectEncoder *, id);
+
+namespace WebKit {
+
+bool methodSignaturesAreCompatible(NSString *wire, NSString *local)
+{
+    if ([local isEqualToString:wire] ==  NSOrderedSame)
+        return true;
+
+    if (local.length != wire.length)
+        return false;
+
+    auto mapCharacter = [](unichar c) -> unichar {
+        // `bool` and `signed char` are interchangeable.
+        return c == 'B' ? 'c' : c;
+    };
+    NSUInteger length = local.length;
+    for (NSUInteger i = 0; i < length; i++) {
+        if (mapCharacter([local characterAtIndex:i]) != mapCharacter([wire characterAtIndex:i]))
+            return false;
+    }
+    return true;
+}
+
+}
 
 @interface NSMethodSignature ()
 - (NSString *)_typeString;
@@ -440,7 +464,7 @@ static void encodeObject(WKRemoteObjectEncoder *encoder, id object)
         encoder->_objectsBeingEncoded.remove(object);
     });
 
-    encoder->_currentDictionary->set(classNameKey, API::String::create(class_getName(objectClass)));
+    encoder->_currentDictionary->set(classNameKey, API::String::create(String::fromLatin1(class_getName(objectClass))));
 
     if ([object isKindOfClass:[NSInvocation class]]) {
         // We have to special case NSInvocation since we don't want to encode the target.
@@ -465,7 +489,7 @@ static RefPtr<API::Dictionary> createEncodedObject(WKRemoteObjectEncoder *encode
         return nil;
 
     Ref<API::Dictionary> dictionary = API::Dictionary::create();
-    SetForScope<API::Dictionary*> dictionaryChange(encoder->_currentDictionary, dictionary.ptr());
+    SetForScope dictionaryChange(encoder->_currentDictionary, dictionary.ptr());
 
     encodeObject(encoder, object);
 
@@ -943,9 +967,9 @@ static NSInvocation *decodeInvocation(WKRemoteObjectDecoder *decoder)
     if (!typeSignature)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Invocation had no type signature"];
 
-    NSMethodSignature *remoteMethodSignature = [NSMethodSignature signatureWithObjCTypes:typeSignature.UTF8String];
-    if (![[invocation methodSignature] isEqual:remoteMethodSignature])
-        [NSException raise:NSInvalidUnarchiveOperationException format:@"Local and remote method signatures are not equal for method \"%s\"", selector ? sel_getName(selector) : "(no selector)"];
+    NSString *localMethodSignature = [invocation methodSignature]._typeString;
+    if (!WebKit::methodSignaturesAreCompatible(typeSignature, localMethodSignature))
+        [NSException raise:NSInvalidUnarchiveOperationException format:@"Local and remote method signatures are not compatible for method \"%s\"", selector ? sel_getName(selector) : "(no selector)"];
 
     if (isReplyBlock) {
         const auto& allowedClasses = [decoder->_interface _allowedArgumentClassesForReplyBlockOfSelector:decoder->_replyToSelector];
@@ -960,13 +984,13 @@ static NSInvocation *decodeInvocation(WKRemoteObjectDecoder *decoder)
     return invocation;
 }
 
-static NSString *decodeString(WKRemoteObjectDecoder *decoder)
+static RetainPtr<NSString> decodeString(WKRemoteObjectDecoder *decoder)
 {
     API::String* string = decoder->_currentDictionary->get<API::String>(stringKey);
     if (!string)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"String missing"];
 
-    return string->string();
+    return string->stringView().createNSString();
 }
 
 static id decodeObject(WKRemoteObjectDecoder *decoder)
@@ -987,13 +1011,13 @@ static id decodeObject(WKRemoteObjectDecoder *decoder)
         return decodeInvocation(decoder);
 
     if (objectClass == [NSString class])
-        return decodeString(decoder);
+        return decodeString(decoder).autorelease();
     
     if (objectClass == [NSError class])
         return decodeError(decoder).autorelease();
 
     if (objectClass == [NSMutableString class])
-        return [NSMutableString stringWithString:decodeString(decoder)];
+        return [NSMutableString stringWithString:decodeString(decoder).get()];
 
     return decodeObjCObject(decoder, objectClass).autorelease();
 }
@@ -1003,13 +1027,13 @@ static id decodeObject(WKRemoteObjectDecoder *decoder, const API::Dictionary* di
     if (!dictionary)
         return nil;
 
-    SetForScope<const API::Dictionary*> dictionaryChange(decoder->_currentDictionary, dictionary);
+    SetForScope dictionaryChange(decoder->_currentDictionary, dictionary);
 
     // If no allowed classes were listed, just use the currently allowed classes.
     if (allowedClasses.isEmpty())
         return decodeObject(decoder);
 
-    SetForScope<const HashSet<CFTypeRef>*> allowedClassesChange(decoder->_allowedClasses, &allowedClasses);
+    SetForScope allowedClassesChange(decoder->_allowedClasses, &allowedClasses);
     return decodeObject(decoder);
 }
 

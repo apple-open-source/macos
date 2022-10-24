@@ -23,6 +23,7 @@
 #endif /* _WIN32 */
 #ifdef HAVE_COREFOUNDATION_H
 #  include <CoreFoundation/CoreFoundation.h>
+#  include <CoreFoundation/CFBundlePriv.h>
 #endif /* HAVE_COREFOUNDATION_H */
 
 
@@ -1408,12 +1409,93 @@ appleLangDefault(void)
 
 
 #  ifdef CUPS_BUNDLEDIR
+
+static bool getLocaleEncoding(const char* locale, SInt32* languageCode, SInt32* regionCode, SInt32* scriptCode, CFStringEncoding* stringEncoding)
+{
+  CFStringRef localeString = CFStringCreateWithCString(kCFAllocatorDefault, locale, kCFStringEncodingUTF8);
+  bool ok = CFBundleGetLocalizationInfoForLocalization(localeString, languageCode, regionCode, scriptCode, stringEncoding);
+  CFRelease(localeString);
+  DEBUG_printf(("%s: [%s] => %d", __FUNCTION__, locale, ok));
+  return ok;
+}
+
+static CFDictionaryRef _Nullable copyCupsLocaleStringTable(CFBundleRef bundle, SInt32 languageCode, SInt32 regionCode, SInt32 scriptCode, CFStringEncoding stringEncoding)
+{
+  CFDictionaryRef result = NULL;
+  CFStringRef localizationName = CFBundleCopyLocalizationForLocalizationInfo(languageCode, regionCode, scriptCode, stringEncoding);
+  if (localizationName != NULL) {
+    result = CFBundleCopyLocalizedStringTableForLocalization(bundle, CFSTR("cups"), localizationName);
+    int count = 0;
+    if (result != NULL) {
+      count = CFDictionaryGetCount(result);
+      if (count == 0) {
+	CFRelease(result);
+	result = NULL;
+      }
+    }
+#if DEBUG
+    char tmp[256];
+    CFStringGetCString(localizationName, tmp, sizeof(tmp), kCFStringEncodingUTF8);
+    DEBUG_printf(("%s: [%s] => %d", __FUNCTION__, tmp, count));
+#endif
+    CFRelease(localizationName);
+  }
+  return result;
+}
+
+static CFDictionaryRef copyCupsLocalePListFromBundle(const char* locale)
+{
+  static CFBundleRef sLocBundle = NULL;
+  static dispatch_once_t sOnce = 0;
+
+  dispatch_once(&sOnce, ^{
+    CFURLRef bundleURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(CUPS_BUNDLEDIR), 0, true);
+    if (bundleURL) {
+      sLocBundle = CFBundleCreate(kCFAllocatorDefault, bundleURL);
+      CFRelease(bundleURL);
+    }
+  });
+
+  CFDictionaryRef result = NULL;
+
+  if (sLocBundle == NULL) {
+    result = NULL;
+  } else {
+    SInt32 languageCode;
+    SInt32 regionCode;
+    SInt32 scriptCode;
+    CFStringEncoding stringEncoding;
+
+    bool haveLocaleEncoding = getLocaleEncoding(locale, &languageCode, &regionCode, &scriptCode, &stringEncoding);
+
+    // Can't parse XY_AB for some reason - can we just do XY
+    if (! haveLocaleEncoding && strlen(locale) > 2) {
+      char trimmed[3] = { locale[0], locale[1], '\0' };
+      haveLocaleEncoding = getLocaleEncoding(trimmed, &languageCode, &regionCode, &scriptCode, &stringEncoding);
+    }
+
+    if (haveLocaleEncoding) {
+      // Can we get very specific?
+      result = copyCupsLocaleStringTable(sLocBundle, languageCode, regionCode, scriptCode, stringEncoding);
+
+      // OK, how about less specific?
+      if (result == NULL)
+	result = copyCupsLocaleStringTable(sLocBundle, languageCode, -1, -1, 0xffff);
+
+      // Just give us something?
+      if (result == NULL)
+	result = CFBundleCopyLocalizedStringTableForLocalization(sLocBundle, CFSTR("cups"), NULL);
+    }
+  }
+  return result;
+}
+
 /*
  * 'appleMessageLoad()' - Load a message catalog from a localizable bundle.
  */
 
 static cups_array_t *			/* O - Message catalog */
-appleMessageLoad(const char *locale)	/* I - Locale ID */
+appleMessageLoad(const char *localePassedIn)	/* I - Locale ID */
 {
   char			filename[1024],	/* Path to cups.strings file */
 			applelang[256],	/* Apple language ID */
@@ -1426,6 +1508,7 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
                                         /* Test strings file */
   CFErrorRef		error = NULL;	/* Error when opening file */
 #endif /* DEBUG */
+  const char* locale = localePassedIn;	/* otherwise it'll be garbage by the time we need it later */
 
 
   DEBUG_printf(("appleMessageLoad(locale=\"%s\")", locale));
@@ -1470,6 +1553,7 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
     DEBUG_printf(("1appleMessageLoad: \"%s\": %s", filename, strerror(errno)));
 
     strlcpy(baselang, locale, sizeof(baselang));
+    // REMINDSMA: Doesn't matter anymore - but [3] is probably wrong here anyway
     if (baselang[3] == '-' || baselang[3] == '_')
       baselang[3] = '\0';
 
@@ -1587,6 +1671,15 @@ appleMessageLoad(const char *locale)	/* I - Locale ID */
 
   DEBUG_printf(("1appleMessageLoad: url=%p, stream=%p, plist=%p", url, stream,
                 plist));
+
+  // Starting in Rome, all the string tables are in one plist
+  // so if we didn't find an explicit one via the above, older code
+  // use the CFBundle SPI to get the strings file.
+  // And we should consider if we can remove all of the mucking about with lproj above
+  // at some point.
+  if (plist == NULL) {
+    plist = copyCupsLocalePListFromBundle(localePassedIn);
+  }
 
  /*
   * Create and return an empty array to act as a cache for messages, passing the

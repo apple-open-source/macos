@@ -21,7 +21,7 @@
 .\"
 .\" $OpenBSD: patch.1,v 1.27 2014/04/15 06:26:54 jmc Exp $
 .\" $FreeBSD$
-.Dd November 3, 2019
+.Dd April 27, 2022
 .Dt PATCH 1
 .Os
 .Sh NAME
@@ -34,14 +34,18 @@
 .Op Fl B Ar backup-prefix
 .Op Fl D Ar symbol
 .Op Fl d Ar directory
+.Op Fl g Ar vcs-option
 .Op Fl F Ar max-fuzz
 .Op Fl i Ar patchfile
 .Op Fl o Ar out-file
 .Op Fl p Ar strip-count
 .Op Fl r Ar rej-name
+.Op Fl T | Fl Z
 .Op Fl V Cm t | nil | never | none
 .Op Fl x Ar number
+.Op Fl Y Ar prefix
 .Op Fl z Ar backup-ext
+.Op Fl Fl quoting-style Ar style
 .Op Fl Fl posix
 .Op Ar origfile Op Ar patchfile
 .Ek
@@ -104,9 +108,38 @@ unless the file already has a numbered backup, in which case a numbered
 backup is made.
 This is equivalent to specifying
 .Qo Fl V Cm existing Qc .
+.\" This option is currently the default, unless
+.\" .Fl -posix
+.\" is specified.
+.It Fl -backup-if-mismatch
+Save a backup copy of the file before it is modified, but only if a mismatch
+was encountered.
+Specifically, this will create a backup file if a hunk failed to apply, or if
+fuzz was required to apply one or more hunks.
+As with the
+.Fl b
+option,
+.Fl -backup-if-mismatch
+will use the
+.Cm existing
+format that is accepted by the
+.Fl V
+option when a backup is to be created.
+.Pp
+If backups were otherwise requested with the
+.Fl b
+option, then this option has no effect.
+.Pp
 This option is currently the default, unless
 .Fl -posix
 is specified.
+.It Fl -no-backup-if-mismatch
+This option negates
+.Fl -backup-if-mismatch ,
+creating backups for every file unless backups have been disabled with
+.Fl -posix
+or
+.Fl V Cm none .
 .It Fl C , Fl Fl check , Fl Fl dry-run
 Checks that the patch would apply cleanly, but does not modify anything.
 .It Fl c , Fl Fl context
@@ -170,6 +203,52 @@ and assume that patches are not reversed even if they look like they are.
 This option does not suppress commentary; use
 .Fl s
 for that.
+.It Fl g Ar vcs-option , Fl -get Ar vcs-option
+Causes
+.Nm
+to consult some version control systems for missing or read-only files.
+This version of
+.Nm
+has limited, detect-only support for SCCS and ClearCase, but full support for
+RCS and Perforce.
+.Pp
+If
+.Ar vcs-option
+is set to 0, then
+.Nm
+will not consult any version control system.
+This is the default behavior, unless overruled by setting the
+.Ev PATCH_GET
+environment variable.
+.Pp
+If
+.Ar vcs-option
+is set to a negative number, then
+.Nm
+will prompt to confirm that it is OK to checkout each file that is detected
+under a supported version control system.
+.Pp
+If
+.Ar vcs-option
+is set to a positive number, then
+.Nm
+will not prompt before checking out each file that is detected under a supported
+version control system.
+.Pp
+Note that one must be in the root directory of the repository in order for
+.Fl -get
+to work, unless
+.Nm
+is operating in a Perforce workspace.
+.Pp
+The
+.Fl -get
+option may also influence how a filename is chosen.
+See
+.Sx Filename Determination
+below for details.
+.It Fl -help
+Print a help message and exit.
 .It Xo
 .Fl i Ar patchfile ,
 .Fl Fl input Ar patchfile
@@ -241,6 +320,35 @@ Whatever you end up with is looked for either in the current directory,
 or the directory specified by the
 .Fl d
 option.
+.It Fl -quoting-style Ar style
+Controls how
+.Nm
+writes out filenames to the console.
+The valid values for
+.Ar style
+are:
+.Bl -tag -width Ds -offset indent
+.It Cm literal
+Write filenames without any special quoting.
+.It Cm shell
+Quote filenames if they contain shell metacharacters, or other characters that
+may be problematic, e.g., spaces.
+.It Cm shell-always
+Always quote filenames as if they contain shell metacharacters or other
+problematic characters.
+.It Cm c
+Quote filenames as if they are a C style string.
+.It Cm escape
+Does the same as
+.Cm c ,
+except quotes will be omitted.
+.El
+.Pp
+The default quoting option is
+.Cm shell ,
+unless
+.Ev QUOTING_STYLE
+is set.
 .It Fl R , Fl Fl reverse
 Tells
 .Nm
@@ -281,6 +389,25 @@ Causes the next argument to be interpreted as the reject file name.
 Makes
 .Nm
 do its work silently, unless an error occurs.
+.It Fl T , Fl Fl set-time
+Tells
+.Nm
+to set the access and modification times of the output file based on timestamps
+included in the diff's header.
+The
+.Fl T
+option will force
+.Nm
+to assume the timestamps provided are in the system's local timezone, unless a
+timezone offset is present in the timstamp.
+.Pp
+.Nm
+will not change the times on the output file unless the original file's
+timestamp matches the proper file's timestamp in the diff header and the patch
+context matched the original file with neither fuzz nor offsets.
+Both of these caveats are ignored if the
+.Fl f
+flag has been specified.
 .It Fl t , Fl Fl batch
 Similar to
 .Fl f ,
@@ -342,6 +469,33 @@ to print out its revision header and patch level.
 Sets internal debugging flags, and is of interest only to
 .Nm
 patchers.
+.It Fl Y Ar prefix , Fl -basename-prefix Ar prefix
+Prepend
+.Ar prefix
+to the basename of the file to be backed up.
+For example, specifying
+.Dq -Y 0_
+when patching a file
+.Pa /u/howard/src/blurfl/blurfl.c
+will create the backup at
+.Pa /u/howard/src/blurfl/0_blurfl.c.orig .
+.It Fl Z , Fl Fl set-utc
+Tells
+.Nm
+to set the access and modification times of the output file based on timestamps
+included in the diff's header.
+The
+.Fl Z
+option will force
+.Nm
+to assume the timestamps provided are in UTC unless the timezone offset is
+present in the timstamp.
+Note that the caveats described with the
+.Fl T
+option about when the output file's modification time is changed also apply to
+the
+.Fl Z
+option.
 .It Xo
 .Fl z Ar backup-ext ,
 .Fl Fl suffix Ar backup-ext
@@ -472,6 +626,21 @@ mode, the first of the
 and
 .Dq index
 file names that exist is used.
+.It
+If
+.Nm
+is not operating in strict
+.St -p1003.1-2008
+mode, and a non-zero
+.Fl -get
+argument has been supplied, then
+.Nm
+will choose one of the
+.Dq index ,
+.Dq old
+or
+.Dq new
+filenames that are detected to exist under a version control system.
 Otherwise,
 .Nm
 will examine either the
@@ -572,12 +741,28 @@ one file, it is probably wiser to group related patches into separate files in
 case something goes haywire.
 .Sh ENVIRONMENT
 .Bl -tag -width "PATCH_VERSION_CONTROL" -compact
+.It Ev PATCH_GET
+Specifies the default version control behavior.
+See the description of
+.Fl -get
+for valid values.
+.It Ev PATCH_VERBOSE
+Specifies the default verbosity of
+.Nm .
+Setting
+.Ev PATCH_VERBOSE
+to a non-zero integer will enable verbosity.
 .It Ev POSIXLY_CORRECT
 When set,
 .Nm
 behaves as if the
 .Fl Fl posix
 option has been specified.
+.It Ev QUOTING_STYLE
+Specifies the default quoting style.
+See the description of
+.Fl -quoting-style
+for valid values.
 .It Ev SIMPLE_BACKUP_SUFFIX
 Extension to use for backup file names instead of
 .Qq .orig .

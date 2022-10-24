@@ -52,32 +52,51 @@ ProcessThrottler::~ProcessThrottler()
     invalidateAllActivities();
 }
 
-void ProcessThrottler::addActivity(ForegroundActivity& activity)
+bool ProcessThrottler::addActivity(ForegroundActivity& activity)
 {
+    ASSERT(isMainRunLoop());
+    if (!m_allowsActivities) {
+        if (!activity.isQuietActivity())
+            PROCESSTHROTTLER_RELEASE_LOG("addActivity: not allowed to add foreground activity %s", activity.name().characters());
+        return false;
+    }
+
     m_foregroundActivities.add(&activity);
     updateAssertionIfNeeded();
+    return true;
 }
 
-void ProcessThrottler::addActivity(BackgroundActivity& activity)
+bool ProcessThrottler::addActivity(BackgroundActivity& activity)
 {
+    ASSERT(isMainRunLoop());
+    if (!m_allowsActivities) {
+        if (!activity.isQuietActivity())
+            PROCESSTHROTTLER_RELEASE_LOG("addActivity: not allowed to add background activity %s", activity.name().characters());
+        return false;
+    }
+
     m_backgroundActivities.add(&activity);
     updateAssertionIfNeeded();
+    return true;
 }
 
 void ProcessThrottler::removeActivity(ForegroundActivity& activity)
 {
+    ASSERT(isMainRunLoop());
     m_foregroundActivities.remove(&activity);
     updateAssertionIfNeeded();
 }
 
 void ProcessThrottler::removeActivity(BackgroundActivity& activity)
 {
+    ASSERT(isMainRunLoop());
     m_backgroundActivities.remove(&activity);
     updateAssertionIfNeeded();
 }
 
 void ProcessThrottler::invalidateAllActivities()
 {
+    ASSERT(isMainRunLoop());
     PROCESSTHROTTLER_RELEASE_LOG("invalidateAllActivities: BEGIN (foregroundActivityCount: %u, backgroundActivityCount: %u)", m_foregroundActivities.size(), m_backgroundActivities.size());
     while (!m_foregroundActivities.isEmpty())
         (*m_foregroundActivities.begin())->invalidate();
@@ -159,7 +178,7 @@ void ProcessThrottler::updateAssertionIfNeeded()
                 PROCESSTHROTTLER_RELEASE_LOG("updateAssertionIfNeeded: sending ProcessDidResume IPC because the process was suspended");
             else
                 PROCESSTHROTTLER_RELEASE_LOG("updateAssertionIfNeeded: sending ProcessDidResume IPC because the WebProcess is still processing request to suspend=%" PRIu64, *m_pendingRequestToSuspendID);
-            m_process.sendProcessDidResume();
+            m_process.sendProcessDidResume(expectedAssertionType() == ProcessAssertionType::Foreground ? ProcessThrottlerClient::ResumeReason::ForegroundActivity : ProcessThrottlerClient::ResumeReason::BackgroundActivity);
             clearPendingRequestToSuspend();
         }
     } else {
@@ -212,15 +231,15 @@ void ProcessThrottler::clearPendingRequestToSuspend()
 
 void ProcessThrottler::sendPrepareToSuspendIPC(IsSuspensionImminent isSuspensionImminent)
 {
-    PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: isSuspensionImminent=%d", isSuspensionImminent == IsSuspensionImminent::Yes);
     if (m_pendingRequestToSuspendID) {
         // Do not send a new PrepareToSuspend IPC for imminent suspension if we've already sent a non-imminent PrepareToSuspend IPC.
         RELEASE_ASSERT(isSuspensionImminent == IsSuspensionImminent::Yes);
-        PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: Not sending PrepareToSuspend() IPC because there is already one in flight (%" PRIu64 ")", *m_pendingRequestToSuspendID);
+        PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: Not sending PrepareToSuspend(isSuspensionImminent=%d) IPC because there is already one in flight (%" PRIu64 ")", isSuspensionImminent == IsSuspensionImminent::Yes, *m_pendingRequestToSuspendID);
     } else {
         m_pendingRequestToSuspendID = generatePrepareToSuspendRequestID();
-        PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: Sending PrepareToSuspend(%" PRIu64 ", isSuspensionImminent=%d) IPC", *m_pendingRequestToSuspendID, isSuspensionImminent == IsSuspensionImminent::Yes);
-        m_process.sendPrepareToSuspend(isSuspensionImminent, [this, weakThis = WeakPtr { *this }, requestToSuspendID = *m_pendingRequestToSuspendID]() mutable {
+        double remainingRunTime = ProcessAssertion::remainingRunTimeInSeconds(m_processIdentifier);
+        PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: Sending PrepareToSuspend(%" PRIu64 ", isSuspensionImminent=%d) IPC, remainingRunTime=%fs", *m_pendingRequestToSuspendID, isSuspensionImminent == IsSuspensionImminent::Yes, remainingRunTime);
+        m_process.sendPrepareToSuspend(isSuspensionImminent, remainingRunTime, [this, weakThis = WeakPtr { *this }, requestToSuspendID = *m_pendingRequestToSuspendID]() mutable {
             if (weakThis && m_pendingRequestToSuspendID && *m_pendingRequestToSuspendID == requestToSuspendID)
                 processReadyToSuspend();
         });
@@ -255,6 +274,18 @@ bool ProcessThrottler::isValidForegroundActivity(const ProcessThrottler::Activit
     if (!std::holds_alternative<UniqueRef<ProcessThrottler::ForegroundActivity>>(activity))
         return false;
     return std::get<UniqueRef<ProcessThrottler::ForegroundActivity>>(activity)->isValid();
+}
+
+void ProcessThrottler::setAllowsActivities(bool allow)
+{
+    if (m_allowsActivities == allow)
+        return;
+
+    PROCESSTHROTTLER_RELEASE_LOG("setAllowsActivities %d", allow);
+    m_allowsActivities = allow;
+
+    if (!allow)
+        invalidateAllActivities();
 }
 
 ProcessThrottler::TimedActivity::TimedActivity(Seconds timeout, ProcessThrottler::ActivityVariant&& activity)

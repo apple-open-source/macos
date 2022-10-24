@@ -95,8 +95,8 @@ public:
 #endif
 
 private:
-    RBBISymbolTable(const RBBISymbolTable &other); // forbid copying of this class
-    RBBISymbolTable &operator=(const RBBISymbolTable &other); // forbid copying of this class
+    RBBISymbolTable(const RBBISymbolTable &other) = delete; // forbid copying of this class
+    RBBISymbolTable &operator=(const RBBISymbolTable &other) = delete; // forbid copying of this class
 };
 
 
@@ -177,8 +177,8 @@ public:
     RBBIDataHeader                *flattenData();    // Create the flattened (runtime format)
                                                      // data tables..
 private:
-    RBBIRuleBuilder(const RBBIRuleBuilder &other); // forbid copying of this class
-    RBBIRuleBuilder &operator=(const RBBIRuleBuilder &other); // forbid copying of this class
+    RBBIRuleBuilder(const RBBIRuleBuilder &other) = delete; // forbid copying of this class
+    RBBIRuleBuilder &operator=(const RBBIRuleBuilder &other) = delete; // forbid copying of this class
 };
 
 

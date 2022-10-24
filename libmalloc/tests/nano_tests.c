@@ -310,6 +310,25 @@ T_DECL(realloc_nano_shrink, "realloc to smaller size",
 #endif // CONFIG_NANOZONE
 }
 
+T_DECL(nano_memalign_trivial, "Test that nano serves trivial memalign allocations",
+	   T_META_ENVVAR("MallocNanoZone=1"))
+{
+#if CONFIG_NANOZONE
+	size_t size = 16;
+	void *ptr8 = aligned_alloc(8, size);
+	void *ptr16 = aligned_alloc(16, size);
+	T_LOG("Nano ptrs are %p, %p\n", ptr8, ptr16);
+	T_ASSERT_EQ(NANOZONE_SIGNATURE, (uint64_t)((uintptr_t)ptr8) >> SHIFT_NANO_SIGNATURE,
+			"8-byte-aligned allocation served from nano");
+	T_ASSERT_EQ(NANOZONE_SIGNATURE, (uint64_t)((uintptr_t)ptr16) >> SHIFT_NANO_SIGNATURE,
+			"16-byte-aligned allocation served from nano");
+	free(ptr8);
+	free(ptr16);
+#else // CONFIG_NANOZONE
+	T_SKIP("Nano allocator not configured");
+#endif // CONFIG_NANOZONE
+}
+
 #pragma mark -
 #pragma mark Nanov2 tests
 

@@ -45,6 +45,7 @@ sv{
         an{"aragonesiska"}
         ang{"fornengelska"}
         anp{"angika"}
+        apw{"apache, väst"}
         ar{"arabiska"}
         ar_001{"modern standardarabiska"}
         arc{"arameiska"}

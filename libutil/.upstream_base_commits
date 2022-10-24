@@ -1,0 +1,5 @@
+#freebsd = https://git.freebsd.org/src.git
+
+humanize_number.3	freebsd	lib/libutil/humanize_number.3	e285e32e5615d20b4899c4f82d5c88a81ec49395
+humanize_number.c	freebsd	lib/libutil/humanize_number.c	e285e32e5615d20b4899c4f82d5c88a81ec49395
+tests/humanize_number_test.c	freebsd	lib/libutil/tests/humanize_number_test.c	e285e32e5615d20b4899c4f82d5c88a81ec49395

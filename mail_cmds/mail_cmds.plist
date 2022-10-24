@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>mail</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-08-23</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/mail?id=1f474190fc280d4a4ef0c214e4d7fff0d1237e22</string>
+		<key>OpenSourceImportDate</key>
+		<string>2020-10-27</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>mail/popen.c: fix /tset/POSIX.cmd/mailx/mailx_01.ex{42} and others which start sub processes</string>
+			<string>mail/tty.c: fix /tset/POSIX.cmd/mailx/mailx_01.ex{49} and /tset/POSIX.cmd/mailx/mailx_01.ex{57}</string>
+			<string>mail/send.c: fix /tset/POSIX.cmd/mailx/mailx_02.ex{132}</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+	</dict>
+</array>
+</plist>

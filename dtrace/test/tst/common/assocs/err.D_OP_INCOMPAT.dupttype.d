@@ -37,6 +37,6 @@
 
 BEGIN
 {
-	self->x[123] = `proc0;
+	self->x[123] = *`kernproc;
 	self->x[456] = *`rootvp;
 }

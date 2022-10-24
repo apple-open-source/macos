@@ -269,7 +269,7 @@ static void CSPELL_client_stub_routine
         CSPELL_typed_name(fid, p_operation->result->type,
                             NAMETABLE_add_id("IDL_function_result"),
                             NULL, false, true, false);
-        fprintf(fid, ";\n");
+        fprintf(fid, " = 0;\n");
     }
 
     /*

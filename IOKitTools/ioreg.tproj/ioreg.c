@@ -47,8 +47,10 @@ struct options
     UInt32 list:1;                                    // (-l option)
     UInt32 root:1;                                    // (-r option)
     UInt32 tree:1;                                    // (-t option)
+    UInt32 nouserclasses:1;                           // (-y option)
 
     char * class;                                     // (-c option)
+    CFStringRef classCFString;                        // (-c option)
     UInt32 depth;                                     // (-d option)
     char * key;                                       // (-k option)
     char * name;                                      // (-n option)
@@ -70,8 +72,8 @@ static void boldinit();
 static void boldon();
 static void boldoff();
 static void printinit(int width);
-static void print(const char * format, ...);
-static void println(const char * format, ...);
+static void print(const char * format, ...)  __printflike(1, 2);
+static void println(const char * format, ...)  __printflike(1, 2);
 
 static void cfshowinit(Boolean hex);
 static void cfshow(CFTypeRef object);
@@ -157,16 +159,18 @@ int main(int argc, char ** argv)
 
     // Initialize our minimal state.
 
-    options.archive     = FALSE;
-    options.bold        = FALSE;
-    options.format      = FALSE;
-    options.hex         = FALSE;
-    options.inheritance = FALSE;
-    options.list        = FALSE;
-    options.root        = FALSE;
-    options.tree        = FALSE;
+    options.archive       = FALSE;
+    options.bold          = FALSE;
+    options.format        = FALSE;
+    options.hex           = FALSE;
+    options.inheritance   = FALSE;
+    options.list          = FALSE;
+    options.root          = FALSE;
+    options.tree          = FALSE;
+    options.nouserclasses = FALSE;
 
     options.class = 0;
+    options.classCFString = NULL;
     options.depth = 0;
     options.key   = 0;
     options.name  = 0;
@@ -186,7 +190,7 @@ int main(int argc, char ** argv)
 
     // Obtain the command-line arguments.
 
-    while ( (argument = getopt(argc, argv, ":abc:d:fik:ln:p:rsStw:x")) != -1 )
+    while ( (argument = getopt(argc, argv, ":abc:d:fik:ln:p:rsStw:xy")) != -1 )
     {
         switch (argument)
         {
@@ -198,6 +202,7 @@ int main(int argc, char ** argv)
                 break;
             case 'c':
                 options.class = optarg;
+                options.classCFString = CFStringCreateWithCString(kCFAllocatorDefault, optarg, kCFStringEncodingUTF8);
                 break;
             case 'd':
                 options.depth = atoi(optarg);
@@ -236,6 +241,9 @@ int main(int argc, char ** argv)
             case 'x':
                 options.hex = TRUE;
                 break;
+            case 'y':
+                options.nouserclasses = TRUE;
+                break;
             default:
                 usage();
                 break;
@@ -252,7 +260,7 @@ int main(int argc, char ** argv)
 
     // Obtain the I/O Kit root service.
 
-    service = IORegistryGetRootEntry(kIOMasterPortDefault);
+    service = IORegistryGetRootEntry(kIOMainPortDefault);
     assertion_fatal(service, "can't obtain I/O Kit's root service");
 
     // Traverse over all the I/O Kit services.
@@ -677,10 +685,37 @@ static Boolean compare( io_registry_entry_t service,
 
     if (options.class)
     {
-        if (_IOObjectConformsTo(service, options.class, kIOClassNameOverrideNone) == FALSE)
-        {
-            return FALSE;
-        }
+		bool checkKernelClass = true;
+
+		if (options.classCFString && !options.nouserclasses)
+		{
+			value = IORegistryEntryCreateCFProperty( service,
+													 CFSTR(kIOUserClassesKey),
+													 kCFAllocatorDefault,
+													 kNilOptions );
+			if (value)
+			{
+				if (CFArrayGetTypeID() == CFGetTypeID(value))
+				{
+					checkKernelClass = false;
+					CFRange range = { 0, CFArrayGetCount(value) };
+					match = CFArrayContainsValue(value, range, options.classCFString);
+				}
+				CFRelease(value);
+				if (!checkKernelClass && !match)
+				{
+					return FALSE;
+				}
+			}
+		}
+
+		if (checkKernelClass)
+		{
+			if (_IOObjectConformsTo(service, options.class, kIOClassNameOverrideNone) == FALSE)
+			{
+				return FALSE;
+			}
+		}
 
         match = TRUE;
     }
@@ -941,10 +976,10 @@ static void show( io_registry_entry_t service,
         if (classCFStr) {
             ancestryCFStr = createInheritanceStringForIORegistryClassName (classCFStr);
             if (ancestryCFStr) {
-                aCStr = (char *) CFStringGetCStringPtr (ancestryCFStr, kCFStringEncodingMacRoman);
+                aCStr = (char *) CFStringGetCStringPtr (ancestryCFStr, kCFStringEncodingUTF8);
                 if (NULL != aCStr)
                 {
-                    print(aCStr);
+                    print("%s", aCStr);
                 }
                 CFRelease (ancestryCFStr);
             }
@@ -1091,7 +1126,7 @@ static void indent(Boolean isNode, UInt32 serviceDepth, UInt64 stackOfBits)
 void usage()
 {
     fprintf( stderr,
-     "usage: ioreg [-abfilrtx] [-c class] [-d depth] [-k key] [-n name] [-p plane] [-w width]\n"
+     "usage: ioreg [-abfilrtxy] [-c class] [-d depth] [-k key] [-n name] [-p plane] [-w width]\n"
      "where options are:\n"
      "\t-a archive output\n"
      "\t-b show object name in bold\n"
@@ -1107,6 +1142,7 @@ void usage()
      "\t-t show location of each subtree\n"
      "\t-w clip output to the given line width (0 is unlimited)\n"
      "\t-x show data and numbers as hexadecimal\n"
+     "\t-y do not consider DriverKit classes with -c\n"
      );
     exit(1);
 }
@@ -1173,6 +1209,7 @@ static void printinit(int width)
     }
 }
 
+__attribute__((format(printf, 1, 0)))
 static void printva(const char * format, va_list arguments)
 {
     if (printbufsize)
@@ -1424,7 +1461,7 @@ static void cfsetshow(CFSetRef object)
 
 static void cfstringshow(CFStringRef object)
 {
-    const char * c = CFStringGetCStringPtr(object, kCFStringEncodingMacRoman);
+    const char * c = CFStringGetCStringPtr(object, kCFStringEncodingUTF8);
 
     if (c)
         print("\"%s\"", c);
@@ -1439,7 +1476,7 @@ static void cfstringshow(CFStringRef object)
                     /* string     */ object,
                     /* buffer     */ buffer,
                     /* bufferSize */ bufferSize,
-                    /* encoding   */ kCFStringEncodingMacRoman ) )
+                    /* encoding   */ kCFStringEncodingUTF8 ) )
                 print("\"%s\"", buffer);
 
             free(buffer);
@@ -1587,11 +1624,16 @@ static void printProp(CFStringRef key, CFTypeRef value, struct context * context
 
 static void replaceNestedSetsWithArrays(CFTypeRef rootObject)
 {
-    CFTypeID rootTypeID = CFGetTypeID(rootObject);
+    CFTypeID rootTypeID;
+
+    if (rootObject == NULL) {
+         return;
+    }
+    rootTypeID = CFGetTypeID(rootObject);
     // If the root object is a set, we can't do anything about it from here.  This shouldn't
     // be an issue since we're starting this recursive call from the return value of
     // IORegistryEntryCreateCFProperties which should always be a CFDictionary.
-    assertion_fatal(rootTypeID != CFSetGetTypeID(), "Root object is cannot be a CFSet");
+    assertion_fatal(rootTypeID != CFSetGetTypeID(), "Root object cannot be a CFSet");
 
     if (rootTypeID == CFDictionaryGetTypeID())
     {
@@ -1970,7 +2012,7 @@ static Boolean lookupPHandle(UInt32 phandle, io_registry_entry_t * device)
 
    /* This call consumes 'value', so do not release it.
     */
-    *device = IOServiceGetMatchingService(kIOMasterPortDefault, value);
+    *device = IOServiceGetMatchingService(kIOMainPortDefault, value);
 
     if (*device)
         ret = TRUE;

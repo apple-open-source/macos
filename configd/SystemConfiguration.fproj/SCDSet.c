@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2010, 2011, 2013, 2016, 2018, 2020-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -122,6 +122,8 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	if (xmlRemove != NULL)	CFRelease(xmlRemove);
 	if (xmlNotify != NULL)	CFRelease(xmlNotify);
 
+	sc_status = __SCDynamicStoreMapInternalStatus(sc_status, TRUE);
+
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 		return FALSE;
@@ -208,6 +210,8 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	/* clean up */
 	CFRelease(utfKey);
 	CFRelease(xmlData);
+
+	sc_status = __SCDynamicStoreMapInternalStatus(sc_status, TRUE);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

@@ -89,20 +89,25 @@ static void help ( const char *argv0 );
  * @param pattern printf style pattern
  * @param ap vprintf style arg list
  */
+__attribute__((format(printf, 2, 0)))
 static void vlog_err(const char *prefix, const char *pattern, va_list ap);
+__attribute__((format(printf, 2, 0)))
 static void vlog_verbose(const char *prefix, const char *pattern, va_list ap);
+__attribute__((format(printf, 2, 0)))
 static UBool vlog_knownIssue(const char *ticket, const char *pattern, va_list ap);
 
 /**
  * Log test structure, with indent
  * @param pattern printf pattern
  */
+__attribute__((format(printf, 1, 2)))
 static void log_testinfo_i(const char *pattern, ...);
 
 /**
  * Log test structure, NO indent
  * @param pattern printf pattern
  */
+__attribute__((format(printf, 1, 2)))
 static void log_testinfo(const char *pattern, ...);
 
 /* If we need to make the framework multi-thread safe

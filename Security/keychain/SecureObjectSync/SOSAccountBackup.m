@@ -37,7 +37,7 @@ static bool SecItemUpdateOrAdd(CFDictionaryRef query, CFDictionaryRef update, CF
     return SecError(saveStatus, error, CFSTR("Error saving %@"), query);
 }
 
-static CFDictionaryRef SOSCopyV0Attributes() {
+static CFDictionaryRef SOSCopyV0Attributes(void) {
     return  CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                          kSecClass,           kSecClassGenericPassword,
                                          kSecAttrAccessGroup, CFSTR("com.apple.sbd"),

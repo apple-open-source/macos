@@ -36,11 +36,13 @@
 #define DIFF_PATH				"/usr/bin/diff"
 
 // Test routine helpers.
+bool verify_times(const char *timename, struct timespec *expected, struct timespec *actual);
 bool verify_path_missing_xattr(const char *path, const char *xattr_name);
 bool verify_path_xattr_content(const char *path, const char *xattr_name, const char *expected,
 							   size_t size);
 bool verify_fd_xattr_contents(int orig_fd, int copy_fd);
 bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect);
+bool verify_st_ids_and_mode(struct stat *expected, struct stat *actual);
 bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length);
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length);
 bool verify_copy_contents(const char *orig_name, const char *copy_name);

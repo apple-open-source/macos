@@ -63,6 +63,7 @@ en{
         an{"Aragonese"}
         ang{"Old English"}
         anp{"Angika"}
+        apw{"Apache, Western"}
         ar{"Arabic"}
         ar_001{"Modern Standard Arabic"}
         arc{"Aramaic"}
@@ -405,6 +406,7 @@ en{
         mas{"Masai"}
         mde{"Maba"}
         mdf{"Moksha"}
+        mdh{"Maguindanaon"}
         mdr{"Mandar"}
         men{"Mende"}
         mer{"Meru"}
@@ -486,6 +488,8 @@ en{
         os{"Ossetic"}
         osa{"Osage"}
         ota{"Ottoman Turkish"}
+        otk{"Old Turkish"}
+        oui{"Old Uighur"}
         pa{"Punjabi"}
         pa_Arab{"Punjabi (Naskh)"}
         pag{"Pangasinan"}

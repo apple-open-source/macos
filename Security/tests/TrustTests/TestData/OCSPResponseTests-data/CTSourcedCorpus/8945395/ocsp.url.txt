@@ -1,0 +1,1 @@
+http://ocsp.startssl.com/sub/class3/code/ca

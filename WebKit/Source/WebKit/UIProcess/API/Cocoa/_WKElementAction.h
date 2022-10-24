@@ -27,14 +27,13 @@
 
 #if TARGET_OS_IPHONE
 
-#import <WebKit/WKBase.h>
 #import <WebKit/_WKActivatedElementInfo.h>
 
 @class UIAction;
 @class UIImage;
 
 typedef NSString *UIActionIdentifier;
-WK_EXPORT extern UIActionIdentifier const WKElementActionTypeToggleShowLinkPreviewsIdentifier;
+WK_EXTERN UIActionIdentifier const WKElementActionTypeToggleShowLinkPreviewsIdentifier;
 
 typedef void (^WKElementActionHandler)(_WKActivatedElementInfo *);
 typedef BOOL (^WKElementActionDismissalHandler)(void);
@@ -56,6 +55,7 @@ typedef NS_ENUM(NSInteger, _WKElementActionType) {
     _WKElementActionToggleShowLinkPreviews WK_API_AVAILABLE(macos(10.15), ios(13.0)),
     _WKElementActionTypeImageExtraction WK_API_AVAILABLE(ios(15.0)),
     _WKElementActionTypeRevealImage WK_API_AVAILABLE(ios(15.0)),
+    _WKElementActionTypeCopyCroppedImage WK_API_AVAILABLE(ios(16.0)),
 } WK_API_AVAILABLE(macos(10.10), ios(8.0));
 
 WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))

@@ -254,7 +254,7 @@ find_host(char *hostname, int create)
 		nlen = htons(len);
 		rv = pwrite(status_fd, &nlen, sizeof(nlen), off);
 		if ((rv < 2) || (rv = fsync(status_fd))) {
-			log(LOG_ERR, "Unable to write extended status file record length: %d %s", rv, strerror(errno));
+			log(LOG_ERR, "Unable to write extended status file record length: %ld %s", rv, strerror(errno));
 		}
 		status_file_len = off + len;
 		map_file();
@@ -325,7 +325,7 @@ convert_version0_file(const char *filename0)
 	/* read header0 */
 	rv = read(fd0, &fh, sizeof(fh));
 	if (rv != sizeof(fh)) {
-		log(LOG_ERR, "can't read status file header: %d, %s", rv, strerror(errno));
+		log(LOG_ERR, "can't read status file header: %ld, %s", rv, strerror(errno));
 		goto fail;
 	}
 	if (fh.fh_version != 0) {
@@ -372,7 +372,7 @@ convert_version0_file(const char *filename0)
 	fh.fh_reccnt = htonl(fh.fh_reccnt);
 	rv = write(fd, &fh, sizeof(fh));
 	if (rv != sizeof(fh)) {
-		log(LOG_ERR, "can't write new status file header: %d %s", rv, strerror(errno));
+		log(LOG_ERR, "can't write new status file header: %ld %s", rv, strerror(errno));
 		goto fail;
 	}
 	/* copy/convert all records in use */
@@ -381,7 +381,7 @@ convert_version0_file(const char *filename0)
 		/* read each hostinfo0 */
 		rv = read(fd0, hi0p, sizeof(*hi0p));
 		if (rv != sizeof(*hi0p)) {
-			log(LOG_ERR, "can't read status file entry %d: %d %s", i, rv, strerror(errno));
+			log(LOG_ERR, "can't read status file entry %d: %ld %s", i, rv, strerror(errno));
 			goto fail;
 		}
 		/* write each hostinfo */
@@ -392,7 +392,7 @@ convert_version0_file(const char *filename0)
 		}
 		namelen = strnlen(hi0p->hostname, SM_MAXSTRLEN + 1);
 		if (namelen > SM_MAXSTRLEN) {
-			log(LOG_ERR, "status file entry %d, name too long: %d", i, namelen);
+			log(LOG_ERR, "status file entry %d, name too long: %ld", i, namelen);
 			goto fail;
 		}
 		strlcpy(hip->hi_name, hi0p->hostname, namelen + 1);
@@ -402,7 +402,7 @@ convert_version0_file(const char *filename0)
 		bzero(&hip->hi_name[namelen], RNDUP_NAMELEN(namelen) - namelen);
 		rv = write(fd, hip, len);
 		if (rv != len) {
-			log(LOG_ERR, "can't write new status file entry %d: %d %s", i, rv, strerror(errno));
+			log(LOG_ERR, "can't write new status file entry %d: %ld %s", i, rv, strerror(errno));
 			goto fail;
 		}
 		nhosts++;
@@ -412,7 +412,7 @@ convert_version0_file(const char *filename0)
 	fh.fh_reccnt = htonl(nhosts);
 	rv = pwrite(fd, &fh, sizeof(fh), 0);
 	if ((rv != sizeof(fh)) || (rv = fsync(status_fd))) {
-		log(LOG_ERR, "can't update new status file header: %d %s", rv, strerror(errno));
+		log(LOG_ERR, "can't update new status file header: %ld %s", rv, strerror(errno));
 		goto fail;
 	}
 	free(hip);
@@ -421,7 +421,7 @@ convert_version0_file(const char *filename0)
 	close(fd0);
 	rv = rename(filename, filename0);
 	if (rv < 0) {
-		log(LOG_ERR, "can't rename new status file into place: %d %s", rv, strerror(errno));
+		log(LOG_ERR, "can't rename new status file into place: %ld %s", rv, strerror(errno));
 	}
 	free(filename);
 	return (int) rv;
@@ -512,7 +512,7 @@ reopen:
 	rv = read(status_fd, &fh, sizeof(fh));
 	if (rv != sizeof(fh)) {
 		if (rv < 0) {
-			log(LOG_ERR, "can't read status file header: %d, %s", rv, strerror(errno));
+			log(LOG_ERR, "can't read status file header: %ld, %s", rv, strerror(errno));
 			exit(1);
 		}
 		/* note: we may have just created an empty file above */
@@ -542,7 +542,7 @@ reopen:
 		fh.fh_version = htonl(STATUS_DB_VERSION_CONVERTED);
 		rv = pwrite(status_fd, &fh, sizeof(fh), 0);
 		if ((rv != sizeof(fh)) || (rv = fsync(status_fd))) {
-			log(LOG_ERR, "failed to update old status file header version: %d, %s", rv, strerror(errno));
+			log(LOG_ERR, "failed to update old status file header version: %ld, %s", rv, strerror(errno));
 		}
 		close(status_fd);
 		goto reopen;
@@ -563,7 +563,7 @@ reopen:
 	for (i = 0; i < ntohl(fh.fh_reccnt); i++) {
 		rv = pread(status_fd, hip, sizeof(*hip), off);
 		if (rv != sizeof(*hip)) {
-			log(LOG_ERR, "error reading status file host info entry # %d, %d %s", i, rv, strerror(errno));
+			log(LOG_ERR, "error reading status file host info entry # %d, %ld %s", i, rv, strerror(errno));
 			break;
 		}
 		hip->hi_len = ntohs(hip->hi_len);
@@ -586,7 +586,7 @@ reopen:
 			len = RNDUP_NAMELEN(hip->hi_namelen) - NAMEINCR;
 			rv = pread(status_fd, &hip->hi_name[NAMEINCR], len, off + sizeof(*hip));
 			if (rv != len) {
-				log(LOG_ERR, "error reading status file host info entry # %d name, %d %s", i, rv, strerror(errno));
+				log(LOG_ERR, "error reading status file host info entry # %d name, %ld %s", i, rv, strerror(errno));
 				break;
 			}
 		}
@@ -601,7 +601,7 @@ reopen:
 			hip->hi_len = htons(hip->hi_len);
 			rv = pwrite(status_fd, hip, sizeof(*hip), off);
 			if ((rv != sizeof(*hip)) || (rv = fsync(status_fd))) {
-				log(LOG_ERR, "error updating status file host info entry # %d, %d %s", i, rv, strerror(errno));
+				log(LOG_ERR, "error updating status file host info entry # %d, %ld %s", i, rv, strerror(errno));
 				break;
 			}
 			hip->hi_len = ntohs(hip->hi_len);
@@ -653,7 +653,7 @@ newfile:
 		}
 		rv = pwrite(status_fd, &fh, sizeof(fh), 0);
 		if ((rv < 0) || (rv = fsync(status_fd))) {
-			log(LOG_ERR, "unable to initialize status file header (%d), aborting", rv);
+			log(LOG_ERR, "unable to initialize status file header (%ld), aborting", rv);
 			exit(1);
 		}
 	}

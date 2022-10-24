@@ -1,5 +1,6 @@
 #if OCTAGON
 import Foundation
+import Security
 
 extension SignedPeerStableInfo {
     func stableInfo() -> TPPeerStableInfo {
@@ -32,24 +33,11 @@ extension EstablishRequest {
 
 extension OctagonTestsBase {
     func simulateRestart(context: OTCuttlefishContext) -> OTCuttlefishContext {
-        self.manager.removeContext(forContainerName: context.containerName, contextID: context.contextID)
-
-        if context.contextID == OTDefaultContext {
-            self.restartCKKSViews()
-        }
-
         self.tphClient.containerMap.removeContainer(name: ContainerName(container: context.containerName, context: context.contextID))
 
-        let newContext = self.manager.context(forContainerName: context.containerName,
-                                              contextID: context.contextID,
-                                              sosAdapter: context.sosAdapter,
-                                              authKitAdapter: context.authKitAdapter,
-                                              tooManyPeersAdapter: context.tooManyPeersAdapter,
-                                              lockStateTracker: context.lockStateTracker,
-                                              accountStateTracker: context.accountStateTracker,
-                                              deviceInformationAdapter: context.deviceAdapter)
-
+        let newContext = try! XCTUnwrap(self.manager.restartCKKSAccountSyncWithoutSettingPolicy(for: context))
         if context.contextID == OTDefaultContext {
+            self.defaultCKKS = try! XCTUnwrap(newContext.ckks)
             XCTAssertNil(self.defaultCKKS.syncingPolicy, "CKKS should not have a policy after 'restart'")
         }
 
@@ -61,10 +49,16 @@ extension OctagonTestsBase {
     func otconfigurationContextFor(context: OTCuttlefishContext) throws -> OTConfigurationContext {
         let otcliqueContext = OTConfigurationContext()
         otcliqueContext.context = context.contextID
-        otcliqueContext.altDSID = try context.authKitAdapter.primaryiCloudAccountAltDSID()
+        otcliqueContext.altDSID = context.activeAccount?.altDSID
         otcliqueContext.otControl = self.otControl
 
         return otcliqueContext
+    }
+
+    func otcontrolArgumentsFor(context: OTCuttlefishContext) -> OTControlArguments {
+        return OTControlArguments(containerName: context.containerName,
+                                  contextID: context.contextID,
+                                  altDSID: context.activeAccount?.altDSID)
     }
 
     func cliqueFor(context: OTCuttlefishContext) -> OTClique {

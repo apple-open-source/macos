@@ -566,7 +566,7 @@ void SWIG_getoptions(int argc, char *argv[]) {
 	  outfile_name = Swig_copy_string(argv[i + 1]);
 	  if (!outfile_name_h || !dependencies_file) {
 	    char *ext = strrchr(outfile_name, '.');
-	    String *basename = ext ? NewStringWithSize(outfile_name, ext - outfile_name) : NewString(outfile_name);
+	    String *basename = ext ? NewStringWithSize(outfile_name, (int) (ext - outfile_name)) : NewString(outfile_name);
 	    if (!dependencies_file) {
 	      dependencies_file = NewStringf("%s.%s", basename, depends_extension);
 	    }
@@ -844,7 +844,7 @@ int SWIG_main(int argc, char *argv[], Language *l) {
   String *vers = NewString("SWIG_VERSION 0x");
   int count = 0;
   while (token) {
-    int len = strlen(token);
+    size_t len = strlen(token);
     assert(len == 1 || len == 2);
     Printf(vers, "%s%s", (len == 1) ? "0" : "", token);
     token = strtok(NULL, ".");

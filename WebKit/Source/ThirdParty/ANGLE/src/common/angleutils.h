@@ -59,7 +59,7 @@ class NonCopyable
     ~NonCopyable()          = default;
 
   private:
-    NonCopyable(const NonCopyable &) = delete;
+    NonCopyable(const NonCopyable &)    = delete;
     void operator=(const NonCopyable &) = delete;
 };
 
@@ -98,7 +98,7 @@ struct PerfMonitorCounter
     ~PerfMonitorCounter();
 
     std::string name;
-    uint32_t value;
+    uint64_t value;
 };
 using PerfMonitorCounters = std::vector<PerfMonitorCounter>;
 
@@ -127,47 +127,68 @@ struct PerfMonitorTriplet
 {
     uint32_t group;
     uint32_t counter;
-    uint32_t value;
+    uint64_t value;
 };
 
-#define ANGLE_VK_PERF_COUNTERS_X(FN)              \
-    FN(primaryBuffers)                            \
-    FN(renderPasses)                              \
-    FN(submittedFrames)                           \
-    FN(writeDescriptorSets)                       \
-    FN(flushedOutsideRenderPassCommandBuffers)    \
-    FN(resolveImageCommands)                      \
-    FN(depthClears)                               \
-    FN(depthLoads)                                \
-    FN(depthStores)                               \
-    FN(stencilClears)                             \
-    FN(stencilLoads)                              \
-    FN(stencilStores)                             \
-    FN(colorAttachmentUnresolves)                 \
-    FN(depthAttachmentUnresolves)                 \
-    FN(stencilAttachmentUnresolves)               \
-    FN(colorAttachmentResolves)                   \
-    FN(depthAttachmentResolves)                   \
-    FN(stencilAttachmentResolves)                 \
-    FN(readOnlyDepthStencilRenderPasses)          \
-    FN(descriptorSetAllocations)                  \
-    FN(descriptorSetCacheTotalSize)               \
-    FN(descriptorSetCacheKeySizeBytes)            \
-    FN(uniformsAndXfbDescriptorSetCacheHits)      \
-    FN(uniformsAndXfbDescriptorSetCacheMisses)    \
-    FN(uniformsAndXfbDescriptorSetCacheTotalSize) \
-    FN(textureDescriptorSetCacheHits)             \
-    FN(textureDescriptorSetCacheMisses)           \
-    FN(textureDescriptorSetCacheTotalSize)        \
-    FN(shaderBuffersDescriptorSetCacheHits)       \
-    FN(shaderBuffersDescriptorSetCacheMisses)     \
-    FN(shaderBuffersDescriptorSetCacheTotalSize)  \
-    FN(buffersGhosted)                            \
-    FN(vertexArraySyncStateCalls)                 \
-    FN(allocateNewBufferBlockCalls)               \
-    FN(dynamicBufferAllocations)
+#define ANGLE_VK_PERF_COUNTERS_X(FN)               \
+    FN(commandQueueSubmitCallsTotal)               \
+    FN(commandQueueSubmitCallsPerFrame)            \
+    FN(vkQueueSubmitCallsTotal)                    \
+    FN(vkQueueSubmitCallsPerFrame)                 \
+    FN(renderPasses)                               \
+    FN(writeDescriptorSets)                        \
+    FN(flushedOutsideRenderPassCommandBuffers)     \
+    FN(swapchainResolveInSubpass)                  \
+    FN(swapchainResolveOutsideSubpass)             \
+    FN(resolveImageCommands)                       \
+    FN(colorLoadOpClears)                          \
+    FN(colorLoadOpLoads)                           \
+    FN(colorLoadOpNones)                           \
+    FN(colorStoreOpStores)                         \
+    FN(colorStoreOpNones)                          \
+    FN(colorClearAttachments)                      \
+    FN(depthLoadOpClears)                          \
+    FN(depthLoadOpLoads)                           \
+    FN(depthLoadOpNones)                           \
+    FN(depthStoreOpStores)                         \
+    FN(depthStoreOpNones)                          \
+    FN(depthClearAttachments)                      \
+    FN(stencilLoadOpClears)                        \
+    FN(stencilLoadOpLoads)                         \
+    FN(stencilLoadOpNones)                         \
+    FN(stencilStoreOpStores)                       \
+    FN(stencilStoreOpNones)                        \
+    FN(stencilClearAttachments)                    \
+    FN(colorAttachmentUnresolves)                  \
+    FN(depthAttachmentUnresolves)                  \
+    FN(stencilAttachmentUnresolves)                \
+    FN(colorAttachmentResolves)                    \
+    FN(depthAttachmentResolves)                    \
+    FN(stencilAttachmentResolves)                  \
+    FN(readOnlyDepthStencilRenderPasses)           \
+    FN(pipelineCreationCacheHits)                  \
+    FN(pipelineCreationCacheMisses)                \
+    FN(pipelineCreationTotalCacheHitsDurationNs)   \
+    FN(pipelineCreationTotalCacheMissesDurationNs) \
+    FN(descriptorSetAllocations)                   \
+    FN(descriptorSetCacheTotalSize)                \
+    FN(descriptorSetCacheKeySizeBytes)             \
+    FN(uniformsAndXfbDescriptorSetCacheHits)       \
+    FN(uniformsAndXfbDescriptorSetCacheMisses)     \
+    FN(uniformsAndXfbDescriptorSetCacheTotalSize)  \
+    FN(textureDescriptorSetCacheHits)              \
+    FN(textureDescriptorSetCacheMisses)            \
+    FN(textureDescriptorSetCacheTotalSize)         \
+    FN(shaderResourcesDescriptorSetCacheHits)      \
+    FN(shaderResourcesDescriptorSetCacheMisses)    \
+    FN(shaderResourcesDescriptorSetCacheTotalSize) \
+    FN(buffersGhosted)                             \
+    FN(vertexArraySyncStateCalls)                  \
+    FN(allocateNewBufferBlockCalls)                \
+    FN(dynamicBufferAllocations)                   \
+    FN(framebufferCacheSize)
 
-#define ANGLE_DECLARE_PERF_COUNTER(COUNTER) uint32_t COUNTER;
+#define ANGLE_DECLARE_PERF_COUNTER(COUNTER) uint64_t COUNTER;
 
 struct VulkanPerfCounters
 {
@@ -449,6 +470,19 @@ class ConditionalMutex final : angle::NonCopyable
 #    define ANGLE_SCOPED_DISABLE_LSAN()
 #endif
 
+#if defined(ANGLE_WITH_MSAN)
+class MsanScopedDisableInterceptorChecks final : angle::NonCopyable
+{
+  public:
+    MsanScopedDisableInterceptorChecks() { __msan_scoped_disable_interceptor_checks(); }
+    ~MsanScopedDisableInterceptorChecks() { __msan_scoped_enable_interceptor_checks(); }
+};
+#    define ANGLE_SCOPED_DISABLE_MSAN() \
+        MsanScopedDisableInterceptorChecks msanScopedDisableInterceptorChecks
+#else
+#    define ANGLE_SCOPED_DISABLE_MSAN()
+#endif
+
 // The ANGLE_NO_SANITIZE_MEMORY macro suppresses MemorySanitizer checks for
 // use-of-uninitialized-data. It can be used to decorate functions with known
 // false positives.
@@ -521,34 +555,11 @@ size_t FormatStringIntoVector(const char *fmt, va_list vararg, std::vector<char>
 #    define ANGLE_MACRO_STRINGIFY(x) ANGLE_STRINGIFY(x)
 #endif
 
-// Detect support for C++17 [[nodiscard]]
-#if !defined(__has_cpp_attribute)
-#    define __has_cpp_attribute(name) 0
-#endif  // !defined(__has_cpp_attribute)
-
-#if __has_cpp_attribute(nodiscard)
-#    define ANGLE_NO_DISCARD [[nodiscard]]
-#else
-#    define ANGLE_NO_DISCARD
-#endif  // __has_cpp_attribute(nodiscard)
-
-#if __has_cpp_attribute(maybe_unused)
-#    define ANGLE_MAYBE_UNUSED [[maybe_unused]]
-#else
-#    define ANGLE_MAYBE_UNUSED
-#endif  // __has_cpp_attribute(maybe_unused)
-
-#if __has_cpp_attribute(require_constant_initialization)
-#    define ANGLE_REQUIRE_CONSTANT_INIT [[require_constant_initialization]]
+#if __has_cpp_attribute(clang::require_constant_initialization)
+#    define ANGLE_REQUIRE_CONSTANT_INIT [[clang::require_constant_initialization]]
 #else
 #    define ANGLE_REQUIRE_CONSTANT_INIT
 #endif  // __has_cpp_attribute(require_constant_initialization)
-
-#if __has_cpp_attribute(clang::fallthrough)
-#    define ANGLE_FALLTHROUGH [[clang::fallthrough]]
-#else
-#    define ANGLE_FALLTHROUGH
-#endif
 
 // Compiler configs.
 inline bool IsASan()

@@ -39,6 +39,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 #if OS(WINDOWS)
 #include "WebCoreBundleWin.h"
@@ -82,6 +83,7 @@ constexpr const char* EnvironmentVariableReader::sscanTemplate<unsigned>() { ret
 static const ASCIILiteral httpVersion10 { "http/1.0"_s };
 static const ASCIILiteral httpVersion11 { "http/1.1"_s };
 static const ASCIILiteral httpVersion2 { "h2"_s };
+static const ASCIILiteral httpVersion3 { "h3"_s };
 
 // CurlContext -------------------------------------------------------------------
 
@@ -320,7 +322,7 @@ CurlHandle::~CurlHandle()
 
 const String CurlHandle::errorDescription(CURLcode errorCode)
 {
-    return String(curl_easy_strerror(errorCode));
+    return String::fromLatin1(curl_easy_strerror(errorCode));
 }
 
 void CurlHandle::enableSSLForHost(const String& host)
@@ -415,7 +417,7 @@ void CurlHandle::setUrl(const URL& url)
     // url is in ASCII so latin1() will only convert it to char* without character translation.
     curl_easy_setopt(m_handle, CURLOPT_URL, curlUrl.string().latin1().data());
 
-    if (url.protocolIs("https"))
+    if (url.protocolIs("https"_s))
         enableSSLForHost(m_url.host().toString());
 }
 
@@ -429,26 +431,23 @@ void CurlHandle::appendRequestHeaders(const HTTPHeaderMap& headers)
 
 void CurlHandle::appendRequestHeader(const String& name, const String& value)
 {
-    String header(name);
+    String header;
 
     if (value.isEmpty()) {
         // Insert the ; to tell curl that this header has an empty value.
-        header.append(";");
+        header = makeString(name, ';');
     } else {
-        header.append(": ");
-        header.append(value);
+        header = makeString(name, ": ", value);
     }
 
-    appendRequestHeader(header);
+    appendRequestHeader(WTFMove(header));
 }
 
 void CurlHandle::removeRequestHeader(const String& name)
 {
     // Add a header with no content, the internally used header will get disabled. 
-    String header(name);
-    header.append(":");
-
-    appendRequestHeader(header);
+    auto header = makeString(name, ':');
+    appendRequestHeader(WTFMove(header));
 }
 
 void CurlHandle::appendRequestHeader(const String& header)
@@ -472,7 +471,7 @@ void CurlHandle::enableRequestHeaders()
 
 void CurlHandle::enableHttp()
 {
-    if (m_url.protocolIs("https") && CurlContext::singleton().isHttp2Enabled()) {
+    if (m_url.protocolIs("https"_s) && CurlContext::singleton().isHttp2Enabled()) {
         curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
         curl_easy_setopt(m_handle, CURLOPT_PIPEWAIT, 1L);
         curl_easy_setopt(m_handle, CURLOPT_SSL_ENABLE_ALPN, 1L);
@@ -840,6 +839,8 @@ std::optional<NetworkLoadMetrics> CurlHandle::getNetworkLoadMetrics(MonotonicTim
         networkLoadMetrics.protocol = httpVersion11;
     else if (version == CURL_HTTP_VERSION_2)
         networkLoadMetrics.protocol = httpVersion2;
+    else if (version == CURL_HTTP_VERSION_3)
+        networkLoadMetrics.protocol = httpVersion3;
 
     return networkLoadMetrics;
 }
@@ -893,11 +894,8 @@ void CurlHandle::addExtraNetworkLoadMetrics(NetworkLoadMetrics& networkLoadMetri
     additionalMetrics->requestBodyBytesSent = requestBodySize;
     additionalMetrics->responseHeaderBytesReceived = responseHeaderSize;
 
-    if (ip) {
-        additionalMetrics->remoteAddress = String(ip);
-        if (port)
-            additionalMetrics->remoteAddress.append(":" + String::number(port));
-    }
+    if (ip)
+        additionalMetrics->remoteAddress = port ? makeString(ip, ':', port) : String::fromLatin1(ip);
 
     if (m_tlsConnectionInfo) {
         additionalMetrics->tlsProtocol = m_tlsConnectionInfo->protocol;

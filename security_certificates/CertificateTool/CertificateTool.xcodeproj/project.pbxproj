@@ -79,7 +79,6 @@
 		72C8BAB916C58FEE00A65BAD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8501704E1B322EBF00327208 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Allowed.plist; sourceTree = "<group>"; };
 		BE06D73A1A93FCE0008535D4 /* TrustStore.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = TrustStore.html; sourceTree = "<group>"; };
-		BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleBaselineEscrowCertificates.h; sourceTree = "<group>"; };
 		BE43DA4F1A71D140000A4297 /* AppleESCertificates.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = AppleESCertificates.plist; sourceTree = "<group>"; };
 		BE43DA501A71D140000A4297 /* AssetVersion.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = AssetVersion.plist; sourceTree = "<group>"; };
 		BE43DA511A71D140000A4297 /* Blocked.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Blocked.plist; sourceTree = "<group>"; };
@@ -193,7 +192,6 @@
 				72C8759D16B1E4D2003ECF12 /* PSCertData.m */,
 				727A591117345AC100C8C901 /* DataConversion.h */,
 				727A591217345ADF00C8C901 /* DataConversion.m */,
-				BE0875B819871FC000357E99 /* AppleBaselineEscrowCertificates.h */,
 			);
 			name = Source;
 			sourceTree = "<group>";

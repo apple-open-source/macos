@@ -3504,11 +3504,11 @@ test_summarize(int failed, int skips_num)
 
 	switch (verbosity) {
 	case VERBOSITY_SUMMARY_ONLY:
-		printf(failed ? "E" : ".");
+		printf(failed ? "[FAIL] E" : "[PASS] .");
 		fflush(stdout);
 		break;
 	case VERBOSITY_PASSFAIL:
-		printf(failed ? "FAIL\n" : skips_num ? "ok (S)\n" : "ok\n");
+		printf(failed ? "[FAIL] \n" : skips_num ? "[PASS] ok (S)\n" : "[PASS] ok\n");
 		break;
 	}
 
@@ -3544,11 +3544,11 @@ test_run(int i, const char *tmpdir)
 	case VERBOSITY_SUMMARY_ONLY: /* No per-test reports at all */
 		break;
 	case VERBOSITY_PASSFAIL: /* rest of line will include ok/FAIL marker */
-		printf("%3d: %-64s", i, tests[i].name);
+		printf("[BEGIN] %-64s\n", tests[i].name);
 		fflush(stdout);
 		break;
 	default: /* Title of test, details will follow */
-		printf("%3d: %s\n", i, tests[i].name);
+		printf("[BEGIN] %s\n", tests[i].name);
 	}
 
 	/* Chdir to the top-level work directory. */
@@ -3645,6 +3645,7 @@ usage(const char *program)
 	printf("Otherwise, specify the numbers of the tests you wish to run.\n");
 	printf("Options:\n");
 	printf("  -d  Dump core after any failure, for debugging.\n");
+    printf("  -i  Run single test cases using test indexes.\n");
 	printf("  -k  Keep all temp files.\n");
 	printf("      Default: temp files for successful tests deleted.\n");
 #ifdef PROGRAM
@@ -3699,7 +3700,7 @@ get_refdir(const char *d)
 	}
 
 	/* Get the current dir. */
-#ifdef PATH_MAX
+#if defined(PATH_MAX) && !defined(__GLIBC__)
 	pwd = getcwd(NULL, PATH_MAX);/* Solaris getcwd needs the size. */
 #else
 	pwd = getcwd(NULL, 0);
@@ -3779,6 +3780,7 @@ main(int argc, char **argv)
 	int test_set[sizeof(tests) / sizeof(tests[0])];
 	int i = 0, j = 0, tests_run = 0, tests_failed = 0, option;
 	time_t now;
+    int test_index = -1;
 	char *refdir_alloc = NULL;
 	const char *progname;
 	char **saved_argv;
@@ -3794,7 +3796,7 @@ main(int argc, char **argv)
 	(void)argc; /* UNUSED */
 
 	/* Get the current dir. */
-#ifdef PATH_MAX
+#if defined(PATH_MAX) && !defined(__GLIBC__)
 	pwd = getcwd(NULL, PATH_MAX);/* Solaris getcwd needs the size. */
 #else
 	pwd = getcwd(NULL, 0);
@@ -3904,7 +3906,7 @@ main(int argc, char **argv)
 			option = *p++;
 			option_arg = NULL;
 			/* If 'opt' takes an argument, parse that. */
-			if (option == 'p' || option == 'r') {
+			if (option == 'p' || option == 'r' || option == 'i') {
 				if (*p != '\0')
 					option_arg = p;
 				else if (*argv == NULL) {
@@ -3922,6 +3924,9 @@ main(int argc, char **argv)
 			case 'd':
 				dump_on_failure = 1;
 				break;
+            case 'i':
+                test_index = atoi(option_arg);
+                break;
 			case 'k':
 				keep_temp_files = 1;
 				break;
@@ -4049,9 +4054,9 @@ main(int argc, char **argv)
 	if (verbosity > VERBOSITY_SUMMARY_ONLY) {
 		printf("Reference files will be read from: %s\n", refdir);
 #ifdef PROGRAM
-		printf("Running tests on: %s\n", testprog);
+		printf("[TEST]: %s\n", testprog);
 #endif
-		printf("Exercising: ");
+		printf("[TEST]: ");
 		fflush(stdout);
 		printf("%s\n", EXTRA_VERSION);
 	} else {
@@ -4062,32 +4067,40 @@ main(int argc, char **argv)
 	/*
 	 * Run some or all of the individual tests.
 	 */
-	saved_argv = argv;
-	do {
-		argv = saved_argv;
-		do {
-			int test_num;
+    int test_num;
 
-			test_num = get_test_set(test_set, limit, *argv, tests);
-			if (test_num < 0) {
-				printf("*** INVALID Test %s\n", *argv);
-				free(refdir_alloc);
-				free(testprogdir);
-				usage(progname);
-				return (1);
-			}
-			for (i = 0; i < test_num; i++) {
-				tests_run++;
-				if (test_run(test_set[i], tmpdir)) {
-					tests_failed++;
-					if (until_failure)
-						goto finish;
-				}
-			}
-			if (*argv != NULL)
-				argv++;
-		} while (*argv != NULL);
-	} while (until_failure);
+    test_num = get_test_set(test_set, limit, *argv, tests);
+    if (test_num < 0) {
+        printf("*** INVALID Test %s\n", *argv);
+        free(refdir_alloc);
+        free(testprogdir);
+        usage(progname);
+        return (1);
+    }
+    if (test_index >= 0 && test_index < test_num){
+        if(test_run(test_set[test_index], tmpdir)){
+            tests_failed++;
+        };
+        goto finish;
+    }else{
+        saved_argv = argv;
+        do {
+            argv = saved_argv;
+            do {
+                for (i = 0; i < test_num; i++) {
+                    tests_run++;
+                    if (test_run(test_set[i], tmpdir)) {
+                        tests_failed++;
+                        if (until_failure)
+                            goto finish;
+                    }
+                }
+                if (*argv != NULL)
+                    argv++;
+            } while (*argv != NULL);
+        } while (until_failure);
+    }
+
 
 finish:
 	/* Must be freed after all tests run */
@@ -4098,6 +4111,7 @@ finish:
 	/*
 	 * Report summary statistics.
 	 */
+    printf("[SUMMARY]");
 	if (verbosity > VERBOSITY_SUMMARY_ONLY) {
 		printf("\n");
 		printf("Totals:\n");

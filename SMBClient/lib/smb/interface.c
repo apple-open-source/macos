@@ -24,6 +24,7 @@
 #include <uuid/uuid.h>
 
 #include <PrivateHeaders/net/if_var.h>
+#include <PrivateHeaders/net/if.h>
 #include <PrivateHeaders/sys/sockio.h>
 
 #include <sys/ioctl.h>
@@ -36,8 +37,6 @@
 
 #include <ifaddrs.h>
 #include <spawn.h>
-#include <net/if_media.h>
-#include <net/if.h>
 #include <netsmb/smb_2.h>
 #include <netsmb/smb_dev_2.h>
 
@@ -167,25 +166,6 @@ static struct smb_ifmedia_desc ifm_subtype_ethernet_descriptions[] = {  \
     { IFM_400G_AUI8_AC,         400000000000 },                         \
     { IFM_400G_AUI8,            400000000000 },                         \
     { 0, -1 },                                                        \
-};
-
-/*
- * copy of if_linkparamsreq struct, taken from <PrivateHeaders/net/if.h>
- * should be removed when fixing <73040745>
- */
-struct if_linkparamsreq {
-    char            iflpr_name[IFNAMSIZ];   /* interface name */
-    u_int32_t       iflpr_flags;
-    u_int32_t       iflpr_output_sched;
-    u_int64_t       iflpr_output_tbr_rate;
-    u_int32_t       iflpr_output_tbr_percent;
-    u_int64_t       iflpr_input_tbr_rate;
-    struct if_bandwidths iflpr_output_bw;
-    struct if_bandwidths iflpr_input_bw;
-    struct if_latencies iflpr_output_lt;
-    struct if_latencies iflpr_input_lt;
-    struct if_netem_params iflpr_input_netem;
-    struct if_netem_params iflpr_output_netem;
 };
 
 /*

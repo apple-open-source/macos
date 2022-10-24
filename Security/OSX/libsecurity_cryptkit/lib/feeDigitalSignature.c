@@ -76,7 +76,7 @@ typedef struct {
 					//  when signing
 } sigInst;
 
-static sigInst *sinstAlloc()
+static sigInst *sinstAlloc(void)
 {
 	sigInst *sinst = (sigInst*) fmalloc(sizeof(sigInst));
 

@@ -231,7 +231,11 @@ int smb_netshareenum(SMBHANDLE inConnection, CFDictionaryRef *outDict,
 	u_int16_t shareType;
 	struct statfs *fs = NULL;
 	int fs_cnt = 0;
-	
+    CFStringRef serverNameRef = NULL;
+    CFRange foundBonjourName;
+    CFRange foundEscapedPeriods;
+    CFMutableStringRef newServerNameRef = NULL;
+
 	fs = smb_getfsstat(&fs_cnt);
 
 	shareDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
@@ -254,7 +258,43 @@ int smb_netshareenum(SMBHANDLE inConnection, CFDictionaryRef *outDict,
 		PSHARE_ENUM_STRUCT InfoStruct = NULL;
 		NET_API_STATUS api_status;
 		
-		/* Try getting a list of shares with the SRVSVC RPC service. */
+        /* Make a CFStringRef of the server name so we can inspect it */
+        serverNameRef = CFStringCreateWithCString(NULL, properties.serverName,
+                                                  kCFStringEncodingUTF8);
+        if (serverNameRef) {
+            /* Check to see if its a Bonjour server name */
+            foundBonjourName = CFStringFind (serverNameRef, CFSTR("._smb._tcp.local"), 0);
+            if (foundBonjourName.location != kCFNotFound) {
+                /*
+                 * <38807912> If its a Bonjour name, then any "." has been
+                 * escaped with "\134.". Need to replace that with "%5c%2e"
+                 * because DCERPC will strip any "\134."
+                 *
+                 * Later we reverse this and put the "\134." back in.
+                 */
+                foundEscapedPeriods = CFStringFind (serverNameRef, CFSTR("\134."), 0);
+                if (foundEscapedPeriods.location != kCFNotFound) {
+                    newServerNameRef = CFStringCreateMutableCopy(NULL, 0, serverNameRef);
+                    if (newServerNameRef) {
+                        /* Replace "\134." with "%5c%2e" */
+                        CFStringFindAndReplace(newServerNameRef, CFSTR("\134."), CFSTR("%5c%2e"),
+                                               CFRangeMake(0, CFStringGetLength(newServerNameRef)),
+                                               kCFCompareCaseInsensitive);
+                        
+                        /* Put new escaped server name into properties */
+                        CFStringGetCString(newServerNameRef, properties.serverName,
+                                           sizeof(properties.serverName),
+                                           kCFStringEncodingUTF8);
+
+                        CFRelease(newServerNameRef);
+                   }
+                }
+            }
+
+            CFRelease(serverNameRef);
+        }
+
+        /* Try getting a list of shares with the SRVSVC RPC service. */
 		api_status = NetShareEnum(properties.serverName, 1, &InfoStruct);
 		if (api_status == 0) {
 			for (ii = 0; ii < InfoStruct->ShareInfo.Level1->EntriesRead; ii++) {

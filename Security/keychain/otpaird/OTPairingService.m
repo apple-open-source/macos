@@ -458,7 +458,7 @@
     if (ctl != nil) {
         OTOperationConfiguration *config = [OTOperationConfiguration new];
         config.useCachedAccountStatus = true;
-        [ctl fetchCliqueStatus:nil context:OTDefaultContext configuration:config reply:^(CliqueStatus cliqueStatus, NSError * _Nullable error) {
+        [ctl fetchCliqueStatus:[[OTControlArguments alloc] init] configuration:config reply:^(CliqueStatus cliqueStatus, NSError * _Nullable error) {
             result = (cliqueStatus == CliqueStatusIn);
         }];
     } else {

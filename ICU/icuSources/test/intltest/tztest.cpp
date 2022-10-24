@@ -2314,6 +2314,12 @@ static struct   {
       {"America/Whitehorse",  "en", FALSE, TimeZone::LONG,  "Yukon Standard Time"},
       {"America/Whitehorse",  "fr", FALSE, TimeZone::SHORT, "YST"},
       {"America/Whitehorse",  "fr", FALSE, TimeZone::LONG,  "heure normale de Yukon"},
+     
+     // Apple rdar://95729967
+     {"Australia/Sydney",     "kk", FALSE, TimeZone::LONG,  "Аустралия стандартты шығыс уақыты"},
+     {"Australia/Sydney",     "kk", TRUE,  TimeZone::LONG,  "Аустралия жазғы шығыс уақыты"},
+     {"Australia/Perth",      "kk", FALSE, TimeZone::LONG,  "Аустралия стандартты батыс уақыты"},
+     {"Australia/Perth",      "kk", TRUE,  TimeZone::LONG,  "Аустралия жазғы батыс уақыты"},
 
       {NULL, NULL, FALSE, TimeZone::SHORT, NULL}   // NULL values terminate list
     };

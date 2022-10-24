@@ -1,0 +1,232 @@
+#!/usr/local/bin/python3
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+
+parser = argparse.ArgumentParser(description='Setup an account with a few peers, escrow records, and synced keychain items, for testing sign-in')
+parser.add_argument('appleidpassword', help='AppleID password')
+parser.add_argument('passcode', help='passcode or password of the local device')
+
+args = parser.parse_args()
+
+# same as reset_ick_account
+def set_security_mac_cmd():
+    return 'security2'
+
+def set_security_ios_cmd():
+    return 'security'
+
+def security_cmd_by_platform():
+    p = subprocess.run(["sw_vers", "-productName"], encoding='utf-8', capture_output=True, check=True)
+    deviceInformation = p.stdout
+    if "Mac OS X" in deviceInformation or "macOS" in deviceInformation:
+        print("using security2 command on macos")
+        return set_security_mac_cmd()
+    elif "iPhone OS" in deviceInformation:
+        print("using security command on ios")
+        return set_security_ios_cmd()
+    else:
+        print("unsupported platform")
+        sys.exit(1)
+
+def get_primary_appleid():
+    try:
+        output = subprocess.run(["accounts_tool","listAccounts","-v"], stdout=subprocess.PIPE, check=True).stdout
+    except:
+        print("Exception caught getting Primary AppleID! Exiting.")
+        print("Exception follows:")
+        raise
+
+    idx = output.find(b'accountClass = primary')
+    if idx == -1:
+        print("Couldn't find primary accountClass to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    idx = output.find(b'appleId = "', idx)
+    if idx == -1:
+        print("Couldn't find appleId to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    qStart = output.find(b'"',idx)
+    if qStart == -1:
+        print("Couldn't find start quote to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    if qStart+1 >= len(output):
+        print("Start quote at end while getting Primary AppleID! Exiting.")
+        sys.exit(1)
+    qEnd = output.find(b'"',qStart+1)
+    if qEnd == -1:
+        print("Couldn't find end quote to get Primary AppleID! Exiting.")
+        sys.exit(1)
+    idBytes = output[qStart+1:qEnd]
+    try:
+        return idBytes.decode()
+    except:
+        print("Couldn't decode Primary AppleID:", idBytes)
+        print("Exception follows:")
+        raise
+
+def get_escrow_record_id():
+    try:
+        output = json.loads(subprocess.run(["otctl", "--json", "fetchEscrowRecords"], stdout=subprocess.PIPE, check=True).stdout)["escrowRecords"]
+    except:
+        print("Exception caught fetching escrow records! Exiting.")
+        print("Exception follows:")
+        raise
+
+    if len(output) < 1:
+        print("No escrow records fetched:")
+        print(output)
+        sys.exit(1)
+    if len(output) > 1:
+        print("Found {} escrow records, using last one.".format(len(output)))
+    return output[len(output)-1]
+
+def run_and_check(params):
+    try:
+        result = subprocess.run(params, check=True)
+    except:
+        print("Exception caught:")
+        raise
+
+def get_otctl_status():
+    p = subprocess.run(["otctl", "status", "-j"], capture_output=True)
+    if p.returncode != 0:
+        print("getting otctl status failed: {}".format(p.returncode))
+        sys.exit(1)
+    try:
+        return json.loads(p.stdout)
+    except:
+        print("Couldn't decode otctl status json:")
+        print(p.stdout)
+        print("Exception follows:")
+        raise
+
+def get_escrow_requests():
+    return get_otctl_status()["escrowRequest"]
+
+def get_pending_passcode_escrow_request():
+    reqs = get_escrow_requests()
+    for i in reqs:
+        if reqs[i] == "pending_passcode":
+            return i
+    return None
+
+def recover_from_escrow_record(appleid, passcode, appleidpassword, suffix):
+    erid = get_escrow_record_id()
+
+    if suffix:
+        mid = "SignInTestMachineID-" + suffix
+    else:
+        mid = None
+
+    print("Unlocking device...")
+    run_and_check(["keystorectl", "unlock", passcode])
+
+    print("Supplying password to SOS...")
+    run_and_check([security_cmd,"sync","-P",appleidpassword])
+
+    print("Setting bypass on SOS Account...")
+    run_and_check([security_cmd,"sos-bypass","-s"])
+
+    if mid:
+        print("Setting machineID override...")
+        params = ["otctl","set-machine-id-override","-a",mid]
+        run_and_check(params)
+
+    print("Recovering from escrow record...")
+
+    params = ["otctl","recover-record","-i",erid,"--appleID",appleid,"--secret",passcode,"--overrideForAccountScript","YES", "--overrideEscrowCache","YES"]
+    
+    run_and_check(params)
+
+    print("Triggering escrow request")
+    run_and_check(["otctl","er-trigger"])
+
+    print("Waiting for escrow request...")
+    done = False
+    for x in range(15):
+        pending_request = get_pending_passcode_escrow_request()
+        if pending_request:
+            done = True
+            break
+        time.sleep(1)
+
+    if not done:
+        print("Error: Timeout: Escrow request was not created")
+        sys.exit(1)
+
+    print("Creating new escrow record...")
+    params = ["sbdtool", "passcode_request_provide_passcode"]
+    if passcode.isdecimal() and (len(passcode) == 4 or len(passcode) == 6):
+        params.append("--numeric")
+    params.append(passcode)
+    run_and_check(params)
+
+    print("Waiting for escrow prerecord...")
+    got_prerecord = False
+    done = False
+    for x in range(75):
+        reqs = get_escrow_requests()
+        if pending_request not in reqs:
+            print("Error: Previously created escrow request {} was not found!".format(pending_request))
+            print(reqs)
+            sys.exit(1)
+        if reqs[pending_request] == "complete":
+            done = True
+            break
+        if reqs[pending_request] == "have_prerecord" and not got_prerecord:
+            got_prerecord = True
+            print("Got escrow prerecord.")
+            print("Waiting for escrow record. Please be patient...")
+        time.sleep(1)
+
+    if not done:
+        print("Error: Timeout: Escrow record was not created")
+        print(pending_request, reqs[pending_request])
+        sys.exit(1)
+
+
+print("Fully unlocking device...")
+run_and_check(["profilectl", "unlock", args.passcode])
+
+print("Resetting escrow requests")
+run_and_check(["otctl", "er-reset"])
+
+print("Running reset_ick_account")
+run_and_check(["reset_ick_account", "--noprompt", args.appleidpassword, args.passcode])
+
+# Needed for unstuffing keychain
+security_cmd = security_cmd_by_platform()
+
+# Delete all the syncable keychain items created in a previous iteration
+print("Unstuffing keychain...")
+run_and_check([security_cmd,"stuff-keychain","-Y",args.passcode,"-c","1","-a","SignInTestingTempItemImmediatelyToBeDeleted-"])
+run_and_check([security_cmd,"stuff-keychain","-Y",args.passcode,"-D"])
+
+print("Flushing old TLKs...")
+run_and_check(["ckksctl", "reset-cloudkit"])
+
+appleid = get_primary_appleid()
+
+# Create peers, repeating with same suffix 9 times, so we'll end up with 1 trusted peer and 8 excluded
+# peers with the same mid.
+for i in range(9):
+    recover_from_escrow_record(appleid, args.passcode, args.appleidpassword, "0")
+
+# Now create 4 more trusted peers, each with a different suffix (& therefore MID), for a total of 6
+for i in range(1, 5):
+    recover_from_escrow_record(appleid, args.passcode, args.appleidpassword, str(i))
+
+# lastly, set the self peer back to a "normal" peer, which also excludes the original "normal" peer
+recover_from_escrow_record(appleid, args.passcode, args.appleidpassword, None)
+
+# now we should have 9 excluded peers and 6 trusted peers
+
+# lastly, create 664 syncable keychain items
+print("Stuffing keychain...")
+run_and_check([security_cmd,"stuff-keychain","-Y",args.passcode,"-c","664","-e","0","-a","SignInTesting-","-s"])
+
+print("Please wait ~10 minutes for CKKS to update the servers with the new records.")
+print("You can use `ckksctl status` to check.")

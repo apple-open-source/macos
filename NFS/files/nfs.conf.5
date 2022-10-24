@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2017 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2006-2022 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -48,6 +48,11 @@ A hash character '#' begins a comment that extends to the end of the line.
 Lines containing only whitespace or comments are ignored.
 The file format is intended to be easily read using functions like
 .Xr fparseln 3 .
+When a line is removed from
+.Nm
+file, the value remains to whatever it was set to when the line was added to
+.Nm
+file until the next reboot at which point it will be reset to default.
 .Pp	
 Values are typically integers.  For options that enable/disable
 functionality the value zero (0) indicates the option is off/disabled
@@ -158,6 +163,8 @@ No files are memory mapped.
 There are no dirty pages associated with the mount.
 .El
 The default for this option is to let the system detect this. A non-zero value for this option treats this machine as a laptop with respect to NFS behavior and allows automatic forcible unmounting of unresponsive volumes described above. Conversely, a zero value treats the machine as a desktop for traditional NFS behavior, where hard mounts never time out. Setting a zero value is useful for laptops that are being used as desktops.
+.It Cm nfs.client.uninterruptible_pagein
+Sets the behavior for nfs requests generated as a result of a page-in operation. If the value is set to 1, then nfs requests resulting from page-in operations will not pay attention to the relavant mount options. In particular, nfs requests generated for an interruptible mount will be sent in an uninterruptible manner. If the value is set to 0, then nfs requests are always done with accordance to relevant mount options. The default value is 0.
 .It Cm nfs.lockd.grace_period
 This option specifies the grace period (in seconds) during which lockd
 will only accept requests from hosts which are reclaiming locks which

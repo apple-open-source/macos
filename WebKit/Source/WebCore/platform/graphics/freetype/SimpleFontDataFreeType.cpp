@@ -175,7 +175,7 @@ void Font::platformInit()
     if (FcPatternGetString(m_platformData.fcPattern(), FC_FAMILY, 0, &fontConfigFamilyName) == FcResultMatch) {
         String familyName = String::fromUTF8(reinterpret_cast<char*>(fontConfigFamilyName));
         // Disable antialiasing for the Ahem font because many tests require this.
-        if (equalIgnoringASCIICase(familyName, "Ahem"))
+        if (equalIgnoringASCIICase(familyName, "Ahem"_s))
             m_allowsAntialiasing = false;
     }
 }
@@ -205,7 +205,7 @@ void Font::determinePitch()
     m_treatAsFixedPitch = m_platformData.isFixedPitch();
 }
 
-bool Font::variantCapsSupportsCharacterForSynthesis(FontVariantCaps fontVariantCaps, UChar32) const
+bool Font::variantCapsSupportedForSynthesis(FontVariantCaps fontVariantCaps) const
 {
     switch (fontVariantCaps) {
     case FontVariantCaps::Small:

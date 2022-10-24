@@ -48,18 +48,15 @@ class GraphicsContext;
 class Image;
 class ImageBuffer;
 class ImageData;
-class MediaSample;
 class MediaStream;
 class OffscreenCanvas;
+class VideoFrame;
 class WebGLRenderingContextBase;
 class GPUCanvasContext;
+class WebCoreOpaqueRoot;
 struct CanvasRenderingContext2DSettings;
 struct ImageBitmapRenderingContextSettings;
 struct UncachedString;
-
-namespace DisplayList {
-using AsTextFlags = unsigned;
-}
 
 class HTMLCanvasElement final : public HTMLElement, public CanvasBase, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(HTMLCanvasElement);
@@ -96,9 +93,9 @@ public:
 
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType, JSC::JSValue quality);
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType);
-    ExceptionOr<void> toBlob(ScriptExecutionContext&, Ref<BlobCallback>&&, const String& mimeType, JSC::JSValue quality);
+    ExceptionOr<void> toBlob(Ref<BlobCallback>&&, const String& mimeType, JSC::JSValue quality);
 #if ENABLE(OFFSCREEN_CANVAS)
-    ExceptionOr<Ref<OffscreenCanvas>> transferControlToOffscreen(ScriptExecutionContext&);
+    ExceptionOr<Ref<OffscreenCanvas>> transferControlToOffscreen();
 #endif
 
     // Used for rendering
@@ -107,8 +104,8 @@ public:
     void paint(GraphicsContext&, const LayoutRect&);
 
 #if ENABLE(MEDIA_STREAM)
-    RefPtr<MediaSample> toMediaSample();
-    ExceptionOr<Ref<MediaStream>> captureStream(Document&, std::optional<double>&& frameRequestRate);
+    RefPtr<VideoFrame> toVideoFrame();
+    ExceptionOr<Ref<MediaStream>> captureStream(std::optional<double>&& frameRequestRate);
 #endif
 
     Image* copiedImage() const final;
@@ -142,6 +139,7 @@ public:
 #if PLATFORM(COCOA)
     GraphicsContext* drawingContext() const final;
 #endif
+    WEBCORE_EXPORT void setAvoidIOSurfaceSizeCheckInWebProcessForTesting();
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document&);
@@ -156,6 +154,8 @@ private:
     void eventListenersDidChange() final;
 
     void parseAttribute(const QualifiedName&, const AtomString&) final;
+    bool hasPresentationalHintsForAttribute(const QualifiedName&) const final;
+    void collectPresentationalHintsForAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
     bool canContainRangeEndPoint() const final;
@@ -187,7 +187,8 @@ private:
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
 
     std::optional<bool> m_usesDisplayListDrawing;
-
+    
+    bool m_avoidBackendSizeCheckForTesting { false };
     bool m_ignoreReset { false };
     // m_hasCreatedImageBuffer means we tried to malloc the buffer. We didn't necessarily get it.
     mutable bool m_hasCreatedImageBuffer { false };
@@ -200,6 +201,8 @@ private:
     mutable bool m_mustGuardAgainstUseByPendingLayerTransaction { false };
 #endif
 };
+
+WebCoreOpaqueRoot root(HTMLCanvasElement*);
 
 } // namespace WebCore
 

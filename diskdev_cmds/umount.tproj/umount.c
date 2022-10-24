@@ -75,6 +75,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #include <pthread.h>
 
@@ -530,6 +531,8 @@ char *
 getmntname(const char *name, mntwhat what, char **type)
 {
 	int i;
+	const char *mntfrom, *mntfrom_end;
+	bool found = false;
 
 	if (mntbuf == NULL &&
 	    (mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0) {
@@ -537,10 +540,27 @@ getmntname(const char *name, mntwhat what, char **type)
 		return (NULL);
 	}
 	for (i = mntsize-1; i >= 0; i--) {
-		if ((what == MNTON) && !strcmp(mntbuf[i].f_mntfromname, name)) {
-			if (type)
-				*type = mntbuf[i].f_fstypename;
-			return (mntbuf[i].f_mntonname);
+		if (what == MNTON) {
+			if (!strcmp(mntbuf[i].f_mntfromname, name)) {
+				found = true;
+			} else if (strncmp(name, "/dev/", strlen("/dev/")) != 0) {
+				// we expect name to include the full node path
+				found = false;
+			} else if ((mntfrom = strstr(mntbuf[i].f_mntfromname, "://")) && (strlen(mntfrom) > strlen("://"))) {
+				// lifs mounts use a <fs_type>://diskXsY/<volume_name> format, check for that as well
+				mntfrom += strlen("://");
+				mntfrom_end = strchr(mntfrom, '/');
+				if (mntfrom_end) {
+					const char *disk = name + strlen("/dev/");
+					if ((strlen(disk) == mntfrom_end - mntfrom) && strncmp(mntfrom, disk, mntfrom_end - mntfrom) == 0)
+						found = true;
+				}
+			}
+			if (found) {
+				if (type)
+					*type = mntbuf[i].f_fstypename;
+				return (mntbuf[i].f_mntonname);
+			}
 		}
 		if ((what == MNTFROM) && !strcmp(mntbuf[i].f_mntonname, name)) {
 			if (type)

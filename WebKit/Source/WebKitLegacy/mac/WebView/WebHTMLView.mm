@@ -81,6 +81,7 @@
 #import <WebCore/CompositionHighlight.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DictationAlternative.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Document.h>
@@ -117,7 +118,6 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/RuntimeEnabledFeatures.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/StyleScope.h>
@@ -599,7 +599,8 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
         return WebMenuItemTagToggleVideoEnhancedFullscreen;
     case ContextMenuItemTagTranslate:
         return WebMenuItemTagTranslate;
-    case ContextMenuItemTagQuickLookImage:
+    case ContextMenuItemTagCopySubject:
+    case ContextMenuItemTagLookUpImage:
         return std::nullopt;
 
     case ContextMenuItemBaseCustomTag ... ContextMenuItemLastCustomTag:
@@ -633,8 +634,24 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
 
 - (void)forwardContextMenuAction:(id)sender
 {
-    if (auto action = toAction([sender tag]))
+    auto action = toAction([sender tag]);
+    if (!action)
+        return;
+
+    switch (*action) {
+    case WebCore::ContextMenuItemTagShowFonts:
+        [[NSFontManager sharedFontManager] orderFrontFontPanel:nil];
+        break;
+    case WebCore::ContextMenuItemTagStyles:
+        [[NSFontManager sharedFontManager] orderFrontStylesPanel:nil];
+        break;
+    case WebCore::ContextMenuItemTagShowColors:
+        [[NSApplication sharedApplication] orderFrontColorPanel:nil];
+        break;
+    default:
         _menuController->contextMenuItemSelected(*action, [sender title]);
+        break;
+    }
 }
 
 @end
@@ -947,7 +964,7 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     RetainPtr<NSString> toolTip;
     NSToolTipTag lastToolTipTag;
 
-    id trackingRectOwner;
+    WeakObjCPtr<id> trackingRectOwner;
     void* trackingRectUserData;
     
     RetainPtr<NSTimer> autoscrollTimer;
@@ -1133,7 +1150,7 @@ static NSControlStateValue kit(TriState state)
         nil]);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    if (!WebCore::RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled())
+    if (!WebCore::DeprecatedGlobalSettings::attachmentElementEnabled())
         [elements addObject:@"object"];
 #endif
 
@@ -1712,7 +1729,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
 
 - (NSTrackingRectTag)addTrackingRect:(NSRect)rect owner:(id)owner userData:(void *)data assumeInside:(BOOL)assumeInside
 {
-    ASSERT(_private->trackingRectOwner == nil);
+    ASSERT(!_private->trackingRectOwner);
     _private->trackingRectOwner = owner;
     _private->trackingRectUserData = data;
     return TRACKING_RECT_TAG;
@@ -1721,7 +1738,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
 - (NSTrackingRectTag)_addTrackingRect:(NSRect)rect owner:(id)owner userData:(void *)data assumeInside:(BOOL)assumeInside useTrackingNum:(int)tag
 {
     ASSERT(tag == 0 || tag == TRACKING_RECT_TAG);
-    ASSERT(_private->trackingRectOwner == nil);
+    ASSERT(!_private->trackingRectOwner);
     _private->trackingRectOwner = owner;
     _private->trackingRectUserData = data;
     return TRACKING_RECT_TAG;
@@ -1731,7 +1748,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
 {
     ASSERT(count == 1);
     ASSERT(trackingNums[0] == 0 || trackingNums[0] == TRACKING_RECT_TAG);
-    ASSERT(_private->trackingRectOwner == nil);
+    ASSERT(!_private->trackingRectOwner);
     _private->trackingRectOwner = owner;
     _private->trackingRectUserData = userDataList[0];
     trackingNums[0] = TRACKING_RECT_TAG;
@@ -1772,6 +1789,25 @@ static BOOL isQuickLookEvent(NSEvent *event)
     }
 }
 
+- (id)_toolTipOwnerForSendingMouseEvents
+{
+    if (id owner = _private->trackingRectOwner.getAutoreleased())
+        return owner;
+
+    for (NSTrackingArea *trackingArea in self.trackingAreas) {
+        static Class managerClass;
+        static std::once_flag onceFlag;
+        std::call_once(onceFlag, [] {
+            managerClass = NSClassFromString(@"NSToolTipManager");
+        });
+
+        id owner = trackingArea.owner;
+        if ([owner class] == managerClass)
+            return owner;
+    }
+    return nil;
+}
+
 - (void)_sendToolTipMouseExited
 {
     // Nothing matters except window, trackingNumber, and userData.
@@ -1784,7 +1820,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
         eventNumber:0
         trackingNumber:TRACKING_RECT_TAG
         userData:_private->trackingRectUserData];
-    [_private->trackingRectOwner mouseExited:fakeEvent];
+    [self._toolTipOwnerForSendingMouseEvents mouseExited:fakeEvent];
 }
 
 - (void)_sendToolTipMouseEntered
@@ -1799,7 +1835,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
         eventNumber:0
         trackingNumber:TRACKING_RECT_TAG
         userData:_private->trackingRectUserData];
-    [_private->trackingRectOwner mouseEntered:fakeEvent];
+    [self._toolTipOwnerForSendingMouseEvents mouseEntered:fakeEvent];
 }
 
 #endif // PLATFORM(MAC)
@@ -2588,13 +2624,13 @@ static const SelectorNameMap* createSelectorExceptionMap()
 {
     SelectorNameMap* map = new HashMap<SEL, String>;
 
-    map->add(@selector(insertNewlineIgnoringFieldEditor:), "InsertNewline");
-    map->add(@selector(insertParagraphSeparator:), "InsertNewline");
-    map->add(@selector(insertTabIgnoringFieldEditor:), "InsertTab");
-    map->add(@selector(pageDown:), "MovePageDown");
-    map->add(@selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection");
-    map->add(@selector(pageUp:), "MovePageUp");
-    map->add(@selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection");
+    map->add(@selector(insertNewlineIgnoringFieldEditor:), "InsertNewline"_s);
+    map->add(@selector(insertParagraphSeparator:), "InsertNewline"_s);
+    map->add(@selector(insertTabIgnoringFieldEditor:), "InsertTab"_s);
+    map->add(@selector(pageDown:), "MovePageDown"_s);
+    map->add(@selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection"_s);
+    map->add(@selector(pageUp:), "MovePageUp"_s);
+    map->add(@selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection"_s);
 
     return map;
 }
@@ -2630,7 +2666,7 @@ static String commandNameForSelector(SEL selector)
     auto* coreFrame = core([self _frame]);
     if (!coreFrame)
         return WebCore::Editor::Command();
-    return coreFrame->editor().command(name);
+    return coreFrame->editor().command(String::fromLatin1(name));
 }
 
 - (void)executeCoreCommandBySelector:(SEL)selector
@@ -2868,7 +2904,7 @@ IGNORE_WARNINGS_END
 
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
-            String direction = writingDirection == NSWritingDirectionLeftToRight ? "ltr" : "rtl";
+            String direction = writingDirection == NSWritingDirectionLeftToRight ? "ltr"_s : "rtl"_s;
             [menuItem setState:(frame->editor().selectionHasStyle(WebCore::CSSPropertyDirection, direction) != TriState::False)];
         }
         return [self _canEdit];
@@ -2886,7 +2922,7 @@ IGNORE_WARNINGS_END
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             // Take control of the title of the menu item instead of just checking/unchecking it because
             // a check would be ambiguous.
-            [menuItem setTitle:(frame->editor().selectionHasStyle(WebCore::CSSPropertyDirection, "rtl") != TriState::False)
+            [menuItem setTitle:(frame->editor().selectionHasStyle(WebCore::CSSPropertyDirection, "rtl"_s) != TriState::False)
                 ? UI_STRING_INTERNAL("Left to Right", "Left to Right context menu item")
                 : UI_STRING_INTERNAL("Right to Left", "Right to Left context menu item")];
         }
@@ -3541,8 +3577,8 @@ static RetainPtr<NSMenuItem> createShareMenuItem(const WebCore::HitTestResult& h
     }
 
     if (auto* image = hitTestResult.image()) {
-        if (RefPtr<WebCore::FragmentedSharedBuffer> buffer = image->data())
-            [items addObject:adoptNS([[NSImage alloc] initWithData:[NSData dataWithBytes:buffer->makeContiguous()->data() length:buffer->size()]]).get()];
+        if (RefPtr<const WebCore::FragmentedSharedBuffer> buffer = image->data())
+            [items addObject:adoptNS([[NSImage alloc] initWithData:buffer->makeContiguous()->createNSData().get()]).get()];
     }
 
     if (!hitTestResult.selectedText().isEmpty()) {
@@ -4663,7 +4699,7 @@ static RefPtr<WebCore::KeyboardEvent> currentKeyboardEvent(WebCore::Frame* coreF
     auto* coreFrame = core([self _frame]);
     if (coreFrame) {
         if (auto* coreView = coreFrame->view())
-            coreView->setMediaType(_private->printing ? "print" : "screen");
+            coreView->setMediaType(_private->printing ? "print"_s : "screen"_s);
         if (auto* document = coreFrame->document()) {
             // In setting printing, we should not validate resources already cached for the document.
             // See https://bugs.webkit.org/show_bug.cgi?id=43704
@@ -5025,9 +5061,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSDictionary *)_fontAttributesFromFontPasteboard
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSFontPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameFont];
     if (fontPasteboard == nil)
         return nil;
     NSData *data = [fontPasteboard dataForType:WebCore::legacyFontPasteboardType()];
@@ -5232,9 +5266,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // Put RTF with font attributes on the pasteboard.
     // Maybe later we should add a pasteboard type that contains CSS text for "native" copy and paste font.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSFontPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *fontPasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameFont];
     [fontPasteboard declareTypes:@[WebCore::legacyFontPasteboardType()] owner:nil];
     [fontPasteboard setData:[self _selectionStartFontAttributesAsRTF] forType:WebCore::legacyFontPasteboardType()];
 }
@@ -5913,9 +5945,9 @@ static BOOL writingDirectionKeyBindingsEnabled()
 
     for (size_t i = 0; i < commands.size(); ++i) {
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        if (commands[i].commandName == "insertText:")
+        if (commands[i].commandName == "insertText:"_s)
             [self insertText:commands[i].text];
-        else if (commands[i].commandName == "noop:")
+        else if (commands[i].commandName == "noop:"_s)
             ; // Do nothing. This case can be removed once <rdar://problem/9025012> is fixed.
         else
             [self doCommandBySelector:NSSelectorFromString(commands[i].commandName)];
@@ -6652,7 +6684,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         })();
 
         if (!isFunctionKeyCommandWithMatchingMenuItem)
-            event->keypressCommands().append(WebCore::KeypressCommand("insertText:", text));
+            event->keypressCommands().append(WebCore::KeypressCommand("insertText:"_s, text));
         return;
     }
 
@@ -6679,8 +6711,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     }
 
     bool eventHandled = false;
-    String eventText = text;
-    eventText.replace(NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
+    String eventText = makeStringByReplacingAll(text, NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
     if (!coreFrame->editor().hasComposition()) {
         // An insertText: might be handled by other responders in the chain if we don't handle it.
         // One example is space bar that results in scrolling down the page.
@@ -7083,6 +7114,19 @@ static CGImageRef selectionImage(WebCore::Frame* frame, bool forceBlackText)
 }
 
 @end
+
+#if PLATFORM(MAC)
+
+@implementation WebHTMLView (TestingSupportMac)
+
+- (BOOL)_secureEventInputEnabledForTesting
+{
+    return _private->isInSecureInputState;
+}
+
+@end
+
+#endif // PLATFORM(MAC)
 
 // This is used by AppKit/TextKit. It should be possible to remove this once
 // -[NSAttributedString _documentFromRange:document:documentAttributes:subresources:] is removed.

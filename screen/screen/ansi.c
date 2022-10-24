@@ -141,7 +141,7 @@ static void SelectRendition __P((void));
 static void RestorePosRendition __P((void));
 static void FillWithEs __P((void));
 static void FindAKA __P((void));
-static void Report __P((char *, int, int));
+static void Report __P((const char *, int, int));
 static void ScrollRegion __P((int));
 #ifdef COPY_PASTE
 static void WAddLineToHist __P((struct win *, struct mline *));
@@ -2259,13 +2259,18 @@ RestorePosRendition()
 /* Send a terminal report as if it were typed. */ 
 static void
 Report(fmt, n1, n2)
-char *fmt;
+const char *fmt;
 int n1, n2;
 {
   register int len;
   char rbuf[40];	/* enough room for all replys */
 
-  sprintf(rbuf, fmt, n1, n2);
+  if (n1 > 0 && n2 > 0)
+    sprintf(rbuf, fmtcheck(fmt, "%d %d"), n1, n2);
+  else if (n1 > 0)
+    sprintf(rbuf, fmtcheck(fmt, "%d"), n1);
+  else
+    sprintf(rbuf, fmt);
   len = strlen(rbuf);
 
   if ((unsigned)(curr->w_inlen + len) <= sizeof(curr->w_inbuf))

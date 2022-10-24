@@ -107,7 +107,14 @@ umask_builtin (list)
 	printf ("%04lo\n", (unsigned long)umask_arg);
     }
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error ("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+#else
   fflush (stdout);
+#endif
   return (EXECUTION_SUCCESS);
 }
 

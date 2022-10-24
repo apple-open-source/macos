@@ -157,7 +157,7 @@ public:
         super::init().
         @param dictionary A dictionary associated with this IOHIDInterface
         instance.
-        @result True on sucess, or false otherwise. 
+        @result True on success, or false otherwise. 
     */
 
     virtual bool            init( OSDictionary * dictionary = 0 ) APPLE_KEXT_OVERRIDE;

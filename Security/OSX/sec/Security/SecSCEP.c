@@ -42,6 +42,7 @@
 #include <utilities/array_size.h>
 #include <utilities/debugging.h>
 #include <utilities/SecIOFormat.h>
+#include <utilities/SecCFWrappers.h>
 
 typedef enum {
         messageType = 2,
@@ -246,6 +247,33 @@ out:
 	return self_signed_identity;
 }
 
+static CF_RETURNS_RETAINED CFTypeRef filterRecipients(CFTypeRef recipients)
+{
+    if (recipients && SecCertificateGetTypeID() == CFGetTypeID(recipients)) {
+        return CFRetainSafe(recipients);
+    } else if (isArray(recipients)) {
+        CFMutableArrayRef result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        CFArrayForEach(recipients, ^(const void *value) {
+            if (SecCertificateGetTypeID() != CFGetTypeID(value)) {
+                return;
+            }
+            SecCertificateRef cert = (SecCertificateRef)value;
+            SecKeyUsage keyUsage = SecCertificateGetKeyUsage(cert);
+            // No Key Usage specified or KeyEncipherment bit set
+            if (keyUsage == kSecKeyUsageUnspecified || ((keyUsage & kSecKeyUsageKeyEncipherment) != 0)) {
+                CFArrayAppendValue(result, cert);
+            }
+        });
+        // If we didn't find any encryption certificates in the array, just use the full list of recipients
+        if (CFArrayGetCount(result) == 0) {
+            CFReleaseNull(result);
+            return CFRetainSafe(recipients);
+        }
+        return result;
+    }
+    return NULL;
+}
+
 CFDataRef
 SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters,
     SecKeyRef publicKey, SecKeyRef privateKey,
@@ -262,17 +290,11 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
     SecKeyRef realPublicKey = NULL;
     SecKeyRef recipientKey = NULL;
 
-    if (CFGetTypeID(recipients) == SecCertificateGetTypeID()) {
-        recipient = (SecCertificateRef)recipients;
-    } else if (CFGetTypeID(recipients) == CFArrayGetTypeID()) {
-        CFIndex recipient_count = CFArrayGetCount(recipients);
-        if (recipient_count > 1) {
-            /* get the encryption cert */
-            recipient = (SecCertificateRef)CFArrayGetValueAtIndex(recipients, 0);
-        } else if (recipient_count == 1) {
-            /* if there is at least one we'll assume it's sign+encrypt */
-            recipient = (SecCertificateRef)CFArrayGetValueAtIndex(recipients, 0);
-        }
+    CFTypeRef filteredRecipients = filterRecipients(recipients);
+    if (CFGetTypeID(filteredRecipients) == SecCertificateGetTypeID()) {
+        recipient = (SecCertificateRef)filteredRecipients;
+    } else if (CFGetTypeID(filteredRecipients) == CFArrayGetTypeID()) {
+        recipient = (SecCertificateRef)CFArrayGetValueAtIndex(filteredRecipients, 0);
     }
     require(recipient, out);
 
@@ -354,6 +376,7 @@ out:
     CFReleaseSafe(csr);
     CFReleaseNull(realPublicKey);
     CFReleaseSafe(recipientKey);
+    CFReleaseNull(filteredRecipients);
     return signed_request;
 }
 
@@ -426,7 +449,7 @@ SecSCEPCertifyRequestWithAlgorithms(CFDataRef request, SecIdentityRef ca_identit
     /* decrypt the request */
     encrypted_content = CFDataCreateMutable(kCFAllocatorDefault, 0);
     require_noerr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
-    require(recipient && CFEqual(ca_certificate, recipient), out);
+    require(recipient, out);
     
     /* verify CSR */
     require(SecVerifyCertificateRequest(encrypted_content, &tbsPublicKey, &challenge, &subject, &extensions), out);
@@ -514,6 +537,64 @@ out:
     CFReleaseSafe(signer_cert);
     
     return signed_reply;
+}
+
+bool
+SecSCEPVerifyGetCertInitial(CFDataRef request, SecIdentityRef ca_identity)
+{
+    SecCertificateRef ca_certificate = NULL;
+    SecKeyRef ca_public_key = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFDataRef signed_content = NULL;
+    CFDictionaryRef signed_attributes = NULL;
+    CFDataRef transid_oid_data = NULL, senderNonce_oid_data = NULL, transid_value = NULL, senderNonce_value = NULL;
+    CFMutableDataRef encrypted_content = NULL;
+    SecCertificateRef recipient = NULL;
+    bool status = false;
+
+    require_noerr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
+    ca_public_key = SecCertificateCopyKey(ca_certificate);
+
+    /* unwrap outer layer: */
+    policy = SecPolicyCreateBasicX509();
+
+    require_noerr(SecCMSVerifyCopyDataAndAttributes(request, NULL,
+        policy, &trust, &signed_content, &signed_attributes), out);
+
+    /* msgType should be certreq msg */
+    require(scep_attr_has_val(signed_attributes, messageType, GetCertInitial), out);
+
+    /* remember transaction id just for reuse */
+    require(transid_oid_data = scep_oid(transId), out);
+    require(transid_value =
+        dictionary_array_value_1(signed_attributes, transid_oid_data), out);
+
+    /* senderNonce becomes recipientNonce */
+    require(senderNonce_oid_data = scep_oid(senderNonce), out);
+    require(senderNonce_value =
+        dictionary_array_value_1(signed_attributes, senderNonce_oid_data), out);
+
+    /* decrypt the request */
+    encrypted_content = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    require_noerr(SecCMSDecryptEnvelopedData(signed_content, encrypted_content, &recipient), out);
+    require(recipient, out);
+    require(CFDataGetLength(encrypted_content) > 0, out);
+    status = true;
+
+out:
+    CFReleaseSafe(ca_certificate);
+    CFReleaseSafe(ca_public_key);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(signed_content);
+    CFReleaseSafe(signed_attributes);
+    CFReleaseSafe(transid_oid_data);
+    CFReleaseSafe(senderNonce_oid_data);
+    CFReleaseSafe(encrypted_content);
+    CFReleaseSafe(recipient);
+
+    return status;
 }
 
 static CFStringRef
@@ -637,11 +718,13 @@ SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef ca_certificates
     /* XXX/cs
        This should move outside of thise function when we force a signer
        to be passed in */
+#if !TARGET_OS_OSX // See rdar://81992896 (SecItemDelete in SecSCEPVerifyReply() doesn't do anything on macOS)
     CFDictionaryRef cert_delete = CFDictionaryCreate(NULL,
         (const void **)&kSecValueRef, (const void **)&recipient, 1, NULL, NULL);
     require_noerr_action(SecItemDelete(cert_delete), out,
         CFReleaseSafe(cert_delete));
     CFReleaseSafe(cert_delete);
+#endif
 
 out:
     CFReleaseSafe(ca_public_key);
@@ -660,136 +743,260 @@ out:
     return certificates;
 }
 
-OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
-    CFDataRef ca_fingerprint,
-    SecCertificateRef *ca_certificate, 
-    SecCertificateRef *ra_signing_certificate,
-    SecCertificateRef *ra_encryption_certificate)
+static CFDataRef SecCertificateCopyMD5Digest(SecCertificateRef cert)
 {
-    OSStatus status = errSecParam;
-    SecCertificateRef _ca_certificate = NULL, _ra_signing_certificate = NULL,
-        _ra_encryption_certificate = NULL, _ra_certificate = NULL;
-    CFDataRef ca_cert_data = NULL;
-    CFDataRef ca_hash_cfdata = NULL;
-    CFIndex j, count = CFArrayGetCount(certs);
-    CFMutableArrayRef chain = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    SecPolicyRef policy = SecPolicyCreateBasicX509();
-    SecTrustRef trust = NULL;
-    CFArrayRef resultChain = NULL;
-    require(chain, out);
-    for (j=0; j<count; j++) {
-        CFReleaseNull(resultChain);
-        const void *candidate_leaf = CFArrayGetValueAtIndex(certs, j);
-        CFArrayRemoveAllValues(chain);
-        CFArraySetValueAtIndex(chain, 0, candidate_leaf);
-        CFArrayAppendArray(chain, certs, CFRangeMake(0, count));
-        CFArrayRemoveValueAtIndex(chain, 1 + j);
-        require_noerr(SecTrustCreateWithCertificates(chain,
-            policy, &trust), out);
-        SecTrustResultType trust_result;
-        SecTrustEvaluate(trust, &trust_result);
-        resultChain = SecTrustCopyCertificateChain(trust);
-        CFIndex chain_count = resultChain ? CFArrayGetCount(resultChain) : 0;
-        secdebug("scep", "candidate leaf: %@ forms chain of length %" PRIdCFIndex, candidate_leaf, chain_count);
-        if (chain_count > 1) {
-            SecCertificateRef leaf = (SecCertificateRef)CFArrayGetValueAtIndex(resultChain, 0);
-            SecCertificateRef ca_leaf = (SecCertificateRef)CFArrayGetValueAtIndex(resultChain, chain_count - 1);
-            if (!_ca_certificate) {
-                if (ca_fingerprint) {
-                    secdebug("scep", "checking ca %@ against fingerprint %@", ca_leaf, ca_fingerprint);
-                    uint8_t ca_hash[CC_SHA1_DIGEST_LENGTH]; /*max(md5,sha-1)*/
-                    ca_cert_data = SecCertificateCopyData(ca_leaf);
-                    require(ca_cert_data, out);
-                    size_t ca_data_len = CFDataGetLength(ca_cert_data);
-                    size_t ca_fingerprint_len = CFDataGetLength(ca_fingerprint);
-                    const uint8_t *ca_data = CFDataGetBytePtr(ca_cert_data);
-                    require(ca_data_len && ca_data, out);
-                    require(ca_data_len<UINT32_MAX, out);
-                    switch (ca_fingerprint_len) {
-                        case CC_MD5_DIGEST_LENGTH:
-                            CC_MD5(ca_data, (CC_LONG)ca_data_len, ca_hash);
-                            break;
-
-                        case CC_SHA1_DIGEST_LENGTH:
-                            CCDigest(kCCDigestSHA1, ca_data, (CC_LONG)ca_data_len, ca_hash);
-                            break;
-
-                        default:
-                            goto out;
-                    }
-                    CFReleaseNull(ca_cert_data);
-                    ca_hash_cfdata = CFDataCreate(kCFAllocatorDefault, ca_hash, ca_fingerprint_len);
-                    require(ca_hash_cfdata, out);
-                    require(CFEqual(ca_fingerprint, ca_hash_cfdata), out);
-                    CFReleaseNull(ca_hash_cfdata);
-                }
-                _ca_certificate = ca_leaf;
-                CFRetain(ca_leaf);
-            } else {
-                // if ca_certificate is already set, this should be the same
-                require(CFEqual(_ca_certificate, ca_leaf), out);
-            }
-
-            // is leaf allowed to sign and/or encrypt?
-            SecKeyUsage key_usage = SecCertificateGetKeyUsage(leaf);
-            bool can_sign = (key_usage & kSecKeyUsageDigitalSignature);
-            bool can_enc = (key_usage & kSecKeyUsageKeyEncipherment);
-            if (!_ra_certificate && can_sign && can_enc) {
-                _ra_certificate = leaf;
-                CFRetain(leaf);
-            }
-            else if (!_ra_encryption_certificate && !can_sign && can_enc) {
-                _ra_encryption_certificate = leaf;
-                CFRetain(leaf);
-            }
-            else if (!_ra_signing_certificate && !can_enc && can_sign) {
-                _ra_signing_certificate = leaf;
-                CFRetain(leaf);
-            }
-        }
-        if (trust) { CFRelease(trust); trust = NULL; }
-    }
-
-    // we should have both a ca certificate and at least one ra certificate now
-    require(_ca_certificate, out);
-    require(_ra_certificate ||
-        (_ra_signing_certificate && _ra_encryption_certificate), out);
-    
-    if (ca_certificate) {
-        *ca_certificate = _ca_certificate;
-        _ca_certificate = NULL;
-    }
-    if (_ra_signing_certificate && _ra_encryption_certificate) {
-        if (ra_signing_certificate) {
-            *ra_signing_certificate = _ra_signing_certificate;
-            _ra_signing_certificate = NULL;
-        }
-        if (ra_encryption_certificate) {
-            *ra_encryption_certificate = _ra_encryption_certificate;
-            _ra_encryption_certificate = NULL;
-        }
-    } else if (_ra_certificate) {
-        if (ra_signing_certificate) {
-            *ra_signing_certificate = _ra_certificate;
-            _ra_certificate = NULL;
-        }
-    }
-
-    status = errSecSuccess;
+    uint8_t cert_hash[CC_MD5_DIGEST_LENGTH];
+    size_t cert_data_len = SecCertificateGetLength(cert);
+    const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
+    require(cert_data_len && cert_data, out);
+    require(cert_data_len<UINT32_MAX, out);
+    CC_MD5(cert_data, (CC_LONG)cert_data_len, cert_hash);
+    return CFDataCreate(NULL, cert_hash, CC_MD5_DIGEST_LENGTH);
 
 out:
-    CFReleaseSafe(_ra_encryption_certificate);
-    CFReleaseSafe(_ra_signing_certificate);
-    CFReleaseSafe(_ra_certificate);
-    CFReleaseSafe(_ca_certificate);
-    CFReleaseSafe(ca_cert_data);
-    CFReleaseSafe(ca_hash_cfdata);
-    CFReleaseSafe(policy);
-    CFReleaseSafe(trust);
-    CFReleaseSafe(chain);
-    CFReleaseNull(resultChain);
-    return status;
+    return NULL;
+}
 
+static CFDataRef SecCertificateCopySHA224Digest(SecCertificateRef cert)
+{
+    uint8_t cert_hash[CC_SHA224_DIGEST_LENGTH];
+    size_t cert_data_len = SecCertificateGetLength(cert);
+    const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
+    require(cert_data_len && cert_data, out);
+    require(cert_data_len<UINT32_MAX, out);
+    CC_SHA224(cert_data, (CC_LONG)cert_data_len, cert_hash);
+    return CFDataCreate(NULL, cert_hash, CC_SHA224_DIGEST_LENGTH);
+
+out:
+    return NULL;
+}
+
+static CFDataRef SecCertificateCopySHA384Digest(SecCertificateRef cert)
+{
+    uint8_t cert_hash[CC_SHA384_DIGEST_LENGTH];
+    size_t cert_data_len = SecCertificateGetLength(cert);
+    const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
+    require(cert_data_len && cert_data, out);
+    require(cert_data_len<UINT32_MAX, out);
+    CC_SHA384(cert_data, (CC_LONG)cert_data_len, cert_hash);
+    return CFDataCreate(NULL, cert_hash, CC_SHA384_DIGEST_LENGTH);
+
+out:
+    return NULL;
+}
+
+static CFDataRef SecCertificateCopySHA512Digest(SecCertificateRef cert)
+{
+    uint8_t cert_hash[CC_SHA512_DIGEST_LENGTH];
+    size_t cert_data_len = SecCertificateGetLength(cert);
+    const uint8_t *cert_data = SecCertificateGetBytePtr(cert);
+    require(cert_data_len && cert_data, out);
+    require(cert_data_len<UINT32_MAX, out);
+    CC_SHA512(cert_data, (CC_LONG)cert_data_len, cert_hash);
+    return CFDataCreate(NULL, cert_hash, CC_SHA512_DIGEST_LENGTH);
+
+out:
+    return NULL;
+}
+
+static OSStatus scep_find_ca_cert(CFArrayRef certs, CFDataRef ca_fingerprint, SecCertificateRef CF_RETURNS_RETAINED *_ca_certificate)
+{
+    CFIndex fingerprint_len = CFDataGetLength(ca_fingerprint);
+    OSStatus result = errSecNotTrusted;
+    // Loop through certs to find one that matches the CA fingerprint
+    for (CFIndex j = 0; j < CFArrayGetCount(certs); j++) {
+        SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certs, j);
+        CFDataRef cert_fingerprint = NULL;
+        switch (fingerprint_len) {
+            case CC_MD5_DIGEST_LENGTH:
+                secinfo("scep", "MD5 fingerprint digest");
+                cert_fingerprint = SecCertificateCopyMD5Digest(cert);
+                break;
+            case CC_SHA1_DIGEST_LENGTH:
+                secinfo("scep", "SHA1 fingerprint digest");
+                cert_fingerprint = CFRetainSafe(SecCertificateGetSHA1Digest(cert));
+                break;
+            case CC_SHA224_DIGEST_LENGTH:
+                secinfo("scep", "SHA224 fingerprint digest");
+                cert_fingerprint = SecCertificateCopySHA224Digest(cert);
+                break;
+            case CC_SHA256_DIGEST_LENGTH:
+                secinfo("scep", "SHA256 fingerprint digest");
+                cert_fingerprint = SecCertificateCopySHA256Digest(cert);
+                break;
+            case CC_SHA384_DIGEST_LENGTH:
+                secinfo("scep", "SHA384 fingerprint digest");
+                cert_fingerprint = SecCertificateCopySHA384Digest(cert);
+                break;
+            case CC_SHA512_DIGEST_LENGTH:
+                secinfo("scep", "SHA512 fingerprint digest");
+                cert_fingerprint = SecCertificateCopySHA512Digest(cert);
+                break;
+            default:
+                secerror("SCEP failed to find algorithm to match CA fingerprint length: %ld", (long)fingerprint_len);
+                return errSecInvalidDigestAlgorithm;
+        }
+        if (CFEqualSafe(cert_fingerprint, ca_fingerprint)) {
+            if (_ca_certificate) {
+                *_ca_certificate = CFRetainSafe(cert);
+            }
+            CFReleaseNull(cert_fingerprint);
+            result = errSecSuccess;
+            break;
+        }
+        CFReleaseNull(cert_fingerprint);
+    }
+    return result;
+}
+
+static OSStatus scep_find_ra_candidates(CFArrayRef certs, CFMutableArrayRef candidate_ra_certs, CFMutableArrayRef candidate_ra_signing_certs, CFMutableArrayRef candidate_ra_encryption_certs)
+{
+    if (!candidate_ra_certs || !candidate_ra_signing_certs || !candidate_ra_encryption_certs) {
+        return errSecMemoryError;
+    }
+    for (CFIndex j = 0; j < CFArrayGetCount(certs); j++) {
+        SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certs, j);
+        SecKeyUsage key_usage = SecCertificateGetKeyUsage(cert);
+        bool can_sign = (key_usage & kSecKeyUsageDigitalSignature);
+        bool can_enc = (key_usage & kSecKeyUsageKeyEncipherment);
+        if (can_sign && can_enc) {
+            CFArrayAppendValue(candidate_ra_certs, cert);
+        } else if (!can_sign && can_enc) {
+            CFArrayAppendValue(candidate_ra_encryption_certs, cert);
+        } else if (!can_enc && can_sign) {
+            CFArrayAppendValue(candidate_ra_signing_certs, cert);
+        }
+    }
+
+    // Fail if we have no candidate RA certs based on key usage
+    if (CFArrayGetCount(candidate_ra_certs) == 0 &&
+        (CFArrayGetCount(candidate_ra_signing_certs) == 0 || CFArrayGetCount(candidate_ra_encryption_certs) == 0)) {
+        return errSecKeyUsageIncorrect;
+    }
+
+    return errSecSuccess;
+}
+
+static CF_RETURNS_RETAINED CFArrayRef scep_find_ra_chain(CFArrayRef candidates, CFArrayRef certs, SecCertificateRef ca_certificate)
+{
+    for (CFIndex j = 0; j < CFArrayGetCount(candidates); j++) {
+        CFMutableArrayRef certsForTrust = CFArrayCreateMutable(NULL, CFArrayGetCount(certs) + 1, &kCFTypeArrayCallBacks);
+        SecCertificateRef leaf = (SecCertificateRef)CFArrayGetValueAtIndex(candidates, j);
+        CFArrayAppendValue(certsForTrust, leaf); // set candidate leaf first
+        CFArrayAppendAll(certsForTrust, certs); // then all the other certs (SecTrust will ignore duplicates)
+        SecTrustRef trust = NULL;
+        if (errSecSuccess != SecTrustCreateWithCertificates(certsForTrust, NULL, &trust)) {
+            secerror("SCEP failed to create trust for %@", leaf);
+            CFReleaseNull(certsForTrust);
+            continue;
+        }
+        CFReleaseNull(certsForTrust);
+        if (ca_certificate) {
+            /* If we found the CA certificate via the fingerprint, set it as the anchor cert */
+            CFArrayRef anchors = CFArrayCreate(NULL, (const void**)&ca_certificate, 1, &kCFTypeArrayCallBacks);
+            SecTrustSetAnchorCertificates(trust, anchors);
+            CFReleaseNull(anchors);
+        }
+        CFArrayRef chain = SecTrustCopyCertificateChain(trust);
+        if (!chain) {
+            secnotice("scep", "failed to create chain %@", leaf);
+            continue;
+        } else if (ca_certificate && !CFEqualSafe(ca_certificate, CFArrayGetValueAtIndex(chain, CFArrayGetCount(chain) - 1))) {
+            secnotice("scep", "failed to create chain from %@ to ca cert %@", leaf, ca_certificate);
+            CFReleaseNull(chain);
+            continue;
+        }
+        return chain;
+    }
+    return NULL;
+}
+
+OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
+    CFDataRef ca_fingerprint,
+    SecCertificateRef CF_RETURNS_RETAINED *ca_certificate,
+    SecCertificateRef CF_RETURNS_RETAINED *ra_signing_certificate,
+    SecCertificateRef CF_RETURNS_RETAINED *ra_encryption_certificate)
+{
+    SecCertificateRef _ca_certificate = NULL, _ra_signing_certificate = NULL,
+        _ra_encryption_certificate = NULL, _ra_certificate = NULL;
+
+    /* If we have a CA fingerprint, first we need to find that in the certs to anchor */
+    if (ca_fingerprint) {
+        OSStatus result = scep_find_ca_cert(certs, ca_fingerprint, &_ca_certificate);
+        if (result != errSecSuccess) {
+            secerror("SCEP failed to find certificate matching CA fingerprint: %@", ca_fingerprint);
+            return result;
+        }
+    }
+
+    /* Find candidate RA certificates */
+    CFMutableArrayRef candidate_ra_certs = CFArrayCreateMutable(NULL, CFArrayGetCount(certs), &kCFTypeArrayCallBacks);
+    CFMutableArrayRef candidate_ra_signing_certs = CFArrayCreateMutable(NULL, CFArrayGetCount(certs), &kCFTypeArrayCallBacks);
+    CFMutableArrayRef candidate_ra_encryption_certs = CFArrayCreateMutable(NULL, CFArrayGetCount(certs), &kCFTypeArrayCallBacks);
+    OSStatus result = scep_find_ra_candidates(certs, candidate_ra_certs, candidate_ra_signing_certs, candidate_ra_encryption_certs);
+    if (result != errSecSuccess) {
+        secerror("SCEP failed to find candidate RA certificates");
+        CFReleaseNull(_ca_certificate);
+        CFReleaseNull(candidate_ra_certs);
+        CFReleaseNull(candidate_ra_signing_certs);
+        CFReleaseNull(candidate_ra_encryption_certs);
+        return result;
+    }
+
+    /* Verify the candidate RA certificates chain to the CA cert, preferring different RA encryption/signing certs */
+    result = errSecInternal;
+    CFArrayRef ra_signing_chain = scep_find_ra_chain(candidate_ra_signing_certs, certs, _ca_certificate);
+    CFArrayRef ra_encryption_chain = scep_find_ra_chain(candidate_ra_encryption_certs, certs, _ca_certificate);
+    if (ra_signing_chain && ra_encryption_chain) {
+        _ra_signing_certificate = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(ra_signing_chain, 0));
+        _ra_encryption_certificate = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(ra_encryption_chain, 0));
+        result = errSecSuccess;
+        if (!_ca_certificate) {
+            /* no CA fingerprint specified, so need to find CA cert using chains built */
+            SecCertificateRef _signing_ca_cert = (SecCertificateRef)CFArrayGetValueAtIndex(ra_signing_chain, CFArrayGetCount(ra_signing_chain) - 1);
+            SecCertificateRef _encryption_ca_cert = (SecCertificateRef)CFArrayGetValueAtIndex(ra_encryption_chain, CFArrayGetCount(ra_encryption_chain) - 1);
+            if (CFEqualSafe(_signing_ca_cert, _encryption_ca_cert)) {
+                _ca_certificate = CFRetainSafe(_signing_ca_cert);
+            } else {
+                secnotice("scep", "signing/encryption CAs do not match");
+                result = errSecNotTrusted;
+            }
+        }
+    }
+
+    if (result == errSecSuccess) {
+        /* return certs */
+        if (ca_certificate) { *ca_certificate = CFRetainSafe(_ca_certificate); }
+        if (ra_signing_certificate) { *ra_signing_certificate = CFRetainSafe(_ra_signing_certificate); }
+        if (ra_encryption_certificate) { *ra_encryption_certificate = CFRetainSafe(_ra_encryption_certificate); }
+    } else {
+        secinfo("scep", "SCEP did not find different RA certificates for signing/encryption; looking for one cert");
+        CFArrayRef ra_chain = scep_find_ra_chain(candidate_ra_certs, certs, _ca_certificate);
+        if (ra_chain) {
+            /* One RA cert for both signing and encryption */
+            if (!_ca_certificate) {
+                /* No CA fingerprint specified so derive from chain */
+                _ca_certificate = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(ra_chain, CFArrayGetCount(ra_chain) - 1));
+            }
+            _ra_certificate = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(ra_chain, 0));
+            CFReleaseNull(ra_chain);
+            result = errSecSuccess;
+
+            if (ca_certificate) { *ca_certificate = CFRetainSafe(_ca_certificate); }
+            if (ra_signing_certificate) { *ra_signing_certificate = CFRetainSafe(_ra_certificate); }
+        }
+    }
+
+    CFReleaseNull(ra_signing_chain);
+    CFReleaseNull(ra_encryption_chain);
+    CFReleaseNull(candidate_ra_certs);
+    CFReleaseNull(candidate_ra_signing_certs);
+    CFReleaseNull(candidate_ra_encryption_certs);
+    CFReleaseNull(_ca_certificate);
+    CFReleaseNull(_ra_certificate);
+    CFReleaseNull(_ra_signing_certificate);
+    CFReleaseNull(_ra_encryption_certificate);
+    return result;
 }
 
 
@@ -811,11 +1018,13 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
     CFMutableDataRef enveloped_data = NULL;
     CFDataRef msgtype_value_data = NULL;
     CFDataRef msgtype_oid_data = NULL;
+    CFTypeRef filteredRecipients = NULL;
 
     require(signed_attrs, out);
     require(pki_message_contents = SecGenerateCertificateRequestSubject(ca_certificate, subject), out);
     require(enveloped_data = CFDataCreateMutable(kCFAllocatorDefault, 0), out);
-    require_noerr(SecCMSCreateEnvelopedData(recipient, parameters, pki_message_contents, enveloped_data), out);
+    filteredRecipients = filterRecipients(recipient);
+    require_noerr(SecCMSCreateEnvelopedData(filteredRecipients, parameters, pki_message_contents, enveloped_data), out);
 
     /* remember transaction id just for reuse */
     simple_attr =  CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 3, signed_attrs);
@@ -839,6 +1048,7 @@ out:
 	CFReleaseSafe(enveloped_data);
     CFReleaseSafe(msgtype_oid_data);
     CFReleaseSafe(msgtype_value_data);
+    CFReleaseNull(filteredRecipients);
 	return signed_request;
 }
 

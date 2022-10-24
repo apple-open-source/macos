@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-02</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Conformance fixes (3853584).</string>
+		<string>join.c: fix failure without warning on invalid input or i/o errors (6555390)</string>
+		<string>join.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>join</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-08-02</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/join?id=69ad6e739bbea38080102793927729bcebb7d961</string>
+</dict>

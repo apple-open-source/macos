@@ -7,6 +7,11 @@
  * Daniel Veillard <veillard@redhat.com>
  */
 
+/* To avoid EBCDIC trouble when parsing on zOS */
+#if defined(__MVS__)
+#pragma convert("ISO8859-1")
+#endif
+
 #define IN_LIBXML
 #include "libxml.h"
 
@@ -65,7 +70,7 @@ struct _xmlSchemaValDate {
     unsigned int	hour	:5;	/* 0 <=  hour   <= 24   */
     unsigned int	min	:6;	/* 0 <=  min    <= 59	*/
     double		sec;
-    unsigned int	tz_flag	:1;	/* is tzo explicitely set? */
+    unsigned int	tz_flag	:1;	/* is tzo explicitly set? */
     signed int		tzo	:12;	/* -1440 <= tzo <= 1440;
 					   currently only -840 to +840 are needed */
 };
@@ -194,7 +199,7 @@ static xmlSchemaTypePtr xmlSchemaTypeNmtokensDef = NULL;
  ************************************************************************/
 /**
  * xmlSchemaTypeErrMemory:
- * @extra:  extra informations
+ * @extra:  extra information
  *
  * Handle an out of memory condition
  */
@@ -614,6 +619,11 @@ xmlSchemaInitTypes(void)
     xmlSchemaTypesInitialized = 1;
 }
 
+static void
+xmlSchemaFreeTypeEntry(void *type, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xmlSchemaFreeType((xmlSchemaTypePtr) type);
+}
+
 /**
  * xmlSchemaCleanupTypes:
  *
@@ -641,7 +651,7 @@ xmlSchemaCleanupTypes(void) {
 	xmlFree((xmlSchemaParticlePtr) particle);
 	xmlSchemaTypeAnyTypeDef->subtypes = NULL;
     }
-    xmlHashFree(xmlSchemaTypesBank, (xmlHashDeallocator) xmlSchemaFreeType);
+    xmlHashFree(xmlSchemaTypesBank, xmlSchemaFreeTypeEntry);
     xmlSchemaTypesInitialized = 0;
 }
 
@@ -1119,7 +1129,7 @@ xmlSchemaGetBuiltInListSimpleTypeItemType(xmlSchemaTypePtr type)
 #define VALID_HOUR(hr)          ((hr >= 0) && (hr <= 23))
 #define VALID_MIN(min)          ((min >= 0) && (min <= 59))
 #define VALID_SEC(sec)          ((sec >= 0) && (sec < 60))
-#define VALID_TZO(tzo)          ((tzo > -840) && (tzo < 840))
+#define VALID_TZO(tzo)          ((tzo >= -840) && (tzo <= 840))
 #define IS_LEAP(y)						\
 	(((y % 4 == 0) && (y % 100 != 0)) || (y % 400 == 0))
 
@@ -2177,13 +2187,51 @@ xmlSchemaParseUInt(const xmlChar **str, unsigned long *llo,
     return(ret);
 }
 
+/*
+ * xmlSchemaCheckLanguageType
+ * @value: the value to check
+ *
+ * Check that a value conforms to the lexical space of the language datatype.
+ * Must conform to [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
+ *
+ * Returns 1 if this validates, 0 otherwise.
+ */
+static int
+xmlSchemaCheckLanguageType(const xmlChar* value) {
+    int first = 1, len = 0;
+    const xmlChar* cur = value;
+
+    if (value == NULL)
+        return (0);
+
+    while (cur[0] != 0) {
+        if (!( ((cur[0] >= 'a') && (cur[0] <= 'z')) || ((cur[0] >= 'A') && (cur[0] <= 'Z'))
+            || (cur[0] == '-')
+            || ((first == 0) && (xmlIsDigit_ch(cur[0]))) ))
+            return (0);
+        if (cur[0] == '-') {
+            if ((len < 1) || (len > 8))
+                return (0);
+            len = 0;
+            first = 0;
+        }
+        else
+            len++;
+        cur++;
+    }
+    if ((len < 1) || (len > 8))
+        return (0);
+
+    return (1);
+}
+
 /**
  * xmlSchemaValAtomicType:
  * @type: the predefined type
  * @value: the value to check
  * @val:  the return computed value
  * @node:  the node containing the value
- * flags:  flags to control the vlidation
+ * flags:  flags to control the validation
  *
  * Check that a value conforms to the lexical space of the atomic type.
  * if true a value is computed and returned in @val.
@@ -2208,7 +2256,7 @@ xmlSchemaValAtomicType(xmlSchemaTypePtr type, const xmlChar * value,
         return (-1);
 
     /*
-     * validating a non existant text node is similar to validating
+     * validating a non existent text node is similar to validating
      * an empty one.
      */
     if (value == NULL)
@@ -2689,12 +2737,13 @@ xmlSchemaValAtomicType(xmlSchemaTypePtr type, const xmlChar * value,
                 goto return0;
             }
         case XML_SCHEMAS_LANGUAGE:
-	    if (normOnTheFly) {
+	    if ((norm == NULL) && (normOnTheFly)) {
 		norm = xmlSchemaCollapseString(value);
 		if (norm != NULL)
 		    value = norm;
 	    }
-            if (xmlCheckLanguageID(value) == 1) {
+
+            if (xmlSchemaCheckLanguageType(value) == 1) {
                 if (val != NULL) {
                     v = xmlSchemaNewValue(XML_SCHEMAS_LANGUAGE);
                     if (v != NULL) {
@@ -2978,7 +3027,7 @@ xmlSchemaValAtomicType(xmlSchemaTypePtr type, const xmlChar * value,
                 if (*value != 0) {
 		    xmlURIPtr uri;
 		    xmlChar *tmpval, *cur;
-		    if (normOnTheFly) {
+		    if ((norm == NULL) && (normOnTheFly)) {
 			norm = xmlSchemaCollapseString(value);
 			if (norm != NULL)
 			    value = norm;
@@ -3120,7 +3169,7 @@ xmlSchemaValAtomicType(xmlSchemaTypePtr type, const xmlChar * value,
                  * following cases can arise: (1) the final quantum of
                  * encoding input is an integral multiple of 24 bits; here,
                  * the final unit of encoded output will be an integral
-                 * multiple ofindent: Standard input:701: Warning:old style
+                 * multiple of indent: Standard input:701: Warning:old style
 		 * assignment ambiguity in "=*".  Assuming "= *" 4 characters
 		 * with no "=" padding, (2) the final
                  * quantum of encoding input is exactly 8 bits; here, the
@@ -3934,7 +3983,7 @@ _xmlSchemaDateAdd (xmlSchemaValPtr dt, xmlSchemaValPtr dur)
 
         temp = r->mon + carry;
         r->mon = (unsigned int) MODULO_RANGE(temp, 1, 13);
-        r->year = r->year + (unsigned int) FQUOTIENT_RANGE(temp, 1, 13);
+        r->year = r->year + (long) FQUOTIENT_RANGE(temp, 1, 13);
         if (r->year == 0) {
             if (temp < 1)
                 r->year--;
@@ -5132,7 +5181,7 @@ xmlSchemaGetFacetValueAsULong(xmlSchemaFacetPtr facet)
     /*
     * TODO: Check if this is a decimal.
     */
-    if (facet == NULL)
+    if (facet == NULL || facet->val == NULL)
         return 0;
     return ((unsigned long) facet->val->value.decimal.lo);
 }
@@ -5382,7 +5431,6 @@ xmlSchemaValidateFacetInternal(xmlSchemaFacetPtr facet,
 			       xmlSchemaWhitespaceValueType ws)
 {
     int ret;
-    int stringType;
 
     if (facet == NULL)
 	return(-1);
@@ -5400,10 +5448,16 @@ xmlSchemaValidateFacetInternal(xmlSchemaFacetPtr facet,
 	    * the datatype.
 	    * See https://www.w3.org/TR/xmlschema-2/#rf-pattern
 	    */
-	    stringType = val && ((val->type >= XML_SCHEMAS_STRING && val->type <= XML_SCHEMAS_NORMSTRING)
-			      || (val->type >= XML_SCHEMAS_TOKEN && val->type <= XML_SCHEMAS_NCNAME));
-	    ret = xmlRegexpExec(facet->regexp,
-	                        (stringType && val->value.str) ? val->value.str : value);
+	    if (val &&
+                val->value.str &&
+                ((val->type >= XML_SCHEMAS_STRING &&
+                  val->type <= XML_SCHEMAS_NORMSTRING) ||
+                 (val->type >= XML_SCHEMAS_TOKEN &&
+                  val->type <= XML_SCHEMAS_ENTITIES &&
+                  val->type != XML_SCHEMAS_QNAME))) {
+                value = val->value.str;
+            }
+	    ret = xmlRegexpExec(facet->regexp, value);
 	    if (ret == 1)
 		return(0);
 	    if (ret == 0)
@@ -5473,7 +5527,7 @@ xmlSchemaValidateFacetInternal(xmlSchemaFacetPtr facet,
 	    if ((valType == XML_SCHEMAS_QNAME) ||
 		(valType == XML_SCHEMAS_NOTATION))
 		return (0);
-	    /* No break on purpose. */
+            /* Falls through. */
 	case XML_SCHEMA_FACET_MAXLENGTH:
 	case XML_SCHEMA_FACET_MINLENGTH: {
 	    unsigned int len = 0;
@@ -6066,13 +6120,13 @@ xmlSchemaGetCanonValue(xmlSchemaValPtr val, const xmlChar **retValue)
 		    * recoverable timezone and not "Z".
 		    */
 		    snprintf(buf, 30,
-			"%04ld:%02u:%02uZ",
+			"%04ld-%02u-%02uZ",
 			norm->value.date.year, norm->value.date.mon,
 			norm->value.date.day);
 		    xmlSchemaFreeValue(norm);
 		} else {
 		    snprintf(buf, 30,
-			"%04ld:%02u:%02u",
+			"%04ld-%02u-%02u",
 			val->value.date.year, val->value.date.mon,
 			val->value.date.day);
 		}
@@ -6093,14 +6147,14 @@ xmlSchemaGetCanonValue(xmlSchemaValPtr val, const xmlChar **retValue)
 		    * TODO: Check if "%.14g" is portable.
 		    */
 		    snprintf(buf, 50,
-			"%04ld:%02u:%02uT%02u:%02u:%02.14gZ",
+			"%04ld-%02u-%02uT%02u:%02u:%02.14gZ",
 			norm->value.date.year, norm->value.date.mon,
 			norm->value.date.day, norm->value.date.hour,
 			norm->value.date.min, norm->value.date.sec);
 		    xmlSchemaFreeValue(norm);
 		} else {
 		    snprintf(buf, 50,
-			"%04ld:%02u:%02uT%02u:%02u:%02.14g",
+			"%04ld-%02u-%02uT%02u:%02u:%02.14g",
 			val->value.date.year, val->value.date.mon,
 			val->value.date.day, val->value.date.hour,
 			val->value.date.min, val->value.date.sec);

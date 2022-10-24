@@ -24,14 +24,15 @@
 #import "supd.h"
 #import <Foundation/NSXPCConnection_Private.h>
 
-#if !TARGET_OS_SIMULATOR
-
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
 #import <Security/SFAnalytics.h>
+#import <OSAnalytics/OSAnalytics.h>
 
 #include <utilities/SecFileLocations.h>
 #import "utilities/debugging.h"
+#import <os/lock.h>
+#import <os/lock_private.h>
 #import <os/variant_private.h>
 #import <xpc/xpc.h>
 #include <notify.h>
@@ -49,7 +50,7 @@
 
 #if TARGET_OS_OSX
 #import <CrashReporterSupport/CrashReporterSupportPrivate.h>
-#else
+#elif !TARGET_OS_SIMULATOR
 #import <CrashReporterSupport/CrashReporterSupport.h>
 #endif
 
@@ -61,6 +62,8 @@
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 
+#import <OSAnalytics/OSAnalytics.h>
+
 #import "utilities/simulatecrash_assert.h"
 #import "trust/trustd/trustdFileHelper/trustdFileHelper.h"
 
@@ -70,6 +73,7 @@ NSString* const SFAnalyticsInternal = @"internal";
 
 NSString* const SFAnalyticsMetricsBase = @"metricsBase";
 NSString* const SFAnalyticsDeviceID = @"ckdeviceID";
+NSString* const SFAnalyticsAccountID = @"sfaAccountID";
 NSString* const SFAnalyticsAltDSID = @"altDSID";
 
 NSString* const SFAnalyticsEventCorrelationID = @"eventLinkID";
@@ -101,6 +105,7 @@ NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
 - (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName
 {
     BOOL writtenToLog = NO;
+#if !TARGET_OS_SIMULATOR
 #if TARGET_OS_OSX
     NSDictionary *optionsDictionary = @{ (__bridge NSString *)kCRProblemReportSubmissionPolicyKey: (__bridge NSString *)kCRSubmissionPolicyAlternate };
 #else // !TARGET_OS_OSX
@@ -114,6 +119,7 @@ NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
                                                 secnotice("OSAWriteLogForSubmission", "Writing log data to report: %@", fileName);
                                                 [fileHandle writeData:reportData];
                                             });
+#endif // !TARGET_OS_SIMULATOR
     return writtenToLog;
 }
 @end
@@ -138,7 +144,7 @@ _isDeviceAnalyticsEnabled(void)
     static BOOL dataCollectionEnabled = NO;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         dataCollectionEnabled = DiagnosticLogSubmissionEnabled();
 #elif TARGET_OS_OSX
         dataCollectionEnabled = CRIsAutoSubmitEnabled();
@@ -150,7 +156,7 @@ _isDeviceAnalyticsEnabled(void)
 static NSString *
 accountAltDSID(void)
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore = [ACAccountStore defaultStore];
     ACAccount *primaryAccount = [accountStore aa_primaryAppleAccount];
     if (primaryAccount == nil) {
         return nil;
@@ -200,7 +206,7 @@ _getiCloudConfigurationInfoWithError(NSError **outError)
 }
 
 static BOOL
-_isiCloudAnalyticsEnabled()
+_isiCloudAnalyticsEnabled(void)
 {
     // This flag is only set during tests.
     if (iCloudAnalyticsOverride) {
@@ -228,6 +234,20 @@ _isiCloudAnalyticsEnabled()
     });
 
     return cachedAllowsICloudAnalytics;
+}
+
+/// Returns one of the values in the dictionary, or `nil` if the dictionary is
+/// empty. Like `-[NSSet anyObject]`, but for dictionaries.
+static inline id _Nullable
+_anyValueFromDictionary(NSDictionary *dictionary)
+{
+    __block id value;
+    [dictionary enumerateKeysAndObjectsUsingBlock:^(id __unused anyKey, id anyValue, BOOL *stop) {
+        // Just grab the first value we see...
+        value = anyValue;
+        *stop = YES;
+    }];
+    return value;
 }
 
 /*  NSData GZip category based on GeoKit's implementation */
@@ -282,32 +302,167 @@ _isiCloudAnalyticsEnabled()
 @end
 
 @interface SFAnalyticsClient ()
-@property dispatch_queue_t queue;
+
+- (instancetype)initWithStore:(SFAnalyticsSQLiteStore *)store
+                        queue:(dispatch_queue_t)queue
+                         name:(NSString*)name
+       requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+       requireiCloudAnalytics:(BOOL)requireiCloudAnalytics NS_DESIGNATED_INITIALIZER;
+
+@property (readwrite, nonatomic) BOOL isStoreOpen;
+@property (readonly, nonatomic, nullable) SFAnalyticsSQLiteStore *store;
+@property (readonly, nonatomic) dispatch_queue_t queue;
+
 @end
 
 @implementation SFAnalyticsClient {
-    NSString* _path;
     NSString* _name;
     BOOL _requireDeviceAnalytics;
     BOOL _requireiCloudAnalytics;
 }
 
-@synthesize storePath = _path;
+static os_unfair_lock sharedClientsLock = OS_UNFAIR_LOCK_INIT;
+
 @synthesize name = _name;
+
+- (NSString *)storePath
+{
+    return _store.path;
+}
+
++ (SFAnalyticsClient *)getSharedClientNamed:(NSString *)name
+                      orCreateWithStorePath:(NSString *)storePath
+                     requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+                     requireiCloudAnalytics:(BOOL)requireiCloudAnalytics
+{
+    // The shared clients dictionary is:
+    //   (1) Global and protected by an unfair lock.
+    //   (2) Double-keyed by the store path and name. A path can have multiple
+    //       clients with different names, but all clients for that path use the
+    //       same underlying store.
+    static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyticsClient *> *> *namedSharedClientsByStorePath;
+
+    os_unfair_lock_lock_scoped_guard(lock, &sharedClientsLock);
+
+    if (!namedSharedClientsByStorePath) {
+        namedSharedClientsByStorePath = [NSMutableDictionary dictionary];
+    }
+
+    NSString *standardizedStorePath = storePath.stringByStandardizingPath;
+
+    NSMutableDictionary<NSString *, SFAnalyticsClient *> *sharedClientsByName = namedSharedClientsByStorePath[standardizedStorePath];
+    if (!sharedClientsByName) {
+        // No client for this path yet, let's make one.
+        SFAnalyticsClient *sharedClient = [[SFAnalyticsClient alloc] initWithStorePath:standardizedStorePath
+                                                                                  name:name
+                                                                requireDeviceAnalytics:requireDeviceAnalytics
+                                                                requireiCloudAnalytics:requireiCloudAnalytics];
+        if (sharedClient.storePath != nil && name != nil) {
+            namedSharedClientsByStorePath[sharedClient.storePath] = [NSMutableDictionary dictionaryWithObject:sharedClient forKey:name];
+        } else {
+            if (sharedClient.storePath == nil) {
+                secerror("SFAnalyticsClient: sharedClient.storePath is unexpectedly nil! Not adding to namedSharedClientsByStorePath");
+            }
+            if (name == nil) {
+                secerror("SFAnalyticsClient: name is unexpectedly nil! Not adding to namedSharedClientsByStorePath");
+            }
+        }
+        if (sharedClient == nil) {
+            secerror("SFAnalyticsClient: sharedClient is unexpectedly nil!");
+        }
+        return sharedClient;
+    }
+
+    // If we already have clients for this store path, make sure we have one
+    // with the same name.
+    SFAnalyticsClient *existingSharedClient = sharedClientsByName[name];
+    if (existingSharedClient) {
+        return existingSharedClient;
+    }
+
+    // If not, we might be reading different analytics from the same store
+    // (e.g., trust and root trust; networking and root networking). Create a
+    // new client, but with the same underlying store and queue as an existing
+    // one. This avoids opening multiple connections to the SQLite database, and
+    // ensures that the single connection is never shared between threads. It
+    // doesn't matter which existing shared client we use; all clients for the
+    // same path will have the same store.
+    existingSharedClient = _anyValueFromDictionary(sharedClientsByName);
+    NSAssert(existingSharedClient != NULL, @"Expected at least one named existing client");
+    SFAnalyticsClient *newSharedClient = [[SFAnalyticsClient alloc] initFromExistingClient:existingSharedClient
+                                                                                      name:name
+                                                                    requireDeviceAnalytics:requireDeviceAnalytics
+                                                                    requireiCloudAnalytics:requireiCloudAnalytics];
+    sharedClientsByName[name] = newSharedClient;
+    return newSharedClient;
+}
 
 - (instancetype)initWithStorePath:(NSString*)path
                              name:(NSString*)name
-                  deviceAnalytics:(BOOL)deviceAnalytics iCloudAnalytics:(BOOL)iCloudAnalytics
+           requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+           requireiCloudAnalytics:(BOOL)requireiCloudAnalytics
+{
+    SFAnalyticsSQLiteStore *store = [[SFAnalyticsSQLiteStore alloc] initWithPath:path schema:SFAnalyticsTableSchema];
+
+    NSString* queueName = [NSString stringWithFormat: @"SFAnalyticsClient queue-%@", name];
+    dispatch_queue_t queue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+
+    return [self initWithStore:store
+                         queue:queue
+                          name:name
+        requireDeviceAnalytics:requireDeviceAnalytics
+        requireiCloudAnalytics:requireiCloudAnalytics];
+}
+
+- (instancetype)initFromExistingClient:(SFAnalyticsClient *)client
+                                  name:(NSString *)name
+                requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+                requireiCloudAnalytics:(BOOL)requireiCloudAnalytics
+{
+    NSString* queueName = [NSString stringWithFormat: @"SFAnalyticsClient queue-%@", name];
+    dispatch_queue_t queue = dispatch_queue_create_with_target([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL, client.queue);
+
+    return [self initWithStore:client.store
+                         queue:queue
+                          name:name
+        requireDeviceAnalytics:requireDeviceAnalytics
+        requireiCloudAnalytics:requireiCloudAnalytics];
+}
+
+- (instancetype)initWithStore:(SFAnalyticsSQLiteStore *)store
+                        queue:(dispatch_queue_t)queue
+                         name:(NSString *)name
+       requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+       requireiCloudAnalytics:(BOOL)requireiCloudAnalytics
 {
     if (self = [super init]) {
-        _path = path;
+        _isStoreOpen = NO;
+        _store = store;
+        _queue = queue;
         _name = name;
-        _requireDeviceAnalytics = deviceAnalytics;
-        _requireiCloudAnalytics = iCloudAnalytics;
-        NSString* queueName = [NSString stringWithFormat: @"SFAnalyticsClient queue-%@", name];
-        _queue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        _requireDeviceAnalytics = requireDeviceAnalytics;
+        _requireiCloudAnalytics = requireiCloudAnalytics;
     }
     return self;
+}
+
+- (void)withStore:(void (^ NS_NOESCAPE)(SFAnalyticsSQLiteStore *store))block
+{
+    dispatch_sync(self.queue, ^{
+        if (self.isStoreOpen) {
+            block(self.store);
+            return;
+        }
+        NSError *error;
+        self.isStoreOpen = [self.store openWithError:&error];
+        if (!self.isStoreOpen && !(error && error.code == SQLITE_AUTH)) {
+            // If opening the store fails, we'll log an error, but still call
+            // the block. Attempting to use the store will likely fail, but we
+            // don't want to leave the caller hanging.
+            secerror("SFAnalytics: could not open db at init, will try again later. Error: %@", error);
+        }
+        block(self.store);
+    });
 }
 
 @end
@@ -335,38 +490,58 @@ _isiCloudAnalyticsEnabled()
 {
     NSMutableArray<SFAnalyticsClient*>* clients = [NSMutableArray<SFAnalyticsClient*> new];
     if ([topicName isEqualToString:SFAnalyticsTopicKeySync]) {
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForCKKS]
-                                                                   name:@"ckks" deviceAnalytics:NO iCloudAnalytics:YES]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForSOS]
-                                                                   name:@"sos" deviceAnalytics:NO iCloudAnalytics:YES]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForPCS]
-                                                                   name:@"pcs" deviceAnalytics:NO iCloudAnalytics:YES]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForSignIn]
-                                                                   name:@"signins" deviceAnalytics:NO iCloudAnalytics:YES]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForLocal]
-                                                                   name:@"local" deviceAnalytics:YES iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"ckks"
+                                             orCreateWithStorePath:[self.class databasePathForCKKS]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"sos"
+                                             orCreateWithStorePath:[self.class databasePathForSOS]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"pcs"
+                                             orCreateWithStorePath:[self.class databasePathForPCS]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"signins"
+                                             orCreateWithStorePath:[self.class databasePathForSignIn]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"local"
+                                             orCreateWithStorePath:[self.class databasePathForLocal]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
     } else if ([topicName isEqualToString:SFAnalyticsTopicCloudServices]) {
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForCloudServices]
-                                                                   name:@"CloudServices"
-                                                        deviceAnalytics:YES
-                                                        iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"CloudServices"
+                                             orCreateWithStorePath:[self.class databasePathForCloudServices]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
     } else if ([topicName isEqualToString:SFAnalyticsTopicTrust]) {
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTrust]
-                                                                   name:@"trust" deviceAnalytics:YES iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"trust"
+                                             orCreateWithStorePath:[self.class databasePathForTrust]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
 #if TARGET_OS_OSX
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForRootTrust]
-                                                                   name:@"rootTrust" deviceAnalytics:YES iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"rootTrust"
+                                             orCreateWithStorePath:[self.class databasePathForRootTrust]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
 #endif
     } else if ([topicName isEqualToString:SFAnalyticsTopicNetworking]) {
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForNetworking]
-                                                                   name:@"networking" deviceAnalytics:YES iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"networking"
+                                             orCreateWithStorePath:[self.class databasePathForNetworking]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
 #if TARGET_OS_OSX
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForRootNetworking]
-                                                                   name:@"rootNetworking" deviceAnalytics:YES iCloudAnalytics:NO]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"rootNetworking"
+                                             orCreateWithStorePath:[self.class databasePathForRootNetworking]
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
 #endif
     } else if ([topicName isEqualToString:SFAnalyticsTopicTransparency]) {
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTransparency]
-                                                                   name:@"transparency" deviceAnalytics:NO iCloudAnalytics:YES]];
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"transparency"
+                                             orCreateWithStorePath:[self.class databasePathForTransparency]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
     }
 
     _topicClients = clients;
@@ -673,11 +848,22 @@ _isiCloudAnalyticsEnabled()
     return statistics;
 }
 
+- (NSMutableDictionary *)dropZeroValues:(NSDictionary*)oldSummary {
+    __block NSMutableDictionary* summary = [NSMutableDictionary dictionary];
+    [oldSummary enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+        if ([obj isEqual:@0]) {
+            return;
+        }
+        summary[key] = obj;
+    }];
+    return summary;
+}
+
 - (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid
 {
     dispatch_assert_queue(client.queue);
     NSString *name = client.name;
-    __block NSMutableDictionary* summary = [NSMutableDictionary new];
+    __block NSMutableDictionary* summary = [NSMutableDictionary dictionary];
 
     // Add some events of our own before pulling in data
     summary[SFAnalyticsEventType] = [NSString stringWithFormat:@"%@HealthSummary", name];
@@ -688,8 +874,6 @@ _isiCloudAnalyticsEnabled()
     [SFAnalytics addOSVersionToEvent:summary];
     if (store.uploadDate) {
         summary[SFAnalyticsAttributeLastUploadTime] = @([store.uploadDate timeIntervalSince1970] * 1000);
-    } else {
-        summary[SFAnalyticsAttributeLastUploadTime] = @(0);
     }
 
     // Process counters
@@ -713,6 +897,11 @@ _isiCloudAnalyticsEnabled()
         summary[SFAnalyticsInternal] = @YES;
     }
 
+    NSString *storeAccountIdentifier = [store metricsAccountID];
+    if (storeAccountIdentifier) {
+        summary[SFAnalyticsAccountID] = storeAccountIdentifier;
+    }
+
     // Process samples
     NSMutableDictionary<NSString*,NSMutableArray*>* samplesBySampler = [NSMutableDictionary<NSString*,NSMutableArray*> dictionary];
     for (NSDictionary* sample in [store samples]) {
@@ -725,6 +914,8 @@ _isiCloudAnalyticsEnabled()
         NSMutableDictionary* event = [self sampleStatisticsForSamples:obj withName:key];
         [summary addEntriesFromDictionary:event];
     }];
+
+    summary = [self dropZeroValues:summary];
 
     // Should always return yes because we already checked for event blacklisting specifically (unless summary itself is blacklisted)
     if (![self prepareEventForUpload:summary linkedUUID:uuid]) {
@@ -745,15 +936,14 @@ _isiCloudAnalyticsEnabled()
 - (void)updateUploadDateForClients:(NSArray<SFAnalyticsClient*>*)clients date:(NSDate *)date clearData:(BOOL)clearData
 {
     for (SFAnalyticsClient* client in clients) {
-        dispatch_sync(client.queue, ^{
-            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+        [client withStore:^(SFAnalyticsSQLiteStore *store) {
             secnotice("postprocess", "Setting upload date (%@) for client: %@", date, client.name);
             store.uploadDate = date;
             if (clearData) {
                 secnotice("postprocess", "Clearing collected data for client: %@", client.name);
                 [store clearAllData];
             }
-        });
+        }];
     }
 }
 
@@ -883,6 +1073,53 @@ _isiCloudAnalyticsEnabled()
     return jsonResults;
 }
 
+-(NSString *)dataAnalyticsSetting:(NSString *)key {
+#if TARGET_OS_OSX
+#define PREFS_USER kCFPreferencesAnyUser
+#else
+#define PREFS_USER CFSTR("mobile")
+#endif
+    NSString *setting = CFBridgingRelease(CFPreferencesCopyValue((__bridge CFStringRef)key,
+                                                                 CFSTR("com.apple.da"),
+                                                                 PREFS_USER,
+                                                                 kCFPreferencesAnyHost));
+    if (![setting isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+    return setting;
+}
+
+
+- (NSDictionary *)carryStatus {
+    NSDictionary *carryStatus;
+
+    if (os_variant_has_internal_diagnostics("security")) {
+        NSMutableDictionary *carry = [NSMutableDictionary dictionary];
+
+        NSString *deviceGroup = [OSASystemConfiguration automatedDeviceGroup];
+        if (deviceGroup == nil) {
+            // legacy location that lots of other automation scripting is still using
+            deviceGroup = [self dataAnalyticsSetting:@"AutomatedDeviceGroup"];
+        }
+        if (deviceGroup) {
+            carry[@"automatedDeviceGroup"] = deviceGroup;
+        }
+
+        NSString *experimentGroup = [self dataAnalyticsSetting:@"ExperimentGroup"];
+        if (deviceGroup == nil && ([experimentGroup isEqual:@"walkabout"] || [experimentGroup isEqual:@"carry"])) {
+            carry[@"carry"] = @YES;
+        }
+
+        if (carry.count != 0) {
+            carryStatus = carry;
+        }
+    }
+
+    secnotice("getLoggingJSON", "carrystatus is %@", carryStatus);
+
+    return carryStatus;
+}
+
 - (BOOL)copyEvents:(NSMutableArray<NSDictionary *> **)healthSummaries
           failures:(NSMutableArray<NSDictionary *> **)failures
          forUpload:(BOOL)upload
@@ -901,12 +1138,13 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
 
     if (os_variant_has_internal_diagnostics("com.apple.security") &&
         ([_internalTopicName isEqualToString:SFAnalyticsTopicKeySync] ||
-         [_internalTopicName isEqualToString:SFAnalyticsTopicCloudServices])) {
+         [_internalTopicName isEqual:SFAnalyticsTopicCloudServices] ||
+         [_internalTopicName isEqualToString:SFAnalyticsTopicTransparency])) {
         ckdeviceID = [self askSecurityForCKDeviceID];
         accountID = accountAltDSID();
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
-        dispatch_sync(client.queue, ^{
+        [client withStore:^(SFAnalyticsSQLiteStore *store) {
             if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
                 // Client required device analytics, yet the user did not opt in.
                 secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
@@ -917,8 +1155,6 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 secnotice("getLoggingJSON", "Client '%@' requires iCloud analytics yet user did not opt in.", [client name]);
                 return;
             }
-
-            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
 
             if (upload) {
                 NSDate* uploadDate = store.uploadDate;
@@ -944,12 +1180,16 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
                 if (accountID) {
                     healthSummary[SFAnalyticsAltDSID] = accountID;
                 }
+                NSDictionary *carryStatus = [self carryStatus];
+                if (carryStatus) {
+                    [healthSummary addEntriesFromDictionary:carryStatus];
+                }
                 [localHealthSummaries addObject:healthSummary];
             }
 
             [hardFailures addObject:store.hardFailures];
             [softFailures addObject:store.softFailures];
-        });
+        }];
     }
 
     if (upload && [localClients count] == 0) {
@@ -1600,9 +1840,8 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
     for (SFAnalyticsTopic* topic in _analyticsTopics) {
         for (SFAnalyticsClient* client in topic.topicClients) {
-            dispatch_sync(client.queue, ^{
+            [client withStore:^(SFAnalyticsSQLiteStore *store) {
                 [sysdiagnose appendString:[NSString stringWithFormat:@"Client: %@\n", client.name]];
-                SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
                 NSArray* allEvents = store.allEvents;
                 for (NSDictionary* eventRecord in allEvents) {
                     [sysdiagnose appendFormat:@"%@\n", [self sysdiagnoseStringForEventRecord:eventRecord]];
@@ -1610,7 +1849,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                 if (allEvents.count == 0) {
                     [sysdiagnose appendString:@"No data to report for this client\n"];
                 }
-            });
+            }];
         }
     }
     return sysdiagnose;
@@ -1750,13 +1989,11 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     NSMutableDictionary *info = [NSMutableDictionary dictionary];
     for (SFAnalyticsTopic* topic in _analyticsTopics) {
         for (SFAnalyticsClient *client in topic.topicClients) {
-            dispatch_sync(client.queue, ^{
-                SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-
+            [client withStore:^(SFAnalyticsSQLiteStore *store) {
                 NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
                 clientInfo[@"uploadDate"] = store.uploadDate;
                 info[client.name] = clientInfo;
-            });
+            }];
         }
     }
 
@@ -1777,5 +2014,3 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 }
 
 @end
-
-#endif // !TARGET_OS_SIMULATOR

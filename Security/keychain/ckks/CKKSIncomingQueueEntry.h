@@ -39,27 +39,44 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property NSString* action;
 @property NSString* state;
+@property (readonly) NSString* contextID;
 
 - (instancetype)initWithCKKSItem:(CKKSItem*)ckme action:(NSString*)action state:(NSString*)state;
 
-+ (instancetype _Nullable)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSIncomingQueueEntry*>* _Nullable)fetch:(ssize_t)n
                                       startingAtUUID:(NSString* _Nullable)uuid
                                                state:(NSString*)state
                                               action:(NSString* _Nullable)action
+                                           contextID:(NSString*)contextID
                                               zoneID:(CKRecordZoneID*)zoneID
                                                error:(NSError* __autoreleasing*)error;
 
-+ (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *)error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByStateWithContextID:(NSString*)contextID
+                                                           zoneID:(CKRecordZoneID*)zoneID
+                                                            error:(NSError* __autoreleasing*)error;
++ (NSInteger)countByState:(CKKSItemState *)state
+                contextID:(NSString*)contextID
+                     zone:(CKRecordZoneID*)zoneID
+                    error:(NSError * __autoreleasing *)error;
 
-+ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyWithContextID:(NSString*)contextID
+                                                                  zoneID:(CKRecordZoneID*)zoneID
+                                                                   error:(NSError* __autoreleasing*)error;
 
 // Returns true if all extant IQEs for the given zone have parent keys which exist and can be loaded (whether or not they're local or reoote)
 // This is intended to return false if CKKS desyncs from the server about the existence of a sync key
-+ (BOOL)allIQEsHaveValidUnwrappingKeys:(CKRecordZoneID*)zoneID error:(NSError**)error;
++ (BOOL)allIQEsHaveValidUnwrappingKeysInContextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error:(NSError**)error;
 
 @end
 

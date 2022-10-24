@@ -31,9 +31,9 @@
 #include "trust/trustd/TrustURLSessionCache.h"
 
 #define MAX_CACHED_SESSIONS 20
-const NSString *TrustdUserAgent = @"com.apple.trustd/2.2";
+const NSString *TrustdUserAgent = @"com.apple.trustd/3.0";
 
-static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
+NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
     return (NSTimeInterval)3.0;
 }
 
@@ -64,11 +64,12 @@ static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
     config._hstsStorage = self._sharedHSTSCache; // use shared ephemeral HSTS cache
     config.HTTPCookieStorage = nil; // no cookies
     config.URLCache = nil; // no resource caching
-    config.timeoutIntervalForResource = TrustURLSessionGetResourceTimeout();
     config.HTTPAdditionalHeaders = @{@"User-Agent" : TrustdUserAgent};
     config._sourceApplicationAuditTokenData = auditToken;
+    config._sourceApplicationSecondaryIdentifier = @"com.apple.trustd.TrustURLSession"; // Must match NetworkServiceProxy definition
 
     NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+    queue.underlyingQueue = self.delegate.queue;
 
     NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:self.delegate delegateQueue:queue];
     return session;

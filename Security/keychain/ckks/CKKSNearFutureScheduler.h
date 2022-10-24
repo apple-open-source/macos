@@ -64,7 +64,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithName:(NSString*)name
                 initialDelay:(dispatch_time_t)initialDelay
-            expontialBackoff:(double)backoff
+          exponentialBackoff:(double)backoff
                 maximumDelay:(dispatch_time_t)maximumDelay
             keepProcessAlive:(bool)keepProcessAlive
    dependencyDescriptionCode:(NSInteger)code

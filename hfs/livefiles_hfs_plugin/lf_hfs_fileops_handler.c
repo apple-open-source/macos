@@ -254,8 +254,6 @@ sizeok:
         fp->ff_new_size = 0;    /* ff_size now has the correct size */
     }
 
-    hfs_flush(hfsmp, HFS_FLUSH_CACHE);
-
 ioerr_exit:
     if (!cnode_locked)
     {
@@ -332,7 +330,7 @@ int LFHFS_Create ( UVFSFileNode psNode, const char *pcName, const UVFSFileAttrib
         if (iError)
         {
             DIROPS_RemoveInternal(psParentVnode, pcName);
-            LFHFS_Reclaim((vnode_t) *ppsOutNode);
+            LFHFS_Reclaim((vnode_t) *ppsOutNode, 0);
         }
     }
 
@@ -374,7 +372,7 @@ exit:
     return iErr;
 }
 
-int LFHFS_Reclaim ( UVFSFileNode psNode )
+int LFHFS_Reclaim ( UVFSFileNode psNode, __unused int flags )
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_Reclaim\n");
 
@@ -453,6 +451,11 @@ exit:
 int LFHFS_Rename (UVFSFileNode psFromDirNode, UVFSFileNode psFromNode, const char *pcFromName, UVFSFileNode psToDirNode, UVFSFileNode psToNode, const char *pcToName, uint32_t flags __unused)
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_Rename\n");
+
+    if (pcFromName == NULL || pcToName == NULL)
+    {
+        return EINVAL;
+    }
 
     VERIFY_NODE_IS_VALID(psFromDirNode);
     VERIFY_NODE_IS_VALID(psToDirNode);
@@ -545,9 +548,9 @@ int LFHFS_Rename (UVFSFileNode psFromDirNode, UVFSFileNode psFromNode, const cha
     iErr = hfs_vnop_renamex(psFromParentVnode, psFromVnode, &sFromCompName, psToParentVnode, psToVnode, &sToCompName);
 
     if (!bGotFromNode)
-        LFHFS_Reclaim(psFromVnode);
+        LFHFS_Reclaim(psFromVnode, 0);
     if (!bGotToNode && psToVnode)
-        LFHFS_Reclaim(psToVnode);
+        LFHFS_Reclaim(psToVnode, 0);
 
 exit:
     return iErr;

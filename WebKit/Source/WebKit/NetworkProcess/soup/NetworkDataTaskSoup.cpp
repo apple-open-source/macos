@@ -202,7 +202,7 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request, WasBlockingCo
 #endif
 
 #if SOUP_CHECK_VERSION(2, 67, 1)
-    if ((m_currentRequest.url().protocolIs("https") && !shouldAllowHSTSPolicySetting()) || (m_currentRequest.url().protocolIs("http") && !shouldAllowHSTSProtocolUpgrade()))
+    if ((m_currentRequest.url().protocolIs("https"_s) && !shouldAllowHSTSPolicySetting()) || (m_currentRequest.url().protocolIs("http"_s) && !shouldAllowHSTSProtocolUpgrade()))
         soup_message_disable_feature(m_soupMessage.get(), SOUP_TYPE_HSTS_ENFORCER);
     else {
 #if USE(SOUP2)
@@ -657,7 +657,7 @@ void NetworkDataTaskSoup::authenticateCallback(SoupSession* session, SoupMessage
     // it's proxy authentication and the request URL is HTTPS, because in that case libsoup uses a
     // tunnel internally and the SoupMessage used for the authentication is the tunneling one.
     // See https://bugs.webkit.org/show_bug.cgi?id=175378.
-    if (soupMessage != task->m_soupMessage.get() && (soupMessage->status_code != SOUP_STATUS_PROXY_AUTHENTICATION_REQUIRED || !task->m_currentRequest.url().protocolIs("https")))
+    if (soupMessage != task->m_soupMessage.get() && (soupMessage->status_code != SOUP_STATUS_PROXY_AUTHENTICATION_REQUIRED || !task->m_currentRequest.url().protocolIs("https"_s)))
         return;
 
     if (task->state() == State::Canceling || task->state() == State::Completed || !task->m_client) {
@@ -929,9 +929,9 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     static const unsigned maxRedirects = 20;
     if (m_currentRequest.redirectCount() > maxRedirects) {
 #if USE(SOUP2)
-        didFail(ResourceError::transportError(m_currentRequest.url(), SOUP_STATUS_TOO_MANY_REDIRECTS, "Too many redirects"));
+        didFail(ResourceError::transportError(m_currentRequest.url(), SOUP_STATUS_TOO_MANY_REDIRECTS, "Too many redirects"_s));
 #else
-        didFail(ResourceError(g_quark_to_string(SOUP_SESSION_ERROR), SOUP_SESSION_ERROR_TOO_MANY_REDIRECTS, m_currentRequest.url(), String::fromUTF8("Too many redirects")));
+        didFail(ResourceError(String::fromLatin1(g_quark_to_string(SOUP_SESSION_ERROR)), SOUP_SESSION_ERROR_TOO_MANY_REDIRECTS, m_currentRequest.url(), String::fromUTF8("Too many redirects")));
 #endif
         return;
     }
@@ -952,14 +952,14 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     request.clearHTTPUserAgent();
 
     // Should not set Referer after a redirect from a secure resource to non-secure one.
-    if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https"))
+    if (m_shouldClearReferrerOnHTTPSToHTTPRedirect && !request.url().protocolIs("https"_s) && protocolIs(request.httpReferrer(), "https"_s))
         request.clearHTTPReferrer();
 
     bool isCrossOrigin = !protocolHostAndPortAreEqual(m_currentRequest.url(), request.url());
-    if (!equalLettersIgnoringASCIICase(request.httpMethod(), "get")) {
+    if (!equalLettersIgnoringASCIICase(request.httpMethod(), "get"_s)) {
         // Change newRequest method to GET if change was made during a previous redirection or if current redirection says so.
         if (soup_message_get_method(m_soupMessage.get()) == SOUP_METHOD_GET || !request.url().protocolIsInHTTPFamily() || shouldRedirectAsGET(m_soupMessage.get(), isCrossOrigin)) {
-            request.setHTTPMethod("GET");
+            request.setHTTPMethod("GET"_s);
             request.setHTTPBody(nullptr);
             request.clearHTTPContentType();
         }
@@ -1037,7 +1037,7 @@ void NetworkDataTaskSoup::readCallback(GInputStream* inputStream, GAsyncResult* 
         if (task->m_soupMessage)
             task->didFail(ResourceError::genericGError(task->m_currentRequest.url(), error.get()));
         else if (task->m_file)
-            task->didFail(ResourceError(g_quark_to_string(error->domain), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
+            task->didFail(ResourceError(String::fromLatin1(g_quark_to_string(error->domain)), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
         else
             RELEASE_ASSERT_NOT_REACHED();
     } else if (bytesRead > 0)
@@ -1127,9 +1127,9 @@ void NetworkDataTaskSoup::didRequestNextPart(GRefPtr<GInputStream>&& inputStream
     ASSERT(!m_inputStream);
     m_inputStream = WTFMove(inputStream);
     auto* headers = soup_multipart_input_stream_get_headers(m_multipartInputStream.get());
-    String contentType = soup_message_headers_get_one(headers, "Content-Type");
+    auto contentType = String::fromLatin1(soup_message_headers_get_one(headers, "Content-Type"));
     m_response = ResourceResponse(m_firstRequest.url(), extractMIMETypeFromMediaType(contentType),
-        soup_message_headers_get_content_length(headers), extractCharsetFromMediaType(contentType));
+        soup_message_headers_get_content_length(headers), extractCharsetFromMediaType(contentType).toString());
     m_response.updateFromSoupMessageHeaders(headers);
     dispatchDidReceiveResponse();
 }
@@ -1173,12 +1173,12 @@ static AtomString soupHTTPVersionToString(SoupHTTPVersion version)
 {
     switch (version) {
     case SOUP_HTTP_1_0:
-        return AtomString("http/1.0", AtomString::ConstructFromLiteral);
+        return "http/1.0"_s;
     case SOUP_HTTP_1_1:
-        return AtomString("http/1.1", AtomString::ConstructFromLiteral);
+        return "http/1.1"_s;
 #if SOUP_CHECK_VERSION(2, 99, 3)
     case SOUP_HTTP_2_0:
-        return AtomString("h2", AtomString::ConstructFromLiteral);
+        return "h2"_s;
 #endif
     }
 
@@ -1218,6 +1218,15 @@ WebCore::AdditionalNetworkLoadMetricsForWebInspector& NetworkDataTaskSoup::addit
     return *m_networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector;
 }
 
+#if USE(SOUP2)
+static void addHeaderSizes(const char *name, const char *value, gpointer pointer)
+{
+    uint64_t* size = static_cast<uint64_t*>(pointer);
+    // Each header is formatted as "<name>: <value>\r\n"
+    *size += strlen(name) + strlen(value) + 4;
+}
+#endif
+
 void NetworkDataTaskSoup::didGetHeaders()
 {
     // We are a bit more conservative with the persistent credential storage than the session store,
@@ -1249,7 +1258,7 @@ void NetworkDataTaskSoup::didGetHeaders()
         const char* headerName;
         const char* headerValue;
         while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
-            requestHeaders.set(String(headerName), String(headerValue));
+            requestHeaders.set(String::fromLatin1(headerName), String::fromLatin1(headerValue));
         additionalMetrics.requestHeaders = WTFMove(requestHeaders);
 
         additionalMetrics.priority = toNetworkLoadPriority(soup_message_get_priority(m_soupMessage.get()));
@@ -1263,6 +1272,20 @@ void NetworkDataTaskSoup::didGetHeaders()
         additionalMetrics.tlsProtocol = tlsProtocolVersionToString(soup_message_get_tls_protocol_version(m_soupMessage.get()));
         additionalMetrics.tlsCipher = String::fromUTF8(soup_message_get_tls_ciphersuite_name(m_soupMessage.get()));
         additionalMetrics.responseHeaderBytesReceived = soup_message_metrics_get_response_header_bytes_received(metrics);
+#else
+        {
+            auto* requestHeaders = soup_message_get_request_headers(m_soupMessage.get());
+            uint64_t requestHeadersSize = 0;
+            soup_message_headers_foreach(requestHeaders, addHeaderSizes, &requestHeadersSize);
+            additionalMetrics.requestHeaderBytesSent = requestHeadersSize;
+        }
+
+        {
+            auto* responseHeaders = soup_message_get_response_headers(m_soupMessage.get());
+            uint64_t responseHeadersSize = 0;
+            soup_message_headers_foreach(responseHeaders, addHeaderSizes, &responseHeadersSize);
+            additionalMetrics.responseHeaderBytesReceived = responseHeadersSize;
+        }
 #endif
     }
 
@@ -1376,7 +1399,7 @@ void NetworkDataTaskSoup::download()
     else
         outputStream = adoptGRef(g_file_create(m_downloadDestinationFile.get(), G_FILE_CREATE_NONE, nullptr, &error.outPtr()));
     if (!outputStream) {
-        didFailDownload(downloadDestinationError(m_response, error->message));
+        didFailDownload(downloadDestinationError(m_response, String::fromUTF8(error->message)));
         return;
     }
 
@@ -1384,7 +1407,7 @@ void NetworkDataTaskSoup::download()
     m_downloadIntermediateFile = adoptGRef(g_file_new_for_path(intermediatePath.get()));
     outputStream = adoptGRef(g_file_replace(m_downloadIntermediateFile.get(), nullptr, TRUE, G_FILE_CREATE_NONE, nullptr, &error.outPtr()));
     if (!outputStream) {
-        didFailDownload(downloadDestinationError(m_response, error->message));
+        didFailDownload(downloadDestinationError(m_response, String::fromUTF8(error->message)));
         return;
     }
     m_downloadOutputStream = adoptGRef(G_OUTPUT_STREAM(outputStream.leakRef()));
@@ -1412,7 +1435,7 @@ void NetworkDataTaskSoup::writeDownloadCallback(GOutputStream* outputStream, GAs
     gsize bytesWritten;
     g_output_stream_write_all_finish(outputStream, result, &bytesWritten, &error.outPtr());
     if (error)
-        task->didFailDownload(downloadDestinationError(task->m_response, error->message));
+        task->didFailDownload(downloadDestinationError(task->m_response, String::fromUTF8(error->message)));
     else
         task->didWriteDownload(bytesWritten);
 }
@@ -1444,7 +1467,7 @@ void NetworkDataTaskSoup::didFinishDownload()
     ASSERT(m_downloadIntermediateFile);
     GUniqueOutPtr<GError> error;
     if (!g_file_move(m_downloadIntermediateFile.get(), m_downloadDestinationFile.get(), G_FILE_COPY_OVERWRITE, m_cancellable.get(), nullptr, nullptr, &error.outPtr())) {
-        didFailDownload(downloadDestinationError(m_response, error->message));
+        didFailDownload(downloadDestinationError(m_response, String::fromUTF8(error->message)));
         return;
     }
 
@@ -1568,9 +1591,14 @@ bool NetworkDataTaskSoup::shouldAllowHSTSPolicySetting() const
 {
     // Follow Apple's HSTS abuse mitigation 1:
     //  "Limit HSTS State to the Hostname, or the Top Level Domain + 1"
+#if ENABLE(PUBLIC_SUFFIX_LIST)
     return isTopLevelNavigation()
         || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host()
-        || isPublicSuffix(m_currentRequest.url().host().toStringWithoutCopying());
+        || isPublicSuffix(m_currentRequest.url().host());
+#else
+    return isTopLevelNavigation()
+        || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host();
+#endif
 }
 
 bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const
@@ -1608,7 +1636,7 @@ void NetworkDataTaskSoup::didStartRequest()
 {
 #if USE(SOUP2)
     m_networkLoadMetrics.requestStart = MonotonicTime::now();
-    if (!m_networkLoadMetrics.secureConnectionStart && m_currentRequest.url().protocolIs("https"))
+    if (!m_networkLoadMetrics.secureConnectionStart && m_currentRequest.url().protocolIs("https"_s))
         m_networkLoadMetrics.secureConnectionStart = WebCore::reusedTLSConnectionSentinel;
 #else
     auto* metrics = soup_message_get_metrics(m_soupMessage.get());
@@ -1623,7 +1651,7 @@ void NetworkDataTaskSoup::didStartRequest()
     m_networkLoadMetrics.domainLookupEnd = MonotonicTime::fromRawSeconds(domainLookupEnd.seconds());
     m_networkLoadMetrics.connectStart = MonotonicTime::fromRawSeconds(connectStart.seconds());
     m_networkLoadMetrics.connectEnd = MonotonicTime::fromRawSeconds(connectEnd.seconds());
-    if (!secureConnectionStart && m_currentRequest.url().protocolIs("https"))
+    if (!secureConnectionStart && m_currentRequest.url().protocolIs("https"_s))
         m_networkLoadMetrics.secureConnectionStart = WebCore::reusedTLSConnectionSentinel;
     else
         m_networkLoadMetrics.secureConnectionStart = MonotonicTime::fromRawSeconds(secureConnectionStart.seconds());
@@ -1683,14 +1711,14 @@ void NetworkDataTaskSoup::didGetFileInfo(GFileInfo* info)
 {
     m_response.setURL(m_firstRequest.url());
     if (g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY) {
-        m_response.setMimeType("text/html");
+        m_response.setMimeType("text/html"_s);
         m_response.setExpectedContentLength(-1);
     } else {
-        const gchar* contentType = g_file_info_get_content_type(info);
-        m_response.setMimeType(extractMIMETypeFromMediaType(contentType));
-        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType));
+        auto contentType = String::fromLatin1(g_file_info_get_content_type(info));
+        m_response.setMimeType(AtomString { extractMIMETypeFromMediaType(contentType) });
+        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType).toAtomString());
         if (m_response.mimeType().isEmpty())
-            m_response.setMimeType(MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()));
+            m_response.setMimeType(AtomString { MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()) });
         m_response.setExpectedContentLength(g_file_info_get_size(info));
     }
 }
@@ -1714,7 +1742,7 @@ void NetworkDataTaskSoup::readFileCallback(GFile* file, GAsyncResult* result, Ne
     GUniqueOutPtr<GError> error;
     GRefPtr<GInputStream> inputStream = adoptGRef(G_INPUT_STREAM(g_file_read_finish(file, result, &error.outPtr())));
     if (error)
-        task->didFail(ResourceError(g_quark_to_string(error->domain), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
+        task->didFail(ResourceError(String::fromLatin1(g_quark_to_string(error->domain)), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
     else
         task->didReadFile(WTFMove(inputStream));
 }
@@ -1738,7 +1766,7 @@ void NetworkDataTaskSoup::enumerateFileChildrenCallback(GFile* file, GAsyncResul
     GUniqueOutPtr<GError> error;
     GRefPtr<GFileEnumerator> enumerator = adoptGRef(g_file_enumerate_children_finish(file, result, &error.outPtr()));
     if (error)
-        task->didFail(ResourceError(g_quark_to_string(error->domain), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
+        task->didFail(ResourceError(String::fromLatin1(g_quark_to_string(error->domain)), error->code, task->m_firstRequest.url(), String::fromUTF8(error->message)));
     else
         task->didReadFile(webkitDirectoryInputStreamNew(WTFMove(enumerator), task->m_firstRequest.url().string().utf8()));
 }

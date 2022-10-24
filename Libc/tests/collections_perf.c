@@ -106,7 +106,8 @@ _get_dirtymemory()
 T_DECL(map_perf, "Test map performance for small hash maps",
 		T_META("owner", "Core Darwin Daemons & Tools"),
 		T_META_CHECK_LEAKS(false),
-		T_META_ASROOT(true))
+		T_META_ASROOT(true),
+		T_META_TAG_PERF)
 {
 #if !(TARGET_OS_IOS | TARGET_OS_OSX)
 	T_PASS("Map_perf doesn't run on this platform");
@@ -242,7 +243,8 @@ static uint64_t _find_n_entries_in_sets(os_set_64_ptr_t *sets, uint64_t seed) {
 T_DECL(set_perf, "Test set performance for small hash sets",
 		T_META("owner", "Core Darwin Daemons & Tools"),
 		T_META_CHECK_LEAKS(false),
-		T_META_ASROOT(true))
+		T_META_ASROOT(true),
+		T_META_TAG_PERF)
 {
 #if !(TARGET_OS_IOS | TARGET_OS_OSX)
 	T_PASS("set_perf doesn't run on this platform");

@@ -375,7 +375,7 @@ BundleDiskRep::RawComponentMap BundleDiskRep::createRawComponents()
 	int const slots[] = {
 		cdCodeDirectorySlot, cdSignatureSlot, cdResourceDirSlot,
 		cdTopDirectorySlot, cdEntitlementSlot, cdEntitlementDERSlot,
-		cdRepSpecificSlot};
+		cdRepSpecificSlot, cdLaunchConstraintSelf, cdLaunchConstraintParent, cdLaunchConstraintResponsible};
 	
 	for (int slot = 0; slot < (int)(sizeof(slots)/sizeof(slots[0])); ++slot) {
 		/* Here, we only handle metaData slots, i.e. slots that
@@ -773,10 +773,7 @@ void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd, SecCSFlags fl
 		}
 	}
 
-	bool shouldSkipXattrFiles = false;
-	if ((flags & kSecCSSkipXattrFiles) && pathFileSystemUsesXattrFiles(mMetaPath.c_str())) {
-		shouldSkipXattrFiles = true;
-	}
+	bool shouldSkipXattrFiles = pathFileSystemUsesXattrFiles(mMetaPath.c_str());
 
 	DirScanner scan(mMetaPath);
 	if (scan.initialized()) {

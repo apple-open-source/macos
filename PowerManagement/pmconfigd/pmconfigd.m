@@ -28,6 +28,7 @@
 #if   (TARGET_OS_OSX)
 #import "PMPowerModeHandler.h"
 #endif
+
 #include "prefs.h"
 /* load
  *
@@ -650,8 +651,20 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
 }
 #endif
 
+#ifdef XCTEST
+bool xctIsDisplayAsleep;
+void xctSetIsDisplayAsleep(bool isDisplayAsleep)
+{
+    xctIsDisplayAsleep = isDisplayAsleep;
+}
+#endif
+
 __private_extern__ bool isDisplayAsleep(void)
 {
+#ifdef XCTEST
+    return xctIsDisplayAsleep;
+#endif
+
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
     return !(skylightDisplayOn());
 #else
@@ -801,10 +814,13 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if ((inEvent = xpc_dictionary_get_value(event, kSkylightCheckInKey))) {
                          skylightCheckIn(peer, event);
                      }
+#endif
+#if TARGET_OS_OSX
                      else if ((inEvent = xpc_dictionary_get_value(event, kDesktopModeKey))) {
                          updateDesktopMode(peer, event);
                      }
 #endif
+
                      else {
                         os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }

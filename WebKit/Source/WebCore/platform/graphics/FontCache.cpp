@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 #include "FontPlatformData.h"
 #include "FontSelector.h"
 #include "Logging.h"
+#include "SystemFontDatabase.h"
 #include "ThreadGlobalData.h"
 #include "WebKitFontFamilyNames.h"
 #include "WorkerOrWorkletThread.h"
@@ -86,6 +87,11 @@ struct FontPlatformDataCacheKey {
     FontCreationContext fontCreationContext;
 };
 
+inline void add(Hasher& hasher, const FontPlatformDataCacheKey& key)
+{
+    add(hasher, key.descriptionKey, key.family, key.fontCreationContext);
+}
+
 static bool operator==(const FontPlatformDataCacheKey& a, const FontPlatformDataCacheKey& b)
 {
     return a.descriptionKey == b.descriptionKey
@@ -94,7 +100,7 @@ static bool operator==(const FontPlatformDataCacheKey& a, const FontPlatformData
 }
 
 struct FontPlatformDataCacheKeyHash {
-    static unsigned hash(const FontPlatformDataCacheKey& key) { return computeHash(key.descriptionKey, key.family, key.fontCreationContext); }
+    static unsigned hash(const FontPlatformDataCacheKey& key) { return computeHash(key); }
     static bool equal(const FontPlatformDataCacheKey& a, const FontPlatformDataCacheKey& b) { return a == b; }
     static constexpr bool safeToCompareToEmptyOrDeleted = true;
 };
@@ -175,17 +181,17 @@ std::optional<ASCIILiteral> FontCache::alternateFamilyName(const String& familyN
 
     switch (familyName.length()) {
     case 5:
-        if (equalLettersIgnoringASCIICase(familyName, "arial"))
+        if (equalLettersIgnoringASCIICase(familyName, "arial"_s))
             return "Helvetica"_s;
-        if (equalLettersIgnoringASCIICase(familyName, "times"))
+        if (equalLettersIgnoringASCIICase(familyName, "times"_s))
             return "Times New Roman"_s;
         break;
     case 7:
-        if (equalLettersIgnoringASCIICase(familyName, "courier"))
+        if (equalLettersIgnoringASCIICase(familyName, "courier"_s))
             return "Courier New"_s;
         break;
     case 9:
-        if (equalLettersIgnoringASCIICase(familyName, "helvetica"))
+        if (equalLettersIgnoringASCIICase(familyName, "helvetica"_s))
             return "Arial"_s;
         break;
 #if !OS(WINDOWS)
@@ -195,12 +201,12 @@ std::optional<ASCIILiteral> FontCache::alternateFamilyName(const String& familyN
     // FIXME: Not sure why this is harmful on Windows, since the alternative will
     // only be tried if Courier New is not found.
     case 11:
-        if (equalLettersIgnoringASCIICase(familyName, "courier new"))
+        if (equalLettersIgnoringASCIICase(familyName, "courier new"_s))
             return "Courier"_s;
         break;
 #endif
     case 15:
-        if (equalLettersIgnoringASCIICase(familyName, "times new roman"))
+        if (equalLettersIgnoringASCIICase(familyName, "times new roman"_s))
             return "Times"_s;
         break;
     }
@@ -218,9 +224,9 @@ FontPlatformData* FontCache::cachedFontPlatformData(const FontDescription& fontD
     // Leading "@" in the font name enables Windows vertical flow flag for the font.
     // Because we do vertical flow by ourselves, we don't want to use the Windows feature.
     // IE disregards "@" regardless of the orientation, so we follow the behavior.
-    const String& familyName = passedFamilyName.substring(passedFamilyName[0] == '@' ? 1 : 0);
+    auto familyName = StringView(passedFamilyName).substring(passedFamilyName[0] == '@' ? 1 : 0).toAtomString();
 #else
-    const String& familyName = passedFamilyName;
+    AtomString familyName { passedFamilyName };
 #endif
 
     static std::once_flag onceFlag;
@@ -362,11 +368,6 @@ bool operator==(const FontCascadeCacheKey& a, const FontCascadeCacheKey& b)
         && a.families == b.families;
 }
 
-unsigned FontCascadeCacheKeyHash::hash(const FontCascadeCacheKey& key)
-{
-    return computeHash(key.fontDescriptionKey, key.fontSelectorId, key.fontSelectorVersion, key.families);
-}
-
 void FontCache::invalidateFontCascadeCache()
 {
     m_fontCascadeCache.clear();
@@ -481,6 +482,10 @@ void FontCache::invalidate()
 #endif
     invalidateFontCascadeCache();
 
+    SystemFontDatabase::singleton().invalidate();
+
+    platformInvalidate();
+
     ++m_generation;
 
     for (auto& client : copyToVectorOf<RefPtr<FontSelector>>(m_clients))
@@ -500,14 +505,14 @@ void FontCache::registerFontCacheInvalidationCallback(Function<void()>&& callbac
     fontCacheInvalidationCallback() = WTFMove(callback);
 }
 
-void FontCache::invalidateAllFontCaches()
+void FontCache::invalidateAllFontCaches(ShouldRunInvalidationCallback shouldRunInvalidationCallback)
 {
     ASSERT(isMainThread());
 
     // FIXME: Invalidate FontCaches in workers too.
     FontCache::forCurrentThread().invalidate();
 
-    if (fontCacheInvalidationCallback())
+    if (shouldRunInvalidationCallback == ShouldRunInvalidationCallback::Yes && fontCacheInvalidationCallback())
         fontCacheInvalidationCallback()();
 }
 
@@ -522,7 +527,7 @@ void FontCache::prewarmGlobally()
 {
 }
 
-void FontCache::prewarm(const PrewarmInformation&)
+void FontCache::prewarm(PrewarmInformation&&)
 {
 }
 

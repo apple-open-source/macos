@@ -59,6 +59,7 @@ OTHER_IIG_FLAGS = --framework $(IIG_FRAMEWORK_NAME) $(inherited)
 OTHER_IIG_CFLAGS = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT) -I $(SDKROOT)/System/Library/Frameworks/Kernel.framework/Headers
 
 ALWAYS_SEARCH_USER_PATHS = NO
+WARNING_CFLAGS = -Wformat-nonliteral
 
 //
 //RTKIT

@@ -172,7 +172,7 @@ void SpinButtonElement::forwardEvent(Event& event)
     event.setDefaultHandled();
 }
 
-bool SpinButtonElement::willRespondToMouseMoveEvents()
+bool SpinButtonElement::willRespondToMouseMoveEvents() const
 {
     if (renderBox() && shouldRespondToMouseEvents())
         return true;
@@ -180,12 +180,12 @@ bool SpinButtonElement::willRespondToMouseMoveEvents()
     return HTMLDivElement::willRespondToMouseMoveEvents();
 }
 
-bool SpinButtonElement::willRespondToMouseClickEvents()
+bool SpinButtonElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
 {
     if (renderBox() && shouldRespondToMouseEvents())
         return true;
 
-    return HTMLDivElement::willRespondToMouseClickEvents();
+    return HTMLDivElement::willRespondToMouseClickEventsWithEditability(editability);
 }
 
 void SpinButtonElement::doStepAction(int amount)
@@ -249,14 +249,14 @@ void SpinButtonElement::repeatingTimerFired()
         step(m_upDownState == Up ? 1 : -1);
 }
 
-void SpinButtonElement::setHovered(bool flag, Style::InvalidationScope invalidationScope)
+void SpinButtonElement::setHovered(bool flag, Style::InvalidationScope invalidationScope, HitTestRequest request)
 {
     if (!flag)
         m_upDownState = Indeterminate;
-    HTMLDivElement::setHovered(flag, invalidationScope);
+    HTMLDivElement::setHovered(flag, invalidationScope, request);
 }
 
-bool SpinButtonElement::shouldRespondToMouseEvents()
+bool SpinButtonElement::shouldRespondToMouseEvents() const
 {
     return !m_spinButtonOwner || m_spinButtonOwner->shouldSpinButtonRespondToMouseEvents();
 }

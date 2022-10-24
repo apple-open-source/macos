@@ -24,7 +24,7 @@
 #include "crc.h"
 
 
-const crcDescriptor crc32_bzip2 = {
+const crcDescriptor CC_crc32_bzip2 = {
     .name = "crc32-bzip2",
     .defType = model,
     .def.parms.width = 4,

@@ -264,12 +264,37 @@ syncNetworkConfigurationToPrebootVolume(void)
 #import <stdlib.h>
 #import <unistd.h>
 
+static void
+timer_fired(CFRunLoopTimerRef timer, void *info)
+{
+#pragma unused(timer)
+#pragma unused(info)
+	SC_log(LOG_NOTICE, "timer fired");
+	syncNetworkConfigurationToPrebootVolume();
+}
+
+static void
+schedule_retry_timer(void)
+{
+	CFRunLoopTimerRef	timer;
+
+	timer = CFRunLoopTimerCreate(NULL,
+				     0,
+				     1.0,
+				     0,
+				     0,
+				     timer_fired,
+				     NULL);
+	CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
+}
+
 int
 main(int argc, char *argv[])
 {
-	int			ch;
+	int		ch;
+	bool		retry_on_timer = false;
 
-	while ((ch = getopt(argc, argv, "er")) != EOF) {
+	while ((ch = getopt(argc, argv, "ert")) != EOF) {
 		switch (ch) {
 		case 'e':
 			S_exit_on_completion = true;
@@ -277,12 +302,18 @@ main(int argc, char *argv[])
 		case 'r':
 			S_retry = true;
 			break;
+		case 't':
+			retry_on_timer = true;
+			break;
 		default:
 			break;
 		}
 	}
 	if (syncNetworkConfigurationToPrebootVolume()) {
 		printf("Started...\n");
+		if (retry_on_timer) {
+			schedule_retry_timer();
+		}
 		CFRunLoopRun();
 	}
 	exit(0);

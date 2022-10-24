@@ -30,10 +30,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /*
- * @typedef HIDVirtualServiceNotificaionType
+ * @typedef HIDVirtualServiceNotificationType
  *
  * @abstract
- * Enumerator of notificaiotn types.
+ * Enumerator of notification types.
  */
 typedef NS_ENUM(NSInteger, HIDVirtualServiceNotificationType) {
     HIDVirtualServiceNotificationTypeEnumerated = 10,
@@ -53,7 +53,7 @@ typedef NS_ENUM(NSInteger, HIDVirtualServiceNotificationType) {
  * @method setProperty
  *
  * @abstract
- * Handle sets a property on the service.
+ * Handle setting a property on the service.
  *
  * @param value
  * The value of the property.
@@ -70,7 +70,7 @@ typedef NS_ENUM(NSInteger, HIDVirtualServiceNotificationType) {
  * @method propertyForKey
  *
  * @abstract
- * Handle obtains a property from the service.
+ * Handle obtaining a property from the service.
  *
  * @param key
  * The property key.
@@ -103,7 +103,7 @@ typedef NS_ENUM(NSInteger, HIDVirtualServiceNotificationType) {
  * dictionary.
  *
  * @param event
- * Event recived by service.
+ * Event received by service.
  *
  * @result
  * Returns a true on success.
@@ -214,7 +214,7 @@ typedef NS_ENUM(NSInteger, HIDVirtualServiceNotificationType) {
  * @param event
  * The event to be dispatch to event  system.
  *
- *@result true if event was sucsefully dispatched.
+ *@result true if event was successfully dispatched.
  */
 - (BOOL) dispatchEvent: (HIDEvent *) event;
 

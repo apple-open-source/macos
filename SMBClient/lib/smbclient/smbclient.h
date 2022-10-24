@@ -283,6 +283,17 @@ SMBGetServerProperties(
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 ;
 
+/* SMB Protocol Dialects */
+#define kSMBAttributes_SessionFlags_SMB2       0x00001000      /* Using some version of SMB 2 or 3 */
+#define kSMBAttributes_SessionFlags_SMB2002    0x00002000      /* Using SMB 2.002 */
+#define kSMBAttributes_SessionFlags_SMB21      0x00004000      /* Using SMB 2.1 */
+#define kSMBAttributes_SessionFlags_SMB30      0x00000800      /* Using SMB 3.0 */
+#define kSMBAttributes_SessionFlags_SMB302     0x00008000      /* Using SMB 3.0.2 */
+#define kSMBAttributes_SessionFlags_SMB311     0x00020000      /* Using SMB 3.1.1 */
+
+/* SMB Session Misc Flags */
+#define kSMBAttributes_SessionMiscFlags_HighFidelity  0x00100000  /* High Fidelity session */
+
 typedef struct SMBShareAttributes
 {
     uint32_t    session_uid;
@@ -477,6 +488,24 @@ SMBTransactNamedPipe(
     size_t		outBufferSize,
     size_t		*bytesRead)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
+;
+
+/*!
+ * @function SMBNamedPipeWait
+ * @abstract Sends FSCTL_PIPE_WAIT on an open named pipe.
+ * @result Returns an NTSTATUS error code.
+ */
+SMBCLIENT_EXPORT
+NTSTATUS
+SMBNamedPipeWait(
+    SMBHANDLE   inConnection,
+    SMBFID      hNamedPipe,
+    const void *inBuffer,
+    size_t      inBufferSize,
+    void        *outBuffer,
+    size_t      outBufferSize,
+    size_t     *bytesRead)
+__attribute__((availability(macosx,introduced=13.0.0)))
 ;
 
 /*!

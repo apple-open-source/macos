@@ -31,6 +31,7 @@
 #include <sys/attr.h>
 #include <sys/vnode.h>
 
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 
 

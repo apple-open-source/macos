@@ -162,7 +162,6 @@
 		72B01EA20BC48C5600C182DA /* SecurityInterface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4E64AC7075E4E6800FA0F9D /* SecurityInterface.framework */; };
 		72B01EA30BC48C5600C182DA /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4E64A2B075E486700FA0F9D /* AppKit.framework */; };
 		72B01EA40BC48C5600C182DA /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4E64A2D075E488100FA0F9D /* Cocoa.framework */; };
-		72B01EB60BC48C5600C182DA /* EncodedSourceID.c in Sources */ = {isa = PBXBuildFile; fileRef = A485C6BF07665F8900210409 /* EncodedSourceID.c */; };
 		72B01EB70BC48C5600C182DA /* LogMessage.c in Sources */ = {isa = PBXBuildFile; fileRef = DD6612FA09C88572009325F2 /* LogMessage.c */; };
 		72B01EB80BC48C5600C182DA /* OpaqueIDs.c in Sources */ = {isa = PBXBuildFile; fileRef = A4945A1208AAB6360081D1EA /* OpaqueIDs.c */; };
 		72B01EB90BC48C5600C182DA /* webdav_authcache.c in Sources */ = {isa = PBXBuildFile; fileRef = 0352AA1A0043263F11CA2A40 /* webdav_authcache.c */; };
@@ -389,8 +388,6 @@
 		A44B3519067511A000B71B67 /* webdav_cache.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = webdav_cache.c; path = mount.tproj/webdav_cache.c; sourceTree = "<group>"; };
 		A47D116406C69C3600AB7660 /* webdav_network.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webdav_network.h; path = mount.tproj/webdav_network.h; sourceTree = "<group>"; };
 		A47D116506C69C3600AB7660 /* webdav_network.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webdav_network.c; path = mount.tproj/webdav_network.c; sourceTree = "<group>"; };
-		A485C6BF07665F8900210409 /* EncodedSourceID.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = EncodedSourceID.c; path = mount.tproj/EncodedSourceID.c; sourceTree = "<group>"; };
-		A485C6C007665F8900210409 /* EncodedSourceID.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = EncodedSourceID.h; path = mount.tproj/EncodedSourceID.h; sourceTree = "<group>"; };
 		A485C711076665F600210409 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		A48D59DE06CAE52100D38803 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		A4945A1208AAB6360081D1EA /* OpaqueIDs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = OpaqueIDs.c; path = mount.tproj/OpaqueIDs.c; sourceTree = "<group>"; };
@@ -641,7 +638,6 @@
 				A44B35170675119100B71B67 /* webdav_cache.h */,
 				A47D116406C69C3600AB7660 /* webdav_network.h */,
 				8F3CA6A613E22FDE00857B09 /* webdav_utils.h */,
-				A485C6C007665F8900210409 /* EncodedSourceID.h */,
 				A4945A1308AAB6360081D1EA /* OpaqueIDs.h */,
 				DD6612FC09C8857E009325F2 /* LogMessage.h */,
 			);
@@ -659,7 +655,6 @@
 				0352AA1A0043263F11CA2A40 /* webdav_authcache.c */,
 				0352AA1C0043263F11CA2A40 /* webdav_requestqueue.c */,
 				A44B3519067511A000B71B67 /* webdav_cache.c */,
-				A485C6BF07665F8900210409 /* EncodedSourceID.c */,
 				A47D116506C69C3600AB7660 /* webdav_network.c */,
 				A4945A1208AAB6360081D1EA /* OpaqueIDs.c */,
 				DD6612FA09C88572009325F2 /* LogMessage.c */,
@@ -1024,7 +1019,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72B01EB60BC48C5600C182DA /* EncodedSourceID.c in Sources */,
 				72B01EB70BC48C5600C182DA /* LogMessage.c in Sources */,
 				72B01EB80BC48C5600C182DA /* OpaqueIDs.c in Sources */,
 				72B01EB90BC48C5600C182DA /* webdav_authcache.c in Sources */,

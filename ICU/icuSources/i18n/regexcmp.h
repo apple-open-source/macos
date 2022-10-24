@@ -65,7 +65,8 @@ public:
 
     void        nextChar(RegexPatternChar &c);      // Get the next char from the input stream.
 
-    static void cleanup();                       // Memory cleanup
+    //FIXME: unimplemented
+    //static void cleanup();                       // Memory cleanup
 
 
 

@@ -322,6 +322,7 @@ static void print_entry(id k, id v, int ind)
             NSString *syncingPolicy = pop(global, @"policy", NSString);
             NSString *viewsFromPolicy = pop(global, @"viewsFromPolicy", NSString);
 
+            NSString* activeAccount = pop(global,@"activeAccount", NSString);
             NSString* accountStatus = pop(global,@"ckaccountstatus", NSString);
             NSString* accountTracker = pop(global,@"accounttracker", NSString);
             NSString* fetcher = pop(global,@"fetcher", NSString);
@@ -334,12 +335,15 @@ static void print_entry(id k, id v, int ind)
             NSString* lastProcessReceivedKeysOperation    = pop(global,@"lastProcessReceivedKeysOperation", NSString);
             NSString* lastReencryptOutgoingItemsOperation = pop(global,@"lastReencryptOutgoingItemsOperation", NSString);
 
+            NSArray* launchSequence                       = pop(global, @"launchSequence", NSArray);
+
             if(!shortenOutput) {
                 printf("================================================================================\n\n");
                 printf("Global state:\n\n");
             }
 
             printf("CKKS state machine:   %s\n", [ckksstate UTF8String]);
+            printf("Active account:       %s\n", [activeAccount UTF8String]);
             printf("CloudKit account:     %s\n", [accountStatus UTF8String]);
             printf("Account tracker:      %s\n", [accountTracker UTF8String]);
 
@@ -361,6 +365,11 @@ static void print_entry(id k, id v, int ind)
                 printf("lastOutgoingQueueOperation:          %s\n", lastOutgoingQueueOperation          == nil ? "never" : [lastOutgoingQueueOperation          UTF8String]);
                 printf("lastProcessReceivedKeysOperation:    %s\n", lastProcessReceivedKeysOperation    == nil ? "never" : [lastProcessReceivedKeysOperation    UTF8String]);
                 printf("lastReencryptOutgoingItemsOperation: %s\n", lastReencryptOutgoingItemsOperation == nil ? "never" : [lastReencryptOutgoingItemsOperation UTF8String]);
+
+                printf("Launch sequence:\n");
+                for (NSString *event in launchSequence) {
+                    printf("\t%s\n", [[event description] UTF8String]);
+                }
             }
 
             printf("\n");

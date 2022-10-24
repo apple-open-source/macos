@@ -1,0 +1,25 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>login</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/login?id=7f4bb501768b9b3f856f91fbc8b9c80a2a4aaa04</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-05</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>pathnames.h: revert motd path (83865228)</string>
+			<string>login.c: close the controlling terminal on SIGHUP (5377791)</string>
+			<string>login.c: forward SIGHUP to the child (6244808)</string>
+			<string>login.c: chmod tty/pty devices to the proper permission (2724204)</string>
+			<string>login.c: reset pseudo-tty permissions/owner/group (3455978)</string>
+			<string>login.c: restore process priority if not changing uids (6041650)</string>
+			<string>login.c: report initgroups() failure (3836119)</string>
+			<string>login.c: fix login on 2018 hardware (43101375)</string>
+			<string>login.c: replace closefrom (83865228)</string>
+			<string>login_audit.c: use setaudit_addr (8907611)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

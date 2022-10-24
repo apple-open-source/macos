@@ -61,6 +61,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             WI.Resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleResourceContentChangedForLocalResourceOverride, this);
             WI.Resource.addEventListener(WI.Resource.Event.RequestDataDidChange, this._handleResourceContentChangedForLocalResourceOverride, this);
             WI.LocalResourceOverride.addEventListener(WI.LocalResourceOverride.Event.DisabledChanged, this._handleResourceOverrideDisabledChanged, this);
+            WI.LocalResourceOverride.addEventListener(WI.LocalResourceOverride.Event.ResourceErrorTypeChanged, this._handleResourceOverrideResourceErrorTypeChanged, this);
 
             WI.Target.registerInitializationPromise((async () => {
                 let serializedLocalResourceOverrides = await WI.objectStores.localResourceOverrides.getAll();
@@ -71,6 +72,10 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
                     let supported = false;
                     switch (localResourceOverride.type) {
+                    case WI.LocalResourceOverride.InterceptType.Block:
+                        supported = WI.NetworkManager.supportsBlockingRequests();
+                        break;
+
                     case WI.LocalResourceOverride.InterceptType.Request:
                         supported = WI.NetworkManager.supportsOverridingRequests();
                         break;
@@ -113,6 +118,12 @@ WI.NetworkManager = class NetworkManager extends WI.Object
     {
         return InspectorFrontendHost.supportsShowCertificate
             && InspectorBackend.hasCommand("Network.getSerializedCertificate");
+    }
+
+    static supportsBlockingRequests()
+    {
+        // COMPATIBILITY (iOS 13.4): Network.interceptRequestWithError did not exist yet.
+        return InspectorBackend.hasCommand("Network.interceptRequestWithError");
     }
 
     static supportsOverridingRequests()
@@ -457,6 +468,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         case WI.Resource.Type.Fetch:
         case WI.Resource.Type.Image:
         case WI.Resource.Type.Font:
+        case WI.Resource.Type.EventSource:
         case WI.Resource.Type.Other:
             break;
         case WI.Resource.Type.Ping:
@@ -671,6 +683,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             requestData: request.postData,
             requestSentTimestamp: elapsedTime,
             requestSentWalltime: walltime,
+            referrerPolicy: request.referrerPolicy,
+            integrity: request.integrity,
             initiatorCallFrames: this._initiatorCallFramesFromPayload(initiator),
             initiatorSourceCodeLocation: this._initiatorSourceCodeLocationFromPayload(initiator),
             initiatorNode: this._initiatorNodeFromPayload(initiator),
@@ -946,24 +960,43 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         this._resourceRequestIdentifierMap.delete(requestIdentifier);
     }
 
-    requestIntercepted(target, requestId, request)
+    async requestIntercepted(target, requestId, request)
     {
-        let url = WI.urlWithoutFragment(request.url);
-        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+        for (let localResourceOverride of this.localResourceOverridesForURL(request.url)) {
             if (localResourceOverride.disabled)
                 continue;
 
+            let isPassthrough = localResourceOverride.isPassthrough;
+            let originalHeaders = isPassthrough ? request.headers : {};
+
             let localResource = localResourceOverride.localResource;
+            await localResource.requestContent();
+
             let revision = localResource.currentRevision;
 
             switch (localResourceOverride.type) {
+            case WI.LocalResourceOverride.InterceptType.Block:
+                target.NetworkAgent.interceptRequestWithError.invoke({
+                    requestId,
+                    errorType: localResourceOverride.resourceErrorType,
+                });
+                return;
+
             case WI.LocalResourceOverride.InterceptType.Request: {
                 target.NetworkAgent.interceptWithRequest.invoke({
                     requestId,
-                    url: localResource.url || undefined,
-                    method: localResource.requestMethod ?? undefined,
-                    headers: localResource.requestHeaders,
-                    postData: (WI.HTTPUtilities.RequestMethodsWithBody.has(localResource.requestMethod) && localResource.requestData) ? btoa(localResource.requestData) : undefined,
+                    url: localResourceOverride.generateRequestRedirectURL(request.url) ?? undefined,
+                    method: localResource.requestMethod ?? (isPassthrough ? request.method : ""),
+                    headers: {...originalHeaders, ...localResource.requestHeaders},
+                    postData: (function() {
+                        if (!WI.HTTPUtilities.RequestMethodsWithBody.has(localResource.requestMethod))
+                            return undefined;
+                        if (localResource.requestData ?? false)
+                            return btoa(localResource.requestData);
+                        if (isPassthrough)
+                            return request.data;
+                        return "";
+                    })(),
                 });
                 return;
             }
@@ -974,10 +1007,18 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                     requestId,
                     content: revision.content,
                     base64Encoded: !!revision.base64Encoded,
-                    mimeType: revision.mimeType ?? undefined,
+                    mimeType: revision.mimeType ?? "text/plain",
                     status: !isNaN(localResource.statusCode) ? localResource.statusCode : 200,
-                    statusText: !isNaN(localResource.statusCode) ? (localResource.statusText ?? "") : WI.HTTPUtilities.statusTextForStatusCode(200),
-                    headers: localResource.responseHeaders,
+                    statusText: (function() {
+                        if (localResource.statusText ?? false)
+                            return localResource.statusText;
+
+                        if (!isNaN(localResource.statusCode))
+                            return WI.HTTPUtilities.statusTextForStatusCode(localResource.statusCode);
+
+                        return WI.HTTPUtilities.statusTextForStatusCode(200);
+                    })(),
+                    headers: {...originalHeaders, ...localResource.responseHeaders},
                 });
                 return;
             }
@@ -992,14 +1033,18 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         });
     }
 
-    responseIntercepted(target, requestId, response)
+    async responseIntercepted(target, requestId, response)
     {
-        let url = WI.urlWithoutFragment(response.url);
-        for (let localResourceOverride of this.localResourceOverridesForURL(url)) {
+        for (let localResourceOverride of this.localResourceOverridesForURL(response.url)) {
             if (localResourceOverride.disabled)
                 continue;
 
+            let isPassthrough = localResourceOverride.isPassthrough;
+            let originalHeaders = isPassthrough ? response.headers : {};
+
             let localResource = localResourceOverride.localResource;
+            await localResource.requestContent();
+
             let revision = localResource.currentRevision;
 
             switch (localResourceOverride.type) {
@@ -1009,10 +1054,29 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                     requestId,
                     content: revision.content,
                     base64Encoded: !!revision.base64Encoded,
-                    mimeType: revision.mimeType ?? undefined,
-                    status: !isNaN(localResource.statusCode) ? localResource.statusCode : undefined,
-                    statusText: !isNaN(localResource.statusCode) ? (localResource.statusText ?? "") : undefined,
-                    headers: localResource.responseHeaders,
+                    mimeType: revision.mimeType ?? (isPassthrough ? response.mimeType : "text/plain"),
+                    status: (function() {
+                        if (!isNaN(localResource.statusCode))
+                            return localResource.statusCode;
+
+                        if (isPassthrough)
+                            return response.statusCode;
+
+                        return 200;
+                    })(),
+                    statusText: (function() {
+                        if (localResource.statusText ?? false)
+                            return localResource.statusText;
+
+                        if (isPassthrough)
+                            return response.statusText;
+
+                        if (!isNaN(localResource.statusCode))
+                            return WI.HTTPUtilities.statusTextForStatusCode(localResource.statusCode);
+
+                        return WI.HTTPUtilities.statusTextForStatusCode(200);
+                    })(),
+                    headers: {...originalHeaders, ...localResource.responseHeaders},
                 });
                 return;
             }
@@ -1498,6 +1562,14 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             this._removeInterception(localResourceOverride);
         else
             this._addInterception(localResourceOverride);
+    }
+
+    _handleResourceOverrideResourceErrorTypeChanged(event)
+    {
+        console.assert(WI.NetworkManager.supportsBlockingRequests());
+
+        let localResourceOverride = event.target;
+        WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
     }
 
     _handleBootstrapScriptContentDidChange(event)

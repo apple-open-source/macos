@@ -33,7 +33,7 @@
     [self waitForCKModifications];
 
     // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
@@ -58,7 +58,7 @@
         }
     } runBeforeFinished:^{}];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -84,7 +84,7 @@
     [self waitForCKModifications];
 
     // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
@@ -130,7 +130,7 @@
         }
     } runBeforeFinished:^{}];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -161,7 +161,7 @@
     [self waitForCKModifications];
 
     // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
@@ -188,7 +188,7 @@
         }
     } runBeforeFinished:^{}];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -212,7 +212,7 @@
     [self waitForCKModifications];
 
     // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
@@ -239,7 +239,7 @@
     }];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     // Wait for both fetches....
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -282,7 +282,7 @@
     [self waitForCKModifications];
 
     // Cause a fetch to occur, so that the local CKKS instance is definitely up to date with what it has uploaded, so the next fetch will be entirely items
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     FakeCKZone* ckzone = self.zones[self.keychainZoneID];
@@ -297,7 +297,7 @@
     [self expectCKFetch];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
@@ -311,7 +311,7 @@
 
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
 
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");

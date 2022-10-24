@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,10 +37,10 @@
 #include <CoreFoundation/CFStringDefaultEncoding.h>	// for __CFStringGetUserDefaultEncoding
 #include <Security/Security.h>
 #include <Security/SecTask.h>
+#include "SCInternal.h"
 #include "SCPreferencesInternal.h"
+#include "SCDynamicStoreInternal.h"
 #include "SCNetworkConfigurationInternal.h"
-
-
 
 
 
@@ -122,6 +122,68 @@ SCDynamicStoreKeyCreateComputerName(CFAllocatorRef allocator)
 
 
 
+#define PRIVATE_STRINGS_PLIST_PATH					\
+	"/AppleInternal/Library/SystemConfiguration/PrivateStrings.plist"
+
+#define kUserDefinedDeviceNameContact	CFSTR("UserDefinedDeviceNameContact")
+
+static CFStringRef
+copy_private_string(CFStringRef key)
+{
+	SCPreferencesRef	prefs;
+	CFStringRef		str;
+
+	prefs = SCPreferencesCreate(NULL, key,
+				    CFSTR(PRIVATE_STRINGS_PLIST_PATH));
+	if (prefs == NULL) {
+		return (NULL);
+	}
+	str = SCPreferencesGetValue(prefs, key);
+	str = isA_CFString(str);
+	if (str != NULL) {
+		CFRetain(str);
+	}
+	CFRelease(prefs);
+	return (str);
+}
+
+static const char *
+get_contact_string(void)
+{
+	CFStringRef		cfstr;
+	static const char *	contact;
+
+	if (contact != NULL) {
+		return (contact);
+	}
+	cfstr = copy_private_string(kUserDefinedDeviceNameContact);
+	if (cfstr == NULL) {
+		return (NULL);
+	}
+	contact = _SC_cfstring_to_cstring(cfstr, NULL, 0,
+					  kCFStringEncodingUTF8);
+	CFRelease(cfstr);
+	return (contact);
+}
+
+static void
+report_missing_entitlement(const char * func_name)
+{
+	const char *	contact;
+	char		msg[256];
+
+	if (!_SC_isAppleInternal()) {
+		return;
+	}
+	contact = get_contact_string();
+	if (contact == NULL) {
+		contact = "privacy";
+	}
+	snprintf(msg, sizeof(msg),
+		 "%s() requires an entitlement, please contact %s",
+		 func_name, contact);
+	_SC_crash_once(msg, NULL, NULL);
+}
 
 CFStringRef
 SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
@@ -131,16 +193,31 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 
-
 	if (nameEncoding != NULL) {
 		// set a default encoding
 		*nameEncoding = kCFStringEncodingUTF8;
 	}
 
 	key  = SCDynamicStoreKeyCreateComputerName(NULL);
-	dict = SCDynamicStoreCopyValue(store, key);
+	dict = __SCDynamicStoreCopyValueCommon(store, key, FALSE);
 	CFRelease(key);
 	if (dict == NULL) {
+		int	sc_status = SCError();
+
+		switch (sc_status) {
+		case kSCStatusAccessError:
+			_SC_crash_once("SCDynamicStoreCopyComputerName() "
+				       "access denied by policy",
+				       NULL, NULL);
+			goto end;
+		case kSCStatusAccessError_MissingReadEntitlement:
+			_SC_crash_once("SCDynamicStoreCopyComputerName() "
+				       "access denied, missing entitlement",
+				       NULL, NULL);
+			goto end;
+		default:
+			break;
+		}
 		/*
 		 * Let's try looking in the preferences.plist file until
 		 * (a) we add an API to retrieve the name regardless of
@@ -154,24 +231,25 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
-
 	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropSystemComputerName));
 	if (name == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
 	CFRetain(name);
-
+	if (SCError() == kSCStatusOK_MissingReadEntitlement) {
+		report_missing_entitlement(__func__);
+	}
 	if (nameEncoding != NULL) {
 		// return the "ComputerNameEncoding" value
 		*nameEncoding = getNameEncoding(dict);
 	}
-
 	_SCErrorSet(kSCStatusOK);
 
     done :
 
 
+ end:
 	if (dict != NULL)	CFRelease(dict);
 	return name;
 }
@@ -269,7 +347,6 @@ SCPreferencesGetHostName(SCPreferencesRef	prefs)
 	CFDictionaryRef	dict;
 	CFStringRef	name;
 	CFStringRef	path;
-
 
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
@@ -418,11 +495,26 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 
-
 	key  = SCDynamicStoreKeyCreateHostNames(NULL);
-	dict = SCDynamicStoreCopyValue(store, key);
+	dict = __SCDynamicStoreCopyValueCommon(store, key, FALSE);
 	CFRelease(key);
 	if (dict == NULL) {
+		int	sc_status = SCError();
+
+		switch (sc_status) {
+		case kSCStatusAccessError:
+			_SC_crash_once("SCDynamicStoreCopyLocalHostName() "
+				       "access denied by policy",
+				       NULL, NULL);
+			goto end;
+		case kSCStatusAccessError_MissingReadEntitlement:
+			_SC_crash_once("SCDynamicStoreCopyLocalHostName() "
+				       "access denied, missing entitlement",
+				       NULL, NULL);
+			goto end;
+		default:
+			break;
+		}
 		/*
 		 * Let's try looking in the preferences.plist file until
 		 * (a) we add an API to retrieve the name regardless of
@@ -443,12 +535,15 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 		goto done;
 	}
 	CFRetain(name);
-
+	if (SCError() == kSCStatusOK_MissingReadEntitlement) {
+		report_missing_entitlement(__func__);
+	}
 	_SCErrorSet(kSCStatusOK);
 
     done :
 
 
+ end:
 	if (dict != NULL)	CFRelease(dict);
 	return name;
 }

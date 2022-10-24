@@ -886,7 +886,7 @@ private:
     Format**            formatAliases; // see getFormats
     int32_t             formatAliasesCapacity;
 
-    MessageFormat(); // default constructor not implemented
+    MessageFormat() = delete; // default constructor not implemented
 
      /**
       * This provider helps defer instantiation of a PluralRules object
@@ -1011,7 +1011,8 @@ private:
 
     void cacheExplicitFormats(UErrorCode& status);
 
-    int32_t skipLeadingSpaces(UnicodeString& style);
+    //FIXME: unimplemented
+    //int32_t skipLeadingSpaces(UnicodeString& style);
 
     Format* createAppropriateFormat(UnicodeString& type,
                                     UnicodeString& style,

@@ -917,6 +917,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
             XCTAssertTrue(strncmp("h2", alpn_string, sizeof("h2")) == 0, @"ALPN string is not correct");
             return true;
         });
+        return true;
     });
 
     // Adding a second value should give us two values, in the correct order
@@ -945,6 +946,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 
             return true;
         });
+        return true;
     });
 
     // There should be no array present at all after we clear it
@@ -955,6 +957,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
         XCTAssertNil(content->application_protocols);
+        return true;
     });
 
     // And we should be able to add another one after clearing it
@@ -977,6 +980,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
             XCTAssertTrue(strncmp("h4", alpn_string, sizeof("h4")) == 0, @"ALPN string for h4 is not correct");
             return true;
         });
+        return true;
     });
 }
 
@@ -1207,6 +1211,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
 
         XCTAssertNil(content->psk_identity_hint, @"PSK identity initialized incorrectly");
+        return true;
     });
 
     sec_protocol_options_set_tls_pre_shared_key_identity_hint(options, hint);
@@ -1216,6 +1221,7 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
 
         XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(content->psk_identity_hint, hint), @"PSK identity mistmatch");
+        return true;
     });
 }
 

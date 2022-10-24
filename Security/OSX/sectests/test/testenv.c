@@ -49,13 +49,11 @@ static int
 rmdir_recursive(const char *path)
 {
 	char command_buf[256];
-	if (strlen(path) + 10 > sizeof(command_buf) || strchr(path, '\''))
+	if (snprintf(command_buf, sizeof(command_buf), "rm -rf '%s'", path) >= (int)sizeof(command_buf))
 	{
 		fprintf(stderr, "# rmdir_recursive: invalid path: %s", path);
 		return -1;
 	}
-
-	sprintf(command_buf, "rm -rf '%s'", path);
 	return system(command_buf);
 }
 #endif
@@ -73,12 +71,12 @@ static int tests_init(void) {
 	setup("tests_init");
     
     /* Create scratch dir for tests to run in. */
-    sprintf(scratch_dir, "/tmp/tst-%d", getpid());
+    snprintf(scratch_dir, sizeof(scratch_dir), "/tmp/tst-%d", getpid());
     if (keep_scratch_dir) {
         printf("running tests with HOME=%s\n", scratch_dir);
     }
-    sprintf(library_dir, "%s/Library", scratch_dir);
-    sprintf(preferences_dir, "%s/Preferences", library_dir);
+    snprintf(library_dir, sizeof(library_dir), "%s/Library", scratch_dir);
+    snprintf(preferences_dir, sizeof(preferences_dir), "%s/Preferences", library_dir);
     return (ok_unix(mkdir(scratch_dir, 0755), "mkdir") &&
             ok_unix(current_dir = open(".", O_RDONLY), "open") &&
             ok_unix(chdir(scratch_dir), "chdir") &&

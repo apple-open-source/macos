@@ -40,8 +40,10 @@
 #include <JavaScriptCore/RegularExpression.h>
 #include <wtf/Forward.h>
 #include <wtf/JSONValues.h>
+#include <wtf/RobinHoodHashMap.h>
 
 namespace Inspector {
+class ConsoleMessage;
 class InjectedScriptManager;
 }
 
@@ -67,6 +69,8 @@ class InspectorNetworkAgent : public InspectorAgentBase, public Inspector::Netwo
     WTF_MAKE_FAST_ALLOCATED;
 public:
     ~InspectorNetworkAgent() override;
+
+    static constexpr ASCIILiteral errorDomain() { return "InspectorNetworkAgent"_s; }
 
     static bool shouldTreatAsText(const String& mimeType);
     static Ref<TextResourceDecoder> createTextDecoder(const String& mimeType, const String& textEncodingName);
@@ -98,7 +102,7 @@ public:
     // InspectorInstrumentation
     void willRecalculateStyle();
     void didRecalculateStyle();
-    void willSendRequest(ResourceLoaderIdentifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse, const CachedResource*);
+    void willSendRequest(ResourceLoaderIdentifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse, const CachedResource*, ResourceLoader*);
     void willSendRequestOfType(ResourceLoaderIdentifier, DocumentLoader*, ResourceRequest&, InspectorInstrumentation::LoadType);
     void didReceiveResponse(ResourceLoaderIdentifier, DocumentLoader*, const ResourceResponse&, ResourceLoader*);
     void didReceiveData(ResourceLoaderIdentifier, const SharedBuffer*, int expectedDataLength, int encodedDataLength);
@@ -121,7 +125,7 @@ public:
     void setInitialScriptContent(ResourceLoaderIdentifier, const String& sourceString);
     void didScheduleStyleRecalculation(Document&);
     bool willIntercept(const ResourceRequest&);
-    bool shouldInterceptRequest(const ResourceRequest&);
+    bool shouldInterceptRequest(const ResourceLoader&);
     bool shouldInterceptResponse(const ResourceResponse&);
     void interceptResponse(const ResourceResponse&, ResourceLoaderIdentifier, CompletionHandler<void(const ResourceResponse&, RefPtr<FragmentedSharedBuffer>)>&&);
     void interceptRequest(ResourceLoader&, Function<void(const ResourceRequest&)>&&);
@@ -137,10 +141,11 @@ protected:
     virtual Vector<WebSocket*> activeWebSockets() WTF_REQUIRES_LOCK(WebSocket::allActiveWebSocketsLock()) = 0;
     virtual void setResourceCachingDisabledInternal(bool) = 0;
     virtual ScriptExecutionContext* scriptExecutionContext(Inspector::Protocol::ErrorString&, const Inspector::Protocol::Network::FrameId&) = 0;
+    virtual void addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&&) = 0;
     virtual bool shouldForceBufferingNetworkResourceData() const = 0;
 
 private:
-    void willSendRequest(ResourceLoaderIdentifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse, InspectorPageAgent::ResourceType);
+    void willSendRequest(ResourceLoaderIdentifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse, InspectorPageAgent::ResourceType, ResourceLoader*);
 
     bool shouldIntercept(URL, Inspector::Protocol::Network::NetworkStage);
     void continuePendingRequests();
@@ -225,7 +230,7 @@ private:
 
     std::unique_ptr<NetworkResourcesData> m_resourcesData;
 
-    HashMap<String, String> m_extraRequestHeaders;
+    MemoryCompactRobinHoodHashMap<String, String> m_extraRequestHeaders;
     HashSet<ResourceLoaderIdentifier> m_hiddenRequestIdentifiers;
 
     struct Intercept {
@@ -243,8 +248,8 @@ private:
         }
     };
     Vector<Intercept> m_intercepts;
-    HashMap<String, std::unique_ptr<PendingInterceptRequest>> m_pendingInterceptRequests;
-    HashMap<String, std::unique_ptr<PendingInterceptResponse>> m_pendingInterceptResponses;
+    MemoryCompactRobinHoodHashMap<String, std::unique_ptr<PendingInterceptRequest>> m_pendingInterceptRequests;
+    MemoryCompactRobinHoodHashMap<String, std::unique_ptr<PendingInterceptResponse>> m_pendingInterceptResponses;
 
     // FIXME: InspectorNetworkAgent should not be aware of style recalculation.
     RefPtr<Inspector::Protocol::Network::Initiator> m_styleRecalculationInitiator;

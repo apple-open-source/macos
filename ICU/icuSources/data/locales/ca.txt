@@ -1039,18 +1039,18 @@ ca{
             monthNames{
                 format{
                     abbreviated{
-                        "gen",
-                        "febr",
+                        "gen.",
+                        "febr.",
                         "març",
-                        "abr",
+                        "abr.",
                         "maig",
                         "juny",
-                        "jul",
-                        "ag",
-                        "set",
-                        "oct",
-                        "nov",
-                        "des",
+                        "jul.",
+                        "ag.",
+                        "set.",
+                        "oct.",
+                        "nov.",
+                        "des.",
                     }
                     narrow{
                         "GN",

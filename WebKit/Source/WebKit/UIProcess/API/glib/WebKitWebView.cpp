@@ -108,9 +108,9 @@ using namespace WebKit;
 using namespace WebCore;
 
 /**
- * SECTION: WebKitWebView
- * @Short_description: The central class of the WPE WebKit and WebKitGTK APIs
- * @Title: WebKitWebView
+ * WebKitWebView:
+ *
+ * The central class of the WPE WebKit and WebKitGTK APIs.
  *
  * #WebKitWebView is the central class of the WPE WebKit and WebKitGTK
  * APIs. It is responsible for managing the drawing of the content and
@@ -210,6 +210,9 @@ enum {
     PROP_CAMERA_CAPTURE_STATE,
     PROP_MICROPHONE_CAPTURE_STATE,
     PROP_DISPLAY_CAPTURE_STATE,
+
+    PROP_WEB_EXTENSION_MODE,
+    PROP_DEFAULT_CONTENT_SECURITY_POLICY,
 
     N_PROPERTIES,
 };
@@ -317,6 +320,9 @@ struct _WebKitWebViewPrivate {
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
     GRefPtr<WebKitWebsitePolicies> websitePolicies;
 
+    CString defaultContentSecurityPolicy;
+    WebKitWebExtensionMode webExtensionMode;
+
     double textScaleFactor;
 
     bool isWebProcessResponsive;
@@ -364,7 +370,7 @@ void webkitWebViewMediaCaptureStateDidChange(WebKitWebView* webView, WebCore::Me
         g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_MICROPHONE_CAPTURE_STATE]);
         return;
     }
-    if (mediaStateFlags.containsAny(WebCore::MediaProducer::AudioCaptureMask))
+    if (mediaStateFlags.containsAny(WebCore::MediaProducer::MicrophoneCaptureMask))
         g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_MICROPHONE_CAPTURE_STATE]);
     if (mediaStateFlags.containsAny(WebCore::MediaProducer::VideoCaptureMask))
         g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_CAMERA_CAPTURE_STATE]);
@@ -466,7 +472,7 @@ void WebKitWebViewClient::handleDownloadRequest(WKWPE::View&, DownloadProxy& dow
 void WebKitWebViewClient::frameDisplayed(WKWPE::View&)
 {
     {
-        SetForScope<bool> inFrameDisplayedGuard(m_webView->priv->inFrameDisplayed, true);
+        SetForScope inFrameDisplayedGuard(m_webView->priv->inFrameDisplayed, true);
         for (const auto& callback : m_webView->priv->frameDisplayedCallbacks) {
             if (!m_webView->priv->frameDisplayedCallbacksToRemove.contains(callback.id))
                 callback.callback(m_webView, callback.userData);
@@ -901,6 +907,12 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
     case PROP_DISPLAY_CAPTURE_STATE:
         webkit_web_view_set_display_capture_state(webView, static_cast<WebKitMediaCaptureState>(g_value_get_enum(value)));
         break;
+    case PROP_WEB_EXTENSION_MODE:
+        webView->priv->webExtensionMode = static_cast<WebKitWebExtensionMode>(g_value_get_enum(value));
+        break;
+    case PROP_DEFAULT_CONTENT_SECURITY_POLICY:
+        webView->priv->defaultContentSecurityPolicy = CString(g_value_get_string(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
     }
@@ -980,6 +992,12 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
         break;
     case PROP_DISPLAY_CAPTURE_STATE:
         g_value_set_enum(value, webkit_web_view_get_display_capture_state(webView));
+        break;
+    case PROP_WEB_EXTENSION_MODE:
+        g_value_set_enum(value, webkit_web_view_get_web_extension_mode(webView));
+        break;
+    case PROP_DEFAULT_CONTENT_SECURITY_POLICY:
+        g_value_set_string(value, webkit_web_view_get_default_content_security_policy(webView));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -1450,6 +1468,50 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
         WEBKIT_MEDIA_CAPTURE_STATE_NONE,
         WEBKIT_PARAM_READWRITE);
 
+    /**
+     * WebKitWebView:web-extension-mode:
+     *
+     * This configures @web_view to treat the content as a WebExtension.
+     *
+     * Note that this refers to the web standard [WebExtensions](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)
+     * and not WebKitWebExtensions.
+     * 
+     * In practice this limits the Content-Security-Policies that are allowed to be set. Some details can be found in
+     * [Chrome's documentation](https://developer.chrome.com/docs/extensions/mv3/intro/mv3-migration/#content-security-policy).
+     *
+     * Since: 2.38
+     */
+    sObjProperties[PROP_WEB_EXTENSION_MODE] = g_param_spec_enum(
+        "web-extension-mode",
+        "WebExtension Mode",
+        _("Enables WebExtension mode"),
+        WEBKIT_TYPE_WEB_EXTENSION_MODE,
+        WEBKIT_WEB_EXTENSION_MODE_NONE,
+        static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+    /**
+     * WebKitWebView:default-content-security-policy:
+     *
+     * The default Content-Security-Policy used by the webview as if it were set
+     * by an HTTP header.
+     * 
+     * This applies to all content loaded including through navigation or via the various
+     * webkit_web_view_load_\* APIs. However do note that many WebKit APIs bypass
+     * Content-Security-Policy in general such as #WebKitUserContentManager and
+     * webkit_web_view_run_javascript().
+     *
+     * Policies are additive so if a website sets its own policy it still applies
+     * on top of the policy set here.
+     * 
+     * Since: 2.38
+     */
+    sObjProperties[PROP_DEFAULT_CONTENT_SECURITY_POLICY] = g_param_spec_string(
+        "default-content-security-policy",
+        "Default Content-Security-Policy",
+        _("The default Content-Security-Policy"),
+        nullptr,
+        static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties);
 
     /**
@@ -1473,34 +1535,34 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * You can handle this signal and use a switch to track any ongoing
      * load operation.
      *
-     * <informalexample><programlisting>
+     * ```c
      * static void web_view_load_changed (WebKitWebView  *web_view,
      *                                    WebKitLoadEvent load_event,
      *                                    gpointer        user_data)
      * {
      *     switch (load_event) {
      *     case WEBKIT_LOAD_STARTED:
-     *         /<!-- -->* New load, we have now a provisional URI *<!-- -->/
+     *         // New load, we have now a provisional URI
      *         provisional_uri = webkit_web_view_get_uri (web_view);
-     *         /<!-- -->* Here we could start a spinner or update the
-     *          <!-- -->* location bar with the provisional URI *<!-- -->/
+     *         // Here we could start a spinner or update the
+     *         // location bar with the provisional URI
      *         break;
      *     case WEBKIT_LOAD_REDIRECTED:
      *         redirected_uri = webkit_web_view_get_uri (web_view);
      *         break;
      *     case WEBKIT_LOAD_COMMITTED:
-     *         /<!-- -->* The load is being performed. Current URI is
-     *          <!-- -->* the final one and it won't change unless a new
-     *          <!-- -->* load is requested or a navigation within the
-     *          <!-- -->* same page is performed *<!-- -->/
+     *         // The load is being performed. Current URI is
+     *         // the final one and it won't change unless a new
+     *         // load is requested or a navigation within the
+     *         // same page is performed
      *         uri = webkit_web_view_get_uri (web_view);
      *         break;
      *     case WEBKIT_LOAD_FINISHED:
-     *         /<!-- -->* Load finished, we can now stop the spinner *<!-- -->/
+     *         // Load finished, we can now stop the spinner
      *         break;
      *     }
      * }
-     * </programlisting></informalexample>
+     * ```
      */
     signals[LOAD_CHANGED] =
         g_signal_new("load-changed",
@@ -1734,7 +1796,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @decision argument is a generic type, but should be casted to a more
      * specific type when making the decision. For example:
      *
-     * <informalexample><programlisting>
+     * ```c
      * static gboolean
      * decide_policy_cb (WebKitWebView *web_view,
      *                   WebKitPolicyDecision *decision,
@@ -1743,25 +1805,25 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      *     switch (type) {
      *     case WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION: {
      *         WebKitNavigationPolicyDecision *navigation_decision = WEBKIT_NAVIGATION_POLICY_DECISION (decision);
-     *         /<!-- -->* Make a policy decision here. *<!-- -->/
+     *         // Make a policy decision here
      *         break;
      *     }
      *     case WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION: {
      *         WebKitNavigationPolicyDecision *navigation_decision = WEBKIT_NAVIGATION_POLICY_DECISION (decision);
-     *         /<!-- -->* Make a policy decision here. *<!-- -->/
+     *         // Make a policy decision here
      *         break;
      *     }
      *     case WEBKIT_POLICY_DECISION_TYPE_RESPONSE:
      *         WebKitResponsePolicyDecision *response = WEBKIT_RESPONSE_POLICY_DECISION (decision);
-     *         /<!-- -->* Make a policy decision here. *<!-- -->/
+     *         // Make a policy decision here
      *         break;
      *     default:
-     *         /<!-- -->* Making no decision results in webkit_policy_decision_use(). *<!-- -->/
+     *         // Making no decision results in webkit_policy_decision_use()
      *         return FALSE;
      *     }
      *     return TRUE;
      * }
-     * </programlisting></informalexample>
+     * ```
      *
      * It is possible to make policy decision asynchronously, by simply calling g_object_ref()
      * on the @decision argument and returning %TRUE to block the default signal handler.
@@ -1798,7 +1860,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * A possible way to use this signal could be through a dialog
      * allowing the user decide what to do with the request:
      *
-     * <informalexample><programlisting>
+     * ```c
      * static gboolean permission_request_cb (WebKitWebView *web_view,
      *                                        WebKitPermissionRequest *request,
      *                                        GtkWindow *parent_window)
@@ -1823,7 +1885,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      *
      *     return TRUE;
      * }
-     * </programlisting></informalexample>
+     * ```
      *
      * It is possible to handle permission requests asynchronously, by
      * simply calling g_object_ref() on the @request argument and
@@ -3120,7 +3182,7 @@ void webkit_web_view_load_alternate_html(WebKitWebView* webView, const gchar* co
     g_return_if_fail(content);
     g_return_if_fail(contentURI);
 
-    getPage(webView).loadAlternateHTML({ reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }, "UTF-8"_s, URL(URL(), String::fromUTF8(baseURI)), URL(URL(), String::fromUTF8(contentURI)));
+    getPage(webView).loadAlternateHTML({ reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }, "UTF-8"_s, URL { String::fromUTF8(baseURI) }, URL { String::fromUTF8(contentURI) });
 }
 
 /**
@@ -3905,7 +3967,7 @@ void webkit_web_view_run_javascript(WebKitWebView* webView, const gchar* script,
  * This is an example of using webkit_web_view_run_javascript() with a script returning
  * a string:
  *
- * <informalexample><programlisting>
+ * ```c
  * static void
  * web_view_javascript_finished (GObject      *object,
  *                               GAsyncResult *result,
@@ -3924,11 +3986,8 @@ void webkit_web_view_run_javascript(WebKitWebView* webView, const gchar* script,
  *
  *     value = webkit_javascript_result_get_js_value (js_result);
  *     if (jsc_value_is_string (value)) {
- *         JSCException *exception;
- *         gchar        *str_value;
- *
- *         str_value = jsc_value_to_string (value);
- *         exception = jsc_context_get_exception (jsc_value_get_context (value));
+ *         gchar        *str_value = jsc_value_to_string (value);
+ *         JSCException *exception = jsc_context_get_exception (jsc_value_get_context (value));
  *         if (exception)
  *             g_warning ("Error running javascript: %s", jsc_exception_get_message (exception));
  *         else
@@ -3944,13 +4003,11 @@ void webkit_web_view_run_javascript(WebKitWebView* webView, const gchar* script,
  * web_view_get_link_url (WebKitWebView *web_view,
  *                        const gchar   *link_id)
  * {
- *     gchar *script;
- *
- *     script = g_strdup_printf ("window.document.getElementById('%s').href;", link_id);
+ *     gchar *script = g_strdup_printf ("window.document.getElementById('%s').href;", link_id);
  *     webkit_web_view_run_javascript (web_view, script, NULL, web_view_javascript_finished, NULL);
  *     g_free (script);
  * }
- * </programlisting></informalexample>
+ * ```
  *
  * Returns: (transfer full): a #WebKitJavascriptResult with the result of the last executed statement in @script
  *    or %NULL in case of error
@@ -3989,6 +4046,119 @@ void webkit_web_view_run_javascript_in_world(WebKitWebView* webView, const gchar
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
     auto world = API::ContentWorld::sharedWorldWithName(String::fromUTF8(worldName));
     getPage(webView).runJavaScriptInFrameInScriptWorld({ String::fromUTF8(script), URL { }, false, std::nullopt, true }, std::nullopt, world.get(), [task = WTFMove(task)] (auto&& result) {
+        RefPtr<API::SerializedScriptValue> serializedScriptValue;
+        ExceptionDetails exceptionDetails;
+        if (result.has_value())
+            serializedScriptValue = WTFMove(result.value());
+        else
+            exceptionDetails = WTFMove(result.error());
+        webkitWebViewRunJavaScriptCallback(serializedScriptValue.get(), exceptionDetails, task.get());
+    });
+}
+
+/*
+ * webkit_web_view_run_async_javascript_function_in_world:
+ * @web_view: a #WebKitWebView
+ * @body: the JavaScript function body
+ * @arguments: a #GVariant with format `{&sv}` storing the function arguments. Function argument values must be one of the following types, or contain only the following GVariant types: number, string, array, and dictionary.
+ * @world_name (nullable): the name of a #WebKitScriptWorld, if no name is provided, the default world is used.
+ * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
+ * @callback: (scope async): a #GAsyncReadyCallback to call when the script finished
+ * @user_data: (closure): the data to pass to callback function
+ *
+ * Asynchronously run @body in the script world with name @world_name of the current page context in
+ * @web_view. If WebKitSettings:enable-javascript is FALSE, this method will do nothing. This API
+ * differs from webkit_web_view_run_javascript_in_world() in that the JavaScript function can return a
+ * Promise and its result will be properly passed to the callback.
+ *
+ * When the operation is finished, @callback will be called. You can then call
+ * webkit_web_view_run_javascript_in_world_finish() to get the result of the operation.
+ *
+ * For instance here is a dummy example that shows how to pass arguments to a JS function that
+ * returns a Promise that resolves with the passed argument:
+ *
+ * ```c
+ * static void
+ * web_view_javascript_finished (GObject      *object,
+ *                               GAsyncResult *result,
+ *                               gpointer      user_data)
+ * {
+ *     WebKitJavascriptResult *js_result;
+ *     JSCValue               *value;
+ *     GError                 *error = NULL;
+ *
+ *     js_result = webkit_web_view_run_javascript_finish (WEBKIT_WEB_VIEW (object), result, &error);
+ *     if (!js_result) {
+ *         g_warning ("Error running javascript: %s", error->message);
+ *         g_error_free (error);
+ *         return;
+ *     }
+ *
+ *     value = webkit_javascript_result_get_js_value (js_result);
+ *     if (jsc_value_is_number (value)) {
+ *         gint32        int_value = jsc_value_to_string (value);
+ *         JSCException *exception = jsc_context_get_exception (jsc_value_get_context (value));
+ *         if (exception)
+ *             g_warning ("Error running javascript: %s", jsc_exception_get_message (exception));
+ *         else
+ *             g_print ("Script result: %d\n", int_value);
+ *         g_free (str_value);
+ *     } else {
+ *         g_warning ("Error running javascript: unexpected return value");
+ *     }
+ *     webkit_javascript_result_unref (js_result);
+ * }
+ *
+ * static void
+ * web_view_evaluate_promise (WebKitWebView *web_view)
+ * {
+ *     GVariantDict dict;
+ *     g_variant_dict_init (&dict, NULL);
+ *     g_variant_dict_insert (&dict, "count", "u", 42);
+ *     GVariant *args = g_variant_dict_end (&dict);
+ *     const gchar *body = "return new Promise((resolve) => { resolve(count); });";
+ *     webkit_web_view_run_async_javascript_function_in_world (web_view, body, arguments, NULL, NULL, web_view_javascript_finished, NULL);
+ * }
+ * ```
+ *
+ * Since: 2.38
+ */
+void webkit_web_view_run_async_javascript_function_in_world(WebKitWebView* webView, const gchar* body, GVariant* arguments, const char* worldName, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(body);
+    g_return_if_fail(worldName);
+
+    auto task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
+    auto world = API::ContentWorld::sharedWorldWithName(String::fromUTF8(worldName ? worldName : ""));
+    bool hasInvalidArgument = false;
+    auto argumentsMap = WebCore::ArgumentWireBytesMap { };
+
+    if (arguments) {
+        GVariantIter iter;
+        g_variant_iter_init(&iter, arguments);
+        const char* key;
+        GVariant* value;
+        while (g_variant_iter_loop(&iter, "{&sv}", &key, &value)) {
+            if (!key)
+                continue;
+            auto serializedValue = API::SerializedScriptValue::createFromGVariant(value);
+            if (!serializedValue) {
+                hasInvalidArgument = true;
+                break;
+            }
+            argumentsMap.set(String::fromUTF8(key), serializedValue->internalRepresentation().wireBytes());
+        }
+    }
+
+    if (hasInvalidArgument) {
+        ExceptionDetails exceptionDetails;
+        exceptionDetails.message = "Function argument values must be one of the following types, or contain only the following GVariant types: number, string, array, and dictionary"_s;
+        webkitWebViewRunJavaScriptCallback(nullptr, exceptionDetails, task.get());
+        return;
+    }
+
+    getPage(webView).runJavaScriptInFrameInScriptWorld({ String::fromUTF8(body), URL { }, RunAsAsyncFunction::Yes, WTFMove(argumentsMap), ForceUserGesture::Yes }, std::nullopt, world.get(), [task = WTFMove(task)](auto&& result) {
         RefPtr<API::SerializedScriptValue> serializedScriptValue;
         ExceptionDetails exceptionDetails;
         if (result.has_value())
@@ -4385,7 +4555,7 @@ void webKitWebViewDidReceiveSnapshot(WebKitWebView* webView, uint64_t callbackID
         return;
     }
 
-    g_task_return_pointer(task.get(), webImage->bitmap().createCairoSurface().leakRef(), reinterpret_cast<GDestroyNotify>(cairo_surface_destroy));
+    g_task_return_pointer(task.get(), webImage->createCairoSurface().leakRef(), reinterpret_cast<GDestroyNotify>(cairo_surface_destroy));
 }
 
 static inline unsigned webKitSnapshotOptionsToSnapshotOptions(WebKitSnapshotOptions options)
@@ -4481,7 +4651,7 @@ void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessT
     webkitWebViewSetIsWebProcessResponsive(webView, true);
 }
 
-/*
+/**
  * webkit_web_view_is_editable:
  * @web_view: a #WebKitWebView
  *
@@ -4630,7 +4800,7 @@ void webkit_web_view_remove_frame_displayed_callback(WebKitWebView* webView, uns
     };
 
     if (webView->priv->inFrameDisplayed) {
-        auto index = webView->priv->frameDisplayedCallbacks.findMatching(matchFunction);
+        auto index = webView->priv->frameDisplayedCallbacks.findIf(matchFunction);
         if (index != notFound)
             webView->priv->frameDisplayedCallbacksToRemove.add(id);
     } else
@@ -4792,7 +4962,7 @@ void webkitWebViewSetIsWebProcessResponsive(WebKitWebView* webView, bool isRespo
 }
 
 /**
- * webkit_web_view_is_web_process_responsive:
+ * webkit_web_view_get_is_web_process_responsive:
  * @web_view: a #WebKitWebView
  *
  * Get whether the current web process of a #WebKitWebView is responsive.
@@ -4868,7 +5038,7 @@ void webkit_web_view_set_cors_allowlist(WebKitWebView* webView, const gchar* con
     getPage(webView).setCORSDisablingPatterns(WTFMove(allowListVector));
 }
 
-static void webkitWebViewConfigureMediaCapture(WebKitWebView* webView, WebCore::MediaProducerMediaCaptureKind captureKind, WebKitMediaCaptureState captureState, bool isFromDisplayCapture = false)
+static void webkitWebViewConfigureMediaCapture(WebKitWebView* webView, WebCore::MediaProducerMediaCaptureKind captureKind, WebKitMediaCaptureState captureState)
 {
     auto& page = getPage(webView);
     auto mutedState = page.mutedStateFlags();
@@ -4877,13 +5047,16 @@ static void webkitWebViewConfigureMediaCapture(WebKitWebView* webView, WebCore::
     case WEBKIT_MEDIA_CAPTURE_STATE_NONE:
         page.stopMediaCapture(captureKind, [webView, captureKind] {
             switch (captureKind) {
-            case WebCore::MediaProducerMediaCaptureKind::Audio:
+            case WebCore::MediaProducerMediaCaptureKind::Microphone:
                 g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_MICROPHONE_CAPTURE_STATE]);
                 break;
-            case WebCore::MediaProducerMediaCaptureKind::Video:
+            case WebCore::MediaProducerMediaCaptureKind::Display:
+                break;
+            case WebCore::MediaProducerMediaCaptureKind::Camera:
                 g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_CAMERA_CAPTURE_STATE]);
                 break;
-            case WebCore::MediaProducerMediaCaptureKind::AudioVideo:
+            case WebCore::MediaProducerMediaCaptureKind::SystemAudio:
+            case WebCore::MediaProducerMediaCaptureKind::EveryKind:
                 ASSERT_NOT_REACHED();
                 return;
             }
@@ -4891,16 +5064,17 @@ static void webkitWebViewConfigureMediaCapture(WebKitWebView* webView, WebCore::
         break;
     case WEBKIT_MEDIA_CAPTURE_STATE_ACTIVE:
         switch (captureKind) {
-        case WebCore::MediaProducerMediaCaptureKind::Audio:
+        case WebCore::MediaProducerMediaCaptureKind::Microphone:
             mutedState.remove(WebCore::MediaProducer::MutedState::AudioCaptureIsMuted);
             break;
-        case WebCore::MediaProducerMediaCaptureKind::Video:
-            if (isFromDisplayCapture)
-                mutedState.remove(WebCore::MediaProducer::MutedState::ScreenCaptureIsMuted);
-            else
-                mutedState.remove(WebCore::MediaProducer::MutedState::VideoCaptureIsMuted);
+        case WebCore::MediaProducerMediaCaptureKind::Camera:
+            mutedState.remove(WebCore::MediaProducer::MutedState::VideoCaptureIsMuted);
             break;
-        case WebCore::MediaProducerMediaCaptureKind::AudioVideo:
+        case WebCore::MediaProducerMediaCaptureKind::Display:
+            mutedState.remove(WebCore::MediaProducer::MutedState::ScreenCaptureIsMuted);
+            break;
+        case WebCore::MediaProducerMediaCaptureKind::SystemAudio:
+        case WebCore::MediaProducerMediaCaptureKind::EveryKind:
             ASSERT_NOT_REACHED();
             return;
         }
@@ -4908,16 +5082,17 @@ static void webkitWebViewConfigureMediaCapture(WebKitWebView* webView, WebCore::
         break;
     case WEBKIT_MEDIA_CAPTURE_STATE_MUTED:
         switch (captureKind) {
-        case WebCore::MediaProducerMediaCaptureKind::Audio:
+        case WebCore::MediaProducerMediaCaptureKind::Microphone:
             mutedState.add(WebCore::MediaProducer::MutedState::AudioCaptureIsMuted);
             break;
-        case WebCore::MediaProducerMediaCaptureKind::Video:
-            if (isFromDisplayCapture)
-                mutedState.add(WebCore::MediaProducer::MutedState::ScreenCaptureIsMuted);
-            else
-                mutedState.add(WebCore::MediaProducer::MutedState::VideoCaptureIsMuted);
+        case WebCore::MediaProducerMediaCaptureKind::Camera:
+            mutedState.add(WebCore::MediaProducer::MutedState::VideoCaptureIsMuted);
             break;
-        case WebCore::MediaProducerMediaCaptureKind::AudioVideo:
+        case WebCore::MediaProducerMediaCaptureKind::Display:
+            mutedState.add(WebCore::MediaProducer::MutedState::ScreenCaptureIsMuted);
+            break;
+        case WebCore::MediaProducerMediaCaptureKind::SystemAudio:
+        case WebCore::MediaProducerMediaCaptureKind::EveryKind:
             ASSERT_NOT_REACHED();
             return;
         }
@@ -4965,7 +5140,7 @@ void webkit_web_view_set_camera_capture_state(WebKitWebView* webView, WebKitMedi
     if (webkit_web_view_get_camera_capture_state(webView) == WEBKIT_MEDIA_CAPTURE_STATE_NONE)
         return;
 
-    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Video, state);
+    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Camera, state);
 }
 
 /**
@@ -5007,7 +5182,7 @@ void webkit_web_view_set_microphone_capture_state(WebKitWebView* webView, WebKit
     if (webkit_web_view_get_microphone_capture_state(webView) == WEBKIT_MEDIA_CAPTURE_STATE_NONE)
         return;
 
-    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Audio, state);
+    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Microphone, state);
 }
 
 /**
@@ -5024,9 +5199,9 @@ void webkit_web_view_set_microphone_capture_state(WebKitWebView* webView, WebKit
 WebKitMediaCaptureState webkit_web_view_get_display_capture_state(WebKitWebView* webView)
 {
     auto state = getPage(webView).reportedMediaState();
-    if (state & WebCore::MediaProducer::MediaState::HasActiveDisplayCaptureDevice)
+    if (state & WebCore::MediaProducer::MediaState::HasActiveScreenCaptureDevice)
         return WEBKIT_MEDIA_CAPTURE_STATE_ACTIVE;
-    if (state & WebCore::MediaProducer::MediaState::HasMutedDisplayCaptureDevice)
+    if (state & WebCore::MediaProducer::MediaState::HasMutedScreenCaptureDevice)
         return WEBKIT_MEDIA_CAPTURE_STATE_MUTED;
     return WEBKIT_MEDIA_CAPTURE_STATE_NONE;
 }
@@ -5049,5 +5224,57 @@ void webkit_web_view_set_display_capture_state(WebKitWebView* webView, WebKitMed
     if (webkit_web_view_get_display_capture_state(webView) == WEBKIT_MEDIA_CAPTURE_STATE_NONE)
         return;
 
-    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Video, state, true);
+    webkitWebViewConfigureMediaCapture(webView, WebCore::MediaProducerMediaCaptureKind::Display, state);
+}
+
+void webkitWebViewForceRepaintForTesting(WebKitWebView* webView, ForceRepaintCallback callback, gpointer userData)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    getPage(webView).forceRepaint([callback, userData]() {
+        callback(userData);
+    });
+}
+
+void webkitSetCachedProcessSuspensionDelayForTesting(double seconds)
+{
+    WebKit::WebsiteDataStore::setCachedProcessSuspensionDelayForTesting(Seconds(seconds));
+}
+
+/**
+ * webkit_web_view_get_web_extension_mode:
+ * @web_view: a #WebKitWebView
+ *
+ * Get the view's #WebKitWebExtensionMode.
+ *
+ * Returns: the #WebKitWebExtensionMode
+ *
+ * Since: 2.38
+ */
+WebKitWebExtensionMode webkit_web_view_get_web_extension_mode(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), WEBKIT_WEB_EXTENSION_MODE_NONE);
+
+    return webView->priv->webExtensionMode;
+}
+
+/**
+ * webkit_web_view_get_default_content_security_policy:
+ * @web_view: a #WebKitWebView
+ *
+ * Gets the configured default Content-Security-Policy.
+ *
+ * Returns: (nullable): The default policy or %NULL
+ *
+ * Since: 2.38
+ */
+const gchar*
+webkit_web_view_get_default_content_security_policy(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+
+    if (webView->priv->defaultContentSecurityPolicy.isNull())
+        return nullptr;
+
+    return webView->priv->defaultContentSecurityPolicy.data();
 }

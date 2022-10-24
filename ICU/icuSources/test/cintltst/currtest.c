@@ -15,6 +15,8 @@
 #include "cmemory.h"
 #include "cstring.h"
 
+#include <stdio.h> // for sprintf()
+
 static void expectInList(const char *isoCurrency, uint32_t currencyType, UBool isExpected) {
     UErrorCode status = U_ZERO_ERROR;
     const char *foundCurrency = NULL;
@@ -277,6 +279,103 @@ static void TestNumericCode(void) {
     }
 }
 
+typedef struct {
+    const char*    locale;
+    const UChar*   currency;
+    UCurrNameStyle nameStyle;
+    const UChar*   expectedName;
+} DisplayNameTestEntry;
+
+static const DisplayNameTestEntry DISPLAY_NAME_TESTDATA[]  = {
+    { "en",    u"USD", UCURR_SYMBOL_NAME,        u"$" },
+    { "en",    u"USD", UCURR_NARROW_SYMBOL_NAME, u"$" },
+    { "en",    u"USD", UCURR_LONG_NAME,          u"US Dollar" },
+    { "en",    u"CAD", UCURR_SYMBOL_NAME,        u"CA$" },
+    { "en",    u"CAD", UCURR_NARROW_SYMBOL_NAME, u"$" },
+    { "en_CA", u"CAD", UCURR_SYMBOL_NAME,        u"$" },
+    { "en_CA", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
+    { "en_CA", u"USD", UCURR_NARROW_SYMBOL_NAME, u"$" },
+    { "en_NZ", u"CAD", UCURR_SYMBOL_NAME,        u"CA$" },
+    { "en_NZ", u"USD", UCURR_SYMBOL_NAME,        u"US$" },
+    { "en",    u"USX", UCURR_SYMBOL_NAME,        u"USX" },
+    { "en",    u"USX", UCURR_NARROW_SYMBOL_NAME, u"USX" },
+    { "en",    u"USX", UCURR_LONG_NAME,          u"USX" },
+    // Apple tests for rdar://81223844
+    { "he",    u"ZWL", UCURR_LONG_NAME,          u"דולר זימבבואי (2009)" },
+    { "da",    u"CLF", UCURR_LONG_NAME,          u"chilensk regningsenhed (UF)" },
+    { "pl",    u"MXV", UCURR_LONG_NAME,          u"meksykańska jednostka inwestycyjna" },
+    // Apple test for rdar://92390663
+    { "vi",    u"LVL", UCURR_LONG_NAME,          u"Lats Latvia" },
+    // Apple test for rdar://95729967
+    { "kk",    u"AUD", UCURR_LONG_NAME,          u"Аустралия доллары" },
+
+    { NULL,    NULL,   0,                        NULL }
+};
+
+static void TestDisplayNames(void) {
+    for (int32_t i = 0; DISPLAY_NAME_TESTDATA[i].locale != NULL; ++i) {
+        UErrorCode err = U_ZERO_ERROR;
+        const DisplayNameTestEntry* entry = &DISPLAY_NAME_TESTDATA[i];
+        int32_t dummyLength = 0;
+        const UChar* actualName = ucurr_getName(entry->currency, entry->locale, entry->nameStyle, NULL, &dummyLength, &err);
+        char inputValues[200];
+        char errorMessage1[250];
+        char errorMessage2[250];
+        
+        sprintf(inputValues, "for %s/%s/%d", entry->locale, austrdup(entry->currency), entry->nameStyle);
+        sprintf(errorMessage1, "Error getting display name %s", inputValues);
+        sprintf(errorMessage2, "Wrong display name %s", inputValues);
+        
+        if (assertSuccess(errorMessage1, &err)) {
+            assertUEquals(errorMessage2, entry->expectedName, actualName);
+        }
+    }
+}
+
+typedef struct {
+    const char*    locale;
+    const UChar*   currency;
+    const char*    count;
+    const UChar*   expectedName;
+} PluralNameTestEntry;
+
+static const PluralNameTestEntry PLURAL_NAME_TESTDATA[]  = {
+    { "en",    u"USD", "one",    u"US dollar" },
+    { "en",    u"USD", "other",  u"US dollars" },
+    // Apple tests for rdar://81223844
+    { "he",    u"ZWL", "other",  u"דולר זימבבואי (2009)" },
+    { "da",    u"CLF", "other",  u"chilensk regningsenhed (UF)" },
+    { "pl",    u"MXV", "other",  u"meksykańska jednostka inwestycyjna" },
+    // Apple test for rdar://92390663
+    { "vi",    u"LVL", "one",    u"lats Latvia" },
+    { "vi",    u"LVL", "other",  u"lats Latvia" },
+    // Apple test for rdar://95729967
+    { "kk",    u"AUD", "one",    u"Аустралия доллары" },
+    { "kk",    u"AUD", "other",  u"Аустралия доллары" },
+
+    { NULL,    NULL,   0,  NULL }
+};
+
+static void TestPluralDisplayNames(void) {
+    for (int32_t i = 0; PLURAL_NAME_TESTDATA[i].locale != NULL; ++i) {
+        UErrorCode err = U_ZERO_ERROR;
+        const PluralNameTestEntry* entry = &PLURAL_NAME_TESTDATA[i];
+        int32_t dummyLength = 0;
+        const UChar* actualName = ucurr_getPluralName(entry->currency, entry->locale, NULL, entry->count, &dummyLength, &err);
+        char inputValues[200];
+        char errorMessage1[250];
+        char errorMessage2[250];
+        
+        sprintf(inputValues, "for %s/%s/%s", entry->locale, austrdup(entry->currency), entry->count);
+        sprintf(errorMessage1, "Error getting display name %s", inputValues);
+        sprintf(errorMessage2, "Wrong display name %s", inputValues);
+        
+        if (assertSuccess(errorMessage1, &err)) {
+            assertUEquals(errorMessage2, entry->expectedName, actualName);
+        }
+    }
+}
+
 void addCurrencyTest(TestNode** root);
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/currtest/" #x)
@@ -289,6 +388,8 @@ void addCurrencyTest(TestNode** root)
     TESTCASE(TestFractionDigitOverride);
     TESTCASE(TestPrefixSuffix);
     TESTCASE(TestNumericCode);
+    TESTCASE(TestDisplayNames);
+    TESTCASE(TestPluralDisplayNames);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

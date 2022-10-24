@@ -472,7 +472,7 @@ OSStatus impExpPemEncodeExportRep(
 	if((encLen != 0) && (enc[encLen - 1] == '\0')) {
 		encLen--;
 	}
-	sprintf(headerLine, "-----BEGIN %s-----\n", pemHeader);
+	snprintf(headerLine, sizeof(headerLine), "-----BEGIN %s-----\n", pemHeader);
 	CFDataAppendBytes(outData, (const UInt8 *)headerLine, strlen(headerLine));
 	
 	/* optional PEM parameters lines (currently used for openssl wrap format only) */
@@ -498,7 +498,7 @@ OSStatus impExpPemEncodeExportRep(
 		}
 	}
 	CFDataAppendBytes(outData, enc, encLen);
-	sprintf(headerLine, "-----END %s-----\n", pemHeader);
+	snprintf(headerLine, sizeof(headerLine), "-----END %s-----\n", pemHeader);
 	CFDataAppendBytes(outData, (const UInt8 *)headerLine, strlen(headerLine));
 	free((void *)enc);
 	return errSecSuccess;

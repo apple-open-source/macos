@@ -24,7 +24,9 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTControlProtocol.h"
+#import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 #import <Security/SecXPCHelper.h>
 #include <utilities/debugging.h>
 
@@ -33,65 +35,58 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
     NSSet<Class> *errorClasses = [SecXPCHelper safeErrorClasses];
 
     @try {
-        [interface setClasses:errorClasses forSelector:@selector(restore:dsid:secret:escrowRecordID:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(octagonEncryptionPublicKey:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(octagonSigningPublicKey:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(listOfEligibleBottledPeerRecords:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(signIn:container:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(signOut:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(notifyIDMSTrustLevelChangeForContainer:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(reset:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(handleIdentityChangeForSigningKey:ForEncryptionKey:ForPeerID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(rpcEpochWithConfiguration:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(rpcPrepareIdentityAsApplicantWithConfiguration:reply:) argumentIndex:5 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(rpcVoucherWithConfiguration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(rpcJoinWithConfiguration:vouchData:vouchSig:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(preflightBottledPeer:dsid:reply:) argumentIndex:3 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(launchBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(scrubBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(status:context:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(status:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchEgoPeerID:context:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchCliqueStatus:context:configuration:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchTrustStatus:context:configuration:reply:) argumentIndex:4 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(startOctagonStateMachine:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(resetAndEstablish:context:altDSID:resetReason:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(establish:context:altDSID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(leaveClique:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(removeFriendsInClique:context:peerIDs:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(peerDeviceNamesByPeerID:context:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchAllViableBottles:context:reply:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(restore:contextID:bottleSalt:entropy:bottleID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchEscrowContents:contextID:reply:) argumentIndex:3 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(createRecoveryKey:contextID:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(joinWithRecoveryKey:contextID:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(healthCheck:context:skipRateLimitingCheck:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(waitForOctagonUpgrade:context:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:type:error:containerName:contextName:reply:) argumentIndex:2 ofReply:NO];
-        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:type:error:containerName:contextName:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(appleAccountSignedIn:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(appleAccountSignedOut:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(notifyIDMSTrustLevelChangeForAltDSID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(rpcEpochWithArguments:configuration:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(rpcPrepareIdentityAsApplicantWithArguments:configuration:reply:) argumentIndex:5 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(rpcVoucherWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(rpcJoinWithArguments:configuration:vouchData:vouchSig:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(status:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(status:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchEgoPeerID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchCliqueStatus:configuration:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchTrustStatus:configuration:reply:) argumentIndex:4 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(startOctagonStateMachine:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(resetAndEstablish:resetReason:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(establish:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(leaveClique:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeFriendsInClique:peerIDs:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(peerDeviceNamesByPeerID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchAllViableBottles:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(restoreFromBottle:entropy:bottleID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchEscrowContents:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(healthCheck:skipRateLimitingCheck:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(waitForOctagonUpgrade:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:success:type:error:reply:) argumentIndex:3 ofReply:NO];
+        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:success:type:error:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(tapToRadar:description:radar:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(refetchCKKSPolicy:contextID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(setCDPEnabled:contextID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(getCDPStatus:contextID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchEscrowRecords:contextID:forceFetch:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(setUserControllableViewsSyncStatus:contextID:enabled:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchUserControllableViewsSyncStatus:contextID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(resetAccountCDPContents:contextID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(setLocalSecureElementIdentity:contextID:secureElementIdentity:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(removeLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(fetchTrustedSecureElementIdentities:contextID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(waitForPriorityViewKeychainDataRecovery:contextID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(createCustodianRecoveryKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(joinWithCustodianRecoveryKey:contextID:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithCustodianRecoveryKey:contextID:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(removeCustodianRecoveryKey:contextID:uuid:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(createInheritanceKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(generateInheritanceKey:contextID:uuid:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(storeInheritanceKey:contextID:ik:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(joinWithInheritanceKey:contextID:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithInheritanceKey:contextID:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(removeInheritanceKey:contextID:uuid:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(tlkRecoverabilityForEscrowRecordData:contextID:recordData:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(refetchCKKSPolicy:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(setCDPEnabled:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(getCDPStatus:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchEscrowRecords:forceFetch:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(setUserControllableViewsSyncStatus:enabled:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchUserControllableViewsSyncStatus:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(resetAccountCDPContents:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(setLocalSecureElementIdentity:secureElementIdentity:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeLocalSecureElementIdentityPeerID:secureElementIdentityPeerID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchTrustedSecureElementIdentities:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(waitForPriorityViewKeychainDataRecovery:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createCustodianRecoveryKey:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithCustodianRecoveryKey:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithCustodianRecoveryKey:custodianRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeCustodianRecoveryKey:uuid:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createInheritanceKey:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(generateInheritanceKey:uuid:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(storeInheritanceKey:ik:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithInheritanceKey:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightJoinWithInheritanceKey:inheritanceKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(removeInheritanceKey:uuid:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(tlkRecoverabilityForEscrowRecordData:recordData:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(deliverAKDeviceListDelta:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(setMachineIDOverride:machineID:reply:) argumentIndex:0 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);
@@ -101,5 +96,3 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
     
     return interface;
 }
-
-

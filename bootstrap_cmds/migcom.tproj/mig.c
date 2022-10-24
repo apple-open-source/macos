@@ -177,6 +177,14 @@ parseArgs(int argc,char *argv[])
         case 'N':
           CheckNDR = FALSE;
           break;
+        
+        case 'b':
+          EmitCountAnnotations = TRUE;
+          break;
+        
+        case 'B':
+          EmitCountAnnotations = FALSE;
+          break;
 
         case 's':
           if (streql(argv[0], "-server")) {
@@ -295,8 +303,6 @@ main(int argc, char *argv[])
   FILE *iheader = 0;
   FILE *sheader = 0;
   FILE *dheader = 0;
-  time_t loc;
-  extern string_t GenerationDate;
 
   set_program_name("mig");
   parseArgs(argc, argv);
@@ -307,8 +313,6 @@ main(int argc, char *argv[])
   }
   init_global();
   init_type();
-  loc = time((time_t *)0);
-  GenerationDate = ctime(&loc);
 
   LookNormal();
   (void) yyparse();

@@ -32,6 +32,7 @@
 #if ENABLE(SCROLLING_THREAD)
 #include "ScrollingStateFrameScrollingNode.h"
 #endif
+#include "ScrollingEffectsController.h"
 #include "ScrollingStateScrollingNode.h"
 #include "ScrollingStateTree.h"
 #include "ScrollingTree.h"
@@ -121,6 +122,16 @@ bool ScrollingTreeScrollingNode::isLatchedNode() const
     return scrollingTree().latchedNodeID() == scrollingNodeID();
 }
 
+bool ScrollingTreeScrollingNode::shouldRubberBand(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting) const
+{
+    // We always rubber-band the latched node, or the root node.
+    // The stateless wheel event doesn't trigger rubber-band.
+    // Also rubberband when we should block scroll propagation
+    // at this node, which has overscroll behavior that is not none.
+    auto scrollPropagationInfo = computeScrollPropagation(wheelEvent.delta());
+    return (isLatchedNode() || eventTargeting == EventTargeting::NodeOnly || (isRootNode() && !wheelEvent.isNonGestureEvent()) || ( scrollPropagationInfo.shouldBlockScrollPropagation && scrollPropagationInfo.isHandled && overscrollBehaviorAllowsRubberBand()));
+}
+
 bool ScrollingTreeScrollingNode::canHandleWheelEvent(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting) const
 {
     if (!canHaveScrollbars())
@@ -130,9 +141,7 @@ bool ScrollingTreeScrollingNode::canHandleWheelEvent(const PlatformWheelEvent& w
     if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin)
         return true;
 
-    // We always rubber-band the latched node, or the root node.
-    // The stateless wheel event doesn't trigger rubber-band.
-    if (isLatchedNode() || eventTargeting == EventTargeting::NodeOnly || (isRootNode() && !wheelEvent.isNonGestureEvent()))
+    if (shouldRubberBand(wheelEvent, eventTargeting))
         return true;
 
     return eventCanScrollContents(wheelEvent);
@@ -390,6 +399,46 @@ void ScrollingTreeScrollingNode::setCurrentHorizontalSnapPointIndex(std::optiona
 void ScrollingTreeScrollingNode::setCurrentVerticalSnapPointIndex(std::optional<unsigned> index)
 {
     m_currentVerticalSnapPointIndex = index;
+}
+
+PlatformWheelEvent ScrollingTreeScrollingNode::eventForPropagation(const PlatformWheelEvent& wheelEvent) const
+{
+    auto filteredDelta = wheelEvent.delta();
+#if PLATFORM(MAC)
+    auto biasedDelta = ScrollingEffectsController::wheelDeltaBiasingTowardsVertical(wheelEvent.delta());
+#else
+    auto biasedDelta = wheelEvent.delta();
+#endif
+    if (horizontalOverscrollBehaviorPreventsPropagation() || verticalOverscrollBehaviorPreventsPropagation()) {
+        if(horizontalOverscrollBehaviorPreventsPropagation() || (verticalOverscrollBehaviorPreventsPropagation() && !biasedDelta.width()))
+           filteredDelta.setWidth(0);
+        if(verticalOverscrollBehaviorPreventsPropagation() || (horizontalOverscrollBehaviorPreventsPropagation() && !biasedDelta.height()))
+           filteredDelta.setHeight(0);
+        return wheelEvent.copyWithDeltaAndVelocity(filteredDelta, wheelEvent.scrollingVelocity());
+    }
+    return wheelEvent;
+}
+
+ScrollPropagationInfo ScrollingTreeScrollingNode::computeScrollPropagation(const FloatSize& delta) const
+{
+    ScrollPropagationInfo propagation;
+    if (!horizontalOverscrollBehaviorPreventsPropagation() && !verticalOverscrollBehaviorPreventsPropagation())
+        return propagation;
+    
+    // History swipe case
+    if (horizontalOverscrollBehaviorPreventsPropagation() && !delta.height() && delta.width()) {
+        propagation.shouldBlockScrollPropagation = true;
+        propagation.isHandled = false;
+        return propagation;
+    }
+
+    if ((horizontalOverscrollBehaviorPreventsPropagation() && verticalOverscrollBehaviorPreventsPropagation())
+        || (horizontalOverscrollBehaviorPreventsPropagation() && !delta.height())
+        || (verticalOverscrollBehaviorPreventsPropagation() && !delta.width())) {
+        propagation.shouldBlockScrollPropagation = true;
+        propagation.isHandled = true;
+    }
+    return propagation;
 }
 
 } // namespace WebCore

@@ -28,7 +28,7 @@
 #include "kc-helpers.h"
 #include "kc-item-helpers.h"
 
-static void tests()
+static void tests(void)
 {
     SecKeychainRef kc = getPopulatedTestKeychain();
 

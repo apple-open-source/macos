@@ -9,8 +9,20 @@ SAX.characters(
 , 1)
 SAX.error: htmlCheckEncoding: error switching to encoding 'Shift_JIS'
 SAX.startElement(meta, http-equiv='content-type', content='text/html; charset=Shift_JIS')
-SAX.error: Couldn't find end of Start Tag meta
-SAX.error: Unexpected end tag : title
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(meta, http-equiv='content-style-type', content='text/css')
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(meta, http-equiv='content-script-type', content='text/javascript')
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(title)
+SAX.characters(&#32359;&#65405;&#32349;, 52)
+SAX.endElement(title)
 SAX.characters(
 , 1)
 SAX.endElement(head)

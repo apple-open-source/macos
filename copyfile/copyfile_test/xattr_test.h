@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 bool do_xattr_test(const char *apfs_test_directory, size_t block_size);
+bool do_xattr_flags_test(const char *apfs_test_directory, size_t block_size);
 
 #endif /* xattr_test_h */
 

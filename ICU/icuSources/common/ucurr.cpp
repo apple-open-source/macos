@@ -37,6 +37,7 @@
 #include "uresimp.h"
 #include "ureslocs.h"
 #include "ulocimp.h"
+#include "ucurrimp.h"
 
 using namespace icu;
 

@@ -49,7 +49,7 @@ static String backendCommandsPath()
     if (!CFURLGetFileSystemRepresentation(urlRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH))
         return { };
 
-    return path;
+    return String::fromUTF8(path);
 }
 
 static void initializeRemoteInspectorServer(StringView address)
@@ -61,7 +61,7 @@ static void initializeRemoteInspectorServer(StringView address)
     if (pos == notFound)
         return;
 
-    auto host = address.substring(0, pos);
+    auto host = address.left(pos);
     auto port = parseInteger<uint16_t>(address.substring(pos + 1));
     if (!port)
         return;
@@ -75,7 +75,7 @@ void WebProcessPool::platformInitialize()
 {
 #if ENABLE(REMOTE_INSPECTOR)
     if (const char* address = getenv("WEBKIT_INSPECTOR_SERVER"))
-        initializeRemoteInspectorServer(address);
+        initializeRemoteInspectorServer(StringView::fromLatin1(address));
 #endif
 }
 

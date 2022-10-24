@@ -44,6 +44,7 @@ static char sccsid[] = "@(#)tty.c	8.1 (Berkeley) 6/6/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -71,6 +72,10 @@ main(int argc, char *argv[])
 	t = ttyname(STDIN_FILENO);
 	if (!sflag)
 		puts(t ? t : "not a tty");
+#ifdef __APPLE__
+	if (t && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(2, "stdout");
+#endif
 	exit(t ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 

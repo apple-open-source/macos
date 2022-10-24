@@ -72,7 +72,6 @@ static const IOOptionBits kIOHIDTransactionOptionDefaultOutputValue = 0x0001;
     @discussion Type and arguments of callout C function that is used when a completion routine is called.
     @param context void * pointer to your data, often a pointer to an object.
     @param result Completion result of desired operation.
-    @param refcon void * pointer to more data.
     @param sender Interface instance sending the completion routine.
 */
 typedef void (*IOHIDCallback)(

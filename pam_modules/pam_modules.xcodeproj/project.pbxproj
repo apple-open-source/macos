@@ -153,7 +153,7 @@
 		F6D2E89126737A41005D165D /* ds_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = F6D2E89026737A41005D165D /* ds_ops.c */; };
 		F6D2E89326737AB2005D165D /* krb5principal.m in Sources */ = {isa = PBXBuildFile; fileRef = F6D2E89226737AB2005D165D /* krb5principal.m */; };
 		F6D2E89526737C8C005D165D /* ds_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = F6D2E89426737C8C005D165D /* ds_ops.h */; };
-		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */; };
+		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.m in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.m */; };
 		F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67ED1D1C306100342741 /* attribute_matching.c */; };
 		F6EF67F11D1C308000342741 /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EE1D1C306100342741 /* hash_matching.c */; };
 		F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */; };
@@ -452,7 +452,7 @@
 		F6D2E89026737A41005D165D /* ds_ops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ds_ops.c; path = modules/pam_smartcard/ds_ops.c; sourceTree = "<group>"; };
 		F6D2E89226737AB2005D165D /* krb5principal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = krb5principal.m; path = modules/pam_smartcard/krb5principal.m; sourceTree = "<group>"; };
 		F6D2E89426737C8C005D165D /* ds_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ds_ops.h; path = modules/pam_smartcard/ds_ops.h; sourceTree = "<group>"; };
-		F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_smartcard.c; path = modules/pam_smartcard/pam_smartcard.c; sourceTree = "<group>"; };
+		F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = pam_smartcard.m; path = modules/pam_smartcard/pam_smartcard.m; sourceTree = "<group>"; };
 		F6EF67ED1D1C306100342741 /* attribute_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attribute_matching.c; path = modules/pam_smartcard/attribute_matching.c; sourceTree = "<group>"; };
 		F6EF67EE1D1C306100342741 /* hash_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hash_matching.c; path = modules/pam_smartcard/hash_matching.c; sourceTree = "<group>"; };
 		F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scmatch_evaluation.c; path = modules/pam_smartcard/scmatch_evaluation.c; sourceTree = "<group>"; };
@@ -662,7 +662,7 @@
 				1C23732F10290CBB0055216A /* pam_rootok.c */,
 				1C23733010290CBB0055216A /* pam_sacl.c */,
 				1C23733110290CBB0055216A /* pam_self.c */,
-				F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */,
+				F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.m */,
 				F6AAC5EE1DF079F0008A6811 /* pam_tid.c */,
 				1C23733310290CBB0055216A /* pam_uwtmp.c */,
 			);
@@ -1396,7 +1396,7 @@
 				F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */,
 				F6EF67F11D1C308000342741 /* hash_matching.c in Sources */,
 				F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */,
-				F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */,
+				F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.m in Sources */,
 				F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */,
 				F6D2E89326737AB2005D165D /* krb5principal.m in Sources */,
 				F6D2E89126737A41005D165D /* ds_ops.c in Sources */,

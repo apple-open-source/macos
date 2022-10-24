@@ -52,7 +52,8 @@ int BLGetOpenFirmwareBootDeviceForNetworkPath(BLContextPtr context,
                                                const char *interface,
                                                const char *host,
                                                const char *path,
-											   char * ofstring) {
+											   char * ofstring,
+											   uint32_t ofstringSize) {
 
     mach_port_t masterPort;
     kern_return_t kret;
@@ -111,9 +112,9 @@ int BLGetOpenFirmwareBootDeviceForNetworkPath(BLContextPtr context,
 	contextprintf(context, kBLLogLevelVerbose, "Got path %s for interface %s\n", pathInPlane, interface);
 
 	if(host && path && strlen(path)) {
-		sprintf(ofstring, "%s:%s,%s", pathInPlane + strlen(kIODeviceTreePlane) + 1, host, path);		
+		snprintf(ofstring, ofstringSize, "%s:%s,%s", pathInPlane + strlen(kIODeviceTreePlane) + 1, host, path);
 	} else {
-		sprintf(ofstring, "%s:bootp", pathInPlane + strlen(kIODeviceTreePlane) + 1);	
+		snprintf(ofstring, ofstringSize, "%s:bootp", pathInPlane + strlen(kIODeviceTreePlane) + 1);
 	}
 
 	return 0;

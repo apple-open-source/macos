@@ -98,8 +98,8 @@ private:
                                            //  Contents are RBBIStateDescriptor pointers.
 
 
-    RBBITableBuilder57(const RBBITableBuilder57 &other); // forbid copying of this class
-    RBBITableBuilder57 &operator=(const RBBITableBuilder57 &other); // forbid copying of this class
+    RBBITableBuilder57(const RBBITableBuilder57 &other) = delete; // forbid copying of this class
+    RBBITableBuilder57 &operator=(const RBBITableBuilder57 &other) = delete; // forbid copying of this class
 };
 
 // class RBBIStateDescriptor - use standard rbbitblb.h

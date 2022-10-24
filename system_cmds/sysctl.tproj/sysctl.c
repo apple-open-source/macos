@@ -60,8 +60,6 @@ __unused static const char rcsid[] =
 #include <errno.h>
 #include <inttypes.h>
 #include <locale.h>
-#ifdef __APPLE__
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -950,9 +948,6 @@ sysctl_all_user(int *oid, int len)
 static int
 sysctl_all(int *oid, int len)
 {
-#ifdef __APPLE__
-#endif
-
 	int name1[22], name2[22];
 	int i, j;
 	size_t l1, l2;

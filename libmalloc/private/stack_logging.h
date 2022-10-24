@@ -23,11 +23,15 @@
 #ifndef _STACK_LOGGING_H_
 #define _STACK_LOGGING_H_
 
-#import <stdbool.h>
-#import <malloc/malloc.h>
-#import <mach/vm_statistics.h>
-#import <sys/cdefs.h>
-#import <os/availability.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <malloc/malloc.h>
+#include <mach/boolean.h>
+#include <mach/mach_types.h>
+#include <mach/vm_statistics.h>
+#include <sys/cdefs.h>
+#include <os/availability.h>
 
 
 /*********	MallocStackLogging permanant SPIs  ************/

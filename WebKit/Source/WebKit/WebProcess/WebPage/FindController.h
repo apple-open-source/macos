@@ -48,9 +48,10 @@ enum class DidWrap : bool;
 namespace WebKit {
 
 class CallbackID;
+class PluginView;
 class WebPage;
 
-class FindController : private WebCore::PageOverlay::Client {
+class FindController final : private WebCore::PageOverlay::Client {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(FindController);
 
@@ -101,6 +102,10 @@ private:
     bool shouldHideFindIndicatorOnScroll() const;
     void didScrollAffectingFindIndicatorPosition();
 
+#if ENABLE(PDFKIT_PLUGIN)
+    PluginView* mainFramePlugIn();
+#endif
+
     WebPage* m_webPage;
     WebCore::PageOverlay* m_findPageOverlay { nullptr };
 
@@ -117,7 +122,5 @@ private:
     std::unique_ptr<FindIndicatorOverlayClientIOS> m_findIndicatorOverlayClient;
 #endif
 };
-
-WebCore::FindOptions core(OptionSet<FindOptions>);
 
 } // namespace WebKit

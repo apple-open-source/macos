@@ -11,16 +11,19 @@
 #import <IOKit/hid/IOHIDLibPrivate.h>
 #import "HIDEvent.h"
 #import <os/assumes.h>
+#import <os/lock_private.h>
 
 @implementation HIDEventSystemClient {
     IOHIDEventSystemClientRef   _client;
     
-    HIDEventHandler             _eventHandler;
-    HIDBlock                    _resetHandler;
-    HIDEventFilterHandler       _filterHandler;
-    HIDServiceHandler           _serviceHandler;
-    HIDPropertyChangedHandler   _propertyChangedHandler;
-    HIDBlock                    _cancelHandler;
+    HIDEventHandler            _eventHandler;
+    HIDBlock                   _resetHandler;
+    HIDEventFilterHandler      _filterHandler;
+    HIDServiceHandler          _serviceHandler;
+    HIDPropertyChangedHandler  _propertyChangedHandler;
+    HIDBlock                   _cancelHandler;
+    bool                       _activated;
+    os_unfair_recursive_lock   _handlerLock;
 }
 
 - (nullable instancetype)initWithType:(HIDEventSystemClientType)type
@@ -103,7 +106,10 @@
 
 - (void)setCancelHandler:(HIDBlock)handler
 {
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(!_activated, "Cancel handler set after HIDEventSystemClient was activated");
     _cancelHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
 }
 
 - (void)setDispatchQueue:(dispatch_queue_t)queue
@@ -117,15 +123,18 @@ static void _eventCallback(void *target,
                            IOHIDEventRef event)
 {
     HIDEventSystemClient *me = (__bridge HIDEventSystemClient *)target;
-    
+
     (me->_eventHandler)((__bridge HIDServiceClient *)sender,
                         (__bridge HIDEvent *)event);
 }
 
 - (void)setEventHandler:(HIDEventHandler)handler
 {
-    os_assert(!_eventHandler, "Event handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_eventHandler == NULL, "Event handler already set");
     _eventHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDEventSystemClientRegisterEventCallback(_client,
                                                 _eventCallback,
                                                 (__bridge void *)self,
@@ -141,8 +150,11 @@ static void _resetCallback(void *target, void *context __unused)
 
 - (void)setResetHandler:(HIDBlock)handler
 {
-    os_assert(!_resetHandler, "Reset handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_resetHandler == NULL, "Reset handler already set");
     _resetHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDEventSystemClientRegisterResetCallback(_client,
                                                 _resetCallback,
                                                 (__bridge void *)self,
@@ -155,15 +167,20 @@ static boolean_t _eventFilterCallback(void *target,
                                  IOHIDEventRef event)
 {
     HIDEventSystemClient *me = (__bridge HIDEventSystemClient *)target;
+    boolean_t result;
     
-    return (me->_filterHandler)((__bridge HIDServiceClient *)sender,
+    result = (me->_filterHandler)((__bridge HIDServiceClient *)sender,
                                 (__bridge HIDEvent *)event);
+    return result;
 }
 
 - (void)setEventFilterHandler:(HIDEventFilterHandler)handler
 {
-    os_assert(!_filterHandler, "Filter handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_filterHandler == NULL, "Filter handler already set");
     _filterHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDEventSystemClientRegisterEventFilterCallback(_client,
                                                       _eventFilterCallback,
                                                       (__bridge void *)self,
@@ -181,8 +198,11 @@ static void _serviceCallback(void *target,
 
 - (void)setServiceNotificationHandler:(HIDServiceHandler)handler
 {
-    os_assert(!_serviceHandler, "Service notification handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_serviceHandler == NULL, "Service notification handler already set");
     _serviceHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDEventSystemClientRegisterDeviceMatchingCallback(_client,
                                                          _serviceCallback,
                                                          (__bridge void *)self,
@@ -207,9 +227,12 @@ static void _propertiesChangedCallback(void *target,
               [matching isKindOfClass:[NSArray class]],
               "Unknown matching criteria: %@", matching);
     
-    os_assert(!_propertyChangedHandler, "Property changed handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_propertyChangedHandler == NULL, "Property changed notification handler already set");
+
     _propertyChangedHandler = handler;
-    
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     if ([matching isKindOfClass:[NSString class]]) {
         CFStringRef matchString = (__bridge CFStringRef)matching;
         IOHIDEventSystemClientRegisterPropertyChangedCallback(
@@ -234,6 +257,10 @@ static void _propertiesChangedCallback(void *target,
 
 - (void)activate
 {
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    _activated = true;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDEventSystemClientSetCancelHandler(_client, ^{
         // Block captures reference to self while cancellation hasn't completed.
         if (self->_cancelHandler) {
@@ -254,4 +281,5 @@ static void _propertiesChangedCallback(void *target,
 {
     return _client;
 }
+
 @end

@@ -49,6 +49,7 @@ enum {
     
 class IOHIDElementPrivate: public IOHIDElement
 {
+    friend class IOHIDDevice;
     friend class IOHIDLibUserClient;
     OSDeclareDefaultStructors( IOHIDElementPrivate )
 
@@ -220,7 +221,7 @@ public:
     virtual UInt32 getRangeCount() const;
     virtual UInt32 getStartingRangeIndex() const;
 
-    virtual bool getReportType( IOHIDReportType * reportType ) const;
+    virtual bool getReportType( IOHIDReportType * reportType ) const APPLE_KEXT_OVERRIDE;
 
     virtual UInt32 setReportSize( UInt32 numberOfBits );
     
@@ -300,6 +301,9 @@ public:
 
     UInt8 getVariableSizeInfo           ()
     { return _variableSize;}
+
+    bool isValidUserElement() const
+    { return _duplicateReportHandler ? _duplicateReportHandler == this : true; }
 
 };
 

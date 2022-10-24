@@ -65,6 +65,9 @@
 
 - (void)main
 {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice_global("ckksreencrypt", "CKKSReencryptOutgoingItemsOperation cancelled, quitting");
@@ -80,7 +83,10 @@
                 // fall through for now
             }
 
-            NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry allInState:SecCKKSStateReencrypt zoneID:viewState.zoneID error:&error];
+            NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry allInState:SecCKKSStateReencrypt
+                                                                              contextID:self.deps.contextID
+                                                                                 zoneID:viewState.zoneID
+                                                                                  error:&error];
             if(error) {
                 ckkserror("ckksreencrypt", viewState.zoneID, "Error fetching oqes from database: %@", error);
                 self.error = error;
@@ -93,7 +99,11 @@
 
             for(CKKSOutgoingQueueEntry* oqe in oqes) {
                 // If there's already a 'new' item replacing this one, drop the reencryption on the floor
-                CKKSOutgoingQueueEntry* newOQE = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid state:SecCKKSStateNew zoneID:oqe.item.zoneID error:&error];
+                CKKSOutgoingQueueEntry* newOQE = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid
+                                                                                   state:SecCKKSStateNew
+                                                                               contextID:self.deps.contextID
+                                                                                  zoneID:oqe.item.zoneID
+                                                                                   error:&error];
                 if(error) {
                     ckkserror("ckksreencrypt", viewState.zoneID, "Couldn't load 'new' OQE to determine status: %@", error);
                     self.error = error;
@@ -130,7 +140,10 @@
                 }
 
                 // Pick a key whose class matches the keyclass that this item
-                CKKSKey* originalKey = [keyCache loadKeyForUUID:oqe.item.parentKeyUUID zoneID:viewState.zoneID error:&error];
+                CKKSKey* originalKey = [keyCache loadKeyForUUID:oqe.item.parentKeyUUID
+                                                      contextID:self.deps.contextID
+                                                         zoneID:viewState.zoneID
+                                                          error:&error];
                 if(error) {
                     ckkserror("ckksreencrypt", viewState.zoneID, "Couldn't fetch key (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
                     self.error = error;
@@ -138,8 +151,12 @@
                     continue;
                 }
 
-                CKKSKey* newkey = [keyCache currentKeyForClass:originalKey.keyclass zoneID:viewState.zoneID error:&error];
-                [newkey ensureKeyLoaded: &error];
+                CKKSKey* newkey = [keyCache currentKeyForClass:originalKey.keyclass
+                                                     contextID:self.deps.contextID
+                                                        zoneID:viewState.zoneID
+                                                         error:&error];
+                [newkey ensureKeyLoadedForContextID:viewState.contextID
+                                               error:&error];
                 if(error) {
                     ckkserror("ckksreencrypt", viewState.zoneID, "Couldn't fetch the current key for class %@: %@", originalKey.keyclass, error);
                     self.error = error;
@@ -147,7 +164,10 @@
                     continue;
                 }
 
-                CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid zoneID:viewState.zoneID error:&error];
+                CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid
+                                                               contextID:self.deps.contextID
+                                                                  zoneID:viewState.zoneID
+                                                                   error:&error];
                 if(error) {
                     ckkserror("ckksreencrypt", viewState.zoneID, "Couldn't fetch ckme (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
                     self.error = error;

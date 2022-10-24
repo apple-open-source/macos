@@ -50,7 +50,9 @@
     SecCKKSDisable();
 
     NSError* error = nil;
-    self.tlk = [CKKSKey randomKeyWrappedBySelf:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName] error:&error];
+    self.tlk = [CKKSKey randomKeyWrappedBySelf:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
+                                     contextID:CKKSMockCloudKitContextID
+                                         error:&error];
     XCTAssertNil(error, "Shouldn't be an error creating a new TLK");
 
     self.localPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"local"
@@ -81,11 +83,12 @@
 - (void)testKeyWrapAndUnwrap {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     XCTAssertEqual(self.tlk.uuid, share.tlkUUID, "TLK shares should know which key they hold");
@@ -103,11 +106,12 @@
 - (void)testTLKShareSignAndVerify {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     NSData* signature = [share signRecord:self.localPeer.signingKey error:&error];
@@ -120,11 +124,12 @@
 - (void)testTLKShareSignAndFailVerify {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     NSData* signature = [share signRecord:self.localPeer.signingKey error:&error];
@@ -161,6 +166,7 @@
 
     CKKSKeychainBackedKey* keychainBackedTLK = [self.tlk getKeychainBackedKey:&error];
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:keychainBackedTLK
+                                                contextID:CKKSMockCloudKitContextID
                                                        as:self.localPeer
                                                        to:self.remotePeer
                                                     epoch:-1
@@ -178,11 +184,12 @@
     NSError* error = nil;
     CKKSKeychainBackedKey* key = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     NSSet* peers = [NSSet setWithObject:self.localPeer];
@@ -215,11 +222,12 @@
 - (void)testKeyShareSaveAndLoad {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
@@ -230,10 +238,11 @@
     }];
 
     CKKSTLKShareRecord* loadedShare = [CKKSTLKShareRecord fromDatabase:self.tlk.uuid
-                                            receiverPeerID:self.remotePeer.peerID
-                                              senderPeerID:self.localPeer.peerID
-                                                    zoneID:self.tlk.zoneID
-                                                     error:&error];
+                                                             contextID:CKKSMockCloudKitContextID
+                                                        receiverPeerID:self.remotePeer.peerID
+                                                          senderPeerID:self.localPeer.peerID
+                                                                zoneID:self.tlk.zoneID
+                                                                 error:&error];
     XCTAssertNil(error, "Shouldn't get an error loading the share from the db");
     XCTAssertNotNil(loadedShare, "Should've gotten a TLK share object back from the database");
 
@@ -243,7 +252,7 @@
     XCTAssertNotNil(record, "Should be able to turn a share into a CKRecord");
     XCTAssertTrue([share matchesCKRecord: record], "Should be able to compare a CKRecord with a TLKShare");
 
-    CKKSTLKShareRecord* fromCKRecord = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+    CKKSTLKShareRecord* fromCKRecord = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:CKKSMockCloudKitContextID];
     XCTAssertNotNil(fromCKRecord, "Should be able to turn a CKRecord into a TLK share");
 
     XCTAssertEqualObjects(share, fromCKRecord, "TLK shares sent through CloudKit should be identical");
@@ -252,11 +261,12 @@
 - (void)testKeyExtractFromTrustState {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.remotePeer
-                                           to:self.localPeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.remotePeer
+                                                       to:self.localPeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNotNil(share, "Should have a TLKShare");
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey from a remote peer to a local peer");
 
@@ -265,9 +275,9 @@
                                                                                     selfPeers:[[CKKSSelves alloc] initWithCurrent:self.localPeer allSelves:nil]
                                                                                selfPeersError:nil
                                                                                  trustedPeers:[NSSet setWithArray:@[
-                                                                                     self.localPeer,
-                                                                                     self.remotePeer,
-                                                                                     self.remotePeer2,
+                                                                                    self.localPeer,
+                                                                                    self.remotePeer,
+                                                                                    self.remotePeer2,
                                                                                  ]]
                                                                             trustedPeersError:nil];
     CKKSKeychainBackedKey* shareExtraction = [share recoverTLK:self.localPeer
@@ -304,11 +314,12 @@
 - (void)testKeyShareSignExtraFieldsInCKRecord {
     NSError* error = nil;
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.tlk getKeychainBackedKey:&error]
-                                           as:self.localPeer
-                                           to:self.remotePeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:CKKSMockCloudKitContextID
+                                                       as:self.localPeer
+                                                       to:self.remotePeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
     CKRecord* record =  [share CKRecordWithZoneID:self.tlk.zoneID];
@@ -354,7 +365,9 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    CKKSTLKShareRecord* loadedShare2 = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:record.recordID error:&error];
+    CKKSTLKShareRecord* loadedShare2 = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:record.recordID
+                                                                               contextID:CKKSMockCloudKitContextID
+                                                                                   error:&error];
     XCTAssertNil(error, "No error loading loadedShare2 from database");
     XCTAssertNotNil(loadedShare2, "Should have received a CKKSTLKShare from the database");
 

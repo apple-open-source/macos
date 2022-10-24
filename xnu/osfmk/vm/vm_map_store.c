@@ -178,10 +178,21 @@ vm_map_store_entry_link(
 }
 
 void
-_vm_map_store_entry_unlink( struct vm_map_header * mapHdr, vm_map_entry_t entry)
+_vm_map_store_entry_unlink(
+	struct vm_map_header * mapHdr,
+	vm_map_entry_t entry,
+	bool check_permanent)
 {
 	if (__improbable(vm_debug_events)) {
 		DTRACE_VM4(map_entry_unlink, vm_map_t, (char *)mapHdr - sizeof(lck_rw_t), vm_map_entry_t, entry, vm_address_t, entry->links.start, vm_address_t, entry->links.end);
+	}
+
+	/*
+	 * We should never unlink a "permanent" entry.  The caller should
+	 * clear "permanent" first if it wants it to be bypassed.
+	 */
+	if (check_permanent) {
+		assertf(!entry->vme_permanent, "mapHdr %p entry %p [ 0x%llx end 0x%llx ] prot 0x%x/0x%x submap %d\n", mapHdr, entry, (uint64_t)entry->vme_start, (uint64_t)entry->vme_end, entry->protection, entry->max_protection, entry->is_sub_map);
 	}
 
 	vm_map_store_entry_unlink_ll(mapHdr, entry);
@@ -193,7 +204,10 @@ _vm_map_store_entry_unlink( struct vm_map_header * mapHdr, vm_map_entry_t entry)
 }
 
 void
-vm_map_store_entry_unlink( vm_map_t map, vm_map_entry_t entry)
+vm_map_store_entry_unlink(
+	vm_map_t map,
+	vm_map_entry_t entry,
+	bool check_permanent)
 {
 	vm_map_t VMEU_map;
 	vm_map_entry_t VMEU_entry = NULL;
@@ -208,7 +222,7 @@ vm_map_store_entry_unlink( vm_map_t map, vm_map_entry_t entry)
 			VMEU_first_free = VMEU_map->first_free;
 		}
 	}
-	_vm_map_store_entry_unlink(&VMEU_map->hdr, VMEU_entry);
+	_vm_map_store_entry_unlink(&VMEU_map->hdr, VMEU_entry, check_permanent);
 	vm_map_store_update( map, entry, VM_MAP_ENTRY_DELETE);
 	update_first_free_ll(VMEU_map, VMEU_first_free);
 #ifdef VM_MAP_STORE_USE_RB
@@ -250,8 +264,7 @@ __vm_map_store_find_space_holelist_corruption(
 {
 	panic("Found an existing entry %p [0x%llx, 0x%llx) in map %p "
 	    "instead of potential hole at address: 0x%llx.",
-	    entry, (uint64_t)entry->vme_start, (uint64_t)entry->vme_end,
-	    map, (uint64_t)start);
+	    entry, entry->vme_start, entry->vme_end, map, start);
 }
 
 static void

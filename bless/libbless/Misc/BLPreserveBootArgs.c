@@ -85,7 +85,7 @@ int BLPreserveBootArgsIfChanged(BLContextPtr context,
                 }
             } else {
                 // debug= style
-                int keylen = strlen(remove_boot_args[i]);
+                size_t keylen = strlen(remove_boot_args[i]);
                 if(strlen(token) >= keylen+1
                    && strncmp(remove_boot_args[i], token, keylen) == 0
                    && token[keylen] == '=') {

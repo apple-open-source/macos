@@ -30,10 +30,19 @@
 			buildPhases = (
 			);
 			dependencies = (
-				44F286C81EADB35100BA8B08 /* PBXTargetDependency */,
-				44877C9A1EADB7AD00B105D1 /* PBXTargetDependency */,
-				44877CAA1EADB97400B105D1 /* PBXTargetDependency */,
-				44877CBA1EADBA3200B105D1 /* PBXTargetDependency */,
+				44CA3F0C2846BD82002BF954 /* PBXTargetDependency */,
+				44DDBCE527B714D90014A227 /* PBXTargetDependency */,
+				445ADCDE283D2E8D00CBA6E8 /* PBXTargetDependency */,
+				44DDBCE727B714D90014A227 /* PBXTargetDependency */,
+				44DDBCE927B714D90014A227 /* PBXTargetDependency */,
+				44DDBCEB27B714D90014A227 /* PBXTargetDependency */,
+				44DDBCED27B714D90014A227 /* PBXTargetDependency */,
+				44DDBCEF27B714D90014A227 /* PBXTargetDependency */,
+				44DDBCF127B714D90014A227 /* PBXTargetDependency */,
+				44DDBCF327B714D90014A227 /* PBXTargetDependency */,
+				44DDBCF527B714D90014A227 /* PBXTargetDependency */,
+				44DDBCF727B714D90014A227 /* PBXTargetDependency */,
+				44DDBCF927B714D90014A227 /* PBXTargetDependency */,
 			);
 			name = Fuzz;
 			productName = Fuzz;
@@ -54,7 +63,16 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		441C461C2846D12A00C2A135 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		44258B5E1E241DA500DEB7B7 /* Libxml2XCTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */; };
+		4426667C2514C778009520FA /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		4426667D2514C77E009520FA /* html.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666672514C35A009520FA /* html.c */; };
+		4426667F2514CAE5009520FA /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		442666802514CAEC009520FA /* regexp.c in Sources */ = {isa = PBXBuildFile; fileRef = 4426666C2514C35B009520FA /* regexp.c */; };
+		442666812514CB0B009520FA /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		442666822514CB12009520FA /* xml.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666722514C35B009520FA /* xml.c */; };
+		442666832514CB34009520FA /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		442666842514CB3A009520FA /* xpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666732514C35C009520FA /* xpath.c */; };
 		442840BC2005CF1E003C405B /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 442840BA2005CE80003C405B /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		442F406D1E09F172004826DD /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
 		443AB8FB1E31678A005C2ED8 /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
@@ -90,13 +108,50 @@
 		444A7F4D1E0B139E00521AF3 /* testchar.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2A1E0B133E00521AF3 /* testchar.c */; };
 		444A7F581E0B13B700521AF3 /* testdict.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2B1E0B133E00521AF3 /* testdict.c */; };
 		444A7F631E0B13C400521AF3 /* testrecurse.c in Sources */ = {isa = PBXBuildFile; fileRef = 444A7F2C1E0B133E00521AF3 /* testrecurse.c */; };
+		445394762846D20C00072912 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		445394792846D23600072912 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		4453947A2846D24000072912 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		446BE02F28122CCE00718659 /* buf.h in Headers */ = {isa = PBXBuildFile; fileRef = 446BE02B28122CCE00718659 /* buf.h */; };
+		446BE03028122CCE00718659 /* timsort.h in Headers */ = {isa = PBXBuildFile; fileRef = 446BE02C28122CCE00718659 /* timsort.h */; };
+		446BE03128122CCE00718659 /* xmlversionInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 446BE02D28122CCE00718659 /* xmlversionInternal.h */; };
+		446BE03228122CCE00718659 /* save.h in Headers */ = {isa = PBXBuildFile; fileRef = 446BE02E28122CCE00718659 /* save.h */; };
+		446BE03328122D2700718659 /* enc.h in Headers */ = {isa = PBXBuildFile; fileRef = 44A55317268CD64300B8E5CC /* enc.h */; };
 		44877C981EADB7A100B105D1 /* libxml2_xml_read_memory_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B41EADB25600BA8B08 /* libxml2_xml_read_memory_fuzzer.cc */; };
 		44877CA81EADB96400B105D1 /* libxml2_xml_regexp_compile_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B51EADB25600BA8B08 /* libxml2_xml_regexp_compile_fuzzer.cc */; };
 		44877CB81EADBA1A00B105D1 /* libxml2_xml_saxparser_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B61EADB25600BA8B08 /* libxml2_xml_saxparser_fuzzer.cc */; };
 		448D7E431EA5CC4900ECC756 /* empty.c in Sources */ = {isa = PBXBuildFile; fileRef = 448D7E421EA5CC4100ECC756 /* empty.c */; };
+		448F55C42846D04100D0E6E9 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		448F55C72846D0C400D0E6E9 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
 		4491DFC71CE67BD500002B02 /* libxml.h in Headers */ = {isa = PBXBuildFile; fileRef = 4491DFC61CE67BB100002B02 /* libxml.h */; };
+		44BF6AAF283BEB230006B266 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		44BF6AB9283BEB3B0006B266 /* reader.c in Sources */ = {isa = PBXBuildFile; fileRef = 44BF6AAA283BEAFE0006B266 /* reader.c */; };
+		44BF6ABA283BEBDE0006B266 /* fuzz-reader in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BF6AB8283BEB230006B266 /* fuzz-reader */; };
+		44CDB31F2846D2E500EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44CDB3222846D30500EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44CDB3252846D33700EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44CDB32A2846D36300EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44CDB32D2846D37400EFE823 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44CE15972846D1AE006D9692 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		44D162D527BF153500432903 /* libxml2_xml_pushparser_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44F286BB1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */; };
+		44D162D627BF154400432903 /* libxml2_xml_read_memory_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */; };
+		44D162D727BF155000432903 /* libxml2_xml_regexp_compile_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */; };
+		44D162D827BF155400432903 /* libxml2_xml_saxparser_fuzzer in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CB71EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */; };
+		44D907932515659000B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		44D9079C251565AC00B83F48 /* genSeed.c in Sources */ = {isa = PBXBuildFile; fileRef = 4426667B2514C35C009520FA /* genSeed.c */; };
+		44D907A1251565E700B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		44D907AB2515661B00B83F48 /* schema.c in Sources */ = {isa = PBXBuildFile; fileRef = 4426666E2514C35B009520FA /* schema.c */; };
+		44D907B02515671400B83F48 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666682514C35A009520FA /* fuzz.c */; };
+		44D907BA2515672A00B83F48 /* uri.c in Sources */ = {isa = PBXBuildFile; fileRef = 442666742514C35C009520FA /* uri.c */; };
+		44D907BC25157A4300B83F48 /* genSeed in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907992515659000B83F48 /* genSeed */; };
+		44D907BE25157B7500B83F48 /* fuzz-html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44F286BB1EADB30E00BA8B09 /* fuzz-html */; };
+		44D907C025157B9B00B83F48 /* fuzz-regexp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CA71EADB95B00B105D2 /* fuzz-regexp */; };
+		44D907C225157BAA00B83F48 /* fuzz-schema in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907A8251565E700B83F48 /* fuzz-schema */; };
+		44D907C425157BBA00B83F48 /* fuzz-uri in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44D907B72515671400B83F48 /* fuzz-uri */; };
+		44D907C625157BD400B83F48 /* fuzz-xml in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877C971EADB79900B105D2 /* fuzz-xml */; };
+		44D907C825157BE000B83F48 /* fuzz-xpath in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44877CB71EADBA0A00B105D2 /* fuzz-xpath */; };
 		44D951461E24A47C00CC54CE /* result in Resources */ = {isa = PBXBuildFile; fileRef = 44D951441E24A47C00CC54CE /* result */; };
 		44D951471E24A47C00CC54CE /* test in Resources */ = {isa = PBXBuildFile; fileRef = 44D951451E24A47C00CC54CE /* test */; };
+		44DD581F2812251200FD3E4F /* xmlversion.c in Sources */ = {isa = PBXBuildFile; fileRef = 44DD581E2812251200FD3E4F /* xmlversion.c */; };
 		44EBC8611C4EDE4900D4BD8E /* xzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 44B1E3291C4EDAD10064124E /* xzlib.h */; };
 		44EBC8621C4EDE5C00D4BD8E /* xzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B1E3281C4EDAA40064124E /* xzlib.c */; };
 		44F286C31EADB32500BA8B08 /* libxml2_xml_pushparser_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44F286B31EADB25600BA8B08 /* libxml2_xml_pushparser_fuzzer.cc */; };
@@ -208,6 +263,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		441C461A2846D11E00C2A135 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
 		4431E4E61E37F2160041D690 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
@@ -397,47 +459,19 @@
 			remoteGlobalIDString = 4447099420605C4200907EAB;
 			remoteInfo = libxml2_test;
 		};
-		44877C8D1EADB79900B105D1 /* PBXContainerItemProxy */ = {
+		445394772846D21100072912 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
-			remoteInfo = xml2;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
 		};
-		44877C991EADB7AD00B105D1 /* PBXContainerItemProxy */ = {
+		445ADCDD283D2E8D00CBA6E8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 44877C8B1EADB79900B105D1;
-			remoteInfo = libxml2_xml_read_memory_fuzzer;
-		};
-		44877C9D1EADB95B00B105D1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
-			remoteInfo = xml2;
-		};
-		44877CA91EADB97400B105D1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 44877C9B1EADB95B00B105D1;
-			remoteInfo = libxml2_xml_regexp_compile_fuzzer;
-		};
-		44877CAD1EADBA0A00B105D1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
-			remoteInfo = xml2;
-		};
-		44877CB91EADBA3200B105D1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 44877CAB1EADBA0A00B105D1;
-			remoteInfo = libxml2_xml_saxparser_fuzzer;
+			remoteGlobalIDString = 44BF6AAB283BEB230006B266;
+			remoteInfo = "fuzz-reader";
 		};
 		448A9E741E2653C20029A3FD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -460,19 +494,159 @@
 			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
 			remoteInfo = libxml2.a;
 		};
-		44F286C41EADB33100BA8B08 /* PBXContainerItemProxy */ = {
+		448F55C52846D0B800D0E6E9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 448D7E2B1EA5BF8000ECC756;
-			remoteInfo = xml2;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
 		};
-		44F286C71EADB35100BA8B08 /* PBXContainerItemProxy */ = {
+		44C1B4D82846CFDC00731E42 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CA3F0B2846BD82002BF954 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB31D2846D28100EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB3202846D2E700EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB3232846D30900EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB3262846D33E00EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB3282846D35B00EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CDB32B2846D36D00EFE823 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CE15952846D1A8006D9692 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44CE15982846D1D4006D9692 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		44DDBCE427B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44F286BA1EADB30E00BA8B09;
+			remoteInfo = "fuzz-html";
+		};
+		44DDBCE627B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877C9B1EADB95B00B105D2;
+			remoteInfo = "fuzz-regexp";
+		};
+		44DDBCE827B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44D9079D251565E700B83F48;
+			remoteInfo = "fuzz-schema";
+		};
+		44DDBCEA27B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44D907AC2515671400B83F48;
+			remoteInfo = "fuzz-uri";
+		};
+		44DDBCEC27B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877C8B1EADB79900B105D2;
+			remoteInfo = "fuzz-xml";
+		};
+		44DDBCEE27B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877CAB1EADBA0A00B105D2;
+			remoteInfo = "fuzz-xpath";
+		};
+		44DDBCF027B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44D9078E2515659000B83F48;
+			remoteInfo = genSeed;
+		};
+		44DDBCF227B714D90014A227 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 44F286BA1EADB30E00BA8B08;
 			remoteInfo = libxml2_xml_pushparser_fuzzer;
+		};
+		44DDBCF427B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877C8B1EADB79900B105D1;
+			remoteInfo = libxml2_xml_read_memory_fuzzer;
+		};
+		44DDBCF627B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877C9B1EADB95B00B105D1;
+			remoteInfo = libxml2_xml_regexp_compile_fuzzer;
+		};
+		44DDBCF827B714D90014A227 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44877CAB1EADBA0A00B105D1;
+			remoteInfo = libxml2_xml_saxparser_fuzzer;
 		};
 		5DB38AF314F87BE30060A507 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -500,39 +674,123 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		44877C921EADB79900B105D1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
 			dstSubfolderSpec = 0;
 			files = (
+				44D162D627BF154400432903 /* libxml2_xml_read_memory_fuzzer in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		44877CA21EADB95B00B105D1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
 			dstSubfolderSpec = 0;
 			files = (
+				44D162D727BF155000432903 /* libxml2_xml_regexp_compile_fuzzer in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		44877CB21EADBA0A00B105D1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
 			dstSubfolderSpec = 0;
 			files = (
+				44D162D827BF155400432903 /* libxml2_xml_saxparser_fuzzer in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44BF6AB2283BEB230006B266 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44BF6ABA283BEBDE0006B266 /* fuzz-reader in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907BB25157A0800B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907BC25157A4300B83F48 /* genSeed in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907BD25157B3C00B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907BE25157B7500B83F48 /* fuzz-html in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907BF25157B9500B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907C025157B9B00B83F48 /* fuzz-regexp in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907C125157BA500B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907C225157BAA00B83F48 /* fuzz-schema in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907C325157BB300B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907C425157BBA00B83F48 /* fuzz-uri in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907C525157BCF00B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907C625157BD400B83F48 /* fuzz-xml in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907C725157BD900B83F48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SRCROOT)/libxml2/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				44D907C825157BE000B83F48 /* fuzz-xpath in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		44F286B91EADB30E00BA8B08 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxml2/fuzz-old";
 			dstSubfolderSpec = 0;
 			files = (
+				44D162D527BF153500432903 /* libxml2_xml_pushparser_fuzzer in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5DB38ADF14F87AE80060A507 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -618,6 +876,26 @@
 		44258B5B1E241DA500DEB7B7 /* Libxml2XCTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Libxml2XCTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Libxml2XCTests.m; sourceTree = "<group>"; };
 		44258B5F1E241DA500DEB7B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		442666672514C35A009520FA /* html.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = html.c; sourceTree = "<group>"; };
+		442666682514C35A009520FA /* fuzz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fuzz.c; sourceTree = "<group>"; };
+		442666692514C35A009520FA /* html.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = html.options; sourceTree = "<group>"; };
+		4426666A2514C35A009520FA /* xml.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = xml.dict; sourceTree = "<group>"; };
+		4426666B2514C35A009520FA /* xpath.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = xpath.options; sourceTree = "<group>"; };
+		4426666C2514C35B009520FA /* regexp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = regexp.c; sourceTree = "<group>"; };
+		4426666D2514C35B009520FA /* html.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = html.dict; sourceTree = "<group>"; };
+		4426666E2514C35B009520FA /* schema.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = schema.c; sourceTree = "<group>"; };
+		442666702514C35B009520FA /* regexp.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = regexp.options; sourceTree = "<group>"; };
+		442666712514C35B009520FA /* schema.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = schema.options; sourceTree = "<group>"; };
+		442666722514C35B009520FA /* xml.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xml.c; sourceTree = "<group>"; };
+		442666732514C35C009520FA /* xpath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xpath.c; sourceTree = "<group>"; };
+		442666742514C35C009520FA /* uri.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = uri.c; sourceTree = "<group>"; };
+		442666752514C35C009520FA /* uri.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = uri.options; sourceTree = "<group>"; };
+		442666762514C35C009520FA /* fuzz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuzz.h; sourceTree = "<group>"; };
+		442666772514C35C009520FA /* schema.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = schema.dict; sourceTree = "<group>"; };
+		442666782514C35C009520FA /* xml.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = xml.options; sourceTree = "<group>"; };
+		442666792514C35C009520FA /* regexp.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = regexp.dict; sourceTree = "<group>"; };
+		4426667A2514C35C009520FA /* xpath.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = xpath.dict; sourceTree = "<group>"; };
+		4426667B2514C35C009520FA /* genSeed.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = genSeed.c; sourceTree = "<group>"; };
 		442840BA2005CE80003C405B /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		442F40601E09EC71004826DD /* runtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = runtest.c; sourceTree = "<group>"; };
 		442F406C1E09F166004826DD /* runtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = runtest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -641,27 +919,42 @@
 		444A7F4C1E0B139600521AF3 /* testchar */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testchar; sourceTree = BUILT_PRODUCTS_DIR; };
 		444A7F571E0B13AF00521AF3 /* testdict */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testdict; sourceTree = BUILT_PRODUCTS_DIR; };
 		444A7F621E0B13BC00521AF3 /* testrecurse */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testrecurse; sourceTree = BUILT_PRODUCTS_DIR; };
+		446BE02B28122CCE00718659 /* buf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = buf.h; sourceTree = "<group>"; };
+		446BE02C28122CCE00718659 /* timsort.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = timsort.h; sourceTree = "<group>"; };
+		446BE02D28122CCE00718659 /* xmlversionInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xmlversionInternal.h; sourceTree = "<group>"; };
+		446BE02E28122CCE00718659 /* save.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = save.h; sourceTree = "<group>"; };
 		446C9ABA1E25B40B008D92EA /* Libxml2XCTests.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Libxml2XCTests.xcconfig; sourceTree = "<group>"; };
 		44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_read_memory_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		44877C971EADB79900B105D2 /* fuzz-xml */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xml"; sourceTree = BUILT_PRODUCTS_DIR; };
 		44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_regexp_compile_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		44877CA71EADB95B00B105D2 /* fuzz-regexp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-regexp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		44877CB71EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_saxparser_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		44877CB71EADBA0A00B105D2 /* fuzz-xpath */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xpath"; sourceTree = BUILT_PRODUCTS_DIR; };
 		448D7E2C1EA5BF8000ECC756 /* libxml2.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libxml2.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		448D7E351EA5C3B700ECC756 /* libxml2.a.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libxml2.a.xcconfig; sourceTree = "<group>"; };
 		448D7E421EA5CC4100ECC756 /* empty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = empty.c; sourceTree = "<group>"; };
 		4491DFC61CE67BB100002B02 /* libxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml.h; path = libxml2/libxml.h; sourceTree = SOURCE_ROOT; };
-		44A55317268CD64300B8E5CC /* enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = enc.h; path = libxml2/enc.h; sourceTree = SOURCE_ROOT; };
+		44A55317268CD64300B8E5CC /* enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = enc.h; sourceTree = "<group>"; };
 		44B1E3281C4EDAA40064124E /* xzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzlib.c; sourceTree = "<group>"; };
-		44B1E3291C4EDAD10064124E /* xzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xzlib.h; path = libxml2/xzlib.h; sourceTree = SOURCE_ROOT; };
+		44B1E3291C4EDAD10064124E /* xzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xzlib.h; sourceTree = "<group>"; };
+		44BF6AA9283BEAFD0006B266 /* reader.options */ = {isa = PBXFileReference; lastKnownFileType = text; path = reader.options; sourceTree = "<group>"; };
+		44BF6AAA283BEAFE0006B266 /* reader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = reader.c; sourceTree = "<group>"; };
+		44BF6AB8283BEB230006B266 /* fuzz-reader */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-reader"; sourceTree = BUILT_PRODUCTS_DIR; };
 		44C0436223DA54010076CBB2 /* globalsCompat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = globalsCompat.h; sourceTree = "<group>"; };
 		44C0436323DA54010076CBB2 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
+		44D907992515659000B83F48 /* genSeed */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = genSeed; sourceTree = BUILT_PRODUCTS_DIR; };
+		44D907A8251565E700B83F48 /* fuzz-schema */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-schema"; sourceTree = BUILT_PRODUCTS_DIR; };
+		44D907B72515671400B83F48 /* fuzz-uri */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-uri"; sourceTree = BUILT_PRODUCTS_DIR; };
 		44D951441E24A47C00CC54CE /* result */ = {isa = PBXFileReference; lastKnownFileType = folder; name = result; path = ../libxml2/result; sourceTree = "<group>"; };
 		44D951451E24A47C00CC54CE /* test */ = {isa = PBXFileReference; lastKnownFileType = folder; name = test; path = ../libxml2/test; sourceTree = "<group>"; };
+		44DD581E2812251200FD3E4F /* xmlversion.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlversion.c; sourceTree = "<group>"; };
 		44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = FuzzExecutable.xcconfig; sourceTree = "<group>"; };
 		44F286B31EADB25600BA8B08 /* libxml2_xml_pushparser_fuzzer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = libxml2_xml_pushparser_fuzzer.cc; sourceTree = "<group>"; };
 		44F286B41EADB25600BA8B08 /* libxml2_xml_read_memory_fuzzer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = libxml2_xml_read_memory_fuzzer.cc; sourceTree = "<group>"; };
 		44F286B51EADB25600BA8B08 /* libxml2_xml_regexp_compile_fuzzer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = libxml2_xml_regexp_compile_fuzzer.cc; sourceTree = "<group>"; };
 		44F286B61EADB25600BA8B08 /* libxml2_xml_saxparser_fuzzer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = libxml2_xml_saxparser_fuzzer.cc; sourceTree = "<group>"; };
 		44F286BB1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libxml2_xml_pushparser_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		44F286BB1EADB30E00BA8B09 /* fuzz-html */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-html"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D0359B81677F7FC00B6692E /* buf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buf.c; sourceTree = "<group>"; };
 		5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -894,6 +1187,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44CDB3252846D33700EFE823 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44877C901EADB79900B105D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4453947A2846D24000072912 /* libxml2.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -901,6 +1203,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44CDB32A2846D36300EFE823 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44877CA01EADB95B00B105D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				441C461C2846D12A00C2A135 /* libxml2.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -908,6 +1219,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44CDB32D2846D37400EFE823 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44877CB01EADBA0A00B105D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				445394792846D23600072912 /* libxml2.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -918,10 +1238,51 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		44BF6AB1283BEB230006B266 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448F55C72846D0C400D0E6E9 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907942515659000B83F48 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44CDB31F2846D2E500EFE823 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907A3251565E700B83F48 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44CE15972846D1AE006D9692 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907B22515671400B83F48 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				445394762846D20C00072912 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		44F286B81EADB30E00BA8B08 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44CDB3222846D30500EFE823 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44F286B81EADB30E00BA8B09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448F55C42846D04100D0E6E9 /* libxml2.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -985,13 +1346,57 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		44F286B21EADB20E00BA8B08 /* Fuzzers */ = {
+		44DD582028122B8400FD3E4F /* Internal Headers */ = {
+			isa = PBXGroup;
+			children = (
+				446BE02B28122CCE00718659 /* buf.h */,
+				44A55317268CD64300B8E5CC /* enc.h */,
+				446BE02E28122CCE00718659 /* save.h */,
+				446BE02C28122CCE00718659 /* timsort.h */,
+				446BE02D28122CCE00718659 /* xmlversionInternal.h */,
+				44B1E3291C4EDAD10064124E /* xzlib.h */,
+			);
+			name = "Internal Headers";
+			path = libxml2;
+			sourceTree = "<group>";
+		};
+		44F286B21EADB20E00BA8B08 /* Fuzzers (old) */ = {
 			isa = PBXGroup;
 			children = (
 				44F286B31EADB25600BA8B08 /* libxml2_xml_pushparser_fuzzer.cc */,
 				44F286B41EADB25600BA8B08 /* libxml2_xml_read_memory_fuzzer.cc */,
 				44F286B51EADB25600BA8B08 /* libxml2_xml_regexp_compile_fuzzer.cc */,
 				44F286B61EADB25600BA8B08 /* libxml2_xml_saxparser_fuzzer.cc */,
+			);
+			name = "Fuzzers (old)";
+			path = "libxml2/fuzz-old";
+			sourceTree = "<group>";
+		};
+		44F286B21EADB20E00BA8B09 /* Fuzzers */ = {
+			isa = PBXGroup;
+			children = (
+				442666682514C35A009520FA /* fuzz.c */,
+				442666762514C35C009520FA /* fuzz.h */,
+				4426667B2514C35C009520FA /* genSeed.c */,
+				442666672514C35A009520FA /* html.c */,
+				4426666D2514C35B009520FA /* html.dict */,
+				442666692514C35A009520FA /* html.options */,
+				44BF6AAA283BEAFE0006B266 /* reader.c */,
+				44BF6AA9283BEAFD0006B266 /* reader.options */,
+				4426666C2514C35B009520FA /* regexp.c */,
+				442666792514C35C009520FA /* regexp.dict */,
+				442666702514C35B009520FA /* regexp.options */,
+				4426666E2514C35B009520FA /* schema.c */,
+				442666772514C35C009520FA /* schema.dict */,
+				442666712514C35B009520FA /* schema.options */,
+				442666742514C35C009520FA /* uri.c */,
+				442666752514C35C009520FA /* uri.options */,
+				442666722514C35B009520FA /* xml.c */,
+				4426666A2514C35A009520FA /* xml.dict */,
+				442666782514C35C009520FA /* xml.options */,
+				442666732514C35C009520FA /* xpath.c */,
+				4426667A2514C35C009520FA /* xpath.dict */,
+				4426666B2514C35A009520FA /* xpath.options */,
 			);
 			name = Fuzzers;
 			path = libxml2/fuzz;
@@ -1024,7 +1429,9 @@
 				5D58B06014F81D1100BE69D8 /* Pregenerated Files */,
 				5D58AF6D14F819EA00BE69D8 /* Source */,
 				5D58B06814F825E900BE69D8 /* Headers */,
-				44F286B21EADB20E00BA8B08 /* Fuzzers */,
+				44DD582028122B8400FD3E4F /* Internal Headers */,
+				44F286B21EADB20E00BA8B09 /* Fuzzers */,
+				44F286B21EADB20E00BA8B08 /* Fuzzers (old) */,
 				442F405F1E09EC4D004826DD /* Tests */,
 				44258B5C1E241DA500DEB7B7 /* Libxml2XCTests */,
 				5DB38B0714F87ECD0060A507 /* Other Installed Files */,
@@ -1061,6 +1468,14 @@
 				44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */,
 				44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */,
 				44877CB71EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */,
+				44D907992515659000B83F48 /* genSeed */,
+				44F286BB1EADB30E00BA8B09 /* fuzz-html */,
+				44BF6AB8283BEB230006B266 /* fuzz-reader */,
+				44877CA71EADB95B00B105D2 /* fuzz-regexp */,
+				44D907A8251565E700B83F48 /* fuzz-schema */,
+				44D907B72515671400B83F48 /* fuzz-uri */,
+				44877C971EADB79900B105D2 /* fuzz-xml */,
+				44877CB71EADBA0A00B105D2 /* fuzz-xpath */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1128,6 +1543,7 @@
 				5D58B01014F81A8D00BE69D8 /* xmlschemastypes.c */,
 				5D58B01114F81A8D00BE69D8 /* xmlstring.c */,
 				5D58B01214F81A8D00BE69D8 /* xmlunicode.c */,
+				44DD581E2812251200FD3E4F /* xmlversion.c */,
 				5D58B01314F81A8D00BE69D8 /* xmlwriter.c */,
 				5D58B01414F81A8D00BE69D8 /* xpath.c */,
 				5D58B01514F81A8D00BE69D8 /* xpointer.c */,
@@ -1170,7 +1586,6 @@
 				5D58B06D14F8261200BE69D8 /* debugXML.h */,
 				5D58B06E14F8261200BE69D8 /* dict.h */,
 				5D58B06F14F8261200BE69D8 /* DOCBparser.h */,
-				44A55317268CD64300B8E5CC /* enc.h */,
 				5D58B07014F8261200BE69D8 /* encoding.h */,
 				5D58B07114F8261200BE69D8 /* entities.h */,
 				5D58B07214F8261200BE69D8 /* globals.h */,
@@ -1212,7 +1627,6 @@
 				5D58B09714F8261200BE69D8 /* xpath.h */,
 				5D58B09814F8261200BE69D8 /* xpathInternals.h */,
 				5D58B09914F8261200BE69D8 /* xpointer.h */,
-				44B1E3291C4EDAD10064124E /* xzlib.h */,
 			);
 			name = Headers;
 			path = libxml2/include;
@@ -1277,6 +1691,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				446BE02F28122CCE00718659 /* buf.h in Headers */,
 				5D58B05F14F81AF200BE69D8 /* config.h in Headers */,
 				5D58B06214F81D2D00BE69D8 /* xmlversion.h in Headers */,
 				5D58B09A14F8261200BE69D8 /* c14n.h in Headers */,
@@ -1285,6 +1700,7 @@
 				5D58B09D14F8261200BE69D8 /* debugXML.h in Headers */,
 				5D58B09E14F8261200BE69D8 /* dict.h in Headers */,
 				5D58B09F14F8261200BE69D8 /* DOCBparser.h in Headers */,
+				446BE03328122D2700718659 /* enc.h in Headers */,
 				5D58B0A014F8261200BE69D8 /* encoding.h in Headers */,
 				5D58B0A114F8261200BE69D8 /* entities.h in Headers */,
 				5D58B0A214F8261200BE69D8 /* globals.h in Headers */,
@@ -1300,11 +1716,13 @@
 				5D58B0AA14F8261200BE69D8 /* parserInternals.h in Headers */,
 				5D58B0AB14F8261200BE69D8 /* pattern.h in Headers */,
 				5D58B0AC14F8261200BE69D8 /* relaxng.h in Headers */,
+				446BE03228122CCE00718659 /* save.h in Headers */,
 				5D58B0AD14F8261200BE69D8 /* SAX.h in Headers */,
 				5D58B0AE14F8261200BE69D8 /* SAX2.h in Headers */,
 				5D58B0AF14F8261200BE69D8 /* schemasInternals.h in Headers */,
 				5D58B0B014F8261200BE69D8 /* schematron.h in Headers */,
 				5D58B0B114F8261200BE69D8 /* threads.h in Headers */,
+				446BE03028122CCE00718659 /* timsort.h in Headers */,
 				5D58B0B214F8261200BE69D8 /* tree.h in Headers */,
 				5D58B0B314F8261200BE69D8 /* uri.h in Headers */,
 				5D58B0B414F8261200BE69D8 /* valid.h in Headers */,
@@ -1323,6 +1741,7 @@
 				5D58B0C114F8261200BE69D8 /* xmlschemastypes.h in Headers */,
 				5D58B0C214F8261200BE69D8 /* xmlstring.h in Headers */,
 				5D58B0C314F8261200BE69D8 /* xmlunicode.h in Headers */,
+				446BE03128122CCE00718659 /* xmlversionInternal.h in Headers */,
 				5D58B0C414F8261200BE69D8 /* xmlwriter.h in Headers */,
 				5D58B0C514F8261200BE69D8 /* xpath.h in Headers */,
 				5D58B0C614F8261200BE69D8 /* xpathInternals.h in Headers */,
@@ -1597,11 +2016,29 @@
 			buildRules = (
 			);
 			dependencies = (
-				44877C8C1EADB79900B105D1 /* PBXTargetDependency */,
+				44CDB3272846D33E00EFE823 /* PBXTargetDependency */,
 			);
 			name = libxml2_xml_read_memory_fuzzer;
 			productName = libxml2_xml_read_memory_fuzzer;
 			productReference = 44877C971EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		44877C8B1EADB79900B105D2 /* fuzz-xml */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44877C931EADB79900B105D2 /* Build configuration list for PBXNativeTarget "fuzz-xml" */;
+			buildPhases = (
+				44877C8E1EADB79900B105D2 /* Sources */,
+				44877C901EADB79900B105D2 /* Frameworks */,
+				44D907C525157BCF00B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44CE15992846D1D4006D9692 /* PBXTargetDependency */,
+			);
+			name = "fuzz-xml";
+			productName = libxml2_xml_read_memory_fuzzer;
+			productReference = 44877C971EADB79900B105D2 /* fuzz-xml */;
 			productType = "com.apple.product-type.tool";
 		};
 		44877C9B1EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */ = {
@@ -1615,11 +2052,29 @@
 			buildRules = (
 			);
 			dependencies = (
-				44877C9C1EADB95B00B105D1 /* PBXTargetDependency */,
+				44CDB3292846D35B00EFE823 /* PBXTargetDependency */,
 			);
 			name = libxml2_xml_regexp_compile_fuzzer;
 			productName = libxml2_xml_regexp_compile_fuzzer;
 			productReference = 44877CA71EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		44877C9B1EADB95B00B105D2 /* fuzz-regexp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44877CA31EADB95B00B105D2 /* Build configuration list for PBXNativeTarget "fuzz-regexp" */;
+			buildPhases = (
+				44877C9E1EADB95B00B105D2 /* Sources */,
+				44877CA01EADB95B00B105D2 /* Frameworks */,
+				44D907BF25157B9500B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				441C461B2846D11E00C2A135 /* PBXTargetDependency */,
+			);
+			name = "fuzz-regexp";
+			productName = libxml2_xml_regexp_compile_fuzzer;
+			productReference = 44877CA71EADB95B00B105D2 /* fuzz-regexp */;
 			productType = "com.apple.product-type.tool";
 		};
 		44877CAB1EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */ = {
@@ -1633,11 +2088,29 @@
 			buildRules = (
 			);
 			dependencies = (
-				44877CAC1EADBA0A00B105D1 /* PBXTargetDependency */,
+				44CDB32C2846D36D00EFE823 /* PBXTargetDependency */,
 			);
 			name = libxml2_xml_saxparser_fuzzer;
 			productName = libxml2_xml_saxparser_fuzzer;
 			productReference = 44877CB71EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		44877CAB1EADBA0A00B105D2 /* fuzz-xpath */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44877CB31EADBA0A00B105D2 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */;
+			buildPhases = (
+				44877CAE1EADBA0A00B105D2 /* Sources */,
+				44877CB01EADBA0A00B105D2 /* Frameworks */,
+				44D907C725157BD900B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44CDB31E2846D28100EFE823 /* PBXTargetDependency */,
+			);
+			name = "fuzz-xpath";
+			productName = libxml2_xml_saxparser_fuzzer;
+			productReference = 44877CB71EADBA0A00B105D2 /* fuzz-xpath */;
 			productType = "com.apple.product-type.tool";
 		};
 		448D7E2B1EA5BF8000ECC756 /* xml2 */ = {
@@ -1657,6 +2130,78 @@
 			productReference = 448D7E2C1EA5BF8000ECC756 /* libxml2.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		44BF6AAB283BEB230006B266 /* fuzz-reader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44BF6AB4283BEB230006B266 /* Build configuration list for PBXNativeTarget "fuzz-reader" */;
+			buildPhases = (
+				44BF6AAE283BEB230006B266 /* Sources */,
+				44BF6AB1283BEB230006B266 /* Frameworks */,
+				44BF6AB2283BEB230006B266 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				448F55C62846D0B800D0E6E9 /* PBXTargetDependency */,
+			);
+			name = "fuzz-reader";
+			productName = libxml2_xml_regexp_compile_fuzzer;
+			productReference = 44BF6AB8283BEB230006B266 /* fuzz-reader */;
+			productType = "com.apple.product-type.tool";
+		};
+		44D9078E2515659000B83F48 /* genSeed */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44D907952515659000B83F48 /* Build configuration list for PBXNativeTarget "genSeed" */;
+			buildPhases = (
+				44D907912515659000B83F48 /* Sources */,
+				44D907942515659000B83F48 /* Frameworks */,
+				44D907BB25157A0800B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44CDB3212846D2E700EFE823 /* PBXTargetDependency */,
+			);
+			name = genSeed;
+			productName = libxml2_xml_pushparser_fuzzer;
+			productReference = 44D907992515659000B83F48 /* genSeed */;
+			productType = "com.apple.product-type.tool";
+		};
+		44D9079D251565E700B83F48 /* fuzz-schema */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44D907A4251565E700B83F48 /* Build configuration list for PBXNativeTarget "fuzz-schema" */;
+			buildPhases = (
+				44D907A0251565E700B83F48 /* Sources */,
+				44D907A3251565E700B83F48 /* Frameworks */,
+				44D907C125157BA500B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44CE15962846D1A8006D9692 /* PBXTargetDependency */,
+			);
+			name = "fuzz-schema";
+			productName = libxml2_xml_regexp_compile_fuzzer;
+			productReference = 44D907A8251565E700B83F48 /* fuzz-schema */;
+			productType = "com.apple.product-type.tool";
+		};
+		44D907AC2515671400B83F48 /* fuzz-uri */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44D907B32515671400B83F48 /* Build configuration list for PBXNativeTarget "fuzz-uri" */;
+			buildPhases = (
+				44D907AF2515671400B83F48 /* Sources */,
+				44D907B22515671400B83F48 /* Frameworks */,
+				44D907C325157BB300B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				445394782846D21100072912 /* PBXTargetDependency */,
+			);
+			name = "fuzz-uri";
+			productName = libxml2_xml_regexp_compile_fuzzer;
+			productReference = 44D907B72515671400B83F48 /* fuzz-uri */;
+			productType = "com.apple.product-type.tool";
+		};
 		44F286BA1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 44F286C21EADB30E00BA8B08 /* Build configuration list for PBXNativeTarget "libxml2_xml_pushparser_fuzzer" */;
@@ -1668,11 +2213,29 @@
 			buildRules = (
 			);
 			dependencies = (
-				44F286C51EADB33100BA8B08 /* PBXTargetDependency */,
+				44CDB3242846D30900EFE823 /* PBXTargetDependency */,
 			);
 			name = libxml2_xml_pushparser_fuzzer;
 			productName = libxml2_xml_pushparser_fuzzer;
 			productReference = 44F286BB1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		44F286BA1EADB30E00BA8B09 /* fuzz-html */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44F286C21EADB30E00BA8B09 /* Build configuration list for PBXNativeTarget "fuzz-html" */;
+			buildPhases = (
+				44F286B71EADB30E00BA8B09 /* Sources */,
+				44F286B81EADB30E00BA8B09 /* Frameworks */,
+				44D907BD25157B3C00B83F48 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44C1B4D92846CFDC00731E42 /* PBXTargetDependency */,
+			);
+			name = "fuzz-html";
+			productName = libxml2_xml_pushparser_fuzzer;
+			productReference = 44F286BB1EADB30E00BA8B09 /* fuzz-html */;
 			productType = "com.apple.product-type.tool";
 		};
 		5D58AF5B14F815F500BE69D8 /* libxml2 */ = {
@@ -1824,6 +2387,14 @@
 				444A7F4E1E0B13AF00521AF3 /* testdict */,
 				444A7F591E0B13BC00521AF3 /* testrecurse */,
 				44F286AC1EADAEF500BA8B08 /* Fuzz */,
+				44F286BA1EADB30E00BA8B09 /* fuzz-html */,
+				44BF6AAB283BEB230006B266 /* fuzz-reader */,
+				44877C9B1EADB95B00B105D2 /* fuzz-regexp */,
+				44D9079D251565E700B83F48 /* fuzz-schema */,
+				44D907AC2515671400B83F48 /* fuzz-uri */,
+				44877C8B1EADB79900B105D2 /* fuzz-xml */,
+				44877CAB1EADBA0A00B105D2 /* fuzz-xpath */,
+				44D9078E2515659000B83F48 /* genSeed */,
 				44F286BA1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */,
 				44877C8B1EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */,
 				44877C9B1EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */,
@@ -2039,6 +2610,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		44877C8E1EADB79900B105D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				442666812514CB0B009520FA /* fuzz.c in Sources */,
+				442666822514CB12009520FA /* xml.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		44877C9E1EADB95B00B105D1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2047,11 +2627,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		44877C9E1EADB95B00B105D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4426667F2514CAE5009520FA /* fuzz.c in Sources */,
+				442666802514CAEC009520FA /* regexp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		44877CAE1EADBA0A00B105D1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				44877CB81EADBA1A00B105D1 /* libxml2_xml_saxparser_fuzzer.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44877CAE1EADBA0A00B105D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				442666832514CB34009520FA /* fuzz.c in Sources */,
+				442666842514CB3A009520FA /* xpath.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2100,10 +2698,47 @@
 				5D58B05814F81A8D00BE69D8 /* xmlschemastypes.c in Sources */,
 				5D58B05914F81A8D00BE69D8 /* xmlstring.c in Sources */,
 				5D58B05A14F81A8D00BE69D8 /* xmlunicode.c in Sources */,
+				44DD581F2812251200FD3E4F /* xmlversion.c in Sources */,
 				5D58B05B14F81A8D00BE69D8 /* xmlwriter.c in Sources */,
 				5D58B05C14F81A8D00BE69D8 /* xpath.c in Sources */,
 				5D58B05D14F81A8D00BE69D8 /* xpointer.c in Sources */,
 				44EBC8621C4EDE5C00D4BD8E /* xzlib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44BF6AAE283BEB230006B266 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44BF6AAF283BEB230006B266 /* fuzz.c in Sources */,
+				44BF6AB9283BEB3B0006B266 /* reader.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907912515659000B83F48 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44D907932515659000B83F48 /* fuzz.c in Sources */,
+				44D9079C251565AC00B83F48 /* genSeed.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907A0251565E700B83F48 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44D907A1251565E700B83F48 /* fuzz.c in Sources */,
+				44D907AB2515661B00B83F48 /* schema.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44D907AF2515671400B83F48 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44D907B02515671400B83F48 /* fuzz.c in Sources */,
+				44D907BA2515672A00B83F48 /* uri.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2112,6 +2747,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				44F286C31EADB32500BA8B08 /* libxml2_xml_pushparser_fuzzer.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44F286B71EADB30E00BA8B09 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4426667C2514C778009520FA /* fuzz.c in Sources */,
+				4426667D2514C77E009520FA /* html.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2142,6 +2786,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		441C461B2846D11E00C2A135 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 441C461A2846D11E00C2A135 /* PBXContainerItemProxy */;
+		};
 		4431E4E71E37F2160041D690 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 442F40611E09F166004826DD /* runtest */;
@@ -2277,35 +2926,15 @@
 			target = 4447099420605C4200907EAB /* libxml2_test */;
 			targetProxy = 444709CA206061F500907EAB /* PBXContainerItemProxy */;
 		};
-		44877C8C1EADB79900B105D1 /* PBXTargetDependency */ = {
+		445394782846D21100072912 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
-			targetProxy = 44877C8D1EADB79900B105D1 /* PBXContainerItemProxy */;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 445394772846D21100072912 /* PBXContainerItemProxy */;
 		};
-		44877C9A1EADB7AD00B105D1 /* PBXTargetDependency */ = {
+		445ADCDE283D2E8D00CBA6E8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 44877C8B1EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */;
-			targetProxy = 44877C991EADB7AD00B105D1 /* PBXContainerItemProxy */;
-		};
-		44877C9C1EADB95B00B105D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
-			targetProxy = 44877C9D1EADB95B00B105D1 /* PBXContainerItemProxy */;
-		};
-		44877CAA1EADB97400B105D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 44877C9B1EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */;
-			targetProxy = 44877CA91EADB97400B105D1 /* PBXContainerItemProxy */;
-		};
-		44877CAC1EADBA0A00B105D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
-			targetProxy = 44877CAD1EADBA0A00B105D1 /* PBXContainerItemProxy */;
-		};
-		44877CBA1EADBA3200B105D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 44877CAB1EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */;
-			targetProxy = 44877CB91EADBA3200B105D1 /* PBXContainerItemProxy */;
+			target = 44BF6AAB283BEB230006B266 /* fuzz-reader */;
+			targetProxy = 445ADCDD283D2E8D00CBA6E8 /* PBXContainerItemProxy */;
 		};
 		448A9E751E2653C20029A3FD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2322,15 +2951,115 @@
 			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
 			targetProxy = 448D7E321EA5BFB100ECC756 /* PBXContainerItemProxy */;
 		};
-		44F286C51EADB33100BA8B08 /* PBXTargetDependency */ = {
+		448F55C62846D0B800D0E6E9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 448D7E2B1EA5BF8000ECC756 /* xml2 */;
-			targetProxy = 44F286C41EADB33100BA8B08 /* PBXContainerItemProxy */;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 448F55C52846D0B800D0E6E9 /* PBXContainerItemProxy */;
 		};
-		44F286C81EADB35100BA8B08 /* PBXTargetDependency */ = {
+		44C1B4D92846CFDC00731E42 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44C1B4D82846CFDC00731E42 /* PBXContainerItemProxy */;
+		};
+		44CA3F0C2846BD82002BF954 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CA3F0B2846BD82002BF954 /* PBXContainerItemProxy */;
+		};
+		44CDB31E2846D28100EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB31D2846D28100EFE823 /* PBXContainerItemProxy */;
+		};
+		44CDB3212846D2E700EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB3202846D2E700EFE823 /* PBXContainerItemProxy */;
+		};
+		44CDB3242846D30900EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB3232846D30900EFE823 /* PBXContainerItemProxy */;
+		};
+		44CDB3272846D33E00EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB3262846D33E00EFE823 /* PBXContainerItemProxy */;
+		};
+		44CDB3292846D35B00EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB3282846D35B00EFE823 /* PBXContainerItemProxy */;
+		};
+		44CDB32C2846D36D00EFE823 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CDB32B2846D36D00EFE823 /* PBXContainerItemProxy */;
+		};
+		44CE15962846D1A8006D9692 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CE15952846D1A8006D9692 /* PBXContainerItemProxy */;
+		};
+		44CE15992846D1D4006D9692 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 44CE15982846D1D4006D9692 /* PBXContainerItemProxy */;
+		};
+		44DDBCE527B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44F286BA1EADB30E00BA8B09 /* fuzz-html */;
+			targetProxy = 44DDBCE427B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCE727B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877C9B1EADB95B00B105D2 /* fuzz-regexp */;
+			targetProxy = 44DDBCE627B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCE927B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44D9079D251565E700B83F48 /* fuzz-schema */;
+			targetProxy = 44DDBCE827B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCEB27B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44D907AC2515671400B83F48 /* fuzz-uri */;
+			targetProxy = 44DDBCEA27B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCED27B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877C8B1EADB79900B105D2 /* fuzz-xml */;
+			targetProxy = 44DDBCEC27B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCEF27B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877CAB1EADBA0A00B105D2 /* fuzz-xpath */;
+			targetProxy = 44DDBCEE27B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCF127B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44D9078E2515659000B83F48 /* genSeed */;
+			targetProxy = 44DDBCF027B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCF327B714D90014A227 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 44F286BA1EADB30E00BA8B08 /* libxml2_xml_pushparser_fuzzer */;
-			targetProxy = 44F286C71EADB35100BA8B08 /* PBXContainerItemProxy */;
+			targetProxy = 44DDBCF227B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCF527B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877C8B1EADB79900B105D1 /* libxml2_xml_read_memory_fuzzer */;
+			targetProxy = 44DDBCF427B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCF727B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877C9B1EADB95B00B105D1 /* libxml2_xml_regexp_compile_fuzzer */;
+			targetProxy = 44DDBCF627B714D90014A227 /* PBXContainerItemProxy */;
+		};
+		44DDBCF927B714D90014A227 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44877CAB1EADBA0A00B105D1 /* libxml2_xml_saxparser_fuzzer */;
+			targetProxy = 44DDBCF827B714D90014A227 /* PBXContainerItemProxy */;
 		};
 		5DB38AF414F87BE30060A507 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2721,7 +3450,23 @@
 			};
 			name = Debug;
 		};
+		44877C941EADB79900B105D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
 		44877C951EADB79900B105D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		44877C951EADB79900B105D2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -2737,7 +3482,23 @@
 			};
 			name = Production;
 		};
+		44877C961EADB79900B105D2 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
 		44877CA41EADB95B00B105D1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44877CA41EADB95B00B105D2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -2753,7 +3514,23 @@
 			};
 			name = Release;
 		};
+		44877CA51EADB95B00B105D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		44877CA61EADB95B00B105D1 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44877CA61EADB95B00B105D2 /* Production */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -2769,6 +3546,14 @@
 			};
 			name = Debug;
 		};
+		44877CB41EADBA0A00B105D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
 		44877CB51EADBA0A00B105D1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
@@ -2777,7 +3562,23 @@
 			};
 			name = Release;
 		};
+		44877CB51EADBA0A00B105D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		44877CB61EADBA0A00B105D1 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44877CB61EADBA0A00B105D2 /* Production */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -2806,9 +3607,106 @@
 			};
 			name = Production;
 		};
+		44BF6AB5283BEB230006B266 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44BF6AB6283BEB230006B266 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		44BF6AB7283BEB230006B266 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44D907962515659000B83F48 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44D907972515659000B83F48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		44D907982515659000B83F48 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44D907A5251565E700B83F48 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44D907A6251565E700B83F48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		44D907A7251565E700B83F48 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44D907B42515671400B83F48 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44D907B52515671400B83F48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		44D907B62515671400B83F48 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
 		44F286AD1EADAEF500BA8B08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_LIBFUZZER = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -2816,6 +3714,7 @@
 		44F286AE1EADAEF500BA8B08 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_LIBFUZZER = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -2823,11 +3722,20 @@
 		44F286AF1EADAEF500BA8B08 /* Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_LIBFUZZER = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Production;
 		};
 		44F286BF1EADB30E00BA8B08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		44F286BF1EADB30E00BA8B09 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -2843,7 +3751,23 @@
 			};
 			name = Release;
 		};
+		44F286C01EADB30E00BA8B09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		44F286C11EADB30E00BA8B08 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		44F286C11EADB30E00BA8B09 /* Production */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 44F286B11EADB1CD00BA8B08 /* FuzzExecutable.xcconfig */;
 			buildSettings = {
@@ -3119,12 +4043,32 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
 		};
+		44877C931EADB79900B105D2 /* Build configuration list for PBXNativeTarget "fuzz-xml" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44877C941EADB79900B105D2 /* Debug */,
+				44877C951EADB79900B105D2 /* Release */,
+				44877C961EADB79900B105D2 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
 		44877CA31EADB95B00B105D1 /* Build configuration list for PBXNativeTarget "libxml2_xml_regexp_compile_fuzzer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				44877CA41EADB95B00B105D1 /* Debug */,
 				44877CA51EADB95B00B105D1 /* Release */,
 				44877CA61EADB95B00B105D1 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44877CA31EADB95B00B105D2 /* Build configuration list for PBXNativeTarget "fuzz-regexp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44877CA41EADB95B00B105D2 /* Debug */,
+				44877CA51EADB95B00B105D2 /* Release */,
+				44877CA61EADB95B00B105D2 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
@@ -3139,12 +4083,62 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
 		};
+		44877CB31EADBA0A00B105D2 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44877CB41EADBA0A00B105D2 /* Debug */,
+				44877CB51EADBA0A00B105D2 /* Release */,
+				44877CB61EADBA0A00B105D2 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
 		448D7E2D1EA5BF8000ECC756 /* Build configuration list for PBXNativeTarget "xml2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				448D7E2E1EA5BF8000ECC756 /* Debug */,
 				448D7E2F1EA5BF8000ECC756 /* Release */,
 				448D7E301EA5BF8000ECC756 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44BF6AB4283BEB230006B266 /* Build configuration list for PBXNativeTarget "fuzz-reader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44BF6AB5283BEB230006B266 /* Debug */,
+				44BF6AB6283BEB230006B266 /* Release */,
+				44BF6AB7283BEB230006B266 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44D907952515659000B83F48 /* Build configuration list for PBXNativeTarget "genSeed" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44D907962515659000B83F48 /* Debug */,
+				44D907972515659000B83F48 /* Release */,
+				44D907982515659000B83F48 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44D907A4251565E700B83F48 /* Build configuration list for PBXNativeTarget "fuzz-schema" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44D907A5251565E700B83F48 /* Debug */,
+				44D907A6251565E700B83F48 /* Release */,
+				44D907A7251565E700B83F48 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44D907B32515671400B83F48 /* Build configuration list for PBXNativeTarget "fuzz-uri" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44D907B42515671400B83F48 /* Debug */,
+				44D907B52515671400B83F48 /* Release */,
+				44D907B62515671400B83F48 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;
@@ -3165,6 +4159,16 @@
 				44F286BF1EADB30E00BA8B08 /* Debug */,
 				44F286C01EADB30E00BA8B08 /* Release */,
 				44F286C11EADB30E00BA8B08 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44F286C21EADB30E00BA8B09 /* Build configuration list for PBXNativeTarget "fuzz-html" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44F286BF1EADB30E00BA8B09 /* Debug */,
+				44F286C01EADB30E00BA8B09 /* Release */,
+				44F286C11EADB30E00BA8B09 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;

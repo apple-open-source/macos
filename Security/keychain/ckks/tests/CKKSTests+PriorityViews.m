@@ -329,7 +329,10 @@
     // Check that all entries were downloaded in the single fetch
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* loadError = nil;
-        NSSet<NSString*>* mirrors = [CKKSMirrorEntry allUUIDsInZones:[NSSet setWithArray:self.zones.allKeys] error:&loadError];
+        NSSet<NSString*>* mirrors = [CKKSMirrorEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                   inZones:[NSSet setWithArray:self.zones.allKeys]
+                                                                     error:&loadError];
+
         XCTAssertNotNil(mirrors, "Should have a bag of UUIDs");
         XCTAssertNil(loadError, "Should be no error finding UUIDs");
 

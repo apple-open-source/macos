@@ -203,7 +203,7 @@ static RetainPtr<CFArrayRef> copyCookiesForURLWithFirstPartyURL(const NetworkSto
 {
     bool secure = includeSecureCookies == IncludeSecureCookies::Yes;
     
-    ASSERT(!secure || (secure && url.protocolIs("https")));
+    ASSERT(!secure || (secure && url.protocolIs("https"_s)));
     
     UNUSED_PARAM(firstParty);
     return adoptCF(CFHTTPCookieStorageCopyCookiesForURL(session.cookieStorage().get(), url.createCFURL().get(), secure));
@@ -322,7 +322,7 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
     UNUSED_PARAM(pageID);
     rawCookies.clear();
     
-    auto includeSecureCookies = url.protocolIs("https") ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+    auto includeSecureCookies = url.protocolIs("https"_s) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
     
     RetainPtr<CFArrayRef> cookiesCF = copyCookiesForURLWithFirstPartyURL(*this, firstParty, url, includeSecureCookies);
     
@@ -347,13 +347,13 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
     return true;
 }
 
-void NetworkStorageSession::deleteCookie(const URL& url, const String& name) const
+void NetworkStorageSession::deleteCookie(const URL& url, const String& name, CompletionHandler<void()>&& completionHandler) const
 {
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = this->cookieStorage();
     
     RetainPtr<CFURLRef> urlCF = url.createCFURL();
     
-    bool sendSecureCookies = url.protocolIs("https");
+    bool sendSecureCookies = url.protocolIs("https"_s);
     RetainPtr<CFArrayRef> cookiesCF = adoptCF(CFHTTPCookieStorageCopyCookiesForURL(cookieStorage.get(), urlCF.get(), sendSecureCookies));
     
     CFIndex count = CFArrayGetCount(cookiesCF.get());
@@ -364,6 +364,7 @@ void NetworkStorageSession::deleteCookie(const URL& url, const String& name) con
             break;
         }
     }
+    completionHandler();
 }
 
 void NetworkStorageSession::getHostnamesWithCookies(HashSet<String>& hostnames)
@@ -380,17 +381,20 @@ void NetworkStorageSession::getHostnamesWithCookies(HashSet<String>& hostnames)
     }
 }
 
-void NetworkStorageSession::deleteAllCookies()
+void NetworkStorageSession::deleteAllCookies(CompletionHandler<void()>&& completionHandler)
 {
     CFHTTPCookieStorageDeleteAllCookies(cookieStorage().get());
+    completionHandler();
 }
 
-void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>& hostnames)
+void NetworkStorageSession::deleteCookiesForHostnames(const Vector<String>&, IncludeHttpOnlyCookies, ScriptWrittenCookiesOnly, CompletionHandler<void()>&& completionHandler)
 {
+    completionHandler();
 }
 
-void NetworkStorageSession::deleteAllCookiesModifiedSince(WallTime)
+void NetworkStorageSession::deleteAllCookiesModifiedSince(WallTime, CompletionHandler<void()>&& completionHandler)
 {
+    completionHandler();
 }
 
 } // namespace WebCore

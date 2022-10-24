@@ -557,7 +557,7 @@ SSDLSession::unwrapAttributesAndData (uint32 &numAttributes,
 	uint8* finger = input.Data;
 	numAttributes = GetUInt32AtFinger (finger);
 
-	// compute the end of the data for sanity checking later
+	// compute the end of the data for length checking later
 	uint8* maximum = input.Data + input.Length;
 
 	// make the attribute array
@@ -580,7 +580,7 @@ SSDLSession::unwrapAttributesAndData (uint32 &numAttributes,
 			attributes[i].Value[j].Length = GetUInt32AtFinger (finger);
 			if (attributes[i].Value[j].Length != 0)
 			{
-				// sanity check what we are about to do
+				// check what we are about to do
 				if (finger > maximum || finger + attributes[i].Value[j].Length > maximum)
 				{
 					CssmError::throwMe (CSSM_ERRCODE_INVALID_POINTER);
@@ -627,7 +627,7 @@ SSDLSession::unwrapAttributesAndData (uint32 &numAttributes,
 	data.Length = GetUInt32AtFinger (finger);
 	if (data.Length != 0)
 	{
-		// sanity check the pointer
+		// check the pointer for length
 		if (finger + data.Length > maximum)
 		{
 			CssmError::throwMe (CSSM_ERRCODE_INVALID_POINTER);

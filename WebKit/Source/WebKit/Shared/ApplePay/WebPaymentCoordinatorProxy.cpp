@@ -34,10 +34,10 @@
 #include "WebPaymentCoordinatorProxyMessages.h"
 #include "WebProcessProxy.h"
 #include <WebCore/ApplePayCouponCodeUpdate.h>
+#include <WebCore/ApplePayPaymentAuthorizationResult.h>
 #include <WebCore/ApplePayPaymentMethodUpdate.h>
 #include <WebCore/ApplePayShippingContactUpdate.h>
 #include <WebCore/ApplePayShippingMethodUpdate.h>
-#include <WebCore/PaymentAuthorizationStatus.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, messageSenderConnection())
 
@@ -91,11 +91,11 @@ void WebPaymentCoordinatorProxy::showPaymentUI(WebCore::PageIdentifier destinati
     m_destinationID = destinationID;
     m_state = State::Activating;
 
-    URL originatingURL(URL(), originatingURLString);
+    URL originatingURL { originatingURLString };
 
-    Vector<URL> linkIconURLs;
-    for (const auto& linkIconURLString : linkIconURLStrings)
-        linkIconURLs.append(URL(URL(), linkIconURLString));
+    auto linkIconURLs = linkIconURLStrings.map([](auto& linkIconURLString) {
+        return URL { linkIconURLString };
+    });
 
     platformShowPaymentUI(webPageProxyID, originatingURL, linkIconURLs, paymentRequest, [this, weakThis = WeakPtr { *this }](bool result) {
         if (!weakThis)
@@ -184,17 +184,17 @@ void WebPaymentCoordinatorProxy::completeCouponCodeChange(std::optional<WebCore:
 
 #endif // ENABLE(APPLE_PAY_COUPON_CODE)
 
-void WebPaymentCoordinatorProxy::completePaymentSession(const std::optional<WebCore::PaymentAuthorizationResult>& result)
+void WebPaymentCoordinatorProxy::completePaymentSession(WebCore::ApplePayPaymentAuthorizationResult&& result)
 {
     // It's possible that the payment has been canceled already.
     if (!canCompletePayment())
         return;
 
-    bool isFinalStateResult = WebCore::isFinalStateResult(result);
+    bool isFinalState = result.isFinalState();
 
-    platformCompletePaymentSession(result);
+    platformCompletePaymentSession(WTFMove(result));
 
-    if (!isFinalStateResult) {
+    if (!isFinalState) {
         m_state = State::Active;
         return;
     }

@@ -367,16 +367,25 @@ static void SecPolicyCheckExtendedKeyUsage(SecPVCRef pvc, CFStringRef key) {
         analytics->no_eku = true;
     }
 
-    /* subCA check produces metrics */
+    CFArrayRef certExtendedKeyUsage = SecCertificateCopyExtendedKeyUsage(leaf);
+    if (analytics && certExtendedKeyUsage && CFArrayGetCount(certExtendedKeyUsage) > 1) {
+        analytics->multipurpose_eku = true;
+    }
+    CFReleaseNull(certExtendedKeyUsage);
+
+    /* Enforce EKUs on sub-CAs, except for OCSP eku */
+    bool ocspEKU = isData(xeku) && // Use data comparison because SecPolicyCreateOCSPSigner always sets single CFData as value
+        (CFDataGetLength(xeku) == (CFIndex)oidExtendedKeyUsageOCSPSigning.length) &&
+        memcmp(CFDataGetBytePtr(xeku), oidExtendedKeyUsageOCSPSigning.data, oidExtendedKeyUsageOCSPSigning.length);
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
-    if (count > 2 && analytics) {
+    if (count > 2 && !ocspEKU) {
         for (ix = 1; ix < count - 1 ; ++ix) {
             SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
             CFArrayRef ekus = SecCertificateCopyExtendedKeyUsage(cert);
             if (ekus && CFArrayGetCount(ekus) &&  // subCA has ekus
                 !SecPolicyCheckCertExtendedKeyUsage(cert, CFSTR("2.5.29.37.0")) && // but not the anyEKU
                 !SecPolicyCheckCertExtendedKeyUsage(cert, xeku)) { // and not the EKUs specified by the policy
-                analytics->ca_fail_eku_check = true;
+                SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
             }
             CFReleaseNull(ekus);
         }
@@ -881,7 +890,7 @@ static void SecPolicyCheckBlackListedLeaf(SecPVCRef pvc,
 	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
 	if (NULL != otapkiRef)
 	{
-		CFSetRef blackListedKeys = SecOTAPKICopyBlackListSet(otapkiRef);
+		CFSetRef blackListedKeys = SecOTAPKICopyRevokedListSet(otapkiRef);
 		CFRelease(otapkiRef);
 		if (NULL != blackListedKeys)
 		{
@@ -906,7 +915,7 @@ static void SecPolicyCheckGrayListedLeaf(SecPVCRef pvc, CFStringRef key)
 	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
 	if (NULL != otapkiRef)
 	{
-		CFSetRef grayListedKeys = SecOTAPKICopyGrayList(otapkiRef);
+		CFSetRef grayListedKeys = SecOTAPKICopyDistrustedList(otapkiRef);
 		CFRelease(otapkiRef);
 		if (NULL != grayListedKeys)
 		{
@@ -1439,6 +1448,16 @@ static void SecPolicyCheckRevocationOnline(SecPVCRef pvc, CFStringRef key) {
 
 static void SecPolicyCheckRevocationIfTrusted(SecPVCRef pvc, CFStringRef key) {
     SecPathBuilderSetCheckRevocationIfTrusted(pvc->builder);
+}
+
+static void SecPolicyCheckRevocationDbIgnored(SecPVCRef pvc, CFStringRef key) {
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
+    if (value == kCFBooleanTrue) {
+        SecPathBuilderSetRevocationDbIgnored(pvc->builder, true);
+    } else {
+        SecPathBuilderSetRevocationDbIgnored(pvc->builder, false);
+    }
 }
 
 static void SecPolicyCheckNoNetworkAccess(SecPVCRef pvc,
@@ -2596,21 +2615,21 @@ static bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix) {
 	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
 	if (NULL != otapkiRef)
 	{
-		CFSetRef blackListedKeys = SecOTAPKICopyBlackListSet(otapkiRef);
+		CFSetRef revokedKeys = SecOTAPKICopyRevokedListSet(otapkiRef);
 		CFRelease(otapkiRef);
-		if (NULL != blackListedKeys)
+		if (NULL != revokedKeys)
 		{
 			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
 			CFIndex count = SecPVCGetCertificateCount(pvc);
 			bool is_last = (ix == count - 1);
 			bool is_anchor = (is_last && SecPathBuilderIsAnchored(pvc->builder));
 			if (!is_anchor) {
-				/* Check for blacklisted intermediate issuer keys. */
+				/* Check for revoked intermediate issuer keys. */
 				CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
 				if (dgst) {
-					/* Check dgst against blacklist. */
-					if (CFSetContainsValue(blackListedKeys, dgst)) {
-						/* Check allow list for this blacklisted issuer key,
+					/* Check dgst against revoked. */
+					if (CFSetContainsValue(revokedKeys, dgst)) {
+						/* Check allow list for this revoked issuer key,
 						   which is the authority key of the issued cert at ix-1.
 						*/
 						SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
@@ -2623,7 +2642,7 @@ static bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix) {
 					CFRelease(dgst);
 				}
 			}
-			CFRelease(blackListedKeys);
+			CFRelease(revokedKeys);
 			return SecPVCIsOkResult(pvc);
 		}
 	}
@@ -2637,21 +2656,21 @@ static bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix)
 	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
 	if (NULL != otapkiRef)
 	{
-		CFSetRef grayListKeys = SecOTAPKICopyGrayList(otapkiRef);
+		CFSetRef distrustedListKeys = SecOTAPKICopyDistrustedList(otapkiRef);
 		CFRelease(otapkiRef);
-		if (NULL != grayListKeys)
+		if (NULL != distrustedListKeys)
 		{
 			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
 			CFIndex count = SecPVCGetCertificateCount(pvc);
 			bool is_last = (ix == count - 1);
 			bool is_anchor = (is_last && SecPathBuilderIsAnchored(pvc->builder));
 			if (!is_anchor) {
-				/* Check for gray listed intermediate issuer keys. */
+				/* Check for distrusted intermediate issuer keys. */
 				CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
 				if (dgst) {
 					/* Check dgst against gray list. */
-					if (CFSetContainsValue(grayListKeys, dgst)) {
-						/* Check allow list for this graylisted issuer key,
+					if (CFSetContainsValue(distrustedListKeys, dgst)) {
+						/* Check allow list for this distrusted issuer key,
 						   which is the authority key of the issued cert at ix-1.
 						*/
 						SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
@@ -2664,7 +2683,7 @@ static bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix)
 					CFRelease(dgst);
 				}
 			}
-			CFRelease(grayListKeys);
+			CFRelease(distrustedListKeys);
 			return SecPVCIsOkResult(pvc);
 		}
 	}

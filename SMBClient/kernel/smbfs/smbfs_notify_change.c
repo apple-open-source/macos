@@ -34,6 +34,7 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_conn_2.h>
 #include <smbfs/smbfs.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -216,7 +217,8 @@ smbfs_notified_vnode(vnode_t vp, int throttleBack, uint32_t events,
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 
 	if (vnode_isdir(vp)) {
-		lck_mtx_lock(&np->d_dur_handle.lock);
+		smbnode_lease_lock(&np->n_lease, smbfs_notified_vnode);
+        
 		/*
 		 * macOS Server that supports Dir Leasing and Change Notify have the
 		 * problem that the Lease Break (usually before the dir change event) 
@@ -234,8 +236,8 @@ smbfs_notified_vnode(vnode_t vp, int throttleBack, uint32_t events,
 		 * Finder checks, the dir mod date is unchanged so it assumes nothings
 		 * changed.
 		 */
-		if (!(np->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-			(np->d_dur_handle.flags & SMB2_LEASE_BROKEN) ||
+		if (!(np->n_lease.flags & SMB2_LEASE_GRANTED) ||
+			(np->n_lease.flags & SMB2_LEASE_BROKEN) ||
 			(SS_TO_SESSION(share)->session_misc_flags & SMBV_OSX_SERVER)) {
 			/*
 			 * <18475915> Something changed on the server side so purge the
@@ -246,7 +248,7 @@ smbfs_notified_vnode(vnode_t vp, int throttleBack, uint32_t events,
 			 */
 			np->d_changecnt++;
 			
-			lck_mtx_unlock(&np->d_dur_handle.lock);
+			smbnode_lease_unlock(&np->n_lease);
 			
 			cache_purge(vp);
 
@@ -265,7 +267,7 @@ smbfs_notified_vnode(vnode_t vp, int throttleBack, uint32_t events,
 			 * directories that are cached, but do not have a Change Notify
 			 * registered.
 			 */
-			lck_mtx_unlock(&np->d_dur_handle.lock);
+			smbnode_lease_unlock(&np->n_lease);
 		}
     }
 	
@@ -1009,8 +1011,7 @@ smbfs_notify_change_create_thread(struct smbmount *smp)
 	kern_return_t	result;
 	thread_t		thread;
 
-	SMB_MALLOC(notify, struct smbfs_notify_change *, sizeof(*notify), M_TEMP, 
-		   M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(notify, struct smbfs_notify_change, Z_WAITOK_ZERO);
 	smp->notify_thread = notify;
 	
 	notify->smp = smp;
@@ -1024,7 +1025,7 @@ smbfs_notify_change_create_thread(struct smbmount *smp)
 	if (result != KERN_SUCCESS) {
 		SMBERROR("can't start notify change thread: result = %d\n", result);
 		smp->notify_thread = NULL;
-		SMB_FREE(notify, M_SMBIOD);
+        SMB_FREE_TYPE(struct smbfs_notify_change, notify);
 		return; 
 	}
 	thread_deallocate(thread);
@@ -1065,7 +1066,7 @@ smbfs_notify_change_destroy_thread(struct smbmount *smp)
 	}
 	lck_mtx_destroy(&notify->notify_statelock, smbfs_mutex_group);
 	lck_mtx_destroy(&notify->watch_list_lock, smbfs_mutex_group);
-	SMB_FREE(notify, M_TEMP);
+    SMB_FREE_TYPE(struct smbfs_notify_change, notify);
 }
 
 /*
@@ -1079,7 +1080,8 @@ enqueue_notify_change_request(struct smbfs_notify_change *notify,
 {
 	struct watch_item *watchItem;
 	
-	SMB_MALLOC(watchItem, struct watch_item *, sizeof(*watchItem), M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(watchItem, struct watch_item, Z_WAITOK_ZERO);
+
 	lck_mtx_init(&watchItem->watch_statelock, smbfs_mutex_group, smbfs_lock_attr);
 	watchItem->isRoot = vnode_isvroot(vp);
 	watchItem->vp = vp;
@@ -1123,7 +1125,7 @@ enqueue_notify_svrmsg_request(struct smbfs_notify_change *notify)
         return;
     }
 	
-	SMB_MALLOC(watchItem, struct watch_item *, sizeof(*watchItem), M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(watchItem, struct watch_item, Z_WAITOK_ZERO);
 	lck_mtx_init(&watchItem->watch_statelock, smbfs_mutex_group, smbfs_lock_attr);
 
     watchItem->isServerMsg = TRUE;
@@ -1169,7 +1171,7 @@ dequeue_notify_change_request(struct smbfs_notify_change *notify,
 			STAILQ_REMOVE(&notify->watch_list, watchItem, watch_item, entries);
 			
 			lck_mtx_destroy(&watchItem->watch_statelock, smbfs_mutex_group);
-			SMB_FREE(watchItem, M_TEMP);
+            SMB_FREE_TYPE(struct watch_item, watchItem);
 			watchItem = NULL;
 			break;
 		}
@@ -1211,7 +1213,7 @@ dequeue_notify_svrmsg_request(struct smbfs_notify_change *notify)
     lck_mtx_unlock(&watchItem->watch_statelock);
     
 	lck_mtx_destroy(&watchItem->watch_statelock, smbfs_mutex_group);
-    SMB_FREE(watchItem, M_TEMP);
+    SMB_FREE_TYPE(struct watch_item, watchItem);
 
 	lck_mtx_unlock(&notify->watch_list_lock);
 }

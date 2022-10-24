@@ -106,6 +106,8 @@ shownode(NODE *n, int f, char const *path)
 		printf(" acldigest=%s", n->acldigest);
 	if (f & F_SIBLINGID)
 		printf(" siblingid=%llu", n->sibling_id);
+	if (f & F_NXATTR)
+		printf(" nxattr=%llu", n->nxattr);
 	
 	printf("\n");
 }
@@ -206,6 +208,8 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_ACL;
 	if (FF(n1, n2, F_SIBLINGID, sibling_id))
 		differs |= F_SIBLINGID;
+	if (FF(n1, n2, F_NXATTR, nxattr))
+		differs |= F_NXATTR;
 	
 	if (differs) {
 		RECORD_FAILURE(114, WARN_MISMATCH);

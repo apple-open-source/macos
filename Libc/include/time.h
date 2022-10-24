@@ -112,6 +112,8 @@ extern long timezone LIBC_ALIAS(timezone);
 //End-Libc
 #endif /* __DARWIN_UNIX03 */
 extern int daylight;
+#else /* UNIFDEF_DRIVERKIT */
+#include <sys/_types/_time_t.h>
 #endif /* UNIFDEF_DRIVERKIT */
 
 __BEGIN_DECLS

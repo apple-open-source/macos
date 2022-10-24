@@ -4,3 +4,5 @@ OTHER_CFLAGS_development = $(inherited) -DDEVELOPMENT=1
 OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
 OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern
 OTHER_CPLUSPLUSFLAGS = $(inherited) -ftrivial-auto-var-init=pattern
+WARNING_CFLAGS = $(inherited) -Wno-unknown-pragmas -Wno-four-char-constants -Wmost
+CLANG_WARN_XNU_TYPED_ALLOCATORS = YES_ERROR

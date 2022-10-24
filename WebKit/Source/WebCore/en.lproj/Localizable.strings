@@ -130,8 +130,8 @@
 /* Label for the add money with Apple Pay button. */
 "Add money with Apple Pay" = "Add money with Apple Pay";
 
-/* Title for Add to Photos action button */
-"Add to Photos" = "Add to Photos";
+/* Title for Save to Photos action button */
+"Save to Photos" = "Save to Photos";
 
 /* Add to Quick Note context menu item. */
 "Add to Quick Note" = "Add to Quick Note";
@@ -144,6 +144,12 @@
 
 /* Undo action name */
 "Align Right (Undo action name)" = "Align Right";
+
+/* Allow screen button title in window and screen sharing prompt */
+"Allow to Share Screen" = "Allow to Share Screen";
+
+/* Allow window button title in window and screen sharing prompt */
+"Allow to Share Window" = "Allow to Share Window";
 
 /* Button title in Storage Access API prompt */
 "Allow (cross-site cookie and website data access)" = "Allow";
@@ -163,11 +169,17 @@
 /* Allow button title in user media prompt */
 "Allow (usermedia)" = "Allow";
 
+/* Allow button title in window sharing prompt */
+"Allow (window sharing)" = "Allow";
+
 /* Message for requesting cross-site cookie and website data access. */
 "Allow “%@” and “%@” to use cookies and website data while browsing “%@”?" = "Allow “%@” and “%@” to use cookies and website data while browsing “%@”?";
 
 /* Message for spechrecognition prompt */
 "Allow “%@” to capture your audio and use it for speech recognition?" = "Allow “%@” to capture your audio and use it for speech recognition?";
+
+/* Message for window and screen sharing prompt */
+"Allow “%@” to observe one of your windows or screens?" = "Allow “%@” to observe one of your windows or screens?";
 
 /* Message for screen sharing prompt */
 "Allow “%@” to observe your screen?" = "Allow “%@” to observe your screen?";
@@ -268,6 +280,9 @@
 /* Label for the check out with Apple Pay button. */
 "Check out with Apple Pay" = "Check out with Apple Pay";
 
+/* Message for window sharing prompt */
+"Choose a window to share" = "Choose a window to share";
+
 /* title for a single file chooser button used in HTML forms */
 "Choose File" = "Choose File";
 
@@ -325,11 +340,17 @@
 /* Copy Audio Address Location context menu item */
 "Copy Audio Address" = "Copy Audio Address";
 
+/* Copy Subject context menu item */
+"Copy Subject" = "Copy Subject";
+
 /* Copy Image context menu item */
 "Copy Image" = "Copy Image";
 
 /* Copy Link context menu item */
 "Copy Link" = "Copy Link";
+
+/* Title for Copy Link button */
+"Copy Link (ActionSheet)" = "Copy Link";
 
 /* Copy Video Address Location context menu item */
 "Copy Video Address" = "Copy Video Address";
@@ -397,6 +418,12 @@
 /* Disallow button title in user media prompt */
 "Don’t Allow (usermedia)" = "Don’t Allow";
 
+/* Disallow button title in window and screen sharing prompt */
+"Don’t Allow (window and screen sharing)" = "Don’t Allow";
+
+/* Disallow button title in window sharing prompt */
+"Don’t Allow (window sharing)" = "Don’t Allow";
+
 /* Download Audio To Disk context menu item */
 "Download Audio" = "Download Audio";
 
@@ -457,11 +484,20 @@
 /* Default application name for Open With context menu */
 "Finder" = "Finder";
 
+/* Inspector element selection tooltip text for Flexbox containers. */
+"Flex (Inspector Element Selection)" = "Flex";
+
+/* Inspector element selection tooltip text for items inside a Flexbox Container. */
+"Flex Item (Inspector Element Selection)" = "Flex Item";
+
 /* Font context sub-menu item */
 "Font" = "Font";
 
 /* Display name for text track kind 'forced'. */
 "Forced (text track)" = "Forced";
+
+/* Label for the save data format selector when saving data in Web Inspector */
+"Format:" = "Format:";
 
 /* Undo action name */
 "Format Block (Undo action name)" = "Formatting";
@@ -480,6 +516,12 @@
 
 /* Google Safe Browsing */
 "Google Safe Browsing" = "Google Safe Browsing";
+
+/* Inspector element selection tooltip text for Grid containers. */
+"Grid (Inspector Element Selection)" = "Grid";
+
+/* Inspector element selection tooltip text for items inside a Grid Container. */
+"Grid Item (Inspector Element Selection)" = "Grid Item";
 
 /* accessibility role description for web area */
 "HTML content" = "HTML content";
@@ -583,9 +625,6 @@
 /* Look Up in Dictionary context menu item */
 "Look Up in Dictionary" = "Look Up in Dictionary";
 
-/* Title for Quick Look action button for images with visual search results */
-"Look Up in Quick Look" = "Look Up in Quick Look";
-
 /* Look Up context menu item with selected word */
 "Look Up “%@”" = "Look Up “%@”";
 
@@ -658,11 +697,11 @@
 /* Option in segmented control for inserting a numbered list in text editing */
 "Numbered list" = "Numbered list";
 
+/* Label for OK button in alerts */
+"OK" = "OK";
+
 /* Title of the OK button for the number pad in zoomed form controls. */
 "OK (OK button title in extra zoomed number pad)" = "OK";
-
-/* OK button label in document password failure alert */
-"OK (document password failure alert)" = "OK";
 
 /* Menu item label for the track that represents disabling closed captions. */
 "Off (text track)" = "Off";
@@ -763,9 +802,6 @@
 /* Title for file upload progress view */
 "Preparing (file upload)" = "Preparing…";
 
-/* Title for Quick Look action button */
-"Quick Look" = "Quick Look";
-
 /* Undo action name */
 "Raise Baseline (Undo action name)" = "Raise Baseline";
 
@@ -780,6 +816,12 @@
 
 /* WKErrorContentRuleListStoreRemoveFailed description */
 "Removing a WKContentRuleList failed" = "Removing a WKContentRuleList failed";
+
+/* Remove Background menu item */
+"Remove Background" = "Remove Background";
+
+/* Undo action name */
+"Remove Background (Undo action name)" = "Remove Background";
 
 /* Label for the rent with Apple Pay button. */
 "Rent with Apple Pay" = "Rent with Apple Pay";
@@ -807,9 +849,6 @@
 
 /* Search with search provider context menu item with provider name inserted */
 "Search with %@" = "Search with %@";
-
-/* Title for Quick Look action button for images with text */
-"Select Text in Quick Look" = "Select Text in Quick Look";
 
 /* Validation message for required file inputs that have no value */
 "Select a file" = "Select a file";
@@ -1162,6 +1201,9 @@
 /* Unwanted software warning title */
 "Website With Harmful Software Warning" = "Website With Harmful Software Warning";
 
+/* Label for window sharing menu */
+"Window: " = "Window: ";
+
 /* Year label in date picker */
 "YEAR (Date picker for extra zoom mode)" = "YEAR";
 
@@ -1243,6 +1285,9 @@
 /* Label for the credit card AutoFill button inside a text field. */
 "credit card AutoFill" = "credit card AutoFill";
 
+/* Label for the loading AutoFill button inside a text field. */
+"loading AutoFill" = "loading AutoFill";
+
 /* The less good value description for a meter element. */
 "critical value" = "critical value";
 
@@ -1305,6 +1350,9 @@
 
 /* accessibility role description for a footer */
 "footer" = "footer";
+
+/* Suggestion role description for a suggestion group */
+"suggestion" = "suggestion";
 
 /* HTTP result code string */
 "forbidden" = "forbidden";
@@ -1637,7 +1685,7 @@
 "“%@” Would Like to Access Motion and Orientation" = "“%@” Would Like to Access Motion and Orientation";
 
 /* The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only). */
-"“%@” in “%%@”" = "“%@” in “%%@”";
+"%@ in %%@" = "%@ in %%@";
 
 /* Allow the specified bundle to sign in to the specified website */
 "“%@” would like to sign in to “%@”." = "“%@” would like to sign in to “%@”.";
@@ -1648,3 +1696,8 @@
 /* Option in segmented control for choosing list type in text editing */
 "•" = "•";
 
+/* Lockdown Mode alert title */
+"Lockdown Mode is Turned On For “%@“" = "Lockdown Mode is Turned On For “%@“";
+
+/* Lockdown Mode alert message */
+"Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings." = "Certain experiences and features may not function as expected. You can turn off Lockdown Mode for this app in Settings.";

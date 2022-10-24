@@ -28,10 +28,12 @@
 
 #if ENABLE(WEBGL) && ENABLE(VIDEO) && USE(AVFOUNDATION)
 
+#include "ANGLEHeaders.h"
 #include "ANGLEUtilitiesCocoa.h"
 #include "FourCC.h"
 #include "GraphicsContextGLCocoa.h"
 #include "Logging.h"
+#include "VideoFrameCV.h"
 #include <pal/spi/cf/CoreVideoSPI.h>
 #include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/NeverDestroyed.h>
@@ -585,7 +587,7 @@ GraphicsContextGLCVCocoa::GraphicsContextGLCVCocoa(GraphicsContextGLCocoa& owner
     GL_BindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
 }
 
-bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const MediaSampleVideoFrame& videoFrame, PlatformGLObject outputTexture, GLint level, GLenum internalFormat, GLenum format, GLenum type, FlipY unpackFlipY)
+bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const VideoFrameCV& videoFrame, PlatformGLObject outputTexture, GLint level, GLenum internalFormat, GLenum format, GLenum type, FlipY unpackFlipY)
 {
     auto image = videoFrame.pixelBuffer();
     // FIXME: This currently only supports '420v' and '420f' pixel formats. Investigate supporting more pixel formats.
@@ -597,7 +599,7 @@ bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const MediaSampleVideoFr
         && pixelFormat != kCVPixelFormatType_AGX_420YpCbCr8BiPlanarFullRange
 #endif
         ) {
-        LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - Asked to copy an unsupported pixel format ('%s').", this, FourCC(pixelFormat).toString().utf8().data());
+        LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - Asked to copy an unsupported pixel format ('%s').", this, FourCC(pixelFormat).string().data());
         return false;
     }
     IOSurfaceRef surface = CVPixelBufferGetIOSurface(image);

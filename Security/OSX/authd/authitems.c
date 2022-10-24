@@ -183,7 +183,7 @@ AUTH_TYPE_INSTANCE(auth_item,
                    .copyDebugDesc = _auth_item_copy_description
                    );
 
-static CFTypeID auth_item_get_type_id() {
+static CFTypeID auth_item_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -195,7 +195,7 @@ static CFTypeID auth_item_get_type_id() {
 }
 
 static auth_item_t
-_auth_item_create()
+_auth_item_create(void)
 {
     auth_item_t item = NULL;
     
@@ -377,7 +377,7 @@ AUTH_TYPE_INSTANCE(auth_items,
                    .copyDebugDesc = _auth_items_copy_description
                    );
 
-CFTypeID auth_items_get_type_id()
+CFTypeID auth_items_get_type_id(void)
 {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
@@ -406,7 +406,7 @@ done:
 }
 
 auth_items_t
-auth_items_create()
+auth_items_create(void)
 {
     auth_items_t items = NULL;
     
@@ -1120,7 +1120,7 @@ AUTH_TYPE_INSTANCE(auth_rights,
                    .copyDebugDesc = _auth_rights_copy_description
                    );
 
-static CFTypeID auth_rights_get_type_id()
+static CFTypeID auth_rights_get_type_id(void)
 {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
@@ -1133,7 +1133,7 @@ static CFTypeID auth_rights_get_type_id()
 }
 
 static auth_rights_t
-_auth_rights_create()
+_auth_rights_create(void)
 {
     auth_rights_t rights = NULL;
     
@@ -1147,7 +1147,7 @@ done:
 }
 
 auth_rights_t
-auth_rights_create()
+auth_rights_create(void)
 {
     auth_rights_t rights = _auth_rights_create();
     require(rights != NULL, done);

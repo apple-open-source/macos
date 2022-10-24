@@ -1656,7 +1656,24 @@ public:
     OSMetaClassDeclareReservedUnused( IONetworkController,  4);
     OSMetaClassDeclareReservedUnused( IONetworkController,  5);
 #endif  /* !__PRIVATE_SPI__ */
-    OSMetaClassDeclareReservedUnused( IONetworkController,  6);
+    
+public:
+/*! @function allocatePacketNoWait
+    @abstract Allocates a packet with a data buffer that is larger than
+    or equal to the size specified, it will not aggressively wait for a mbuf to be
+    become available.
+    @discussion This method is identical to the 'allocatePacket' method except
+    that it will not block indefinitely if the requested 'mbuf_t' can't be allocated
+    immediately.
+    @param size The minimum size of the data buffer for the mbuf
+    packet allocated.
+    @result Returns an mbuf packet, or 0 if allocation failed.
+*/
+
+    virtual mbuf_t allocatePacketNoWait(UInt32 size);
+
+    OSMetaClassDeclareReservedUsed( IONetworkController,  6);
+
     OSMetaClassDeclareReservedUnused( IONetworkController,  7);
     OSMetaClassDeclareReservedUnused( IONetworkController,  8);
     OSMetaClassDeclareReservedUnused( IONetworkController,  9);

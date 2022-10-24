@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ac</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-02-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.sbin/ac?id=8209febbb3d07809890550a0048b2d76363239f9</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-15</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>ac.1: describe Apple lastlogin logging (84943993)</string>
+			<string>ac.c: use smaller user column width (84943993)</string>
+			<string>ac.c: use endutxent_wtmp(3) API (84943993)</string>
+			<string>ac.c: keep Apple tty name matching (84943993)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

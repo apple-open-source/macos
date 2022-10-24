@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-07-18</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Conformance fixes (3676514, 3738526, 3741027, 3751351, 3754089, 3936064, 3936075).</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>ed</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-04-09</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/bin/edit?id=3ce579325e424ce9297546553fb453a4ec62c20b</string>
+</dict>

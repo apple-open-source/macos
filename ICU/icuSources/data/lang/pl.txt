@@ -45,6 +45,7 @@ pl{
         an{"aragoński"}
         ang{"staroangielski"}
         anp{"angika"}
+        apw{"apaczów zachodnich"}
         ar{"arabski"}
         ar_001{"współczesny arabski"}
         arc{"aramejski"}

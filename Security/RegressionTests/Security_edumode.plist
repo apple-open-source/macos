@@ -14,16 +14,6 @@
 				<string>/AppleInternal/CoreOS/tests/Security/secbackupntest</string>
 			</array>
 		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>si_13_item_system</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/Applications/SecurityTests.app/SecurityTests</string>
-				<string>-1</string>
-				<string>si_13_item_system</string>
-			</array>
-		</dict>
 	</array>
 </dict>
 </plist>

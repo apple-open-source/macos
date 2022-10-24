@@ -40,6 +40,7 @@
 #include "OSStackRetain.h"
 #include <sys/sysctl.h>
 #include <kern/debug.h>
+#include <libkern/c++/OSBoundedArrayRef.h>
 
     #include "IOHIDPointing.h"
     #include "IOHIDKeyboard.h"
@@ -253,8 +254,6 @@ bool IOHIDEventService::start ( IOService * provider )
     if (!_commandGate || (_workLoop->addEventSource(_commandGate) != kIOReturnSuccess))
         return false;
 
-    calculateStandardType();
-
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
 
@@ -341,6 +340,10 @@ bool IOHIDEventService::start ( IOService * provider )
             device->setProperty(kIOHIDDeviceTypeHintKey, kIOHIDDeviceTypeHeadsetKey);
         }
     }
+
+    // For accurate results this should run after parseSupportedElements, so that if KeyboardLayout is
+    // used the relevent properties from the layout elements are set.
+    calculateStandardType();
 
     _readyForInputReports = true;
     
@@ -434,16 +437,37 @@ void IOHIDEventService::calculateStandardType()
     OSNumber *          number;
     OSObject *          obj;
 
-        obj = copyProperty(kIOHIDStandardTypeKey);
-        number = OSDynamicCast(OSNumber, obj);
-        if ( number ) {
-        }
-        else {
-            UInt16 productID    = getProductID();
-            UInt16 vendorID     = getVendorID();
+    obj = copyProperty(kIOHIDStandardTypeKey);
+    number = OSDynamicCast(OSNumber, obj);
+    if ( number ) {
+    }
+    else {
+        UInt16 productID    = getProductID();
+        UInt16 vendorID     = getVendorID();
+        OSObject* temp = nullptr;
 
+        temp = copyProperty(kIOHIDKeyboardLayoutValueKey);
+        number = OSDynamicCast(OSNumber, temp);
+        if (number) {
+            uint32_t value = number->unsigned32BitValue();
+            switch (value)
+            {
+                case kIOHIDKeyboardPhysicalLayoutType101:
+                    result = kIOHIDStandardTypeANSI;
+                    break;
+                case kIOHIDKeyboardPhysicalLayoutType102:
+                    result = kIOHIDStandardTypeISO;
+                    break;
+                case kIOHIDKeyboardPhysicalLayoutType106:
+                    result = kIOHIDStandardTypeJIS;
+                    break;
+                default:
+                    result = kIOHIDStandardTypeUnspecified;
+                    break;
+            }
+            setProperty(kIOHIDStandardTypeKey, result, 32);
+        } else {
             if (vendorID == kUSBHostVendorIDAppleComputer) {
-
                 switch (productID) {
                     case kprodUSBCosmoISOKbd:  //Cosmo ISO
                     case kprodUSBAndyISOKbd:  //Andy ISO
@@ -467,6 +491,8 @@ void IOHIDEventService::calculateStandardType()
                 setProperty(kIOHIDStandardTypeKey, result, 32);
             }
         }
+        OSSafeReleaseNULL(temp);
+    }
     OSSafeReleaseNULL(obj);
 
 }
@@ -648,6 +674,8 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     bool                keyboardDevice      = false;
     bool                consumerDevice      = false;
     bool                escKeySupported     = false;
+    IOHIDElement *      keyboardLayoutElement = nullptr;
+    IOHIDReportType     reportType;
     
     switch ( bootProtocol )
     {
@@ -750,6 +778,14 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
 
                 case kHIDPage_Consumer:
                     consumerDevice = true;
+                    switch ( usage )
+                    {
+                        case kHIDUsage_Csmr_KeyboardPhysicalLayout:
+                            if (element->getReportType(&reportType) && reportType == kIOHIDReportTypeFeature) {
+                                keyboardLayoutElement = element;
+                            }
+                            break;
+                    }
                     break;
                 case kHIDPage_Digitizer:
                     pointingDevice = true;
@@ -845,6 +881,11 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
         if (!getProperty(kIOHIDKeyboardSupportsEscKey)) {
             setProperty(kIOHIDKeyboardSupportsEscKey, escKeySupported ? kOSBooleanTrue : kOSBooleanFalse);
         }
+    }
+
+    if (keyboardLayoutElement) {
+        UInt32 value = keyboardLayoutElement->getValue(kIOHIDValueOptionsUpdateElementValues);
+        setProperty(kIOHIDKeyboardLayoutValueKey, value, 32);
     }
     
     
@@ -2241,7 +2282,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
     
     clock_get_uptime(&currentTime);
     
-    IOHID_DEBUG(kIOHIDDebugCode_DispatchHIDEvent, event->getTimeStamp(), currentTime, options, getRegistryEntryID());
+    IOHID_DEBUG(kIOHIDDebugCode_DispatchHIDEvent, event->getTimeStampOfType(kIOHIDEventTimestampTypeDefault), currentTime, options | event->getOptions() & kIOHIDEventOptionContinuousTime, getRegistryEntryID());
     
     if (_debugMask & kIOHIDDebugPerfEvent) {
         IOHIDEventPerfData data = {currentTime, 0, 0, 0};
@@ -2404,12 +2445,12 @@ IOReturn  IOHIDEventService::newUserClient (
 
 IOReturn IOHIDEventService::message( UInt32 type, IOService * provider,  void * argument)
 {
+    IOReturn result = kIOReturnSuccess;
 
-    IOReturn result;
     if (type == kIOMessageServiceIsRequestingClose) {
-        messageClients(type, argument);
+        result = messageClients(type, argument);
     }
-    result = super::message(type, provider, argument);
+
     return result;
 }
 
@@ -2485,7 +2526,7 @@ void IOHIDEventService::dispatchExtendedGameControllerEventWithThumbstickButtons
                                                                                 IOOptionBits                    options)
 {
     IOHIDEvent * event = IOHIDEvent::extendedGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, options);
-    
+
     if (event) {
         event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonRight, thumbstickButtonRight);
         event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonLeft, thumbstickButtonLeft);
@@ -2568,17 +2609,18 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
     IOHIDEvent * event = NULL;
     UInt32 debugMask = 0;
 
+    OSBoundedArrayRef<Key> keys(&(_keyboard.pressedKeys[0]), (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])));
     require_quiet(usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardPower, dispatch);
 
-    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
+    for ( Key &key : keys ) {
         if (value) {
-            if (!_keyboard.pressedKeys[index].isValid()) {
-                _keyboard.pressedKeys[index] = Key (usagePage, usage);
+            if (!key.isValid()) {
+                key = Key (usagePage, usage);
                 break;
             }
         } else {
-            if (_keyboard.pressedKeys[index].usage() == usage && _keyboard.pressedKeys[index].usagePage() == usagePage) {
-                _keyboard.pressedKeys[index] = Key (0, 0);
+            if (key.usage() == usage && key.usagePage() == usagePage) {
+                key = Key (0, 0);
                 break;
             }
         }
@@ -2586,13 +2628,14 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
 
     _keyboard.pressedKeysMask = 0;
 
-    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
+    for ( Key &key : keys ) {
         uint32_t maskForKey = 0;
-        if (_keyboard.pressedKeys[index].isValid()) {
+        if (key.isValid()) {
             maskForKey = kKeyMaskUnknown;
-            for (unsigned int i = 0 ; i < (sizeof(keyMonitorTable)/sizeof(keyMonitorTable[0])); i++) {
-                if (keyMonitorTable[i].key == _keyboard.pressedKeys[index]) {
-                    maskForKey = keyMonitorTable[i].mask;
+            OSBoundedArrayRef<KeyValueMask> keyMonitors(&(keyMonitorTable[0]), (sizeof(keyMonitorTable)/sizeof(keyMonitorTable[0])));
+            for ( KeyValueMask keyMonitor : keyMonitors ) {
+                if (keyMonitor.key == key) {
+                    maskForKey = keyMonitor.mask;
                     break;
                 }
             }
@@ -2604,13 +2647,14 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
     
 
     if (debugMask && value != 0) {
-        for (unsigned int index = 0 ; index < (sizeof(debugKeyActionTable)/sizeof(debugKeyActionTable[0])); index++) {
-            bool maskSet = debugKeyActionTable[index].mask == debugMask;
-            bool requiresDebugBootArg = debugKeyActionTable[index].debugArgRequired;
+        OSBoundedArrayRef<DebugKeyAction> debugKeys(&(debugKeyActionTable[0]), (sizeof(debugKeyActionTable)/sizeof(debugKeyActionTable[0])));
+        for ( DebugKeyAction debugKey : debugKeys ) {
+            bool maskSet = debugKey.mask == debugMask;
+            bool requiresDebugBootArg = debugKey.debugArgRequired;
 
             if (maskSet && (!requiresDebugBootArg || (requiresDebugBootArg && isPowerButtonNmiEnabled()))) {
                 HIDLogError ("HID: taking action for debug key mask %x", (unsigned int)debugMask);
-                debugKeyActionTable[index].action(this, debugKeyActionTable[index].parameter);
+                debugKey.action(this, debugKey.parameter);
                 return;
             }
         }
@@ -2677,7 +2721,52 @@ void IOHIDEventService::completeSetLED(OSAction * __unused action, IOReturn __un
 
 }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 27);
+//==============================================================================
+// IOHIDEventService::dispatchExtendedGameControllerEventWithOptionalButtons
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService, 27);
+void IOHIDEventService::dispatchExtendedGameControllerEventWithOptionalButtons(
+                                                                                AbsoluteTime                    timeStamp,
+                                                                                IOFixed                         dpadUp,
+                                                                                IOFixed                         dpadDown,
+                                                                                IOFixed                         dpadLeft,
+                                                                                IOFixed                         dpadRight,
+                                                                                IOFixed                         faceX,
+                                                                                IOFixed                         faceY,
+                                                                                IOFixed                         faceA,
+                                                                                IOFixed                         faceB,
+                                                                                IOFixed                         shoulderL1,
+                                                                                IOFixed                         shoulderR1,
+                                                                                IOFixed                         shoulderL2,
+                                                                                IOFixed                         shoulderR2,
+                                                                                IOFixed                         joystickX,
+                                                                                IOFixed                         joystickY,
+                                                                                IOFixed                         joystickZ,
+                                                                                IOFixed                         joystickRz,
+                                                                                boolean_t                       thumbstickButtonLeft,
+                                                                                boolean_t                       thumbstickButtonRight,
+                                                                                IOFixed                         buttonL4,
+                                                                                IOFixed                         buttonR4,
+                                                                                IOFixed                         buttonL5,
+                                                                                IOFixed                         buttonR5,
+                                                                                IOOptionBits                    options)
+{
+    IOHIDEvent * event = IOHIDEvent::extendedGameControllerEvent(timeStamp, dpadUp, dpadDown, dpadLeft, dpadRight, faceX, faceY, faceA, faceB, shoulderL1, shoulderR1, shoulderL2, shoulderR2, joystickX, joystickY, joystickZ, joystickRz, options);
+    
+    if (event) {
+        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonRight, thumbstickButtonRight);
+        event->setIntegerValue(kIOHIDEventFieldGameControllerThumbstickButtonLeft, thumbstickButtonLeft);
+        
+        event->setFixedValue(kIOHIDEventFieldGameControllerButtonL4, buttonL4);
+        event->setFixedValue(kIOHIDEventFieldGameControllerButtonR4, buttonR4);
+        event->setFixedValue(kIOHIDEventFieldGameControllerButtonL5, buttonL5);
+        event->setFixedValue(kIOHIDEventFieldGameControllerButtonR5, buttonR5);
+        
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 28);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 29);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 30);

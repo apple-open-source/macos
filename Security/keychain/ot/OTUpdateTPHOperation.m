@@ -22,7 +22,8 @@
 @property OTOperationDependencies* deps;
 @property BOOL forceRefetch;
 
-@property OctagonState* peerUnknownState;
+@property (nullable) OctagonState* peerUnknownState;
+@property (nullable) OctagonState* determineCDPState;
 
 @property NSOperation* finishedOp;
 
@@ -36,6 +37,7 @@
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                     peerUnknownState:(OctagonState*)peerUnknownState
+                   determineCDPState:(OctagonState*)determineCDPState
                           errorState:(OctagonState*)errorState
                         forceRefetch:(BOOL)forceRefetch
                            retryFlag:(OctagonFlag* _Nullable)retryFlag
@@ -46,7 +48,8 @@
         _intendedState = intendedState;
         _nextState = errorState;
         _peerUnknownState = peerUnknownState;
-
+        _determineCDPState = determineCDPState;
+        
         _forceRefetch = forceRefetch;
 
         _retryFlag = retryFlag;
@@ -99,97 +102,128 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     NSError* stateError = nil;
+    BOOL everAppliedToOctagon = NO;
     OTAccountMetadataClassC* currentMetadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&stateError];
 
     // If there is no secureElementIdentity, we need to positively assert that across the XPC boundary
     TrustedPeersHelperIntendedTPPBSecureElementIdentity* secureElementIdentity = nil;
-    if(!currentMetadata || stateError) {
+    if (!currentMetadata || stateError) {
         secerror("octagon: Unable to load current metadata: %@", stateError);
         // fall through; this isn't fatal
     } else {
         secureElementIdentity = [[TrustedPeersHelperIntendedTPPBSecureElementIdentity alloc] initWithSecureElementIdentity:currentMetadata.parsedSecureElementIdentity];
+    }
+    
+    if (currentMetadata.hasAttemptedJoin) {
+        switch (currentMetadata.attemptedJoin) {
+            case OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED:
+                everAppliedToOctagon = YES;
+                break;
+            case OTAccountMetadataClassC_AttemptedAJoinState_NOTATTEMPTED:
+                everAppliedToOctagon = NO;
+                break;
+            case OTAccountMetadataClassC_AttemptedAJoinState_UNKNOWN:
+                everAppliedToOctagon = NO;
+                break;
+            default:
+                break;
+        }
     }
 
     if(self.forceRefetch) {
         secnotice("octagon", "Forcing a full refetch");
     }
 
-    [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
-                                                context:self.deps.contextID
-                                           forceRefetch:self.forceRefetch
-                                             deviceName:self.deps.deviceInformationAdapter.deviceName
-                                           serialNumber:self.deps.deviceInformationAdapter.serialNumber
-                                              osVersion:self.deps.deviceInformationAdapter.osVersion
-                                          policyVersion:nil
-                                          policySecrets:nil
-                              syncUserControllableViews:nil
-                                  secureElementIdentity:secureElementIdentity
-                                                  reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
-            STRONGIFY(self);
-            if(error || !peerState) {
-                secerror("octagon: update errored: %@", error);
-                self.error = error;
-
-                if ([error isCuttlefishError:CuttlefishErrorUpdateTrustPeerNotFound]) {
-                    secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
+    [self.deps.cuttlefishXPCWrapper updateWithSpecificUser:self.deps.activeAccount
+                                              forceRefetch:self.forceRefetch
+                                                deviceName:self.deps.deviceInformationAdapter.deviceName
+                                              serialNumber:self.deps.deviceInformationAdapter.serialNumber
+                                                 osVersion:self.deps.deviceInformationAdapter.osVersion
+                                             policyVersion:nil
+                                             policySecrets:nil
+                                 syncUserControllableViews:nil
+                                     secureElementIdentity:secureElementIdentity
+                                                     reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
+        STRONGIFY(self);
+        if(error || !peerState) {
+            secerror("octagon: update errored: %@", error);
+            self.error = error;
+            
+            if ([error isCuttlefishError:CuttlefishErrorUpdateTrustPeerNotFound]) {
+                secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
+                if (self.determineCDPState) {
+                    self.nextState = self.determineCDPState;
+                } else if (everAppliedToOctagon && self.peerUnknownState) {
                     self.nextState = self.peerUnknownState;
                 } else {
-                    // On an error, don't set nextState.
-                }
-                [self runBeforeGroupFinished:self.finishedOp];
-                return;
-            }
-
-            secnotice("octagon", "update complete: %@, %@", peerState, syncingPolicy);
-
-            NSError* localError = nil;
-            BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-                [metadata setTPSyncingPolicy:syncingPolicy];
-
-                return metadata;
-            } error:&localError];
-            if(!persisted || localError) {
-                secerror("octagon: Unable to save new syncing state: %@", localError);
-
-            } else {
-                // After an update(), we're sure that we have a fresh policy
-                BOOL viewSetChanged = [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy policyIsFresh:YES];
-                if(viewSetChanged) {
-                    [self.deps.flagHandler handleFlag:OctagonFlagCKKSViewSetChanged];
-                }
-            }
-
-            if(peerState.identityIsPreapproved) {
-                secnotice("octagon-sos", "Self peer is now preapproved!");
-                [self.deps.flagHandler handleFlag:OctagonFlagEgoPeerPreapproved];
-            }
-            if (peerState.memberChanges) {
-                secnotice("octagon", "Member list changed");
-                [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
-            }
-
-            if (peerState.unknownMachineIDsPresent) {
-                secnotice("octagon-authkit", "Unknown machine IDs are present; requesting fetch");
-                [self.deps.flagHandler handleFlag:OctagonFlagFetchAuthKitMachineIDList];
-            }
-
-            if (peerState.peerStatus & TPPeerStatusExcluded) {
-                secnotice("octagon", "Self peer (%@) is excluded; moving to untrusted", peerState.peerID);
-                self.nextState = OctagonStateBecomeUntrusted;
-            } else if(peerState.peerStatus & TPPeerStatusUnknown) {
-                if (peerState.identityIsPreapproved) {
-                    secnotice("octagon", "Self peer (%@) is excluded but is preapproved, moving to sosuprade", peerState.peerID);
-                    self.nextState = OctagonStateAttemptSOSUpgrade;
-                } else {
-                    secnotice("octagon", "Self peer (%@) is unknown; moving to '%@''", peerState.peerID, self.peerUnknownState);
-                    self.nextState = self.peerUnknownState;
+                    self.nextState = OctagonStateBecomeUntrusted;
                 }
             } else {
-                self.nextState = self.intendedState;
+                // On an error, don't set nextState.
             }
-
             [self runBeforeGroupFinished:self.finishedOp];
-        }];
+            return;
+        }
+
+        secnotice("octagon", "update complete: %@, %@", peerState, syncingPolicy);
+
+        NSError* localError = nil;
+        BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+            [metadata setTPSyncingPolicy:syncingPolicy];
+
+            return metadata;
+        } error:&localError];
+        if(!persisted || localError) {
+            secerror("octagon: Unable to save new syncing state: %@", localError);
+
+        } else {
+            // After an update(), we're sure that we have a fresh policy
+            BOOL viewSetChanged = [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy policyIsFresh:YES];
+            if(viewSetChanged) {
+                [self.deps.flagHandler handleFlag:OctagonFlagCKKSViewSetChanged];
+            }
+        }
+
+        if(peerState.identityIsPreapproved) {
+            secnotice("octagon-sos", "Self peer is now preapproved!");
+            [self.deps.flagHandler handleFlag:OctagonFlagEgoPeerPreapproved];
+        }
+        if (peerState.memberChanges) {
+            secnotice("octagon", "Member list changed");
+            [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
+        }
+
+        if (peerState.unknownMachineIDsPresent) {
+            secnotice("octagon-authkit", "Unknown machine IDs are present; requesting fetch");
+            [self.deps.flagHandler handleFlag:OctagonFlagFetchAuthKitMachineIDList];
+        }
+
+        if (peerState.peerStatus & TPPeerStatusExcluded) {
+            secnotice("octagon", "Self peer (%@) is excluded; moving to untrusted", peerState.peerID);
+            self.nextState = OctagonStateBecomeUntrusted;
+        } else if(peerState.peerStatus & TPPeerStatusUnknown) {
+            if (peerState.identityIsPreapproved) {
+                secnotice("octagon", "Self peer (%@) is excluded but is preapproved, moving to sosuprade", peerState.peerID);
+                self.nextState = OctagonStateAttemptSOSUpgrade;
+            } else {
+                if (self.determineCDPState) {
+                    secnotice("octagon", "Self peer (%@) is unknown, but still figuring out cdp state; moving to '%@''", peerState.peerID, self.determineCDPState);
+                    self.nextState = self.determineCDPState;
+                } else if (everAppliedToOctagon && self.peerUnknownState) {
+                    // if we ever attempted to join, then move to peer unknown state
+                    secnotice("octagon", "Self peer (%@) is unknown and has attempted a join; moving to '%@''", peerState.peerID, self.peerUnknownState);
+                    self.nextState = self.peerUnknownState;
+                } else {
+                    secnotice("octagon", "Self peer (%@) is unknown and never attempted a join; moving to '%@''", peerState.peerID, OctagonStateBecomeUntrusted);
+                    self.nextState = OctagonStateBecomeUntrusted;
+                }
+            }
+        } else {
+            self.nextState = self.intendedState;
+        }
+
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

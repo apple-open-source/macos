@@ -691,6 +691,9 @@
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
 
+/* Define to 1 if you have the `linkat' function. */
+#undef HAVE_LINKAT
+
 /* Define to 1 if you have the <linux/fiemap.h> header file. */
 #undef HAVE_LINUX_FIEMAP_H
 
@@ -995,6 +998,12 @@
 
 /* Define to 1 if the system has the type `struct richacl'. */
 #undef HAVE_STRUCT_RICHACL
+
+/* Define to 1 if the system has the type `struct statfs'. */
+#undef HAVE_STRUCT_STATFS
+
+/* Define to 1 if `f_iosize' is a member of `struct statfs'. */
+#undef HAVE_STRUCT_STATFS_F_IOSIZE
 
 /* Define to 1 if `f_namemax' is a member of `struct statfs'. */
 #undef HAVE_STRUCT_STATFS_F_NAMEMAX

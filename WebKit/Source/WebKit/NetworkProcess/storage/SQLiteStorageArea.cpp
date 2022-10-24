@@ -66,11 +66,9 @@ SQLiteStorageArea::SQLiteStorageArea(unsigned quota, const WebCore::ClientOrigin
     : StorageAreaBase(quota, origin)
     , m_path(path)
     , m_queue(WTFMove(workQueue))
+    , m_cachedStatements(static_cast<size_t>(StatementType::Invalid))
 {
     ASSERT(!isMainRunLoop());
-
-    for (size_t i = 0; i < static_cast<size_t>(StatementType::Invalid); ++i)
-        m_cachedStatements.append(nullptr);
 }
 
 void SQLiteStorageArea::close()
@@ -190,14 +188,11 @@ void SQLiteStorageArea::startTransactionIfNecessary()
 
     if (m_transaction->inProgress())
         return;
-
     m_transaction->begin();
+
     m_queue->dispatchAfter(transactionDuration, [weakThis = WeakPtr { *this }] {
-        if (!weakThis || !weakThis->m_transaction)
-            return;
-    
-        auto transaction = std::exchange(weakThis->m_transaction, nullptr);
-        transaction->commit();
+        if (weakThis)
+            weakThis->commitTransactionIfNecessary();
     });
 }
 

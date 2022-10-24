@@ -31,20 +31,6 @@ for manpage in `cat "$SRCROOT/xcodescripts/builtins-manpages.txt"`; do
 done
 set -x
 
-install -d -o root -g wheel -m 0755 "$DSTROOT"/AppleInternal/Tests/shell_cmds
-install -o root -g wheel -m 0644 "$SRCROOT"/tests/regress.m4 \
-	"$DSTROOT"/AppleInternal/Tests/shell_cmds
-
-install -d -o root -g wheel -m 0755 \
-	"$DSTROOT"/AppleInternal/Tests/shell_cmds/time
-install -o root -g wheel -m 0644 "$SRCROOT"/time/tests/test_time.sh \
-	"$DSTROOT"/AppleInternal/Tests/shell_cmds/time
-
-install -d -o root -g wheel -m 0755 \
-	"$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests
-install -o root -g wheel -m 0644 "$SRCROOT"/tests/shell_cmds.plist \
-	"$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests
-
 # Skip locate and su targets for iOS
 if [ "$TARGET_NAME" = "All_iOS" ]; then
 	exit 0

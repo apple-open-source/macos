@@ -25,7 +25,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "corecrypto/ccsha1.h"
 #include "corecrypto/ccrsa_priv.h"
-#include "corecrypto/ccrng_system.h"
+#include "corecrypto/ccrng.h"
 #include "corecrypto/ccn.h"
 #include "stdio.h"
 #include "misc.h"
@@ -44,14 +44,9 @@ CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue) CF
     }
     
 	bzero(paddingBuffer, pBufferSize); // XXX needed??
-	static dispatch_once_t randomNumberGenneratorInitialzed;
-	static struct ccrng_system_state rng;
-	dispatch_once(&randomNumberGenneratorInitialzed, ^{
-        ccrng_system_init(&rng);
-	});
-	
+
     ccrsa_oaep_encode(ccsha1_di(),
-                      (struct ccrng_state*)&rng,
+                      ccrng(NULL),
                       pBufferSize, (cc_unit*)paddingBuffer,
                       CFDataGetLength(dataValue), CFDataGetBytePtr(dataValue));
     ccn_swap(ccn_nof_size(pBufferSize), (cc_unit*)paddingBuffer);

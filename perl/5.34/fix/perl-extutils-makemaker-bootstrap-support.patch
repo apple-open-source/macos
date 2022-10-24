@@ -1,0 +1,13 @@
+diff --git a/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm b/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm
+index 977b50e..d7220b0 100644
+--- a/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm
++++ b/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm
+@@ -38,7 +38,7 @@ BEGIN {
+                    grep( $^O eq $_, qw(bsdos interix dragonfly) )
+                   );
+     $Is{Android} = $^O =~ /android/;
+-    if ( $^O eq 'darwin' && $^X eq '/usr/bin/perl' ) {
++    if ( $^O eq 'darwin' ) {
+       my @osvers = split /\./, $Config{osvers};
+       $Is{ApplCor} = ( $osvers[0] >= 18 );
+     }

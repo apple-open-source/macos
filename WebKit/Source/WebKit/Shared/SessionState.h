@@ -86,15 +86,20 @@ public:
     // These are used to help debug <rdar://problem/48634553>.
     FrameState() { RELEASE_ASSERT(RunLoop::isMain()); }
     ~FrameState() { RELEASE_ASSERT(RunLoop::isMain()); }
-    const Vector<String>& documentState() const { return m_documentState; }
+    FrameState(const FrameState&) = default;
+    FrameState(FrameState&&) = default;
+    FrameState& operator=(const FrameState&) = default;
+    FrameState& operator=(FrameState&&) = default;
+
+    const Vector<AtomString>& documentState() const { return m_documentState; }
     enum class ShouldValidate : bool { No, Yes };
-    void setDocumentState(const Vector<String>&, ShouldValidate = ShouldValidate::No);
+    void setDocumentState(const Vector<AtomString>&, ShouldValidate = ShouldValidate::No);
     void validateDocumentState() const;
 
     String urlString;
     String originalURLString;
     String referrer;
-    String target;
+    AtomString target;
 
     std::optional<Vector<uint8_t>> stateObjectData;
 
@@ -120,7 +125,7 @@ public:
     Vector<FrameState> children;
 
 private:
-    Vector<String> m_documentState;
+    Vector<AtomString> m_documentState;
 };
 
 struct PageState {
@@ -131,6 +136,7 @@ struct PageState {
     FrameState mainFrameState;
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy { WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow };
     RefPtr<WebCore::SerializedScriptValue> sessionStateObject;
+    bool wasCreatedByJSWithoutUserInteraction { false };
 };
 
 struct BackForwardListItemState {

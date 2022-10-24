@@ -250,7 +250,7 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
 #endif // SMB_DEBUG
 
 char * 
-smb_strndup(const char * string, size_t maxlen)
+smb_strndup(const char * string, size_t maxlen, size_t* alloc_size)
 {
     char * result = NULL;
     size_t size;
@@ -260,7 +260,8 @@ smb_strndup(const char * string, size_t maxlen)
     }
 	
     size = strnlen(string, maxlen);
-	SMB_MALLOC(result, char *, size + 1, M_SMBSTR, M_WAITOK | M_ZERO);
+    *alloc_size = size+1;
+    SMB_MALLOC_DATA(result, *alloc_size, Z_WAITOK_ZERO);
     if (!result) {
         goto finish;
     }
@@ -293,17 +294,17 @@ void * smb_memdupin(user_addr_t umem, int len)
 	if (len > SMB_WAIT_SIZE_MAX) {
 		flags = M_NOWAIT;
 	}
-    SMB_MALLOC(p, char *, len, M_SMBDATA, flags | M_ZERO);
+    SMB_MALLOC_DATA(p, len, flags | Z_ZERO);
 	if (!p) {
 		SMBDEBUG("malloc failed : %d\n", ENOMEM);
 		return NULL;
 	}
 	error = copyin(umem, p, len);
-	if (error == 0)
+    if (error == 0) {
 		return p;
-
+    }
 	SMBDEBUG("copyin failed :  %d\n", error);
-	SMB_FREE(p, M_SMBDATA);
+    SMB_FREE_DATA(p, len);
 	return NULL;
 }
 
@@ -319,7 +320,7 @@ smb_str_memdupin(user_addr_t umem, int len, int *errp) {
     if (p == NULL) {
         *errp = ENOMEM;
     } else if (p[len - 1] != '\0') {
-        SMB_FREE(p, M_SMBDATA);
+        SMB_FREE_DATA(p, len);
         *errp = EINVAL;
     }
 
@@ -336,7 +337,7 @@ smb_memdup(const void *umem, int len)
 
 	if (len > 32 * 1024)
 		return NULL;
-    SMB_MALLOC(p, char *, len, M_SMBSTR, M_WAITOK);
+    SMB_MALLOC_DATA(p, len, Z_WAITOK);
 	if (p == NULL)
 		return NULL;
 	bcopy(umem, p, len);
@@ -712,7 +713,7 @@ smb_put_dmem(struct mbchain *mbp, const char *src, size_t srcSize,
 	utf16InLen = (srcSize * 2) + 2;
 	/* We need a bigger buffer */
 	if (utf16InLen > sizeof(convbuf)) {
-		SMB_MALLOC(utf16Str, void *, utf16InLen, M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(utf16Str, utf16InLen, Z_WAITOK);
 		if (!utf16Str)
 			return ENOMEM;
 		
@@ -739,7 +740,7 @@ smb_put_dmem(struct mbchain *mbp, const char *src, size_t srcSize,
 done:
 	/* We allocated it so free it */
 	if (utf16Str != convbuf) {
-		SMB_FREE(utf16Str, M_TEMP);
+        SMB_FREE_DATA(utf16Str, utf16InLen);
 	}
 	
 	return error;

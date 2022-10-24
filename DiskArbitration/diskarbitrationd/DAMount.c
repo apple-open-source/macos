@@ -46,6 +46,7 @@ struct __DAMountCallbackContext
     Boolean         force;
     CFURLRef        mountpoint;
     CFStringRef     options;
+    CFURLRef        devicePath;
 };
 
 typedef struct __DAMountCallbackContext __DAMountCallbackContext;
@@ -94,6 +95,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
     __DAMountCallbackContext * context = parameter;
 
+
     if ( context->assertionID != kIOPMNullAssertionID )
     {
         IOPMAssertionRelease( context->assertionID );
@@ -115,7 +117,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
         {
             DALogInfo( "repaired disk, id = %@, failure.", context->disk );
 
-            DALogInfo( "unable to repair %@ (status code 0x%08X).", context->disk, status );
+            DALogError( "unable to repair %@ (status code 0x%08X).", context->disk, status );
 
             if ( context->force )
             {
@@ -148,21 +150,26 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
          * Create the mount point, in case one needs to be created.
          */
 
+#if TARGET_OS_OSX
         if ( context->mountpoint == NULL )
         {
             context->mountpoint = DAMountCreateMountPointWithAction( context->disk, kDAMountPointActionMake );
         }
+#endif
 
         /*
          * Execute the mount command.
          */
-
+#if TARGET_OS_IOS
+        if ( context->mountpoint || DAMountGetPreference( context->disk, kDAMountPreferenceEnableUserFSMount ) == true)
+#else
         if ( context->mountpoint )
+#endif
         {
             DALogInfo( "mounted disk, id = %@, ongoing.", context->disk );
             
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
-                                            DADiskGetDevice( context->disk ),
+                                            context->devicePath,
                                             DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
                                             context->mountpoint,
                                             DADiskGetUserUID( context->disk ),
@@ -197,9 +204,12 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
 
         DALogInfo( "mounted disk, id = %@, failure.", context->disk );
 
-        DALogInfo( "unable to mount %@ (status code 0x%08X).", context->disk, status );
+        DALogError( "unable to mount %@ (status code 0x%08X).", context->disk, status );
 
-        DAMountRemoveMountPoint( context->mountpoint );
+        if ( context->mountpoint )
+        {
+            DAMountRemoveMountPoint( context->mountpoint );
+        }
 
         __DAMountWithArgumentsCallback( status, context );
     }
@@ -217,6 +227,7 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
 
         if ( DADiskGetState( context->disk, kDADiskStateRequireRepairQuotas ) )
         {
+          
             DAFileSystemRepairQuotas( DADiskGetFileSystem( context->disk ),
                                       context->mountpoint,
                                       __DAMountWithArgumentsCallbackStage3,
@@ -304,6 +315,11 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
                         compare      = CFStringCreateWithSubstring( kCFAllocatorDefault, compare, CFRangeMake( 2, CFStringGetLength( compare ) - 2 ) );
                         compareValue = kCFBooleanFalse;
                     }
+                    else if ( CFStringHasPrefix( compare, kDAFileSystemMountArgumentSnapshot ) )
+                    {
+                        compare      = CFRetain( kDAFileSystemMountArgumentSnapshot );
+                        compareValue = kCFBooleanTrue;
+                    }
                     else
                     {
                         compare      = CFRetain( compare );
@@ -335,6 +351,7 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
                         {
                             argumentsValue = compareValue;
                         }
+                        
 
                         CFRelease( compare );
                     }
@@ -365,7 +382,7 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
     CFStringRef string;
 
     mountpoint = NULL;
-
+#if TARGET_OS_OSX
     /*
      * Obtain the volume name.
      */
@@ -505,6 +522,7 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
     }
 
     CFRelease( string );
+#endif
 
 exit:
     return mountpoint;
@@ -591,8 +609,11 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             */
 
             value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceAutoMountDisableKey );
-
+#if TARGET_OS_OSX
             value = value ? value : kCFBooleanFalse;
+#else
+            value = value ? value : kCFBooleanFalse;
+#endif
 
             break;
         }
@@ -601,7 +622,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             /*
              * Determine whether the media is removable.
              */
-
+#if TARGET_OS_OSX
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
             {
                 value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey );
@@ -628,6 +649,58 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
                 }
             }
             
+            if ( value == kCFBooleanTrue )
+            {
+                CFArrayRef filesystemsArray = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceFileSystemDisableUserFSKey );
+                DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
+                CFIndex    argumentListCount;
+                CFIndex    argumentListIndex;
+                
+                if ( filesystemsArray )
+                {
+                    argumentListCount = CFArrayGetCount( filesystemsArray );
+
+                    for ( argumentListIndex = 0; argumentListIndex < argumentListCount; argumentListIndex++ )
+                    {
+                        CFStringRef compare;
+
+                        compare = CFArrayGetValueAtIndex( filesystemsArray, argumentListIndex );
+
+                        if ( CFEqual( compare, DAFileSystemGetKind( filesystem ) ) == TRUE )
+                        {
+                            value = kCFBooleanFalse;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+#elif TARGET_OS_IOS
+            if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse )
+            {
+                value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountExternalKey );
+
+                value = value ? value : kCFBooleanTrue;
+            }
+            else
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                {
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountInternalKey );
+
+                    value = value ? value : kCFBooleanFalse;
+                }
+                else
+                {
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey );
+
+                    value = value ? value : kCFBooleanFalse;
+                }
+            }
+#else
+            value = kCFBooleanFalse;
+#endif
+            
             break;
             
         }
@@ -652,7 +725,7 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
     /*
      * Obtain the mount point path.
      */
-
+#if TARGET_OS_OSX
     if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, ( void * ) path, sizeof( path ) ) )
     {
         if ( ___isautofs( path ) == 0 )
@@ -705,6 +778,7 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
             }
         }
     }
+#endif
 }
 
 static Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole)
@@ -787,7 +861,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     CFDictionaryRef            map        = NULL;
     CFMutableStringRef         options    = NULL;
     int                        status     = 0;
-
+    CFURLRef                   devicePath = NULL;
 
     /*
      * Initialize our minimal state.
@@ -895,11 +969,13 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
             /*
             * Mount APFS system volumes as nobrowse in base system environment.
             */
+#if TARGET_OS_OSX
             if ( os_variant_is_basesystem( "com.apple.diskarbitrationd" ) && ( ( isSystem == TRUE ) || ( noRolePresent == TRUE ) ) )
             {
                 CFStringInsert( options, 0, CFSTR( "," ) );
                 CFStringInsert( options, 0, kDAFileSystemMountArgumentNoBrowse );
             }
+#endif
         }
 ///w:stop
 
@@ -935,6 +1011,30 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         }
 
         CFRetain( mountpoint );
+    }
+
+    if ( DAMountContainsArgument( options, kDAFileSystemMountArgumentSnapshot ) )
+    {
+        if ( mountpoint == NULL )
+        {
+            status = EINVAL;
+
+            goto DAMountWithArgumentsErr;
+        }
+
+        devicePath = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+        if ( devicePath == NULL )
+        {
+            status = EINVAL;
+
+            goto DAMountWithArgumentsErr;
+        }
+    }
+    
+    else
+    {
+        devicePath = DADiskGetDevice( disk );
     }
 
     /*
@@ -1125,7 +1225,11 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
         if ( automatic == NULL )
         {
+#if TARGET_OS_OSX
             if ( gDAConsoleUserList == NULL )
+#elif TARGET_OS_IOS
+            if ( gDAUnlockedState == FALSE )         
+#endif
             {
                 if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
@@ -1240,7 +1344,9 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->force           = force;
     context->mountpoint      = mountpoint;
     context->options         = options;
+    context->devicePath      = devicePath;
 
+    
     if ( check == kCFBooleanTrue )
     {
         DALogInfo( "repaired disk, id = %@, ongoing.", disk );

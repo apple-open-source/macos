@@ -135,13 +135,13 @@ extern pthread_callbacks_t pthread_kern;
 
 struct ksyn_waitq_element {
 	TAILQ_ENTRY(ksyn_waitq_element) kwe_list;	/* link to other list members */
-	void *          kwe_kwqqueue;            	/* queue blocked on */
+	void *          kwe_kwqqueue;			/* queue blocked on */
 	thread_t        kwe_thread;
 	uint16_t        kwe_state;			/* state */
 	uint16_t        kwe_flags;
 	uint32_t        kwe_lockseq;			/* the sequence of the entry */
 	uint32_t	kwe_count;			/* upper bound on number of matches still pending */
-	uint32_t 	kwe_psynchretval;		/* thread retval */
+	uint32_t	kwe_psynchretval;		/* thread retval */
 	void		*kwe_uth;			/* uthread */
 };
 typedef struct ksyn_waitq_element * ksyn_waitq_element_t;
@@ -154,7 +154,6 @@ extern thread_t port_name_to_thread(mach_port_name_t port_name);
 
 /* function declarations for pthread_kext.c */
 void pthread_init(void);
-void psynch_zoneinit(void);
 void _pth_proc_hashinit(proc_t p);
 void _pth_proc_hashdelete(proc_t p);
 void pth_global_hashinit(void);

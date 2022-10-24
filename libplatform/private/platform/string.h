@@ -38,6 +38,7 @@
 #define _PLATFORM_OPTIMIZED_MEMCCPY 0
 #define _PLATFORM_OPTIMIZED_MEMCHR 0
 #define _PLATFORM_OPTIMIZED_MEMCMP 0
+#define _PLATFORM_OPTIMIZED_MEMCMP_ZERO_ALIGNED8 0
 #define _PLATFORM_OPTIMIZED_MEMMOVE 0
 #define _PLATFORM_OPTIMIZED_MEMSET 0
 #define _PLATFORM_OPTIMIZED_MEMSET_PATTERN4 0
@@ -133,6 +134,18 @@ _platform_strnlen(const char *s, size_t maxlen);
 __OSX_AVAILABLE(10.14) __IOS_AVAILABLE(12.0) __TVOS_AVAILABLE(12.0) __WATCHOS_AVAILABLE(5.0)
 char *
 _platform_strstr(const char *s, const char *find);
+
+/*
+ * memcmp_zero_aligned8() checks whether string s of n bytes contains all
+ * zeros.  Address and size of the string s must be 8 byte-aligned.  Returns 0
+ * if true, 1 otherwise. Also returns 0 if n is 0.
+ *
+ * Based on xnu's memcmp_zero_ptr_aligned().
+ *
+ * No implementation is provided in the static variant.
+ */
+__SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0), bridgeos(7.0))
+unsigned long _platform_memcmp_zero_aligned8(const void *s, size_t n);
 
 __END_DECLS
 

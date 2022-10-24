@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -92,9 +92,8 @@ SQLiteDatabase::~SQLiteDatabase()
 bool SQLiteDatabase::open(const String& filename, OpenMode openMode)
 {
     initializeSQLiteIfNecessary();
-
     close();
-    
+
     auto closeDatabase = makeScopeExit([&]() {
         if (!m_db)
             return;
@@ -141,7 +140,7 @@ bool SQLiteDatabase::open(const String& filename, OpenMode openMode)
     }
 
     overrideUnauthorizedFunctions();
-    
+
     m_openingThread = &Thread::current();
     if (sqlite3_extended_result_codes(m_db, 1) != SQLITE_OK)
         return false;
@@ -152,13 +151,16 @@ bool SQLiteDatabase::open(const String& filename, OpenMode openMode)
             LOG_ERROR("SQLite database could not set temp_store to memory");
     }
 
-    if (openMode != OpenMode::ReadOnly && !useWALJournalMode())
-        return false;
+    if (filename != inMemoryPath()) {
+        if (openMode != OpenMode::ReadOnly && !useWALJournalMode())
+            return false;
 
-    auto shmFileName = makeString(filename, "-shm"_s);
-    if (FileSystem::fileExists(shmFileName) && !FileSystem::isSafeToUseMemoryMapForPath(shmFileName)) {
-        RELEASE_LOG_FAULT(SQLDatabase, "Opened an SQLite database with a Class A -shm file. This may trigger a crash when the user locks the device. (%s)", shmFileName.latin1().data());
-        FileSystem::makeSafeToUseMemoryMapForPath(shmFileName);
+        auto shmFileName = makeString(filename, "-shm"_s);
+        if (FileSystem::fileExists(shmFileName) && !FileSystem::isSafeToUseMemoryMapForPath(shmFileName)) {
+            RELEASE_LOG_FAULT(SQLDatabase, "Opened an SQLite database with a Class A -shm file. This may trigger a crash when the user locks the device. (%s)", shmFileName.latin1().data());
+            if (!FileSystem::makeSafeToUseMemoryMapForPath(shmFileName))
+                return false;
+        }
     }
 
     closeDatabase.release();
@@ -236,10 +238,10 @@ bool SQLiteDatabase::useWALJournalMode()
         int stepResult = walStatement->step();
         if (stepResult != SQLITE_ROW)
             return false;
-    
+
 #ifndef NDEBUG
         String mode = walStatement->columnText(0);
-        if (!equalLettersIgnoringASCIICase(mode, "wal")) {
+        if (!equalLettersIgnoringASCIICase(mode, "wal"_s)) {
             LOG_ERROR("SQLite database journal_mode should be 'WAL', but is '%s'", mode.utf8().data());
             return false;
         }
@@ -407,7 +409,7 @@ void SQLiteDatabase::setBusyHandler(int(*handler)(void*, int))
         LOG(SQLDatabase, "Busy handler set on non-open database");
 }
 
-bool SQLiteDatabase::executeCommandSlow(const String& query)
+bool SQLiteDatabase::executeCommandSlow(StringView query)
 {
     auto statement = prepareStatementSlow(query);
     return statement && statement->executeCommand();
@@ -419,12 +421,12 @@ bool SQLiteDatabase::executeCommand(ASCIILiteral query)
     return statement && statement->executeCommand();
 }
 
-bool SQLiteDatabase::tableExists(const String& tableName)
+bool SQLiteDatabase::tableExists(StringView tableName)
 {
     return !tableSQL(tableName).isEmpty();
 }
 
-String SQLiteDatabase::tableSQL(const String& tableName)
+String SQLiteDatabase::tableSQL(StringView tableName)
 {
     if (!isOpen())
         return { };
@@ -436,7 +438,7 @@ String SQLiteDatabase::tableSQL(const String& tableName)
     return statement->columnText(0);
 }
 
-String SQLiteDatabase::indexSQL(const String& indexName)
+String SQLiteDatabase::indexSQL(StringView indexName)
 {
     if (!isOpen())
         return { };
@@ -459,7 +461,7 @@ void SQLiteDatabase::clearAllTables()
     while (statement->step() == SQLITE_ROW)
         tables.append(statement->columnText(0));
     for (auto& table : tables) {
-        if (!executeCommandSlow("DROP TABLE " + table))
+        if (!executeCommandSlow(makeString("DROP TABLE ", table)))
             LOG(SQLDatabase, "Unable to drop table %s", table.ascii().data());
     }
 }
@@ -530,69 +532,71 @@ int SQLiteDatabase::authorizerFunction(void* userData, int actionCode, const cha
     DatabaseAuthorizer* auth = static_cast<DatabaseAuthorizer*>(userData);
     ASSERT(auth);
 
+    auto parameter1String = String::fromLatin1(parameter1);
+    auto parameter2String = String::fromLatin1(parameter2);
     switch (actionCode) {
         case SQLITE_CREATE_INDEX:
-            return auth->createIndex(parameter1, parameter2);
+            return auth->createIndex(parameter1String, parameter2String);
         case SQLITE_CREATE_TABLE:
-            return auth->createTable(parameter1);
+            return auth->createTable(parameter1String);
         case SQLITE_CREATE_TEMP_INDEX:
-            return auth->createTempIndex(parameter1, parameter2);
+            return auth->createTempIndex(parameter1String, parameter2String);
         case SQLITE_CREATE_TEMP_TABLE:
-            return auth->createTempTable(parameter1);
+            return auth->createTempTable(parameter1String);
         case SQLITE_CREATE_TEMP_TRIGGER:
-            return auth->createTempTrigger(parameter1, parameter2);
+            return auth->createTempTrigger(parameter1String, parameter2String);
         case SQLITE_CREATE_TEMP_VIEW:
-            return auth->createTempView(parameter1);
+            return auth->createTempView(parameter1String);
         case SQLITE_CREATE_TRIGGER:
-            return auth->createTrigger(parameter1, parameter2);
+            return auth->createTrigger(parameter1String, parameter2String);
         case SQLITE_CREATE_VIEW:
-            return auth->createView(parameter1);
+            return auth->createView(parameter1String);
         case SQLITE_DELETE:
-            return auth->allowDelete(parameter1);
+            return auth->allowDelete(parameter1String);
         case SQLITE_DROP_INDEX:
-            return auth->dropIndex(parameter1, parameter2);
+            return auth->dropIndex(parameter1String, parameter2String);
         case SQLITE_DROP_TABLE:
-            return auth->dropTable(parameter1);
+            return auth->dropTable(parameter1String);
         case SQLITE_DROP_TEMP_INDEX:
-            return auth->dropTempIndex(parameter1, parameter2);
+            return auth->dropTempIndex(parameter1String, parameter2String);
         case SQLITE_DROP_TEMP_TABLE:
-            return auth->dropTempTable(parameter1);
+            return auth->dropTempTable(parameter1String);
         case SQLITE_DROP_TEMP_TRIGGER:
-            return auth->dropTempTrigger(parameter1, parameter2);
+            return auth->dropTempTrigger(parameter1String, parameter2String);
         case SQLITE_DROP_TEMP_VIEW:
-            return auth->dropTempView(parameter1);
+            return auth->dropTempView(parameter1String);
         case SQLITE_DROP_TRIGGER:
-            return auth->dropTrigger(parameter1, parameter2);
+            return auth->dropTrigger(parameter1String, parameter2String);
         case SQLITE_DROP_VIEW:
-            return auth->dropView(parameter1);
+            return auth->dropView(parameter1String);
         case SQLITE_INSERT:
-            return auth->allowInsert(parameter1);
+            return auth->allowInsert(parameter1String);
         case SQLITE_PRAGMA:
-            return auth->allowPragma(parameter1, parameter2);
+            return auth->allowPragma(parameter1String, parameter2String);
         case SQLITE_READ:
-            return auth->allowRead(parameter1, parameter2);
+            return auth->allowRead(parameter1String, parameter2String);
         case SQLITE_SELECT:
             return auth->allowSelect();
         case SQLITE_TRANSACTION:
             return auth->allowTransaction();
         case SQLITE_UPDATE:
-            return auth->allowUpdate(parameter1, parameter2);
+            return auth->allowUpdate(parameter1String, parameter2String);
         case SQLITE_ATTACH:
-            return auth->allowAttach(parameter1);
+            return auth->allowAttach(parameter1String);
         case SQLITE_DETACH:
-            return auth->allowDetach(parameter1);
+            return auth->allowDetach(parameter1String);
         case SQLITE_ALTER_TABLE:
-            return auth->allowAlterTable(parameter1, parameter2);
+            return auth->allowAlterTable(parameter1String, parameter2String);
         case SQLITE_REINDEX:
-            return auth->allowReindex(parameter1);
+            return auth->allowReindex(parameter1String);
         case SQLITE_ANALYZE:
-            return auth->allowAnalyze(parameter1);
+            return auth->allowAnalyze(parameter1String);
         case SQLITE_CREATE_VTABLE:
-            return auth->createVTable(parameter1, parameter2);
+            return auth->createVTable(parameter1String, parameter2String);
         case SQLITE_DROP_VTABLE:
-            return auth->dropVTable(parameter1, parameter2);
+            return auth->dropVTable(parameter1String, parameter2String);
         case SQLITE_FUNCTION:
-            return auth->allowFunction(parameter2);
+            return auth->allowFunction(parameter2String);
         default:
             ASSERT_NOT_REACHED();
             return SQLAuthDeny;
@@ -676,11 +680,6 @@ void SQLiteDatabase::setCollationFunction(const String& collationName, Function<
     sqlite3_create_collation_v2(m_db, collationName.utf8().data(), SQLITE_UTF8, functionObject, callCollationFunction, destroyCollationFunction);
 }
 
-void SQLiteDatabase::removeCollationFunction(const String& collationName)
-{
-    sqlite3_create_collation_v2(m_db, collationName.utf8().data(), SQLITE_UTF8, nullptr, nullptr, nullptr);
-}
-
 void SQLiteDatabase::releaseMemory()
 {
     if (!m_db)
@@ -719,7 +718,7 @@ static Expected<sqlite3_stmt*, int> constructAndPrepareStatement(SQLiteDatabase&
     return statement;
 }
 
-Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatementSlow(const String& queryString)
+Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatementSlow(StringView queryString)
 {
     CString query = queryString.stripWhiteSpace().utf8();
     auto sqlStatement = constructAndPrepareStatement(*this, query.data(), query.length());
@@ -740,7 +739,7 @@ Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatement(ASCIILiteral que
     return SQLiteStatement { *this, sqlStatement.value() };
 }
 
-Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatementSlow(const String& queryString)
+Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatementSlow(StringView queryString)
 {
     CString query = queryString.stripWhiteSpace().utf8();
     auto sqlStatement = constructAndPrepareStatement(*this, query.data(), query.length());

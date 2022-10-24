@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2013 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd October 9, 2018
+.Dd February 8, 2022
 .Dt XATTR_NAME_WITH_FLAGS 3
 .Os
 .Sh NAME
@@ -84,6 +84,8 @@ For example, saving as an attachment in an email message, or placing in a public
 Sensitive information should probably not be preserved in this case.
 .It Dv XATTR_OPERATION_INTENT_SYNC
 Indicates that the intent is to sync the object to a service like iCloud Drive.
+.It Dv XATTR_OPERATION_INTENT_BACKUP
+Indicates that the intent is to backup the object to a service like Time Machine.
 .El
 .Sh FLAGS
 Various flags are defined by the type
@@ -107,6 +109,12 @@ This indicates that the extended attribute should be copied when the file
 is synced on services like iCloud Drive.
 Sync services may enforce additional restrictions on the acceptable size and number
 of extended attributes.
+(Note that when used with
+.Dv XATTR_FLAG_CONTENT_DEPENDENT,
+this may generate conflicts when the file is synced.)
+.It Dv XATTR_FLAG_ONLY_BACKUP
+This indicates that the extended attribute should only be copied during backup
+on services like Time Machine.
 .El
 .Sh EXAMPLE
 The following example is a simple function that, given an extended attribute

@@ -44,6 +44,7 @@ ca{
         an{"aragonès"}
         ang{"anglès antic"}
         anp{"angika"}
+        apw{"apatxe occidental"}
         ar{"àrab"}
         ar_001{"àrab estàndard modern"}
         arc{"arameu"}

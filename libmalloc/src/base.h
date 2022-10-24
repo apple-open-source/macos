@@ -71,14 +71,7 @@
 #   define MALLOC_CACHE_LINE 128
 #   define MALLOC_NANO_CACHE_LINE 64
 #elif defined(__arm__) || defined(__arm64__)
-#	if TARGET_OS_OSX || TARGET_OS_DRIVERKIT || TARGET_OS_SIMULATOR
-// To make zone structure layout match to support introspecting a Rosetta process
-// from a native process or vice versa on macOS. See comment in
-// quarantine_diagnose_fault_from_crash_reporter.
-#   	define MALLOC_CACHE_LINE 128
-#	else
-#   	define MALLOC_CACHE_LINE 64
-#	endif
+# 	define MALLOC_CACHE_LINE 128
 #   define MALLOC_NANO_CACHE_LINE 64
 #else
 #   define MALLOC_CACHE_LINE 32
@@ -95,6 +88,8 @@
 #define MALLOC_PACKED __attribute__((packed))
 #define MALLOC_USED __attribute__((used))
 #define MALLOC_UNUSED __attribute__((unused))
+#define MALLOC_NORETURN __attribute__((noreturn))
+#define MALLOC_COLD __attribute__((cold))
 #define CHECK_MAGAZINE_PTR_LOCKED(szone, mag_ptr, fun) {}
 
 #define SCRIBBLE_BYTE 0xaa /* allocated scribble */

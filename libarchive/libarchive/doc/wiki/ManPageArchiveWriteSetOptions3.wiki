@@ -238,7 +238,7 @@ Values between 0 and 9 are supported.
 The interpretation of the compression level depends on the chosen 
 compression method. 
 </dd></dl> 
-</dd><dt>Format cpio</dt><dd> 
+</dd><dt>Format bin</dt><dd> 
 <dl> 
 <dt>'''hdrcharset'''</dt><dd> 
 The value is used as a character set name that will be 
@@ -473,6 +473,18 @@ lines that specify default values for the following files and/or directories.
 XXX needs explanation XXX 
 </dd></dl> 
 </dd><dt>Format newc</dt><dd> 
+<dl> 
+<dt>'''hdrcharset'''</dt><dd> 
+The value is used as a character set name that will be 
+used when translating file names. 
+</dd></dl> 
+</dd><dt>Format odc</dt><dd> 
+<dl> 
+<dt>'''hdrcharset'''</dt><dd> 
+The value is used as a character set name that will be 
+used when translating file names. 
+</dd></dl> 
+</dd><dt>Format pwb</dt><dd> 
 <dl> 
 <dt>'''hdrcharset'''</dt><dd> 
 The value is used as a character set name that will be 

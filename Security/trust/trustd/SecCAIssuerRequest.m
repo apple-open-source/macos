@@ -112,7 +112,7 @@ static NSArray *certificatesFromData(NSData *data) {
     NSUUID *taskId = [task.originalRequest taskId];
     CAIssuerContext *urlContext = (CAIssuerContext *)[self contextForTask:taskId];
     if (!urlContext) {
-        secerror("failed to find context for %@", taskId);
+        secnotice("http","failed to find context for %@", taskId);
         return;
     }
 
@@ -174,7 +174,7 @@ static NSArray *certificatesFromData(NSData *data) {
     NSUUID *taskId = [task.originalRequest taskId];
     TrustURLSessionContext *urlContext = [self contextForTask:taskId];
     if (!urlContext) {
-        secerror("failed to find context for %@", taskId);
+        secnotice("http","failed to find context for %@", taskId);
         return;
     }
 
@@ -281,6 +281,7 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (
         NSURLSession *session = [sessionCache sessionForAuditToken:auditToken];
         CAIssuerContext *urlContext = [[CAIssuerContext alloc] initWithContext:builder uris:nsIssuers];
         urlContext.callback = callback;
+        urlContext.attribution = (NSURLRequestAttribution)SecPathBuilderGetAttribution(builder);
         return [delegate fetchNext:session context:urlContext];
     }
 }

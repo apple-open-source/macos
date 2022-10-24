@@ -63,7 +63,7 @@ static const bool kTestLocalKeybag = false;
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 CFArrayRef SecAccessGroupsGetCurrent(void);
 
-#define kSecdTestCreateCustomKeybagTestCount 6
+#define kSecdTestCreateCustomKeybagTestCount 9
 #define kSecdTestLocalKeybagTestCount 1
 #define kSecdTestKeybagtableTestCount 5
 #define kSecdTestAddItemTestCount 2
@@ -86,7 +86,7 @@ static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
     return CFDataCreate(kCFAllocatorDefault, NULL, 0);
 }
 
-static bool createCustomKeybag() {
+static bool createCustomKeybag(keybag_handle_t* keybag_out) {
     /* custom keybag */
     keybag_handle_t keybag;
     keybag_state_t state;
@@ -106,7 +106,17 @@ static bool createCustomKeybag() {
         ok(state&keybag_state_locked, "keybag locked");
     }
 
+    *keybag_out = keybag;
     return true;
+}
+
+static void invalidateCustomKeybag(keybag_handle_t keybag) {
+    void* buf = NULL;
+    int bufLen = 0;
+    ok(kAKSReturnSuccess == aks_save_bag(keybag, &buf, &bufLen), "failed to save keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_unload_bag(keybag), "failed to unload keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_invalidate_bag(buf, bufLen), "failed to invalidate keybag");
+    free(buf);
 }
 
 static int keychainTestEnvironment(const char *environmentName, dispatch_block_t do_in_reset, dispatch_block_t do_in_environment) {
@@ -119,7 +129,8 @@ static int keychainTestEnvironment(const char *environmentName, dispatch_block_t
     SecAccessGroupsSetCurrent(test_ag);
 
     secd_test_setup_temp_keychain(environmentName, do_in_reset);
-    bool haveCustomKeybag = kTestCustomKeybag && createCustomKeybag();
+    keybag_handle_t keybag = bad_keybag_handle;
+    bool haveCustomKeybag = kTestCustomKeybag && createCustomKeybag(&keybag);
 
     // Perform tasks in the test keychain environment
     if (do_in_environment)
@@ -140,6 +151,10 @@ static int keychainTestEnvironment(const char *environmentName, dispatch_block_t
     secd_test_teardown_delete_temp_keychain(environmentName);
     SetCustomHomePath(NULL);
     SecKeychainDbReset(NULL);
+
+    if (haveCustomKeybag) {
+        invalidateCustomKeybag(keybag);
+    }
     return 0;
 }
 
@@ -163,7 +178,7 @@ static int addOneItemTest(NSString *account) {
     return 0;
 }
 
-static int localKeybagTest() {
+static int localKeybagTest(void) {
     const char *pass = "sup3rsekretpassc0de";
     CFDataRef password = CFDataCreate(NULL, (UInt8 *)pass, strlen(pass));
     CFDataRef keybag = create_keybag(kAppleKeyStoreAsymmetricBackupBag, password);
@@ -173,7 +188,7 @@ static int localKeybagTest() {
     return 0;
 }
 
-static int test_keybagtable() {
+static int test_keybagtable(void) {
     CFErrorRef error = NULL;
     const char *pass = "sup3rsekretpassc0de";
     CFDataRef password = CFDataCreate(NULL, (UInt8 *)pass, strlen(pass));
@@ -202,7 +217,7 @@ static int test_keybagtable() {
     return 0;
 }
 
-static void showHomeURL() {
+static void showHomeURL(void) {
 #if DEBUG
     CFURLRef homeURL = SecCopyHomeURL();
     NSLog(@"Home URL for test : %@", homeURL);

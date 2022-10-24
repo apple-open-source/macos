@@ -229,6 +229,15 @@ SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 extern const CFStringRef kSecCodeSignerEditCMS
 SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 
+extern const CFStringRef kSecCodeSignerLaunchConstraintSelf
+SPI_AVAILABLE(macos(13.0), ios(16.0), macCatalyst(16.0));
+
+extern const CFStringRef kSecCodeSignerLaunchConstraintParent
+SPI_AVAILABLE(macos(13.0), ios(16.0), macCatalyst(16.0));
+
+extern const CFStringRef kSecCodeSignerLaunchConstraintResponsible
+SPI_AVAILABLE(macos(13.0), ios(16.0), macCatalyst(16.0));
+
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
     kSecCodeSignerPreserveRequirements = 1 << 1,	// preserve internal requirements (including DR)

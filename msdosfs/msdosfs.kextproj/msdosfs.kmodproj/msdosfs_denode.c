@@ -130,7 +130,7 @@ void msdosfs_hash_init(void)
 void msdosfs_hash_uninit(void)
 {
 	if (dehashtbl)
-		FREE(dehashtbl, M_TEMP);
+		hashdestroy(dehashtbl, M_TEMP, dehash);
 	if (msdosfs_hash_lock)
 		lck_mtx_free(msdosfs_hash_lock, msdosfs_lck_grp);
 }

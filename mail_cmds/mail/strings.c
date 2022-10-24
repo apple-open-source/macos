@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)strings.c	8.1 (Berkeley) 6/6/93";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/strings.c,v 1.5 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 /*
  * Mail -- a mail program
@@ -53,6 +48,8 @@ static const char rcsid[] =
 #include "rcv.h"
 #include "extern.h"
 
+struct strings stringdope[NSPACE];
+
 /*
  * Allocate size more bytes of space and return the address of the
  * first byte to the caller.  An even number of bytes are always
@@ -62,8 +59,7 @@ static const char rcsid[] =
  */
 
 char *
-salloc(size)
-	int size;
+salloc(int size)
 {
 	char *t;
 	int s, index;
@@ -101,7 +97,7 @@ salloc(size)
  * since last reset.
  */
 void
-sreset()
+sreset(void)
 {
 	struct strings *sp;
 	int index;
@@ -123,7 +119,7 @@ sreset()
  * Meant to be called in main, after initialization.
  */
 void
-spreserve()
+spreserve(void)
 {
 	struct strings *sp;
 

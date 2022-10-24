@@ -354,6 +354,63 @@ eval_to_string_skip(
 }
 
 /*
+ * Initialize "evalarg" for use.
+ */
+    void
+init_evalarg(evalarg_T *evalarg)
+{
+    CLEAR_POINTER(evalarg);
+    ga_init2(&evalarg->eval_tofree_ga, sizeof(char_u *), 20);
+}
+
+/*
+ * If "evalarg->eval_tofree" is not NULL free it later.
+ * Caller is expected to overwrite "evalarg->eval_tofree" next.
+ */
+    static void
+free_eval_tofree_later(evalarg_T *evalarg)
+{
+    if (evalarg->eval_tofree != NULL)
+    {
+	if (ga_grow(&evalarg->eval_tofree_ga, 1) == OK)
+	    ((char_u **)evalarg->eval_tofree_ga.ga_data)
+		[evalarg->eval_tofree_ga.ga_len++]
+		= evalarg->eval_tofree;
+	else
+	    vim_free(evalarg->eval_tofree);
+    }
+}
+
+/*
+ * After using "evalarg" filled from "eap": free the memory.
+ */
+    void
+clear_evalarg(evalarg_T *evalarg, exarg_T *eap)
+{
+    if (evalarg != NULL)
+    {
+	if (evalarg->eval_tofree != NULL)
+	{
+	    if (eap != NULL)
+	    {
+		// We may need to keep the original command line, e.g. for
+		// ":let" it has the variable names.  But we may also need the
+		// new one, "nextcmd" points into it.  Keep both.
+		vim_free(eap->cmdline_tofree);
+		eap->cmdline_tofree = *eap->cmdlinep;
+		*eap->cmdlinep = evalarg->eval_tofree;
+	    }
+	    else
+		vim_free(evalarg->eval_tofree);
+	    evalarg->eval_tofree = NULL;
+	}
+
+	ga_clear_strings(&evalarg->eval_tofree_ga);
+	VIM_CLEAR(evalarg->eval_tofree_lambda);
+    }
+}
+
+/*
  * Skip over an expression at "*pp".
  * Return FAIL for an error, OK otherwise.
  */
@@ -435,8 +492,8 @@ skip_expr_concatenate(
 		// Do not free the first line, the caller can still use it.
 		*((char_u **)gap->ga_data) = NULL;
 		// Do not free the last line, "arg" points into it, free it
-		// later.
-		vim_free(evalarg->eval_tofree);
+		// later.  Also free "eval_tofree" later if needed.
+		free_eval_tofree_later(evalarg);
 		evalarg->eval_tofree =
 				    ((char_u **)gap->ga_data)[gap->ga_len - 1];
 		((char_u **)gap->ga_data)[gap->ga_len - 1] = NULL;
@@ -982,6 +1039,7 @@ get_lval(
 	    ufunc_T *ufunc;
 	    type_T *type;
 
+	    import_check_sourced_sid(&import->imp_sid);
 	    lp->ll_sid = import->imp_sid;
 	    lp->ll_name = skipwhite(p + 1);
 	    p = find_name_end(lp->ll_name, NULL, NULL, fne_flags);
@@ -2136,6 +2194,35 @@ eval_func(
 }
 
 /*
+ * After a NL, skip over empty lines and comment-only lines.
+ */
+    static char_u *
+newline_skip_comments(char_u *arg)
+{
+    char_u *p = arg + 1;
+
+    for (;;)
+    {
+	p = skipwhite(p);
+
+	if (*p == NUL)
+	    break;
+	if (vim9_comment_start(p))
+	{
+	    char_u *nl = vim_strchr(p, NL);
+
+	    if (nl == NULL)
+		    break;
+	    p = nl;
+	}
+	if (*p != NL)
+	    break;
+	++p;  // skip another NL
+    }
+    return p;
+}
+
+/*
  * Get the next line source line without advancing.  But do skip over comment
  * lines.
  * Only called for Vim9 script.
@@ -2184,7 +2271,7 @@ eval_next_non_blank(char_u *arg, evalarg_T *evalarg, int *getnext)
 	char_u *next;
 
 	if (*p == NL)
-	    next = p + 1;
+	    next = newline_skip_comments(p);
 	else if (evalarg->eval_cookie != NULL)
 	    next = getline_peek_skip_comments(evalarg);
 	else
@@ -2212,7 +2299,7 @@ eval_next_line(char_u *arg, evalarg_T *evalarg)
     if (arg != NULL)
     {
 	if (*arg == NL)
-	    return skipwhite(arg + 1);
+	    return newline_skip_comments(arg);
 	// Truncate before a trailing comment, so that concatenating the lines
 	// won't turn the rest into a comment.
 	if (*skipwhite(arg) == '#')
@@ -2245,7 +2332,7 @@ eval_next_line(char_u *arg, evalarg_T *evalarg)
     }
     else if (evalarg->eval_cookie != NULL)
     {
-	vim_free(evalarg->eval_tofree);
+	free_eval_tofree_later(evalarg);
 	evalarg->eval_tofree = line;
     }
 
@@ -2270,45 +2357,6 @@ skipwhite_and_linebreak(char_u *arg, evalarg_T *evalarg)
     if (getnext)
 	return eval_next_line(arg, evalarg);
     return p;
-}
-
-/*
- * Initialize "evalarg" for use.
- */
-    void
-init_evalarg(evalarg_T *evalarg)
-{
-    CLEAR_POINTER(evalarg);
-    ga_init2(&evalarg->eval_tofree_ga, sizeof(char_u *), 20);
-}
-
-/*
- * After using "evalarg" filled from "eap": free the memory.
- */
-    void
-clear_evalarg(evalarg_T *evalarg, exarg_T *eap)
-{
-    if (evalarg != NULL)
-    {
-	if (evalarg->eval_tofree != NULL)
-	{
-	    if (eap != NULL)
-	    {
-		// We may need to keep the original command line, e.g. for
-		// ":let" it has the variable names.  But we may also need the
-		// new one, "nextcmd" points into it.  Keep both.
-		vim_free(eap->cmdline_tofree);
-		eap->cmdline_tofree = *eap->cmdlinep;
-		*eap->cmdlinep = evalarg->eval_tofree;
-	    }
-	    else
-		vim_free(evalarg->eval_tofree);
-	    evalarg->eval_tofree = NULL;
-	}
-
-	ga_clear_strings(&evalarg->eval_tofree_ga);
-	VIM_CLEAR(evalarg->eval_tofree_lambda);
-    }
 }
 
 /*
@@ -2358,27 +2406,32 @@ eval0_retarg(
 
     p = skipwhite(arg);
     ret = eval1(&p, rettv, evalarg);
-    expr_end = p;
-    p = skipwhite(p);
 
-    // In Vim9 script a command block is not split at NL characters for
-    // commands using an expression argument.  Skip over a '#' comment to check
-    // for a following NL.  Require white space before the '#'.
-    if (in_vim9script() && p > expr_end && retarg == NULL)
-	while (*p == '#')
-	{
-	    char_u *nl = vim_strchr(p, NL);
+    if (ret != FAIL)
+    {
+	expr_end = p;
+	p = skipwhite(p);
 
-	    if (nl == NULL)
-		break;
-	    p = skipwhite(nl + 1);
-	    if (eap != NULL && *p != NUL)
-		eap->nextcmd = p;
-	    check_for_end = FALSE;
-	}
+	// In Vim9 script a command block is not split at NL characters for
+	// commands using an expression argument.  Skip over a '#' comment to
+	// check for a following NL.  Require white space before the '#'.
+	if (in_vim9script() && p > expr_end && retarg == NULL)
+	    while (*p == '#')
+	    {
+		char_u *nl = vim_strchr(p, NL);
 
-    if (ret != FAIL && check_for_end)
-	end_error = !ends_excmd2(arg, p);
+		if (nl == NULL)
+		    break;
+		p = skipwhite(nl + 1);
+		if (eap != NULL && *p != NUL)
+		    eap->nextcmd = p;
+		check_for_end = FALSE;
+	    }
+
+	if (check_for_end)
+	    end_error = !ends_excmd2(arg, p);
+    }
+
     if (ret == FAIL || end_error)
     {
 	if (ret != FAIL)
@@ -2404,7 +2457,8 @@ eval0_retarg(
 	// Some of the expression may not have been consumed.  Do not check for
 	// a next command to avoid more errors, unless "|" is following, which
 	// could only be a command separator.
-	if (eap != NULL && skipwhite(p)[0] == '|' && skipwhite(p)[1] != '|')
+	if (eap != NULL && p != NULL
+			  &&  skipwhite(p)[0] == '|' && skipwhite(p)[1] != '|')
 	    eap->nextcmd = check_nextcmd(p);
 	return FAIL;
     }
@@ -6905,7 +6959,7 @@ do_string_sub(
 	     * - The substituted text.
 	     * - The text after the match.
 	     */
-	    sublen = vim_regsub(&regmatch, sub, expr, tail, FALSE, TRUE, FALSE);
+	    sublen = vim_regsub(&regmatch, sub, expr, tail, 0, REGSUB_MAGIC);
 	    if (ga_grow(&ga, (int)((end - tail) + sublen -
 			    (regmatch.endp[0] - regmatch.startp[0]))) == FAIL)
 	    {
@@ -6917,8 +6971,9 @@ do_string_sub(
 	    i = (int)(regmatch.startp[0] - tail);
 	    mch_memmove((char_u *)ga.ga_data + ga.ga_len, tail, (size_t)i);
 	    // add the substituted text
-	    (void)vim_regsub(&regmatch, sub, expr, (char_u *)ga.ga_data
-					  + ga.ga_len + i, TRUE, TRUE, FALSE);
+	    (void)vim_regsub(&regmatch, sub, expr,
+				  (char_u *)ga.ga_data + ga.ga_len + i, sublen,
+				  REGSUB_COPY | REGSUB_MAGIC);
 	    ga.ga_len += i + sublen - 1;
 	    tail = regmatch.endp[0];
 	    if (*tail == NUL)

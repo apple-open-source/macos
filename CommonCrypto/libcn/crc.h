@@ -127,29 +127,29 @@ static inline uint64_t descmaskfunc(crcDescriptorPtr descriptor) {
     return 0;
 }
 
-extern const crcDescriptor crc8;
-extern const crcDescriptor crc8_icode;
-extern const crcDescriptor crc8_itu;
-extern const crcDescriptor crc8_rohc;
-extern const crcDescriptor crc8_wcdma;
-extern const crcDescriptor crc16;
-extern const crcDescriptor crc16_ccitt_true;
-extern const crcDescriptor crc16_ccitt_false;
-extern const crcDescriptor crc16_usb;
-extern const crcDescriptor crc16_xmodem;
-extern const crcDescriptor crc16_dect_r;
-extern const crcDescriptor crc16_dect_x;
-extern const crcDescriptor crc16_icode;
-extern const crcDescriptor crc16_verifone;
-extern const crcDescriptor crc16_a;
-extern const crcDescriptor crc16_b;
-extern const crcDescriptor crc32;
-extern const crcDescriptor crc32_castagnoli;
-extern const crcDescriptor crc32_bzip2;
-extern const crcDescriptor crc32_mpeg_2;
-extern const crcDescriptor crc32_posix;
-extern const crcDescriptor crc32_xfer;
-extern const crcDescriptor adler32;
-extern const crcDescriptor crc64_ecma_182;
+extern const crcDescriptor CC_crc8;
+extern const crcDescriptor CC_crc8_icode;
+extern const crcDescriptor CC_crc8_itu;
+extern const crcDescriptor CC_crc8_rohc;
+extern const crcDescriptor CC_crc8_wcdma;
+extern const crcDescriptor CC_crc16;
+extern const crcDescriptor CC_crc16_ccitt_true;
+extern const crcDescriptor CC_crc16_ccitt_false;
+extern const crcDescriptor CC_crc16_usb;
+extern const crcDescriptor CC_crc16_xmodem;
+extern const crcDescriptor CC_crc16_dect_r;
+extern const crcDescriptor CC_crc16_dect_x;
+extern const crcDescriptor CC_crc16_icode;
+extern const crcDescriptor CC_crc16_verifone;
+extern const crcDescriptor CC_crc16_a;
+extern const crcDescriptor CC_crc16_b;
+extern const crcDescriptor CC_crc32;
+extern const crcDescriptor CC_crc32_castagnoli;
+extern const crcDescriptor CC_crc32_bzip2;
+extern const crcDescriptor CC_crc32_mpeg_2;
+extern const crcDescriptor CC_crc32_posix;
+extern const crcDescriptor CC_crc32_xfer;
+extern const crcDescriptor CC_adler32;
+extern const crcDescriptor CC_crc64_ecma_182;
 
 #endif

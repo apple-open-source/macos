@@ -45,6 +45,9 @@ XSLTPUBFUN int XSLTCALL
 					 xmlNodePtr node,
 					 xsltCompMatchPtr comp);
 XSLTPUBFUN void XSLTCALL
+		xsltCompMatchClearCache	(xsltTransformContextPtr ctxt,
+					 xsltCompMatchPtr comp) LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16;
+XSLTPUBFUN void XSLTCALL
 		xsltNormalizeCompSteps	(void *payload,
 					 void *data,
 					 const xmlChar *name);

@@ -31,7 +31,7 @@
 
 #define BLOCKS 300
 
-static void tests() {
+static void tests(void) {
     SecKeychainRef kc = getPopulatedTestKeychain();
 
     static dispatch_once_t onceToken = 0;
@@ -42,7 +42,7 @@ static void tests() {
     dispatch_group_t g = dispatch_group_create();
 
     for(int i = 0; i < BLOCKS; i++) {
-        dispatch_group_async(g, process_queue, ^() {
+        dispatch_group_async(g, process_queue, ^{
             SecKeychainItemRef blockItem = NULL;
             CFStringRef itemclass = kSecClassInternetPassword;
 

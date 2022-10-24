@@ -43,6 +43,7 @@
 #include "ScriptExecutionContext.h"
 #include "SharedBuffer.h"
 #include "ThreadableBlobRegistry.h"
+#include "WebCoreOpaqueRoot.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -159,9 +160,9 @@ Blob::~Blob()
         (*m_blobLoaders.begin())->cancel();
 }
 
-Ref<Blob> Blob::slice(ScriptExecutionContext& context, long long start, long long end, const String& contentType) const
+Ref<Blob> Blob::slice(long long start, long long end, const String& contentType) const
 {
-    auto blob = adoptRef(*new Blob(&context, m_internalURL, start, end, contentType));
+    auto blob = adoptRef(*new Blob(scriptExecutionContext(), m_internalURL, start, end, contentType));
     blob->suspendIfNeeded();
     return blob;
 }
@@ -196,22 +197,22 @@ String Blob::normalizedContentType(const String& contentType)
     return contentType.convertToASCIILowercase();
 }
 
-void Blob::loadBlob(ScriptExecutionContext& context, FileReaderLoader::ReadType readType, CompletionHandler<void(BlobLoader&)>&& completionHandler)
+void Blob::loadBlob(FileReaderLoader::ReadType readType, CompletionHandler<void(BlobLoader&)>&& completionHandler)
 {
     auto blobLoader = makeUnique<BlobLoader>([this, pendingActivity = makePendingActivity(*this), completionHandler = WTFMove(completionHandler)](BlobLoader& blobLoader) mutable {
         completionHandler(blobLoader);
         m_blobLoaders.take(&blobLoader);
     });
 
-    blobLoader->start(*this, &context, readType);
+    blobLoader->start(*this, scriptExecutionContext(), readType);
 
     if (blobLoader->isLoading())
         m_blobLoaders.add(WTFMove(blobLoader));
 }
 
-void Blob::text(ScriptExecutionContext& context, Ref<DeferredPromise>&& promise)
+void Blob::text(Ref<DeferredPromise>&& promise)
 {
-    loadBlob(context, FileReaderLoader::ReadAsText, [promise = WTFMove(promise)](BlobLoader& blobLoader) mutable {
+    loadBlob(FileReaderLoader::ReadAsText, [promise = WTFMove(promise)](BlobLoader& blobLoader) mutable {
         if (auto optionalErrorCode = blobLoader.errorCode()) {
             promise->reject(Exception { *optionalErrorCode });
             return;
@@ -220,9 +221,9 @@ void Blob::text(ScriptExecutionContext& context, Ref<DeferredPromise>&& promise)
     });
 }
 
-void Blob::arrayBuffer(ScriptExecutionContext& context, Ref<DeferredPromise>&& promise)
+void Blob::arrayBuffer(Ref<DeferredPromise>&& promise)
 {
-    loadBlob(context, FileReaderLoader::ReadAsArrayBuffer, [promise = WTFMove(promise)](BlobLoader& blobLoader) mutable {
+    loadBlob(FileReaderLoader::ReadAsArrayBuffer, [promise = WTFMove(promise)](BlobLoader& blobLoader) mutable {
         if (auto optionalErrorCode = blobLoader.errorCode()) {
             promise->reject(Exception { *optionalErrorCode });
             return;
@@ -236,7 +237,7 @@ void Blob::arrayBuffer(ScriptExecutionContext& context, Ref<DeferredPromise>&& p
     });
 }
 
-ExceptionOr<Ref<ReadableStream>> Blob::stream(ScriptExecutionContext& scriptExecutionContext)
+ExceptionOr<Ref<ReadableStream>> Blob::stream()
 {
     class BlobStreamSource : public FileReaderLoaderClient, public ReadableStreamSource {
     public:
@@ -290,10 +291,11 @@ ExceptionOr<Ref<ReadableStream>> Blob::stream(ScriptExecutionContext& scriptExec
         std::optional<Exception> m_exception;
     };
 
-    auto* globalObject = scriptExecutionContext.globalObject();
+    auto* context = scriptExecutionContext();
+    auto* globalObject = context ? context->globalObject() : nullptr;
     if (!globalObject)
         return Exception { InvalidStateError };
-    return ReadableStream::create(*globalObject, adoptRef(*new BlobStreamSource(scriptExecutionContext, *this)));
+    return ReadableStream::create(*globalObject, adoptRef(*new BlobStreamSource(*context, *this)));
 }
 
 #if ASSERT_ENABLED
@@ -338,6 +340,11 @@ const char* Blob::activeDOMObjectName() const
 BlobURLHandle Blob::handle() const
 {
     return BlobURLHandle { m_internalURL };
+}
+
+WebCoreOpaqueRoot root(Blob* blob)
+{
+    return WebCoreOpaqueRoot { blob };
 }
 
 } // namespace WebCore

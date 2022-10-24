@@ -46,7 +46,7 @@ static authdb_t gDatabase = NULL;
 static bool gXPCTransaction = false;
 
 static dispatch_queue_t
-get_server_dispatch_queue()
+get_server_dispatch_queue(void)
 {
     static dispatch_once_t onceToken;
     static dispatch_queue_t server_queue = NULL;
@@ -109,7 +109,7 @@ static const CFDictionaryKeyCallBacks kSessionMapKeyCallBacks = {
     .hash = &_sessionHashCallBack
 };
 
-void server_cleanup()
+void server_cleanup(void)
 {
     CFRelease(gProcessMap);
     CFRelease(gSessionMap);
@@ -121,17 +121,17 @@ void server_cleanup()
     }
 }
 
-bool server_in_dark_wake()
+bool server_in_dark_wake(void)
 {
     return IOPMIsADarkWake(IOPMConnectionGetSystemCapabilities());
 }
 
-authdb_t server_get_database()
+authdb_t server_get_database(void)
 {
     return gDatabase;
 }
 
-static void _setupAuditSessionMonitor()
+static void _setupAuditSessionMonitor(void)
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         au_sdev_handle_t *dev = au_sdev_open(AU_SDEVF_ALLSESSIONS);
@@ -160,7 +160,7 @@ static void _setupAuditSessionMonitor()
     });
 }
 
-static void _setupSignalHandlers()
+static void _setupSignalHandlers(void)
 {
     signal(SIGTERM, SIG_IGN);
     static dispatch_source_t sigtermHandler;
@@ -936,7 +936,7 @@ static int64_t _process_get_identifier_count(process_t proc, authdb_connection_t
     return result;
 }
 
-static int64_t _get_max_process_rights()
+static int64_t _get_max_process_rights(void)
 {
     static dispatch_once_t onceToken;
     static int64_t max_rights = MAX_PROCESS_RIGHTS;
@@ -1130,7 +1130,7 @@ session_set_user_preferences(connection_t conn, xpc_object_t message, xpc_object
 }
 
 void
-server_dev() {
+server_dev(void) {
 //    rule_t rule = rule_create_with_string("system.preferences.accounts");
 //    CFDictionaryRef dict = rule_copy_to_cfobject(rule);
 //    _show_cf(dict);

@@ -18,10 +18,13 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         let peer2ContextID = "asdf"
 
+        let peer2User = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit2,
+                                                                 containerName: OTCKContainerName,
+                                                                 contextID: peer2ContextID)
+
         // Assist the other client here: it'll likely already have the policy built-in
         let fetchExpectation = self.expectation(description: "fetch callback occurs")
-        self.tphClient.fetchPolicyDocuments(withContainer: OTCKContainerName,
-                                            context: peer2ContextID,
+        self.tphClient.fetchPolicyDocuments(with: peer2User,
                                             versions: Set([newPolicy.version])) { _, error in
                                                 XCTAssertNil(error, "Should have no error")
                                                 fetchExpectation.fulfill()
@@ -35,11 +38,10 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let joinExpectation = self.expectation(description: "join callback occurs")
         let serverJoinExpectation = self.expectation(description: "joinWithVoucher is called")
 
-        self.tphClient.prepare(withContainer: OTCKContainerName,
-                               context: peer2ContextID,
+        self.tphClient.prepare(with: peer2User,
                                epoch: 1,
                                machineID: self.mockAuthKit2.currentMachineID,
-                               bottleSalt: self.mockAuthKit2.altDSID!,
+                               bottleSalt: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
                                bottleID: "why-is-this-nonnil",
                                modelID: self.mockDeviceInfo.modelID(),
                                deviceName: "new-policy-peer",
@@ -52,57 +54,55 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                setting: nil,
                                signingPrivKeyPersistentRef: nil,
                                encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
-                                XCTAssertNil(error, "Should be no error preparing the second peer")
-                                XCTAssertNotNil(peerID, "Should have a peerID")
-                                peer2ID = peerID!
+            XCTAssertNil(error, "Should be no error preparing the second peer")
+            XCTAssertNotNil(peerID, "Should have a peerID")
+            peer2ID = peerID!
 
-                                XCTAssertNotNil(stableInfo, "Should have a stable info")
-                                XCTAssertNotNil(stableInfoSig, "Should have a stable info signature")
+            XCTAssertNotNil(stableInfo, "Should have a stable info")
+            XCTAssertNotNil(stableInfoSig, "Should have a stable info signature")
 
-                                let newStableInfo = TPPeerStableInfo(data: stableInfo!, sig: stableInfoSig!)
-                                XCTAssertNotNil(newStableInfo, "should be able to make a stableInfo info from protobuf")
+            let newStableInfo = TPPeerStableInfo(data: stableInfo!, sig: stableInfoSig!)
+            XCTAssertNotNil(newStableInfo, "should be able to make a stableInfo info from protobuf")
 
-                                XCTAssertEqual(newStableInfo?.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
-                                XCTAssertEqual(newStableInfo?.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version")
+            XCTAssertEqual(newStableInfo?.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
+            XCTAssertEqual(newStableInfo?.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version")
 
-                                self.tphClient.vouch(withContainer: self.cuttlefishContext.containerName,
-                                                     context: self.cuttlefishContext.contextID,
-                                                     peerID: peerID!,
-                                                     permanentInfo: permanentInfo!,
-                                                     permanentInfoSig: permanentInfoSig!,
-                                                     stableInfo: stableInfo!,
-                                                     stableInfoSig: stableInfoSig!,
-                                                     ckksKeys: []) { voucher, voucherSig, error in
-                                                        XCTAssertNil(error, "Should be no error vouching")
-                                                        XCTAssertNotNil(voucher, "Should have a voucher")
-                                                        XCTAssertNotNil(voucherSig, "Should have a voucher signature")
+            self.tphClient.vouch(with: try! XCTUnwrap(self.cuttlefishContext.activeAccount),
+                                 peerID: peerID!,
+                                 permanentInfo: permanentInfo!,
+                                 permanentInfoSig: permanentInfoSig!,
+                                 stableInfo: stableInfo!,
+                                 stableInfoSig: stableInfoSig!,
+                                 ckksKeys: []) { voucher, voucherSig, error in
+                XCTAssertNil(error, "Should be no error vouching")
+                XCTAssertNotNil(voucher, "Should have a voucher")
+                XCTAssertNotNil(voucherSig, "Should have a voucher signature")
 
-                                                        self.fakeCuttlefishServer.joinListener = { joinRequest in
-                                                            XCTAssertEqual(peer2ID, joinRequest.peer.peerID, "joinWithVoucher request should be for peer 2")
-                                                            XCTAssertTrue(joinRequest.peer.hasStableInfoAndSig, "Joining peer should have a stable info")
-                                                            let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
+                self.fakeCuttlefishServer.joinListener = { joinRequest in
+                    XCTAssertEqual(peer2ID, joinRequest.peer.peerID, "joinWithVoucher request should be for peer 2")
+                    XCTAssertTrue(joinRequest.peer.hasStableInfoAndSig, "Joining peer should have a stable info")
+                    let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
 
-                                                            XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
-                                                            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version (as provided by new peer)")
+                    XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
+                    XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version (as provided by new peer)")
 
-                                                            serverJoinExpectation.fulfill()
-                                                            return nil
-                                                        }
+                    serverJoinExpectation.fulfill()
+                    return nil
+                }
 
-                                                        self.tphClient.join(withContainer: OTCKContainerName,
-                                                                            context: peer2ContextID,
-                                                                            voucherData: voucher!,
-                                                                            voucherSig: voucherSig!,
-                                                                            ckksKeys: [],
-                                                                            tlkShares: [],
-                                                                            preapprovedKeys: []) { peerID, _, _, error in
-                                                                                XCTAssertNil(error, "Should be no error joining")
-                                                                                XCTAssertNotNil(peerID, "Should have a peerID")
-                                                                                joinExpectation.fulfill()
-                                                        }
-                                                        vouchExpectation.fulfill()
-                                }
-                                prepareExpectation.fulfill()
+                self.tphClient.join(with: peer2User,
+                                    voucherData: voucher!,
+                                    voucherSig: voucherSig!,
+                                    ckksKeys: [],
+                                    tlkShares: [],
+                                    preapprovedKeys: []) { peerID, _, _, error in
+                    XCTAssertNil(error, "Should be no error joining")
+                    XCTAssertNotNil(peerID, "Should have a peerID")
+                    joinExpectation.fulfill()
+                }
+                vouchExpectation.fulfill()
+            }
+            prepareExpectation.fulfill()
         }
         self.wait(for: [prepareExpectation, vouchExpectation, joinExpectation, serverJoinExpectation], timeout: 10)
 
@@ -149,7 +149,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         XCTAssertEqual(try XCTUnwrap(self.defaultCKKS.syncingPolicy).version.versionNumber, newPolicy.version.versionNumber, "After refetch, CKKS policy should be new policy version")
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.cuttlefishContext.cuttlefishXPCWrapper.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+        self.cuttlefishContext.cuttlefishXPCWrapper.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
             XCTAssertNil(error, "Should be no error getting dump")
             XCTAssertNotNil(dump, "dump should not be nil")
             let policies = dump!["registeredPolicyVersions"] as? [String]
@@ -182,13 +182,15 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let newPolicy = currentPolicy.clone(withVersionNumber: currentPolicy.version.versionNumber + 1)
 
         let peer2ContextID = "asdf"
+        let peer2User = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit2,
+                                                                 containerName: OTCKContainerName,
+                                                                 contextID: peer2ContextID)
 
         // Assist the other client here: it'll likely already have this built-in
         self.fakeCuttlefishServer.policyOverlay.append(newPolicy)
 
         let fetchExpectation = self.expectation(description: "fetch callback occurs")
-        self.tphClient.fetchPolicyDocuments(withContainer: OTCKContainerName,
-                                            context: peer2ContextID,
+        self.tphClient.fetchPolicyDocuments(with: peer2User,
                                             versions: Set([newPolicy.version])) { _, error in
                                                 XCTAssertNil(error, "Should have no error")
                                                 fetchExpectation.fulfill()
@@ -201,11 +203,10 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let prepareExpectation = self.expectation(description: "prepare callback occurs")
         let vouchExpectation = self.expectation(description: "vouch callback occurs")
 
-        self.tphClient.prepare(withContainer: OTCKContainerName,
-                               context: peer2ContextID,
+        self.tphClient.prepare(with: peer2User,
                                epoch: 1,
                                machineID: self.mockAuthKit2.currentMachineID,
-                               bottleSalt: self.mockAuthKit2.altDSID!,
+                               bottleSalt: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
                                bottleID: "why-is-this-nonnil",
                                modelID: self.mockDeviceInfo.modelID(),
                                deviceName: "new-policy-peer",
@@ -218,33 +219,32 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                setting: nil,
                                signingPrivKeyPersistentRef: nil,
                                encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
-                                XCTAssertNil(error, "Should be no error preparing the second peer")
-                                XCTAssertNotNil(peerID, "Should have a peerID")
+            XCTAssertNil(error, "Should be no error preparing the second peer")
+            XCTAssertNotNil(peerID, "Should have a peerID")
 
-                                XCTAssertNotNil(stableInfo, "Should have a stable info")
-                                XCTAssertNotNil(stableInfoSig, "Should have a stable info signature")
+            XCTAssertNotNil(stableInfo, "Should have a stable info")
+            XCTAssertNotNil(stableInfoSig, "Should have a stable info signature")
 
-                                let newStableInfo = TPPeerStableInfo(data: stableInfo!, sig: stableInfoSig!)
-                                XCTAssertNotNil(newStableInfo, "should be able to make a stableInfo info from protobuf")
+            let newStableInfo = TPPeerStableInfo(data: stableInfo!, sig: stableInfoSig!)
+            XCTAssertNotNil(newStableInfo, "should be able to make a stableInfo info from protobuf")
 
-                                XCTAssertEqual(newStableInfo?.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
-                                XCTAssertEqual(newStableInfo?.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version")
+            XCTAssertEqual(newStableInfo?.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in new identity should match frozen policy version")
+            XCTAssertEqual(newStableInfo?.flexiblePolicyVersion, newPolicy.version, "Flexible policy version in new identity should match new policy version")
 
-                                self.tphClient.vouch(withContainer: self.cuttlefishContext.containerName,
-                                                     context: self.cuttlefishContext.contextID,
-                                                     peerID: peerID!,
-                                                     permanentInfo: permanentInfo!,
-                                                     permanentInfoSig: permanentInfoSig!,
-                                                     stableInfo: stableInfo!,
-                                                     stableInfoSig: stableInfoSig!,
-                                                     ckksKeys: []) { voucher, voucherSig, error in
-                                                        XCTAssertNotNil(error, "should be an error vouching for a peer with an unknown policy")
-                                                        XCTAssertNil(voucher, "Should have no voucher")
-                                                        XCTAssertNil(voucherSig, "Should have no voucher signature")
+            self.tphClient.vouch(with: try! XCTUnwrap(self.cuttlefishContext.activeAccount),
+                                 peerID: peerID!,
+                                 permanentInfo: permanentInfo!,
+                                 permanentInfoSig: permanentInfoSig!,
+                                 stableInfo: stableInfo!,
+                                 stableInfoSig: stableInfoSig!,
+                                 ckksKeys: []) { voucher, voucherSig, error in
+                XCTAssertNotNil(error, "should be an error vouching for a peer with an unknown policy")
+                XCTAssertNil(voucher, "Should have no voucher")
+                XCTAssertNil(voucherSig, "Should have no voucher signature")
 
-                                                        vouchExpectation.fulfill()
-                                }
-                                prepareExpectation.fulfill()
+                vouchExpectation.fulfill()
+            }
+            prepareExpectation.fulfill()
         }
         self.wait(for: [prepareExpectation, vouchExpectation], timeout: 10)
     }
@@ -261,13 +261,15 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let newPolicy = currentPolicy.clone(withVersionNumber: currentPolicy.version.versionNumber + 1)
 
         let peer2ContextID = "asdf"
+        let peer2User = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit2,
+                                                                 containerName: OTCKContainerName,
+                                                                 contextID: peer2ContextID)
 
         // Assist the other client here: it'll likely already have this built-in
         self.fakeCuttlefishServer.policyOverlay.append(newPolicy)
 
         let fetchExpectation = self.expectation(description: "fetch callback occurs")
-        self.tphClient.fetchPolicyDocuments(withContainer: OTCKContainerName,
-                                            context: peer2ContextID,
+        self.tphClient.fetchPolicyDocuments(with: peer2User,
                                             versions: Set([newPolicy.version])) { _, error in
                                                 XCTAssertNil(error, "Should have no error")
                                                 fetchExpectation.fulfill()
@@ -469,14 +471,14 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createRecoveryExpectation = self.expectation(description: "createRecoveryExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: futurePeerContext.contextID, recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(self.otcontrolArgumentsFor(context: futurePeerContext), recoveryKey: recoveryKey) { error in
             XCTAssertNil(error, "error should be nil")
             createRecoveryExpectation.fulfill()
         }
         self.wait(for: [createRecoveryExpectation], timeout: 10)
 
         // Setting the RK will make TLKShares to the RK, so help that out too
-        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: self.mockAuthKit.altDSID!)
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // Now, our peer (with no inbuilt knowledge of newPolicyDocument) joins via RecoveryKey
         let serverJoinExpectation = self.expectation(description: "peer1 joins successfully")
@@ -521,10 +523,10 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let futurePeerContext = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: "futurePeer",
                                                      sosAdapter: peer2mockSOS,
+                                                     accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         let (newPolicyDocument, _) = try self.createOctagonAndCKKSUsingFuturePolicy()
@@ -611,7 +613,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         // won't immediately upload new ones when the peer list changes.
         self.silentFetchesAllowed = false
         self.expectCKFetch()
-        try XCTUnwrap(self.injectedManager).zoneChangeFetcher.notifyZoneChange(nil)
+        self.defaultCKKS.zoneChangeFetcher.notifyZoneChange(nil)
         self.verifyDatabaseMocks()
         self.silentFetchesAllowed = true
 
@@ -836,7 +838,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             return nil
         }
 
-        try XCTUnwrap(self.injectedManager).zoneChangeFetcher.notifyZoneChange(nil)
+        self.defaultCKKS.zoneChangeFetcher.notifyZoneChange(nil)
         self.defaultCKKS.waitForFetchAndIncomingQueueProcessing()
 
         // And wait for the updateTrust to occur, then for Octagon to return to ready, then for any incoming queue processing in ckks

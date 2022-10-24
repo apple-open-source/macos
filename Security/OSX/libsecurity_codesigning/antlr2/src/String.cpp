@@ -19,26 +19,19 @@
 namespace antlr {
 #endif
 
-// wh: hack for Borland C++ 5.6
-#if __BORLANDC__
-  using std::sprintf;
-#endif
-
-
-// RK: should be using snprintf actually... (or stringstream)
-ANTLR_C_USING(sprintf)
+ANTLR_C_USING(snprintf)
 
 ANTLR_USE_NAMESPACE(std)string operator+( const ANTLR_USE_NAMESPACE(std)string& lhs, const int rhs )
 {
 	char tmp[100];
-	sprintf(tmp,"%d",rhs);
+	snprintf(tmp,sizeof(tmp),"%d",rhs);
 	return lhs+tmp;
 }
 
 ANTLR_USE_NAMESPACE(std)string operator+( const ANTLR_USE_NAMESPACE(std)string& lhs, size_t rhs )
 {
 	char tmp[100];
-	sprintf(tmp,"%lu",(unsigned long)rhs);
+	snprintf(tmp,sizeof(tmp),"%lu",(unsigned long)rhs);
 	return lhs+tmp;
 }
 

@@ -81,6 +81,7 @@ enum {
 
 #define kAssertionCreateMsg         "assertionCreate"
 #define kAssertionReleaseMsg        "assertionRelease"
+
 #define kAssertionPropertiesMsg     "assertionProperties"
 #define kAssertionCheckMsg          "assertionCheck"
 #define kAssertionTimeoutMsg        "assertionTimeout"
@@ -97,6 +98,7 @@ enum {
 #define kAssertionCheckTokenKey     "assertionCheckToken"
 #define kAssertionCheckCountKey     "assertionCheckCount"
 #define kAssertionActivityLogKey    "assertionActivityLog"
+#define kAssertionWasCoalesced      "assertionWasCoalesced"
 #define kAssertionInitialConnKey    "assertionInitialConnection"
 #define kAssertionFeatureSupportKey  "assertionFeatureSupported"
 #define kAssertionCopyActivityUpdateRefCntKey "assertionActivityUpdateRefCnt"

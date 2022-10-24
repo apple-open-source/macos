@@ -162,7 +162,7 @@ static void printPeerInfos(char *label, CFStringRef mypeerID, CFArrayRef (^copyP
     CFReleaseNull(error);
 }
 
-void SOSCCDumpCircleInformation()
+void SOSCCDumpCircleInformation(void)
 {
     CFErrorRef error = NULL;
     CFArrayRef generations = NULL;

@@ -13,6 +13,7 @@
 
 // Stubs
 bool aggressive_madvise_enabled = DEFAULT_AGGRESSIVE_MADVISE_ENABLED;
+bool malloc_zero_on_free = MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT;
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 

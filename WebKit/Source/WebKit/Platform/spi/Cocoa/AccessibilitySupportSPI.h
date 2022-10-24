@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,20 +26,27 @@
 #pragma once
 
 #if USE(APPLE_INTERNAL_SDK)
-
 #include <AccessibilitySupport.h>
+#endif
 
-#else
+#if !USE(APPLE_INTERNAL_SDK) || !HAVE(APP_SPECIFIC_ACCESSIBILITY_SETTINGS)
+typedef enum {
+    AXValueStateInvalid = -2,
+    AXValueStateEmpty = -1,
+    AXValueStateOff,
+    AXValueStateOn
+} AXValueState;
+#endif
 
 WTF_EXTERN_C_BEGIN
 
-extern void _AXSSetReduceMotionEnabled(Boolean enabled);
-extern void _AXSSetDarkenSystemColors(Boolean enabled);
-extern Boolean _AXSKeyRepeatEnabled();
-extern Boolean _AXSApplicationAccessibilityEnabled();
+void _AXSSetReduceMotionEnabled(Boolean enabled);
+void _AXSSetDarkenSystemColors(Boolean enabled);
+Boolean _AXSKeyRepeatEnabled();
+Boolean _AXSApplicationAccessibilityEnabled();
+void _AXSApplicationAccessibilitySetEnabled(Boolean enabled);
 extern CFStringRef kAXSApplicationAccessibilityEnabledNotification;
 
-#if PLATFORM(IOS_FAMILY)
 extern CFStringRef kAXSReduceMotionPreference;
 
 extern CFStringRef kAXSReduceMotionChangedNotification;
@@ -48,33 +55,22 @@ extern CFStringRef kAXSEnhanceTextLegibilityChangedNotification;
 extern CFStringRef kAXSDarkenSystemColorsEnabledNotification;
 extern CFStringRef kAXSInvertColorsEnabledNotification;
 
-typedef enum {
-    AXValueStateInvalid = -2,
-    AXValueStateEmpty = -1,
-    AXValueStateOff,
-    AXValueStateOn
-} AXValueState;
+AXValueState _AXSReduceMotionEnabledApp(CFStringRef appID);
+AXValueState _AXSIncreaseButtonLegibilityApp(CFStringRef appID);
+AXValueState _AXSEnhanceTextLegibilityEnabledApp(CFStringRef appID);
+AXValueState _AXDarkenSystemColorsApp(CFStringRef appID);
+AXValueState _AXSInvertColorsEnabledApp(CFStringRef appID);
+Boolean _AXSEnhanceTextLegibilityEnabled();
 
-extern AXValueState _AXSReduceMotionEnabledApp(CFStringRef appID);
-extern AXValueState _AXSIncreaseButtonLegibilityApp(CFStringRef appID);
-extern AXValueState _AXSEnhanceTextLegibilityEnabledApp(CFStringRef appID);
-extern AXValueState _AXDarkenSystemColorsApp(CFStringRef appID);
-extern AXValueState _AXSInvertColorsEnabledApp(CFStringRef appID);
+void _AXSSetReduceMotionEnabledApp(AXValueState enabled, CFStringRef appID);
+void _AXSSetIncreaseButtonLegibilityApp(AXValueState enabled, CFStringRef appID);
+void _AXSSetEnhanceTextLegibilityEnabledApp(AXValueState enabled, CFStringRef appID);
+void _AXSSetDarkenSystemColorsApp(AXValueState enabled, CFStringRef appID);
+void _AXSInvertColorsSetEnabledApp(AXValueState enabled, CFStringRef appID);
 
-extern void _AXSSetReduceMotionEnabledApp(AXValueState enabled, CFStringRef appID);
-extern void _AXSSetIncreaseButtonLegibilityApp(AXValueState enabled, CFStringRef appID);
-extern void _AXSSetEnhanceTextLegibilityEnabledApp(AXValueState enabled, CFStringRef appID);
-extern void _AXSSetDarkenSystemColorsApp(AXValueState enabled, CFStringRef appID);
-extern void _AXSInvertColorsSetEnabledApp(AXValueState enabled, CFStringRef appID);
-#endif
-
-#if PLATFORM(IOS_FAMILY) && ENABLE(FULL_KEYBOARD_ACCESS)
 extern CFStringRef kAXSFullKeyboardAccessEnabledNotification;
-extern Boolean _AXSFullKeyboardAccessEnabled();
-#endif
+Boolean _AXSFullKeyboardAccessEnabled();
 
 extern CFStringRef kAXSAccessibilityPreferenceDomain;
 
 WTF_EXTERN_C_END
-
-#endif

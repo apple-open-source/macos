@@ -199,7 +199,7 @@ xsltNumberFormatDecimal(xmlBufferPtr buffer,
     }
     if (i < 0)
         xsltGenericError(xsltGenericErrorContext,
-		"xsltNumberFormatDecimal: Internal buffer size exceeded");
+		"xsltNumberFormatDecimal: Internal buffer size exceeded\n");
     xmlBufferCat(buffer, pointer);
 }
 
@@ -596,25 +596,7 @@ xsltNumberFormatGetAnyLevel(xsltTransformContextPtr context,
 {
     int amount = 0;
     int cnt = 0;
-    xmlNodePtr cur;
-
-    /* select the starting node */
-    switch (node->type) {
-	case XML_ELEMENT_NODE:
-	    cur = node;
-	    break;
-	case XML_ATTRIBUTE_NODE:
-	    cur = ((xmlAttrPtr) node)->parent;
-	    break;
-	case XML_TEXT_NODE:
-	case XML_PI_NODE:
-	case XML_COMMENT_NODE:
-	    cur = node->parent;
-	    break;
-	default:
-	    cur = NULL;
-	    break;
-    }
+    xmlNodePtr cur = node;
 
     while (cur != NULL) {
 	/* process current node */
@@ -633,16 +615,25 @@ xsltNumberFormatGetAnyLevel(xsltTransformContextPtr context,
             (cur->type == XML_HTML_DOCUMENT_NODE))
 	    break; /* while */
 
-	while ((cur->prev != NULL) && ((cur->prev->type == XML_DTD_NODE) ||
-	       (cur->prev->type == XML_XINCLUDE_START) ||
-	       (cur->prev->type == XML_XINCLUDE_END)))
-	    cur = cur->prev;
-	if (cur->prev != NULL) {
-	    for (cur = cur->prev; cur->last != NULL; cur = cur->last);
-	} else {
-	    cur = cur->parent;
-	}
-
+        if (cur->type == XML_NAMESPACE_DECL) {
+            /*
+            * The XPath module stores the parent of a namespace node in
+            * the ns->next field.
+            */
+            cur = (xmlNodePtr) ((xmlNsPtr) cur)->next;
+        } else if (cur->type == XML_ATTRIBUTE_NODE) {
+            cur = cur->parent;
+        } else {
+            while ((cur->prev != NULL) && ((cur->prev->type == XML_DTD_NODE) ||
+                   (cur->prev->type == XML_XINCLUDE_START) ||
+                   (cur->prev->type == XML_XINCLUDE_END)))
+                cur = cur->prev;
+            if (cur->prev != NULL) {
+                for (cur = cur->prev; cur->last != NULL; cur = cur->last);
+            } else {
+                cur = cur->parent;
+            }
+        }
     }
 
     array[amount++] = (double) cnt;
@@ -660,42 +651,51 @@ xsltNumberFormatGetMultipleLevel(xsltTransformContextPtr context,
 {
     int amount = 0;
     int cnt;
+    xmlNodePtr oldCtxtNode;
     xmlNodePtr ancestor;
     xmlNodePtr preceding;
     xmlXPathParserContextPtr parser;
 
-    context->xpathCtxt->node = node;
+    oldCtxtNode = context->xpathCtxt->node;
     parser = xmlXPathNewParserContext(NULL, context->xpathCtxt);
     if (parser) {
 	/* ancestor-or-self::*[count] */
-	for (ancestor = node;
-	     (ancestor != NULL) && (ancestor->type != XML_DOCUMENT_NODE);
-	     ancestor = xmlXPathNextAncestor(parser, ancestor)) {
-
+	ancestor = node;
+	while ((ancestor != NULL) && (ancestor->type != XML_DOCUMENT_NODE)) {
 	    if ((fromPat != NULL) &&
 		xsltTestCompMatchList(context, ancestor, fromPat))
 		break; /* for */
 
+            /*
+             * The xmlXPathNext* iterators require that the context node is
+             * set to the start node. Calls to xsltTestCompMatch* may also
+             * leave the context node in an undefined state, so make sure
+             * that the context node is reset before each iterator invocation.
+             */
+
 	    if (xsltTestCompMatchCount(context, ancestor, countPat, node)) {
 		/* count(preceding-sibling::*) */
 		cnt = 1;
-		for (preceding =
-                        xmlXPathNextPrecedingSibling(parser, ancestor);
-		     preceding != NULL;
-		     preceding =
-		        xmlXPathNextPrecedingSibling(parser, preceding)) {
-
+                context->xpathCtxt->node = ancestor;
+                preceding = xmlXPathNextPrecedingSibling(parser, ancestor);
+                while (preceding != NULL) {
 	            if (xsltTestCompMatchCount(context, preceding, countPat,
                                                node))
 			cnt++;
+                    context->xpathCtxt->node = ancestor;
+                    preceding =
+                        xmlXPathNextPrecedingSibling(parser, preceding);
 		}
 		array[amount++] = (double)cnt;
 		if (amount >= max)
 		    break; /* for */
 	    }
+            context->xpathCtxt->node = node;
+            ancestor = xmlXPathNextAncestor(parser, ancestor);
 	}
 	xmlXPathFreeParserContext(parser);
     }
+    context->xpathCtxt->node = oldCtxtNode;
     return amount;
 }
 
@@ -730,7 +730,7 @@ xsltNumberFormatGetValue(xmlXPathContextPtr context,
 /**
  * xsltNumberFormat:
  * @ctxt: the XSLT transformation context
- * @data: the formatting informations
+ * @data: the formatting information
  * @node: the data to format
  *
  * Convert one number.
@@ -829,6 +829,16 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
 					      output);
 	    }
 	}
+
+        /*
+         * Unlike `match` patterns, `count` and `from` patterns can contain
+         * variable references, so we have to clear the pattern match
+         * cache if the "direct" matching algorithm was used.
+         */
+        if (data->countPat != NULL)
+            xsltCompMatchClearCache(ctxt, data->countPat);
+        if (data->fromPat != NULL)
+            xsltCompMatchClearCache(ctxt, data->fromPat);
     }
     /* Insert number as text node */
     xsltCopyTextString(ctxt, ctxt->insert, xmlBufferContent(output), 0);
@@ -901,7 +911,7 @@ xsltFormatNumberPreSuffix(xsltDecimalFormatPtr self, xmlChar **format, xsltForma
  * @self: the decimal format
  * @format: the format requested
  * @number: the value to format
- * @result: the place to ouput the result
+ * @result: the place to output the result
  *
  * format-number() uses the JDK 1.1 DecimalFormat class:
  *
@@ -975,7 +985,7 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 		*result = xmlStrdup(BAD_CAST "-");
 	    else
 		*result = xmlStrdup(self->minusSign);
-	    /* no-break on purpose */
+	    /* Intentional fall-through */
 	case 1:
 	    if ((self == NULL) || (self->infinity == NULL))
 		*result = xmlStrcat(*result, BAD_CAST "Infinity");

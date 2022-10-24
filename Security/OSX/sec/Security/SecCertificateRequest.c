@@ -86,11 +86,13 @@ const unsigned char SecASN1UTF8String = SEC_ASN1_UTF8_STRING;
 const CFStringRef kSecCSRChallengePassword = CFSTR("csrChallengePassword");
 const CFStringRef kSecSubjectAltName = CFSTR("subjectAltName");
 const CFStringRef kSecCertificateKeyUsage = CFSTR("keyUsage");
+const CFStringRef kSecCSRBasicConstraintsCA = CFSTR("basicConstraintsCA");
 const CFStringRef kSecCSRBasicContraintsPathLen = CFSTR("basicConstraints");
 const CFStringRef kSecCertificateExtendedKeyUsage = CFSTR("certificateEKUs");
 const CFStringRef kSecCertificateExtensions = CFSTR("certificateExtensions");
 const CFStringRef kSecCertificateExtensionsEncoded = CFSTR("certificateExtensionsEncoded");
 const CFStringRef kSecCertificateLifetime = CFSTR("certificateLifetime");
+const CFStringRef kSecCertificateSerialNumber = CFSTR("certificateSerial");
 
 /* SubjectAltName dictionary keys */
 const CFStringRef kSecSubjectAltNameDNSName = CFSTR("dNSName");
@@ -114,6 +116,11 @@ static const uint8_t pkcs9ChallengePassword[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 
 static const uint8_t encoded_asn1_true = 0xFF;
 static const SecAsn1Item asn1_true =
 { sizeof(encoded_asn1_true), (uint8_t*)&encoded_asn1_true };
+
+/* ASN1 BOOLEAN FALSE */
+static const uint8_t encoded_asn1_false = 0x00;
+static const SecAsn1Item asn1_false =
+{ sizeof(encoded_asn1_false), (uint8_t*)&encoded_asn1_false };
 
 /* ASN1 NULL */
 static const uint8_t encoded_null[2] = { SEC_ASN1_NULL, 0 };
@@ -578,20 +585,30 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters, NSS_C
     NSS_CertExtension **csr_extensions = PORT_ArenaZNewArray(poolp, NSS_CertExtension *, max_extensions + 1); /* NULL terminated array */
     NSS_CertExtension *csr_extension = PORT_ArenaZNewArray(poolp, NSS_CertExtension, max_extensions);
 
+    CFBooleanRef basic_contraints_ca = CFDictionaryGetValue(parameters, kSecCSRBasicConstraintsCA);
     CFNumberRef basic_contraints_num = CFDictionaryGetValue(parameters, kSecCSRBasicContraintsPathLen);
-    if (basic_contraints_num) {
+    if (basic_contraints_ca || basic_contraints_num) {
+        bool is_ca = basic_contraints_ca != kCFBooleanFalse;
+
+        if (!is_ca && basic_contraints_num) {
+            secerror("csr: non-CA cert does not support path len");
+            goto out;
+        }
+
         secdebug("csr", "encoding basic constraints");
-        NSS_BasicConstraints basic_contraints = { asn1_true, {} };
+        NSS_BasicConstraints basic_contraints = { is_ca ? asn1_true : asn1_false, {} };
         uint8_t path_len;
 
-        int basic_contraints_path_len = 0;
-        require_action(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out,
-                       secerror("csr: failed to get basic constraints value"));
-        if (basic_contraints_path_len >= 0 && basic_contraints_path_len < 256) {
-            secdebug("csr", "encoding basic constraints path len");
-            path_len = (uint8_t)basic_contraints_path_len;
-            basic_contraints.pathLenConstraint.Length = sizeof(path_len);
-            basic_contraints.pathLenConstraint.Data = &path_len;
+        if (basic_contraints_num) {
+            int basic_contraints_path_len = 0;
+            require_action(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out,
+                           secerror("csr: failed to get basic constraints value"));
+            if (basic_contraints_path_len >= 0 && basic_contraints_path_len < 256) {
+                secdebug("csr", "encoding basic constraints path len");
+                path_len = (uint8_t)basic_contraints_path_len;
+                basic_contraints.pathLenConstraint.Length = sizeof(path_len);
+                basic_contraints.pathLenConstraint.Data = &path_len;
+            }
         }
 
         csr_extension[num_extensions].extnId.Data = oidBasicConstraints.data;
@@ -715,6 +732,7 @@ out:
 static bool parameters_contains_extensions(CFDictionaryRef parameters) {
     if (CFDictionaryContainsKey(parameters, kSecSubjectAltName) ||
         CFDictionaryContainsKey(parameters, kSecCertificateKeyUsage) ||
+        CFDictionaryContainsKey(parameters, kSecCSRBasicConstraintsCA) ||
         CFDictionaryContainsKey(parameters, kSecCSRBasicContraintsPathLen) ||
         CFDictionaryContainsKey(parameters, kSecCertificateExtendedKeyUsage) ||
         CFDictionaryContainsKey(parameters, kSecCertificateExtensions) ||
@@ -1349,9 +1367,26 @@ SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters,
     cert_tmpl.tbs.version.Data = &version;
 
     /* serialno */
-    unsigned char serialNumber = 1;
-    cert_tmpl.tbs.serialNumber.Length = sizeof(serialNumber);
-    cert_tmpl.tbs.serialNumber.Data = &serialNumber;
+    CFDataRef serialData = parameters ? CFDictionaryGetValue(parameters, kSecCertificateSerialNumber) : NULL;
+    if (serialData) {
+        if (CFGetTypeID(serialData) == CFDataGetTypeID()) {
+            CFIndex length = CFDataGetLength(serialData);
+            if (length < 1 || length > 20) {
+                serialData = NULL; /* invalid, per RFC 5280 4.1.2.2 */
+            } else {
+                CFRetainSafe(serialData);
+            }
+        } else {
+            serialData = NULL;
+        }
+    }
+    if (!serialData) {
+        const UInt8 serialNumber = 1;
+        serialData = CFDataCreate(NULL, &serialNumber, (CFIndex)sizeof(UInt8));
+        require_action_quiet(serialData, out, secerror("csr: failed to allocate serial number"));
+    }
+    cert_tmpl.tbs.serialNumber.Length = (size_t)CFDataGetLength(serialData);
+    cert_tmpl.tbs.serialNumber.Data = (uint8_t *)CFDataGetBytePtr(serialData);
 
     /* subject/issuer */
     cert_tmpl.tbs.issuer.rdns = make_subject(poolp, (CFArrayRef)subject);
@@ -1420,6 +1455,7 @@ out:
     CFReleaseSafe(pubkey_attrs);
     CFReleaseNull(publicKeyData);
     CFReleaseNull(signature);
+    CFReleaseNull(serialData);
     return cert;
 }
 

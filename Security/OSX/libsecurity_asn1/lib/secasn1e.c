@@ -319,7 +319,7 @@ static sec_asn1e_state* sec_asn1e_init_state_based_on_template(sec_asn1e_state* 
     }
 
     /*
-     * Sanity check that there are no unwanted bits marked in under_kind.
+     * Verify that there are no unwanted bits marked in under_kind.
      * These bits were either removed above (after we recorded them) or
      * they simply should not be found (signalling a bad/broken template).
      * XXX is this the right set of bits to test here? (i.e. need to add

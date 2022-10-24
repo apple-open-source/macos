@@ -96,6 +96,12 @@ hash_builtin (list)
       if (opt == 0 && posixly_correct == 0)
 	printf (_("%s: hash table empty\n"), this_command_name);
 
+#ifdef __APPLE__
+      if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+        builtin_error("failed to flush output");
+        return (EXECUTION_FAILURE);
+      }
+#endif
       return (EXECUTION_SUCCESS);
     }
 
@@ -146,7 +152,14 @@ hash_builtin (list)
 	opt = EXECUTION_FAILURE;
     }
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+#else
   fflush (stdout);
+#endif
   return (opt);
 }
 
@@ -236,5 +249,11 @@ list_hashed_filename_targets (list, fmt)
 	}
     }
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+#endif
   return (all_found ? EXECUTION_SUCCESS : EXECUTION_FAILURE);
 }

@@ -41,6 +41,7 @@
 #include <sys/syscall.h>
 #include <Kernel/kern/debug.h>
 #include <mach/mach_time.h>
+#include <thermal/smcSensorExchange.h>
 #include <libspindump_priv.h>
 #include <CoreFoundation/CFXPCBridge.h>
 #if __has_include (<CoreAnalytics/CoreAnalytics.h>)
@@ -116,6 +117,11 @@ typedef enum {
 enum {
     kSilentRunningOff = 0,
     kSilentRunningOn  = 1
+};
+
+enum {
+    kPerfUnrestricted = 0,
+    kPerfRestricted = 1
 };
 
 /* Auto Poweroff info */
@@ -353,6 +359,9 @@ uint32_t                        gCurrentSilentRunningState = kSilentRunningOff;
 
 bool                            gMachineStateRevertible = true;
 
+uint32_t                        gCurrentPerfState = kPerfUnrestricted;
+union SMCSensorEx_Jumbo         perfStateSMCSensorExData;
+
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
@@ -400,6 +409,12 @@ void PMConnection_prime(void)
     
     sleepwake_log = os_log_create(PM_LOG_SYSTEM, SLEEPWAKE_LOG);
     bzero(&gSleepService, sizeof(gSleepService));
+    
+    // Initialize the SMCSensorEx_Jumbo headers
+    perfStateSMCSensorExData.SENSORS.header.uchVersion = SMC_SENSOR_EXCHANGE_POWERD_VER1_VERSION;
+    perfStateSMCSensorExData.SENSORS.header.uchNumSensors = SMC_SENSOR_EXCHANGE_POWERD_VER1_NUMSENSORS;
+    perfStateSMCSensorExData.SENSORS.header.uchRollingSequenceNumber = 0;
+    perfStateSMCSensorExData.SENSORS.header.uchRsvd = 0;
 
     gConnections = CFArrayCreateMutable(kCFAllocatorDefault, 100, &_CFArrayConnectionCallBacks);
                                         
@@ -2612,7 +2627,7 @@ static void PMConnectionPowerCallBack(
             }
             else if (CFEqual(wakeType, kIOPMRootDomainWakeTypeNetwork)) {
                 /* Wake from network activity
-                 * Do not set SilentRunning. Let DAS check thermal levels
+                 * Do not set SilentRunning. Let DAS check thermal
                  * Allow Background tasks only if cur_time >= ts_nextPowerNap
                  */
                 if (_DWBT_allowed()) {
@@ -3815,6 +3830,88 @@ __private_extern__ bool isInSilentRunningMode(void)
 {
     return (gCurrentSilentRunningState == kSilentRunningOn);
 }
+
+IOReturn _smcWritePerfStateSensorExData(bool restrictPerf)
+{
+    IOReturn ret = kIOReturnSuccess;
+    
+    perfStateSMCSensorExData.SENSORS.sensorArray[SMC_SENSOR_EXCHANGE_POWERD_VER1_IDX_SDDS].FLOATS.rValue = (float)restrictPerf;
+    
+    perfStateSMCSensorExData.SENSORS.header.uchRollingSequenceNumber++;
+    return ret;
+}
+
+__private_extern__ bool isInPerfRestrictedMode(void)
+{
+    return (gCurrentPerfState == kPerfRestricted);
+}
+
+__private_extern__ IOReturn setRestrictedPerfMode(bool restrictPerf)
+{
+    IOReturn ret = kIOReturnSuccess;
+    
+    INFO_LOG("Current PerfMode: %s, Target PerfMode: %s\n", gCurrentPerfState ? "Restricted" : "Unrestricted", restrictPerf ? "Restricted" : "Unrestricted");
+    if (isInPerfRestrictedMode() == restrictPerf) {
+        return ret;
+    }
+
+    ret = _smcWritePerfStateSensorExData(restrictPerf);
+    if (ret != kIOReturnSuccess) {
+        ERROR_LOG("Failed to communicate PerfState to SMC, returned 0x%x\n", ret);
+    }
+    
+    gCurrentPerfState = restrictPerf ? kPerfRestricted : kPerfUnrestricted;
+    return ret;
+}
+
+bool shouldExitPerfRestrictedMode(void)
+{
+    if (checkForUnrestrictedPerfType()) {
+        DEBUG_LOG("Exiting PerfRestricted mode due to new PerfUnrestricted assertion.\n");
+        return true;
+    }
+
+    uint64_t userActivityLevel = getUserActivePostedLevels();
+    if (userActivityLevel & kIOPMUserPresentActive) {
+        DEBUG_LOG("Exiting PerfRestricted mode as UserActivityLevel shows UserPresentActive.\n");
+        return true;
+    }
+    else if (userActivityLevel & kIOPMUserPresentPassive) {
+        DEBUG_LOG("Exiting PerfRestricted mode as UserActivityLevel shows UserPresentPassive.\n");
+        return true;
+    }
+    return false;
+}
+
+bool shouldEnterPerfRestrictedMode(void)
+{
+    uint64_t userActivityLevel = getUserActivePostedLevels();
+    if (!checkForUnrestrictedPerfType() && !(userActivityLevel & kIOPMUserPresentActive) && !(userActivityLevel & kIOPMUserPresentPassive))
+    {
+        DEBUG_LOG("Entering PerfRestriced mode as no PerfUnrestricted assertions exist, and UserActivitLevel shows inactive.\n");
+        return true;
+    }
+    return false;
+}
+
+__private_extern__ void evaluatePerfMode(void)
+{
+    dispatch_async(_getPMMainQueue(), ^ {
+        if (isInPerfRestrictedMode()) {
+            bool exitPerfRestrictedMode = shouldExitPerfRestrictedMode();
+            if (exitPerfRestrictedMode) {
+                setRestrictedPerfMode(false);
+            }
+        }
+        else {
+            bool enterPerfRestrictedMode = shouldEnterPerfRestrictedMode();
+            if (enterPerfRestrictedMode) {
+                setRestrictedPerfMode(true);
+            }
+        }
+    });
+}
+
 
 __private_extern__ void _set_sleep_revert(bool state)
 {

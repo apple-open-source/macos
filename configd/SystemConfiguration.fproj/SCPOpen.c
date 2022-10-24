@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,7 @@
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
 
+#include "SCInternal.h"
 #include "SCPreferencesInternal.h"
 #include "SCD.h"
 #include "SCHelper_client.h"
@@ -160,7 +161,7 @@ __SCPreferencesDeallocate(CFTypeRef cf)
 }
 
 
-static CFTypeID __kSCPreferencesTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCPreferencesTypeID;
 
 
 static const CFRuntimeClass __SCPreferencesClass = {
@@ -176,12 +177,15 @@ static const CFRuntimeClass __SCPreferencesClass = {
 };
 
 
-static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
-
 static void
 __SCPreferencesInitialize(void) {
-	/* register with CoreFoundation */
-	__kSCPreferencesTypeID = _CFRuntimeRegisterClass(&__SCPreferencesClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		/* register with CoreFoundation */
+		__kSCPreferencesTypeID = _CFRuntimeRegisterClass(&__SCPreferencesClass);
+	});
+
 	return;
 }
 
@@ -193,7 +197,7 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	uint32_t		size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCPreferencesInitialize);
+	__SCPreferencesInitialize();
 
 	/* allocate prefs session */
 	size  = sizeof(SCPreferencesPrivate) - sizeof(CFRuntimeBase);
@@ -382,6 +386,38 @@ __SCPreferencesAccess_helper(SCPreferencesRef prefs)
 }
 
 
+static void
+log_open_error(const char *path, int err)
+{
+	static dispatch_once_t		once;
+	int				sb_err;
+	static enum sandbox_filter_type	sb_type;
+
+	dispatch_once(&once, ^{
+		sb_type	= SANDBOX_FILTER_PATH;
+		if (!_SC_isAppleInternal()) {
+			sb_type |= SANDBOX_CHECK_NO_REPORT;
+		}
+	});
+
+	// check if sandbox restrictions are blocking access
+	sb_err = sandbox_check(getpid(), "file-read-data", sb_type, path);
+	switch (sb_err) {
+		case 0 :
+			SC_log(LOG_NOTICE, "open() failed: %s", strerror(err));
+			break;
+		case 1 :
+			SC_log(LOG_NOTICE, "sandbox restricting file access");
+			break;
+		default :
+			SC_log(LOG_NOTICE, "sandbox_check() failed: %s", strerror(errno));
+			break;
+	}
+
+	return;
+}
+
+
 static SCPreferencesPrivateRef
 __SCPreferencesCreate(CFAllocatorRef	allocator,
 		      CFStringRef	name,
@@ -436,7 +472,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 				goto done;
 			}
 
-			SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
+			log_open_error(prefsPrivate->path, errno);
 			sc_status = kSCStatusAccessError;
 			break;
 		default :
@@ -542,7 +578,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 				}
 				// fall through
 			default :
-				SC_log(LOG_NOTICE, "open() failed: %s", strerror(errno));
+				log_open_error(prefsPrivate->path, errno);
 				break;
 		}
 		memset(&statBuf, 0, sizeof(statBuf));
@@ -873,7 +909,7 @@ SCPreferencesCreateCompanion(SCPreferencesRef prefs, CFStringRef companionPrefsI
 
 CFTypeID
 SCPreferencesGetTypeID(void) {
-	pthread_once(&initialized, __SCPreferencesInitialize);	/* initialize runtime */
+	__SCPreferencesInitialize();	/* initialize runtime */
 	return __kSCPreferencesTypeID;
 }
 
@@ -1439,6 +1475,49 @@ SCPreferencesSynchronize(SCPreferencesRef prefs)
 	}
 	prefsPrivate->accessed = FALSE;
 	prefsPrivate->changed  = FALSE;
+
+	return;
+}
+
+
+__private_extern__
+void
+__SCPreferencesHandleInternalStatus(uint32_t *sc_status)
+{
+	switch (*sc_status) {
+		case kSCStatusAccessError_MissingAuthorization :
+		{
+			// log the exception in the client
+			SC_log(LOG_NOTICE, "SCPreferences access denied, not authorized");
+
+			// and return the expected error
+			*sc_status = kSCStatusAccessError;
+			break;
+		}
+
+		case kSCStatusAccessError_MissingReadEntitlement :
+		{
+			// log the exception in the client
+			SC_log(LOG_NOTICE, "SCPreferences read access denied, no entitlement");
+
+			// and return the expected error
+			*sc_status = kSCStatusAccessError;
+			break;
+		}
+
+		case kSCStatusAccessError_MissingWriteEntitlement :
+		{
+			// log the exception in the client
+			SC_log(LOG_NOTICE, "SCPreferences write access denied, no entitlement");
+
+			// and return the expected error
+			*sc_status = kSCStatusAccessError;
+			break;
+		}
+
+		default :
+			return;
+	}
 
 	return;
 }

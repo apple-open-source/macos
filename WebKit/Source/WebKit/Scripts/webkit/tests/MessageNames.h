@@ -35,12 +35,13 @@ enum class ReceiverName : uint8_t {
     , TestWithLegacyReceiver = 4
     , TestWithSemaphore = 5
     , TestWithStream = 6
-    , TestWithStreamBuffer = 7
-    , TestWithSuperclass = 8
-    , TestWithoutAttributes = 9
-    , IPC = 10
-    , AsyncReply = 11
-    , Invalid = 12
+    , TestWithStreamBatched = 7
+    , TestWithStreamBuffer = 8
+    , TestWithSuperclass = 9
+    , TestWithoutAttributes = 10
+    , IPC = 11
+    , AsyncReply = 12
+    , Invalid = 13
 };
 
 enum class MessageName : uint16_t {
@@ -71,6 +72,7 @@ enum class MessageName : uint16_t {
     , TestWithLegacyReceiver_TouchEvent
     , TestWithSemaphore_ReceiveSemaphore
     , TestWithSemaphore_SendSemaphore
+    , TestWithStreamBatched_SendString
     , TestWithStreamBuffer_SendStreamBuffer
     , TestWithStream_ReceiveMachSendRight
     , TestWithStream_SendAndReceiveMachSendRight
@@ -108,10 +110,24 @@ enum class MessageName : uint16_t {
     , SetStreamDestinationID
     , SyncMessageReply
     , Terminate
+    , TestWithCVPixelBuffer_ReceiveCVPixelBufferReply
+    , TestWithImageData_ReceiveImageDataReply
+    , TestWithLegacyReceiver_CreatePluginReply
+    , TestWithLegacyReceiver_GetPluginsReply
+    , TestWithLegacyReceiver_InterpretKeyEventReply
+    , TestWithLegacyReceiver_RunJavaScriptAlertReply
+    , TestWithSemaphore_ReceiveSemaphoreReply
+    , TestWithStream_ReceiveMachSendRightReply
+    , TestWithStream_SendAndReceiveMachSendRightReply
+    , TestWithStream_SendStringSynchronizedReply
     , TestWithSuperclass_TestAsyncMessageReply
     , TestWithSuperclass_TestAsyncMessageWithConnectionReply
     , TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply
     , TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply
+    , TestWithoutAttributes_CreatePluginReply
+    , TestWithoutAttributes_GetPluginsReply
+    , TestWithoutAttributes_InterpretKeyEventReply
+    , TestWithoutAttributes_RunJavaScriptAlertReply
     , TestWithLegacyReceiver_GetPluginProcessConnection
     , TestWithLegacyReceiver_TestMultipleAttributes
     , TestWithSuperclass_TestSyncMessage

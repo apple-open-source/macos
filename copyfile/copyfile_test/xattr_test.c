@@ -7,6 +7,9 @@
 #include <removefile.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+
+#include "xattr_flags.h"
+
 #include <sys/xattr.h>
 
 #include "xattr_test.h"
@@ -20,6 +23,32 @@
 #define BIG_XATTR_SIZE		(20 * 1024 * 1024) // 20MiB
 
 #define DEFAULT_CHAR_MOD	256
+
+#define BACKUP_XF_POSTFIX	"#B"
+
+bool do_xattr_flags_test(__unused const char *apfs_test_directory, __unused size_t block_size) {
+	// The idea here is to verify that the xattr_preserve_for_intent(3) API family returns sane results.
+	printf("START [xattr_flags]\n");
+
+	// The resource fork should be preserved on copies, but not safe saves.
+	assert_equal_int(xattr_preserve_for_intent(XATTR_RESOURCEFORK_NAME, XATTR_OPERATION_INTENT_COPY), 1);
+	assert_equal_int(xattr_preserve_for_intent(XATTR_RESOURCEFORK_NAME, XATTR_OPERATION_INTENT_SAVE), 0);
+
+	// Verify that xattr_flags_from_name()/xattr_name_with_flags() recognize the backup xattr flag.
+	assert_equal_ll(xattr_flags_from_name(SMALL_XATTR_NAME BACKUP_XF_POSTFIX), XATTR_FLAG_ONLY_BACKUP);
+	assert_equal_str(xattr_name_with_flags(SMALL_XATTR_NAME, XATTR_FLAG_ONLY_BACKUP), SMALL_XATTR_NAME BACKUP_XF_POSTFIX);
+
+	// Verify that backup xattrs are not copied, saved, shared, or synced...
+	for (unsigned int intent = XATTR_OPERATION_INTENT_COPY; intent < XATTR_OPERATION_INTENT_BACKUP; intent++) {
+		assert_equal_int(xattr_preserve_for_intent(SMALL_XATTR_NAME BACKUP_XF_POSTFIX, intent), 0);
+	}
+
+	// ...but they are backed-up.
+	assert_equal_int(xattr_preserve_for_intent(SMALL_XATTR_NAME BACKUP_XF_POSTFIX, XATTR_OPERATION_INTENT_BACKUP), 1);
+
+	printf("PASS  [xattr_flags]\n");
+	return EXIT_SUCCESS;
+}
 
 static bool copy_and_verify_xattr_contents(const char *src_file, const char *dst_file, int src_file_fd, int dst_file_fd) {
 	assert_no_err(copyfile(src_file, dst_file, NULL, COPYFILE_XATTR));

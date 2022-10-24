@@ -425,8 +425,8 @@ cupsGetJobs2(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_D
   ipp_attribute_t *attr;		/* Current attribute */
   cups_job_t	*temp;			/* Temporary pointer */
   int		id,			/* job-id */
-		priority,		/* job-priority */
-		size;			/* job-k-octets */
+                priority,		/* job-priority */
+                size;			/* job-k-octets */
   ipp_jstate_t	state;			/* job-state */
   time_t	completed_time,		/* time-at-completed */
 		creation_time,		/* time-at-creation */

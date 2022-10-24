@@ -29,8 +29,6 @@
 #import <netsmb/smb_dev_2.h>
 
 #include <ifaddrs.h>
-#include <net/if_media.h>
-#include <net/if.h>
 
 @interface MCMonitor : NSObject
 @property (atomic) int nsmbFd;

@@ -203,6 +203,8 @@ public:
     template<typename T> void sendToAllProcesses(const T& message);
     template<typename T> void sendToAllProcessesForSession(const T& message, PAL::SessionID);
 
+    template<typename T> static void sendToAllRemoteWorkerProcesses(const T& message);
+
     void processDidFinishLaunching(WebProcessProxy&);
 
     WebProcessCache& webProcessCache() { return m_webProcessCache.get(); }
@@ -234,6 +236,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void applicationIsAboutToSuspend();
     static void notifyProcessPoolsApplicationIsAboutToSuspend();
+    void setProcessesShouldSuspend(bool);
 #endif
 
     void handleMemoryPressureWarning(Critical);
@@ -358,32 +361,30 @@ public:
     void textCheckerStateChanged();
 
 #if ENABLE(GPU_PROCESS)
-    void gpuProcessExited(ProcessID, GPUProcessTerminationReason);
+    void gpuProcessDidFinishLaunching(ProcessID);
+    void gpuProcessExited(ProcessID, ProcessTerminationReason);
 
-    void getGPUProcessConnection(WebProcessProxy&, GPUProcessConnectionParameters&&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
+    void createGPUProcessConnection(WebProcessProxy&, IPC::Attachment&&, WebKit::GPUProcessConnectionParameters&&);
 
     GPUProcessProxy& ensureGPUProcess();
     GPUProcessProxy* gpuProcess() const { return m_gpuProcess.get(); }
 #endif
-
-#if ENABLE(WEB_AUTHN)
-    void getWebAuthnProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetWebAuthnProcessConnectionDelayedReply&&);
-#endif
-
     // Network Process Management
-    void networkProcessDidTerminate(NetworkProcessProxy&, NetworkProcessProxy::TerminationReason);
+    void networkProcessDidTerminate(NetworkProcessProxy&, ProcessTerminationReason);
 
     bool isServiceWorkerPageID(WebPageProxyIdentifier) const;
+    void removeFromRemoteWorkerProcesses(WebProcessProxy&);
+
 #if ENABLE(SERVICE_WORKER)
-    static void establishWorkerContextConnectionToNetworkProcess(NetworkProcessProxy&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void()>&&);
-    void removeFromServiceWorkerProcesses(WebProcessProxy&);
-    size_t serviceWorkerProxiesCount() const { return serviceWorkerProcesses().computeSize(); }
-    void updateServiceWorkerUserAgent(const String& userAgent);
-    UserContentControllerIdentifier userContentControllerIdentifierForServiceWorkers();
+    size_t serviceWorkerProxiesCount() const;
     bool hasServiceWorkerForegroundActivityForTesting() const;
     bool hasServiceWorkerBackgroundActivityForTesting() const;
 #endif
-    void serviceWorkerProcessCrashed(WebProcessProxy&);
+    void serviceWorkerProcessCrashed(WebProcessProxy&, ProcessTerminationReason);
+
+    void updateRemoteWorkerUserAgent(const String& userAgent);
+    UserContentControllerIdentifier userContentControllerIdentifierForRemoteWorkers();
+    static void establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType, WebCore::RegistrableDomain&&, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void()>&&);
 
 #if PLATFORM(COCOA)
     bool processSuppressionEnabled() const;
@@ -430,6 +431,7 @@ public:
 
     bool alwaysRunsAtBackgroundPriority() const { return m_alwaysRunsAtBackgroundPriority; }
     bool shouldTakeUIBackgroundAssertion() const { return m_shouldTakeUIBackgroundAssertion; }
+    static bool anyProcessPoolNeedsUIBackgroundAssertion();
 
 #if ENABLE(GAMEPAD)
     void gamepadConnected(const UIGamepad&, WebCore::EventMakesGamepadsVisible);
@@ -510,16 +512,16 @@ public:
     static void platformInitializeNetworkProcess(NetworkProcessCreationParameters&);
     static Vector<String> urlSchemesWithCustomProtocolHandlers();
 
+    Ref<WebProcessProxy> createNewWebProcess(WebsiteDataStore*, WebProcessProxy::CaptivePortalMode, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared);
+
+    bool hasAudibleMediaActivity() const { return !!m_audibleMediaActivity; }
 #if PLATFORM(IOS_FAMILY)
-    static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
-    static String cookieStorageDirectory();
-    static String parentBundleDirectory();
-    static String networkingCachesDirectory();
-    static String webContentCachesDirectory();
-    static String containerTemporaryDirectory();
+    bool processesShouldSuspend() const { return m_processesShouldSuspend; }
 #endif
 
-    Ref<WebProcessProxy> createNewWebProcess(WebsiteDataStore*, WebProcessProxy::CaptivePortalMode, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared);
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    void hardwareConsoleStateChanged();
+#endif
 
 private:
     void platformInitialize();
@@ -582,6 +584,10 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
+    static void captivePortalModeConfigUpdateCallback(CFNotificationCenterRef, void* observer, CFStringRef name, const void* postingObject, CFDictionaryRef userInfo);
+#endif
+    
+#if PLATFORM(COCOA)
     static void accessibilityPreferencesChangedCallback(CFNotificationCenterRef, void* observer, CFStringRef name, const void* postingObject, CFDictionaryRef userInfo);
 #endif
 
@@ -597,6 +603,7 @@ private:
     void startObservingPreferenceChanges();
 #endif
 
+    static void registerDisplayConfigurationCallback();
     static void registerHighDynamicRangeChangeCallback();
 
 #if PLATFORM(MAC)
@@ -618,13 +625,11 @@ private:
 
     HashMap<PAL::SessionID, WeakPtr<WebProcessProxy>> m_dummyProcessProxies; // Lightweight WebProcessProxy objects without backing process.
 
-#if ENABLE(SERVICE_WORKER)
-    static WeakHashSet<WebProcessProxy>& serviceWorkerProcesses();
-    bool m_waitingForWorkerContextProcessConnection { false };
-    String m_serviceWorkerUserAgent;
-    std::optional<WebPreferencesStore> m_serviceWorkerPreferences;
-    RefPtr<WebUserContentControllerProxy> m_userContentControllerForServiceWorker;
-#endif
+    static WeakHashSet<WebProcessProxy>& remoteWorkerProcesses();
+
+    std::optional<WebPreferencesStore> m_remoteWorkerPreferences;
+    RefPtr<WebUserContentControllerProxy> m_userContentControllerForRemoteWorkers;
+    String m_remoteWorkerUserAgent;
 
 #if ENABLE(GPU_PROCESS)
     RefPtr<GPUProcessProxy> m_gpuProcess;
@@ -689,6 +694,10 @@ private:
     std::unique_ptr<PerActivityStateCPUUsageSampler> m_perActivityStateCPUUsageSampler;
 #endif
 
+#if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
+    RetainPtr<NSObject> m_powerLogObserver;
+#endif
+
 #if PLATFORM(COCOA)
     std::unique_ptr<WebCore::PowerSourceNotifier> m_powerSourceNotifier;
     RetainPtr<NSObject> m_activationObserver;
@@ -738,12 +747,6 @@ private:
     struct Paths {
         String injectedBundlePath;
         String uiProcessBundleResourcePath;
-
-#if PLATFORM(IOS_FAMILY)
-        String cookieStorageDirectory;
-        String containerCachesDirectory;
-        String containerTemporaryDirectory;
-#endif
 
 #if PLATFORM(PLAYSTATION)
         String webProcessPath;
@@ -807,9 +810,14 @@ private:
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::PowerObserver> m_powerObserver;
     std::unique_ptr<PAL::SystemSleepListener> m_systemSleepListener;
+    Vector<int> m_openDirectoryNotifyTokens;
 #endif
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    bool m_processesShouldSuspend { false };
 #endif
 };
 
@@ -828,6 +836,15 @@ void WebProcessPool::sendToAllProcessesForSession(const T& message, PAL::Session
     for (auto& process : m_processes) {
         if (process->canSendMessage() && !process->isPrewarmed() && process->sessionID() == sessionID)
             process->send(T(message), 0);
+    }
+}
+
+template<typename T>
+void WebProcessPool::sendToAllRemoteWorkerProcesses(const T& message)
+{
+    for (auto& process : remoteWorkerProcesses()) {
+        if (process.canSendMessage())
+            process.send(T(message), 0);
     }
 }
 

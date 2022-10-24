@@ -348,7 +348,7 @@ SwigType *SwigType_del_pointer(SwigType *t) {
     printf("Fatal error. SwigType_del_pointer applied to non-pointer.\n");
     abort();
   }
-  Delslice(t, 0, (c - s) + 2);
+  Delslice(t, 0, (int) (c - s) + 2);
   return t;
 }
 
@@ -860,7 +860,7 @@ SwigType *SwigType_add_template(SwigType *t, ParmList *parms) {
 String *SwigType_templateprefix(const SwigType *t) {
   const char *s = Char(t);
   const char *c = strstr(s, "<(");
-  return c ? NewStringWithSize(s, c - s) : NewString(s);
+  return c ? NewStringWithSize(s, (int) (c - s)) : NewString(s);
 }
 
 /* -----------------------------------------------------------------------------
@@ -922,7 +922,7 @@ String *SwigType_templateargs(const SwigType *t) {
 	  nest--;
 	c++;
       }
-      return NewStringWithSize(start, c - start);
+      return NewStringWithSize(start, (int) (c - start));
     }
     c++;
   }

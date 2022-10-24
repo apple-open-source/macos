@@ -252,7 +252,6 @@ void ResourceBuilder::scan(Scanner next, Scanner unhandledScanner)
 					if (rule) {
 						if (rule->flags & nested) {
 							if (strchr(ent->fts_name, '.')) {	// nested, has extension -> treat as nested bundle
-								wasScanned = true;
 								next(ent, rule->flags, string(relpath), rule);
 								fts_set(mFTS, ent, FTS_SKIP);
 							}

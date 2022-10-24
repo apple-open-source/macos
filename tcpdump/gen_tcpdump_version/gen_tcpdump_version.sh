@@ -5,11 +5,6 @@
 #RC_ProjectNameAndSourceVersion=tcpdump-Branch.eng_PR_123456789__623e4dd2d9945f007629c0c7801b418635791e13
 #RC_ProjectNameAndSourceVersion=tcpdump-Branch.SHA__ea89f6fda992afd6cd6fec108722c18034564220
 
-print_tcpdump_version()
-{
-	cat tcpdump/VERSION 2>/dev/null
-}
-
 print_darwin_version()
 {
 	echo ${darwin_version}
@@ -38,7 +33,7 @@ if [ -z "${darwin_version}" ]; then
 	darwin_version="main (`date '+%Y-%m-%d %H:%M:%S'`)"
 fi
 
-version_string="`print_tcpdump_version` -- Apple version `print_darwin_version`"
+version_string="Apple version `print_darwin_version`"
 
 if [ -z "${SHARED_DERIVED_FILE_DIR}" ]; then
 	echo ${version_string}
@@ -47,6 +42,6 @@ fi
 
 mkdir -p "${SHARED_DERIVED_FILE_DIR}"
 
-echo "static const char tcpdump_version_string[] = \"${version_string}\";" > "${SHARED_DERIVED_FILE_DIR}/tcpdump_version.h"
+echo "static const char apple_version_string[] = \"${version_string}\";" > "${SHARED_DERIVED_FILE_DIR}/tcpdump_version.h"
 
 exit 0

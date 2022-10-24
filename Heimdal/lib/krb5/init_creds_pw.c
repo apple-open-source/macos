@@ -4019,7 +4019,13 @@ _krb5_init_creds_get_cred_client(krb5_context context, krb5_init_creds_context c
     return ctx->cred.client;
 }
 
-
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_init_creds_set_nonce(krb5_context context, krb5_init_creds_context ctx, unsigned nonce)
+{
+    ctx->nonce = nonce;
+    ctx->pk_nonce = nonce;
+    return 0;
+}
 
 /**
  * Get the last error from the transaction.

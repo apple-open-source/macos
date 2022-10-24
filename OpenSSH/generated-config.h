@@ -20,6 +20,9 @@
 /* The system has incomplete BSM API */
 /* #undef BROKEN_BSM_API */
 
+/* broken in chroots on older kernels */
+/* #undef BROKEN_CLOSEFROM */
+
 /* Define if cmsg_type is not passed correctly */
 /* #undef BROKEN_CMSG_TYPE */
 
@@ -28,6 +31,9 @@
 
 /* getgroups(0,NULL) will return -1 */
 /* #undef BROKEN_GETGROUPS */
+
+/* getline is not what we expect */
+/* #undef BROKEN_GETLINE */
 
 /* FreeBSD glob does not do what we need */
 #define BROKEN_GLOB 1
@@ -38,6 +44,9 @@
 /* Define if your struct dirent expects you to allocate extra space for d_name
    */
 /* #undef BROKEN_ONE_BYTE_DIRENT_D_NAME */
+
+/* System poll(2) implementation is broken */
+#define BROKEN_POLL 1
 
 /* Can't do comparisons on readv */
 /* #undef BROKEN_READV_COMPARISON */
@@ -283,6 +292,9 @@
 /* Define to 1 if you have the `closefrom' function. */
 /* #undef HAVE_CLOSEFROM */
 
+/* Define to 1 if you have the `close_range' function. */
+/* #undef HAVE_CLOSE_RANGE */
+
 /* Define if gai_strerror() returns const char * */
 #define HAVE_CONST_GAI_STRERROR_PROTO 1
 
@@ -315,6 +327,10 @@
 /* Define to 1 if you have the declaration of `bzero', and to 0 if you don't.
    */
 #define HAVE_DECL_BZERO 1
+
+/* Define to 1 if you have the declaration of `ftruncate', and to 0 if you
+   don't. */
+#define HAVE_DECL_FTRUNCATE 1
 
 /* Define to 1 if you have the declaration of `getpeereid', and to 0 if you
    don't. */
@@ -464,7 +480,7 @@
 #define HAVE_ECDSA_SIG_SET0 1
 
 /* Define to 1 if you have the `EC_KEY_METHOD_new' function. */
-/* #undef HAVE_EC_KEY_METHOD_NEW */
+#define HAVE_EC_KEY_METHOD_NEW 1
 
 /* Define to 1 if you have the <elf.h> header file. */
 /* #undef HAVE_ELF_H */
@@ -500,7 +516,7 @@
 #define HAVE_EVP_CIPHER_CTX_CTRL 1
 
 /* Define to 1 if you have the `EVP_CIPHER_CTX_get_iv' function. */
-/* #undef HAVE_EVP_CIPHER_CTX_GET_IV */
+#define HAVE_EVP_CIPHER_CTX_GET_IV 1
 
 /* Define to 1 if you have the `EVP_CIPHER_CTX_get_updated_iv' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_GET_UPDATED_IV */
@@ -512,7 +528,7 @@
 /* #undef HAVE_EVP_CIPHER_CTX_IV_NOCONST */
 
 /* Define to 1 if you have the `EVP_CIPHER_CTX_set_iv' function. */
-/* #undef HAVE_EVP_CIPHER_CTX_SET_IV */
+#define HAVE_EVP_CIPHER_CTX_SET_IV 1
 
 /* Define to 1 if you have the `EVP_DigestFinal_ex' function. */
 #define HAVE_EVP_DIGESTFINAL_EX 1
@@ -580,8 +596,14 @@
 /* Define to 1 if you have the <features.h> header file. */
 /* #undef HAVE_FEATURES_H */
 
+/* Define to 1 if you have the `fido_assert_set_clientdata' function. */
+/* #undef HAVE_FIDO_ASSERT_SET_CLIENTDATA */
+
 /* Define to 1 if you have the `fido_cred_prot' function. */
 /* #undef HAVE_FIDO_CRED_PROT */
+
+/* Define to 1 if you have the `fido_cred_set_clientdata' function. */
+/* #undef HAVE_FIDO_CRED_SET_CLIENTDATA */
 
 /* Define to 1 if you have the `fido_cred_set_prot' function. */
 /* #undef HAVE_FIDO_CRED_SET_PROT */
@@ -823,6 +845,9 @@
 /* Define if you have isblank(3C). */
 #define HAVE_ISBLANK 1
 
+/* Define to 1 if you have the `killpg' function. */
+#define HAVE_KILLPG 1
+
 /* Define to 1 if you have the `krb5_cc_new_unique' function. */
 #define HAVE_KRB5_CC_NEW_UNIQUE 1
 
@@ -944,12 +969,6 @@
 /* Define to 1 if you have the `mbtowc' function. */
 #define HAVE_MBTOWC 1
 
-/* Define to 1 if you have the `md5_crypt' function. */
-/* #undef HAVE_MD5_CRYPT */
-
-/* Define if you want to allow MD5 passwords */
-/* #undef HAVE_MD5_PASSWORDS */
-
 /* Define to 1 if you have the `memmem' function. */
 #define HAVE_MEMMEM 1
 
@@ -988,6 +1007,9 @@
 
 /* Define if you are on NeXT */
 /* #undef HAVE_NEXT */
+
+/* Define to 1 if the system has the type `nfds_t'. */
+#define HAVE_NFDS_T 1
 
 /* Define to 1 if you have the `ngetaddrinfo' function. */
 /* #undef HAVE_NGETADDRINFO */
@@ -1053,6 +1075,9 @@
 /* Define to 1 if you have the <poll.h> header file. */
 #define HAVE_POLL_H 1
 
+/* Define to 1 if you have the `ppoll' function. */
+/* #undef HAVE_PPOLL */
+
 /* Define to 1 if you have the `prctl' function. */
 /* #undef HAVE_PRCTL */
 
@@ -1062,11 +1087,17 @@
 /* Define to 1 if you have the <priv.h> header file. */
 /* #undef HAVE_PRIV_H */
 
+/* Define to 1 if you have the `procctl' function. */
+/* #undef HAVE_PROCCTL */
+
 /* Define if you have /proc/$pid/fd */
 /* #undef HAVE_PROC_PID */
 
 /* Define to 1 if you have the `proc_pidinfo' function. */
 #define HAVE_PROC_PIDINFO 1
+
+/* Define to 1 if you have the `pselect' function. */
+#define HAVE_PSELECT 1
 
 /* Define to 1 if you have the `pstat' function. */
 /* #undef HAVE_PSTAT */
@@ -1136,10 +1167,10 @@
 #define HAVE_RSA_METH_FREE 1
 
 /* Define to 1 if you have the `RSA_meth_get_finish' function. */
-/* #undef HAVE_RSA_METH_GET_FINISH */
+#define HAVE_RSA_METH_GET_FINISH 1
 
 /* Define to 1 if you have the `RSA_meth_set1_name' function. */
-/* #undef HAVE_RSA_METH_SET1_NAME */
+#define HAVE_RSA_METH_SET1_NAME 1
 
 /* Define to 1 if you have the `RSA_meth_set_finish' function. */
 #define HAVE_RSA_METH_SET_FINISH 1
@@ -1276,6 +1307,9 @@
 /* Define to 1 if you have the `sigaction' function. */
 #define HAVE_SIGACTION 1
 
+/* Define to 1 if the system has the type `sighandler_t'. */
+/* #undef HAVE_SIGHANDLER_T */
+
 /* Define to 1 if you have the `sigvec' function. */
 #define HAVE_SIGVEC 1
 
@@ -1393,6 +1427,9 @@
 /* Define to 1 if `pw_gecos' is a member of `struct passwd'. */
 #define HAVE_STRUCT_PASSWD_PW_GECOS 1
 
+/* Define to 1 if `fd' is a member of `struct pollfd'. */
+#define HAVE_STRUCT_POLLFD_FD 1
+
 /* define if you have struct sockaddr_in6 data type */
 #define HAVE_STRUCT_SOCKADDR_IN6 1
 
@@ -1474,11 +1511,17 @@
 /* Define if your system defines sys_nerr */
 /* #undef HAVE_SYS_NERR */
 
+/* Define to 1 if you have the <sys/param.h> header file. */
+#define HAVE_SYS_PARAM_H 1
+
 /* Define to 1 if you have the <sys/poll.h> header file. */
 #define HAVE_SYS_POLL_H 1
 
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 /* #undef HAVE_SYS_PRCTL_H */
+
+/* Define to 1 if you have the <sys/procctl.h> header file. */
+/* #undef HAVE_SYS_PROCCTL_H */
 
 /* Define to 1 if you have the <sys/pstat.h> header file. */
 /* #undef HAVE_SYS_PSTAT_H */
@@ -1881,6 +1924,9 @@
 /* The size of `short int', as computed by sizeof. */
 #define SIZEOF_SHORT_INT 2
 
+/* The size of `time_t', as computed by sizeof. */
+#define SIZEOF_TIME_T 8
+
 /* Define as const if snprintf() can declare const char *fmt */
 #define SNPRINTF_CONST /* not const */
 
@@ -1975,6 +2021,9 @@
 /* Define if you have Solaris projects */
 /* #undef USE_SOLARIS_PROJECTS */
 
+/* compiler variable declarations after code */
+#define VARIABLE_DECLARATION_AFTER_CODE 1
+
 /* compiler supports variable length arrays */
 #define VARIABLE_LENGTH_ARRAYS 1
 
@@ -2019,7 +2068,7 @@
 #endif
 
 /* Define if xauth is found in your path */
-#define XAUTH_PATH "xauth"
+/* #undef XAUTH_PATH */
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE

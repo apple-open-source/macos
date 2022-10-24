@@ -78,7 +78,7 @@ clean_subregions(struct region *r)
 }
 
 void
-del_sparse_region(struct region *r)
+rop_sparse_delete(struct region *r)
 {
     clean_subregions(r);
     poison(r, 0xcafecaff, sizeof (*r));

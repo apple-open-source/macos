@@ -25,6 +25,7 @@
 
 #include <paths.h>
 #include <DiskArbitration/DiskArbitration.h>
+#include <DiskArbitration/DiskArbitrationPrivate.h>
 
 __private_extern__ const char * _kDAAuthorizeRightAdopt   = "adopt";
 __private_extern__ const char * _kDAAuthorizeRightEncode  = "encode";
@@ -40,6 +41,7 @@ __private_extern__ const CFStringRef _kDACallbackDiskKey          = CFSTR( "DACa
 __private_extern__ const CFStringRef _kDACallbackKindKey          = CFSTR( "DACallbackKind"      );
 __private_extern__ const CFStringRef _kDACallbackMatchKey         = CFSTR( "DACallbackMatch"     );
 __private_extern__ const CFStringRef _kDACallbackOrderKey         = CFSTR( "DACallbackOrder"     );
+__private_extern__ const CFStringRef _kDACallbackBlockKey         = CFSTR( "DACallbackBlock"     );
 __private_extern__ const CFStringRef _kDACallbackSessionKey       = CFSTR( "DACallbackSession"   );
 __private_extern__ const CFStringRef _kDACallbackTimeKey          = CFSTR( "DACallbackTime"      );
 __private_extern__ const CFStringRef _kDACallbackWatchKey         = CFSTR( "DACallbackWatch"     );
@@ -69,6 +71,7 @@ const CFStringRef kDADiskDescriptionVolumeNetworkKey   = CFSTR( "DAVolumeNetwork
 const CFStringRef kDADiskDescriptionVolumePathKey      = CFSTR( "DAVolumePath"      );
 const CFStringRef kDADiskDescriptionVolumeTypeKey      = CFSTR( "DAVolumeType"      );
 const CFStringRef kDADiskDescriptionVolumeUUIDKey      = CFSTR( "DAVolumeUUID"      );
+const CFStringRef kDADiskDescriptionVolumeLifsURLKey   = CFSTR( "DAVolumeLifsURL"   );
 
 const CFStringRef kDADiskDescriptionMediaBlockSizeKey  = CFSTR( "DAMediaBlockSize"  );
 const CFStringRef kDADiskDescriptionMediaBSDMajorKey   = CFSTR( "DAMediaBSDMajor"   );
@@ -595,14 +598,42 @@ __private_extern__ int __DAVolumeGetDeviceIDForLifsMount(char *mntpoint, char *d
     if ((startStr = strstr(mntpoint, "://")))
     {
         startStr = startStr + strlen("://");
-        endStr = strrchr(startStr, '/');
-        if ( endStr != NULL )
+#if TARGET_OS_IOS
+        if ( strncmp( mntpoint, "apfs", strlen( "apfs" ) ) != 0 )
+#endif
         {
-            *endStr = '\0';
-            strlcpy(devname, startStr, len);
-            ret = 0;
+            endStr = strrchr(startStr, '/');
+            if ( endStr != NULL )
+            {
+                *endStr = '\0';
+                strlcpy(devname, startStr, len);
+                ret = 0;
+            }
         }
     }
     return ret;
 }
 
+__private_extern__ int _DAVolumeGetDevicePathForLifsMount( const struct statfs * fs, char *devicePath, int size )
+{
+    char *    startStr;
+    char *    endStr;
+    int       ret = -1;
+    int       slice = -1;
+    char mntpoint[MAXPATHLEN];
+    
+    strlcpy(mntpoint, fs->f_mntfromname, sizeof(mntpoint));
+    if ((startStr = strstr(mntpoint, "://")))
+    {
+        startStr = startStr + strlen("://");
+        endStr = strrchr(startStr, '/');
+		if ( endStr != NULL )
+		{
+			*endStr = '\0';
+			strlcpy( devicePath, _PATH_DEV, size );
+			strlcat( devicePath, startStr, size );
+			ret = 0;
+		}
+    }
+    return ret;
+}

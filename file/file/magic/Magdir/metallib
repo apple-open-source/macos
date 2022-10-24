@@ -6,13 +6,19 @@
 
 # From: John Doe <john_doe@unknown.us>
 0       string          MTLB           MetalLib
+!:strength +2
 
 # File type
 >6      uleshort        >0x1
 >8      uleshort        >0x3
->>10    byte            =0x0           executable
->>10    byte            =0x1           core image library
->>10    byte            =0x2           dynamically linked shared library
+>>10    byte&0x7F       =0x0           executable
+>>10    byte&0x7F       =0x1           core image library
+>>10    byte&0x7F       =0x2           dynamically linked shared library
+>>10    byte&0x7F       =0x3           companion
+
+>6      uleshort        >0x1
+>8      uleshort        >0x5
+>>10    byte&0x80       =0x80          \b stub
 
 # File version
 >5      byte&0x80       =0x80          \b (MacOS)

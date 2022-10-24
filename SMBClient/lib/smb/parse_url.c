@@ -338,7 +338,7 @@ static CFStringRef SetWorkgroupFromURL(struct smb_ctx *ctx, CFURLRef url)
 
 	if (wrkgrpString) {
 		LogCFString(wrkgrpString, "Workgroup", __FUNCTION__, __LINE__);
-		if (CFStringGetLength(wrkgrpString) <= SMB_MAXNetBIOSNAMELEN) {
+		if (CFStringGetLength(wrkgrpString) <= SMB_MAX_DOMAIN_NAMELEN) {
 			str_upper(ctx->ct_setup.ioc_domain, sizeof(ctx->ct_setup.ioc_domain), wrkgrpString);
 		}
 		CFRelease(wrkgrpString);
@@ -1012,7 +1012,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 
     /* Check if workgroup name is too long */
     if ((DomainWrkgrp) &&
-        (CFStringGetLength(DomainWrkgrp) > SMB_MAXNetBIOSNAMELEN)) {
+        (CFStringGetLength(DomainWrkgrp) > SMB_MAX_DOMAIN_NAMELEN)) {
 		error = ENAMETOOLONG;
     }
 	
@@ -1511,7 +1511,10 @@ CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username,
 	CFMutableDictionaryRef mutableDict = NULL;
 	int error;
 	CFMutableStringRef urlString = NULL;
-	
+    CFRange foundBonjourName;
+    CFRange foundEscapedPeriods;
+    CFMutableStringRef newServerNameRef = NULL;
+
 	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
 											&kCFTypeDictionaryValueCallBacks);
 	if (mutableDict == NULL) {
@@ -1545,7 +1548,35 @@ CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username,
 	}
     
 	if (ServerName) {
-		CFDictionarySetValue(mutableDict, kNetFSHostKey, ServerName);
+        /* Check to see if its a Bonjour server name */
+        foundBonjourName = CFStringFind (ServerName, CFSTR("._smb._tcp.local"), 0);
+        if (foundBonjourName.location != kCFNotFound) {
+            /*
+             * <38807912> If its a Bonjour name, then any "." has been
+             * escaped with "\134.". Need to replace that with "%5c%2e"
+             * because DCERPC will strip any "\134."
+             *
+             * Later we reverse this and put the "\134." back in.
+             */
+            foundEscapedPeriods = CFStringFind (ServerName, CFSTR("%5c%2e"), 0);
+            if (foundEscapedPeriods.location != kCFNotFound) {
+                newServerNameRef = CFStringCreateMutableCopy(NULL, 0, ServerName);
+                if (newServerNameRef) {
+                    /* Replace "%5c%2e" with "\134." */
+                    CFStringFindAndReplace(newServerNameRef, CFSTR("%5c%2e"), CFSTR("\134."),
+                                           CFRangeMake(0, CFStringGetLength(newServerNameRef)),
+                                           kCFCompareCaseInsensitive);
+               }
+            }
+        }
+
+        if (newServerNameRef) {
+            CFDictionarySetValue(mutableDict, kNetFSHostKey, newServerNameRef);
+            CFRelease(newServerNameRef);
+        }
+        else {
+            CFDictionarySetValue(mutableDict, kNetFSHostKey, ServerName);
+        }
 	}
     
 	if (Path) {

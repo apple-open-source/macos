@@ -49,12 +49,11 @@
 
 #ifndef __ASSEMBLER__
 
-#include <System/machine/cpu_capabilities.h>
+#include <machine/cpu_capabilities.h>
 #include <sys/cdefs.h>
 #include <TargetConditionals.h>
 #include <Availability.h>
 #include <os/tsd.h>
-#include <pthread/spinlock_private.h>
 
 /* Constant TSD slots for inline pthread_getspecific() usage. */
 
@@ -235,21 +234,23 @@
 #define __PTK_LIBDISPATCH_WORKGROUP_KEY3		118
 #define __PTK_LIBDISPATCH_WORKGROUP_KEY4		119
 
-/* Keys 190 - 194 are for the use of PerfUtils */
-#define __PTK_PERF_UTILS_KEY0		190
-#define __PTK_PERF_UTILS_KEY1		191
-#define __PTK_PERF_UTILS_KEY2		192
-#define __PTK_PERF_UTILS_KEY3		193
-#define __PTK_PERF_UTILS_KEY4		194
+/* 120 - 124 : libdispatch, see above */
 
-/* Keys 210 - 229 are for libSystem usage within the iOS Simulator */
-/* They are offset from their corresponding libSystem keys by 200 */
-#define __PTK_LIBC_SIM_LOCALE_KEY	210
-#define __PTK_LIBC_SIM_TTYNAME_KEY	211
+/* 125 - 209 for shared cache dylibs __thread support */
+
+/* Keys 210 - 216 are for libSystem usage within the iOS Simulator
+   for runtimes older than iOS 15.4.
+   They are offset from their corresponding libSystem keys by 200.
+   Keys 217-229 are also reserved for Simulator libSystem. */
+#define __PTK_LIBC_SIM_LOCALE_KEY		210
 #define __PTK_LIBC_SIM_LOCALTIME_KEY	212
-#define __PTK_LIBC_SIM_GMTIME_KEY	213
+#define __PTK_LIBC_SIM_GMTIME_KEY		213
 #define __PTK_LIBC_SIM_GDTOA_BIGINT_KEY	214
 #define __PTK_LIBC_SIM_PARSEFLOAT_KEY	215
+#define __PTK_LIBC_SIM_TTYNAME_KEY		216
+
+/* objc_trace */
+#define __PTK_PERF_UTILS_KEY0   	230
 
 __BEGIN_DECLS
 

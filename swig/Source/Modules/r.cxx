@@ -1051,7 +1051,7 @@ int R::OutputClassMemberTable(Hash *tb, File *out) {
 int R::OutputMemberReferenceMethod(String *className, int isSet, 
 				   List *el, File *out) {
   int numMems = Len(el), j;
-  int has_getitem = 0, has_setitem = 0, has_str = 0;
+  __unused int has_getitem = 0, has_setitem = 0, has_str = 0;
   int varaccessor = 0;
   if (numMems == 0) 
     return SWIG_OK;
@@ -1760,7 +1760,7 @@ int R::functionWrapper(Node *n) {
   }
   
   int i;
-  int nargs, num_required, varargs;
+  int nargs, __unused num_required, varargs;
   UNUSED(varargs);
   
   String *wname = Swig_name_wrapper(iname);
@@ -2140,7 +2140,7 @@ int R::functionWrapper(Node *n) {
      Would like to be able to do this so that we can potentialy insert
   */
   if(processing_member_access_function || processing_class_member_function) {
-    String *tmp;
+    __unused String *tmp;
     if(member_name)
       tmp = member_name;
     else

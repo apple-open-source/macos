@@ -160,5 +160,5 @@ CSSM_RETURN Module::spiEventRelay(const CSSM_GUID *ModuleGuid,
                                              Guid::required(ModuleGuid),
                                              SubserviceId,
                                              ServiceType);
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }

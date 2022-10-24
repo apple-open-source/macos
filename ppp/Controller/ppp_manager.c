@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2014, 2018, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2760,6 +2760,30 @@ int ppp_copyextendedstatus(struct service *serv, CFDictionaryRef *statusdict)
             CFDictionaryAddValue(dict, kSCEntNetIPv4, pppdict);
             my_CFRelease(&pppdict);
         }
+
+		CFDictionaryRef dnsDict = (CFMutableDictionaryRef)copyEntity(gDynamicStore, kSCDynamicStoreDomainState, serv->serviceID, kSCEntNetDNS);
+		if (dnsDict != NULL) {
+            CFArrayRef dnsServers = CFDictionaryGetValue(dnsDict, kSCPropNetDNSServerAddresses);
+            if (isA_CFArray(dnsServers)) {
+                CFDictionarySetValue(dict, CFSTR(NESessionExtendedStatusDNSServers), dnsServers);
+            }
+
+            CFStringRef dnsDomain = CFDictionaryGetValue(dnsDict, kSCPropNetDNSDomainName);
+            if (isA_CFString(dnsDomain)) {
+                CFDictionarySetValue(dict, CFSTR(NESessionExtendedStatusDNSDomain), dnsDomain);
+            }
+
+            CFArrayRef dnsSearchDomains = CFDictionaryGetValue(dnsDict, kSCPropNetDNSSearchDomains);
+            if (isA_CFArray(dnsSearchDomains)) {
+                CFDictionarySetValue(dict, CFSTR(NESessionExtendedStatusDNSSearchDomains), dnsSearchDomains);
+            }
+
+            CFArrayRef dnsSupplementalDomains = CFDictionaryGetValue(dnsDict, kSCPropNetDNSSupplementalMatchDomains);
+            if (isA_CFArray(dnsSupplementalDomains)) {
+                CFDictionarySetValue(dict, CFSTR(NESessionExtendedStatusDNSSupplementalMatchDomains), dnsSupplementalDomains);
+            }
+			my_CFRelease(&dnsDict);
+		}
     }
     
     AddNumber(dict, kSCNetworkConnectionStatus, ppp_getstatus(serv));

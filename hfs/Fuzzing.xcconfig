@@ -1,0 +1,10 @@
+//
+//  Fuzzing.xcconfig
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+OTHER_CPLUSPLUSFLAGS[config=Fuzzing*][sdk=*] = $(inherited) -fsanitize=address,fuzzer-no-link -g -O0 -fno-sanitize-coverage=pc-table
+OTHER_CFLAGS[config=Fuzzing*][sdk=*] = $(inherited) -fsanitize=address,fuzzer-no-link -g -O0 -fno-sanitize-coverage=pc-table
+OTHER_LDFLAGS[config=Fuzzing*][sdk=*] = $(inherited) -fsanitize=address,fuzzer-no-link -g -O0 -fno-sanitize-coverage=pc-table

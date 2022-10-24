@@ -103,7 +103,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
+        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain,
                                                                    code: CKError.networkUnavailable.rawValue,
                                                                    userInfo: [CKErrorRetryAfterKey: 2]))
 
@@ -221,10 +221,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         peer2.startOctagonStateMachine()
 
@@ -412,10 +412,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -570,10 +570,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -642,10 +642,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -724,10 +724,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -789,10 +789,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -837,7 +837,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             return nil
         }
 
-        self.mockAuthKit.otherDevices.insert(try! self.mockAuthKit2.machineID())
+        self.mockAuthKit.otherDevices.add(try! self.mockAuthKit2.machineID())
+
         self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
         self.wait(for: [updateTrustExpectation], timeout: 10)
 
@@ -859,10 +860,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let originalPeer = self.manager.context(forContainerName: OTCKContainerName,
                                                 contextID: originalPeerContextID,
                                                 sosAdapter: orignalPeerMockSOS,
+                                                accountsAdapter: self.mockAuthKit2,
                                                 authKitAdapter: self.mockAuthKit2,
                                                 tooManyPeersAdapter: self.mockTooManyPeers,
                                                 lockStateTracker: self.lockStateTracker,
-                                                accountStateTracker: self.accountStateTracker,
                                                 deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         originalPeer.startOctagonStateMachine()
@@ -936,7 +937,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context) { error in
+        self.manager.wait(forOctagonUpgrade: OTControlArguments(configuration: self.otcliqueContext)) { error in
             XCTAssertNil(error, "operation should not fail")
             upgradeExpectation.fulfill()
         }
@@ -967,7 +968,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context) { error in
+        self.manager.wait(forOctagonUpgrade: OTControlArguments(configuration: self.otcliqueContext)) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).domain, "com.apple.security.sos.error", "domain should be com.apple.security.sos.error")
             XCTAssertEqual((error! as NSError).code, 1037, "code should be 1037")
@@ -995,7 +996,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // Attempting the upgrade succeeds, now that SOS is present
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context) { error in
+        self.manager.wait(forOctagonUpgrade: OTControlArguments(configuration: self.otcliqueContext)) { error in
             XCTAssertNil(error, "operation should not fail")
             upgradeExpectation.fulfill()
         }
@@ -1023,7 +1024,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .disabled, "CDP status should be 'disabled'")
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context) { error in
+        self.manager.wait(forOctagonUpgrade: OTControlArguments(configuration: self.otcliqueContext)) { error in
             XCTAssertNotNil(error, "operation should have failed - SOS is absent and Octagon cannot upgrade from it")
             XCTAssertEqual((error! as NSError).domain, "com.apple.security.sos.error", "domain should be com.apple.security.sos.error")
             XCTAssertEqual((error! as NSError).code, kSOSErrorNoCircle, "code should be kSOSErrorNoCircle")
@@ -1107,10 +1108,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         peer2.startOctagonStateMachine()
@@ -1150,10 +1151,10 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let newGuyUsingBottle = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: "NewGuyUsingBottle",
                                                      sosAdapter: mockNoSOS,
+                                                     accountsAdapter: self.mockAuthKit3,
                                                      authKitAdapter: self.mockAuthKit3,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone-3", serialNumber: "456", osVersion: "iOS (fake version)"))
         let peer2AltDSID = try peer2.accountMetadataStore.loadOrCreateAccountMetadata().altDSID
         newGuyUsingBottle.startOctagonStateMachine()
@@ -1411,7 +1412,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let dumpExpectation = self.expectation(description: "dump callback occurs")
         var encryptionPubKey = Data()
         var signingPubKey = Data()
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
             XCTAssertNil(error, "Should be no error dumping data")
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1448,7 +1449,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // And check that the pub keys are equivalent
         let dumpResetExpectation = self.expectation(description: "dump callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
             XCTAssertNil(error, "Should be no error dumping data")
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1475,9 +1476,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.putSelfTLKSharesInCloudKit()
         self.saveTLKMaterialToKeychain()
 
-        self.mockAuthKit.machineIDFetchErrors.append(NSError(domain: AKAppleIDAuthenticationErrorDomain,
-                                                             code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue,
-                                                             userInfo: nil))
+        let account = CloudKitAccount(altDSID: "1234", persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
+        self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: AKAppleIDAuthenticationErrorDomain, code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue, userInfo: nil))
 
         // Octagon should decide it is quite sad.
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -1492,9 +1493,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             self.fakeCuttlefishServer.fetchChangesReturnEmptyResponse = true
             updateChangesExpectation.fulfill()
             self.fakeCuttlefishServer.fetchChangesListener = nil
-            self.mockAuthKit.machineIDFetchErrors.append(NSError(domain: AKAppleIDAuthenticationErrorDomain,
-                                                                 code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue,
-                                                                 userInfo: nil))
+
+            self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: AKAppleIDAuthenticationErrorDomain, code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue, userInfo: nil))
 
             return nil
         }
@@ -1709,7 +1709,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .trusts, target: peer2ID)),
                       "peer 3 should trust peer 2")
 
-        let container = try! self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: "peer3")
+        let container = try! self.tphClient.getContainer(with: try XCTUnwrap(peer3.activeAccount))
         container.moc.performAndWait {
             container.model.deletePeer(withID: peer3ID)
         }

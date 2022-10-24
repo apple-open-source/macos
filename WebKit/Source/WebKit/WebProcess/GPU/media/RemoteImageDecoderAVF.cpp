@@ -30,7 +30,7 @@
 
 #include "GPUProcessConnection.h"
 #include "RemoteImageDecoderAVFProxyMessages.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "WebProcess.h"
 #include <WebCore/AVAssetMIMETypeCache.h>
 #include <WebCore/DestinationColorSpace.h>
@@ -166,20 +166,17 @@ PlatformImagePtr RemoteImageDecoderAVF::createFrameImageAtIndex(size_t index, Su
         if (!m_gpuProcessConnection)
             return;
 
-        std::optional<MachSendRight> sendRight;
-        std::optional<DestinationColorSpace> colorSpace;
-        if (!m_gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex(m_identifier, index), Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex::Reply(sendRight, colorSpace), 0))
+        std::optional<WebKit::ShareableBitmap::Handle> imageHandle;
+        if (!m_gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex(m_identifier, index), Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex::Reply(imageHandle), 0))
             return;
 
-        if (!sendRight || !colorSpace)
+        if (!imageHandle)
             return;
 
-        auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(*sendRight), WTFMove(*colorSpace));
-        if (!surface)
-            return;
+        imageHandle->takeOwnershipOfMemory(MemoryLedger::Graphics);
 
-        if (auto image = IOSurface::sinkIntoImage(WTFMove(surface)))
-            m_frameImages.add(index, image);
+        if (auto bitmap = ShareableBitmap::create(*imageHandle))
+            m_frameImages.add(index, bitmap->makeCGImage());
     };
 
     callOnMainRunLoopAndWait(WTFMove(createFrameImage));
@@ -209,7 +206,7 @@ void RemoteImageDecoderAVF::setData(const FragmentedSharedBuffer& data, bool all
     IntSize size;
     bool hasTrack;
     std::optional<Vector<ImageDecoder::FrameInfo>> frameInfos;
-    if (!m_gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::SetData(m_identifier, IPC::SharedBufferCopy(data), allDataReceived), Messages::RemoteImageDecoderAVFProxy::SetData::Reply(frameCount, size, hasTrack, frameInfos), 0))
+    if (!m_gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::SetData(m_identifier, IPC::SharedBufferReference(data), allDataReceived), Messages::RemoteImageDecoderAVFProxy::SetData::Reply(frameCount, size, hasTrack, frameInfos), 0))
         return;
 
     m_isAllDataReceived = allDataReceived;

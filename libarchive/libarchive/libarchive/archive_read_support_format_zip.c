@@ -152,6 +152,7 @@ struct zip {
 	/* Structural information about the archive. */
 	struct archive_string	format_name;
 	int64_t			central_directory_offset;
+	int64_t			central_directory_offset_adjusted;
 	size_t			central_directory_entries_total;
 	size_t			central_directory_entries_on_this_disk;
 	int			has_encrypted_entries;
@@ -258,12 +259,6 @@ struct zip {
 
 /* Many systems define min or MIN, but not all. */
 #define	zipmin(a,b) ((a) < (b) ? (a) : (b))
-#ifdef HAVE_ZLIB_H
-
-static int
-zip_read_data_deflate(struct archive_read *a, const void **buff,
-                      size_t *size, int64_t *offset);
-#endif
 
 #ifdef HAVE_ZLIB_H
 static int
@@ -1656,7 +1651,8 @@ zipx_lzma_alone_init(struct archive_read *a, struct zip *zip)
 	/* To unpack ZIPX's "LZMA" (id 14) stream we can use standard liblzma
 	 * that is a part of XZ Utils. The stream format stored inside ZIPX
 	 * file is a modified "lzma alone" file format, that was used by the
-	 * `lzma` utility which was later deprecated in favour of `xz` utility. 	 * Since those formats are nearly the same, we can use a standard
+	 * `lzma` utility which was later deprecated in favour of `xz` utility.
+ 	 * Since those formats are nearly the same, we can use a standard
 	 * "lzma alone" decoder from XZ Utils. */
 
 	memset(&zip->zipx_lzma_stream, 0, sizeof(zip->zipx_lzma_stream));
@@ -1710,7 +1706,7 @@ zipx_lzma_alone_init(struct archive_read *a, struct zip *zip)
 	 */
 
 	/* Read magic1,magic2,lzma_params from the ZIPX stream. */
-	if((p = __archive_read_ahead(a, 9, NULL)) == NULL) {
+	if(zip->entry_bytes_remaining < 9 || (p = __archive_read_ahead(a, 9, NULL)) == NULL) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
 		    "Truncated lzma data");
 		return (ARCHIVE_FATAL);
@@ -3420,24 +3416,31 @@ archive_read_support_format_zip_capabilities_seekable(struct archive_read * a)
 static int
 read_eocd(struct zip *zip, const char *p, int64_t current_offset)
 {
+	uint16_t disk_num;
+	uint32_t cd_size, cd_offset;
+	
+	disk_num = archive_le16dec(p + 4);
+	cd_size = archive_le32dec(p + 12);
+	cd_offset = archive_le32dec(p + 16);
+
 	/* Sanity-check the EOCD we've found. */
 
 	/* This must be the first volume. */
-	if (archive_le16dec(p + 4) != 0)
+	if (disk_num != 0)
 		return 0;
 	/* Central directory must be on this volume. */
-	if (archive_le16dec(p + 4) != archive_le16dec(p + 6))
+	if (disk_num != archive_le16dec(p + 6))
 		return 0;
 	/* All central directory entries must be on this volume. */
 	if (archive_le16dec(p + 10) != archive_le16dec(p + 8))
 		return 0;
 	/* Central directory can't extend beyond start of EOCD record. */
-	if (archive_le32dec(p + 16) + archive_le32dec(p + 12)
-	    > current_offset)
+	if (cd_offset + cd_size > current_offset)
 		return 0;
 
 	/* Save the central directory location for later use. */
-	zip->central_directory_offset = archive_le32dec(p + 16);
+	zip->central_directory_offset = cd_offset;
+	zip->central_directory_offset_adjusted = current_offset - cd_size;
 
 	/* This is just a tiny bit higher than the maximum
 	   returned by the streaming Zip bidder.  This ensures
@@ -3489,6 +3492,8 @@ read_zip64_eocd(struct archive_read *a, struct zip *zip, const char *p)
 
 	/* Save the central directory offset for later use. */
 	zip->central_directory_offset = archive_le64dec(p + 48);
+	/* TODO: Needs scanning backwards to find the eocd64 instead of assuming */
+	zip->central_directory_offset_adjusted = zip->central_directory_offset;
 
 	return 32;
 }
@@ -3876,7 +3881,8 @@ slurp_central_directory(struct archive_read *a, struct archive_entry* entry,
 	 * know the correction we need to apply to account for leading
 	 * padding.
 	 */
-	if (__archive_read_seek(a, zip->central_directory_offset, SEEK_SET) < 0)
+	if (__archive_read_seek(a, zip->central_directory_offset_adjusted, SEEK_SET)
+		< 0)
 		return ARCHIVE_FATAL;
 
 	found = 0;

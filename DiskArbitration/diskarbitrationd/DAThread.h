@@ -25,6 +25,8 @@
 #define __DISKARBITRATIOND_DATHREAD__
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/private.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,7 +36,7 @@ typedef int ( *DAThreadFunction )( void * context );
 
 typedef void ( *DAThreadExecuteCallback )( int status, void * context );
 
-extern CFRunLoopSourceRef DAThreadCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
+extern dispatch_mach_t DAThreadCreateMachChannel( void );
 
 extern void DAThreadExecute( DAThreadFunction function, void * functionContext, DAThreadExecuteCallback callback, void * callbackContext );
 

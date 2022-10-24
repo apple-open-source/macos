@@ -45,6 +45,7 @@ os_log_t display_log = NULL;
 
 bool gSLCheckIn = false;
 bool gDesktopMode = false;
+bool gDesktopModeOnBattery = false;
 bool gDisplayOn = false;
 bool gSLConnectionInitialized = false;
 pid_t gSLPid = -1;
@@ -121,7 +122,7 @@ __private_extern__ bool canSustainFullWake(void)
     return true;
 }
 
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+
 __private_extern__ void updateDesktopMode(xpc_object_t connection, xpc_object_t msg) 
 {
     // set DesktopMode
@@ -129,20 +130,28 @@ __private_extern__ void updateDesktopMode(xpc_object_t connection, xpc_object_t 
         ERROR_LOG("Invalid args for DesktopMode update(%p, %p)\n", connection, msg);
         return;
     }
+#if !XCTEST
     if (!xpcConnectionHasEntitlement(connection, kIOPMDisplayServiceEntitlement)) {
         ERROR_LOG("Not entitled to update desktopmode");
         return;
     }
+#endif
 
     bool desktop_mode = xpc_dictionary_get_bool(msg, kDesktopModeKey);
-    INFO_LOG("DesktopMode set %u\n", desktop_mode);
     gDesktopMode = desktop_mode;
-
+    bool applies_to_battery = xpc_dictionary_get_bool(msg, kDesktopModeOnBatteryKey);
+    INFO_LOG("DesktopMode set %u with battery %u\n", desktop_mode, applies_to_battery);
+    if (desktop_mode && applies_to_battery) {
+        gDesktopModeOnBattery = true;
+    } else {
+        gDesktopModeOnBattery = false;
+    }
     dispatch_async(_getPMMainQueue(), ^{handleDesktopMode();
                                                 });
 
 }
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
 __private_extern__ void skylightCheckIn(xpc_object_t connection, xpc_object_t msg)
 {
     // set up logging
@@ -184,7 +193,13 @@ __private_extern__ bool skylightDisplayOn(void)
 
 __private_extern__ bool isDesktopMode(void)
 {
-    return gDesktopMode;
+    int pwr_src = _getPowerSource();
+    if (pwr_src == kBatteryPowered) {
+        INFO_LOG("DesktopMode check on Battery %u", gDesktopModeOnBattery);
+        return (gDesktopMode & gDesktopModeOnBattery);
+    } else {
+        return gDesktopMode;
+    }
 }
 
 __private_extern__ void evaluateClamshellSleepState(void)
@@ -212,7 +227,10 @@ __private_extern__ void updateClamshellState(void *message)
         if (new_state == kPMClamshellOpen) {
             // clamshell open. send activity tickle to rootDomain
             CFStringRef description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("com.apple.powermanagement.lidopen"));
-            InternalDeclareUserActive(description, &gLidOpenAssertionID);
+            if (description) {
+                InternalDeclareUserActive(description, &gLidOpenAssertionID);
+                CFRelease(description);
+            }
         }
     }
     INFO_LOG("ClamshellState. Closed : %u. ClamshellSleepState: isSleepDisabled : %d\n", closed, getClamshellSleepState());
@@ -232,13 +250,13 @@ __private_extern__ void resetDisplayState()
     }
 }
 
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+
 void handleDesktopMode(void)
 {
     INFO_LOG("EvaluateClamshellSleepState on DesktopMode update");
     evaluateClamshellSleepState();
 }
-#endif
+
 
 void validateRequestUUID(uint64_t uuid)
 {

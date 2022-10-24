@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,7 +43,6 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 
-
 /* Define the status of any registered notification. */
 typedef enum {
 	NotifierNotRegistered = 0,
@@ -55,7 +54,7 @@ typedef enum {
 } __SCDynamicStoreNotificationStatus;
 
 
-typedef struct {
+typedef struct __SCDynamicStore {
 
 	/* base CFType information */
 	CFRuntimeBase			cfBase;
@@ -69,7 +68,6 @@ typedef struct {
 
 	/* server side of the "configd" session */
 	mach_port_t			server;		// [dispatch] sync to storePrivate->lock
-	Boolean				serverNullSession;
 
 	/* per-session flags */
 	Boolean				useSessionKeys;
@@ -131,8 +129,7 @@ SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 const CFStringRef		name,
 					 SCDynamicStoreCallBack		callout,
-					 SCDynamicStoreContext		*context,
-					 Boolean			nullSession);
+					 SCDynamicStoreContext		*context);
 
 __private_extern__
 Boolean
@@ -158,6 +155,17 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef		store,
 __private_extern__
 Boolean
 __SCDynamicStoreReconnectNotifications	(SCDynamicStoreRef		store);
+
+__private_extern__
+int
+__SCDynamicStoreMapInternalStatus	(int				sc_status,
+					 Boolean			generate_fault);
+
+__private_extern__
+CFPropertyListRef
+__SCDynamicStoreCopyValueCommon		(SCDynamicStoreRef 		store,
+					 CFStringRef 			key,
+					 Boolean 			preserve_status);
 
 __END_DECLS
 

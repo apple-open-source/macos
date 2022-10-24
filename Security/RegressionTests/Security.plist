@@ -115,22 +115,6 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>SecDbBackupTests</string>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/XCTests/com.apple.security/</string>
-			<key>ShowSubtestResults</key>
-			<true/>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
-				<string>-t</string>
-				<string>SecDbBackupTests</string>
-			</array>
-			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_KeychainSecDbBackupTests</string>
-		</dict>
-		<dict>
-			<key>TestName</key>
 			<string>SecurityUtiltitesTests</string>
 			<key>ShowSubtestResults</key>
 			<true/>

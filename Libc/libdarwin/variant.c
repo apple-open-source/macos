@@ -27,6 +27,8 @@
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
+#include <sys/variant_internal.h>
+
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
@@ -52,25 +54,19 @@ enum variant_property {
 	VP_MAX
 };
 
-enum check_status {
-	S_UNKNOWN = 0,
-	S_NO = 2,
-	S_YES = 3
-};
-
 typedef struct {
 	const char	*variant;
 	bool		(*function)(const char*);
 } variant_check_mapping;
 
 static bool
-status2bool(enum check_status status) {
+status2bool(enum os_variant_check_status status) {
 	switch (status) {
-	case S_NO:
+	case OS_VARIANT_S_NO:
 		return false;
-	case S_YES:
+	case OS_VARIANT_S_YES:
 		return true;
-	case S_UNKNOWN:
+	case OS_VARIANT_S_UNKNOWN:
 	default:
 		os_crash("os_variant had unexpected status");
 	}
@@ -169,26 +165,26 @@ static xpc_object_t read_plist(const char *path)
 #endif
 
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
-static enum check_status internal_content = S_UNKNOWN;
+static enum os_variant_check_status internal_content = OS_VARIANT_S_UNKNOWN;
 #endif
 #if !TARGET_OS_SIMULATOR
-static enum check_status can_has_debugger = S_UNKNOWN;
-static enum check_status has_full_logging = S_UNKNOWN;
+static enum os_variant_check_status can_has_debugger = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status has_full_logging = OS_VARIANT_S_UNKNOWN;
 #if TARGET_OS_IPHONE
-static enum check_status internal_release_type = S_UNKNOWN;
-static enum check_status factory_release_type = S_UNKNOWN;
-static enum check_status darwin_release_type = S_UNKNOWN;
-static enum check_status recovery_release_type = S_UNKNOWN;
-static enum check_status development_kernel = S_UNKNOWN;
-static enum check_status allows_security_research = S_UNKNOWN;
+static enum os_variant_check_status internal_release_type = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status factory_release_type = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status darwin_release_type = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status recovery_release_type = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status development_kernel = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status allows_security_research = OS_VARIANT_S_UNKNOWN;
 #else // TARGET_OS_IPHONE
-static enum check_status internal_diags_profile = S_UNKNOWN;
-static enum check_status factory_content = S_UNKNOWN;
-static enum check_status base_system_content = S_UNKNOWN;
-static enum check_status darwinos_content = S_UNKNOWN;
+static enum os_variant_check_status internal_diags_profile = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status factory_content = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status base_system_content = OS_VARIANT_S_UNKNOWN;
+static enum os_variant_check_status darwinos_content = OS_VARIANT_S_UNKNOWN;
 #endif // TARGET_OS_IPHONE
 #endif // !TARGET_OS_SIMULATOR
-static enum check_status is_ephemeral = S_UNKNOWN;
+static enum os_variant_check_status is_ephemeral = OS_VARIANT_S_UNKNOWN;
 
 static bool disabled_status[VP_MAX] = {};
 
@@ -278,10 +274,10 @@ static bool _check_disabled(enum variant_property variant_property)
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
 static void _check_internal_content_impl(void)
 {
-	if (_os_xbs_chrooted && internal_content != S_UNKNOWN) {
+	if (_os_xbs_chrooted && internal_content != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(internal_content == S_UNKNOWN);
+		os_assert(internal_content == OS_VARIANT_S_UNKNOWN);
 	}
 
 #if !TARGET_OS_SIMULATOR
@@ -292,13 +288,13 @@ static void _check_internal_content_impl(void)
 	if (simulator_root) {
 		asprintf(&path, "%s/%s", simulator_root, INTERNAL_CONTENT_PATH);
 		if (path == NULL) {
-			internal_content = S_NO;
+			internal_content = OS_VARIANT_S_NO;
 			return;
 		}
 		to_free = path;
 	}
 #endif
-	internal_content = (access(path, F_OK) == 0) ? S_YES : S_NO;
+	internal_content = (access(path, F_OK) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 #if TARGET_OS_SIMULATOR
 	free(to_free);
 #endif
@@ -314,14 +310,14 @@ static bool _check_internal_content(void)
 #if TARGET_OS_OSX
 static void _check_factory_content_impl(void)
 {
-	if (_os_xbs_chrooted && factory_content != S_UNKNOWN) {
+	if (_os_xbs_chrooted && factory_content != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(factory_content == S_UNKNOWN);
+		os_assert(factory_content == OS_VARIANT_S_UNKNOWN);
 	}
 
 	const char * path = FACTORY_CONTENT_PATH;
-	factory_content = (access(path, F_OK) == 0) ? S_YES : S_NO;
+	factory_content = (access(path, F_OK) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 }
 
 static bool _check_factory_content(void)
@@ -350,20 +346,20 @@ static bool _parse_system_version_plist(void)
 		/*
 		 * Confusingly, customer images are just completely missing this key.
 		 */
-		internal_release_type = S_NO;
-		factory_release_type = S_NO;
-		darwin_release_type = S_NO;
-		recovery_release_type = S_NO;
+		internal_release_type = OS_VARIANT_S_NO;
+		factory_release_type = OS_VARIANT_S_NO;
+		darwin_release_type = OS_VARIANT_S_NO;
+		recovery_release_type = OS_VARIANT_S_NO;
 	} else if (strcmp(release_type, "NonUI") == 0) {
-		factory_release_type = S_YES;
-		internal_release_type = S_YES;
-		darwin_release_type = S_NO;
-		recovery_release_type = S_NO;
+		factory_release_type = OS_VARIANT_S_YES;
+		internal_release_type = OS_VARIANT_S_YES;
+		darwin_release_type = OS_VARIANT_S_NO;
+		recovery_release_type = OS_VARIANT_S_NO;
 	} else {
-		factory_release_type = S_NO;
-		internal_release_type = (strstr(release_type, "Internal") != NULL) ? S_YES : S_NO;
-		darwin_release_type = (strstr(release_type, "Darwin") != NULL) ? S_YES : S_NO;
-		recovery_release_type = (strstr(release_type, "Recovery") != NULL) ? S_YES : S_NO;
+		factory_release_type = OS_VARIANT_S_NO;
+		internal_release_type = (strstr(release_type, "Internal") != NULL) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
+		darwin_release_type = (strstr(release_type, "Darwin") != NULL) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
+		recovery_release_type = (strstr(release_type, "Recovery") != NULL) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 	}
 
 	xpc_release(system_version_plist);
@@ -373,16 +369,16 @@ static bool _parse_system_version_plist(void)
 
 static void _check_system_version_plist_statuses_impl(void)
 {
-	os_assert(internal_release_type == S_UNKNOWN);
-	os_assert(factory_release_type == S_UNKNOWN);
-	os_assert(darwin_release_type == S_UNKNOWN);
-	os_assert(recovery_release_type == S_UNKNOWN);
+	os_assert(internal_release_type == OS_VARIANT_S_UNKNOWN);
+	os_assert(factory_release_type == OS_VARIANT_S_UNKNOWN);
+	os_assert(darwin_release_type == OS_VARIANT_S_UNKNOWN);
+	os_assert(recovery_release_type == OS_VARIANT_S_UNKNOWN);
 
 	if (!_parse_system_version_plist()) {
-		internal_release_type = (access(INTERNAL_SETTINGS_PATH, F_OK) == 0) ? S_YES : S_NO;
-		factory_release_type = S_NO;
-		darwin_release_type = S_NO;
-		recovery_release_type = S_NO;
+		internal_release_type = (access(INTERNAL_SETTINGS_PATH, F_OK) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
+		factory_release_type = OS_VARIANT_S_NO;
+		darwin_release_type = OS_VARIANT_S_NO;
+		recovery_release_type = OS_VARIANT_S_NO;
 	}
 }
 #endif //!TARGET_OS_SIMULATOR
@@ -435,18 +431,18 @@ static bool _check_recovery_release_type(void)
 
 static void _check_internal_diags_profile_impl(void)
 {
-	if (_os_xbs_chrooted && internal_diags_profile != S_UNKNOWN) {
+	if (_os_xbs_chrooted && internal_diags_profile != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(internal_diags_profile == S_UNKNOWN);
+		os_assert(internal_diags_profile == OS_VARIANT_S_UNKNOWN);
 	}
 
 	xpc_object_t profile_settings = read_plist(INTERNAL_DIAGS_PROFILE_PATH);
 	if (profile_settings) {
-		internal_diags_profile = xpc_dictionary_get_bool(profile_settings, "AppleInternal") ? S_YES : S_NO;
+		internal_diags_profile = xpc_dictionary_get_bool(profile_settings, "AppleInternal") ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 		xpc_release(profile_settings);
 	} else {
-		internal_diags_profile = S_NO;
+		internal_diags_profile = OS_VARIANT_S_NO;
 	}
 }
 
@@ -459,14 +455,14 @@ static bool _check_internal_diags_profile(void)
 
 static void _check_base_system_content_impl(void)
 {
-	if (_os_xbs_chrooted && base_system_content != S_UNKNOWN) {
+	if (_os_xbs_chrooted && base_system_content != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(base_system_content == S_UNKNOWN);
+		os_assert(base_system_content == OS_VARIANT_S_UNKNOWN);
 	}
 
 	const char * path = BASE_SYSTEM_CONTENT_PATH;
-	base_system_content = (access(path, F_OK) == 0) ? S_YES : S_NO;
+	base_system_content = (access(path, F_OK) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 }
 
 static bool _check_base_system_content(void)
@@ -478,14 +474,14 @@ static bool _check_base_system_content(void)
 
 static void _check_darwinos_content_impl(void)
 {
-	if (_os_xbs_chrooted && darwinos_content != S_UNKNOWN) {
+	if (_os_xbs_chrooted && darwinos_content != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(darwinos_content == S_UNKNOWN);
+		os_assert(darwinos_content == OS_VARIANT_S_UNKNOWN);
 	}
 
 	const char * path = DARWINOS_CONTENT_PATH;
-	darwinos_content = (access(path, F_OK) == 0) ? S_YES : S_NO;
+	darwinos_content = (access(path, F_OK) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 }
 
 static bool _check_darwinos_content(void)
@@ -500,21 +496,21 @@ static bool _check_darwinos_content(void)
 #if !TARGET_OS_SIMULATOR
 static void _check_can_has_debugger_impl(void)
 {
-	if (_os_xbs_chrooted && can_has_debugger != S_UNKNOWN) {
+	if (_os_xbs_chrooted && can_has_debugger != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(can_has_debugger == S_UNKNOWN);
+		os_assert(can_has_debugger == OS_VARIANT_S_UNKNOWN);
 	}
 
 #if TARGET_OS_IPHONE
-	can_has_debugger = *((uint32_t *)_COMM_PAGE_DEV_FIRM) ? S_YES : S_NO;
+	can_has_debugger = *((uint32_t *)_COMM_PAGE_DEV_FIRM) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 #else
 	/*
 	 * The comm page bit does exist on macOS, but also requires kernel
 	 * debugging in the CSR configuration.  We don't need to be that strict
 	 * here.
 	 */
-	can_has_debugger = (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0) ? S_YES : S_NO;
+	can_has_debugger = (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 #endif
 }
 
@@ -529,7 +525,7 @@ static bool _check_can_has_debugger(void)
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 static void _check_development_kernel_impl(void)
 {
-	os_assert(development_kernel == S_UNKNOWN);
+	os_assert(development_kernel == OS_VARIANT_S_UNKNOWN);
 	/*
 	* Whitelist values from SUPPORTED_KERNEL_CONFIGS.
 	 */
@@ -541,13 +537,13 @@ static void _check_development_kernel_impl(void)
 				strcmp(osbuildconfig, "debug") == 0 ||
 				strcmp(osbuildconfig, "profile") == 0 ||
 				strcmp(osbuildconfig, "kasan") == 0) {
-			development_kernel = S_YES;
+			development_kernel = OS_VARIANT_S_YES;
 		}
 	}
 	free(osbuildconfig);
 
-	if (development_kernel == S_UNKNOWN) {
-		development_kernel = S_NO;
+	if (development_kernel == OS_VARIANT_S_UNKNOWN) {
+		development_kernel = OS_VARIANT_S_NO;
 	}
 }
 
@@ -560,10 +556,10 @@ static bool _check_development_kernel(void)
 
 static void _check_allows_security_research_impl(void)
 {
-	if (_os_xbs_chrooted && allows_security_research != S_UNKNOWN) {
+	if (_os_xbs_chrooted && allows_security_research != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(allows_security_research == S_UNKNOWN);
+		os_assert(allows_security_research == OS_VARIANT_S_UNKNOWN);
 	}
 
 	uint32_t buffer = 0;
@@ -571,7 +567,7 @@ static void _check_allows_security_research_impl(void)
 
 	sysctlbyname("hw.features.allows_security_research", (void *)&buffer, &buffer_size, NULL, 0);
 
-	allows_security_research = (buffer != 0) ? S_YES : S_NO;
+	allows_security_research = (buffer != 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 }
 
 static bool _check_allows_security_research(void)
@@ -584,10 +580,10 @@ static bool _check_allows_security_research(void)
 
 static void _check_uses_ephemeral_storage_impl(void)
 {
-	if (_os_xbs_chrooted && is_ephemeral != S_UNKNOWN) {
+	if (_os_xbs_chrooted && is_ephemeral != OS_VARIANT_S_UNKNOWN) {
 		return;
 	} else {
-		os_assert(is_ephemeral == S_UNKNOWN);
+		os_assert(is_ephemeral == OS_VARIANT_S_UNKNOWN);
 	}
 
 	uint32_t buffer = 0;
@@ -595,7 +591,7 @@ static void _check_uses_ephemeral_storage_impl(void)
 
 	sysctlbyname("hw.ephemeral_storage", (void *)&buffer, &buffer_size, NULL, 0);
 
-	is_ephemeral = (buffer != 0) ? S_YES : S_NO;
+	is_ephemeral = (buffer != 0) ? OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 }
 
 static bool _check_uses_ephemeral_storage(void)
@@ -616,12 +612,12 @@ _init_has_full_logging(void)
 #if TARGET_OS_OSX
 	if (_check_base_system_content() &&
 			!_os_trace_basesystem_storage_available()) {
-		has_full_logging = S_NO;
+		has_full_logging = OS_VARIANT_S_NO;
 		return;
 	}
 #endif
 
-	has_full_logging = S_YES;
+	has_full_logging = OS_VARIANT_S_YES;
 }
 
 static bool _check_has_full_logging(void)
@@ -971,25 +967,30 @@ os_variant_init_4launchd(const char *boot_mode)
 #define STATUS_SET 0x2
 #define STATUS_MASK 0x3
 
-enum status_flags_positions {
-	SFP_INTERNAL_CONTENT = 0,
-	SFP_CAN_HAS_DEBUGGER = 1,
-	SFP_INTERNAL_RELEASE_TYPE = 2,
-	SFP_INTERNAL_DIAGS_PROFILE = 3,
-	SFP_FACTORY_CONTENT = 4,
-	SFP_FACTORY_RELEASE_TYPE = 5,
-	SFP_DARWINOS_RELEASE_TYPE = 6,
-	SFP_EPHEMERAL_VOLUME = 7,
-	SFP_RECOVERY_RELEASE_TYPE = 8,
-	SFP_BASE_SYSTEM_CONTENT = 9,
-	SFP_DEVELOPMENT_KERNEL = 10,
-	SFP_DARWINOS_CONTENT = 11,
-	SFP_FULL_LOGGING = 12,
-	SFP_ALLOWS_SECURITY_RESEARCH = 13,
+// Extends os_variant_status_flags_positions from variant_internal.h
+enum os_variant_status_flags_positions_extended {
+	/* OS_VARIANT_SFP_INTERNAL_CONTENT = 0, */
+	OS_VARIANT_SFP_CAN_HAS_DEBUGGER = 1,
+	/* OS_VARIANT_SFP_INTERNAL_RELEASE_TYPE = 2, */
+	/* OS_VARIANT_SFP_INTERNAL_DIAGS_PROFILE = 3, */
+	OS_VARIANT_SFP_FACTORY_CONTENT = 4,
+	OS_VARIANT_SFP_FACTORY_RELEASE_TYPE = 5,
+	OS_VARIANT_SFP_DARWINOS_RELEASE_TYPE = 6,
+	OS_VARIANT_SFP_EPHEMERAL_VOLUME = 7,
+	OS_VARIANT_SFP_RECOVERY_RELEASE_TYPE = 8,
+	OS_VARIANT_SFP_BASE_SYSTEM_CONTENT = 9,
+	OS_VARIANT_SFP_DEVELOPMENT_KERNEL = 10,
+	OS_VARIANT_SFP_DARWINOS_CONTENT = 11,
+	OS_VARIANT_SFP_FULL_LOGGING = 12,
+	OS_VARIANT_SFP_ALLOWS_SECURITY_RESEARCH = 13,
 };
 
 #define STATUS_BOOT_MODE_SHIFT 48
 #define STATUS_BOOT_MODE_MASK 0x000F000000000000ULL
+
+#define SET_BIT(res, var, bit) \
+	os_assert((var) != OS_VARIANT_S_UNKNOWN); \
+	res |= (var) << (bit) * STATUS_BIT_WIDTH;
 
 #if !TARGET_OS_SIMULATOR
 static uint64_t _get_cached_check_status(void)
@@ -999,56 +1000,31 @@ static uint64_t _get_cached_check_status(void)
 	uint64_t res = STATUS_INITIAL_BITS;
 
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
-	os_assert(internal_content != S_UNKNOWN);
-	res |= internal_content << SFP_INTERNAL_CONTENT * STATUS_BIT_WIDTH;
+	SET_BIT(res, internal_content, OS_VARIANT_SFP_INTERNAL_CONTENT)
 #endif
-
-	os_assert(can_has_debugger != S_UNKNOWN);
-	res |= can_has_debugger << SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH;
-
-	os_assert(is_ephemeral != S_UNKNOWN);
-	res |= is_ephemeral << SFP_EPHEMERAL_VOLUME * STATUS_BIT_WIDTH;
+	SET_BIT(res, can_has_debugger, OS_VARIANT_SFP_CAN_HAS_DEBUGGER)
+	SET_BIT(res, is_ephemeral, OS_VARIANT_SFP_EPHEMERAL_VOLUME)
 
 #ifdef VARIANT_SKIP_EXPORTED
 	// has_full_logging can't be computed outside launchd, so in the tests/etc.
 	// cheat and use the value reported by libdarwin rather than re-computing
 	has_full_logging = os_variant_check("com.apple.Libc.tests", "HasFullLogging") ?
-			S_YES : S_NO;
-#else
-	os_assert(has_full_logging != S_UNKNOWN);
+			OS_VARIANT_S_YES : OS_VARIANT_S_NO;
 #endif
-	res |= has_full_logging << SFP_FULL_LOGGING * STATUS_BIT_WIDTH;
+	SET_BIT(res, has_full_logging, OS_VARIANT_SFP_FULL_LOGGING)
 
 #if TARGET_OS_IPHONE
-	os_assert(internal_release_type != S_UNKNOWN);
-	res |= internal_release_type << SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH;
-
-	os_assert(factory_release_type != S_UNKNOWN);
-	res |= factory_release_type << SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH;
-
-	os_assert(darwin_release_type != S_UNKNOWN);
-	res |= darwin_release_type << SFP_DARWINOS_RELEASE_TYPE * STATUS_BIT_WIDTH;
-
-	os_assert(recovery_release_type != S_UNKNOWN);
-	res |= recovery_release_type << SFP_RECOVERY_RELEASE_TYPE * STATUS_BIT_WIDTH;
-
-	os_assert(development_kernel != S_UNKNOWN);
-	res |= development_kernel << SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH;
-
-	os_assert(allows_security_research != S_UNKNOWN);
-	res |= allows_security_research << SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH;
+	SET_BIT(res, internal_release_type, OS_VARIANT_SFP_INTERNAL_RELEASE_TYPE)
+	SET_BIT(res, factory_release_type, OS_VARIANT_SFP_FACTORY_RELEASE_TYPE)
+	SET_BIT(res, darwin_release_type, OS_VARIANT_SFP_DARWINOS_RELEASE_TYPE)
+	SET_BIT(res, recovery_release_type, OS_VARIANT_SFP_RECOVERY_RELEASE_TYPE)
+	SET_BIT(res, development_kernel , OS_VARIANT_SFP_DEVELOPMENT_KERNEL)
+	SET_BIT(res, allows_security_research , OS_VARIANT_SFP_ALLOWS_SECURITY_RESEARCH)
 #else
-	os_assert(internal_diags_profile != S_UNKNOWN);
-	res |= internal_diags_profile << SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH;
-
-	os_assert(factory_content != S_UNKNOWN);
-	res |= factory_content << SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH;
-
-	os_assert(base_system_content != S_UNKNOWN);
-	res |= base_system_content << SFP_BASE_SYSTEM_CONTENT * STATUS_BIT_WIDTH;
-
-	os_assert(darwinos_content != S_UNKNOWN);
-	res |= darwinos_content << SFP_DARWINOS_CONTENT * STATUS_BIT_WIDTH;
+	SET_BIT(res, internal_diags_profile , OS_VARIANT_SFP_INTERNAL_DIAGS_PROFILE)
+	SET_BIT(res, factory_content , OS_VARIANT_SFP_FACTORY_CONTENT)
+	SET_BIT(res, base_system_content , OS_VARIANT_SFP_BASE_SYSTEM_CONTENT)
+	SET_BIT(res, darwinos_content , OS_VARIANT_SFP_DARWINOS_CONTENT)
 #endif
 
 	for (int i = 0; i < VP_MAX; i++) {
@@ -1064,52 +1040,32 @@ static uint64_t _get_cached_check_status(void)
 	return res;
 }
 
+#define RESTORE_BIT(var, flag) \
+	if ((status >> ((flag) * STATUS_BIT_WIDTH)) & STATUS_SET) \
+		var = (status >> ((flag) * STATUS_BIT_WIDTH)) & STATUS_MASK; \
+
 static void _restore_cached_check_status(uint64_t status)
 {
 #if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
-	if ((status >> (SFP_INTERNAL_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
-		internal_content = (status >> (SFP_INTERNAL_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
+	RESTORE_BIT(internal_content, OS_VARIANT_SFP_INTERNAL_CONTENT)
 #endif
 
-	if ((status >> (SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) & STATUS_SET)
-		can_has_debugger = (status >> (SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_EPHEMERAL_VOLUME * STATUS_BIT_WIDTH)) & STATUS_SET)
-		is_ephemeral = (status >> (SFP_EPHEMERAL_VOLUME * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_FULL_LOGGING * STATUS_BIT_WIDTH)) & STATUS_SET)
-		has_full_logging = (status >> (SFP_FULL_LOGGING * STATUS_BIT_WIDTH)) & STATUS_MASK;
+	RESTORE_BIT(can_has_debugger, OS_VARIANT_SFP_CAN_HAS_DEBUGGER)
+	RESTORE_BIT(is_ephemeral, OS_VARIANT_SFP_EPHEMERAL_VOLUME)
+	RESTORE_BIT(has_full_logging, OS_VARIANT_SFP_FULL_LOGGING)
 
 #if TARGET_OS_IPHONE
-	if ((status >> (SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
-		internal_release_type = (status >> (SFP_INTERNAL_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
-		factory_release_type = (status >> (SFP_FACTORY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_DARWINOS_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
-		darwin_release_type = (status >> (SFP_DARWINOS_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_RECOVERY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_SET)
-		recovery_release_type = (status >> (SFP_RECOVERY_RELEASE_TYPE * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH)) & STATUS_SET)
-		development_kernel = (status >> (SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH)) & STATUS_SET)
-		allows_security_research = (status >> (SFP_ALLOWS_SECURITY_RESEARCH * STATUS_BIT_WIDTH)) & STATUS_MASK;
+	RESTORE_BIT(internal_release_type, OS_VARIANT_SFP_INTERNAL_RELEASE_TYPE)
+	RESTORE_BIT(factory_release_type, OS_VARIANT_SFP_FACTORY_RELEASE_TYPE)
+	RESTORE_BIT(darwin_release_type, OS_VARIANT_SFP_DARWINOS_RELEASE_TYPE)
+	RESTORE_BIT(recovery_release_type, OS_VARIANT_SFP_RECOVERY_RELEASE_TYPE)
+	RESTORE_BIT(development_kernel, OS_VARIANT_SFP_DEVELOPMENT_KERNEL)
+	RESTORE_BIT(allows_security_research, OS_VARIANT_SFP_ALLOWS_SECURITY_RESEARCH)
 #else
-	if ((status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_SET)
-		internal_diags_profile = (status >> (SFP_INTERNAL_DIAGS_PROFILE * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
-		factory_content = (status >> (SFP_FACTORY_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_BASE_SYSTEM_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
-		base_system_content = (status >> (SFP_BASE_SYSTEM_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
-
-	if ((status >> (SFP_DARWINOS_CONTENT * STATUS_BIT_WIDTH)) & STATUS_SET)
-		darwinos_content = (status >> (SFP_DARWINOS_CONTENT * STATUS_BIT_WIDTH)) & STATUS_MASK;
+	RESTORE_BIT(internal_diags_profile, OS_VARIANT_SFP_INTERNAL_DIAGS_PROFILE)
+	RESTORE_BIT(factory_content, OS_VARIANT_SFP_FACTORY_CONTENT)
+	RESTORE_BIT(base_system_content, OS_VARIANT_SFP_BASE_SYSTEM_CONTENT)
+	RESTORE_BIT(darwinos_content, OS_VARIANT_SFP_DARWINOS_CONTENT)
 #endif
 
 	for (int i = 0; i < VP_MAX; i++) {

@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2021-01-20
+# Generated: 2022-01-27
 #
 # DO NOT EDIT BY HAND
 
@@ -131,6 +131,7 @@
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
 0x072F:0x221A:ACS ACR1251 Dual Reader
+0x072F:0x2224:ACS ACR1281U
 0x072F:0x223B:ACS ACR1252 Dual Reader
 0x072F:0x223E:ACS ACR1252 Reader
 0x072F:0x223F:ACS ACR1255U-J1
@@ -192,6 +193,9 @@
 0x2406:0x5004:appidkey GmbH ID100L-USB-SC-Reader
 0x2406:0x5006:appidkey GmbH ID60-USB
 
+# ArkSigner
+0x33B6:0x0001:ArkSigner Connect2Sign
+
 # ASK-RFID
 0x1FD3:0xCC1D:ASK-RFID CPL108
 
@@ -239,9 +243,11 @@
 0x25DD:0x2361:Bit4id Digital-DNA Key BT
 0x25DD:0x2362:Bit4id Digital-DNA Key
 0x25DD:0x2371:Bit4id TokenME EVO v2
-0x25DD:0x3111:Bit4id miniLector
 0x25DD:0x3211:Bit4id miniLector AIR EVO
 0x25DD:0xB001:Bit4id miniLector Blue
+
+# bit4id
+0x25DD:0x3111:bit4id miniLector-EVO
 
 # BIT4ID
 0x25DD:0x3403:BIT4ID miniLector AIR NFC v3
@@ -307,6 +313,30 @@
 0x03F0:0x124A:Chicony HP USB Smartcard CCID Keyboard JP
 0x04F2:0x1469:Chicony HP Skylab USB Smartcard Keyboard
 
+# Circle
+0x31AA:0x0224:Circle Idaxis SecurePIV
+0x31AA:0x0324:Circle CIR315
+0x31AA:0x1000:Circle CIR115 ICC
+0x31AA:0x1100:Circle CIR125 ICC
+0x31AA:0x2000:Circle CIR215 PICC
+0x31AA:0x2001:Circle CIR215 CL
+0x31AA:0x2100:Circle CIR215 CL
+0x31AA:0x3000:Circle CIR315 Dual & 1S
+0x31AA:0x3001:Circle CIR315
+0x31AA:0x3002:Circle CIR315 CL
+0x31AA:0x3003:Circle CIR315 DI
+0x31AA:0x3100:Circle CIR315
+0x31AA:0x4000:Circle CIR415 CL & 1S
+0x31AA:0x4001:Circle CIR415 CL
+0x31AA:0x5000:Circle CIR515 ICC
+0x31AA:0x6000:Circle CIR615 CL & 1S
+0x31AA:0x6001:Circle CIR615 CL
+0x31AA:0x7001:Circle CCR7115 ICC
+0x31AA:0x7003:Circle CCR7315
+0x31AA:0x7004:Circle CIR315
+0x31AA:0x7005:Circle CCR7125 ICC
+0x31AA:0x7006:Circle CIR125-DOT ICC
+
 # COVADIS
 0x0982:0x0008:COVADIS VEGA-ALPHA
 0x0982:0x0040:COVADIS Auriga
@@ -326,6 +356,7 @@
 
 # DUALi
 0x1DB2:0x0801:DUALi DE-620 Combi
+0x1DB2:0x080C:DUALi DE-ABCM6 RFRW
 0x1DB2:0x088B:DUALi DRAGON NFC READER
 
 # eID_R6 001
@@ -334,6 +365,9 @@
 # Elatec
 0x09D8:0x0427:Elatec TWN4 SmartCard NFC
 0x09D8:0x0428:Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
+
+# ELYCTIS
+0x1FFA:0x0002:ELYCTIS CL reader
 
 # ESMART
 0x2CE4:0x7479:ESMART Token GOST
@@ -346,6 +380,7 @@
 0x096E:0x0621:Feitian BLE CCID Dongle
 0x096E:0x0622:Feitian VR504 VHBR Contactless & Contact Card Reader
 0x096E:0x0623:Feitian bR500
+0x096E:0x062E:Feitian R701
 0x096E:0x0685:Feitian R805
 0x096E:0x0807:Feitian ePass2003
 0x096E:0x080F:Feitian eJAVA Token
@@ -405,6 +440,7 @@
 # Generic
 0x0BDA:0x0169:Generic USB2.0-CRW
 0x048D:0x1366:Generic MultiCard Device
+0x058C:0x9590:Generic EMV Smartcard Reader
 
 # Generic USB
 0x076B:0x3A21:Generic USB Smart Card Reader
@@ -472,8 +508,10 @@
 
 # Identiv
 0x04E6:0x5612:Identiv uTrust 3720 Contactless Reader
+0x04E6:0x5613:Identiv uTrust 3721 Contactless Reader
 0x04E6:0x5713:Identiv CLOUD 2980 F Smart Card Reader
 0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader
+0x04E6:0x5725:Identiv Identiv uTrust 4711 F CL + SAM Reader
 0x04E6:0x5790:Identiv uTrust 3700 F CL Reader
 0x04E6:0x5791:Identiv uTrust 3701 F CL Reader
 0x04E6:0x5811:Identiv uTrust 2900 R Smart Card Reader
@@ -509,9 +547,17 @@
 # InfoCert
 0x2FD2:0x0100:InfoCert WirelessKey
 
+# Infocrypt
+0x2FB0:0x003A:Infocrypt Token++ lite
+0x2022:0x016C:Infocrypt HWDSSL DEVICE
+
 # InfoThink
 0x1FC9:0x0102:InfoThink IT-102MU Reader
 0x1403:0x7506:InfoThink IT-500U Reader
+
+# INMAX
+0x1403:0x750C:INMAX DWR18 HC
+0x1403:0x750D:INMAX DWR18 HPC
 
 # Inside Secure
 0x2406:0x6300:Inside Secure VaultIC 420 Smart Object
@@ -527,6 +573,9 @@
 
 # IonIDe
 0x076B:0x3B01:IonIDe Smartcard Reader
+
+# jSolutions s.r.o.
+0x04D8:0xEB61:jSolutions s.r.o. Multi SIM card reader 4/8
 
 # KACST
 0x2A18:0x5000:KACST HSID Reader
@@ -562,6 +611,7 @@
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
 0x17EF:0x6055:Lenovo Lenovo USB Smartcard Keyboard
+0x17EF:0x6111:Lenovo Lenovo Smartcard Wired Keyboard II
 
 # Liteon
 0x03F0:0x164A:Liteon HP SC Keyboard - Apollo (Liteon)
@@ -580,6 +630,7 @@
 
 # MK Technology
 0x0416:0xC136:MK Technology KeyPass S1
+0x0416:0xC137:MK Technology KeyPass D1
 
 # Morpho
 0x079B:0x0026:Morpho MSO350/MSO351 Fingerprint Sensor & SmartCard Reader
@@ -602,6 +653,7 @@
 0x20A0:0x4109:Nitrokey Nitrokey Storage
 0x20A0:0x4211:Nitrokey Nitrokey Start
 0x20A0:0x4230:Nitrokey Nitrokey HSM
+0x20A0:0x42B2:Nitrokey Nitrokey 3
 
 # NTT Communications Corp.
 0x04E6:0x511A:NTT Communications Corp. SCR3310-NTTCom USB SmartCard Reader
@@ -659,6 +711,7 @@
 # REINER SCT
 0x0C4B:0x0504:REINER SCT cyberJack go
 0x0C4B:0x0520:REINER SCT tanJack Bluetooth
+0x0C4B:0x0551:REINER SCT tanJack USB
 0x0C4B:0x0580:REINER SCT cyberJack one
 0x0C4B:0x9102:REINER SCT cyberJack RFID basis
 
@@ -672,6 +725,8 @@
 0x0529:0x0602:SafeNet eToken 7300
 0x0529:0x0620:SafeNet eToken 5100
 0x08E6:0x34CC:SafeNet eToken 5300
+0x08E6:0x34CE:SafeNet eToken 5300 C
+0x08E6:0x34CF:SafeNet eToken 5110+ FIPS
 
 # SafeTech
 0x24A2:0x0102:SafeTech SafeTouch
@@ -707,6 +762,14 @@
 # Softforum Co., Ltd
 0x04E8:0x0007:Softforum Co., Ltd XecureHSM
 
+# SoloKeys
+0x1209:0xBEEE:SoloKeys Solo 2
+
+# SONY
+0x054C:0x0D8F:SONY FeliCa RC-S660/U
+0x054C:0x0DC8:SONY FeliCa RC-S300/S
+0x054C:0x0DC9:SONY FeliCa RC-S300/P
+
 # SPECINFOSYSTEMS
 0x316E:0x0001:SPECINFOSYSTEMS DIAMOND token
 0x316E:0x0002:SPECINFOSYSTEMS DIAMOND PRO token
@@ -738,6 +801,7 @@
 0x08DF:0x3115:Spyrus Inc WorkSafe Pro
 0x08DF:0x3117:Spyrus Inc WorkSafe Pro
 0x08DF:0x3201:Spyrus Inc PocketVault P-3X
+0x08DF:0x3203:Spyrus Inc PocketVault P-3X
 
 # Sunrex
 0x05AF:0x605A:Sunrex HP USB Business Slim Smartcard CCID Keyboard
@@ -747,6 +811,7 @@
 
 # SYNNIX
 0x1206:0x2105:SYNNIX STD200
+0x1206:0x2107:SYNNIX CL-2100R
 
 # Sysking
 0x0E6A:0x5083:Sysking MII136C
@@ -756,6 +821,9 @@
 
 # Teridian Semiconductors
 0x1862:0x0000:Teridian Semiconductors TSC12xxFV.09
+
+# Thales
+0x08E6:0x34C7:Thales Shield M4 Reader
 
 # THURSBY SOFTWARE
 0x1976:0x0001:THURSBY SOFTWARE TSS-PK1
@@ -828,6 +896,8 @@
 0x1050:0x0405:Yubico YubiKey OTP+CCID
 0x1050:0x0406:Yubico YubiKey FIDO+CCID
 0x1050:0x0407:Yubico YubiKey OTP+FIDO+CCID
+
+# ~ELYCTIS
 
 ##########################
 # section: unsupported

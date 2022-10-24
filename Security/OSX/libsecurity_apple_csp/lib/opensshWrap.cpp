@@ -345,7 +345,7 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	 * bignum e
 	 */
 	uint32_t keybits = RSA_size(rsa) * 8;
-	appendUint32(cfOut, keybits);
+	appendUint32OpenSSH(cfOut, keybits);
 	appendBigNum(cfOut, rsa->n);
 	appendBigNum(cfOut, rsa->e);
 
@@ -358,7 +358,7 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 		comment = (const UInt8 *)OPENSSH1_COMMENT;
 		commentLen = strlen(OPENSSH1_COMMENT);
 	}
-	appendUint32(cfOut, commentLen);
+	appendUint32OpenSSH(cfOut, commentLen);
 	CFDataAppendBytes(cfOut, comment, commentLen);
 	
 	/* 
@@ -570,7 +570,7 @@ CSSM_RETURN decodeOpenSSHv1PrivKey(
 		return CSSMERR_CSP_INVALID_KEY;
 	}
 	/* skip over bits */
-	readUint32(cp, remLen);
+	readUint32OpenSSH(cp, remLen);
 	rsa->n = readBigNum(cp, remLen);
 	if(rsa->n == NULL) {
 		errorLog0("decodeOpenSSHv1PrivKey: error decoding n\n");
@@ -587,7 +587,7 @@ CSSM_RETURN decodeOpenSSHv1PrivKey(
 		errorLog0("decodeOpenSSHv1PrivKey: bad len(2)\n");
 		return CSSMERR_CSP_INVALID_KEY;
 	}
-	uint32_t commLen = readUint32(cp, remLen);
+	uint32_t commLen = readUint32OpenSSH(cp, remLen);
 	if(commLen > remLen) {
 		errorLog0("decodeOpenSSHv1PrivKey: bad len(3)\n");
 		return CSSMERR_CSP_INVALID_KEY;

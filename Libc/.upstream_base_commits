@@ -1,4 +1,6 @@
 #freebsd = https://github.com/freebsd/freebsd.git
+#freebsd = https://github.com/freebsd/freebsd-legacy.git
+#freebsd-src = https://git.FreeBSD.org/src.git
 #openbsd = https://github.com/openbsd/src.git
 #netbsd = https://github.com/NetBSD/src.git
 gen/FreeBSD/basename.c	freebsd	lib/libc/gen/basename.c	26f49abeef12bd43e9671edee6df7b9905c97a47
@@ -18,12 +20,12 @@ gen/FreeBSD/timespec_get.c	freebsd	lib/libc/gen/timespec_get.c	7cbaa4254c0f10f7c
 gen/FreeBSD/timespec_get.3	freebsd	lib/libc/gen/timespec_get.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/FreeBSD/ttyname.3	freebsd	lib/libc/gen/ttyname.3	84be924362c6e5f469564d418c928c5b1b4a2457
 gen/FreeBSD/ttyslot.c	freebsd	lib/libc/gen/ttyslot.c	898928e8d0a0bab201c1ef232e01cafa27322dae
-gen/FreeBSD/unvis.c	freebsd	contrib/libc-vis/unvis.c	9e3e4b88576d01efe1f56469cac79e116bb62c67
-gen/FreeBSD/unvis.3	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67
+gen/FreeBSD/unvis.c	freebsd-src	contrib/libc-vis/unvis.c	303477d3253007bb5732deed2daea86b2cbd9aa8
+gen/FreeBSD/unvis.3	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
 gen/FreeBSD/usleep.3	freebsd	lib/libc/gen/usleep.3	5b882020081a138285227631c46a406c08e17bc8
-gen/FreeBSD/vis.c	freebsd	contrib/libc-vis/unvis.c	9e3e4b88576d01efe1f56469cac79e116bb62c67
-gen/FreeBSD/vis.3	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67
-gen/FreeBSD/vis.h	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67
+gen/FreeBSD/vis.c	freebsd-src	contrib/libc-vis/unvis.c	303477d3253007bb5732deed2daea86b2cbd9aa8
+gen/FreeBSD/vis.3	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
+gen/FreeBSD/vis.h	freebsd-src	contrib/libc-vis/unvis.3	303477d3253007bb5732deed2daea86b2cbd9aa8
 gen/NetBSD/rbtree.3	netbsd	share/man/man3/rbtree.3	a6d78d4a28be21d6006d3c609f31967c0e536779
 gen/directory.3	freebsd	lib/libc/gen/directory.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/fts.c	openbsd	gen/fts.c	9936a0e983044822375a0d5cdebec20c3623866c
@@ -36,6 +38,7 @@ locale/FreeBSD/setlocale.3	freebsd	lib/libc/locale/setlocale.3	2131182e401759b74
 man/FreeBSD/environ.7	freebsd	share/man/man7/environ.7	5b882020081a138285227631c46a406c08e17bc8
 net/FreeBSD/linkaddr.c	freebsd	lib/libc/net/linkaddr.c	9240f72512c0357636b2e19554d6141ee21edc5f
 stdio/FreeBSD/fopen.3	freebsd	lib/libc/stdio/fopen.3	89c1fcc0d088065021703b658ef547f46b5481f0
+stdio/FreeBSD/ftell.c	freebsd	lib/libc/stdio/ftell.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 stdio/FreeBSD/fmemopen.c	freebsd	lib/libc/stdio/fmemopen.c	89c1fcc0d088065021703b658ef547f46b5481f0
 stdio/FreeBSD/open_memstream.3	freebsd	lib/libc/stdio/open_memstream.3	89c1fcc0d088065021703b658ef547f46b5481f0
 stdio/FreeBSD/open_memstream.c	freebsd	lib/libc/stdio/open_memstream.c	89c1fcc0d088065021703b658ef547f46b5481f0
@@ -48,7 +51,10 @@ stdio/FreeBSD/printf.3	freebsd	lib/libc/stdio/printf.3	cfc3df2b8f708ce8494d9d556
 stdio/FreeBSD/wprintf.3	freebsd	lib/libc/stdio/wprintf.3	5b882020081a138285227631c46a406c08e17bc8
 stdlib/FreeBSD/atexit.3	freebsd	lib/libc/stdlib/atexit	956381ee95fa01eefc74c9228bdc474ba267750d
 stdlib/FreeBSD/getenv.3	freebsd	lib/libc/stdlib/getenv.3	3eb0ea4663f0ae19c4983e80963a121463224508
-stdlib/FreeBSD/getopt_long.3	freebsd	lib/libc/stdlib/getopt_long.3	5b882020081a138285227631c46a406c08e17bc8
+stdlib/FreeBSD/getopt.3	freebsd-src	lib/libc/stdlib/getopt.3	74ba624bf0b7aa537262f12c97d487a8d8036821
+stdlib/FreeBSD/getopt.c	freebsd-src	lib/libc/stdlib/getopt.c	0348c8fcfaa22d4f2bf548ad9c187c09ef90c533
+stdlib/FreeBSD/getopt_long.3	freebsd-src	lib/libc/stdlib/getopt_long.3	d50ff7de21069d65c972cb7d4e95d7fafc098117
+stdlib/FreeBSD/getopt_long.c	freebsd-src	lib/libc/stdlib/getopt_long.c	0348c8fcfaa22d4f2bf548ad9c187c09ef90c533
 stdlib/FreeBSD/qsort.c	freebsd	lib/libc/stdlib/qsort.c	4127dd6b50348062f74679dbb43008d0a2985a09
 stdlib/FreeBSD/reallocf.c	freebsd	lib/libc/stdlib/reallocf.c	3dc97c4341b6c5a0163c12badc7f50628cecf4e6
 stdtime/FreeBSD/localtime.c	freebsd	contrib/tzcode/stdtime/localtime.c	a931eab7f4cf8a9614505540fb523b59f693cc6e

@@ -37,6 +37,8 @@ NO_EVENT_MARKER_EXCEPTIONS_LIST = sorted([
 ALIASING_EXCEPTIONS = [
     'glRenderbufferStorageMultisampleEXT',
     'renderbufferStorageMultisampleEXT',
+    'drawArraysInstancedBaseInstanceANGLE',
+    'drawElementsInstancedBaseVertexBaseInstanceANGLE',
 ]
 
 # These are the entry points which potentially are used first by an application
@@ -179,7 +181,7 @@ void GL_APIENTRY GL_{name}({params})
         {{
             context->{name_lower_no_suffix}({internal_params});
         }}
-        ANGLE_CAPTURE({name}, isCallValid, {capture_params});
+        ANGLE_CAPTURE_GL({name}, isCallValid, {capture_params});
     }}
     else
     {{
@@ -207,7 +209,7 @@ TEMPLATE_GLES_ENTRY_POINT_WITH_RETURN = """\
         {{
             returnValue = GetDefaultReturnValue<angle::EntryPoint::GL{name}, {return_type}>();
     }}
-        ANGLE_CAPTURE({name}, isCallValid, {capture_params}, returnValue);
+        ANGLE_CAPTURE_GL({name}, isCallValid, {capture_params}, returnValue);
     }}
     else
     {{

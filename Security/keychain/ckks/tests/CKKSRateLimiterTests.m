@@ -27,6 +27,7 @@
 #import <Foundation/NSKeyedArchiver_Private.h>
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
+#import "keychain/ckks/tests/MockCloudKit.h"
 
 @interface CKKSRateLimiterTests : XCTestCase
 - (CKKSOutgoingQueueEntry *)oqe;
@@ -46,6 +47,7 @@
     self.oqe = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:
                 [[CKKSItem alloc] initWithUUID:@"123"
                                  parentKeyUUID:@""
+                                     contextID:CKKSMockCloudKitContextID
                                         zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
                                        encItem:nil
                                     wrappedkey:nil

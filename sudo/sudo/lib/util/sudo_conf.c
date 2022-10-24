@@ -40,6 +40,10 @@
 #include <errno.h>
 #include <limits.h>
 
+#ifdef __APPLE_DYNAMIC_LV__
+#include <System/sys/codesign.h>
+#endif /* __APPLE_DYNAMIC_LV__ */
+
 #define SUDO_ERROR_WRAP	0
 
 #include "sudo_compat.h"
@@ -638,6 +642,20 @@ sudo_conf_read_v1(const char *conf_file, int conf_types)
     unsigned int conf_lineno = 0;
     size_t linesize = 0;
     debug_decl(sudo_conf_read, SUDO_DEBUG_UTIL);
+
+    /* rdar://99495256 (sudo should not load custom plugins when CS_INSTALLER is set) */
+#ifdef __APPLE_DYNAMIC_LV__
+    if ((conf_types & SUDO_CONF_PLUGINS) != 0) {
+        int csflags = 0;
+        int rv = 0;
+        pid_t pid = getpid();
+        rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+        if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
+            /* Suppress SUDO_CONF_PLUGINS when CS_INSTALLER is set. */
+            sudo_warnx(U_("%s: %s"), __func__, U_("clearing SUDO_CONF_PLUGINS due to CS_INSTALLER"));
+        }
+    }
+#endif /* __APPLE_DYNAMIC_LV__ */
 
     if ((prev_locale = setlocale(LC_ALL, NULL)) == NULL) {
 	sudo_warn("setlocale(LC_ALL, NULL)");

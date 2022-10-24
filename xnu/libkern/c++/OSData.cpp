@@ -79,7 +79,7 @@ OSData::initWithCapacity(unsigned int inCapacity)
 			OSCONTAINER_ACCUMSIZE(-(size_t)capacity);
 			/* can't use kfree() as we need to pass Z_MAY_COPYINMAP */
 			__kheap_realloc(KHEAP_DATA_BUFFERS, data, capacity, 0,
-			    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_MAY_COPYINMAP,
+			    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_FULLSIZE | Z_MAY_COPYINMAP,
 			    VM_KERN_MEMORY_LIBKERN), (void *)&this->data);
 			data     = nullptr;
 			capacity = 0;
@@ -89,11 +89,8 @@ OSData::initWithCapacity(unsigned int inCapacity)
 		 * Nothing to change
 		 */
 	} else {
-		if (inCapacity >= PAGE_SIZE) {
-			inCapacity = (uint32_t)round_page(inCapacity);
-		}
 		kr = kalloc_ext(KHEAP_DATA_BUFFERS, inCapacity,
-		    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_MAY_COPYINMAP,
+		    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_FULLSIZE | Z_MAY_COPYINMAP,
 		    VM_KERN_MEMORY_LIBKERN), (void *)&this->data);
 
 		if (kr.addr) {
@@ -287,11 +284,8 @@ OSData::ensureCapacity(unsigned int newCapacity)
 		return capacity;
 	}
 
-	if (finalCapacity >= PAGE_SIZE) {
-		finalCapacity = (uint32_t)round_page(finalCapacity);
-	}
 	kr = krealloc_ext((void *)KHEAP_DATA_BUFFERS, data, capacity, finalCapacity,
-	    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_MAY_COPYINMAP,
+	    Z_VM_TAG_BT(Z_WAITOK_ZERO | Z_FULLSIZE | Z_MAY_COPYINMAP,
 	    VM_KERN_MEMORY_LIBKERN), (void *)&this->data);
 
 	if (kr.addr) {

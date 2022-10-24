@@ -36,6 +36,7 @@
 #include "LLIntData.h"
 #include "Options.h"
 #include "SigillCrashAnalyzer.h"
+#include "StructureAlignedMemoryAllocator.h"
 #include "SuperSampler.h"
 #include "VMTraps.h"
 #include "WasmCalleeRegistry.h"
@@ -43,12 +44,22 @@
 #include "WasmFaultSignalHandler.h"
 #include "WasmThunks.h"
 #include <mutex>
+#include <wtf/GenerateProfiles.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
+
+#if !USE(SYSTEM_MALLOC)
+#include <bmalloc/BPlatform.h>
+#if BUSE(LIBPAS)
+#include <bmalloc/pas_scavenger.h>
+#endif
+#endif
 
 namespace JSC {
 
 static_assert(sizeof(bool) == 1, "LLInt and JIT assume sizeof(bool) is always 1 when touching it directly from assembly code.");
+
+enum class JSCProfileTag { };
 
 void initialize()
 {
@@ -76,8 +87,16 @@ void initialize()
                 g_jscConfig.arm64eHashPins.initializeAtStartup();
 #endif
             }
+            StructureAlignedMemoryAllocator::initializeStructureAddressSpace();
         }
         Options::finalize();
+
+#if !USE(SYSTEM_MALLOC)
+#if BUSE(LIBPAS)
+        if (Options::libpasScavengeContinuously())
+            pas_scavenger_disable_shut_down();
+#endif
+#endif
 
         JITOperationList::populatePointersInJavaScriptCore();
 
@@ -107,12 +126,14 @@ void initialize()
 #endif
         VMTraps::initializeSignals();
 #if ENABLE(WEBASSEMBLY)
-        Wasm::prepareFastMemory();
+        Wasm::prepareSignalingMemory();
 #endif
 
         WTF::compilerFence();
         RELEASE_ASSERT(!g_jscConfig.initializeHasBeenCalled);
         g_jscConfig.initializeHasBeenCalled = true;
+
+        WTF::registerProfileGenerationCallback<JSCProfileTag>("JavaScriptCore");
     });
 }
 

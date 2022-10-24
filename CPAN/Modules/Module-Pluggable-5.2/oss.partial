@@ -1,6 +1,6 @@
 <dict>
         <key>OpenSourceProject</key>
-        <string>Module-Runtime</string>
+        <string>Module-Pluggable</string>
         <key>OpenSourceVersion</key>
         <string>5.2</string>
         <key>OpenSourceWebsiteURL</key>

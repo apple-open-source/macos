@@ -198,7 +198,7 @@ uint32_t xar_swap32(uint32_t num) {
 
 char *xar_get_safe_path(xar_file_t f)
 {
-	char *ret, *tmp;
+	char *ret = NULL, *tmp;
 	const char *unsafe_parent_name;
 	xar_file_t i;
 
@@ -215,12 +215,14 @@ char *xar_get_safe_path(xar_file_t f)
 		char* name = NULL;
 		
 		xar_prop_get(i, "name", &unsafe_name);
-		xar_is_safe_filename(unsafe_name, &name);
-		
-		tmp = ret;
-		asprintf(&ret, "%s/%s", name, tmp);
-		free(tmp);
-		free(name);
+		if (unsafe_name) {
+			xar_is_safe_filename(unsafe_name, &name);
+			
+			tmp = ret;
+			asprintf(&ret, "%s/%s", name, tmp);
+			free(tmp);
+			free(name);
+		}
 	}
 
 	return ret;
@@ -244,9 +246,13 @@ char *xar_get_path(xar_file_t f) {
 	for(i = XAR_FILE(f)->parent; i; i = XAR_FILE(i)->parent) {
 		const char *name;
 			xar_prop_get(i, "name", &name);
-		tmp = ret;
-		asprintf(&ret, "%s/%s", name, tmp);
-		free(tmp);
+		if (name != NULL) {
+			tmp = ret;
+			asprintf(&ret, "%s/%s", name, tmp);
+			free(tmp);
+		} else {
+			return NULL;
+		}
 	}
 
 	return ret;

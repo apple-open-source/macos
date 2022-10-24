@@ -34,7 +34,7 @@ struct cupsd_job_s			/**** Job request ****/
   char			*username;	/* Printing user */
   char			*dest;		/* Destination printer or class */
   char			*name;		/* Job name/title */
-  int			koctets;	/* job-k-octets */
+  int    		koctets;	/* job-k-octets */
   cups_ptype_t		dtype;		/* Destination type */
   cupsd_printer_t	*printer;	/* Printer this job is assigned to */
   int			num_files;	/* Number of files in job */
@@ -77,7 +77,9 @@ struct cupsd_job_s			/**** Job request ****/
   int			retry_as_raster;/* Need to retry the job as raster */
   char			*auth_env[3],	/* AUTH_xxx environment variables,
                                          * if any */
-			*auth_uid;	/* AUTH_UID environment variable */
+			    *auth_uid;	/* AUTH_UID environment variable */
+  char          *auth_bearer_uid;
+                            /* AUTH_BEARER_UID environment variable */
   void			*profile,	/* Security profile for filters */
 			*bprofile;	/* Security profile for backend */
   cups_array_t		*history;	/* Debug log history */

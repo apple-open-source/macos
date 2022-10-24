@@ -87,7 +87,8 @@ static errno_t ntfs_rl_inc(ntfs_runlist *runlist, unsigned delta)
 {
 	unsigned new_elements = runlist->elements + delta;
 	unsigned count = runlist->alloc_count;
-	unsigned new_count = new_elements + NTFS_ALLOC_BLOCK / sizeof(ntfs_rl_element);
+	unsigned new_size = (new_elements * sizeof(ntfs_rl_element) + NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
+	unsigned new_count = new_size / sizeof (ntfs_rl_element);
 	if (new_count > count) {
 		ntfs_rl_element* new_rl = IONewData(ntfs_rl_element, new_count);
 		if (!new_rl)
@@ -143,7 +144,8 @@ static errno_t ntfs_rl_ins(ntfs_runlist *runlist, unsigned pos, unsigned ins_cou
 		panic("%s(): pos > runlist->elements\n", __FUNCTION__);
 	unsigned new_elements = runlist->elements + ins_count;
 	unsigned count = runlist->alloc_count;
-	unsigned new_count = new_elements + NTFS_ALLOC_BLOCK / sizeof(ntfs_rl_element);
+	unsigned new_size = (new_elements * sizeof(ntfs_rl_element) + NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
+	unsigned new_count = new_size / sizeof (ntfs_rl_element);
 	/* If no memory reallocation needed, it is a simple memmove(). */
 	if (new_count <= count) {
 		if (ins_count) {
@@ -1621,7 +1623,8 @@ static void ntfs_rl_shrink(ntfs_runlist *runlist, unsigned new_elements)
 	unsigned count = runlist->alloc_count;
 	if (!count || !runlist->rl)
 		panic("%s(): !count || !runlist->rl\n", __FUNCTION__);
-	unsigned new_count = new_elements + NTFS_ALLOC_BLOCK / sizeof (ntfs_rl_element);
+	unsigned new_size = (new_elements * sizeof(ntfs_rl_element) + NTFS_ALLOC_BLOCK - 1) & ~(NTFS_ALLOC_BLOCK - 1);
+	unsigned new_count = new_size / sizeof (ntfs_rl_element);
 	if (new_count < count) {
 		ntfs_rl_element *new_rl = IONewData(ntfs_rl_element, new_count);
 		if (new_rl) {

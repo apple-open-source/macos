@@ -47,6 +47,7 @@ _SMBRetainServer
 _SMBSetNetworkIdentity
 _SMBTransactMailSlot
 _SMBTransactNamedPipe
+_SMBNamedPipeWait
 _SMBWriteFile
 _SMBRemountServer
 _SMBConvertGMT

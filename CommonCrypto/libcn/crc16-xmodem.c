@@ -23,7 +23,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc16_xmodem = {
+const crcDescriptor CC_crc16_xmodem = {
     .name = "crc16-xmodem",
     .defType = model,
     .def.parms.width = 2,

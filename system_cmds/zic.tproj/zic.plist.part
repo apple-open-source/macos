@@ -1,0 +1,15 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>zic</string>
+		<key>OpenSourceVersion</key>
+		<string>2016-10-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/contrib/tzcode/zic?id=a35c698d879c2d4c6e016661d468d7c04cd93516</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-08</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>publicdomain</string>
+	</dict>

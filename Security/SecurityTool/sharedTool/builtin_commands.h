@@ -62,6 +62,11 @@ SECURITY_COMMAND("watchdog", command_watchdog,
                      "    check-period <x>\n"
                      "    graceful-exit-time <x>\n",
                      "Show current watchdog parameters or set an individual parameter")
+
+SECURITY_COMMAND("sos-bypass", command_bypass,
+                 "\n  s: set bypass bit\n"
+                 "  c: clear bypass bit\n",
+                 "Setup SOSAccount to bypass checks and grow the circle for account stuffing testing.")
 #endif
 
 SECURITY_COMMAND("keychain-check", command_keychain_check,
@@ -71,11 +76,6 @@ SECURITY_COMMAND("keychain-check", command_keychain_check,
 SECURITY_COMMAND("keychain-cleanup", command_keychain_cleanup,
                     "",
                     "attempt to remove keychain items we can no longer decrypt")
-
-SECURITY_COMMAND("verify-backup-integrity", verify_backup_integrity,
-                 "[-l]\n"
-                 "    -l Lightweight. Only verify backup infrastructure without verifying all keychain items.\n",
-                 "Verify integrity of keychain backup key material.")
 
 #if !TARGET_OS_BRIDGE
 SECURITY_COMMAND("keychain-diversify-test", keychain_diversify_test,

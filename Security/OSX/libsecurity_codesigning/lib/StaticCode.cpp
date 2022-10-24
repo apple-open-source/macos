@@ -78,6 +78,8 @@
 #include <CoreEntitlements/EntitlementsPriv.h>
 #import <CoreEntitlements/FoundationUtils.h>
 
+#import "LWCRHelper.h"
+#include <kern/cs_blobs.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -158,7 +160,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 	  mOuterScope(NULL), mResourceScope(NULL),
 	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL),
 	  mFlags(flags), mNotarizationChecked(false), mStaplingChecked(false), mNotarizationDate(NAN),
-	  mNetworkEnabledByDefault(true), mTrustedSigningCertChain(false)
+	  mNetworkEnabledByDefault(true), mTrustedSigningCertChain(false), mValidationCategory(CS_VALIDATION_CATEGORY_INVALID)
 
 {
 	CODESIGN_STATIC_CREATE(this, rep);
@@ -1351,12 +1353,10 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 		bool itemIsOnRootFS = itemQualifiesForResourceExemption(root);
 		bool skipRootVolumeExceptions = (mValidationFlags & kSecCSSkipRootVolumeExceptions);
 		bool useRootFSPolicy = itemIsOnRootFS && !skipRootVolumeExceptions;
+		bool skipXattrFiles = pathFileSystemUsesXattrFiles(root.c_str());
 
-		bool itemMightUseXattrFiles = pathFileSystemUsesXattrFiles(root.c_str());
-		bool skipXattrFiles = itemMightUseXattrFiles && (mValidationFlags & kSecCSSkipXattrFiles);
-
-		secinfo("staticCode", "performing resource validation for %s (%d, %d, %d, %d, %d)", root.c_str(),
-				itemIsOnRootFS, skipRootVolumeExceptions, useRootFSPolicy, itemMightUseXattrFiles, skipXattrFiles);
+		secinfo("staticCode", "performing resource validation for %s (%d, %d, %d, %d)", root.c_str(),
+				itemIsOnRootFS, skipRootVolumeExceptions, useRootFSPolicy, skipXattrFiles);
 
 		if (mLimitedAsync == NULL) {
 			bool runMultiThreaded = ((flags & kSecCSSingleThreaded) == kSecCSSingleThreaded) ? false :
@@ -1525,7 +1525,6 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 
 bool SecStaticCode::loadResources(CFDictionaryRef& rules, CFDictionaryRef& files, uint32_t& version)
 {
-	// sanity first
 	CFDictionaryRef sealedResources = resourceDictionary();
 	if (this->resourceBase()) {	// disk has resources
 		if (sealedResources)
@@ -2182,6 +2181,53 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 	}
 }
 
+unsigned int SecStaticCode::validationCategory()
+{
+#if TARGET_OS_OSX
+	if (mValidationCategory == CS_VALIDATION_CATEGORY_INVALID) {
+		SecRequirement platformReq(platformReqData, platformReqDataLen);
+		SecRequirement testflightReq(testflightReqData, testflightReqDataLen);
+		SecRequirement developmentReq(developmentReqData, developmentReqDataLen);
+		SecRequirement appStoreReq(appStoreReqData, appStoreReqDataLen);
+		SecRequirement developerIDReq(developerIDReqData, developerIDReqDataLen);
+
+		unsigned int validationCategory = CS_VALIDATION_CATEGORY_NONE;
+		OSStatus nullError = errSecSuccess;
+		if (this->satisfiesRequirement(platformReq.requirement(), nullError)) {
+			validationCategory = CS_VALIDATION_CATEGORY_PLATFORM;
+		} else if (this->satisfiesRequirement(testflightReq.requirement(), nullError)) {
+			validationCategory = CS_VALIDATION_CATEGORY_TESTFLIGHT;
+		} else if (this->satisfiesRequirement(developmentReq.requirement(), nullError)) {
+			validationCategory = CS_VALIDATION_CATEGORY_DEVELOPMENT;
+		} else if (this->satisfiesRequirement(appStoreReq.requirement(), nullError)) {
+			validationCategory = CS_VALIDATION_CATEGORY_APP_STORE;
+		} else if (this->satisfiesRequirement(developerIDReq.requirement(), nullError)) {
+			validationCategory = CS_VALIDATION_CATEGORY_DEVELOPER_ID;
+		}
+		mValidationCategory = validationCategory;
+	}
+#endif
+	return mValidationCategory;
+}
+
+CFDictionaryRef SecStaticCode::defaultDesignatedLightWeightCodeRequirement()
+{
+	if (!mDefaultDesignatedLWCR) {
+		std::string signingIdentifier = this->identifier();
+		const char* teamIdentifier = this->teamID();
+		__block CFRef<CFMutableArrayRef> allHashes = CFArrayCreateMutableCopy(NULL, 0, this->cdHashes());
+		handleOtherArchitectures(^(SecStaticCode *other) {
+			CFArrayRef hashes = other->cdHashes();
+			CFArrayAppendArray(allHashes, hashes, CFRangeMake(0, CFArrayGetCount(hashes)));
+		});
+
+		mDefaultDesignatedLWCR.take(copyDefaultDesignatedLWCRMaker(this->validationCategory(),
+																   signingIdentifier.c_str(),
+																   teamIdentifier,
+																   allHashes));
+	}
+	return mDefaultDesignatedLWCR;
+}
 
 //
 // Validate a SecStaticCode against the internal requirement of a particular type.
@@ -2326,14 +2372,13 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	//
 	// kSecCSRequirementInformation adds information on requirements
 	//
-	if (flags & kSecCSRequirementInformation)
-
-//DR not currently supported on iOS
+	if (flags & kSecCSRequirementInformation) {
+		//DR not currently supported on iOS
 #if TARGET_OS_OSX
 		try {
 			if (const Requirements *reqs = this->internalRequirements()) {
 				CFDictionaryAddValue(dict, kSecCodeInfoRequirements,
-					CFTempString(Dumper::dump(reqs)));
+									 CFTempString(Dumper::dump(reqs)));
 				CFDictionaryAddValue(dict, kSecCodeInfoRequirementData, CFTempData(*reqs));
 			}
 
@@ -2348,6 +2393,12 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			}
 		} catch (...) { }
 #endif
+		try {
+			if (this->defaultDesignatedLightWeightCodeRequirement()) {
+				CFDictionaryAddValue(dict, kSecCodeInfoDefaultDesignatedLightweightCodeRequirement, this->defaultDesignatedLightWeightCodeRequirement());
+			}
+		} catch (...) { }
+	}
 
 	try {
 		// This slot might be fake
@@ -2438,6 +2489,24 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			CFDataRef derEntitlements = this->component(cdEntitlementDERSlot);
 			if (derEntitlements) {
 				CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDER, derEntitlements);
+			}
+		} catch (...) { }
+		try {
+			CFDataRef lwcr = this->component(cdLaunchConstraintSelf);
+			if (lwcr) {
+				CFDictionaryAddValue(dict, kSecCodeInfoLaunchConstraintsSelf, lwcr);
+			}
+		} catch (...) { }
+		try {
+			CFDataRef lwcr = this->component(cdLaunchConstraintParent);
+			if (lwcr) {
+				CFDictionaryAddValue(dict, kSecCodeInfoLaunchConstraintsParent, lwcr);
+			}
+		} catch (...) { }
+		try {
+			CFDataRef lwcr = this->component(cdLaunchConstraintResponsible);
+			if (lwcr) {
+				CFDictionaryAddValue(dict, kSecCodeInfoLaunchConstraintsResponsible, lwcr);
 			}
 		} catch (...) { }
 	}

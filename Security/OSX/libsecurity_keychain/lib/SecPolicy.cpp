@@ -154,13 +154,14 @@ static const oidmap_entry_t* oidmap_priv_f() {
 OSStatus
 SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 {
+	BEGIN_SECPOLICYAPI
 	/* bridge to support old functionality */
 	if (!policyRef) {
-		return errSecParam;
+		END_SECPOLICYAPI(errSecParam)
 	}
 	CFStringRef oidStr = (CFStringRef) SecPolicyGetOidString(policyRef);
 	if (!oidStr || !oid) {
-		return errSecParam; // bad policy ref?
+		END_SECPOLICYAPI(errSecParam)
 	}
 	CSSM_OID *oidptr = NULL;
     unsigned int i;
@@ -185,11 +186,11 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 	if (oidptr) {
 		oid->Data = oidptr->Data;
 		oid->Length = oidptr->Length;
-		return errSecSuccess;
+		END_SECPOLICYAPI(errSecSuccess)
 	}
     CFShow(oidStr);
 	syslog(LOG_ERR, "WARNING: SecPolicyGetOID failed to return an OID. This function was deprecated in 10.7. Please use SecPolicyCopyProperties instead.");
-	return errSecServiceNotAvailable;
+	END_SECPOLICYAPI(errSecServiceNotAvailable)
 }
 
 // TODO: use a version of this function from a utility library
@@ -268,16 +269,17 @@ static bool SecPolicyGetCSSMDataValueForString(SecPolicyRef policyRef, CFStringR
 OSStatus
 SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
+	BEGIN_SECPOLICYAPI
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecPolicyGetValue was deprecated in 10.7. Please use SecPolicyCopyProperties instead.");
 #endif
     if (!(policyRef && value)) {
-		return errSecParam;
+		END_SECPOLICYAPI(errSecParam)
 	}
 	CFDictionaryRef options = SecPolicyGetOptions(policyRef);
 	if (!(options && (CFDictionaryGetTypeID() == CFGetTypeID(options)))) {
-		return errSecParam;
+		END_SECPOLICYAPI(errSecParam)
 	}
 	CFTypeRef name = NULL;
 	do {
@@ -305,19 +307,20 @@ SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 		value->Data = NULL;
 		value->Length = 0;
 	}
-	return errSecSuccess;
+	END_SECPOLICYAPI(errSecSuccess)
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 {
+	BEGIN_SECPOLICYAPI
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecPolicySetValue was deprecated in 10.7. Please use SecPolicySetProperties instead.");
 #endif
 	if (!(policyRef && value)) {
-		return errSecParam;
+		END_SECPOLICYAPI(errSecParam)
 	}
 	OSStatus status = errSecSuccess;
 	CFDataRef data = NULL;
@@ -325,7 +328,7 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	CFStringRef oid = (CFStringRef) SecPolicyGetOidString(policyRef);
 	if (!oid) {
 		syslog(LOG_ERR, "SecPolicySetValue: unknown policy OID");
-		return errSecParam; // bad policy ref?
+		END_SECPOLICYAPI(errSecParam)
 	}
 	if (CFEqual(oid, CFSTR("sslServer") /*kSecPolicyOIDSSLServer*/) ||
 		CFEqual(oid, CFSTR("sslClient") /*kSecPolicyOIDSSLClient*/) ||
@@ -421,26 +424,28 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	}
 	if (data) { CFRelease(data); }
 	if (name) { CFRelease(name); }
-	return status;
+	END_SECPOLICYAPI(status)
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 {
+	BEGIN_SECPOLICYAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecPolicyGetTPHandle was deprecated in 10.7, and does nothing in 10.11. Please stop using it.");
 #endif
-	return errSecServiceNotAvailable;
+	END_SECPOLICYAPI(errSecServiceNotAvailable)
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy)
 {
+	BEGIN_SECPOLICYAPI
 	if (!policyOID || !policy) {
-		return errSecParam;
+		END_SECPOLICYAPI(errSecParam)
 	}
 
 	SecPolicySearchRef srchRef = NULL;
@@ -448,11 +453,11 @@ SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPoli
 
 	ortn = SecPolicySearchCreate(certificateType, policyOID, NULL, &srchRef);
 	if(ortn) {
-		return ortn;
+		END_SECPOLICYAPI(ortn)
 	}
 	ortn = SecPolicySearchCopyNext(srchRef, policy);
 	CFRelease(srchRef);
-	return ortn;
+	END_SECPOLICYAPI(ortn)
 }
 
 /* OS X only: convert a new-world SecPolicyRef to an old-world ItemImpl instance */
@@ -526,11 +531,12 @@ _SecPolicyCreateWithOID(CFTypeRef policyOID)
 SecPolicyRef
 SecPolicyCreateWithOID(CFTypeRef policyOID)
 {
+	BEGIN_SECPOLICYAPI
 	SecPolicyRef policy = _SecPolicyCreateWithOID(policyOID);
 	if (!policy) {
 		syslog(LOG_ERR, "WARNING: SecPolicyCreateWithOID was unable to return the requested policy. This function was deprecated in 10.9. Please use supported SecPolicy creation functions instead.");
 	}
-	return policy;
+	END_SECPOLICYAPI(policy)
 }
 
 /* OS X only: TBD */

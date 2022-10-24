@@ -276,6 +276,11 @@ struct si_mod_vtable_s
 
 #define SI_MOD_FLAG_STATIC 0x00000001
 
+#if defined(__cplusplus)
+#define __si_private_name si_private
+#else
+#define __si_private_name private
+#endif
 typedef struct si_mod_s
 {
 	char *name;
@@ -284,16 +289,20 @@ typedef struct si_mod_s
 	uint32_t flags;
 
 	void *bundle;
-	void *private;
+	void *__si_private_name;
 	
 	const struct si_mod_vtable_s *vtable;
 } si_mod_t;
+#undef __si_private_name
+
+__BEGIN_DECLS
 
 si_mod_t *si_module_with_name(const char *name);
 si_mod_t *si_module_retain(si_mod_t *si);
 void si_module_release(si_mod_t *si);
 const char *si_module_name(si_mod_t *si);
 int si_module_vers(si_mod_t *si);
+int si_module_allows_caching(si_mod_t *si);
 
 si_mod_t *si_search(void);
 
@@ -377,5 +386,7 @@ int si_inet_config(uint32_t *inet4, uint32_t *inet6);
 bool _gai_nat64_can_v4_address_be_synthesized(const struct in_addr *ipv4_addr);
 void si_set_nat64_v4_requires_synthesis(bool (*nat64_v4_requires_synthesis)(const struct in_addr *ipv4_addr));
 void si_set_nat64_v4_synthesize(int (*nat64_v4_synthesize)(uint32_t *index, const struct in_addr *ipv4, struct in6_addr **out_ipv6_addrs));
+
+__END_DECLS
 
 #endif /* ! __SI_MODULE_H__ */

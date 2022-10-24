@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.h,v 1.154 2021/04/03 06:18:40 djm Exp $ */
+/* $OpenBSD: servconf.h,v 1.156 2022/03/18 04:04:11 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -146,7 +146,6 @@ typedef struct {
 	int     password_authentication;	/* If true, permit password
 						 * authentication. */
 	int     kbd_interactive_authentication;	/* If true, permit */
-	int     challenge_response_authentication;
 	int     permit_empty_passwd;	/* If false, do not permit empty
 					 * passwords. */
 	int     permit_user_env;	/* If true, read ~/.ssh/environment */
@@ -298,7 +297,7 @@ int	 process_server_config_line(ServerOptions *, char *, const char *, int,
 void	 process_permitopen(struct ssh *ssh, ServerOptions *options);
 void	 load_server_config(const char *, struct sshbuf *);
 void	 parse_server_config(ServerOptions *, const char *, struct sshbuf *,
-	    struct include_list *includes, struct connection_info *);
+	    struct include_list *includes, struct connection_info *, int);
 void	 parse_server_match_config(ServerOptions *,
 	    struct include_list *includes, struct connection_info *);
 int	 parse_server_match_testspec(struct connection_info *, char *);

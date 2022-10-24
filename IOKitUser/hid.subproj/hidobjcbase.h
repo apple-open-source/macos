@@ -140,13 +140,12 @@ typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventQueue *IOHIDEventQueueRef;
 
 #ifndef _IOKIT_HID_IOHIDEVENTSYSTEM_CONNECTION_H
 typedef struct CF_BRIDGED_TYPE(id) __IOHIDEventSystemConnection *IOHIDEventSystemConnectionRef;
+typedef union IOHIDEventSystemConnectionEntitlements IOHIDEventSystemConnectionEntitlements;
 #endif
 
 #ifndef _IOKIT_HID_IOHIDEVENTSYSTEM_CONNECTION_PRIVATE_H
 typedef void (*IOHIDEventSystemConnectionTerminationCallback)(IOHIDEventSystemConnectionRef client, void * _Nullable refcon);
 typedef Boolean (*IOHIDEventSystemConnectionDemuxCallback)(IOHIDEventSystemConnectionRef client, mach_msg_header_t * request, mach_msg_header_t * reply, void * _Nullable refcon);
-
-typedef union IOHIDEventSystemConnectionEntitlements IOHIDEventSystemConnectionEntitlements;
 #endif
 
 /*

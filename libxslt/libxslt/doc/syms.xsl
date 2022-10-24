@@ -44,6 +44,13 @@
       <xsl:apply-templates select="."/>
     </xsl:for-each>
 
+    <xsl:if test="not($prev)">
+      <xsl:text>
+  local:
+    *;
+</xsl:text>
+    </xsl:if>
+
     <xsl:text>} </xsl:text>
     <xsl:if test="$prev">
       <xsl:text>LIBXML2_</xsl:text>
@@ -63,6 +70,14 @@
         <xsl:value-of select="$name"/>
         <xsl:text>; removed in </xsl:text>
         <xsl:value-of select="@removed"/>
+        <xsl:text>
+</xsl:text>
+      </xsl:when>
+      <xsl:when test="@switch">
+        <xsl:text># </xsl:text>
+        <xsl:value-of select="$name"/>
+        <xsl:text>; requires switch </xsl:text>
+        <xsl:value-of select="@switch"/>
         <xsl:text>
 </xsl:text>
       </xsl:when>

@@ -23,6 +23,6 @@
 
 BEGIN
 {
-	tracemem(`sysctl__kern_ostype.oid_arg1, 6);
+	tracemem(`ostype, 6);
 	exit(0);
 }

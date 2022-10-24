@@ -529,7 +529,7 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
 			key, &privAclData);
     }
 	
-    // compare retrieved key headers with blob headers (sanity check)
+    // compare retrieved key headers with blob headers
     // @@@ this should probably be checked over carefully
     CssmKey::Header &real = key.header();
     CssmKey::Header &incoming = blob->header;

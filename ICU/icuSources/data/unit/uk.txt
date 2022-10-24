@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 uk{
@@ -2540,18 +2540,18 @@ uk{
             }
             day{
                 dnam{"д"}
-                few{"{0}д"}
-                many{"{0}д"}
-                one{"{0}д"}
-                other{"{0}д"}
+                few{"{0} д"}
+                many{"{0} д"}
+                one{"{0} д"}
+                other{"{0} д"}
                 per{"{0}/д"}
             }
             hour{
                 dnam{"год"}
-                few{"{0}г"}
-                many{"{0}г"}
-                one{"{0}г"}
-                other{"{0}г"}
+                few{"{0} г"}
+                many{"{0} г"}
+                one{"{0} г"}
+                other{"{0} г"}
                 per{"{0}/г"}
             }
             microsecond{
@@ -2570,10 +2570,10 @@ uk{
             }
             minute{
                 dnam{"хв"}
-                few{"{0}хв"}
-                many{"{0}хв"}
-                one{"{0}хв"}
-                other{"{0}хв"}
+                few{"{0} хв"}
+                many{"{0} хв"}
+                one{"{0} хв"}
+                other{"{0} хв"}
                 per{"{0}/хв"}
             }
             month{
@@ -2593,10 +2593,10 @@ uk{
             }
             second{
                 dnam{"с"}
-                few{"{0}с"}
-                many{"{0}с"}
-                one{"{0}с"}
-                other{"{0}с"}
+                few{"{0} с"}
+                many{"{0} с"}
+                one{"{0} с"}
+                other{"{0} с"}
                 per{"{0}/с"}
             }
             week{

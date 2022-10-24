@@ -144,6 +144,11 @@ xsltNewKeyTable(const xmlChar *name, const xmlChar *nameURI) {
     return(cur);
 }
 
+static void
+xsltFreeNodeSetEntry(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xmlXPathFreeNodeSet((xmlNodeSetPtr) payload);
+}
+
 /**
  * xsltFreeKeyTable:
  * @keyt:  an XSLT key table
@@ -159,8 +164,7 @@ xsltFreeKeyTable(xsltKeyTablePtr keyt) {
     if (keyt->nameURI != NULL)
 	xmlFree(keyt->nameURI);
     if (keyt->keys != NULL)
-	xmlHashFree(keyt->keys,
-		    (xmlHashDeallocator) xmlXPathFreeNodeSet);
+	xmlHashFree(keyt->keys, xsltFreeNodeSetEntry);
     memset(keyt, -1, sizeof(xsltKeyTable));
     xmlFree(keyt);
 }
@@ -237,6 +241,8 @@ skipString(const xmlChar *cur, int end) {
  */
 static int
 skipPredicate(const xmlChar *cur, int end) {
+    int level = 0;
+
     if ((cur == NULL) || (end < 0)) return(-1);
     if (cur[end] != '[') return(end);
     end++;
@@ -247,12 +253,12 @@ skipPredicate(const xmlChar *cur, int end) {
 	        return(-1);
 	    continue;
 	} else if (cur[end] == '[') {
-	    end = skipPredicate(cur, end);
-	    if (end <= 0)
-	        return(-1);
-	    continue;
-	} else if (cur[end] == ']')
-	    return(end + 1);
+            level += 1;
+	} else if (cur[end] == ']') {
+            if (level == 0)
+	        return(end + 1);
+            level -= 1;
+        }
 	end++;
     }
     return(-1);
@@ -402,10 +408,13 @@ xsltAddKey(xsltStylesheetPtr style, const xmlChar *name,
 	prev->next = key;
     }
     key->next = NULL;
+    key = NULL;
 
 error:
     if (pattern != NULL)
 	xmlFree(pattern);
+    if (key != NULL)
+        xsltFreeKeyDef(key);
     return(0);
 }
 
@@ -622,6 +631,7 @@ xsltInitCtxtKey(xsltTransformContextPtr ctxt, xsltDocumentPtr idoc,
     xmlNodePtr oldContextNode;
     xsltDocumentPtr oldDocInfo;
     int	oldXPPos, oldXPSize;
+    xmlNodePtr oldXPNode;
     xmlDocPtr oldXPDoc;
     int oldXPNsNr;
     xmlNsPtr *oldXPNamespaces;
@@ -660,6 +670,7 @@ fprintf(stderr, "xsltInitCtxtKey %s : %d\n", keyDef->name, ctxt->keyInitLevel);
     oldDocInfo = ctxt->document;
     oldContextNode = ctxt->node;
 
+    oldXPNode = xpctxt->node;
     oldXPDoc = xpctxt->doc;
     oldXPPos = xpctxt->proximityPosition;
     oldXPSize = xpctxt->contextSize;
@@ -858,6 +869,7 @@ error:
     /*
     * Restore context state.
     */
+    xpctxt->node = oldXPNode;
     xpctxt->doc = oldXPDoc;
     xpctxt->nsNr = oldXPNsNr;
     xpctxt->namespaces = oldXPNamespaces;

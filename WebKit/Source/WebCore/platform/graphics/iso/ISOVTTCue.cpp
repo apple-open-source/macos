@@ -80,7 +80,7 @@ ISOWebVTTCue::ISOWebVTTCue(const MediaTime& presentationTime, const MediaTime& d
 {
 }
 
-ISOWebVTTCue::ISOWebVTTCue(MediaTime&& presentationTime, MediaTime&& duration, String&& cueID, String&& cueText, String&& settings, String&& sourceID, String&& originalStartTime)
+ISOWebVTTCue::ISOWebVTTCue(MediaTime&& presentationTime, MediaTime&& duration, AtomString&& cueID, String&& cueText, String&& settings, String&& sourceID, String&& originalStartTime)
     : m_presentationTime(WTFMove(presentationTime))
     , m_duration(WTFMove(duration))
     , m_sourceID(WTFMove(sourceID))
@@ -90,6 +90,9 @@ ISOWebVTTCue::ISOWebVTTCue(MediaTime&& presentationTime, MediaTime&& duration, S
     , m_cueText(WTFMove(cueText))
 {
 }
+
+ISOWebVTTCue::ISOWebVTTCue(ISOWebVTTCue&&) = default;
+ISOWebVTTCue::~ISOWebVTTCue() = default;
 
 bool ISOWebVTTCue::parse(DataView& view, unsigned& offset)
 {
@@ -102,7 +105,7 @@ bool ISOWebVTTCue::parse(DataView& view, unsigned& offset)
         if (stringBox.boxType() == vttCueSourceIDBoxType())
             m_sourceID = stringBox.contents();
         else if (stringBox.boxType() == vttIdBoxType())
-            m_identifier = stringBox.contents();
+            m_identifier = AtomString { stringBox.contents() };
         else if (stringBox.boxType() == vttCurrentTimeBoxType())
             m_originalStartTime = stringBox.contents();
         else if (stringBox.boxType() == vttSettingsBoxType())
@@ -110,7 +113,7 @@ bool ISOWebVTTCue::parse(DataView& view, unsigned& offset)
         else if (stringBox.boxType() == vttPayloadBoxType())
             m_cueText = stringBox.contents();
         else
-            LOG(Media, "ISOWebVTTCue::ISOWebVTTCue - skipping box id = \"%s\", size = %zu", stringBox.boxType().toString().utf8().data(), (size_t)stringBox.size());
+            LOG(Media, "ISOWebVTTCue::ISOWebVTTCue - skipping box id = \"%s\", size = %" PRIu64, stringBox.boxType().string().data(), stringBox.size());
     }
     return true;
 }

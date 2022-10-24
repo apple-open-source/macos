@@ -80,7 +80,7 @@ static NSString* C2MetricProcessUUID(void);
 
 #pragma mark - NSBundleInfoDictionary Constants
 
-static NSDictionary *processInfoDict() {
+static NSDictionary *processInfoDict(void) {
     static NSDictionary *processInfoDict = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -90,15 +90,15 @@ static NSDictionary *processInfoDict() {
     return processInfoDict;
 }
 
-static NSString* C2MetricProcessName() {
+static NSString* C2MetricProcessName(void) {
     return processInfoDict()[(NSString *)kCFBundleIdentifierKey];
 }
 
-static NSString* C2MetricProcessVersion() {
+static NSString* C2MetricProcessVersion(void) {
     return processInfoDict()[(NSString *)_kCFBundleShortVersionStringKey];
 }
 
-static NSString* C2MetricProcessUUID() {
+static NSString* C2MetricProcessUUID(void) {
     static NSString* processUUIDString;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -113,7 +113,7 @@ static NSString* C2MetricProcessUUID() {
 
 static NSMutableDictionary* _CKCachedGestaltValues = nil;
 
-static NSArray* _CKCachedLockdownKeys() {
+static NSArray* _CKCachedLockdownKeys(void) {
     return @[(NSString *)kMGQUniqueDeviceID,
              (NSString *)kMGQBuildVersion,
              (NSString *)kMGQProductName,
@@ -121,7 +121,7 @@ static NSArray* _CKCachedLockdownKeys() {
              (NSString *)kMGQProductVersion];
 }
 
-static NSDictionary* _CKGetCachedGestaltValues() {
+static NSDictionary* _CKGetCachedGestaltValues(void) {
     static dispatch_once_t pred;
     dispatch_once(&pred, ^{
         _CKCachedGestaltValues = [[NSMutableDictionary alloc] initWithCapacity:0];
@@ -142,19 +142,19 @@ static NSString* _CKGetCachedGestaltValue(NSString *key) {
     return _CKGetCachedGestaltValues()[key];
 }
 
-static NSString* C2MetricBuildVersion() {
+static NSString* C2MetricBuildVersion(void) {
     return _CKGetCachedGestaltValue((NSString *)kMGQBuildVersion);
 }
 
-static NSString* C2MetricProductName() {
+static NSString* C2MetricProductName(void) {
     return _CKGetCachedGestaltValue((NSString *)kMGQProductName);
 }
 
-static NSString* C2MetricProductType() {
+static NSString* C2MetricProductType(void) {
     return _CKGetCachedGestaltValue((NSString *)kMGQProductType);
 }
 
-static NSString* C2MetricProductVersion() {
+static NSString* C2MetricProductVersion(void) {
     return _CKGetCachedGestaltValue((NSString *)kMGQProductVersion);
 }
 
@@ -172,7 +172,7 @@ static CFStringRef CKCopySysctl(int mib[2]) {
     return NULL;
 }
 
-static NSDictionary* systemVersionDict() {
+static NSDictionary* systemVersionDict(void) {
     static NSDictionary *sysVers = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -181,15 +181,15 @@ static NSDictionary* systemVersionDict() {
     return sysVers;
 }
 
-static NSString* C2MetricBuildVersion() {
+static NSString* C2MetricBuildVersion(void) {
     return systemVersionDict()[(NSString *)_kCFSystemVersionBuildVersionKey];
 }
 
-static NSString* C2MetricProductName() {
+static NSString* C2MetricProductName(void) {
     return systemVersionDict()[(NSString *)_kCFSystemVersionProductNameKey];
 }
 
-static NSString* C2MetricProductType() {
+static NSString* C2MetricProductType(void) {
     static dispatch_once_t onceToken;
     static NSString *productType = nil;
     dispatch_once(&onceToken, ^{
@@ -198,7 +198,7 @@ static NSString* C2MetricProductType() {
     return productType;
 }
 
-static NSString* C2MetricProductVersion() {
+static NSString* C2MetricProductVersion(void) {
     return systemVersionDict()[(NSString *)_kCFSystemVersionProductVersionKey];
 }
 

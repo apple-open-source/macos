@@ -11,7 +11,7 @@ extern const uint64_t _crc_table64[256];
 extern const uint64_t xorout;
     
 AUTH_INLINE uint64_t
-crc64_init()
+crc64_init(void)
 {
     return xorout;
 }

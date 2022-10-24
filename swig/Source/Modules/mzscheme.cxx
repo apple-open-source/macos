@@ -236,7 +236,7 @@ public:
     String *outarg = NewString("");
     String *build = NewString("");
     String *tm;
-    int argout_set = 0;
+    __unused int argout_set = 0;
     int i = 0;
     int numargs;
     int numreq;
@@ -450,7 +450,7 @@ public:
 
       // Now register the function
       char temp[256];
-      sprintf(temp, "%d", numargs);
+      snprintf(temp, sizeof(temp), "%d", numargs);
       if (exporting_destructor) {
 	Printf(init_func_def, "SWIG_TypeClientData(SWIGTYPE%s, (void *) %s);\n", swigtype_ptr, wname);
       } else {

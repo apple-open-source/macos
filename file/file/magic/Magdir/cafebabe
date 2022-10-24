@@ -8,10 +8,10 @@
 # The long at offset 4 in a Mach-O universal binary tells the number of
 # architectures; the short at offset 4 in a Java bytecode file is the JVM minor
 # version and the short at offset 6 is the JVM major version.  Since there are only
-# only 18 labeled Mach-O architectures at current, and the first released
+# only 23 labeled Mach-O architectures at current, and the first released
 # Java class format was version 43.0, we can safely choose any number
-# between 18 and 39 to test the number of architectures against
-# (and use as a hack). Let's not use 18, because the Mach-O people
+# between 23 and 39 to test the number of architectures against
+# (and use as a hack). Let's not use 23, because the Mach-O people
 # might add another one or two as time goes by...
 #
 ### JAVA START ###
@@ -82,9 +82,9 @@
 >4	belong		1		Mach-O universal binary with 1 architecture:
 !:mime application/x-mach-binary
 >>8	use		mach-o		\b
-# nfat_arch; number of CPU architectures; highest is 18 for CPU_TYPE_POWERPC in 2020
+# nfat_arch; number of CPU architectures; highest is 23 for CPU_TYPE_AIR in 2022
 >4	ubelong		>1
->>4	ubelong		<20		Mach-O universal binary with %d architectures:
+>>4	ubelong		<25		Mach-O universal binary with %d architectures:
 !:mime application/x-mach-binary
 >>>8	use		mach-o		\b
 >>>4	ubelong		>1

@@ -158,7 +158,8 @@ static CSSM_DATA_PTR readConfig()
 static CSSM_BOOL parseOidWithConfig(
 	const CSSM_DATA_PTR configData,
 	const CSSM_OID_PTR	oid,
-	char				*strBuf)
+	char				*strBuf,
+	size_t				strSz)
 {
 	char				*fullOidStr = NULL;
 	char				*ourEntry = NULL;
@@ -170,30 +171,30 @@ static CSSM_BOOL parseOidWithConfig(
 	char				*nextCr;		// next CR if any
 	char				*nextNl;		// next NL if any
 	char				*eol;			// end of line
-	int					len;
 
 	if(configData == NULL) {
 		return CSSM_FALSE;
 	}
 
 	/* cook up a full OID string, with tag and length */
-	fullOidStr = (char *)malloc((3 * oid->Length) +
+        size_t fullOidStrLen = (3 * oid->Length) +
 												// 2 chars plus space per byte
 		strlen(OID_ENTRY_START) +				// "OID = "
 		6 +										// 06 xx - tag and length
-		1);										// NULL
+		1;										// NULL
+        fullOidStr = (char *)malloc(fullOidStrLen);
 	if(fullOidStr == NULL) {
 		return CSSM_FALSE;
 	}
 	/* subsequent errors to errOut: */
 
-	sprintf(fullOidStr, "OID = 06 %02X", (unsigned)oid->Length);
+        snprintf(fullOidStr, fullOidStrLen, "OID = 06 %02X", (unsigned)oid->Length);
 	cp = fullOidStr + strlen(fullOidStr);
 	for(i=0; i<oid->Length; i++) {
+		/* add one byte */
+                snprintf(cp, fullOidStrLen - (cp - fullOidStr), " %02X", oid->Data[i]);
 		/* move cp to current end of string */
 		cp += strlen(cp);
-		/* add one byte */
-		sprintf(cp, " %02X", oid->Data[i]);
 	}
 
 	/*
@@ -248,14 +249,7 @@ static CSSM_BOOL parseOidWithConfig(
 		eol = nextCr;
 	}
 
-	/* caller's string buf = remainder of description line */
-	len = (int)(eol - descStart);
-	if(len > (OID_PARSER_STRING_SIZE - 1)) {
-		/* fixed-length output buf, avoid overflow */
-		len = OID_PARSER_STRING_SIZE - 1;
-	}
-	memcpy(strBuf, descStart, len);
-	strBuf[len] = '\0';
+        strlcpy(strBuf, descStart, strSz);
 	brtn = CSSM_TRUE;
 errOut:
 	if(fullOidStr != NULL) {
@@ -292,7 +286,8 @@ OidParser::~OidParser()
 void OidParser::oidParse(
 	const unsigned char	*oidp,
 	unsigned			oidLen,
-	char 				*strBuf)
+	char				*strBuf,
+	size_t				 strLen)
 {
 	unsigned i;
 	CSSM_OID oid;
@@ -304,13 +299,13 @@ void OidParser::oidParse(
 		strcpy(strBuf, "EMPTY");
 		return;
 	}
-	if(parseOidWithConfig(configData, &oid, strBuf) == CSSM_FALSE) {
+	if(parseOidWithConfig(configData, &oid, strBuf, strLen) == CSSM_FALSE) {
 		/* no config file, just dump the bytes */
 		char cbuf[8];
 
-		sprintf(strBuf, "OID : < 06 %02X ", (unsigned)oid.Length);
+		snprintf(strBuf, strLen, "OID : < 06 %02X ", (unsigned)oid.Length);
 		for(i=0; i<oid.Length; i++) {
-			sprintf(cbuf, "%02X ", oid.Data[i]);
+			snprintf(cbuf, sizeof(cbuf), "%02X ", oid.Data[i]);
 			strcat(strBuf, cbuf);
 		}
 		strcat(strBuf, ">");

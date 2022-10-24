@@ -33,6 +33,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         this._urlCodeMirror = null;
         this._isCaseSensitiveCheckbox = null;
         this._isRegexCheckbox = null;
+        this._isPassthroughCheckbox = null;
         this._requestURLCodeMirror = null;
         this._methodSelectElement = null;
         this._mimeTypeCodeMirror = null;
@@ -57,9 +58,10 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         // COMPATIBILITY (iOS 13.4): `Network.addInterception` did not exist yet.
         let data = {
             type: this._skipNetworkCheckbox?.checked ? WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork : this._typeSelectElement.value,
-            url: WI.urlWithoutFragment(this._urlCodeMirror.getValue()),
+            url: this._urlCodeMirror.getValue(),
             isCaseSensitive: !this._isCaseSensitiveCheckbox || this._isCaseSensitiveCheckbox.checked,
             isRegex: !!this._isRegexCheckbox?.checked,
+            isPassthrough: this._isPassthroughCheckbox.checked,
         };
 
         if (!data.url)
@@ -76,7 +78,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
             let {name, value} = node.data;
             if (!name || !value)
                 continue;
-            if (data.type !== WI.LocalResourceOverride.InterceptType.Request) {
+            if (data.type === WI.LocalResourceOverride.InterceptType.Response || data.type === WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork) {
                 if (name.toLowerCase() === "content-type")
                     continue;
                 if (name.toLowerCase() === "set-cookie")
@@ -125,7 +127,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
 
         if (!data.responseMIMEType && data.requestURL) {
             data.responseMIMEType = WI.mimeTypeForFileExtension(WI.fileExtensionForURL(data.requestURL));
-            if (data.type !== WI.LocalResourceOverride.InterceptType.Request)
+            if (data.type === WI.LocalResourceOverride.InterceptType.Response || data.type === WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork)
                 headers["Content-Type"] = data.responseMIMEType;
         }
 
@@ -199,7 +201,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         };
 
         this._typeSelectElement = document.createElement("select");
-        for (let type of [WI.LocalResourceOverride.InterceptType.Request, WI.LocalResourceOverride.InterceptType.Response]) {
+        for (let type of [WI.LocalResourceOverride.InterceptType.Request, WI.LocalResourceOverride.InterceptType.Response, WI.LocalResourceOverride.InterceptType.Block]) {
             let optionElement = this._typeSelectElement.appendChild(document.createElement("option"));
             optionElement.textContent = WI.LocalResourceOverride.displayNameForType(type);
             optionElement.value = type;
@@ -362,8 +364,10 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         };
 
         let toggleHeadersDataGridVisibility = (force) => {
-            this._headersDataGrid.element.hidden = force !== undefined ? force : !this._headersDataGrid.hasChildren;
-            this._headersDataGrid.updateLayoutIfNeeded();
+            let hidden = force ?? !this._headersDataGrid.hasChildren;
+            this._headersDataGrid.element.hidden = hidden;
+            if (!hidden)
+                this._headersDataGrid.updateLayout();
         };
 
         let contentTypeDataGridNode = addDataGridNodeForHeader(WI.unlocalizedString("Content-Type"), valueData.mimeType || placeholderData.mimeType, {selectable: false, editable: false, classNames: ["header-content-type"]});
@@ -389,19 +393,28 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
             this._headersDataGrid.startEditingNode(newNode);
         });
 
-        let optionsRowElement = null;
+        let optionsRowElement = table.appendChild(document.createElement("tr"));
+        optionsRowElement.className = "options";
+
+        let optionsHeader = optionsRowElement.appendChild(document.createElement("th"));
+
+        let optionsLabel = optionsHeader.appendChild(document.createElement("label"));
+        optionsLabel.textContent = WI.UIString("Options");
+
+        let optionsData = optionsRowElement.appendChild(document.createElement("td"));
+
+        let isPassthroughLabel = optionsData.appendChild(document.createElement("label"));
+        isPassthroughLabel.className = "is-passthrough";
+
+        this._isPassthroughCheckbox = isPassthroughLabel.appendChild(document.createElement("input"));
+        this._isPassthroughCheckbox.type = "checkbox";
+        this._isPassthroughCheckbox.checked = !!localResourceOverride?.isPassthrough;
+
+        let isPassthroughLabelText = isPassthroughLabel.appendChild(document.createTextNode(""));
+
+        let skipNetworkLabel = null;
         if (WI.NetworkManager.supportsOverridingRequestsWithResponses()) {
-            optionsRowElement = table.appendChild(document.createElement("tr"));
-            optionsRowElement.className = "options";
-
-            let optionsHeader = optionsRowElement.appendChild(document.createElement("th"));
-
-            let optionsLabel = optionsHeader.appendChild(document.createElement("label"));
-            optionsLabel.textContent = WI.UIString("Options");
-
-            let optionsData = optionsRowElement.appendChild(document.createElement("td"));
-
-            let skipNetworkLabel = optionsData.appendChild(document.createElement("label"));
+            skipNetworkLabel = optionsData.appendChild(document.createElement("label"));
             skipNetworkLabel.className = "skip-network";
 
             this._skipNetworkCheckbox = skipNetworkLabel.appendChild(document.createElement("input"));
@@ -411,7 +424,7 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
             skipNetworkLabel.appendChild(document.createTextNode(WI.UIString("Skip Network", "Skip Network @ Local Override Popover Options", "Label for checkbox that controls whether the local override will actually perform a network request or skip it to immediately serve the response.")));
         }
 
-        popoverContentElement.appendChild(WI.createReferencePageLink(WI.ReferencePage.LocalOverrides, "configuring-local-overrides"));
+        popoverContentElement.appendChild(WI.ReferencePage.LocalOverrides.ConfiguringLocalOverrides.createLinkElement());
 
         let incrementStatusCode = () => {
             let x = parseInt(this._statusCodeCodeMirror.getValue());
@@ -501,10 +514,15 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
         updateURLCodeMirrorMode();
 
         let toggleInputsForType = (initializeHeaders) => {
+            let isBlock = this._typeSelectElement.value === WI.LocalResourceOverride.InterceptType.Block;
             let isRequest = this._typeSelectElement.value === WI.LocalResourceOverride.InterceptType.Request;
-            popoverContentElement.classList.toggle("request", isRequest);
-            popoverContentElement.classList.toggle("response", !isRequest);
+            let isResponse = this._typeSelectElement.value === WI.LocalResourceOverride.InterceptType.Response || this._typeSelectElement.value === WI.LocalResourceOverride.InterceptType.ResponseSkippingNetwork;
 
+            popoverContentElement.classList.toggle("block", isBlock);
+            popoverContentElement.classList.toggle("request", isRequest);
+            popoverContentElement.classList.toggle("response", isResponse);
+
+            initializeHeaders &&= !isBlock;
             if (initializeHeaders) {
                 let headers = isRequest ? requestHeaders : responseHeaders;
                 for (let name in headers) {
@@ -519,28 +537,36 @@ WI.LocalResourceOverridePopover = class LocalResourceOverridePopover extends WI.
             }
 
             if (requestURLRow)
-                requestURLRow.element.hidden = !isRequest;
+                requestURLRow.element.hidden = isResponse || isBlock;
             if (methodRowElement)
-                methodRowElement.hidden = !isRequest;
+                methodRowElement.hidden = isResponse || isBlock;
+            mimeTypeRow.element.hidden = isRequest || isBlock;
+            statusCodeRow.element.hidden = isRequest || isBlock;
+            headersRow.hidden = isBlock;
 
-            mimeTypeRow.element.hidden = isRequest;
-            statusCodeRow.element.hidden = isRequest;
-            if (optionsRowElement)
-                optionsRowElement.hidden = isRequest;
+            isPassthroughLabel.hidden = isBlock;
+            if (skipNetworkLabel)
+                skipNetworkLabel.hidden = isRequest || isBlock;
+            optionsRowElement.hidden = isPassthroughLabel.hidden && (skipNetworkLabel?.hidden ?? true);
 
             if (isRequest) {
                 this._requestURLCodeMirror.refresh();
 
                 if (contentTypeDataGridNode.parent)
                     this._headersDataGrid.removeChild(contentTypeDataGridNode);
-            } else {
+
+                isPassthroughLabelText.textContent = WI.UIString("Include original request data");
+            } else if (isResponse) {
                 this._mimeTypeCodeMirror.refresh();
                 this._statusCodeCodeMirror.refresh();
                 this._statusTextCodeMirror.refresh();
 
                 if (!contentTypeDataGridNode.parent)
                     this._headersDataGrid.insertChild(contentTypeDataGridNode, 0);
+
+                isPassthroughLabelText.textContent = WI.UIString("Include original response data");
             }
+
             toggleHeadersDataGridVisibility();
         };
         toggleInputsForType(true);

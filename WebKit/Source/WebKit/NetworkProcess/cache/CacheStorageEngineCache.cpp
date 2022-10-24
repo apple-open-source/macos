@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include <WebCore/HTTPParsers.h>
 #include <WebCore/RetrieveRecordsOptions.h>
 #include <pal/SessionID.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/UUID.h>
@@ -66,7 +67,7 @@ static inline Vector<uint64_t> queryCache(const Vector<RecordInformation>* recor
     if (!records)
         return { };
 
-    if (!options.ignoreMethod && request.httpMethod() != "GET")
+    if (!options.ignoreMethod && request.httpMethod() != "GET"_s)
         return { };
 
     Vector<uint64_t> results;
@@ -87,10 +88,9 @@ static inline void updateVaryInformation(RecordInformation& recordInformation, c
     }
 
     varyValue.split(',', [&](StringView view) {
-        if (!recordInformation.hasVaryStar && stripLeadingAndTrailingHTTPSpaces(view) == "*")
+        if (!recordInformation.hasVaryStar && stripLeadingAndTrailingHTTPSpaces(view) == "*"_s)
             recordInformation.hasVaryStar = true;
-        String headerName = view.toString();
-        recordInformation.varyHeaders.add(headerName, request.httpHeaderField(headerName));
+        recordInformation.varyHeaders.add(view.toString(), request.httpHeaderField(view));
     });
 
     if (recordInformation.hasVaryStar)
@@ -99,7 +99,7 @@ static inline void updateVaryInformation(RecordInformation& recordInformation, c
 
 RecordInformation Cache::toRecordInformation(const Record& record)
 {
-    Key key { "record"_s, m_uniqueName, { }, createCanonicalUUIDString(), m_caches.salt() };
+    Key key { "record"_s, m_uniqueName, { }, createVersion4UUIDString(), m_caches.salt() };
     RecordInformation recordInformation { WTFMove(key), MonotonicTime::now().secondsSinceEpoch().milliseconds(), record.identifier, 0 , record.responseBodySize, record.request.url(), false, { } };
 
     updateVaryInformation(recordInformation, record.request, record.response);
@@ -128,35 +128,23 @@ void Cache::clearMemoryRepresentation()
     m_state = State::Uninitialized;
 }
 
-static RecordInformation isolatedCopy(const RecordInformation& information)
+RecordInformation RecordInformation::isolatedCopy() &&
 {
-    auto result = RecordInformation { information.key, information.insertionTime, information.identifier, information.updateResponseCounter, information.size, information.url.isolatedCopy(), information.hasVaryStar, { } };
-    HashMap<String, String> varyHeaders;
-    for (const auto& keyValue : information.varyHeaders)
-        varyHeaders.set(keyValue.key.isolatedCopy(), keyValue.value.isolatedCopy());
-    result.varyHeaders = WTFMove(varyHeaders);
-    return result;
+    return { key, insertionTime, identifier, updateResponseCounter, size, WTFMove(url).isolatedCopy(), hasVaryStar, crossThreadCopy(WTFMove(varyHeaders)) };
 }
 
 struct TraversalResult {
     uint64_t cacheIdentifier;
     HashMap<String, Vector<RecordInformation>> records;
     Vector<Key> failedRecords;
+
+    TraversalResult isolatedCopy() &&;
 };
 
-static TraversalResult isolatedCopy(TraversalResult&& result)
+TraversalResult TraversalResult::isolatedCopy() &&
 {
-    HashMap<String, Vector<RecordInformation>> isolatedRecords;
-    for (auto& keyValue : result.records) {
-        auto& recordVector = keyValue.value;
-        for (size_t cptr = 0; cptr < recordVector.size(); cptr++)
-            recordVector[cptr] = isolatedCopy(recordVector[cptr]);
-
-        isolatedRecords.set(keyValue.key.isolatedCopy(), WTFMove(recordVector));
-    }
-
-    // No need to isolate keys since they are isolated through the copy constructor
-    return TraversalResult { result.cacheIdentifier, WTFMove(isolatedRecords), WTFMove(result.failedRecords) };
+    // No need to isolate keys since they are isolated through the copy constructor.
+    return { cacheIdentifier, crossThreadCopy(WTFMove(records)), WTFMove(failedRecords) };
 }
 
 void Cache::open(CompletionCallback&& callback)
@@ -173,7 +161,7 @@ void Cache::open(CompletionCallback&& callback)
     TraversalResult traversalResult { m_identifier, { }, { } };
     m_caches.readRecordsList(*this, [caches = Ref { m_caches }, callback = WTFMove(callback), traversalResult = WTFMove(traversalResult)](const auto* storageRecord, const auto&) mutable {
         if (!storageRecord) {
-            RunLoop::main().dispatch([caches = WTFMove(caches), callback = WTFMove(callback), traversalResult = isolatedCopy(WTFMove(traversalResult)) ]() mutable {
+            RunLoop::main().dispatch([caches = WTFMove(caches), callback = WTFMove(callback), traversalResult = WTFMove(traversalResult).isolatedCopy() ]() mutable {
                 for (auto& key : traversalResult.failedRecords)
                     caches->removeCacheEntry(key);
 
@@ -321,7 +309,7 @@ void Cache::retrieveRecords(const RetrieveRecordsOptions& options, RecordsCallba
         return;
     }
 
-    if (!options.ignoreMethod && options.request.httpMethod() != "GET")
+    if (!options.ignoreMethod && options.request.httpMethod() != "GET"_s)
         return;
 
     auto* records = recordsFromURL(options.request.url());
@@ -411,7 +399,7 @@ void Cache::storeRecords(Vector<Record>&& records, RecordIdentifiersCallback&& c
         auto* sameURLRecords = recordsFromURL(record.request.url());
         auto matchingRecords = queryCache(sameURLRecords, record.request, options);
 
-        auto position = !matchingRecords.isEmpty() ? sameURLRecords->findMatching([&](const auto& item) { return item.identifier == matchingRecords[0]; }) : notFound;
+        auto position = !matchingRecords.isEmpty() ? sameURLRecords->findIf([&](const auto& item) { return item.identifier == matchingRecords[0]; }) : notFound;
 
         if (position == notFound) {
             record.identifier = ++m_nextRecordIdentifier;
@@ -438,7 +426,7 @@ void Cache::put(Vector<Record>&& records, RecordIdentifiersCallback&& callback)
         auto* sameURLRecords = recordsFromURL(record.request.url());
         auto matchingRecords = queryCache(sameURLRecords, record.request, options);
 
-        auto position = (sameURLRecords && !matchingRecords.isEmpty()) ? sameURLRecords->findMatching([&](const auto& item) { return item.identifier == matchingRecords[0]; }) : notFound;
+        auto position = (sameURLRecords && !matchingRecords.isEmpty()) ? sameURLRecords->findIf([&](const auto& item) { return item.identifier == matchingRecords[0]; }) : notFound;
 
         spaceRequired += record.responseBodySize;
         if (position != notFound) {
@@ -479,7 +467,7 @@ void Cache::remove(WebCore::ResourceRequest&& request, WebCore::CacheQueryOption
     }
 
     records->removeAllMatching([this, &recordIdentifiers](auto& item) {
-        bool shouldRemove = recordIdentifiers.findMatching([&item](auto identifier) { return identifier == item.identifier; }) != notFound;
+        bool shouldRemove = recordIdentifiers.findIf([&item](auto identifier) { return identifier == item.identifier; }) != notFound;
         if (shouldRemove)
             this->removeRecordFromDisk(item);
         return shouldRemove;
@@ -499,7 +487,7 @@ void Cache::removeFromRecordList(const Vector<uint64_t>& recordIdentifiers)
     for (auto& records : m_records.values()) {
         auto* cache = this;
         records.removeAllMatching([cache, &recordIdentifiers](const auto& item) {
-            return notFound != recordIdentifiers.findMatching([cache, &item](const auto& identifier) {
+            return notFound != recordIdentifiers.findIf([cache, &item](const auto& identifier) {
                 if (item.identifier != identifier)
                     return false;
                 cache->removeRecordFromDisk(item);
@@ -532,7 +520,7 @@ void Cache::updateRecordToDisk(RecordInformation& existingRecord, Record&& recor
         if (!sameURLRecords)
             return;
 
-        auto position = sameURLRecords->findMatching([&] (const auto& item) { return item.identifier == recordIdentifier; });
+        auto position = sameURLRecords->findIf([&] (const auto& item) { return item.identifier == recordIdentifier; });
         if (position == notFound)
             return;
         auto& recordInfo = sameURLRecords->at(position);

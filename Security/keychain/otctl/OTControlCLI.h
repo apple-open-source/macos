@@ -13,119 +13,108 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithOTControl:(OTControl*)control;
 
-- (int)startOctagonStateMachine:(NSString* _Nullable)container context:(NSString *)contextID;
+- (int)startOctagonStateMachine:(OTControlArguments*)arguments;
 
-- (int)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)signIn:(OTControlArguments*)arguments;
 
-- (int)signOut:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)signOut:(OTControlArguments*)arguments;
 
-- (int)depart:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)depart:(OTControlArguments*)arguments;
 
-- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID timeout:(NSTimeInterval)timeout;
+- (int)resetOctagon:(OTControlArguments*)arguments timeout:(NSTimeInterval)timeout;
 
-- (int)resetProtectedData:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
+- (int)resetProtectedData:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
 
-- (int)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json;
+- (int)status:(OTControlArguments*)arguments json:(bool)json;
 
 - (int)recoverUsingBottleID:(NSString *)bottleID
-                     entropy:(NSData *)entropy
-                     altDSID:(NSString *)altDSID
-               containerName:(NSString* _Nullable)containerName
-                     context:(NSString *)context
-                     control:(OTControl *)control;
+                    entropy:(NSData*)entropy
+                  arguments:(OTControlArguments*)arguments
+                    control:(OTControl*)control;
 
-- (int)fetchAllBottles:(NSString *)altDSID
-          containerName:(NSString* _Nullable)containerName
-                context:(NSString *)context
-                control:(OTControl *)control;
+- (int)fetchAllBottles:(OTControlArguments*)arguments
+               control:(OTControl *)control;
 
-- (int)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID;
-- (int)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID;
+- (int)fetchEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
+- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments json:(bool)json;
 
-- (int)healthCheck:(NSString * _Nullable)container context:(NSString *)contextID skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
-- (int)refetchCKKSPolicy:(NSString* _Nullable)container context:(NSString *)contextID;
+- (int)healthCheck:(OTControlArguments*)arguments skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
+- (int)refetchCKKSPolicy:(OTControlArguments*)arguments;
 
 - (int)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;
 
-- (int)performEscrowRecovery:(NSString * _Nullable)container
-                      context:(NSString *)contextID
-                     recordID:(NSString *)recordID
-                      appleID:(NSString *)appleID
-                       secret:(NSString *)secret;
+- (int)performEscrowRecovery:(OTControlArguments*)arguments
+                    recordID:(NSString *)recordID
+                     appleID:(NSString *)appleID
+                      secret:(NSString *)secret
+    overrideForAccountScript:(BOOL)overrideForAccountScript
+         overrideEscrowCache:(BOOL)overrideEscrowCache;
 
-- (int)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret;
+- (int)performSilentEscrowRecovery:(OTControlArguments*)arguments
+                           appleID:(NSString *)appleID secret:(NSString *)secret;
 
-- (int)tlkRecoverability:(NSString * _Nullable)container context:(NSString *)contextID;
+- (int)tlkRecoverability:(OTControlArguments*)arguments;
 
-- (int)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
-                                 contextID:(NSString *)contextID
-                                   enabled:(BOOL)enabled;
+- (int)setUserControllableViewsSyncStatus:(OTControlArguments*)arguments
+                                  enabled:(BOOL)enabled;
 
-- (int)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
-                                   contextID:(NSString *)contextID;
+- (int)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments;
 
-- (int)resetAccountCDPContentsWithContainerName:(NSString* _Nullable)containerName
-                                       contextID:(NSString *)contextID;
+- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)argumentsName;
 
-- (int)createCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                         contextID:(NSString *)contextID
-                                              json:(bool)json
-                                           timeout:(NSTimeInterval)timeout;
-
-- (int)joinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                           contextID:(NSString *)contextID
-                                         wrappingKey:(NSString*)wrappingKey
-                                          wrappedKey:(NSString*)wrappedKey
-                                          uuidString:(NSString*)uuidString
-                                             timeout:(NSTimeInterval)timeout;
-
-- (int)preflightJoinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                                    contextID:(NSString *)contextID
-                                                  wrappingKey:(NSString*)wrappingKey
-                                                   wrappedKey:(NSString*)wrappedKey
-                                                   uuidString:(NSString*)uuidString
-                                                      timeout:(NSTimeInterval)timeout;
-
-- (int)removeCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                         contextID:(NSString *)contextID
-                                        uuidString:(NSString*)uuidString
-                                           timeout:(NSTimeInterval)timeout;
-
-- (int)createInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                   contextID:(NSString *)contextID
-                                        json:(bool)json
-                                     timeout:(NSTimeInterval)timeout;
-
-- (int)generateInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
+- (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
                                           json:(bool)json
                                        timeout:(NSTimeInterval)timeout;
 
-- (int)storeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                  contextID:(NSString *)contextID
-                                wrappingKey:(NSString*)wrappingKey
-                                 wrappedKey:(NSString*)wrappedKey
-                                 uuidString:(NSString*)uuidString
-                                    timeout:(NSTimeInterval)timeout;
+- (int)joinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+                                     wrappingKey:(NSString*)wrappingKey
+                                      wrappedKey:(NSString*)wrappedKey
+                                      uuidString:(NSString*)uuidString
+                                         timeout:(NSTimeInterval)timeout;
 
-- (int)joinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
-                                   wrappingKey:(NSString*)wrappingKey
-                                    wrappedKey:(NSString*)wrappedKey
+- (int)preflightJoinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+                                              wrappingKey:(NSString*)wrappingKey
+                                               wrappedKey:(NSString*)wrappedKey
+                                               uuidString:(NSString*)uuidString
+                                                  timeout:(NSTimeInterval)timeout;
+
+- (int)removeCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
                                     uuidString:(NSString*)uuidString
                                        timeout:(NSTimeInterval)timeout;
 
-- (int)preflightJoinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                              contextID:(NSString *)contextID
-                                            wrappingKey:(NSString*)wrappingKey
-                                             wrappedKey:(NSString*)wrappedKey
-                                             uuidString:(NSString*)uuidString
-                                                timeout:(NSTimeInterval)timeout;
+- (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                                    json:(bool)json
+                                 timeout:(NSTimeInterval)timeout;
 
-- (int)removeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                   contextID:(NSString *)contextID
-                                  uuidString:(NSString*)uuidString
-                                     timeout:(NSTimeInterval)timeout;
+- (int)generateInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                                      json:(bool)json
+                                   timeout:(NSTimeInterval)timeout;
+
+- (int)storeInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                            wrappingKey:(NSString*)wrappingKey
+                             wrappedKey:(NSString*)wrappedKey
+                             uuidString:(NSString*)uuidString
+                                timeout:(NSTimeInterval)timeout;
+
+- (int)joinWithInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                               wrappingKey:(NSString*)wrappingKey
+                                wrappedKey:(NSString*)wrappedKey
+                                uuidString:(NSString*)uuidString
+                                   timeout:(NSTimeInterval)timeout;
+
+- (int)preflightJoinWithInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                                        wrappingKey:(NSString*)wrappingKey
+                                         wrappedKey:(NSString*)wrappedKey
+                                         uuidString:(NSString*)uuidString
+                                            timeout:(NSTimeInterval)timeout;
+
+- (int)removeInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                              uuidString:(NSString*)uuidString
+                                 timeout:(NSTimeInterval)timeout;
+
+- (int)setMachineIDOverride:(OTControlArguments*)arguments
+                  machineID:(NSString*)machineID
+                       json:(bool)json;
 
 
 @end

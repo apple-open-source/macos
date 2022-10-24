@@ -79,4 +79,4 @@ endif
 
 install::
 	chgrp -R wheel $(DSTROOT)
-	rm $(DSTROOT)/usr/share/info/dir
+	rm -rf $(DSTROOT)/usr/share/info

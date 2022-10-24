@@ -26,6 +26,10 @@ if not args.passcode:
 else:
     passcode = args.passcode
 
+if not passcode:
+    print("local device must have passcode/password")
+    sys.exit(1)
+
 def set_security_mac_cmd():
         return 'security2'
 

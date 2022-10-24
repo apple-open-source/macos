@@ -53,7 +53,6 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBagPasswordKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordLabelKey, NSString*);
 
 static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
-static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
 @implementation OTConfigurationContext(Framework)
 
@@ -84,6 +83,27 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
     return viableSOS;
 }
+
++ (NSArray<OTEscrowRecord*>*)sortListPrioritizingiOSRecords:(NSArray<OTEscrowRecord*>*)list
+{
+    NSMutableArray<OTEscrowRecord*>* numericFirst = [NSMutableArray array];
+    NSMutableArray<OTEscrowRecord*>* leftover = [NSMutableArray array];
+
+    for (OTEscrowRecord* record in list) {
+        if (record.escrowInformationMetadata.clientMetadata.hasSecureBackupUsesNumericPassphrase &&
+            record.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase) {
+          
+            [numericFirst addObject:record];
+        } else {
+            [leftover addObject:record];
+        }
+    }
+
+    [numericFirst addObjectsFromArray:leftover];
+
+    return numericFirst;
+}
+
 
 /*
  * desired outcome from filtering on an iOS/macOS platform:
@@ -145,18 +165,18 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
     if ([viable count] > 0) {
         secnotice("octagontrust-fetchescrowrecords", "Returning %d viable records", (int)[viable count]);
-        return viable;
+        return [self sortListPrioritizingiOSRecords:viable];
     }
 
     if ([partial count] > 0) {
         secnotice("octagontrust-fetchescrowrecords", "Returning %d partially viable records", (int)[partial count]);
-        return partial;
+        return [self sortListPrioritizingiOSRecords:partial];
     }
 
     if (OctagonPlatformSupportsSOS()) {
         NSArray<OTEscrowRecord*>* viableSOSRecords = [self filterViableSOSRecords:nonViable];
         secnotice("octagontrust-fetchescrowrecords", "Returning %d sos viable records", (int)[viableSOSRecords count]);
-        return viableSOSRecords;
+        return [self sortListPrioritizingiOSRecords:viableSOSRecords];
     }
 
     secnotice("octagontrust-fetchescrowrecords", "no viable records!");
@@ -208,6 +228,8 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
             } else {
                 translated.serialNumber = (NSString*)CFBridgingRelease(SOSPeerInfoCopySerialNumber(peer));
             }
+            CFReleaseNull(cfError);
+            CFReleaseNull(peer);
         }
 
         [escrowRecords addObject:translated];
@@ -248,7 +270,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 #endif
 }
 
-+ (OTClique* _Nullable)handleRecoveryResults:(OTConfigurationContext*)data recoveredInformation:(NSDictionary*)recoveredInformation sosViability:(OTEscrowRecord_SOSViability)sosViability performedSilentBurn:(BOOL)performedSilentBurn recoverError:(NSError*)recoverError error:(NSError**)error
++ (OTClique* _Nullable)handleRecoveryResults:(OTConfigurationContext*)data recoveredInformation:(NSDictionary*)recoveredInformation record:(OTEscrowRecord*)record performedSilentBurn:(BOOL)performedSilentBurn recoverError:(NSError*)recoverError error:(NSError**)error
 {
     if ([self isCloudServicesAvailable] == NO) {
         if (error) {
@@ -313,12 +335,10 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         OctagonSignpost bottleRestoreSignPost = performedSilentBurn ? OctagonSignpostBegin(OctagonSignpostNamePerformOctagonJoinForSilent) : OctagonSignpostBegin(OctagonSignpostNamePerformOctagonJoinForNonSilent);
 
         //restore bottle!
-        [control restore:localOTCKContainerName
-               contextID:data.context
-              bottleSalt:data.altDSID
-                 entropy:bottledPeerEntropy
-                bottleID:bottleID
-                   reply:^(NSError * _Nullable restoreError) {
+        [control restoreFromBottle:[[OTControlArguments alloc] initWithConfiguration:data]
+                           entropy:bottledPeerEntropy
+                          bottleID:bottleID
+                             reply:^(NSError * _Nullable restoreError) {
             if(restoreError) {
                 secnotice("octagontrust-handleRecoveryResults", "restore bottle errored: %@", restoreError);
             } else {
@@ -357,9 +377,15 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         }
     }
 
+    OTEscrowRecord_SOSViability viableForSOS = record ? record.viabilityStatus : OTEscrowRecord_SOSViability_SOS_VIABLE_UNKNOWN;
+    OTEscrowRecord_RecordViability viability = record ? record.recordViability : OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY;
+    
     // Join SOS circle if platform is supported and we didn't previously reset SOS
     if (OctagonPlatformSupportsSOS() && resetToOfferingOccured == NO) {
-        if (sosViability == OTEscrowRecord_SOSViability_SOS_NOT_VIABLE) {
+        // Check if the account setup script flag has been set and if so, only evaluate record viability instead of sos viability
+        // because the script executes so quickly the iCloud Identity bskb won't have a chance to be created for each escrow recovery
+        if ((data.overrideForSetupAccountScript && viability == OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY) ||
+            viableForSOS == OTEscrowRecord_SOSViability_SOS_NOT_VIABLE) {
             secnotice("octagontrust-handleRecoveryResults", "Record will not allow device to join SOS.  Invoking reset to offering");
             CFErrorRef resetToOfferingError = NULL;
             bool successfulReset = SOSCCResetToOffering(&resetToOfferingError);
@@ -461,10 +487,8 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         subTaskSuccess = (recoverError == nil) ? true : false;
         OctagonSignpostEnd(recoverFromSBDSignPost, OctagonSignpostNamePerformRecoveryFromSBD, OctagonSignpostNumber1(OctagonSignpostNamePerformRecoveryFromSBD), (int)subTaskSuccess);
     }
-
-    OTEscrowRecord_SOSViability viableForSOS = escrowRecord.viabilityStatus;
-
-    OTClique* clique = [OTClique handleRecoveryResults:data recoveredInformation:recoveredInformation sosViability:viableForSOS performedSilentBurn:NO recoverError:recoverError error:error];
+    
+    OTClique* clique = [OTClique handleRecoveryResults:data recoveredInformation:recoveredInformation record:escrowRecord performedSilentBurn:NO recoverError:recoverError error:error];
 
     if(recoverError) {
         subTaskSuccess = false;
@@ -533,9 +557,8 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
     NSString* label = recoveredInformation[getkSecureBackupRecordLabelKey()];
     OTEscrowRecord* chosenRecord = [OTClique recordMatchingLabel:label allRecords:allRecords];
-    OTEscrowRecord_SOSViability viableForSOS = chosenRecord ? chosenRecord.viabilityStatus : OTEscrowRecord_SOSViability_SOS_VIABLE_UNKNOWN;
 
-    OTClique *clique = [OTClique handleRecoveryResults:data recoveredInformation:recoveredInformation sosViability:viableForSOS performedSilentBurn:YES recoverError:recoverError error:error];
+    OTClique *clique = [OTClique handleRecoveryResults:data recoveredInformation:recoveredInformation record:chosenRecord performedSilentBurn:YES recoverError:recoverError error:error];
 
     if(recoverError) {
         subTaskSuccess = false;
@@ -554,7 +577,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 #endif
 }
 
-+ (BOOL) invalidateEscrowCache:(OTConfigurationContext*)configurationContext error:(NSError**)error
++ (BOOL)invalidateEscrowCache:(OTConfigurationContext*)configurationContext error:(NSError**)error
 {
 #if OCTAGON
     secnotice("octagontrust-invalidateEscrowCache", "invalidateEscrowCache invoked for context:%@, altdsid:%@", configurationContext.context, configurationContext.altDSID);
@@ -570,8 +593,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         return invalidatedCache;
     }
 
-    [control invalidateEscrowCache:localOTCKContainerName
-                         contextID:configurationContext.context
+    [control invalidateEscrowCache:[[OTControlArguments alloc] initWithConfiguration:configurationContext]
                              reply:^(NSError * _Nullable invalidateError) {
         if(invalidateError) {
             secnotice("clique-invalidateEscrowCache", "invalidateEscrowCache errored: %@", invalidateError);
@@ -613,8 +635,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         return NO;
     }
 
-    [control setLocalSecureElementIdentity:self.ctx.containerName
-                                 contextID:self.ctx.context
+    [control setLocalSecureElementIdentity:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                      secureElementIdentity:secureElementIdentity
                                      reply:^(NSError* _Nullable replyError) {
         if(replyError) {
@@ -655,8 +676,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         return NO;
     }
 
-    [control removeLocalSecureElementIdentityPeerID:self.ctx.containerName
-                                          contextID:self.ctx.context
+    [control removeLocalSecureElementIdentityPeerID:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                         secureElementIdentityPeerID:sePeerID
                                               reply:^(NSError* _Nullable replyError) {
         if(replyError) {
@@ -698,8 +718,7 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
     __block OTCurrentSecureElementIdentities* ret = nil;
 
-    [control fetchTrustedSecureElementIdentities:self.ctx.containerName
-                                       contextID:self.ctx.context
+    [control fetchTrustedSecureElementIdentities:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                                            reply:^(OTCurrentSecureElementIdentities* currentSet,
                                                    NSError* replyError) {
         if(replyError) {
@@ -741,7 +760,8 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         return NO;
     }
 
-    [control waitForPriorityViewKeychainDataRecovery:self.ctx.containerName contextID:self.ctx.context reply:^(NSError * _Nullable replyError) {
+    [control waitForPriorityViewKeychainDataRecovery:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
+                                               reply:^(NSError * _Nullable replyError) {
         if(replyError) {
             secnotice("octagn-ckks", "waitForPriorityViewKeychainDataRecovery errored: %@", replyError);
         } else {
@@ -782,7 +802,9 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
 
     __block NSArray<NSString *> * _Nullable views = nil;
     
-    [control tlkRecoverabilityForEscrowRecordData:self.ctx.containerName contextID:self.ctx.context recordData:record.data reply:^(NSArray<NSString *> * _Nullable blockViews, NSError * _Nullable replyError) {
+    [control tlkRecoverabilityForEscrowRecordData:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
+                                       recordData:record.data
+                                            reply:^(NSArray<NSString *> * _Nullable blockViews, NSError * _Nullable replyError) {
         if(replyError) {
             secnotice("octagon-tlk-recoverability", "tlkRecoverabilityForEscrowRecordData errored: %@", replyError);
         } else {
@@ -805,6 +827,47 @@ static NSString* localOTCKContainerName = @"com.apple.security.keychain";
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
     }
     return nil;
+#endif
+}
+
+
+- (BOOL)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
+                           error:(NSError**)error
+{
+#if OCTAGON
+    secnotice("octagon-authkit", "Delivering authkit payload for context:%@", self.ctx);
+    __block NSError* localError = nil;
+
+    OTControl *control = [self.ctx makeOTControl:&localError];
+    if (!control) {
+        secnotice("octagon-authkit", "unable to create otcontrol: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    [control deliverAKDeviceListDelta:notificationDictionary
+                                reply:^(NSError * _Nullable replyError) {
+        if(replyError) {
+            secnotice("octagon-authkit", "AKDeviceList change delivery errored: %@", replyError);
+        } else {
+            secnotice("octagon-authkit", "AKDeviceList change delivery succeeded");
+        }
+        localError = replyError;
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+
+    return (localError == nil) ? YES : NO;
+
+#else
+    if (error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return NO;
 #endif
 }
 

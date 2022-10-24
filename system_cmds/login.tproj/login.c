@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1980, 1987, 1988, 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 2002 Networks Associates Technologies, Inc.
@@ -46,7 +48,7 @@ static char sccsid[] = "@(#)login.c	8.4 (Berkeley) 4/2/94";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * login [ name ]
@@ -54,9 +56,6 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
  * login -f name	(for pre-authenticated login: datakit, xterm, etc.)
  */
 
-#ifndef __APPLE__
-#include <sys/copyright.h>
-#endif
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
@@ -70,11 +69,6 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 #include <err.h>
 #include <errno.h>
 #include <grp.h>
-#ifdef __APPLE__
-#include <util.h>
-#else
-#include <libutil.h>
-#endif
 #ifdef LOGIN_CAP
 #include <login_cap.h>
 #endif
@@ -89,12 +83,11 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 #include <unistd.h>
 #ifdef __APPLE__
 #include <utmpx.h>
-#ifdef USE_PAM
-#else /* !USE_PAM */
+#ifndef USE_PAM
 #ifndef _UTX_USERSIZE
 #define _UTX_USERSIZE MAXLOGNAME
 #endif
-#endif /* USE_PAM */
+#endif /* !USE_PAM */
 #endif /* __APPLE__ */
 
 #include <sys/types.h>
@@ -116,7 +109,6 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 #include <mach/mach_init.h>
 #include <servers/bootstrap.h>
 
-#include <sys/file.h>
 #include <tzfile.h>
 #endif /* __APPLE__ */
 
@@ -132,6 +124,7 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 static int		 auth_pam(int skip_auth);
 #endif /* USE_PAM */
 static void		 bail(int, int);
+static void		 bail_internal(int, int, int);
 #ifdef USE_PAM
 static int		 export(const char *);
 static void		 export_pam_environment(void);
@@ -147,11 +140,11 @@ static void		 refused(const char *, const char *, int);
 static const char	*stypeof(char *);
 static void		 sigint(int);
 static void		 timedout(int);
+static void		 bail_sig(int);
 static void		 usage(void);
 
 #ifdef __APPLE__
 static void		 dolastlog(int);
-static void		 handle_sighup(int);
 
 #ifndef USE_PAM
 static void		 checknologin(void);
@@ -166,8 +159,8 @@ static int		 rootterm(const char *);
 #define	DEFAULT_PASSWD_PROMPT	"Password:"
 #define	TERM_UNKNOWN		"su"
 #define	DEFAULT_WARN		(2L * 7L * 86400L)	/* Two weeks */
-#define NO_SLEEP_EXIT		0
-#define SLEEP_EXIT		5
+#define	NO_SLEEP_EXIT		0
+#define	SLEEP_EXIT		5
 
 /*
  * This bounds the time given to login.  Not a define so it can
@@ -188,7 +181,7 @@ static char		*envinit[1];	/* empty environment list */
  */
 static int		 fflag;		/* -f: do not perform authentication */
 #ifdef __APPLE__
-static int		 lflag;		/*   -l: login session to the commmand that follows username */
+static int		 lflag;		/* -l: login session to the commmand that follows username */
 #endif
 static int		 hflag;		/* -h: login from remote host */
 static char		*hostname;	/* hostname from command line */
@@ -223,7 +216,7 @@ static int		 pam_session_established;
 #endif /* USE_PAM */
 
 #ifdef __APPLE__
-pid_t pid;
+static pid_t pid;
 
 #ifdef USE_PAM
 static struct lastlogx lastlog;
@@ -240,7 +233,7 @@ main(int argc, char *argv[])
 	struct group *gr;
 	struct stat st;
 	int retries, backoff;
-	int ask, ch, cnt, quietlog = 0, rootlogin, rval;
+	int ask, ch, cnt, quietlog, rootlogin, rval;
 	uid_t uid, euid;
 	gid_t egid;
 	char *term;
@@ -250,13 +243,12 @@ main(int argc, char *argv[])
 	const char *tp;
 #ifdef __APPLE__
 	int prio;
-#ifdef USE_PAM
-	const char *name = "login";	/* PAM config */
-#else
+#ifndef USE_PAM
 	struct utmpx utmp;
-#endif /* USE_PAM */
+#endif /* !USE_PAM */
+	char *shell_storage = NULL;
+#endif /* __APPLE__ */
 	const char *shell = NULL;
-#endif /* !__APPLE__ */
 #ifdef LOGIN_CAP
 	login_cap_t *lc = NULL;
 	login_cap_t *lc_user = NULL;
@@ -264,13 +256,21 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	pid_t pid;
 #endif
+	sigset_t mask, omask;
+	struct sigaction sa;
 #ifdef USE_BSM_AUDIT
 	char auditsuccess = 1;
 #endif
 
-	(void)signal(SIGQUIT, SIG_IGN);
-	(void)signal(SIGINT, SIG_IGN);
-	(void)signal(SIGHUP, SIG_IGN);
+#ifdef __APPLE__
+	quietlog = 0;
+#endif
+	sa.sa_flags = SA_RESTART;
+	(void)sigfillset(&sa.sa_mask);
+	sa.sa_handler = SIG_IGN;
+	(void)sigaction(SIGQUIT, &sa, NULL);
+	(void)sigaction(SIGINT, &sa, NULL);
+	(void)sigaction(SIGHUP, &sa, NULL);
 	if (setjmp(timeout_buf)) {
 		if (failures)
 			badlogin(username);
@@ -278,14 +278,15 @@ main(int argc, char *argv[])
 		    timeout);
 		bail(NO_SLEEP_EXIT, 0);
 	}
-	(void)signal(SIGALRM, timedout);
+	sa.sa_handler = timedout;
+	(void)sigaction(SIGALRM, &sa, NULL);
 	(void)alarm(timeout);
 #ifdef __APPLE__
 	prio = getpriority(PRIO_PROCESS, 0);
 #endif
 	(void)setpriority(PRIO_PROCESS, 0, 0);
 
-	openlog("login", LOG_ODELAY, LOG_AUTH);
+	openlog("login", LOG_CONS, LOG_AUTH);
 
 	uid = getuid();
 	euid = geteuid();
@@ -343,12 +344,14 @@ main(int argc, char *argv[])
 		ask = 1;
 	}
 
-#ifndef __APPLE__
-	setproctitle("-%s", getprogname());
-#endif /* !__APPLE__ */
-
+#ifdef __APPLE__
 	for (cnt = getdtablesize(); cnt > 2; cnt--)
 		(void)close(cnt);
+#else
+	setproctitle("-%s", getprogname());
+
+	closefrom(3);
+#endif /* __APPLE__ */
 
 	/*
 	 * Get current TTY
@@ -358,8 +361,8 @@ main(int argc, char *argv[])
 		(void)snprintf(tname, sizeof(tname), "%s??", _PATH_TTY);
 		ttyn = tname;
 	}
-	if ((tty = strrchr(ttyn, '/')) != NULL)
-		++tty;
+	if (strncmp(ttyn, _PATH_DEV, sizeof _PATH_DEV - 1) == 0)
+		tty = ttyn + sizeof _PATH_DEV - 1;
 	else
 		tty = ttyn;
 
@@ -383,7 +386,7 @@ main(int argc, char *argv[])
 	passwd_prompt = default_passwd_prompt;
 	retries = DEFAULT_RETRIES;
 	backoff = DEFAULT_BACKOFF;
-#endif /* !LOGIN_CAP */
+#endif /* LOGIN_CAP */
 
 #ifdef __APPLE__
 #ifdef USE_BSM_AUDIT
@@ -394,7 +397,7 @@ main(int argc, char *argv[])
 	tid.at_addr[0] = old_tid.machine;
 	if (fstat(STDIN_FILENO, &st) < 0) {
 		fprintf(stderr, "login: Unable to stat terminal\n");
-		au_login_fail("Unable to stat terminal", 1);
+		au_login_fail("Unable to stat terminal", 1, NULL, fflag);
 		exit(-1);
 	}
 	if (S_ISCHR(st.st_mode)) {
@@ -422,7 +425,6 @@ main(int argc, char *argv[])
 		if (strlen(username) > _UTX_USERSIZE)
 			username[_UTX_USERSIZE] = '\0';
 #endif /* __APPLE__ */
-
 		/*
 		 * Note if trying multiple user names; log failures for
 		 * previous user name, but don't bother logging one failure
@@ -435,28 +437,29 @@ main(int argc, char *argv[])
 
 #ifdef __APPLE__
 #ifdef USE_PAM
-	/* get lastlog info before PAM make a new entry */
-	if (!quietlog)
-		getlastlogxbyname(username, &lastlog);
+		/* get lastlog info before PAM make a new entry */
+		if (!quietlog)
+			getlastlogxbyname(username, &lastlog);
 #endif /* USE_PAM */
-#endif /* __APPLE__ */
 
 		pwd = getpwnam(username);
+#endif /* __APPLE__ */
 
 #ifdef USE_PAM
 		/*
 		 * Load the PAM policy and set some variables
 		 */
+		const char *pam_name = "login";	/* PAM config */
 #ifdef __APPLE__
 		if (fflag && (pwd != NULL) && (pwd->pw_uid == uid)) {
-			name = "login.term";
+			pam_name = "login.term";
 		}
 #endif
-		pam_err = pam_start(name, username, &pamc, &pamh);
+		pam_err = pam_start(pam_name, username, &pamc, &pamh);
 		if (pam_err != PAM_SUCCESS) {
 			pam_syslog("pam_start()");
 #ifdef USE_BSM_AUDIT
-			au_login_fail("PAM Error", 1);
+			au_login_fail("PAM Error", 1, username, fflag);
 #endif
 			bail(NO_SLEEP_EXIT, 1);
 		}
@@ -464,7 +467,7 @@ main(int argc, char *argv[])
 		if (pam_err != PAM_SUCCESS) {
 			pam_syslog("pam_set_item(PAM_TTY)");
 #ifdef USE_BSM_AUDIT
-			au_login_fail("PAM Error", 1);
+			au_login_fail("PAM Error", 1, username, fflag);
 #endif
 			bail(NO_SLEEP_EXIT, 1);
 		}
@@ -472,12 +475,15 @@ main(int argc, char *argv[])
 		if (pam_err != PAM_SUCCESS) {
 			pam_syslog("pam_set_item(PAM_RHOST)");
 #ifdef USE_BSM_AUDIT
-			au_login_fail("PAM Error", 1);
+			au_login_fail("PAM Error", 1, username, fflag);
 #endif
 			bail(NO_SLEEP_EXIT, 1);
 		}
 #endif /* USE_PAM */
 
+#ifndef __APPLE__
+		pwd = getpwnam(username);
+#endif
 		if (pwd != NULL && pwd->pw_uid == 0)
 			rootlogin = 1;
 
@@ -491,35 +497,43 @@ main(int argc, char *argv[])
 #ifdef USE_PAM
 			rval = auth_pam(fflag);
 #else
+			/* already authenticated */
 			rval = 0;
 #endif /* USE_PAM */
 #ifdef USE_BSM_AUDIT
 			auditsuccess = 0; /* opened a terminal window only */
 #endif
-
 #ifdef __APPLE__
 #ifndef USE_PAM
 		/* If the account doesn't have a password, authenticate. */
 		} else if (pwd != NULL && pwd->pw_passwd[0] == '\0') {
 			rval = 0;
 #endif /* !USE_PAM */
+		} else if (pwd != NULL) {
+#else /* !__APPLE__ */
+		} else {
 #endif /* __APPLE__ */
-		} else if( pwd ) {
 			fflag = 0;
 			(void)setpriority(PRIO_PROCESS, 0, -4);
+#ifdef __APPLE__
 #ifdef USE_PAM
 			rval = auth_pam(fflag);
-#else
-		{
-			char* salt = pwd->pw_passwd;
-			char* p = getpass(passwd_prompt);
-			rval = strcmp(crypt(p, salt), salt);
-			memset(p, 0, strlen(p));
-		}
-#endif
+#else /* !USE_PAM */
+			{
+				char* salt = pwd->pw_passwd;
+				char* p = getpass(passwd_prompt);
+				rval = strcmp(crypt(p, salt), salt);
+				memset(p, 0, strlen(p));
+			}
+#endif /* USE_PAM */
+#else /* !__APPLE__ */
+			rval = auth_pam();
+#endif /* __APPLE__ */
 			(void)setpriority(PRIO_PROCESS, 0, 0);
+#ifdef __APPLE__
 		} else {
 			rval = -1;
+#endif /* __APPLE__ */
 		}
 
 #ifdef __APPLE__
@@ -537,7 +551,6 @@ main(int argc, char *argv[])
 		}
 #endif /* !USE_PAM */
 #endif /* __APPLE__ */
-
 		if (pwd && rval == 0)
 			break;
 
@@ -550,7 +563,7 @@ main(int argc, char *argv[])
 		 * login event, so set exitstatus to 1.
 		 */
 #ifdef USE_BSM_AUDIT
-		au_login_fail("Login incorrect", 1);
+		au_login_fail("Login incorrect", 1, username, fflag);
 #endif
 
 		(void)printf("Login incorrect\n");
@@ -573,7 +586,14 @@ main(int argc, char *argv[])
 
 	/* committed to login -- turn off timeout */
 	(void)alarm((u_int)0);
-	(void)signal(SIGHUP, SIG_DFL);
+
+	(void)sigemptyset(&mask);
+	(void)sigaddset(&mask, SIGHUP);
+	(void)sigaddset(&mask, SIGTERM);
+	(void)sigprocmask(SIG_BLOCK, &mask, &omask);
+	sa.sa_handler = bail_sig;
+	(void)sigaction(SIGHUP, &sa, NULL);
+	(void)sigaction(SIGTERM, &sa, NULL);
 
 	endpwent();
 
@@ -588,15 +608,31 @@ main(int argc, char *argv[])
 	if (!rootlogin)
 		checknologin();
 #endif /* !USE_PAM */
-#endif /* APPLE */
-
+#endif /* __APPLE__ */
 #ifdef USE_BSM_AUDIT
 	/* Audit successful login. */
 	if (auditsuccess)
+#ifdef __APPLE__
 		au_login_success(fflag);
+#else
+		au_login_success();
+#endif /* __APPLE__ */
 #endif
 
 #ifdef LOGIN_CAP
+	/*
+	 * This needs to happen before login_getpwclass to support
+	 * home directories on GSS-API authenticated NFS where the
+	 * kerberos credentials need to be saved so that the kernel
+	 * can authenticate to the NFS server.
+	 */
+	pam_err = pam_setcred(pamh, pam_silent|PAM_ESTABLISH_CRED);
+	if (pam_err != PAM_SUCCESS) {
+		pam_syslog("pam_setcred()");
+		bail(NO_SLEEP_EXIT, 1);
+	}
+	pam_cred_established = 1;
+
 	/*
 	 * Establish the login class.
 	 */
@@ -617,7 +653,6 @@ main(int argc, char *argv[])
 	 */
 	(void)setegid(pwd->pw_gid);
 	(void)seteuid(rootlogin ? 0 : pwd->pw_uid);
-
 	if (!*pwd->pw_dir || chdir(pwd->pw_dir) < 0) {
 #ifdef LOGIN_CAP
 		if (login_getcapbool(lc, "requirehome", 0))
@@ -633,7 +668,6 @@ main(int argc, char *argv[])
 			bail(SLEEP_EXIT, 1);
 		}
 	}
-
 	(void)seteuid(euid);
 	(void)setegid(egid);
 #endif /* !__APPLE__ */
@@ -657,49 +691,58 @@ main(int argc, char *argv[])
 	utmp.ut_type = USER_PROCESS | UTMPX_AUTOFILL_MASK;
 	utmp.ut_pid = getpid();
 	pututxline(&utmp);
-#endif /* USE_PAM */
+#endif /* !USE_PAM */
 
 	shell = "";
-#endif /* !__APPLE__ */
+#endif /* __APPLE__ */
 #ifdef LOGIN_CAP
 	shell = login_getcapstr(lc, "shell", pwd->pw_shell, pwd->pw_shell);
-#endif /* !LOGIN_CAP */
+#endif /* LOGIN_CAP */
 	if (*pwd->pw_shell == '\0')
+#ifdef __APPLE__
+		pwd->pw_shell = shell_storage = strdup(_PATH_BSHELL);
+#else
 		pwd->pw_shell = strdup(_PATH_BSHELL);
+#endif
 	if (pwd->pw_shell == NULL) {
 		syslog(LOG_NOTICE, "strdup(): %m");
 		bail(SLEEP_EXIT, 1);
 	}
-
 #if defined(__APPLE__) && (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* on embedded, allow a shell to live in /private/var/personalized_debug/bin/sh */
 #define _PATH_DEBUGSHELL		"/private/var/personalized_debug/bin/sh"
-        if (stat(pwd->pw_shell, &st) != 0) {
+	if (stat(pwd->pw_shell, &st) != 0) {
 		if (stat(_PATH_DEBUGSHELL, &st) == 0) {
-			pwd->pw_shell = strdup(_PATH_DEBUGSHELL);
+			free(shell_storage);
+			pwd->pw_shell = shell_storage = strdup(_PATH_DEBUGSHELL);
 		}
         }
-#endif
-
+#endif /* __APPLE__ && (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 	if (*shell == '\0')   /* Not overridden */
 		shell = pwd->pw_shell;
+#ifdef __APPLE__
+	/*
+	 * Just avoid the point-of-failure if we can, shell_storage is already
+	 * independent of the pwd entry.
+	 */
+	if (shell != shell_storage && (shell = strdup(shell)) == NULL) {
+#else
 	if ((shell = strdup(shell)) == NULL) {
+#endif
 		syslog(LOG_NOTICE, "strdup(): %m");
 		bail(SLEEP_EXIT, 1);
 	}
 
 #ifdef __APPLE__
 	dolastlog(quietlog);
-#endif
-
-#ifndef __APPLE__
+#else
 	/*
 	 * Set device protections, depending on what terminal the
 	 * user is logged in. This feature is used on Suns to give
 	 * console users better privacy.
 	 */
 	login_fbtab(tty, pwd->pw_uid, pwd->pw_gid);
-#endif /* !__APPLE__ */
+#endif /* __APPLE__ */
 
 	/*
 	 * Clear flags of the tty.  None should be set, and when the
@@ -729,17 +772,6 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 	(void)chmod(ttyn, 0620);
 #endif /* __APPLE__ */
-
-#ifndef __APPLE__
-	/*
-	 * Exclude cons/vt/ptys only, assume dialup otherwise
-	 * TODO: Make dialup tty determination a library call
-	 * for consistency (finger etc.)
-	 */
-	if (hflag && isdialuptty(tty))
-		syslog(LOG_INFO, "DIALUP %s, %s", tty, pwd->pw_name);
-#endif /* !__APPLE__ */
-
 #ifdef LOGALL
 	/*
 	 * Syslog each successful login, so we don't have to watch
@@ -776,7 +808,7 @@ main(int argc, char *argv[])
 	if (term != NULL)
 		setenv("TERM", term, 0);
 
-#ifndef __APPLE__
+#ifdef LOGIN_CAP
 	/*
 	 * PAM modules might add supplementary groups during pam_setcred().
 	 */
@@ -784,16 +816,23 @@ main(int argc, char *argv[])
 		syslog(LOG_ERR, "setusercontext() failed - exiting");
 		bail(NO_SLEEP_EXIT, 1);
 	}
-#endif /* !__APPLE__ */
+#endif /* LOGIN_CAP */
+
 #ifdef USE_PAM
+#ifdef __APPLE__
 	if (!fflag) {
-		pam_err = pam_setcred(pamh, pam_silent|PAM_ESTABLISH_CRED);
-		if (pam_err != PAM_SUCCESS) {
-			pam_syslog("pam_setcred()");
-			bail(NO_SLEEP_EXIT, 1);
-		}
-		pam_cred_established = 1;
+	pam_err = pam_setcred(pamh, pam_silent|PAM_ESTABLISH_CRED);
+#else
+	pam_err = pam_setcred(pamh, pam_silent|PAM_REINITIALIZE_CRED);
+#endif /* __APPLE__ */
+	if (pam_err != PAM_SUCCESS) {
+		pam_syslog("pam_setcred()");
+		bail(NO_SLEEP_EXIT, 1);
 	}
+#ifdef __APPLE__
+	pam_cred_established = 1;
+	}
+#endif /* __APPLE__ */
 
 	pam_err = pam_open_session(pamh, pam_silent);
 	if (pam_err != PAM_SUCCESS) {
@@ -802,14 +841,6 @@ main(int argc, char *argv[])
 	}
 	pam_session_established = 1;
 #endif /* USE_PAM */
-
-#ifdef __APPLE__
-	/* <rdar://problem/5377791>
-	   Install a signal handler that will forward SIGHUP to the
-	   child and process group.  The parent should not exit on
-	   SIGHUP so that the tty ownership can be reset. */
-	(void)signal(SIGHUP, handle_sighup);
-#endif /* __APPLE__ */
 
 	/*
 	 * We must fork() before setuid() because we need to call
@@ -822,11 +853,17 @@ main(int argc, char *argv[])
 		/*
 		 * Parent: wait for child to finish, then clean up
 		 * session.
+		 *
+		 * If we get SIGHUP or SIGTERM, clean up the session
+		 * and exit right away. This will make the terminal
+		 * inaccessible and send SIGHUP to the foreground
+		 * process group.
 		 */
 		int status;
 #ifndef __APPLE__
 		setproctitle("-%s [pam]", getprogname());
 #endif /* !__APPLE__ */
+		(void)sigprocmask(SIG_SETMASK, &omask, NULL);
 #ifdef __APPLE__
 		/* Our SIGHUP handler may interrupt the wait */
 		int res;
@@ -836,6 +873,7 @@ main(int argc, char *argv[])
 #else
 		waitpid(pid, &status, 0);
 #endif
+		(void)sigprocmask(SIG_BLOCK, &mask, NULL);
 #ifdef __APPLE__
 		chown(ttyn, 0, 0);
 		chmod(ttyn, 0666);
@@ -846,11 +884,6 @@ main(int argc, char *argv[])
 	/*
 	 * NOTICE: We are now in the child process!
 	 */
-
-#ifdef __APPLE__
-	/* Restore the default SIGHUP handler for the child. */
-	(void)signal(SIGHUP, SIG_DFL);
-#endif /* __APPLE__ */
 
 #ifdef USE_PAM
 	/*
@@ -889,7 +922,7 @@ main(int argc, char *argv[])
 		syslog(LOG_ERR, "setusercontext() failed - exiting");
 		exit(1);
 	}
-#endif /* !__APPLE__ */
+#endif /* __APPLE__ */
 
 #ifdef __APPLE__
 	/* We test for the home directory after pam_open_session(3)
@@ -912,7 +945,7 @@ main(int argc, char *argv[])
 			}
 		}
 	}
-#endif /* __APPLE__ */
+
 	if (pwd->pw_shell) {
 		(void)setenv("SHELL", pwd->pw_shell, 1);
 	} else {
@@ -924,6 +957,10 @@ main(int argc, char *argv[])
 	} else {
 		(void)setenv("HOME", "/", 1);
 	}
+#else /* !__APPLE__ */
+	(void)setenv("SHELL", pwd->pw_shell, 1);
+	(void)setenv("HOME", pwd->pw_dir, 1);
+#endif /* __APPLE__ */
 	/* Overwrite "term" from login.conf(5) for any known TERM */
 	if (term == NULL && (tp = stypeof(tty)) != NULL)
 		(void)setenv("TERM", tp, 1);
@@ -933,57 +970,9 @@ main(int argc, char *argv[])
 	(void)setenv("USER", username, 1);
 	(void)setenv("PATH", rootlogin ? _PATH_STDPATH : _PATH_DEFPATH, 0);
 
-#ifdef __APPLE__
-	/* Re-enable crash reporter */
-	do {
-		kern_return_t kr;
-		mach_port_t bp, ep, mts;
-		thread_state_flavor_t flavor = 0;
-
-#if defined(__ppc__)
-		flavor = PPC_THREAD_STATE64;
-#elif defined(__i386__) || defined(__x86_64__)
-		flavor = x86_THREAD_STATE;
-#elif defined(__arm__) || defined(__arm64__)
-		flavor = ARM_THREAD_STATE;
-#else
-#error unsupported architecture
-#endif
-
-		mts = mach_task_self();
-
-		kr = task_get_bootstrap_port(mts, &bp);
-		if (kr != KERN_SUCCESS) {
-		  syslog(LOG_ERR, "task_get_bootstrap_port() failure: %s (%d)",
-			bootstrap_strerror(kr), kr);
-		  break;
-		}
-
-		const char* bs = "com.apple.ReportCrash";
-		kr = bootstrap_look_up(bp, (char*)bs, &ep);
-		if (kr != KERN_SUCCESS) {
-		  syslog(LOG_ERR, "bootstrap_look_up(%s) failure: %s (%d)",
-			bs, bootstrap_strerror(kr), kr);
-		  break;
-		}
-
-		kr = task_set_exception_ports(mts, EXC_MASK_RESOURCE | EXC_MASK_GUARD | EXC_MASK_CORPSE_NOTIFY, ep, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, flavor);
-		if (kr != KERN_SUCCESS) {
-		  syslog(LOG_ERR, "task_set_exception_ports() failure: %d", kr);
-		  break;
-		}
-	} while (0);
-#endif /* __APPLE__ */
-
 	if (!quietlog) {
 #ifdef LOGIN_CAP
 		const char *cw;
-
-		cw = login_getcapstr(lc, "copyright", NULL, NULL);
-		if (cw == NULL || motd(cw) == -1)
-			(void)printf("%s", copyright);
-
-		(void)printf("\n");
 
 		cw = login_getcapstr(lc, "welcome", NULL, NULL);
 		if (cw != NULL && access(cw, F_OK) == 0)
@@ -996,7 +985,7 @@ main(int argc, char *argv[])
 #else /* !LOGIN_CAP */
 		motd(_PATH_MOTDFILE);
 		{
-#endif /* !LOGIN_CAP */
+#endif /* LOGIN_CAP */
 			char *cx;
 
 			/* $MAIL may have been set by class. */
@@ -1018,22 +1007,28 @@ main(int argc, char *argv[])
 	login_close(lc);
 #endif /* LOGIN_CAP */
 
-	(void)signal(SIGALRM, SIG_DFL);
-	(void)signal(SIGQUIT, SIG_DFL);
-	(void)signal(SIGINT, SIG_DFL);
-	(void)signal(SIGTSTP, SIG_IGN);
+	sa.sa_handler = SIG_DFL;
+	(void)sigaction(SIGALRM, &sa, NULL);
+	(void)sigaction(SIGQUIT, &sa, NULL);
+	(void)sigaction(SIGINT, &sa, NULL);
+	(void)sigaction(SIGTERM, &sa, NULL);
+	(void)sigaction(SIGHUP, &sa, NULL);
+	sa.sa_handler = SIG_IGN;
+	(void)sigaction(SIGTSTP, &sa, NULL);
+	(void)sigprocmask(SIG_SETMASK, &omask, NULL);
 
 #ifdef __APPLE__
-	if (fflag && *argv) pwd->pw_shell = *argv;
+	if (fflag && *argv) {
+		pwd->pw_shell = *argv;
+	}
 #endif /* __APPLE__ */
-
 	/*
 	 * Login shells have a leading '-' in front of argv[0]
 	 */
 	p = strrchr(pwd->pw_shell, '/');
 #ifdef __APPLE__
 	if (asprintf(&arg0, "%s%s", lflag ? "" : "-", p ? p + 1 : pwd->pw_shell) >= MAXPATHLEN) {
-#else /* __APPLE__ */
+#else /* !__APPLE__ */
 	if (asprintf(&arg0, "-%s", p ? p + 1 : pwd->pw_shell) >= MAXPATHLEN) {
 #endif /* __APPLE__ */
 		syslog(LOG_ERR, "user: %s: shell exceeds maximum pathname size",
@@ -1075,71 +1070,70 @@ auth_pam(int skip_auth)
 
 	rval = 0;
 
-	if (skip_auth == 0)
-	{
-		pam_err = pam_authenticate(pamh, pam_silent);
-		switch (pam_err) {
-
-		case PAM_SUCCESS:
-			/*
-			 * With PAM we support the concept of a "template"
-			 * user.  The user enters a login name which is
-			 * authenticated by PAM, usually via a remote service
-			 * such as RADIUS or TACACS+.  If authentication
-			 * succeeds, a different but related "template" name
-			 * is used for setting the credentials, shell, and
-			 * home directory.  The name the user enters need only
-			 * exist on the remote authentication server, but the
-			 * template name must be present in the local password
-			 * database.
-			 *
-			 * This is supported by two various mechanisms in the
-			 * individual modules.  However, from the application's
-			 * point of view, the template user is always passed
-			 * back as a changed value of the PAM_USER item.
-			 */
-			pam_err = pam_get_item(pamh, PAM_USER, &item);
-			if (pam_err == PAM_SUCCESS) {
-				tmpl_user = (const char *)item;
-				if (strcmp(username, tmpl_user) != 0)
-					pwd = getpwnam(tmpl_user);
-			} else {
-				pam_syslog("pam_get_item(PAM_USER)");
-			}
-			rval = 0;
-			break;
-
-		case PAM_AUTH_ERR:
-		case PAM_USER_UNKNOWN:
-		case PAM_MAXTRIES:
-			rval = 1;
-			break;
-
-		default:
-			pam_syslog("pam_authenticate()");
-			rval = -1;
-			break;
-		}
+	if (skip_auth != 0) {
+		goto done_auth;
 	}
 
+	pam_err = pam_authenticate(pamh, pam_silent);
+	switch (pam_err) {
+
+	case PAM_SUCCESS:
+		/*
+		 * With PAM we support the concept of a "template"
+		 * user.  The user enters a login name which is
+		 * authenticated by PAM, usually via a remote service
+		 * such as RADIUS or TACACS+.  If authentication
+		 * succeeds, a different but related "template" name
+		 * is used for setting the credentials, shell, and
+		 * home directory.  The name the user enters need only
+		 * exist on the remote authentication server, but the
+		 * template name must be present in the local password
+		 * database.
+		 *
+		 * This is supported by two various mechanisms in the
+		 * individual modules.  However, from the application's
+		 * point of view, the template user is always passed
+		 * back as a changed value of the PAM_USER item.
+		 */
+		pam_err = pam_get_item(pamh, PAM_USER, &item);
+		if (pam_err == PAM_SUCCESS) {
+			tmpl_user = (const char *)item;
+			if (strcmp(username, tmpl_user) != 0)
+				pwd = getpwnam(tmpl_user);
+		} else {
+			pam_syslog("pam_get_item(PAM_USER)");
+		}
+		rval = 0;
+		break;
+
+	case PAM_AUTH_ERR:
+	case PAM_USER_UNKNOWN:
+	case PAM_MAXTRIES:
+		rval = 1;
+		break;
+
+	default:
+		pam_syslog("pam_authenticate()");
+		rval = -1;
+		break;
+	}
+
+done_auth:
 	if (rval == 0) {
 		pam_err = pam_acct_mgmt(pamh, pam_silent);
 		switch (pam_err) {
 		case PAM_SUCCESS:
 			break;
 		case PAM_NEW_AUTHTOK_REQD:
-			if (skip_auth == 0)
-			{
-				pam_err = pam_chauthtok(pamh,
-				    pam_silent|PAM_CHANGE_EXPIRED_AUTHTOK);
-				if (pam_err != PAM_SUCCESS) {
-					pam_syslog("pam_chauthtok()");
-					rval = 1;
-				}
-			}
-			else
-			{
+			if (skip_auth != 0) {
 				pam_syslog("pam_acct_mgmt()");
+				break;
+			}
+			pam_err = pam_chauthtok(pamh,
+			    pam_silent|PAM_CHANGE_EXPIRED_AUTHTOK);
+			if (pam_err != PAM_SUCCESS) {
+				pam_syslog("pam_chauthtok()");
+				rval = 1;
 			}
 			break;
 		default:
@@ -1192,6 +1186,7 @@ export(const char *s)
 	char *p;
 	const char **pp;
 	size_t n;
+	int rv;
 
 	if (strlen(s) > 1024 || (p = strchr(s, '=')) == NULL)
 		return (0);
@@ -1203,8 +1198,10 @@ export(const char *s)
 			return (0);
 	}
 	*p = '\0';
-	(void)setenv(s, p + 1, 1);
+	rv = setenv(s, p + 1, 1);
 	*p = '=';
+	if (rv == -1)
+		return (0);
 	return (1);
 }
 #endif /* USE_PAM */
@@ -1212,6 +1209,7 @@ export(const char *s)
 static void
 usage(void)
 {
+
 #ifdef __APPLE__
 	(void)fprintf(stderr, "usage: login [-pq] [-h hostname] [username]\n");
 	(void)fprintf(stderr, "       login -f [-lpq] [-h hostname] [username [prog [arg ...]]]\n");
@@ -1235,16 +1233,16 @@ getloginname(void)
 		err(1, "malloc()");
 	do {
 		(void)printf("%s", prompt);
-        /* rdar://43101375 login process on 2018 hardware is blocked forever waiting on new line char
-         * The carriage return char is added to the termination condition of the
-         * for loop because for some reason, '\r' is returned by getchar() on M9 hardware.
-         */
+		/* rdar://43101375 login process on 2018 hardware is blocked forever waiting on new line char
+		 * The carriage return char is added to the termination condition of the
+		 * for loop because for some reason, '\r' is returned by getchar() on M9 hardware.
+		 */
 		for (p = nbuf; (((ch = getchar()) != '\n') && (ch != '\r')); ) {
-            if (ch == EOF) {
-                badlogin(username);
-                bail(NO_SLEEP_EXIT, 0);
-            }
-            if (p < nbuf + MAXLOGNAME - 1)
+			if (ch == EOF) {
+				badlogin(username);
+				bail(NO_SLEEP_EXIT, 0);
+			}
+			if (p < nbuf + MAXLOGNAME - 1)
 				*p++ = ch;
 		}
 	} while (p == nbuf);
@@ -1290,48 +1288,26 @@ sigint(int signo __unused)
 static int
 motd(const char *motdfile)
 {
-	sig_t oldint;
+	struct sigaction newint, oldint;
 	FILE *f;
 	int ch;
 
 	if ((f = fopen(motdfile, "r")) == NULL)
 		return (-1);
 	motdinterrupt = 0;
-	oldint = signal(SIGINT, sigint);
+	newint.sa_handler = sigint;
+	newint.sa_flags = 0;
+	sigfillset(&newint.sa_mask);
+	sigaction(SIGINT, &newint, &oldint);
 	while ((ch = fgetc(f)) != EOF && !motdinterrupt)
 		putchar(ch);
-	signal(SIGINT, oldint);
+	sigaction(SIGINT, &oldint, NULL);
 	if (ch != EOF || ferror(f)) {
 		fclose(f);
 		return (-1);
 	}
 	fclose(f);
 	return (0);
-}
-
-/*
- * SIGHUP handler
- * Forwards the SIGHUP to the child process and current process group.
- */
-static void
-handle_sighup(int signo)
-{
-	if (pid > 0) {
-		/* close the controlling terminal */
-		close(STDIN_FILENO);
-		close(STDOUT_FILENO);
-		close(STDERR_FILENO);
-		/* Ignore SIGHUP to avoid tail-recursion on signaling
-		   the current process group (of which we are a member). */
-		(void)signal(SIGHUP, SIG_IGN);
-		/* Forward the signal to the current process group. */
-		(void)kill(0, signo);
-		/* Forward the signal to the child if not a member of the current
-		 * process group <rdar://problem/6244808>. */
-		if (getpgid(pid) != getpgrp()) {
-			(void)kill(pid, signo);
-		}
-	}
 }
 
 /*
@@ -1409,6 +1385,7 @@ dolastlog(int quiet)
 static void
 badlogin(char *name)
 {
+
 	if (failures == 0)
 		return;
 	if (hflag) {
@@ -1472,6 +1449,7 @@ pam_syslog(const char *msg)
 static void
 pam_cleanup(void)
 {
+
 	if (pamh != NULL) {
 		if (pam_session_established) {
 			pam_err = pam_close_session(pamh, 0);
@@ -1491,19 +1469,78 @@ pam_cleanup(void)
 }
 #endif /* USE_PAM */
 
-/*
- * Exit, optionally after sleeping a few seconds
- */
-void
-bail(int sec, int eval)
+static void
+bail_internal(int sec, int eval, int signo)
 {
+	struct sigaction sa;
+
 #ifdef USE_PAM
 	pam_cleanup();
 #endif /* USE_PAM */
 #ifdef USE_BSM_AUDIT
 	if (pwd != NULL)
-		audit_logout();
+		audit_logout(fflag);
 #endif
 	(void)sleep(sec);
-	exit(eval);
+	if (signo == 0)
+		exit(eval);
+	else {
+#ifdef __APPLE__
+		/* rdar://problem/5377791 */
+		/* close the controlling terminal */
+		if (pid > 0 && signo == SIGHUP) {
+			close(STDIN_FILENO);
+			close(STDOUT_FILENO);
+			close(STDERR_FILENO);
+		}
+#endif
+		sa.sa_handler = SIG_DFL;
+		sa.sa_flags = 0;
+		(void)sigemptyset(&sa.sa_mask);
+		(void)sigaction(signo, &sa, NULL);
+		(void)sigaddset(&sa.sa_mask, signo);
+		(void)sigprocmask(SIG_UNBLOCK, &sa.sa_mask, NULL);
+#ifdef __APPLE__
+		if (pid > 0 && signo == SIGHUP) {
+			kill(0, signo);
+
+			/*
+			 * Forward the signal to the child if not a member of
+			 * the current process group <rdar://problem/6244808>.
+			 */
+			if (getpgid(pid) != getpgrp()) {
+				(void)kill(pid, signo);
+			}
+		} else
+#endif
+		raise(signo);
+#ifdef __APPLE__
+		/*
+		 * The parent should not exit on SIGHUP so that the tty
+		 * ownership can be reset <rdar://problem/5377791>.
+		 */
+		if (pid == 0 || signo != SIGHUP)
+#endif
+		exit(128 + signo);
+	}
+}
+
+/*
+ * Exit, optionally after sleeping a few seconds
+ */
+static void
+bail(int sec, int eval)
+{
+	bail_internal(sec, eval, 0);
+}
+
+/*
+ * Exit because of a signal.
+ * This is not async-signal safe, so only call async-signal safe functions
+ * while the signal is unmasked.
+ */
+static void
+bail_sig(int signo)
+{
+	bail_internal(NO_SLEEP_EXIT, 0, signo);
 }

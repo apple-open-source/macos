@@ -350,6 +350,10 @@ main(int argc, char *argv[])
 		}
 	}
 
+#ifdef __APPLE__
+	if (exit_val == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	exit(exit_val);
 }
 

@@ -300,7 +300,7 @@ OSNumber *IOHIDUserDevice::newLocationIDNumber() const
 //----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newReportDescriptor
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor ) const
+IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor) const
 {
     OSData *                    data;
     
@@ -313,26 +313,36 @@ IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor )
     return kIOReturnSuccess;
 }
 
-
 //----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::getReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor    *report,
-                                    IOHIDReportType        reportType,
-                                    IOOptionBits        options )
+IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options)
 {
     return _provider->getReport(report, reportType, options);
 }
 
+IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion)
+{
+    IOReturn ret = _provider->getReport(report, reportType, options, completionTimeout, completion);
+    if (ret == kIOReturnUnsupported) {
+        ret = super::getReport(report, reportType, options, completionTimeout, completion);
+    }
+    return ret;
+}
 
 //----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::setReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor    *report,
-                                    IOHIDReportType        reportType,
-                                    IOOptionBits        options)
+IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options)
 {
     return _provider->setReport(report, reportType, options);
 }
 
-
+IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion)
+{
+    IOReturn ret = _provider->setReport(report, reportType, options, completionTimeout, completion);
+    if (ret == kIOReturnUnsupported) {
+        ret = super::setReport(report, reportType, options, completionTimeout, completion);
+    }
+    return ret;
+}

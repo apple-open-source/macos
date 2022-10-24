@@ -2283,6 +2283,7 @@
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/commonCrypto_dylib.$(CURRENT_ARCH).exp";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -2330,6 +2331,7 @@
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = "$(BUILT_PRODUCTS_DIR)/commonCrypto_dylib.$(CURRENT_ARCH).exp";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (

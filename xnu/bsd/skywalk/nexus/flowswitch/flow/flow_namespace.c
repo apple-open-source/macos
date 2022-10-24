@@ -67,6 +67,9 @@ flow_namespace_create(union sockaddr_in_4_6 *laddr, uint8_t protocol,
 	if (nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP) {
 		netns_rsv_flags |= NETNS_NOWAKEFROMSLEEP;
 	}
+	if (nfr_flags & NXFLOWREQF_REUSEPORT) {
+		netns_rsv_flags |= NETNS_REUSEPORT;
+	}
 
 	/* validate protocol */
 	switch (protocol) {

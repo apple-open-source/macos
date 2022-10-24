@@ -103,7 +103,7 @@ static int vnodes_sized = 0;
 extern void     bsd_startupearly(void);
 
 static vm_map_size_t    bufferhdr_map_size;
-SECURITY_READ_ONLY_LATE(struct kmem_range)  bufferhdr_range = {};
+SECURITY_READ_ONLY_LATE(struct mach_vm_range)  bufferhdr_range = {};
 
 static vm_map_size_t
 bsd_get_bufferhdr_map_size(void)
@@ -145,8 +145,7 @@ KMEM_RANGE_REGISTER_DYNAMIC(bufferhdr, &bufferhdr_range, ^() {
 void
 bsd_startupearly(void)
 {
-	vm_offset_t     firstaddr = bufferhdr_range.min_address;
-	vm_size_t       size = bufferhdr_map_size;
+	vm_size_t size = bufferhdr_map_size;
 
 	assert(size);
 
@@ -161,7 +160,7 @@ bsd_startupearly(void)
 	}
 
 	bufferhdr_map = kmem_suballoc(kernel_map,
-	    &firstaddr,
+	    &bufferhdr_range.min_address,
 	    size,
 	    VM_MAP_CREATE_NEVER_FAULTS,
 	    VM_FLAGS_FIXED_RANGE_SUBALLOC,
@@ -169,12 +168,12 @@ bsd_startupearly(void)
 	    VM_KERN_MEMORY_FILE).kmr_submap;
 
 	kmem_alloc(bufferhdr_map,
-	    &firstaddr,
+	    &(vm_offset_t){ bufferhdr_range.min_address },
 	    size,
 	    KMA_NOFAIL | KMA_PERMANENT | KMA_ZERO | KMA_KOBJECT,
 	    VM_KERN_MEMORY_FILE);
 
-	buf_headers = (struct buf *) firstaddr;
+	buf_headers = (struct buf *)bufferhdr_range.min_address;
 
 #if SOCKETS
 	{
@@ -220,7 +219,7 @@ bsd_startupearly(void)
 }
 
 #if SOCKETS
-SECURITY_READ_ONLY_LATE(struct kmem_range) mb_range = {};
+SECURITY_READ_ONLY_LATE(struct mach_vm_range) mb_range = {};
 KMEM_RANGE_REGISTER_DYNAMIC(mb, &mb_range, ^() {
 	nmbclusters = bsd_mbuf_cluster_reserve(NULL) / MCLBYTES;
 	return (vm_map_size_t)(nmbclusters * MCLBYTES);
@@ -238,14 +237,14 @@ bsd_bufferinit(void)
 	bsd_startupearly();
 
 #if SOCKETS
-	mbutl = (unsigned char *) mb_range.min_address;
 	mb_map = kmem_suballoc(kernel_map,
-	    (vm_offset_t *) &mbutl,
+	    &mb_range.min_address,
 	    (vm_size_t) (nmbclusters * MCLBYTES),
 	    FALSE,
 	    VM_FLAGS_FIXED_RANGE_SUBALLOC,
 	    KMS_PERMANENT | KMS_NOFAIL,
 	    VM_KERN_MEMORY_MBUF).kmr_submap;
+	mbutl = (unsigned char *)mb_range.min_address;
 #endif /* SOCKETS */
 
 	/*

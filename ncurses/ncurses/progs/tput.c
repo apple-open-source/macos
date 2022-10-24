@@ -63,6 +63,7 @@ static char *prg_name;
 static bool is_init = FALSE;
 static bool is_reset = FALSE;
 
+GCC_PRINTFLIKE(2,3)
 static void
 quit(int status, const char *fmt,...)
 {

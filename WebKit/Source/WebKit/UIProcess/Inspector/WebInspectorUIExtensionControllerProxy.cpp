@@ -212,6 +212,18 @@ void WebInspectorUIExtensionControllerProxy::showExtensionTab(const Inspector::E
     });
 }
 
+void WebInspectorUIExtensionControllerProxy::navigateTabForExtension(const Inspector::ExtensionTabID& extensionTabIdentifier, const URL& sourceURL, WTF::CompletionHandler<void(const std::optional<Inspector::ExtensionError>)>&& completionHandler)
+{
+    whenFrontendHasLoaded([weakThis = WeakPtr { *this }, extensionTabIdentifier, sourceURL, completionHandler = WTFMove(completionHandler)] () mutable {
+        if (!weakThis || !weakThis->m_inspectorPage) {
+            completionHandler(Inspector::ExtensionError::InvalidRequest);
+            return;
+        }
+
+        weakThis->m_inspectorPage->sendWithAsyncReply(Messages::WebInspectorUIExtensionController::NavigateTabForExtension { extensionTabIdentifier, sourceURL }, WTFMove(completionHandler));
+    });
+}
+
 // API for testing.
 
 void WebInspectorUIExtensionControllerProxy::evaluateScriptInExtensionTab(const Inspector::ExtensionTabID& extensionTabID, const String& scriptSource, WTF::CompletionHandler<void(Inspector::ExtensionEvaluationResult)>&& completionHandler)
@@ -240,7 +252,7 @@ void WebInspectorUIExtensionControllerProxy::evaluateScriptInExtensionTab(const 
 
 // WebInspectorUIExtensionControllerProxy IPC messages.
 
-void WebInspectorUIExtensionControllerProxy::didShowExtensionTab(const Inspector::ExtensionID& extensionID, const Inspector::ExtensionTabID& extensionTabID)
+void WebInspectorUIExtensionControllerProxy::didShowExtensionTab(const Inspector::ExtensionID& extensionID, const Inspector::ExtensionTabID& extensionTabID, WebCore::FrameIdentifier frameID)
 {
     auto it = m_extensionAPIObjectMap.find(extensionID);
     if (it == m_extensionAPIObjectMap.end())
@@ -251,7 +263,7 @@ void WebInspectorUIExtensionControllerProxy::didShowExtensionTab(const Inspector
     if (!extensionClient)
         return;
 
-    extensionClient->didShowExtensionTab(extensionTabID);
+    extensionClient->didShowExtensionTab(extensionTabID, frameID);
 }
 
 void WebInspectorUIExtensionControllerProxy::didHideExtensionTab(const Inspector::ExtensionID& extensionID, const Inspector::ExtensionTabID& extensionTabID)

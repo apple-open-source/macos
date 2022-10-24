@@ -112,8 +112,8 @@ syscall or created with
 Restrict matches to processes with a parent process ID in the
 comma-separated list
 .Ar ppid .
-.It Fl S
-Search also in system processes (kernel threads).
+.\" .It Fl S
+.\" Search also in system processes (kernel threads).
 .It Fl U Ar uid
 Restrict matches to processes with a real user ID in the comma-separated
 list
@@ -281,22 +281,22 @@ $ pgrep -F /tmp/.X0-lock
 1211
 .Ed
 .Pp
-Show the pid and the name of the process including kernel threads in the
-search:
-.Bd -literal -offset indent
-$ pgrep -lS vnlru
-37 vnlru
-.Ed
-.Pp
-Search for processes including kernel threads that match the extended regular
-expression pattern:
-.Bd -literal -offset indent
-$ pgrep -S 'crypto.*[2-3]'
-20
-19
-6
-5
-.Ed
+.\" Show the pid and the name of the process including kernel threads in the
+.\" search:
+.\" .Bd -literal -offset indent
+.\" $ pgrep -lS vnlru
+.\" 37 vnlru
+.\" .Ed
+.\" .Pp
+.\" Search for processes including kernel threads that match the extended regular
+.\" expression pattern:
+.\" .Bd -literal -offset indent
+.\" $ pgrep -S 'crypto.*[2-3]'
+.\" 20
+.\" 19
+.\" 6
+.\" 5
+.\" .Ed
 .Pp
 Show long output for firefox processes:
 .Bd -literal -offset indent

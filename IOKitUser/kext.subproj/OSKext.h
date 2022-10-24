@@ -35,7 +35,15 @@ __BEGIN_DECLS
 #include <CoreFoundation/CoreFoundation.h>
 #include <libkern/OSReturn.h>
 #include <libkern/OSKextLib.h>
+#ifdef BUILDING_LIBKEXT
+#if __has_include(<libkern/OSKextLibPrivate.h>)
+#include <libkern/OSKextLibPrivate.h>
+#else
 #include <System/libkern/OSKextLibPrivate.h>
+#endif
+#else
+#include <libkern/OSKextLibPrivate.h>
+#endif
 #include <mach/mach.h>
 #include <mach-o/arch.h>
 #include <AvailabilityMacros.h>
@@ -357,6 +365,7 @@ void OSKextVLog(
     OSKextLogSpec    msgLogSpec,
     const char     * format,
     va_list          srcArgList)
+                __printflike(3, 0)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
@@ -406,6 +415,7 @@ void OSKextVLogCFString(
     OSKextLogSpec    msgLogSpec,
     CFStringRef      format,
     va_list          srcArgList)
+                CF_FORMAT_FUNCTION(3,0)
                 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 /*!

@@ -16,6 +16,24 @@
 #include "test_utils.h"
 #include "systemx.h"
 
+bool verify_times(const char *timename, struct timespec *expected, struct timespec *actual) {
+	bool equal = true;
+
+	if (expected->tv_sec != actual->tv_sec) {
+		equal = false;
+		printf("time %s: (%lu) seconds does not match expected (%lu)\n", timename,
+			actual->tv_sec, expected->tv_sec);
+	}
+
+	if (expected->tv_nsec != actual->tv_nsec) {
+		equal = false;
+		printf("time %s: (%lu) nanoseconds does not match expected (%lu)\n", timename,
+			actual->tv_nsec, expected->tv_nsec);
+	}
+
+	return equal;
+}
+
 bool verify_path_missing_xattr(const char *path, const char *xattr_name) {
 	ssize_t size_or_error = getxattr(path, xattr_name, NULL, 0, 0, XATTR_SHOWCOMPRESSION);
 	if (size_or_error != -1) {
@@ -139,6 +157,31 @@ bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect) {
 	}
 
 	return true;
+}
+
+bool verify_st_ids_and_mode(struct stat *expected, struct stat *actual) {
+	// verify that UID, GID, and perms are as expected
+	bool equal = true;
+
+	if (expected->st_uid != actual->st_uid) {
+		equal = false;
+		printf("st_uid (%u) does not match expected (%u)\n",
+			actual->st_uid, expected->st_uid);
+	}
+
+	if (expected->st_gid != actual->st_gid) {
+		equal = false;
+		printf("st_gid (%u) does not match expected (%u)\n",
+			actual->st_gid, expected->st_gid);
+	}
+
+	if (expected->st_mode != actual->st_mode) {
+		equal = false;
+		printf("st_mode (%u) does not match expected (%u)\n",
+			actual->st_mode, expected->st_mode);
+	}
+
+	return equal;
 }
 
 bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length)

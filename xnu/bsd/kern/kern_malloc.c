@@ -83,7 +83,7 @@ KALLOC_HEAP_DEFINE(KERN_OS_MALLOC, "kern_os_malloc", KHEAP_ID_DEFAULT);
  * macOS Only deprecated interfaces, here only for legacy reasons.
  * There is no internal variant of any of these symbols on purpose.
  */
-#if PLATFORM_MacOSX
+#if XNU_PLATFORM_MacOSX
 
 #define OSMallocDeprecatedMsg(msg)
 #include <libkern/OSMalloc.h>
@@ -309,7 +309,7 @@ OSFree_external(void *addr, uint32_t size, OSMallocTag tag)
 	OSMalloc_Tagrele(tag);
 }
 
-#endif /* PLATFORM_MacOSX */
+#endif /* XNU_PLATFORM_MacOSX */
 #if DEBUG || DEVELOPMENT
 
 static int

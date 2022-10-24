@@ -54,7 +54,7 @@ namespace Style {
 struct ResolutionContext;
 }
 
-class WebAnimation : public RefCounted<WebAnimation>, public EventTargetWithInlineData, public ActiveDOMObject {
+class WebAnimation : public RefCounted<WebAnimation>, public EventTarget, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(WebAnimation);
 public:
     static Ref<WebAnimation> create(Document&, AnimationEffect*);
@@ -134,7 +134,6 @@ public:
     void acceleratedStateDidChange();
     void willChangeRenderer();
 
-    bool isRunningAccelerated() const;
     bool isRelevant() const { return m_isRelevant; }
     void updateRelevance();
     void effectTimingDidChange();

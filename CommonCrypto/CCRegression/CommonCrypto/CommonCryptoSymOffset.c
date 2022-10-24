@@ -48,9 +48,9 @@ static int kTestTestCount = ALITTLEONTHESIDE * 3;
 
 int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
     int accum = 0;
-    uint8_t iLikeBigBuffs[ILIKEEMDISBIG];
-    uint8_t andICannotLie[ILIKEEMDISBIG];
-    uint8_t iLikeEmRoundandBig[ILIKEEMDISBIG];
+    uint8_t iLikeBigBuffs[ILIKEEMDISBIG] = {0};
+    uint8_t andICannotLie[ILIKEEMDISBIG] = {0};
+    uint8_t iLikeEmRoundandBig[ILIKEEMDISBIG] = {0};
     int i;
     size_t moved;
     CCCryptorStatus retval;

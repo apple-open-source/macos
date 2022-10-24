@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,24 +25,33 @@
 
 #pragma once
 
-#import "WebGPU.h"
+#import "CommandsMixin.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
+
+struct WGPUComputePassEncoderImpl {
+};
 
 namespace WebGPU {
 
 class BindGroup;
 class Buffer;
 class ComputePipeline;
+class Device;
 class QuerySet;
 
-class ComputePassEncoder : public RefCounted<ComputePassEncoder> {
+// https://gpuweb.github.io/gpuweb/#gpucomputepassencoder
+class ComputePassEncoder : public WGPUComputePassEncoderImpl, public RefCounted<ComputePassEncoder>, public CommandsMixin {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<ComputePassEncoder> create()
+    static Ref<ComputePassEncoder> create(id<MTLComputeCommandEncoder> computeCommandEncoder, Device& device)
     {
-        return adoptRef(*new ComputePassEncoder());
+        return adoptRef(*new ComputePassEncoder(computeCommandEncoder, device));
+    }
+    static Ref<ComputePassEncoder> createInvalid(Device& device)
+    {
+        return adoptRef(*new ComputePassEncoder(device));
     }
 
     ~ComputePassEncoder();
@@ -52,20 +61,30 @@ public:
     void dispatchIndirect(const Buffer& indirectBuffer, uint64_t indirectOffset);
     void endPass();
     void endPipelineStatisticsQuery();
-    void insertDebugMarker(const char* markerLabel);
+    void insertDebugMarker(String&& markerLabel);
     void popDebugGroup();
-    void pushDebugGroup(const char* groupLabel);
+    void pushDebugGroup(String&& groupLabel);
     void setBindGroup(uint32_t groupIndex, const BindGroup&, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
     void setPipeline(const ComputePipeline&);
-    void writeTimestamp(const QuerySet&, uint32_t queryIndex);
-    void setLabel(const char*);
+    void setLabel(String&&);
+
+    Device& device() const { return m_device; }
+
+    bool isValid() const { return m_computeCommandEncoder; }
 
 private:
-    ComputePassEncoder();
+    ComputePassEncoder(id<MTLComputeCommandEncoder>, Device&);
+    ComputePassEncoder(Device&);
+
+    bool validatePopDebugGroup() const;
+
+    void makeInvalid() { m_computeCommandEncoder = nil; }
+
+    id<MTLComputeCommandEncoder> m_computeCommandEncoder { nil };
+
+    uint64_t m_debugGroupStackSize { 0 };
+
+    const Ref<Device> m_device;
 };
 
 } // namespace WebGPU
-
-struct WGPUComputePassEncoderImpl {
-    Ref<WebGPU::ComputePassEncoder> computePassEncoder;
-};

@@ -42,12 +42,22 @@ class IOHIDReportElementQueue: public IOHIDEventQueue
 
 protected:
     IOHIDLibUserClient *fClient;
+    IOHIDQueueHeader *header;
+
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 public:
     static IOHIDReportElementQueue *withCapacity(UInt32 size, IOHIDLibUserClient *client);
 
     virtual Boolean enqueue(IOHIDElementValue* element);
     virtual Boolean enqueue(void *data, UInt32 dataSize) APPLE_KEXT_OVERRIDE;
+    virtual IOMemoryDescriptor *getMemoryDescriptor() APPLE_KEXT_OVERRIDE;
+
+    virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
+
+    bool pendingReports();
+    void setPendingReports();
+    void clearPendingReports();
 };
 
 #endif /* !_IOKIT_HID_IOHIDREPORTELEMENTQUEUE_H */

@@ -30,6 +30,7 @@
 #import <IOKit/hid/IOHIDValue.h>
 #import <IOKit/hid/IOHIDDevicePlugIn.h>
 #import <IOKit/hid/IOHIDLibUserClient.h>
+#import <os/lock_private.h>
 
 @class IOHIDQueueClass;
 
@@ -48,6 +49,8 @@ enum {
     IOHIDDeviceTimeStampedDeviceInterface   *_device;
     io_service_t                            _service;
     io_connect_t                            _connect;
+
+    os_unfair_recursive_lock                _deviceLock;
     
     mach_port_t                             _port;
     CFMachPortRef                           _machPort;
@@ -63,6 +66,7 @@ enum {
     NSMutableArray                          *_reportElements;
     NSMutableDictionary                     *_properties;
     
+    os_unfair_recursive_lock                _callbackLock;
     IOHIDReportCallback                     _inputReportCallback;
     IOHIDReportWithTimeStampCallback        _inputReportTimestampCallback;
     void                                    *_inputReportContext;
@@ -70,6 +74,7 @@ enum {
     CFIndex                                 _inputReportBufferLength;
 }
 
+- (mach_port_t)getPort;
 - (void)initQueue;
 
 - (IOReturn)open:(IOOptionBits)options;
@@ -119,7 +124,7 @@ enum {
 
 - (IOHIDElementRef _Nullable)getElement:(uint32_t)cookie;
 
-- (void)releaseOOBReport:(uint64_t)reportAddress;
+- (void)releaseReport:(uint64_t)reportAddress;
 
 @property (readonly)            mach_port_t         port;
 @property (readonly, nullable)  CFRunLoopSourceRef  runLoopSource;

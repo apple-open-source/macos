@@ -69,7 +69,10 @@ int getExternalBooter(BLContextPtr context,
  * For new world, add a tbxi
  */
 
-int BLGetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm, char * ofstring) {
+int BLGetOpenFirmwareBootDevice(BLContextPtr context,
+                                const char * mntfrm,
+                                char * ofstring,
+                                uint32_t ofstringSize) {
 
     int err;
 
@@ -212,7 +215,7 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm, char 
 		return 11;		
 	}
 	
-	sprintf(ofstring, "%s,\\\\:%s", split, blostype2string(kBL_OSTYPE_PPC_TYPE_BOOTX, tbxi));
+	snprintf(ofstring, ofstringSize, "%s,\\\\:%s", split, blostype2string(kBL_OSTYPE_PPC_TYPE_BOOTX, tbxi, sizeof(tbxi)));
 	
     return 0;
 }
@@ -325,7 +328,7 @@ int getExternalBooter(BLContextPtr context,
 	}
 	
 	partnum = atoi(spos+1);
-	sprintf(spos, "s%d", partnum-1);
+	snprintf(spos, (sizeof(cname) - (spos - cname)), "s%d", partnum-1);
 	
 	errnum = BLGetIOServiceForDeviceName(context, cname, &booter);
 	if(errnum) {

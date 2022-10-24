@@ -66,7 +66,10 @@
 #include <Security/SecAsn1Item.h>
 #include <security_smime/secoid.h>
 #include <security_smime/cmslocal.h>
+#include <utilities/debugging.h>
+#include <utilities/SecCFWrappers.h>
 
+#include "cms_shim/SecCMSInternal.h"
 
 CFTypeRef kSecCMSSignDigest = CFSTR("kSecCMSSignDigest");
 CFTypeRef kSecCMSSignDetached = CFSTR("kSecCMSSignDetached");
@@ -90,6 +93,70 @@ CFTypeRef kSecCMSHashingAlgorithmSHA1 = CFSTR("kSecCMSHashingAlgorithmSHA1");
 CFTypeRef kSecCMSHashingAlgorithmSHA256 = CFSTR("kSecCMSHashingAlgorithmSHA256");
 CFTypeRef kSecCMSHashingAlgorithmSHA384 = CFSTR("kSecCMSHashingAlgorithmSHA384");
 CFTypeRef kSecCMSHashingAlgorithmSHA512 = CFSTR("kSecCMSHashingAlgorithmSHA512");
+
+static bool certArrayIsSubset(CFArrayRef certs, CFArrayRef subset) {
+    if (certs == subset) {
+        return true;
+    }
+    if (!certs || !subset) {
+        return false;
+    }
+
+    for (CFIndex i = 0; i < CFArrayGetCount(subset); i++) {
+        CFTypeRef cert = CFArrayGetValueAtIndex(subset, i);
+        if (!CFArrayContainsValue(certs, CFRangeMake(0, CFArrayGetCount(certs)), cert)) {
+            return false;
+        }
+    }
+    return true;
+
+}
+
+static bool secTrustsEqual(SecTrustRef trust1, SecTrustRef trust2) {
+    if (trust1 == trust2) {
+        return true;
+    }
+    if (!trust1 || !trust2) {
+        return false;
+    }
+    // For the purposes of CMS, equal input certs, policies, verification date is all we really need here
+    CFArrayRef certs1 = NULL, certs2 = NULL;
+    if (errSecSuccess != SecTrustCopyInputCertificates(trust1, &certs1) ||
+        errSecSuccess != SecTrustCopyInputCertificates(trust2, &certs2)) {
+        CFReleaseNull(certs1);
+        CFReleaseNull(certs2);
+        return false;
+    }
+    if (!CFEqualSafe(CFArrayGetValueAtIndex(certs1, 0), CFArrayGetValueAtIndex(certs2, 0)) || // same leaf
+        !certArrayIsSubset(certs1, certs2) || !certArrayIsSubset(certs2, certs1)) { // same cert array (allowing for duplicates)
+        CFReleaseNull(certs1);
+        CFReleaseNull(certs2);
+        return false;
+    }
+    CFReleaseNull(certs1);
+    CFReleaseNull(certs2);
+
+    CFArrayRef policies1 = NULL, policies2 = NULL;
+    if (errSecSuccess != SecTrustCopyPolicies(trust1, &policies1) ||
+        errSecSuccess != SecTrustCopyPolicies(trust2, &policies2)) {
+        CFReleaseNull(policies1);
+        CFReleaseNull(policies2);
+        return false;
+    }
+    if (!CFEqualSafe(policies1, policies2)) {
+        CFReleaseNull(policies1);
+        CFReleaseNull(policies2);
+        return false;
+    }
+
+    CFAbsoluteTime verifyDate1 = SecTrustGetVerifyTime(trust1);
+    CFAbsoluteTime verifyDate2 = SecTrustGetVerifyTime(trust2);
+    if (fabs(verifyDate1 - verifyDate2) > 0.1) {
+        return false;
+    }
+
+    return true;
+}
 
 OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof, 
     CFDictionaryRef params, CFDataRef data, CFMutableDataRef enveloped_data)
@@ -148,7 +215,7 @@ out:
     return status;
 }
 
-OSStatus SecCMSDecryptEnvelopedData(CFDataRef message, 
+static OSStatus SecCMSDecryptEnvelopedData_legacy(CFDataRef message,
     CFMutableDataRef data, SecCertificateRef *recipient)
 {
     SecCmsMessageRef cmsg = NULL;
@@ -182,6 +249,15 @@ OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
     return status;
+}
+
+OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
+    CFMutableDataRef data, SecCertificateRef *recipient)
+{
+    if (useMessageSecurityEnabled()) { // rdar://85358251
+        return MS_SecCMSDecryptEnvelopedData(message, data, recipient);
+    }
+    return SecCMSDecryptEnvelopedData_legacy(message, data, recipient);
 }
 
 static SecCmsAttribute *
@@ -516,6 +592,46 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
+
+#if !TARGET_OS_BRIDGE // rdar://85358251 (Open MessageSecurity project on tvOS and bridgeOS)
+    if (useMessageSecurityEnabled()) {
+        CFDataRef ms_attached_contents = NULL;
+        CFDataRef *ms_attached_contents_ptr = attached_contents ? &ms_attached_contents : NULL;
+        CFDictionaryRef ms_signed_attributes = NULL;
+        CFDictionaryRef *ms_signed_attributes_ptr = signed_attributes ? &ms_signed_attributes : NULL;
+        SecTrustRef ms_trustref = NULL;
+        SecTrustRef *ms_trustref_ptr = trustref ? &ms_trustref : NULL;
+        OSStatus ms_status = MS_SecCMSVerifySignedData_internal(message, detached_contents, policy, ms_trustref_ptr, additional_certs, ms_attached_contents_ptr, ms_signed_attributes_ptr);
+        if (attached_contents && !CFEqualSafe(*attached_contents, ms_attached_contents)) {
+            secwarning("MessageSecurity and Security frameworks have different attached contents results, returning Security result. sec: %@, ms: %@", *attached_contents, ms_attached_contents);
+        }
+        if (signed_attributes && !CFEqualSafe(*signed_attributes, ms_signed_attributes)) {
+            secwarning("MessageSecurity and Security frameworks have different signed attributes results, returning Security result. sec: %@, ms: %@", *signed_attributes, ms_signed_attributes);
+        }
+        if (trustref && !secTrustsEqual(*trustref, ms_trustref)) {
+            secwarning("MessageSecurity and Security frameworks have different trustref results, returning Security result. sec: %@, ms: %@", *trustref, ms_trustref);
+        }
+        if (status != ms_status) {
+            secwarning("MessageSecurity and Security frameworks have different status results, returning Security result. sec: %d, ms: %d", (int)status, (int)ms_status);
+        }
+
+        /* Substitute results with MessageSecurity implementation */
+        if (attached_contents) {
+            CFReleaseNull(*attached_contents);
+            *attached_contents = ms_attached_contents;
+        }
+        if (signed_attributes) {
+            CFReleaseNull(*signed_attributes);
+            *signed_attributes = ms_signed_attributes;
+        }
+        if (trustref) {
+            CFReleaseNull(*trustref);
+            *trustref = ms_trustref;
+        }
+        return ms_status;
+    }
+#endif
+
     return status;
 }
 
@@ -546,6 +662,32 @@ OSStatus SecCMSVerify(CFDataRef message, CFDataRef detached_contents,
     CFTypeRef policy, SecTrustRef *trustref,
     CFDataRef *attached_contents) {
         return SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, NULL);
+}
+
+OSStatus SecCMSDecodeSignedData(CFDataRef message,
+                                CFDataRef *attached_contents, CFDictionaryRef *signed_attributes) {
+#if !TARGET_OS_BRIDGE // rdar://85358251 (Open MessageSecurity project on tvOS and bridgeOS)
+    if (useMessageSecurityEnabled()) {
+        return MS_SecCMSDecodeSignedData(message, attached_contents, signed_attributes);
+    }
+#endif
+    return SecCMSVerifySignedData_internal(message, NULL, NULL, NULL, NULL, attached_contents, signed_attributes);
+}
+
+static bool certArraysEqual(CFArrayRef certs1, CFArrayRef certs2) {
+    if (certs1 == certs2) {
+        return true;
+    }
+    if (!certs1 || !certs2 || CFArrayGetCount(certs1) != CFArrayGetCount(certs2)) {
+        return false;
+    }
+    for (CFIndex i = 0; i < CFArrayGetCount(certs1); i++) {
+        CFTypeRef cert = CFArrayGetValueAtIndex(certs1, i);
+        if (!CFArrayContainsValue(certs2, CFRangeMake(0, CFArrayGetCount(certs2)), cert)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {
@@ -585,6 +727,15 @@ out:
     if (cmsg) { SecCmsMessageDestroy(cmsg); }
     if (certs && CFArrayGetCount(certs) < 1) {
         CFReleaseNull(certs);
+    }
+
+    if (useMessageSecurityEnabled()) {
+        CFArrayRef msCerts = MS_SecCMSCertificatesOnlyMessageCopyCertificates(message);
+        if (!certArraysEqual(certs, msCerts)) {
+            secwarning("MessageSecurity and Security frameworks have different results, returning MessageSecurity result. sec: %@, ms: %@", certs, msCerts);
+        }
+        CFReleaseNull(certs);
+        return msCerts;
     }
 
     return certs;

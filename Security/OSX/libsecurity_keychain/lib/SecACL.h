@@ -62,7 +62,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	 @result The CFTypeID of SecACL instances.
 	 */
 	CFTypeID SecACLGetTypeID(void)
-	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.3, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 	
 	/*!
 	 @function SecACLCreateFromSimpleContents
@@ -98,7 +99,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 											CFStringRef description, 
 											SecKeychainPromptSelector promptSelector,
 											SecACLRef * __nonnull CF_RETURNS_RETAINED newAcl)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 	
 	/*!
 	 @function SecACLRemove
@@ -107,7 +109,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	 @result A result code.  See "Security Error Codes" (SecBase.h).
 	 */
 	OSStatus SecACLRemove(SecACLRef aclRef)
-	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.3, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 	
 	/*!
 	 @function SecACLCopySimpleContents
@@ -139,7 +142,9 @@ CF_IMPLICIT_BRIDGING_ENABLED
 								CFArrayRef * __nonnull CF_RETURNS_RETAINED applicationList,
 								CFStringRef * __nonnull CF_RETURNS_RETAINED description,
 								SecKeychainPromptSelector *promptSelector)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 	/*!
 	 @function SecACLSetSimpleContents
 	 @abstract Sets the application list, description, and CSSM prompt selector for a given access control list entry.
@@ -170,7 +175,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 							   CFArrayRef __nullable applicationList,
 							   CFStringRef description, 
 							   SecKeychainPromptSelector promptSelector)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #endif // SEC_OS_OSX
 	
@@ -195,7 +201,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	 @result On return, a CFArrayRef of the authorizations for this ACL.
 	 */
 	CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 	
 	/*!
 	 @function SecACLSetAuthorizations
@@ -220,7 +227,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	 @result A result code.  See "Security Error Codes" (SecBase.h).
 	 */
 	OSStatus SecACLUpdateAuthorizations(SecACLRef acl, CFArrayRef authorizations)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+	API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

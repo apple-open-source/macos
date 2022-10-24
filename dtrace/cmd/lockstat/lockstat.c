@@ -45,7 +45,6 @@
 #include <assert.h>
 #include <mach/mach_time.h>
 
-
 #define	LOCKSTAT_OPTSTR	"x:bths:n:d:i:l:f:e:ckwWgCHEATID:RpPo:VSY"
 
 #define LATER 0
@@ -263,6 +262,7 @@ dtrace_gethrtime(void)
 	return elapsed * sTimebaseInfo.numer / sTimebaseInfo.denom;
 }
 
+__printflike(2, 3)
 static void
 fail(int do_perror, const char *message, ...)
 {
@@ -279,6 +279,7 @@ fail(int do_perror, const char *message, ...)
 	exit(2);
 }
 
+__printflike(1, 2)
 static void
 dfail(const char *message, ...)
 {
@@ -642,6 +643,7 @@ filter_destroy(char **filt)
 	*filt = NULL;
 }
 
+__printflike(1, 2)
 static void
 dprog_add(const char *fmt, ...)
 {

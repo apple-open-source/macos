@@ -390,7 +390,7 @@ class OctagonStateMachineTests: XCTestCase {
                                                                            states: Set([
                                                                             TestEngine.State.base.rawValue,
                                                                            ]))
-        immediateSuccessWatcher.timeout(10*NSEC_PER_SEC)
+        immediateSuccessWatcher.timeout(10 * NSEC_PER_SEC)
         self.stateMachine.register(immediateSuccessWatcher)
 
         let immediateFailureWatcher = OctagonStateMultiStateArrivalWatcher(named: "immediate-failure",
@@ -399,9 +399,9 @@ class OctagonStateMachineTests: XCTestCase {
                                                                             TestEngine.State.receivedFlag.rawValue,
                                                                            ]),
                                                                            failStates: [
-                                                                            TestEngine.State.base.rawValue : NSError(domain: "test", code: 1, userInfo: [:])
+                                                                            TestEngine.State.base.rawValue: NSError(domain: "test", code: 1, userInfo: [:]),
                                                                            ])
-        immediateFailureWatcher.timeout(10*NSEC_PER_SEC)
+        immediateFailureWatcher.timeout(10 * NSEC_PER_SEC)
         self.stateMachine.register(immediateFailureWatcher)
 
         let pendSuccessWatcher = OctagonStateMultiStateArrivalWatcher(named: "pend-successs",
@@ -409,16 +409,16 @@ class OctagonStateMachineTests: XCTestCase {
                                                                       states: Set([
                                                                         TestEngine.State.receivedFlag.rawValue,
                                                                       ]))
-        pendSuccessWatcher.timeout(10*NSEC_PER_SEC)
+        pendSuccessWatcher.timeout(10 * NSEC_PER_SEC)
         self.stateMachine.register(pendSuccessWatcher)
 
         let pendFailureWatcher = OctagonStateMultiStateArrivalWatcher(named: "pend-successs",
                                                                       serialQueue: self.stateMachineQueue,
                                                                       states: Set(),
                                                                       failStates: [
-                                                                        TestEngine.State.receivedFlag.rawValue : NSError(domain: "test", code: 1, userInfo: [:])
+                                                                        TestEngine.State.receivedFlag.rawValue: NSError(domain: "test", code: 1, userInfo: [:]),
                                                                       ])
-        pendFailureWatcher.timeout(10*NSEC_PER_SEC)
+        pendFailureWatcher.timeout(10 * NSEC_PER_SEC)
         self.stateMachine.register(pendFailureWatcher)
 
         immediateSuccessWatcher.result.waitUntilFinished()
@@ -465,12 +465,11 @@ class OctagonStateMachineTests: XCTestCase {
         XCTAssertTrue(self.stateMachine.isPaused(), "State machine should consider itself paused")
         XCTAssertEqual(0, self.stateMachine.paused.wait(1 * NSEC_PER_SEC), "Paused condition should be fulfilled")
 
-
         let completeWithErrorWatcher = OctagonStateMultiStateArrivalWatcher(named: "complete-with-error",
                                                                             serialQueue: self.stateMachineQueue,
                                                                             states: Set(),
                                                                             failStates: [
-                                                                                TestEngine.State.receivedFlag.rawValue : NSError(domain: "test", code: 1, userInfo: [:])
+                                                                                TestEngine.State.receivedFlag.rawValue: NSError(domain: "test", code: 1, userInfo: [:]),
                                                                             ])
         completeWithErrorWatcher.completeWithErrorIfPending(NSError(domain: "test", code: 1, userInfo: [:]))
         completeWithErrorWatcher.result.waitUntilFinished()

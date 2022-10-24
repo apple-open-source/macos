@@ -28,16 +28,29 @@
  *
  */
 
+#ifdef __APPLE__
+#include <sys/param.h>
+#else
 #include <sys/types.h>
+#endif
 #include <sys/stat.h>
+#ifdef __APPLE__
+#include <sys/time.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>
+#ifdef __APPLE__
+#include <errno.h>
+#endif
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef __APPLE__
+#include <time.h>
+#endif
 #include <unistd.h>
 
 #include "common.h"
@@ -78,6 +91,9 @@ int		debug = 0;
 bool		force = false;
 bool		batch = false;
 bool		verbose = false;
+#ifdef __APPLE__
+bool		quiet = false;
+#endif
 bool		reverse = false;
 bool		noreverse = false;
 bool		skip_rest_of_patch = false;
@@ -88,7 +104,11 @@ int		diff_type = 0;
 char		*revision = NULL;	/* prerequisite revision, if any */
 LINENUM		input_lines = 0;	/* how long is input file in lines */
 int		posix = 0;		/* strict POSIX mode? */
+enum quote_options	quote_opt;
 
+#ifdef __APPLE__
+static enum vcsopt parse_vcs_option(const char *optval);
+#endif
 static void	reinitialize_almost_everything(void);
 static void	get_some_switches(void);
 static LINENUM	locate_hunk(LINENUM);
@@ -103,7 +123,11 @@ static bool	spew_output(void);
 static void	dump_line(LINENUM, bool);
 static bool	patch_match(LINENUM, LINENUM, LINENUM);
 static bool	similar(const char *, const char *, int);
+#ifdef __APPLE__
+static void	usage(FILE *, int);
+#else
 static void	usage(void);
+#endif
 static bool	handle_creation(bool, bool *);
 
 /* true if -E was specified on command line.  */
@@ -132,6 +156,16 @@ static int	filec = 0;	/* how many file arguments? */
 static LINENUM	last_offset = 0;
 static LINENUM	maxfuzz = 2;
 
+#ifdef __APPLE__
+enum vcsopt	vcsget = VCS_DEFAULT;
+
+long	settime_gmtoff;
+bool	settime;
+
+time_t	mtime_old;
+time_t	mtime_new;
+#endif
+
 /* patch using ifdef, ifndef, etc. */
 static bool		do_defines = false;
 /* #ifdef xyzzy */
@@ -143,14 +177,18 @@ static const char	else_defined[] = "#else\n";
 /* #endif xyzzy */
 static char		end_defined[128];
 
-
 /* Apply a set of diffs as appropriate. */
 
 int
 main(int argc, char *argv[])
 {
 	struct stat statbuf;
+#ifdef __APPLE__
+	time_t	orig_mtime;
+	int	error = 0, hunk, failed, i, fd, mismatch;
+#else
 	int	error = 0, hunk, failed, i, fd;
+#endif
 	bool	out_creating, out_existed, patch_seen, remove_file;
 	bool	reverse_seen;
 	LINENUM	where = 0, newwhere, fuzz, mymaxfuzz;
@@ -176,25 +214,25 @@ main(int argc, char *argv[])
 	if (asprintf(&TMPOUTNAME, "%.*s/patchoXXXXXXXXXX", i, tmpdir) == -1)
 		fatal("cannot allocate memory");
 	if ((fd = mkstemp(TMPOUTNAME)) < 0)
-		pfatal("can't create %s", TMPOUTNAME);
+		pfatal("can't create %s", quoted_name(TMPOUTNAME));
 	close(fd);
 
 	if (asprintf(&TMPINNAME, "%.*s/patchiXXXXXXXXXX", i, tmpdir) == -1)
 		fatal("cannot allocate memory");
 	if ((fd = mkstemp(TMPINNAME)) < 0)
-		pfatal("can't create %s", TMPINNAME);
+		pfatal("can't create %s", quoted_name(TMPINNAME));
 	close(fd);
 
 	if (asprintf(&TMPREJNAME, "%.*s/patchrXXXXXXXXXX", i, tmpdir) == -1)
 		fatal("cannot allocate memory");
 	if ((fd = mkstemp(TMPREJNAME)) < 0)
-		pfatal("can't create %s", TMPREJNAME);
+		pfatal("can't create %s", quoted_name(TMPREJNAME));
 	close(fd);
 
 	if (asprintf(&TMPPATNAME, "%.*s/patchpXXXXXXXXXX", i, tmpdir) == -1)
 		fatal("cannot allocate memory");
 	if ((fd = mkstemp(TMPPATNAME)) < 0)
-		pfatal("can't create %s", TMPPATNAME);
+		pfatal("can't create %s", quoted_name(TMPPATNAME));
 	close(fd);
 
 	v = getenv("SIMPLE_BACKUP_SUFFIX");
@@ -203,17 +241,65 @@ main(int argc, char *argv[])
 	else
 		simple_backup_suffix = ORIGEXT;
 
+#ifdef __APPLE__
+	v = getenv("PATCH_VERBOSE");
+	if (v != NULL) {
+		long  pverbose;
+		char *endp;
+
+		errno = 0;
+		pverbose = strtol(v, &endp, 10);
+		if (errno != 0 || *endp != '\0')
+			fatal("bad value for PATCH_VERBOSE: %s\n", v);
+
+		verbose = pverbose != 0;
+	}
+#endif
+
 	/* parse switches */
 	Argc = argc;
 	Argv = argv;
 	get_some_switches();
 
 	if (!Vflag) {
+#ifdef __APPLE__
+		/*
+		 * In conformance mode, we should disable all implicit backup
+		 * behavior unless it's been requested.  The -b,
+		 * --backup-if-mismatch, and -V flags will all set backup_type
+		 * as they're processed.  We want --posix/POSIXLY_CORRECT to
+		 * override an implicit --backup-if-mismatch, but not an
+		 * explicit one.
+		 *
+		 * Note that currently, `posix` does not reflect any value of
+		 * COMMAND_MODE that is put in place!  This is bug-for-bug
+		 * compatible with the previous patch(1) implementation!  The
+		 * default of --backup-if-mismatch did not appear to be
+		 * influenced by differing values of COMMAND_MODE that were
+		 * tested.
+		 *
+		 * This would appear to be a gray area in the specification, so
+		 * we may need to revisit this at a later date if the tests
+		 * start checking that backups aren't created in the fuzz/offset
+		 * cases.
+		 */
+		if (posix && backup_type == none)
+			backup_mismatch = false;
+#endif
 		if ((v = getenv("PATCH_VERSION_CONTROL")) == NULL)
 			v = getenv("VERSION_CONTROL");
 		if (v != NULL || !posix)
 			backup_type = get_version(v);	/* OK to pass NULL. */
 	}
+
+#ifdef __APPLE__
+	if (vcsget == VCS_DEFAULT) {
+		if ((v = getenv("PATCH_GET")) != NULL)
+			vcsget = parse_vcs_option(v);
+		else
+			vcsget = VCS_DISABLED;
+	}
+#endif
 
 	/* make sure we clean up /tmp in case of disaster */
 	set_signals(0);
@@ -249,6 +335,78 @@ main(int argc, char *argv[])
 		 */
 		out_existed = stat(outname, &statbuf) == 0;
 
+#ifdef __APPLE__
+		orig_mtime = out_existed ? statbuf.st_mtimespec.tv_sec : 0;
+
+#define	ALL_WRITE	(S_IWUSR | S_IWGRP | S_IWOTH)
+		/*
+		 * VCS logic is skipped here entirely if we're writing the
+		 * result out to a separate file.  If the output ends up being
+		 * read-only, then we'll take exception to that independently.
+		 * The --get option generally assumes that we're applying a
+		 * patch directly to a repository.
+		 */
+		if (vcsget != VCS_DISABLED &&
+		    strcmp(filearg[0], outname) == 0) {
+			int rv;
+			bool is_ro;
+
+			is_ro = false;
+			if (out_existed)
+				is_ro = access(outname, W_OK) < 0;
+
+			/*
+			 * We check the mode anyways because of the classic,
+			 * it will be writable by root, problem.  If the write
+			 * bit has been stripped, we should try to check it out
+			 * anyways to be good citizens.
+			 */
+			if (out_existed && !is_ro &&
+			    (statbuf.st_mode & ALL_WRITE) != 0)
+				goto skipvcs;
+
+			if (vcs_probe(outname, !out_existed, false) != 0) {
+				if (out_existed && !is_ro)
+					goto skipvcs;
+
+				skip_rest_of_patch = true;
+				say("%s cannot be written...\n", outname);
+				goto skipvcs;
+			}
+
+			if (!vcs_supported()) {
+				skip_rest_of_patch = true;
+				say("%s cannot be written, and %s is not supported...\n",
+				    outname, vcs_name());
+				goto skipvcs;
+			}
+
+			if (vcsget == VCS_PROMPT && !vcs_prompt(outname))
+				continue;
+
+			if (check_only) {
+				if (!out_existed) {
+					skip_rest_of_patch = true;
+					say("%s does not exist, but was found in %s.  Check it out before attempting a dry-run.\n",
+					    outname, vcs_name());
+				}
+
+				goto skipvcs;
+			}
+
+			rv = vcs_checkout(outname, !out_existed);
+			if (rv != 0) {
+				skip_rest_of_patch = true;
+				say("%s cannot be written, and a checkout from %s failed: %s\n",
+				    outname, vcs_name(),
+				    rv > 0 ? strerror(rv) : "unknown error");
+				goto skipvcs;
+			}
+		}
+skipvcs:
+#undef ALL_WRITE
+#endif	/* __APPLE__ */
+
 		/* for ed script just up and do it and exit */
 		if (diff_type == ED_DIFF) {
 			do_ed_script();
@@ -273,6 +431,9 @@ main(int argc, char *argv[])
 		/* apply each hunk of patch */
 		hunk = 0;
 		failed = 0;
+#ifdef __APPLE__
+		mismatch = 0;
+#endif
 		reverse_seen = false;
 		out_of_mem = false;
 		remove_file = false;
@@ -355,7 +516,7 @@ main(int argc, char *argv[])
 				if (skip_rest_of_patch) {	/* just got decided */
 					if (ferror(ofp) || fclose(ofp)) {
 						say("Error writing %s\n",
-						    TMPOUTNAME);
+						    quoted_name(TMPOUTNAME));
 						error = 1;
 					}
 					ofp = NULL;
@@ -376,6 +537,11 @@ main(int argc, char *argv[])
 					    hunk, newwhere);
 			} else {
 				apply_hunk(where);
+
+#ifdef __APPLE__
+				if (fuzz != 0 || last_offset != 0)
+					mismatch++;
+#endif
 				if (verbose) {
 					say("Hunk #%d succeeded at %ld",
 					    hunk, newwhere);
@@ -407,7 +573,7 @@ main(int argc, char *argv[])
 
 		/* finish spewing out the new file */
 		if (!skip_rest_of_patch && !spew_output()) {
-			say("Can't write %s\n", TMPOUTNAME);
+			say("Can't write %s\n", quoted_name(TMPOUTNAME));
 			error = 1;
 		}
 
@@ -417,7 +583,20 @@ main(int argc, char *argv[])
 			char	*realout = outname;
 
 			if (!check_only) {
+#ifdef __APPLE__
+				time_t compare_mtime, set_mtime;
+				bool do_backup = backup_requested;
+				bool file_matched = failed == 0 &&
+				    mismatch == 0;
+
+				if (!do_backup && backup_mismatch &&
+				    !file_matched)
+					do_backup = true;
+				if (move_file(TMPOUTNAME, outname,
+				     do_backup) < 0) {
+#else
 				if (move_file(TMPOUTNAME, outname) < 0) {
+#endif
 					toutkeep = true;
 					realout = TMPOUTNAME;
 					chmod(TMPOUTNAME, filemode);
@@ -440,13 +619,47 @@ main(int argc, char *argv[])
 				    statbuf.st_size == 0) {
 					if (verbose)
 						say("Removing %s (empty after patching).\n",
-						    realout);
+						    quoted_name(realout));
 					unlink(realout);
 				}
+#ifdef __APPLE__
+				else if (settime && (force || file_matched)) {
+					if (reverse) {
+						compare_mtime = mtime_new;
+						set_mtime = mtime_old;
+					} else {
+						compare_mtime = mtime_old;
+
+						/*
+						 * If the file didn't previously
+						 * exist, we'll give it a pass
+						 * and set the timestamp if it
+						 * was requested if we were
+						 * supposed to be creating it.
+						 *
+						 * The mtime of /dev/null will
+						 * never match.
+						 */
+						if (out_creating)
+							compare_mtime = 0;
+						set_mtime = mtime_new;
+					}
+
+					if (force ||
+					    orig_mtime == compare_mtime) {
+						struct timeval times[2] = { 0 };
+
+						times[0].tv_sec = set_mtime;
+						times[1].tv_sec = set_mtime;
+						utimes(outname, times);
+					}
+				}
+#endif
+
 			}
 		}
 		if (ferror(rejfp) || fclose(rejfp)) {
-			say("Error writing %s\n", rejname);
+			say("Error writing %s\n", quoted_name(rejname));
 			error = 1;
 		}
 		rejfp = NULL;
@@ -455,18 +668,27 @@ main(int argc, char *argv[])
 			if (*rejname == '\0') {
 				if (strlcpy(rejname, outname,
 				    sizeof(rejname)) >= sizeof(rejname))
-					fatal("filename %s is too long\n", outname);
+					fatal("filename %s is too long\n",
+					    quoted_name(outname));
 				if (strlcat(rejname, REJEXT,
 				    sizeof(rejname)) >= sizeof(rejname))
-					fatal("filename %s is too long\n", outname);
+					fatal("filename %s is too long\n",
+					    quoted_name(outname));
 			}
 			if (!check_only)
 				say("%d out of %d hunks %s--saving rejects to %s\n",
-				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed", rejname);
+				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed",
+				    quoted_name(rejname));
 			else
 				say("%d out of %d hunks %s while patching %s\n",
-				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed", filearg[0]);
+				    failed, hunk, skip_rest_of_patch ? "ignored" : "failed",
+				    quoted_name(filearg[0]));
+#ifdef __APPLE__
+			if (!check_only && move_file(TMPREJNAME, rejname,
+			    true) < 0)
+#else
 			if (!check_only && move_file(TMPREJNAME, rejname) < 0)
+#endif
 				trejkeep = true;
 		}
 		set_signals(1);
@@ -517,17 +739,74 @@ reinitialize_almost_everything(void)
 #ifdef __APPLE__
 enum {
 	BINARY_OPT = CHAR_MAX + 1,
+	BACKUP_MISMATCH,
+	NO_BACKUP_MISMATCH,
+	HELP_OPT,
+	QUOTE_OPT,
 };
 #endif
 
 /* Process switches and filenames. */
 
+#ifdef __APPLE__
+static enum vcsopt
+parse_vcs_option(const char *optval)
+{
+	char *endp;
+	int gopt;
+
+	errno = 0;
+	gopt = (int)strtol(optval, &endp, 10);
+	if (errno != 0 || *endp != '\0')
+		fatal("invalid --get value: %s, expected number", optval);
+	if (gopt < 0)
+		return (VCS_PROMPT);
+	else if (gopt == 0)
+		return (VCS_DISABLED);
+	return (VCS_ALWAYS);
+}
+
+static int
+parse_quote_option(const char *opt)
+{
+
+	if (opt == NULL)
+		opt = getenv("QUOTING_STYLE");
+	if (opt == NULL)
+		opt = "shell";
+
+	if (strcmp(opt, "shell") == 0)
+		quote_opt = QO_SHELL;
+	else if (strcmp(opt, "literal") == 0)
+		quote_opt = QO_LITERAL;
+	else if (strcmp(opt, "shell-always") == 0)
+		quote_opt = QO_SHELL_ALWAYS;
+	else if (strcmp(opt, "c") == 0)
+		quote_opt = QO_C;
+	else if (strcmp(opt, "escape") == 0)
+		quote_opt = QO_ESCAPE;
+	else
+		return (EINVAL);
+
+	return (0);
+}
+#endif
+
 static void
 get_some_switches(void)
 {
+#ifdef __APPLE__
+	const char *options = "b::B:cCd:D:eEfF:g:i:lnNo:p:r:RstTuvV:x:Y:z:Z";
+#else
 	const char *options = "b::B:cCd:D:eEfF:i:lnNo:p:r:RstuvV:x:z:";
+#endif
 	static struct option longopts[] = {
 		{"backup",		no_argument,		0,	'b'},
+#ifdef __APPLE__
+		{"backup-if-mismatch",	no_argument,		0,
+		    BACKUP_MISMATCH},
+		{"basename-prefix",	required_argument,	0,	'Y'},
+#endif
 		{"batch",		no_argument,		0,	't'},
 		{"check",		no_argument,		0,	'C'},
 		{"context",		no_argument,		0,	'c'},
@@ -538,16 +817,33 @@ get_some_switches(void)
 		{"force",		no_argument,		0,	'f'},
 		{"forward",		no_argument,		0,	'N'},
 		{"fuzz",		required_argument,	0,	'F'},
+#ifdef __APPLE__
+		{"get",			required_argument,	0,	'g'},
+		{"help",		no_argument,		0,
+		    HELP_OPT},
+#endif
 		{"ifdef",		required_argument,	0,	'D'},
 		{"input",		required_argument,	0,	'i'},
 		{"ignore-whitespace",	no_argument,		0,	'l'},
+#ifdef __APPLE__
+		{"no-backup-if-mismatch",	no_argument,	0,
+		    NO_BACKUP_MISMATCH},
+#endif
 		{"normal",		no_argument,		0,	'n'},
 		{"output",		required_argument,	0,	'o'},
 		{"prefix",		required_argument,	0,	'B'},
 		{"quiet",		no_argument,		0,	's'},
+#ifdef __APPLE__
+		{"quoting-style",	required_argument,	0,
+		    QUOTE_OPT},
+#endif
 		{"reject-file",		required_argument,	0,	'r'},
 		{"remove-empty-files",	no_argument,		0,	'E'},
 		{"reverse",		no_argument,		0,	'R'},
+#ifdef __APPLE__
+		{"set-time",		no_argument,		0,	'T'},
+		{"set-utc",		no_argument,		0,	'Z'},
+#endif
 		{"silent",		no_argument,		0,	's'},
 		{"strip",		required_argument,	0,	'p'},
 		{"suffix",		required_argument,	0,	'z'},
@@ -561,9 +857,15 @@ get_some_switches(void)
 #endif
 		{NULL,			0,			0,	0}
 	};
+#ifdef __APPLE__
+	const char *quoting_style;
+#endif
 	int ch;
 
 	rejname[0] = '\0';
+#ifdef __APPLE__
+	quoting_style = NULL;
+#endif
 	Argc_last = Argc;
 	Argv_last = Argv;
 	if (!Argc)
@@ -577,6 +879,9 @@ get_some_switches(void)
 			break;
 #endif
 		case 'b':
+#ifdef __APPLE__
+			backup_requested = true;
+#endif
 			if (backup_type == none)
 				backup_type = numbered_existing;
 			if (optarg == NULL)
@@ -589,6 +894,16 @@ get_some_switches(void)
 			/* must directly follow 'b' case for backwards compat */
 			simple_backup_suffix = xstrdup(optarg);
 			break;
+#ifdef __APPLE__
+		case BACKUP_MISMATCH:
+			if (backup_type == none)
+				backup_type = numbered_existing;
+			backup_mismatch = true;
+			break;
+		case NO_BACKUP_MISMATCH:
+			backup_mismatch = false;
+			break;
+#endif
 		case 'B':
 			origprae = xstrdup(optarg);
 			break;
@@ -625,6 +940,14 @@ get_some_switches(void)
 		case 'F':
 			maxfuzz = atoi(optarg);
 			break;
+#ifdef __APPLE__
+		case 'g':
+			vcsget = parse_vcs_option(optarg);
+			break;
+		case HELP_OPT:
+			usage(stdout, 0);
+			break;
+#endif
 		case 'i':
 			if (++filec == MAXFILEC)
 				fatal("too many file arguments\n");
@@ -645,6 +968,11 @@ get_some_switches(void)
 		case 'p':
 			strippath = atoi(optarg);
 			break;
+#ifdef __APPLE__
+		case QUOTE_OPT:
+			quoting_style = optarg;
+			break;
+#endif
 		case 'r':
 			if (strlcpy(rejname, optarg,
 			    sizeof(rejname)) >= sizeof(rejname))
@@ -656,10 +984,27 @@ get_some_switches(void)
 			break;
 		case 's':
 			verbose = false;
+#ifdef __APPLE__
+			quiet = true;
+#endif
 			break;
 		case 't':
 			batch = true;
 			break;
+#ifdef __APPLE__
+		case 'T': {
+			struct tm *tm;
+			time_t now;
+
+			if (settime)
+				fatal("-T and -Z are mutually exclusive options\n");
+			now = time(NULL);
+			tm = localtime(&now);
+			settime_gmtoff = tm->tm_gmtoff;
+			settime = true;
+			break;
+		}
+#endif
 		case 'u':
 			diff_type = UNI_DIFF;
 			break;
@@ -668,6 +1013,9 @@ get_some_switches(void)
 			break;
 		case 'V':
 			backup_type = get_version(optarg);
+#ifdef __APPLE__
+			backup_requested = true;
+#endif
 			Vflag = true;
 			break;
 #ifdef DEBUGGING
@@ -675,14 +1023,43 @@ get_some_switches(void)
 			debug = atoi(optarg);
 			break;
 #endif
+#ifdef __APPLE__
+		case 'Y':
+			simple_backup_prefix = xstrdup(optarg);
+			break;
+		case 'Z':
+			if (settime)
+				fatal("-T and -Z are mutually exclusive options\n");
+			settime_gmtoff = 0;
+			settime = true;
+			break;
+#endif
 		default:
 			if (ch != '\0')
+#ifdef __APPLE__
+				usage(stderr, EXIT_FAILURE);
+#else
 				usage();
+#endif
 			break;
 		}
 	}
 	Argc -= optind;
 	Argv += optind;
+
+#ifdef __APPLE__
+	/*
+	 * --verbose disables --quiet, unsetting it here reduces the patching of
+	 * upstream patch(1).
+	 */
+	if (verbose)
+		quiet = false;
+#endif
+
+#ifdef __APPLE__
+	if (parse_quote_option(quoting_style) != 0)
+		fatal("invalid quoting style '%s'", quoting_style);
+#endif
 
 	if (Argc > 0) {
 		filearg[0] = xstrdup(*Argv++);
@@ -700,15 +1077,35 @@ get_some_switches(void)
 }
 
 static void
+#ifdef __APPLE__
+usage(FILE *outfp, int code)
+#else
 usage(void)
+#endif
 {
+#ifdef __APPLE__
+	fprintf(outfp,
+#else
 	fprintf(stderr,
+#endif
 "usage: patch [-bCcEeflNnRstuv] [-B backup-prefix] [-D symbol] [-d directory]\n"
+#ifdef __APPLE__
+"             [-g vcs-option] [-F max-fuzz] [-i patchfile] [-o out-file]\n"
+"             [-p strip-count] [-r rej-name] [-T | -Z]\n"
+"             [-V t | nil | never | none] [-x number] [-Y prefix]\n"
+"             [-z backup-ext] [--quoting-style style] [--posix]\n"
+"             [origfile [patchfile]]\n"
+#else
 "             [-F max-fuzz] [-i patchfile] [-o out-file] [-p strip-count]\n"
 "             [-r rej-name] [-V t | nil | never | none] [-x number]\n"
 "             [-z backup-ext] [--posix] [origfile [patchfile]]\n"
+#endif
 "       patch <patchfile\n");
+#ifdef __APPLE__
+	my_exit(code);
+#else
 	my_exit(EXIT_FAILURE);
+#endif
 }
 
 /*
@@ -1015,7 +1412,7 @@ init_output(const char *name)
 {
 	ofp = fopen(name, "w");
 	if (ofp == NULL)
-		pfatal("can't create %s", name);
+		pfatal("can't create %s", quoted_name(name));
 }
 
 /*
@@ -1026,7 +1423,7 @@ init_reject(const char *name)
 {
 	rejfp = fopen(name, "w");
 	if (rejfp == NULL)
-		pfatal("can't create %s", name);
+		pfatal("can't create %s", quoted_name(name));
 }
 
 /*
@@ -1093,10 +1490,25 @@ patch_match(LINENUM base, LINENUM offset, LINENUM fuzz)
 	LINENUM		pline = 1 + fuzz;
 	LINENUM		iline;
 	LINENUM		pat_lines = pch_ptrn_lines() - fuzz;
+#ifdef __APPLE__
+	LINENUM		pat_leading_ctx = pch_leading_context();
+	LINENUM		pat_trailing_ctx = pch_trailing_context();
+	LINENUM		pat_ctx = MAX(pat_leading_ctx, pat_trailing_ctx);
+#else
+#endif
 	const char	*ilineptr;
 	const char	*plineptr;
 	unsigned short	plinelen;
 
+#ifdef __APPLE__
+	/*
+	 * If we have trailing context but no leading context, this is an
+	 * asymmetry that indicates we're at the beginning of the file.  We
+	 * cannot apply fuzz at the beginning of the file.
+	 */
+	if (pat_ctx != 0 && pat_leading_ctx == 0 && base + offset + fuzz != 1)
+		return false;
+#endif
 	/* Patch does not match if we don't have any more context to use */
 	if (pline > pat_lines)
 		return false;
@@ -1127,6 +1539,14 @@ patch_match(LINENUM base, LINENUM offset, LINENUM fuzz)
 			}
 		}
 	}
+#ifdef __APPLE__
+	/*
+	 * The other direction: some context but nothing trailing.  We must be
+	 * at EOF and, again, we can't fuzz the end of the file.
+	 */
+	if (pat_ctx != 0 && pat_trailing_ctx == 0 && iline != input_lines + 1)
+		return false;
+#endif
 	return true;
 }
 

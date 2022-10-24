@@ -213,6 +213,7 @@ _nc_printf_length(const char *fmt, va_list ap)
 /*
  * Wrapper for vsprintf that allocates a buffer big enough to hold the result.
  */
+GCC_PRINTFLIKE(1,0)
 NCURSES_EXPORT(char *)
 _nc_printf_string(const char *fmt, va_list ap)
 {

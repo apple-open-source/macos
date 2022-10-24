@@ -167,7 +167,6 @@
 		0FEF2BFC225D26D100C4081D /* IOHIDEventServiceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEA225D267400C4081D /* IOHIDEventServiceTypes.h */; };
 		1025C8330F5DF5280055FAEA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		1025C8470F5DF79F0055FAEA /* fat_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 052114F809D2095A00E51ACA /* fat_util.c */; };
-		1025C8570F5E0B610055FAEA /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
 		1070273E1195F4AF00AEC2CF /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B796C810CF3B35007A9F39 /* OSKext.c */; };
 		1070273F1195F4B000AEC2CF /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B796C810CF3B35007A9F39 /* OSKext.c */; };
 		10830CD50F5DDF3700937E9E /* OSKextVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE580DD1256800AE3585 /* OSKextVersion.c */; };
@@ -182,8 +181,6 @@
 		109ADED81CEFA11E00E2885F /* IOUSBDeviceControllerLib.c in Sources */ = {isa = PBXBuildFile; fileRef = DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */; };
 		109ADED91CEFA11E00E2885F /* IOUSBDeviceData.c in Sources */ = {isa = PBXBuildFile; fileRef = 8472D46C0CFA0E38003111DE /* IOUSBDeviceData.c */; };
 		109ADEDA1CEFA11E00E2885F /* IOUSBDeviceDescription.c in Sources */ = {isa = PBXBuildFile; fileRef = 845A820B154231A2004DE713 /* IOUSBDeviceDescription.c */; };
-		10EE1E320FB2858D007C4385 /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
-		10EE1E330FB2858D007C4385 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		10EE1E340FB2858D007C4385 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		10FC85D71FD8711700AEE7A4 /* IOAVDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7CAB08CA1E232404006CFF2C /* IOAVDefs.h */; };
 		10FC85D91FD8719500AEE7A4 /* IOHDCPTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = CEF578EF1DD2B08A00B6D9EE /* IOHDCPTypes.h */; };
@@ -202,7 +199,6 @@
 		201A04C920744ED3008318D8 /* IOHIDConnectionFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BC20744DB0008318D8 /* IOHIDConnectionFilter.h */; };
 		201A04CA20744ED3008318D8 /* IOHIDConnectionFilterPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
 		24B796C910CF3B35007A9F39 /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B796C810CF3B35007A9F39 /* OSKext.c */; };
-		24B98E050DDD4DD800E04D36 /* OSKextPrivate.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		24F5FE5B0DD1256800AE3585 /* OSKextVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE580DD1256800AE3585 /* OSKextVersion.c */; };
 		24F5FE600DD1257400AE3585 /* misc_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE5E0DD1257400AE3585 /* misc_util.c */; };
 		24F5FE640DD1258A00AE3585 /* printPList_new.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE620DD1258A00AE3585 /* printPList_new.c */; };
@@ -210,7 +206,6 @@
 		24F5FE680DD125B500AE3585 /* misc_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE5E0DD1257400AE3585 /* misc_util.c */; };
 		24F5FE690DD125B500AE3585 /* printPList_new.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE620DD1258A00AE3585 /* printPList_new.c */; };
 		24F5FE6D0DD1260900AE3585 /* IOKitKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE6A0DD125E900AE3585 /* IOKitKeysPrivate.h */; };
-		24F5FE920DD1304B00AE3585 /* OSKext.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
 		24F5FE930DD1306200AE3585 /* misc_util.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		25CEC9FE2388B77300762936 /* DoNothing.c in Sources */ = {isa = PBXBuildFile; fileRef = 25CEC9FD2388B77300762936 /* DoNothing.c */; };
 		25DFEB92239F6BEB002F4F9E /* DoNothing_10undef.c in Sources */ = {isa = PBXBuildFile; fileRef = 25DFEB91239F6BEB002F4F9E /* DoNothing_10undef.c */; };
@@ -253,8 +248,6 @@
 		3F116D2D1638DFAD001C6A14 /* IOHIDValue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
 		3F116D2F1638DFAD001C6A14 /* IOHIDLibPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55DB0A54A8FA00FAE0BC /* IOHIDLibPrivate.h */; };
 		3F116D311638DFAD001C6A14 /* KextManager.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF60B507B40A71007EADEA /* KextManager.h */; };
-		3F116D331638DFAD001C6A14 /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
-		3F116D341638DFAD001C6A14 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		3F116D351638DFAD001C6A14 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		3F116D361638DFAD001C6A14 /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
 		3F116D371638DFAD001C6A14 /* KextManagerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF60B707B40A71007EADEA /* KextManagerPriv.h */; };
@@ -516,7 +509,6 @@
 		48E26A5A22CBD16400F2306B /* IOHIDServiceClientObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */; };
 		48E26A5B22CBD16400F2306B /* IOHIDDeviceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */; };
 		4C56CEDA23C7C52500891A02 /* kernelmanagement_shims.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C56CED823C7C51800891A02 /* kernelmanagement_shims.c */; };
-		5070D9C2126506CF002B3D69 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		5070D9C3126506CF002B3D69 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		5070D9C5126506CF002B3D69 /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
 		5070D9C6126506CF002B3D69 /* macho_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F509D2094D00E51ACA /* macho_util.h */; };
@@ -561,6 +553,10 @@
 		7211A9C6164B413700A8F7C5 /* IOPlatformSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 7211A9C4164B413700A8F7C5 /* IOPlatformSupport.c */; };
 		7211A9C7164B413700A8F7C5 /* IOPlatformSupportPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */; };
 		7211A9C9164B417A00A8F7C5 /* IOPlatformSupportPrivate.h in Copy Files O */ = {isa = PBXBuildFile; fileRef = 7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */; };
+		722168C327B335F5007C0AC8 /* IOPMAssertionCategories.h in Copy Files L */ = {isa = PBXBuildFile; fileRef = 722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */; };
+		722168C427B33604007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */; };
+		722168C527B3361A007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */; };
+		722168C627B336B4007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */; };
 		7227668E21669AEB0019278D /* com.apple.iohid.service.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7227668C216699BF0019278D /* com.apple.iohid.service.plist */; };
 		72280EDF2363CAEA00FEF2E0 /* IOHIDPreferences.c in Sources */ = {isa = PBXBuildFile; fileRef = 72280EDE2363CAEA00FEF2E0 /* IOHIDPreferences.c */; };
 		7234DFB921C18A6400F1651A /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7234DFB821C18A6400F1651A /* libDiagnosticMessagesClient.tbd */; };
@@ -947,8 +943,6 @@
 		848E727A15068444006AE483 /* IOHIDValue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
 		848E727C15068444006AE483 /* IOHIDLibPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55DB0A54A8FA00FAE0BC /* IOHIDLibPrivate.h */; };
 		848E727E15068444006AE483 /* KextManager.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF60B507B40A71007EADEA /* KextManager.h */; };
-		848E728015068444006AE483 /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
-		848E728115068444006AE483 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		848E728215068444006AE483 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		848E728315068444006AE483 /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
 		848E728415068444006AE483 /* KextManagerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF60B707B40A71007EADEA /* KextManagerPriv.h */; };
@@ -1213,6 +1207,13 @@
 		8CF600241A4249570085E4DC /* IOPSKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
 		8CF600251A4249650085E4DC /* IOPSKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
 		8CF600261A42496E0085E4DC /* IOPSKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
+		95399D512698DE5D00BAE733 /* IOKitPMUnitTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 95399D502698DE5D00BAE733 /* IOKitPMUnitTests.m */; };
+		95A3D4B926A0FAB000C00261 /* IOPMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */; };
+		95A3D4BC26A1021900C00261 /* IOKitPMStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = 95A3D4BB26A1021900C00261 /* IOKitPMStubs.m */; };
+		95AF5C2126B89806005D0414 /* NotifyStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AF5C2026B89806005D0414 /* NotifyStubs.m */; };
+		95AF5C2426B8BDA2005D0414 /* XPCStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AF5C2326B8BDA2005D0414 /* XPCStubs.m */; };
+		95D9E0B926A8BABB00D469EF /* EnergyTraceStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = 95D9E0B826A8BABB00D469EF /* EnergyTraceStubs.m */; };
+		95D9E0BC26A8C11000D469EF /* DispatchStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = 95D9E0BB26A8C11000D469EF /* DispatchStubs.m */; };
 		B32727B7134F772D009C9B4B /* IOHIDPlugins.c in Sources */ = {isa = PBXBuildFile; fileRef = B32727B3134F772D009C9B4B /* IOHIDPlugins.c */; };
 		B32727B8134F772D009C9B4B /* IOHIDPlugins.c in Sources */ = {isa = PBXBuildFile; fileRef = B32727B3134F772D009C9B4B /* IOHIDPlugins.c */; };
 		B32727B9134F772D009C9B4B /* IOHIDPlugins.h in Headers */ = {isa = PBXBuildFile; fileRef = B32727B4134F772D009C9B4B /* IOHIDPlugins.h */; };
@@ -1599,8 +1600,6 @@
 			dstPath = "$(INSTALL_LOCATION)/usr/local/include/IOKit/kext";
 			dstSubfolderSpec = 0;
 			files = (
-				1025C8570F5E0B610055FAEA /* OSKext.h in CopyFiles */,
-				5070D9C2126506CF002B3D69 /* OSKextPrivate.h in CopyFiles */,
 				5070D9C3126506CF002B3D69 /* misc_util.h in CopyFiles */,
 				5070D9C5126506CF002B3D69 /* fat_util.h in CopyFiles */,
 				5070D9C6126506CF002B3D69 /* macho_util.h in CopyFiles */,
@@ -1748,8 +1747,6 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/kext";
 			dstSubfolderSpec = 1;
 			files = (
-				3F116D331638DFAD001C6A14 /* OSKext.h in CopyFiles */,
-				3F116D341638DFAD001C6A14 /* OSKextPrivate.h in CopyFiles */,
 				3F116D351638DFAD001C6A14 /* misc_util.h in CopyFiles */,
 				3F116D361638DFAD001C6A14 /* fat_util.h in CopyFiles */,
 				3F116D371638DFAD001C6A14 /* KextManagerPriv.h in CopyFiles */,
@@ -1810,6 +1807,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
+				722168C427B33604007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */,
 				3F116D471638DFAD001C6A14 /* IOPMLibPrivate.h in CopyFiles */,
 				3F116D481638DFAD001C6A14 /* IOPMUPSPrivate.h in CopyFiles */,
 				3F116D491638DFAD001C6A14 /* powermanagement_mig.h in CopyFiles */,
@@ -2079,8 +2077,6 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/kext";
 			dstSubfolderSpec = 1;
 			files = (
-				24F5FE920DD1304B00AE3585 /* OSKext.h in Copy Kext Files */,
-				24B98E050DDD4DD800E04D36 /* OSKextPrivate.h in Copy Kext Files */,
 				24F5FE930DD1306200AE3585 /* misc_util.h in Copy Kext Files */,
 				052114FF09D20A4F00E51ACA /* fat_util.h in Copy Kext Files */,
 				052114FE09D20A4700E51ACA /* macho_util.h in Copy Kext Files */,
@@ -2133,6 +2129,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
+				722168C327B335F5007C0AC8 /* IOPMAssertionCategories.h in Copy Files L */,
 				72385390087F226900B36ABB /* IOPMLibPrivate.h in Copy Files L */,
 				72385391087F226900B36ABB /* IOPMUPSPrivate.h in Copy Files L */,
 				72385392087F226900B36ABB /* powermanagement_mig.h in Copy Files L */,
@@ -2574,8 +2571,6 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/kext";
 			dstSubfolderSpec = 1;
 			files = (
-				10EE1E320FB2858D007C4385 /* OSKext.h in CopyFiles */,
-				10EE1E330FB2858D007C4385 /* OSKextPrivate.h in CopyFiles */,
 				10EE1E340FB2858D007C4385 /* misc_util.h in CopyFiles */,
 				8472D4A20CFA100A003111DE /* fat_util.h in CopyFiles */,
 				8472D4A60CFA100A003111DE /* KextManagerPriv.h in CopyFiles */,
@@ -2636,6 +2631,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
+				722168C627B336B4007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */,
 				8472D4B50CFA100A003111DE /* IOPMLibPrivate.h in CopyFiles */,
 				8472D4B60CFA100A003111DE /* IOPMUPSPrivate.h in CopyFiles */,
 				8472D4B70CFA100A003111DE /* powermanagement_mig.h in CopyFiles */,
@@ -2746,8 +2742,6 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/kext";
 			dstSubfolderSpec = 1;
 			files = (
-				848E728015068444006AE483 /* OSKext.h in CopyFiles */,
-				848E728115068444006AE483 /* OSKextPrivate.h in CopyFiles */,
 				848E728215068444006AE483 /* misc_util.h in CopyFiles */,
 				848E728315068444006AE483 /* fat_util.h in CopyFiles */,
 				848E728415068444006AE483 /* KextManagerPriv.h in CopyFiles */,
@@ -2807,6 +2801,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
+				722168C527B3361A007C0AC8 /* IOPMAssertionCategories.h in CopyFiles */,
 				848E729415068444006AE483 /* IOPMLibPrivate.h in CopyFiles */,
 				848E729515068444006AE483 /* IOPMUPSPrivate.h in CopyFiles */,
 				848E729615068444006AE483 /* powermanagement_mig.h in CopyFiles */,
@@ -3269,8 +3264,6 @@
 		60EBEE7A18C5A53B0090C922 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
 		60EBEE7B18C5A53B0090C922 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOKitUser.xcconfig; sourceTree = "<group>"; };
-		6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "IOKitUser-Embedded.xcconfig"; sourceTree = "<group>"; };
-		6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "IOKitUser-Sim.xcconfig"; sourceTree = "<group>"; };
 		6F089838198BF33400E03561 /* cross_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cross_link.c; sourceTree = "<group>"; };
 		6F089839198BF33400E03561 /* cross_link.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cross_link.h; sourceTree = "<group>"; };
 		6F51E41D0DAC16B800EDDC3D /* libkxld.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libkxld.dylib; path = usr/lib/system/libkxld.dylib; sourceTree = SDKROOT; };
@@ -3282,6 +3275,7 @@
 		720CE2651CAB43C9005127CC /* Trie.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Trie.hpp; sourceTree = "<group>"; };
 		7211A9C4164B413700A8F7C5 /* IOPlatformSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IOPlatformSupport.c; path = platform.subproj/IOPlatformSupport.c; sourceTree = SOURCE_ROOT; };
 		7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOPlatformSupportPrivate.h; path = platform.subproj/IOPlatformSupportPrivate.h; sourceTree = SOURCE_ROOT; };
+		722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPMAssertionCategories.h; sourceTree = "<group>"; };
 		7227668C216699BF0019278D /* com.apple.iohid.service.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.iohid.service.plist; sourceTree = "<group>"; };
 		72280EDD2363CAC300FEF2E0 /* IOHIDPreferences.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDPreferences.h; sourceTree = "<group>"; };
 		72280EDE2363CAEA00FEF2E0 /* IOHIDPreferences.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IOHIDPreferences.c; sourceTree = "<group>"; };
@@ -3339,7 +3333,6 @@
 		7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAVControlInterface.h; sourceTree = "<group>"; };
 		7DA3C05422C6C3E4005796E3 /* IOAVControlInterfaceUserClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOAVControlInterfaceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVControlInterfaceUserClient.h; sourceTree = SDKROOT; };
 		80515E131AAA5E620067A770 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = usr/lib/libenergytrace.dylib; sourceTree = SDKROOT; };
-		810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = SimulatorSupport.xcconfig; path = AppleInternal/XcodeConfig/SimulatorSupport.xcconfig; sourceTree = DEVELOPER_DIR; };
 		840933E015FC101100F0AA90 /* IOHIDEventSystemConnectionPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemConnectionPrivate.h; sourceTree = "<group>"; };
 		840BB12109B77C5200D20D8F /* IOHIDLibPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOHIDLibPrivate.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDLibPrivate.h; sourceTree = SDKROOT; };
 		8415111909B69904008ECC10 /* IOHIDPrivateKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOHIDPrivateKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDPrivateKeys.h; sourceTree = SDKROOT; };
@@ -3393,8 +3386,6 @@
 		8421FC450F3219EF00F49609 /* IOMIGMachPort.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOMIGMachPort.h; sourceTree = "<group>"; };
 		8421FC470F321A0A00F49609 /* IOMIGMachPort.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOMIGMachPort.c; sourceTree = "<group>"; };
 		842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDServicePrivate.h; sourceTree = "<group>"; };
-		843B3E4225D1EF720088A088 /* IOKit-iOS.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOS.modulemap"; sourceTree = "<group>"; };
-		843B3E4325D1EF730088A088 /* IOKit-iOSSimulator.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOSSimulator.modulemap"; sourceTree = "<group>"; };
 		843C1FED0C0790410009057F /* IOHIDEvent.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEvent.c; sourceTree = "<group>"; };
 		843C1FEE0C0790410009057F /* IOHIDEvent.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEvent.h; sourceTree = "<group>"; };
 		843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDServicePlugIn.h; sourceTree = "<group>"; };
@@ -3423,12 +3414,15 @@
 		84566831114C30BA006A9B74 /* IOHIDEventSystemConnection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDEventSystemConnection.c; sourceTree = "<group>"; };
 		845A820715423189004DE713 /* IOUSBDeviceDescription.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDeviceDescription.h; sourceTree = "<group>"; };
 		845A820B154231A2004DE713 /* IOUSBDeviceDescription.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUSBDeviceDescription.c; sourceTree = "<group>"; };
+		846D75E2279F326200347A2B /* IOKit-Embedded.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-Embedded.private.modulemap"; sourceTree = "<group>"; };
 		846FACDE113F4E3900F49F0A /* IOHIDEventSystemClientMIG.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = IOHIDEventSystemClientMIG.defs; sourceTree = "<group>"; };
 		846FADB811407E3200F49F0A /* IOHIDEventSystemPrivate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDEventSystemPrivate.c; sourceTree = "<group>"; };
 		8472D46C0CFA0E38003111DE /* IOUSBDeviceData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUSBDeviceData.c; sourceTree = "<group>"; };
 		8472D46D0CFA0E38003111DE /* IOUSBDeviceData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDeviceData.h; sourceTree = "<group>"; };
 		8472D46E0CFA0E38003111DE /* IOUSBDevicePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDevicePrivate.h; sourceTree = "<group>"; };
 		8472D5340CFA100A003111DE /* IOKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IOKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		84734576270519270096E0F4 /* IOKit-watchOS.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-watchOS.private.modulemap"; sourceTree = "<group>"; };
+		847345772705194B0096E0F4 /* IOKit-iOSSimulator.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = "IOKit-iOSSimulator.private.modulemap"; sourceTree = "<group>"; };
 		847A12480C07C3A400F3CCDB /* IOHIDEventQueue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEventQueue.c; sourceTree = "<group>"; };
 		847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventQueue.h; sourceTree = "<group>"; };
 		847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEventSystem.c; sourceTree = "<group>"; };
@@ -3491,11 +3485,12 @@
 		84A6100713E646230034FE11 /* IODPPropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPPropertyKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPPropertyKeys.h; sourceTree = SDKROOT; };
 		84A6100813E646230034FE11 /* IODPServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPServiceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPServiceUserClient.h; sourceTree = SDKROOT; };
 		84A6100913E646230034FE11 /* IODPTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPTypes.h; sourceTree = SDKROOT; };
-		84B286DD14F3276700A9FD4D /* IOUSBDeviceCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDeviceCommandKeys.h; path = "$SDKROOT//System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDeviceCommandKeys.h"; sourceTree = "<absolute>"; };
-		84B286DE14F3276700A9FD4D /* IOUSBDevicePropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDevicePropertyKeys.h; path = "$SDKROOT//System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDevicePropertyKeys.h"; sourceTree = "<absolute>"; };
+		84B286DD14F3276700A9FD4D /* IOUSBDeviceCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDeviceCommandKeys.h; path = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDeviceCommandKeys.h"; sourceTree = "<absolute>"; };
+		84B286DE14F3276700A9FD4D /* IOUSBDevicePropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDevicePropertyKeys.h; path = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDevicePropertyKeys.h"; sourceTree = "<absolute>"; };
 		84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemKeysPrivate.h; sourceTree = "<group>"; };
 		84B3B1FD13E7C7E600C7ACDD /* IODPLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IODPLib.h; sourceTree = "<group>"; };
 		84BC0AF9104D842500AB4EF5 /* IOHIDEventSystemMIG.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = IOHIDEventSystemMIG.defs; sourceTree = "<group>"; };
+		84CAAA0A270EE86800F4CC25 /* UnifdefHeaders.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = UnifdefHeaders.sh; sourceTree = "<group>"; };
 		84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDServiceConnectionCache.h; sourceTree = "<group>"; };
 		84D1C5D517B19503006BC88F /* IOHIDServiceConnectionCache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDServiceConnectionCache.c; sourceTree = "<group>"; };
 		84D247B9177BD854008F663C /* IOHIDSessionFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDSessionFilter.h; sourceTree = "<group>"; };
@@ -3524,8 +3519,19 @@
 		8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOAVDisplayMemory.c; sourceTree = "<group>"; };
 		8987CF9C1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOAVDisplayMemoryUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVDisplayMemoryUserClient.h; sourceTree = SDKROOT; };
 		8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPSKeysPrivate.h; sourceTree = "<group>"; };
+		95399D4E2698DE5C00BAE733 /* IOKitPMUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOKitPMUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		95399D502698DE5D00BAE733 /* IOKitPMUnitTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOKitPMUnitTests.m; sourceTree = "<group>"; };
+		95A3D4BA26A1016500C00261 /* IOKitPMStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOKitPMStubs.h; sourceTree = "<group>"; };
+		95A3D4BB26A1021900C00261 /* IOKitPMStubs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOKitPMStubs.m; sourceTree = "<group>"; };
+		95AF5C1F26B897BE005D0414 /* NotifyStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotifyStubs.h; sourceTree = "<group>"; };
+		95AF5C2026B89806005D0414 /* NotifyStubs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotifyStubs.m; sourceTree = "<group>"; };
+		95AF5C2226B8BD73005D0414 /* XPCStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XPCStubs.h; sourceTree = "<group>"; };
+		95AF5C2326B8BDA2005D0414 /* XPCStubs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XPCStubs.m; sourceTree = "<group>"; };
+		95D9E0B726A8BA8D00D469EF /* EnergyTraceStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EnergyTraceStubs.h; sourceTree = "<group>"; };
+		95D9E0B826A8BABB00D469EF /* EnergyTraceStubs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EnergyTraceStubs.m; sourceTree = "<group>"; };
+		95D9E0BA26A8C06900D469EF /* DispatchStubs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DispatchStubs.h; sourceTree = "<group>"; };
+		95D9E0BB26A8C11000D469EF /* DispatchStubs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DispatchStubs.m; sourceTree = "<group>"; };
 		98599EBD1A71677000D3EE9E /* IOHIDDebugTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDDebugTrace.h; sourceTree = "<group>"; };
-		A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		B32727B3134F772D009C9B4B /* IOHIDPlugins.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDPlugins.c; sourceTree = "<group>"; };
 		B32727B4134F772D009C9B4B /* IOHIDPlugins.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDPlugins.h; sourceTree = "<group>"; };
 		B32727B5134F772D009C9B4B /* IOHIDServiceFilterPlugIn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDServiceFilterPlugIn.h; sourceTree = "<group>"; };
@@ -3704,6 +3710,13 @@
 				848E732E15068444006AE483 /* libDeviceMIG.a in Frameworks */,
 				848E732F15068444006AE483 /* libioav.a in Frameworks */,
 				848E733015068444006AE483 /* libiodp.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95399D4B2698DE5C00BAE733 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4358,10 +4371,11 @@
 			children = (
 				8488C3BF25CB9E6200956DF1 /* IOKit.modulemap */,
 				8488C3BE25CB9E6200956DF1 /* IOKit.private.modulemap */,
-				843B3E4225D1EF720088A088 /* IOKit-iOS.modulemap */,
 				84F1201325D35FEB00ED58A4 /* IOKit-Embedded.modulemap */,
-				843B3E4325D1EF730088A088 /* IOKit-iOSSimulator.modulemap */,
+				846D75E2279F326200347A2B /* IOKit-Embedded.private.modulemap */,
 				84E5E3FC2605C64300D12F66 /* IOKit-iOS.private.modulemap */,
+				84734576270519270096E0F4 /* IOKit-watchOS.private.modulemap */,
+				847345772705194B0096E0F4 /* IOKit-iOSSimulator.private.modulemap */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -4548,6 +4562,32 @@
 			name = "External Frameworks and Libraries";
 			sourceTree = "<group>";
 		};
+		95399D4F2698DE5C00BAE733 /* IOKitPMUnitTests */ = {
+			isa = PBXGroup;
+			children = (
+				95D7CFF326D56D2E000AF637 /* Stubs */,
+				95399D502698DE5D00BAE733 /* IOKitPMUnitTests.m */,
+			);
+			path = IOKitPMUnitTests;
+			sourceTree = "<group>";
+		};
+		95D7CFF326D56D2E000AF637 /* Stubs */ = {
+			isa = PBXGroup;
+			children = (
+				95AF5C1F26B897BE005D0414 /* NotifyStubs.h */,
+				95AF5C2026B89806005D0414 /* NotifyStubs.m */,
+				95A3D4BB26A1021900C00261 /* IOKitPMStubs.m */,
+				95D9E0B726A8BA8D00D469EF /* EnergyTraceStubs.h */,
+				95D9E0B826A8BABB00D469EF /* EnergyTraceStubs.m */,
+				95D9E0BA26A8C06900D469EF /* DispatchStubs.h */,
+				95D9E0BB26A8C11000D469EF /* DispatchStubs.m */,
+				95A3D4BA26A1016500C00261 /* IOKitPMStubs.h */,
+				95AF5C2226B8BD73005D0414 /* XPCStubs.h */,
+				95AF5C2326B8BDA2005D0414 /* XPCStubs.m */,
+			);
+			path = Stubs;
+			sourceTree = "<group>";
+		};
 		98599EBC1A7166C500D3EE9E /* IOHIDDebug */ = {
 			isa = PBXGroup;
 			children = (
@@ -4584,11 +4624,7 @@
 				7DA3C05422C6C3E4005796E3 /* IOAVControlInterfaceUserClient.h */,
 				255E6C5D239AFE5700F5349B /* kext.xcconfig */,
 				6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */,
-				6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */,
-				6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */,
 				80515E131AAA5E620067A770 /* libenergytrace.dylib */,
-				A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */,
-				810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */,
 				3FF0860D165AC58000BD1467 /* iokitsimd */,
 				E1AF607307B40A71007EADEA /* graphics */,
 				E1AF60DA07B40A71007EADEA /* hid */,
@@ -4609,6 +4645,7 @@
 				E1AF60EA07B40A71007EADEA /* External Frameworks and Libraries */,
 				60534D6D1889E433001A180E /* IOServiceAuthorizeAgent */,
 				603D2FAB18D9FFEA00A15FF1 /* ioserviceauthorized */,
+				95399D4F2698DE5C00BAE733 /* IOKitPMUnitTests */,
 				E1AF600207B40A70007EADEA /* Products */,
 				A6280EDC1FDF56F900F18432 /* Recovered References */,
 				0F049CF4210F932700F8E2BC /* Frameworks */,
@@ -4631,6 +4668,7 @@
 				603D2FAA18D9FFEA00A15FF1 /* ioserviceauthorized.xpc */,
 				25CEC9FB2388B77300762936 /* DoNothing.kext */,
 				25B8C19E239B8B1500FDC974 /* DoNothing-10undef.kext */,
+				95399D4E2698DE5C00BAE733 /* IOKitPMUnitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4668,6 +4706,7 @@
 				E1AF602707B40A70007EADEA /* IOCFPlugIn.c */,
 				2D371B170905ED1F005F97DC /* IOSystemConfiguration.c */,
 				E1AF602907B40A70007EADEA /* IOTrap.s */,
+				84CAAA0A270EE86800F4CC25 /* UnifdefHeaders.sh */,
 			);
 			name = "Other Sources";
 			sourceTree = "<group>";
@@ -4718,6 +4757,7 @@
 				BABB8C3907DF311D005D5A3C /* IOPMUPSPrivate.h */,
 				BABB8C3A07DF311D005D5A3C /* powermanagement_mig.h */,
 				E1AF604A07B40A71007EADEA /* IOPMLib.h */,
+				722168C227B331D1007C0AC8 /* IOPMAssertionCategories.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -5333,6 +5373,7 @@
 			buildConfigurationList = 10830CD30F5DDDD700937E9E /* Build configuration list for PBXNativeTarget "libkext" */;
 			buildPhases = (
 				10830CE00F5DDF8200937E9E /* CopyFiles */,
+				841FE294270F847A00840EF0 /* Unifdef OSKext Headers */,
 				10830CC70F5DDD9A00937E9E /* Sources */,
 				10830CC80F5DDD9A00937E9E /* Frameworks */,
 			);
@@ -5410,6 +5451,7 @@
 				3F116D2E1638DFAD001C6A14 /* CopyFiles */,
 				3F116D301638DFAD001C6A14 /* CopyFiles */,
 				3F116D321638DFAD001C6A14 /* CopyFiles */,
+				841FE291270F82B100840EF0 /* Unifdef OSKext Headers */,
 				3F116D3B1638DFAD001C6A14 /* CopyFiles */,
 				3F116D3E1638DFAD001C6A14 /* CopyFiles */,
 				3F116D411638DFAD001C6A14 /* CopyFiles */,
@@ -5499,6 +5541,7 @@
 				8472D49C0CFA100A003111DE /* CopyFiles */,
 				8472D49E0CFA100A003111DE /* CopyFiles */,
 				8472D4A00CFA100A003111DE /* CopyFiles */,
+				841FE292270F835600840EF0 /* Unifdef OSKext Headers */,
 				8472D4AA0CFA100A003111DE /* CopyFiles */,
 				8472D4AC0CFA100A003111DE /* CopyFiles */,
 				8472D4AF0CFA100A003111DE /* CopyFiles */,
@@ -5536,6 +5579,7 @@
 				848E727B15068444006AE483 /* CopyFiles */,
 				848E727D15068444006AE483 /* CopyFiles */,
 				848E727F15068444006AE483 /* CopyFiles */,
+				841FE293270F840500840EF0 /* Unifdef OSKext Headers */,
 				848E728815068444006AE483 /* CopyFiles */,
 				848E728B15068444006AE483 /* CopyFiles */,
 				848E728E15068444006AE483 /* CopyFiles */,
@@ -5563,6 +5607,23 @@
 			productName = "IOKit (Framework)";
 			productReference = 848E733915068444006AE483 /* IOKit.framework */;
 			productType = "com.apple.product-type.framework";
+		};
+		95399D4D2698DE5C00BAE733 /* IOKitPMUnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95399D562698DE5D00BAE733 /* Build configuration list for PBXNativeTarget "IOKitPMUnitTests" */;
+			buildPhases = (
+				95399D4A2698DE5C00BAE733 /* Sources */,
+				95399D4B2698DE5C00BAE733 /* Frameworks */,
+				95399D4C2698DE5C00BAE733 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOKitPMUnitTests;
+			productName = IOKitPMUnitTests;
+			productReference = 95399D4E2698DE5C00BAE733 /* IOKitPMUnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		B332FD1E14D747FB0092AA1E /* IOKit-Embedded-eOS-lib */ = {
 			isa = PBXNativeTarget;
@@ -5595,6 +5656,7 @@
 				843C1FFA0C0792DB0009057F /* Copy HID Private Headers A */,
 				7238535C087F1FC800B36ABB /* Copy KextManager Files */,
 				7238535E087F1FCC00B36ABB /* Copy Kext Files */,
+				84CAAA08270ED87D00F4CC25 /* Unifdef OSKext Headers */,
 				72385360087F1FD100B36ABB /* Copy Files H */,
 				72385362087F1FD500B36ABB /* Copy Files I */,
 				72385388087F21D400B36ABB /* Copy Files J */,
@@ -5650,6 +5712,10 @@
 						CreatedOnToolsVersion = 11.2;
 						ProvisioningStyle = Automatic;
 					};
+					95399D4D2698DE5C00BAE733 = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 2DF1E08908DB6A940096BDB6 /* Build configuration list for PBXProject "IOKitUser" */;
@@ -5681,6 +5747,7 @@
 				25A83D3A237E0950001FDBD7 /* tests */,
 				25CEC9FA2388B77300762936 /* DoNothing */,
 				25B8C19D239B8B1500FDC974 /* DoNothing-10undef */,
+				95399D4D2698DE5C00BAE733 /* IOKitPMUnitTests */,
 			);
 		};
 /* End PBXProject section */
@@ -5709,6 +5776,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		603D2FA818D9FFEA00A15FF1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95399D4C2698DE5C00BAE733 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -5750,7 +5824,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# 345678901234567890123456789012345678901234567890123456789012345678901234567890\n\n# only way I could figure out how to get the generated header describing the\n# routines compiled into the framemwork to be installed in PrivateHeaders/kext\n\nset -x\n\nif [ -e \"${SCRIPT_INPUT_FILE_0}\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ -e \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_1}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelse\n    echo \"Can't find derived MIG header\"\n    exit 1\nfi\n\n";
+			shellScript = "# 345678901234567890123456789012345678901234567890123456789012345678901234567890\n\n# only way I could figure out how to get the generated header describing the\n# routines compiled into the framemwork to be installed in PrivateHeaders/kext\n\nset -x\n\nif [ -e \"${SCRIPT_INPUT_FILE_0}\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ -e \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_1}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ \"$ACTION\" != \"installhdrs\" ] ; then\n    echo \"Can't find derived MIG header\"\n    exit 1\nfi\n\n";
 		};
 		2D76BD2308DD0F83009A41B5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5758,11 +5832,11 @@
 			files = (
 			);
 			inputPaths = (
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.h,
-				$PROJECT_DIR/DeviceMig.sh,
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.h",
+				"$(PROJECT_DIR)/DeviceMig.sh",
 			);
 			outputPaths = (
-				$DSTROOT$DYLIB_INSTALL_NAME_BASE/$PUBLIC_HEADERS_FOLDER_PATH/iokitmig.h,
+				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$(PUBLIC_HEADERS_FOLDER_PATH)/iokitmig.h",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
@@ -5774,15 +5848,15 @@
 			files = (
 			);
 			inputPaths = (
-				$SDKROOT/usr/include/device/device.defs,
-				$SDKROOT/usr/include/device/device_types.defs,
-				$PROJECT_DIR/DeviceMIG.sh,
+				"$(SDKROOT)/usr/include/device/device.defs",
+				"$(SDKROOT)/usr/include/device/device_types.defs",
+				"$(PROJECT_DIR)/DeviceMIG.sh",
 			);
 			outputPaths = (
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.h,
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.c,
-				$PROJECT_DERIVED_FILE_DIR/iokitmig64.h,
-				$PROJECT_DERIVED_FILE_DIR/iokitmig64.c,
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.h",
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.c",
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig64.h",
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig64.c",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash DeviceMIG.sh";
@@ -5794,11 +5868,11 @@
 			files = (
 			);
 			inputPaths = (
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.h,
-				$PROJECT_DIR/DeviceMig.sh,
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.h",
+				"$(PROJECT_DIR)/DeviceMig.sh",
 			);
 			outputPaths = (
-				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$PUBLIC_HEADERS_FOLDER_PATH/iokitmig.h",
+				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$(PUBLIC_HEADERS_FOLDER_PATH)/iokitmig.h",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
@@ -5833,17 +5907,109 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ -e \"${SCRIPT_INPUT_FILE_0}\" ] ; then\n    cp \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nfi\n";
 		};
+		841FE291270F82B100840EF0 /* Unifdef OSKext Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/kext.subproj/OSKext.h",
+				"$(PROJECT_DIR)/kext.subproj/OSKextPrivate.h",
+				"$(PROJECT_DIR)/UnifdefHeaders.sh",
+			);
+			name = "Unifdef OSKext Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKext.h",
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKextPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". UnifdefHeaders.sh\n";
+		};
+		841FE292270F835600840EF0 /* Unifdef OSKext Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/kext.subproj/OSKext.h",
+				"$(PROJECT_DIR)/kext.subproj/OSKextPrivate.h",
+				"$(PROJECT_DIR)/UnifdefHeaders.sh",
+			);
+			name = "Unifdef OSKext Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKext.h",
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKextPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". UnifdefHeaders.sh\n";
+		};
+		841FE293270F840500840EF0 /* Unifdef OSKext Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/kext.subproj/OSKext.h",
+				"$(PROJECT_DIR)/kext.subproj/OSKextPrivate.h",
+				"$(PROJECT_DIR)/UnifdefHeaders.sh",
+			);
+			name = "Unifdef OSKext Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKext.h",
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKextPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". UnifdefHeaders.sh\n";
+		};
+		841FE294270F847A00840EF0 /* Unifdef OSKext Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/kext.subproj/OSKext.h",
+				"$(PROJECT_DIR)/kext.subproj/OSKextPrivate.h",
+				"$(PROJECT_DIR)/UnifdefHeaders.sh",
+			);
+			name = "Unifdef OSKext Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SCRIPT_OUTPUT_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/OSKext.h",
+				"$(SCRIPT_OUTPUT_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/OSKextPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". UnifdefHeaders.sh\n";
+		};
 		8472D52B0CFA100A003111DE /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.h,
-				$PROJECT_DIR/DeviceMig.sh,
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.h",
+				"$(PROJECT_DIR)/DeviceMig.sh",
 			);
 			outputPaths = (
-				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$PUBLIC_HEADERS_FOLDER_PATH/iokitmig.h",
+				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$(PUBLIC_HEADERS_FOLDER_PATH)/iokitmig.h",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
@@ -5855,15 +6021,38 @@
 			files = (
 			);
 			inputPaths = (
-				$PROJECT_DERIVED_FILE_DIR/iokitmig32.h,
-				$PROJECT_DIR/DeviceMig.sh,
+				"$(PROJECT_DERIVED_FILE_DIR)/iokitmig32.h",
+				"$(PROJECT_DIR)/DeviceMig.sh",
 			);
 			outputPaths = (
-				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$PUBLIC_HEADERS_FOLDER_PATH/iokitmig.h",
+				"$(DSTROOT)$(DYLIB_INSTALL_NAME_BASE)/$(PUBLIC_HEADERS_FOLDER_PATH)/iokitmig.h",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
+		};
+		84CAAA08270ED87D00F4CC25 /* Unifdef OSKext Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/kext.subproj/OSKext.h",
+				"$(PROJECT_DIR)/kext.subproj/OSKextPrivate.h",
+				"$(PROJECT_DIR)/UnifdefHeaders.sh",
+			);
+			name = "Unifdef OSKext Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKext.h",
+				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/OSKextPrivate.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". UnifdefHeaders.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -6176,6 +6365,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		95399D4A2698DE5C00BAE733 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95A3D4B926A0FAB000C00261 /* IOPMAssertions.c in Sources */,
+				95A3D4BC26A1021900C00261 /* IOKitPMStubs.m in Sources */,
+				95AF5C2126B89806005D0414 /* NotifyStubs.m in Sources */,
+				95399D512698DE5D00BAE733 /* IOKitPMUnitTests.m in Sources */,
+				95D9E0B926A8BABB00D469EF /* EnergyTraceStubs.m in Sources */,
+				95D9E0BC26A8C11000D469EF /* DispatchStubs.m in Sources */,
+				95AF5C2426B8BDA2005D0414 /* XPCStubs.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B332FDB014D747FB0092AA1E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -6416,24 +6619,30 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-DBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DERIVED_FILE_DIR)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INSTALL_LOCATION)/usr/local/lib";
 				IS_ZIPPERED = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/IOKit/kext;
 				PRODUCT_NAME = kext;
+				SCRIPT_OUTPUT_DIR = "$(SCRIPT_OUTPUT_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				SCRIPT_OUTPUT_DIR__NO = "$(TARGET_BUILD_DIR)";
+				SCRIPT_OUTPUT_DIR__YES = "$(DSTROOT)";
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
 					"-Wno-error=unguarded-availability-new",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
@@ -6444,22 +6653,28 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-DBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DERIVED_FILE_DIR)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				IS_ZIPPERED = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/IOKit/kext;
 				PRODUCT_NAME = kext;
+				SCRIPT_OUTPUT_DIR = "$(SCRIPT_OUTPUT_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				SCRIPT_OUTPUT_DIR__NO = "$(TARGET_BUILD_DIR)";
+				SCRIPT_OUTPUT_DIR__YES = "$(DSTROOT)";
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
 					"-Wno-error=unguarded-availability-new",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -6470,23 +6685,29 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-DBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DERIVED_FILE_DIR)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				IS_ZIPPERED = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/IOKit/kext;
 				PRODUCT_NAME = kext;
+				SCRIPT_OUTPUT_DIR = "$(SCRIPT_OUTPUT_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				SCRIPT_OUTPUT_DIR__NO = "$(TARGET_BUILD_DIR)";
+				SCRIPT_OUTPUT_DIR__YES = "$(DSTROOT)";
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
 					"-Wno-error=unguarded-availability-new",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Development-Embedded";
@@ -6767,10 +6988,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -6838,10 +7055,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -6904,10 +7117,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -6975,10 +7184,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -7041,10 +7246,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -7112,10 +7313,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -7178,10 +7375,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -7249,10 +7442,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-				);
 				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
 				INSTALL_PATH = /System/AppleInternal/Library/AuxiliaryExtensions;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -7273,13 +7462,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				"INSTALL_PATH[sdk=macosx*]" = "$(INSTALL_PATH_ACTUAL)";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = DeviceMIG;
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Deployment;
 		};
@@ -7297,6 +7484,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
@@ -7306,15 +7494,16 @@
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -7332,15 +7521,13 @@
 					"-DHAVE_CFURLACCESS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc arm64";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Deployment;
 		};
@@ -7348,6 +7535,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					debug,
@@ -7356,17 +7544,11 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					"$(SDKROOT)/usr/local/include",
-				);
 				OTHER_CFLAGS = (
 					"-DIOKIT",
 					"-D__MigTypeCheck=1",
@@ -7377,37 +7559,33 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
 		};
 		3F116DEF1638DFAD001C6A14 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SDKROOT)/usr/local/lib",
-					"$(SRCROOT)/usr/local/lib",
-					"$(SDKROOT)/usr/lib",
+					"$(SDKROOT)/usr/lib/system",
 				);
-				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7420,48 +7598,41 @@
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
-				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
+				OTHER_MIGFLAGS = "-DIOKIT";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = Deployment;
 		};
 		3F116DF01638DFAD001C6A14 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)/System/Library/Frameworks",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SDKROOT)/usr/local/lib",
-					"$(SRCROOT)/usr/local/lib",
-					"$(SDKROOT)/usr/lib",
+					"$(SDKROOT)/usr/lib/system",
 				);
-				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7474,49 +7645,41 @@
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc arm64";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = Development;
 		};
 		3F116DF11638DFAD001C6A14 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"$(SDKROOT)/System/Frameworks",
-					"$(SDKROOT)/System/Library/Frameworks",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
-					"$(SDKROOT)/usr/local/lib",
-					"$(SRCROOT)/usr/local/lib",
-					"$(SDKROOT)/usr/lib\"",
 				);
-				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7530,43 +7693,38 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
 		};
 		3F116DF21638DFAD001C6A14 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Frameworks",
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"$(SDKROOT)/System/Library/Frameworks",
-				);
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
-					"$(SDKROOT)/usr/local/lib",
-					"$(SRCROOT)/usr/local/lib",
-					"$(SDKROOT)/usr/lib",
 				);
-				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOSSimulator.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -7580,11 +7738,12 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
@@ -7602,6 +7761,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
@@ -7619,6 +7779,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -7635,6 +7796,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -7652,87 +7814,52 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Development-Embedded";
 		};
 		3FF08620165AC5F400BD1467 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)\"",
-				);
-				INDIGO_INSTALL_PATH_PREFIX = "$(SIMULATOR_SDKDIR)";
-				INSTALL_PATH_ACTUAL = /usr/sbin;
-				INSTALL_PATH_PREFIX = "$(INDIGO_INSTALL_PATH_PREFIX)";
+				INSTALL_PATH = /usr/sbin;
 				OTHER_LDFLAGS = "-lCrashReporterClient";
-				OTHER_MIGFLAGS = "-I$(SIMULATOR_SDKDIR)/usr/include/device";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
-				VALID_ARCHS = "x86_64 arm64e";
 			};
 			name = Deployment;
 		};
 		3FF08621165AC5F400BD1467 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)\"",
-				);
-				INDIGO_INSTALL_PATH_PREFIX = "$(SIMULATOR_SDKDIR)";
-				INSTALL_PATH_ACTUAL = /usr/sbin;
-				INSTALL_PATH_PREFIX = "$(INDIGO_INSTALL_PATH_PREFIX)";
+				INSTALL_PATH = /usr/sbin;
 				OTHER_LDFLAGS = "-lCrashReporterClient";
-				OTHER_MIGFLAGS = "-I$(SIMULATOR_SDKDIR)/usr/include/device";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
-				VALID_ARCHS = "x86_64 arm64e";
 			};
 			name = Development;
 		};
 		3FF08622165AC5F400BD1467 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)\"",
-				);
-				INDIGO_INSTALL_PATH_PREFIX = "$(SIMULATOR_SDKDIR)";
-				INSTALL_PATH_ACTUAL = /usr/sbin;
-				INSTALL_PATH_PREFIX = "$(INDIGO_INSTALL_PATH_PREFIX)";
+				INSTALL_PATH = /usr/sbin;
 				OTHER_LDFLAGS = "-lCrashReporterClient";
-				OTHER_MIGFLAGS = "-I$(SIMULATOR_SDKDIR)/usr/include/device";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
-				VALID_ARCHS = "x86_64 arm64e";
 			};
 			name = "Deployment-Embedded";
 		};
 		3FF08623165AC5F400BD1467 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)\"",
-				);
-				INDIGO_INSTALL_PATH_PREFIX = "$(SIMULATOR_SDKDIR)";
-				INSTALL_PATH_ACTUAL = /usr/sbin;
-				INSTALL_PATH_PREFIX = "$(INDIGO_INSTALL_PATH_PREFIX)";
+				INSTALL_PATH = /usr/sbin;
 				OTHER_LDFLAGS = "-lCrashReporterClient";
-				OTHER_MIGFLAGS = "-I$(SIMULATOR_SDKDIR)/usr/include/device";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
-				VALID_ARCHS = "x86_64 arm64e";
 			};
 			name = "Development-Embedded";
 		};
@@ -7748,6 +7875,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME:rfc1034identifier)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = Deployment;
@@ -7764,6 +7892,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME:rfc1034identifier)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = Development;
@@ -7780,6 +7909,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME:rfc1034identifier)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = "Deployment-Embedded";
@@ -7796,6 +7926,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME:rfc1034identifier)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = "Development-Embedded";
@@ -7812,6 +7943,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = Deployment;
@@ -7828,6 +7960,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = Development;
@@ -7844,6 +7977,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = "Deployment-Embedded";
@@ -7860,6 +7994,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/XPCServices";
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				WRAPPER_EXTENSION = xpc;
 			};
 			name = "Development-Embedded";
@@ -7868,6 +8003,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					debug,
@@ -7876,17 +8012,11 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					"$(SDKROOT)/usr/local/include",
-				);
 				OTHER_CFLAGS = (
 					"-DIOKIT",
 					"-D__MigTypeCheck=1",
@@ -7897,6 +8027,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -7906,15 +8037,16 @@
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -7933,10 +8065,10 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Development;
 		};
@@ -7946,26 +8078,23 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
-				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=watchos*]" = "$(SRCROOT)/Modules/IOKit-watchOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -7975,15 +8104,13 @@
 					"-DHAVE_CFURLACCESS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Development;
 		};
@@ -7993,24 +8120,30 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-DBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/usr/local/include",
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DERIVED_FILE_DIR)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(INSTALL_LOCATION)/usr/local/lib";
 				IS_ZIPPERED = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/IOKit/kext;
 				PRODUCT_NAME = kext;
+				SCRIPT_OUTPUT_DIR = "$(SCRIPT_OUTPUT_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				SCRIPT_OUTPUT_DIR__NO = "$(TARGET_BUILD_DIR)";
+				SCRIPT_OUTPUT_DIR__YES = "$(DSTROOT)";
 				SDKROOT = macosx.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
 					"-Wno-error=unguarded-availability-new",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -8019,13 +8152,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				"INSTALL_PATH[sdk=macosx*]" = "$(INSTALL_PATH_ACTUAL)";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = DeviceMIG;
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Development;
 		};
@@ -8043,6 +8174,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -8061,6 +8193,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -8079,6 +8212,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
@@ -8096,6 +8230,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -8114,6 +8249,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Development-Embedded";
@@ -8124,26 +8260,23 @@
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
-				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=watchos*]" = "$(SRCROOT)/Modules/IOKit-watchOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8153,15 +8286,13 @@
 					"-DHAVE_CFURLACCESS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Deployment;
 		};
@@ -8172,27 +8303,23 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"$(SDKROOT)/System/Frameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
 				);
-				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=watchos*]" = "$(SRCROOT)/Modules/IOKit-watchOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8206,11 +8333,12 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
@@ -8222,27 +8350,23 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Frameworks",
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(SDKROOT)/usr/lib/system",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
 				);
-				"MODULEMAP_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				"MODULEMAP_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=*]" = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=iphoneos*]" = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				"MODULEMAP_PRIVATE_FILE[sdk=watchos*]" = "$(SRCROOT)/Modules/IOKit-watchOS.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8256,11 +8380,12 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
@@ -8270,25 +8395,21 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8298,13 +8419,11 @@
 					"-DHAVE_CFURLACCESS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Deployment;
 		};
@@ -8313,26 +8432,21 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -8342,13 +8456,11 @@
 					"-DHAVE_CFURLACCESS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Development;
 		};
@@ -8358,27 +8470,21 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"$(SDKROOT)/System/Frameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
-					"\"$(SDKROOT)/usr/lib/system\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8392,10 +8498,11 @@
 				);
 				OTHER_LDFLAGS = "";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Deployment-Embedded";
@@ -8406,27 +8513,21 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = "$(VERSIONS_FOLDER_PATH)/$(FRAMEWORK_VERSION)";
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Frameworks",
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
-					"\"$(SDKROOT)/usr/lib/system\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				MODULEMAP_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-iOS.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/Modules/IOKit-Embedded.private.modulemap";
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
 					"$(OTHER_CFLAGS)",
@@ -8440,10 +8541,11 @@
 				);
 				OTHER_LDFLAGS = "";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				SECTORDER_FLAGS = "";
 				SHALLOW_BUNDLE = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				UNLOCALIZED_RESOURCES_FOLDER_PATH = "$(CONTENTS_FOLDER_PATH)/Resources";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 				VERSIONS_FOLDER_PATH = "$(WRAPPER_NAME)/Versions";
 			};
 			name = "Development-Embedded";
@@ -8462,6 +8564,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Deployment;
@@ -8480,6 +8583,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = Development;
@@ -8497,6 +8601,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -8515,14 +8620,16 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Development-Embedded";
 		};
 		84E4E5650CECC34E00EBA99F /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */;
+			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					debug,
@@ -8531,16 +8638,10 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					"$(SDKROOT)/usr/local/include",
-				);
 				OTHER_CFLAGS = (
 					"-DIOKIT",
 					"-D__MigTypeCheck=1",
@@ -8551,6 +8652,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
@@ -8560,15 +8662,16 @@
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -8589,10 +8692,10 @@
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc arm64";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -8600,13 +8703,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				"INSTALL_PATH[sdk=macosx*]" = "$(INSTALL_PATH_ACTUAL)";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = DeviceMIG;
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -8624,14 +8725,16 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Deployment-Embedded";
 		};
 		84E4E5690CECC38700EBA99F /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */;
+			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					debug,
@@ -8640,17 +8743,11 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					$PROJECT_DERIVED_FILE_DIR,
-					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
-					"$(SDKROOT)/usr/local/include",
-				);
 				OTHER_CFLAGS = (
 					"-DIOKIT",
 					"-D__MigTypeCheck=1",
@@ -8661,6 +8758,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",
+					"-Wformat-nonliteral",
 				);
 			};
 			name = "Development-Embedded";
@@ -8670,15 +8768,16 @@
 			buildSettings = {
 				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILDING_LIBKEXT";
 				COPY_PHASE_STRIP = NO;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
-				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				LIBRARY_SEARCH_PATHS = (
@@ -8698,15 +8797,13 @@
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
-					"-seg_addr_table",
-					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
 					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc arm64";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Development-Embedded";
 		};
@@ -8714,13 +8811,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				"INSTALL_PATH[sdk=macosx*]" = "$(INSTALL_PATH_ACTUAL)";
-				INSTALL_PATH_ACTUAL = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = DeviceMIG;
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Development-Embedded";
 		};
@@ -8739,7 +8834,268 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
+			};
+			name = "Development-Embedded";
+		};
+		95399D522698DE5D00BAE733 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "UNIT_TESTS=1";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.IOKitPMUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Deployment;
+		};
+		95399D532698DE5D00BAE733 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"UNIT_TESTS=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.IOKitPMUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Development;
+		};
+		95399D542698DE5D00BAE733 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "UNIT_TESTS=1";
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = (
+					"DISPATCH_MACH_SPI=1",
+					"OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.IOKitPMUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		95399D552698DE5D00BAE733 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"UNIT_TESTS=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "Apple-Inc.IOKitPMUnitTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = "Development-Embedded";
 		};
@@ -8748,19 +9104,12 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib/eOS;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -8770,10 +9119,9 @@
 					"-DHAVE_CFPLUGIN",
 					"-DHAVE_CFURLACCESS",
 				);
-				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Deployment;
 		};
@@ -8782,18 +9130,12 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib/eOS;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -8803,10 +9145,9 @@
 					"-DHAVE_CFPLUGIN",
 					"-DHAVE_CFURLACCESS",
 				);
-				OTHER_MIGFLAGS = "-DIOKIT ";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
-				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 arm armv6 ppc";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = Development;
 		};
@@ -8815,20 +9156,12 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"$(SDKROOT)/System/Frameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib/eOS;
 				LIBRARY_SEARCH_PATHS = (
-					"\"$(SDKROOT)/usr/lib/system\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
@@ -8841,9 +9174,9 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -8852,20 +9185,12 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				COMBINE_HIDPI_IMAGES = YES;
-				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(SDKROOT)/System/Frameworks",
-					"$(SDKROOT)/System/Library/PrivateFrameworks",
-					"\"$(SDKROOT)/System/Library/Frameworks\"",
-				);
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib/eOS;
 				LIBRARY_SEARCH_PATHS = (
-					"\"$(SDKROOT)/usr/lib/system\"",
-					"\"$(SDKROOT)/usr/local/lib\"",
-					"\"$(SRCROOT)/usr/local/lib\"",
-					"\"$(SDKROOT)/usr/lib\"",
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
 				);
 				OTHER_CFLAGS = (
 					"-DIOKIT_EMBEDDED",
@@ -8878,9 +9203,9 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				USER_HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DERIVED_FILE_DIR)";
 			};
 			name = "Development-Embedded";
 		};
@@ -9070,6 +9395,17 @@
 				848E7384150688A4006AE483 /* Development */,
 				848E7385150688A4006AE483 /* Deployment-Embedded */,
 				848E7386150688A4006AE483 /* Development-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		95399D562698DE5D00BAE733 /* Build configuration list for PBXNativeTarget "IOKitPMUnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95399D522698DE5D00BAE733 /* Deployment */,
+				95399D532698DE5D00BAE733 /* Development */,
+				95399D542698DE5D00BAE733 /* Deployment-Embedded */,
+				95399D552698DE5D00BAE733 /* Development-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

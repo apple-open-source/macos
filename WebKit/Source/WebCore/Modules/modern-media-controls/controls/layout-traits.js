@@ -66,17 +66,12 @@ class LayoutTraits
         throw "Derived class must implement this function.";
     }
 
-    knobStyleForScrubber()
-    {
-        throw "Derived class must implement this function.";
-    }
-
     supportsDurationTimeLabel()
     {
         throw "Derived class must implement this function.";
     }
 
-    playPauseButtonScaleFactor()
+    skipDuration()
     {
         throw "Derived class must implement this function.";
     }
@@ -98,9 +93,14 @@ class LayoutTraits
         return GestureRecognizer.SupportsTouches;
     }
 
-    additionalControlScaleFactor()
+    supportsAirPlay()
     {
-        return 1;
+        throw "Derived class must implement this function.";
+    }
+
+    supportsPiP()
+    {
+        throw "Derived class must implement this function.";
     }
 }
 

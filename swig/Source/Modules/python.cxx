@@ -1214,7 +1214,7 @@ public:
       String *name = 0;
       String *type = 0;
       String *value = 0;
-      String *ptype = 0;
+      __unused String *ptype = 0;
       String *pdoc = Getattr(p, "tmap:doc");
       if (pdoc) {
 	name = Getattr(p, "tmap:doc:name");
@@ -1941,7 +1941,7 @@ public:
 	  Append(f->code, "#define obj0 (swig_obj[0])\n");
 	}
       } else if (num_arguments) {
-	sprintf(source, "PyObject *swig_obj[%d]", num_arguments);
+	snprintf(source, sizeof(source), "PyObject *swig_obj[%d]", num_arguments);
 	Wrapper_add_localv(f, "swig_obj", source, NIL);
 	if (aliasobj0) {
 	  Append(f->code, "#define obj0 (swig_obj[0])\n");
@@ -1972,9 +1972,9 @@ public:
       String *pn = Getattr(p, "name");
       String *ln = Getattr(p, "lname");
       if (funpack) {
-	sprintf(source, "swig_obj[%d]", i);
+	snprintf(source, sizeof(source), "swig_obj[%d]", i);
       } else {
-	sprintf(source, "obj%d", i);
+	snprintf(source, sizeof(source), "obj%d", i);
       }
 
 
@@ -3740,7 +3740,7 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
       if ((tm = Getattr(p, "tmap:directorin")) != 0) {
 	String *parse = Getattr(p, "tmap:directorin:parse");
 	if (!parse) {
-	  sprintf(source, "obj%d", idx++);
+	  snprintf(source, sizeof(source), "obj%d", idx++);
 	  String *input = NewString(source);
 	  Replaceall(tm, "$input", input);
 	  Delete(input);
@@ -3775,7 +3775,7 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
 	if (SwigType_ispointer(ptype) || SwigType_isreference(ptype)) {
 	  Node *module = Getattr(parent, "module");
 	  Node *target = Swig_directormap(module, ptype);
-	  sprintf(source, "obj%d", idx++);
+	  snprintf(source, sizeof(source), "obj%d", idx++);
 	  String *nonconst = 0;
 	  /* strip pointer/reference --- should move to Swig/stype.c */
 	  String *nptype = NewString(Char(ptype) + 2);
@@ -3957,7 +3957,7 @@ int PYTHON::classDirectorMethod(Node *n, Node *parent, String *super) {
 	  Replaceall(tm, "$input", "result");
 	}
 	char temp[24];
-	sprintf(temp, "%d", idx);
+	snprintf(temp, sizeof(temp), "%d", idx);
 	Replaceall(tm, "$argnum", temp);
 
 	/* TODO check this */

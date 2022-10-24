@@ -515,7 +515,7 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
 
             /* TODO: Add support for kSecPublicExponent parameter. */
             static uint8_t e[] = { 0x01, 0x00, 0x01 }; // Default is 65537
-            if (!ccrsa_generate_fips186_key(keyLengthInBits, fullkey, sizeof(e), e, ccrng_seckey,ccrng_seckey))
+            if (!ccrsa_generate_fips186_key(keyLengthInBits, fullkey, sizeof(e), e, ccrng_seckey() ,ccrng_seckey()))
                 result = errSecSuccess;
             break;
         }

@@ -368,7 +368,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ \"${ACTION}\" == installapi ]]\nthen\n. ${SRCROOT}/SCSIControllerDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
+			shellScript = "if [[ \"${ACTION}\" == installapi || \"${ACTION}\" == installhdrs ]]\nthen\n. ${SRCROOT}/SCSIControllerDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
 		};
 		CE154A7724AA9F400093458B /* Generate symbolset.plist */ = {
 			isa = PBXShellScriptBuildPhase;

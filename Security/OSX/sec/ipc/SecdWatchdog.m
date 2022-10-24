@@ -31,10 +31,6 @@
 #import <mach/message.h>
 #import <os/assumes.h>
 
-#if !TARGET_OS_MAC
-#import <CrashReporterSupport/CrashReporterSupport.h>
-#endif
-
 #define CPU_RUNTIME_SECONDS_BEFORE_WATCHDOG (60 * 20)
 #define WATCHDOG_RESET_PERIOD (60 * 60 * 24)
 #define WATCHDOG_CHECK_PERIOD (60 * 60)
@@ -47,7 +43,7 @@ NSString* const SecdWatchdogResetPeriod = @"reset-period";
 NSString* const SecdWatchdogCheckPeriod = @"check-period";
 NSString* const SecdWatchdogGracefulExitTime = @"graceful-exit-time";
 
-void SecdLoadWatchDog()
+void SecdLoadWatchDog(void)
 {
     (void)[SecdWatchdog watchdog];
 }
@@ -139,9 +135,7 @@ void SecdLoadWatchDog()
         uint64_t spentUserTime = [self secondsFromMachTime:currentRusage.ri_user_time];
         if (spentUserTime > _rusageBaseline + _runtimeSecondsBeforeWatchdog) {
             seccritical("SecWatchdog: watchdog has detected securityd/secd is using too much CPU - attempting to exit gracefully");
-#if !TARGET_OS_MAC
-            WriteStackshotReport(@"securityd watchdog triggered", __sec_exception_code_Watchdog);
-#endif
+            __security_stackshotreport(CFSTR("securityd watchdog triggered"), __sec_exception_code_Watchdog);
             xpc_transaction_exit_clean(); // we've  used too much CPU - try to exit gracefully
 
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_gracefulExitLeeway * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{

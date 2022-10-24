@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2014,2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,7 @@ SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
     bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponse,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
+    uint64_t attribution,
     SecPathBuilderCompleted completed, const void *userData);
 
 /* engine states exposed for testing */
@@ -132,6 +133,10 @@ void SecPathBuilderSetCheckRevocationOnline(SecPathBuilderRef builder);
 bool SecPathBuilderGetCheckRevocationIfTrusted(SecPathBuilderRef builder);
 void SecPathBuilderSetCheckRevocationIfTrusted(SecPathBuilderRef builder);
 
+/* Skip result obtained from the Valid revocation database, if ignored by policy. */
+bool SecPathBuilderGetRevocationDbIgnored(SecPathBuilderRef builder);
+void SecPathBuilderSetRevocationDbIgnored(SecPathBuilderRef builder, bool ignore);
+
 /* Core of the trust evaluation engine, this will invoke the completed
    callback and return false if the evaluation completed, or return true if
    the evaluation is still waiting for some external event (usually the
@@ -146,11 +151,14 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 CFDataRef SecTrustServerCopySelfAuditToken(void);
 
+/* Get the NSURLRequest attribution */
+uint64_t SecPathBuilderGetAttribution(SecPathBuilderRef builder);
+
 /* Evaluate trust and call evaluated when done. */
-void SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
+void SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, uint64_t attribution, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, uint64_t attribution, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
 
 /* TrustAnalytics builder types */
 typedef CF_OPTIONS(uint8_t, TA_SCTSource) {
@@ -173,8 +181,8 @@ typedef CF_OPTIONS(uint8_t, TAValidStatus) {
 typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
-    bool ca_fail_eku_check;
     bool no_eku;
+    bool multipurpose_eku;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;

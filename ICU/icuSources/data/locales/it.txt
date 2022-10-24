@@ -1168,7 +1168,7 @@ it{
             dn{"giorno"}
             relative{
                 "-1"{"ieri"}
-                "-2"{"l’altro ieri"}
+                "-2"{"l'altro ieri"}
                 "0"{"oggi"}
                 "1"{"domani"}
                 "2"{"dopodomani"}
@@ -1188,7 +1188,7 @@ it{
             dn{"g"}
             relative{
                 "-1"{"ieri"}
-                "-2"{"l’altro ieri"}
+                "-2"{"l'altro ieri"}
                 "0"{"oggi"}
                 "1"{"domani"}
                 "2"{"dopodomani"}
@@ -1208,7 +1208,7 @@ it{
             dn{"g"}
             relative{
                 "-1"{"ieri"}
-                "-2"{"l’altro ieri"}
+                "-2"{"l'altro ieri"}
                 "0"{"oggi"}
                 "1"{"domani"}
                 "2"{"dopodomani"}
@@ -1225,7 +1225,7 @@ it{
             }
         }
         dayOfYear{
-            dn{"giorno dell’anno"}
+            dn{"giorno dell'anno"}
         }
         dayOfYear-narrow{
             dn{"giorno anno"}
@@ -1305,7 +1305,7 @@ it{
         hour{
             dn{"ora"}
             relative{
-                "0"{"quest’ora"}
+                "0"{"quest'ora"}
             }
             relativeTime{
                 future{
@@ -1930,7 +1930,7 @@ it{
             dn{"anno"}
             relative{
                 "-1"{"anno scorso"}
-                "0"{"quest’anno"}
+                "0"{"quest'anno"}
                 "1"{"anno prossimo"}
             }
             relativeTime{
@@ -1948,7 +1948,7 @@ it{
             dn{"anno"}
             relative{
                 "-1"{"anno scorso"}
-                "0"{"quest’anno"}
+                "0"{"quest'anno"}
                 "1"{"anno prossimo"}
             }
             relativeTime{
@@ -1966,7 +1966,7 @@ it{
             dn{"anno"}
             relative{
                 "-1"{"anno scorso"}
-                "0"{"quest’anno"}
+                "0"{"quest'anno"}
                 "1"{"anno prossimo"}
             }
             relativeTime{

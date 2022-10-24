@@ -158,7 +158,6 @@ public:
     ScrollingNodeID scrollingNodeIDForChildren() const;
 
     bool hasMaskLayer() const { return m_maskLayer; }
-    bool hasChildClippingMaskLayer() const { return m_childClippingMaskLayer != nullptr; }
 
     GraphicsLayer* parentForSublayers() const;
     GraphicsLayer* childForSuperlayers() const;
@@ -283,10 +282,10 @@ public:
     
     // For testing only.
     WEBCORE_EXPORT void setUsesDisplayListDrawing(bool);
-    WEBCORE_EXPORT String displayListAsText(DisplayList::AsTextFlags) const;
+    WEBCORE_EXPORT String displayListAsText(OptionSet<DisplayList::AsTextFlag>) const;
 
     WEBCORE_EXPORT void setIsTrackingDisplayListReplay(bool);
-    WEBCORE_EXPORT String replayDisplayListAsText(DisplayList::AsTextFlags) const;
+    WEBCORE_EXPORT String replayDisplayListAsText(OptionSet<DisplayList::AsTextFlag>) const;
 
 private:
     friend class PaintedContentsInfo;
@@ -323,7 +322,6 @@ private:
     void updateScrollOffset(ScrollOffset);
     void setLocationOfScrolledContents(ScrollOffset, ScrollingLayerPositionAction);
 
-    void updateChildClippingStrategy(bool needsDescendantsClippingLayer);
     void updateMaskingLayerGeometry();
     void updateRootLayerConfiguration();
     void updatePaintingPhases();
@@ -331,9 +329,6 @@ private:
     void setBackgroundLayerPaintsFixedRootBackground(bool);
 
     LayoutSize contentOffsetInCompositingLayer() const;
-    // Result is transform origin in device pixels.
-    FloatPoint3D computeTransformOriginForPainting(const LayoutRect& borderBox) const;
-
     LayoutSize offsetRelativeToRendererOriginForDescendantLayers() const;
     
     void ensureClippingStackLayers(LayerAncestorClippingStack&);
@@ -354,7 +349,6 @@ private:
 #if ENABLE(CSS_COMPOSITING)
     void updateBlendMode(const RenderStyle&);
 #endif
-    void updateCustomAppearance(const RenderStyle&);
     void updateContentsScalingFilters(const RenderStyle&);
 
     // Return the opacity value that this layer should use for compositing.
@@ -375,6 +369,7 @@ private:
     // Returns true if the RenderLayer just contains an image that we can composite directly.
     bool isDirectlyCompositedImage() const;
     void updateImageContents(PaintedContentsInfo&);
+    bool isUnscaledBitmapOnly() const;
 
     void updateDirectlyCompositedBoxDecorations(PaintedContentsInfo&, bool& didUpdateContentsRect);
     void updateDirectlyCompositedBackgroundColor(PaintedContentsInfo&, bool& didUpdateContentsRect);
@@ -420,7 +415,6 @@ private:
     RefPtr<GraphicsLayer> m_backgroundLayer; // Only used in cases where we need to draw the background separately.
     RefPtr<GraphicsLayer> m_childContainmentLayer; // Only used if we have clipping on a stacking context with compositing children, or if the layer has a tile cache.
     RefPtr<GraphicsLayer> m_maskLayer; // Only used if we have a mask and/or clip-path.
-    RefPtr<GraphicsLayer> m_childClippingMaskLayer; // Only used if we have to clip child layers or accelerated contents with border radius or clip-path.
 
     RefPtr<GraphicsLayer> m_layerForHorizontalScrollbar;
     RefPtr<GraphicsLayer> m_layerForVerticalScrollbar;

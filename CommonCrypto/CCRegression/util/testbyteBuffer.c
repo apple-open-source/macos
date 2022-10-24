@@ -45,7 +45,7 @@ genRandomSize(size_t minSize, size_t maxSize)
     
     if(minSize == maxSize) return minSize;
     // make theSize > minSize < maxSize;
-    while(CCRandomGenerateBytes(&randomInt, sizeof(uint32_t)) == -1) {
+    while(CCRandomGenerateBytes(&randomInt, sizeof(size_t)) == -1) {
         printf("got -1 from CCRandomGenerateBytes\n");
     }
     randomInt = (randomInt % (maxSize - minSize)) + minSize;

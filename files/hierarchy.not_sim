@@ -30,6 +30,7 @@
 0750	271	271	private/var/db/diskimagesiod
 0751	278	278	private/var/db/accessoryupdater
 0750	279	279	private/var/db/knowledgegraphd
+0750	283	283	private/var/db/mmaintenanced
 0750	284	284	private/var/db/darwindaemon
 0750	284	284	private/var/db/darwindaemon/Library
 0700	213	213	private/var/db/lockdown

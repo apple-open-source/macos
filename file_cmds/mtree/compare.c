@@ -595,21 +595,20 @@ typeerr:		LABEL;
 		char buf[kSHA256NullTerminatedBuffLen];
 		xattr_info *ai;
 		ai = SHA256_Path_XATTRs(p->fts_accpath, buf);
-		if (!mflag) {
-			if (ai && !ai->digest) {
+		if (mflag) {
+			if (ai && ai->xdstream_priv_id != s->xdstream_priv_id) {
+				set_key_value_pair((void*)&ai->xdstream_priv_id, &s->xdstream_priv_id, false);
+			}
+		} else {
+			if ((!ai || !ai->digest) && strcmp("none", s->xattrsdigest)) {
 				LABEL;
 				printf("%sxattrsdigest missing, expected: %s\n", tab, s->xattrsdigest);
 				tab = "\t";
-			} else if (ai && strcmp(ai->digest, s->xattrsdigest)) {
+			} else if (ai && ai->digest && strcmp(ai->digest, s->xattrsdigest)) {
 				LABEL;
 				printf("%sxattrsdigest expected %s found %s\n",
 				       tab, s->xattrsdigest, ai->digest);
 				tab = "\t";
-			}
-		}
-		if (mflag) {
-			if (ai && ai->xdstream_priv_id != s->xdstream_priv_id) {
-				set_key_value_pair((void*)&ai->xdstream_priv_id, &s->xdstream_priv_id, false);
 			}
 		}
 		free(ai);
@@ -657,6 +656,18 @@ typeerr:		LABEL;
 			}
 			if (mflag) {
 				set_key_value_pair((void*)&new_sibling_id, &s->sibling_id, false);
+			}
+		}
+	}
+	if (s->flags & F_NXATTR) {
+		uint64_t calculated_nxattr = get_xattr_count(p->fts_accpath);
+		if (calculated_nxattr != s->nxattr) {
+			LABEL;
+			(void)printf("%sxattr count expected %llu found %llu for file %s\n",
+				     tab, s->nxattr, calculated_nxattr, p->fts_accpath);
+			tab = "\t";
+			if (mflag) {
+				RECORD_FAILURE(611831, EINVAL);
 			}
 		}
 	}

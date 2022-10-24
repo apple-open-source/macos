@@ -90,6 +90,8 @@
 #include <err.h>
 #include <errno.h>
 #include <netdb.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -183,7 +185,7 @@ _serv_cache_getservbyport(int port, char *proto)
 }
 
 #endif /* SRVCACHE */
-	
+
 /*
  * Print a summary of connections related to an Internet
  * protocol.  For TCP, also give state of connection.
@@ -217,6 +219,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	struct xsockbuf_n *so_snd = NULL;
 	struct xsockstat_n *so_stat = NULL;
 	int which = 0;
+#ifdef XSOFF_SO_FILT
+	static bool has_vlag_extended = false;
+#endif /* XSOFF_SO_FILT */
 
 	istcp = 0;
 	switch (proto) {
@@ -251,7 +256,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		if (errno != ENOENT)
 			warn("sysctl: %s", mibvar);
 		return;
-	}        
+	}
 	if ((buf = malloc(len)) == 0) {
 		warn("malloc %lu bytes", (u_long)len);
 		return;
@@ -261,7 +266,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		free(buf);
 		return;
 	}
-	
+
 	/*
 	 * Bail-out to avoid logic error in the loop below when
 	 * there is in fact no more control block to process
@@ -270,10 +275,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		free(buf);
 		return;
 	}
-	
+
 	oxig = xig = (struct xinpgen *)buf;
 	for (next = buf + ROUNDUP64(xig->xig_len); next < buf + len; next += ROUNDUP64(xgn->xgn_len)) {
-		
 		xgn = (struct xgen_n*)next;
 		if (xgn->xgn_len <= sizeof(struct xinpgen))
 			break;
@@ -302,10 +306,10 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				default:
 					printf("unexpected kind %d\n", xgn->xgn_kind);
 					break;
-			} 		
+			}
 		} else {
 			if (vflag)
-        	        	printf("got %d twice\n", xgn->xgn_kind);
+				printf("got %d twice\n", xgn->xgn_kind);
 		}
 		
 		if ((istcp && which != ALL_XGN_KIND_TCP) || (!istcp && which != ALL_XGN_KIND_INP))
@@ -326,10 +330,10 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 #endif /* INET6 */
 		    || (af == AF_UNSPEC && ((inp->inp_vflag & INP_IPV4) == 0
 #ifdef INET6
-									&& (inp->inp_vflag &
-										INP_IPV6) == 0
+					    && (inp->inp_vflag &
+						INP_IPV6) == 0
 #endif /* INET6 */
-									))
+					    ))
 		    )
 			continue;
 		
@@ -351,42 +355,50 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					printf(" (including servers)");
 			} else
 				printf(
-					   "Current listen queue sizes (qlen/incqlen/maxqlen)");
+				       "Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
 			if (Aflag) {
 				printf("%-16.16s ", "Socket");
 				printf("%-9.9s", "Flowhash");
 			}
-            if (Lflag) {
-                if (lflag) {
-                    printf("%-14.14s %-39.39s\n",
-                           "Listen", "Local Address");
-                } else {
-                    printf("%-14.14s %-22.22s\n",
-                           "Listen", "Local Address");
-                }
-            } else {
-                printf("%-5.5s %-6.6s %-6.6s  ",
-                       "Proto", "Recv-Q", "Send-Q");
-                if (lflag) {
-                    printf("%-45.45s %-45.45s ",
-                           "Local Address", "Foreign Address");
-                } else if (Aflag) {
-                    printf("%-18.18s %-18.18s ",
-                           "Local Address", "Foreign Address");
-                } else {
-                    printf("%-22.22s %-22.22s ",
-                           "Local Address", "Foreign Address");
-                }
-                printf("%-11.11s",
-                       "(state)");
+			if (Lflag) {
+				if (lflag) {
+					printf("%-14.14s %-39.39s\n",
+					       "Listen", "Local Address");
+				} else {
+					printf("%-14.14s %-22.22s\n",
+					       "Listen", "Local Address");
+				}
+			} else {
+				printf("%-5.5s %-6.6s %-6.6s  ",
+				       "Proto", "Recv-Q", "Send-Q");
+				if (lflag) {
+					printf("%-45.45s %-45.45s ",
+					       "Local Address", "Foreign Address");
+				} else if (Aflag) {
+					printf("%-18.18s %-18.18s ",
+					       "Local Address", "Foreign Address");
+				} else {
+					printf("%-22.22s %-22.22s ",
+					       "Local Address", "Foreign Address");
+				}
+				printf("%-11.11s",
+				       "(state)");
 				if (bflag > 0)
 					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
 				if (prioflag >= 0)
 					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
-				if (vflag > 0)
-					printf(" %6.6s %6.6s %6.6s %6.6s %6s %10s",
+				if (vflag > 0) {
+					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
 					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
+#ifdef XSOFF_SO_FILT
+					if (so->xso_len >= offsetof(struct xsocket_n, xso_filter_flags) + sizeof(so->xso_filter_flags)) {
+						has_vlag_extended = true;
+						printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
+						       "gencnt", "flags", "flags1", "usscnt", "rtncnt", "fltrs");
+					}
+#endif /* XSOFF_SO_FILT */
+				}
 				printf("\n");
 			}
 			first = 0;
@@ -402,7 +414,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			char buf[15];
 			
 			snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
-					 so->so_incqlen, so->so_qlimit);
+				 so->so_incqlen, so->so_qlimit);
 			printf("%-14.14s ", buf);
 		}
 		else {
@@ -424,56 +436,56 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		if (nflag) {
 			if (inp->inp_vflag & INP_IPV4) {
 				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-						  name, 1);
+					  name, 1);
 				if (!Lflag)
 					inetprint(&inp->inp_faddr,
-							  (int)inp->inp_fport, name, 1);
+						  (int)inp->inp_fport, name, 1);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
 				inet6print(&inp->in6p_laddr,
-						   (int)inp->inp_lport, name, 1);
+					   (int)inp->inp_lport, name, 1);
 				if (!Lflag)
 					inet6print(&inp->in6p_faddr,
-							   (int)inp->inp_fport, name, 1);
+						   (int)inp->inp_fport, name, 1);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		} else if (inp->inp_flags & INP_ANONPORT) {
 			if (inp->inp_vflag & INP_IPV4) {
 				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-						  name, 1);
+					  name, 1);
 				if (!Lflag)
 					inetprint(&inp->inp_faddr,
-							  (int)inp->inp_fport, name, 0);
+						  (int)inp->inp_fport, name, 0);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
 				inet6print(&inp->in6p_laddr,
-						   (int)inp->inp_lport, name, 1);
+					   (int)inp->inp_lport, name, 1);
 				if (!Lflag)
 					inet6print(&inp->in6p_faddr,
-							   (int)inp->inp_fport, name, 0);
+						   (int)inp->inp_fport, name, 0);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		} else {
 			if (inp->inp_vflag & INP_IPV4) {
 				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-						  name, 0);
+					  name, 0);
 				if (!Lflag)
 					inetprint(&inp->inp_faddr,
-							  (int)inp->inp_fport, name,
-							  inp->inp_lport !=
-							  inp->inp_fport);
+						  (int)inp->inp_fport, name,
+						  inp->inp_lport !=
+						  inp->inp_fport);
 			}
 #ifdef INET6
 			else if (inp->inp_vflag & INP_IPV6) {
 				inet6print(&inp->in6p_laddr,
-						   (int)inp->inp_lport, name, 0);
+					   (int)inp->inp_lport, name, 0);
 				if (!Lflag)
 					inet6print(&inp->in6p_faddr,
-							   (int)inp->inp_fport, name,
-							   inp->inp_lport !=
-							   inp->inp_fport);
+						   (int)inp->inp_fport, name,
+						   inp->inp_lport !=
+						   inp->inp_fport);
 			} /* else nothing printed now */
 #endif /* INET6 */
 		}
@@ -499,18 +511,29 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			printf(" %10llu %10llu", rxbytes, txbytes);
 		}
 		if (prioflag >= 0) {
-			printf(" %10llu %10llu", 
-				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0, 
-				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
+			printf(" %10llu %10llu",
+			       prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0,
+			       prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
 		}
 		if (vflag > 0) {
-			printf(" %6u %6u %6u %6u 0x%04x 0x%08x",
+			printf(" %7u %7u %6u %6u %05x %08x",
 			       so_rcv->sb_hiwat,
 			       so_snd->sb_hiwat,
 			       so->so_last_pid,
 			       so->so_e_pid,
 			       so->so_state,
 			       so->so_options);
+#ifdef XSOFF_SO_FILT
+			if (has_vlag_extended) {
+				printf(" %016llx %08x %08x %6d %6d %06x",
+				       so->so_gencnt,
+				       so->so_flags,
+				       so->so_flags1,
+				       so->so_usecount,
+				       so->so_retaincnt,
+				       so->xso_filter_flags);
+			}
+#endif /* XSOFF_SO_FILT */
 		}
 		putchar('\n');
 	}
@@ -559,24 +582,24 @@ tcp_stats(uint32_t off , char *name, int af)
 
 #define	TCPDIFF(f) (tcpstat.f - ptcpstat.f)
 #define	p(f, m) if (TCPDIFF(f) || sflag <= 1) \
-    printf(m, TCPDIFF(f), plural(TCPDIFF(f)))
+printf(m, TCPDIFF(f), plural(TCPDIFF(f)))
 #define	p1a(f, m) if (TCPDIFF(f) || sflag <= 1) \
-    printf(m, TCPDIFF(f))
+printf(m, TCPDIFF(f))
 #define	p2(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || sflag <= 1) \
-    printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2), plural(TCPDIFF(f2)))
+printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2), plural(TCPDIFF(f2)))
 #define	p2a(f1, f2, m) if (TCPDIFF(f1) || TCPDIFF(f2) || sflag <= 1) \
-    printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2))
+printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2))
 #define	p3(f, m) if (TCPDIFF(f) || sflag <= 1) \
-    printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
+printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 
 	p(tcps_sndtotal, "\t%u packet%s sent\n");
 	p2(tcps_sndpack,tcps_sndbyte,
-		"\t\t%u data packet%s (%u byte%s)\n");
+	   "\t\t%u data packet%s (%u byte%s)\n");
 	p2(tcps_sndrexmitpack, tcps_sndrexmitbyte,
-		"\t\t%u data packet%s (%u byte%s) retransmitted\n");
+	   "\t\t%u data packet%s (%u byte%s) retransmitted\n");
 	p(tcps_mturesent, "\t\t%u resend%s initiated by MTU discovery\n");
 	p2a(tcps_sndacks, tcps_delack,
-		"\t\t%u ack-only packet%s (%u delayed)\n");
+	    "\t\t%u ack-only packet%s (%u delayed)\n");
 	p(tcps_sndurg, "\t\t%u URG only packet%s\n");
 	p(tcps_sndprobe, "\t\t%u window probe packet%s\n");
 	p(tcps_sndwinup, "\t\t%u window update packet%s\n");
@@ -586,29 +609,29 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_rstchallenge, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
 	t_swcsum = tcpstat.tcps_snd_swcsum + tcpstat.tcps_snd6_swcsum;
 	if ((t_swcsum - pt_swcsum) || sflag <= 1)
-        printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
+		printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
 	p2(tcps_snd_swcsum, tcps_snd_swcsum_bytes,
-	    "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
+	   "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
 #if INET6
 	p2(tcps_snd6_swcsum, tcps_snd6_swcsum_bytes,
-	    "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
+	   "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
 #endif /* INET6 */
 	p(tcps_rcvtotal, "\t%u packet%s received\n");
 	p2(tcps_rcvackpack, tcps_rcvackbyte, "\t\t%u ack%s (for %u byte%s)\n");
 	p(tcps_rcvdupack, "\t\t%u duplicate ack%s\n");
 	p(tcps_rcvacktoomuch, "\t\t%u ack%s for unsent data\n");
 	p2(tcps_rcvpack, tcps_rcvbyte,
-		"\t\t%u packet%s (%u byte%s) received in-sequence\n");
+	   "\t\t%u packet%s (%u byte%s) received in-sequence\n");
 	p2(tcps_rcvduppack, tcps_rcvdupbyte,
-		"\t\t%u completely duplicate packet%s (%u byte%s)\n");
+	   "\t\t%u completely duplicate packet%s (%u byte%s)\n");
 	p(tcps_pawsdrop, "\t\t%u old duplicate packet%s\n");
 	p(tcps_rcvmemdrop, "\t\t%u received packet%s dropped due to low memory\n");
 	p2(tcps_rcvpartduppack, tcps_rcvpartdupbyte,
-		"\t\t%u packet%s with some dup. data (%u byte%s duped)\n");
+	   "\t\t%u packet%s with some dup. data (%u byte%s duped)\n");
 	p2(tcps_rcvoopack, tcps_rcvoobyte,
-		"\t\t%u out-of-order packet%s (%u byte%s)\n");
+	   "\t\t%u out-of-order packet%s (%u byte%s)\n");
 	p2(tcps_rcvpackafterwin, tcps_rcvbyteafterwin,
-		"\t\t%u packet%s (%u byte%s) of data after window\n");
+	   "\t\t%u packet%s (%u byte%s) of data after window\n");
 	p(tcps_rcvwinprobe, "\t\t%u window probe%s\n");
 	p(tcps_rcvwinupd, "\t\t%u window update packet%s\n");
 	p(tcps_recovered_pkts, "\t\t%u packet%s recovered after loss\n");
@@ -617,13 +640,13 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_rcvbadsum, "\t\t%u discarded for bad checksum%s\n");
 	r_swcsum = tcpstat.tcps_rcv_swcsum + tcpstat.tcps_rcv6_swcsum;
 	if ((r_swcsum - pr_swcsum) || sflag <= 1)
-        printf("\t\t%u checksummed in software\n",
-               (r_swcsum - pr_swcsum));
+		printf("\t\t%u checksummed in software\n",
+		       (r_swcsum - pr_swcsum));
 	p2(tcps_rcv_swcsum, tcps_rcv_swcsum_bytes,
-	    "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
+	   "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
 #if INET6
 	p2(tcps_rcv6_swcsum, tcps_rcv6_swcsum_bytes,
-	    "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
+	   "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
 #endif /* INET6 */
 	p(tcps_rcvbadoff, "\t\t%u discarded for bad header offset field%s\n");
 	p1a(tcps_rcvshort, "\t\t%u discarded because packet too short\n");
@@ -633,9 +656,9 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_listendrop, "\t%u listen queue overflow%s\n");
 	p(tcps_connects, "\t%u connection%s established (including accepts)\n");
 	p2(tcps_closed, tcps_drops,
-		"\t%u connection%s closed (including %u drop%s)\n");
+	   "\t%u connection%s closed (including %u drop%s)\n");
 	p(tcps_cachedrtt, "\t\t%u connection%s updated cached RTT on close\n");
-	p(tcps_cachedrttvar, 
+	p(tcps_cachedrttvar,
 	  "\t\t%u connection%s updated cached RTT variance on close\n");
 	p(tcps_cachedssthresh,
 	  "\t\t%u connection%s updated cached ssthresh on close\n");
@@ -646,7 +669,7 @@ tcp_stats(uint32_t off , char *name, int af)
 	  "\t\t%u connection%s initialized ssthresh from route cache\n");
 	p(tcps_conndrops, "\t%u embryonic connection%s dropped\n");
 	p2(tcps_rttupdated, tcps_segstimed,
-		"\t%u segment%s updated rtt (of %u attempt%s)\n");
+	   "\t%u segment%s updated rtt (of %u attempt%s)\n");
 	p(tcps_rexmttimeo, "\t%u retransmit timeout%s\n");
 	p(tcps_timeoutdrop, "\t\t%u connection%s dropped by rexmit timeout\n");
 	p(tcps_rxtfindrop, "\t\t%u connection%s dropped after retransmitting FIN\n");
@@ -661,15 +684,15 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_preddat, "\t%u correct data packet header prediction%s\n");
 #ifdef TCP_MAX_SACK
 	/* TCP_MAX_SACK indicates the header has the SACK structures */
-	p(tcps_sack_recovery_episode, "\t%u SACK recovery episode%s\n"); 
+	p(tcps_sack_recovery_episode, "\t%u SACK recovery episode%s\n");
 	p(tcps_sack_rexmits,
-		"\t%u segment rexmit%s in SACK recovery episodes\n");
+	  "\t%u segment rexmit%s in SACK recovery episodes\n");
 	p(tcps_sack_rexmit_bytes,
-		"\t%u byte rexmit%s in SACK recovery episodes\n"); 
+	  "\t%u byte rexmit%s in SACK recovery episodes\n");
 	p(tcps_sack_rcv_blocks,
-		"\t%u SACK option%s (SACK blocks) received\n"); 
-	p(tcps_sack_send_blocks, "\t%u SACK option%s (SACK blocks) sent\n"); 
-	p1a(tcps_sack_sboverflow, "\t%u SACK scoreboard overflow\n"); 
+	  "\t%u SACK option%s (SACK blocks) received\n");
+	p(tcps_sack_send_blocks, "\t%u SACK option%s (SACK blocks) sent\n");
+	p1a(tcps_sack_sboverflow, "\t%u SACK scoreboard overflow\n");
 #endif /* TCP_MAX_SACK */
 	p(tcps_limited_txt, "\t%u limited transmit%s done\n");
 	p(tcps_early_rexmt, "\t%u early retransmit%s done\n");
@@ -790,16 +813,16 @@ mptcp_stats(uint32_t off , char *name, int af)
 
 #define	MPTCPDIFF(f) (tcpstat.f - ptcpstat.f)
 #define	p(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
-    printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
+printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
 #define	p1a(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
-    printf(m, MPTCPDIFF(f))
+printf(m, MPTCPDIFF(f))
 #define	p2(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
-    printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), \
-        MPTCPDIFF(f2), plural(MPTCPDIFF(f2)))
+printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), \
+MPTCPDIFF(f2), plural(MPTCPDIFF(f2)))
 #define	p2a(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
-    printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), MPTCPDIFF(f2))
+printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), MPTCPDIFF(f2))
 #define	p3(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
-    printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
+printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
 
 	p(tcps_mp_sndpacks, "\t%u data packet%s sent\n");
 	p(tcps_mp_sndbytes, "\t%u data byte%s sent\n");
@@ -808,9 +831,9 @@ mptcp_stats(uint32_t off , char *name, int af)
 	p(tcps_invalid_mpcap, "\t%u packet%s with an invalid MPCAP option\n");
 	p(tcps_invalid_joins, "\t%u packet%s with an invalid MPJOIN option\n");
 	p(tcps_mpcap_fallback, "\t%u time%s primary subflow fell back to "
-	    "TCP\n");
+	  "TCP\n");
 	p(tcps_join_fallback, "\t%u time%s secondary subflow fell back to "
-	    "TCP\n");
+	  "TCP\n");
 	p(tcps_estab_fallback, "\t%u DSS option drop%s\n");
 	p(tcps_invalid_opt, "\t%u other invalid MPTCP option%s\n");
 	p(tcps_mp_reducedwin, "\t%u time%s the MPTCP subflow window was reduced\n");
@@ -866,11 +889,11 @@ udp_stats(uint32_t off , char *name, int af )
 
 #define	UDPDIFF(f) (udpstat.f - pudpstat.f)
 #define	p(f, m) if (UDPDIFF(f) || sflag <= 1) \
-    printf(m, UDPDIFF(f), plural(UDPDIFF(f)))
+printf(m, UDPDIFF(f), plural(UDPDIFF(f)))
 #define	p1a(f, m) if (UDPDIFF(f) || sflag <= 1) \
-    printf(m, UDPDIFF(f))
+printf(m, UDPDIFF(f))
 #define	p2(f1, f2, m) if (UDPDIFF(f1) || UDPDIFF(f2) || sflag <= 1) \
-    printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
+printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p(udps_ipackets, "\t%u datagram%s received\n");
 	p1a(udps_hdrops, "\t\t%u with incomplete header\n");
 	p1a(udps_badlen, "\t\t%u with bad data length field\n");
@@ -878,39 +901,39 @@ udp_stats(uint32_t off , char *name, int af )
 	p1a(udps_nosum, "\t\t%u with no checksum\n");
 	r_swcsum = udpstat.udps_rcv_swcsum + udpstat.udps_rcv6_swcsum;
 	if ((r_swcsum - pr_swcsum) || sflag <= 1)
-        printf("\t\t%u checksummed in software\n", (r_swcsum - pr_swcsum));
+		printf("\t\t%u checksummed in software\n", (r_swcsum - pr_swcsum));
 	p2(udps_rcv_swcsum, udps_rcv_swcsum_bytes,
-	    "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
+	   "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
 #if INET6
 	p2(udps_rcv6_swcsum, udps_rcv6_swcsum_bytes,
-	    "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
+	   "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
 #endif /* INET6 */
 	p1a(udps_noport, "\t\t%u dropped due to no socket\n");
 	p(udps_noportbcast,
-	    "\t\t%u broadcast/multicast datagram%s undelivered\n");
+	  "\t\t%u broadcast/multicast datagram%s undelivered\n");
 	/* the next statistic is cumulative in udps_noportbcast */
 	p(udps_filtermcast,
-	    "\t\t%u time%s multicast source filter matched\n");
+	  "\t\t%u time%s multicast source filter matched\n");
 	p1a(udps_fullsock, "\t\t%u dropped due to full socket buffers\n");
 	p1a(udpps_pcbhashmiss, "\t\t%u not for hashed pcb\n");
 	delivered = UDPDIFF(udps_ipackets) -
-		    UDPDIFF(udps_hdrops) -
-		    UDPDIFF(udps_badlen) -
-		    UDPDIFF(udps_badsum) -
-		    UDPDIFF(udps_noport) -
-		    UDPDIFF(udps_noportbcast) -
-		    UDPDIFF(udps_fullsock);
+	UDPDIFF(udps_hdrops) -
+	UDPDIFF(udps_badlen) -
+	UDPDIFF(udps_badsum) -
+	UDPDIFF(udps_noport) -
+	UDPDIFF(udps_noportbcast) -
+	UDPDIFF(udps_fullsock);
 	if (delivered || sflag <= 1)
 		printf("\t\t%u delivered\n", delivered);
 	p(udps_opackets, "\t%u datagram%s output\n");
 	t_swcsum = udpstat.udps_snd_swcsum + udpstat.udps_snd6_swcsum;
 	if ((t_swcsum - pt_swcsum) || sflag <= 1)
-        printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
+		printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
 	p2(udps_snd_swcsum, udps_snd_swcsum_bytes,
-	    "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
+	   "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
 #if INET6
 	p2(udps_snd6_swcsum, udps_snd6_swcsum_bytes,
-	    "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
+	   "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
 #endif /* INET6 */
 
 	if (interval > 0) {
@@ -946,21 +969,21 @@ ip_stats(uint32_t off , char *name, int af )
 
 #define	IPDIFF(f) (ipstat.f - pipstat.f)
 #define	p(f, m) if (IPDIFF(f) || sflag <= 1) \
-    printf(m, IPDIFF(f), plural(IPDIFF(f)))
+printf(m, IPDIFF(f), plural(IPDIFF(f)))
 #define	p1a(f, m) if (IPDIFF(f) || sflag <= 1) \
-    printf(m, IPDIFF(f))
+printf(m, IPDIFF(f))
 #define	p2(f1, f2, m) if (IPDIFF(f1) || IPDIFF(f2) || sflag <= 1) \
-    printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
+printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 
 	p(ips_total, "\t%u total packet%s received\n");
 	p(ips_badsum, "\t\t%u bad header checksum%s\n");
 	p2(ips_rcv_swcsum, ips_rcv_swcsum_bytes,
-	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
+	   "\t\t%u header%s (%u byte%s) checksummed in software\n");
 	p1a(ips_toosmall, "\t\t%u with size smaller than minimum\n");
 	p1a(ips_tooshort, "\t\t%u with data size < data length\n");
 	p1a(ips_adj, "\t\t%u with data size > data length\n");
 	p(ips_adj_hwcsum_clr,
-	    "\t\t\t%u packet%s forced to software checksum\n");
+	  "\t\t\t%u packet%s forced to software checksum\n");
 	p1a(ips_toolong, "\t\t%u with ip length > max ip packet size\n");
 	p1a(ips_badhlen, "\t\t%u with header length < data size\n");
 	p1a(ips_badlen, "\t\t%u with data length < header length\n");
@@ -1006,10 +1029,10 @@ ip_stats(uint32_t off , char *name, int af )
 	p(ips_nogif, "\t\t%u tunneling packet%s that can't find gif\n");
 	p(ips_badaddr, "\t\t%u datagram%s with bad address in header\n");
 	p(ips_pktdropcntrl,
-	    "\t\t%u packet%s dropped due to no bufs for control data\n");
+	  "\t\t%u packet%s dropped due to no bufs for control data\n");
 	p(ips_necp_policy_drop, "\t\t%u packet%s dropped due to NECP policy\n");
 	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
-	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
+	   "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
 	if (interval > 0) {
 		bcopy(&ipstat, &pipstat, ipstat_len);
@@ -1032,7 +1055,7 @@ arp_stats(uint32_t off, char *name, int af)
 	size_t len = sizeof (arpstat);
 
 	if (sysctlbyname("net.link.ether.inet.stats", &arpstat,
-	    &len, 0, 0) < 0) {
+			 &len, 0, 0) < 0) {
 		warn("sysctl: net.link.ether.inet.stats");
 		return;
 	}
@@ -1043,11 +1066,11 @@ arp_stats(uint32_t off, char *name, int af)
 
 #define	ARPDIFF(f) (arpstat.f - parpstat.f)
 #define	p(f, m) if (ARPDIFF(f) || sflag <= 1) \
-    printf(m, ARPDIFF(f), plural(ARPDIFF(f)))
+printf(m, ARPDIFF(f), plural(ARPDIFF(f)))
 #define	p2(f, m) if (ARPDIFF(f) || sflag <= 1) \
-    printf(m, ARPDIFF(f), pluralies(ARPDIFF(f)))
+printf(m, ARPDIFF(f), pluralies(ARPDIFF(f)))
 #define	p3(f, m) if (ARPDIFF(f) || sflag <= 1) \
-    printf(m, ARPDIFF(f), plural(ARPDIFF(f)), pluralies(ARPDIFF(f)))
+printf(m, ARPDIFF(f), plural(ARPDIFF(f)), pluralies(ARPDIFF(f)))
 
 	p(txrequests, "\t%u broadast ARP request%s sent\n");
 	p(txurequests, "\t%u unicast ARP request%s sent\n");
@@ -1123,13 +1146,13 @@ icmp_stats(uint32_t off , char *name, int af )
 
 #define	ICMPDIFF(f) (icmpstat.f - picmpstat.f)
 #define	p(f, m) if (ICMPDIFF(f) || sflag <= 1) \
-    printf(m, ICMPDIFF(f), plural(ICMPDIFF(f)))
+printf(m, ICMPDIFF(f), plural(ICMPDIFF(f)))
 #define	p1a(f, m) if (ICMPDIFF(f) || sflag <= 1) \
-    printf(m, ICMPDIFF(f))
+printf(m, ICMPDIFF(f))
 
 	p(icps_error, "\t%u call%s to icmp_error\n");
 	p(icps_oldicmp,
-	    "\t%u error%s not generated 'cuz old message was icmp\n");
+	  "\t%u error%s not generated 'cuz old message was icmp\n");
 	for (first = 1, i = 0; i < ICMP_MAXTYPE + 1; i++)
 		if (ICMPDIFF(icps_outhist[i]) != 0) {
 			if (first) {
@@ -1137,7 +1160,7 @@ icmp_stats(uint32_t off , char *name, int af )
 				first = 0;
 			}
 			printf("\t\t%s: %u\n", icmpnames[i],
-				ICMPDIFF(icps_outhist[i]));
+			       ICMPDIFF(icps_outhist[i]));
 		}
 	p(icps_badcode, "\t%u message%s with bad code fields\n");
 	p(icps_tooshort, "\t%u message%s < minimum length\n");
@@ -1152,7 +1175,7 @@ icmp_stats(uint32_t off , char *name, int af )
 				first = 0;
 			}
 			printf("\t\t%s: %u\n", icmpnames[i],
-				ICMPDIFF(icps_inhist[i]));
+			       ICMPDIFF(icps_inhist[i]));
 		}
 	p(icps_reflect, "\t%u message response%s generated\n");
 
@@ -1163,7 +1186,7 @@ icmp_stats(uint32_t off , char *name, int af )
 	len = sizeof i;
 	if (sysctl(mib, 4, &i, &len, (void *)0, 0) < 0)
 		return;
-	printf("\tICMP address mask responses are %sabled\n", 
+	printf("\tICMP address mask responses are %sabled\n",
 	       i ? "en" : "dis");
 
 	if (interval > 0)
@@ -1187,11 +1210,11 @@ igmp_stats(uint32_t off , char *name, int af )
 
 	if (igmpstat.igps_version != IGPS_VERSION_3) {
 		warnx("%s: version mismatch (%d != %d)", __func__,
-		    igmpstat.igps_version, IGPS_VERSION_3);
+		      igmpstat.igps_version, IGPS_VERSION_3);
 	}
 	if (igmpstat.igps_len != IGPS_VERSION3_LEN) {
 		warnx("%s: size mismatch (%d != %d)", __func__,
-		    igmpstat.igps_len, IGPS_VERSION3_LEN);
+		      igmpstat.igps_len, IGPS_VERSION3_LEN);
 	}
 
 	if (interval && vflag > 0)
@@ -1200,9 +1223,9 @@ igmp_stats(uint32_t off , char *name, int af )
 
 #define	IGMPDIFF(f) ((uintmax_t)(igmpstat.f - pigmpstat.f))
 #define	p64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
-    printf(m, IGMPDIFF(f), plural(IGMPDIFF(f)))
+printf(m, IGMPDIFF(f), plural(IGMPDIFF(f)))
 #define	py64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
-    printf(m, IGMPDIFF(f), IGMPDIFF(f) != 1 ? "ies" : "y")
+printf(m, IGMPDIFF(f), IGMPDIFF(f) != 1 ? "ies" : "y")
 
 	p64(igps_rcv_total, "\t%ju message%s received\n");
 	p64(igps_rcv_tooshort, "\t%ju message%s received with too few bytes\n");
@@ -1211,7 +1234,7 @@ igmp_stats(uint32_t off , char *name, int af )
 	py64(igps_rcv_v1v2_queries, "\t%ju V1/V2 membership quer%s received\n");
 	py64(igps_rcv_v3_queries, "\t%ju V3 membership quer%s received\n");
 	py64(igps_rcv_badqueries,
-	    "\t%ju membership quer%s received with invalid field(s)\n");
+	     "\t%ju membership quer%s received with invalid field(s)\n");
 	py64(igps_rcv_gen_queries, "\t%ju general quer%s received\n");
 	py64(igps_rcv_group_queries, "\t%ju group quer%s received\n");
 	py64(igps_rcv_gsr_queries, "\t%ju group-source quer%s received\n");
@@ -1220,9 +1243,9 @@ igmp_stats(uint32_t off , char *name, int af )
 	p64(igps_rcv_badreports,
 	    "\t%ju membership report%s received with invalid field(s)\n");
 	p64(igps_rcv_ourreports,
-"\t%ju membership report%s received for groups to which we belong\n");
-        p64(igps_rcv_nora, "\t%ju V3 report%s received without Router Alert\n");
-        p64(igps_snd_reports, "\t%ju membership report%s sent\n");
+	    "\t%ju membership report%s received for groups to which we belong\n");
+	p64(igps_rcv_nora, "\t%ju V3 report%s received without Router Alert\n");
+	p64(igps_snd_reports, "\t%ju membership report%s sent\n");
 
 	if (interval > 0)
 		bcopy(&igmpstat, &pigmpstat, len);
@@ -1243,25 +1266,25 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 	int width;
 
 	if (Wflag)
-	    snprintf(line, sizeof(line), "%s.", inetname(in));
+		snprintf(line, sizeof(line), "%s.", inetname(in));
 	else
-	    snprintf(line, sizeof(line), "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
+		snprintf(line, sizeof(line), "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
 	cp = index(line, '\0');
 	if (!numeric_port && port)
 #ifdef _SERVICE_CACHE_
 		sp = _serv_cache_getservbyport(port, proto);
 #else
-		sp = getservbyport((int)port, proto);
+	sp = getservbyport((int)port, proto);
 #endif
 	if (sp || port == 0)
 		snprintf(cp, sizeof(line) - (cp - line), "%.15s ", sp ? sp->s_name : "*");
 	else
 		snprintf(cp, sizeof(line) - (cp - line), "%d ", ntohs((u_short)port));
-    width = lflag ? 45 : Aflag ? 18 : 22;
+	width = lflag ? 45 : Aflag ? 18 : 22;
 	if (Wflag)
-	    printf("%-*s ", width, line);
+		printf("%-*s ", width, line);
 	else
-	    printf("%-*.*s ", width, width, line);
+		printf("%-*.*s ", width, width, line);
 }
 
 /*

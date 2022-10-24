@@ -60,12 +60,12 @@ static cairo_status_t writeFunction(void* output, const unsigned char* data, uns
 
 static bool encodeImage(cairo_surface_t* image, const String& mimeType, Vector<uint8_t>* output)
 {
-    ASSERT_UNUSED(mimeType, mimeType == "image/png"); // Only PNG output is supported for now.
+    ASSERT_UNUSED(mimeType, mimeType == "image/png"_s); // Only PNG output is supported for now.
 
     return cairo_surface_write_to_png_stream(image, writeFunction, output) == CAIRO_STATUS_SUCCESS;
 }
 
-Vector<uint8_t> data(cairo_surface_t* image, const String& mimeType, std::optional<double>)
+Vector<uint8_t> encodeData(cairo_surface_t* image, const String& mimeType, std::optional<double>)
 {
     Vector<uint8_t> encodedImage;
     if (!image || !encodeImage(image, mimeType, &encodedImage))
@@ -79,35 +79,15 @@ static bool encodeImage(cairo_surface_t* surface, const String& mimeType, std::o
     // http://developer.gnome.org/gdk-pixbuf/stable/gdk-pixbuf-File-saving.html#gdk-pixbuf-save-to-bufferv
 
     String type = mimeType.substring(sizeof "image");
-    if (type != "jpeg" && type != "png" && type != "tiff" && type != "ico" && type != "bmp")
+    if (type != "jpeg"_s && type != "png"_s && type != "tiff"_s && type != "ico"_s && type != "bmp"_s)
         return false;
 
-    GRefPtr<GdkPixbuf> pixbuf;
-    if (type == "jpeg") {
-        // JPEG doesn't support alpha channel. The <canvas> spec states that toDataURL() must encode a Porter-Duff
-        // composite source-over black for image types that do not support alpha.
-        RefPtr<cairo_surface_t> newSurface;
-        if (cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE) {
-            newSurface = adoptRef(cairo_image_surface_create_for_data(cairo_image_surface_get_data(surface),
-                CAIRO_FORMAT_RGB24,
-                cairo_image_surface_get_width(surface),
-                cairo_image_surface_get_height(surface),
-                cairo_image_surface_get_stride(surface)));
-        } else {
-            IntSize size = cairoSurfaceSize(surface);
-            newSurface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_RGB24, size.width(), size.height()));
-            RefPtr<cairo_t> cr = adoptRef(cairo_create(newSurface.get()));
-            cairo_set_source_surface(cr.get(), surface, 0, 0);
-            cairo_paint(cr.get());
-        }
-        pixbuf = adoptGRef(cairoSurfaceToGdkPixbuf(newSurface.get()));
-    } else
-        pixbuf = adoptGRef(cairoSurfaceToGdkPixbuf(surface));
+    GRefPtr<GdkPixbuf> pixbuf = adoptGRef(cairoSurfaceToGdkPixbuf(surface));
     if (!pixbuf)
         return false;
 
     GUniqueOutPtr<GError> error;
-    if (type == "jpeg" && quality && *quality >= 0.0 && *quality <= 1.0) {
+    if (type == "jpeg"_s && quality && *quality >= 0.0 && *quality <= 1.0) {
         String qualityString = String::number(static_cast<int>(*quality * 100.0 + 0.5));
         gdk_pixbuf_save_to_buffer(pixbuf.get(), &buffer.outPtr(), &bufferSize, type.utf8().data(), &error.outPtr(), "quality", qualityString.utf8().data(), NULL);
     } else
@@ -116,7 +96,7 @@ static bool encodeImage(cairo_surface_t* surface, const String& mimeType, std::o
     return !error;
 }
 
-Vector<uint8_t> data(cairo_surface_t* image, const String& mimeType, std::optional<double> quality)
+Vector<uint8_t> encodeData(cairo_surface_t* image, const String& mimeType, std::optional<double> quality)
 {
     GUniqueOutPtr<gchar> buffer;
     gsize bufferSize;

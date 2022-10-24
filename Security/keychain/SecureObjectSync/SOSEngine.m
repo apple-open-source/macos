@@ -975,7 +975,7 @@ static void SOSEngineObjectWithView(SOSEngineRef engine, SOSObjectRef object, vo
 
             // Non-primary user items should be short-circuited as well
             if(!SecDbItemIsPrimaryUserItem(item)) {
-                secnotice("item", "Skipping non-primary item %@", item);
+                secnotice("item", "Skipping non-primary item " SECDBITEM_FMT, item);
                 return;
             }
 
@@ -1240,7 +1240,7 @@ static bool SOSEngineUpdateChanges_locked(SOSEngineRef engine, SOSTransactionRef
                         // A tombstone was inserted but there is no changetracker that
                         // cares about it.
                         if (!SecDbItemDoDeleteSilently((SecDbItemRef)inserted, (SecDbConnectionRef)txn, &localError)) {
-                            secerror("failed to delete tombstone %@ that no one cares about: %@", inserted, localError);
+                            secerror("failed to delete tombstone " SECDBITEM_FMT " that no one cares about: %@", inserted, localError);
                             CFReleaseNull(localError);
                         }
                     }
@@ -1663,9 +1663,6 @@ static void SOSEngineSetBackupBag(SOSEngineRef engine, SOSObjectRef bagItem) {
 }
 
 static bool SOSEngineCircleChanged_locked(SOSEngineRef engine, SOSPeerMetaRef myPeerMeta, CFArrayRef trustedPeers, CFArrayRef untrustedPeers) {
-    // Sanity check params
-//    SOSEngineCircleChanged_sanitycheck(engine, myPeerID, trustedPeers, untrustedPeers);
-
     // Transform from SOSPeerInfoRefs to CFDictionaries with the info we want per peer.
     // Or, Tell the real SOSPeerRef what the SOSPeerInfoRef is and have it copy out the data it needs.
     bool peersOrViewsChanged = SOSEngineSetPeers_locked(engine, myPeerMeta, trustedPeers, untrustedPeers);

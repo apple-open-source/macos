@@ -11,6 +11,7 @@
 #define COMPILER_TRANSLATOR_TREEOPS_VULKAN_EARLYFRAGMENTTESTSOPTIMIZATION_H_
 
 #include "common/angleutils.h"
+#include "common/debug.h"
 
 namespace sh
 {
@@ -18,10 +19,10 @@ class TCompiler;
 class TIntermNode;
 
 #ifdef ANGLE_ENABLE_VULKAN
-ANGLE_NO_DISCARD bool CheckEarlyFragmentTestsFeasible(TCompiler *compiler, TIntermNode *root);
+[[nodiscard]] bool CheckEarlyFragmentTestsFeasible(TCompiler *compiler, TIntermNode *root);
 #else
-ANGLE_NO_DISCARD ANGLE_INLINE bool CheckEarlyFragmentTestsFeasible(TCompiler *compiler,
-                                                                   TIntermNode *root)
+[[nodiscard]] ANGLE_INLINE bool CheckEarlyFragmentTestsFeasible(TCompiler *compiler,
+                                                                TIntermNode *root)
 {
     UNREACHABLE();
     return false;

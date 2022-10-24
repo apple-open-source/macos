@@ -182,7 +182,7 @@ void printResultType(
 		case kSecTrustSettingsResultDeny:    s = "kSecTrustSettingsResultDeny"; break;
 		case kSecTrustSettingsResultUnspecified: s = "kSecTrustSettingsResultUnspecified"; break;
 		default:
-			sprintf(bogus, "Unknown SecTrustSettingsResult (%d)", (int)n);
+                        snprintf(bogus, sizeof(bogus), "Unknown SecTrustSettingsResult (%d)", (int)n);
 			s = bogus;
 			break;
 	}
@@ -317,10 +317,10 @@ const char *oidToOidString(
 			return os->oidStr;
 		}
 	}
-	sprintf(unknownOidString, "Unknown OID length %ld, value { ", oid->Length);
+	snprintf(unknownOidString, sizeof(unknownOidString), "Unknown OID length %ld, value { ", oid->Length);
 	for(dex=0; dex<oid->Length; dex++) {
 		char tmp[6];
-		sprintf(tmp, "%02X ", oid->Data[dex]);
+		snprintf(tmp, sizeof(tmp), "%02X ", oid->Data[dex]);
 		strcat(unknownOidString, tmp);
 	}
 	strcat(unknownOidString, " }");
@@ -484,9 +484,10 @@ static size_t print_buffer_pem(FILE *stream,
 	size_t pem_name_len = strlen(pem_name);
 	size_t b64_len = SecBase64Encode2(NULL, length, NULL, 0,
 			kSecB64_F_LINE_LEN_USE_PARAM, 64, NULL);
-	char *buffer = malloc(33 + 2 * pem_name_len + b64_len);
+        size_t buffer_len = 33 + 2 * pem_name_len + b64_len;
+	char *buffer = malloc(buffer_len);
 	char *p = buffer;
-	p += sprintf(buffer, "-----BEGIN %s-----\n", pem_name);
+	p += snprintf(buffer, buffer_len, "-----BEGIN %s-----\n", pem_name);
 	SecBase64Result result;
 	p += SecBase64Encode2(bytes, length, p, b64_len,\
 			kSecB64_F_LINE_LEN_USE_PARAM, 64, &result);
@@ -494,7 +495,7 @@ static size_t print_buffer_pem(FILE *stream,
 		free(buffer);
 		return result;
 	}
-	p += sprintf(p, "\n-----END %s-----\n", pem_name);
+	p += snprintf(p, buffer_len - (p - buffer), "\n-----END %s-----\n", pem_name);
 	size_t res = fwrite(buffer, 1, p - buffer, stream);
 	fflush(stream);
 	bzero(buffer, p - buffer);

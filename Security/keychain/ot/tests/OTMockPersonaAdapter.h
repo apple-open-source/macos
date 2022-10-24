@@ -31,9 +31,15 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OTMockPersonaAdapter : NSObject <OTPersonaAdapter>
 
 @property BOOL isDefaultPersona;
+@property NSString* currentPersonaString;
 
 - (instancetype)init;
 
++ (NSString*)defaultMockPersonaString;
+
+- (void)prepareThreadForKeychainAPIUseForPersonaIdentifier:(NSString* _Nullable)personaUniqueString;
+- (void)performBlockWithPersonaIdentifier:(NSString* _Nullable)personaUniqueString
+                                     block:(void (^) (void)) block;
 @end
 
 NS_ASSUME_NONNULL_END

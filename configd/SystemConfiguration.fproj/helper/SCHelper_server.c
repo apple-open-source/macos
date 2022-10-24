@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,6 +40,7 @@
 
 #define SC_LOG_HANDLE		__log_SCHelper
 #define SC_LOG_HANDLE_TYPE	static
+#include "SCInternal.h"
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 #include "helper_types.h"
@@ -107,9 +108,8 @@ static void		__SCHelperSessionDeallocate		(CFTypeRef cf);
 static void		__SCHelperSessionLogBacktrace		(const void *value, void *context);
 
 
-static CFTypeID		__kSCHelperSessionTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID		__kSCHelperSessionTypeID;
 static Boolean		debug				= FALSE;
-static pthread_once_t	initialized			= PTHREAD_ONCE_INIT;
 static CFRunLoopRef	main_runLoop			= NULL;
 static CFMutableSetRef	sessions			= NULL;
 static int		sessions_closed			= 0;	// count of sessions recently closed
@@ -490,7 +490,12 @@ __SCHelperSessionDeallocate(CFTypeRef cf)
 static void
 __SCHelperSessionInitialize(void)
 {
-	__kSCHelperSessionTypeID = _CFRuntimeRegisterClass(&__SCHelperSessionClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		__kSCHelperSessionTypeID = _CFRuntimeRegisterClass(&__SCHelperSessionClass);
+	});
+
 	return;
 }
 
@@ -502,7 +507,7 @@ __SCHelperSessionCreate(CFAllocatorRef allocator)
 	uint32_t			size;
 
 	// initialize runtime
-	pthread_once(&initialized, __SCHelperSessionInitialize);
+	__SCHelperSessionInitialize();
 
 	// allocate session
 	size           = sizeof(SCHelperSessionPrivate) - sizeof(CFRuntimeBase);
@@ -1676,7 +1681,7 @@ checkEntitlement(SCHelperSessionRef session, CFStringRef prefsID, CFStringRef en
 
 
 static Boolean
-hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
+hasAuthorization(SCHelperSessionRef session, Boolean needWrite, int *sc_exception)
 {
 	AuthorizationRef		authorization		= __SCHelperSessionGetAuthorization(session);
 	CFStringRef			prefsID;
@@ -1685,6 +1690,8 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 	if (authorization == NULL) {
 		return FALSE;
 	}
+
+	prefsID = sessionPrefsID(session);
 
 #if	!TARGET_OS_IPHONE
 	if (!__SCHelperSessionUseEntitlement(session)) {
@@ -1725,16 +1732,20 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 						 flags,
 						 NULL);
 		if (status != errAuthorizationSuccess) {
-			SC_log(LOG_INFO, "AuthorizationCopyRights() failed: status = %d",
+			SC_log(LOG_NOTICE, "SCPreferences %s access to \"%@\" denied, no authorization for \"%@\", status = %d",
+			       needWrite ? "write" : "read",
+			       prefsID,
+			       sessionName(session),
 			       (int)status);
+			if (sc_exception != NULL) {
+				*sc_exception = kSCStatusAccessError_MissingAuthorization;
+			}
 			return FALSE;
 		}
 
 		return TRUE;
 	}
 #endif	// !TARGET_OS_IPHONE
-
-	prefsID = sessionPrefsID(session);
 
 	if (sessionPrivate->callerWriteAccess == UNKNOWN) {
 		if (checkEntitlement(session, prefsID, kSCWriteEntitlementName)) {
@@ -1749,18 +1760,21 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 		if (sessionPrivate->callerWriteAccess == YES) {
 			return TRUE;
 		} else {
-			SC_log(LOG_NOTICE, "SCPreferences write access to \"%@\" denied, no entitlement for \"%@\"",
+			SC_log(LOG_NOTICE, "SCPreferences access to \"%@\" denied, no [write] entitlement for \"%@\"",
 			       prefsID,
 			       sessionName(session));
+			if (sc_exception != NULL) {
+				*sc_exception = kSCStatusAccessError_MissingWriteEntitlement;
+			}
 			return FALSE;
 		}
 	}
 
 	if (sessionPrivate->callerReadAccess == UNKNOWN) {
 		if (checkEntitlement(session, prefsID, kSCReadEntitlementName)) {
-			sessionPrivate->callerReadAccess  = YES;
+			sessionPrivate->callerReadAccess = YES;
 		} else {
-			sessionPrivate->callerWriteAccess = NO;
+			sessionPrivate->callerReadAccess = NO;
 		}
 	}
 
@@ -1768,9 +1782,12 @@ hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
 		return TRUE;
 	}
 
-	SC_log(LOG_NOTICE, "SCPreferences access to \"%@\" denied, no entitlement for \"%@\"",
+	SC_log(LOG_NOTICE, "SCPreferences access to \"%@\" denied, no [read] entitlement for \"%@\"",
 	       prefsID,
 	       sessionName(session));
+	if (sc_exception != NULL) {
+		*sc_exception = kSCStatusAccessError_MissingReadEntitlement;
+	}
 	return FALSE;
 }
 
@@ -2212,6 +2229,7 @@ _helperexec(mach_port_t			server,
 	CFDataRef			data		= NULL;
 	int				i;
 	CFDataRef			reply		= NULL;
+	int				sc_exception	= kSCStatusOK;
 	SCHelperSessionRef		session;
 
 	*status   = kSCStatusOK;
@@ -2253,11 +2271,14 @@ _helperexec(mach_port_t			server,
 	       (data != NULL) ? " w/data" : "");
 
 	if (helpers[i].needsAuthorization &&
-	    !hasAuthorization(session, helpers[i].needsWrite)) {
+	    !hasAuthorization(session, helpers[i].needsWrite, &sc_exception)) {
 		SC_log(LOG_INFO, "%p : command \"%s\" : not authorized",
 		       session,
 		       helpers[i].commandName);
 		*status = kSCStatusAccessError;
+		if (sc_exception != kSCStatusOK) {
+			*status = sc_exception;
+		}
 	}
 
 	if (*status == kSCStatusOK) {

@@ -161,7 +161,7 @@ typedef enum {
 	CPU_CPUPART_OUT
 } cpu_setup_t;
 
-typedef int cpu_setup_func_t(cpu_setup_t, int, void *);
+typedef int cpu_setup_func_t(cpu_setup_t, processorid_t);
 
 extern void register_cpu_setup_func(cpu_setup_func_t *, void *);
 extern void unregister_cpu_setup_func(cpu_setup_func_t *, void *);

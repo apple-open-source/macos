@@ -5,6 +5,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <XCTest/XCTestCase_Private.h>
 
 #import <Foundation/Foundation.h>
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
@@ -35,25 +36,31 @@
 }
 
 - (void)testAESGCMDuplex {
-    uint64_t context = 0x81FC134000123041;
-    uint8_t secretBytes[] = { 0x11, 0x22, 0x33, 0x13, 0x44, 0xF1, 0x13, 0x92, 0x11, 0x22, 0x33, 0x13, 0x44, 0xF1, 0x13, 0x92 };
-    NSData* secret = [NSData dataWithBytes:secretBytes length:sizeof(secretBytes)];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    [self assertNoLeaksInScope:^{
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
+        uint64_t context = 0x81FC134000123041;
+        uint8_t secretBytes[] = { 0x11, 0x22, 0x33, 0x13, 0x44, 0xF1, 0x13, 0x92, 0x11, 0x22, 0x33, 0x13, 0x44, 0xF1, 0x13, 0x92 };
+        NSData* secret = [NSData dataWithBytes:secretBytes length:sizeof(secretBytes)];
 
-    KCAESGCMDuplexSession* sender = [KCAESGCMDuplexSession sessionAsSender:secret
-                                                                   context:context];
-
-    KCAESGCMDuplexSession* receiver = [KCAESGCMDuplexSession sessionAsReceiver:secret
+        KCAESGCMDuplexSession* sender = [KCAESGCMDuplexSession sessionAsSender:secret
                                                                        context:context];
 
-    uint8_t sendToRecvBuffer[] = { 0x1, 0x2, 0x3, 0x88, 0xFF, 0xE1 };
-    NSData* sendToRecvData = [NSData dataWithBytes:sendToRecvBuffer length:sizeof(sendToRecvBuffer)];
+        KCAESGCMDuplexSession* receiver = [KCAESGCMDuplexSession sessionAsReceiver:secret
+                                                                           context:context];
 
-    [self sendMessage:sendToRecvData from:sender to:receiver];
+        uint8_t sendToRecvBuffer[] = { 0x1, 0x2, 0x3, 0x88, 0xFF, 0xE1 };
+        NSData* sendToRecvData = [NSData dataWithBytes:sendToRecvBuffer length:sizeof(sendToRecvBuffer)];
 
-    uint8_t recvToSendBuffer[] = { 0x81, 0x52, 0x63, 0x88, 0xFF, 0xE1 };
-    NSData* recvToSendData = [NSData dataWithBytes:recvToSendBuffer length:sizeof(recvToSendBuffer)];
+        [self sendMessage:sendToRecvData from:sender to:receiver];
 
-    [self sendMessage:recvToSendData from:receiver to:sender];
+        uint8_t recvToSendBuffer[] = { 0x81, 0x52, 0x63, 0x88, 0xFF, 0xE1 };
+        NSData* recvToSendData = [NSData dataWithBytes:recvToSendBuffer length:sizeof(recvToSendBuffer)];
+
+        [self sendMessage:recvToSendData from:receiver to:sender];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    }];
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
 }
 
 - (KCAESGCMDuplexSession*) archiveDearchive: (KCAESGCMDuplexSession*) original {
@@ -119,15 +126,33 @@
 }
 
 - (void)testAESGCMDuplexCodingFlattenReceiver {
-    [self doAESGCMDuplexCodingFlattenSender:NO Receiver:YES];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    [self assertNoLeaksInScope:^{
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
+        [self doAESGCMDuplexCodingFlattenSender:NO Receiver:YES];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    }];
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
 }
 
 - (void)testAESGCMDuplexCodingFlattenSender {
-    [self doAESGCMDuplexCodingFlattenSender:YES Receiver:NO];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    [self assertNoLeaksInScope:^{
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
+        [self doAESGCMDuplexCodingFlattenSender:YES Receiver:NO];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    }];
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
 }
 
 - (void)testAESGCMDuplexCodingFlattenSenderReceiver {
-    [self doAESGCMDuplexCodingFlattenSender:YES Receiver:YES];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    [self assertNoLeaksInScope:^{
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
+        [self doAESGCMDuplexCodingFlattenSender:YES Receiver:YES];
+#if XCT_MEMORY_TESTING_AVAILABLE
+    }];
+#endif /* XCT_MEMORY_TESTING_AVAILABLE */
 }
 
 

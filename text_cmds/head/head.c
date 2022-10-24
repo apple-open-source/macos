@@ -175,7 +175,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-#ifndef __APPLE__
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#else
 	fileargs_free(fa);
 #endif
 	exit(eval);

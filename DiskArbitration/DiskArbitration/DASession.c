@@ -26,6 +26,7 @@
 #include "DADisk.h"
 #include "DAInternal.h"
 #include "DAServer.h"
+#include "DiskArbitrationPrivate.h"
 
 #include <bootstrap_priv.h>
 #include <crt_externs.h>
@@ -38,15 +39,19 @@
 #include <servers/bootstrap.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 #include <Security/Authorization.h>
+#endif
 #include <os/log.h>
 #include <libkern/OSAtomic.h>
+#include <notify.h>
 
 struct __DASession
 {
     CFRuntimeBase           _base;
-
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     AuthorizationRef        _authorization;
+#endif
     CFMachPortRef           _client;
     char *                  _name;
     pid_t                    _pid;
@@ -57,6 +62,9 @@ struct __DASession
     CFMutableDictionaryRef  _register;
     SInt32                  _registerIndex;
     pthread_mutex_t         _registerLock;
+    bool                    _keepAlive;
+    int                     _token;
+    dispatch_queue_t        _queue;
 };
 
 typedef struct __DASession __DASession;
@@ -85,7 +93,9 @@ static CFTypeID __kDASessionTypeID = _kCFRuntimeNotATypeID;
 
 static pthread_mutex_t __gDASessionSetAuthorizationLock = PTHREAD_MUTEX_INITIALIZER;
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 const CFStringRef kDAApprovalRunLoopMode = CFSTR( "kDAApprovalRunLoopMode" );
+#endif
 
 static uint32_t           sessionCount = 0;
 
@@ -132,7 +142,9 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 
     if ( session )
     {
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         session->_authorization = NULL;
+#endif
         session->_client        = NULL;
         session->_name          = NULL;
         session->_pid           = 0;
@@ -142,6 +154,8 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         session->_sourceCount   = 0;
         session->_register      = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
         session->_registerIndex = 0;
+        session->_keepAlive     = false;
+        session->_token         = -1;
         pthread_mutex_init( &session->_registerLock, NULL );
 
         assert( session->_register );
@@ -157,6 +171,28 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
     return session;
 }
 
+static void __DASessionReleaseCallbackBlocks( DASessionRef session )
+{
+    CFIndex count = CFDictionaryGetCount( session->_register );
+    const void** keys = ( const void** ) malloc( sizeof(void*)*count );
+    const void** values = ( const void** ) malloc( sizeof(void*)*count );
+    SInt32 queueIndex;
+
+    CFDictionaryGetKeysAndValues( session->_register, keys, values );
+    for ( queueIndex = 0; queueIndex < count; queueIndex++ )
+    {
+        CFMutableDictionaryRef callback = ( CFMutableDictionaryRef )( values[queueIndex] );
+        void *currentaddress = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
+        int block = ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackBlockKey );
+        if ( block )
+        {
+            Block_release ( currentaddress );
+        }
+    }
+    free ( keys );
+    free ( values );
+}
+
 static void __DASessionDeallocate( CFTypeRef object )
 {
     DASessionRef session = ( DASessionRef ) object;
@@ -165,10 +201,18 @@ static void __DASessionDeallocate( CFTypeRef object )
     assert( session->_source  == NULL );
     assert( session->_source2 == NULL );
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+#endif
     if ( session->_name          )  free( session->_name );
+    if ( session->_token  != -1  )  notify_cancel( session->_token );
     if ( session->_server        )  mach_port_deallocate( mach_task_self( ), session->_server );
-    if ( session->_register )       CFRelease( session->_register );
+   
+    if ( session->_register )
+    {
+        __DASessionReleaseCallbackBlocks( session );
+        CFRelease( session->_register );
+    }
     OSAtomicDecrement32( &sessionCount );
     pthread_mutex_destroy( &session->_registerLock );
 }
@@ -240,7 +284,7 @@ __private_extern__ void _DASessionCallback( CFMachPortRef port, void * message, 
         vm_deallocate( mach_task_self( ), _queue, _queueSize );
     }
 }
-
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session )
 {
     AuthorizationRef authorization;
@@ -288,7 +332,7 @@ __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef ses
 
     return authorization;
 }
-
+#endif
 #ifndef __LP64__
 
 __private_extern__ mach_port_t _DASessionGetClientPort( DASessionRef session )
@@ -310,6 +354,11 @@ __private_extern__ mach_port_t _DASessionGetClientPort( DASessionRef session )
 __private_extern__ mach_port_t _DASessionGetID( DASessionRef session )
 {
     return session->_server;
+}
+
+__private_extern__ bool _DASessionIsKeepAlive( DASessionRef session )
+{
+    return ( session->_keepAlive == true );
 }
 
 __private_extern__ void _DASessionInitialize( void )
@@ -427,16 +476,19 @@ __private_extern__ void _DASessionUnscheduleFromRunLoop( DASessionRef session )
     }
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 DAApprovalSessionRef DAApprovalSessionCreate( CFAllocatorRef allocator )
 {
     return DASessionCreate( allocator );
 }
+#endif
 
 CFTypeID DAApprovalSessionGetTypeID( void )
 {
     return DASessionGetTypeID( );
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode )
 {
     DASessionScheduleWithRunLoop( session, runLoop, kDAApprovalRunLoopMode );
@@ -444,11 +496,74 @@ void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, CFRunLo
     DASessionScheduleWithRunLoop( session, runLoop, runLoopMode );
 }
 
+
 void DAApprovalSessionUnscheduleFromRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode )
 {
     DASessionUnscheduleFromRunLoop( session, runLoop, kDAApprovalRunLoopMode );
 
     DASessionUnscheduleFromRunLoop( session, runLoop, runLoopMode );
+}
+#endif
+
+
+static bool DASessionEstablish(DASessionRef session  )
+{
+    if ( session )
+    {
+        mach_port_t   bootstrapPort;
+        kern_return_t status;
+
+        /*
+         * Obtain the bootstrap port.
+         */
+
+        status = task_get_bootstrap_port( mach_task_self( ), &bootstrapPort );
+
+        if ( status == KERN_SUCCESS )
+        {
+            mach_port_t masterPort;
+
+            /*
+             * Obtain the Disk Arbitration master port.
+             */
+
+            status = bootstrap_look_up2( bootstrapPort, _kDADaemonName, &masterPort, 0, BOOTSTRAP_PRIVILEGED_SERVER );
+
+            mach_port_deallocate( mach_task_self( ), bootstrapPort );
+
+            if ( status == KERN_SUCCESS )
+            {
+                mach_port_t server;
+
+                /*
+                 * Create the session at the server.
+                 */
+
+                status = _DAServerSessionCreate( masterPort,
+                                                 basename( ( char * ) _dyld_get_image_name( 0 ) ),
+                                                 &server );
+
+                mach_port_deallocate( mach_task_self( ), masterPort );
+
+                if ( status == KERN_SUCCESS )
+                {
+                    session->_name   = strdup( basename( ( char * ) _dyld_get_image_name( 0 ) ) );
+                    session->_pid    = getpid( );
+                    session->_server = server;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+///w:start
+if ( strcmp( session->_name, "SystemUIServer" ) == 0 )
+{
+    _DASessionGetAuthorization( session );
+}
+///w:stop
+#endif
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 DASessionRef DASessionCreate( CFAllocatorRef allocator )
@@ -509,13 +624,14 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
                     session->_name   = strdup( basename( ( char * ) _dyld_get_image_name( 0 ) ) );
                     session->_pid    = getpid( );
                     session->_server = server;
-
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 ///w:start
 if ( strcmp( session->_name, "SystemUIServer" ) == 0 )
 {
     _DASessionGetAuthorization( session );
 }
 ///w:stop
+#endif
                     return session;
                 }
             }
@@ -602,28 +718,54 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
                         session->_source2 = source;
 
                         CFRetain( session );
-
-                        dispatch_source_set_cancel_handler( session->_source2, ^
+#if TARGET_OS_IOS
+                        mach_port_t port;
+                        
+                        status = mach_port_request_notification( mach_task_self( ),
+                                                                client,
+                                                                 MACH_NOTIFY_NO_SENDERS,
+                                                                 1,
+                                                                client,
+                                                                 MACH_MSG_TYPE_MAKE_SEND_ONCE,
+                                                                 &port );
+                        if ( status == KERN_SUCCESS )
+#endif
                         {
-                            mach_port_mod_refs( mach_task_self( ), client, MACH_PORT_RIGHT_RECEIVE, -1 );
 
-                            CFRelease( session );
-                        } );
+                            dispatch_source_set_cancel_handler( session->_source2, ^
+                                                               {
+                                mach_port_mod_refs( mach_task_self( ), client, MACH_PORT_RIGHT_RECEIVE, -1 );
 
-                        dispatch_source_set_event_handler( session->_source2, ^
-                        {
-                            mach_msg_empty_rcv_t message;
+                                CFRelease( session );
+                            } );
 
-                            mach_msg( ( void * ) &message, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof( message ), client, 0, MACH_PORT_NULL );
+                            dispatch_source_set_event_handler( session->_source2, ^
+                                                              {
+                                mach_msg_empty_rcv_t message;
+                                mach_msg( ( void * ) &message, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof( message ), client, 0, MACH_PORT_NULL );
+#if TARGET_OS_IOS
+                                if (MACH_NOTIFY_NO_SENDERS == message.header.msgh_id)
+                                {
+                                    os_log(OS_LOG_DEFAULT, "diskarbitrationd exited.");
+                                    if ( session->_name )  free( session->_name );
+                                    session->_name = NULL;
+                                    if ( session->_server )  mach_port_deallocate( mach_task_self( ), session->_server );
+                                    session->_server        = MACH_PORT_NULL;
+                                }
+                                else
+#endif
+                                {
+                                    _DASessionCallback( NULL, NULL, 0, session );
+                                }
+                                
+                            } );
 
-                            _DASessionCallback( NULL, NULL, 0, session );
-                        } );
+                            dispatch_resume( session->_source2 );
 
-                        dispatch_resume( session->_source2 );
+                            _DAServerSessionSetClientPort( session->_server, client );
 
-                        _DAServerSessionSetClientPort( session->_server, client );
-
-                        return;
+                            return;
+                        }
                     }
                 }
 
@@ -648,7 +790,12 @@ void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop,
 
 __private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
                                 mach_vm_offset_t address,
-                                mach_vm_offset_t context)
+                                mach_vm_offset_t context,
+                                _DACallbackKind kind,
+                                CFIndex         order,
+                                CFDataRef match,
+                                CFDataRef      watch,
+                                bool block )
 {
     CFMutableDictionaryRef callback;
 
@@ -658,6 +805,12 @@ __private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   all
     {
         ___CFDictionarySetIntegerValue( callback, _kDACallbackAddressKey, address );
         ___CFDictionarySetIntegerValue( callback, _kDACallbackContextKey, context );
+        ___CFDictionarySetIntegerValue( callback, _kDACallbackKindKey,    kind    );
+        ___CFDictionarySetIntegerValue( callback, _kDACallbackOrderKey,   order   );
+        ___CFDictionarySetIntegerValue( callback, _kDACallbackBlockKey,   block   );
+
+        if ( match )  CFDictionarySetValue( callback, _kDACallbackMatchKey, match );
+        if ( watch )  CFDictionarySetValue( callback, _kDACallbackWatchKey, watch );
     }
 
     return  callback;
@@ -710,6 +863,13 @@ __private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session,
     {
         CFNumberRef number = CFNumberCreate( NULL, kCFNumberSInt32Type, &index );
         pthread_mutex_lock( &session->_registerLock );
+        CFMutableDictionaryRef callback =  ( CFMutableDictionaryRef ) CFDictionaryGetValue( session->_register , number );
+        int block = ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackBlockKey );
+        void *currentaddress = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
+        if ( block )
+        {
+            Block_release ( currentaddress );
+        }
         CFDictionaryRemoveValue( session->_register , number );
         pthread_mutex_unlock( &session->_registerLock );
         CFRelease( number );
@@ -741,10 +901,16 @@ __private_extern__ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach
             CFMutableDictionaryRef callback = ( CFMutableDictionaryRef )( values[queueIndex] );
             void *currentaddress = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
             void *currentcontext = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
+            int block = ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackBlockKey );
+
             if ( currentaddress == ( void * ) address && currentcontext ==(void *) context )
             {
                 CFNumberRef cfnumber =  ( CFNumberRef )( keys[queueIndex] );
                 CFNumberGetValue( cfnumber, kCFNumberSInt32Type, &matchingKey );
+                if ( block )
+                {
+                    Block_release ( currentaddress );
+                }
                 pthread_mutex_lock( &session->_registerLock );
                 CFDictionaryRemoveValue( session->_register , cfnumber );
                 pthread_mutex_unlock( &session->_registerLock );
@@ -775,5 +941,71 @@ __private_extern__ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef 
         CFRelease( number );
     }
     return callback;
+}
+
+__private_extern__ DAReturn _DASessionRecreate( DASessionRef session )
+{
+    DAReturn status = kDAReturnSuccess;
+    SInt32 queueIndex;
+    
+    if ( false == DASessionEstablish(session) )
+    {
+        os_log(OS_LOG_DEFAULT, "failed to establish session with diskarbitrationd");
+        return kDAReturnBadArgument;
+    }
+    
+    DASessionSetDispatchQueue( session, session->_queue);
+    
+    pthread_mutex_lock( &session->_registerLock );
+    CFIndex count = CFDictionaryGetCount( session->_register );
+    const void** keys = ( const void** ) malloc( sizeof(void*)*count );
+    const void** values = ( const void** ) malloc( sizeof(void*)*count );
+    CFDictionaryGetKeysAndValues( session->_register, keys, values );
+    pthread_mutex_unlock( &session->_registerLock );
+    
+    for ( queueIndex = 0; queueIndex < count; queueIndex++ )
+    {
+        CFMutableDictionaryRef callback = ( CFMutableDictionaryRef )( values[queueIndex] );
+        int address;
+        int kind = (int)  ___CFDictionaryGetIntegerValue( callback, _kDACallbackKindKey );
+        int32_t order =  ___CFDictionaryGetIntegerValue( callback, _kDACallbackOrderKey );
+        CFDataRef match =  CFDictionaryGetValue( callback, _kDACallbackMatchKey );
+        CFDataRef watch =  CFDictionaryGetValue( callback, _kDACallbackWatchKey );
+      
+        CFNumberRef cfnumber =  ( CFNumberRef )( keys[queueIndex] );
+        CFNumberGetValue( cfnumber, kCFNumberSInt32Type, &address );
+        _DAServerSessionRegisterCallback( _DASessionGetID( session ),
+                                          ( uintptr_t              ) address,
+                                          ( uintptr_t              ) address,
+                                          ( uint32_t                ) kind,
+                                          ( int32_t                ) order,
+                                          ( vm_address_t           ) ( match ? CFDataGetBytePtr( match ) : 0 ),
+                                          ( mach_msg_type_number_t ) ( match ? CFDataGetLength(  match ) : 0 ),
+                                          ( vm_address_t           ) ( watch ? CFDataGetBytePtr( watch ) : 0 ),
+                                          ( mach_msg_type_number_t ) ( watch ? CFDataGetLength(  watch ) : 0 ) );
+    }
+    status = _DAServerSessionSetKeepAlive(session->_server);
+    
+    free( keys );
+    free( values );
+    
+    return status;
+}
+
+DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue)
+{
+    DAReturn status;
+    
+    session->_keepAlive = true;
+    session->_queue = queue;
+    session->_token = notify_register_dispatch("com.apple.diskarbitrationd.iokitevent", &session->_token, queue, ^(__unused int token){
+         os_log(OS_LOG_DEFAULT, "diskarbitrationd relaunched");
+        if ( session->_server == NULL )
+        {
+           _DASessionRecreate( session );
+        }
+    });
+    status = _DAServerSessionSetKeepAlive(session->_server);
+    return status;
 }
 

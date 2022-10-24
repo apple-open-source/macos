@@ -209,6 +209,7 @@ enum {
 	kPCIDeviceStateChildAdded       = 0x00000200,
     kPCIDeviceStateNoLink           = 0x00000400,
     kPCIDeviceStateRangesProbed     = 0x00000800,
+    kPCIDeviceStateAttached         = 0x00001000,
 
 	kPCIDeviceStateConfigProtectShift = 15,
 	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
@@ -299,6 +300,9 @@ struct IOPCIConfigEntry
     uint32_t            fpbCapBlock;
     uint32_t            fpbCaps;
 
+    uint32_t            aerCapBlock;
+    uint32_t            aerCorMask;
+
     IOPCIHostBridge *   hostBridge;
     IOPCIRange *        ranges[kIOPCIRangeCount];
     IOPCIRange          busResv;
@@ -333,6 +337,8 @@ struct IOPCIConfigEntry
     uint16_t			expressCaps;
     uint8_t   			expressMaxPayload;
     uint8_t   			expressPayloadSetting;
+    int16_t   			expressEndpointMaxReadRequestSize;
+    uint16_t            expressErrorReporting; // only valid during bridgeScanBus()
 //	uint16_t            pausedCommand;
 
     IORegistryEntry *   dtEntry;
@@ -393,6 +399,7 @@ protected:
 	int32_t bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge);
 
     void    configure(uint32_t options);
+    void    maskUR(IOPCIConfigEntry * entry, bool mask);
     void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum);
 
     void    logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, char c);
@@ -415,7 +422,7 @@ protected:
 	void    deleteConfigEntry(IOPCIConfigEntry * entry);
 	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list, uint32_t moveTypes);
     void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
-    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
+    IOPCIConfigEntry *bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
     void    bridgeProbeChildRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask);
     void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint32_t resetMask, bool disableInterrupts);
@@ -452,6 +459,7 @@ protected:
     void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
     void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
     void     configWrite8(IOPCIConfigEntry * device, uint32_t offset, uint8_t  data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    uint8_t  IOPCIIsHotplugPort(IOPCIConfigEntry * bridge);
 
 public:
     bool init(IOWorkLoop * wl, uint32_t flags);

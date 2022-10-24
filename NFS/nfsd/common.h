@@ -62,7 +62,7 @@ struct nfs_conf_server {
 	                SYSLOG(LOG_NOTICE, __VA_ARGS__); \
 	} while (0)
 #define log SYSLOG
-void SYSLOG(int, const char *, ...);
+void SYSLOG(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 
 void set_thread_sigmask(void);
 int sysctl_get(const char *, int *);

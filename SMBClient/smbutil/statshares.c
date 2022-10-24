@@ -428,8 +428,8 @@ display_json(char *share, SMBShareAttributes *sattrs)
     json_add_str(dict, "SERVER_NAME", sattrs->server_name);
     
     /* user who mounted this share */
-    sprintf(buf, "%d", sattrs->session_uid);
-    json_add_str(dict, "USER_ID", buf);
+    json_add_num(dict, "USER_ID", &sattrs->session_uid,
+                 sizeof(sattrs->session_uid));
     
     if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
         json_add_str(dict, "SNAPSHOT_TIME", sattrs->snapshot_time);
@@ -503,7 +503,7 @@ display_json(char *share, SMBShareAttributes *sattrs)
     switch (sattrs->session_encrypt_cipher) {
         case 0:
             CFDictionarySetValue(dict, CFSTR("SMB_CURR_ENCRYPT_ALGORITHM"),
-                                 CFSTR("OFF"));
+                                 kCFNull);
             break;
 
         case 1:
@@ -559,107 +559,35 @@ display_json(char *share, SMBShareAttributes *sattrs)
     }
 
     /* smb server capabilities */
-    if (sattrs->session_flags & SMBV_SIGNING) {
-        CFDictionarySetValue(dict, CFSTR("SIGNING_SUPPORTED"), CFSTR("TRUE"));
-    }
-    if (sattrs->session_flags & SMBV_SIGNING_REQUIRED) {
-        CFDictionarySetValue(dict, CFSTR("SIGNING_REQUIRED"), CFSTR("TRUE"));
-    }
-    if (sattrs->session_smb1_caps & SMB_CAP_EXT_SECURITY) {
-        CFDictionarySetValue(dict, CFSTR("EXTENDED_SECURITY_SUPPORTED"), CFSTR("TRUE"));
-    }
-    if (sattrs->session_smb1_caps & SMB_CAP_UNIX) {
-        CFDictionarySetValue(dict, CFSTR("UNIX_SUPPORT"), CFSTR("TRUE"));
-    }
-    if (sattrs->session_smb1_caps & SMB_CAP_LARGE_FILES) {
-        CFDictionarySetValue(dict, CFSTR("LARGE_FILE_SUPPORTED"), CFSTR("TRUE"));
-    }
+    json_add_bool(dict, "SIGNING_SUPPORTED",            sattrs->session_flags & SMBV_SIGNING);
+    json_add_bool(dict, "SIGNING_REQUIRED",             sattrs->session_flags & SMBV_SIGNING_REQUIRED);
+    json_add_bool(dict, "EXTENDED_SECURITY_SUPPORTED",  sattrs->session_smb1_caps & SMB_CAP_EXT_SECURITY);
+    json_add_bool(dict, "UNIX_SUPPORT",                 sattrs->session_smb1_caps & SMB_CAP_UNIX);
+    json_add_bool(dict, "LARGE_FILE_SUPPORTED",         sattrs->session_smb1_caps & SMB_CAP_LARGE_FILES);
     
     /* SMB 2/3 capabilities */
-    res = 0;
-    if (sattrs->session_misc_flags & SMBV_OSX_SERVER) {
-        CFDictionarySetValue(dict, CFSTR("OS_X_SERVER"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) {
-        CFDictionarySetValue(dict, CFSTR("CLIENT_REQUIRES_SIGNING"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_HAS_FILEIDS) {
-        CFDictionarySetValue(dict, CFSTR("FILE_IDS_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_NO_QUERYINFO) {
-        CFDictionarySetValue(dict, CFSTR("QUERYINFO_NOT_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_DFS) {
-        CFDictionarySetValue(dict, CFSTR("DFS_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_LEASING) {
-        CFDictionarySetValue(dict, CFSTR("FILE_LEASING_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_LARGE_MTU) {
-        CFDictionarySetValue(dict, CFSTR("MULTI_CREDIT_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_MULTI_CHANNEL) {
-        CFDictionarySetValue(dict, CFSTR("MULTI_CHANNEL_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) {
-        CFDictionarySetValue(dict, CFSTR("PERSISTENT_HANDLES_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) {
-        CFDictionarySetValue(dict, CFSTR("DIR_LEASING_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_ENCRYPTION) {
-        CFDictionarySetValue(dict, CFSTR("ENCRYPTION_SUPPORTED"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_MNT_HIGH_FIDELITY) {
-        CFDictionarySetValue(dict, CFSTR("HIGH_FIDELITY"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_MNT_DATACACHE_OFF) {
-        CFDictionarySetValue(dict, CFSTR("DATA_CACHING_OFF"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_MNT_MDATACACHE_OFF) {
-        CFDictionarySetValue(dict, CFSTR("META_DATA_CACHING_OFF"), CFSTR("TRUE"));
-        res = 1;
-    }
-    if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
-        CFDictionarySetValue(dict, CFSTR("SNAPSHOT_MOUNT"), CFSTR("TRUE"));
-        res = 1;
-    }
-
-    if (res == 0) {
-        CFDictionarySetValue(dict, CFSTR("SERVER_CAPS"), CFSTR("UNKNOWN"));
-    }
+    json_add_bool(dict, "OS_X_SERVER",                  sattrs->session_misc_flags & SMBV_OSX_SERVER);
+    json_add_bool(dict, "CLIENT_REQUIRES_SIGNING",      sattrs->session_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED);
+    json_add_bool(dict, "FILE_IDS_SUPPORTED",           sattrs->session_misc_flags & SMBV_HAS_FILEIDS);
+    json_add_bool(dict, "QUERYINFO_NOT_SUPPORTED",      sattrs->session_misc_flags & SMBV_NO_QUERYINFO);
+    json_add_bool(dict, "DFS_SUPPORTED",                sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_DFS);
+    json_add_bool(dict, "FILE_LEASING_SUPPORTED",       sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_LEASING);
+    json_add_bool(dict, "MULTI_CREDIT_SUPPORTED",       sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_LARGE_MTU);
+    json_add_bool(dict, "MULTI_CHANNEL_SUPPORTED",      sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_MULTI_CHANNEL);
+    json_add_bool(dict, "PERSISTENT_HANDLES_SUPPORTED", sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES);
+    json_add_bool(dict, "DIR_LEASING_SUPPORTED",        sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_DIRECTORY_LEASING);
+    json_add_bool(dict, "ENCRYPTION_SUPPORTED",         sattrs->session_smb2_caps & SMB2_GLOBAL_CAP_ENCRYPTION);
     
-    /* other share attributes */
-    if (sattrs->ss_attrs & FILE_READ_ONLY_VOLUME) {
-        CFDictionarySetValue(dict, CFSTR("VOLUME_RDONLY"), CFSTR("TRUE"));
-    }
-    if (sattrs->ss_attrs & SMB2_SHARE_CAP_DFS) {
-        CFDictionarySetValue(dict, CFSTR("DFS_SHARE"), CFSTR("TRUE"));
-    }
-
+    json_add_bool(dict, "HIGH_FIDELITY",                sattrs->session_misc_flags & SMBV_MNT_HIGH_FIDELITY);
+    json_add_bool(dict, "DATA_CACHING_OFF",             sattrs->session_misc_flags & SMBV_MNT_DATACACHE_OFF);
+    json_add_bool(dict, "META_DATA_CACHING_OFF",        sattrs->session_misc_flags & SMBV_MNT_MDATACACHE_OFF);
+    json_add_bool(dict, "SNAPSHOT_MOUNT",               sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT);
+    json_add_bool(dict, "VOLUME_RDONLY",                sattrs->ss_attrs & FILE_READ_ONLY_VOLUME);
+    json_add_bool(dict, "DFS_SHARE",                    sattrs->ss_attrs & SMB2_SHARE_CAP_DFS);
+    
     /* Sealing current status */
-    if (sattrs->ss_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) {
-        CFDictionarySetValue(dict, CFSTR("ENCRYPTION_REQUIRED"), CFSTR("TRUE"));
-    }
-    
-    /* Signing current status */
-    if (sattrs->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
-        CFDictionarySetValue(dict, CFSTR("SIGNING_ON"), CFSTR("TRUE"));
-    }
+    json_add_bool(dict, "ENCRYPTION_REQUIRED",          sattrs->ss_flags & SMB2_SHAREFLAG_ENCRYPT_DATA);
+    json_add_bool(dict, "SIGNING_ON",                   sattrs->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE);
     
     if (verbose) {
         sprintf(buf, "0x%x", sattrs->session_flags);
@@ -711,6 +639,7 @@ stat_share(char *share_mp, enum OutputFormat format)
     char tmp_name[MNAMELEN];
     char *share_name = NULL, *end = NULL;
 	char *unescaped_share_name = NULL;
+    int error = 0;
     
     if ((statfs((const char*)share_mp, &statbuf) == -1) || (strncmp(statbuf.f_fstypename, "smbfs", 5) != 0)) {
         status = STATUS_INVALID_PARAMETER;
@@ -720,8 +649,13 @@ stat_share(char *share_mp, enum OutputFormat format)
     
     /* If root user, change to the owner who mounted the share */
     if (getuid() == 0) {
-        setuid(statbuf.f_owner);
-    }    
+        error = setuid(statbuf.f_owner);
+        if (error) {
+            fprintf(stderr, "%s : setuid failed %d (%s)\n\n",
+                     __FUNCTION__, errno, strerror (errno));
+            return(errno);
+        }
+    }
 
     /* 
      * Need to specify a share name, else you get IPC$

@@ -38,7 +38,7 @@
 
 
 int BLBlessDir(BLContextPtr context, const char * mountpoint,
-                uint32_t dirX, uint32_t dir9, int useX) {
+                uint32_t dirX, uint32_t dir9) {
 
     int err;
     uint32_t finderinfo[8];
@@ -57,7 +57,7 @@ int BLBlessDir(BLContextPtr context, const char * mountpoint,
     finderinfo[3] = dir9;
     finderinfo[5] = dirX;
 
-    if(!dirX || !useX) {
+    if(!dirX) {
       /* The 9 folder is what we really want */
       finderinfo[0] = dir9;
     } else {

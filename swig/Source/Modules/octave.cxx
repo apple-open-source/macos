@@ -368,7 +368,7 @@ public:
       String *name = 0;
       String *type = 0;
       String *value = 0;
-      String *ptype = 0;
+      __unused String *ptype = 0;
       String *pdoc = Getattr(p, "tmap:doc");
       if (pdoc) {
 	name = Getattr(p, "tmap:doc:name");
@@ -495,7 +495,7 @@ public:
 	  continue;
 	}
 
-	sprintf(source, "args(%d)", j);
+	snprintf(source, sizeof(source), "args(%d)", j);
 	Setattr(p, "emit:input", source);
 
 	Replaceall(tm, "$source", Getattr(p, "emit:input"));
@@ -1251,7 +1251,7 @@ public:
       // build argument list and type conversion string
       idx = 0;
       p = l;
-      int use_parse = 0;
+      __unused int use_parse = 0;
       while (p != NULL) {
 	if (checkAttribute(p, "tmap:in:numinputs", "0")) {
 	  p = Getattr(p, "tmap:in:next");
@@ -1321,7 +1321,7 @@ public:
 	Setattr(n, "type", type);
 	if (tm != 0) {
 	  char temp[24];
-	  sprintf(temp, "out(%d)", idx);
+	  snprintf(temp, sizeof(temp), "out(%d)", idx);
 	  Replaceall(tm, "$input", temp);
 	  //    Replaceall(tm, "$argnum", temp);
 	  Replaceall(tm, "$disown", Getattr(n, "wrap:disown") ? "SWIG_POINTER_DISOWN" : "0");
@@ -1344,7 +1344,7 @@ public:
       for (p = l; p;) {
 	if ((tm = Getattr(p, "tmap:directorargout")) != 0) {
 	  char temp[24];
-	  sprintf(temp, "out(%d)", idx);
+	  snprintf(temp, sizeof(temp), "out(%d)", idx);
 	  Replaceall(tm, "$input", temp);
 	  Replaceall(tm, "$result", Getattr(p, "name"));
 	  Printv(w->code, tm, "\n", NIL);

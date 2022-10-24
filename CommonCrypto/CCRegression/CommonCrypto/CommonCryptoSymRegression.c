@@ -88,11 +88,11 @@ appGetRandomBytes(void *keyBytes, size_t keySizeInBytes)
         exit(0);
     }
     close(fd);
-
+    return 0;
 }
 #else
 #include <unistd.h>
-static void
+static int
 appGetRandomBytes(void *keyBytes, size_t keySizeInBytes)
 {
 	int fd;
@@ -106,6 +106,7 @@ appGetRandomBytes(void *keyBytes, size_t keySizeInBytes)
         exit(0);
     }
     close(fd);
+    return 0;
 }
 #endif
 
@@ -511,7 +512,7 @@ int CommonCryptoSymRegression(int __unused argc, char *const * __unused argv)
 	size_t				ptextLen;
 	bool				stagedEncr = false;
 	bool				stagedDecr = false;
-	bool				doPadding;
+	bool				doPadding = false;
 	bool				doCbc = false;
 	bool				nullIV;
 	const char			*algStr;

@@ -112,12 +112,12 @@ smb_E(const u_char *key, u_char *data, u_char *dest)
 	kk[5] = key[4] << 3 | (key[5] >> 5 & 0xfe);
 	kk[6] = key[5] << 2 | (key[6] >> 6 & 0xfe);
 	kk[7] = key[6] << 1;
-    SMB_MALLOC(ksp, des_key_schedule *, sizeof(des_key_schedule), M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_TYPE(ksp, des_key_schedule, Z_WAITOK);
 	des_set_key((des_cblock*)kk, *ksp);
 	des_ecb_encrypt((des_cblock*)data, (des_cblock*)dest, *ksp, 1);
     
     if (ksp) {
-        SMB_FREE(ksp, M_SMBTEMP);
+        SMB_FREE_TYPE(des_key_schedule, ksp);
     }
 }
 
@@ -182,8 +182,8 @@ mbuf_get_nbytes(size_t nBytes, unsigned char *buf, size_t offset, mbuf_t *mb, si
 int smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 {
 	u_char *p, *P14, *S21;
-
-    SMB_MALLOC(p, u_char *, 14+21, M_SMBTEMP, M_WAITOK);
+    size_t p_allocsize = 14 + 21;
+    SMB_MALLOC_DATA(p, p_allocsize, Z_WAITOK);
 	bzero(p, 14 + 21);
 	P14 = p;
 	S21 = p + 14;
@@ -199,7 +199,7 @@ int smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 	smb_E(S21 + 14, C8, RN + 16);
     
     if (p) {
-        SMB_FREE(p, M_SMBTEMP);
+        SMB_FREE_DATA(p, p_allocsize);
     }
     
 	return 24; /* return the len */
@@ -216,7 +216,7 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
 {
 	uint16_t *unicode_passwd = NULL;
 	MD4_CTX md4;
-	size_t len;
+	size_t len, unicode_passwd_allocsize;
 	
 	bzero(ntlmHash, ntlmHash_len);
 	len = strnlen((char *)passwd, SMB_MAXPASSWORDLEN + 1);
@@ -227,7 +227,8 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
         len = 1;
     }
     
-    SMB_MALLOC(unicode_passwd, uint16_t *, len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
+    unicode_passwd_allocsize = len * sizeof(uint16_t);
+    SMB_MALLOC_DATA(unicode_passwd, unicode_passwd_allocsize, Z_WAITOK);
 	if (unicode_passwd == NULL)	/* Should never happen, but better safe than sorry */
 		return;
     
@@ -238,7 +239,7 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
 	MD4Final(ntlmHash, &md4);
     
     if (unicode_passwd) {
-        SMB_FREE(unicode_passwd, M_SMBTEMP);
+        SMB_FREE_DATA(unicode_passwd, unicode_passwd_allocsize);
     }
     
 #ifdef SSNDEBUG
@@ -336,7 +337,7 @@ smb_ntlmv2hash(const u_char *apwd, const u_char *user,
 {
     u_char v1hash[SMB_NTLM_LEN];
     u_int16_t *uniuser = NULL, *unidest = NULL;
-    size_t uniuserlen, unidestlen;
+    size_t uniuserlen, unidestlen, uniuser_allocsize, unidest_allocsize;
     size_t len;
     size_t datalen;
     u_char *data;
@@ -354,32 +355,34 @@ smb_ntlmv2hash(const u_char *apwd, const u_char *user,
      * upper-case UTF-8.
     */
     len = strlen((char *)user);
-    SMB_MALLOC(uniuser, u_int16_t *, len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+    uniuser_allocsize = len * sizeof(u_int16_t);
+    SMB_MALLOC_DATA(uniuser, uniuser_allocsize, Z_WAITOK);
     uniuserlen = smb_strtouni(uniuser, (char *)user, len,
                               UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
     
     len = strlen((char *)destination);
-    SMB_MALLOC(unidest, u_int16_t *, len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+    unidest_allocsize = len * sizeof(u_int16_t);
+    SMB_MALLOC_DATA(unidest, unidest_allocsize, Z_WAITOK);
     unidestlen = smb_strtouni(unidest, (char *)destination, len,
                               UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
     
     datalen = uniuserlen + unidestlen;
-    SMB_MALLOC(data, u_char *, datalen, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(data, datalen, Z_WAITOK);
     bcopy(uniuser, data, uniuserlen);
     bcopy(unidest, data + uniuserlen, unidestlen);
     
     if (uniuser) {
-        SMB_FREE(uniuser, M_SMBTEMP);
+        SMB_FREE_DATA(uniuser, uniuser_allocsize);
     }
     
     if (unidest) {
-        SMB_FREE(unidest, M_SMBTEMP);
+        SMB_FREE_DATA(unidest, unidest_allocsize);
     }
     
     HMACT64(v1hash, 16, data, datalen, v2hash);
     
     if (data) {
-        SMB_FREE(data, M_SMBTEMP);
+        SMB_FREE_DATA(data, datalen);
     }
     
 #if SSNDEBUG
@@ -404,16 +407,16 @@ smb_ntlmv2response(u_char *v2hash, u_char *C8, const u_char *blob,
     u_char *v2resp;
 
     datalen = 8 + bloblen;
-    SMB_MALLOC(data, u_char *, datalen, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(data, datalen, Z_WAITOK);
     bcopy(C8, data, 8);
     bcopy(blob, data + 8, bloblen);
 
     v2resplen = 16 + bloblen;
-    SMB_MALLOC(v2resp, u_char *, v2resplen, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(v2resp, v2resplen, Z_WAITOK);
     HMACT64(v2hash, 16, data, datalen, v2resp);
 
     if (data) {
-        SMB_FREE(data, M_SMBTEMP);
+        SMB_FREE_DATA(data, datalen);
     }
     
     bcopy(blob, v2resp + 16, bloblen);
@@ -434,17 +437,16 @@ smb_ntlmv2response(u_char *v2hash, u_char *C8, const u_char *blob,
 void smb_reset_sig(struct smb_session *sessionp)
 {
     if (sessionp->session_mackey != NULL) {
-        SMB_FREE(sessionp->session_mackey, M_SMBTEMP);
+        // session_mackeylen gets changed, and full_session_mackeylen holds the malloc size for both session_mackey and full_session_mackey
+        SMB_FREE_DATA(sessionp->session_mackey, sessionp->full_session_mackeylen);
     }
     
-    sessionp->session_mackey = NULL;
     sessionp->session_mackeylen = 0;
     
     if (sessionp->full_session_mackey != NULL) {
-        SMB_FREE(sessionp->full_session_mackey, M_SMBTEMP);
+        SMB_FREE_DATA(sessionp->full_session_mackey, sessionp->full_session_mackeylen);
     }
     
-    sessionp->full_session_mackey = NULL;
     sessionp->full_session_mackeylen = 0;
 
     sessionp->session_smb3_signing_key_len = 0;
@@ -628,6 +630,7 @@ static void smb2_sign(struct smb_rq *rqp)
     mbuf_t mb;
     const struct ccdigest_info *di = ccsha256_di();
     u_char *mac;
+    size_t mac_allocsize;
     
     if (rqp->sr_rqsig == NULL) {
         SMBDEBUG("sr_rqsig was never allocated.\n");
@@ -645,7 +648,8 @@ static void smb2_sign(struct smb_rq *rqp)
         return;
     }
     
-    SMB_MALLOC(mac, u_char *, di->output_size, M_SMBTEMP, M_WAITOK);
+    mac_allocsize = di->output_size;
+    SMB_MALLOC_DATA(mac, mac_allocsize, Z_WAITOK);
     if (mac == NULL) {
         SMBERROR("Out of memory\n");
         return;
@@ -671,7 +675,7 @@ static void smb2_sign(struct smb_rq *rqp)
     bcopy(mac, rqp->sr_rqsig, SMB2SIGLEN);
     
     if (mac) {
-        SMB_FREE(mac, M_SMBTEMP);
+        SMB_FREE_DATA(mac, mac_allocsize);
     }
 }
 
@@ -741,7 +745,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
     int result;
     const struct ccdigest_info *di = ccsha256_di();
     u_char *mac;
-    size_t length = 0;
+    size_t length = 0, mac_allocsize = 0;
     
     if (sessionp == NULL) {
         SMBERROR("sessionp is NULL\n");
@@ -759,7 +763,8 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
         return (EINVAL);
     }
     
-    SMB_MALLOC(mac, u_char *, di->output_size, M_SMBTEMP, M_WAITOK);
+    mac_allocsize = di->output_size;
+    SMB_MALLOC_DATA(mac, mac_allocsize, Z_WAITOK);
     if (mac == NULL) {
         SMBERROR("Out of memory\n");
         return (ENOMEM);
@@ -774,7 +779,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
     if (mb_off > mb_total_len) {
         SMBDEBUG("mb_off: %lu past end of mbuf, mbuf_len: %lu\n", mb_off, mb_total_len);
         if (mac) {
-            SMB_FREE(mac, M_SMBTEMP);
+            SMB_FREE_DATA(mac, mac_allocsize);
         }
         return (EBADRPC);
     }
@@ -799,7 +804,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
         /* should never happen, but we have to be very careful */
         SMBDEBUG("reply length: %lu too short\n", remaining);
         if (mac) {
-            SMB_FREE(mac, M_SMBTEMP);
+            SMB_FREE_DATA(mac, mac_allocsize);
         }
         return (EBADRPC);
     }
@@ -820,7 +825,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
             if (!mb) {
                 SMBDEBUG("mbuf_next didn't return an mbuf\n");
                 if (mac) {
-                    SMB_FREE(mac, M_SMBTEMP);
+                    SMB_FREE_DATA(mac, mac_allocsize);
                 }
                 return EBADRPC;
             }
@@ -833,7 +838,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
         if (mb_off > mb_total_len) {
             SMBDEBUG("mb_off: %lu past end of mbuf, mbuf_len: %lu\n", mb_off, mb_total_len);
             if (mac) {
-                SMB_FREE(mac, M_SMBTEMP);
+                SMB_FREE_DATA(mac, mac_allocsize);
             }
             return (EBADRPC);
         }
@@ -864,7 +869,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
             if (!mb) {
                 SMBDEBUG("mbuf_next didn't return an mbuf\n");
                 if (mac) {
-                    SMB_FREE(mac, M_SMBTEMP);
+                    SMB_FREE_DATA(mac, mac_allocsize);
                 }
                 return EBADRPC;
             }
@@ -877,7 +882,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
         if (mb_off > mb_total_len) {
             SMBDEBUG("mb_off: %lu past end of mbuf, mbuf_len: %lu\n", mb_off, mb_total_len);
             if (mac) {
-                SMB_FREE(mac, M_SMBTEMP);
+                SMB_FREE_DATA(mac, mac_allocsize);
             }
             return (EBADRPC);
         }
@@ -901,7 +906,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
             if (!mb) {
                 SMBDEBUG("mbuf_next didn't return an mbuf\n");
                 if (mac) {
-                    SMB_FREE(mac, M_SMBTEMP);
+                    SMB_FREE_DATA(mac, mac_allocsize);
                 }
                 return EBADRPC;
             }
@@ -914,7 +919,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
         if (mb_off > mb_total_len) {
             SMBDEBUG("mb_off: %lu past end of mbuf, mbuf_len: %lu\n", mb_off, mb_total_len);
             if (mac) {
-                SMB_FREE(mac, M_SMBTEMP);
+                SMB_FREE_DATA(mac, mac_allocsize);
             }
             return (EBADRPC);
         }
@@ -940,7 +945,7 @@ static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmd
 	 */
     result = cc_cmp_safe(SMB2SIGLEN, signature, mac);
     if (mac) {
-        SMB_FREE(mac, M_SMBTEMP);
+        SMB_FREE_DATA(mac, mac_allocsize);
     }
 	return (result);
 }
@@ -1073,7 +1078,7 @@ smb3_get_signature(uint8_t *key, uint32_t keylen,
 		malloc_size = packet_len;
 		
 		/* Malloc the block */
-		SMB_MALLOC(block, u_char *, malloc_size, M_SMBTEMP, M_WAITOK);
+        SMB_MALLOC_DATA(block, malloc_size, Z_WAITOK);
 		if (block == NULL) {
 			SMBERROR("Out of memory for block\n");
 			goto out;
@@ -1215,7 +1220,7 @@ smb3_get_signature(uint8_t *key, uint32_t keylen,
 
 out:
 	if (block) {
-		SMB_FREE(block, M_SMBTEMP);
+        SMB_FREE_DATA(block, malloc_size);
 	}
 }
 
@@ -1929,7 +1934,7 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
     uint32_t                msglen = 0;
     int                     error;
     unsigned char           *msgp;
-    unsigned char           sig[SMB3_AES_TF_SIG_LEN];
+    unsigned char           sig[SMB3_AES_TF_SIG_LEN] = {0};
     const struct ccmode_ccm *ccmode = ccaes_ccm_decrypt_mode();
     const struct ccmode_gcm *gcmode = ccaes_gcm_decrypt_mode();
     size_t                  nbytes, ncopy_bytes;
@@ -2083,14 +2088,12 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
          */
         if ((sessionp->decrypt_bufferp != NULL) &&
             (msglen > sessionp->decrypt_buf_len)) {
-            SMB_FREE(sessionp->decrypt_bufferp, M_TEMP);
-            sessionp->decrypt_bufferp = NULL;
+            SMB_FREE_DATA(sessionp->decrypt_bufferp, sessionp->decrypt_buf_len);
             sessionp->decrypt_buf_len = 0;
         }
 
         if (sessionp->decrypt_bufferp == NULL) {
-            SMB_MALLOC(sessionp->decrypt_bufferp, char *, msglen,
-                       M_TEMP, M_WAITOK);
+            SMB_MALLOC_DATA(sessionp->decrypt_bufferp, msglen, Z_WAITOK);
             if (sessionp->decrypt_bufferp == NULL) {
                 SMBERROR("malloc for buffer failed \n");
                 error = EAUTH;
@@ -2681,7 +2684,7 @@ smb_test_crypt_performance(struct smb_session *sessionp,
 	int error;
 	
 	/* Malloc buffer to encrypt*/
-	SMB_MALLOC(cptr, char *, packet_len, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(cptr, orig_packet_len, Z_WAITOK);
 	if (cptr == NULL) {
 		SMBERROR("Out of memory\n");
 		return;
@@ -2695,7 +2698,7 @@ smb_test_crypt_performance(struct smb_session *sessionp,
 		return;
 	}
 	
-	SMB_MALLOC(mac, u_char *, CMAC_BLOCKSIZE, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(mac, CMAC_BLOCKSIZE, Z_WAITOK);
 	if (mac == NULL) {
 		SMBERROR("Out of memory\n");
 		return;
@@ -2752,11 +2755,11 @@ smb_test_crypt_performance(struct smb_session *sessionp,
 	}
 	
 	if (mac) {
-		SMB_FREE(mac, M_SMBTEMP);
+        SMB_FREE_DATA(mac, CMAC_BLOCKSIZE);
 	}
 	
 	if (cptr) {
-		SMB_FREE(cptr, M_SMBTEMP);
+        SMB_FREE_DATA(cptr, orig_packet_len);
 	}
 }
 #endif

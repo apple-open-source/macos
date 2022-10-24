@@ -12,6 +12,8 @@
 	<dict>
 		<key>com.apple.SystemConfiguration.configd</key>
 		<true/>
+		<key>com.apple.SystemConfiguration.configd.watchdog</key>
+		<true/>
 	</dict>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
@@ -25,5 +27,12 @@
 	<true/>
 	<key>_ExponentialThrottling</key>
 	<true/>
+	<key>LimitLoadToSessionType</key>
+	<dict>
+		<key>#IfFeatureFlagEnabled</key>
+		<string>UserManagement/SystemSessionD1</string>
+		<key>#Then</key>
+		<string>System</string>
+	</dict>
 </dict>
 </plist>

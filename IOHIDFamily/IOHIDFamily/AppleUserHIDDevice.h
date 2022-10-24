@@ -120,7 +120,7 @@ protected:
      @param command            Type of HIDReport to do. Currently either
                                getReport or setReport
      @param report             The data to be sent to the device in a setReport
-                               or recieved from the device in a getReport
+                               or received from the device in a getReport
      @param reportType         The type of HIDReport, either Input, Output, or
                                Feature.
      @param options            Options to pass to the DriverKit Driver.
@@ -160,7 +160,7 @@ public:
      super::init().
      @param dictionary A dictionary associated with this IOHIDDevice
      instance.
-     @result True on sucess, or false otherwise.
+     @result True on success, or false otherwise.
      */
     
     virtual bool init( OSDictionary * dictionary = 0 ) APPLE_KEXT_OVERRIDE;

@@ -724,6 +724,34 @@ rm -f $strfile
 cat str-header.html >$strfile
 
 #
+# Other server tests
+#
+echo ""
+echo "Running server security tests..."
+echo "    <h1><a name='COMMAND'>Security related Tests</a></h1>" >>$strfile
+echo "    <p>This section provides the results to the Security tests" >>$strfile
+echo "    <strike>outlined in the CUPS Software Test Plan</strike>. These tests were run on" >>$strfile
+echo "    $date by $user on `hostname`." >>$strfile
+echo "    <pre>" >>$strfile
+
+for file in Sec*.sh; do
+	echo $ac_n "Performing $file: $ac_c"
+	echo "" >>$strfile
+        echo "`date '+[%d/%b/%Y:%H:%M:%S %z]'` \"$file\":" >>$strfile
+
+	sh $file $pjobs $pprinters >> $strfile
+	status=$?
+
+	if test $status != 0; then
+		echo FAIL
+		fail=`expr $fail + 1`
+	else
+		echo PASS
+	fi
+done
+
+
+#
 # Run the IPP tests...
 #
 
@@ -956,7 +984,7 @@ fi
 
 # Requests logged
 count=`wc -l $BASE/log/access_log | awk '{print $1}'`
-expected=`expr 35 + 18 + 30 + $pjobs \* 8 + $pprinters \* $pjobs \* 4 + 2`
+expected=`expr 35 + 18 + 30 + $pjobs \* 8 + $pprinters \* $pjobs \* 4 + 2 + 2`
 if test $count != $expected; then
 	echo "FAIL: $count requests logged, expected $expected."
 	echo "    <p>FAIL: $count requests logged, expected $expected.</p>" >>$strfile

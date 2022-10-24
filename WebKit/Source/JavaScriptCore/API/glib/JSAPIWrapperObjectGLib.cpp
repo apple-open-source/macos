@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2018 Igalia S.L.
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,35 +75,35 @@ static JSC_DECLARE_CUSTOM_GETTER(staticFunctionGetterJSAPIWrapperObjectCallbackO
 
 DEFINE_VISIT_CHILDREN_WITH_MODIFIER(template<>, JSCallbackObject<JSAPIWrapperObject>);
 
-template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCallbackObject) };
+template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCallbackObject) };
 template<> const bool JSCallbackObject<JSAPIWrapperObject>::needsDestruction = true;
 
 template <>
-RawNativeFunction JSCallbackObject<JSAPIWrapperObject>::getCallFunction()
+NativeFunction::Ptr JSCallbackObject<JSAPIWrapperObject>::getCallFunction()
 {
     return callJSAPIWrapperObjectCallbackObject;
 }
 
 template <>
-RawNativeFunction JSCallbackObject<JSAPIWrapperObject>::getConstructFunction()
+NativeFunction::Ptr JSCallbackObject<JSAPIWrapperObject>::getConstructFunction()
 {
     return constructJSAPIWrapperObjectCallbackObject;
 }
 
 template <>
-PropertySlot::GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getCallbackGetter()
+GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getCallbackGetter()
 {
     return callbackGetterJSAPIWrapperObjectCallbackObject;
 }
 
 template <>
-PropertySlot::GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getStaticFunctionGetter()
+GetValueFunc JSCallbackObject<JSAPIWrapperObject>::getStaticFunctionGetter()
 {
     return staticFunctionGetterJSAPIWrapperObjectCallbackObject;
 }
 
 template <>
-IsoSubspace* JSCallbackObject<JSAPIWrapperObject>::subspaceForImpl(VM& vm, SubspaceAccess mode)
+GCClient::IsoSubspace* JSCallbackObject<JSAPIWrapperObject>::subspaceForImpl(VM& vm, SubspaceAccess mode)
 {
     switch (mode) {
     case SubspaceAccess::OnMainThread:

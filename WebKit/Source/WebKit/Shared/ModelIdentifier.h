@@ -25,13 +25,15 @@
 
 #pragma once
 
-namespace WebKit {
-
-#if ENABLE(ARKIT_INLINE_PREVIEW)
+#import <wtf/text/WTFString.h>
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 #import <WebCore/GraphicsLayer.h>
 #endif
+
+namespace WebKit {
+
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 
 struct ModelIdentifier {
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)

@@ -41,7 +41,7 @@ extern int do_quiet;
 extern int do_verbose;
 
 const char *sec_errstr(int err);
-void sec_error(const char *msg, ...);
+void sec_error(const char *msg, ...) __attribute((format(printf, 1, 2)));
 void sec_perror(const char *msg, int err);
 
 #ifdef __cplusplus

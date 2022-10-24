@@ -567,6 +567,7 @@ dt_write(dtrace_hdl_t *dtp, int fd, const void *buf, size_t n)
  * errno for the caller inside the specified dtrace_hdl_t.
  */
 /*PRINTFLIKE3*/
+__printflike(3, 4)
 int
 dt_printf(dtrace_hdl_t *dtp, FILE *fp, const char *format, ...)
 {

@@ -45,12 +45,12 @@ extern void TimeStringToMacLongDateTime(const CSSM_DATA &inUTCTime, sint64 &outM
 
 // Length of inLength is an input parameter and must be 14 or 16.
 // The outData parameter must point to a buffer of at least inLength bytes.
-extern void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData);
+extern void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData, uint32 outLength);
 extern void MacLongDateTimeToTimeString(const sint64 &inMacDate,
-                                        uint32 inLength, void *outData);
+                                        uint32 inLength, void *outData, uint32 outLength);
 
 // outCssmDate must be a pointer to a 16 byte buffer.
-extern void CFDateToCssmDate(CFDateRef date, char *outCssmDate);
+extern void CFDateToCssmDate(CFDateRef date, char *outCssmDate, uint32 outCssmDateLen);
 
 // cssmDate must be a pointer to a 16 byte buffer formatted as follows: "YYYYMMDDhhmmssZ\0".
 extern void CssmDateToCFDate(const char *cssmDate, CFDateRef *outCFDate);

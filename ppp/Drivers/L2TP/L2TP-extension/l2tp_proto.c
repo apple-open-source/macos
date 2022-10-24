@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2018, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -248,14 +248,14 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                             case L2TP_OPT_BAUDRATE: 		cmd = L2TP_CMD_SETBAUDRATE; break;
                             case L2TP_OPT_FLAGS:			cmd = L2TP_CMD_SETFLAGS; break;
                         }
-                        l2tp_rfc_command(so->so_pcb, cmd, &lval);
+                        error = l2tp_rfc_command(so->so_pcb, cmd, &lval);
 					}
                     break;
                 case L2TP_OPT_ACCEPT:
                     if (sopt->sopt_valsize != 0)
                     	error = EMSGSIZE;
                     else
-                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_ACCEPT, 0);
+                        error = l2tp_rfc_command(so->so_pcb, L2TP_CMD_ACCEPT, 0);
                     break;
                 case L2TP_OPT_OURADDRESS:
                 case L2TP_OPT_PEERADDRESS:
@@ -298,7 +298,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                             case L2TP_OPT_MAX_RETRIES: 		cmd = L2TP_CMD_SETMAXRETRIES; break;
                             case L2TP_OPT_RELIABILITY: 		cmd = L2TP_CMD_SETRELIABILITY; break;
                         }
-                        l2tp_rfc_command(so->so_pcb, cmd, &val);
+                        error = l2tp_rfc_command(so->so_pcb, cmd, &val);
                     }
                     break;
                     
@@ -306,7 +306,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                     if (sopt->sopt_valsize != 4)
                         error = EMSGSIZE;
                     else if ((error = sooptcopyin(sopt, &lval, 4, 4)) == 0)
-                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETDELEGATEDPID, &lval);
+                        error = l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETDELEGATEDPID, &lval);
                     break;
                     
                 default:

@@ -90,6 +90,8 @@ public:
     bool isQuirkyEms() const { return primitiveType() == CSSUnitType::CSS_QUIRKY_EMS; }
     bool isLength() const { return isLength(static_cast<CSSUnitType>(primitiveType())); }
     bool isNumber() const { return primitiveType() == CSSUnitType::CSS_NUMBER; }
+    bool isInteger() const { return primitiveType() == CSSUnitType::CSS_INTEGER; }
+    bool isNumberOrInteger() const { return isNumber() || isInteger(); }
     bool isPercentage() const { return primitiveType() == CSSUnitType::CSS_PERCENTAGE; }
     bool isPx() const { return primitiveType() == CSSUnitType::CSS_PX; }
     bool isRect() const { return primitiveUnitType() == CSSUnitType::CSS_RECT; }
@@ -188,12 +190,12 @@ public:
 
     template<typename T> inline operator T() const; // Defined in CSSPrimitiveValueMappings.h
 
-    String customCSSText() const;
+    String customCSSText(Document* = nullptr) const;
 
     bool equals(const CSSPrimitiveValue&) const;
 
     static std::optional<double> conversionToCanonicalUnitsScaleFactor(CSSUnitType);
-    static String unitTypeString(CSSUnitType);
+    static ASCIILiteral unitTypeString(CSSUnitType);
 
     static double computeUnzoomedNonCalcLengthDouble(CSSUnitType, double value, CSSPropertyID, const FontMetrics* = nullptr, const FontCascadeDescription* = nullptr, const FontCascadeDescription* rootFontDescription = nullptr, const RenderView* = nullptr);
     static double computeNonCalcLengthDouble(const CSSToLengthConversionData&, CSSUnitType, double value);
@@ -251,7 +253,9 @@ private:
     double computeLengthDouble(const CSSToLengthConversionData&) const;
 
     ALWAYS_INLINE String formatNumberForCustomCSSText() const;
-    NEVER_INLINE String formatNumberValue(StringView) const;
+    NEVER_INLINE String formatNumberValue(ASCIILiteral suffix) const;
+    NEVER_INLINE String formatIntegerValue(ASCIILiteral suffix) const;
+    NEVER_INLINE String formatInfiniteOrNanValue(ASCIILiteral suffix) const;
     static constexpr bool isFontIndependentLength(CSSUnitType);
     static constexpr bool isFontRelativeLength(CSSUnitType);
     static constexpr bool isResolution(CSSUnitType);
@@ -311,6 +315,12 @@ constexpr bool CSSPrimitiveValue::isLength(CSSUnitType type)
         || type == CSSUnitType::CSS_Q
         || type == CSSUnitType::CSS_LHS
         || type == CSSUnitType::CSS_RLHS
+        || type == CSSUnitType::CSS_CQW
+        || type == CSSUnitType::CSS_CQH
+        || type == CSSUnitType::CSS_CQI
+        || type == CSSUnitType::CSS_CQB
+        || type == CSSUnitType::CSS_CQMIN
+        || type == CSSUnitType::CSS_CQMAX
         || isViewportPercentageLength(type)
         || type == CSSUnitType::CSS_QUIRKY_EMS;
 }

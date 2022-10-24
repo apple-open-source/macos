@@ -92,7 +92,7 @@ static int	do_query(res_state, const char *, ns_class, ns_type,
 #ifndef __APPLE__
 static void	res_dprintf(const char *, ...) ISC_FORMAT_PRINTF(1, 2);
 #else
-static void	res_dprintf(const char *, ...);
+static void	res_dprintf(const char *, ...) __printflike(1, 2);
 #endif
 
 /* Macros. */
@@ -360,7 +360,7 @@ get_soa(res_state statp, const char *dname, ns_class class, int opts,
 				abort();
 			}
 			if (strlen(t) + 1 > zsize) {
-				DPRINTF(("get_soa: zname(%d) too small (%d)",
+				DPRINTF(("get_soa: zname(%zu) too small (%zu)",
 					 zsize, strlen(t) + 1));
 				errno = EMSGSIZE;
 				return (-1);

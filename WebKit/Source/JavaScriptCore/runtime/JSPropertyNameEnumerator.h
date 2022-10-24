@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@ public:
     static constexpr uint8_t enumerationModeMask = (GenericMode << 1) - 1;
 
     template<typename CellType, SubspaceAccess mode>
-    static IsoSubspace* subspaceFor(VM& vm)
+    static GCClient::IsoSubspace* subspaceFor(VM& vm)
     {
         return &vm.propertyNameEnumeratorSpace();
     }
@@ -72,11 +72,10 @@ public:
 
     Structure* cachedStructure(VM& vm) const
     {
-        if (!m_cachedStructureID)
-            return nullptr;
-        return vm.heap.structureIDTable().get(m_cachedStructureID);
+        UNUSED_PARAM(vm);
+        return m_cachedStructureID.get();
     }
-    StructureID cachedStructureID() const { return m_cachedStructureID; }
+    StructureID cachedStructureID() const { return m_cachedStructureID.value(); }
     uint32_t indexedLength() const { return m_indexedLength; }
     uint32_t endStructurePropertyIndex() const { return m_endStructurePropertyIndex; }
     uint32_t endGenericPropertyIndex() const { return m_endGenericPropertyIndex; }
@@ -107,7 +106,7 @@ private:
     // JSPropertyNameEnumerator is immutable data structure, which allows VM to cache the empty one.
     // After instantiating JSPropertyNameEnumerator, we must not change any fields.
     AuxiliaryBarrier<WriteBarrier<JSString>*> m_propertyNames;
-    StructureID m_cachedStructureID;
+    WriteBarrierStructureID m_cachedStructureID;
     uint32_t m_indexedLength;
     uint32_t m_endStructurePropertyIndex;
     uint32_t m_endGenericPropertyIndex;
@@ -122,9 +121,9 @@ inline JSPropertyNameEnumerator* propertyNameEnumerator(JSGlobalObject* globalOb
     VM& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    uint32_t indexedLength = base->getEnumerableLength(globalObject);
+    uint32_t indexedLength = base->getEnumerableLength();
 
-    Structure* structure = base->structure(vm);
+    Structure* structure = base->structure();
     if (!indexedLength) {
         uintptr_t enumeratorAndFlag = structure->cachedPropertyNameEnumeratorAndFlag();
         if (enumeratorAndFlag) {
@@ -146,7 +145,7 @@ inline JSPropertyNameEnumerator* propertyNameEnumerator(JSGlobalObject* globalOb
     bool sawPolyProto;
     bool successfullyNormalizedChain = normalizePrototypeChain(globalObject, base, sawPolyProto) != InvalidPrototypeChain;
 
-    Structure* structureAfterGettingPropertyNames = base->structure(vm);
+    Structure* structureAfterGettingPropertyNames = base->structure();
     if (!structureAfterGettingPropertyNames->canAccessPropertiesQuicklyForEnumeration()) {
         indexedLength = 0;
         numberStructureProperties = 0;

@@ -6,7 +6,7 @@ failed=`cat .failed`
 
 # NFLOG support depends on both DLT_NFLOG and working <pcap/nflog.h>
 
-if grep '^#define HAVE_PCAP_NFLOG_H 1$' ../config.h >/dev/null
+if grep '^#define HAVE_PCAP_NFLOG_H 1$' ../config.h &>/dev/null
 then
 	if TESTonce.sh nflog-e nflog.pcap flog-e.out '-e'
 	then

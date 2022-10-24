@@ -73,8 +73,8 @@
     minute-in-hour       : NaN
     second-in-minute     : NaN
   
-  Test Date : -0004-02-29
-    year                 : -4
+  Test Date : -0005-02-29
+    year                 : -5
     leap-year            : true
     month-in-year        : 2
     month-name           : February
@@ -83,9 +83,9 @@
     day-in-year          : 60
     day-in-month         : 29
     day-of-week-in-month : 5
-    day-in-week          : 1
-    day-name             : Sunday
-    day-abbreviation     : Sun
+    day-in-week          : 5
+    day-name             : Thursday
+    day-abbreviation     : Thu
     time                 : 
     hour-in-day          : NaN
     minute-in-hour       : NaN

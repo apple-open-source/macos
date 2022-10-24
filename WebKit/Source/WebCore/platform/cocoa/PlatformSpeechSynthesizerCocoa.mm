@@ -132,7 +132,10 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
         voiceLanguage = utterance->voice()->lang();
 
     AVSpeechSynthesisVoice *avVoice = nil;
-    if (voiceLanguage)
+    if (utteranceVoice)
+        avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithIdentifier:utteranceVoice->voiceURI()];
+
+    if (!avVoice)
         avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithLanguage:voiceLanguage];
 
     AVSpeechUtterance *avUtterance = [PAL::getAVSpeechUtteranceClass() speechUtteranceWithString:utterance->text()];
@@ -141,6 +144,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     [avUtterance setVolume:utterance->volume()];
     [avUtterance setPitchMultiplier:utterance->pitch()];
     [avUtterance setVoice:avVoice];
+    utterance->setWrapper(avUtterance);
     m_utterance = WTFMove(utterance);
 
     // macOS won't send a did start speaking callback for empty strings.
@@ -193,8 +197,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didStartSpeechUtterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     m_synthesizerObject->client()->didStartSpeaking(*m_utterance);
@@ -203,8 +206,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didFinishSpeechUtterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     // Clear the m_utterance variable in case finish speaking kicks off a new speaking job immediately.
@@ -217,8 +219,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didPauseSpeechUtterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     m_synthesizerObject->client()->didPauseSpeaking(*m_utterance);
@@ -227,8 +228,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didContinueSpeechUtterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     m_synthesizerObject->client()->didResumeSpeaking(*m_utterance);
@@ -237,8 +237,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didCancelSpeechUtterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     // Clear the m_utterance variable in case finish speaking kicks off a new speaking job immediately.
@@ -251,13 +250,11 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer willSpeakRangeOfSpeechString:(NSRange)characterRange utterance:(AVSpeechUtterance *)utterance
 {
     UNUSED_PARAM(synthesizer);
-    UNUSED_PARAM(utterance);
-
-    if (!m_utterance)
+    if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
     // AVSpeechSynthesizer only supports word boundaries.
-    m_synthesizerObject->client()->boundaryEventOccurred(*m_utterance, WebCore::SpeechBoundary::SpeechWordBoundary, characterRange.location);
+    m_synthesizerObject->client()->boundaryEventOccurred(*m_utterance, WebCore::SpeechBoundary::SpeechWordBoundary, characterRange.location, characterRange.length);
 }
 
 @end
@@ -284,7 +281,6 @@ void PlatformSpeechSynthesizer::initializeVoiceList()
         bool isDefault = true;
         NSString *voiceURI = [voice identifier];
         NSString *name = [voice name];
-        
         // Only show built-in voices when requesting through WebKit to reduce fingerprinting surface area.
 #if HAVE(AVSPEECHSYNTHESIS_SYSTEMVOICE)
         // FIXME: Remove respondsToSelector check when is available on all SDKs.

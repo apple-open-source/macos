@@ -38,6 +38,10 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#if HAVE(CPP20_INCOMPATIBLE_INTERNAL_HEADERS)
+#define CGCOLORTAGGEDPOINTER_H_
+#endif
+
 #include <CoreGraphics/CGContextDelegatePrivate.h>
 #include <CoreGraphics/CGFontCache.h>
 #include <CoreGraphics/CGPathPrivate.h>
@@ -202,6 +206,11 @@ static const CGSNotificationType kCGSConnectionWindowModificationsStarted = (CGS
 static const CGSNotificationType kCGSConnectionWindowModificationsStopped = (CGSNotificationType)(kCGSFirstConnectionNotification + 7);
 static const CGSNotificationType kCGSessionConsoleConnect = kCGSFirstSessionNotification;
 static const CGSNotificationType kCGSessionConsoleDisconnect = (CGSNotificationType)(kCGSessionConsoleConnect + 1);
+static const CGSNotificationType kCGSessionRemoteConnect = (CGSNotificationType)(kCGSessionConsoleDisconnect + 1);
+static const CGSNotificationType kCGSessionRemoteDisconnect = (CGSNotificationType)(kCGSessionRemoteConnect + 1);
+static const CGSNotificationType kCGSessionLoggedOn = (CGSNotificationType)(kCGSessionRemoteDisconnect + 1);
+static const CGSNotificationType kCGSessionLoggedOff = (CGSNotificationType)(kCGSessionLoggedOn + 1);
+static const CGSNotificationType kCGSessionConsoleWillDisconnect = (CGSNotificationType)(kCGSessionLoggedOff + 1);
 
 #endif // PLATFORM(MAC)
 
@@ -240,6 +249,7 @@ CGColorTransformRef CGColorTransformCreate(CGColorSpaceRef, CFDictionaryRef attr
 CGAffineTransform CGContextGetBaseCTM(CGContextRef);
 CGCompositeOperation CGContextGetCompositeOperation(CGContextRef);
 CGColorRef CGContextGetFillColorAsColor(CGContextRef);
+CGColorRef CGContextGetStrokeColorAsColor(CGContextRef);
 CGFloat CGContextGetLineWidth(CGContextRef);
 bool CGContextGetShouldSmoothFonts(CGContextRef);
 bool CGContextGetShouldAntialias(CGContextRef);
@@ -363,12 +373,15 @@ CGError CGSRegisterNotifyProc(CGSNotifyProcPtr, CGSNotificationType, void* arg);
 size_t CGDisplayModeGetPixelsWide(CGDisplayModeRef);
 size_t CGDisplayModeGetPixelsHigh(CGDisplayModeRef);
 
-CGError CGSSetDenyWindowServerConnections(bool);
 typedef int32_t CGSDisplayID;
 CGSDisplayID CGSMainDisplayID(void);
 
 IOHIDEventRef CGEventCopyIOHIDEvent(CGEventRef);
 #endif // PLATFORM(MAC)
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+CGError CGSSetDenyWindowServerConnections(bool);
+#endif
 
 #if ENABLE(PDFKIT_PLUGIN) && !USE(APPLE_INTERNAL_SDK)
 
@@ -392,5 +405,10 @@ extern CGDataProviderRef CGDataProviderCreateMultiRangeDirectAccess(
     const CGDataProviderDirectAccessRangesCallbacks *);
 
 #endif // ENABLE(PDFKIT_PLUGIN) && !USE(APPLE_INTERNAL_SDK)
+
+#if HAVE(LOCKDOWN_MODE_PDF_ADDITIONS)
+CG_EXTERN void CGEnterLockdownModeForPDF();
+CG_LOCAL bool CGIsInLockdownModeForPDF();
+#endif
 
 WTF_EXTERN_C_END

@@ -110,7 +110,7 @@ AUTH_TYPE_INSTANCE(rule,
                    .copyDebugDesc = _rule_copy_description
                    );
 
-static CFTypeID rule_get_type_id() {
+static CFTypeID rule_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -122,7 +122,7 @@ static CFTypeID rule_get_type_id() {
 }
 
 static rule_t
-_rule_create()
+_rule_create(void)
 {
     rule_t rule = (rule_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, rule_get_type_id(), AUTH_CLASS_SIZE(rule), NULL);
     require(rule != NULL, done);
@@ -151,7 +151,7 @@ done:
 }
 
 rule_t
-rule_create_default()
+rule_create_default(void)
 {
     rule_t rule = _rule_create();
     require(rule != NULL, done);

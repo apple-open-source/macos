@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tftp</string>
+		<key>OpenSourceVersion</key>
+		<string>2007-11-07</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/tftp?id=10f9229070a6a01520c51edb9a0ffff63994f1d4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>tftp.c: tftp has a 32MB limit</string>
+			<string>tftp.c: avoid option parsing during rollover</string>
+			<string>tftp.c: tftp byte-swaps short for OACK packet</string>
+			<string>tftp.c: ignore packets from sessions that don't match (15245872)</string>
+			<string>tftp.c: compare ports using sockaddr instead of getnameinfo (15245872)</string>
+			<string>main.c: Lion tftp PUT stack overflow (9849223)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

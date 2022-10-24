@@ -29,10 +29,12 @@ bool tsan_report_hit = false;
 char *tsan_description = NULL;
 invisible_barrier_t barrier;
 
+__attribute__((weak))
 const char *__tsan_default_options() {
 	return "abort_on_error=0:exitcode=0";
 }
 
+__attribute__((weak))
 void __tsan_on_report(void *report) {
 	tsan_report_hit = true;
 
@@ -73,7 +75,7 @@ T_DECL(tsan_data_race_stack, "TSan Detects data-race on stack", T_META_CHECK_LEA
 	pthread_join(t2, NULL);
 	pthread_join(t1, NULL);
 
-	T_EXPECT_EQ(tsan_report_hit, true, "tsan finds data-race");
+	T_ASSERT_EQ(tsan_report_hit, true, "tsan finds data-race");
 	T_EXPECT_NOTNULL(strstr(tsan_description, "data-race"), "tsan header");
 }
 
@@ -91,6 +93,6 @@ T_DECL(tsan_data_race_heap, "TSan Detects data-race on heap", T_META_CHECK_LEAKS
 	pthread_join(t2, NULL);
 	pthread_join(t1, NULL);
 
-	T_EXPECT_EQ(tsan_report_hit, true, "tsan finds data-race");
+	T_ASSERT_EQ(tsan_report_hit, true, "tsan finds data-race");
 	T_EXPECT_NOTNULL(strstr(tsan_description, "data-race"), "tsan header");
 }

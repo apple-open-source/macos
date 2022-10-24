@@ -44,8 +44,7 @@
 #include "RenderSVGText.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
-// FIXME: [LBSE] Upstream SVGContainerLayout
-// #include "SVGContainerLayout.h"
+#include "SVGContainerLayout.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "SVGRenderingContext.h"
@@ -76,7 +75,7 @@ SVGSVGElement& RenderSVGRoot::svgSVGElement() const
 
 void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio) const
 {
-    ASSERT(!shouldApplySizeContainment(*this));
+    ASSERT(!shouldApplySizeContainment());
 
     // Spec: http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
     // SVG needs to specify how to calculate some intrinsic sizing properties to enable inclusion within other languages.
@@ -88,8 +87,6 @@ void RenderSVGRoot::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, d
     // - If the ‘width’ and ‘height’ of the rootmost ‘svg’ element are both specified with unit identifiers (in, mm, cm, pt, pc,
     //   px, em, ex) or in user units, then the aspect ratio is calculated from the ‘width’ and ‘height’ attributes after
     //   resolving both values to user units.
-    intrinsicSize.hasIntrinsicWidth = svgSVGElement().hasIntrinsicWidth();
-    intrinsicSize.hasIntrinsicHeight = svgSVGElement().hasIntrinsicHeight();
     intrinsicSize.setWidth(floatValueForLength(svgSVGElement().intrinsicWidth(), 0));
     intrinsicSize.setHeight(floatValueForLength(svgSVGElement().intrinsicHeight(), 0));
 
@@ -161,7 +158,7 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalHeight(std::optional<LayoutUnit>
 
 void RenderSVGRoot::layout()
 {
-    SetForScope<bool> change(m_inLayout, true);
+    SetForScope change(m_inLayout, true);
     StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
@@ -193,19 +190,18 @@ void RenderSVGRoot::layout()
     // SVGLayerTransformUpdater transformUpdater(*this);
     updateLayerInformation();
 
-    /* FIXME: [LBSE] Upstream SVGContainerLayout / SVGBoundingBoxComputation
     {
         SVGContainerLayout containerLayout(*this);
         containerLayout.layoutChildren(needsLayout || SVGRenderSupport::filtersForceContainerLayout(*this));
 
         SVGBoundingBoxComputation boundingBoxComputation(*this);
         m_objectBoundingBox = boundingBoxComputation.computeDecoratedBoundingBox(SVGBoundingBoxComputation::objectBoundingBoxDecoration);
+
+        constexpr auto objectBoundingBoxDecorationWithoutTransformations = SVGBoundingBoxComputation::objectBoundingBoxDecoration | SVGBoundingBoxComputation::DecorationOption::IgnoreTransformations;
+        m_objectBoundingBoxWithoutTransformations = boundingBoxComputation.computeDecoratedBoundingBox(objectBoundingBoxDecorationWithoutTransformations);
+
         m_strokeBoundingBox = boundingBoxComputation.computeDecoratedBoundingBox(SVGBoundingBoxComputation::strokeBoundingBoxDecoration);
     }
-    */
-
-    // FIXME: [LBSE] Upstream SVGContainerLayout -- remove SVGRenderSupport::layoutChildren.
-    SVGRenderSupport::layoutChildren(*this, needsLayout);
 
     if (!m_resourcesNeedingToInvalidateClients.isEmpty()) {
         // Invalidate resource clients, which may mark some nodes for layout.
@@ -216,10 +212,8 @@ void RenderSVGRoot::layout()
 
         m_isLayoutSizeChanged = false;
 
-        /* FIXME: [LBSE] Upstream SVGContainerLayout
         SVGContainerLayout containerLayout(*this);
         containerLayout.layoutChildren(false);
-        */
     }
 
     m_isLayoutSizeChanged = false;
@@ -406,8 +400,8 @@ void RenderSVGRoot::updateFromStyle()
 {
     RenderReplaced::updateFromStyle();
 
-    // FIXME: [LBSE] Upstream RenderObject changes
-    // setHasSVGTransform();
+    setHasSVGTransform();
+    setHasTransformRelatedProperty();
 
     if (shouldApplyViewportClip())
         setHasNonVisibleOverflow();
@@ -415,8 +409,8 @@ void RenderSVGRoot::updateFromStyle()
 
 LayoutRect RenderSVGRoot::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
 {
-    if (style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent())
-        return LayoutRect();
+    if (isInsideEntirelyHiddenLayer())
+        return { };
 
     auto repaintRect = LayoutRect(valueOrDefault(m_viewBoxTransform.inverse()).mapRect(borderBoxRect()));
     return computeRect(repaintRect, repaintContainer, context);
@@ -523,10 +517,10 @@ void RenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* repaintCon
     bool isFixedPos = isFixedPositioned();
     // If this box has a transform, it acts as a fixed position container for fixed descendants,
     // and may itself also be fixed position. So propagate 'fixed' up only if this box is fixed position.
-    if (hasTransform() && !isFixedPos)
-        mode.remove(IsFixed);
-    else if (isFixedPos)
+    if (isFixedPos)
         mode.add(IsFixed);
+    else if (mode.contains(IsFixed) && canContainFixedPositionObjects())
+        mode.remove(IsFixed);
 
     if (wasFixed)
         *wasFixed = mode.contains(IsFixed);
@@ -614,16 +608,6 @@ LayoutRect RenderSVGRoot::overflowClipRect(const LayoutPoint& location, RenderFr
     }
 
     return clipRect;
-}
-
-void RenderSVGRoot::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
-{
-    UNUSED_PARAM(transform);
-    UNUSED_PARAM(style);
-    UNUSED_PARAM(boundingBox);
-    UNUSED_PARAM(options);
-    // FIXME: [LBSE] Upstream SVGRenderSupport changes
-    // SVGRenderSupport::applyTransform(*this, transform, style, boundingBox, std::nullopt, std::nullopt, options);
 }
 
 void RenderSVGRoot::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const

@@ -59,7 +59,7 @@ static void CoreFoundationObjectRegister()
 	^{
 		// Init NoMemory here, so other places we can safely return it (otherwise we might
 		// not have enough memory to allocate the CFError)
-		gNoMemory = CreateGenericErrorRef(kCFErrorDomainPOSIX, ENOMEM, "Out of memory.");
+		gNoMemory = CreateGenericErrorRef(kCFErrorDomainPOSIX, ENOMEM, CFSTR("Out of memory."));
 		
         // only one registration for internal objects, cuts down on how many objects
         // we register in the CF type table

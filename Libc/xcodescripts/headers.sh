@@ -182,6 +182,13 @@ INC_XLOCALE_INSTHDRS=(
 XLOCALE_INSTHDRS=( "${INC_XLOCALE_INSTHDRS[@]/#/${SRCROOT}/include/xlocale/}" )
 
 MODULEMAPS=(
+	${SRCROOT}/include/_types.modulemap
+	${SRCROOT}/include/darwin_c_xlocale.modulemap
+	${SRCROOT}/include/secure.modulemap
+)
+
+PRIV_MODULEMAPS=(
+	${SRCROOT}/osprivate_os_assumes.modulemap
 )
 
 TYPES_INSTHDRS=(
@@ -320,6 +327,10 @@ fi
 if [ -n "${OS_LOCALHDRS}" ]; then
 ${MKDIR} ${LOCINCDIR}/os
 ${INSTALL} -m ${INSTALLMODE} ${OS_LOCALHDRS[@]} ${LOCINCDIR}/os
+fi
+if [ -n "${PRIV_MODULEMAPS}" ]; then
+${MKDIR} ${LOCINCDIR}
+${INSTALL} -m ${INSTALLMODE} ${PRIV_MODULEMAPS[@]} ${LOCINCDIR}
 fi
 if [ -n "${PRIV_INSTHDRS}" ]; then
 ${MKDIR} ${PRIVHDRS}

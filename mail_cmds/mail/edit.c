@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)edit.c	8.1 (Berkeley) 6/6/93";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/edit.c,v 1.9 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include <fcntl.h>
@@ -56,8 +51,7 @@ static const char rcsid[] =
  * Edit a message list.
  */
 int
-editor(msgvec)
-	int *msgvec;
+editor(int *msgvec)
 {
 
 	return (edit1(msgvec, 'e'));
@@ -67,8 +61,7 @@ editor(msgvec)
  * Invoke the visual editor on a message list.
  */
 int
-visual(msgvec)
-	int *msgvec;
+visual(int *msgvec)
 {
 
 	return (edit1(msgvec, 'v'));
@@ -80,9 +73,7 @@ visual(msgvec)
  * We get the editor from the stuff above.
  */
 int
-edit1(msgvec, type)
-	int *msgvec;
-	int type;
+edit1(int *msgvec, int type)
 {
 	int c, i;
 	FILE *fp;
@@ -92,7 +83,7 @@ edit1(msgvec, type)
 	/*
 	 * Deal with each message to be edited . . .
 	 */
-	for (i = 0; msgvec[i] && i < msgCount; i++) {
+	for (i = 0; i < msgCount && msgvec[i]; i++) {
 		sig_t sigint;
 
 		if (i > 0) {
@@ -100,7 +91,7 @@ edit1(msgvec, type)
 			char *p;
 
 			printf("Edit message %d [ynq]? ", msgvec[i]);
-			if (fgets(buf, sizeof(buf), stdin) == 0)
+			if (fgets(buf, sizeof(buf), stdin) == NULL)
 				break;
 			for (p = buf; *p == ' ' || *p == '\t'; p++)
 				;
@@ -144,10 +135,7 @@ edit1(msgvec, type)
  * "Type" is 'e' for _PATH_EX, 'v' for _PATH_VI.
  */
 FILE *
-run_editor(fp, size, type, readonly)
-	FILE *fp;
-	off_t size;
-	int type, readonly;
+run_editor(FILE *fp, off_t size, int type, int readonly)
 {
 	FILE *nf = NULL;
 	int t;
@@ -192,13 +180,10 @@ run_editor(fp, size, type, readonly)
 		goto out;
 	}
 	nf = NULL;
-	if ((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL)
+	if (((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL) || *edit == '\0')
 		edit = type == 'e' ? _PATH_EX : _PATH_VI;
-	else {
-		if (*edit=='\0')
-			edit = type == 'e' ? _PATH_EX : _PATH_VI;
-	}
-	if (run_command(edit, 0, -1, -1, tempname, NULL, NULL) < 0) {
+
+	if (run_command(edit, 0, -1, -1, tempname, NULL) < 0) {
 		(void)rm(tempname);
 		goto out;
 	}

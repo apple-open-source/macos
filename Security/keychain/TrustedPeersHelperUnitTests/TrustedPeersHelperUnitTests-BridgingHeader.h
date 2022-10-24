@@ -17,6 +17,8 @@
 #import <SecurityFoundation/SFAccessPolicy.h>
 #import <SecurityFoundation/SFKey_Private.h>
 
+#import <TrustedPeers/TPLog.h>
+
 #import "keychain/TrustedPeersHelper/TrustedPeersHelper-Bridging-Header.h"
 #import "keychain/securityd/SecItemDataSource.h"
 

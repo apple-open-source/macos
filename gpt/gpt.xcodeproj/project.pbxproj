@@ -58,6 +58,7 @@
 
 /* Begin PBXFileReference section */
 		07A2B5A61BC5C660000CBA1F /* gpt.ios.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = gpt.ios.entitlements; sourceTree = "<group>"; };
+		07A891AF271E4EB200727C80 /* gpt.macos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = gpt.macos.entitlements; sourceTree = "<group>"; };
 		6003DADF071F234300B23FF4 /* gpt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gpt; sourceTree = BUILT_PRODUCTS_DIR; };
 		603F5D42071F0F5F00F87582 /* remove.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = remove.c; sourceTree = "<group>"; };
 		6086946205D071D70071FCB4 /* add.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = add.c; sourceTree = "<group>"; };
@@ -125,6 +126,7 @@
 		C6A0FF2B0290797F04C91782 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				07A891AF271E4EB200727C80 /* gpt.macos.entitlements */,
 				07A2B5A61BC5C660000CBA1F /* gpt.ios.entitlements */,
 				60B3D1300B5E9BCF00CC8B37 /* gpt.plist */,
 				60B3D1310B5E9BCF00CC8B37 /* gpt.txt */,
@@ -182,6 +184,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* gpt */;
@@ -226,7 +229,8 @@
 		60E856EF0B5D518E00817AFD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = gpt.ios.entitlements;
+				CODE_SIGN_ENTITLEMENTS = gpt.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = gpt.macos.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -241,7 +245,8 @@
 		60E856F00B5D518E00817AFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = gpt.ios.entitlements;
+				CODE_SIGN_ENTITLEMENTS = gpt.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = gpt.macos.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/sbin;

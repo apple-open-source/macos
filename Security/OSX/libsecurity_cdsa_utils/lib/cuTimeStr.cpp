@@ -214,19 +214,19 @@ char *cuTimeAtNowPlus(int secFromNow,
 			if(utc.tm_year >= 100) {
 				utc.tm_year -= 100;
 			}
-			sprintf(outStr, "%02d%02d%02d%02d%02d%02dZ",
+			snprintf(outStr, MAX_TIME_STR_LEN, "%02d%02d%02d%02d%02d%02dZ",
 				utc.tm_year /* + 1900 */, utc.tm_mon + 1,
 				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
 			break;
 		case CU_TIME_GEN:
-			sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
+			snprintf(outStr, MAX_TIME_STR_LEN, "%04d%02d%02d%02d%02d%02dZ",
 				/* note year is relative to 1900, hopefully it'll
 				 * have four valid digits! */
 				utc.tm_year + 1900, utc.tm_mon + 1,
 				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
 			break;
 		case CU_TIME_CSSM:
-			sprintf(outStr, "%04d%02d%02d%02d%02d%02d",
+			snprintf(outStr, MAX_TIME_STR_LEN, "%04d%02d%02d%02d%02d%02d",
 				/* note year is relative to 1900, hopefully it'll have
 				 * four valid digits! */
 				utc.tm_year + 1900, utc.tm_mon + 1,

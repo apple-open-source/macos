@@ -30,9 +30,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
-extern CFRunLoopSourceRef DAStageCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
 
 extern void DAStageSignal( void );
+extern void __DASetIdleTimer( void );
 
 #ifdef __cplusplus
 }

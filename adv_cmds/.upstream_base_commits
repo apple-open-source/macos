@@ -1,8 +1,50 @@
-#freebsd = https://github.com/freebsd/freebsd-legacy.git
-#freebsd-src = https://git.FreeBSD.org/src.git
-pkill/pkill.1	freebsd-src	bin/pkill/pkill.1	3d17b350e5c949d0d5a42aa907034a2a22f7312b
-pkill/pkill.c	freebsd-src	bin/pkill/pkill.c	1de7b4b805ddbf2429da511c053686ac4591ed89
-tty/tty.1	freebsd-src	usr.bin/tty/tty.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-tty/tty.c	freebsd-src	usr.bin/tty/tty.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-whois/whois.1	freebsd	usr.bin/whois/whois.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
-whois/whois.c	freebsd	usr.bin/whois/whois.c	872b698bd4a1bfc0bf008c09228e6fd238809c75
+#freebsd = https://git.FreeBSD.org/src.git
+
+lsvfs/lsvfs.1	freebsd	usr.bin/lsvfs/lsvfs.1	0ce6e534d372df81743b1eb00e89d02b3597beb0
+lsvfs/lsvfs.c	freebsd	usr.bin/lsvfs/lsvfs.c	4bcc7a5f6b3f7b2d70476701e76657e77cf335d1
+
+pkill/pkill.1	freebsd	bin/pkill/pkill.1	3d17b350e5c949d0d5a42aa907034a2a22f7312b
+pkill/pkill.c	freebsd	bin/pkill/pkill.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+pkill/tests/pgrep-F_test.sh	freebsd	bin/pkill/tests/pgrep-F_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-LF_test.sh	freebsd	bin/pkill/tests/pgrep-LF_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-P_test.sh	freebsd	bin/pkill/tests/pgrep-P_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-U_test.sh	freebsd	bin/pkill/tests/pgrep-U_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-_g_test.sh	freebsd	bin/pkill/tests/pgrep-_g_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-g_test.sh	freebsd	bin/pkill/tests/pgrep-g_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-i_test.sh	freebsd	bin/pkill/tests/pgrep-i_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-l_test.sh	freebsd	bin/pkill/tests/pgrep-l_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-n_test.sh	freebsd	bin/pkill/tests/pgrep-n_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-o_test.sh	freebsd	bin/pkill/tests/pgrep-o_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-q_test.sh	freebsd	bin/pkill/tests/pgrep-q_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-t_test.sh	freebsd	bin/pkill/tests/pgrep-t_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-v_test.sh	freebsd	bin/pkill/tests/pgrep-v_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pgrep-x_test.sh	freebsd	bin/pkill/tests/pgrep-x_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-F_test.sh	freebsd	bin/pkill/tests/pkill-F_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-LF_test.sh	freebsd	bin/pkill/tests/pkill-LF_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-P_test.sh	freebsd	bin/pkill/tests/pkill-P_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-U_test.sh	freebsd	bin/pkill/tests/pkill-U_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-_g_test.sh	freebsd	bin/pkill/tests/pkill-_g_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-g_test.sh	freebsd	bin/pkill/tests/pkill-g_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-i_test.sh	freebsd	bin/pkill/tests/pkill-i_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-t_test.sh	freebsd	bin/pkill/tests/pkill-t_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+pkill/tests/pkill-x_test.sh	freebsd	bin/pkill/tests/pkill-x_test.sh	65c3cfc1aad4e0570ac0f3f65ff5d7904c3ea3a5
+
+stty/cchar.c	freebsd	bin/stty/cchar.c	3601af4da2686fd29335abce8859205b64c312dd
+stty/extern.h	freebsd	bin/stty/extern.h	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+stty/gfmt.c	freebsd	bin/stty/gfmt.c	50fcb4ee771cabbae99bb3150b26484f3e573fab
+stty/key.c	freebsd	bin/stty/key.c	3601af4da2686fd29335abce8859205b64c312dd
+stty/modes.c	freebsd	bin/stty/modes.c	3601af4da2686fd29335abce8859205b64c312dd
+stty/print.c	freebsd	bin/stty/print.c	705aad98c64572aefe9bdb8f1fd854f976c1b03d
+stty/stty.1	freebsd	bin/stty/stty.1	705aad98c64572aefe9bdb8f1fd854f976c1b03d
+stty/stty.c	freebsd	bin/stty/stty.c	3601af4da2686fd29335abce8859205b64c312dd
+stty/stty.h	freebsd	bin/stty/stty.h	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+stty/util.c	freebsd	bin/stty/util.c	3601af4da2686fd29335abce8859205b64c312dd
+
+tabs/tabs.1	freebsd	usr.bin/tabs/tabs.1	d780a23a9947039c997e785105160c78db1d134c
+tabs/tabs.c	freebsd	usr.bin/tabs/tabs.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+tty/tty.1	freebsd	usr.bin/tty/tty.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+tty/tty.c	freebsd	usr.bin/tty/tty.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+whois/whois.1	freebsd	usr.bin/whois/whois.1	ced9ddb25055be6261862b9136b4a8742e12b1d5
+whois/whois.c	freebsd	usr.bin/whois/whois.c	aa949e8ace59fe5e768d731ee62f195703ec3bee

@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc8_rohc = {
+const crcDescriptor CC_crc8_rohc = {
     .name = "crc8-rohc",
     .defType = model,
     .def.parms.width = 1,

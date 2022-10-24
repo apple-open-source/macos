@@ -32,10 +32,5 @@
 	<array>
 		<string>/System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd</string>
 	</array>
-	<key>Requires</key>
-	<array>
-		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
-		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
-	</array>
 </dict>
 </plist>

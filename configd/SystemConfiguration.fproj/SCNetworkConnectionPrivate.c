@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2012, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012, 2015-2018, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -52,7 +52,7 @@ static Boolean		__SCUserPreferencesEqual		(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCUserPreferencesHash			(CFTypeRef cf);
 
 
-static CFTypeID __kSCUserPreferencesTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCUserPreferencesTypeID;
 
 
 static const CFRuntimeClass __SCUserPreferencesClass = {
@@ -66,9 +66,6 @@ static const CFRuntimeClass __SCUserPreferencesClass = {
 	NULL,					// copyFormattingDesc
 	__SCUserPreferencesCopyDescription	// copyDebugDesc
 };
-
-
-static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
 
 
 static CFStringRef
@@ -130,7 +127,12 @@ __SCUserPreferencesHash(CFTypeRef cf)
 static void
 __SCUserPreferencesInitialize(void)
 {
-	__kSCUserPreferencesTypeID = _CFRuntimeRegisterClass(&__SCUserPreferencesClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		__kSCUserPreferencesTypeID = _CFRuntimeRegisterClass(&__SCUserPreferencesClass);
+	});
+	
 	return;
 }
 
@@ -144,7 +146,7 @@ __SCUserPreferencesCreatePrivate(CFAllocatorRef		allocator,
 	uint32_t			size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCUserPreferencesInitialize);
+	__SCUserPreferencesInitialize();
 
 	/* allocate target */
 	size         = sizeof(SCUserPreferencesPrivate) - sizeof(CFRuntimeBase);
@@ -456,7 +458,7 @@ isMatchingPrefsID(CFDictionaryRef dict, CFStringRef matchID)
 CFTypeID
 SCUserPreferencesGetTypeID(void)
 {
-	pthread_once(&initialized, __SCUserPreferencesInitialize);	/* initialize runtime */
+	__SCUserPreferencesInitialize();	/* initialize runtime */
 	return __kSCUserPreferencesTypeID;
 }
 
@@ -773,14 +775,6 @@ SCUserPreferencesCopyInterfaceConfiguration(SCUserPreferencesRef	userPreferences
 					    SCNetworkInterfaceRef	interface)
 {
 	CFStringRef			defaultType;
-	CFDictionaryRef			entity		= NULL;
-	Boolean				ok;
-	SCUserPreferencesPrivateRef	userPrivate	= (SCUserPreferencesPrivateRef)userPreferences;
-
-	if (!isA_SCUserPreferences(userPreferences)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return NULL;
-	}
 
 	if (!isA_SCNetworkInterface(interface)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -794,11 +788,28 @@ SCUserPreferencesCopyInterfaceConfiguration(SCUserPreferencesRef	userPreferences
 		return NULL;
 	}
 
+	return SCUserPreferencesCopyInterfaceTypeConfiguration(userPreferences, defaultType);
+}
+
+
+CFDictionaryRef
+SCUserPreferencesCopyInterfaceTypeConfiguration(SCUserPreferencesRef	userPreferences,
+						CFStringRef		interfaceType)
+{
+	CFDictionaryRef			entity		= NULL;
+	Boolean				ok;
+	SCUserPreferencesPrivateRef	userPrivate	= (SCUserPreferencesPrivateRef)userPreferences;
+
+	if (!isA_SCUserPreferences(userPreferences)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
 	// find SCUserPreferences and copy interface entity
 	ok = processPreferences(userPrivate->serviceID,
 				copyInterfaceConfigurationCallout,
 				(void *)userPrivate->prefsID,
-				(void *)defaultType,
+				(void *)interfaceType,
 				(void *)&entity);
 	if (!ok) {
 		if (entity != NULL) {
@@ -873,13 +884,6 @@ SCUserPreferencesSetInterfaceConfiguration(SCUserPreferencesRef		userPreferences
 					   CFDictionaryRef		newOptions)
 {
 	CFStringRef			defaultType;
-	Boolean				ok;
-	SCUserPreferencesPrivateRef	userPrivate	= (SCUserPreferencesPrivateRef)userPreferences;
-
-	if (!isA_SCUserPreferences(userPreferences)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
 
 	if (!isA_SCNetworkInterface(interface)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -893,11 +897,28 @@ SCUserPreferencesSetInterfaceConfiguration(SCUserPreferencesRef		userPreferences
 		return FALSE;
 	}
 
+	return SCUserPreferencesSetInterfaceTypeConfiguration(userPreferences, defaultType, newOptions);
+}
+
+
+Boolean
+SCUserPreferencesSetInterfaceTypeConfiguration(SCUserPreferencesRef	userPreferences,
+					       CFStringRef		interfaceType,
+					       CFDictionaryRef		newOptions)
+{
+	Boolean				ok;
+	SCUserPreferencesPrivateRef	userPrivate	= (SCUserPreferencesPrivateRef)userPreferences;
+
+	if (!isA_SCUserPreferences(userPreferences)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	// set new interface entity for SCUserPreferences
 	ok = processPreferences(userPrivate->serviceID,
 				setInterfaceConfigurationCallout,
 				(void *)userPrivate->prefsID,
-				(void *)defaultType,
+				(void *)interfaceType,
 				(void *)newOptions);
 
 	return ok;
@@ -1378,18 +1399,15 @@ copyOptionsCallout(CFStringRef		serviceID,
 }
 
 
-Boolean
-SCNetworkConnectionStartWithUserPreferences(SCNetworkConnectionRef	connection,
-					    SCUserPreferencesRef	userPreferences,
-					    Boolean			linger)
+CFDictionaryRef
+SCUserPreferencesCopyStartOptions(SCUserPreferencesRef	userPreferences)
 {
-	Boolean				ok;
 	CFDictionaryRef			userOptions	= NULL;
 	SCUserPreferencesPrivateRef	userPrivate	= (SCUserPreferencesPrivateRef)userPreferences;
 
 	if (!isA_SCUserPreferences(userPreferences)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+		return NULL;
 	}
 
 	(void) processPreferences(userPrivate->serviceID,
@@ -1407,6 +1425,18 @@ SCNetworkConnectionStartWithUserPreferences(SCNetworkConnectionRef	connection,
 		update_PPP_entity  (userPreferences, &userOptions);
 		update_IPSec_entity(userPreferences, &userOptions);
 	}
+
+	return userOptions;
+}
+
+
+Boolean
+SCNetworkConnectionStartWithUserPreferences(SCNetworkConnectionRef	connection,
+					    SCUserPreferencesRef	userPreferences,
+					    Boolean			linger)
+{
+	Boolean				ok;
+	CFDictionaryRef			userOptions	= SCUserPreferencesCopyStartOptions(userPreferences);
 
 	ok = SCNetworkConnectionStart(connection, userOptions, linger);
 

@@ -94,7 +94,9 @@
      * the next launch of secd (or, the write will succeed after we die, and we'll handle receiving the CK
      * items as if a different peer uploaded them).
      */
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     __block BOOL failureDueToLockState = NO;
@@ -104,7 +106,8 @@
 
     [databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
-            CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+            CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID
+                                                             contextID:viewState.contextID ];
             if(keyset.currentTLKPointer == nil) {
 
                 // If we have an injected keyset for this zone, use it instead
@@ -146,13 +149,17 @@
 
             // We must find the current TLK (to wrap it to the new TLK).
             NSError* localerror = nil;
-            CKKSKey* oldTLK = [CKKSKey currentKeyForClass: SecCKKSKeyClassTLK zoneID:viewState.zoneID error:&localerror];
+            CKKSKey* oldTLK = [CKKSKey currentKeyForClass: SecCKKSKeyClassTLK
+                                                contextID:viewState.contextID
+                                                   zoneID:viewState.zoneID
+                                                    error:&localerror];
             if(localerror) {
                 ckkserror("ckkstlk", viewState.zoneID, "couldn't load the current TLK: %@", localerror);
                 // TODO: not loading the old TLK is fine, but only if there aren't any TLKs
             }
 
-            [oldTLK ensureKeyLoaded: &error];
+            [oldTLK ensureKeyLoadedForContextID:viewState.contextID
+                                          error:&error];
 
             ckksnotice("ckkstlk", viewState.zoneID, "Old TLK is: %@ %@", oldTLK, error);
             if(error != nil) {
@@ -177,6 +184,7 @@
 
             CKKSAESSIVKey* newAESKey = [CKKSAESSIVKey randomKey:&error];
             newTLK = [[CKKSKey alloc] initSelfWrappedWithAESKey:newAESKey
+                                                      contextID:viewState.contextID
                                                            uuid:[[NSUUID UUID] UUIDString]
                                                        keyclass:SecCKKSKeyClassTLK
                                                           state:SecCKKSProcessedStateLocal
@@ -204,9 +212,21 @@
                 return CKKSDatabaseTransactionRollback;
             }
 
-            CKKSCurrentKeyPointer* currentTLKPointer =    [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassTLK withKeyUUID:newTLK.uuid       zoneID:viewState.zoneID error:&error];
-            CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassA   withKeyUUID:newClassAKey.uuid zoneID:viewState.zoneID error:&error];
-            CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassC   withKeyUUID:newClassCKey.uuid zoneID:viewState.zoneID error:&error];
+            CKKSCurrentKeyPointer* currentTLKPointer =    [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassTLK
+                                                                                   contextID:viewState.contextID
+                                                                                 withKeyUUID:newTLK.uuid
+                                                                                      zoneID:viewState.zoneID
+                                                                                       error:&error];
+            CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassA
+                                                                                   contextID:viewState.contextID
+                                                                                 withKeyUUID:newClassAKey.uuid
+                                                                                      zoneID:viewState.zoneID
+                                                                                       error:&error];
+            CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassC
+                                                                                   contextID:viewState.contextID
+                                                                                 withKeyUUID:newClassCKey.uuid
+                                                                                      zoneID:viewState.zoneID
+                                                                                       error:&error];
 
             if(error != nil) {
                 ckkserror("ckkstlk", viewState.zoneID, "couldn't make current key records: %@", error);
@@ -219,7 +239,8 @@
             // Wrap old TLK under the new TLK
             wrappedOldTLK = [oldTLK copy];
             if(wrappedOldTLK) {
-                [wrappedOldTLK ensureKeyLoaded: &error];
+                [wrappedOldTLK ensureKeyLoadedForContextID:oldTLK.contextID
+                                                     error:&error];
                 if(error != nil) {
                     if([self.deps.lockStateTracker isLockedError:error]) {
                         ckkserror("ckkstlk", viewState.zoneID, "Couldn't unwrap TLK due to lock state. Entering a waiting state; %@", error);
@@ -245,7 +266,8 @@
                 wrappedOldTLK.currentkey = false;
             }
 
-            CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] initWithZoneID:newTLK.zoneID];
+            CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] initWithZoneID:newTLK.zoneID
+                                                                        contextID:newTLK.contextID ];
 
             keyset.tlk = newTLK;
             keyset.classA = newClassAKey;
@@ -302,6 +324,7 @@
 
                     ckksnotice("ckkstlk", viewState.zoneID, "Generating TLK(%@) share for %@", newTLK, trustedPeer);
                     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:newTLKKeychainBackedKey
+                                                                contextID:viewState.contextID
                                                                        as:trustState.currentSelfPeers.currentSelf
                                                                        to:trustedPeer
                                                                     epoch:-1

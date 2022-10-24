@@ -108,9 +108,8 @@ valid_variable_header(const struct v3_var_header *header, size_t buf_len)
 }
 
 static uint32_t
-find_active_var_in_image(const struct v3_var_header *var, const uint8_t *image, uint32_t len)
+find_active_var_in_image(const struct v3_var_header *var, const uint8_t *image, uint32_t offset, uint32_t len)
 {
-	uint32_t offset = sizeof(struct v3_store_header);
 	const struct v3_var_header *store_var;
 	uint32_t var_offset = 0;
 
@@ -194,12 +193,13 @@ private:
 
 	bool                         _newData;
 	bool                         _resetData;
+	bool                         _reload;
+
+	bool                         _rawController;
 
 	uint32_t                     _generation;
 
 	uint8_t                      *_nvramImage;
-	uint32_t                     _nvramSize;
-	uint8_t                      *_controllerImage;
 
 	OSSharedPtr<OSDictionary>    &_commonDict;
 	OSSharedPtr<OSDictionary>    &_systemDict;
@@ -215,16 +215,19 @@ private:
 	OSSharedPtr<OSArray>         _varEntries;
 
 	IOReturn unserializeImage(const uint8_t *image, IOByteCount length);
-
 	IOReturn reclaim(void);
+	uint32_t findCurrentBank(void);
 
 	static bool convertObjectToProp(uint8_t *buffer, uint32_t *length, const char *propSymbol, OSObject *propObject);
 	static bool convertPropToObject(const uint8_t *propName, uint32_t propNameLength, const uint8_t *propData, uint32_t propDataLength,
 	    OSSharedPtr<const OSSymbol>& propSymbol, OSSharedPtr<OSObject>& propObject);
 
+	IOReturn reloadInternal(void);
+
 	void setEntryForRemove(struct nvram_v3_var_entry *v3Entry, bool system);
 	void findExistingEntry(const uuid_t *varGuid, const char *varName, struct nvram_v3_var_entry **existing, unsigned int *existingIndex);
 	IOReturn syncRaw(void);
+	IOReturn syncBlock(void);
 
 public:
 	virtual
@@ -236,10 +239,12 @@ public:
 	static  IONVRAMV3Handler *init(IODTNVRAM *provider, const uint8_t *image, IOByteCount length,
 	    OSSharedPtr<OSDictionary> &commonDict, OSSharedPtr<OSDictionary> &systemDict);
 
+	virtual bool     getNVRAMProperties(void) APPLE_KEXT_OVERRIDE;
 	virtual IOReturn setVariable(const uuid_t varGuid, const char *variableName, OSObject *object) APPLE_KEXT_OVERRIDE;
 	virtual bool     setController(IONVRAMController *controller) APPLE_KEXT_OVERRIDE;
 	virtual bool     sync(void) APPLE_KEXT_OVERRIDE;
 	virtual IOReturn flush(const uuid_t guid, IONVRAMOperation op) APPLE_KEXT_OVERRIDE;
+	virtual void     reload(void) APPLE_KEXT_OVERRIDE;
 	virtual uint32_t getGeneration(void) const APPLE_KEXT_OVERRIDE;
 	virtual uint32_t getVersion(void) const APPLE_KEXT_OVERRIDE;
 	virtual uint32_t getSystemUsed(void) const APPLE_KEXT_OVERRIDE;
@@ -272,9 +277,18 @@ IONVRAMV3Handler*
 IONVRAMV3Handler::init(IODTNVRAM *provider, const uint8_t *image, IOByteCount length,
     OSSharedPtr<OSDictionary> &commonDict, OSSharedPtr<OSDictionary> &systemDict)
 {
+	OSSharedPtr<IORegistryEntry> entry;
+	OSSharedPtr<OSObject>        prop;
+	bool                         propertiesOk;
+
 	IONVRAMV3Handler *handler = new IONVRAMV3Handler(commonDict, systemDict);
 
 	handler->_provider = provider;
+
+	propertiesOk = handler->getNVRAMProperties();
+	require_action(propertiesOk, exit, DEBUG_ERROR("Unable to get NVRAM properties\n"));
+
+	require_action(length == handler->_bankSize, exit, DEBUG_ERROR("length %#llx != _bankSize %#x\n", length, handler->_bankSize));
 
 	if ((image != nullptr) && (length != 0)) {
 		if (handler->unserializeImage(image, length) != kIOReturnSuccess) {
@@ -283,6 +297,40 @@ IONVRAMV3Handler::init(IODTNVRAM *provider, const uint8_t *image, IOByteCount le
 	}
 
 	return handler;
+
+exit:
+	delete handler;
+
+	return nullptr;
+}
+
+bool
+IONVRAMV3Handler::getNVRAMProperties()
+{
+	bool                         ok    = false;
+	const char                   *rawControllerKey = "nvram-raw";
+	OSSharedPtr<IORegistryEntry> entry;
+	OSSharedPtr<OSObject>        prop;
+	OSData *                     data;
+
+	require_action(IODTNVRAMFormatHandler::getNVRAMProperties(), exit, DEBUG_ERROR("parent getNVRAMProperties failed\n"));
+
+	entry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+	require_action(entry, exit, DEBUG_ERROR("Unable to find chosen node\n"));
+
+	prop = entry->copyProperty(rawControllerKey);
+	require_action(prop != nullptr, exit, DEBUG_ERROR("No %s entry\n", rawControllerKey));
+
+	data = OSDynamicCast(OSData, prop.get());
+	require(data != nullptr, exit);
+
+	_rawController = *((uint32_t*)data->getBytesNoCopy());
+	DEBUG_INFO("_rawController = %d\n", _rawController);
+
+	ok = true;
+
+exit:
+	return ok;
 }
 
 IOReturn
@@ -373,6 +421,122 @@ IONVRAMV3Handler::flush(const uuid_t guid, IONVRAMOperation op)
 
 exit:
 	return ret;
+}
+
+IOReturn
+IONVRAMV3Handler::reloadInternal(void)
+{
+	IOReturn                     ret;
+	uint32_t                     controllerBank;
+	uint8_t                      *controllerImage;
+	struct nvram_v3_var_entry    *v3Entry;
+	const struct v3_store_header *storeHeader;
+	const struct v3_var_header   *storeVar;
+	OSData                       *entryContainer;
+
+	controllerBank = findCurrentBank();
+
+	if (_currentBank != controllerBank) {
+		DEBUG_ERROR("_currentBank %#x != controllerBank %#x", _currentBank, controllerBank);
+	}
+
+	_currentBank = controllerBank;
+
+	controllerImage = (uint8_t *)IOMallocData(_bankSize);
+
+	_nvramController->select(_currentBank);
+	_nvramController->read(0, controllerImage, _bankSize);
+
+	require_action(isValidImage(controllerImage, _bankSize), exit,
+	    (ret = kIOReturnInvalid, DEBUG_ERROR("Invalid image at bank %d\n", _currentBank)));
+
+	DEBUG_INFO("valid image found\n");
+
+	storeHeader = (const struct v3_store_header *)controllerImage;
+
+	_generation = storeHeader->generation;
+
+	// We must sync any existing variables offset on the controller image with our internal representation
+	// If we find an existing entry and the data is still the same we record the existing offset and mark it
+	// as VAR_NEW_STATE_NONE meaning no action needed
+	// Otherwise if the data is different or it is not found on the controller image we mark it as VAR_NEW_STATE_APPEND
+	// which will have us invalidate the existing entry if there is one and append it on the next save
+	for (unsigned int i = 0; i < _varEntries->getCount(); i++) {
+		uint32_t offset = sizeof(struct v3_store_header);
+		uint32_t latestOffset;
+		uint32_t prevOffset = 0;
+
+		entryContainer = (OSDynamicCast(OSData, _varEntries->getObject(i)));
+		v3Entry = (struct nvram_v3_var_entry *)entryContainer->getBytesNoCopy();
+
+		DEBUG_INFO("Looking for %s\n", v3Entry->header.name_data_buf);
+		while ((latestOffset = find_active_var_in_image(&v3Entry->header, controllerImage, offset, _bankSize))) {
+			DEBUG_INFO("Found offset for %s @ %#08x\n", v3Entry->header.name_data_buf, latestOffset);
+			if (prevOffset) {
+				DEBUG_INFO("Marking prev offset for %s at %#08x invalid\n", v3Entry->header.name_data_buf, offset);
+				// Invalidate any previous duplicate entries in the store
+				struct v3_var_header *prevVarHeader = (struct v3_var_header *)(controllerImage + prevOffset);
+				uint8_t state = prevVarHeader->state & VAR_DELETED & VAR_IN_DELETED_TRANSITION;
+
+				ret = _nvramController->write(prevOffset + offsetof(struct v3_var_header, state), &state, sizeof(state));
+				require_noerr_action(ret, exit, DEBUG_ERROR("existing state w fail, ret=%#x\n", ret));
+			}
+
+			prevOffset = latestOffset;
+			offset += latestOffset;
+		}
+
+		v3Entry->existing_offset = latestOffset ? latestOffset : prevOffset;
+		DEBUG_INFO("Existing offset for %s at %#08zx\n", v3Entry->header.name_data_buf, v3Entry->existing_offset);
+
+		if (v3Entry->existing_offset == 0) {
+			DEBUG_ERROR("%s is not in the NOR image\n", v3Entry->header.name_data_buf);
+			if (v3Entry->new_state != VAR_NEW_STATE_REMOVE) {
+				DEBUG_INFO("%s marked for append\n", v3Entry->header.name_data_buf);
+				// Doesn't exist in the store, just append it on next sync
+				v3Entry->new_state = VAR_NEW_STATE_APPEND;
+			}
+		} else {
+			DEBUG_INFO("Found offset for %s @ %#zx\n", v3Entry->header.name_data_buf, v3Entry->existing_offset);
+			storeVar = (const struct v3_var_header *)&controllerImage[v3Entry->existing_offset];
+
+			if (v3Entry->new_state != VAR_NEW_STATE_REMOVE) {
+				// Verify that the existing data matches the store data
+				if ((variable_length(&v3Entry->header) == variable_length(storeVar)) &&
+				    (memcmp(v3Entry->header.name_data_buf, storeVar->name_data_buf, storeVar->nameSize + storeVar->dataSize) == 0)) {
+					DEBUG_INFO("Store var data for %s matches, marking new state none\n", v3Entry->header.name_data_buf);
+					v3Entry->new_state = VAR_NEW_STATE_NONE;
+				} else {
+					DEBUG_INFO("Store var data for %s differs, marking new state append\n", v3Entry->header.name_data_buf);
+					v3Entry->new_state = VAR_NEW_STATE_APPEND;
+				}
+			} else {
+				// Store has entry but it has been removed from our collection, keep it marked for delete but with updated
+				// existing_offset for coherence
+				DEBUG_INFO("Removing entry at %#08zx with next sync\n", v3Entry->existing_offset);
+			}
+		}
+	}
+
+	ret = find_current_offset_in_image(controllerImage, _bankSize, &_currentOffset);
+	if (ret != kIOReturnSuccess) {
+		DEBUG_ERROR("Unidentified bytes in image, reclaiming\n");
+		ret = reclaim();
+		require_noerr_action(ret, exit, DEBUG_ERROR("Reclaim byte recovery failed, invalid controller state!!! ret=%#x\n", ret));
+	}
+	DEBUG_INFO("New _currentOffset=%#x\n", _currentOffset);
+
+exit:
+	IOFreeData(controllerImage, _bankSize);
+	return ret;
+}
+
+void
+IONVRAMV3Handler::reload(void)
+{
+	_reload = true;
+
+	DEBUG_INFO("reload marked\n");
 }
 
 void
@@ -496,15 +660,15 @@ IONVRAMV3Handler::unserializeImage(const uint8_t *image, IOByteCount length)
 	_commonUsed = 0;
 
 	if (_nvramImage) {
-		IOFreeData(_nvramImage, _nvramSize);
+		IOFreeData(_nvramImage, _bankSize);
 	}
 
 	_varEntries.reset();
 	_varEntries = OSArray::withCapacity(40);
 
 	_nvramImage = IONewData(uint8_t, length);
-	_nvramSize = (uint32_t)length;
-	bcopy(image, _nvramImage, _nvramSize);
+	_bankSize = (uint32_t)length;
+	bcopy(image, _nvramImage, _bankSize);
 
 	if (_systemSize) {
 		_systemDict = OSDictionary::withCapacity(1);
@@ -753,14 +917,32 @@ exit:
 	return ret;
 }
 
+uint32_t
+IONVRAMV3Handler::findCurrentBank(void)
+{
+	struct v3_store_header storeHeader;
+	uint32_t               maxGen = 0;
+	uint32_t               currentBank = 0;
+
+	for (unsigned int i = 0; i < _bankCount; i++) {
+		_nvramController->select(i);
+		_nvramController->read(0, (uint8_t *)&storeHeader, sizeof(storeHeader));
+
+		if (valid_store_header(&storeHeader) && (storeHeader.generation >= maxGen)) {
+			currentBank = i;
+			maxGen = storeHeader.generation;
+		}
+	}
+
+	DEBUG_ALWAYS("currentBank=%#x, gen=%#x", currentBank, maxGen);
+
+	return currentBank;
+}
+
 bool
 IONVRAMV3Handler::setController(IONVRAMController *controller)
 {
-	IOReturn                     ret = kIOReturnSuccess;
-	struct nvram_v3_var_entry    *v3Entry;
-	const struct v3_store_header *storeHeader;
-	const struct v3_var_header   *storeVar;
-	OSData                       *entryContainer;
+	IOReturn ret = kIOReturnSuccess;
 
 	if (_nvramController == NULL) {
 		_nvramController = controller;
@@ -768,7 +950,7 @@ IONVRAMV3Handler::setController(IONVRAMController *controller)
 
 	DEBUG_INFO("Controller name: %s\n", _nvramController->getName());
 
-	require(_nvramSize != 0, exit);
+	require(_bankSize != 0, exit);
 
 	if (_resetData) {
 		_resetData = false;
@@ -778,65 +960,12 @@ IONVRAMV3Handler::setController(IONVRAMController *controller)
 		goto exit;
 	}
 
-	_controllerImage = (uint8_t *)IOMallocData(_nvramSize);
-	_nvramController->read(0, _controllerImage, _nvramSize);
-
-	if (isValidImage(_controllerImage, _nvramSize)) {
-		DEBUG_INFO("valid image found\n");
-
-		storeHeader = (const struct v3_store_header *)_controllerImage;
-
-		_generation = storeHeader->generation;
-
-		// We must sync any existing variables offset on the controller image with our internal representation
-		// If we find an existing entry and the data is still the same we record the existing offset and mark it
-		// as VAR_NEW_STATE_NONE meaning no action needed
-		// Otherwise if the data is different or it is not found on the controller image we mark it as VAR_NEW_STATE_APPEND
-		// which will have us invalidate the existing entry if there is one and append it on the next save
-		for (unsigned int i = 0; i < _varEntries->getCount(); i++) {
-			entryContainer = (OSDynamicCast(OSData, _varEntries->getObject(i)));
-			v3Entry = (struct nvram_v3_var_entry *)entryContainer->getBytesNoCopy();
-
-			DEBUG_INFO("Looking for %s\n", v3Entry->header.name_data_buf);
-			v3Entry->existing_offset = find_active_var_in_image(&v3Entry->header, _controllerImage, _nvramSize);
-
-			if (v3Entry->existing_offset == 0) {
-				DEBUG_ERROR("%s is not in the NOR image\n", v3Entry->header.name_data_buf);
-				if (v3Entry->new_state != VAR_NEW_STATE_REMOVE) {
-					DEBUG_INFO("%s marked for append\n", v3Entry->header.name_data_buf);
-					// Doesn't exist in the store, just append it on next sync
-					v3Entry->new_state = VAR_NEW_STATE_APPEND;
-				}
-			} else {
-				DEBUG_INFO("Found offset for %s @ %#zx\n", v3Entry->header.name_data_buf, v3Entry->existing_offset);
-				storeVar = (const struct v3_var_header *)&_controllerImage[v3Entry->existing_offset];
-
-				// Verify that the existing data matches the store data
-				if ((variable_length(&v3Entry->header) == variable_length(storeVar)) &&
-				    (memcmp(v3Entry->header.name_data_buf, storeVar->name_data_buf, storeVar->nameSize + storeVar->dataSize) == 0)) {
-					DEBUG_INFO("Store var data for %s matches, marking new state none\n", v3Entry->header.name_data_buf);
-					v3Entry->new_state = VAR_NEW_STATE_NONE;
-				} else {
-					DEBUG_INFO("Store var data for %s differs, marking new state append\n", v3Entry->header.name_data_buf);
-					v3Entry->new_state = VAR_NEW_STATE_APPEND;
-				}
-			}
-		}
-
-		ret = find_current_offset_in_image(_controllerImage, _nvramSize, &_currentOffset);
-		if (ret != kIOReturnSuccess) {
-			DEBUG_ERROR("Unidentified bytes in image, reclaiming\n");
-			ret = reclaim();
-			require_noerr_action(ret, exit, DEBUG_ERROR("Reclaim byte recovery failed, invalid controller state!!! ret=%#x\n", ret));
-		}
-		DEBUG_INFO("New _currentOffset=%#x\n", _currentOffset);
-	} else {
+	ret = reloadInternal();
+	if (ret != kIOReturnSuccess) {
 		DEBUG_ERROR("Invalid image found, issuing reclaim recovery\n");
 		ret = reclaim();
 		require_noerr_action(ret, exit, DEBUG_ERROR("Reclaim recovery failed, invalid controller state!!! ret=%#x\n", ret));
 	}
-
-	IOFreeData(_controllerImage, _nvramSize);
 
 exit:
 	return ret == kIOReturnSuccess;
@@ -851,11 +980,17 @@ IONVRAMV3Handler::reclaim(void)
 	struct   nvram_v3_var_entry *varEntry;
 	OSData   *entryContainer;
 	size_t   new_bank_offset = sizeof(struct v3_store_header);
+	uint32_t next_bank = (_currentBank + 1) % _bankCount;
 
 	DEBUG_INFO("called\n");
 
-	ret = _nvramController->nextBank();
-	verify_noerr_action(ret, DEBUG_ERROR("Bank shift not triggered\n"));
+	ret = _nvramController->select(next_bank);
+	verify_noerr_action(ret, DEBUG_INFO("select of bank %#08x failed\n", next_bank));
+
+	ret = _nvramController->eraseBank();
+	verify_noerr_action(ret, DEBUG_INFO("eraseBank failed, ret=%#08x\n", ret));
+
+	_currentBank = next_bank;
 
 	for (unsigned int i = 0; i < _varEntries->getCount(); i++) {
 		entryContainer = OSDynamicCast(OSData, _varEntries->getObject(i));
@@ -908,7 +1043,7 @@ IONVRAMV3Handler::syncRaw(void)
 
 	require_action(_nvramController != nullptr, exit, DEBUG_INFO("No _nvramController\n"));
 	require_action(_newData == true, exit, DEBUG_INFO("No _newData to sync\n"));
-	require_action(_nvramSize != 0, exit, DEBUG_INFO("No nvram size info\n"));
+	require_action(_bankSize != 0, exit, DEBUG_INFO("No nvram size info\n"));
 
 	DEBUG_INFO("_varEntries->getCount()=%#x\n", _varEntries->getCount());
 
@@ -932,12 +1067,12 @@ IONVRAMV3Handler::syncRaw(void)
 			space_needed = variable_length(varHeader);
 
 			// reclaim if needed
-			if ((_currentOffset + space_needed) > _nvramSize) {
+			if ((_currentOffset + space_needed) > _bankSize) {
 				ret = reclaim();
 				require_noerr_action(ret, exit, DEBUG_ERROR("reclaim fail, ret=%#x\n", ret));
 
 				// Check after reclaim...
-				if ((_currentOffset + space_needed) > _nvramSize) {
+				if ((_currentOffset + space_needed) > _bankSize) {
 					DEBUG_ERROR("nvram full!\n");
 					goto exit;
 				}
@@ -1011,16 +1146,110 @@ exit:
 	return ret;
 }
 
+IOReturn
+IONVRAMV3Handler::syncBlock(void)
+{
+	IOReturn             ret = kIOReturnSuccess;
+	struct               v3_store_header newStoreHeader;
+	struct               v3_var_header *varHeader;
+	struct               nvram_v3_var_entry *varEntry;
+	OSData               *entryContainer;
+	size_t               new_bank_offset = sizeof(struct v3_store_header);
+	uint8_t              *block;
+	OSSharedPtr<OSArray> remainingEntries;
+	uint32_t             next_bank = (_currentBank + 1) % _bankCount;
+
+	DEBUG_INFO("called\n");
+
+	require_action(_nvramController != nullptr, exit, DEBUG_INFO("No _nvramController\n"));
+	require_action(_newData == true, exit, DEBUG_INFO("No _newData to sync\n"));
+	require_action(_bankSize != 0, exit, DEBUG_INFO("No nvram size info\n"));
+
+	block = (uint8_t *)IOMallocData(_bankSize);
+
+	remainingEntries = OSArray::withCapacity(_varEntries->getCapacity());
+
+	ret = _nvramController->select(next_bank);
+	verify_noerr_action(ret, DEBUG_INFO("select of bank %#x failed\n", next_bank));
+
+	ret = _nvramController->eraseBank();
+	verify_noerr_action(ret, DEBUG_INFO("eraseBank failed, ret=%#08x\n", ret));
+
+	_currentBank = next_bank;
+
+	memcpy(&newStoreHeader, _nvramImage, sizeof(newStoreHeader));
+
+	_generation += 1;
+
+	newStoreHeader.generation = _generation;
+
+	memcpy(block, (uint8_t *)&newStoreHeader, sizeof(newStoreHeader));
+
+	for (unsigned int i = 0; i < _varEntries->getCount(); i++) {
+		entryContainer = OSDynamicCast(OSData, _varEntries->getObject(i));
+		varEntry = (struct nvram_v3_var_entry *)entryContainer->getBytesNoCopy();
+		varHeader = &varEntry->header;
+
+		varHeader->state = VAR_ADDED;
+
+		DEBUG_INFO("entry %u %s, new_state=%#x, e_offset=%#lx, state=%#x\n",
+		    i, varEntry->header.name_data_buf, varEntry->new_state, varEntry->existing_offset, varHeader->state);
+
+		if (varEntry->new_state != VAR_NEW_STATE_REMOVE) {
+			memcpy(block + new_bank_offset, (uint8_t *)varHeader, variable_length(varHeader));
+
+			varEntry->existing_offset = new_bank_offset;
+			new_bank_offset += variable_length(varHeader);
+			varEntry->new_state = VAR_NEW_STATE_NONE;
+
+			remainingEntries->setObject(entryContainer);
+		} else {
+			DEBUG_INFO("Dropping %s\n", varEntry->header.name_data_buf);
+		}
+	}
+
+	ret = _nvramController->write(0, block, _bankSize);
+	verify_noerr_action(ret, DEBUG_ERROR("w fail, ret=%#x\n", ret));
+
+	_nvramController->sync();
+
+	_varEntries.reset(remainingEntries.get(), OSRetain);
+
+	_newData = false;
+
+	DEBUG_INFO("Save complete, _generation=%u\n", _generation);
+
+	IOFreeData(block, _bankSize);
+
+exit:
+	return ret;
+}
+
 bool
 IONVRAMV3Handler::sync(void)
 {
 	IOReturn ret;
 
-	ret = syncRaw();
+	if (_reload) {
+		ret = reloadInternal();
+		require_noerr_action(ret, exit, DEBUG_ERROR("Reload failed, ret=%#x", ret));
 
-	if (ret != kIOReturnSuccess) {
-		ret = reclaim();
-		require_noerr_action(ret, exit, DEBUG_ERROR("Reclaim recovery failed, ret=%#x", ret));
+		_reload = false;
+	}
+
+	if (_rawController == true) {
+		ret = syncRaw();
+
+		if (ret != kIOReturnSuccess) {
+			ret = reclaim();
+			require_noerr_action(ret, exit, DEBUG_ERROR("Reclaim recovery failed, ret=%#x", ret));
+
+			// Attempt to save again (will rewrite the variables still in APPEND) on the new bank
+			ret = syncRaw();
+			require_noerr_action(ret, exit, DEBUG_ERROR("syncRaw retry failed, ret=%#x", ret));
+		}
+	} else {
+		ret = syncBlock();
 	}
 
 exit:

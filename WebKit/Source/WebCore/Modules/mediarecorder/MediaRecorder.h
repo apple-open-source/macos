@@ -24,7 +24,7 @@
 
 #pragma once
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(MEDIA_RECORDER)
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
@@ -45,7 +45,7 @@ class MediaRecorderPrivate;
 class MediaRecorder final
     : public ActiveDOMObject
     , public RefCounted<MediaRecorder>
-    , public EventTargetWithInlineData
+    , public EventTarget
     , private MediaStreamPrivate::Observer
     , private MediaStreamTrackPrivate::Observer {
     WTF_MAKE_ISO_ALLOCATED(MediaRecorder);
@@ -142,4 +142,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_RECORDER)

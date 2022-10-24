@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015-2017, 2019-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -197,13 +197,13 @@ _configset(mach_port_t			server,
 	   mach_msg_type_number_t	dataLen,
 	   int				oldInstance,
 	   int				*newInstance,
-	   int				*sc_status,
-	   audit_token_t		audit_token)
+	   int				*sc_status)
 {
 #pragma unused(oldInstance)
 	CFDataRef		data		= NULL;	/* data (un-serialized) */
 	CFStringRef		key		= NULL;	/* key  (un-serialized) */
 	serverSessionRef	mySession;
+	int			status;
 
 	*newInstance = 0;
 	*sc_status = kSCStatusOK;
@@ -229,16 +229,22 @@ _configset(mach_port_t			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		mySession = tempSession(server, CFSTR("SCDynamicStoreSetValue"), audit_token);
-		if (mySession == NULL) {
-			/* you must have an open session to play */
-			*sc_status = kSCStatusNoStoreSession;
-			goto done;
-		}
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		goto done;
 	}
 
-	if (!hasWriteAccess(mySession, "set", key)) {
-		*sc_status = kSCStatusAccessError;
+	status = checkWriteAccess(mySession, key);
+	if (status != kSCStatusOK) {
+#ifdef	DEBUG
+		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
+
+		SC_trace("!set %s : %5d : %@",
+			 storePrivate->useSessionKeys ? "t " : "  ",
+			 storePrivate->server,
+			 key);
+#endif	// DEBUG
+		*sc_status = status;
 		goto done;
 	}
 
@@ -360,8 +366,7 @@ _configset_m(mach_port_t		server,
 	     mach_msg_type_number_t	removeLen,
 	     xmlData_t			notifyRef,
 	     mach_msg_type_number_t	notifyLen,
-	     int			*sc_status,
-	     audit_token_t		audit_token)
+	     int			*sc_status)
 {
 	CFDictionaryRef		dict		= NULL;		/* key/value dictionary (un-serialized) */
 	serverSessionRef	mySession;
@@ -412,12 +417,9 @@ _configset_m(mach_port_t		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		mySession = tempSession(server, CFSTR("SCDynamicStoreSetMultiple"), audit_token);
-		if (mySession == NULL) {
-			/* you must have an open session to play */
-			*sc_status = kSCStatusNoStoreSession;
-			goto done;
-		}
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		goto done;
 	}
 
 	if (dict != NULL) {
@@ -425,7 +427,7 @@ _configset_m(mach_port_t		server,
 		const void **	keys	= keys_q;
 		CFIndex		i;
 		CFIndex		n;
-		Boolean		writeOK	= TRUE;
+		int		status = kSCStatusOK;
 
 		n = CFDictionaryGetCount(dict);
 		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFStringRef))) {
@@ -436,8 +438,15 @@ _configset_m(mach_port_t		server,
 			CFStringRef	key;
 
 			key = (CFStringRef)keys[i];
-			if (!hasWriteAccess(mySession, "set (multiple)", key)) {
-				writeOK = FALSE;
+			status = checkWriteAccess(mySession, key);
+			if (status != kSCStatusOK) {
+#ifdef	DEBUG
+				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
+
+				SC_trace("!set m  : %5d : %@",
+					 storePrivate->server,
+					 key);
+#endif	// DEBUG
 				break;
 			}
 		}
@@ -445,8 +454,8 @@ _configset_m(mach_port_t		server,
 			CFAllocatorDeallocate(NULL, keys);
 		}
 
-		if (!writeOK) {
-			*sc_status = kSCStatusAccessError;
+		if (status != kSCStatusOK) {
+			*sc_status = status;
 			goto done;
 		}
 	}
@@ -457,10 +466,19 @@ _configset_m(mach_port_t		server,
 
 		for (i = 0; i < n; i++) {
 			CFStringRef	key;
+			int		status;
 
 			key = CFArrayGetValueAtIndex(remove, i);
-			if (!hasWriteAccess(mySession, "set/remove (multiple)", key)) {
-				*sc_status = kSCStatusAccessError;
+			status = checkWriteAccess(mySession, key);
+			if (status != kSCStatusOK) {
+#ifdef	DEBUG
+				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
+
+				SC_trace("!remove : %5d : %@",
+					 storePrivate->server,
+					 key);
+#endif	// DEBUG
+				*sc_status = status;
 				goto done;
 			}
 		}
@@ -472,10 +490,19 @@ _configset_m(mach_port_t		server,
 
 		for (i = 0; i < n; i++) {
 			CFStringRef	key;
+			int		status;
 
 			key = CFArrayGetValueAtIndex(notify, i);
-			if (!hasWriteAccess(mySession, "set/notify (multiple)", key)) {
-				*sc_status = kSCStatusAccessError;
+			status = checkWriteAccess(mySession, key);
+			if (status != kSCStatusOK) {
+#ifdef	DEBUG
+				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
+
+				SC_trace("!notify : %5d : %@",
+					 storePrivate->server,
+					 key);
+#endif	// DEBUG
+				*sc_status = status;
 				goto done;
 			}
 		}

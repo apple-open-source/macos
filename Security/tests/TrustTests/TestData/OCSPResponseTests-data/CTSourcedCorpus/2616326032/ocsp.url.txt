@@ -1,0 +1,1 @@
+http://oneocsp.microsoft.com/ocsp

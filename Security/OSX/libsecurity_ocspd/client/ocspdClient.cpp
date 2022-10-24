@@ -112,8 +112,6 @@ void ocspdGlobals::resetServerPort()
 }
 
 
-static ModuleNexus<ocspdGlobals> OcspdGlobals;
-
 /* 
  * Perform network fetch of an OCSP response. Result is not verified in any 
  * way.

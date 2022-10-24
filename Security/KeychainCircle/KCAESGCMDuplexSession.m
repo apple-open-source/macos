@@ -95,6 +95,7 @@ static NSString* KCDSSender = @"asSender";
 static NSString* KCDSSecret = @"secret";
 static NSString* KCDSContext = @"context";
 static NSString* KCDSPairingUUID = @"uuid";
+static NSString* KCDSPairingAltDSID = @"altDSID";
 static NSString* KCDSPiggybackingVersion = @"piggy";
 static NSString* KCDSEpoch= @"epoch";
 
@@ -102,6 +103,7 @@ static NSString* KCDSEpoch= @"epoch";
     [aCoder encodeBool: self.asSender forKey:KCDSSender];
     [aCoder encodeObject: self.secret forKey:KCDSSecret];
     [aCoder encodeInt64: self.context forKey:KCDSContext];
+    [aCoder encodeObject:self.altDSID forKey:KCDSPairingAltDSID];
     [aCoder encodeObject: self.pairingUUID forKey:KCDSPairingUUID];
     [aCoder encodeInt64: self.piggybackingVersion forKey:KCDSPiggybackingVersion];
     [aCoder encodeInt64:self.epoch forKey:KCDSEpoch];
@@ -112,11 +114,18 @@ static NSString* KCDSEpoch= @"epoch";
     NSData* secret = [aDecoder decodeObjectOfClass:[NSData class] forKey:KCDSSecret];
     uint64_t context = [aDecoder decodeInt64ForKey:KCDSContext];
 
+    NSString* altDSID = [aDecoder decodeObjectOfClass:[NSString class] forKey:KCDSPairingAltDSID];
     NSString* pairingUUID = [aDecoder decodeObjectOfClass:[NSString class] forKey:KCDSPairingUUID];
     uint64_t piggybackingVersion = [aDecoder decodeInt64ForKey:KCDSPiggybackingVersion];
     uint64_t epoch = [aDecoder decodeInt64ForKey:KCDSEpoch];
 
-    return [self initWithSecret:secret context:context as:asSender pairingUUID:pairingUUID piggybackingVersion:piggybackingVersion epoch:epoch];
+    return [self initWithSecret:secret
+                        context:context
+                             as:asSender
+                        altDSID:altDSID
+                    pairingUUID:pairingUUID
+            piggybackingVersion:piggybackingVersion
+                          epoch:epoch];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -139,6 +148,7 @@ static NSString* KCDSEpoch= @"epoch";
     return [self initWithSecret:sharedSecret
                         context:context
                              as:sender
+                        altDSID:nil
                     pairingUUID:nil
             piggybackingVersion:0
                           epoch:1];
@@ -147,6 +157,7 @@ static NSString* KCDSEpoch= @"epoch";
 - (nullable instancetype)initWithSecret:(NSData*)sharedSecret
                                 context:(uint64_t)context
                                      as:(bool) sender
+                                altDSID:(NSString* _Nullable)altDSID
                             pairingUUID:(NSString* _Nullable)pairingUUID
                     piggybackingVersion:(uint64_t)piggybackingVersion
                                   epoch:(uint64_t)epoch
@@ -172,6 +183,7 @@ static NSString* KCDSEpoch= @"epoch";
         _pairingUUID = pairingUUID;
         _piggybackingVersion = piggybackingVersion;
         _epoch = epoch;
+        _altDSID = altDSID;
 
         if (self.send == nil || self.receive == nil) {
             return nil;
@@ -326,19 +338,15 @@ static NSString* KCDSEpoch= @"epoch";
                error:error] ? decrypted : nil;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-implementations"
-- (void) finalize {
+- (void)dealloc {
     if (self.send) {
-        ccgcm_ctx_clear(sizeof(*self.send), self.send);
+        ccgcm_ctx_clear(ccgcm_context_size(ccaes_gcm_encrypt_mode()), self.send);
         free(self.send);
     }
     if (self.receive) {
-        ccgcm_ctx_clear(sizeof(*self.receive), self.receive);
+        ccgcm_ctx_clear(ccgcm_context_size(ccaes_gcm_decrypt_mode()), self.receive);
         free(self.receive);
     }
-    [super finalize];
 }
-#pragma clang diagnostic pop
 
 @end

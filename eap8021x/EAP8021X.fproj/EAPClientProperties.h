@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -205,12 +205,13 @@
 #define kEAPClientPropOuterIdentity		CFSTR("OuterIdentity")
 
 /* for TLS: */
-#define kEAPClientPropTLSIdentityHandle		    CFSTR("TLSIdentityHandle") /* EAPSecIdentityHandle */
-#define kEAPClientPropTLSClientIdentityData	    CFSTR("TLSClientIdentityData") /* persistent reference */
-#define kEAPClientPropTLSClientIdentityTrustChain   CFSTR("TLSClientIdentityTrustChain") /* array */
-#define kEAPClientPropTLSMinimumVersion		    CFSTR("TLSMinimumVersion") /* string (kEAPTLSVersion*) */
-#define kEAPClientPropTLSMaximumVersion		    CFSTR("TLSMaximumVersion") /* string (kEAPTLSVersion*) */
-#define kEAPClientPropTLSShareableIdentityInfo	    CFSTR("TLSShareableIdentityInfo") /* Dictionary */
+#define kEAPClientPropTLSIdentityHandle		    		CFSTR("TLSIdentityHandle") /* EAPSecIdentityHandle */
+#define kEAPClientPropTLSClientIdentityData	    		CFSTR("TLSClientIdentityData") /* persistent reference */
+#define kEAPClientPropTLSClientIdentityTrustChain   		CFSTR("TLSClientIdentityTrustChain") /* array of persistent refs to certs */
+#define kEAPClientPropTLSClientIdentityTrustChainCertificates   CFSTR("TLSClientIdentityTrustChainCertificates") /* array of SecCertificateRef objects */
+#define kEAPClientPropTLSMinimumVersion		    		CFSTR("TLSMinimumVersion") /* string (kEAPTLSVersion*) */
+#define kEAPClientPropTLSMaximumVersion		    		CFSTR("TLSMaximumVersion") /* string (kEAPTLSVersion*) */
+#define kEAPClientPropTLSShareableIdentityInfo	    		CFSTR("TLSShareableIdentityInfo") /* Dictionary */
 
 /* acceptable values for TLs version */
 #define kEAPTLSVersion1_0			CFSTR("1.0")

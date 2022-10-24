@@ -180,6 +180,7 @@ programming_error (format, va_alist)
    and for bad invocation options. */
 void
 #if defined (PREFER_STDARG)
+__attribute__((format(printf, 1, 2)))
 report_error (const char *format, ...)
 #else
 report_error (format, va_alist)
@@ -225,6 +226,7 @@ fatal_error (format, va_alist)
 
 void
 #if defined (PREFER_STDARG)
+__attribute__((format(printf, 1, 2)))
 internal_error (const char *format, ...)
 #else
 internal_error (format, va_alist)

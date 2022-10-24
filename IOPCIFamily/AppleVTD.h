@@ -462,6 +462,8 @@ public:
 	vtd_space_t * fSpace;
 	uint32_t      fSourceID;
 	uint8_t       fAllFunctions;
+    IOLock      * fAppleVTDforDeviceLock;
+	ppnum_t       vsize;
 
 	static AppleVTDDeviceMapper * forDevice(IOService * device, uint32_t flags);
 

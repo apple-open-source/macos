@@ -180,7 +180,7 @@ static void findMSDOSRegion (BLContextPtr inContext, const char* inBSDName, bool
     
 	contextprintf (inContext, kBLLogLevelVerbose, "******** TESTING, WRITING TO STAGING AREA THEN READING AS IF IT WERE A PRETEND DISC.. *******\n");
     
-    sprintf (devPath, "/tmp/testFindMSDOSRegion");
+    strlcpy (devPath, "/tmp/testFindMSDOSRegion", sizeof(devPath));
 	fd = open (devPath, O_RDWR | O_CREAT);
 	if (-1 == fd)
 	{
@@ -192,14 +192,14 @@ static void findMSDOSRegion (BLContextPtr inContext, const char* inBSDName, bool
 	// ISO Primary Volume Descriptor at 2048-block #16
 	bzero (tbuf, 2048);
 	tbuf[0] = 0x01;
-	strcpy (&(tbuf[1]), "CD001");
+	strlcpy (&(tbuf[1]), "CD001", (sizeof(tbuf) - 1));
 	tbuf[80]=0x33; tbuf[81]=0x22; tbuf[82]=0x11; tbuf[83]=0x00;
 	pwrite (fd, tbuf, 2048, 2048*16);
     
 	// "El Torito" Voume Descriptor at 2048-block #17
 	bzero (tbuf, 2048);
 	tbuf[0] = 0x00;
-	strcpy (&(tbuf[1]), "CD001");
+	strlcpy (&(tbuf[1]), "CD001", (sizeof(tbuf) - 1));
 	tbuf[71]=0x20; tbuf[72]=0x00; tbuf[73]=0x00; tbuf[74]=0x00; //bootcat_ptr = first sector of Boot Catalog -- make it #32
 	pwrite (fd, tbuf, 2048, 2048*17);
 	
@@ -340,9 +340,9 @@ static void findMSDOSRegion (BLContextPtr inContext, const char* inBSDName, bool
     contextprintf (inContext, kBLLogLevelVerbose, "******** PARSING STARTS on %s *******\n", inBSDName);
     
 #if TESTMODE
-    sprintf (devPath, "/tmp/testFindMSDOSRegion");
+    snprintf (devPath,  sizeof(devPath), "/tmp/testFindMSDOSRegion");
 #else
-	sprintf (devPath, "/dev/r%s", inBSDName);
+	snprintf (devPath,  sizeof(devPath), "/dev/r%s", inBSDName);
 #endif
     
 	fd = open (devPath, O_RDONLY | O_SHLOCK);
@@ -433,7 +433,7 @@ static void findMSDOSRegion (BLContextPtr inContext, const char* inBSDName, bool
 	// Read buffer where the the first 64 Entries are:
 	int ret;
 	bzero (buf2048, 2048);
-	ret = pread (fd, buf2048, 1*2048, firstSectorOfBootCatalog*2048);
+	ret = (int)pread (fd, buf2048, 1*2048, firstSectorOfBootCatalog*2048);
 	contextprintf (inContext, kBLLogLevelVerbose, "\n\npread 2048-buff of Entries; ret=%d\n", ret);
     
 	uint8_t entryBuf [32];

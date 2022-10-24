@@ -38,6 +38,7 @@
 #include "RenderLayerModelObject.h"
 #include "RenderPtr.h"
 #include "ScrollView.h"
+#include "SimpleRange.h"
 #include "StyleColor.h"
 #include "TiledBacking.h"
 #include <memory>
@@ -137,6 +138,7 @@ public:
 
     void setNeedsCompositingConfigurationUpdate();
     void setNeedsCompositingGeometryUpdate();
+    void setDescendantsNeedUpdateBackingAndHierarchyTraversal();
 
     WEBCORE_EXPORT void setViewportConstrainedObjectsNeedLayout();
 
@@ -268,9 +270,11 @@ public:
     WEBCORE_EXPORT void setScrollPosition(const ScrollPosition&, const ScrollPositionChangeOptions& = ScrollPositionChangeOptions::createProgrammatic()) final;
     void restoreScrollbar();
     void scheduleScrollToFocusedElement(SelectionRevealMode);
+    void cancelScheduledScrolls();
     void scrollToFocusedElementImmediatelyIfNeeded();
     void updateLayerPositionsAfterScrolling() final;
     void updateCompositingLayersAfterScrolling() final;
+    static WEBCORE_EXPORT bool scrollRectToVisible(const LayoutRect& absoluteRect, const RenderObject&, bool insideFixed, const ScrollRectToVisibleOptions&);
 
     bool requestScrollPositionUpdate(const ScrollPosition&, ScrollType = ScrollType::User, ScrollClamping = ScrollClamping::Clamped) final;
     bool requestAnimatedScrollToPosition(const ScrollPosition&, ScrollClamping = ScrollClamping::Clamped) final;
@@ -476,6 +480,7 @@ public:
 
     bool scrollToFragment(const URL&);
     void maintainScrollPositionAtAnchor(ContainerNode*);
+    void maintainScrollPositionAtScrollToTextFragmentRange(SimpleRange&);
     WEBCORE_EXPORT void scrollElementToRect(const Element&, const IntRect&);
 
     // Coordinate systems:
@@ -750,6 +755,9 @@ private:
     bool useSlowRepaintsIfNotOverlapped() const;
     void updateCanBlitOnScrollRecursively();
     bool shouldLayoutAfterContentsResized() const;
+    
+    void cancelScheduledScrollToFocusedElement();
+    void cancelScheduledTextFragmentIndicatorTimer();
 
     ScrollingCoordinator* scrollingCoordinator() const;
     bool shouldUpdateCompositingLayersAfterScrolling() const;
@@ -789,6 +797,8 @@ private:
     void delegatesScrollingDidChange() final;
 
     void unobscuredContentSizeChanged() final;
+    
+    void textFragmentIndicatorTimerFired();
 
     // ScrollableArea interface
     void invalidateScrollbarRect(Scrollbar&, const IntRect&) final;
@@ -810,6 +820,8 @@ private:
     bool usesCompositedScrolling() const final;
     bool mockScrollbarsControllerEnabled() const final;
     void logMockScrollbarsControllerMessage(const String&) const final;
+
+    bool canShowNonOverlayScrollbars() const final;
 
     bool styleHidesScrollbarWithOrientation(ScrollbarOrientation) const;
     bool horizontalScrollbarHiddenByStyle() const final;
@@ -843,6 +855,7 @@ private:
 
     bool scrollToFragmentInternal(StringView);
     void scrollToAnchor();
+    void scrollToTextFragmentRange();
     void scrollPositionChanged(const ScrollPosition& oldPosition, const ScrollPosition& newPosition);
     void scrollableAreaSetChanged();
     void scheduleScrollEvent();
@@ -895,6 +908,10 @@ private:
 
     static MonotonicTime sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
+    void scrollRectToVisibleInChildView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&, const HTMLFrameOwnerElement*);
+    void scrollRectToVisibleInTopLevelView(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
+    LayoutRect getPossiblyFixedRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
+
     const Ref<Frame> m_frame;
     FrameViewLayoutContext m_layoutContext;
 
@@ -908,6 +925,9 @@ private:
 
     RefPtr<ContainerNode> m_maintainScrollPositionAnchor;
     RefPtr<Node> m_nodeToDraw;
+    std::optional<SimpleRange> m_pendingTextFragmentIndicatorRange;
+    String m_pendingTextFragmentIndicatorText;
+    bool m_skipScrollResetOfScrollToTextFragmentRange { false };
 
     // Renderer to hold our custom scroll corner.
     RenderPtr<RenderScrollbarPart> m_scrollCorner;
@@ -917,6 +937,7 @@ private:
     Timer m_delayedScrollEventTimer;
     Timer m_delayedScrollToFocusedElementTimer;
     Timer m_speculativeTilingEnableTimer;
+    Timer m_delayedTextFragmentIndicatorTimer;
 
     MonotonicTime m_lastPaintTime;
 

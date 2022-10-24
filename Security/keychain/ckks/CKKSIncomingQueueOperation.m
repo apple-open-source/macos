@@ -26,6 +26,7 @@
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSKeychainView.h"
@@ -35,6 +36,7 @@
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/SecItemDb.h"
@@ -130,15 +132,17 @@
             // Note that we currently unencrypt the item before deleting it, instead of just deleting it
             // This finds the class, which is necessary for the deletion process. We could just try to delete
             // across all classes, though...
+            
             NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:iqe.item
                                                                                       keyCache:keyCache
+                                                                   ckksOperationalDependencies:self.deps
                                                                                          error:&error];
 
             if(!attributes || error) {
                 if([self.deps.lockStateTracker isLockedError:error]) {
                     NSError* localerror = nil;
                     ckkserror("ckksincoming", viewState.zoneID, "Keychain is locked; can't decrypt IQE %@", iqe);
-                    CKKSKey* key = [CKKSKey tryFromDatabase:iqe.item.parentKeyUUID zoneID:viewState.zoneID error:&localerror];
+                    CKKSKey* key = [CKKSKey tryFromDatabase:iqe.item.parentKeyUUID contextID:viewState.contextID zoneID:viewState.zoneID error:&localerror];
 
 
                     // If this isn't an error, make sure it gets processed later.
@@ -291,7 +295,10 @@
         NSError* loadError = nil;
 
         CKRecordZoneID* otherZoneID = [[CKRecordZoneID alloc] initWithZoneName:intendedView ownerName:CKCurrentUserDefaultName];
-        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:iqe.uuid zoneID:otherZoneID error:&loadError];
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:iqe.uuid
+                                                       contextID:self.deps.contextID
+                                                          zoneID:otherZoneID
+                                                           error:&loadError];
 
         if(!ckme || loadError) {
             ckksnotice("ckksincoming", viewState.zoneID, "Unable to load CKKSMirrorEntry from database* %@", loadError);
@@ -318,8 +325,10 @@
 
 + (NSDictionary* _Nullable)decryptCKKSItemToAttributes:(CKKSItem*)item
                                               keyCache:(CKKSMemoryKeyCache*)keyCache
+                           ckksOperationalDependencies:(CKKSOperationDependencies*)ckksOperationalDependencies
                                                  error:(NSError**)error
 {
+    
     NSMutableDictionary* attributes = [[CKKSItemEncrypter decryptItemToDictionary:item keyCache:keyCache error:error] mutableCopy];
     if(!attributes) {
         return nil;
@@ -368,6 +377,9 @@
 
 - (void)main
 {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     NSSet<CKKSKeychainViewState*>* viewsToProcess = [self.deps readyAndSyncingViews];
@@ -378,7 +390,11 @@
         ckkserror_global("ckksincoming", "Will handle mismatched view items along the way");
     }
 
+    [self.deps.overallLaunch addEvent:@"incoming-processing-begin"];
+
     for(CKKSKeychainViewState* viewState in viewsToProcess) {
+        [viewState.launch addEvent:@"incoming-processing-begin"];
+
         // First, process all item deletions.
         // Then, process all modifications and additions.
         // Therefore, if there's both a delete and a re-add of a single Primary Key item in the queue,
@@ -408,7 +424,9 @@
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
 
-            NSArray<CKKSCurrentItemPointer*>* newCIPs = [CKKSCurrentItemPointer remoteItemPointers:viewState.zoneID error:&error];
+            NSArray<CKKSCurrentItemPointer*>* newCIPs = [CKKSCurrentItemPointer remoteItemPointers:viewState.zoneID
+                                                                                         contextID:viewState.contextID
+                                                                                             error:&error];
             if(error || !newCIPs) {
                 ckkserror("ckksincoming", viewState, "Could not load remote item pointers: %@", error);
             } else {
@@ -449,7 +467,9 @@
 
     CKKSAnalytics* logger = [CKKSAnalytics logger];
 
-    for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
+    for(CKKSKeychainViewState* viewState in viewsToProcess) {
+        [viewState.launch addEvent:@"incoming-processed"];
+
         // This will produce slightly incorrect results when processing multiple zones...
         if (!self.error) {
             [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC zoneName:viewState.zoneID.zoneName];
@@ -472,6 +492,8 @@
             }
         }
     }
+
+    [self.deps.overallLaunch addEvent:@"incoming-processing-complete"];
 }
 
 - (BOOL)loadAndProcessEntries:(CKKSKeychainViewState*)viewState withActionFilter:(NSString* _Nullable)actionFilter
@@ -501,6 +523,7 @@
                                           startingAtUUID:lastMaxUUID
                                                    state:SecCKKSStateNew
                                                   action:actionFilter
+                                               contextID:self.deps.contextID
                                                   zoneID:viewState.zoneID
                                                    error:&error];
 
@@ -562,6 +585,7 @@
                                                                             startingAtUUID:lastMaxUUID
                                                                                      state:SecCKKSStateMismatchedView
                                                                                     action:nil
+                                                                                 contextID:self.deps.contextID
                                                                                     zoneID:viewState.zoneID
                                                                                      error:&error];
             if(error) {
@@ -650,11 +674,12 @@
     __block NSError* error = NULL;
 
     if(SecDbItemIsTombstone(item)) {
-        ckkserror("ckksincoming", viewState.zoneID, "Rejecting a tombstone item addition from CKKS(%@): %@", iqe.uuid, item);
+        ckkserror("ckksincoming", viewState.zoneID, "Rejecting a tombstone item addition from CKKS(%@): " SECDBITEM_FMT, iqe.uuid, item);
 
         NSError* error = nil;
         CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry withItem:item
                                                                 action:SecCKKSActionDelete
+                                                             contextID:self.deps.contextID
                                                                 zoneID:viewState.zoneID
                                                               keyCache:keyCache
                                                                  error:&error];
@@ -692,10 +717,11 @@
          * and so will not delete the multiuser item of interest.
          */
 
-        ckkserror("ckksincoming", viewState.zoneID, "Rejecting a multiuser item addition from CKKS(%@): %@", iqe.uuid, item);
+        ckkserror("ckksincoming", viewState.zoneID, "Rejecting a multiuser item addition from CKKS(%@): " SECDBITEM_FMT, iqe.uuid, item);
         NSError* error = nil;
         CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry withItem:item
                                                                 action:SecCKKSActionDelete
+                                                             contextID:self.deps.contextID
                                                                 zoneID:viewState.zoneID
                                                               keyCache:keyCache
                                                                  error:&error];
@@ -717,7 +743,24 @@
 
         return NO;
     }
-
+#if TARGET_OS_TV
+    //now set the item's musr value
+    CFErrorRef setError = NULL;
+    bool setResult = SecDbItemSetValueWithName(item, kSecAttrMultiUser, (__bridge CFDataRef)self.deps.keychainMusrForCurrentAccount, &setError);
+    if (!setResult || setError) {
+        ckkserror("ckksincoming", viewState.zoneID, "Unable to set musr %@ on item " SECDBITEM_FMT ", error: %@", self.deps.keychainMusrForCurrentAccount, item, setError);
+        if (setError) {
+            self.error = (NSError*) CFBridgingRelease(setError);
+        } else {
+            self.error = [NSError errorWithDomain:@"securityd"
+                                             code:errSecInternalError
+                                         userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to set musr on item"]}];
+        }
+        self.errorItemsProcessed += 1;
+        return NO;
+    }
+#endif
+    
     __block BOOL conflictedIncorrectlySortedItem = NO;
     __block BOOL keptOldItem = NO;
     __block NSDate* moddate = (__bridge NSDate*) CFDictionaryGetValue(item->attributes, kSecAttrModificationDate);
@@ -744,7 +787,7 @@
 
             // If this item arrived in what we believe to be the wrong view, drop the modification entirely.
             if(!sortedForThisView) {
-                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; dropping CK item (arriving from wrong view) %@", item);
+                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; dropping CK item (arriving from wrong view) " SECDBITEM_FMT, item);
                 conflictedIncorrectlySortedItem = YES;
                 return;
             }
@@ -755,6 +798,7 @@
             // Is the old item already somewhere in CKKS?
             NSError* ckmeError = nil;
             CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:(__bridge NSString*)olditemUUID
+                                                           contextID:self.deps.contextID
                                                               zoneID:viewState.zoneID
                                                                error:&ckmeError];
 
@@ -767,9 +811,10 @@
             CKKSOutgoingQueueEntry* oqe = nil;
             if (compare == kCFCompareGreaterThan && (ckme || ckmeError)) {
                 // olditem wins; don't change olditem; delete item
-                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; dropping CK item %@", item);
+                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; dropping CK item " SECDBITEM_FMT, item);
                 oqe = [CKKSOutgoingQueueEntry withItem:item
                                                 action:SecCKKSActionDelete
+                                             contextID:self.deps.contextID
                                                 zoneID:viewState.zoneID
                                               keyCache:keyCache
                                                  error:&error];
@@ -780,7 +825,7 @@
                 keptOldItem = YES;
             } else {
                 // item wins, either due to the UUID winning or the item not being in CKKS yet
-                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; replacing %@%@ with CK item %@",
+                ckksnotice("ckksincoming", viewState.zoneID, "Primary key conflict; replacing %@" SECDBITEM_FMT " with CK item " SECDBITEM_FMT,
                            ckme ? @"" : @"non-onboarded", olditem, item);
                 if(replace) {
                     *replace = CFRetainSafe(item);
@@ -790,6 +835,7 @@
                 if (compare != kCFCompareEqualTo) {
                     oqe = [CKKSOutgoingQueueEntry withItem:olditem
                                                     action:SecCKKSActionDelete
+                                                 contextID:self.deps.contextID
                                                     zoneID:viewState.zoneID
                                                   keyCache:keyCache
                                                      error:&error];
@@ -799,7 +845,7 @@
             }
             if (SecKeychainIsStaticPersistentRefsEnabled()) {
                 //now evaluate UUID based persistent refs
-                NSData* oldItemPersistentRef = (__bridge NSData*) CFDictionaryGetValue(olditem->attributes, kSecAttrPersistentReference);
+                NSData* oldItemPersistentRef = (__bridge NSData*) SecDbItemGetCachedValueWithName(olditem, kSecAttrPersistentReference);
 
                 if (replace && *replace == nil && (!oldItemPersistentRef || [oldItemPersistentRef length] != PERSISTENT_REF_UUID_BYTES_LENGTH)) {
                     [self _onqueueGenerateNewUUIDPersistentRefOnSecItem:olditem viewState:viewState];
@@ -923,6 +969,7 @@
         } else {
             ckkserror("ckksincoming", viewState.zoneID, "couldn't delete item: %@", cferror);
             SecTranslateError(&error, cferror);
+            self.errorItemsProcessed += 1;
             self.error = error;
             query_destroy(q, NULL);
             return;

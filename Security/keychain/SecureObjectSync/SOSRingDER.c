@@ -6,7 +6,6 @@
 //
 //
 
-#include "SOSRingDER.h"
 #include <AssertMacros.h>
 
 #include "keychain/SecureObjectSync/SOSInternal.h"

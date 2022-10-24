@@ -1053,7 +1053,7 @@ static const CFRuntimeClass __SCBondStatusClass = {
 };
 
 
-static CFTypeID		__kSCBondStatusTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID		__kSCBondStatusTypeID;
 
 
 static pthread_once_t	bondStatus_init		= PTHREAD_ONCE_INIT;

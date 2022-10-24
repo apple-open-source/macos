@@ -67,7 +67,8 @@ extern const void * kSecCMSHashingAlgorithmSHA512;
     @param detached_contents to pass detached contents (optional)
     @param policy specifies policy or array thereof should be used (optional).  
 	if none is passed the blob will **not** be verified and only 
-	the attached contents will be returned.
+	the attached contents will be returned. If verification not desired, please use
+    SecCMSDecodeSignedData instead of passing NULL.
     @param trustref (output/optional) if specified, the trust chain built during 
         verification will not be evaluated but returned to the caller to do so.
 	@param attached_contents (output/optional) return a copy of the attached 
@@ -86,6 +87,24 @@ OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message, CFDataRef detached
     CFDataRef *attached_contents, CFDictionaryRef *signed_attributes);
 
 /*!
+    @function SecCMSDecodeSignedData
+    @abstract decode a signed data cms blob
+    @param message the cms message to be parsed
+    @param attached_contents (output/optional) return a copy of the attached
+        contents.
+    @param signed_attributes (output/optional) return a copy of the signed
+        attributes as a CFDictionary from oids (CFData) to values
+        (CFArray of CFData).
+    @result A result code.  See "Security Error Codes" (SecBase.h).
+        errSecDecode not a CMS message we can parse,
+        errSecAuthFailed bad signature, or untrusted signer if caller doesn't
+        ask for trustref,
+        errSecParam garbage in, garbage out.
+*/
+OSStatus SecCMSDecodeSignedData(CFDataRef message,
+    CFDataRef *attached_contents, CFDictionaryRef *signed_attributes);
+
+/*!
 	@function SecCMSVerify
     @abstract same as SecCMSVerifyCopyDataAndAttributes, for binary compatibility.
 */
@@ -98,9 +117,7 @@ OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
 
 
 /* Return an array of certificates contained in message, if message is of the
-   type SignedData and has no signers, return NULL otherwise.   Not that if
-   the message is properly formed but has no certificates an empty array will
-   be returned. */
+   type SignedData and has no signers, return NULL otherwise. */
 CFArrayRef SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message);
 
 /* Create a degenerate PKCS#7 containing a cert or a CFArray of certs. */
@@ -176,6 +193,8 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
 */
 OSStatus SecCMSDecryptEnvelopedData(CFDataRef message, 
     CFMutableDataRef data, SecCertificateRef *recipient);
+
+bool useMessageSecurityEnabled(void);
 
 __END_DECLS
 

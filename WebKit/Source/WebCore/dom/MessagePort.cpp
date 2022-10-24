@@ -34,6 +34,7 @@
 #include "MessagePortChannelProvider.h"
 #include "MessageWithMessagePorts.h"
 #include "StructuredSerializeOptions.h"
+#include "WebCoreOpaqueRoot.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerThread.h"
 #include <wtf/CompletionHandler.h>
@@ -49,6 +50,12 @@ static Lock allMessagePortsLock;
 static HashMap<MessagePortIdentifier, MessagePort*>& allMessagePorts() WTF_REQUIRES_LOCK(allMessagePortsLock)
 {
     static NeverDestroyed<HashMap<MessagePortIdentifier, MessagePort*>> map;
+    return map;
+}
+
+static HashMap<MessagePortIdentifier, ScriptExecutionContextIdentifier>& portToContextIdentifier() WTF_REQUIRES_LOCK(allMessagePortsLock)
+{
+    static NeverDestroyed<HashMap<MessagePortIdentifier, ScriptExecutionContextIdentifier>> map;
     return map;
 }
 
@@ -69,8 +76,10 @@ void MessagePort::deref() const
             return;
 
         auto iterator = allMessagePorts().find(m_identifier);
-        if (iterator != allMessagePorts().end() && iterator->value == this)
+        if (iterator != allMessagePorts().end() && iterator->value == this) {
             allMessagePorts().remove(iterator);
+            portToContextIdentifier().remove(m_identifier);
+        }
 
         delete this;
     }
@@ -85,10 +94,24 @@ bool MessagePort::isExistingMessagePortLocallyReachable(const MessagePortIdentif
 
 void MessagePort::notifyMessageAvailable(const MessagePortIdentifier& identifier)
 {
-    Locker locker { allMessagePortsLock };
-    if (auto* port = allMessagePorts().get(identifier))
-        port->messageAvailable();
+    ASSERT(isMainThread());
+    ScriptExecutionContextIdentifier scriptExecutionContextIdentifier;
+    {
+        Locker locker { allMessagePortsLock };
+        scriptExecutionContextIdentifier = portToContextIdentifier().get(identifier);
+    }
+    if (!scriptExecutionContextIdentifier)
+        return;
 
+    ScriptExecutionContext::ensureOnContextThread(scriptExecutionContextIdentifier, [identifier](auto&) {
+        RefPtr<MessagePort> port;
+        {
+            Locker locker { allMessagePortsLock };
+            port = allMessagePorts().get(identifier);
+        }
+        if (port)
+            port->messageAvailable();
+    });
 }
 
 Ref<MessagePort> MessagePort::create(ScriptExecutionContext& scriptExecutionContext, const MessagePortIdentifier& local, const MessagePortIdentifier& remote)
@@ -107,6 +130,7 @@ MessagePort::MessagePort(ScriptExecutionContext& scriptExecutionContext, const M
 
     Locker locker { allMessagePortsLock };
     allMessagePorts().set(m_identifier, this);
+    portToContextIdentifier().set(m_identifier, scriptExecutionContext.identifier());
 
     // Make sure the WeakPtrFactory gets initialized eagerly on the thread the MessagePort gets constructed on for thread-safety reasons.
     initializeWeakPtrFactory();
@@ -149,7 +173,7 @@ ExceptionOr<void> MessagePort::postMessage(JSC::JSGlobalObject& state, JSC::JSVa
         return { };
     ASSERT(scriptExecutionContext());
 
-    TransferredMessagePortArray transferredPorts;
+    Vector<TransferredMessagePort> transferredPorts;
     // Make sure we aren't connected to any of the passed-in ports.
     if (!ports.isEmpty()) {
         for (auto& port : ports) {
@@ -373,10 +397,10 @@ MessagePort* MessagePort::locallyEntangledPort() const
     return nullptr;
 }
 
-ExceptionOr<TransferredMessagePortArray> MessagePort::disentanglePorts(Vector<RefPtr<MessagePort>>&& ports)
+ExceptionOr<Vector<TransferredMessagePort>> MessagePort::disentanglePorts(Vector<RefPtr<MessagePort>>&& ports)
 {
     if (ports.isEmpty())
-        return TransferredMessagePortArray { };
+        return Vector<TransferredMessagePort> { };
 
     // Walk the incoming array - if there are any duplicate ports, or null ports or cloned ports, throw an error (per section 8.3.3 of the HTML5 spec).
     HashSet<MessagePort*> portSet;
@@ -386,26 +410,21 @@ ExceptionOr<TransferredMessagePortArray> MessagePort::disentanglePorts(Vector<Re
     }
 
     // Passed-in ports passed validity checks, so we can disentangle them.
-    TransferredMessagePortArray portArray;
-    portArray.reserveInitialCapacity(ports.size());
-    for (auto& port : ports)
-        portArray.uncheckedAppend(port->disentangle());
-
-    return portArray;
+    return WTF::map(ports, [](auto& port) {
+        return port->disentangle();
+    });
 }
 
-Vector<RefPtr<MessagePort>> MessagePort::entanglePorts(ScriptExecutionContext& context, TransferredMessagePortArray&& transferredPorts)
+Vector<RefPtr<MessagePort>> MessagePort::entanglePorts(ScriptExecutionContext& context, Vector<TransferredMessagePort>&& transferredPorts)
 {
     LOG(MessagePorts, "Entangling %zu transferred ports to ScriptExecutionContext %s (%p)", transferredPorts.size(), context.url().string().utf8().data(), &context);
 
     if (transferredPorts.isEmpty())
         return { };
 
-    Vector<RefPtr<MessagePort>> ports;
-    ports.reserveInitialCapacity(transferredPorts.size());
-    for (auto& transferredPort : transferredPorts)
-        ports.uncheckedAppend(MessagePort::entangle(context, WTFMove(transferredPort)));
-    return ports;
+    return WTF::map(transferredPorts, [&](auto& port) -> RefPtr<MessagePort> {
+        return MessagePort::entangle(context, WTFMove(port));
+    });
 }
 
 Ref<MessagePort> MessagePort::entangle(ScriptExecutionContext& context, TransferredMessagePort&& transferredPort)
@@ -424,12 +443,12 @@ bool MessagePort::addEventListener(const AtomString& eventType, Ref<EventListene
         registerLocalActivity();
     }
 
-    return EventTargetWithInlineData::addEventListener(eventType, WTFMove(listener), options);
+    return EventTarget::addEventListener(eventType, WTFMove(listener), options);
 }
 
 bool MessagePort::removeEventListener(const AtomString& eventType, EventListener& listener, const EventListenerOptions& options)
 {
-    auto result = EventTargetWithInlineData::removeEventListener(eventType, listener, options);
+    auto result = EventTarget::removeEventListener(eventType, listener, options);
 
     if (!hasEventListeners(eventNames().messageEvent))
         m_hasMessageEventListener = false;
@@ -440,6 +459,11 @@ bool MessagePort::removeEventListener(const AtomString& eventType, EventListener
 const char* MessagePort::activeDOMObjectName() const
 {
     return "MessagePort";
+}
+
+WebCoreOpaqueRoot root(MessagePort* port)
+{
+    return WebCoreOpaqueRoot { port };
 }
 
 } // namespace WebCore

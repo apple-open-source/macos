@@ -120,7 +120,7 @@ static void test_encrypt_keypair_run(int keySizeInBits, NSArray *algorithms, NSA
 }
 static const int TestCountEncryptKeypairRun = 4;
 
-static void test_encryption() {
+static void test_encryption(void) {
     test_encrypt_keypair_run(1024,
                              @[
                                (id)kSecKeyAlgorithmRSAEncryptionRaw,
@@ -215,7 +215,7 @@ static void test_pss_sign_run(SecKeyRef privateKey, SecKeyAlgorithm algorithm, S
 }
 static const int TestCountPSSSignRun = 14;
 
-static void test_pss_sign() {
+static void test_pss_sign(void) {
     NSError *error;
     NSDictionary *params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @1024};
 
@@ -269,7 +269,7 @@ static void test_bad_input(NSInteger keySizeInBits, NSInteger inputSize, SecKeyA
 }
 static const int TestCountBadInputSizeStep = 5;
 
-static void test_bad_input_size() {
+static void test_bad_input_size(void) {
     test_bad_input(1024, 128, kSecKeyAlgorithmRSAEncryptionRaw);
     test_bad_input(2048, 256, kSecKeyAlgorithmRSAEncryptionRaw);
     test_bad_input(1024, 128 - 11, kSecKeyAlgorithmRSAEncryptionPKCS1);
@@ -281,7 +281,7 @@ static void test_bad_input_size() {
 }
 static const int TestCountBadInputSize = TestCountBadInputSizeStep * 8;
 
-static void test_bad_signature() {
+static void test_bad_signature(void) {
     NSDictionary *params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @2048 };
     NSError *error;
     id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));

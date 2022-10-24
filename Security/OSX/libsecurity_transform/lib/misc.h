@@ -34,8 +34,7 @@ extern "C" {
 	
 	
 	CFErrorRef fancy_error(CFStringRef domain, CFIndex code, CFStringRef description);
-	extern void graphviz(FILE *f, SecTransformRef tr);
-	extern void CFfprintf(FILE *f, const char *format, ...);
+	extern void CFfprintf(FILE *f, CFStringRef format, ...) __attribute__((format(__CFString__, 2, 3)));
 	CFErrorRef GetNoMemoryError(void);
 	CFErrorRef GetNoMemoryErrorAndRetain(void);
 	void CFSafeRelease(CFTypeRef object);

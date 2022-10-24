@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		448CD32B27B76EC100A15C90 /* Fuzz */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 448CD32F27B76EC100A15C90 /* Build configuration list for PBXAggregateTarget "Fuzz" */;
+			buildPhases = (
+			);
+			dependencies = (
+				448CD35827B76FC000A15C90 /* PBXTargetDependency */,
+				448CD35A27B76FC300A15C90 /* PBXTargetDependency */,
+			);
+			name = Fuzz;
+			productName = Fuzz;
+		};
 		5DCB92BA14FDA5BB00F7276A /* All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 5DCB92BB14FDA5BB00F7276A /* Build configuration list for PBXAggregateTarget "All" */;
@@ -21,6 +33,16 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4435B6AB27BDB4DF00565869 /* fuzz-xpath in CopyFiles */ = {isa = PBXBuildFile; fileRef = 448CD33427B76F1A00A15C90 /* fuzz-xpath */; };
+		4435B6AC27BDBB2300565869 /* fuzz-xslt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 448CD34527B76F1D00A15C90 /* fuzz-xslt */; };
+		448CD34627B76F2C00A15C90 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32427B76D2E00A15C90 /* fuzz.c */; };
+		448CD34727B76F3000A15C90 /* xpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32227B76D2D00A15C90 /* xpath.c */; };
+		448CD34827B76F3700A15C90 /* fuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32427B76D2E00A15C90 /* fuzz.c */; };
+		448CD34927B76F3B00A15C90 /* xslt.c in Sources */ = {isa = PBXBuildFile; fileRef = 448CD32327B76D2D00A15C90 /* xslt.c */; };
+		448CD34B27B76F8E00A15C90 /* libexslt.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */; };
+		448CD34C27B76F9100A15C90 /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
+		448CD34D27B76F9500A15C90 /* libexslt.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */; };
+		448CD34E27B76F9700A15C90 /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
 		44B5CADF27225B0600FC665E /* libxslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29620201196C200BEE3E0 /* libxslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		44B5CAE027225B1100FC665E /* libexslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29621201196C200BEE3E0 /* libexslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		5DCB929C14FDA52D00F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
@@ -117,6 +139,48 @@
 			remoteGlobalIDString = 5D6883EB14FDA2C5009E3E04;
 			remoteInfo = libxslt;
 		};
+		448CD34F27B76F9B00A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D87351F14FDA3BB006E89B4;
+			remoteInfo = libexslt;
+		};
+		448CD35127B76F9C00A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D6883EB14FDA2C5009E3E04;
+			remoteInfo = libxslt;
+		};
+		448CD35327B76F9F00A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D87351F14FDA3BB006E89B4;
+			remoteInfo = libexslt;
+		};
+		448CD35527B76FA100A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D6883EB14FDA2C5009E3E04;
+			remoteInfo = libxslt;
+		};
+		448CD35727B76FC000A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 448CD33327B76F1A00A15C90;
+			remoteInfo = "fuzz-xpath";
+		};
+		448CD35927B76FC300A15C90 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 448CD33C27B76F1D00A15C90;
+			remoteInfo = "fuzz-xslt";
+		};
 		5DCB934814FDAB2200F7276A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5D6883E314FDA2C5009E3E04 /* Project object */;
@@ -127,6 +191,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		448CD33227B76F1A00A15C90 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxslt/tests/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				4435B6AB27BDB4DF00565869 /* fuzz-xpath in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		448CD34027B76F1D00A15C90 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "$(SRCROOT)/libxslt/tests/fuzz";
+			dstSubfolderSpec = 0;
+			files = (
+				4435B6AC27BDBB2300565869 /* fuzz-xslt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5DCB92C514FDAA5500F7276A /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -196,6 +280,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		448CD32227B76D2D00A15C90 /* xpath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xpath.c; sourceTree = "<group>"; };
+		448CD32327B76D2D00A15C90 /* xslt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xslt.c; sourceTree = "<group>"; };
+		448CD32427B76D2E00A15C90 /* fuzz.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fuzz.c; sourceTree = "<group>"; };
+		448CD32527B76D2E00A15C90 /* fuzz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuzz.h; sourceTree = "<group>"; };
+		448CD32627B76D2E00A15C90 /* xslt.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = xslt.dict; sourceTree = "<group>"; };
+		448CD32727B76D2E00A15C90 /* xpath.dict */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = xpath.dict; sourceTree = "<group>"; };
+		448CD32827B76D2E00A15C90 /* xpath.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = xpath.xml; sourceTree = "<group>"; };
+		448CD32927B76D2E00A15C90 /* xslt.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = xslt.xml; sourceTree = "<group>"; };
+		448CD33427B76F1A00A15C90 /* fuzz-xpath */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xpath"; sourceTree = BUILT_PRODUCTS_DIR; };
+		448CD33627B76F1A00A15C90 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		448CD34527B76F1D00A15C90 /* fuzz-xslt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "fuzz-xslt"; sourceTree = BUILT_PRODUCTS_DIR; };
+		448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = FuzzExecutable.xcconfig; sourceTree = "<group>"; };
 		44C0436423DA72AE0076CBB2 /* libxslt.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libxslt.exp; sourceTree = "<group>"; };
 		44C0436523DA72AE0076CBB2 /* libexslt.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = libexslt.exp; sourceTree = "<group>"; };
 		44C0436623DA72AE0076CBB2 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
@@ -281,6 +377,24 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		448CD33127B76F1A00A15C90 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448CD34B27B76F8E00A15C90 /* libexslt.0.dylib in Frameworks */,
+				448CD34C27B76F9100A15C90 /* libxslt.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		448CD33F27B76F1D00A15C90 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448CD34D27B76F9500A15C90 /* libexslt.0.dylib in Frameworks */,
+				448CD34E27B76F9700A15C90 /* libxslt.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5D6883E914FDA2C5009E3E04 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -311,6 +425,37 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		448CD32127B76CB900A15C90 /* Fuzzers */ = {
+			isa = PBXGroup;
+			children = (
+				448CD32427B76D2E00A15C90 /* fuzz.c */,
+				448CD32527B76D2E00A15C90 /* fuzz.h */,
+				448CD32227B76D2D00A15C90 /* xpath.c */,
+				448CD32727B76D2E00A15C90 /* xpath.dict */,
+				448CD32827B76D2E00A15C90 /* xpath.xml */,
+				448CD32327B76D2D00A15C90 /* xslt.c */,
+				448CD32627B76D2E00A15C90 /* xslt.dict */,
+				448CD32927B76D2E00A15C90 /* xslt.xml */,
+			);
+			name = Fuzzers;
+			path = libxslt/tests/fuzz;
+			sourceTree = "<group>";
+		};
+		448CD33527B76F1A00A15C90 /* fuzz-xpath */ = {
+			isa = PBXGroup;
+			children = (
+				448CD33627B76F1A00A15C90 /* main.c */,
+			);
+			path = "fuzz-xpath";
+			sourceTree = "<group>";
+		};
+		448CD34A27B76F8E00A15C90 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		5D6883E114FDA2C5009E3E04 = {
 			isa = PBXGroup;
 			children = (
@@ -318,10 +463,13 @@
 				5D87351E14FDA3B2006E89B4 /* libexslt */,
 				5D87351D14FDA3AF006E89B4 /* libxslt */,
 				5DCB92D514FDAA9B00F7276A /* xsltproc */,
+				448CD32127B76CB900A15C90 /* Fuzzers */,
 				5D87351514FDA35D006E89B4 /* Configurations */,
+				448CD33527B76F1A00A15C90 /* fuzz-xpath */,
 				5D6883ED14FDA2C5009E3E04 /* Products */,
 				5DCB937114FDB46300F7276A /* Other Installed Files */,
 				5DCB929D14FDA53500F7276A /* Linked libraries */,
+				448CD34A27B76F8E00A15C90 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 			tabWidth = 8;
@@ -332,6 +480,8 @@
 				5D87352714FDA3BB006E89B4 /* libexslt.0.dylib */,
 				5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */,
 				5DCB92C714FDAA5500F7276A /* xsltproc */,
+				448CD33427B76F1A00A15C90 /* fuzz-xpath */,
+				448CD34527B76F1D00A15C90 /* fuzz-xslt */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -342,6 +492,7 @@
 				5D87351714FDA36B006E89B4 /* Base.xcconfig */,
 				5D87351814FDA36B006E89B4 /* DebugRelease.xcconfig */,
 				5D87351914FDA36B006E89B4 /* Executable.xcconfig */,
+				448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */,
 				5D87352814FDA3D8006E89B4 /* libexslt.xcconfig */,
 				5D87351A14FDA36B006E89B4 /* libxslt.xcconfig */,
 				5DCB934A14FDAB6200F7276A /* xsltproc.xcconfig */,
@@ -517,6 +668,44 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		448CD33327B76F1A00A15C90 /* fuzz-xpath */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */;
+			buildPhases = (
+				448CD33027B76F1A00A15C90 /* Sources */,
+				448CD33127B76F1A00A15C90 /* Frameworks */,
+				448CD33227B76F1A00A15C90 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				448CD35427B76F9F00A15C90 /* PBXTargetDependency */,
+				448CD35627B76FA100A15C90 /* PBXTargetDependency */,
+			);
+			name = "fuzz-xpath";
+			productName = "fuzz-xpath";
+			productReference = 448CD33427B76F1A00A15C90 /* fuzz-xpath */;
+			productType = "com.apple.product-type.tool";
+		};
+		448CD33C27B76F1D00A15C90 /* fuzz-xslt */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 448CD34127B76F1D00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xslt" */;
+			buildPhases = (
+				448CD33D27B76F1D00A15C90 /* Sources */,
+				448CD33F27B76F1D00A15C90 /* Frameworks */,
+				448CD34027B76F1D00A15C90 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				448CD35027B76F9B00A15C90 /* PBXTargetDependency */,
+				448CD35227B76F9C00A15C90 /* PBXTargetDependency */,
+			);
+			name = "fuzz-xslt";
+			productName = "fuzz-xpath";
+			productReference = 448CD34527B76F1D00A15C90 /* fuzz-xslt */;
+			productType = "com.apple.product-type.tool";
+		};
 		5D6883EB14FDA2C5009E3E04 /* libxslt */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5D6883F014FDA2C5009E3E04 /* Build configuration list for PBXNativeTarget "libxslt" */;
@@ -586,6 +775,19 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0440;
+				TargetAttributes = {
+					448CD32B27B76EC100A15C90 = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
+					448CD33327B76F1A00A15C90 = {
+						CreatedOnToolsVersion = 13.0;
+						ProvisioningStyle = Automatic;
+					};
+					448CD33C27B76F1D00A15C90 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 5D6883E614FDA2C5009E3E04 /* Build configuration list for PBXProject "libxslt" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -604,6 +806,9 @@
 				5D87351F14FDA3BB006E89B4 /* libexslt */,
 				5D6883EB14FDA2C5009E3E04 /* libxslt */,
 				5DCB92C614FDAA5500F7276A /* xsltproc */,
+				448CD32B27B76EC100A15C90 /* Fuzz */,
+				448CD33327B76F1A00A15C90 /* fuzz-xpath */,
+				448CD33C27B76F1D00A15C90 /* fuzz-xslt */,
 			);
 		};
 /* End PBXProject section */
@@ -658,6 +863,24 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		448CD33027B76F1A00A15C90 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448CD34627B76F2C00A15C90 /* fuzz.c in Sources */,
+				448CD34727B76F3000A15C90 /* xpath.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		448CD33D27B76F1D00A15C90 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				448CD34827B76F3700A15C90 /* fuzz.c in Sources */,
+				448CD34927B76F3B00A15C90 /* xslt.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5D6883E814FDA2C5009E3E04 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -727,6 +950,36 @@
 			target = 5D6883EB14FDA2C5009E3E04 /* libxslt */;
 			targetProxy = 4484B9AB24BFD312006D8056 /* PBXContainerItemProxy */;
 		};
+		448CD35027B76F9B00A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D87351F14FDA3BB006E89B4 /* libexslt */;
+			targetProxy = 448CD34F27B76F9B00A15C90 /* PBXContainerItemProxy */;
+		};
+		448CD35227B76F9C00A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D6883EB14FDA2C5009E3E04 /* libxslt */;
+			targetProxy = 448CD35127B76F9C00A15C90 /* PBXContainerItemProxy */;
+		};
+		448CD35427B76F9F00A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D87351F14FDA3BB006E89B4 /* libexslt */;
+			targetProxy = 448CD35327B76F9F00A15C90 /* PBXContainerItemProxy */;
+		};
+		448CD35627B76FA100A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D6883EB14FDA2C5009E3E04 /* libxslt */;
+			targetProxy = 448CD35527B76FA100A15C90 /* PBXContainerItemProxy */;
+		};
+		448CD35827B76FC000A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 448CD33327B76F1A00A15C90 /* fuzz-xpath */;
+			targetProxy = 448CD35727B76FC000A15C90 /* PBXContainerItemProxy */;
+		};
+		448CD35A27B76FC300A15C90 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 448CD33C27B76F1D00A15C90 /* fuzz-xslt */;
+			targetProxy = 448CD35927B76FC300A15C90 /* PBXContainerItemProxy */;
+		};
 		5DCB934914FDAB2200F7276A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 5DCB92C614FDAA5500F7276A /* xsltproc */;
@@ -735,6 +988,78 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		448CD32C27B76EC100A15C90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		448CD32D27B76EC100A15C90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		448CD32E27B76EC100A15C90 /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		448CD33927B76F1A00A15C90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		448CD33A27B76F1A00A15C90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		448CD33B27B76F1A00A15C90 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		448CD34227B76F1D00A15C90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		448CD34327B76F1D00A15C90 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		448CD34427B76F1D00A15C90 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 448CD35B27B82A8200A15C90 /* FuzzExecutable.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
 		5D6883EE14FDA2C5009E3E04 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D87351814FDA36B006E89B4 /* DebugRelease.xcconfig */;
@@ -843,6 +1168,36 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		448CD32F27B76EC100A15C90 /* Build configuration list for PBXAggregateTarget "Fuzz" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				448CD32C27B76EC100A15C90 /* Debug */,
+				448CD32D27B76EC100A15C90 /* Release */,
+				448CD32E27B76EC100A15C90 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		448CD33827B76F1A00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xpath" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				448CD33927B76F1A00A15C90 /* Debug */,
+				448CD33A27B76F1A00A15C90 /* Release */,
+				448CD33B27B76F1A00A15C90 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		448CD34127B76F1D00A15C90 /* Build configuration list for PBXNativeTarget "fuzz-xslt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				448CD34227B76F1D00A15C90 /* Debug */,
+				448CD34327B76F1D00A15C90 /* Release */,
+				448CD34427B76F1D00A15C90 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
 		5D6883E614FDA2C5009E3E04 /* Build configuration list for PBXProject "libxslt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

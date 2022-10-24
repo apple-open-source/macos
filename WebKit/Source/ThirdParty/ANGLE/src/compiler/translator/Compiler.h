@@ -112,7 +112,7 @@ class TCompiler : public TShHandleBase
     TInfoSink &getInfoSink() { return mInfoSink; }
 
     bool isEarlyFragmentTestsSpecified() const { return mEarlyFragmentTestsSpecified; }
-    bool isEarlyFragmentTestsOptimized() const { return mEarlyFragmentTestsOptimized; }
+    bool enablesPerSampleShading() const { return mEnablesPerSampleShading; }
     SpecConstUsageBits getSpecConstUsageBits() const { return mSpecConstUsageBits; }
 
     bool isComputeShaderLocalSizeDeclared() const { return mComputeShaderLocalSizeDeclared; }
@@ -208,9 +208,9 @@ class TCompiler : public TShHandleBase
                                              ShCompileOptions compileOptions)
     {}
     // Translate to object code. May generate performance warnings through the diagnostics.
-    ANGLE_NO_DISCARD virtual bool translate(TIntermBlock *root,
-                                            ShCompileOptions compileOptions,
-                                            PerformanceDiagnostics *perfDiagnostics) = 0;
+    [[nodiscard]] virtual bool translate(TIntermBlock *root,
+                                         ShCompileOptions compileOptions,
+                                         PerformanceDiagnostics *perfDiagnostics) = 0;
     // Get built-in extensions with default behavior.
     const TExtensionBehavior &getExtensionBehavior() const;
     const char *getSourcePath() const;
@@ -249,15 +249,15 @@ class TCompiler : public TShHandleBase
     // Insert statements to reference all members in unused uniform blocks with standard and shared
     // layout. This is to work around a Mac driver that treats unused standard/shared
     // uniform blocks as inactive.
-    ANGLE_NO_DISCARD bool useAllMembersInUnusedStandardAndSharedBlocks(TIntermBlock *root);
+    [[nodiscard]] bool useAllMembersInUnusedStandardAndSharedBlocks(TIntermBlock *root);
     // Insert statements to initialize output variables in the beginning of main().
     // This is to avoid undefined behaviors.
-    ANGLE_NO_DISCARD bool initializeOutputVariables(TIntermBlock *root);
+    [[nodiscard]] bool initializeOutputVariables(TIntermBlock *root);
     // Insert gl_Position = vec4(0,0,0,0) to the beginning of main().
     // It is to work around a Linux driver bug where missing this causes compile failure
     // while spec says it is allowed.
     // This function should only be applied to vertex shaders.
-    ANGLE_NO_DISCARD bool initializeGLPosition(TIntermBlock *root);
+    [[nodiscard]] bool initializeGLPosition(TIntermBlock *root);
     // Return true if the maximum expression complexity is below the limit.
     bool limitExpressionComplexity(TIntermBlock *root);
     // Creates the function call DAG for further analysis, returning false if there is a recursion
@@ -291,6 +291,8 @@ class TCompiler : public TShHandleBase
                              const TParseContext &parseContext,
                              ShCompileOptions compileOptions);
 
+    bool postParseChecks(const TParseContext &parseContext);
+
     sh::GLenum mShaderType;
     ShShaderSpec mShaderSpec;
     ShShaderOutput mOutputType;
@@ -317,7 +319,10 @@ class TCompiler : public TShHandleBase
 
     // fragment shader early fragment tests
     bool mEarlyFragmentTestsSpecified;
-    bool mEarlyFragmentTestsOptimized;
+
+    // Whether per-sample shading is enabled by the shader.  In OpenGL, this keyword should
+    // implicitly trigger per-sample shading without the API enabling it.
+    bool mEnablesPerSampleShading;
 
     // compute shader local group size
     bool mComputeShaderLocalSizeDeclared;

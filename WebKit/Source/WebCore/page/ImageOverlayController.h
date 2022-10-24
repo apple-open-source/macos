@@ -60,6 +60,11 @@ public:
     void selectionQuadsDidChange(Frame&, const Vector<FloatQuad>&);
     void elementUnderMouseDidChange(Frame&, Element*);
 
+#if ENABLE(DATA_DETECTION)
+    WEBCORE_EXPORT bool hasActiveDataDetectorHighlightForTesting() const;
+    void textRecognitionResultsChanged(HTMLElement&);
+#endif
+
     void documentDetached(const Document&);
 
 private:
@@ -87,16 +92,16 @@ private:
 
     WeakPtr<Page> m_page;
     RefPtr<PageOverlay> m_overlay;
-    WeakPtr<HTMLElement> m_hostElementForSelection;
+    WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData> m_hostElementForSelection;
     Vector<FloatQuad> m_selectionQuads;
     LayoutRect m_selectionClipRect;
     Color m_selectionBackgroundColor { Color::transparentBlack };
 
 #if PLATFORM(MAC)
-    using ContainerAndHighlight = std::pair<WeakPtr<HTMLElement>, Ref<DataDetectorHighlight>>;
+    using ContainerAndHighlight = std::pair<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>, Ref<DataDetectorHighlight>>;
     Vector<ContainerAndHighlight> m_dataDetectorContainersAndHighlights;
     RefPtr<DataDetectorHighlight> m_activeDataDetectorHighlight;
-    WeakPtr<HTMLElement> m_hostElementForDataDetectors;
+    WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData> m_hostElementForDataDetectors;
 #endif
 };
 

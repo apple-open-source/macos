@@ -318,10 +318,10 @@ show_jobs(const char *command,		/* I - Command name */
 		*jobname;		/* Pointer to job-name */
   ipp_jstate_t	jobstate;		/* job-state */
   int		jobid,			/* job-id */
-		jobsize,		/* job-k-octets */
 		jobcount,		/* Number of jobs */
 		jobcopies,		/* Number of copies */
-		rank;			/* Rank of job */
+		rank,			/* Rank of job */
+                jobsize;                /* job-k-octets */
   char		resource[1024];		/* Resource string */
   char		rankstr[255];		/* Rank string */
   char		namestr[1024];		/* Job name string */

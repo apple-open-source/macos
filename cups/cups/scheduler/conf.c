@@ -3432,6 +3432,8 @@ read_cups_files_conf(cups_file_t *fp)	/* I - File to read from */
   static const char * const prohibited_env[] =
   {					/* Prohibited environment variables */
     "APPLE_LANGUAGE",
+    "AUTH_BEARER_UID",
+    "AUTH_BEARER_TOKEN",
     "AUTH_DOMAIN",
     "AUTH_INFO_REQUIRED",
     "AUTH_NEGOTIATE",

@@ -24,7 +24,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd March 30, 2021
+.Dd November 11, 2021
 .Dt REMOVEFILE 3
 .Os
 .Sh NAME
@@ -82,7 +82,7 @@ instead of the current working directory.
 If the special value AT_FDCWD is passed in the
 .Va fd
 argument, the current working directory is used and the behavior is identical to a call to
-.Fn removefile.
+.Fn removefile .
 .Pp
 The
 .Fn removefile
@@ -256,6 +256,17 @@ deleted.
 The 
 .Va path
 location specifies an immutable file that cannot be deleted.
+.El
+.Pp
+.Fn removefileat
+will fail if:
+.Bl -tag -width Er
+.It Bq Er ENOTDIR
+The
+.Va path
+argument is not an absolute path and
+.Va fd
+is neither AT_FDCWD nor a file descriptor associated with a directory.
 .El
 .Pp
 .Fn removefile_cancel

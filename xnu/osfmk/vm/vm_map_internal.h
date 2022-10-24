@@ -76,15 +76,11 @@ __BEGIN_DECLS
 #define KMEM_SMALLMAP_THRESHOLD     (KiB(256))
 #endif
 
-#if __arm64__
-// <rdar://problem/48304934> arm64 doesn't use ldp when I'd expect it to
-#define kmem_range_load(r, rmin, rmax) \
-	asm("ldp %[rmin], %[rmax], [%[range]]" \
-	    : [rmin] "=r"(rmin), [rmax] "=r"(rmax) \
-	    : [range] "r"(r), "m"((r)->min_address), "m"((r)->max_address))
-#else
-#define kmem_range_load(r, rmin, rmax) \
-	({ rmin = (r)->min_address; rmax = (r)->max_address; })
+#if CONFIG_MAP_RANGES
+/*
+ * This has been tuned for iOS only
+ */
+#define VM_MAP_USER_RANGE_MAX       (GiB(12))
 #endif
 
 /* Initialize the module */
@@ -137,11 +133,6 @@ extern boolean_t vm_map_entry_should_cow_for_true_share(
  * Whether the call is interruptible if it needs to wait for a vm map
  * entry to quiesce (interruption leads to KERN_ABORTED).
  *
- * @const VM_MAP_REMOVE_RETURN_ERRORS
- * The caller will handle errors that aren't explicitly requested
- * by the caller (@c VM_MAP_REMOVE_INTERRUPTIBLE
- * and @c VM_MAP_REMOVE_GAPS_FAIL).
- *
  * @const VM_MAP_REMOVE_IMMUTABLE
  * Allow permanent entries to be removed.
  *
@@ -154,17 +145,22 @@ extern boolean_t vm_map_entry_should_cow_for_true_share(
  * @const VM_MAP_REMOVE_GUESS_SIZE
  * The caller doesn't know the precise size of the entry,
  * but the address must match an atomic entry.
+ *
+ * @const VM_MAP_REMOVE_IMMUTABLE_CODE
+ * Allow executables entries to be removed (for VM_PROT_COPY),
+ * which is used by debuggers.
  */
 __options_decl(vmr_flags_t, uint32_t, {
-	VM_MAP_REMOVE_NO_FLAGS          = 0x00,
-	VM_MAP_REMOVE_KUNWIRE           = 0x01,
-	VM_MAP_REMOVE_INTERRUPTIBLE     = 0x02,
-	VM_MAP_REMOVE_RETURN_ERRORS     = 0x04,
-	VM_MAP_REMOVE_NO_MAP_ALIGN      = 0x08,
-	VM_MAP_REMOVE_IMMUTABLE         = 0x10,
-	VM_MAP_REMOVE_GAPS_FAIL         = 0x20,
-	VM_MAP_REMOVE_NO_YIELD          = 0x40,
-	VM_MAP_REMOVE_GUESS_SIZE        = 0x80,
+	VM_MAP_REMOVE_NO_FLAGS          = 0x000,
+	VM_MAP_REMOVE_KUNWIRE           = 0x001,
+	VM_MAP_REMOVE_INTERRUPTIBLE     = 0x002,
+	// unused                       = 0x004,
+	VM_MAP_REMOVE_NO_MAP_ALIGN      = 0x008,
+	VM_MAP_REMOVE_IMMUTABLE         = 0x010,
+	VM_MAP_REMOVE_GAPS_FAIL         = 0x020,
+	VM_MAP_REMOVE_NO_YIELD          = 0x040,
+	VM_MAP_REMOVE_GUESS_SIZE        = 0x080,
+	VM_MAP_REMOVE_IMMUTABLE_CODE    = 0x100,
 });
 
 /* Deallocate a region */

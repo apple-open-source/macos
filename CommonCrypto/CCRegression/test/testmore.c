@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #if defined(_WIN32)
@@ -143,6 +144,8 @@ void test_plan_tests(int count, const char *file, unsigned line)
     }
 }
 
+
+__printflike(5, 6)
 int
 test_diag(const char *directive, __unused const char *reason,
           __unused const char *file, __unused unsigned line, const char *fmt, ...)
@@ -175,6 +178,7 @@ test_diag(const char *directive, __unused const char *reason,
     return 1;
 }
 
+__printflike(7, 8)
 int
 test_ok(int passed, const char *description, const char *directive,
         const char *reason, const char *file, unsigned line,

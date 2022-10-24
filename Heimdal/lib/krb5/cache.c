@@ -104,7 +104,7 @@ main (int argc, char **argv)
  * Add a new ccache type with operations `ops', overwriting any
  * existing one if `override'.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param ops type of plugin symbol
  * @param override flag to select if the registration is to overide
  * an existing ops with the same name.
@@ -242,7 +242,7 @@ is_possible_path_name(const char * name)
  * Find and allocate a ccache in `id' from the specification in `residual'.
  * If the ccache name doesn't contain any colon, interpret it as a file name.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name string name of a credential cache.
  * @param id return pointer to a found credential cache.
  *
@@ -349,7 +349,7 @@ krb5_cc_get_type(krb5_context context,
 /**
  * Return the complete resolvable name the cache
 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id return pointer to a found credential cache
  * @param str the returned name of a credential cache, free with krb5_xfree()
  *
@@ -1282,7 +1282,7 @@ krb5_cc_cache_match (krb5_context context,
  * Move the content from one credential cache to another. The
  * operation is an atomic switch.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param from the credential cache to move the content from
  * @param to the credential cache to move the content to
 
@@ -1358,7 +1358,7 @@ build_conf_principals(krb5_context context, krb5_ccache id,
  * principal (generated part of krb5_cc_set_config()). Returns FALSE
  * (zero) if not a configuration principal.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param principal principal to check if it a configuration principal
  *
  * @ingroup krb5_ccache
@@ -1382,7 +1382,7 @@ krb5_is_config_principal(krb5_context context,
  * Store some configuration for the credential cache in the cache.
  * Existing configuration under the same name is over-written.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id the credential cache to store the data for
  * @param principal configuration for a specific principal, if
  * NULL, global for the whole cache.
@@ -1429,7 +1429,7 @@ out:
 /**
  * Get some configuration for the credential cache in the cache.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id the credential cache to store the data for
  * @param principal configuration for a specific principal, if
  * NULL, global for the whole cache.
@@ -1481,7 +1481,7 @@ struct krb5_cccol_cursor_data {
  * Get a new cache interation cursor that will interate over all
  * credentials caches independent of type.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param cursor passed into krb5_cccol_cursor_next() and free with krb5_cccol_cursor_free().
  *
  * @return Returns 0 or and error code, see krb5_get_error_message().

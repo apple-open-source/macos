@@ -63,6 +63,20 @@ take the full size of the destination buffer and guarantee
 NUL-termination if there is room.
 Note that room for the NUL should be included in
 .Fa dstsize .
+Also note that
+.Fn strlcpy
+and
+.Fn strlcat
+only operate on true ''C'' strings. This means that for
+.Fn strlcpy
+.Fa src
+must be NUL-terminated and for
+.Fn strlcat
+both
+.Fa src
+and
+.Fn dst
+must be NUL-terminated.
 .Pp
 .Fn strlcpy
 copies up to

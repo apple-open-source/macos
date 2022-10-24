@@ -36,6 +36,7 @@
 #include <stdint.h>
 
 __BEGIN_DECLS
+__ptrcheck_abi_assume_single()
 struct _copyfile_state;
 typedef struct _copyfile_state * copyfile_state_t;
 typedef uint32_t copyfile_flags_t;
@@ -52,7 +53,7 @@ typedef uint32_t copyfile_flags_t;
  *   int	negative for error
  */
 
-int copyfile(const char *from, const char *to, copyfile_state_t state, copyfile_flags_t flags);
+int copyfile(const char *__unsafe_indexable from, const char *__unsafe_indexable to, copyfile_state_t state, copyfile_flags_t flags);
 int fcopyfile(int from_fd, int to_fd, copyfile_state_t, copyfile_flags_t flags);
 
 int copyfile_state_free(copyfile_state_t);
@@ -62,7 +63,7 @@ copyfile_state_t copyfile_state_alloc(void);
 int copyfile_state_get(copyfile_state_t s, uint32_t flag, void * dst);
 int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * src);
 
-typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *, const char *, void *);
+typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *__unsafe_indexable, const char *__unsafe_indexable, void *);
 
 #define COPYFILE_STATE_SRC_FD		1
 #define COPYFILE_STATE_SRC_FILENAME	2

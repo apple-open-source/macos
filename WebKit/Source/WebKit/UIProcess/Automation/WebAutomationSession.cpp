@@ -29,6 +29,7 @@
 
 #include "APIArray.h"
 #include "APIAutomationSessionClient.h"
+#include "APIHTTPCookieStore.h"
 #include "APINavigation.h"
 #include "APIOpenPanelParameters.h"
 #include "AutomationProtocolObjects.h"
@@ -36,7 +37,6 @@
 #include "WebAutomationSessionMacros.h"
 #include "WebAutomationSessionMessages.h"
 #include "WebAutomationSessionProxyMessages.h"
-#include "WebCookieManagerProxy.h"
 #include "WebFullScreenManagerProxy.h"
 #include "WebInspectorUIProxy.h"
 #include "WebOpenPanelResultListenerProxy.h"
@@ -116,9 +116,9 @@ void WebAutomationSession::setProcessPool(WebKit::WebProcessPool* processPool)
 
 // Inspector::RemoteAutomationTarget API
 
-void WebAutomationSession::dispatchMessageFromRemote(const String& message)
+void WebAutomationSession::dispatchMessageFromRemote(String&& message)
 {
-    m_backendDispatcher->dispatch(message);
+    m_backendDispatcher->dispatch(WTFMove(message));
 }
 
 void WebAutomationSession::connect(Inspector::FrontendChannel& channel, bool isAutomaticConnection, bool immediatelyPause)
@@ -190,7 +190,7 @@ String WebAutomationSession::handleForWebPageProxy(const WebPageProxy& webPagePr
     if (iter != m_webPageHandleMap.end())
         return iter->value;
 
-    String handle = "page-" + createCanonicalUUIDString().convertToASCIIUppercase();
+    String handle = makeString("page-"_s, asASCIIUppercase(createVersion4UUIDString()));
 
     auto firstAddResult = m_webPageHandleMap.add(webPageProxy.identifier(), handle);
     RELEASE_ASSERT(firstAddResult.isNewEntry);
@@ -239,7 +239,7 @@ String WebAutomationSession::handleForWebFrameID(std::optional<FrameIdentifier> 
     if (iter != m_webFrameHandleMap.end())
         return iter->value;
 
-    String handle = "frame-" + createCanonicalUUIDString().convertToASCIIUppercase();
+    String handle = makeString("frame-"_s, asASCIIUppercase(createVersion4UUIDString()));
 
     auto firstAddResult = m_webFrameHandleMap.add(*frameID, handle);
     RELEASE_ASSERT(firstAddResult.isNewEntry);
@@ -705,7 +705,7 @@ void WebAutomationSession::navigateBrowsingContext(const Inspector::Protocol::Au
     auto pageLoadStrategy = optionalPageLoadStrategy.value_or(defaultPageLoadStrategy);
     auto pageLoadTimeout = optionalPageLoadTimeout ? Seconds::fromMilliseconds(*optionalPageLoadTimeout) : defaultPageLoadTimeout;
 
-    page->loadRequest(URL(URL(), url));
+    page->loadRequest(URL { url });
     waitForNavigationToCompleteOnPage(*page, pageLoadStrategy, pageLoadTimeout, WTFMove(callback));
 }
 
@@ -1410,7 +1410,7 @@ void WebAutomationSession::addSingleCookie(const Inspector::Protocol::Automation
     if (!page)
         ASYNC_FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    URL activeURL = URL(URL(), page->pageLoadState().activeURL());
+    URL activeURL { page->pageLoadState().activeURL() };
     ASSERT(activeURL.isValid());
 
     WebCore::Cookie cookie;
@@ -1471,8 +1471,8 @@ void WebAutomationSession::addSingleCookie(const Inspector::Protocol::Automation
 
     cookie.sameSite = toWebCoreSameSitePolicy(*parsedSameSite);
 
-    WebCookieManagerProxy& cookieManager = page->websiteDataStore().networkProcess().cookieManager();
-    cookieManager.setCookies(page->websiteDataStore().sessionID(), { cookie }, [callback]() {
+    auto& cookieStore = page->websiteDataStore().cookieStore();
+    cookieStore.setCookies({ cookie }, [callback]() {
         callback->sendSuccess();
     });
 }
@@ -1483,13 +1483,13 @@ Inspector::Protocol::ErrorStringOr<void> WebAutomationSession::deleteAllCookies(
     if (!page)
         SYNC_FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    URL activeURL = URL(URL(), page->pageLoadState().activeURL());
+    URL activeURL { page->pageLoadState().activeURL() };
     ASSERT(activeURL.isValid());
 
     String host = activeURL.host().toString();
 
-    WebCookieManagerProxy& cookieManager = page->websiteDataStore().networkProcess().cookieManager();
-    cookieManager.deleteCookiesForHostnames(page->websiteDataStore().sessionID(), { host, domainByAddingDotPrefixIfNeeded(host) });
+    auto& cookieStore = page->websiteDataStore().cookieStore();
+    cookieStore.deleteCookiesForHostnames({ host, domainByAddingDotPrefixIfNeeded(host) }, [] { });
 
     return { };
 }
@@ -2307,7 +2307,24 @@ void WebAutomationSession::takeScreenshot(const Inspector::Protocol::Automation:
     bool scrollIntoViewIfNeeded = optionalScrollIntoViewIfNeeded ? *optionalScrollIntoViewIfNeeded : false;
     bool clipToViewport = optionalClipToViewport ? *optionalClipToViewport : false;
 
-#if PLATFORM(GTK)
+#if PLATFORM(COCOA)
+    // FIXME: <webkit.org/b/242215> We can currently only get viewport snapshots from the UIProcess, so fall back to
+    // taking a snapshot in the WebProcess if we need to snapshot a specific element. This has the side effect of not
+    // accurately showing all CSS transforms in the snapshot.
+    //
+    // There is still a tradeoff by going to the UIProcess for viewport snapshots on macOS. We can not currently get a
+    // snapshot of the entire viewport without the window's rounded corners being excluded. So we trade off those corner
+    // pixels for accurate pixels in the rest of the viewport which help us verify features like CSS transforms are
+    // actually behaving correctly.
+    if (!nodeHandle.isEmpty()) {
+        uint64_t callbackID = m_nextScreenshotCallbackID++;
+        m_screenshotCallbacks.set(callbackID, WTFMove(callback));
+
+        page->process().send(Messages::WebAutomationSessionProxy::TakeScreenshot(page->webPageID(), frameID, nodeHandle, scrollIntoViewIfNeeded, clipToViewport, callbackID), 0);
+        return;
+    }
+#endif
+#if PLATFORM(GTK) || PLATFORM(COCOA)
     Function<void(WebPageProxy&, std::optional<WebCore::IntRect>&&, Ref<TakeScreenshotCallback>&&)> takeViewSnapsot = [](WebPageProxy& page, std::optional<WebCore::IntRect>&& rect, Ref<TakeScreenshotCallback>&& callback) {
         page.callAfterNextPresentationUpdate([page = Ref { page }, rect = WTFMove(rect), callback = WTFMove(callback)](CallbackBase::Error error) mutable {
             if (error != CallbackBase::Error::None)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,11 +54,7 @@ _SIMCreateAuthResponse(CFStringRef slotUUID, CFDictionaryRef auth_params);
 typedef void (*SIMAccessConnectionCallback)(CFTypeRef connection, CFStringRef status, void* info);
 
 CFTypeRef
-_SIMAccessConnectionCreate(void);
-
-void
-_SIMAccessConnectionRegisterForNotification(CFTypeRef connection, SIMAccessConnectionCallback callback, void *info, CFRunLoopRef runLoop,
-					    CFStringRef runLoopMode);
+_SIMAccessConnectionCreate(SIMAccessConnectionCallback callback, void *info);
 
 #endif /* TARGET_OS_IPHONE */
 

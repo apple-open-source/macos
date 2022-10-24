@@ -90,16 +90,15 @@
 
     NSString *str = [self.ik.recoveryKeyData base64EncodedStringWithOptions:0];
 
-    [self.deps.cuttlefishXPCWrapper createCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                    context:self.deps.contextID
-                                                                recoveryKey:str
-                                                                       salt:salt
-                                                                   ckksKeys:viewKeySets
-                                                                       uuid:self.uuid
-                                                                       kind:TPPBCustodianRecoveryKey_Kind_INHERITANCE_KEY
-                                                                      reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                                              TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
-                                                                              NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper createCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                   recoveryKey:str
+                                                                          salt:salt
+                                                                      ckksKeys:viewKeySets
+                                                                          uuid:self.uuid
+                                                                          kind:TPPBCustodianRecoveryKey_Kind_INHERITANCE_KEY
+                                                                         reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                                 TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
+                                                                                 NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventInheritanceKey hardFailure:true result:error];
             if(error){

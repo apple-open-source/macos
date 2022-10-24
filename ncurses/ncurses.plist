@@ -16,7 +16,7 @@
 	<string>2008-12-15</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string></string>
+		<string>Backport a fix for CVE-2021-39537 (#83836589)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

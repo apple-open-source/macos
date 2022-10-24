@@ -61,7 +61,7 @@ public:
         return instance;
     }
 
-    Structure* objectDoingSideEffectPutWithoutCorrectSlotStatusStructure() { return m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructure.get(); }
+    Structure* objectDoingSideEffectPutWithoutCorrectSlotStatusStructure() { return m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructureID.get(); }
     
 private:
     JSDollarVM(VM& vm, Structure* structure)
@@ -71,12 +71,12 @@ private:
     }
 
     void finishCreation(VM&);
-    void addFunction(VM&, JSGlobalObject*, const char* name, NativeFunction, unsigned arguments);
-    void addConstructibleFunction(VM&, JSGlobalObject*, const char* name, NativeFunction, unsigned arguments);
+    void addFunction(VM&, JSGlobalObject*, ASCIILiteral name, NativeFunction, unsigned arguments);
+    void addConstructibleFunction(VM&, JSGlobalObject*, ASCIILiteral name, NativeFunction, unsigned arguments);
 
     DECLARE_VISIT_CHILDREN;
 
-    WriteBarrier<Structure> m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructure;
+    WriteBarrierStructureID m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructureID;
 };
 
 } // namespace JSC

@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2021 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2022 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd May 19, 2021
+.Dd March 30, 2022
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -414,7 +414,11 @@ The object being copied is a directory, and all of the
 objects contained have been copied.
 At this stage, the destination directory
 being copied will have any extra permissions that were added to
-allow the copying will be removed.
+allow the copying will be removed (by a final
+.Dv COPYFILE_STAT
+operation - note that this occurs even if the
+.Dv COPYFILE_STAT
+flag was not passed to the recursive copy).
 .It Dv COPYFILE_RECURSE_ERROR
 There was an error in processing an element of the source hierarchy;
 this happens when
@@ -656,6 +660,17 @@ changes while the copy is occurring, the results are undefined.
 does not reset the seek position for either source or destination.
 This can result in the destination file being a different size
 than the source file.
+.Pp
+Both
+.Fn copyfile
+and
+.Fn fcopyfile
+will temporarily mark an unwritable destination writable
+for the duration of the copy.
+After the copy is performed (except when the
+.Dv COPYFILE_STAT
+flag is passed in), an attempt is made to revert the
+destination's permissions to their starting state.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 /* Initialize a state variable */

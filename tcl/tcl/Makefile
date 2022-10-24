@@ -25,7 +25,7 @@ Extra_Environment     = INSTALL_PATH="$(NSFRAMEWORKDIR)" PREFIX="$(USRDIR)" \
 			EXTRA_CONFIGURE_ARGS="$(Configure_Flags)" \
 			TCL_PACKAGE_PATH="$(Tcl_Package_Path)" \
 			TCL_MODULE_PATH="$(Tcl_Module_Path)"
-AfterInstall          = extra-int-headers fix-tclConfig lipo links compress_man_pages fix-perms
+AfterInstall          = extra-int-headers fix-tclConfig lipo links compress_man_pages fix-perms remove-html-docs
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 include ../tcl_ext/Fetch.make
@@ -103,6 +103,9 @@ fix-perms:
 	$(_v)- $(FIND) $(DSTROOT) -type f -perm -+x ! -perm $(Install_Program_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_Program_Mode)
 	$(_v)- $(FIND) $(DSTROOT) -type d ! -perm $(Install_Directory_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_Directory_Mode)
 
+remove-html-docs:
+	$(_v) $(RM) -rf $(DSTROOT)$(FmwkDir)/Resources/Documentation
+
 ###
 
 Sources               = $(SRCROOT)/$(Project)
@@ -138,4 +141,3 @@ almostclean::
 	$(_v) $(Environment) $(MAKE) -C $(MakeDir) clean-$(BuildTarget)
 
 .PHONY: almostclean $(AfterInstall)
-.NOTPARALLEL:

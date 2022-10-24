@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = schema.dict
+timeout = 20

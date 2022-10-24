@@ -46,14 +46,14 @@ namespace WebCore {
 #pragma mark -
 #pragma mark MediaSourcePrivateAVFObjC
 
-Ref<MediaSourcePrivateAVFObjC> MediaSourcePrivateAVFObjC::create(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient* client)
+Ref<MediaSourcePrivateAVFObjC> MediaSourcePrivateAVFObjC::create(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient& client)
 {
     auto mediaSourcePrivate = adoptRef(*new MediaSourcePrivateAVFObjC(parent, client));
-    client->setPrivateAndOpen(mediaSourcePrivate.copyRef());
+    client.setPrivateAndOpen(mediaSourcePrivate.copyRef());
     return mediaSourcePrivate;
 }
 
-MediaSourcePrivateAVFObjC::MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient* client)
+MediaSourcePrivateAVFObjC::MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC& parent, MediaSourcePrivateClient& client)
     : m_player(parent)
     , m_client(client)
     , m_isEnded(false)
@@ -64,7 +64,7 @@ MediaSourcePrivateAVFObjC::MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSour
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 #if !RELEASE_LOG_DISABLED
-    m_client->setLogIdentifier(m_logIdentifier);
+    client.setLogIdentifier(m_logIdentifier);
 #endif
 }
 
@@ -121,12 +121,16 @@ void MediaSourcePrivateAVFObjC::removeSourceBuffer(SourceBufferPrivate* buffer)
 
 MediaTime MediaSourcePrivateAVFObjC::duration() const
 {
-    return m_client->duration();
+    if (m_client)
+        return m_client->duration();
+    return MediaTime::invalidTime();
 }
 
 std::unique_ptr<PlatformTimeRanges> MediaSourcePrivateAVFObjC::buffered()
 {
-    return m_client->buffered();
+    if (m_client)
+        return m_client->buffered();
+    return nullptr;
 }
 
 void MediaSourcePrivateAVFObjC::durationChanged(const MediaTime&)
@@ -195,9 +199,10 @@ void MediaSourcePrivateAVFObjC::sourceBufferPrivateDidChangeActiveState(SourceBu
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC* buffer, Uint8Array* initData)
+void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC* buffer, const SharedBuffer& initData)
 {
     m_sourceBuffersNeedingSessions.append(buffer);
+
     if (m_player)
         m_player->keyNeeded(initData);
 }
@@ -235,7 +240,8 @@ void MediaSourcePrivateAVFObjC::willSeek()
 
 void MediaSourcePrivateAVFObjC::seekToTime(const MediaTime& time)
 {
-    m_client->seekToTime(time);
+    if (m_client)
+        m_client->seekToTime(time);
 }
 
 MediaTime MediaSourcePrivateAVFObjC::fastSeekTimeForMediaTime(const MediaTime& targetTime, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold)
@@ -356,7 +362,8 @@ WTFLogChannel& MediaSourcePrivateAVFObjC::logChannel() const
 
 void MediaSourcePrivateAVFObjC::failedToCreateRenderer(RendererType type)
 {
-    m_client->failedToCreateRenderer(type);
+    if (m_client)
+        m_client->failedToCreateRenderer(type);
 }
 
 }

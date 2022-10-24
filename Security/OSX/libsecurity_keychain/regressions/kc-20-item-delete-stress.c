@@ -44,7 +44,7 @@ static OSStatus callbackFunction(SecKeychainEvent keychainEvent,
     return 0;
 }
 
-static void tests() {
+static void tests(void) {
     SecKeychainRef kc = getEmptyTestKeychain();
 
     static dispatch_once_t onceToken = 0;
@@ -67,7 +67,7 @@ static void tests() {
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
 
     for(int i = 0; i < BLOCKS; i++) {
-        dispatch_group_async(g, process_queue, ^() {
+        dispatch_group_async(g, process_queue, ^{
             SecKeychainItemRef blockItem = NULL;
             CFStringRef itemclass = kSecClassInternetPassword;
 

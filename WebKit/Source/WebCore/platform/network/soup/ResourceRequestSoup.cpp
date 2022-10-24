@@ -158,7 +158,7 @@ void ResourceRequest::updateFromSoupMessageHeaders(SoupMessageHeaders* soupHeade
     const char* headerName;
     const char* headerValue;
     while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
-        m_httpHeaderFields.set(String(headerName), String(headerValue));
+        m_httpHeaderFields.set(String::fromLatin1(headerName), String::fromLatin1(headerValue));
 }
 
 unsigned initializeMaximumHTTPConnectionCountPerHost()
@@ -177,8 +177,7 @@ GUniquePtr<SoupURI> ResourceRequest::createSoupURI() const
     // characters, so that soup does not interpret them as fragment identifiers.
     // See http://wkbug.com/68089
     if (m_url.protocolIsData()) {
-        String urlString = m_url.string();
-        urlString.replace("#", "%23");
+        String urlString = makeStringByReplacingAll(m_url.string(), '#', "%23"_s);
         return GUniquePtr<SoupURI>(soup_uri_new(urlString.utf8().data()));
     }
 

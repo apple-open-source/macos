@@ -127,7 +127,7 @@ const SecAsn1Template kSecAsn1OCSPSingleResponseTemplate[] = {
 const SecAsn1Template kSecAsn1OCSPResponderIDAsNameTemplate[] = {
     {SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 1,
      offsetof(SecAsn1OCSPResponderID, byName),
-     kSecAsn1AnyTemplate}};
+    kSecAsn1AnyTemplate}}; // This is Any because we don't parse the Name(s) and do direct memory comparison
 
 const SecAsn1Template kSecAsn1OCSPResponderIDAsKeyTemplate[] = {
     {SEC_ASN1_EXPLICIT | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 2,

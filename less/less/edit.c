@@ -16,6 +16,12 @@
 #if OS2
 #include <signal.h>
 #endif
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#include <wordexp.h>
+#endif
+#endif
 
 public int fd0 = 0;
 
@@ -524,7 +530,46 @@ edit_list(filelist)
 
 	save_ifile = save_curr_ifile();
 	good_filename = NULL;
-	
+
+#if defined(__APPLE__) && TARGET_OS_OSX
+	while (*filelist != '\0' && isspace(*filelist))
+		filelist++;
+
+	if (*filelist == '$' && *(filelist + 1) == '(') {
+		/*
+		 * rdar://problem/86529734 - :e's filename is subject to shell
+		 * wordexp(3) expansion.  Stock less(1) will handle globs, but
+		 * it doesn't handle $() command substition that needs to shell
+		 * out to resolve it.
+		 *
+		 * Since command substitution is basically the only part that's
+		 * currently missing, we'll avoid trying to handle *every*
+		 * filelist with wordexp(3) and instead just use it for shelling
+		 * out for this one case.  The rationale is generally to avoid
+		 * a larger divergence from upstream.
+		 */
+		wordexp_t we;
+		int rc;
+
+		rc = wordexp(filelist, &we, WRDE_SHOWERR | WRDE_UNDEF);
+		if (rc != 0)
+			goto out;
+
+		/*
+		 * As we do below, we'll try to open each name in the list.
+		 */
+		for (size_t i = 0; i < we.we_wordc; i++) {
+			const char *filename = we.we_wordv[i];
+
+			if (edit(filename) == 0 && good_filename == NULL)
+				good_filename = get_filename(curr_ifile);
+		}
+
+		wordfree(&we);
+		goto out;
+	}
+#endif	/* __APPLE__ && TARGET_OS_OSX */
+
 	/*
 	 * Run thru each filename in the list.
 	 * Try to glob the filename.  
@@ -547,6 +592,9 @@ edit_list(filelist)
 		}
 		free(gfilelist);
 	}
+#if defined(__APPLE__) && TARGET_OS_OSX
+out:
+#endif
 	/*
 	 * Edit the first valid filename in the list.
 	 */

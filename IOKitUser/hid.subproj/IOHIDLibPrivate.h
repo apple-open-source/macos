@@ -73,6 +73,7 @@ typedef enum {
     kIOHIDLogCategoryCursor,
     kIOHIDLogCategorySignpost,
     kIOHIDLogCategoryUPS,
+    kIOHIDLogCategoryClient,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
 

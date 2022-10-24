@@ -3,7 +3,7 @@
 class OctagonCloudKitAccountTests: OctagonTestsBase {
     func testSignInSucceedsAfterCloudKitNotification() throws {
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
 
         // but CK is going to win the race, and tell us everything is fine first
         self.accountStatus = .available
@@ -19,7 +19,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // We should reach 'waitforcdp', as we cached the CK value
@@ -29,7 +30,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
     func testSignInPausesForCloudKit() throws {
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
 
         // And out of cloudkit
         self.accountStatus = .noAccount
@@ -47,7 +48,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'wait for cloudkit account'
@@ -76,7 +78,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -87,7 +89,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
     func testSignOutFromWaitingForCloudKit() {
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
 
         // And out of cloudkit
         self.accountStatus = .noAccount
@@ -99,14 +101,15 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'wait for cloudkit account'
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -114,7 +117,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
     func testCloudKitAccountDisappears() {
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
 
         // And out of cloudkit
         self.accountStatus = .noAccount
@@ -129,7 +132,9 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
+
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'wait for cloudkit account'
@@ -156,7 +161,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
 
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -165,11 +170,10 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
     }
 
     func testSignOutOfSAAccount() throws {
-        self.startCKAccountStatusMock()
-
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
+
+        self.startCKAccountStatusMock()
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -177,7 +181,9 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // CloudKit sign in occurs, but HSA2 status isn't here yet
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
+
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'waitforhsa2'
@@ -197,7 +203,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -206,14 +212,13 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
     }
 
     func testSAtoHSA2PromotionWithoutCloudKit() throws {
-        self.startCKAccountStatusMock()
-
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
 
         self.accountStatus = .noAccount
         self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
+
+        self.startCKAccountStatusMock()
 
         // Tell SOS that it is absent, so we don't enable CDP on bringup
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
@@ -224,7 +229,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account signs in as SA.
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
 
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
@@ -233,7 +239,9 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertNoAccount(context: self.cuttlefishContext)
 
         // Account promotes to HSA2
-        self.mockAuthKit.hsa2 = true
+        let account2 = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account2)
+
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
 
         // Octagon should go into 'waitforcloudkit'
@@ -254,7 +262,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -268,14 +276,13 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
     }
 
     func testSAtoHSA2PromotionandCDPWithoutCloudKit() throws {
-        self.startCKAccountStatusMock()
-
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
 
         self.accountStatus = .noAccount
         self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
+
+        self.startCKAccountStatusMock()
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -283,7 +290,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account signs in as SA.
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
 
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
@@ -292,7 +300,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertNoAccount(context: self.cuttlefishContext)
 
         // Account promotes to HSA2
-        self.mockAuthKit.hsa2 = true
+        let account2 = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account2)
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
 
         // Octagon should go into 'waitforcloudkit'
@@ -313,7 +322,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // On sign-out, octagon should go back to 'no account'
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -330,10 +339,12 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Account is present, but SA
-        self.mockAuthKit.hsa2 = false
+        let primaryAccount = try XCTUnwrap(self.mockAuthKit.primaryAccount())
+        let account = CloudKitAccount(altDSID: primaryAccount.altDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
 
         XCTAssertNoThrow(try self.cuttlefishContext.idmsTrustLevelChanged(), "Notification of IDMS trust level shouldn't error")
-        XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(self.mockAuthKit.altDSID!), "Sign-in shouldn't error")
+        XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(try XCTUnwrap(self.mockAuthKit.primaryAltDSID())), "Sign-in shouldn't error")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -399,8 +410,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.defaultCKKS.accountTracker = self.manager.accountStateTracker
 
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
         // Should know it's untrusted
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
@@ -431,10 +442,11 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.defaultCKKS.accountTracker = self.manager.accountStateTracker
 
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
-        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        // Because the state machine hasn't started up yet, and CK hasn't told us to look, we don't spin up the active account just yet.
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext, checkActiveAccount: false)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
         // Let Octagon know about the account status, so test teardown is fast
@@ -443,7 +455,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
     func testReceiveOctagonAPICallBeforeCKAccountNotification() throws {
         // Device is signed out of everything
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         self.accountStatus = .noAccount
         self.startCKAccountStatusMock()
 
@@ -457,7 +469,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'wait for cloudkit account'

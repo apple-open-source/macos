@@ -155,9 +155,15 @@
     CKKSKey* key = nil;
 
     if(keyCache) {
-        key = [keyCache loadKeyForUUID:item.parentKeyUUID zoneID:item.zoneID error:error];
+        key = [keyCache loadKeyForUUID:item.parentKeyUUID
+                             contextID:item.contextID
+                                zoneID:item.zoneID
+                                 error:error];
     } else {
-        key = [CKKSKey loadKeyWithUUID:item.parentKeyUUID zoneID:item.zoneID error:error];
+        key = [CKKSKey loadKeyWithUUID:item.parentKeyUUID
+                             contextID:item.contextID
+                                zoneID:item.zoneID
+                                 error:error];
     }
 
     if(!key) {

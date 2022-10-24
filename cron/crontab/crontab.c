@@ -146,6 +146,13 @@ main(argc, argv)
 	case opt_unknown:
 				break;
 	}
+#ifdef __APPLE__
+	/*
+	 * rdar://problem/87481026 - don't ignore errors when flushing stdout.
+	 */
+	if (fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(exitstatus);
 	/*NOTREACHED*/
 }

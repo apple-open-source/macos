@@ -36,8 +36,8 @@ __BEGIN_DECLS
 
 /*!
  * @function IODataQueueDataAvailable
- * @abstract Used to determine if more data is avilable on the queue.
- * @param dataQueue The IODataQueueMemory region mapped from the kenel.
+ * @abstract Used to determine if more data is available on the queue.
+ * @param dataQueue The IODataQueueMemory region mapped from the kernel.
  * @result Returns true if data is available and false if not.
  */
 Boolean IODataQueueDataAvailable(IODataQueueMemory *dataQueue);
@@ -68,7 +68,7 @@ IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *
  * @discussion This method will simply wait for an incoming message on the given notifyPort.  Once it is received, the return from mach_msg() is returned.
  * @param dataQueue The IODataQueueMemory region mapped from the kernel.
  * @param notificationPort Mach port on which to listen for incoming messages.
- * @result Returns kIOReturnSuccess on success.  Returns kIOReturnBadArgument if either dataQueue is 0 (NULL) or notiryPort is MACH_PORT_NULL.  Returns the result of the mach_msg() listen call on the given port.
+ * @result Returns kIOReturnSuccess on success.  Returns kIOReturnBadArgument if either dataQueue is 0 (NULL) or notifyPort is MACH_PORT_NULL.  Returns the result of the mach_msg() listen call on the given port.
  */
 IOReturn IODataQueueWaitForAvailableData(IODataQueueMemory *dataQueue, mach_port_t notificationPort);
 

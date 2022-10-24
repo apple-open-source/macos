@@ -133,6 +133,10 @@ main(int argc, char *argv[])
 			(void)printf(" %7ju", tcharct);
 		(void)printf(" total\n");
 	}
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(errors == 0 ? 0 : 1);
 }
 

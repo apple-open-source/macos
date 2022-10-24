@@ -28,12 +28,17 @@
 
 #import "AppBundleRequest.h"
 #import "CodeSigning.h"
+#import "DaemonEncoder.h"
+#import "DaemonUtilities.h"
 #import "WebPushDaemon.h"
 #import "WebPushDaemonConnectionConfiguration.h"
+#import "WebPushDaemonConstants.h"
 #import <JavaScriptCore/ConsoleTypes.h>
 #import <wtf/HexNumber.h>
 #import <wtf/Vector.h>
 #import <wtf/cocoa/Entitlements.h>
+
+using WebKit::Daemon::Encoder;
 
 namespace WebPushD {
 
@@ -81,7 +86,7 @@ const String& ClientConnection::hostAppCodeSigningIdentifier()
     if (!m_hostAppCodeSigningIdentifier) {
 #if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
         // This isn't great, but currently the only user of webpushd in open source builds is TestWebKitAPI and codeSigningIdentifier returns the null String on x86_64 Macs.
-        m_hostAppCodeSigningIdentifier = "com.apple.WebKit.TestWebKitAPI";
+        m_hostAppCodeSigningIdentifier = "com.apple.WebKit.TestWebKitAPI"_s;
 #else
         if (!m_hostAppAuditToken)
             m_hostAppCodeSigningIdentifier = String();
@@ -106,7 +111,7 @@ bool ClientConnection::hostAppHasPushInjectEntitlement()
     return hostHasEntitlement("com.apple.private.webkit.webpush.inject"_s);
 }
 
-bool ClientConnection::hostHasEntitlement(const char* entitlement)
+bool ClientConnection::hostHasEntitlement(ASCIILiteral entitlement)
 {
     if (!m_hostAppAuditToken)
         return false;
@@ -126,16 +131,28 @@ void ClientConnection::setDebugModeIsEnabled(bool enabled)
     broadcastDebugMessage(makeString("Turned Debug Mode ", m_debugModeEnabled ? "on" : "off"));
 }
 
-void ClientConnection::broadcastDebugMessage(const String& message)
+void ClientConnection::broadcastDebugMessage(StringView message)
 {
     String messageIdentifier;
-    auto signingIdentifer = hostAppCodeSigningIdentifier();
-    if (signingIdentifer.isEmpty())
+    auto signingIdentifier = hostAppCodeSigningIdentifier();
+    if (signingIdentifier.isEmpty())
         messageIdentifier = makeString("[(0x", hex(reinterpret_cast<uint64_t>(m_xpcConnection.get()), WTF::HexConversionMode::Lowercase), ") (", String::number(identifier()), " )] ");
     else
-        messageIdentifier = makeString("[", signingIdentifer, " (", String::number(identifier()), ")] ");
+        messageIdentifier = makeString("[", signingIdentifier, " (", String::number(identifier()), ")] ");
 
-    Daemon::singleton().broadcastDebugMessage(JSC::MessageLevel::Info, makeString(messageIdentifier, message));
+    Daemon::singleton().broadcastDebugMessage(makeString(messageIdentifier, message));
+}
+
+void ClientConnection::sendDebugMessage(StringView message)
+{
+    // FIXME: We currently send the debug message twice.
+    // After getting all debug message clients onto the encoder/decoder mechanism, remove the old style message.
+    auto dictionary = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
+    xpc_dictionary_set_uint64(dictionary.get(), WebKit::WebPushD::protocolDebugMessageLevelKey, static_cast<uint64_t>(JSC::MessageLevel::Info));
+    xpc_dictionary_set_string(dictionary.get(), WebKit::WebPushD::protocolDebugMessageKey, message.utf8().data());
+    xpc_connection_send_message(m_xpcConnection.get(), dictionary.get());
+
+    sendDaemonMessage<DaemonMessageType::DebugMessage>(message);
 }
 
 void ClientConnection::enqueueAppBundleRequest(std::unique_ptr<AppBundleRequest>&& request)
@@ -169,7 +186,7 @@ void ClientConnection::didCompleteAppBundleRequest(AppBundleRequest& request)
 
 void ClientConnection::connectionClosed()
 {
-    broadcastDebugMessage("Connection closed");
+    broadcastDebugMessage("Connection closed"_s);
 
     RELEASE_ASSERT(m_xpcConnection);
     m_xpcConnection = nullptr;
@@ -183,6 +200,23 @@ void ClientConnection::connectionClosed()
     pendingBundleRequests.swap(m_pendingBundleRequests);
     for (auto& requst : pendingBundleRequests)
         requst->cancel();
+}
+
+template<DaemonMessageType messageType, typename... Args>
+void ClientConnection::sendDaemonMessage(Args&&... args) const
+{
+    if (!m_xpcConnection)
+        return;
+
+    Encoder encoder;
+    encoder.encode(std::forward<Args>(args)...);
+
+    auto dictionary = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
+    xpc_dictionary_set_uint64(dictionary.get(), WebKit::WebPushD::protocolVersionKey, WebKit::WebPushD::protocolVersionValue);
+    xpc_dictionary_set_value(dictionary.get(), WebKit::WebPushD::protocolEncodedMessageKey, WebKit::vectorToXPCData(encoder.takeBuffer()).get());
+    xpc_dictionary_set_uint64(dictionary.get(), WebKit::WebPushD::protocolMessageTypeKey, static_cast<uint64_t>(messageType));
+
+    xpc_connection_send_message(m_xpcConnection.get(), dictionary.get());
 }
 
 } // namespace WebPushD

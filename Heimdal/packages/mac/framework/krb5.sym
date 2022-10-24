@@ -653,6 +653,7 @@ wind_utf8ucs2_length
 wind_utf8ucs4
 wind_utf8ucs4_copy
 krb5_init_creds_set_kdc_hostname
+krb5_init_creds_set_keyblock
 krb5_init_creds_store_config
 krb5_principal_is_pku2u
 krb5_principal_is_null
@@ -690,6 +691,7 @@ krb5_time_abs
 _krb5_init_creds_get_cred_endtime
 krb5_cc_set_acl
 _krb5_init_creds_get_cred_client
+krb5_init_creds_set_nonce
 _krb5_state_srv_sort
 _krb5_fast_cf2
 _krb5_validate_pa_enc_challange

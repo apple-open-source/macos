@@ -568,7 +568,7 @@ static int TestSignAndVerifyDataWithIdentity(SecIdentityRef identity)
 	return result;
 }
 
-static int Test()
+static int Test(void)
 {
 	SecKeychainRef goodKeychain=NULL;
 	SecKeychainRef badKeychain=NULL;

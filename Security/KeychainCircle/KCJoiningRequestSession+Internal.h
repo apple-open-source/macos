@@ -30,16 +30,12 @@
 #import <Security/OTControl.h>
 #import <KeychainCircle/KCJoiningSession.h>
 
-@interface KCJoiningRequestSecretSession (Internal)
-- (void)setControlObject:(OTControl*)control;
-@end
-
 @interface KCJoiningRequestCircleSession (Internal)
 
 - (KCAESGCMDuplexSession*)accessSession;
 
 - (void)setControlObject:(OTControl*)control;
-- (void)setContextIDOnJoiningConfiguration:(NSString*)contextID;
+- (void)setContextIDForSession:(NSString*)contextID;
 @end
 #endif /* Header_h */
 #endif

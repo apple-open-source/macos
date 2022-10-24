@@ -67,13 +67,15 @@ public:
 
     WEBCORE_EXPORT static const NetworkLoadMetrics& emptyMetrics();
 
-    NetworkLoadMetrics isolatedCopy() const;
+    WEBCORE_EXPORT NetworkLoadMetrics isolatedCopy() const;
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<NetworkLoadMetrics> decode(Decoder&);
 
     bool isComplete() const { return complete; }
     void markComplete() { complete = true; }
+
+    void updateFromFinalMetrics(const NetworkLoadMetrics&);
 
     // https://www.w3.org/TR/resource-timing-2/#attribute-descriptions
     MonotonicTime redirectStart;
@@ -86,20 +88,21 @@ public:
     MonotonicTime requestStart;
     MonotonicTime responseStart;
     MonotonicTime responseEnd;
-    
+    MonotonicTime workerStart;
+
     // ALPN Protocol ID: https://w3c.github.io/resource-timing/#bib-RFC7301
     String protocol;
 
     uint16_t redirectCount { 0 };
 
-    bool complete : 1;
-    bool cellular : 1;
-    bool expensive : 1;
-    bool constrained : 1;
-    bool multipath : 1;
-    bool isReusedConnection : 1;
-    bool failsTAOCheck : 1;
-    bool hasCrossOriginRedirect : 1;
+    bool complete : 1 { false };
+    bool cellular : 1 { false };
+    bool expensive : 1 { false };
+    bool constrained : 1 { false };
+    bool multipath : 1 { false };
+    bool isReusedConnection : 1 { false };
+    bool failsTAOCheck : 1 { false };
+    bool hasCrossOriginRedirect : 1 { false };
 
     PrivacyStance privacyStance { PrivacyStance::Unknown };
 
@@ -131,6 +134,8 @@ struct AdditionalNetworkLoadMetricsForWebInspector : public RefCounted<Additiona
     uint64_t requestHeaderBytesSent { std::numeric_limits<uint64_t>::max() };
     uint64_t responseHeaderBytesReceived { std::numeric_limits<uint64_t>::max() };
     uint64_t requestBodyBytesSent { std::numeric_limits<uint64_t>::max() };
+
+    bool isProxyConnection { false };
 private:
     AdditionalNetworkLoadMetricsForWebInspector() { }
 };
@@ -155,6 +160,7 @@ void NetworkLoadMetrics::encode(Encoder& encoder) const
     encoder << requestStart;
     encoder << responseStart;
     encoder << responseEnd;
+    encoder << workerStart;
 
     encoder << protocol;
 
@@ -197,6 +203,7 @@ std::optional<NetworkLoadMetrics> NetworkLoadMetrics::decode(Decoder& decoder)
         && decoder.decode(metrics.requestStart)
         && decoder.decode(metrics.responseStart)
         && decoder.decode(metrics.responseEnd)
+        && decoder.decode(metrics.workerStart)
         && decoder.decode(metrics.protocol)
         && decoder.decode(metrics.redirectCount)))
         return std::nullopt;
@@ -281,6 +288,8 @@ void AdditionalNetworkLoadMetricsForWebInspector::encode(Encoder& encoder) const
     encoder << requestHeaderBytesSent;
     encoder << responseHeaderBytesReceived;
     encoder << requestBodyBytesSent;
+
+    encoder << isProxyConnection;
 }
 
 template<class Decoder>
@@ -331,6 +340,11 @@ RefPtr<AdditionalNetworkLoadMetricsForWebInspector> AdditionalNetworkLoadMetrics
     if (!requestBodyBytesSent)
         return nullptr;
 
+    std::optional<bool> isProxyConnection;
+    decoder >> isProxyConnection;
+    if (!isProxyConnection)
+        return nullptr;
+
     auto decoded = AdditionalNetworkLoadMetricsForWebInspector::create();
     decoded->priority = WTFMove(*priority);
     decoded->remoteAddress = WTFMove(*remoteAddress);
@@ -341,6 +355,7 @@ RefPtr<AdditionalNetworkLoadMetricsForWebInspector> AdditionalNetworkLoadMetrics
     decoded->requestHeaderBytesSent = WTFMove(*requestHeaderBytesSent);
     decoded->responseHeaderBytesReceived = WTFMove(*responseHeaderBytesReceived);
     decoded->requestBodyBytesSent = WTFMove(*requestBodyBytesSent);
+    decoded->isProxyConnection = WTFMove(*isProxyConnection);
     return decoded;
 }
 

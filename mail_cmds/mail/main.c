@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,7 +31,7 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__unused static char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1980, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -42,14 +40,10 @@ __unused static char copyright[] =
 #if 0
 static char sccsid[] = "@(#)main.c	8.2 (Berkeley) 4/20/95";
 #endif
-__unused static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/main.c,v 1.14 2004/02/29 20:44:44 mikeh Exp $";
 #endif /* not lint */
-
-#include <sys/cdefs.h>
 #include <sys/ioctl.h>
+__FBSDID("$FreeBSD$");
 
-#define EXTERN
 #include "rcv.h"
 #include <fcntl.h>
 #include "extern.h"
@@ -59,15 +53,56 @@ __unused static const char rcsid[] =
  *
  * Startup -- interface with user.
  */
+int	msgCount;
+int	rcvmode;
+int	sawcom;
+char	*Tflag;
+int	senderr;
+int	edit;
+int	readonly;
+int	noreset;
+int	sourcing;
+int	loading;
+int	cond;
+FILE	*itf;
+FILE	*otf;
+int	image;
+FILE	*input;
+char	mailname[PATHSIZE];
+char	prevfile[PATHSIZE];
+char	*homedir;
+char	*myname;
+off_t	mailsize;
+int	lexnumber;
+char	lexstring[STRINGLEN];
+int	regretp;
+int	regretstack[REGDEP];
+char	*string_stack[REGDEP];
+int	numberstack[REGDEP];
+struct	message	*dot;
+struct	message	*message;
+struct	var	*variables[HSHSIZE];
+struct	grouphead	*groups[HSHSIZE];
+struct	ignoretab	ignore[2];
 
-jmp_buf	hdrjmp;
+struct	ignoretab	saveignore[2];
+
+struct	ignoretab	ignoreall[2];
+char	**altnames;
+int	debug;
+int	screenwidth;
+int	screenheight;
+
+int	realscreenheight;
+
+jmp_buf	srbuf;
+
+static jmp_buf	hdrjmp;
 
 extern const char *version;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int i;
 	struct name *to, *cc, *bcc, *smopts;
@@ -230,12 +265,11 @@ main(argc, argv)
 			break;
 		case '?':
 			fprintf(stderr, "\
-Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
-       %s [-EHiInNv] [-F] -f [name]\n\
-       %s [-EHiInNv] [-F] [-u user]\n\
-       %s -e [-f name]\n\
-       %s -H\n",__progname,
-			    __progname, __progname, __progname, __progname);
+Usage: %s [-dEiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
+       %s [-dEHiInNv] [-F] -f [name]\n\
+       %s [-dEHiInNv] [-F] [-u user]\n\
+       %s [-d] -e [-f name]\n\
+       %s -H\n", __progname, __progname, __progname, __progname, __progname);
 			exit(1);
 		}
 	}
@@ -292,7 +326,7 @@ Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
 		if (ef == NULL)
 			ef = "%";
 		if (setfile(ef) <= 0)
-			/* Either an error has occured, or no mail */
+			/* Either an error has occurred, or no mail */
 			exit(1);
 		else
 			exit(0);
@@ -337,8 +371,7 @@ Usage: %s [-EiInv] [-s subject] [-c cc-addr] [-b bcc-addr] [-F] to-addr ...\n\
  */
 /*ARGSUSED*/
 void
-hdrstop(signo)
-	int signo;
+hdrstop(int signo __unused)
 {
 
 	(void)fflush(stdout);
@@ -355,7 +388,7 @@ hdrstop(signo)
  * Width is either 80 or ws_col;
  */
 void
-setscreensize()
+setscreensize(void)
 {
 	struct termios tbuf;
 	struct winsize ws;

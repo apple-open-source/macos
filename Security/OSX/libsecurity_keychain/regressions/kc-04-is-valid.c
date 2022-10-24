@@ -17,7 +17,7 @@ static void tests(void)
 	if (!home || strlen(home) > 200)
 		plan_skip_all("home too big");
 
-	sprintf(kcname1, "%s/kctests/kc1-16-is-valid", home);
+	snprintf(kcname1,sizeof(kcname1), "%s/kctests/kc1-16-is-valid", home);
 	SecKeychainRef kc1 = NULL, kc2 = NULL;
 	Boolean kc1valid, kc2valid;
     kc1 = createNewKeychainAt(kcname1, "test");
@@ -28,7 +28,7 @@ static void tests(void)
 	CFRelease(kc1);
 
 	int fd;
-	sprintf(kcname2, "%s/kctests/kc2-16-is-valid", home);
+	snprintf(kcname2,sizeof(kcname2), "%s/kctests/kc2-16-is-valid", home);
 	ok_unix(fd = open(kcname2, O_CREAT|O_WRONLY|O_TRUNC, 0600),
 		"create invalid kc2 file");
 	ok_unix(close(fd), "close the kc2 file");

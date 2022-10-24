@@ -21,8 +21,10 @@
 #include "ldap-int.h"
 #include "ldap-tls.h"
 
+#include "XSCipher.h"
+#include "XSDHParam.h"
+
 #include <Security/Security.h>
-#include <CoreDaemon/CoreDaemon.h>
 #include <syslog.h>
 #include <sys/stat.h>
 

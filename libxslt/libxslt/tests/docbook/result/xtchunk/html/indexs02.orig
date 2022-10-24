@@ -222,7 +222,7 @@ V1.1//EN"[]&gt;
           automatically look for <tt>myfile.png</tt> in
           the directory.
         </p><p>
-          If you want to create PostScript ouput, you will need to create an
+          If you want to create PostScript output, you will need to create an
           EPS version of your image file to be displayed in the
           PostScript file. There is a simple script available which
           allows you to change a PNG image into an EPS file

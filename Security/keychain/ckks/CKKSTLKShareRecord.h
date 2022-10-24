@@ -52,12 +52,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithShare:(CKKSTLKShare*)share
+                    contextID:(NSString*)contextID
                        zoneID:(CKRecordZoneID*)zoneID
               encodedCKRecord:(NSData* _Nullable)encodedCKRecord;
 
-- (CKKSKeychainBackedKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer trustedPeers:(NSSet<id<CKKSPeer>>*)peers error:(NSError**)error;
+- (CKKSKeychainBackedKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer
+                                  trustedPeers:(NSSet<id<CKKSPeer>>*)peers
+                                         error:(NSError**)error;
 
 + (CKKSTLKShareRecord* _Nullable)share:(CKKSKeychainBackedKey*)key
+                             contextID:(NSString*)contextID
                                     as:(id<CKKSSelfPeer>)sender
                                     to:(id<CKKSPeer>)receiver
                                  epoch:(NSInteger)epoch
@@ -70,30 +74,54 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Database loading
 + (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
                         receiverPeerID:(NSString*)receiverPeerID
                           senderPeerID:(NSString*)senderPeerID
                                 zoneID:(CKRecordZoneID*)zoneID
                                  error:(NSError* __autoreleasing*)error;
+
 + (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
                            receiverPeerID:(NSString*)receiverPeerID
                              senderPeerID:(NSString*)senderPeerID
                                    zoneID:(CKRecordZoneID*)zoneID
                                     error:(NSError**)error;
+
 + (NSArray<CKKSTLKShareRecord*>*)allFor:(NSString*)receiverPeerID
-                          keyUUID:(NSString*)uuid
-                           zoneID:(CKRecordZoneID*)zoneID
-                            error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSTLKShareRecord*>*)allForUUID:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError**)error;
-+ (NSArray<CKKSTLKShareRecord*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError**)error;
-+ (instancetype _Nullable)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError**)error;
+                              contextID:(NSString*)contextID
+                                keyUUID:(NSString*)uuid
+                                 zoneID:(CKRecordZoneID*)zoneID
+                                  error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSTLKShareRecord*>*)allForUUID:(NSString*)uuid
+                                  contextID:(NSString*)contextID
+                                     zoneID:(CKRecordZoneID*)zoneID
+                                      error:(NSError**)error;
+
++ (NSArray<CKKSTLKShareRecord*>*)allInZone:(CKRecordZoneID*)zoneID
+                                 contextID:(NSString*)contextID
+                                     error:(NSError**)error;
+
++ (instancetype _Nullable)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID
+                                              contextID:(NSString*)contextID
+                                                  error:(NSError**)error;
 
 // Returns a prefix that all every CKKSTLKShare CKRecord will have
 + (NSString*)ckrecordPrefix;
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
 
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
+
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error;
 
 // For tests
 - (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey error:(NSError**)error;

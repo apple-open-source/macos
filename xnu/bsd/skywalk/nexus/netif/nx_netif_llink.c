@@ -48,7 +48,7 @@ static struct netif_llink *nx_netif_llink_alloc(void);
 static void nx_netif_llink_free(struct netif_llink **);
 static struct netif_qset *nx_netif_qset_alloc(uint8_t, uint8_t);
 static void nx_netif_qset_free(struct netif_qset **);
-static void nx_netif_qset_setup_ifclassq(struct ifnet *, struct netif_llink *,
+static void nx_netif_qset_setup_ifclassq(struct netif_llink *,
     struct netif_qset *);
 static void nx_netif_qset_teardown_ifclassq(struct netif_qset *);
 static void nx_netif_qset_init(struct netif_qset *, struct netif_llink *,
@@ -111,6 +111,10 @@ nx_netif_llink_free(struct netif_llink **pllink)
 		    nqs_list);
 		nx_netif_qset_destroy(qset);
 	}
+	if (llink->nll_ifcq != NULL) {
+		ifclassq_release(&llink->nll_ifcq);
+	}
+
 	sk_free_type(struct netif_llink, llink);
 }
 
@@ -180,7 +184,7 @@ nx_netif_qset_free(struct netif_qset **pqset)
 	for (i = 0; i < qset->nqs_num_tx_queues; i++) {
 		nx_netif_driver_queue_destroy(NETIF_QSET_TX_QUEUE(qset, i));
 	}
-	if (qset->nqs_ifcq != NULL) {
+	if (qset->nqs_flags & NETIF_QSET_FLAG_AQM) {
 		nx_netif_qset_teardown_ifclassq(qset);
 	}
 	qset->nqs_llink = NULL;
@@ -198,18 +202,25 @@ nx_netif_qset_destroy(struct netif_qset *qset)
 
 SK_NO_INLINE_ATTRIBUTE
 static void
-nx_netif_qset_setup_ifclassq(struct ifnet *ifp, struct netif_llink *llink,
+nx_netif_qset_setup_ifclassq(struct netif_llink *llink,
     struct netif_qset *qset)
 {
-	if (NETIF_DEFAULT_LLINK(llink) && NETIF_DEFAULT_QSET(qset)) {
-		/* use the default AQM queues from ifnet */
-		ifclassq_retain(ifp->if_snd);
-		qset->nqs_ifcq = ifp->if_snd;
-		return;
+	uint8_t flags = 0;
+
+	ASSERT((qset->nqs_flags & NETIF_QSET_FLAG_AQM) != 0);
+	ASSERT(llink->nll_ifcq != NULL);
+
+	ifclassq_retain(llink->nll_ifcq);
+	qset->nqs_ifcq = llink->nll_ifcq;
+
+	if (qset->nqs_flags | NETIF_QSET_FLAG_LOW_LATENCY) {
+		flags |= IF_CLASSQ_LOW_LATENCY;
 	}
-	qset->nqs_ifcq = ifclassq_alloc();
-	VERIFY(qset->nqs_ifcq != NULL);
-	dlil_ifclassq_setup(ifp, qset->nqs_ifcq);
+	if (qset->nqs_flags | NETIF_QSET_FLAG_DEFAULT) {
+		flags |= IF_DEFAULT_GRP;
+	}
+
+	ifclassq_setup_group(qset->nqs_ifcq, qset->nqs_idx, flags);
 }
 
 SK_NO_INLINE_ATTRIBUTE
@@ -217,13 +228,9 @@ static void
 nx_netif_qset_teardown_ifclassq(struct netif_qset *qset)
 {
 	ASSERT((qset->nqs_flags & NETIF_QSET_FLAG_AQM) != 0);
+	ASSERT(qset->nqs_ifcq != NULL);
 
-	if (NETIF_DEFAULT_LLINK(qset->nqs_llink) && NETIF_DEFAULT_QSET(qset)) {
-		ifclassq_release(&qset->nqs_ifcq);
-		return;
-	}
-	/* Drain and destroy send queue */
-	ifclassq_teardown(qset->nqs_ifcq);
+	qset->nqs_flags &= ~NETIF_QSET_FLAG_AQM;
 	ifclassq_release(&qset->nqs_ifcq);
 }
 
@@ -244,6 +251,8 @@ nx_netif_qset_init(struct netif_qset *qset, struct netif_llink *llink,
 	 * link.
 	 */
 	qset->nqs_llink = llink;
+	qset->nqs_id = NETIF_QSET_ID_ENCODE(llink->nll_link_id_internal, idx);
+	qset->nqs_idx = idx;
 
 	if (qset_init->nlqi_flags & KERN_NEXUS_NET_LLINK_QSET_DEFAULT) {
 		qset->nqs_flags |= NETIF_QSET_FLAG_DEFAULT;
@@ -252,11 +261,10 @@ nx_netif_qset_init(struct netif_qset *qset, struct netif_llink *llink,
 		qset->nqs_flags |= NETIF_QSET_FLAG_LOW_LATENCY;
 	}
 	if (qset_init->nlqi_flags & KERN_NEXUS_NET_LLINK_QSET_AQM) {
-		nx_netif_qset_setup_ifclassq(ifp, llink, qset);
 		qset->nqs_flags |= NETIF_QSET_FLAG_AQM;
+		nx_netif_qset_setup_ifclassq(llink, qset);
 	}
-	qset->nqs_id = NETIF_QSET_ID_ENCODE(llink->nll_link_id_internal, idx);
-	qset->nqs_idx = idx;
+
 
 	for (i = 0; i < qset->nqs_num_rx_queues; i++) {
 		nx_netif_driver_queue_init(qset, NETIF_QSET_RX_QUEUE(qset, i),
@@ -322,6 +330,7 @@ nx_netif_llink_initialize(struct netif_llink *llink, struct nx_netif *nif,
     struct kern_nexus_netif_llink_init *llink_init)
 {
 	uint8_t i;
+	struct ifnet *ifp = nif->nif_ifp;
 
 	LCK_RW_ASSERT(&nif->nif_llink_lock, LCK_RW_ASSERT_EXCLUSIVE);
 
@@ -335,6 +344,19 @@ nx_netif_llink_initialize(struct netif_llink *llink, struct nx_netif *nif,
 	SLIST_INIT(&llink->nll_qset_list);
 
 	for (i = 0; i < llink_init->nli_num_qsets; i++) {
+		if (llink->nll_ifcq == NULL &&
+		    (llink_init->nli_qsets[i].nlqi_flags &
+		    KERN_NEXUS_NET_LLINK_QSET_AQM)) {
+			if (NETIF_DEFAULT_LLINK(llink)) {
+				/* use the default AQM queues from ifnet */
+				ifclassq_retain(ifp->if_snd);
+				llink->nll_ifcq = ifp->if_snd;
+			} else {
+				llink->nll_ifcq = ifclassq_alloc();
+				dlil_ifclassq_setup(ifp, llink->nll_ifcq);
+			}
+		}
+
 		struct netif_qset *qset = nx_netif_qset_create(llink, i,
 		    &llink_init->nli_qsets[i]);
 		/* nx_netif_qset_create retains a reference for the callee */

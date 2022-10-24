@@ -93,6 +93,5 @@ fix-perms::
 	$(_v)- $(FIND) $(DSTROOT) -type d ! -perm $(Install_Directory_Mode) -print0 | $(XARGS) -0 $(CHMOD) $(Install_Directory_Mode)
 
 .PHONY: strip install-doc fix-config fix-perms
-.NOTPARALLEL:
 
 include ../Fetch.make

@@ -21,18 +21,18 @@ typedef	volatile struct {
 void OSAtomicFifoEnqueue$VARIANT$UnfairLock(UnfairFifoQueueHead *list, void *new, size_t offset) {
 	set_next(new, offset, NULL);
 
-	os_unfair_lock_lock_inline(&list->lock);
+	os_unfair_lock_lock_inline((os_unfair_lock_t)&list->lock);
 	if (list->last == NULL) {
 		list->first = new;
 	} else {
 		set_next(list->last, offset, new);
 	}
 	list->last = new;
-	os_unfair_lock_unlock_inline(&list->lock);
+	os_unfair_lock_unlock_inline((os_unfair_lock_t)&list->lock);
 }
 
 void* OSAtomicFifoDequeue$VARIANT$UnfairLock(UnfairFifoQueueHead *list, size_t offset) {
-	os_unfair_lock_lock_inline(&list->lock);
+	os_unfair_lock_lock_inline((os_unfair_lock_t)&list->lock);
 	void *element = list->first;
 	if (element != NULL) {
 		void *next = get_next(element, offset);
@@ -41,7 +41,7 @@ void* OSAtomicFifoDequeue$VARIANT$UnfairLock(UnfairFifoQueueHead *list, size_t o
 		}
 		list->first = next;
 	}
-	os_unfair_lock_unlock_inline(&list->lock);
+	os_unfair_lock_unlock_inline((os_unfair_lock_t)&list->lock);
 
 	return element;
 }

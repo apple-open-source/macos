@@ -63,7 +63,6 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void);
                            cuttlefish:(id<NSXPCProxyCreating>)cuttlefish;
 
 - (void)startOctagonStateMachine;
-- (void)notifyContainerChange;
 
 - (void)rpcEpoch:(OTCuttlefishContext*)cuttlefishContext
            reply:(void (^)(uint64_t epoch,

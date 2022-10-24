@@ -10,6 +10,7 @@
 #import <OctagonTrust/OctagonTrust.h>
 
 #import "keychain/otctl/OTControlCLI.h"
+#import "keychain/ot/OTDefines.h"
 #import "keychain/otctl/EscrowRequestCLI.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
 #include "lib/SecArgParse.h"
@@ -65,6 +66,7 @@ static int removeInheritanceKey = false;
 
 static int health = false;
 static int tlkRecoverability = false;
+static int machineIDOverride = false;
 
 #if TARGET_OS_WATCH
 static int pairme = false;
@@ -75,6 +77,11 @@ static char* contextNameArg = NULL;
 static char* secretArg = NULL;
 static char* skipRateLimitingCheckArg = NULL;
 static char* recordID = NULL;
+
+static char* overrideForAccountScriptArg = NULL;
+static char* overrideEscrowCacheArg = NULL;
+
+static char* machineIDArg = NULL;
 
 static int argEnable = false;
 static int argPause = false;
@@ -101,8 +108,13 @@ int main(int argc, char** argv)
         {.shortname = 'j', .longname = "json", .flag = &json, .flagval = true, .description = "Output in JSON"},
         {.shortname = 'i', .longname = "recordID", .argument = &recordID, .flagval = true, .description = "recordID"},
 
+        {.shortname = 'o', .longname = "overrideForAccountScript", .argument = &overrideForAccountScriptArg, .description = " enter values YES or NO, option defaults to NO, This flag is only meant for the setup account for icloud cdp signin script"},
+        {.shortname = 'c', .longname = "overrideEscrowCache", .argument = &overrideEscrowCacheArg, .description = " enter values YES or NO, option defaults to NO, include this if you want to force an escrow record fetch from cuttlefish for the freshest of escrow records"},
+
         {.shortname = 'E', .longname = "enable", .flag = &argEnable, .flagval = true, .description = "Enable something (pair with a modification command)"},
         {.shortname = 'P', .longname = "pause", .flag = &argPause, .flagval = true, .description = "Pause something (pair with a modification command)"},
+
+        {.shortname = 'a', .longname = "machineID", .argument = &machineIDArg, .description = "machineID override"},
 
         {.longname = "altDSID", .argument = &altDSIDArg, .description = "altDSID (for sign-in/out)"},
         {.longname = "entropy", .argument = &secretArg, .description = "escrowed entropy in JSON"},
@@ -163,6 +175,7 @@ int main(int argc, char** argv)
         {.command = "preflight-join-with-inheritance-key", .flag = &preflightJoinWithInheritanceKey, .flagval = true, .description = "Preflight join with an inheritance key", .internal_only = true},
         {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
         {.command = "tlk-recoverability", .flag = &tlkRecoverability, .flagval = true, .description = "Evaluate tlk recoverability for an account", .internal_only = true},
+        {.command = "set-machine-id-override", .flag = &machineIDOverride, .flagval = true, .description = "Set machineID override"},
 
 
 #if TARGET_OS_WATCH
@@ -192,7 +205,7 @@ int main(int argc, char** argv)
         }
 
         NSString* context = contextNameArg ? [NSString stringWithCString:contextNameArg encoding:NSUTF8StringEncoding] : OTDefaultContext;
-        NSString* container = containerStr ? [NSString stringWithCString:containerStr encoding:NSUTF8StringEncoding] : nil;
+        NSString* container = containerStr ? [NSString stringWithCString:containerStr encoding:NSUTF8StringEncoding] : OTCKContainerName;
         NSString* altDSID = altDSIDArg ? [NSString stringWithCString:altDSIDArg encoding:NSUTF8StringEncoding] : nil;
         NSString* dsid = dsidArg ? [NSString stringWithCString:dsidArg encoding:NSUTF8StringEncoding] : nil;
         NSString* appleID = appleIDArg ? [NSString stringWithCString:appleIDArg encoding:NSUTF8StringEncoding] : nil;
@@ -205,7 +218,14 @@ int main(int argc, char** argv)
         NSString* inheritanceUUIDString = inheritanceUUIDArg ? [NSString stringWithCString:inheritanceUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSTimeInterval timeout = timeoutInS ? [[NSString stringWithCString:timeoutInS encoding:NSUTF8StringEncoding] integerValue] : 600;
 
+        NSString* overrideForAccountScript = overrideForAccountScriptArg ? [NSString stringWithCString:overrideForAccountScriptArg encoding:NSUTF8StringEncoding] : @"NO";
+        NSString* overrideEscrowCache = overrideEscrowCacheArg ? [NSString stringWithCString:overrideEscrowCacheArg encoding:NSUTF8StringEncoding] : @"NO";
+
         OTControlCLI* ctl = [[OTControlCLI alloc] initWithOTControl:rpc];
+
+        OTControlArguments* arguments = [[OTControlArguments alloc] initWithContainerName:container
+                                                                                contextID:context
+                                                                                  altDSID:altDSID];
 
         NSError* escrowRequestError = nil;
         EscrowRequestCLI* escrowctl = [[EscrowRequestCLI alloc] initWithEscrowRequest:[SecEscrowRequest request:&escrowRequestError]];
@@ -213,10 +233,10 @@ int main(int argc, char** argv)
             errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
         }
         if(resetoctagon) {
-            return [ctl resetOctagon:container context:context altDSID:altDSID timeout:timeout];
+            return [ctl resetOctagon:arguments timeout:timeout];
         }
         if(resetProtectedData) {
-            return [ctl resetProtectedData:container context:context altDSID:altDSID appleID:appleID dsid:dsid];
+            return [ctl resetProtectedData:arguments appleID:appleID dsid:dsid];
         }
         if(userControllableViewsSyncStatus) {
             if(argEnable && argPause) {
@@ -225,15 +245,15 @@ int main(int argc, char** argv)
             }
 
             if(argEnable == false && argPause == false) {
-                return [ctl fetchUserControllableViewsSyncStatus:container contextID:context];
+                return [ctl fetchUserControllableViewsSyncStatus:arguments];
             }
 
             // At this point, we're sure that either argEnabled or argPause is set; so the value of argEnabled captures the user's intention
-            return [ctl setUserControllableViewsSyncStatus:container contextID:context enabled:argEnable];
+            return [ctl setUserControllableViewsSyncStatus:arguments enabled:argEnable];
         }
 
         if(fetchAllBottles) {
-            return [ctl fetchAllBottles:altDSID containerName:container context:context control:rpc];
+            return [ctl fetchAllBottles:arguments control:rpc];
         }
         if(recover) {
             NSString* entropyJSON = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
@@ -250,33 +270,37 @@ int main(int argc, char** argv)
             }
 
             return [ctl recoverUsingBottleID:bottleID
-                                          entropy:entropy
-                                          altDSID:altDSID
-                                    containerName:container
-                                          context:context
-                                          control:rpc];
+                                     entropy:entropy
+                                   arguments:arguments
+                                     control:rpc];
         }
         if(depart) {
-            return [ctl depart:container context:context];
+            return [ctl depart:arguments];
         }
         if(start) {
-            return [ctl startOctagonStateMachine:container context:context];
+            return [ctl startOctagonStateMachine:arguments];
         }
         if(signIn) {
-            return [ctl signIn:altDSID container:container context:context];
+            return [ctl signIn:arguments];
         }
         if(signOut) {
-            return [ctl signOut:container context:context];
+            return [ctl signOut:arguments];
         }
 
         if(status) {
-            return [ctl status:container context:context json:json];
+            return [ctl status:arguments json:json];
         }
         if(fetch_escrow_records) {
-            return [ctl fetchEscrowRecords:container context:context];
+            return [ctl fetchEscrowRecords:arguments json:json];
         }
         if(fetch_all_escrow_records) {
-            return [ctl fetchAllEscrowRecords:container context:context];
+            return [ctl fetchAllEscrowRecords:arguments json:json];
+        }
+        if(machineIDOverride) {
+            NSString* machineID = machineIDArg ? [NSString stringWithCString:machineIDArg encoding:NSUTF8StringEncoding] : nil;
+            printf("machineID: %s\n", machineID.description.UTF8String);
+                       
+            return [ctl setMachineIDOverride:arguments machineID:machineID json:json];
         }
         if(recoverRecord) {
             NSString* recordIDString = recordID ? [NSString stringWithCString:recordID encoding:NSUTF8StringEncoding] : nil;
@@ -287,7 +311,7 @@ int main(int argc, char** argv)
                 return 1;
             }
 
-            return [ctl performEscrowRecovery:container context:context recordID:recordIDString appleID:appleID secret:secret];
+            return [ctl performEscrowRecovery:arguments recordID:recordIDString appleID:appleID secret:secret overrideForAccountScript:overrideForAccountScript overrideEscrowCache:overrideEscrowCache];
         }
         if(recoverSilentRecord){
             NSString* secret = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
@@ -297,7 +321,7 @@ int main(int argc, char** argv)
                 return 1;
             }
 
-            return [ctl performSilentEscrowRecovery:container context:context appleID:appleID secret:secret];
+            return [ctl performSilentEscrowRecovery:arguments appleID:appleID secret:secret];
         }
         if(health) {
             BOOL skip = NO;
@@ -306,13 +330,13 @@ int main(int argc, char** argv)
             } else {
                 skip = NO;
             }
-            return [ctl healthCheck:container context:context skipRateLimitingCheck:skip];
+            return [ctl healthCheck:arguments skipRateLimitingCheck:skip];
         }
         if(tlkRecoverability) {
-            return [ctl tlkRecoverability:container context:context];
+            return [ctl tlkRecoverability:arguments];
         }
         if(ckks_policy_flag) {
-            return [ctl refetchCKKSPolicy:container context:context];
+            return [ctl refetchCKKSPolicy:arguments];
         }
         if (ttr_flag) {
             if (radarNumber == NULL) {
@@ -321,97 +345,90 @@ int main(int argc, char** argv)
             return [ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
         }
         if(resetAccountCDPContent){
-            return [ctl resetAccountCDPContentsWithContainerName:container contextID:context];
+            return [ctl resetAccountCDPContentsWithArguments:arguments];
         }
         if(createCustodianRecoveryKey) {
-            return [ctl createCustodianRecoveryKeyWithContainerName:container contextID:context json:json timeout:timeout];
+            return [ctl createCustodianRecoveryKeyWithArguments:arguments json:json timeout:timeout];
         }
         if(joinWithCustodianRecoveryKey) {
             if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl joinWithCustodianRecoveryKeyWithContainerName:container
-                                                            contextID:context
-                                                          wrappingKey:wrappingKey
-                                                           wrappedKey:wrappedKey
-                                                           uuidString:custodianUUIDString
-                                                              timeout:timeout];
+            return [ctl joinWithCustodianRecoveryKeyWithArguments:arguments
+                                                      wrappingKey:wrappingKey
+                                                       wrappedKey:wrappedKey
+                                                       uuidString:custodianUUIDString
+                                                          timeout:timeout];
         }
         if(preflightJoinWithCustodianRecoveryKey) {
             if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl preflightJoinWithCustodianRecoveryKeyWithContainerName:container
-                                                                     contextID:context
-                                                                   wrappingKey:wrappingKey
-                                                                    wrappedKey:wrappedKey
-                                                                    uuidString:custodianUUIDString
-                                                                       timeout:timeout];
+            return [ctl preflightJoinWithCustodianRecoveryKeyWithArguments:arguments
+                                                               wrappingKey:wrappingKey
+                                                                wrappedKey:wrappedKey
+                                                                uuidString:custodianUUIDString
+                                                                   timeout:timeout];
         }
         if(removeCustodianRecoveryKey) {
             if (!custodianUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl removeCustodianRecoveryKeyWithContainerName:container
-                                                          contextID:context
-                                                         uuidString:custodianUUIDString
-                                                            timeout:timeout];
+            return [ctl removeCustodianRecoveryKeyWithArguments:arguments
+                                                     uuidString:custodianUUIDString
+                                                        timeout:timeout];
         }
 
         if(createInheritanceKey) {
-            return [ctl createInheritanceKeyWithContainerName:container contextID:context json:json timeout:timeout];
+            return [ctl createInheritanceKeyWithArguments:arguments json:json timeout:timeout];
         }
         if(generateInheritanceKey) {
-            return [ctl generateInheritanceKeyWithContainerName:container contextID:context json:json timeout:timeout];
+            return [ctl generateInheritanceKeyWithArguments:arguments json:json timeout:timeout];
         }
         if(storeInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl storeInheritanceKeyWithContainerName:container
-                                                   contextID:context
-                                                 wrappingKey:wrappingKey
-                                                  wrappedKey:wrappedKey
-                                                  uuidString:inheritanceUUIDString
-                                                     timeout:timeout];
+            return [ctl storeInheritanceKeyWithArguments:arguments
+                                             wrappingKey:wrappingKey
+                                              wrappedKey:wrappedKey
+                                              uuidString:inheritanceUUIDString
+                                                 timeout:timeout];
         }
         if(joinWithInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl joinWithInheritanceKeyWithContainerName:container
-                                                      contextID:context
-                                                    wrappingKey:wrappingKey
-                                                     wrappedKey:wrappedKey
-                                                     uuidString:inheritanceUUIDString
-                                                        timeout:timeout];
+            return [ctl joinWithInheritanceKeyWithArguments:arguments
+                                                wrappingKey:wrappingKey
+                                                 wrappedKey:wrappedKey
+                                                 uuidString:inheritanceUUIDString
+                                                    timeout:timeout];
         }
         if(preflightJoinWithInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl preflightJoinWithInheritanceKeyWithContainerName:container
-                                                               contextID:context
-                                                             wrappingKey:wrappingKey
-                                                              wrappedKey:wrappedKey
-                                                              uuidString:inheritanceUUIDString
-                                                                 timeout:timeout];
+            return [ctl preflightJoinWithInheritanceKeyWithArguments:arguments
+                                                         wrappingKey:wrappingKey
+                                                          wrappedKey:wrappedKey
+                                                          uuidString:inheritanceUUIDString
+                                                             timeout:timeout];
         }
         if(removeInheritanceKey) {
             if (!inheritanceUUIDString) {
                 print_usage(&args);
                 return 1;
             }
-            return [ctl removeInheritanceKeyWithContainerName:container
-                                                    contextID:context
-                                                   uuidString:inheritanceUUIDString
-                                                      timeout:timeout];
+            return [ctl removeInheritanceKeyWithArguments:arguments
+                                               uuidString:inheritanceUUIDString
+                                                  timeout:timeout];
         }
 
 

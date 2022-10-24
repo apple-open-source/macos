@@ -159,6 +159,13 @@ private:
                 unsigned int  right;
             } thumbstick;
             
+            struct {
+                IOFixed l4;
+                IOFixed r4;
+                IOFixed l5;
+                IOFixed r5;
+            } extra;
+            
         } gameController;
       
         struct {

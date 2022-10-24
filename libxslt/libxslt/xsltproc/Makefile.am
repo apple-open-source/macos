@@ -23,7 +23,7 @@ DEPS = $(top_builddir)/libxslt/libxslt.la \
 
 LDADDS = $(top_builddir)/libxslt/libxslt.la \
          $(top_builddir)/libexslt/libexslt.la \
-	$(LIBXML_LIBS) $(EXTRA_LIBS) $(M_LIBS) $(WIN32_EXTRA_LIBADD)
+	$(LIBXML_LIBS) $(EXTRA_LIBS) $(M_LIBS)
 
 xsltproc_LDADD = $(LIBGCRYPT_LIBS) $(LDADDS)
 
@@ -41,4 +41,4 @@ xsltproc.dv: xsltproc.o
 tests: testThreads
 	@echo > .memdump
 	@echo '## Running testThreads'
-	@($(CHECKER) ./testThreads ; grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true)
+	@($(CHECKER) ./testThreads > /dev/null; grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true)

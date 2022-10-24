@@ -309,7 +309,8 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, size_t entry_type, CFD
     uint8_t *q;
 
     /* signed entry */
-    require(CFDataGetLength(entry) > 0, out);
+    // don't allow attackers to allocate more than 1 MB
+    require(CFDataGetLength(entry) > 0 && CFDataGetLength(entry) < 0x0fffff, out);
     size_t signed_data_len = 12 + (size_t)CFDataGetLength(entry) + 2 + extensionsLen ;
     signed_data = malloc(signed_data_len);
     require(signed_data, out);
@@ -391,7 +392,7 @@ static CFArrayRef copy_ocsp_scts(SecPVCRef pvc)
     CFArrayForEach(ocspResponsesData, ^(const void *value) {
         /* TODO: Should the builder already have the appropriate SecOCSPResponseRef ? */
         SecOCSPResponseRef ocspResponse = SecOCSPResponseCreate(value);
-        if(ocspResponse && SecOCSPGetResponseStatus(ocspResponse)==kSecOCSPSuccess) {
+        if(ocspResponse && SecOCSPGetResponseStatus(ocspResponse)== OCSPResponseStatusSuccessful) {
             SecOCSPSingleResponseRef ocspSingleResponse = SecOCSPResponseCopySingleResponse(ocspResponse, ocspRequest);
             if(ocspSingleResponse) {
                 CFArrayRef singleResponseSCTs = SecOCSPSingleResponseCopySCTs(ocspSingleResponse);

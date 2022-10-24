@@ -33,6 +33,7 @@
 		<string>magic/Magdir/mach: add arm64e (48022403)</string>
 		<string>magic/Magdir/apple: remove junk bytes (37293829)</string>
 		<string>src/encoding.c: fix from Anatol Belski to restore 5.39 behavior for short ascii strings with repeating bytes</string>
+		<string>src/file.c: Don't ignore errors when flushing stdout (89146762)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

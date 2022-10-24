@@ -1,0 +1,20 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>talk</string>
+		<key>OpenSourceVersion</key>
+		<string>2008-02-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/logger?id=d870d44d2054d4449b75870fd432a9ab41c0ab58</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>talk.c: Set process title</string>
+			<string>ctl_transact.c: use a static count for nfds in select</string>
+			<string>io.c: use a static count for nfds in select</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

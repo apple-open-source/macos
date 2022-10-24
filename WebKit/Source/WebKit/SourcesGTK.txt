@@ -21,8 +21,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-GPUProcess/gstreamer/GPUProcessGStreamer.cpp
-GPUProcess/gstreamer/GPUProcessMainGStreamer.cpp
+GPUProcess/glib/GPUProcessGLib.cpp
+GPUProcess/glib/GPUProcessMainGLib.cpp
+
+GPUProcess/graphics/RemoteGraphicsContextGLGBM.cpp
 
 GPUProcess/media/RemoteAudioDestinationManager.cpp
 
@@ -42,7 +44,6 @@ NetworkProcess/soup/NetworkDataTaskSoup.cpp
 NetworkProcess/soup/NetworkProcessMainSoup.cpp
 NetworkProcess/soup/NetworkProcessSoup.cpp
 NetworkProcess/soup/NetworkSessionSoup.cpp
-NetworkProcess/soup/RemoteNetworkingContextSoup.cpp
 NetworkProcess/soup/WebKitDirectoryInputStream.cpp
 NetworkProcess/soup/WebSocketTaskSoup.cpp
 
@@ -120,6 +121,7 @@ UIProcess/API/C/glib/WKTextCheckerGLib.cpp
 UIProcess/API/C/gtk/WKView.cpp
 
 UIProcess/API/glib/APIContentRuleListStoreGLib.cpp @no-unify
+UIProcess/API/glib/APISerializedScriptValueGLib.cpp @no-unify
 UIProcess/API/glib/IconDatabase.cpp @no-unify
 UIProcess/API/glib/InputMethodFilter.cpp @no-unify
 UIProcess/API/glib/WebKitApplicationInfo.cpp @no-unify
@@ -214,6 +216,8 @@ UIProcess/API/gtk/WebKitWebViewBase.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewDialog.cpp @no-unify
 UIProcess/API/gtk/WebKitWebViewGtk.cpp @no-unify
 
+UIProcess/API/soup/HTTPCookieStoreSoup.cpp
+
 UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
 
 UIProcess/Automation/gtk/WebAutomationSessionGtk.cpp
@@ -226,6 +230,7 @@ UIProcess/Gamepad/manette/UIGamepadProviderManette.cpp
 UIProcess/geoclue/GeoclueGeolocationProvider.cpp
 
 UIProcess/Inspector/glib/RemoteInspectorClient.cpp
+UIProcess/Inspector/glib/RemoteInspectorHTTPServer.cpp
 
 UIProcess/Inspector/gtk/RemoteWebInspectorUIProxyGtk.cpp
 UIProcess/Inspector/gtk/WebInspectorUIProxyGtk.cpp
@@ -234,6 +239,7 @@ UIProcess/Inspector/gtk/WebKitInspectorWindow.cpp
 UIProcess/Launcher/glib/ProcessLauncherGLib.cpp @no-unify
 UIProcess/Launcher/glib/BubblewrapLauncher.cpp @no-unify
 UIProcess/Launcher/glib/FlatpakLauncher.cpp @no-unify
+UIProcess/Launcher/glib/XDGDBusProxy.cpp @no-unify
 
 UIProcess/linux/MemoryPressureMonitor.cpp
 
@@ -278,8 +284,9 @@ UIProcess/gtk/WebPreferencesGtk.cpp
 UIProcess/gtk/WebTextChecker.cpp
 UIProcess/gtk/WebTextCheckerClient.cpp
 
-UIProcess/soup/WebCookieManagerProxySoup.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
+
+WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp
 
 WebProcess/GPU/media/gstreamer/VideoLayerRemoteGStreamer.cpp
 
@@ -409,9 +416,12 @@ WebProcess/InjectedBundle/API/gtk/DOM/WebKitDOMXPathResult.cpp
 
 WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp
 
+WebProcess/Inspector/gtk/RemoteWebInspectorUIGtk.cpp
 WebProcess/Inspector/gtk/WebInspectorUIGtk.cpp
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
+
+WebProcess/WebCoreSupport/WebValidationMessageClient.cpp
 
 WebProcess/WebCoreSupport/glib/WebEditorClientGLib.cpp
 
@@ -427,8 +437,6 @@ WebProcess/WebPage/ViewGestureGeometryCollector.cpp
 WebProcess/WebPage/CoordinatedGraphics/CompositingCoordinator.cpp
 WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphics.cpp
 WebProcess/WebPage/CoordinatedGraphics/LayerTreeHost.cpp
-
-WebProcess/WebPage/atk/WebKitWebPageAccessibilityObject.cpp
 
 WebProcess/WebPage/glib/WebPageGLib.cpp
 

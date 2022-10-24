@@ -83,7 +83,6 @@
      <exports symbol='XSLT_XALAN_NAMESPACE' type='macro'/>
      <exports symbol='XSLT_SAXON_NAMESPACE' type='macro'/>
      <exports symbol='XSLT_LIBXSLT_NAMESPACE' type='macro'/>
-     <exports symbol='XSLT_NORM_SAXON_NAMESPACE' type='macro'/>
      <exports symbol='xsltFunctionNodeSet' type='function'/>
      <exports symbol='xsltRegisterExtras' type='function'/>
      <exports symbol='xsltDebug' type='function'/>
@@ -165,6 +164,7 @@
      <exports symbol='xsltCompilePattern' type='function'/>
      <exports symbol='xsltMatchPattern' type='function'/>
      <exports symbol='xsltGetTemplate' type='function'/>
+     <exports symbol='xsltCompMatchClearCache' type='function'/>
      <exports symbol='xsltTestCompMatchList' type='function'/>
      <exports symbol='xsltFreeCompMatchList' type='function'/>
      <exports symbol='xsltFreeTemplateHashes' type='function'/>
@@ -264,6 +264,9 @@
      <description>interface for the variable matching and lookup. </description>
      <author>Daniel Veillard </author>
      <exports symbol='XSLT_REGISTER_VARIABLE_LOOKUP' type='macro'/>
+     <exports symbol='XSLT_RVT_FUNC_RESULT' type='macro'/>
+     <exports symbol='XSLT_RVT_GLOBAL' type='macro'/>
+     <exports symbol='XSLT_RVT_LOCAL' type='macro'/>
      <exports symbol='xsltFreeGlobalVariables' type='function'/>
      <exports symbol='xsltQuoteUserParams' type='function'/>
      <exports symbol='xsltXPathVariableLookup' type='function'/>
@@ -314,7 +317,6 @@
      <exports symbol='XSLT_MARK_RES_TREE_FRAG' type='macro'/>
      <exports symbol='XSLT_GET_INTERNAL_NSMAP' type='macro'/>
      <exports symbol='XSLT_REFACTORED_KEYCOMP' type='macro'/>
-     <exports symbol='XSLT_REFACTORED_XPATHCOMP' type='macro'/>
      <exports symbol='XSLT_ITEM_NAVIGATION_FIELDS' type='macro'/>
      <exports symbol='XSLT_MAX_SORT' type='macro'/>
      <exports symbol='XSLT_RUNTIME_EXTRA' type='macro'/>
@@ -524,10 +526,13 @@
      <exports symbol='xsltParseStylesheetImportedDoc' type='function'/>
      <exports symbol='xsltFreeStackElemList' type='function'/>
      <exports symbol='xsltAllocateExtra' type='function'/>
+     <exports symbol='xsltFlagRVTs' type='function'/>
      <exports symbol='xsltParseSequenceConstructor' type='function'/>
      <exports symbol='xsltRegisterTmpRVT' type='function'/>
      <exports symbol='xsltInitAllDocKeys' type='function'/>
+     <exports symbol='xsltDecimalFormatGetByName' type='function'/>
      <exports symbol='xsltExtensionInstructionResultFinalize' type='function'/>
+     <exports symbol='xsltParseStylesheetUser' type='function'/>
      <exports symbol='xsltPointerListFree' type='function'/>
      <exports symbol='xsltIsBlank' type='function'/>
      <exports symbol='xsltFormatNumberConversion' type='function'/>
@@ -551,7 +556,7 @@
      <exports symbol='xsltParseTemplateContent' type='function'/>
      <exports symbol='xsltNewStylesheet' type='function'/>
      <exports symbol='xsltParseStylesheetProcess' type='function'/>
-     <exports symbol='xsltDecimalFormatGetByName' type='function'/>
+     <exports symbol='xsltDecimalFormatGetByQName' type='function'/>
      <exports symbol='xsltTransformFunction' type='function'/>
      <exports symbol='xsltRegisterLocalRVT' type='function'/>
      <exports symbol='xsltParseStylesheetDoc' type='function'/>
@@ -574,7 +579,9 @@
      <summary>Locale handling</summary>
      <description>Interfaces for locale handling. Needed for language dependent sorting. </description>
      <author>Nick Wellnhofer </author>
+     <exports symbol='XSLT_LOCALE_WINAPI' type='macro'/>
      <exports symbol='XSLT_LOCALE_NONE' type='macro'/>
+     <exports symbol='XSLT_LOCALE_POSIX' type='macro'/>
      <exports symbol='xsltLocale' type='typedef'/>
      <exports symbol='xsltLocaleChar' type='typedef'/>
      <exports symbol='xsltNewLocale' type='function'/>
@@ -764,7 +771,13 @@
       <info>This is the libxslt namespace for specific extensions.</info>
     </macro>
     <macro name='XSLT_LOCALE_NONE' file='xsltlocale'>
-      <info>Macro indicating that locale are not supported</info>
+      <info>Macro indicating that there&apos;s no extended locale support</info>
+    </macro>
+    <macro name='XSLT_LOCALE_POSIX' file='xsltlocale'>
+      <info>Macro indicating to use POSIX locale extensions</info>
+    </macro>
+    <macro name='XSLT_LOCALE_WINAPI' file='xsltlocale'>
+      <info>Macro indicating to use WinAPI for extended locale support</info>
     </macro>
     <macro name='XSLT_MARK_RES_TREE_FRAG' file='xsltInternals'>
       <info>internal macro to set up tree fragments</info>
@@ -774,9 +787,6 @@
     </macro>
     <macro name='XSLT_NAMESPACE' file='xslt'>
       <info>The XSLT specification namespace.</info>
-    </macro>
-    <macro name='XSLT_NORM_SAXON_NAMESPACE' file='extra'>
-      <info>This is Norm&apos;s namespace for SAXON extensions.</info>
     </macro>
     <macro name='XSLT_PARSE_OPTIONS' file='xslt'>
       <info>The set of options to pass to an xmlReadxxx when loading files for XSLT consumption.</info>
@@ -789,9 +799,6 @@
     </macro>
     <macro name='XSLT_REFACTORED_VARS' file='xsltInternals'>
       <info>Internal define to enable the refactored variable part of libxslt</info>
-    </macro>
-    <macro name='XSLT_REFACTORED_XPATHCOMP' file='xsltInternals'>
-      <info>Internal define to enable the optimization of the compilation of XPath expressions.</info>
     </macro>
     <macro name='XSLT_REGISTER_FUNCTION_LOOKUP' file='functions'>
       <info>Registering macro, not general purpose at all but used in different modules.</info>
@@ -813,6 +820,15 @@
       <info>Macro used to access extra information stored in the context</info>
       <arg name='ctxt' info='the transformation context'/>
       <arg name='nr' info='the index'/>
+    </macro>
+    <macro name='XSLT_RVT_FUNC_RESULT' file='variables'>
+      <info>RVT is part of results returned with func:result. The RVT won&apos;t be destroyed after exiting a template and will be reset to XSLT_RVT_LOCAL or XSLT_RVT_VARIABLE in the template that receives the return value.</info>
+    </macro>
+    <macro name='XSLT_RVT_GLOBAL' file='variables'>
+      <info>RVT is part of a global variable.</info>
+    </macro>
+    <macro name='XSLT_RVT_LOCAL' file='variables'>
+      <info>RVT is destroyed after the current instructions ends.</info>
     </macro>
     <macro name='XSLT_SAXON_NAMESPACE' file='extra'>
       <info>This is Michael Kay&apos;s Saxon processor namespace for extensions.</info>
@@ -940,7 +956,6 @@ in a parsing episode'/>
 *'/>
       <field name='strict' type='int' info=''/>
       <field name='psData' type='xsltPrincipalStylesheetDataPtr' info=''/>
-      <field name='xpathCtxt' type='xmlXPathContextPtr' info=''/>
       <field name='unknownItem' type='xsltStyleItemUknownPtr' info=''/>
       <field name='hasNsAliases' type='int' info=' Indicator if there was an xsl:namespace-alias.'/>
       <field name='nsAliases' type='xsltNsAliasPtr' info=''/>
@@ -991,6 +1006,7 @@ extension element'/>
       <field name='percent' type='xmlChar *' info=''/>
       <field name='permille' type='xmlChar *' info=''/>
       <field name='zeroDigit' type='xmlChar *' info=''/>
+      <field name='nsUri' type='const xmlChar *' info=''/>
     </struct>
     <typedef name='xsltDecimalFormatPtr' file='xsltInternals' type='xsltDecimalFormat *'/>
     <struct name='xsltDocument' file='xsltInternals' type='struct _xsltDocument'>
@@ -1015,7 +1031,7 @@ extension element'/>
     <typedef name='xsltEffectiveNsPtr' file='xsltInternals' type='xsltEffectiveNs *'/>
     <struct name='xsltElemPreComp' file='xsltInternals' type='struct _xsltElemPreComp'>
       <field name='next' type='xsltElemPreCompPtr' info=' next item in the global chained
-list hold by xsltStylesheet.'/>
+list held by xsltStylesheet.'/>
       <field name='type' type='xsltStyleType' info=' type of the element'/>
       <field name='func' type='xsltTransformFunction' info=' handling function'/>
       <field name='inst' type='xmlNodePtr' info=' the node in the stylesheet&apos;s tree
@@ -1361,16 +1377,17 @@ preserve space elements'/>
       <field name='variables' type='xsltStackElemPtr' info='* Template descriptions.
 *'/>
       <field name='templates' type='xsltTemplatePtr' info=' the ordered list of templates'/>
-      <field name='templatesHash' type='void *' info=' hash table or wherever compiled templates
-informations are stored'/>
-      <field name='rootMatch' type='void *' info=' template based on /'/>
-      <field name='keyMatch' type='void *' info=' template based on key()'/>
-      <field name='elemMatch' type='void *' info=' template based on *'/>
-      <field name='attrMatch' type='void *' info=' template based on @*'/>
-      <field name='parentMatch' type='void *' info=' template based on ..'/>
-      <field name='textMatch' type='void *' info=' template based on text()'/>
-      <field name='piMatch' type='void *' info=' template based on processing-instruction()'/>
-      <field name='commentMatch' type='void *' info='* Namespace aliases.
+      <field name='templatesHash' type='xmlHashTablePtr' info=' hash table or wherever compiled
+templates information is stored'/>
+      <field name='rootMatch' type='struct _xsltCompMatch *' info=' template based on /'/>
+      <field name='keyMatch' type='struct _xsltCompMatch *' info=' template based on key()'/>
+      <field name='elemMatch' type='struct _xsltCompMatch *' info=' template based on *'/>
+      <field name='attrMatch' type='struct _xsltCompMatch *' info=' template based on @*'/>
+      <field name='parentMatch' type='struct _xsltCompMatch *' info=' template based on ..'/>
+      <field name='textMatch' type='struct _xsltCompMatch *' info=' template based on text()'/>
+      <field name='piMatch' type='struct _xsltCompMatch *' info=' template based on
+processing-instruction()'/>
+      <field name='commentMatch' type='struct _xsltCompMatch *' info='* Namespace aliases.
 * NOTE: Not used in the refactored code.
 *'/>
       <field name='nsAliases' type='xmlHashTablePtr' info='* Attribute sets.
@@ -1435,6 +1452,8 @@ TODO: We need to get rid of this.
       <field name='principalData' type='xsltPrincipalStylesheetDataPtr' info='* Forwards-compatible processing
 *'/>
       <field name='forwards_compatible' type='int' info=''/>
+      <field name='namedTemplates' type='xmlHashTablePtr' info=' hash table of named templates'/>
+      <field name='xpathCtxt' type='xmlXPathContextPtr' info=''/>
     </struct>
     <typedef name='xsltStylesheetPtr' file='xsltInternals' type='xsltStylesheet *'/>
     <struct name='xsltTemplate' file='xsltInternals' type='struct _xsltTemplate'>
@@ -1451,14 +1470,15 @@ TODO: We need to get rid of this.
 *  refactored code.
 *'/>
       <field name='inheritedNsNr' type='int' info=' number of inherited namespaces'/>
-      <field name='inheritedNs' type='xmlNsPtr *' info=' inherited non-excluded namespaces Profiling informations'/>
+      <field name='inheritedNs' type='xmlNsPtr *' info=' inherited non-excluded namespaces Profiling information'/>
       <field name='nbCalls' type='int' info=' the number of time the template was called'/>
       <field name='time' type='unsigned long' info=' the time spent in this template'/>
       <field name='params' type='void *' info=' xsl:param instructions'/>
       <field name='templNr' type='int' info=' Nb of templates in the stack'/>
       <field name='templMax' type='int' info=' Size of the templtes stack'/>
       <field name='templCalledTab' type='xsltTemplatePtr *' info=' templates called'/>
-      <field name='templCountTab' type='int *' info=' .. and how often'/>
+      <field name='templCountTab' type='int *' info=' .. and how often Conflict resolution'/>
+      <field name='position' type='int' info=''/>
     </struct>
     <typedef name='xsltTemplatePtr' file='xsltInternals' type='xsltTemplate *'/>
     <struct name='xsltTransformCache' file='xsltInternals' type='struct _xsltTransformCache'>
@@ -1511,7 +1531,7 @@ TODO: We need to get rid of this.
       <field name='_private' type='void *' info=' user defined data'/>
       <field name='extrasNr' type='int' info=' the number of extras used'/>
       <field name='extrasMax' type='int' info=' the number of extras allocated'/>
-      <field name='extras' type='xsltRuntimeExtraPtr' info=' extra per runtime informations'/>
+      <field name='extras' type='xsltRuntimeExtraPtr' info=' extra per runtime information'/>
       <field name='styleList' type='xsltDocumentPtr' info=' the stylesheet docs list'/>
       <field name='sec' type='void *' info=' the security preferences if any'/>
       <field name='error' type='xmlGenericErrorFunc' info=' a specific error handler'/>
@@ -1524,8 +1544,8 @@ TODO: We need to get rid of this.
       <field name='ctxtflags' type='int' info='* Speed optimization when coalescing text nodes
 *'/>
       <field name='lasttext' type='const xmlChar *' info=' last text node content'/>
-      <field name='lasttsize' type='unsigned int' info=' last text node size'/>
-      <field name='lasttuse' type='unsigned int' info='* Per Context Debugging
+      <field name='lasttsize' type='int' info=' last text node size'/>
+      <field name='lasttuse' type='int' info='* Per Context Debugging
 *'/>
       <field name='debugStatus' type='int' info=' the context level debug status'/>
       <field name='traceCode' type='unsigned long *' info=' pointer to the variable holding the mask'/>
@@ -1545,11 +1565,13 @@ TODO: We need to get rid of this.
       <field name='localRVT' type='xmlDocPtr' info=' list of local tree fragments; will be freed when
 the instruction which created the fragment
 exits'/>
-      <field name='localRVTBase' type='xmlDocPtr' info=''/>
+      <field name='localRVTBase' type='xmlDocPtr' info=' Obsolete'/>
       <field name='keyInitLevel' type='int' info=' Needed to catch recursive keys issues'/>
-      <field name='funcLevel' type='int' info=' Needed to catch recursive functions issues'/>
+      <field name='depth' type='int' info=' Needed to catch recursions'/>
       <field name='maxTemplateDepth' type='int' info=''/>
       <field name='maxTemplateVars' type='int' info=''/>
+      <field name='opLimit' type='unsigned long' info=''/>
+      <field name='opCount' type='unsigned long' info=''/>
     </struct>
     <typedef name='xsltTransformContextPtr' file='xsltInternals' type='xsltTransformContext *'/>
     <typedef name='xsltTransformState' file='xsltInternals' type='enum'/>
@@ -1647,7 +1669,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
       <arg name='contextNode' type='xmlNodePtr' info='the current node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the element node of the XSLT &apos;apply-imports&apos; instruction'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='the compiled instruction'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='the compiled instruction'/>
     </function>
     <function name='xsltApplyOneTemplate' file='transform'>
       <info>Processes a sequence constructor on the current node in the source tree.  @params are the already computed variable stack items; this function pushes them on the variable stack, and pops them before exiting; it&apos;s left to the caller to free or reuse @params afterwards. The initial states of the variable stack will always be restored before this function exits. NOTE that this does *not* initiate a new distinct variable scope; i.e. variables already on the stack are visible to the process. The caller&apos;s side needs to start a new variable scope if needed (e.g. in exsl:function).  @templ is obsolete and not used anymore (e.g. &lt;exslt:function&gt; does not provide a @templ); a non-NULL @templ might raise an error in the future.  BIG NOTE: This function is not intended to process the content of an xsl:template; it does not expect xsl:param instructions in @list and will report errors if found.  Called by: - xsltEvalVariable() (variables.c) - exsltFuncFunctionFunction() (libexsl/functions.c)</info>
@@ -1687,7 +1709,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT transformation context'/>
       <arg name='node' type='xmlNodePtr' info='the &apos;current node&apos; in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the element node of an XSLT &apos;apply-templates&apos; instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='the compiled instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='the compiled instruction'/>
     </function>
     <function name='xsltAttrListTemplateProcess' file='templates'>
       <info>Processes all attributes of a Literal Result Element. Attribute references are applied via xsl:use-attribute-set attributes. Copies all non XSLT-attributes over to the @target element and evaluates Attribute Value Templates.  Called by xsltApplySequenceConstructor() (transform.c).</info>
@@ -1720,9 +1742,9 @@ exits'/>
       <info>Process the xslt attribute node on the source node</info>
       <return type='void'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
-      <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
-      <arg name='inst' type='xmlNodePtr' info='the xslt attribute node'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='contextNode' type='xmlNodePtr' info='the current node in the source tree'/>
+      <arg name='inst' type='xmlNodePtr' info='the xsl:attribute element'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltCalibrateAdjust' file='xsltutils'>
       <info>Used for to correct the calibration for xsltTimestamp()</info>
@@ -1735,7 +1757,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT transformation context'/>
       <arg name='node' type='xmlNodePtr' info='the &quot;current node&quot; in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the XSLT &apos;call-template&apos; instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='the compiled information of the instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='the compiled information of the instruction'/>
     </function>
     <function name='xsltCheckExtPrefix' file='extensions'>
       <info>Check if the given prefix is one of the declared extensions. This is intended to be called only at compile-time. Called by: xsltGetInheritedNsList() (xslt.c) xsltParseTemplateContent (xslt.c)</info>
@@ -1769,7 +1791,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='contextNode' type='xmlNodePtr' info='the current node in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the xsl:choose instruction'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='compiled information of the instruction'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='compiled information of the instruction'/>
     </function>
     <function name='xsltCleanupGlobals' file='xslt'>
       <info>Unregister all global variables set up by the XSLT library</info>
@@ -1786,10 +1808,16 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt comment node'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='precomputed information'/>
+    </function>
+    <function name='xsltCompMatchClearCache' file='pattern'>
+      <info>Clear pattern match cache.</info>
+      <return type='void'/>
+      <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
+      <arg name='comp' type='xsltCompMatchPtr' info='the precompiled pattern list'/>
     </function>
     <function name='xsltCompileAttr' file='xsltInternals'>
-      <info>Precompile an attribute in a stylesheet, basically it checks if it is an attrubute value template, and if yes establish some structures needed to process it at transformation time.</info>
+      <info>Precompile an attribute in a stylesheet, basically it checks if it is an attribute value template, and if yes, establish some structures needed to process it at transformation time.</info>
       <return type='void'/>
       <arg name='style' type='xsltStylesheetPtr' info='a XSLT process context'/>
       <arg name='attr' type='xmlAttrPtr' info='the attribute coming from the stylesheet.'/>
@@ -1815,7 +1843,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the element node of the XSLT-copy instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='computed information of the XSLT-copy instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='computed information of the XSLT-copy instruction'/>
     </function>
     <function name='xsltCopyNamespace' file='namespaces'>
       <info>Copies a namespace node (declaration). If @elem is not NULL, then the new namespace will be declared on @elem.</info>
@@ -1837,7 +1865,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
       <arg name='node' type='xmlNodePtr' info='the current node in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the element node of the XSLT copy-of instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information of the XSLT copy-of instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information of the XSLT copy-of instruction'/>
     </function>
     <function name='xsltCopyTextString' file='transform'>
       <info>Adds @string to a newly created or an existent text node child of @target.</info>
@@ -1858,7 +1886,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT processing context'/>
       <arg name='node' type='xmlNodePtr' info='The current node'/>
       <arg name='inst' type='xmlNodePtr' info='the instruction in the stylesheet'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='precomputed informations'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltDebugDumpExtensions' file='extensions'>
       <info>Dumps a list of the registered XSLT extension functions and elements</info>
@@ -1879,6 +1907,13 @@ exits'/>
       <return type='xsltDecimalFormatPtr' info='the xsltDecimalFormatPtr'/>
       <arg name='style' type='xsltStylesheetPtr' info='the XSLT stylesheet'/>
       <arg name='name' type='xmlChar *' info='the decimal-format name to find'/>
+    </function>
+    <function name='xsltDecimalFormatGetByQName' file='xsltInternals'>
+      <info>Find decimal-format by QName</info>
+      <return type='xsltDecimalFormatPtr' info='the xsltDecimalFormatPtr'/>
+      <arg name='style' type='xsltStylesheetPtr' info='the XSLT stylesheet'/>
+      <arg name='nsUri' type='const xmlChar *' info='the namespace URI of the QName'/>
+      <arg name='name' type='const xmlChar *' info='the local part of the QName'/>
     </function>
     <function name='xsltDefaultSortFunction' file='xsltutils'>
       <info>reorder the current node list accordingly to the set of sorting requirement provided by the arry of nodes.</info>
@@ -1916,7 +1951,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT processing context'/>
       <arg name='node' type='xmlNodePtr' info='The current node'/>
       <arg name='inst' type='xmlNodePtr' info='the instruction in the stylesheet'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltDocumentFunction' file='functions'>
       <info>Implement the document() XSLT function node-set document(object, node-set?)</info>
@@ -1944,7 +1979,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt element node'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltElementAvailableFunction' file='functions'>
       <info>Implement the element-available() XSLT function boolean element-available(string)</info>
@@ -2069,12 +2104,12 @@ exits'/>
     </functype>
     <function name='xsltExtensionInstructionResultFinalize' file='xsltInternals'>
       <info>Finalizes the data (e.g. result tree fragments) created within a value-returning process (e.g. EXSLT&apos;s function). Tree fragments marked as being returned by a function are set to normal state, which means that the fragment garbage collector will free them after the function-calling process exits.</info>
-      <return type='int' info='0 in case of success and -1 in case of API or internal errors.'/>
+      <return type='int' info='0 in case of success and -1 in case of API or internal errors.  This function is unsupported in newer releases of libxslt.'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
     </function>
     <function name='xsltExtensionInstructionResultRegister' file='xsltInternals'>
       <info>Marks the result of a value-returning extension instruction in order to avoid it being garbage collected before the extension instruction exits. Note that one still has to additionally register any newly created tree fragments (via xsltCreateRVT()) with xsltRegisterLocalRVT().</info>
-      <return type='int' info='0 in case of success and -1 in case of error.'/>
+      <return type='int' info='0 in case of success and -1 in case of error.  It isn&apos;t necessary to call this function in newer releases of libxslt.'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
       <arg name='obj' type='xmlXPathObjectPtr' info='an XPath object to be inspected for result tree fragments'/>
     </function>
@@ -2085,7 +2120,7 @@ exits'/>
       <arg name='doc' type='xmlDocPtr' info='a parsed XML document'/>
     </function>
     <function name='xsltFindElemSpaceHandling' file='imports'>
-      <info>Find strip-space or preserve-space informations for an element respect the import precedence or the wildcards</info>
+      <info>Find strip-space or preserve-space information for an element respect the import precedence or the wildcards</info>
       <return type='int' info='1 if space should be stripped, 0 if not, and 2 if everything should be CDTATA wrapped.'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
       <arg name='node' type='xmlNodePtr' info='an XML node'/>
@@ -2097,13 +2132,20 @@ exits'/>
       <arg name='name' type='const xmlChar *' info='the template name'/>
       <arg name='nameURI' type='const xmlChar *' info='the template name URI'/>
     </function>
+    <function name='xsltFlagRVTs' file='xsltInternals'>
+      <info>Updates ownership information of RVTs in @obj according to @val.  @val = XSLT_RVT_FUNC_RESULT for the result of an extension function, so its RVTs won&apos;t be destroyed after leaving the returning scope. @val = XSLT_RVT_LOCAL for the result of an extension function to reset the state of its RVTs after it was returned to a new scope. @val = XSLT_RVT_GLOBAL for parts of global variables.</info>
+      <return type='int' info='0 in case of success and -1 in case of error.'/>
+      <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
+      <arg name='obj' type='xmlXPathObjectPtr' info='an XPath object to be inspected for result tree fragments'/>
+      <arg name='val' type='void *' info='the flag value'/>
+    </function>
     <function name='xsltForEach' file='transform'>
       <info>Process the xslt for-each node on the source node</info>
       <return type='void'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT transformation context'/>
       <arg name='contextNode' type='xmlNodePtr' info='the &quot;current node&quot; in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the element node of the xsl:for-each instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='the compiled information of the instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='the compiled information of the instruction'/>
     </function>
     <function name='xsltFormatNumberConversion' file='xsltInternals'>
       <info>format-number() uses the JDK 1.1 DecimalFormat class:  http://java.sun.com/products/jdk/1.1/docs/api/java.text.DecimalFormat.html  Structure:  pattern    := subpattern{;subpattern} subpattern := {prefix}integer{.fraction}{suffix} prefix     := &apos;\\u0000&apos;..&apos;\\uFFFD&apos; - specialCharacters suffix     := &apos;\\u0000&apos;..&apos;\\uFFFD&apos; - specialCharacters integer    := &apos;#&apos;* &apos;0&apos;* &apos;0&apos; fraction   := &apos;0&apos;* &apos;#&apos;*  Notation: X*       0 or more instances of X (X | Y)  either X or Y. X..Y     any character from X up to Y, inclusive. S - T    characters in S, except those in T  Special Characters:  Symbol Meaning 0      a digit #      a digit, zero shows as absent .      placeholder for decimal separator ,      placeholder for grouping separator. ;      separates formats. -      default negative prefix. %      multiply by 100 and show as percentage ?      multiply by 1000 and show as per mille X      any other characters can be used in the prefix or suffix &apos;      used to quote special characters in a prefix or suffix.</info>
@@ -2111,7 +2153,7 @@ exits'/>
       <arg name='self' type='xsltDecimalFormatPtr' info='the decimal format'/>
       <arg name='format' type='xmlChar *' info='the format requested'/>
       <arg name='number' type='double' info='the value to format'/>
-      <arg name='result' type='xmlChar **' info='the place to ouput the result'/>
+      <arg name='result' type='xmlChar **' info='the place to output the result'/>
     </function>
     <function name='xsltFormatNumberFunction' file='functions'>
       <info>Implement the format-number() XSLT function string format-number(number, string, string?)</info>
@@ -2296,7 +2338,7 @@ exits'/>
       <arg name='out' type='xmlNodePtr' info='the result element'/>
     </function>
     <function name='xsltGetProfileInformation' file='xsltutils'>
-      <info>This function should be called after the transformation completed to extract template processing profiling informations if availble. The informations are returned as an XML document tree like &lt;?xml version=&quot;1.0&quot;?&gt; &lt;profile&gt; &lt;template rank=&quot;1&quot; match=&quot;*&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;6&quot; time=&quot;48&quot; average=&quot;8&quot;/&gt; &lt;template rank=&quot;2&quot; match=&quot;item2|item3&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;10&quot; time=&quot;30&quot; average=&quot;3&quot;/&gt; &lt;template rank=&quot;3&quot; match=&quot;item1&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;5&quot; time=&quot;17&quot; average=&quot;3&quot;/&gt; &lt;/profile&gt; The caller will need to free up the returned tree with xmlFreeDoc()</info>
+      <info>This function should be called after the transformation completed to extract template processing profiling information if available. The information is returned as an XML document tree like &lt;?xml version=&quot;1.0&quot;?&gt; &lt;profile&gt; &lt;template rank=&quot;1&quot; match=&quot;*&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;6&quot; time=&quot;48&quot; average=&quot;8&quot;/&gt; &lt;template rank=&quot;2&quot; match=&quot;item2|item3&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;10&quot; time=&quot;30&quot; average=&quot;3&quot;/&gt; &lt;template rank=&quot;3&quot; match=&quot;item1&quot; name=&quot;&quot; mode=&quot;&quot; calls=&quot;5&quot; time=&quot;17&quot; average=&quot;3&quot;/&gt; &lt;/profile&gt; The caller will need to free up the returned tree with xmlFreeDoc()</info>
       <return type='xmlDocPtr' info='the xmlDocPtr corresponding to the result or NULL if not available.'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a transformation context'/>
     </function>
@@ -2359,7 +2401,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='contextNode' type='xmlNodePtr' info='the current node in the source tree'/>
       <arg name='inst' type='xmlNodePtr' info='the xsl:if instruction'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='compiled information of the instruction'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='compiled information of the instruction'/>
     </function>
     <function name='xsltInit' file='xslt'>
       <info>Initializes the processor (e.g. registers built-in extensions, etc.)</info>
@@ -2533,13 +2575,13 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt number node'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltNumberFormat' file='xsltInternals'>
       <info>Convert one number.</info>
       <return type='void'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='the XSLT transformation context'/>
-      <arg name='data' type='xsltNumberDataPtr' info='the formatting informations'/>
+      <arg name='data' type='xsltNumberDataPtr' info='the formatting information'/>
       <arg name='node' type='xmlNodePtr' info='the data to format'/>
     </function>
     <function name='xsltParseAnyXSLTElem' file='xsltInternals'>
@@ -2573,7 +2615,7 @@ exits'/>
       <arg name='cur' type='xmlNodePtr' info='the &quot;attribute-set&quot; element'/>
     </function>
     <function name='xsltParseStylesheetCallerParam' file='variables'>
-      <info>Processes an xsl:with-param instruction at transformation time. The value is compute, but not recorded. NOTE that this is also called with an *xsl:param* element from exsltFuncFunctionFunction().</info>
+      <info>Processes an xsl:with-param instruction at transformation time. The value is computed, but not recorded. NOTE that this is also called with an *xsl:param* element from exsltFuncFunctionFunction().</info>
       <return type='xsltStackElemPtr' info='the new xsltStackElemPtr or NULL'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='the XSLT transformation context'/>
       <arg name='inst' type='xmlNodePtr' info='the xsl:with-param instruction element'/>
@@ -2623,6 +2665,12 @@ exits'/>
       <return type='xsltStylesheetPtr' info='the value of the @style parameter if everything went right, NULL if something went amiss.'/>
       <arg name='ret' type='xsltStylesheetPtr' info='the XSLT stylesheet (the current stylesheet-level)'/>
       <arg name='doc' type='xmlDocPtr' info='and xmlDoc parsed XML'/>
+    </function>
+    <function name='xsltParseStylesheetUser' file='xsltInternals'>
+      <info>Parse an XSLT stylesheet with a user-provided stylesheet struct.</info>
+      <return type='int' info='0 if successful, -1 in case of error.'/>
+      <arg name='style' type='xsltStylesheetPtr' info='pointer to the stylesheet'/>
+      <arg name='doc' type='xmlDocPtr' info='an xmlDoc parsed XML'/>
     </function>
     <function name='xsltParseStylesheetVariable' file='variables'>
       <info>Registers a local XSLT &apos;variable&apos; instruction at transformation time and evaluates its value.</info>
@@ -2691,7 +2739,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt processing-instruction node'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltProfileStylesheet' file='transform'>
       <info>Apply the stylesheet to the document and dump the profiling to the given output.</info>
@@ -2856,10 +2904,10 @@ exits'/>
       <arg name='userCtxt' type='xsltTransformContextPtr' info='user provided transform context'/>
     </function>
     <function name='xsltSaveProfiling' file='xsltutils'>
-      <info>Save the profiling informations on @output</info>
+      <info>Save the profiling information on @output</info>
       <return type='void'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='an XSLT context'/>
-      <arg name='output' type='FILE *' info='a FILE * for saving the informations'/>
+      <arg name='output' type='FILE *' info='a FILE * for saving the information'/>
     </function>
     <function name='xsltSaveResultTo' file='xsltutils'>
       <info>Save the result @result obtained by applying the @style stylesheet to an I/O output channel @buf</info>
@@ -3010,7 +3058,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt sort node'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <functype name='xsltSortFunc' file='xsltInternals'>
       <info>Signature of the function to use during sorting</info>
@@ -3088,7 +3136,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt text node'/>
-      <arg name='comp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='comp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltTimestamp' file='xsltutils'>
       <info>Used for gathering profiling data</info>
@@ -3156,7 +3204,7 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
       <arg name='node' type='xmlNodePtr' info='the node in the source tree.'/>
       <arg name='inst' type='xmlNodePtr' info='the xslt value-of node'/>
-      <arg name='castedComp' type='xsltStylePreCompPtr' info='precomputed information'/>
+      <arg name='castedComp' type='xsltElemPreCompPtr' info='precomputed information'/>
     </function>
     <function name='xsltVariableLookup' file='variables'>
       <info>Search in the Variable array of the context for the given variable value.</info>
@@ -3181,7 +3229,7 @@ exits'/>
     <function name='xsltXPathFunctionLookup' file='functions'>
       <info>This is the entry point when a function is needed by the XPath interpretor.</info>
       <return type='xmlXPathFunction' info='the callback function or NULL if not found'/>
-      <arg name='ctxt' type='xmlXPathContextPtr' info='a void * but the XSLT transformation context actually'/>
+      <arg name='vctxt' type='void *' info='a void * but the XSLT transformation context actually'/>
       <arg name='name' type='const xmlChar *' info='the function name'/>
       <arg name='ns_uri' type='const xmlChar *' info='the function namespace URI'/>
     </function>

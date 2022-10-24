@@ -4,6 +4,13 @@
 <dict>
     <key>Project</key>
     <string>CommonCrypto</string>
+    <key>RadarComponents</key>
+    <dict>
+        <key>Name</key>
+        <string>CommonCrypto</string>
+        <key>Version</key>
+        <string>all</string>
+    </dict>
     <key>Tests</key>
     <array>
         <dict>

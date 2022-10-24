@@ -37,6 +37,7 @@
 #include <smbfs/smbfs_subr_2.h>
 #include <smbfs/smbfs_attrlist.h>
 
+
 #define SMBFS_AVERAGE_NAME_SIZE   22
 #define AVERAGE_SMBDIRENTRY_SIZE  (8 + SMBFS_AVERAGE_NAME_SIZE + 4)
 
@@ -1240,7 +1241,7 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 	uio_t uio = ap->a_uio;
 	int maxcount = ap->a_maxcount;
 	u_int32_t fixedblocksize;
-	u_int32_t maxattrblocksize;
+	u_int32_t maxattrblocksize = 0;
 	u_int32_t currattrbufsize;
 	void *attrbufptr = NULL;
 	void *attrptr;
@@ -1343,7 +1344,7 @@ smbfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 	if (alist->commonattr & ATTR_CMN_NAME) 
 		maxattrblocksize += (share->ss_maxfilenamelen * 3) + 1;
     
-	MALLOC(attrbufptr, void *, maxattrblocksize, M_TEMP, M_WAITOK);
+    SMB_MALLOC_DATA(attrbufptr, maxattrblocksize, Z_WAITOK);
 	if (attrbufptr == NULL) {
 		error = ENOMEM;
 		goto done;
@@ -1480,12 +1481,12 @@ done:
 	/* Last offset into uio_offset. */
 	uio_setoffset(uio, dnp->d_offset);
     
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
+    smbnode_lease_lock(&dnp->n_lease, smbfs_vnop_readdirattr);
     *ap->a_newstate = dnp->d_changecnt;
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
-	
+    smbnode_lease_unlock(&dnp->n_lease);
+
 	if (attrbufptr) {
-		FREE(attrbufptr, M_TEMP);
+        SMB_FREE_DATA(attrbufptr, maxattrblocksize);
     }
     
 	smbnode_unlock(VTOSMB(dvp));

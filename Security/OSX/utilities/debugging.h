@@ -147,6 +147,7 @@ void __security_stackshotreport(CFStringRef reason, uint32_t code);
 #define __sec_exception_code_BadStash               __sec_exception_code(13)
 #define __sec_exception_code_UnexpectedState        __sec_exception_code(14)
 #define __sec_exception_code_RateLimit              __sec_exception_code(15)
+#define __sec_exception_code_ToolAuthReqd           __sec_exception_code(16)
 
 /* For testing only, turns off/on simulated crashes, when turning on, returns number of
    simulated crashes which were not reported since last turned off. */

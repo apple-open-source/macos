@@ -246,7 +246,7 @@ public:
   virtual int top(Node *n) {
 
     String *filen;
-    String *s_type;
+    __unused String *s_type;
 
     /* Check if directors are enabled for this module. */
     Node *mod = Getattr(n, "module");
@@ -1237,7 +1237,7 @@ public:
 		  break;
 		char *p;
 		errno = 0;
-		int n = strtol(Char(value), &p, 0);
+		long n = strtol(Char(value), &p, 0);
 	        Clear(value);
 		if (errno || *p) {
 		  Append(value, "?");
@@ -1255,7 +1255,7 @@ public:
 	      case T_LONG: {
 		char *p;
 		errno = 0;
-		unsigned int n = strtol(Char(value), &p, 0);
+		long n = strtol(Char(value), &p, 0);
 		(void) n;
 		if (errno || *p) {
 		  Clear(value);
@@ -1269,7 +1269,7 @@ public:
 	      case T_ULONG: {
 		char *p;
 		errno = 0;
-		unsigned int n = strtoul(Char(value), &p, 0);
+		unsigned long n = strtoul(Char(value), &p, 0);
 		(void) n;
 		if (errno || *p) {
 		  Clear(value);
@@ -2493,7 +2493,7 @@ done:
       /* build argument list and type conversion string */
       idx = 0;
       p = l;
-      int use_parse = 0;
+      __unused int use_parse = 0;
       while (p != NULL) {
 	if (checkAttribute(p, "tmap:in:numinputs", "0")) {
 	  p = Getattr(p, "tmap:in:next");
@@ -2509,7 +2509,7 @@ done:
 	if ((tm = Getattr(p, "tmap:directorin")) != 0) {
 	  String *parse = Getattr(p, "tmap:directorin:parse");
 	  if (!parse) {
-	    sprintf(source, "obj%d", idx++);
+	    snprintf(source, sizeof(source), "obj%d", idx++);
 	    String *input = NewStringf("&%s", source);
 	    Replaceall(tm, "$input", input);
 	    Delete(input);
@@ -2592,7 +2592,7 @@ done:
 	if (tm != 0) {
 	  Replaceall(tm, "$input", "&result");
 	  char temp[24];
-	  sprintf(temp, "%d", idx);
+	  snprintf(temp, sizeof(temp), "%d", idx);
 	  Replaceall(tm, "$argnum", temp);
 
 	  /* TODO check this */

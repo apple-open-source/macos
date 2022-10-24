@@ -1135,7 +1135,7 @@ void Scanner_skip_line(Scanner * s) {
 int Scanner_skip_balanced(Scanner * s, int startchar, int endchar) {
   char c;
   int num_levels = 1;
-  int l;
+  __unused int l;
   int state = 0;
   char temp[2] = { 0, 0 };
   l = s->line;

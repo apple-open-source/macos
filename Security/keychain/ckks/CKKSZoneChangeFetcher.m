@@ -136,7 +136,7 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
         WEAKIFY(self);
         _fetchScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"zone-change-fetch-scheduler"
                                                            initialDelay:initialDelay
-                                                       expontialBackoff:2
+                                                     exponentialBackoff:2
                                                            maximumDelay:maximumDelay
                                                        keepProcessAlive:false
                                               dependencyDescriptionCode:CKKSResultDescriptionPendingZoneChangeFetchScheduling

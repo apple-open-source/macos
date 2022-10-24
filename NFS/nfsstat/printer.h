@@ -47,7 +47,7 @@ struct nfsstats_printer {
 	void  (*mount_fh)(uint32_t fh_len, unsigned char *fh_data);
 	void  (*exports)(struct nfs_export_stat_rec  *rec);
 	void  (*active_users)(struct nfs_user_stat_user_rec *rec, const char *addr, struct passwd *pw, int printuuid, time_t hr, time_t min, time_t sec);
-	void  (*intpr)(const char *format, const char *t1, uint64_t e1, const char *t2, uint64_t e2, const char *t3, uint64_t e3, const char *t4, uint64_t e4, const char *t5, uint64_t e5, const char *t6, uint64_t e6);
+	void  (*intpr)(int numargs, ...);
 };
 
 /* Printf Printer */
@@ -65,7 +65,7 @@ void printf_mount_header(const char *, const char *);
 void printf_mount_fh(uint32_t, unsigned char *);
 void printf_exports(struct nfs_export_stat_rec *);
 void printf_active_users(struct nfs_user_stat_user_rec *, const char *, struct passwd *, int, time_t, time_t, time_t);
-void printf_intpr(const char *, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t);
+void printf_intpr(int, ...);
 
 static const struct nfsstats_printer printf_printer = {
 	.dump              = printf_null,
@@ -106,7 +106,7 @@ void json_mount_header(const char *, const char *);
 void json_mount_fh(uint32_t, unsigned char *);
 void json_exports(struct nfs_export_stat_rec *);
 void json_active_users(struct nfs_user_stat_user_rec *, const char *, struct passwd *, int, time_t, time_t, time_t);
-void json_intpr(const char *, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t, const char *, uint64_t);
+void json_intpr(int, ...);
 
 static const struct nfsstats_printer json_printer = {
 	.dump              = json_dump,

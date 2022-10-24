@@ -26,8 +26,7 @@
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "FloatRect.h"
 #include "RenderReplaced.h"
-// FIXME: [LBSE] Upstream SVGBoundingBoxComputation
-// #include "SVGBoundingBoxComputation.h"
+#include "SVGBoundingBoxComputation.h"
 
 namespace WebCore {
 
@@ -67,32 +66,18 @@ public:
 
     bool shouldApplyViewportClip() const;
 
-    // FIXME: [LBSE] Mark final, add applyTransform to RenderLayerModelObject
-    void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption>) const;
-
     FloatRect objectBoundingBox() const final { return m_objectBoundingBox; }
+    FloatRect objectBoundingBoxWithoutTransformations() const final { return m_objectBoundingBoxWithoutTransformations; }
     FloatRect strokeBoundingBox() const final { return m_strokeBoundingBox; }
+    FloatRect repaintRectInLocalCoordinates() const final { return SVGBoundingBoxComputation::computeRepaintBoundingBox(*this); }
 
-    // FIXME: [LBSE] Mark final, add repaintBoundingBox() to RenderObject
-    FloatRect repaintBoundingBox() const
-    {
-        // FIXME: [LBSE] Upstream SVGBoundingBoxComputation
-        // return SVGBoundingBoxComputation::computeRepaintBoundingBox(*this);
-        return m_strokeBoundingBox;
-    }
-
-    LayoutRect visualOverflowRectEquivalent() const
-    {
-        // FIXME: [LBSE] Upstream SVGBoundingBoxComputation
-        // return SVGBoundingBoxComputation::computeVisualOverflowRect(*this);
-        return LayoutRect();
-    }
+    LayoutRect visualOverflowRectEquivalent() const { return SVGBoundingBoxComputation::computeVisualOverflowRect(*this); }
 
 private:
     void element() const = delete;
 
     bool isSVGRoot() const override { return true; }
-    const char* renderName() const override { return "RenderSVGRoot"; }
+    ASCIILiteral renderName() const override { return "RenderSVGRoot"_s; }
     bool requiresLayer() const override { return true; }
 
     // To prevent certain legacy code paths to hit assertions in debug builds, when switching off LBSE (during the teardown of the LBSE tree).
@@ -139,6 +124,7 @@ private:
 
     IntSize m_containerSize;
     FloatRect m_objectBoundingBox;
+    FloatRect m_objectBoundingBoxWithoutTransformations;
     FloatRect m_strokeBoundingBox;
     AffineTransform m_viewBoxTransform;
     AffineTransform m_supplementalLocalToParentTransform;

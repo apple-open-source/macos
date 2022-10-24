@@ -31,11 +31,6 @@
 		<key>com.apple.SystemConfiguration.NetworkInformation_sim</key>
 		<true/>
 	</dict>
-	<key>Requires</key>
-	<array>
-		<string>com.apple.SystemConfiguration.IPConfiguration</string>
-		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
-	</array>
 	<key>SupplementalProxiesFollowSupplementalDNS</key>
 	<false/>
 	<key>mdns_timeout</key>

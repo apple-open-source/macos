@@ -41,30 +41,6 @@ typedef enum {
 	LT_Cert
 } LF_Type;
 
-static CSSM_RETURN tpDecodeCert(
-	Allocator		&alloc,
-	CSSM_DATA		&rtnBlob)		// will be reallocated if needed
-{
-	const unsigned char *inbuf = (const unsigned char *)rtnBlob.Data;
-	unsigned inlen = (unsigned)rtnBlob.Length;
-	unsigned char *outbuf = NULL;
-	unsigned outlen = 0;
-	CSSM_RETURN ortn = cuConvertPem(inbuf, inlen, &outbuf, &outlen);
-
-	if(ortn == 0 && outbuf != NULL) {
-		/* Decoded result needs to be malloc'd via input allocator */
-		unsigned char *rtnP = (unsigned char *) alloc.malloc(outlen);
-		if(rtnP != NULL) {
-			memcpy(rtnP, outbuf, outlen);
-			rtnBlob.Data = rtnP;
-			rtnBlob.Length = outlen;
-		}
-		free(outbuf);
-		alloc.free((void *)inbuf);
-	}
-	return ortn;
-}
-
 static CSSM_RETURN tpFetchViaNet(
 	const CSSM_DATA &url,
 	const CSSM_DATA *issuer,		// optional
@@ -110,7 +86,7 @@ static CSSM_RETURN tpCrlViaNet(
 	/* verifyTime: we want a CRL that's valid right now. */
 	{
 		StLock<Mutex> _(tpTimeLock());
-		timeAtNowPlus(0, TP_TIME_CSSM, cssmTime);
+		timeAtNowPlus(0, TP_TIME_CSSM, cssmTime, sizeof(cssmTime));
 	}
 
 	crtn = tpFetchViaNet(url, issuer, LT_Crl, cssmTime, alloc, crlData);

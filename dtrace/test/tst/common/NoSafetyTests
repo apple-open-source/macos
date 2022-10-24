@@ -367,7 +367,7 @@ dtraceUtil/tst.InvalidTraceProvider3.d.ksh
 dtraceUtil/tst.InvalidTraceProvider4.d.ksh
 dtraceUtil/tst.InvalidTraceProvider5.d.ksh
 dtraceUtil/tst.MultipleInvalidProbeId.d.ksh
-dtraceUtil/tst.PreprocessorStatement.d.ksh
+# dtraceUtil/tst.PreprocessorStatement.d.ksh        /* RADAR 70687549: (DTrace preprocesor not supported in cdefs.h) */
 dtraceUtil/tst.QuietMode.d.ksh
 dtraceUtil/tst.TestCompile.d.ksh
 dtraceUtil/tst.UnDefineNameWithCPP.d.ksh
@@ -498,7 +498,7 @@ inline/tst.InlineKinds.d
 inline/tst.InlineTypedef.d
 inline/tst.InlineWritableAssign.d
 # io/tst.fds.d									/* RADAR 4487714: Awaits Darwin io provider. */
-json/tst.general.d
+json/tst.preprocessor.general.d
 json/tst.strsize.d
 json/tst.usdt.d
 lexer/err.D_CHR_NL.char.d
@@ -600,7 +600,6 @@ pid/tst.oneshot_multithreaded.ksh
 pid/tst.ret1.d
 pid/tst.ret2.d
 pid/tst.return.d
-pid/tst.vfork.d
 # pid/tst.dlopen.ksh /* RADAR 24974843 */
 # pid/tst.weak1.d								/* DEFERRED wants #pragma weak _go = go */
 # pid/tst.weak2.d								/* DEFERRED wants #pragma weak _go = go */
@@ -999,6 +998,7 @@ sugar/tst.if_nested.d
 sugar/tst.if_trailing_semicolon.d
 sugar/tst.if_trailing_semicolon2.d
 syscall/tst.openret.ksh
+syscall/tst.machtrap.d
 tick-n/err.D_PDESC_ZERO.tick.d
 tick-n/err.D_PDESC_ZEROonens.d
 tick-n/err.D_PDESC_ZEROonensec.d

@@ -64,6 +64,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
@@ -98,12 +99,12 @@ int unix2003_compat;
 int cflag;
 int Xflag;
 #endif /* __APPLE__ */
-static int Rflag, rflag;
+static int Hflag, Lflag, Rflag, rflag;
 volatile sig_atomic_t info;
 
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
 
-static int copy(char *[], enum op, int);
+static int copy(char *[], enum op, int, struct stat *);
 static void siginfo(int __unused);
 
 int
@@ -111,12 +112,12 @@ main(int argc, char *argv[])
 {
 	struct stat to_stat, tmp_stat;
 	enum op type;
-	int Hflag, Lflag, ch, fts_options, r, have_trailing_slash;
+	int Pflag, ch, fts_options, r, have_trailing_slash;
 	char *target;
 
 	unix2003_compat = COMPAT_MODE("bin/cp", "unix2003");
 	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
-	Hflag = Lflag = 0;
+	Pflag = 0;
 #ifdef __APPLE__
 	while ((ch = getopt(argc, argv, "cHLPRXafilnprsvx")) != -1)
 #else
@@ -130,13 +131,14 @@ main(int argc, char *argv[])
 #endif
 		case 'H':
 			Hflag = 1;
-			Lflag = 0;
+			Lflag = Pflag = 0;
 			break;
 		case 'L':
 			Lflag = 1;
-			Hflag = 0;
+			Hflag = Pflag = 0;
 			break;
 		case 'P':
+			Pflag = 1;
 			Hflag = Lflag = 0;
 			break;
 		case 'R':
@@ -150,6 +152,7 @@ main(int argc, char *argv[])
 		case 'a':
 			pflag = 1;
 			Rflag = 1;
+			Pflag = 1;
 			Hflag = Lflag = 0;
 			break;
 		case 'f':
@@ -179,7 +182,7 @@ main(int argc, char *argv[])
 			break;
 		case 'r':
 			rflag = Lflag = 1;
-			Hflag = 0;
+			Hflag = Pflag = 0;
 			break;
 		case 's':
 			sflag = 1;
@@ -219,7 +222,7 @@ main(int argc, char *argv[])
 			fts_options &= ~FTS_PHYSICAL;
 			fts_options |= FTS_LOGICAL;
 		}
-	} else {
+	} else if (!Pflag) {
 		fts_options &= ~FTS_PHYSICAL;
 		fts_options |= FTS_LOGICAL | FTS_COMFOLLOW;
 	}
@@ -299,18 +302,43 @@ main(int argc, char *argv[])
 		 */
 		type = FILE_TO_DIR;
 
-	exit (copy(argv, type, fts_options));
+	/*
+	 * For DIR_TO_DNE, we could provide copy() with the to_stat we've
+	 * already allocated on the stack here that isn't being used for
+	 * anything.  Not doing so, though, simplifies later logic a little bit
+	 * as we need to skip checking root_stat on the first iteration and
+	 * ensure that we set it with the first mkdir().
+	 */
+	exit (copy(argv, type, fts_options, (type == DIR_TO_DNE ? NULL :
+	    &to_stat)));
 }
 
+/* Does the right thing based on -R + -H/-L/-P */
 static int
-copy(char *argv[], enum op type, int fts_options)
+copy_stat(const char *path, struct stat *sb)
 {
-	struct stat to_stat;
+
+	/*
+	 * For -R -H/-P, we need to lstat() instead; copy() cares about the link
+	 * itself rather than the target if we're not following links during the
+	 * traversal.
+	 */
+	if (!Rflag || Lflag)
+		return (stat(path, sb));
+	return (lstat(path, sb));
+}
+
+
+static int
+copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
+{
+	char rootname[NAME_MAX];
+	struct stat created_root_stat, to_stat;
 	FTS *ftsp;
 	FTSENT *curr;
 	int base = 0, dne, badcp, rval;
 	size_t nlen;
-	char *p, *target_mid;
+	char *p, *recurse_path, *target_mid;
 	mode_t mask, mode;
 
 	/*
@@ -320,6 +348,7 @@ copy(char *argv[], enum op type, int fts_options)
 	mask = ~umask(0777);
 	umask(~mask);
 
+	recurse_path = NULL;
 	if ((ftsp = fts_open(argv, fts_options, NULL)) == NULL)
 		err(1, "fts_open");
 	for (badcp = rval = 0; (void)(errno = 0), (curr = fts_read(ftsp)) != NULL;
@@ -369,6 +398,18 @@ copy(char *argv[], enum op type, int fts_options)
 			}
 		}
 #endif /* __APPLE__ */
+
+		/*
+		 * Stash the root basename off for detecting recursion later.
+		 *
+		 * This will be essential if the root is a symlink and we're
+		 * rolling with -L or -H.  The later bits will need this bit in
+		 * particular.
+		 */
+		if (curr->fts_level == FTS_ROOTLEVEL) {
+			strlcpy(rootname, curr->fts_name, sizeof(rootname));
+		}
+
 		/*
 		 * If we are in case (2) or (3) above, we need to append the
 		 * source name to the target name.
@@ -422,6 +463,41 @@ copy(char *argv[], enum op type, int fts_options)
 			to.p_end = target_mid + nlen;
 			*to.p_end = 0;
 			STRIP_TRAILING_SLASH(to);
+
+			/*
+			 * We're on the verge of recursing on ourselves.  Either
+			 * we need to stop right here (we knowingly just created
+			 * it), or we will in an immediate descendant.  Record
+			 * the path of the immediate descendant to make our
+			 * lives a little less complicated looking.
+			 */
+			if (curr->fts_info == FTS_D && root_stat != NULL &&
+			    root_stat->st_dev == curr->fts_statp->st_dev &&
+			    root_stat->st_ino == curr->fts_statp->st_ino) {
+				assert(recurse_path == NULL);
+
+				if (root_stat == &created_root_stat) {
+					/*
+					 * This directory didn't exist when we
+					 * started, we created it as part of
+					 * traversal.  Stop right here before we
+					 * do something silly.
+					 */
+					fts_set(ftsp, curr, FTS_SKIP);
+					continue;
+				}
+
+
+				if (asprintf(&recurse_path, "%s/%s", to.p_path,
+				    rootname) == -1)
+					err(1, "asprintf");
+			}
+
+			if (recurse_path != NULL &&
+			    strcmp(to.p_path, recurse_path) == 0) {
+				fts_set(ftsp, curr, FTS_SKIP);
+				continue;
+			}
 		}
 
 		if (curr->fts_info == FTS_DP) {
@@ -467,7 +543,7 @@ copy(char *argv[], enum op type, int fts_options)
 		}
 
 		/* Not an error but need to remember it happened. */
-		if (stat(to.p_path, &to_stat) == -1)
+		if (copy_stat(to.p_path, &to_stat) == -1)
 			dne = 1;
 		else {
 			if (to_stat.st_dev == curr->fts_statp->st_dev &&
@@ -528,6 +604,25 @@ copy(char *argv[], enum op type, int fts_options)
 						err(1, "%s", to.p_path);
 					}
 				}
+
+				/*
+				 * First DNE with a NULL root_stat is the root
+				 * path, so set root_stat.  We can't really
+				 * tell in all cases if the target path is
+				 * within the src path, so we just stat() the
+				 * first directory we created and use that.
+				 */
+				if (root_stat == NULL &&
+				    stat(to.p_path, &created_root_stat) == -1) {
+#ifdef __APPLE__
+					if (!unix2003_compat || errno != ENOENT)
+						err(1, "stat");
+#else
+					err(1, "stat");
+#endif
+				} else if (root_stat == NULL) {
+					root_stat = &created_root_stat;
+				}
 			} else if (!S_ISDIR(to_stat.st_mode)) {
 				errno = ENOTDIR;
 				if (unix2003_compat) {
@@ -584,6 +679,7 @@ copy(char *argv[], enum op type, int fts_options)
 	if (errno)
 		err(1, "fts_read");
 	fts_close(ftsp);
+	free(recurse_path);
 	return (rval);
 }
 

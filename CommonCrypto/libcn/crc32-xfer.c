@@ -24,7 +24,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc32_xfer = {
+const crcDescriptor CC_crc32_xfer = {
     .name = "crc32-xfer",
     .defType = model,
     .def.parms.width = 4,

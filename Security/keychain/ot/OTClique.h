@@ -75,6 +75,7 @@ extern NSString* kSecEntitlementPrivateOctagonSecureElement;
 @property (nonatomic, copy, nullable) NSString* authenticationAppleID;
 @property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
 @property (nonatomic) BOOL overrideEscrowCache;
+@property (nonatomic) BOOL overrideForSetupAccountScript; // this should only be used for the account setup script
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
@@ -134,7 +135,7 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
  * @param ctx, a collection of arguments describing the world
  * @return an instance of octagon trust
  */
-- (instancetype)initWithContextData:(OTConfigurationContext *)ctx;
+- (instancetype)initWithContextData:(OTConfigurationContext*)ctx;
 
 /* *
  * @abstract   Establish a new clique, reset protected data
@@ -339,64 +340,64 @@ API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15
                                       NSError* _Nullable error))reply;
 
 // used by sbd to enroll a recovery key in octagon
-+ (void)setNewRecoveryKeyWithData:(OTConfigurationContext *)ctx
++ (void)setNewRecoveryKeyWithData:(OTConfigurationContext*)ctx
                       recoveryKey:(NSString*)recoveryKey
                             reply:(void(^)(SecRecoveryKey * _Nullable rk,
                                            NSError* _Nullable error))reply;
 
 // used by sbd to recover octagon data by providing a
-+ (void)recoverOctagonUsingData:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply;
 
 
 // Create a new custodian recovery key.
-+ (void)createCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)createCustodianRecoveryKey:(OTConfigurationContext*)ctx
                               uuid:(NSUUID *_Nullable)uuid
                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
 
 // Recover using a custodian recovery key.
-+ (void)recoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext*)ctx
                            custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                           reply:(void(^)(NSError* _Nullable error)) reply;
 
 // Preflight (dry-run) recover using a custodian recovery key.
-+ (void)preflightRecoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)preflightRecoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext*)ctx
                                     custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                                    reply:(void(^)(NSError* _Nullable error)) reply;
 
 // Remove a custodian recovery key.
-+ (void)removeCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)removeCustodianRecoveryKey:(OTConfigurationContext*)ctx
           custodianRecoveryKeyUUID:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
 // Create a new inheritance key.
-+ (void)createInheritanceKey:(OTConfigurationContext *)ctx
++ (void)createInheritanceKey:(OTConfigurationContext*)ctx
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
 
 // Generate a new inheritance key (populate structure only, but nothing stored in Octagon).
-+ (void)generateInheritanceKey:(OTConfigurationContext *)ctx
++ (void)generateInheritanceKey:(OTConfigurationContext*)ctx
                           uuid:(NSUUID *_Nullable)uuid
                          reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
 
 // Store inheritance key in Octagon.
-+ (void)storeInheritanceKey:(OTConfigurationContext *)ctx
++ (void)storeInheritanceKey:(OTConfigurationContext*)ctx
                          ik:(OTInheritanceKey *)ik
                       reply:(void (^)(NSError *_Nullable error)) reply;
 
 // Join using an inheritance key.
-+ (void)recoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingInheritanceKey:(OTConfigurationContext*)ctx
                            inheritanceKey:(OTInheritanceKey *)ik
                                     reply:(void(^)(NSError* _Nullable error)) reply;
 
 // Preflight (dry-run) join using an inheritance key.
-+ (void)preflightRecoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
++ (void)preflightRecoverOctagonUsingInheritanceKey:(OTConfigurationContext*)ctx
                                     inheritanceKey:(OTInheritanceKey *)ik
                                              reply:(void(^)(NSError* _Nullable error)) reply;
 
 // Remove an inheritance key.
-+ (void)removeInheritanceKey:(OTConfigurationContext *)ctx
++ (void)removeInheritanceKey:(OTConfigurationContext*)ctx
           inheritanceKeyUUID:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
 

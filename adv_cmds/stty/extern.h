@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,7 +27,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 5/31/93
- * $FreeBSD: src/bin/stty/extern.h,v 1.9 2002/02/02 06:50:56 imp Exp $
+ * $FreeBSD$
  */
 
 int	c_cchars(const void *, const void *);
@@ -44,6 +40,6 @@ int	ksearch(char ***, struct info *);
 int	msearch(char ***, struct info *);
 void	optlist(void);
 void	print(struct termios *, struct winsize *, int, enum FMT);
-void	usage(void);
+void	usage(void) __dead2;
 
 extern struct cchar cchars1[], cchars2[];

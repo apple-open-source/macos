@@ -1,0 +1,1 @@
+http://rootcar1-ocsp.disig.sk/ocsp/rootcar1

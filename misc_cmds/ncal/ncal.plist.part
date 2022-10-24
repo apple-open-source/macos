@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ncal</string>
+		<key>OpenSourceVersion</key>
+		<string>2016-05-17</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/ncal?id=b74e3739712864e2cb7970e6435ab601446efbe3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2016-07-27</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>ncal.c: flush stdout before exiting (89146977)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>misc_cmds.txt</string>
+	</dict>

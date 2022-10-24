@@ -1,0 +1,236 @@
+//
+//  XSCipher.h
+//  CoreDaemon
+//
+//  Created by Mike Abbott on 4/24/12.
+//  Copyright (c) 2012 Apple Inc. All rights reserved.
+//
+
+/*!
+ * @header XSCipher.h
+ * @abstract Cipher suite parsing
+ * @availability OS X 10.8 and later
+ * @discussion Functions to convert between C strings and the Security
+ *	framework's SSLCipherSuite values.
+ * @copyright 2012 Apple Inc. All rights reserved.
+ * @namespace OS X
+ * @version 1.0
+ */
+
+#ifndef CoreDaemon_XSCipher_h
+#define CoreDaemon_XSCipher_h
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/CipherSuite.h>
+
+/*!
+ * @function XSCipherToName
+ *
+ * @abstract
+ * Convert an SSLCipherSuite to a string
+ *
+ * @discussion
+ * The resulting string should not be freed.
+ * If the cipher is unknown or is SSL_NO_SUCH_CIPHERSUITE then this function
+ * returns NULL.
+ */
+const char *XSCipherToName(SSLCipherSuite cipher);
+
+/*!
+ * @function XSCipherFromName
+ *
+ * @abstract
+ * Convert the name of an SSLCipherSuite to a value
+ *
+ * @discussion
+ * If the name is unknown or is "SSL_NO_SUCH_CIPHERSUITE" then this function
+ * returns SSL_NO_SUCH_CIPHERSUITE.
+ */
+SSLCipherSuite XSCipherFromName(const char *name);
+
+/*!
+ * @function XSCipherSpecParse
+ *
+ * @abstract
+ * Parse a cipher spec string into an ordered array of SSLCipherSuite values
+ *
+ * @param spec
+ * The string to parse
+ *
+ * @param count
+ * On return, *count is the number of elements in the returned array.
+ * *count == 0 if and only if the result is NULL.
+ * count must not be a NULL pointer.
+ *
+ * @result
+ * An ordered array of SSLCipherSuite values, or NULL if no ciphers matched
+ * or if an error occurred during parsing.
+ * The caller must free(3) the array.
+ *
+ * @discussion
+ * This function parses a cipher specification string and returns an
+ * ordered array of SSLCipherSuite values.  The string may use cipher
+ * names and set names known either to the Security framework or to
+ * OpenSSL but not both in the same string.  Unknown names are ignored.
+ * The string may simply list names separated by :, comma, and/or
+ * space, or use OpenSSL-style syntax including the + (move), -
+ * (remove), ! (kill), + (intersect), and \@STRENGTH (sort) operators.
+ * Both the list format and the OpenSSL-syntax format may use either
+ * Security framework names or OpenSSL names.
+ * For more about OpenSSL cipher specs see ciphers(1ssl).
+ *
+ * <u>Security framework names</u>:
+ * The supported Security framework names are the names of the
+ * enumerated SSLCipherSuite values in
+ * /System/Library/Frameworks/Security.framework/Headers/CipherSuite.h,
+ * for example SSL_RSA_WITH_RC4_128_SHA.  In addition, the names may
+ * include the following which specify sets of ciphers:
+ *
+ * == AUTOMATICALLY GENERATED TABLE OF SETS GOES HERE ==
+ *
+ * <u>OpenSSL cipher names</u>:
+ * To use OpenSSL names the string must begin with the prefix "OpenSSL:".
+ * The rest of the string is the list or OpenSSL-style cipher spec.
+ * For more about OpenSSL cipher specs see ciphers(1ssl).
+ *
+ * Examples:
+ * <dl>
+ * <dt><code>DEFAULT:SSLv2</code></dt>
+ * <dd>Uses the default set of Security framework ciphers plus any SSLv2
+ * ciphers not in that set.  The default ciphers are preferred over the
+ * SSLv2 ciphers.</dd>
+ * <dt><code>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA</code></dt>
+ * <dd>Requires one of those three ciphers, only, in that order.</dd>
+ * <dt><code>OpenSSL:ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP:+eNULL</code></dt>
+ * <dd>Parses an OpenSSL-style cipherlist.  Note the required prefix.</dd>
+ * </dl>
+ *
+ * Notes:
+ * <ul>
+ * <li>The Security framework may support some ciphers which OpenSSL does not
+ * and vice versa.</li>
+ * <li>Both the Security framework and OpenSSL may add or remove support
+ * for some ciphers in each release.</li>
+ * <li>The set of "ALL" Security framework ciphers and the set of "ALL"
+ * OpenSSL ciphers may be different.  Ditto with "DEFAULT", "EXPORT" and
+ * other overlapping names of sets.</li>
+ * <li>The ciphers in the returned array are ordered as the spec string
+ * specifies.  Security framework functions which use such an array,
+ * such as SSLSetEnabledCiphers(), use the first ciphers which match
+ * their needs.  In other words, the spec string should place the
+ * most-desired ciphers first (on the left) and the least-desired
+ * ciphers last (on the right).</li>
+ * <li>\@STRENGTH sorts the array strongest-to-weakest.</li>
+ * <li>This function provides parsing equivalent to OpenSSL's for
+ * well-formed cipher specs.  It is not "bug for bug compatible" with
+ * OpenSSL's parsing.  In particular OpenSSL sometimes includes a cipher
+ * more than once but this function tries to return no duplicates.</li>
+ * </ul>
+ */
+SSLCipherSuite *XSCipherSpecParse(const char *spec, size_t *count);
+
+/*!
+ * Keys and values for the properties returned by
+ * XSCipherCopyCipherProperties().
+ */
+
+/*
+ * @const kXSCipherPropertyName
+ * @abstract Name of the algorithm as a CFString
+ */
+extern const CFStringRef kXSCipherPropertyName;
+
+/*!
+ * @group Key/signature algorithms
+ */
+
+/*
+ * @const kXSCipherPropertyKeysig
+ * @abstract Key/signature algorithm as a CFString
+ */
+extern const CFStringRef kXSCipherPropertyKeysig;
+/* == AUTOMATICALLY GENERATED Keysig STRINGS GO HERE == */
+
+/*!
+ * @group Bulk encryption algorithm
+ */
+
+/*!
+ * @const kXSCipherPropertyBulk
+ * @abstract Bulk encryption algorithm as a CFString
+ */
+extern const CFStringRef kXSCipherPropertyBulk;
+/* == AUTOMATICALLY GENERATED Bulk STRINGS GO HERE == */
+
+/*!
+ * @group Message authentication code algorithms
+ */
+
+/*!
+ * @const kXSCipherPropertyMAC
+ * @abstract Message authentication code algorithm as a CFString
+ */
+extern const CFStringRef kXSCipherPropertyMAC;
+/* == AUTOMATICALLY GENERATED MAC STRINGS GO HERE == */
+
+/*!
+ * @group Overall cipher strengths
+ */
+
+/*!
+ * @const kXSCipherPropertyStrength
+ * @abstract Overall cipher strength as a CFString
+ */
+extern const CFStringRef kXSCipherPropertyStrength;
+/* == AUTOMATICALLY GENERATED Strength STRINGS GO HERE == */
+
+/*!
+ * @const kXSCipherPropertyStrengthBits
+ * @abstract Number of strength bits the cipher implements as a CFNumber
+ */
+extern const CFStringRef kXSCipherPropertyStrengthBits;
+
+/*!
+ * @const kXSCipherPropertyAlgBits
+ * @abstract Number of strength bits the cipher algorithm could
+ * implement as a CFNumber
+ */
+extern const CFStringRef kXSCipherPropertyAlgBits;
+
+/*!
+ * @const kXSCipherPropertyExport
+ * @abstract Whether the cipher is export-grade as a CFBoolean
+ */
+extern const CFStringRef kXSCipherPropertyExport;
+
+/*!
+ * @group
+ */
+
+/*!
+ * @function XSCipherCopyCipherProperties
+ *
+ * @abstract
+ * Return information about a particular cipher suite
+ *
+ * @param cipher
+ * The cipher suite whose properties you want
+ *
+ * @result
+ * A dictionary whose keys are:
+ *	kXSCipherPropertyName
+ *	kXSCipherPropertyKeysig
+ *	kXSCipherPropertyBulk
+ *	kXSCipherPropertyMAC
+ *	kXSCipherPropertyStrength
+ *	kXSCipherPropertyStrengthBits
+ *	kXSCipherPropertyAlgBits
+ *	kXSCipherPropertyExport
+ * The name, keysig, bulk, MAC and strength values are other
+ * kXSCipherProperty* constants defined above.  The strength and alg
+ * bits values are CFNumbers with the number of bits.  The export
+ * value is a CFBoolean.
+ */
+CFDictionaryRef XSCipherCopyCipherProperties(SSLCipherSuite cipher);
+
+#endif

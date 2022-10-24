@@ -77,8 +77,11 @@ void KeyframeList::insert(KeyframeValue&& keyframe)
     if (!inserted)
         m_keyframes.append(WTFMove(keyframe));
 
-    for (auto& property : m_keyframes[i].properties())
+    auto& insertedKeyframe = m_keyframes[i];
+    for (auto& property : insertedKeyframe.properties())
         m_properties.add(property);
+    for (auto& customProperty : insertedKeyframe.customProperties())
+        m_customProperties.add(customProperty);
 }
 
 bool KeyframeList::hasImplicitKeyframes() const
@@ -88,10 +91,12 @@ bool KeyframeList::hasImplicitKeyframes() const
 
 void KeyframeList::copyKeyframes(KeyframeList& other)
 {
-    for (auto& keyframe : other.keyframes()) {
+    for (auto& keyframe : other) {
         KeyframeValue keyframeValue(keyframe.key(), RenderStyle::clonePtr(*keyframe.style()));
         for (auto propertyId : keyframe.properties())
             keyframeValue.addProperty(propertyId);
+        for (auto& customProperty : keyframe.customProperties())
+            keyframeValue.addCustomProperty(customProperty);
         keyframeValue.setTimingFunction(keyframe.timingFunction());
         keyframeValue.setCompositeOperation(keyframe.compositeOperation());
         insert(WTFMove(keyframeValue));
@@ -148,8 +153,8 @@ void KeyframeList::fillImplicitKeyframes(const KeyframeEffect& effect, const Ren
         if (!timingFunction)
             return true;
 
-        if (is<CSSAnimation>(effect.animation())) {
-            auto* animationWideTimingFunction = downcast<CSSAnimation>(effect.animation())->backingAnimation().defaultTimingFunctionForKeyframes();
+        if (auto* cssAnimation = dynamicDowncast<CSSAnimation>(effect.animation())) {
+            auto* animationWideTimingFunction = cssAnimation->backingAnimation().defaultTimingFunctionForKeyframes();
             // If we're dealing with a CSS Animation and if that CSS Animation's backing animation
             // has a default timing function set, then if that keyframe's timing function matches,
             // that keyframe is suitable.
@@ -189,10 +194,7 @@ void KeyframeList::fillImplicitKeyframes(const KeyframeEffect& effect, const Ren
         keyframeValue.setStyle(styleResolver.styleForKeyframe(element, underlyingStyle, { nullptr }, keyframeRule, keyframeValue));
         for (auto cssPropertyId : implicitProperties)
             keyframeValue.addProperty(cssPropertyId);
-        if (!key)
-            m_keyframes.insert(0, WTFMove(keyframeValue));
-        else
-            m_keyframes.append(WTFMove(keyframeValue));
+        insert(WTFMove(keyframeValue));
     };
 
     if (!zeroKeyframeImplicitProperties.isEmpty())
@@ -213,11 +215,24 @@ void KeyframeList::fillImplicitKeyframes(const KeyframeEffect& effect, const Ren
 
 bool KeyframeList::containsAnimatableProperty() const
 {
+    if (!m_customProperties.isEmpty())
+        return true;
+
     for (auto cssPropertyId : m_properties) {
         if (CSSPropertyAnimation::isPropertyAnimatable(cssPropertyId))
             return true;
     }
     return false;
 }
+
+bool KeyframeList::usesContainerUnits() const
+{
+    for (auto& keyframe : m_keyframes) {
+        if (keyframe.style()->usesContainerUnits())
+            return true;
+    }
+    return false;
+}
+
 
 } // namespace WebCore

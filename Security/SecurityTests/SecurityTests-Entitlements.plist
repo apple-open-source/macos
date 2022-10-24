@@ -6,6 +6,8 @@
 	<true/>
 	<key>com.apple.security.attestation.access</key>
 	<true/>
+	<key>com.apple.private.playgrounds-local-signing-allowed</key>
+	<true/>
 	<key>keychain-cloud-circle</key>
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
@@ -53,6 +55,19 @@
 	<true/>
 	<key>com.apple.application-identifier</key>
 	<string>com.apple.security.regressions</string>
+	<key>com.apple.appattest.spi</key>
+	<true/>
+	<key>com.apple.mobileactivationd.eda</key>
+	<true/>
+	<key>com.apple.mobileactivationd.spi</key>
+	<true/>
+	<key>com.apple.mobileactivationd.device-identifiers</key>
+	<true/>
+	<key>com.apple.private.MobileGestalt.AllowedProtectedKeys</key>
+	<array>
+		<string>UniqueChipID</string>
+		<string>SerialNumber</string>
+	</array>
 	<key>com.apple.private.AuthorizationServices</key>
 	<array>
 		<string>com.apple.trust-settings.admin</string>

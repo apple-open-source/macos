@@ -48,13 +48,13 @@ static NSString * fetch_pet(NSString * appleID, NSString * dsid)
     AKAppleIDAuthenticationController *authenticationController = [[AKAppleIDAuthenticationController alloc] init];
     [authenticationController authenticateWithContext:authContext
                                            completion:^(AKAuthenticationResults authenticationResults, NSError *error) {
-                                               if(error) {
-                                                   NSLog(@"error fetching PET: %@", error);
-                                                   exit(1);
-                                               }
+        if(error) {
+            NSLog(@"error fetching PET: %@", error);
+            exit(1);
+        }
 
-                                               pet = authenticationResults[AKAuthenticationPasswordKey];
-                                               dispatch_semaphore_signal(s);
+        pet = authenticationResults[AKAuthenticationPasswordKey];
+        dispatch_semaphore_signal(s);
     }];
     dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
 
@@ -137,20 +137,19 @@ static void print_json(NSDictionary* dict)
     return self;
 }
 
-- (int)startOctagonStateMachine:(NSString* _Nullable)container context:(NSString *)contextID {
+- (int)startOctagonStateMachine:(OTControlArguments*)arguments {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control startOctagonStateMachine:container
-                                   context:contextID
+    [self.control startOctagonStateMachine:arguments
                                      reply:^(NSError* _Nullable error) {
-                                         if(error) {
-                                             fprintf(stderr, "Error starting state machine: %s\n", [[error description] UTF8String]);
-                                         } else {
-                                             printf("state machine started.\n");
-                                             ret = 0;
-                                         }
-                                     }];
+        if(error) {
+            fprintf(stderr, "Error starting state machine: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("state machine started.\n");
+            ret = 0;
+        }
+    }];
 
     return ret;
 #else
@@ -159,21 +158,19 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)signIn:(NSString *)altDSID container:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)signIn:(OTControlArguments*)arguments {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control signIn:altDSID
-               container:container
-                 context:contextID
-                   reply:^(NSError* _Nullable error) {
-                       if(error) {
-                           fprintf(stderr, "Error signing in: %s\n", [[error description] UTF8String]);
-                       } else {
-                           printf("Sign in complete.\n");
-                           ret = 0;
-                       }
-                   }];
+    [self.control appleAccountSignedIn:arguments
+                                 reply:^(NSError* _Nullable error) {
+        if(error) {
+            fprintf(stderr, "Error signing in: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Sign in complete.\n");
+            ret = 0;
+        }
+    }];
 
     return ret;
 #else
@@ -182,19 +179,18 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)signOut:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)signOut:(OTControlArguments*)arguments {
 #if OCTAGON
     __block int ret = 1;
-    [self.control signOut:container
-                  context:contextID
-                    reply:^(NSError* _Nullable error) {
-                        if(error) {
-                            fprintf(stderr, "Error signing out: %s\n", [[error description] UTF8String]);
-                        } else {
-                            printf("Sign out complete.\n");
-                            ret = 0;
-                        }
-                    }];
+    [self.control appleAccountSignedOut:arguments
+                                  reply:^(NSError* _Nullable error) {
+        if(error) {
+            fprintf(stderr, "Error signing out: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Sign out complete.\n");
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -202,20 +198,20 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)depart:(NSString * _Nullable)container context:(NSString *)contextID {
+- (int)depart:(OTControlArguments*)arguments
+{
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control leaveClique:container
-                      context:contextID
+    [self.control leaveClique:arguments
                         reply:^(NSError* _Nullable error) {
-                            if(error) {
-                                fprintf(stderr, "Error departing clique: %s\n", [[error description] UTF8String]);
-                            } else {
-                                printf("Departing clique completed.\n");
-                                ret = 0;
-                            }
-                        }];
+        if(error) {
+            fprintf(stderr, "Error departing clique: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Departing clique completed.\n");
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -223,7 +219,7 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID timeout:(NSTimeInterval)timeout {
+- (int)resetOctagon:(OTControlArguments*)arguments timeout:(NSTimeInterval)timeout {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
     __block int ret = 1;
@@ -231,22 +227,20 @@ static void print_json(NSDictionary* dict)
 
     do {
         retry = false;
-        [self.control resetAndEstablish:container
-                                context:contextID
-                                altDSID:altDSID
+        [self.control resetAndEstablish:arguments
                             resetReason:CuttlefishResetReasonUserInitiatedReset
                                   reply:^(NSError* _Nullable error) {
-                if(error) {
-                    fprintf(stderr, "Error resetting: %s\n", [[error description] UTF8String]);
-                    if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
-                        retry = true;
-                        sleep([error retryInterval]);
-                    }
-                } else {
-                    printf("reset and establish:\n");
-                    ret = 0;
+            if(error) {
+                fprintf(stderr, "Error resetting: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
                 }
-            }];
+            } else {
+                printf("reset and establish:\n");
+                ret = 0;
+            }
+        }];
     } while(retry);
     return ret;
 #else
@@ -256,9 +250,7 @@ static void print_json(NSDictionary* dict)
 }
 
 
-- (int)resetProtectedData:(NSString* _Nullable)container
-                  context:(NSString *)contextID
-                  altDSID:(NSString *)altDSID
+- (int)resetProtectedData:(OTControlArguments*)arguments
                   appleID:(NSString *_Nullable)appleID
                      dsid:(NSString *_Nullable)dsid
 {
@@ -269,9 +261,9 @@ static void print_json(NSDictionary* dict)
     OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
     data.passwordEquivalentToken = fetch_pet(appleID, dsid);
     data.authenticationAppleID = appleID;
-    data.altDSID = altDSID;
-    data.context = contextID;
-    data.containerName = container;
+    data.altDSID = arguments.altDSID;
+    data.context = arguments.contextID;
+    data.containerName = arguments.containerName;
 
     OTClique* clique = [OTClique resetProtectedData:data error:&error];
     if(clique != nil && error == nil) {
@@ -317,10 +309,10 @@ static void print_json(NSDictionary* dict)
 }
 
 - (void)printPeers:(NSArray<NSString *>*)peerIDs
-             egoPeerID:(NSString * _Nullable)egoPeerID
-    informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
-     informationOnCRKs:(NSDictionary<NSString *, NSDictionary*>*)informationOnCRKs
- {
+         egoPeerID:(NSString * _Nullable)egoPeerID
+informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
+ informationOnCRKs:(NSDictionary<NSString *, NSDictionary*>*)informationOnCRKs
+{
     for(NSString * peerID in peerIDs) {
         NSDictionary* peerInformation = informationOnPeers[peerID];
 
@@ -341,72 +333,82 @@ static void print_json(NSDictionary* dict)
     }
 }
 
-- (int)fetchEscrowRecords:(NSString * _Nullable)container context:(NSString *)contextID {
 #if OCTAGON
-    __block int ret = 1;
-
-    NSError* error = nil;
-    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
-    data.context = contextID;
-    data.containerName = container;
-
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:data error:&error];
+- (int)checkAndPrintEscrowRecords:(NSArray<OTEscrowRecord*>*)records error:(NSError*)error json:(bool)json
+{
+    int ret = 1;
     if(records != nil && error == nil) {
-        printf("Successfully fetched %lu records.\n", (unsigned long)records.count);
+        if (!json) {
+            printf("Successfully fetched %lu record%s.\n", (unsigned long)records.count, records.count == 1 ? "" : "s");
+        }
         ret = 0;
+        NSMutableArray<NSString *>* escrowRecords = [NSMutableArray array];
         for(OTEscrowRecord* record in records){
-            CFErrorRef* localError = NULL;
-            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, localError, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
+            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, NULL, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
-            printf("fetched record id: %s\n", [(__bridge NSString *)peerID UTF8String]);
+            [escrowRecords addObject:(__bridge NSString *)peerID];
+        }
+        if (json) {
+            print_json(@{@"escrowRecords" : escrowRecords});
+        } else {
+            for(NSString* s in escrowRecords) {
+                printf("fetched record id: %s\n", [s UTF8String]);
+            }
         }
     } else {
-        fprintf(stderr, "fetchEscrowRecords failed: %s\n", [[error description] UTF8String]);
+        if (json) {
+            print_json(@{@"error" : [error description]});
+        } else {
+            fprintf(stderr, "fetching escrow records failed: %s\n", [[error description] UTF8String]);
+        }
     }
     return ret;
+}
+#endif
+
+- (int)fetchEscrowRecords:(OTControlArguments*)arguments json:(bool)json
+{
+#if OCTAGON
+    NSError* error = nil;
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:[arguments makeConfigurationContext] error:&error];
+    return [self checkAndPrintEscrowRecords:records error:error json:json];
 #else
-    fprintf(stderr, "Unimplemented.\n");
+    if (json) {
+        print_json(@{@"unimplemented" : @YES});
+    } else {
+        fprintf(stderr, "Unimplemented.\n");
+    }
     return 1;
 #endif
 }
 
-- (int)fetchAllEscrowRecords:(NSString* _Nullable)container context:(NSString*)contextID {
+- (int)fetchAllEscrowRecords:(OTControlArguments*)arguments json:(bool)json
+{
 #if OCTAGON
-    __block int ret = 1;
-
     NSError* error = nil;
-    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
-    data.context = contextID;
-    data.containerName = container;
-
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:data error:&error];
-    if(records != nil && error == nil) {
-        printf("Successfully fetched %lu records.\n", (unsigned long)records.count);
-        ret = 0;
-        for(OTEscrowRecord* record in records){
-            CFErrorRef* localError = NULL;
-            SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(kCFAllocatorDefault, localError, (__bridge CFDataRef)record.escrowInformationMetadata.peerInfo);
-            CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
-            printf("fetched record id: %s\n", [(__bridge NSString*)peerID UTF8String]);
-        }
-    } else {
-        fprintf(stderr, "fetchAllEscrowRecords failed: %s\n", [[error description] UTF8String]);
-    }
-    return ret;
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:[arguments makeConfigurationContext] error:&error];
+    return [self checkAndPrintEscrowRecords:records error:error json:json];
 #else
-    fprintf(stderr, "Unimplemented.\n");
+    if (json) {
+        print_json(@{@"unimplemented" : @YES});
+    } else {
+        fprintf(stderr, "Unimplemented.\n");
+    }
     return 1;
 #endif
 }
 
-- (int)performEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID recordID:(NSString *)recordID appleID:(NSString *)appleID secret:(NSString *)secret
+- (int)performEscrowRecovery:(OTControlArguments*)arguments
+                    recordID:(NSString *)recordID
+                     appleID:(NSString *)appleID
+                      secret:(NSString *)secret
+    overrideForAccountScript:(BOOL)overrideForAccountScript
+         overrideEscrowCache:(BOOL)overrideEscrowCache
 {
 #if OCTAGON
     __block int ret = 1;
 
     NSError* error = nil;
-    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
-    data.context = contextID;
 
     OTICDPRecordContext* cdpContext = [[OTICDPRecordContext alloc] init];
     cdpContext.cdpInfo = [[OTCDPRecoveryInformation alloc] init];
@@ -417,7 +419,11 @@ static void print_json(NSDictionary* dict)
     cdpContext.authInfo.authenticationAppleid = appleID;
     cdpContext.authInfo.authenticationPassword = fetch_pet(appleID, nil);
     
-    NSArray<OTEscrowRecord*>* escrowRecords = [OTClique fetchEscrowRecords:data error:&error];
+    OTConfigurationContext* contextForFetch = [arguments makeConfigurationContext];
+    contextForFetch.overrideEscrowCache = overrideEscrowCache;
+    contextForFetch.overrideForSetupAccountScript = overrideForAccountScript;
+
+    NSArray<OTEscrowRecord*>* escrowRecords = [OTClique fetchEscrowRecords:contextForFetch error:&error];
     if (escrowRecords == nil || error != nil) {
         fprintf(stderr, "Failed to fetch escrow records: %s\n", [[error description] UTF8String]);
         return 1;
@@ -439,7 +445,10 @@ static void print_json(NSDictionary* dict)
         return 1;
     }
     
-    OTClique* clique = [OTClique performEscrowRecovery:data cdpContext:cdpContext escrowRecord:record error:&error];
+    OTConfigurationContext* context = [arguments makeConfigurationContext];
+    context.overrideEscrowCache = YES;
+    
+    OTClique* clique = [OTClique performEscrowRecovery:context cdpContext:cdpContext escrowRecord:record error:&error];
     if (clique != nil && error == nil) {
         printf("Successfully performed escrow recovery.\n");
         ret = 0;
@@ -453,14 +462,15 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)performSilentEscrowRecovery:(NSString * _Nullable)container context:(NSString *)contextID appleID:(NSString *)appleID secret:(NSString *)secret {
+- (int)performSilentEscrowRecovery:(OTControlArguments*)arguments
+                           appleID:(NSString *)appleID
+                            secret:(NSString *)secret
+{
 #if OCTAGON
     __block int ret = 1;
     
     NSError* error = nil;
-    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
-    data.context = contextID;
-    
+
     OTICDPRecordContext* cdpContext = [[OTICDPRecordContext alloc] init];
     cdpContext.cdpInfo = [[OTCDPRecoveryInformation alloc] init];
 
@@ -473,12 +483,11 @@ static void print_json(NSDictionary* dict)
     cdpContext.authInfo.authenticationAppleid = appleID;
     cdpContext.authInfo.authenticationPassword = fetch_pet(appleID, nil);
 
-
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:data error:&error];
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchEscrowRecords:[arguments makeConfigurationContext] error:&error];
     if (records == nil || error != nil) {
         fprintf(stderr, "Failed to fetch escrow records: %s.\n", error.description.UTF8String);
     } else {
-        OTClique* clique = [OTClique performSilentEscrowRecovery:data cdpContext:cdpContext allRecords:records error:&error];
+        OTClique* clique = [OTClique performSilentEscrowRecovery:[arguments makeConfigurationContext] cdpContext:cdpContext allRecords:records error:&error];
         if (clique != nil && error == nil) {
             printf("Successfully performed escrow recovery.\n");
             ret = 0;
@@ -493,21 +502,19 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)tlkRecoverability:(NSString * _Nullable)container context:(NSString *)contextID
+- (int)tlkRecoverability:(OTControlArguments*)arguments
 {
 #if OCTAGON
     __block int ret = 1;
     
     NSError* error = nil;
-    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
-    data.context = contextID;
 
-    OTClique *clique = [[OTClique alloc] initWithContextData:data];
+    OTClique *clique = [[OTClique alloc] initWithContextData:[arguments makeConfigurationContext]];
     if (clique == nil) {
         fprintf(stderr, "Failed to create clique\n");
         return ret;
     }
-    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:data error:&error];
+    NSArray<OTEscrowRecord*>* records = [OTClique fetchAllEscrowRecords:[arguments makeConfigurationContext] error:&error];
     if (records == nil || error != nil) {
         fprintf(stderr, "Failed to fetch escrow records: %s.\n", error.description.UTF8String);
         return ret;
@@ -532,12 +539,11 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)status:(NSString * _Nullable)container context:(NSString *)contextID json:(bool)json {
+- (int)status:(OTControlArguments*)arguments json:(bool)json {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control status:container
-                 context:contextID
+    [self.control status:arguments
                    reply:^(NSDictionary* result, NSError* _Nullable error) {
                        if(error) {
                            if(json) {
@@ -551,6 +557,7 @@ static void print_json(NSDictionary* dict)
                                print_json(result);
                            } else {
                                printf("Status for %s,%s:\n", [result[@"containerName"] UTF8String], [result[@"contextID"] UTF8String]);
+                               printf("Active account: %s\n", [result[@"activeAccount"] UTF8String]);
 
                                printf("\n");
                                printf("State: %s\n", [[result[@"state"] description] UTF8String]);
@@ -643,31 +650,28 @@ static void print_json(NSDictionary* dict)
 }
 
 - (int)recoverUsingBottleID:(NSString *)bottleID
-                     entropy:(NSData*)entropy
-                     altDSID:(NSString *)altDSID
-               containerName:(NSString* _Nullable)containerName
-                     context:(NSString *)context
-                     control:(OTControl*)control {
+                    entropy:(NSData*)entropy
+                  arguments:(OTControlArguments*)arguments
+                    control:(OTControl*)control
+{
     __block int ret = 1;
 
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [control restore:containerName
-           contextID:context
-          bottleSalt:altDSID
-             entropy:entropy
-            bottleID:bottleID
-               reply:^(NSError* _Nullable error) {
-                   if(error) {
-                       ret = 1;
-                       fprintf(stderr, "Error recovering: %s\n", [[error description] UTF8String]);
-                   } else {
-                       printf("Succeeded recovering bottled peer %s\n", [[bottleID description] UTF8String]);
-                       ret = 0;
-                   }
-                   dispatch_semaphore_signal(sema);
-               }];
+    [control restoreFromBottle:arguments
+                       entropy:entropy
+                      bottleID:bottleID
+                         reply:^(NSError* _Nullable error) {
+        if(error) {
+            ret = 1;
+            fprintf(stderr, "Error recovering: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Succeeded recovering bottled peer %s\n", [[bottleID description] UTF8String]);
+            ret = 0;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
         fprintf(stderr, "timed out waiting for restore/recover\n");
@@ -680,10 +684,8 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)fetchAllBottles:(NSString *)altDSID
-          containerName:(NSString* _Nullable)containerName
-                context:(NSString *)context
-                control:(OTControl*)control {
+- (int)fetchAllBottles:(OTControlArguments*)arguments
+               control:(OTControl*)control {
     __block int ret = 1;
 
 #if OCTAGON
@@ -694,22 +696,21 @@ static void print_json(NSDictionary* dict)
 
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [control fetchAllViableBottles:containerName
-                           context:context
+    [control fetchAllViableBottles:arguments
                              reply:^(NSArray<NSString *>* _Nullable sortedBottleIDs,
                                      NSArray<NSString *>* _Nullable sortedPartialBottleIDs,
                                      NSError* _Nullable controlError) {
-                                 if(controlError) {
-                                     secnotice("clique", "findOptimalBottleIDsWithContextData errored: %@\n", controlError);
-                                 } else {
-                                     secnotice("clique", "findOptimalBottleIDsWithContextData succeeded: %@, %@\n", sortedBottleIDs, sortedPartialBottleIDs);
-                                     ret = 0;
-                                 }
-                                 localError = controlError;
-                                 localViableBottleIDs = sortedBottleIDs;
-                                 localPartiallyViableBottleIDs = sortedPartialBottleIDs;
-                                 dispatch_semaphore_signal(sema);
-                             }];
+        if(controlError) {
+            secnotice("clique", "findOptimalBottleIDsWithContextData errored: %@\n", controlError);
+        } else {
+            secnotice("clique", "findOptimalBottleIDsWithContextData succeeded: %@, %@\n", sortedBottleIDs, sortedPartialBottleIDs);
+            ret = 0;
+        }
+        localError = controlError;
+        localViableBottleIDs = sortedBottleIDs;
+        localPartiallyViableBottleIDs = sortedPartialBottleIDs;
+        dispatch_semaphore_signal(sema);
+    }];
 
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
         secnotice("clique", "findOptimalBottleIDsWithContextData failed to fetch bottles\n");
@@ -731,24 +732,22 @@ static void print_json(NSDictionary* dict)
 #endif
 }
 
-- (int)healthCheck:(NSString * _Nullable)container
-           context:(NSString *)contextID
+- (int)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control healthCheck:container
-                      context:contextID
+    [self.control healthCheck:arguments
         skipRateLimitingCheck:skipRateLimitingCheck
                         reply:^(NSError* _Nullable error) {
-                            if(error) {
-                                fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
-                            } else {
-                                printf("Checking Octagon Health completed.\n");
-                                ret = 0;
-                            }
-                        }];
+        if(error) {
+            fprintf(stderr, "Error checking health: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("Checking Octagon Health completed.\n");
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -756,21 +755,20 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)refetchCKKSPolicy:(NSString* _Nullable)container context:(NSString *)contextID
+- (int)refetchCKKSPolicy:(OTControlArguments*)arguments
 {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control refetchCKKSPolicy:container
-                          contextID:contextID
+    [self.control refetchCKKSPolicy:arguments
                               reply:^(NSError * _Nullable error) {
-            if(error) {
-                fprintf(stderr, "Error refetching CKKS policy: %s\n", [[error description] UTF8String]);
-            } else {
-                printf("CKKS refetch completed.\n");
-                ret = 0;
-            }
-        }];
+        if(error) {
+            fprintf(stderr, "Error refetching CKKS policy: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("CKKS refetch completed.\n");
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -801,24 +799,22 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)setUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
-                                 contextID:(NSString *)contextID
-                                   enabled:(BOOL)enabled
+- (int)setUserControllableViewsSyncStatus:(OTControlArguments*)arguments
+                                  enabled:(BOOL)enabled
 {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control setUserControllableViewsSyncStatus:containerName
-                                           contextID:contextID
+    [self.control setUserControllableViewsSyncStatus:arguments
                                              enabled:enabled
                                                reply:^(BOOL nowSyncing, NSError * _Nullable error) {
-            if(error) {
-                fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
-            } else {
-                printf("User controllable views are now %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
-                ret = 0;
-            }
-        }];
+        if(error) {
+            fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("User controllable views are now %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -826,22 +822,20 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)fetchUserControllableViewsSyncStatus:(NSString * _Nullable)containerName
-                                   contextID:(NSString *)contextID
+- (int)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments
 {
 #if OCTAGON
     __block int ret = 1;
 
-    [self.control fetchUserControllableViewsSyncStatus:containerName
-                                             contextID:contextID
+    [self.control fetchUserControllableViewsSyncStatus:arguments
                                                  reply:^(BOOL nowSyncing, NSError * _Nullable error) {
-            if(error) {
-                fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
-            } else {
-                printf("User controllable views are currently %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
-                ret = 0;
-            }
-        }];
+        if(error) {
+            fprintf(stderr, "Error setting user controllable views: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("User controllable views are currently %s.\n", [(nowSyncing ? @"enabled" : @"paused") UTF8String]);
+            ret = 0;
+        }
+    }];
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -849,14 +843,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)resetAccountCDPContentsWithContainerName:(NSString* _Nullable)containerName
-                                       contextID:(NSString *)contextID {
-   __block int ret = 1;
+- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)arguments
+{
+    __block int ret = 1;
 
 #if OCTAGON
-   dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [self.control resetAccountCDPContents:containerName contextID:contextID reply:^(NSError * _Nullable error) {
+    [self.control resetAccountCDPContents:arguments reply:^(NSError * _Nullable error) {
         if(error) {
             fprintf(stderr, "Error resetting account cdp content: %s\n", [[error description] UTF8String]);
         } else {
@@ -866,22 +860,21 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
         dispatch_semaphore_signal(sema);
     }];
 
-   if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
-       fprintf(stderr, "timed out waiting for restore/recover\n");
-       ret = 1;
-   }
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60)) != 0) {
+        fprintf(stderr, "timed out waiting for restore/recover\n");
+        ret = 1;
+    }
 
-   return ret;
+    return ret;
 #else
-   ret = 1;
-   return ret;
+    ret = 1;
+    return ret;
 #endif
 }
 
-- (int)createCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                         contextID:(NSString *)contextID
-                                              json:(bool)json
-                                           timeout:(NSTimeInterval)timeout
+- (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                          json:(bool)json
+                                       timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -889,8 +882,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     __block bool retry;
     do {
         retry = false;
-        [self.control createCustodianRecoveryKey:containerName
-                                       contextID:contextID
+        [self.control createCustodianRecoveryKey:arguments
                                             uuid:nil
                                            reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
             if (error) {
@@ -903,10 +895,10 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 ret = 0;
                 if (json) {
                     NSDictionary *d = @{
-                                        @"uuid": [crk.uuid description],
-                                        @"recoveryString": crk.recoveryString,
-                                        @"wrappingKey": [crk.wrappingKey base64EncodedStringWithOptions:0],
-                                        @"wrappedKey": [crk.wrappedKey base64EncodedStringWithOptions:0],
+                        @"uuid": [crk.uuid description],
+                        @"recoveryString": crk.recoveryString,
+                        @"wrappingKey": [crk.wrappingKey base64EncodedStringWithOptions:0],
+                        @"wrappedKey": [crk.wrappedKey base64EncodedStringWithOptions:0],
                     };
                     print_json(d);
                 } else {
@@ -926,12 +918,11 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)joinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                           contextID:(NSString *)contextID
-                                         wrappingKey:(NSString*)wrappingKey
-                                          wrappedKey:(NSString*)wrappedKey
-                                          uuidString:(NSString*)uuidString
-                                             timeout:(NSTimeInterval)timeout
+- (int)joinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                     wrappingKey:(NSString*)wrappingKey
+                                      wrappedKey:(NSString*)wrappedKey
+                                      uuidString:(NSString*)uuidString
+                                         timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -966,8 +957,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     do {
         retry = false;
-        [self.control joinWithCustodianRecoveryKey:containerName
-                                         contextID:contextID
+        [self.control joinWithCustodianRecoveryKey:arguments
                               custodianRecoveryKey:crk
                                              reply:^(NSError* _Nullable error) {
             if (error) {
@@ -989,12 +979,11 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)preflightJoinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                                    contextID:(NSString *)contextID
-                                                  wrappingKey:(NSString*)wrappingKey
-                                                   wrappedKey:(NSString*)wrappedKey
-                                                   uuidString:(NSString*)uuidString
-                                                      timeout:(NSTimeInterval)timeout
+- (int)preflightJoinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                              wrappingKey:(NSString*)wrappingKey
+                                               wrappedKey:(NSString*)wrappedKey
+                                               uuidString:(NSString*)uuidString
+                                                  timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1029,21 +1018,20 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     do {
         retry = false;
-        [self.control preflightJoinWithCustodianRecoveryKey:containerName
-                                                  contextID:contextID
+        [self.control preflightJoinWithCustodianRecoveryKey:arguments
                                        custodianRecoveryKey:crk
                                                       reply:^(NSError* _Nullable error) {
-                if (error) {
-                    fprintf(stderr, "preflightJoinWithCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
-                    if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
-                        retry = true;
-                        sleep([error retryInterval]);
-                    }
-                } else {
-                    printf("successful preflight join from custodian recovery key\n");
-                    ret = 0;
+            if (error) {
+                fprintf(stderr, "preflightJoinWithCustodianRecoveryKey failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
                 }
-            }];
+            } else {
+                printf("successful preflight join from custodian recovery key\n");
+                ret = 0;
+            }
+        }];
     } while (retry);
     return ret;
 #else
@@ -1052,10 +1040,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)removeCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                         contextID:(NSString *)contextID
-                                        uuidString:(NSString*)uuidString
-                                           timeout:(NSTimeInterval)timeout
+- (int)removeCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
+                                    uuidString:(NSString*)uuidString
+                                       timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1069,8 +1056,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }
     do {
         retry = false;
-        [self.control removeCustodianRecoveryKey:containerName
-                                       contextID:contextID
+        [self.control removeCustodianRecoveryKey:arguments
                                             uuid:uuid
                                            reply:^(NSError* _Nullable error) {
             if (error) {
@@ -1092,10 +1078,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)createInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                   contextID:(NSString *)contextID
-                                        json:(bool)json
-                                     timeout:(NSTimeInterval)timeout
+- (int)createInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                                    json:(bool)json
+                                 timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1103,8 +1088,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     __block bool retry;
     do {
         retry = false;
-        [self.control createInheritanceKey:containerName
-                                 contextID:contextID
+        [self.control createInheritanceKey:arguments
                                       uuid:nil
                                      reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
             if (error) {
@@ -1117,14 +1101,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 ret = 0;
                 if (json) {
                     NSDictionary *d = @{
-                                        @"uuid": [ik.uuid description],
-                                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
-                                        @"wrappingKeyString": ik.wrappingKeyString,
-                                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
-                                        @"wrappedKeyString": ik.wrappedKeyString,
-                                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
-                                        @"claimTokenString": ik.claimTokenString,
-                                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
+                        @"uuid": [ik.uuid description],
+                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
+                        @"wrappingKeyString": ik.wrappingKeyString,
+                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
+                        @"wrappedKeyString": ik.wrappedKeyString,
+                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
+                        @"claimTokenString": ik.claimTokenString,
+                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
                     };
                     print_json(d);
                 } else {
@@ -1156,10 +1140,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)generateInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
-                                          json:(bool)json
-                                       timeout:(NSTimeInterval)timeout
+- (int)generateInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                                      json:(bool)json
+                                   timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1167,10 +1150,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     __block bool retry;
     do {
         retry = false;
-        [self.control generateInheritanceKey:containerName
-                                 contextID:contextID
-                                      uuid:nil
-                                     reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+        [self.control generateInheritanceKey:arguments
+                                        uuid:nil
+                                       reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
             if (error) {
                 printf("generateInheritanceKey failed: %s\n", [[error description] UTF8String]);
                 if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
@@ -1181,14 +1163,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 ret = 0;
                 if (json) {
                     NSDictionary *d = @{
-                                        @"uuid": [ik.uuid description],
-                                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
-                                        @"wrappingKeyString": ik.wrappingKeyString,
-                                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
-                                        @"wrappedKeyString": ik.wrappedKeyString,
-                                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
-                                        @"claimTokenString": ik.claimTokenString,
-                                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
+                        @"uuid": [ik.uuid description],
+                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
+                        @"wrappingKeyString": ik.wrappingKeyString,
+                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
+                        @"wrappedKeyString": ik.wrappedKeyString,
+                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
+                        @"claimTokenString": ik.claimTokenString,
+                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
                     };
                     print_json(d);
                 } else {
@@ -1220,12 +1202,11 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)storeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                  contextID:(NSString *)contextID
-                                wrappingKey:(NSString*)wrappingKey
-                                 wrappedKey:(NSString*)wrappedKey
-                                 uuidString:(NSString*)uuidString
-                                    timeout:(NSTimeInterval)timeout
+- (int)storeInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                            wrappingKey:(NSString*)wrappingKey
+                             wrappedKey:(NSString*)wrappedKey
+                             uuidString:(NSString*)uuidString
+                                timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1260,8 +1241,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     do {
         retry = false;
-        [self.control storeInheritanceKey:containerName
-                                contextID:contextID
+        [self.control storeInheritanceKey:arguments
                                        ik:ik
                                     reply:^(NSError* _Nullable error) {
             if (error) {
@@ -1283,12 +1263,11 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)joinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
-                                   wrappingKey:(NSString*)wrappingKey
-                                    wrappedKey:(NSString*)wrappedKey
-                                    uuidString:(NSString*)uuidString
-                                       timeout:(NSTimeInterval)timeout
+- (int)joinWithInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                               wrappingKey:(NSString*)wrappingKey
+                                wrappedKey:(NSString*)wrappedKey
+                                uuidString:(NSString*)uuidString
+                                   timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1323,8 +1302,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     do {
         retry = false;
-        [self.control joinWithInheritanceKey:containerName
-                                   contextID:contextID
+        [self.control joinWithInheritanceKey:arguments
                               inheritanceKey:ik
                                        reply:^(NSError* _Nullable error) {
             if (error) {
@@ -1346,12 +1324,11 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)preflightJoinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                              contextID:(NSString *)contextID
-                                            wrappingKey:(NSString*)wrappingKey
-                                             wrappedKey:(NSString*)wrappedKey
-                                             uuidString:(NSString*)uuidString
-                                                timeout:(NSTimeInterval)timeout
+- (int)preflightJoinWithInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                                        wrappingKey:(NSString*)wrappingKey
+                                         wrappedKey:(NSString*)wrappedKey
+                                         uuidString:(NSString*)uuidString
+                                            timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1386,20 +1363,19 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     do {
         retry = false;
-        [self.control preflightJoinWithInheritanceKey:containerName
-                                            contextID:contextID
+        [self.control preflightJoinWithInheritanceKey:arguments
                                        inheritanceKey:ik
                                                 reply:^(NSError* _Nullable error) {
-                if (error) {
-                    fprintf(stderr, "preflight joinWithInheritanceKey failed: %s\n", [[error description] UTF8String]);
-                    if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
-                        retry = true;
-                        sleep([error retryInterval]);
-                    }
-                } else {
-                    printf("successful preflight join from inheritance key\n");
-                    ret = 0;
+            if (error) {
+                fprintf(stderr, "preflight joinWithInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
                 }
+            } else {
+                printf("successful preflight join from inheritance key\n");
+                ret = 0;
+            }
         }];
     } while (retry);
     return ret;
@@ -1409,10 +1385,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)removeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                   contextID:(NSString *)contextID
-                                  uuidString:(NSString*)uuidString
-                                     timeout:(NSTimeInterval)timeout
+- (int)removeInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                              uuidString:(NSString*)uuidString
+                                 timeout:(NSTimeInterval)timeout
 {
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
@@ -1426,8 +1401,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }
     do {
         retry = false;
-        [self.control removeInheritanceKey:containerName
-                                 contextID:contextID
+        [self.control removeInheritanceKey:arguments
                                       uuid:uuid
                                      reply:^(NSError* _Nullable error) {
             if (error) {
@@ -1449,5 +1423,32 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+
+- (int)setMachineIDOverride:(OTControlArguments*)arguments
+                  machineID:(NSString*)machineID
+                       json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control setMachineIDOverride:arguments machineID:machineID reply:^(NSError * _Nullable replyError) {
+        if (replyError) {
+            if(json) {
+                print_json(@{@"error" : [replyError description]});
+            } else {
+                fprintf(stderr, "Failed to set machineID override: %s\n", [[replyError description] UTF8String]);
+            }
+        } else {
+            printf("successfully set machineID override!\n");
+            ret = 0;
+        }
+    }];
+    
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
 
 @end

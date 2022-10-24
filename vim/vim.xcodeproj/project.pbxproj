@@ -158,7 +158,6 @@
 		C1F2ADA3230613E900B8602B /* viminfo.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F2ADA2230613E600B8602B /* viminfo.c */; };
 		C1F2ADA52306141A00B8602B /* session.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F2ADA42306141400B8602B /* session.c */; };
 		C1F5C24A2269120900D90B6C /* insexpand.c in Sources */ = {isa = PBXBuildFile; fileRef = C1F5C2492269120400D90B6C /* insexpand.c */; };
-		C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38431489D5CD001ADB39 /* if_ruby.c */; settings = {COMPILER_FLAGS = "-I$(SDKROOT)/System/Library/Frameworks/Ruby.framework/Headers"; }; };
 		FCEA259912357FDB00430E38 /* blowfish.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA259812357FDB00430E38 /* blowfish.c */; };
 		FCEA25A21235809000430E38 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA25A11235809000430E38 /* sha256.c */; };
 /* End PBXBuildFile section */
@@ -1177,7 +1176,6 @@
 		4C9BEBB610484D5400182AEE /* latin1.ps */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = latin1.ps; sourceTree = "<group>"; };
 		4C9BEBB710484D5400182AEE /* mac-roman.ps */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "mac-roman.ps"; sourceTree = "<group>"; };
 		4C9BEBB810484D5400182AEE /* prolog.ps */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = prolog.ps; sourceTree = "<group>"; };
-		4C9BEBB910484D5400182AEE /* rgb.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rgb.txt; sourceTree = "<group>"; };
 		4C9BEBBA10484D5400182AEE /* scripts.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = scripts.vim; sourceTree = "<group>"; };
 		4C9BEBBD10484D5400182AEE /* af_ZA.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = af_ZA.diff; sourceTree = "<group>"; };
 		4C9BEBBE10484D5400182AEE /* main.aap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = main.aap; sourceTree = "<group>"; };
@@ -1940,7 +1938,6 @@
 		4CD04B9F10361A30001C87D5 /* hardcopy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hardcopy.c; path = src/hardcopy.c; sourceTree = "<group>"; };
 		4CD04BA010361A30001C87D5 /* hashtab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hashtab.c; path = src/hashtab.c; sourceTree = "<group>"; };
 		4CD04BA110361A30001C87D5 /* if_cscope.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_cscope.c; path = src/if_cscope.c; sourceTree = "<group>"; };
-		4CD04BA210361A30001C87D5 /* if_cscope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = if_cscope.h; path = src/if_cscope.h; sourceTree = "<group>"; };
 		4CD04BAF10361A30001C87D5 /* if_xcmdsrv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_xcmdsrv.c; path = src/if_xcmdsrv.c; sourceTree = "<group>"; };
 		4CD04BBC10361A30001C87D5 /* keymap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = keymap.h; path = src/keymap.h; sourceTree = "<group>"; };
 		4CD04BBF10361A30001C87D5 /* macros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = macros.h; path = src/macros.h; sourceTree = "<group>"; };
@@ -2056,7 +2053,6 @@
 		4CD04C7510361A30001C87D5 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		4CD04C7610361A30001C87D5 /* tee.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tee.c; sourceTree = "<group>"; };
 		4CD04C7710361A30001C87D5 /* term.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = term.c; path = src/term.c; sourceTree = "<group>"; };
-		4CD04C7810361A30001C87D5 /* term.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = term.h; path = src/term.h; sourceTree = "<group>"; };
 		4CD04C7910361A30001C87D5 /* termlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = termlib.c; path = src/termlib.c; sourceTree = "<group>"; };
 		4CD04C7B10361A30001C87D5 /* amiga.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = amiga.vim; sourceTree = "<group>"; };
 		4CD04C7C10361A30001C87D5 /* dos.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dos.vim; sourceTree = "<group>"; };
@@ -2211,6 +2207,7 @@
 		4CD04E98103A0215001C87D5 /* libncurses.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libncurses.tbd; path = usr/lib/libncurses.tbd; sourceTree = SDKROOT; };
 		4CD04EB3103CAFC9001C87D5 /* xxd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xxd; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DD76FB20486AB0100D96B5E /* vim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vim; sourceTree = BUILT_PRODUCTS_DIR; };
+		A926F27327A1C01300C68AFB /* termdefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = termdefs.h; path = src/termdefs.h; sourceTree = "<group>"; };
 		A95B22D226C71B3100C9B2F5 /* alloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = alloc.c; path = src/alloc.c; sourceTree = "<group>"; };
 		A962ED9727864C8A00D3CCF4 /* vim9expr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9expr.c; path = src/vim9expr.c; sourceTree = "<group>"; };
 		A962ED9827864C8A00D3CCF4 /* vim9instr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9instr.c; path = src/vim9instr.c; sourceTree = "<group>"; };
@@ -2423,7 +2420,6 @@
 				A9C135A625103DDF0052BC57 /* help.c */,
 				C1F2AD9A2306131700B8602B /* highlight.c */,
 				4CD04BA110361A30001C87D5 /* if_cscope.c */,
-				4CD04BA210361A30001C87D5 /* if_cscope.h */,
 				C9DF38431489D5CD001ADB39 /* if_ruby.c */,
 				4CD04BAF10361A30001C87D5 /* if_xcmdsrv.c */,
 				C1119FAE2245DA330072C208 /* indent.c */,
@@ -2494,7 +2490,7 @@
 				4CD04C7210361A30001C87D5 /* tag.c */,
 				4CD04C7410361A30001C87D5 /* tee */,
 				4CD04C7710361A30001C87D5 /* term.c */,
-				4CD04C7810361A30001C87D5 /* term.h */,
+				A926F27327A1C01300C68AFB /* termdefs.h */,
 				3E1E23B61FB5112A00A170B5 /* terminal.c */,
 				4CD04C7910361A30001C87D5 /* termlib.c */,
 				4CD04C7A10361A30001C87D5 /* testdir */,
@@ -2584,7 +2580,6 @@
 				4C9BEB8A10484D5400182AEE /* optwin.vim */,
 				4C9BEB8B10484D5400182AEE /* plugin */,
 				4C9BEB9710484D5400182AEE /* print */,
-				4C9BEBB910484D5400182AEE /* rgb.txt */,
 				4C9BEBBA10484D5400182AEE /* scripts.vim */,
 				4C9BEBBB10484D5400182AEE /* spell */,
 				4C9BEC6610484D5500182AEE /* synmenu.vim */,
@@ -5217,7 +5212,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1330;
+				LastUpgradeCheck = 1400;
 				TargetAttributes = {
 					C10BF7AC22678F9900A207D2 = {
 						CreatedOnToolsVersion = 11.0;
@@ -5413,7 +5408,6 @@
 				FCEA259912357FDB00430E38 /* blowfish.c in Sources */,
 				FCEA25A21235809000430E38 /* sha256.c in Sources */,
 				C18E31EE2327271B00A8F600 /* scriptfile.c in Sources */,
-				C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */,
 				C198002023F3861C004D70D5 /* vim9execute.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5460,6 +5454,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				EXCLUDED_SOURCE_FILE_NAMES = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = (
 					if_python.c,
@@ -5469,9 +5464,7 @@
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
 					"$(inherited)",
-					FEAT_RUBY,
-					DYNAMIC_RUBY,
-					"DYNAMIC_RUBY_DLL=\"\\\"/System/Library/Frameworks/Ruby.framework/Ruby\\\"\"",
+					HAVE_TIMER_CREATE,
 					MACOS_X_DARWIN,
 				);
 				INSTALL_PATH = /usr/bin;
@@ -5558,6 +5551,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
 				INSTALL_PATH = /usr/bin;
@@ -5607,7 +5601,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "-DINLINE=\"\"";
+				OTHER_CFLAGS = (
+					"-DINLINE=\"\"",
+					"-DSNPRINTF=vim_snprintf",
+					"-DVSNPRINTF=vim_vsnprintf",
+					"-DWCWIDTH_FUNCTION=utf_uint2cells",
+					"-DIS_COMBINING_FUNCTION=utf_iscomposing_uint",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};

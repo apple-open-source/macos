@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 hi{
@@ -42,6 +42,7 @@ hi{
         an{"अर्गोनी"}
         ang{"पुरानी अंग्रेज़ी"}
         anp{"अंगिका"}
+        apw{"अपाची, पश्चिमी"}
         ar{"अरबी"}
         ar_001{"आधुनिक मानक अरबी"}
         arc{"ऐरेमेक"}
@@ -191,6 +192,7 @@ hi{
         grc{"प्राचीन यूनानी"}
         gsw{"स्विस जर्मन"}
         gu{"गुजराती"}
+        guc{"वायु"}
         guz{"गुसी"}
         gv{"मैंक्स"}
         gwi{"ग्विचइन"}
@@ -263,6 +265,7 @@ hi{
         kpe{"क्पेल"}
         kr{"कनुरी"}
         krc{"कराचय-बल्कार"}
+        kri{"क्रियो"}
         krl{"करेलियन"}
         kru{"कुरूख"}
         ks{"कश्मीरी"}
@@ -363,7 +366,7 @@ hi{
         nr{"दक्षिण देबेल"}
         nso{"उत्तरी सोथो"}
         nus{"नुएर"}
-        nv{"नावाजो"}
+        nv{"नावाहो"}
         nwc{"पारम्परिक नेवारी"}
         ny{"न्यानजा"}
         nym{"न्यामवेज़ी"}
@@ -511,6 +514,7 @@ hi{
         vai{"वाई"}
         ve{"वेन्दा"}
         vi{"वियतनामी"}
+        vls{"पश्चिमी फ़्लेमिश"}
         vo{"वोलापुक"}
         vot{"वॉटिक"}
         vun{"वुंजो"}

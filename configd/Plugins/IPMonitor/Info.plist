@@ -33,11 +33,6 @@
 		<key>com.apple.SystemConfiguration.NetworkInformation</key>
 		<true/>
 	</dict>
-	<key>Requires</key>
-	<array>
-		<string>com.apple.SystemConfiguration.IPConfiguration</string>
-		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
-	</array>
 	<key>mdns_timeout</key>
 	<integer>5</integer>
 	<key>pdns_timeout</key>

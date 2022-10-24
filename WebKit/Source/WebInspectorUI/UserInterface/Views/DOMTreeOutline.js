@@ -61,7 +61,8 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         this._hideElementsKeyboardShortcut = new WI.KeyboardShortcut(null, "H", this._hideElements.bind(this), this.element);
         this._hideElementsKeyboardShortcut.implicitlyPreventsDefault = false;
 
-        if (showInspectedNode)
+        this._showInspectedNode = !!showInspectedNode;
+        if (this._showInspectedNode)
             WI.domManager.addEventListener(WI.DOMManager.Event.InspectedNodeChanged, this._handleInspectedNodeChanged, this);
     }
 
@@ -184,8 +185,16 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
                 this.appendChild(treeElement);
                 node = node.nextSibling;
 
-                if (treeElement.hasChildren && !treeElement.expanded)
+                if (treeElement.expandable && !treeElement.expanded)
                     treeElement.expand();
+            }
+        }
+
+        if (this._showInspectedNode && WI.domManager.inspectedNode) {
+            let inspectedNodeTreeElement = this.findTreeElement(WI.domManager.inspectedNode);
+            if (inspectedNodeTreeElement) {
+                inspectedNodeTreeElement.reveal();
+                inspectedNodeTreeElement.listItemElement.classList.add("inspected-node");
             }
         }
 

@@ -1156,11 +1156,6 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
             ret = false;
         } else {
-            // Only supported currently on J316c
-            // j316s    MacBookPro18,1
-            // j316c    MacBookPro18,2
-            // j314s    MacBookPro18,3
-            // j314c    MacBookPro18,4
             if (modelFound != kIOReturnSuccess) {
                 // Try again
                 modelFound = IOCopyModel(&model, &majorRev, &minorRev);
@@ -1168,12 +1163,9 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
             if (modelFound != kIOReturnSuccess) {
                 os_log(OS_LOG_DEFAULT, "kIOPMHighPowerModeKey: Could not find machine model\n");
                 ret = false;
-            } else if (!strncmp(model, "MacBookPro", 10)) {
-                if (majorRev == 18 && minorRev == 2) { // J316c
-                    ret = true;
-                } else {
-                    ret = false;
-                }
+            } else if ((!strncmp(model, "MacBookPro", 10) && majorRev == 18 && minorRev == 2) ||
+                       (strlen(model) == 3 && !strncmp(model, "Mac", 3) && majorRev == 14 && minorRev == 6)) { 
+                ret = true;
             } else {
                 ret = false;
             }

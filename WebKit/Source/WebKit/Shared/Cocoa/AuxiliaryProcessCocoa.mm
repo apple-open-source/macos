@@ -26,12 +26,15 @@
 #import "config.h"
 #import "AuxiliaryProcess.h"
 
+#import "Logging.h"
 #import "OSStateSPI.h"
+#import "SharedBufferReference.h"
 #import "WKCrashReporter.h"
 #import "XPCServiceEntryPoint.h"
 #import <WebCore/FloatingPointEnvironment.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <mach/task.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SoftLinking.h>
@@ -44,6 +47,8 @@
 #if PLATFORM(MAC)
 #import <pal/spi/mac/HIServicesSPI.h>
 #endif
+
+#import <pal/cf/AudioToolboxSoftLink.h>
 
 #if HAVE(UPDATE_WEB_ACCESSIBILITY_SETTINGS) && ENABLE(CFPREFS_DIRECT_MODE)
 SOFT_LINK_LIBRARY_OPTIONAL(libAccessibility)
@@ -77,8 +82,7 @@ void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationPa
     [[NSFileManager defaultManager] changeCurrentDirectoryPath:[[NSBundle mainBundle] bundlePath]];
 
     WebCore::setApplicationBundleIdentifier(parameters.clientBundleIdentifier);
-    setApplicationSDKVersion(parameters.clientSDKVersion);
-    setLinkedOnOrAfterOverride(parameters.clientLinkedOnOrAfterOverride);
+    setSDKAlignedBehaviors(parameters.clientSDKAlignedBehaviors);
 }
 
 void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName)
@@ -88,7 +92,7 @@ void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageNa
     CRASH_WITH_INFO(WTF::enumToUnderlyingType(messageName));
 }
 
-bool AuxiliaryProcess::parentProcessHasEntitlement(const char* entitlement)
+bool AuxiliaryProcess::parentProcessHasEntitlement(ASCIILiteral entitlement)
 {
     return WTF::hasEntitlement(m_connection->xpcConnection(), entitlement);
 }
@@ -171,7 +175,7 @@ void AuxiliaryProcess::setPreferenceValue(const String& domain, const String& ke
         CFPreferencesSetValue(key.createCFString().get(), (__bridge CFPropertyListRef)value, kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 #if ASSERT_ENABLED
         id valueAfterSetting = [[NSUserDefaults standardUserDefaults] objectForKey:key];
-        ASSERT(valueAfterSetting == value || [valueAfterSetting isEqual:value] || key == "AppleLanguages");
+        ASSERT(valueAfterSetting == value || [valueAfterSetting isEqual:value] || key == "AppleLanguages"_s);
 #endif
     } else
         CFPreferencesSetValue(key.createCFString().get(), (__bridge CFPropertyListRef)value, domain.createCFString().get(), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
@@ -237,5 +241,23 @@ void AuxiliaryProcess::setApplicationIsDaemon()
     CGSSetDenyWindowServerConnections(true);
 #endif
 }
+
+#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
+void AuxiliaryProcess::consumeAudioComponentRegistrations(const IPC::SharedBufferReference& data)
+{
+    using namespace PAL;
+
+    if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentApplyServerRegistrations())
+        return;
+
+    if (data.isNull())
+        return;
+    auto registrations = data.unsafeBuffer()->createCFData();
+
+    auto err = AudioComponentApplyServerRegistrations(registrations.get());
+    if (noErr != err)
+        RELEASE_LOG_ERROR(Process, "Could not apply AudioComponent registrations, err(%ld)", static_cast<long>(err));
+}
+#endif
 
 } // namespace WebKit

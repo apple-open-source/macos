@@ -84,6 +84,7 @@ int is_primitive_type(int);
 
 int preserve_type(const char *);
 int seq_type(const char *);
+int extra_data_type(const char *p);
 
 void generate_header_of_codefile(const char *);
 void close_codefile(void);

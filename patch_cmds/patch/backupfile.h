@@ -14,6 +14,10 @@
  * $FreeBSD$
  */
 
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
+
 /* When to make backup files. */
 enum backup_type {
 	/* Never make backups. */
@@ -34,6 +38,11 @@ enum backup_type {
 
 extern enum backup_type backup_type;
 extern const char	*simple_backup_suffix;
+#ifdef __APPLE__
+extern bool backup_mismatch;
+extern bool backup_requested;
+extern char	*simple_backup_prefix;
+#endif
 
 char		*find_backup_file_name(const char *file);
 enum backup_type get_version(const char *version);

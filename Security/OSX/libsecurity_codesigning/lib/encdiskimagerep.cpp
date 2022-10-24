@@ -119,7 +119,7 @@ uint64_t AuthTable::findFirstEmptyDataOffset()
 }
 
 AuthTableEntry::AuthTableEntry(UnixPlusPlus::FileDesc &fd)
-	: mData(NULL), mFreeData(false)
+	: mFreeData(false), mData(NULL)
 {
 	struct __AuthTableEntry ate = {0};
 	fd.read(&ate, sizeof(struct __AuthTableEntry));
@@ -129,7 +129,7 @@ AuthTableEntry::AuthTableEntry(UnixPlusPlus::FileDesc &fd)
 }
 
 AuthTableEntry::AuthTableEntry(uint32_t mechanism, uint64_t offset, uint64_t length)
-	: mMechanism(mechanism), mOffset(offset), mLength(length), mData(NULL), mFreeData(false)
+	: mMechanism(mechanism), mOffset(offset), mLength(length), mFreeData(false), mData(NULL) 
 {
 }
 

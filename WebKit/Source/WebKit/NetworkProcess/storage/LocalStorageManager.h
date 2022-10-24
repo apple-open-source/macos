@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include "StorageAreaIdentifier.h"
+#include "StorageAreaMapIdentifier.h"
 #include <wtf/WorkQueue.h>
 
 namespace WebCore {
@@ -44,7 +45,8 @@ class LocalStorageManager {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Vector<WebCore::SecurityOriginData> originsOfLocalStorageData(const String& path);
-    static String localStorageFilePath(const String& path, const WebCore::ClientOrigin&);
+    static String localStorageFilePath(const String& directory, const WebCore::ClientOrigin&);
+    static String localStorageFilePath(const String& directory);
 
     LocalStorageManager(const String& path, StorageAreaRegistry&);
     bool isActive() const;
@@ -56,8 +58,10 @@ public:
     void syncLocalStorage();
     void connectionClosed(IPC::Connection::UniqueID);
 
-    StorageAreaIdentifier connectToLocalStorageArea(IPC::Connection::UniqueID, const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
-    StorageAreaIdentifier connectToTransientLocalStorageArea(IPC::Connection::UniqueID, const WebCore::ClientOrigin&);
+    StorageAreaIdentifier connectToLocalStorageArea(IPC::Connection::UniqueID, StorageAreaMapIdentifier, const WebCore::ClientOrigin&, Ref<WorkQueue>&&);
+    StorageAreaIdentifier connectToTransientLocalStorageArea(IPC::Connection::UniqueID, StorageAreaMapIdentifier, const WebCore::ClientOrigin&);
+    void cancelConnectToLocalStorageArea(IPC::Connection::UniqueID);
+    void cancelConnectToTransientLocalStorageArea(IPC::Connection::UniqueID);
     void disconnectFromStorageArea(IPC::Connection::UniqueID, StorageAreaIdentifier);
 
 private:

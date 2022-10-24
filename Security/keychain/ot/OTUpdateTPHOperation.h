@@ -15,7 +15,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
-                    peerUnknownState:(OctagonState*)peerUnknownState
+                    peerUnknownState:(OctagonState* _Nullable)peerUnknownState
+                   determineCDPState:(OctagonState* _Nullable)determineCDPState
                           errorState:(OctagonState*)errorState
                         forceRefetch:(BOOL)forceRefetch
                            retryFlag:(OctagonFlag* _Nullable)retryFlag;

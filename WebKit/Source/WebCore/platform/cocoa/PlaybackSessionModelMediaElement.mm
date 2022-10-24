@@ -450,7 +450,7 @@ const Vector<AtomString>& PlaybackSessionModelMediaElement::observedEventNames()
 
 const AtomString&  PlaybackSessionModelMediaElement::eventNameAll()
 {
-    static MainThreadNeverDestroyed<const AtomString> eventNameAll("allEvents", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> eventNameAll("allEvents"_s);
     return eventNameAll;
 }
 
@@ -511,18 +511,13 @@ bool PlaybackSessionModelMediaElement::canPlayFastReverse() const
 
 Vector<MediaSelectionOption> PlaybackSessionModelMediaElement::audioMediaSelectionOptions() const
 {
-    Vector<MediaSelectionOption> audioOptions;
-
     if (!m_mediaElement || !m_mediaElement->document().page())
-        return audioOptions;
+        return { };
 
     auto& captionPreferences = m_mediaElement->document().page()->group().ensureCaptionPreferences();
-
-    audioOptions.reserveInitialCapacity(m_audioTracksForMenu.size());
-    for (auto& audioTrack : m_audioTracksForMenu)
-        audioOptions.uncheckedAppend(captionPreferences.mediaSelectionOptionForTrack(audioTrack.get()));
-
-    return audioOptions;
+    return m_audioTracksForMenu.map([&](auto& audioTrack) {
+        return captionPreferences.mediaSelectionOptionForTrack(audioTrack.get());
+    });
 }
 
 uint64_t PlaybackSessionModelMediaElement::audioMediaSelectedIndex() const
@@ -539,14 +534,12 @@ Vector<MediaSelectionOption> PlaybackSessionModelMediaElement::legibleMediaSelec
     Vector<MediaSelectionOption> legibleOptions;
 
     if (!m_mediaElement || !m_mediaElement->document().page())
-        return legibleOptions;
+        return { };
 
     auto& captionPreferences = m_mediaElement->document().page()->group().ensureCaptionPreferences();
-
-    for (auto& track : m_legibleTracksForMenu)
-        legibleOptions.append(captionPreferences.mediaSelectionOptionForTrack(track.get()));
-
-    return legibleOptions;
+    return m_legibleTracksForMenu.map([&](auto& track) {
+        return captionPreferences.mediaSelectionOptionForTrack(track.get());
+    });
 }
 
 uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
@@ -591,18 +584,18 @@ bool PlaybackSessionModelMediaElement::externalPlaybackEnabled() const
 PlaybackSessionModel::ExternalPlaybackTargetType PlaybackSessionModelMediaElement::externalPlaybackTargetType() const
 {
     if (!m_mediaElement || !m_mediaElement->mediaControlsHost())
-        return TargetTypeNone;
+        return ExternalPlaybackTargetType::TargetTypeNone;
 
     switch (m_mediaElement->mediaControlsHost()->externalDeviceType()) {
     default:
         ASSERT_NOT_REACHED();
-        return TargetTypeNone;
+        return ExternalPlaybackTargetType::TargetTypeNone;
     case MediaControlsHost::DeviceType::None:
-        return TargetTypeNone;
+        return ExternalPlaybackTargetType::TargetTypeNone;
     case MediaControlsHost::DeviceType::Airplay:
-        return TargetTypeAirPlay;
+        return ExternalPlaybackTargetType::TargetTypeAirPlay;
     case MediaControlsHost::DeviceType::Tvout:
-        return TargetTypeTVOut;
+        return ExternalPlaybackTargetType::TargetTypeTVOut;
     }
 }
 

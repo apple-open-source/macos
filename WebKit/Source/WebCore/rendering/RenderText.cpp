@@ -36,12 +36,13 @@
 #include "FrameView.h"
 #include "HTMLParserIdioms.h"
 #include "Hyphenation.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineRunAndOffset.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyEllipsisBox.h"
+#include "LineSelection.h"
 #include "Range.h"
 #include "RenderBlock.h"
 #include "RenderCombineText.h"
@@ -87,7 +88,7 @@ struct SameSizeAsRenderText : public RenderObject {
     String text;
 };
 
-COMPILE_ASSERT(sizeof(RenderText) == sizeof(SameSizeAsRenderText), RenderText_should_stay_small);
+static_assert(sizeof(RenderText) == sizeof(SameSizeAsRenderText), "RenderText should stay small");
 
 class SecureTextTimer final : private TimerBase {
     WTF_MAKE_FAST_ALLOCATED;
@@ -220,9 +221,9 @@ RenderText::~RenderText()
     ASSERT(!originalTextMap().contains(this));
 }
 
-const char* RenderText::renderName() const
+ASCIILiteral RenderText::renderName() const
 {
-    return "RenderText";
+    return "RenderText"_s;
 }
 
 Text* RenderText::textNode() const
@@ -312,7 +313,7 @@ String RenderText::originalText() const
 void RenderText::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
     for (auto& run : InlineIterator::textBoxesFor(*this)) {
-        auto rect = run.rect();
+        auto rect = run.visualRectIgnoringBlockDirection();
         rects.append(enclosingIntRect(FloatRect(accumulatedOffset + rect.location(), rect.size())));
     }
 }
@@ -341,11 +342,11 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
                 continue;
         }
 
-        if (run->line()->legacyRootInlineBox() && run->line()->legacyRootInlineBox()->isFirstAfterPageBreak()) {
+        if (run->lineBox()->isFirstAfterPageBreak()) {
             if (run->isHorizontal())
-                rect.shiftYEdgeTo(run->line()->lineBoxTop());
+                rect.shiftYEdgeTo(run->lineBox()->top());
             else
-                rect.shiftXEdgeTo(run->line()->lineBoxTop());
+                rect.shiftXEdgeTo(run->lineBox()->top());
         }
 
         RenderBlock* containingBlock = this->containingBlock();
@@ -395,7 +396,7 @@ static FloatRect boundariesForTextRun(const InlineIterator::TextBox& run)
     if (is<SVGInlineTextBox>(run.legacyInlineBox()))
         return downcast<SVGInlineTextBox>(*run.legacyInlineBox()).calculateBoundaries();
 
-    return run.rect();
+    return run.visualRectIgnoringBlockDirection();
 }
 
 static IntRect ellipsisRectForTextRun(const InlineIterator::TextBox& run, unsigned start, unsigned end)
@@ -470,7 +471,7 @@ static FloatRect localQuadForTextRun(const InlineIterator::TextBox& run, unsigne
     if (useSelectionHeight)
         return boxSelectionRect;
 
-    auto rect = run.rect();
+    auto rect = run.visualRectIgnoringBlockDirection();
     if (run.isHorizontal()) {
         boxSelectionRect.setHeight(rect.height());
         boxSelectionRect.setY(rect.y());
@@ -672,18 +673,18 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
         if (run->isLineBreak() && !run->previousOnLine() && run->nextOnLine() && !run->nextOnLine()->isLineBreak())
             run.traverseNextTextBox();
 
-        auto line = run->line();
-        LayoutUnit top = std::min(line->selectionTopForHitTesting(), line->top());
+        auto lineBox = run->lineBox();
+        auto top = LayoutUnit { std::min(previousLineBoxContentBottomOrBorderAndPadding(*lineBox), lineBox->contentLogicalTop()) };
         if (pointBlockDirection > top || (!blocksAreFlipped && pointBlockDirection == top)) {
-            LayoutUnit bottom = line->selectionBottom();
-            if (auto nextLine = line->next())
-                bottom = std::min(bottom, nextLine->top());
+            auto bottom = LineSelection::logicalBottom(*lineBox);
+            if (auto nextLineBox = lineBox->next())
+                bottom = std::min(bottom, nextLineBox->contentLogicalTop());
 
             if (pointBlockDirection < bottom || (blocksAreFlipped && pointBlockDirection == bottom)) {
                 ShouldAffinityBeDownstream shouldAffinityBeDownstream;
 #if PLATFORM(IOS_FAMILY)
-                if (pointLineDirection != run->logicalLeft() && point.x() < run->rect().x() + run->logicalWidth()) {
-                    int half = run->rect().x() + run->logicalWidth() / 2;
+                if (pointLineDirection != run->logicalLeft() && point.x() < run->visualRectIgnoringBlockDirection().x() + run->logicalWidth()) {
+                    int half = run->visualRectIgnoringBlockDirection().x() + run->logicalWidth() / 2;
                     auto affinity = point.x() < half ? Affinity::Downstream : Affinity::Upstream;
                     return createVisiblePosition(run->offsetForPosition(pointLineDirection) + run->start(), affinity);
                 }
@@ -1280,7 +1281,7 @@ IntPoint RenderText::firstRunLocation() const
     auto first = InlineIterator::firstTextBoxFor(*this);
     if (!first)
         return { };
-    return IntPoint(first->rect().location());
+    return IntPoint(first->visualRectIgnoringBlockDirection().location());
 }
 
 void RenderText::setSelectionState(HighlightState state)
@@ -1350,7 +1351,7 @@ void RenderText::setRenderedText(const String& newText)
     m_text = newText;
 
     if (m_useBackslashAsYenSymbol)
-        m_text.replace('\\', yenSign);
+        m_text = makeStringByReplacingAll(m_text, '\\', yenSign);
     
     const auto& style = this->style();
     if (style.textTransform() != TextTransform::None)
@@ -1443,6 +1444,9 @@ bool RenderText::computeCanUseSimplifiedTextMeasuring() const
     TextRun run(m_text);
     run.setCharacterScanForCodePath(false);
     if (fontCascade.codePath(run) != FontCascade::CodePath::Simple)
+        return false;
+
+    if (&style != &firstLineStyle() && fontCascade != firstLineStyle().fontCascade())
         return false;
 
     auto& primaryFont = fontCascade.primaryFont();
@@ -1556,6 +1560,9 @@ float RenderText::width(unsigned from, unsigned length, const FontCascade& fontC
     if (auto width = combineTextWidth(*this, fontCascade, style))
         return *width;
 
+    if (length == 1 && (characterAt(from) == space))
+        return canUseSimplifiedTextMeasuring() ? fontCascade.primaryFont().spaceWidth() : fontCascade.widthOfSpaceString();
+
     float width = 0.f;
     if (&fontCascade == &style.fontCascade()) {
         if (!style.preserveNewline() && !from && length == text().length() && (!glyphOverflow || !glyphOverflow->computeBounds)) {
@@ -1585,13 +1592,13 @@ float RenderText::width(unsigned from, unsigned length, const FontCascade& fontC
 
 IntRect RenderText::linesBoundingBox() const
 {
-    auto first = InlineIterator::firstTextBoxFor(*this);
-    if (!first)
+    auto firstTextBox = InlineIterator::firstTextBoxFor(*this);
+    if (!firstTextBox)
         return { };
 
-    auto boundingBox = first->rect();
-    for (auto box = first; ++box;)
-        boundingBox.uniteEvenIfEmpty(box->rect());
+    auto boundingBox = firstTextBox->visualRectIgnoringBlockDirection();
+    for (auto textBox = firstTextBox; ++textBox;)
+        boundingBox.uniteEvenIfEmpty(textBox->visualRectIgnoringBlockDirection());
 
     return enclosingIntRect(boundingBox);
 }
@@ -1827,20 +1834,6 @@ void RenderText::setInlineWrapperForDisplayContents(RenderInline* wrapper)
     }
     inlineWrapperForDisplayContentsMap().add(this, wrapper);
     m_hasInlineWrapperForDisplayContents = true;
-}
-
-RenderText* RenderText::findByDisplayContentsInlineWrapperCandidate(RenderElement& renderer)
-{
-    auto* firstChild = renderer.firstChild();
-    if (!is<RenderText>(firstChild))
-        return nullptr;
-    auto& textRenderer = downcast<RenderText>(*firstChild);
-    if (textRenderer.inlineWrapperForDisplayContents() != &renderer)
-        return nullptr;
-    ASSERT(textRenderer.textNode());
-    ASSERT(renderer.firstChild() == renderer.lastChild());
-    return &textRenderer;
-
 }
 
 } // namespace WebCore

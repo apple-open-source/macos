@@ -136,11 +136,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     if(!actargs[kinfo].hasArg || actargs[kgetboot].present) {
         char currentDev[1024]; // may contain URLs like bsdp://foo
         char currentPath[MAXPATHLEN];
-        BLPreBootEnvType	preboot;
-        
-        ret = BLGetPreBootEnvironmentType(context, &preboot);
-        if(ret)
-            return 1;
+		BLPreBootEnvType	preboot = getPrebootType(); 
         
         if (preboot == kBLPreBootEnvType_EFI) {
             CFStringRef     efibootdev = NULL;
@@ -235,6 +231,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             if (contentHint && CFGetTypeID(contentHint) == CFStringGetTypeID()) {
                 ret = BLGetParentDeviceAndPartitionType(context, currentDev,
                                                         parentDev,
+                                                        sizeof(parentDev),
                                                         &partNum,
                                                         &mapType);
                 if (ret == 10) {
@@ -766,9 +763,9 @@ static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char 
             blesscontextprintf(context, kBLLogLevelVerbose,  "Network boot device detected\n" );
             
             if(strlen(path) > 0) {
-                sprintf(bootdevice, "tftp://%s@%s/%s", interface, host, path);
+                snprintf(bootdevice, deviceLen, "tftp://%s@%s/%s", interface, host, path);
             } else {
-                sprintf(bootdevice, "%s://%s@%s",
+                snprintf(bootdevice, deviceLen, "%s://%s@%s",
                                         (protocol == kBLNetBootProtocol_PXE ? "pxe" : "bsdp"),
                                         interface, host);            
             }
@@ -782,7 +779,7 @@ static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char 
 			if(ret == 0) {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "Legacy boot device detected\n" );
 				
-				sprintf(bootdevice, "/dev/%s", path);
+				snprintf(bootdevice, deviceLen, "/dev/%s", path);
 				
 				return 0;
 			}				

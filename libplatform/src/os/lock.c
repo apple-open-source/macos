@@ -662,9 +662,9 @@ os_unfair_lock_unlock_no_tsd(os_unfair_lock_t lock, mach_port_t self)
 
 
 void
-os_unfair_lock_assert_owner(os_unfair_lock_t lock)
+os_unfair_lock_assert_owner(const os_unfair_lock *lock)
 {
-	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
+	const struct _os_unfair_lock_s *l = (const struct _os_unfair_lock_s *)lock;
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	os_ulock_value_t current = os_atomic_load(&l->oul_value, relaxed);
 	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self, 0))) {
@@ -674,9 +674,9 @@ os_unfair_lock_assert_owner(os_unfair_lock_t lock)
 }
 
 void
-os_unfair_lock_assert_not_owner(os_unfair_lock_t lock)
+os_unfair_lock_assert_not_owner(const os_unfair_lock *lock)
 {
-	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
+	const struct _os_unfair_lock_s *l = (const struct _os_unfair_lock_s *)lock;
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	os_ulock_value_t current = os_atomic_load(&l->oul_value, relaxed);
 	if (unlikely(OS_ULOCK_IS_OWNER(current, self, 0))) {

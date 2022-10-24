@@ -19,7 +19,7 @@ OSStatus w(SSLConnectionRef connection, const void *data, size_t *dataLength) {
 
 //Testing <rdar://problem/13539215> Trivial SecureTransport example crashes on Cab, where it worked on Zin
 static
-void tests()
+void tests(void)
 {
     OSStatus ortn;
     SSLContextRef ctx;

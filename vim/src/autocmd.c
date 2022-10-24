@@ -2209,9 +2209,13 @@ apply_autocmds_group(
 	    ap->last = FALSE;
 	ap->last = TRUE;
 
+	// Make sure cursor and topline are valid.  The first time the current
+	// values are saved, restored by reset_lnums().  When nested only the
+	// values are corrected when needed.
 	if (nesting == 1)
-	    // make sure cursor and topline are valid
 	    check_lnums(TRUE);
+	else
+	    check_lnums_nested(TRUE);
 
 	save_did_emsg = did_emsg;
 
@@ -2769,7 +2773,6 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
     listitem_T	*pli;
     char_u	*cmd = NULL;
     char_u	*end;
-    char_u	*p;
     int		once;
     int		nested;
     int		replace;		// replace the cmd for a group/event
@@ -2830,7 +2833,7 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
 	    }
 	}
 
-	group_name = dict_get_string(event_dict, (char_u *)"group", TRUE);
+	group_name = dict_get_string(event_dict, "group", TRUE);
 	if (group_name == NULL || *group_name == NUL)
 	    // if the autocmd group name is not specified, then use the current
 	    // autocmd group
@@ -2865,7 +2868,7 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
 	{
 	    varnumber_T	bnum;
 
-	    bnum = dict_get_number_def(event_dict, (char_u *)"bufnr", -1);
+	    bnum = dict_get_number_def(event_dict, "bufnr", -1);
 	    if (bnum == -1)
 		continue;
 
@@ -2905,13 +2908,13 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
 		pat = (char_u *)"";
 	}
 
-	once = dict_get_bool(event_dict, (char_u *)"once", FALSE);
-	nested = dict_get_bool(event_dict, (char_u *)"nested", FALSE);
+	once = dict_get_bool(event_dict, "once", FALSE);
+	nested = dict_get_bool(event_dict, "nested", FALSE);
 	// if 'replace' is true, then remove all the commands associated with
 	// this autocmd event/group and add the new command.
-	replace = dict_get_bool(event_dict, (char_u *)"replace", FALSE);
+	replace = dict_get_bool(event_dict, "replace", FALSE);
 
-	cmd = dict_get_string(event_dict, (char_u *)"cmd", TRUE);
+	cmd = dict_get_string(event_dict, "cmd", TRUE);
 	if (cmd == NULL)
 	{
 	    if (delete)
@@ -2937,6 +2940,8 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
 	}
 	else
 	{
+	    char_u *p = NULL;
+
 	    eli = NULL;
 	    end = NULL;
 	    while (TRUE)
@@ -2950,26 +2955,24 @@ autocmd_add_or_delete(typval_T *argvars, typval_T *rettv, int delete)
 		    if (eli == NULL)
 			break;
 		    if (eli->li_tv.v_type != VAR_STRING
-			    || eli->li_tv.vval.v_string == NULL)
+			    || (p = eli->li_tv.vval.v_string) == NULL)
 		    {
 			emsg(_(e_string_required));
-			continue;
+			break;
 		    }
-		    p = eli->li_tv.vval.v_string;
 		}
 		else
 		{
-		    if (end == NULL)
-			p = end = event_name;
-		    if (end == NULL || *end == NUL)
+		    if (p == NULL)
+			p = event_name;
+		    if (p == NULL || *p == NUL)
 			break;
 		}
-		if (p == NULL)
-		    continue;
 
 		event = event_name2nr(p, &end);
 		if (event == NUM_EVENTS || *end != NUL)
 		{
+		    // this also catches something following a valid event name
 		    semsg(_(e_no_such_event_str), p);
 		    retval = VVAL_FALSE;
 		    break;
@@ -3063,6 +3066,8 @@ f_autocmd_get(typval_T *argvars, typval_T *rettv)
     char_u	*name = NULL;
     int		group = AUGROUP_ALL;
 
+    if (rettv_list_alloc(rettv) == FAIL)
+	return;
     if (check_for_opt_dict_arg(argvars, 0) == FAIL)
 	return;
 
@@ -3071,8 +3076,7 @@ f_autocmd_get(typval_T *argvars, typval_T *rettv)
 	// return only the autocmds in the specified group
 	if (dict_has_key(argvars[0].vval.v_dict, "group"))
 	{
-	    name = dict_get_string(argvars[0].vval.v_dict,
-						      (char_u *)"group", TRUE);
+	    name = dict_get_string(argvars[0].vval.v_dict, "group", TRUE);
 	    if (name == NULL)
 		return;
 
@@ -3096,8 +3100,7 @@ f_autocmd_get(typval_T *argvars, typval_T *rettv)
 	{
 	    int		i;
 
-	    name = dict_get_string(argvars[0].vval.v_dict,
-						      (char_u *)"event", TRUE);
+	    name = dict_get_string(argvars[0].vval.v_dict, "event", TRUE);
 	    if (name == NULL)
 		return;
 
@@ -3122,15 +3125,12 @@ f_autocmd_get(typval_T *argvars, typval_T *rettv)
 	// return only the autocmds for the specified pattern
 	if (dict_has_key(argvars[0].vval.v_dict, "pattern"))
 	{
-	    pat = dict_get_string(argvars[0].vval.v_dict,
-						    (char_u *)"pattern", TRUE);
+	    pat = dict_get_string(argvars[0].vval.v_dict, "pattern", TRUE);
 	    if (pat == NULL)
 		return;
 	}
     }
 
-    if (rettv_list_alloc(rettv) == FAIL)
-	return;
     event_list = rettv->vval.v_list;
 
     // iterate through all the autocmd events
@@ -3160,33 +3160,23 @@ f_autocmd_get(typval_T *argvars, typval_T *rettv)
 	    for (ac = ap->cmds; ac != NULL; ac = ac->next)
 	    {
 		event_dict = dict_alloc();
-		if (event_dict == NULL)
+		if (event_dict == NULL
+			|| list_append_dict(event_list, event_dict) == FAIL)
 		    return;
 
-		if (list_append_dict(event_list, event_dict) == FAIL)
-		    return;
-
-		if (dict_add_string(event_dict, "event", event_name) == FAIL)
-		    return;
-
-		if (dict_add_string(event_dict, "group", group_name == NULL
-			    ? (char_u *)"" : group_name) == FAIL)
-		    return;
-
-		if (ap->buflocal_nr != 0)
-		    if (dict_add_number(event_dict, "bufnr", ap->buflocal_nr)
-								       == FAIL)
-			return;
-
-		if (dict_add_string(event_dict, "pattern", ap->pat) == FAIL)
-		    return;
-
-		if (dict_add_string(event_dict, "cmd", ac->cmd) == FAIL)
-		    return;
-
-		if (dict_add_bool(event_dict, "once", ac->once) == FAIL)
-		    return;
-		if (dict_add_bool(event_dict, "nested", ac->nested) == FAIL)
+		if (dict_add_string(event_dict, "event", event_name) == FAIL
+			|| dict_add_string(event_dict, "group",
+					group_name == NULL ? (char_u *)""
+							  : group_name) == FAIL
+			|| (ap->buflocal_nr != 0
+				&& (dict_add_number(event_dict, "bufnr",
+						    ap->buflocal_nr) == FAIL))
+			|| dict_add_string(event_dict, "pattern",
+							      ap->pat) == FAIL
+			|| dict_add_string(event_dict, "cmd", ac->cmd) == FAIL
+			|| dict_add_bool(event_dict, "once", ac->once) == FAIL
+			|| dict_add_bool(event_dict, "nested",
+							   ac->nested) == FAIL)
 		    return;
 	    }
 	}

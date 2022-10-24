@@ -1,0 +1,17 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2011-07-14</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>uniq.c: Use larger datatypes to prevent truncation (29158858)</string>
+		<string>uniq.c: Don't ignore errors when flushing output (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>uniq</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-06-07</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/uniq?id=e6e3cf55d33a627adc59fc90eaced9b20dd639ba</string>
+</dict>

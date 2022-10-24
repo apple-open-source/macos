@@ -95,7 +95,9 @@
 
 - (void)groupStart {
     WEAKIFY(self);
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice("ckkscurrent", self.viewState.zoneID, "CKKSUpdateCurrentItemPointerOperation cancelled, quitting");
@@ -169,7 +171,11 @@
         ckksnotice("ckkscurrent", self.viewState.zoneID, "Setting current pointer for %@ to %@ (from %@)", self.currentPointerIdentifier, newItemUUID, oldCurrentItemUUID);
 
         // Ensure that there's no pending pointer update
-        CKKSCurrentItemPointer* cipPending = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier state:SecCKKSProcessedStateRemote zoneID:self.viewState.zoneID error:&error];
+        CKKSCurrentItemPointer* cipPending = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier
+                                                                           contextID:self.viewState.contextID
+                                                                               state:SecCKKSProcessedStateRemote
+                                                                              zoneID:self.viewState.zoneID
+                                                                               error:&error];
         if(cipPending) {
             self.error = [NSError errorWithDomain:CKKSErrorDomain
                                              code:CKKSRemoteItemChangePending
@@ -178,7 +184,11 @@
             return CKKSDatabaseTransactionRollback;
         }
 
-        CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier state:SecCKKSProcessedStateLocal zoneID:self.viewState.zoneID error:&error];
+        CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier
+                                                                    contextID:self.viewState.contextID
+                                                                        state:SecCKKSProcessedStateLocal
+                                                                       zoneID:self.viewState.zoneID
+                                                                        error:&error];
 
         if(cip) {
             // Ensure that the itempointer matches the old item (and the old item exists)
@@ -220,6 +230,7 @@
         } else {
             // No current item pointer? How exciting! Let's make you a nice new one.
             cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:self.currentPointerIdentifier
+                                                          contextID:self.viewState.contextID
                                                     currentItemUUID:newItemUUID
                                                               state:SecCKKSProcessedStateLocal
                                                              zoneID:self.viewState.zoneID
@@ -228,8 +239,8 @@
         }
 
         // Check if either item is currently in any sync queue, and fail if so
-        NSArray* oqes = [CKKSOutgoingQueueEntry allUUIDs:self.viewState.zoneID error:&error];
-        NSArray* iqes = [CKKSIncomingQueueEntry allUUIDs:self.viewState.zoneID error:&error];
+        NSArray* oqes = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.deps.contextID zoneID:self.viewState.zoneID error:&error];
+        NSArray* iqes = [CKKSIncomingQueueEntry allUUIDsWithContextID:self.deps.contextID zoneID:self.viewState.zoneID error:&error];
         if([oqes containsObject:newItemUUID] || [iqes containsObject:newItemUUID]) {
             error = [NSError errorWithDomain:CKKSErrorDomain
                                         code:CKKSLocalItemChangePending
@@ -248,7 +259,10 @@
         }
 
         // Make sure the item is synced, though!
-        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:cip.currentItemUUID zoneID:self.viewState.zoneID error:&error];
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:cip.currentItemUUID
+                                                    contextID:self.deps.contextID
+                                                       zoneID:self.viewState.zoneID
+                                                        error:&error];
         if(!ckme || error) {
             ckkserror("ckkscurrent", self.viewState.zoneID, "Error attempting to set a current item pointer to an item that isn't synced: %@ %@", cip, ckme);
             error = [NSError errorWithDomain:CKKSErrorDomain
@@ -324,7 +338,7 @@
                         }
                     }
                     else if ([CKKSManifest shouldSyncManifests] && [record.recordType isEqualToString:SecCKRecordManifestType]) {
-                        CKKSManifest* manifest = [[CKKSManifest alloc] initWithCKRecord:record];
+                        CKKSManifest* manifest = [[CKKSManifest alloc] initWithCKRecord:record contextID:self.deps.contextID];
                         [manifest saveToDatabase:&error];
                         if (error) {
                             ckkserror("ckkscurrent", self.viewState.zoneID, "Couldn't save %@ to manifest: %@", record.recordID.recordName, error);
@@ -448,7 +462,7 @@
         }
 
         CFReleaseSafe(cferror);
-        return false;
+        return NULL;
     }
 
     CFReleaseSafe(cferror);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,8 @@
 namespace WebCore {
 
 static constexpr size_t maxLengthForClickableElementText = 100;
+static constexpr double maxWidthForElementsThatLookClickable = 200;
+static constexpr double maxHeightForElementsThatLookClickable = 100;
 
 bool ModalContainerObserver::isNeededFor(const Document& document)
 {
@@ -147,13 +149,22 @@ static bool isInsideNavigationElement(const Text& textNode)
     return false;
 }
 
-static bool containsMatchingText(RenderLayerModelObject& renderer, const AtomString& searchTerm)
+struct TextSearchResult {
+    bool foundMatch { false };
+    bool containsAnyText { false };
+};
+
+static TextSearchResult searchForMatch(RenderLayerModelObject& renderer, const AtomString& searchTerm)
 {
+    TextSearchResult result;
     for (auto& textRenderer : descendantsOfType<RenderText>(renderer)) {
-        if (RefPtr textNode = textRenderer.textNode(); textNode && matchesSearchTerm(*textNode, searchTerm))
-            return !isInsideNavigationElement(*textNode);
+        result.containsAnyText = true;
+        if (RefPtr textNode = textRenderer.textNode(); textNode && matchesSearchTerm(*textNode, searchTerm)) {
+            result.foundMatch = !isInsideNavigationElement(*textNode);
+            return result;
+        }
     }
-    return false;
+    return result;
 }
 
 void ModalContainerObserver::searchForModalContainerOnBehalfOfFrameOwnerIfNeeded(HTMLFrameOwnerElement& owner)
@@ -213,10 +224,15 @@ void ModalContainerObserver::updateModalContainerIfNeeded(const FrameView& view)
         if (!element || is<HTMLBodyElement>(*element) || element->isDocumentNode())
             continue;
 
-        if (!m_elementsToIgnoreWhenSearching.add(*element).isNewEntry)
+        if (m_elementsToIgnoreWhenSearching.contains(*element))
             continue;
 
-        if (containsMatchingText(renderer, searchTerm)) {
+        auto [foundMatch, containsAnyText] = searchForMatch(renderer, searchTerm);
+
+        if (containsAnyText)
+            m_elementsToIgnoreWhenSearching.add(*element);
+
+        if (foundMatch) {
             setContainer(*element);
             return;
         }
@@ -230,7 +246,7 @@ void ModalContainerObserver::updateModalContainerIfNeeded(const FrameView& view)
             if (!renderView)
                 continue;
 
-            if (containsMatchingText(*renderView, searchTerm)) {
+            if (searchForMatch(*renderView, searchTerm).foundMatch) {
                 setContainer(*element, &frameOwner);
                 return;
             }
@@ -281,7 +297,15 @@ HTMLFrameOwnerElement* ModalContainerObserver::frameOwnerForControls() const
     return m_containerAndFrameOwnerForControls.second.get();
 }
 
-static bool isClickableControl(const HTMLElement& element)
+static bool listensForUserActivation(const Element& element)
+{
+    return element.hasEventListeners(eventNames().clickEvent) || element.hasEventListeners(eventNames().mousedownEvent) || element.hasEventListeners(eventNames().mouseupEvent)
+        || element.hasEventListeners(eventNames().touchstartEvent) || element.hasEventListeners(eventNames().touchendEvent)
+        || element.hasEventListeners(eventNames().pointerdownEvent) || element.hasEventListeners(eventNames().pointerupEvent);
+}
+
+enum class ContainerListensForUserActivation : bool { No, Yes };
+static bool isClickableControl(const HTMLElement& element, ContainerListensForUserActivation containerListensForUserActivation)
 {
     if (element.isActuallyDisabled())
         return false;
@@ -312,9 +336,28 @@ static bool isClickableControl(const HTMLElement& element)
         return equalIgnoringFragmentIdentifier(element.document().url(), href) || !href.protocolIsInHTTPFamily();
     }
 
-    return element.hasEventListeners(eventNames().clickEvent) || element.hasEventListeners(eventNames().mousedownEvent) || element.hasEventListeners(eventNames().mouseupEvent)
-        || element.hasEventListeners(eventNames().touchstartEvent) || element.hasEventListeners(eventNames().touchendEvent)
-        || element.hasEventListeners(eventNames().pointerdownEvent) || element.hasEventListeners(eventNames().pointerupEvent);
+    if (listensForUserActivation(element))
+        return true;
+
+    if (containerListensForUserActivation == ContainerListensForUserActivation::No)
+        return false;
+
+    auto rendererAndRect = element.boundingAbsoluteRectWithoutLayout();
+    if (!rendererAndRect)
+        return false;
+
+    auto [renderer, rect] = *rendererAndRect;
+    if (!renderer || rect.isEmpty())
+        return false;
+
+    // If the modal container itself has event listeners for user activation, continue looking for elements that look like
+    // clickable elements (e.g. small nodes with pointer-style cursor).
+    if (renderer->style().cursor() == CursorType::Pointer) {
+        if (rect.width() <= maxWidthForElementsThatLookClickable && rect.height() <= maxHeightForElementsThatLookClickable)
+            return true;
+    }
+
+    return false;
 }
 
 static void removeParentOrChildElements(Vector<Ref<HTMLElement>>& elements)
@@ -408,7 +451,7 @@ public:
     Document* document() const { return m_document.get(); }
 
 private:
-    WeakPtr<Document> m_document;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
     bool m_continueHidingModalContainerAfterScope { false };
 };
 
@@ -457,13 +500,13 @@ void ModalContainerObserver::collectClickableElementsTimerFired()
                 return;
 
             struct ClassifiedControls {
-                Vector<WeakPtr<HTMLElement>> positive;
-                Vector<WeakPtr<HTMLElement>> neutral;
-                Vector<WeakPtr<HTMLElement>> negative;
+                Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> positive;
+                Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> neutral;
+                Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> negative;
 
                 HTMLElement* controlToClick(ModalContainerDecision decision) const
                 {
-                    auto matchNonNull = [&](const WeakPtr<HTMLElement>& element) {
+                    auto matchNonNull = [&](const WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>& element) {
                         return !!element;
                     };
 
@@ -472,13 +515,13 @@ void ModalContainerObserver::collectClickableElementsTimerFired()
                     case ModalContainerDecision::HideAndIgnore:
                         break;
                     case ModalContainerDecision::HideAndAllow:
-                        if (auto index = positive.findMatching(matchNonNull); index != notFound)
+                        if (auto index = positive.findIf(matchNonNull); index != notFound)
                             return positive[index].get();
-                        if (auto index = neutral.findMatching(matchNonNull); index != notFound)
+                        if (auto index = neutral.findIf(matchNonNull); index != notFound)
                             return neutral[index].get();
                         break;
                     case ModalContainerDecision::HideAndDisallow:
-                        if (auto index = negative.findMatching(matchNonNull); index != notFound)
+                        if (auto index = negative.findIf(matchNonNull); index != notFound)
                             return negative[index].get();
                         break;
                     }
@@ -668,7 +711,7 @@ void ModalContainerObserver::revealModalContainer()
         element->invalidateStyle();
 }
 
-std::pair<Vector<WeakPtr<HTMLElement>>, Vector<String>> ModalContainerObserver::collectClickableElements()
+std::pair<Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>>, Vector<String>> ModalContainerObserver::collectClickableElements()
 {
     Ref container = *this->container();
     m_collectingClickableElements = true;
@@ -695,16 +738,17 @@ std::pair<Vector<WeakPtr<HTMLElement>>, Vector<String>> ModalContainerObserver::
     if (!containerForControls)
         return { };
 
+    auto containerListensForUserActivation = listensForUserActivation(*containerForControls) ? ContainerListensForUserActivation::Yes : ContainerListensForUserActivation::No;
     Vector<Ref<HTMLElement>> clickableControls;
     for (auto& child : descendantsOfType<HTMLElement>(*containerForControls)) {
-        if (isClickableControl(child))
+        if (isClickableControl(child, containerListensForUserActivation))
             clickableControls.append(child);
     }
 
     removeElementsWithEmptyBounds(clickableControls);
     removeParentOrChildElements(clickableControls);
 
-    Vector<WeakPtr<HTMLElement>> classifiableControls;
+    Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>> classifiableControls;
     Vector<String> controlTextsToClassify;
     classifiableControls.reserveInitialCapacity(clickableControls.size());
     controlTextsToClassify.reserveInitialCapacity(clickableControls.size());

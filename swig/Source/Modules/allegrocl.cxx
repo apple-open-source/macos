@@ -160,7 +160,7 @@ static String *namespace_of(String *str) {
     p = Char(stripped_one) + 2;
   }
   if (p > start) {
-    int len = p - start - 1;
+    int len = (int) (p - start - 1);
     result = (char *) malloc(len);
     strncpy(result, start, len - 1);
     result[len - 1] = 0;
@@ -2489,7 +2489,7 @@ int ALLEGROCL::emit_defun(Node *n, File *fcl) {
 
   Delete(parsed);
 
-  int isPtrReturn = 0;
+  __unused int isPtrReturn = 0;
 
   if (cl_t) {
     lclass = lookup_defined_foreign_ltype(cl_t);
@@ -2859,10 +2859,10 @@ int ALLEGROCL::globalvariableHandler(Node *n) {
 
   // String *name = Getattr(n, "name");
   SwigType *type = Getattr(n, "type");
-  SwigType *ctype;
+  __unused SwigType *ctype;
   SwigType *rtype = SwigType_typedef_resolve_all(type);
 
-  int pointer_added = 0;
+  __unused int pointer_added = 0;
 
   if (SwigType_isclass(rtype)) {
     SwigType_add_pointer(type);

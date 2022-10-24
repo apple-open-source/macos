@@ -12,6 +12,8 @@
 #include "lf_hfs_common.h"
 #include "lf_hfs_vnode.h"
 
+#define PATH_TO_FSCK FS_BUNDLE_BIN_PATH "/fsck_hfs"
+
 uint64_t FSOPS_GetOffsetFromClusterNum(vnode_t vp, uint64_t uClusterNum);
 int      LFHFS_Mount   (int iFd, UVFSVolumeId puVolId, __unused UVFSMountFlags puMountFlags,
 	__unused UVFSVolumeCredential *psVolumeCreds, UVFSFileNode *ppsRootNode);

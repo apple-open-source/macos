@@ -852,6 +852,29 @@ sec_protocol_options_set_tls_early_data_enabled(sec_protocol_options_t options, 
 }
 
 void
+sec_protocol_options_set_quic_early_data_context(sec_protocol_options_t options, const uint8_t *context, size_t context_len)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        if (content->quic_early_data_context) {
+            free(content->quic_early_data_context);
+            content->quic_early_data_context_len = 0;
+        }
+
+        content->quic_early_data_context = malloc(sizeof(uint8_t) * context_len);
+        if (content->quic_early_data_context) {
+            memcpy(content->quic_early_data_context, context, context_len);
+            content->quic_early_data_context_len = context_len;
+        }
+        return true;
+    });
+}
+
+void
 sec_protocol_options_set_tls_sni_disabled(sec_protocol_options_t options, bool sni_disabled)
 {
     SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
@@ -3008,6 +3031,36 @@ sec_protocol_options_set_client_raw_public_key_certificates(sec_protocol_options
             CFArrayAppendValue(certificates_copy, CFArrayGetValueAtIndex(certificates, i));
         }
         content->client_raw_public_key_certificates = certificates_copy;
+
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_new_session_ticket_request(sec_protocol_options_t options, uint8_t count)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, );
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->new_session_ticket_request = count;
+
+        return true;
+    });
+}
+
+void
+sec_protocol_options_set_resumed_session_ticket_request(sec_protocol_options_t options, uint8_t count)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, );
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->resumed_session_ticket_request = count;
 
         return true;
     });

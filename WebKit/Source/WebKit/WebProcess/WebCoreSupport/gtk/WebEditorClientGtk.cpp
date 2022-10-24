@@ -53,7 +53,7 @@ bool WebEditorClient::executePendingEditorCommands(Frame& frame, const Vector<WT
 {
     Vector<std::variant<Editor::Command, String>> commands;
     for (auto& commandString : pendingEditorCommands) {
-        if (commandString.startsWith("Gtk"))
+        if (commandString.startsWith("Gtk"_s))
             commands.append(commandString);
         else {
             Editor::Command command = frame.editor().command(commandString);
@@ -145,7 +145,7 @@ void WebEditorClient::updateGlobalSelection(Frame* frame)
     PasteboardWebContent pasteboardContent;
     pasteboardContent.canSmartCopyOrDelete = false;
     pasteboardContent.text = plainText(*range);
-    pasteboardContent.markup = serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::YesExcludingLocalFileURLsForPrivacy);
+    pasteboardContent.markup = serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::YesExcludingURLsForPrivacy);
     Pasteboard::createForGlobalSelection(PagePasteboardContext::create(frame->pageID()))->write(pasteboardContent);
 }
 

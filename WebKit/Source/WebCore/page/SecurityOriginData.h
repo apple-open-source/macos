@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/Hasher.h>
 #include <wtf/URL.h>
 
 namespace WebCore {
@@ -70,7 +71,7 @@ struct SecurityOriginData {
     // Serialize the security origin to a string that could be used as part of
     // file names. This format should be used in storage APIs only.
     WEBCORE_EXPORT String databaseIdentifier() const;
-    WEBCORE_EXPORT static std::optional<SecurityOriginData> fromDatabaseIdentifier(const String&);
+    WEBCORE_EXPORT static std::optional<SecurityOriginData> fromDatabaseIdentifier(StringView);
     
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<SecurityOriginData> decode(Decoder&);
@@ -87,6 +88,8 @@ struct SecurityOriginData {
     
     WEBCORE_EXPORT String toString() const;
 
+    URL toURL() const;
+
 #if !LOG_DISABLED
     String debugString() const { return toString(); }
 #endif
@@ -94,6 +97,11 @@ struct SecurityOriginData {
 
 WEBCORE_EXPORT bool operator==(const SecurityOriginData&, const SecurityOriginData&);
 inline bool operator!=(const SecurityOriginData& first, const SecurityOriginData& second) { return !(first == second); }
+
+inline void add(Hasher& hasher, const SecurityOriginData& data)
+{
+    add(hasher, data.protocol, data.host, data.port);
+}
 
 template<class Encoder>
 void SecurityOriginData::encode(Encoder& encoder) const
@@ -135,15 +143,7 @@ struct SecurityOriginDataHashTraits : SimpleClassHashTraits<SecurityOriginData> 
 };
 
 struct SecurityOriginDataHash {
-    static unsigned hash(const SecurityOriginData& data)
-    {
-        unsigned hashCodes[3] = {
-            data.protocol.impl() ? data.protocol.impl()->hash() : 0,
-            data.host.impl() ? data.host.impl()->hash() : 0,
-            data.port.value_or(0)
-        };
-        return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
-    }
+    static unsigned hash(const SecurityOriginData& data) { return computeHash(data); }
     static bool equal(const SecurityOriginData& a, const SecurityOriginData& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = false;
 };

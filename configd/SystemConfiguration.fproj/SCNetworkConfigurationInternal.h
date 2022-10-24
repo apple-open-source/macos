@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,7 @@
 
 #define	NETWORK_CONFIGURATION_VERSION	20191120
 
+#define kAutoConfigure			CFSTR("AutoConfigure")
 
 typedef struct {
 
@@ -104,7 +105,7 @@ typedef struct {
 } SCNetworkProtocolPrivate, *SCNetworkProtocolPrivateRef;
 
 
-typedef struct {
+typedef struct __SCNetworkInterface {
 
 	// base CFType information
 	CFRuntimeBase		cfBase;
@@ -409,6 +410,18 @@ __SCBridgeInterfaceListCollectMembers		(CFArrayRef 		interfaces,
 Boolean
 __SCBridgeInterfaceSetMemberInterfaces		(SCBridgeInterfaceRef	bridge,
 						 CFArrayRef		members);
+Boolean
+__SCBridgeInterfaceSetAutoConfigure		(SCBridgeInterfaceRef netif,
+						 Boolean auto_configure);
+Boolean
+__SCBridgeInterfaceGetAutoConfigure		(SCBridgeInterfaceRef netif);
+
+Boolean
+__SCVLANInterfaceSetAutoConfigure		(SCVLANInterfaceRef netif,
+						 Boolean auto_configure);
+
+Boolean
+__SCVLANInterfaceGetAutoConfigure		(SCVLANInterfaceRef netif);
 
 void
 _SCNetworkInterfaceCacheOpen(void);
@@ -594,6 +607,142 @@ __rank_to_str					(SCNetworkServicePrimaryRank	rank,
 Boolean
 __str_to_rank					(CFStringRef			rankStr,
 						 SCNetworkServicePrimaryRank	*rank);
+
+
+static inline CFStringRef
+__NetworkOverrideInterfaceTypeKeyCreate(CFAllocatorRef allocator,
+					CFStringRef leading,
+					CFStringRef domain,
+					CFStringRef type)
+{
+	CFStringRef	path;
+
+	/*
+	 * create "<leading><domain>/Network/Override/InterfaceType/<type>"
+	 */
+	path = CFStringCreateWithFormat(allocator, NULL,
+					CFSTR("%@%@/%@/%@/%@/%@"),
+					leading,
+					domain,
+					kSCCompNetwork,
+					CFSTR("Override"),
+					CFSTR("InterfaceType"),
+					type);
+	return (path);
+}
+
+#define kInterfaceTypeOverrideCost		CFSTR("Cost")
+#define kInterfaceTypeOverrideExpiration	CFSTR("Expiration")
+#define kInterfaceCostExpensive			CFSTR("Expensive")
+#define kInterfaceCostInexpensive		CFSTR("Inexpensive")
+
+static inline SCNetworkInterfaceCost
+__SCNetworkInterfaceCostFromString(CFStringRef str)
+{
+	SCNetworkInterfaceCost	cost = kSCNetworkInterfaceCostUnspecified;
+
+	if (isA_CFString(str) != NULL) {
+		if (CFEqual(str, kInterfaceCostExpensive)) {
+			cost = kSCNetworkInterfaceCostExpensive;
+		}
+		else if (CFEqual(str, kInterfaceCostInexpensive)) {
+			cost = kSCNetworkInterfaceCostInexpensive;
+		}
+	}
+	return (cost);
+}
+
+static inline SCNetworkInterfaceCost
+__NetworkOverrideInterfaceTypeGetCost(CFDictionaryRef dict,
+				      CFDateRef * ret_expiration)
+{
+	SCNetworkInterfaceCost	cost = kSCNetworkInterfaceCostUnspecified;
+	CFDateRef		expiration;
+	CFAbsoluteTime		now;
+	CFDateRef		now_date;
+	CFStringRef		str;
+	CFComparisonResult	result;
+
+	if (ret_expiration != NULL) {
+		*ret_expiration = NULL;
+	}
+	if (isA_CFDictionary(dict) == NULL) {
+		goto done;
+	}
+	expiration = (CFDateRef)
+		CFDictionaryGetValue(dict, kInterfaceTypeOverrideExpiration);
+	if (isA_CFDate(expiration) == NULL) {
+		/* no Expiration, ignore */
+		goto done;
+	}
+	now = CFAbsoluteTimeGetCurrent();
+	now_date = CFDateCreate(NULL, now);
+	result = CFDateCompare(now_date, expiration, NULL);
+	CFRelease(now_date);
+	if (result != kCFCompareLessThan) {
+		/* now_date >= expiration i.e. expired */
+		goto done;
+	}
+	str = (CFStringRef)
+		CFDictionaryGetValue(dict, kInterfaceTypeOverrideCost);
+	cost = __SCNetworkInterfaceCostFromString(str);
+	if (cost == kSCNetworkInterfaceCostUnspecified) {
+		goto done;
+	}
+	if (ret_expiration != NULL) {
+		*ret_expiration = CFRetain(expiration);
+	}
+ done:
+	return (cost);
+}
+
+static inline CFStringRef
+__SCDynamicStoreKeyCreateNetworkOverrideInterfaceType(CFAllocatorRef allocator,
+						      CFStringRef type)
+{
+	CFStringRef	path;
+
+	/*
+	 * create "Setup:/Network/Override/InterfaceType/<type>"
+	 */
+	path = __NetworkOverrideInterfaceTypeKeyCreate(allocator,
+						       CFSTR(""),
+						       kSCDynamicStoreDomainSetup,
+						       type);
+	return (path);
+}
+
+static inline SCNetworkInterfaceCost
+__SCDynamicStoreGetNetworkOverrideInterfaceTypeCost(SCDynamicStoreRef store,
+						    CFStringRef type,
+						    CFDateRef * ret_expiration)
+{
+	SCNetworkInterfaceCost	cost;
+	CFDictionaryRef		dict;
+	CFStringRef		key;
+
+	key = __SCDynamicStoreKeyCreateNetworkOverrideInterfaceType(NULL,
+								    type);
+	dict = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	cost = __NetworkOverrideInterfaceTypeGetCost(dict, ret_expiration);
+	if (dict != NULL) {
+		CFRelease(dict);
+	}
+	return (cost);
+}
+
+static inline Boolean
+_SCNetworkInterfaceIsWiFiInfra(SCNetworkInterfaceRef interface)
+{
+	CFStringRef	name = SCNetworkInterfaceGetBSDName(interface);
+	CFStringRef	type = SCNetworkInterfaceGetInterfaceType(interface);
+
+	/* XXX need a better way to differentiate Wi-Fi infra interface */
+	return (CFEqual(type, kSCNetworkInterfaceTypeIEEE80211)
+		&& name != NULL && CFStringHasPrefix(name, CFSTR("en")));
+}
+
 
 __END_DECLS
 

@@ -166,6 +166,16 @@ struct nfs_export_node_head *get_sorted_active_user_list(char *buf);
 void free_nfs_export_list(struct nfs_export_node_head *export_list);
 void catchalarm(int);
 
+static int
+is_ftp(const char *p)
+{
+	if (p) {
+		static const char *ftp = "ftp:";
+		return strncmp(p, ftp, strlen(ftp)) == 0;
+	}
+	return 0;
+}
+
 static void
 nfssvc_init_vec(struct iovec *vec, void *buf, size_t *buflen)
 {
@@ -261,8 +271,12 @@ main(int argc, char *argv[])
 			do_active_users_normal(usermode_flags);
 		}
 	} else if (mode == ZEROSTATS_MODE) {
-		zeroclntstats();
-		zerosrvstats();
+		if (display & SHOW_CLIENT) {
+			zeroclntstats();
+		}
+		if (display & SHOW_SERVER) {
+			zerosrvstats();
+		}
 	} else {
 		if (interval) {
 			sidewaysintpr(interval, display, version);
@@ -286,8 +300,9 @@ readclntstats(struct nfsclntstats *stp)
 	bzero(stp, buflen);
 
 	if (getvfsbyname("nfs", &vfc) < 0) {
-		err(1, "getvfsbyname: NFS not compiled into kernel");
+		return;
 	}
+
 	name[0] = CTL_VFS;
 	name[1] = vfc.vfc_typenum;
 	name[2] = NFS_NFSSTATS;
@@ -322,8 +337,9 @@ zeroclntstats(void)
 	struct vfsconf vfc;
 
 	if (getvfsbyname("nfs", &vfc) < 0) {
-		err(1, "getvfsbyname: NFS not compiled into kernel");
+		return;
 	}
+
 	name[0] = CTL_VFS;
 	name[1] = vfc.vfc_typenum;
 	name[2] = NFS_NFSZEROSTATS;
@@ -610,124 +626,118 @@ intpr(u_int display, u_int version)
 		printer->open(PRINTER_NO_PREFIX, "Client Info");
 		if (version & VERSION_V3) {
 			printer->open(PRINTER_NO_PREFIX, "NFSv3 RPC Counts");
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Getattr", clntstats.rpccntv3[NFSPROC_GETATTR],
 			    "Setattr", clntstats.rpccntv3[NFSPROC_SETATTR],
 			    "Lookup", clntstats.rpccntv3[NFSPROC_LOOKUP],
 			    "Readlink", clntstats.rpccntv3[NFSPROC_READLINK],
 			    "Read", clntstats.rpccntv3[NFSPROC_READ],
 			    "Write", clntstats.rpccntv3[NFSPROC_WRITE]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Create", clntstats.rpccntv3[NFSPROC_CREATE],
 			    "Remove", clntstats.rpccntv3[NFSPROC_REMOVE],
 			    "Rename", clntstats.rpccntv3[NFSPROC_RENAME],
 			    "Link", clntstats.rpccntv3[NFSPROC_LINK],
 			    "Symlink", clntstats.rpccntv3[NFSPROC_SYMLINK],
 			    "Mkdir", clntstats.rpccntv3[NFSPROC_MKDIR]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Rmdir", clntstats.rpccntv3[NFSPROC_RMDIR],
 			    "Readdir", clntstats.rpccntv3[NFSPROC_READDIR],
 			    "RdirPlus", clntstats.rpccntv3[NFSPROC_READDIRPLUS],
 			    "Access", clntstats.rpccntv3[NFSPROC_ACCESS],
 			    "Mknod", clntstats.rpccntv3[NFSPROC_MKNOD],
 			    "Fsstat", clntstats.rpccntv3[NFSPROC_FSSTAT]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(4,
 			    "Fsinfo", clntstats.rpccntv3[NFSPROC_FSINFO],
 			    "PathConf", clntstats.rpccntv3[NFSPROC_PATHCONF],
 			    "Commit", clntstats.rpccntv3[NFSPROC_COMMIT],
-			    "Null", clntstats.rpccntv3[NFSPROC_NULL],
-			    NULL, 0, NULL, 0);
+			    "Null", clntstats.rpccntv3[NFSPROC_NULL]);
 			printer->close();
 		}
 		if (version & VERSION_V4) {
 			printer->open(PRINTER_NO_PREFIX, "NFSv4 RPC Counts");
-			printer->intpr("%12.12s %12.12s\n",
+			printer->intpr(2,
 			    "Null", clntstats.opcntv4[NFSPROC4_NULL],
-			    "Compound", clntstats.opcntv4[NFSPROC4_COMPOUND],
-			    NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+			    "Compound", clntstats.opcntv4[NFSPROC4_COMPOUND]);
 			printer->close();
 			printer->open(PRINTER_NO_PREFIX, "NFSv4 Operation Counts");
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Access", clntstats.opcntv4[NFS_OP_ACCESS],
 			    "Close", clntstats.opcntv4[NFS_OP_CLOSE],
 			    "Commit", clntstats.opcntv4[NFS_OP_COMMIT],
 			    "Create", clntstats.opcntv4[NFS_OP_CREATE],
 			    "Delegpurge", clntstats.opcntv4[NFS_OP_DELEGPURGE],
 			    "Delegreturn", clntstats.opcntv4[NFS_OP_DELEGRETURN]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Getattr", clntstats.opcntv4[NFS_OP_GETATTR],
 			    "Getfh", clntstats.opcntv4[NFS_OP_GETFH],
 			    "Link", clntstats.opcntv4[NFS_OP_LINK],
 			    "Lock", clntstats.opcntv4[NFS_OP_LOCK],
 			    "Lockt", clntstats.opcntv4[NFS_OP_LOCKT],
 			    "Locku", clntstats.opcntv4[NFS_OP_LOCKU]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Lookup", clntstats.opcntv4[NFS_OP_LOOKUP],
 			    "Lookupp", clntstats.opcntv4[NFS_OP_LOOKUPP],
 			    "Nverify", clntstats.opcntv4[NFS_OP_NVERIFY],
 			    "Open", clntstats.opcntv4[NFS_OP_OPEN],
 			    "Openattr", clntstats.opcntv4[NFS_OP_OPENATTR],
 			    "Open_conf", clntstats.opcntv4[NFS_OP_OPEN_CONFIRM]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Open_dgrd", clntstats.opcntv4[NFS_OP_OPEN_DOWNGRADE],
 			    "Putfh", clntstats.opcntv4[NFS_OP_PUTFH],
 			    "Putpubfh", clntstats.opcntv4[NFS_OP_PUTPUBFH],
 			    "Putrootfh", clntstats.opcntv4[NFS_OP_PUTROOTFH],
 			    "Read", clntstats.opcntv4[NFS_OP_READ],
 			    "Readdir", clntstats.opcntv4[NFS_OP_READDIR]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Readlink", clntstats.opcntv4[NFS_OP_READLINK],
 			    "Remove", clntstats.opcntv4[NFS_OP_REMOVE],
 			    "Rename", clntstats.opcntv4[NFS_OP_RENAME],
 			    "Renew", clntstats.opcntv4[NFS_OP_RENEW],
 			    "Restorefh", clntstats.opcntv4[NFS_OP_RESTOREFH],
 			    "Savefh", clntstats.opcntv4[NFS_OP_SAVEFH]);
-			printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+			printer->intpr(6,
 			    "Secinfo", clntstats.opcntv4[NFS_OP_SECINFO],
 			    "Setattr", clntstats.opcntv4[NFS_OP_SETATTR],
 			    "Setclientid", clntstats.opcntv4[NFS_OP_SETCLIENTID],
 			    "Confirm", clntstats.opcntv4[NFS_OP_SETCLIENTID_CONFIRM],
 			    "Verify", clntstats.opcntv4[NFS_OP_VERIFY],
 			    "Write", clntstats.opcntv4[NFS_OP_WRITE]);
-			printer->intpr("%12.12s\n",
-			    "Rel_lkowner", clntstats.opcntv4[NFS_OP_RELEASE_LOCKOWNER],
-			    NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+			printer->intpr(1,
+			    "Rel_lkowner", clntstats.opcntv4[NFS_OP_RELEASE_LOCKOWNER]);
 			printer->close();
 		}
 		printer->open(PRINTER_NO_PREFIX, "RPC Info");
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(5,
 		    "TimedOut", clntstats.rpctimeouts,
 		    "Invalid", clntstats.rpcinvalid,
 		    "X Replies", clntstats.rpcunexpected,
 		    "Retries", clntstats.rpcretries,
-		    "Requests", clntstats.rpcrequests,
-		    NULL, 0);
+		    "Requests", clntstats.rpcrequests);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Cache Info");
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(6,
 		    "Attr Hits", clntstats.attrcache_hits,
 		    "Attr Misses", clntstats.attrcache_misses,
 		    "Lkup Hits", clntstats.lookupcache_hits,
 		    "Lkup Misses", clntstats.lookupcache_misses,
 		    "BioR Hits", clntstats.biocache_reads - clntstats.read_bios,
 		    "BioR Misses", clntstats.read_bios);
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(6,
 		    "BioW Hits", clntstats.biocache_writes - clntstats.write_bios,
 		    "BioW Misses", clntstats.write_bios,
 		    "BioRL Hits", clntstats.biocache_readlinks - clntstats.readlink_bios,
 		    "BioRL Misses", clntstats.readlink_bios,
 		    "BioD Hits", clntstats.biocache_readdirs - clntstats.readdir_bios,
 		    "BioD Misses", clntstats.readdir_bios);
-		printer->intpr("%12.12s %12.12s\n",
+		printer->intpr(2,
 		    "DirE Hits", clntstats.direofcache_hits,
-		    "DirE Misses", clntstats.direofcache_misses,
-		    NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+		    "DirE Misses", clntstats.direofcache_misses);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Paging Info");
-		printer->intpr("%12.12s %12.12s\n",
+		printer->intpr(2,
 		    "Page In", clntstats.pageins,
-		    "Page Out", clntstats.pageouts,
-		    NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+		    "Page Out", clntstats.pageouts);
 		printer->close();
 		printer->close();
 	}
@@ -736,53 +746,49 @@ intpr(u_int display, u_int version)
 		printer->newline();
 		printer->open(PRINTER_NO_PREFIX, "Server Info");
 		printer->open(PRINTER_NO_PREFIX, "RPC Counts");
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(6,
 		    "Getattr", srvstats.srvrpccntv3[NFSPROC_GETATTR],
 		    "Setattr", srvstats.srvrpccntv3[NFSPROC_SETATTR],
 		    "Lookup", srvstats.srvrpccntv3[NFSPROC_LOOKUP],
 		    "Readlink", srvstats.srvrpccntv3[NFSPROC_READLINK],
 		    "Read", srvstats.srvrpccntv3[NFSPROC_READ],
 		    "Write", srvstats.srvrpccntv3[NFSPROC_WRITE]);
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(6,
 		    "Create", srvstats.srvrpccntv3[NFSPROC_CREATE],
 		    "Remove", srvstats.srvrpccntv3[NFSPROC_REMOVE],
 		    "Rename", srvstats.srvrpccntv3[NFSPROC_RENAME],
 		    "Link", srvstats.srvrpccntv3[NFSPROC_LINK],
 		    "Symlink", srvstats.srvrpccntv3[NFSPROC_SYMLINK],
 		    "Mkdir", srvstats.srvrpccntv3[NFSPROC_MKDIR]);
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(6,
 		    "Rmdir", srvstats.srvrpccntv3[NFSPROC_RMDIR],
 		    "Readdir", srvstats.srvrpccntv3[NFSPROC_READDIR],
 		    "RdirPlus", srvstats.srvrpccntv3[NFSPROC_READDIRPLUS],
 		    "Access", srvstats.srvrpccntv3[NFSPROC_ACCESS],
 		    "Mknod", srvstats.srvrpccntv3[NFSPROC_MKNOD],
 		    "Fsstat", srvstats.srvrpccntv3[NFSPROC_FSSTAT]);
-		printer->intpr("%12.12s %12.12s %12.12s\n",
+		printer->intpr(3,
 		    "Fsinfo", srvstats.srvrpccntv3[NFSPROC_FSINFO],
 		    "PathConf", srvstats.srvrpccntv3[NFSPROC_PATHCONF],
-		    "Commit", srvstats.srvrpccntv3[NFSPROC_COMMIT],
-		    NULL, 0, NULL, 0, NULL, 0);
+		    "Commit", srvstats.srvrpccntv3[NFSPROC_COMMIT]);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Server Faults");
-		printer->intpr("%12.12s %12.12s\n",
+		printer->intpr(2,
 		    "RPC Errors", srvstats.srvrpc_errs,
-		    "Errors", srvstats.srv_errs,
-		    NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+		    "Errors", srvstats.srv_errs);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Server Cache Stats");
-		printer->intpr("%12.12s %12.12s %12.12s %12.12s\n",
+		printer->intpr(4,
 		    "Inprog", srvstats.srvcache_inproghits,
 		    "Idem", srvstats.srvcache_idemdonehits,
 		    "Non-idem", srvstats.srvcache_nonidemdonehits,
-		    "Misses", srvstats.srvcache_misses,
-		    NULL, 0, NULL, 0);
+		    "Misses", srvstats.srvcache_misses);
 		printer->close();
 		printer->open(PRINTER_NO_PREFIX, "Server Write Gathering");
-		printer->intpr("%12.12s %12.12s %12.12s\n",
+		printer->intpr(3,
 		    "WriteOps", srvstats.srvvop_writes,
 		    "WriteRPC", srvstats.srvrpccntv3[NFSPROC_WRITE],
-		    "Opsaved", srvstats.srvrpccntv3[NFSPROC_WRITE] - srvstats.srvvop_writes,
-		    NULL, 0, NULL, 0, NULL, 0);
+		    "Opsaved", srvstats.srvrpccntv3[NFSPROC_WRITE] - srvstats.srvvop_writes);
 		printer->close();
 		printer->close();
 	}
@@ -1450,10 +1456,10 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 	sep = ' ';
 	printer->open_array("     ", "NFS parameters", NULL);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_VERSION)) {
-		n = sprintf(buf, "vers=%d", margs->nfs_version);
+		n = snprintf(buf, sizeof(buf), "vers=%d", margs->nfs_version);
 
 		if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_MINOR_VERSION)) {
-			n += sprintf(buf + n, ".%d", margs->nfs_minor_version);
+			n += snprintf(buf + n, sizeof(buf) - n, ".%d", margs->nfs_minor_version);
 		}
 		buf[n] = '\0';
 		printer->add_array_str(sep, buf, "");
@@ -1463,15 +1469,15 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 
 		maj = PVER2MAJOR(margs->nfs_min_vers);
 		min = PVER2MINOR(margs->nfs_min_vers);
-		n = sprintf(buf, "vers=%d", maj);
+		n = snprintf(buf, sizeof(buf), "vers=%d", maj);
 		if (min) {
-			n += sprintf(buf + n, ".%d", min);
+			n += snprintf(buf + n, sizeof(buf) - n, ".%d", min);
 		}
 		maj = PVER2MAJOR(margs->nfs_max_vers);
 		min = PVER2MINOR(margs->nfs_max_vers);
-		n += sprintf(buf + n, "-%d", maj);
+		n += snprintf(buf + n, sizeof(buf) - n, "-%d", maj);
 		if (min) {
-			n += sprintf(buf + n, ".%d", min);
+			n += snprintf(buf + n, sizeof(buf) - n, ".%d", min);
 		}
 		buf[n] = '\0';
 		printer->add_array_str(sep, buf, "");
@@ -1630,18 +1636,18 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SECURITY)) {
-		n = sprintf(buf, "sec=%s", sec_flavor_name(margs->sec.flavors[0]));
+		n = snprintf(buf, sizeof(buf), "sec=%s", sec_flavor_name(margs->sec.flavors[0]));
 		for (i = 1; i < margs->sec.count; i++) {
-			n += sprintf(buf + n, ":%s", sec_flavor_name(margs->sec.flavors[i]));
+			n += snprintf(buf + n, sizeof(buf) - n, ":%s", sec_flavor_name(margs->sec.flavors[i]));
 		}
 		buf[n] = '\0';
 		printer->add_array_str(sep, buf, "");
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_KERB_ETYPE)) {
-		n = sprintf(buf, "etype=%s%s", margs->etype.selected == 0 ? "*" : "", etype_name(margs->etype.etypes[0]));
+		n = snprintf(buf, sizeof(buf), "etype=%s%s", margs->etype.selected == 0 ? "*" : "", etype_name(margs->etype.etypes[0]));
 		for (uint32_t j = 1; j < margs->etype.count; j++) {
-			n += sprintf(buf + n, ":%s%s", margs->etype.selected == j ? "*" : "", etype_name(margs->etype.etypes[j]));
+			n += snprintf(buf + n, sizeof(buf) - n, ":%s%s", margs->etype.selected == j ? "*" : "", etype_name(margs->etype.etypes[j]));
 		}
 		buf[n] = '\0';
 		printer->add_array_str(sep, buf, "");
@@ -1680,10 +1686,14 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 				printer->open_inside_array("       ", NULL);
 				n = 0;
 				if (!margs->locs[loc].compcount) {
-					n += sprintf(buf, "/");
+					n += snprintf(buf, sizeof(buf), "/");
 				}
 				for (comp = 0; comp < margs->locs[loc].compcount; comp++) {
-					n += sprintf(buf + n, "/%s", margs->locs[loc].components[comp]);
+					if (is_ftp(margs->locs[loc].components[comp])) {
+						n += snprintf(buf + n, sizeof(buf) - n, "%s/", margs->locs[loc].components[comp]);
+					} else {
+						n += snprintf(buf + n, sizeof(buf) - n, "/%s", margs->locs[loc].components[comp]);
+					}
 				}
 				buf[n] = '\0';
 				for (serv = 0; serv < margs->locs[loc].servcount; serv++) {
@@ -1802,10 +1812,14 @@ print_mountinfo(struct statfs *mnt, char *buf, size_t buflen, u_int version)
 				printer->title("       ");
 				n = 0;
 				if (!curargs.locs[loc].compcount) {
-					n += sprintf(addrbuf, "/");
+					n += snprintf(addrbuf, sizeof(addrbuf), "/");
 				}
 				for (comp = 0; comp < curargs.locs[loc].compcount; comp++) {
-					n += sprintf(addrbuf + n, "/%s", curargs.locs[loc].components[comp]);
+					if (is_ftp(curargs.locs[loc].components[comp])) {
+						n += snprintf(addrbuf + n, sizeof(addrbuf) - n, "%s/", curargs.locs[loc].components[comp]);
+					} else {
+						n += snprintf(addrbuf + n, sizeof(addrbuf) - n, "/%s", curargs.locs[loc].components[comp]);
+					}
 				}
 				addrbuf[n] = '\0';
 				if (curargs.locs[loc].servers[serv].name) {
@@ -1871,6 +1885,9 @@ do_mountinfo(char *mountpath, u_int version)
 			continue;
 		}
 		if (!mountpath && strcmp(mntbuf[i].f_fstypename, "nfs")) {
+			continue;
+		}
+		if (!mountpath && is_ftp(mntbuf[i].f_mntfromname)) {
 			continue;
 		}
 		/* Get the mount information. */

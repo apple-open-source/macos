@@ -52,7 +52,7 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
         SecTransformSetAttributeAction(ref, kSecTransformActionAttributeNotification, kLengthName, ^CFTypeRef(SecTransformAttributeRef attribute, CFTypeRef value) {
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &outputLength);
             if (outputLength <= 0) {
-                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "MaskGenerationFunction Length must be one or more (not %@)", value);
+                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, CFSTR("MaskGenerationFunction Length must be one or more (not %@)"), value);
                 SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
                 CFSafeRelease(error);
             }
@@ -150,7 +150,7 @@ SecTransformRef SecCreateMaskGenerationFunctionTransform(CFStringRef hashType, i
     
     if (length <= 0) {
         if (error) {
-            *error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "MaskGenerationFunction Length must be one or more (not %d)", length);
+            *error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, CFSTR("MaskGenerationFunction Length must be one or more (not %d)"), length);
         }
         return NULL;
     }

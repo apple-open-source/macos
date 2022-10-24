@@ -10,7 +10,7 @@
 namespace angle
 {
 
-class CopyTexImageTest : public ANGLETest
+class CopyTexImageTest : public ANGLETest<>
 {
   protected:
     CopyTexImageTest()
@@ -279,11 +279,6 @@ class CopyTexImageTest : public ANGLETest
                                                          {0.5f, 0.25f, 1.0f, 0.75f}};
 };
 
-// Until C++17, need to redundantly declare the constexpr members outside the class (only the
-// arrays, because the others are already const-propagated and not needed by the linker).
-constexpr uint32_t CopyTexImageTest::kFboSizes[];
-constexpr GLfloat CopyTexImageTest::kFboColors[][4];
-
 TEST_P(CopyTexImageTest, RGBAToRGB)
 {
     GLubyte expected[3][4] = {
@@ -445,7 +440,7 @@ TEST_P(CopyTexImageTest, CopyTexSubImageFromCubeMap)
     // glCopyTexSubImage2D will take one face of this image to copy over a pixel in a 1x6
     // framebuffer.
     GLColor fboPixels[kCubeMapFaceCount]   = {GLColor::red,  GLColor::yellow, GLColor::green,
-                                            GLColor::cyan, GLColor::blue,   GLColor::magenta};
+                                              GLColor::cyan, GLColor::blue,   GLColor::magenta};
     GLColor whitePixels[kCubeMapFaceCount] = {GLColor::white, GLColor::white, GLColor::white,
                                               GLColor::white, GLColor::white, GLColor::white};
 
@@ -613,7 +608,7 @@ TEST_P(CopyTexImageTest, CopyTexSubImageFrom3DTexureOES)
     // glCopyTexSubImage2D will take one face of this image to copy over a pixel in a 1x6
     // framebuffer.
     GLColor fboPixels[kDepth]   = {GLColor::red,  GLColor::yellow, GLColor::green,
-                                 GLColor::cyan, GLColor::blue,   GLColor::magenta};
+                                   GLColor::cyan, GLColor::blue,   GLColor::magenta};
     GLColor whitePixels[kDepth] = {GLColor::white, GLColor::white, GLColor::white,
                                    GLColor::white, GLColor::white, GLColor::white};
 
@@ -752,6 +747,49 @@ TEST_P(CopyTexImageTest, CopyTexSubImageMesaYFlip)
     // Only part of the image is changed.
     verifyCheckeredResults(tex, GLColor::green.data(), GLColor::red.data(), GLColor::yellow.data(),
                            GLColor::blue.data(), kFboSizes[0], kFboSizes[0]);
+}
+
+// Tests that set RobustResourceInit to true, so that code path with
+// RobustResourceInit == true can be checked
+class CopyTexImageTestRobustResourceInit : public CopyTexImageTest
+{
+  protected:
+    CopyTexImageTestRobustResourceInit() : CopyTexImageTest() { setRobustResourceInit(true); }
+};
+
+// Adapted from the fuzz test with invalid input
+TEST_P(CopyTexImageTestRobustResourceInit, InvalidInputParam)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    const GLint w = getWindowWidth(), h = getWindowHeight();
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    // pass y that is greater than max2DTextureSize
+    GLenum target         = GL_TEXTURE_2D;
+    GLint level           = 0;
+    GLenum internalFormat = GL_LUMINANCE_ALPHA;
+    GLint x               = 0;
+    GLint y               = 13434880;
+    GLsizei width         = 0;
+    GLsizei height        = 65830;
+    GLint border          = 0;
+    glCopyTexImage2D(target, level, internalFormat, x, y, width, height, border);
+    EXPECT_GL_ERROR(GL_INVALID_VALUE);
+
+    // pass x and width that will result in integer overflow when we apply x+width
+    target         = GL_TEXTURE_2D;
+    level          = 0;
+    internalFormat = GL_LUMINANCE_ALPHA;
+    x              = std::numeric_limits<GLint>::max();
+    y              = 0;
+    width          = 253;
+    height         = 1;
+    border         = 0;
+    glCopyTexImage2D(target, level, internalFormat, x, y, width, height, border);
+    EXPECT_GL_ERROR(GL_INVALID_VALUE);
 }
 
 // specialization of CopyTexImageTest is added so that some tests can be explicitly run with an ES3
@@ -1231,12 +1269,18 @@ ANGLE_INSTANTIATE_TEST(CopyTexImageTest,
                        ANGLE_ALL_TEST_PLATFORMS_ES2,
                        ES2_D3D11_PRESENT_PATH_FAST(),
                        ES3_VULKAN(),
-                       WithEmulateCopyTexImage2DFromRenderbuffers(ES2_OPENGL()),
-                       WithEmulateCopyTexImage2DFromRenderbuffers(ES2_OPENGLES()));
+                       ES2_OPENGL().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers),
+                       ES2_OPENGLES().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CopyTexImageTestES3);
 ANGLE_INSTANTIATE_TEST(CopyTexImageTestES3,
                        ANGLE_ALL_TEST_PLATFORMS_ES3,
-                       WithEmulateCopyTexImage2DFromRenderbuffers(ES3_OPENGL()),
-                       WithEmulateCopyTexImage2DFromRenderbuffers(ES3_OPENGLES()));
+                       ES3_OPENGL().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers),
+                       ES3_OPENGLES().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers));
+ANGLE_INSTANTIATE_TEST(CopyTexImageTestRobustResourceInit,
+                       ANGLE_ALL_TEST_PLATFORMS_ES2,
+                       ES2_D3D11_PRESENT_PATH_FAST(),
+                       ES3_VULKAN(),
+                       ES2_OPENGL().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers),
+                       ES2_OPENGLES().enable(Feature::EmulateCopyTexImage2DFromRenderbuffers));
 }  // namespace angle

@@ -158,6 +158,10 @@ main(int argc, char **argv)
 			}
 		if (ferror(stdin))
 			err(1, NULL);
+#ifdef __APPLE__
+		if (ferror(stdout) != 0 || fflush(stdout) != 0)
+			err(1, "stdout");
+#endif
 		exit(0);
 	}
 
@@ -176,6 +180,10 @@ main(int argc, char **argv)
 				(void)putwchar(ch);
 		if (ferror(stdin))
 			err(1, NULL);
+#ifdef __APPLE__
+		if (ferror(stdout) != 0 || fflush(stdout) != 0)
+			err(1, "stdout");
+#endif
 		exit(0);
 	}
 
@@ -193,6 +201,10 @@ main(int argc, char **argv)
 			}
 		if (ferror(stdin))
 			err(1, NULL);
+#ifdef __APPLE__
+		if (ferror(stdout) != 0 || fflush(stdout) != 0)
+			err(1, "stdout");
+#endif
 		exit(0);
 	}
 
@@ -351,6 +363,10 @@ endloop:
 		}
 	if (ferror(stdin))
 		err(1, NULL);
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit (0);
 }
 

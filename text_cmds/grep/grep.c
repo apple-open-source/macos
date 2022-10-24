@@ -153,7 +153,7 @@ bool	 file_err;	/* file reading error */
 static void
 usage(void)
 {
-	fprintf(stderr, errstr[3], getprogname());
+	fprintf(stderr, fmtcheck(errstr[3], "%s"), getprogname());
 	fprintf(stderr, "%s", errstr[4]);
 	fprintf(stderr, "%s", errstr[5]);
 	fprintf(stderr, "%s", errstr[6]);
@@ -487,7 +487,7 @@ main(int argc, char *argv[])
 			else if (strcasecmp(optarg, "read") == 0)
 				devbehave = DEV_READ;
 			else
-				errx(2, errstr[2], "--devices");
+				errx(2, fmtcheck(errstr[2], "%s"), "--devices");
 			break;
 		case 'd':
 			if (strcasecmp("recurse", optarg) == 0) {
@@ -503,7 +503,7 @@ main(int argc, char *argv[])
 			else if (strcasecmp("read", optarg) == 0)
 				dirbehave = DIR_READ;
 			else
-				errx(2, errstr[2], "--directories");
+				errx(2, fmtcheck(errstr[2], "%s"), "--directories");
 			break;
 		case 'E':
 			grepbehave = GREP_EXTENDED;
@@ -615,7 +615,7 @@ main(int argc, char *argv[])
 			filebehave = FILE_MMAP;
 			break;
 		case 'V':
-			printf(errstr[8], getprogname(), VERSION);
+			printf(fmtcheck(errstr[8], "%s %s"), getprogname(), VERSION);
 			exit(0);
 		case 'v':
 			vflag = true;
@@ -649,7 +649,7 @@ main(int argc, char *argv[])
 			else if (strcasecmp("text", optarg) == 0)
 				binbehave = BINFILE_TEXT;
 			else
-				errx(2, errstr[2], "--binary-files");
+				errx(2, fmtcheck(errstr[2], "%s"), "--binary-files");
 			break;
 		case COLOR_OPT:
 			color = NULL;
@@ -669,7 +669,7 @@ main(int argc, char *argv[])
 			} else if (strcasecmp("never", optarg) != 0 &&
 			    strcasecmp("none", optarg) != 0 &&
 			    strcasecmp("no", optarg) != 0)
-				errx(2, errstr[2], "--color");
+				errx(2, fmtcheck(errstr[2], "%s"), "--color");
 			cflags &= ~REG_NOSUB;
 			break;
 		case LABEL_OPT:
@@ -794,9 +794,17 @@ main(int argc, char *argv[])
 
 	initqueue();
 
+#ifdef __APPLE__
+	if (aargc == 0 && dirbehave != DIR_RECURSE) {
+		matched = procfile("-", NULL);
+		if (ferror(stdout) != 0 || fflush(stdout) != 0)
+			err(2, "stdout");
+		exit(!matched);
+	}
+#else
 	if (aargc == 0 && dirbehave != DIR_RECURSE)
 		exit(!procfile("-", NULL));
-
+#endif
 	if (dirbehave == DIR_RECURSE)
 		matched = grep_tree(aargv);
 	else
@@ -807,8 +815,16 @@ main(int argc, char *argv[])
 				matched = true;
 		}
 
+#ifndef __APPLE__
+	/* rdar://problem/88986027 - The -L flag's exit status is inverted. */
 	if (Lflag)
 		matched = !matched;
+#endif
+
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(2, "stdout");
+#endif
 
 	/*
 	 * Calculate the correct return value according to the

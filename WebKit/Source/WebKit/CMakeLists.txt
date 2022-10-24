@@ -28,7 +28,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/Notifications"
     "${WEBKIT_DIR}/NetworkProcess/PrivateClickMeasurement"
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
-    "${WEBKIT_DIR}/NetworkProcess/WebStorage"
+    "${WEBKIT_DIR}/NetworkProcess/SharedWorker"
     "${WEBKIT_DIR}/NetworkProcess/cache"
     "${WEBKIT_DIR}/NetworkProcess/storage"
     "${WEBKIT_DIR}/NetworkProcess/watchos"
@@ -177,6 +177,7 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/media/RemoteMediaSourceProxy
     GPUProcess/media/RemoteRemoteCommandListenerProxy
     GPUProcess/media/RemoteSourceBufferProxy
+    GPUProcess/media/RemoteVideoFrameObjectHeap
 
     GPUProcess/webrtc/LibWebRTCCodecsProxy
     GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager
@@ -186,8 +187,6 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/webrtc/RemoteSampleBufferDisplayLayerManager
 
     NetworkProcess/Cookies/WebCookieManager
-
-    NetworkProcess/IndexedDB/WebIDBServer
 
     NetworkProcess/NetworkBroadcastChannelRegistry
     NetworkProcess/NetworkConnectionToWebProcess
@@ -202,7 +201,8 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/ServiceWorker/WebSWServerConnection
     NetworkProcess/ServiceWorker/WebSWServerToContextConnection
 
-    NetworkProcess/WebStorage/StorageManagerSet
+    NetworkProcess/SharedWorker/WebSharedWorkerServerConnection
+    NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection
 
     NetworkProcess/cache/CacheStorageEngineConnection
 
@@ -214,7 +214,9 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy
 
     Shared/AuxiliaryProcess
+    Shared/IPCConnectionTester
     Shared/IPCStreamTester
+    Shared/IPCStreamTesterProxy
     Shared/IPCTester
     Shared/WebConnection
 
@@ -229,7 +231,6 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/SpeechRecognitionRemoteRealtimeMediaSourceManager
     UIProcess/SpeechRecognitionServer
     UIProcess/VisitedLinkStore
-    UIProcess/WebCookieManagerProxy
     UIProcess/WebFullScreenManagerProxy
     UIProcess/WebGeolocationManagerProxy
     UIProcess/WebLockRegistryProxy
@@ -280,6 +281,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/GPU/media/SourceBufferPrivateRemote
 
     WebProcess/GPU/webrtc/LibWebRTCCodecs
+    WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor
     WebProcess/GPU/webrtc/SampleBufferDisplayLayer
 
     WebProcess/Geolocation/WebGeolocationManager
@@ -306,6 +308,8 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager
 
+    WebProcess/Storage/WebSharedWorkerContextManagerConnection
+    WebProcess/Storage/WebSharedWorkerObjectConnection
     WebProcess/Storage/WebSWClientConnection
     WebProcess/Storage/WebSWContextManagerConnection
 
@@ -366,18 +370,6 @@ elseif (USE_ANGLE_EGL)
         ANGLE::EGL
     )
 else ()
-    if (USE_OPENGL)
-        list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-            ${OPENGL_INCLUDE_DIRS}
-        )
-        list(APPEND WebKit_PRIVATE_LIBRARIES
-            ${OPENGL_LIBRARIES}
-        )
-        add_definitions(${OPENGL_DEFINITIONS})
-    elseif (USE_OPENGL_ES)
-        list(APPEND WebKit_PRIVATE_LIBRARIES OpenGL::GLES)
-    endif ()
-
     if (USE_EGL)
         list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
             ${EGL_INCLUDE_DIRS}

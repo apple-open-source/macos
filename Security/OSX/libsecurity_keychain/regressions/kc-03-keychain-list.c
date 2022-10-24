@@ -78,7 +78,7 @@ static bool keychainListsEqual(CFArrayRef list1, CFArrayRef list2) {
     return result;
 }
 
-static void tests()
+static void tests(void)
 {
     SecKeychainRef kc = getPopulatedTestKeychain();
 

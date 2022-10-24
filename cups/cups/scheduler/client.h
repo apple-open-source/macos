@@ -63,6 +63,8 @@ struct cupsd_client_s
 #ifdef HAVE_AUTHORIZATION_H
   AuthorizationRef	authref;	/* Authorization ref */
 #endif /* HAVE_AUTHORIZATION_H */
+
+  uid_t                 peer_uid;       /* if non-zero, this is the uid of peer; it may be useful when we xpc back to get auth */
 };
 
 #define HTTP(con) ((con)->http)

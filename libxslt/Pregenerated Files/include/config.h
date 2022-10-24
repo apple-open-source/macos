@@ -1,14 +1,8 @@
 /* config.h.  Generated from config.h.in by configure.  */
-/* config.h.in.  Generated from configure.in by autoheader.  */
-
-/* Define to 1 if you have the <ansidecl.h> header file. */
-/* #undef HAVE_ANSIDECL_H */
-
-/* Define to 1 if you have the `asctime' function. */
-#define HAVE_ASCTIME 1
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to 1 if you have the `clock_gettime' function. */
-/* #undef HAVE_CLOCK_GETTIME */
+#define HAVE_CLOCK_GETTIME 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -70,9 +64,6 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* Define to 1 if you have the `mktime' function. */
-#define HAVE_MKTIME 1
-
 /* Define to 1 if you have the <nan.h> header file. */
 /* #undef HAVE_NAN_H */
 
@@ -111,6 +102,9 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
+
+/* Define to 1 if you have the `strxfrm_l' function. */
+#define HAVE_STRXFRM_L 1
 
 /* Define to 1 if you have the <sys/select.h> header file. */
 #define HAVE_SYS_SELECT_H 1
@@ -161,19 +155,19 @@
 #define PACKAGE_BUGREPORT ""
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME ""
+#define PACKAGE_NAME "libxslt"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING ""
+#define PACKAGE_STRING "libxslt 1.1.35"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME ""
+#define PACKAGE_TARNAME "libxslt"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION ""
+#define PACKAGE_VERSION "1.1.35"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -201,10 +195,13 @@
 
 
 /* Version number of package */
-#define VERSION "1.1.29"
+#define VERSION "1.1.35"
 
 /* Define if debugging support is enabled */
 #define WITH_DEBUGGER /**/
+
+/* Define if profiling support is enabled */
+#define WITH_PROFILER /**/
 
 /* Define to 1 if on MINIX. */
 /* #undef _MINIX */
@@ -215,12 +212,3 @@
 
 /* Define to 1 if you need to in order for `stat' and other things to work. */
 /* #undef _POSIX_SOURCE */
-
-/* Using the Win32 Socket implementation */
-/* #undef _WINSOCKAPI_ */
-
-/* Win32 Std C name mangling work-around */
-/* #undef snprintf */
-
-/* Win32 Std C name mangling work-around */
-/* #undef vsnprintf */

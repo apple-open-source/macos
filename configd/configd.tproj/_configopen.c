@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2015-2017, 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2009, 2011, 2015, 2016, 2019-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,30 +46,7 @@ __SCDynamicStoreOpen(SCDynamicStoreRef *store, CFStringRef name)
 	/*
 	 * allocate and initialize a new session
 	 */
-	*store = (SCDynamicStoreRef)__SCDynamicStoreCreatePrivate(NULL, name, NULL, NULL, FALSE);
-
-	/*
-	 * If necessary, initialize the store and session data dictionaries
-	 */
-	if (storeData == NULL) {
-		storeData          = CFDictionaryCreateMutable(NULL,
-							       0,
-							       &kCFTypeDictionaryKeyCallBacks,
-							       &kCFTypeDictionaryValueCallBacks);
-		patternData        = CFDictionaryCreateMutable(NULL,
-							       0,
-							       &kCFTypeDictionaryKeyCallBacks,
-							       &kCFTypeDictionaryValueCallBacks);
-		changedKeys        = CFSetCreateMutable(NULL,
-							0,
-							&kCFTypeSetCallBacks);
-		deferredRemovals   = CFSetCreateMutable(NULL,
-							0,
-							&kCFTypeSetCallBacks);
-		removedSessionKeys = CFSetCreateMutable(NULL,
-							0,
-							&kCFTypeSetCallBacks);
-	}
+	*store = (SCDynamicStoreRef)__SCDynamicStoreCreatePrivate(NULL, name, NULL, NULL);
 
 	return kSCStatusOK;
 }

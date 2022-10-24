@@ -4903,6 +4903,8 @@ static void TestCurrencySymbol(void) {
         u"zh_Hant_JP@currency=CNY", u"CN¥1,234.56",
         u"ja_JP@currency=CNY", u"元 1,234.56",
         u"en_JP@currency=CNY", u"CN¥1,234.56",
+        // rdar://88513120
+        u"en_CV", u"​ 1 234$56", // decimal separator = actual currency symbol, set currency symbol to ZWSP
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {

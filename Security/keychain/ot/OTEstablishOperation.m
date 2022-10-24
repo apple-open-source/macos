@@ -117,15 +117,14 @@
     }
 
     secnotice("octagon-ckks", "Beginning establish with keys: %@", viewKeySets);
-    [self.operationDependencies.cuttlefishXPCWrapper establishWithContainer:self.operationDependencies.containerName
-                                                                    context:self.operationDependencies.contextID
-                                                                   ckksKeys:viewKeySets
-                                                                  tlkShares:pendingTLKShares
-                                                            preapprovedKeys:publicSigningSPKIs
-                                                                      reply:^(NSString * _Nullable peerID,
-                                                                              NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                                              TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                              NSError * _Nullable error) {
+    [self.operationDependencies.cuttlefishXPCWrapper establishWithSpecificUser:self.operationDependencies.activeAccount
+                                                                      ckksKeys:viewKeySets
+                                                                     tlkShares:pendingTLKShares
+                                                               preapprovedKeys:publicSigningSPKIs
+                                                                         reply:^(NSString * _Nullable peerID,
+                                                                                 NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                                 TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                                 NSError * _Nullable error) {
             STRONGIFY(self);
 
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventEstablishIdentity hardFailure:true result:error];

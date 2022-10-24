@@ -156,7 +156,7 @@ extern int fsckGetVerbosity(fsck_ctx_t);
 extern int fsckSetOutputStyle(fsck_ctx_t, enum fsck_output_type);
 extern enum fsck_output_type fsckGetOutputStyle(fsck_ctx_t);
 extern int fsckSetDefaultResponse(fsck_ctx_t, enum fsck_default_answer_type);
-extern int fsckAskPrompt(fsck_ctx_t, const char *, ...);
+extern int fsckAskPrompt(fsck_ctx_t, const char *, ...) __printflike(2, 3);
 extern int fsckAddMessages(fsck_ctx_t, fsck_message_t *msgs);
 extern int fsckPrint(fsck_ctx_t, int msgNum, ...);
 extern enum fsck_msgtype fsckMsgClass(fsck_ctx_t, int msgNum);

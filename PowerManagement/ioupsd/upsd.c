@@ -465,23 +465,22 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
     HRESULT                 result              = S_FALSE;
     IOReturn                kr;
     SInt32                  score;
-    
+
     while ( (upsDevice = IOIteratorNext(iterator)) ) {
         // Create the CF plugin for this device
         kr = IOCreatePlugInInterfaceForService(upsDevice, kIOUPSPlugInTypeID,
                                                kIOCFPlugInInterfaceID,
                                                &plugInInterface, &score);
-        
+
         if (kr != kIOReturnSuccess)
             goto UPSDEVICEADDED_NONPLUGIN_CLEANUP;
-        
+
         // Grab the new v140 interface
         result = (*plugInInterface)->QueryInterface(plugInInterface,
                                                     CFUUIDGetUUIDBytes(kIOUPSPlugInInterfaceID_v140),
                                                     (LPVOID)&upsPlugInInterface);
-        
-        if ( ( result == S_OK ) && upsPlugInInterface )
-        {
+
+        if ( ( result == S_OK ) && upsPlugInInterface ) {
             kr = (*upsPlugInInterface)->createAsyncEventSource(upsPlugInInterface, &typeRef);
 
             if ((kr != kIOReturnSuccess) || !typeRef)
@@ -494,44 +493,40 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                 for (index=0, count=CFArrayGetCount(typeRef); index<count; index++) {
                     ProcessUPSEventSource(CFArrayGetValueAtIndex(arrayRef, index), &upsEventTimer, &upsEventSource);
                 }
+
+                CFRelease(arrayRef);
             } else {
                 ProcessUPSEventSource(typeRef, &upsEventTimer, &upsEventSource);
             }
 
             if (upsEventSource) {
-                CFRetain(upsEventSource);
                 CFRunLoopAddSource(CFRunLoopGetCurrent(), upsEventSource, kCFRunLoopDefaultMode);
             }
 
             if (upsEventTimer) {
-                CFRetain(upsEventTimer);
                 CFRunLoopAddTimer(CFRunLoopGetCurrent(), upsEventTimer, kCFRunLoopDefaultMode);
-            }
-
-            if (typeRef) {
-                CFRelease(typeRef);
             }
         }
         // Couldn't grab the new interface.  Fallback on the old.
-        else
-        {
+        else {
             result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUPSPlugInInterfaceID),
                                                         (LPVOID)&upsPlugInInterface);
         }
 
         // Got the interface
-        if ( ( result == S_OK ) && upsPlugInInterface )
-        {
+        if ( ( result == S_OK ) && upsPlugInInterface ) {
             kr = (*upsPlugInInterface)->getProperties(upsPlugInInterface, &upsProperties);
-            
-            if (kr != kIOReturnSuccess)
+
+            if (kr != kIOReturnSuccess) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             upsDataRef = GetPrivateData(upsProperties);
-            
-            if ( !upsDataRef )
+
+            if ( !upsDataRef ) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             upsDataRef->upsPlugInInterface  = (IOUPSPlugInInterface **)upsPlugInInterface;
             upsDataRef->upsEventSource      = upsEventSource;
             upsDataRef->upsEventTimer       = upsEventTimer;
@@ -543,17 +538,19 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             }
 
             kr = (*upsPlugInInterface)->getCapabilities(upsPlugInInterface, &upsCapabilites);
-            
-            if (kr != kIOReturnSuccess)
+
+            if (kr != kIOReturnSuccess) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             kr = CreatePowerManagerUPSEntry(upsDataRef, upsProperties, upsCapabilites);
             upsDataRef->requiresCurrentLimitControl = IsCurrentLimitControlRequired(upsDataRef);
             upsDataRef->requiresChargeCurrentUpdates = AreAverageChargeCurrentUpdatesRequired(upsDataRef);
-            
-            if (kr != kIOReturnSuccess)
+
+            if (kr != kIOReturnSuccess) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
                 if (!needsMerge) {
                     // Initialize AC state manually according to the default value.
@@ -582,31 +579,33 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                            upsDataRef->upsID, kr);
                 }
             }
-            
+
             kr = (*upsPlugInInterface)->getEvent(upsPlugInInterface, &upsEvent);
-            
-            if (kr != kIOReturnSuccess)
+
+            if (kr != kIOReturnSuccess) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             ProcessUPSEvent(upsDataRef, upsEvent);
-            
+
             (*upsPlugInInterface)->setEventCallback(upsPlugInInterface,
                                                     UPSEventCallback, NULL,
                                                     upsDataRef);
-            
+
             kr = IOServiceAddInterestNotification(gNotifyPort, // notifyPort
                                                   upsDevice, // service
                                                   kIOGeneralInterest, // interestType
                                                   DeviceNotification, // callback
                                                   upsDataRef, // refCon
                                                   &(upsDataRef->notification)); // notification
-            if (kr != kIOReturnSuccess)
+            if (kr != kIOReturnSuccess) {
                 goto UPSDEVICEADDED_FAIL;
-            
+            }
+
             goto UPSDEVICEADDED_CLEANUP;
         }
-        
-        
+
+
     UPSDEVICEADDED_FAIL:
         // Failed to allocate a UPS interface.  Do some cleanup
         if (upsDataRef) {
@@ -614,51 +613,83 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             RemoveAndReleasePowerManagerUPSEntry(upsDataRef);
             upsDataRef = NULL;
             upsPlugInInterface = NULL;
-        } else if (upsPlugInInterface) {
-            // Otherwise we need to release the upsPlugInInterface directly.
-            (*upsPlugInInterface)->Release(upsPlugInInterface);
-            upsPlugInInterface = NULL;
+        } else {
+            if (upsPlugInInterface) {
+                // Otherwise we need to release the upsPlugInInterface directly.
+                (*upsPlugInInterface)->Release(upsPlugInInterface);
+                upsPlugInInterface = NULL;
+            }
+
+            if (upsEventSource) {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsEventSource,
+                                      kCFRunLoopDefaultMode);
+                CFRelease(upsEventSource);
+                upsEventSource = NULL;
+            }
+
+            if (upsEventTimer) {
+                CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsEventTimer,
+                                     kCFRunLoopDefaultMode);
+                CFRelease(upsEventTimer);
+                upsEventTimer = NULL;
+            }
         }
 
-        if (upsEventSource) {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsEventSource,
-                                  kCFRunLoopDefaultMode);
-            CFRelease(upsEventSource);
-            upsEventSource = NULL;
-        }
-
-        if (upsEventTimer) {
-            CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsEventTimer,
-                                 kCFRunLoopDefaultMode);
-            CFRelease(upsEventTimer);
-            upsEventTimer = NULL;
-        }
-        
     UPSDEVICEADDED_CLEANUP:
         // Clean up
         (*plugInInterface)->Release(plugInInterface);
-        
+
     UPSDEVICEADDED_NONPLUGIN_CLEANUP:
         IOObjectRelease(upsDevice);
     }
 }
 
-//---------------------------------------------------------------------------
-// DeviceNotification
-//
-// This routine will get called whenever any kIOGeneralInterest notification
-// happens.
-//---------------------------------------------------------------------------
+static void releaseHidDataSourceResources(UPSDataRef upsDataRef)
+{
+    if (upsDataRef == NULL)
+        return;
 
-void DeviceNotification(void *refCon, io_service_t service,
-                        natural_t messageType, void *messageArgument ) {
-    UPSDataRef upsDataRef = (UPSDataRef) refCon;
-    
-    if ((upsDataRef != NULL) && (messageType == kIOMessageServiceIsTerminated)) {
-        RemoveAndReleasePowerManagerUPSEntry(upsDataRef);
+    if (upsDataRef->upsEventSource) {
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
+                              upsDataRef->upsEventSource,
+                              kCFRunLoopDefaultMode);
+        CFRelease(upsDataRef->upsEventSource);
+        upsDataRef->upsEventSource = NULL;
+    }
+
+    if (upsDataRef->upsEventTimer) {
+        CFRunLoopRemoveTimer(CFRunLoopGetCurrent(),
+                             upsDataRef->upsEventTimer,
+                             kCFRunLoopDefaultMode);
+        CFRelease(upsDataRef->upsEventTimer);
+        upsDataRef->upsEventTimer = NULL;
+    }
+
+    if (upsDataRef->upsPlugInInterface != NULL) {
+        (*(upsDataRef->upsPlugInInterface))->Release(upsDataRef->upsPlugInInterface);
+        upsDataRef->upsPlugInInterface = NULL;
+    }
+
+    if (upsDataRef->batteryStateNotification != MACH_PORT_NULL) {
+        IOObjectRelease(upsDataRef->batteryStateNotification);
+        upsDataRef->batteryStateNotification = MACH_PORT_NULL;
+    }
+
+    if (upsDataRef->currentLimitNotification != MACH_PORT_NULL) {
+        IOObjectRelease(upsDataRef->currentLimitNotification);
+        upsDataRef->currentLimitNotification = MACH_PORT_NULL;
+    }
+
+    if (upsDataRef->requiredVoltageNotification != MACH_PORT_NULL) {
+        IOObjectRelease(upsDataRef->requiredVoltageNotification);
+        upsDataRef->requiredVoltageNotification = MACH_PORT_NULL;
+    }
+
+    if (upsDataRef->notification != MACH_PORT_NULL) {
+        IOObjectRelease(upsDataRef->notification);
+        upsDataRef->notification = MACH_PORT_NULL;
     }
 }
-
 
 //---------------------------------------------------------------------------
 // RemoveAndReleasePowerManagerUPSEntry
@@ -668,59 +699,16 @@ void DeviceNotification(void *refCon, io_service_t service,
 //
 // No-op if upsDataRef is NULL
 //---------------------------------------------------------------------------
-void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef) {
-    if (upsDataRef == NULL)
+static void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef) {
+    if (upsDataRef == NULL) {
         return;
-    
+    }
+
     upsDataRef->isPresent = FALSE;
 
-    
-    if (upsDataRef->upsEventSource) {
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-                              upsDataRef->upsEventSource,
-                              kCFRunLoopDefaultMode);
-        CFRelease(upsDataRef->upsEventSource);
-        upsDataRef->upsEventSource = NULL;
-    }
-    
-    if (upsDataRef->upsEventTimer) {
-        CFRunLoopRemoveTimer(CFRunLoopGetCurrent(),
-                             upsDataRef->upsEventTimer,
-                             kCFRunLoopDefaultMode);
-        CFRelease(upsDataRef->upsEventTimer);
-        upsDataRef->upsEventTimer = NULL;
-    }
-    
-    if (upsDataRef->upsPlugInInterface != NULL) {
-        (*(upsDataRef->upsPlugInInterface))->Release(upsDataRef->upsPlugInInterface);
-        upsDataRef->upsPlugInInterface = NULL;
-    }
-    
-    if (upsDataRef->batteryStateNotification != MACH_PORT_NULL) {
-        IOObjectRelease(upsDataRef->batteryStateNotification);
-        upsDataRef->batteryStateNotification = MACH_PORT_NULL;
-    }
-    
-    if (upsDataRef->currentLimitNotification != MACH_PORT_NULL) {
-        IOObjectRelease(upsDataRef->currentLimitNotification);
-        upsDataRef->currentLimitNotification = MACH_PORT_NULL;
-    }
-    
-    if (upsDataRef->requiredVoltageNotification != MACH_PORT_NULL) {
-        IOObjectRelease(upsDataRef->requiredVoltageNotification);
-        upsDataRef->requiredVoltageNotification = MACH_PORT_NULL;
-    }
-    
-    if (upsDataRef->notification != MACH_PORT_NULL) {
-        IOObjectRelease(upsDataRef->notification);
-        upsDataRef->notification = MACH_PORT_NULL;
-    }
-    
-    if (upsDataRef->upsStoreDict) {
-        CFRelease(upsDataRef->upsStoreDict);
-        upsDataRef->upsStoreDict = NULL;
-    }
-    
+
+    releaseHidDataSourceResources(upsDataRef);
+
     if (upsDataRef->powerSourceID) {
         IOReturn result = IOPSReleasePowerSource(upsDataRef->powerSourceID);
         gUPSCount--;
@@ -729,10 +717,30 @@ void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef) {
         }
         upsDataRef->powerSourceID = NULL;
     }
-    
+
+    if (upsDataRef->upsStoreDict) {
+        CFRelease(upsDataRef->upsStoreDict);
+        upsDataRef->upsStoreDict = NULL;
+    }
+
     if (gUPSCount == 0) {
         CFRelease(gUPSDataArrayRef);
         CleanupAndExit();
+    }
+}
+
+//---------------------------------------------------------------------------
+// DeviceNotification
+//
+// This routine will get called whenever any kIOGeneralInterest notification
+// happens.
+//---------------------------------------------------------------------------
+void DeviceNotification(void *refCon, io_service_t service,
+                        natural_t messageType, void *messageArgument ) {
+    UPSDataRef upsDataRef = (UPSDataRef) refCon;
+
+    if ((upsDataRef != NULL) && (messageType == kIOMessageServiceIsTerminated)) {
+        RemoveAndReleasePowerManagerUPSEntry(upsDataRef);
     }
 }
 
@@ -1308,10 +1316,10 @@ kern_return_t _io_ups_get_event( mach_port_t server, int srcId,
     
     *eventBufferSizePtr = (IOByteCount)CFDataGetLength(serializedData);
     
-    vm_allocate(mach_task_self(), (vm_address_t *)eventBufferPtr,
+    res = vm_allocate(mach_task_self(), (vm_address_t *)eventBufferPtr,
                 *eventBufferSizePtr, TRUE);
     
-    if(*eventBufferPtr)
+    if(res == kIOReturnSuccess && *eventBufferPtr)
         memcpy(*eventBufferPtr, CFDataGetBytePtr(serializedData),
                *eventBufferSizePtr);
     
@@ -1361,10 +1369,11 @@ kern_return_t _io_ups_get_capabilities(mach_port_t server, int srcId,
     
     *capabilitiesBufferSizePtr = (IOByteCount)CFDataGetLength(serializedData);
     
-    vm_allocate(mach_task_self(), (vm_address_t *)capabilitiesBufferPtr,
+    res = vm_allocate(mach_task_self(), (vm_address_t *)capabilitiesBufferPtr,
                 *capabilitiesBufferSizePtr, TRUE);
     
-    if (*capabilitiesBufferPtr)
+    
+    if (res == kIOReturnSuccess && *capabilitiesBufferPtr)
         memcpy(*capabilitiesBufferPtr, CFDataGetBytePtr(serializedData),
                *capabilitiesBufferSizePtr);
     

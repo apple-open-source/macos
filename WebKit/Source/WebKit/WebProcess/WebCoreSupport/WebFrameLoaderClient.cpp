@@ -441,55 +441,40 @@ void WebFrameLoaderClient::dispatchWillChangeDocument(const URL& currentUrl, con
 #endif
 }
 
-void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
+void WebFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationType navigationType)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
 
     RefPtr<API::Object> userData;
-
-    auto navigationID = static_cast<WebDocumentLoader&>(*m_frame->coreFrame()->loader().documentLoader()).navigationID();
 
     // Notify the bundle client.
     webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(*webPage, m_frame, SameDocumentNavigationSessionStatePush, userData);
 
+    NavigationActionData navigationActionData;
+    navigationActionData.userGestureTokenIdentifier = WebProcess::singleton().userGestureTokenIdentifier(UserGestureIndicator::currentUserGesture());
+    navigationActionData.canHandleRequest = true;
+    navigationActionData.treatAsSameOriginNavigation = true;
+
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), navigationID, SameDocumentNavigationSessionStatePush, m_frame->coreFrame()->document()->url(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrameViaJSHistoryAPI(m_frame->frameID(), navigationType, m_frame->coreFrame()->document()->url(), navigationActionData, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+
+}
+
+void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
+{
+    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationSessionStatePush);
 }
 
 void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
 {
-    WebPage* webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    RefPtr<API::Object> userData;
-
-    auto navigationID = static_cast<WebDocumentLoader&>(*m_frame->coreFrame()->loader().documentLoader()).navigationID();
-
-    // Notify the bundle client.
-    webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(*webPage, m_frame, SameDocumentNavigationSessionStateReplace, userData);
-
-    // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), navigationID, SameDocumentNavigationSessionStateReplace, m_frame->coreFrame()->document()->url(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationSessionStateReplace);
 }
 
 void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
 {
-    WebPage* webPage = m_frame->page();
-    if (!webPage)
-        return;
-
-    RefPtr<API::Object> userData;
-
-    auto navigationID = static_cast<WebDocumentLoader&>(*m_frame->coreFrame()->loader().documentLoader()).navigationID();
-
-    // Notify the bundle client.
-    webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(*webPage, m_frame, SameDocumentNavigationSessionStatePop, userData);
-
-    // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), navigationID, SameDocumentNavigationSessionStatePop, m_frame->coreFrame()->document()->url(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationSessionStatePop);
 }
 
 void WebFrameLoaderClient::dispatchWillClose()
@@ -585,6 +570,12 @@ void WebFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError& e
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
+        return;
+
+    // When stopping the provisional load due to a process swap on resource response (due to COOP), the provisional load
+    // will simply keep going in a new process. As a result, we don't want to tell the injected bundle or the UIProcess client
+    // that the provisional load failed.
+    if (webPage->isStoppingLoadingDueToProcessSwap())
         return;
 
     WEBFRAMELOADERCLIENT_RELEASE_LOG(Network, "dispatchDidFailProvisionalLoad:");
@@ -1105,14 +1096,25 @@ void WebFrameLoaderClient::revertToProvisionalState(DocumentLoader*)
     notImplemented();
 }
 
-void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError& error)
+inline bool WebFrameLoaderClient::hasPlugInView() const
 {
+#if !ENABLE(PDFKIT_PLUGIN)
+    return false;
+#else
+    return m_pluginView;
+#endif
+}
+
+void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError&)
+{
+#if ENABLE(PDFKIT_PLUGIN)
     if (!m_pluginView)
         return;
     
-    m_pluginView->manualLoadDidFail(error);
+    m_pluginView->manualLoadDidFail();
     m_pluginView = nullptr;
     m_hasSentResponseToPluginView = false;
+#endif
 }
 
 void WebFrameLoaderClient::setMainFrameDocumentReady(bool)
@@ -1153,7 +1155,7 @@ void WebFrameLoaderClient::didReplaceMultipartContent()
 
 void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuffer& data)
 {
-    if (!m_pluginView)
+    if (!hasPlugInView())
         loader->commitData(data);
 
     // If the document is a stand-alone media document, now is the right time to cancel the WebKit load.
@@ -1163,6 +1165,7 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuf
         loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 #endif
 
+#if ENABLE(PDFKIT_PLUGIN)
     // Calling commitData did not create the plug-in view.
     if (!m_pluginView)
         return;
@@ -1177,26 +1180,27 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuf
         m_hasSentResponseToPluginView = true;
     }
     m_pluginView->manualLoadDidReceiveData(data);
+#endif
 }
 
 void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
 {
-    if (!m_pluginView) {
-        if (m_frameHasCustomContentProvider) {
-            WebPage* webPage = m_frame->page();
-            if (!webPage)
-                return;
+    if (m_frameHasCustomContentProvider) {
+        WebPage* webPage = m_frame->page();
+        if (!webPage)
+            return;
 
-            RefPtr<const SharedBuffer> contiguousData;
-            RefPtr<const FragmentedSharedBuffer> mainResourceData = loader->mainResourceData();
-            if (mainResourceData)
-                contiguousData = mainResourceData->makeContiguous();
-            IPC::DataReference dataReference(contiguousData ? contiguousData->data() : nullptr, contiguousData ? contiguousData->size() : 0);
-            webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomContentProvider(loader->response().suggestedFilename(), dataReference));
-        }
-
-        return;
+        RefPtr<const SharedBuffer> contiguousData;
+        RefPtr<const FragmentedSharedBuffer> mainResourceData = loader->mainResourceData();
+        if (mainResourceData)
+            contiguousData = mainResourceData->makeContiguous();
+        IPC::DataReference dataReference(contiguousData ? contiguousData->data() : nullptr, contiguousData ? contiguousData->size() : 0);
+        webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomContentProvider(loader->response().suggestedFilename(), dataReference));
     }
+
+#if ENABLE(PDFKIT_PLUGIN)
+    if (!m_pluginView)
+        return;
 
     // If we just received an empty response without any data, we won't have sent a response to the plug-in view.
     // Make sure to do this before calling manualLoadDidFinishLoading.
@@ -1211,6 +1215,7 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
     m_pluginView->manualLoadDidFinishLoading();
     m_pluginView = nullptr;
     m_hasSentResponseToPluginView = false;
+#endif
 }
 
 void WebFrameLoaderClient::updateGlobalHistory()
@@ -1379,13 +1384,13 @@ bool WebFrameLoaderClient::canShowMIMETypeAsHTML(const String& /*MIMEType*/) con
     return true;
 }
 
-bool WebFrameLoaderClient::representationExistsForURLScheme(const String& /*URLScheme*/) const
+bool WebFrameLoaderClient::representationExistsForURLScheme(StringView /*URLScheme*/) const
 {
     notImplemented();
     return false;
 }
 
-String WebFrameLoaderClient::generatedMIMETypeForURLScheme(const String& /*URLScheme*/) const
+String WebFrameLoaderClient::generatedMIMETypeForURLScheme(StringView /*URLScheme*/) const
 {
     notImplemented();
     return String();
@@ -1618,7 +1623,7 @@ void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader *doc
     m_frame->convertMainResourceLoadToDownload(documentLoader, request, response);
 }
 
-RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwnerElement& ownerElement)
+RefPtr<Frame> WebFrameLoaderClient::createFrame(const AtomString& name, HTMLFrameOwnerElement& ownerElement)
 {
     auto* webPage = m_frame->page();
 
@@ -1634,37 +1639,26 @@ RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwn
     return coreSubframe;
 }
 
-RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<AtomString>&, const Vector<AtomString>&, const String& mimeType, bool loadManually)
 {
-    ASSERT(paramNames.size() == paramValues.size());
-    ASSERT(m_frame->page());
-
-    Plugin::Parameters parameters;
-    parameters.url = url;
-    parameters.names = paramNames;
-    parameters.values = paramValues;
-    parameters.mimeType = mimeType;
-    parameters.isFullFramePlugin = loadManually;
-    parameters.shouldUseManualLoader = parameters.isFullFramePlugin && !m_frameCameFromBackForwardCache;
-#if PLATFORM(COCOA)
-    parameters.layerHostingMode = m_frame->page()->layerHostingMode();
-#endif
-
-#if ENABLE(PDFKIT_PLUGIN)
-    auto plugin = m_frame->page()->createPlugin(m_frame.ptr(), &pluginElement, parameters, parameters.mimeType);
-    if (!plugin)
-        return nullptr;
-
-    return PluginView::create(pluginElement, plugin.releaseNonNull(), parameters);
-#else
+#if !ENABLE(PDFKIT_PLUGIN)
     UNUSED_PARAM(pluginElement);
+    UNUSED_PARAM(url);
+    UNUSED_PARAM(mimeType);
+    UNUSED_PARAM(loadManually);
     return nullptr;
+#else
+    return PluginView::create(pluginElement, url, mimeType, loadManually && !m_frameCameFromBackForwardCache);
 #endif
 }
 
 void WebFrameLoaderClient::redirectDataToPlugin(Widget& pluginWidget)
 {
+#if !ENABLE(PDFKIT_PLUGIN)
+    UNUSED_PARAM(pluginWidget);
+#else
     m_pluginView = static_cast<PluginView*>(&pluginWidget);
+#endif
 }
 
 #if ENABLE(WEBGL)
@@ -1720,7 +1714,12 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const 
             return ObjectContentType::Frame;
         }
     }
-
+#if ENABLE(PDFJS)
+    if (auto* webPage = m_frame->page()) {
+        if (webPage->corePage()->settings().pdfJSViewerEnabled() && MIMETypeRegistry::isPDFMIMEType(mimeType))
+            return ObjectContentType::Frame;
+    }
+#endif
     if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
         return ObjectContentType::Image;
 
@@ -1865,11 +1864,7 @@ void WebFrameLoaderClient::didChangeScrollOffset()
 
 bool WebFrameLoaderClient::allowScript(bool enabledPerSettings)
 {
-    if (!enabledPerSettings)
-        return false;
-
-    auto* pluginView = WebPage::pluginViewForFrame(m_frame->coreFrame());
-    return !pluginView || !pluginView->shouldAllowScripting();
+    return enabledPerSettings && !hasPlugInView();
 }
 
 bool WebFrameLoaderClient::shouldForceUniversalAccessFromLocalURL(const URL& url)
@@ -1990,11 +1985,13 @@ void WebFrameLoaderClient::notifyPageOfAppBoundBehavior()
 #endif
 
 #if ENABLE(PDFKIT_PLUGIN)
+
 bool WebFrameLoaderClient::shouldUsePDFPlugin(const String& contentType, StringView path) const
 {
     auto* page = m_frame->page();
     return page && page->shouldUsePDFPlugin(contentType, path);
 }
+
 #endif
 
 bool WebFrameLoaderClient::isParentProcessAFullWebBrowser() const
@@ -2002,6 +1999,19 @@ bool WebFrameLoaderClient::isParentProcessAFullWebBrowser() const
     auto* page = m_frame->page();
     return page && page->isParentProcessAWebBrowser();
 }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+void WebFrameLoaderClient::modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>)>&& completionHandler) const
+{
+    auto* webPage = m_frame->page();
+    if (!webPage) {
+        completionHandler({ });
+        return;
+    }
+
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::ModelInlinePreviewUUIDs(), WTFMove(completionHandler));
+}
+#endif
 
 } // namespace WebKit
 

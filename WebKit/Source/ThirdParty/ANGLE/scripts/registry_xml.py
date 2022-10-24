@@ -53,6 +53,7 @@ angle_requestable_extensions = [
     "GL_ANGLE_multi_draw",
     "GL_ANGLE_multiview_multisample",
     "GL_ANGLE_provoking_vertex",
+    "GL_ANGLE_read_only_depth_stencil_feedback_loops",
     "GL_ANGLE_robust_fragment_shader_output",
     "GL_ANGLE_semaphore_fuchsia",
     "GL_ANGLE_texture_compression_dxt3",
@@ -75,6 +76,7 @@ gles_requestable_extensions = [
     "GL_ANGLE_texture_usage",
     "GL_APPLE_clip_distance",
     "GL_ARB_sync",
+    "GL_EXT_base_instance",
     "GL_EXT_blend_func_extended",
     "GL_EXT_blend_minmax",
     "GL_EXT_buffer_storage",
@@ -149,6 +151,7 @@ gles_requestable_extensions = [
     "GL_NV_pack_subimage",
     "GL_NV_pixel_buffer_object",
     "GL_NV_read_depth",
+    "GL_NV_read_depth_stencil",
     "GL_NV_read_stencil",
     "GL_NV_shader_noperspective_interpolation",
     "GL_OES_compressed_EAC_R11_signed_texture",
@@ -198,6 +201,7 @@ gles_requestable_extensions = [
     "GL_OES_vertex_type_10_10_10_2",
     "GL_OVR_multiview",
     "GL_OVR_multiview2",
+    "GL_QCOM_shading_rate",
     "GL_WEBGL_video_texture",
 ]
 

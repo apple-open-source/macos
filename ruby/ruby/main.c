@@ -29,6 +29,7 @@
 #include "version.h"
 #include <msgtracer_client.h>
 #include <msgtracer_keys.h>
+#include <os/variant_private.h>
 #include <libproc.h>
 #include <sys/proc.h>
 #include <sys/proc_info.h>
@@ -115,9 +116,8 @@ mt_log_BSDServices_ScriptingLanguageUse(const char *signature)
     char *pstree = NULL;
     size_t oldsize = 0;
     while(proc_pidinfo(p, PROC_PIDT_SHORTBSDINFO, 0, &pinfo, sizeof(pinfo)) == sizeof(pinfo)) {
-        struct stat sb;
         char found = 0;
-        if(stat("/Library/Caches/com.apple.DiagnosticReporting.HasBeenAppleInternal", &sb) == 0) {
+        if(os_variant_has_internal_diagnostics("com.apple.ruby")) {
             found = 1;
         } else {
             if(proc_pidpath(p, pidpath, sizeof(pidpath)) == -1) {

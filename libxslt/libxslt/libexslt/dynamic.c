@@ -23,20 +23,13 @@
 #define IN_LIBEXSLT
 #include "libexslt.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
-#include <win32config.h>
-#else
-#include "config.h"
-#endif
-
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
-#include <libxslt/xsltconfig.h>
-#include <libxslt/xsltutils.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/extensions.h>
+#include "xsltutils.h"
+#include "xsltInternals.h"
+#include "extensions.h"
 
 #include "exslt.h"
 
@@ -113,24 +106,12 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
         return;
     }
     str = xmlXPathPopString(ctxt);
-    if (xmlXPathCheckError(ctxt)) {
-        xmlXPathSetTypeError(ctxt);
-        return;
-    }
+    if (xmlXPathCheckError(ctxt))
+        goto cleanup;
 
     nodeset = xmlXPathPopNodeSet(ctxt);
-    if (xmlXPathCheckError(ctxt)) {
-        xmlXPathSetTypeError(ctxt);
-        return;
-    }
-    if (str == NULL || !xmlStrlen(str) || !(comp = xmlXPathCompile(str))) {
-        if (nodeset != NULL)
-            xmlXPathFreeNodeSet(nodeset);
-        if (str != NULL)
-            xmlFree(str);
-        valuePush(ctxt, xmlXPathNewNodeSet(NULL));
-        return;
-    }
+    if (xmlXPathCheckError(ctxt))
+        goto cleanup;
 
     ret = xmlXPathNewNodeSet(NULL);
     if (ret == NULL) {
@@ -138,6 +119,17 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                          "exsltDynMapFunction: ret == NULL\n");
         goto cleanup;
     }
+
+    tctxt = xsltXPathGetTransformContext(ctxt);
+    if (tctxt == NULL) {
+	xsltTransformError(xsltXPathGetTransformContext(ctxt), NULL, NULL,
+	      "dyn:map : internal error tctxt == NULL\n");
+	goto cleanup;
+    }
+
+    if (str == NULL || !xmlStrlen(str) ||
+        !(comp = xmlXPathCtxtCompile(tctxt->xpathCtxt, str)))
+        goto cleanup;
 
     oldDoc = ctxt->context->doc;
     oldNode = ctxt->context->node;
@@ -148,12 +140,6 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
 	 * since we really don't know we're going to be adding node(s)
 	 * down the road we create the RVT regardless
 	 */
-    tctxt = xsltXPathGetTransformContext(ctxt);
-    if (tctxt == NULL) {
-	xsltTransformError(xsltXPathGetTransformContext(ctxt), NULL, NULL,
-	      "dyn:map : internal error tctxt == NULL\n");
-	goto cleanup;
-    }
     container = xsltCreateRVT(tctxt);
     if (container == NULL) {
 	xsltTransformError(tctxt, NULL, NULL,
@@ -203,10 +189,10 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                     case XPATH_BOOLEAN:
                         if (container != NULL) {
                             xmlNodePtr newChildNode =
-                                xmlNewChild((xmlNodePtr) container, NULL,
-                                            BAD_CAST "boolean",
-                                            BAD_CAST (subResult->
-                                            boolval ? "true" : ""));
+                                xmlNewTextChild((xmlNodePtr) container, NULL,
+                                                BAD_CAST "boolean",
+                                                BAD_CAST (subResult->
+                                                boolval ? "true" : ""));
                             if (newChildNode != NULL) {
                                 newChildNode->ns =
                                     xmlNewNs(newChildNode,
@@ -216,7 +202,6 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                                 xmlXPathNodeSetAddUnique(ret->nodesetval,
                                                          newChildNode);
                             }
-			    xsltExtensionInstructionResultRegister(tctxt, ret);
                         }
                         break;
                     case XPATH_NUMBER:
@@ -225,8 +210,8 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                                 xmlXPathCastNumberToString(subResult->
                                                            floatval);
                             xmlNodePtr newChildNode =
-                                xmlNewChild((xmlNodePtr) container, NULL,
-                                            BAD_CAST "number", val);
+                                xmlNewTextChild((xmlNodePtr) container, NULL,
+                                                BAD_CAST "number", val);
                             if (val != NULL)
                                 xmlFree(val);
 
@@ -239,15 +224,14 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                                 xmlXPathNodeSetAddUnique(ret->nodesetval,
                                                          newChildNode);
                             }
-			    xsltExtensionInstructionResultRegister(tctxt, ret);
                         }
                         break;
                     case XPATH_STRING:
                         if (container != NULL) {
                             xmlNodePtr newChildNode =
-                                xmlNewChild((xmlNodePtr) container, NULL,
-                                            BAD_CAST "string",
-                                            subResult->stringval);
+                                xmlNewTextChild((xmlNodePtr) container, NULL,
+                                                BAD_CAST "string",
+                                                subResult->stringval);
                             if (newChildNode != NULL) {
                                 newChildNode->ns =
                                     xmlNewNs(newChildNode,
@@ -257,7 +241,6 @@ exsltDynMapFunction(xmlXPathParserContextPtr ctxt, int nargs)
                                 xmlXPathNodeSetAddUnique(ret->nodesetval,
                                                          newChildNode);
                             }
-			    xsltExtensionInstructionResultRegister(tctxt, ret);
                         }
                         break;
 		    default:

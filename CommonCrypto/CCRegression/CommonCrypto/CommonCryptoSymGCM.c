@@ -374,6 +374,7 @@ CallGCMFuncs(CCOperation op,
             retval = CCCryptorGCMFinalize(cref, tag, tagLength);
         }else{
             char tagOut[tagLength];
+            cc_clear(tagLength, tagOut);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
             retval = CCCryptorGCMFinal(cref, tagOut, &tagLength);

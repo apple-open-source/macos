@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2020 Metrological Group B.V.
  * Copyright (C) 2020 Igalia S.L.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -109,7 +110,7 @@ bool KeyHandle::takeValueIfDifferent(KeyHandleValueVariant&& value)
 
 bool KeyStore::containsKeyID(const KeyIDType& keyID) const
 {
-    return m_keys.findMatching([&](const RefPtr<KeyHandle>& storedKey) {
+    return m_keys.findIf([&](const RefPtr<KeyHandle>& storedKey) {
         return *storedKey == keyID;
     }) != notFound;
 }
@@ -149,7 +150,7 @@ bool KeyStore::addKeys(Vector<RefPtr<KeyHandle>>&& newKeys)
 bool KeyStore::add(RefPtr<KeyHandle>&& key)
 {
     bool didStoreChange = false;
-    size_t keyWithMatchingKeyIDIndex = m_keys.findMatching([&] (const RefPtr<KeyHandle>& storedKey) {
+    size_t keyWithMatchingKeyIDIndex = m_keys.findIf([&] (const RefPtr<KeyHandle>& storedKey) {
         return *key == *storedKey;
     });
 
@@ -224,11 +225,9 @@ const RefPtr<KeyHandle>& KeyStore::keyHandle(const KeyIDType& keyID) const
 
 CDMInstanceSession::KeyStatusVector KeyStore::convertToJSKeyStatusVector() const
 {
-    CDMInstanceSession::KeyStatusVector keyStatusVector;
-    keyStatusVector.reserveInitialCapacity(numKeys());
-    for (const auto& key : m_keys)
-        keyStatusVector.uncheckedAppend(std::pair<Ref<FragmentedSharedBuffer>, CDMInstanceSession::KeyStatus> { key->idAsSharedBuffer(), key->status() });
-    return keyStatusVector;
+    return m_keys.map([](auto& key) {
+        return std::pair { key->idAsSharedBuffer(), key->status() };
+    });
 }
 
 void CDMProxy::updateKeyStore(const KeyStore& newKeyStore)

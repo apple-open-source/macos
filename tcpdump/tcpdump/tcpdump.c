@@ -25,12 +25,6 @@
  *	Seth Webster <swebster@sst.ll.mit.edu>
  */
 
-#ifndef lint
-static const char copyright[] _U_ =
-    "@(#) Copyright (c) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2000\n\
-The Regents of the University of California.  All rights reserved.\n";
-#endif
-
 /*
  * tcpdump - dump traffic on a network
  *
@@ -40,13 +34,14 @@ The Regents of the University of California.  All rights reserved.\n";
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
 /*
- * Mac OS X may ship pcap.h from libpcap 0.6 with a libpcap based on
- * 0.8.  That means it has pcap_findalldevs() but the header doesn't
- * define pcap_if_t, meaning that we can't actually *use* pcap_findalldevs().
+ * Some older versions of Mac OS X may ship pcap.h from libpcap 0.6 with a
+ * libpcap based on 0.8.  That means it has pcap_findalldevs() but the
+ * header doesn't define pcap_if_t, meaning that we can't actually *use*
+ * pcap_findalldevs().
  */
 #ifdef HAVE_PCAP_FINDALLDEVS
 #ifndef HAVE_PCAP_IF_T
@@ -54,7 +49,17 @@ The Regents of the University of California.  All rights reserved.\n";
 #endif
 #endif
 
-#include <netdissect-stdinc.h>
+#include "netdissect-stdinc.h"
+
+/*
+ * This must appear after including netdissect-stdinc.h, so that _U_ is
+ * defined.
+ */
+#ifndef lint
+static const char copyright[] _U_ =
+    "@(#) Copyright (c) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2000\n\
+The Regents of the University of California.  All rights reserved.\n";
+#endif
 
 #include <sys/stat.h>
 
@@ -69,18 +74,39 @@ The Regents of the University of California.  All rights reserved.\n";
 #ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
 #else
-#include "getopt_long.h"
+#include "missing/getopt_long.h"
 #endif
 /* Capsicum-specific code requires macros from <net/bpf.h>, which will fail
  * to compile if <pcap.h> has already been included; including the headers
  * in the opposite order works fine.
  */
 #ifdef HAVE_CAPSICUM
-#include <sys/capability.h>
+#include <sys/capsicum.h>
 #include <sys/ioccom.h>
 #include <net/bpf.h>
 #include <libgen.h>
+#ifdef HAVE_CASPER
+#include <libcasper.h>
+#include <casper/cap_dns.h>
+#include <sys/nv.h>
+#endif	/* HAVE_CASPER */
 #endif	/* HAVE_CAPSICUM */
+#ifdef HAVE_PCAP_OPEN
+/*
+ * We found pcap_open() in the capture library, so we'll be using
+ * the remote capture APIs; define PCAP_REMOTE before we include pcap.h,
+ * so we get those APIs declared, and the types and #defines that they
+ * use defined.
+ *
+ * WinPcap's headers require that PCAP_REMOTE be defined in order to get
+ * remote-capture APIs declared and types and #defines that they use
+ * defined.
+ *
+ * (Versions of libpcap with those APIs, and thus Npcap, which is based on
+ * those versions of libpcap, don't require it.)
+ */
+#define HAVE_REMOTE
+#endif
 
 #ifdef __APPLE__
 #define __APPLE_PCAP_NG_API
@@ -88,6 +114,7 @@ The Regents of the University of California.  All rights reserved.\n";
 #include <sysexits.h>
 #include <err.h>
 #include "pktmetadatafilter.h"
+#include "tcpdump_version.h"
 #endif /* __APPLE__ */
 
 #include <pcap.h>
@@ -105,12 +132,25 @@ The Regents of the University of California.  All rights reserved.\n";
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <pwd.h>
 #include <grp.h>
 #endif /* _WIN32 */
+
+/*
+ * Pathname separator.
+ * Use this in pathnames, but do *not* use it in URLs.
+ */
+#ifdef _WIN32
+#define PATH_SEPARATOR	'\\'
+#else
+#define PATH_SEPARATOR	'/'
+#endif
 
 /* capabilities convenience library */
 /* If a code depends on HAVE_LIBCAP_NG, it depends also on HAVE_CAP_NG_H.
@@ -125,31 +165,52 @@ The Regents of the University of California.  All rights reserved.\n";
 #endif /* HAVE_CAP_NG_H */
 #endif /* HAVE_LIBCAP_NG */
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif /* __FreeBSD__ */
+
+#include "netdissect-stdinc.h"
 #include "netdissect.h"
 #include "interface.h"
 #include "addrtoname.h"
 #include "machdep.h"
-#include "setsignal.h"
-#include "gmt2local.h"
 #include "pcap-missing.h"
 #include "ascii_strcasecmp.h"
 
 #include "print.h"
 
+#include "fptype.h"
+
 #ifndef PATH_MAX
 #define PATH_MAX 1024
 #endif
 
-#ifdef SIGINFO
+#if defined(SIGINFO)
 #define SIGNAL_REQ_INFO SIGINFO
-#elif SIGUSR1
+#elif defined(SIGUSR1)
 #define SIGNAL_REQ_INFO SIGUSR1
 #endif
 
+#if defined(HAVE_PCAP_DUMP_FLUSH) && defined(SIGUSR2)
+#define SIGNAL_FLUSH_PCAP SIGUSR2
+#endif
+
+#if defined(HAVE_PCAP_CREATE) || defined(_WIN32)
 static int Bflag;			/* buffer size */
+#endif
+#ifdef HAVE_PCAP_DUMP_FTELL64
+static int64_t Cflag;			/* rotate dump files after this many bytes */
+#else
 static long Cflag;			/* rotate dump files after this many bytes */
+#endif
 static int Cflag_count;			/* Keep track of which file number we're writing */
+#ifdef HAVE_PCAP_FINDALLDEVS
 static int Dflag;			/* list available devices and exit */
+#endif
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+static char *remote_interfaces_source;	/* list available devices from this source and exit */
+#endif
+
 /*
  * This is exported because, in some versions of libpcap, if libpcap
  * is built with optimizer debugging code (which is *NOT* the default
@@ -162,6 +223,7 @@ static int Dflag;			/* list available devices and exit */
  * dflag but, instead, *if* built with optimizer debugging code,
  * *export* a routine to set that flag.
  */
+extern int dflag;
 int dflag;				/* print filter code */
 static int Gflag;			/* rotate dump files after this many seconds */
 static int Gflag_count;			/* number of files created with Gflag rotation */
@@ -170,35 +232,52 @@ static int Lflag;			/* list available data link types and exit */
 static int Iflag;			/* rfmon (monitor) mode */
 #ifdef HAVE_PCAP_SET_TSTAMP_TYPE
 static int Jflag;			/* list available time stamp types */
-#endif
 static int jflag = -1;			/* packet time stamp source */
+#endif
+static int lflag;			/* line-buffered output */
 static int pflag;			/* don't go promiscuous */
 #ifdef HAVE_PCAP_SETDIRECTION
 static int Qflag = -1;			/* restrict captured packet by send/receive direction */
 #endif
+#ifdef HAVE_PCAP_DUMP_FLUSH
 static int Uflag;			/* "unbuffered" output of dump files */
+#endif
 static int Wflag;			/* recycle output files after this number of files */
 static int WflagChars;
 static char *zflag = NULL;		/* compress each savefile using a specified command (like gzip or bzip2) */
+static int timeout = 1000;		/* default timeout = 1000 ms = 1 s */
+#ifdef HAVE_PCAP_SET_IMMEDIATE_MODE
 static int immediate_mode;
+#endif
+static int count_mode;
 
 static int infodelay;
 static int infoprint;
 
 char *program_name;
 
+#ifdef HAVE_CASPER
+cap_channel_t *capdns;
+#endif
+
 /* Forwards */
-static void error(FORMAT_STRING(const char *), ...) NORETURN PRINTFLIKE(1, 2);
+static NORETURN void error(FORMAT_STRING(const char *), ...) PRINTFLIKE(1, 2);
 static void warning(FORMAT_STRING(const char *), ...) PRINTFLIKE(1, 2);
-static void exit_tcpdump(int) NORETURN;
-static RETSIGTYPE cleanup(int);
-static RETSIGTYPE child_cleanup(int);
-static void print_version(void);
-static void print_usage(void);
-static void show_tstamp_types_and_exit(pcap_t *, const char *device) NORETURN;
-static void show_dlts_and_exit(pcap_t *, const char *device) NORETURN;
+static NORETURN void exit_tcpdump(int);
+static void (*setsignal (int sig, void (*func)(int)))(int);
+static void cleanup(int);
+static void child_cleanup(int);
+static void print_version(FILE *);
+static void print_usage(FILE *);
+#ifdef HAVE_PCAP_SET_TSTAMP_TYPE
+static NORETURN void show_tstamp_types_and_exit(pcap_t *, const char *device);
+#endif
+static NORETURN void show_dlts_and_exit(pcap_t *, const char *device);
 #ifdef HAVE_PCAP_FINDALLDEVS
-static void show_devices_and_exit (void) NORETURN;
+static NORETURN void show_devices_and_exit(void);
+#endif
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+static NORETURN void show_remote_devices_and_exit(void);
 #endif
 
 static void print_packet(u_char *, const struct pcap_pkthdr *, const u_char *);
@@ -212,27 +291,33 @@ node_t *pkt_meta_data_expression = NULL;
 
 char *open_special_device(char *);
 int pktap_filter_packet(netdissect_options *, struct pcap_if_info *, const struct pcap_pkthdr *, const u_char *);
+int pktapv2_filter_packet(netdissect_options *, struct pcap_if_info *, const struct pcap_pkthdr *, const u_char *);
 void print_kev_msg(struct netdissect_options *, struct kern_event_msg *);
 #endif /* __APPLE__ */
 
 #ifdef SIGNAL_REQ_INFO
-RETSIGTYPE requestinfo(int);
+static void requestinfo(int);
 #endif
 
-#if defined(USE_WIN32_MM_TIMER)
-  #include <MMsystem.h>
-  static UINT timer_id;
-  static void CALLBACK verbose_stats_dump(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR);
-#elif defined(HAVE_ALARM)
-  static void verbose_stats_dump(int sig);
+#ifdef SIGNAL_FLUSH_PCAP
+static void flushpcap(int);
 #endif
+
+#ifdef _WIN32
+    static HANDLE timer_handle = INVALID_HANDLE_VALUE;
+    static void CALLBACK verbose_stats_dump(PVOID param, BOOLEAN timer_fired);
+#else /* _WIN32 */
+  static void verbose_stats_dump(int sig);
+#endif /* _WIN32 */
 
 static void info(int);
 #ifndef __APPLE__
 static u_int packets_captured;
 #else /* __APPLE__ */
-
+static int compression_mode = 0;
 static int truncation_mode = 0;
+static int pktapv2 = 0;
+static int head_drop = 0;
 static u_long packets_captured;
 static u_long max_packet_cnt = ULONG_MAX;
 static u_long skip_packet_cnt = 0;
@@ -247,6 +332,7 @@ int handle_pcap_dump(struct dump_info *, const struct pcap_pkthdr *, const u_cha
 int handle_bpf_exthdr_dump(struct dump_info *, const struct pcap_pkthdr *, const u_char *);
 int handle_pcap_ng_dump(struct dump_info *, const struct pcap_pkthdr *, const u_char *);
 int handle_pktap_dump(struct dump_info *, const struct pcap_pkthdr *, const u_char *);
+static int is_pcap_pkthdr_valid(netdissect_options *, const struct pcap_pkthdr *);
 
 char *svc2str(uint32_t);
 
@@ -261,11 +347,15 @@ static const struct tok status_flags[] = {
 	{ PCAP_IF_RUNNING,  "Running"  },
 #endif
 	{ PCAP_IF_LOOPBACK, "Loopback" },
+#ifdef PCAP_IF_WIRELESS
+	{ PCAP_IF_WIRELESS, "Wireless" },
+#endif
 	{ 0, NULL }
 };
 #endif
 
 static pcap_t *pd;
+static pcap_dumper_t *pdd = NULL;
 
 static int supports_monitor_mode;
 
@@ -277,14 +367,14 @@ struct dump_info {
 	char	*WFileName;
 	char	*CurrentFileName;
 	pcap_t	*pd;
-	pcap_dumper_t *p;
+	pcap_dumper_t *pdd;
+	netdissect_options *ndo;
 #ifdef HAVE_CAPSICUM
 	int	dirfd;
 #endif
 
 #ifdef __APPLE__
 	dump_handler_func_t dumper_func;
-	netdissect_options *ndo;
 #endif /* __APPLE__ */
 };
 
@@ -354,7 +444,7 @@ error(const char *fmt, ...)
 		if (fmt[-1] != '\n')
 			(void)fputc('\n', stderr);
 	}
-	exit_tcpdump(1);
+	exit_tcpdump(S_ERR_HOST_PROGRAM);
 	/* NOTREACHED */
 }
 
@@ -398,7 +488,7 @@ show_tstamp_types_and_exit(pcap_t *pc, const char *device)
 	if (n_tstamp_types == 0) {
 		fprintf(stderr, "Time stamp type cannot be set for %s\n",
 		    device);
-		exit_tcpdump(0);
+		exit_tcpdump(S_SUCCESS);
 	}
 	fprintf(stderr, "Time stamp types for %s (use option -j to set):\n",
 	    device);
@@ -412,7 +502,7 @@ show_tstamp_types_and_exit(pcap_t *pc, const char *device)
 		}
 	}
 	pcap_free_tstamp_types(tstamp_types);
-	exit_tcpdump(0);
+	exit_tcpdump(S_SUCCESS);
 }
 #endif
 
@@ -465,7 +555,7 @@ show_dlts_and_exit(pcap_t *pc, const char *device)
 #ifdef HAVE_PCAP_FREE_DATALINKS
 	pcap_free_datalinks(dlts);
 #endif
-	exit_tcpdump(0);
+	exit_tcpdump(S_SUCCESS);
 }
 
 #ifdef HAVE_PCAP_FINDALLDEVS
@@ -482,12 +572,78 @@ show_devices_and_exit (void)
 		printf("%d.%s", i+1, dev->name);
 		if (dev->description != NULL)
 			printf(" (%s)", dev->description);
+		if (dev->flags != 0) {
+			printf(" [");
+			printf("%s", bittok2str(status_flags, "none", dev->flags));
+#ifdef PCAP_IF_WIRELESS
+			if (dev->flags & PCAP_IF_WIRELESS) {
+				switch (dev->flags & PCAP_IF_CONNECTION_STATUS) {
+
+				case PCAP_IF_CONNECTION_STATUS_UNKNOWN:
+					printf(", Association status unknown");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_CONNECTED:
+					printf(", Associated");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_DISCONNECTED:
+					printf(", Not associated");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_NOT_APPLICABLE:
+					break;
+				}
+			} else {
+				switch (dev->flags & PCAP_IF_CONNECTION_STATUS) {
+
+				case PCAP_IF_CONNECTION_STATUS_UNKNOWN:
+					printf(", Connection status unknown");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_CONNECTED:
+					printf(", Connected");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_DISCONNECTED:
+					printf(", Disconnected");
+					break;
+
+				case PCAP_IF_CONNECTION_STATUS_NOT_APPLICABLE:
+					break;
+				}
+			}
+#endif
+			printf("]");
+		}
+		printf("\n");
+	}
+	pcap_freealldevs(devlist);
+	exit_tcpdump(S_SUCCESS);
+}
+#endif /* HAVE_PCAP_FINDALLDEVS */
+
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+static void
+show_remote_devices_and_exit(void)
+{
+	pcap_if_t *dev, *devlist;
+	char ebuf[PCAP_ERRBUF_SIZE];
+	int i;
+
+	if (pcap_findalldevs_ex(remote_interfaces_source, NULL, &devlist,
+	    ebuf) < 0)
+		error("%s", ebuf);
+	for (i = 0, dev = devlist; dev != NULL; i++, dev = dev->next) {
+		printf("%d.%s", i+1, dev->name);
+		if (dev->description != NULL)
+			printf(" (%s)", dev->description);
 		if (dev->flags != 0)
 			printf(" [%s]", bittok2str(status_flags, "none", dev->flags));
 		printf("\n");
 	}
 	pcap_freealldevs(devlist);
-	exit_tcpdump(0);
+	exit_tcpdump(S_SUCCESS);
 }
 #endif /* HAVE_PCAP_FINDALLDEVS */
 
@@ -499,22 +655,22 @@ show_devices_and_exit (void)
  * only use them for the same purposes that the other versions of tcpdump
  * use them:
  *
- * OS X tcpdump uses -g to force non--v output for IP to be on one
+ * macOS tcpdump uses -g to force non--v output for IP to be on one
  * line, making it more "g"repable;
  *
- * OS X tcpdump uses -k to specify that packet comments in pcap-ng files
+ * macOS tcpdump uses -k to specify that packet comments in pcapng files
  * should be printed;
  *
  * OpenBSD tcpdump uses -o to indicate that OS fingerprinting should be done
  * for hosts sending TCP SYN packets;
  *
- * OS X tcpdump uses -P to indicate that -w should write pcap-ng rather
+ * macOS tcpdump uses -P to indicate that -w should write pcapng rather
  * than pcap files.
  *
- * OS X tcpdump also uses -Q to specify expressions that match packet
+ * macOS tcpdump also uses -Q to specify expressions that match packet
  * metadata, including but not limited to the packet direction.
  * The expression syntax is different from a simple "in|out|inout",
- * and those expressions aren't accepted by OS X tcpdump, but the
+ * and those expressions aren't accepted by macOS tcpdump, but the
  * equivalents would be "in" = "dir=in", "out" = "dir=out", and
  * "inout" = "dir=in or dir=out", and the parser could conceivably
  * special-case "in", "out", and "inout" as expressions for backwards
@@ -533,6 +689,11 @@ show_devices_and_exit (void)
 #define B_FLAG_USAGE
 #endif /* defined(HAVE_PCAP_CREATE) || defined(_WIN32) */
 
+#ifdef HAVE_PCAP_FINDALLDEVS
+#define D_FLAG	"D"
+#else
+#define D_FLAG
+#endif
 #ifdef __APPLE__
 #define g_FLAG		"g"
 #define k_FLAG		"k"
@@ -556,10 +717,16 @@ show_devices_and_exit (void)
 #define J_FLAG
 #endif /* PCAP_ERROR_TSTAMP_TYPE_NOTSUP */
 
-#ifdef HAVE_PCAP_FINDALLDEVS
-#define D_FLAG	"D"
+#ifdef USE_LIBSMI
+#define m_FLAG_USAGE "[ -m module ] ..."
+#endif
+
+#ifdef HAVE_PCAP_SETDIRECTION
+#define Q_FLAG "Q:"
+#define Q_FLAG_USAGE " [ -Q in|out|inout ]"
 #else
-#define D_FLAG
+#define Q_FLAG
+#define Q_FLAG_USAGE
 #endif
 
 #ifdef HAVE_PCAP_DUMP_FLUSH
@@ -568,18 +735,11 @@ show_devices_and_exit (void)
 #define U_FLAG
 #endif
 
-#ifdef HAVE_PCAP_SETDIRECTION
-#define Q_FLAG "Q:"
-#else
-#define Q_FLAG
-#endif
-
 #ifndef __APPLE__
 #define SHORTOPTS "aAb" B_FLAG "c:C:d" D_FLAG "eE:fF:G:hHi:" I_FLAG j_FLAG J_FLAG "KlLm:M:nNOpq" Q_FLAG "r:s:StT:u" U_FLAG "vV:w:W:xXy:Yz:Z:#"
 #else
 #define SHORTOPTS "aAb" B_FLAG "c:C:d" D_FLAG "eE:fF:" g_FLAG "G:hHi:" I_FLAG j_FLAG J_FLAG k_FLAG "KlLm:M:nN" o_FLAG "Op" P_FLAG "q" Q_FLAG "r:s:StT:u" U_FLAG "vV:w:W:xXy:Yz:Z:#"
 #endif /* __APPLE__ */
-
 
 /*
  * Long options.
@@ -604,10 +764,19 @@ show_devices_and_exit (void)
 #define OPTION_VERSION		128
 #define OPTION_TSTAMP_PRECISION	129
 #define OPTION_IMMEDIATE_MODE	130
+#define OPTION_PRINT			131
+#define OPTION_LIST_REMOTE_INTERFACES	132
+#define OPTION_TSTAMP_MICRO		133
+#define OPTION_TSTAMP_NANO		134
+#define OPTION_FP_TYPE			135
+#define OPTION_COUNT			136
 #ifdef __APPLE__
-#define OPTION_TIME_ZONE_OFFSET    131
-#define OPTION_APPLE_TRUNCATE    132
-#define OPTION_APPLE_ARP_PLAIN    133
+#define OPTION_APPLE_TRUNCATE    137
+#define OPTION_APPLE_ARP_PLAIN    138
+#define OPTION_APPLE_EXT_FMT    139
+#define OPTION_APPLE_COMPRESS    140
+#define OPTION_APPLE_PKTAPV2    141
+#define OPTION_APPLE_HEAD_DROP    142
 #endif /* __APPLE__ */
 
 static const struct option longopts[] = {
@@ -615,6 +784,9 @@ static const struct option longopts[] = {
 	{ "buffer-size", required_argument, NULL, 'B' },
 #endif
 	{ "list-interfaces", no_argument, NULL, 'D' },
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+	{ "list-remote-interfaces", required_argument, NULL, OPTION_LIST_REMOTE_INTERFACES },
+#endif
 	{ "help", no_argument, NULL, 'h' },
 	{ "interface", required_argument, NULL, 'i' },
 #ifdef HAVE_PCAP_CREATE
@@ -625,6 +797,8 @@ static const struct option longopts[] = {
 	{ "list-time-stamp-types", no_argument, NULL, 'J' },
 #endif
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
+	{ "micro", no_argument, NULL, OPTION_TSTAMP_MICRO},
+	{ "nano", no_argument, NULL, OPTION_TSTAMP_NANO},
 	{ "time-stamp-precision", required_argument, NULL, OPTION_TSTAMP_PRECISION},
 #endif
 	{ "dont-verify-checksums", no_argument, NULL, 'K' },
@@ -647,24 +821,37 @@ static const struct option longopts[] = {
 	{ "debug-filter-parser", no_argument, NULL, 'Y' },
 #endif
 	{ "relinquish-privileges", required_argument, NULL, 'Z' },
+	{ "count", no_argument, NULL, OPTION_COUNT },
+	{ "fp-type", no_argument, NULL, OPTION_FP_TYPE },
 	{ "number", no_argument, NULL, '#' },
+	{ "print", no_argument, NULL, OPTION_PRINT },
 	{ "version", no_argument, NULL, OPTION_VERSION },
 #ifdef __APPLE__
-	{ "time-zone-offset", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
-	{ "apple-tzo", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
+	{ "apple-oneline", no_argument, NULL, 'g' },
 	{ "apple-truncate", no_argument, NULL, OPTION_APPLE_TRUNCATE },
 	{ "apple-arp-plain", no_argument, NULL, OPTION_APPLE_ARP_PLAIN },
-	{ "apple-print-metadata", optional_argument, NULL, 'k' },
+	{ "apple-md-print", optional_argument, NULL, 'k' },
+	{ "apple-md-filter", required_argument, NULL, 'Q' },
 	{ "apple-pcapng", no_argument, NULL, 'P' },
+	{ "apple-ext-fmt", required_argument, NULL, OPTION_APPLE_EXT_FMT },
+	{ "apple-compression", required_argument, NULL, OPTION_APPLE_COMPRESS },
+	{ "apple-pktapv2", no_argument, NULL, OPTION_APPLE_PKTAPV2 },
+	{ "apple-head-drop", no_argument, NULL, OPTION_APPLE_HEAD_DROP },
 #endif /* __APPLE__ */
 	{ NULL, 0, NULL, 0 }
 };
 
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+#define LIST_REMOTE_INTERFACES_USAGE "[ --list-remote-interfaces remote-source ]"
+#else
+#define LIST_REMOTE_INTERFACES_USAGE
+#endif
 
-#ifdef __APPLE__
-int parse_time_zone_offset(const char *);
-#endif /* __APPLE__ */
-
+#ifdef HAVE_PCAP_SET_IMMEDIATE_MODE
+#define IMMEDIATE_MODE_USAGE " [ --immediate-mode ]"
+#else
+#define IMMEDIATE_MODE_USAGE ""
+#endif
 
 #ifndef _WIN32
 /* Drop root privileges and chroot if necessary */
@@ -673,20 +860,15 @@ droproot(const char *username, const char *chroot_dir)
 {
 	struct passwd *pw = NULL;
 
-	if (chroot_dir && !username) {
-		fprintf(stderr, "%s: Chroot without dropping root is insecure\n",
-			program_name);
-		exit_tcpdump(1);
-	}
+	if (chroot_dir && !username)
+		error("Chroot without dropping root is insecure");
 
 	pw = getpwnam(username);
 	if (pw) {
 		if (chroot_dir) {
-			if (chroot(chroot_dir) != 0 || chdir ("/") != 0) {
-				fprintf(stderr, "%s: Couldn't chroot/chdir to '%.64s': %s\n",
-					program_name, chroot_dir, pcap_strerror(errno));
-				exit_tcpdump(1);
-			}
+			if (chroot(chroot_dir) != 0 || chdir ("/") != 0)
+				error("Couldn't chroot/chdir to '%.64s': %s",
+				      chroot_dir, pcap_strerror(errno));
 		}
 #ifdef HAVE_LIBCAP_NG
 		{
@@ -698,26 +880,21 @@ droproot(const char *username, const char *chroot_dir)
 		}
 #else
 		if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
-		    setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
-			fprintf(stderr, "%s: Couldn't change to '%.32s' uid=%lu gid=%lu: %s\n",
-				program_name, username,
+		    setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0)
+			error("Couldn't change to '%.32s' uid=%lu gid=%lu: %s",
+				username,
 				(unsigned long)pw->pw_uid,
 				(unsigned long)pw->pw_gid,
 				pcap_strerror(errno));
-			exit_tcpdump(1);
-		}
 		else {
 			fprintf(stderr, "dropped privs to %s\n", username);
 		}
 #endif /* HAVE_LIBCAP_NG */
-	}
-	else {
-		fprintf(stderr, "%s: Couldn't find user '%.32s'\n",
-			program_name, username);
-		exit_tcpdump(1);
-	}
+	} else
+		error("Couldn't find user '%.32s'", username);
 #ifdef HAVE_LIBCAP_NG
 	/* We don't need CAP_SETUID, CAP_SETGID and CAP_SYS_CHROOT any more. */
+DIAG_OFF_CLANG(assign-enum)
 	capng_updatev(
 		CAPNG_DROP,
 		CAPNG_EFFECTIVE | CAPNG_PERMITTED,
@@ -725,6 +902,7 @@ droproot(const char *username, const char *chroot_dir)
 		CAP_SETGID,
 		CAP_SYS_CHROOT,
 		-1);
+DIAG_ON_CLANG(assign-enum)
 	capng_apply(CAPNG_SELECT_BOTH);
 #endif /* HAVE_LIBCAP_NG */
 
@@ -751,7 +929,7 @@ MakeFilename(char *buffer, char *orig_name, int cnt, int max_chars)
 {
         char *filename = malloc(PATH_MAX + 1);
         if (filename == NULL)
-            error("Makefilename: malloc");
+            error("%s: malloc", __func__);
 
         /* Process with strftime if Gflag is set. */
         if (Gflag != 0) {
@@ -759,7 +937,7 @@ MakeFilename(char *buffer, char *orig_name, int cnt, int max_chars)
 
           /* Convert Gflag_time to a usable format */
           if ((local_tm = localtime(&Gflag_time)) == NULL) {
-                  error("MakeTimedFilename: localtime");
+                  error("%s: localtime", __func__);
           }
 
           /* There's no good way to detect an error in strftime since a return
@@ -795,6 +973,35 @@ get_next_file(FILE *VFile, char *ptr)
 
 	return ret;
 }
+
+#ifdef HAVE_CASPER
+static cap_channel_t *
+capdns_setup(void)
+{
+	cap_channel_t *capcas, *capdnsloc;
+	const char *types[1];
+	int families[2];
+
+	capcas = cap_init();
+	if (capcas == NULL)
+		error("unable to create casper process");
+	capdnsloc = cap_service_open(capcas, "system.dns");
+	/* Casper capability no longer needed. */
+	cap_close(capcas);
+	if (capdnsloc == NULL)
+		error("unable to open system.dns service");
+	/* Limit system.dns to reverse DNS lookups. */
+	types[0] = "ADDR";
+	if (cap_dns_type_limit(capdnsloc, types, 1) < 0)
+		error("unable to limit access to system.dns service");
+	families[0] = AF_INET;
+	families[1] = AF_INET6;
+	if (cap_dns_family_limit(capdnsloc, families, 2) < 0)
+		error("unable to limit access to system.dns service");
+
+	return (capdnsloc);
+}
+#endif	/* HAVE_CASPER */
 
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
 static int
@@ -832,7 +1039,7 @@ tstamp_precision_to_string(int precision)
  * necessary to make the standard I/O library work with an fdopen()ed
  * FILE * from that descriptor.
  *
- * A long time ago, in a galaxy far far away, AT&T decided that, instead
+ * A long time ago in a galaxy far, far away, AT&T decided that, instead
  * of providing separate APIs for getting and setting the FD_ flags on a
  * descriptor, getting and setting the O_ flags on a descriptor, and
  * locking files, they'd throw them all into a kitchen-sink fcntl() call
@@ -900,10 +1107,10 @@ set_dumper_capsicum_rights(pcap_dumper_t *p)
  * Copy arg vector into a new buffer, concatenating arguments with spaces.
  */
 static char *
-copy_argv(register char **argv)
+copy_argv(char **argv)
 {
-	register char **p;
-	register u_int len = 0;
+	char **p;
+	size_t len = 0;
 	char *buf;
 	char *src, *dst;
 
@@ -916,7 +1123,7 @@ copy_argv(register char **argv)
 
 	buf = (char *)malloc(len);
 	if (buf == NULL)
-		error("copy_argv: malloc");
+		error("%s: malloc", __func__);
 
 	p = argv;
 	dst = buf;
@@ -943,16 +1150,24 @@ copy_argv(register char **argv)
 static char *
 read_infile(char *fname)
 {
-	register int i, fd, cc;
-	register char *cp;
-	struct stat buf;
+	int i, fd;
+	ssize_t cc;
+	char *cp;
+	our_statb buf;
 
 	fd = open(fname, O_RDONLY|O_BINARY);
 	if (fd < 0)
 		error("can't open %s: %s", fname, pcap_strerror(errno));
 
-	if (fstat(fd, &buf) < 0)
+	if (our_fstat(fd, &buf) < 0)
 		error("can't stat %s: %s", fname, pcap_strerror(errno));
+
+	/*
+	 * Reject files whose size doesn't fit into an int; a filter
+	 * *that* large will probably be too big.
+	 */
+	if (buf.st_size > INT_MAX)
+		error("%s is too large", fname);
 
 	cp = malloc((u_int)buf.st_size + 1);
 	if (cp == NULL)
@@ -962,7 +1177,8 @@ read_infile(char *fname)
 	if (cc < 0)
 		error("read %s: %s", fname, pcap_strerror(errno));
 	if (cc != buf.st_size)
-		error("short read %s (%d != %d)", fname, cc, (int)buf.st_size);
+		error("short read %s (%d != %d)", fname, (int) cc,
+		    (int)buf.st_size);
 
 	close(fd);
 	/* replace "# comment" with spaces */
@@ -979,9 +1195,35 @@ read_infile(char *fname)
 static long
 parse_interface_number(const char *device)
 {
+	const char *p;
 	long devnum;
 	char *end;
 
+	/*
+	 * Search for a colon, terminating any scheme at the beginning
+	 * of the device.
+	 */
+	p = strchr(device, ':');
+	if (p != NULL) {
+		/*
+		 * We found it.  Is it followed by "//"?
+		 */
+		p++;	/* skip the : */
+		if (strncmp(p, "//", 2) == 0) {
+			/*
+			 * Yes.  Search for the next /, at the end of the
+			 * authority part of the URL.
+			 */
+			p += 2;	/* skip the // */
+			p = strchr(p, '/');
+			if (p != NULL) {
+				/*
+				 * OK, past the / is the path.
+				 */
+				device = p + 1;
+			}
+		}
+	}
 	devnum = strtol(device, &end, 10);
 	if (device != end && *end == '\0') {
 		/*
@@ -1004,14 +1246,61 @@ parse_interface_number(const char *device)
 }
 
 static char *
-find_interface_by_number(long devnum)
+find_interface_by_number(const char *url
+#ifndef HAVE_PCAP_FINDALLDEVS_EX
+_U_
+#endif
+, long devnum)
 {
 	pcap_if_t *dev, *devlist;
 	long i;
 	char ebuf[PCAP_ERRBUF_SIZE];
 	char *device;
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+	const char *endp;
+	char *host_url;
+#endif
+	int status;
 
-	if (pcap_findalldevs(&devlist, ebuf) < 0)
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+	/*
+	 * Search for a colon, terminating any scheme at the beginning
+	 * of the URL.
+	 */
+	endp = strchr(url, ':');
+	if (endp != NULL) {
+		/*
+		 * We found it.  Is it followed by "//"?
+		 */
+		endp++;	/* skip the : */
+		if (strncmp(endp, "//", 2) == 0) {
+			/*
+			 * Yes.  Search for the next /, at the end of the
+			 * authority part of the URL.
+			 */
+			endp += 2;	/* skip the // */
+			endp = strchr(endp, '/');
+		} else
+			endp = NULL;
+	}
+	if (endp != NULL) {
+		/*
+		 * OK, everything from device to endp is a URL to hand
+		 * to pcap_findalldevs_ex().
+		 */
+		endp++;	/* Include the trailing / in the URL; pcap_findalldevs_ex() requires it */
+		host_url = malloc(endp - url + 1);
+		if (host_url == NULL && (endp - url + 1) > 0)
+			error("Invalid allocation for host");
+
+		memcpy(host_url, url, endp - url);
+		host_url[endp - url] = '\0';
+		status = pcap_findalldevs_ex(host_url, NULL, &devlist, ebuf);
+		free(host_url);
+	} else
+#endif
+	status = pcap_findalldevs(&devlist, ebuf);
+	if (status < 0)
 		error("%s", ebuf);
 	/*
 	 * Look for the devnum-th entry in the list of devices (1-based).
@@ -1027,6 +1316,14 @@ find_interface_by_number(long devnum)
 }
 #endif
 
+#ifdef HAVE_PCAP_OPEN
+/*
+ * Prefixes for rpcap URLs.
+ */
+static char rpcap_prefix[] = "rpcap://";
+static char rpcap_ssl_prefix[] = "rpcaps://";
+#endif
+
 static pcap_t *
 open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 {
@@ -1035,6 +1332,38 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 	int status;
 	char *cp;
 #endif
+
+#ifdef HAVE_PCAP_OPEN
+	/*
+	 * Is this an rpcap URL?
+	 */
+	if (strncmp(device, rpcap_prefix, sizeof(rpcap_prefix) - 1) == 0 ||
+	    strncmp(device, rpcap_ssl_prefix, sizeof(rpcap_ssl_prefix) - 1) == 0) {
+		/*
+		 * Yes.  Open it with pcap_open().
+		 */
+		*ebuf = '\0';
+		pc = pcap_open(device, ndo->ndo_snaplen,
+		    pflag ? 0 : PCAP_OPENFLAG_PROMISCUOUS, timeout, NULL,
+		    ebuf);
+		if (pc == NULL) {
+			/*
+			 * If this failed with "No such device" or "The system
+			 * cannot find the device specified", that means
+			 * the interface doesn't exist; return NULL, so that
+			 * the caller can see whether the device name is
+			 * actually an interface index.
+			 */
+			if (strstr(ebuf, "No such device") != NULL ||
+			    strstr(ebuf, "The system cannot find the device specified") != NULL)
+				return (NULL);
+			error("%s", ebuf);
+		}
+		if (*ebuf)
+			warning("%s", ebuf);
+		return (pc);
+	}
+#endif /* HAVE_PCAP_OPEN */
 
 #ifdef HAVE_PCAP_CREATE
 	pc = pcap_create(device, ebuf);
@@ -1067,8 +1396,7 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 		status = pcap_set_immediate_mode(pc, 1);
 		if (status != 0)
 			error("%s: Can't set immediate mode: %s",
-			device,
-			pcap_statustostr(status));
+			    device, pcap_statustostr(status));
 	}
 #endif
 	/*
@@ -1078,10 +1406,16 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 		supports_monitor_mode = 1;
 	else
 		supports_monitor_mode = 0;
+	if (ndo->ndo_snaplen != 0) {
+		/*
+		 * A snapshot length was explicitly specified;
+		 * use it.
+		 */
 	status = pcap_set_snaplen(pc, ndo->ndo_snaplen);
 	if (status != 0)
 		error("%s: Can't set snapshot length: %s",
 		    device, pcap_statustostr(status));
+	}
 	status = pcap_set_promisc(pc, !pflag);
 	if (status != 0)
 		error("%s: Can't set promiscuous mode: %s",
@@ -1092,7 +1426,7 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 			error("%s: Can't set monitor mode: %s",
 			    device, pcap_statustostr(status));
 	}
-	status = pcap_set_timeout(pc, 1000);
+	status = pcap_set_timeout(pc, timeout);
 	if (status != 0)
 		error("%s: pcap_set_timeout failed: %s",
 		    device, pcap_statustostr(status));
@@ -1124,6 +1458,22 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 	if (truncation_mode != 0) {
 		pcap_set_truncation_mode(pc, 1);
 	}
+#ifdef HAS_PCAP_SET_COMPRESSION
+	if (compression_mode != 0) {
+		if (pcap_set_compression(pc, compression_mode) != 0) {
+			error("Can't set compression mode: %d", compression_mode);
+		}
+	}
+#endif /* HAS_PCAP_SET_COMPRESSION */
+	if (pktapv2 != 0) {
+		ndo->ndo_pktapv2 = 1;
+		pcap_set_pktap_hdr_v2(pc, true);
+	}
+#if HAS_PCAP_HEAD_DROP
+	if (head_drop != 0) {
+		pcap_set_head_drop(pc, 1);
+	}
+#endif /* HAS_PCAP_HEAD_DROP */
 #endif /* __APPLE__ */
 
 	status = pcap_activate(pc);
@@ -1140,14 +1490,38 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 			 */
 			snprintf(ebuf, PCAP_ERRBUF_SIZE, "%s: %s\n(%s)",
 			    device, pcap_statustostr(status), cp);
-			pcap_close(pc);
-			return (NULL);
 		} else if (status == PCAP_ERROR_PERM_DENIED && *cp != '\0')
 			error("%s: %s\n(%s)", device,
 			    pcap_statustostr(status), cp);
+#ifdef __FreeBSD__
+		else if (status == PCAP_ERROR_RFMON_NOTSUP &&
+		    strncmp(device, "wlan", 4) == 0) {
+			char parent[8], newdev[8];
+			char sysctl[32];
+			size_t s = sizeof(parent);
+
+			snprintf(sysctl, sizeof(sysctl),
+			    "net.wlan.%d.%%parent", atoi(device + 4));
+			sysctlbyname(sysctl, parent, &s, NULL, 0);
+			strlcpy(newdev, device, sizeof(newdev));
+			/* Suggest a new wlan device. */
+			/* FIXME: incrementing the index this way is not going to work well
+			 * when the index is 9 or greater but the only consequence in this
+			 * specific case would be an error message that looks a bit odd.
+			 */
+			newdev[strlen(newdev)-1]++;
+			error("%s is not a monitor mode VAP\n"
+			    "To create a new monitor mode VAP use:\n"
+			    "  ifconfig %s create wlandev %s wlanmode monitor\n"
+			    "and use %s as the tcpdump interface",
+			    device, newdev, parent, newdev);
+		}
+#endif
 		else
 			error("%s: %s", device,
 			    pcap_statustostr(status));
+		pcap_close(pc);
+		return (NULL);
 	} else if (status > 0) {
 		/*
 		 * pcap_activate() succeeded, but it's warning us
@@ -1174,7 +1548,13 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 #endif /* HAVE_PCAP_SETDIRECTION */
 #else /* HAVE_PCAP_CREATE */
 	*ebuf = '\0';
-	pc = pcap_open_live(device, ndo->ndo_snaplen, !pflag, 1000, ebuf);
+	/*
+	 * If no snapshot length was specified, or a length of 0 was
+	 * specified, default to 256KB.
+	 */
+	if (ndo->ndo_snaplen == 0)
+		ndo->ndo_snaplen = MAXIMUM_SNAPLEN;
+	pc = pcap_open_live(device, ndo->ndo_snaplen, !pflag, timeout, ebuf);
 	if (pc == NULL) {
 		/*
 		 * If this failed with "No such device", that means
@@ -1196,10 +1576,10 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 int
 main(int argc, char **argv)
 {
-	register int cnt, op, i;
+	int cnt, op, i;
 	bpf_u_int32 localnet =0 , netmask = 0;
-	int timezone_offset = 0;
-	register char *cp, *infile, *cmdbuf, *device, *RFileName, *VFileName, *WFileName;
+	char *cp, *infile, *cmdbuf, *device, *RFileName, *VFileName, *WFileName;
+	char *endp;
 	pcap_handler callback;
 	int dlt;
 	const char *dlt_name;
@@ -1209,14 +1589,16 @@ main(int argc, char **argv)
     struct bpf_program fcode;
 #endif /* __APPLE__ */
 #ifndef _WIN32
-	RETSIGTYPE (*oldhandler)(int);
+	void (*oldhandler)(int);
 #endif
 	struct dump_info dumpinfo;
 	u_char *pcap_userdata;
 	char ebuf[PCAP_ERRBUF_SIZE];
 	char VFileLine[PATH_MAX + 1];
-	char *username = NULL;
-	char *chroot_dir = NULL;
+	const char *username = NULL;
+#ifndef _WIN32
+	const char *chroot_dir = NULL;
+#endif
 	char *ret = NULL;
 	char *end;
 #ifdef HAVE_PCAP_FINDALLDEVS
@@ -1234,25 +1616,25 @@ main(int argc, char **argv)
 	int Oflag = 1;			/* run filter code optimizer */
 	int yflag_dlt = -1;
 	const char *yflag_dlt_name = NULL;
+	int print = 0;
 
 	netdissect_options Ndo;
 	netdissect_options *ndo = &Ndo;
 
-#ifdef __APPLE__
-	int on = 1;
-	int no_loopkupnet_warning = 0;
-	const char *timezone_offset_arg = NULL;
-#endif
-
 	/*
 	 * Initialize the netdissect code.
 	 */
-	if (nd_init(ebuf, sizeof ebuf) == -1)
+	if (nd_init(ebuf, sizeof(ebuf)) == -1)
 		error("%s", ebuf);
 
 	memset(ndo, 0, sizeof(*ndo));
 	ndo_set_function_pointers(ndo);
-	ndo->ndo_snaplen = DEFAULT_SNAPLEN;
+
+#ifdef __APPLE__
+    int on = 1;
+    int no_loopkupnet_warning = 0;
+    ndo->ndo_ext_fmt = 1;
+#endif /* __APPLE__ */
 
 	cnt = -1;
 	device = NULL;
@@ -1262,15 +1644,18 @@ main(int argc, char **argv)
 	VFile = NULL;
 	WFileName = NULL;
 	dlt = -1;
-	if ((cp = strrchr(argv[0], '/')) != NULL)
+	if ((cp = strrchr(argv[0], PATH_SEPARATOR)) != NULL)
 		ndo->program_name = program_name = cp + 1;
 	else
 		ndo->program_name = program_name = argv[0];
 
-#ifdef _WIN32
+#if defined(HAVE_PCAP_WSOCKINIT)
 	if (pcap_wsockinit() != 0)
 		error("Attempting to initialize Winsock failed");
-#endif /* _WIN32 */
+#elif defined(HAVE_WSOCKINIT)
+	if (wsockinit() != 0)
+		error("Attempting to initialize Winsock failed");
+#endif
 
 	/*
 	 * On platforms where the CPU doesn't support unaligned loads,
@@ -1326,18 +1711,42 @@ main(int argc, char **argv)
 			break;
 
 		case 'C':
-			Cflag = atoi(optarg) * 1000000;
-			if (Cflag <= 0)
+			errno = 0;
+#ifdef HAVE_PCAP_DUMP_FTELL64
+			Cflag = strtoint64_t(optarg, &endp, 10);
+#else
+			Cflag = strtol(optarg, &endp, 10);
+#endif
+			if (endp == optarg || *endp != '\0' || errno != 0
+			    || Cflag <= 0)
 				error("invalid file size %s", optarg);
+			/*
+			 * Will multiplying it by 1000000 overflow?
+			 */
+#ifdef HAVE_PCAP_DUMP_FTELL64
+			if (Cflag > INT64_T_CONSTANT(0x7fffffffffffffff) / 1000000)
+#else
+			if (Cflag > LONG_MAX / 1000000)
+#endif
+				error("file size %s is too large", optarg);
+			Cflag *= 1000000;
 			break;
 
 		case 'd':
 			++dflag;
 			break;
 
+#ifdef HAVE_PCAP_FINDALLDEVS
 		case 'D':
 			Dflag++;
 			break;
+#endif
+
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+		case OPTION_LIST_REMOTE_INTERFACES:
+			remote_interfaces_source = optarg;
+			break;
+#endif
 
 		case 'L':
 			Lflag++;
@@ -1378,14 +1787,14 @@ main(int argc, char **argv)
 
 			/* Grab the current time for rotation use. */
 			if ((Gflag_time = time(NULL)) == (time_t)-1) {
-				error("main: can't get current time: %s",
-				    pcap_strerror(errno));
+				error("%s: can't get current time: %s",
+				    __func__, pcap_strerror(errno));
 			}
 			break;
 
 		case 'h':
-			print_usage();
-			exit_tcpdump(0);
+			print_usage(stdout);
+			exit_tcpdump(S_SUCCESS);
 			break;
 
 		case 'H':
@@ -1433,6 +1842,7 @@ main(int argc, char **argv)
 			setvbuf(stdout, NULL, _IOLBF, 0);
 #endif
 #endif /* _WIN32 */
+			lflag = 1;
 			break;
 #ifdef __APPLE__
 		case 'k': {
@@ -1513,7 +1923,7 @@ main(int argc, char **argv)
 
 		case 'm':
 			if (nd_have_smi_support()) {
-				if (nd_load_smi_module(optarg, ebuf, sizeof ebuf) == -1)
+				if (nd_load_smi_module(optarg, ebuf, sizeof(ebuf)) == -1)
 					error("%s", ebuf);
 			} else {
 				(void)fprintf(stderr, "%s: ignoring option `-m %s' ",
@@ -1582,12 +1992,11 @@ main(int argc, char **argv)
 			break;
 
 		case 's':
-			ndo->ndo_snaplen = strtol(optarg, &end, 0);
+			ndo->ndo_snaplen = (int)strtol(optarg, &end, 0);
 			if (optarg == end || *end != '\0'
 			    || ndo->ndo_snaplen < 0 || ndo->ndo_snaplen > MAXIMUM_SNAPLEN)
-				error("invalid snaplen %s", optarg);
-			else if (ndo->ndo_snaplen == 0)
-				ndo->ndo_snaplen = MAXIMUM_SNAPLEN;
+				error("invalid snaplen %s (must be >= 0 and <= %d)",
+				      optarg, MAXIMUM_SNAPLEN);
 			break;
 
 		case 'S':
@@ -1620,7 +2029,13 @@ main(int argc, char **argv)
 					ndo->ndo_t0flag++;
 					break;
 				case 1:
+					/* -t 1 means no timestamp */
 					ndo->ndo_t1flag++;
+					ndo->ndo_t0flag = 0;
+					ndo->ndo_t2flag = 0;
+					ndo->ndo_t3flag = 0;
+					ndo->ndo_t4flag = 0;
+					ndo->ndo_t5flag = 0;
 					break;
 				case 2:
 					ndo->ndo_t2flag++;
@@ -1678,7 +2093,12 @@ main(int argc, char **argv)
 				ndo->ndo_packettype = PT_LMP;
 			else if (ascii_strcasecmp(optarg, "resp") == 0)
 				ndo->ndo_packettype = PT_RESP;
-
+			else if (ascii_strcasecmp(optarg, "ptp") == 0)
+				ndo->ndo_packettype = PT_PTP;
+			else if (ascii_strcasecmp(optarg, "someip") == 0)
+				ndo->ndo_packettype = PT_SOMEIP;
+			else if (ascii_strcasecmp(optarg, "domain") == 0)
+				ndo->ndo_packettype = PT_DOMAIN;
 #ifdef __APPLE__
             else if (ascii_strcasecmp(optarg, "iperf") == 0)
                 ndo->ndo_packettype = PT_IPERF;
@@ -1762,8 +2182,8 @@ main(int argc, char **argv)
 			break;
 
 		case OPTION_VERSION:
-			print_version();
-			exit_tcpdump(0);
+			print_version(stdout);
+			exit_tcpdump(S_SUCCESS);
 			break;
 
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
@@ -1780,23 +2200,63 @@ main(int argc, char **argv)
 			break;
 #endif
 
-#ifdef __APPLE__
-		case OPTION_TIME_ZONE_OFFSET:
-			timezone_offset_arg = optarg;
+		case OPTION_PRINT:
+			print = 1;
 			break;
 
+#ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
+		case OPTION_TSTAMP_MICRO:
+			ndo->ndo_tstamp_precision = PCAP_TSTAMP_PRECISION_MICRO;
+			break;
+
+		case OPTION_TSTAMP_NANO:
+			ndo->ndo_tstamp_precision = PCAP_TSTAMP_PRECISION_NANO;
+			break;
+#endif
+
+		case OPTION_FP_TYPE:
+			/*
+			 * Print out the type of floating-point arithmetic
+			 * we're doing; it's probably IEEE, unless somebody
+			 * tries to run this on a VAX, but the precision
+			 * may differ (e.g., it might be 32-bit, 64-bit,
+			 * or 80-bit).
+			 */
+			float_type_check(0x4e93312d);
+			return 0;
+
+		case OPTION_COUNT:
+			count_mode = 1;
+			break;
+#ifdef __APPLE__
 		case OPTION_APPLE_TRUNCATE:
 			truncation_mode = 1;
 			break;
 
 		case OPTION_APPLE_ARP_PLAIN:
-			ndo->ndo_arp_plain = 1;
+			ndo->ndo_ext_fmt = 0;
+			break;
+
+		case OPTION_APPLE_EXT_FMT:
+			ndo->ndo_ext_fmt = atoi(optarg) != 0 ? 1 : 0;
+			break;
+
+		case OPTION_APPLE_COMPRESS:
+			compression_mode = atoi(optarg);
+			break;
+
+		case OPTION_APPLE_PKTAPV2:
+			pktapv2 = 1;
+			break;
+
+		case OPTION_APPLE_HEAD_DROP:
+			head_drop = 1;
 			break;
 #endif /* __APPLE__ */
 
 		default:
-			print_usage();
-			exit_tcpdump(1);
+			print_usage(stderr);
+			exit_tcpdump(S_ERR_HOST_PROGRAM);
 			/* NOTREACHED */
 		}
 
@@ -1804,18 +2264,27 @@ main(int argc, char **argv)
 	if (Dflag)
 		show_devices_and_exit();
 #endif
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+	if (remote_interfaces_source != NULL)
+		show_remote_devices_and_exit();
+#endif
+
+#if defined(DLT_LINUX_SLL2) && defined(HAVE_PCAP_SET_DATALINK)
+/* Set default linktype DLT_LINUX_SLL2 when capturing on the "any" device */
+		if (device != NULL &&
+		    strncmp (device, "any", strlen("any")) == 0
+		    && yflag_dlt == -1)
+			yflag_dlt = DLT_LINUX_SLL2;
+#endif
 
 	switch (ndo->ndo_tflag) {
 
 	case 0: /* Default */
-	case 4: /* Default + Date*/
-		timezone_offset = gmt2local(0);
-		break;
-
 	case 1: /* No time stamp */
 	case 2: /* Unix timeval style */
-	case 3: /* Microseconds since previous packet */
-        case 5: /* Microseconds since first packet */
+	case 3: /* Microseconds/nanoseconds since previous packet */
+	case 4: /* Date + Default */
+	case 5: /* Microseconds/nanoseconds since first packet */
 		break;
 
 	default: /* Not supported */
@@ -1823,32 +2292,24 @@ main(int argc, char **argv)
 		break;
 	}
 
-#ifdef __APPLE__
-	if (ndo->ndo_t0flag || ndo->ndo_t4flag || ndo->ndo_tflag == 0 || ndo->ndo_tflag == 4) {
-		if (timezone_offset_arg == NULL) {
-			timezone_offset = gmt2local(0);
-		} else {
-			timezone_offset = parse_time_zone_offset(timezone_offset_arg);
-		}
-	}
-#endif /* __APPLE__ */
-
 	if (ndo->ndo_fflag != 0 && (VFileName != NULL || RFileName != NULL))
 		error("-f can not be used with -V or -r");
 
 	if (VFileName != NULL && RFileName != NULL)
 		error("-V and -r are mutually exclusive.");
 
-#ifdef HAVE_PCAP_SET_IMMEDIATE_MODE
 	/*
-	 * If we're printing dissected packets to the standard output
-	 * rather than saving raw packets to a file, and the standard
-	 * output is a terminal, use immediate mode, as the user's
-	 * probably expecting to see packets pop up immediately.
+	 * If we're printing dissected packets to the standard output,
+	 * and either the standard output is a terminal or we're doing
+	 * "line" buffering, set the capture timeout to .1 second rather
+	 * than 1 second, as the user's probably expecting to see packets
+	 * pop up immediately shortly after they arrive.
+	 *
+	 * XXX - would there be some value appropriate for all cases,
+	 * based on, say, the buffer size and packet input rate?
 	 */
-	if (WFileName == NULL && isatty(1))
-		immediate_mode = 1;
-#endif
+	if ((WFileName == NULL || print) && (isatty(1) || lflag))
+		timeout = 100;
 
 #ifdef WITH_CHROOT
 	/* if run as root, prepare for chrooting */
@@ -1925,40 +2386,66 @@ main(int argc, char **argv)
 #endif
 		dlt = pcap_datalink(pd);
 		dlt_name = pcap_datalink_val_to_name(dlt);
+		fprintf(stderr, "reading from file %s", RFileName);
 		if (dlt_name == NULL) {
-			fprintf(stderr, "reading from file %s, link-type %u\n",
-			    RFileName, dlt);
+			fprintf(stderr, ", link-type %u", dlt);
 		} else {
-			fprintf(stderr,
-			    "reading from file %s, link-type %s (%s)\n",
-			    RFileName, dlt_name,
+			fprintf(stderr, ", link-type %s (%s)", dlt_name,
 			    pcap_datalink_val_to_description(dlt));
 		}
-#else /* __APPLE__ */
-		pd = pcap_ng_open_offline(RFileName, ebuf);
-		if (pd != NULL) {
-			fprintf(stderr, "reading from PCAP-NG file %s\n",
-					RFileName);
+		fprintf(stderr, ", snapshot length %d\n", pcap_snapshot(pd));
+#ifdef DLT_LINUX_SLL2
+		if (dlt == DLT_LINUX_SLL2)
+			fprintf(stderr, "Warning: interface names might be incorrect\n");
+#endif
+	} else if (dflag && !device) {
+		int dump_dlt = DLT_EN10MB;
+		/*
+		 * We're dumping the compiled code without an explicit
+		 * device specification.  (If a device is specified, we
+		 * definitely want to open it to use the DLT of that device.)
+		 * Either default to DLT_EN10MB with a warning, or use
+		 * the user-specified value if supplied.
+		 */
+		/*
+		 * If no snapshot length was specified, or a length of 0 was
+		 * specified, default to 256KB.
+		 */
+		if (ndo->ndo_snaplen == 0)
+			ndo->ndo_snaplen = MAXIMUM_SNAPLEN;
 			/*
-			 * The output file is also a pcap-ng file
+		 * If a DLT was specified with the -y flag, use that instead.
 			 */
-			ndo->ndo_Pflag++;
-		} else {
-			pd = pcap_open_offline(RFileName, ebuf);
-			if (pd == NULL)
-				error("%s", ebuf);
-			dlt = pcap_datalink(pd);
-			dlt_name = pcap_datalink_val_to_name(dlt);
-			if (dlt_name == NULL) {
-				fprintf(stderr, "reading from file %s, link-type %u\n",
-						RFileName, dlt);
-			} else {
-				fprintf(stderr,
-						"reading from file %s, link-type %s (%s)\n",
-						RFileName, dlt_name,
-						pcap_datalink_val_to_description(dlt));
-			}
-		}
+		if (yflag_dlt != -1)
+			dump_dlt = yflag_dlt;
+		else
+			fprintf(stderr, "Warning: assuming Ethernet\n");
+	        pd = pcap_open_dead(dump_dlt, ndo->ndo_snaplen);
+#else /* __APPLE__ */
+        pd = pcap_ng_open_offline(RFileName, ebuf);
+        if (pd != NULL) {
+            fprintf(stderr, "reading from PCAP-NG file %s\n",
+                    RFileName);
+            /*
+             * The output file is also a pcap-ng file
+             */
+            ndo->ndo_Pflag++;
+        } else {
+            pd = pcap_open_offline(RFileName, ebuf);
+            if (pd == NULL)
+                error("%s", ebuf);
+            dlt = pcap_datalink(pd);
+            dlt_name = pcap_datalink_val_to_name(dlt);
+            if (dlt_name == NULL) {
+                fprintf(stderr, "reading from file %s, link-type %u\n",
+                        RFileName, dlt);
+            } else {
+                fprintf(stderr,
+                        "reading from file %s, link-type %s (%s)\n",
+                        RFileName, dlt_name,
+                        pcap_datalink_val_to_description(dlt));
+            }
+        }
 #endif /* __APPLE__ */
 	} else {
 		/*
@@ -2004,20 +2491,21 @@ main(int argc, char **argv)
 			 * Find the list of interfaces, and pick
 			 * the first interface.
 			 */
-			if (pcap_findalldevs(&devlist, ebuf) >= 0 &&
-			    devlist != NULL) {
+			if (pcap_findalldevs(&devlist, ebuf) == -1)
+				error("%s", ebuf);
+			if (devlist == NULL)
+				error("no interfaces available for capture");
 				device = strdup(devlist->name);
 				pcap_freealldevs(devlist);
-			}
 #else /* HAVE_PCAP_FINDALLDEVS */
 			/*
 			 * Use whatever interface pcap_lookupdev()
 			 * chooses.
 			 */
 			device = pcap_lookupdev(ebuf);
-#endif
 			if (device == NULL)
 				error("%s", ebuf);
+#endif
 		}
 #endif /* __APPLE__ */
 
@@ -2051,7 +2539,7 @@ main(int argc, char **argv)
 			 * find_interface_by_number() exits if it
 			 * couldn't be found.
 			 */
-			device = find_interface_by_number(devnum);
+			device = find_interface_by_number(device, devnum);
 			pd = open_interface(device, ndo, ebuf);
 			if (pd == NULL)
 				error("%s", ebuf);
@@ -2065,7 +2553,8 @@ main(int argc, char **argv)
 		}
 
 		/*
-		 * Let user own process after socket has been opened.
+		 * Let user own process after capture device has
+		 * been opened.
 		 */
 #ifndef _WIN32
 		if (setgid(getgid()) != 0 || setuid(getuid()) != 0)
@@ -2095,7 +2584,8 @@ main(int argc, char **argv)
 			}
 #endif
 			(void)fprintf(stderr, "%s: data link type %s\n",
-				      program_name, yflag_dlt_name);
+				      program_name,
+				      pcap_datalink_val_to_name(yflag_dlt));
 			(void)fflush(stderr);
 		}
 
@@ -2105,13 +2595,21 @@ main(int argc, char **argv)
 		 * supersedes the BPF extended header mechamisn
 		 */
 		if (pcap_datalink(pd) != DLT_PKTAP &&
-			(ndo->ndo_kflag || ndo->ndo_Pflag) && pcap_apple_set_exthdr(pd, on) == -1)
+		    (ndo->ndo_kflag || ndo->ndo_Pflag)) {
+			ndo->ndo_pktapv2 = 0;
+			if (pcap_apple_set_exthdr(pd, on) == -1) {
 				warning("%s", pcap_geterr(pd));
+			}
+		}
 #endif /* __APPLE__ */
 
 		i = pcap_snapshot(pd);
 		if (ndo->ndo_snaplen < i) {
+			if (ndo->ndo_snaplen != 0)
 			warning("snaplen raised from %d to %d", ndo->ndo_snaplen, i);
+			ndo->ndo_snaplen = i;
+		} else if (ndo->ndo_snaplen > i) {
+			warning("snaplen lowered from %d to %d", ndo->ndo_snaplen, i);
 			ndo->ndo_snaplen = i;
 		}
                 if(ndo->ndo_fflag != 0) {
@@ -2156,15 +2654,21 @@ main(int argc, char **argv)
 		pcap_close(pd);
 		free(cmdbuf);
 		pcap_freecode(&fcode);
-		exit_tcpdump(0);
+		exit_tcpdump(S_SUCCESS);
 	}
-	init_print(ndo, localnet, netmask, timezone_offset);
+
+#ifdef HAVE_CASPER
+	if (!ndo->ndo_nflag)
+		capdns = capdns_setup();
+#endif	/* HAVE_CASPER */
+
+	init_print(ndo, localnet, netmask);
 
 #ifndef _WIN32
 	(void)setsignal(SIGPIPE, cleanup);
 	(void)setsignal(SIGTERM, cleanup);
-	(void)setsignal(SIGINT, cleanup);
 #endif /* _WIN32 */
+	(void)setsignal(SIGINT, cleanup);
 
 #ifdef __APPLE__
     /*
@@ -2208,27 +2712,33 @@ main(int argc, char **argv)
 		/* Initialize capng */
 		capng_clear(CAPNG_SELECT_BOTH);
 		if (username) {
+DIAG_OFF_CLANG(assign-enum)
 			capng_updatev(
 				CAPNG_ADD,
 				CAPNG_PERMITTED | CAPNG_EFFECTIVE,
 				CAP_SETUID,
 				CAP_SETGID,
 				-1);
+DIAG_ON_CLANG(assign-enum)
 		}
 		if (chroot_dir) {
+DIAG_OFF_CLANG(assign-enum)
 			capng_update(
 				CAPNG_ADD,
 				CAPNG_PERMITTED | CAPNG_EFFECTIVE,
 				CAP_SYS_CHROOT
 				);
+DIAG_ON_CLANG(assign-enum)
 		}
 
 		if (WFileName) {
+DIAG_OFF_CLANG(assign-enum)
 			capng_update(
 				CAPNG_ADD,
 				CAPNG_PERMITTED | CAPNG_EFFECTIVE,
 				CAP_DAC_OVERRIDE
 				);
+DIAG_ON_CLANG(assign-enum)
 		}
 		capng_apply(CAPNG_SELECT_BOTH);
 #endif /* HAVE_LIBCAP_NG */
@@ -2249,7 +2759,7 @@ main(int argc, char **argv)
 #endif /* __APPLE__ */
 	
 #ifdef HAVE_CAPSICUM
-	if (RFileName == NULL && VFileName == NULL) {
+	if (RFileName == NULL && VFileName == NULL && pcap_fileno(pd) != -1) {
 		static const unsigned long cmds[] = { BIOCGSTATS, BIOCROTZBUF };
 
 		/*
@@ -2269,7 +2779,6 @@ main(int argc, char **argv)
 	}
 #endif
 	if (WFileName) {
-		pcap_dumper_t *p;
 		/* Do not exceed the default PATH_MAX for files. */
 		dumpinfo.CurrentFileName = (char *)malloc(PATH_MAX + 1);
 
@@ -2283,12 +2792,12 @@ main(int argc, char **argv)
 		  MakeFilename(dumpinfo.CurrentFileName, WFileName, 0, 0);
 
 #ifndef __APPLE__
-		p = pcap_dump_open(pd, dumpinfo.CurrentFileName);
+		pdd = pcap_dump_open(pd, dumpinfo.CurrentFileName);
 #else /* __APPLE__ */
 		if (ndo->ndo_Pflag)
-			p = pcap_ng_dump_open(pd, dumpinfo.CurrentFileName);
+			pdd = pcap_ng_dump_open(pd, dumpinfo.CurrentFileName);
 		else
-			p = pcap_dump_open(pd, dumpinfo.CurrentFileName);
+			pdd = pcap_dump_open(pd, dumpinfo.CurrentFileName);
 #endif /* __APPLE__ */
 		
 #ifdef HAVE_LIBCAP_NG
@@ -2304,10 +2813,10 @@ main(int argc, char **argv)
 			);
 		capng_apply(CAPNG_SELECT_BOTH);
 #endif /* HAVE_LIBCAP_NG */
-		if (p == NULL)
+		if (pdd == NULL)
 			error("%s", pcap_geterr(pd));
 #ifdef HAVE_CAPSICUM
-		set_dumper_capsicum_rights(p);
+		set_dumper_capsicum_rights(pdd);
 #endif
 		if (Cflag != 0 || Gflag != 0) {
 #ifdef HAVE_CAPSICUM
@@ -2337,39 +2846,48 @@ main(int argc, char **argv)
 #endif
 			callback = dump_packet_and_trunc;
 			dumpinfo.pd = pd;
-			dumpinfo.p = p;
+			dumpinfo.pdd = pdd;
 			pcap_userdata = (u_char *)&dumpinfo;
 		} else {
 			callback = dump_packet;
-			pcap_userdata = (u_char *)p;
+			dumpinfo.WFileName = WFileName;
+		dumpinfo.pd = pd;
+			dumpinfo.pdd = pdd;
+			pcap_userdata = (u_char *)&dumpinfo;
 		}
+		if (print) {
+			dlt = pcap_datalink(pd);
+			ndo->ndo_if_printer = get_if_printer(dlt);
+		dumpinfo.ndo = ndo;
+		} else
+			dumpinfo.ndo = NULL;
 
 #ifdef __APPLE__
-		dumpinfo.p = p;
-		dumpinfo.pd = pd;
-		dumpinfo.ndo = ndo;
-
-		ndo->ndo_pcap = pd;
-
-		pcap_userdata = (u_char *)&dumpinfo;
-
-		if (dlt == DLT_PKTAP)
-			dumpinfo.dumper_func = handle_pktap_dump;
-		else if (dlt == DLT_PCAPNG)
-			dumpinfo.dumper_func = handle_pcap_ng_dump;
-		else if (ndo->ndo_Pflag)
-			dumpinfo.dumper_func = handle_bpf_exthdr_dump;
-		else
-			dumpinfo.dumper_func = handle_pcap_dump;
+        dumpinfo.pdd = pdd;
+        dumpinfo.pd = pd;
+        dumpinfo.ndo = ndo;
+        
+        ndo->ndo_pcap = pd;
+        
+        pcap_userdata = (u_char *)&dumpinfo;
+        
+        if (dlt == DLT_PKTAP)
+            dumpinfo.dumper_func = handle_pktap_dump;
+        else if (dlt == DLT_PCAPNG)
+            dumpinfo.dumper_func = handle_pcap_ng_dump;
+        else if (ndo->ndo_Pflag)
+            dumpinfo.dumper_func = handle_bpf_exthdr_dump;
+        else
+            dumpinfo.dumper_func = handle_pcap_dump;
 #endif /* __APPLE__ */
 
 #ifdef HAVE_PCAP_DUMP_FLUSH
 		if (Uflag)
-			pcap_dump_flush(p);
+			pcap_dump_flush(pdd);
 #endif
 	} else {
 		dlt = pcap_datalink(pd);
-		ndo->ndo_if_printer = get_if_printer(ndo, dlt);
+		ndo->ndo_if_printer = get_if_printer(dlt);
 		callback = print_packet;
 		pcap_userdata = (u_char *)ndo;
 #ifdef __APPLE__
@@ -2380,6 +2898,9 @@ main(int argc, char **argv)
 		else
 			ndo->ndo_print_callback = print_pcap;
 		ndo->ndo_pcap = pd;
+		if (ndo->ndo_snaplen == 0) {
+			ndo->ndo_snaplen = MAXIMUM_SNAPLEN;
+		}
 #endif /* __APPLE__ */
 	}
 
@@ -2391,21 +2912,45 @@ main(int argc, char **argv)
 	if (RFileName == NULL)
 		(void)setsignal(SIGNAL_REQ_INFO, requestinfo);
 #endif
-
-	if (ndo->ndo_vflag > 0 && WFileName) {
-		/*
-		 * When capturing to a file, "-v" means tcpdump should,
-		 * every 10 seconds, "v"erbosely report the number of
-		 * packets captured.
-		 */
-#ifdef USE_WIN32_MM_TIMER
-		/* call verbose_stats_dump() each 1000 +/-100msec */
-		timer_id = timeSetEvent(1000, 100, verbose_stats_dump, 0, TIME_PERIODIC);
-		setvbuf(stderr, NULL, _IONBF, 0);
-#elif defined(HAVE_ALARM)
-		(void)setsignal(SIGALRM, verbose_stats_dump);
-		alarm(1);
+#ifdef SIGNAL_FLUSH_PCAP
+	(void)setsignal(SIGNAL_FLUSH_PCAP, flushpcap);
 #endif
+
+	if (ndo->ndo_vflag > 0 && WFileName && RFileName == NULL && !print) {
+		/*
+		 * When capturing to a file, if "--print" wasn't specified,
+		 *"-v" means tcpdump should, once per second,
+		 * "v"erbosely report the number of packets captured.
+		 * Except when reading from a file, because -r, -w and -v
+		 * together used to make a corner case, in which pcap_loop()
+		 * errored due to EINTR (see GH #155 for details).
+		 */
+#ifdef _WIN32
+		/*
+		 * https://blogs.msdn.microsoft.com/oldnewthing/20151230-00/?p=92741
+		 *
+		 * suggests that this dates back to W2K.
+		 *
+		 * I don't know what a "long wait" is, but we'll assume
+		 * that printing the stats could be a "long wait".
+		 */
+		CreateTimerQueueTimer(&timer_handle, NULL,
+		    verbose_stats_dump, NULL, 1000, 1000,
+		    WT_EXECUTEDEFAULT|WT_EXECUTELONGFUNCTION);
+		setvbuf(stderr, NULL, _IONBF, 0);
+#else /* _WIN32 */
+		/*
+		 * Assume this is UN*X, and that it has setitimer(); that
+		 * dates back to UNIX 95.
+		 */
+		struct itimerval timer;
+		(void)setsignal(SIGALRM, verbose_stats_dump);
+		timer.it_interval.tv_sec = 1;
+		timer.it_interval.tv_usec = 0;
+		timer.it_value.tv_sec = 1;
+		timer.it_value.tv_usec = 1;
+		setitimer(ITIMER_REAL, &timer, NULL);
+#endif /* _WIN32 */
 	}
 
 	if (RFileName == NULL) {
@@ -2416,25 +2961,30 @@ main(int argc, char **argv)
 		 */
 		if (!ndo->ndo_vflag && !WFileName) {
 			(void)fprintf(stderr,
-			    "%s: verbose output suppressed, use -v or -vv for full protocol decode\n",
+			    "%s: verbose output suppressed, use -v[v]... for full protocol decode\n",
 			    program_name);
 		} else
 			(void)fprintf(stderr, "%s: ", program_name);
 		dlt = pcap_datalink(pd);
 		dlt_name = pcap_datalink_val_to_name(dlt);
+		(void)fprintf(stderr, "listening on %s", device);
 		if (dlt_name == NULL) {
-			(void)fprintf(stderr, "listening on %s, link-type %u, capture size %u bytes\n",
-			    device, dlt, ndo->ndo_snaplen);
+			(void)fprintf(stderr, ", link-type %u", dlt);
 		} else {
-			(void)fprintf(stderr, "listening on %s, link-type %s (%s), capture size %u bytes\n",
-			    device, dlt_name,
-			    pcap_datalink_val_to_description(dlt), ndo->ndo_snaplen);
+			(void)fprintf(stderr, ", link-type %s (%s)", dlt_name,
+				      pcap_datalink_val_to_description(dlt));
 		}
+		(void)fprintf(stderr, ", snapshot length %d bytes\n", ndo->ndo_snaplen);
 		(void)fflush(stderr);
 	}
 
 #ifdef HAVE_CAPSICUM
-	cansandbox = (ndo->ndo_nflag && VFileName == NULL && zflag == NULL);
+	cansandbox = (VFileName == NULL && zflag == NULL);
+#ifdef HAVE_CASPER
+	cansandbox = (cansandbox && (ndo->ndo_nflag || capdns != NULL));
+#else
+	cansandbox = (cansandbox && ndo->ndo_nflag);
+#endif /* HAVE_CASPER */
 	if (cansandbox && cap_enter() < 0 && errno != ENOSYS)
 		error("unable to enter the capability mode");
 #endif	/* HAVE_CAPSICUM */
@@ -2546,7 +3096,7 @@ main(int argc, char **argv)
 					 * the new DLT.
 					 */
 					dlt = new_dlt;
-					ndo->ndo_if_printer = get_if_printer(ndo, dlt);
+					ndo->ndo_if_printer = get_if_printer(dlt);
 #ifdef __APPLE__
 					if (dlt == DLT_PCAPNG)
 						ndo->ndo_print_callback = print_pcap_ng_block;
@@ -2595,7 +3145,7 @@ main(int argc, char **argv)
 				 * with a new section
 				 */
 				if (WFileName != NULL) {
-					pcap_ng_dump_init_section_info(dumpinfo.p);
+					pcap_ng_dump_init_section_info(dumpinfo.pdd);
 				}
 #endif /* __APPLE__ */
 
@@ -2603,28 +3153,36 @@ main(int argc, char **argv)
 				 * Report the new file.
 				 */
 				dlt_name = pcap_datalink_val_to_name(dlt);
+				fprintf(stderr, "reading from file %s", RFileName);
 				if (dlt_name == NULL) {
-					fprintf(stderr, "reading from file %s, link-type %u\n",
-					    RFileName, dlt);
+					fprintf(stderr, ", link-type %u", dlt);
 				} else {
-					fprintf(stderr,
-					"reading from file %s, link-type %s (%s)\n",
-					    RFileName, dlt_name,
+					fprintf(stderr, ", link-type %s (%s)",
+						dlt_name,
 					    pcap_datalink_val_to_description(dlt));
 				}
+				fprintf(stderr, ", snapshot length %d\n", pcap_snapshot(pd));
 			}
 		}
 	}
 	while (ret != NULL);
 
+	if (count_mode && RFileName != NULL)
+#ifdef __APPLE__
+		fprintf(stdout, "%lu packet%s\n", packets_captured,
+			PLURAL_SUFFIX(packets_captured));
+#else /* __APPLE__ */
+		fprintf(stdout, "%u packet%s\n", packets_captured,
+			PLURAL_SUFFIX(packets_captured));
+#endif /* __APPLE_ */
 	free(cmdbuf);
 
 #ifdef __APPLE__
 	if (WFileName != NULL) {
 		if (ndo->ndo_Pflag)
-			pcap_ng_dump_close(dumpinfo.p);
+			pcap_ng_dump_close(dumpinfo.pdd);
 		else
-			pcap_dump_close(dumpinfo.p);
+			pcap_dump_close(dumpinfo.pdd);
 	}
     pcap_freecode(&fcode);
 #else
@@ -2634,17 +3192,46 @@ main(int argc, char **argv)
 	exit_tcpdump(status == -1 ? 1 : 0);
 }
 
+/*
+ * Catch a signal.
+ */
+static void
+(*setsignal (int sig, void (*func)(int)))(int)
+{
+#ifdef _WIN32
+	return (signal(sig, func));
+#else
+	struct sigaction old, new;
+
+	memset(&new, 0, sizeof(new));
+	new.sa_handler = func;
+	if (sig == SIGCHLD)
+		new.sa_flags = SA_RESTART;
+	if (sigaction(sig, &new, &old) < 0)
+		return (SIG_ERR);
+	return (old.sa_handler);
+#endif
+}
+
 /* make a clean exit on interrupts */
-static RETSIGTYPE
+static void
 cleanup(int signo _U_)
 {
-#ifdef USE_WIN32_MM_TIMER
-	if (timer_id)
-		timeKillEvent(timer_id);
-	timer_id = 0;
-#elif defined(HAVE_ALARM)
-	alarm(0);
-#endif
+#ifdef _WIN32
+	if (timer_handle != INVALID_HANDLE_VALUE) {
+		DeleteTimerQueueTimer(NULL, timer_handle, NULL);
+		CloseHandle(timer_handle);
+		timer_handle = INVALID_HANDLE_VALUE;
+        }
+#else /* _WIN32 */
+	struct itimerval timer;
+
+	timer.it_interval.tv_sec = 0;
+	timer.it_interval.tv_usec = 0;
+	timer.it_value.tv_sec = 0;
+	timer.it_value.tv_usec = 0;
+	setitimer(ITIMER_REAL, &timer, NULL);
+#endif /* _WIN32 */
 
 #ifdef HAVE_PCAP_BREAKLOOP
 	/*
@@ -2671,7 +3258,7 @@ cleanup(int signo _U_)
 		(void)fflush(stdout);
 		info(1);
 	}
-	exit_tcpdump(0);
+	exit_tcpdump(S_SUCCESS);
 #endif
 }
 
@@ -2680,7 +3267,7 @@ cleanup(int signo _U_)
   waiting a child processes to die
  */
 #if defined(HAVE_FORK) || defined(HAVE_VFORK)
-static RETSIGTYPE
+static void
 child_cleanup(int signo _U_)
 {
   wait(NULL);
@@ -2688,7 +3275,7 @@ child_cleanup(int signo _U_)
 #endif /* HAVE_FORK && HAVE_VFORK */
 
 static void
-info(register int verbose)
+info(int verbose)
 {
 	struct pcap_stat stats;
 
@@ -2706,41 +3293,55 @@ info(register int verbose)
 	if (!verbose)
 		fprintf(stderr, "%s: ", program_name);
 
+#ifdef __APPLE__
+	(void)fprintf(stderr, "%lu packet%s captured", packets_captured,
+		      PLURAL_SUFFIX(packets_captured));
+#else /* __APPLE__ */
 	(void)fprintf(stderr, "%u packet%s captured", packets_captured,
-	    PLURAL_SUFFIX(packets_captured));
+		      PLURAL_SUFFIX(packets_captured));
+#endif /* __APPLE__ */
 	if (!verbose)
 		fputs(", ", stderr);
 	else
 		putc('\n', stderr);
 	(void)fprintf(stderr, "%u packet%s received by filter", stats.ps_recv,
-	    PLURAL_SUFFIX(stats.ps_recv));
+		      PLURAL_SUFFIX(stats.ps_recv));
 	if (!verbose)
 		fputs(", ", stderr);
 	else
 		putc('\n', stderr);
 	(void)fprintf(stderr, "%u packet%s dropped by kernel", stats.ps_drop,
-	    PLURAL_SUFFIX(stats.ps_drop));
+		      PLURAL_SUFFIX(stats.ps_drop));
 
 #ifdef __APPLE__
-    if (packets_mtdt_fltr_drop != 0) {
-        if (!verbose)
-            fputs(", ", stderr);
-        else
-            putc('\n', stderr);
-        (void)fprintf(stderr, "%u drop%s by metadata filter", packets_mtdt_fltr_drop,
-                      PLURAL_SUFFIX(packets_mtdt_fltr_drop));
-    }
+	if (packets_mtdt_fltr_drop != 0) {
+		if (!verbose)
+			fputs(", ", stderr);
+		else
+			putc('\n', stderr);
+		(void)fprintf(stderr, "%u drop%s by metadata filter", packets_mtdt_fltr_drop,
+			      PLURAL_SUFFIX(packets_mtdt_fltr_drop));
+	}
 #endif /* __APPLE__ */
 
-    if (stats.ps_ifdrop != 0) {
+	if (stats.ps_ifdrop != 0) {
 		if (!verbose)
 			fputs(", ", stderr);
 		else
 			putc('\n', stderr);
 		(void)fprintf(stderr, "%u packet%s dropped by interface\n",
-		    stats.ps_ifdrop, PLURAL_SUFFIX(stats.ps_ifdrop));
+			      stats.ps_ifdrop, PLURAL_SUFFIX(stats.ps_ifdrop));
 	} else
 		putc('\n', stderr);
+
+#ifdef __APPLE__
+#ifdef HAS_PCAP_SET_COMPRESSION
+	char buffer[256];
+	if (pcap_get_compression_stats(pd, buffer, sizeof(buffer)) == 0) {
+		(void)fprintf(stderr, "comp_stats: %s\n", buffer);
+	}
+#endif /* HAS_PCAP_SET_COMPRESSION */
+#endif /* __APPLE */
 	infoprint = 0;
 }
 
@@ -2783,9 +3384,9 @@ compress_savefile(const char *filename)
 			filename,
 			pcap_strerror(errno));
 #ifdef HAVE_FORK
-	exit(1);
+	exit(S_ERR_HOST_PROGRAM);
 #else
-	_exit(1);
+	_exit(S_ERR_HOST_PROGRAM);
 #endif
 }
 #else  /* HAVE_FORK && HAVE_VFORK */
@@ -2824,8 +3425,8 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 
 		/* Get the current time */
 		if ((t = time(NULL)) == (time_t)-1) {
-			error("dump_and_trunc_packet: can't get current_time: %s",
-			    pcap_strerror(errno));
+			error("%s: can't get current_time: %s",
+			    __func__, pcap_strerror(errno));
 		}
 
 
@@ -2844,12 +3445,12 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			 * Close the current file and open a new one.
 			 */
 #ifndef __APPLE__
-			pcap_dump_close(dump_info->p);
+			pcap_dump_close(dump_info->pdd);
 #else
 			if (dump_info->ndo->ndo_Pflag)
-				pcap_ng_dump_close(dump_info->p);
+				pcap_ng_dump_close(dump_info->pdd);
 			else
-				pcap_dump_close(dump_info->p);
+				pcap_dump_close(dump_info->pdd);
 #endif /* __APPLE__ */
 
 			/*
@@ -2866,7 +3467,7 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				(void)fprintf(stderr, "Maximum file limit reached: %d\n",
 				    Wflag);
 				info(1);
-				exit_tcpdump(0);
+				exit_tcpdump(S_SUCCESS);
 				/* NOTREACHED */
 			}
 			if (dump_info->CurrentFileName != NULL)
@@ -2910,16 +3511,16 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				error("unable to fdopen file %s",
 				    dump_info->CurrentFileName);
 			}
-			dump_info->p = pcap_dump_fopen(dump_info->pd, fp);
+			dump_info->pdd = pcap_dump_fopen(dump_info->pd, fp);
 #else	/* !HAVE_CAPSICUM */
 
 #ifndef __APPLE__
-			dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+			dump_info->pdd = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 #else /* __APPLE__ */
 			if (dump_info->ndo->ndo_Pflag)
-				dump_info->p = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
+				dump_info->pdd = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
 			else
-				dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+				dump_info->pdd = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 #endif /* __APPLE__ */
 
 #endif
@@ -2927,10 +3528,10 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			capng_update(CAPNG_DROP, CAPNG_EFFECTIVE, CAP_DAC_OVERRIDE);
 			capng_apply(CAPNG_SELECT_BOTH);
 #endif /* HAVE_LIBCAP_NG */
-			if (dump_info->p == NULL)
+			if (dump_info->pdd == NULL)
 				error("%s", pcap_geterr(pd));
 #ifdef HAVE_CAPSICUM
-			set_dumper_capsicum_rights(dump_info->p);
+			set_dumper_capsicum_rights(dump_info->pdd);
 #endif
 		}
 	}
@@ -2941,7 +3542,17 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 	 * file could put it over Cflag.
 	 */
 	if (Cflag != 0) {
-		long size = pcap_dump_ftell(dump_info->p);
+#ifdef HAVE_PCAP_DUMP_FTELL64
+		int64_t size = pcap_dump_ftell64(dump_info->pdd);
+#else
+		/*
+		 * XXX - this only handles a Cflag value > 2^31-1 on
+		 * LP64 platforms; to handle ILP32 (32-bit UN*X and
+		 * Windows) or LLP64 (64-bit Windows) would require
+		 * a version of libpcap with pcap_dump_ftell64().
+		 */
+		long size = pcap_dump_ftell(dump_info->pdd);
+#endif
 
 		if (size == -1)
 			error("ftell fails on output file");
@@ -2955,12 +3566,12 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			 * Close the current file and open a new one.
 			 */
 #ifndef __APPLE__
-			pcap_dump_close(dump_info->p);
+			pcap_dump_close(dump_info->pdd);
 #else
 			if (dump_info->ndo->ndo_Pflag)
-				pcap_ng_dump_close(dump_info->p);
+				pcap_ng_dump_close(dump_info->pdd);
 			else
-				pcap_dump_close(dump_info->p);
+				pcap_dump_close(dump_info->pdd);
 #endif /* __APPLE__ */
 
 			/*
@@ -2979,7 +3590,7 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				free(dump_info->CurrentFileName);
 			dump_info->CurrentFileName = (char *)malloc(PATH_MAX + 1);
 			if (dump_info->CurrentFileName == NULL)
-				error("dump_packet_and_trunc: malloc");
+				error("%s: malloc", __func__);
 			MakeFilename(dump_info->CurrentFileName, dump_info->WFileName, Cflag_count, WflagChars);
 #ifdef HAVE_LIBCAP_NG
 			capng_update(CAPNG_ADD, CAPNG_EFFECTIVE, CAP_DAC_OVERRIDE);
@@ -2997,16 +3608,16 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 				error("unable to fdopen file %s",
 				    dump_info->CurrentFileName);
 			}
-			dump_info->p = pcap_dump_fopen(dump_info->pd, fp);
+			dump_info->pdd = pcap_dump_fopen(dump_info->pd, fp);
 #else	/* !HAVE_CAPSICUM */
 
 #ifndef __APPLE__
-			dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+			dump_info->pdp = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 #else /* __APPLE__ */
 			if (dump_info->ndo->ndo_Pflag)
-				dump_info->p = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
+				dump_info->pdd = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
 			else
-				dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+				dump_info->pdd = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 #endif /* __APPLE__ */
 
 #endif
@@ -3014,25 +3625,45 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			capng_update(CAPNG_DROP, CAPNG_EFFECTIVE, CAP_DAC_OVERRIDE);
 			capng_apply(CAPNG_SELECT_BOTH);
 #endif /* HAVE_LIBCAP_NG */
-			if (dump_info->p == NULL)
+			if (dump_info->pdd == NULL)
 				error("%s", pcap_geterr(pd));
 #ifdef HAVE_CAPSICUM
-			set_dumper_capsicum_rights(dump_info->p);
+			set_dumper_capsicum_rights(dump_info->pdd);
 #endif
 		}
 	}
 
 #ifndef __APPLE__
-	pcap_dump((u_char *)dump_info->p, h, sp);
-#else
-	if (dump_info->dumper_func(dump_info, h, sp) == 1)
-		packets_captured++;
-#endif /* __APPLE__ */
-
+	pcap_dump((u_char *)dump_info->pdd, h, sp);
 #ifdef HAVE_PCAP_DUMP_FLUSH
 	if (Uflag)
-		pcap_dump_flush(dump_info->p);
+		pcap_dump_flush(dump_info->pdd);
 #endif
+
+	if (dump_info->ndo != NULL)
+		pretty_print_packet(dump_info->ndo, h, sp, packets_captured);
+#else /* __APPLE__ */
+	if (dump_info->dumper_func(dump_info, h, sp) == 1) {
+#ifdef HAVE_PCAP_DUMP_FLUSH
+		if (Uflag)
+			pcap_dump_flush(dump_info->pdd);
+#endif
+
+		if (dump_info->ndo != NULL && dump_info->ndo->ndo_if_printer != NULL) {
+			netdissect_options *ndo = dump_info->ndo;
+
+			if (ndo->ndo_packet_number)
+				ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
+
+			ts_print(ndo, &h->ts);
+
+			if (ndo->ndo_kflag && h->comment[0])
+				ND_PRINT("%s ", h->comment);
+
+			pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
+		}
+	}
+#endif /* __APPLE__ */
 
 	--infodelay;
 	if (infoprint)
@@ -3047,29 +3678,45 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 static void
 dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 {
-#ifdef __APPLE__
 	struct dump_info *dump_info;
 
-	dump_info = (struct dump_info *)user;
-#else
+#ifndef __APPLE__
 	++packets_captured;
 #endif /* __APPLE__ */
 
 	++infodelay;
 
+	dump_info = (struct dump_info *)user;
+
 #ifndef __APPLE__
-	pcap_dump(user, h, sp);
+	pcap_dump((u_char *)dump_info->pdd, h, sp);
 #ifdef HAVE_PCAP_DUMP_FLUSH
 	if (Uflag)
-		pcap_dump_flush((pcap_dumper_t *)user);
+		pcap_dump_flush(dump_info->pdd);
 #endif
-#else
-	if (dump_info->dumper_func(dump_info, h, sp) == 1)
-		packets_captured++;
-	if (Uflag)
-		pcap_dump_flush(dump_info->p);
-#endif /* __APPLE__ */
 
+	if (dump_info->ndo != NULL)
+		pretty_print_packet(dump_info->ndo, h, sp, packets_captured);
+#else  /* __APPLE__ */
+	if (dump_info->dumper_func(dump_info, h, sp) == 1) {
+		if (Uflag)
+			pcap_dump_flush(dump_info->pdd);
+
+		if (dump_info->ndo != NULL && dump_info->ndo->ndo_if_printer != NULL) {
+			netdissect_options *ndo = dump_info->ndo;
+
+			if (ndo->ndo_packet_number)
+				ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
+
+			ts_print(ndo, &h->ts);
+
+			if (ndo->ndo_kflag && h->comment[0])
+				ND_PRINT("%s ", h->comment);
+
+			pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
+		}
+	}
+#endif /* __APPLE__ */
 
 	--infodelay;
 	if (infoprint)
@@ -3093,6 +3740,7 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	++infodelay;
 
+	if (!count_mode)
 	ndo->ndo_print_callback(user, h, sp);
 
 	--infodelay;
@@ -3106,6 +3754,7 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	++infodelay;
 
+	if (!count_mode)
 	pretty_print_packet((netdissect_options *)user, h, sp, packets_captured);
 
 	--infodelay;
@@ -3114,35 +3763,9 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 #endif /* __APPLE__ */
 }
 
-#ifdef _WIN32
-	/*
-	 * XXX - there should really be libpcap calls to get the version
-	 * number as a string (the string would be generated from #defines
-	 * at run time, so that it's not generated from string constants
-	 * in the library, as, on many UNIX systems, those constants would
-	 * be statically linked into the application executable image, and
-	 * would thus reflect the version of libpcap on the system on
-	 * which the application was *linked*, not the system on which it's
-	 * *running*.
-	 *
-	 * That routine should be documented, unlike the "version[]"
-	 * string, so that UNIX vendors providing their own libpcaps
-	 * don't omit it (as a couple of vendors have...).
-	 *
-	 * Packet.dll should perhaps also export a routine to return the
-	 * version number of the Packet.dll code, to supply the
-	 * "Wpcap_version" information on Windows.
-	 */
-	char WDversion[]="current-git.tcpdump.org";
-#if !defined(HAVE_GENERATED_VERSION)
-	char version[]="current-git.tcpdump.org";
-#endif
-	char pcap_version[]="current-git.tcpdump.org";
-	char Wpcap_version[]="3.1";
-#endif
-
 #ifdef SIGNAL_REQ_INFO
-RETSIGTYPE requestinfo(int signo _U_)
+static void
+requestinfo(int signo _U_)
 {
 	if (infodelay)
 		++infoprint;
@@ -3151,109 +3774,141 @@ RETSIGTYPE requestinfo(int signo _U_)
 }
 #endif
 
-/*
- * Called once each second in verbose mode while dumping to file
- */
-#ifdef USE_WIN32_MM_TIMER
-void CALLBACK verbose_stats_dump (UINT timer_id _U_, UINT msg _U_, DWORD_PTR arg _U_,
-				  DWORD_PTR dw1 _U_, DWORD_PTR dw2 _U_)
+#ifdef SIGNAL_FLUSH_PCAP
+static void
+flushpcap(int signo _U_)
 {
-	if (infodelay == 0)
-		fprintf(stderr, "Got %u\r", packets_captured);
-}
-#elif defined(HAVE_ALARM)
-static void verbose_stats_dump(int sig _U_)
-{
-	if (infodelay == 0)
-		fprintf(stderr, "Got %u\r", packets_captured);
-	alarm(1);
+	if (pdd != NULL)
+		pcap_dump_flush(pdd);
 }
 #endif
 
+static void
+print_packets_captured (void)
+{
+#ifdef __APPLE__
+	static u_long prev_packets_captured, first = 1;
+#else
+	static u_int prev_packets_captured, first = 1;
+#endif /* __APPLE__ */
+
+	if (infodelay == 0 && (first || packets_captured != prev_packets_captured)) {
+#ifdef __APPLE__
+		fprintf(stderr, "Got %lu\r", packets_captured);
+#else /* __APPLE__ */
+		fprintf(stderr, "Got %u\r", packets_captured);
+#endif /* __APPLE__ */
+		first = 0;
+		prev_packets_captured = packets_captured;
+	}
+}
+
+/*
+ * Called once each second in verbose mode while dumping to file
+ */
+#ifdef _WIN32
+static void CALLBACK verbose_stats_dump(PVOID param _U_,
+    BOOLEAN timer_fired _U_)
+{
+	print_packets_captured();
+}
+#else /* _WIN32 */
+static void verbose_stats_dump(int sig _U_)
+{
+	print_packets_captured();
+}
+#endif /* _WIN32 */
+
 USES_APPLE_DEPRECATED_API
 static void
-print_version(void)
+print_version(FILE *f)
 {
-	extern char version[];
 #ifndef HAVE_PCAP_LIB_VERSION
-#if defined(_WIN32) || defined(HAVE_PCAP_VERSION)
+  #ifdef HAVE_PCAP_VERSION
 	extern char pcap_version[];
-#else /* defined(_WIN32) || defined(HAVE_PCAP_VERSION) */
+  #else /* HAVE_PCAP_VERSION */
 	static char pcap_version[] = "unknown";
-#endif /* defined(_WIN32) || defined(HAVE_PCAP_VERSION) */
+  #endif /* HAVE_PCAP_VERSION */
 #endif /* HAVE_PCAP_LIB_VERSION */
 	const char *smi_version_string;
 
+#ifdef __APPLE__
+	(void)fprintf(f, "%s version " PACKAGE_VERSION " -- %s\n", program_name, apple_version_string);
+#else /*  __APPLE__ */
+	(void)fprintf(f, "%s version " PACKAGE_VERSION "\n", program_name);
+#endif /*  __APPLE__ */
 #ifdef HAVE_PCAP_LIB_VERSION
-#ifdef _WIN32
-	(void)fprintf(stderr, "%s version %s, based on tcpdump version %s\n", program_name, WDversion, version);
-#else /* _WIN32 */
-	(void)fprintf(stderr, "%s version %s\n", program_name, version);
-#endif /* _WIN32 */
-	(void)fprintf(stderr, "%s\n",pcap_lib_version());
+	(void)fprintf(f, "%s\n", pcap_lib_version());
 #else /* HAVE_PCAP_LIB_VERSION */
-#ifdef _WIN32
-	(void)fprintf(stderr, "%s version %s, based on tcpdump version %s\n", program_name, WDversion, version);
-	(void)fprintf(stderr, "WinPcap version %s, based on libpcap version %s\n",Wpcap_version, pcap_version);
-#else /* _WIN32 */
-	(void)fprintf(stderr, "%s version %s\n", program_name, version);
-	(void)fprintf(stderr, "libpcap version %s\n", pcap_version);
-#endif /* _WIN32 */
+	(void)fprintf(f, "libpcap version %s\n", pcap_version);
 #endif /* HAVE_PCAP_LIB_VERSION */
 
 #if defined(HAVE_LIBCRYPTO) && defined(SSLEAY_VERSION)
-	(void)fprintf (stderr, "%s\n", SSLeay_version(SSLEAY_VERSION));
+	(void)fprintf (f, "%s\n", SSLeay_version(SSLEAY_VERSION));
 #endif
 
 	smi_version_string = nd_smi_version_string();
 	if (smi_version_string != NULL)
-		(void)fprintf (stderr, "SMI-library: %s\n", smi_version_string);
+		(void)fprintf (f, "SMI-library: %s\n", smi_version_string);
 
 #if defined(__SANITIZE_ADDRESS__)
-	(void)fprintf (stderr, "Compiled with AddressSanitizer/GCC.\n");
+	(void)fprintf (f, "Compiled with AddressSanitizer/GCC.\n");
 #elif defined(__has_feature)
 #  if __has_feature(address_sanitizer)
-	(void)fprintf (stderr, "Compiled with AddressSanitizer/CLang.\n");
+	(void)fprintf (f, "Compiled with AddressSanitizer/Clang.\n");
+#  elif __has_feature(memory_sanitizer)
+	(void)fprintf (f, "Compiled with MemorySanitizer/Clang.\n");
 #  endif
 #endif /* __SANITIZE_ADDRESS__ or __has_feature */
 }
 USES_APPLE_RST
 
 static void
-print_usage(void)
+print_usage(FILE *f)
 {
-	print_version();
-	(void)fprintf(stderr,
-"Usage: %s [-aAbd" D_FLAG "efhH" I_FLAG J_FLAG "KlLnNOpqStu" U_FLAG "vxX#]" B_FLAG_USAGE " [ -c count ]\n", program_name);
-	(void)fprintf(stderr,
+	print_version(f);
+	(void)fprintf(f,
+"Usage: %s [-Abd" D_FLAG "efhH" I_FLAG J_FLAG "KlLnNOpqStu" U_FLAG "vxX#]" B_FLAG_USAGE " [ -c count ] [--count]\n", program_name);
+	(void)fprintf(f,
 "\t\t[ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ]\n");
-	(void)fprintf(stderr,
-"\t\t[ -i interface ]" j_FLAG_USAGE " [ -M secret ] [ --number ]\n");
-#ifdef HAVE_PCAP_SETDIRECTION
-	(void)fprintf(stderr,
-"\t\t[ -Q in|out|inout ]\n");
+	(void)fprintf(f,
+"\t\t[ -i interface ]" IMMEDIATE_MODE_USAGE j_FLAG_USAGE "\n");
+#ifdef HAVE_PCAP_FINDALLDEVS_EX
+	(void)fprintf(f,
+"\t\t" LIST_REMOTE_INTERFACES_USAGE "\n");
 #endif
-	(void)fprintf(stderr,
-"\t\t[ -r file ] [ -s snaplen ] ");
+#ifdef USE_LIBSMI
+	(void)fprintf(f,
+"\t\t" m_FLAG_USAGE "\n");
+#endif
+	(void)fprintf(f,
+"\t\t[ -M secret ] [ --number ] [ --print ]" Q_FLAG_USAGE "\n");
+	(void)fprintf(f,
+"\t\t[ -r file ] [ -s snaplen ] [ -T type ] [ --version ]\n");
+	(void)fprintf(f,
+"\t\t[ -V file ] [ -w file ] [ -W filecount ] [ -y datalinktype ]\n");
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
-	(void)fprintf(stderr, "[ --time-stamp-precision precision ]\n");
-	(void)fprintf(stderr,
-"\t\t");
+	(void)fprintf(f,
+"\t\t[ --time-stamp-precision precision ] [ --micro ] [ --nano ]\n");
 #endif
-#ifdef HAVE_PCAP_SET_IMMEDIATE_MODE
-	(void)fprintf(stderr, "[ --immediate-mode ] ");
-#endif
-	(void)fprintf(stderr, "[ -T type ] [ --version ] [ -V file ]\n");
-	(void)fprintf(stderr,
-"\t\t[ -w file ] [ -W filecount ] [ -y datalinktype ] [ -z postrotate-command ]\n");
+	(void)fprintf(f,
+"\t\t[ -z postrotate-command ] [ -Z user ] [ expression ]\n");
 #ifdef __APPLE__
-	(void)fprintf(stderr,
-"\t\t[ -g ] [ -k (flags) ] [ -o ] [ -P ] [ -Q meta-data-expression ]\n");
-	(void)fprintf(stderr,
-"\t\t[ --apple-tzo offset ] [--apple-truncate ]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-oneline] [ -g ]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-md-print (metadata_arg)] [ -k (metadata_arg)]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-pcapng] [ -P ]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-md-filter meta-data-expression] [ -Q meta-data-expression ]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-ext-fmt n ] [--apple-arp-plain]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-compression n ] [--apple-truncate] [--apple-pktapv2 ]\n");
+	(void)fprintf(f,
+"\t\t[ --apple-head-drop ]\n");
 #endif /* __APPLE__ */
-	(void)fprintf(stderr,
-"\t\t[ -Z user ] [ expression ]\n");
 }
 
 #ifdef __APPLE__
@@ -3262,24 +3917,26 @@ int
 handle_pcap_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				 const u_char *sp)
 {
-	if (packets_captured < skip_packet_cnt)
-		return (1);
+	++packets_captured;
+	if (packets_captured <= skip_packet_cnt)
+		return 0;
 
-	pcap_dump((u_char *)dump_info->p, h, sp);
+	pcap_dump((u_char *)dump_info->pdd, h, sp);
 
-	return (1);
+	return 1;
 }
 
 int
 handle_bpf_exthdr_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 					   const u_char *sp)
 {
-	if (packets_captured < skip_packet_cnt)
-		return (1);
+	++packets_captured;
+	if (packets_captured <= skip_packet_cnt)
+		return 0;
 
-	pcap_ng_dump((u_char *)dump_info->p, h, sp);
+	pcap_ng_dump((u_char *)dump_info->pdd, h, sp);
 
-	return (1);
+	return 1;
 }
 
 #define	SWAPLONG(y) \
@@ -3329,7 +3986,7 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 		case PCAPNG_BT_SHB: {
 			pcap_clear_if_infos(dump_info->pd);
 
-			pcap_ng_dump_block(dump_info->p, block);
+			pcap_ng_dump_block(dump_info->pdd, block);
 
 			goto done;
 		}
@@ -3421,12 +4078,12 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			break;
 		}
 		case PCAPNG_BT_OSEV: {
-			pcap_ng_dump_block(dump_info->p, block);
+			pcap_ng_dump_block(dump_info->pdd, block);
 
 			goto done;
 		}
 		case PCAPNG_BT_DSB: {
-			pcap_ng_dump_block(dump_info->p, block);
+			pcap_ng_dump_block(dump_info->pdd, block);
 
 			goto done;
 		}
@@ -3451,14 +4108,6 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	if (if_info->if_filter_program.bf_insns != NULL &&
 		pcap_offline_filter(&if_info->if_filter_program, h, pkt_data) == 0)
 		goto done;
-
-	/*
-	 * Skip until minimum packet count
-	 */
-	if (packets_captured < skip_packet_cnt) {
-		result = 1;
-		goto done;
-	}
 
 	if (pcap_ng_block_get_option(block, pack_flags_code, &option_info) == 1) {
 		if (option_info.length != 4) {
@@ -3493,14 +4142,22 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	}
 
 	/*
+	 * Skip until minimum packet count
+	 */
+	++packets_captured;
+	if (packets_captured <= skip_packet_cnt) {
+		goto done;
+	}
+
+	/*
 	 * Make sure the interface info and process info gets dumped after passing filtering
 	 */
 	if (proc_info != NULL)
-		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->p, info_block, proc_info);
+		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->pdd, info_block, proc_info);
 	if (e_proc_info != NULL)
-		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->p, info_block, e_proc_info);
+		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->pdd, info_block, e_proc_info);
 	if (if_info != NULL)
-		(void) pcap_ng_dump_if_info(dump_info->pd, dump_info->p, info_block, if_info);
+		(void) pcap_ng_dump_if_info(dump_info->pd, dump_info->pdd, info_block, if_info);
 
 	/*
 	 * Adjust the interface ID and process indices to the ones in the dump file
@@ -3540,35 +4197,62 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			break;
 	}
 
-	(void) pcap_ng_dump_block(dump_info->p, block);
+	(void) pcap_ng_dump_block(dump_info->pdd, block);
 
 	result = 1;
 
 done:
-	return (result);
+	return result;
+}
+
+int
+handle_pktapv2_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
+				  const u_char *sp)
+{
+	switch (pktapv2_filter_packet(dump_info->ndo, NULL, h, sp)) {
+		case -1:
+			fprintf(stderr, "%s: Packet too short for pktap\n", __func__);
+			return 0;
+		case 0:
+			return 0;
+		default:
+			break;
+	}
+	++packets_captured;
+	if (packets_captured <= skip_packet_cnt)
+		return 0;
+
+	if (pcap_ng_dump_pktap_v2(dump_info->pd, dump_info->pdd, h, sp, NULL) == 0)
+		return 0;
+
+	return 1;
 }
 
 int
 handle_pktap_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				  const u_char *sp)
 {
+	if (pktapv2) {
+		return handle_pktapv2_dump(dump_info, h, sp);
+	}
+
 	switch (pktap_filter_packet(dump_info->ndo, NULL, h, sp)) {
 		case -1:
 			fprintf(stderr, "%s: Packet too short for pktap\n", __func__);
-			return (0);
+			return 0;
 		case 0:
-			return (0);
+			return 0;
 		default:
 			break;
 	}
-
-	if (packets_captured < skip_packet_cnt)
-		return (1);
+	++packets_captured;
+	if (packets_captured <= skip_packet_cnt)
+		return 0;
 	
-	if (pcap_ng_dump_pktap(dump_info->pd, dump_info->p, h, sp) == 0)
-		return (0);
+	if (pcap_ng_dump_pktap(dump_info->pd, dump_info->pdd, h, sp) == 0)
+		return 0;
 	
-	return (1);
+	return 1;
 }
 
 void
@@ -3576,20 +4260,23 @@ print_pcap(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 {
 	netdissect_options *ndo = (netdissect_options *)user;
 
-	packets_captured++;
+	++packets_captured;
 
 	if (packets_captured <= skip_packet_cnt)
 		return;
 
 	if (ndo->ndo_packet_number)
-		ND_PRINT((ndo, "%5lu  ", packets_captured - skip_packet_cnt));
+		ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
+	if (is_pcap_pkthdr_valid(ndo, h) == 0) {
+		return;
+	}
 	ts_print(ndo, &h->ts);
 
 	if (ndo->ndo_kflag && h->comment[0])
-		ND_PRINT((ndo, "%s ", h->comment));
+		ND_PRINT("%s ", h->comment);
 
-	pretty_print_packet(ndo, h, sp, packets_captured);
+	pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
 }
 
 void
@@ -3598,9 +4285,11 @@ print_pktap_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	netdissect_options *ndo = (netdissect_options *)user;
 
 	// Let the printer code deal with truncated pktap headers
-	if (pktap_filter_packet(ndo, NULL, h, sp) == 0)
+	if (pktapv2 != 0 && pktapv2_filter_packet(ndo, NULL, h, sp) == 0) {
 		return;
-
+	} else if (pktap_filter_packet(ndo, NULL, h, sp) == 0) {
+		return;
+	}
 	print_pcap(user, h, sp);
 }
 
@@ -3610,20 +4299,20 @@ print_pcap_ng_procinfo(netdissect_options *ndo, const char *label, const char **
 	if (proc_info != NULL && (ndo->ndo_kflag & (PRMD_PNAME | PRMD_PID | PRMD_PUUID))) {
 		const char *semicolumn = "";
 
-		ND_PRINT((ndo, "%s%s ", *pprsep, label));
+		ND_PRINT("%s%s ", *pprsep, label);
 
 		if ((ndo->ndo_kflag & PRMD_PNAME)) {
-			ND_PRINT((ndo, "%s%s",
-					  semicolumn, proc_info->proc_name));
+			ND_PRINT("%s%s",
+					  semicolumn, proc_info->proc_name);
 			semicolumn = ":";
 		}
 		if ((ndo->ndo_kflag & PRMD_PID)) {
 			if (proc_info->proc_pid != -1)
-				ND_PRINT((ndo, "%s%u",
-						  semicolumn, proc_info->proc_pid));
+				ND_PRINT("%s%u",
+						  semicolumn, proc_info->proc_pid);
 			else
-				ND_PRINT((ndo, "%s",
-						  semicolumn));
+				ND_PRINT("%s",
+						  semicolumn);
 			semicolumn = ":";
 		}
 		if ((ndo->ndo_kflag & PRMD_PUUID)) {
@@ -3632,10 +4321,10 @@ print_pcap_ng_procinfo(netdissect_options *ndo, const char *label, const char **
 
 				uuid_unparse_lower(proc_info->proc_uuid, uuid_str);
 
-				ND_PRINT((ndo, "%s%s",
-						  semicolumn, uuid_str));
+				ND_PRINT("%s%s",
+						  semicolumn, uuid_str);
 			} else {
-				ND_PRINT((ndo, "%s", semicolumn));
+				ND_PRINT("%s", semicolumn);
 			}
 		}
 		*pprsep = ", ";
@@ -3674,24 +4363,24 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 			pcap_clear_if_infos(ndo->ndo_pcap);
 			if (ndo->ndo_kflag & PRMD_VERBOSE) {
-				ND_PRINT((ndo, "Section Header Block version %u.%u",
-						  shbp->major_version, shbp->minor_version));
+				ND_PRINT("Section Header Block version %u.%u",
+						  shbp->major_version, shbp->minor_version);
 
 				if (shbp->section_length == (uint64_t)-1)
-					ND_PRINT((ndo, ", section_length: -1"));
+					ND_PRINT(", section_length: -1");
 				else
-					ND_PRINT((ndo, ", section_length: %llu", shbp->section_length));
+					ND_PRINT(", section_length: %llu", shbp->section_length);
 
 				if (pcap_ng_block_get_option(block, PCAPNG_SHB_HARDWARE, &option_info) == 1)
-					ND_PRINT((ndo, ", hardware: %s", (const char *)option_info.value));
+					ND_PRINT(", hardware: %s", (const char *)option_info.value);
 
 				if (pcap_ng_block_get_option(block, PCAPNG_SHB_OS, &option_info) == 1)
-					ND_PRINT((ndo, ", OS: %s", (const char *)option_info.value));
+					ND_PRINT(", OS: %s", (const char *)option_info.value);
 
 				if (pcap_ng_block_get_option(block, PCAPNG_SHB_USERAPPL, &option_info) == 1)
-					ND_PRINT((ndo, ", app: %s", (const char *)option_info.value));
+					ND_PRINT(", app: %s", (const char *)option_info.value);
 
-				ND_PRINT((ndo, "\n"));
+				ND_PRINT("\n");
 			}
 			goto done;
 		}
@@ -3708,9 +4397,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				error("%s: cannot allocate memory", __func__);
 
 			if (ndo->ndo_kflag & PRMD_VERBOSE)
-				ND_PRINT((ndo, "Interface Description Block id: %d name: %s linktype: %u (dlt: %d) snaplen: %u\n",
+				ND_PRINT("Interface Description Block id: %d name: %s linktype: %u (dlt: %d) snaplen: %u\n",
 						  if_info->if_id, if_info->if_name, idbp->idb_linktype, if_info->if_linktype,
-						  if_info->if_snaplen));
+						  if_info->if_snaplen);
 
 			goto done;
 		}
@@ -3735,9 +4424,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				if (uu_null == 0)
 					uuid_unparse_lower(proc_info->proc_uuid, uu_str);
 
-				ND_PRINT((ndo, "Process Information Block pid: %u proc_name: %s%s%s\n",
+				ND_PRINT("Process Information Block pid: %u proc_name: %s%s%s\n",
 						  proc_info->proc_pid, proc_info->proc_name,
-                          uu_null == 0 ? " proc_uuid: " : "", uu_null == 0 ? uu_str : ""));
+                          uu_null == 0 ? " proc_uuid: " : "", uu_null == 0 ? uu_str : "");
 			}
 			goto done;
 		}
@@ -3845,7 +4534,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				ts.tv_usec = osevp->timestamp_low;
 
 				if (ndo->ndo_packet_number)
-					ND_PRINT((ndo, "%5s ", " "));
+					ND_PRINT("%5s ", " ");
 
 				ts_print(ndo, &ts);
 
@@ -3860,10 +4549,10 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 						break;
 					}
 					default:
-						ND_PRINT((ndo, "osev %d", osevp->type));
+						ND_PRINT("osev %d", osevp->type);
 						break;
 				}
-				ND_PRINT((ndo, "\n"));
+				ND_PRINT("\n");
 			}
 			goto done;
 		}
@@ -3894,8 +4583,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				} else {
 					snprintf(secrets_type_str, sizeof(secrets_type_str), "0x%x", dsb_fields->secrets_type);
 				}
-				ND_PRINT((ndo, "Decryption Secrets Block Type: %s Length: %u Data: %s\n",
-					  secrets_type_str, dsb_fields->secrets_length, str));
+				ND_PRINT("Decryption Secrets Block Type: %s Length: %u Data: %s\n",
+					  secrets_type_str, dsb_fields->secrets_length, str);
 				free(str);
 			}
 			goto done;
@@ -3907,6 +4596,10 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	/*
 	 * Here we have a packet
 	 */
+	if (is_pcap_pkthdr_valid(ndo, h) == 0) {
+		return;
+	}
+
 	pkt_data = pcap_ng_block_packet_get_data_ptr(block);
 
 	if_info = pcap_find_if_info_by_id(ndo->ndo_pcap, if_id);
@@ -3955,13 +4648,13 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		}
 	}
 
-	packets_captured++;
+	++packets_captured;
 
 	if (packets_captured <= skip_packet_cnt)
 		return;
 
 	if (ndo->ndo_packet_number)
-		ND_PRINT((ndo, "%5lu  ", packets_captured - skip_packet_cnt));
+		ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
 	ts_print(ndo, &h->ts);
 
@@ -3971,16 +4664,16 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	if (ndo->ndo_kflag != PRMD_NONE && ndo->ndo_kflag != PRMD_VERBOSE) {
 		const char *prsep = "";
 
-		ND_PRINT((ndo, "("));
+		ND_PRINT("(");
 
 		/*
 		 * Interface name
 		 */
 		if (ndo->ndo_kflag & PRMD_IF) {
 			if (if_info->if_name && if_info->if_name[0] != 0)
-				ND_PRINT((ndo, "%s", if_info->if_name));
+				ND_PRINT("%s", if_info->if_name);
 			else
-				ND_PRINT((ndo, "%d", if_id));
+				ND_PRINT("%d", if_id);
 			prsep = ", ";
 		}
 
@@ -3995,9 +4688,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 * Service class
 		 */
 		if ((ndo->ndo_kflag & PRMD_SVC) && pkt_svc != -1) {
-			ND_PRINT((ndo, "%s" "svc %s",
+			ND_PRINT("%s" "svc %s",
 					  prsep,
-					  svc2str(pkt_svc)));
+					  svc2str(pkt_svc));
 			prsep = ", ";
 		}
 
@@ -4006,11 +4699,11 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 */
 		if ((ndo->ndo_kflag & PRMD_DIR) && (packet_flags & 3)) {
 			if ((packet_flags & PCAPNG_PBF_DIR_MASK) == PCAPNG_PBF_DIR_OUTBOUND)
-				ND_PRINT((ndo, "%s" "out",
-						  prsep));
+				ND_PRINT("%s" "out",
+						  prsep);
 			else if ((packet_flags & PCAPNG_PBF_DIR_MASK) == PCAPNG_PBF_DIR_INBOUND)
-				ND_PRINT((ndo, "%s" "in",
-						  prsep));
+				ND_PRINT("%s" "in",
+						  prsep);
 			prsep = ", ";
 		}
 
@@ -4019,33 +4712,33 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 */
 		if ((ndo->ndo_kflag & PRMD_FLAGS) && pmdflags != 0) {
 			if ((pmdflags & PCAPNG_EPB_PMDF_NEW_FLOW)) {
-				ND_PRINT((ndo, "%s" "nf",
-					  prsep));
+				ND_PRINT("%s" "nf",
+					  prsep);
 				prsep = ", ";
 			}
 			if ((pmdflags & PCAPNG_EPB_PMDF_KEEP_ALIVE)) {
-				ND_PRINT((ndo, "%s" "ka",
-					  prsep));
+				ND_PRINT("%s" "ka",
+					  prsep);
 				prsep = ", ";
 			}
 			if ((pmdflags & PCAPNG_EPB_PMDF_REXMIT)) {
-				ND_PRINT((ndo, "%s" "re",
-					  prsep));
+				ND_PRINT("%s" "re",
+					  prsep);
 				prsep = ", ";
 			}
 			if ((pmdflags & PCAPNG_EPB_PMDF_SOCKET)) {
-				ND_PRINT((ndo, "%s" "so",
-					  prsep));
+				ND_PRINT("%s" "so",
+					  prsep);
 				prsep = ", ";
 			}
 			if ((pmdflags & PCAPNG_EPB_PMDF_NEXUS_CHANNEL)) {
-				ND_PRINT((ndo, "%s" "ch",
-					  prsep));
+				ND_PRINT("%s" "ch",
+					  prsep);
 				prsep = ", ";
 			}
 			if ((pmdflags & PCAPNG_EPB_PMDF_WAKE_PKT)) {
-				ND_PRINT((ndo, "%s" "wk",
-					  prsep));
+				ND_PRINT("%s" "wk",
+					  prsep);
 				prsep = ", ";
 			}
 		}
@@ -4055,9 +4748,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 * Flow-id
 		 */
 		if (ndo->ndo_kflag & PRMD_FLOWID) {
-			ND_PRINT((ndo, "%s" "flowid 0x%x",
-					  prsep,
-					  flow_id));
+			ND_PRINT("%s" "flowid 0x%x",
+				 prsep,
+				 flow_id);
 			prsep = ", ";
 		}
 #endif /* PCAPNG_EPB_FLOW_ID */
@@ -4066,9 +4759,9 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 * trace_tag
 		 */
 		if (ndo->ndo_kflag & PRMD_TRACETAG) {
-			ND_PRINT((ndo, "%s" "ttag 0x%x",
-					  prsep,
-					  trace_tag));
+			ND_PRINT("%s" "ttag 0x%x",
+				 prsep,
+				 trace_tag);
 			prsep = ", ";
 		}
 #endif /* PCAPNG_EPB_TRACE_TAG */
@@ -4082,22 +4775,22 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					const char *str_comment = (const char *)option_info.value;
 
 					if (str_comment && *str_comment != 0) {
-						ND_PRINT((ndo, "%s%s",
+						ND_PRINT("%s%s",
 								  prsep,
-								  str_comment));
+								  str_comment);
 						prsep = ", ";
 					}
 				}
 			}
 		}
 
-		ND_PRINT((ndo, ") "));
+		ND_PRINT(") ");
 	}
 
-	ndo->ndo_if_printer = get_if_printer(ndo, if_info->if_linktype);
+	ndo->ndo_if_printer = get_if_printer(if_info->if_linktype);
 
 	if (ndo->ndo_if_printer != NULL) {
-		pretty_print_packet(ndo, h, pkt_data, packets_captured);
+		pretty_print_packet(ndo, h, pkt_data, (u_int)packets_captured);
 	} else {
 		if (!ndo->ndo_suppress_default_print)
 			ndo->ndo_default_print(ndo, pkt_data, h->caplen);
@@ -4108,60 +4801,52 @@ done:
 		pcap_ng_free_block(block);
 }
 
-/*
- * Returns the time zone offset in seconds
- */
-int
-parse_time_zone_offset(const char *str)
+static int
+is_pcap_pkthdr_valid(netdissect_options *ndo, const struct pcap_pkthdr *h)
 {
-	int tzo = 0;
-	size_t len = strlen(str);
-	char ch;
-	int consumed;
+	int invalid_header = 0;
 
-	if (sscanf(str, "GMT+%d%n", &tzo, &consumed) == 1) {
-		tzo *= 3600;
-	} else if (sscanf(str, "GMT-%d%n", &tzo, &consumed) == 1) {
-		tzo *= -3600;
-	} else if (sscanf(str, "%d%c%n", &tzo, &ch, &consumed) == 2) {
-		switch (ch) {
-			case 'h':
-				tzo = tzo * 3660;
-				break;
-			case 'm':
-				tzo = tzo * 60;
-				break;
-			case 's':
-				break;
-			default:
-				error("malformed time zone offset argument \"%s\"", str);
-				print_usage();
-				exit_tcpdump(1);
-				break;
-		}
-	} else if (sscanf(str, "%d%n", &tzo, &consumed) == 1) {
-		/* Hours for a plain integer */
-		tzo *= 3600;
-	} else {
-		error("malformed time zone offset argument \"%s\"", str);
-		print_usage();
-		exit_tcpdump(1);
+	/* Sanity checks on packet length / capture length */
+	if (h->caplen == 0) {
+		invalid_header = 1;
+		ND_PRINT("[Invalid header: caplen==0");
 	}
-
-	if (consumed != len) {
-		error("malformed time zone offset argument \"%s\"", str);
-		print_usage();
-		exit_tcpdump(1);
+	if (h->len == 0) {
+		if (!invalid_header) {
+			invalid_header = 1;
+			ND_PRINT("[Invalid header:");
+		} else
+			ND_PRINT(",");
+		ND_PRINT(" len==0");
+	} else if (h->len < h->caplen) {
+		if (!invalid_header) {
+			invalid_header = 1;
+			ND_PRINT("[Invalid header:");
+		} else
+			ND_PRINT(",");
+		ND_PRINT(" len(%u) < caplen(%u)", h->len, h->caplen);
 	}
-
-	return (tzo);
+	if (h->caplen > MAXIMUM_SNAPLEN) {
+		if (!invalid_header) {
+			invalid_header = 1;
+			ND_PRINT("[Invalid header:");
+		} else
+			ND_PRINT(",");
+		ND_PRINT(" caplen(%u) > %u", h->caplen, MAXIMUM_SNAPLEN);
+	}
+	if (h->len > MAXIMUM_SNAPLEN) {
+		if (!invalid_header) {
+			invalid_header = 1;
+			ND_PRINT("[Invalid header:");
+		} else
+			ND_PRINT(",");
+		ND_PRINT(" len(%u) > %u", h->len, MAXIMUM_SNAPLEN);
+	}
+	if (invalid_header) {
+		ND_PRINT("]\n");
+		return 0;
+	}
+	return 1;
 }
 
 #endif /* __APPLE__ */
-
-/*
- * Local Variables:
- * c-style: whitesmith
- * c-basic-offset: 8
- * End:
- */

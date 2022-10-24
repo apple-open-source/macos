@@ -47,6 +47,7 @@ bool isValidMarkerStyleProperty(CSSPropertyID id)
     case CSSPropertyFont:
     case CSSPropertyFontFamily:
     case CSSPropertyFontFeatureSettings:
+    case CSSPropertyFontKerning:
     case CSSPropertyFontSize:
     case CSSPropertyFontStretch:
     case CSSPropertyFontStyle:
@@ -88,6 +89,7 @@ bool isValidMarkerStyleProperty(CSSPropertyID id)
     case CSSPropertyAnimationDirection:
     case CSSPropertyAnimationFillMode:
     case CSSPropertyAnimationPlayState:
+    case CSSPropertyAnimationComposition:
     case CSSPropertyAnimationName:
     case CSSPropertyTransitionDuration:
     case CSSPropertyTransitionTimingFunction:
@@ -131,7 +133,7 @@ bool isValidCueStyleProperty(CSSPropertyID id)
     case CSSPropertyOutlineWidth:
     case CSSPropertyVisibility:
     case CSSPropertyWhiteSpace:
-    case CSSPropertyTextDecoration:
+    case CSSPropertyTextDecorationLine:
     case CSSPropertyTextShadow:
     case CSSPropertyBorderStyle:
     case CSSPropertyPaintOrder:

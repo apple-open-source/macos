@@ -55,15 +55,13 @@ private:
     unsigned length() override;
     String key(unsigned index) override;
     String item(const String& key) override;
-    void setItem(WebCore::Frame* sourceFrame, const String& key, const String& value, bool& quotaException) override;
-    void removeItem(WebCore::Frame* sourceFrame, const String& key) override;
-    void clear(WebCore::Frame* sourceFrame) override;
+    void setItem(WebCore::Frame& sourceFrame, const String& key, const String& value, bool& quotaException) override;
+    void removeItem(WebCore::Frame& sourceFrame, const String& key) override;
+    void clear(WebCore::Frame& sourceFrame) override;
     bool contains(const String& key) override;
     WebCore::StorageType storageType() const override;
     size_t memoryBytesUsedByCache() override;
-    void incrementAccessCount() override;
-    void decrementAccessCount() override;
-    void closeDatabaseIfIdle() override;
+    void prewarm() final;
 
     Identifier m_identifier;
     WeakPtr<StorageAreaMap> m_storageAreaMap;

@@ -312,7 +312,7 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 	}
 
 	/* Initialize a catalog entry list. */
-	ce_list = hfs_malloc_zero_data(CE_LIST_SIZE(maxentries));
+	ce_list = hfs_new_zero_with_hdr(struct cat_entrylist, struct cat_entry, maxentries);
 	ce_list->maxentries = maxentries;
 
 	/*
@@ -583,7 +583,7 @@ exit2:
 	if (attrbufptr)
 		hfs_free_data(attrbufptr, maxattrblocksize);
 	if (ce_list)
-		hfs_free_data(ce_list, CE_LIST_SIZE(maxentries));
+		hfs_delete_with_hdr(ce_list, struct cat_entrylist, struct cat_entry, maxentries);
 
 	if (vap && *actualcount && error)
 		error = 0;

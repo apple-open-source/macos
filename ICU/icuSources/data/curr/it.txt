@@ -289,15 +289,15 @@ it{
         }
         ECS{
             "ECS",
-            "sucre dell’Ecuador",
+            "sucre dell'Ecuador",
         }
         ECV{
             "ECV",
-            "unidad de valor constante (UVC) dell’Ecuador",
+            "unidad de valor constante (UVC) dell'Ecuador",
         }
         EEK{
             "EEK",
-            "corona dell’Estonia",
+            "corona dell'Estonia",
         }
         EGP{
             "EGP",
@@ -646,7 +646,7 @@ it{
         }
         MXP{
             "MXP",
-            "peso messicano d’argento (1861–1992)",
+            "peso messicano d'argento (1861–1992)",
         }
         MXV{
             "MXV",
@@ -806,7 +806,7 @@ it{
         }
         SHP{
             "SHP",
-            "sterlina di Sant’Elena",
+            "sterlina di Sant'Elena",
         }
         SIT{
             "SIT",
@@ -1733,8 +1733,8 @@ it{
             other{"dollari di Singapore"}
         }
         SHP{
-            one{"sterlina di Sant’Elena"}
-            other{"sterline di Sant’Elena"}
+            one{"sterlina di Sant'Elena"}
+            other{"sterline di Sant'Elena"}
         }
         SLL{
             one{"leone della Sierra Leone"}

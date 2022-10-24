@@ -1605,7 +1605,12 @@ flsh_errs(void)
 {
 	char buf[BUFSIZ];
 
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		errx(1, "stdout");
+#else
 	(void)fflush(stdout);
+#endif
 	(void)fflush(err);
 	if (err == stderr)
 		return;

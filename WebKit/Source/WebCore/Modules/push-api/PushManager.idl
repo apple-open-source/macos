@@ -27,14 +27,13 @@
 
 [
     Conditional=SERVICE_WORKER,
-    EnabledAtRuntime=PushAPIEnabled,
-    ImplementationLacksVTable,
+    EnabledBySetting=PushAPIEnabled,
     SecureContext,
     Exposed=(Window,Worker),
 ] interface PushManager {
     [SameObject] static readonly attribute FrozenArray<DOMString> supportedContentEncodings;
 
-    [CallWith=ScriptExecutionContext] Promise<PushSubscription> subscribe(optional PushSubscriptionOptionsInit options);
-    [CallWith=ScriptExecutionContext] Promise<PushSubscription?> getSubscription();
-    [CallWith=ScriptExecutionContext] Promise<PushPermissionState> permissionState(optional PushSubscriptionOptionsInit options);
+    [CallWith=CurrentScriptExecutionContext] Promise<PushSubscription> subscribe(optional PushSubscriptionOptionsInit options);
+    [CallWith=CurrentScriptExecutionContext] Promise<PushSubscription?> getSubscription();
+    [CallWith=CurrentScriptExecutionContext] Promise<PushPermissionState> permissionState(optional PushSubscriptionOptionsInit options);
 };

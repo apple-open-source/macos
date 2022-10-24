@@ -376,7 +376,10 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	
 	state.mApplicationData = get<CFDataRef>(kSecCodeSignerApplicationData);
 	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
-	
+	state.mLaunchConstraints.resize(3);
+	state.mLaunchConstraints[0] = get<CFDataRef>(kSecCodeSignerLaunchConstraintSelf);
+	state.mLaunchConstraints[1] = get<CFDataRef>(kSecCodeSignerLaunchConstraintParent);
+	state.mLaunchConstraints[2] = get<CFDataRef>(kSecCodeSignerLaunchConstraintResponsible);
 	if (CFBooleanRef timestampRequest = get<CFBooleanRef>(kSecCodeSignerRequireTimestamp)) {
 		state.mWantTimeStamp = timestampRequest == kCFBooleanTrue;
 	} else {	// pick default

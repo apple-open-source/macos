@@ -68,15 +68,7 @@ FontPlatformData FontPlatformData::cloneWithSize(const FontPlatformData& source,
 }
 #endif
 
-#if !USE(CORE_TEXT) && !PLATFORM(WIN)
-String FontPlatformData::familyName() const
-{
-    // FIXME: Not implemented yet.
-    return { };
-}
-#endif
-
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !USE(FREETYPE)
 Vector<FontPlatformData::FontVariationAxis> FontPlatformData::variationAxes(ShouldLocalizeAxisNames) const
 {
     // FIXME: <webkit.org/b/219614> Not implemented yet.

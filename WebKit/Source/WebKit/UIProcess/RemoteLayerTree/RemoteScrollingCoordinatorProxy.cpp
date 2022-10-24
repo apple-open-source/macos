@@ -195,9 +195,9 @@ void RemoteScrollingCoordinatorProxy::handleMouseEvent(const WebCore::PlatformMo
     m_scrollingTree->handleMouseEvent(event);
 }
 
-TrackingType RemoteScrollingCoordinatorProxy::eventTrackingTypeForPoint(const AtomString& eventName, IntPoint p) const
+TrackingType RemoteScrollingCoordinatorProxy::eventTrackingTypeForPoint(WebCore::EventTrackingRegions::EventType eventType, IntPoint p) const
 {
-    return m_scrollingTree->eventTrackingTypeForPoint(eventName, p);
+    return m_scrollingTree->eventTrackingTypeForPoint(eventType, p);
 }
 
 void RemoteScrollingCoordinatorProxy::viewportChangedViaDelegatedScrolling(const FloatPoint& scrollPosition, const FloatRect& layoutViewport, double scale)
@@ -227,13 +227,60 @@ void RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidScroll(ScrollingNodeID
         return;
 
 #if PLATFORM(IOS_FAMILY)
-    m_webPageProxy.scrollingNodeScrollViewDidScroll();
+    m_webPageProxy.scrollingNodeScrollViewDidScroll(scrolledNodeID);
 #endif
 
     if (m_scrollingTree->isHandlingProgrammaticScroll())
         return;
 
-    m_webPageProxy.send(Messages::RemoteScrollingCoordinator::ScrollPositionChangedForNode(scrolledNodeID, newScrollPosition, scrollingLayerPositionAction == ScrollingLayerPositionAction::Sync));
+    auto scrollUpdate = ScrollUpdate { scrolledNodeID, newScrollPosition, layoutViewportOrigin, ScrollUpdateType::PositionUpdate, scrollingLayerPositionAction };
+    m_scrollingTree->addPendingScrollUpdate(WTFMove(scrollUpdate));
+
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidScroll " << scrolledNodeID << " to " << newScrollPosition << " waitingForDidScrollReply " << m_waitingForDidScrollReply);
+
+    if (!m_waitingForDidScrollReply) {
+        sendScrollingTreeNodeDidScroll();
+        return;
+    }
+}
+
+void RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeDidScroll()
+{
+    if (!m_scrollingTree) {
+        m_waitingForDidScrollReply = false;
+        return;
+    }
+
+    auto scrollUpdates = m_scrollingTree->takePendingScrollUpdates();
+    for (unsigned i = 0; i < scrollUpdates.size(); ++i) {
+        const auto& update = scrollUpdates[i];
+        bool isLastUpdate = i == scrollUpdates.size() - 1;
+
+        LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::sendScrollingTreeNodeDidScroll - node " << update.nodeID << " scroll position " << update.scrollPosition << " isLastUpdate " << isLastUpdate);
+        m_webPageProxy.sendWithAsyncReply(Messages::RemoteScrollingCoordinator::ScrollPositionChangedForNode(update.nodeID, update.scrollPosition, update.updateLayerPositionAction == ScrollingLayerPositionAction::Sync), [weakThis = WeakPtr { *this }, isLastUpdate] {
+            if (!weakThis)
+                return;
+
+            if (isLastUpdate)
+                weakThis->receivedLastScrollingTreeNodeDidScrollReply();
+        });
+        m_waitingForDidScrollReply = true;
+    }
+}
+
+void RemoteScrollingCoordinatorProxy::receivedLastScrollingTreeNodeDidScrollReply()
+{
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingCoordinatorProxy::receivedLastScrollingTreeNodeDidScrollReply - has pending updates " << (m_scrollingTree && m_scrollingTree->hasPendingScrollUpdates()));
+    m_waitingForDidScrollReply = false;
+
+    if (!m_scrollingTree || !m_scrollingTree->hasPendingScrollUpdates())
+        return;
+
+    RunLoop::main().dispatch([weakThis = WeakPtr { *this }]() {
+        if (!weakThis)
+            return;
+        weakThis->sendScrollingTreeNodeDidScroll();
+    });
 }
 
 void RemoteScrollingCoordinatorProxy::scrollingTreeNodeDidStopAnimatedScroll(ScrollingNodeID scrolledNodeID)
@@ -265,6 +312,11 @@ bool RemoteScrollingCoordinatorProxy::hasScrollableMainFrame() const
     return rootNode && rootNode->canHaveScrollbars();
 }
 
+ScrollingTreeScrollingNode* RemoteScrollingCoordinatorProxy::rootNode() const
+{
+    return m_scrollingTree->rootNode();
+}
+
 bool RemoteScrollingCoordinatorProxy::hasScrollableOrZoomedMainFrame() const
 {
     auto* rootNode = m_scrollingTree->rootNode();
@@ -272,7 +324,7 @@ bool RemoteScrollingCoordinatorProxy::hasScrollableOrZoomedMainFrame() const
         return false;
 
 #if PLATFORM(IOS_FAMILY)
-    if (WebCore::IOSApplication::isEventbrite() && !linkedOnOrAfter(SDKVersion::FirstThatSupportsOverflowHiddenOnMainFrame))
+    if (WebCore::IOSApplication::isEventbrite() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsOverflowHiddenOnMainFrame))
         return true;
 #endif
 

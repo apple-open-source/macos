@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-07-09</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>unexpand.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>unexpand</string>
+	<key>OpenSourceVersion</key>
+	<string>2017-11-20</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/unexpand?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+</dict>

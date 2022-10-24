@@ -19,7 +19,8 @@
 #include <libxml/xmlerror.h>
 #include <libxml/dict.h>
 #include <libxml/xmlstring.h>
-#include <libxslt/xslt.h>
+#include "xslt.h"
+#include "xsltconfig.h"
 #include "xsltexports.h"
 #include "xsltlocale.h"
 #include "numbersInternals.h"
@@ -104,14 +105,6 @@ extern const xmlChar *xsltXSLTAttrMarker;
  * namespaces of XSLT elements.
  */
 /* #define XSLT_REFACTORED_XSLT_NSCOMP */
-
-/**
- * XSLT_REFACTORED_XPATHCOMP:
- *
- * Internal define to enable the optimization of the
- * compilation of XPath expressions.
- */
-#define XSLT_REFACTORED_XPATHCOMP
 
 #ifdef XSLT_REFACTORED_XSLT_NSCOMP
 
@@ -199,7 +192,7 @@ struct _xsltPointerList {
     int size;
 };
 
-#endif
+#endif /* XSLT_REFACTORED */
 
 /**
  * XSLT_REFACTORED_PARSING:
@@ -290,7 +283,7 @@ struct _xsltTemplate {
     int inheritedNsNr;  /* number of inherited namespaces */
     xmlNsPtr *inheritedNs;/* inherited non-excluded namespaces */
 
-    /* Profiling informations */
+    /* Profiling information */
     int nbCalls;        /* the number of time the template was called */
     unsigned long time; /* the time spent in this template */
     void *params;       /* xsl:param instructions */
@@ -299,6 +292,9 @@ struct _xsltTemplate {
     int              templMax;		/* Size of the templtes stack */
     xsltTemplatePtr *templCalledTab;	/* templates called */
     int             *templCountTab;  /* .. and how often */
+
+    /* Conflict resolution */
+    int position;
 };
 
 /**
@@ -324,6 +320,9 @@ struct _xsltDecimalFormat {
     xmlChar *percent;
     xmlChar *permille;
     xmlChar *zeroDigit;
+#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
+    const xmlChar *nsUri;
+#endif
 };
 
 /**
@@ -477,7 +476,7 @@ typedef void (*xsltElemPreCompDeallocator) (xsltElemPreCompPtr comp);
  */
 struct _xsltElemPreComp {
     xsltElemPreCompPtr next;		/* next item in the global chained
-					   list hold by xsltStylesheet. */
+					   list held by xsltStylesheet. */
     xsltStyleType type;		/* type of the element */
     xsltTransformFunction func;	/* handling function */
     xmlNodePtr inst;			/* the node in the stylesheet's tree
@@ -589,7 +588,7 @@ struct _xsltNsListContainer {
  */
 struct _xsltStylePreComp {
     xsltElemPreCompPtr next;    /* next item in the global chained
-				   list hold by xsltStylesheet */
+				   list held by xsltStylesheet */
     xsltStyleType type;         /* type of the item */
     xsltTransformFunction func; /* handling function */
     xmlNodePtr inst;		/* the node in the stylesheet's tree
@@ -1345,9 +1344,6 @@ struct _xsltCompilerCtxt {
     */
     int strict;
     xsltPrincipalStylesheetDataPtr psData;
-#ifdef XSLT_REFACTORED_XPATHCOMP
-    xmlXPathContextPtr xpathCtxt;
-#endif
     xsltStyleItemUknownPtr unknownItem;
     int hasNsAliases; /* Indicator if there was an xsl:namespace-alias. */
     xsltNsAliasPtr nsAliases;
@@ -1510,17 +1506,18 @@ struct _xsltStylesheet {
     /*
      * Template descriptions.
      */
-    xsltTemplatePtr templates;	/* the ordered list of templates */
-    void *templatesHash;	/* hash table or wherever compiled templates
-				   informations are stored */
-    void *rootMatch;		/* template based on / */
-    void *keyMatch;		/* template based on key() */
-    void *elemMatch;		/* template based on * */
-    void *attrMatch;		/* template based on @* */
-    void *parentMatch;		/* template based on .. */
-    void *textMatch;		/* template based on text() */
-    void *piMatch;		/* template based on processing-instruction() */
-    void *commentMatch;		/* template based on comment() */
+    xsltTemplatePtr templates;           /* the ordered list of templates */
+    xmlHashTablePtr templatesHash;       /* hash table or wherever compiled
+                                            templates information is stored */
+    struct _xsltCompMatch *rootMatch;    /* template based on / */
+    struct _xsltCompMatch *keyMatch;     /* template based on key() */
+    struct _xsltCompMatch *elemMatch;    /* template based on * */
+    struct _xsltCompMatch *attrMatch;    /* template based on @* */
+    struct _xsltCompMatch *parentMatch;  /* template based on .. */
+    struct _xsltCompMatch *textMatch;    /* template based on text() */
+    struct _xsltCompMatch *piMatch;      /* template based on
+                                            processing-instruction() */
+    struct _xsltCompMatch *commentMatch; /* template based on comment() */
 
     /*
      * Namespace aliases.
@@ -1641,6 +1638,10 @@ struct _xsltStylesheet {
     int forwards_compatible;
 
     xmlHashTablePtr namedTemplates; /* hash table of named templates */
+
+#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
+    xmlXPathContextPtr xpathCtxt;
+#endif
 };
 
 typedef struct _xsltTransformCache xsltTransformCache;
@@ -1732,7 +1733,7 @@ struct _xsltTransformContext {
 
     int              extrasNr;		/* the number of extras used */
     int              extrasMax;		/* the number of extras allocated */
-    xsltRuntimeExtraPtr extras;		/* extra per runtime informations */
+    xsltRuntimeExtraPtr extras;		/* extra per runtime information */
 
     xsltDocumentPtr  styleList;		/* the stylesheet docs list */
     void                 * sec;		/* the security preferences if any */
@@ -1783,11 +1784,15 @@ struct _xsltTransformContext {
     xmlDocPtr localRVT; /* list of local tree fragments; will be freed when
 			   the instruction which created the fragment
                            exits */
-    xmlDocPtr localRVTBase;
+    xmlDocPtr localRVTBase; /* Obsolete */
     int keyInitLevel;   /* Needed to catch recursive keys issues */
-    int funcLevel;      /* Needed to catch recursions */
+    int depth;          /* Needed to catch recursions */
     int maxTemplateDepth;
     int maxTemplateVars;
+#ifdef LIBXSLT_API_FOR_MACOS13_IOS16_WATCHOS9_TVOS16
+    unsigned long opLimit;
+    unsigned long opCount;
+#endif
 };
 
 /**
@@ -1854,6 +1859,10 @@ XSLTPUBFUN void XSLTCALL
 XSLTPUBFUN xsltDecimalFormatPtr XSLTCALL
 			xsltDecimalFormatGetByName(xsltStylesheetPtr style,
 						 xmlChar *name);
+XSLTPUBFUN xsltDecimalFormatPtr XSLTCALL
+			xsltDecimalFormatGetByQName(xsltStylesheetPtr style,
+						 const xmlChar *nsUri,
+                                                 const xmlChar *name) LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16;
 
 XSLTPUBFUN xsltStylesheetPtr XSLTCALL
 			xsltParseStylesheetProcess(xsltStylesheetPtr ret,
@@ -1866,6 +1875,9 @@ XSLTPUBFUN xsltStylesheetPtr XSLTCALL
 XSLTPUBFUN xsltStylesheetPtr XSLTCALL
 			xsltParseStylesheetImportedDoc(xmlDocPtr doc,
 						xsltStylesheetPtr style);
+XSLTPUBFUN int XSLTCALL
+			xsltParseStylesheetUser(xsltStylesheetPtr style,
+						xmlDocPtr doc) LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16;
 XSLTPUBFUN xsltStylesheetPtr XSLTCALL
 			xsltLoadStylesheetPI	(xmlDocPtr doc);
 XSLTPUBFUN void XSLTCALL
@@ -1906,6 +1918,11 @@ XSLTPUBFUN int XSLTCALL
 XSLTPUBFUN int XSLTCALL
 			xsltExtensionInstructionResultFinalize(
 						 xsltTransformContextPtr ctxt);
+XSLTPUBFUN int XSLTCALL
+			xsltFlagRVTs(
+						 xsltTransformContextPtr ctxt,
+						 xmlXPathObjectPtr obj,
+						 void *val) LIBXSLT_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16;
 XSLTPUBFUN void XSLTCALL
 			xsltFreeRVTs		(xsltTransformContextPtr ctxt);
 XSLTPUBFUN void XSLTCALL

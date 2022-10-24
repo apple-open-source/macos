@@ -6,6 +6,7 @@
 
 
 #import <Foundation/Foundation.h>
+#import <Foundation/NSData_Private.h>
 #import "KCSRPContext.h"
 
 #include <os/base.h>
@@ -60,23 +61,20 @@ static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
     return self;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-implementations"
-- (void) finalize {
+- (void)dealloc {
     ccsrp_ctx_clear(ccsrp_ctx_di(self.context),
                     ccsrp_ctx_gp(self.context),
                     self.context);
 
     free(self.context);
 }
-#pragma clang diagnostic pop
 
 - (NSData* _Nullable)getKey
 {
     size_t key_length = 0;
     const void * key = ccsrp_get_session_key(self.context, &key_length);
 
-    return key ? [NSData dataWithBytesNoCopy:(void *)key length:key_length freeWhenDone:false] : nil;
+    return key ? [NSData _newZeroingDataWithBytes:(void *)key length:key_length ] : nil;
 }
 
 - (bool) isAuthenticated {

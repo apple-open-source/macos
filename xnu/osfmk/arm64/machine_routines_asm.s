@@ -738,7 +738,11 @@ Lcopyinframe_done:
 
 /*
  * hw_lck_ticket_t
- * hw_lck_ticket_reserve_orig_allow_invalid(hw_lck_ticket_t *lck)
+ * hw_lck_ticket_reserve_orig_allow_invalid(hw_lck_ticket_t *lck
+ * #if (CONFIG_KERNEL_TBI && KASAN)
+ *     , const uint8_t *tag_addr
+ * #endif
+ * )
  */
 	.text
 	.align 2
@@ -750,9 +754,9 @@ LEXT(hw_lck_ticket_reserve_orig_allow_invalid)
 	COPYIO_RECOVER_RANGE 7f, 9f
 
 	mov		x8, x0
-	mov		w9, #HW_LCK_TICKET_LOCK_INCREMENT
+	mov		w9, #HW_LCK_TICKET_LOCK_INC_WORD
 1:
-#if defined(__ARM_ARCH_8_2__)
+#if defined(__ARM_ARCH_8_2__) && !(CONFIG_KERNEL_TBI && KASAN)
 	ldr 		w0, [x8]
 #else
 	ldaxr		w0, [x8]
@@ -761,15 +765,32 @@ LEXT(hw_lck_ticket_reserve_orig_allow_invalid)
 	tbz		w0, #HW_LCK_TICKET_LOCK_VALID_BIT, 9f /* lock valid ? */
 
 	add		w11, w0, w9
-#if defined(__ARM_ARCH_8_2__)
+#if defined(__ARM_ARCH_8_2__) && !(CONFIG_KERNEL_TBI && KASAN)
 	mov		w12, w0
 	casa		w0, w11, [x8]
 	cmp		w12, w0
 	b.ne		2b
-#else
+#else /* __ARM_ARCH_8_2__ && !(CONFIG_KERNEL_TBI && KASAN) */
+#if (CONFIG_KERNEL_TBI && KASAN)
+	/*
+	 * Memory tagging introduces a further scenario that can lead to an invalid
+	 * acquire, which is the case in which the try address doesn't match the
+	 * allocated tag (because it has cycled to another allocation). With hardware
+	 * memory tagging, this would lead to a fault and get caught by the recovery handler.
+	 *
+	 * With (CONFIG_KERNEL_TBI && KASAN) software emulation of memory tagging, we need to explicitly
+	 * emulate a tag check. This is no longer an atomic operation, but we are
+	 * in the middle of a ldaxr / stxr pair, so we'd catch a transition underneath to
+	 * invalid because the store tag would mismatch.
+	 */
+	ldrb		w13, [x1]
+	ubfx		x14, x8, #56, #8
+	cmp		w13, w14
+	b.ne		9f
+#endif /* (CONFIG_KERNEL_TBI && KASAN) */
 	stxr		w12, w11, [x8]
 	cbnz		w12, 1b
-#endif
+#endif /* __ARM_ARCH_8_2__ && !(CONFIG_KERNEL_TBI && KASAN) */
 
 7:
 	POP_FRAME

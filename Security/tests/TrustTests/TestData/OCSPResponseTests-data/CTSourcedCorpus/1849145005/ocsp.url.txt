@@ -1,0 +1,1 @@
+http://ocspfnmtss1.cert.fnmt.es/ocspss1/OcspResponder

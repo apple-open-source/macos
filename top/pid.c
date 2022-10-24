@@ -53,22 +53,9 @@ static void get_pid_suffix(const libtop_psamp_t *psamp, char *suffix,
 	proc_is_foreign = true;
 #endif
 	break;
-#if !defined(__OPEN_SOURCE__)
-#if defined(CPU_TYPE_ARM64)
-    case CPU_TYPE_ARM64:
-	proc_is_64 = true;
-	// FALLTHROUGH
-#endif
-#endif
     case CPU_TYPE_ARM:
-#if !defined(__OPEN_SOURCE__)
-#if !defined(__arm__) && !defined(__arm64__)
-	proc_is_foreign = true;
-#endif
-#else
 #if !defined(__arm__)
 	proc_is_foreign = true;
-#endif
 #endif
 	break;
     default:

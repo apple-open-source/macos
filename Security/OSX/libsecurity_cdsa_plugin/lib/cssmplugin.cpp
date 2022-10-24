@@ -118,7 +118,7 @@ void CssmPlugin::moduleAttach(CSSM_MODULE_HANDLE theHandle,
 {
 	static dispatch_once_t onceToken;
 	countLegacyAPI(&onceToken, "CssmPlugin::moduleAttach");
-	// basic (in)sanity checks
+	// basic checks
 	if (moduleGuid != mMyGuid)
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
     

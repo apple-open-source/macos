@@ -515,7 +515,7 @@ static CFDictionaryRef CF_RETURNS_RETAINED deviceCharacteristics(FileDesc &fd)
 		kIOBSDMinorKey, minor(st.st_dev)
 	);
 	// IOServiceGetMatchingService CONSUMES its dictionary argument(!)
-	io_registry_entry_t entry = IOServiceGetMatchingService(kIOMasterPortDefault, matching.yield());
+	io_registry_entry_t entry = IOServiceGetMatchingService(kIOMainPortDefault, matching.yield());
 	if (entry != IO_OBJECT_NULL) {
 		// get device characteristics
 		CFDictionaryRef characteristics = (CFDictionaryRef)IORegistryEntrySearchCFProperty(entry,

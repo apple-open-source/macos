@@ -1,6 +1,7 @@
 #!/bin/sh
 
-PHYS_VLAN=${PHYS_VLAN:=en7}
+PHYS_VLAN=${PHYS_VLAN:=en8}
+MEMBER=${MEMBER:=en8}
 NETCONFIG=${NETCONFIG:=/usr/local/bin/netconfig}
 
 commands="add set remove disable enable show create destroy setvlan"
@@ -27,12 +28,14 @@ $NETCONFIG set -i feth0 -D -p ipv4 -c dhcp -C TestClientID -p ipv6 -c manual -A 
 $NETCONFIG disable -S RealFake || exit 1
 $NETCONFIG enable -S RealFake || exit 1
 $NETCONFIG remove -S RealFake || exit 1
-$NETCONFIG create -t vlan -I 1234 -P ${PHYS_VLAN} -N MyVLAN || exit 1
+ifconfig feth0 destroy
+$NETCONFIG create -t vlan -I 1234 -P ${PHYS_VLAN} -N MyVLAN -a no || exit 1
 $NETCONFIG add -i vlan0 -N MyVLAN -D || exit 1
 $NETCONFIG show -S MyVLAN || exit 1
 $NETCONFIG setvlan -i MyVLAN -I 1 -P ${PHYS_VLAN} || exit 1
 $NETCONFIG remove -S MyVLAN || exit 1
-$NETCONFIG destroy -i MyVLAN || exit 1
-ifconfig feth0 destroy
+$NETCONFIG destroy -t vlan -i MyVLAN || exit 1
+$NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || exit 1
+$NETCONFIG destroy -t bridge -i MyBridge || exit 1
 
 exit 0

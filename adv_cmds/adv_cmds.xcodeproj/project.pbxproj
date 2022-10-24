@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -24,6 +24,7 @@
 			buildConfigurationList = FD201DCE14369D0C00906237 /* Build configuration list for PBXAggregateTarget "pgrep" */;
 			buildPhases = (
 				FD201DD014369D1000906237 /* ShellScript */,
+				2A51187527E4436B0059F4ED /* Install Test Files */,
 			);
 			dependencies = (
 				FD201DD214369D5C00906237 /* PBXTargetDependency */,
@@ -35,11 +36,14 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDF276580FC60EE600D7A3C6 /* Build configuration list for PBXAggregateTarget "Embedded" */;
 			buildPhases = (
+				2A7F779D27B3136B00CACBDB /* Install ps */,
+				2A51188527E688630059F4ED /* Install Test plist */,
 			);
 			dependencies = (
 				FD201DD614369D6700906237 /* PBXTargetDependency */,
 				FD201DBF14369B1700906237 /* PBXTargetDependency */,
 				FDF2766D0FC60F0D00D7A3C6 /* PBXTargetDependency */,
+				2A7F779B27B30ED600CACBDB /* PBXTargetDependency */,
 				FDF2766B0FC60F0D00D7A3C6 /* PBXTargetDependency */,
 			);
 			name = Embedded;
@@ -49,6 +53,9 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDF276570FC60EE600D7A3C6 /* Build configuration list for PBXAggregateTarget "Desktop" */;
 			buildPhases = (
+				D329D454279B7F050096F68B /* Install OpenSource plist */,
+				2A7F779C27B3134F00CACBDB /* Install ps(1) */,
+				2A51188427E6881E0059F4ED /* Install Test plist */,
 			);
 			dependencies = (
 				FDF277670FC6102600D7A3C6 /* PBXTargetDependency */,
@@ -74,6 +81,46 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A0DA0AF27FCC47C00983C16 /* nonpriv_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A0DA0AB27FCC3E700983C16 /* nonpriv_test.sh */; };
+		2A51186227E442D30059F4ED /* k_flag_posix_messages.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185F27E442440059F4ED /* k_flag_posix_messages.out */; };
+		2A51186327E442D50059F4ED /* k_flag_posix_monetary.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185A27E442440059F4ED /* k_flag_posix_monetary.out */; };
+		2A51186427E442D80059F4ED /* k_flag_posix_numeric.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185D27E442440059F4ED /* k_flag_posix_numeric.out */; };
+		2A51186527E442DB0059F4ED /* k_flag_posix_time.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51186027E442440059F4ED /* k_flag_posix_time.out */; };
+		2A51186627E442EA0059F4ED /* locale_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185E27E442440059F4ED /* locale_test.sh */; };
+		2A51186727E442EF0059F4ED /* no_flags_posix_messages.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185827E442440059F4ED /* no_flags_posix_messages.out */; };
+		2A51186827E442F40059F4ED /* no_flags_posix_monetary.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185927E442440059F4ED /* no_flags_posix_monetary.out */; };
+		2A51186927E442F80059F4ED /* no_flags_posix_numeric.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185B27E442440059F4ED /* no_flags_posix_numeric.out */; };
+		2A51186A27E442FB0059F4ED /* no_flags_posix_time.out in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185C27E442440059F4ED /* no_flags_posix_time.out */; };
+		2A51186C27E443630059F4ED /* pkill-_g_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184E27E4421A0059F4ED /* pkill-_g_test.sh */; };
+		2A51186D27E443630059F4ED /* pkill-F_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185727E4421A0059F4ED /* pkill-F_test.sh */; };
+		2A51186E27E443630059F4ED /* pkill-g_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185227E4421A0059F4ED /* pkill-g_test.sh */; };
+		2A51186F27E443630059F4ED /* pkill-i_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184F27E4421A0059F4ED /* pkill-i_test.sh */; };
+		2A51187027E443630059F4ED /* pkill-LF_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184127E442190059F4ED /* pkill-LF_test.sh */; };
+		2A51187127E443630059F4ED /* pkill-P_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185327E4421A0059F4ED /* pkill-P_test.sh */; };
+		2A51187227E443630059F4ED /* pkill-t_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185127E4421A0059F4ED /* pkill-t_test.sh */; };
+		2A51187327E443630059F4ED /* pkill-U_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185627E4421A0059F4ED /* pkill-U_test.sh */; };
+		2A51187427E443630059F4ED /* pkill-x_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184927E442190059F4ED /* pkill-x_test.sh */; };
+		2A51187627E443900059F4ED /* pgrep-_g_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184C27E442190059F4ED /* pgrep-_g_test.sh */; };
+		2A51187727E443900059F4ED /* pgrep-F_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184527E442190059F4ED /* pgrep-F_test.sh */; };
+		2A51187827E443900059F4ED /* pgrep-g_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184A27E442190059F4ED /* pgrep-g_test.sh */; };
+		2A51187927E443900059F4ED /* pgrep-i_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184427E442190059F4ED /* pgrep-i_test.sh */; };
+		2A51187A27E443900059F4ED /* pgrep-l_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185527E4421A0059F4ED /* pgrep-l_test.sh */; };
+		2A51187B27E443900059F4ED /* pgrep-LF_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185027E4421A0059F4ED /* pgrep-LF_test.sh */; };
+		2A51187C27E443900059F4ED /* pgrep-n_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184627E442190059F4ED /* pgrep-n_test.sh */; };
+		2A51187D27E443900059F4ED /* pgrep-o_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184227E442190059F4ED /* pgrep-o_test.sh */; };
+		2A51187E27E443900059F4ED /* pgrep-P_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184B27E442190059F4ED /* pgrep-P_test.sh */; };
+		2A51187F27E443900059F4ED /* pgrep-q_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184727E442190059F4ED /* pgrep-q_test.sh */; };
+		2A51188027E443900059F4ED /* pgrep-t_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184827E442190059F4ED /* pgrep-t_test.sh */; };
+		2A51188127E443900059F4ED /* pgrep-U_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51185427E4421A0059F4ED /* pgrep-U_test.sh */; };
+		2A51188227E443900059F4ED /* pgrep-v_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184D27E4421A0059F4ED /* pgrep-v_test.sh */; };
+		2A51188327E443900059F4ED /* pgrep-x_test.sh in Install Test Files */ = {isa = PBXBuildFile; fileRef = 2A51184327E442190059F4ED /* pgrep-x_test.sh */; };
+		2A7F778E27B30E9000CACBDB /* fmt.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF277290FC60FDF00D7A3C6 /* fmt.c */; };
+		2A7F778F27B30E9000CACBDB /* keyword.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2772A0FC60FDF00D7A3C6 /* keyword.c */; };
+		2A7F779027B30E9000CACBDB /* nlist.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2772C0FC60FDF00D7A3C6 /* nlist.c */; };
+		2A7F779127B30E9000CACBDB /* print.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2772D0FC60FDF00D7A3C6 /* print.c */; };
+		2A7F779227B30E9000CACBDB /* ps.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2772F0FC60FDF00D7A3C6 /* ps.c */; };
+		2A7F779327B30E9000CACBDB /* tasks.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF277310FC60FDF00D7A3C6 /* tasks.c */; };
+		2A85AF27280639D000F493F9 /* 91596308_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A85AF26280639C900F493F9 /* 91596308_test.sh */; };
 		FD0D7FA4108FE58C004F2A1C /* localedef.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF277140FC60FDF00D7A3C6 /* localedef.1 */; };
 		FD201DC214369B4200906237 /* pkill.c in Sources */ = {isa = PBXBuildFile; fileRef = FD201DB014369AD000906237 /* pkill.c */; };
 		FD201DC314369B4600906237 /* pkill.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD201DAF14369AD000906237 /* pkill.1 */; };
@@ -128,6 +175,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A7F779A27B30ED600CACBDB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A7F778C27B30E9000CACBDB;
+			remoteInfo = ps_unentitled;
+		};
 		FD0D7FA8108FE5C3004F2A1C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
@@ -278,6 +332,79 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A0DA0AE27FCC46B00983C16 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/adv_cmds/ps;
+			dstSubfolderSpec = 0;
+			files = (
+				2A85AF27280639D000F493F9 /* 91596308_test.sh in CopyFiles */,
+				2A0DA0AF27FCC47C00983C16 /* nonpriv_test.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A51186127E442AB0059F4ED /* Install Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/adv_cmds/locale;
+			dstSubfolderSpec = 0;
+			files = (
+				2A51186227E442D30059F4ED /* k_flag_posix_messages.out in Install Test Files */,
+				2A51186327E442D50059F4ED /* k_flag_posix_monetary.out in Install Test Files */,
+				2A51186427E442D80059F4ED /* k_flag_posix_numeric.out in Install Test Files */,
+				2A51186527E442DB0059F4ED /* k_flag_posix_time.out in Install Test Files */,
+				2A51186627E442EA0059F4ED /* locale_test.sh in Install Test Files */,
+				2A51186727E442EF0059F4ED /* no_flags_posix_messages.out in Install Test Files */,
+				2A51186827E442F40059F4ED /* no_flags_posix_monetary.out in Install Test Files */,
+				2A51186927E442F80059F4ED /* no_flags_posix_numeric.out in Install Test Files */,
+				2A51186A27E442FB0059F4ED /* no_flags_posix_time.out in Install Test Files */,
+			);
+			name = "Install Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A51186B27E4430F0059F4ED /* Install Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/adv_cmds/pkill;
+			dstSubfolderSpec = 0;
+			files = (
+				2A51186C27E443630059F4ED /* pkill-_g_test.sh in Install Test Files */,
+				2A51186D27E443630059F4ED /* pkill-F_test.sh in Install Test Files */,
+				2A51186E27E443630059F4ED /* pkill-g_test.sh in Install Test Files */,
+				2A51186F27E443630059F4ED /* pkill-i_test.sh in Install Test Files */,
+				2A51187027E443630059F4ED /* pkill-LF_test.sh in Install Test Files */,
+				2A51187127E443630059F4ED /* pkill-P_test.sh in Install Test Files */,
+				2A51187227E443630059F4ED /* pkill-t_test.sh in Install Test Files */,
+				2A51187327E443630059F4ED /* pkill-U_test.sh in Install Test Files */,
+				2A51187427E443630059F4ED /* pkill-x_test.sh in Install Test Files */,
+			);
+			name = "Install Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A51187527E4436B0059F4ED /* Install Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/adv_cmds/pgrep;
+			dstSubfolderSpec = 0;
+			files = (
+				2A51187627E443900059F4ED /* pgrep-_g_test.sh in Install Test Files */,
+				2A51187727E443900059F4ED /* pgrep-F_test.sh in Install Test Files */,
+				2A51187827E443900059F4ED /* pgrep-g_test.sh in Install Test Files */,
+				2A51187927E443900059F4ED /* pgrep-i_test.sh in Install Test Files */,
+				2A51187A27E443900059F4ED /* pgrep-l_test.sh in Install Test Files */,
+				2A51187B27E443900059F4ED /* pgrep-LF_test.sh in Install Test Files */,
+				2A51187C27E443900059F4ED /* pgrep-n_test.sh in Install Test Files */,
+				2A51187D27E443900059F4ED /* pgrep-o_test.sh in Install Test Files */,
+				2A51187E27E443900059F4ED /* pgrep-P_test.sh in Install Test Files */,
+				2A51187F27E443900059F4ED /* pgrep-q_test.sh in Install Test Files */,
+				2A51188027E443900059F4ED /* pgrep-t_test.sh in Install Test Files */,
+				2A51188127E443900059F4ED /* pgrep-U_test.sh in Install Test Files */,
+				2A51188227E443900059F4ED /* pgrep-v_test.sh in Install Test Files */,
+				2A51188327E443900059F4ED /* pgrep-x_test.sh in Install Test Files */,
+			);
+			name = "Install Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FD0D7FA5108FE5AA004F2A1C /* Install man1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -455,6 +582,41 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A0DA0AB27FCC3E700983C16 /* nonpriv_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = nonpriv_test.sh; path = tests/nonpriv_test.sh; sourceTree = "<group>"; };
+		2A51184127E442190059F4ED /* pkill-LF_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-LF_test.sh"; path = "pkill/tests/pkill-LF_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184227E442190059F4ED /* pgrep-o_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-o_test.sh"; path = "pkill/tests/pgrep-o_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184327E442190059F4ED /* pgrep-x_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-x_test.sh"; path = "pkill/tests/pgrep-x_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184427E442190059F4ED /* pgrep-i_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-i_test.sh"; path = "pkill/tests/pgrep-i_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184527E442190059F4ED /* pgrep-F_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-F_test.sh"; path = "pkill/tests/pgrep-F_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184627E442190059F4ED /* pgrep-n_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-n_test.sh"; path = "pkill/tests/pgrep-n_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184727E442190059F4ED /* pgrep-q_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-q_test.sh"; path = "pkill/tests/pgrep-q_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184827E442190059F4ED /* pgrep-t_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-t_test.sh"; path = "pkill/tests/pgrep-t_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184927E442190059F4ED /* pkill-x_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-x_test.sh"; path = "pkill/tests/pkill-x_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184A27E442190059F4ED /* pgrep-g_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-g_test.sh"; path = "pkill/tests/pgrep-g_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184B27E442190059F4ED /* pgrep-P_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-P_test.sh"; path = "pkill/tests/pgrep-P_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184C27E442190059F4ED /* pgrep-_g_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-_g_test.sh"; path = "pkill/tests/pgrep-_g_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184D27E4421A0059F4ED /* pgrep-v_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-v_test.sh"; path = "pkill/tests/pgrep-v_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184E27E4421A0059F4ED /* pkill-_g_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-_g_test.sh"; path = "pkill/tests/pkill-_g_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51184F27E4421A0059F4ED /* pkill-i_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-i_test.sh"; path = "pkill/tests/pkill-i_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185027E4421A0059F4ED /* pgrep-LF_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-LF_test.sh"; path = "pkill/tests/pgrep-LF_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185127E4421A0059F4ED /* pkill-t_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-t_test.sh"; path = "pkill/tests/pkill-t_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185227E4421A0059F4ED /* pkill-g_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-g_test.sh"; path = "pkill/tests/pkill-g_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185327E4421A0059F4ED /* pkill-P_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-P_test.sh"; path = "pkill/tests/pkill-P_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185427E4421A0059F4ED /* pgrep-U_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-U_test.sh"; path = "pkill/tests/pgrep-U_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185527E4421A0059F4ED /* pgrep-l_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pgrep-l_test.sh"; path = "pkill/tests/pgrep-l_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185627E4421A0059F4ED /* pkill-U_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-U_test.sh"; path = "pkill/tests/pkill-U_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185727E4421A0059F4ED /* pkill-F_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "pkill-F_test.sh"; path = "pkill/tests/pkill-F_test.sh"; sourceTree = SOURCE_ROOT; };
+		2A51185827E442440059F4ED /* no_flags_posix_messages.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = no_flags_posix_messages.out; path = tests/no_flags_posix_messages.out; sourceTree = "<group>"; };
+		2A51185927E442440059F4ED /* no_flags_posix_monetary.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = no_flags_posix_monetary.out; path = tests/no_flags_posix_monetary.out; sourceTree = "<group>"; };
+		2A51185A27E442440059F4ED /* k_flag_posix_monetary.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_monetary.out; path = tests/k_flag_posix_monetary.out; sourceTree = "<group>"; };
+		2A51185B27E442440059F4ED /* no_flags_posix_numeric.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = no_flags_posix_numeric.out; path = tests/no_flags_posix_numeric.out; sourceTree = "<group>"; };
+		2A51185C27E442440059F4ED /* no_flags_posix_time.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = no_flags_posix_time.out; path = tests/no_flags_posix_time.out; sourceTree = "<group>"; };
+		2A51185D27E442440059F4ED /* k_flag_posix_numeric.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_numeric.out; path = tests/k_flag_posix_numeric.out; sourceTree = "<group>"; };
+		2A51185E27E442440059F4ED /* locale_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = locale_test.sh; path = tests/locale_test.sh; sourceTree = "<group>"; };
+		2A51185F27E442440059F4ED /* k_flag_posix_messages.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_messages.out; path = tests/k_flag_posix_messages.out; sourceTree = "<group>"; };
+		2A51186027E442440059F4ED /* k_flag_posix_time.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = k_flag_posix_time.out; path = tests/k_flag_posix_time.out; sourceTree = "<group>"; };
+		2A7F779927B30E9000CACBDB /* ps_lowpriv */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ps_lowpriv; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A85AF26280639C900F493F9 /* 91596308_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = 91596308_test.sh; path = tests/91596308_test.sh; sourceTree = "<group>"; };
 		FD201DAF14369AD000906237 /* pkill.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = pkill.1; path = pkill/pkill.1; sourceTree = "<group>"; };
 		FD201DB014369AD000906237 /* pkill.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = pkill.c; path = pkill/pkill.c; sourceTree = "<group>"; };
 		FD201DB514369B0400906237 /* pkill */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pkill; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -541,6 +703,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2A7F779427B30E9000CACBDB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD201DB214369B0300906237 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -645,11 +814,67 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A0DA0AA27FCC3CE00983C16 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A85AF26280639C900F493F9 /* 91596308_test.sh */,
+				2A0DA0AB27FCC3E700983C16 /* nonpriv_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A51183F27E441820059F4ED /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A51185F27E442440059F4ED /* k_flag_posix_messages.out */,
+				2A51185A27E442440059F4ED /* k_flag_posix_monetary.out */,
+				2A51185D27E442440059F4ED /* k_flag_posix_numeric.out */,
+				2A51186027E442440059F4ED /* k_flag_posix_time.out */,
+				2A51185E27E442440059F4ED /* locale_test.sh */,
+				2A51185827E442440059F4ED /* no_flags_posix_messages.out */,
+				2A51185927E442440059F4ED /* no_flags_posix_monetary.out */,
+				2A51185B27E442440059F4ED /* no_flags_posix_numeric.out */,
+				2A51185C27E442440059F4ED /* no_flags_posix_time.out */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A51184027E441AD0059F4ED /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A51184C27E442190059F4ED /* pgrep-_g_test.sh */,
+				2A51184527E442190059F4ED /* pgrep-F_test.sh */,
+				2A51184A27E442190059F4ED /* pgrep-g_test.sh */,
+				2A51184427E442190059F4ED /* pgrep-i_test.sh */,
+				2A51185527E4421A0059F4ED /* pgrep-l_test.sh */,
+				2A51185027E4421A0059F4ED /* pgrep-LF_test.sh */,
+				2A51184627E442190059F4ED /* pgrep-n_test.sh */,
+				2A51184227E442190059F4ED /* pgrep-o_test.sh */,
+				2A51184B27E442190059F4ED /* pgrep-P_test.sh */,
+				2A51184727E442190059F4ED /* pgrep-q_test.sh */,
+				2A51184827E442190059F4ED /* pgrep-t_test.sh */,
+				2A51185427E4421A0059F4ED /* pgrep-U_test.sh */,
+				2A51184D27E4421A0059F4ED /* pgrep-v_test.sh */,
+				2A51184327E442190059F4ED /* pgrep-x_test.sh */,
+				2A51184E27E4421A0059F4ED /* pkill-_g_test.sh */,
+				2A51185727E4421A0059F4ED /* pkill-F_test.sh */,
+				2A51185227E4421A0059F4ED /* pkill-g_test.sh */,
+				2A51184F27E4421A0059F4ED /* pkill-i_test.sh */,
+				2A51184127E442190059F4ED /* pkill-LF_test.sh */,
+				2A51185327E4421A0059F4ED /* pkill-P_test.sh */,
+				2A51185127E4421A0059F4ED /* pkill-t_test.sh */,
+				2A51185627E4421A0059F4ED /* pkill-U_test.sh */,
+				2A51184927E442190059F4ED /* pkill-x_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		FD201DAD14369AB300906237 /* pkill */ = {
 			isa = PBXGroup;
 			children = (
 				FD201DB014369AD000906237 /* pkill.c */,
 				FD201DAF14369AD000906237 /* pkill.1 */,
+				2A51184027E441AD0059F4ED /* tests */,
 			);
 			name = pkill;
 			sourceTree = "<group>";
@@ -682,6 +907,7 @@
 				FDF276BD0FC60F8400D7A3C6 /* tty */,
 				FDF276C30FC60F8A00D7A3C6 /* whois */,
 				FD201DB514369B0400906237 /* pkill */,
+				2A7F779927B30E9000CACBDB /* ps_lowpriv */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -791,6 +1017,7 @@
 			children = (
 				FDF277090FC60FDF00D7A3C6 /* locale.1 */,
 				FDF2770A0FC60FDF00D7A3C6 /* locale.cc */,
+				2A51183F27E441820059F4ED /* tests */,
 			);
 			path = locale;
 			sourceTree = "<group>";
@@ -829,6 +1056,7 @@
 		FDF277270FC60FDF00D7A3C6 /* ps */ = {
 			isa = PBXGroup;
 			children = (
+				2A0DA0AA27FCC3CE00983C16 /* tests */,
 				FDF277290FC60FDF00D7A3C6 /* fmt.c */,
 				FDF2772A0FC60FDF00D7A3C6 /* keyword.c */,
 				FDF2772C0FC60FDF00D7A3C6 /* nlist.c */,
@@ -889,6 +1117,22 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2A7F778C27B30E9000CACBDB /* ps_lowpriv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A7F779727B30E9000CACBDB /* Build configuration list for PBXNativeTarget "ps_lowpriv" */;
+			buildPhases = (
+				2A7F778D27B30E9000CACBDB /* Sources */,
+				2A7F779427B30E9000CACBDB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ps_lowpriv;
+			productName = ps;
+			productReference = 2A7F779927B30E9000CACBDB /* ps_lowpriv */;
+			productType = "com.apple.product-type.tool";
+		};
 		FD201DB414369B0300906237 /* pkill */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FD201DBC14369B0400906237 /* Build configuration list for PBXNativeTarget "pkill" */;
@@ -896,6 +1140,7 @@
 				FD201DB114369B0300906237 /* Sources */,
 				FD201DB214369B0300906237 /* Frameworks */,
 				FD201DB314369B0300906237 /* CopyFiles */,
+				2A51186B27E4430F0059F4ED /* Install Test Files */,
 			);
 			buildRules = (
 			);
@@ -913,6 +1158,7 @@
 				FDF276590FC60EF600D7A3C6 /* Sources */,
 				FDF2765A0FC60EF600D7A3C6 /* Frameworks */,
 				FDF278300FC6160800D7A3C6 /* Install man1 */,
+				2A0DA0AE27FCC46B00983C16 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1033,6 +1279,7 @@
 				FDF276960FC60F5000D7A3C6 /* Sources */,
 				FDF276970FC60F5000D7A3C6 /* Frameworks */,
 				FDF278E80FC620B600D7A3C6 /* Install man1 */,
+				2A51186127E442AB0059F4ED /* Install Test Files */,
 			);
 			buildRules = (
 			);
@@ -1134,14 +1381,16 @@
 		FDF276430FC60E9000D7A3C6 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0820;
+				LastUpgradeCheck = 1400;
 			};
 			buildConfigurationList = FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "adv_cmds" */;
-			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
+				Base,
 			);
 			mainGroup = FDF276410FC60E9000D7A3C6;
 			productRefGroup = FDF2765D0FC60EF600D7A3C6 /* Products */;
@@ -1162,6 +1411,7 @@
 				FD201DCD14369D0C00906237 /* pgrep */,
 				FD201DB414369B0300906237 /* pkill */,
 				FDF2765B0FC60EF600D7A3C6 /* ps */,
+				2A7F778C27B30E9000CACBDB /* ps_lowpriv */,
 				FDF276630FC60EFD00D7A3C6 /* stty */,
 				FDF276B60FC60F7F00D7A3C6 /* tabs */,
 				FDF276BC0FC60F8400D7A3C6 /* tty */,
@@ -1171,6 +1421,108 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A51188427E6881E0059F4ED /* Install Test plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/adv_cmds.plist.in",
+			);
+			name = "Install Test plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/adv_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/install-test-files.sh\n";
+		};
+		2A51188527E688630059F4ED /* Install Test plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/adv_cmds.plist.in",
+			);
+			name = "Install Test plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/adv_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/install-test-files.sh\n";
+		};
+		2A7F779C27B3134F00CACBDB /* Install ps(1) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/ps",
+			);
+			name = "Install ps(1)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/bin/ps",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install-ps.sh\n";
+		};
+		2A7F779D27B3136B00CACBDB /* Install ps */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/ps_lowpriv",
+				"$(BUILT_PRODUCTS_DIR)/ps",
+			);
+			name = "Install ps";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/bin/ps",
+				"$(DSTROOT)/usr/local/bin/ps",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install-ps.sh\n";
+		};
+		D329D454279B7F050096F68B /* Install OpenSource plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install OpenSource plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
+		};
 		FD0D7F97108FE550004F2A1C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -1195,12 +1547,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". ${SRCROOT}/xcodescripts/variant_links.sh";
+			shellScript = ". ${SRCROOT}/xcodescripts/variant_links.sh\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2A7F778D27B30E9000CACBDB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A7F778E27B30E9000CACBDB /* fmt.c in Sources */,
+				2A7F778F27B30E9000CACBDB /* keyword.c in Sources */,
+				2A7F779027B30E9000CACBDB /* nlist.c in Sources */,
+				2A7F779127B30E9000CACBDB /* print.c in Sources */,
+				2A7F779227B30E9000CACBDB /* ps.c in Sources */,
+				2A7F779327B30E9000CACBDB /* tasks.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD201DB114369B0300906237 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1334,6 +1699,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A7F779B27B30ED600CACBDB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A7F778C27B30E9000CACBDB /* ps_lowpriv */;
+			targetProxy = 2A7F779A27B30ED600CACBDB /* PBXContainerItemProxy */;
+		};
 		FD0D7FA9108FE5C3004F2A1C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD0D7F98108FE550004F2A1C /* localedef */;
@@ -1442,9 +1812,24 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2A7F779827B30E9000CACBDB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ps/entitlements-lowpriv.plist";
+				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
+				"INSTALL_MODE_FLAG[sdk=macosx*]" = "u+sw,go-w,a+rX";
+				INSTALL_PATH = /bin;
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wno-#warnings";
+			};
+			name = Release;
+		};
 		FD0D7F99108FE550004F2A1C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = localedef;
 			};
@@ -1453,6 +1838,7 @@
 		FD201DBD14369B0400906237 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = pkill/entitlements.plist;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1462,6 +1848,7 @@
 		FD201DCF14369D0C00906237 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1470,12 +1857,22 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
@@ -1498,11 +1895,14 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = __;
+				WARNING_CFLAGS = (
+					"-Werror=format-nonliteral",
+					"-Werror=format",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -1510,6 +1910,7 @@
 		FDF2764F0FC60ECD00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = Embedded;
 			};
 			name = Release;
@@ -1517,6 +1918,7 @@
 		FDF276510FC60EDA00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = Desktop;
 			};
 			name = Release;
@@ -1524,18 +1926,21 @@
 		FDF2765F0FC60EF700D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = ps/entitlements.plist;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				"INSTALL_MODE_FLAG[sdk=macosx*]" = "u+sw,go-w,a+rX";
 				INSTALL_PATH = /bin;
+				OTHER_CFLAGS = "-DPS_ENTITLED";
 				PRODUCT_NAME = ps;
-				WARNING_CFLAGS = "-Wno-#warnings";
+				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
 		FDF276660FC60EFD00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 				PRODUCT_NAME = stty;
 			};
@@ -1544,6 +1949,7 @@
 		FDF276770FC60F2100D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = cap_mkdb;
 			};
@@ -1552,6 +1958,7 @@
 		FDF2767D0FC60F2A00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__FBSDID=__RCSID",
 					COLLATE_DEBUG,
@@ -1563,13 +1970,17 @@
 				LEXFLAGS = "-8";
 				LEX_CASE_INSENSITIVE_SCANNER = YES;
 				PRODUCT_NAME = colldef;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/colldef $(SRCROOT)/colldef/locale";
+				USER_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/colldef",
+					"$(SRCROOT)/colldef/locale",
+				);
 			};
 			name = Release;
 		};
 		FDF276830FC60F3100D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = finger;
@@ -1579,6 +1990,7 @@
 		FDF2768F0FC60F3E00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = gencat;
@@ -1588,6 +2000,7 @@
 		FDF276950FC60F4C00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = last;
 			};
@@ -1596,6 +2009,7 @@
 		FDF2769B0FC60F5100D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = locale;
 			};
@@ -1604,6 +2018,7 @@
 		FDF276A70FC60F5F00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = lsvfs;
 			};
@@ -1612,6 +2027,7 @@
 		FDF276B30FC60F7700D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = mklocale;
@@ -1622,6 +2038,7 @@
 		FDF276B90FC60F8000D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = tabs;
@@ -1631,6 +2048,7 @@
 		FDF276BF0FC60F8500D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = tty;
@@ -1640,6 +2058,7 @@
 		FDF276C50FC60F8A00D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = whois;
 			};
@@ -1648,6 +2067,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2A7F779727B30E9000CACBDB /* Build configuration list for PBXNativeTarget "ps_lowpriv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A7F779827B30E9000CACBDB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FD0D7FA2108FE56E004F2A1C /* Build configuration list for PBXAggregateTarget "localedef" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

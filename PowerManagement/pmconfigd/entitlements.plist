@@ -19,10 +19,16 @@
 	<key>com.apple.private.iokit.rootdomain-set-property</key>
 	<true/>
 	<key>com.apple.private.SkyLight.displaypowercontrol</key>
-    <true/>
+	<true/>
 	<key>com.apple.private.iokit.system-nvram-allow</key>
 	<true/>
 	<key>com.apple.private.security.bootpolicy</key>
 	<true/>
+	<key>com.apple.powerui.bdcdata</key>
+	<true/>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.powerui.bdcdata</string>
+	</array>
 </dict>
 </plist>

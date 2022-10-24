@@ -51,6 +51,7 @@ public:
 
     void pushNewBuffer(GRefPtr<GstBuffer>&&);
     void resetParserState();
+    void stopParser();
     SourceBufferPrivateGStreamer& sourceBufferPrivate() { return m_sourceBufferPrivate; }
     MediaPlayerPrivateGStreamerMSE* playerPrivate() { return m_playerPrivate; }
 
@@ -97,6 +98,7 @@ private:
 #endif
 
         void initializeElements(AppendPipeline*, GstBin*);
+        bool isLinked() const { return gst_pad_is_linked(entryPad.get()); }
     };
 
     void handleErrorSyncMessage(GstMessage*);
@@ -123,10 +125,9 @@ private:
     static AtomString generateTrackId(StreamType, int padIndex);
     enum class CreateTrackResult { TrackCreated, TrackIgnored, AppendParsingFailed };
     std::pair<CreateTrackResult, AppendPipeline::Track*> tryCreateTrackFromPad(GstPad* demuxerSrcPad, int padIndex);
-    AppendPipeline::Track* tryMatchPadToExistingTrack(GstPad* demuxerSrcPad);
-    void linkPadWithTrack(GstPad* demuxerSrcPad, Track&);
 
-    void resetPipeline();
+    bool recycleTrackForPad(GstPad*);
+    void linkPadWithTrack(GstPad* demuxerSrcPad, Track&);
 
     void consumeAppsinksAvailableSamples();
 

@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+__ptrcheck_abi_assume_single()
+
 /*
  * Flags
  */
@@ -49,7 +51,7 @@ enum {
 	REMOVEFILE_STATE_STATUS_CONTEXT = 7,		// void*
 };
 
-typedef int (*removefile_callback_t)(removefile_state_t state, const char* path, void* context);
+typedef int (*removefile_callback_t)(removefile_state_t state, const char *__unsafe_indexable path, void* context);
 
 /* 
  * Callback return values
@@ -61,8 +63,8 @@ enum {
 };
 
 
-int removefile(const char* path, removefile_state_t state, removefile_flags_t flags);
-int removefileat(int fd, const char* path, removefile_state_t state, removefile_flags_t flags);
+int removefile(const char *__unsafe_indexable path, removefile_state_t state, removefile_flags_t flags);
+int removefileat(int fd, const char *__unsafe_indexable path, removefile_state_t state, removefile_flags_t flags);
 
 int removefile_cancel(removefile_state_t state);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,7 +45,6 @@
 #include "IPMonitorControlServer.h"
 #include "symbol_scope.h"
 #include "IPMonitorControlPrivate.h"
-#include "IPMonitorAWDReport.h"
 
 #ifdef TEST_IPMONITOR_CONTROL
 #define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
@@ -243,60 +242,6 @@ InterfaceHasAdvisory(CFStringRef ifname,
     return (FALSE);
 }
 
-
-STATIC AWDIPMonitorInterfaceAdvisoryReport_Flags
-advisory_to_flags(SCNetworkInterfaceAdvisory advisory)
-{
-    AWDIPMonitorInterfaceAdvisoryReport_Flags	flags;
-
-    switch (advisory) {
-    case kSCNetworkInterfaceAdvisoryNone:
-    default:
-	flags = 0;
-	break;
-    case kSCNetworkInterfaceAdvisoryLinkLayerIssue:
-	flags = AWDIPMonitorInterfaceAdvisoryReport_Flags_LINK_LAYER_ISSUE;
-	break;
-    case kSCNetworkInterfaceAdvisoryUplinkIssue:
-	flags = AWDIPMonitorInterfaceAdvisoryReport_Flags_UPLINK_ISSUE;
-	break;
-    }
-    return (flags);
-}
-
-STATIC AWDIPMonitorInterfaceAdvisoryReport_Flags
-InterfaceGetAdvisoryFlags(CFStringRef ifname,
-			  ControlSessionRef exclude_session,
-			  uint32_t * ret_count)
-{
-    uint32_t					count;
-    AWDIPMonitorInterfaceAdvisoryReport_Flags	flags = 0;
-    ControlSessionRef				session;
-
-    count = 0;
-    LIST_FOREACH(session, &S_ControlSessions, link) {
-	SCNetworkInterfaceAdvisory 	advisory = 0;
-	CFNumberRef			advisory_cf;
-
-	if (session->advisories == NULL) {
-	    continue;
-	}
-	if (exclude_session != NULL && exclude_session == session) {
-	    continue;
-	}
-	advisory_cf = CFDictionaryGetValue(session->advisories, ifname);
-	if (advisory_cf == NULL) {
-	    /* session has no advisories for this interface */
-	    continue;
-	}
-	(void)CFNumberGetValue(advisory_cf, kCFNumberSInt32Type, &advisory);
-	flags |= advisory_to_flags(advisory);
-	count++;
-    }
-    *ret_count = count;
-    return (flags);
-}
-
 STATIC Boolean
 AnyInterfaceHasAdvisories(void)
 {
@@ -355,32 +300,6 @@ NotifyInterfaceAdvisory(CFStringRef ifname)
     return;
 }
 
-STATIC void
-SubmitInterfaceAdvisoryMetric(CFStringRef ifname,
-			      AWDIPMonitorInterfaceAdvisoryReport_Flags flags,
-			      uint32_t count)
-{
-    InterfaceAdvisoryReportRef	report;
-    AWDIPMonitorInterfaceType	type;
-
-    /* XXX need to actually figure out what the interface type is */
-    if (CFStringHasPrefix(ifname, CFSTR("pdp"))) {
-	type = AWDIPMonitorInterfaceType_IPMONITOR_INTERFACE_TYPE_CELLULAR;
-    }
-    else {
-	type = AWDIPMonitorInterfaceType_IPMONITOR_INTERFACE_TYPE_WIFI;
-    }
-    report = InterfaceAdvisoryReportCreate(type);
-    if (report == NULL) {
-	return;
-    }
-    InterfaceAdvisoryReportSetFlags(report, flags);
-    InterfaceAdvisoryReportSetAdvisoryCount(report, count);
-    InterfaceAdvisoryReportSubmit(report);
-    my_log(LOG_NOTICE, "%@: submitted AWD report %@", ifname, report);
-    CFRelease(report);
-}
-
 /**
  ** ControlSession
  **/
@@ -419,46 +338,9 @@ AddChangedInterfaceNotifyAdvisory(const void * key, const void * value,
 }
 
 STATIC void
-GenerateMetricForInterfaceAtSessionClose(const void * key, const void * value,
-					 void * context)
-{
-    uint32_t		count_after;
-    uint32_t		count_before;
-    AWDIPMonitorInterfaceAdvisoryReport_Flags flags_after;
-    AWDIPMonitorInterfaceAdvisoryReport_Flags flags_before;
-    CFStringRef		ifname = (CFStringRef)key;
-    ControlSessionRef	session = (ControlSessionRef)context;
-
-#pragma unused(value)
-    /*
-     * Get the flags and count including this session, then again
-     * excluding this session. If either flags or count are different,
-     * generate the metric.
-     */
-    flags_before = InterfaceGetAdvisoryFlags(ifname, NULL, &count_before);
-    flags_after	= InterfaceGetAdvisoryFlags(ifname, session, &count_after);
-    if (flags_before != flags_after || count_before != count_after) {
-	SubmitInterfaceAdvisoryMetric(ifname, flags_after, count_after);
-    }
-    return;
-}
-
-STATIC void
-ControlSessionGenerateMetricsAtClose(ControlSessionRef session)
-{
-    if (session->advisories == NULL) {
-	return;
-    }
-    CFDictionaryApplyFunction(session->advisories,
-			      GenerateMetricForInterfaceAtSessionClose,
-			      session);
-}
-
-STATIC void
 ControlSessionInvalidate(ControlSessionRef session)
 {
     my_log(LOG_DEBUG, "Invalidating %p", session);
-    ControlSessionGenerateMetricsAtClose(session);
     LIST_REMOVE(session, link);
     if (session->assertions != NULL || session->advisories != NULL) {
 	if (session->advisories != NULL) {
@@ -609,10 +491,6 @@ ControlSessionSetInterfaceAdvisory(ControlSessionRef session,
 				   const char * ifname,
 				   SCNetworkInterfaceAdvisory advisory)
 {
-    uint32_t		count_after;
-    uint32_t		count_before;
-    AWDIPMonitorInterfaceAdvisoryReport_Flags flags_after;
-    AWDIPMonitorInterfaceAdvisoryReport_Flags flags_before;
     CFStringRef		ifname_cf;
 
     if (session->advisories == NULL) {
@@ -624,7 +502,6 @@ ControlSessionSetInterfaceAdvisory(ControlSessionRef session,
     }
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
-    flags_before = InterfaceGetAdvisoryFlags(ifname_cf, NULL, &count_before);
     if (advisory == kSCNetworkInterfaceAdvisoryNone) {
 	CFDictionaryRemoveValue(session->advisories, ifname_cf);
 	if (CFDictionaryGetCount(session->advisories) == 0) {
@@ -638,10 +515,6 @@ ControlSessionSetInterfaceAdvisory(ControlSessionRef session,
 	advisory_cf = CFNumberCreate(NULL, kCFNumberSInt32Type, &advisory);
 	CFDictionarySetValue(session->advisories, ifname_cf, advisory_cf);
 	CFRelease(advisory_cf);
-    }
-    flags_after = InterfaceGetAdvisoryFlags(ifname_cf, NULL, &count_after);
-    if (flags_before != flags_after || count_before != count_after) {
-	SubmitInterfaceAdvisoryMetric(ifname_cf, flags_after, count_after);
     }
     InterfaceChangedListAddInterface(ifname_cf);
     NotifyInterfaceAdvisory(ifname_cf);

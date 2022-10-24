@@ -52,6 +52,9 @@ __used static const char sccsid[] = "@(#)touch.c	8.1 (Berkeley) 6/6/93";
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -179,10 +182,24 @@ main(int argc, char *argv[])
 				continue;
 			}
 			if (!cflag) {
+#ifdef __APPLE__
+				bool cfail;
+#endif
 				/* Create the file. */
 				fd = open(*argv,
 				    O_WRONLY | O_CREAT, DEFFILEMODE);
+#ifdef __APPLE__
+				/*
+				 * See rdar://problem/69195889 -- don't leak
+				 * fd on failure.
+				 */
+				cfail = fd == -1 || fstat(fd, &sb) != 0;
+				if (fd != -1)
+					(void)close(fd);
+				if (cfail) {
+#else
 				if (fd == -1 || fstat(fd, &sb) || close(fd)) {
+#endif
 					rval = 1;
 					warn("%s", *argv);
 					continue;

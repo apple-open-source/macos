@@ -85,6 +85,27 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2BBCA225278E5D9600224D15 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511D6136D22ED0012B9B5;
+			remoteInfo = "Generate Symlinks";
+		};
+		2BBCA227278E5D9600224D15 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
+			remoteInfo = "Generate Linker Arguments";
+		};
+		2BBCA229278E5D9600224D15 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511C3136C9E2E0012B9B5;
+			remoteInfo = System;
+		};
 		E47E9834221DFE4A006E312E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
@@ -328,6 +349,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = BA5511A7136C9D400012B9B5;
@@ -424,6 +446,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2BBCA224278E5D9600224D15 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511D6136D22ED0012B9B5 /* Generate Symlinks */;
+			targetProxy = 2BBCA225278E5D9600224D15 /* PBXContainerItemProxy */;
+		};
+		2BBCA226278E5D9600224D15 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
+			targetProxy = 2BBCA227278E5D9600224D15 /* PBXContainerItemProxy */;
+		};
+		2BBCA228278E5D9600224D15 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511C3136C9E2E0012B9B5 /* System */;
+			targetProxy = 2BBCA229278E5D9600224D15 /* PBXContainerItemProxy */;
+		};
 		E47E9835221DFE4A006E312E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 923662F4212762D7001FB3E7 /* Sanitizer Support */;
@@ -462,6 +499,13 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2BBCA22B278E5D9600224D15 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		923662F5212762D7001FB3E7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {

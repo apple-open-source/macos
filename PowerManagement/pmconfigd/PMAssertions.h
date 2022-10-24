@@ -276,6 +276,8 @@ typedef struct assertion {
     uint32_t        gps:1;
     uint32_t        baseband:1;
     uint32_t        bluetooth:1;
+    uint32_t        perfUnrestricted:1;
+    uint32_t        camera:1;
     uint32_t        allowsDeviceRestart:1;
     uint32_t        budgetedActivity:1;
 } assertion_t;
@@ -304,6 +306,7 @@ typedef struct assertion {
 #define kAssertionModResources          0x40
 #define kAssertionModSilentRunning      0x80
 #define kAssertionModCausingPid         0x100
+#define kAssertionModFrameworkID        0x200
 
 typedef enum {
     kAssertionOpRaise,
@@ -419,6 +422,7 @@ typedef enum {
     kAStateSuspend,
     kAStateResume,
     kASystemTimeoutLog,
+    kAOffloadedLog,
 } assertLogAction;
 
 typedef struct {
@@ -428,6 +432,8 @@ typedef struct {
     int gps;
     int baseband;
     int bluetooth;
+    int camera;
+    int perfUnrestricted;
     int budgetedActivity;
     int restartPreventers;
 } sysQualifier_t;
@@ -482,7 +488,7 @@ InternalCreateAssertionWithTimeout(CFStringRef type, CFStringRef name, int timer
 __private_extern__ IOReturn InternalSetAssertionTimeout(IOPMAssertionID id, CFTimeInterval timeout);
 
 __private_extern__ void InternalEvaluateAssertions(void);
-
+__private_extern__ void InternalEvaluateProcTimerOnDisplayStateChange(bool displayIsOff);
 __private_extern__ void evalAllUserActivityAssertions(unsigned int dispSlpTimer);
 __private_extern__ void evalAllNetworkAccessAssertions(void);
 
@@ -503,6 +509,8 @@ __private_extern__ bool checkForActivesByType(kerAssertionType type);
 __private_extern__ bool checkForEntriesByType(kerAssertionType type);
 __private_extern__ bool checkForActivesByEffect(kerAssertionEffect effectIdx);
 __private_extern__ bool checkForAudioType(void);
+__private_extern__ bool checkForCameraType(void);
+__private_extern__ bool checkForUnrestrictedPerfType(void);
 __private_extern__ void disableAssertionType(kerAssertionType type);
 __private_extern__ void enableAssertionType(kerAssertionType type);
 __private_extern__ void applyToAssertionsSync(assertionType_t *assertType,

@@ -33,6 +33,7 @@
 @property (readonly, strong) NSArray* allEvents;
 @property (readonly, strong) NSArray* samples;
 @property (readwrite, strong) NSDate* uploadDate;
+@property (readwrite, strong) NSString* metricsAccountID;
 
 + (instancetype)storeWithPath:(NSString*)path schema:(NSString*)schema;
 

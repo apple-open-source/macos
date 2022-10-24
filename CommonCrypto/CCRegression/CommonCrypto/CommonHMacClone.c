@@ -231,8 +231,8 @@ int CommonHMacClone(int __unused argc, char *const * __unused argv)
 	unsigned			loop;
 	uint8_t				*ptext;
 	size_t				ptextLen;
-	bool				stagedOrig;
-	bool				stagedClone;
+	bool				stagedOrig = false;
+	bool				stagedClone = false;
 	const char			*algStr;
 	CCHmacAlgorithm		hmacAlg;	
 	HmacAlg					currAlg;		// ALG_xxx
@@ -242,7 +242,6 @@ int CommonHMacClone(int __unused argc, char *const * __unused argv)
 	/*
 	 * User-spec'd params
 	 */
-	bool		keySizeSpec = false;		// false: use rand key size
 	HmacAlg		minAlg = ALG_FIRST;
 	HmacAlg		maxAlg = ALG_LAST;
 	unsigned	loops = LOOPS_DEF;
@@ -292,9 +291,7 @@ int CommonHMacClone(int __unused argc, char *const * __unused argv)
 		for(loop=0; loop < loops; loop++) {
             byteBuffer bb =  genRandomByteBuffer(minPtextSize, maxPtextSize);
             ptextLen = bb->len; ptext = bb->bytes;
-			if(!keySizeSpec) {
-				keySizeInBytes = (uint32_t)genRandomSize(MIN_KEY_SIZE, MAX_KEY_SIZE);
-			}
+			keySizeInBytes = (uint32_t)genRandomSize(MIN_KEY_SIZE, MAX_KEY_SIZE);
 			
 			/* per-loop settings */
 			if(!stagedSpec) {

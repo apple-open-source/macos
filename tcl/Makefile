@@ -122,4 +122,3 @@ extract::
 	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 
 .PHONY: ext ext_puretcl install-plist
-.NOTPARALLEL:

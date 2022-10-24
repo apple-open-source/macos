@@ -117,6 +117,9 @@
 #include <vm/vm_pageout.h>
 #include <vm/vm_protos.h>
 #include <vm/vm_purgeable_internal.h>
+#if CONFIG_DEFERRED_RECLAIM
+#include <vm/vm_reclaim_internal.h>
+#endif /* CONFIG_DEFERRED_RECLAIM */
 #include <vm/vm_init.h>
 
 #include <san/kasan.h>
@@ -145,6 +148,13 @@ mach_vm_purgable_control(
 	mach_vm_offset_t        address,
 	vm_purgable_t           control,
 	int                     *state);
+
+kern_return_t
+mach_memory_entry_ownership(
+	ipc_port_t      entry_port,
+	task_t          owner,
+	int             ledger_tag,
+	int             ledger_flags);
 
 IPC_KOBJECT_DEFINE(IKOT_NAMED_ENTRY,
     .iko_op_stable     = true,
@@ -210,7 +220,7 @@ mach_vm_allocate_kernel(
 	/*
 	 * Allocate from data range
 	 */
-	vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(map, tag);
 
 	result = vm_map_enter(
 		map,
@@ -249,9 +259,7 @@ vm_allocate_external(
 	vm_size_t       size,
 	int             flags)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_map_offset_t map_addr;
 	vm_map_size_t   map_size;
 	kern_return_t   result;
@@ -285,6 +293,8 @@ vm_allocate_external(
 	if (map_size == 0) {
 		return KERN_INVALID_ARGUMENT;
 	}
+
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(map, tag);
 
 	result = vm_map_enter(
 		map,
@@ -335,7 +345,7 @@ mach_vm_deallocate(
 	           VM_MAP_PAGE_MASK(map)),
 	           vm_map_round_page(start + size,
 	           VM_MAP_PAGE_MASK(map)),
-	           VM_MAP_REMOVE_RETURN_ERRORS,
+	           VM_MAP_REMOVE_NO_FLAGS,
 	           KMEM_GUARD_NONE).kmr_return;
 }
 
@@ -364,7 +374,7 @@ vm_deallocate(
 	           VM_MAP_PAGE_MASK(map)),
 	           vm_map_round_page(start + size,
 	           VM_MAP_PAGE_MASK(map)),
-	           VM_MAP_REMOVE_RETURN_ERRORS,
+	           VM_MAP_REMOVE_NO_FLAGS,
 	           KMEM_GUARD_NONE).kmr_return;
 }
 
@@ -1010,12 +1020,11 @@ mach_vm_map_external(
 	vm_prot_t               max_protection,
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 
 	VM_GET_FLAGS_ALIAS(flags, tag);
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(target_map, tag);
 	return mach_vm_map_kernel(target_map, address, initial_size, mask,
 	           flags, vmk_flags, tag,
 	           port, offset, copy,
@@ -1052,7 +1061,7 @@ mach_vm_map_kernel(
 	/*
 	 * Allocate from data range
 	 */
-	vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(target_map, tag);
 
 	kr = vm_map_enter_mem_object(target_map,
 	    &vmmaddr,
@@ -1094,12 +1103,11 @@ vm_map_64_external(
 	vm_prot_t               max_protection,
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 
 	VM_GET_FLAGS_ALIAS(flags, tag);
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(target_map, tag);
 	return vm_map_64_kernel(target_map, address, size, mask,
 	           flags, vmk_flags,
 	           tag, port, offset, copy,
@@ -1155,12 +1163,11 @@ vm_map_external(
 	vm_prot_t               max_protection,
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 
 	VM_GET_FLAGS_ALIAS(flags, tag);
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(target_map, tag);
 	return vm_map_kernel(target_map, address, size, mask,
 	           flags, vmk_flags, tag,
 	           port, offset, copy,
@@ -1221,9 +1228,7 @@ mach_vm_remap_new_external(
 	vm_prot_t               *max_protection,   /* IN/OUT */
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 	vm_map_offset_t         map_addr;
 	kern_return_t           kr;
@@ -1266,6 +1271,8 @@ mach_vm_remap_new_external(
 	}
 
 	map_addr = (vm_map_offset_t)*address;
+	vmk_flags.vmkf_range_id = VM_MAP_REMAP_RANGE_ID(src_map,
+	    target_map, memory_address, size);
 
 	kr = vm_map_remap(target_map,
 	    &map_addr,
@@ -1333,9 +1340,7 @@ mach_vm_remap_kernel_helper(
 	vm_prot_t               *max_protection,   /* IN/OUT */
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t   vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_map_offset_t         map_addr;
 	kern_return_t           kr;
 
@@ -1349,6 +1354,9 @@ mach_vm_remap_kernel_helper(
 	}
 
 	map_addr = (vm_map_offset_t)*address;
+
+	vmk_flags.vmkf_range_id = VM_MAP_REMAP_RANGE_ID(src_map,
+	    target_map, memory_address, size);
 
 	kr = vm_map_remap(target_map,
 	    &map_addr,
@@ -1460,9 +1468,7 @@ vm_remap_new_external(
 	vm_prot_t               *max_protection,       /* IN/OUT */
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 	vm_map_offset_t         map_addr;
 	kern_return_t           kr;
@@ -1505,6 +1511,8 @@ vm_remap_new_external(
 	}
 
 	map_addr = (vm_map_offset_t)*address;
+	vmk_flags.vmkf_range_id = VM_MAP_REMAP_RANGE_ID(src_map,
+	    target_map, memory_address, size);
 
 	kr = vm_map_remap(target_map,
 	    &map_addr,
@@ -1576,9 +1584,7 @@ vm_remap_kernel(
 	vm_prot_t               *max_protection,    /* OUT */
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t   vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_map_offset_t         map_addr;
 	kern_return_t           kr;
 
@@ -1595,6 +1601,9 @@ vm_remap_kernel(
 
 	*cur_protection = VM_PROT_NONE;
 	*max_protection = VM_PROT_NONE;
+
+	vmk_flags.vmkf_range_id = VM_MAP_REMAP_RANGE_ID(src_map,
+	    target_map, memory_address, size);
 
 	kr = vm_map_remap(target_map,
 	    &map_addr,
@@ -2329,6 +2338,8 @@ vm_allocate_cpm(
 	vm_map_address_t        map_addr;
 	vm_map_size_t           map_size;
 	kern_return_t           kr;
+	vm_tag_t                tag;
+	vm_map_kernel_flags_t   vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 
 	if (vm_allocate_cpm_privileged && HOST_PRIV_NULL == host_priv) {
 		return KERN_INVALID_HOST;
@@ -2341,10 +2352,13 @@ vm_allocate_cpm(
 	map_addr = (vm_map_address_t)*addr;
 	map_size = (vm_map_size_t)size;
 
+	VM_GET_FLAGS_ALIAS(flags, tag);
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(map, tag);
 	kr = vm_map_enter_cpm(map,
 	    &map_addr,
 	    map_size,
-	    flags);
+	    flags,
+	    vmk_flags);
 
 	*addr = CAST_DOWN(vm_address_t, map_addr);
 	return kr;
@@ -2797,6 +2811,7 @@ mach_make_memory_entry_internal(
 	} else if (permission & MAP_MEM_NAMED_CREATE) {
 		int     ledger_flags = 0;
 		task_t  owner;
+		bool    fully_owned = false;
 
 		map_end = vm_map_round_page(offset + *size, VM_MAP_PAGE_MASK(target_map));
 		map_size = map_end - map_start;
@@ -2815,15 +2830,12 @@ mach_make_memory_entry_internal(
 		/*
 		 * Force the creation of the VM object now.
 		 */
-		if (map_size > (vm_map_size_t) ANON_MAX_SIZE) {
-			/*
-			 * LP64todo - for now, we can only allocate 4GB-4096
-			 * internal objects because the default pager can't
-			 * page bigger ones.  Remove this when it can.
-			 */
+#if __LP64__
+		if (map_size > ANON_MAX_SIZE) {
 			kr = KERN_FAILURE;
 			goto make_mem_done;
 		}
+#endif /* __LP64__ */
 
 		object = vm_object_allocate(map_size);
 		assert(object != VM_OBJECT_NULL);
@@ -2876,6 +2888,8 @@ mach_make_memory_entry_internal(
 				vm_object_lock(object);
 				vm_purgeable_nonvolatile_enqueue(object, owner);
 				vm_object_unlock(object);
+				/* all memory in this named entry is "owned" */
+				fully_owned = true;
 			}
 		}
 
@@ -2900,6 +2914,8 @@ mach_make_memory_entry_internal(
 				vm_object_deallocate(object);
 				goto make_mem_done;
 			}
+			/* all memory in this named entry is "owned" */
+			fully_owned = true;
 		}
 
 #if CONFIG_SECLUDED_MEMORY
@@ -2948,6 +2964,7 @@ mach_make_memory_entry_internal(
 		user_entry->protection = protections;
 		SET_MAP_MEM(access, user_entry->protection);
 		user_entry->size = map_size;
+		user_entry->is_fully_owned = fully_owned;
 
 		/* user_object pager and internal fields are not used */
 		/* when the object field is filled in.		      */
@@ -3003,6 +3020,21 @@ mach_make_memory_entry_internal(
 		user_entry->size = map_size;
 		user_entry->data_offset = offset_in_page;
 
+		/* is all memory in this named entry "owned"? */
+		vm_map_entry_t entry;
+		user_entry->is_fully_owned = TRUE;
+		for (entry = vm_map_copy_first_entry(copy);
+		    entry != vm_map_copy_to_entry(copy);
+		    entry = entry->vme_next) {
+			if (entry->is_sub_map ||
+			    VME_OBJECT(entry) == VM_OBJECT_NULL ||
+			    VM_OBJECT_OWNER(VME_OBJECT(entry)) == TASK_NULL) {
+				/* this memory is not "owned" */
+				user_entry->is_fully_owned = FALSE;
+				break;
+			}
+		}
+
 		*size = CAST_DOWN(vm_size_t, (user_entry->size -
 		    user_entry->data_offset));
 		DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry %p kr 0x%x\n", target_map, offset, *size, permission, user_entry, KERN_SUCCESS);
@@ -3039,7 +3071,7 @@ mach_make_memory_entry_internal(
 			if (protections & VM_PROT_WRITE) {
 				tmp_map = target_map;
 				vm_map_lock_read(tmp_map);
-				kr = vm_map_lookup_locked(&tmp_map,
+				kr = vm_map_lookup_and_lock_object(&tmp_map,
 				    map_start,
 				    protections | mask_protections,
 				    OBJECT_LOCK_EXCLUSIVE,
@@ -3195,7 +3227,7 @@ mach_make_memory_entry_internal(
 				/* release our new "copy" */
 				vm_map_copy_discard(copy);
 				/* get extra send right on handle */
-				parent_handle = ipc_port_copy_send(parent_handle);
+				parent_handle = ipc_port_copy_send_any(parent_handle);
 
 				*size = CAST_DOWN(vm_size_t,
 				    (parent_entry->size -
@@ -3228,13 +3260,32 @@ mach_make_memory_entry_internal(
 		user_entry->data_offset = offset_in_page;
 
 		if (permission & MAP_MEM_VM_SHARE) {
+			vm_map_entry_t copy_entry;
+
 			user_entry->is_copy = TRUE;
 			user_entry->offset = 0;
+
+			/* is all memory in this named entry "owned"? */
+			user_entry->is_fully_owned = TRUE;
+			for (copy_entry = vm_map_copy_first_entry(copy);
+			    copy_entry != vm_map_copy_to_entry(copy);
+			    copy_entry = copy_entry->vme_next) {
+				if (copy_entry->is_sub_map ||
+				    VM_OBJECT_OWNER(VME_OBJECT(copy_entry)) == TASK_NULL) {
+					/* this memory is not "owned" */
+					user_entry->is_fully_owned = FALSE;
+					break;
+				}
+			}
 		} else {
 			user_entry->is_object = TRUE;
 			user_entry->internal = object->internal;
 			user_entry->offset = VME_OFFSET(vm_map_copy_first_entry(copy));
 			SET_MAP_MEM(GET_MAP_MEM(permission), user_entry->protection);
+			/* is all memory in this named entry "owned"? */
+			if (VM_OBJECT_OWNER(vm_named_entry_to_vm_object(user_entry)) != TASK_NULL) {
+				user_entry->is_fully_owned = TRUE;
+			}
 		}
 
 		*size = CAST_DOWN(vm_size_t, (user_entry->size -
@@ -3509,6 +3560,10 @@ mach_memory_object_memory_entry_64(
 	    (user_entry->protection & VM_PROT_ALL));
 	user_entry->internal = object->internal;
 	assert(object->internal == internal);
+	if (VM_OBJECT_OWNER(object) != TASK_NULL) {
+		/* all memory in this entry is "owned" */
+		user_entry->is_fully_owned = TRUE;
+	}
 
 	*entry_handle = user_handle;
 	return KERN_SUCCESS;
@@ -3671,6 +3726,7 @@ extern int proc_selfpid(void);
 extern char *proc_name_address(void *p);
 #endif /* DEVELOPMENT || DEBUG */
 
+/* Kernel call only, MIG uses *_from_user() below */
 kern_return_t
 mach_memory_entry_ownership(
 	ipc_port_t      entry_port,
@@ -3689,7 +3745,7 @@ mach_memory_entry_ownership(
 
 	cur_task = current_task();
 	if (cur_task != kernel_task &&
-	    (owner != cur_task ||
+	    ((owner != cur_task && owner != TASK_NULL) ||
 	    (ledger_flags & VM_LEDGER_FLAG_NO_FOOTPRINT) ||
 	    (ledger_flags & VM_LEDGER_FLAG_NO_FOOTPRINT_FOR_DEBUG) ||
 	    ledger_tag == VM_LEDGER_TAG_NETWORK)) {
@@ -3724,7 +3780,7 @@ mach_memory_entry_ownership(
 					init_bootarg = true;
 				}
 				if (to_panic) {
-					panic("%s: panic_on_no_footprint_for_debug is triggered by pid %d procname %s", __func__, proc_selfpid(), cur_task->bsd_info? proc_name_address(cur_task->bsd_info) : "?");
+					panic("%s: panic_on_no_footprint_for_debug is triggered by pid %d procname %s", __func__, proc_selfpid(), get_bsdtask_info(cur_task)? proc_name_address(get_bsdtask_info(cur_task)) : "?");
 				}
 
 				/*
@@ -3751,9 +3807,15 @@ mach_memory_entry_ownership(
 	if (ledger_flags & ~VM_LEDGER_FLAGS) {
 		return KERN_INVALID_ARGUMENT;
 	}
-	if (ledger_tag <= 0 ||
+	if (ledger_tag == VM_LEDGER_TAG_UNCHANGED) {
+		/* leave "ledger_tag" unchanged */
+	} else if (ledger_tag < 0 ||
 	    ledger_tag > VM_LEDGER_TAG_MAX) {
 		return KERN_INVALID_ARGUMENT;
+	}
+	if (owner == TASK_NULL) {
+		/* leave "owner" unchanged */
+		owner = VM_OBJECT_OWNER_UNCHANGED;
 	}
 
 	mem_entry = mach_memory_entry_from_port(entry_port);
@@ -3764,36 +3826,113 @@ mach_memory_entry_ownership(
 	named_entry_lock(mem_entry);
 
 	if (mem_entry->is_sub_map ||
-	    mem_entry->is_copy) {
+	    !mem_entry->is_fully_owned) {
 		named_entry_unlock(mem_entry);
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	assert(mem_entry->is_object);
-	object = vm_named_entry_to_vm_object(mem_entry);
-	if (object == VM_OBJECT_NULL) {
+	if (mem_entry->is_object) {
+		object = vm_named_entry_to_vm_object(mem_entry);
+		if (object == VM_OBJECT_NULL) {
+			named_entry_unlock(mem_entry);
+			return KERN_INVALID_ARGUMENT;
+		}
+		vm_object_lock(object);
+		/* check that named entry covers entire object ? */
+		if (mem_entry->offset != 0 || object->vo_size != mem_entry->size) {
+			vm_object_unlock(object);
+			named_entry_unlock(mem_entry);
+			return KERN_INVALID_ARGUMENT;
+		}
 		named_entry_unlock(mem_entry);
-		return KERN_INVALID_ARGUMENT;
-	}
-
-	vm_object_lock(object);
-
-	/* check that named entry covers entire object ? */
-	if (mem_entry->offset != 0 || object->vo_size != mem_entry->size) {
+		kr = vm_object_ownership_change(object,
+		    ledger_tag,
+		    owner,
+		    ledger_flags,
+		    FALSE);                             /* task_objq_locked */
 		vm_object_unlock(object);
+	} else if (mem_entry->is_copy) {
+		vm_map_copy_t copy;
+		vm_map_entry_t entry;
+
+		copy = mem_entry->backing.copy;
+		named_entry_unlock(mem_entry);
+		for (entry = vm_map_copy_first_entry(copy);
+		    entry != vm_map_copy_to_entry(copy);
+		    entry = entry->vme_next) {
+			object = VME_OBJECT(entry);
+			if (entry->is_sub_map ||
+			    object == VM_OBJECT_NULL) {
+				kr = KERN_INVALID_ARGUMENT;
+				break;
+			}
+			vm_object_lock(object);
+			if (VME_OFFSET(entry) != 0 ||
+			    entry->vme_end - entry->vme_start != object->vo_size) {
+				vm_object_unlock(object);
+				kr = KERN_INVALID_ARGUMENT;
+				break;
+			}
+			kr = vm_object_ownership_change(object,
+			    ledger_tag,
+			    owner,
+			    ledger_flags,
+			    FALSE);                             /* task_objq_locked */
+			vm_object_unlock(object);
+			if (kr != KERN_SUCCESS) {
+				kr = KERN_INVALID_ARGUMENT;
+				break;
+			}
+		}
+	} else {
 		named_entry_unlock(mem_entry);
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	named_entry_unlock(mem_entry);
+	return kr;
+}
 
-	kr = vm_object_ownership_change(object,
-	    ledger_tag,
-	    owner,
-	    ledger_flags,
-	    FALSE);                             /* task_objq_locked */
-	vm_object_unlock(object);
+/* MIG call from userspace */
+kern_return_t
+mach_memory_entry_ownership_from_user(
+	ipc_port_t      entry_port,
+	mach_port_t     owner_port,
+	int             ledger_tag,
+	int             ledger_flags)
+{
+	task_t owner = TASK_NULL;
+	kern_return_t kr;
 
+	if (IP_VALID(owner_port)) {
+		if (ip_kotype(owner_port) == IKOT_TASK_ID_TOKEN) {
+			task_id_token_t token = convert_port_to_task_id_token(owner_port);
+			(void)task_identity_token_get_task_grp(token, &owner, TASK_GRP_MIG);
+			task_id_token_release(token);
+			/* token ref released */
+		} else {
+			owner = convert_port_to_task_mig(owner_port);
+		}
+	}
+	/* hold task ref on owner (Nullable) */
+
+	if (owner && task_is_a_corpse(owner)) {
+		/* identity token can represent a corpse, disallow it */
+		task_deallocate_mig(owner);
+		owner = TASK_NULL;
+	}
+
+	/* mach_memory_entry_ownership() will handle TASK_NULL owner */
+	kr = mach_memory_entry_ownership(entry_port, owner, /* Nullable */
+	    ledger_tag, ledger_flags);
+
+	if (owner) {
+		task_deallocate_mig(owner);
+	}
+
+	if (kr == KERN_SUCCESS) {
+		/* MIG rule, consume port right on success */
+		ipc_port_release_send(owner_port);
+	}
 	return kr;
 }
 
@@ -4381,6 +4520,50 @@ vm_map_get_phys_page(
 	return phys_page;
 }
 
+kern_return_t
+mach_vm_deferred_reclamation_buffer_init(
+	task_t task,
+	mach_vm_offset_t address,
+	mach_vm_size_t size,
+	mach_vm_address_t indices)
+{
+#if CONFIG_DEFERRED_RECLAIM
+	return vm_deferred_reclamation_buffer_init_internal(task, address, size, indices);
+#else
+	(void) task;
+	(void) address;
+	(void) size;
+	(void) indices;
+	return KERN_NOT_SUPPORTED;
+#endif /* CONFIG_DEFERRED_RECLAIM */
+}
+
+kern_return_t
+mach_vm_deferred_reclamation_buffer_synchronize(
+	task_t task,
+	mach_vm_size_t num_entries_to_reclaim)
+{
+#if CONFIG_DEFERRED_RECLAIM
+	return vm_deferred_reclamation_buffer_synchronize_internal(task, num_entries_to_reclaim);
+#else
+	(void) task;
+	(void) num_entries_to_reclaim;
+	return KERN_NOT_SUPPORTED;
+#endif /* CONFIG_DEFERRED_RECLAIM */
+}
+
+kern_return_t
+mach_vm_deferred_reclamation_buffer_update_reclaimable_bytes(task_t task, mach_vm_size_t reclaimable_bytes)
+{
+#if CONFIG_DEFERRED_RECLAIM
+	return vm_deferred_reclamation_buffer_update_reclaimable_bytes_internal(task, reclaimable_bytes);
+#else
+	(void) task;
+	(void) reclaimable_bytes;
+	return KERN_NOT_SUPPORTED;
+#endif /* CONFIG_DEFERRED_RECLAIM */
+}
+
 #if 0
 kern_return_t kernel_object_iopl_request(       /* forward */
 	vm_named_entry_t        named_entry,
@@ -4588,12 +4771,11 @@ vm_map(
 	vm_prot_t               max_protection,
 	vm_inherit_t            inheritance)
 {
-	vm_map_kernel_flags_t vmk_flags = {
-		.vmkf_range_id = KMEM_RANGE_ID_DATA,
-	};
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vm_tag_t tag;
 
 	VM_GET_FLAGS_ALIAS(flags, tag);
+	vmk_flags.vmkf_range_id = VM_MAP_RANGE_ID(target_map, tag);
 	return vm_map_kernel(target_map, address, size, mask,
 	           flags, vmk_flags, tag,
 	           port, offset, copy,

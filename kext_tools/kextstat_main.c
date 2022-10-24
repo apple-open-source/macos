@@ -36,10 +36,6 @@
 
 #include "kextstat_main.h"
 
-#if RC_ENABLE_PRODUCT_INFO_FILTER
-static void * product_info_filter_disable __attribute__((section("__INFO_FILTER,__disable"))) __attribute__((used));
-#endif /*  RC_ENABLE_PRODUCT_INFO_FILTER */
-
 // not a utility.[ch] customer yet
 static const char * progname = "(unknown)";
 

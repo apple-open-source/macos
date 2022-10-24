@@ -43,6 +43,10 @@ char *digestName(CCDigestAlgorithm digestSelector) {
         case  kCCDigestSHA256: return "SHA256";
         case  kCCDigestSHA384: return "SHA384";
         case  kCCDigestSHA512: return "SHA512";
+        case  kCCDigestSHA3_224: return "SHA3-224";
+        case  kCCDigestSHA3_256: return "SHA3-256";
+        case  kCCDigestSHA3_384: return "SHA3-384";
+        case  kCCDigestSHA3_512: return "SHA3-512";
     }
 }
 

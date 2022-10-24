@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,7 +33,7 @@ static char sccsid[] = "@(#)print.c	8.6 (Berkeley) 4/16/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/stty/print.c,v 1.18 2002/06/30 05:15:04 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -48,7 +44,9 @@ __RCSID("$FreeBSD: src/bin/stty/print.c,v 1.18 2002/06/30 05:15:04 obrien Exp $"
 #include "stty.h"
 #include "extern.h"
 
+#ifdef __APPLE__
 #include <sys/ioctl_compat.h>	/* XXX NTTYDISC is too well hidden */
+#endif
 
 static void  binit(const char *);
 static void  bput(const char *);
@@ -68,10 +66,10 @@ print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 	/* Line discipline. */
 	if (ldisc != TTYDISC) {
 		switch(ldisc) {
+#ifdef __APPLE__
 		case NTTYDISC:
 			cnt += printf("new tty disc; ");
 			break;
-#ifdef __APPLE__
 		case TABLDISC:	
 			cnt += printf("tablet disc; ");
 			break;
@@ -138,7 +136,9 @@ print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 	put("-ixoff", IXOFF, 0);
 	put("-ixany", IXANY, 1);
 	put("-imaxbel", IMAXBEL, 1);
+#ifdef __APPLE__
 	put("-iutf8", IUTF8, 0);
+#endif
 	put("-ignbrk", IGNBRK, 0);
 	put("-brkint", BRKINT, 1);
 	put("-inpck", INPCK, 0);
@@ -150,12 +150,21 @@ print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 	binit("oflags");
 	put("-opost", OPOST, 1);
 	put("-onlcr", ONLCR, 1);
-#ifndef __APPLE__
-	put("-ocrnl", OCRNL, 0);
-#endif
+#ifdef __APPLE__
 	put("-oxtabs", OXTABS, 1);
-	put("-onocr", OXTABS, 0);
-	put("-onlret", OXTABS, 0);
+#else
+	put("-ocrnl", OCRNL, 0);
+	switch(tmp&TABDLY) {
+	case TAB0:
+		bput("tab0");
+		break;
+	case TAB3:
+		bput("tab3");
+		break;
+	}
+#endif
+	put("-onocr", ONOCR, 0);
+	put("-onlret", ONLRET, 0);
 
 	/* control flags (hardware state) */
 	tmp = tp->c_cflag;
@@ -194,6 +203,14 @@ print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 	put("-dsrflow", CDSR_OFLOW, 0);
 	put("-dtrflow", CDTR_IFLOW, 0);
 	put("-mdmbuf", MDMBUF, 0);	/* XXX mdmbuf ==  dtrflow */
+#ifndef __APPLE__
+	if (on(CNO_RTSDTR))
+		bput("-rtsdtr");
+	else {
+		if (fmt >= BSD)
+			bput("rtsdtr");
+	}
+#endif
 
 	/* special control characters */
 	cc = tp->c_cc;

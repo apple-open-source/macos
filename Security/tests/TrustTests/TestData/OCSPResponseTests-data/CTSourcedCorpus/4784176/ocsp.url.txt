@@ -1,0 +1,1 @@
+http://ocsp2.wosign.cn/class1/server/ca2

@@ -28,24 +28,16 @@
 
 #import "ColorSpaceCG.h"
 #import "IOSurface.h"
+#import "Logging.h"
+#import "RealtimeVideoUtilities.h"
 #import <wtf/StdLibExtras.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import "CoreVideoSoftLink.h"
 
 namespace WebCore {
 
-Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createIOSurfaceCVPixelBufferPool(size_t width, size_t height, OSType format, unsigned minimumBufferCount)
+static Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createBufferPool(unsigned minimumBufferCount, NSDictionary *pixelAttributes)
 {
-    auto pixelAttributes = @{
-        (__bridge NSString *)kCVPixelBufferWidthKey : @(width),
-        (__bridge NSString *)kCVPixelBufferHeightKey : @(height),
-        (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey : @(format),
-        (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey : @NO,
-#if PLATFORM(MAC)
-        (__bridge NSString *)kCVPixelBufferOpenGLCompatibilityKey : @YES,
-#endif
-        (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ }
-    };
     NSDictionary *poolOptions = nullptr;
     if (minimumBufferCount) {
         poolOptions = @{
@@ -59,10 +51,48 @@ Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createIOSurfaceCVPixelBuffer
     return adoptCF(pool);
 }
 
-Expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixelBufferFromPool(CVPixelBufferPoolRef pixelBufferPool)
+Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createIOSurfaceCVPixelBufferPool(size_t width, size_t height, OSType format, unsigned minimumBufferCount, bool isCGImageCompatible)
+{
+    return createBufferPool(minimumBufferCount, @{
+        (__bridge NSString *)kCVPixelBufferWidthKey : @(width),
+        (__bridge NSString *)kCVPixelBufferHeightKey : @(height),
+        (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey : @(format),
+        (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey : isCGImageCompatible ? @YES : @NO,
+#if PLATFORM(MAC)
+        (__bridge NSString *)kCVPixelBufferOpenGLCompatibilityKey : @YES,
+#endif
+        (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ }
+    });
+}
+
+Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createInMemoryCVPixelBufferPool(size_t width, size_t height, OSType format, unsigned minimumBufferCount, bool isCGImageCompatible)
+{
+    return createBufferPool(minimumBufferCount, @{
+        (__bridge NSString *)kCVPixelBufferWidthKey : @(width),
+        (__bridge NSString *)kCVPixelBufferHeightKey : @(height),
+        (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey : @(format),
+        (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey : isCGImageCompatible ? @YES : @NO,
+#if PLATFORM(MAC)
+        (__bridge NSString *)kCVPixelBufferOpenGLCompatibilityKey : @YES,
+#endif
+    });
+}
+
+Expected<RetainPtr<CVPixelBufferPoolRef>, CVReturn> createCVPixelBufferPool(size_t width, size_t height, OSType format, unsigned minimumBufferCount, bool isCGImageCompatible, bool shouldUseIOSurfacePool)
+{
+    return shouldUseIOSurfacePool ? createIOSurfaceCVPixelBufferPool(width, height, format, minimumBufferCount, isCGImageCompatible) : createInMemoryCVPixelBufferPool(width, height, format, minimumBufferCount, isCGImageCompatible);
+}
+
+Expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixelBufferFromPool(CVPixelBufferPoolRef pixelBufferPool, unsigned maxBufferSize)
 {
     CVPixelBufferRef pixelBuffer = nullptr;
-    auto status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &pixelBuffer);
+    CVReturn status;
+    if (!maxBufferSize)
+        status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pixelBufferPool, &pixelBuffer);
+    else {
+        auto *auxiliaryAttributes = @{ (__bridge NSString *)kCVPixelBufferPoolAllocationThresholdKey : @(maxBufferSize) };
+        status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(kCFAllocatorDefault, pixelBufferPool, (__bridge CFDictionaryRef)auxiliaryAttributes, &pixelBuffer);
+    }
     if (status != kCVReturnSuccess || !pixelBuffer)
         return makeUnexpected(status);
     return adoptCF(pixelBuffer);
@@ -105,8 +135,10 @@ Expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixelBuffer(IOSurfaceRef
 {
     CVPixelBufferRef pixelBuffer = nullptr;
     auto status = CVPixelBufferCreateWithIOSurface(kCFAllocatorDefault, surface, pixelBufferCreationOptions(surface), &pixelBuffer);
-    if (status != kCVReturnSuccess || !pixelBuffer)
+    if (status != kCVReturnSuccess || !pixelBuffer) {
+        RELEASE_LOG_ERROR(WebRTC, "createCVPixelBuffer failed with IOSurface status=%d, pixelBuffer=%p", (int)status, pixelBuffer);
         return makeUnexpected(status);
+    }
     return adoptCF(pixelBuffer);
 }
 
@@ -138,6 +170,35 @@ void setOwnershipIdentityForCVPixelBuffer(CVPixelBufferRef pixelBuffer, const Pr
     auto surface = CVPixelBufferGetIOSurface(pixelBuffer);
     ASSERT(surface);
     IOSurface::setOwnershipIdentity(surface, owner);
+}
+
+RetainPtr<CVPixelBufferRef> createBlackPixelBuffer(size_t width, size_t height, bool shouldUseIOSurface)
+{
+    OSType format = preferedPixelBufferFormat();
+    ASSERT(format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange || format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange);
+
+    NSDictionary *pixelAttributes = @{ (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ } };
+
+    CVPixelBufferRef pixelBuffer = nullptr;
+    auto status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, format, shouldUseIOSurface ? (__bridge CFDictionaryRef)pixelAttributes : nullptr, &pixelBuffer);
+    ASSERT_UNUSED(status, status == noErr);
+
+    status = CVPixelBufferLockBaseAddress(pixelBuffer, 0);
+    ASSERT(status == noErr);
+
+    auto* yPlane = static_cast<uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0));
+    size_t yStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0);
+    for (unsigned i = 0; i < height; ++i)
+        memset(&yPlane[i * yStride], 0, width);
+
+    auto* uvPlane = static_cast<uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1));
+    size_t uvStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1);
+    for (unsigned i = 0; i < height / 2; ++i)
+        memset(&uvPlane[i * uvStride], 128, width);
+
+    status = CVPixelBufferUnlockBaseAddress(pixelBuffer, 0);
+    ASSERT(!status);
+    return adoptCF(pixelBuffer);
 }
 
 }

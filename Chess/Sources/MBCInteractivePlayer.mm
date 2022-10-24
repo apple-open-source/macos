@@ -515,7 +515,6 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 - (void) startSelection:(MBCSquare)square
 {
 	MBCPiece	piece;
-	
 	if (square > kInHandSquare) {
 		piece = square-kInHandSquare;
 		if (fVariant!=kVarCrazyhouse || ![[fController board] curInHand:piece])
@@ -528,14 +527,55 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 	if (!piece)
 		return;
 
-	if (Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {
-		fFromSquare	=  square;
-		[[fController gameView] selectPiece:piece at:square];
+    NSLog(@"MBCInteractivePlayer startSelection: %d , fLastSide=%d, %d, connected=%d", Color(piece), fLastSide==kBlackSide,(fLastSide==kBlackSide ? kWhitePiece : kBlackPiece), [[MBCSharePlayManager sharedInstance] connected]);
+    NSLog(@"%p and %p", [MBCSharePlayManager sharedInstance].boardWindowDelegate, fController);
+    //If we are connected to a shareplay session and we are interacting with the specific SharePlay attached Window
+    if ([[MBCSharePlayManager sharedInstance] connected] == YES && [MBCSharePlayManager sharedInstance].boardWindowDelegate == fController) {
+        if(Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {
+            NSLog(@"Sending Valid Move over Shareplay");
+            fFromSquare    =  square;
+            [[fController gameView] selectPiece:piece at:square];
+            StartSelectionMessage *message = [[StartSelectionMessage alloc] init];
+            message.square = (unsigned char)square;
+            [[MBCSharePlayManager sharedInstance] sendStartSelectionMessageWithMessage:message];
+        }
+    } else if (Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {    //This prevents the other side from being chosen
+        fFromSquare	=  square;
+        [[fController gameView] selectPiece:piece at:square];
 	}
+}
+
+- (void)startSelectionWithoutShare:(MBCSquare)square {
+    NSLog(@"MBCInteractivePlayer startSelectionWithoutShare");
+    MBCPiece    piece;
+    
+    if (square > kInHandSquare) {
+        piece = square-kInHandSquare;
+        if (fVariant!=kVarCrazyhouse || ![[fController board] curInHand:piece])
+            return;
+    } else if (square == kWhitePromoSquare || square == kBlackPromoSquare)
+        return;
+    else
+        piece = [[fController board] oldContents:square];
+
+    if (!piece)
+        return;
+
+    fFromSquare    =  square;
+    [[fController gameView] selectPiece:piece at:square];
 }
 
 - (void) endSelection:(MBCSquare)square animate:(BOOL)animate
 {
+    NSLog(@"MBCInteractivePlayer endSelection");
+    
+    if ([[MBCSharePlayManager sharedInstance] connected] == YES && [MBCSharePlayManager sharedInstance].boardWindowDelegate == fController) {
+        EndSelectionMessage * message = [[EndSelectionMessage alloc] init];
+        message.square = square;
+        message.animate = animate;
+        [[MBCSharePlayManager sharedInstance] sendEndSelectionMessageWithMessage:message];
+    }
+    
 	if (fFromSquare == square) {
 		[[fController gameView] clickPiece];
 
@@ -561,13 +601,49 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 	// Fill in promotion info
 	//
 	[[fController board] tryPromotion:move];
-
+    
 	[[NSNotificationCenter defaultCenter] 
 	 postNotificationName:
 	 (fLastSide==kBlackSide 
 	  ? MBCUncheckedWhiteMoveNotification
 	  : MBCUncheckedBlackMoveNotification)
 	 object:fDocument userInfo:(id)move];
+}
+
+- (void) endSelectionWithoutShare:(MBCSquare)square animate:(BOOL) animate {
+    NSLog(@"MBCInteractivePlayer endSelectionWithoutShare");
+    if (fFromSquare == square) {
+        [[fController gameView] clickPiece];
+
+        return;
+    } else if (square > kSyntheticSquare) {
+        [[fController gameView] unselectPiece];
+        
+        return;
+    }
+
+    MBCMove *    move = [MBCMove moveWithCommand:kCmdMove];
+
+    if (fFromSquare > kInHandSquare) {
+        move->fCommand = kCmdDrop;
+        move->fPiece   = fFromSquare-kInHandSquare;
+    } else {
+        move->fFromSquare    = fFromSquare;
+    }
+    move->fToSquare        = square;
+    move->fAnimate        = animate;
+
+    //
+    // Fill in promotion info
+    //
+    [[fController board] tryPromotion:move];
+
+    [[NSNotificationCenter defaultCenter]
+     postNotificationName:
+     (fLastSide==kBlackSide
+      ? MBCUncheckedWhiteMoveNotification
+      : MBCUncheckedBlackMoveNotification)
+     object:fDocument userInfo:(id)move];
 }
 
 - (void) recognized:(SRRecognitionResult)result
@@ -600,6 +676,13 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
     //
     fController = nil;
 }
+
+- (void) setLastSide:(MBCSide) side {
+    NSLog(@"set Interactive Last Side fLastSide=%@ newSide=%@, fSide=%d", fLastSide == kWhiteSide ? @"WhiteSide" : @"BlackSide", side == kWhiteSide ? @"WhiteSide" : @"BlackSide", fSide);
+    fLastSide = side;
+    
+}
+
 
 @end
 

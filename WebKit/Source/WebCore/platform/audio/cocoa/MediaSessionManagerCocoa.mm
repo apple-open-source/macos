@@ -92,6 +92,20 @@ bool MediaSessionManagerCocoa::mediaSourceInlinePaintingEnabled()
 }
 #endif
 
+#if HAVE(AVCONTENTKEYSPECIFIER)
+static bool s_sampleBufferContentKeySessionSupportEnabled = false;
+void MediaSessionManagerCocoa::setSampleBufferContentKeySessionSupportEnabled(bool enabled)
+{
+    s_sampleBufferContentKeySessionSupportEnabled = enabled;
+}
+
+bool MediaSessionManagerCocoa::sampleBufferContentKeySessionSupportEnabled()
+{
+    return s_sampleBufferContentKeySessionSupportEnabled;
+}
+#endif
+
+
 void MediaSessionManagerCocoa::updateSessionState()
 {
     constexpr auto delayBeforeSettingCategoryNone = 2_s;
@@ -295,7 +309,7 @@ void MediaSessionManagerCocoa::sessionWillEndPlayback(PlatformMediaSession& sess
     }
 }
 
-void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session)
+void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session, bool)
 {
     ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier());
     scheduleSessionStatusUpdate();
@@ -362,7 +376,7 @@ void MediaSessionManagerCocoa::setNowPlayingInfo(bool setAsNowPlayingApplication
         CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoDuration, cfDuration.get());
     }
 
-    double rate = nowPlayingInfo.isPlaying ? 1 : 0;
+    double rate = nowPlayingInfo.isPlaying ? nowPlayingInfo.rate : 0;
     auto cfRate = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &rate));
     CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoPlaybackRate, cfRate.get());
 
@@ -444,8 +458,8 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 
     if (m_nowPlayingManager->setNowPlayingInfo(*nowPlayingInfo)) {
 #ifdef LOG_DISABLED
-        String src = "src";
-        String title = "title";
+        String src = "src"_s;
+        String title = "title"_s;
 #else
         String src = nowPlayingInfo->artwork ? nowPlayingInfo->artwork->src : String();
         String title = nowPlayingInfo->title;

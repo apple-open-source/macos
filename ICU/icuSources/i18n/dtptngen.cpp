@@ -392,13 +392,19 @@ DateTimePatternGenerator::operator=(const DateTimePatternGenerator& other) {
     internalErrorCode = other.internalErrorCode;
     pLocale = other.pLocale;
     fDefaultHourFormatChar = other.fDefaultHourFormatChar;
+    for (int32_t i = 0; i < 7; i++) {
+        fAllowedHourFormats[i] = other.fAllowedHourFormats[i];
+    }
     *fp = *(other.fp);
     dtMatcher->copyFrom(other.dtMatcher->skeleton);
     *distanceInfo = *(other.distanceInfo);
-    dateTimeFormat = other.dateTimeFormat;
+    for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
+        dateTimeFormat[style] = other.dateTimeFormat[style];
+    }
     decimal = other.decimal;
-    // NUL-terminate for the C API.
-    dateTimeFormat.getTerminatedBuffer();
+    for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
+        dateTimeFormat[style].getTerminatedBuffer(); // NUL-terminate for the C API.
+    }
     decimal.getTerminatedBuffer();
     delete skipMatcher;
     if ( other.skipMatcher == nullptr ) {
@@ -432,7 +438,12 @@ DateTimePatternGenerator::operator==(const DateTimePatternGenerator& other) cons
         return true;
     }
     if ((pLocale==other.pLocale) && (patternMap->equals(*other.patternMap)) &&
-        (dateTimeFormat==other.dateTimeFormat) && (decimal==other.decimal)) {
+        (decimal==other.decimal)) {
+        for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
+            if (dateTimeFormat[style] != other.dateTimeFormat[style]) {
+                return false;
+            }
+        }
         for ( int32_t i=0 ; i<UDATPG_FIELD_COUNT; ++i ) {
             if (appendItemFormats[i] != other.appendItemFormats[i]) {
                 return false;
@@ -656,6 +667,17 @@ void DateTimePatternGenerator::getAllowedHourFormats(const Locale &locale, UErro
         language = "und";
         country = "001";
     }
+    
+    char regionOverride[8];
+    int32_t regionOverrideLength = locale.getKeywordValue("rg", regionOverride, sizeof(regionOverride), status);
+    if (U_SUCCESS(status) && regionOverrideLength > 0) {
+        country = regionOverride;
+        if (regionOverrideLength > 2) {
+            // chop off any subdivision codes that may have been included
+            regionOverride[2] = '\0';
+        }
+    }
+    
     Locale maxLocale;  // must be here for correct lifetime
     if (*language == '\0' || *country == '\0') {
         maxLocale = locale;
@@ -1224,7 +1246,21 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
     }
     resultPattern.remove();
     status = U_ZERO_ERROR;
-    dtFormat=getDateTimeFormat();
+    // determine which dateTimeFormat to use
+    PtnSkeleton* reqSkeleton = dtMatcher->getSkeletonPtr();
+    UDateFormatStyle style = UDAT_SHORT;
+    int32_t monthFieldLen = reqSkeleton->baseOriginal.getFieldLength(UDATPG_MONTH_FIELD);
+    if (monthFieldLen == 4) {
+        if (reqSkeleton->baseOriginal.getFieldLength(UDATPG_WEEKDAY_FIELD) > 0) {
+            style = UDAT_FULL;
+        } else {
+            style = UDAT_LONG;
+        }
+    } else if (monthFieldLen == 3) {
+        style = UDAT_MEDIUM;
+    }
+    // and now use it to compose date and time
+    dtFormat=getDateTimeFormat(style, status);
     SimpleFormatter(dtFormat, 2, 2, status).format(timePattern, datePattern, resultPattern, status);
     return resultPattern;
 }
@@ -1366,14 +1402,45 @@ DateTimePatternGenerator::addCanonicalItems(UErrorCode& status) {
 
 void
 DateTimePatternGenerator::setDateTimeFormat(const UnicodeString& dtFormat) {
-    dateTimeFormat = dtFormat;
-    // NUL-terminate for the C API.
-    dateTimeFormat.getTerminatedBuffer();
+    UErrorCode status = U_ZERO_ERROR;
+    for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
+        setDateTimeFormat((UDateFormatStyle)style, dtFormat, status);
+    }
 }
 
 const UnicodeString&
 DateTimePatternGenerator::getDateTimeFormat() const {
-    return dateTimeFormat;
+    UErrorCode status = U_ZERO_ERROR;
+    return getDateTimeFormat(UDAT_MEDIUM, status);
+}
+
+void
+DateTimePatternGenerator::setDateTimeFormat(UDateFormatStyle style, const UnicodeString& dtFormat, UErrorCode& status) {
+    if (U_FAILURE(status)) {
+        return;
+    }
+    if (style < UDAT_FULL || style > UDAT_SHORT) {
+        status = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+    dateTimeFormat[style] = dtFormat;
+    // Note for the following: getTerminatedBuffer() can re-allocate the UnicodeString
+    // buffer so we do this here before clients request a const ref to the UnicodeString
+    // or its buffer.
+    dateTimeFormat[style].getTerminatedBuffer(); // NUL-terminate for the C API.
+}
+
+const UnicodeString&
+DateTimePatternGenerator::getDateTimeFormat(UDateFormatStyle style, UErrorCode& status) const {
+    static const UnicodeString emptyString = UNICODE_STRING_SIMPLE("");
+    if (U_FAILURE(status)) {
+        return emptyString;
+    }
+    if (style < UDAT_FULL || style > UDAT_SHORT) {
+        status = U_ILLEGAL_ARGUMENT_ERROR;
+        return emptyString;
+    }
+    return dateTimeFormat[style];
 }
 
 void
@@ -1409,13 +1476,15 @@ DateTimePatternGenerator::setDateTimeFromCalendar(const Locale& locale, UErrorCo
     }
     if (U_FAILURE(status)) { return; }
 
-    if (ures_getSize(dateTimePatterns.getAlias()) <= DateFormat::kDateTime)
+    if (ures_getSize(dateTimePatterns.getAlias()) <= DateFormat::kDateTimeOffset + DateFormat::kShort)
     {
         status = U_INVALID_FORMAT_ERROR;
         return;
     }
-    resStr = ures_getStringByIndex(dateTimePatterns.getAlias(), (int32_t)DateFormat::kDateTime, &resStrLen, &status);
-    setDateTimeFormat(UnicodeString(TRUE, resStr, resStrLen));
+    for (int32_t style = UDAT_FULL; style <= UDAT_SHORT; style++) {
+        resStr = ures_getStringByIndex(dateTimePatterns.getAlias(), (int32_t)DateFormat::kDateTimeOffset + style, &resStrLen, &status);
+        setDateTimeFormat((UDateFormatStyle)style, UnicodeString(TRUE, resStr, resStrLen), status);
+    }
 }
 
 void
@@ -1695,15 +1764,27 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                         // 3. When hour-cycle is h24 it should replace 'k' by 'H'.
                         // 4. When hour-cycle is h12 it should replace 'K' by 'h'.
 
-                        if ((flags & kDTPGSkeletonUsesCapJ) != 0 || reqFieldChar == fDefaultHourFormatChar) {
-                            c = fDefaultHourFormatChar;
-                        } else if (reqFieldChar == LOW_H && fDefaultHourFormatChar == CAP_K) {
+                        UChar defaultHourFormatChar = defaultHourPeriodCharForHourCycle(options);
+                        if ((flags & kDTPGSkeletonUsesCapJ) != 0) {
+                            reqFieldChar = defaultHourFormatChar;
+                            if ((options & UADATPG_FORCE_12_HOUR_CYCLE) != 0) {
+                                reqFieldChar = LOW_H;
+                                c = reqFieldChar;
+                            }
+                            if ((options & UADATPG_FORCE_24_HOUR_CYCLE) != 0) {
+                                reqFieldChar = CAP_H;
+                                c = reqFieldChar;
+                            }
+                        }
+                        if (reqFieldChar == defaultHourFormatChar) {
+                            c = defaultHourFormatChar;
+                        } else if (reqFieldChar == LOW_H && defaultHourFormatChar == CAP_K) {
                             c = CAP_K;
-                        } else if (reqFieldChar == CAP_H && fDefaultHourFormatChar == LOW_K) {
+                        } else if (reqFieldChar == CAP_H && defaultHourFormatChar == LOW_K) {
                             c = LOW_K;
-                        } else if (reqFieldChar == LOW_K && fDefaultHourFormatChar == CAP_H) {
+                        } else if (reqFieldChar == LOW_K && defaultHourFormatChar == CAP_H) {
                             c = CAP_H;
-                        } else if (reqFieldChar == CAP_K && fDefaultHourFormatChar == LOW_H) {
+                        } else if (reqFieldChar == CAP_K && defaultHourFormatChar == LOW_H) {
                             c = LOW_H;
                         }
                     }
@@ -1717,6 +1798,59 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
         }
     }
     return newPattern;
+}
+
+UChar
+DateTimePatternGenerator::defaultHourPeriodCharForHourCycle(UDateTimePatternMatchOptions options) {
+    // Figure out the default hour-field character for the specified options.  If the options don't include
+    // UADATPG_FORCE_24_HOUR_CYCLE or UADATPG_FORCE_12_HOUR_CYCLE, or if the hour cycle the options are
+    // forcing is the default one for the locale, just return the locale's default hour field character.
+    bool force24 = (options & UADATPG_FORCE_24_HOUR_CYCLE) != 0;
+    bool force12 = (options & UADATPG_FORCE_12_HOUR_CYCLE) != 0;
+    
+    if (force24 && (fDefaultHourFormatChar == CAP_H || fDefaultHourFormatChar == LOW_K)) {
+        return fDefaultHourFormatChar;
+    }
+    if (force12 && (fDefaultHourFormatChar == LOW_H || fDefaultHourFormatChar == CAP_K)) {
+        return fDefaultHourFormatChar;
+    }
+    
+    // If we're forcing a DIFFERENT hour cycle than the default for the locale, iterate through
+    // fAllowedHourFormats and return the first hour field character in that list that matches
+    // the requested hour cycle.
+    if (force12 || force24) {
+        for (int32_t i = 0; i < 7 && fAllowedHourFormats[i] != ALLOWED_HOUR_FORMAT_UNKNOWN; ++i) {
+            switch (fAllowedHourFormats[i]) {
+                case ALLOWED_HOUR_FORMAT_h:
+                case ALLOWED_HOUR_FORMAT_hb:
+                case ALLOWED_HOUR_FORMAT_hB:
+                    if (force12) {
+                        return LOW_H;
+                    }
+                    break;
+                case ALLOWED_HOUR_FORMAT_H:
+                case ALLOWED_HOUR_FORMAT_Hb:
+                case ALLOWED_HOUR_FORMAT_HB:
+                    if (force24) {
+                        return CAP_H;
+                    }
+                    break;
+                case ALLOWED_HOUR_FORMAT_K:
+                case ALLOWED_HOUR_FORMAT_Kb:
+                case ALLOWED_HOUR_FORMAT_KB:
+                    if (force12) {
+                        return CAP_K;
+                    }
+                    break;
+                case ALLOWED_HOUR_FORMAT_k:
+                    if (force24) {
+                        return LOW_K;
+                    }
+                    break;
+            }
+        }
+    }
+    return fDefaultHourFormatChar;
 }
 
 UnicodeString

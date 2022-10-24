@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,20 +29,19 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
-#include <sys/cdefs.h>
-__unused static const char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)uuencode.c	8.2 (Berkeley) 4/2/94";
-#endif
-__unused static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/uuencode/uuencode.c,v 1.4.2.4 2002/06/17 05:01:46 jmallett Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 /*
  * uuencode [input] output
@@ -52,49 +49,56 @@ __unused static const char rcsid[] =
  * Encode a file so it can be mailed to a remote system.
  */
 #include <sys/param.h>
+#ifdef __APPLE__
+#define nitems(x)	(sizeof((x)) / sizeof((x)[0]))
+#endif
 #include <sys/socket.h>
 #include <sys/stat.h>
 
 #include <netinet/in.h>
 
 #include <err.h>
-#include <arpa/nameser.h>
+#include <libgen.h>
 #include <resolv.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-int             b64_ntop __P((u_char const *, size_t, char *, size_t));
-int             b64_pton __P((char const *, u_char *, size_t));
-void encode(void);
-void base64_encode(void);
+static void encode(void);
+static void base64_encode(void);
 static void usage(void);
 
-FILE *output;
-int mode;
-char **av;
+static FILE *output;
+static int mode;
+static bool raw;
+static char **av;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	struct stat sb;
-	int base64;
-	char ch;
-	char *outfile;
+	bool base64;
+	int ch;
+	const char *outfile;
 
-	base64 = 0;
+	base64 = false;
 	outfile = NULL;
 
-	while ((ch = getopt(argc, argv, "mo:")) != -1) {
+	if (strcmp(basename(argv[0]), "b64encode") == 0)
+		base64 = 1;
+
+	while ((ch = getopt(argc, argv, "mo:r")) != -1) {
 		switch (ch) {
 		case 'm':
-			base64 = 1;
+			base64 = true;
 			break;
 		case 'o':
 			outfile = optarg;
+			break;
+		case 'r':
+			raw = true;
 			break;
 		case '?':
 		default:
@@ -104,7 +108,7 @@ main(argc, argv)
 	argv += optind;
 	argc -= optind;
 
-	switch(argc) {
+	switch (argc) {
 	case 2:			/* optional first argument is input file */
 		if (!freopen(*argv, "r", stdin) || fstat(fileno(stdin), &sb))
 			err(1, "%s", *argv);
@@ -135,6 +139,13 @@ main(argc, argv)
 		encode();
 	if (ferror(output))
 		errx(1, "write error");
+#ifdef __APPLE__
+	/*
+	 * rdar://problem/89052523 - don't ignore errors when flushing stdout.
+	 */
+	if (fflush(output) != 0)
+		err(1, "flush output");
+#endif
 	exit(0);
 }
 
@@ -144,8 +155,8 @@ main(argc, argv)
 /*
  * Copy from in to out, encoding in base64 as you go along.
  */
-void
-base64_encode()
+static void
+base64_encode(void)
 {
 	/*
 	 * Output must fit into 80 columns, chunks come in 4, leave 1.
@@ -158,30 +169,33 @@ base64_encode()
 
 	sequence = 0;
 
-	fprintf(output, "begin-base64 %o %s\n", mode, *av);
+	if (!raw)
+		fprintf(output, "begin-base64 %o %s\n", mode, *av);
 	while ((n = fread(buf, 1, sizeof(buf), stdin))) {
 		++sequence;
-		rv = b64_ntop(buf, n, buf2, (sizeof(buf2) / sizeof(buf2[0])));
+		rv = b64_ntop(buf, n, buf2, nitems(buf2));
 		if (rv == -1)
 			errx(1, "b64_ntop: error encoding base64");
 		fprintf(output, "%s%s", buf2, (sequence % GROUPS) ? "" : "\n");
 	}
 	if (sequence % GROUPS)
 		fprintf(output, "\n");
-	fprintf(output, "====\n");
+	if (!raw)
+		fprintf(output, "====\n");
 }
 
 /*
  * Copy from in to out, encoding as you go along.
  */
-void
-encode()
+static void
+encode(void)
 {
-	register int ch, n;
-	register char *p;
+	int ch, n;
+	char *p;
 	char buf[80];
 
-	(void)fprintf(output, "begin %o %s\n", mode, *av);
+	if (!raw)
+		(void)fprintf(output, "begin %o %s\n", mode, *av);
 	while ((n = fread(buf, 1, 45, stdin))) {
 		ch = ENC(n);
 		if (fputc(ch, output) == EOF)
@@ -215,12 +229,18 @@ encode()
 	}
 	if (ferror(stdin))
 		errx(1, "read error");
-	(void)fprintf(output, "%c\nend\n", ENC('\0'));
+	if (!raw)
+		(void)fprintf(output, "%c\nend\n", ENC('\0'));
 }
 
 static void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr,"usage: uuencode [-m] [-o outfile] [infile] remotefile\n");
+	(void)fprintf(stderr,
+"usage: uuencode [-m] [-o outfile] [infile] remotefile\n"
+#ifndef __APPLE__
+"       b64encode [-o outfile] [infile] remotefile\n"
+#endif
+	    );
 	exit(1);
 }

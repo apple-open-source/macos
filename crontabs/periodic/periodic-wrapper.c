@@ -17,7 +17,10 @@ main(int argc, char *argv[])
 	char activity_name[32];
 	static dispatch_source_t sigterm_source;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 	xpc_track_activity();
+#pragma clang diagnostic pop
 
 	is_managed = 0;
 	(void)vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_managed);
@@ -53,7 +56,10 @@ main(int argc, char *argv[])
 			int status;
 			bool success = false;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 			asl_log(NULL, NULL, ASL_LEVEL_NOTICE, "Running %s periodic task.", argv[1]);
+#pragma clang diagnostic pop
 
 			const char *args[] = { "periodic", argv[1], NULL };
 			if (posix_spawn(&pid, "/usr/sbin/periodic", NULL, NULL, (char * const *)args, environ) == 0) {
@@ -63,7 +69,10 @@ main(int argc, char *argv[])
 			}
 
 			if (!success) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 				asl_log(NULL, NULL, ASL_LEVEL_NOTICE, "Error running %s periodic task.", argv[1]);
+#pragma clang diagnostic pop
 			}
 		}
 	});

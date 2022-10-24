@@ -28,10 +28,15 @@
 
 #if USE(PASSKIT) && ENABLE(APPLE_PAY)
 
+#import "PaymentAuthorizationPresenter.h"
 #import <WebCore/ApplePayShippingMethod.h>
 #import <WebCore/Payment.h>
 #import <WebCore/PaymentMethod.h>
 #import <WebCore/PaymentSessionError.h>
+#import <wtf/RunLoop.h>
+#import <wtf/URL.h>
+
+#import <pal/cocoa/PassKitSoftLink.h>
 
 @implementation WKPaymentAuthorizationDelegate {
     RetainPtr<NSArray<PKPaymentSummaryItem *>> _summaryItems;
@@ -83,6 +88,18 @@
     auto result = adoptNS([PAL::allocPKPaymentAuthorizationResultInstance() initWithStatus:status errors:errors]);
     std::exchange(_didAuthorizePaymentCompletion, nil)(result.get());
 }
+
+#if HAVE(PASSKIT_PAYMENT_ORDER_DETAILS)
+
+- (void)completePaymentSession:(PKPaymentAuthorizationStatus)status errors:(NSArray<NSError *> *)errors orderDetails:(PKPaymentOrderDetails *)orderDetails
+{
+    auto result = adoptNS([PAL::allocPKPaymentAuthorizationResultInstance() initWithStatus:status errors:errors]);
+    [result setOrderDetails:orderDetails];
+    std::exchange(_didAuthorizePaymentCompletion, nil)(result.get());
+}
+
+#endif // HAVE(PASSKIT_PAYMENT_ORDER_DETAILS)
+
 - (void)completeShippingContactSelection:(PKPaymentRequestShippingContactUpdate *)shippingContactUpdate
 {
     RetainPtr update = shippingContactUpdate;
@@ -327,7 +344,7 @@ static WebCore::ApplePayShippingMethod toShippingMethod(PKShippingMethod *shippi
 
 - (void)_willFinishWithError:(NSError *)error
 {
-    if (![error.domain isEqualToString:PAL::get_PassKit_PKPassKitErrorDomain()])
+    if (![error.domain isEqualToString:PKPassKitErrorDomain])
         return;
 
     _sessionError = error;

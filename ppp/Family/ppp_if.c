@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2018, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -305,6 +305,8 @@ int ppp_if_detach(ifnet_t ifp)
     struct ppp_link	*link;
     mbuf_t			m;
 
+	TAILQ_REMOVE(&ppp_if_head, wan, next);
+
     // need to remove all ref to ifnet in link structures
     TAILQ_FOREACH(link, &wan->link_head, lk_bdl_next) {
         // do we need a free function ?
@@ -331,6 +333,7 @@ int ppp_if_detach(ifnet_t ifp)
 	if (ret) {
 		wan->state &= ~PPP_IF_STATE_DETACHING;
 		lck_mtx_lock(ppp_domain_mutex);
+		TAILQ_INSERT_HEAD(&ppp_if_head, wan, next);
 		return KERN_FAILURE;
 	}
 	
@@ -351,7 +354,7 @@ int ppp_if_detach(ifnet_t ifp)
 	lck_mtx_unlock(ppp_domain_mutex);
     ifnet_release(ifp);
 	lck_mtx_lock(ppp_domain_mutex);
-    TAILQ_REMOVE(&ppp_if_head, wan, next);
+
 	lck_mtx_free(wan->mtx, ppp_if_lck_grp);
     kfree_type(struct ppp_if, wan);
 
@@ -368,6 +371,10 @@ int ppp_if_attachclient(u_short unit, void *host, ifnet_t *ifp)
     if (!wan)
         return ENODEV;
 
+	if (wan->nbclients == UINT8_MAX) {
+		return EBUSY;
+	}
+
     *ifp = wan->net;
     if (!wan->host)    // don't override the first attachment (use a list ?)
         wan->host = host;
@@ -382,12 +389,12 @@ void ppp_if_detachclient(ifnet_t ifp, void *host)
 {
     struct ppp_if  	*wan = ifnet_softc(ifp);
 
-    if (wan->host) {
-        if (wan->host == host)
-            wan->host = 0;
-        wan->nbclients--;
-        if (!wan->nbclients)
-            ppp_if_detach(ifp);
+    if (wan->host != NULL && wan->host == host) {
+        wan->host = 0;
+    }
+    wan->nbclients--;
+    if (!wan->nbclients) {
+        ppp_if_detach(ifp);
     }
 }
 
@@ -403,6 +410,22 @@ struct ppp_if *ppp_if_findunit(u_short unit)
             return wan; 
     }
     return NULL;
+}
+
+/* -----------------------------------------------------------------------------
+ find the interface with the given host object
+ -----------------------------------------------------------------------------*/
+bool
+ppp_if_host_has_unit(void *host)
+{
+	struct ppp_if  	*wan;
+
+	TAILQ_FOREACH(wan, &ppp_if_head, next) {
+		if (wan->host == host) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /* -----------------------------------------------------------------------------
@@ -827,13 +850,18 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 
         case PPPIOCSMAXCID:
             LOGDBG(ifp, ("ppp_if_control: PPPIOCSMAXCID\n"));
+			int max_states = *(int *)data;
+			if (max_states < -1 || max_states >= MAX_STATES) {
+				error = EINVAL;
+				break;
+			}
             // allocate the vj structure first
             if (!wan->vjcomp) {
                 wan->vjcomp = kalloc_type(struct slcompress, Z_WAITOK | Z_NOFAIL);
                 sl_compress_init(wan->vjcomp, -1);
             }
             // reeinit the compressor
-            sl_compress_init(wan->vjcomp, *(int *)data);
+            sl_compress_init(wan->vjcomp, max_states);
             break;
 
 	case PPPIOCSNPMODE:

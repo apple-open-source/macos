@@ -55,7 +55,10 @@
     __block NSError* error = nil;
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         for (CKRecord* record in records) {
-            CKKSMirrorEntry* mirrorEntry = [CKKSMirrorEntry tryFromDatabase:record.recordID.recordName zoneID:weakSelf.keychainZoneID error:&error];
+            CKKSMirrorEntry* mirrorEntry = [CKKSMirrorEntry tryFromDatabase:record.recordID.recordName
+                                                                  contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                     zoneID:weakSelf.keychainZoneID
+                                                                      error:&error];
             XCTAssertNil(error, @"error encountered trying to generate CKKSMirrorEntry: %@", error);
             XCTAssertNotNil(mirrorEntry, @"failed to generate mirror entry");
             if (mirrorEntry) {
@@ -197,7 +200,12 @@
     NSError* error = nil;
     CKKSItem* item = [[self mirrorItemsForExistingItems] firstObject];
     [_egoManifest setCurrentItemUUID:item.uuid forIdentifier:@"testCurrentItemIdentifier"];
-    CKKSCurrentItemPointer* currentItemPointer = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"testCurrentItemIdentifier" currentItemUUID:item.uuid state:SecCKKSProcessedStateLocal zoneID:self.keychainZoneID encodedCKRecord:nil];
+    CKKSCurrentItemPointer* currentItemPointer = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"testCurrentItemIdentifier"
+                                                                                         contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                   currentItemUUID:item.uuid
+                                                                                             state:SecCKKSProcessedStateLocal
+                                                                                            zoneID:self.keychainZoneID
+                                                                                   encodedCKRecord:nil];
     XCTAssertTrue([_egoManifest validateCurrentItem:currentItemPointer withError:&error], @"failed to validate current item against manifest");
     XCTAssertNil(error, @"error encountered validating current item: %@", error);
 }
@@ -206,7 +214,12 @@
 {
     NSError* error = nil;
     CKKSItem* item = [[self mirrorItemsForExistingItems] firstObject];
-    CKKSCurrentItemPointer* currentItemPointer = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"testCurrentItemIdentifier" currentItemUUID:item.uuid state:SecCKKSProcessedStateLocal zoneID:self.keychainZoneID encodedCKRecord:nil];
+    CKKSCurrentItemPointer* currentItemPointer = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"testCurrentItemIdentifier"
+                                                                                         contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                   currentItemUUID:item.uuid
+                                                                                             state:SecCKKSProcessedStateLocal
+                                                                                            zoneID:self.keychainZoneID
+                                                                                   encodedCKRecord:nil];
     XCTAssertFalse([_egoManifest validateCurrentItem:currentItemPointer withError:&error], @"erroneously validated an uunknown current item against the manifest");
     XCTAssertNotNil(error, @"failed to generate error when trying to validate an unknown item against the manifest %@", error);
 }
@@ -280,7 +293,7 @@
         [self.keychainZone addToZone:record];
     }
     
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     
     return query;
@@ -306,7 +319,10 @@
     XCTAssertNil(error, @"error encountered fetching expected manifest from database: %@", error);
     XCTAssertNotNil(fetchedManifest, @"failed to fetch manifest expected in database");
     
-    CKKSMirrorEntry* fetchedEntry = [CKKSMirrorEntry tryFromDatabase:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" zoneID:self.keychainZoneID error:&error];
+    CKKSMirrorEntry* fetchedEntry = [CKKSMirrorEntry tryFromDatabase:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"
+                                                           contextID:self.defaultCKKS.operationDependencies.contextID
+                                                              zoneID:self.keychainZoneID
+                                                               error:&error];
     XCTAssertNil(error, @"error encountered fetching expected item from database: %@", error);
     XCTAssertNotNil(fetchedEntry, @"failed to fetch item expected in database");
     

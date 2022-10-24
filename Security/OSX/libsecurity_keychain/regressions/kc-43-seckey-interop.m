@@ -48,7 +48,7 @@ static inline bool CFEqualSafe(CFTypeRef left, CFTypeRef right)
 #endif
 
 static const int kTestGenerateNoLegacyCount = 11;
-static void test_generate_nolegacy() {
+static void test_generate_nolegacy(void) {
     NSDictionary *query, *params = @{
         (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
         (id)kSecAttrKeySizeInBits: @1024,
@@ -118,7 +118,7 @@ static void test_generate_nolegacy() {
 }
 
 static const int kTestGenerateAccessControlCount = 4;
-static void test_generate_access_control() {
+static void test_generate_access_control(void) {
     SecAccessControlRef ac = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlways,
                                                              0 /* | kSecAccessControlPrivateKeyUsage */, NULL);
     NSDictionary *params = @{
@@ -150,7 +150,7 @@ static void test_generate_access_control() {
 }
 
 static const int kTestAddIOSKeyCount = 6;
-static void test_add_ios_key() {
+static void test_add_ios_key(void) {
     NSDictionary *params = @{
         (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
         (id)kSecAttrKeySizeInBits: @1024,
@@ -237,7 +237,7 @@ fBWMfjRu4iw9E0MbPB3blmtzfv53BtWKy0LUOlN4juvpqryA7TgaUlZkfMT+T1TC7xU=\
 ";
 
 static const int kTestStoreCertToIOS = 5;
-static void test_store_cert_to_ios() {
+static void test_store_cert_to_ios(void) {
     // Create certificate instance.
     NSData *certData = [[NSData alloc] initWithBase64EncodedString:[NSString stringWithUTF8String:certDataBase64]
                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
@@ -277,7 +277,7 @@ static void test_store_cert_to_ios() {
 }
 
 static const int kTestStoreIdentityToIOS = 6;
-static void test_store_identity_to_ios() {
+static void test_store_identity_to_ios(void) {
     // Create certificate instance.
     NSData *certData = [[NSData alloc] initWithBase64EncodedString:[NSString stringWithUTF8String:certDataBase64]
                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
@@ -324,7 +324,7 @@ static void test_store_identity_to_ios() {
 }
 
 static const int kTestTransformWithIOSKey = 9;
-static void test_transform_with_ioskey() {
+static void test_transform_with_ioskey(void) {
     // Create private key instance.
     NSData *keyData = [[NSData alloc] initWithBase64EncodedString:[NSString stringWithUTF8String:keyDataBase64]
                                                           options:NSDataBase64DecodingIgnoreUnknownCharacters];
@@ -335,33 +335,21 @@ static void test_transform_with_ioskey() {
 
     // Create signature transform with private key
     NSData *testData = [NSData dataWithBytes:"test" length:4];
-    SecTransformRef signer = SecSignTransformCreate(privateKey, NULL);
-    ok(signer != NULL, "create signing transform");
-    ok(SecTransformSetAttribute(signer, kSecTransformInputAttributeName, (CFDataRef)testData, NULL),
-       "set input data to verify transform");
-    NSData *signature = (__bridge_transfer NSData *)SecTransformExecute(signer, NULL);
-    ok(signature != nil, "create signature with transform");
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature(privateKey, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, (__bridge CFDataRef)testData, NULL));
+    ok(signature != nil, "created signature");
 
     // Create verify transform with public key.
     SecKeyRef publicKey = SecKeyCopyPublicKey(privateKey);
     ok(publicKey != NULL, "get public key from private key");
-    SecTransformRef verifier = SecVerifyTransformCreate(publicKey, (CFDataRef)signature, NULL);
-    ok(verifier, "create verification transform");
-    ok(SecTransformSetAttribute(verifier, kSecTransformInputAttributeName, (CFDataRef)testData, NULL),
-       "set input data to verify transform");
+    Boolean result = SecKeyVerifySignature(publicKey, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, (__bridge CFDataRef)testData, (__bridge CFDataRef)signature, NULL);
+    ok(result, "verified signature");
 
-    NSNumber *result = (__bridge_transfer NSNumber *)SecTransformExecute(verifier, NULL);
-    ok(result != nil, "transform execution succeeded");
-    ok(result.boolValue, "transform verified signature");
-
-    CFReleaseNull(signer);
-    CFReleaseNull(verifier);
     CFReleaseNull(publicKey);
     CFReleaseNull(privateKey);
 }
 
 static const int kTestConvertKeyToPersistentRef = 11;
-static void test_convert_key_to_persistent_ref() {
+static void test_convert_key_to_persistent_ref(void) {
     NSString *label = @"sectests:convert-key-to-persistent-ref";
 
     // Create
@@ -433,7 +421,7 @@ static void test_convert_key_to_persistent_ref() {
 }
 
 static const int kTestConvertCertToPersistentRef = 11;
-static void test_convert_cert_to_persistent_ref() {
+static void test_convert_cert_to_persistent_ref(void) {
     NSString *label = @"sectests:convert-cert-to-persistent-ref";
 
     // Create
@@ -500,7 +488,7 @@ static void test_convert_cert_to_persistent_ref() {
 }
 
 static const int kTestConvertIdentityToPersistentRef = 12;
-static void test_convert_identity_to_persistent_ref() {
+static void test_convert_identity_to_persistent_ref(void) {
     NSString *label = @"sectests:convert-identity-to-persistent-ref";
 
     // Create
@@ -602,7 +590,7 @@ static void test_cssm_from_ios_key_single(CFTypeRef keyType, int keySize) {
 }
 static const int kTestCSSMFromIOSKeySingleCount = 5;
 
-static void test_cssm_from_ios_key() {
+static void test_cssm_from_ios_key(void) {
     test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 256);
     test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 384);
     test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 521);

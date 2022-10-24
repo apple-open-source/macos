@@ -54,6 +54,7 @@ public:
 
 	cpu_type_t cpuType() const { return this->first; }
 	cpu_subtype_t cpuSubtype() const { return this->second & ~CPU_SUBTYPE_MASK; }
+	cpu_subtype_t cpuSubtypeFull() const { return this->second; }
 	const char *name() const;			// NULL if unknown
 	std::string displayName() const;	// always display-able
 	
@@ -152,7 +153,7 @@ public:
 
 	void seek(size_t offset);	// relative to start of image
 	CFDataRef dataAt(size_t offset, size_t size);
-	void validateStructure();	// is the structure of the mach-o sane
+	void validateStructure();	// is the structure of the mach-o valid
 
 	bool isSuspicious() const { return mSuspicious; }
 

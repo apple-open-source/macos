@@ -1,0 +1,27 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>diff</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-03-10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/diff?id=93b7af1d854db2a92dc9fcca70e068a159385f4d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-03-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>diffreg.c: Add missing include files (82062267)</string>
+			<string>diffreg.c: Remove capsicum support (82062267)</string>
+			<string>diffreg.c: Spell st_mtim as st_mtimespec (82062267)</string>
+			<string>pr.c: Replace procdesc with plain fork (82062267)</string>
+			<string>xmalloc.c: Provide reallocarray implementation (82062267)</string>
+			<string>diff.c, diff.h, diffreg.c: POSIX conformant diff_context (87479991)</string>
+			<string>diff.c: Don't ignore errors flushing stdout (87481026)</string>
+			<string>diff.c, diff.h, diffdir.c, diffreg.c: POSIX conformance for type mismatches in directory comparisons (87480531)</string>
+			<string>diff.1, diff.c, diff.h, diffreg.c: POSIX conformant unified diff timestamps (92753335)</string>
+			<string>diffreg.c: clistlen can overflow (93984430)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>patch_cmds.txt</string>
+	</dict>

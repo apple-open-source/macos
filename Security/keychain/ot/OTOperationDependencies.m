@@ -4,11 +4,14 @@
 @implementation OTOperationDependencies
 - (instancetype)initForContainer:(NSString*)containerName
                        contextID:(NSString*)contextID
+                   activeAccount:(TPSpecificUser* _Nullable)activeAccount
                      stateHolder:(OTCuttlefishAccountStateHolder*)stateHolder
                      flagHandler:(id<OctagonStateFlagHandler>)flagHandler
                       sosAdapter:(id<OTSOSAdapter>)sosAdapter
                   octagonAdapter:(id<CKKSPeerProvider> _Nullable)octagonAdapter
+                 accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+                  personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
                  ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
@@ -19,11 +22,14 @@
     if((self = [super init])) {
         _containerName = containerName;
         _contextID = contextID;
+        _activeAccount = activeAccount;
         _stateHolder = stateHolder;
         _flagHandler = flagHandler;
         _sosAdapter = sosAdapter;
         _octagonAdapter = octagonAdapter;
+        _accountsAdapter = accountsAdapter;
         _authKitAdapter = authKitAdapter;
+        _personaAdapter = personaAdapter;
         _deviceInformationAdapter = deviceInfoAdapter;
         _ckks = ckks;
         _lockStateTracker = lockStateTracker;

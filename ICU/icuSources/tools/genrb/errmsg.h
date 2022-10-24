@@ -26,7 +26,9 @@ U_CDECL_BEGIN
 
 extern const char *gCurrentFileName;
 
+__attribute__((format(printf, 2, 3)))
 U_CFUNC void error(uint32_t linenumber, const char *msg, ...);
+__attribute__((format(printf, 2, 3)))
 U_CFUNC void warning(uint32_t linenumber, const char *msg, ...);
 
 /* Show warnings? */

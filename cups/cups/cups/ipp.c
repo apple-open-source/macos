@@ -5300,6 +5300,27 @@ ippWrite(http_t *http,			/* I - HTTP connection */
   if (!http)
     return (IPP_STATE_ERROR);
 
+  /*
+   * Serialize the request to the http stream.
+   *
+   * REMINDSMA: The illogic here seems to be that cupsSendRequest will mitigate an immediate 401
+   * and then retransmit the body (so we need to fix up the user name there, maybe)
+   * but a 100 will have cupsSendRequest exit and the subsequent cupsGetResponse have to deal
+   * with the 401, and we don't have a body to rewrite there.
+   * So, if we're looping on sending and the user must change, this is the only
+   * reliable place to rewrite it.
+   *
+   * Oh, and to make all this worse, third party tools (eg, ipptool) expect to be able
+   * to have their own version of the cupsSendRequest/cupsGetResponse loop.
+   */
+
+  if (http->rewriteRequestingUser != NULL) {
+    ipp_attribute_t* req_name = ippFindAttribute(ipp, "requesting-user-name", IPP_TAG_ZERO);
+    if (req_name != NULL && strcmp(ippGetString(req_name, 0, NULL), http->rewriteRequestingUser) != 0) {
+      ippSetString(ipp, &req_name, 0, http->rewriteRequestingUser);
+    }
+  }
+
   return (ippWriteIO(http, (ipp_iocb_t)httpWrite2, http->blocking, NULL, ipp));
 }
 

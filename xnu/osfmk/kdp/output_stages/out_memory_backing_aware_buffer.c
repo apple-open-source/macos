@@ -34,6 +34,8 @@
 #include <kdp/processor_core.h>
 #include <mach/mach_types.h>
 #include <mach/vm_param.h>
+#include <mach/vm_types.h>
+#include <vm/memory_types.h>
 #include <vm/pmap.h>
 
 static bool
@@ -138,7 +140,7 @@ memory_backing_aware_buffer_stage_initialize(struct kdp_output_stage *stage)
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
 	    KMA_DATA, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
-		printf("buffer_stage_initialize failed to allocate memory. Error 0x%x\n", ret);
+		printf("%s failed to allocate memory. Error 0x%x\n", __func__, ret);
 		return ret;
 	}
 

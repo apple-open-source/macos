@@ -32,9 +32,10 @@
 #include "Logging.h"
 #include "ServiceWorkerDownloadTaskMessages.h"
 #include "ServiceWorkerFetchTaskMessages.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
+#include <WebCore/FetchEvent.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SWContextManager.h>
@@ -85,16 +86,16 @@ void WebServiceWorkerFetchTaskClient::didReceiveData(const SharedBuffer& buffer)
     }
 
     if (m_isDownload)
-        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferCopy(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
     else
-        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferCopy(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didReceiveFormDataAndFinish(Ref<FormData>&& formData)
 {
     if (auto sharedBuffer = formData->asSharedBuffer()) {
         didReceiveData(sharedBuffer.releaseNonNull());
-        didFinish();
+        didFinish({ });
         return;
     }
 
@@ -117,7 +118,7 @@ void WebServiceWorkerFetchTaskClient::didReceiveFormDataAndFinish(Ref<FormData>&
         return;
     }
 
-    callOnMainRunLoop([this, protectedThis = Ref { *this }, blobURL = blobURL.isolatedCopy()] () {
+    callOnMainRunLoop([this, protectedThis = Ref { *this }, blobURL = WTFMove(blobURL).isolatedCopy()] () {
         auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(m_serviceWorkerIdentifier);
         if (!serviceWorkerThreadProxy) {
             didFail(internalError(blobURL));
@@ -142,14 +143,14 @@ void WebServiceWorkerFetchTaskClient::didReceiveBlobChunk(const SharedBuffer& bu
         return;
 
     if (m_isDownload)
-        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferCopy(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
     else
-        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferCopy(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), static_cast<int64_t>(buffer.size()) }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didFinishBlobLoading()
 {
-    didFinish();
+    didFinish({ });
 
     std::exchange(m_blobLoader, std::nullopt);
 }
@@ -174,7 +175,7 @@ void WebServiceWorkerFetchTaskClient::didFail(const ResourceError& error)
     cleanup();
 }
 
-void WebServiceWorkerFetchTaskClient::didFinish()
+void WebServiceWorkerFetchTaskClient::didFinish(const NetworkLoadMetrics& metrics)
 {
     if (!m_connection)
         return;
@@ -183,13 +184,14 @@ void WebServiceWorkerFetchTaskClient::didFinish()
         RELEASE_LOG(ServiceWorker, "ServiceWorkerFrameLoaderClient::didFinish while waiting, fetch identifier %llu", m_fetchIdentifier.toUInt64());
 
         m_didFinish = true;
+        m_networkLoadMetrics = metrics.isolatedCopy();
         return;
     }
 
     if (m_isDownload)
         m_connection->send(Messages::ServiceWorkerDownloadTask::DidFinish { }, m_fetchIdentifier);
     else
-        m_connection->send(Messages::ServiceWorkerFetchTask::DidFinish { }, m_fetchIdentifier);
+        m_connection->send(Messages::ServiceWorkerFetchTask::DidFinish { metrics }, m_fetchIdentifier);
 
     cleanup();
 }
@@ -206,13 +208,69 @@ void WebServiceWorkerFetchTaskClient::didNotHandle()
 
 void WebServiceWorkerFetchTaskClient::cancel()
 {
+    ASSERT(!isMainRunLoop());
     m_connection = nullptr;
+    if (m_cancelledCallback)
+        m_cancelledCallback();
 }
 
 void WebServiceWorkerFetchTaskClient::convertFetchToDownload()
 {
     m_isDownload = true;
     continueDidReceiveResponse();
+}
+
+void WebServiceWorkerFetchTaskClient::setCancelledCallback(Function<void()>&& callback)
+{
+    ASSERT(!m_cancelledCallback);
+    m_cancelledCallback = WTFMove(callback);
+}
+
+void WebServiceWorkerFetchTaskClient::setFetchEvent(Ref<WebCore::FetchEvent>&& event)
+{
+    m_event = WTFMove(event);
+
+    if (!m_preloadResponse.isNull()) {
+        m_event->navigationPreloadIsReady(WTFMove(m_preloadResponse));
+        m_event = nullptr;
+        return;
+    }
+
+    if (!m_preloadError.isNull()) {
+        m_event->navigationPreloadFailed(WTFMove(m_preloadError));
+        m_event = nullptr;
+    }
+}
+
+void WebServiceWorkerFetchTaskClient::navigationPreloadIsReady(ResourceResponse&& response)
+{
+    if (!m_event) {
+        m_preloadResponse = WTFMove(response);
+        return;
+    }
+
+    m_event->navigationPreloadIsReady(WTFMove(response));
+    m_event = nullptr;
+}
+
+void WebServiceWorkerFetchTaskClient::navigationPreloadFailed(ResourceError&& error)
+{
+    if (!m_event) {
+        m_preloadError = WTFMove(error);
+        return;
+    }
+    m_event->navigationPreloadFailed(WTFMove(error));
+    m_event = nullptr;
+}
+      
+void WebServiceWorkerFetchTaskClient::usePreload()
+{
+    if (!m_connection)
+        return;
+
+    m_connection->send(Messages::ServiceWorkerFetchTask::UsePreload { }, m_fetchIdentifier);
+
+    cleanup();
 }
 
 void WebServiceWorkerFetchTaskClient::continueDidReceiveResponse()
@@ -226,11 +284,11 @@ void WebServiceWorkerFetchTaskClient::continueDidReceiveResponse()
 
     switchOn(m_responseData, [this](std::nullptr_t&) {
         if (m_didFinish)
-            didFinish();
+            didFinish(m_networkLoadMetrics);
     }, [this](const SharedBufferBuilder& buffer) {
         didReceiveData(buffer.copy()->makeContiguous());
         if (m_didFinish)
-            didFinish();
+            didFinish(m_networkLoadMetrics);
     }, [this](Ref<FormData>& formData) {
         didReceiveFormDataAndFinish(WTFMove(formData));
     }, [this](UniqueRef<ResourceError>& error) {
@@ -242,7 +300,7 @@ void WebServiceWorkerFetchTaskClient::continueDidReceiveResponse()
 void WebServiceWorkerFetchTaskClient::cleanup()
 {
     m_connection = nullptr;
-
+    m_event = nullptr;
     ensureOnMainRunLoop([serviceWorkerIdentifier = m_serviceWorkerIdentifier, serverConnectionIdentifier = m_serverConnectionIdentifier, fetchIdentifier = m_fetchIdentifier] {
         if (auto* proxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier))
             proxy->removeFetch(serverConnectionIdentifier, fetchIdentifier);

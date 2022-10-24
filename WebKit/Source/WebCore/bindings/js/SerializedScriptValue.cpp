@@ -28,6 +28,7 @@
 #include "SerializedScriptValue.h"
 
 #include "BlobRegistry.h"
+#include "ByteArrayPixelBuffer.h"
 #include "CryptoKeyAES.h"
 #include "CryptoKeyEC.h"
 #include "CryptoKeyHMAC.h"
@@ -551,7 +552,7 @@ protected:
         m_failed = true;
     }
 
-    JSGlobalObject* m_lexicalGlobalObject;
+    JSGlobalObject* const m_lexicalGlobalObject;
     bool m_failed;
     MarkedArgumentBuffer m_gcBuffer;
 };
@@ -728,27 +729,27 @@ private:
 
     SerializationReturnCode serialize(JSValue in);
 
-    bool isArray(VM& vm, JSValue value)
+    bool isArray(JSValue value)
     {
         if (!value.isObject())
             return false;
         JSObject* object = asObject(value);
-        return object->inherits<JSArray>(vm);
+        return object->inherits<JSArray>();
     }
 
-    bool isMap(VM& vm, JSValue value)
+    bool isMap(JSValue value)
     {
         if (!value.isObject())
             return false;
         JSObject* object = asObject(value);
-        return object->inherits<JSMap>(vm);
+        return object->inherits<JSMap>();
     }
-    bool isSet(VM& vm, JSValue value)
+    bool isSet(JSValue value)
     {
         if (!value.isObject())
             return false;
         JSObject* object = asObject(value);
-        return object->inherits<JSSet>(vm);
+        return object->inherits<JSSet>();
     }
 
     bool checkForDuplicate(JSObject* object)
@@ -823,10 +824,10 @@ private:
         write(TerminatorTag);
     }
 
-    JSValue getProperty(VM& vm, JSObject* object, const Identifier& propertyName)
+    JSValue getProperty(JSObject* object, const Identifier& propertyName)
     {
         PropertySlot slot(object, PropertySlot::InternalMethodType::Get);
-        if (object->methodTable(vm)->getOwnPropertySlot(object, m_lexicalGlobalObject, propertyName, slot))
+        if (object->methodTable()->getOwnPropertySlot(object, m_lexicalGlobalObject, propertyName, slot))
             return slot.getValue(m_lexicalGlobalObject, propertyName);
         return JSValue();
     }
@@ -956,7 +957,7 @@ private:
     {
         auto& vm = m_lexicalGlobalObject->vm();
         auto* globalObject = m_lexicalGlobalObject;
-        if (globalObject->inherits<JSDOMGlobalObject>(vm))
+        if (globalObject->inherits<JSDOMGlobalObject>())
             return toJS(globalObject, jsCast<JSDOMGlobalObject*>(globalObject), &arrayBuffer);
 
         if (auto* buffer = arrayBuffer.m_wrapper.get())
@@ -969,29 +970,29 @@ private:
     {
         VM& vm = m_lexicalGlobalObject->vm();
         write(ArrayBufferViewTag);
-        if (obj->inherits<JSDataView>(vm))
+        if (obj->inherits<JSDataView>())
             write(DataViewTag);
-        else if (obj->inherits<JSUint8ClampedArray>(vm))
+        else if (obj->inherits<JSUint8ClampedArray>())
             write(Uint8ClampedArrayTag);
-        else if (obj->inherits<JSInt8Array>(vm))
+        else if (obj->inherits<JSInt8Array>())
             write(Int8ArrayTag);
-        else if (obj->inherits<JSUint8Array>(vm))
+        else if (obj->inherits<JSUint8Array>())
             write(Uint8ArrayTag);
-        else if (obj->inherits<JSInt16Array>(vm))
+        else if (obj->inherits<JSInt16Array>())
             write(Int16ArrayTag);
-        else if (obj->inherits<JSUint16Array>(vm))
+        else if (obj->inherits<JSUint16Array>())
             write(Uint16ArrayTag);
-        else if (obj->inherits<JSInt32Array>(vm))
+        else if (obj->inherits<JSInt32Array>())
             write(Int32ArrayTag);
-        else if (obj->inherits<JSUint32Array>(vm))
+        else if (obj->inherits<JSUint32Array>())
             write(Uint32ArrayTag);
-        else if (obj->inherits<JSFloat32Array>(vm))
+        else if (obj->inherits<JSFloat32Array>())
             write(Float32ArrayTag);
-        else if (obj->inherits<JSFloat64Array>(vm))
+        else if (obj->inherits<JSFloat64Array>())
             write(Float64ArrayTag);
-        else if (obj->inherits<JSBigInt64Array>(vm))
+        else if (obj->inherits<JSBigInt64Array>())
             write(BigInt64ArrayTag);
-        else if (obj->inherits<JSBigUint64Array>(vm))
+        else if (obj->inherits<JSBigUint64Array>())
             write(BigUint64ArrayTag);
         else
             return false;
@@ -1020,8 +1021,7 @@ private:
 
     void dumpDOMPoint(JSObject* obj)
     {
-        VM& vm = m_lexicalGlobalObject->vm();
-        if (obj->inherits<JSDOMPoint>(vm))
+        if (obj->inherits<JSDOMPoint>())
             write(DOMPointTag);
         else
             write(DOMPointReadOnlyTag);
@@ -1031,8 +1031,7 @@ private:
 
     void dumpDOMRect(JSObject* obj)
     {
-        VM& vm = m_lexicalGlobalObject->vm();
-        if (obj->inherits<JSDOMRect>(vm))
+        if (obj->inherits<JSDOMRect>())
             write(DOMRectTag);
         else
             write(DOMRectReadOnlyTag);
@@ -1046,8 +1045,7 @@ private:
 
     void dumpDOMMatrix(JSObject* obj)
     {
-        VM& vm = m_lexicalGlobalObject->vm();
-        if (obj->inherits<JSDOMMatrix>(vm))
+        if (obj->inherits<JSDOMMatrix>())
             write(DOMMatrixTag);
         else
             write(DOMMatrixReadOnlyTag);
@@ -1114,12 +1112,12 @@ private:
         PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, buffer->colorSpace() };
         const IntSize& logicalSize = buffer->truncatedLogicalSize();
         auto pixelBuffer = buffer->getPixelBuffer(format, { IntPoint::zero(), logicalSize });
-        if (!pixelBuffer) {
+        if (!is<ByteArrayPixelBuffer>(pixelBuffer)) {
             code = SerializationReturnCode::ValidationError;
             return;
         }
 
-        auto arrayBuffer = pixelBuffer->data().possiblySharedBuffer();
+        auto arrayBuffer = downcast<ByteArrayPixelBuffer>(*pixelBuffer).data().possiblySharedBuffer();
         if (!arrayBuffer) {
             code = SerializationReturnCode::ValidationError;
             return;
@@ -1206,37 +1204,37 @@ private:
         }
 
         VM& vm = m_lexicalGlobalObject->vm();
-        if (isArray(vm, value))
+        if (isArray(value))
             return false;
 
         if (value.isObject()) {
             auto* obj = asObject(value);
-            if (auto* dateObject = jsDynamicCast<DateInstance*>(vm, obj)) {
+            if (auto* dateObject = jsDynamicCast<DateInstance*>(obj)) {
                 write(DateTag);
                 write(dateObject->internalNumber());
                 return true;
             }
-            if (auto* booleanObject = jsDynamicCast<BooleanObject*>(vm, obj)) {
+            if (auto* booleanObject = jsDynamicCast<BooleanObject*>(obj)) {
                 if (!startObjectInternal(booleanObject)) // handle duplicates
                     return true;
                 write(booleanObject->internalValue().toBoolean(m_lexicalGlobalObject) ? TrueObjectTag : FalseObjectTag);
                 return true;
             }
-            if (auto* stringObject = jsDynamicCast<StringObject*>(vm, obj)) {
+            if (auto* stringObject = jsDynamicCast<StringObject*>(obj)) {
                 if (!startObjectInternal(stringObject)) // handle duplicates
                     return true;
                 String str = asString(stringObject->internalValue())->value(m_lexicalGlobalObject);
                 dumpStringObject(str);
                 return true;
             }
-            if (auto* numberObject = jsDynamicCast<NumberObject*>(vm, obj)) {
+            if (auto* numberObject = jsDynamicCast<NumberObject*>(obj)) {
                 if (!startObjectInternal(numberObject)) // handle duplicates
                     return true;
                 write(NumberObjectTag);
                 write(numberObject->internalValue().asNumber());
                 return true;
             }
-            if (auto* bigIntObject = jsDynamicCast<BigIntObject*>(vm, obj)) {
+            if (auto* bigIntObject = jsDynamicCast<BigIntObject*>(obj)) {
                 if (!startObjectInternal(bigIntObject)) // handle duplicates
                     return true;
                 JSValue bigIntValue = bigIntObject->internalValue();
@@ -1281,13 +1279,13 @@ private:
                 write(data->colorSpace());
                 return true;
             }
-            if (auto* regExp = jsDynamicCast<RegExpObject*>(vm, obj)) {
+            if (auto* regExp = jsDynamicCast<RegExpObject*>(obj)) {
                 write(RegExpTag);
                 write(regExp->regExp()->pattern());
-                write(String(JSC::Yarr::flagsString(regExp->regExp()->flags()).data()));
+                write(String::fromLatin1(JSC::Yarr::flagsString(regExp->regExp()->flags()).data()));
                 return true;
             }
-            if (obj->inherits<JSMessagePort>(vm)) {
+            if (obj->inherits<JSMessagePort>()) {
                 auto index = m_transferredMessagePorts.find(obj);
                 if (index != m_transferredMessagePorts.end()) {
                     write(MessagePortReferenceTag);
@@ -1329,7 +1327,7 @@ private:
                 write(static_cast<const uint8_t*>(arrayBuffer->data()), byteLength);
                 return true;
             }
-            if (obj->inherits<JSArrayBufferView>(vm)) {
+            if (obj->inherits<JSArrayBufferView>()) {
                 if (checkForDuplicate(obj))
                     return true;
                 bool success = dumpArrayBufferView(obj, code);
@@ -1384,7 +1382,7 @@ private:
             }
 #endif
 #if ENABLE(WEBASSEMBLY)
-            if (JSWebAssemblyModule* module = jsDynamicCast<JSWebAssemblyModule*>(vm, obj)) {
+            if (JSWebAssemblyModule* module = jsDynamicCast<JSWebAssemblyModule*>(obj)) {
                 if (m_context != SerializationContext::WorkerPostMessage && m_context != SerializationContext::WindowPostMessage)
                     return false;
 
@@ -1394,7 +1392,7 @@ private:
                 write(index);
                 return true;
             }
-            if (JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(vm, obj)) {
+            if (JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(obj)) {
                 if (memory->memory().sharingMode() != JSC::Wasm::MemorySharingMode::Shared) {
                     code = SerializationReturnCode::DataCloneError;
                     return true;
@@ -1410,39 +1408,39 @@ private:
                 return true;
             }
 #endif
-            if (obj->inherits<JSDOMPointReadOnly>(vm)) {
+            if (obj->inherits<JSDOMPointReadOnly>()) {
                 dumpDOMPoint(obj);
                 return true;
             }
-            if (obj->inherits<JSDOMRectReadOnly>(vm)) {
+            if (obj->inherits<JSDOMRectReadOnly>()) {
                 dumpDOMRect(obj);
                 return true;
             }
-            if (obj->inherits<JSDOMMatrixReadOnly>(vm)) {
+            if (obj->inherits<JSDOMMatrixReadOnly>()) {
                 dumpDOMMatrix(obj);
                 return true;
             }
-            if (obj->inherits<JSDOMQuad>(vm)) {
+            if (obj->inherits<JSDOMQuad>()) {
                 dumpDOMQuad(obj);
                 return true;
             }
-            if (obj->inherits(vm, JSImageBitmap::info())) {
+            if (obj->inherits<JSImageBitmap>()) {
                 dumpImageBitmap(obj, code);
                 return true;
             }
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
-            if (obj->inherits(vm, JSOffscreenCanvas::info())) {
+            if (obj->inherits<JSOffscreenCanvas>()) {
                 dumpOffscreenCanvas(obj, code);
                 return true;
             }
 #endif
 #if ENABLE(WEB_RTC)
-            if (obj->inherits(vm, JSRTCDataChannel::info())) {
+            if (obj->inherits<JSRTCDataChannel>()) {
                 dumpRTCDataChannel(obj, code);
                 return true;
             }
 #endif
-            if (obj->inherits(vm, JSDOMException::info())) {
+            if (obj->inherits<JSDOMException>()) {
                 dumpDOMException(obj, code);
                 return true;
             }
@@ -1910,7 +1908,7 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
         switch (lexicalGlobalObject) {
             arrayStartState:
             case ArrayStartState: {
-                ASSERT(isArray(vm, inValue));
+                ASSERT(isArray(inValue));
                 if (inputObjectStack.size() > maximumFilterRecursion)
                     return SerializationReturnCode::StackOverflowError;
 
@@ -1981,12 +1979,12 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                 // objects have been handled. If we reach this point and
                 // the input is not an Object object then we should throw
                 // a DataCloneError.
-                if (inObject->classInfo(vm) != JSFinalObject::info())
+                if (inObject->classInfo() != JSFinalObject::info())
                     return SerializationReturnCode::DataCloneError;
                 inputObjectStack.append(inObject);
                 indexStack.append(0);
                 propertyStack.append(PropertyNameArray(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude));
-                inObject->methodTable(vm)->getOwnPropertyNames(inObject, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
+                inObject->methodTable()->getOwnPropertyNames(inObject, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
                 if (UNLIKELY(scope.exception()))
                     return SerializationReturnCode::ExistingExceptionError;
             }
@@ -2003,7 +2001,7 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                     propertyStack.removeLast();
                     break;
                 }
-                inValue = getProperty(vm, object, properties[index]);
+                inValue = getProperty(object, properties[index]);
                 if (UNLIKELY(scope.exception()))
                     return SerializationReturnCode::ExistingExceptionError;
 
@@ -2054,9 +2052,9 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                 if (!iterator->nextKeyValue(m_lexicalGlobalObject, key, value)) {
                     mapIteratorStack.removeLast();
                     JSObject* object = inputObjectStack.last();
-                    ASSERT(jsDynamicCast<JSMap*>(vm, object));
+                    ASSERT(jsDynamicCast<JSMap*>(object));
                     propertyStack.append(PropertyNameArray(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude));
-                    object->methodTable(vm)->getOwnPropertyNames(object, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
+                    object->methodTable()->getOwnPropertyNames(object, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
                     if (UNLIKELY(scope.exception()))
                         return SerializationReturnCode::ExistingExceptionError;
                     write(NonMapPropertiesTag);
@@ -2100,9 +2098,9 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                 if (!iterator->next(m_lexicalGlobalObject, key)) {
                     setIteratorStack.removeLast();
                     JSObject* object = inputObjectStack.last();
-                    ASSERT(jsDynamicCast<JSSet*>(vm, object));
+                    ASSERT(jsDynamicCast<JSSet*>(object));
                     propertyStack.append(PropertyNameArray(vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude));
-                    object->methodTable(vm)->getOwnPropertyNames(object, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
+                    object->methodTable()->getOwnPropertyNames(object, m_lexicalGlobalObject, propertyStack.last(), DontEnumPropertiesMode::Exclude);
                     if (UNLIKELY(scope.exception()))
                         return SerializationReturnCode::ExistingExceptionError;
                     write(NonSetPropertiesTag);
@@ -2126,11 +2124,11 @@ SerializationReturnCode CloneSerializer::serialize(JSValue in)
                     break;
                 }
 
-                if (isArray(vm, inValue))
+                if (isArray(inValue))
                     goto arrayStartState;
-                if (isMap(vm, inValue))
+                if (isMap(inValue))
                     goto mapStartState;
-                if (isSet(vm, inValue))
+                if (isSet(inValue))
                     goto setStartState;
                 goto objectStartState;
             }
@@ -2259,8 +2257,8 @@ private:
         )
         : CloneBase(lexicalGlobalObject)
         , m_globalObject(globalObject)
-        , m_isDOMGlobalObject(globalObject->inherits<JSDOMGlobalObject>(globalObject->vm()))
-        , m_canCreateDOMObject(m_isDOMGlobalObject && !globalObject->inherits<JSIDBSerializationGlobalObject>(globalObject->vm()))
+        , m_isDOMGlobalObject(globalObject->inherits<JSDOMGlobalObject>())
+        , m_canCreateDOMObject(m_isDOMGlobalObject && !globalObject->inherits<JSIDBSerializationGlobalObject>())
         , m_ptr(buffer.data())
         , m_end(buffer.data() + buffer.size())
         , m_version(0xFFFFFFFF)
@@ -2300,8 +2298,8 @@ private:
         )
         : CloneBase(lexicalGlobalObject)
         , m_globalObject(globalObject)
-        , m_isDOMGlobalObject(globalObject->inherits<JSDOMGlobalObject>(globalObject->vm()))
-        , m_canCreateDOMObject(m_isDOMGlobalObject && !globalObject->inherits<JSIDBSerializationGlobalObject>(globalObject->vm()))
+        , m_isDOMGlobalObject(globalObject->inherits<JSDOMGlobalObject>())
+        , m_canCreateDOMObject(m_isDOMGlobalObject && !globalObject->inherits<JSIDBSerializationGlobalObject>())
         , m_ptr(buffer.data())
         , m_end(buffer.data() + buffer.size())
         , m_version(0xFFFFFFFF)
@@ -2455,14 +2453,13 @@ private:
         str = String(reinterpret_cast<const UChar*>(ptr), length);
         ptr += length * sizeof(UChar);
 #else
-        Vector<UChar> buffer;
-        buffer.reserveCapacity(length);
-        for (unsigned i = 0; i < length; i++) {
-            uint16_t ch;
-            readLittleEndian(ptr, end, ch);
-            buffer.append(ch);
+        UChar* characters;
+        str = String::createUninitialized(length, characters);
+        for (unsigned i = 0; i < length; ++i) {
+            uint16_t c;
+            readLittleEndian(ptr, end, c);
+            characters[i] = c;
         }
-        str = String::adopt(WTFMove(buffer));
 #endif
         return true;
     }
@@ -2565,7 +2562,7 @@ private:
         if (!m_canCreateDOMObject)
             return true;
 
-        file = File::deserialize(executionContext(m_lexicalGlobalObject), filePath, URL(URL(), url->string()), type->string(), name->string(), optionalLastModified);
+        file = File::deserialize(executionContext(m_lexicalGlobalObject), filePath, URL { url->string() }, type->string(), name->string(), optionalLastModified);
         return true;
     }
 
@@ -2604,7 +2601,7 @@ private:
         if (!read(byteLength))
             return false;
         JSValue arrayBufferValue = readTerminal();
-        if (!arrayBufferValue || !arrayBufferValue.inherits<JSArrayBuffer>(vm))
+        if (!arrayBufferValue || !arrayBufferValue.inherits<JSArrayBuffer>())
             return false;
         JSObject* arrayBufferObj = asObject(arrayBufferValue);
 
@@ -3392,13 +3389,13 @@ private:
         }
 
         PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, colorSpace };
-        auto pixelBuffer = PixelBuffer::tryCreate(format, imageDataSize, arrayBuffer.releaseNonNull());
+        auto pixelBuffer = ByteArrayPixelBuffer::tryCreate(format, imageDataSize, arrayBuffer.releaseNonNull());
         if (!pixelBuffer) {
             fail();
             return JSValue();
         }
 
-        buffer->putPixelBuffer(WTFMove(*pixelBuffer), { IntPoint::zero(), logicalSize });
+        buffer->putPixelBuffer(*pixelBuffer, { IntPoint::zero(), logicalSize });
 
         auto bitmap = ImageBitmap::create(ImageBitmapBacking(WTFMove(buffer), OptionSet<SerializationState>::fromRaw(serializationState)));
         return getJSValue(bitmap);
@@ -3584,7 +3581,7 @@ private:
             unsigned length = 0;
             if (!read(length))
                 return JSValue();
-            ASSERT(m_globalObject->inherits<JSDOMGlobalObject>(m_globalObject->vm()));
+            ASSERT(m_globalObject->inherits<JSDOMGlobalObject>());
             Vector<Ref<File>> files;
             for (unsigned i = 0; i < length; i++) {
                 RefPtr<File> file;
@@ -3651,7 +3648,7 @@ private:
                 return JSValue();
             if (!m_canCreateDOMObject)
                 return jsNull();
-            return getJSValue(Blob::deserialize(executionContext(m_lexicalGlobalObject), URL(URL(), url->string()), type->string(), size, blobFilePathForBlobURL(url->string())).get());
+            return getJSValue(Blob::deserialize(executionContext(m_lexicalGlobalObject), URL { url->string() }, type->string(), size, blobFilePathForBlobURL(url->string())).get());
         }
         case StringTag: {
             CachedStringRef cachedString;
@@ -3875,11 +3872,11 @@ private:
         return false;
     }
 
-    JSGlobalObject* m_globalObject;
-    bool m_isDOMGlobalObject;
-    bool m_canCreateDOMObject;
+    JSGlobalObject* const m_globalObject;
+    const bool m_isDOMGlobalObject;
+    const bool m_canCreateDOMObject;
     const uint8_t* m_ptr;
-    const uint8_t* m_end;
+    const uint8_t* const m_end;
     unsigned m_version;
     Vector<CachedString> m_constantPool;
     const Vector<RefPtr<MessagePort>>& m_messagePorts;
@@ -3899,8 +3896,8 @@ private:
     Vector<RefPtr<RTCDataChannel>> m_rtcDataChannels;
 #endif
 #if ENABLE(WEBASSEMBLY)
-    WasmModuleArray* m_wasmModules;
-    WasmMemoryHandleArray* m_wasmMemoryHandles;
+    WasmModuleArray* const m_wasmModules;
+    WasmMemoryHandleArray* const m_wasmMemoryHandles;
 #endif
 
     String blobFilePathForBlobURL(const String& blobURL)
@@ -4017,9 +4014,7 @@ DeserializationResult CloneDeserializer::deserialize()
         mapObjectStartState: {
             if (outputObjectStack.size() > maximumFilterRecursion)
                 return std::make_pair(JSValue(), SerializationReturnCode::StackOverflowError);
-            JSMap* map = JSMap::create(m_lexicalGlobalObject, m_lexicalGlobalObject->vm(), m_globalObject->mapStructure());
-            if (UNLIKELY(scope.exception()))
-                goto error;
+            JSMap* map = JSMap::create(m_lexicalGlobalObject->vm(), m_globalObject->mapStructure());
             m_gcBuffer.appendWithCrashOnOverflow(map);
             outputObjectStack.append(map);
             mapStack.append(map);
@@ -4048,9 +4043,7 @@ DeserializationResult CloneDeserializer::deserialize()
         setObjectStartState: {
             if (outputObjectStack.size() > maximumFilterRecursion)
                 return std::make_pair(JSValue(), SerializationReturnCode::StackOverflowError);
-            JSSet* set = JSSet::create(m_lexicalGlobalObject, m_lexicalGlobalObject->vm(), m_globalObject->setStructure());
-            if (UNLIKELY(scope.exception()))
-                goto error;
+            JSSet* set = JSSet::create(m_lexicalGlobalObject->vm(), m_globalObject->setStructure());
             m_gcBuffer.appendWithCrashOnOverflow(set);
             outputObjectStack.append(set);
             setStack.append(set);
@@ -4539,12 +4532,9 @@ uint32_t SerializedScriptValue::wireFormatVersion()
 
 Vector<String> SerializedScriptValue::blobURLs() const
 {
-    Vector<String> result;
-    result.reserveInitialCapacity(m_blobHandles.size());
-    for (auto& handle : m_blobHandles)
-        result.uncheckedAppend(handle.url().string());
-
-    return result;
+    return m_blobHandles.map([](auto& handle) {
+        return handle.url().string();
+    });
 }
 
 void SerializedScriptValue::writeBlobsToDiskForIndexedDB(CompletionHandler<void(IDBValue&&)>&& completionHandler)

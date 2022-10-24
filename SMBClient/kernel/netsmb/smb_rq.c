@@ -62,8 +62,6 @@
 #include <netsmb/smb_converter.h>
 #include <smbclient/ntstatus.h>
 
-MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
-
 #define ALIGN4(a)	(((a) + 3) & ~3)
 
 /*
@@ -251,7 +249,7 @@ smb_rq_alloc(struct smb_connobj *obj, u_char cmd, uint16_t flags2,
 	struct smb_rq *rqp;
 	int error;
 
-	SMB_MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
+    SMB_MALLOC_TYPE(rqp, struct smb_rq, Z_WAITOK);
 	if (rqp == NULL)
 		return ENOMEM;
 	error = smb_rq_init_internal(rqp, obj, cmd, SMBR_ALLOCED, flags2, context);
@@ -306,7 +304,7 @@ smb_rq_done(struct smb_rq *rqp)
 	md_done(mdp);
 	lck_mtx_destroy(&rqp->sr_slock, srs_lck_group);
 	if (rqp->sr_flags & SMBR_ALLOCED)
-		SMB_FREE(rqp, M_SMBRQ);
+        SMB_FREE_TYPE(struct smb_rq, rqp);
 }
 
 /*
@@ -593,7 +591,7 @@ smb_nt_alloc(struct smb_connobj *obj, u_short fn,
 	struct smb_ntrq *ntp;
 	int error;
 	
-	SMB_MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
+    SMB_MALLOC_TYPE(ntp, struct smb_ntrq, Z_WAITOK);
 	if (ntp == NULL)
 		return ENOMEM;
 	error = smb_nt_init(ntp, obj, SMBT2_ALLOCED, fn, context);
@@ -620,8 +618,9 @@ smb_nt_done(struct smb_ntrq *ntp)
 	mb_done(&ntp->nt_tdata);
 	md_done(&ntp->nt_rparam);
 	md_done(&ntp->nt_rdata);
-	if (ntp->nt_flags & SMBT2_ALLOCED)
-		SMB_FREE(ntp, M_SMBRQ);
+    if (ntp->nt_flags & SMBT2_ALLOCED) {
+        SMB_FREE_TYPE(struct smb_ntrq, ntp);
+    }
 }
 
 /*
@@ -683,7 +682,7 @@ smb_t2_alloc(struct smb_connobj *obj, u_short setup,
 	struct smb_t2rq *t2p;
 	int error;
 
-	SMB_MALLOC(t2p, struct smb_t2rq *, sizeof(*t2p), M_SMBRQ, M_WAITOK);
+    SMB_MALLOC_TYPE(t2p, struct smb_t2rq, Z_WAITOK);
 	if (t2p == NULL)
 		return ENOMEM;
 	error = smb_t2_init_internal(t2p, obj, SMBT2_ALLOCED, &setup, 1, context);
@@ -709,8 +708,9 @@ smb_t2_done(struct smb_t2rq *t2p)
 	mb_done(&t2p->t2_tdata);
 	md_done(&t2p->t2_rparam);
 	md_done(&t2p->t2_rdata);
-	if (t2p->t2_flags & SMBT2_ALLOCED)
-		SMB_FREE(t2p, M_SMBRQ);
+    if (t2p->t2_flags & SMBT2_ALLOCED) {
+        SMB_FREE_TYPE(struct smb_t2rq, t2p);
+    }
 }
 
 static int 

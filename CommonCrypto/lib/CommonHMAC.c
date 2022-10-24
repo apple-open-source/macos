@@ -39,7 +39,7 @@
 #endif
 
 #define	HMAC_MAX_BLOCK_SIZE     CC_SHA512_BLOCK_BYTES
-#define	HMAC_MAX_DIGEST_SIZE    CC_SHA512_DIGEST_LENGTH
+#define	HMAC_MAX_STATE_SIZE     CC_SHA512_DIGEST_LENGTH
 
 /* 
  * This is what a CCHmacContext actually points to.
@@ -50,9 +50,9 @@
 typedef struct {
     const struct ccdigest_info *di;
 #if defined(_WIN32) //rdar://problem/27873676
-    struct cchmac_ctx ctx[cc_ctx_n(struct cchmac_ctx, cchmac_ctx_size(HMAC_MAX_DIGEST_SIZE, HMAC_MAX_BLOCK_SIZE))];
+    struct cchmac_ctx ctx[cc_ctx_n(struct cchmac_ctx, cchmac_ctx_size(HMAC_MAX_STATE_SIZE, HMAC_MAX_BLOCK_SIZE))];
 #else
-    cchmac_ctx_decl(HMAC_MAX_DIGEST_SIZE, HMAC_MAX_BLOCK_SIZE, ctx); 
+    cchmac_ctx_decl(HMAC_MAX_STATE_SIZE, HMAC_MAX_BLOCK_SIZE, ctx);
 #endif
 } _NewHmacContext;
 

@@ -1,0 +1,12 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-09-08</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceProject</key>
+	<string>column</string>
+	<key>OpenSourceVersion</key>
+	<string>2017-12-08</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/column?id=290ce7d2a9be4b07a6365e85871a6aa4be8009eb</string>
+</dict>

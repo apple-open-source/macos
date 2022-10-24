@@ -60,7 +60,16 @@ T_DECL(small_mem_pressure, "small memory pressure thread",
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
+#if TARGET_OS_OSX
+		T_META_ALL_VALID_ARCHS(true), // test Rosetta
+		// darwintest multi-arch support relies on the first line of stderr
+		// being reserved for arch(1) complaining about a given slice being
+		// unsupported, so we can only put the malloc debug reporting on stderr
+		// when we don't need that
+		T_META_ENVVAR("MallocDebugReport=none"),
+#else // TARGET_OS_OSX
 		T_META_ENVVAR("MallocDebugReport=stderr"),
+#endif // TARGET_OS_OSX
 		T_META_ENVVAR("MallocScribble=1"),
 		T_META_ENVVAR("MallocSpaceEfficient=1"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),

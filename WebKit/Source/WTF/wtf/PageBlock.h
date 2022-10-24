@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/FastMalloc.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WTF {
@@ -37,14 +38,15 @@ namespace WTF {
 // and recompiled. Sorry.
 //
 // macOS x86_64 uses 4 KiB, but Apple's aarch64 systems use 16 KiB. Use 16 KiB on all Apple systems
-// for consistency.
+// for consistency. Linux on Apple Silicon also needs to use 16KiB for best performance, so use that
+// for Linux on aarch64 as well.
 //
 // Most Linux and Windows systems use a page size of 4 KiB.
 //
 // On Linux, Power systems normally use 64 KiB pages.
 //
 // Use 64 KiB for any unknown CPUs to be conservative.
-#if OS(DARWIN) || PLATFORM(PLAYSTATION) || CPU(MIPS) || CPU(MIPS64)
+#if OS(DARWIN) || PLATFORM(PLAYSTATION) || CPU(MIPS) || CPU(MIPS64) || (OS(LINUX) && CPU(ARM64))
 constexpr size_t CeilingOnPageSize = 16 * KB;
 #elif CPU(PPC) || CPU(PPC64) || CPU(PPC64LE) || CPU(UNKNOWN)
 constexpr size_t CeilingOnPageSize = 64 * KB;
@@ -67,6 +69,7 @@ public:
     PageBlock(void*, size_t, bool hasGuardPages);
     
     void* base() const { return m_base; }
+    void* end() const { return reinterpret_cast<uint8_t*>(m_base) + size(); }
     size_t size() const { return m_size; }
 
     operator bool() const { return !!m_realBase; }

@@ -2,7 +2,7 @@
 
   util.c -
 
-  $Author: shyouhei $
+  $Author: usa $
   created at: Fri Mar 10 17:22:34 JST 1995
 
   Copyright (C) 1993-2008 Yukihiro Matsumoto
@@ -2081,6 +2081,7 @@ break2:
 	    if (!*++s || !(s1 = strchr(hexdigit, *s))) goto ret0;
 	    if (*s == '0') {
 		while (*++s == '0');
+		if (!*s) goto ret;
 		s1 = strchr(hexdigit, *s);
 	    }
 	    if (s1 != NULL) {
@@ -2103,7 +2104,7 @@ break2:
 		for (; *s && (s1 = strchr(hexdigit, *s)); ++s) {
 		    adj += aadj * ((s1 - hexdigit) & 15);
 		    if ((aadj /= 16) == 0.0) {
-			while (strchr(hexdigit, *++s));
+			while (*++s && strchr(hexdigit, *s));
 			break;
 		    }
 		}

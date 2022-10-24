@@ -121,6 +121,10 @@ main(int argc, char **argv)
 				printf("%" PRIuMAX "\n", ulimitval);
 			else
 				printf("undefined\n");
+#ifdef __APPLE__
+			if (ferror(stdout) != 0 || fflush(stdout) != 0)
+				err(1, "stdout");
+#endif
 			return 0;
 		}
 		if ((valid = find_limit(name, &limitval)) != 0) {
@@ -129,6 +133,10 @@ main(int argc, char **argv)
 			else
 				printf("undefined\n");
 
+#ifdef __APPLE__
+			if (ferror(stdout) != 0 || fflush(stdout) != 0)
+				err(1, "stdout");
+#endif
 			return 0;
 		}
 		if ((valid = find_confstr(name, &key)) != 0) {
@@ -159,6 +167,10 @@ main(int argc, char **argv)
 			     "no such path configuration parameter `%s'",
 			     name);
 	}
+#ifdef __APPLE__
+			if (ferror(stdout) != 0 || fflush(stdout) != 0)
+				err(1, "stdout");
+#endif
 	return 0;
 }
 

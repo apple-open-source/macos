@@ -343,7 +343,7 @@ char *p;
   j = GetLoadav();
   for (i = 0; i < j; i++)
     {
-      sprintf(p, " %2.2f" + !i, FIX_TO_DBL(loadav[i]));
+      sprintf(p, fmtcheck(" %2.2f" + !i, "%f"), FIX_TO_DBL(loadav[i]));
       p += strlen(p);
     }
 }

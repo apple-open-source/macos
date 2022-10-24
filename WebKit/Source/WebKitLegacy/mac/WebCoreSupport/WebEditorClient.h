@@ -132,12 +132,12 @@ private:
     void handleKeyboardEvent(WebCore::KeyboardEvent&) final;
     void handleInputMethodKeydown(WebCore::KeyboardEvent&) final;
 
-    void textFieldDidBeginEditing(WebCore::Element*) final;
-    void textFieldDidEndEditing(WebCore::Element*) final;
-    void textDidChangeInTextField(WebCore::Element*) final;
-    bool doTextFieldCommandFromEvent(WebCore::Element*, WebCore::KeyboardEvent*) final;
-    void textWillBeDeletedInTextField(WebCore::Element*) final;
-    void textDidChangeInTextArea(WebCore::Element*) final;
+    void textFieldDidBeginEditing(WebCore::Element&) final;
+    void textFieldDidEndEditing(WebCore::Element&) final;
+    void textDidChangeInTextField(WebCore::Element&) final;
+    bool doTextFieldCommandFromEvent(WebCore::Element&, WebCore::KeyboardEvent*) final;
+    void textWillBeDeletedInTextField(WebCore::Element&) final;
+    void textDidChangeInTextArea(WebCore::Element&) final;
     void overflowScrollPositionChanged() final { };
     void subFrameScrollPositionChanged() final { };
 
@@ -159,7 +159,6 @@ private:
     void ignoreWordInSpellDocument(const String&) final;
     void learnWord(const String&) final;
     void checkSpellingOfString(StringView, int* misspellingLocation, int* misspellingLength) final;
-    String getAutoCorrectSuggestionForMisspelledWord(const String&) final;
     void checkGrammarOfString(StringView, Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength) final;
     Vector<WebCore::TextCheckingResult> checkTextOfParagraph(StringView, OptionSet<WebCore::TextCheckingType> checkingTypes, const WebCore::VisibleSelection& currentSelection) final;
     void updateSpellingUIWithGrammarString(const String&, const WebCore::GrammarDetail&) final;
@@ -183,15 +182,6 @@ private:
 #if PLATFORM(IOS_FAMILY)
     bool shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection) const;
 #endif
-
-    bool canShowFontPanel() const final
-    {
-#if PLATFORM(MAC)
-        return true;
-#else
-        return false;
-#endif
-    }
 
     WebView *m_webView;
     RetainPtr<WebEditorUndoTarget> m_undoTarget;
@@ -271,11 +261,6 @@ inline void WebEditorClient::learnWord(const String&)
 
 inline void WebEditorClient::checkSpellingOfString(StringView, int* misspellingLocation, int* misspellingLength)
 {
-}
-
-inline String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String&)
-{
-    return "";
 }
 
 inline void WebEditorClient::checkGrammarOfString(StringView, Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength)

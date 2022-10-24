@@ -61,8 +61,8 @@ public:
                                         //   the Unicode set named "dictionary"
 
 private:
-    RangeDescriptor57(const RangeDescriptor57 &other); // forbid copying of this class
-    RangeDescriptor57 &operator=(const RangeDescriptor57 &other); // forbid copying of this class
+    RangeDescriptor57(const RangeDescriptor57 &other) = delete; // forbid copying of this class
+    RangeDescriptor57 &operator=(const RangeDescriptor57 &other) = delete; // forbid copying of this class
 };
 
 
@@ -128,8 +128,8 @@ private:
 
     UBool                 fSawBOF;
 
-    RBBISetBuilder57(const RBBISetBuilder57 &other); // forbid copying of this class
-    RBBISetBuilder57 &operator=(const RBBISetBuilder57 &other); // forbid copying of this class
+    RBBISetBuilder57(const RBBISetBuilder57 &other) = delete; // forbid copying of this class
+    RBBISetBuilder57 &operator=(const RBBISetBuilder57 &other) = delete; // forbid copying of this class
 };
 
 

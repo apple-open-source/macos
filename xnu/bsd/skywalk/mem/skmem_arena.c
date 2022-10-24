@@ -267,26 +267,27 @@ static bool
 skmem_arena_pp_setup(struct skmem_arena *ar,
     struct skmem_region_params srp[SKMEM_REGIONS], const char *name,
     struct kern_pbufpool *rx_pp, struct kern_pbufpool *tx_pp,
-    boolean_t kernel_only, boolean_t pp_truncated_buf)
+    uint32_t flags)
 {
 	struct skmem_arena_nexus *arn = (struct skmem_arena_nexus *)ar;
-
+	boolean_t kernel_only = (flags & SKMEM_PP_FLAG_KERNEL_ONLY) != 0;
 	if (rx_pp == NULL && tx_pp == NULL) {
 		uint32_t ppcreatef = 0;
-		if (pp_truncated_buf) {
+		if (flags & SKMEM_PP_FLAG_TRUNCATED_BUF) {
 			ppcreatef |= PPCREATEF_TRUNCATED_BUF;
 		}
-		if (kernel_only) {
+		if (flags & SKMEM_PP_FLAG_KERNEL_ONLY) {
 			ppcreatef |= PPCREATEF_KERNEL_ONLY;
 		}
 		if (srp[SKMEM_REGION_KMD].srp_max_frags > 1) {
 			ppcreatef |= PPCREATEF_ONDEMAND_BUF;
 		}
+		if (flags & SKMEM_PP_FLAG_RAW_BFLT) {
+			ppcreatef |= PPCREATEF_RAW_BFLT;
+		}
 		/* callee retains pp upon success */
-		rx_pp = pp_create(name, &srp[SKMEM_REGION_BUF],
-		    &srp[SKMEM_REGION_KMD], &srp[SKMEM_REGION_UMD],
-		    &srp[SKMEM_REGION_KBFT], &srp[SKMEM_REGION_UBFT], NULL,
-		    NULL, NULL, NULL, NULL, ppcreatef);
+		rx_pp = pp_create(name, srp, NULL, NULL, NULL, NULL, NULL,
+		    ppcreatef);
 		if (rx_pp == NULL) {
 			SK_ERR("\"%s\" ar 0x%llx flags %b failed to create pp",
 			    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
@@ -313,10 +314,17 @@ skmem_arena_pp_setup(struct skmem_arena *ar,
 	arn->arn_rx_pp = rx_pp;
 	arn->arn_tx_pp = tx_pp;
 	if (rx_pp == tx_pp) {
-		skmem_region_retain(rx_pp->pp_buf_region);
-		ar->ar_regions[SKMEM_REGION_BUF] = rx_pp->pp_buf_region;
-		ar->ar_regions[SKMEM_REGION_RXBUF] = NULL;
-		ar->ar_regions[SKMEM_REGION_TXBUF] = NULL;
+		skmem_region_retain(PP_BUF_REGION_DEF(rx_pp));
+		if (PP_BUF_REGION_LARGE(rx_pp) != NULL) {
+			skmem_region_retain(PP_BUF_REGION_LARGE(rx_pp));
+		}
+		ar->ar_regions[SKMEM_REGION_BUF_DEF] = PP_BUF_REGION_DEF(rx_pp);
+		ar->ar_regions[SKMEM_REGION_BUF_LARGE] =
+		    PP_BUF_REGION_LARGE(rx_pp);
+		ar->ar_regions[SKMEM_REGION_RXBUF_DEF] = NULL;
+		ar->ar_regions[SKMEM_REGION_RXBUF_LARGE] = NULL;
+		ar->ar_regions[SKMEM_REGION_TXBUF_DEF] = NULL;
+		ar->ar_regions[SKMEM_REGION_TXBUF_LARGE] = NULL;
 		skmem_region_retain(rx_pp->pp_kmd_region);
 		ar->ar_regions[SKMEM_REGION_KMD] = rx_pp->pp_kmd_region;
 		ar->ar_regions[SKMEM_REGION_RXKMD] = NULL;
@@ -330,11 +338,24 @@ skmem_arena_pp_setup(struct skmem_arena *ar,
 		ar->ar_regions[SKMEM_REGION_TXKBFT] = NULL;
 	} else {
 		ASSERT(kernel_only); /* split userspace pools not supported */
-		ar->ar_regions[SKMEM_REGION_BUF] = NULL;
-		skmem_region_retain(rx_pp->pp_buf_region);
-		ar->ar_regions[SKMEM_REGION_RXBUF] = rx_pp->pp_buf_region;
-		skmem_region_retain(tx_pp->pp_buf_region);
-		ar->ar_regions[SKMEM_REGION_TXBUF] = tx_pp->pp_buf_region;
+		ar->ar_regions[SKMEM_REGION_BUF_DEF] = NULL;
+		ar->ar_regions[SKMEM_REGION_BUF_LARGE] = NULL;
+		skmem_region_retain(PP_BUF_REGION_DEF(rx_pp));
+		ar->ar_regions[SKMEM_REGION_RXBUF_DEF] =
+		    PP_BUF_REGION_DEF(rx_pp);
+		ar->ar_regions[SKMEM_REGION_RXBUF_LARGE] =
+		    PP_BUF_REGION_LARGE(rx_pp);
+		if (PP_BUF_REGION_LARGE(rx_pp) != NULL) {
+			skmem_region_retain(PP_BUF_REGION_LARGE(rx_pp));
+		}
+		skmem_region_retain(PP_BUF_REGION_DEF(tx_pp));
+		ar->ar_regions[SKMEM_REGION_TXBUF_DEF] =
+		    PP_BUF_REGION_DEF(tx_pp);
+		ar->ar_regions[SKMEM_REGION_TXBUF_LARGE] =
+		    PP_BUF_REGION_LARGE(tx_pp);
+		if (PP_BUF_REGION_LARGE(tx_pp) != NULL) {
+			skmem_region_retain(PP_BUF_REGION_LARGE(tx_pp));
+		}
 		ar->ar_regions[SKMEM_REGION_KMD] = NULL;
 		skmem_region_retain(rx_pp->pp_kmd_region);
 		ar->ar_regions[SKMEM_REGION_RXKMD] = rx_pp->pp_kmd_region;
@@ -403,8 +424,8 @@ skmem_arena_pp_setup(struct skmem_arena *ar,
 struct skmem_arena *
 skmem_arena_create_for_nexus(const struct nexus_adapter *na,
     struct skmem_region_params srp[SKMEM_REGIONS], struct kern_pbufpool **tx_pp,
-    struct kern_pbufpool **rx_pp, boolean_t pp_truncated_buf,
-    boolean_t kernel_only, struct kern_nexus_advisory *nxv, int *perr)
+    struct kern_pbufpool **rx_pp, uint32_t pp_flags,
+    struct kern_nexus_advisory *nxv, int *perr)
 {
 #define SRP_CFLAGS(_id)         (srp[_id].srp_cflags)
 	struct skmem_arena_nexus *arn;
@@ -412,6 +433,7 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 	char cname[64];
 	uint32_t i;
 	const char *name = na->na_name;
+	boolean_t kernel_only = (pp_flags & SKMEM_PP_FLAG_KERNEL_ONLY) != 0;
 
 	*perr = 0;
 
@@ -443,7 +465,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_GUARD_HEAD) & SKMEM_REGION_CR_MMAPOK);
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_SCHEMA) & SKMEM_REGION_CR_MMAPOK);
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_RING) & SKMEM_REGION_CR_MMAPOK);
-	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF) & SKMEM_REGION_CR_MMAPOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF_DEF) & SKMEM_REGION_CR_MMAPOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF_LARGE) & SKMEM_REGION_CR_MMAPOK);
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_UMD) & SKMEM_REGION_CR_MMAPOK);
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_UBFT) & SKMEM_REGION_CR_MMAPOK);
 	ASSERT(SRP_CFLAGS(SKMEM_REGION_TXAUSD) & SKMEM_REGION_CR_MMAPOK);
@@ -465,9 +488,12 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 	ASSERT(!(SRP_CFLAGS(SKMEM_REGION_KSTATS) & SKMEM_REGION_CR_MMAPOK));
 
 	/* these regions must be shareable */
-	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF) & SKMEM_REGION_CR_SHAREOK);
-	ASSERT(SRP_CFLAGS(SKMEM_REGION_RXBUF) & SKMEM_REGION_CR_SHAREOK);
-	ASSERT(SRP_CFLAGS(SKMEM_REGION_TXBUF) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF_DEF) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_BUF_LARGE) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_RXBUF_DEF) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_RXBUF_LARGE) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_TXBUF_DEF) & SKMEM_REGION_CR_SHAREOK);
+	ASSERT(SRP_CFLAGS(SKMEM_REGION_TXBUF_LARGE) & SKMEM_REGION_CR_SHAREOK);
 
 	/* these regions must not be be shareable */
 	ASSERT(!(SRP_CFLAGS(SKMEM_REGION_GUARD_HEAD) & SKMEM_REGION_CR_SHAREOK));
@@ -501,7 +527,7 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 
 	AR_LOCK(ar);
 	if (!skmem_arena_pp_setup(ar, srp, name, (rx_pp ? *rx_pp : NULL),
-	    (tx_pp ? *tx_pp : NULL), kernel_only, pp_truncated_buf)) {
+	    (tx_pp ? *tx_pp : NULL), pp_flags)) {
 		goto failed;
 	}
 
@@ -1769,6 +1795,29 @@ skmem_arena_get_region_offset(struct skmem_arena *ar, skmem_region_id_t id)
 	return offset;
 }
 
+static void
+skmem_reap_pbufpool_caches(struct kern_pbufpool *pp, boolean_t purge)
+{
+	if (pp->pp_kmd_cache != NULL) {
+		skmem_cache_reap_now(pp->pp_kmd_cache, purge);
+	}
+	if (PP_BUF_CACHE_DEF(pp) != NULL) {
+		skmem_cache_reap_now(PP_BUF_CACHE_DEF(pp), purge);
+	}
+	if (PP_BUF_CACHE_LARGE(pp) != NULL) {
+		skmem_cache_reap_now(PP_BUF_CACHE_LARGE(pp), purge);
+	}
+	if (PP_KBFT_CACHE_DEF(pp) != NULL) {
+		skmem_cache_reap_now(PP_KBFT_CACHE_DEF(pp), purge);
+	}
+	if (PP_KBFT_CACHE_LARGE(pp) != NULL) {
+		skmem_cache_reap_now(PP_KBFT_CACHE_LARGE(pp), purge);
+	}
+	if (pp->pp_raw_kbft_cache != NULL) {
+		skmem_cache_reap_now(pp->pp_raw_kbft_cache, purge);
+	}
+}
+
 /*
  * Reap all of configured caches in the arena, so that any excess amount
  * outside of their working sets gets released to their respective backing
@@ -1794,26 +1843,10 @@ skmem_arena_reap_locked(struct skmem_arena *ar, boolean_t purge)
 			skmem_cache_reap_now(arn->arn_ring_cache, purge);
 		}
 		if ((pp = arn->arn_rx_pp) != NULL) {
-			if (pp->pp_kmd_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_kmd_cache, purge);
-			}
-			if (pp->pp_buf_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_buf_cache, purge);
-			}
-			if (pp->pp_kbft_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_kbft_cache, purge);
-			}
+			skmem_reap_pbufpool_caches(pp, purge);
 		}
 		if ((pp = arn->arn_tx_pp) != NULL && pp != arn->arn_rx_pp) {
-			if (pp->pp_kmd_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_kmd_cache, purge);
-			}
-			if (pp->pp_buf_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_buf_cache, purge);
-			}
-			if (pp->pp_kbft_cache != NULL) {
-				skmem_cache_reap_now(pp->pp_kbft_cache, purge);
-			}
+			skmem_reap_pbufpool_caches(pp, purge);
 		}
 		break;
 

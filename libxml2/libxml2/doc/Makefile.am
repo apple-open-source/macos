@@ -26,7 +26,7 @@ EXTRA_DIST_wc = xmlcatalog_man.xml $(wildcard tutorial/*.html) \
     $(wildcard *.gif) w3c.png $(wildcard html/*.html) \
     $(wildcard html/*.png) libxml2-api.xml index.py search.php \
     apibuild.py libxml2.xsa xmllint.xml xmlcatalog_man.xml \
-    README.docs symbols.xml
+    symbols.xml
 endif
 
 # Expanded form of EXTRA_DIST_wc
@@ -66,13 +66,11 @@ EXTRA_DIST = \
 	APIfiles.html \
 	APIfunctions.html \
 	APIsymbols.html \
-	ChangeLog.xsl \
 	DOM.gif \
 	DOM.html \
 	FAQ.html \
 	Libxml2-Logo-180x168.gif \
 	Libxml2-Logo-90x34.gif \
-	README.docs \
 	XMLinfo.html \
 	XSLT.html \
 	api.xsl \
@@ -143,7 +141,6 @@ EXTRA_DIST = \
 	html/libxml-xpath.html \
 	html/libxml-xpathInternals.html \
 	html/libxml-xpointer.html \
-	html/libxml-xzlib.html \
 	html/right.png \
 	html/up.png \
 	index.html \
@@ -219,7 +216,6 @@ EXTRA_DIST = \
 	tutorial/includexpath.c \
 	tutorial/index.html \
 	tutorial/ix01.html \
-	tutorial/xmltutorial.pdf \
 	upgrade.html \
 	w3c.png \
 	wiki.xsl \
@@ -243,7 +239,7 @@ docs: web $(top_builddir)/NEWS libxml2.xsa $(man_MANS)
 
 api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h $(srcdir)/site.xsl
 
-web: $(PAGES)
+web: $(PAGES) xmllint.html xmlcatalog_man.html
 
 ../elfgcchack.h: $(srcdir)/elfgcchack.xsl $(srcdir)/libxml2-api.xml
 	-@(if [ -x $(XSLTPROC) ] ; then \
@@ -314,8 +310,14 @@ libxml2-api.xml libxml2-refs.xml ../libxml2.syms: apibuild.py symbols.xml syms.x
 xmllint.1: xmllint.xml
 	-@($(XSLTPROC) --nonet xmllint.xml)
 
+xmllint.html: xmllint.xml
+	-@($(XSLTPROC) --nonet -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl xmllint.xml)
+
 xmlcatalog.1: xmlcatalog_man.xml
 	-@($(XSLTPROC) --nonet xmlcatalog_man.xml)
+
+xmlcatalog_man.html: xmlcatalog_man.xml
+	-@($(XSLTPROC) --nonet -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl xmlcatalog_man.xml)
 
 check-extra-dist:
 	for f in $(EXTRA_DIST_wc) ; do echo $$f; done | sort -u >tmp.EXTRA_DIST_wc

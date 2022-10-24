@@ -173,6 +173,7 @@ exit_error(void)
     /* NOTREACHED */
 }
 
+GCC_PRINTFLIKE(1,2)
 static void
 err(const char *fmt,...)
 {
@@ -1164,7 +1165,6 @@ int
 main(int argc, char **argv)
 {
     int ch, noinit, noset, quiet, Sflag, sflag, showterm;
-    const char *p;
     const char *ttype;
 
     obsolete(argv);
@@ -1321,10 +1321,9 @@ main(int argc, char **argv)
 	if ((var = getenv("SHELL")) != 0
 	    && ((len = (int) strlen(leaf = _nc_basename(var))) >= 3)
 	    && !strcmp(leaf + len - 3, "csh"))
-	    p = "set noglob;\nsetenv TERM %s;\nunset noglob;\n";
+	    printf("set noglob;\nsetenv TERM %s;\nunset noglob;\n", ttype);
 	else
-	    p = "TERM=%s;\n";
-	(void) printf(p, ttype);
+	    printf("TERM=%s;\n", ttype);
     }
 
     ExitProgram(EXIT_SUCCESS);

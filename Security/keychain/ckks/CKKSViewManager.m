@@ -45,6 +45,7 @@
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTControl.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTPersonaAdapter.h"
 
@@ -87,11 +88,8 @@
 @property CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 
 @property NSMutableDictionary<NSString*, SecBoolNSErrorCallback>* pendingSyncCallbacks;
-@property CKKSNearFutureScheduler* savedTLKNotifier;
 @property NSOperationQueue* operationQueue;
 
-// Map of "context name" to CKKS sync object
-@property (readonly) NSMutableDictionary<NSString*, CKKSKeychainView*>* ckksActors;
 
 // Make writable
 @property (nullable) TPSyncingPolicy* policy;
@@ -115,6 +113,7 @@
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
+                  accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
 {
     if(self = [super init]) {
         _cloudKitClassDependencies = cloudKitClassDependencies;
@@ -127,35 +126,17 @@
         [_lockStateTracker addLockStateObserver:self];
         _reachabilityTracker = reachabilityTracker;
         _personaAdapter = personaAdapter;
-
-        _zoneChangeFetcher = [[CKKSZoneChangeFetcher alloc] initWithContainer:_container
-                                                                   fetchClass:cloudKitClassDependencies.fetchRecordZoneChangesOperationClass
-                                                          reachabilityTracker:_reachabilityTracker];
-        OctagonAPSReceiver* globalAPSReceiver = [OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort
-                                                                              apsConnectionClass:cloudKitClassDependencies.apsConnectionClass];
-        [globalAPSReceiver registerCKKSReceiver:_zoneChangeFetcher];
-
-        _zoneModifier = [[CKKSZoneModifier alloc] initWithContainer:_container
-                                                reachabilityTracker:_reachabilityTracker
-                                               cloudkitDependencies:cloudKitClassDependencies];
+        _accountsAdapter = accountsAdapter;
+        
+        // Ensure that the APS receiver comes up, even if we don't have a client for it yet
+        (void)[OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort
+                                            apsConnectionClass:cloudKitClassDependencies.apsConnectionClass];
 
         _operationQueue = [[NSOperationQueue alloc] init];
-
-        _ckksActors = [[NSMutableDictionary alloc] init];
 
         _pendingSyncCallbacks = [[NSMutableDictionary alloc] init];
 
         _completedSecCKKSInitialize = [[CKKSCondition alloc] init];
-
-        WEAKIFY(self);
-        _savedTLKNotifier = [[CKKSNearFutureScheduler alloc] initWithName:@"newtlks"
-                                                                    delay:5*NSEC_PER_SEC
-                                                         keepProcessAlive:true
-                                                dependencyDescriptionCode:CKKSResultDescriptionNone
-                                                                    block:^{
-            STRONGIFY(self);
-            [self notifyNewTLKsInKeychain];
-        }];
 
         _policy = nil;
         _policyLoaded = [[CKKSCondition alloc] init];
@@ -172,14 +153,16 @@
 
 - (BOOL)allowClientRPC:(NSError**)error
 {
-    if(![self.personaAdapter currentThreadIsForPrimaryiCloudAccount]) {
-        secnotice("ckks", "Rejecting client RPC for non-primary persona");
-        if(error) {
-            *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"CKKS APIs do not support non-primary users"];
+    if (!OctagonSupportsPersonaMultiuser()) {
+        if(![self.personaAdapter currentThreadIsForPrimaryiCloudAccount]) {
+            secnotice("ckks", "Rejecting client RPC for non-primary persona");
+            if(error) {
+                *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"CKKS APIs do not support non-primary users"];
+            }
+            return NO;
         }
-        return NO;
     }
-
+    
     return YES;
 }
 
@@ -188,7 +171,7 @@
     __block BOOL success = YES;
     dispatch_once(&onceToken, ^{
         OTManager* manager = [OTManager manager];
-        if (![manager waitForReady:OTCKContainerName context:OTDefaultContext wait:2*NSEC_PER_SEC]) {
+        if (![manager waitForReady:[[OTControlArguments alloc] init] wait:2*NSEC_PER_SEC]) {
             success = NO;
         }
     });
@@ -275,7 +258,9 @@
             [values setValue:@(fuzzyDaysSinceKSR) forKey:[NSString stringWithFormat:@"%@-daysSinceLastKeystateReady", viewName]];
 
             NSError* ckmeError = nil;
-            NSNumber* syncedItemRecords = [CKKSMirrorEntry counts:view.zoneID error:&ckmeError];
+            NSNumber* syncedItemRecords = [CKKSMirrorEntry countsWithContextID:view.contextID
+                                                                        zoneID:view.zoneID
+                                                                         error:&ckmeError];
             if(ckmeError || !syncedItemRecords) {
                 ckkserror_global("manager", "couldn't fetch CKMirror counts for %@: %@", view.zoneID, ckmeError);
             } else {
@@ -284,7 +269,9 @@
             }
 
             NSError* tlkShareCountError = nil;
-            NSNumber* tlkShareCount = [CKKSTLKShareRecord counts:view.zoneID error:&tlkShareCountError];
+            NSNumber* tlkShareCount = [CKKSTLKShareRecord countsWithContextID:view.contextID
+                                                                       zoneID:view.zoneID
+                                                                        error:&tlkShareCountError];
             if(tlkShareCountError || !tlkShareCount) {
                 ckkserror_global("manager", "couldn't fetch CKKSTLKShare counts for %@: %@", view.zoneID, tlkShareCountError);
             } else {
@@ -293,7 +280,9 @@
             }
 
             NSError* syncKeyCountError = nil;
-            NSNumber* syncKeyCount = [CKKSKey counts:view.zoneID error:&syncKeyCountError];
+            NSNumber* syncKeyCount = [CKKSKey countsWithContextID:view.contextID
+                                                           zoneID:view.zoneID
+                                                            error:&syncKeyCountError];
             if(syncKeyCountError || !syncKeyCount) {
                 ckkserror_global("manager", "couldn't fetch CKKSKey counts for %@: %@", view.zoneID, syncKeyCountError);
             } else {
@@ -348,7 +337,7 @@ dispatch_once_t globalZoneStateQueueOnce;
         NSError* error = nil;
 
         // Special object containing state for all zones. Currently, just the rate limiter.
-        CKKSZoneStateEntry* allEntry = [CKKSZoneStateEntry tryFromDatabase: @"all" error:&error];
+        CKKSZoneStateEntry* allEntry = [CKKSZoneStateEntry tryFromDatabase:CKKSDefaultContextID zoneName:@"all" error:&error];
 
         if(error) {
             ckkserror_global("manager", " couldn't load global zone state: %@", error);
@@ -371,32 +360,6 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 }
 
-- (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*)container
-                                                 contextID:(NSString*)contextID
-{
-    // Right now, we only support a single CKKS per address space.
-    if([container isEqualToString:SecCKKSContainerName] && [contextID isEqualToString:OTDefaultContext]) {
-
-        @synchronized(self.ckksActors) {
-            CKKSKeychainView* ckks = self.ckksActors[contextID];
-            if(!ckks) {
-                ckks = [[CKKSKeychainView alloc] initWithContainer:self.container
-                                                    accountTracker:self.accountTracker
-                                                  lockStateTracker:self.lockStateTracker
-                                               reachabilityTracker:self.reachabilityTracker
-                                                     changeFetcher:self.zoneChangeFetcher
-                                                      zoneModifier:self.zoneModifier
-                                                  savedTLKNotifier:self.savedTLKNotifier
-                                         cloudKitClassDependencies:self.cloudKitClassDependencies];
-                self.ckksActors[contextID] = ckks;
-            }
-            return ckks;
-        }
-    }
-
-    return nil;
-}
-
 - (CKKSKeychainView*)restartCKKSAccountSync:(CKKSKeychainView*)view
 {
     TPSyncingPolicy* policy = view.syncingPolicy;
@@ -406,35 +369,21 @@ dispatch_once_t globalZoneStateQueueOnce;
     return restartedView;
 }
 
+- (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*)container
+                                                 contextID:(NSString*)contextID
+{
+    CKKSKeychainView* retval = [[OTManager manager] ckksAccountSyncForContainer:container
+                                                                      contextID:contextID
+                                                                possibleAccount:nil];
+    if(retval == nil) {
+        ckksnotice_global("ckksAccountSyncForContainer", "failed to get CKKSKeychainView");
+    }
+    return retval;
+}
+
 - (CKKSKeychainView*)restartCKKSAccountSyncWithoutSettingPolicy:(CKKSKeychainView*)view
 {
-    // view had better be for OTDefaultContext, or this will misbehave.
-
-    ckksnotice_global("ckkstests", "Restarting CKKS %@", view);
-
-    [view halt];
-
-    NSSet<NSString*>* viewAllowList = view.viewAllowList;
-
-    CKKSKeychainView* restartedView = nil;
-
-    @synchronized (self.ckksActors) {
-        restartedView = [[CKKSKeychainView alloc] initWithContainer:self.container
-                                                     accountTracker:self.accountTracker
-                                                   lockStateTracker:self.lockStateTracker
-                                                reachabilityTracker:self.reachabilityTracker
-                                                      changeFetcher:self.zoneChangeFetcher
-                                                       zoneModifier:self.zoneModifier
-                                                   savedTLKNotifier:self.savedTLKNotifier
-                                          cloudKitClassDependencies:self.cloudKitClassDependencies];
-        self.ckksActors[OTDefaultContext] = restartedView;
-    }
-
-    if(viewAllowList) {
-        [restartedView setSyncingViewsAllowList:viewAllowList];
-    }
-
-    return restartedView;
+    return [[OTManager manager] restartCKKSAccountSyncWithoutSettingPolicy:view];
 }
 
 - (void)registerSyncStatusCallback: (NSString*) uuid callback: (SecBoolNSErrorCallback) callback {
@@ -509,14 +458,98 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void) handleKeychainEventDbConnection: (SecDbConnectionRef) dbconn source:(SecDbTransactionSource)txionSource added: (SecDbItemRef) added deleted: (SecDbItemRef) deleted {
-
-    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
+    
+    NSUUID* addedMuserUUID = nil;
+    NSUUID* deletedMuserUUID = nil;
+    BOOL isAddedSingleUserKeychainUUID = NO;
+    BOOL isDeletedSingleUserKeychainUUID = NO;
+    
+    if (!added && !deleted) {
+        ckkserror_global("handleKeychainEventDbConnection", "both added and deleted SecDbItemRefs are nil, returning");
+        return;
+    }
+    
+    if (added) {
+        NSData* addedMUSRData = (__bridge NSData*)SecDbItemGetValue(added, &v8musr, NULL);
+        if ([addedMUSRData length] > 0) {
+            addedMuserUUID = addedMUSRData ? [[NSUUID alloc] initWithUUIDBytes: addedMUSRData.bytes] : nil;
+        } else if ([addedMUSRData isEqualToData: (__bridge NSData*)SecMUSRGetSingleUserKeychainUUID()]) {
+            isAddedSingleUserKeychainUUID = YES;
+        }
+    }
+    
+    if (deleted) {
+        NSData* deletedMUSRData = (__bridge NSData*)SecDbItemGetValue(deleted, &v8musr, NULL);
+        if ([deletedMUSRData length] > 0) {
+            deletedMuserUUID = deletedMUSRData ? [[NSUUID alloc] initWithUUIDBytes: deletedMUSRData.bytes] : nil;
+        } else if ([deletedMUSRData isEqualToData: (__bridge NSData*)SecMUSRGetSingleUserKeychainUUID()]) {
+            isDeletedSingleUserKeychainUUID = YES;
+        }
+    }
+    
+    if (addedMuserUUID && deletedMuserUUID) {
+        if (![addedMuserUUID.UUIDString isEqualToString:deletedMuserUUID.UUIDString]) {
+            ckkserror_global("handleKeychainEventDbConnection", "musr for added and deleted are different. added's musr:%@, deleted's musr: %@", addedMuserUUID, deletedMuserUUID);
+            return;
+        }
+    }
+    
+    if (added && deleted && (isAddedSingleUserKeychainUUID != isDeletedSingleUserKeychainUUID)) {
+        ckkserror_global("handleKeychainEventDbConnection", "added's SingleUserKeychainUUID is different from deleted's. added's musr:%d, deleted's musr: %d", isAddedSingleUserKeychainUUID, isDeletedSingleUserKeychainUUID);
+        return;
+    }
+    
+    NSString* persona = nil;
+    
+    // if added and deleted are populated, it should have the same musr value, so we can just pick either to use
+    if (addedMuserUUID || deletedMuserUUID) {
+        persona = addedMuserUUID ? addedMuserUUID.UUIDString : deletedMuserUUID.UUIDString;
+    }
+    
+    CKKSKeychainView* ckks = nil;
+    
+    if (persona == nil || isAddedSingleUserKeychainUUID) {
+        ckks = [[OTManager manager] ckksAccountSyncForContainer:SecCKKSContainerName
+                                                      contextID:OTDefaultContext
+                                                possibleAccount:nil];
+    } else if (OctagonSupportsPersonaMultiuser()) {
+        NSArray<TPSpecificUser*>* activeAccounts = [self.accountsAdapter inflateAllTPSpecificUsers:SecCKKSContainerName octagonContextID:OTDefaultContext];
+        TPSpecificUser* possibleAccount = nil;
+        
+        for (TPSpecificUser* activeAccount in activeAccounts) {
+            if ([activeAccount.personaUniqueString isEqualToString: persona]) {
+                possibleAccount = activeAccount;
+                break;
+            }
+        }
+        
+        if (possibleAccount == nil) {
+            ckkserror_global("handleKeychainEventDbConnection", "did not find an active account for the persona");
+            return;
+        }
+        ckkserror_global("handleKeychainEventDbConnection", "using tpspecific user: %@", possibleAccount);
+        ckks = [[OTManager manager] ckksAccountSyncForContainer:possibleAccount.cloudkitContainerName
+                                                      contextID:possibleAccount.octagonContextID
+                                                possibleAccount:possibleAccount];
+    }
+    
+    if (!ckks) {
+        ckkserror_global("handleKeychainEventDbConnection", "ckks view is nil! returning.");
+        return;
+    }
+    
     [ckks handleKeychainEventDbConnection:dbconn
                                    source:txionSource
                                     added:added
                                   deleted:deleted
                               rateLimiter:self.globalRateLimiter];
+}
+
+-(NSError*)defaultViewError
+{
+    return [NSError errorWithDomain:CKKSErrorDomain
+                                 code:CKKSNoSuchView
+                           userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}];
 }
 
 
@@ -529,13 +562,19 @@ dispatch_once_t globalZoneStateQueueOnce;
                                hash:(NSData*)oldItemSHA1
                            complete:(void (^) (NSError* operror)) complete
 {
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        complete([NSError errorWithDomain:CKKSErrorDomain
-                                     code:CKKSNoSuchView
-                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+    
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            complete(findViewError);
+        } else {
+            complete([self defaultViewError]);
+        }
         return;
     }
 
@@ -555,13 +594,19 @@ dispatch_once_t globalZoneStateQueueOnce;
                     fetchCloudValue:(bool)fetchCloudValue
                            complete:(void (^) (NSString* uuid, NSError* operror)) complete
 {
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        complete(nil, [NSError errorWithDomain:CKKSErrorDomain
-                                          code:CKKSNoSuchView
-                                      userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            complete(nil, findViewError);
+        } else {
+            complete(nil, [self defaultViewError]);
+        }
         return;
     }
 
@@ -575,10 +620,6 @@ dispatch_once_t globalZoneStateQueueOnce;
 + (instancetype)manager
 {
     return [OTManager manager].viewManager;
-}
-
-- (void)cancelPendingOperations {
-    [self.savedTLKNotifier cancel];
 }
 
 -(void)notifyNewTLKsInKeychain {
@@ -611,8 +652,24 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (NSArray<CKKSKeychainBackedKey*>* _Nullable)currentTLKsFilteredByPolicy:(BOOL)restrictToPolicy error:(NSError**)error
 {
-    CKKSKeychainView* ckks = self.ckksActors[OTDefaultContext];
+    NSError* findViewError = nil;
+    CKKSKeychainView* ckks = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
 
+    if (!ckks || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (error) {
+            if (findViewError) {
+                *error = findViewError;
+            } else {
+                *error = [self defaultViewError];
+            }
+        }
+        return nil;
+    }
+    
     CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keyFetchOperation = [ckks findKeySets:NO];
     [keyFetchOperation timeout:10*NSEC_PER_SEC];
     [keyFetchOperation waitUntilFinished];
@@ -643,7 +700,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             // Keys provided by this function must have the key material loaded
             NSError* loadError = nil;
 
-            CKKSKeychainBackedKey* keycore = [keyset.tlk ensureKeyLoaded:&loadError];
+            CKKSKeychainBackedKey* keycore = [keyset.tlk ensureKeyLoadedForContextID:CKKSDefaultContextID  error:&loadError];
             if(keycore == nil || loadError) {
                 ckkserror_global("ckks", "Error loading key: %@", loadError);
                 if(error) {
@@ -675,14 +732,20 @@ dispatch_once_t globalZoneStateQueueOnce;
         reply(clientError);
         return;
     }
+    
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -706,13 +769,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -735,13 +804,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -776,13 +851,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -817,13 +898,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply(nil, [NSError errorWithDomain:CKKSErrorDomain
-                                       code:CKKSNoSuchView
-                                   userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(nil, findViewError);
+        } else {
+            reply(nil, [self defaultViewError]);
+        }
         return;
     }
 
@@ -848,13 +935,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -897,13 +990,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([self defaultViewError]);
+        }
         return;
     }
 
@@ -990,13 +1089,21 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!ckks) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* ckks = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!ckks || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([NSError errorWithDomain:CKKSErrorDomain
+                                      code:CKKSNoSuchView
+                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        }
         return;
     }
 
@@ -1023,16 +1130,24 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!ckks) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply(nil,
-              nil,
-              nil,
-              [NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* ckks = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!ckks || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(nil, nil, nil, findViewError);
+        } else {
+            reply(nil,
+                  nil,
+                  nil,
+                  [NSError errorWithDomain:CKKSErrorDomain
+                                      code:CKKSNoSuchView
+                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        }
         return;
     }
 
@@ -1058,13 +1173,21 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!ckks) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* ckks = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!ckks || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([NSError errorWithDomain:CKKSErrorDomain
+                                      code:CKKSNoSuchView
+                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        }
         return;
     }
 
@@ -1086,13 +1209,21 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!ckks) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply([NSError errorWithDomain:CKKSErrorDomain
-                                  code:CKKSNoSuchView
-                              userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* ckks = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!ckks || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(findViewError);
+        } else {
+            reply([NSError errorWithDomain:CKKSErrorDomain
+                                      code:CKKSNoSuchView
+                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No CKKS for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+        }
         return;
     }
 
@@ -1111,13 +1242,19 @@ dispatch_once_t globalZoneStateQueueOnce;
         return;
     }
 
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply(NO, [NSError errorWithDomain:CKKSErrorDomain
-                                      code:CKKSNoSuchView
-                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(NO, findViewError);
+        } else {
+            reply(NO, [self defaultViewError]);
+        }
         return;
     }
 
@@ -1126,13 +1263,19 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (void)pcsMirrorKeysForServices:(NSDictionary<NSNumber*,NSArray<NSData*>*>*)services reply:(void (^)(NSDictionary<NSNumber*,NSArray<NSData*>*>* _Nullable result, NSError* _Nullable error))reply
 {
-    CKKSKeychainView* view = [self ckksAccountSyncForContainer:SecCKKSContainerName
-                                                     contextID:OTDefaultContext];
-    if(!view) {
-        ckksnotice_global("ckks", "No CKKS view for %@, %@", SecCKKSContainerName, OTDefaultContext);
-        reply(nil, [NSError errorWithDomain:CKKSErrorDomain
-                                       code:CKKSNoSuchView
-                                   userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"No syncing view for %@, %@", SecCKKSContainerName, OTDefaultContext]}]);
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            reply(nil, findViewError);
+        } else {
+            reply(nil, [self defaultViewError]);
+        }
         return;
     }
 
@@ -1151,6 +1294,7 @@ dispatch_once_t globalZoneStateQueueOnce;
 
     // For now, poke the views and tell them to update their device states if they'd like
 
+
     CKKSKeychainView* ckks = [self ckksAccountSyncForContainer:SecCKKSContainerName
                                                      contextID:OTDefaultContext];
     CKOperationGroup* group = [CKOperationGroup CKKSGroupWithName:@"periodic-device-state-update"];
@@ -1160,21 +1304,12 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 - (void)haltAll
 {
-    @synchronized(self.ckksActors) {
-        for(CKKSKeychainView* view in self.ckksActors.allValues) {
-            [view halt];
-        }
-    }
-
-    [self.zoneModifier halt];
-    [self.zoneChangeFetcher halt];
+    [[OTManager manager] haltAll];
 }
 
 - (void)dropAllActors
 {
-    @synchronized (self.ckksActors) {
-        [self.ckksActors removeAllObjects];
-    }
+    [[OTManager manager] dropAllActors];
 }
 
 #endif // OCTAGON

@@ -130,13 +130,18 @@ ksEncryptData(NSData *plainText)
     memcpy(cursor, iv, ivSize);
     cursor += ivSize;
 
-    ccerr = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES128,
-			 bulkKey, bulkKeySize,
-			 iv, ivSize,  /* iv */
-			 NULL, 0,  /* auth data */
-			 [plainText bytes], ctLen,
-			 cursor,
-			 cursor + ctLen, &tagLen);
+    ccerr = CCCryptorGCMOneshotEncrypt(kCCAlgorithmAES,       // algorithm
+				       bulkKey,               // key bytes
+				       bulkKeySize,           // key length
+				       iv,                    // IV/nonce bytes
+				       ivSize,                // IV/nonce length
+				       NULL,                  // additional bytes
+				       0,                     // additional bytes length
+				       plainText.bytes,       // plaintext bytes
+				       ctLen,                 // plaintext length
+				       cursor,                // ciphertext bytes
+				       cursor + ctLen,        // authentication tag bytes
+				       tagLen);               // authentication tag length
     memset_s(bulkKey, 0, sizeof(bulkKey), sizeof(bulkKey));
     if (ccerr || tagLen != 16) {
 	return NULL;
@@ -225,25 +230,20 @@ ksDecryptData(NSData * blob)
         goto out;
     }
 
-    ccerr = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128,
-			 bulkKey, bulkKeySize,
-			 iv, ivSize,  /* iv */
-			 NULL, 0,  /* auth data */
-			 cursor, ctLen,
-			 [plainText mutableBytes],
-			 tag, &tagLen);
+    ccerr = CCCryptorGCMOneshotDecrypt(kCCAlgorithmAES,           // algorithm
+				       bulkKey,                   // key bytes
+				       bulkKeySize,               // key length
+				       iv,                        // IV/nonce bytes
+				       ivSize,                    // IV/nonce length
+				       NULL,                      // additional bytes
+				       0,                         // additional bytes length
+				       cursor,                    // ciphertext bytes
+				       ctLen,                     // ciphertext length
+				       plainText.mutableBytes,    // plaintext bytes
+				       cursor + ctLen,            // authentication tag bytes
+				       tagLen);                   // authentication tag length
     /* Decrypt the cipherText with the bulkKey. */
     if (ccerr) {
-	goto out;
-    }
-    if (tagLen != 16) {
-	goto out;
-    }
-
-    /* check that tag stored after the plaintext is correct */
-    cursor += ctLen;
-    if (ct_memcmp(tag, cursor, tagLen) != 0) {
-	os_log_error(GSSOSLog(), "incorrect tag on credential data");
 	goto out;
     }
 

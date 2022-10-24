@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -883,48 +883,12 @@ typedef struct {
     CFMutableArrayRef	    matches;
 } matchContext, *matchContextRef;
 
-static CF_RETURNS_RETAINED CFDictionaryRef
-thinInterfaceInfo(CFDictionaryRef info)
-{
-    CFNumberRef	num;
-    int		vid;
-
-    if (CFDictionaryGetValueIfPresent(info, CFSTR(kUSBVendorID), (const void **)&num)
-	&& isA_CFNumber(num)
-	&& CFNumberGetValue(num, kCFNumberIntType, &vid)
-	&& (vid == kIOUSBAppleVendorID)) {
-	CFMutableDictionaryRef  thin;
-
-	// if this is an Apple USB device than we trust that
-	// the non-localized name will be correct.
-	thin = CFDictionaryCreateMutableCopy(NULL, 0, info);
-	CFDictionaryRemoveValue(thin, CFSTR(kUSBProductString));
-	CFDictionaryRemoveValue(thin, CFSTR(kUSBVendorID));
-	CFDictionaryRemoveValue(thin, CFSTR(kUSBProductID));
-	return thin;
-    }
-
-    return CFRetain(info);
-}
-
 static Boolean
 matchInterfaceInfo(CFDictionaryRef known_info, CFDictionaryRef match_info)
 {
     Boolean match;
 
     match = _SC_CFEqual(known_info, match_info);
-    if (!match &&
-	isA_CFDictionary(known_info) &&
-	isA_CFDictionary(match_info)) {
-
-	// if not an exact match, try thinning
-	known_info = thinInterfaceInfo(known_info);
-	match_info = thinInterfaceInfo(match_info);
-	match = _SC_CFEqual(known_info, match_info);
-	if (known_info != NULL) CFRelease(known_info);
-	if (match_info != NULL) CFRelease(match_info);
-    }
-
     return match;
 }
 
@@ -3205,7 +3169,8 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	    goto done;
 	}
 
-	if (dbdict == NULL) {
+	if (dbdict == NULL
+	    && !_SCNetworkInterfaceIsApplePreconfigured(interface)) {
 	    dbdict = lookupMatchingInterface(interface,
 					     S_dblist,
 					     if_list,
@@ -3418,12 +3383,14 @@ updateNetworkConfiguration(CFArrayRef if_list)
     n = (if_list != NULL) ? CFArrayGetCount(if_list) : 0;
     for (i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
-	Boolean			is_hidden;
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
-	is_hidden = _SCNetworkInterfaceIsHiddenInterface(interface);
-	if (is_hidden) {
-	    SC_log(LOG_NOTICE, "InterfaceNamer %@: ignoring hidden interface",
+	if (_SCNetworkInterfaceIsHiddenInterface(interface)) {
+	    SC_log(LOG_NOTICE, "InterfaceNamer %@: not configuring hidden interface",
+		   SCNetworkInterfaceGetBSDName(interface));
+	}
+	else if (!SCNetworkInterfaceGetAutoConfigure(interface)) {
+	    SC_log(LOG_NOTICE, "InterfaceNamer %@: auto-configure disabled on interface",
 		   SCNetworkInterfaceGetBSDName(interface));
 	}
 	else if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {

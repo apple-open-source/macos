@@ -90,7 +90,7 @@ AUTH_TYPE_INSTANCE(agent,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID agent_get_type_id() {
+static CFTypeID agent_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     

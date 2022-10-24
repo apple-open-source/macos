@@ -23,6 +23,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserver.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/Node.h>
 #include <glib-object.h>
 #include <wtf/HashMap.h>
@@ -131,7 +132,7 @@ private:
             m_frameObserver.willDetachGlobalObjectFromFrame();
         }
 
-        WeakPtr<WebCore::DOMWindow> m_window;
+        WeakPtr<WebCore::DOMWindow, WebCore::WeakPtrImplWithEventTargetData> m_window;
         DOMObjectCacheFrameObserver& m_frameObserver;
     };
 

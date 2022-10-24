@@ -1,23 +1,16 @@
 #define IN_LIBEXSLT
 #include "libexslt.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
-#include <win32config.h>
-#else
-#include "config.h"
-#endif
-
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
-#include <libxslt/xsltconfig.h>
-#include <libxslt/xsltutils.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/extensions.h>
-#include <libxslt/transform.h>
-#include <libxslt/extra.h>
-#include <libxslt/preproc.h>
+#include "xsltutils.h"
+#include "xsltInternals.h"
+#include "extensions.h"
+#include "transform.h"
+#include "extra.h"
+#include "preproc.h"
 
 #include "exslt.h"
 
@@ -60,12 +53,6 @@ exsltNodeSetFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 	    xsltTransformError(tctxt, NULL, tctxt->inst,
 		"exsltNodeSetFunction: Failed to create a node set object.\n");
 	    tctxt->state = XSLT_STATE_STOPPED;
-	} else {
-	    /*
-	     * Mark it as a function result in order to avoid garbage
-	     * collecting of tree fragments
-	     */
-	    xsltExtensionInstructionResultRegister(tctxt, obj);
 	}
 	if (strval != NULL)
 	    xmlFree (strval);
@@ -132,6 +119,6 @@ exsltCommonRegister (void) {
 				  exsltObjectTypeFunction);
     xsltRegisterExtModuleElement((const xmlChar *) "document",
 				 EXSLT_COMMON_NAMESPACE,
-				 (xsltPreComputeFunction) xsltDocumentComp,
-				 (xsltTransformFunction) xsltDocumentElem);
+				 xsltDocumentComp,
+				 xsltDocumentElem);
 }

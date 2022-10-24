@@ -23,6 +23,7 @@
 		<string>Completion/Base/Utility/_nothing: 24988289</string>
 		<string>Src/init.c: rootless global zshenv fix (#81279955)</string>
 		<string>Src/init.c: rootless home .zshenv fix (#82457194)</string>
+		<string>Src/Zle/zle_refresh.c: fix PGM heap overflow (#92128183)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

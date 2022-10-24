@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-24</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>fold.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>fold</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-10-29</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/fold?id=b139a8fa79c1e49104b892c02f821275cd6d8423</string>
+</dict>

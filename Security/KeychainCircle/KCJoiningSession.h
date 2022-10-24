@@ -67,6 +67,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface KCJoiningRequestSecretSession : NSObject
 @property (nullable, readonly) KCAESGCMDuplexSession* session;
 
+// To join a non-primary account, you must set this before extracting the `session` above.
+@property (nullable, strong) NSString* altDSID;
+
 - (bool) isDone;
 
 - (nullable NSData*) initialMessage: (NSError**) error;

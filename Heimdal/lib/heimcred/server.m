@@ -473,7 +473,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
 	struct peer *peer;
 	
 	xpc_type_t type = xpc_get_type(peerconn);
-	if (type == XPC_TYPE_ERROR)
+	if (type != XPC_TYPE_CONNECTION)
 	    return;
 	
 	peer = calloc(1, sizeof(*peer));
@@ -794,7 +794,9 @@ int main(int argc, const char *argv[])
 #else
     _set_user_dir_suffix("com.apple.GSSCred");
 #endif
-    
+
+    NS_VALID_UNTIL_END_OF_SCOPE dispatch_source_t sigTermSource;
+
     @autoreleasepool {
 	/* Tell logd we're special */
 	
@@ -856,7 +858,7 @@ int main(int argc, const char *argv[])
 	    os_log_debug(GSSHelperOSLog(), "Starting with instance id: %s", instanceId);
 	    uuid_t sessionUUID;
 	    if (uuid_parse(instanceId, (void *)&sessionUUID) != 0) {
-		os_log_error(GSSOSLog(), "can't parse LAUNCH_ENV_INSTANCEID as a uuid");
+		os_log_error(GSSHelperOSLog(), "can't parse LAUNCH_ENV_INSTANCEID as a uuid");
 		return EPERM;
 	    }
 	    
@@ -920,6 +922,26 @@ int main(int argc, const char *argv[])
     } else {
 	os_log_info(GSSOSLog(), "Starting run loop");
     }
+
+    // exit on SIGTERM to avoid shutdown stall
+    sigTermSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, runQueue);
+    dispatch_source_set_event_handler(sigTermSource, ^{
+	os_log((startedWithInstanceID ? GSSHelperOSLog() : GSSOSLog()), "Got SIGTERM, shutting down");
+
+	if (HeimCredCTX.flushPending) {
+	    os_log((startedWithInstanceID ? GSSHelperOSLog() : GSSOSLog()), "Saving cached credentials");
+	    storeCredCache();
+	}
+
+#ifndef DEBUG
+	// In debug builds, it is useful to debug whether process really got idle-clean as a reaction to SIGTERM.
+	// Theoretically, we could just terminate always as we don't need (yet) any state to be persisted at the moment of shutdown.
+	exit(EXIT_SUCCESS);
+#endif
+    });
+
+    dispatch_activate(sigTermSource);
+    signal(SIGTERM, SIG_IGN);
 
     [[NSRunLoop currentRunLoop] run];
     

@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-07-09</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Avoid crash if argv[0] is NULL (4384130)</string>
+		<string>Terminate on error processing operand (75277617)</string>
+		<string>expand.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>expand</string>
+	<key>OpenSourceVersion</key>
+	<string>2018-05-11</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/expand?id=fe8c16cef1d6669074c262fbb7b55d301ca01d74</string>
+</dict>

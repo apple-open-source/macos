@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc8_icode = {
+const crcDescriptor CC_crc8_icode = {
     .name = "crc8-icode",
     .defType = model,
     .def.parms.width = 1,

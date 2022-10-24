@@ -39,12 +39,12 @@
   
   Test Date : -0001-12-31T23:59:59-05:00
     year                 : -1
-    leap-year            : false
+    leap-year            : true
     month-in-year        : 12
     month-name           : December
     month-abbreviation   : Dec
     week-in-year         : 52
-    day-in-year          : 365
+    day-in-year          : 366
     day-in-month         : 31
     day-of-week-in-month : 5
     day-in-week          : 1
@@ -75,17 +75,17 @@
   
   Test Date : -10000-12-31T23:59:59Z
     year                 : -10000
-    leap-year            : true
+    leap-year            : false
     month-in-year        : 12
     month-name           : December
     month-abbreviation   : Dec
     week-in-year         : 1
-    day-in-year          : 366
+    day-in-year          : 365
     day-in-month         : 31
     day-of-week-in-month : 5
-    day-in-week          : 4
-    day-name             : Wednesday
-    day-abbreviation     : Wed
+    day-in-week          : 2
+    day-name             : Monday
+    day-abbreviation     : Mon
     time                 : 23:59:59Z
     hour-in-day          : 23
     minute-in-hour       : 59

@@ -70,10 +70,9 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [self.cuttlefishXPCWrapper resetWithContainer:self.containerName
-                                          context:self.contextID
-                                      resetReason:self.resetReason
-                                            reply:^(NSError * _Nullable error) {
+    [self.cuttlefishXPCWrapper resetWithSpecificUser:self.deps.activeAccount
+                                         resetReason:self.resetReason
+                                               reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventReset hardFailure:true result:error];
         

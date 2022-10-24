@@ -28,7 +28,7 @@
 
 #include "ArgumentCoders.h"
 #include "Logging.h"
-#include "MachPort.h"
+#include <WebCore/ProcessIdentity.h>
 #include <WebCore/SharedBuffer.h>
 #include <mach/mach_error.h>
 #include <mach/mach_port.h>
@@ -103,10 +103,27 @@ void SharedMemory::Handle::takeOwnershipOfMemory(MemoryLedger memoryLedger) cons
         return;
 
     kern_return_t kr = mach_memory_entry_ownership(m_port, mach_task_self(), toVMMemoryLedger(memoryLedger), 0);
+
     if (kr != KERN_SUCCESS)
-        RELEASE_LOG_ERROR(VirtualMemory, "SharedMemory::Handle::setOwnership: Failed ownership of shared memory. Error: %{public}s (%x)", mach_error_string(kr), kr);
+        RELEASE_LOG_ERROR(VirtualMemory, "SharedMemory::Handle::takeOwnershipOfMemory: Failed ownership of shared memory. Error: %{public}s (%x)", mach_error_string(kr), kr);
 #else
     UNUSED_PARAM(memoryLedger);
+#endif
+}
+
+void SharedMemory::Handle::setOwnershipOfMemory(const ProcessIdentity& processIdentity, MemoryLedger memoryLedger) const
+{
+#if HAVE(TASK_IDENTITY_TOKEN) && HAVE(MACH_MEMORY_ENTRY_OWNERSHIP_IDENTITY_TOKEN_SUPPORT)
+    if (!m_port)
+        return;
+
+    kern_return_t kr = mach_memory_entry_ownership(m_port, processIdentity.taskIdToken(), toVMMemoryLedger(memoryLedger), 0);
+
+    if (kr != KERN_SUCCESS)
+        RELEASE_LOG_ERROR(VirtualMemory, "SharedMemory::Handle::setOwnershipOfMemory: Failed ownership of shared memory. Error: %{public}s (%x)", mach_error_string(kr), kr);
+#else
+    UNUSED_PARAM(memoryLedger);
+    UNUSED_PARAM(processIdentity);
 #endif
 }
 
@@ -128,7 +145,7 @@ void SharedMemory::IPCHandle::encode(IPC::Encoder& encoder) const
 {
     encoder << static_cast<uint64_t>(handle.m_size);
     encoder << dataSize;
-    encoder << IPC::MachPort(handle.m_port, MACH_MSG_TYPE_MOVE_SEND);
+    encoder << MachSendRight::adopt(handle.m_port);
     handle.m_port = MACH_PORT_NULL;
 }
 
@@ -151,12 +168,12 @@ bool SharedMemory::IPCHandle::decode(IPC::Decoder& decoder, IPCHandle& ipcHandle
     if (dataLength > bufferSize)
         return false;
 
-    IPC::MachPort machPort;
-    if (!decoder.decode(machPort))
+    auto sendRight = decoder.decode<MachSendRight>();
+    if (UNLIKELY(!decoder.isValid()))
         return false;
     
     handle.m_size = bufferSize;
-    handle.m_port = machPort.port();
+    handle.m_port = sendRight->leakSendRight();
     ipcHandle.handle = WTFMove(handle);
     ipcHandle.dataSize = dataLength;
     return true;
@@ -227,6 +244,17 @@ static WTF::MachSendRight makeMemoryEntry(size_t size, vm_offset_t offset, Share
     memory_object_size_t memoryObjectSize = *roundedSize;
     mach_port_t port = MACH_PORT_NULL;
 
+#if HAVE(MEMORY_ATTRIBUTION_VM_SHARE_SUPPORT)
+    kern_return_t kr = mach_make_memory_entry_64(mach_task_self(), &memoryObjectSize, offset, machProtection(protection) | VM_PROT_IS_MASK | MAP_MEM_VM_SHARE, &port, parentEntry);
+    if (kr != KERN_SUCCESS) {
+#if RELEASE_LOG_DISABLED
+        LOG_ERROR("Failed to create a mach port for shared memory. %s (%x)", mach_error_string(kr), kr);
+#else
+        RELEASE_LOG_ERROR(VirtualMemory, "SharedMemory::makeMemoryEntry: Failed to create a mach port for shared memory. Error: %{public}s (%x)", mach_error_string(kr), kr);
+#endif
+        return { };
+    }
+#else
     // First try without MAP_MEM_VM_SHARE because it prevents memory ownership transfer. We only pass the MAP_MEM_VM_SHARE flag as a fallback.
     kern_return_t kr = mach_make_memory_entry_64(mach_task_self(), &memoryObjectSize, offset, machProtection(protection) | VM_PROT_IS_MASK, &port, parentEntry);
     if (kr != KERN_SUCCESS) {
@@ -241,6 +269,7 @@ static WTF::MachSendRight makeMemoryEntry(size_t size, vm_offset_t offset, Share
             return { };
         }
     }
+#endif // HAVE(MEMORY_ATTRIBUTION_VM_SHARE_SUPPORT)
 
     RELEASE_ASSERT(memoryObjectSize >= size);
 
@@ -343,11 +372,6 @@ bool SharedMemory::createHandle(Handle& handle, Protection protection)
     handle.m_size = *roundedSize;
 
     return true;
-}
-
-unsigned SharedMemory::systemPageSize()
-{
-    return vm_page_size;
 }
 
 WTF::MachSendRight SharedMemory::createSendRight(Protection protection) const

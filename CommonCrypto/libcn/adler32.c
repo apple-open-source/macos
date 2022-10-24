@@ -53,7 +53,7 @@ adler32_oneshot(size_t len, const void *in)
 
 
 
-const crcDescriptor adler32 = {
+const crcDescriptor CC_adler32 = {
     .name = "adler-32",
     .defType = functions,
     .def.funcs.setup = adler32_setup,

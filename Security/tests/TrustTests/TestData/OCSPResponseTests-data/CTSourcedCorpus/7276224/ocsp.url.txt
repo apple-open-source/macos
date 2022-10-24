@@ -1,0 +1,1 @@
+http://ocsp.buypass.no/ocsp/BPClass3CA3

@@ -26,6 +26,8 @@
 #include <os/base.h>
 #include <os/availability.h>
 
+OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+
 /*! @header
  * OS Variant SPI
  *
@@ -301,7 +303,7 @@ os_variant_check(const char *subsystem, const char *variant);
  */
 API_AVAILABLE(macosx(10.16), ios(14.0), tvos(13.0), watchos(7.0), bridgeos(4.0))
 OS_EXPORT OS_WARN_RESULT
-char *
+char *__unsafe_indexable
 os_variant_copy_description(const char *subsystem);
 
 /*!
@@ -314,5 +316,6 @@ void
 os_variant_init_4launchd(const char *boot_mode);
 
 __END_DECLS
+OS_ASSUME_PTR_ABI_SINGLE_END
 
 #endif // __os_variant_H__

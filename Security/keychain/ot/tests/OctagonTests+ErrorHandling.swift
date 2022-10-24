@@ -203,9 +203,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
-                                                                   code: CKError.networkUnavailable.rawValue,
-                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -239,9 +237,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
-                                                                   code: CKError.networkUnavailable.rawValue,
-                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.add(CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -327,10 +323,10 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         let peer2 = self.manager.context(forContainerName: OTCKContainerName,
                                          contextID: peer2contextID,
                                          sosAdapter: peer2mockSOS,
+                                         accountsAdapter: self.mockAuthKit2,
                                          authKitAdapter: self.mockAuthKit2,
                                          tooManyPeersAdapter: self.mockTooManyPeers,
                                          lockStateTracker: self.lockStateTracker,
-                                         accountStateTracker: self.accountStateTracker,
                                          deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
         peer2.startOctagonStateMachine()
@@ -430,17 +426,17 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         bNewOTCliqueContext.otControl = self.otcliqueContext.otControl
         bNewOTCliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!)
 
-        let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
+        let deviceBmockAuthKit = CKKSTestsMockAccountsAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
                                                       machineID: "b-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID])
 
         let bRestoreContext = self.manager.context(forContainerName: OTCKContainerName,
                                                    contextID: bNewOTCliqueContext.context,
                                                    sosAdapter: OTSOSMissingAdapter(),
+                                                   accountsAdapter: deviceBmockAuthKit,
                                                    authKitAdapter: deviceBmockAuthKit,
                                                    tooManyPeersAdapter: self.mockTooManyPeers,
                                                    lockStateTracker: self.lockStateTracker,
-                                                   accountStateTracker: self.accountStateTracker,
                                                    deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
         bRestoreContext.startOctagonStateMachine()
@@ -466,7 +462,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        self.mockAuthKit.otherDevices.insert(deviceBmockAuthKit.currentMachineID)
+        self.mockAuthKit.otherDevices.add(deviceBmockAuthKit.currentMachineID)
 
         self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
@@ -598,6 +594,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { _ in
+            self.fakeCuttlefishServer.updateListener = nil
             reset.startOctagonStateMachine()
 
             do {
@@ -605,7 +602,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
                 self.assertEnters(context: reset, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
                 let arguments = OTConfigurationContext()
-                arguments.altDSID = try reset.authKitAdapter.primaryiCloudAccountAltDSID()
+                arguments.altDSID = try XCTUnwrap(reset.activeAccount?.altDSID)
                 arguments.context = reset.contextID
                 arguments.otControl = self.otControl
 
@@ -634,7 +631,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         // and TPH doesn't think we have an identity, either
         let trustStatusExpectation = self.expectation(description: "trustStatus callback occurs")
-        self.tphClient.trustStatus(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { egoStatus, error in
+        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { egoStatus, error in
             XCTAssertNil(error, "error should be nil")
 
             XCTAssertNil(egoStatus.egoPeerID, "should not have a local peer ID")
@@ -650,6 +647,94 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testHandlePeerMissingOnHealthCheckNoJoinAttempt() throws {
+        self.mockSOSAdapter.sosEnabled = false
+
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let joiner = self.makeInitiatorContext(contextID: "joiner")
+        joiner.startOctagonStateMachine()
+
+        self.assertEnters(context: joiner, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTControlArguments(containerName: OTCKContainerName, contextID: "joiner", altDSID: OTMockPersonaAdapter.defaultMockPersonaString()), skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
+            healthCheckCallback.fulfill()
+        }
+
+        joiner.stateMachine.testPause(afterEntering: OctagonStatePeerMissingFromServer)
+
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        let accountMetadata = try joiner.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertEqual(accountMetadata.attemptedJoin, OTAccountMetadataClassC_AttemptedAJoinState.NOTATTEMPTED, "Should not have attempted join")
+        self.assertConsidersSelfUntrusted(context: joiner)
+
+        // and TPH doesn't think we have an identity, either
+        let trustStatusExpectation = self.expectation(description: "trustStatus callback occurs")
+        self.tphClient.trustStatus(with: try XCTUnwrap(joiner.activeAccount)) { egoStatus, error in
+            XCTAssertNil(error, "error should be nil")
+
+            XCTAssertNil(egoStatus.egoPeerID, "should not have a local peer ID")
+            XCTAssertTrue(egoStatus.isExcluded, "should be excluded")
+            XCTAssert(egoStatus.egoStatus.contains(.excluded), "self should be excluded (because there is no self)")
+            trustStatusExpectation.fulfill()
+        }
+        self.wait(for: [trustStatusExpectation], timeout: 10)
+    }
+
+    func testHandlePeerMissingOnTrustUpdateNoJoinAttempt() throws {
+        self.mockSOSAdapter.sosEnabled = false
+        self.startCKAccountStatusMock()
+        try self.cuttlefishContext.setCDPEnabled()
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let metadata = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertNotNil(metadata, "metadata should not be nil")
+        XCTAssertEqual(metadata.attemptedJoin, .NOTATTEMPTED, "should not have attempted to join")
+
+        let reset = self.makeInitiatorContext(contextID: "reset")
+        reset.startOctagonStateMachine()
+
+        do {
+            try reset.setCDPEnabled()
+            self.assertEnters(context: reset, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+            let arguments = OTConfigurationContext()
+            arguments.altDSID = try XCTUnwrap(reset.activeAccount?.altDSID)
+            arguments.context = reset.contextID
+            arguments.otControl = self.otControl
+
+            let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+        }
+        self.assertEnters(context: reset, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let updateTrustExpectation = self.expectation(description: "updateTrust")
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+            self.fakeCuttlefishServer.fetchChangesListener = nil
+            updateTrustExpectation.fulfill()
+            return nil
+        }
+
+        self.sendContainerChange(context: self.cuttlefishContext)
+
+        self.cuttlefishContext.stateMachine.testPause(afterEntering: OctagonStatePeerMissingFromServer)
+
+        self.wait(for: [updateTrustExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let accountMetadata = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertNil(accountMetadata.peerID, "Should have no peer ID anymore")
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
     }
 }
 

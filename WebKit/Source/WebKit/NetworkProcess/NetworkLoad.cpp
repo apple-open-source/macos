@@ -248,8 +248,17 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
 {
     ASSERT(RunLoop::isMain());
 
-    if (m_parameters.needsCertificateInfo)
-        response.includeCertificateInfo();
+    if (m_parameters.needsCertificateInfo) {
+        Span<const std::byte> auditToken;
+
+#if PLATFORM(COCOA)
+        auto token = m_networkProcess->sourceApplicationAuditToken();
+        if (token)
+            auditToken = asBytes(Span<unsigned> { token->val });
+#endif
+
+        response.includeCertificateInfo(auditToken);
+    }
 
     m_client.get().didReceiveResponse(WTFMove(response), privateRelayed, WTFMove(completionHandler));
 }

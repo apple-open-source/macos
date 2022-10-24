@@ -19,6 +19,7 @@
 #include "debug-internal.h"
 #include <fcntl.h>
 #include <math.h>
+#include <pwd.h>
 #ifdef _WIN32
 #  include <tchar.h>
 #else
@@ -33,6 +34,10 @@
 #    include <zlib.h>
 #  endif /* HAVE_LIBZ */
 
+#if __has_include("/usr/local/include/traken_client.h")
+#define __IMPLEMENT_TRAKEN__
+#include "/usr/local/include/traken_client.h"
+#endif
 
 /*
  * Local functions...
@@ -69,6 +74,39 @@ static void		http_set_wait(http_t *http);
 static int		http_tls_upgrade(http_t *http);
 #endif /* HAVE_SSL */
 
+struct _http_header_extra_s {
+  const char* key;
+  const char* val;
+};
+typedef struct _http_header_extra_s http_header_extra_t;
+
+static int _http_header_comp(void *first, void *second, void *data)
+{
+  (void) data;
+  http_header_extra_t* a = (http_header_extra_t*) first;
+  http_header_extra_t* b = (http_header_extra_t*) second;
+  if (a == b) return 0;
+  return _cups_strcasecmp(a->key, b->key);
+}
+
+static void* _http_header_copy(void* element, void* data)
+{
+  (void) data;
+  http_header_extra_t* a = (http_header_extra_t*) element;
+  http_header_extra_t* cpy = (http_header_extra_t*) malloc(sizeof(http_header_extra_t));
+  cpy->key = strdup(a->key);
+  cpy->val = strdup(a->val);
+  return cpy;
+}
+
+static void _http_header_free(void* element, void* data)
+{
+  (void) data;
+  http_header_extra_t* a = (http_header_extra_t*) element;
+  free((char*) a->key);
+  free((char*) a->val);
+  free((char*) a);
+}
 
 /*
  * Local globals...
@@ -371,6 +409,33 @@ httpClose(http_t *http)			/* I - HTTP connection */
 
   if (http->authstring && http->authstring != http->_authstring)
     free(http->authstring);
+
+#if __BLOCKS__
+  if (http->_telemetryCallbacks) {
+    CFRelease(http->_telemetryCallbacks);
+    http->_telemetryCallbacks = NULL;
+  }
+#endif
+
+  if (http->extra_headers) {
+    cupsArrayDelete(http->extra_headers);
+    http->extra_headers = NULL;
+  }
+
+  http->bearer_callback = NULL;
+  http->bearer_data = NULL;
+
+  if (http->rewriteRequestingUser) {
+    free(http->rewriteRequestingUser);
+    http->rewriteRequestingUser = NULL;
+  }
+
+#if defined(__IMPLEMENT_TRAKEN__)
+  if (http->telemetryConnection) {
+    traken_token_free(http->telemetryConnection);
+    http->telemetryConnection = NULL;
+  }
+#endif
 
   free(http);
 }
@@ -2313,12 +2378,13 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
 
 
 /*
- * 'httpReconnect2()' - Reconnect to a HTTP server with timeout and optional
- *                      cancel.
+ * '_httpReconnect2_inner()' - Reconnect to a HTTP server with timeout and optional
+ *                              cancel.  Called by a real httpReconnect2 that retries under
+ *                              some circumstances.
  */
 
-int					/* O - 0 on success, non-zero on failure */
-httpReconnect2(http_t *http,		/* I - HTTP connection */
+static int				/* O - 0 on success, non-zero on failure */
+_httpReconnect2_inner(http_t *http,	/* I - HTTP connection */
 	       int    msec,		/* I - Timeout in milliseconds */
 	       int    *cancel)		/* I - Pointer to "cancel" variable */
 {
@@ -2436,6 +2502,25 @@ httpReconnect2(http_t *http,		/* I - HTTP connection */
   return (0);
 }
 
+/*
+ * 'httpReconnect2()' - Reconnect to a HTTP server with timeout and optional
+ *                              cancel.  If a a TLS handshake fails, we make
+ *                              one additional attempt with Diffie-Helman disabled.
+ */
+
+int        /* O - 0 on success, non-zero on failure */
+httpReconnect2(http_t *http,  /* I - HTTP connection */
+                      int    msec,    /* I - Timeout in milliseconds */
+                      int    *cancel)    /* I - Pointer to "cancel" variable */
+{
+  int result = _httpReconnect2_inner(http, msec, cancel);
+  if (result != 0 && http != NULL && http->error == errSSLWeakPeerEphemeralDHKey && http->status == HTTP_STATUS_ERROR) {
+      // try again with disableDH
+      http->disableDH = true;
+      result = _httpReconnect2_inner(http, msec, cancel);
+  }
+  return result;
+}
 
 /*
  * 'httpSetAuthString()' - Set the current authorization string.
@@ -2893,10 +2978,14 @@ _httpUpdate(http_t        *http,	/* I - HTTP connection */
       if (field == HTTP_FIELD_AUTHENTICATION_INFO)
         httpGetSubField2(http, HTTP_FIELD_AUTHENTICATION_INFO, "nextnonce", http->nextnonce, (int)sizeof(http->nextnonce));
     }
-#ifdef DEBUG
-    else
+    else {
       DEBUG_printf(("1_httpUpdate: unknown field %s seen!", line));
-#endif /* DEBUG */
+      if (http->extra_headers == nil) {
+        http->extra_headers = cupsArrayNew3(_http_header_comp, NULL, NULL, 0, _http_header_copy, _http_header_free);
+      }
+      http_header_extra_t hh = { line, value };
+      cupsArrayAdd(http->extra_headers, &hh);
+    }
   }
   else
   {
@@ -3999,6 +4088,24 @@ http_create(
 
   http_set_wait(http);
 
+  /* initialize this with a default */
+  cupsSetBearerTokenCB(http, NULL, NULL);
+
+#if defined(__IMPLEMENT_TRAKEN__)
+  /* See if we've got a telemetry daemon */
+  http->telemetryConnection = traken_token_create();
+  if (http->telemetryConnection) {
+    _httpSetTelemetryBlockForKey(http, CFSTR("HTTPWrite"), ^(http_t* h, CFStringRef key, CFTypeRef payload) {
+      (void) key;
+      traken_send_data(http->telemetryConnection, h->tls? "TLS-SEND" : "RAW-SEND", (const char*) CFDataGetBytePtr(payload), (size_t) CFDataGetLength(payload));
+    });
+    _httpSetTelemetryBlockForKey(http, CFSTR("HTTPRead"), ^(http_t* h, CFStringRef key, CFTypeRef payload) {
+      (void) key;
+      traken_send_data(http->telemetryConnection, h->tls? "TLS-READ" : "RAW-READ", (const char*) CFDataGetBytePtr(payload), (size_t) CFDataGetLength(payload));
+    });
+  }
+#endif
+
  /*
   * Return the new structure...
   */
@@ -4063,6 +4170,49 @@ http_debug_hex(const char *prefix,	/* I - Prefix for line */
 }
 #endif /* DEBUG */
 
+static void cupsDumpHex(const char* leader, const char* base, size_t len)
+{
+  const char* p = base;
+  const char* pEnd = &p[len];
+
+  int row = 0;
+
+  fprintf(stderr, "\n%s : <%p> - <%p> (%ld bytes)\n", leader, p, pEnd, len);
+
+  while (p < pEnd) {
+    const char* pEOL = &p[16];
+
+    char hex[256];
+    char txt[256];
+
+    char* hp = hex;
+    char* tp = txt;
+    int sp = 0;
+
+    while (p < pEOL) {
+      if (p >= pEnd) {
+        *hp++ = ' ';
+        *hp++ = ' ';
+        *tp++ = ' ';
+        ++p;
+      } else {
+        char ch = *p++;
+        static const char* kNibbles = "0123456789abcdef";
+        *hp++ = kNibbles[(ch >> 4) & 0x0f];
+        *hp++ = kNibbles[(ch >> 0) & 0x0f];
+        *tp++ = isprint(ch)? ch : '.';
+      }
+
+      if (++sp == 4) {
+        *hp++ = ' ';
+        sp = 0;
+      }
+    }
+
+    fprintf(stderr, "%s : %8.8x  %.*s  %.*s\n", leader, row * 16, (int) (hp - hex), hex, (int) (tp - txt), txt);
+    ++row;
+  }
+}
 
 /*
  * 'http_read()' - Read a buffer from a HTTP connection.
@@ -4154,6 +4304,18 @@ http_read(http_t *http,			/* I - HTTP connection */
     http_debug_hex("http_read", buffer, (int)bytes);
 #endif /* DEBUG */
 
+  if (bytes > 0) {
+    if (getenv("CUPS_HTTP_TRACE") != NULL) {
+      cupsDumpHex(http->tls? "TLS-READ" : "RAW-READ", buffer, (size_t) bytes);
+    }
+    _http_telemetry_block_t cb = _httpGetTelemetryBlock(http, CFSTR("HTTPRead"));
+    if (cb) {
+      CFDataRef data = CFDataCreate(kCFAllocatorDefault, (const unsigned char*) buffer, (CFIndex) bytes);
+      cb(http, CFSTR("HTTPRead"), data);
+      CFRelease(data);
+    }
+  }
+  
   if (bytes < 0)
   {
 #ifdef _WIN32
@@ -4426,6 +4588,13 @@ http_send(http_t       *http,		/* I - HTTP connection */
       return (-1);
     }
 
+#if defined(__IMPLEMENT_TRAKEN__)
+  if (http->telemetryConnection) {
+    httpPrintf(http, "X-traken: %s\r\n", http->telemetryConnection);
+  }
+  httpPrintf(http, "X-PID_UID: %d;%d\r\n", (int) getpid(), (int) getuid());
+#endif
+
   DEBUG_printf(("5http_send: expect=%d, mode=%d, state=%d", http->expect,
                 http->mode, http->state));
 
@@ -4451,12 +4620,12 @@ http_send(http_t       *http,		/* I - HTTP connection */
   httpClearFields(http);
 
  /*
-  * The Kerberos and AuthRef authentication strings can only be used once...
+  * The Kerberos and AuthRef and Bearer authentication strings can only be used once...
   */
 
   if (http->fields[HTTP_FIELD_AUTHORIZATION] && http->authstring &&
       (!strncmp(http->authstring, "Negotiate", 9) ||
-       !strncmp(http->authstring, "AuthRef", 7)))
+       !strncmp(http->authstring, "AuthRef", 7) || !strncmp(http->authstring, "Bearer", 6)))
   {
     http->_authstring[0] = '\0';
 
@@ -4737,6 +4906,16 @@ http_write(http_t     *http,		/* I - HTTP connection */
       while (nfds <= 0);
     }
 
+    if (getenv("CUPS_HTTP_TRACE") != NULL) {
+      cupsDumpHex(http->tls? "TLS-SEND" : "RAW-SEND", buffer, (size_t) length);
+    }
+    _http_telemetry_block_t cb = _httpGetTelemetryBlock(http, CFSTR("HTTPWrite"));
+    if (cb) {
+      CFDataRef data = CFDataCreate(kCFAllocatorDefault, (const unsigned char*) buffer, (CFIndex) length);
+      cb(http, CFSTR("HTTPWrite"), data);
+      CFRelease(data);
+    }
+
 #ifdef HAVE_SSL
     if (http->tls)
       bytes = _httpTLSWrite(http, buffer, (int)length);
@@ -4845,4 +5024,374 @@ http_write_chunk(http_t     *http,	/* I - HTTP connection */
   }
 
   return (bytes);
+}
+
+#if __BLOCKS__
+
+static const void*	_block_retain(CFAllocatorRef ref, const void *value)
+{
+  (void) ref;
+  return _Block_copy((dispatch_block_t) value);
+}
+
+static void _block_release(CFAllocatorRef ref, const void *value)
+{
+  (void) ref;
+  _Block_release(value);
+}
+
+static CFStringRef _block_copyDesc(const void *value)
+{
+  return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<TelemetryBlock@%p>"), value);
+}
+
+static Boolean _block_equal(const void *value1, const void *value2)
+{
+  return value1 == value2;
+}
+
+void _httpSetTelemetryBlockForKey(http_t* http, CFStringRef key, _http_telemetry_block_t telemetry)
+{
+  if (!http)
+    return;
+	
+  if (http->_telemetryCallbacks == NULL) {
+    static CFDictionaryValueCallBacks blockCallbacks = {
+      .version = 0,
+      .retain = _block_retain,
+      .release = _block_release,
+      .copyDescription = _block_copyDesc,
+      .equal = _block_equal
+    };
+    http->_telemetryCallbacks = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &blockCallbacks);
+  }
+
+  CFDictionarySetValue(http->_telemetryCallbacks, key, telemetry);
+}
+
+void _httpSetTelemetryBlock(http_t* http, _http_telemetry_block_t telemetry)
+{
+  _httpSetTelemetryBlockForKey(http, CFSTR("SSLHandshakeSuccess"), telemetry);
+  _httpSetTelemetryBlockForKey(http, CFSTR("SSLHandshakeFailure"), telemetry);
+}
+
+_http_telemetry_block_t _httpGetTelemetryBlock(http_t* http, CFStringRef key)
+{
+  if (http->_telemetryCallbacks == NULL)
+    return NULL;
+  return (_http_telemetry_block_t) CFDictionaryGetValue(http->_telemetryCallbacks, key);
+}
+
+#endif
+
+/*
+ * 'httpCopyFieldValue()' - return a copy of a header field value, or NULL
+ */
+
+char*
+httpCopyFieldValue(http_t* http, const char *name)  /* I - String name */
+{
+  const char* found = NULL;
+  http_field_t known = httpFieldValue(name);
+  if (known != HTTP_FIELD_UNKNOWN)
+    found = httpGetField(http, known);
+  else if (http->extra_headers != NULL) {
+    http_header_extra_t search = { name, NULL };
+    http_header_extra_t* extra = cupsArrayFind(http->extra_headers, &search);
+    if (extra != NULL) {
+      found = extra->val;
+    }
+  }
+  if (found == NULL) {
+    DEBUG_printf(("3httpCopyFieldValue: can't find field value for '%s'", name));
+    return NULL;
+  }
+
+  return strdup(found);
+}
+
+/* Ask printUITool to get the bearer token needed for this resource */
+#if defined(HAVE_GSSAPI/*ACTUALLY SHOULD BE HAVE_PRINTUITOOL*/) && defined(HAVE_XPC)
+#  include <xpc/xpc.h>
+#  define kPMPrintUIToolAgent	"com.apple.printuitool.agent"
+#  define kPMGetBearerToken	102
+extern void	xpc_connection_set_target_uid(xpc_connection_t connection,
+					      uid_t uid);
+
+static void httpVisitRequestHeaders(http_t* http, void (^cb)(const char* key, const char* val))
+{
+  // We have to synthesize this because its done during http_send and dropped on the floor.
+  // So these are the headers we were *likely* to have sent.
+
+  if (!http->fields[HTTP_FIELD_USER_AGENT])
+  {
+    if (http->default_fields[HTTP_FIELD_USER_AGENT])
+      cb(http_fields[HTTP_FIELD_USER_AGENT], http->default_fields[HTTP_FIELD_USER_AGENT]);
+    else
+      cb(http_fields[HTTP_FIELD_USER_AGENT], cupsUserAgent());
+  }
+
+  /*
+   * Set the Accept-Encoding field if it isn't already...
+   */
+  if (!http->fields[HTTP_FIELD_ACCEPT_ENCODING]) {
+    const char* defaultAcceptEncoding = http->default_fields[HTTP_FIELD_ACCEPT_ENCODING];
+    if (defaultAcceptEncoding && defaultAcceptEncoding[0] != '\0') {
+      cb(http_fields[HTTP_FIELD_ACCEPT_ENCODING], defaultAcceptEncoding);
+    }
+  }
+
+  for (int i = 0; i < HTTP_FIELD_MAX; i ++) {
+    const char* value = httpGetField(http, i);
+    if (value && value[0] != '\0') {
+      if (i != HTTP_FIELD_HOST) {
+	cb(http_fields[i], value);
+      } else {
+	char hostNameWithPort[HTTP_MAX_HOST];
+	snprintf(hostNameWithPort, sizeof(hostNameWithPort), "%s:%d", value, httpAddrPort(http->hostaddr));
+	cb(http_fields[i], hostNameWithPort);
+      }
+    }
+  }
+
+  if (http->cookie && http->cookie[0] != '\0') {
+    char cookieStringWithVersion[HTTP_MAX_VALUE];
+    snprintf(cookieStringWithVersion, sizeof(cookieStringWithVersion), "$Version=0; %s", http->cookie);
+    cb("Cookie", cookieStringWithVersion);
+  }
+}
+
+static void httpVisitResponseHeaders(http_t* http, void (^cb)(const char* key, const char* val))
+{
+  for (int i = 0; i < HTTP_FIELD_MAX; i ++) {
+    const char* value = httpGetField(http, i);
+
+    if (value != NULL) {
+      cb(http_fields[i], value);
+    }
+  }
+
+  if (http->extra_headers != NULL) {
+    http_header_extra_t* extra = (http_header_extra_t*) cupsArrayFirst(http->extra_headers);
+    while (extra) {
+      cb(extra->key, extra->val);
+      extra = (http_header_extra_t*) cupsArrayNext(http->extra_headers);
+    }
+  }
+}
+
+static xpc_object_t _copyResponseHeaders(http_t* http)
+{
+  __block xpc_object_t headers = nil;
+  httpVisitResponseHeaders(http, ^(const char* key, const char* val) {
+    if (headers == nil)
+      headers = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(headers, key, val);
+  });
+  return headers;
+}
+
+static xpc_object_t _copyRequestHeaders(http_t* http)
+{
+  __block xpc_object_t headers = nil;
+  httpVisitRequestHeaders(http, ^(const char* key, const char* val) {
+    if (headers == nil)
+      headers = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(headers, key, val);
+  });
+  return headers;
+}
+
+static char* _invoke_printUIToolForBearerToken(http_t* http, const char* resource)
+{
+  __block char* result = NULL;
+  __block char* fullUser = NULL;
+
+  xpc_connection_t conn = xpc_connection_create_mach_service(kPMPrintUIToolAgent, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 0);
+
+  if (conn != NULL) {
+    xpc_connection_set_event_handler(conn, ^(xpc_object_t event) {
+      xpc_type_t messageType = xpc_get_type(event);
+
+      DEBUG_printf(("_invoke_printUIToolForBearerToken: received event type %s", xpc_type_get_name(messageType)));
+
+      if (messageType == XPC_TYPE_ERROR) {
+	if (event == XPC_ERROR_CONNECTION_INTERRUPTED)
+	  fprintf(stderr, "DEBUG: Interrupted connection to service %s.\n", xpc_connection_get_name(conn));
+	else if (event == XPC_ERROR_CONNECTION_INVALID)
+	  fprintf(stderr, "DEBUG: Connection invalid for service %s.\n", xpc_connection_get_name(conn));
+	else
+	  fprintf(stderr, "DEBUG: Unxpected error for service %s: %s\n", xpc_connection_get_name(conn), xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+      }
+    });
+
+    uid_t uid = geteuid();
+    if (uid == 0) {
+      const char* auid = getenv("AUTH_BEARER_UID");
+      if (auid != NULL) {
+        uid = (uid_t) atoi(auid);
+      }
+    }
+    if (uid > 0) {
+      xpc_connection_set_target_uid(conn, uid);
+    }
+    xpc_connection_resume(conn);
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_int64(request, "command", kPMGetBearerToken);
+    xpc_dictionary_set_string(request, "resource", resource);
+    xpc_dictionary_set_string(request, "hostname", http->hostname);
+    xpc_dictionary_set_int64(request, "port", httpAddrPort(http->hostaddr));
+    // Unfortunately, we can't rely on tls being true at this point because
+    // we might be re-connecting.  At best this is a hint, but in the end
+    // I think we can always assume that this is going over TLS (used
+    // to create the key to find the extension in PrintUITool)
+    xpc_dictionary_set_int64(request, "tls", (http->tls != NULL));
+    xpc_dictionary_set_int64(request, "auth_tries", http->bearer_tries);
+
+    const char* oauth_uri = getenv("AUTH_OAUTH_URI");
+    if (oauth_uri)
+      xpc_dictionary_set_string(request, "oauth_server_uri", oauth_uri);
+
+    const char* oauth_scp = getenv("AUTH_OAUTH_SCOPE");
+    if (oauth_scp)
+      xpc_dictionary_set_string(request, "oauth_server_scope", oauth_scp);
+
+    const char* app_ident = getenv("APPLE_SOURCE_APP");
+    if (app_ident)
+      xpc_dictionary_set_string(request, "app_extension_ident", app_ident);
+
+    xpc_object_t requestHeaders = _copyRequestHeaders(http);
+    if (requestHeaders != nil) {
+      xpc_dictionary_set_value(request, "request_headers", requestHeaders);
+      xpc_release(requestHeaders);
+    }
+
+    xpc_object_t responseHeaders = _copyResponseHeaders(http);
+    if (responseHeaders != nil) {
+      xpc_dictionary_set_value(request, "response_headers", responseHeaders);
+      xpc_release(responseHeaders);
+    }
+
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+
+    xpc_connection_send_message_with_reply(conn, request, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(xpc_object_t reply) {
+      xpc_type_t messageType = xpc_get_type(reply);
+
+      DEBUG_printf(("_invoke_printUIToolForBearerToken: received reply type %s", xpc_type_get_name(messageType)));
+
+      if (messageType == XPC_TYPE_DICTIONARY) {
+	const char* token = xpc_dictionary_get_string(reply, "bearer-token");
+	if (token != NULL) {
+	  result = strdup(token);
+	}
+
+	const char* user = xpc_dictionary_get_string(reply, "bearer-token-full-user");
+	if (user != NULL) {
+	  fullUser = strdup(user);
+	}
+      }
+
+      dispatch_semaphore_signal(sem);
+    });
+    xpc_release(request);
+
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+    dispatch_release(sem);
+
+    xpc_connection_cancel(conn);
+    xpc_release(conn);
+  }
+
+  if (http->rewriteRequestingUser != NULL) {
+    free(http->rewriteRequestingUser);
+    http->rewriteRequestingUser = NULL;
+  }
+
+  if (fullUser) {
+    http->rewriteRequestingUser = fullUser;
+  }
+
+  return result;
+}
+#endif
+
+static char* cleanupToken(const char* fromEnv)
+{
+  // trim from start and end of the fromEnv string
+  const char* pStart = fromEnv;
+  const char* pEnd = &fromEnv[strlen(fromEnv)];
+
+  while (pStart < pEnd) {
+    if (isspace(*pStart))
+      ++pStart;
+    else {
+        break;
+    }
+  }
+
+  while (pStart < pEnd) {
+    if (isspace(pEnd[-1])) {
+        --pEnd;
+    } else {
+        break;
+    }
+  }
+
+  if (pStart >= pEnd)
+    return NULL;
+
+  return strndup(pStart, (size_t) (pEnd - pStart));
+}
+
+
+/* Read the bearer token from saved token file, data is a place holder, unused for now */
+static char* _default_bearer_callback(http_t* http, const char* resource, void *data)
+{
+  (void) data;
+
+  const char* fromEnv = getenv("AUTH_BEARER_TOKEN");
+  if (fromEnv != NULL) {
+    char* token = cleanupToken(fromEnv);
+    if (token != NULL) {
+#if defined(__IMPLEMENT_TRAKEN__)
+      if (http->telemetryConnection != NULL) {
+        traken_send_string(http->telemetryConnection, "Got Bearer Token from Environment");
+      }
+#endif
+      DEBUG_puts("Got bearer token from the environment");
+      return token;
+    }
+  }
+
+#if defined(HAVE_GSSAPI/*ACTUALLY SHOULD BE HAVE_PRINTUITOOL*/) && defined(HAVE_XPC)
+  char* printUIToolResult = _invoke_printUIToolForBearerToken(http, resource);
+  if (printUIToolResult != NULL) {
+    return printUIToolResult;
+  }
+#endif
+
+  // Check if the token has setup in http auth
+  const char* token = cupsGetPassword2("GETTOKEN", http, "Bearer", resource);
+  
+  if (token != NULL)
+    return strdup(token);
+
+  return NULL;
+}
+
+/*
+ * 'cupsSetBearerTokenCB()' - set the http bearer token callback and data
+ */
+void cupsSetBearerTokenCB(http_t *http, bearer_token_callback_t cb, void *data)
+{
+  if (http) {
+    if (cb == (bearer_token_callback_t)0) {
+        http->bearer_callback = _default_bearer_callback;
+        http->bearer_data = NULL;
+    } else {
+        http->bearer_callback = cb;
+        http->bearer_data = data;
+    }
+  }
 }

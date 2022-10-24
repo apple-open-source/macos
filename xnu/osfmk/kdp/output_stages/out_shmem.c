@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#if defined(CONFIG_KDP_INTERACTIVE_DEBUGGING) && (defined(__arm__) || defined(__arm64__))
+#if defined(CONFIG_KDP_INTERACTIVE_DEBUGGING) && defined(__arm64__)
 
 #include <mach/mach_types.h>
 #include <IOKit/IOTypes.h>
@@ -482,6 +482,14 @@ shmem_mark_as_busy(void)
 }
 
 void
+shmem_unmark_as_busy(void)
+{
+	if (hwsd_info != NULL) {
+		hwsd_info->xhsdci_status = XHSDCI_STATUS_NONE;
+	}
+}
+
+void
 panic_spin_shmcon(void)
 {
 	if (!PE_i_can_has_debugger(NULL)) {
@@ -513,7 +521,11 @@ panic_spin_shmcon(void)
 			hwsd_info->xhsdci_seq_no = 0;
 			FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
 		}
+#ifdef __arm64__
+		/* Avoid stalling in WFE on arm32, which may not have a maximum WFE timeout like arm64. */
+		__builtin_arm_wfe();
+#endif
 	}
 }
 
-#endif /* defined(CONFIG_KDP_INTERACTIVE_DEBUGGING) && (defined(__arm__) || defined(__arm64__)) */
+#endif /* defined(CONFIG_KDP_INTERACTIVE_DEBUGGING) && defined(__arm64__) */

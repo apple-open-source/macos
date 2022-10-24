@@ -55,6 +55,7 @@
  * -finish:
  * (BSR: Bit Scan Reverse, scans for a 1-bit, starting from the MSB)
  */
+
 extern "C" U_EXPORT const uint8_t
 utf8_countTrailBytes[256]={
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

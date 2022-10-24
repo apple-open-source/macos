@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <kern/thread.h>
 #include <mach/arm/thread_status.h>
-#include <arm/proc_reg.h>
+#include <arm64/proc_reg.h>
 
 #include <kern/assert.h>
 #include <kern/ast.h>
@@ -102,7 +102,7 @@ sendsig_get_state32(thread_t th_act, arm_thread_state_t *ts, mcontext32_t *mcp)
 	return 0;
 }
 
-static TUNABLE(bool, pac_sigreturn_token, "-pac_sigreturn_token", false);
+static TUNABLE(bool, pac_sigreturn_token, "pac_sigreturn_token", true);
 
 #if defined(__arm64__)
 struct user_sigframe64 {
@@ -221,10 +221,8 @@ sendsig_set_thread_state32(arm_thread_state_t *regs,
 		regs->pc = trampact & ~1;
 #if defined(__arm64__)
 		regs->cpsr = PSR64_USER32_DEFAULT | PSR64_MODE_USER32_THUMB;
-#elif defined(__arm__)
-		regs->cpsr = PSR_USERDFLT | PSR_TF;
 #else
-#error Unknown architeture.
+#error Unknown architecture.
 #endif
 	} else {
 		regs->pc = trampact;
@@ -353,7 +351,7 @@ sendsig(
 			goto bad2;
 		}
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		int ret = 0;
@@ -384,7 +382,7 @@ sendsig(
 #if defined(__arm64__)
 			sp = CAST_USER_ADDR_T(ts.ts64.ss.sp);
 #else
-			panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 		} else {
 			sp = CAST_USER_ADDR_T(ts.ts32.ss.sp);
@@ -397,13 +395,10 @@ sendsig(
 		sp = (sp - sizeof(user_frame.uf64) - C_64_REDZONE_LEN);
 		sp = TRUNC_TO_16_BYTES(sp);
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		sp -= sizeof(user_frame.uf32);
-#if defined(__arm__) && (__BIGGEST_ALIGNMENT__ > 4)
-		sp = TRUNC_TO_16_BYTES(sp); /* Only for armv7k */
-#endif
 	}
 
 	proc_unlock(p);
@@ -416,7 +411,7 @@ sendsig(
 		sendsig_fill_uctx64(&user_frame.uf64.uctx, oonstack, mask, sp, (user64_size_t)stack_size,
 		    (user64_addr_t)&((struct user_sigframe64*)sp)->mctx);
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		sendsig_fill_uctx32(&user_frame.uf32.uctx, oonstack, mask, sp, (user32_size_t)stack_size,
@@ -434,7 +429,7 @@ sendsig(
 		sinfo.si_addr = ts.ts64.ss.pc;
 		sinfo.pad[0] = ts.ts64.ss.sp;
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		sinfo.si_addr = ts.ts32.ss.pc;
@@ -490,7 +485,7 @@ sendsig(
 #if defined(__arm64__)
 			sinfo.si_addr = user_frame.uf64.mctx.es.far;
 #else
-			panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 		} else {
 			sinfo.si_addr = user_frame.uf32.mctx.es.far;
@@ -504,7 +499,7 @@ sendsig(
 #if defined(__arm64__)
 			sinfo.si_addr = user_frame.uf64.mctx.es.far;
 #else
-			panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 		} else {
 			sinfo.si_addr = user_frame.uf32.mctx.es.far;
@@ -616,7 +611,7 @@ sendsig(
 		}
 
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		user32_addr_t token;
@@ -714,9 +709,7 @@ sigreturn_set_state32(thread_t th_act, mcontext32_t *mctx)
 	assert(!proc_is64bit_data(current_proc()));
 
 	/* validate the thread state, set/reset appropriate mode bits in cpsr */
-#if defined(__arm__)
-	mctx->ss.cpsr = (mctx->ss.cpsr & ~PSR_MODE_MASK) | PSR_USERDFLT;
-#elif defined(__arm64__)
+#if defined(__arm64__)
 	mctx->ss.cpsr = (mctx->ss.cpsr & ~PSR64_MODE_MASK) | PSR64_USER32_DEFAULT;
 #else
 #error Unknown architecture.
@@ -842,7 +835,7 @@ sigreturn(
 		onstack = uctx.uc64.uc_onstack;
 		sigmask = uctx.uc64.uc_sigmask;
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		error = sigreturn_copyin_ctx32(&uctx.uc32, &mctx.mc32, uap->uctx);
@@ -903,7 +896,7 @@ sigreturn(
 			return error;
 		}
 #else
-		panic("Shouldn't have 64-bit thread states on a 32-bit kernel.");
+#error Unsupported architecture
 #endif
 	} else {
 		user32_addr_t token;

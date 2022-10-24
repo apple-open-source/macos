@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,9 +34,9 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__unused static const char copyright[] =
+__COPYRIGHT(
 "@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
+	The Regents of the University of California.  All rights reserved.\n");
 #endif
 
 #if 0
@@ -47,15 +45,28 @@ static char sccsid[] = "@(#)write.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif
 
-__RCSID("$FreeBSD: src/usr.bin/write/write.c,v 1.17 2002/09/04 23:29:09 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+#endif
+#include <sys/filio.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
-#include <sys/file.h>
 #include <sys/time.h>
+#ifdef __APPLE__
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <fcntl.h>
+#endif
+
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <locale.h>
 #include <paths.h>
 #include <pwd.h>
@@ -64,25 +75,85 @@ __RCSID("$FreeBSD: src/usr.bin/write/write.c,v 1.17 2002/09/04 23:29:09 dwmalone
 #include <string.h>
 #include <unistd.h>
 #include <utmpx.h>
+#include <wchar.h>
+#include <wctype.h>
 
 void done(int);
-void do_write(char *, char *, uid_t);
+void do_write(int, char *, char *, const char *);
 static void usage(void);
-int term_chk(char *, int *, time_t *, int);
-void wr_fputs(unsigned char *s);
-void search_utmp(char *, char *, char *, uid_t);
+int term_chk(int, char *, int *, time_t *, int);
+void wr_fputs(wchar_t *s);
+void search_utmp(int, char *, char *, char *, uid_t);
 int utmp_chk(char *, char *);
 
 int
 main(int argc, char **argv)
 {
-	char *cp;
+#ifndef __APPLE__
+	unsigned long cmds[] = { TIOCGETA, TIOCGWINSZ, FIODGNAME };
+	cap_rights_t rights;
+#endif
+	struct passwd *pwd;
 	time_t atime;
 	uid_t myuid;
 	int msgsok, myttyfd;
 	char tty[MAXPATHLEN], *mytty;
+	const char *login;
+	int devfd;
 
 	(void)setlocale(LC_CTYPE, "");
+
+	devfd = open(_PATH_DEV, O_RDONLY);
+	if (devfd < 0)
+		err(1, "open(/dev)");
+#ifndef __APPLE__
+	cap_rights_init(&rights, CAP_FCNTL, CAP_FSTAT, CAP_IOCTL, CAP_LOOKUP,
+	    CAP_PWRITE);
+	if (caph_rights_limit(devfd, &rights) < 0)
+		err(1, "can't limit devfd rights");
+
+	/*
+	 * Can't use capsicum helpers here because we need the additional
+	 * FIODGNAME ioctl.
+	 */
+	cap_rights_init(&rights, CAP_FCNTL, CAP_FSTAT, CAP_IOCTL, CAP_READ,
+	    CAP_WRITE);
+	if (caph_rights_limit(STDIN_FILENO, &rights) < 0 ||
+	    caph_rights_limit(STDOUT_FILENO, &rights) < 0 ||
+	    caph_rights_limit(STDERR_FILENO, &rights) < 0 ||
+	    caph_ioctls_limit(STDIN_FILENO, cmds, nitems(cmds)) < 0 ||
+	    caph_ioctls_limit(STDOUT_FILENO, cmds, nitems(cmds)) < 0 ||
+	    caph_ioctls_limit(STDERR_FILENO, cmds, nitems(cmds)) < 0 ||
+	    caph_fcntls_limit(STDIN_FILENO, CAP_FCNTL_GETFL) < 0 ||
+	    caph_fcntls_limit(STDOUT_FILENO, CAP_FCNTL_GETFL) < 0 ||
+	    caph_fcntls_limit(STDERR_FILENO, CAP_FCNTL_GETFL) < 0)
+		err(1, "can't limit stdio rights");
+
+	caph_cache_catpages();
+	caph_cache_tzdata();
+#endif
+
+	/*
+	 * Cache UTX database fds.
+	 */
+	setutxent();
+
+	/*
+	 * Determine our login name before we reopen() stdout
+	 * and before entering capability sandbox.
+	 */
+	myuid = getuid();
+	if ((login = getlogin()) == NULL) {
+		if ((pwd = getpwuid(myuid)))
+			login = pwd->pw_name;
+		else
+			login = "???";
+	}
+
+#ifndef __APPLE__
+	if (caph_enter() < 0)
+		err(1, "cap_enter");
+#endif
 
 	while (getopt(argc, argv, "") != -1)
 		usage();
@@ -97,38 +168,42 @@ main(int argc, char **argv)
 	else if (isatty(fileno(stderr)))
 		myttyfd = fileno(stderr);
 	else
+#ifdef __APPLE__
 		myttyfd=-1;
 	if(myttyfd == -1)
 		mytty = "tty??";
-	else
-	{
+	else {
+#else
+		errx(1, "can't find your tty");
+#endif
 	if (!(mytty = ttyname(myttyfd)))
 		errx(1, "can't find your tty's name");
-	if ((cp = rindex(mytty, '/')))
-		mytty = cp + 1;
-	if (term_chk(mytty, &msgsok, &atime, 1))
+	if (!strncmp(mytty, _PATH_DEV, strlen(_PATH_DEV)))
+		mytty += strlen(_PATH_DEV);
+	if (term_chk(devfd, mytty, &msgsok, &atime, 1))
 		exit(1);
 	if (!msgsok)
 		errx(1, "you have write permission turned off");
+#ifdef __APPLE__
 	}
-	myuid = getuid();
+#endif
 
 	/* check args */
 	switch (argc) {
 	case 1:
-		search_utmp(argv[0], tty, mytty, myuid);
-		do_write(tty, mytty, myuid);
+		search_utmp(devfd, argv[0], tty, mytty, myuid);
+		do_write(devfd, tty, mytty, login);
 		break;
 	case 2:
 		if (!strncmp(argv[1], _PATH_DEV, strlen(_PATH_DEV)))
 			argv[1] += strlen(_PATH_DEV);
 		if (utmp_chk(argv[0], argv[1]))
 			errx(1, "%s is not logged in on %s", argv[0], argv[1]);
-		if (term_chk(argv[1], &msgsok, &atime, 1))
+		if (term_chk(devfd, argv[1], &msgsok, &atime, 1))
 			exit(1);
 		if (myuid && !msgsok)
 			errx(1, "%s has messages disabled on %s", argv[0], argv[1]);
-		do_write(argv[1], mytty, myuid);
+		do_write(devfd, argv[1], mytty, login);
 		break;
 	default:
 		usage();
@@ -151,20 +226,17 @@ usage(void)
 int
 utmp_chk(char *user, char *tty)
 {
-	struct utmpx *u;
+	struct utmpx lu, *u;
 
-	setutxent();
-	while((u = getutxent()) != NULL)
-		if(strncmp(u->ut_line, tty, sizeof(u->ut_line)) == 0) {
-			if(u->ut_type == USER_PROCESS &&
-			  strncmp(u->ut_user, user, sizeof(u->ut_user)) == 0) {
-				endutxent();
-				return 0;
-			}
-			break;
+	strncpy(lu.ut_line, tty, sizeof lu.ut_line);
+	while ((u = getutxline(&lu)) != NULL)
+		if (u->ut_type == USER_PROCESS &&
+		    strcmp(user, u->ut_user) == 0) {
+			endutxent();
+			return(0);
 		}
 	endutxent();
-	return 1;
+	return(1);
 }
 
 /*
@@ -179,24 +251,29 @@ utmp_chk(char *user, char *tty)
  * writing from, unless that's the only terminal with messages enabled.
  */
 void
-search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
+search_utmp(int devfd, char *user, char *tty, char *mytty, uid_t myuid)
 {
-	struct utmpx ux, *u;
+	struct utmpx *u;
 	time_t bestatime, atime;
 	int nloggedttys, nttys, msgsok, user_is_me;
-	char atty[sizeof(ux.ut_line) + 1];
+#ifdef __APPLE__
+	char atty[sizeof(u->ut_line) + 1];
+#else
+#define atty	(u->ut_line)
+#endif
 
 	nloggedttys = nttys = 0;
 	bestatime = 0;
 	user_is_me = 0;
-	setutxent();
-	while ((u = getutxent()) != NULL) {
-		if (u->ut_type != USER_PROCESS)
-			continue;
-		if (strncmp(user, u->ut_user, sizeof(u->ut_user)) == 0) {
+
+	while ((u = getutxent()) != NULL)
+		if (u->ut_type == USER_PROCESS &&
+		    strcmp(user, u->ut_user) == 0) {
 			++nloggedttys;
+#ifdef __APPLE__
 			(void)strlcpy(atty, u->ut_line, sizeof(atty));
-			if (term_chk(atty, &msgsok, &atime, 0))
+#endif
+			if (term_chk(devfd, atty, &msgsok, &atime, 0))
 				continue;	/* bad term? skip */
 			if (myuid && !msgsok)
 				continue;	/* skip ttys with msgs off */
@@ -207,17 +284,16 @@ search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
 			++nttys;
 			if (atime > bestatime) {
 				bestatime = atime;
-				(void)strcpy(tty, atty);
+				(void)strlcpy(tty, atty, MAXPATHLEN);
 			}
 		}
-	}
-
 	endutxent();
+
 	if (nloggedttys == 0)
 		errx(1, "%s is not logged in", user);
 	if (nttys == 0) {
 		if (user_is_me) {		/* ok, so write to yourself! */
-			(void)strcpy(tty, mytty);
+			(void)strlcpy(tty, mytty, MAXPATHLEN);
 			return;
 		}
 		errx(1, "%s has messages disabled", user);
@@ -231,15 +307,13 @@ search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
  *     and the access time
  */
 int
-term_chk(char *tty, int *msgsokP, time_t *atimeP, int showerror)
+term_chk(int devfd, char *tty, int *msgsokP, time_t *atimeP, int showerror)
 {
 	struct stat s;
-	char path[MAXPATHLEN];
 
-	(void)snprintf(path, sizeof(path), "%s%s", _PATH_DEV, tty);
-	if (stat(path, &s) < 0) {
+	if (fstatat(devfd, tty, &s, 0) < 0) {
 		if (showerror)
-			warn("%s", path);
+			warn("%s%s", _PATH_DEV, tty);
 		return(1);
 	}
 	*msgsokP = (s.st_mode & (S_IWRITE >> 3)) != 0;	/* group write bit */
@@ -251,25 +325,21 @@ term_chk(char *tty, int *msgsokP, time_t *atimeP, int showerror)
  * do_write - actually make the connection
  */
 void
-do_write(char *tty, char *mytty, uid_t myuid)
+do_write(int devfd, char *tty, char *mytty, const char *login)
 {
-	const char *login;
 	char *nows;
-	struct passwd *pwd;
 	time_t now;
-	char path[MAXPATHLEN], host[MAXHOSTNAMELEN], line[512];
+	char host[MAXHOSTNAMELEN];
+	wchar_t line[512];
+	int fd;
 
-	/* Determine our login name before the we reopen() stdout */
-	if ((login = getlogin()) == NULL) {
-		if ((pwd = getpwuid(myuid)))
-			login = pwd->pw_name;
-		else
-			login = "???";
-	}
-
-	(void)snprintf(path, sizeof(path), "%s%s", _PATH_DEV, tty);
-	if ((freopen(path, "w", stdout)) == NULL)
-		err(1, "%s", path);
+	fd = openat(devfd, tty, O_WRONLY);
+	if (fd < 0)
+		err(1, "openat(%s%s)", _PATH_DEV, tty);
+	fclose(stdout);
+	stdout = fdopen(fd, "w");
+	if (stdout == NULL)
+		err(1, "%s%s", _PATH_DEV, tty);
 
 	(void)signal(SIGINT, done);
 	(void)signal(SIGHUP, done);
@@ -283,15 +353,15 @@ do_write(char *tty, char *mytty, uid_t myuid)
 	(void)printf("\r\n\007\007\007Message from %s@%s on %s at %s ...\r\n",
 	    login, host, mytty, nows + 11);
 
-	while (fgets(line, sizeof(line), stdin) != NULL)
-		wr_fputs((unsigned char *)line);
+	while (fgetws(line, sizeof(line)/sizeof(wchar_t), stdin) != NULL)
+		wr_fputs(line);
 }
 
 /*
  * done - cleanup and exit
  */
 void
-done(int n)
+done(int n __unused)
 {
 	(void)printf("EOF\r\n");
 	exit(0);
@@ -302,30 +372,20 @@ done(int n)
  *     turns \n into \r\n
  */
 void
-wr_fputs(unsigned char *s)
+wr_fputs(wchar_t *s)
 {
 
-#define	PUTC(c)	if (putchar(c) == EOF) err(1, NULL);
+#define	PUTC(c)	if (putwchar(c) == WEOF) err(1, NULL);
 
-	for (; *s != '\0'; ++s) {
-		if (*s == '\n') {
-			PUTC('\r');
-		} else if (((*s & 0x80) && *s < 0xA0) ||
-			   /* disable upper controls */
-			   (!isprint(*s) && !isspace(*s) &&
-			    *s != '\a' && *s != '\b')
-			  ) {
-			if (*s & 0x80) {
-				*s &= ~0x80;
-				PUTC('M');
-				PUTC('-');
-			}
-			if (iscntrl(*s)) {
-				*s ^= 0x40;
-				PUTC('^');
-			}
+	for (; *s != L'\0'; ++s) {
+		if (*s == L'\n') {
+			PUTC(L'\r');
+			PUTC(L'\n');
+		} else if (iswprint(*s) || iswspace(*s)) {
+			PUTC(*s);
+		} else {
+			wprintf(L"<0x%X>", *s);
 		}
-		PUTC(*s);
 	}
 	return;
 #undef PUTC

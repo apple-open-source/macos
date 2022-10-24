@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,11 @@
 #pragma once
 
 #include "FontDescription.h"
+#include "SystemFontDatabase.h"
 #include <pal/spi/cf/CoreTextSPI.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
+#include <wtf/RobinHoodHashMap.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -42,7 +44,7 @@ enum class SystemFontKind : uint8_t {
     TextStyle
 };
 
-class SystemFontDatabaseCoreText {
+class SystemFontDatabaseCoreText : public SystemFontDatabase {
 public:
     struct CascadeListParameters {
         CascadeListParameters()
@@ -70,13 +72,8 @@ public:
                 && italic == other.italic;
         }
 
-        unsigned hash() const
-        {
-            return computeHash(fontName, locale, weight, width, size, allowUserInstalledFonts, italic);
-        }
-
         struct Hash {
-            static unsigned hash(const CascadeListParameters& parameters) { return parameters.hash(); }
+            static unsigned hash(const CascadeListParameters&);
             static bool equal(const CascadeListParameters& a, const CascadeListParameters& b) { return a == b; }
             static const bool safeToCompareToEmptyOrDeleted = true;
         };
@@ -100,9 +97,16 @@ public:
     String fantasyFamily(const String& locale);
     String monospaceFamily(const String& locale);
 
+    const AtomString& systemFontShorthandFamily(FontShorthand);
+    float systemFontShorthandSize(FontShorthand);
+    FontSelectionValue systemFontShorthandWeight(FontShorthand);
+
+protected:
     void clear();
 
 private:
+    friend class SystemFontDatabase;
+
     SystemFontDatabaseCoreText();
 
     Vector<RetainPtr<CTFontDescriptorRef>> cascadeList(const CascadeListParameters&, SystemFontKind);
@@ -111,6 +115,13 @@ private:
     RetainPtr<CTFontRef> createSystemDesignFont(SystemFontKind, const CascadeListParameters&);
     RetainPtr<CTFontRef> createTextStyleFont(const CascadeListParameters&);
 
+    static RetainPtr<CTFontDescriptorRef> smallCaptionFontDescriptor();
+    static RetainPtr<CTFontDescriptorRef> menuFontDescriptor();
+    static RetainPtr<CTFontDescriptorRef> statusBarFontDescriptor();
+    static RetainPtr<CTFontDescriptorRef> miniControlFontDescriptor();
+    static RetainPtr<CTFontDescriptorRef> smallControlFontDescriptor();
+    static RetainPtr<CTFontDescriptorRef> controlFontDescriptor();
+
     static RetainPtr<CTFontRef> createFontByApplyingWeightWidthItalicsAndFallbackBehavior(CTFontRef, CGFloat weight, CGFloat width, bool italic, float size, AllowUserInstalledFonts, CFStringRef design = nullptr);
     static RetainPtr<CTFontDescriptorRef> removeCascadeList(CTFontDescriptorRef);
     static Vector<RetainPtr<CTFontDescriptorRef>> computeCascadeList(CTFontRef, CFStringRef locale);
@@ -118,11 +129,21 @@ private:
 
     HashMap<CascadeListParameters, Vector<RetainPtr<CTFontDescriptorRef>>, CascadeListParameters::Hash, SimpleClassHashTraits<CascadeListParameters>> m_systemFontCache;
 
-    HashMap<String, String> m_serifFamilies;
-    HashMap<String, String> m_sansSeriferifFamilies;
-    HashMap<String, String> m_cursiveFamilies;
-    HashMap<String, String> m_fantasyFamilies;
-    HashMap<String, String> m_monospaceFamilies;
+    MemoryCompactRobinHoodHashMap<String, String> m_serifFamilies;
+    MemoryCompactRobinHoodHashMap<String, String> m_sansSeriferifFamilies;
+    MemoryCompactRobinHoodHashMap<String, String> m_cursiveFamilies;
+    MemoryCompactRobinHoodHashMap<String, String> m_fantasyFamilies;
+    MemoryCompactRobinHoodHashMap<String, String> m_monospaceFamilies;
 };
 
+inline void add(Hasher& hasher, const SystemFontDatabaseCoreText::CascadeListParameters& parameters)
+{
+    add(hasher, parameters.fontName, parameters.locale, parameters.weight, parameters.width, parameters.size, parameters.allowUserInstalledFonts, parameters.italic);
 }
+
+inline unsigned SystemFontDatabaseCoreText::CascadeListParameters::Hash::hash(const CascadeListParameters& parameters)
+{
+    return computeHash(parameters);
+}
+
+} // namespace WebCore

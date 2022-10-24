@@ -2022,7 +2022,7 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
     if (!certPolicies || !oidToFind)
 		return false;
 
-    const uint32 maxIndex = 100;		// sanity check
+    const uint32 maxIndex = 100;		// upper bound
     for (uint32 policyIndex = 0; policyIndex < certPolicies->numPolicies && policyIndex < maxIndex; policyIndex++)
 	{
         CE_PolicyInformation *certPolicyInfo = &certPolicies->policies[policyIndex];

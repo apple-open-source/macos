@@ -63,9 +63,7 @@
 
 /* ARGSUSED */
 static bool_t
-sec_x_putlong(xdrs, intp)
-        XDR *xdrs;
-        int *intp;
+sec_x_putlong(XDR *xdrs, const int *intp)
 {
     xdrs->x_handy += BYTES_PER_XDR_UNIT;
     return (TRUE);
@@ -73,36 +71,28 @@ sec_x_putlong(xdrs, intp)
 
 /* ARGSUSED */
 static bool_t
-sec_x_putbytes(xdrs, bp, len)
-        XDR *xdrs;
-        char  *bp;
-        u_int len;
+sec_x_putbytes(XDR *xdrs, const char *bp, u_int len)
 {
     xdrs->x_handy += len;
     return (TRUE);
 }
 
 static u_int
-sec_x_getpostn(xdrs)
-        XDR *xdrs;
+sec_x_getpostn(XDR *xdrs)
 {
     return (xdrs->x_handy);
 }
 
 /* ARGSUSED */
 static bool_t
-sec_x_setpostn(xdrs, pos)
-        XDR *xdrs;
-        u_int pos;
+sec_x_setpostn(XDR *xdrs, u_int pos)
 {
     /* This is not allowed */
     return (FALSE);
 }
 
 static int32_t *
-sec_x_inline(xdrs, len)
-        XDR *xdrs;
-        u_int len;
+sec_x_inline(XDR *xdrs, u_int len)
 {
     intptr_t llen;
 
@@ -135,15 +125,14 @@ sec_x_inline(xdrs, len)
 }
 
 static int
-sec_harmless()
+sec_harmless(void)
 {
     /* Always return FALSE/NULL, as the case may be */
     return (0);
 }
 
 static void
-sec_x_destroy(xdrs)
-        XDR *xdrs;
+sec_x_destroy(XDR *xdrs)
 {
     xdrs->x_handy = 0;
     xdrs->x_base = 0;
@@ -155,9 +144,7 @@ sec_x_destroy(xdrs)
 }
 
 u_int
-sec_xdr_sizeof_in(func, data)
-        xdrproc_t func;
-        void *data;
+sec_xdr_sizeof_in(xdrproc_t func, void *data)
 {
     XDR x;
     struct xdr_ops ops;
@@ -197,11 +184,7 @@ sec_xdr_sizeof_in(func, data)
 }
 
 u_int
-sec_xdr_sizeof_out(copy, size, func, data)
-        const void *copy;
-        u_int size;
-        xdrproc_t func;
-	void **data;
+sec_xdr_sizeof_out(const void *copy, u_int size, xdrproc_t func, void **data)
 {
     XDR x;
     bool_t stat;

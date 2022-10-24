@@ -111,18 +111,17 @@
     }
 
     // We currently don't check if we want to bring up new CKKS views at join time.
-    [self.deps.cuttlefishXPCWrapper joinWithContainer:self.deps.containerName
-                                              context:self.deps.contextID
-                                          voucherData:self.voucherData
-                                           voucherSig:self.voucherSig
-                                             ckksKeys:@[]
-                                            tlkShares:pendingTLKShares
-                                      preapprovedKeys:publicSigningSPKIs
-                                                reply:^(NSString * _Nullable peerID,
-                                                        NSArray<CKRecord*>* keyHierarchyRecords,
-                                                        TPSyncingPolicy* _Nullable syncingPolicy,
-                                                        NSError * _Nullable error) {
-            STRONGIFY(self);
+    [self.deps.cuttlefishXPCWrapper joinWithSpecificUser:self.deps.activeAccount
+                                             voucherData:self.voucherData
+                                              voucherSig:self.voucherSig
+                                                ckksKeys:@[]
+                                               tlkShares:pendingTLKShares
+                                         preapprovedKeys:publicSigningSPKIs
+                                                   reply:^(NSString * _Nullable peerID,
+                                                           NSArray<CKRecord*>* keyHierarchyRecords,
+                                                           TPSyncingPolicy* _Nullable syncingPolicy,
+                                                           NSError * _Nullable error) {
+        STRONGIFY(self);
             if(error){
                 secerror("octagon: Error joining with voucher: %@", error);
                 [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventJoinWithVoucher withAttributes:NULL];

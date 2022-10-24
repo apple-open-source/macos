@@ -78,7 +78,6 @@
 #endif	// !PPPCONTROLLER_SERVER_PRIV
 
 static int		debug			= 0;
-static pthread_once_t	initialized		= PTHREAD_ONCE_INIT;
 static pthread_mutex_t	scnc_lock		= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t	scnc_server		= MACH_PORT_NULL;
 static char		*scnc_server_name	= NULL;
@@ -329,7 +328,7 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 }
 
 
-static CFTypeID __kSCNetworkConnectionTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkConnectionTypeID;
 
 static const CFRuntimeClass __SCNetworkConnectionClass = {
 	0,					// version
@@ -358,22 +357,26 @@ childForkHandler()
 static void
 __SCNetworkConnectionInitialize(void)
 {
-	char	*env;
+	static dispatch_once_t  initialized;
 
-	/* get the debug environment variable */
-	env = getenv("PPPDebug");
-	if (env != NULL) {
-		if (sscanf(env, "%d", &debug) != 1) {
-			/* PPPDebug value is not valid (or non-numeric), set debug to 1 */
-			debug = 1;
+	dispatch_once(&initialized, ^{
+		char	*env;
+
+		/* get the debug environment variable */
+		env = getenv("PPPDebug");
+		if (env != NULL) {
+			if (sscanf(env, "%d", &debug) != 1) {
+				/* PPPDebug value is not valid (or non-numeric), set debug to 1 */
+				debug = 1;
+			}
 		}
-	}
 
-	/* register with CoreFoundation */
-	__kSCNetworkConnectionTypeID = _CFRuntimeRegisterClass(&__SCNetworkConnectionClass);
+		/* register with CoreFoundation */
+		__kSCNetworkConnectionTypeID = _CFRuntimeRegisterClass(&__SCNetworkConnectionClass);
 
-	/* add handler to cleanup after fork() */
-	(void) pthread_atfork(NULL, NULL, childForkHandler);
+		/* add handler to cleanup after fork() */
+		(void) pthread_atfork(NULL, NULL, childForkHandler);
+	});
 
 	return;
 }
@@ -631,7 +634,7 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 	uint32_t			size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkConnectionInitialize);
+	__SCNetworkConnectionInitialize();
 
 	/* allocate NetworkConnection */
 	size = sizeof(SCNetworkConnectionPrivate) - sizeof(CFRuntimeBase);
@@ -1176,7 +1179,7 @@ __SCNetworkConnectionNeedsRetry(SCNetworkConnectionRef	connection,
 
 CFTypeID
 SCNetworkConnectionGetTypeID(void) {
-	pthread_once(&initialized, __SCNetworkConnectionInitialize);	/* initialize runtime */
+	__SCNetworkConnectionInitialize();	/* initialize runtime */
 	return __kSCNetworkConnectionTypeID;
 }
 
@@ -3859,7 +3862,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 	Boolean	success	= FALSE;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkConnectionInitialize);
+	__SCNetworkConnectionInitialize();
 
 	/* first check for new VPN OnDemand style */
 	if (selectionOptions != NULL) {

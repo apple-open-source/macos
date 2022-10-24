@@ -26,6 +26,7 @@
 // ssclient - SecurityServer client interface library
 //
 #include "sstransit.h"
+#include "ucsp.h"
 #include <os/assumes.h>
 #include <servers/netname.h>
 #include <security_utilities/debugging.h>
@@ -162,10 +163,12 @@ ClientSession::Global::Global()
 	serverPort = findSecurityd();
     
 	mach_port_t originPort = MACH_PORT_NULL;
-	IPCBASIC(ucsp_client_verifyPrivileged2(serverPort.port(), mig_get_reply_port(), &securitydCreds, &rcode, &originPort));
+	mach_port_t verifyReplyPort = mach_reply_port();
+	IPCBASIC(ucsp_client_verifyPrivileged2(serverPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
 	if (originPort != serverPort.port())
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
 	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
+	mach_port_mod_refs(mach_task_self(), verifyReplyPort, MACH_PORT_RIGHT_RECEIVE, -1);
 	
     // send identification/setup message
 	static const char extForm[] = "?:obsolete";
@@ -238,10 +241,12 @@ void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 {
 	Port securitydPort = findSecurityd();
 	mach_port_t originPort = MACH_PORT_NULL;
-	IPCN(ucsp_client_verifyPrivileged2(securitydPort.port(), mig_get_reply_port(), &securitydCreds, &rcode, &originPort));
+	mach_port_t verifyReplyPort = mach_reply_port();
+	IPCN(ucsp_client_verifyPrivileged2(securitydPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
 	if (originPort != securitydPort.port())
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
 	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
+	mach_port_mod_refs(mach_task_self(), verifyReplyPort, MACH_PORT_RIGHT_RECEIVE, -1);
 	check(ucsp_client_childCheckIn(securitydPort, serverPort, MACH_PORT_NULL));
 }
 

@@ -34,8 +34,8 @@
 namespace WebCore {
 
 TextureMapperPlatformLayerBuffer::TextureMapperPlatformLayerBuffer(RefPtr<BitmapTexture>&& texture, TextureMapperGL::Flags flags)
-    : m_texture(WTFMove(texture))
-    , m_variant(RGBTexture { 0 })
+    : m_variant(RGBTexture { 0 })
+    , m_texture(WTFMove(texture))
     , m_extraFlags(flags)
     , m_hasManagedTexture(true)
 {
@@ -154,7 +154,7 @@ void TextureMapperPlatformLayerBuffer::paintToTextureMapper(TextureMapper& textu
         },
         [&](const ExternalOESTexture& texture) {
             ASSERT(texture.id);
-            texmapGL.drawTextureExternalOES(texture.id, m_extraFlags, m_size, targetRect, modelViewMatrix, opacity);
+            texmapGL.drawTextureExternalOES(texture.id, m_extraFlags, targetRect, modelViewMatrix, opacity);
         });
 }
 

@@ -40,6 +40,13 @@
 .Fl f
 .Ar lockfile
 .Sh DESCRIPTION
+.Sy NOTE :
+The
+.Nm
+command is deprecated, and
+.Xr lockf 1
+should be used instead.
+.Pp
 The
 .Nm
 command can create or verify a lock file on behalf of a shell or
@@ -127,6 +134,8 @@ endif
 .Pp
 The examples assume that the file system where the lock file is to
 be created is writable by the user, and has space available.
+.Sh SEE ALSO
+.Xr lockf 1
 .Sh HISTORY
 .Nm
 was written for the first Network News Transfer Protocol (NNTP)

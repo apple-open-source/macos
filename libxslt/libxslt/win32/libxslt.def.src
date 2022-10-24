@@ -44,6 +44,7 @@ xsltChoose
 xsltCleanupGlobals
 xsltCleanupTemplates
 xsltComment
+xsltCompMatchClearCache
 xsltCompileAttr
 xsltCompilePattern
 xsltComputeSortResult
@@ -58,6 +59,7 @@ xsltDebugDumpExtensions
 xsltDebugGetDefaultTrace
 xsltDebugSetDefaultTrace
 xsltDecimalFormatGetByName
+xsltDecimalFormatGetByQName
 xsltDefaultSortFunction
 xsltDoSortFunction
 xsltDocumentComp
@@ -86,6 +88,7 @@ xsltExtensionInstructionResultRegister
 xsltFindDocument
 xsltFindElemSpaceHandling
 xsltFindTemplate
+xsltFlagRVTs
 xsltForEach
 xsltFormatNumberConversion
 xsltFormatNumberFunction
@@ -174,6 +177,7 @@ xsltParseStylesheetInclude
 xsltParseStylesheetOutput
 xsltParseStylesheetParam
 xsltParseStylesheetProcess
+xsltParseStylesheetUser
 xsltParseStylesheetVariable
 xsltParseTemplateContent
 xsltPointerListAddSize

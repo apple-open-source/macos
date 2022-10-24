@@ -33,9 +33,14 @@
 #include <curses.priv.h>
 
 #include <ctype.h>
+#include <stdio.h>
 #include <termcap.h>
 
 MODULE_ID("$Id: lib_tgoto.c,v 1.13 2008/08/16 19:29:32 tom Exp $")
+
+// FIXME: why do we need this prototype here?
+// Without it, we won't build even though we're including stdio.h above..
+__const char *fmtcheck(const char *, const char *) __attribute__((format_arg(2)));
 
 #if !PURE_TERMINFO
 static bool
@@ -159,7 +164,7 @@ tgoto_internal(const char *string, int x, int y)
 		break;
 	    }
 	    if (fmt != 0) {
-		sprintf(result + used, fmt, *value++);
+		sprintf(result + used, fmtcheck(fmt, "%d"), *value++);
 		used += strlen(result + used);
 		fmt = 0;
 	    }

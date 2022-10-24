@@ -1,6 +1,6 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -45,6 +45,54 @@ FEDropShadow::FEDropShadow(float stdX, float stdY, float dx, float dy, const Col
 {
 }
 
+bool FEDropShadow::setStdDeviationX(float stdX)
+{
+    if (m_stdX == stdX)
+        return false;
+    m_stdX = stdX;
+    return true;
+}
+
+bool FEDropShadow::setStdDeviationY(float stdY)
+{
+    if (m_stdY == stdY)
+        return false;
+    m_stdY = stdY;
+    return true;
+}
+
+bool FEDropShadow::setDx(float dx)
+{
+    if (m_dx == dx)
+        return false;
+    m_dx = dx;
+    return true;
+}
+
+bool FEDropShadow::setDy(float dy)
+{
+    if (m_dy == dy)
+        return false;
+    m_dy = dy;
+    return true;
+}
+
+bool FEDropShadow::setShadowColor(const Color& shadowColor)
+{
+    if (m_shadowColor == shadowColor)
+        return false;
+    m_shadowColor = shadowColor;
+    return true;
+}
+
+bool FEDropShadow::setShadowOpacity(float shadowOpacity)
+{
+    if (m_shadowOpacity == shadowOpacity)
+        return false;
+    m_shadowOpacity = shadowOpacity;
+    return true;
+}
+
 FloatRect FEDropShadow::calculateImageRect(const Filter& filter, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const
 {
     auto imageRect = inputs[0]->imageRect();
@@ -61,22 +109,23 @@ FloatRect FEDropShadow::calculateImageRect(const Filter& filter, const FilterIma
     return filter.clipToMaxEffectRect(imageRect, primitiveSubregion);
 }
 
-IntOutsets FEDropShadow::outsets() const
+IntOutsets FEDropShadow::calculateOutsets(const FloatSize& offset, const FloatSize& stdDeviation)
 {
-    IntSize outsetSize = FEGaussianBlur::calculateOutsetSize({ m_stdX, m_stdY });
-    return {
-        std::max<int>(0, outsetSize.height() - m_dy),
-        std::max<int>(0, outsetSize.width() + m_dx),
-        std::max<int>(0, outsetSize.height() + m_dy),
-        std::max<int>(0, outsetSize.width() - m_dx)
-    };
+    IntSize outsetSize = FEGaussianBlur::calculateOutsetSize(stdDeviation);
+
+    int top = std::max<int>(0, outsetSize.height() - offset.height());
+    int right = std::max<int>(0, outsetSize.width() + offset.width());
+    int bottom = std::max<int>(0, outsetSize.height() + offset.height());
+    int left = std::max<int>(0, outsetSize.width() - offset.width());
+
+    return { top, right, bottom, left };
 }
 
-std::unique_ptr<FilterEffectApplier> FEDropShadow::createApplier(const Filter&) const
+std::unique_ptr<FilterEffectApplier> FEDropShadow::createSoftwareApplier() const
 {
     return FilterEffectApplier::create<FEDropShadowSoftwareApplier>(*this);
 }
-    
+
 TextStream& FEDropShadow::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
     ts << indent <<"[feDropShadow";

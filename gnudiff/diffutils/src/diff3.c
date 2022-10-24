@@ -421,8 +421,10 @@ main (int argc, char **argv)
 static void
 try_help (char const *reason_msgid, char const *operand)
 {
-  if (reason_msgid)
-    error (0, 0, _(reason_msgid), operand);
+  if (reason_msgid && operand)
+    error (0, 0, fmtcheck(_(reason_msgid), "%s"), operand);
+  else if (reason_msgid)
+    error (0, 0, "%s", _(reason_msgid));
   error (EXIT_TROUBLE, 0,
 	 _("Try `%s --help' for more information."), program_name);
   abort ();
@@ -1619,7 +1621,7 @@ output_diff3_merge (FILE *infile, FILE *outputfile, struct diff3_block *diff,
 	= ((b->correspond == DIFF_ALL)
 	   ? DIFF_ALL
 	   : DIFF_1ST + rev_mapping[b->correspond - DIFF_1ST]);
-      char const *format_2nd = "<<<<<<< %s\n";
+      bool format_2nd_use_pipe = false;
 
       /* If we aren't supposed to do this output block, skip it.  */
       switch (type)
@@ -1628,7 +1630,7 @@ output_diff3_merge (FILE *infile, FILE *outputfile, struct diff3_block *diff,
 	case DIFF_2ND: if (!show_2nd) continue; conflict = 1; break;
 	case DIFF_3RD: if (overlap_only) continue; conflict = 0; break;
 	case DIFF_ALL: if (simple_only) continue; conflict = flagging;
-	  format_2nd = "||||||| %s\n";
+	    format_2nd_use_pipe = true;
 	  break;
 	}
 
@@ -1668,7 +1670,10 @@ output_diff3_merge (FILE *infile, FILE *outputfile, struct diff3_block *diff,
 	  if (show_2nd)
 	    {
 	      /* Put in lines from FILE1 with bracket.  */
-	      fprintf (outputfile, format_2nd, file1);
+	      if (format_2nd_use_pipe)
+		fprintf (outputfile, "||||||| %s\n", file1);
+	      else
+		fprintf (outputfile, "<<<<<<< %s\n", file1);
 	      for (i = 0;
 		   i < D_NUMLINES (b, mapping[FILE1]);
 		   i++)

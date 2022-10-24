@@ -72,6 +72,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     "uri-authentication-supported",
     "uri-security-supported"
   };
+  int             get = 0;              /* do an http get not a post */
 
 
   for (i = 1; i < argc; i ++)
@@ -115,6 +116,10 @@ main(int  argc,				/* I - Number of command-line arguments */
     else if (!strcmp(argv[i], "--verbose") || !strcmp(argv[i], "-v"))
     {
       verbose = 1;
+    }
+    else if (!strcmp(argv[i], "--get"))
+    {
+      get = 1;
     }
     else if (!strcmp(argv[i], "-4"))
     {
@@ -722,28 +727,43 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (verbose)
   {
-    httpAssembleURI(HTTP_URI_CODING_ALL, uri, sizeof(uri), "ipps", NULL, host, port, resource);
-    request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
-    ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", (int)(sizeof(pattrs) / sizeof(pattrs[0])), NULL, pattrs);
-
-    response = cupsDoRequest(http, request, resource);
-
-    for (attr = ippFirstAttribute(response); attr; attr = ippNextAttribute(response))
+    if (get)
     {
-      if (ippGetGroupTag(attr) != IPP_TAG_PRINTER)
-        continue;
-
-      if ((name = ippGetName(attr)) == NULL)
-        continue;
-
-      ippAttributeString(attr, value, sizeof(value));
-      printf("    %s=%s\n", name, value);
+      char tempname[1024]; /* Temporary filename */
+      int fd = cupsTempFd(tempname, sizeof(tempname));
+      if (fd < 0) {
+        printf("Failed to create a local fd for http get: %d/%s\n", errno, strerror(errno));
+      } else {
+        http_status_t status = cupsGetFd(http, "/", fd);
+        printf("GET returned http status %d; temp file at '%s'\n", status, tempname);
+        close(fd);
+      }
     }
+    else
+    {
+      httpAssembleURI(HTTP_URI_CODING_ALL, uri, sizeof(uri), "ipps", NULL, host, port, resource);
+      request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
+      ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", (int)(sizeof(pattrs) / sizeof(pattrs[0])), NULL, pattrs);
 
-    ippDelete(response);
-    puts("");
+      response = cupsDoRequest(http, request, resource);
+
+      for (attr = ippFirstAttribute(response); attr; attr = ippNextAttribute(response))
+      {
+        if (ippGetGroupTag(attr) != IPP_TAG_PRINTER)
+          continue;
+
+        if ((name = ippGetName(attr)) == NULL)
+          continue;
+
+        ippAttributeString(attr, value, sizeof(value));
+        printf("    %s=%s\n", name, value);
+      }
+
+      ippDelete(response);
+      puts("");
+    }
   }
 
   httpClose(http);

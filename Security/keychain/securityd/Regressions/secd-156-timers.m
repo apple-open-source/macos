@@ -29,7 +29,7 @@ static void testPeerRateLimiterSendNextMessageWithRetain(CFStringRef peerid, CFS
     ok(CFStringCompare(peerid, CFSTR("imretainedpeerid"), 0) == kCFCompareEqualTo);
 }
 
-static void testOTRTimer()
+static void testOTRTimer(void)
 {
     dispatch_semaphore_t sema2 = dispatch_semaphore_create(0);
     
@@ -57,7 +57,7 @@ static void testOTRTimerWithRetain(CFStringRef peerid)
     ok(CFStringCompare(peerid, CFSTR("imretainedpeerid"), 0) == kCFCompareEqualTo);
 }
 
-static void testRateLimitingTimer()
+static void testRateLimitingTimer(void)
 
 {
     dispatch_semaphore_t sema2 = dispatch_semaphore_create(0);
@@ -82,7 +82,7 @@ static void testRateLimitingTimer()
     dispatch_semaphore_wait(sema2, DISPATCH_TIME_FOREVER);
     
 }
-static void tests(){
+static void tests(void){
     
     testOTRTimer();
     testRateLimitingTimer();

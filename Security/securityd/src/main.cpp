@@ -25,8 +25,6 @@
 //
 // securityd - Apple security services daemon.
 //
-#include <securityd_client/ucsp.h>
-
 #include "server.h"
 #include "session.h"
 #include "notifications.h"

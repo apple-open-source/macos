@@ -45,9 +45,11 @@ NS_ASSUME_NONNULL_BEGIN
 // Use these to access the cache
 - (instancetype)init;
 - (CKKSKey* _Nullable)loadKeyForUUID:(NSString*)keyUUID
+                           contextID:(NSString*)contextID
                               zoneID:(CKRecordZoneID*)zoneID
                                error:(NSError**)error;
 - (CKKSKey* _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass
+                               contextID:(NSString*)contextID
                                   zoneID:(CKRecordZoneID*)zoneID
                                    error:(NSError *__autoreleasing*)error;
 

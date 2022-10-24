@@ -44,6 +44,11 @@
 //#include <CacheDelete/CacheDeletePrivate.h>
 #define CACHE_DELETE_AUTO_PURGE_DIRECTORY	"/private/var/dirs_cleaner/"
 
+#define SYSTEM_TMP_DIR      "/tmp"
+#define SYSTEM_TMP_DIR_MODE (S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
+#define SYSTEM_TMP_DIR_UID  0
+#define SYSTEM_TMP_DIR_GID  0
+
 #define DIRS_CLEANER_ERROR(res, fmt, ...) \
 	(void)fprintf(stderr, "%s: " fmt " failed with errno=%d: %s\n", \
 					__FUNCTION__, ##__VA_ARGS__, (res), strerror(res))
@@ -79,7 +84,7 @@ typedef struct dir_gattrs {
 	fsobj_type_t	dga_type;
 	uid_t			dga_uid;
 	gid_t			dga_gid;
-	u_int32_t		dga_mode;
+	mode_t			dga_mode;
 	u_int32_t		dga_prot_class;
 } dir_gattrs_t;
 
@@ -368,12 +373,19 @@ dc_reset(dir_ctx_t *ctx, const char *path)
 	if (realpath(path, ctx->dc_res_path)) {
 		ctx->dc_attrs_list.commonattr  = ATTR_CMN_OBJTYPE | ATTR_CMN_OWNERID |
 				ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK | ATTR_CMN_DATA_PROTECT_FLAGS;
-		if (getattrlist(ctx->dc_res_path, &ctx->dc_attrs_list, &ctx->dc_gattrs, sizeof(ctx->dc_gattrs), 0))
+		if (getattrlist(ctx->dc_res_path, &ctx->dc_attrs_list, &ctx->dc_gattrs, sizeof(ctx->dc_gattrs), 0)) {
 			res = errno;
-		else if (ctx->dc_gattrs.dga_type == VDIR)
+		} else if (ctx->dc_gattrs.dga_type == VDIR) {
 			ctx->dc_gattrs.dga_mode &= ~S_IFMT;
-		else
+			// rdar://89750478 - make sure /tmp has the correct permissions
+			if (strncmp(SYSTEM_TMP_DIR, path, strlen(SYSTEM_TMP_DIR)) == 0) {
+				ctx->dc_gattrs.dga_mode = SYSTEM_TMP_DIR_MODE;
+				ctx->dc_gattrs.dga_uid = SYSTEM_TMP_DIR_UID;
+				ctx->dc_gattrs.dga_gid = SYSTEM_TMP_DIR_GID;
+			}
+		} else {
 			res = errno = ENOTDIR;
+		}
 	} else {
 		res = errno;
 	}
@@ -489,7 +501,7 @@ dc_should_reclaim(dir_ctx_t *ctx)
 		}
 	}
 
-	DIRS_CLEANER_MSG(0, ctx, "dc_temp_path=%s bres=%d tv_sec=%ld lim.tv_sec",
+	DIRS_CLEANER_MSG(0, ctx, "dc_temp_path=%s bres=%d tv_sec=%ld lim.tv_sec=%ld",
 					 ctx->dc_temp_path, bres, tctx->dtc_next_wakeup.tv_sec, tctx->dtc_sync_lim.tv_sec);
 
 	return bres;

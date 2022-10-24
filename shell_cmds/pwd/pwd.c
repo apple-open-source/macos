@@ -96,6 +96,10 @@ main(int argc, char *argv[])
 	else
 		err(1, ".");
 
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 

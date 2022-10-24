@@ -2,6 +2,7 @@
 #if OCTAGON
 
 #import "keychain/ot/OTUpdateTrustedDeviceListOperation.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import <CloudKit/CloudKit_Private.h>
 
@@ -91,13 +92,23 @@
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+    }
+
     NSError* localError = nil;
-    BOOL isAccountDemo = [self.deps.authKitAdapter accountIsDemoAccount:&localError];
+    BOOL isAccountDemo = [self.deps.authKitAdapter accountIsDemoAccountByAltDSID:altDSID error:&localError];
     if(localError) {
         secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
     }
 
-    [self.deps.authKitAdapter fetchCurrentDeviceList:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
+    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID reply:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
         STRONGIFY(self);
 
         if (error) {
@@ -139,31 +150,34 @@
 {
     WEAKIFY(self);
     BOOL honorIDMSListChanges = accountIsDemo ? NO : YES;
+    
+    if ([self.deps.deviceInformationAdapter isMachineIDOverridden]) {
+        honorIDMSListChanges = NO;
+    }
+    
+    [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithSpecificUser:self.deps.activeAccount
+                                                       allowedMachineIDs:allowedMachineIDs
+                                                    honorIDMSListChanges:honorIDMSListChanges
+                                                                   reply:^(BOOL listDifferences, NSError * _Nullable error) {
+        STRONGIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithContainer:self.deps.containerName
-                                                              context:self.deps.contextID
-                                                    allowedMachineIDs:allowedMachineIDs
-                                                        honorIDMSListChanges:honorIDMSListChanges
-                                                                reply:^(BOOL listDifferences, NSError * _Nullable error) {
-            STRONGIFY(self);
-
-            if (self.logForUpgrade) {
-                [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSetAllowList hardFailure:true result:error];
-            }
-            if(error) {
-                secnotice("octagon-authkit", "Unable to save machineID allow-list: %@", error);
-                self.error = error;
+        if (self.logForUpgrade) {
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSetAllowList hardFailure:true result:error];
+        }
+        if(error) {
+            secnotice("octagon-authkit", "Unable to save machineID allow-list: %@", error);
+            self.error = error;
+        } else {
+            secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change)", listDifferences ? @"some" : @"no");
+            if(listDifferences) {
+                self.nextState = self.stateIfListUpdates;
             } else {
-                secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change)", listDifferences ? @"some" : @"no");
-                if(listDifferences) {
-                    self.nextState = self.stateIfListUpdates;
-                } else {
-                    self.nextState = self.intendedState;
-                }
+                self.nextState = self.intendedState;
             }
+        }
 
-            [self runBeforeGroupFinished:self.finishedOp];
-        }];
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

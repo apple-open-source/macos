@@ -52,9 +52,7 @@ public:
     void cancelFromStyle();
 
     std::optional<double> bindingsStartTime() const final;
-    void setBindingsStartTime(std::optional<double>) override;
     std::optional<double> bindingsCurrentTime() const final;
-    ExceptionOr<void> setBindingsCurrentTime(std::optional<double>) final;
     WebAnimation::PlayState bindingsPlayState() const final;
     WebAnimation::ReplaceState bindingsReplaceState() const final;
     bool bindingsPending() const final;
@@ -90,7 +88,7 @@ private:
     bool m_wasPending { false };
     AnimationEffectPhase m_previousPhase { AnimationEffectPhase::Idle };
 
-    WeakPtr<Element> m_owningElement;
+    WeakPtr<Element, WeakPtrImplWithEventTargetData> m_owningElement;
     PseudoId m_owningPseudoId;
     Ref<Animation> m_backingAnimation;
     double m_previousIteration;

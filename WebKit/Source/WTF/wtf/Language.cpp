@@ -26,6 +26,7 @@
 #include "config.h"
 #include <wtf/Language.h>
 
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/Logging.h>
@@ -112,25 +113,6 @@ Vector<String> userPreferredLanguagesOverride()
     return preferredLanguagesOverride();
 }
 
-void overrideUserPreferredLanguages(const Vector<String>& override)
-{
-    LOG_WITH_STREAM(Language, stream << "Languages are being overridden to: " << override);
-    {
-        Locker locker { preferredLanguagesOverrideLock };
-        preferredLanguagesOverride() = override;
-    }
-    languageDidChange();
-}
-
-static Vector<String> isolatedCopy(const Vector<String>& strings)
-{
-    Vector<String> copy;
-    copy.reserveInitialCapacity(strings.size());
-    for (auto& language : strings)
-        copy.uncheckedAppend(language.isolatedCopy());
-    return copy;
-}
-
 Vector<String> userPreferredLanguages(ShouldMinimizeLanguages shouldMinimizeLanguages)
 {
     {
@@ -138,7 +120,7 @@ Vector<String> userPreferredLanguages(ShouldMinimizeLanguages shouldMinimizeLang
         Vector<String>& override = preferredLanguagesOverride();
         if (!override.isEmpty()) {
             LOG_WITH_STREAM(Language, stream << "Languages are overridden: " << override);
-            return isolatedCopy(override);
+            return crossThreadCopy(override);
         }
     }
 
@@ -149,17 +131,27 @@ Vector<String> userPreferredLanguages(ShouldMinimizeLanguages shouldMinimizeLang
         languages = platformUserPreferredLanguages(shouldMinimizeLanguages);
     } else
         LOG(Language, "userPreferredLanguages() cache hit");
-    return isolatedCopy(languages);
+    return crossThreadCopy(languages);
 }
 
 #if !PLATFORM(COCOA)
+
+void overrideUserPreferredLanguages(const Vector<String>& override)
+{
+    LOG_WITH_STREAM(Language, stream << "Languages are being overridden to: " << override);
+    {
+        Locker locker { preferredLanguagesOverrideLock };
+        preferredLanguagesOverride() = override;
+    }
+    languageDidChange();
+}
 
 static String canonicalLanguageIdentifier(const String& languageCode)
 {
     String lowercaseLanguageCode = languageCode.convertToASCIILowercase();
     
     if (lowercaseLanguageCode.length() >= 3 && lowercaseLanguageCode[2] == '_')
-        lowercaseLanguageCode.replace(2, 1, "-");
+        lowercaseLanguageCode = makeStringByReplacing(lowercaseLanguageCode, 2, 1, "-"_s);
 
     return lowercaseLanguageCode;
 }

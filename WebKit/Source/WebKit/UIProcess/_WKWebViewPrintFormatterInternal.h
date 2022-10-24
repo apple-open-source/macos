@@ -34,11 +34,15 @@
 
 @interface _WKWebViewPrintFormatter ()
 - (void)_setSnapshotPaperRect:(CGRect)paperRect;
+- (void)_setPrintedDocument:(CGPDFDocumentRef)printedDocument;
+
+- (void)_waitForPrintedDocument;
 @end
 
 @protocol _WKWebViewPrintProvider <NSObject>
 - (NSUInteger)_wk_pageCountForPrintFormatter:(_WKWebViewPrintFormatter *)printFormatter;
-@property (nonatomic, readonly) CGPDFDocumentRef _wk_printedDocument;
+- (void)_wk_requestDocumentForPrintFormatter:(_WKWebViewPrintFormatter *)printFormatter;
+@property (nonatomic, readonly) BOOL _wk_printFormatterRequiresMainThread;
 @end
 
 #endif // PLATFORM(IOS_FAMILY)

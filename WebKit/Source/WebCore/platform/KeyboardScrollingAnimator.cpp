@@ -31,6 +31,7 @@
 #include "ScrollTypes.h"
 #include "ScrollableArea.h"
 #include "WritingMode.h"
+#include <wtf/SortedArrayMap.h>
 
 namespace WebCore {
 
@@ -166,19 +167,19 @@ float KeyboardScrollingAnimator::scrollDistance(ScrollDirection direction, Scrol
 
 static std::optional<KeyboardScrollingKey> keyboardScrollingKeyFromEvent(const PlatformKeyboardEvent& event)
 {
+    static constexpr std::pair<ComparableASCIILiteral, KeyboardScrollingKey> mappings[] = {
+        { "Down", KeyboardScrollingKey::DownArrow },
+        { "Left", KeyboardScrollingKey::LeftArrow },
+        { "PageDown", KeyboardScrollingKey::PageDown },
+        { "PageUp", KeyboardScrollingKey::PageUp },
+        { "Right", KeyboardScrollingKey::RightArrow },
+        { "Up", KeyboardScrollingKey::UpArrow },
+    };
+    static constexpr SortedArrayMap map { mappings };
+
     auto identifier = event.keyIdentifier();
-    if (identifier == "Left")
-        return KeyboardScrollingKey::LeftArrow;
-    if (identifier == "Right")
-        return KeyboardScrollingKey::RightArrow;
-    if (identifier == "Up")
-        return KeyboardScrollingKey::UpArrow;
-    if (identifier == "Down")
-        return KeyboardScrollingKey::DownArrow;
-    if (identifier == "PageUp")
-        return KeyboardScrollingKey::PageUp;
-    if (identifier == "PageDown")
-        return KeyboardScrollingKey::PageDown;
+    if (auto* result = map.tryGet(identifier))
+        return *result;
 
     if (event.text().characterStartingAt(0) == ' ')
         return KeyboardScrollingKey::Space;
@@ -259,8 +260,17 @@ bool KeyboardScrollingAnimator::beginKeyboardScrollGesture(const PlatformKeyboar
     if (!(event.type() == PlatformEvent::RawKeyDown || event.type() == PlatformEvent::Char))
         return false;
 
-    if (m_scrollTriggeringKeyIsPressed)
+    auto scrollableDirections = scrollableDirectionsFromPosition(m_scrollAnimator.currentPosition());
+    auto direction = m_currentKeyboardScroll->direction;
+    if (!scrollableDirections.at(boxSideForDirection(direction))) {
+        m_scrollTriggeringKeyIsPressed = false;
+        m_scrollController.didStopKeyboardScrolling();
+        m_velocity = { };
         return false;
+    }
+
+    if (m_scrollTriggeringKeyIsPressed)
+        return true;
 
     if (m_currentKeyboardScroll->granularity == ScrollGranularity::Document) {
         m_velocity = { };

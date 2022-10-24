@@ -111,6 +111,13 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
 					  CFDictionaryRef signed_attrs, SecIdentityRef signer, CFTypeRef recipient);
 
 /*!
+ @function SecSCEPVerifyGetCertInitial
+ @abstract Verify signature and encryption on GetCertInitial message
+ */
+bool
+SecSCEPVerifyGetCertInitial(CFDataRef request, SecIdentityRef ca_identity);
+
+/*!
     @function SecSCEPValidateCACertMessage
     @abstract validate GetCACert data against CA fingerprint and find
         appropriate RA certificates if applicable.

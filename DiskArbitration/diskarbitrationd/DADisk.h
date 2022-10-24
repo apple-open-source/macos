@@ -45,6 +45,7 @@ enum
     _kDADiskStateMountAutomatic        = 0x00000010,
     _kDADiskStateMountAutomaticNoDefer = 0x00000020,
     _kDADiskStateMountQuarantined      = 0x00000040,
+    _kDADiskStateMultiVolume           = 0x00000080,
 
     kDADiskStateCommandActive       = 0x00000001,
     kDADiskStateRequireRepair       = 0x00000002,

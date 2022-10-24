@@ -102,10 +102,11 @@ public:
     WEBCORE_EXPORT void didComposite(Frame&);
 
     // Testing support.
-    bool isUnderTest() const { return m_isUnderTest; }
+    WEBCORE_EXPORT bool isUnderTest() const;
     void setIsUnderTest(bool isUnderTest) { m_isUnderTest = isUnderTest; }
     WEBCORE_EXPORT void evaluateForTestInFrontend(const String& script);
     WEBCORE_EXPORT unsigned gridOverlayCount() const;
+    WEBCORE_EXPORT unsigned flexOverlayCount() const;
     WEBCORE_EXPORT unsigned paintRectCount() const;
 
     InspectorClient* inspectorClient() const { return m_inspectorClient; }

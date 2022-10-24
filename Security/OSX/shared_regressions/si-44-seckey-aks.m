@@ -10,6 +10,7 @@
 #import <libaks_acl_cf_keys.h>
 #import "MobileGestalt.h"
 #import <CryptoTokenKit/CryptoTokenKit_Private.h>
+#import <utilities/SecCFWrappers.h>
 
 #import "shared_regressions.h"
 
@@ -34,9 +35,9 @@ static id generateKey(id keyType, CFStringRef protection, BOOL withACL) {
 static void secKeySepTest(BOOL testPKA) {
     NSArray *keyTypes;
     if (testPKA) {
-        keyTypes = @[(id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyTypeECSECPrimeRandomPKA, (id)kSecAttrKeyTypeSecureEnclaveAttestation];
+        keyTypes = @[(id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyTypeECSECPrimeRandomPKA, (id)kSecAttrKeyTypeSecureEnclaveAttestation, (id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation];
     } else {
-        keyTypes = @[(id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyTypeSecureEnclaveAttestation];
+        keyTypes = @[(id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyTypeSecureEnclaveAttestation, (id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation];
     }
     BOOL withACL = NO;
     for (id keyType in keyTypes) {
@@ -49,7 +50,7 @@ static void secKeySepTest(BOOL testPKA) {
             id attestationKey = (__bridge_transfer id)SecKeyCopySystemKey([attestationKeyType unsignedIntValue], NULL);
             ok(attestationKey, "failed to create attestaion key '%@'", attestationKeyType);
             NSError *error;
-            if (![keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
+            if (![keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAttestation] && ![keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation]) {
                 const char rawData[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
                 NSData *dataToSign = [NSData dataWithBytes:rawData length:sizeof(rawData)];
                 NSData *signedData = (__bridge_transfer NSData*)SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (__bridge CFDataRef)dataToSign, (void *)&error);
@@ -465,41 +466,49 @@ static void secAccessControlDescriptionTest(void) {
     ok(SecAccessControlSetProtection((__bridge SecAccessControlRef)ac, kSecAttrAccessibleWhenUnlocked, (void *)&error), "failed to set protection: %@", error);
 
     NSString *desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": (__bridge id)kCFBooleanTrue});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(true)>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(true)>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": (__bridge id)kCFBooleanTrue, @"oe": (__bridge id)kCFBooleanFalse});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(true);oe(false)>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(true);oe(false)>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @"huh"});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(huh)>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(huh)>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @2});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(2)>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(2)>", "unexpected desc: %@", desc);
 
     NSData *shortData = [NSData dataWithBytes:"\x01\x02\x03" length:3];
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": shortData});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(010203)>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(010203)>", "unexpected desc: %@", desc);
 
     NSData *longData = [NSMutableData dataWithLength:128];
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": longData});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...(128b))>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...(128b))>", "unexpected desc: %@", desc);
 
     SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @{@"kofn": @2}});
     desc = ac.description;
-    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(kofn(2))>"], "unexpected desc: %@", desc);
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(kofn(2))>", "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @{@"cag": @[]}});
+    desc = ac.description;
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(cag([]))>", "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @{@"cag": @[@"ag1", @{@"k1": @1, @"k2": @2}]}});
+    desc = ac.description;
+    eq_cf((__bridge CFTypeRef)desc, (__bridge CFTypeRef)@"<SecAccessControlRef: ak;od(cag([ag1,k1(1)k2(2)]))>", "unexpected desc: %@", desc);
 }
 
 static void sysKeySignTest(SecKeySystemKeyType keyType, SecKeyAlgorithm algorithm, NSInteger keySizeInBits, const char *name) {
@@ -536,7 +545,7 @@ int si_44_seckey_aks(int argc, char *const *argv) {
         }
 
         NSNumber *hasPKA = CFBridgingRelease(MGCopyAnswer(kMGQHasPKA, NULL));
-        plan_tests(hasPKA.boolValue ? 207 : 113);
+        plan_tests(hasPKA.boolValue ? 190 : 113);
 
         secAccessControlDescriptionTest();
         secKeySepTest(hasPKA.boolValue);

@@ -191,7 +191,75 @@
 >>>4		belong&0x00ffffff	11		\b_7450
 >>>4		belong&0x00ffffff	100		\b_970
 >>>4		belong&0x00ffffff	>100		subarchitecture=%d
->>0	belong&0x00ffffff	>18	64-bit architecture=%d
+#
+# Apple GPUs
+#
+>>0	belong&0x00ffffff	19	applegpu
+>>>4		belong&0x00ffffff	32		\b_gx2
+>>>4		belong&0x00ffffff	17		\b_g4p
+>>>4		belong&0x00ffffff	49		\b_g4g
+>>>4		belong&0x00ffffff	65		\b_g5p
+>>>4		belong&0x00ffffff	81		\b_g9p
+>>>4		belong&0x00ffffff	97		\b_g9g
+>>>4		belong&0x00ffffff	34		\b_g10p
+>>>4		belong&0x00ffffff	114		\b_g11p
+>>>4		belong&0x00ffffff	82		\b_g11m
+>>>4		belong&0x00ffffff	130		\b_g11g
+>>>4		belong&0x00ffffff	1602		\b_g11g_8fstp
+>>>4		belong&0x00ffffff	210		\b_g12p
+>>>4		belong&0x00ffffff	290		\b_g13p
+>>>4		belong&0x00ffffff	322		\b_g13g
+>>>4		belong&0x00ffffff	530		\b_g13s
+>>>4		belong&0x00ffffff	562		\b_g13c
+>>>4		belong&0x00ffffff	594		\b_g13d
+>>>4		belong&0x00ffffff	370		\b_g14p
+#
+# AMD GPUs
+#
+>>0	belong&0x00ffffff	20	amdgpu
+>>>4		belong&0x00ffffff	4000		\b_gfx600
+>>>4		belong&0x00ffffff	4001		\b_gfx600_nwh
+>>>4		belong&0x00ffffff	4002		\b_gfx701
+>>>4		belong&0x00ffffff	4003		\b_gfx704
+>>>4		belong&0x00ffffff	4004		\b_gfx803
+>>>4		belong&0x00ffffff	4005		\b_gfx802
+>>>4		belong&0x00ffffff	5000		\b_gfx900
+>>>4		belong&0x00ffffff	5001		\b_gfx904
+>>>4		belong&0x00ffffff	5002		\b_gfx906
+>>>4		belong&0x00ffffff	6000		\b_gfx1010_nsgc
+>>>4		belong&0x00ffffff	6001		\b_gfx1010
+>>>4		belong&0x00ffffff	6002		\b_gfx1011
+>>>4		belong&0x00ffffff	6003		\b_gfx1012
+>>>4		belong&0x00ffffff	6004		\b_gfx1030
+>>>4		belong&0x00ffffff	6005		\b_gfx1032
+#
+# Intel GPUs
+#
+>>0	belong&0x00ffffff	21	intelgpu
+>>>4		belong&0x00ffffff	590342		\b_skl_gt2r6
+>>>4		belong&0x00ffffff	590343		\b_skl_gt2r7
+>>>4		belong&0x00ffffff	590602		\b_skl_gt3r10
+>>>4		belong&0x00ffffff	9765376		\b_kbl_gt2r0
+>>>4		belong&0x00ffffff	9765378		\b_kbl_gt2r2
+>>>4		belong&0x00ffffff	9765380		\b_kbl_gt2r4
+>>>4		belong&0x00ffffff	9765633		\b_kbl_gt3r1
+>>>4		belong&0x00ffffff	9765638		\b_kbl_gt3r6
+>>>4		belong&0x00ffffff	1115655		\b_icl_1x6x8r7
+>>>4		belong&0x00ffffff	1116167		\b_icl_1x8x8r7
+#
+# AIR
+#
+>>0	belong&0x00ffffff	23	air64
+>>>4		belong&0x00ffffff	1		\b_v16
+>>>4		belong&0x00ffffff	2		\b_v18
+>>>4		belong&0x00ffffff	3		\b_v111
+>>>4		belong&0x00ffffff	4		\b_v20
+>>>4		belong&0x00ffffff	5		\b_v21
+>>>4		belong&0x00ffffff	6		\b_v22
+>>>4		belong&0x00ffffff	7		\b_v23
+>>>4		belong&0x00ffffff	8		\b_v24
+>>>4		belong&0x00ffffff	9		\b_v25
+>>0	belong&0x00ffffff	>23	64-bit architecture=%d
 >0	belong&0x02000000	0x02000000
 #
 # 64/32-bit ABIs
@@ -213,17 +281,19 @@
 >12	belong		9		dynamically linked shared library stub
 >12	belong		10		dSYM companion file
 >12	belong		11		kext bundle
->12	belong		>11
+>12	belong		13		GPU executable
+>12	belong		14		GPU dynamically linked shared library
+>12	belong		>14
 >>12	belong		x		filetype=%d
 >4	use		mach-o-cpu
 
 #
 0	lelong&0xfffffffe	0xfeedface	Mach-O
-!:strength +1
+!:strength +2
 !:mime application/x-mach-binary
 >0	use	\^mach-o-be
 
 0	belong&0xfffffffe	0xfeedface	Mach-O
-!:strength +1
+!:strength +2
 !:mime application/x-mach-binary
 >0	use	mach-o-be

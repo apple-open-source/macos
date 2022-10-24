@@ -10,11 +10,11 @@
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static void
-run_heap_test()
+run_heap_test(int iterations)
 {
 	const int MAX_POINTERS = 1024;
 	void **pointers = (void **)calloc(MAX_POINTERS, sizeof(void *));
-	for (int iteration = 0; iteration < 100000; iteration++) {
+	for (int iteration = 0; iteration < iterations; iteration++) {
 		int index = random() % MAX_POINTERS;
 		size_t size = 1 << (random() % 20);
 		if (pointers[index]) {
@@ -41,7 +41,7 @@ T_DECL(malloc_heap_check_no_nano, "malloc heap checking (no Nano)",
 	   T_META_ENVVAR("MallocCheckHeapEach=1"),
 	   T_META_ENVVAR("MallocNanoZone=0"))
 {
-	run_heap_test();
+	run_heap_test(100000);
 
 	// If we get here without crashing, we pass.
 	T_PASS("Heap check succeeded");
@@ -51,9 +51,17 @@ T_DECL(malloc_heap_check_nano, "malloc heap checking (with Nano)",
 	   T_META_ENVVAR("MallocCheckHeapEach=1"),
 	   T_META_ENVVAR("MallocNanoZone=1"))
 {
-	run_heap_test();
+	run_heap_test(100000);
 
 	// If we get here without crashing, we pass.
 	T_PASS("Heap check succeeded");
+}
+
+T_DECL(malloc_simple_stack_logging, "Test MallocSimpleStackLogging=1",
+		T_META_ENVVAR("MallocSimpleStackLogging=1"))
+{
+	run_heap_test(1000);
+
+	T_PASS("Success");
 }
 

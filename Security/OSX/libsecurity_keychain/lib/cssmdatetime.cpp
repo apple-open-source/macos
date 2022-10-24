@@ -228,14 +228,14 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	outMacDate = sint64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
 }
 
-void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData)
+void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData, uint32 outLength)
 {
     sint64 ldt = sint64(uint64(inMacDate));
-    MacLongDateTimeToTimeString(ldt, inLength, outData);
+    MacLongDateTimeToTimeString(ldt, inLength, outData, outLength);
 }
 
 void MacLongDateTimeToTimeString(const sint64 &inMacDate,
-                                        uint32 inLength, void *outData)
+                                 uint32 inLength, void *outData, uint32 outLength)
 {
 	// @@@ this code is close, but on the fringe case of a daylight savings time it will be off for a little while
 	CFAbsoluteTime absTime = inMacDate - kCFAbsoluteTimeIntervalSince1904;
@@ -251,7 +251,7 @@ void MacLongDateTimeToTimeString(const sint64 &inMacDate,
 
     if (inLength == 16)
     {
-        sprintf((char *)(outData), "%04d%02d%02d%02d%02d%02dZ",
+        snprintf((char *)(outData), outLength, "%04d%02d%02d%02d%02d%02dZ",
                 int(date.year % 10000), date.month, date.day,
                 date.hour, date.minute, int(date.second));
     }
@@ -259,7 +259,7 @@ void MacLongDateTimeToTimeString(const sint64 &inMacDate,
     {
  		/* UTC - 2 year digits - code which parses this assumes that
 		 * (2-digit) years between 0 and 49 are in century 21 */
-        sprintf((char *)(outData), "%02d%02d%02d%02d%02d%02dZ",
+        snprintf((char *)(outData), outLength, "%02d%02d%02d%02d%02d%02dZ",
                 int(date.year % 100), date.month, date.day,
                 date.hour, date.minute, int(date.second));
     }
@@ -268,11 +268,11 @@ void MacLongDateTimeToTimeString(const sint64 &inMacDate,
 }
 
 void
-CFDateToCssmDate(CFDateRef date, char *outCssmDate)
+CFDateToCssmDate(CFDateRef date, char *outCssmDate, uint32 outCssmDateLen)
 {
 	CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
 	CFGregorianDate gd = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(date), timeZone);
-	sprintf(outCssmDate, "%04d%02d%02d%02d%02d%02dZ", (int)gd.year, gd.month, gd.day, gd.hour, gd.minute, (unsigned int)gd.second);
+	snprintf(outCssmDate, outCssmDateLen, "%04d%02d%02d%02d%02d%02dZ", (int)gd.year, gd.month, gd.day, gd.hour, gd.minute, (unsigned int)gd.second);
 	CFRelease(timeZone);
 }
 

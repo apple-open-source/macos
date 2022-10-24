@@ -83,6 +83,12 @@ T_DECL(malloc_free_medium, "medium malloc and free all 32kb increments <= 8mb",
 	test_malloc_free_random(SMALL_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD, 32 * 1024, 1000);
 }
 
+T_DECL(malloc_free_null, "free(NULL)")
+{
+	free(NULL);
+	T_PASS("Survived free(NULL)");
+}
+
 #pragma mark MallocAggressiveMadvise=1
 
 T_DECL(malloc_free_tiny_aggressive_madvise, "tiny malloc and free all 16b increments with aggressive madvise",

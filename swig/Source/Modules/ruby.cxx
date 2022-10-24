@@ -317,7 +317,7 @@ private:
       String *name = 0;
       String *type = 0;
       String *value = 0;
-      String *ptype = 0;
+      __unused String *ptype = 0;
       String *pdoc = Getattr(p, "tmap:doc");
       if (pdoc) {
 	name = Getattr(p, "tmap:doc:name");
@@ -1599,9 +1599,9 @@ public:
   virtual int functionWrapper(Node *n) {
 
     String *nodeType;
-    bool constructor;
+    __unused bool constructor;
     bool destructor;
-    String *storage;
+    __unused String *storage;
 
     String *symname = Copy(Getattr(n, "sym:name"));
     SwigType *t = Getattr(n, "type");
@@ -3128,7 +3128,7 @@ public:
 
 	Putc(',', arglist);
 	if ((tm = Getattr(p, "tmap:directorin")) != 0) {
-	  sprintf(source, "obj%d", idx++);
+	  snprintf(source, sizeof(source), "obj%d", idx++);
 	  Replaceall(tm, "$input", source);
 	  Replaceall(tm, "$owner", "0");
 	  Printv(wrap_args, tm, "\n", NIL);
@@ -3150,7 +3150,7 @@ public:
 	  if (SwigType_ispointer(parameterType) || SwigType_isreference(parameterType)) {
 	    Node *modname = Getattr(parent, "module");
 	    Node *target = Swig_directormap(modname, parameterType);
-	    sprintf(source, "obj%d", idx++);
+	    snprintf(source, sizeof(source), "obj%d", idx++);
 	    String *nonconst = 0;
 	    /* strip pointer/reference --- should move to Swig/stype.c */
 	    String *nptype = NewString(Char(parameterType) + 2);

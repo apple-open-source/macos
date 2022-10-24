@@ -9,6 +9,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTDeviceInformationAdapter
 
+- (void)setOverriddenMachineID:(NSString*)machineID;
+- (NSString* _Nullable)getOverriddenMachineID;
+- (BOOL)isMachineIDOverridden;
+- (void)clearOverride;
+
 /* Returns a string like "iPhone3,5" */
 - (NSString*)modelID;
 

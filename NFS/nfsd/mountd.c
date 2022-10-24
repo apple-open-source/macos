@@ -321,7 +321,7 @@ int     do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
 int     do_opt(char **, char **, struct grouplist *, int *,
     int *, int *, struct xucred *, struct nfs_sec *, char *, u_char *);
 struct expfs *ex_search(u_char *);
-void    export_error(int, const char *, ...);
+void    export_error(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 void    export_error_cleanup(struct expfs *);
 struct host *find_group_address_match_in_host_list(struct hosttqh *, struct grouplist *);
 struct host *find_host(struct hosttqh *, struct sockaddr *);
@@ -2464,7 +2464,7 @@ get_exportlist(void)
 		}
 
 		while (endcp > cp) {
-			DEBUG(2, "got field: %.*s", endcp - cp, cp);
+			DEBUG(2, "got field: %.*s", (int)(endcp - cp), cp);
 			if (*cp == '-') {
 				/*
 				 * looks like we have some options
@@ -2474,7 +2474,7 @@ get_exportlist(void)
 					export_error_cleanup(xf);
 					goto nextline;
 				}
-				DEBUG(3, "processing option: %.*s", endcp - cp, cp);
+				DEBUG(3, "processing option: %.*s", (int)(endcp - cp), cp);
 				got_nondir = 1;
 				savedcp = cp;
 				if (do_opt(&cp, &endcp, &ngrp, &hostcount, &opt_flags,
@@ -2487,7 +2487,7 @@ get_exportlist(void)
 				/*
 				 * looks like we have a pathname
 				 */
-				DEBUG(2, "processing pathname: %.*s", endcp - cp, cp);
+				DEBUG(2, "processing pathname: %.*s", (int)(endcp - cp), cp);
 				word = clean_pathname(cp);
 				DEBUG(3, "   cleaned pathname: %s", word);
 				if (word == NULL) {
@@ -2502,7 +2502,7 @@ get_exportlist(void)
 					goto nextline;
 				}
 				if (strlen(word) > RPCMNT_NAMELEN) {
-					export_error(LOG_ERR, "pathname too long (%d > %d): %s",
+					export_error(LOG_ERR, "pathname too long (%ld > %d): %s",
 					    strlen(word), RPCMNT_NAMELEN, word);
 					export_error_cleanup(xf);
 					free(word);
@@ -2599,7 +2599,7 @@ get_exportlist(void)
 							DEBUG(3, "add netgroup member: %s", hst);
 							error = add_name(&names, hst);
 							if (error == ENOMEM) {
-								export_error(LOG_ERR, "Can't allocate memory to add netgroup:host - %s", name, hst);
+								export_error(LOG_ERR, "Can't allocate memory to add netgroup: name - %s, host - %s", name, hst);
 								export_error_cleanup(xf);
 								endnetgrent();
 								free(name);
@@ -3690,12 +3690,9 @@ export_error(int level, const char *fmt, ...)
 
 	export_errors++;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	va_start(ap, fmt);
 	vasprintf(&s, fmt, ap);
 	va_end(ap);
-#pragma clang diagnostic pop
 
 	/* check if we've already logged this error */
 	LIST_FOREACH(el, &xerrs, el_next) {
@@ -3742,17 +3739,17 @@ export_error(int level, const char *fmt, ...)
  * clear export errors on the give line# (or all if line#=0)
  */
 int
-clear_export_errors(uint32_t linenum)
+clear_export_errors(uint32_t line_num)
 {
 	struct errlist *el, *elnext;
 	int cleared = 0;
 
 	LIST_FOREACH_SAFE(el, &xerrs, el_next, elnext) {
-		if (linenum) {
-			if (linenum < el->el_linenum) {
+		if (line_num) {
+			if (line_num < el->el_linenum) {
 				break;
 			}
-			if (linenum > el->el_linenum) {
+			if (line_num > el->el_linenum) {
 				continue;
 			}
 		}
@@ -5055,8 +5052,8 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 {
 	struct netent *np;
 	uint32_t netaddr;
-	struct in_addr inetaddr, inetaddr2;
-	struct in6_addr inet6addr;
+	struct in_addr inetaddr = {}, inetaddr2;
+	struct in6_addr inet6addr = {};
 	const char *name;
 	sa_family_t family;
 	char addrbuf[2 * INET6_ADDRSTRLEN];
@@ -5099,14 +5096,9 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", family, net->nt_family, cp);
 			return 1;
 		}
-		if (family == AF_INET6)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wconditional-uninitialized"
-		{
+		if (family == AF_INET6) {
 			net->nt_mask6 = inet6addr;
-		}
-#pragma clang diagnostic pop
-		else {
+		} else {
 			net->nt_mask = inetaddr.s_addr;
 		}
 	} else {
@@ -5125,10 +5117,7 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 				return 1;
 			}
 		} else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wconditional-uninitialized"
 			name = inet_ntoa(inetaddr);
-#pragma clang diagnostic pop
 		}
 		net->nt_name = strdup(name);
 		if (net->nt_name == NULL) {

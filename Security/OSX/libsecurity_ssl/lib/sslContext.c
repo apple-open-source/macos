@@ -196,7 +196,7 @@ CFStringRef SSLPreferencesCopyString(CFStringRef key, CFPropertyListRef managed_
     }
 }
 
-static void _SSLContextReadDefault()
+static void _SSLContextReadDefault(void)
 {
     CFPropertyListRef managed_prefs = NULL;
 
@@ -821,7 +821,6 @@ SSLCopyALPNProtocols(SSLContextRef      context,
             CFArrayAppendValue(array, protocol);
             CFReleaseNull(protocol);
 
-            // Sanity check
             if (offset > alpnData->length) {
                 CFReleaseNull(array);
                 *protocolArray = NULL;
@@ -1104,8 +1103,7 @@ SSLGetDatagramWriteSize		(SSLContextRef ctx,
     /* less the mac size */
     max_fragment_size -= macSize;
 
-    /* Thats just a sanity check */
-    assert(max_fragment_size<ctx->mtu);
+    assert(max_fragment_size < ctx->mtu);
 
     *bufSize = max_fragment_size;
 
@@ -2831,7 +2829,7 @@ SSLGetSessionConfigurationIdentifier(SSLContext *ctx, SSLBuffer *buffer)
     memcpy(buffer->data + offset, &ctx->enableSessionTickets, sizeof(ctx->enableSessionTickets));
     offset += sizeof(ctx->enableSessionTickets);
 
-    // Sanity check on the length
+    // Ensure correct length
     if (offset != buffer->length) {
         free(buffer->data);
         return errSecInternal;

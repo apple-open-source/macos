@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>makewhatis</string>
+		<key>OpenSourceVersion</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/makewhatis/</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co makewhatis</string>
+		<key>OpenSourceImportDate</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>makewhatis.c: sys/queue.h is missing SLIST_HEAD_INITIALIZER (3806865)</string>
+			<string>makewhatis.c: trim trailing comments (98066956)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>doc_cmds.txt</string>
+	</dict>

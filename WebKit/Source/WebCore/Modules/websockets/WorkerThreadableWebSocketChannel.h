@@ -58,12 +58,12 @@ public:
     ConnectStatus connect(const URL&, const String& protocol) final;
     String subprotocol() final;
     String extensions() final;
-    ThreadableWebSocketChannel::SendResult send(const String& message) final;
+    ThreadableWebSocketChannel::SendResult send(CString&&) final;
     ThreadableWebSocketChannel::SendResult send(const JSC::ArrayBuffer&, unsigned byteOffset, unsigned byteLength) final;
     ThreadableWebSocketChannel::SendResult send(Blob&) final;
     unsigned bufferedAmount() const final;
     void close(int code, const String& reason) final;
-    void fail(const String& reason) final;
+    void fail(String&& reason) final;
     void disconnect() final; // Will suppress didClose().
     void suspend() final;
     void resume() final;
@@ -77,24 +77,24 @@ public:
         ~Peer();
 
         ConnectStatus connect(const URL&, const String& protocol);
-        void send(const String& message);
+        void send(CString&&);
         void send(const JSC::ArrayBuffer&);
         void send(Blob&);
         void bufferedAmount();
         void close(int code, const String& reason);
-        void fail(const String& reason);
+        void fail(String&& reason);
         void disconnect();
         void suspend();
         void resume();
 
         // WebSocketChannelClient functions.
         void didConnect() final;
-        void didReceiveMessage(const String& message) final;
+        void didReceiveMessage(String&& message) final;
         void didReceiveBinaryData(Vector<uint8_t>&&) final;
         void didUpdateBufferedAmount(unsigned bufferedAmount) final;
         void didStartClosingHandshake() final;
         void didClose(unsigned unhandledBufferedAmount, ClosingHandshakeCompletionStatus, unsigned short code, const String& reason) final;
-        void didReceiveMessageError(const String& reason) final;
+        void didReceiveMessageError(String&& reason) final;
         void didUpgradeURL() final;
 
     private:
@@ -121,12 +121,12 @@ private:
         ~Bridge();
         void initialize(WorkerGlobalScope&);
         void connect(const URL&, const String& protocol);
-        ThreadableWebSocketChannel::SendResult send(const String& message);
+        ThreadableWebSocketChannel::SendResult send(CString&&);
         ThreadableWebSocketChannel::SendResult send(const JSC::ArrayBuffer&, unsigned byteOffset, unsigned byteLength);
         ThreadableWebSocketChannel::SendResult send(Blob&);
         unsigned bufferedAmount();
         void close(int code, const String& reason);
-        void fail(const String& reason);
+        void fail(String&& reason);
         void disconnect();
         void suspend();
         void resume();

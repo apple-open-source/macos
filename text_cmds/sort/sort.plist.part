@@ -1,0 +1,23 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-05</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>file.c: mmap portability (11351444)</string>
+		<string>file.c: fix unreachable code warning (11351444)</string>
+		<string>file.h: switch default sort to mergesort (34598129)</string>
+		<string>coll.c, sort.c, sort.h: md5 portability (11351444)</string>
+		<string>sort.c: update version output (11351444)</string>
+		<string>sort.c: conformance failure with -k (28745165)</string>
+		<string>coll.c, sort.c, sort.h: use SHA256 (86257144)</string>
+		<string>sort.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>sort</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-09-10</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/sort?id=266b51ac6e24a71a4df54c30f63215bf1c3decdb</string>
+</dict>

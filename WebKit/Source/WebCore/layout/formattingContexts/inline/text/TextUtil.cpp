@@ -36,28 +36,21 @@
 #include "RenderBox.h"
 #include "RenderStyle.h"
 #include "SurrogatePairAwareTextIterator.h"
+#include <unicode/ubidi.h>
 #include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
 namespace Layout {
 
-InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const FontCascade& fontCascade, InlineLayoutUnit contentLogicalLeft)
+static inline InlineLayoutUnit spaceWidth(const FontCascade& fontCascade, bool canUseSimplifiedContentMeasuring)
 {
-    return TextUtil::width(inlineTextItem, fontCascade, inlineTextItem.start(), inlineTextItem.end(), contentLogicalLeft);
+    if (canUseSimplifiedContentMeasuring)
+        return fontCascade.primaryFont().spaceWidth();
+    return fontCascade.widthOfSpaceString();
 }
 
-InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const FontCascade& fontCascade, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
-{
-    RELEASE_ASSERT(from >= inlineTextItem.start());
-    RELEASE_ASSERT(to <= inlineTextItem.end());
-    if (inlineTextItem.isWhitespace() && !TextUtil::shouldPreserveSpacesAndTabs(inlineTextItem.layoutBox())) {
-        auto spaceWidth = TextUtil::spaceWidth(fontCascade);
-        return std::isnan(spaceWidth) ? 0.0f : std::isinf(spaceWidth) ? maxInlineLayoutUnit() : spaceWidth;
-    }
-    return TextUtil::width(inlineTextItem.inlineTextBox(), fontCascade, from, to, contentLogicalLeft);
-}
-
-InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontCascade& fontCascade, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft, UseTrailingWhitespaceMeasuringOptimization useTrailingWhitespaceMeasuringOptimization)
+enum class UseTrailingWhitespaceMeasuringOptimization : uint8_t { Yes, No };
+static inline InlineLayoutUnit contentWidth(const InlineTextBox& inlineTextBox, const FontCascade& fontCascade, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft, UseTrailingWhitespaceMeasuringOptimization useTrailingWhitespaceMeasuringOptimization = UseTrailingWhitespaceMeasuringOptimization::Yes)
 {
     if (from == to)
         return 0;
@@ -71,8 +64,9 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
     auto extendedMeasuring = useTrailingWhitespaceMeasuringOptimization == UseTrailingWhitespaceMeasuringOptimization::Yes && hasKerningOrLigatures && to < text.length() && text[to] == space;
     if (extendedMeasuring)
         ++to;
-    float width = 0;
-    if (inlineTextBox.canUseSimplifiedContentMeasuring())
+    auto width = 0.f;
+    auto useSimplifiedContentMeasuring = inlineTextBox.canUseSimplifiedContentMeasuring();
+    if (useSimplifiedContentMeasuring)
         width = fontCascade.widthForSimpleText(StringView(text).substring(from, to - from));
     else {
         WebCore::TextRun run(StringView(text).substring(from, to - from), contentLogicalLeft);
@@ -83,14 +77,33 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
     }
 
     if (extendedMeasuring)
-        width -= (spaceWidth(fontCascade) + fontCascade.wordSpacing());
+        width -= (spaceWidth(fontCascade, useSimplifiedContentMeasuring) + fontCascade.wordSpacing());
 
     return std::isnan(width) ? 0.0f : std::isinf(width) ? maxInlineLayoutUnit() : width;
 }
 
-InlineLayoutUnit TextUtil::spaceWidth(const FontCascade& fontCascade)
+InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const FontCascade& fontCascade, InlineLayoutUnit contentLogicalLeft)
 {
-    return fontCascade.width(TextRun { String { &space, 1 } });
+    return TextUtil::width(inlineTextItem, fontCascade, inlineTextItem.start(), inlineTextItem.end(), contentLogicalLeft);
+}
+
+InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, const FontCascade& fontCascade, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
+{
+    RELEASE_ASSERT(from >= inlineTextItem.start());
+    RELEASE_ASSERT(to <= inlineTextItem.end());
+
+    if (inlineTextItem.isWhitespace()) {
+        auto& inlineTextBox = inlineTextItem.inlineTextBox();
+        auto useSimplifiedContentMeasuring = inlineTextBox.canUseSimplifiedContentMeasuring();
+        auto length = from - to;
+        auto singleWhiteSpace = length == 1 || !TextUtil::shouldPreserveSpacesAndTabs(inlineTextBox);
+
+        if (singleWhiteSpace) {
+            auto width = spaceWidth(fontCascade, useSimplifiedContentMeasuring);
+            return std::isnan(width) ? 0.0f : std::isinf(width) ? maxInlineLayoutUnit() : width;
+        }
+    }
+    return contentWidth(inlineTextItem.inlineTextBox(), fontCascade, from, to, contentLogicalLeft);
 }
 
 InlineLayoutUnit TextUtil::trailingWhitespaceWidth(const InlineTextBox& inlineTextBox, const FontCascade& fontCascade, size_t startPosition, size_t endPosition)
@@ -98,8 +111,8 @@ InlineLayoutUnit TextUtil::trailingWhitespaceWidth(const InlineTextBox& inlineTe
     auto text = inlineTextBox.content();
     ASSERT(endPosition > startPosition + 1);
     ASSERT(text[endPosition - 1] == space);
-    return width(inlineTextBox, fontCascade, startPosition, endPosition, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::Yes) - 
-        width(inlineTextBox, fontCascade, startPosition, endPosition - 1, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::No);
+    return contentWidth(inlineTextBox, fontCascade, startPosition, endPosition, { }, UseTrailingWhitespaceMeasuringOptimization::Yes) - 
+        contentWidth(inlineTextBox, fontCascade, startPosition, endPosition - 1, { }, UseTrailingWhitespaceMeasuringOptimization::No);
 }
 
 template <typename TextIterator>
@@ -120,7 +133,8 @@ static void fallbackFontsForRunWithIterator(HashSet<const Font*>& fallbackFonts,
             auto glyphData = fontCascade.glyphDataForCharacter(character, isRTL);
             if (glyphData.glyph && glyphData.font && glyphData.font != &primaryFont) {
                 auto isNonSpacingMark = U_MASK(u_charType(character)) & U_GC_MN_MASK;
-                if (isNonSpacingMark || glyphData.font->widthForGlyph(glyphData.glyph))
+                // If we include the synthetic bold expansion, then even zero-width glyphs will have their fonts added.
+                if (isNonSpacingMark || glyphData.font->widthForGlyph(glyphData.glyph, Font::SyntheticBoldInclusion::Exclude))
                     fallbackFonts.add(glyphData.font);
             }
         };
@@ -129,15 +143,8 @@ static void fallbackFontsForRunWithIterator(HashSet<const Font*>& fallbackFonts,
     }
 }
 
-TextUtil::FallbackFontList TextUtil::fallbackFontsForRun(const Line::Run& run, const RenderStyle& style)
+TextUtil::FallbackFontList TextUtil::fallbackFontsForText(StringView textContent, const RenderStyle& style, IncludeHyphen includeHyphen)
 {
-    ASSERT(run.isText());
-    auto& inlineTextBox = downcast<InlineTextBox>(run.layoutBox());
-    if (inlineTextBox.canUseSimplifiedContentMeasuring()) {
-        // Simplified text measuring works with primary font only.
-        return { };
-    }
-
     TextUtil::FallbackFontList fallbackFonts;
 
     auto collectFallbackFonts = [&](const auto& textRun) {
@@ -153,10 +160,9 @@ TextUtil::FallbackFontList TextUtil::fallbackFontsForRun(const Line::Run& run, c
         fallbackFontsForRunWithIterator(fallbackFonts, style.fontCascade(), textRun, textIterator);
     };
 
-    auto text = *run.textContent();
-    if (text.needsHyphen)
-        collectFallbackFonts(TextRun { StringView(style.hyphenString().string()), { }, { }, DefaultExpansion, style.direction() });
-    collectFallbackFonts(TextRun { StringView(inlineTextBox.content()).substring(text.start, text.length), { }, { }, DefaultExpansion, style.direction() });
+    if (includeHyphen == IncludeHyphen::Yes)
+        collectFallbackFonts(TextRun { StringView(style.hyphenString().string()), { }, { }, ExpansionBehavior::defaultBehavior(), style.direction() });
+    collectFallbackFonts(TextRun { textContent, { }, { }, ExpansionBehavior::defaultBehavior(), style.direction() });
     return fallbackFonts;
 }
 
@@ -203,7 +209,7 @@ TextUtil::WordBreakLeft TextUtil::breakWord(const InlineTextBox& inlineTextBox, 
                 auto middle = userPerceivedCharacterBoundaryAlignedIndex((left + right) / 2);
                 ASSERT(middle >= left && middle < right);
                 auto endOfMiddleCharacter = nextUserPerceivedCharacterIndex(middle);
-                auto width = TextUtil::width(inlineTextBox, fontCascade, startPosition, endOfMiddleCharacter, contentLogicalLeft);
+                auto width = contentWidth(inlineTextBox, fontCascade, startPosition, endOfMiddleCharacter, contentLogicalLeft);
                 if (width < availableWidth) {
                     left = endOfMiddleCharacter;
                     leftSideWidth = width;
@@ -224,7 +230,7 @@ TextUtil::WordBreakLeft TextUtil::breakWord(const InlineTextBox& inlineTextBox, 
     auto graphemeClusterIterator = NonSharedCharacterBreakIterator { StringView { text }.substring(startPosition, length) };
     auto leftSide = TextUtil::WordBreakLeft { };
     for (auto clusterStartPosition = ubrk_next(graphemeClusterIterator); clusterStartPosition != UBRK_DONE; clusterStartPosition = ubrk_next(graphemeClusterIterator)) {
-        auto width = TextUtil::width(inlineTextBox, fontCascade, startPosition, startPosition + clusterStartPosition, contentLogicalLeft);
+        auto width = contentWidth(inlineTextBox, fontCascade, startPosition, startPosition + clusterStartPosition, contentLogicalLeft);
         if (width > availableWidth)
             return leftSide;
         leftSide = { static_cast<size_t>(clusterStartPosition), width };
@@ -339,6 +345,13 @@ size_t TextUtil::firstUserPerceivedCharacterLength(const InlineTextItem& inlineT
     if (nextPosition == UBRK_DONE)
         return inlineTextItem.length();
     return nextPosition - inlineTextItem.start();
+}
+
+TextDirection TextUtil::directionForTextContent(StringView content)
+{
+    if (content.is8Bit())
+        return TextDirection::LTR;
+    return ubidi_getBaseDirection(content.characters16(), content.length()) == UBIDI_RTL ? TextDirection::RTL : TextDirection::LTR;
 }
 
 }

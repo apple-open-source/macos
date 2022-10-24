@@ -980,9 +980,9 @@ int format(char **pbuf, int *pbufsize, const char *s, Node *a)	/* printf-like co
 			break;
 		case 'a':
 		case 'A':
-		case 'f':	snprintf(p, BUFSZ(p), fmt, getfval(x)); break;
-		case 'd':	snprintf(p, BUFSZ(p), fmt, (intmax_t) getfval(x)); break;
-		case 'u':	snprintf(p, BUFSZ(p), fmt, (uintmax_t) getfval(x)); break;
+		case 'f':	snprintf(p, BUFSZ(p), fmtcheck(fmt, "%f"), getfval(x)); break;
+		case 'd':	snprintf(p, BUFSZ(p), fmtcheck(fmt, "%jd"), (intmax_t) getfval(x)); break;
+		case 'u':	snprintf(p, BUFSZ(p), fmtcheck(fmt, "%ju"), (uintmax_t) getfval(x)); break;
 		case 's':
 			t = getsval(x);
 			n = strlen(t);
@@ -990,18 +990,18 @@ int format(char **pbuf, int *pbufsize, const char *s, Node *a)	/* printf-like co
 				n = fmtwd;
 			if (!adjbuf(&buf, &bufsize, 1+n+p-buf, recsize, &p, "format7"))
 				FATAL("huge string/format (%d chars) in printf %.30s... ran format() out of memory", n, t);
-			snprintf(p, BUFSZ(p), fmt, t);
+			snprintf(p, BUFSZ(p), fmtcheck(fmt, "%s"), t);
 			break;
 		case 'c':
 			if (isnum(x)) {
 				if ((int)getfval(x))
-					snprintf(p, BUFSZ(p), fmt, (int) getfval(x));
+					snprintf(p, BUFSZ(p), fmtcheck(fmt, "%c"), (int) getfval(x));
 				else {
 					*p++ = '\0'; /* explicit null byte */
 					*p = '\0';   /* next output will start here */
 				}
 			} else
-				snprintf(p, BUFSZ(p), fmt, getsval(x)[0]);
+				snprintf(p, BUFSZ(p), fmtcheck(fmt, "%c"), getsval(x)[0]);
 			break;
 		default:
 			FATAL("can't happen: bad conversion %c in format()", flag);

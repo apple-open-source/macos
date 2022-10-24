@@ -28,9 +28,9 @@
 #    Bye
 #
 # Then run the script in the doc subdir, it will create the XSLTsymbols and
-# word tables and populate them with informations extracted from 
-# the libxml2-api.xml API description, and make then accessible read-only
-# by nobody@loaclhost the user expected to be Apache's one
+# word tables and populate them with information extracted from 
+# the libxml2-api.xml API description, and make them accessible read-only
+# by nobody@localhost, the user expected to be Apache's one.
 #
 # On the Apache configuration, make sure you have php support enabled
 #

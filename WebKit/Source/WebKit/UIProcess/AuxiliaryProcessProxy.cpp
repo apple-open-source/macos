@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,18 +27,21 @@
 #include "AuxiliaryProcessProxy.h"
 
 #include "AuxiliaryProcessMessages.h"
-#include "LogInitialization.h"
 #include "Logging.h"
+#include "OverrideLanguages.h"
+#include "UIProcessLogInitialization.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
-#include <WebCore/LogInitialization.h>
-#include <wtf/LogInitialization.h>
 #include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
 #include "SandboxUtilities.h"
 #include <sys/sysctl.h>
 #include <wtf/spi/darwin/SandboxSPI.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
+#import <pal/spi/ios/MobileGestaltSPI.h>
 #endif
 
 namespace WebKit {
@@ -62,15 +65,38 @@ AuxiliaryProcessProxy::~AuxiliaryProcessProxy()
     replyToPendingMessages();
 }
 
+void AuxiliaryProcessProxy::populateOverrideLanguagesLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions) const
+{
+    LOG(Language, "WebProcessProxy is getting launch options.");
+    auto overrideLanguages = WebKit::overrideLanguages();
+    if (overrideLanguages.isEmpty()) {
+        LOG(Language, "overrideLanguages() reports empty. Calling platformOverrideLanguages()");
+        overrideLanguages = platformOverrideLanguages();
+    }
+    if (!overrideLanguages.isEmpty()) {
+        StringBuilder languageString;
+        for (size_t i = 0; i < overrideLanguages.size(); ++i) {
+            if (i)
+                languageString.append(',');
+            languageString.append(overrideLanguages[i]);
+        }
+        LOG_WITH_STREAM(Language, stream << "Setting WebProcess's launch OverrideLanguages to " << languageString);
+        launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("OverrideLanguages"_s, languageString.toString());
+    } else
+        LOG(Language, "overrideLanguages is still empty. Not setting WebProcess's launch OverrideLanguages.");
+}
+
 void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
     launchOptions.processIdentifier = m_processIdentifier;
 
-    if (const char* userDirectorySuffix = getenv("DIRHELPER_USER_DIR_SUFFIX"))
-        launchOptions.extraInitializationData.add("user-directory-suffix"_s, userDirectorySuffix);
+    if (const char* userDirectorySuffix = getenv("DIRHELPER_USER_DIR_SUFFIX")) {
+        if (auto userDirectorySuffixString = String::fromUTF8(userDirectorySuffix); !userDirectorySuffixString.isNull())
+            launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("user-directory-suffix"_s, userDirectorySuffixString);
+    }
 
     if (m_alwaysRunsAtBackgroundPriority)
-        launchOptions.extraInitializationData.add("always-runs-at-background-priority"_s, "true");
+        launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("always-runs-at-background-priority"_s, "true"_s);
 
 #if ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
     const char* varname;
@@ -86,11 +112,6 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
         varname = "GPU_PROCESS_CMD_PREFIX";
         break;
 #endif
-#if ENABLE(WEB_AUTHN)
-    case ProcessLauncher::ProcessType::WebAuthn:
-        varname = "WEBAUTHN_PROCESS_CMD_PREFIX";
-        break;
-#endif
 #if ENABLE(BUBBLEWRAP_SANDBOX)
     case ProcessLauncher::ProcessType::DBusProxy:
         ASSERT_NOT_REACHED();
@@ -102,12 +123,15 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
         launchOptions.processCmdPrefix = String::fromUTF8(processCmdPrefix);
 #endif // ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
 
+    populateOverrideLanguagesLaunchOptions(launchOptions);
+
     platformGetLaunchOptions(launchOptions);
 }
 
 void AuxiliaryProcessProxy::connect()
 {
     ASSERT(!m_processLauncher);
+    m_processStart = MonotonicTime::now();
     ProcessLauncher::LaunchOptions launchOptions;
     getLaunchOptions(launchOptions);
     m_processLauncher = ProcessLauncher::create(this, WTFMove(launchOptions));
@@ -191,7 +215,7 @@ bool AuxiliaryProcessProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, Optio
 
     if (asyncReplyInfo && canSendMessage() && shouldStartProcessThrottlerActivity == ShouldStartProcessThrottlerActivity::Yes) {
         auto completionHandler = std::exchange(asyncReplyInfo->first, nullptr);
-        asyncReplyInfo->first = [activity = throttler().backgroundActivity(ASCIILiteral::null()), completionHandler = WTFMove(completionHandler)](IPC::Decoder* decoder) mutable {
+        asyncReplyInfo->first = [activity = throttler().backgroundActivity({ }), completionHandler = WTFMove(completionHandler)](IPC::Decoder* decoder) mutable {
             completionHandler(decoder);
         };
     }
@@ -257,6 +281,10 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection
     ASSERT(!m_connection);
     ASSERT(isMainRunLoop());
 
+    auto launchTime = MonotonicTime::now() - m_processStart;
+    if (launchTime > 1_s)
+        RELEASE_LOG_FAULT(Process, "%s process (%p) took %f seconds to launch", processName().characters(), this, launchTime.value());
+    
     if (!IPC::Connection::identifierIsValid(connectionIdentifier))
         return;
 
@@ -411,11 +439,32 @@ AuxiliaryProcessCreationParameters AuxiliaryProcessProxy::auxiliaryProcessParame
 {
     AuxiliaryProcessCreationParameters parameters;
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    parameters.wtfLoggingChannels = WTF::logLevelString();
-    parameters.webCoreLoggingChannels = WebCore::logLevelString();
-    parameters.webKitLoggingChannels = WebKit::logLevelString();
+    parameters.wtfLoggingChannels = UIProcess::wtfLogLevelString();
+    parameters.webCoreLoggingChannels = UIProcess::webCoreLogLevelString();
+    parameters.webKitLoggingChannels = UIProcess::webKitLogLevelString();
 #endif
     return parameters;
 }
+
+std::optional<SandboxExtension::Handle> AuxiliaryProcessProxy::createMobileGestaltSandboxExtensionIfNeeded() const
+{
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
+    if (_MGCacheValid())
+        return std::nullopt;
+    
+    RELEASE_LOG_FAULT(Sandbox, "MobileGestalt cache is invalid! Creating a sandbox extension to repopulate cache in memory.");
+
+    return SandboxExtension::createHandleForMachLookup("com.apple.mobilegestalt.xpc"_s, std::nullopt);
+#else
+    return std::nullopt;
+#endif
+}
+
+#if !PLATFORM(COCOA)
+Vector<String> AuxiliaryProcessProxy::platformOverrideLanguages() const
+{
+    return { };
+}
+#endif
 
 } // namespace WebKit

@@ -158,15 +158,6 @@ in any of the character sets listed above is simply said to be
 .Dq data .
 .Sh OPTIONS
 .Bl -tag -width indent
-.It Fl Fl apple
-Causes the
-.Nm
-command to output the file type and creator code as
-used by older MacOS versions.
-The code consists of eight letters,
-the first describing the file type, the latter the creator.
-This option works properly only for file formats that have the
-apple-style output defined.
 .It Fl b , Fl Fl brief
 Do not prepend filenames to output lines (brief mode).
 .It Fl C , Fl Fl compile
@@ -178,10 +169,6 @@ Cause a checking printout of the parsed form of the magic file.
 This is usually used in conjunction with the
 .Fl m
 option to debug a new magic file before installing it.
-.It Fl C , -compile
-Write a
-.Pa magic.mgc
-output file that contains a pre-parsed version of the magic file or directory.
 .It Fl d
 Apply the default system tests; this is the default behavior unless
 .Fl M
@@ -234,7 +221,7 @@ but ignore tests that
 does not know about.
 This is intended for compatibility with older versions of
 .Nm .
-.It Fl Fl extension 
+.It Fl Fl extension
 Print a slash-separated list of valid extensions for the file type found.
 .It Fl F , Fl Fl separator Ar separator
 Use the specified string as the separator between the filename and the
@@ -307,12 +294,12 @@ This option causes symlinks to be followed, as the like-named option in
 .Xr ls 1
 (on systems that support symbolic links).
 This is the default behavior.
-.It Fl m , Fl Fl magic-file Ar list
+.It Fl m , Fl Fl magic-file Ar magicfiles
 Specify an alternate list of files and directories containing magic.
 This can be a single item, or a colon-separated list.
 If a compiled magic file is found alongside a file or directory,
 it will be used instead.
-.It Fl M Ar list
+.It Fl M Ar magicfiles
 Like
 .Fl m ,
 except that the default rules are not applied unless
@@ -462,7 +449,7 @@ is that this version treats any white space
 as a delimiter, so that spaces in pattern strings must be escaped.
 For example,
 .Bd -literal -offset indent
-\*[Gt]10	string	language impress\ 	(imPRESS data)
+\*[Gt]10	string	language impress\	(imPRESS data)
 .Ed
 .Pp
 in an existing magic file would have to be changed to
@@ -564,7 +551,7 @@ Geoff Collyer found several inadequacies
 and provided some magic file entries.
 Contributions of the
 .Sq \*[Am]
-operator by Rob McMahon, 
+operator by Rob McMahon,
 .Aq cudcv@warwick.ac.uk ,
 1989.
 .Pp

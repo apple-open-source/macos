@@ -779,7 +779,7 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 		// attempt to decode the top-level ASN.1 sequence
 		const DERItem der = { (DERByte *)data->Data, (DERSize)data->Length };
 		DERDecodedInfo derInfo;
-		// sanity check the first byte to avoid decoding a non-DER blob
+		// check the first byte to avoid decoding a non-DER blob
 		if ((DERByte)0x30 != *(der.data)) {
 			return false;
 		}

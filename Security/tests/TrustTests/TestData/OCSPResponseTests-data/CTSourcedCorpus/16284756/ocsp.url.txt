@@ -1,0 +1,1 @@
+http://hcaocsp.nat.gov.tw/cgi-bin/OCSP/ocsp_server.exe

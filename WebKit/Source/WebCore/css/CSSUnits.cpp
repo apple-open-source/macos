@@ -29,6 +29,7 @@ CSSUnitCategory unitCategory(CSSUnitType type)
 {
     switch (type) {
     case CSSUnitType::CSS_NUMBER:
+    case CSSUnitType::CSS_INTEGER:
         return CSSUnitCategory::Number;
     case CSSUnitType::CSS_PERCENTAGE:
         return CSSUnitCategory::Percent;
@@ -70,6 +71,12 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_DVMAX:
     case CSSUnitType::CSS_DVB:
     case CSSUnitType::CSS_DVI:
+    case CSSUnitType::CSS_CQW:
+    case CSSUnitType::CSS_CQH:
+    case CSSUnitType::CSS_CQI:
+    case CSSUnitType::CSS_CQB:
+    case CSSUnitType::CSS_CQMIN:
+    case CSSUnitType::CSS_CQMAX:
         return CSSUnitCategory::Length;
     case CSSUnitType::CSS_MS:
     case CSSUnitType::CSS_S:
@@ -112,6 +119,8 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CustomIdent:
         return CSSUnitCategory::Other;
     }
+    ASSERT_NOT_REACHED();
+    return CSSUnitCategory::Other;
 }
 
 CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
@@ -124,7 +133,7 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
     case CSSUnitCategory::Percent:
         return CSSUnitType::CSS_UNKNOWN; // Cannot convert between numbers and percent.
     case CSSUnitCategory::Time:
-        return CSSUnitType::CSS_MS;
+        return CSSUnitType::CSS_S;
     case CSSUnitCategory::Angle:
         return CSSUnitType::CSS_DEG;
     case CSSUnitCategory::Frequency:
@@ -134,11 +143,8 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
     case CSSUnitCategory::Other:
         return CSSUnitType::CSS_UNKNOWN;
     }
-}
-
-CSSUnitType canonicalUnitType(CSSUnitType unitType)
-{
-    return canonicalUnitTypeForCategory(unitCategory(unitType));
+    ASSERT_NOT_REACHED();
+    return CSSUnitType::CSS_UNKNOWN;
 }
 
 TextStream& operator<<(TextStream& ts, CSSUnitCategory category)
@@ -161,6 +167,7 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     switch (unitType) {
     case CSSUnitType::CSS_UNKNOWN: ts << "unknown"; break;
     case CSSUnitType::CSS_NUMBER: ts << "number"; break;
+    case CSSUnitType::CSS_INTEGER: ts << "integer"; break;
     case CSSUnitType::CSS_PERCENTAGE: ts << "percentage"; break;
     case CSSUnitType::CSS_EMS: ts << "ems"; break;
     case CSSUnitType::CSS_EXS: ts << "exs"; break;
@@ -218,6 +225,12 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_Q: ts << "q"; break;
     case CSSUnitType::CSS_LHS: ts << "lh"; break;
     case CSSUnitType::CSS_RLHS: ts << "rlh"; break;
+    case CSSUnitType::CSS_CQW: ts << "cqw"; break;
+    case CSSUnitType::CSS_CQH: ts << "cqh"; break;
+    case CSSUnitType::CSS_CQI: ts << "cqi"; break;
+    case CSSUnitType::CSS_CQB: ts << "cqb"; break;
+    case CSSUnitType::CSS_CQMAX: ts << "cqmax"; break;
+    case CSSUnitType::CSS_CQMIN: ts << "cqmin"; break;
     case CSSUnitType::CSS_PAIR: ts << "pair"; break;
     case CSSUnitType::CSS_UNICODE_RANGE: ts << "unicode_range"; break;
     case CSSUnitType::CSS_TURN: ts << "turn"; break;

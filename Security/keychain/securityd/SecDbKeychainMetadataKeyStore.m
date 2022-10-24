@@ -27,10 +27,8 @@
 #import <notify.h>
 #import "SecItemServer.h"
 #import "SecAKSObjCWrappers.h"
-#import "SecDbBackupManager.h"
 #import "SecDbKeychainSerializedMetadataKey.h"
 #include "SecItemDb.h"  // kc_transaction
-#include "CheckV12DevEnabled.h"
 #import "sec_action.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -94,7 +92,7 @@ static void initializeSharedMetadataStoreQueue(void) {
         notify_register_dispatch(kUserKeybagStateChangeNotification, &_keybagNotificationToken, _queue, ^(int inToken) {
             bool locked = true;
             CFErrorRef error = NULL;
-            if (!SecAKSGetIsLocked(&locked, &error)) {
+            if (!SecAKSGetIsLocked(g_keychain_keybag, &locked, &error)) {
                 secerror("SecDbKeychainMetadataKeyStore: error getting lock state: %@", error);
                 CFReleaseNull(error);
             }
@@ -228,46 +226,13 @@ static void initializeSharedMetadataStoreQueue(void) {
         return nil;
     }
 
-    NSData* mdkdatablob;
-    if (checkV12DevEnabled()) {
-        SecDbBackupWrappedKey* backupWrappedKey;
-        if (SecAKSSanitizedKeyclass(keyclass) != key_class_akpu) {
-            backupWrappedKey = [[SecDbBackupManager manager] wrapMetadataKey:key forKeyclass:keyclass error:&localError];
-            if (!backupWrappedKey) {
-                secerror("SecDbMetadataKeyStore: Unable to encrypt new metadata key to backup infrastructure: %@", localError);
-                if (error) {
-                    *error = localError;
-                }
-                return nil;
-            }
-        }
-
-        SecDbKeychainSerializedMetadataKey* metadatakeydata = [SecDbKeychainSerializedMetadataKey new];
-        metadatakeydata.keyclass = keyclass;
-        metadatakeydata.actualKeyclass = outKeyclass;
-        metadatakeydata.baguuid = backupWrappedKey.baguuid;
-        metadatakeydata.akswrappedkey = wrappedKey;
-        metadatakeydata.backupwrappedkey = backupWrappedKey.wrappedKey;
-        mdkdatablob = [metadatakeydata data];
-    }
-
     __block bool ok = true;
     __block CFErrorRef cfErr = NULL;
-    NSString* sql;
-    if (checkV12DevEnabled()) {
-        sql = @"INSERT OR REPLACE INTO metadatakeys (keyclass, actualKeyclass, data, metadatakeydata) VALUES (?,?,?,?)";
-    } else {
-        sql = @"INSERT OR REPLACE INTO metadatakeys (keyclass, actualKeyclass, data) VALUES (?,?,?)";
-    }
+    NSString* sql = @"INSERT OR REPLACE INTO metadatakeys (keyclass, actualKeyclass, data) VALUES (?,?,?)";
     ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &cfErr, ^(sqlite3_stmt *stmt) {
         ok &= SecDbBindObject(stmt, 1, (__bridge CFNumberRef)@(keyclass), &cfErr);
         ok &= SecDbBindObject(stmt, 2, (__bridge CFNumberRef)@(outKeyclass), &cfErr);
-        if (!checkV12DevEnabled()) {
-            ok &= SecDbBindBlob(stmt, 3, wrappedKey.bytes, wrappedKey.length, SQLITE_TRANSIENT, &cfErr);
-        } else {
-            // Leave stmt param 3 unbound so SQLite will NULL it out
-            ok &= SecDbBindBlob(stmt, 4, mdkdatablob.bytes, mdkdatablob.length, SQLITE_TRANSIENT, &cfErr);
-        }
+        ok &= SecDbBindBlob(stmt, 3, wrappedKey.bytes, wrappedKey.length, SQLITE_TRANSIENT, &cfErr);
         ok &= SecDbStep(dbt, stmt, &cfErr, NULL);
     });
 
@@ -283,21 +248,14 @@ static void initializeSharedMetadataStoreQueue(void) {
 - (BOOL)readKeyDataForClass:(keyclass_t)keyclass
                      fromDb:(SecDbConnectionRef)dbt
              actualKeyclass:(keyclass_t*)actualKeyclass
-              oldFormatData:(NSData**)oldFmt
-              newFormatData:(NSData**)newFmt
+                 wrappedKey:(NSData**)outWrappedKey
                       error:(NSError**)error
 {
     dispatch_assert_queue(_queue);
 
-    NSString* sql;
-    if (checkV12DevEnabled()) {
-        sql = @"SELECT data, actualKeyclass, metadatakeydata FROM metadatakeys WHERE keyclass = ?";
-    } else {
-        sql = @"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = ?";
-    }
+    NSString* sql = @"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = ?";
 
     __block NSData* wrappedKey;
-    __block NSData* mdkdatablob;
     __block bool ok = true;
     __block bool found = false;
     __block CFErrorRef cfError = NULL;
@@ -306,7 +264,6 @@ static void initializeSharedMetadataStoreQueue(void) {
         ok &= SecDbStep(dbt, stmt, &cfError, ^(bool *stop) {
             wrappedKey = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
             *actualKeyclass = sqlite3_column_int(stmt, 1);
-            mdkdatablob = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 2) length:sqlite3_column_bytes(stmt, 2)];
             found = true;
         });
     });
@@ -318,8 +275,7 @@ static void initializeSharedMetadataStoreQueue(void) {
         return NO;
     }
 
-    *oldFmt = wrappedKey;
-    *newFmt = mdkdatablob;
+    *outWrappedKey = wrappedKey;
     return YES;
 }
 
@@ -333,53 +289,18 @@ static void initializeSharedMetadataStoreQueue(void) {
     dispatch_assert_queue(_queue);
 
     NSData* wrappedKey;
-    NSData* mdkdatablob;
     keyclass_t actualKeyClass = key_class_none;
-    if (![self readKeyDataForClass:keyclass fromDb:dbt actualKeyclass:&actualKeyClass oldFormatData:&wrappedKey newFormatData:&mdkdatablob error:error]) {
-        return nil;
-    }
-
-    // each entry should be either old format or new format. Otherwise this is a bug.
-    if (!(wrappedKey.length == 0 ^ mdkdatablob.length == 0)) {
-        if (error) {
-            *error = [NSError errorWithDomain:(id)kSecErrorDomain code:errSecInternal userInfo:@{NSLocalizedDescriptionKey: @"Metadata key blob both old-world and new-world"}];
-        }
+    if (![self readKeyDataForClass:keyclass fromDb:dbt actualKeyclass:&actualKeyClass wrappedKey:&wrappedKey error:error]) {
         return nil;
     }
 
     SFAESKey* key;
-    BOOL rewrite = NO;
     keyclass_t classFromDisk = key_class_none;
-    if (wrappedKey.length > 0) {           // old format read
+    if (wrappedKey.length > 0) {
         classFromDisk = actualKeyClass;
         key = [self validateWrappedKey:wrappedKey forKeyClass:keyclass actualKeyClass:&actualKeyClass keybag:keybag keySpecifier:keySpecifier error:error];
         if (!key) {
             return nil;
-        }
-        if (checkV12DevEnabled()) {
-            rewrite = YES;
-        }
-    } else if (mdkdatablob.length > 0) {   // new format read
-        SecDbKeychainSerializedMetadataKey* mdkdata = [[SecDbKeychainSerializedMetadataKey alloc] initWithData:mdkdatablob];
-        if (!mdkdata) {
-            // bad read, key corrupt?
-            if (error) {
-                *error = [NSError errorWithDomain:(id)kSecErrorDomain code:errSecDecode userInfo:@{NSLocalizedDescriptionKey: @"New-format metadata key blob didn't deserialize"}];
-            }
-            return nil;
-        }
-
-        // Ignore the old-read actualKeyClass and use blob
-        actualKeyClass = mdkdata.actualKeyclass;
-        classFromDisk = mdkdata.actualKeyclass;
-        key = [self validateWrappedKey:mdkdata.akswrappedkey forKeyClass:keyclass actualKeyClass:&actualKeyClass keybag:keybag keySpecifier:keySpecifier error:error];
-        if (!key) {
-            return nil;
-        }
-
-        if (!mdkdata.backupwrappedkey || ![mdkdata.baguuid isEqual:[[SecDbBackupManager manager] currentBackupBagUUID]]) {
-            rewrite = YES;
-            secnotice("SecDbMetadataKeyStore", "Metadata key for %d has no or mismatching backup data; will rewrite.", keyclass);
         }
 
     } else {                    // Wait, there's a row for this class but not something which might be a key?
@@ -387,7 +308,7 @@ static void initializeSharedMetadataStoreQueue(void) {
         return nil;
     }
 
-    if (allowWrites && (rewrite || classFromDisk != actualKeyClass)) {
+    if (allowWrites && classFromDisk != actualKeyClass) {
         NSError* localError;
         if (![self writeKey:key ForKeyclass:keyclass withKeybag:keybag keySpecifier:keySpecifier database:dbt error:&localError]) {
             // if this fails we can try again in future

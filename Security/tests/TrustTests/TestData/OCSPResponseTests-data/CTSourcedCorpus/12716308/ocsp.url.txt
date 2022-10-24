@@ -1,0 +1,1 @@
+http://ocsp05.actalis.it/VA/AUTHCL-G1

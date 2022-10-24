@@ -19,7 +19,7 @@ SOFT_LINK_CLASS(LocalAuthentication, LAContext)
 
 NSUUID *currentRecoveryVolumeUUID(void);
 
-static Boolean isInFVUnlock()
+static Boolean isInFVUnlock(void)
 {
     return YES;
     // temporary solution until we find a better way
@@ -27,14 +27,14 @@ static Boolean isInFVUnlock()
 }
 
 #define kEFISystemVolumeUUIDVariableName "SystemVolumeUUID"
-NSUUID *currentRecoveryVolumeUUID()
+NSUUID *currentRecoveryVolumeUUID(void)
 {
     NSData *data;
     NSString * const LANVRAMNamespaceStartupManager = @"5EEB160F-45FB-4CE9-B4E3-610359ABF6F8";
     
     NSString *key = [NSString stringWithFormat:@"%@:%@", LANVRAMNamespaceStartupManager, @kEFISystemVolumeUUIDVariableName];
     
-    io_registry_entry_t match = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+    io_registry_entry_t match = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/options");
     if (match)  {
         CFTypeRef entry = IORegistryEntryCreateCFProperty(match, (__bridge CFStringRef)key, kCFAllocatorDefault, 0);
         IOObjectRelease(match);
@@ -55,7 +55,7 @@ NSUUID *currentRecoveryVolumeUUID()
     }
 }
 
-static Boolean verifyUser()
+static Boolean verifyUser(void)
 {
     // first check if policy was already satisfied
     __block Boolean verified = NO;

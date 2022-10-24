@@ -1,5 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
+AUTOMAKE_OPTIONS = -Wno-override
 EXTRA_DIST = \
   dbgen.pl \
   alphabetize.out alphabetize.ref alphabetize.xsl \

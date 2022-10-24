@@ -57,7 +57,7 @@ public:
     ExceptionOr<void> replaceChild(Node& newChild, Node& oldChild);
     WEBCORE_EXPORT ExceptionOr<void> removeChild(Node& child);
     WEBCORE_EXPORT ExceptionOr<void> appendChild(Node& newChild);
-    void stringReplaceAll(const String&);
+    void stringReplaceAll(String&&);
     void replaceAll(Node*);
 
     ContainerNode& rootNode() const { return downcast<ContainerNode>(Node::rootNode()); }
@@ -78,11 +78,14 @@ public:
     struct ChildChange {
         enum class Type : uint8_t { ElementInserted, ElementRemoved, TextInserted, TextRemoved, TextChanged, AllChildrenRemoved, NonContentsChildRemoved, NonContentsChildInserted, AllChildrenReplaced };
         enum class Source : bool { Parser, API };
+        enum class AffectsElements : uint8_t { Unknown, No, Yes };
 
         ChildChange::Type type;
+        Element* siblingChanged;
         Element* previousSiblingElement;
         Element* nextSiblingElement;
         ChildChange::Source source;
+        AffectsElements affectsElements;
 
         bool isInsertion() const
         {
@@ -120,7 +123,7 @@ public:
 
     WEBCORE_EXPORT Ref<HTMLCollection> getElementsByTagName(const AtomString&);
     WEBCORE_EXPORT Ref<HTMLCollection> getElementsByTagNameNS(const AtomString& namespaceURI, const AtomString& localName);
-    WEBCORE_EXPORT Ref<NodeList> getElementsByName(const String& elementName);
+    WEBCORE_EXPORT Ref<NodeList> getElementsByName(const AtomString& elementName);
     WEBCORE_EXPORT Ref<HTMLCollection> getElementsByClassName(const AtomString& classNames);
     Ref<RadioNodeList> radioNodeList(const AtomString&);
 
@@ -149,8 +152,9 @@ protected:
 
 private:
     void executePreparedChildrenRemoval();
-    enum class DeferChildrenChanged { Yes, No };
-    NodeVector removeAllChildrenWithScriptAssertion(ChildChange::Source, DeferChildrenChanged = DeferChildrenChanged::No);
+    enum class DeferChildrenChanged : bool { No, Yes };
+    enum class DidRemoveElements : bool { No, Yes };
+    DidRemoveElements removeAllChildrenWithScriptAssertion(ChildChange::Source, NodeVector& children, DeferChildrenChanged = DeferChildrenChanged::No);
     bool removeNodeWithScriptAssertion(Node&, ChildChange::Source);
     ExceptionOr<void> removeSelfOrChildNodesForInsertion(Node&, NodeVector&);
 
@@ -174,30 +178,26 @@ inline ContainerNode::ContainerNode(Document& document, ConstructionType type)
 
 inline unsigned Node::countChildNodes() const
 {
-    if (!is<ContainerNode>(*this))
-        return 0;
-    return downcast<ContainerNode>(*this).countChildNodes();
+    auto* containerNode = dynamicDowncast<ContainerNode>(*this);
+    return containerNode ? containerNode->countChildNodes() : 0;
 }
 
 inline Node* Node::traverseToChildAt(unsigned index) const
 {
-    if (!is<ContainerNode>(*this))
-        return nullptr;
-    return downcast<ContainerNode>(*this).traverseToChildAt(index);
+    auto* containerNode = dynamicDowncast<ContainerNode>(*this);
+    return containerNode ? containerNode->traverseToChildAt(index) : nullptr;
 }
 
 inline Node* Node::firstChild() const
 {
-    if (!is<ContainerNode>(*this))
-        return nullptr;
-    return downcast<ContainerNode>(*this).firstChild();
+    auto* containerNode = dynamicDowncast<ContainerNode>(*this);
+    return containerNode ? containerNode->firstChild() : nullptr;
 }
 
 inline Node* Node::lastChild() const
 {
-    if (!is<ContainerNode>(*this))
-        return nullptr;
-    return downcast<ContainerNode>(*this).lastChild();
+    auto* containerNode = dynamicDowncast<ContainerNode>(*this);
+    return containerNode ? containerNode->lastChild() : nullptr;
 }
 
 inline Node& Node::rootNode() const
@@ -207,12 +207,10 @@ inline Node& Node::rootNode() const
     return traverseToRootNode();
 }
 
-inline NodeVector collectChildNodes(Node& node)
+inline void collectChildNodes(Node& node, NodeVector& children)
 {
-    NodeVector children;
     for (Node* child = node.firstChild(); child; child = child->nextSibling())
         children.append(*child);
-    return children;
 }
 
 class ChildNodesLazySnapshot {

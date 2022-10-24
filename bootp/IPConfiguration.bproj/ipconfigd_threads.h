@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,7 +74,7 @@ typedef enum {
     IFEventID_ipv6_router_expired_e,	/* (ipv6_router_prefix_counts_t) */
     IFEventID_plat_discovery_complete_e,/* (boolean_t *) */
     IFEventID_forget_ssid_e,		/* forget SSID */
-    IFEventID_dhcp_waiting_changed_e,	/* DHCP waiting changed */
+    IFEventID_ipv4_publish_e,		/* IPv4 publish state change */
     IFEventID_provide_summary_e,	/* (CFMutableDictionaryRef) */
 } IFEventID_t;
 
@@ -311,12 +311,6 @@ void
 ServiceSetBusy(ServiceRef service_p, boolean_t busy);
 
 void
-ServiceSetDHCPWaiting(ServiceRef service_p, boolean_t waiting);
-
-boolean_t
-ServiceGetDHCPWaiting(ServiceRef service_p);
-
-void
 ServiceDetachIPv4(ServiceRef service_p);
 
 void
@@ -366,12 +360,15 @@ ServiceGetInterfaceName(ServiceRef service_p);
 /**
  ** 464XLAT routines
  **/
-boolean_t	service_clat46_is_enabled(ServiceRef service_p);
+boolean_t	service_clat46_is_configured(ServiceRef service_p);
 boolean_t	service_clat46_is_active(ServiceRef service_p);
-void		service_clat46_set_active(ServiceRef service_p,
-					  boolean_t active);
+void		service_clat46_set_is_active(ServiceRef service_p,
+					     boolean_t active);
+void		service_clat46_set_is_available(ServiceRef service_p,
+						boolean_t available);
 boolean_t	service_nat64_prefix_available(ServiceRef service_p);
 boolean_t	service_plat_discovery_failed(ServiceRef service_p);
+boolean_t	service_plat_discovery_complete(ServiceRef service_p);
 
 /**
  ** router_arp routines

@@ -76,7 +76,9 @@ NSString* const LKABackupLastSuccessDate = @"backupLastSuccess";
 
     // If this gets busy we should start caching if AKS tells us no
     bool hasBeenUnlocked = false;
-    if (!SecAKSGetHasBeenUnlocked(&hasBeenUnlocked, NULL) || !hasBeenUnlocked) {
+    // user_only_keybag_handle ok to use here, since we don't (currently) call LKA from securityd_system
+    // See also comment in SecItemServer.c
+    if (!SecAKSGetHasBeenUnlocked(user_only_keybag_handle, &hasBeenUnlocked, NULL) || !hasBeenUnlocked) {
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
             notify_register_dispatch(kUserKeybagStateChangeNotification, &self->_notificationToken, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(int token) {

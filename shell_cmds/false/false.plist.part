@@ -1,6 +1,6 @@
 	<dict>
 		<key>OpenSourceProject</key>
-		<string>users</string>
+		<string>false</string>
 		<key>OpenSourceVersion</key>
 		<string>2017-11-20</string>
 		<key>OpenSourceWebsiteURL</key>

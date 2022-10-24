@@ -369,6 +369,12 @@ printf_doformat(char *fmt, int *rval)
 	convch = *fmt;
 	nextch = *++fmt;
 
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	*fmt = '\0';
 	switch (convch) {
 	case 'b': {
@@ -451,6 +457,8 @@ printf_doformat(char *fmt, int *rval)
 		return (NULL);
 	}
 	*fmt = nextch;
+#pragma clang diagnostic pop
+
 	/* return the gargv to the next element */
 	return (fmt);
 }

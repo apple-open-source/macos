@@ -347,7 +347,8 @@
     FakeCKZone* zone = self.zones[self.ptaZoneID];
     XCTAssertNotNil(zone, "Should already have a fakeckzone before putting a keyset in it");
 
-    CKRecord* tlkShareCKRecord = [[tlkShare2 makeTLKShareRecord:self.ptaZoneID] CKRecordWithZoneID:self.ptaZoneID];
+    CKRecord* tlkShareCKRecord = [[tlkShare2 makeTLKShareRecord:self.ptaZoneID
+                                                      contextID:self.defaultCKKS.operationDependencies.contextID] CKRecordWithZoneID:self.ptaZoneID];
     [zone addToZone:tlkShareCKRecord];
 
     XCTestExpectation* fetchExpectation = [self expectationWithDescription:@"fetch should arrive"];
@@ -445,7 +446,8 @@
     FakeCKZone* zone = self.zones[self.ptaZoneID];
     XCTAssertNotNil(zone, "Should already have a fakeckzone before putting a keyset in it");
 
-    CKRecord* tlkShareCKRecord = [[tlkShare2 makeTLKShareRecord:self.ptaZoneID] CKRecordWithZoneID:self.ptaZoneID];
+    CKRecord* tlkShareCKRecord = [[tlkShare2 makeTLKShareRecord:self.ptaZoneID
+                                                      contextID:self.defaultCKKS.operationDependencies.contextID] CKRecordWithZoneID:self.ptaZoneID];
     [zone addToZone:tlkShareCKRecord];
 
     // When this TLKShare arrives, we should send a change notification for PTA, but not PTC
@@ -457,7 +459,7 @@
     XCTestExpectation* ptaReadyNotification = [self expectLibNotifyReadyForView:self.ptaZoneID.zoneName];
     ptaReadyNotification.inverted = YES;
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self waitForExpectations:@[ptaChanged, ptcChanged, ptaReadyNotification] timeout:5];
 
     // Calling the cached API after the PTA-Changed notification shouldn't cause a fetch
@@ -486,7 +488,7 @@
 
     [self expectCKFetch];
     XCTestExpectation* ptaChanged2 = [self expectChangeForView:self.ptaZoneID.zoneName];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self waitForExpectations:@[ptaChanged2] timeout:20];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -739,7 +741,7 @@
     XCTestExpectation* ptaReadyNotificationExpectation = [self expectLibNotifyReadyForView:self.ptaZoneID.zoneName];
 
     ckksnotice_global("asdf", "sending notification");
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     [self waitForExpectations:@[ptaReadyNotificationExpectation] timeout:20];
     XCTAssertNotNil(self.zones[self.ptaZoneID], "After the notification is sent, PTA zone should be remade");

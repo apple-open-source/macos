@@ -44,7 +44,6 @@
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _TRUE_
 #define BATS_UTD_Disabled_KeychainSecdXCTests _TRUE_
-#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
@@ -66,7 +65,6 @@
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
 #define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
-#define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
 #define BATS_UTD_Disabled_SecCodeAPITest _FALSE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _FALSE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _FALSE_
@@ -87,7 +85,6 @@
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
 #define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
-#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
@@ -108,7 +105,6 @@
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
 #define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
-#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_
@@ -130,7 +126,6 @@
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
 #define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
-#define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
 #define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITest _TRUE_
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _TRUE_

@@ -95,7 +95,7 @@ getRealCryptor(CCCryptorRef p, int checkactive) {
 #define AESGCM_MIN_IV_LEN  12
 #define AESGCM_BLOCK_LEN  16
     
-const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction);
+corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction);
     
 #ifdef __cplusplus
 }

@@ -214,14 +214,22 @@ main(int argc, char *argv[])
 #ifdef USE_BSM_AUDIT
 	if (Aflag) {
 		auditid();
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 #endif
 
 #ifdef __APPLE__
 	if (Fflag) {
 		fullname(pw);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 #endif
 
@@ -231,7 +239,11 @@ main(int argc, char *argv[])
 		if (error != 0)
 			err(1, "loginclass");
 		(void)printf("%s\n", loginclass);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 #endif
 
@@ -241,7 +253,11 @@ main(int argc, char *argv[])
 			(void)printf("%s\n", gr->gr_name);
 		else
 			(void)printf("%u\n", id);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 
 	if (uflag) {
@@ -250,12 +266,20 @@ main(int argc, char *argv[])
 			(void)printf("%s\n", pw->pw_name);
 		else
 			(void)printf("%u\n", id);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 
 	if (Gflag) {
 		group(pw, nflag);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 
 #ifndef __APPLE__
@@ -267,12 +291,20 @@ main(int argc, char *argv[])
 
 	if (Pflag) {
 		pline(pw);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 
 	if (pflag) {
 		pretty(pw);
+#ifdef __APPLE__
+		goto out;
+#else
 		exit(0);
+#endif
 	}
 
 	if (pw) {
@@ -283,6 +315,11 @@ main(int argc, char *argv[])
 		pw = getpwuid(id);
 		id_print(pw, 0, 1, 1);
 	}
+#ifdef __APPLE__
+out:
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 
@@ -335,7 +372,6 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 	int cnt, ngroups;
 	long ngroups_max;
 	gid_t *groups;
-	const char *fmt;
 
 #ifdef __APPLE__
 	groups = NULL;
@@ -399,12 +435,13 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 		if ((gr = getgrgid(egid)))
 			(void)printf("(%s)", gr->gr_name);
 	}
-	fmt = " groups=%u";
 	for (lastgid = -1, cnt = 0; cnt < ngroups; ++cnt) {
 		if (lastgid == (gid = groups[cnt]))
 			continue;
-		printf(fmt, gid);
-		fmt = ",%u";
+		if (cnt == 0)
+			printf(" groups=%u", gid);
+		else
+			printf(",%u", gid);
 		if ((gr = getgrgid(gid)))
 			printf("(%s)", gr->gr_name);
 		lastgid = gid;
@@ -495,7 +532,6 @@ group(struct passwd *pw, int nflag)
 	int cnt, id, lastid, ngroups;
 	long ngroups_max;
 	gid_t *groups;
-	const char *fmt;
 
 #ifdef __APPLE__
 	groups = NULL;
@@ -524,20 +560,16 @@ group(struct passwd *pw, int nflag)
 #endif
 		ngroups = getgroups(ngroups_max, groups);
 	}
-	fmt = nflag ? "%s" : "%u";
 	for (lastid = -1, cnt = 0; cnt < ngroups; ++cnt) {
 		if (lastid == (id = groups[cnt]))
 			continue;
 		if (nflag) {
 			if ((gr = getgrgid(id)))
-				(void)printf(fmt, gr->gr_name);
+				(void)printf("%s%s", (cnt == 0) ? "" : " ", gr->gr_name);
 			else
-				(void)printf(*fmt == ' ' ? " %u" : "%u",
-				    id);
-			fmt = " %s";
+				(void)printf("%s%u", (cnt == 0) ? "" : " ", id);
 		} else {
-			(void)printf(fmt, id);
-			fmt = " %u";
+			(void)printf("%s%u", (cnt == 0) ? "" : " ", id);
 		}
 		lastid = id;
 	}

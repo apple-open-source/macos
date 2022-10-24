@@ -286,9 +286,6 @@
 #define KALLOC_MINSIZE          16      /* minimum allocation size */
 #define KALLOC_LOG2_MINALIGN    4       /* log2 minimum alignment */
 
-#define ZONE_MAP_MAX            (32ULL << 30)
-#define ZONE_MAP_VA_SIZE_LP64   (128ULL << 30)
-
 #define LINEAR_KERNEL_ADDRESS   ((vm_offset_t) 0x00000000)
 
 #define VM_MIN_KERNEL_LOADED_ADDRESS    ((vm_offset_t) 0xFFFFFF8000000000UL)

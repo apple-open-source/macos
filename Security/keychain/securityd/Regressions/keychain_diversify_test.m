@@ -190,14 +190,7 @@ static int ref_key_stress_test(void)
 
 static void add_items_test(void)
 {
-    char passcode[] = "password";
-    int passcode_len = sizeof(passcode) - 1;
-    keybag_handle_t keybag;
-    keybag_state_t state;
-
     test_setup_temp_keychain("keydiversity_test", NULL);
-    aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag);
-    aks_get_lock_state(keybag, &state);
 
     const char *v_data = "test";
     CFDataRef pwdata = CFDataCreate(NULL, (UInt8 *)v_data, strlen(v_data));
@@ -220,9 +213,9 @@ static void add_items_test(void)
 
     CFDictionaryRef item = CFDictionaryCreate(NULL, keys, values, array_size(keys), NULL, NULL);
     OSStatus status = SecItemAdd(item, NULL);
-    printf("SecItemAdd return = %d\n", status);
+    printf("SecItemAdd return = %d\n", (int)status);
     status = SecItemDelete(item);
-    printf("SecItemDelete return = %d\n", status);
+    printf("SecItemDelete return = %d\n", (int)status);
     CFReleaseNull(item);
 
     test_teardown_delete_temp_keychain("keydiversity_test");

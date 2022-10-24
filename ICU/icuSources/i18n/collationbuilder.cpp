@@ -193,9 +193,11 @@ RuleBasedCollator::internalBuildTailoring(const UnicodeString &rules,
 
 // Some compilers don't care if constants are defined in the .cpp file.
 // MS Visual C++ does not like it, but gcc requires it. clang does not care.
+
+//FIXME: These are defined in collation.h, potentially needed for other platforms.
 #ifndef _MSC_VER
-const int32_t CollationBuilder::HAS_BEFORE2;
-const int32_t CollationBuilder::HAS_BEFORE3;
+//const int32_t CollationBuilder::HAS_BEFORE2;
+//const int32_t CollationBuilder::HAS_BEFORE3;
 #endif
 
 CollationBuilder::CollationBuilder(const CollationTailoring *b, UErrorCode &errorCode)

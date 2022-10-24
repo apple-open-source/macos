@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,6 @@
 #define WebKitUserStyleSheetLocationPreferenceKey "WebKitUserStyleSheetLocationPreferenceKey"
 #define WebKitShouldPrintBackgroundsPreferenceKey "WebKitShouldPrintBackgroundsPreferenceKey"
 #define WebKitTextAreasAreResizablePreferenceKey "WebKitTextAreasAreResizable"
-#define WebKitJavaEnabledPreferenceKey "WebKitJavaEnabled"
 #define WebKitJavaScriptEnabledPreferenceKey "WebKitJavaScriptEnabled"
 #define WebKitJavaScriptRuntimeFlagsPreferenceKey "WebKitJavaScriptRuntimeFlags"
 #define WebKitWebSecurityEnabledPreferenceKey "WebKitWebSecurityEnabled"
@@ -136,8 +135,6 @@
 
 #define WebKitJavaScriptCanAccessClipboardPreferenceKey "WebKitJavaScriptCanAccessClipboard"
 
-#define WebKitXSSAuditorEnabledPreferenceKey "WebKitXSSAuditorEnabled"
-
 #define WebKitUseHighResolutionTimersPreferenceKey "WebKitUseHighResolutionTimers"
 
 #define WebKitFrameFlatteningEnabledPreferenceKey "WebKitFrameFlatteningEnabled"
@@ -184,8 +181,6 @@
 
 #define WebKitMenuItemElementEnabledPreferenceKey "WebKitMenuItemElementEnabled"
 
-#define WebKitKeygenElementEnabledPreferenceKey "WebKitKeygenElementEnabledPreferenceKey"
-
 #define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey "WebKitWebAnimationsCompositeOperationsEnabled"
 
 #define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey "WebKitWebAnimationsMutableTimelinesEnabled"
@@ -203,8 +198,6 @@
 #define WebKitIsSecureContextAttributeEnabledPreferenceKey "WebKitIsSecureContextAttributeEnabled"
 
 #define WebKitDataTransferItemsEnabledPreferenceKey "WebKitDataTransferItemsEnabled"
-
-#define WebKitInspectorAdditionsEnabledPreferenceKey "WebKitInspectorAdditionsEnabled"
 
 #define WebKitVisualViewportAPIEnabledPreferenceKey "WebKitVisualViewportAPIEnabled"
 

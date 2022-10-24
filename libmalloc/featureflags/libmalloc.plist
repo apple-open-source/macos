@@ -22,5 +22,10 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>ZeroOnFree</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

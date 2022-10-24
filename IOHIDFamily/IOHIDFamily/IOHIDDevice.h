@@ -35,6 +35,7 @@
 #include <IOKit/IOEventSource.h>
 #include <IOKit/hid/IOHIDDeviceTypes.h>
 #include <HIDDriverKit/IOHIDDevice.h>
+#include <sys/queue.h>
 
 class   IOHIDSystem;
 class   IOHIDPointing;
@@ -47,6 +48,8 @@ class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
 class   IOHIDAsyncReportQueue;
 class   IOHIDDeviceElementContainer;
+struct  AsyncReportCall;
+struct  AsyncCommitCall;
 
 
 /*! @class IOHIDDevice : public IOService
@@ -80,6 +83,9 @@ class IOHIDDevice : public IOService
     friend class IOHIDInterface;
 
 private:
+    STAILQ_HEAD(AsyncReportCallList, AsyncReportCall);
+    STAILQ_HEAD(AsyncCommitCallList, AsyncCommitCall);
+
     OSArray *                   _elementArray;
     UInt32                      _dataElementIndex;
     IORecursiveLock *           _elementLock;
@@ -92,19 +98,25 @@ private:
     UInt32                      _maxFeatureReportSize;
 
     struct ExpansionData {
-        OSSet *                 clientSet;
-        IOService *             seizedClient;
-        AbsoluteTime            eventDeadline;
-        bool                    performTickle;
-        bool                    performWakeTickle;
-        OSArray *               interfaceNubs;
-        OSArray *               hierarchElements;
-        OSArray *               interfaceElementArrays;
-        IOHIDAsyncReportQueue * asyncReportQueue;
-        IOWorkLoop *            workLoop;
-        IOEventSource *         eventSource;
-        IONotifier *            deviceNotify;
-        IOHIDDeviceElementContainer *elementContainer;
+        OSSet *                       clientSet;
+        IOService *                   seizedClient;
+        AbsoluteTime                  eventDeadline;
+        bool                          performTickle;
+        bool                          performWakeTickle;
+        OSArray *                     interfaceNubs;
+        OSArray *                     hierarchElements;
+        OSArray *                     interfaceElementArrays;
+        IOHIDAsyncReportQueue       * asyncReportQueue;
+        IOWorkLoop *                  workLoop;
+        IOEventSource *               eventSource;
+        IONotifier *                  deviceNotify;
+        IOHIDDeviceElementContainer * elementContainer;
+        thread_call_t                 asyncReportThread;
+        AsyncReportCallList           asyncReportCalls;
+        AsyncCommitCallList           asyncCommitCalls;
+        IOTimerEventSource          * asyncTimer;
+        uint32_t                      asyncTimeout;
+        bool                          settingTimeout;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -148,9 +160,7 @@ private:
                                     IOOptionBits         options = 0 );
 
     IOBufferMemoryDescriptor * createMemoryForElementValues();
-    
     bool validateMatchingTable(OSDictionary * table);
-
     OSBoolean * newIsAccessProtected();
 
     OSNumber * newPrimaryUsageNumber(UInt32 interfaceIdx) const;
@@ -159,12 +169,22 @@ private:
 
     OSArray * newDeviceUsagePairs(OSArray * elements, UInt32 start);
 
-    IOReturn postElementTransaction(const void* elementData, UInt32 dataSize);
+    IOReturn postElementTransaction(const void* elementData, UInt32 dataSize, UInt32 completionTimeout = 0, IOHIDCompletion * completion = 0);
 
     static bool _publishDeviceNotificationHandler(void * target,
                                                   void * refCon,
                                                   IOService * newService,
                                                   IONotifier * notifier );
+
+    IOReturn outReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, bool input);
+
+    IOReturn runElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, IOBufferMemoryDescriptor * elementData, bool update);
+
+    void setNextAsyncTimeout();
+
+    void runSyncReportAsync();
+
+    void CommitComplete(void * param, IOReturn status, UInt32 remaining);
 
 protected:
 
@@ -178,13 +198,13 @@ protected:
 /*! @function handleOpen
     @abstract Handle a client open on the interface.
     @discussion This method is called by IOService::open() with the
-    arbitration lock held, and must return true to accept the client open.
-    This method will in turn call handleClientOpen() to qualify the client
-    requesting the open.
+    arbitration lock held.
     @param client The client object that requested the open.
     @param options Options passed to IOService::open().
     @param argument Argument passed to IOService::open().
-    @result true to accept the client open, false otherwise. */
+    @result true if open encountered no issues. Will return false
+    if the device is seized, but can still accept the client. Call
+    isOpen to check if this is the case. */
 
     virtual bool handleOpen(IOService *  client,
                             IOOptionBits options,
@@ -284,7 +304,7 @@ public:
     super::init().
     @param dictionary A dictionary associated with this IOHIDDevice
     instance.
-    @result True on sucess, or false otherwise. */
+    @result True on success, or false otherwise. */
 
     virtual bool init( OSDictionary * dictionary = 0 ) APPLE_KEXT_OVERRIDE;
 
@@ -309,6 +329,15 @@ public:
     @param provider The provider that the driver was started on. */
 
     virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
+
+/*! @function willTerminate
+    @abstract Passes a termination up the stack.
+    @discussion Notification that a provider has been terminated, sent before recursing up the stack, in root-to-leaf order.
+    @param provider The terminated provider of this object.
+    @param options Options originally passed to terminate.
+    @result <code>true</code>. */
+
+    virtual bool willTerminate( IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
 /*! @function matchPropertyTable
     @abstract Called by the provider during a match
@@ -592,7 +621,8 @@ public:
     virtual OSNumber * newLocationIDNumber() const;
 
 /*! @function getReport
-    @abstract Get a report from the HID device.
+    @abstract Get a report from the HID device. The default implementation
+    will kick off a synchronous getReport on a new thread.
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
@@ -612,7 +642,8 @@ public:
                                 IOHIDCompletion	*    completion = 0);
 
 /*! @function setReport
-    @abstract Send a report to the HID device.
+    @abstract Send a report to the HID device. The default implementation
+    will kick off a synchronous setReport on a new thread.
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.
@@ -722,8 +753,49 @@ protected:
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 15);
     virtual void completeReport(OSAction * action, IOReturn status, uint32_t actualByteCount);
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 16);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 17);
+    /*! @function updateElementValues
+        @abstract Asynchronously updates element values from a HID device via getReport.
+        Executes synchronously if a completion is not provided.
+        @param cookies A list of element cookies who's values need to be
+        set on the device.
+        @param cookieCount The number of element cookies.
+        @param options Options to specify the request, currently unused.
+        @param completionTimeout If asynchronous, the timeout in milliseconds
+        before the callback is invoked with a timeout error code.
+        @param completion The completion to invoke when the asynchronous
+        call has finished running. If an error code is returned to the initial function
+        call the calback will not be invoked.
+        @param elementData The memory buffer to fill with the current element values
+        after individual getReport calls return.
+        @result kIOReturnSuccess on success, or an error return otherwise. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 16);
+    virtual IOReturn updateElementValues(IOHIDElementCookie       * cookies,
+                                         UInt32                     cookieCount,
+                                         IOOptionBits               options,
+                                         UInt32                     completionTimeout,
+                                         IOHIDCompletion          * completion  = 0,
+                                         IOBufferMemoryDescriptor * elementData = 0);
+
+    /*! @function postElementValues
+        @abstract Asynchronously posts element values to a HID device via setReport.
+        Executes synchronously if a completion is not provided.
+        @param cookies A list of element cookies who's values need to be
+        set on the device.
+        @param cookieCount The number of element cookies.
+        @param options Options to specify the request, currently unused.
+        @param completionTimeout If asynchronous, the timeout in milliseconds
+        before the callback is invoked with a timeout error code.
+        @param completion The completion to invoke when the asynchronous
+        call has finished running. If an error code is returned to the initial function
+        call the calback will not be invoked.
+        @result kIOReturnSuccess on success, or an error return otherwise. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 17);
+    virtual IOReturn postElementValues(IOHIDElementCookie * cookies,
+                                       UInt32               cookieCount,
+                                       IOOptionBits         options,
+                                       UInt32               completionTimeout,
+                                       IOHIDCompletion    * completion = 0);
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 18);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 19);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 20);

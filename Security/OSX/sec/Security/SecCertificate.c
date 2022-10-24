@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1230,6 +1230,8 @@ static bool isAppleExtensionOID(const DERItem *extnID)
 static const uint8_t cccVehicleCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x09 };
 static const uint8_t cccIntermediateCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x08 };
 static const uint8_t cccVehicle[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x01 };
+static const uint8_t qiPolicy[] = {0x67,0x81,0x14,0x01,0x01};
+static const uint8_t qiRSID[] = {0x67,0x81,0x14,0x01,0x02};
 
 typedef struct {
     const uint8_t *oid;
@@ -1240,6 +1242,8 @@ const known_extension_entry_t unparsed_known_extensions[] = {
     { cccVehicleCA, sizeof(cccVehicleCA) },
     { cccIntermediateCA, sizeof(cccIntermediateCA) },
     { cccVehicle, sizeof(cccVehicle) },
+    { qiPolicy, sizeof(qiPolicy) },
+    { qiRSID, sizeof(qiRSID) },
 };
 
 static bool isOtherKnownExtensionOID(const DERItem *extnID) {
@@ -4489,7 +4493,7 @@ static bool convertIPv6Address(CFStringRef name, CFDataRef *dataIP) {
     bool result = false;
     CFMutableStringRef addr = NULL;
     CFIndex length = (name) ? CFStringGetLength(name) : 0;
-    /* Sanity check size */
+
     if (length < 2 ||  /* min size is '::' */
         length > 41) { /* max size is '[####:####:####:####:####:####:####:####]' */
         return result;
@@ -5550,11 +5554,30 @@ CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRef certificate) {
     return digest;
 }
 
+CFDataRef SecCertificateCopyIssuerSHA256Digest(SecCertificateRef certificate) {
+    CFDataRef digest = NULL;
+    CFDataRef issuer = SecCertificateCopyIssuerSequence(certificate);
+    if (issuer) {
+        digest = SecSHA256DigestCreate(kCFAllocatorDefault,
+            CFDataGetBytePtr(issuer), CFDataGetLength(issuer));
+        CFRelease(issuer);
+    }
+    return digest;
+}
+
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRef certificate) {
     if (!certificate || !certificate->_pubKeyDER.data || certificate->_pubKeyDER.length > LONG_MAX) {
         return NULL;
     }
     return SecSHA1DigestCreate(CFGetAllocator(certificate),
+        certificate->_pubKeyDER.data, (CFIndex)certificate->_pubKeyDER.length);
+}
+
+CFDataRef SecCertificateCopyPublicKeySHA256Digest(SecCertificateRef certificate) {
+    if (!certificate || !certificate->_pubKeyDER.data || certificate->_pubKeyDER.length > LONG_MAX) {
+        return NULL;
+    }
+    return SecSHA256DigestCreate(CFGetAllocator(certificate),
         certificate->_pubKeyDER.data, (CFIndex)certificate->_pubKeyDER.length);
 }
 
@@ -6613,6 +6636,35 @@ out:
     return cert;
 }
 
+CFStringRef SecCertificateCopyPEMRepresentation(SecCertificateRef certificate)
+{
+    if (!certificate) {
+        return NULL;
+    }
+    CFStringRef pem = NULL;
+    const char *pem_name = "CERTIFICATE";
+    const uint8_t *bytes = SecCertificateGetBytePtr(certificate);
+    size_t length = (size_t)SecCertificateGetLength(certificate);
+    size_t pem_name_len = strlen(pem_name);
+    size_t b64_len = SecBase64Encode2(NULL, length, NULL, 0,
+            kSecB64_F_LINE_LEN_USE_PARAM, 64, NULL);
+    size_t buf_len = 33 + 2 * pem_name_len + b64_len;
+    char *buffer = malloc(buf_len);
+    char *p = buffer;
+    p += snprintf(p, buf_len - (size_t)(p - buffer), "-----BEGIN %s-----\n", pem_name);
+    SecBase64Result result;
+    p += SecBase64Encode2(bytes, length, p, b64_len, kSecB64_F_LINE_LEN_USE_PARAM, 64, &result);
+    if (result) {
+        goto exit;
+    }
+    (void) snprintf(p, buf_len - (size_t)(p - buffer), "\n-----END %s-----\n", pem_name);
+    pem = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)buffer, (CFIndex)buf_len, kCFStringEncodingUTF8, false);
+
+exit:
+    free(buffer);
+    return pem;
+}
+
 
 //
 // -- MARK -- XPC encoding/decoding
@@ -6695,131 +6747,62 @@ exit:
     return certificates;
 }
 
-#define do_if_registered(sdp, ...) if (gTrustd && gTrustd->sdp) { return gTrustd->sdp(__VA_ARGS__); }
-
-
-static CFArrayRef CopyEscrowCertificates(SecCertificateEscrowRootType escrowRootType, CFErrorRef* error)
-{
-	__block CFArrayRef result = NULL;
-
-	do_if_registered(ota_CopyEscrowCertificates, escrowRootType, error);
-
-	securityd_send_sync_and_do(kSecXPCOpOTAGetEscrowCertificates, error,
-		^bool(xpc_object_t message, CFErrorRef *blockError)
-		{
-			xpc_dictionary_set_uint64(message, "escrowType", (uint64_t)escrowRootType);
-			return true;
-		},
-        ^bool(xpc_object_t response, CFErrorRef *blockError)
-		{
-			xpc_object_t xpc_array = xpc_dictionary_get_value(response, kSecXPCKeyResult);
-
-			if (response && (NULL != xpc_array)) {
-				result = (CFArrayRef)_CFXPCCreateCFObjectFromXPCObject(xpc_array);
-			}
-			else {
-				return SecError(errSecInternal, blockError, CFSTR("Did not get the Escrow certificates"));
-			}
-			return result != NULL;
-		});
-	return result;
-}
-
 CFArrayRef SecCertificateCopyEscrowRoots(SecCertificateEscrowRootType escrowRootType)
 {
-	CFArrayRef result = NULL;
-	int iCnt;
-	CFDataRef certData = NULL;
-	int numRoots = 0;
+    CFArrayRef result = NULL;
+    int iCnt;
+    CFDataRef certData = NULL;
+    int numRoots = 0;
 
-	if (kSecCertificateBaselineEscrowRoot == escrowRootType ||
-		kSecCertificateBaselinePCSEscrowRoot == escrowRootType ||
-		kSecCertificateBaselineEscrowBackupRoot == escrowRootType ||
-		kSecCertificateBaselineEscrowEnrollmentRoot == escrowRootType)
-	{
-		// The request is for the base line certificates.
-		// Use the hard coded data to generate the return array.
-		struct RootRecord** pEscrowRoots;
-		switch (escrowRootType) {
-			case kSecCertificateBaselineEscrowRoot:
-				numRoots = kNumberOfBaseLineEscrowRoots;
-				pEscrowRoots = kBaseLineEscrowRoots;
-				break;
-			case kSecCertificateBaselinePCSEscrowRoot:
-				numRoots = kNumberOfBaseLinePCSEscrowRoots;
-				pEscrowRoots = kBaseLinePCSEscrowRoots;
-				break;
-			case kSecCertificateBaselineEscrowBackupRoot:
-				numRoots = kNumberOfBaseLineEscrowBackupRoots;
-				pEscrowRoots = kBaseLineEscrowBackupRoots;
-				break;
-			case kSecCertificateBaselineEscrowEnrollmentRoot:
-			default:
-				numRoots = kNumberOfBaseLineEscrowEnrollmentRoots;
-				pEscrowRoots = kBaseLineEscrowEnrollmentRoots;
-				break;
-		}
+    struct RootRecord** pEscrowRoots;
+    switch (escrowRootType) {
+        case kSecCertificateBaselineEscrowRoot:
+        case kSecCertificateProductionEscrowRoot:
+            numRoots = kNumberOfBaseLineEscrowRoots;
+            pEscrowRoots = kBaseLineEscrowRoots;
+            break;
+        case kSecCertificateBaselinePCSEscrowRoot:
+        case kSecCertificateProductionPCSEscrowRoot:
+            numRoots = kNumberOfBaseLinePCSEscrowRoots;
+            pEscrowRoots = kBaseLinePCSEscrowRoots;
+            break;
+        case kSecCertificateBaselineEscrowBackupRoot:
+        case kSecCertificateProductionEscrowBackupRoot:
+            numRoots = kNumberOfBaseLineEscrowBackupRoots;
+            pEscrowRoots = kBaseLineEscrowBackupRoots;
+            break;
+        case kSecCertificateBaselineEscrowEnrollmentRoot:
+        case kSecCertificateProductionEscrowEnrollmentRoot:
+        default:
+            numRoots = kNumberOfBaseLineEscrowEnrollmentRoots;
+            pEscrowRoots = kBaseLineEscrowEnrollmentRoots;
+            break;
+    }
 
-		// Get the hard coded set of roots
-		SecCertificateRef baseLineCerts[numRoots];
-		struct RootRecord* pRootRecord = NULL;
+    // Get the hard coded set of roots
+    SecCertificateRef baseLineCerts[numRoots];
+    struct RootRecord* pRootRecord = NULL;
 
-		for (iCnt = 0; iCnt < numRoots; iCnt++) {
-			pRootRecord = pEscrowRoots[iCnt];
-			if (NULL != pRootRecord && pRootRecord->_length > 0 && NULL != pRootRecord->_bytes) {
-				certData = CFDataCreate(kCFAllocatorDefault, pRootRecord->_bytes, pRootRecord->_length);
-				if (NULL != certData) {
-					baseLineCerts[iCnt] = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
-					CFRelease(certData);
-				}
-			}
-		}
-		result = CFArrayCreate(kCFAllocatorDefault, (const void **)baseLineCerts, numRoots, &kCFTypeArrayCallBacks);
-		for (iCnt = 0; iCnt < numRoots; iCnt++) {
-			if (NULL != baseLineCerts[iCnt]) {
-				CFRelease(baseLineCerts[iCnt]);
-			}
-		}
-	} else {
-		// The request is for the current certificates.
-		CFErrorRef error = NULL;
-		CFArrayRef cert_datas = CopyEscrowCertificates(escrowRootType, &error);
-		if (NULL != error || NULL == cert_datas) {
-			if (NULL != error) {
-				CFRelease(error);
-			}
-			if (NULL != cert_datas) {
-				CFRelease(cert_datas);
-			}
-			return result;
-		}
-
-		numRoots = (int)(CFArrayGetCount(cert_datas));
-
-		SecCertificateRef assetCerts[numRoots];
-		for (iCnt = 0; iCnt < numRoots; iCnt++) {
-			certData = (CFDataRef)CFArrayGetValueAtIndex(cert_datas, iCnt);
-			if (NULL != certData) {
-				SecCertificateRef aCertRef = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
-				assetCerts[iCnt] = aCertRef;
-			}
-			else {
-				assetCerts[iCnt] = NULL;
-			}
-		}
-
-		if (numRoots > 0) {
-			result = CFArrayCreate(kCFAllocatorDefault, (const void **)assetCerts, numRoots, &kCFTypeArrayCallBacks);
-			for (iCnt = 0; iCnt < numRoots; iCnt++) {
-				if (NULL != assetCerts[iCnt]) {
-					CFRelease(assetCerts[iCnt]);
-				}
-			}
-		}
-		CFReleaseSafe(cert_datas);
-	}
-	return result;
+    for (iCnt = 0; iCnt < numRoots; iCnt++) {
+        pRootRecord = pEscrowRoots[iCnt];
+        if (NULL != pRootRecord && pRootRecord->_length > 0 && NULL != pRootRecord->_bytes) {
+            certData = CFDataCreate(kCFAllocatorDefault, pRootRecord->_bytes, pRootRecord->_length);
+            if (NULL != certData) {
+                baseLineCerts[iCnt] = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
+                CFRelease(certData);
+            }
+        }
+    }
+    result = CFArrayCreate(kCFAllocatorDefault, (const void **)baseLineCerts, numRoots, &kCFTypeArrayCallBacks);
+    for (iCnt = 0; iCnt < numRoots; iCnt++) {
+        if (NULL != baseLineCerts[iCnt]) {
+            CFRelease(baseLineCerts[iCnt]);
+        }
+    }
+    return result;
 }
+
+#define do_if_registered(sdp, ...) if (gTrustd && gTrustd->sdp) { return gTrustd->sdp(__VA_ARGS__); }
 
 static CFDictionaryRef CopyTrustedCTLogs(CFErrorRef* error)
 {

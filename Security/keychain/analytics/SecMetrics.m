@@ -59,7 +59,7 @@ static NSString *securtitydPushTopic = @"com.apple.private.alloy.keychain.metric
 @implementation SecMetrics
 
 + (NSURL *)c2MetricsEndpoint {
-    ACAccountStore *store = [[ACAccountStore alloc] init];
+    ACAccountStore *store = [ACAccountStore defaultStore];
     ACAccount* primaryAccount = [store aa_primaryAppleAccount];
     if(!primaryAccount) {
         return nil;

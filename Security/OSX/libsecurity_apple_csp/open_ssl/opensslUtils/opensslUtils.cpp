@@ -44,7 +44,7 @@ openSslException::openSslException(
 { 
 	if(op) {
 		char buf[300];
-		ERR_error_string(irtn, buf);
+		ERR_error_string(irtn, buf, sizeof(buf));
 		sslUtilsDebug("%s: %s\n", op, buf);
 	}
 }
@@ -108,7 +108,7 @@ unsigned long logSslErrInfo(const char *op)
 	clearOpensslErrors();
 	
 	char outbuf[1024];
-	ERR_error_string(e, outbuf);
+	ERR_error_string(e, outbuf, sizeof(outbuf));
 	if(op) {
 		Security::Syslog::error("Apple CSP %s: %s", op, outbuf);
 	}

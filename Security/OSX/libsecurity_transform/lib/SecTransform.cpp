@@ -60,7 +60,7 @@ SecGroupTransformRef SecTransformConnectTransforms(SecTransformRef sourceTransfo
 	{
 		if (error)
 		{
-			*error = CreateSecTransformErrorRef(kSecTransformErrorMissingParameter, "Group must not be NULL.");
+			*error = CreateSecTransformErrorRef(kSecTransformErrorMissingParameter, CFSTR("Group must not be NULL."));
 		}
 
 		return NULL;
@@ -112,7 +112,7 @@ Boolean SecTransformSetAttribute(SecTransformRef transformRef,
 	{
 		if (error)
 		{
-			*error = CreateSecTransformErrorRef(kSecTransformOperationNotSupportedOnGroup, "SecTransformSetAttribute on non-exported attribute: %@ (exported attributes are: %@).", key, transform->GetAllAH());
+			*error = CreateSecTransformErrorRef(kSecTransformOperationNotSupportedOnGroup, CFSTR("SecTransformSetAttribute on non-exported attribute: %@ (exported attributes are: %@)."), key, transform->GetAllAH());
 		}
 
 		return result;
@@ -124,7 +124,7 @@ Boolean SecTransformSetAttribute(SecTransformRef transformRef,
 		if (error)
 		{
             // XXX:  "a parameter"?  It has one: NULL.  What it requires is a non-NULL value.
-			*error = CreateSecTransformErrorRef(kSecTransformInvalidArgument, "ABORT requires a parameter.");
+			*error = CreateSecTransformErrorRef(kSecTransformInvalidArgument, CFSTR("ABORT requires a parameter."));
 		}
 
 		return result;
@@ -154,7 +154,7 @@ CFTypeRef SecTransformGetAttribute(SecTransformRef transformRef,
 
 	Transform* transform = (Transform*) CoreFoundationHolder::ObjectFromCFType(transformRef);
 	if (transform->mIsActive) {
-        CFErrorRef error = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "Can not get the value of attributes during execution (attempt to fetch %@/%@)", transform->GetName(), key);
+        CFErrorRef error = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, CFSTR("Can not get the value of attributes during execution (attempt to fetch %@/%@)"), transform->GetName(), key);
         CFAutorelease(error);
 		return error;
 	}
@@ -210,7 +210,7 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 	{
 		if (errorRef)
 		{
-			*errorRef = CreateSecTransformErrorRef(kSecTransformInvalidArgument, "NULL transform can not be executed");
+			*errorRef = CreateSecTransformErrorRef(kSecTransformInvalidArgument, CFSTR("NULL transform can not be executed"));
 		}
 		return NULL;
 	}
@@ -222,7 +222,7 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 	{
 		if (errorRef)
 		{
-			*errorRef = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "The %@ transform has already executed, it may not be executed again.", transform->GetName());
+			*errorRef = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, CFSTR("The %@ transform has already executed, it may not be executed again."), transform->GetName());
 		}
 		return NULL;
 	}
@@ -434,7 +434,7 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 	if (transforms == NULL)
 	{
 		// The dictionary we got is massively malformed!
-		*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, "%@ is missing from the dictionary.  The dictionary is malformed.", EXTERN_TRANSFORM_TRANSFORM_ARRAY);
+		*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, CFSTR("%@ is missing from the dictionary.  The dictionary is malformed."), EXTERN_TRANSFORM_TRANSFORM_ARRAY);
 		return NULL;
 	}
 
@@ -442,7 +442,7 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 	if (connections == NULL)
 	{
 		// The dictionary we got is massively malformed!
-		*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, "%@ is missing from the dictionary.  The dictionary is malformed.", EXTERN_TRANSFORM_CONNECTION_ARRAY);
+		*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, CFSTR("%@ is missing from the dictionary.  The dictionary is malformed."), EXTERN_TRANSFORM_CONNECTION_ARRAY);
 		return NULL;
 	}
 
@@ -482,7 +482,7 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 			if (error)
 			{
 				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary,
-							"Out of memory, or damaged input dictonary (duplicate label %@?)", xName);
+							CFSTR("Out of memory, or damaged input dictonary (duplicate label %@?)"), xName);
 			}
             CFSafeRelease(aTransform);
 			return NULL;
@@ -508,14 +508,14 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 		SecTransformRef fromTransform = (SecTransformRef) CFDictionaryGetValue(transformHolder, fromTransformName);
 		if (!fromTransform) {
 			if (error) {
-				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, "Can't connect %@ to %@ because %@ was not found", fromTransformName, toTransformName, fromTransformName);
+				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, CFSTR("Can't connect %@ to %@ because %@ was not found"), fromTransformName, toTransformName, fromTransformName);
 			}
 			return NULL;
 		}
 		SecTransformRef toTransform = (SecTransformRef) CFDictionaryGetValue(transformHolder, toTransformName);
 		if (!toTransform) {
 			if (error) {
-				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, "Can't connect %@ to %@ because %@ was not found", fromTransformName, toTransformName, toTransformName);
+				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary, CFSTR("Can't connect %@ to %@ because %@ was not found"), fromTransformName, toTransformName, toTransformName);
 			}
 			return NULL;
 		}

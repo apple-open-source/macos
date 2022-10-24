@@ -55,16 +55,34 @@
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
 
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:200*NSEC_PER_SEC], @"Key state should have arrived at ready");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
     [self addGenericPassword:@"data" account:@"account-delete-me"];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
-     [self addCertificateWithLabel:@"certificate" serialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
-     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addCertificateWithLabel:@"certificate" serialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addKeyWithLabel:@"testkey"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testAddKey {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:200*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addKeyWithLabel:@"testkey"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self findKeyWithLabel:@"testkey" expecting:errSecSuccess];
 }
 
 - (void)testAddMultipleItems {
@@ -258,7 +276,11 @@
         CKKSItem* item = [self newItem:ckrid withNewItemData:[self fakeRecordDictionary:account zoneID:self.keychainZoneID] key:self.keychainZoneKeys.classC];
         XCTAssertNotNil(item, "Should be able to create a new fake item");
 
-        CKKSOutgoingQueueEntry* oqe = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:item action:SecCKKSActionAdd state:SecCKKSStateInFlight waitUntil:nil accessGroup:@"ckks"];
+        CKKSOutgoingQueueEntry* oqe = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:item
+                                                                                action:SecCKKSActionAdd
+                                                                                 state:SecCKKSStateInFlight
+                                                                             waitUntil:nil
+                                                                           accessGroup:@"ckks"];
         XCTAssertNotNil(oqe, "Should be able to create a new fake OQE");
         [oqe saveToDatabase:&error];
 
@@ -267,7 +289,9 @@
     }];
 
     NSError *error = NULL;
-    XCTAssertEqual([CKKSOutgoingQueueEntry countByState:SecCKKSStateInFlight zone:self.keychainZoneID error:&error], 1,
+    XCTAssertEqual([CKKSOutgoingQueueEntry countByState:SecCKKSStateInFlight contextID:self.defaultCKKS.operationDependencies.contextID
+                                                 zoneID:self.keychainZoneID
+                                                  error:&error], 1,
                    "Expected on inflight entry in outgoing queue: %@", error);
 
     // When CKKS restarts, it should find and re-upload this item
@@ -359,13 +383,13 @@
     [self deleteGenericPassword:@"account-delete-me"];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
-     [self addCertificateWithLabel:@"certificate" serialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
-     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    [self addCertificateWithLabel:@"certificate" serialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-     [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
-     [self deleteCertificateWithSerialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
-     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
+    [self deleteCertificateWithSerialNumber:[@"1234" dataUsingEncoding:NSUTF8StringEncoding]];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testDeleteItemAndReaddAtSameUUID {
@@ -441,7 +465,7 @@
     XCTestExpectation *deleteBlock = [self expectationWithDescription:@"delete block called"];
 
     WEAKIFY(self);
-    self.keychainZone.blockBeforeWriteOperation = ^() {
+    self.keychainZone.blockBeforeWriteOperation = ^{
         STRONGIFY(self);
         [self deleteGenericPassword:account];
         self.keychainZone.blockBeforeWriteOperation = nil;
@@ -479,7 +503,7 @@
     XCTestExpectation *deleteBlock = [self expectationWithDescription:@"delete block called"];
 
     WEAKIFY(self);
-    self.keychainZone.blockBeforeWriteOperation = ^() {
+    self.keychainZone.blockBeforeWriteOperation = ^{
         STRONGIFY(self);
         [self deleteGenericPassword:account];
         self.keychainZone.blockBeforeWriteOperation = nil;
@@ -527,7 +551,7 @@
     //[self releaseCloudKitModificationHold];
 
     // And cause a fetch
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS.zoneChangeFetcher.inflightFetch waitUntilFinished];
     [self.operationQueue addOperation:self.defaultCKKS.holdOutgoingQueueOperation];
 
@@ -562,14 +586,15 @@
     // Ensure nothing is in the outgoing queue
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID
-                                                               error:&error];
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID
+                                                                            error:&error];
         XCTAssertNil(error, "should be no error fetching uuids");
         XCTAssertEqual(uuids.count, 0u, "There should be zero OQEs");
     }];
 
     // And a simple fetch doesn't bring it back
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self findGenericPassword:account expecting:errSecItemNotFound];
 
@@ -612,7 +637,7 @@
     [self.keychainZone addToZone:ckrCert];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
@@ -643,7 +668,7 @@
     [self.keychainZone addToZone:ckr];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     query[(id)kSecReturnPersistentRef] = @YES;
@@ -682,7 +707,7 @@
         }
     }
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
@@ -725,7 +750,7 @@
          expectedOperationGroupName:@"incoming-queue-response"];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
@@ -751,7 +776,7 @@
     ckr[SecCKRecordWrappedKeyKey] = nil;
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // The item still shouldn't exist, because it was corrupted in flight
@@ -770,7 +795,7 @@
     ckrNext[SecCKRecordWrappedKeyKey] = key;
     [self.keychainZone addToZone:ckrNext];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
@@ -799,7 +824,7 @@
     CFTypeRef cfitem = NULL;
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &cfitem), "item should not yet exist");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName: @"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
@@ -812,7 +837,7 @@
                                            key:nil];
     [self.keychainZone addToZone:ckrCert];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &cfitem), "item should exist now");
@@ -838,7 +863,7 @@
     // Trigger a delete
     [self.keychainZone deleteCKRecordIDFromZone:[ckr recordID]];
     [self.keychainZone deleteCKRecordIDFromZone:ckrCert.recordID];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &cfitem), "item should no longer exist");
@@ -906,6 +931,52 @@
     }
 }
 
+- (void)testReceiveKeyDeleteWithComplicatedEndDate {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    NSString* recordName = @"E025708D-F288-4068-A016-792E82B0FFFF";
+
+    NSMutableDictionary* keyDict = [[self fakeKeyRecordDictionary:@"cloudkit-testkey"
+                                                           zoneID:self.keychainZoneID] mutableCopy];
+
+    // To stress-test keychain's item handling, we're going to set a wild 'edat' on the key.
+    // This value roughly matches one taken from a real sysdiagnose, with extra precision added. I don't know what OS would have created such a date.
+    // 0005-08-06 07:58:59 +0000
+    keyDict[(id)@"edat"] = [NSDate dateWithTimeIntervalSinceReferenceDate:-62969068861+0.123456789];
+
+    CKRecord* ckrKey = [self createFakeRecord:self.keychainZoneID
+                                    recordName:recordName
+                                itemDictionary:keyDict
+                                           key:nil];
+    [self.keychainZone addToZone:ckrKey];
+
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    [self findKeyWithLabel:@"cloudkit-testkey" expecting:errSecSuccess];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    [self.keychainZone deleteCKRecordIDFromZone:ckrKey.recordID];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    [self findKeyWithLabel:@"cloudkit-testkey" expecting:errSecItemNotFound];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    [self.keychainZone addToZone:ckrKey];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    [self findKeyWithLabel:@"cloudkit-testkey" expecting:errSecSuccess];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    [self.keychainZone deleteCKRecordIDFromZone:ckrKey.recordID];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+    [self findKeyWithLabel:@"cloudkit-testkey" expecting:errSecItemNotFound];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+}
+
 - (void)testReceiveTombstoneItem {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
     [self startCKKSSubsystem];
@@ -918,7 +989,7 @@
     // This device should delete the tombstone entry
     [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // The tombstone shouldn't exist
@@ -940,8 +1011,9 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSIncomingQueueEntry allUUIDs:self.keychainZoneID
-                                                               error:&error];
+        NSArray<NSString*>* uuids = [CKKSIncomingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID
+                                                                            error:&error];
         XCTAssertNil(error, "should be no error fetching uuids");
         XCTAssertEqual(uuids.count, 0u, "There should be zero IQEs");
     }];
@@ -967,7 +1039,9 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID error:&error];
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID
+                                                                            error:&error];
         XCTAssertNil(error, "no error fetching uuids");
         XCTAssertEqual(uuids.count, 0u, "There's exactly zero outgoing queue entries");
     }];
@@ -981,7 +1055,9 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID error:&error];
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID
+                                                                            error:&error];
         XCTAssertNil(error, "no error fetching uuids");
         XCTAssertEqual(uuids.count, 0u, "There's exactly zero outgoing queue entries");
     }];
@@ -1002,17 +1078,22 @@
     // This device should delete the tombstone entry
     [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 
     // On platforms that don't support musr, we cannot fully finish this test
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || TARGET_OS_TV
     SecSecuritySetPersonaMusr((__bridge CFStringRef)musrUUID.UUIDString);
-#endif // TARGET_OS_IOS
+#endif // TARGET_OS_IOS || TARGET_OS_TV
+
     [self findGenericPassword:account expecting:errSecItemNotFound];
+
+#if TARGET_OS_IOS || TARGET_OS_TV
+    SecSecuritySetPersonaMusr(NULL);
+#endif // TARGET_OS_IOS || TARGET_OS_TV
 }
 
 - (void)testReceiveItemDeleteAndReaddAtDifferentUUIDInSameFetch {
@@ -1030,7 +1111,7 @@
 
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:itemAccount expecting:errSecSuccess];
@@ -1043,7 +1124,7 @@
     // This node should not upload anything.
     [[self.mockDatabase reject] addOperation:[OCMArg any]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
@@ -1068,13 +1149,13 @@
     CFTypeRef item = NULL;
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should not yet exist");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName: @"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should exist now");
@@ -1089,7 +1170,7 @@
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         // Inefficient, but hey, it works
         CKRecord* record = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-FFFF-FFFF-5A507ACB2D85"];
-        CKKSItem* fakeItem = [[CKKSItem alloc] initWithCKRecord: record];
+        CKKSItem* fakeItem = [[CKKSItem alloc] initWithCKRecord:record contextID:self.defaultCKKS.operationDependencies.contextID];
 
         CKKSIncomingQueueEntry* iqe = [[CKKSIncomingQueueEntry alloc] initWithCKKSItem:fakeItem
                                                                                 action:SecCKKSActionDelete
@@ -1101,7 +1182,7 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should no longer exist");
@@ -1132,9 +1213,10 @@
     __block NSString* itemUUID = nil;
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID ?: [[CKRecordZoneID alloc] initWithZoneName:@"keychain"
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID ?: [[CKRecordZoneID alloc] initWithZoneName:@"keychain"
                                                                                                                            ownerName:CKCurrentUserDefaultName]
-                                                               error:&error];
+                                                                            error:&error];
         XCTAssertNil(error, "no error fetching uuids");
         XCTAssertEqual(uuids.count, 1u, "There's exactly one outgoing queue entry");
         itemUUID = uuids[0];
@@ -1144,7 +1226,7 @@
 
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName: itemUUID]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [[self.defaultCKKS.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting] waitUntilFinished];
 
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessOutgoingQueue] wait:20*NSEC_PER_SEC], "CKKS state machine should enter processoutgoing queue");
@@ -1179,9 +1261,10 @@
     __block NSString* itemUUID = nil;
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDs:self.keychainZoneID ?: [[CKRecordZoneID alloc] initWithZoneName:@"keychain"
+        NSArray<NSString*>* uuids = [CKKSOutgoingQueueEntry allUUIDsWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                           zoneID:self.keychainZoneID ?: [[CKRecordZoneID alloc] initWithZoneName:@"keychain"
                                                                                                                            ownerName:CKCurrentUserDefaultName]
-                                                               error:&error];
+                                                                            error:&error];
         XCTAssertNil(error, "no error fetching uuids");
         XCTAssertEqual(uuids.count, 1u, "There's exactly one outgoing queue entry");
         itemUUID = uuids[0];
@@ -1231,6 +1314,7 @@
     NSDictionary* item = [self fakeRecordDictionary: @"account-delete-me" zoneID:self.keychainZoneID];
     CKKSItem* cipheritem = [[CKKSItem alloc] initWithUUID:recordID.recordName
                                             parentKeyUUID:self.keychainZoneKeys.classA.uuid
+                                                contextID:self.defaultCKKS.operationDependencies.contextID
                                                    zoneID:recordID.zoneID];
     CKKSKeychainBackedKey* itemkey = [CKKSKeychainBackedKey randomKeyWrappedByParent:[self.keychainZoneKeys.classA getKeychainBackedKey:&error] error:&error];
     XCTAssertNotNil(itemkey, "Got a key");
@@ -1263,7 +1347,7 @@
     ckr[@"server_new_server_field"] = future_server_field;
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     NSDictionary* query = @{(id)kSecClass: (id)kSecClassGenericPassword,
@@ -1288,7 +1372,7 @@
     XCTAssertEqualObjects(newRecord[@"future_number_field"], future_number_field, "future_string_field still exists");
     XCTAssertEqualObjects(newRecord[@"server_new_server_field"], future_server_field, "future_server_field stille exists");
 
-    CKKSItem* newItem = [[CKKSItem alloc] initWithCKRecord:newRecord];
+    CKKSItem* newItem = [[CKKSItem alloc] initWithCKRecord:newRecord contextID:self.defaultCKKS.operationDependencies.contextID];
     CKKSAESSIVKey* newItemKey = [self.keychainZoneKeys.classA unwrapAESKey:newItem.wrappedkey error:&error];
     XCTAssertNil(error, "No error unwrapping AES key");
     XCTAssertNotNil(newItemKey, "Have an unwrapped AES key for this item");
@@ -1466,7 +1550,7 @@
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"classCItem" expecting:errSecItemNotFound];
@@ -1490,7 +1574,7 @@
     [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-FFFF-FFFF-FFFF-5A507ACB2D85" withAccount:@"classAItem" key:self.keychainZoneKeys.classA]];
 
     CKKSResultOperation* op = self.defaultCKKS.resultsOfNextProcessIncomingQueueOperation;
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // If you're looking at CKKS internals, you'd better expect this to error

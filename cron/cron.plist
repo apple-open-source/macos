@@ -17,6 +17,10 @@
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co usr.sbin/cron</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>crontab.c: don't ignore errors when flushing stdout (89053371)</string>
+		</array>
 	</dict>
 </array>
 </plist>

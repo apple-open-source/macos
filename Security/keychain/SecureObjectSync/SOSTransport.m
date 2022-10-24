@@ -71,7 +71,7 @@ void SOSUnregisterTransportMessage(SOSMessage* removal) {
     CFArrayRemoveAllValue(SOSGetTransportMessages(), (__bridge CFTypeRef)(removal));
 }
 
-void SOSUnregisterAllTransportMessages() {
+void SOSUnregisterAllTransportMessages(void) {
     CFArrayRemoveAllValues(SOSGetTransportMessages());
 }
 
@@ -84,7 +84,7 @@ void SOSUnregisterTransportCircle(SOSCircleStorageTransport* removal) {
     CFArrayRemoveAllValue(SOSGetTransportCircles(), (__bridge CFTypeRef)removal);
 }
 
-void SOSUnregisterAllTransportCircles() {
+void SOSUnregisterAllTransportCircles(void) {
     CFArrayRemoveAllValues(SOSGetTransportCircles());
 }
 
@@ -97,7 +97,7 @@ void SOSUnregisterTransportKeyParameter(CKKeyParameter* removal) {
     CFArrayRemoveAllValue(SOSGetTransportKeyParameters(), (__bridge CFTypeRef)(removal));
 }
 
-void SOSUnregisterAllTransportKeyParameters() {
+void SOSUnregisterAllTransportKeyParameters(void) {
     CFArrayRemoveAllValues(SOSGetTransportKeyParameters());
 }
 

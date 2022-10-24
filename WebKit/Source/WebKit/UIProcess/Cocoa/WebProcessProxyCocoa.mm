@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,18 +28,18 @@
 
 #import "AccessibilitySupportSPI.h"
 #import "CodeSigning.h"
+#import "DefaultWebBrowserChecks.h"
 #import "HighPerformanceGPUManager.h"
 #import "Logging.h"
 #import "ObjCObjectGraph.h"
 #import "SandboxUtilities.h"
-#import "SharedBufferCopy.h"
+#import "SharedBufferReference.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKTypeRefWrapper.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/WebMAudioUtilitiesCocoa.h>
 #import <sys/sysctl.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Scope.h>
@@ -58,14 +58,13 @@
 #endif
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
-#include <WebCore/CaptionUserPreferencesMediaAF.h>
+#import <WebCore/CaptionUserPreferencesMediaAF.h>
 #endif
 
 #if PLATFORM(MAC)
-#include "TCCSoftLink.h"
+#import "WindowServerConnection.h"
+#import "TCCSoftLink.h"
 #endif
-
-#import <pal/cf/AudioToolboxSoftLink.h>
 
 namespace WebKit {
 
@@ -169,7 +168,7 @@ void WebProcessProxy::cacheMediaMIMETypes(const Vector<String>& types)
 
     mediaTypeCache() = types;
     for (auto& process : processPool().processes()) {
-        if (process != *this)
+        if (process.ptr() != this)
             cacheMediaMIMETypesInternal(types);
     }
 }
@@ -247,36 +246,12 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
 
     Vector<SandboxExtension::Handle> handleArray;
 #if PLATFORM(IOS_FAMILY)
-    handleArray = SandboxExtension::createHandlesForMachLookup({ "com.apple.iphone.axserver-systemwide"_s, "com.apple.frontboard.systemappservices"_s }, connection() ? connection()->getAuditToken() : std::nullopt);
+    handleArray = SandboxExtension::createHandlesForMachLookup({ "com.apple.iphone.axserver-systemwide"_s, "com.apple.frontboard.systemappservices"_s }, auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
     ASSERT(handleArray.size() == 2);
 #endif
 
     send(Messages::WebProcess::UnblockServicesRequiredByAccessibility(handleArray), 0);
     m_hasSentMessageToUnblockAccessibilityServer = true;
-}
-
-#if ENABLE(CFPREFS_DIRECT_MODE)
-void WebProcessProxy::unblockPreferenceServiceIfNeeded()
-{
-    if (m_hasSentMessageToUnblockPreferenceService)
-        return;
-    if (!processIdentifier())
-        return;
-    if (!canSendMessage())
-        return;
-
-    auto handleArray = SandboxExtension::createHandlesForMachLookup({ "com.apple.cfprefsd.agent"_s, "com.apple.cfprefsd.daemon"_s }, connection() ? connection()->getAuditToken() : std::nullopt);
-    ASSERT(handleArray.size() == 2);
-    
-    send(Messages::WebProcess::UnblockPreferenceService(WTFMove(handleArray)), 0);
-    m_hasSentMessageToUnblockPreferenceService = true;
-}
-#endif
-
-Vector<String> WebProcessProxy::platformOverrideLanguages() const
-{
-    static const NeverDestroyed<Vector<String>> overrideLanguages = makeVector<String>([[NSUserDefaults standardUserDefaults] valueForKey:@"AppleLanguages"]);
-    return overrideLanguages;
 }
 
 #if PLATFORM(MAC)
@@ -287,30 +262,33 @@ void WebProcessProxy::isAXAuthenticated(audit_token_t auditToken, CompletionHand
 }
 #endif
 
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+void WebProcessProxy::hardwareConsoleStateChanged()
+{
+    m_isConnectedToHardwareConsole = WindowServerConnection::singleton().hardwareConsoleState() == WindowServerConnection::HardwareConsoleState::Connected;
+    for (const auto& page : m_pageMap.values())
+        page->activityStateDidChange(WebCore::ActivityState::IsConnectedToHardwareConsole);
+}
+#endif
+
+#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
 void WebProcessProxy::sendAudioComponentRegistrations()
 {
-    using namespace PAL;
-
-    if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentFetchServerRegistrations())
-        return;
-
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [weakThis = WeakPtr { *this }] () mutable {
-        CFDataRef registrations { nullptr };
 
-        WebCore::registerOpusDecoderIfNeeded();
-        WebCore::registerVorbisDecoderIfNeeded();
-        if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
+        auto registrations = fetchAudioComponentServerRegistrations();
+        if (!registrations)
             return;
-
-        RunLoop::main().dispatch([weakThis = WTFMove(weakThis), registrations = adoptCF(registrations)] () {
+        
+        RunLoop::main().dispatch([weakThis = WTFMove(weakThis), registrations = WTFMove(registrations)] () mutable {
             if (!weakThis)
                 return;
 
-            auto registrationData = WebCore::SharedBuffer::create(registrations.get());
-            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferCopy(WTFMove(registrationData))), 0);
+            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations(IPC::SharedBufferReference(WTFMove(registrations))), 0);
         });
     });
 }
+#endif
 
 bool WebProcessProxy::messageSourceIsValidWebContentProcess()
 {
@@ -333,7 +311,7 @@ bool WebProcessProxy::messageSourceIsValidWebContentProcess()
     // Confirm that the connection is from a WebContent process:
     auto [signingIdentifier, isPlatformBinary] = codeSigningIdentifierAndPlatformBinaryStatus(connection()->xpcConnection());
 
-    if (!isPlatformBinary || !signingIdentifier.startsWith("com.apple.WebKit.WebContent")) {
+    if (!isPlatformBinary || !signingIdentifier.startsWith("com.apple.WebKit.WebContent"_s)) {
         RELEASE_LOG_ERROR(Process, "Process is not an entitled WebContent process.");
         return false;
     }
@@ -342,4 +320,19 @@ bool WebProcessProxy::messageSourceIsValidWebContentProcess()
     return true;
 }
 
+std::optional<audit_token_t> WebProcessProxy::auditToken() const
+{
+    if (!hasConnection())
+        return std::nullopt;
+    
+    return connection()->getAuditToken();
 }
+
+SandboxExtension::Handle WebProcessProxy::fontdMachExtensionHandle(SandboxExtension::MachBootstrapOptions machBootstrapOptions) const
+{
+    return SandboxExtension::createHandleForMachLookup("com.apple.fonts"_s, auditToken(), machBootstrapOptions).value_or(SandboxExtension::Handle { });
+}
+
+
+}
+

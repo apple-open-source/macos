@@ -506,6 +506,13 @@ si_item_match(si_item_t *item, int cat, const void *name, uint32_t num, int whic
 
 LIBINFO_EXPORT
 int
+si_module_allows_caching(si_mod_t *si)
+{
+	return si != NULL && si->vtable->sim_is_valid != NULL;
+}
+
+LIBINFO_EXPORT
+int
 si_item_is_valid(si_item_t *item)
 {
 	si_mod_t *si;
@@ -514,8 +521,7 @@ si_item_is_valid(si_item_t *item)
 
 	si = item->src;
 
-	if (si == NULL) return 0;
-	if (si->vtable->sim_is_valid == NULL) return 0;
+	if (!si_module_allows_caching(si)) return 0;
 
 	return si->vtable->sim_is_valid(si, item);
 }

@@ -1,8 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="8052.4" systemVersion="15A131a" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="19150" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="8052.4"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19150"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -68,13 +67,20 @@
                     </menu>
                 </menuItem>
                 <menuItem title="Game" id="83">
-                    <menu key="submenu" title="Game" id="81">
+                    <menu key="submenu" title="Game" autoenablesItems="NO" id="81">
                         <items>
                             <menuItem title="New…" keyEquivalent="n" id="82">
                                 <connections>
                                     <action selector="newGame:" target="209" id="200736"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="New SharePlay Session" hidden="YES" id="sj3-Ji-hQ4">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="newSharePlayGame:" target="209" id="5lv-Sb-sjR"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="aYd-R2-e1j"/>
                             <menuItem title="Open…" keyEquivalent="o" id="402">
                                 <connections>
                                     <action selector="openDocument:" target="-1" id="200726"/>
@@ -342,22 +348,29 @@ and your opponent's response.</string>
                         </items>
                     </menu>
                 </menuItem>
+                <menuItem title="SharePlay" id="0Tg-g7-ibC">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                </menuItem>
             </items>
+            <point key="canvasLocation" x="139" y="154"/>
         </menu>
         <customObject id="209" userLabel="MBCController" customClass="MBCController">
             <connections>
                 <outlet property="fCurrentDocument" destination="200827" id="200838"/>
                 <outlet property="fTakebackMenuItem" destination="395" id="460"/>
+                <outlet property="sharePlaySessionMenuItem" destination="sj3-Ji-hQ4" id="QzQ-2l-qYv"/>
             </connections>
         </customObject>
         <customObject id="649" userLabel="MBCAbout" customClass="MBCAbout"/>
         <objectController objectClassName="NSDocument" id="200827" userLabel="Current Document">
+            <classReference key="objectClass" className="NSDocument"/>
             <connections>
                 <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController.document" id="200828"/>
             </connections>
         </objectController>
         <userDefaultsController id="200506"/>
         <objectController objectClassName="MBCBoardWin" id="200908" userLabel="Current WindowController">
+            <classReference key="objectClass" className="MBCBoardWin"/>
             <connections>
                 <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController" id="200911"/>
             </connections>

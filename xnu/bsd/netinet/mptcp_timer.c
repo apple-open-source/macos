@@ -167,8 +167,6 @@ mptcp_start_timer(struct mptses *mpte, int timer_type)
 	microuptime(&now);
 
 	DTRACE_MPTCP2(start__timer, struct mptcb *, mp_tp, int, timer_type);
-	mptcplog((LOG_DEBUG, "MPTCP Socket: %s: %d\n", __func__, timer_type),
-	    MPTCP_SOCKET_DBG, MPTCP_LOGLVL_VERBOSE);
 
 	socket_lock_assert_owned(mptetoso(mpte));
 

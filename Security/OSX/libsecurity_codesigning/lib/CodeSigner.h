@@ -38,8 +38,7 @@ namespace CodeSigning {
 
 
 //
-// A SecCode object represents running code in the system. It must be subclassed
-// to implement a particular notion of code.
+// SecCodeSigner is responsible for signing code objects
 //
 class SecCodeSigner : public SecCFObject {
 	NOCOPY(SecCodeSigner)
@@ -74,6 +73,7 @@ public:
 	CFRef<CFDateRef> mSigningTime;	// signing time desired (kCFNull for none)
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
 	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
+	vector<CFRef<CFDataRef>> mLaunchConstraints; // Array of Lightweight Code Requirements
 	CFRef<CFURLRef> mSDKRoot;		// substitute filesystem root for sub-component lookup
 	CFRef<CFTypeRef> mRequirements; // internal code requirements
 	size_t mCMSSize;				// size estimate for CMS blob

@@ -23,16 +23,8 @@
 
 #import <XCTest/XCTest.h>
 
-// securityuploadd does not do anything or build meaningful code on simulator, so no tests either.
-#if TARGET_OS_SIMULATOR
-
-@interface SupdTests : XCTestCase
-@end
-
-@implementation SupdTests
-@end
-
-#else
+// securityuploadd does not do anything or build meaningful code on simulator,
+// but we still run our unit tests there for convenience.
 
 #import <OCMock/OCMock.h>
 #import "supd.h"
@@ -109,6 +101,21 @@ static NSInteger _reporterWrites;
 
 @end
 
+// MARK: Stub FakeTransparencyAnalytics
+
+@interface FakeTransparencyAnalytics : SFAnalytics
+
+@end
+
+@implementation FakeTransparencyAnalytics
+
++ (NSString*)databasePath
+{
+    return [_path stringByAppendingFormat:@"/transparency_%ld.db", (long)_testnum];
+}
+
+@end
+
 // MARK: Start SupdTests
 
 @interface SupdTests : XCTestCase
@@ -122,25 +129,29 @@ static NSInteger _reporterWrites;
     FakeSOSAnalytics* _sosAnalytics;
     FakePCSAnalytics* _pcsAnalytics;
     FakeTLSAnalytics* _tlsAnalytics;
+    FakeTransparencyAnalytics* _transparencyAnalytics;
 }
 
 // MARK: Test helper methods
-- (SFAnalyticsTopic *)keySyncTopic {
+- (SFAnalyticsTopic *)topicNamed:(NSString *)name {
     for (SFAnalyticsTopic *topic in _supd.analyticsTopics) {
-        if ([topic.internalTopicName isEqualToString:SFAnalyticsTopicKeySync]) {
+        if ([topic.internalTopicName isEqualToString:name]) {
             return topic;
         }
     }
     return nil;
 }
 
+- (SFAnalyticsTopic *)keySyncTopic {
+    return [self topicNamed:SFAnalyticsTopicKeySync];
+}
+
 - (SFAnalyticsTopic *)TrustTopic {
-    for (SFAnalyticsTopic *topic in _supd.analyticsTopics) {
-        if ([topic.internalTopicName isEqualToString:SFAnalyticsTopicTrust]) {
-            return topic;
-        }
-    }
-    return nil;
+    return [self topicNamed:SFAnalyticsTopicTrust];
+}
+
+- (SFAnalyticsTopic *)TransparencyTopic {
+    return [self topicNamed:SFAnalyticsTopicTransparency];
 }
 
 - (void)inspectDataBlobStructure:(NSDictionary*)data
@@ -161,7 +172,7 @@ static NSInteger _reporterWrites;
     XCTAssertTrue(data[@"events"] && [data[@"events"] isKindOfClass:[NSArray class]], @"data blob contains an NSArray 'events'");
     XCTAssertTrue(data[@"postTime"] && [data[@"postTime"] isKindOfClass:[NSNumber class]], @"data blob contains an NSNumber 'postTime");
     NSDate* postTime = [NSDate dateWithTimeIntervalSince1970:[data[@"postTime"] doubleValue]];
-    XCTAssertTrue([[NSDate date] timeIntervalSinceDate:postTime] < 3, @"postTime is sane");
+    XCTAssertTrue([[NSDate date] timeIntervalSinceDate:postTime] < 3, @"postTime is okay");
 
     for (NSDictionary* event in data[@"events"]) {
         if ([event isKindOfClass:[NSDictionary class]]) {
@@ -170,7 +181,7 @@ static NSInteger _reporterWrites;
             XCTAssertEqualObjects(event[@"product"], product, @"event contains correct product string");
             XCTAssertTrue([event[@"eventTime"] isKindOfClass:[NSNumber class]], @"event contains an NSNumber 'eventTime");
             NSDate* eventTime = [NSDate dateWithTimeIntervalSince1970:[event[@"eventTime"] doubleValue]];
-            XCTAssertTrue([[NSDate date] timeIntervalSinceDate:eventTime] < 3, @"eventTime is sane");
+            XCTAssertTrue([[NSDate date] timeIntervalSinceDate:eventTime] < 3, @"eventTime is good");
             XCTAssertTrue([event[@"eventType"] isKindOfClass:[NSString class]], @"all events have a type");
             XCTAssertEqualObjects(event[@"topic"], topic, @"all events have a topic name");
         } else {
@@ -346,12 +357,14 @@ static NSInteger _reporterWrites;
     NSString *tlsPath = [_path stringByAppendingFormat:@"/tls_%ld.db", (long)_testnum];
     NSString *signInPath = [_path stringByAppendingFormat:@"/signin_%ld.db", (long)_testnum];
     NSString *cloudServicesPath = [_path stringByAppendingFormat:@"/cloudServices_%ld.db", (long)_testnum];
+    NSString *transparencyPath = [_path stringByAppendingFormat:@"/transparency_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForCKKS]).andReturn(ckksPath);
     OCMStub([mockTopic databasePathForSOS]).andReturn(sosPath);
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
     OCMStub([mockTopic databasePathForTrust]).andReturn(tlsPath);
     OCMStub([mockTopic databasePathForSignIn]).andReturn(signInPath);
     OCMStub([mockTopic databasePathForCloudServices]).andReturn(cloudServicesPath);
+    OCMStub([mockTopic databasePathForTransparency]).andReturn(transparencyPath);
 
     // These are not used for testing, but real data can pollute tests so point to empty DBs
     NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", (long)_testnum];
@@ -380,6 +393,7 @@ static NSInteger _reporterWrites;
     _sosAnalytics = [FakeSOSAnalytics new];
     _pcsAnalytics = [FakePCSAnalytics new];
     _tlsAnalytics = [FakeTLSAnalytics new];
+    _transparencyAnalytics = [FakeTransparencyAnalytics new];
 
     // Forcibly override analytics flags and enable them by default
     deviceAnalyticsOverride = YES;
@@ -514,6 +528,19 @@ static NSInteger _reporterWrites;
     [self testTLSLoggingJSONSimple:NO];
 }
 
+- (void)testTransparencyLoggingJSONSimple
+{
+    [_transparencyAnalytics logSuccessForEventNamed:@"transparencyunittestevent"];
+    NSDictionary* transparencyAttrs = @{@"cattr" : @"cvalue"};
+    [_transparencyAnalytics logHardFailureForEventNamed:@"transparencyunittestevent" withAttributes:transparencyAttrs];
+    [_transparencyAnalytics logSoftFailureForEventNamed:@"transparencyunittestevent" withAttributes:transparencyAttrs];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:1 soft:1 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+}
+
 - (void)testMockDiagnosticReportGeneration
 {
     SFAnalyticsReporter *reporter = mockReporter;
@@ -529,6 +556,17 @@ static NSInteger _reporterWrites;
     XCTAssertTrue(writtenToLog, "Failed to write to log");
     XCTAssertTrue((int)_reporterWrites == (int)numWrites, "Expected %zu report, got %d", numWrites, (int)_reporterWrites);
 }
+
+- (NSDictionary *)findHealthSummary:(NSString *)name inData:(NSDictionary *)data {
+
+    for (NSDictionary* event in data[@"events"]) {
+        if ([event[SFAnalyticsEventType] isEqual:name]) {
+            return event;
+        }
+    }
+    return nil;
+}
+
 
 - (void)testSuccessCounts
 {
@@ -546,13 +584,7 @@ static NSInteger _reporterWrites;
     NSDictionary* data = [self getJSONDataFromSupd];
     [self inspectDataBlobStructure:data];
 
-    NSDictionary* hs;
-    for (NSDictionary* event in data[@"events"]) {
-        if ([event[SFAnalyticsEventType] isEqual:@"ckksHealthSummary"]) {
-            hs = event;
-            break;
-        }
-    }
+    NSDictionary* hs = [self findHealthSummary:@"ckksHealthSummary" inData:data];
     XCTAssert(hs);
 
     XCTAssertEqual([hs[SFAnalyticsColumnSuccessCount] integerValue], 7);
@@ -873,6 +905,41 @@ static NSInteger _reporterWrites;
     XCTAssertEqual(2, [chunkedEvents count]);
 }
 
+- (void)testMetricsIdentity
+{
+    NSString* eventName = @"successCountsEvent";
+    NSString* metricsAccountID = @"MetricsAccountID";
+
+    [_ckksAnalytics logSuccessForEventNamed:eventName];
+    [_ckksAnalytics setMetricsAccountID:metricsAccountID];
+
+    NSDictionary* data = [self getJSONDataFromSupd];
+    [self inspectDataBlobStructure:data];
+
+    NSDictionary* hs = [self findHealthSummary:@"ckksHealthSummary" inData:data];
+    XCTAssert(hs);
+
+    XCTAssertEqualObjects(hs[@"sfaAccountID"], metricsAccountID);
+}
+
+- (void)testZeroDeletionHealthSummary
+{
+    deviceAnalyticsEnabled = YES;
+
+    [_transparencyAnalytics logSuccessForEventNamed:@"foo"];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
+
+    NSDictionary* hs = [self findHealthSummary:@"transparencyHealthSummary" inData:data];
+    XCTAssert(hs);
+
+    XCTAssertEqualObjects(hs[@"foo-success"], @1);
+    XCTAssertNil(hs[@"foo-hardfail"]);
+}
+
+
+
 // TODO
 - (void)testGetSysdiagnoseDump
 {
@@ -892,5 +959,3 @@ static NSInteger _reporterWrites;
 }
 
 @end
-
-#endif  // !TARGET_OS_SIMULATOR

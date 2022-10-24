@@ -10,6 +10,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>dirname.c: Removed capsicum support (76241133)</string>
+		    <string>dirname.c: Don't ignore errors when flushing stdout (89090667)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

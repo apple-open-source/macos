@@ -1,0 +1,26 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>patch</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/patch</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-01-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Disable verbose mode by default, add --verbose option.</string>
+			<string>Print &quot;patching file&quot; message when not in verbose mode.</string>
+			<string>Change version output to Apple.</string>
+			<string>Add --binary option (ignored).</string>
+			<string>Switch red(1) to ed(1).</string>
+			<string>Add --backup-if-mismatch, --no-backup-if-mismatch (91902465)</string>
+			<string>Adopt --backup-if-mismatch as the default (91902465)</string>
+			<string>Add -g, --get (92360820)</string>
+			<string>Add -T (--set-time), -Z (--set-utc) (92707375)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>patch_cmds.txt</string>
+	</dict>

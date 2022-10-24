@@ -13,7 +13,7 @@ using namespace angle;
 namespace
 {
 
-class UniformBufferTest : public ANGLETest
+class UniformBufferTest : public ANGLETest<>
 {
   protected:
     UniformBufferTest()
@@ -601,7 +601,7 @@ TEST_P(UniformBufferTest, VeryLargeReadback)
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 }
 
-class UniformBufferTest31 : public ANGLETest
+class UniformBufferTest31 : public ANGLETest<>
 {
   protected:
     UniformBufferTest31()
@@ -858,6 +858,51 @@ void main()
     EXPECT_GL_NO_ERROR();
 
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::cyan);
+}
+
+// Test four bindings of the same uniform buffer.
+TEST_P(UniformBufferTest31, FourBindingsSameBuffer)
+{
+    // Create a program with accesses from four UBO binding points.
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+layout (binding = 0) uniform block0 {
+    vec4 color;
+} b0;
+layout (binding = 1) uniform block1 {
+    vec4 color;
+} b1;
+layout (binding = 2) uniform block2 {
+    vec4 color;
+} b2;
+layout (binding = 3) uniform block3 {
+    vec4 color;
+} b3;
+
+out vec4 outColor;
+
+void main() {
+    outColor = b0.color + b1.color + b2.color + b3.color;
+})";
+
+    // Create a UBO.
+    constexpr GLfloat uboData[4] = {0.0, 0.25, 0.0, 0.25};
+    GLBuffer ubo;
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(uboData), uboData, GL_STATIC_READ);
+
+    // Bind the same UBO to all four binding points.
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, ubo);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, ubo);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, ubo);
+
+    ANGLE_GL_PROGRAM(uboProgram, essl31_shaders::vs::Simple(), kFS);
+    drawQuad(uboProgram, essl1_shaders::PositionAttrib(), 0.5f, 1.0f);
+    EXPECT_GL_NO_ERROR();
+
+    // Four {0, 0.25, 0, 0.25} pixels should sum to green.
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
 // Test with a block containing an array of structs.
@@ -1855,7 +1900,7 @@ TEST_P(UniformBufferTest, ManyBlocks)
 // blocks that will be translated to cbuffer type on D3D backend, we will tranlate these
 // uniform blocks to StructuredBuffer for slow fxc compile performance issue with dynamic
 // uniform indexing, angleproject/3682.
-class UniformBlockWithOneLargeArrayMemberTest : public ANGLETest
+class UniformBlockWithOneLargeArrayMemberTest : public ANGLETest<>
 {
   protected:
     UniformBlockWithOneLargeArrayMemberTest()

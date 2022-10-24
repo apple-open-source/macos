@@ -49,7 +49,7 @@ static void makeItemWithIntegrity(const char* name, SecKeychainRef kc, CFStringR
 
 static void testAddItem(CFStringRef itemclass, CFStringRef expectedHash) {
     char name[100];
-    sprintf(name, "testAddItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testAddItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
@@ -62,7 +62,7 @@ static void testAddItem(CFStringRef itemclass, CFStringRef expectedHash) {
 
 static void testCopyMatchingItem(CFStringRef itemclass, CFStringRef expectedHash) {
     char name[100];
-    sprintf(name, "testCopyMatchingItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testCopyMatchingItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
@@ -78,7 +78,7 @@ static void testCopyMatchingItem(CFStringRef itemclass, CFStringRef expectedHash
 
 static void testUpdateItem(CFStringRef itemclass, CFStringRef expectedHashOrig, CFStringRef expectedHashAfter) {
     char name[100];
-    sprintf(name, "testUpdateItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testUpdateItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
@@ -122,7 +122,7 @@ static void testUpdateItem(CFStringRef itemclass, CFStringRef expectedHashOrig, 
 
 static void testAddDuplicateItem(CFStringRef itemclass, CFStringRef expectedHash) {
     char name[100];
-    sprintf(name, "testAddDuplicateItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testAddDuplicateItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
@@ -137,7 +137,7 @@ static void testAddDuplicateItem(CFStringRef itemclass, CFStringRef expectedHash
 
 static void testDeleteItem(CFStringRef itemclass, CFStringRef expectedHash) {
     char name[100];
-    sprintf(name, "testDeleteItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testDeleteItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
@@ -168,7 +168,7 @@ static void writeEmptyV512Keychain(const char* name, const char* keychainFile);
 //
 static void testUpdateRetainedItem(CFStringRef itemclass) {
     char name[100];
-    sprintf(name, "testUpdateRetainedItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
+    snprintf(name, sizeof(name), "testUpdateRetainedItem[%s]", CFStringGetCStringPtr(itemclass, kCFStringEncodingUTF8));
     secnotice("integrity", "************************************* %s", name);
 
     writeEmptyV512Keychain(name, keychainDbFile);

@@ -487,23 +487,33 @@ static void ParseXMLFile(const char *fileName)
 //
 static void SetOrGetOFVariable(char *str)
 {
-  long               set = 0;
-  long               append = 0;
-  const char         *name;
-  char               *value;
-  CFStringRef        nameRef = NULL;
-  CFTypeRef          valueRef = NULL;
-  char *             appended = NULL;
-  size_t             len;
+  long               set             = 0;
+  long               append          = 0;
+  long               remove          = 0;
+  const char         *name           = NULL;
+  char               *value          = NULL;
+  char               *substring      = NULL;
+  char               *tmp            = NULL;
+  CFStringRef        nameRef         = NULL;
+  CFTypeRef          valueRef        = NULL;
+  size_t             len             = 0;
+  CFMutableDataRef   mutableValueRef = NULL;
   kern_return_t      result;
 
   // OF variable name is first.
   name = str;
 
-  // Find the equal sign for set or += for append
+  // Find the equal sign for set, += for append, -= for trim
   while (*str) {
     if (*str == '+' && *(str+1) == '=') {
       append = 1;
+      *str++ = '\0';
+      *str++ = '\0';
+      break;
+    }
+      
+    if (*str == '-' && *(str+1) == '=') {
+      remove = 1;
       *str++ = '\0';
       *str++ = '\0';
       break;
@@ -518,7 +528,7 @@ static void SetOrGetOFVariable(char *str)
   }
 
   // Read the current value if appending or if no =/+=
-  if (append == 1 || (set == 0 && append == 0)) {
+  if (append == 1 || remove == 1 || (set == 0 && append == 0 && remove == 0)) {
 #if TARGET_OS_BRIDGE
     if (gBridgeToIntel) {
       result = GetMacOFVariable(name, &value);
@@ -548,15 +558,59 @@ static void SetOrGetOFVariable(char *str)
 
   if (append == 1) {
     // On append, the value to append follows the += substring
-    len = CFStringGetLength(valueRef) * 2; // CFStringGetLength() return is in UTF-16 code pairs
-    len += strlen(str);
-    appended = (char *)malloc(len + 1);
-    CFStringGetCString(valueRef, appended, len, kCFStringEncodingUTF8);
-    strcpy(appended + strlen(appended), str);
-    value = appended;
+    if(CFGetTypeID(valueRef) == CFStringGetTypeID()) {
+      len  = strlen(str);
+      len += CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef),
+                                               kCFStringEncodingUTF8);
+      tmp = calloc(len + 1, 1);
+      if ( (tmp == NULL)
+        || (CFStringGetCString(valueRef, tmp, len, kCFStringEncodingUTF8) == false)) {
+        errx(1, "allocation failed");
+      }
+      
+      value = tmp;
+      strcpy(value + strlen(value), str);
+    } else if(CFGetTypeID(valueRef) == CFDataGetTypeID()) {
+      mutableValueRef = CFDataCreateMutableCopy(kCFAllocatorDefault, 
+                                                CFDataGetLength(valueRef) + 
+                                                strlen(str) + 1, 
+                                                valueRef);
+      CFDataAppendBytes(mutableValueRef, (const UInt8 *)str, strlen(str) + 1);
+      value = (char *)CFDataGetBytePtr(mutableValueRef);
+    }
+    else {
+      errx(1, "Unsupported named variable CFTypeID");
+    }
   }
 
-  if (set == 1 || append == 1) {
+  if (remove == 1) {
+    // On remove, the value to remove follows the -= substring
+    if(CFGetTypeID(valueRef) == CFStringGetTypeID()) {
+      len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef),
+                                               kCFStringEncodingUTF8);
+      tmp = calloc(len + 1, 1);
+      if(  (tmp == NULL)
+        || (CFStringGetCString(valueRef, tmp, len, kCFStringEncodingUTF8) == false)) {
+        errx(1, "failed to allocate string");
+      }
+    
+      value = tmp;
+    } else if(CFGetTypeID(valueRef) == CFDataGetTypeID()) {
+      value = (char *)CFDataGetBytePtr(valueRef);
+    } else {
+      errx(1, "Unsupported named variable CFTypeID");
+    }
+
+    substring = strstr(value, str);
+    if (substring == NULL) {
+      errx(1, "substring %s not found in %s\n", str, value);
+    }
+
+    len = strlen(str);
+    memmove(substring, substring + len, strlen(substring + len) + 1);
+  }
+
+  if (set == 1 || append == 1 || remove == 1) {
 #if TARGET_OS_BRIDGE
     if (gBridgeToIntel) {
       result = SetMacOFVariable(name, value);
@@ -585,7 +639,8 @@ static void SetOrGetOFVariable(char *str)
   }
   if (nameRef) CFRelease(nameRef);
   if (valueRef) CFRelease(valueRef);
-  if (appended) free(appended);
+  if (tmp) free(tmp);
+  if (mutableValueRef) CFRelease(mutableValueRef);
 }
 
 #if TARGET_OS_BRIDGE

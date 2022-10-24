@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,6 +92,7 @@ public:
     v(DFGThunk) \
     v(FTLThunk) \
     v(BoundFunctionThunk) \
+    v(RemoteFunctionThunk) \
     v(SpecializedThunk) \
     v(VirtualThunk) \
     v(WasmThunk) \
@@ -186,7 +187,7 @@ public:
     template<PtrTag tag>
     void link(Call call, CodeLocationLabel<tag> label)
     {
-        link(call, FunctionPtr<tag>(label));
+        link(call, label.toFunctionPtr());
     }
     
     template<PtrTag tag>
@@ -341,6 +342,8 @@ public:
         m_mainThreadFinalizationTasks.append(createSharedTask<void()>(functor));
     }
 
+    void setIsThunk() { m_isThunk = true; }
+
 private:
     JS_EXPORT_PRIVATE CodeRef<LinkBufferPtrTag> finalizeCodeWithoutDisassemblyImpl();
     JS_EXPORT_PRIVATE CodeRef<LinkBufferPtrTag> finalizeCodeWithDisassemblyImpl(bool dumpDisassembly, const char* format, ...) WTF_ATTRIBUTE_PRINTF(3, 4);
@@ -416,6 +419,7 @@ private:
     bool m_isJumpIsland { false };
 #endif
     bool m_alreadyDisassembled { false };
+    bool m_isThunk { false };
     Profile m_profile { Profile::Uncategorized };
     MacroAssemblerCodePtr<LinkBufferPtrTag> m_code;
     Vector<RefPtr<SharedTask<void(LinkBuffer&)>>> m_linkTasks;

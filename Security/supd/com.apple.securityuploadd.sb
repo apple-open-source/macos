@@ -35,6 +35,7 @@
        (preference-domain ".GlobalPreferences")
        (preference-domain "com.apple.CFNetwork")
        (preference-domain "com.apple.nsurlcache")
+       (preference-domain "com.apple.da")
        (preference-domain "kCFPreferencesAnyApplication"))
 
 (allow file-read*

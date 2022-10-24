@@ -52,4 +52,8 @@ void SecSecurityClientRegularToAppClip(void);
 void SecSecurityClientAppClipToRegular(void);
 void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier);
 
+#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
+bool device_is_multiuser(void);
+#endif
+
 #endif /* server_security_helpers_h */

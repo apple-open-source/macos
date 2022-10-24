@@ -38,8 +38,8 @@ __private_extern__ void dimDisplay(void);
 __private_extern__ void unblankDisplay(void);
 __private_extern__ void blankDisplay(void);
 __private_extern__ bool canSustainFullWake(void);
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
 __private_extern__ void updateDesktopMode(xpc_object_t connection, xpc_object_t msg);
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
 __private_extern__ void skylightCheckIn(xpc_object_t connection, xpc_object_t msg);
 #endif
 __private_extern__ bool skylightDisplayOn(void);
@@ -55,8 +55,8 @@ void displayStateDidChange(uint64_t state);
 void getClamshellDisplay(void);
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
 void handleSkylightCheckIn(void);
-void handleDesktopMode(void);
 #endif
+void handleDesktopMode(void);
 uint32_t rootDomainClamshellState(void);
 
 #if XCTEST

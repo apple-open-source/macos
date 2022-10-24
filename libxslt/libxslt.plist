@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libxslt</string>
 	<key>OpenSourceVersion</key>
-	<string>1.1.29</string>
+	<string>1.1.35</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://xmlsoft.org/</string>
+	<string>https://gitlab.gnome.org/GNOME/libxslt</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxslt-1.1.29.tar.gz</string>
+	<string>https://gitlab.gnome.org/GNOME/libxslt/-/archive/v1.1.35/libxslt-v1.1.35.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>a129d3c44c022de3b9dcf6d6f288d72e</string>
+	<string>49c0249ea013c03e10a6dbda5abf1f30</string>
 	<key>OpenSourceImportDate</key>
-	<string>2016-05-24</string>
+	<string>2022-02-28</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>

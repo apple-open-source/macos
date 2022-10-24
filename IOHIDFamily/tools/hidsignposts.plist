@@ -272,6 +272,16 @@
 			</dict>
 			<dict>
 				<key>Name</key>
+				<string>kHIDDK_Dev_AddReport</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c01c</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
 				<string>kIOHIDDebugCode_HandleReport</string>
 				<key>Type</key>
 				<string>Impulse</string>

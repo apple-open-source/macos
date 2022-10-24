@@ -53,6 +53,7 @@
 #include <machine/limits.h>
 #include <os/overflow.h>
 #include <stdatomic.h>
+#include <libkern/c++/OSBoundedArrayRef.h>
 
 #include "IOHIKeyboard.h"
 #include "IOHIPointing.h"
@@ -223,6 +224,38 @@ IOReturn IOHIDAsyncReportQueue::postReport(
     return kIOReturnSuccess;
 }
 
+struct AsyncReportCall {
+    STAILQ_ENTRY(AsyncReportCall) reportLink;
+    IOMemoryDescriptor          * report;
+    IOHIDReportType               reportType;
+    IOOptionBits                  options;
+    AbsoluteTime                  deadline;
+    IOHIDCompletion               completion;
+    bool                          input;
+};
+
+// One per commit call
+struct AsyncCommitContext {
+    IOHIDCompletion            origCompletion;
+    IOReturn                   status;
+    AbsoluteTime               deadline;
+    uint32_t                   callsMade;
+    uint32_t                   callsCompleted;
+    OSData                   * cookies;
+    IOBufferMemoryDescriptor * elementData;
+};
+
+// Multiple per commit call
+struct AsyncCommitCall {
+    STAILQ_ENTRY(AsyncCommitCall) commitLink;
+    AsyncCommitContext          * context;
+    IOHIDCompletion               fCompletion;
+    IOBufferMemoryDescriptor    * buff;
+    IOHIDElementPrivate         * element;
+    bool                          update;
+    bool                          allocated;
+};
+
 //===========================================================================
 // IOHIDDevice class
 
@@ -246,6 +279,12 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _eventSource                _reserved->eventSource
 #define _deviceNotify               _reserved->deviceNotify
 #define _elementContainer           _reserved->elementContainer
+#define _asyncReportThread          _reserved->asyncReportThread
+#define _asyncReportCalls           _reserved->asyncReportCalls
+#define _asyncCommitCalls           _reserved->asyncCommitCalls
+#define _asyncTimer                 _reserved->asyncTimer
+#define _asyncTimeout               _reserved->asyncTimeout
+#define _settingTimeout             _reserved->settingTimeout
 
 #define WORKLOOP_LOCK   ((IOHIDEventSource *)_eventSource)->lock()
 #define WORKLOOP_UNLOCK ((IOHIDEventSource *)_eventSource)->unlock()
@@ -317,8 +356,14 @@ void IOHIDDevice::free()
         OSSafeReleaseNULL(_clientSet);
     }
 
+    OSSafeReleaseNULL(_asyncTimer);
     OSSafeReleaseNULL(_eventSource);
     OSSafeReleaseNULL(_workLoop);
+
+    if (_asyncReportThread) {
+        thread_call_free(_asyncReportThread);
+        _asyncReportThread = NULL;
+    }
 
     if (_reserved)
     {
@@ -344,6 +389,7 @@ bool IOHIDDevice::start( IOService * provider )
     bool                    multipleInterface       = false;
     IOReturn                ret;
     bool                    result                  = false;
+    OSNumber *              value                   = NULL;
 
     HIDDeviceLogInfo("start");
 
@@ -357,6 +403,17 @@ bool IOHIDDevice::start( IOService * provider )
     _eventSource = IOHIDEventSource::HIDEventSource(this, NULL);
     require(_eventSource, exit);
     require_noerr(_workLoop->addEventSource(_eventSource), exit);
+
+    _asyncReportThread = thread_call_allocate_with_options(OSMemberFunctionCast(thread_call_func_t, this, &IOHIDDevice::runSyncReportAsync), this, THREAD_CALL_PRIORITY_KERNEL, THREAD_CALL_OPTIONS_ONCE);
+    require_action(_asyncReportThread, exit, HIDDeviceLogError("thread_call_allocate_with_options failed"));
+
+    STAILQ_INIT(&_asyncReportCalls);
+    STAILQ_INIT(&_asyncCommitCalls);
+
+    value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
+    _asyncTimeout = value && value->unsigned32BitValue() >= kIOHIDDeviceMinAsyncRequestTimeout * 1000 && value->unsigned32BitValue() <= kIOHIDDeviceMaxAsyncRequestTimeout * 1000 ? value->unsigned32BitValue() : kIOHIDDeviceDefaultAsyncRequestTimeout * 1000;
+    require_action((_asyncTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDDevice::setNextAsyncTimeout))), exit, HIDDeviceLogError("IOTimerEventSource::timerEventSource failed"));
+    require_noerr(_workLoop->addEventSource(_asyncTimer), exit);
 
     // Call handleStart() before fetching the report descriptor.
     require_action(handleStart(provider), exit, HIDDeviceLogError("handleStart failed"));
@@ -540,6 +597,10 @@ void IOHIDDevice::stop(IOService * provider)
         if (_eventSource) {
             _workLoop->removeEventSource(_eventSource);
         }
+        if (_asyncTimer) {
+            _asyncTimer->cancelTimeout();
+            _workLoop->removeEventSource(_asyncTimer);
+        }
     }
 
     _readyForInputReports = false;
@@ -547,6 +608,24 @@ void IOHIDDevice::stop(IOService * provider)
     OSSafeReleaseNULL(_interfaceNubs);
 
     super::stop(provider);
+}
+
+bool IOHIDDevice::willTerminate( IOService * provider, IOOptionBits options )
+{
+    AsyncCommitCall * call;
+
+    if (_asyncReportThread) {
+        thread_call_cancel_wait(_asyncReportThread);
+        thread_call_free(_asyncReportThread);
+        _asyncReportThread = NULL;
+        runSyncReportAsync();
+    }
+
+    while ((call = STAILQ_FIRST(&_asyncCommitCalls))) {
+        CommitComplete(call, kIOReturnAborted, 0);
+    }
+
+    return super::willTerminate(provider, options);
 }
 
 bool IOHIDDevice::validateMatchingTable(OSDictionary * table)
@@ -739,6 +818,7 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         SET_PROP_FROM_VALUE(    kIOHIDMaxInputReportSizeKey,    copyProperty(kIOHIDMaxInputReportSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDMaxOutputReportSizeKey,   copyProperty(kIOHIDMaxOutputReportSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDMaxFeatureReportSizeKey,  copyProperty(kIOHIDMaxFeatureReportSizeKey));
+        SET_PROP_FROM_VALUE(    kIOHIDReportPoolSizeKey,        copyProperty(kIOHIDReportPoolSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
         SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       newIsAccessProtected());
 
@@ -864,51 +944,37 @@ exit:
 //---------------------------------------------------------------------------
 // Handle a client open on the interface.
 
-bool IOHIDDevice::handleOpen(IOService      *client,
-                             IOOptionBits   options,
-                             void           *argument __unused)
+bool IOHIDDevice::handleOpen(IOService * client, IOOptionBits options, void * argument __unused)
 {
-    bool  		accept = false;
+    bool accept = true;
 
     IOLog("open by %s 0x%llx (0x%x)\n", client->getName(), client->getRegistryEntryID(), (unsigned int)options);
 
-    do {
-        if ( _seizedClient)
-            break;
-
-        // Was this object already registered as our client?
-
-        if ( _clientSet->containsObject(client) )
-        {
-            HIDDeviceLog("multiple opens from client 0x%llx", client->getRegistryEntryID());
-            accept = true;
-            break;
-        }
-
-        // Add the new client object to our client set.
-
-        if ( _clientSet->setObject(client) == false )
-            break;
-
-        //  opportunistic workaround for <rdar://problem/59381437> CrashTracer: Regression : hidd at com.apple.iokit.IOHIDLib: 0xd705
-        //  @todo remove once correct interface for seize and tranzaction implemented
-        if ((options & kIOServiceSeize) && (conformsTo (kHIDPage_Sensor, kHIDUsage_Snsr_Light_AmbientLight) == false))
-        {
-            messageClients( kIOMessageServiceIsRequestingClose, (void*)(intptr_t)options);
-
-            _seizedClient = client;
-
-            IOHIKeyboard * keyboard = OSDynamicCast(IOHIKeyboard, getProvider());
-            IOHIPointing * pointing = OSDynamicCast(IOHIPointing, getProvider());
-            if ( keyboard )
-                keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
-            else if ( pointing )
-                pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
-        }
-        accept = true;
+    // If seized, open returns failure but adds the client to _clientSet
+    if (_seizedClient && client != _seizedClient) {
+        accept = false;
     }
-    while (false);
 
+    require_action(!_clientSet->containsObject(client), exit, HIDDeviceLog("Multiple opens from client 0x%llx", client->getRegistryEntryID()));
+
+    // Add the new client object to our client set.
+    require_action(_clientSet->setObject(client), exit, accept = false);
+
+    // PR TODO: It looks like the issue that was referenced here is resolved, so I removed it. Can someone else double verify?
+    if (options & kIOHIDOptionsTypeSeizeDevice && !_seizedClient) {
+        _seizedClient = client;
+        messageClients(kIOMessageServiceIsRequestingClose, (void*)(intptr_t)options);
+
+        IOHIKeyboard * keyboard = OSDynamicCast(IOHIKeyboard, getProvider());
+        IOHIPointing * pointing = OSDynamicCast(IOHIPointing, getProvider());
+        if (keyboard) {
+            keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
+        } else if (pointing) {
+            pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
+        }
+    }
+
+exit:
     _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
     _performWakeTickle = ShouldPostDisplayActivityTicklesForWakeDevice(this, _clientSet, _seizedClient);
 
@@ -920,24 +986,21 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 
 void IOHIDDevice::handleClose(IOService * client, IOOptionBits options __unused)
 {
-    // Remove the object from the client OSSet.
     IOLog("close by %s 0x%llx (0x%x)\n", client->getName(), client->getRegistryEntryID(), (unsigned int)options);
     
-    if ( _clientSet->containsObject(client) )
-    {
-        // Remove the client from our OSSet.
+    if (_clientSet->containsObject(client)) {
         _clientSet->removeObject(client);
 
-        if (client == _seizedClient)
-        {
-            _seizedClient = 0;
+        if (client == _seizedClient) {
+            _seizedClient = NULL;
 
             IOHIKeyboard * keyboard = OSDynamicCast(IOHIKeyboard, getProvider());
             IOHIPointing * pointing = OSDynamicCast(IOHIPointing, getProvider());
-            if ( keyboard )
+            if (keyboard) {
                 keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
-            else if ( pointing )
+            } else if (pointing) {
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
+            }
         }
 
         _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
@@ -1054,6 +1117,13 @@ static const OSSymbol * msgProps[] = {kIOHIDDeviceMessagePropertyUpdateKeys};
 bool IOHIDDevice::setProperty( const OSSymbol * key, OSObject * object)
 {
     bool ret;
+
+    if (key->isEqualTo(kIOHIDDeviceForceInterfaceRematchKey)) {
+        if (OSDynamicCast(OSBoolean, object) == kOSBooleanTrue) {
+            messageClients(kIOHIDMessageInterfaceRematch);
+        }
+        return true;
+    }
 
     // Update the property table before notifying clients of property changes.
     ret = super::setProperty(key, object);
@@ -1391,9 +1461,10 @@ OSBoolean * IOHIDDevice::newIsAccessProtected()
         }
 
         // Test this device's transport and vendorID against potentially protected 1st party Transport/VID pairs
-        for (size_t j = 0; j<sizeof(AppleVendorIDs)/sizeof(AppleVendorIDs[0]); j++) {
-            if (transportStr->isEqualTo(AppleVendorIDs[j].transport) &&
-                vidNum->unsigned32BitValue() == AppleVendorIDs[j].vendorID) {
+        OSBoundedArrayRef<const AppleVendorID> vendorIDs(&(AppleVendorIDs[0]), sizeof(AppleVendorIDs)/sizeof(AppleVendorIDs[0]));
+        for (AppleVendorID vendorID : vendorIDs) {
+            if (transportStr->isEqualTo(vendorID.transport) &&
+                vidNum->unsigned32BitValue() == vendorID.vendorID) {
                 ok = true;
                 break;
             }
@@ -1510,7 +1581,7 @@ bool IOHIDDevice::createReportHandlerElements( HIDPreparsedDataRef parseData __u
     return true;
 }
 
-IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dataSize)
+IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dataSize, UInt32 completionTimeout, IOHIDCompletion * completion)
 {
     IOReturn ret = kIOReturnError;
     uint32_t   cookies_[kMaxLocalCookieArrayLength];
@@ -1577,7 +1648,7 @@ IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dat
     }
 
     // Actually post elements
-    ret = postElementValues((IOHIDElementCookie *)cookies, (UInt32)cookieCount);
+    ret = postElementValues((IOHIDElementCookie *)cookies, (UInt32)cookieCount, 0, completionTimeout, completion);
 
 fail:
     WORKLOOP_UNLOCK;
@@ -1699,224 +1770,16 @@ IOReturn IOHIDDevice::checkEventDelivery( IOHIDEventQueue *  queue,
     return kIOReturnSuccess;
 }
 
-#define SetCookiesTransactionState(element, cookies, count, state, index, offset) \
-    for (index = offset; index < count; index++) { 			\
-        element = GetElement(cookies[index]); 				\
-        if (element == NULL) 						\
-            continue; 							\
-        element->setTransactionState (state);				\
-    }
-
-//---------------------------------------------------------------------------
-// Update the value of the given element, by getting a report from
-// the device.  Assume that the cookieCount > 0
-
-OSMetaClassDefineReservedUsed(IOHIDDevice,  0);
-IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 cookieCount) {
-    IOBufferMemoryDescriptor *	report = NULL;
-    IOHIDElementPrivate *	element = NULL;
-    IOHIDReportType		    reportType;
-    UInt32			        maxReportLength;
-    UInt8			        reportID;
-    UInt32			        index;
-    IOReturn			    ret = kIOReturnError;
-    UInt8                   reportMap [UINT8_MAX + 1];
-
-    maxReportLength = max(_maxOutputReportSize, max(_maxFeatureReportSize, _maxInputReportSize));
-
-    // Allocate a mem descriptor with the maxReportLength.
-    // This way, we only have to allocate one mem discriptor
-    report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, maxReportLength);
-
-    if (report == NULL) {
-        return kIOReturnNoMemory;
-    }
-    
-    WORKLOOP_LOCK;
-
-    SetCookiesTransactionState(element, cookies, cookieCount, kIOHIDTransactionStatePending, index, 0);
-    
-    if (cookieCount > 1) {
-        memset(reportMap, 0, sizeof(reportMap));
-    }
-    // Iterate though all the elements in the
-    // transaction.  Generate reports if needed.
-    for (index = 0; index < cookieCount; index++) {
-        
-        element = GetElement(cookies[index]);
-
-        if (element == NULL) {
-            continue;
-        }
-        
-        if (element->getTransactionState() != kIOHIDTransactionStatePending) {
-            continue;
-        }
-
-        if (!element->getReportType(&reportType)) {
-            continue;
-        }
-        
-        reportID = element->getReportID();
-
-        if (cookieCount > 1) {
-            if (reportMap[reportID] & (1 << reportType)) {
-                continue;
-            }
-            reportMap[reportID] |= (1 << reportType);
-        }
-        
-        // We must set report to max size if transaction have
-        // elements of different report sizes
-        
-        report->setLength(maxReportLength);
-
-        // calling down into our subclass, so lets unlock
-        WORKLOOP_UNLOCK;
-        
-        report->prepare();
-        ret = getReport(report, reportType, reportID);
-
-        WORKLOOP_LOCK;
-
-        if (ret == kIOReturnSuccess) {
-            // If we have a valid report, go ahead and process it.
-            ret = handleReport(report, reportType, kIOHIDReportOptionNotInterrupt);
-        }
-
-        report->complete();
-
-        if (ret != kIOReturnSuccess) {
-            break;
-        }
-    }
-
-    // release the report
-    report->release();
-
-    // If needed, set the transaction state for the
-    // remaining elements to idle.
-    SetCookiesTransactionState(element, cookies, cookieCount, kIOHIDTransactionStateIdle, index, 0);
-    
-    WORKLOOP_UNLOCK;
-
-    if (ret != kIOReturnSuccess) {
-        HIDDeviceLogError("failed to update element values");
-    }
-
-    return ret;
+OSMetaClassDefineReservedUsed(IOHIDDevice, 0);
+IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount)
+{
+    return updateElementValues(cookies, cookieCount, 0, 0, 0, 0);
 }
 
-//---------------------------------------------------------------------------
-// Post the value of the given element, by sending a report to
-// the device.  Assume that the cookieCount > 0
-OSMetaClassDefineReservedUsed(IOHIDDevice,  1);
+OSMetaClassDefineReservedUsed(IOHIDDevice, 1);
 IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount)
 {
-    IOBufferMemoryDescriptor    *report = NULL;
-    IOHIDElementPrivate         *cookieElement = NULL;
-    UInt8                       *reportData = NULL;
-    IOByteCount                 maxReportLength = 0;
-    IOHIDReportType             reportType;
-    UInt8                       reportID = 0;
-    UInt32                      index;
-    IOReturn                    ret = kIOReturnError;
-    UInt8                       reportMap [UINT8_MAX + 1];
-
-
-    // Return an error if no cookies are being set
-    if (cookieCount == 0) {
-        return ret;
-    }
-
-    // Get the max report size
-    maxReportLength = max(_maxOutputReportSize, max(_maxFeatureReportSize, _maxInputReportSize));
-
-    // Allocate a buffer mem descriptor with the maxReportLength.
-    // This way, we only have to allocate one mem buffer.
-    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionOut);
-
-    if (report == NULL) {
-        return kIOReturnNoMemory;
-    }
-    
-    if (cookieCount > 1) {
-        memset(reportMap, 0, sizeof(reportMap));
-    }
-
-    WORKLOOP_LOCK;
-
-    // Set the transaction state on the specified cookies
-    SetCookiesTransactionState(cookieElement, cookies, cookieCount, kIOHIDTransactionStatePending, index, 0);
-
-    // Obtain the buffer
-    reportData = (UInt8 *)report->getBytesNoCopy();
-
-    // Iterate though all the elements in the
-    // transaction.  Generate reports if needed.
-    for (index = 0; index < cookieCount; index ++) {
-
-        cookieElement = GetElement(cookies[index]);
-
-        if (cookieElement == NULL) {
-            continue;
-        }
-
-        // Continue on to the next element if
-        // we've already processed this one
-        if (cookieElement->getTransactionState() != kIOHIDTransactionStatePending) {
-            continue;
-        }
-
-        if (!cookieElement->getReportType(&reportType) || (reportType != kIOHIDReportTypeOutput && reportType != kIOHIDReportTypeFeature)) {
-            continue;
-        }
-      
-        reportID = cookieElement->getReportID();
-
-        if (cookieCount > 1) {
-            if (reportMap[reportID] & (1 << reportType)) {
-                continue;
-            }
-            reportMap[reportID] |= (1 << reportType);
-        }
-        
-        _elementContainer->createReport(reportType, reportID, report);
-
-        // If there are multiple reports, append
-        // the reportID to the first byte
-        if ( _reportCount > 1 ) {
-            reportData[0] = reportID;
-        }
-        
-        WORKLOOP_UNLOCK;
-        
-        report->prepare();
-        ret = setReport( report, reportType, reportID);
-        report->complete();
-        
-        WORKLOOP_LOCK;
-
-        if ( ret != kIOReturnSuccess ) {
-            break;
-        }
-    }
-
-    // If needed, set the transaction state for the
-    // remaining elements to idle.
-    SetCookiesTransactionState(cookieElement, cookies, cookieCount, kIOHIDTransactionStateIdle, index, 0);
-
-    WORKLOOP_UNLOCK;
-
-    if (report) {
-        report->release();
-    }
-
-    if (ret != kIOReturnSuccess) {
-        HIDDeviceLogError("failed to post element values");
-    }
-
-    return ret;
+    return postElementValues(cookies, cookieCount, 0, 0, 0);
 }
 
 OSMetaClassDefineReservedUsed(IOHIDDevice,  2);
@@ -1942,33 +1805,140 @@ OSNumber * IOHIDDevice::newLocationIDNumber() const
     return 0;
 }
 
+void IOHIDDevice::setNextAsyncTimeout()
+{
+    AsyncReportCall * reportCall, * nextReportCall;
+    AsyncCommitCall * commitCall, * nextCommitCall;
+    AbsoluteTime      nextDeadline = UINT64_MAX;
+
+    WORKLOOP_LOCK;
+    require(!isInactive() && !_settingTimeout, exit);
+    _settingTimeout = true;
+
+    _asyncTimer->cancelTimeout();
+
+    STAILQ_FOREACH_SAFE(reportCall, &_asyncReportCalls, reportLink, nextReportCall) {
+        if (reportCall->deadline > mach_absolute_time()) {
+            if (reportCall->deadline < nextDeadline) {
+                nextDeadline = reportCall->deadline;
+            }
+            continue;
+        }
+
+        STAILQ_REMOVE(&_asyncReportCalls, reportCall, AsyncReportCall, reportLink);
+        reportCall->completion.action(reportCall->completion.target, reportCall->completion.parameter, kIOReturnTimeout, 0);
+        IOFreeType(reportCall, AsyncReportCall);
+    }
+
+    STAILQ_FOREACH_SAFE(commitCall, &_asyncCommitCalls, commitLink, nextCommitCall) {
+        if (commitCall->context->deadline > mach_absolute_time()) {
+            if (commitCall->context->deadline < nextDeadline) {
+                nextDeadline = commitCall->context->deadline;
+            }
+            continue;
+        }
+
+        CommitComplete(commitCall, kIOReturnTimeout, 0);
+    }
+
+    if (nextDeadline < UINT64_MAX) {
+        _asyncTimer->wakeAtTime(nextDeadline);
+    }
+
+    _settingTimeout = false;
+exit:
+    WORKLOOP_UNLOCK;
+}
+
+void IOHIDDevice::runSyncReportAsync()
+{
+    IOReturn             ret;
+    IOMemoryDescriptor * report;
+    AsyncReportCall    * call, * callAfter;
+
+    WORKLOOP_LOCK;
+    while ((call = STAILQ_FIRST(&_asyncReportCalls))) {
+        if (isInactive()) {
+            ret = kIOReturnAborted;
+        } else {
+            // Assume everything will be freed during the call
+            report = call->report;
+            if (report) {
+                report->retain();
+                report->prepare();
+            }
+            WORKLOOP_UNLOCK;
+            ret =  call->input ? getReport(report, call->reportType, call->options) : setReport(report, call->reportType, call->options);
+            WORKLOOP_LOCK;
+            if (report) {
+                report->complete();
+            }
+            OSSafeReleaseNULL(report);
+        }
+
+        // Check if the call is still valid
+        STAILQ_FOREACH(callAfter, &_asyncReportCalls, reportLink) {
+            if (callAfter == call) {
+                break;
+            }
+        }
+        if (callAfter) {
+            STAILQ_REMOVE(&_asyncReportCalls, callAfter, AsyncReportCall, reportLink);
+            setNextAsyncTimeout();
+            callAfter->completion.action(callAfter->completion.target, callAfter->completion.parameter, ret, 0);
+            IOFreeType(callAfter, AsyncReportCall);
+        }
+    }
+    WORKLOOP_UNLOCK;
+}
+
+IOReturn IOHIDDevice::outReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, bool input)
+{
+    IOReturn          ret  = kIOReturnOffline;
+    AsyncReportCall * call = NULL;
+
+    require_action_quiet(completion && completion->action, exit, ret = kIOReturnUnsupported);
+    require_action((call = IOMallocType(AsyncReportCall)), exit, ret = kIOReturnNoMemory);
+
+    call->report      = report;
+    call->reportType  = reportType;
+    call->options     = options;
+    call->completion  = *completion;
+    call->input       = input;
+    completionTimeout = completionTimeout >= kIOHIDDeviceMinAsyncRequestTimeout && completionTimeout <= kIOHIDDeviceMaxAsyncRequestTimeout ? completionTimeout * 1000 : _asyncTimeout;
+    clock_interval_to_deadline(completionTimeout, kMicrosecondScale, &call->deadline);
+
+    WORKLOOP_LOCK;
+    require_action_quiet(!isInactive(), exit, WORKLOOP_UNLOCK);
+    STAILQ_INSERT_TAIL(&_asyncReportCalls, call, reportLink);
+    setNextAsyncTimeout();
+    thread_call_enter(_asyncReportThread);
+    WORKLOOP_UNLOCK;
+
+    ret = kIOReturnSuccess;
+exit:
+    if (ret && call) {
+        IOFreeType(call, AsyncReportCall);
+    }
+    return ret;
+}
 
 //---------------------------------------------------------------------------
 // Get an async report from the device.
 
 OSMetaClassDefineReservedUsed(IOHIDDevice,  4);
-IOReturn IOHIDDevice::getReport(IOMemoryDescriptor  *report __unused,
-                                IOHIDReportType     reportType __unused,
-                                IOOptionBits        options __unused,
-                                UInt32              completionTimeout __unused,
-                                IOHIDCompletion     *completion __unused)
+IOReturn IOHIDDevice::getReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion)
 {
-    
-    return kIOReturnUnsupported;
+    return completion && completion->action ? outReport(report, reportType, options, completionTimeout, completion, true) : kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------
 // Send an async report to the device.
 
 OSMetaClassDefineReservedUsed(IOHIDDevice,  5);
-IOReturn IOHIDDevice::setReport(IOMemoryDescriptor  *report __unused,
-                                IOHIDReportType     reportType __unused,
-                                IOOptionBits        options __unused,
-                                UInt32              completionTimeout __unused,
-                                IOHIDCompletion     *completion __unused)
+IOReturn IOHIDDevice::setReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion)
 {
-    
-    return kIOReturnUnsupported;
+    return completion && completion->action ? outReport(report, reportType, options, completionTimeout, completion, false) : kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------
@@ -2267,8 +2237,232 @@ void IOHIDDevice::completeReport(OSAction * action __unused,
     
 }
 
-OSMetaClassDefineReservedUnused(IOHIDDevice, 16);
-OSMetaClassDefineReservedUnused(IOHIDDevice, 17);
+#define SetCookiesTransactionState(element, cookies, count, state, index, offset) \
+    for (index = offset; index < count; index++) {                                \
+        if ((element = GetElement(cookies[index]))) {                             \
+            element->setTransactionState(state);                                  \
+        }                                                                         \
+    }
+
+IOReturn IOHIDDevice::runElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, IOBufferMemoryDescriptor * elementData, bool update)
+{
+    IOHIDReportType            reportType;
+    UInt8                      reportID;
+    UInt32                     index;
+    IOReturn                   ret                      = kIOReturnNotFound;
+    UInt8                      reportMap[UINT8_MAX + 1] = {0};
+    IOByteCount                maxReportLength          = max(_maxOutputReportSize, max(_maxFeatureReportSize, _maxInputReportSize));
+    IOHIDElementPrivate      * element                  = NULL;
+    IOBufferMemoryDescriptor * report                   = NULL;
+    AsyncCommitContext       * context                  = NULL;
+    AsyncCommitCall          * reportParam              = NULL;
+    AsyncCommitCall            reportParamFinal;
+    OSBoundedArrayRef<IOHIDElementCookie> cookiesRef;
+
+    if (completion) {
+        if (elementData && update) {
+            memset(elementData->getBytesNoCopy(), 0, elementData->getLength());
+        }
+
+        require_action((context = IOMallocType(AsyncCommitContext)), exit, ret = kIOReturnNoMemory);
+        context->origCompletion = *completion;
+        // One extra, so CommitComplete knows when origCompletion can be triggered
+        context->callsMade      = 1;
+        context->callsCompleted = 0;
+        context->elementData    = update ? elementData : NULL;
+        context->cookies        = update ? OSData::withBytes(cookies, cookieCount * sizeof(IOHIDElementCookie)) : NULL;
+
+        completionTimeout = completionTimeout >= kIOHIDDeviceMinAsyncRequestTimeout && completionTimeout <= kIOHIDDeviceMaxAsyncRequestTimeout ? completionTimeout * 1000 : _asyncTimeout;
+        clock_interval_to_deadline(completionTimeout, kMicrosecondScale, &context->deadline);
+    } else {
+        require_action((report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared | kIOMemoryThreadSafe, maxReportLength)), exit, ret = kIOReturnNoMemory);
+    }
+
+    WORKLOOP_LOCK;
+    require_action_quiet(!isInactive(), exit, {
+        ret = kIOReturnOffline;
+        if (context) {
+            IOFreeType(context, AsyncCommitContext);
+        }
+        WORKLOOP_UNLOCK;
+    });
+
+    SetCookiesTransactionState(element, cookies, cookieCount, kIOHIDTransactionStatePending, index, 0);
+
+    cookiesRef = OSBoundedArrayRef<IOHIDElementCookie>(&(cookies[0]), cookieCount);
+    for ( IOHIDElementCookie cookie : cookiesRef ) {
+        if (!(element = GetElement(cookie)) || element->getTransactionState() != kIOHIDTransactionStatePending || !element->getReportType(&reportType) || (!update && reportType != kIOHIDReportTypeOutput && reportType != kIOHIDReportTypeFeature)) {
+            continue;
+        }
+
+        reportID = element->getReportID();
+        if (cookieCount > 1 && reportMap[reportID] & (1 << reportType)) {
+            continue;
+        } else {
+            reportMap[reportID] |= (1 << reportType);
+        }
+
+        if (completion) {
+            reportParam = IOMallocType(AsyncCommitCall);
+            report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared | kIOMemoryThreadSafe, maxReportLength);
+            if (!reportParam || !report) {
+                if (reportParam) {
+                    IOFreeType(reportParam, AsyncCommitCall);
+                    reportParam = NULL;
+                }
+                ret = kIOReturnNoMemory;
+                break;
+            }
+            reportParam->context               = context;
+            reportParam->fCompletion.target    = this;
+            reportParam->fCompletion.action    = OSMemberFunctionCast(IOHIDCompletionAction, this, &IOHIDDevice::CommitComplete);
+            reportParam->fCompletion.parameter = reportParam;
+            reportParam->buff                  = report;
+            reportParam->element               = element;
+            reportParam->update                = update;
+            reportParam->allocated             = true;
+
+            STAILQ_INSERT_TAIL(&_asyncCommitCalls, reportParam, commitLink);
+            setNextAsyncTimeout();
+        }
+
+        if (!update) {
+            _elementContainer->createReport(reportType, reportID, report);
+        } else {
+            report->setLength(maxReportLength);
+        }
+        if (_reportCount > 1) {
+            ((UInt8 *)report->getBytesNoCopy())[0] = reportID;
+        }
+
+        WORKLOOP_UNLOCK;
+        if (completion) {
+            context->callsMade++;
+            ret = update ? getReport(report, reportType, reportID, (completionTimeout / 1000) - 10, &reportParam->fCompletion) : setReport(report, reportType, reportID, (completionTimeout / 1000) - 10, &reportParam->fCompletion);
+            report = NULL;
+        } else {
+            ret = update ? getReport(report, reportType, reportID) : setReport(report, reportType, reportID);
+            if (ret == kIOReturnSuccess) {
+                ret = handleReport(report, reportType, kIOHIDReportOptionNotInterrupt);
+            }
+        }
+        WORKLOOP_LOCK;
+
+        if (ret != kIOReturnSuccess) {
+            HIDDeviceLogError("updateElementValues failed:0x%x", ret);
+            if (completion) {
+                // Increment for the completion that will not trigger naturally
+                context->callsCompleted++;
+            }
+            break;
+        }
+        reportParam = NULL;
+    }
+
+    SetCookiesTransactionState(element, cookies, cookieCount, kIOHIDTransactionStateIdle, index, 0);
+
+    if (completion) {
+        memset(&reportParamFinal, 0, sizeof(reportParamFinal));
+        // Handle the case where allocation of reportParam fails
+        reportParam = reportParam ? reportParam : &reportParamFinal;
+        reportParam->context = context;
+
+        // Don't double insert reportParam for failed calls
+        if (reportParam == &reportParamFinal) {
+            STAILQ_INSERT_TAIL(&_asyncCommitCalls, reportParam, commitLink);
+        }
+        // Signal that all calls to setReport have been made
+        CommitComplete(reportParam, ret, 0);
+        // Returning an error for an async call implies the completion will not be triggered
+        ret = kIOReturnSuccess;
+    }
+    WORKLOOP_UNLOCK;
+
+exit:
+    OSSafeReleaseNULL(report);
+    return ret;
+}
+
+//---------------------------------------------------------------------------
+// Update the values of the given elements by getting reports from the device
+
+OSMetaClassDefineReservedUsed(IOHIDDevice, 16);
+IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, IOBufferMemoryDescriptor * elementData)
+{
+    return runElementValues(cookies, cookieCount, options, completionTimeout, completion, elementData, true);
+}
+
+//---------------------------------------------------------------------------
+// Post the values of the given elements by sending reports to the device.
+
+OSMetaClassDefineReservedUsed(IOHIDDevice, 17);
+IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion)
+{
+    return runElementValues(cookies, cookieCount, options, completionTimeout, completion, NULL, false);
+}
+
+void IOHIDDevice::CommitComplete(void * param, IOReturn status, UInt32 remaining)
+{
+    uint32_t              neededSize;
+    uint32_t              dataOffset = 0;
+    AsyncCommitCall     * call;
+    const void          * cookie;
+    uint32_t              reportID;
+    IOHIDReportType       origReportType, cookieReportType;
+    IOHIDElementPrivate * element;
+    IOHIDElementValue   * elementVal;
+
+    WORKLOOP_LOCK;
+    STAILQ_FOREACH(call, &_asyncCommitCalls, commitLink) {
+        if ((void *)call == param) {
+            break;
+        }
+    }
+    require_action_quiet(call, exit, WORKLOOP_UNLOCK);
+
+    STAILQ_REMOVE(&_asyncCommitCalls, call, AsyncCommitCall, commitLink);
+    setNextAsyncTimeout();
+
+    if (status == kIOReturnSuccess && call->buff && call->element && call->element->getReportType(&origReportType)) {
+        status = handleReport(call->buff, origReportType, kIOHIDReportOptionNotInterrupt);
+    }
+    if (call->update && call->element && call->element->getReportType(&origReportType) && call->context->elementData && call->context->cookies) {
+        reportID = call->element->getReportID();
+        for (uint32_t index = 0; index < call->context->cookies->getLength() / sizeof(IOHIDElementCookie); index++) {
+            if (!(cookie = call->context->cookies->getBytesNoCopy(index * sizeof(IOHIDElementCookie), sizeof(IOHIDElementCookie)))
+                    || !(element = GetElement(*(IOHIDElementCookie *)cookie)) || !(elementVal = element->_elementValue)
+                    || os_add_overflow(dataOffset, elementVal->totalSize, &neededSize) || neededSize > call->context->elementData->getLength()) {
+                status = kIOReturnError;
+                break;
+            }
+
+            // Copy the data if this element is part of the completed report, otherwise just calculate the offset
+            if (element->getReportID() == reportID && element->getReportType(&cookieReportType) && cookieReportType == origReportType) {
+                memcpy((uint8_t *)call->context->elementData->getBytesNoCopy() + dataOffset, elementVal, elementVal->totalSize);
+            }
+            dataOffset += elementVal->totalSize;
+        }
+    }
+
+    call->context->status = status ? status : call->context->status;
+    call->context->callsCompleted++;
+    require_action_quiet(call->context->callsCompleted == call->context->callsMade, exit, WORKLOOP_UNLOCK);
+
+    WORKLOOP_UNLOCK;
+
+    call->context->origCompletion.action(call->context->origCompletion.target, call->context->origCompletion.parameter, call->context->status, 0);
+    OSSafeReleaseNULL(call->context->cookies);
+    IOFreeType(call->context, AsyncCommitContext);
+exit:
+    if (call) {
+        OSSafeReleaseNULL(call->buff);
+        if (call->allocated) {
+            IOFreeType(call, AsyncCommitCall);
+        }
+    }
+    return;
+}
+
 OSMetaClassDefineReservedUnused(IOHIDDevice, 18);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 19);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 20);

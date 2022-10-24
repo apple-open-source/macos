@@ -35,9 +35,9 @@ void NetworkSchemeRegistry::registerURLSchemeAsCORSEnabled(String&& scheme)
 
 bool NetworkSchemeRegistry::shouldTreatURLSchemeAsCORSEnabled(StringView scheme)
 {
-    if (scheme.startsWith("http"))
+    if (scheme.startsWith("http"_s))
         return scheme.length() == 4 || (scheme.length() == 5 && scheme[4] == 's');
-    return m_corsEnabledSchemes.contains(scheme.toStringWithoutCopying());
+    return m_corsEnabledSchemes.contains<StringViewHashTranslator>(scheme);
 }
 
 } // namespace WebKit

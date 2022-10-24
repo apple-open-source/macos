@@ -2,7 +2,7 @@
 
 SUBDIRS=docs REC1 REC2 REC general namespaces keys numbers documents \
         extensions reports xmlspec multiple xinclude XSLTMark docbook \
-	exslt plugins
+	exslt plugins fuzz
 
 all:
 

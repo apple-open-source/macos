@@ -42,7 +42,11 @@ $USAGE = "Usage: $PNAME [-hlqsx] [-d dir] [-f file]"
     . "[-x opt[=arg]] [file | dir ...]\n";
 ($MACH = `uname -p`) =~ s/\W*\n//;
 
-$IS_WATCH = `sw_vers -productName` =~m/^Watch OS/ ? 1 : 0;
+# Trim whitespaces and replace inner spaces with _
+($PRODUCT = `sw_vers -productName`) =~ s/^\W+|\W+$//g;
+$PRODUCT =~ s/\s+/_/g;
+
+$IS_WATCH = $PRODUCT =~m/^Watch_OS/ ? 1 : 0;
 $TIMEOUT = $IS_WATCH ? 480 : 240;
 
 # Destructive actions are enabled when SIP is not enabled
@@ -51,7 +55,19 @@ print($DESTRUCT_ON);
 $dtrace_path = '/usr/sbin/dtrace';
 @dtrace_argv = ();
 
-$DEFAULT_TEST_LIST = $MACH eq 'arm' ? 'common/NoSafetyTests.arm' : 'common/NoSafetyTests';
+# Selects test list based on following logic:
+#   1. NoSafetyTest.$PRODUCT.$MACH
+#   2. NoSafetyTest.$PRODUCT
+#   3. NoSafetyTest / NoSafetyTest.arm
+$DEFAULT_TEST_LIST = "common/NoSafetyTests.${PRODUCT}.${MACH}";
+unless (-e $DEFAULT_TEST_LIST) {
+	$DEFAULT_TEST_LIST = "common/NoSafetyTests.${PRODUCT}";
+}
+
+unless (-e $DEFAULT_TEST_LIST) {
+	$DEFAULT_TEST_LIST = $MACH eq 'arm' ? 'common/NoSafetyTests.arm' : 'common/NoSafetyTests';
+}
+
 
 $dash_path = '/bin/dash';
 

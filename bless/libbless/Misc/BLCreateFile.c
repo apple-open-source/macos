@@ -120,8 +120,8 @@ int BLCreateFileWithOptions(BLContextPtr context, const CFDataRef data,
             char printType[5], printCreator[5];
             
             contextprintf(context, kBLLogLevelVerbose, "Type/creator set to %4.4s/%4.4s for %s\n",
-                          blostype2string(type, printType),
-                          blostype2string(creator, printCreator), rsrcpath );
+                          blostype2string(type, printType, sizeof(printType)),
+                          blostype2string(creator, printCreator, sizeof(printCreator)), rsrcpath);
         }
     }
     

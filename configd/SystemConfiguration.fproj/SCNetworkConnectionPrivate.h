@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017, 2018, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017, 2018, 2021, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -523,6 +523,11 @@ Boolean
 SCUserPreferencesSetName			(SCUserPreferencesRef		userPreferences,
 						 CFStringRef			newName)		API_AVAILABLE(macos(10.5), ios(2.0));
 
+#define SC_HAS_COPY_START_OPTIONS 1
+
+CFDictionaryRef
+SCUserPreferencesCopyStartOptions		(SCUserPreferencesRef		userPreferences)	API_AVAILABLE(macos(13.0), ios(16.0));
+
 Boolean
 SCNetworkConnectionStartWithUserPreferences	(SCNetworkConnectionRef		connection,
 						 SCUserPreferencesRef		userPreferences,
@@ -532,10 +537,19 @@ CFDictionaryRef
 SCUserPreferencesCopyInterfaceConfiguration	(SCUserPreferencesRef		userPreferences,
 						 SCNetworkInterfaceRef		interface)		API_AVAILABLE(macos(10.5), ios(2.0));
 
+CFDictionaryRef
+SCUserPreferencesCopyInterfaceTypeConfiguration	(SCUserPreferencesRef		userPreferences,
+						 CFStringRef			interfaceType)		API_AVAILABLE(macos(13.0), ios(16.0));
+
 Boolean
 SCUserPreferencesSetInterfaceConfiguration	(SCUserPreferencesRef		userPreferences,
 						 SCNetworkInterfaceRef		interface,
 						 CFDictionaryRef		newOptions)		API_AVAILABLE(macos(10.5), ios(2.0));
+
+Boolean
+SCUserPreferencesSetInterfaceTypeConfiguration	(SCUserPreferencesRef		userPreferences,
+						 CFStringRef			interfaceType,
+						 CFDictionaryRef		newOptions)		API_AVAILABLE(macos(13.0), ios(16.0));
 
 CFDictionaryRef
 SCUserPreferencesCopyExtendedInterfaceConfiguration

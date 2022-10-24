@@ -43,7 +43,7 @@
 #include <CoreFoundation/CFError.h>
 #include <stdbool.h>
 #include <xpc/xpc.h>
-#include <security_libDER/libDER/libDER.h>
+#include <libDER/libDER.h>
 
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
@@ -112,6 +112,8 @@ CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate)
 
 CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRef certificate)
     __SEC_MAC_AND_IOS_UNKNOWN;
+CFDataRef SecCertificateCopyIssuerSHA256Digest(SecCertificateRef certificate)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 
 /* Return the SHA-256 hash of this certificate. */
 CFDataRef SecCertificateCopySHA256Digest(SecCertificateRef certificate)
@@ -120,6 +122,9 @@ CFDataRef SecCertificateCopySHA256Digest(SecCertificateRef certificate)
 /* Return the SHA-1 hash of the public key in this certificate. */
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRef certificate)
     __SEC_MAC_AND_IOS_UNKNOWN;
+
+CFDataRef SecCertificateCopyPublicKeySHA256Digest(SecCertificateRef certificate)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 
 /* Return the SHA-1 hash of the SubjectPublicKeyInfo sequence in this certificate. */
 CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA1Digest(SecCertificateRef certificate)

@@ -234,7 +234,7 @@ void IOHIDNXEventRouter::_queueEventSourceCallback(void * info)
     //self->dequeueHIDEvents();
     IOHIDNXEventRouter::_queueCallback(info);
 user_exit:
-    CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
+    CFAllocatorDeallocate(kCFAllocatorDefault, msg);
 }
 
 

@@ -62,19 +62,18 @@ static CFAbsoluteTime SecGregorianDateGetAbsoluteTime(int year, int month, int d
         return NULL_TIME;
     }
 
-    int dy = year - 2001;
-    if (dy < 0) {
-        dy += 1;
-        day -= 1;
+    __block bool success = false;
+    __block CFAbsoluteTime absTime = 0;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        success = CFCalendarComposeAbsoluteTime(zuluCalendar, &absTime, "yMdHms", year, month, day, hour, minute, second);
+    });
+
+    if(!success) {
+        SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Failed to encode date from components"), 0, error);
+        return NULL_TIME;
     }
 
-    int leap_days = dy / 4 - dy / 100 + dy / 400;
-    day += ((year - 2001) * 365 + leap_days) + mdays[month - 1] - 1;
-    if (month > 2)
-        day += is_leap_year;
-
-    CFAbsoluteTime absTime = (CFAbsoluteTime)((day * 24 + hour) * 60 + minute) * 60 + second;
-	return absTime - timeZoneOffset;
+    return absTime - timeZoneOffset;
 }
 
 static bool SecAbsoluteTimeGetGregorianDate(CFTimeInterval at, int *year, int *month, int *day, int *hour, int *minute, int *second, CFErrorRef *error) {

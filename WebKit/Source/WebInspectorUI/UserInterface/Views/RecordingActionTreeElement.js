@@ -55,9 +55,13 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
             switch (swizzleType) {
             case WI.Recording.Swizzle.Number:
                 var constantNameForParameter = WI.RecordingAction.constantNameForParameter(recordingType, recordingAction.name, parameter, index, parameterCount);
+                var bitfieldNamesForParameter = WI.RecordingAction.bitfieldNamesForParameter(recordingType, recordingAction.name, parameter, index, parameterCount);
                 if (constantNameForParameter) {
                     parameterElement.classList.add("constant");
                     parameterElement.textContent = "context." + constantNameForParameter;
+                } else if (bitfieldNamesForParameter) {
+                    parameterElement.classList.add("constant");
+                    parameterElement.textContent = bitfieldNamesForParameter.map((p) => p.startsWith("0x") ? p : "context." + p).join(" | ");
                 } else
                     parameterElement.textContent = parameter.maxDecimals(2);
                 break;
@@ -225,8 +229,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
                 return null;
         }
 
-        const readOnly = true;
-        return new WI.InlineSwatch(WI.InlineSwatch.Type.Color, color, readOnly);
+        return new WI.InlineSwatch(WI.InlineSwatch.Type.Color, color, {readOnly: true});
     }
 
     static _getClassNames(recordingAction)

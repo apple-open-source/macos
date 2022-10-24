@@ -66,7 +66,7 @@ class TimingFunction;
 class TransformationMatrix;
 
 namespace DisplayList {
-typedef unsigned AsTextFlags;
+enum class AsTextFlag : uint8_t;
 }
 
 // Base class for animation values (also used for transitions). Here to
@@ -251,6 +251,7 @@ public:
     enum class Type : uint8_t {
         Normal,
         PageTiledBacking,
+        TiledBacking,
         ScrollContainer,
         ScrolledContents,
         Shape
@@ -424,7 +425,7 @@ public:
     virtual void setBackfaceVisibility(bool b) { m_backfaceVisibility = b; }
 
     float opacity() const { return m_opacity; }
-    virtual void setOpacity(float opacity) { m_opacity = opacity; }
+    WEBCORE_EXPORT virtual void setOpacity(float opacity) { m_opacity = opacity; }
 
     const FilterOperations& filters() const { return m_filters; }
     // Returns true if filter can be rendered by the compositor.
@@ -476,11 +477,6 @@ public:
     bool contentsRectClipsDescendants() const { return m_contentsRectClipsDescendants; }
     virtual void setContentsRectClipsDescendants(bool b) { m_contentsRectClipsDescendants = b; }
 
-    // Set a rounded rect that is used to clip this layer and its descendants (implies setting masksToBounds).
-    // Consult supportsRoundedClip() to know whether non-zero radii are supported.
-    FloatRoundedRect maskToBoundsRect() const { return m_masksToBoundsRect; };
-    virtual void setMasksToBoundsRect(const FloatRoundedRect&);
-
     Path shapeLayerPath() const;
     virtual void setShapeLayerPath(const Path&);
 
@@ -525,7 +521,8 @@ public:
     virtual void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) { }
     virtual void setContentsDisplayDelegate(RefPtr<GraphicsLayerContentsDisplayDelegate>&&, ContentsLayerPurpose);
 #if ENABLE(MODEL_ELEMENT)
-    virtual void setContentsToModel(RefPtr<Model>&&) { }
+    enum class ModelInteraction : uint8_t { Enabled, Disabled };
+    virtual void setContentsToModel(RefPtr<Model>&&, ModelInteraction) { }
     virtual PlatformLayerID contentsLayerIDForModel() const { return 0; }
 #endif
     virtual bool usesContentsLayer() const { return false; }
@@ -566,9 +563,7 @@ public:
     enum class CustomAppearance : uint8_t {
         None,
         ScrollingOverhang,
-        ScrollingShadow,
-        LightBackdrop,
-        DarkBackdrop
+        ScrollingShadow
     };
     virtual void setCustomAppearance(CustomAppearance customAppearance) { m_customAppearance = customAppearance; }
     CustomAppearance customAppearance() const { return m_customAppearance; }
@@ -582,12 +577,18 @@ public:
     virtual void setAppliesPageScale(bool appliesScale = true) { m_appliesPageScale = appliesScale; }
     virtual bool appliesPageScale() const { return m_appliesPageScale; }
 
+    void setAppliesDeviceScale(bool appliesScale = true) { m_appliesDeviceScale = appliesScale; }
+    bool appliesDeviceScale() const { return m_appliesDeviceScale; }
+
     float pageScaleFactor() const { return client().pageScaleFactor(); }
-    float deviceScaleFactor() const { return client().deviceScaleFactor(); }
+    float deviceScaleFactor() const { return appliesDeviceScale() ? client().deviceScaleFactor() : 1.f; }
     
     // Whether this layer can throw away backing store to save memory. False for layers that can be revealed by async scrolling.
     virtual void setAllowsBackingStoreDetaching(bool) { }
     virtual bool allowsBackingStoreDetaching() const { return true; }
+
+    virtual void setAllowsTiling(bool allowsTiling) { m_allowsTiling = allowsTiling; }
+    virtual bool allowsTiling() const { return m_allowsTiling; }
 
     virtual void deviceOrPageScaleFactorChanged() { }
     WEBCORE_EXPORT void noteDeviceOrPageScaleFactorChangedIncludingDescendants();
@@ -611,13 +612,13 @@ public:
     WEBCORE_EXPORT String layerTreeAsText(OptionSet<LayerTreeAsTextOptions> = { }) const;
 
     // For testing.
-    virtual String displayListAsText(DisplayList::AsTextFlags) const { return String(); }
+    virtual String displayListAsText(OptionSet<DisplayList::AsTextFlag>) const { return String(); }
 
     virtual String platformLayerTreeAsText(OptionSet<PlatformLayerTreeAsTextFlags>) const { return String(); }
 
     virtual void setIsTrackingDisplayListReplay(bool isTracking) { m_isTrackingDisplayListReplay = isTracking; }
     virtual bool isTrackingDisplayListReplay() const { return m_isTrackingDisplayListReplay; }
-    virtual String replayDisplayListAsText(DisplayList::AsTextFlags) const { return String(); }
+    virtual String replayDisplayListAsText(OptionSet<DisplayList::AsTextFlag>) const { return String(); }
 
     // Return an estimate of the backing store memory cost (in bytes). May be incorrect for tiled layers.
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const;
@@ -630,8 +631,6 @@ public:
     void resetTrackedRepaints();
     void addRepaintRect(const FloatRect&);
 
-    static bool supportsRoundedClip();
-    static bool supportsBackgroundColorContent();
     static bool supportsLayerType(Type);
     static bool supportsContentsTiling();
     static bool supportsSubpixelAntialiasedLayerText();
@@ -663,13 +662,6 @@ protected:
 
     // Given a KeyframeValueList containing filterOperations, return true if the operations are valid.
     static int validateFilterOperations(const KeyframeValueList&);
-
-    // Given a list of TransformAnimationValues, see if all the operations for each keyframe match. If so
-    // return the index of the KeyframeValueList entry that has that list of operations (it may not be
-    // the first entry because some keyframes might have an empty transform and those match any list).
-    // If the lists don't match return -1. On return, if hasBigRotation is true, functions contain 
-    // rotations of >= 180 degrees
-    static int validateTransformOperations(const KeyframeValueList&, bool& hasBigRotation);
 
     virtual bool shouldRepaintOnSizeChange() const { return drawsContent(); }
 
@@ -745,7 +737,9 @@ protected:
     bool m_contentsRectClipsDescendants : 1;
     bool m_acceleratesDrawing : 1;
     bool m_usesDisplayListDrawing : 1;
+    bool m_allowsTiling : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
+    bool m_appliesDeviceScale : 1;
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;
     bool m_isMaskLayer : 1;
@@ -774,7 +768,6 @@ protected:
 
     FloatRect m_contentsRect;
     FloatRoundedRect m_contentsClippingRect;
-    FloatRoundedRect m_masksToBoundsRect;
     FloatSize m_contentsTilePhase;
     FloatSize m_contentsTileSize;
     ScalingFilter m_contentsMinificationFilter = ScalingFilter::Linear;
@@ -812,9 +805,7 @@ template<> struct EnumTraits<WebCore::GraphicsLayer::CustomAppearance> {
         WebCore::GraphicsLayer::CustomAppearance,
         WebCore::GraphicsLayer::CustomAppearance::None,
         WebCore::GraphicsLayer::CustomAppearance::ScrollingOverhang,
-        WebCore::GraphicsLayer::CustomAppearance::ScrollingShadow,
-        WebCore::GraphicsLayer::CustomAppearance::LightBackdrop,
-        WebCore::GraphicsLayer::CustomAppearance::DarkBackdrop
+        WebCore::GraphicsLayer::CustomAppearance::ScrollingShadow
     >;
 };
 

@@ -22,6 +22,8 @@
  */
 
 #if OCTAGON
+#import <os/transaction_private.h>
+
 #import <TrustedPeers/TPSyncingPolicy.h>
 #import <TrustedPeers/TPPBPolicyKeyViewMapping.h>
 #import <TrustedPeers/TPDictionaryMatchingRules.h>
@@ -47,8 +49,6 @@
 #include "keychain/securityd/SecItemDb.h"
 #include <Security/SecItemPriv.h>
 #include <utilities/SecInternalReleasePriv.h>
-#import <IMCore/IMCore_Private.h>
-#import <IMCore/IMCloudKitHooks.h>
 
 @interface CKKSScanLocalItemsOperation ()
 @property (assign) NSUInteger processedItems;
@@ -147,7 +147,7 @@
     __block CFErrorRef cferror = NULL;
     __block bool ok = false;
 
-    Query *q = query_create_with_limit((__bridge CFDictionaryRef)queryPredicates, NULL, kSecMatchUnlimited, NULL, &cferror);
+    Query *q = query_create_with_limit((__bridge CFDictionaryRef)queryPredicates, (__bridge CFDataRef)([_deps keychainMusrForCurrentAccount]), kSecMatchUnlimited, NULL, &cferror);
 
     if(cferror) {
         ckkserror_global("ckksscan", "couldn't create query: %@", cferror);
@@ -185,12 +185,13 @@
 
     CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry withItem:item
                                                             action:SecCKKSActionAdd
+                                                         contextID:self.deps.contextID
                                                             zoneID:viewState.zoneID
                                                           keyCache:keyCache
                                                              error:&itemSaveError];
 
     if(itemSaveError) {
-        ckkserror("ckksscan", viewState.zoneID, "Need to upload %@, but can't create outgoing entry: %@", item, itemSaveError);
+        ckkserror("ckksscan", viewState.zoneID, "Need to upload " SECDBITEM_FMT ", but can't create outgoing entry: %@", item, itemSaveError);
         if(error) {
             *error = itemSaveError;
         }
@@ -229,6 +230,9 @@
                 (id)kSecAttrSynchronizable: @(YES),
                 (id)kSecAttrTombstone: @(NO),
                 (id)kSecAttrUUID: itemUUID,
+#if TARGET_OS_TV
+                (id)kSecAttrMultiUser: self.deps.keychainMusrForCurrentAccount,
+#endif
             };
 
             ckksnotice("ckksscan", viewState.zoneID, "Onboarding %@ %@", itemClass, itemUUID);
@@ -287,7 +291,7 @@
                     NSString* uuid = [[NSUUID UUID] UUIDString];
                     NSDictionary* updates = @{(id)kSecAttrUUID: uuid};
 
-                    ckksnotice("ckksscan", viewState.zoneID, "Assigning new UUID %@ for item %@", uuid, uuidlessItem);
+                    ckksnotice("ckksscan", viewState.zoneID, "Assigning new UUID %@ for item " SECDBITEM_FMT, uuid, uuidlessItem);
 
                     SecDbItemRef new_item = SecDbItemCopyWithUpdates(uuidlessItem, (__bridge CFDictionaryRef)updates, &cferror);
 
@@ -343,7 +347,9 @@
             [[CKKSAnalytics logger] logMetric:[NSNumber numberWithUnsignedInteger:mirrorUUIDs.count] withName:CKKSEventMissingLocalItemsFound];
 
             for (NSString* uuid in mirrorUUIDs) {
-                NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry allWithUUID:uuid error:&error];
+                NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry allWithUUID:uuid
+                                                                      contextID:self.deps.contextID
+                                                                          error:&error];
 
                 if(!ckmes || error) {
                     ckkserror_global("ckksscan", "BUG: error fetching previously-extant CKME (uuid: %@) from database: %@", uuid, error);
@@ -369,6 +375,9 @@
 
 - (void)main
 {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     if(SecCKKSTestsEnabled() && SecCKKSTestSkipScan()) {
         ckksnotice_global("ckksscan", "Scan cancelled by test request");
         self.nextState = self.intendedState;
@@ -394,14 +403,20 @@
     NSMutableSet<CKRecordZoneID*>* allZoneIDs = [NSMutableSet set];
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         [allZoneIDs addObject:viewState.zoneID];
+
+        // Measure how long the scan takes...
+        if([viewState.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady]) {
+            [viewState.launch addEvent:@"scan-local-items-begin"];
+        }
     }
+    [self.deps.overallLaunch addEvent:@"scan-local-items-begin"];
 
     [databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         // First, query for all synchronizable items
         __block NSError* error = nil;
 
         NSError* ckmeError = nil;
-        [mirrorUUIDs unionSet:[CKKSMirrorEntry allUUIDsInZones:allZoneIDs error:&ckmeError]];
+        [mirrorUUIDs unionSet:[CKKSMirrorEntry allUUIDsWithContextID:self.deps.contextID inZones:allZoneIDs error:&ckmeError]];
 
         if(ckmeError) {
             ckkserror_global("ckksscan", "Unable to load CKMirrorEntries: %@", ckmeError);
@@ -432,13 +447,13 @@
             ckksnotice_global("ckksscan", "Scanning all synchronizable %@ items(%@) for: %@", itemClass, self.name, queryAttributes);
 
             [self executeQuery:queryAttributes readWrite:false error:&error block:^(SecDbItemRef item) {
-                ckksnotice_global("ckksscan", "scanning item: %@", item);
+                ckksnotice_global("ckksscan", "scanning item: " SECDBITEM_FMT, item);
 
                 self.processedItems += 1;
 
                 // First check: is this a tombstone, marked this-device-only, or for a non-primary user? If so, skip with prejudice.
                 if(SecDbItemIsTombstone(item)) {
-                    ckksinfo_global("ckksscan", "Skipping tombstone %@", item);
+                    ckksinfo_global("ckksscan", "Skipping tombstone " SECDBITEM_FMT, item);
                     return;
                 }
 
@@ -451,8 +466,8 @@
                 }
 
                 // Note: I don't expect that this will ever fire, because the query as created will only find primary-user items. But, it's here as a seatbelt!
-                if(!SecDbItemIsPrimaryUserItem(item)) {
-                    ckksnotice_global("ckksscan", "Ignoring syncable keychain item for non-primary account: %@", item);
+                if(!OctagonSupportsPersonaMultiuser() && !SecDbItemIsPrimaryUserItem(item)) {
+                    ckksnotice_global("ckksscan", "Ignoring syncable keychain item for non-primary account: " SECDBITEM_FMT, item);
                     return;
                 }
 
@@ -485,7 +500,7 @@
 
                 NSString* uuid = (__bridge_transfer NSString*) CFRetain(SecDbItemGetValue(item, &v10itemuuid, &cferror));
                 if(!uuid || [uuid isEqual: [NSNull null]]) {
-                    ckksnotice("ckksscan", viewStateForItem.zoneID, "making new UUID for item %@: %@", item, cferror);
+                    ckksnotice("ckksscan", viewStateForItem.zoneID, "making new UUID for item " SECDBITEM_FMT ": %@", item, cferror);
 
                     NSMutableDictionary* primaryKey = [(NSDictionary*)CFBridgingRelease(SecDbItemCopyPListWithMask(item, kSecDbPrimaryKeyFlag, &cferror)) mutableCopy];
 
@@ -510,6 +525,7 @@
 
                 // Is there a known sync item with this UUID?
                 CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid
+                                                               contextID:self.deps.contextID
                                                                   zoneID:viewStateForItem.zoneID
                                                                    error:&error];
                 if(ckme != nil) {
@@ -526,6 +542,7 @@
 
                 // We don't care about the oqe state here, just that one exists
                 CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:uuid
+                                                                            contextID:self.deps.contextID
                                                                                zoneID:viewStateForItem.zoneID
                                                                                 error:&error];
                 if(oqe != nil) {
@@ -561,14 +578,14 @@
         if (mirrorUUIDs.count > 0) {
             ckksnotice_global("ckksscan", "keychain missing %lu items from mirror, proceeding with queue scanning", (unsigned long)mirrorUUIDs.count);
 
-            [mirrorUUIDs minusSet:[CKKSIncomingQueueEntry allUUIDsInZones:allZoneIDs error:&error]];
+            [mirrorUUIDs minusSet:[CKKSIncomingQueueEntry allUUIDsWithContextID:self.deps.contextID inZones:allZoneIDs error:&error]];
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect incoming queue: %@", error);
                 self.error = error;
                 return;
             }
 
-            [mirrorUUIDs minusSet:[CKKSOutgoingQueueEntry allUUIDsInZones:allZoneIDs error:&error]];
+            [mirrorUUIDs minusSet:[CKKSOutgoingQueueEntry allUUIDsWithContextID:self.deps.contextID inZones:allZoneIDs error:&error]];
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect outgoing queue: %@", error);
                 self.error = error;
@@ -621,7 +638,7 @@
 
             [viewState.launch addEvent:@"scan-local-items"];
 
-            CKKSZoneStateEntry* zoneState = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+            CKKSZoneStateEntry* zoneState = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
 
             zoneState.lastLocalKeychainScanTime = [NSDate now];
 
@@ -634,6 +651,8 @@
                 ckksnotice("ckksscan", viewState.zoneID, "Saved scanned status.");
             }
         }
+
+        [self.deps.overallLaunch addEvent:@"scan-local-items"];
 
         return CKKSDatabaseTransactionCommit;
     }];
@@ -668,10 +687,15 @@
              keyCache:(CKKSMemoryKeyCache*)keyCache
 {
     NSError* localerror = nil;
-
-    NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:ckksItem
-                                                                              keyCache:keyCache
-                                                                                 error:&localerror];
+    
+    NSMutableDictionary* attributes = [[CKKSIncomingQueueOperation decryptCKKSItemToAttributes:ckksItem
+                                                                                      keyCache:keyCache
+                                                                   ckksOperationalDependencies:self.deps
+                                                                                         error:&localerror] mutableCopy];
+#if TARGET_OS_TV
+    attributes[(__bridge NSString*) kSecAttrMultiUser] = self.deps.keychainMusrForCurrentAccount;
+#endif
+    
     if(!attributes || localerror) {
         ckksnotice("ckksscan", ckksItem.zoneID, "Could not decrypt item for comparison: %@", localerror);
         return YES;

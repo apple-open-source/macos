@@ -11,7 +11,7 @@ static const char	elsieid[] = "@(#)scheck.c	8.19";
 
 #ifndef lint
 static const char rcsid[] =
-  "$FreeBSD: head/contrib/tzcode/zic/scheck.c 192625 2009-05-23 06:31:50Z edwin $";
+  "$FreeBSD$";
 #endif /* not lint */
 
 /*LINTLIBRARY*/

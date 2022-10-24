@@ -543,6 +543,12 @@ task_restartable_ranges_register(
 		return KERN_FAILURE;
 	}
 
+#if CONFIG_ROSETTA
+	// <rdar://problem/48527888> Obj-C adoption of task_restartable_ranges_register breaks Cambria
+	if (task_is_translated(task)) {
+		return KERN_RESOURCE_SHORTAGE;
+	}
+#endif
 
 	kr = _ranges_validate(task, ranges, count);
 

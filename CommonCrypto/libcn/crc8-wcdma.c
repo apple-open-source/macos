@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc8_wcdma = {
+const crcDescriptor CC_crc8_wcdma = {
     .name = "crc8-wcdma",
     .defType = model,
     .def.parms.width = 1,

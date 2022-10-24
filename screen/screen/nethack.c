@@ -115,9 +115,9 @@ static struct nlstrans nethacktrans[] = {
 };
 #endif
 
-char *
+const char *
 DoNLS(from)
-char *from;
+const char *from;
 {
 #ifdef NETHACK
   struct nlstrans *t;

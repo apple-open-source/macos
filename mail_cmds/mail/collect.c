@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)collect.c	8.2 (Berkeley) 4/19/94";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/collect.c,v 1.12 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 /*
  * Mail -- a mail program
@@ -54,7 +49,7 @@ static const char rcsid[] =
 #include "extern.h"
 
 /*
- * Read a message from standard output and return a read file to it
+ * Read a message from standard input and return a read file to it
  * or NULL on error.
  */
 
@@ -79,16 +74,13 @@ static	jmp_buf	collabort;		/* To end collection with error */
 static	jmp_buf	pipejmp;		/* To catch the loss of pipe connection */
 
 void
-brokthepipe(signo)
-        int signo;
+brokthepipe(int signo)
 {
         longjmp(pipejmp, 1);
 }
 
 FILE *
-collect(hp, printheaders)
-	struct header *hp;
-	int printheaders;
+collect(struct header *hp, int printheaders)
 {
 	FILE *fbuf;
 	int lc, cc, escape, eofcount, fd, c, t;
@@ -151,7 +143,6 @@ collect(hp, printheaders)
 		escape = ESCAPE;
 	eofcount = 0;
 	hadintr = 0;
-	lastlong = 0;
 	longline = 0;
 
 	if (!setjmp(colljmp)) {
@@ -368,9 +359,9 @@ cont:
 				int nullfd, tempfd, rc;
 				char tempname2[PATHSIZE];
 
-				if ((nullfd = open("/dev/null", O_RDONLY, 0))
+				if ((nullfd = open(_PATH_DEVNULL, O_RDONLY, 0))
 				    == -1) {
-					warn("/dev/null");
+					warn(_PATH_DEVNULL);
 					break;
 				}
 
@@ -499,7 +490,7 @@ cont:
 					usepager = 1;
 					envptr = value("PAGER");
 		                        if (envptr == NULL || *envptr == '\0')
-		                                envptr = _PATH_MORE;
+		                                envptr = _PATH_LESS;
 					if (setjmp(pipejmp))
 				                goto close_pipe;
 		                        fbuf = Popen(envptr, "w");
@@ -569,23 +560,21 @@ out:
  * Write a file, ex-like if f set.
  */
 int
-exwrite(name, fp, f)
-	char name[];
-	FILE *fp;
-	int f;
+exwrite(char name[], FILE *fp, int f)
 {
 	FILE *of;
 	int c, lc;
 	long cc;
-#if 0
-	struct stat junk;
+#ifndef __APPLE__
+        struct stat junk;
 #endif
+
 
 	if (f) {
 		printf("\"%s\" ", name);
 		(void)fflush(stdout);
 	}
-#if 0
+#ifndef __APPLE__
 	if (stat(name, &junk) >= 0 && S_ISREG(junk.st_mode)) {
 		if (!f)
 			fprintf(stderr, "%s: ", name);
@@ -621,9 +610,7 @@ exwrite(name, fp, f)
  * On return, make the edit file the new temp file.
  */
 void
-mesedit(fp, c)
-	FILE *fp;
-	int c;
+mesedit(FILE *fp, int c)
 {
 	sig_t sigint = signal(SIGINT, SIG_IGN);
 	FILE *nf = run_editor(fp, (off_t)-1, c, 0);
@@ -637,9 +624,7 @@ mesedit(fp, c)
 }
 
 static char *
-parse_pipe_args(str, msglist)
-	char str[];
-	char **msglist;
+parse_pipe_args(char str[], char **msglist)
 {
         char *cp;
 	char quoted;
@@ -703,8 +688,7 @@ printf("before loop: str=%s,cp=%s\n", str,cp);
 }
 
 int
-mailpipe(str)
-	char str[];
+mailpipe(char str[])
 {
 	struct message *mp;
 	int *msgvec, *ip;
@@ -815,9 +799,7 @@ close_pipe:
  * Sh -c must return 0 to accept the new message.
  */
 void
-mespipe(fp, cmd)
-	FILE *fp;
-	char cmd[];
+mespipe(FILE *fp, char cmd[])
 {
 	FILE *nf;
 	int fd;
@@ -867,11 +849,7 @@ out:
  * should shift over and 'f' if not.
  */
 int
-forward(ms, fp, fn, f)
-	char ms[];
-	FILE *fp;
-	char *fn;
-	int f;
+forward(char ms[], FILE *fp, char *fn, int f)
 {
 	int *msgvec;
 	struct ignoretab *ig;
@@ -915,8 +893,7 @@ forward(ms, fp, fn, f)
  */
 /*ARGSUSED*/
 void
-collstop(s)
-	int s;
+collstop(int s)
 {
 	sig_t old_action = signal(s, SIG_DFL);
 	sigset_t nset;
@@ -940,8 +917,7 @@ collstop(s)
  */
 /*ARGSUSED*/
 void
-collint(s)
-	int s;
+collint(int s __unused)
 {
 	/*
 	 * the control flow is subtle, because we can be called from ~q.
@@ -964,8 +940,7 @@ collint(s)
 
 /*ARGSUSED*/
 void
-collhup(s)
-	int s;
+collhup(int s __unused)
 {
 	rewind(collf);
 	savedeadletter(collf);
@@ -977,8 +952,7 @@ collhup(s)
 }
 
 void
-savedeadletter(fp)
-	FILE *fp;
+savedeadletter(FILE *fp)
 {
 	FILE *dbuf;
 	int c;

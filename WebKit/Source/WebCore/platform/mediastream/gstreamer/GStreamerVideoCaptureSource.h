@@ -26,13 +26,16 @@
 #include "CaptureDevice.h"
 #include "GStreamerVideoCapturer.h"
 #include "RealtimeVideoCaptureSource.h"
+#include "VideoFrameGStreamer.h"
 
 namespace WebCore {
+
+using NodeAndFD = GStreamerVideoCapturer::NodeAndFD;
 
 class GStreamerVideoCaptureSource : public RealtimeVideoCaptureSource, GStreamerCapturer::Observer {
 public:
     static CaptureSourceOrError create(String&& deviceID, String&& hashSalt, const MediaConstraints*);
-    static CaptureSourceOrError createPipewireSource(String&& deviceID, int fd, String&& hashSalt, const MediaConstraints*, CaptureDevice::DeviceType);
+    static CaptureSourceOrError createPipewireSource(String&& deviceID, const NodeAndFD&, String&& hashSalt, const MediaConstraints*, CaptureDevice::DeviceType);
 
     WEBCORE_EXPORT static VideoCaptureFactory& factory();
 
@@ -42,13 +45,13 @@ public:
     const RealtimeMediaSourceSettings& settings() override;
     GstElement* pipeline() { return m_capturer->pipeline(); }
     GStreamerCapturer* capturer() { return m_capturer.get(); }
-    void processNewFrame(Ref<MediaSample>&&);
+    void processNewFrame(Ref<VideoFrameGStreamer>&&);
 
     // GStreamerCapturer::Observer
     void sourceCapsChanged(const GstCaps*) final;
 
 protected:
-    GStreamerVideoCaptureSource(String&& deviceID, String&& name, String&& hashSalt, const gchar* source_factory, CaptureDevice::DeviceType, int fd);
+    GStreamerVideoCaptureSource(String&& deviceID, AtomString&& name, String&& hashSalt, const gchar* source_factory, CaptureDevice::DeviceType, const NodeAndFD&);
     GStreamerVideoCaptureSource(GStreamerCaptureDevice, String&& hashSalt);
     virtual ~GStreamerVideoCaptureSource();
     void startProducingData() override;

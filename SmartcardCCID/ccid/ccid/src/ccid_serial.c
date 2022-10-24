@@ -4,15 +4,15 @@
  *
  * Thanks to Niki W. Waibel <niki.waibel@gmx.net> for a prototype version
  *
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+	This library is free software; you can redistribute it and/or
+	modify it under the terms of the GNU Lesser General Public
+	License as published by the Free Software Foundation; either
+	version 2.1 of the License, or (at your option) any later version.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+	This library is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+	Lesser General Public License for more details.
 
 	You should have received a copy of the GNU Lesser General Public License
 	along with this library; if not, write to the Free Software Foundation,
@@ -220,13 +220,16 @@ status_t WriteSerial(unsigned int reader_index, unsigned int length,
  *
  *****************************************************************************/
 status_t ReadSerial(unsigned int reader_index,
-	unsigned int *length, unsigned char *buffer)
+	unsigned int *length, unsigned char *buffer, int bSeq)
 {
 	unsigned char c;
 	int rv;
 	int echo;
 	int to_read;
 	int i;
+
+	/* ignore bSeq */
+	(void)bSeq;
 
 	/* we get the echo first */
 	echo = serialDevice[reader_index].echo;
@@ -385,7 +388,11 @@ int get_bytes(unsigned int reader_index, unsigned char *buffer, int length)
 		rv = ReadChunk(reader_index, serialDevice[reader_index].buffer,
 			sizeof(serialDevice[reader_index].buffer), length - present);
 		if (rv < 0)
+		{
+			serialDevice[reader_index].buffer_offset = 0;
+			serialDevice[reader_index].buffer_offset_last = 0;
 			return STATUS_COMM_ERROR;
+		}
 
 		/* fill the buffer */
 		memcpy(buffer + present, serialDevice[reader_index].buffer,
@@ -616,6 +623,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 	serialDevice[reader_index].ccid.bPINSupport = 0x0;
 	serialDevice[reader_index].ccid.dwMaxDataRate = 344086;
 	serialDevice[reader_index].ccid.bMaxSlotIndex = 0;
+	serialDevice[reader_index].ccid.bMaxCCIDBusySlots = 1;
 	serialDevice[reader_index].ccid.arrayOfSupportedDataRates = SerialTwinDataRates;
 	serialDevice[reader_index].ccid.readTimeout = DEFAULT_COM_READ_TIMEOUT;
 	serialDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
@@ -928,6 +936,21 @@ status_t CloseSerial(unsigned int reader_index)
 
 	return STATUS_SUCCESS;
 } /* CloseSerial */
+
+
+/*****************************************************************************
+ *
+ *					DisconnectSerial
+ *
+ ****************************************************************************/
+status_t DisconnectSerial(unsigned int reader_index)
+{
+	(void)reader_index;
+
+	DEBUG_COMM("Disconnect reader");
+
+	return STATUS_UNSUCCESSFUL;
+} /* DisconnectSerial */
 
 
 /*****************************************************************************

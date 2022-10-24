@@ -235,6 +235,9 @@ long	 jrand48(unsigned short[3]) __swift_unavailable("Use arc4random instead.");
 char	*l64a(long);
 void	 lcong48(unsigned short[7]);
 long	 lrand48(void) __swift_unavailable("Use arc4random instead.");
+#if !defined(_POSIX_C_SOURCE)
+__deprecated_msg("This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of mktemp(3), it is highly recommended that you use mkstemp(3) instead.")
+#endif
 char	*mktemp(char *);
 int	 mkstemp(char *);
 long	 mrand48(void) __swift_unavailable("Use arc4random instead.");

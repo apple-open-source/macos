@@ -106,23 +106,27 @@ static const IOHIDEventField kIOHIDEventFieldMotionGestureGestureType           
 #define kIOHIDEventFieldGameControllerBase IOHIDEventFieldBase(kIOHIDEventTypeGameController)
 static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisX                       =  (kIOHIDEventFieldGameControllerBase | 13);
 static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisY                       =  (kIOHIDEventFieldGameControllerBase | 14);
-static const IOHIDEventField kIOHIDEventFieldGameControllerType                                =  (kIOHIDEventFieldGameControllerBase | 0);
-static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadRight                   =  (kIOHIDEventFieldGameControllerBase | 4);
+static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisZ                       =  (kIOHIDEventFieldGameControllerBase | 15);
+static const IOHIDEventField kIOHIDEventFieldGameControllerThumbstickButtonRight               =  (kIOHIDEventFieldGameControllerBase | 18);
+static const IOHIDEventField kIOHIDEventFieldGameControllerButtonR4                            =  (kIOHIDEventFieldGameControllerBase | 20);
+static const IOHIDEventField kIOHIDEventFieldGameControllerButtonR5                            =  (kIOHIDEventFieldGameControllerBase | 22);
 static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonR1                    =  (kIOHIDEventFieldGameControllerBase | 10);
+static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonR2                    =  (kIOHIDEventFieldGameControllerBase | 12);
+static const IOHIDEventField kIOHIDEventFieldGameControllerType                                =  (kIOHIDEventFieldGameControllerBase | 0);
+static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadLeft                    =  (kIOHIDEventFieldGameControllerBase | 3);
+static const IOHIDEventField kIOHIDEventFieldGameControllerButtonL4                            =  (kIOHIDEventFieldGameControllerBase | 19);
+static const IOHIDEventField kIOHIDEventFieldGameControllerButtonL5                            =  (kIOHIDEventFieldGameControllerBase | 21);
+static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonL2                    =  (kIOHIDEventFieldGameControllerBase | 11);
+static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonL1                    =  (kIOHIDEventFieldGameControllerBase | 9);
+static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadRight                   =  (kIOHIDEventFieldGameControllerBase | 4);
 static const IOHIDEventField kIOHIDEventFieldGameControllerFaceButtonA                         =  (kIOHIDEventFieldGameControllerBase | 5);
 static const IOHIDEventField kIOHIDEventFieldGameControllerFaceButtonB                         =  (kIOHIDEventFieldGameControllerBase | 6);
-static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadLeft                    =  (kIOHIDEventFieldGameControllerBase | 3);
-static const IOHIDEventField kIOHIDEventFieldGameControllerThumbstickButtonRight               =  (kIOHIDEventFieldGameControllerBase | 18);
-static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadDown                    =  (kIOHIDEventFieldGameControllerBase | 2);
-static const IOHIDEventField kIOHIDEventFieldGameControllerThumbstickButtonLeft                =  (kIOHIDEventFieldGameControllerBase | 17);
-static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisZ                       =  (kIOHIDEventFieldGameControllerBase | 15);
-static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonR2                    =  (kIOHIDEventFieldGameControllerBase | 12);
-static const IOHIDEventField kIOHIDEventFieldGameControllerFaceButtonY                         =  (kIOHIDEventFieldGameControllerBase | 8);
-static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonL2                    =  (kIOHIDEventFieldGameControllerBase | 11);
-static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisRz                      =  (kIOHIDEventFieldGameControllerBase | 16);
-static const IOHIDEventField kIOHIDEventFieldGameControllerShoulderButtonL1                    =  (kIOHIDEventFieldGameControllerBase | 9);
 static const IOHIDEventField kIOHIDEventFieldGameControllerFaceButtonX                         =  (kIOHIDEventFieldGameControllerBase | 7);
+static const IOHIDEventField kIOHIDEventFieldGameControllerThumbstickButtonLeft                =  (kIOHIDEventFieldGameControllerBase | 17);
 static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadUp                      =  (kIOHIDEventFieldGameControllerBase | 1);
+static const IOHIDEventField kIOHIDEventFieldGameControllerJoyStickAxisRz                      =  (kIOHIDEventFieldGameControllerBase | 16);
+static const IOHIDEventField kIOHIDEventFieldGameControllerDirectionPadDown                    =  (kIOHIDEventFieldGameControllerBase | 2);
+static const IOHIDEventField kIOHIDEventFieldGameControllerFaceButtonY                         =  (kIOHIDEventFieldGameControllerBase | 8);
 
 #define kIOHIDEventFieldTranslationBase IOHIDEventFieldBase(kIOHIDEventTypeTranslation)
 static const IOHIDEventField kIOHIDEventFieldTranslationY                                      =  (kIOHIDEventFieldTranslationBase | 1);
@@ -272,6 +276,8 @@ static const IOHIDEventField kIOHIDEventFieldOrientationRadius                  
 #define kIOHIDEventFieldProximityBase IOHIDEventFieldBase(kIOHIDEventTypeProximity)
 static const IOHIDEventField kIOHIDEventFieldProximityLevel                                    =  (kIOHIDEventFieldProximityBase | 1);
 static const IOHIDEventField kIOHIDEventFieldProximityDetectionMask                            =  (kIOHIDEventFieldProximityBase | 0);
+static const IOHIDEventField kIOHIDEventFieldProximityProximityType                            =  (kIOHIDEventFieldProximityBase | 2);
+static const IOHIDEventField kIOHIDEventFieldProbabilityLevel                                  =  (kIOHIDEventFieldProximityBase | 3);
 
 #define kIOHIDEventFieldFluidTouchGestureBase IOHIDEventFieldBase(kIOHIDEventTypeFluidTouchGesture)
 static const IOHIDEventField kIOHIDEventFieldFluidTouchGesturePositionY                        =  (kIOHIDEventFieldFluidTouchGestureBase | 4);

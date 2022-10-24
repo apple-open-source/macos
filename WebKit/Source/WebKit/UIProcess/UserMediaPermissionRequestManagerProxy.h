@@ -22,6 +22,8 @@
 #include "UserMediaPermissionCheckProxy.h"
 #include "UserMediaPermissionRequestProxy.h"
 #include <WebCore/MediaProducer.h>
+#include <WebCore/PermissionDescriptor.h>
+#include <WebCore/PermissionState.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/RealtimeMediaSourceFactory.h>
 #include <WebCore/SecurityOrigin.h>
@@ -35,6 +37,7 @@
 
 namespace WebCore {
 class CaptureDevice;
+struct ClientOrigin;
 struct MediaConstraints;
 struct MediaStreamRequest;
 class SecurityOrigin;
@@ -97,6 +100,8 @@ public:
         Prompt
     };
 
+    bool canAudioCaptureSucceed() const;
+    bool canVideoCaptureSucceed() const;
     void setMockCaptureDevicesEnabledOverride(std::optional<bool>);
     bool hasPendingCapture() const { return m_hasPendingCapture; }
 
@@ -110,6 +115,13 @@ public:
         bool isVideoDenied;
         bool isScreenCaptureDenied;
     };
+
+    std::optional<WebCore::PermissionState> filterPermissionQuery(const WebCore::ClientOrigin&, const WebCore::PermissionDescriptor&, WebCore::PermissionState);
+
+    bool shouldChangeDeniedToPromptForCamera(const WebCore::ClientOrigin&) const;
+    bool shouldChangeDeniedToPromptForMicrophone(const WebCore::ClientOrigin&) const;
+    bool shouldChangePromptToGrantForCamera(const WebCore::ClientOrigin&) const;
+    bool shouldChangePromptToGrantForMicrophone(const WebCore::ClientOrigin&) const;
 
 private:
 #if !RELEASE_LOG_DISABLED
@@ -146,6 +158,8 @@ private:
 
     void platformValidateUserMediaRequestConstraints(WebCore::RealtimeMediaSourceCenter::ValidConstraintsHandler&& validHandler, WebCore::RealtimeMediaSourceCenter::InvalidConstraintsHandler&& invalidHandler, String&& deviceIDHashSalt);
 #endif
+
+    bool mockCaptureDevicesEnabled() const;
 
     void watchdogTimerFired();
 

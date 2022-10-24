@@ -173,7 +173,7 @@ grep_tree(char **argv)
 	    __DECONST(char * const *, wd) : argv, fts_flags, NULL);
 	if (fts == NULL)
 		err(2, "fts_open");
-	while (errno = 0, (p = fts_read(fts)) != NULL) {
+	while ((void)(errno = 0), (p = fts_read(fts)) != NULL) {
 		switch (p->fts_info) {
 		case FTS_DNR:
 			/* FALLTHROUGH */
@@ -454,7 +454,7 @@ procfile(const char *fn, struct stat *psbp)
 		printf("%s%c", fn, nullflag ? 0 : '\n');
 	if (lines != 0 && !cflag && !lflag && !Lflag &&
 	    binbehave == BINFILE_BIN && f->binary && !qflag)
-		printf(errstr[7], fn);
+		printf(fmtcheck(errstr[7], "%s"), fn);
 
 	free(pc.ln.file);
 	free(f);

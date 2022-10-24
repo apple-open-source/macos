@@ -31,7 +31,7 @@
 	@header IOHIDDevice
     IOHIDDevice defines a Human Interface Device (HID) object, which interacts 
     with an IOHIDDevicePlugIn object that typically maps to an object in the 
-    kernel.  IOHIDDevice is used to communicate with a single HID device in 
+    kernel. IOHIDDevice is used to communicate with a single HID device in
     order to obtain or set device properties, element values, and reports.
     IOHIDDevice is also a CFType object and as such conforms to all the 
     conventions expected such object.
@@ -182,7 +182,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @abstract   Obtains HID elements that match the criteria contained in the 
                 matching dictionary.
     @discussion Matching keys are prefixed by kIOHIDElement and declared in 
-                <IOKit/hid/IOHIDKeys.h>.  Passing a NULL dictionary will result
+                <IOKit/hid/IOHIDKeys.h>. Passing a NULL dictionary will result
                 in all device elements being returned.
     @param      device Reference to an IOHIDDevice.
     @param      matching CFDictionaryRef containg element matching criteria.
@@ -230,64 +230,42 @@ void IOHIDDeviceUnscheduleFromRunLoop(
                                 CFStringRef                     runLoopMode)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
-/*!
- * @function IOHIDDeviceSetDispatchQueue
- *
- * @abstract
- * Sets the dispatch queue to be associated with the IOHIDDevice.
- * This is necessary in order to receive asynchronous events from the kernel.
- *
- * @discussion
- * An IOHIDDevice should not be associated with both a runloop and
- * dispatch queue. A call to IOHIDDeviceSetDispatchQueue should only be made once.
- *
- * After a dispatch queue is set, the IOHIDDevice must make a call to activate
- * via IOHIDDeviceActivate and cancel via IOHIDDeviceCancel. All calls to "Register"
- * functions should be done before activation and not after cancellation.
- *
- * @param device
- * Reference to an IOHIDDevice
- *
- * @param queue
- * The dispatch queue to which the event handler block will be submitted.
- */
+/*! @function   IOHIDDeviceSetDispatchQueue
+    @abstract   Sets the dispatch queue to be associated with the IOHIDDevice.
+                This is necessary in order to receive asynchronous events from the kernel.
+    @discussion An IOHIDDevice should not be associated with both a runloop and
+                dispatch queue. A call to IOHIDDeviceSetDispatchQueue should only be made once.
+                After a dispatch queue is set, the IOHIDDevice must make a call to activate
+                via IOHIDDeviceActivate and cancel via IOHIDDeviceCancel. All calls to "Register"
+                functions should be done before activation and not after cancellation.
+    @param      device Reference to an IOHIDDevice
+    @param      queue The dispatch queue to which the event handler block will be submitted.
+*/
 CF_EXPORT
 void IOHIDDeviceSetDispatchQueue(
                                 IOHIDDeviceRef                  device,
                                 dispatch_queue_t                queue)
 __OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
 
-/*!
- * @function IOHIDDeviceSetCancelHandler
- *
- * @abstract
- * Sets a cancellation handler for the dispatch queue associated with
- * IOHIDDeviceSetDispatchQueue.
- *
- * @discussion
- * The cancellation handler (if specified) will be will be submitted to the
- * device's dispatch queue in response to a call to IOHIDDeviceCancel after
- * all the events have been handled.
- *
- * IOHIDDeviceSetCancelHandler should not be used when scheduling with
- * a run loop.
- *
- * The IOHIDDeviceRef should only be released after the device has been
- * cancelled, and the cancel handler has been called. This is to ensure all
- * asynchronous objects are released. For example:
- *
- *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
- *         CFRelease(device);
- *     });
- *     IOHIDDeviceSetCancelHandler(device, cancelHandler);
- *     IOHIDDeviceActivate(device);
- *     IOHIDDeviceCancel(device);
- *
- * @param device
- * Reference to an IOHIDDevice.
- *
- * @param handler
- * The cancellation handler block to be associated with the dispatch queue.
+/*! @function   IOHIDDeviceSetCancelHandler
+    @abstract   Sets a cancellation handler for the dispatch queue associated with
+                IOHIDDeviceSetDispatchQueue.
+    @discussion The cancellation handler (if specified) will be will be submitted to the
+                device's dispatch queue in response to a call to IOHIDDeviceCancel after
+                all the events have been handled.
+                IOHIDDeviceSetCancelHandler should not be used when scheduling with
+                a run loop.
+                The IOHIDDeviceRef should only be released after the device has been
+                cancelled, and the cancel handler has been called. This is to ensure all
+                asynchronous objects are released. For example:
+                    dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+                        CFRelease(device);
+                    });
+                    IOHIDDeviceSetCancelHandler(device, cancelHandler);
+                    IOHIDDeviceActivate(device);
+                    IOHIDDeviceCancel(device);
+    @param      device Reference to an IOHIDDevice.
+    @param      handler The cancellation handler block to be associated with the dispatch queue.
  */
 CF_EXPORT
 void IOHIDDeviceSetCancelHandler(
@@ -295,64 +273,43 @@ void IOHIDDeviceSetCancelHandler(
                                  dispatch_block_t               handler)
 __OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
 
-/*!
- * @function IOHIDDeviceActivate
- *
- * @abstract
- * Activates the IOHIDDevice object.
- *
- * @discussion
- * An IOHIDDevice object associated with a dispatch queue is created
- * in an inactive state. The object must be activated in order to
- * receive asynchronous events from the kernel.
- *
- * A dispatch queue must be set via IOHIDDeviceSetDispatchQueue before
- * activation.
- *
- * An activated device must be cancelled via IOHIDDeviceCancel. All calls
- * to "Register" functions should be done before activation
- * and not after cancellation.
- *
- * Calling IOHIDDeviceActivate on an active IOHIDDevice has no effect.
- *
- * @param device
- * Reference to an IOHIDDevice
+/*! @function   IOHIDDeviceActivate
+    @abstract   Activates the IOHIDDevice object.
+    @discussion An IOHIDDevice object associated with a dispatch queue is created
+                in an inactive state. The object must be activated in order to
+                receive asynchronous events from the kernel.
+                A dispatch queue must be set via IOHIDDeviceSetDispatchQueue before
+                activation.
+                An activated device must be cancelled via IOHIDDeviceCancel. All calls
+                to "Register" functions should be done before activation
+                and not after cancellation.
+                Calling IOHIDDeviceActivate on an active IOHIDDevice has no effect.
+    @param      device Reference to an IOHIDDevice
  */
 CF_EXPORT
 void IOHIDDeviceActivate(
                                  IOHIDDeviceRef                 device)
 __OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
 
-/*!
- * @function IOHIDDeviceCancel
- *
- * @abstract
- * Cancels the IOHIDDevice preventing any further invocation
- * of its event handler block.
- *
- * @discussion
- * Cancelling prevents any further invocation of the event handler block for
- * the specified dispatch queue, but does not interrupt an event handler
- * block that is already in progress.
- *
- * Explicit cancellation of the IOHIDDevice is required, no implicit
- * cancellation takes place.
- *
- * Calling IOHIDDeviceCancel on an already cancelled queue has no effect.
- *
- * The IOHIDDeviceRef should only be released after the device has been
- * cancelled, and the cancel handler has been called. This is to ensure all
- * asynchronous objects are released. For example:
- *
- *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
- *         CFRelease(device);
- *     });
- *     IOHIDDeviceSetCancelHandler(device, cancelHandler);
- *     IOHIDDeviceActivate(device);
- *     IOHIDDeviceCancel(device);
- *
- * @param device
- * Reference to an IOHIDDevice
+/*! @function   IOHIDDeviceCancel
+    @abstract   Cancels the IOHIDDevice preventing any further invocation
+                of its event handler block.
+    @discussion Cancelling prevents any further invocation of the event handler block for
+                the specified dispatch queue, but does not interrupt an event handler
+                block that is already in progress.
+                Explicit cancellation of the IOHIDDevice is required, no implicit
+                cancellation takes place.
+                Calling IOHIDDeviceCancel on an already cancelled queue has no effect.
+                The IOHIDDeviceRef should only be released after the device has been
+                cancelled, and the cancel handler has been called. This is to ensure all
+                asynchronous objects are released. For example:
+                    dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+                        CFRelease(device);
+                    });
+                    IOHIDDeviceSetCancelHandler(device, cancelHandler);
+                    IOHIDDeviceActivate(device);
+                    IOHIDDeviceCancel(device);
+    @param      device Reference to an IOHIDDevice
  */
 CF_EXPORT
 void IOHIDDeviceCancel(
@@ -379,7 +336,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 the device.
     @discussion An input element refers to any element of type 
                 kIOHIDElementTypeInput and is usually issued by interrupt driven
-                reports.  If more specific element values are desired, you can 
+                reports. If more specific element values are desired, you can
                 specify matching criteria via IOHIDDeviceSetInputValueMatching
                 and IOHIDDeviceSetInputValueMatchingMultiple.
                 If a dispatch queue is set, this call must occur before activation.
@@ -444,10 +401,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_10_AND_LATER;
     @abstract   Sets matching criteria for input values received via 
                 IOHIDDeviceRegisterInputValueCallback.
     @discussion Matching keys are prefixed by kIOHIDElement and declared in 
-                <IOKit/hid/IOHIDKeys.h>.  Passing a NULL dictionary will result
+                <IOKit/hid/IOHIDKeys.h>. Passing a NULL dictionary will result
                 in all devices being enumerated. Any subsequent calls will cause
                 the hid manager to release previously matched input elements and 
-                restart the matching process using the revised criteria.  If 
+                restart the matching process using the revised criteria. If
                 interested in multiple, specific device elements, please defer to
                 using IOHIDDeviceSetInputValueMatchingMultiple.
                 If a dispatch queue is set, this call must occur before activation.
@@ -464,7 +421,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @abstract   Sets multiple matching criteria for input values received via 
                 IOHIDDeviceRegisterInputValueCallback.
     @discussion Matching keys are prefixed by kIOHIDElement and declared in 
-                <IOKit/hid/IOHIDKeys.h>.  This method is useful if interested 
+                <IOKit/hid/IOHIDKeys.h>. This method is useful if interested
                 in multiple, specific elements.
                 If a dispatch queue is set, this call must occur before activation.
     @param      device Reference to an IOHIDDevice.
@@ -480,8 +437,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! @function   IOHIDDeviceSetValue
     @abstract   Sets a value for an element.
     @discussion This method behaves synchronously and will block until the
-                report has been issued to the device.  It is only relevent for 
-                either output or feature type elements.  If setting values for 
+                report has been issued to the device. It is only relevent for
+                either output or feature type elements. If setting values for
                 multiple elements you may want to consider using 
                 IOHIDDeviceSetValueMultiple or IOHIDTransaction.
     @param      device Reference to an IOHIDDevice.
@@ -499,7 +456,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! @function   IOHIDDeviceSetValueMultiple
     @abstract   Sets multiple values for multiple elements.
     @discussion This method behaves synchronously and will block until the
-                report has been issued to the device.  It is only relevent for 
+                report has been issued to the device. It is only relevent for
                 either output or feature type elements.
     @param      device Reference to an IOHIDDevice.
     @param      multiple CFDictionaryRef where key is IOHIDElementRef and
@@ -513,20 +470,17 @@ IOReturn IOHIDDeviceSetValueMultiple(
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceSetValueWithCallback
-    @abstract   Sets a value for an element and returns status via a completion
-                callback.
-    @discussion This method behaves asynchronously and will invoke the callback
-                once the report has been issued to the device.  It is only 
-                relevent for either output or feature type elements.  
-                If setting values for multiple elements you may want to 
-                consider using IOHIDDeviceSetValueWithCallback or 
-                IOHIDTransaction.
+    @abstract   Sets a value for an element.
+    @discussion This method currently only behaves synchronously and will not
+                invoke the callback. It is only relevent for either output or
+                feature type elements. If setting values for multiple elements
+                you may want to consider using
+                IOHIDDeviceSetValueMultipleWithCallback or IOHIDTransaction.
     @param      device Reference to an IOHIDDevice.
     @param      element IOHIDElementRef whose value is to be modified.
     @param      value IOHIDValueRef containing value to be set.
-    @param      timeout CFTimeInterval containing the timeout.
-    @param      callback Pointer to a callback method of type 
-                IOHIDValueCallback.
+    @param      timeout Currently unused.
+    @param      callback Currently unused.
     @param      context Pointer to data to be passed to the callback.
     @result     Returns kIOReturnSuccess if successful.
 */
@@ -544,12 +498,12 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @abstract   Sets multiple values for multiple elements and returns status 
                 via a completion callback.
     @discussion This method behaves asynchronously and will invoke the callback
-                once the report has been issued to the device.  It is only 
+                once the report has been issued to the device. It is only
                 relevent for either output or feature type elements.  
     @param      device Reference to an IOHIDDevice.
     @param      multiple CFDictionaryRef where key is IOHIDElementRef and
                 value is IOHIDValueRef.
-    @param      timeout CFTimeInterval containing the timeout.
+    @param      timeout CFTimeInterval containing the timeout in milliseconds.
     @param      callback Pointer to a callback method of type 
                 IOHIDValueMultipleCallback.
     @param      context Pointer to data to be passed to the callback.
@@ -566,10 +520,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetValue
     @abstract   Gets a value for an element.
-    @discussion This method behaves synchronously and return back immediately
-                for input type element.  If requesting a value for a feature
+    @discussion This method behaves synchronously and returns immediately
+                for input type elements. If requesting a value for a feature
                 element, this will block until the report has been issued to the
-                device.  If obtaining values for multiple elements you may want 
+                device. If obtaining values for multiple elements you may want
                 to consider using IOHIDDeviceCopyValueMultiple or IOHIDTransaction.
     @param      device Reference to an IOHIDDevice.
     @param      element IOHIDElementRef whose value is to be obtained.
@@ -591,17 +545,17 @@ typedef CF_ENUM(uint32_t, IOHIDDeviceGetValueOptions) {
 
 
 /*! @function   IOHIDDeviceGetValueWithOptions
- @abstract   Gets a value for an element.
- @discussion This method behaves synchronously and return back immediately
- for input type element.  If requesting a value for a feature
- element, this will block until the report has been issued to the
- device.  If obtaining values for multiple elements you may want
- to consider using IOHIDDeviceCopyValueMultiple or IOHIDTransaction.
- @param      device Reference to an IOHIDDevice.
- @param      element IOHIDElementRef whose value is to be obtained.
- @param      pValue Pointer to IOHIDValueRef to be obtained.
- @param      options (see IOHIDDeviceGetValueOptions).
- @result     Returns kIOReturnSuccess if successful.
+    @abstract   Gets a value for an element.
+    @discussion This method behaves synchronously and returns immediately
+                for input type elements. If requesting a value for a feature
+                element, this will block until the report has been issued to the
+                device. If obtaining values for multiple elements you may want
+                to consider using IOHIDDeviceCopyValueMultiple or IOHIDTransaction.
+    @param      device Reference to an IOHIDDevice.
+    @param      element IOHIDElementRef whose value is to be obtained.
+    @param      pValue Pointer to IOHIDValueRef to be obtained.
+    @param      options (see IOHIDDeviceGetValueOptions).
+    @result     Returns kIOReturnSuccess if successful.
  */
 IOReturn IOHIDDeviceGetValueWithOptions (
                                         IOHIDDeviceRef                      device,
@@ -612,8 +566,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_13_AND_LATER;
 
 /*! @function   IOHIDDeviceCopyValueMultiple
     @abstract   Copies a values for multiple elements.
-    @discussion This method behaves synchronously and return back immediately
-                for input type element.  If requesting a value for a feature
+    @discussion This method behaves synchronously and returns immediately
+                for input type elements. If requesting a value for a feature
                 element, this will block until the report has been issued to the
                 device.
     @param      device Reference to an IOHIDDevice.
@@ -631,18 +585,17 @@ IOReturn IOHIDDeviceCopyValueMultiple(
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetValueWithCallback
-    @abstract   Gets a value for an element and returns status via a completion
-                callback.
-    @discussion This method behaves asynchronusly and is only relevent for 
-                either output or feature type elements. If obtaining values for 
-                multiple elements you may want to consider using 
+    @abstract   Gets a value for an element.
+    @discussion This method currently only behaves synchronously and will not
+                invoke the callback. It is only relevent for either output or
+                feature type elements. If setting values for multiple elements
+                you may want to consider using
                 IOHIDDeviceCopyValueMultipleWithCallback or IOHIDTransaction.
     @param      device Reference to an IOHIDDevice.
     @param      element IOHIDElementRef whose value is to be obtained.
     @param      pValue Pointer to IOHIDValueRef to be passedback.
-    @param      timeout CFTimeInterval containing the timeout.
-    @param      callback Pointer to a callback method of type 
-                IOHIDValueCallback.
+    @param      timeout Currently unused.
+    @param      callback Currently unused.
     @param      context Pointer to data to be passed to the callback.
     @result     Returns kIOReturnSuccess if successful.
 */
@@ -667,7 +620,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 values are to be obtained.
     @param      pMultiple Pointer to CFDictionaryRef where the keys are the 
                 provided elements and the values are the requested values.
-    @param      timeout CFTimeInterval containing the timeout.
+    @param      timeout CFTimeInterval containing the timeout in milliseconds.
     @param      callback Pointer to a callback method of type 
                 IOHIDValueMultipleCallback.
     @param      context Pointer to data to be passed to the callback.
@@ -687,7 +640,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! @function   IOHIDDeviceSetReport
     @abstract   Sends a report to the device.
     @discussion This method behaves synchronously and will block until the
-                report has been issued to the device.  It is only relevent for 
+                report has been issued to the device. It is only relevent for
                 either output or feature type reports.
     @param      device Reference to an IOHIDDevice.
     @param      reportType Type of report being sent.
@@ -709,17 +662,16 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDDeviceSetReportWithCallback
     @abstract   Sends a report to the device.
-    @discussion This method behaves asynchronously and will block until the
-                report has been issued to the device.  It is only relevent for 
+    @discussion This method behaves asynchronously. It is only relevent for
                 either output or feature type reports.
     @param      device Reference to an IOHIDDevice.
     @param      reportType Type of report being sent.
-    @param      reportID ID of the report being sent.  If the device supports
+    @param      reportID ID of the report being sent. If the device supports
                 multiple reports, this should also be set in the first byte of
                 the report.
     @param      report The report bytes to be sent to the device.
     @param      reportLength The length of the report to be sent to the device.
-    @param      timeout CFTimeInterval containing the timeout.
+    @param      timeout CFTimeInterval containing the timeout in milliseconds.
     @param      callback Pointer to a callback method of type 
                 IOHIDReportCallback.
     @param      context Pointer to data to be passed to the callback.
@@ -740,9 +692,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! @function   IOHIDDeviceGetReport
     @abstract   Obtains a report from the device.
     @discussion This method behaves synchronously and will block until the
-                report has been received from the device.  This is only intended 
-                for feature reports because of sporadic devicesupport for 
-                polling input reports.  Please defer to using 
+                report has been received from the device. It is only relevent for
+                either output or feature type reports. Please defer to using
                 IOHIDDeviceRegisterInputReportCallback for obtaining input 
                 reports.
     @param      device Reference to an IOHIDDevice.
@@ -766,21 +717,19 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetReportWithCallback
     @abstract   Obtains a report from the device.
-    @discussion This method behaves asynchronously and will block until the
-                report has been received from the device.  This is only intended 
-                for feature reports because of sporadic devicesupport for 
-                polling input reports.  Please defer to using 
-                IOHIDDeviceRegisterInputReportCallback for obtaining input 
+    @discussion This method behaves asynchronously. It is only relevent for
+                either output or feature type reports. Please defer to using
+                IOHIDDeviceRegisterInputReportCallback for obtaining input
                 reports.
     @param      device Reference to an IOHIDDevice.
     @param      reportType Type of report being requested.
     @param      reportID ID of the report being requested.
     @param      report Pointer to preallocated buffer in which to copy inbound
                 report data.
-    @param      pReportLength Pointer to length of preallocated buffer.
-    @param      pReportLength Pointer to length of preallocated buffer.  This
+    @param      pReportLength Pointer to length of preallocated buffer. This
                 value will be modified to refect the length of the returned 
                 report.
+    @param      timeout CFTimeInterval containing the timeout in milliseconds.
     @param      callback Pointer to a callback method of type 
                 IOHIDReportCallback.
     @param      context Pointer to data to be passed to the callback.

@@ -109,32 +109,31 @@
     
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper prepareInheritancePeerWithContainer:self.deps.containerName
-                                                                context:self.deps.contextID
-                                                                  epoch:self.epoch
-                                                              machineID:self.deviceInfo.machineID
-                                                             bottleSalt:bottleSalt
-                                                               bottleID:[NSUUID UUID].UUIDString
-                                                                modelID:self.deviceInfo.modelID
-                                                             deviceName:self.deviceInfo.deviceName
-                                                           serialNumber:self.deviceInfo.serialNumber
-                                                              osVersion:self.deviceInfo.osVersion
-                                                          policyVersion:self.policyOverride
-                                                          policySecrets:nil
-                                              syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_UNKNOWN
-                                                  secureElementIdentity:existingSecureElementIdentity
-                                            signingPrivKeyPersistentRef:nil
-                                                encPrivKeyPersistentRef:nil
-                                                                    crk:self.tphcrk
-                                                                  reply:^(NSString * _Nullable peerID,
-                                                                          NSData * _Nullable permanentInfo,
-                                                                          NSData * _Nullable permanentInfoSig,
-                                                                          NSData * _Nullable stableInfo,
-                                                                          NSData * _Nullable stableInfoSig,
-                                                                          TPSyncingPolicy * _Nullable syncingPolicy,
-                                                                          NSString * _Nullable recoveryKeyID,
-                                                                          NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                                          NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper prepareInheritancePeerWithSpecificUser:self.deps.activeAccount
+                                                                     epoch:self.epoch
+                                                                 machineID:self.deviceInfo.machineID
+                                                                bottleSalt:bottleSalt
+                                                                  bottleID:[NSUUID UUID].UUIDString
+                                                                   modelID:self.deviceInfo.modelID
+                                                                deviceName:self.deviceInfo.deviceName
+                                                              serialNumber:self.deviceInfo.serialNumber
+                                                                 osVersion:self.deviceInfo.osVersion
+                                                             policyVersion:self.policyOverride
+                                                             policySecrets:nil
+                                                 syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_UNKNOWN
+                                                     secureElementIdentity:existingSecureElementIdentity
+                                               signingPrivKeyPersistentRef:nil
+                                                   encPrivKeyPersistentRef:nil
+                                                                       crk:self.tphcrk
+                                                                     reply:^(NSString * _Nullable peerID,
+                                                                             NSData * _Nullable permanentInfo,
+                                                                             NSData * _Nullable permanentInfoSig,
+                                                                             NSData * _Nullable stableInfo,
+                                                                             NSData * _Nullable stableInfoSig,
+                                                                             TPSyncingPolicy * _Nullable syncingPolicy,
+                                                                             NSString * _Nullable recoveryKeyID,
+                                                                             NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
         if(error) {
@@ -156,7 +155,7 @@
             NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];
             for(CKRecord* record in keyHierarchyRecords) {
                 if([record.recordType isEqual:SecCKRecordTLKShareType]) {
-                    CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                    CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
                     [filteredTLKShares addObject:tlkShare.share];
                 }
             }
@@ -190,13 +189,12 @@
 {
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper recoverTLKSharesForInheritorWithContainer:self.deps.containerName
-                                                                      context:self.deps.contextID
-                                                                          crk:self.tphcrk
-                                                                    tlkShares:tlkShares
-                                                                        reply:^(NSArray<CKKSTLKShare *> * _Nullable newSelfTLKShares,
-                                                                                TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                                                NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper recoverTLKSharesForInheritorWithSpecificUser:self.deps.activeAccount
+                                                                             crk:self.tphcrk
+                                                                       tlkShares:tlkShares
+                                                                           reply:^(NSArray<CKKSTLKShare *> * _Nullable newSelfTLKShares,
+                                                                                   TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                                   NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithInheritanceKey hardFailure:true result:error];
         if(error){

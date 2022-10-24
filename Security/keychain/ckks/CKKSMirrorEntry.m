@@ -49,9 +49,11 @@
     return self;
 }
 
--(instancetype)initWithCKRecord:(CKRecord*)record {
+-(instancetype)initWithCKRecord:(CKRecord*)record
+                      contextID:(NSString*)contextID
+{
     if((self = [super init])) {
-        _item = [[CKKSItem alloc] initWithCKRecord:record];
+        _item = [[CKKSItem alloc] initWithCKRecord:record contextID:contextID];
 
         _wasCurrent = [record[SecCKRecordServerWasCurrent] unsignedLongLongValue];
     }
@@ -59,8 +61,9 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat: @"<%@(%@): %@>",
+    return [NSString stringWithFormat: @"<%@[%@](%@): %@>",
             NSStringFromClass([self class]),
+            self.item.contextID,
             self.item.zoneID.zoneName,
             self.item.uuid];
 }
@@ -87,17 +90,38 @@
 
 #pragma mark - Database Operations
 
-+ (instancetype) fromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"UUID": CKKSNilToNSNull(uuid), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error: error];
-}
-
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"UUID": CKKSNilToNSNull(uuid), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error: error];
-}
-
-+ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid error:(NSError**)error
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError * __autoreleasing *)error
 {
-    return [self allWhere:@{@"UUID": CKKSNilToNSNull(uuid)} error:error];
+    return [self fromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": CKKSNilToNSNull(uuid),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } error: error];
+}
+
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError * __autoreleasing *)error
+{
+    return [self tryFromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": CKKSNilToNSNull(uuid),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } error: error];
+}
+
++ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                    error:(NSError**)error
+{
+    return [self allWhere:@{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": CKKSNilToNSNull(uuid)
+    } error:error];
 }
 
 #pragma mark - Property access to underlying CKKSItem
@@ -138,11 +162,17 @@
     return ckme;
 }
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSDictionary<NSString*,NSNumber*>*)countsByParentKeyWithContextID:(NSString*)contextID
+                                                              zoneID:(CKRecordZoneID*)zoneID
+                                                               error:(NSError * __autoreleasing *)error
+{
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
-                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+    }
                                       columns: @[@"parentKeyUUID", @"count(rowid)"]
                                       groupBy: @[@"parentKeyUUID"]
                                       orderBy:nil
@@ -154,11 +184,37 @@
     return results;
 }
 
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSDictionary<NSString*,NSNumber*>*)countsByZoneNameWithContextID:(NSString*)contextID
+                                                              error:(NSError * __autoreleasing *)error
+{
+    NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
+
+    [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
+                                        where:@{
+        @"contextID": CKKSNilToNSNull(contextID),
+    }
+                                      columns:@[@"ckzone", @"count(rowid)"]
+                                      groupBy:@[@"ckzone"]
+                                      orderBy:nil
+                                        limit:-1
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+        results[row[@"ckzone"].asString] = row[@"count(rowid)"].asNSNumberInteger;
+    }
+                                        error: error];
+    return results;
+}
+
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error
+{
     __block NSNumber *result = nil;
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
-                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+    }
                                       columns: @[@"count(rowid)"]
                                       groupBy:nil
                                       orderBy:nil

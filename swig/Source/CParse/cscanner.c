@@ -153,7 +153,7 @@ void Swig_cparse_follow_locators(int v) {
  * Initialize buffers
  * ------------------------------------------------------------------------- */
 
-void scanner_init() {
+void scanner_init(void) {
   scan = NewScanner();
   Scanner_idstart(scan,"%");
   scan_init = 1;

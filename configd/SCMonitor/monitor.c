@@ -680,6 +680,11 @@ updateInterfaceList(MyType *myInstance)
 			CFSetAddValue(myInstance->interfaces_known, interface);
 			changed = TRUE;
 
+			if (!SCNetworkInterfaceGetAutoConfigure(interface)) {
+				// interface should not be auto-configured
+				continue;
+			}
+
 			ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
 			if (ok) {
 				CFStringRef		action;

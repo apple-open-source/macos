@@ -216,6 +216,7 @@ void PageClientImpl::didCreateContextInGPUProcessForVisibilityPropagation(LayerH
 void PageClientImpl::gpuProcessDidExit()
 {
     [m_contentView _gpuProcessDidExit];
+    PageClientImplCocoa::gpuProcessDidExit();
 }
 #endif
 
@@ -463,9 +464,9 @@ void PageClientImpl::doneDeferringTouchEnd(bool preventNativeGestures)
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
+void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
 {
-    [m_contentView requestTextRecognition:imageURL imageData:imageData identifier:identifier completionHandler:WTFMove(completion)];
+    [m_contentView requestTextRecognition:imageURL imageData:imageData sourceLanguageIdentifier:sourceLanguageIdentifier targetLanguageIdentifier:targetLanguageIdentifier completionHandler:WTFMove(completion)];
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -757,24 +758,24 @@ void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& 
     [m_webView _didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:suggestedFilename data:data.get()];
 }
 
-void PageClientImpl::scrollingNodeScrollViewWillStartPanGesture()
+void PageClientImpl::scrollingNodeScrollViewWillStartPanGesture(ScrollingNodeID)
 {
     [m_contentView scrollViewWillStartPanOrPinchGesture];
 }
 
-void PageClientImpl::scrollingNodeScrollViewDidScroll()
+void PageClientImpl::scrollingNodeScrollViewDidScroll(ScrollingNodeID)
 {
     [m_contentView _didScroll];
 }
 
-void PageClientImpl::scrollingNodeScrollWillStartScroll()
+void PageClientImpl::scrollingNodeScrollWillStartScroll(ScrollingNodeID nodeID)
 {
-    [m_contentView _scrollingNodeScrollingWillBegin];
+    [m_contentView _scrollingNodeScrollingWillBegin:nodeID];
 }
 
-void PageClientImpl::scrollingNodeScrollDidEndScroll()
+void PageClientImpl::scrollingNodeScrollDidEndScroll(ScrollingNodeID nodeID)
 {
-    [m_contentView _scrollingNodeScrollingDidEnd];
+    [m_contentView _scrollingNodeScrollingDidEnd:nodeID];
 }
 
 Vector<String> PageClientImpl::mimeTypesWithCustomContentProviders()
@@ -981,6 +982,20 @@ void PageClientImpl::showDataDetectorsUIForPositionInformation(const Interaction
     [m_contentView _showDataDetectorsUIForPositionInformation:positionInformation];
 }
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+void PageClientImpl::didEnterFullscreen()
+{
+    [m_contentView _didEnterFullscreen];
+}
+
+void PageClientImpl::didExitFullscreen()
+{
+    [m_contentView _didExitFullscreen];
+}
+
+#endif // ENABLE(VIDEO_PRESENTATION_MODE)
+
 #if ENABLE(ATTACHMENT_ELEMENT)
 
 void PageClientImpl::writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&& info)
@@ -1018,7 +1033,26 @@ void PageClientImpl::runModalJavaScriptDialog(CompletionHandler<void()>&& callba
 
 WebCore::Color PageClientImpl::contentViewBackgroundColor()
 {
-    return WebCore::roundAndClampToSRGBALossy([m_contentView backgroundColor].CGColor);
+    WebCore::Color color;
+    auto computeContentViewBackgroundColor = [&]() {
+        color = WebCore::roundAndClampToSRGBALossy([m_contentView backgroundColor].CGColor);
+        if (color.isValid())
+            return;
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+        color = WebCore::roundAndClampToSRGBALossy(UIColor.systemBackgroundColor.CGColor);
+#else
+        color = { };
+#endif
+    };
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    [[m_webView traitCollection] performAsCurrentTraitCollection:computeContentViewBackgroundColor];
+#else
+    computeContentViewBackgroundColor();
+#endif
+
+    return color;
 }
 
 void PageClientImpl::requestScrollToRect(const FloatRect& targetRect, const FloatPoint& origin)
@@ -1029,6 +1063,40 @@ void PageClientImpl::requestScrollToRect(const FloatRect& targetRect, const Floa
 String PageClientImpl::sceneID()
 {
     return [m_contentView window].windowScene._sceneIdentifier;
+}
+
+void PageClientImpl::beginTextRecognitionForFullscreenVideo(const ShareableBitmap::Handle& imageHandle, AVPlayerViewController *playerViewController)
+{
+    [m_contentView beginTextRecognitionForFullscreenVideo:imageHandle playerViewController:playerViewController];
+}
+
+void PageClientImpl::cancelTextRecognitionForFullscreenVideo(AVPlayerViewController *controller)
+{
+    [m_contentView cancelTextRecognitionForFullscreenVideo:controller];
+}
+
+bool PageClientImpl::isTextRecognitionInFullscreenVideoEnabled() const
+{
+    return [m_contentView isTextRecognitionInFullscreenVideoEnabled];
+}
+
+void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(const ShareableBitmap::Handle& bitmapHandle, FloatRect bounds)
+{
+    [m_contentView beginTextRecognitionForVideoInElementFullscreen:bitmapHandle bounds:bounds];
+}
+
+void PageClientImpl::cancelTextRecognitionForVideoInElementFullscreen()
+{
+    [m_contentView cancelTextRecognitionForVideoInElementFullscreen];
+}
+
+bool PageClientImpl::hasResizableWindows() const
+{
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    return [m_webView _isWindowResizingEnabled];
+#else
+    return false;
+#endif
 }
 
 } // namespace WebKit

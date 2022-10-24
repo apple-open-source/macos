@@ -19,7 +19,7 @@
 
 using namespace angle;
 
-class EGLPrintEGLinfoTest : public ANGLETest
+class EGLPrintEGLinfoTest : public ANGLETest<>
 {
   protected:
     EGLPrintEGLinfoTest() {}
@@ -57,6 +57,7 @@ const char *GetEGLString(EGLDisplay display, EGLint name)
 {
     const char *value = "";
     value             = eglQueryString(display, name);
+    EXPECT_EGL_ERROR(EGL_SUCCESS);
     EXPECT_TRUE(value != nullptr);
     return value;
 }
@@ -66,6 +67,7 @@ const char *GetGLString(EGLint name)
 {
     const char *value = "";
     value             = reinterpret_cast<const char *>(glGetString(name));
+    EXPECT_GL_ERROR(GL_NO_ERROR);
     EXPECT_TRUE(value != nullptr);
     return value;
 }

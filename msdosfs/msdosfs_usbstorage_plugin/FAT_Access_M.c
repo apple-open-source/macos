@@ -1115,7 +1115,7 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
 	do
     {
         iErr = FAT_Access_M_ContClusterAllocate( psFSRecord, uStartCluster, uClustToAlloc, FAT_EOF(psFSRecord), &uFirstNewCluster, &uSucNum, bMustBeContiguousAllocation);
-        
+
         if ( iErr != 0 || !CLUSTER_IS_VALID(uFirstNewCluster, psFSRecord))
         {
             if ( uCounter > 0 )
@@ -1141,14 +1141,7 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
         if (bMustBeContiguousAllocation && uSucNum < uClustToAlloc) {
             if (!bPartialAllocationAllowed) {
                 iErr = ENOSPC;
-                
-                // Need to free what we already allocated
-                FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
-                if ( uLastKnownCluster != 0 )
-                {
-                    FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
-                }
-                goto exit;
+                goto fail;
             } else {
                 bShouldStopAllocation = true;
             }
@@ -1206,12 +1199,7 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
                 if ( iErr != 0 )
                 {
                     MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_AllocateClusters: Failed to write zero buffer into the device\n");
-                    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
-                    if ( uLastKnownCluster != 0 )
-                    {
-                        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
-                    }
-                    goto exit;
+                    goto fail;
                 }
 
                 if (uChainLen == 0) break;
@@ -1220,12 +1208,7 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
                 if ( iErr != 0 )
                 {
                     MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_AllocateClusters: Failed to write zero buffer into the device\n");
-                    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
-                    if ( uLastKnownCluster != 0 )
-                    {
-                        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
-                    }
-                    goto exit;
+                    goto fail;
                 }
 
                 uStartClusterToZeroFill = NextCluster;
@@ -1244,7 +1227,8 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
     goto exit;
     
 fail:
-    MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_AllocateClusters: got error during cluster allocation\n");
+    // Need to free what we already allocated
+    MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_AllocateClusters: got error during cluster allocation [%d]\n", iErr);
     if (CLUSTER_IS_VALID(*puFirstAllocatedCluster, psFSRecord)) {
         FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
     } else {
@@ -1254,7 +1238,7 @@ fail:
     if ( uLastKnownCluster != 0 ) {
         FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
     }
-
+    *puFirstAllocatedCluster = 0;
 exit:
     FAT_ACCESS_FREE(psFSRecord);
 
@@ -1279,9 +1263,6 @@ FAT_Access_M_TruncateLastClusters( NodeRecord_s* psNodeRecord, uint32_t uClusToT
     {
         return EINVAL;
     }
-    // Bug! assert for now..
-    assert( uClusToTrunc <= psNodeRecord->sRecordData.uClusterChainLength );
-    assert( uClusToTrunc > 0 );
     
     int iErr                        = 0;
     uint32_t uNextCluster           = 0;
@@ -1291,6 +1272,13 @@ FAT_Access_M_TruncateLastClusters( NodeRecord_s* psNodeRecord, uint32_t uClusToT
     uint32_t uCluster               = psNodeRecord->sRecordData.uFirstCluster;
 
     FAT_ACCESS_LOCK(psFSRecord);
+
+    if ((uClusToTrunc == 0) || (uClusToTrunc > psNodeRecord->sRecordData.uClusterChainLength)) {
+        MSDOS_LOG(LEVEL_FAULT, "FAT_Access_M_TruncateLastClusters: uClusToTrunc %u uClusterChainLength %u\n",
+                  uClusToTrunc,  psNodeRecord->sRecordData.uClusterChainLength);
+        iErr = EIO;
+        goto exit;
+    }
 
     if ( uNewClusterChainLen == 0 )
     {

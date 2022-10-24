@@ -190,7 +190,7 @@ CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
                     void *derivedKey, size_t derivedKeyLen)
 {
     CCStatus rv = kCCUnimplemented;
-    CCKDFParametersRef params;
+    CCKDFParametersRef params = NULL;
 
     switch (algorithm) {
         case kCCKDFAlgorithmPBKDF2_HMAC:

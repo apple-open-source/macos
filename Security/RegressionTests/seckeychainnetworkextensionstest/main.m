@@ -15,7 +15,7 @@ static NSString* NetworkExtensionAccessGroup = @"FakeAppPrefix.com.apple.network
 static NSString* TestAccount = @"MyTestAccount";
 static NSString* TestPassword = @"MyTestPassword";
 
-static void cleanupKeychain()
+static void cleanupKeychain(void)
 {
     NSMutableDictionary* attributes = [NSMutableDictionary dictionary];
     attributes[(__bridge NSString*)kSecClass] = (__bridge NSString*)kSecClassGenericPassword;

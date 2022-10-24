@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004,2011,2013-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2011,2013-2016,2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -50,27 +50,24 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECAPI \
 	OSStatus __secapiresult = errSecSuccess; \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false); \
 	try {
 #define END_SECAPI }\
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
-	return __secapiresult;
-#define END_SECAPI1(BAD_RETURN_VAL) \
-	} \
-	catch (...) \
-	{ \
-		__secapiresult=BAD_RETURN_VAL; \
-	} \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 #define END_SECAPI1(BAD_RETURN_VAL) }\
 	catch (...) { __secapiresult=BAD_RETURN_VAL; } \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 #define END_SECAPI0 }\
-	catch (...) { return; }
+	catch (...) { setCountLegacyAPIEnabledForThread(__countlegacyapi); return; }
 
 
 //
@@ -79,8 +76,10 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECKCITEMAPI \
 	OSStatus __secapiresult=errSecSuccess; \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false); \
 	SecKeychainItemRef __itemImplRef=NULL; \
 	bool __is_certificate=(itemRef && (CFGetTypeID(itemRef) == SecCertificateGetTypeID())); \
 	if (__is_certificate) { \
@@ -107,6 +106,7 @@ using namespace KeychainCore;
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
 	if (__itemImplRef) { CFRelease(__itemImplRef); } \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 
 
@@ -116,8 +116,10 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECCERTAPI \
 	OSStatus __secapiresult=errSecSuccess; \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
 	static dispatch_once_t countToken; \
 	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false); \
 	SecCertificateRef __itemImplRef=NULL; \
 	if (SecCertificateIsItemImplInstance(certificate)) { __itemImplRef=(SecCertificateRef)CFRetain(certificate); } \
 	if (!__itemImplRef && certificate) { __itemImplRef=(SecCertificateRef)SecCertificateCopyKeychainItem(certificate); } \
@@ -134,6 +136,7 @@ using namespace KeychainCore;
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
 	catch (...) { __secapiresult=errSecInternalComponent; } \
 	if (__itemImplRef) { CFRelease(__itemImplRef); } \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
 	return __secapiresult;
 
 
@@ -141,19 +144,69 @@ using namespace KeychainCore;
 // BEGIN_SECKEYAPI
 //
 #define BEGIN_SECKEYAPI(resultType, resultInit) \
-resultType result = resultInit; try {
+	resultType result = resultInit; \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false); \
+	try {
 
+//
+// END_SECKEYAPI
+//
 extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format, ...);
 
 #define END_SECKEYAPI }\
-catch (const MacOSError &err) { SecError(err.osStatus(), error, CFSTR("%s"), err.what()); result = NULL; } \
-catch (const CommonError &err) { \
-	if (err.osStatus() != CSSMERR_CSP_INVALID_DIGEST_ALGORITHM) { \
-    	OSStatus status = SecKeychainErrFromOSStatus(err.osStatus()); if (status == errSecInputLengthError) status = errSecParam; \
-    	SecError(status, error, CFSTR("%s"), err.what()); result = NULL; } \
+	catch (const MacOSError &err) { SecError(err.osStatus(), error, CFSTR("%s"), err.what()); result = NULL; } \
+	catch (const CommonError &err) { \
+		if (err.osStatus() != CSSMERR_CSP_INVALID_DIGEST_ALGORITHM) { \
+			OSStatus status = SecKeychainErrFromOSStatus(err.osStatus()); \
+			if (status == errSecInputLengthError) status = errSecParam; \
+			SecError(status, error, CFSTR("%s"), err.what()); result = NULL; \
+		} \
 	} \
-catch (const std::bad_alloc &) { SecError(errSecAllocate, error, CFSTR("allocation failed")); result = NULL; } \
-catch (...) { SecError(errSecInternalComponent, error, CFSTR("internal error")); result = NULL; } \
-return result;
+	catch (const std::bad_alloc &) { SecError(errSecAllocate, error, CFSTR("allocation failed")); result = NULL; } \
+	catch (...) { SecError(errSecInternalComponent, error, CFSTR("internal error")); result = NULL; } \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
+	return result;
+
+
+//
+// BEGIN_SECPOLICYAPI
+// Note: this does not use try/catch in order to allow early returns,
+// for use with API implementations that only call other 'C' APIs.
+//
+#define BEGIN_SECPOLICYAPI \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false);
+
+//
+// END_SECPOLICYAPI
+//
+#define END_SECPOLICYAPI(RETURN_VAL) \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
+	return RETURN_VAL;
+
+
+//
+// BEGIN_SECTRUSTAPI
+// Note: this does not use try/catch in order to allow early returns,
+// for use with API implementations that only call other 'C' APIs.
+//
+#define BEGIN_SECTRUSTAPI \
+	bool __countlegacyapi = countLegacyAPIEnabledForThread(); \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
+	setCountLegacyAPIEnabledForThread(false);
+
+//
+// END_SECTRUSTAPI
+//
+#define END_SECTRUSTAPI(RETURN_VAL) \
+	setCountLegacyAPIEnabledForThread(__countlegacyapi); \
+	return RETURN_VAL;
+
 
 #endif /* !_SECURITY_SECBRIDGE_H_ */

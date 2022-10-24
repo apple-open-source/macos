@@ -1,0 +1,1 @@
+http://yandex.ocsp-responder.com

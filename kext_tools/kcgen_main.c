@@ -71,11 +71,6 @@
 #include "kcgen_main.h"
 #include "compression.h"
 
-#if RC_ENABLE_PRODUCT_INFO_FILTER
-// Disable info hiding in this host tool
-static void * product_info_filter_disable __attribute__((section("__INFO_FILTER,__disable"))) __attribute__((used));
-#endif /*  RC_ENABLE_PRODUCT_INFO_FILTER */
-
 /*******************************************************************************
 * Program Globals
 *******************************************************************************/

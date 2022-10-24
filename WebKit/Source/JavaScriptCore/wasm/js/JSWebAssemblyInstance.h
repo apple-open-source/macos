@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,7 +55,7 @@ public:
     static void destroy(JSCell*);
 
     template<typename CellType, SubspaceAccess mode>
-    static IsoSubspace* subspaceFor(VM& vm)
+    static GCClient::IsoSubspace* subspaceFor(VM& vm)
     {
         return vm.webAssemblyInstanceSpace<mode>();
     }
@@ -67,7 +67,8 @@ public:
 
     DECLARE_EXPORT_INFO;
 
-    void finalizeCreation(VM&, JSGlobalObject*, Ref<Wasm::CalleeGroup>&&, JSObject* importObject, Wasm::CreationMode);
+    void initializeImports(JSGlobalObject*, JSObject* importObject, Wasm::CreationMode);
+    void finalizeCreation(VM&, JSGlobalObject*, Ref<Wasm::CalleeGroup>&&, Wasm::CreationMode);
     
     Wasm::Instance& instance() { return m_instance.get(); }
     WebAssemblyModuleRecord* moduleRecord() { return m_moduleRecord.get(); }
@@ -109,7 +110,7 @@ private:
     DECLARE_VISIT_CHILDREN;
 
     Ref<Wasm::Instance> m_instance;
-    VM* m_vm;
+    VM* const m_vm;
 
     WriteBarrier<JSGlobalObject> m_globalObject;
     WriteBarrier<JSWebAssemblyModule> m_module;

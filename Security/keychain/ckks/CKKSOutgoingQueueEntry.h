@@ -46,6 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property NSString* action;
 @property NSString* state;
+@property (readonly) NSString* contextID;
 @property NSString* accessgroup;
 @property NSDate* waitUntil;  // If non-null, the time at which this entry should be processed
 
@@ -57,34 +58,49 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype _Nullable)withItem:(SecDbItemRef)item
                             action:(NSString*)action
+                         contextID:(NSString*)contextID
                             zoneID:(CKRecordZoneID*)zoneID
                           keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
-                             error:(NSError* __autoreleasing*)error;
+                             error:(NSError * __autoreleasing *)error;
+
 + (instancetype _Nullable)fromDatabase:(NSString*)uuid
                                  state:(NSString*)state
+                             contextID:(NSString*)contextID
                                 zoneID:(CKRecordZoneID*)zoneID
                                  error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
 + (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
                                     state:(NSString*)state
+                                contextID:(NSString*)contextID
                                    zoneID:(CKRecordZoneID*)zoneID
                                     error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSOutgoingQueueEntry*>*)fetch:(ssize_t)n
                                      state:(NSString*)state
+                                 contextID:(NSString*)contextID
                                     zoneID:(CKRecordZoneID*)zoneID
                                      error:(NSError* __autoreleasing*)error;
 + (NSArray<CKKSOutgoingQueueEntry*>*)allInState:(NSString*)state
+                                      contextID:(NSString*)contextID
                                          zoneID:(CKRecordZoneID*)zoneID
                                           error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSOutgoingQueueEntry*>*)allWithUUID:(NSString*)uuid
                                           states:(NSArray<NSString*>*)states
+                                       contextID:(NSString*)contextID
                                           zoneID:(CKRecordZoneID*)zoneID
                                            error:(NSError * __autoreleasing *)error;
 
-+ (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSDictionary<NSString*, NSNumber*>*)countsByStateWithContextID:(NSString*)contextID
+                                                           zoneID:(CKRecordZoneID*)zoneID
+                                                            error:(NSError* __autoreleasing*)error;
++ (NSInteger)countByState:(CKKSItemState *)state
+                contextID:(NSString*)contextID
+                   zoneID:(CKRecordZoneID*)zoneID
+                    error:(NSError * __autoreleasing *)error;
 
 - (BOOL)intransactionMoveToState:(NSString*)state
                        viewState:(CKKSKeychainViewState*)viewState

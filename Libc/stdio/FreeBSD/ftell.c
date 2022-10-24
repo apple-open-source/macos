@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +36,7 @@
 static char sccsid[] = "@(#)ftell.c	8.2 (Berkeley) 5/4/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/ftell.c,v 1.27 2007/01/09 00:28:06 imp Exp $");
+__FBSDID("$FreeBSD$");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -44,13 +46,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/ftell.c,v 1.27 2007/01/09 00:28:06 imp Ex
 #include "un-namespace.h"
 #include "local.h"
 #include "libc_private.h"
+#include "../stdio_init.h"
 
 /*
  * standard ftell function.
  */
 long
-ftell(fp)
-	FILE *fp;
+ftell(FILE *fp)
 {
 	off_t rv;
 
@@ -66,8 +68,7 @@ ftell(fp)
  * ftello: return current offset.
  */
 off_t
-ftello(fp)
-	FILE *fp;
+ftello(FILE *fp)
 {
 	fpos_t rv;
 	int ret;
@@ -85,9 +86,7 @@ ftello(fp)
 }
 
 int
-_ftello(fp, offset)
-	FILE *fp;
-	fpos_t *offset;
+_ftello(FILE *fp, fpos_t *offset)
 {
 	fpos_t pos;
 	size_t n;
@@ -101,15 +100,35 @@ _ftello(fp, offset)
 	 * Find offset of underlying I/O object, then
 	 * adjust for buffered bytes.
 	 */
-	if (__sflush(fp))		/* may adjust seek offset on append stream */
-		return (1);
-	if (fp->_flags & __SOFF)
-		pos = fp->_offset;
-	else {
-		pos = _sseek(fp, (fpos_t)0, SEEK_CUR);
-		if (pos == -1)
+
+	/* Conformance fix not applied for pre-macOS 13.0 binaries. (96211868) */
+	if (__ftell_conformance_fix) {
+		if (!(fp->_flags & __SRD) && (fp->_flags & __SWR) &&
+			fp->_p != NULL && fp->_p - fp->_bf._base > 0 &&
+			((fp->_flags & __SAPP))) {
+			pos = _sseek(fp, (fpos_t)0, SEEK_END);
+			if (pos == -1)
+				return (1);
+		} else if (fp->_flags & __SOFF) {
+			pos = fp->_offset;
+		} else {
+			pos = _sseek(fp, (fpos_t)0, SEEK_CUR);
+			if (pos == -1)
+				return (1);
+		}
+	} else {
+		if (__sflush(fp))		/* may adjust seek offset on append stream */
 			return (1);
+
+		if (fp->_flags & __SOFF) {
+			pos = fp->_offset;
+		} else {
+			pos = _sseek(fp, (fpos_t)0, SEEK_CUR);
+			if (pos == -1)
+				return (1);
+		}
 	}
+	
 	if (fp->_flags & __SRD) {
 		/*
 		 * Reading.  Any unread characters (including
@@ -130,12 +149,18 @@ _ftello(fp, offset)
 		 * underlying object.
 		 */
 		n = fp->_p - fp->_bf._base;
+		if (__ftell_conformance_fix && n <= 0) {
+			goto out;
+		}
+
 		if (pos > OFF_MAX - n) {
 			errno = EOVERFLOW;
 			return (1);
 		}
 		pos += n;
 	}
+
+out:
 	*offset = pos;
 	return (0);
 }

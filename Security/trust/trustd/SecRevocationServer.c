@@ -178,7 +178,7 @@ static bool SecOCSPResponseEvaluateSigner(SecORVCRef rvc, CFArrayRef signers, CF
     SecPathBuilderRef oBuilder = SecPathBuilderCreate(NULL, clientAuditToken,
                                                       signers, issuers, true, false,
                                                       policies, NULL, NULL,  NULL,
-                                                      verifyTime, NULL, NULL,
+                                                      verifyTime, NULL, NULL, 0,
                                                       SecOCSPEvaluateCompleted, completed);
     /* disable network access to avoid recursion */
     SecPathBuilderSetCanAccessNetwork(oBuilder, false);
@@ -276,8 +276,8 @@ void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspResponse 
                                 CFTimeInterval maxAge, bool updateCache, bool fromCache) {
     SecOCSPSingleResponseRef sr = NULL;
     require_quiet(ocspResponse, errOut);
-    SecOCSPResponseStatus orStatus = SecOCSPGetResponseStatus(ocspResponse);
-    require_action_quiet(orStatus == kSecOCSPSuccess, errOut,
+    OCSPResponseStatus orStatus = SecOCSPGetResponseStatus(ocspResponse);
+    require_action_quiet(orStatus == OCSPResponseStatusSuccessful, errOut,
                          secnotice("ocsp", "responder: %@ returned status: %d",  rvc->responder, orStatus));
     require_action_quiet(sr = SecOCSPResponseCopySingleResponse(ocspResponse, rvc->ocspRequest), errOut,
                          secnotice("ocsp",  "ocsp responder: %@ did not include status of requested cert", rvc->responder));
@@ -454,7 +454,7 @@ static bool SecRVCPolicyConstraintsPermitPolicy(SecValidPolicy *constraints, CFI
 }
 
 static bool SecRVCGetPolicyConstraints(CFDataRef data, SecValidPolicy **constraints, CFIndex *count) {
-    /* Sanity-check the input policy constraints data, returning pointer and
+    /* Check the input policy constraints data, returning pointer and
      * count values in output arguments. Function result is true if successful.
      *
      * The first byte of the policy constraints data contains the number of entries,
@@ -730,6 +730,10 @@ static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
 }
 
 static bool SecRVCCheckValidInfoDatabase(SecRVCRef rvc) {
+    /* Skip check if ignored by policy */
+    if (SecPathBuilderGetRevocationDbIgnored(rvc->builder) == true) {
+        return false;
+    }
     /* Skip checking for OCSP Signer verification */
     if (SecPathBuilderGetPVCCount(rvc->builder) == 1) {
         SecPVCRef pvc = SecPathBuilderGetPVCAtIndex(rvc->builder, 0);

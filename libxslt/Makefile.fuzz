@@ -1,0 +1,65 @@
+# To run xpath fuzzer:
+#     make -f Makefile.fuzz fuzz-xpath DYLD_LIBRARY_PATH=/path/to/build/products
+#     make -f Makefile.fuzz fuzz-xslt DYLD_LIBRARY_PATH=/path/to/build/products
+# To merge a corpus:
+#     make -f Makefile.fuzz merge-corpus DYLD_LIBRARY_PATH=/path/to/build/products
+
+fuzz_dir = ./libxslt/tests/fuzz
+top_srcdir = ./..
+
+.PHONY: $(fuzz_dir)/xpath $(fuzz_dir)/xslt
+
+all: xpath xslt
+
+xpath: $(fuzz_dir)/xpath
+$(fuzz_dir)/xpath: $(fuzz_dir)/xpath.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
+	xcodebuild -target fuzz-xpath -configuration Debug LIBXSLT_FUZZER=YES
+	mv -f $(fuzz_dir)/fuzz-xpath $(fuzz_dir)/xpath
+
+xslt: $(fuzz_dir)/xslt
+$(fuzz_dir)/xslt: $(fuzz_dir)/xslt.c $(fuzz_dir)/fuzz.c
+	rm -f $(fuzz_dir)/fuzz-xslt $(fuzz_dir)/xslt
+	xcodebuild -target fuzz-xslt -configuration Debug LIBXSLT_FUZZER=YES
+	mv -f $(fuzz_dir)/fuzz-xslt $(fuzz_dir)/xslt
+
+.PHONY: corpus clean-corpus merge-corpus
+
+clean-corpus:
+	rm -rf $(fuzz_dir)/corpus/xpath
+	rm -rf $(fuzz_dir)/corpus/xslt
+ 
+merge-%-corpus: %
+	cd $(fuzz_dir); \
+	for D in $^; do \
+	    echo "Merging corpus/$$D..." && \
+	    mkdir corpus/$$D-merge && \
+	    DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./$$D corpus/$$D-merge corpus/$$D -merge=1 && \
+	    mv corpus/$$D corpus/$$D-old && \
+	    mv corpus/$$D-merge corpus/$$D && \
+	    echo "Before/after merge: " && \
+	    du -sh corpus/$$D-old corpus/$$D && \
+	    rm -rf corpus/$$D-old; \
+	done
+
+merge-corpus: merge-xpath-corpus merge-xslt-corpus
+
+# XPath fuzzer
+
+fuzz-xpath: $(fuzz_dir)/xpath
+	cd $(fuzz_dir); \
+	mkdir -p corpus/xpath; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./xpath \
+	    -dict=xpath.dict \
+	    -max_len=256 \
+	    corpus/xpath seed/xpath
+
+# XSLT fuzzer
+
+fuzz-xslt: $(fuzz_dir)/xslt
+	cd $(fuzz_dir); \
+	mkdir -p corpus/xslt; \
+	DYLD_LIBRARY_PATH=$(DYLD_LIBRARY_PATH) ./xslt \
+	    -dict=xslt.dict \
+	    corpus/xslt seed/xslt
+

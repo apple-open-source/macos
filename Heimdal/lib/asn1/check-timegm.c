@@ -53,6 +53,11 @@ test_timegm(void)
     if (t != 1159696980)
 	ret += 1;
 
+    tm.tm_sec = 60;
+    t = _der_timegm(&tm);
+    if (t != 1159697040)
+        ret += 1;
+
     tm.tm_mday = 0;
     t = _der_timegm(&tm);
     if (t != -1)
@@ -65,7 +70,7 @@ test_timegm(void)
 	tm.tm_hour != 10 ||
 	tm.tm_min != 3 ||
 	tm.tm_sec != 0)
-      errx(1, "tmtime failes");
+      errx(1, "tmtime fails");
 
     return ret;
 }

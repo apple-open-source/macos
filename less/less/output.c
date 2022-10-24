@@ -24,6 +24,7 @@ public int errmsgs;    /* Count of messages displayed by error() */
 public int need_clr;
 public int final_attr;
 public int at_prompt;
+public int flush_failed;
 
 extern int sigs;
 extern int sc_width;
@@ -395,7 +396,14 @@ flush(VOID_PARAM)
 #endif
 
 	if (write(outfd, obuf, n) != n)
+#ifdef __APPLE__
+	{
 		screen_trashed = 1;
+		flush_failed = 1;
+	}
+#else
+		screen_trashed = 1;
+#endif
 }
 
 /*

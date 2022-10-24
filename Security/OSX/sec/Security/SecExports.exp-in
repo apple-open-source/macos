@@ -84,6 +84,7 @@ _kSecPolicyNameAppleHomeAppClipUploadService
 _kSecPolicyNameAppleHomeKitService
 _kSecPolicyNameAppleiCloudSetupService
 _kSecPolicyNameAppleIDSService
+_kSecPolicyNameAppleMacOSSoftwareUpdate
 _kSecPolicyNameAppleMapsService
 _kSecPolicyNameAppleMMCSService
 _kSecPolicyNameAppleParsecService
@@ -156,7 +157,9 @@ _SecPolicyCheckCertSubjectCountry
 
 _SecPolicyCopyProperties
 _SecPolicyCreateiAPSWAuthWithExpiration
+_SecPolicyCreatePrivacyConfigurationProfileSigner
 _SecPolicyCreateSSLWithKeyUsage
+_SecPolicyCreateSSLWithATSPinning
 _SecPolicyCreateWithProperties
 _SecPolicyGetName
 _SecPolicyGetOidString
@@ -248,6 +251,7 @@ _SecTrustEvaluateFastAsync
 _SecTrustEvaluateLeafOnly
 _SecTrustEvaluateWithError
 _SecTrustFlushResponseCache
+_SecTrustResetSettings
 _SecTrustGetAppleAnchors
 _SecTrustGetAssetVersionNumber
 _SecTrustGetCertificateAtIndex
@@ -281,6 +285,7 @@ _SecTrustSetPinningPolicyName
 _SecTrustSetPolicies
 _SecTrustSetSignedCertificateTimestamps
 _SecTrustSetTrustedLogs
+_SecTrustSetURLRequestAttribution
 _SecTrustSetVerifyDate
 _SecTrustTriggerValidUpdate
 #if TARGET_OS_OSX
@@ -417,6 +422,7 @@ _SecCertificateCopyIPAddressDatas
 _SecCertificateCopyIPAddresses
 _SecCertificateCopyiPhoneDeviceCAChain
 _SecCertificateCopyIssuerSHA1Digest
+_SecCertificateCopyIssuerSHA256Digest
 _SecCertificateCopyIssuerSequence
 _SecCertificateCopyIssuerSummary
 _SecCertificateCopyKey
@@ -429,6 +435,7 @@ _SecCertificateCopyNTPrincipalNames
 _SecCertificateCopyOrganization
 _SecCertificateCopyOrganizationFromX501NameContent
 _SecCertificateCopyOrganizationalUnit
+_SecCertificateCopyPEMRepresentation
 _SecCertificateCopyPrecertTBS
 _SecCertificateCopyProperties
 _SecCertificateCopyPublicKey
@@ -436,6 +443,7 @@ _SecCertificateCopyPublicKey
 _SecCertificateCopyPublicKey$LEGACYMAC
 #endif
 _SecCertificateCopyPublicKeySHA1Digest
+_SecCertificateCopyPublicKeySHA256Digest
 _SecCertificateCopyRFC822Names
 _SecCertificateCopyRFC822NamesFromSAN
 _SecCertificateCopyRFC822NamesFromSubject
@@ -566,6 +574,7 @@ _SecSCEPGenerateCertificateRequest
 _SecSCEPVerifyReply
 _SecSCEPValidateCACertMessage
 _SecSCEPGetCertInitial
+_SecSCEPVerifyGetCertInitial
 
 //
 // CSR
@@ -575,6 +584,8 @@ _kSecCertificateExtendedKeyUsage
 _kSecCertificateExtensions
 _kSecCertificateExtensionsEncoded
 _kSecCertificateLifetime
+_kSecCertificateSerialNumber
+_kSecCSRBasicConstraintsCA
 _kSecCSRBasicContraintsPathLen
 _kSecCSRChallengePassword
 _kSecEKUServerAuth
@@ -604,6 +615,20 @@ _SecIdentitySignCertificateWithAlgorithm
 _SecIdentitySignCertificateWithParameters
 _SecVerifyCertificateRequest
 _SecGenerateCertificateRequestSubject
+
+//
+// ACME
+//
+_kSecChallengeToken
+_kSecClientIdentifier
+_kSecAttestationIdentity
+_kSecAttestationOids
+_kSecLocalIssuerIdentity
+_kSecUseHardwareBoundKey
+_kSecACMEDirectoryURL
+_kSecACMEPermitLocalIssuer
+_kSecACMEServerURL
+_SecRequestClientIdentity
 
 //
 // OTR
@@ -695,9 +720,7 @@ _SecDHComputeKey
 _SecDHCreate
 _SecDHCreateFromAlgorithmId
 _SecDHCreateFromParameters
-_SecDHDecodeParams
 _SecDHDestroy
-_SecDHEncodeParams
 _SecDHGenerateKeypair
 _SecDHGetMaxKeyLength
 
@@ -741,6 +764,14 @@ _kSecCMSSignDetached
 _kSecCMSSignDigest
 _kSecCMSSignHashAlgorithm
 _kSecCMSSignedAttributes
+
+//
+// CMS-MessageSecurity Shim
+_useMessageSecurityEnabled
+_MS_SecCMSCertificatesOnlyMessageCopyCertificates
+_MS_SecCMSDecodeSignedData
+_MS_SecCMSVerifySignedData_internal
+_MS_SecCMSDecryptEnvelopedData
 
 #if TARGET_OS_IPHONE
 
@@ -1046,6 +1077,7 @@ _SecCMSVerify
 _SecCMSVerifyCopyDataAndAttributes
 _SecCMSVerifySignedData
 _SecCMSCreateSignedData
+_SecCMSDecodeSignedData
 
 
 #if TARGET_OS_IPHONE
@@ -1423,7 +1455,9 @@ _kSecAttrWasAlwaysSensitive
 _kSecAttrWasNeverExtractable
 _kSecAttrKeyTypeECSECPrimeRandomPKA
 _kSecAttrKeyTypeSecureEnclaveAttestation
+_kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
 _kSecAttrSecureEnclaveKeyBlob
+_kSecUseSystemKeychainAlways
 #elif TARGET_OS_OSX
 
 _kSecAttrAFPServerSignature
@@ -1576,6 +1610,7 @@ _kSecAttrWasAlwaysSensitive
 _kSecAttrWasNeverExtractable
 _kSecAttrKeyTypeECSECPrimeRandomPKA
 _kSecAttrKeyTypeSecureEnclaveAttestation
+_kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
 _kSecAttrSecureEnclaveKeyBlob
 _kSecUseCertificatesWithMatchIssuers
 #endif // TARGET_OS_OSX
@@ -1592,6 +1627,9 @@ _kSecDataInetExtraClientDefined0
 _kSecDataInetExtraClientDefined1
 _kSecDataInetExtraClientDefined2
 _kSecDataInetExtraClientDefined3
+
+
+_SecDeleteItemsOnSignOut
 
 #include "keychain/SecureObjectSync/SOSViews.exp-in"
 
@@ -1612,6 +1650,9 @@ _kSecUseItemList
 _kSecUseTombstones
 _kSecUseSystemKeychain
 _kSecUseDataProtectionKeychain
+#if TARGET_OS_TV
+_kSecUseUserIndependentKeychain
+#endif
 _kSecValueData
 _kSecValuePersistentRef
 _kSecValueRef
@@ -1636,6 +1677,7 @@ _SecItemCertificateExists
 _SecItemCopyMatching
 _SecItemCopyParentCertificates_ios
 _SecItemDelete
+__SecKeychainForceUpgradeIfNeeded
 _SecItemDeleteAll
 _SecItemUpdateWithError
 _SecItemUpdate
@@ -1740,6 +1782,9 @@ _kSecCodeSignerDetached
 _kSecCodeSignerDigestAlgorithm
 _kSecCodeSignerDryRun
 _kSecCodeSignerEntitlements
+_kSecCodeSignerLaunchConstraintSelf
+_kSecCodeSignerLaunchConstraintParent
+_kSecCodeSignerLaunchConstraintResponsible
 _kSecCodeSignerFlags
 _kSecCodeSignerIdentifier
 _kSecCodeSignerIdentifierPrefix
@@ -1778,9 +1823,13 @@ _kSecCodeInfoTeamIdentifier
 _kSecCodeInfoCertificates
 _kSecCodeInfoCdHashes
 _kSecCodeInfoDigestAlgorithms
+_kSecCodeInfoDefaultDesignatedLightweightCodeRequirement
 _kSecCodeInfoEntitlements
 _kSecCodeInfoEntitlementsDER
 _kSecCodeInfoEntitlementsDict
+_kSecCodeInfoLaunchConstraintsSelf
+_kSecCodeInfoLaunchConstraintsParent
+_kSecCodeInfoLaunchConstraintsResponsible
 _kSecCodeInfoUnique
 _kSecCodeInfoRuntimeVersion
 
@@ -1874,6 +1923,7 @@ _sec_protocol_options_set_challenge_block
 _sec_protocol_options_set_key_update_block
 _sec_protocol_options_set_local_identity
 _sec_protocol_options_set_tls_early_data_enabled
+_sec_protocol_options_set_quic_early_data_context
 _sec_protocol_options_set_tls_false_start_enabled
 _sec_protocol_options_set_tls_max_version
 _sec_protocol_options_set_max_tls_protocol_version
@@ -1946,6 +1996,8 @@ _sec_protocol_options_set_tls_block_length_padding
 _sec_protocol_options_add_server_raw_public_key_certificate
 _sec_protocol_options_set_server_raw_public_key_certificates
 _sec_protocol_options_set_client_raw_public_key_certificates
+_sec_protocol_options_set_new_session_ticket_request
+_sec_protocol_options_set_resumed_session_ticket_request
 _sec_release
 _sec_retain
 _sec_trust_copy_ref

@@ -53,9 +53,9 @@
 #define k_ls_TemporaryBinaryPath            kTemporaryPath "/" k_ls_BinaryName
 
 // Bundle exists on both macOS and iOS.
-#define kSwiftUITestsBundleName             "SwiftUITests.app"
-#define kSwiftUITestsBundlePath             kAppleInternalApplicationsPath "/" kSwiftUITestsBundleName
-#define kTemporarySwiftUITestsBundlePath    kTemporaryPath "/" kSwiftUITestsBundleName
+#define kNullBundleName                     "Null.app"
+#define kNullBundlePath                     kAppleInternalApplicationsPath "/" kNullBundleName
+#define kTemporaryNullBundlePath            kTemporaryPath "/" kNullBundleName
 
 static int
 _copyPath(const char *dst, const char *src)
@@ -70,6 +70,10 @@ _deletePath(const char *path)
     string command = std::string("rm -rf ") + path + " " + kCommandRedirectOutputToDevNULL;
     return system(command.c_str());
 }
+
+#if TARGET_OS_OSX
+static int
+_runCommand(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 static int
 _runCommand(const char *format, ...)
@@ -94,6 +98,7 @@ _runCommand(const char *format, ...)
 
     return system(commandBuffer.get());
 }
+#endif
 
 static SecStaticCodeRef
 _createStaticCode(const char *path)
@@ -415,6 +420,7 @@ _forceAddSignature(const char *path, const char *ident, SecIdentityRef identity)
     CFRef<CFStringRef> identifierRef = NULL;
     CFRef<CFDictionaryRef> signingInfo = NULL;
     CFRef<CFStringRef> signatureIdentifierRef = NULL;
+    CFRef<CFDictionaryRef> lwcrRef = NULL;
 
     parameters.take(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
@@ -445,7 +451,7 @@ _forceAddSignature(const char *path, const char *ident, SecIdentityRef identity)
         goto exit;
     }
 
-    status = SecCodeCopySigningInformation(codeRef, kSecCSDefaultFlags, signingInfo.take());
+    status = SecCodeCopySigningInformation(codeRef, kSecCSRequirementInformation, signingInfo.take());
     if (status != errSecSuccess) {
         INFO("Error on acquiring signing information through SecCodeCopySigningInformation: %d", status);
         goto exit;
@@ -460,6 +466,12 @@ _forceAddSignature(const char *path, const char *ident, SecIdentityRef identity)
 
     if (CFStringCompare(signatureIdentifierRef, identifierRef, 0) != kCFCompareEqualTo) {
         INFO("Forced signature identifier mismatch: %s", CFStringGetCStringPtr(signatureIdentifierRef, kCFStringEncodingUTF8));
+        goto exit;
+    }
+
+    lwcrRef = (CFDictionaryRef)CFDictionaryGetValue(signingInfo, kSecCodeInfoDefaultDesignatedLightweightCodeRequirement);
+    if (!lwcrRef) {
+        INFO("No kSecCodeInfoDefaultDesignatedLightweightCodeRequirement on %s", path);
         goto exit;
     }
     ret = 0;
@@ -579,8 +591,8 @@ CheckRemoveSignatureBundle(void)
 {
     BEGIN();
 
-    const char *path = kTemporarySwiftUITestsBundlePath;
-    const char *copyPath = kSwiftUITestsBundlePath;
+    const char *path = kTemporaryNullBundlePath;
+    const char *copyPath = kNullBundlePath;
     int ret = -1;
 
     if (_copyPath(path, copyPath)) {
@@ -607,8 +619,8 @@ CheckAddAdhocSignatureBundle(void)
 {
     BEGIN();
 
-    const char *path = kTemporarySwiftUITestsBundlePath;
-    const char *copyPath = kSwiftUITestsBundlePath;
+    const char *path = kTemporaryNullBundlePath;
+    const char *copyPath = kNullBundlePath;
     int ret = -1;
 
     if (_copyPath(path, copyPath)) {
@@ -635,8 +647,8 @@ CheckAddECCSignatureBundle(void)
 {
     BEGIN();
 
-    const char *path = kTemporarySwiftUITestsBundlePath;
-    const char *copyPath = kSwiftUITestsBundlePath;
+    const char *path = kTemporaryNullBundlePath;
+    const char *copyPath = kNullBundlePath;
 
     int ret = -1;
     CFRef<SecKeyRef> privateKey = NULL;
@@ -696,8 +708,8 @@ CheckECCKeychainAndSignatureValidationIntegrationBundle(void)
 
     const char *keyName = "Test ECC Key";
     const char *certName = "Test Self-Signed Certificate";
-    const char *path = kTemporarySwiftUITestsBundlePath;
-    const char *copyPath = kSwiftUITestsBundlePath;
+    const char *path = kTemporaryNullBundlePath;
+    const char *copyPath = kNullBundlePath;
 
     int ret = -1;
     bool oniOS = false;
@@ -768,6 +780,7 @@ exit:
     return ret;
 }
 
+#if TARGET_OS_OSX
 static int
 CheckAddAdhocSignatureEncryptedDiskImage(void)
 {
@@ -784,7 +797,7 @@ CheckAddAdhocSignatureEncryptedDiskImage(void)
 
     // Create an encrypted disk image with a known password and then strip the
     // FinderInfo attribute that inevitably ends up on it.
-    const char *cmd = "hdiutil create -encryption 'AES-256' -passphrase %s -srcfolder %s %s";
+    const char *const cmd = "hdiutil create -encryption 'AES-256' -passphrase %s -srcfolder %s %s";
     _runCommand(cmd, "helloworld", testContentRootPath, diskImagePath);
     _runCommand("xattr -c %s", diskImagePath);
 
@@ -810,6 +823,7 @@ exit:
     _deletePath(testRootPath);
     return ret;
 }
+#endif
 
 int main(void)
 {

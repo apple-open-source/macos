@@ -58,13 +58,7 @@ int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 				   CFDataRef labelData)
 {
 	int err;	
-	BLPreBootEnvType	preboot;
-	
-	err = BLGetPreBootEnvironmentType(context, &preboot);
-	if(err) {
-		blesscontextprintf(context, kBLLogLevelError,  "Could not determine preboot environment\n");
-		return 1;
-	}
+	BLPreBootEnvType	preboot = getPrebootType();
 	
 #if SUPPORT_RAID
 	CFTypeRef bootData = NULL;

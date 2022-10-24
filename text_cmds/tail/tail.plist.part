@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-18</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Don't read directories (3849683).</string>
+		<string>tail.c: remove capsicum support</string>
+		<string>Fix UNIX compliance issue with following stdin (76241318)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>tail</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-02-02</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/tail/</string>
+</dict>

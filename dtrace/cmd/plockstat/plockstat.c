@@ -40,7 +40,6 @@
 #include <libproc.h>
 #include <getopt.h>
 
-
 static char *g_pname;
 static dtrace_hdl_t *g_dtp;
 struct ps_prochandle *g_pr;
@@ -383,6 +382,7 @@ usage(void)
 	exit(E_USAGE);
 }
 
+__printflike(1, 0)
 static void
 verror(const char *fmt, va_list ap)
 {
@@ -396,6 +396,7 @@ verror(const char *fmt, va_list ap)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 fatal(const char *fmt, ...)
 {
@@ -412,6 +413,7 @@ fatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 dfatal(const char *fmt, ...)
 {
@@ -442,6 +444,7 @@ dfatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 notice(const char *fmt, ...)
 {

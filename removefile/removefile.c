@@ -2,6 +2,7 @@
 #include "removefile_priv.h"
 
 #include <TargetConditionals.h>
+#include <sys/vnode.h>
 
 removefile_state_t
 removefile_state_alloc(void) {
@@ -89,11 +90,67 @@ removefile_state_set(removefile_state_t state, uint32_t key, const void* value) 
    return 0;
 }
 
+/*
+ * convert the provided path to a "canonical" path - absolute and
+ * without any '/../' or '/.' parts.
+ * If old_path is not a directory, don't bother with the canonicalization, as
+ * the edge case of '/../' or '/.' is not relevant.
+ */
+static int
+canonicalize_path(const char *old_path, char *new_path) {
+	struct getattrDirReply {
+		uint32_t length;
+		uint32_t file_type;
+		uint32_t link_count;
+	};
+	int error = 0;
+	struct attrlist attr_list;
+	struct getattrDirReply reply;
+
+	memset(&attr_list, 0, sizeof(attr_list));
+	memset(&reply, 0, sizeof(reply));
+	attr_list.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attr_list.commonattr = ATTR_CMN_OBJTYPE;
+	attr_list.dirattr = ATTR_DIR_LINKCOUNT;
+
+	if ((error = getattrlist(old_path, &attr_list, &reply, sizeof(reply), FSOPT_NOFOLLOW))) {
+		return errno;
+	}
+
+	/*
+	 * rdar://74609702 - avoid calling F_GETPATH in case of a hardlink.
+	 * Also avoid the canonicalization if the file is not a directory.
+	 */
+	if ((reply.file_type != VDIR) || (reply.link_count > 1)) {
+		return -1;
+	}
+
+	int fd = open(old_path, O_RDONLY | O_SYMLINK | O_NONBLOCK);
+	if (fd < 0)
+		return errno;
+
+	if ((error = fcntl(fd, F_GETPATH, new_path)) < 0) {
+		close(fd);
+		return errno;
+	}
+
+	if ((error = close(fd)) < 0)
+		return errno;
+
+	return error;
+}
+
 int
 removefile(const char* path, removefile_state_t state_param, removefile_flags_t flags) {
 	int res = 0, error = 0;
+	char file_path[PATH_MAX];
 	char* paths[] = { NULL, NULL };
 	removefile_state_t state = state_param;
+
+	if (path == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	// allocate the state if it was not passed in
 	if (state_param == NULL) {
@@ -110,15 +167,14 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 		__removefile_init_random(getpid(), state);
 	}
 
-	paths[0] = strdup(path);
-	if (paths[0]) {
-		res = __removefile_tree_walker(paths, state);
-		error = state->error_num;
-		free(paths[0]);
-	} else {
-		error = ENOMEM;
-		res = -1;
+	// try to canonicalize the path, use the original path upon failure
+	if (canonicalize_path(path, file_path) != 0) {
+		strncpy(file_path, path, sizeof(file_path));
+		file_path[sizeof(file_path) - 1] = '\0';
 	}
+	paths[0] = file_path;
+	res = __removefile_tree_walker(paths, state);
+	error = state->error_num;
 
 	// deallocate if allocated locally
 	if (state_param == NULL) {
@@ -146,6 +202,7 @@ removefile_cancel(removefile_state_t state) {
 int
 removefileat(int fd, const char* path, removefile_state_t state_param, removefile_flags_t flags) {
 	int error = 0;
+	struct stat st;
 
 	if (path == NULL) {
 		errno = EINVAL;
@@ -156,7 +213,15 @@ removefileat(int fd, const char* path, removefile_state_t state_param, removefil
 	if (c == '/' || fd == AT_FDCWD)
 		return removefile(path, state_param, flags);
 
-	// get the fd path
+	// make sure the provided fd is of a directory
+	if ((error = fstat(fd, &st))) {
+		return -1;
+	}
+	if (!S_ISDIR(st.st_mode)) {
+		errno = ENOTDIR;
+		return -1;
+	}
+
 	char* base_path = malloc(PATH_MAX);
 	if (base_path == NULL) {
 		errno = ENOMEM;

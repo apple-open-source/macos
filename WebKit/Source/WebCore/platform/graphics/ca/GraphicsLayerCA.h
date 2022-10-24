@@ -128,7 +128,6 @@ public:
     WEBCORE_EXPORT void setContentsRect(const FloatRect&) override;
     WEBCORE_EXPORT void setContentsClippingRect(const FloatRoundedRect&) override;
     WEBCORE_EXPORT void setContentsRectClipsDescendants(bool) override;
-    WEBCORE_EXPORT void setMasksToBoundsRect(const FloatRoundedRect&) override;
 
     WEBCORE_EXPORT void setShapeLayerPath(const Path&) override;
     WEBCORE_EXPORT void setShapeLayerWindRule(WindRule) override;
@@ -154,7 +153,7 @@ public:
 
     WEBCORE_EXPORT void setContentsToSolidColor(const Color&) override;
 #if ENABLE(MODEL_ELEMENT)
-    WEBCORE_EXPORT void setContentsToModel(RefPtr<Model>&&) override;
+    WEBCORE_EXPORT void setContentsToModel(RefPtr<Model>&&, ModelInteraction) override;
     WEBCORE_EXPORT PlatformLayerID contentsLayerIDForModel() const override;
 #endif
     WEBCORE_EXPORT void setContentsMinificationFilter(ScalingFilter) override;
@@ -233,12 +232,12 @@ private:
     WEBCORE_EXPORT void setAllowsBackingStoreDetaching(bool) override;
     bool allowsBackingStoreDetaching() const override { return m_allowsBackingStoreDetaching; }
 
-    WEBCORE_EXPORT String displayListAsText(DisplayList::AsTextFlags) const override;
+    WEBCORE_EXPORT String displayListAsText(OptionSet<DisplayList::AsTextFlag>) const override;
 
     WEBCORE_EXPORT String platformLayerTreeAsText(OptionSet<PlatformLayerTreeAsTextFlags>) const override;
 
     WEBCORE_EXPORT void setIsTrackingDisplayListReplay(bool) override;
-    WEBCORE_EXPORT String replayDisplayListAsText(DisplayList::AsTextFlags) const override;
+    WEBCORE_EXPORT String replayDisplayListAsText(OptionSet<DisplayList::AsTextFlag>) const override;
 
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS) && HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
     WEBCORE_EXPORT void setIsDescendentOfSeparatedPortal(bool) override;
@@ -341,9 +340,13 @@ private:
     const FloatRect& coverageRect() const { return m_coverageRect; }
 
     void setVisibleAndCoverageRects(const VisibleAndCoverageRects&);
-    
+
+    void adjustContentsScaleLimitingFactor();
+    void setContentsScaleLimitingFactor(float);
+
     bool recursiveVisibleRectChangeRequiresFlush(const CommitState&, const TransformState&) const;
-    
+
+    bool isTiledBackingLayer() const { return type() == Type::TiledBacking; }
     bool isPageTiledBackingLayer() const { return type() == Type::PageTiledBacking; }
 
     // Used to track the path down the tree for replica layers.
@@ -432,7 +435,6 @@ private:
     void updateContentsPlatformLayer();
     void updateContentsColorLayer();
     void updateContentsRects();
-    void updateMasksToBoundsRect();
     void updateEventRegion();
 #if ENABLE(SCROLLING_THREAD)
     void updateScrollingNode();
@@ -530,7 +532,7 @@ private:
         moveOrCopyAnimations(Copy, fromLayer, toLayer);
     }
 
-    bool appendToUncommittedAnimations(const KeyframeValueList&, const TransformOperations*, const Animation*, const String& animationName, const FloatSize& boxSize, int animationIndex, Seconds timeOffset, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
+    bool appendToUncommittedAnimations(const KeyframeValueList&, const TransformOperation::OperationType, const Animation*, const String& animationName, const FloatSize& boxSize, unsigned animationIndex, Seconds timeOffset, bool isMatrixAnimation, bool keyframesShouldUseAnimationWideTimingFunction);
     bool appendToUncommittedAnimations(const KeyframeValueList&, const FilterOperation*, const Animation*, const String& animationName, int animationIndex, Seconds timeOffset, bool keyframesShouldUseAnimationWideTimingFunction);
 
     enum LayerChange : uint64_t {
@@ -553,7 +555,6 @@ private:
         ContentsPlatformLayerChanged            = 1LLU << 16,
         ContentsColorLayerChanged               = 1LLU << 17,
         ContentsRectsChanged                    = 1LLU << 18,
-        MasksToBoundsRectChanged                = 1LLU << 19,
         MaskLayerChanged                        = 1LLU << 20,
         ReplicatedLayerChanged                  = 1LLU << 21,
         ContentsNeedsDisplay                    = 1LLU << 22,
@@ -657,11 +658,12 @@ private:
 
     std::unique_ptr<DisplayList::InMemoryDisplayList> m_displayList;
 
+    float m_contentsScaleLimitingFactor { 1 };
+
     ContentsLayerPurpose m_contentsLayerPurpose { ContentsLayerPurpose::None };
     bool m_isCommittingChanges { false };
 
     bool m_needsFullRepaint : 1;
-    bool m_usingBackdropLayerType : 1;
     bool m_allowsBackingStoreDetaching : 1;
     bool m_intersectsCoverageRect : 1;
     bool m_hasEverPainted : 1;

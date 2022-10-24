@@ -5,6 +5,8 @@
 //  Copyright © 2015,2020 Apple Inc. All rights reserved.
 //
 
+#import <TargetConditionals.h>
+#import <AppleFeatures/AppleFeatures.h>
 #import <LowPowerMode/_PMLowPowerModeProtocol.h>
 
 extern NSString *const kPMLowPowerModeServiceName;
@@ -17,12 +19,14 @@ extern NSString *const kPMLPMSourceSiri;
 extern NSString *const kPMLPMSourceLostMode;
 extern NSString *const kPMLPMSourceSystemDisable;
 
+
 @interface _PMLowPowerMode : NSObject <_PMLowPowerModeProtocol>
 
 + (instancetype)sharedInstance;
 
 // Synchronous flavor. The one from Protocol is async.
 - (BOOL)setPowerMode:(PMPowerMode)mode fromSource:(NSString *)source;
+- (BOOL)setPowerMode:(PMPowerMode)mode fromSource:(NSString *)source withParams:(NSDictionary *)params;
 - (PMPowerMode)getPowerMode;
 
 @end

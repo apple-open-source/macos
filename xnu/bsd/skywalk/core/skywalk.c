@@ -313,6 +313,7 @@ skywalk_fini(void)
 		channel_fini();
 		nexus_fini();
 		skmem_fini();
+		flowidns_fini();
 
 #if (SK_LOG || DEVELOPMENT || DEBUG)
 		if (sk_dump_buf != NULL) {
@@ -488,6 +489,7 @@ skywalk_init(void)
 
 		netns_init();
 		protons_init();
+		flowidns_init();
 
 #if (DEVELOPMENT || DEBUG)
 		skywalk_self_tests();

@@ -10,6 +10,8 @@
   <date duration="P0Y0M31DT10H10M10.09S"/>
   <date duration="-P0Y0M31DT10H10M10.09S"/>
   <date duration="PT100H100M100.001S"/>
+  <date duration="PT10H10M.5S"/>
+  <date duration="PT10H10M5.S"/>
   <!-- date/times -->
   <date duration="2001"/>
   <date duration="2001-10-29T10:31:07"/>

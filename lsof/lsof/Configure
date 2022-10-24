@@ -1012,7 +1012,7 @@ case $LSOF_TGT in	# {
 	  if test -r ${LSOF_INCLUDE}/../local/include/libproc.h	# {
 	  then
 	    DARWIN_BASE="libproc"
-	    LSOF_TMP5="-I${LSOF_INCLUDE}/../local/include"
+	    LSOF_TMP5="${LSOF_INCLUDE}/../local/include"
 	  else
 	    echo "FATAL: can't find libproc.h"
 	    rm -f $LSOF_HLP
@@ -1039,10 +1039,12 @@ case $LSOF_TGT in	# {
 	LSOF_CFGL="$LSOF_CFGL -lproc"
       fi	# }
       LSOF_TSTKMEM=0
-      LSOF_DINC="$LSOF_DINC $LSOF_TMP5"
       if test ! -r ${LSOF_INCLUDE}/sys/proc_info.h	# {
       then
-	if test "X$LSOF_TMP5" = "X" -o ! -r ${LSOF_TMP5}/sys/proc_info.h # {
+	if test -r ${LSOF_INCLUDE}/../local/include/sys/proc_info.h	# {
+	then
+		LSOF_TMP5="${LSOF_INCLUDE}/../local/include"
+	elif test "X$LSOF_TMP5" = "X" -o ! -r ${LSOF_TMP5}/sys/proc_info.h # {
 	then
 	  echo "FATAL: can't find sys/proc_info.h"
 	  rm -f $LSOF_HLP
@@ -1052,7 +1054,7 @@ case $LSOF_TGT in	# {
 
     # Add header file paths for libproc-based Darwin lsof.
 
-      for i in $LSOF_TMP3 $LSOF_TMP4 $LSOF_INCLUDE	# {
+      for i in $LSOF_TMP3 $LSOF_TMP4 $LSOF_TMP5 $LSOF_INCLUDE	# {
       do
 	if test -d $i -a "X$i" != "X/usr/include"	# {
 	then

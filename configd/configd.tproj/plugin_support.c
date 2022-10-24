@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,31 +59,34 @@
 #define	BUNDLE_DIR_EXTENSION	".bundle"
 
 
-#define PLUGIN_ALL(p)		CFSTR(p)
+#define PLUGIN_ALL(p)		CFSTR(p),
 #if	!TARGET_OS_IPHONE
-#define PLUGIN_MACOSX(p)	CFSTR(p)
-#define PLUGIN_IOS(p)		NULL
+#define PLUGIN_MACOSX(p)	CFSTR(p),
+#define PLUGIN_IOS(p)
 #else	// !TARGET_OS_IPHONE
-#define PLUGIN_MACOSX(p)	NULL
-#define PLUGIN_IOS(p)		CFSTR(p)
+#define PLUGIN_MACOSX(p)
+#define PLUGIN_IOS(p)		CFSTR(p),
 #endif	// !TARGET_OS_IPHONE
 
-// white-listed (ok-to-load) bundle identifiers
-static const CFStringRef	pluginWhitelist[]	= {
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.ApplicationFirewall"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.EAPOLController"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPConfiguration"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPMonitor"),
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.ISPreference"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.InterfaceNamer"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.KernelEventMonitor"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.LinkConfiguration"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.PPPController"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.QoSMarking"),
-	PLUGIN_MACOSX("com.apple.print.notification"),
+/*
+ * plugin_allow_list[]
+ * - the platform dependent list of allowed bundleIDs
+ */
+static const CFStringRef	plugin_allow_list[]	= {
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.ApplicationFirewall")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.InterfaceNamer")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.KernelEventMonitor")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPConfiguration")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPMonitor")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.EAPOLController")
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.ISPreference")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.LinkConfiguration")
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.PPPController")
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.QoSMarking")
+	PLUGIN_MACOSX("com.apple.print.notification")
 };
-#define	N_PLUGIN_WHITELIST	(sizeof(pluginWhitelist) / sizeof(pluginWhitelist[0]))
+#define	N_PLUGIN_ALLOW_LIST	(sizeof(plugin_allow_list) / sizeof(plugin_allow_list[0]))
 
 
 typedef struct {
@@ -100,8 +103,9 @@ typedef struct {
 } *bundleInfoRef;
 
 
-// all loaded bundles
-static CFMutableArrayRef	allBundles		= NULL;
+// all plugins to be exec'd
+//   val = bundleInfoRef
+static CFArrayRef		plugins			= NULL;
 
 // exiting bundles
 static CFMutableDictionaryRef	exiting			= NULL;
@@ -129,7 +133,7 @@ typedef struct {
 } builtin, *builtinRef;
 
 
-static const builtin builtin_plugins[] = {
+static const builtin plugins_builtin[] = {
 	{
 		CFSTR("com.apple.SystemConfiguration.IPMonitor"),
 		load_IPMonitor,
@@ -177,12 +181,36 @@ static const builtin builtin_plugins[] = {
 };
 
 
-static void
-addBundle(CFBundleRef bundle, Boolean forceEnabled)
+static Boolean
+pluginIsAllowed(CFStringRef bundleID)
 {
+	for (size_t i = 0; i < N_PLUGIN_ALLOW_LIST; i++) {
+		if (CFEqual(bundleID, plugin_allow_list[i])) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
+static void
+addPlugin(CFMutableDictionaryRef plugins, CFBundleRef bundle, Boolean forceEnabled)
+{
+	CFStringRef		bundleID;
 	CFDictionaryRef		bundleDict;
 	bundleInfoRef		bundleInfo;
 
+	bundleID = CFBundleGetIdentifier(bundle);
+	if (bundleID == NULL) {
+		SC_log(LOG_NOTICE, "%s: ignoring %@ (no bundle ID)",
+		       __func__, bundle);
+		return;
+	}
+	if (!pluginIsAllowed(bundleID)) {
+		SC_log(LOG_NOTICE,
+		       "%s: %@ not in allow list, ignoring",
+		       __func__, bundleID);
+		return;
+	}
 	bundleInfo = CFAllocatorAllocate(NULL, sizeof(*bundleInfo), 0);
 	bundleInfo->bundle	= (CFBundleRef)CFRetain(bundle);
 	bundleInfo->loaded	= FALSE;
@@ -215,7 +243,8 @@ addBundle(CFBundleRef bundle, Boolean forceEnabled)
 		}
 	}
 
-	CFArrayAppendValue(allBundles, bundleInfo);
+	CFDictionaryAddValue(plugins, bundleID, bundleInfo);
+	SC_log(LOG_NOTICE, "%s: %@", __func__, bundleID);
 	return;
 }
 
@@ -319,41 +348,12 @@ getBundleDirNameAndPath(CFBundleRef bundle, char *buf, size_t buf_len)
 static void
 loadBundle(const void *value, void *context) {
 	CFStringRef	bundleID;
-	Boolean		bundleAllowed;
 	bundleInfoRef	bundleInfo	= (bundleInfoRef)value;
-	Boolean		bundleExclude;
 	CFIndex		*nLoaded	= (CFIndex *)context;
 	CFStringRef	shortID;
 
 	bundleID = CFBundleGetIdentifier(bundleInfo->bundle);
-	if (bundleID == NULL) {
-		// sorry, no bundles without a bundle identifier
-		SC_log(LOG_NOTICE, "skipped %@ (no bundle ID)", bundleInfo->bundle);
-		return;
-	}
-
 	shortID = shortBundleIdentifier(bundleID);
-
-	bundleAllowed = ((CFSetGetCount(_plugins_allowed) == 0)		||	// if no white-listing
-			 CFSetContainsValue(_plugins_allowed, bundleID)	||	// if [bundleID] white-listed
-			 ((shortID != NULL) &&
-			  CFSetContainsValue(_plugins_allowed, shortID))||	// if [short bundleID] white-listed
-			 bundleInfo->forced					// if "testing" plugin
-			);
-	if (!bundleAllowed) {
-		SC_log(LOG_INFO, "skipped %@ (not allowed)", bundleID);
-		goto done;
-	}
-
-	bundleExclude = (CFSetContainsValue(_plugins_exclude, bundleID)	||	// if [bundleID] excluded
-			 ((shortID != NULL) &&
-			  CFSetContainsValue(_plugins_exclude, shortID))	// if [short bundleID] excluded
-			);
-	if (bundleExclude) {
-		// sorry, this bundle has been excluded
-		SC_log(LOG_INFO, "skipped %@ (excluded)", bundleID);
-		goto done;
-	}
 
 	if (!bundleInfo->enabled && !bundleInfo->forced) {
 		// sorry, this bundle has not been enabled
@@ -373,12 +373,12 @@ loadBundle(const void *value, void *context) {
 	if (bundleInfo->builtin) {
 		SC_log(LOG_INFO, "adding  %@", bundleID);
 
-		for (size_t i = 0; i < sizeof(builtin_plugins)/sizeof(builtin_plugins[0]); i++) {
-			if (CFEqual(bundleID, builtin_plugins[i].bundleID)) {
-				bundleInfo->load  = builtin_plugins[i].load;
-				bundleInfo->start = builtin_plugins[i].start;
-				bundleInfo->prime = builtin_plugins[i].prime;
-				bundleInfo->stop  = builtin_plugins[i].stop;
+		for (size_t i = 0; i < sizeof(plugins_builtin)/sizeof(plugins_builtin[0]); i++) {
+			if (CFEqual(bundleID, plugins_builtin[i].bundleID)) {
+				bundleInfo->load  = plugins_builtin[i].load;
+				bundleInfo->start = plugins_builtin[i].start;
+				bundleInfo->prime = plugins_builtin[i].prime;
+				bundleInfo->stop  = plugins_builtin[i].stop;
 				break;
 			}
 		}
@@ -664,8 +664,8 @@ stopBundles()
 	 * for the shut down to proceeed.
 	 */
 	SC_log(LOG_DEBUG, "calling bundle stop() functions");
-	CFArrayApplyFunction(allBundles,
-			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+	CFArrayApplyFunction(plugins,
+			     CFRangeMake(0, CFArrayGetCount(plugins)),
 			     stopBundle,
 			     NULL);
 
@@ -705,7 +705,7 @@ __private_extern__
 Boolean
 plugin_term(int *status)
 {
-	if (CFArrayGetCount(allBundles) == 0) {
+	if (CFArrayGetCount(plugins) == 0) {
 		// if no plugins
 		*status = EX_OK;
 		return FALSE;	// don't delay shutdown
@@ -732,104 +732,6 @@ plugin_term(int *status)
 #pragma mark initialization
 
 
-static void
-sortBundles(CFMutableArrayRef orig)
-{
-	CFIndex			i;
-	CFIndex			n;
-	CFMutableArrayRef	new;
-	CFMutableSetRef		orig_bundleIDs;
-
-	orig_bundleIDs = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-
-	n = CFArrayGetCount(orig);
-	for (i = 0; i < n; i++) {
-		bundleInfoRef	bundleInfo	= (bundleInfoRef)CFArrayGetValueAtIndex(orig, i);
-		CFStringRef	bundleID	= CFBundleGetIdentifier(bundleInfo->bundle);
-
-		if (bundleID != NULL) {
-			CFSetAddValue(orig_bundleIDs, bundleID);
-		}
-	}
-
-	new = CFArrayCreateMutable(NULL, 0, NULL);
-	while (n > 0) {
-		Boolean	inserted	= FALSE;
-
-		for (i = 0; i < n; i++) {
-			bundleInfoRef	bundleInfo1	= (bundleInfoRef)CFArrayGetValueAtIndex(orig, i);
-			CFStringRef	bundleID1	= CFBundleGetIdentifier(bundleInfo1->bundle);
-			CFIndex		count;
-			CFDictionaryRef	dict;
-			CFIndex		j;
-			CFIndex		nRequires;
-			CFArrayRef	requires  = NULL;
-
-			dict = isA_CFDictionary(CFBundleGetInfoDictionary(bundleInfo1->bundle));
-			if (dict) {
-				requires = CFDictionaryGetValue(dict, kSCBundleRequiresKey);
-				requires = isA_CFArray(requires);
-			}
-			if (bundleID1 == NULL || requires == NULL) {
-				CFArrayInsertValueAtIndex(new, 0, bundleInfo1);
-				CFArrayRemoveValueAtIndex(orig, i);
-				inserted = TRUE;
-				break;
-			}
-			count = nRequires = CFArrayGetCount(requires);
-			for (j = 0; j < nRequires; j++) {
-				CFIndex		k;
-				CFIndex		nNew;
-				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
-
-				if (!CFSetContainsValue(orig_bundleIDs, r)) {
-					// if dependency not present
-					count--;
-					continue;
-				}
-
-				nNew = CFArrayGetCount(new);
-				for (k = 0; k < nNew; k++) {
-					bundleInfoRef	bundleInfo2	= (bundleInfoRef)CFArrayGetValueAtIndex(new, k);
-					CFStringRef	bundleID2	= CFBundleGetIdentifier(bundleInfo2->bundle);
-
-					if (bundleID2 && CFEqual(bundleID2, r)) {
-						count--;
-					}
-				}
-			}
-			if (count == 0) {
-				/* all dependencies are met, append */
-				CFArrayAppendValue(new, bundleInfo1);
-				CFArrayRemoveValueAtIndex(orig, i);
-				inserted = TRUE;
-				break;
-			}
-		}
-
-		if (!inserted) {
-			SC_log(LOG_NOTICE, "Bundles have circular dependency!!!");
-			break;
-		}
-
-		n = CFArrayGetCount(orig);
-	}
-	if (CFArrayGetCount(orig) > 0) {
-		/* we have a circular dependency, append remaining items on new array */
-		CFArrayAppendArray(new, orig, CFRangeMake(0, CFArrayGetCount(orig)));
-	}
-	else {
-		/* new one is a sorted version of original */
-	}
-
-	CFArrayRemoveAllValues(orig);
-	CFArrayAppendArray(orig, new, CFRangeMake(0, CFArrayGetCount(new)));
-	CFRelease(new);
-	CFRelease(orig_bundleIDs);
-	return;
-}
-
-
 /*
  * ALT_CFRelease()
  *
@@ -843,24 +745,15 @@ ALT_CFRelease(CFTypeRef cf)
 }
 
 
-__private_extern__
-void
-plugin_exec(void *arg)
+static CFDictionaryRef
+pluginsCopy(void *arg)
 {
-	CFIndex		nLoaded		= 0;
+	CFMutableDictionaryRef	plugins;
 
-	/* keep track of bundles */
-	allBundles = CFArrayCreateMutable(NULL, 0, NULL);
-
-	/* add white-listed plugins to those we'll allow to be loaded */
-	for (size_t i = 0; i < N_PLUGIN_WHITELIST; i++) {
-		if (pluginWhitelist[i] != NULL) {
-			CFSetSetValue(_plugins_allowed, pluginWhitelist[i]);
-		}
-	}
-
-	/* allow plug-ins to exec child/helper processes */
-	_SCDPluginExecInit();
+	plugins = CFDictionaryCreateMutable(NULL,
+					    0,
+					    &kCFTypeDictionaryKeyCallBacks,
+					    NULL);
 
 	if (arg == NULL) {
 		char					path[MAXPATHLEN];
@@ -892,7 +785,7 @@ plugin_exec(void *arg)
 
 			/* load any available bundle */
 			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
-			SC_log(LOG_DEBUG, "searching for bundles in \"%s\"", path);
+			SC_log(LOG_DEBUG, "searching for plugins in \"%s\"", path);
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
 								      (UInt8 *)path,
 								      strlen(path),
@@ -909,7 +802,7 @@ plugin_exec(void *arg)
 					CFBundleRef	bundle;
 
 					bundle = (CFBundleRef)CFArrayGetValueAtIndex(bundles, i);
-					addBundle(bundle, FALSE);
+					addPlugin(plugins, bundle, FALSE);
 
 					// The CFBundleCreateBundlesFromDirectory() API has
 					// a known/outstanding bug in that it over-retains the
@@ -925,8 +818,6 @@ plugin_exec(void *arg)
 				CFRelease(bundles);
 			}
 		}
-
-		sortBundles(allBundles);
 	} else {
 		CFBundleRef	bundle;
 		CFURLRef	url;
@@ -940,51 +831,77 @@ plugin_exec(void *arg)
 							      TRUE);
 		bundle = CFBundleCreate(NULL, url);
 		if (bundle != NULL) {
-			addBundle(bundle, TRUE);
+			addPlugin(plugins, bundle, TRUE);
 			CFRelease(bundle);
 		}
 		CFRelease(url);
 	}
 
-	/*
-	 * Look for the InterfaceNamer plugin, and move it to the start
-	 * of the list.
-	 *
-	 * Load the InterfaceNamer plugin (and thereby start its thread)
-	 * first in an attempt to minimize the amount of time that
-	 * opendirectoryd has to wait for the platform UUID to appear in
-	 * nvram.
-	 *
-	 * InterfaceNamer is responsible for creating the platform UUID on
-	 * platforms without a UUID in ROM. Until the platform UUID is created
-	 * and stashed in nvram, all calls to opendirectoryd to do things like
-	 * getpwuid() will block, because opendirectoryd will block while trying
-	 * to read the platform UUID from the kernel.
-	 *
-	 * As an example, dlopen() causes XPC to do some intialization, and
-	 * part of that initialization involves communicating with xpcd.
-	 * Since xpcd calls getpwuid_r() during its initialization, it will
-	 * block until the platform UUID is available.
-	 */
-	for (CFIndex i = 0; i < CFArrayGetCount(allBundles); i++) {
-		bundleInfoRef	bi		= (bundleInfoRef)CFArrayGetValueAtIndex(allBundles, i);
-		CFStringRef	bundleID	= CFBundleGetIdentifier(bi->bundle);
+	return plugins;
+}
 
-		if (_SC_CFEqual(bundleID,
-				CFSTR("com.apple.SystemConfiguration.InterfaceNamer")))
-		{
-			CFArrayRemoveValueAtIndex(allBundles, i);
-			CFArrayInsertValueAtIndex(allBundles, 0, bi);
-			break;
+
+CFArrayRef
+pluginsSelect(CFDictionaryRef loaded)
+{
+	CFMutableArrayRef	selected;
+
+	selected = CFArrayCreateMutable(NULL, 0, NULL);
+
+	for (size_t i = 0; i < N_PLUGIN_ALLOW_LIST; i++) {
+		CFStringRef	bundleID;
+		bundleInfoRef	bundleInfo;
+
+		bundleID = plugin_allow_list[i];
+		bundleInfo = (bundleInfoRef)CFDictionaryGetValue(loaded, bundleID);
+		if (bundleInfo != NULL) {
+			Boolean		bundleExclude;
+
+			bundleExclude = CFSetContainsValue(_plugins_exclude, bundleID);
+			if (!bundleExclude) {
+				CFStringRef	shortID;
+
+				shortID = shortBundleIdentifier(bundleID);
+				if (shortID != NULL) {
+					bundleExclude = CFSetContainsValue(_plugins_exclude, shortID);
+					CFRelease(shortID);
+				}
+			}
+
+			if (bundleExclude) {
+				// sorry, this bundle has been excluded
+				SC_log(LOG_INFO, "skipped %@ (excluded)", bundleID);
+				continue;
+			}
+
+			CFArrayAppendValue(selected, bundleInfo);
 		}
 	}
+
+	return selected;
+}
+
+__private_extern__
+void
+plugin_exec(void *arg)
+{
+	CFDictionaryRef	available;
+	CFIndex		nLoaded		= 0;
+
+	/* allow plug-ins to exec child/helper processes */
+	_SCDPluginExecInit();
+
+	/* collect, select, and order the available plugin bundles */
+	available = pluginsCopy(arg);
+	plugins = pluginsSelect(available);
+	CFRelease(available);
 
 	/*
 	 * load each bundle.
 	 */
 	SC_log(LOG_DEBUG, "loading bundles");
-	CFArrayApplyFunction(allBundles,
-			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+	CFArrayApplyFunction(plugins,
+			     CFRangeMake(0, CFArrayGetCount(plugins)),
 			     loadBundle,
 			     &nLoaded);
 
@@ -1000,8 +917,8 @@ plugin_exec(void *arg)
 	 *       notification handler.
 	 */
 	SC_log(LOG_DEBUG, "calling bundle load() functions");
-	CFArrayApplyFunction(allBundles,
-			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+	CFArrayApplyFunction(plugins,
+			     CFRangeMake(0, CFArrayGetCount(plugins)),
 			     callLoadFunction,
 			     NULL);
 
@@ -1023,8 +940,8 @@ plugin_exec(void *arg)
 	 *       notification handler.
 	 */
 	SC_log(LOG_DEBUG, "calling bundle start() functions");
-	CFArrayApplyFunction(allBundles,
-			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+	CFArrayApplyFunction(plugins,
+			     CFRangeMake(0, CFArrayGetCount(plugins)),
 			     callStartFunction,
 			     NULL);
 
@@ -1035,8 +952,8 @@ plugin_exec(void *arg)
 	 * information and/or state in the store.
 	 */
 	SC_log(LOG_DEBUG, "calling bundle prime() functions");
-	CFArrayApplyFunction(allBundles,
-			     CFRangeMake(0, CFArrayGetCount(allBundles)),
+	CFArrayApplyFunction(plugins,
+			     CFRangeMake(0, CFArrayGetCount(plugins)),
 			     callPrimeFunction,
 			     NULL);
 

@@ -1,5 +1,6 @@
 NTFS_VERSION = 3.14.3
 NTFS_COPYRIGHT_INFO_STRING = $NTFS_VERSION, Copyright © 2002-2015 Apple Inc. All rights reserved.
 FS_BUNDLE_PATH = /System/Library/Filesystems/ntfs.fs
-FS_BUNDLE_BIN_DIR = Contents/Resources
+FS_BUNDLE_BIN_DIR = $()
+FS_BUNDLE_BIN_DIR[sdk=macosx*] = Contents/Resources
 FS_BUNDLE_BIN_PATH = $FS_BUNDLE_PATH/$FS_BUNDLE_BIN_DIR

@@ -21,10 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define	MALLOC_REPORT_NOLOG			0x10
-#define	MALLOC_REPORT_NOPREFIX		0x20
-#define MALLOC_REPORT_CRASH			0x40
-#define MALLOC_REPORT_DEBUG			0x80
+#define	MALLOC_REPORT_NOLOG			0x010
+#define	MALLOC_REPORT_NOPREFIX		0x020
+#define MALLOC_REPORT_CRASH			0x040
+#define MALLOC_REPORT_DEBUG			0x080
+#define MALLOC_REPORT_BACKTRACE		0x100
+#define MALLOC_REPORT_NOWRITE		0x200
 
 // Most internal logging should use malloc_report() or malloc_vreport(). The
 // flags argument should be a combination of the MALLOC_REPORT_xxx values and
@@ -43,6 +45,10 @@
 //	MALLOC_REPORT_CRASH:
 //			Same as MALLOC_REPORTDEBUG, but crashes after writing the report
 //			message.
+//	MALLOC_REPORT_BACKTRACE:
+//			Append a UUID+offset backtrace to the report text.
+//	MALLOC_REPORT_NOWRITE:
+//			Does not send the text to malloc_debug_file.
 //
 // In addition, if MALLOC_REPORT_CRASH or MALLOC_REPORTDEBUG are specified, this
 // function will sleep for an hour or send a SIGSTOP signal to the process if

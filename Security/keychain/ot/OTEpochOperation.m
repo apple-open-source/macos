@@ -32,8 +32,7 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 @interface OTEpochOperation ()
-@property NSString* containerName;
-@property NSString* contextID;
+@property TPSpecificUser* specificUser;
 @property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @end
 
@@ -41,18 +40,17 @@
 @synthesize intendedState = _intendedState;
 @synthesize nextState = _nextState;
 
-- (instancetype)init:(NSString*)containerName
-           contextID:(NSString*)contextID
-       intendedState:(OctagonState*)intendedState
-          errorState:(OctagonState*)errorState
-cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
+
+- (instancetype)initWithSpecificUser:(TPSpecificUser*)specificUser
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState
+                cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     if((self = [super init])) {
         _intendedState = intendedState;
         _nextState = errorState;
 
-        _containerName = containerName;
-        _contextID = contextID;
+        _specificUser = specificUser;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
     }
     return self;
@@ -66,9 +64,8 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
     [self dependOnBeforeGroupFinished:finishOp];
 
     WEAKIFY(self);
-    [self.cuttlefishXPCWrapper fetchEgoEpochWithContainer:self.containerName
-                                                  context:self.contextID
-                                                    reply:^(uint64_t epoch, NSError* _Nullable error) {
+    [self.cuttlefishXPCWrapper fetchEgoEpochWithSpecificUser:self.specificUser
+                                                       reply:^(uint64_t epoch, NSError* _Nullable error) {
             STRONGIFY(self);
             if(error) {
                 secerror("octagon: Error getting epoch: %@", error);

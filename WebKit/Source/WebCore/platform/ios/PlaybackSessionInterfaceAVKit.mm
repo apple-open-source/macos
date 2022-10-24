@@ -42,6 +42,7 @@
 #import <wtf/text/WTFString.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
 SOFTLINK_AVKIT_FRAMEWORK()
 SOFT_LINK_CLASS_OPTIONAL(AVKit, AVValueTiming)
@@ -161,12 +162,33 @@ void PlaybackSessionInterfaceAVKit::canPlayFastReverseChanged(bool canPlayFastRe
     [m_playerController setCanScanBackward:canPlayFastReverse];
 }
 
+static AVMediaType toAVMediaType(MediaSelectionOption::MediaType type)
+{
+    switch (type) {
+    case MediaSelectionOption::MediaType::Audio:
+        return AVMediaTypeAudio;
+        break;
+    case MediaSelectionOption::MediaType::Subtitles:
+        return AVMediaTypeSubtitle;
+        break;
+    case MediaSelectionOption::MediaType::Captions:
+        return AVMediaTypeClosedCaption;
+        break;
+    case MediaSelectionOption::MediaType::Metadata:
+        return AVMediaTypeMetadata;
+        break;
+    case MediaSelectionOption::MediaType::Unknown:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    return AVMediaTypeMetadata;
+}
+
 static RetainPtr<NSArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
 {
     return createNSArray(options, [] (auto& option) {
-        auto webOption = adoptNS([[WebAVMediaSelectionOption alloc] init]);
-        [webOption setLocalizedDisplayName:option.displayName];
-        return webOption;
+        return adoptNS([[WebAVMediaSelectionOption alloc] initWithMediaType:toAVMediaType(option.mediaType) displayName:option.displayName]);
     });
 }
 
@@ -189,9 +211,9 @@ void PlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Ve
 void PlaybackSessionInterfaceAVKit::externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType targetType, const String& localizedDeviceName)
 {
     AVPlayerControllerExternalPlaybackType externalPlaybackType = AVPlayerControllerExternalPlaybackTypeNone;
-    if (enabled && targetType == PlaybackSessionModel::TargetTypeAirPlay)
+    if (enabled && targetType == PlaybackSessionModel::ExternalPlaybackTargetType::TargetTypeAirPlay)
         externalPlaybackType = AVPlayerControllerExternalPlaybackTypeAirPlay;
-    else if (enabled && targetType == PlaybackSessionModel::TargetTypeTVOut)
+    else if (enabled && targetType == PlaybackSessionModel::ExternalPlaybackTargetType::TargetTypeTVOut)
         externalPlaybackType = AVPlayerControllerExternalPlaybackTypeTVOut;
 
     WebAVPlayerController* playerController = m_playerController.get();

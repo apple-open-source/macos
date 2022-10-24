@@ -192,7 +192,7 @@ const char *sslGetProtocolVersionString(SSLProtocol prot)
         case kTLSProtocol12:
 			return "kTLSProtocol12";
 		default:
-			sprintf(noProt, "Unknown (%d)", (unsigned)prot);
+			snprintf(noProt, sizeof(noProt), "Unknown (%d)", (unsigned)prot);
 			return noProt;	
 	}
 #pragma clang diagnostic pop
@@ -337,7 +337,7 @@ const char *sslGetSSLErrString(OSStatus err)
 			else
 #endif
 			{
-				sprintf(errSecSuccessStr, "Unknown (%d)", (unsigned)err);
+				snprintf(errSecSuccessStr, sizeof(errSecSuccessStr), "Unknown (%d)", (unsigned)err);
 				return errSecSuccessStr;	
 			}
 	}
@@ -366,7 +366,7 @@ const char *sslGetClientCertStateString(SSLClientCertificateState state)
 		case kSSLClientCertRejected:
 			return "ClientCertRejected";
 		default:
-			sprintf(noState, "Unknown (%d)", (unsigned)state);
+			snprintf(noState, sizeof(noState), "Unknown (%d)", (unsigned)state);
 			return noState;	
 	}
 #pragma clang diagnostic pop
@@ -1501,30 +1501,6 @@ OSStatus sslIdentityPicker(
 	return ortn;
 }
 
-/*
- * Given a keychain name, convert it into a full path using the "SSL regression 
- * test suite algorithm". The Sec layer by default locates root root's keychains
- * in different places depending on whether we're actually logged in as root
- * or running via e.g. cron, so we force the location of root keychains to 
- * a hard-coded path. User keychain names we leave alone.
- */
-void sslKeychainPath(
-	const char *kcName,
-	char *kcPath)			// allocd by caller, MAXPATHLEN
-{
-	if(kcName[0] == '\0') {
-		kcPath[0] = '\0';
-	}
-	else if(geteuid() == 0) {
-		/* root */
-		sprintf(kcPath, "/Library/Keychains/%s", kcName);
-	}
-	else {
-		/* user, leave alone */
-		strcpy(kcPath, kcName);
-	}
-}
-
 /* Verify presence of required file. Returns nonzero if not found. */
 int sslCheckFile(const char *path)
 {
@@ -1553,7 +1529,7 @@ extern const char *sslCurveString(
 		case SSL_Curve_secp384r1: return "secp384r1";
 		case SSL_Curve_secp521r1: return "secp521r1";
 		default:
-			sprintf(unk, "Unknown <%d>", (int)namedCurve);
+			snprintf(unk, sizeof(unk), "Unknown <%d>", (int)namedCurve);
 			return unk;
 	}
 }

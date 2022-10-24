@@ -203,6 +203,154 @@ set_tiny_meta_header_middle(const void *ptr)
 }
 
 static MALLOC_INLINE void
+zero_tiny_free_inline_meta(void *ptr, msize_t msize)
+{
+	if (malloc_zero_on_free) {
+		*((tiny_free_list_t *)ptr) = (tiny_free_list_t){ 0 };
+		if (msize > 1) {
+			TINY_FREE_SIZE(ptr) = 0;
+			void *follower = FOLLOWING_TINY_PTR(ptr, msize);
+			TINY_PREVIOUS_MSIZE(follower) = 0;
+		} else if (msize == 0) {
+			TINY_FREE_SIZE(ptr) = 0;
+		}
+	}
+}
+
+static MALLOC_INLINE void
+zero_tiny_free_inline_meta_following(void *ptr, msize_t msize)
+{
+	if (malloc_zero_on_free) {
+		if (msize > 1) {
+			void *follower = FOLLOWING_TINY_PTR(ptr, msize);
+			TINY_PREVIOUS_MSIZE(follower) = 0;
+		}
+	}
+}
+
+static MALLOC_COLD MALLOC_NOINLINE void
+tiny_zero_corruption_abort(void *ptr, msize_t msize)
+{
+	uint8_t *bytes = ptr;
+	size_t size = TINY_BYTES_FOR_MSIZE(msize);
+	uint8_t *start = bytes, *end = bytes + size;
+	// scan to the first non-NUL byte
+	while (*bytes == '\0') {
+		bytes++;
+	}
+
+	unsigned int offset = (unsigned int)(bytes - start);
+	malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+			"Corruption detected in block %p of size %u at offset %u, "
+			"first 32 bytes at that offset are "
+			"%02X %02X %02X %02X %02X %02X %02X %02X | "
+			"%02X %02X %02X %02X %02X %02X %02X %02X | "
+			"%02X %02X %02X %02X %02X %02X %02X %02X | "
+			"%02X %02X %02X %02X %02X %02X %02X %02X\n",
+			ptr, (unsigned int)size, offset,
+			(bytes + 0) < end ? *(bytes + 0) : 0,
+			(bytes + 1) < end ? *(bytes + 1) : 0,
+			(bytes + 2) < end ? *(bytes + 2) : 0,
+			(bytes + 3) < end ? *(bytes + 3) : 0,
+			(bytes + 4) < end ? *(bytes + 4) : 0,
+			(bytes + 5) < end ? *(bytes + 5) : 0,
+			(bytes + 6) < end ? *(bytes + 6) : 0,
+			(bytes + 7) < end ? *(bytes + 7) : 0,
+			(bytes + 8) < end ? *(bytes + 8) : 0,
+			(bytes + 9) < end ? *(bytes + 9) : 0,
+			(bytes + 10) < end ? *(bytes + 10) : 0,
+			(bytes + 11) < end ? *(bytes + 11) : 0,
+			(bytes + 12) < end ? *(bytes + 12) : 0,
+			(bytes + 13) < end ? *(bytes + 13) : 0,
+			(bytes + 14) < end ? *(bytes + 14) : 0,
+			(bytes + 15) < end ? *(bytes + 15) : 0,
+			(bytes + 16) < end ? *(bytes + 16) : 0,
+			(bytes + 17) < end ? *(bytes + 17) : 0,
+			(bytes + 18) < end ? *(bytes + 18) : 0,
+			(bytes + 19) < end ? *(bytes + 19) : 0,
+			(bytes + 20) < end ? *(bytes + 20) : 0,
+			(bytes + 21) < end ? *(bytes + 21) : 0,
+			(bytes + 22) < end ? *(bytes + 22) : 0,
+			(bytes + 23) < end ? *(bytes + 23) : 0,
+			(bytes + 24) < end ? *(bytes + 24) : 0,
+			(bytes + 25) < end ? *(bytes + 25) : 0,
+			(bytes + 26) < end ? *(bytes + 26) : 0,
+			(bytes + 27) < end ? *(bytes + 27) : 0,
+			(bytes + 28) < end ? *(bytes + 28) : 0,
+			(bytes + 29) < end ? *(bytes + 29) : 0,
+			(bytes + 30) < end ? *(bytes + 30) : 0,
+			(bytes + 31) < end ? *(bytes + 31) : 0);
+}
+
+static MALLOC_INLINE void
+tiny_check_zero_and_clear(void *ptr, msize_t msize, boolean_t clear)
+{
+	if (malloc_zero_on_free) {
+		if (zero_on_free_should_sample() &&
+				_malloc_memcmp_zero_aligned8(ptr, TINY_BYTES_FOR_MSIZE(msize))) {
+			tiny_zero_corruption_abort(ptr, msize);
+		}
+	} else {
+		if (clear) {
+			memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
+		}
+	}
+}
+
+// Check the inline metadata of a free block that hasn't already been verified:
+// - the previous freelist pointer
+// - agreement of the inline msizes
+//
+// Then clear all the inline metadata.
+static MALLOC_NOINLINE void
+_tiny_check_and_zero_inline_meta_from_freelist(rack_t *rack, void *ptr,
+		msize_t msize)
+{
+	tiny_free_list_t *free_ptr = ptr;
+
+	// check the previous pointer
+	(void)free_list_unchecksum_ptr(rack, &free_ptr->previous);
+	// zero both pointers
+	*free_ptr = (tiny_free_list_t){ 0 };
+
+	// check agreement between msizes and zero
+	if (msize > 1) {
+		msize_t leading_free_size = TINY_FREE_SIZE(ptr);
+		void *follower = FOLLOWING_TINY_PTR(ptr, msize);
+		msize_t trailing_free_size = TINY_PREVIOUS_MSIZE(follower);
+
+		if (leading_free_size != trailing_free_size) {
+			malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+					"Corruption of free object %p: msizes %u/%u disagree\n",
+					ptr, leading_free_size, trailing_free_size);
+		} else if (leading_free_size != msize) {
+			malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+					"Corruption at %p: unexpected msizes %u/%u\n",
+					ptr, leading_free_size, msize);
+		}
+
+		TINY_FREE_SIZE(ptr) = 0;
+		TINY_PREVIOUS_MSIZE(follower) = 0;
+	} else if (msize == 0 && TINY_FREE_SIZE(ptr) != 0) {
+		malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+				"Corruption at %p: unexpected nonzero msize %u\n", ptr,
+				TINY_FREE_SIZE(ptr));
+	}
+}
+
+static MALLOC_ALWAYS_INLINE MALLOC_INLINE void
+tiny_check_and_zero_inline_meta_from_freelist(rack_t *rack, void *ptr,
+		msize_t msize)
+{
+	if (!malloc_zero_on_free) {
+		return;
+	}
+
+	_tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, msize);
+}
+
+
+static MALLOC_INLINE void
 set_tiny_meta_header_free(const void *ptr, msize_t msize)
 {
 	// !msize is acceptable and means 65536
@@ -593,6 +741,9 @@ tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr)
 		if (previous_block) {
 			set_tiny_meta_header_middle(last_block);
 			tiny_free_list_remove_ptr(rack, tiny_mag_ptr, previous_block, previous_msize);
+			// zero out the trailing inline msize of the previous block to
+			// connect its zero prefix to the last block
+			zero_tiny_free_inline_meta_following(previous_block, previous_msize);
 			last_block = previous_block;
 			last_msize += previous_msize;
 		}
@@ -618,6 +769,9 @@ tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr)
 			msize_t next_msize = get_tiny_free_size(next_block);
 			set_tiny_meta_header_middle(next_block);
 			tiny_free_list_remove_ptr(rack, tiny_mag_ptr, next_block, next_msize);
+			// zero inline metadata of next_block to continue the zero prefix of
+			// the big starting free block
+			zero_tiny_free_inline_meta(next_block, next_msize);
 			last_msize += next_msize;
 		}
 
@@ -1237,8 +1391,12 @@ tiny_free_try_recirc_to_depot(rack_t *rack,
 }
 #endif // CONFIG_RECIRC_DEPOT
 
+#define TINY_FREE_FLAG_PARTIAL 0x1
+#define TINY_FREE_FLAG_FROM_CACHE 0x2
+
 boolean_t
-tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, msize_t msize, boolean_t partial_free)
+tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
+		region_t region, void *ptr, msize_t msize, uint32_t flags)
 {
 	void *original_ptr = ptr;
 	size_t original_size = TINY_BYTES_FOR_MSIZE(msize);
@@ -1275,9 +1433,15 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 		// clear the meta_header since this is no longer the start of a block
 		set_tiny_meta_header_middle(ptr);
 		tiny_free_list_remove_ptr(rack, tiny_mag_ptr, previous, previous_msize);
+
+		// zero out the trailing inline msize of the block to connect the zero
+		// prefix of this block to the newly free block
+		zero_tiny_free_inline_meta_following(previous, previous_msize);
+
 		ptr = previous;
 		msize += previous_msize;
 	}
+
 	// We try to coalesce with the next block
 	if ((next_block < TINY_REGION_HEAP_END(region)) && tiny_meta_header_is_free(next_block)) {
 		next_msize = get_tiny_free_size(next_block);
@@ -1314,6 +1478,12 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 
 			// clear the meta_header to enable coalescing backwards
 			set_tiny_meta_header_middle(big_free_block);
+
+			// zero out inline metadata to continue the zero prefix of the
+			// previous block - must happen before set_tiny_meta_header_free()
+			// reinitializes the new inline metadata
+			zero_tiny_free_inline_meta(big_free_block, next_msize);
+
 			set_tiny_meta_header_free(ptr, msize);
 
 			uint16_t next_block_index = TINY_INDEX_FOR_PTR(big_free_block) + 1;
@@ -1330,13 +1500,21 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 		}
 		tiny_free_list_remove_ptr(rack, tiny_mag_ptr, next_block, next_msize);
 		set_tiny_meta_header_middle(next_block); // clear the meta_header to enable coalescing backwards
+		// zero out inline metadata to continue the zero prefix of the previous
+		// block
+		zero_tiny_free_inline_meta(next_block, next_msize);
 		msize += next_msize;
 	}
 
-	// The tiny cache already scribbles free blocks as they go through the
-	// cache whenever msize < TINY_QUANTUM , so we do not need to do it here.
-	if ((rack->debug_flags & MALLOC_DO_SCRIBBLE) && msize && (msize >= TINY_QUANTUM)) {
-		memset(ptr, SCRABBLE_BYTE, TINY_BYTES_FOR_MSIZE(msize));
+	if (!malloc_zero_on_free) {
+		// The tiny cache already scribbles free blocks as they go through the
+		// cache, so we do not need to do it here.
+		//
+		// XXX This should probably also be conditional on CONFIG_TINY_CACHE
+		if ((rack->debug_flags & MALLOC_DO_SCRIBBLE) &&
+				!(flags & TINY_FREE_FLAG_FROM_CACHE)) {
+			memset(ptr, SCRABBLE_BYTE, TINY_BYTES_FOR_MSIZE(msize));
+		}
 	}
 
 	tiny_free_list_add_ptr(rack, tiny_mag_ptr, ptr, msize);
@@ -1354,7 +1532,7 @@ tiny_free_ending:
 	// posix_memalign and then free some range of bytes at the start and/or
 	// the end. In that case, we aren't changing the number of allocated objects.
 	// Similarly for realloc() in the case where we shrink in place.
-	if (!partial_free) {
+	if (!(flags & TINY_FREE_FLAG_PARTIAL)) {
 		trailer->objects_in_use--;
 		tiny_mag_ptr->mag_num_objects--;
 	}
@@ -1593,7 +1771,8 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 			// The block in mag_last_free is still marked as header and in-use, so copy that
 			// state to the block that remains. The state for the block that we're going to
 			// use is adjusted by the set_tiny_meta_header_middle() call below.
-			set_tiny_meta_header_in_use(next_block + TINY_BYTES_FOR_MSIZE(coalesced_msize), leftover_msize);
+			void *leftover_ptr = ((char *)next_block) + TINY_BYTES_FOR_MSIZE(coalesced_msize);
+			set_tiny_meta_header_in_use(leftover_ptr, leftover_msize);
 		} else {
 			// Using the whole block.
 			tiny_mag_ptr->mag_last_free = NULL;
@@ -1602,6 +1781,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 			trailer->objects_in_use--;
 		}
 		set_tiny_meta_header_middle(next_block);
+		tiny_check_zero_and_clear(last_free_ptr, coalesced_msize, false);
 		coalesced_msize = 0; // No net change in memory use
 	} else {
 #endif // CONFIG_TINY_CACHE
@@ -1626,6 +1806,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 				// Mark the first block of the remaining free area as a header and in-use.
 				set_tiny_meta_header_in_use_1(ptr + TINY_BYTES_FOR_MSIZE(new_msize));
 			}
+			tiny_check_zero_and_clear(unused_start, coalesced_msize, false);
 		} else {
 			/*
 			 * Look for a free block immediately afterwards.  If it's large
@@ -1647,6 +1828,10 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 		 	 */
 			tiny_free_list_remove_ptr(rack, tiny_mag_ptr, next_block, next_msize);
 			set_tiny_meta_header_middle(next_block); // clear the meta_header to enable coalescing backwards
+
+			tiny_check_and_zero_inline_meta_from_freelist(rack, next_block, next_msize);
+			tiny_check_zero_and_clear(next_block, coalesced_msize, false);
+
 			leftover_msize = next_msize - coalesced_msize;
 			if (leftover_msize) {
 				/* there's some left, so put the remainder back */
@@ -2046,6 +2231,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 		}
 #endif
 		tiny_update_region_free_list_for_remove(slot, ptr, next);
+		tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, msize);
 
 		goto return_tiny_alloc;
 	}
@@ -2078,6 +2264,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 			}
 			this_msize = get_tiny_free_size(ptr);
 			tiny_update_region_free_list_for_remove(slot, ptr, next);
+			tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, this_msize);
 			goto add_leftover_and_proceed;
 		}
 #if DEBUG_MALLOC
@@ -2098,12 +2285,16 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 			// modifying the free list rather than a pop and push of the head
 			leftover_msize = this_msize - msize;
 			leftover_ptr = (tiny_free_list_t *)((unsigned char *)ptr + TINY_BYTES_FOR_MSIZE(msize));
+
+			tiny_free_list_t tmp_ptr = *ptr;
+			tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, this_msize);
+
 			limit->p = leftover_ptr;
 			if (next) {
 				next->previous.u = free_list_checksum_ptr(rack, leftover_ptr);
 			}
-			leftover_ptr->previous = ptr->previous;
-			leftover_ptr->next = ptr->next;
+			leftover_ptr->previous = tmp_ptr.previous;
+			leftover_ptr->next = tmp_ptr.next;
 			set_tiny_meta_header_free(leftover_ptr, leftover_msize);
 #if DEBUG_MALLOC
 			if (LOG(szone, ptr)) {
@@ -2121,6 +2312,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 		}
 		limit->p = next;
 		tiny_update_region_free_list_for_remove(slot, ptr, next);
+		tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, this_msize);
 		goto add_leftover_and_proceed;
 		/* NOTREACHED */
 	}
@@ -2165,6 +2357,8 @@ try_tiny_malloc_from_end:
 
 add_leftover_and_proceed:
 	if (!this_msize || (this_msize > msize)) {
+		// XXX This works even when (this_msize == 0) because the unsigned
+		// subtraction wraps around to the correct result
 		leftover_msize = this_msize - msize;
 		leftover_ptr = (tiny_free_list_t *)((unsigned char *)ptr + TINY_BYTES_FOR_MSIZE(msize));
 #if DEBUG_MALLOC
@@ -2244,9 +2438,9 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 		tiny_mag_ptr->mag_last_free_rgn = NULL;
 		SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 		CHECK(szone, __PRETTY_FUNCTION__);
-		if (cleared_requested) {
-			memset(ptr, 0, TINY_BYTES_FOR_MSIZE(msize));
-		}
+
+		tiny_check_zero_and_clear(ptr, msize, cleared_requested);
+
 #if DEBUG_MALLOC
 		if (LOG(szone, ptr)) {
 			malloc_report(ASL_LEVEL_INFO, "in tiny_malloc_should_clear(), tiny cache ptr=%p, msize=%d\n", ptr, msize);
@@ -2261,9 +2455,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 		if (ptr) {
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 			CHECK(szone, __PRETTY_FUNCTION__);
-			if (cleared_requested) {
-				memset(ptr, 0, TINY_BYTES_FOR_MSIZE(msize));
-			}
+			tiny_check_zero_and_clear(ptr, msize, cleared_requested);
 			return ptr;
 		}
 
@@ -2273,9 +2465,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 			if (ptr) {
 				SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 				CHECK(szone, __PRETTY_FUNCTION__);
-				if (cleared_requested) {
-					memset(ptr, 0, TINY_BYTES_FOR_MSIZE(msize));
-				}
+				tiny_check_zero_and_clear(ptr, msize, cleared_requested);
 				return ptr;
 			}
 		}
@@ -2313,7 +2503,8 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 			region_set_cookie(&REGION_COOKIE_FOR_TINY_REGION(fresh_region));
 			ptr = tiny_malloc_from_region_no_lock(rack, tiny_mag_ptr, mag_index, msize, fresh_region);
 
-			// we don't clear because this freshly allocated space is pristine
+			// we don't clear or zero-check because this freshly allocated space
+			// is pristine
 			tiny_mag_ptr->alloc_underway = FALSE;
 			OSMemoryBarrier();
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
@@ -2383,6 +2574,7 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 	boolean_t is_free;
 	mag_index_t mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(tiny_region);
 	magazine_t *tiny_mag_ptr = &(rack->magazines[mag_index]);
+	uint32_t flags = 0;
 
 	MALLOC_TRACE(TRACE_tiny_free, (uintptr_t)rack, (uintptr_t)ptr, (uintptr_t)tiny_mag_ptr, known_size);
 
@@ -2403,6 +2595,10 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 	}
 #endif
 
+	if (malloc_zero_on_free) {
+		memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
+	}
+
 	SZONE_MAGAZINE_PTR_LOCK(tiny_mag_ptr);
 
 #if CONFIG_TINY_CACHE
@@ -2420,8 +2616,10 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 				return;
 			}
 
-			if ((rack->debug_flags & MALLOC_DO_SCRIBBLE) && msize) {
-				memset(ptr, SCRABBLE_BYTE, TINY_BYTES_FOR_MSIZE(msize));
+			if (!malloc_zero_on_free) {
+				if ((rack->debug_flags & MALLOC_DO_SCRIBBLE) && msize) {
+					memset(ptr, SCRABBLE_BYTE, TINY_BYTES_FOR_MSIZE(msize));
+				}
 			}
 
 			tiny_mag_ptr->mag_last_free = ptr;
@@ -2437,6 +2635,7 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 			msize = msize2;
 			ptr = ptr2;
 			tiny_region = rgn2;
+			flags |= TINY_FREE_FLAG_FROM_CACHE;
 		}
 	}
 #endif /* CONFIG_TINY_CACHE */
@@ -2455,8 +2654,12 @@ free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size,
 		SZONE_MAGAZINE_PTR_LOCK(tiny_mag_ptr);
 	}
 
+	if (partial_free) {
+		flags |= TINY_FREE_FLAG_PARTIAL;
+	}
+
 	if (tiny_free_no_lock(rack, tiny_mag_ptr, mag_index, tiny_region, ptr,
-			msize, partial_free)) {
+			msize, flags)) {
 		SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 	}
 
@@ -2543,7 +2746,10 @@ tiny_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 				if (is_free) {
 					break; // a double free; let the standard free deal with it
 				}
-				if (!tiny_free_no_lock(&szone->tiny_rack, tiny_mag_ptr, mag_index, tiny_region, ptr, msize, false)) {
+				if (malloc_zero_on_free) {
+					memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
+				}
+				if (!tiny_free_no_lock(&szone->tiny_rack, tiny_mag_ptr, mag_index, tiny_region, ptr, msize, 0)) {
 					// Arrange to re-acquire magazine lock
 					tiny_mag_ptr = NULL;
 					tiny_region = NULL;
@@ -2769,5 +2975,41 @@ tiny_free_list_check(rack_t *rack, grain_t slot, unsigned counter)
 		
 		SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 	}
+	return 1;
+}
+
+boolean_t
+tiny_check(rack_t *rack, unsigned counter)
+{
+	size_t index;
+
+	/* check tiny regions - chould check region count */
+	for (index = 0; index < rack->region_generation->num_regions_allocated; ++index) {
+		region_t tiny = rack->region_generation->hashed_regions[index];
+
+		if (HASHRING_REGION_DEALLOCATED == tiny) {
+			continue;
+		}
+
+		if (tiny) {
+			magazine_t *tiny_mag_ptr = mag_lock_zine_for_region_trailer(rack->magazines,
+					REGION_TRAILER_FOR_TINY_REGION(tiny),
+					MAGAZINE_INDEX_FOR_TINY_REGION(tiny));
+
+			if (!tiny_check_region(rack, tiny, index, counter)) {
+				SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
+				return 0;
+			}
+			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
+		}
+	}
+
+	/* check tiny free lists */
+	for (index = 0; index < NUM_TINY_SLOTS; ++index) {
+		if (!tiny_free_list_check(rack, (grain_t)index, counter)) {
+			return 0;
+		}
+	}
+
 	return 1;
 }

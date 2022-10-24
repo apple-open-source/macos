@@ -10,7 +10,7 @@
 
 #import "shared_regressions.h"
 
-static void testFileVaultKeyRawSign() {
+static void testFileVaultKeyRawSign(void) {
     id key = CFBridgingRelease(SecKeyCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
     id certificate = CFBridgingRelease(SecCertificateCreateWithSecureKeyVaultID(kCFAllocatorDefault, kSecureKeyVaultIAPAuthPrivateKey));
     id pubKey = CFBridgingRelease(SecCertificateCopyKey((SecCertificateRef)certificate));
@@ -22,7 +22,7 @@ static void testFileVaultKeyRawSign() {
     ok_status(SecKeyRawVerify((SecKeyRef)pubKey, kSecPaddingPKCS1SHA1, hash, sizeof(hash), signature, siglen), "rawverify for fileVault failed");
 }
 
-static void testFileVaultKeySign() {
+static void testFileVaultKeySign(void) {
     NSData *data = [@"dataToSign" dataUsingEncoding:NSUTF8StringEncoding];
     NSData *signature;
     SecKeyAlgorithm algorithm = NULL;

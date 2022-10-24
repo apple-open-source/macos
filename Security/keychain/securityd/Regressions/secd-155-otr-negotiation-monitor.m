@@ -2,7 +2,6 @@
 //  secd-155-otrnegotiationmonitor.m
 //  secdtests_ios
 //
-//  Created by Michelle Auricchio on 6/5/17.
 //
 
 #import <Foundation/Foundation.h>

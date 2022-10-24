@@ -24,6 +24,7 @@
  * Copyright (c) 2012 - 2020 Apple Computer, Inc.  All rights reserved.
  *
  */
+#import <AppleFeatures/AppleFeatures.h>
 #include <syslog.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -51,11 +52,11 @@
 #include <battery/battery.h>
 #endif
 
-#ifndef BHUI_XCTEST
+#if BHUI_XCTEST || POWERD_IOS_XCTEST
+#include "BatteryHealthUnitTestsStubs.h"
+#else
 #include "pmconfigd.h"
 #include "powermanagementServer.h" // mig generated
-#else
-#include "BatteryHealthUnitTestsStubs.h"
 #endif
 #include "BatteryTimeRemaining.h"
 #include "PMSettings.h"
@@ -64,11 +65,15 @@
 #include "PMStore.h"
 #include "IOUPSPrivate.h"
 #include "BatteryData.h"
+#include "BatteryCapacityCalibration.h"
 
 #define kMinNominalCapacityPercentage       1
 #define kMaxNominalCapacityPercentage       150
 #define kNominalCapacityPercentageThreshold  80
 #define kInitialNominalCapacityPercentage   104
+
+#define kAlternateNominalCapacityPercentage "nccAlt"
+#define kNominalCapacityPercentage "ncc"
 
 os_log_t    battery_health_log = NULL;
 os_log_t    battery_log = NULL;
@@ -167,6 +172,22 @@ static CFStringRef gBatterySerialNumber = NULL;
             }
             "calibrationFlags" = 0 // indicating information before/during recalibration
             ...
+
+            ~ Relevant new information for watchOS platforms as under ~
+            "postCalibrationSnapshot" = {
+                "ncc",
+                "nccAlt",
+                "MaximumCapacityPercentage",
+                "Battery Service Flags",
+                "Battery Service State",
+            }
+            // status0: First ever edge of correction failure
+            // status1: Most recent edge of correction failure
+            status[0|1] = { // relevant only if a round of ncc correction algorithm fails
+                "status",   // status code for failure reason (enum statusNccBias)
+                "correction", // ncc correction value (in mAh) as recommended by the algorithm during the failed run
+                "epoch"
+            }
         }
     }
  */
@@ -185,10 +206,15 @@ typedef enum: unsigned long {
     kBHCalibrationFlagCalib1NotNeeded =                         (1UL << 10), // Mark if another round of calibration is not needed
     kBHCalibrationFlagCalib1Completed =                         (1UL << 11), // Mark if second round of calibration is completed
 } kBHCalibrationFlags;
-#define kBHCalibrationBaselineKey   "baseline"
-#define kBHCalibrationSnapshotsKey  "snapshots"
-#define kBHCalibrationExitTOTKey    "exitTotalOperatingTime"
-#define kBHCalibrationSvcTOTKey     "svcTotalOperatingTime"
+#define kBHCalibrationBaselineKey       "baseline"
+#define kBHCalibrationSnapshotsKey      "snapshots"
+#define kBHCalibrationExitTOTKey        "exitTotalOperatingTime"
+#define kBHCalibrationSvcTOTKey         "svcTotalOperatingTime"
+#define kBHPostCalibrationSnapshotKey   "postCalibrationSnapshot"
+#define kBHCalibrationStatus0Key        "status0"
+#define kBHCalibrationStatus1Key        "status1"
+#define kBHCalibrationStatusKey         "status"
+#define kBHCalibrationCorrectionKey     "correction"
 #pragma mark -
 
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
@@ -229,8 +255,6 @@ static void updateCalibration0Flags(CFMutableDictionaryRef bhData, CFDictionaryR
 #if TARGET_OS_OSX
 #define NVRAM_BATTERY_HEALTH_VER_MAJOR  1
 #define NVRAM_BATTERY_HEALTH_VER_MINOR  0
-#define kUnMitigatedNominalCapacityPercentage "nccAlt"
-#define kMitigatedNominalCapacityPercentage "ncc"
 #define kUnMitigatedNominalCapacityAvg "nccAvgAlt"
 #define kMitigatedNominalCapacityAvg "nccAvg"
 #define kFccAvgHistoryCount "fccAvgHistoryCount"
@@ -276,12 +300,12 @@ static int64_t pfStatusOverrideValue = -1;
 
 static const CFStringRef capacityKeys[vactModesCount][3] = {
     [vactModeEnabled] = {
-        CFSTR(kMitigatedNominalCapacityPercentage),
+        CFSTR(kNominalCapacityPercentage),
         CFSTR(kMitigatedNominalCapacityAvg),
         CFSTR(kMitigatedFccDaySampleAvg),
     },
     [vactModeDisabled] = {
-        CFSTR(kUnMitigatedNominalCapacityPercentage),
+        CFSTR(kAlternateNominalCapacityPercentage),
         CFSTR(kUnMitigatedNominalCapacityAvg),
         CFSTR(kUnMitigatedFccDaySampleAvg),
     },
@@ -291,7 +315,7 @@ static CFMutableDictionaryRef cachedBatteryHealthDataDict;
 static void (^energyPrefsNotificationHandler)(void);
 static bool getVactState(void);
 static bool isVactSupported(void) __attribute__((unused));
-static void updateVactState(void);
+STATIC void updateVactState(void);
 #endif
 
 static void _internal_dispatch_assert_queue(dispatch_queue_t queue) {
@@ -341,7 +365,7 @@ typedef enum {
 static bool             startBatteryPoll(PollCommand x);
 
 #if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
-static void initBatteryHealthData(void);
+STATIC void initBatteryHealthData(void);
 #endif // TARGET_OS_IOS
 
 static void BatteryTimeRemaining_notify_post(const char *token)
@@ -356,8 +380,12 @@ static void BatteryTimeRemaining_notify_post(const char *token)
 }
 
 
+#ifdef POWERD_IOS_XCTEST
+static NSNumber * getWeightedRa(NSDictionary *batteryData) {return batteryData[@kAsbWRaKey];}
+#endif
+
 #if TARGET_OS_IOS || TARGET_OS_OSX || TARGET_OS_WATCH
-static void _setBatteryHealthData(CFMutableDictionaryRef outDict, IOPMBattery *b);
+STATIC void _setBatteryHealthData(CFMutableDictionaryRef outDict, IOPMBattery *b);
 
 /*
  * Convert a raw 'val' to its nominal value in percentage, using nominal 'base'.
@@ -941,6 +969,7 @@ static void ioregBatteryMatch(
         LogObjectRetainCount("PM::BatteryMatch(M1) msg_port", notification_ref);
 
         tracking->msg_port = notification_ref;
+        ioregBatteryProcess(tracking, battery);
         IOObjectRelease(battery);
     }
     InternalEvaluateAssertions();
@@ -1011,7 +1040,6 @@ __private_extern__ void BatteryTimeRemaining_prime(void)
         startBatteryPoll(kImmediateFullPoll);
     });
 
-    return;
 }
 
 static void BatteryTimeRemaining_finishSync(void)
@@ -1761,6 +1789,7 @@ static void checkTimeRemainingValid(IOPMBattery **batts)
 #undef   LOG_STREAM
 #define  LOG_STREAM   battery_health_log
 
+
 #if TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH || TARGET_OS_OSX
 //
 // updateBatteryServiceState - Updates Battery Health service state data in 'bhData' with new state based on
@@ -1775,16 +1804,13 @@ void updateBatteryServiceState(CFDictionaryRef battProps, CFMutableDictionaryRef
     prevSvcFlags = 0;
     svcState = kBHSvcStateNone;
 
-    bool currentlyCalibrating = (svcFlags & kBHSvcFlagCurrentlyCalibrating);
-    if (currentlyCalibrating) {
-        INFO_LOG("calib: calculating svc option from 0x%x", svcFlags);
-    }
-
     CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), prevSvcFlags);
     CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), prevSvcState);
 
+    bool currentlyCalibrating = (svcFlags & kBHSvcFlagCurrentlyCalibrating);
     if (currentlyCalibrating) {
         // Don't carry over sticky bits if we're calibrating
+        INFO_LOG("calib: calculating svc option from 0x%x", svcFlags);
         INFO_LOG("calib: clearing bits");
     } else {
         // Carry over the sticky bits of Service Flags
@@ -1844,26 +1870,13 @@ void updateBatteryServiceState(CFDictionaryRef battProps, CFMutableDictionaryRef
         INFO_LOG("calib: skipping due to precedence");
     }
     else if (currentlyCalibrating) {
-        // Show the "recalibrating" UI
-        svcState = kBHSvcStateRecalibrating;
-        kBHCalibrationFlags calibrationFlags = 0;
-        CFDictionaryRef calibrationData = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-        if (calibrationData) {
-            CFDictionaryGetInt64Value(calibrationData, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-            INFO_LOG("calib: read current calibration flags 0x%lx", calibrationFlags);
-        }
-        bool serviceBeforeCalibration = (calibrationFlags & kBHCalibrationFlagServiceBeforeCalibration);
-        if (serviceBeforeCalibration) {
-            // ...unless we recommended service before calibration started
-            svcState = kBHSvcStateRecalibratingServiceRecommended;
-        }
+        updateBatteryServiceStateInCalibration(bhData, &svcState);
     }
 
     CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), svcFlags);
     CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), svcState);
 }
 
-#if !POWERD_IOS_XCTEST
 __private_extern__ void setBHUpdateTimeDelta(xpc_object_t remoteConnection, xpc_object_t msg)
 {
     int64_t timeDelta = 0;
@@ -1899,7 +1912,6 @@ exit:
     xpc_connection_send_message(remoteConnection, respMsg);
     xpc_release(respMsg);
 }
-#endif // !POWERD_IOS_XCTEST
 #endif // TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH || TARGET_OS_OSX
 
 #if TARGET_OS_IOS || POWERD_IOS_XCTEST || TARGET_OS_WATCH
@@ -1925,7 +1937,7 @@ void setNCCFilteringState(bool enable)
 
 // migrateSvcFlags - This function migrates powerlog's version of
 // service flags(version 0 & 1) to version 2, as managed by powerd.
-static uint32_t migrateSvcFlags(IOPSBatteryHealthServiceState oldSvcState, IOPSBatteryHealthServiceFlags oldSvcFlags)
+STATIC uint32_t migrateSvcFlags(IOPSBatteryHealthServiceState oldSvcState, IOPSBatteryHealthServiceFlags oldSvcFlags)
 {
     IOPSBatteryHealthServiceFlags newFlags = kBatteryHealthCurrentVersion;
 
@@ -2073,7 +2085,7 @@ CFDictionaryRef copyPowerlogBatteryHealthData()
  * This function will return NULL only when there is no previous battery health data in powerd's CFPrefs
  * and system is not unlocked even once to migrate data from powerlog.
  */
-static CFMutableDictionaryRef copyBatteryHealthData(void)
+STATIC CFMutableDictionaryRef copyBatteryHealthData(void)
 {
     CFDictionaryRef dict;
     CFMutableDictionaryRef bhData;
@@ -2217,7 +2229,7 @@ static void _initBatteryHealthData(void)
     }
 }
 
-static void initBatteryHealthData(void)
+STATIC void initBatteryHealthData(void)
 {
     static dispatch_once_t onceToken;
     _internal_dispatch_assert_queue_barrier(batteryTimeRemainingQ);
@@ -2227,94 +2239,26 @@ static void initBatteryHealthData(void)
     });
 }
 
-// D4x/N104 AzulE - "Calibration 0"
+// D4x/N104, N14x - "Calibration 0"
 static bool calib0RelevantDevice(void)
 {
     bool relevant = false;
 #if HAS_MOBILE_GESTALT
-    // Only run on D4x/N104
+    // Only run on D4x/N104, N14[0,1,2,4,6][b,s]
     relevant = MGIsDeviceOneOfType(MGPROD_D421,
                                    MGPROD_D431,
                                    MGPROD_N104,
+                                   MGPROD_N131B,
+                                   MGPROD_N141B,
+                                   MGPROD_N144B,
+                                   MGPROD_N146B,
+                                   MGPROD_N131S,
+                                   MGPROD_N141S,
+                                   MGPROD_N144S,
+                                   MGPROD_N146S,
                                    nil);
 #endif /* HAS_MOBILE_GESTALT */
     return relevant;
-}
-
-static uint64_t calibration0wRdcP0Threshold(CFDictionaryRef batteryProps)
-{
-    NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-    NSDictionary *batteryData = batteryProperties[@kAsbBatteryDataKey];
-    // Get the AlgoChemID
-    int algoChemId = -1;
-
-    if (batteryData[@kAsbAlgoChemIDKey]) {
-        algoChemId = [batteryData[@kAsbAlgoChemIDKey] intValue];
-    } else {
-        ERROR_LOG("calib0: failed to read algoChemId");
-    }
-
-    uint64_t p0Threshold = 660; // Highest catch all value, for the pathological case that will never happen
-#if HAS_MOBILE_GESTALT
-    if (MGIsDeviceOfType(MGPROD_D421)) {
-        switch (algoChemId) {
-            case 0x3BFF351C:
-                p0Threshold = 609;
-                break;
-            case 0x3BFE986E:
-                p0Threshold = 405;
-                break;
-            case 0x3BFE9F76:
-                p0Threshold = 508;    // D42 - ATL
-                break;
-            case 0x3BFF3BC0:
-                p0Threshold = 660;    // D42 - LGC
-                break;
-            default:
-                p0Threshold = 660;
-                break;
-        }
-    }
-    if (MGIsDeviceOfType(MGPROD_D431)) {
-        switch (algoChemId) {
-            case 0x3C009448:
-                p0Threshold = 483;
-                break;
-            case 0x3C006D2E:
-                p0Threshold = 577;    // D43 - ATL
-                break;
-            case 0x3C009B50:
-                p0Threshold = 521;    // D43 - LGC
-                break;
-            default:
-                p0Threshold = 577;
-                break;
-        }
-    }
-    if (MGIsDeviceOfType(MGPROD_N104)) {
-        switch (algoChemId) {
-            case 0x3BF327EA:
-                p0Threshold = 366;
-                break;
-            case 0x3BF3762A:        // N104 - MUR
-                p0Threshold = 321;
-                break;
-            case 0x3BF34F10:
-                p0Threshold = 390;
-                break;
-            case 0x3BF32DC6:
-                p0Threshold = 538;    // N104 - ATL
-                break;
-            case 0x3BF354EA:
-                p0Threshold = 533;    // N104 - SDI
-                break;
-            default:
-                p0Threshold = 538;
-                break;
-        }
-    }
-#endif
-    return p0Threshold;
 }
 
 static int readBatteryLifetimeUPOCount(void)
@@ -2363,88 +2307,26 @@ static bool calibration0isShowingService(IOPSBatteryHealthServiceState svcState)
     return false;
 }
 
+
 static void updateCalibration0State(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                              IOPSBatteryHealthServiceFlags *svcFlags)
 {
-    NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-    
-    NSMutableDictionary *batteryHealthData = (__bridge NSMutableDictionary*)bhData;
-    NSMutableDictionary *calibrationData = [batteryHealthData[@kBHCalibration0Key] mutableCopy];
-    if (calibrationData == nil) {
-        ERROR_LOG("calib0: error reading calibration data");
-        return;
-    }
-    NSMutableDictionary *snapshotData = [calibrationData[@kBHCalibrationSnapshotsKey] mutableCopy];
-    
-    IOPSBatteryHealthServiceFlags prevSvcFlags = 0;
-    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), prevSvcFlags);
-    IOPSBatteryHealthServiceState prevSvcState = kBHSvcStateUnknown;
-    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), prevSvcState);
-    int prevMaximumCapacityPct = -1;
-    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevMaximumCapacityPct);
-    
-    // Snapshotting
-    // Index by cycle count
-    int cycleCount = [batteryProperties[@kIOPMPSCycleCountKey] intValue];
-    if (batteryProperties[@kIOPMPSCycleCountKey] == nil) {
-        cycleCount = -1;
-        ERROR_LOG("calib0: error reading current cycle count");
-    }
-    NSString *cycleCountKey = [NSString stringWithFormat:@"%d", cycleCount];
-    if (snapshotData[cycleCountKey] != nil) {
-        INFO_LOG("calib0: %d already snapshotted", cycleCount);
-    } else {
-        /*
-         Snapshot the following on each new cycle count while calibrating
-         powerd:
-         - Maximum Capacity Percent
-         - Service Flags
-         - Service Option
-         
-         IOPM:
-         - CycleCount
-         - weightedRa
-         - NCC
-         - Total Operating Time
-         
-         PMU:
-         - IOPMUBootUPOCounter (Lifetime UPO Count)
-         */
-        INFO_LOG("calib0: creating snapshot for %d", cycleCount);
-
-        NSDictionary *batteryData = batteryProperties[@kAsbBatteryDataKey];
-        NSDictionary *lifetimeData = batteryData[@kAsbLifetimeDataKey];
-        NSMutableDictionary *cycleCountSnapshot = [NSMutableDictionary dictionary];
-        // Max Cap
-        cycleCountSnapshot[@kIOPSBatteryHealthMaxCapacityPercent] = @(prevMaximumCapacityPct);
-        // Svc Flags
-        cycleCountSnapshot[@kIOPSBatteryHealthServiceFlagsKey] = @(prevSvcFlags);
-        // Svc Opt
-        cycleCountSnapshot[@kIOPSBatteryHealthServiceStateKey] = @(prevSvcState);
-        // Cycle Count
-        cycleCountSnapshot[@kIOPMPSCycleCountKey] = @(cycleCount);
-        // WeightedRa
-        cycleCountSnapshot[@kAsbWRaKey] = batteryData[@kAsbWRaKey];
-        // NCC
-        cycleCountSnapshot[@kAsbNominalChargeCapacityKey] = batteryProperties[@kAsbNominalChargeCapacityKey];
-        // TotalOperatingTime
-        cycleCountSnapshot[@kAsbTotalOperatingTimeKey] = lifetimeData[@kAsbTotalOperatingTimeKey];
-        // Lifetime UPO Count
-        cycleCountSnapshot[@"LifetimeUPOCount"] = @(readBatteryLifetimeUPOCount());
-        
-        INFO_LOG("calib0: created snapshot for %d %@", cycleCount, cycleCountSnapshot);
-        snapshotData[cycleCountKey] = cycleCountSnapshot;
-    }
-
-    calibrationData[@kBHCalibrationSnapshotsKey] = snapshotData;
-    batteryHealthData[@kBHCalibration0Key] = calibrationData;
-    if (snapshotData) CFRelease(snapshotData);
-    if (calibrationData) CFRelease(calibrationData);
+    return;
 }
+
+/**
+ * @brief set kBHCalibrationFlagCompleted in calibration flags and unset kBHSvcFlagCurrentlyCalibrating in service flags.
+ * w.r.t watchOS calibration means allowing the maxCapacity to re-adjust (calibrate). As soon as calibration is marked as done,
+ * maximum capacity is not allowed to jump up, however, as for the Ncc bias correction, it happens on every iteration regardless
+ * of the calibration state, on relevant devices.
+ * 
+ * On iOS, calibration and ncc correction, both have the same scope and end of life.
+ */
 
 static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                             IOPSBatteryHealthServiceFlags *svcFlags)
 {
+    _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     // Create top-level calibration dict and baseline/snapshots sub-dicts
     NSMutableDictionary *calibrationData = [NSMutableDictionary dictionary];
     NSMutableDictionary *baselineData = [NSMutableDictionary dictionary];
@@ -2461,7 +2343,7 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
         - Service Flags
         - Service Option
 
-     IOPM:
+        IOPM:
         - Battery Serial
         - Cycle Count
         - Gauge FW Version
@@ -2502,7 +2384,7 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
     // AlgoChemID
     baselineData[@kAsbAlgoChemIDKey] = batteryData[@kAsbAlgoChemIDKey];
     // WeightedRa
-    baselineData[@kAsbWRaKey] = batteryData[@kAsbWRaKey];
+    baselineData[@kAsbWRaKey] = getWeightedRa(batteryData);
     // Ra Table
     NSArray<NSString*> *raTableKeys = @[@kAsbRa00Key, @kAsbRa01Key, @kAsbRa02Key, @kAsbRa03Key, @kAsbRa04Key,
                                         @kAsbRa05Key, @kAsbRa06Key, @kAsbRa07Key, @kAsbRa08Key, @kAsbRa09Key,
@@ -2554,12 +2436,8 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
     if (calibration0isShowingService(prevSvcState)) {
         calibrationFlags |= kBHCalibrationFlagServiceBeforeCalibration;
     }
-    bool isNewBattery = (*svcFlags & kBHSvcFlagNewBattery);
-    if (isNewBattery) {
-        // If a new battery is detected, skip calibration
-        calibrationFlags |= kBHCalibrationFlagCompleted;
-        calibrationFlags |= kBHCalibrationFlagSkipped;
-    }
+
+
     calibrationFlags |= kBHCalibrationFlagCalib1NotNeeded;
     calibrationData[@kBHCalibrationFlagsKey] = @(calibrationFlags);
     INFO_LOG("calib0: baseline calibration flags 0x%lx", calibrationFlags);
@@ -2569,332 +2447,34 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
     batteryHealthData[@kBHCalibration0Key] = calibrationData;
 }
 
-#define kBHCalibration0wRDCFailureThreshold .7
-#define kBHCalibration0wRDCCycleCountLookback 5
-static bool didCalibration0Fail(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData)
-{
-    bool calibrationFailed = false;
-    uint64_t p0Threshold = batteryHealthP0Threshold == 0 ? calibration0wRdcP0Threshold(batteryProps) : batteryHealthP0Threshold;
-    double calibrationFailureThreshold = (p0Threshold * kBHCalibration0wRDCFailureThreshold);
-    INFO_LOG("calib0: checking for calibration failure with threshold %f", calibrationFailureThreshold);
-
-    NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-    int cycleCount = [batteryProperties[@kIOPMPSCycleCountKey] intValue];
-    if (batteryProperties[@kIOPMPSCycleCountKey] == nil) {
-        cycleCount = -1;
-        ERROR_LOG("calib0: error reading current cycle count");
-    }
-
-    NSDictionary *batteryHealthData = (__bridge NSDictionary*)bhData;
-    NSDictionary *calibrationData = batteryHealthData[@kBHCalibration0Key];
-    NSDictionary *snapshotDictionary = calibrationData[@kBHCalibrationSnapshotsKey];
-    // The snapshot dictionary is a mapping from cycle count (unfortunately a string) to a dictionary with wRDC included
-    // Since we're interested in the most recent N, we'll walk backwards until we have found enough or have run out of snapshots
-    int totalwRDC = 0;
-    int numValidSamples = 0;
-    size_t totalSamples = snapshotDictionary.count;
-    int samplesChecked = 0;
-    int targetCycleCount = cycleCount;
-
-    while (targetCycleCount > 0) {
-        INFO_LOG("calib0: loop: checking for target cycle %d, found %d (%d / %zu)", targetCycleCount, numValidSamples, samplesChecked, totalSamples);
-        NSString *targetKey = [NSString stringWithFormat:@"%d", targetCycleCount];
-        NSDictionary *targetSnapshot = snapshotDictionary[targetKey];
-        if (targetSnapshot) {
-            INFO_LOG("calib0: loop: snapshot found for %d", targetCycleCount);
-            int snapshotwRDC = [targetSnapshot[@kAsbWRaKey] intValue];
-            if (snapshotwRDC > 0) {
-                totalwRDC += snapshotwRDC;
-                numValidSamples++;
-                INFO_LOG("calib0: loop: adding sample #%d with wRDC %d", numValidSamples, snapshotwRDC);
-            }
-            samplesChecked++;
-        } else {
-            INFO_LOG("calib0: loop: no snapshot found for %d", targetCycleCount);
-        }
-
-        targetCycleCount--;
-
-        if (numValidSamples == kBHCalibration0wRDCCycleCountLookback) {
-            INFO_LOG("calib0: loop: exiting, found enough");
-            break;
-        } else if (samplesChecked == totalSamples) {
-            INFO_LOG("calib0: loop: ran through all %zu samples", totalSamples);
-            break;
-        }
-    }
-
-    if (numValidSamples != kBHCalibration0wRDCCycleCountLookback) {
-        ERROR_LOG("calib0: only found %d samples, need %d", numValidSamples, kBHCalibration0wRDCCycleCountLookback);
-    }
-
-    if (numValidSamples <= 0) {
-        calibrationFailed = false;
-    } else {
-        double averagewRDC = ((double)totalwRDC)/numValidSamples;
-        if (averagewRDC > calibrationFailureThreshold) {
-            calibrationFailed = true;
-        } else {
-            calibrationFailed = false;
-        }
-    }
-
-    return calibrationFailed;
-}
-
-#define kBHCalibration0wRdcThresholdNotFound -1
-static int calibration0wRdcThreshold(CFDictionaryRef batteryProps)
-{
-    NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-    NSDictionary *batteryData = batteryProperties[@kAsbBatteryDataKey];
-    // Get the AlgoChemID
-    int algoChemId = -1;
-    if (batteryData[@kAsbAlgoChemIDKey]) {
-        algoChemId = [batteryData[@kAsbAlgoChemIDKey] intValue];
-    } else {
-        ERROR_LOG("calib0: failed to read algoChemId");
-    }
-
-    // rdar://75873981 (D4x N104 wRdc Threshold values to check IC reset)
-    switch(algoChemId) {
-        case 0x3BF32DC6: return 190;    // N104 - ATL
-        case 0x3BF354EA: return 205;    // N104 - SDI
-        case 0x3BFE9F76: return 175;    // D42 - ATL
-        case 0x3BFF3BC0: return 218;    // D42 - LGC
-        case 0x3C006D2E: return 138;    // D43 - ATL
-        case 0x3C009B50: return 160;    // D43 - LGC
-    }
-    return kBHCalibration0wRdcThresholdNotFound;
-}
-
 #define kBHCalibration0LowCycleCountDelta 10
 #define kBHCalibration0HighCycleCountDelta 20
-static bool shouldCalibration0End(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
-                           IOPSBatteryHealthServiceFlags *svcFlags)
-{
-    NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-    
-    NSMutableDictionary *batteryHealthData = (__bridge NSMutableDictionary*)bhData;
-    NSMutableDictionary *calibrationData = [batteryHealthData[@kBHCalibration0Key] mutableCopy];
-    if (calibrationData == nil) {
-        ERROR_LOG("calib0: error reading existing calibration data");
-    }
-    
-    kBHCalibrationFlags calibrationFlags = [calibrationData[@kBHCalibrationFlagsKey] unsignedLongValue];
-    INFO_LOG("calib0: checking flags 0x%lx", calibrationFlags);
-    bool calibrationComplete = (calibrationFlags & kBHCalibrationFlagCompleted);
-    if (calibrationComplete) {
-        INFO_LOG("calib0: calibration complete");
-        if (calibrationData) CFRelease(calibrationData);
-        return true;
-    }
-    
-    NSDictionary *baselineData = calibrationData[@kBHCalibrationBaselineKey];
-    if (baselineData == nil) {
-        ERROR_LOG("calib0: error reading baseline data");
-    }
 
-    int initialwRDC = [baselineData[@kAsbWRaKey] intValue];
-    if (baselineData[@kAsbWRaKey] == nil) {
-        initialwRDC = -1;
-        ERROR_LOG("calib0: error reading initial wRDc");
-    }
 
-    int cycleCount = [batteryProperties[@kIOPMPSCycleCountKey] intValue];
-    if (batteryProperties[@kIOPMPSCycleCountKey] == nil) {
-        cycleCount = -1;
-        ERROR_LOG("calib0: error reading current cycle count");
-    }
-    
-    int initialCycleCount = [baselineData[@kIOPMPSCycleCountKey] intValue];
-    if (baselineData[@kIOPMPSCycleCountKey] == nil) {
-        initialCycleCount = -1;
-        ERROR_LOG("calib0: error reading initial cycle count");
-    }
-
-    bool exitCriteriaMet = false;
-    int cycleCountThreshold = -1;
-    INFO_LOG("calib0: checking exit criteria");
-
-    // Decide between a lower and higher cycle count threshold
-    int wRDCThreshold = calibration0wRdcThreshold(batteryProps);
-    INFO_LOG("calib0: initial wRDC:%d threshold:%d", initialwRDC, wRDCThreshold);
-    bool useHighThresholds = false;
-
-    if (wRDCThreshold == kBHCalibration0wRdcThresholdNotFound) {
-        // No cellID-dependent threshold, use low thresholds
-        useHighThresholds = false;
-    }
-    else if (initialwRDC == -1) {
-        // failure to read starting wRDC value, use high thresholds
-        useHighThresholds = true;
-    }
-    else if (initialwRDC > wRDCThreshold) {
-        // If wRDC started high and was reset, use the high thresholds
-        useHighThresholds = true;
-    } else {
-        // Otherwise, use the low ones
-        useHighThresholds = false;
-    }
-
-    if (useHighThresholds) {
-        cycleCountThreshold = kBHCalibration0HighCycleCountDelta;
-        calibrationFlags |= kBHCalibrationFlagThresholdHigher;
-    } else {
-        cycleCountThreshold = kBHCalibration0LowCycleCountDelta;
-        calibrationFlags |= kBHCalibrationFlagThresholdLower;
-    }
-    
-
-    INFO_LOG("calib0: initial:%d current:%d threshold:%d", initialCycleCount, cycleCount, cycleCountThreshold);
-    int cyclesSinceCalibrationStart = cycleCount - initialCycleCount;
-
-    if (cyclesSinceCalibrationStart > cycleCountThreshold) {
-        exitCriteriaMet = true;
-    }
-
-    if (exitCriteriaMet) {
-        // Update calibration flags
-        calibrationFlags |= kBHCalibrationFlagCompleted;
-        calibrationFlags |= kBHCalibrationFlagCalib1NotNeeded;
-        INFO_LOG("calib0: exit criteria met: 0x%lx", calibrationFlags);
-
-        // Check for calibration failure
-        if (didCalibration0Fail(batteryProps, bhData)) {
-            INFO_LOG("calib0: calibration failed");
-            *svcFlags |= kBHSvcFlagCalibrationFailure;
-            calibrationFlags |= kBHCalibrationFlagFailure; // telemetry only, all other systems should use kBHSvcStateCalibrationFailed
-        }
-    }
-    if (calibrationData) {
-        calibrationData[@kBHCalibrationFlagsKey] = @(calibrationFlags);
-        batteryHealthData[@kBHCalibration0Key] = calibrationData;
-        CFRelease(calibrationData);
-    }
-    return exitCriteriaMet;
-}
+/**
+ * @brief Utility function to check if calibration data exists.
+ */
 
 static bool isCalibration0Running(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                     IOPSBatteryHealthServiceFlags *svcFlags)
 {
-    bool calibration0DataAlreadyExists = CFDictionaryContainsKey(bhData, CFSTR(kBHCalibration0Key));
-    if (!calibration0DataAlreadyExists) {
-        INFO_LOG("calib0: starting");
-        initializeCalibration0(batteryProps, bhData, svcFlags);
-    }
-
-    if (shouldCalibration0End(batteryProps, bhData, svcFlags)) {
-        INFO_LOG("calib0: exiting");
-        return false;
-    }
-    
-    // At this point we know we're running, and need to update state.
-    updateCalibration0State(batteryProps, bhData, svcFlags);
-    return true;
+    return false;
 }
 
+/**
+ * None of the calibration flags - kBHCalibrationFlagServiceAtEndOfCalibration, kBHCalibrationFlagServiceToNoServiceDuringCalibration, kBHCalibrationFlagServiceDuringCalibration
+ * are relevant to non-iOS systems. 
+ */
 static void updateCalibration0Flags(CFMutableDictionaryRef bhData, CFDictionaryRef batteryProps,
                              IOPSBatteryHealthServiceState prevSvcState, IOPSBatteryHealthServiceFlags prevSvcFlags,
                              IOPSBatteryHealthServiceState currentSvcState, IOPSBatteryHealthServiceFlags currentSvcFlags)
 {
-    // Bail if we're on an unsupported device
-    if (!calib0RelevantDevice()) {
-        return;
-    }
-    CFDictionaryRef calibrationDataDisk = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-    CFMutableDictionaryRef calibrationData = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, calibrationDataDisk);
-    if (calibrationData) {
-        INFO_LOG("calib0: updating calibraiton flags using psvc%d psvcflag0x%x -> svc%d svcflag0x%x", prevSvcState, prevSvcFlags, currentSvcState, currentSvcFlags);
-        kBHCalibrationFlags calibrationFlags = 0;
-        CFDictionaryGetInt64Value(calibrationData, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-        kBHCalibrationFlags oldCalibrationFlags = calibrationFlags;
-        
-        NSDictionary *batteryProperties = (__bridge NSDictionary*)batteryProps;
-        NSDictionary *batteryData = batteryProperties[@kAsbBatteryDataKey];
-        NSDictionary *lifetimeData = batteryData[@kAsbLifetimeDataKey];
-
-        // Update flags/capture state on transitions
-        
-        // Note: current svc flags/state have not yet been "overriden" to show recalibration
-        bool wouldRecommendService = calibration0isShowingService(currentSvcState);
-        bool currentlyRecalibrating = (currentSvcFlags & kBHSvcFlagCurrentlyCalibrating);
-        if (currentlyRecalibrating) {
-            if (wouldRecommendService) {
-                calibrationFlags |= kBHCalibrationFlagServiceDuringCalibration;
-            }
-            
-            if (prevSvcState == kBHSvcStateRecalibrating &&
-                wouldRecommendService) {
-                // Capture ToT at time of first transition from NoSvc -> Svc during calibration
-                if (!CFDictionaryContainsKey(calibrationData, CFSTR(kBHCalibrationSvcTOTKey))) {
-                    int totalOperatingTime = [lifetimeData[@kAsbTotalOperatingTimeKey] intValue];
-                    CFDictionarySetIntValue(calibrationData, CFSTR(kBHCalibrationSvcTOTKey), totalOperatingTime);
-                    INFO_LOG("calib0: captured %s=%d", kBHCalibrationSvcTOTKey, totalOperatingTime);
-                }
-                calibrationFlags |= kBHCalibrationFlagNoServiceToServiceDuringCalibration;
-            }
-            
-            if (prevSvcState == kBHSvcStateRecalibratingServiceRecommended &&
-                !wouldRecommendService) {
-                // If we entered recalibration recommending service, but are no longer doing so
-                calibrationFlags |= kBHCalibrationFlagServiceToNoServiceDuringCalibration;
-            }
-            
-        } else {
-            bool previouslyRecalibrating = (prevSvcFlags & kBHSvcFlagCurrentlyCalibrating);
-            if (previouslyRecalibrating) {
-                // Capture ToT at time of exit, stash away for AppleCare
-                int totalOperatingTime = [lifetimeData[@kAsbTotalOperatingTimeKey] intValue];
-                CFDictionarySetIntValue(calibrationData, CFSTR(kBHCalibrationExitTOTKey), totalOperatingTime);
-                INFO_LOG("calib0: just finished recalibrating, ToT:%d", totalOperatingTime);
-                
-                if (wouldRecommendService) {
-                    calibrationFlags |= kBHCalibrationFlagServiceAtEndOfCalibration;
-                }
-            }
-        }
-        
-        CFDictionarySetInt64Value(calibrationData, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-        CFDictionarySetValue(bhData, CFSTR(kBHCalibration0Key), (CFMutableDictionaryRef)calibrationData);
-        INFO_LOG("calib0: updated calibration flags 0x%lx -> 0x%lx", oldCalibrationFlags, calibrationFlags);
-    }
-    if (calibrationData) CFRelease(calibrationData);
-}
-
-static bool isCalibration0FailureSet(CFDictionaryRef bhData)
-{
-    CFDictionaryRef calibrationData = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-    if (!calibrationData) {
-        return false;
-    }
-
-    kBHCalibrationFlags calibrationFlags = 0;
-    CFDictionaryGetInt64Value(calibrationData, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-    if (calibrationFlags & kBHCalibrationFlagFailure) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-static bool isCalibration1Complete(CFDictionaryRef bhData)
-{
-    CFDictionaryRef calibrationData = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-    if (!calibrationData) {
-        return false;
-    }
-
-    kBHCalibrationFlags calibrationFlags = 0;
-    CFDictionaryGetInt64Value(calibrationData, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-    if (calibrationFlags & kBHCalibrationFlagCalib1Completed) {
-        return true;
-    } else {
-        return false;
-    }
+    return;
 }
 
 static bool isCalibration1Needed(CFDictionaryRef bhData)
 {
+    _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     CFDictionaryRef calibrationData = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
     if (!calibrationData) {
         return false;
@@ -2910,175 +2490,10 @@ static bool isCalibration1Needed(CFDictionaryRef bhData)
     }
 }
 
-static int getCalibration1RefCycleCount(CFDictionaryRef calibrationDict)
-{
-    int cycleCountOffset = 0;
-    NSDictionary *calibrationData = (__bridge NSDictionary *) calibrationDict;
-    if (calibrationData == nil) {
-        ERROR_LOG("calib0: error reading existing calibration data");
-        return -1;
-    }
-    
-    kBHCalibrationFlags calibrationFlags = [calibrationData[@kBHCalibrationFlagsKey] unsignedLongValue];
-    if (calibrationFlags & kBHCalibrationFlagThresholdHigher) {
-        cycleCountOffset = kBHCalibration0HighCycleCountDelta;
-    } else if (calibrationFlags & kBHCalibrationFlagSkipped) {
-        cycleCountOffset = 0;
-    } else {
-        cycleCountOffset = kBHCalibration0LowCycleCountDelta;
-    }
-
-    NSDictionary *baselineData = calibrationData[@kBHCalibrationBaselineKey];
-    if (baselineData == nil || baselineData[@kIOPMPSCycleCountKey] == nil) {
-        ERROR_LOG("calib0: error reading baseline data");
-        return -1;
-    }
-    int initialCycleCount = [baselineData[@kIOPMPSCycleCountKey] intValue];
-    return initialCycleCount + cycleCountOffset;
-}
-
-/*
- * Take calibrationData dictionary and run 2nd round of calibration on the same a.k.a 'calibration1'
- *
- * _In: @calibrationData, A nested dictionary of calibration0 snapshots
- * _Out: @calib1, Dictionary 'calib1' with calibration1 results
- *
- * Once successfully done, the routine will return calibrationData with 'calib1' dictionary bearing calibration1 results.
- * Callers are expected to make sure of device/calibration criteria etc. validity.
- * A dictionary of results will always be returned with below schema.
- *
- * calib1 {
- *  calib1MaxCapacity,  // calib1's decision about maxCapacity from snapshots, kInitialNominalCapacityPercentage if no snapshots found/calibration didn't run.
- *  calib1SvcFlags,     // decision about svcFlags from snapshots, '0' if no snapshots or calibration didn't run.
- *  refCycleCount,      // reference cycle count. (> refCycleCount) snapshots are parsed
- *  nSamples,           // number of samples parsed
- * }
- */
-static CF_RETURNS_RETAINED CFDictionaryRef parseCalibration0Snapshots(CFDictionaryRef calibrationData)
-{
-    NSMutableDictionary *calib1 = [NSMutableDictionary dictionary];
-    if (!calib1) {
-        ERROR_LOG("Out of memory for calibration1");
-        return NULL;
-    }
-
-    int calib1MaxCap = kInitialNominalCapacityPercentage; // start with a high reference value
-    IOPSBatteryHealthServiceFlags calib1SvcFlags = 0; 
-    int nSamples = 0;
-    int refCycleCount = -1;
-
-    NSDictionary *calib0 = (__bridge NSDictionary *)calibrationData;
-    if (!calib0) {
-        ERROR_LOG("No calibration data found");
-        goto out;
-    }
-
-    NSDictionary *snapshots = calib0[@kBHCalibrationSnapshotsKey];
-    if (!snapshots) {
-        ERROR_LOG("No snapshots found");
-        goto out;
-    }
-
-    refCycleCount = getCalibration1RefCycleCount(calibrationData);
-    if (refCycleCount == -1) {
-        goto out;
-    }
-
-    NSString *key;
-    NSEnumerator *enumerator = [snapshots keyEnumerator];
-    while (key = [enumerator nextObject]) {
-        if (![snapshots[key] isKindOfClass:[NSDictionary class]]) {
-            ERROR_LOG("Not a class");
-            continue;
-        }
-        NSDictionary *snapshot = snapshots[key];
-        int cycleCount = [snapshot[@kIOPMPSCycleCountKey] intValue];
-        // skip this snapshot
-        if (cycleCount <= refCycleCount) {
-            continue;
-        }
-
-        int maxCap = [snapshot[@kIOPSBatteryHealthMaxCapacityPercent] intValue];
-        if (maxCap > 0) {
-            calib1MaxCap = MIN(calib1MaxCap, maxCap);
-        }
-
-        int svcFlags = [snapshot[@kIOPSBatteryHealthServiceFlagsKey] intValue];
-        calib1SvcFlags |= (svcFlags & kBHSvcFlagStickyBits);
-        nSamples++;
-    }
-
-out:
-    calib1[@kIOPSBatteryHealthMaxCapacityPercent] = @(calib1MaxCap);
-    calib1[@kIOPSBatteryHealthServiceFlagsKey] = @(calib1SvcFlags);
-    calib1[@kIOPMPSCycleCountKey] = @(refCycleCount);
-    calib1[@"nSamples"] = @(nSamples);
-    CFRetain(calib1);
-    return (__bridge CFDictionaryRef) calib1;
-}
-
-/*
- * Run calibration1 and decide final maxCapacity and service flags.
- *
- * _In: @bhData, Battery health data dictionary
- *
- * Once successfully done, the routine will update the following in battery health data dictionary, and set kBHCalibrationFlagCalib1Completed in calibration flags.
- * - maximum capacity as MIN(current maxCap, calib1 maxCap)
- * - service flags as OR(current service flags, calib1 service flags). calib1 service flags will only bear sticky bits.
- *
- * Finally, the routine will append the original calibration1 results to calibration0 dictionary.
- */
-static void runCalibration1(CFMutableDictionaryRef bhData)
-{
-    int prevSvcFlags = 0, newSvcFlags = 0, prevNccp = 0, newNccp = 0;
-    kBHCalibrationFlags calibrationFlags = 0;
-
-    CFDictionaryRef calibrationData = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-    if (!calibrationData) {
-        ERROR_LOG("Calibration0 not found");
-        return;
-    }
-
-    CFDictionaryRef calib1 = parseCalibration0Snapshots(calibrationData);
-    if (!calib1) {
-        ERROR_LOG("Failed to initiate calibration1");
-        return;
-    }
-
-    CFMutableDictionaryRef calibrationDataCopy = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, calibrationData);
-    if (!calibrationDataCopy) {
-        ERROR_LOG("Out of memory for calibration1");
-        CFRelease(calib1);
-        return;
-    }
-
-    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), prevSvcFlags);
-    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevNccp);
-    CFDictionaryGetIntValue(calib1, CFSTR(kIOPSBatteryHealthServiceFlagsKey), newSvcFlags);
-    CFDictionaryGetIntValue(calib1, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), newNccp);
-
-    INFO_LOG("calib1/current: ncc %d/%d svcFlags %d/%d", newNccp, prevNccp, newSvcFlags, prevSvcFlags);
-    newNccp = MIN(newNccp, prevNccp);
-    newSvcFlags |= prevSvcFlags;
-    INFO_LOG("calib1: ncc %d svcFlags %d", newNccp, newSvcFlags);
-
-    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), newSvcFlags);
-    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), newNccp);
-    CFDictionaryGetInt64Value(calibrationDataCopy, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-    calibrationFlags |= kBHCalibrationFlagCalib1Completed;
-
-    CFDictionarySetInt64Value(calibrationDataCopy, CFSTR(kBHCalibrationFlagsKey), calibrationFlags);
-
-    CFDictionarySetValue(calibrationDataCopy, CFSTR(kBHCalibration1Key), (CFMutableDictionaryRef) calib1);
-    CFDictionarySetValue(bhData, CFSTR(kBHCalibration0Key), calibrationDataCopy);
-    CFRelease(calibrationDataCopy);
-    CFRelease(calib1);
-    return;
-}
-
 static void checkCalibrationStatus(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                             IOPSBatteryHealthServiceFlags *svcFlags)
 {
+    _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     bool anyCalibrationRunning = false;
     bool isRelevantDevice = calib0RelevantDevice();
     if (!isRelevantDevice) {
@@ -3087,24 +2502,17 @@ static void checkCalibrationStatus(CFDictionaryRef batteryProps, CFMutableDictio
         return;
     }
     
-    anyCalibrationRunning |= isCalibration0Running(batteryProps, bhData, svcFlags);
-    
-    // ^Any future re-calibrations should be added here, return values ||'d into anyCalibrationRunning
-    if (anyCalibrationRunning) {
-        INFO_LOG("calibration running");
-        *svcFlags |= kBHSvcFlagCurrentlyCalibrating;
-    } else {
-        *svcFlags &= ~(kBHSvcFlagCurrentlyCalibrating);
+}
 
-        // Re-test prior calibration failures. REF: rdar://78844328
-        if (isCalibration0FailureSet(bhData)) {
-            *svcFlags |= kBHSvcFlagCalibrationFailure;
-        } else if (isCalibration1Needed(bhData) && !isCalibration1Complete(bhData)) {
-            runCalibration1(bhData);
-        } else {
-            INFO_LOG("Calib0 success, calib1 not needed");
-        }
-    }
+
+static void unstickCalibration0Data(CFMutableDictionaryRef bhData)
+{
+    return;
+}
+
+static void unstickCalibration1Data(CFMutableDictionaryRef bhData)
+{
+    return;
 }
 
 void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
@@ -3124,26 +2532,15 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
     
     bool currentlyCalibrating = (*svcFlags & kBHSvcFlagCurrentlyCalibrating);
     if (currentlyCalibrating) {
-        // Allow NCC to increase if we're currently calibrating
-        CFDictionaryRemoveValue(bhData, CFSTR(kIOPMPSCycleCountKey));
-        CFDictionaryRemoveValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
-        INFO_LOG("calib: floating NCC");
+        unstickCalibration0Data(bhData);
     } else {
-        IOPSBatteryHealthServiceState prevSvcState = kBHSvcStateUnknown;
         // Reset NCC/maxCapacity to gauge values only if calibration1 was not needed.
         // If calibration1 was needed, it would set the right values in bhData in runCalibration1() routine (from snapshots), don't reset maxCapacity.
         // calibration1 would guarantee to complete, synchronously in calibration phase, hence checking for isCalibration1Complete() is a no-op here.
         // TODO: Find a new home for this existing/legacy code that lets NCC reset/float etc. checkNominalCapacity() should just 'check', resettting/floating
         // is burden of calibration logic.
         if (!isCalibration1Needed(bhData)) {
-            CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), prevSvcState);
-            if (prevSvcState == kBHSvcStateRecalibrating ||
-                prevSvcState == kBHSvcStateRecalibratingServiceRecommended) {
-                // We just stopped calibrating, allow NCC to reset
-                CFDictionaryRemoveValue(bhData, CFSTR(kIOPMPSCycleCountKey));
-                CFDictionaryRemoveValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
-                INFO_LOG("calib: resetting NCC");
-            }
+            unstickCalibration1Data(bhData);
         }
     }
 
@@ -3153,6 +2550,7 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
     CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevNccp);
 
     nccp = rawToNominal(ncc, designCap);
+
 
     if (!IS_IN_NOMINAL_RANGE(nccp)) {
         ERROR_LOG("Failed to calculate Nominal Capacity percentage. NominalCapacity:%d DesignCapacity:%d\n",
@@ -3246,7 +2644,7 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
     DEBUG_LOG("Battery NominalCapacity:%d DesignCapacity:%d NCC:%d\n", ncc, designCap, nccp);
 }
 
-static void checkUPOCount(IOPSBatteryHealthServiceFlags *svcFlags)
+STATIC void checkUPOCount(IOPSBatteryHealthServiceFlags *svcFlags)
 {
     CFTypeRef n;
     static int mitigatedUPOCnt = 0;
@@ -3288,7 +2686,7 @@ static void checkUPOCount(IOPSBatteryHealthServiceFlags *svcFlags)
     }
 }
 
-static void checkWeightedRa(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
+STATIC void checkWeightedRa(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
 {
     CFDictionaryRef batteryData = NULL;
     static int weightedRa = -1;
@@ -3311,8 +2709,9 @@ static void checkWeightedRa(CFDictionaryRef batteryProps, IOPSBatteryHealthServi
         if ((weightedRa <= 0) || (timeDelta >= battReadTimeDelta)) {
             weightedRa = -1; // Reset to -1 to avoid re-using previous value
             batteryData = CFDictionaryGetValue(batteryProps, CFSTR("BatteryData"));
-            if (batteryData) {
-                CFDictionaryGetIntValue(batteryData, CFSTR("WeightedRa"), weightedRa);
+            NSNumber *wRa = getWeightedRa((__bridge NSDictionary *)batteryData);
+            if (wRa) {
+                weightedRa = [wRa intValue];
             }
             DEBUG_LOG("Using updated wRA %d from battery properties after %llu secs\n", weightedRa, timeDelta);
             wraUpdate_ts = currentTime;
@@ -3332,7 +2731,7 @@ static void checkWeightedRa(CFDictionaryRef batteryProps, IOPSBatteryHealthServi
     }
 }
 
-static void checkCellDisconnectCount(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
+STATIC void checkCellDisconnectCount(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
 {
     int bcdc = -1;
 
@@ -3352,7 +2751,7 @@ static void checkCellDisconnectCount(CFDictionaryRef batteryProps, IOPSBatteryHe
     }
 }
 
-static void _setBatteryHealthData(
+STATIC void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
     IOPMBattery  *b)
 {
@@ -3450,45 +2849,43 @@ static void _setBatteryHealthData(
     updateBatteryServiceState(batteryProps, bhData, svcFlags);
     saveBatteryHealthDataToPrefs(bhData);
 
-    bool currentlyCalibrating = (svcFlags & kBHSvcFlagCurrentlyCalibrating);
-    if (currentlyCalibrating) {
-        // While we're recalibrating, "freeze" NCC at the baseline value
-        NSDictionary *calibrationDictionary = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
-        NSDictionary *baselineDictionary = calibrationDictionary[@kBHCalibrationBaselineKey];
-        int baselineMaximumCapacity = [baselineDictionary[@kIOPSBatteryHealthMaxCapacityPercent] intValue];
 
-        int currentMaximumCapacity = -1;
-        CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), currentMaximumCapacity);
-
-        // Report the baseline as max capacity to UI/AST2
-        CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), baselineMaximumCapacity)
-        // Surface actual current max capacity as well
-        CFDictionarySetIntValue(outDict, CFSTR("currentMaxCap"), currentMaximumCapacity);
-        INFO_LOG("reporting %s as %d (from %d)", kIOPSBatteryHealthMaxCapacityPercent, baselineMaximumCapacity, currentMaximumCapacity);
-    }
-
-    flagsRef = stateRef = capRef = NULL;
+    flagsRef = stateRef = capRef = cycleCountRef = NULL;
     flagsRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey));
     if (isA_CFNumber(flagsRef)) {
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthServiceFlagsKey), flagsRef);
+        INFO_LOG("Updated Battery Health: Flags:%{public}@\n", flagsRef);
     }
     stateRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey));
     if (isA_CFNumber(stateRef)) {
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthServiceStateKey), stateRef);
+        INFO_LOG("Updated Battery Health: State:%{public}@\n", stateRef);
     }
     capRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
     if (isA_CFNumber(capRef)) {
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), capRef);
+        INFO_LOG("Updated Battery Health: MaxCapacity:%{public}@\n", capRef);
     }
     CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPMPSCycleCountKey), (const void **)&cycleCountRef);
+    if (isA_CFNumber(cycleCountRef)) {
+        INFO_LOG("Updated Battery Health: CycleCount:%{public}@\n", cycleCountRef);
+    }
 
     CFTypeRef calibration0Ref = CFDictionaryGetValue(bhData, CFSTR(kBHCalibration0Key));
     if (isA_CFDictionary(calibration0Ref)) {
         CFDictionarySetValue(outDict, CFSTR(kBHCalibration0Key), calibration0Ref);
     }
 
-    INFO_LOG("Updated Battery Health: Flags:%{public}@ State:%{public}@ MaxCapacity:%{public}@ CycleCount:%{public}@\n",
-            flagsRef, stateRef, capRef, cycleCountRef);
+    CFTypeRef nccRef = NULL;
+    CFTypeRef nccAltRef = NULL;
+    nccRef = CFDictionaryGetValue(bhData, CFSTR(kNominalCapacityPercentage));
+    if (isA_CFNumber(nccRef)) {
+        CFDictionarySetValue(outDict, CFSTR(kNominalCapacityPercentage), nccRef);
+    }
+    nccAltRef = CFDictionaryGetValue(bhData, CFSTR(kAlternateNominalCapacityPercentage));
+    if (isA_CFNumber(nccAltRef)) {
+        CFDictionarySetValue(outDict, CFSTR(kAlternateNominalCapacityPercentage), nccAltRef);
+    }
     CFRelease(bhData);
 
 }
@@ -3511,7 +2908,7 @@ static CFStringRef getBatteryHealthPath(void)
     return nvramBatteryHealthPath;
 }
 
-static CF_RETURNS_RETAINED CFMutableDictionaryRef readBatteryHealthPersistentData(void)
+STATIC CF_RETURNS_RETAINED CFMutableDictionaryRef readBatteryHealthPersistentData(void)
 {
     io_registry_entry_t ioent = IO_OBJECT_NULL;
     CFTypeRef dictData = nil;
@@ -3667,8 +3064,8 @@ static CFMutableDictionaryRef createPersistentStorage(IOPMBattery *b, IOPSBatter
     CFDictionarySetIntValue(dict, CFSTR(kFccAvgHistoryCount), val);
     CFDictionarySetIntValue(dict, CFSTR(kFccDaySampleCount), val);
     CFDictionarySetIntValue(dict, CFSTR(kMitigatedFccDaySampleAvg), val);
-    CFDictionarySetIntValue(dict, CFSTR(kMitigatedNominalCapacityPercentage), val);
-    CFDictionarySetIntValue(dict, CFSTR(kUnMitigatedNominalCapacityPercentage), val);
+    CFDictionarySetIntValue(dict, CFSTR(kNominalCapacityPercentage), val);
+    CFDictionarySetIntValue(dict, CFSTR(kAlternateNominalCapacityPercentage), val);
     CFDictionarySetIntValue(dict, CFSTR(kMitigatedNominalCapacityAvg), val);
     CFDictionarySetIntValue(dict, CFSTR(kUnMitigatedNominalCapacityAvg), val);
     val = (NVRAM_BATTERY_HEALTH_VER_MAJOR << 16) | NVRAM_BATTERY_HEALTH_VER_MINOR;
@@ -3700,7 +3097,7 @@ out:
     return dict;
 }
 
-static void initBatteryHealthData(void)
+STATIC void initBatteryHealthData(void)
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     CFMutableDictionaryRef dict = NULL;
@@ -3916,7 +3313,6 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef d
         }
 
         ERROR_LOG("Unable to get serial number of the battery. Service Flags:0x%x\n", *svcFlags);
-        goto out;
     }
 
     CFStringRef storedSerial = CFDictionaryGetValue(dict, CFSTR(kIOPSBatterySerialNumberKey));
@@ -4192,7 +3588,7 @@ out:
 }
 
 // Set health & confidence
-static void _setBatteryHealthData(
+STATIC void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
     IOPMBattery             *b)
 {
@@ -4420,12 +3816,12 @@ static bool isVactSupported(void)
 }
 
 #if TARGET_CPU_ARM64
-static void updateVactState(void)
+STATIC void updateVactState(void)
 {
     return;
 }
 #else
-static void updateVactState(void)
+STATIC void updateVactState(void)
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     if (!IOPMFeatureIsAvailable(CFSTR(kIOPMVact), NULL)) {
@@ -4476,8 +3872,8 @@ static void (^energyPrefsNotificationHandler)(void) =  ^{
         goto out;
     }
 
-    CFDictionaryGetIntValue(dict, CFSTR(kMitigatedNominalCapacityPercentage), ncc);
-    CFDictionaryGetIntValue(dict, CFSTR(kUnMitigatedNominalCapacityPercentage), nccAlt);
+    CFDictionaryGetIntValue(dict, CFSTR(kNominalCapacityPercentage), ncc);
+    CFDictionaryGetIntValue(dict, CFSTR(kAlternateNominalCapacityPercentage), nccAlt);
     CFDictionaryGetIntValue(dict, CFSTR(kFccAvgHistoryCount), count);
     CFDictionaryGetIntValue(dict, CFSTR(kFccDaySampleCount), dayCount);
     CFDictionaryGetIntValue(dict, CFSTR(kWaitForFCState), waitForFC);
@@ -4510,6 +3906,32 @@ static void (^energyPrefsNotificationHandler)(void) =  ^{
 out:
     return;
 };
+
+__private_extern__ int batteryTimeRemaining_getComputedNominalChargeCapacity(void)
+{
+    __block int ret = -1;
+    _internal_dispatch_assert_queue_not(batteryTimeRemainingQ);
+
+    dispatch_sync(batteryTimeRemainingQ, ^(void){
+        NSString *nccKey = nil;
+        IOPMBattery **b = _batteries();
+        if (!b ||  !b[0] || !isA_CFDictionary(b[0]->properties)) {
+            ERROR_LOG("IOPMBattery or its properties not found");
+            return;
+        }
+        CFMutableDictionaryRef dict = readBatteryHealthPersistentData();
+        NSMutableDictionary *nsDict = (__bridge NSMutableDictionary *)dict;
+        if (!nsDict) {
+            ERROR_LOG("battery health persistent data not found");
+            return;
+        }
+        nccKey = getVactState() ? @kMitigatedNominalCapacityAvg : @kUnMitigatedNominalCapacityAvg;
+        ret = [nsDict[nccKey] intValue];
+        [nsDict release];
+    });
+
+    return ret;
+}
 #endif // TARGET_OS_OSX
 
 #undef   LOG_STREAM
@@ -5218,11 +4640,11 @@ static CFDictionaryRef copyWithBatteryHealthData(audit_token_t token, CFDictiona
         {CFSTR(kIOPSBatteryHealthServiceFlagsKey), kBHSvcFlagNoBatteryData},
         {CFSTR(kIOPSBatteryHealthServiceStateKey), kBHSvcStateNotDeterminable},
         {CFSTR(kIOPSBatteryHealthMaxCapacityPercent), -1},
-        {CFSTR(kMitigatedNominalCapacityPercentage), -1},
-        {CFSTR(kUnMitigatedNominalCapacityPercentage), -1},
+        {CFSTR(kNominalCapacityPercentage), -1},
+        {CFSTR(kAlternateNominalCapacityPercentage), -1},
         {CFSTR("version"), 0},
-        {CFSTR(kUnMitigatedNominalCapacityPercentage), -1},
-        {CFSTR(kMitigatedNominalCapacityPercentage), -1},
+        {CFSTR(kAlternateNominalCapacityPercentage), -1},
+        {CFSTR(kNominalCapacityPercentage), -1},
         {CFSTR(kUnMitigatedNominalCapacityAvg), -1},
         {CFSTR(kMitigatedNominalCapacityAvg), -1},
         {CFSTR(kFccAvgHistoryCount), -1},

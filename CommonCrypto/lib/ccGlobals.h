@@ -68,7 +68,6 @@ struct cc_globals_s {
 typedef struct cc_globals_s *cc_globals_t;
 void init_globals(void *g);
 
-__attribute__((__pure__))
 static inline cc_globals_t
 _cc_globals(void) {
 #if _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE

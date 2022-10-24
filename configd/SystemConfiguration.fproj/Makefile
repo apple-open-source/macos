@@ -15,3 +15,6 @@ SCSchemaDefinitionsPrivate.h:	/tmp/genSCPreferences
 
 SCSchemaDefinitions.c:	/tmp/genSCPreferences
 	/tmp/genSCPreferences cfile	> SCSchemaDefinitions.c
+
+clean:
+	rm /tmp/genSCPreferences

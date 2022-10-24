@@ -41,6 +41,7 @@ extern FILE *yyin;
 
 static getarg_strings preserve;
 static getarg_strings seq;
+static getarg_strings extra_data;
 
 int
 preserve_type(const char *p)
@@ -58,6 +59,16 @@ seq_type(const char *p)
     int i;
     for (i = 0; i < seq.num_strings; i++)
 	if (strcmp(seq.strings[i], p) == 0)
+	    return 1;
+    return 0;
+}
+
+int
+extra_data_type(const char *p)
+{
+    int i;
+    for (i = 0; i < extra_data.num_strings; i++)
+	if (strcmp(extra_data.strings[i], p) == 0)
 	    return 1;
     return 0;
 }
@@ -82,6 +93,7 @@ struct getargs args[] = {
     { "support-ber", 0, arg_flag, &support_ber },
     { "preserve-binary", 0, arg_strings, &preserve },
     { "sequence", 0, arg_strings, &seq },
+    { "allow-extra-data", 0, arg_strings, &extra_data},
     { "one-code-file", 0, arg_flag, &one_code_file },
     { "option-file", 0, arg_string, &option_file },
     { "parse-units", 0, arg_negative_flag, &parse_units_flag },

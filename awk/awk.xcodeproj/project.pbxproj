@@ -186,6 +186,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Werror=format-nonliteral";
 				ZERO_LINK = NO;
 			};
 			name = Release;

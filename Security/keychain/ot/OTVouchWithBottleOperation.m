@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import "utilities/debugging.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import <os/feature_private.h>
 
 #import "keychain/ot/OTVouchWithBottleOperation.h"
@@ -76,43 +77,28 @@
     if(self.bottleSalt != nil) {
         secnotice("octagon", "using passed in altdsid, altdsid is: %@", self.bottleSalt);
     } else {
-        NSError *error = nil;
-
-        NSString* altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&error];
-        if(altDSID){
-            secnotice("octagon", "fetched altdsid is: %@", altDSID);
-            self.bottleSalt = altDSID;
+        NSString* altDSID = self.deps.activeAccount.altDSID;
+        if(altDSID == nil) {
+            secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+            self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                             code:OctagonErrorNoAppleAccount
+                                      description:@"No altDSID configured"];
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
         }
-        else {
-            secnotice("octagon", "authkit doesn't know about the altdsid, using stored value: %@", error);
-            NSError* accountError = nil;
-            OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
 
-            if(account && !accountError) {
-                secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
-                self.bottleSalt = account.altDSID;
-            } else {
-                if (accountError == nil) {
-                    accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
-                }
-                secerror("failed to retrieve account object: %@", accountError);
-                self.error = accountError;
-                [self runBeforeGroupFinished:self.finishedOp];
-                return;
-            }
-        }
+        self.bottleSalt = altDSID;
     }
 
     // Preflight the vouch: this will tell us the peerID of the recovering peer.
     // Then, filter the tlkShares array to include only tlks sent to that peer.
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper preflightVouchWithBottleWithContainer:self.deps.containerName
-                                                                  context:self.deps.contextID
-                                                                 bottleID:self.bottleID
-                                                                    reply:^(NSString * _Nullable peerID,
-                                                                            TPSyncingPolicy* peerSyncingPolicy,
-                                                                            BOOL refetchWasNeeded,
-                                                                            NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper preflightVouchWithBottleWithSpecificUser:self.deps.activeAccount
+                                                                    bottleID:self.bottleID
+                                                                       reply:^(NSString * _Nullable peerID,
+                                                                               TPSyncingPolicy* peerSyncingPolicy,
+                                                                               BOOL refetchWasNeeded,
+                                                                               NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithBottle hardFailure:true result:error];
 
@@ -137,10 +123,9 @@
 {
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithContainer:self.deps.containerName
-                                                                   context:self.deps.contextID
-                                                                    peerID:peerID
-                                                                     reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithSpecificUser:self.deps.activeAccount
+                                                                       peerID:peerID
+                                                                        reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
         STRONGIFY(self);
 
         if(error) {
@@ -151,7 +136,7 @@
         NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];
         for(CKRecord* record in keyHierarchyRecords) {
             if([record.recordType isEqual:SecCKRecordTLKShareType]) {
-                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
                 [filteredTLKShares addObject:tlkShare.share];
             }
         }
@@ -164,17 +149,16 @@
 {
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper vouchWithBottleWithContainer:self.deps.containerName
-                                                         context:self.deps.contextID
-                                                        bottleID:self.bottleID
-                                                         entropy:self.entropy
-                                                      bottleSalt:self.bottleSalt
-                                                       tlkShares:tlkShares
-                                                           reply:^(NSData * _Nullable voucher,
-                                                                   NSData * _Nullable voucherSig,
-                                                                   NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
-                                                                   TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                                   NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper vouchWithBottleWithSpecificUser:self.deps.activeAccount
+                                                           bottleID:self.bottleID
+                                                            entropy:self.entropy
+                                                         bottleSalt:self.bottleSalt
+                                                          tlkShares:tlkShares
+                                                              reply:^(NSData * _Nullable voucher,
+                                                                      NSData * _Nullable voucherSig,
+                                                                      NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                                      TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                      NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithBottle hardFailure:true result:error];
 

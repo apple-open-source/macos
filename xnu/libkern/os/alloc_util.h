@@ -60,10 +60,10 @@ extern "C++" {
  * @param elem          the pointer whose value will be taken, and which will
  *                      be set to NULL.
  */
-#define os_ptr_load_and_erase(elem) ({                           \
+#define os_ptr_load_and_erase(elem) ({                        \
 	_Static_assert(os_is_ptr_like(elem),                      \
 	    "elem isn't pointer sized");                          \
-	__auto_type __eptr = &(elem);                             \
+	__auto_type *__single __eptr = &(elem);                   \
 	__auto_type __elem = *__eptr;                             \
 	_Pragma("clang diagnostic push")                          \
 	_Pragma("clang diagnostic ignored \"-Wold-style-cast\"")  \

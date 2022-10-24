@@ -1,0 +1,1 @@
+http://zerossl.ocsp.sectigo.com

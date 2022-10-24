@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1994 Christopher G. Demetriou
  * All rights reserved.
  *
@@ -36,7 +38,7 @@ static const char copyright[] =
 #endif
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.sbin/sa/main.c,v 1.18 2007/05/22 06:51:38 dds Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * sa:	system accounting
@@ -316,7 +318,7 @@ acct_load(const char *pn, int wr)
 #ifdef __APPLE__
 	struct acct ac;
 #else
-	struct acctv2 ac;
+	struct acctv3 ac;
 #endif
 	struct cmdinfo ci;
 	ssize_t rv;

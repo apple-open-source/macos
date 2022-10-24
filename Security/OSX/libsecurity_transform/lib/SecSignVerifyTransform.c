@@ -417,7 +417,7 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
                         && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_SIGN|CSSM_KEYUSE_ANY))))
 				{
 					key = NULL; // This key cannot sign! 
-                    CFTypeRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Key %@ can not be used to sign", key);
+                    CFTypeRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Key %@ can not be used to sign"), key);
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
                     return (CFTypeRef)NULL;
 				}
@@ -546,7 +546,7 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
                         && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_VERIFY|CSSM_KEYUSE_ANY))))
 				{
 					key = NULL; // This key cannot verify!
-					CFTypeRef error = (CFTypeRef)CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Key %@ can not be used to verify", key);
+					CFTypeRef error = (CFTypeRef)CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Key %@ can not be used to verify"), key);
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
                     return (CFTypeRef)NULL;
 				}

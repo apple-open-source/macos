@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,202 +28,70 @@
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
-#include "GPUProcessConnection.h"
-#include "SharedRingBufferStorage.h"
 #include "UserMediaCaptureManager.h"
-#include "UserMediaCaptureManagerMessages.h"
-#include "UserMediaCaptureManagerProxyMessages.h"
-#include "WebCoreArgumentCoders.h"
-#include "WebProcess.h"
-#include <WebCore/MediaConstraints.h>
-#include <WebCore/RealtimeMediaSource.h>
-#include <WebCore/RealtimeMediaSourceCenter.h>
-#include <WebCore/RemoteVideoSample.h>
-#include <WebCore/WebAudioBufferList.h>
 
 namespace WebKit {
-using namespace PAL;
 using namespace WebCore;
 
-Ref<RealtimeVideoCaptureSource> RemoteRealtimeVideoSource::create(const CaptureDevice& device, const MediaConstraints* constraints, String&& name, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess)
+Ref<RealtimeMediaSource> RemoteRealtimeVideoSource::create(const CaptureDevice& device, const MediaConstraints* constraints, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess, PageIdentifier pageIdentifier)
 {
-    auto source = adoptRef(*new RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifier::generate(), device, constraints, WTFMove(name), WTFMove(hashSalt), manager, shouldCaptureInGPUProcess));
+    auto source = adoptRef(*new RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifier::generate(), device, constraints, WTFMove(hashSalt), manager, shouldCaptureInGPUProcess, pageIdentifier));
     manager.addSource(source.copyRef());
     manager.remoteCaptureSampleManager().addSource(source.copyRef());
     source->createRemoteMediaSource();
     return source;
 }
 
-RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, const MediaConstraints* constraints, String&& name, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess)
-    : RealtimeVideoCaptureSource(WTFMove(name), String { device.persistentId() }, WTFMove(hashSalt))
-    , m_proxy(identifier, device, shouldCaptureInGPUProcess, constraints)
-    , m_manager(manager)
+RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, const MediaConstraints* constraints, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess, PageIdentifier pageIdentifier)
+    : RemoteRealtimeMediaSource(identifier, device, constraints, AtomString { device.label() }, WTFMove(hashSalt), manager, shouldCaptureInGPUProcess, pageIdentifier)
 {
-#if PLATFORM(IOS_FAMILY)
-    if (deviceType() == CaptureDevice::DeviceType::Camera)
-        RealtimeMediaSourceCenter::singleton().videoCaptureFactory().setActiveSource(*this);
-#endif
+    ASSERT(this->pageIdentifier());
 }
 
-void RemoteRealtimeVideoSource::createRemoteMediaSource()
+RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RemoteRealtimeMediaSourceProxy&& proxy, AtomString&& name, String&& hashSalt, UserMediaCaptureManager& manager, PageIdentifier pageIdentifier)
+    : RemoteRealtimeMediaSource(WTFMove(proxy), WTFMove(name), WTFMove(hashSalt), manager, pageIdentifier)
 {
-    m_proxy.createRemoteMediaSource(deviceIDHashSalt(), [this, protectedThis = Ref { *this }](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&& presets, auto size, auto frameRate) mutable {
-        if (!succeeded) {
-            m_proxy.didFail(WTFMove(errorMessage));
-            return;
-        }
-
-        setSize(size);
-        setFrameRate(frameRate);
-
-        setSettings(WTFMove(settings));
-        setCapabilities(WTFMove(capabilities));
-        setSupportedPresets(WTFMove(presets));
-        setName(String { m_settings.label().string() });
-
-        m_proxy.setAsReady();
-        if (m_proxy.shouldCaptureInGPUProcess())
-            WebProcess::singleton().ensureGPUProcessConnection().addClient(*this);
-    });
+    ASSERT(this->pageIdentifier());
 }
 
 RemoteRealtimeVideoSource::~RemoteRealtimeVideoSource()
 {
-    if (m_proxy.shouldCaptureInGPUProcess()) {
-        if (auto* connection = WebProcess::singleton().existingGPUProcessConnection())
-            connection->removeClient(*this);
-    }
-
-#if PLATFORM(IOS_FAMILY)
-    if (deviceType() == CaptureDevice::DeviceType::Camera)
-        RealtimeMediaSourceCenter::singleton().videoCaptureFactory().unsetActiveSource(*this);
-#endif
+    removeAsClient();
 }
 
-void RemoteRealtimeVideoSource::setCapabilities(RealtimeMediaSourceCapabilities&& capabilities)
+void RemoteRealtimeVideoSource::endProducingData()
 {
-    m_capabilities = WTFMove(capabilities);
-}
-
-void RemoteRealtimeVideoSource::setSettings(RealtimeMediaSourceSettings&& settings)
-{
-    auto changed = m_settings.difference(settings);
-    m_settings = WTFMove(settings);
-    notifySettingsDidChangeObservers(changed);
-}
-
-void RemoteRealtimeVideoSource::videoSampleAvailable(MediaSample& sample, IntSize sampleSize, VideoSampleMetadata metadata)
-{
-    ASSERT(type() == Type::Video);
-
-    setIntrinsicSize(sampleSize);
-
-    if (m_sampleRotation != sample.videoRotation()) {
-        m_sampleRotation = sample.videoRotation();
-
-        auto size = this->size();
-        if (m_sampleRotation == MediaSample::VideoRotation::Left || m_sampleRotation == MediaSample::VideoRotation::Right) {
-            size = size.transposedSize();
-            m_settings.setWidth(size.width());
-            m_settings.setHeight(size.height());
-        }
-        scheduleDeferredTask([this] {
-            notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::Width, RealtimeMediaSourceSettings::Flag::Height });
-        });
-    }
-    dispatchMediaSampleToObservers(sample, metadata);
+    proxy().endProducingData();
 }
 
 bool RemoteRealtimeVideoSource::setShouldApplyRotation(bool shouldApplyRotation)
 {
-    connection()->send(Messages::UserMediaCaptureManagerProxy::SetShouldApplyRotation { identifier(), shouldApplyRotation }, 0);
+    connection().send(Messages::UserMediaCaptureManagerProxy::SetShouldApplyRotation { identifier(), shouldApplyRotation }, 0);
     return true;
 }
 
-const RealtimeMediaSourceCapabilities& RemoteRealtimeVideoSource::capabilities()
+Ref<RealtimeMediaSource> RemoteRealtimeVideoSource::clone()
 {
-    return m_capabilities;
+    if (isEnded() || proxy().isEnded())
+        return *this;
+
+    auto source = adoptRef(*new RemoteRealtimeVideoSource(proxy().clone(), AtomString { name() }, deviceIDHashSalt(), manager(), pageIdentifier()));
+
+    source->setSettings(RealtimeMediaSourceSettings { settings() });
+    source->setCapabilities(RealtimeMediaSourceCapabilities { capabilities() });
+
+    manager().addSource(source.copyRef());
+    manager().remoteCaptureSampleManager().addSource(source.copyRef());
+    proxy().createRemoteCloneSource(source->identifier(), pageIdentifier());
+
+    return source;
 }
 
-void RemoteRealtimeVideoSource::hasEnded()
+void RemoteRealtimeVideoSource::remoteVideoFrameAvailable(VideoFrame& frame, VideoFrameTimeMetadata metadata)
 {
-    m_proxy.hasEnded();
-    m_manager.removeSource(identifier());
-    m_manager.remoteCaptureSampleManager().removeSource(identifier());
+    setIntrinsicSize(expandedIntSize(frame.presentationSize()));
+    videoFrameAvailable(frame, metadata);
 }
-
-void RemoteRealtimeVideoSource::captureStopped()
-{
-    stop();
-    hasEnded();
-}
-
-void RemoteRealtimeVideoSource::captureFailed()
-{
-    RealtimeMediaSource::captureFailed();
-    hasEnded();
-}
-
-void RemoteRealtimeVideoSource::generatePresets()
-{
-    ASSERT(m_proxy.isReady());
-}
-
-void RemoteRealtimeVideoSource::setFrameRateWithPreset(double frameRate, RefPtr<VideoPreset> preset)
-{
-    MediaConstraints constraints;
-
-    constraints.isValid = true;
-    DoubleConstraint frameRateConstraint("frameRate"_s, MediaConstraintType::FrameRate);
-    frameRateConstraint.setIdeal(frameRate);
-    constraints.mandatoryConstraints.set(MediaConstraintType::FrameRate, frameRateConstraint);
-
-    if (preset) {
-        IntConstraint widthConstraint("width"_s, MediaConstraintType::Width);
-        widthConstraint.setIdeal(preset->size.width());
-        constraints.mandatoryConstraints.set(MediaConstraintType::Width, widthConstraint);
-
-        IntConstraint heightConstraint("height"_s, MediaConstraintType::Height);
-        heightConstraint.setIdeal(preset->size.height());
-        constraints.mandatoryConstraints.set(MediaConstraintType::Height, heightConstraint);
-    }
-
-    m_sizeConstraints = constraints;
-    m_proxy.applyConstraints(constraints, [](auto) { });
-}
-
-bool RemoteRealtimeVideoSource::prefersPreset(VideoPreset&)
-{
-    return true;
-}
-
-#if ENABLE(GPU_PROCESS)
-void RemoteRealtimeVideoSource::gpuProcessConnectionDidClose(GPUProcessConnection&)
-{
-    ASSERT(m_proxy.shouldCaptureInGPUProcess());
-    if (isEnded())
-        return;
-
-#if PLATFORM(IOS_FAMILY)
-    if (deviceType() == CaptureDevice::DeviceType::Camera && this != RealtimeMediaSourceCenter::singleton().videoCaptureFactory().activeSource()) {
-        // Track is muted and has no chance of being unmuted, let's end it.
-        captureFailed();
-        return;
-    }
-#endif
-
-    m_manager.remoteCaptureSampleManager().didUpdateSourceConnection(connection());
-    m_proxy.resetReady();
-    createRemoteMediaSource();
-
-    m_proxy.failApplyConstraintCallbacks("GPU Process terminated"_s);
-    if (m_sizeConstraints)
-        m_proxy.applyConstraints(*m_sizeConstraints, [](auto) { });
-
-    if (isProducingData())
-        startProducingData();
-}
-#endif
 
 }
 

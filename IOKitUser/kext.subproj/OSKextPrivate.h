@@ -30,7 +30,15 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <libkern/OSKextLib.h>
+#ifdef BUILDING_LIBKEXT
+#if __has_include(<libkern/OSKextLibPrivate.h>)
+#include <libkern/OSKextLibPrivate.h>
+#else
 #include <System/libkern/OSKextLibPrivate.h>
+#endif
+#else
+#include <libkern/OSKextLibPrivate.h>
+#endif
 #include <mach-o/arch.h>
 #include <paths.h>
 #include <sys/stat.h>

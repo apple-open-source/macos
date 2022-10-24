@@ -54,6 +54,8 @@
 #define __QOS_AVAILABLE_10_12 __API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
 #undef __QOS_AVAILABLE_10_15_1
 #define __QOS_AVAILABLE_10_15_1 __API_AVAILABLE(macos(10.15.1), ios(13.2), tvos(13.2), watchos(6.2))
+#undef __QOS_AVAILABLE_13_00
+#define __QOS_AVAILABLE_13_00 __API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
 #endif
 #endif
 
@@ -66,6 +68,7 @@ __QOS_ENUM(_pthread_set_flags, unsigned int,
    _PTHREAD_SET_SELF_TIMESHARE_FLAG __QOS_AVAILABLE_10_11 = 0x8,
    _PTHREAD_SET_SELF_WQ_KEVENT_UNBIND __QOS_AVAILABLE_10_12 = 0x10,
    _PTHREAD_SET_SELF_ALTERNATE_CLUSTER __QOS_AVAILABLE_10_15_1 = 0x20,
+   _PTHREAD_SET_SELF_QOS_OVERRIDE_FLAG __QOS_AVAILABLE_13_00 = 0x40,
 );
 
 #undef __QOS_ENUM
@@ -134,6 +137,29 @@ _pthread_qos_class_encode(qos_class_t qos_class, int relative_priority, unsigned
 __API_AVAILABLE(macos(10.10), ios(8.0))
 qos_class_t
 _pthread_qos_class_decode(pthread_priority_t priority, int *relative_priority, unsigned long *flags);
+
+// Encoding and decoding qos, override and rel pri in pthread_priority_t
+#define PTHREAD_HAS_QOS_AND_OVERRIDE_ENCODE 1
+
+__API_AVAILABLE(macos(13.0), ios(16.0))
+pthread_priority_t
+_pthread_qos_class_and_override_encode(qos_class_t qc, int relpri, unsigned long flags, qos_class_t qco);
+
+__API_AVAILABLE(macos(13.0), ios(16.0))
+qos_class_t
+_pthread_qos_class_and_override_decode(pthread_priority_t pp, int *relpri,
+		unsigned long *flags, qos_class_t *qco);
+
+// Encoding and decoding sched pri in pthread_priority_t
+#define PTHREAD_HAS_SCHED_PRI_ENCODE 1
+
+__API_AVAILABLE(macos(13.0), ios(16.0))
+pthread_priority_t
+_pthread_sched_pri_encode(int sched_pri, unsigned long flags);
+
+__API_AVAILABLE(macos(13.0), ios(16.0))
+int
+_pthread_sched_pri_decode(pthread_priority_t pp, unsigned long *flags);
 
 // Encode a legacy workqueue API priority into a pthread_priority_t. This API
 // is deprecated and can be removed when the simulator no longer uses it.

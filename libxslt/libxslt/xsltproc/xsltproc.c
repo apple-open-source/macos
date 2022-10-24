@@ -31,6 +31,9 @@
 #ifdef HAVE_STDARG_H
 #include <stdarg.h>
 #endif
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#include <fcntl.h>
+#endif
 #include <libxml/xmlmemory.h>
 #include <libxml/debugXML.h>
 #include <libxml/HTMLtree.h>
@@ -45,27 +48,20 @@
 #include <libxml/parserInternals.h>
 #include <libxml/uri.h>
 
-#include <libxslt/xslt.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/transform.h>
-#include <libxslt/xsltutils.h>
-#include <libxslt/extensions.h>
-#include <libxslt/security.h>
+#include "xslt.h"
+#include "xsltInternals.h"
+#include "transform.h"
+#include "xsltutils.h"
+#include "extensions.h"
+#include "security.h"
 
-#include <libexslt/exsltconfig.h>
+#include "exsltconfig.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__)
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <winsock2.h>
-#define gettimeofday(p1,p2)
-#endif /* _MS_VER */
-#else /* WIN32 */
 #if defined(HAVE_SYS_TIME_H)
 #include <sys/time.h>
 #elif defined(HAVE_TIME_H)
 #include <time.h>
 #endif
-#endif /* WIN32 */
 
 #ifdef HAVE_SYS_TIMEB_H
 #include <sys/timeb.h>
@@ -92,6 +88,11 @@ static int profile = 0;
 
 #define MAX_PARAMETERS 64
 #define MAX_PATHS 64
+#ifdef _WIN32
+# define PATH_SEPARATOR ';'
+#else
+# define PATH_SEPARATOR ':'
+#endif
 
 static int options = XSLT_PARSE_OPTIONS;
 static const char *params[MAX_PARAMETERS + 1];
@@ -107,6 +108,7 @@ static const char *writesubtree = NULL;
 /*
  * Entity loading control and customization.
  */
+
 static
 void parsePath(const xmlChar *path) {
     const xmlChar *cur;
@@ -119,10 +121,10 @@ void parsePath(const xmlChar *path) {
 	    return;
 	}
 	cur = path;
-	while ((*cur == ' ') || (*cur == ':'))
+	while ((*cur == ' ') || (*cur == PATH_SEPARATOR))
 	    cur++;
 	path = cur;
-	while ((*cur != 0) && (*cur != ' ') && (*cur != ':'))
+	while ((*cur != 0) && (*cur != ' ') && (*cur != PATH_SEPARATOR))
 	    cur++;
 	if (cur != path) {
 	    paths[nbpaths] = xmlStrndup(path, cur - path);
@@ -526,6 +528,8 @@ static void usage(const char *name) {
     printf("\t--maxdepth val : increase the maximum depth (default %d)\n", xsltMaxDepth);
     printf("\t--maxvars val : increase the maximum variables (default %d)\n", xsltMaxVars);
     printf("\t--maxparserdepth val : increase the maximum parser depth\n");
+    printf("\t--huge: relax any hardcoded limit from the parser\n");
+    printf("\t             fixes \"parser error : internal error: Huge input lookup\"\n");
     printf("\t--seed-rand val : initialize pseudo random number generator with specific seed\n");
 #ifdef LIBXML_HTML_ENABLED
     printf("\t--html: the input document is(are) an HTML file(s)\n");
@@ -552,9 +556,8 @@ static void usage(const char *name) {
     printf("\t--xincludestyle : do XInclude processing on stylesheets\n");
 #endif
     printf("\t--load-trace : print trace of all external entites loaded\n");
-    printf("\t--profile or --norman : dump profiling informations \n");
-    printf("\nProject libxslt home page: http://xmlsoft.org/XSLT/\n");
-    printf("To report bugs and get help: http://xmlsoft.org/XSLT/bugs.html\n");
+    printf("\t--profile or --norman : dump profiling information \n");
+    printf("\nProject libxslt home page: https://gitlab.gnome.org/GNOME/libxslt\n");
 }
 
 int
@@ -573,6 +576,10 @@ main(int argc, char **argv)
     srand(time(NULL));
     xmlInitMemory();
 
+#if defined(_WIN32) && !defined(__CYGINW__)
+    setmode(fileno(stdout), O_BINARY);
+    setmode(fileno(stderr), O_BINARY);
+#endif
 #if defined(_MSC_VER) && _MSC_VER < 1900
     _set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
@@ -603,8 +610,8 @@ main(int argc, char **argv)
                    (!strcmp(argv[i], "-output")) ||
                    (!strcmp(argv[i], "--output"))) {
             i++;
-#if defined(WIN32) || defined (__CYGWIN__)
-	    output = xmlCanonicPath(argv[i]);
+#if defined(_WIN32) || defined (__CYGWIN__)
+	    output = (char *) xmlCanonicPath((xmlChar *) argv[i]);
             if (output == NULL)
 #endif
 		output = (char *) xmlStrdup((xmlChar *) argv[i]);
@@ -779,6 +786,9 @@ main(int argc, char **argv)
                 if (value > 0)
                     xmlParserMaxDepth = value;
             }
+        } else if ((!strcmp(argv[i], "-huge")) ||
+                   (!strcmp(argv[i], "--huge"))) {
+            options |= XML_PARSE_HUGE;
         } else if ((!strcmp(argv[i], "-seed-rand")) ||
                    (!strcmp(argv[i], "--seed-rand"))) {
             int value;

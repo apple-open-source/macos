@@ -10,6 +10,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>extern.h: Add ifdef guards (65569070)</string>
+			<string>cksum.c: Don't ignore errors on stdout (89147045)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

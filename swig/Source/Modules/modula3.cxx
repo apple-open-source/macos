@@ -1745,7 +1745,7 @@ MODULA3():
 	  Printf(m3wrap_intf.f, "%d", bitpos);
 	} else {
 	  char bitval[15];
-	  sprintf(bitval, "%d", bitpos);
+	  snprintf(bitval, sizeof(bitval), "%d", bitpos);
 	  String *bitname = Getattr(items, bitval);
 	  if (bitname == NIL) {
 	    Swig_warning(WARN_MODULA3_BAD_ENUMERATION, input_file, line_number, "Enumeration <%s> has no value <%s>.\n", setname, bitval);
@@ -1804,7 +1804,7 @@ MODULA3():
     Printf(file, "%s = {", name);
     int i;
     bool gencomma = false;
-    int max = aToL(Getattr(n, "max"));
+    long max = aToL(Getattr(n, "max"));
     Hash *items = Getattr(n, "items");
     for (i = 0; i <= max; i++) {
       if (gencomma) {
@@ -1813,7 +1813,7 @@ MODULA3():
       Printf(file, "\n");
       gencomma = true;
       char numstr[15];
-      sprintf(numstr, "%d", i);
+      snprintf(numstr, sizeof(numstr), "%d", i);
       String *name = Getattr(items, numstr);
       if (name != NIL) {
 	Printv(file, name, NIL);

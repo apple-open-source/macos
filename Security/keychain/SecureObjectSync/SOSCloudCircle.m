@@ -358,7 +358,7 @@ static CFArrayRef array_of_info_error_request(enum SecXPCOperation op, CFErrorRe
 
 static CF_RETURNS_RETAINED SOSPeerInfoRef data_to_peer_info_error_request(enum SecXPCOperation op, CFDataRef secret, CFErrorRef* error)
 {
-    __block SOSPeerInfoRef result = false;
+    __block SOSPeerInfoRef result = NULL;
     __block CFDataRef data = NULL;
 
     secdebug("sosops", "enter - operation: %d", op);
@@ -1888,7 +1888,7 @@ void SOSCCGhostBustInfo(void (^complete)(NSData *json, NSError *error)) {
     CFErrorRef error = NULL;
     id<SOSControlProtocol> status = SOSCCGetSynchronousStatusObject(&error);
     if (status == NULL) {
-        complete(false, (__bridge NSError *)error);
+        complete(nil, (__bridge NSError *)error);
         CFReleaseNull(error);
         return;
     }

@@ -27,6 +27,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "AudioSession.h"
 #include "CAAudioStreamDescription.h"
 #include "CaptureDevice.h"
 #include "RealtimeMediaSource.h"
@@ -51,18 +52,21 @@ class WebAudioSourceProviderAVFObjC;
 
 class CoreAudioCaptureSource : public RealtimeMediaSource {
 public:
-    static CaptureSourceOrError create(String&& deviceID, String&& hashSalt, const MediaConstraints*);
-    static CaptureSourceOrError createForTesting(String&& deviceID, String&& label, String&& hashSalt, const MediaConstraints*, BaseAudioSharedUnit& overrideUnit);
+    WEBCORE_EXPORT static CaptureSourceOrError create(String&& deviceID, String&& hashSalt, const MediaConstraints*, PageIdentifier);
+    static CaptureSourceOrError createForTesting(String&& deviceID, AtomString&& label, String&& hashSalt, const MediaConstraints*, BaseAudioSharedUnit& overrideUnit, PageIdentifier);
 
     WEBCORE_EXPORT static AudioCaptureFactory& factory();
 
     CMClockRef timebaseClock();
 
 protected:
-    CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t persistentID, BaseAudioSharedUnit* = nullptr);
+    CoreAudioCaptureSource(String&& deviceID, AtomString&& label, String&& hashSalt, uint32_t persistentID, BaseAudioSharedUnit*, PageIdentifier);
     virtual ~CoreAudioCaptureSource();
     BaseAudioSharedUnit& unit();
     const BaseAudioSharedUnit& unit() const;
+
+    bool canResumeAfterInterruption() const { return m_canResumeAfterInterruption; }
+    void setCanResumeAfterInterruption(bool value) { m_canResumeAfterInterruption = value; }
 
 private:
     friend class BaseAudioSharedUnit;
@@ -96,6 +100,7 @@ private:
     std::optional<RealtimeMediaSourceCapabilities> m_capabilities;
     std::optional<RealtimeMediaSourceSettings> m_currentSettings;
 
+    bool m_canResumeAfterInterruption { true };
     bool m_isReadyToStart { false };
     
     BaseAudioSharedUnit* m_overrideUnit { nullptr };
@@ -112,12 +117,13 @@ public:
     virtual OSStatus produceSpeakerSamples(size_t sampleCount, AudioBufferList&, uint64_t sampleTime, double hostTime, AudioUnitRenderActionFlags&) = 0;
 };
 
-class CoreAudioCaptureSourceFactory : public AudioCaptureFactory {
+class CoreAudioCaptureSourceFactory : public AudioCaptureFactory, public AudioSession::InterruptionObserver {
 public:
     WEBCORE_EXPORT static CoreAudioCaptureSourceFactory& singleton();
 
-    void beginInterruption();
-    void endInterruption();
+    CoreAudioCaptureSourceFactory();
+    ~CoreAudioCaptureSourceFactory();
+
     void scheduleReconfiguration();
 
     void devicesChanged(const Vector<CaptureDevice>&);
@@ -127,15 +133,28 @@ public:
     WEBCORE_EXPORT bool isAudioCaptureUnitRunning();
     WEBCORE_EXPORT void whenAudioCaptureUnitIsNotRunning(Function<void()>&&);
 
+    void setOverrideUnit(BaseAudioSharedUnit* unit) { m_overrideUnit = unit; }
+    BaseAudioSharedUnit& unit();
+
 private:
-    CaptureSourceOrError createAudioCaptureSource(const CaptureDevice&, String&&, const MediaConstraints*) override;
+    // AudioSession::InterruptionObserver.
+    void beginAudioSessionInterruption() final { beginInterruption(); }
+    void endAudioSessionInterruption(AudioSession::MayResume) final { endInterruption(); }
+
+    // AudioCaptureFactory
+    CaptureSourceOrError createAudioCaptureSource(const CaptureDevice&, String&&, const MediaConstraints*, PageIdentifier) override;
     CaptureDeviceManager& audioCaptureDeviceManager() final;
     const Vector<CaptureDevice>& speakerDevices() const final;
+
+    void beginInterruption();
+    void endInterruption();
+
+    BaseAudioSharedUnit* m_overrideUnit { nullptr };
 };
 
-inline CaptureSourceOrError CoreAudioCaptureSourceFactory::createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints)
+inline CaptureSourceOrError CoreAudioCaptureSourceFactory::createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
 {
-    return CoreAudioCaptureSource::create(String { device.persistentId() }, WTFMove(hashSalt), constraints);
+    return CoreAudioCaptureSource::create(String { device.persistentId() }, WTFMove(hashSalt), constraints, pageIdentifier);
 }
 
 } // namespace WebCore

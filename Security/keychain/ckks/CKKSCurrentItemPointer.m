@@ -28,12 +28,16 @@
 @implementation CKKSCurrentItemPointer
 
 - (instancetype)initForIdentifier:(NSString*)identifier
+                        contextID:(NSString*)contextID
                   currentItemUUID:(NSString*)currentItemUUID
                             state:(CKKSProcessedState*)state
                            zoneID:(CKRecordZoneID*)zoneID
                   encodedCKRecord: (NSData*) encodedrecord
 {
-    if(self = [super initWithCKRecordType: SecCKRecordCurrentItemType encodedCKRecord:encodedrecord zoneID:zoneID]) {
+    if(self = [super initWithCKRecordType: SecCKRecordCurrentItemType
+                          encodedCKRecord:encodedrecord
+                                contextID:contextID
+                                   zoneID:zoneID]) {
         _state = state;
         _identifier = identifier;
         _currentItemUUID = currentItemUUID;
@@ -42,7 +46,11 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSCurrentItemPointer(%@) %@: %@>", self.zoneID.zoneName, self.identifier, self.currentItemUUID];
+    return [NSString stringWithFormat:@"<CKKSCurrentItemPointer[%@](%@) %@: %@>",
+            self.contextID,
+            self.zoneID.zoneName,
+            self.identifier,
+            self.currentItemUUID];
 }
 
 #pragma mark - CKKSCKRecordHolder methods
@@ -105,23 +113,36 @@
 
 #pragma mark - Load from database
 
-+ (instancetype)fromDatabase:(NSString*)identifier state:(CKKSProcessedState*)state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"identifier":identifier, @"state":state, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype)fromDatabase:(NSString*)identifier
+                   contextID:(NSString*)contextID
+                       state:(CKKSProcessedState*)state
+                      zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
+    return [self fromDatabaseWhere: @{@"contextID":contextID, @"identifier":identifier, @"state":state, @"ckzone":zoneID.zoneName} error: error];
 }
 
-+ (instancetype)tryFromDatabase:(NSString*)identifier state:(CKKSProcessedState*)state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"identifier":identifier, @"state":state, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype)tryFromDatabase:(NSString*)identifier
+                      contextID:(NSString*)contextID
+                          state:(CKKSProcessedState*)state
+                         zoneID:(CKRecordZoneID*)zoneID
+                          error: (NSError * __autoreleasing *) error {
+    return [self tryFromDatabaseWhere: @{@"contextID":contextID, @"identifier":identifier, @"state":state, @"ckzone":zoneID.zoneName} error: error];
 }
 
-+ (NSArray<CKKSCurrentItemPointer*>*)remoteItemPointers: (CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSArray<CKKSCurrentItemPointer*>*)remoteItemPointers: (CKRecordZoneID*)zoneID
+                                              contextID:(NSString*)contextID
+                                                  error: (NSError * __autoreleasing *) error {
     return [self allWhere: @{@"state":  SecCKKSProcessedStateRemote, @"ckzone":zoneID.zoneName} error:error];
 }
 
-+ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
++ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID
+                                     contextID:(NSString*)contextID
+                                         error:(NSError * __autoreleasing *)error {
     return [self allWhere: @{@"ckzone":zoneID.zoneName} error:error];
 }
 
-+ (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
++ (bool)deleteAll:(CKRecordZoneID*)zoneID
+        contextID:(NSString*)contextID
+            error:(NSError * __autoreleasing *)error {
     bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{@"ckzone":zoneID.zoneName} connection:nil error: error];
 
     if(ok) {
@@ -139,15 +160,19 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    return @[@"identifier", @"currentItemUUID", @"state", @"ckzone", @"ckrecord"];
+    return @[@"contextID", @"identifier", @"currentItemUUID", @"state", @"ckzone", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
-    return @{@"identifier": self.identifier, @"ckzone":self.zoneID.zoneName, @"state":self.state};
+    return @{@"contextID": CKKSNilToNSNull(self.contextID),
+             @"identifier": self.identifier,
+             @"ckzone":self.zoneID.zoneName,
+             @"state":self.state};
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
-    return @{@"identifier": self.identifier,
+    return @{@"contextID": CKKSNilToNSNull(self.contextID),
+             @"identifier": self.identifier,
              @"currentItemUUID": CKKSNilToNSNull(self.currentItemUUID),
              @"state": CKKSNilToNSNull(self.state),
              @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),
@@ -157,18 +182,24 @@
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult*>*) row {
     return [[CKKSCurrentItemPointer alloc] initForIdentifier:row[@"identifier"].asString
+                                                   contextID:row[@"contextID"].asString
                                              currentItemUUID:row[@"currentItemUUID"].asString
                                                        state:(CKKSProcessedState*)row[@"state"].asString
                                                       zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
                                              encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
 }
 
-+ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (NSInteger)countByState:(CKKSItemState *)state
+                contextID:(NSString*)contextID
+                     zone:(CKRecordZoneID*)zoneID
+                    error:(NSError * __autoreleasing *)error
 {
     __block NSInteger result = -1;
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": state }
+                                        where:@{@"contextID": CKKSNilToNSNull(contextID),
+                                                @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+                                                @"state": state }
                                       columns:@[@"count(*)"]
                                       groupBy:nil
                                       orderBy:nil
@@ -180,12 +211,23 @@
     return result;
 }
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     if(resync) {
         NSError* ciperror = nil;
-        CKKSCurrentItemPointer* localcip  = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName state:SecCKKSProcessedStateLocal  zoneID:record.recordID.zoneID error:&ciperror];
-        CKKSCurrentItemPointer* remotecip = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName state:SecCKKSProcessedStateRemote zoneID:record.recordID.zoneID error:&ciperror];
+        CKKSCurrentItemPointer* localcip  = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName
+                                                                          contextID:contextID
+                                                                              state:SecCKKSProcessedStateLocal
+                                                                             zoneID:record.recordID.zoneID
+                                                                              error:&ciperror];
+        CKKSCurrentItemPointer* remotecip = [CKKSCurrentItemPointer tryFromDatabase:record.recordID.recordName
+                                                                          contextID:contextID
+                                                                              state:SecCKKSProcessedStateRemote
+                                                                             zoneID:record.recordID.zoneID
+                                                                              error:&ciperror];
         if(ciperror) {
             ckkserror("ckksresync", record.recordID.zoneID, "error loading cip: %@", ciperror);
         }
@@ -200,7 +242,7 @@
     }
 
     NSError* localerror = nil;
-    CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initWithCKRecord:record];
+    CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initWithCKRecord:record contextID:contextID];
     cip.state = SecCKKSProcessedStateRemote;
 
     bool saved = [cip saveToDatabase:&localerror];
@@ -214,12 +256,19 @@
     return YES;
 }
 
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     NSError* localerror = nil;
     ckksinfo("currentitem", recordID.zoneID, "CloudKit notification: deleted current item pointer(%@): %@", SecCKRecordCurrentItemType, recordID);
 
-    CKKSCurrentItemPointer* remote = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName] state:SecCKKSProcessedStateRemote zoneID:recordID.zoneID error:&localerror];
+    CKKSCurrentItemPointer* remote = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName]
+                                                                   contextID:contextID
+                                                                       state:SecCKKSProcessedStateRemote
+                                                                      zoneID:recordID.zoneID
+                                                                       error:&localerror];
     if(localerror) {
         if(error) {
             *error = localerror;
@@ -238,7 +287,11 @@
         return NO;
     }
 
-    CKKSCurrentItemPointer* local = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName] state:SecCKKSProcessedStateLocal zoneID:recordID.zoneID error:&localerror];
+    CKKSCurrentItemPointer* local = [CKKSCurrentItemPointer tryFromDatabase:[recordID recordName]
+                                                                  contextID:contextID
+                                                                      state:SecCKKSProcessedStateLocal
+                                                                     zoneID:recordID.zoneID
+                                                                      error:&localerror];
     if(localerror) {
         if(error) {
             *error = localerror;

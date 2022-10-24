@@ -9,6 +9,9 @@
 #include <darwintest.h>
 #include "magazine_testing.h"
 
+// Stubs
+bool malloc_zero_on_free = MALLOC_ZERO_ON_FREE_ENABLED_DEFAULT;
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(basic_magazine_init, "allocate magazine counts")

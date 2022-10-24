@@ -29,6 +29,7 @@
 #include <sys/param.h>
 #include "bless.h"
 #include "bless_private.h"
+#include "sharedUtilities.h"
 
 
 int BLGetOSVersion(BLContextPtr context, const char *mount, BLVersionRec *version)
@@ -40,6 +41,7 @@ int BLGetOSVersion(BLContextPtr context, const char *mount, BLVersionRec *versio
 	CFDictionaryRef	versDict = NULL;
 	CFStringRef		versString;
 	CFArrayRef		versArray = NULL;
+    CFErrorRef      cf_error = NULL;
 	
 	snprintf(fullpath, sizeof fullpath, "%s/%s", mount, kBL_PATH_SYSTEM_VERSION_PLIST);
 	plistURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)fullpath, strlen(fullpath), 0);
@@ -48,7 +50,9 @@ int BLGetOSVersion(BLContextPtr context, const char *mount, BLVersionRec *versio
 		err = 1;
 		goto exit;
 	}
-	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, plistURL, &versData, NULL, NULL, NULL)) {
+
+    versData = CreateDataFromFileURL(kCFAllocatorDefault, plistURL, &cf_error);
+	if (cf_error) {
 		contextprintf(context, kBLLogLevelError, "Can't load \"%s\"\n", fullpath);
 		err = 2;
 		goto exit;

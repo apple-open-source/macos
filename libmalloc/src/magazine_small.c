@@ -833,8 +833,8 @@ small_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 		OSAtomicIncrement32Barrier(&(REGION_TRAILER_FOR_SMALL_REGION(r)->pinned_to_depot));
 		SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 		for (i = 0; i < advisories; ++i) {
-			uintptr_t addr = (advisory[i].pnum << vm_page_quanta_shift) + (uintptr_t)r;
-			size_t size = advisory[i].size << vm_page_quanta_shift;
+			uintptr_t addr = (advisory[i].pnum << vm_kernel_page_shift) + (uintptr_t)r;
+			size_t size = advisory[i].size << vm_kernel_page_shift;
 
 			mvm_madvise_free(rack, r, addr, addr + size, NULL, rack->debug_flags & MALLOC_DO_SCRIBBLE);
 		}

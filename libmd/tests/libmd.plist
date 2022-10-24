@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>libmd</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key><string>libmd.file_test</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/libmd/file_test.sh</string>
+			</array>
+			<key>IgnoreOutput</key><true/>
+			<key>AsRoot</key><true/>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key><string>libmd.upstream</string>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/libmd/legacy_test.sh</string>
+			</array>
+			<key>IgnoreOutput</key><true/>
+			<key>AsRoot</key><true/>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+		</dict>
+	</array>
+	<key>Timeout</key>
+	<integer>30</integer>
+</dict>
+</plist>

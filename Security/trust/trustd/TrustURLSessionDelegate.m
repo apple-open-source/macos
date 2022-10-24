@@ -27,6 +27,7 @@
 #include <mach/mach_time.h>
 #include <utilities/SecCFWrappers.h>
 #include <Security/SecInternalReleasePriv.h>
+#include "TrustURLSessionCache.h"
 #include "TrustURLSessionDelegate.h"
 
 #define MAX_TASKS 3
@@ -139,6 +140,7 @@ static CFStringRef copyParseMaxAge(CFStringRef cacheControlHeader) {
         self.URIs = uris;
         self.URIix = 0;
         self.numTasks = 0;
+        self.attribution = NSURLRequestAttributionDeveloper;
     }
     return self;
 }
@@ -185,6 +187,7 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
 @interface TrustURLSessionDelegate()
 @property NSMutableDictionary <NSUUID *, TrustURLSessionContext *>* _taskContextMap;
 @property NSMutableDictionary <NSString *, TimeoutEntry *>* _serverMap;
+@property NSMutableDictionary <NSUUID *, dispatch_source_t>* _timerMap;
 /*
  after getting a response:
  1. If no timeout and server is in map, remove the server from the map
@@ -210,6 +213,8 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
     } else {
         self._taskContextMap = [NSMutableDictionary dictionary];
         self._serverMap = [NSMutableDictionary dictionary];
+        self._timerMap = [NSMutableDictionary dictionary];
+        self.queue = dispatch_queue_create("com.apple.trustd.TrustURLSessionDelegate", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         return [super init];
     }
 }
@@ -235,6 +240,28 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
         [self._taskContextMap setObject:context forKey:uuid];
     }
     return uuid;
+}
+
+- (void)cancelTimer:(NSUUID *)taskId
+{
+    @synchronized (self._timerMap) {
+        dispatch_source_t timer = [self._timerMap objectForKey:taskId];
+        if (timer) {
+            dispatch_source_cancel(timer);
+            [self._timerMap removeObjectForKey:taskId];
+        }
+    }
+}
+
+- (dispatch_source_t)createTimerForTask:(NSUUID *)taskId
+{
+    dispatch_source_t timeoutTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.queue);
+    dispatch_source_set_timer(timeoutTimer, dispatch_time(DISPATCH_TIME_NOW, TrustURLSessionGetResourceTimeout()*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+    @synchronized (self._timerMap) {
+        [self cancelTimer:taskId]; // cancel any existing for this task
+        [self._timerMap setObject:timeoutTimer forKey:taskId];
+    }
+    return timeoutTimer;
 }
 
 - (void)removeServer:(NSString *)server
@@ -300,6 +327,7 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
     NSUUID *taskId = [self addTask:context];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:requestUri];
     [request addValue:[taskId UUIDString] forHTTPHeaderField:kSecTrustRequestHeaderUUID];
+    request.attribution = context.attribution;
     return request;
 }
 
@@ -319,6 +347,26 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
                 context.URIix = ix + 1; // Next time we'll start with the next index
                 context.numTasks++;
                 NSURLSessionTask *task = [session dataTaskWithRequest:[self createNextRequest:uri context:context]];
+
+                /* We want to return to callers within a short(ish) time period to avoid significant hangs
+                 * in UIs, but if we give the task this timeout, we can get into pathological cases where
+                 * we just keep trying to establish the connection but the task times out and is cancelled.
+                 * So we have the task use the default timeouts so it has plenty of time to make connections
+                 * that we can re-use later, but trigger our own shorter timeout to finish the evaluation. */
+                dispatch_source_t timeoutTimer = [self createTimerForTask:[task.originalRequest taskId]];
+                dispatch_source_set_event_handler(timeoutTimer, ^{
+                    // Create our own timeout error (similar to but distinct from the NSURLSession one)
+                    secerror("trustd triggered evaluation timeout for taskId %@", [task.originalRequest taskId]);
+                    NSError *timeoutError = [NSError errorWithDomain:NSURLErrorDomain
+                                                                code:NSURLErrorTimedOut
+                                                            userInfo:@{
+                        NSURLErrorFailingURLStringErrorKey : [uri absoluteString],
+                        NSDebugDescriptionErrorKey : [NSString stringWithFormat:@"(trustd) The request timed out: %@", task.description]
+                    }];
+                    // Call didCompleteWithError to handle the timeout
+                    [self URLSession:session task:task didCompleteWithError:timeoutError];
+                });
+                dispatch_resume(timeoutTimer);
                 [task resume];
                 secinfo("http", "request for uri: %@", uri);
                 return false; // we scheduled a job
@@ -340,7 +388,7 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
     NSUUID *taskId = [dataTask.originalRequest taskId];
     TrustURLSessionContext *context = [self contextForTask:taskId];
     if (!context) {
-        secerror("failed to find task for taskId: %@", taskId);
+        secnotice("http", "failed to find task for taskId: %@", taskId);
         return;
     }
 
@@ -360,9 +408,10 @@ NSString *kSecTrustRequestHeaderUUID = @"X-Apple-Request-UUID";
         @throw e;
     } else {
         NSUUID *taskId = [task.originalRequest taskId];
+        [self cancelTimer:taskId];
         TrustURLSessionContext *context = [self contextForTask:taskId];
         if (!context) {
-            secerror("failed to find task for taskId: %@", taskId);
+            secnotice("http","failed to find task for taskId: %@", taskId);
             return;
         }
 

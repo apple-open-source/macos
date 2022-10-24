@@ -160,7 +160,7 @@ StoreObjectWrapperAllocate(const void * obj,
 static CFStringRef	__SCNetworkInterfaceProviderCopyDebugDesc(CFTypeRef cf);
 static void		__SCNetworkInterfaceProviderDeallocate(CFTypeRef cf);
 
-static CFTypeID __kSCNetworkInterfaceProviderTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkInterfaceProviderTypeID;
 
 static const CFRuntimeClass __SCNetworkInterfaceProviderClass = {
     0,						/* version */

@@ -565,7 +565,7 @@ CFStringRef myMacAddress(void)
     unsigned char *ps = (unsigned char *)buf;
     unsigned char *pa = (unsigned char *)outHardwareAddress;
     for (int ix = 0; ix < 6; ix++, pa++)
-        ps += sprintf((char *)ps, "%02x", *pa);
+        ps += snprintf((char *)ps, sizeof(buf)-(ps - buf), "%02x", *pa);
 
     result = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)buf, kCFStringEncodingUTF8);
     

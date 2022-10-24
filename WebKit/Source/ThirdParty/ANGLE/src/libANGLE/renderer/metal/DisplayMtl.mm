@@ -7,6 +7,7 @@
 // DisplayMtl.mm: Metal implementation of DisplayImpl
 
 #include "libANGLE/renderer/metal/DisplayMtl.h"
+#include <sys/param.h>
 
 #include "common/system_utils.h"
 #include "gpu_info_util/SystemInfo.h"
@@ -32,10 +33,6 @@
 #endif
 
 #include "EGL/eglext.h"
-
-#if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
-constexpr char kANGLEPreferredDeviceEnv[] = "ANGLE_PREFERRED_DEVICE";
-#endif
 
 namespace rx
 {
@@ -254,10 +251,12 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
         }
     }
 
-    auto externalGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
-    auto integratedGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
-    auto discreteGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
-
+    auto externalGPUs =
+        mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
+    auto integratedGPUs =
+        mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
+    auto discreteGPUs =
+        mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
     for (id<MTLDevice> device in deviceList.get())
     {
         if (device.removable)
@@ -295,15 +294,13 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
         }
     }
 
-    // Check the ANGLE_PREFERRED_DEVICE environment variable for device preference
-    const std::string anglePreferredDevice = angle::GetEnvironmentVar(kANGLEPreferredDeviceEnv);
-    if (anglePreferredDevice != "")
+    const std::string preferredDeviceString = angle::GetPreferredDeviceString();
+    if (!preferredDeviceString.empty())
     {
         for (id<MTLDevice> device in deviceList.get())
         {
             if ([device.name.lowercaseString
-                    containsString:[NSString stringWithUTF8String:anglePreferredDevice.c_str()]
-                                       .lowercaseString])
+                    containsString:[NSString stringWithUTF8String:preferredDeviceString.c_str()]])
             {
                 NSLog(@"Using Metal Device: %@", [device name]);
                 return device;
@@ -311,17 +308,6 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
         }
     }
 
-    // Default to use a low power device, look through integrated devices.
-    for (id<MTLDevice> device in integratedGPUs.get())
-    {
-        if (![device isHeadless])
-            return device;
-    }
-
-    // If we selected a low power device and there's no low-power devices avaialble, return the
-    // first (default) device.
-    if (deviceList.get().count > 0)
-        return deviceList[0];
 #endif
     // If we can't find anything, or are on a platform that doesn't support power options, create a
     // default device.
@@ -722,7 +708,7 @@ void DisplayMtl::ensureCapsInitialized() const
 #endif
 
     mNativeCaps.maxArrayTextureLayers = 2048;
-    mNativeCaps.maxLODBias            = 2.0;  // default GLES3 limit
+    mNativeCaps.maxLODBias            = std::log2(mNativeCaps.max2DTextureSize) + 1;
     mNativeCaps.maxCubeMapTextureSize = mNativeCaps.max2DTextureSize;
     mNativeCaps.maxRenderbufferSize   = mNativeCaps.max2DTextureSize;
     mNativeCaps.minAliasedPointSize   = 1;
@@ -742,12 +728,42 @@ void DisplayMtl::ensureCapsInitialized() const
     mNativeCaps.minAliasedLineWidth = 1.0f;
     mNativeCaps.maxAliasedLineWidth = 1.0f;
 
-    mNativeCaps.maxDrawBuffers       = mtl::kMaxRenderTargets;
+    if (supportsEitherGPUFamily(2, 1) && !mFeatures.limitMaxDrawBuffersForTesting.enabled)
+    {
+        mNativeCaps.maxDrawBuffers      = mtl::kMaxRenderTargets;
+        mNativeCaps.maxColorAttachments = mtl::kMaxRenderTargets;
+    }
+    else
+    {
+        mNativeCaps.maxDrawBuffers      = mtl::kMaxRenderTargetsOlderGPUFamilies;
+        mNativeCaps.maxColorAttachments = mtl::kMaxRenderTargetsOlderGPUFamilies;
+    }
+    ASSERT(static_cast<uint32_t>(mNativeCaps.maxDrawBuffers) <= mtl::kMaxRenderTargets);
+    ASSERT(static_cast<uint32_t>(mNativeCaps.maxColorAttachments) <= mtl::kMaxRenderTargets);
+
     mNativeCaps.maxFramebufferWidth  = mNativeCaps.max2DTextureSize;
     mNativeCaps.maxFramebufferHeight = mNativeCaps.max2DTextureSize;
-    mNativeCaps.maxColorAttachments  = mtl::kMaxRenderTargets;
     mNativeCaps.maxViewportWidth     = mNativeCaps.max2DTextureSize;
     mNativeCaps.maxViewportHeight    = mNativeCaps.max2DTextureSize;
+
+    bool isCatalyst = TARGET_OS_MACCATALYST;
+
+    mMaxColorTargetBits = mtl::kMaxColorTargetBitsApple1To3;
+    if (supportsMacGPUFamily(1) || isCatalyst)
+    {
+        mMaxColorTargetBits = mtl::kMaxColorTargetBitsMacAndCatalyst;
+    }
+    else if (supportsAppleGPUFamily(4))
+    {
+        mMaxColorTargetBits = mtl::kMaxColorTargetBitsApple4Plus;
+    }
+
+    if (mFeatures.limitMaxColorTargetBitsForTesting.enabled)
+    {
+        // Set so we have enough for RGBA8 on every attachment
+        // but not enough for RGBA32UI.
+        mMaxColorTargetBits = mNativeCaps.maxColorAttachments * 32;
+    }
 
     // MSAA
     mNativeCaps.maxSamples             = mFormatTable.getMaxSamples();
@@ -990,6 +1006,7 @@ void DisplayMtl::initializeExtensions() const
     // GL_KHR_parallel_shader_compile
     mNativeExtensions.parallelShaderCompileKHR = true;
 
+    mNativeExtensions.baseInstanceEXT             = mFeatures.hasBaseVertexInstancedDraw.enabled;
     mNativeExtensions.baseVertexBaseInstanceANGLE = mFeatures.hasBaseVertexInstancedDraw.enabled;
     mNativeExtensions.baseVertexBaseInstanceShaderBuiltinANGLE =
         mFeatures.hasBaseVertexInstancedDraw.enabled;
@@ -999,8 +1016,7 @@ void DisplayMtl::initializeTextureCaps() const
 {
     mNativeTextureCaps.clear();
 
-    mFormatTable.generateTextureCaps(this, &mNativeTextureCaps,
-                                     &mNativeCaps.compressedTextureFormats);
+    mFormatTable.generateTextureCaps(this, &mNativeTextureCaps);
 
     // Re-verify texture extensions.
     mNativeExtensions.setTextureExtensionSupport(mNativeTextureCaps);
@@ -1077,7 +1093,7 @@ void DisplayMtl::initializeFeatures()
 
     // http://anglebug.com/4919
     // Stencil blit shader is not compiled on Intel & NVIDIA, need investigation.
-    ANGLE_FEATURE_CONDITION((&mFeatures), hasStencilOutput,
+    ANGLE_FEATURE_CONDITION((&mFeatures), hasShaderStencilOutput,
                             isMetal2_1 && !isIntel() && !isNVIDIA());
 
     ANGLE_FEATURE_CONDITION((&mFeatures), hasTextureSwizzle,
@@ -1100,7 +1116,7 @@ void DisplayMtl::initializeFeatures()
     ANGLE_FEATURE_CONDITION((&mFeatures), hasNonUniformDispatch,
                             isOSX || isCatalyst || supportsAppleGPUFamily(4));
 
-    ANGLE_FEATURE_CONDITION((&mFeatures), allowSeparatedDepthStencilBuffers,
+    ANGLE_FEATURE_CONDITION((&mFeatures), allowSeparateDepthStencilBuffers,
                             !isOSX && !isCatalyst && !isSimulator);
     ANGLE_FEATURE_CONDITION((&mFeatures), rewriteRowMajorMatrices, true);
     ANGLE_FEATURE_CONDITION((&mFeatures), emulateTransformFeedback, true);
@@ -1111,6 +1127,9 @@ void DisplayMtl::initializeFeatures()
                             isIntel() && GetMacOSVersion() < OSVersion(12, 0, 0));
 
     ANGLE_FEATURE_CONDITION((&mFeatures), multisampleColorFormatShaderReadWorkaround, isAMD());
+    ANGLE_FEATURE_CONDITION((&mFeatures), copyIOSurfaceToNonIOSurfaceForReadOptimization,
+                            isIntel());
+    ANGLE_FEATURE_CONDITION((&mFeatures), copyTextureToBufferForReadOptimization, isAMD());
 
     ANGLE_FEATURE_CONDITION((&mFeatures), forceNonCSBaseMipmapGeneration, isIntel());
 
@@ -1118,13 +1137,15 @@ void DisplayMtl::initializeFeatures()
 
     ANGLE_FEATURE_CONDITION((&mFeatures), directMetalGeneration, defaultDirectToMetal);
 
-    angle::PlatformMethods *platform = ANGLEPlatformCurrent();
-    platform->overrideFeaturesMtl(platform, &mFeatures);
-
     ApplyFeatureOverrides(&mFeatures, getState());
 #ifdef ANGLE_ENABLE_ASSERTS
-    fprintf(stderr, "Shader compiler output: %s\n",
-            mFeatures.directMetalGeneration.enabled ? "Metal" : "SPIR-V");
+    static bool once = true;
+    if (once)
+    {
+        fprintf(stderr, "Shader compiler output: %s\n",
+                mFeatures.directMetalGeneration.enabled ? "Metal" : "SPIR-V");
+        once = false;
+    }
 #endif
 }
 

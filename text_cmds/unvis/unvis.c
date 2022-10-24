@@ -138,5 +138,5 @@ process(FILE *fp, const char *filename, int eflags)
 		(void)putchar(outc);
 
 	if (ferror(fp))
-		errx(EX_IOERR, "Error reading %s", fp);
+		errx(EX_IOERR, "Error reading %s", filename);
 }

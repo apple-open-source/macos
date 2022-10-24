@@ -16,6 +16,7 @@
 
 static RegressionTestsViewController *me = NULL;
 
+__attribute__((format(printf, 1, 0)))
 static int
 callback(const char *fmt, va_list ap)
 {

@@ -1,100 +1,102 @@
-.TH uuencode 5 "May, 2001" "Apple Computer, Inc."
-.SH NAME
-uuencode file format
-.NM uuencode
-.ND description of the uuencode file format
-.SH DESCRIPTION
-
-The 
-.XR uuencode 1
-command generates files in a format that allows them to be successfully
-transferred by systems which strip the high bit from an 8-bit byte.
-.XR uudecode 1
-decodes uuencoded files.
-
-.PP
-The uuencode file format consists of three sections: header, body, and trailer.
-The header is a line is of the form:
-
-.PP
-begin 644 "filename.ext"
-
-.PP
-where "644" is a
-.XR chmod 1
--format permissions byte for the file and "filename.ext" is the name of
-the encoded file.
-
-.PP
-The body section is the encoded representation of the source file. Three
-bytes of input file data are encoded into four bytes of output data.
-.PP
-The 24 input bits are divided up into four pieces of six bits
-each. The integer value 32 (the ASCII value for the space character) is
-added to each of these pieces to move them outside of the range of control
-characters. To avoid using the space character in the encoding, pieces with
-value zero are encoded using backquote (ASCII value 96) instead of zero. The
-resulting character is one of the this set (ASCII values 96,33-95):
-
-.DQ `!"#$%&'()*+,-./012356789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_
-
-.PP
-A line itself contains three segments: a length character (encoded using
-the "add a space" algorithm described above), the body of the line,
-typically (although not required to be) 60 output characters long,
-representing 45 input bytes, and (of course) a linefeed.  The length
-character specifies the number of valid input bytes on the line (so, for
-a line which is 60 encoded bytes, the length value would be 45).
-Decoding programs should decode no further than the specified length on
-a single line.
-
-.PP
-The trailer, which must exist, consists of a single backquote
-("`", ASCII 96) character on a line by itself, directly followed by
-.DQ end
+.\" Copyright (c) 1989, 1991, 1993
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	@(#)uuencode.format.5	8.2 (Berkeley) 1/12/94
+.\" $FreeBSD$
+.\"
+.Dd January 12, 1994
+.Dt UUENCODE 5
+.Os
+.Sh NAME
+.Nm uuencode
+.Nd format of an encoded uuencode file
+.Sh DESCRIPTION
+Files output by
+.Xr uuencode 1
+consist of a header line,
+followed by a number of body lines,
+and a trailer line.
+The
+.Xr uudecode 1
+command
+will ignore any lines preceding the header or
+following the trailer.
+Lines preceding a header must not, of course,
+look like a header.
+.Pp
+The header line is distinguished by having the first
+6 characters
+.Dq begin\ \&
+(note the trailing space).
+The word
+.Em begin
+is followed by a mode (in octal),
+and a string which names the remote file.
+A space separates the three items in the header line.
+.Pp
+The body consists of a number of lines, each at most 62 characters
+long (including the trailing newline).
+These consist of a character count,
+followed by encoded characters,
+followed by a newline.
+The character count is a single printing character,
+and represents an integer, the number of bytes
+the rest of the line represents.
+Such integers are always in the range from 1 to 45 or 64 and can
+be determined by subtracting the character space (octal 40)
+from the character.
+Character 64 represents a count of zero.
+.Pp
+Groups of 3 bytes are stored in 4 characters, 6 bits per character.
+All characters are always in range from 1 to 64 and are offset by a
+space (octal 40) to make the characters printing.
+Character
+64 represents a count of zero.
+The last line may be shorter than the normal 45 bytes.
+If the size is not a multiple of 3, this fact can be determined
+by the value of the count on the last line.
+Extra null characters will be included to make the character count a multiple
+of 4.
+The body is terminated by a line with a count of zero.
+This line consists of one
+.Tn ASCII
+backquote (octal 140) character.
+.Pp
+The trailer line consists of
+.Dq end
 on a line by itself.
-
-.PP
-.DQ .uue 
-is the canonical filename extension for uuencoded files.
-
-.SH BUGS
-uudecode does not read all permutations of the file format described in
-this man page.
-
-.PP
-Ancient versions of uuencode used a space character (ASCII 32) in the
-encoding to represent zero. Many (arguably broken) mailers and transport
-agents stripped, rewrapped, or otherwise mangled this format, so the space
-was later changed to the backquote, ASCII 96. Decoders may attempt to
-read the older format if they wish, though it's unlikely to be encountered
-in practice at this point in time.
-
-.PP
-The uuencode encoding method is highly ASCII-centric. In particular, the
-character set used doesn't work well on EBCDIC-based systems. (EBCDIC,
-generally used by IBM mainframes, is an old alternative character encoding;
-most computers use ASCII instead).
-
-.PP
-Many variants of uuencode on various platforms generate different forms
-of line checksums, using to represent the checksum one or more encoded
-characters after the last counted character in a line.  Because these
-formats are different and impossible to distinguish (with certainty),
-such characters should be ignored by decoding implementations.
-
-.PP
-The uuencode encoding format has no provisions for segmented files.
-Writers of segmenting utilities should be careful to avoid using
-character sequences that may naturally occur in the encoding (such
-as sequences of dashes ("---")) to divide sections.
-
-.SH SEE ALSO
-The MIME Base64 encoding (documented in RFC 2045) is a consistent,
-cross-platform-savvy message encoding which should be used in place of
-UUEncode wherever possible.
-
-.PP
-The Unix-Hater's Handbook (IDG, 1994) identifies the folly of the
-older zero-encoded-as-space versions of uuencode.
-
+.Sh SEE ALSO
+.Xr mail 1 ,
+.Xr uucp 1 ,
+.Xr uudecode 1 ,
+.Xr uuencode 1
+.Sh HISTORY
+The
+.Nm
+file format appeared in
+.Bx 4.0 .
+.\" It was named uuencode.5 prior to 4.3

@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-04-04</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>compile.c: remove POSIX incompliant escape sequences</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>sed</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-07-30</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/sed?id=98369a6980f5448fa9ab8bde9f04ba10c4ca3c93</string>
+</dict>

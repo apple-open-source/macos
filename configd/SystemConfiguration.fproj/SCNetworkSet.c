@@ -31,6 +31,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CFBundlePriv.h>
 #include "SCNetworkConfigurationInternal.h"
 
 #include <pthread.h>
@@ -42,7 +43,7 @@ static Boolean		__SCNetworkSetEqual			(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkSetHash			(CFTypeRef cf);
 
 
-static CFTypeID __kSCNetworkSetTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkSetTypeID;
 
 
 static const CFRuntimeClass __SCNetworkSetClass = {
@@ -56,9 +57,6 @@ static const CFRuntimeClass __SCNetworkSetClass = {
 	NULL,				// copyFormattingDesc
 	__SCNetworkSetCopyDescription	// copyDebugDesc
 };
-
-
-static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
 
 
 static CFStringRef
@@ -135,7 +133,12 @@ __SCNetworkSetHash(CFTypeRef cf)
 static void
 __SCNetworkSetInitialize(void)
 {
-	__kSCNetworkSetTypeID = _CFRuntimeRegisterClass(&__SCNetworkSetClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		__kSCNetworkSetTypeID = _CFRuntimeRegisterClass(&__SCNetworkSetClass);
+	});
+
 	return;
 }
 
@@ -149,7 +152,7 @@ __SCNetworkSetCreatePrivate(CFAllocatorRef      allocator,
 	uint32_t		size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkSetInitialize);
+	__SCNetworkSetInitialize();
 
 	/* allocate target */
 	size            = sizeof(SCNetworkSetPrivate) - sizeof(CFRuntimeBase);
@@ -378,10 +381,11 @@ copy_default_set_name(Boolean loc)
 
 			bundle = _SC_CFBundleGet();
 			if (bundle != NULL) {
-				non_localized = _SC_CFBundleCopyNonLocalizedString(bundle,
-										   CFSTR("DEFAULT_SET_NAME"),
-										   DEFAULT_SET_NAME,
-										   NULL);
+				non_localized = CFBundleCopyLocalizedStringForLocalization(bundle,
+											   CFSTR("DEFAULT_SET_NAME"),
+											   DEFAULT_SET_NAME,
+											   NULL,
+											   CFSTR("en"));
 			}
 		});
 		name = non_localized;
@@ -1156,7 +1160,8 @@ SCNetworkSetGetName(SCNetworkSetRef set)
 			setPrivate->name = CFRetain(name);
 		}
 	}
-
+#if	TARGET_OS_OSX
+	/* only bother to localize the "Automatic" set on macOS */
 	if (setPrivate->name != NULL) {
 		CFStringRef	non_localized;
 
@@ -1172,7 +1177,7 @@ SCNetworkSetGetName(SCNetworkSetRef set)
 
 		CFRelease(non_localized);
 	}
-
+#endif	// TARGET_OS_OSX
 	return setPrivate->name;
 }
 
@@ -1211,7 +1216,7 @@ SCNetworkSetGetServiceOrder(SCNetworkSetRef set)
 CFTypeID
 SCNetworkSetGetTypeID(void)
 {
-	pthread_once(&initialized, __SCNetworkSetInitialize);	/* initialize runtime */
+	__SCNetworkSetInitialize();	/* initialize runtime */
 	return __kSCNetworkSetTypeID;
 }
 
@@ -1361,6 +1366,7 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		CFArrayRef		interface_config		= NULL;
 		CFTypeRef		interface_DisablePrivateRelay	= NULL;
 		CFTypeRef		interface_DisableUntilNeeded	= NULL;
+		CFTypeRef		interface_EnableLowDataMode	= NULL;
 
 		// get the [deep] interface configuration
 		interface = SCNetworkServiceGetInterface(service);
@@ -1384,6 +1390,12 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 				CFRetain(interface_DisableUntilNeeded);
 				__SCNetworkInterfaceSetDisableUntilNeededValue(interface, NULL);
 			}
+			// get [per-set] EnableLowDataMode configuration
+			interface_EnableLowDataMode = __SCNetworkInterfaceGetEnableLowDataModeValue(interface);
+			if (interface_EnableLowDataMode != NULL) {
+				CFRetain(interface_EnableLowDataMode);
+				__SCNetworkInterfaceSetEnableLowDataModeValue(interface, NULL);
+			}
 		}
 
 		// remove the service [link]
@@ -1398,7 +1410,8 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		// we should set (restore) the default configuration.
 		if ((interface_config != NULL) ||
 		    (interface_DisablePrivateRelay != NULL) ||
-		    (interface_DisableUntilNeeded != NULL)) {
+		    (interface_DisableUntilNeeded != NULL) ||
+		    (interface_EnableLowDataMode != NULL)) {
 			Boolean	retain;
 
 			retain = hasServiceWithInterface(set, interface);
@@ -1423,6 +1436,13 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 				__SCNetworkInterfaceSetDisableUntilNeededValue(interface,
 									       retain ? interface_DisableUntilNeeded : NULL);
 				CFRelease(interface_DisableUntilNeeded);
+			}
+
+			if (interface_EnableLowDataMode != NULL) {
+				// update [per-set] EnableLowDataMode configuration
+				__SCNetworkInterfaceSetEnableLowDataModeValue(interface,
+									      retain ? interface_EnableLowDataMode : NULL);
+				CFRelease(interface_EnableLowDataMode);
 			}
 		}
 	}

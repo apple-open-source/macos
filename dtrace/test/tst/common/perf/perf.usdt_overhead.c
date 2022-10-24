@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <sys/sysctl.h>
 
-
 static dtrace_hdl_t	*g_dtp;
 
 static void

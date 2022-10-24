@@ -41,12 +41,13 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 
-char * blostype2string(uint32_t type, char buf[5])
+char * blostype2string(uint32_t type, char *buf, uint32_t bufSize)
 {
-    bzero(buf, 5);
-    if(type == 0) return buf;
+    bzero(buf, bufSize);
+    if(type == 0 || bufSize < 5)
+        return buf;
 
-    sprintf(buf, "%c%c%c%c",
+    snprintf(buf, bufSize, "%c%c%c%c",
 	    (type >> 24)&0xFF,
 	    (type >> 16)&0xFF,
 	    (type >> 8)&0xFF,

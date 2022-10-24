@@ -1,0 +1,1 @@
+http://qocsp.hiteles.gov.hu/ocsp-root

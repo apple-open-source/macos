@@ -46,8 +46,6 @@
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
-#include "WebKitAnimationEvent.h"
-#include "WebKitTransitionEvent.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -59,18 +57,20 @@
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(EventTarget);
-WTF_MAKE_ISO_ALLOCATED_IMPL(EventTargetWithInlineData);
 
 Ref<EventTarget> EventTarget::create(ScriptExecutionContext& context)
 {
     return EventTargetConcrete::create(context);
 }
 
-EventTarget::~EventTarget() = default;
-
-bool EventTarget::isNode() const
+EventTarget::~EventTarget()
 {
-    return false;
+    // Explicitly tearing down since WeakPtrImpl can be alive longer than EventTarget.
+    if (hasEventTargetData()) {
+        auto* eventTargetData = this->eventTargetData();
+        ASSERT(eventTargetData);
+        eventTargetData->clear();
+    }
 }
 
 bool EventTarget::isPaymentRequest() const
@@ -262,21 +262,22 @@ void EventTarget::uncaughtExceptionInEventHandler()
 
 static const AtomString& legacyType(const Event& event)
 {
-    if (event.type() == eventNames().animationendEvent)
-        return eventNames().webkitAnimationEndEvent;
+    auto& eventNames = WebCore::eventNames();
+    if (event.type() == eventNames.animationendEvent)
+        return eventNames.webkitAnimationEndEvent;
 
-    if (event.type() == eventNames().animationstartEvent)
-        return eventNames().webkitAnimationStartEvent;
+    if (event.type() == eventNames.animationstartEvent)
+        return eventNames.webkitAnimationStartEvent;
 
-    if (event.type() == eventNames().animationiterationEvent)
-        return eventNames().webkitAnimationIterationEvent;
+    if (event.type() == eventNames.animationiterationEvent)
+        return eventNames.webkitAnimationIterationEvent;
 
-    if (event.type() == eventNames().transitionendEvent)
-        return eventNames().webkitTransitionEndEvent;
+    if (event.type() == eventNames.transitionendEvent)
+        return eventNames.webkitTransitionEndEvent;
 
     // FIXME: This legacy name is not part of the specification (https://dom.spec.whatwg.org/#dispatching-events).
-    if (event.type() == eventNames().wheelEvent)
-        return eventNames().mousewheelEvent;
+    if (event.type() == eventNames.wheelEvent)
+        return eventNames.mousewheelEvent;
 
     return nullAtom();
 }
@@ -290,8 +291,6 @@ void EventTarget::fireEventListeners(Event& event, EventInvokePhase phase)
     auto* data = eventTargetData();
     if (!data)
         return;
-
-    SetForScope<bool> firingEventListenersScope(data->isFiringEventListeners, true);
 
     if (auto* listenersVector = data->eventListenerMap.find(event.type())) {
         innerInvokeEventListeners(event, *listenersVector, phase);
@@ -373,7 +372,7 @@ void EventTarget::innerInvokeEventListeners(Event& event, EventListenerVector li
         InspectorInstrumentation::didDispatchEvent(downcast<Document>(context), event);
 }
 
-Vector<AtomString> EventTarget::eventTypes()
+Vector<AtomString> EventTarget::eventTypes() const
 {
     if (auto* data = eventTargetData())
         return data->eventListenerMap.eventTypes();
@@ -397,7 +396,8 @@ void EventTarget::removeAllEventListeners()
 
     auto* data = eventTargetData();
     if (data && !data->eventListenerMap.isEmpty()) {
-        if (data->eventListenerMap.contains(eventNames().wheelEvent) || data->eventListenerMap.contains(eventNames().mousewheelEvent))
+        auto& eventNames = WebCore::eventNames();
+        if (data->eventListenerMap.contains(eventNames.wheelEvent) || data->eventListenerMap.contains(eventNames.mousewheelEvent))
             invalidateEventListenerRegions();
 
         data->eventListenerMap.clear();

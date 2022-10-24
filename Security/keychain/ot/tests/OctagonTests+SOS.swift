@@ -33,8 +33,8 @@ class OctagonSOSTests: OctagonTestsBase {
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -86,8 +86,8 @@ class OctagonSOSTests: OctagonTestsBase {
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -142,8 +142,8 @@ class OctagonSOSTests: OctagonTestsBase {
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -208,7 +208,7 @@ class OctagonSOSTests: OctagonTestsBase {
         let recoverykeyotcliqueContext = OTConfigurationContext()
         recoverykeyotcliqueContext.context = "recoveryContext"
         recoverykeyotcliqueContext.dsid = "1234"
-        recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         recoverykeyotcliqueContext.otControl = self.otControl
 
         var clique: OTClique
@@ -336,7 +336,7 @@ class OctagonSOSTests: OctagonTestsBase {
         // And a reset does the right thing with preapprovals as well
         do {
             let arguments = OTConfigurationContext()
-            arguments.altDSID = try self.cuttlefishContext.authKitAdapter.primaryiCloudAccountAltDSID()
+            arguments.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
             arguments.context = self.cuttlefishContext.contextID
             arguments.otControl = self.otControl
 

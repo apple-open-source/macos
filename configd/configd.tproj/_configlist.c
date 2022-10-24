@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016, 2020-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -105,8 +105,7 @@ _configlist(mach_port_t			server,
 	    int				isRegex,
 	    xmlDataOut_t		*listRef,	/* raw XML bytes */
 	    mach_msg_type_number_t	*listLen,
-	    int				*sc_status,
-	    audit_token_t		audit_token)
+	    int				*sc_status)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
 	CFIndex			len;
@@ -130,12 +129,9 @@ _configlist(mach_port_t			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		mySession = tempSession(server, CFSTR("SCDynamicStoreCopyKeyList"), audit_token);
-		if (mySession == NULL) {
-			/* you must have an open session to play */
-			*sc_status = kSCStatusNoStoreSession;
-			goto done;
-		}
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		goto done;
 	}
 
 	*sc_status = __SCDynamicStoreCopyKeyList(mySession->store, key, isRegex != 0, &subKeys);

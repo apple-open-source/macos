@@ -2104,7 +2104,7 @@ char *arguments[];
 		}
 		else if (!strcmp("-?", buff))
 		{
-			fprintf(stderr, usage0, arguments[0]);
+			fprintf(stderr, fmtcheck(usage0, "%s"), arguments[0]);
 			fputs(usage1, stderr);
 			fputs(usage2, stderr);
 			fputs(usage3, stderr);
@@ -3198,7 +3198,7 @@ char *string;		/* string containing user command		*/
 			for (value = 1; value < 24; value++)
 				signal(value, SIG_DFL);
 			execl(path, last_slash, "-c", string, NULL);
-			fprintf(stderr, exec_err_msg, path);
+			fprintf(stderr, fmtcheck(exec_err_msg, "%s"), path);
 			exit(-1);
 		}
 		else	/* if the parent	*/

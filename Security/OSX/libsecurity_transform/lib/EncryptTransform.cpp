@@ -130,7 +130,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 	SecKeyRef key = (SecKeyRef) GetAttribute(kSecEncryptKey);
 	if (NULL == key)
 	{
-		return CreateSecTransformErrorRef(kSecTransformErrorAttributeNotFound, "The attribute %@ was not found.", kSecEncryptKey);
+		return CreateSecTransformErrorRef(kSecTransformErrorAttributeNotFound, CFSTR("The attribute %@ was not found."), kSecEncryptKey);
 	}
 
 	OSStatus err = errSecSuccess;
@@ -138,7 +138,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 	if (errSecSuccess != err)
 	{
 		CFStringRef result = SecCopyErrorMessageString(err, NULL);
-		CFErrorRef retValue = CreateSecTransformErrorRef(err, "CDSA error (%@).", result);
+		CFErrorRef retValue = CreateSecTransformErrorRef(err, CFSTR("CDSA error (%@)."), result);
 		CFReleaseNull(result);
 		return retValue;
 	}
@@ -148,7 +148,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 	if (errSecSuccess != err)
 	{
 		CFStringRef result = SecCopyErrorMessageString(err, NULL);
-		CFErrorRef retValue = CreateSecTransformErrorRef(err, "CDSA error (%@).", result);
+		CFErrorRef retValue = CreateSecTransformErrorRef(err, CFSTR("CDSA error (%@)."), result);
 		CFReleaseNull(result);
 		return retValue;
 	}
@@ -239,7 +239,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 		if (crtn != CSSM_OK)
 		{
 			CFStringRef result = SecCopyErrorMessageString(crtn, NULL);
-			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "CDSA error (%@).", result);
+			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("CDSA error (%@)."), result);
 			CFReleaseNull(result);
 			return retValue;
 		}
@@ -252,7 +252,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 		if (crtn != CSSM_OK)
 		{
 			CFStringRef result = SecCopyErrorMessageString(crtn, NULL);
-			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "CDSA error (%@).", result);
+			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("CDSA error (%@)."), result);
 			CFReleaseNull(result);
 			return retValue;
 		}
@@ -264,7 +264,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 	if (crtn != CSSM_OK)
 	{
 			CFStringRef result = SecCopyErrorMessageString(crtn, NULL);
-			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "CDSA encrypt/decrypt init error (%@).", result);
+			CFErrorRef retValue = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("CDSA encrypt/decrypt init error (%@)."), result);
 			CFReleaseNull(result);
 			return retValue;
 	}
@@ -312,7 +312,7 @@ void EncryptDecryptBase::SendCSSMError(CSSM_RETURN retCode)
 {
 	// make a CFErrorRef for the error message
 	CFStringRef errorString = SecCopyErrorMessageString(retCode, NULL);
-	CFErrorRef errorRef = CreateGenericErrorRef(kCFErrorDomainOSStatus, retCode, "%@", errorString);
+	CFErrorRef errorRef = CreateGenericErrorRef(kCFErrorDomainOSStatus, retCode, CFSTR("%@"), errorString);
 	CFReleaseNull(errorString);
 
 	SendAttribute(kSecTransformOutputAttributeName, errorRef);
@@ -461,7 +461,7 @@ CFDataRef EncryptDecryptBase::remove_oaep_padding(CFDataRef encodedMessage)
 out:
     if (!message) {
         if (!error) {
-            error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "decoding error");
+            error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("decoding error"));
         }
         SetAttributeNoCallback(kSecTransformOutputAttributeName, error);
     }
@@ -513,7 +513,7 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 		OSStatus status = CSSM_QuerySize(m_handle, CSSM_TRUE, 1, &RSA_size);
 		if (status != errSecSuccess) {
 			CFStringRef errorString = SecCopyErrorMessageString(status, NULL);
-			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "CDSA error (%@).", errorString);
+			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("CDSA error (%@)."), errorString);
 			CFReleaseNull(errorString);
 			SetAttributeNoCallback(kSecTransformOutputAttributeName, error);
 			(void)transforms_assume_zero(EM);
@@ -560,7 +560,7 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 		OSStatus status = CSSM_QuerySize(m_handle, CSSM_TRUE, 1, &RSA_size);
 		if (status != errSecSuccess) {
 			CFStringRef errorString = SecCopyErrorMessageString(status, NULL);
-			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "CDSA error (%@).", errorString);
+			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("CDSA error (%@)."), errorString);
 			CFReleaseNull(errorString);
 			goto out;
 		}
@@ -569,7 +569,7 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 	}
 	padLen = (desired_message_length - (2*hLen) -1) - CFDataGetLength(dataValue);
 	if (padLen < 0) {
-		error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "Your message is too long for your message length, it needs to be %d bytes shorter, or you need to adjust the kSecOAEPMessageLengthAttributeName attribute", -padLen);
+		error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, CFSTR("Your message is too long for your message length, it needs to be %d bytes shorter, or you need to adjust the kSecOAEPMessageLengthAttributeName attribute"), -padLen);
         goto out;
 	}
 
@@ -735,7 +735,6 @@ out:
  -------------------------------------------------------------------------- */
 void EncryptDecryptBase::AttributeChanged(SecTransformAttributeRef ah, CFTypeRef value)
 {
-	// sanity check our arguments
 	if (ah != inputAH)
 	{
 		return; // we only deal with input
@@ -747,7 +746,7 @@ void EncryptDecryptBase::AttributeChanged(SecTransformAttributeRef ah, CFTypeRef
 		if (valueType != CFDataGetTypeID())
 		{
 			CFStringRef realType = CFCopyTypeIDDescription(valueType);
-			CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "Value is not a CFDataRef -- this one is a %@", realType);
+			CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("Value is not a CFDataRef -- this one is a %@"), realType);
 			CFReleaseNull(realType);
 			SetAttributeNoCallback(kSecTransformOutputAttributeName, error);
 			return;

@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>uname</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/uname?id=3f6cdd59fecf4077256e37d7de7f9db3ac0e72e2</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-15</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>uname.1, uname.c: remove -b, -i, -K, -U (82892948)</string>
+			<string>uname.1, uname.c: add long-form env aliases (82892948)</string>
+			<string>uname.c: add -p to -a in non-compat mode (82892948)</string>
+			<string>uname.c: Don't ignore errors when flushing stdout (89090667)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

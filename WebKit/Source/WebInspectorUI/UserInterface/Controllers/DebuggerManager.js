@@ -43,6 +43,8 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, this._targetRemoved, this);
 
+        WI.settings.blackboxBreakpointEvaluations.addEventListener(WI.Setting.Event.Changed, this._handleBlackboxBreakpointEvaluationsChange, this);
+
         if (WI.isEngineeringBuild) {
             WI.settings.engineeringShowInternalScripts.addEventListener(WI.Setting.Event.Changed, this._handleEngineeringShowInternalScriptsSettingChanged, this);
             WI.settings.engineeringPauseForInternalScripts.addEventListener(WI.Setting.Event.Changed, this._handleEngineeringPauseForInternalScriptsSettingChanged, this);
@@ -223,6 +225,8 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
             }
         }
 
+        this._setBlackboxBreakpointEvaluations(target);
+
         if (WI.isEngineeringBuild) {
             // COMPATIBILITY (iOS 12): DebuggerAgent.setPauseForInternalScripts did not exist yet.
             if (target.hasCommand("Debugger.setPauseForInternalScripts"))
@@ -248,7 +252,14 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     static supportsBlackboxingScripts()
     {
+        // COMPATIBILITY (iOS 13): Debugger.setShouldBlackboxURL did not exist yet.
         return InspectorBackend.hasCommand("Debugger.setShouldBlackboxURL");
+    }
+
+    static supportsBlackboxingBreakpointEvaluations()
+    {
+        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        return InspectorBackend.hasCommand("Debugger.setBlackboxBreakpointEvaluations");
     }
 
     static pauseReasonFromPayload(payload)
@@ -540,7 +551,6 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
     shouldAutoExpandBlackboxedCallFrameGroup(blackboxedCallFrameGroup)
     {
-        console.assert(WI.settings.experimentalCollapseBlackboxedCallFrames.value);
         console.assert(Array.isArray(blackboxedCallFrameGroup) && blackboxedCallFrameGroup.length && blackboxedCallFrameGroup.every((callFrame) => callFrame instanceof WI.CallFrame && callFrame.blackboxed), blackboxedCallFrameGroup);
 
         return this._blackboxedCallFrameGroupsToAutoExpand.some((blackboxedCallFrameGroupToAutoExpand) => {
@@ -1256,6 +1266,13 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
         }
     }
 
+    _setBlackboxBreakpointEvaluations(target)
+    {
+        // COMPATIBILITY (iOS 15.4): Debugger.setBlackboxBreakpointEvaluations did not exist yet.
+        if (target.hasCommand("Debugger.setBlackboxBreakpointEvaluations"))
+            target.DebuggerAgent.setBlackboxBreakpointEvaluations(WI.settings.blackboxBreakpointEvaluations.value);
+    }
+
     _breakpointDisplayLocationDidChange(event)
     {
         if (this._ignoreBreakpointDisplayLocationDidChangeEvent)
@@ -1398,6 +1415,12 @@ WI.DebuggerManager = class DebuggerManager extends WI.Object
 
         if (!this.paused && wasPaused)
             this.dispatchEventToListeners(WI.DebuggerManager.Event.Resumed);
+    }
+
+    _handleBlackboxBreakpointEvaluationsChange(event)
+    {
+        for (let target of WI.targets)
+            this._setBlackboxBreakpointEvaluations(target);
     }
 
     _handleEngineeringShowInternalScriptsSettingChanged(event)

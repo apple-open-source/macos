@@ -30,10 +30,28 @@
 #ifndef _SECURITY_SECOCSPREQUEST_H_
 #define _SECURITY_SECOCSPREQUEST_H_
 
-#include <Security/SecAsn1Coder.h>
 #include <CoreFoundation/CFData.h>
+#include <libDER/libDER.h>
+#include <Security/Security.h>
 
 __BEGIN_DECLS
+
+/*
+ CertID          ::=     SEQUENCE {
+     hashAlgorithm       AlgorithmIdentifier,
+     issuerNameHash      OCTET STRING, -- Hash of Issuer's DN
+     issuerKeyHash       OCTET STRING, -- Hash of Issuers public key
+     serialNumber        CertificateSerialNumber }
+ */
+typedef struct {
+    DERItem        hashAlgorithm;
+    DERItem        issuerNameHash;
+    DERItem        issuerKeyHash;
+    DERItem        serialNumber;
+} DER_OCSPCertID;
+
+extern const DERSize DERNumOCSPCertIDItemSpecs;
+extern const DERItemSpec DER_OCSPCertIDItemSpecs[];
 
 /*!
 	@typedef SecOCSPRequestRef
@@ -42,9 +60,13 @@ __BEGIN_DECLS
 typedef struct __SecOCSPRequest *SecOCSPRequestRef;
 
 struct __SecOCSPRequest {
-    SecCertificateRef certificate; // Nonretained
-    SecCertificateRef issuer; // Nonretained
+    SecCertificateRef certificate;
+    SecCertificateRef issuer;
     CFDataRef der;
+    DERItem certIdHash;
+    CFDataRef issuerNameDigest;
+    CFDataRef issuerPubKeyDigest;
+    CFDataRef serial;
 };
 
 /*!

@@ -48,9 +48,9 @@ struct _WebKitUserContentManagerPrivate {
 };
 
 /**
- * SECTION:WebKitUserContentManager
- * @short_description: Manages user-defined content which affects web pages.
- * @title: WebKitUserContentManager
+ * WebKitUserContentManager:
+ *
+ * Manages user-defined content which affects web pages.
  *
  * Using a #WebKitUserContentManager user CSS style sheets can be set to
  * be injected in the web pages loaded by a #WebKitWebView, by
@@ -268,13 +268,13 @@ private:
  * receive the signals, it is recommended to connect to the signal
  * *before* registering the handler name:
  *
- * <informalexample><programlisting>
+ * ```c
  * WebKitWebView *view = webkit_web_view_new ();
  * WebKitUserContentManager *manager = webkit_web_view_get_user_content_manager ();
  * g_signal_connect (manager, "script-message-received::foobar",
  *                   G_CALLBACK (handle_script_message), NULL);
  * webkit_user_content_manager_register_script_message_handler (manager, "foobar");
- * </programlisting></informalexample>
+ * ```
  *
  * Registering a script message handler will fail if the requested
  * name has been already registered before.
@@ -289,7 +289,7 @@ gboolean webkit_user_content_manager_register_script_message_handler(WebKitUserC
     g_return_val_if_fail(name, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), API::ContentWorld::pageContentWorld());
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), AtomString::fromUTF8(name), API::ContentWorld::pageContentWorld());
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -339,7 +339,7 @@ gboolean webkit_user_content_manager_register_script_message_handler_in_world(We
     g_return_val_if_fail(worldName, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), webkitContentWorld(worldName));
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), AtomString::fromUTF8(name), webkitContentWorld(worldName));
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -386,7 +386,9 @@ void webkit_user_content_manager_add_filter(WebKitUserContentManager* manager, W
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
     g_return_if_fail(filter);
+#if ENABLE(CONTENT_EXTENSIONS)
     manager->priv->userContentController->addContentRuleList(webkitUserContentFilterGetContentRuleList(filter));
+#endif
 }
 
 /**
@@ -402,7 +404,9 @@ void webkit_user_content_manager_remove_filter(WebKitUserContentManager* manager
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
     g_return_if_fail(filter);
+#if ENABLE(CONTENT_EXTENSIONS)
     manager->priv->userContentController->removeContentRuleList(webkitUserContentFilterGetContentRuleList(filter).name());
+#endif
 }
 
 /**
@@ -420,7 +424,9 @@ void webkit_user_content_manager_remove_filter_by_id(WebKitUserContentManager* m
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
     g_return_if_fail(filterId);
+#if ENABLE(CONTENT_EXTENSIONS)
     manager->priv->userContentController->removeContentRuleList(String::fromUTF8(filterId));
+#endif
 }
 
 /**
@@ -434,7 +440,9 @@ void webkit_user_content_manager_remove_filter_by_id(WebKitUserContentManager* m
 void webkit_user_content_manager_remove_all_filters(WebKitUserContentManager* manager)
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
+#if ENABLE(CONTENT_EXTENSIONS)
     manager->priv->userContentController->removeAllContentRuleLists();
+#endif
 }
 
 WebUserContentControllerProxy* webkitUserContentManagerGetUserContentControllerProxy(WebKitUserContentManager* manager)

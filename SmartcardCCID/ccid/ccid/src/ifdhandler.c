@@ -1,16 +1,16 @@
 /*
-    ifdhandler.c: IFDH API
-    Copyright (C) 2003-2010   Ludovic Rousseau
+	ifdhandler.c: IFDH API
+	Copyright (C) 2003-2010   Ludovic Rousseau
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+	This library is free software; you can redistribute it and/or
+	modify it under the terms of the GNU Lesser General Public
+	License as published by the Free Software Foundation; either
+	version 2.1 of the License, or (at your option) any later version.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+	This library is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+	Lesser General Public License for more details.
 
 	You should have received a copy of the GNU Lesser General Public License
 	along with this library; if not, write to the Free Software Foundation,
@@ -476,9 +476,9 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 						|| (HID_OMNIKEY_5422 == readerID))
 						*Value = 2;
 
-					/* 3 CCID interfaces */
+					/* 4 CCID interfaces */
 					if (FEITIANR502DUAL == readerID)
-						*Value = 3;
+						*Value = 4;
 				}
 #endif
 				DEBUG_INFO2("Reader supports %d slot(s)", *Value);
@@ -490,8 +490,12 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 		case TAG_IFD_SLOT_THREAD_SAFE:
 			if (*Length >= 1)
 			{
+				_ccid_descriptor *ccid_desc =  get_ccid_descriptor(reader_index);
 				*Length = 1;
-				*Value = 0; /* Can NOT talk to multiple slots at the same time */
+				if (ccid_desc->bMaxSlotIndex +1 == ccid_desc->bMaxCCIDBusySlots)
+					*Value = 1; /* all slots can be used simultanesously */
+				else
+					*Value = 0; /* Can NOT talk to multiple slots at the same time */
 			}
 			else
 				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
@@ -602,6 +606,13 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 			break;
 #endif
 
+#ifdef TAG_IFD_DEVICE_REMOVED
+		case TAG_IFD_DEVICE_REMOVED:
+			if (Value && (1 == *Length))
+				Value[0] = 1;
+			break;
+#endif
+
 		case SCARD_ATTR_VENDOR_IFD_SERIAL_NO:
 			{
 				_ccid_descriptor *ccid_desc;
@@ -661,6 +672,7 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	 * IFD_ERROR_VALUE_READ_ONLY
 	 */
 
+	RESPONSECODE return_value = IFD_SUCCESS;
 	(void)Length;
 	(void)Value;
 
@@ -672,7 +684,20 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	DEBUG_INFO4("tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
 		CcidSlots[reader_index].readerName, Lun);
 
-	return IFD_NOT_SUPPORTED;
+	switch (Tag)
+	{
+#ifdef TAG_IFD_DEVICE_REMOVED
+		case TAG_IFD_DEVICE_REMOVED:
+			if ((1 == Length) && (Value != NULL) && (Value[0] != 0))
+				DisconnectPort(reader_index);
+			break;
+#endif
+
+		default:
+			return_value = IFD_ERROR_TAG;
+	}
+
+	return return_value;
 } /* IFDHSetCapabilities */
 
 
@@ -722,14 +747,6 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 	/* Get ccid params */
 	ccid_slot = get_ccid_slot(reader_index);
 	ccid_desc = get_ccid_descriptor(reader_index);
-
-	/* Do not send CCID command SetParameters or PPS to the CCID
-	 * The CCID will do this himself */
-	if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
-	{
-		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
-		goto end;
-	}
 
 	/* check the protocol is supported by the reader */
 	if (!(Protocol & ccid_desc->dwProtocols))
@@ -795,6 +812,11 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 				break;
 			}
 	}
+
+	/* Do not send CCID command SetParameters or PPS to the CCID
+	 * The CCID will do this himself */
+	if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
+		goto end;
 
 	/* PTS1? */
 	if (Flags & IFD_NEGOTIATE_PTS1)
@@ -967,6 +989,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		&& (atr.ib[1][ATR_INTERFACE_BYTE_TA].value & 0x10))
 		return IFD_COMMUNICATION_ERROR;
 
+end:
 	/* T=1 */
 	if (SCARD_PROTOCOL_T1 == Protocol)
 	{
@@ -1046,9 +1069,14 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 
 		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
 
-		ret = SetParameters(reader_index, 1, sizeof(param), param);
-		if (IFD_SUCCESS != ret)
-			return ret;
+		if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
+			DEBUG_COMM("Skip SetParameters");
+		else
+		{
+			ret = SetParameters(reader_index, 1, sizeof(param), param);
+			if (IFD_SUCCESS != ret)
+				return ret;
+		}
 	}
 	else
 	/* T=0 */
@@ -1085,15 +1113,21 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		ccid_desc->readTimeout = T0_card_timeout(f, d, param[2] /* TC1 */,
 			param[3] /* TC2 */, ccid_desc->dwDefaultClock);
 
-		DEBUG_COMM2("Communication timeout: %d ms", ccid_desc->readTimeout);
+		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
 
-		ret = SetParameters(reader_index, 0, sizeof(param), param);
-		if (IFD_SUCCESS != ret)
-			return ret;
+		if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
+			DEBUG_COMM("Skip SetParameters");
+		else
+		{
+			ret = SetParameters(reader_index, 0, sizeof(param), param);
+			if (IFD_SUCCESS != ret)
+				return ret;
+		}
 	}
 
 	/* set IFSC & IFSD in T=1 */
-	if (SCARD_PROTOCOL_T1 == Protocol)
+	if ((SCARD_PROTOCOL_T1 == Protocol)
+		&& (CCID_CLASS_TPDU == (ccid_desc->dwFeatures & CCID_CLASS_EXCHANGE_MASK)))
 	{
 		t1_state_t *t1 = &(ccid_slot -> t1);
 		int i, ifsc;
@@ -1117,7 +1151,6 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		DEBUG_COMM3("T=1: IFSC=%d, IFSD=%d", t1->ifsc, t1->ifsd);
 	}
 
-end:
 	/* store used protocol for use by the secure commands (verify/change PIN) */
 	ccid_desc->cardProtocol = Protocol;
 
@@ -1194,6 +1227,9 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 			CcidSlots[reader_index].bPowerFlags |= MASK_POWERFLAGS_PDWN;
 
 			/* send the command */
+			return_value = CmdPowerOff(reader_index);
+			if (IFD_NO_SUCH_DEVICE == return_value)
+				goto end;
 			if (IFD_SUCCESS != CmdPowerOff(reader_index))
 			{
 				DEBUG_CRITICAL("PowerDown failed");
@@ -1468,6 +1504,10 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 				allowed = TRUE;
 		}
 
+		/* allow APDU exchange with this reader without a card in the field */
+		if (HID_OMNIKEY_5427CK == readerID)
+			allowed = TRUE;
+
 		if (!allowed)
 		{
 			DEBUG_INFO1("ifd exchange (Escape command) not allowed");
@@ -1507,7 +1547,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			pcsc_tlv -> tag = FEATURE_VERIFY_PIN_DIRECT;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
 			set_U32(&pcsc_tlv -> value,
-			    htonl(IOCTL_FEATURE_VERIFY_PIN_DIRECT));
+				htonl(IOCTL_FEATURE_VERIFY_PIN_DIRECT));
 
 			pcsc_tlv++;
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
@@ -1518,7 +1558,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			pcsc_tlv -> tag = FEATURE_MODIFY_PIN_DIRECT;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
 			set_U32(&pcsc_tlv -> value,
-			    htonl(IOCTL_FEATURE_MODIFY_PIN_DIRECT));
+				htonl(IOCTL_FEATURE_MODIFY_PIN_DIRECT));
 
 			pcsc_tlv++;
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
@@ -1530,7 +1570,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			pcsc_tlv -> tag = FEATURE_IFD_PIN_PROPERTIES;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
 			set_U32(&pcsc_tlv -> value,
-			    htonl(IOCTL_FEATURE_IFD_PIN_PROPERTIES));
+				htonl(IOCTL_FEATURE_IFD_PIN_PROPERTIES));
 
 			pcsc_tlv++;
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
@@ -1542,7 +1582,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			pcsc_tlv -> tag = FEATURE_MCT_READER_DIRECT;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
 			set_U32(&pcsc_tlv -> value,
-			    htonl(IOCTL_FEATURE_MCT_READER_DIRECT));
+				htonl(IOCTL_FEATURE_MCT_READER_DIRECT));
 
 			pcsc_tlv++;
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
@@ -1551,7 +1591,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 		pcsc_tlv -> tag = FEATURE_GET_TLV_PROPERTIES;
 		pcsc_tlv -> length = 0x04; /* always 0x04 */
 		set_U32(&pcsc_tlv -> value,
-		    htonl(IOCTL_FEATURE_GET_TLV_PROPERTIES));
+			htonl(IOCTL_FEATURE_GET_TLV_PROPERTIES));
 		pcsc_tlv++;
 		iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
 
@@ -1561,7 +1601,7 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			pcsc_tlv -> tag = FEATURE_CCID_ESC_COMMAND;
 			pcsc_tlv -> length = 0x04; /* always 0x04 */
 			set_U32(&pcsc_tlv -> value,
-			    htonl(IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE));
+				htonl(IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE));
 
 			pcsc_tlv++;
 			iBytesReturned += sizeof(PCSC_TLV_STRUCTURE);
@@ -1887,7 +1927,7 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 	ccid_descriptor = get_ccid_descriptor(reader_index);
 
 	if ((GEMCORESIMPRO == ccid_descriptor->readerID)
-	     && (ccid_descriptor->IFD_bcdDevice < 0x0200))
+		&& (ccid_descriptor->IFD_bcdDevice < 0x0200))
 	{
 		/* GemCore SIM Pro firmware 2.00 and up features
 		 * a full independant second slot */
@@ -1913,6 +1953,12 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 
 	/* set back the old LogLevel */
 	LogLevel = oldLogLevel;
+
+	if (IFD_NO_SUCH_DEVICE == return_value)
+	{
+		return_value = IFD_ICC_NOT_PRESENT;
+		goto end;
+	}
 
 	if (return_value != IFD_SUCCESS)
 		return return_value;
@@ -2181,7 +2227,7 @@ static unsigned int T1_card_timeout(double f, double d, int TC1,
 
 	/* Timeout applied on ISO in + ISO out card exchange
 	 *
-     * Timeout is the sum of:
+	 * Timeout is the sum of:
 	 * - ISO in delay between leading edge of the first character sent by the
 	 *   interface device and the last one (NAD PCB LN APDU CKS) = 260 EGT,
 	 * - delay between ISO in and ISO out = BWT,

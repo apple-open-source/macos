@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1304,6 +1304,7 @@ eapaka_notification(EAPAKAContextRef context,
 	    EAPLOG(LOG_NOTICE, "eapaka: failed to allocate AT_COUNTER, %s",
 		   TLVBufferErrorString(encr_tb_p));
 	    *client_status = kEAPClientStatusAllocationFailed;
+	    pkt = NULL;
 	    goto done;
 	}
 

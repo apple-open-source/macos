@@ -17,6 +17,12 @@
 #include <spawn.h>
 #include "tls-darwin.h"
 
+#if __has_include(<Security/SecureTransportPriv.h>)
+#include <Security/SecureTransportPriv.h>
+#else
+extern OSStatus SSLSetDHEEnabled(SSLContextRef, Boolean);
+#endif
+
 /*
  * Constants, very secure stuff...
  */
@@ -252,13 +258,13 @@ cupsMakeServerCredentials(
   CFNumberRef	usage = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &usageInt);
   CFIndex	lenInt = 0;
   CFNumberRef	len = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &lenInt);
-  CFTypeRef certKeys[] = { kSecCSRBasicContraintsPathLen, kSecSubjectAltName, kSecCertificateKeyUsage };
-  CFTypeRef certValues[] = { len, cfcommon_name, usage };
+  CFTypeRef certKeys[] = { kSecCSRBasicContraintsPathLen, kSecCertificateKeyUsage };
+  CFTypeRef certValues[] = { len, usage };
   CFDictionaryRef certParams = CFDictionaryCreate(kCFAllocatorDefault, certKeys, certValues, sizeof(certKeys) / sizeof(certKeys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
   CFRelease(usage);
   CFRelease(len);
 
-  const void	*ca_o[] = { kSecOidOrganization, CFSTR("") };
+  const void	*ca_o[] = { kSecOidOrganization, CFSTR("cups") };
   const void	*ca_cn[] = { kSecOidCommonName, cfcommon_name };
   CFArrayRef	ca_o_dn = CFArrayCreate(kCFAllocatorDefault, ca_o, 2, NULL);
   CFArrayRef	ca_cn_dn = CFArrayCreate(kCFAllocatorDefault, ca_cn, 2, NULL);
@@ -291,7 +297,7 @@ cupsMakeServerCredentials(
     else
       tls_selfsigned = ident;
 
-    _cupsMutexLock(&tls_mutex);
+    _cupsMutexUnlock(&tls_mutex);
 
 #  if 0 /* Someday perhaps SecItemCopyMatching will work for identities, at which point  */
     CFTypeRef itemKeys[] = { kSecClass, kSecAttrLabel, kSecValueRef };
@@ -1463,6 +1469,14 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
     }
   }
 
+  if (! error && http->disableDH)
+  {
+    // We may be reestablishing a connection
+    // after an insecure dh cipher was selected, so this time around
+    // we disable dh completely.
+    (void) SSLSetDHEEnabled(http->tls, false);
+  }
+  
   if (!error && http->mode == _HTTP_MODE_CLIENT)
   {
    /*
@@ -1630,6 +1644,12 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
       {
 	case noErr :
 	    done = 1;
+#if __BLOCKS__
+	  _http_telemetry_block_t cb = _httpGetTelemetryBlock(http, CFSTR("SSLHandshakeSuccess"));
+	  if (cb) {
+	      cb(http, CFSTR("SSLHandshakeSuccess"), http->tls);
+	  }
+#endif
 	    break;
 
 	case errSSLWouldBlock :
@@ -1749,6 +1769,13 @@ _httpTLSStart(http_t *http)		/* I - HTTP connection */
 
   if (error)
   {
+#if __BLOCKS__
+    _http_telemetry_block_t cb = _httpGetTelemetryBlock(http, CFSTR("SSLHandshakeFailure"));
+    if (cb) {
+      cb(http, CFSTR("SSLHandshakeFailure"), http->tls);
+    }
+#endif
+
     http->error  = error;
     http->status = HTTP_STATUS_ERROR;
     errno        = ECONNREFUSED;

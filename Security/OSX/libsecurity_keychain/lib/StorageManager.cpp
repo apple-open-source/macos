@@ -137,7 +137,7 @@ static bool shouldAddToSearchList(const DLDbIdentifier &dLDbIdentifier)
 StorageManager::StorageManager() :
 	mSavedList(defaultPreferenceDomain()),
 	mCommonList(kSecPreferencesDomainCommon),
-	mDomain(kSecPreferencesDomainUser),
+	mDomain(defaultPreferenceDomain()),
 	mMutex(Mutex::recursive)
 {
 }
@@ -1572,7 +1572,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 									if (len) {
 										secnotice("KCLogin", "User entered pwd");
 										smartCardPassword = CFStringCreateWithBytes(SecCFAllocatorZeroize(), (UInt8 *)item.value, (CFIndex)len, kCFStringEncodingUTF8, TRUE);
-										memset(item.value, 0, len);
+										memset_s(item.value, len, 0, len);
 									}
 								}
 							}
@@ -1594,14 +1594,17 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 				CFIndex length = CFStringGetLength(smartCardPassword);
 				CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
 				char *buffer = (char *)malloc(maxSize);
-				if (CFStringGetCString(smartCardPassword, buffer, maxSize, kCFStringEncodingUTF8)) {
+				if (buffer && CFStringGetCString(smartCardPassword, buffer, maxSize, kCFStringEncodingUTF8)) {
 					secnotice("KCLogin", "Keychain is created using password provided by sc user");
 					theKeychain->create((UInt32)strlen(buffer), buffer);
-					memset(buffer, 0, maxSize);
+					memset_s(buffer, maxSize, 0, maxSize);
 				} else {
 					secnotice("KCLogin", "Conversion failed");
 					MacOSError::throwMe(errSecNotAvailable);
 				}
+                if (buffer) {
+                    free(buffer);
+                }
 			} else {
 				secnotice("KCLogin", "User did not provide kc password");
 				MacOSError::throwMe(errSecNotAvailable);

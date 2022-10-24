@@ -1,0 +1,15 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sync</string>
+		<key>OpenSourceVersion</key>
+		<string>2017-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/sync?id=ea825d02749f382c3f7e17f28247f20a48733eab</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-29</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>publicdomain</string>
+	</dict>

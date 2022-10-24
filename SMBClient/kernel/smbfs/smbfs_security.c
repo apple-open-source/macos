@@ -34,6 +34,7 @@
 #include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <smbfs/smbfs.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -76,13 +77,13 @@ smb_print_guid(guid_t *uuidp)
     uid_t uid = 0;
     gid_t gid = 0;
     
-    SMB_MALLOC(user, char *, MAXPATHLEN, M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(user, MAXPATHLEN, Z_WAITOK_ZERO);
     if (user == NULL) {
         SMBERROR("user failed malloc\n");
         return;
     }
     
-    SMB_MALLOC(group, char *, MAXPATHLEN, M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(group, MAXPATHLEN, Z_WAITOK_ZERO);
     if (group == NULL) {
         SMBERROR("group failed malloc\n");
         return;
@@ -108,11 +109,11 @@ smb_print_guid(guid_t *uuidp)
     }
     
     if (user) {
-        SMB_FREE(user, M_TEMP);
+        SMB_FREE_DATA(user, MAXPATHLEN);
     }
     
     if (group) {
-        SMB_FREE(group, M_TEMP);
+        SMB_FREE_DATA(group, MAXPATHLEN);
     }
 }
 
@@ -124,7 +125,7 @@ smb_print_acl(struct smbnode *np, const char *function, struct kauth_acl *acl)
     char *buffer = NULL;
     size_t buf_len = MAXPATHLEN * 2;
     
-    SMB_MALLOC(buffer, char *, buf_len, M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(buffer, buf_len, Z_WAITOK_ZERO);
     if (buffer == NULL) {
         SMBERROR("buffer failed malloc\n");
         return;
@@ -261,7 +262,7 @@ smb_print_acl(struct smbnode *np, const char *function, struct kauth_acl *acl)
     }
 
     if (buffer) {
-        SMB_FREE(buffer, M_TEMP);
+        SMB_FREE_DATA(buffer, buf_len);
     }
 }
 #endif
@@ -289,7 +290,7 @@ smbfs_clear_acl_cache(struct smbnode *np)
 {
 	lck_mtx_lock(&np->f_ACLCacheLock);
     if (np->acl_cache_data) {
-        SMB_FREE(np->acl_cache_data, M_TEMP);
+        SMB_FREE_DATA(np->acl_cache_data, np->acl_cache_len);
     }
 	np->acl_cache_data = NULL;
 	np->acl_cache_timer = 0;
@@ -703,8 +704,9 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
     }
     
 	/* Free the old data no longer needed */
-	if (np->acl_cache_data)
-		SMB_FREE(np->acl_cache_data, M_TEMP);
+    if (np->acl_cache_data) {
+        SMB_FREE_DATA(np->acl_cache_data, np->acl_cache_len);
+    }
     
 	np->acl_cache_data = acl_cache_data;
 	np->acl_cache_len = acl_cache_len;
@@ -720,7 +722,7 @@ done:
 		if (np->acl_error == 0)
 			np->acl_error =  EBADRPC; /* Should never happen, but just to be safe */
 	} else {
-		SMB_MALLOC(*w_sec, struct ntsecdesc *, np->acl_cache_len, M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(*w_sec, np->acl_cache_len, Z_WAITOK);
 		if (*w_sec) {
 			*seclen = np->acl_cache_len;		
 			bcopy(np->acl_cache_data, *w_sec, np->acl_cache_len);
@@ -859,8 +861,9 @@ smbfs_getsecurity(struct smb_share *share, struct smbnode *np,
 	/* Check to make sure we have current acl information */
 	error = smbfs_update_acl_cache(share, np, context, &w_sec, &seclen);
 	if (error) {
-		if (w_sec)
-			SMB_FREE(w_sec, M_TEMP);
+        if (w_sec) {
+            SMB_FREE_DATA(w_sec, seclen);
+        }
 		w_sec = NULL;
 		/* 
 		 * When should we eat the error and when shouldn't we, that is the
@@ -1068,8 +1071,9 @@ exit:
 	if (res)
 		kauth_acl_free(res);
 	
-	if (w_sec)
-		SMB_FREE(w_sec, M_TEMP);
+    if (w_sec) {
+        SMB_FREE_DATA(w_sec, seclen);
+    }
 	
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_GET_SEC | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
@@ -1102,13 +1106,14 @@ set_nfs_ace(struct ntace *w_acep, ntsid_t *nfs_sid, size_t needed)
  */
 int 
 smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap, 
-				  vfs_context_t context)
+                  SMBFID *fidp, vfs_context_t context)
 {
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = np->n_mount;
 	uint32_t selector = 0, acecount;
 	struct ntsid *w_usr = NULL, *w_grp = NULL, *w_sidp;
 	struct ntacl *w_dacl = NULL;	/* Wire DACL */
+    size_t w_dacl_allocsize = 0;
 	int error;
 	struct ntace *w_acep, *start_acep;	/* Wire ACE */
 	struct kauth_ace *acep;
@@ -1116,8 +1121,9 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	uint32_t arights, openrights;
 	size_t needed;
 	uint16_t ControlFlags = 0;
-	SMBFID	fid = 0;
+	SMBFID fid = 0;
 	uuid_string_t out_str;
+    uint32_t skip_clear_acl = 0;
 	
 	/* We do not support acl access on a stream node */
 	if (vnode_isnamedstream(vp)) {
@@ -1131,7 +1137,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     
 	if (VATTR_IS_ACTIVE(vap, va_guuid) &&
 		!kauth_guid_equal(&vap->va_guuid, &kauth_null_guid)) {
-		SMB_MALLOC(w_grp, struct ntsid *, MAXSIDLEN, M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(w_grp, MAXSIDLEN, Z_WAITOK);
 		bzero(w_grp, MAXSIDLEN);
 		error = kauth_cred_guid2ntsid(&vap->va_guuid, (ntsid_t *)w_grp);
 		if (error) {
@@ -1147,7 +1153,7 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     
 	if (VATTR_IS_ACTIVE(vap, va_uuuid) &&
 		!kauth_guid_equal(&vap->va_uuuid, &kauth_null_guid)) {
-		SMB_MALLOC(w_usr, struct ntsid *, MAXSIDLEN, M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(w_usr, MAXSIDLEN, Z_WAITOK);
 		bzero(w_usr, MAXSIDLEN);
 		/* We are mapping the owner id, so if its a match replace it with the network sid */
 		if ((smp->sm_flags & MNT_MAPS_NETWORK_LOCAL_USER) && 
@@ -1229,7 +1235,8 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		}
         
 		needed = sizeof(struct ntacl) + acecount * (sizeof(struct ntace) + MAXSIDLEN);
-		SMB_MALLOC(w_dacl, struct ntacl *, needed, M_TEMP, M_WAITOK);
+        w_dacl_allocsize = needed;
+        SMB_MALLOC_DATA(w_dacl, w_dacl_allocsize, Z_WAITOK);
 		bzero(w_dacl, needed);
 		w_dacl->acl_revision = 0x02;
 		wset_aclacecount(w_dacl, acecount);
@@ -1383,9 +1390,15 @@ set_dacl:
 			/* Only open file if its SMB 1 */
 			error = smbfs_tmpopen(share, np, openrights, &fid, context);
 		}
+        else {
+            /* Do we already have an open FID to use? */
+            if (fidp != NULL) {
+                fid = *fidp;
+            }
+        }
 		
 		if (error == 0) {
-			error = smbfs_smb_setsec(share, np, openrights,
+            error = smbfs_smb_setsec(share, np, openrights,
 									 fid, selector, ControlFlags,
 									 w_usr, w_grp, NULL, w_dacl, context);
 			
@@ -1393,25 +1406,42 @@ set_dacl:
 				/* Only close file if its SMB 1 */
 				(void)smbfs_tmpclose(share, np, fid, context);
 			}
+            else {
+                /*
+                 * If it was SMB2 or later, we had an open FID to use
+                 * and no error, then we can skip clearing the ACL cache
+                 * because we did a Set/Get on the ACL and have the current
+                 * ACL already.
+                 */
+                if ((error == 0) && (fidp != NULL)) {
+                    skip_clear_acl = 1;
+                }
+            }
 		}
 	}
 
 exit:
     if (w_usr != NULL) {
-        SMB_FREE(w_usr, M_TEMP);
+        SMB_FREE_DATA(w_usr, MAXSIDLEN);
     }
     if (w_grp != NULL) {
-        SMB_FREE(w_grp, M_TEMP);
+        SMB_FREE_DATA(w_grp, MAXSIDLEN);
     }
     if (w_dacl != NULL) {
-        SMB_FREE(w_dacl, M_TEMP);
+        SMB_FREE_DATA(w_dacl, w_dacl_allocsize);
     }
     
-	if (selector != 0) {
-		/* Clear current ACL cache because we changed something */
-		smbfs_clear_acl_cache(np);
-	}
-	
+    if (selector != 0) {
+        if (skip_clear_acl == 0) {
+            /* Clear current ACL cache because we changed something */
+            smbfs_clear_acl_cache(np);
+        }
+        
+        /* Clear the max access cache timer because we changed something */
+        np->maxAccessRightChTime.tv_sec = 0;
+        np->maxAccessRightChTime.tv_nsec = 0;
+    }
+
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_SET_SEC | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
@@ -1426,10 +1456,12 @@ smb_get_sid_list(struct smb_share *share, struct smbmount *smp, struct mdchain *
 	uint32_t ii;
 	int error;
 	void *sidbufptr = NULL;
+    size_t sidebuf_allocsize = 0;
 	char *endsidbufptr;
 	char *nextsidbufptr;
 	struct ntsid *ntwrk_wire_sid;
 	ntsid_t *ntwrk_sids = NULL;
+    size_t ntwrk_sids_allocsize = 0;
 	ntsid_t tmpsid;
 	uint32_t sidCnt = 0;
 		
@@ -1449,13 +1481,14 @@ smb_get_sid_list(struct smb_share *share, struct smbmount *smp, struct mdchain *
 	if (ntwrk_sids_cnt > KAUTH_ACL_MAX_ENTRIES) 
 		ntwrk_sids_cnt = KAUTH_ACL_MAX_ENTRIES;
 	
-	SMB_MALLOC(ntwrk_sids, void *, ntwrk_sids_cnt * sizeof(*ntwrk_sids) , M_TEMP, 
-		   M_WAITOK | M_ZERO);
+    ntwrk_sids_allocsize = ntwrk_sids_cnt * sizeof(*ntwrk_sids);
+    SMB_MALLOC_DATA(ntwrk_sids, ntwrk_sids_allocsize, Z_WAITOK_ZERO);
 	if (ntwrk_sids == NULL) {
 		SMBDEBUG("ntwrk_sids malloc failed!\n");
 		goto done;		
 	}
-	SMB_MALLOC(sidbufptr, void *, ntwrk_sid_size, M_TEMP, M_WAITOK);
+    sidebuf_allocsize = ntwrk_sid_size;
+    SMB_MALLOC_DATA(sidbufptr, sidebuf_allocsize, Z_WAITOK);
 	if (sidbufptr == NULL) {
 		SMBDEBUG("SID malloc failed!\n");
 		goto done;
@@ -1504,13 +1537,15 @@ smb_get_sid_list(struct smb_share *share, struct smbmount *smp, struct mdchain *
 	if (sidCnt != ntwrk_sids_cnt) {
 		size_t sidarraysize = sidCnt * sizeof(*ntwrk_sids);
 		ntsid_t *holdSids = ntwrk_sids;
+        size_t holdSids_allocsize = ntwrk_sids_allocsize;
 
 		ntwrk_sids = NULL;
-		SMB_MALLOC(ntwrk_sids, void *, sidarraysize, M_TEMP, M_WAITOK | M_ZERO);
+        ntwrk_sids_allocsize = sidarraysize;
+        SMB_MALLOC_DATA(ntwrk_sids, ntwrk_sids_allocsize, Z_WAITOK_ZERO);
 		if (ntwrk_sids) {
 			bcopy(holdSids, ntwrk_sids, sidarraysize);
 		}
-		SMB_FREE(holdSids, M_TEMP);
+        SMB_FREE_DATA(holdSids, holdSids_allocsize);
 	}
 	
 	/*
@@ -1518,17 +1553,18 @@ smb_get_sid_list(struct smb_share *share, struct smbmount *smp, struct mdchain *
 	 * the LSA ones. Remove the LSA ones and mark that we have WHOAMI SIDS.
 	 */
 	if (sidCnt && ntwrk_sids) {
-		SMB_FREE(smp->ntwrk_sids, M_TEMP);
+        SMB_FREE_DATA(smp->ntwrk_sids, smp->ntwrk_sids_allocsize);
 		smp->ntwrk_sids_cnt = sidCnt;
 		smp->ntwrk_sids = ntwrk_sids;
+        smp->ntwrk_sids_allocsize = ntwrk_sids_allocsize;
 		ntwrk_sids = NULL;
 		UNIX_CAPS(share) |= UNIX_QFS_POSIX_WHOAMI_SID_CAP;
 	}
 	
 done:
 	/* Just clean up */
-	SMB_FREE(ntwrk_sids, M_TEMP);
-	SMB_FREE(sidbufptr, M_TEMP);
+    SMB_FREE_DATA(ntwrk_sids, ntwrk_sids_allocsize);
+    SMB_FREE_DATA(sidbufptr, sidebuf_allocsize);
 }
 
 /*
@@ -1605,8 +1641,9 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
     }
 
 	/* Cache is still good, return the last value we had */
-	if (timespeccmp(&np->maxAccessRightChTime, &np->n_chtime, ==))
+	if (timespeccmp(&np->maxAccessRightChTime, &np->n_chtime, ==)) {
 		goto done;
+	}
 
     /* 
 	 * For Windows we only need to open and close the item. Need to see if 
@@ -1657,13 +1694,9 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
          * Note: this always does a create/close over the wire and never
          * uses an existing open file like smbfs_tmpopen can do.
          */
-        SMB_MALLOC(fap, 
-                    struct smbfattr *, 
-                    sizeof(struct smbfattr), 
-                    M_SMBTEMP, 
-                    M_WAITOK | M_ZERO);
+         SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
         if (fap == NULL) {
-            SMBERROR("SMB_MALLOC failed\n");
+            SMBERROR("SMB_MALLOC_TYPE failed\n");
             error = ENOMEM;
         }
         else {
@@ -1675,16 +1708,18 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
                                            share_access, FILE_OPEN,
                                            create_flags, &ntstatus,
                                            NULL, fap,
+                                           NULL, NULL,
                                            NULL, context);
             /* 
              * smb2fs_smb_cmpd_create() will update the vnodes 
              * maxAccessRights
              */
                 
-            SMB_FREE(fap, M_SMBTEMP);
+            SMB_FREE_TYPE(struct smbfattr, fap);
         }
     }
     else {
+        /* SMB 1 */
         error = smbfs_tmpopen(share, np, 0, &fid, context);
         if (!error) {
             smbfs_tmpclose(share, np, fid, context);
@@ -1876,7 +1911,8 @@ smbfs_is_sid_known(ntsid_t *sid)
  * posix ace.
  */
 static int
-smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_context_t context)
+smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np,
+                          SMBFID *fidp, vfs_context_t context)
 {
 	int error;
 	SMBFID	fid = 0;
@@ -1884,8 +1920,10 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
 	size_t needed;
 	uint32_t acecount = 1;
 	struct ntacl *w_dacl = NULL;	/* Wire DACL */
+    size_t w_dacl_allocsize = 0;
 	struct ntace *w_acep;	/* Wire ACE */
-	
+    uint32_t skip_clear_acl = 0;
+
     if (!(SS_TO_SESSION(share)->session_flags & SMBV_SMB2)) {
         /* Only open file if its SMB 1 */
         error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC, &fid,
@@ -1894,9 +1932,16 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
             return error;
         }
     }
-	
+    else {
+        /* Do we already have an open FID to use? */
+        if (fidp != NULL) {
+            fid = *fidp;
+        }
+    }
+
 	needed = sizeof(struct ntacl) + acecount * (sizeof(struct ntace) + MAXSIDLEN);
-	SMB_MALLOC(w_dacl, struct ntacl *, needed, M_TEMP, M_WAITOK | M_ZERO);
+    w_dacl_allocsize = needed;
+    SMB_MALLOC_DATA(w_dacl, w_dacl_allocsize, Z_WAITOK_ZERO);
 	w_dacl->acl_revision = 0x02;
 	wset_aclacecount(w_dacl, acecount);
 	
@@ -1910,8 +1955,8 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
 	nfs_sid.sid_authorities[2] = np->n_mode;
 	w_acep = set_nfs_ace(w_acep, &nfs_sid, needed);
 	wset_acllen(w_dacl, ((char *)w_acep - (char *)w_dacl));
-    
-	error = smbfs_smb_setsec(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC | SMB2_SYNCHRONIZE,
+
+    error = smbfs_smb_setsec(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC | SMB2_SYNCHRONIZE,
                              fid, DACL_SECURITY_INFORMATION, 0, NULL, NULL,
                              NULL, w_dacl, context);
 	
@@ -1919,11 +1964,29 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
         /* Only close file if its SMB 1 */
         (void)smbfs_tmpclose(share, np, fid, context);
     }
-    
-    SMB_FREE(w_dacl, M_TEMP);
+    else {
+        /*
+         * If it was SMB2 or later, we had an open FID to use
+         * and no error, then we can skip clearing the ACL cache
+         * because we did a Set/Get on the ACL and have the current
+         * ACL already.
+         */
+        if ((error == 0) && (fidp != NULL)) {
+            skip_clear_acl = 1;
+        }
+    }
+
+    SMB_FREE_DATA(w_dacl, w_dacl_allocsize);
     
 	/* The current cache is out of date clear it */
-	smbfs_clear_acl_cache(np);
+    if (skip_clear_acl == 0) {
+        smbfs_clear_acl_cache(np);
+    }
+    
+    /* Clear the max access cache timer because we changed something */
+    np->maxAccessRightChTime.tv_sec = 0;
+    np->maxAccessRightChTime.tv_nsec = 0;
+
 	return error;
 }
 
@@ -1933,7 +1996,8 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
  * GROUP ACE to handle the uid/gid.
  */
 int
-smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode, vfs_context_t context)
+smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode,
+                    SMBFID *fidp, vfs_context_t context)
 {
 	int error;
 	struct vnode_attr va;
@@ -1946,7 +2010,8 @@ smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode
 	error = smbfs_getsecurity(share, np, &va, context);
 	if (error) {
 		return error;
-	}	
+	}
+
 	/* 
 	 * Set that we have a Windows NFS posix mode ace, so the set acl routine 
 	 * will add them to the ACL. 
@@ -1955,10 +2020,10 @@ smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode
 	np->n_mode &= ~ACCESSPERMS;
 	np->n_mode |= (mode_t)(vamode & ACCESSPERMS);
 	if (va.va_acl == NULL) {
-		error = smbfs_set_default_nfs_ace(share, np,context);
+		error = smbfs_set_default_nfs_ace(share, np, fidp, context);
 	} else {
 		VATTR_SET_ACTIVE(&va, va_acl);
-		error = smbfs_setsecurity(share, np->n_vnode, &va, context);
+		error = smbfs_setsecurity(share, np->n_vnode, &va, fidp, context);
 	}
 
 	if (error) {

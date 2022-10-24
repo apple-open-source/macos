@@ -42,6 +42,7 @@ hu{
         an{"aragonéz"}
         ang{"óangol"}
         anp{"angika"}
+        apw{"apacs (nyugati)"}
         ar{"arab"}
         ar_001{"modern szabványos arab"}
         arc{"arámi"}
@@ -200,6 +201,7 @@ hu{
         grc{"ógörög"}
         gsw{"svájci német"}
         gu{"gudzsaráti"}
+        guc{"wayuu"}
         guz{"guszii"}
         gv{"man-szigeti"}
         gwi{"gvicsin"}
@@ -275,6 +277,7 @@ hu{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karacsáj-balkár"}
+        kri{"krio"}
         krl{"karelai"}
         kru{"kuruh"}
         ks{"kasmíri"}
@@ -529,6 +532,7 @@ hu{
         vai{"vai"}
         ve{"venda"}
         vi{"vietnámi"}
+        vls{"nyugat-flamand"}
         vo{"volapük"}
         vot{"votják"}
         vun{"vunjo"}

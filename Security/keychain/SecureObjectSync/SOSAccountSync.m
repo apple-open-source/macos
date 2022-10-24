@@ -271,7 +271,7 @@ CF_RETURNS_RETAINED CFSetRef SOSAccountCopyBackupPeersAndForceSync(SOSAccountTra
     SOSAccount* account = txn.account;
 
     if(!SOSReadyToSync(account, error)) {
-        return false;
+        return NULL;
     }
 
     SOSEngineRef engine = (SOSEngineRef) [txn.account.kvs_message_transport SOSTransportMessageGetEngine];

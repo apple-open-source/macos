@@ -27,9 +27,9 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.sbin/sa/sa.8,v 1.20 2007/05/18 12:36:10 dds Exp $
+.\" $FreeBSD$
 .\"
-.Dd May 18, 2007
+.Dd February 14, 2020
 .Dt SA 8
 .Os
 .Sh NAME
@@ -234,8 +234,16 @@ per-user accounting summary database
 .Xr acct 5 ,
 .Xr ac 8 ,
 .Xr accton 8
+.Sh HISTORY
+.Nm
+first appeared in
+.At v5 .
+.Nm
+was rewritten for
+.Nx 0.9a
+from the specification provided by various systems' manual pages.
 .Sh AUTHORS
-.An Chris G. Demetriou Aq cgd@postgres.berkeley.edu
+.An Chris G. Demetriou Aq Mt cgd@postgres.berkeley.edu
 .Sh CAVEATS
 While the behavior of the options in this version of
 .Nm

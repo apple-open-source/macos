@@ -60,6 +60,7 @@ CFTypeRef tokenNullptrTypeRef()
 enum class CFType : uint8_t {
     CFArray,
     CFBoolean,
+    CFCharacterSet,
     CFData,
     CFDate,
     CFDictionary,
@@ -95,6 +96,8 @@ static CFType typeFromCFTypeRef(CFTypeRef type)
         return CFType::CFArray;
     if (typeID == CFBooleanGetTypeID())
         return CFType::CFBoolean;
+    if (typeID == CFCharacterSetGetTypeID())
+        return CFType::CFCharacterSet;
     if (typeID == CFDataGetTypeID())
         return CFType::CFData;
     if (typeID == CFDateGetTypeID())
@@ -116,8 +119,10 @@ static CFType typeFromCFTypeRef(CFTypeRef type)
     if (typeID == SecCertificateGetTypeID())
         return CFType::SecCertificate;
 #if HAVE(SEC_KEYCHAIN)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (typeID == SecKeychainItemGetTypeID())
         return CFType::SecKeychainItem;
+ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 #if HAVE(SEC_ACCESS_CONTROL)
     if (typeID == SecAccessControlGetTypeID())
@@ -147,6 +152,9 @@ void ArgumentCoder<CFTypeRef>::encode(Encoder& encoder, CFTypeRef typeRef)
         return;
     case CFType::CFBoolean:
         encoder << static_cast<CFBooleanRef>(typeRef);
+        return;
+    case CFType::CFCharacterSet:
+        encoder << static_cast<CFCharacterSetRef>(typeRef);
         return;
     case CFType::CFData:
         encoder << static_cast<CFDataRef>(typeRef);
@@ -225,6 +233,13 @@ std::optional<RetainPtr<CFTypeRef>> ArgumentCoder<RetainPtr<CFTypeRef>>::decode(
         if (!boolean)
             return std::nullopt;
         return WTFMove(*boolean);
+    }
+    case CFType::CFCharacterSet: {
+        std::optional<RetainPtr<CFCharacterSetRef>> characterSet;
+        decoder >> characterSet;
+        if (!characterSet)
+            return std::nullopt;
+        return WTFMove(*characterSet);
     }
     case CFType::CFData: {
         std::optional<RetainPtr<CFDataRef>> data;
@@ -412,6 +427,43 @@ std::optional<RetainPtr<CFBooleanRef>> ArgumentCoder<RetainPtr<CFBooleanRef>>::d
         return std::nullopt;
 
     return adoptCF(*boolean ? kCFBooleanTrue : kCFBooleanFalse);
+}
+
+template<typename Encoder>
+void ArgumentCoder<CFCharacterSetRef>::encode(Encoder& encoder, CFCharacterSetRef characterSet)
+{
+    auto data = adoptCF(CFCharacterSetCreateBitmapRepresentation(nullptr, characterSet));
+    if (!data) {
+        encoder << false;
+        return;
+    }
+
+    encoder << true << data;
+}
+
+template void ArgumentCoder<CFCharacterSetRef>::encode<Encoder>(Encoder&, CFCharacterSetRef);
+template void ArgumentCoder<CFCharacterSetRef>::encode<StreamConnectionEncoder>(StreamConnectionEncoder&, CFCharacterSetRef);
+
+std::optional<RetainPtr<CFCharacterSetRef>> ArgumentCoder<RetainPtr<CFCharacterSetRef>>::decode(Decoder& decoder)
+{
+    std::optional<bool> hasData;
+    decoder >> hasData;
+    if (!hasData)
+        return std::nullopt;
+
+    if (!*hasData)
+        return { nullptr };
+
+    std::optional<RetainPtr<CFDataRef>> data;
+    decoder >> data;
+    if (!data)
+        return std::nullopt;
+
+    auto characterSet = adoptCF(CFCharacterSetCreateWithBitmapRepresentation(nullptr, data->get()));
+    if (!characterSet)
+        return std::nullopt;
+
+    return WTFMove(characterSet);
 }
 
 template<typename Encoder>
@@ -616,7 +668,7 @@ void ArgumentCoder<CFStringRef>::encode(Encoder& encoder, CFStringRef string)
     CFIndex bufferLength = 0;
 
     CFIndex numConvertedBytes = CFStringGetBytes(string, range, encoding, 0, false, 0, 0, &bufferLength);
-    ASSERT(numConvertedBytes == length);
+    ASSERT_UNUSED(numConvertedBytes, numConvertedBytes == length);
 
     Vector<UInt8, 128> buffer(bufferLength);
     numConvertedBytes = CFStringGetBytes(string, range, encoding, 0, false, buffer.data(), buffer.size(), &bufferLength);
@@ -798,11 +850,13 @@ void ArgumentCoder<SecKeychainItemRef>::encode(Encoder& encoder, SecKeychainItem
 {
     RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessCredentials));
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CFDataRef data;
     if (SecKeychainItemCreatePersistentReference(keychainItem, &data) == errSecSuccess) {
         encoder << data;
         CFRelease(data);
     }
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 template void ArgumentCoder<SecKeychainItemRef>::encode<Encoder>(Encoder&, SecKeychainItemRef);
@@ -822,10 +876,12 @@ std::optional<RetainPtr<SecKeychainItemRef>> ArgumentCoder<RetainPtr<SecKeychain
     if (!CFDataGetLength(dref))
         return std::nullopt;
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     SecKeychainItemRef item;
     if (SecKeychainItemCopyFromPersistentReference(dref, &item) != errSecSuccess || !item)
         return std::nullopt;
-    
+ALLOW_DEPRECATED_DECLARATIONS_END
+
     return adoptCF(item);
 }
 #endif
@@ -910,6 +966,7 @@ template<> struct EnumTraits<IPC::CFType> {
         IPC::CFType,
         IPC::CFType::CFArray,
         IPC::CFType::CFBoolean,
+        IPC::CFType::CFCharacterSet,
         IPC::CFType::CFData,
         IPC::CFType::CFDate,
         IPC::CFType::CFDictionary,

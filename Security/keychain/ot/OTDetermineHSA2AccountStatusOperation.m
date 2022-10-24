@@ -45,48 +45,64 @@
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
-    NSError *error = nil;
-    NSString* primaryAccountAltDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&error];
+    NSString* altDSID = self.deps.activeAccount.altDSID;
 
+    if(altDSID == nil) {
+        secnotice("octagon", "iCloud account is not present or not configured: %@", self.deps.activeAccount);
 
-    if(primaryAccountAltDSID != nil) {
-        secnotice("octagon", "iCloud account is present; checking HSA2 status");
+        NSError* accountError = nil;
+        TPSpecificUser* activeAccount = [self.deps.accountsAdapter findAccountForCurrentThread:self.deps.personaAdapter
+                                                                               optionalAltDSID:nil
+                                                                         cloudkitContainerName:self.deps.containerName
+                                                                              octagonContextID:self.deps.contextID
+                                                                                         error:&accountError];
+        if(activeAccount == nil || activeAccount.altDSID == nil || accountError != nil) {
+            secerror("octagon-account: unable to determine active account(%@); assuming no account is present: %@", self.deps.contextID, accountError);
 
-        bool hsa2 = [self.deps.authKitAdapter accountIsHSA2ByAltDSID:primaryAccountAltDSID];
-        secnotice("octagon", "HSA2 is %@", hsa2 ? @"enabled" : @"disabled");
-
-        [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
-            if(hsa2) {
-                metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE;
-            } else {
+            NSError *accountStateSaveError = nil;
+            [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
                 metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
-            }
-            metadata.altDSID = primaryAccountAltDSID;
-            return metadata;
-        } error:&error];
+                metadata.altDSID = nil;
+                return metadata;
+            } error:&accountStateSaveError];
 
-        // If there's an HSA2 account, return to 'initializing' here, as we want to centralize decisions on what to do next
-        if(hsa2) {
-            self.nextState = self.intendedState;
-        } else {
-            //[self.deps.accountStateTracker setHSA2iCloudAccountStatus:CKKSAccountStatusNoAccount];
-            self.nextState = self.stateIfNotHSA2;
+            if(accountStateSaveError) {
+                secerror("octagon: unable to save new account state: %@", accountStateSaveError);
+            }
+
+            self.nextState = self.stateIfNoAccount;
+
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
         }
 
-    } else {
-        secnotice("octagon", "iCloud account is not present: %@", error);
-
-        [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
-            metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
-            metadata.altDSID = nil;
-            return metadata;
-        } error:&error];
-
-        self.nextState = self.stateIfNoAccount;
+        // Ideally, we'd set this for the entire OTCuttlefishContext. But, we can't reach it from here.
+        altDSID = activeAccount.altDSID;
     }
 
-    if(error) {
-        secerror("octagon: unable to save new account state: %@", error);
+    secnotice("octagon", "iCloud account(altDSID %@) is configured; checking HSA2 status", altDSID);
+    bool hsa2 = [self.deps.authKitAdapter accountIsHSA2ByAltDSID:altDSID];
+    secnotice("octagon", "HSA2 is %@", hsa2 ? @"enabled" : @"disabled");
+
+    NSError *accountStateSaveError = nil;
+    [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
+        if(hsa2) {
+            metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE;
+        } else {
+            metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
+        }
+        metadata.altDSID = altDSID;
+        return metadata;
+    } error:&accountStateSaveError];
+
+    // If there's an HSA2 account, return to 'initializing' here, as we want to centralize decisions on what to do next
+    if(hsa2) {
+        self.nextState = self.intendedState;
+    } else {
+        self.nextState = self.stateIfNotHSA2;
+    }
+    if(accountStateSaveError) {
+        secerror("octagon: unable to save new account state: %@", accountStateSaveError);
     }
 
     [self runBeforeGroupFinished:self.finishedOp];

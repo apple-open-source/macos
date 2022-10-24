@@ -10,6 +10,7 @@
  */
 
 #include "Conv.h"
+#include "Logger.h"
 #include <ctype.h>
 #include "utfconvdata.h"
 
@@ -237,7 +238,7 @@ static int unicode_decomposeable(u_int16_t character)
     if (character < 0x00C0) {
         return 0;
     }
-    value = bitmap[(character >> 8) & 0xFF];
+    value = bitmap[(character >> 8)];
     if (value == 0xFF) {
         return 1;
     } else if (value) {
@@ -562,11 +563,9 @@ toolong:
     goto exit;
 }
 
-size_t
+void
 CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_UTF8])
 {
-    int iErr  = 0;
-
     const uint16_t* puUnichodeCh = utf16->chars;
     uint8_t*  puUtf8Ch = (uint8_t *) &utf8[0];
     uint8_t*  puBuffEnd = puUtf8Ch + FAT_MAX_FILENAME_UTF8 -1; //since we have null terminate at the end
@@ -577,16 +576,13 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
     int iExtra = 0;
     uint16_t uSequence[8];
 
-    while (uChCount-- > 0)
-    {
-        if (iExtra > 0)
-        {
+    while (uChCount-- > 0) {
+        if (iExtra > 0) {
             --iExtra;
             uUnichodeCh = *puCh++; // Note: puCh is from the local, aligned "uSequence" array.
-        }
-        else
-        {
-            uUnichodeCh = *puUnichodeCh; ++puUnichodeCh;
+        } else {
+            uUnichodeCh = *puUnichodeCh;
+            ++puUnichodeCh;
 
             if (unicode_decomposeable(uUnichodeCh)) {
                 iExtra = unicode_decompose(uUnichodeCh, uSequence) - 1;
@@ -600,28 +596,28 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
         /* Slash and NULL are not permitted */
         if (uUnichodeCh == '/') {
             uUnichodeCh = '_';
-            iErr = EINVAL;
+            MSDOS_LOG(LEVEL_DEBUG, "%s: Illegal character ('/')", __FUNCTION__);
         } else if (uUnichodeCh == '\0') {
             uUnichodeCh = UCS_ALT_NULL;
         }
 
         if (uUnichodeCh < 0x0080) {
             if (puUtf8Ch >= puBuffEnd) {
-                iErr = ENAMETOOLONG;
+                MSDOS_LOG(LEVEL_DEBUG, "%s: Name is too long (current character %u)", __FUNCTION__, uUnichodeCh);
                 break;
             }
             *puUtf8Ch++ = (uint8_t)uUnichodeCh;
         } else if (uUnichodeCh < 0x800) {
             if ((puUtf8Ch + 1) >= puBuffEnd) {
-                iErr = ENAMETOOLONG;
+                MSDOS_LOG(LEVEL_DEBUG, "%s: Name is too long (current character %u)", __FUNCTION__, uUnichodeCh);
                 break;
             }
             *puUtf8Ch++ = (uint8_t)(0xc0 | (uUnichodeCh >> 6));
             *puUtf8Ch++ = (uint8_t)(0x80 | (0x3f & uUnichodeCh));
         } else {
             /* These chars never valid Unicode. */
-            if (uUnichodeCh == 0xFFFE || uUnichodeCh == 0xFFFF) {
-                iErr = EINVAL;
+            if (uUnichodeCh == 0xFFFE || uUnichodeCh == 0xFFFF) { 
+                MSDOS_LOG(LEVEL_DEBUG, "%s: Invalid character (%u)", __FUNCTION__, uUnichodeCh);
                 break;
             }
             /* Combine valid surrogate pairs */
@@ -635,7 +631,7 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
                     pair = ((uUnichodeCh - SP_HIGH_FIRST) << SP_HALF_SHIFT) + (ch2 - SP_LOW_FIRST) + SP_HALF_BASE;
                     if ((puUtf8Ch + 3) >= puBuffEnd)
                     {
-                        iErr = ENAMETOOLONG;
+                        MSDOS_LOG(LEVEL_DEBUG, "%s: Name is too long (current character %u)", __FUNCTION__, uUnichodeCh);
                         break;
                     }
                     --uChCount;
@@ -650,7 +646,7 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
                 uUnichodeCh = sfm_to_ucs(uUnichodeCh);
                 if (uUnichodeCh < 0x0080) {
                     if (puUtf8Ch >= puBuffEnd) {
-                        iErr = ENAMETOOLONG;
+                        MSDOS_LOG(LEVEL_DEBUG, "%s: Name is too long (current character %u)", __FUNCTION__, uUnichodeCh);
                         break;
                     }
                     *puUtf8Ch++ = (uint8_t)uUnichodeCh;
@@ -658,7 +654,7 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
                 }
             }
             if ((puUtf8Ch + 2) >= puBuffEnd) {
-                iErr = ENAMETOOLONG;
+                MSDOS_LOG(LEVEL_DEBUG, "%s: Name is too long (current character %u)", __FUNCTION__, uUnichodeCh);
                 break;
             }
             *puUtf8Ch++ = (uint8_t)(0xe0 | (uUnichodeCh >> 12));
@@ -668,7 +664,6 @@ CONV_Unistr255ToUTF8(const struct unistr255 *utf16, char utf8[FAT_MAX_FILENAME_U
     }
 
     *puUtf8Ch = '\0';
-    return (iErr);
 }
 
 void
@@ -707,7 +702,7 @@ CONV_UTF8ToLowerCase( char* pcFileNameUTF8, char pcFileNameUTF8LowerCase[FAT_MAX
     return 0;
 }
 
-void CONV_convert_to_fsm(struct unistr255* unicode)
+void CONV_ConvertToFSM(struct unistr255* unicode)
 {
     for ( uint16_t uIdx=0; uIdx<unicode->length; uIdx++ )
     {
@@ -748,4 +743,79 @@ void CONV_DuplicateName(char** ppcNewUTF8Name, const char *pcUTF8Name)
         return;
 
     strcpy(*ppcNewUTF8Name, pcUTF8Name);
+}
+
+/*
+ * Convert a UTF8 volume label string to UTF-16 to local encoding (like a short name).
+ * This function follows the rules as they were implemented by msdosfs kext.
+ * If there is any logic not documented it is because it was not documented in the
+ * original code and no other explanation could be found when the code was taken.
+ */
+int CONV_LabelUTF8ToUTF16LocalEncoding(const char *pcUtf8Label, int8_t shortNameLabel[SHORT_NAME_LEN])
+{
+    struct unistr255 volName;
+    size_t utf8len;
+    uint16_t c, i;
+    int error;
+
+    utf8len = strnlen(pcUtf8Label, 64);
+    
+    if (utf8len > 63)
+    {
+        return EINVAL;
+    }
+
+    /* Convert the UTF-8 to UTF-16 */
+    error = CONV_UTF8ToUnistr255((uint8_t*)pcUtf8Label, utf8len, &volName, UTF_SFM_CONVERSIONS);
+
+    if (error)
+    {
+        return error;
+    }
+
+    if (volName.length > SHORT_NAME_LEN)
+    {
+        return EINVAL;
+    }
+
+    /*
+     * Convert from UTF-16 to local encoding (like a short name).
+     * We can't call msdosfs_unicode_to_dos_name here because it
+     * assumes a dot between the first 8 and last 3 characters.
+     *
+     * The specification doesn't say what syntax limitations exist
+     * for volume labels. By experimentation, they appear to be
+     * upper case only. I am assuming they are like short names,
+     * but no period is assumed/required after the 8th character.
+     */
+    /* Name is trailing space padded, so init to all spaces. */
+    for (i = 0; i < SHORT_NAME_LEN; ++i)
+    {
+        shortNameLabel[i] = ' ';
+    }
+
+    /* Convert to lower case */
+    CONV_Unistr255ToLowerCase(&volName);
+
+    for (i = 0; i < volName.length; ++i)
+    {
+        c = volName.chars[i];
+        
+        /* Allow space to pass unchanged */
+        if (c != ' ')
+        {
+            /* Convert to local encoding */
+            c = msdosfs_unicode2dos(c);
+        }
+
+        if (c < 3)
+        {
+            /* Illegal char in name */
+            return EINVAL;
+        }
+
+        shortNameLabel[i] = c;
+    }
+    
+    return 0;
 }

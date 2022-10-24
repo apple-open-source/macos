@@ -20,13 +20,18 @@
 @synthesize viewKeyHierarchyState = _viewKeyHierarchyState;
 
 - (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
+                  forContextID:(NSString *)contextID
                ckksManagedView:(BOOL)ckksManagedView
+                  priorityView:(BOOL)priorityView
     notifyViewChangedScheduler:(CKKSNearFutureScheduler*)notifyViewChangedScheduler
       notifyViewReadyScheduler:(CKKSNearFutureScheduler*)notifyViewReadyScheduler
 {
     if((self = [super init])) {
         _zoneName = zoneID.zoneName;
         _zoneID = zoneID;
+        _contextID = contextID;
+
+        _priorityView = priorityView;
 
         _ckksManagedView = ckksManagedView;
 
@@ -56,7 +61,8 @@
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<CKKSKeychainViewState: %@(%@), %@>",
+    return [NSString stringWithFormat:@"<CKKSKeychainViewState(%@): %@(%@), %@>",
+            self.contextID,
             self.zoneName,
             self.ckksManagedView ? @"ckks": @"ext",
             self.viewKeyHierarchyState];
@@ -65,7 +71,9 @@
 - (id)copyWithZone:(NSZone*)zone
 {
     CKKSKeychainViewState* s = [[CKKSKeychainViewState alloc] initWithZoneID:self.zoneID
+                                                                forContextID:self.contextID
                                                              ckksManagedView:self.ckksManagedView
+                                                                priorityView:self.priorityView
                                                   notifyViewChangedScheduler:self.notifyViewReadyScheduler
                                                     notifyViewReadyScheduler:self.notifyViewReadyScheduler];
     s.viewKeyHierarchyState = self.viewKeyHierarchyState;
@@ -74,7 +82,7 @@
 
 - (NSUInteger)hash
 {
-    return self.zoneName.hash;
+    return self.zoneName.hash ^ self.contextID.hash;
 }
 
 - (BOOL)isEqual:(id)object
@@ -85,8 +93,9 @@
 
     CKKSKeychainViewState* obj = (CKKSKeychainViewState*)object;
     return [self.zoneName isEqualToString:obj.zoneName] &&
-         self.ckksManagedView == obj.ckksManagedView &&
-         [self.viewKeyHierarchyState isEqualToString:obj.viewKeyHierarchyState];
+            self.ckksManagedView == obj.ckksManagedView &&
+            [self.viewKeyHierarchyState isEqualToString:obj.viewKeyHierarchyState] &&
+            [self.contextID isEqualToString:obj.contextID];
 }
 
 - (CKKSZoneKeyState*)viewKeyHierarchyState

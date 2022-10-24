@@ -82,11 +82,11 @@ struct cht_obj {
 	uint32_t                co_seen;        // number of times seen
 };
 
-#if PLATFORM_WatchOS
+#if XNU_PLATFORM_WatchOS
 static const uint32_t CHT_OBJ_MAX = 16 * 1024;
-#else /* PLATFORM_WatchOS */
+#else /* XNU_PLATFORM_WatchOS */
 static const uint32_t CHT_OBJ_MAX = 512 * 1024;
-#endif /* !PLATFORM_WatchOS */
+#endif /* !XNU_PLATFORM_WatchOS */
 static struct cht_obj *cht_objs;
 
 static int

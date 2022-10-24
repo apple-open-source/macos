@@ -4,8 +4,13 @@
 <dict>
 	<key>EnableTransactions</key>
 	<true/>
+#if TARGET_OS_OSX
 	<key>KeepAlive</key>
 	<true/>
+#else
+	<key>EnablePressuredExit</key>
+	<true/>
+#endif
 	<key>Label</key>
 	<string>com.apple.diskarbitrationd</string>
 	<key>MachServices</key>
@@ -15,6 +20,75 @@
 	</dict>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
+#if TARGET_OS_IOS
+        <key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.iokit.matching</key>
+		<dict>
+			<key>com.apple.userfsd.ahci.device.attached</key>
+			<dict>
+				<key>IOParentMatch</key>
+				<dict>
+					<key>IOProviderClass</key>
+					<string>IOBlockStorageDevice</string>
+					<key>IOPropertyMatch</key>
+					<dict>
+						<key>Protocol Characteristics</key>
+						<dict>
+							<key>Physical Interconnect</key>
+							<string>SATA</string>
+							<key>Physical Interconnect Location</key>
+							<string>External</string>
+						</dict>
+					</dict>
+				</dict>
+				<key>IOProviderClass</key>
+				<string>IOMedia</string>
+				<key>IOMatchLaunchStream</key>
+				<true/>
+			</dict>
+			<key>com.apple.userfsd.usb.device.attached</key>
+			<dict>
+				<key>IOParentMatch</key>
+				<dict>
+					<key>IOProviderClass</key>
+					<string>IOUSBHostDevice</string>
+					<key>IOPropertyMatch</key>
+					<dict>
+						<key>removable</key>
+						<true/>
+					</dict>
+				</dict>
+				<key>IOProviderClass</key>
+				<string>IOMedia</string>
+				<key>IOMatchLaunchStream</key>
+				<true/>
+			</dict>
+			<key>com.apple.userfsd.pcie.device.attached</key>
+			<dict>
+				<key>IOParentMatch</key>
+				<dict>
+					<key>IOProviderClass</key>
+					<string>IOBlockStorageDevice</string>
+					<key>IOPropertyMatch</key>
+					<dict>
+						<key>Protocol Characteristics</key>
+						<dict>
+							<key>Physical Interconnect</key>
+							<string>PCI-Express</string>
+							<key>Physical Interconnect Location</key>
+							<string>External</string>
+						</dict>
+					</dict>
+				</dict>
+				<key>IOProviderClass</key>
+				<string>IOMedia</string>
+				<key>IOMatchLaunchStream</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+#endif
 	<key>Program</key>
 	<string>/usr/libexec/diskarbitrationd</string>
 	<key>EnvironmentVariables</key>

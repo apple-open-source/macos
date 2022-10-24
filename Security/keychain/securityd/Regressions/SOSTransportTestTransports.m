@@ -459,7 +459,7 @@ static bool sendToPeer(SOSMessageKVSTest* transport, CFStringRef circleName, CFS
             SOSEngineWithPeerID((SOSEngineRef)transport.engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
                 SOSEnginePeerMessageCallBackInfo* sentCallback = nil;
                 CFDataRef message_to_send = NULL;
-                bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, false, &sentCallback, error);
+                bool ok = SOSPeerCoderSendMessageIfNeeded([transport SOSTransportMessageGetAccount], (SOSEngineRef)transport.engine, txn, peer, coder, &message_to_send, peerID, NULL, &sentCallback, error);
                 if (message_to_send)    {
                     CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message_to_send, NULL);
                     CFDictionarySetValue(SOSTransportMessageKVSTestGetChanges(transport), (__bridge CFStringRef)self->circleName, peer_dict);

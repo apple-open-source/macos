@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-09-20</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>csplit.c: fix non-english locale tests (54053569)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>csplit</string>
+	<key>OpenSourceVersion</key>
+	<string>2017-11-27</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/csplit?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>
+</dict>

@@ -26,25 +26,65 @@
 #import "config.h"
 #import "RemoteLayerBackingStoreCollection.h"
 
+#import "Logging.h"
 #import "PlatformCALayerRemote.h"
+#import "PlatformImageBufferShareableBackend.h"
 #import "RemoteLayerBackingStore.h"
 #import "RemoteLayerTreeContext.h"
+#import "SwapBuffersDisplayRequirement.h"
+#import <WebCore/IOSurfacePool.h>
+#import <WebCore/ImageBuffer.h>
+#import <wtf/text/TextStream.h>
 
-const Seconds volatileBackingStoreAgeThreshold = 1_s;
-const Seconds volatileSecondaryBackingStoreAgeThreshold = 200_ms;
 const Seconds volatilityTimerInterval = 200_ms;
 
 namespace WebKit {
 
-RemoteLayerBackingStoreCollection::RemoteLayerBackingStoreCollection()
-    : m_volatilityTimer(*this, &RemoteLayerBackingStoreCollection::volatilityTimerFired)
+RemoteLayerBackingStoreCollection::RemoteLayerBackingStoreCollection(RemoteLayerTreeContext& layerTreeContext)
+    : m_layerTreeContext(layerTreeContext)
+    , m_volatilityTimer(*this, &RemoteLayerBackingStoreCollection::volatilityTimerFired)
 {
+}
+
+RemoteLayerBackingStoreCollection::~RemoteLayerBackingStoreCollection() = default;
+
+bool RemoteLayerBackingStoreCollection::backingStoreNeedsDisplay(const RemoteLayerBackingStore& backingStore)
+{
+    if (backingStore.size().isEmpty())
+        return false;
+
+    auto frontBuffer = backingStore.bufferForType(RemoteLayerBackingStore::BufferType::Front);
+    if (!frontBuffer)
+        return true;
+
+    if (frontBuffer->volatilityState() == WebCore::VolatilityState::Volatile)
+        return true;
+
+    return !backingStore.hasEmptyDirtyRegion();
+}
+
+void RemoteLayerBackingStoreCollection::prepareBackingStoresForDisplay(RemoteLayerTreeTransaction& transaction)
+{
+    for (auto* backingStore : m_backingStoresNeedingDisplay) {
+        backingStore->prepareToDisplay();
+        backingStore->layer()->properties().notePropertiesChanged(RemoteLayerTreeTransaction::BackingStoreChanged);
+        transaction.layerPropertiesChanged(*backingStore->layer());
+    }
+}
+
+void RemoteLayerBackingStoreCollection::paintReachableBackingStoreContents()
+{
+    for (auto* backingStore : m_backingStoresNeedingDisplay)
+        backingStore->paintContents();
 }
 
 void RemoteLayerBackingStoreCollection::willFlushLayers()
 {
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "\nRemoteLayerBackingStoreCollection::willFlushLayers()");
+
     m_inLayerFlush = true;
     m_reachableBackingStoreInLatestFlush.clear();
+    m_backingStoresNeedingDisplay.clear();
 }
 
 void RemoteLayerBackingStoreCollection::willCommitLayerTree(RemoteLayerTreeTransaction& transaction)
@@ -59,21 +99,44 @@ void RemoteLayerBackingStoreCollection::willCommitLayerTree(RemoteLayerTreeTrans
     transaction.setLayerIDsWithNewlyUnreachableBackingStore(newlyUnreachableLayerIDs);
 }
 
-void RemoteLayerBackingStoreCollection::didFlushLayers()
+Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> RemoteLayerBackingStoreCollection::didFlushLayers(RemoteLayerTreeTransaction& transaction)
 {
+    bool needToScheduleVolatilityTimer = false;
+
+    Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> flushers;
+    for (auto& layer : transaction.changedLayers()) {
+        if (layer->properties().changedProperties & RemoteLayerTreeTransaction::BackingStoreChanged) {
+            needToScheduleVolatilityTimer = true;
+            if (layer->properties().backingStore)
+                flushers.appendVector(layer->properties().backingStore->takePendingFlushers());
+        }
+
+        layer->didCommit();
+    }
+
     m_inLayerFlush = false;
 
+    if (updateUnreachableBackingStores())
+        needToScheduleVolatilityTimer = true;
+
+    if (needToScheduleVolatilityTimer)
+        scheduleVolatilityTimer();
+
+    return flushers;
+}
+
+bool RemoteLayerBackingStoreCollection::updateUnreachableBackingStores()
+{
     Vector<RemoteLayerBackingStore*> newlyUnreachableBackingStore;
-    for (auto& backingStore : m_liveBackingStore) {
+    for (auto* backingStore : m_liveBackingStore) {
         if (!m_reachableBackingStoreInLatestFlush.contains(backingStore))
             newlyUnreachableBackingStore.append(backingStore);
     }
 
-    for (auto& backingStore : newlyUnreachableBackingStore)
+    for (auto* backingStore : newlyUnreachableBackingStore)
         backingStoreBecameUnreachable(*backingStore);
 
-    if (!newlyUnreachableBackingStore.isEmpty())
-        scheduleVolatilityTimer();
+    return !newlyUnreachableBackingStore.isEmpty();
 }
 
 void RemoteLayerBackingStoreCollection::backingStoreWasCreated(RemoteLayerBackingStore& backingStore)
@@ -92,6 +155,9 @@ bool RemoteLayerBackingStoreCollection::backingStoreWillBeDisplayed(RemoteLayerB
     ASSERT(m_inLayerFlush);
     m_reachableBackingStoreInLatestFlush.add(&backingStore);
 
+    if (backingStore.needsDisplay())
+        m_backingStoresNeedingDisplay.add(&backingStore);
+
     auto backingStoreIter = m_unparentedBackingStore.find(&backingStore);
     if (backingStoreIter == m_unparentedBackingStore.end())
         return false;
@@ -101,35 +167,34 @@ bool RemoteLayerBackingStoreCollection::backingStoreWillBeDisplayed(RemoteLayerB
     return true;
 }
 
-bool RemoteLayerBackingStoreCollection::markBackingStoreVolatileImmediately(RemoteLayerBackingStore& backingStore, VolatilityMarkingFlags volatilityMarkingFlags)
+bool RemoteLayerBackingStoreCollection::markBackingStoreVolatile(RemoteLayerBackingStore& backingStore, OptionSet<VolatilityMarkingBehavior> markingBehavior, MonotonicTime now)
 {
     ASSERT(!m_inLayerFlush);
+
+    if (markingBehavior.contains(VolatilityMarkingBehavior::ConsiderTimeSinceLastDisplay)) {
+        auto timeSinceLastDisplay = now - backingStore.lastDisplayTime();
+        if (timeSinceLastDisplay < volatileBackingStoreAgeThreshold) {
+            if (timeSinceLastDisplay >= volatileSecondaryBackingStoreAgeThreshold)
+                backingStore.setBufferVolatile(RemoteLayerBackingStore::BufferType::SecondaryBack);
+
+            return false;
+        }
+    }
+    
     bool successfullyMadeBackingStoreVolatile = true;
 
-    if (!backingStore.setBufferVolatility(RemoteLayerBackingStore::BufferType::SecondaryBack, true))
+    if (!backingStore.setBufferVolatile(RemoteLayerBackingStore::BufferType::SecondaryBack))
         successfullyMadeBackingStoreVolatile = false;
 
-    if (!backingStore.setBufferVolatility(RemoteLayerBackingStore::BufferType::Back, true))
+    if (!backingStore.setBufferVolatile(RemoteLayerBackingStore::BufferType::Back))
         successfullyMadeBackingStoreVolatile = false;
 
-    if (!m_reachableBackingStoreInLatestFlush.contains(&backingStore) || (volatilityMarkingFlags & MarkBuffersIgnoringReachability)) {
-        if (!backingStore.setBufferVolatility(RemoteLayerBackingStore::BufferType::Front, true))
+    if (!m_reachableBackingStoreInLatestFlush.contains(&backingStore) || markingBehavior.contains(VolatilityMarkingBehavior::IgnoreReachability)) {
+        if (!backingStore.setBufferVolatile(RemoteLayerBackingStore::BufferType::Front))
             successfullyMadeBackingStoreVolatile = false;
     }
 
     return successfullyMadeBackingStoreVolatile;
-}
-
-bool RemoteLayerBackingStoreCollection::markBackingStoreVolatile(RemoteLayerBackingStore& backingStore, MonotonicTime now)
-{
-    if (now - backingStore.lastDisplayTime() < volatileBackingStoreAgeThreshold) {
-        if (now - backingStore.lastDisplayTime() >= volatileSecondaryBackingStoreAgeThreshold)
-            backingStore.setBufferVolatility(RemoteLayerBackingStore::BufferType::SecondaryBack, true);
-
-        return false;
-    }
-    
-    return markBackingStoreVolatileImmediately(backingStore);
 }
 
 void RemoteLayerBackingStoreCollection::backingStoreBecameUnreachable(RemoteLayerBackingStore& backingStore)
@@ -139,40 +204,52 @@ void RemoteLayerBackingStoreCollection::backingStoreBecameUnreachable(RemoteLaye
     auto backingStoreIter = m_liveBackingStore.find(&backingStore);
     if (backingStoreIter == m_liveBackingStore.end())
         return;
+
     m_unparentedBackingStore.add(&backingStore);
     m_liveBackingStore.remove(backingStoreIter);
 
     // This will not succeed in marking all buffers as volatile, because the commit unparenting the layer hasn't
     // made it to the UI process yet. The volatility timer will finish marking the remaining buffers later.
-    markBackingStoreVolatileImmediately(backingStore);
+    markBackingStoreVolatileAfterReachabilityChange(backingStore);
 }
 
-bool RemoteLayerBackingStoreCollection::markAllBackingStoreVolatileImmediatelyIfPossible()
+void RemoteLayerBackingStoreCollection::markBackingStoreVolatileAfterReachabilityChange(RemoteLayerBackingStore& backingStore)
+{
+    markBackingStoreVolatile(backingStore);
+}
+
+bool RemoteLayerBackingStoreCollection::markAllBackingStoreVolatile(OptionSet<VolatilityMarkingBehavior> liveBackingStoreMarkingBehavior, OptionSet<VolatilityMarkingBehavior> unparentedBackingStoreMarkingBehavior)
 {
     bool successfullyMadeBackingStoreVolatile = true;
+    auto now = MonotonicTime::now();
 
-    for (const auto& backingStore : m_liveBackingStore)
-        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatileImmediately(*backingStore, MarkBuffersIgnoringReachability);
+    for (auto* backingStore : m_liveBackingStore)
+        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatile(*backingStore, liveBackingStoreMarkingBehavior, now);
 
-    for (const auto& backingStore : m_unparentedBackingStore)
-        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatileImmediately(*backingStore, MarkBuffersIgnoringReachability);
+    for (auto* backingStore : m_unparentedBackingStore)
+        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatile(*backingStore, unparentedBackingStoreMarkingBehavior, now);
 
     return successfullyMadeBackingStoreVolatile;
 }
 
-void RemoteLayerBackingStoreCollection::volatilityTimerFired()
+void RemoteLayerBackingStoreCollection::tryMarkAllBackingStoreVolatile(CompletionHandler<void(bool)>&& completionHandler)
 {
-    bool successfullyMadeBackingStoreVolatile = true;
+    bool successfullyMadeBackingStoreVolatile = markAllBackingStoreVolatile(VolatilityMarkingBehavior::IgnoreReachability, VolatilityMarkingBehavior::IgnoreReachability);
+    completionHandler(successfullyMadeBackingStoreVolatile);
+}
 
-    auto now = MonotonicTime::now();
-    for (const auto& backingStore : m_liveBackingStore)
-        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatile(*backingStore, now);
-
-    for (const auto& backingStore : m_unparentedBackingStore)
-        successfullyMadeBackingStoreVolatile &= markBackingStoreVolatileImmediately(*backingStore);
+void RemoteLayerBackingStoreCollection::markAllBackingStoreVolatileFromTimer()
+{
+    bool successfullyMadeBackingStoreVolatile = markAllBackingStoreVolatile(VolatilityMarkingBehavior::ConsiderTimeSinceLastDisplay, { });
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStoreCollection::markAllBackingStoreVolatileFromTimer() - live " << m_liveBackingStore.size() << ", unparented " << m_unparentedBackingStore.size() << "; successfullyMadeBackingStoreVolatile " << successfullyMadeBackingStoreVolatile);
 
     if (successfullyMadeBackingStoreVolatile)
         m_volatilityTimer.stop();
+}
+
+void RemoteLayerBackingStoreCollection::volatilityTimerFired()
+{
+    markAllBackingStoreVolatileFromTimer();
 }
 
 void RemoteLayerBackingStoreCollection::scheduleVolatilityTimer()
@@ -181,6 +258,17 @@ void RemoteLayerBackingStoreCollection::scheduleVolatilityTimer()
         return;
 
     m_volatilityTimer.startRepeating(volatilityTimerInterval);
+}
+
+RefPtr<WebCore::ImageBuffer> RemoteLayerBackingStoreCollection::allocateBufferForBackingStore(const RemoteLayerBackingStore& backingStore)
+{
+    switch (backingStore.type()) {
+    case RemoteLayerBackingStore::Type::IOSurface:
+        return WebCore::ImageBuffer::create<AcceleratedImageBufferShareableMappedBackend>(backingStore.size(), backingStore.scale(), WebCore::DestinationColorSpace::SRGB(), backingStore.pixelFormat(), WebCore::RenderingPurpose::LayerBacking, { nullptr, &WebCore::IOSurfacePool::sharedPool() });
+    case RemoteLayerBackingStore::Type::Bitmap:
+        return WebCore::ImageBuffer::create<UnacceleratedImageBufferShareableBackend>(backingStore.size(), backingStore.scale(), WebCore::DestinationColorSpace::SRGB(), backingStore.pixelFormat(), WebCore::RenderingPurpose::LayerBacking, { });
+    }
+    return nullptr;
 }
 
 } // namespace WebKit

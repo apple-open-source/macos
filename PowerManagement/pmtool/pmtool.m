@@ -61,6 +61,13 @@ struct args_struct {
     char    *batteryPropsPath;
     long    nccpUpdateDelta;
     int     lowPowerMode;
+    int     lowPowerModeMinOnDays;
+    int     smartPowerNap;
+    long    requeryDelta;
+    long    spnReentryCoolOff;
+    long    spnReentryDelaySeconds;
+    long    spnMotionAlarmThreshold;
+    long    spnMotionAlarmStartThreshold;
     int64_t pfStatus;
     
     /* If takeAssertionNamed != NULL; that implies our action is to take an assertion */
@@ -416,6 +423,7 @@ int main(int argc, char *argv[])
         doCreatePowerSource();
         printf("Press control-C to exit\n");
     }
+
 
 
     bool preventUserIdleSleep = (args.takeAssertionNamed == kIOPMAssertionTypePreventUserIdleSystemSleep ||
@@ -1779,4 +1787,5 @@ static void sendBHUpdateTimeDelta(long timeDelta) {}
 static void sendBHDataFromCFPrefs(void){}
 static void sendAgingDataFromCFPrefs(void){}
 static void isVactSupported(){}
+
 

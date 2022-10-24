@@ -187,7 +187,7 @@ void NameValueDictionary::MakeFromData(const CssmData &data)
 
         running_length_total += length;
 
-		// do some sanity checking on the data.
+		// do some integrity checking on the data.
 		uint32 itemLength = 0;
 		unsigned char* fingerX = finger;
 		

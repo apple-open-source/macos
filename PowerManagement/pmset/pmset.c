@@ -257,7 +257,8 @@
                         | kIOPMThursday | kIOPMFriday )
 #define weekend_mask    ( kIOPMSaturday | kIOPMSunday )
 
-#define kDateAndTimeFormat      "MM/dd/yy HH:mm:ss"
+#define kDateAndTimeFormat      "MM/dd/yyyy HH:mm:ss"
+#define kDateAndTimeFormatInput "MM/dd/yy HH:mm:ss"
 #define kTimeFormat             "HH:mm:ss"
 
 #define kMaxLongStringLength        255
@@ -4225,13 +4226,13 @@ static void show_power_adapter(void)
         }
     }
 
-    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterCurrentKey));
+    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPMPSAdapterDetailsAmperageKey));
     if (valNum) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Current = %dmA\n", val);
     }
 
-    valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage"));
+    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPMPSAdapterDetailsVoltage));
     if (valNum) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Voltage = %dmV\n", val);
@@ -4787,7 +4788,7 @@ static int parseScheduledEvent(
     // We manually set the format (as recommended by header comments)
     // to ensure it doesn't vary from release to release or from locale
     // to locale.
-    CFDateFormatterSetFormat(formatter, CFSTR(kDateAndTimeFormat));
+    CFDateFormatterSetFormat(formatter, CFSTR(kDateAndTimeFormatInput));
     if(!argv[i]) {
         ret = kParseInternalError;
         goto exit;

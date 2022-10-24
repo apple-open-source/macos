@@ -184,6 +184,7 @@ protected:
         atomic_bool readyToProbe;
         bool commandCompletedSupport;
         bool commandSent;
+        bool childrenInReset;
     };
 
 /*! @var reserved
@@ -363,13 +364,29 @@ protected:
 public:
     virtual bool init( OSDictionary *  propTable );
 
+protected:
+    OSMetaClassDeclareReservedUsed(IOPCIBridge,  7);
+    virtual IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain) = 0;
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge,  8);
+    virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) = 0;
+
+    bool isSupportedLinkSpeed(IOPCIDevice *device, tIOPCILinkSpeed linkSpeed);
+    void setTargetLinkSpeed(IOPCIDevice *device, tIOPCILinkSpeed linkSpeed);
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge,  9);
+	virtual void warmResetDisable(void);
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 10);
+	virtual void warmResetEnable(void);
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 11);
+	virtual bool supportsWarmReset(void);
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 12);
+	virtual IOReturn waitForLinkUp(IOPCIDevice *bridgeDevice);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  7);
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  8);
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  9);
-    OSMetaClassDeclareReservedUnused(IOPCIBridge, 10);
-    OSMetaClassDeclareReservedUnused(IOPCIBridge, 11);
-    OSMetaClassDeclareReservedUnused(IOPCIBridge, 12);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 13);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 14);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 15);
@@ -409,13 +426,39 @@ protected:
 private:
 	IOReturn terminateChild(IOPCIDevice *child);
 	IOReturn terminateChildGated(IOPCIDevice *child);
-	void hotReset(IOPCIDevice *child);
+	void hotReset(IOPCIDevice *bridgeDevice);
+	void warmReset(void);
+	IOReturn waitForResetComplete(void);
+    IOReturn resetDeviceGated(tIOPCIDeviceResetTypes *type,
+							  tIOPCIDeviceResetOptions *options);
+    IOReturn waitForTerminateThreadCall(thread_call_t threadCall);
+    IOReturn waitForDeviceReady(IOPCIDevice *child);
 
 protected:
     void slotControlWrite(IOPCIDevice *device, uint16_t data, uint16_t mask);
 
+public:
+    void setInReset(bool inReset);
+
 private:
     void probeBusGated( probeBusParams *params );
+
+public:
+    /*! @function resetDevice
+     *   @abstract     Reset the downstream PCIe device.
+	 *   @discussion   If this is a multi-function device, all functions associated with the device will be reset.
+	 *                 Device configuration state is saved prior to resetting the device and restored after reset completes.
+	 *                 During reset, the caller must not attempt to access the device.
+	 *                 This call will block until the link comes up and the device is usable (except for type kIOPCIDeviceResetTypeWarmResetDisable).
+	 *   @param type     tIOPCIDeviceResetTypes.
+	 *   @param options  tIOPCIDeviceResetOptions.
+	 *   @return       kIOReturnSuccess if the reset specified is supported
+	 */
+    IOReturn resetDevice(tIOPCIDeviceResetTypes type,
+						 tIOPCIDeviceResetOptions options = kIOPCIDeviceResetOptionNone);
+
+protected:
+	void updateLinkStatusProperty(uint16_t linkStatus);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -537,6 +580,10 @@ public:
 
     virtual IOPCIEventSource * createEventSource(IOPCIDevice * device,
                                 OSObject * owner, IOPCIEventSource::Action action, uint32_t options) override;
+
+    virtual IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain) override;
+
+    virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) override;
 
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);

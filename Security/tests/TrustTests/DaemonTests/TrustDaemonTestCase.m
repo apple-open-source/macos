@@ -24,6 +24,7 @@
 
 #import <XCTest/XCTest.h>
 #include <sys/stat.h>
+#include <Security/SecCertificatePriv.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/debugging.h>
 #include "ipc/securityd_client.h"
@@ -77,6 +78,20 @@ static int testNumber = 0;
     [defaults setInteger:INT32_MAX forKey:@"PinningEventAnalyticsRate"];
     [defaults setInteger:INT32_MAX forKey:@"SystemRootUsageEventAnalyticsRate"];
     [defaults setInteger:INT32_MAX forKey:@"TrustFailureEventAnalyticsRate"];
+}
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name
+                                                            subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".pem"
+                                                           subdirectory:dir];
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    if (!certData) {
+        return nil;
+    }
+
+    SecCertificateRef cert = SecCertificateCreateWithPEM(kCFAllocatorDefault, (__bridge CFDataRef)certData);
+    return (__bridge id)cert;
 }
 
 @end

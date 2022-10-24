@@ -97,7 +97,7 @@ must be run as root in order to modify any settings.
 - system sleep timer (value in minutes, or 0 to disable)
 .br
 .Ar womp
-- wake on ethernet magic packet (value = 0/1). Same as "Wake for network access" in the Energy Saver preferences.
+- wake on ethernet magic packet (value = 0/1). Same as "Wake for network access" in System Settings.
 .br
 .Ar ring
 - wake on modem ring (value = 0/1)
@@ -375,7 +375,7 @@ a problem with an aging battery.
 - causes an immediate system sleep.
 .br
 .Ar restoredefaults
-- Restores Energy Saver settings to their default values. (Like clicking "Restore Defaults" in Energy Saver GUI).
+- Restores power management settings to their default values.
 .br
 .Ar displaysleepnow
 - causes display to go to sleep immediately.
@@ -402,8 +402,6 @@ turns on WakeOnMagicPacket for ALL power sources (AC, Battery, and UPS) as appro
 .Nm
 .Fl a
 displaysleep 10 disksleep 10 sleep 30 womp 1
-.Pp
-Restores the system's energy settings to their default values.
 .Pp
 For a system with an attached and supported UPS, this instructs the system to
 perform an emergency shutdown when UPS battery drains to below 40%.
@@ -443,6 +441,11 @@ Schedules a repeating wake or power on event every tuesday at 12:00 noon, and a 
 .Nm
 repeat wakeorpoweron T 12:00:00 sleep MTWRFSU 20:00:00
 .Pp
+Cancels all scheduled system sleep, shutdown, wake, and power on events.
+.Pp
+.Nm
+repeat cancel
+.Pp
 Prints the power management settings in use by the system.
 .Pp
 .Nm
@@ -473,4 +476,4 @@ Scheduled power on/off events are stored separately in
 .Pa /Library/Preferences/SystemConfiguration/com.apple.AutoWake.plist
 .Pp
 .Nm
-modifies the same file that System Preferences Energy Saver modifies.
+modifies the same file that System Settings modifies.

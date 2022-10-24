@@ -543,7 +543,7 @@ void OcspdDatabase::addResponse(
 	 */
 	CFAbsoluteTime expireTime = resp->expireTime();
 	char expireStr[GENERAL_TIME_STRLEN+1];
-	cfAbsTimeToGgenTime(expireTime, expireStr);
+	cfAbsTimeToGgenTime2(expireTime, expireStr, sizeof(expireStr));
 	CSSM_DATA expireData = {GENERAL_TIME_STRLEN, (uint8 *)expireStr};
 	CSSM_RETURN crtn;
 

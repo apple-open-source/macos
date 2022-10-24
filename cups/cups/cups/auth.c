@@ -173,6 +173,31 @@ cupsDoAuthentication(
 
     DEBUG_printf(("2cupsDoAuthentication: Trying scheme \"%s\"...", scheme));
 
+    if (!_cups_strcasecmp(scheme, "Bearer"))
+    {
+      char* token = NULL;
+
+      if (http->bearer_tries < 3 && http->bearer_callback) {
+        token = http->bearer_callback(http, resource, http->bearer_data);
+      }
+
+      // This is used to prevent looping forever,
+      // but also used (when > 0) to flush the token
+      // cache in PrintUITool (so it should be incremented after we invoke
+      // the token callback)
+      http->bearer_tries++;
+
+      if (token != NULL) {
+        httpSetAuthString(http, "Bearer", token);
+        free(token);
+        break;
+      } else {
+        DEBUG_printf(("2cupsDoAuthentication: Can't get Bearer token"));
+        http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
+        return (-1);
+      }
+    }
+    else
 #ifdef HAVE_GSSAPI
     if (!_cups_strcasecmp(scheme, "Negotiate"))
     {

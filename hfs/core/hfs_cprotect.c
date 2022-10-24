@@ -212,7 +212,7 @@ void cp_io_params(__unused hfsmount_t *hfsmp, cprotect_t cpr,
 		}
 
 		// Use new key
-		io_params->cpx = cpkp_cpx(&ckr->ckr_keys);
+		io_params->cpx = cpkp_cpx(ckr->ckr_keys);
 		return;
 	}
 old_key:
@@ -221,24 +221,24 @@ old_key:
 
 	io_params->max_len = INT64_MAX;
 	io_params->phys_offset = -1;
-	io_params->cpx = cpkp_cpx(&cpr->cp_keys);
+	io_params->cpx = cpkp_cpx(cpr->cp_keys);
 }
 
 static void cp_flush_cached_keys(cprotect_t cpr)
 {
-	cpx_flush(cpkp_cpx(&cpr->cp_keys));
+	cpx_flush(cpkp_cpx(cpr->cp_keys));
 #if HFS_CONFIG_KEY_ROLL
 	if (cpr->cp_key_roll_ctx)
-		cpx_flush(cpkp_cpx(&cpr->cp_key_roll_ctx->ckr_keys));
+		cpx_flush(cpkp_cpx(cpr->cp_key_roll_ctx->ckr_keys));
 #endif
 }
 
 static bool cp_needs_pers_key(cprotect_t cpr)
 {
 	if (CP_CLASS(cpr->cp_pclass) == PROTECTION_CLASS_F)
-		return !cpx_has_key(cpkp_cpx(&cpr->cp_keys));
+		return !cpx_has_key(cpkp_cpx(cpr->cp_keys));
 	else
-		return !cpkp_has_pers_key(&cpr->cp_keys);
+		return !cpkp_has_pers_key(cpr->cp_keys);
 }
 
 static cp_key_revision_t cp_initial_key_revision(__unused hfsmount_t *hfsmp)
@@ -652,7 +652,7 @@ cp_vnode_setclass(struct vnode *vp, cp_key_class_t newclass)
 		 * target class (since B allows I/O but an unwrap prior to the next unlock
 		 * will not be allowed).
 		 */
-		if (!cpx_has_key(cpkp_cpx(&entry->cp_keys))) {
+		if (!cpx_has_key(cpkp_cpx(entry->cp_keys))) {
 			error = cp_restore_keys (entry, hfsmp, cp);
 			if (error) {
 				goto out;
@@ -697,7 +697,7 @@ cp_vnode_setclass(struct vnode *vp, cp_key_class_t newclass)
 			goto out;
 		}
 
-		if (!cpkp_has_pers_key(&entry->cp_keys)) {
+		if (!cpkp_has_pers_key(entry->cp_keys)) {
 			struct cprotect *new_entry = NULL;
 			/*
 			 * We want to fail if we can't wrap to the target class. By not setting
@@ -714,7 +714,7 @@ cp_vnode_setclass(struct vnode *vp, cp_key_class_t newclass)
 		}
 
 		cprotect_t new_entry;
-		error = cp_rewrap(cp, hfsmp, &newclass, &entry->cp_keys, entry,
+		error = cp_rewrap(cp, hfsmp, &newclass, entry->cp_keys, entry,
 						  (cp_new_alloc_fn)cp_entry_alloc, (void **)&new_entry);
 		if (error) {
 			/* we didn't have perms to set this class. leave file as-is and error out */
@@ -724,7 +724,7 @@ cp_vnode_setclass(struct vnode *vp, cp_key_class_t newclass)
 #if HFS_CONFIG_KEY_ROLL
 		hfs_cp_key_roll_ctx_t *new_key_roll_ctx = NULL;
 		if (entry->cp_key_roll_ctx) {
-			error = cp_rewrap(cp, hfsmp, &newclass, &entry->cp_key_roll_ctx->ckr_keys,
+			error = cp_rewrap(cp, hfsmp, &newclass, entry->cp_key_roll_ctx->ckr_keys,
 							  entry->cp_key_roll_ctx,
 							  (cp_new_alloc_fn)hfs_key_roll_ctx_alloc,
 							  (void **)&new_key_roll_ctx);
@@ -835,11 +835,11 @@ int cp_vnode_transcode(vnode_t vp, cp_key_t *k)
 		bzero(&wrapped_key_in, sizeof(wrapped_key_in));
 		bzero(&wrapped_key_out, sizeof(wrapped_key_out));
 
-		cp_key_pair_t *cpkp = &entry->cp_keys;
+		cp_key_pair_t *cpkp = entry->cp_keys;
 
 #if HFS_CONFIG_KEY_ROLL
 		if (entry->cp_key_roll_ctx)
-			cpkp = &entry->cp_key_roll_ctx->ckr_keys;
+			cpkp = entry->cp_key_roll_ctx->ckr_keys;
 #endif
 
 		wrapped_key_in.key = cpkp_pers_key(cpkp);
@@ -985,7 +985,7 @@ cp_handle_vnop(struct vnode *vp, int vnop, int ioflag)
 
 		// If we have a persistent key and the cached key, we're done
 		if (!cp_needs_pers_key(entry)
-			&& cpx_has_key(cpkp_cpx(&entry->cp_keys))) {
+			&& cpx_has_key(cpkp_cpx(entry->cp_keys))) {
 			goto out;
 		}
 	}
@@ -1019,7 +1019,7 @@ cp_handle_vnop(struct vnode *vp, int vnop, int ioflag)
 	}
 
 	/* unwrap keys if needed */
-	if (!cpx_has_key(cpkp_cpx(&entry->cp_keys))) {
+	if (!cpx_has_key(cpkp_cpx(entry->cp_keys))) {
 		if ((vnop == CP_READ_ACCESS) && (ioflag & IO_ENCRYPTED)) {
 			/* no need to try to restore keys; they are not going to be used */
 			error = 0;
@@ -1163,7 +1163,7 @@ cp_handle_open(struct vnode *vp, int mode)
 				break;
 			}
 			
-			if (cpx_has_key(cpkp_cpx(&entry->cp_keys)) && !ISSET(mode, FENCRYPTED)) {
+			if (cpx_has_key(cpkp_cpx(entry->cp_keys)) && !ISSET(mode, FENCRYPTED)) {
 				/*
 				 * For a class B file, attempt the unwrap if we have the key in
 				 * core already. 
@@ -1176,8 +1176,8 @@ cp_handle_open(struct vnode *vp, int mode)
 
 				cp_init_access(&access_in, cp);
 				bzero(&wrapped_key_in, sizeof(wrapped_key_in));
-				wrapped_key_in.key = cpkp_pers_key(&entry->cp_keys);
-				wrapped_key_in.key_len = cpkp_pers_key_len(&entry->cp_keys);
+				wrapped_key_in.key = cpkp_pers_key(entry->cp_keys);
+				wrapped_key_in.key_len = cpkp_pers_key_len(entry->cp_keys);
 				/* Use the persistent class when talking to AKS */
 				wrapped_key_in.dp_class = entry->cp_pclass;
 				error = hfs_unwrap_key(&access_in, &wrapped_key_in, NULL);
@@ -1204,7 +1204,7 @@ cp_handle_open(struct vnode *vp, int mode)
 			 * Since this function is bypassed entirely if we're opening a raw encrypted file, 
 			 * we can always attempt the restore.
 			 */
-			if (!cpx_has_key(cpkp_cpx(&entry->cp_keys))) {
+			if (!cpx_has_key(cpkp_cpx(entry->cp_keys))) {
 				error = cp_restore_keys(entry, hfsmp, cp);
 			}
 	
@@ -1385,14 +1385,14 @@ int cp_setxattr(struct cnode *cp, struct cprotect *entry, struct hfsmount *hfsmp
 				uint32_t fileid, int options)
 {
 	int error = 0;
-	cp_key_pair_t *cpkp = &entry->cp_keys;
+	cp_key_pair_t *cpkp = entry->cp_keys;
 #if HFS_CONFIG_KEY_ROLL
 	bool rolling = entry->cp_key_roll_ctx != NULL;
 
 	if (rolling && entry->cp_key_roll_ctx->ckr_off_rsrc == INT64_MAX) {
 		// We've finished rolling, but we still have the context
 		rolling = false;
-		cpkp = &entry->cp_key_roll_ctx->ckr_keys;
+		cpkp = entry->cp_key_roll_ctx->ckr_keys;
 	}
 #endif
 
@@ -1446,10 +1446,10 @@ int cp_setxattr(struct cnode *cp, struct cprotect *entry, struct hfsmount *hfsmp
 
 		roll_info->off_rsrc = OSSwapHostToLittleInt64(entry->cp_key_roll_ctx->ckr_off_rsrc);
 
-		key_len = cpkp_pers_key_len(&entry->cp_key_roll_ctx->ckr_keys);
+		key_len = cpkp_pers_key_len(entry->cp_key_roll_ctx->ckr_keys);
 		roll_info->key_len = OSSwapHostToLittleInt16(key_len);
 
-		memcpy(roll_info->key, cpkp_pers_key(&entry->cp_key_roll_ctx->ckr_keys), key_len);
+		memcpy(roll_info->key, cpkp_pers_key(entry->cp_key_roll_ctx->ckr_keys), key_len);
 
 		xattr_len += offsetof(struct cp_roll_info, key) + key_len;
 	}
@@ -1568,15 +1568,20 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 	if (pers_key_len > CP_MAX_WRAPPEDKEYSIZE)
 		return (NULL);
 
-	size_t size = (sizeof(struct cprotect) - sizeof(cp_key_pair_t)
-				   + cpkp_size(pers_key_len, cached_key_len));
+	size_t size = cpkp_size(pers_key_len, cached_key_len);
 
 #if DEBUG
 	size += 4;	// Extra for magic2
 #endif
 
-	cp_entry = hfs_malloc_zero(size);
-
+	cp_entry = hfs_malloc_type(struct cprotect);
+	if (cp_entry == NULL)
+		return (NULL);
+	cp_entry->cp_keys = hfs_malloc_zero_data(size);
+	if (cp_entry->cp_keys == NULL) {
+		hfs_free_type(cp_entry, struct cprotect);
+		return (NULL); 
+	}
 	if (old) {
 		memcpy(cp_entry, old, offsetof(struct cprotect, cp_keys));
 
@@ -1591,7 +1596,7 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 	*PTR_ADD(uint32_t *, cp_entry, size - 4) = cp_magic2;
 #endif
 
-	cpkp_init(&cp_entry->cp_keys, pers_key_len, cached_key_len);
+	cpkp_init(cp_entry->cp_keys, pers_key_len, cached_key_len);
 
 	/*
 	 * If we've been passed the old entry, then we are in the process of
@@ -1601,10 +1606,10 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 	 * unwrapped key.
 	 */
 	if (old)
-		cpx_copy(cpkp_cpx(&old->cp_keys), cpkp_cpx(&cp_entry->cp_keys));
+		cpx_copy(cpkp_cpx(old->cp_keys), cpkp_cpx(cp_entry->cp_keys));
 
 	if (pcpkp)
-		*pcpkp = &cp_entry->cp_keys;
+		*pcpkp = cp_entry->cp_keys;
 
 	return cp_entry;
 }
@@ -1616,27 +1621,27 @@ cp_entry_dealloc(__unused hfsmount_t *hfsmp, struct cprotect *entry)
 	hfs_release_key_roll_ctx(hfsmp, entry);
 #endif
 
-	cpkp_flush(&entry->cp_keys);
+	cpkp_flush(entry->cp_keys);
 
-	size_t entry_size = (sizeof(struct cprotect) - sizeof(cp_key_pair_t)
-						 + cpkp_sizex(&entry->cp_keys));
+	size_t entry_size = cpkp_sizex(entry->cp_keys);
 	
 	/* 
 	 * We are freeing the HFS cprotect, which contains the memory for 'cpx'
 	 * Don't forget to release the CPX AES context 
 	 */
-	cpx_t embedded_cpx = cpkp_cpx(&entry->cp_keys);
+	cpx_t embedded_cpx = cpkp_cpx(entry->cp_keys);
 	cpx_free_ctx (embedded_cpx);
 
 #if DEBUG
 	hfs_assert(entry->cp_magic1 == cp_magic1);
 	hfs_assert(*PTR_ADD(uint32_t *, entry, (sizeof(struct cprotect) - sizeof(cp_key_pair_t)
-										+ cpkp_sizex(&entry->cp_keys) == cp_magic2)));
+										+ cpkp_sizex(entry->cp_keys) == cp_magic2)));
 
 	entry_size += 4;	// Extra for magic2
 #endif
 
-	hfs_free(entry, entry_size);
+	hfs_free_data(entry->cp_keys, entry_size);
+	hfs_free_type(entry, struct cprotect);
 }
 
 static int cp_read_xattr_v4(__unused hfsmount_t *hfsmp, struct cp_xattr_v4 *xattr,
@@ -2208,13 +2213,13 @@ cp_unwrap(__unused struct hfsmount *hfsmp, struct cprotect *entry, struct cnode 
 		return EPERM;
 	}
 
-	int error = cpkp_unwrap(cp, entry->cp_pclass, &entry->cp_keys);
+	int error = cpkp_unwrap(cp, entry->cp_pclass, entry->cp_keys);
 
 #if HFS_CONFIG_KEY_ROLL
 	if (!error && entry->cp_key_roll_ctx) {
-		error = cpkp_unwrap(cp, entry->cp_pclass, &entry->cp_key_roll_ctx->ckr_keys);
+		error = cpkp_unwrap(cp, entry->cp_pclass, entry->cp_key_roll_ctx->ckr_keys);
 		if (error)
-			cpx_flush(cpkp_cpx(&entry->cp_keys));
+			cpx_flush(cpkp_cpx(entry->cp_keys));
 	}
 #endif
 
@@ -2609,7 +2614,7 @@ bool cp_should_auto_roll(hfsmount_t *hfsmp, cprotect_t cpr)
 		return false;
 	}
 
-	if (!cpkp_has_pers_key(&cpr->cp_keys))
+	if (!cpkp_has_pers_key(cpr->cp_keys))
 		return false;
 
 	/*
@@ -2677,7 +2682,7 @@ errno_t cp_handle_strategy(buf_t bp)
 #endif
 	{
 		// Fast path
-		cpx_t cpx = cpkp_cpx(&cp->c_cpentry->cp_keys);
+		cpx_t cpx = cpkp_cpx(cp->c_cpentry->cp_keys);
 
 		if (cpx_has_key(cpx)) {
 			bufattr_setcpx(buf_attr(bp), cpx);

@@ -36,7 +36,7 @@
 
 namespace JSC {
 
-const ClassInfo JSWebAssemblyMemory::s_info = { "WebAssembly.Memory", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyMemory) };
+const ClassInfo JSWebAssemblyMemory::s_info = { "WebAssembly.Memory"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyMemory) };
 
 JSWebAssemblyMemory* JSWebAssemblyMemory::tryCreate(JSGlobalObject* globalObject, VM& vm, Structure* structure)
 {
@@ -139,6 +139,9 @@ Wasm::PageCount JSWebAssemblyMemory::grow(VM& vm, JSGlobalObject* globalObject, 
         case Wasm::Memory::GrowFailReason::OutOfMemory:
             throwException(globalObject, throwScope, createOutOfMemoryError(globalObject));
             break;
+        case Wasm::Memory::GrowFailReason::GrowSharedUnavailable:
+            throwException(globalObject, throwScope, createRangeError(globalObject, "WebAssembly.Memory.grow for shared memory is unavailable"_s));
+            break;
         }
         return Wasm::PageCount();
     }
@@ -156,12 +159,12 @@ JSObject* JSWebAssemblyMemory::type(JSGlobalObject* globalObject)
     JSObject* result;
     if (maximum.isValid()) {
         result = constructEmptyObject(globalObject, globalObject->objectPrototype(), 3);
-        result->putDirect(vm, Identifier::fromString(vm, "maximum"), jsNumber(maximum.pageCount()));
+        result->putDirect(vm, Identifier::fromString(vm, "maximum"_s), jsNumber(maximum.pageCount()));
     } else
         result = constructEmptyObject(globalObject, globalObject->objectPrototype(), 2);
 
-    result->putDirect(vm, Identifier::fromString(vm, "minimum"), jsNumber(minimum.pageCount()));
-    result->putDirect(vm, Identifier::fromString(vm, "shared"), jsBoolean(m_memory->sharingMode() == Wasm::MemorySharingMode::Shared));
+    result->putDirect(vm, Identifier::fromString(vm, "minimum"_s), jsNumber(minimum.pageCount()));
+    result->putDirect(vm, Identifier::fromString(vm, "shared"_s), jsBoolean(m_memory->sharingMode() == Wasm::MemorySharingMode::Shared));
 
     return result;
 }
@@ -185,7 +188,7 @@ void JSWebAssemblyMemory::growSuccessCallback(VM& vm, Wasm::PageCount oldPageCou
 void JSWebAssemblyMemory::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
     vm.heap.reportExtraMemoryAllocated(memory().size());
 }
 

@@ -29,6 +29,9 @@
 
 #include <sys/stat.h>
 
+#ifdef __APPLE__
+#include <assert.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -50,7 +53,11 @@
 /* Rename a file, copying it if necessary. */
 
 int
+#ifdef __APPLE__
+move_file(const char *from, const char *to, bool do_backup)
+#else
 move_file(const char *from, const char *to)
+#endif
 {
 	int	fromfd;
 	ssize_t	i;
@@ -64,16 +71,22 @@ move_file(const char *from, const char *to)
 #endif
 		fromfd = open(from, O_RDONLY);
 		if (fromfd < 0)
-			pfatal("internal error, can't reopen %s", from);
+			pfatal("internal error, can't reopen %s",
+			    quoted_name(from));
 		while ((i = read(fromfd, buf, buf_size)) > 0)
 			if (write(STDOUT_FILENO, buf, i) != i)
 				pfatal("write failed");
 		close(fromfd);
 		return 0;
 	}
+#ifdef __APPLE__
+	if (do_backup && backup_file(to) < 0) {
+#else
 	if (backup_file(to) < 0) {
-		say("Can't backup %s, output is in %s: %s\n", to, from,
-		    strerror(errno));
+#endif
+		int serrno = errno;	/* __APPLE__ */
+		say("Can't backup %s, output is in %s: %s\n",
+		    quoted_name(to), quoted_name(from), strerror(serrno));
 		return -1;
 	}
 #ifdef DEBUGGING
@@ -82,8 +95,10 @@ move_file(const char *from, const char *to)
 #endif
 	if (rename(from, to) < 0) {
 		if (errno != EXDEV || copy_file(from, to) < 0) {
+			int serrno = errno;	/* __APPLE__ */
 			say("Can't create %s, output is in %s: %s\n",
-			    to, from, strerror(errno));
+			    quoted_name(to), quoted_name(from),
+			    strerror(serrno));
 			return -1;
 		}
 	}
@@ -117,12 +132,14 @@ backup_file(const char *orig)
 	if (origprae) {
 		if (strlcpy(bakname, origprae, sizeof(bakname)) >= sizeof(bakname) ||
 		    strlcat(bakname, orig, sizeof(bakname)) >= sizeof(bakname))
-			fatal("filename %s too long for buffer\n", origprae);
+			fatal("filename %s too long for buffer\n",
+			    quoted_name(origprae));
 	} else {
 		if ((s = find_backup_file_name(orig)) == NULL)
 			fatal("out of memory\n");
 		if (strlcpy(bakname, s, sizeof(bakname)) >= sizeof(bakname))
-			fatal("filename %s too long for buffer\n", s);
+			fatal("filename %s too long for buffer\n",
+			    quoted_name(s));
 		free(s);
 	}
 
@@ -172,10 +189,10 @@ copy_file(const char *from, const char *to)
 		return -1;
 	fromfd = open(from, O_RDONLY, 0);
 	if (fromfd < 0)
-		pfatal("internal error, can't reopen %s", from);
+		pfatal("internal error, can't reopen %s", quoted_name(from));
 	while ((i = read(fromfd, buf, buf_size)) > 0)
 		if (write(tofd, buf, i) != i)
-			pfatal("write to %s failed", to);
+			pfatal("write to %s failed", quoted_name(to));
 	close(fromfd);
 	close(tofd);
 	return 0;
@@ -343,7 +360,7 @@ makedirs(const char *filename, bool striplast)
 		*s = '\0';
 	}
 	if (mkpath(tmpbuf) != 0)
-		pfatal("creation of %s failed", tmpbuf);
+		pfatal("creation of %s failed", quoted_name(tmpbuf));
 	free(tmpbuf);
 }
 
@@ -351,7 +368,11 @@ makedirs(const char *filename, bool striplast)
  * Make filenames more reasonable.
  */
 char *
+#ifdef __APPLE__
+fetchname(const char *at, bool *exists, int strip_leading, const char **endp)
+#else
 fetchname(const char *at, bool *exists, int strip_leading)
+#endif
 {
 	char		*fullname, *name, *t;
 	int		sleading, tab;
@@ -368,6 +389,10 @@ fetchname(const char *at, bool *exists, int strip_leading)
 	/* So files can be created by diffing against /dev/null.  */
 	if (strnEQ(at, _PATH_DEVNULL, sizeof(_PATH_DEVNULL) - 1)) {
 		*exists = true;
+#ifdef __APPLE__
+		if (endp != NULL)
+			*endp = at + (sizeof(_PATH_DEVNULL) - 1);
+#endif
 		return NULL;
 	}
 	name = fullname = t = savestr(at);
@@ -394,6 +419,10 @@ fetchname(const char *at, bool *exists, int strip_leading)
 			name = fullname;
 		}
 	}
+#ifdef __APPLE__
+	if (endp != NULL)
+		*endp = at + ((name + strlen(name)) - fullname);
+#endif
 	name = savestr(name);
 	free(fullname);
 
@@ -422,3 +451,263 @@ my_exit(int status)
 	unlink(TMPPATNAME);
 	exit(status);
 }
+
+#ifdef __APPLE__
+#ifdef NDEBUG
+#define	CHECK_SPACE(n)	do {			\
+	if ((pos) + (n) >= qsize)		\
+		return (NULL);			\
+} while (0)
+#else
+#define CHECK_SPACE(n)	assert((pos) + (n) < qsize)
+#endif
+static const char *
+quoted_name_shell(const char *filename, size_t flen, char *qbuf, size_t qsize,
+    bool always)
+{
+	size_t pos;
+	char c;
+	int quoted;	/* None, Single, Double */
+
+	pos = 0;
+	quoted = 0;
+	if (always)
+		quoted++;
+
+	/*
+	 * We still scan, even if we're always quoting, because we may prefer
+	 * double quotes to single quotes if there's a single quote appearing
+	 * in the string.
+	 */
+	for (size_t i = 0; i < flen; i++) {
+		c = filename[i];
+
+		/*
+		 * We err on the side of caution here.  Any remotely
+		 * non-trivial name will get quoted.
+		 */
+		if (isalnum(c) || c == '-' || c == '_' || c == '.')
+			continue;
+
+		/*
+		 * Single quote will make us double quote, special
+		 * characters can more or less be single quoted.  We
+		 * don't treat double quotes differently because they're
+		 * less ugly to escape.
+		 */
+		if (quoted == 0)
+			quoted++;
+		if (c == '\'')
+			quoted++;
+		if (quoted == 2)
+			break;
+	}
+
+	if (quoted != 0) {
+		CHECK_SPACE(1);
+		qbuf[pos++] = quoted == 1 ? '\'' : '"';
+	}
+
+	for (size_t i = 0; i < flen; i++) {
+		c = filename[i];
+
+		switch (c) {
+		case '\'':
+			/* Should have double quoted. */
+			assert(quoted == 2);
+			CHECK_SPACE(1);
+			qbuf[pos++] = c;
+
+			break;
+		case '$':
+		case '`':
+		case '\\':
+		case '"':
+			/*
+			 * Characters that only need escaped under double
+			 * quotes.
+			 */
+			assert(quoted > 0);
+			CHECK_SPACE(quoted);
+			if (quoted == 2)
+				qbuf[pos++] = '\'';
+			qbuf[pos++] = c;
+
+			break;
+		case '\n':
+		case '\r':
+		case '\t':
+			/*
+			 * Characters that we'll decompose and use $'' expansion
+			 * for.
+			 */
+			assert(quoted > 0);
+			CHECK_SPACE(3);
+			qbuf[pos++] = qbuf[0];
+			qbuf[pos++] = '$';
+			qbuf[pos++] = '\'';
+
+			/*
+			 * Collapse into a single quoted string to waste less.
+			 */
+			for (char cp = filename[i];
+			    (cp == '\n' || cp == '\r' || cp == '\t') && i < flen;
+			    cp = filename[++i]) {
+				CHECK_SPACE(2);
+				qbuf[pos++] = '\\';
+				switch (cp) {
+				case '\n':
+					qbuf[pos++] = 'n';
+
+					break;
+				case '\r':
+					qbuf[pos++] = 'r';
+
+					break;
+				case '\t':
+					qbuf[pos++] = 't';
+
+					break;
+				}
+			}
+
+			/*
+			 * Back up one, we didn't munch that last one.
+			 */
+			i--;
+			CHECK_SPACE(2);
+			qbuf[pos++] = '\'';
+			qbuf[pos++] = qbuf[0];
+
+			break;
+		default:
+			CHECK_SPACE(1);
+			qbuf[pos++] = c;
+
+			break;
+		}
+	}
+
+	CHECK_SPACE(1 + !!quoted);
+	if (quoted != 0)
+		qbuf[pos++] = qbuf[0];
+	qbuf[pos++] = '\0';
+	return (qbuf);
+}
+
+static const char *
+quoted_name_c(const char *filename, size_t flen, char *qbuf, size_t qsize,
+    bool quoted)
+{
+	size_t pos;
+	char c;
+
+	pos = 0;
+	if (quoted) {
+		CHECK_SPACE(1);
+		qbuf[pos++] = '"';
+	}
+
+	for (size_t i = 0; i < flen; i++) {
+		c = filename[i];
+
+		switch (c) {
+		case '\t':
+		case '\n':
+		case '\r':
+			/* Characters that we'll decompose. */
+			CHECK_SPACE(2);
+			qbuf[pos++] = '\\';
+			switch (c) {
+			case '\n':
+				qbuf[pos++] = 'n';
+				break;
+			case '\r':
+				qbuf[pos++] = 'r';
+				break;
+			case '\t':
+				qbuf[pos++] = 't';
+				break;
+			}
+
+			break;
+		case '\\':
+		case '"':
+			/* Characters that we'll escape. */
+			CHECK_SPACE(2);
+			qbuf[pos++] = '\\';
+			qbuf[pos++] = c;
+
+			break;
+		default:
+			if (c < 0x20 || c == 0x7f) {
+				CHECK_SPACE(4);
+				sprintf(&qbuf[pos], "\\x%.02x", c);
+				pos += 4;
+
+				/*
+				 * Keep hex'ifying hex digits after this to
+				 * avoid a parser mishap.
+				 */
+				while (++i < flen) {
+					c = filename[i];
+					if ((c >= 'a' && c <= 'f') ||
+					    (c >= 'A' && c <= 'F') ||
+					    isdigit(c)) {
+						CHECK_SPACE(4);
+						sprintf(&qbuf[pos], "\\x%.02x",
+						    c);
+						pos += 4;
+
+						continue;
+					}
+
+					break;
+				}
+
+				/*
+				 * Back up one, we didn't munch that last one.
+				 */
+				i--;
+			} else {
+				/* Trivial character, pass it 1:1. */
+				CHECK_SPACE(1);
+				qbuf[pos++] = c;
+			}
+
+			break;
+		}
+	}
+
+	CHECK_SPACE(1 + !!quoted);
+	if (quoted)
+		qbuf[pos++] = '"';
+	qbuf[pos++] = '\0';
+	return (qbuf);
+}
+#undef CHECK_SPACE
+
+const char *
+quoted_name(const char *filename)
+{
+	/*
+	 * Large enough for a PATH_MAX buffer full of newlines, enclosed in
+	 * quotes, and NUL terminated -- ~8K?  Move it onto the heap at the
+	 * first sign of trouble.
+	 */
+	static char qbuf[(PATH_MAX * 8) + 3];
+	size_t flen;
+
+	if (quote_opt == QO_LITERAL)
+		return (filename);
+
+	flen = strlen(filename);
+	if (quote_opt == QO_SHELL || quote_opt == QO_SHELL_ALWAYS)
+		return (quoted_name_shell(filename, flen, qbuf, sizeof(qbuf),
+		    quote_opt == QO_SHELL_ALWAYS));
+
+	assert(quote_opt == QO_C || quote_opt == QO_ESCAPE);
+	return (quoted_name_c(filename, flen, qbuf, sizeof(qbuf),
+	    quote_opt == QO_C));
+}
+#endif

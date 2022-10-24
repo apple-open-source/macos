@@ -149,21 +149,9 @@ private:
 		void systemWillSleep();
 		void systemIsWaking();
 		void systemWillPowerOn();
-		
-		void add(PowerWatcher *client);
-		void remove(PowerWatcher *client);
-
-	private:
-		set<PowerWatcher *> mPowerClients;
 	};
 
 	SleepWatcher sleepWatcher;
-	
-public:
-	using MachServer::add;
-	using MachServer::remove;
-	void add(MachPlusPlus::PowerWatcher *client)	{ StLock<Mutex> _(*this); sleepWatcher.add(client); }
-	void remove(MachPlusPlus::PowerWatcher *client)	{ StLock<Mutex> _(*this); sleepWatcher.remove(client); }
 	
 public:
 	Process *findPid(pid_t pid) const;
@@ -216,14 +204,5 @@ public:
 	LongtermStLock(Mutex &lck);
 	// destructor inherited
 };
-
-
-//
-// Handling signals.
-// These are sent as Mach messages from ourselves to escape the limitations of
-// the signal handler environment.
-//
-kern_return_t self_server_handleSignal(mach_port_t sport, audit_token_t auditToken, int sig);
-kern_return_t self_server_handleSession(mach_port_t sport, audit_token_t auditToken, uint32_t event, uint64_t ident);
 
 #endif //_H_SERVER

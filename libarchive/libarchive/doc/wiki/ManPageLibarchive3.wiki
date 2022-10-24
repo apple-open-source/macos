@@ -77,7 +77,7 @@ POSIX
 "pax interchange format" 
 archives, 
 </li><li> 
-POSIX octet-oriented cpio archives, 
+cpio archives, 
 </li><li> 
 Zip archive, 
 </li><li> 

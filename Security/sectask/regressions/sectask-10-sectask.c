@@ -81,7 +81,7 @@ static
 void init_self_audittoken(void)
 {
     /* create a mach port and an event source */
-    CFMachPortRef server_port = CFMachPortCreate (NULL, server_callback, NULL, false);
+    CFMachPortRef server_port = CFMachPortCreate (NULL, server_callback, NULL, NULL);
     CFRunLoopSourceRef server_source = CFMachPortCreateRunLoopSource(NULL, server_port, 0/*order*/);
 
     /* add the source to the current run loop */

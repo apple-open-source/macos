@@ -26,7 +26,6 @@
 [
     Conditional=VIDEO,
     ExportMacro=WEBCORE_EXPORT,
-    ImplementationLacksVTable,
     Exposed=Window,
     TaggedWrapper
 ] interface TimeRanges {

@@ -50,7 +50,9 @@ extern "C" {
 	@discussion The SecAccessCreateWithPList creates a SecAccess with the provided list of trusted applications.
 */
 
-OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 #if defined(__cplusplus)

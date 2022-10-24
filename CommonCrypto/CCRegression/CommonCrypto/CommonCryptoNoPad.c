@@ -45,7 +45,8 @@ testFinal(CCOperation op, CCMode mode, CCAlgorithm alg,
     size_t blockSize = testblockSize(alg);
     uint8_t iv[16];
     uint8_t key[32];
-    uint8_t dataIn[MAXSTART], dataOut[MAXOUT];
+    uint8_t dataIn[MAXSTART] = {0};
+    uint8_t dataOut[MAXOUT] = {0};
     size_t moved = 0;
     
     for(size_t i = 0; i < 16; i++) {

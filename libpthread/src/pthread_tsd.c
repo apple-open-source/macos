@@ -64,10 +64,22 @@
 #if !VARIANT_DYLD
 // __pthread_tsd_first is first static key managed by libpthread.
 // __pthread_tsd_max is the (observed) end of static key destructors.
+// Inside [__pthread_tsd_first, __pthread_tsd_max] lies
+// [_pthread_tsd_shared_cache_first, _pthread_tsd_shared_cache_last] (closed bounds),
+// where keys are assigned by the shared cache builder
+// for __thread variables.
 // __pthread_tsd_start is the start of dynamic keys.
 // __pthread_tsd_end is the end of dynamic keys.
 
 static const int __pthread_tsd_first = __TSD_RESERVED_MAX + 1;
+
+// These two symbol names and types are hardcoded in the shared cache builder,
+// we need to coordinate with dyld if we want to change them.
+// The values can be modified freely, however, and would not need a world
+// build to change.
+const uint32_t _pthread_tsd_shared_cache_first = 125;
+const uint32_t _pthread_tsd_shared_cache_last = 209;
+
 static const int __pthread_tsd_start = _INTERNAL_POSIX_THREAD_KEYS_MAX;
 static const int __pthread_tsd_end = _INTERNAL_POSIX_THREAD_KEYS_END;
 
@@ -298,6 +310,14 @@ _pthread_tsd_cleanup_new(pthread_t self)
 			_pthread_tsd_cleanup_key(self, k);
 		}
 
+		// Now destroy the shared cache static keys, because they used to be
+		// dynamic before we added the TLV optimization, so avoid changing
+		// the order here.
+
+		for (k = _pthread_tsd_shared_cache_first ; k <= _pthread_tsd_shared_cache_last ; k++) {
+			_pthread_tsd_cleanup_key(self, k);
+		}
+
 		for (k = __pthread_tsd_first; k <= __pthread_tsd_max; k++) {
 			_pthread_tsd_cleanup_key(self, k);
 		}
@@ -313,7 +333,7 @@ static void
 _pthread_tsd_behaviour_check(pthread_t self)
 {
 	// Iterate from dynamic-key start to dynamic-key end, if the key has both
-	// a desctructor and a value then _pthread_tsd_cleanup_key would cause
+	// a destructor and a value then _pthread_tsd_cleanup_key would cause
 	// us to re-trigger the destructor.
 	pthread_key_t k;
 
@@ -348,6 +368,14 @@ _pthread_tsd_cleanup_legacy(pthread_t self)
 	for (j = 0; j < PTHREAD_DESTRUCTOR_ITERATIONS; j++) {
 		pthread_key_t k;
 		for (k = __pthread_tsd_start; k <= self->max_tsd_key; k++) {
+			_pthread_tsd_cleanup_key(self, k);
+		}
+
+		// Now destroy the shared cache static keys, because they used to be
+		// dynamic before we added the TLV optimization, so avoid changing
+		// the order here.
+
+		for (k = _pthread_tsd_shared_cache_first ; k <= _pthread_tsd_shared_cache_last ; k++) {
 			_pthread_tsd_cleanup_key(self, k);
 		}
 	}

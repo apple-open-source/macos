@@ -52,11 +52,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << injectedBundlePathExtensionHandle;
     encoder << additionalSandboxExtensionHandles;
     encoder << initializationUserData;
-#if PLATFORM(IOS_FAMILY)
-    encoder << cookieStorageDirectoryExtensionHandle;
-    encoder << containerCachesDirectoryExtensionHandle;
-    encoder << containerTemporaryDirectoryExtensionHandle;
-#endif
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     encoder << enableRemoteWebInspectorExtensionHandle;
 #endif
@@ -80,7 +75,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldSuppressMemoryPressureHandler;
     encoder << shouldUseFontSmoothing;
     encoder << fontAllowList;
-    encoder << terminationTimeout;
     encoder << overrideLanguages;
 #if USE(GSTREAMER)
     encoder << gstreamerOptions;
@@ -99,6 +93,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << uiProcessBundleIdentifier;
     encoder << latencyQOS;
     encoder << throughputQOS;
+    encoder << presentingApplicationBundleIdentifier;
 #endif
     encoder << presentingApplicationPID;
 #if PLATFORM(COCOA)
@@ -166,11 +161,14 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << launchServicesExtensionHandle;
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-    encoder << videoDecoderExtensionHandles;
+#if PLATFORM(MAC)
+    encoder << trustdExtensionHandle;
+#endif
+    encoder << enableDecodingHEIC;
+    encoder << enableDecodingAVIF;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    encoder << dynamicMachExtensionHandles;
     encoder << dynamicIOKitExtensionHandles;
 #endif
 
@@ -188,14 +186,9 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << contentSizeCategory;
 #endif
 
-#if PLATFORM(COCOA)
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    encoder << preferencesExtensionHandles;
-#endif
-#endif
-
 #if PLATFORM(GTK)
     encoder << useSystemAppearanceForScrollbars;
+    encoder << gtkSettings;
 #endif
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
@@ -208,6 +201,9 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
 
     encoder << accessibilityPreferences;
+#if PLATFORM(IOS_FAMILY)
+    encoder << applicationAccessibilityEnabled;
+#endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     encoder << memoryPressureHandlerConfiguration;
@@ -216,11 +212,16 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #if USE(GLIB)
     encoder << applicationID;
     encoder << applicationName;
+#if ENABLE(REMOTE_INSPECTOR)
+    encoder << inspectorServerAddress;
+#endif
 #endif
 
 #if USE(ATSPI)
     encoder << accessibilityBusAddress;
 #endif
+
+    encoder << timeZoneOverride;
 }
 
 bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreationParameters& parameters)
@@ -243,28 +244,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.additionalSandboxExtensionHandles = WTFMove(*additionalSandboxExtensionHandles);
     if (!decoder.decode(parameters.initializationUserData))
         return false;
-
-#if PLATFORM(IOS_FAMILY)
-    
-    std::optional<SandboxExtension::Handle> cookieStorageDirectoryExtensionHandle;
-    decoder >> cookieStorageDirectoryExtensionHandle;
-    if (!cookieStorageDirectoryExtensionHandle)
-        return false;
-    parameters.cookieStorageDirectoryExtensionHandle = WTFMove(*cookieStorageDirectoryExtensionHandle);
-
-    std::optional<SandboxExtension::Handle> containerCachesDirectoryExtensionHandle;
-    decoder >> containerCachesDirectoryExtensionHandle;
-    if (!containerCachesDirectoryExtensionHandle)
-        return false;
-    parameters.containerCachesDirectoryExtensionHandle = WTFMove(*containerCachesDirectoryExtensionHandle);
-
-    std::optional<SandboxExtension::Handle> containerTemporaryDirectoryExtensionHandle;
-    decoder >> containerTemporaryDirectoryExtensionHandle;
-    if (!containerTemporaryDirectoryExtensionHandle)
-        return false;
-    parameters.containerTemporaryDirectoryExtensionHandle = WTFMove(*containerTemporaryDirectoryExtensionHandle);
-
-#endif
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     std::optional<SandboxExtension::Handle> enableRemoteWebInspectorExtensionHandle;
     decoder >> enableRemoteWebInspectorExtensionHandle;
@@ -313,8 +292,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.fontAllowList))
         return false;
-    if (!decoder.decode(parameters.terminationTimeout))
-        return false;
     if (!decoder.decode(parameters.overrideLanguages))
         return false;
 #if USE(GSTREAMER)
@@ -343,6 +320,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.latencyQOS))
         return false;
     if (!decoder.decode(parameters.throughputQOS))
+        return false;
+    if (!decoder.decode(parameters.presentingApplicationBundleIdentifier))
         return false;
 #endif
     if (!decoder.decode(parameters.presentingApplicationPID))
@@ -471,20 +450,27 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.launchServicesExtensionHandle = WTFMove(*launchServicesExtensionHandle);
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-    std::optional<Vector<SandboxExtension::Handle>> videoDecoderExtensionHandles;
-    decoder >> videoDecoderExtensionHandles;
-    if (!videoDecoderExtensionHandles)
+#if PLATFORM(MAC)
+    std::optional<SandboxExtension::Handle> trustdExtensionHandle;
+    decoder >> trustdExtensionHandle;
+    if (!trustdExtensionHandle)
         return false;
-    parameters.videoDecoderExtensionHandles = WTFMove(*videoDecoderExtensionHandles);
+    parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
+#endif
+    std::optional<bool> enableDecodingHEIC;
+    decoder >> enableDecodingHEIC;
+    if (!enableDecodingHEIC)
+        return false;
+    parameters.enableDecodingHEIC = *enableDecodingHEIC;
+    
+    std::optional<bool> enableDecodingAVIF;
+    decoder >> enableDecodingAVIF;
+    if (!enableDecodingAVIF)
+        return false;
+    parameters.enableDecodingAVIF = *enableDecodingAVIF;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    std::optional<Vector<SandboxExtension::Handle>> dynamicMachExtensionHandles;
-    decoder >> dynamicMachExtensionHandles;
-    if (!dynamicMachExtensionHandles)
-        return false;
-    parameters.dynamicMachExtensionHandles = WTFMove(*dynamicMachExtensionHandles);
-
     std::optional<Vector<SandboxExtension::Handle>> dynamicIOKitExtensionHandles;
     decoder >> dynamicIOKitExtensionHandles;
     if (!dynamicIOKitExtensionHandles)
@@ -532,22 +518,17 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if PLATFORM(COCOA)
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    std::optional<std::optional<Vector<SandboxExtension::Handle>>> preferencesExtensionHandles;
-    decoder >> preferencesExtensionHandles;
-    if (!preferencesExtensionHandles)
-        return false;
-    parameters.preferencesExtensionHandles = WTFMove(*preferencesExtensionHandles);
-#endif
-#endif
-
 #if PLATFORM(GTK)
     std::optional<bool> useSystemAppearanceForScrollbars;
     decoder >> useSystemAppearanceForScrollbars;
     if (!useSystemAppearanceForScrollbars)
         return false;
     parameters.useSystemAppearanceForScrollbars = WTFMove(*useSystemAppearanceForScrollbars);
+    std::optional<GtkSettingsState> gtkSettings;
+    decoder >> gtkSettings;
+    if (!gtkSettings)
+        return false;
+    parameters.gtkSettings = WTFMove(*gtkSettings);
 #endif
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
@@ -571,6 +552,11 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.accessibilityPreferences = WTFMove(*accessibilityPreferences);
 
+#if PLATFORM(IOS_FAMILY)
+    if (!decoder.decode(parameters.applicationAccessibilityEnabled))
+        return false;
+#endif
+
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::optional<std::optional<MemoryPressureHandler::Configuration>> memoryPressureHandlerConfiguration;
     decoder >> memoryPressureHandlerConfiguration;
@@ -584,6 +570,14 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.applicationName))
         return false;
+
+#if ENABLE(REMOTE_INSPECTOR)
+    std::optional<CString> inspectorServerAddress;
+    decoder >> inspectorServerAddress;
+    if (!inspectorServerAddress)
+        return false;
+    parameters.inspectorServerAddress = WTFMove(*inspectorServerAddress);
+#endif
 #endif
 
 #if USE(ATSPI)
@@ -593,6 +587,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.accessibilityBusAddress = WTFMove(*accessibilityBusAddress);
 #endif
+
+    std::optional<String> timeZoneOverride;
+    decoder >> timeZoneOverride;
+    if (!timeZoneOverride)
+        return false;
+    parameters.timeZoneOverride = WTFMove(*timeZoneOverride);
 
     return true;
 }

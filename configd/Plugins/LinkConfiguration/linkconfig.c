@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011-2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,11 +36,16 @@
 #include <sys/wait.h>
 #include <net/if.h>
 #include <net/if_media.h>
+#include <os/feature_private.h>
+#include "WiFiUtil.h"
+
+#define __SYSCONFIG	"com.apple.SystemConfiguration"
+#define __LINKCONFIG 	"LinkConfiguration"
+#define LINKCONFIG	__SYSCONFIG "." __LINKCONFIG
 
 #define	SC_LOG_HANDLE		__log_LinkConfiguration
 #define SC_LOG_HANDLE_TYPE	static
 #include "SCNetworkConfigurationInternal.h"
-
 
 static CFMutableDictionaryRef	baseSettings		= NULL;
 static CFStringRef		interfacesKey		= NULL;
@@ -58,12 +63,88 @@ __log_LinkConfiguration(void)
 	static os_log_t	log	= NULL;
 
 	if (log == NULL) {
-		log = os_log_create("com.apple.SystemConfiguration", "LinkConfiguration");
+		log = os_log_create(__SYSCONFIG, __LINKCONFIG);
 	}
 
 	return log;
 }
 
+static inline dispatch_queue_t
+linkconfig_queue(void)
+{
+	static dispatch_queue_t		q;
+
+	if (q == NULL) {
+		q = dispatch_queue_create(LINKCONFIG, NULL);
+	}
+	return (q);
+}
+
+
+#pragma mark -
+
+#pragma mark ioctls
+
+static int S_socket = -1;
+
+static int
+ioctl_socket_get(const char * msg)
+{
+	if (S_socket < 0) {
+		S_socket = socket(AF_INET, SOCK_DGRAM, 0);
+		if (S_socket < 0) {
+			SC_log(LOG_ERR, "%s: socket() failed: %s",
+			       msg, strerror(errno));
+		}
+	}
+	return (S_socket);
+}
+
+static void
+ioctl_socket_close(void)
+{
+	if (S_socket < 0) {
+		return;
+	}
+	close(S_socket);
+	S_socket = -1;
+}
+
+static int
+ioctl_siocsifconstrained(int s, const char * ifname, Boolean enable)
+{
+	struct ifreq	ifr;
+	int		ret;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_constrained = enable ? 1 : 0;
+	ret = ioctl(s, SIOCSIFCONSTRAINED, &ifr);
+	if (ret < 0) {
+		SC_log(LOG_ERR,
+		       "ioctl(%s, SIOCSIFCONSTRAINED %d failed, %s",
+		       ifname, ifr.ifr_constrained, strerror(errno));
+	}
+	return (ret);
+}
+
+static int
+ioctl_siocsifexpensive(int s, const char * ifname, Boolean is_expensive)
+{
+	struct ifreq	ifr;
+	int		ret;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	ifr.ifr_expensive = is_expensive ? 1 : 0;
+	ret = ioctl(s, SIOCSIFEXPENSIVE, &ifr);
+	if (ret < 0) {
+		SC_log(LOG_ERR,
+		       "ioctl(%s, SIOCSIFEXPENSIVE %d failed, %s",
+		       ifname, ifr.ifr_constrained, strerror(errno));
+	}
+	return (ret);
+}
 
 #pragma mark -
 #pragma mark Capabilities
@@ -125,14 +206,12 @@ _SCNetworkInterfaceSetCapabilities(SCNetworkInterfaceRef	interface,
 	ifr.ifr_curcap = cap_current;
 	ifr.ifr_reqcap = cap_requested;
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	sock = ioctl_socket_get(__func__);
 	if (sock == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
 	ret = ioctl(sock, SIOCSIFCAP, (caddr_t)&ifr);
-	(void)close(sock);
 	if (ret == -1) {
 		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFCAP) failed: %s", interfaceName, strerror(errno));
 		return FALSE;
@@ -252,9 +331,8 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 		goto done;
 	}
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	sock = ioctl_socket_get(__func__);
 	if (sock == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		goto done;
 	}
 
@@ -286,7 +364,6 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	if (available != NULL)	CFRelease(available);
 	if (current != NULL)	CFRelease(current);
 	if (requested != NULL)	CFRelease(requested);
-	if (sock != -1)	(void)close(sock);
 
 	return ok;
 }
@@ -307,19 +384,17 @@ interfaceSetMTU(CFStringRef interfaceName, int mtu)
 	(void)_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
 	ifr.ifr_mtu = mtu;
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	sock = ioctl_socket_get(__func__);
 	if (sock == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		return FALSE;
 	}
 
 	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
-	(void)close(sock);
 	if (ret == -1) {
 		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMTU) failed: %s", interfaceName, strerror(errno));
 		return FALSE;
 	}
-
+	SC_log(LOG_NOTICE, "%@: set MTU to %d", interfaceName, mtu);
 	return TRUE;
 }
 
@@ -440,56 +515,355 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 
 
 #pragma mark -
+#pragma mark Wi-Fi Expensive Overide
+
+static dispatch_source_t	S_expensive_timer;
+
+static SCNetworkInterfaceCost
+getInterfaceTypeCost(SCDynamicStoreRef store, CFStringRef type,
+		     CFDateRef * ret_expire)
+{
+	return __SCDynamicStoreGetNetworkOverrideInterfaceTypeCost(store,
+								   type,
+								   ret_expire);
+}
+
+static CFStringRef
+copy_wifi_interface_name(void)
+{
+	CFArrayRef	if_list;
+	CFStringRef	ret_name = NULL;
+
+	if_list = SCNetworkInterfaceCopyAll();
+	if (if_list == NULL) {
+		goto done;
+	}
+	for (CFIndex i = 0, count = CFArrayGetCount(if_list);
+	     i < count; i++) {
+		SCNetworkInterfaceRef	netif;
+
+		netif = (SCNetworkInterfaceRef)
+			CFArrayGetValueAtIndex(if_list, i);
+		if (_SCNetworkInterfaceIsWiFiInfra(netif)) {
+			ret_name = SCNetworkInterfaceGetBSDName(netif);
+			CFRetain(ret_name);
+			break;
+		}
+	}
+ done:
+	if (if_list != NULL) {
+		CFRelease(if_list);
+	}
+	return (ret_name);
+}
+
+static void
+expensive_timer_cancel(void)
+{
+	if (S_expensive_timer != NULL) {
+		SC_log(LOG_NOTICE, "Wi-Fi expensive timer cancelled");
+		dispatch_source_cancel(S_expensive_timer);
+		dispatch_release(S_expensive_timer);
+		S_expensive_timer = NULL;
+	}
+	return;
+}
+
+static CFStringRef
+expensive_get_wifi_interface(void)
+{
+	static CFStringRef	interface;
+
+	if (interface == NULL) {
+		interface = copy_wifi_interface_name();
+		if (interface != NULL) {
+			SC_log(LOG_NOTICE, "Wi-Fi is %@",
+			       interface);
+		}
+	}
+	return (interface);
+}
+
+static void
+set_expensive(CFStringRef interfaceName, Boolean enable)
+{
+	char	name[IFNAMSIZ];
+	int	s;
+
+	s = ioctl_socket_get(__func__);
+	if (s < 0) {
+		return;
+	}
+	if (!CFStringGetCString(interfaceName, name, sizeof(name),
+				kCFStringEncodingUTF8)) {
+		SC_log(LOG_NOTICE, "%s: can't convert %@ to string",
+		       __func__, interfaceName);
+		return;
+	}
+	if (ioctl_siocsifexpensive(s, name, enable) >= 0) {
+		SC_log(LOG_NOTICE, "%s expensive on %s success",
+		       enable ? "enable" : "disable", name);
+	}
+}
+
+static void
+expensive_set_wifi_cost(SCNetworkInterfaceCost cost)
+{
+	Boolean		is_expensive;
+	CFStringRef	name;
+
+	name = expensive_get_wifi_interface();
+	if (name == NULL) {
+		return;
+	}
+	if (cost == kSCNetworkInterfaceCostUnspecified) {
+		is_expensive = WiFiIsExpensive();
+		SC_log(LOG_NOTICE, "%@: Wi-Fi is %sexpensive",
+		       name, is_expensive ? "" : "in");
+	}
+	else {
+		is_expensive = (cost == kSCNetworkInterfaceCostExpensive);
+		SC_log(LOG_NOTICE,
+		       "%@: Wi-Fi using %sexpensive override",
+		       name, is_expensive ? "" : "in");
+	}
+	set_expensive(name, is_expensive);
+	return;
+}
+
+static void
+expensive_override_expired(void)
+{
+	expensive_set_wifi_cost(kSCNetworkInterfaceCostUnspecified);
+	expensive_timer_cancel();
+	ioctl_socket_close();
+}
+
+
+static void
+expensive_timer_start(CFDateRef expiration)
+{
+	CFTimeInterval		delta;
+	CFAbsoluteTime		expiration_time;
+	CFAbsoluteTime		now;
+	dispatch_time_t		t;
+
+	/* cancel existing timer */
+	expensive_timer_cancel();
+
+	/* schedule new timer */
+	SC_log(LOG_NOTICE, "Wi-Fi expensive expiration time %@", expiration);
+	now = CFAbsoluteTimeGetCurrent();
+	expiration_time = CFDateGetAbsoluteTime(expiration);
+	delta = expiration_time - now;
+	SC_log(LOG_DEBUG, "expiration %g - now %g = %g",
+	       expiration_time, now, delta);
+#define NANOSECS_PER_SEC	(1000 * 1000 * 1000)
+	t = dispatch_time(DISPATCH_WALLTIME_NOW,
+			  delta * NANOSECS_PER_SEC);
+	S_expensive_timer
+		= dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+					 linkconfig_queue());
+	dispatch_source_set_event_handler(S_expensive_timer,
+					  ^{ expensive_override_expired(); });
+	dispatch_source_set_timer(S_expensive_timer, t,
+				  DISPATCH_TIME_FOREVER, 0);
+	dispatch_resume(S_expensive_timer);
+}
+
+static void
+updateWiFiExpensiveOverride(SCDynamicStoreRef store)
+{
+	SCNetworkInterfaceCost	cost;
+	CFDateRef		expiration = NULL;
+
+	cost = getInterfaceTypeCost(store, kSCNetworkInterfaceTypeIEEE80211,
+				    &expiration);
+	expensive_set_wifi_cost(cost);
+	if (cost == kSCNetworkInterfaceCostUnspecified) {
+		expensive_timer_cancel();
+	}
+	else if (expiration != NULL) {
+		expensive_timer_start(expiration);
+	}
+	if (expiration != NULL) {
+		CFRelease(expiration);
+	}
+}
+
+
+#pragma mark -
+#pragma mark Low Data Mode
+
+static inline bool
+lowDataModeFeatureEnabled(void)
+{
+	return os_feature_enabled(Network, low_data_mode);
+}
+
+static Boolean
+get_number_as_bool(CFDictionaryRef info, CFStringRef prop)
+{
+	CFNumberRef	val = NULL;
+	Boolean		ret = FALSE;
+
+	if (isA_CFDictionary(info) != NULL) {
+		int	enable = 0;
+
+		val = CFDictionaryGetValue(info, prop);
+		if (isA_CFNumber(val) != NULL
+		    && CFNumberGetValue(val, kCFNumberIntType, &enable)) {
+			ret = (enable != 0) ? TRUE : FALSE;
+		}
+	}
+	return (ret);
+}
+
+static void
+set_low_data_mode(CFStringRef interfaceName, Boolean enable)
+{
+	char	name[IFNAMSIZ];
+	int	s;
+
+	s = ioctl_socket_get(__func__);
+	if (s < 0) {
+		return;
+	}
+	if (!CFStringGetCString(interfaceName, name, sizeof(name),
+				kCFStringEncodingUTF8)) {
+		SC_log(LOG_NOTICE, "%s: can't convert %@ to string",
+		       __func__, interfaceName);
+		return;
+	}
+	if (ioctl_siocsifconstrained(s, name, enable) >= 0) {
+		SC_log(LOG_NOTICE, "%s LowDataMode on %s",
+		       enable ? "enable" : "disable", name);
+	}
+}
+
+static void
+updateLowDataMode(CFStringRef ifname, CFDictionaryRef info)
+{
+	Boolean			low_data_mode = FALSE;
+	SCNetworkInterfaceRef	netif;
+	Boolean			supported;
+
+	netif =  _SCNetworkInterfaceCreateWithBSDName(NULL, ifname, 0);
+	if (netif == NULL) {
+		SC_log(LOG_NOTICE,
+		       "Failed to create SCNetworkInterface for %@",
+		       ifname);
+		return;
+	}
+	supported = SCNetworkInterfaceSupportsLowDataMode(netif);
+	CFRelease(netif);
+	if (!supported) {
+		SC_log(LOG_INFO, "LowDataMode not supported with %@",
+		       ifname);
+		return;
+	}
+	low_data_mode = get_number_as_bool(info, kSCPropEnableLowDataMode);
+	set_low_data_mode(ifname, low_data_mode);
+}
+
+#pragma mark -
 #pragma mark Update link configuration
 
 
 /*
- * Function: parse_component
+ * Function: copyUniqueIDAndProtocol
  * Purpose:
- *   Given a string 'key' and a string prefix 'prefix',
- *   return the next component in the slash '/' separated
- *   key.
- *
- * Examples:
- * 1. key = "a/b/c" prefix = "a/"
- *    returns "b"
- * 2. key = "a/b/c" prefix = "a/b/"
- *    returns "c"
+ *   Parse either of the following two formats:
+ * 	<domain>:/<component1>/<component2>/<uniqueID>
+ *	<domain>:/<component1>/<component2>/<uniqueID>/<protocol>
+ *   returning <uniqueID>, and if available and required, <protocol>.
  */
-static CF_RETURNS_RETAINED CFStringRef
-parse_component(CFStringRef key, CFStringRef prefix)
+static CFStringRef
+copyUniqueIDAndProtocol(CFStringRef str, CFStringRef *ret_protocol)
 {
-	CFMutableStringRef	comp;
-	CFRange			range;
+	CFArrayRef	components;
+	CFIndex		count;
+	CFStringRef 	protocol = NULL;
+	CFStringRef	uniqueID = NULL;
 
-	if (!CFStringHasPrefix(key, prefix)) {
-		return NULL;
+	/*
+	 * str = "<domain>:/<component1>/<component2>/<uniqueID>"
+	 *   OR
+	 * str = "<domain>:/<component1>/<component2>/<uniqueID>/<protocol>"
+	 */
+	components = CFStringCreateArrayBySeparatingStrings(NULL, str,
+							    CFSTR("/"));
+	count = CFArrayGetCount(components);
+	if (count >= 4) {
+		/* we have a uniqueID */
+		uniqueID = CFArrayGetValueAtIndex(components, 3);
+		CFRetain(uniqueID);
+		if (count >= 5 && ret_protocol != NULL) {
+			/* we have and want a protocol */
+			protocol = CFArrayGetValueAtIndex(components, 4);
+			CFRetain(protocol);
+		}
 	}
-	comp = CFStringCreateMutableCopy(NULL, 0, key);
-	CFStringDelete(comp, CFRangeMake(0, CFStringGetLength(prefix)));
-	range = CFStringFind(comp, CFSTR("/"), 0);
-	if (range.location == kCFNotFound) {
-		return comp;
+	if (ret_protocol != NULL) {
+		*ret_protocol = protocol;
 	}
-	range.length = CFStringGetLength(comp) - range.location;
-	CFStringDelete(comp, range);
-	return comp;
+	CFRelease(components);
+	return uniqueID;
 }
 
 
-static void updateLink(CFStringRef interfaceName, CFDictionaryRef options);
+static void
+updateLink(CFStringRef interfaceName, CFDictionaryRef options);
 
+static CFStringRef
+copy_interface_setup_key(CFStringRef ifname)
+{
+	CFStringRef	key;
+
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainSetup,
+							    ifname,
+							    NULL);
+	return key;
+}
+
+static CFArrayRef
+copy_interface_list_setup_keys(CFArrayRef list)
+{
+	CFIndex			count = CFArrayGetCount(list);
+	CFMutableArrayRef	keys;
+
+	keys = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef	key;
+		CFStringRef	ifname = CFArrayGetValueAtIndex(list, i);
+
+		key = copy_interface_setup_key(ifname);
+		CFArrayAppendValue(keys, key);
+		CFRelease(key);
+	}
+	return (keys);
+}
 
 static void
-updateInterfaces(CFArrayRef newInterfaces)
+updateInterfaces(SCDynamicStoreRef store, CFArrayRef newInterfaces)
 {
 	CFIndex			i;
+	CFArrayRef		keys = NULL;
+	CFDictionaryRef		low_data_mode_info = NULL;
 	CFIndex			n_old;
 	CFIndex			n_new;
 	static CFArrayRef	oldInterfaces	= NULL;
 
 	n_old = (oldInterfaces != NULL) ? CFArrayGetCount(oldInterfaces) : 0;
 	n_new = CFArrayGetCount(newInterfaces);
+	if (lowDataModeFeatureEnabled() && n_new > 0) {
+		/* create a parallel array of SCDynamicStore keys */
+		keys = copy_interface_list_setup_keys(newInterfaces);
+		/* copy the values for those keys */
+		low_data_mode_info
+			= SCDynamicStoreCopyMultiple(store, keys, NULL);
+	}
 
 	for (i = 0; i < n_new; i++) {
 		CFStringRef	interfaceName;
@@ -505,11 +879,27 @@ updateInterfaces(CFArrayRef newInterfaces)
 			// if new interface
 			options = CFDictionaryGetValue(wantSettings, interfaceName);
 			updateLink(interfaceName, options);
+			if (keys != NULL && low_data_mode_info != NULL) {
+				CFStringRef	key;
+				CFDictionaryRef	info;
+
+				key = CFArrayGetValueAtIndex(keys, i);
+				info = CFDictionaryGetValue(low_data_mode_info,
+							    key);
+				info = isA_CFDictionary(info);
+				updateLowDataMode(interfaceName, info);
+			}
 		}
 	}
 
 	if (oldInterfaces != NULL) CFRelease(oldInterfaces);
 	oldInterfaces = CFRetain(newInterfaces);
+	if (keys != NULL) {
+		CFRelease(keys);
+	}
+	if (low_data_mode_info != NULL) {
+		CFRelease(low_data_mode_info);
+	}
 }
 
 
@@ -608,7 +998,6 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 	return;
 }
 
-
 static void
 linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
@@ -616,15 +1005,6 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 	CFDictionaryRef		changes;
 	CFIndex			i;
 	CFIndex			n;
-	static CFStringRef	prefix		= NULL;
-
-	if (prefix == NULL) {
-		prefix = SCDynamicStoreKeyCreate(NULL,
-						 CFSTR("%@/%@/%@/"),
-						 kSCDynamicStoreDomainSetup,
-						 kSCCompNetwork,
-						 kSCCompInterface);
-	}
 
 	changes = SCDynamicStoreCopyMultiple(store, changedKeys, NULL);
 
@@ -635,22 +1015,32 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 
 		key  = CFArrayGetValueAtIndex(changedKeys, i);
 		info = CFDictionaryGetValue(changes, key);
-
+		info = isA_CFDictionary(info);
 		if (CFEqual(key, interfacesKey)) {
-			if (isA_CFDictionary(info) != NULL) {
+			if (info != NULL) {
 				CFArrayRef	interfaces;
 
 				interfaces = CFDictionaryGetValue(info, kSCPropNetInterfaces);
 				if (isA_CFArray(interfaces)) {
-					updateInterfaces(interfaces);
+					updateInterfaces(store, interfaces);
 				}
 			}
+		} else if (CFStringHasSuffix(key,
+					     kSCNetworkInterfaceTypeIEEE80211)) {
+			/* override settings changed */
+			updateWiFiExpensiveOverride(store);
 		} else {
 			CFStringRef	interfaceName;
+			CFStringRef	protocol = NULL;
 
-			interfaceName = parse_component(key, prefix);
+			interfaceName = copyUniqueIDAndProtocol(key, &protocol);
 			if (interfaceName != NULL) {
-				updateLink(interfaceName, info);
+				if (protocol != NULL) {
+					updateLink(interfaceName, info);
+					CFRelease(protocol);
+				} else {
+					updateLowDataMode(interfaceName, info);
+				}
 				CFRelease(interfaceName);
 			}
 		}
@@ -659,10 +1049,9 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 	if (changes != NULL) {
 		CFRelease(changes);
 	}
-
+	ioctl_socket_close();
 	return;
 }
-
 
 __private_extern__
 void
@@ -672,7 +1061,6 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFStringRef		key;
 	CFMutableArrayRef	keys		= NULL;
 	Boolean			ok;
-	dispatch_queue_t	q;
 	CFMutableArrayRef	patterns	= NULL;
 
 	SC_log(LOG_DEBUG, "load() called");
@@ -708,6 +1096,12 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 								kSCDynamicStoreDomainState);
 	CFArrayAppendValue(keys, interfacesKey);
 
+	/* ...watch for changes to Wi-Fi interface cost override */
+	key = __SCDynamicStoreKeyCreateNetworkOverrideInterfaceType(NULL,
+								    kSCNetworkInterfaceTypeIEEE80211);
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+
 	/* ...watch for (per-interface) AirPort configuration changes */
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							    kSCDynamicStoreDomainSetup,
@@ -734,6 +1128,12 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFRelease(key);
 #endif	// TARGET_OS_OSX
 
+	if (lowDataModeFeatureEnabled()) {
+		key = copy_interface_setup_key(kSCCompAnyRegex);
+		CFArrayAppendValue(patterns, key);
+		CFRelease(key);
+	}
+
 	/* register the keys/patterns */
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, patterns);
 	CFRelease(keys);
@@ -744,8 +1144,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 		goto error;
 	}
 
-	q = dispatch_queue_create("com.apple.SystemConfiguration.LinkConfiguration", NULL);
-	ok = SCDynamicStoreSetDispatchQueue(store, q);
+	ok = SCDynamicStoreSetDispatchQueue(store, linkconfig_queue());
 	if (!ok) {
 		SC_log(LOG_NOTICE, "SCDynamicStoreSetDispatchQueue() failed: %s",
 		       SCErrorString(SCError()));
@@ -838,6 +1237,7 @@ main(int argc, char * const argv[])
 
 		CFRelease(prefs);
 	}
+	ioctl_socket_close();
 
 	load_LinkConfiguration(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
 	CFRunLoopRun();

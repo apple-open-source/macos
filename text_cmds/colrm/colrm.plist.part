@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-24</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>colrm.c: fix crash if argv[0] == NULL (4384130)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>colrm</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-06-23</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/colrm?id=c47514db10db5ae0ab9ae8015d5dbb8178ec6b42</string>
+</dict>

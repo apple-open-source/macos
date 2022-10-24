@@ -62,5 +62,35 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>SecSystemKeychainAlwaysSupported</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>AllowiProd</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>BecomeiProd</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>OctagonSupportsPersonaMultiuser</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>SecCMSMessageSecurityShim</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>SecSkipSecurityToolAuth</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

@@ -1,0 +1,1 @@
+http://webnic.ocsp.sectigo.com

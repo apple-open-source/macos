@@ -292,7 +292,7 @@ krb5_addlog_func (
  * the up to *sa_size will be stored, and then *sa_size will be set to
  * the required length.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr the address to copy the from
  * @param sa the struct sockaddr that will be filled in
  * @param sa_size pointer to length of sa, and after the call, it will
@@ -317,7 +317,7 @@ krb5_addr2sockaddr (
  * krb5_address_compare compares the addresses  addr1 and addr2.
  * Returns TRUE if the two addresses are the same.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr1 address to compare
  * @param addr2 address to compare
  *
@@ -337,7 +337,7 @@ krb5_address_compare (
  * it can be used for sorting addresses. If the addresses are the same
  * address krb5_address_order will return 0. Behavies like memcmp(2).
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr1 krb5_address to compare
  * @param addr2 krb5_address to compare
  *
@@ -357,7 +357,7 @@ krb5_address_order (
  * Calculate the boundary addresses of `inaddr'/`prefixlen' and store
  * them in `low' and `high'.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr address in prefixlen that the bondery searched
  * @param prefixlen width of boundery
  * @param low lowest address
@@ -380,7 +380,7 @@ krb5_address_prefixlen_boundary (
  * krb5_address_search checks if the address addr is a member of the
  * address set list addrlist .
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param addr address to search for.
  * @param addrlist list of addresses to look in for addr.
  *
@@ -424,7 +424,7 @@ krb5_aname_to_localname (
  * of the sa, and after the call, it will contain the actual length
  * of the address.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af address family
  * @param sa sockaddr
  * @param sa_size lenght of sa.
@@ -474,7 +474,7 @@ krb5_appdefault_time (
  * krb5_append_addresses adds the set of addresses in source to
  * dest. While copying the addresses, duplicates are also sorted out.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param dest destination of copy operation
  * @param source adresses that are going to be added to dest
  *
@@ -1121,7 +1121,7 @@ krb5_cc_gen_new (
 /**
  * Get some configuration for the credential cache in the cache.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id the credential cache to store the data for
  * @param principal configuration for a specific principal, if
  * NULL, global for the whole cache.
@@ -1168,7 +1168,7 @@ krb5_cc_get_friendly_name (
 /**
  * Return the complete resolvable name the cache
 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id return pointer to a found credential cache
  * @param str the returned name of a credential cache, free with krb5_xfree()
  *
@@ -1345,7 +1345,7 @@ krb5_cc_last_change_time (
  * Move the content from one credential cache to another. The
  * operation is an atomic switch.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param from the credential cache to move the content from
  * @param to the credential cache to move the content to
 
@@ -1400,7 +1400,7 @@ krb5_cc_next_cred (
  * Add a new ccache type with operations `ops', overwriting any
  * existing one if `override'.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param ops type of plugin symbol
  * @param override flag to select if the registration is to overide
  * an existing ops with the same name.
@@ -1433,7 +1433,7 @@ krb5_cc_remove_cred (
  * Find and allocate a ccache in `id' from the specification in `residual'.
  * If the ccache name doesn't contain any colon, interpret it as a file name.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name string name of a credential cache.
  * @param id return pointer to a found credential cache.
  *
@@ -1492,7 +1492,7 @@ krb5_cc_set_acl (
  * Store some configuration for the credential cache in the cache.
  * Existing configuration under the same name is over-written.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param id the credential cache to store the data for
  * @param principal configuration for a specific principal, if
  * NULL, global for the whole cache.
@@ -1652,7 +1652,7 @@ krb5_cccol_cursor_free (
  * Get a new cache interation cursor that will interate over all
  * credentials caches independent of type.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param cursor passed into krb5_cccol_cursor_next() and free with krb5_cccol_cursor_free().
  *
  * @return Returns 0 or and error code, see krb5_get_error_message().
@@ -2285,7 +2285,7 @@ krb5_config_vget_time_default (
  * krb5_copy_address copies the content of address
  * inaddr to outaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr pointer to source address
  * @param outaddr pointer to destination address
  *
@@ -2304,7 +2304,7 @@ krb5_copy_address (
  * krb5_copy_addresses copies the content of addresses
  * inaddr to outaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr pointer to source addresses
  * @param outaddr pointer to destination addresses
  *
@@ -3053,7 +3053,7 @@ krb5_digest_init_request (
 /**
  * Get the supported/allowed mechanism for this principal.
  *
- * @param context A Keberos context.
+ * @param context A Kerberos context.
  * @param realm The realm of the KDC.
  * @param ccache The credential cache to use when talking to the KDC.
  * @param flags The supported mechanism.
@@ -3487,7 +3487,7 @@ krb5_errx (
  * canonical one in the newly allocated space returned in
  * new_hostname.
 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param orig_hostname hostname to canonicalise.
  * @param new_hostname output hostname, caller must free hostname with
  *        krb5_xfree().
@@ -3509,7 +3509,7 @@ krb5_expand_hostname (
  * and return the realms new_hostname is believed to belong to in
  * realms.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param orig_hostname hostname to canonicalise.
  * @param new_hostname output hostname, caller must free hostname with
  *        krb5_xfree().
@@ -3547,7 +3547,7 @@ krb5_format_time (
  * krb5_free_address frees the data stored in the address that is
  * alloced with any of the krb5_address functions.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param address addresss to be freed.
  *
  * @return Return an error code or 0.
@@ -3564,7 +3564,7 @@ krb5_free_address (
  * krb5_free_addresses frees the data stored in the address that is
  * alloced with any of the krb5_address functions.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addresses addressses to be freed.
  *
  * @return Return an error code or 0.
@@ -4734,7 +4734,7 @@ krb5_getportbyname (
  * krb5_h_addr2addr works like krb5_h_addr2sockaddr with the exception
  * that it operates on a krb5_address instead of a struct sockaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af address family
  * @param haddr host address from struct hostent.
  * @param addr returned krb5_address.
@@ -4758,7 +4758,7 @@ krb5_h_addr2addr (
  * of the sa, and after the call, it will contain the actual length of
  * the address.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af addresses
  * @param addr address
  * @param sa returned struct sockaddr
@@ -4994,6 +4994,10 @@ krb5_init_creds_set_keyblock (
 	krb5_init_creds_context ctx,
 	krb5_keyblock *keyblock);
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_init_creds_set_nonce(krb5_context context,
+			  krb5_init_creds_context ctx,
+			  unsigned nonce);
 /**
  * Set the keytab to use for authentication.
  *
@@ -5208,7 +5212,7 @@ krb5_initlog (
  * principal (generated part of krb5_cc_set_config()). Returns FALSE
  * (zero) if not a configuration principal.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param principal principal to check if it a configuration principal
  *
  * @ingroup krb5_ccache
@@ -5488,7 +5492,7 @@ krb5_krbhst_set_sitename (
 /**
  * Add the entry in `entry' to the keytab `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the entry to add
  *
@@ -5507,7 +5511,7 @@ krb5_kt_add_entry (
  * Finish using the keytab in `id'.  All resources will be released,
  * even on errors.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id keytab to close.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5525,7 +5529,7 @@ krb5_kt_close (
  * Any of `principal, vno, enctype' might be 0 which acts as a wildcard.
  * Return TRUE if they compare the same, FALSE otherwise.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param entry an entry to match with.
  * @param principal principal to match, NULL matches all principals.
  * @param vno key version to match, 0 matches all key version numbers.
@@ -5547,7 +5551,7 @@ krb5_kt_compare (
 /**
  * Copy the contents of `in' into `out'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param in the keytab entry to copy.
  * @param out the copy of the keytab entry, free with krb5_kt_free_entry().
  *
@@ -5565,7 +5569,7 @@ krb5_kt_copy_entry_contents (
 /**
  * Set `id' to the default keytab.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id the new default keytab.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5581,7 +5585,7 @@ krb5_kt_default (
 /**
  * Copy the name of the default modify keytab into `name'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name buffer where the name will be written
  * @param namesize length of name
  *
@@ -5599,7 +5603,7 @@ krb5_kt_default_modify_name (
 /**
  * copy the name of the default keytab into `name'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name buffer where the name will be written
  * @param namesize length of name
  *
@@ -5618,7 +5622,7 @@ krb5_kt_default_name (
  * Destroy (remove) the keytab in `id'.  All resources will be released,
  * even on errors, does the equvalment of krb5_kt_close() on the resources.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id keytab to destroy.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5634,7 +5638,7 @@ krb5_kt_destroy (
 /**
  * Release all resources associated with `cursor'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param cursor the cursor to free.
  *
@@ -5652,7 +5656,7 @@ krb5_kt_end_seq_get (
 /**
  * Free the contents of `entry'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param entry the entry to free
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5669,7 +5673,7 @@ krb5_kt_free_entry (
  * Retrieve the keytab entry for `principal, kvno, enctype' into `entry'
  * from the keytab `id'. Matching is done like krb5_kt_compare().
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param principal principal to match, NULL matches all principals.
  * @param kvno key version to match, 0 matches all key version numbers.
@@ -5694,7 +5698,7 @@ krb5_kt_get_entry (
  * Retrieve the full name of the keytab `keytab' and store the name in
  * `str'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab keytab to get name for.
  * @param str the name of the keytab name, usee krb5_xfree() to free
  *        the string.  On error, *str is set to NULL.
@@ -5713,7 +5717,7 @@ krb5_kt_get_full_name (
 /**
  * Retrieve the name of the keytab `keytab' into `name', `namesize'
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab the keytab to get the name for.
  * @param name name buffer.
  * @param namesize size of name buffer.
@@ -5734,7 +5738,7 @@ krb5_kt_get_name (
  * Return the type of the `keytab' in the string `prefix of length
  * `prefixsize'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab the keytab to get the prefix for
  * @param prefix prefix buffer
  * @param prefixsize length of prefix buffer
@@ -5754,7 +5758,7 @@ krb5_kt_get_type (
 /**
  * Return true if the keytab exists and have entries
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5771,7 +5775,7 @@ krb5_kt_have_content (
  * Get the next entry from keytab, advance the cursor.  On last entry
  * the function will return KRB5_KT_END.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the returned entry, free with krb5_kt_free_entry().
  * @param cursor the cursor of the iteration.
@@ -5792,7 +5796,7 @@ krb5_kt_next_entry (
  * Read the key identified by `(principal, vno, enctype)' from the
  * keytab in `keyprocarg' (the default if == NULL) into `*key'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keyprocarg key proc argument
  * @param principal principal to find
  * @param vno its kvno to search for
@@ -5816,7 +5820,7 @@ krb5_kt_read_service_key (
 /**
  * Register a new keytab backend.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param ops a backend to register.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -5833,7 +5837,7 @@ krb5_kt_register (
  * Remove an entry from the keytab, matching is done using
  * krb5_kt_compare().
 
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the entry to remove
  *
@@ -5852,7 +5856,7 @@ krb5_kt_remove_entry (
  * Resolve the keytab name (of the form `type:residual') in `name'
  * into a keytab in `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name name to resolve
  * @param id resulting keytab, free with krb5_kt_close().
  *
@@ -5870,7 +5874,7 @@ krb5_kt_resolve (
 /**
  * Set `cursor' to point at the beginning of `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param cursor a newly allocated cursor, free with krb5_kt_end_seq_get().
  *
@@ -5954,7 +5958,7 @@ krb5_log_msg (
 /**
  * Create an address of type KRB5_ADDRESS_ADDRPORT from (addr, port)
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param res built address from addr/port
  * @param addr address to use
  * @param port port to use
@@ -6319,7 +6323,7 @@ krb5_padata_add (
  * krb5_parse_address returns the resolved hostname in string to the
  * krb5_addresses addresses .
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param string string to parse as an address
  * @param addresses return address, free with krb5_free_addresses()
  *
@@ -6945,7 +6949,7 @@ krb5_rd_req (
  * The core server function that verify application authentication
  * requests from clients.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param auth_context the authentication context, can be NULL, then
  *        default values for the authentication context will used.
  * @param inbuf the (AP-REQ) authentication buffer
@@ -6979,7 +6983,7 @@ krb5_rd_req_ctx (
  * krb5_rd_req_ctx(). The caller should free the context with
  * krb5_rd_req_in_ctx_free() when done with the context.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param ctx in ctx to krb5_rd_req_ctx().
  *
  * @return Kerberos 5 error code, see krb5_get_error_message().
@@ -7012,7 +7016,7 @@ krb5_rd_req_in_set_keyblock (
 /**
  * Set the keytab that krb5_rd_req_ctx() will use.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param in in ctx to krb5_rd_req_ctx().
  * @param keytab keytab that krb5_rd_req_ctx() will use, only copy the
  *        pointer, so the caller must free they keytab after
@@ -7032,7 +7036,7 @@ krb5_rd_req_in_set_keytab (
 /**
  * Set if krb5_rq_red() is going to check the Windows PAC or not
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param in krb5_rd_req_in_ctx to check the option on.
  * @param flag flag to select if to check the pac (TRUE) or not (FALSE).
  *
@@ -7055,7 +7059,7 @@ krb5_rd_req_out_copy_pac (
 /**
  * Free the krb5_rd_req_out_ctx.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param ctx krb5_rd_req_out_ctx context to free.
  *
  * @ingroup krb5_auth
@@ -7871,7 +7875,7 @@ krb5_set_max_time_skew (
 /**
  * Change password using creds.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param creds The initial kadmin/passwd for the principal or an admin principal
  * @param newpw The new password to set
  * @param targprinc For most callers should pass NULL in this
@@ -7905,7 +7909,7 @@ krb5_set_password (
  * Change password using a credential cache that contains an initial
  * credential or an admin credential.
  * 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param ccache the credential cache to use to find the
  *        kadmin/changepw principal.
  * @param newpw The new password to set
@@ -7940,7 +7944,7 @@ krb5_set_password_using_ccache (
  * kerberos library can calculate the relative diffrence beteen the
  * KDC time and local system time.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param sec The applications new of "now" in seconds
  * @param usec The applications new of "now" in micro seconds
 
@@ -8025,7 +8029,7 @@ krb5_sock_to_principal (
  * krb5_sockaddr2address stores a address a "struct sockaddr" sa in
  * the krb5_address addr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param sa a struct sockaddr to extract the address from
  * @param addr an Kerberos 5 address to store the address in.
  *
@@ -8044,7 +8048,7 @@ krb5_sockaddr2address (
  * krb5_sockaddr2port extracts a port (if possible) from a "struct
  * sockaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param sa a struct sockaddr to extract the port from
  * @param port a pointer to an int16_t store the port in.
  *

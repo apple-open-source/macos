@@ -84,6 +84,9 @@ extern NSString* SecCKKSContainerName;
 extern NSString* const SecCKKSSubscriptionID;
 extern NSString* const SecCKKSAPSNamedPort;
 
+/* This is the default CKKS context ID, which maps to what the DB upgrade will insert on existing dbs */
+extern NSString* CKKSDefaultContextID;
+
 /* Item CKRecords */
 extern NSString* const SecCKRecordItemType;
 extern NSString* const SecCKRecordHostOSVersionKey;

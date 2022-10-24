@@ -572,7 +572,6 @@ pid/tst.oneshot_return.ksh
 pid/tst.oneshot_multithreaded.ksh
 pid/tst.ret1.d
 pid/tst.ret2.d
-pid/tst.vfork.d
 pid/tst.dlopen.ksh
 # pid/tst.weak1.d								/* DEFERRED wants #pragma weak _go = go */
 # pid/tst.weak2.d								/* DEFERRED wants #pragma weak _go = go */

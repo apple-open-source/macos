@@ -78,7 +78,7 @@ static ResourceResponse synthesizedResponseForRange(const ResourceResponse& orig
     auto begin = parsedRequestRange.begin;
     auto end = parsedRequestRange.end;
 
-    auto newContentRange = makeString("bytes ", begin, "-", end, "/", (totalContentLength ? makeString(*totalContentLength) : "*"));
+    auto newContentRange = makeString("bytes ", begin, "-", end, "/", (totalContentLength ? makeString(*totalContentLength) : "*"_s));
     auto newContentLength = makeString(end - begin + 1);
 
     ResourceResponse newResponse = originalResponse;
@@ -96,7 +96,11 @@ static ResourceResponse synthesizedResponseForRange(const ResourceResponse& orig
 void RangeResponseGenerator::removeTask(WebCoreNSURLSessionDataTask *task)
 {
     ASSERT(isMainThread());
-    auto* data = m_map.get(task.originalRequest.URL.absoluteString);
+    auto url = task.originalRequest.URL;
+    // HashMap::get() crashes if a null String is passed.
+    if (!url)
+        return;
+    auto* data = m_map.get(url.absoluteString);
     if (!data)
         return;
     data->taskData.remove(task);
@@ -190,6 +194,8 @@ void RangeResponseGenerator::giveResponseToTasksWithFinishedRanges(Data& data)
 bool RangeResponseGenerator::willHandleRequest(WebCoreNSURLSessionDataTask *task, NSURLRequest *request)
 {
     ASSERT(isMainThread());
+    if (!request.URL)
+        return false;
     auto* data = m_map.get(request.URL.absoluteString);
     if (!data)
         return false;

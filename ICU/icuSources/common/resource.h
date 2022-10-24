@@ -254,8 +254,8 @@ protected:
     ResourceValue() {}
 
 private:
-    ResourceValue(const ResourceValue &);  // no copy constructor
-    ResourceValue &operator=(const ResourceValue &);  // no assignment operator
+    ResourceValue(const ResourceValue &) = delete;  // no copy constructor
+    ResourceValue &operator=(const ResourceValue &) = delete;  // no assignment operator
 };
 
 /**
@@ -286,8 +286,8 @@ public:
                      UErrorCode &errorCode) = 0;
 
 private:
-    ResourceSink(const ResourceSink &);  // no copy constructor
-    ResourceSink &operator=(const ResourceSink &);  // no assignment operator
+    ResourceSink(const ResourceSink &) = delete;  // no copy constructor
+    ResourceSink &operator=(const ResourceSink &) = delete;  // no assignment operator
 };
 
 U_NAMESPACE_END

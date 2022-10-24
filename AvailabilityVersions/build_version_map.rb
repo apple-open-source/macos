@@ -23,7 +23,7 @@ def versionHex(vers)
     "0x00#{major.to_s(16).rjust(2, '0')}#{minor.to_s(16).rjust(2, '0')}#{revision.to_s(16).rjust(2, '0')}"
 end
 
-$versionLookupTable = {
+$minorLookupTable = {
     "spring" => "0301",
     "late_spring" => "0415",
     "summer" => "0601",
@@ -36,11 +36,13 @@ $versionLookupTable = {
 }
 
 def setNameToVersion(setName)
-    if setName =~ /^(.*)\_(\d{4})$/
-        if not $versionLookupTable.key?($1)
+    if setName =~ /^(\d{4})\_SU\_([A-Z])$/
+        "0x00#{$1.to_i.to_s(16)}#{($2.ord-54).to_s(16).rjust(2, '0')}00"
+    elsif setName =~ /^(.*)\_(\d{4})$/
+        if not $minorLookupTable.key?($1)
             abort("Unknown platform set substring \"#{$1}\"")
         end
-        "0x00#{$2.to_i.to_s(16)}#{$versionLookupTable[$1]}"
+        "0x00#{$2.to_i.to_s(16)}#{$minorLookupTable[$1]}"
     else
         abort("Could not parse set identiifer \"#{setName}\"")
     end

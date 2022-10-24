@@ -59,7 +59,7 @@ class MediaSourcePrivateAVFObjC final
 #endif
 {
 public:
-    static Ref<MediaSourcePrivateAVFObjC> create(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient*);
+    static Ref<MediaSourcePrivateAVFObjC> create(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient&);
     virtual ~MediaSourcePrivateAVFObjC();
 
     MediaPlayerPrivateMediaSourceAVFObjC* player() const { return m_player.get(); }
@@ -120,12 +120,12 @@ public:
     void failedToCreateRenderer(RendererType);
 
 private:
-    MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient*);
+    MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient&);
 
     void sourceBufferPrivateDidChangeActiveState(SourceBufferPrivateAVFObjC*, bool active);
     void sourceBufferPrivateDidReceiveInitializationSegment(SourceBufferPrivateAVFObjC*);
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    void sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC*, Uint8Array*);
+    void sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC*, const SharedBuffer&);
 #endif
     void removeSourceBuffer(SourceBufferPrivate*);
 
@@ -134,7 +134,7 @@ private:
     friend class SourceBufferPrivateAVFObjC;
 
     WeakPtr<MediaPlayerPrivateMediaSourceAVFObjC> m_player;
-    RefPtr<MediaSourcePrivateClient> m_client;
+    WeakPtr<MediaSourcePrivateClient> m_client;
     Vector<RefPtr<SourceBufferPrivateAVFObjC>> m_sourceBuffers;
     Vector<SourceBufferPrivateAVFObjC*> m_activeSourceBuffers;
     Deque<SourceBufferPrivateAVFObjC*> m_sourceBuffersNeedingSessions;

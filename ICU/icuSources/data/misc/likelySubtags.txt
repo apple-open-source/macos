@@ -60,6 +60,7 @@ likelySubtags:table(nofallback){
     ape{"ape_Latn_ZZ"}
     apr{"apr_Latn_ZZ"}
     aps{"aps_Latn_ZZ"}
+    apw{"apw_Latn_US"}
     apz{"apz_Latn_ZZ"}
     ar{"ar_Arab_EG"}
     arc{"arc_Armi_IR"}

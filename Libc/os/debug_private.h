@@ -29,6 +29,8 @@
 #include <os/base_private.h>
 #include <stdarg.h>
 
+OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_FORMAT_PRINTF(1, 2) OS_COLD
 extern void
@@ -74,6 +76,8 @@ _os_debug_log(const char *msg, ...);
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD
 extern void
-_os_debug_log_error_str(char *str);
+_os_debug_log_error_str(char *__unsafe_indexable str);
+
+OS_ASSUME_PTR_ABI_SINGLE_END
 
 #endif /* __OS_DEBUG_LOG_H__ */

@@ -463,10 +463,6 @@ static int ap_proxy_http_prefetch(proxy_http_req_t *req,
     apr_off_t bytes;
     int rv;
 
-    if (req->force10 && r->expecting_100) {
-        return HTTP_EXPECTATION_FAILED;
-    }
-
     rv = ap_proxy_create_hdrbrgd(p, header_brigade, r, p_conn,
                                  req->worker, req->sconf,
                                  uri, url, req->server_portstr,
@@ -1138,8 +1134,23 @@ int ap_proxy_http_process_response(proxy_http_req_t *req)
                 ap_pass_brigade(r->output_filters, bb);
                 /* Mark the backend connection for closing */
                 backend->close = 1;
-                /* Need to return OK to avoid sending an error message */
-                return OK;
+                if (origin->keepalives) {
+                    /* We already had a request on this backend connection and
+                     * might just have run into a keepalive race. Hence we
+                     * think positive and assume that the backend is fine and
+                     * we do not need to signal an error on backend side.
+                     */
+                    return OK;
+                }
+                /*
+                 * This happened on our first request on this connection to the
+                 * backend. This indicates something fishy with the backend.
+                 * Return HTTP_INTERNAL_SERVER_ERROR to signal an unrecoverable
+                 * server error. We do not worry about r->status code and a
+                 * possible error response here as the ap_http_outerror_filter
+                 * will fix all of this for us.
+                 */
+                return HTTP_INTERNAL_SERVER_ERROR;
             }
             if (!c->keepalives) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01105)
@@ -1336,6 +1347,14 @@ int ap_proxy_http_process_response(proxy_http_req_t *req)
                 backend->close = 1;
                 origin->keepalive = AP_CONN_CLOSE;
             }
+            else {
+                /*
+                 * Keep track of the number of keepalives we processed on this
+                 * connection.
+                 */
+                origin->keepalives++;
+            }
+
         } else {
             /* an http/0.9 response */
             backasswards = 1;
@@ -1907,8 +1926,11 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
     apr_pool_userdata_get((void **)&input_brigade, "proxy-req-input", p);
 
     /* Should we handle end-to-end or ping 100-continue? */
-    if ((r->expecting_100 && (dconf->forward_100_continue || input_brigade))
-            || PROXY_DO_100_CONTINUE(worker, r)) {
+    if (!req->force10
+        && ((r->expecting_100 && (dconf->forward_100_continue || input_brigade))
+            || PROXY_SHOULD_PING_100_CONTINUE(worker, r))) {
+        /* Tell ap_proxy_create_hdrbrgd() to preserve/add the Expect header */
+        apr_table_setn(r->notes, "proxy-100-continue", "1");
         req->do_100_continue = 1;
     }
 
@@ -2024,8 +2046,9 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
         if (status != OK) {
             if (req->do_100_continue && status == HTTP_SERVICE_UNAVAILABLE) {
                 ap_log_rerror(APLOG_MARK, APLOG_INFO, status, r, APLOGNO(01115)
-                              "HTTP: 100-Continue failed to %pI (%s)",
-                              worker->cp->addr, worker->s->hostname_ex);
+                              "HTTP: 100-Continue failed to %pI (%s:%d)",
+                              worker->cp->addr, worker->s->hostname_ex,
+                              (int)worker->s->port);
                 backend->close = 1;
                 retry++;
                 continue;

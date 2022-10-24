@@ -339,7 +339,8 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
             || record.type === WI.TimelineRecord.Type.RenderingFrame
             || record.type === WI.TimelineRecord.Type.CPU
             || record.type === WI.TimelineRecord.Type.Memory
-            || record.type === WI.TimelineRecord.Type.HeapAllocations)
+            || record.type === WI.TimelineRecord.Type.HeapAllocations
+            || record.type === WI.TimelineRecord.Type.Screenshots)
             return;
 
         if (!WI.TimelineRecording.sourceCodeTimelinesSupported())
@@ -439,8 +440,16 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
         }
     }
 
+    get exportMode()
+    {
+        return WI.FileUtilities.SaveMode.SingleFile;
+    }
+
     canExport()
     {
+        if (!WI.FileUtilities.canSave(this.exportMode))
+            return false;
+
         if (this._capturing)
             return false;
 

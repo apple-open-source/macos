@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)write.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/write/write.1,v 1.10 2002/04/20 12:18:12 charnier Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 6, 1993
+.Dd February 13, 2012
 .Dt WRITE 1
 .Os
 .Sh NAME
@@ -44,7 +40,7 @@
 .Sh SYNOPSIS
 .Nm
 .Ar user
-.Op Ar ttyname
+.Op Ar tty
 .Sh DESCRIPTION
 The
 .Nm
@@ -88,7 +84,7 @@ home, the message will go to the right place.
 .Pp
 The traditional protocol for writing to someone is that the string
 .Ql \-o ,
-either at the end of a line or on a line by itself, means that it's the
+either at the end of a line or on a line by itself, means that it is the
 other person's turn to talk.
 The string
 .Ql oo
@@ -104,3 +100,10 @@ A
 .Nm
 command appeared in
 .At v1 .
+.Sh BUGS
+The sender's
+.Ev LC_CTYPE
+setting is used to determine which characters are safe to write to a
+terminal, not the receiver's (which
+.Nm
+has no way of knowing).

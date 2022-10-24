@@ -54,14 +54,14 @@ CFAbsoluteTime genTimeToCFAbsTime(
 
 /*
  * Convert CFAbsoluteTime to generalized time string, GMT format (4 digit year,
- * trailing 'Z'). Caller allocated the output which is GENERAL_TIME_STRLEN bytes plus
- * a NULL.
+ * trailing 'Z').
  */
 #define GENERAL_TIME_STRLEN	15		/* NOT including trailing NULL */
 
-void cfAbsTimeToGgenTime(
+void cfAbsTimeToGgenTime2(
 	CFAbsoluteTime		absTime,
-	char				*genTime);
+	char				*genTime,
+	size_t			genTimeSz);
 
 #define OCSPD_MAX_DIGEST_LEN		CC_SHA256_DIGEST_LENGTH
 

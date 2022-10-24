@@ -37,7 +37,7 @@
 
 #define MAX_ZLIB_CHUNK (1024 * 1024 * 1024)
 
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 #define LEVEL Z_BEST_SPEED
 #define NETBUF 0
 #else

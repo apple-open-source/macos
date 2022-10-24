@@ -1,6 +1,7 @@
 MSDOSFS_VERSION = 1.10
 MSDOSFS_COPYRIGHT_INFO_STRING = $MSDOSFS_VERSION, Copyright © 2000-2021 Apple Inc. All rights reserved.
 FS_BUNDLE_PATH = /System/Library/Filesystems/msdos.fs
-FS_BUNDLE_BIN_DIR = Contents/Resources
+FS_BUNDLE_BIN_DIR = $()
+FS_BUNDLE_BIN_DIR[sdk=macosx*] = Contents/Resources
 FS_BUNDLE_BIN_PATH = $FS_BUNDLE_PATH/$FS_BUNDLE_BIN_DIR
 SUPPORTED_PLATFORMS = macosx iphonesimulator iphoneos

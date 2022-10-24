@@ -376,6 +376,7 @@ int ZEXPORT gzputs(file, str)
 #include <stdarg.h>
 
 /* -- see zlib.h -- */
+__attribute__((format(printf, 2, 0)))
 int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va)
 {
     int len;
@@ -448,6 +449,7 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va)
     return len;
 }
 
+__attribute__((format(printf, 2, 3)))
 int ZEXPORTVA gzprintf(gzFile file, const char *format, ...)
 {
     va_list va;

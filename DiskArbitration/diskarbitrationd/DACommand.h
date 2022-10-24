@@ -26,6 +26,8 @@
 
 #include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/private.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +43,7 @@ typedef UInt32 DACommandExecuteOptions;
 
 typedef void ( *DACommandExecuteCallback )( int status, CFDataRef output, void * context );
 
-extern CFRunLoopSourceRef DACommandCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
+extern dispatch_mach_t DACommandCreateMachChannel( void );
 
 extern void DACommandExecute( CFURLRef                 executable,
                               DACommandExecuteOptions  options,

@@ -24,7 +24,7 @@
 #include "crc.h"
 
 
-const crcDescriptor crc16_ccitt_false = {
+const crcDescriptor CC_crc16_ccitt_false = {
     .name = "crc16-ccitt-false",
     .defType = model,
     .def.parms.width = 2,

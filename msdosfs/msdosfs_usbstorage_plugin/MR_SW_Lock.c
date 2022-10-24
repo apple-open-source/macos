@@ -10,32 +10,27 @@
 
 void MultiReadSingleWrite_Init ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_init( &psMultiReadSingleWriteHandler->sRWLock, NULL );
-    assert( err == 0 );
+    pthread_rwlock_init( &psMultiReadSingleWriteHandler->sRWLock, NULL );
 }
 
 void MultiReadSingleWrite_DeInit ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_destroy( &psMultiReadSingleWriteHandler->sRWLock );
-    assert( err == 0 );
+    pthread_rwlock_destroy( &psMultiReadSingleWriteHandler->sRWLock );
 }
 
 void MultiReadSingleWrite_LockRead ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_rdlock( &psMultiReadSingleWriteHandler->sRWLock );
-    assert( err == 0 );
+    pthread_rwlock_rdlock( &psMultiReadSingleWriteHandler->sRWLock );
 }
 
 void MultiReadSingleWrite_FreeRead ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_unlock( &psMultiReadSingleWriteHandler->sRWLock );
-    assert( err == 0 );
+    pthread_rwlock_unlock( &psMultiReadSingleWriteHandler->sRWLock );
 }
 
 void MultiReadSingleWrite_LockWrite ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_wrlock( &psMultiReadSingleWriteHandler->sRWLock );
-    assert( err == 0 );
+    pthread_rwlock_wrlock( &psMultiReadSingleWriteHandler->sRWLock );
 }
 
 bool MultiReadSingleWrite_TryLockWrite ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
@@ -46,6 +41,5 @@ bool MultiReadSingleWrite_TryLockWrite ( MultiReadSingleWriteHandler_s* psMultiR
 
 void MultiReadSingleWrite_FreeWrite ( MultiReadSingleWriteHandler_s* psMultiReadSingleWriteHandler )
 {
-    errno_t err = pthread_rwlock_unlock( &psMultiReadSingleWriteHandler->sRWLock );
-    assert( err == 0 );
+    pthread_rwlock_unlock( &psMultiReadSingleWriteHandler->sRWLock );
 }

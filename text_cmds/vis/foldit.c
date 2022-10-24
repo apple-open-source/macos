@@ -1,3 +1,5 @@
+/*	$NetBSD: foldit.c,v 1.7 2009/02/10 23:06:31 christos Exp $	*/
+
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,23 +30,21 @@
  */
 
 #include <sys/cdefs.h>
-
-__FBSDID("$FreeBSD: src/usr.bin/vis/foldit.c,v 1.6 2001/12/11 23:02:44 markm Exp $");
-
 #ifndef lint
-static const char sccsid[] = "@(#)foldit.c	8.1 (Berkeley) 6/6/93";
+#if 0
+static char sccsid[] = "@(#)foldit.c	8.1 (Berkeley) 6/6/93";
 #endif
+__RCSID("$NetBSD: foldit.c,v 1.7 2009/02/10 23:06:31 christos Exp $");
+#endif /* not lint */
 
 #include <stdio.h>
-
+#include <vis.h>
 #include "extern.h"
 
 int
-foldit(chunk, col, max)
-	char *chunk;
-	int col, max;
+foldit(const char *chunk, int col, int max, int flags)
 {
-	char *cp;
+	const char *cp;
 
 	/*
 	 * Keep track of column position. Insert hidden newline
@@ -72,10 +68,10 @@ again:
 			col++;
 		}
 		if (col > (max - 2)) {
-			printf("\\\n");
+			printf(flags & VIS_MIMESTYLE ? "=\n" : "\\\n");
 			col = 0;
 			goto again;
-		}
+		} 
 		cp++;
 	}
 	return (col);

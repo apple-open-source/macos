@@ -29,6 +29,7 @@
 
 #include "DestinationColorSpace.h"
 #include "IntSize.h"
+#include "ProcessIdentity.h"
 #include <objc/objc.h>
 #include <pal/spi/cocoa/IOSurfaceSPI.h>
 
@@ -45,11 +46,10 @@ namespace WebCore {
 
 class GraphicsContext;
 class HostWindow;
-class ImageBuffer;
-class ProcessIdentity;
+class IOSurfacePool;
 
 enum class PixelFormat : uint8_t;
-enum class VolatilityState : uint8_t;
+enum class SetNonVolatileResult : uint8_t;
 
 using IOSurfaceSeed = uint32_t;
 
@@ -100,19 +100,15 @@ public:
         uint32_t m_flags;
     };
 
-    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, const DestinationColorSpace&, Format = Format::BGRA);
-    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IntSize, IntSize contextSize, const DestinationColorSpace&, Format = Format::BGRA);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> create(IOSurfacePool*, IntSize, const DestinationColorSpace&, Format = Format::BGRA);
+    WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromImage(IOSurfacePool*, CGImageRef);
+
     WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromSendRight(const WTF::MachSendRight&&, const DestinationColorSpace&);
     WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromSurface(IOSurfaceRef, const DestinationColorSpace&);
-    WEBCORE_EXPORT static std::unique_ptr<IOSurface> createFromImage(CGImageRef);
-    
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
-    static std::unique_ptr<IOSurface> createFromImageBuffer(RefPtr<ImageBuffer>);
-#endif
+
+    WEBCORE_EXPORT static void moveToPool(std::unique_ptr<IOSurface>&&, IOSurfacePool*);
 
     WEBCORE_EXPORT ~IOSurface();
-
-    WEBCORE_EXPORT static void moveToPool(std::unique_ptr<IOSurface>&&);
 
     WEBCORE_EXPORT static IntSize maximumSize();
     WEBCORE_EXPORT static void setMaximumSize(IntSize);
@@ -137,10 +133,10 @@ public:
     // Querying volatility can be expensive, so in cases where the surface is
     // going to be used immediately, use the return value of setVolatile to
     // determine whether the data was purged, instead of first calling state() or isVolatile().
-    VolatilityState state() const;
+    SetNonVolatileResult state() const;
     bool isVolatile() const;
 
-    WEBCORE_EXPORT VolatilityState setVolatile(bool);
+    WEBCORE_EXPORT SetNonVolatileResult setVolatile(bool);
 
     IntSize size() const { return m_size; }
     size_t totalBytes() const { return m_totalBytes; }
@@ -150,7 +146,7 @@ public:
     WEBCORE_EXPORT IOSurfaceID surfaceID() const;
     size_t bytesPerRow() const;
 
-    IOSurfaceSeed seed() const;
+    WEBCORE_EXPORT IOSurfaceSeed seed() const;
 
     WEBCORE_EXPORT bool isInUse() const;
 
@@ -160,7 +156,7 @@ public:
 
 #if HAVE(IOSURFACE_ACCELERATOR)
     WEBCORE_EXPORT static bool allowConversionFromFormatToFormat(Format, Format);
-    WEBCORE_EXPORT static void convertToFormat(std::unique_ptr<WebCore::IOSurface>&& inSurface, Format, Function<void(std::unique_ptr<WebCore::IOSurface>)>&&);
+    WEBCORE_EXPORT static void convertToFormat(IOSurfacePool*, std::unique_ptr<WebCore::IOSurface>&& inSurface, Format, Function<void(std::unique_ptr<WebCore::IOSurface>)>&&);
 #endif // HAVE(IOSURFACE_ACCELERATOR)
 
     WEBCORE_EXPORT void setOwnershipIdentity(const ProcessIdentity&);
@@ -169,18 +165,14 @@ public:
     void migrateColorSpaceToProperties();
 
 private:
-    IOSurface(IntSize, IntSize contextSize, const DestinationColorSpace&, Format, bool& success);
+    IOSurface(IntSize, const DestinationColorSpace&, Format, bool& success);
     IOSurface(IOSurfaceRef, const DestinationColorSpace&);
-
-    static std::unique_ptr<IOSurface> surfaceFromPool(IntSize, IntSize contextSize, const DestinationColorSpace&, Format);
-    IntSize contextSize() const { return m_contextSize; }
-    void setContextSize(IntSize);
 
     DestinationColorSpace m_colorSpace;
     IntSize m_size;
-    IntSize m_contextSize;
     size_t m_totalBytes;
 
+    ProcessIdentity m_resourceOwner;
     std::unique_ptr<GraphicsContext> m_graphicsContext;
     RetainPtr<CGContextRef> m_cgContext;
 

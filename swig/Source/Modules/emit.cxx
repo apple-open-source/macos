@@ -398,7 +398,7 @@ String *emit_action(Node *n) {
   String *tm;
   String *action;
   String *wrap;
-  SwigType *rt;
+  __unused SwigType *rt;
   ParmList *catchlist = Getattr(n, "catchlist");
 
   /* Look for fragments */

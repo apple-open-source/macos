@@ -43,6 +43,12 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecSCTUtils.h>
 
+#include <libDER/libDER.h>
+#include <libDER/asn1Types.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/oids.h>
+#include <libDER/DER_CertCrl.h>
+#include <libDER/DER_Encode.h>
 
 #define ocspdErrorLog(args, ...)     secerror(args, ## __VA_ARGS__)
 #define ocspdHttpDebug(args...)     secdebug("ocspdHttp", ## args)
@@ -50,89 +56,335 @@
 
 
 /*
-   OCSPResponse ::= SEQUENCE {
-      responseStatus         OCSPResponseStatus,
-      responseBytes          [0] EXPLICIT ResponseBytes OPTIONAL }
-
-   OCSPResponseStatus ::= ENUMERATED {
-       successful            (0),  --Response has valid confirmations
-       malformedRequest      (1),  --Illegal confirmation request
-       internalError         (2),  --Internal error in issuer
-       tryLater              (3),  --Try again later
-                                   --(4) is not used
-       sigRequired           (5),  --Must sign the request
-       unauthorized          (6)   --Request unauthorized
-   }
-
-   ResponseBytes ::=       SEQUENCE {
-       responseType   OBJECT IDENTIFIER,
-       response       OCTET STRING }
-
-   id-pkix-ocsp           OBJECT IDENTIFIER ::= { id-ad-ocsp }
-   id-pkix-ocsp-basic     OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
-
-   The value for response SHALL be the DER encoding of
-   BasicOCSPResponse.
-
-   BasicOCSPResponse       ::= SEQUENCE {
-      tbsResponseData      ResponseData,
-      signatureAlgorithm   AlgorithmIdentifier,
-      signature            BIT STRING,
-      certs                [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
-
-   The value for signature SHALL be computed on the hash of the DER
-   encoding ResponseData.
-
-   ResponseData ::= SEQUENCE {
-      version              [0] EXPLICIT Version DEFAULT v1,
-      responderID              ResponderID,
-      producedAt               GeneralizedTime,
-      responses                SEQUENCE OF SingleResponse,
-      responseExtensions   [1] EXPLICIT Extensions OPTIONAL }
-
-   ResponderID ::= CHOICE {
-      byName               [1] Name,
-      byKey                [2] KeyHash }
-
-   KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
-   (excluding the tag and length fields)
-
-   SingleResponse ::= SEQUENCE {
-      certID                       CertID,
-      certStatus                   CertStatus,
-      thisUpdate                   GeneralizedTime,
-      nextUpdate         [0]       EXPLICIT GeneralizedTime OPTIONAL,
-      singleExtensions   [1]       EXPLICIT Extensions OPTIONAL }
-
-   CertStatus ::= CHOICE {
-       good        [0]     IMPLICIT NULL,
-       revoked     [1]     IMPLICIT RevokedInfo,
-       unknown     [2]     IMPLICIT UnknownInfo }
-
-   RevokedInfo ::= SEQUENCE {
-       revocationTime              GeneralizedTime,
-       revocationReason    [0]     EXPLICIT CRLReason OPTIONAL }
-
-   UnknownInfo ::= NULL -- this can be replaced with an enumeration
+ OCSPResponse ::= SEQUENCE {
+    responseStatus         OCSPResponseStatus,
+    responseBytes          [0] EXPLICIT ResponseBytes OPTIONAL }
 */
 
-static CFAbsoluteTime genTimeToCFAbsTime(const SecAsn1Item *datetime)
+typedef struct {
+    DERItem responseStatus;
+    DERItem responseBytes;
+} DER_OCSPResponse;
+
+const DERItemSpec DER_OCSPResponseItemSpecs[] =
 {
-    return SecAbsoluteTimeFromDateContent(SEC_ASN1_GENERALIZED_TIME,
-        datetime->Data, datetime->Length);
-}
+    { DER_OFFSET(DER_OCSPResponse, responseStatus),
+        ASN1_ENUMERATED,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPResponse, responseBytes),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 0,
+        DER_DEC_OPTIONAL }
+};
+
+const DERSize DERNumOCSPResponseItemSpecs =
+    sizeof(DER_OCSPResponseItemSpecs) / sizeof(DERItemSpec);
+
+/*
+ RESPONSE ::= TYPE-IDENTIFIER
+
+ ResponseSet RESPONSE ::= {basicResponse, ...}
+
+ ResponseBytes ::=       SEQUENCE {
+     responseType        RESPONSE.
+                             &id ({ResponseSet}),
+     response            OCTET STRING (CONTAINING RESPONSE.
+                             &Type({ResponseSet}{@responseType}))}
+ */
+typedef struct {
+    DERItem responseType;
+    DERItem response;
+} DER_OCSPResponseBytes;
+
+const DERItemSpec DER_OCSPResponseBytesItemSpecs[] =
+{
+    { DER_OFFSET(DER_OCSPResponseBytes, responseType),
+        ASN1_OBJECT_ID,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPResponseBytes, response),
+        ASN1_OCTET_STRING,
+        DER_DEC_NO_OPTS }
+};
+
+const DERSize DERNumOCSPResponseBytesItemSpecs =
+    sizeof(DER_OCSPResponseBytesItemSpecs) / sizeof(DERItemSpec);
+
+/*
+ basicResponse RESPONSE ::=
+     { BasicOCSPResponse IDENTIFIED BY id-pkix-ocsp-basic }
+ id-pkix-ocsp                 OBJECT IDENTIFIER ::= id-ad-ocsp
+ id-pkix-ocsp-basic           OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
+ */
+const DERByte _basicOCSPResponse[] = { 43, 6, 1, 5, 5, 7, 48, 1 , 1 };
+const DERItem BasicOCSPResponse = { (DERByte *)_basicOCSPResponse,
+                                    sizeof(_basicOCSPResponse) };
+
+/*
+ BasicOCSPResponse       ::= SEQUENCE {
+    tbsResponseData      ResponseData,
+    signatureAlgorithm   AlgorithmIdentifier{SIGNATURE-ALGORITHM,
+                             {sa-dsaWithSHA1 | sa-rsaWithSHA1 |
+                                  sa-rsaWithMD5 | sa-rsaWithMD2, ...}},
+    signature            BIT STRING,
+    certs            [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
+ */
+const DERItemSpec DERBasicOCSPResponseItemSpecs[] =
+{
+    { DER_OFFSET(DERBasicOCSPResponse, responseData),
+        ASN1_CONSTR_SEQUENCE,
+        DER_DEC_NO_OPTS | DER_DEC_SAVE_DER },
+    { DER_OFFSET(DERBasicOCSPResponse, signatureAlgorithm),
+        ASN1_CONSTR_SEQUENCE,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DERBasicOCSPResponse, signature),
+        ASN1_BIT_STRING,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DERBasicOCSPResponse, certs),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 0,
+        DER_DEC_OPTIONAL },
+};
+
+const DERSize DERNumBasicOCSPResponseItemSpecs =
+    sizeof(DERBasicOCSPResponseItemSpecs) / sizeof(DERItemSpec);
+
+/*
+ Version ::= INTEGER { v1(0) }
+
+ ResponseData ::= SEQUENCE {
+    version              [0] EXPLICIT Version DEFAULT v1,
+    responderID              ResponderID,
+    producedAt               GeneralizedTime,
+    responses                SEQUENCE OF SingleResponse,
+    responseExtensions   [1] EXPLICIT Extensions
+                                {{re-ocsp-nonce, ...,
+                                  re-ocsp-extended-revoke}} OPTIONAL }
+*/
+
+const DERItemSpec DER_OCSPResponseDataItemSpecs[] =
+{
+    { DER_OFFSET(DER_OCSPResponseData, version),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 0,
+        DER_DEC_OPTIONAL },
+    { DER_OFFSET(DER_OCSPResponseData, responderId),
+        0,
+        DER_DEC_ASN_ANY | DER_DEC_SAVE_DER },
+    { DER_OFFSET(DER_OCSPResponseData, producedAt),
+        ASN1_GENERALIZED_TIME,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPResponseData, responses),
+        ASN1_CONSTR_SEQUENCE,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPResponseData, extensions),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1,
+        DER_DEC_OPTIONAL },
+};
+
+const DERSize DERNumOCSPResponseDataItemSpecs =
+    sizeof(DER_OCSPResponseDataItemSpecs) / sizeof(DERItemSpec);
+
+
+/*
+ SingleResponse ::= SEQUENCE {
+    certID                       CertID,
+    certStatus                   CertStatus,
+    thisUpdate                   GeneralizedTime,
+    nextUpdate           [0]     EXPLICIT GeneralizedTime OPTIONAL,
+    singleExtensions     [1]     EXPLICIT Extensions{{re-ocsp-crl |
+                                              re-ocsp-archive-cutoff |
+                                              CrlEntryExtensions, ...}
+                                              } OPTIONAL }
+ */
+typedef struct {
+    DERItem certId;
+    DERItem certStatus;
+    DERItem thisUpdate;
+    DERItem nextUpdate;
+    DERItem singleExtensions;
+} DER_OCSPSingleResponse;
+
+const DERItemSpec DER_OCSPSingleResponseItemSpecs[] =
+{
+    { DER_OFFSET(DER_OCSPSingleResponse, certId),
+        ASN1_CONSTR_SEQUENCE,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPSingleResponse, certStatus),
+        0,
+        DER_DEC_ASN_ANY | DER_DEC_SAVE_DER },
+    { DER_OFFSET(DER_OCSPSingleResponse, thisUpdate),
+        ASN1_GENERALIZED_TIME,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_OCSPSingleResponse, nextUpdate),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 0,
+        DER_DEC_OPTIONAL },
+    { DER_OFFSET(DER_OCSPSingleResponse, singleExtensions),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1,
+        DER_DEC_OPTIONAL },
+};
+
+const DERSize DERNumOCSPSingleResponseItemSpecs =
+    sizeof(DER_OCSPSingleResponseItemSpecs) / sizeof(DERItemSpec);
+
+/*
+ RevokedInfo ::= SEQUENCE {
+     revocationTime              GeneralizedTime,
+     revocationReason    [0]     EXPLICIT CRLReason OPTIONAL }
+ */
+typedef struct {
+    DERItem revocationTime;
+    DERItem revocationReason;
+} DERRevokedInfo;
+
+const DERItemSpec DERRevokedInfoItemSpecs[] =
+{
+    { DER_OFFSET(DERRevokedInfo, revocationTime),
+        ASN1_GENERALIZED_TIME,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DERRevokedInfo, revocationReason),
+        ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 0,
+        DER_DEC_OPTIONAL }
+};
+
+const DERSize DERNumRevokedInfoItemSpecs =
+    sizeof(DERRevokedInfoItemSpecs) / sizeof(DERItemSpec);
 
 void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this) {
+    if (!this) { return; }
     CFReleaseSafe(this->scts);
     free(this);
 }
 
-static SecOCSPSingleResponseRef SecOCSPSingleResponseCreate(
-    SecAsn1OCSPSingleResponse *resp, SecAsn1CoderRef coder) {
+static bool SecOCSPRevokedInfoParse(DERItem *revokedInfoBytes, SecOCSPSingleResponseRef singleResponseObj)
+{
+    bool result = false;
+    DERReturn drtn = DR_GenericErr;
+    DERRevokedInfo revokedInfo;
+
+    drtn = DERParseSequenceContentToObject(revokedInfoBytes, DERNumRevokedInfoItemSpecs, DERRevokedInfoItemSpecs, &revokedInfo, sizeof(revokedInfo), sizeof(revokedInfo));
+    require_noerr_action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse RevokedInfo"));
+
+    require_action(revokedInfo.revocationTime.data && revokedInfo.revocationTime.length > 0, badRevokedInfo,
+                   ocspdErrorLog("RevokedInfo missing revocationTime"));
+    CFErrorRef dateError = NULL;
+    singleResponseObj->revokedTime = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, revokedInfo.revocationTime.data, revokedInfo.revocationTime.length, &dateError);
+    require_action(dateError == NULL, badRevokedInfo, ocspdErrorLog("failed to decode revocationTime: %@", dateError));
+
+    if (revokedInfo.revocationReason.data && revokedInfo.revocationReason.length > 0) {
+        DERDecodedInfo revocationReason;
+        drtn = DERDecodeItem(&revokedInfo.revocationReason, &revocationReason);
+        require_noerr_action(drtn, badRevokedInfo, ocspdErrorLog("failed to parse revocation reason"));
+        require_action(revocationReason.tag == ASN1_ENUMERATED && revocationReason.content.length == 1, badRevokedInfo,
+                       ocspdErrorLog("failed to parse revocation reason"));
+        singleResponseObj->crlReason = revocationReason.content.data[0];
+    }
+
+    result = true;
+
+badRevokedInfo:
+    return result;
+}
+
+/*
+ CertStatus ::= CHOICE {
+     good                [0]     IMPLICIT NULL,
+     revoked             [1]     IMPLICIT RevokedInfo,
+     unknown             [2]     IMPLICIT UnknownInfo }
+
+ UnknownInfo ::= NULL
+ */
+static bool SecOCSPCertStatusParse(DERItem *certStatusBytes, SecOCSPSingleResponseRef singleResponseObj)
+{
+    bool result = false;
+    require_action(certStatusBytes->data && certStatusBytes->length > 0, badCertStatus, ocspdErrorLog("missing certStatus in SingleResponse"));
+
+    DERDecodedInfo decodedCertStatus;
+    DERReturn drtn = DERDecodeItem(certStatusBytes, &decodedCertStatus);
+    require_noerr_action(drtn, badCertStatus, ocspdErrorLog("failed to decode certStatus in SingleResponse"));
+    switch (decodedCertStatus.tag) {
+        case ASN1_CONTEXT_SPECIFIC | 0:
+            singleResponseObj->certStatus = OCSPCertStatusGood;
+            require_action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Good certStatus content"));
+            break;
+        case ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1:
+            singleResponseObj->certStatus = OCSPCertStatusRevoked;
+            require(SecOCSPRevokedInfoParse(&decodedCertStatus.content, singleResponseObj), badCertStatus);
+            break;
+        case ASN1_CONTEXT_SPECIFIC | 2:
+            singleResponseObj->certStatus = OCSPCertStatusUnknown;
+            require_action(decodedCertStatus.content.length == 0, badCertStatus, ocspdErrorLog("invalid Unknown certStatus content"));
+            break;
+        default:
+            ocspdErrorLog("Unknown cert status: %llu", decodedCertStatus.tag);
+            goto badCertStatus;
+    }
+
+    result = true;
+
+badCertStatus:
+    return result;
+}
+
+static bool SecOCSPNextUpdateParse(DERItem *nextUpdateBytes, SecOCSPSingleResponseRef singleResponseObj)
+{
+    bool result = false;
+    DERDecodedInfo decodedNextUpdate;
+    CFErrorRef dateError = NULL;
+    DERReturn drtn = DR_GenericErr;
+
+    drtn = DERDecodeItem(nextUpdateBytes, &decodedNextUpdate);
+    require_noerr(drtn, badNextUpdate);
+    require(decodedNextUpdate.tag == ASN1_GENERALIZED_TIME, badNextUpdate);
+    singleResponseObj->nextUpdate = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, decodedNextUpdate.content.data, decodedNextUpdate.content.length, &dateError);
+    require(dateError == NULL, badNextUpdate);
+    return true;
+
+badNextUpdate:
+    ocspdErrorLog("failed to decode nextUpdate: %@", dateError);
+    return result;
+}
+
+static bool SecOCSPSingleExtensionsParse(DERItem *singleExtensionsBytes, SecOCSPSingleResponseRef singleResponseObj)
+{
+    DERDecodedInfo extensions;
+    if (DERDecodeItem(singleExtensionsBytes, &extensions) != DR_Success || extensions.tag != ASN1_CONSTR_SEQUENCE) {
+        return false;
+    }
+    DERReturn extnStatus = DERDecodeSequenceWithBlock(singleExtensionsBytes, ^DERReturn(DERDecodedInfo *content, bool *stop) {
+        if (content->tag != ASN1_CONSTR_SEQUENCE) {
+            return DR_UnexpectedTag;
+        }
+        DERReturn drtn = DR_GenericErr;
+        DERExtension extension;
+        drtn = DERParseSequenceContentToObject(&content->content, DERNumExtensionItemSpecs, DERExtensionItemSpecs, &extension, sizeof(extension), sizeof(extension));
+        if (drtn != DR_Success) {
+            return drtn;
+        }
+
+        // We only examine the SCTs extension
+        if (DEROidCompare(&extension.extnID, &oidGoogleOCSPSignedCertificateTimestamp)) {
+            DERDecodedInfo decodedSct;
+            drtn = DERDecodeItem(&extension.extnValue, &decodedSct);
+            if (drtn != DR_Success) {
+                return drtn;
+            }
+            if (decodedSct.tag != ASN1_OCTET_STRING) {
+                return DR_UnexpectedTag;
+            }
+            if (singleResponseObj && !singleResponseObj->scts) {
+                singleResponseObj->scts = SecCreateSignedCertificateTimestampsArrayFromSerializedSCTList(decodedSct.content.data, decodedSct.content.length);
+            }
+        }
+        return DR_Success;
+    });
+    if (extnStatus != DR_Success) {
+        return false;
+    }
+    return true;
+}
+
+static SecOCSPSingleResponseRef SecOCSPSingleResponseCreate(DER_OCSPSingleResponse *resp) {
 	assert(resp != NULL);
     SecOCSPSingleResponseRef this;
     require(this = (SecOCSPSingleResponseRef)
-        calloc(1, sizeof(struct __SecOCSPSingleResponse)), errOut);
+        calloc(1, sizeof(struct __SecOCSPSingleResponse)), badSingleResponse);
     this->certStatus = CS_NotParsed;
 	this->thisUpdate = NULL_TIME;
 	this->nextUpdate = NULL_TIME;
@@ -140,73 +392,85 @@ static SecOCSPSingleResponseRef SecOCSPSingleResponseCreate(
 	this->crlReason = kSecRevocationReasonUndetermined;
     this->scts = NULL;
 
-	if ((resp->certStatus.Data == NULL) || (resp->certStatus.Length == 0)) {
-		ocspdErrorLog("OCSPSingleResponse: bad certStatus");
-        goto errOut;
-	}
-	this->certStatus = (SecAsn1OCSPCertStatusTag)(resp->certStatus.Data[0] & SEC_ASN1_TAGNUM_MASK);
-	if (this->certStatus == CS_Revoked) {
-		/* Decode further to get SecAsn1OCSPRevokedInfo */
-		SecAsn1OCSPCertStatus certStatus;
-		memset(&certStatus, 0, sizeof(certStatus));
-		if (SecAsn1DecodeData(coder, &resp->certStatus,
-				kSecAsn1OCSPCertStatusRevokedTemplate, &certStatus)) {
-			ocspdErrorLog("OCSPSingleResponse: err decoding certStatus");
-            goto errOut;
-		}
-		SecAsn1OCSPRevokedInfo *revokedInfo = certStatus.revokedInfo;
-		if (revokedInfo != NULL) {
-			/* Treat this as optional even for CS_Revoked */
-			this->revokedTime = genTimeToCFAbsTime(&revokedInfo->revocationTime);
-			const SecAsn1Item *revReason = revokedInfo->revocationReason;
-			if((revReason != NULL) &&
-			   (revReason->Data != NULL) &&
-			   (revReason->Length != 0)) {
-			   this->crlReason = revReason->Data[0];
-			}
-		}
-	}
-    this->thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
-    if (this->thisUpdate == NULL_TIME) {
-		ocspdErrorLog("OCSPResponse: bad thisUpdate DER");
-        goto errOut;
+    require(SecOCSPCertStatusParse(&resp->certStatus, this), badSingleResponse);
+
+    require_action(resp->thisUpdate.data && resp->thisUpdate.length > 0, badSingleResponse,
+                   ocspdErrorLog("SingleResponse missing thisUpdate"));
+    CFErrorRef dateError = NULL;
+    this->thisUpdate = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, resp->thisUpdate.data, resp->thisUpdate.length, &dateError);
+    require_action(dateError == NULL, badSingleResponse, ocspdErrorLog("failed to decode thisUpdate: %@", dateError));
+
+    if (resp->nextUpdate.data && resp->nextUpdate.length > 0) {
+        require(SecOCSPNextUpdateParse(&resp->nextUpdate, this), badSingleResponse);
     }
 
-	if (resp->nextUpdate != NULL) {
-		this->nextUpdate = genTimeToCFAbsTime(resp->nextUpdate);
-        if (this->nextUpdate == NULL_TIME) {
-            ocspdErrorLog("OCSPResponse: bad nextUpdate DER");
-            goto errOut;
-        }
-	}
-
-    /* Lookup through extensions to find SCTs */
-    if(resp->singleExtensions) {
-        ocspdErrorLog("OCSPResponse: single response has extension(s).");
-        int i = 0;
-        NSS_CertExtension *extn;
-        while ((extn = resp->singleExtensions[i])) {
-            if(SecAsn1OidCompare(&extn->extnId, &OID_GOOGLE_OCSP_SCT )) {
-                ocspdErrorLog("OCSPResponse: single response has an SCT extension.");
-                SecAsn1Item sct_data = {0,};
-
-                // Note: if there are more that one valid SCT extension, we just use the first one that successfully decoded
-                if((this->scts == NULL) && (SecAsn1DecodeData(coder, &extn->value, kSecAsn1OctetStringTemplate, &sct_data) == 0)) {
-                    this->scts = SecCreateSignedCertificateTimestampsArrayFromSerializedSCTList(sct_data.Data, sct_data.Length);
-                    ocspdErrorLog("OCSPResponse: single response has an SCT extension, parsed = %p.", this->scts);
-                }
-            }
-            i++;
-        }
+    if (resp->singleExtensions.data && resp->singleExtensions.length > 0) {
+        require(SecOCSPSingleExtensionsParse(&resp->singleExtensions, this), badSingleResponse);
     }
 
-	ocspdDebug("status %d reason %d", (int)this->certStatus,
-		(int)this->crlReason);
+    ocspdDebug("status %d reason %d", (int)this->certStatus,
+        (int)this->crlReason);
     return this;
-errOut:
-    if (this)
+
+badSingleResponse:
+    if (this) {
         SecOCSPSingleResponseDestroy(this);
+    }
     return NULL;
+}
+
+static bool SecOCSPResponseForDERSingleResponse(SecOCSPResponseRef response, DERReturn (^operation)(DER_OCSPSingleResponse *singleResponse, bool *stop))
+{
+    DERReturn drtn = DERDecodeSequenceContentWithBlock(&response->responseData.responses, ^DERReturn(DERDecodedInfo *content, bool *stop) {
+        if (content->tag != ASN1_CONSTR_SEQUENCE) {
+            return DR_UnexpectedTag;
+        }
+        DER_OCSPSingleResponse singleResponse;
+        DERReturn innerDrtn = DERParseSequenceContentToObject(&content->content, DERNumOCSPSingleResponseItemSpecs, DER_OCSPSingleResponseItemSpecs, &singleResponse, sizeof(singleResponse), sizeof(singleResponse));
+        if (innerDrtn != DR_Success) {
+            ocspdErrorLog("failed to parse single response");
+            return innerDrtn;
+        }
+        return operation(&singleResponse, stop);
+    });
+    if (drtn != DR_Success) {
+        return false;
+    }
+    return true;
+}
+
+bool SecOCSPResponseForSingleResponse(SecOCSPResponseRef response, DERReturn (^operation)(SecOCSPSingleResponseRef singleResponse, DER_OCSPCertID *certId, DERAlgorithmId *hashAlgorithm, bool *stop))
+{
+    return SecOCSPResponseForDERSingleResponse(response, ^DERReturn(DER_OCSPSingleResponse *singleResponse, bool *stop) {
+        DER_OCSPCertID certId;
+        DERAlgorithmId algId;
+        SecOCSPSingleResponseRef sr = SecOCSPSingleResponseCreate(singleResponse);
+        if (!sr) {
+            return DR_DecodeError;
+        }
+
+        DERReturn innerDrtn = DERParseSequenceContentToObject(&singleResponse->certId,
+                                                              DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
+                                                              &certId, sizeof(certId), sizeof(certId));
+        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
+
+        innerDrtn = DERParseSequenceContent(&certId.hashAlgorithm,
+                                     DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
+                                     &algId, sizeof(algId));
+        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
+
+        if (singleResponse->singleExtensions.data && singleResponse->singleExtensions.length > 0) {
+            require_action(SecOCSPSingleExtensionsParse(&singleResponse->singleExtensions, sr), singleResponseCleanup, innerDrtn = DR_DecodeError; ocspdErrorLog("failed to parse single extensions"));
+        }
+
+        innerDrtn = operation(sr, &certId, &algId, stop);
+
+    singleResponseCleanup:
+        if (sr) {
+            SecOCSPSingleResponseDestroy(sr);
+        }
+        return innerDrtn;
+    });
 }
 
 /* Calculate temporal validity; set latestNextUpdate and expireTime.
@@ -224,36 +488,32 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 
     /* Make this->latestNextUpdate be the date farthest in the future
        of any of the singleResponses nextUpdate fields. */
-    SecAsn1OCSPSingleResponse **responses;
-    for (responses = this->responseData.responses; *responses; ++responses) {
-		SecAsn1OCSPSingleResponse *resp = *responses;
-
-		/* thisUpdate later than 'now' invalidates the whole response. */
-		CFAbsoluteTime thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
-		if (thisUpdate > verifyTime + TRUST_TIME_LEEWAY) {
-			secnotice("ocsp","OCSPResponse: thisUpdate more than 1:15 from now");
-            goto exit;
-		}
-
-		/* Keep track of latest nextUpdate. */
-		if (resp->nextUpdate != NULL) {
-			CFAbsoluteTime nextUpdate = genTimeToCFAbsTime(resp->nextUpdate);
-			if (nextUpdate > this->latestNextUpdate) {
-				this->latestNextUpdate = nextUpdate;
-			}
-		}
-        else {
-            /* RFC 5019 section 2.2.4 states on nextUpdate:
-                 Responders MUST always include this value to aid in
-                 response caching.  See Section 6 for additional
-                 information on caching.
-            */
-			secnotice("ocsp", "OCSPResponse: nextUpdate not present");
-#ifdef STRICT_RFC5019
-            goto exit;
-#endif
+    ok = SecOCSPResponseForDERSingleResponse(this, ^DERReturn(DER_OCSPSingleResponse *singleResponse, bool *stop) {
+        DERReturn innerDrtn = DR_GenericErr;
+        SecOCSPSingleResponseRef sr = SecOCSPSingleResponseCreate(singleResponse);
+        if (!sr) {
+            return DR_GenericErr;
         }
-	}
+
+        if (sr->thisUpdate > verifyTime + TRUST_TIME_LEEWAY) {
+            secnotice("ocsp","OCSPResponse: thisUpdate more than 1:15 from now");
+            goto singleResponseCleanup;
+        }
+        if (singleResponse->nextUpdate.data && singleResponse->nextUpdate.length > 0) {
+            if (sr->nextUpdate > this->latestNextUpdate) {
+                this->latestNextUpdate = sr->nextUpdate;
+            }
+        }
+        innerDrtn = DR_Success;
+
+    singleResponseCleanup:
+        if (sr) {
+            SecOCSPSingleResponseDestroy(sr);
+        }
+        return innerDrtn;
+    });
+    require_action(ok, exit, ocspdErrorLog("failed to parse single responses"));
+    ok = false;
 
     /* Now that we have this->latestNextUpdate, we figure out the latest
        date at which we will expire this response from our cache.  To comply
@@ -326,107 +586,199 @@ exit:
 	return ok;
 }
 
+/*
+ ResponderID ::= CHOICE {
+    byName   [1] Name,
+    byKey    [2] KeyHash }
+
+ KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+                          -- (excluding the tag and length fields)
+ */
+static bool SecOCSPResponseDataParseResponderId(DERItem *responderIdBytes, SecOCSPResponseRef responseObj)
+{
+    if (!responderIdBytes->data || responderIdBytes->length <= 0) {
+        ocspdErrorLog("ResponseData missing responderId");
+        return false;
+    }
+    bool result = false;
+    DERReturn drtn = DR_GenericErr;
+    DERDecodedInfo responderId;
+
+    drtn = DERDecodeItem(responderIdBytes, &responderId);
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId"));
+    switch (responderId.tag) {
+        case ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1: // byName
+            responseObj->responderId.tag = responderId.tag;
+            responseObj->responderId.content.data = responderId.content.data;
+            responseObj->responderId.content.length = responderId.content.length;
+            result = true;
+            break;
+        case ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 2: // byKey
+            responseObj->responderId.tag = responderId.tag;
+            DERDecodedInfo key;
+            drtn = DERDecodeItem(&responderId.content, &key);
+            require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponderId byKey"));
+            require_action(key.tag == ASN1_OCTET_STRING, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, wrong type"));
+            require_action(DERLengthOfItem(key.tag, key.content.length) == responderId.content.length, badResponse, ocspdErrorLog("failed to parse ResponderId byKey, extra data"));
+            responseObj->responderId.content.data = key.content.data;
+            responseObj->responderId.content.length = key.content.length;
+            result = true;
+            break;
+        default:
+            ocspdErrorLog("unknown responderId choice: %llu", responseObj->responderId.tag);
+    }
+
+badResponse:
+    return result;
+}
+
+static bool SecOCSPResponseDataParse(DERItem *responseDataBytes, SecOCSPResponseRef responseObj)
+{
+    bool result = false;
+    DERReturn drtn = DR_GenericErr;
+    DER_OCSPResponseData *responseData = &responseObj->responseData;
+
+    drtn = DERParseSequence(responseDataBytes, DERNumOCSPResponseDataItemSpecs, DER_OCSPResponseDataItemSpecs, responseData, sizeof(*responseData));
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse ResponseData: %d", drtn));
+
+    // Version should not be present, but if present must be v1
+    if (responseData->version.data && responseData->version.length > 0) {
+        uint64_t version = 0;
+        DERDecodedInfo decodedVersion;
+        drtn = DERDecodeItem(&responseData->version, &decodedVersion);
+        require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
+        require_action(decodedVersion.tag == ASN1_INTEGER, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", DR_UnexpectedTag));
+        drtn = DERParseInteger64(&decodedVersion.content, &version);
+        require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse version from ResponseData: %d", drtn));
+        require_action(version == 0, badResponse, ocspdErrorLog("ResponseData has unknown version: %llu", version));
+    }
+
+    require(SecOCSPResponseDataParseResponderId(&responseData->responderId, responseObj), badResponse);
+
+    require_action(responseData->producedAt.data && responseData->producedAt.length > 0, badResponse,
+                   ocspdErrorLog("ResponseData with missing producedAt"));
+    CFErrorRef dateError = NULL;
+    responseObj->producedAt = SecAbsoluteTimeFromDateContentWithError(ASN1_GENERALIZED_TIME, responseData->producedAt.data, responseData->producedAt.length, &dateError);
+    require_action(dateError == NULL, badResponse, ocspdErrorLog("failed to decode producedAt time: %@", dateError));
+
+    result = SecOCSPResponseForSingleResponse(responseObj, ^DERReturn(SecOCSPSingleResponseRef singleResponse, DER_OCSPCertID *certId, DERAlgorithmId *hashAlgorithm, bool *stop) {
+        // Let the wrapper do the parsing and return a failure
+        return DR_Success;
+    });
+    require(result, badResponse);
+
+    if (responseData->extensions.data && responseData->extensions.length > 0) {
+        // We can use the single response extensions parser because we only care that a generic seq of extensions correctly parses
+        result = SecOCSPSingleExtensionsParse(&responseData->extensions, NULL);
+    }
+
+badResponse:
+    return result;
+}
+
+static bool SecBasicOCSPResponseParse(DERItem *basicResponseBytes, SecOCSPResponseRef responseObj)
+{
+    bool result = false;
+    DERReturn drtn = DR_GenericErr;
+    DERBasicOCSPResponse *basicResponse = &responseObj->basicResponse;
+
+    drtn = DERParseSequence(basicResponseBytes, DERNumBasicOCSPResponseItemSpecs, DERBasicOCSPResponseItemSpecs, basicResponse, sizeof(*basicResponse));
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse: %d", drtn));
+
+    /* responseData */
+    require_action(basicResponse->responseData.data && basicResponse->responseData.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad responseData"));
+    result = SecOCSPResponseDataParse(&responseObj->basicResponse.responseData, responseObj);
+    require(result, badResponse);
+
+    /* signatureAlgorithm */
+    result = false;
+    require_action(basicResponse->signatureAlgorithm.data && basicResponse->signatureAlgorithm.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signatureAlgorithm"));
+    DERAlgorithmId algorithm;
+    drtn = DERParseSequenceContent(&basicResponse->signatureAlgorithm,
+                                   DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
+                                   &algorithm, sizeof(algorithm));
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signatureAlgorithm: %d", drtn));
+
+    /* Signature */
+    require_action(basicResponse->signature.data && basicResponse->signature.length > 0, badResponse, ocspdErrorLog("BasicOCSPResponse missing/bad signature"));
+    DERItem signature;
+    DERByte numUnusedBits;
+    drtn = DERParseBitString(&basicResponse->signature, &signature, &numUnusedBits);
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse signature: %d", drtn));
+
+    /* Certs */
+    if (basicResponse->certs.data && basicResponse->certs.length > 0) {
+        CFArrayRef certs = SecOCSPResponseCopySigners(responseObj);
+        require_action(certs, badResponse, ocspdErrorLog("failed to parse BasicOCSPResponse certs"));
+        CFReleaseNull(certs);
+    }
+
+    result = true;
+
+badResponse:
+    return result;
+}
+
+static bool SecOCSPResponseBytesParse(DERItem *responseBytes, SecOCSPResponseRef responseObj)
+{
+    bool result = false;
+    DER_OCSPResponseBytes responseBytesStr;
+    DERReturn drtn = DR_GenericErr;
+
+    drtn = DERParseSequence(responseBytes, DERNumOCSPResponseBytesItemSpecs, DER_OCSPResponseBytesItemSpecs, &responseBytesStr, sizeof(responseBytesStr));
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponseBytes: %d", drtn));
+    require_action(DEROidCompare(&responseBytesStr.responseType, &BasicOCSPResponse), badResponse,
+                   ocspdErrorLog("unknown responseType"));
+    require_action(responseBytesStr.response.data && responseBytesStr.response.length > 0, badResponse,
+                   ocspdErrorLog("OCSPResponseBytes with missing response"));
+    result = SecBasicOCSPResponseParse(&responseBytesStr.response, responseObj);
+
+badResponse:
+    return result;
+}
+
+static bool SecOCSPResponseParse(CFDataRef ocspResponse, SecOCSPResponseRef responseObj)
+{
+    bool result = false;
+    DER_OCSPResponse responseStr;
+    DERReturn drtn = DR_GenericErr;
+
+    DERItem derResponse = {
+        .data = (DERByte *)CFDataGetBytePtr(ocspResponse),
+        .length = (DERSize)CFDataGetLength(ocspResponse)
+    };
+    drtn = DERParseSequence(&derResponse, DERNumOCSPResponseItemSpecs, DER_OCSPResponseItemSpecs, &responseStr, sizeof(responseStr));
+    require_noerr_action(drtn, badResponse, ocspdErrorLog("failed to parse OCSPResponse: %d", drtn));
+    require_action(responseStr.responseStatus.data && responseStr.responseStatus.length == 1, badResponse, ocspdErrorLog("OCSPResponse has missing/bad responseStatus"));
+
+    responseObj->responseStatus = responseStr.responseStatus.data[0];
+    if (responseObj->responseStatus == OCSPResponseStatusSuccessful) {
+        require_action(responseStr.responseBytes.data && responseStr.responseBytes.length > 0, badResponse, ocspdErrorLog("Successful OCSPResponse has missing/bad responseBytes"));
+        result = SecOCSPResponseBytesParse(&responseStr.responseBytes, responseObj);
+    } else {
+        // This is a useful object but only for the top-level status
+        secdebug("ocsp", "OCSPResponse with unsuccessful status: %d", responseObj->responseStatus);
+        result = true;
+    }
+
+badResponse:
+    return result;
+}
+
 SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t responseID) {
-	SecAsn1OCSPResponse topResp = {};
     SecOCSPResponseRef this = NULL;
 
     require(ocspResponse, errOut);
     require(CFDataGetLength(ocspResponse) > 0, errOut);
     require(this = (SecOCSPResponseRef)calloc(1, sizeof(struct __SecOCSPResponse)),
         errOut);
-    require_noerr(SecAsn1CoderCreate(&this->coder), errOut);
 
-    this->data = ocspResponse;
+    this->data = CFRetainSafe(ocspResponse);
     this->responseID = responseID;
-    CFRetain(ocspResponse);
 
-    SecAsn1Item resp;
-    resp.Length = (size_t)CFDataGetLength(ocspResponse);
-    resp.Data = (uint8_t *)CFDataGetBytePtr(ocspResponse);
-	if (SecAsn1DecodeData(this->coder, &resp, kSecAsn1OCSPResponseTemplate,
-        &topResp)) {
-		ocspdErrorLog("OCSPResponse: decode failure at top level");
-	}
-	/* remainder is valid only on RS_Success */
-	if ((topResp.responseStatus.Data == NULL) ||
-	   (topResp.responseStatus.Length == 0)) {
-		ocspdErrorLog("OCSPResponse: no responseStatus");
-        goto errOut;
-	}
-    this->responseStatus = topResp.responseStatus.Data[0];
-	if (this->responseStatus != kSecOCSPSuccess) {
-#ifdef DEBUG
-        CFStringRef hexResp = CFDataCopyHexString(this->data);
-        secdebug("ocsp", "OCSPResponse: status: %d %@", this->responseStatus, hexResp);
-        CFReleaseNull(hexResp);
-#endif
-        /* not a failure of our constructor; this object is now useful, but
-		 * only for this one byte of status info */
-		goto fini;
-	}
-	if (topResp.responseBytes == NULL) {
-		/* I don't see how this can be legal on RS_Success */
-		ocspdErrorLog("OCSPResponse: empty responseBytes");
-        goto errOut;
-	}
-    if (!SecAsn1OidCompare(&topResp.responseBytes->responseType,
-			&OID_PKIX_OCSP_BASIC)) {
-		ocspdErrorLog("OCSPResponse: unknown responseType");
-        goto errOut;
-
-	}
-
-	/* decode the SecAsn1OCSPBasicResponse */
-	if (SecAsn1DecodeData(this->coder, &topResp.responseBytes->response,
-			kSecAsn1OCSPBasicResponseTemplate, &this->basicResponse)) {
-		ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPBasicResponse");
-        goto errOut;
-	}
-
-	/* signature and cert evaluation done externally */
-
-	/* decode the SecAsn1OCSPResponseData */
-	if (SecAsn1DecodeData(this->coder, &this->basicResponse.tbsResponseData,
-			kSecAsn1OCSPResponseDataTemplate, &this->responseData)) {
-        ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPResponseData");
-        goto errOut;
-	}
-    this->producedAt = genTimeToCFAbsTime(&this->responseData.producedAt);
-    if (this->producedAt == NULL_TIME) {
-		ocspdErrorLog("OCSPResponse: bad producedAt");
-        goto errOut;
-    }
-
-	if (this->responseData.responderID.Data == NULL) {
-		ocspdErrorLog("OCSPResponse: bad responderID");
-        goto errOut;
-	}
-
-	/* Choice processing for ResponderID */
-    this->responderIdTag = (SecAsn1OCSPResponderIDTag)
-		(this->responseData.responderID.Data[0] & SEC_ASN1_TAGNUM_MASK);
-	const SecAsn1Template *templ;
-	switch(this->responderIdTag) {
-		case RIT_Name:
-            /* @@@ Since we don't use the decoded byName value we could skip
-               decoding it but we do it anyway for validation. */
-			templ = kSecAsn1OCSPResponderIDAsNameTemplate;
-			break;
-		case RIT_Key:
-			templ = kSecAsn1OCSPResponderIDAsKeyTemplate;
-			break;
-		default:
-			ocspdErrorLog("OCSPResponse: bad responderID tag");
-            goto errOut;
-	}
-	if (SecAsn1DecodeData(this->coder, &this->responseData.responderID, templ,
-        &this->responderID)) {
-		ocspdErrorLog("OCSPResponse: decode failure at responderID");
-        goto errOut;
-	}
-
-fini:
+    require(SecOCSPResponseParse(ocspResponse, this), errOut);
     return this;
+
 errOut:
 #ifdef DEBUG
     {
@@ -453,7 +805,7 @@ CFDataRef SecOCSPResponseGetData(SecOCSPResponseRef this) {
     return this->data;
 }
 
-SecOCSPResponseStatus SecOCSPGetResponseStatus(SecOCSPResponseRef this) {
+OCSPResponseStatus SecOCSPGetResponseStatus(SecOCSPResponseRef this) {
     return this->responseStatus;
 }
 
@@ -461,38 +813,56 @@ CFAbsoluteTime SecOCSPResponseGetExpirationTime(SecOCSPResponseRef this) {
     return this->expireTime;
 }
 
-CFDataRef SecOCSPResponseGetNonce(SecOCSPResponseRef this) {
-    return this->nonce;
-}
-
 CFAbsoluteTime SecOCSPResponseProducedAt(SecOCSPResponseRef this) {
     return this->producedAt;
 }
 
-CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef this) {
-    CFMutableArrayRef result = NULL;
+CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef response) {
+    __block CFMutableArrayRef result = NULL;
     result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (!result) {
         return NULL;
     }
-    SecAsn1Item **certs;
-    for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
-        SecCertificateRef cert = NULL;
-        if ((*certs)->Length > LONG_MAX) { continue; }
-        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (CFIndex)(*certs)->Length);
-        if (cert) {
-            CFArrayAppendValue(result, cert);
-            CFReleaseNull(cert);
-        }
+    if (!response->basicResponse.certs.data || response->basicResponse.certs.length == 0) {
+        return result;
     }
 
+    DERDecodedInfo certsSeq;
+    DERReturn drtn = DERDecodeItem(&response->basicResponse.certs, &certsSeq);
+    require_noerr_action(drtn, errOut, CFReleaseNull(result));
+    require_action(certsSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
+    if (certsSeq.content.length == 0) {
+        // return an empty array if we received an empty sequence
+        return result;
+    }
+    while (certsSeq.content.length > 0 && certsSeq.content.length <= LONG_MAX) {
+        DERDecodedInfo certSeq;
+        size_t certLen = 0;
+        drtn = DERDecodeItemPartialBufferGetLength(&certsSeq.content, &certSeq, &certLen);
+        require_noerr_action(drtn, errOut, CFReleaseNull(result));
+        require_action(certSeq.tag == ASN1_CONSTR_SEQUENCE, errOut, CFReleaseNull(result));
+        require_action(certsSeq.content.length >= DERLengthOfItem(ASN1_CONSTR_SEQUENCE, certLen), errOut, CFReleaseNull(result));
+        SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, certsSeq.content.data, (CFIndex)DERLengthOfItem(ASN1_CONSTR_SEQUENCE, certLen));
+        if (!cert) {
+            CFReleaseNull(result);
+            break; // we couldn't parse the cert so we can't tell where the next one starts
+        }
+        CFArrayAppendValue(result, cert);
+        certsSeq.content.data += SecCertificateGetLength(cert);
+        certsSeq.content.length -= (size_t)SecCertificateGetLength(cert);
+        CFReleaseNull(cert);
+    }
+
+errOut:
+    if (result && CFArrayGetCount(result) == 0) {
+        CFReleaseNull(result);
+    }
     return result;
 }
 
 void SecOCSPResponseFinalize(SecOCSPResponseRef this) {
+    if (!this) { return; }
     CFReleaseSafe(this->data);
-    CFReleaseSafe(this->nonce);
-    SecAsn1CoderRelease(this->coder);
     free(this);
 }
 
@@ -522,130 +892,210 @@ bool SecOCSPSingleResponseCalculateValidity(SecOCSPSingleResponseRef this, CFTim
 
 CFArrayRef SecOCSPSingleResponseCopySCTs(SecOCSPSingleResponseRef this)
 {
+    if (!this) { return NULL; }
     return CFRetainSafe(this->scts);
+}
+
+static CF_RETURNS_RETAINED CFDataRef digestForOid(const uint8_t *data, CFIndex dataLength, DERItem *oid)
+{
+    if (!data || !oid || dataLength < 0 || dataLength > INT32_MAX) {
+        return NULL;
+    }
+    unsigned char *(*digestFcn)(const void *data, CC_LONG len, unsigned char *md);
+    CFIndex digestLen = 0;
+    if (DEROidCompare(oid, &oidSha1)) {
+        digestFcn = CC_SHA1;
+        digestLen = CC_SHA1_DIGEST_LENGTH;
+    } else if (DEROidCompare(oid, &oidSha224)) {
+        digestFcn = CC_SHA224;
+        digestLen = CC_SHA224_DIGEST_LENGTH;
+    } else if (DEROidCompare(oid, &oidSha256)) {
+        digestFcn = CC_SHA256;
+        digestLen = CC_SHA256_DIGEST_LENGTH;
+    } else if (DEROidCompare(oid, &oidSha384)) {
+        digestFcn = CC_SHA384;
+        digestLen = CC_SHA384_DIGEST_LENGTH;
+    } else if (DEROidCompare(oid, &oidSha512)) {
+        digestFcn = CC_SHA512;
+        digestLen = CC_SHA512_DIGEST_LENGTH;
+    } else {
+        return NULL;
+    }
+
+    CFMutableDataRef digest = CFDataCreateMutable(NULL, digestLen);
+    CFDataSetLength(digest, digestLen);
+
+    digestFcn(data, (CC_LONG)dataLength, CFDataGetMutableBytePtr(digest));
+    return digest;
 }
 
 
 SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
     SecOCSPResponseRef this, SecOCSPRequestRef request) {
-    SecOCSPSingleResponseRef sr = NULL;
+    __block SecOCSPSingleResponseRef sr = NULL;
 
     if (!request) { return sr; }
-    const DERItem *publicKey = SecCertificateGetPublicKeyData(request->issuer);
-    if (publicKey->length > LONG_MAX) { return sr; }
-    CFDataRef issuer = SecCertificateCopyIssuerSequence(request->certificate);
-    CFDataRef serial = SecCertificateCopySerialNumberData(request->certificate, NULL);
-    CFDataRef issuerNameHash = NULL;
-    CFDataRef issuerPubKeyHash = NULL;
-    SecAsn1Oid *algorithm = NULL;
-    SecAsn1Item *parameters = NULL;
+    bool ok = SecOCSPResponseForDERSingleResponse(this, ^DERReturn(DER_OCSPSingleResponse *singleResponse, bool *stop) {
+        DER_OCSPCertID certId;
+        DERAlgorithmId algId;
+        CFDataRef issuer = NULL;
+        const DERItem *publicKey = NULL;
+        CFDataRef serial = NULL;
+        CFDataRef issuerNameHash = NULL;
+        CFDataRef issuerPubKeyHash = NULL;
+        DERItem *algorithm = NULL;
+        if (request->certificate && request->issuer) {
+            publicKey = SecCertificateGetPublicKeyData(request->issuer);
+            if (publicKey->length > LONG_MAX) { return DR_BufOverflow; }
+            issuer = SecCertificateCopyIssuerSequence(request->certificate);
+            serial = SecCertificateCopySerialNumberData(request->certificate, NULL);
+        } else {
+            /* In testing, where we have the request but not the certs, prepopulate fields */
+            algorithm = &request->certIdHash;
+            issuerNameHash = CFRetainSafe(request->issuerNameDigest);
+            issuerPubKeyHash = CFRetainSafe(request->issuerPubKeyDigest);
+            serial = CFRetainSafe(request->serial);
+        }
 
-    SecAsn1OCSPSingleResponse **responses;
-    for (responses = this->responseData.responses; *responses; ++responses) {
-        SecAsn1OCSPSingleResponse *resp = *responses;
-        SecAsn1OCSPCertID *certId = &resp->certID;
-        /* First check the easy part, serial number should match. */
-        if (!serial || certId->serialNumber.Length != (size_t)CFDataGetLength(serial) ||
-            memcmp(CFDataGetBytePtr(serial), certId->serialNumber.Data,
-                certId->serialNumber.Length)) {
-            /* Serial # mismatch, skip this singleResponse. */
-            continue;
+        DERReturn innerDrtn = DERParseSequenceContentToObject(&singleResponse->certId,
+                                                              DERNumOCSPCertIDItemSpecs, DER_OCSPCertIDItemSpecs,
+                                                              &certId, sizeof(certId), sizeof(certId));
+        require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId in single response"));
+
+        if (!serial || certId.serialNumber.length != (size_t)CFDataGetLength(serial) ||
+            memcmp(CFDataGetBytePtr(serial), certId.serialNumber.data,
+                   certId.serialNumber.length)) {
+            innerDrtn = DR_Success; // continue to next single response
+            goto singleResponseCleanup;
         }
 
         /* Calcluate the issuerKey and issuerName digests using the
            hashAlgorithm and parameters specified in the certId, if
            they differ from the ones we already computed. */
-        if (!SecAsn1OidCompare(algorithm, &certId->algId.algorithm) ||
-            !SecAsn1OidCompare(parameters, &certId->algId.parameters)) {
-            algorithm = &certId->algId.algorithm;
-            parameters = &certId->algId.parameters;
-            CFReleaseSafe(issuerNameHash);
-            CFReleaseSafe(issuerPubKeyHash);
-            issuerNameHash = SecDigestCreate(kCFAllocatorDefault, algorithm,
-                parameters, CFDataGetBytePtr(issuer), CFDataGetLength(issuer));
-            issuerPubKeyHash = SecDigestCreate(kCFAllocatorDefault, algorithm,
-                parameters, publicKey->data, (CFIndex)publicKey->length);
-        }
+        if (issuer && publicKey) {
+            innerDrtn = DERParseSequenceContent(&certId.hashAlgorithm,
+                                         DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
+                                         &algId, sizeof(algId));
+            require_noerr_action(innerDrtn, singleResponseCleanup, ocspdErrorLog("failed to parse certId hash algorithm"));
 
-        if (!issuerNameHash || !issuerPubKeyHash) {
-            /* This can happen when the hash algorithm is not supported, should be really rare */
-            /* See also: <rdar://problem/21908655> CrashTracer: securityd at securityd: SecOCSPResponseCopySingleResponse */
-            ocspdErrorLog("Unknown hash algorithm in singleResponse");
-            algorithm = NULL;
-            parameters = NULL;
-            continue;
-        }
-
-        if (certId->issuerNameHash.Length == (size_t)CFDataGetLength(issuerNameHash)
-            && !memcmp(CFDataGetBytePtr(issuerNameHash),
-                certId->issuerNameHash.Data, certId->issuerNameHash.Length)
-            && certId->issuerPubKeyHash.Length == (size_t)CFDataGetLength(issuerPubKeyHash)
-            && !memcmp(CFDataGetBytePtr(issuerPubKeyHash),
-                certId->issuerPubKeyHash.Data, certId->issuerPubKeyHash.Length)) {
-
-            /* resp matches the certificate in request, so let's use it. */
-            sr = SecOCSPSingleResponseCreate(resp, this->coder);
-            if (sr) {
-                ocspdDebug("found matching singleResponse");
-                break;
+            if (!DEROidCompare(&algId.oid, algorithm)) {
+                algorithm = &algId.oid;
+                CFReleaseSafe(issuerNameHash);
+                CFReleaseSafe(issuerPubKeyHash);
+                issuerNameHash = digestForOid(CFDataGetBytePtr(issuer), CFDataGetLength(issuer), algorithm);
+                issuerPubKeyHash = digestForOid(publicKey->data, (CFIndex)publicKey->length, algorithm);
             }
         }
 
+        /* This can happen when the hash algorithm is not supported, should be really rare */
+        /* See also: <rdar://problem/21908655> CrashTracer: securityd at securityd: SecOCSPResponseCopySingleResponse */
+        if (!issuerNameHash || !issuerPubKeyHash) {
+            ocspdErrorLog("Unknown hash algorithm in singleResponse");
+            innerDrtn = DR_Success; // continue to next single response
+            goto singleResponseCleanup;
+        }
+
+        // Compare hashes
+        if (certId.issuerNameHash.length == (size_t)CFDataGetLength(issuerNameHash)
+            && !memcmp(CFDataGetBytePtr(issuerNameHash),
+                       certId.issuerNameHash.data, certId.issuerNameHash.length)
+            && certId.issuerKeyHash.length == (size_t)CFDataGetLength(issuerPubKeyHash)
+            && !memcmp(CFDataGetBytePtr(issuerPubKeyHash),
+                       certId.issuerKeyHash.data, certId.issuerKeyHash.length)) {
+
+            /* resp matches the certificate in request, so let's use it. */
+            sr = SecOCSPSingleResponseCreate(singleResponse);
+            if (sr) {
+                ocspdDebug("found matching singleResponse");
+                innerDrtn = DR_Success;
+                *stop = true; // No need to look at more single responses
+            }
+        }
+
+    singleResponseCleanup:
+        CFReleaseSafe(issuerPubKeyHash);
+        CFReleaseSafe(issuerNameHash);
+        CFReleaseSafe(serial);
+        CFReleaseSafe(issuer);
+        return innerDrtn;
+    });
+
+    if (!ok) {
+        ocspdErrorLog("failed to parse single responses");
     }
-
-    CFReleaseSafe(issuerPubKeyHash);
-    CFReleaseSafe(issuerNameHash);
-    CFReleaseSafe(serial);
-    CFReleaseSafe(issuer);
-
     if (!sr) {
         ocspdDebug("certID not found");
     }
-
 	return sr;
 }
 
 static bool SecOCSPResponseVerifySignature(SecOCSPResponseRef this,
     SecKeyRef key) {
-	/* Beware this->basicResponse.sig: on decode, length is in BITS */
-    return SecKeyDigestAndVerify(key, &this->basicResponse.algId,
-        this->basicResponse.tbsResponseData.Data,
-        this->basicResponse.tbsResponseData.Length,
-        this->basicResponse.sig.Data,
-        this->basicResponse.sig.Length / 8) == errSecSuccess;
+    DERAlgorithmId algorithm;
+    DERReturn drtn = DERParseSequenceContent(&this->basicResponse.signatureAlgorithm,
+                                 DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
+                                 &algorithm, sizeof(algorithm));
+    if (drtn != DR_Success) {
+        return false;
+    }
+    DERByte numUnusedBits;
+    DERItem signature;
+    drtn = DERParseBitString(&this->basicResponse.signature, &signature, &numUnusedBits);
+    if (drtn != DR_Success) {
+        return false;
+    }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /* Setup algId in SecAsn1AlgId format. */
+    SecAsn1AlgId algId;
+#pragma clang diagnostic pop
+    algId.algorithm.Length = algorithm.oid.length;
+    algId.algorithm.Data = algorithm.oid.data;
+    algId.parameters.Length = algorithm.params.length;
+    algId.parameters.Data = algorithm.params.data;
+
+    return SecKeyDigestAndVerify(key, &algId,
+        this->basicResponse.responseData.data,
+        this->basicResponse.responseData.length,
+        signature.data,
+        signature.length) == errSecSuccess;
 }
 
 static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
     SecCertificateRef issuer) {
     bool shouldBeSigner = false;
-	if (this->responderIdTag == RIT_Name) {
+	if (this->responderId.tag == (ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 1)) {
 		/* Name inside response must == signer's SubjectName. */
         CFDataRef subject = SecCertificateCopySubjectSequence(issuer);
         if (!subject) {
 			ocspdDebug("error on SecCertificateCopySubjectSequence");
 			return false;
 		}
-        if ((size_t)CFDataGetLength(subject) == this->responderID.byName.Length &&
-            !memcmp(this->responderID.byName.Data, CFDataGetBytePtr(subject),
-                this->responderID.byName.Length)) {
+        if ((size_t)CFDataGetLength(subject) == this->responderId.content.length &&
+            !memcmp(this->responderId.content.data, CFDataGetBytePtr(subject),
+                this->responderId.content.length)) {
 			ocspdDebug("good ResponderID.byName");
 			shouldBeSigner = true;
         } else {
 			ocspdDebug("BAD ResponderID.byName");
 		}
         CFRelease(subject);
-    } else /* if (this->responderIdTag == RIT_Key) */ {
+    } else if (this->responderId.tag == (ASN1_CONSTRUCTED | ASN1_CONTEXT_SPECIFIC | 2)) {
 		/* ResponderID.byKey must == SHA1(signer's public key) */
         CFDataRef pubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(issuer);
-        if ((size_t)CFDataGetLength(pubKeyDigest) == this->responderID.byKey.Length &&
-            !memcmp(this->responderID.byKey.Data, CFDataGetBytePtr(pubKeyDigest),
-                this->responderID.byKey.Length)) {
+        if ((size_t)CFDataGetLength(pubKeyDigest) == this->responderId.content.length &&
+            !memcmp(this->responderId.content.data, CFDataGetBytePtr(pubKeyDigest),
+                this->responderId.content.length)) {
 			ocspdDebug("good ResponderID.byKey");
 			shouldBeSigner = true;
 		} else {
 			ocspdDebug("BAD ResponderID.byKey");
 		}
         CFRelease(pubKeyDigest);
+    } else {
+        // Unknown responderID tag
+        return false;
     }
 
     if (shouldBeSigner) {
@@ -668,40 +1118,32 @@ static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
 SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this, SecCertificateRef issuer) {
     /* Look though any certs that came with the response to find
      * which one signed the response. */
-    SecAsn1Item **certs;
-    for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
-        if ((*certs)->Length > LONG_MAX) { continue; }
-        SecCertificateRef cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (CFIndex)(*certs)->Length);
-        if (cert) {
-            if (SecOCSPResponseIsIssuer(this, cert)) {
-                return cert;
-            } else {
-                CFRelease(cert);
+    __block SecCertificateRef signer = NULL;
+    CFArrayRef certs = SecOCSPResponseCopySigners(this);
+    if (certs) {
+        CFArrayForEach(certs, ^(const void *value) {
+            if (SecOCSPResponseIsIssuer(this, (SecCertificateRef)value)) {
+                signer = CFRetainSafe((SecCertificateRef)value);
             }
-        } else {
-            ocspdErrorLog("ocsp response cert failed to parse");
-        }
+        });
     }
-    ocspdDebug("ocsp response did not contain a signer cert.");
+    CFReleaseNull(certs);
 
-    /* If none of the returned certs work, try the issuer of the certificate
-       being checked directly. */
-    if (issuer && SecOCSPResponseIsIssuer(this, issuer)) {
-        CFRetain(issuer);
-        return issuer;
+    if (!signer && issuer && SecOCSPResponseIsIssuer(this, issuer)) {
+        signer = CFRetainSafe(issuer);
     }
-
-    /* We couldn't find who signed this ocspResponse, give up. */
-    return NULL;
+    return signer;
 }
 
 bool SecOCSPResponseIsWeakHash(SecOCSPResponseRef response) {
-    SecAsn1AlgId algId = response->basicResponse.algId;
-    const DERItem algOid = {
-        .data = algId.algorithm.Data,
-        .length = algId.algorithm.Length,
-    };
-    SecSignatureHashAlgorithm algorithm = SecSignatureHashAlgorithmForAlgorithmOid(&algOid);
+    DERAlgorithmId algId;
+    DERReturn drtn = DERParseSequenceContent(&response->basicResponse.signatureAlgorithm,
+                                 DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
+                                 &algId, sizeof(algId));
+    if (drtn != DR_Success) {
+        return true;
+    }
+    SecSignatureHashAlgorithm algorithm = SecSignatureHashAlgorithmForAlgorithmOid(&algId.oid);
     if (algorithm == kSecSignatureHashAlgorithmUnknown ||
         algorithm == kSecSignatureHashAlgorithmMD2 ||
         algorithm == kSecSignatureHashAlgorithmMD4 ||

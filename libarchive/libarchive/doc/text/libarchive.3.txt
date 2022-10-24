@@ -37,7 +37,7 @@ OVERVIEW
      the format to use.  The library can write
      o	 POSIX-standard "ustar" archives,
      o	 POSIX "pax interchange format" archives,
-     o	 POSIX octet-oriented cpio archives,
+     o	 cpio archives,
      o	 Zip archive,
      o	 two different variants of shar archives,
      o	 ISO9660 CD images,

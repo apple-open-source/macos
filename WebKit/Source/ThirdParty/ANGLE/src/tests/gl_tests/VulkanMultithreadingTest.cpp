@@ -5,7 +5,7 @@
 //
 // VulkanMultithreadingTest.cpp : Tests of multithreaded rendering specific to the Vulkan back end.
 
-#include "platform/FeaturesVk.h"
+#include "platform/FeaturesVk_autogen.h"
 #include "test_utils/ANGLETest.h"
 #include "test_utils/gl_raii.h"
 #include "util/EGLWindow.h"
@@ -22,7 +22,7 @@ namespace angle
 constexpr char kExtensionName[] = "GL_ANGLE_get_image";
 static constexpr int kSize      = 256;
 
-class VulkanMultithreadingTest : public ANGLETest
+class VulkanMultithreadingTest : public ANGLETest<>
 {
   protected:
     VulkanMultithreadingTest()

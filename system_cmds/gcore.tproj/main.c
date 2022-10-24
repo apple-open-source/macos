@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include <System/sys/proc.h>
@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <libutil.h>
+#include <spawn.h>
 
 #include <mach/mach.h>
 
@@ -88,6 +89,14 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
             return 0;
     };
 
+    char (^popchar)(void) = ^(void) {
+        if (resid > 1) {
+            resid--;
+            return *p--;
+        } else
+            return (char)0;
+    };
+
     ptrdiff_t (^outstr)(const char *str) = ^(const char *str) {
         const char *s = str;
         while (*s && 0 != outchar(*s++))
@@ -109,6 +118,12 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
         char tstamp[50];
         strftime(tstamp, sizeof (tstamp), "%Y%m%dT%H%M%SZ", &tm);
         return outstr(tstamp);
+    };
+
+    int (^ends_with)(const char *s, const char *suff) =
+        ^(const char *s, const char *suff) {
+        const char *dot = strrchr(s, '.');
+        return dot ? strcmp(dot, suff) == 0 : false;
     };
 
     int c;
@@ -150,6 +165,14 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
                 goto done;
         }
 done:
+    if (opt->gzip) {
+        const char *dotgz = ".gz";
+        if (!ends_with(out, dotgz)) {
+            const char lastc = popchar();
+            outstr(dotgz);
+            outchar(lastc);
+        }
+    }
     return out;
 }
 
@@ -272,6 +295,71 @@ closeout(int fd, int ecode, char *corefname, char *coretname, const struct stat 
 	return ecode;
 }
 
+static pid_t
+run_gzip(int *outfd, int filefd)
+{
+    int fdpair[2];
+    if (pipe(fdpair) == -1) {
+        errc(EX_CANTCREAT, errno, "%s", "(pipe)");
+    }
+    *outfd = fdpair[1]; // write to fdpair[1], read from fdpair[0]
+
+    posix_spawn_file_actions_t fa;
+    if (posix_spawn_file_actions_init(&fa)) {
+        errc(EX_OSERR, errno, "file actions");
+    }
+    /*
+     * Close off our end of the pipe, and set the other end as stdin.
+     * Set stdout to be the output corefile and inherit stderr.
+     */
+    posix_spawn_file_actions_addclose(&fa, fdpair[1]);
+    posix_spawn_file_actions_adddup2(&fa, fdpair[0], STDIN_FILENO);
+    posix_spawn_file_actions_adddup2(&fa, filefd, STDOUT_FILENO);
+    posix_spawn_file_actions_addinherit_np(&fa, STDERR_FILENO);
+
+    posix_spawnattr_t sa;
+    if (posix_spawnattr_init(&sa)) {
+        errc(EX_OSERR, errno, "spawn attributes");
+    }
+    posix_spawnattr_setflags(&sa, POSIX_SPAWN_CLOEXEC_DEFAULT);
+
+#define GZIPCMD     "gzip"
+#define GZIPDIR     "/usr/bin"
+    char *argv[] = {
+        GZIPCMD,
+        "-1",   // aka --fast; everything else is mind-numbingly slow
+        NULL,
+    };
+
+    extern char **environ;
+    const char gzippath[] = GZIPDIR "/" GZIPCMD;
+    pid_t cpid = -1;
+    if (posix_spawn(&cpid, gzippath, &fa, &sa, argv, environ) == -1) {
+        errc(EX_OSERR, errno, gzippath);
+    }
+    posix_spawn_file_actions_destroy(&fa);
+    posix_spawnattr_destroy(&sa);
+    return cpid;
+}
+
+static int
+wait_for_gzip(pid_t pid)
+{
+    int status = 0;
+    pid_t wpid;
+    do {
+        wpid = waitpid(pid, &status, 0);
+    } while (wpid < 0 && errno == EINTR);
+    if (WIFEXITED(status)) {
+        return WEXITSTATUS(status);
+    }
+    if (WIFSIGNALED(status)) {
+        return -1;
+    }
+    (void) kill(pid, SIGKILL);
+    return -1;
+}
+
 const char *pgm;
 const struct options *opt;
 
@@ -318,7 +406,7 @@ gcore_main(int argc, char *const *argv)
 #ifdef CONFIG_DEBUG
                     "[-d] "
 #endif
-					"[-x] [-C] "
+					"[-x] [-C] [-z] [-S] "
                     "[-Z compression-options] "
 					"[-t size] "
                     "[-F] "
@@ -341,7 +429,7 @@ gcore_main(int argc, char *const *argv)
     int c;
     char *sopts, *value;
 
-    while ((c = getopt(argc, argv, "vdsxCFZ:o:c:b:t:")) != -1) {
+    while ((c = getopt(argc, argv, "vdsxgCFSZ:o:c:b:t:")) != -1) {
         switch (c) {
 
                 /*
@@ -393,7 +481,14 @@ gcore_main(int argc, char *const *argv)
             case 'C':   /* forcibly corpsify rather than suspend */
                 options.corpsify++;
                 break;
-            case 'Z':   /* control compression options */
+            case 'g':   /* compress whole core file via gzip -1 */
+                options.gzip++;
+                options.stream++;
+                break;
+            case 'S':   /* use streaming writes instead of pwrites */
+                options.stream++;
+                break;
+            case 'Z':   /* control per-segment compression options */
                 /*
                  * Only LZFSE and LZ4 seem practical.
                  * (Default to LZ4 compression when the
@@ -472,6 +567,23 @@ gcore_main(int argc, char *const *argv)
         errx(EX_USAGE, "specify only one of -o and -c");
     if (!opt->extended && opt->allfilerefs)
         errx(EX_USAGE, "unknown flag");
+
+    if (opt->sizebound) {
+        if (opt->stream) {
+            errx(EX_USAGE, "specify only one of -b and -S");
+        }
+        if (opt->gzip) {
+            errx(EX_USAGE, "specify only one of -b and -g");
+        }
+    }
+    if (opt->extended) {
+        if (opt->stream) {
+            errx(EX_USAGE, "specify only one of -x and -S");
+        }
+        if (opt->gzip) {
+            errx(EX_USAGE, "specify only one of -x and -g");
+        }
+    }
 
     setpageshift();
 
@@ -589,8 +701,18 @@ gcore_main(int argc, char *const *argv)
 	}
 
 	struct stat cst;
-	char *coretname = NULL;
-	const int fd = openout(corefname, &coretname, &cst);
+    char *coretname = NULL;
+    const int fd = openout(corefname, &coretname, &cst);
+    int outfd = fd;
+    pid_t gpid = -1;
+
+    if (opt->gzip) {
+        /*
+         * spawn a gzip instance reading from 'outfd' and writing to 'fd'
+         */
+        assert(opt->stream);
+        gpid = run_gzip(&outfd, fd);
+    }
 
 	if (opt->verbose) {
         printf("Dumping core ");
@@ -599,6 +721,9 @@ gcore_main(int argc, char *const *argv)
             if (0 != opt->sizebound) {
                 hsize_str_t hstr;
                 printf(", <= %s", str_hsize(hstr, opt->sizebound));
+            }
+            if (opt->gzip) {
+                printf(", gzip");
             }
             printf(") ");
         }
@@ -656,7 +781,7 @@ gcore_main(int argc, char *const *argv)
 					if (OPTIONS_DEBUG(opt, 1))
 						printf("Corpse generated on port %x, task %x\n",
 							   corpse, task);
-					ecode = coredump(corpse, fd, pbi);
+					ecode = coredump(corpse, outfd, pbi);
 					mach_port_deallocate(mach_task_self(), corpse);
 					break;
 				default:
@@ -668,14 +793,14 @@ gcore_main(int argc, char *const *argv)
 							goto out;
 						}
 					}
-					ecode = coredump(task, fd, pbi);
+					ecode = coredump(task, outfd, pbi);
 					break;
 			}
 		} else {
 			/*
 			 * Examine the task directly
 			 */
-			ecode = coredump(task, fd, pbi);
+			ecode = coredump(task, outfd, pbi);
 		}
 
 	out:
@@ -685,9 +810,18 @@ gcore_main(int argc, char *const *argv)
 		/*
 		 * Handed a corpse by our parent.
 		 */
-		ecode = coredump(corpse, fd, pbi);
+		ecode = coredump(corpse, outfd, pbi);
 		mach_port_deallocate(mach_task_self(), corpse);
 	}
+
+    if (gpid > 0) {
+        assert(opt->gzip && opt->stream);
+        assert(outfd != fd);
+        close(outfd);
+        if (wait_for_gzip(gpid) != 0) {
+            errx(EX_OSERR, "failed to compress core dump stream");
+        }
+    }
 
 	ecode = closeout(fd, ecode, corefname, coretname, &cst);
 	if (ecode)

@@ -103,7 +103,7 @@ AUTH_TYPE_INSTANCE(mechanism,
                    .copyDebugDesc = _mechanism_copy_description
                    );
 
-static CFTypeID mechanism_get_type_id() {
+static CFTypeID mechanism_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -115,7 +115,7 @@ static CFTypeID mechanism_get_type_id() {
 }
 
 static mechanism_t
-_mechanism_create()
+_mechanism_create(void)
 {
     mechanism_t mech = (mechanism_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, mechanism_get_type_id(), AUTH_CLASS_SIZE(mechanism), NULL);
     require(mech != NULL, done);

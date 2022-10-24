@@ -38,11 +38,13 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSCurrentKeyPointer;
 
 @interface ZoneKeys : CKKSCurrentKeySet
+
 @property CKKSKey* rolledTLK;
 
 @property NSArray<CKKSTLKShareRecord*>* tlkShares;
 
-- (instancetype)initLoadingRecordsFromZone:(FakeCKZone*)zone;
+- (instancetype)initLoadingRecordsFromZone:(FakeCKZone*)zone
+                                 contextID:(NSString*)contextID;
 @end
 
 /*
@@ -122,6 +124,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSDictionary*)fakeCertificateRecordDictionary:(NSData*)serialNumber zoneID:(CKRecordZoneID*)zoneID;
 
+- (NSDictionary*)fakeKeyRecordDictionary:(NSString*)label zoneID:(CKRecordZoneID*)zoneID;
+
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount:(NSString* _Nullable)account;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
@@ -155,7 +159,7 @@ NS_ASSUME_NONNULL_BEGIN
                  expecting:(OSStatus)status
                    message:(NSString*)message;
 
-- (BOOL)addGenericPassword:(NSString*)password
+- (void)addGenericPassword:(NSString*)password
                    account:(NSString*)account
                     access:(NSString*)access
                   viewHint:(NSString* _Nullable)viewHint
@@ -184,6 +188,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)addCertificateWithLabel:(NSString*)label serialNumber:(NSData*)serial;
 - (void)findCertificateWithSerialNumber:(NSData*)serial expecting:(OSStatus)status;
 - (void)deleteCertificateWithSerialNumber:(NSData*)serial;
+
+// Key item helpers
+- (void)addKeyWithLabel:(NSString*)label;
+- (void)findKeyWithLabel:(NSString*)label expecting:(OSStatus)status;
+- (void)deleteKeyithLabel:(NSString*)label;
 
 - (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
 - (void)createClassAItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;

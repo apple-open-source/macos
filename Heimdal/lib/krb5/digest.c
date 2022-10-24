@@ -1171,7 +1171,7 @@ krb5_ntlm_rep_get_sessionkey(krb5_context context,
 /**
  * Get the supported/allowed mechanism for this principal.
  *
- * @param context A Keberos context.
+ * @param context A Kerberos context.
  * @param realm The realm of the KDC.
  * @param ccache The credential cache to use when talking to the KDC.
  * @param flags The supported mechanism.

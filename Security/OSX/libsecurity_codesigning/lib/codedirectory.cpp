@@ -58,33 +58,39 @@ const char *CodeDirectory::canonicalSlotName(SpecialSlot slot)
 {
 	switch (slot) {
 	case cdRequirementsSlot:
-		return kSecCS_REQUIREMENTSFILE;
+			return kSecCS_REQUIREMENTSFILE;
 	case cdAlternateCodeDirectorySlots:
-		return kSecCS_REQUIREMENTSFILE "-1";
+			return kSecCS_REQUIREMENTSFILE "-1";
 	case cdAlternateCodeDirectorySlots+1:
-		return kSecCS_REQUIREMENTSFILE "-2";
+			return kSecCS_REQUIREMENTSFILE "-2";
 	case cdAlternateCodeDirectorySlots+2:
-		return kSecCS_REQUIREMENTSFILE "-3";
+			return kSecCS_REQUIREMENTSFILE "-3";
 	case cdAlternateCodeDirectorySlots+3:
-		return kSecCS_REQUIREMENTSFILE "-4";
+			return kSecCS_REQUIREMENTSFILE "-4";
 	case cdAlternateCodeDirectorySlots+4:
-		return kSecCS_REQUIREMENTSFILE "-5";
+			return kSecCS_REQUIREMENTSFILE "-5";
 	case cdResourceDirSlot:
-		return kSecCS_RESOURCEDIRFILE;
+			return kSecCS_RESOURCEDIRFILE;
 	case cdCodeDirectorySlot:
-		return kSecCS_CODEDIRECTORYFILE;
+			return kSecCS_CODEDIRECTORYFILE;
 	case cdSignatureSlot:
-		return kSecCS_SIGNATUREFILE;
+			return kSecCS_SIGNATUREFILE;
 	case cdTopDirectorySlot:
-		return kSecCS_TOPDIRECTORYFILE;
+			return kSecCS_TOPDIRECTORYFILE;
 	case cdEntitlementSlot:
-		return kSecCS_ENTITLEMENTFILE;
+			return kSecCS_ENTITLEMENTFILE;
 	case cdEntitlementDERSlot:
-		return kSecCS_ENTITLEMENTDERFILE;
+			return kSecCS_ENTITLEMENTDERFILE;
 	case cdRepSpecificSlot:
-		return kSecCS_REPSPECIFICFILE;
+			return kSecCS_REPSPECIFICFILE;
+	case cdLaunchConstraintSelf:
+			return kSecCS_LAUNCHCONSTRAINTSELFFILE;
+	case cdLaunchConstraintParent:
+			return kSecCS_LAUNCHCONSTRAINTPARENTFILE;
+	case cdLaunchConstraintResponsible:
+			return kSecCS_LAUNCHCONSTRAINTRESPONSIBLEFILE;
 	default:
-		return NULL;
+			return NULL;
 	}
 }
 
@@ -106,6 +112,10 @@ unsigned CodeDirectory::slotAttributes(SpecialSlot slot)
 			return cdComponentPerArchitecture | cdComponentIsBlob;
 	case cdSignatureSlot:
 		return cdComponentPerArchitecture; // raw
+	// LWCR are blobs just like entitlements
+	case cdLaunchConstraintSelf:
+	case cdLaunchConstraintParent:
+	case cdLaunchConstraintResponsible:
 	case cdEntitlementSlot:
 	case cdEntitlementDERSlot:
 		return cdComponentIsBlob; // global
@@ -378,9 +388,11 @@ size_t CodeDirectory::generateHash(DynamicHash *hasher, const void *data, size_t
 std::string CodeDirectory::hexHash(const unsigned char *hash) const
 {
 	size_t size = this->hashSize;
-	char result[2*size+1];
-	for (unsigned n = 0; n < size; n++)
-		sprintf(result+2*n, "%02.2x", hash[n]);
+        size_t cap = 2*size+1;
+	char result[cap];
+	for (unsigned n = 0; n < size; n++) {
+                snprintf(result+2*n, cap - 2*n, "%02.2x", hash[n]);
+        }
 	return result;
 }
 

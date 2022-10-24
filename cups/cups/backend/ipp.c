@@ -102,6 +102,7 @@ static const char * const pattrs[] =	/* Printer attributes we want */
   "cups-version",
   "document-format-supported",
   "job-password-encryption-supported",
+  "job-presets-supported",
   "marker-colors",
   "marker-high-levels",
   "marker-levels",
@@ -164,7 +165,11 @@ static ipp_t		*new_request(ipp_op_t op, int version, const char *uri,
 				     ppd_file_t *ppd,
 				     ipp_attribute_t *media_col_sup,
 				     ipp_attribute_t *doc_handling_sup,
-				     ipp_attribute_t *print_color_mode_sup);
+				     ipp_attribute_t *print_color_mode_sup,
+                                     ipp_attribute_t *presets_sup);
+static void          applyPreset(ipp_t *request,
+                                 ipp_attribute_t *supported,
+                                 const char *jobPresetName);
 static const char	*password_cb(const char *prompt, http_t *http,
 			             const char *method, const char *resource,
 			             int *user_data);
@@ -249,6 +254,7 @@ main(int  argc,				/* I - Number of command-line args */
   ipp_attribute_t *media_col_sup;	/* media-col-supported */
   ipp_attribute_t *operations_sup;	/* operations-supported */
   ipp_attribute_t *doc_handling_sup;	/* multiple-document-handling-supported */
+  ipp_attribute_t *presets_sup;         /* job-presets-supported */
   ipp_attribute_t *printer_state;	/* printer-state attribute */
   ipp_attribute_t *printer_accepting;	/* printer-is-accepting-jobs */
   ipp_attribute_t *print_color_mode_sup;/* Does printer support print-color-mode? */
@@ -893,7 +899,8 @@ main(int  argc,				/* I - Number of command-line args */
   operations_sup       = NULL;
   doc_handling_sup     = NULL;
   print_color_mode_sup = NULL;
-
+  presets_sup          = NULL;
+  
   do
   {
    /*
@@ -1002,8 +1009,10 @@ main(int  argc,				/* I - Number of command-line args */
         const char *www_auth = httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE);
         				/* WWW-Authenticate field value */
 
-	if (!strncmp(www_auth, "Negotiate", 9))
-	  auth_info_required = "negotiate";
+        if (!strncmp(www_auth, "Negotiate", 9))
+          auth_info_required = "negotiate";
+        else if (!strncmp(www_auth, "Bearer", 6))
+          auth_info_required = "oauth";
         else if (www_auth[0])
           auth_info_required = "username,password";
 
@@ -1238,6 +1247,8 @@ main(int  argc,				/* I - Number of command-line args */
 					"multiple-document-handling-supported",
 					IPP_TAG_KEYWORD);
 
+    presets_sup = ippFindAttribute(supported, "job-presets-supported", IPP_TAG_BEGIN_COLLECTION);
+    
     report_printer_state(supported);
   }
   while (!job_canceled && ipp_status > IPP_STATUS_OK_CONFLICTING);
@@ -1473,7 +1484,8 @@ main(int  argc,				/* I - Number of command-line args */
     request = new_request(IPP_OP_VALIDATE_JOB, version, uri, argv[2],
                           monitor.job_name, num_options, options, compression,
 			  copies_sup ? copies : 1, document_format, pc, ppd,
-			  media_col_sup, doc_handling_sup, print_color_mode_sup);
+			  media_col_sup, doc_handling_sup, print_color_mode_sup,
+                          presets_sup);
 
     response = cupsDoRequest(http, request, resource);
 
@@ -1539,7 +1551,9 @@ main(int  argc,				/* I - Number of command-line args */
 					/* WWW-Authenticate field value */
 
       if (!strncmp(www_auth, "Negotiate", 9))
-	auth_info_required = "negotiate";
+        auth_info_required = "negotiate";
+      else if (!strncmp(www_auth, "Bearer", 6))
+        auth_info_required = "oauth";
       else if (www_auth[0])
 	auth_info_required = "username,password";
 
@@ -1588,7 +1602,7 @@ main(int  argc,				/* I - Number of command-line args */
 			  version, uri, argv[2], monitor.job_name, num_options,
 			  options, compression, copies_sup ? copies : 1,
 			  document_format, pc, ppd, media_col_sup,
-			  doc_handling_sup, print_color_mode_sup);
+			  doc_handling_sup, print_color_mode_sup, presets_sup);
 
    /*
     * Do the request...
@@ -1729,6 +1743,8 @@ main(int  argc,				/* I - Number of command-line args */
 
 	  if (!strncmp(www_auth, "Negotiate", 9))
 	    auth_info_required = "negotiate";
+          else if (!strncmp(www_auth, "Bearer", 6))
+            auth_info_required = "oauth";
 	  else if (www_auth[0])
 	    auth_info_required = "username,password";
 	}
@@ -2736,12 +2752,13 @@ new_request(
     ppd_file_t      *ppd,		/* I - PPD file data */
     ipp_attribute_t *media_col_sup,	/* I - media-col-supported values */
     ipp_attribute_t *doc_handling_sup,  /* I - multiple-document-handling-supported values */
-    ipp_attribute_t *print_color_mode_sup)
+    ipp_attribute_t *print_color_mode_sup,
+    ipp_attribute_t *presets_sup)
 					/* I - Printer supports print-color-mode */
 {
   ipp_t		*request;		/* Request data */
   const char	*keyword;		/* PWG keyword */
-
+  const char *jobPresetName;
 
  /*
   * Create the IPP request...
@@ -2804,6 +2821,12 @@ new_request(
 
       copies = _cupsConvertOptions(request, ppd, pc, media_col_sup, doc_handling_sup, print_color_mode_sup, user, format, copies, num_options, options);
 
+      if ((jobPresetName = cupsGetOption("preset-name", num_options, options)) != NULL)
+      {
+        fprintf(stderr, "DEBUG: Applying preset: %s\n", jobPresetName);
+        applyPreset(request, presets_sup, jobPresetName);
+      }
+      
      /*
       * Map FaxOut options...
       */
@@ -2872,6 +2895,49 @@ new_request(
   return (request);
 }
 
+static ipp_t *findPresetByName(ipp_attribute_t *presets, const char *jobPresetName)
+{
+  ipp_t  *foundPreset = NULL;
+  
+  int count = ippGetCount(presets);
+  for (int i = 0; i < count; i++)
+  {
+    ipp_t *aPreset = ippGetCollection(presets, i);
+    const char *preset_name = ippGetString(ippFindAttribute(aPreset, "preset-name", IPP_TAG_ZERO), 0, NULL);
+    if (preset_name && !strcmp(preset_name, jobPresetName)) {
+      foundPreset = aPreset;
+      break;
+    }
+  }
+  
+  return foundPreset;
+}
+
+/*
+ * 'applyPreset()' - If the printer supports the named preset then apply the preset's attributes to the request.
+ */
+static void applyPreset(ipp_t *request, ipp_attribute_t *presets_supported, const char *jobPresetName)
+{
+  ipp_t *presets_col = findPresetByName(presets_supported, jobPresetName);
+  
+  for (ipp_attribute_t *presets_attr = ippFirstAttribute(presets_col); presets_attr; presets_attr = ippNextAttribute(presets_col))
+  {
+    // Don't copy over the preset-name. For the other attributes, copy the attribute into the request
+    // replacing any attribute already there with the same name.
+    const char *attrName = ippGetName(presets_attr);
+    if (attrName && strcmp(attrName, "preset-name"))
+    {
+      fprintf(stderr, "DEBUG: Applying preset attribute: %s\n", attrName);
+      ipp_attribute_t *old_attr = ippFindAttribute(request, attrName, IPP_TAG_ZERO);
+      if (old_attr)
+      {
+        ippDeleteAttribute(request, old_attr);
+      }
+      ippSetGroupTag(presets_col, &presets_attr, IPP_TAG_JOB);
+      ippCopyAttribute(request, presets_attr, 0);
+    }
+  }
+}
 
 /*
  * 'password_cb()' - Disable the password prompt for cupsDoFileRequest().
@@ -3075,14 +3141,14 @@ report_printer_state(ipp_t *ipp)	/* I - IPP response */
   * Report alerts and messages...
   */
 
-  if ((pa = ippFindAttribute(ipp, "printer-alert", IPP_TAG_STRING)) != NULL)
+  if ((pa = ippFindAttribute(ipp, "printer-alert", IPP_TAG_STRING)) != NULL && ippGetGroupTag(pa) != IPP_TAG_UNSUPPORTED_GROUP)
     report_attr(pa);
 
-  if ((pam = ippFindAttribute(ipp, "printer-alert-message",
-                              IPP_TAG_TEXT)) != NULL)
+    /*** REMINDSMA: printer-alert-message may be a misnaming of printer-alert-description */
+  if ((pam = ippFindAttribute(ipp, "printer-alert-message", IPP_TAG_TEXT)) != NULL && ippGetGroupTag(pam) != IPP_TAG_UNSUPPORTED_GROUP)
     report_attr(pam);
 
-  if ((pmja = ippFindAttribute(ipp, "printer-mandatory-job-attributes", IPP_TAG_KEYWORD)) != NULL)
+  if ((pmja = ippFindAttribute(ipp, "printer-mandatory-job-attributes", IPP_TAG_KEYWORD)) != NULL && ippGetGroupTag(pmja) != IPP_TAG_UNSUPPORTED_GROUP)
   {
     int	i,				/* Looping var */
 	count = ippGetCount(pmja);	/* Number of values */
@@ -3103,7 +3169,7 @@ report_printer_state(ipp_t *ipp)	/* I - IPP response */
   }
 
   if ((psm = ippFindAttribute(ipp, "printer-state-message",
-                              IPP_TAG_TEXT)) != NULL)
+                              IPP_TAG_TEXT)) != NULL && ippGetGroupTag(pa) != IPP_TAG_UNSUPPORTED_GROUP)
   {
     char	*ptr;			/* Pointer into message */
 

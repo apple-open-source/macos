@@ -832,7 +832,7 @@ errOut:
         }));
     });
 
-    [self waitForExpectations:@[blockExpectation] timeout:1.0];
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // Timeout should be more than the OCSP timeout
 
     /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
     validDate = CFBridgingRelease(CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0));
@@ -848,7 +848,7 @@ errOut:
         }));
     });
 
-    [self waitForExpectations:@[blockExpectation] timeout:1.0];
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
 
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
@@ -899,7 +899,7 @@ errOut:
         }));
     });
 
-    [self waitForExpectations:@[blockExpectation] timeout:1.0];
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
 
     /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
     validDate = CFBridgingRelease(CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0));
@@ -917,7 +917,7 @@ errOut:
         }));
     });
 
-    [self waitForExpectations:@[blockExpectation] timeout:1.0];
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
 
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
@@ -1143,6 +1143,23 @@ errOut:
     NSData *auditToken = [NSData dataWithBytes:(uint8_t *)&token length:sizeof(token)];
 
     XCTAssertEqual(errSecSuccess, SecTrustSetClientAuditToken(eval.trust, (__bridge CFDataRef)auditToken));
+    (void)[eval evaluate:nil];
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+}
+
+- (void)testSetAttribution
+{
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+
+    cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
+    cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
+
+    NSArray *certs = @[ (__bridge id)cert0, (__bridge id)cert1 ];
+
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:nil];
+    XCTAssertEqual(errSecSuccess, SecTrustSetURLRequestAttribution(eval.trust, NSURLRequestAttributionUser));
     (void)[eval evaluate:nil];
 
     CFReleaseNull(cert0);

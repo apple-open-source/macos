@@ -35,6 +35,7 @@
 - (KCAESGCMDuplexSession*)accessSession;
 
 -(void)setControlObject:(OTControl*)control;
+- (void)setSessionControlArguments:(OTControlArguments*)controlArguments;
 - (void)setConfiguration:(OTJoiningConfiguration *)config;
 @end
 #endif /* Header_h */

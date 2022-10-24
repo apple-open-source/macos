@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1335,6 +1335,17 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 		    return EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(sec_identity, persistent_refs, ret_array);
 		}
 		goto done;
+	    }
+	    CFArrayRef trustChainCertificates = CFDictionaryGetValue(properties, kEAPClientPropTLSClientIdentityTrustChainCertificates);
+	    if (isA_CFArray(trustChainCertificates) != NULL) {
+		CFMutableArrayRef array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		if (array == NULL) {
+		    return (errSecAllocate);
+		}
+		CFArrayAppendValue(array, (SecIdentityRef)sec_identity);
+		CFArrayAppendArray(array, trustChainCertificates, CFRangeMake(0, CFArrayGetCount(trustChainCertificates)));
+		*ret_array = array;
+		return (errSecSuccess);
 	    }
 	}
 #endif /* TARGET_OS_IPHONE */

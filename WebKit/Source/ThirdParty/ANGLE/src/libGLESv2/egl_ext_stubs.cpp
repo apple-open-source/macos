@@ -13,6 +13,8 @@
 #include "libANGLE/EGLSync.h"
 #include "libANGLE/Surface.h"
 #include "libANGLE/Thread.h"
+#include "libANGLE/capture/capture_egl.h"
+#include "libANGLE/capture/frame_capture_utils_autogen.h"
 #include "libANGLE/entry_points_utils.h"
 #include "libANGLE/queryutils.h"
 #include "libANGLE/renderer/DisplayImpl.h"
@@ -53,6 +55,8 @@ EGLImageKHR CreateImageKHR(Thread *thread,
     ANGLE_EGL_TRY_RETURN(thread, display->createImage(context, target, buffer, attributes, &image),
                          "", GetDisplayIfValid(display), EGL_NO_IMAGE);
 
+    ANGLE_CAPTURE_EGL(EGLCreateImage, thread, target, buffer, attributes, image);
+
     thread->setSuccess();
     return static_cast<EGLImage>(image);
 }
@@ -63,6 +67,8 @@ EGLClientBuffer CreateNativeClientBufferANDROID(Thread *thread, const AttributeM
     ANGLE_EGL_TRY_RETURN(thread,
                          egl::Display::CreateNativeClientBuffer(attribMap, &eglClientBuffer),
                          "eglCreateNativeClientBufferANDROID", nullptr, nullptr);
+
+    ANGLE_CAPTURE_EGL(CreateNativeClientBufferANDROID, thread, attribMap, eglClientBuffer);
 
     thread->setSuccess();
     return eglClientBuffer;
@@ -94,9 +100,9 @@ EGLSurface CreatePlatformWindowSurfaceEXT(Thread *thread,
     // In X11, eglCreatePlatformWindowSurfaceEXT expects the native_window argument to be a pointer
     // to a Window while the EGLNativeWindowType for X11 is its actual value.
     // https://www.khronos.org/registry/EGL/extensions/KHR/EGL_KHR_platform_x11.txt
-    void *actualNativeWindow = display->getImplementation()->isX11()
-                                   ? *reinterpret_cast<void **>(native_window)
-                                   : native_window;
+    void *actualNativeWindow         = display->getImplementation()->isX11()
+                                           ? *reinterpret_cast<void **>(native_window)
+                                           : native_window;
     EGLNativeWindowType nativeWindow = reinterpret_cast<EGLNativeWindowType>(actualNativeWindow);
 
     ANGLE_EGL_TRY_RETURN(
@@ -151,6 +157,8 @@ EGLBoolean DestroyImageKHR(Thread *thread, Display *display, Image *img)
                          GetDisplayIfValid(display), EGL_FALSE);
     display->destroyImage(img);
 
+    ANGLE_CAPTURE_EGL(EGLDestroyImage, thread, display, img);
+
     thread->setSuccess();
     return EGL_TRUE;
 }
@@ -199,20 +207,24 @@ EGLDisplay GetPlatformDisplayEXT(Thread *thread,
                                  void *native_display,
                                  const AttributeMap &attribMap)
 {
-    if (platform == EGL_PLATFORM_ANGLE_ANGLE)
+    switch (platform)
     {
-        return egl::Display::GetDisplayFromNativeDisplay(
-            gl::bitCast<EGLNativeDisplayType>(native_display), attribMap);
-    }
-    else if (platform == EGL_PLATFORM_DEVICE_EXT)
-    {
-        Device *eglDevice = static_cast<Device *>(native_display);
-        return egl::Display::GetDisplayFromDevice(eglDevice, attribMap);
-    }
-    else
-    {
-        UNREACHABLE();
-        return EGL_NO_DISPLAY;
+        case EGL_PLATFORM_ANGLE_ANGLE:
+        case EGL_PLATFORM_GBM_KHR:
+        {
+            return egl::Display::GetDisplayFromNativeDisplay(
+                platform, gl::bitCast<EGLNativeDisplayType>(native_display), attribMap);
+        }
+        case EGL_PLATFORM_DEVICE_EXT:
+        {
+            Device *eglDevice = static_cast<Device *>(native_display);
+            return egl::Display::GetDisplayFromDevice(eglDevice, attribMap);
+        }
+        default:
+        {
+            UNREACHABLE();
+            return EGL_NO_DISPLAY;
+        }
     }
 }
 

@@ -27,6 +27,8 @@
 #include "OSStackRetain.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
+#include <IOKit/IOKitKeys.h>
+#include <libkern/OSKextLib.h>
 
 #define kHIDTransport1ScoreIncrement        1000
 #define kHIDTransport2ScoreIncrement        2000
@@ -39,6 +41,7 @@
 #define kHIDVendor2ArrayMaskScoreIncrement  925
 #define kHIDVendor3ScoreIncrement           100
 
+#define kAppleBundleIdentifier              "com.apple."
 
 IOFixed getFixedValue(uint32_t value, uint32_t unit, uint32_t exponent)
 {
@@ -372,29 +375,32 @@ bool CompareNumberPropertyArrayWithMask( IOService * owner, OSDictionary * match
 
 bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 {
-    bool    match           = true;
-    SInt32  pUScore         = 0;
-    SInt32  pUPScore        = 0;
-    SInt32  useScore        = 0;
-    SInt32  trans1Score     = 0;
-    SInt32  trans2Score     = 0;
-    SInt32  ven1Score       = 0;
-    SInt32  ven2Score       = 0;
-    SInt32  ven3Score       = 0;
-    bool    pUPMatch        = CompareProperty(owner, table, kIOHIDPrimaryUsagePageKey, &pUPScore, kHIDDeviceUsageScoreBase);
-    bool    pUMatch         = CompareProperty(owner, table, kIOHIDPrimaryUsageKey, &pUScore, kHIDDeviceUsageScoreIncrement);
-    bool    useMatch        = CompareDeviceUsagePairs(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
-    bool    use2Match       = CompareDeviceUsage(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
-    bool    trans1Match     = CompareProperty(owner, table, kIOHIDTransportKey, &trans1Score, kHIDTransport1ScoreIncrement);
-    bool    trans2Match     = CompareProperty(owner, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement);
-    bool    venIDMatch      = CompareProperty(owner, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement);
-    bool    prodIDMatch     = CompareProductID(owner, table, &ven2Score);
-    bool    modelMatch      = CompareProperty(owner, table, kIOHIDModelNumberKey, &ven2Score, kHIDVendor2ScoreIncrement);
-    bool    versNumMatch    = CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
-    bool    manMatch        = CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
-    bool    serialMatch     = CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
-    bool    phisicalDeviceUniqueID = CompareProperty(owner, table, kIOHIDPhysicalDeviceUniqueIDKey, &ven3Score, kHIDVendor3ScoreIncrement);
-    bool    bootPMatch      = CompareProperty(owner, table, "BootProtocol", score);
+    bool       match                  = true;
+    SInt32     pUScore                = 0;
+    SInt32     pUPScore               = 0;
+    SInt32     useScore               = 0;
+    SInt32     trans1Score            = 0;
+    SInt32     trans2Score            = 0;
+    SInt32     ven1Score              = 0;
+    SInt32     ven2Score              = 0;
+    SInt32     ven3Score              = 0;
+    bool       pUPMatch               = CompareProperty(owner, table, kIOHIDPrimaryUsagePageKey, &pUPScore, kHIDDeviceUsageScoreBase);
+    bool       pUMatch                = CompareProperty(owner, table, kIOHIDPrimaryUsageKey, &pUScore, kHIDDeviceUsageScoreIncrement);
+    bool       useMatch               = CompareDeviceUsagePairs(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
+    bool       use2Match              = CompareDeviceUsage(owner, table, &useScore, kHIDDeviceUsageScoreIncrement);
+    bool       trans1Match            = CompareProperty(owner, table, kIOHIDTransportKey, &trans1Score, kHIDTransport1ScoreIncrement);
+    bool       trans2Match            = CompareProperty(owner, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement);
+    bool       venIDMatch             = CompareProperty(owner, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement);
+    bool       prodIDMatch            = CompareProductID(owner, table, &ven2Score);
+    bool       modelMatch             = CompareProperty(owner, table, kIOHIDModelNumberKey, &ven2Score, kHIDVendor2ScoreIncrement);
+    bool       versNumMatch           = CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool       manMatch               = CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool       serialMatch            = CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool       phisicalDeviceUniqueID = CompareProperty(owner, table, kIOHIDPhysicalDeviceUniqueIDKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool       bootPMatch             = CompareProperty(owner, table, "BootProtocol", score);
+    bool       bundleMatch            = true;
+
+
    // Compare properties.
     if (!pUPMatch ||
         !pUMatch ||
@@ -411,7 +417,8 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
         !bootPMatch ||
         !phisicalDeviceUniqueID ||
         (table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")) ||
-        (table->getObject(kIOHIDCompatibilityInterface) && !owner->getProperty(kIOHIDCompatibilityInterface))
+        (table->getObject(kIOHIDCompatibilityInterface) && !owner->getProperty(kIOHIDCompatibilityInterface)) ||
+        !bundleMatch
         )
     {
         if (score) 

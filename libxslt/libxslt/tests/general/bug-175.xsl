@@ -25,6 +25,9 @@
       </html>
    </xsl:template>
 
-   <xsl:function name="test:test">YES</xsl:function>
+   <xsl:function name="test:test">
+      <xsl:param name="x"/>
+      <xsl:text>YES</xsl:text>
+   </xsl:function>
 
 </xsl:transform>

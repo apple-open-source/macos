@@ -67,8 +67,12 @@ static void ios_shim_tests(void)
        "Get hash agility value array");
     is(CFArrayGetCount(attrValues), 1, "One attribute value");
     ok(hashAgilityValue = CFArrayGetValueAtIndex(attrValues, 0), "Get hash agility value");
-    is((size_t)CFDataGetLength(hashAgilityValue), sizeof(attribute), "Verify size of parsed hash agility value");
-    is(memcmp(attribute, CFDataGetBytePtr(hashAgilityValue), sizeof(attribute)), 0,
+    size_t offset = 0;
+    if (useMessageSecurityEnabled()) {
+        offset = 2; // MessageSecurity framework doesn't provide decoded attribute values
+    }
+    is((size_t)CFDataGetLength(hashAgilityValue) - offset, sizeof(attribute), "Verify size of parsed hash agility value");
+    is(memcmp(attribute, CFDataGetBytePtr(hashAgilityValue) + offset, sizeof(attribute)), 0,
        "Verify correct hash agility value");
 
     /* verify we can get the "cooked" parsed attribute */

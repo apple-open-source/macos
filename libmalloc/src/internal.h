@@ -35,11 +35,13 @@
 #include <platform/string.h>
 #undef memcpy
 #define memcpy _platform_memmove
+#define _malloc_memcmp_zero_aligned8 _platform_memcmp_zero_aligned8
 #include <platform/compat.h>
 #include <assert.h>
 #include <crt_externs.h>
 #include <dirent.h>
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <libc.h>
 #include <libkern/OSAtomic.h>
@@ -55,6 +57,7 @@
 #include <mach/vm_map.h>
 #include <mach/vm_page_size.h>
 #include <mach/vm_param.h>
+#include <mach/vm_reclaim.h>
 #include <mach/vm_statistics.h>
 #include <machine/cpu_capabilities.h>
 #include <os/atomic_private.h>
@@ -70,6 +73,11 @@
 #include <pthread/pthread.h>  // _pthread_threadid_self_np_direct()
 #include <pthread/private.h>  // _pthread_threadid_self_np_direct()
 #include <pthread/tsd_private.h>  // TSD keys
+
+#if __has_feature(ptrauth_calls)
+#include <ptrauth.h>
+#endif
+
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -88,6 +96,13 @@
 #include <thread_stack_pcs.h>
 #include <unistd.h>
 #include <xlocale.h>
+
+// pthread reserves 5 TSD keys for libmalloc
+#define __TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
+#define __TSD_MALLOC_ZERO_CORRUPTION_COUNTER   __PTK_LIBMALLOC_KEY1
+#define __TSD_MALLOC_THREAD_OPTIONS            __PTK_LIBMALLOC_KEY2
+#define __TSD_MALLOC_UNUSED3                   __PTK_LIBMALLOC_KEY3
+#define __TSD_MALLOC_UNUSED4                   __PTK_LIBMALLOC_KEY4
 
 #include "dtrace.h"
 #include "base.h"
@@ -172,14 +187,5 @@ _malloc_cpu_number(void)
 struct _malloc_msl_lite_hooks_s;
 typedef void (*set_msl_lite_hooks_callout_t) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 void set_msl_lite_hooks(set_msl_lite_hooks_callout_t callout);
-
-
-// pthread reserves 5 TSD keys for libmalloc
-#define __TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
-#define __TSD_MALLOC_UNUSED1                   __PTK_LIBMALLOC_KEY1
-#define __TSD_MALLOC_UNUSED2                   __PTK_LIBMALLOC_KEY2
-#define __TSD_MALLOC_UNUSED3                   __PTK_LIBMALLOC_KEY3
-#define __TSD_MALLOC_UNUSED4                   __PTK_LIBMALLOC_KEY4
-
 
 #endif // __INTERNAL_H

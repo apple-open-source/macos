@@ -71,6 +71,11 @@ public:
     static WEBCORE_EXPORT bool mediaSourceInlinePaintingEnabled();
 #endif
 
+#if HAVE(AVCONTENTKEYSPECIFIER)
+    static WEBCORE_EXPORT void setSampleBufferContentKeySessionSupportEnabled(bool);
+    static WEBCORE_EXPORT bool sampleBufferContentKeySessionSupportEnabled();
+#endif
+
 protected:
     void scheduleSessionStatusUpdate() final;
     void updateNowPlayingInfo();
@@ -82,7 +87,7 @@ protected:
     bool sessionWillBeginPlayback(PlatformMediaSession&) override;
     void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) override;
     void sessionDidEndRemoteScrubbing(PlatformMediaSession&) final;
-    void clientCharacteristicsChanged(PlatformMediaSession&) final;
+    void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
     virtual void providePresentingApplicationPIDIfNecessary() { }

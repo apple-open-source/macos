@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)reboot.8	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/sbin/reboot/reboot.8,v 1.21 2002/12/27 12:15:33 schweikh Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 9, 1993
+.Dd December 20, 2017
 .Dt REBOOT 8
 .Os
 .Sh NAME
@@ -41,23 +37,22 @@
 .Nd stopping and restarting the system
 .Sh SYNOPSIS
 .Nm halt
-.Op Fl lnqu
+.Op Fl lNnqu
 .Nm reboot
-.Op Fl lnq
+.Op Fl lNnqu
 .Sh DESCRIPTION
 The
-.Nm halt
+.Nm
 and
 .Nm reboot
-utilities flush the file system cache to disk,
-send all running processes a
+utilities flush the file system cache to disk, send all running processes
+a
 .Dv SIGTERM
 (and subsequently a
 .Dv SIGKILL )
 and, respectively, halt or restart the system.
-The action is logged, including entering a shutdown record into the
-.Xr wtmp 5
-file.
+The action is logged, including entering a shutdown record into the user
+accounting database.
 .Pp
 When the system is halted with the halt command, the system is powered off.
 .Pp
@@ -66,14 +61,23 @@ The options are as follows:
 .It Fl l
 The halt or reboot is
 .Em not
-recorded in the system log.
+logged to the system log.
 This option is intended for applications such as
 .Xr shutdown 8 ,
 that call
-.Nm reboot
+.Nm
 or
-.Nm halt
+.Nm reboot
 and log this themselves.
+.It Fl N
+The file system cache is not flushed during the initial process clean-up,
+however the kernel level
+.Xr reboot 2
+is still processed with a sync.
+This option can be useful for performing a
+.Dq best-effort
+reboot when devices might be unavailable.
+This can happen when devices have been disconnected.
 .It Fl n
 The file system cache is not flushed.
 This option should probably not be used.
@@ -105,6 +109,7 @@ by an intentionally indeterminate period of time.
 Programs are expected to take only enough time to flush all dirty data and exit.
 Developers are encouraged to file a bug with the OS vendor, should they encounter an issue with this functionality.
 .Sh SEE ALSO
+.Xr getutxent 3 ,
 .Xr wtmp 5 ,
 .Xr shutdown 8 ,
 .Xr sync 8
@@ -112,4 +117,4 @@ Developers are encouraged to file a bug with the OS vendor, should they encounte
 A
 .Nm reboot
 utility appeared in
-.At v6 .
+.Bx 4.0 .

@@ -44,6 +44,7 @@ vi{
         an{"Tiếng Aragon"}
         ang{"Tiếng Anh cổ"}
         anp{"Tiếng Angika"}
+        apw{"Tiếng Apache, Phía Tây"}
         ar{"Tiếng Ả Rập"}
         ar_001{"Tiếng Ả Rập Hiện đại"}
         arc{"Tiếng Aramaic"}
@@ -216,6 +217,7 @@ vi{
         grc{"Tiếng Hy Lạp cổ"}
         gsw{"Tiếng Đức (Thụy Sĩ)"}
         gu{"Tiếng Gujarati"}
+        guc{"Tiếng Wayuu"}
         gur{"Tiếng Frafra"}
         guz{"Tiếng Gusii"}
         gv{"Tiếng Manx"}
@@ -296,6 +298,7 @@ vi{
         kpe{"Tiếng Kpelle"}
         kr{"Tiếng Kanuri"}
         krc{"Tiếng Karachay-Balkar"}
+        kri{"Tiếng Krio"}
         krl{"Tiếng Karelian"}
         kru{"Tiếng Kurukh"}
         ks{"Tiếng Kashmir"}
@@ -550,6 +553,7 @@ vi{
         vai{"Tiếng Vai"}
         ve{"Tiếng Venda"}
         vi{"Tiếng Việt"}
+        vls{"Tiếng Flemish phía Tây"}
         vo{"Tiếng Volapük"}
         vot{"Tiếng Votic"}
         vun{"Tiếng Vunjo"}

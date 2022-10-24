@@ -45,6 +45,11 @@
 @property FakeCKZone*          mfiZone;
 @property (readonly) ZoneKeys* mfiZoneKeys;
 
+@property CKRecordZoneID*      mailZoneID;
+@property CKKSKeychainViewState* mailView;
+@property FakeCKZone*          mailZone;
+@property (readonly) ZoneKeys* mailZoneKeys;
+
 @property CKRecordZoneID*      limitedZoneID;
 @property CKKSKeychainViewState* limitedView;
 @property FakeCKZone*          limitedZone;

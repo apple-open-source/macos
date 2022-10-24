@@ -39,32 +39,32 @@ SOFT_LINK_FUNCTION(DiskArbitration, DASessionCreate, soft_DASessionCreate, DASes
 SOFT_LINK_FUNCTION(DiskArbitration, DADissenterGetStatus, soft_DADissenterGetStatus, DAReturn, ( DADissenterRef dissenter ), ( dissenter ))
 SOFT_LINK_FUNCTION(DiskArbitration, DASessionSetDispatchQueue, soft_DASessionSetDispatchQueue, void, ( DASessionRef session, dispatch_queue_t __nullable queue ), ( session, queue ))
 
-static NSString *kVekItemName = @"SecureAccessToken";
-static NSString *kGUIDItemName = @"GeneratedUID";
-static NSString *kAuthenticationAuthority = @"AuthenticationAuthority";
-static NSString *kIsAdmintemName = @"Admin";
-static NSString *kSCUnlockDataItemName = @"FVTokenSecret";
-static NSString *kSCEnforcementItemName  = @"SmartCardEnforcement";
-static NSString *kSCUacItemName  = @"userAccountControl";
+static NSString *const kVekItemName = @"SecureAccessToken";
+static NSString *const kGUIDItemName = @"GeneratedUID";
+static NSString *const kAuthenticationAuthority = @"AuthenticationAuthority";
+static NSString *const kIsAdmintemName = @"Admin";
+static NSString *const kSCUnlockDataItemName = @"FVTokenSecret";
+static NSString *const kSCEnforcementItemName  = @"SmartCardEnforcement";
+static NSString *const kSCUacItemName  = @"userAccountControl";
 
-static NSString *kLongNameItemName = @"RealName";
-static NSString *kUidItemName = @"UID";
-static NSString *kVekFile = @"%@/%@/var/db/secureaccesstoken.plist";
-static NSString *kUsersFile = @"%@/%@/var/db/AllUsersInfo.plist";
+static NSString *const kLongNameItemName = @"RealName";
+static NSString *const kUidItemName = @"UID";
+static NSString *const kVekFile = @"%@/%@/var/db/secureaccesstoken.plist";
+static NSString *const kUsersFile = @"%@/%@/var/db/AllUsersInfo.plist";
 
-static NSString *kUsersGUID = @"UserIdent";
-static NSString *kUsersNameSection = @"UserNamesData";
-static NSString *kUsersSection = @"CryptoUsers";
+static NSString *const kUsersGUID = @"UserIdent";
+static NSString *const kUsersNameSection = @"UserNamesData";
+static NSString *const kUsersSection = @"CryptoUsers";
 
-static NSString *globalConfigPath = @"%@/%@/Library/Preferences";
-static NSString *managedConfigPath = @"%@/%@/Library/Managed Preferences";
-static NSString *homeDirPath = @"%@/%@/Users";
+static NSString *const globalConfigPath = @"%@/%@/Library/Preferences";
+static NSString *const managedConfigPath = @"%@/%@/Library/Managed Preferences";
+static NSString *const homeDirPath = @"%@/%@/Users";
 
-static NSString *fvunlockOverrideScEnforcementPrefsName = @"com.apple.smartcard.fvunlock";
-static NSString *fvunlockOverrideScEnforcementFileName = @"%@/%@/var/db/.scnotenforced";
+static NSString *const fvunlockOverrideScEnforcementPrefsName = @"com.apple.smartcard.fvunlock";
+static NSString *const fvunlockOverrideScEnforcementFileName = @"%@/%@/var/db/.scnotenforced";
 
 @interface PreloginUserDb : NSObject {
-    Boolean scEnforcementOverriden;
+    Boolean scEnforcementOverridden;
 }
 
 - (instancetype)init;
@@ -208,14 +208,14 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         const char *chosenPath = kIODeviceTreePlane ":/chosen";
-        io_registry_entry_t chosen = IORegistryEntryFromPath(kIOMasterPortDefault, chosenPath);
+        io_registry_entry_t chosen = IORegistryEntryFromPath(kIOMainPortDefault, chosenPath);
         
         if (chosen != IO_OBJECT_NULL)  {
             // Get the boot-uuid
             NSObject *bootUUID = CFBridgingRelease(IORegistryEntryCreateCFProperty(chosen, CFSTR("boot-uuid"), NULL, 0));
             IOObjectRelease(chosen);
             
-            // Sanity check the type and convert it to string.
+            // check the type and convert it to string.
             if ([bootUUID isKindOfClass:[NSData class]]) {
                 size_t length = strnlen([(NSData *)bootUUID bytes], [(NSData *)bootUUID length]);
                 retval = [[NSString alloc] initWithBytes:[(NSData *)bootUUID bytes] length:length encoding:NSUTF8StringEncoding];
@@ -293,7 +293,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     if (!isInFVUnlockOrRecovery()) {
         if (operation == kAuthorizationOverrideOperationQuery && !internal) {
             if (status) {
-                *status = scEnforcementOverriden;
+                *status = scEnforcementOverridden;
             }
             return noErr;
         } else if (!internal) {
@@ -545,7 +545,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     
     NSString *key = [NSString stringWithFormat:@"%@:%@", LANVRAMNamespaceStartupManager, @kEFISystemVolumeUUIDVariableName];
     
-    io_registry_entry_t match = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+    io_registry_entry_t match = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/options");
     if (match) {
         CFTypeRef entry = IORegistryEntryCreateCFProperty(match, (__bridge CFStringRef)key, kCFAllocatorDefault, 0);
         IOObjectRelease(match);
@@ -831,13 +831,13 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     }
     
     // check for SC override
-    scEnforcementOverriden = NO;
-    [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverriden internal:YES];
-    os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverriden);
+    scEnforcementOverridden = NO;
+    [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationQuery status:&scEnforcementOverridden internal:YES];
+    os_log_info(AUTHD_LOG, "SC enforcement override: %d", scEnforcementOverridden);
     if (!isInFVUnlockOrRecovery()) {
         
         // remove SCenforcement override flag
-        if (scEnforcementOverriden) {
+        if (scEnforcementOverridden) {
             [self setEnforcedSmartcardOverride:volumeUuid operation:kAuthorizationOverrideOperationReset status:nil internal:YES];
         }
     }
@@ -867,8 +867,8 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         }
     }
     
-    if (scEnforcementOverriden) {
-        os_log_info(AUTHD_LOG, "SC enforcement overriden for this boot");
+    if (scEnforcementOverridden) {
+        os_log_info(AUTHD_LOG, "SC enforcement overridden for this boot");
         global[fvunlockOverrideScEnforcementPrefsName] = @{ @"overrideScEnforcement": @YES };
     }
 

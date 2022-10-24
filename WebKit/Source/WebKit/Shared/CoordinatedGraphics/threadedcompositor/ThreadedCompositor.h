@@ -67,6 +67,7 @@ public:
 
     void updateSceneState(const WebCore::CoordinatedGraphicsState&);
     void updateScene();
+    void updateSceneWithoutRendering();
 
     void invalidate();
 
@@ -75,6 +76,7 @@ public:
     RefPtr<WebCore::DisplayRefreshMonitor> displayRefreshMonitor(WebCore::PlatformDisplayID);
 
     void frameComplete();
+    void targetRefreshRateDidChange(unsigned);
 
     void suspend();
     void resume();

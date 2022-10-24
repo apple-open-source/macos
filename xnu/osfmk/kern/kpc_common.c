@@ -37,7 +37,7 @@
 #include <kern/monotonic.h>
 #endif /* MONOTONIC */
 #include <kern/thread.h>
-#if defined(__arm64__) || defined(__arm__)
+#if defined(__arm64__)
 #include <arm/cpu_data_internal.h>
 #endif
 

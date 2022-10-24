@@ -24,7 +24,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc32_castagnoli = {
+const crcDescriptor CC_crc32_castagnoli = {
     .name = "crc32-castagnoli",
     .defType = model,
     .def.parms.width = 4,

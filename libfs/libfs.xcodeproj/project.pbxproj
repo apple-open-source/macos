@@ -19,7 +19,20 @@
 		A9A1F2DF0754F05E008B2629 /* FSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A9A1F2DD0754F05E008B2629 /* FSPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A9DD4A2D076FB7750075BCC0 /* bootsect.h in Headers */ = {isa = PBXBuildFile; fileRef = A9DD4A2C076FB7750075BCC0 /* bootsect.h */; };
 		A9F3306E076FD15200026204 /* bpb.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F3306D076FD15200026204 /* bpb.h */; };
+		F94AABE72877932B00A35DF2 /* FSMiscInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F94AABE62877932B00A35DF2 /* FSMiscInfo.c */; };
+		F94AABEF2877C36B00A35DF2 /* libfs_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = F94AABEE2877C36B00A35DF2 /* libfs_tests.m */; };
+		F94AABF02877C36B00A35DF2 /* libfs.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AAC046055464E500DB518D /* libfs.a */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F94AABF12877C36B00A35DF2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2AAC045055464E500DB518D;
+			remoteInfo = libfs;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		09F36E671D8B731E0044E1A1 /* CopyFiles */ = {
@@ -48,6 +61,9 @@
 		A9DD4A2C076FB7750075BCC0 /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; };
 		A9F3306D076FD15200026204 /* bpb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bpb.h; sourceTree = "<group>"; };
 		D2AAC046055464E500DB518D /* libfs.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfs.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F94AABE62877932B00A35DF2 /* FSMiscInfo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FSMiscInfo.c; sourceTree = "<group>"; };
+		F94AABEC2877C36B00A35DF2 /* libfs_tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = libfs_tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F94AABEE2877C36B00A35DF2 /* libfs_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = libfs_tests.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +83,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F94AABE92877C36B00A35DF2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F94AABF02877C36B00A35DF2 /* libfs.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -77,6 +101,7 @@
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				09F36E6A1D8B731E0044E1A1 /* Tests */,
+				F94AABED2877C36B00A35DF2 /* libfs_tests */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				09F36E9E1D8CC5F90044E1A1 /* Frameworks */,
 			);
@@ -87,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				A9A1F2DC0754F05D008B2629 /* FSFormatName.c */,
+				F94AABE62877932B00A35DF2 /* FSMiscInfo.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -118,6 +144,7 @@
 			children = (
 				D2AAC046055464E500DB518D /* libfs.a */,
 				09F36E691D8B731E0044E1A1 /* test-libfs */,
+				F94AABEC2877C36B00A35DF2 /* libfs_tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -138,6 +165,14 @@
 			children = (
 			);
 			name = Documentation;
+			sourceTree = "<group>";
+		};
+		F94AABED2877C36B00A35DF2 /* libfs_tests */ = {
+			isa = PBXGroup;
+			children = (
+				F94AABEE2877C36B00A35DF2 /* libfs_tests.m */,
+			);
+			path = libfs_tests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -192,6 +227,24 @@
 			productReference = D2AAC046055464E500DB518D /* libfs.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		F94AABEB2877C36B00A35DF2 /* libfs_tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F94AABF32877C36B00A35DF2 /* Build configuration list for PBXNativeTarget "libfs_tests" */;
+			buildPhases = (
+				F94AABE82877C36B00A35DF2 /* Sources */,
+				F94AABE92877C36B00A35DF2 /* Frameworks */,
+				F94AABEA2877C36B00A35DF2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F94AABF22877C36B00A35DF2 /* PBXTargetDependency */,
+			);
+			name = libfs_tests;
+			productName = libfs_tests;
+			productReference = F94AABEC2877C36B00A35DF2 /* libfs_tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -201,6 +254,10 @@
 				TargetAttributes = {
 					09F36E681D8B731E0044E1A1 = {
 						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Manual;
+					};
+					F94AABEB2877C36B00A35DF2 = {
+						CreatedOnToolsVersion = 14.0;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -221,9 +278,20 @@
 			targets = (
 				D2AAC045055464E500DB518D /* libfs */,
 				09F36E681D8B731E0044E1A1 /* test-libfs */,
+				F94AABEB2877C36B00A35DF2 /* libfs_tests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F94AABEA2877C36B00A35DF2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		09F36E651D8B731E0044E1A1 /* Sources */ = {
@@ -240,29 +308,60 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F94AABE72877932B00A35DF2 /* FSMiscInfo.c in Sources */,
 				A9A1F2DE0754F05E008B2629 /* FSFormatName.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F94AABE82877C36B00A35DF2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F94AABEF2877C36B00A35DF2 /* libfs_tests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		F94AABF22877C36B00A35DF2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2AAC045055464E500DB518D /* libfs */;
+			targetProxy = F94AABF12877C36B00A35DF2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		09F36E9C1D8CC5E20044E1A1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "test-libfs";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 			};
 			name = Debug;
 		};
 		09F36E9D1D8CC5E20044E1A1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
 				PRODUCT_NAME = "test-libfs";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 			};
 			name = Release;
 		};
@@ -283,6 +382,7 @@
 		4D386FCB12B2A7D60023DA29 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -297,6 +397,8 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = fs;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
 				ZERO_LINK = YES;
 			};
@@ -305,6 +407,7 @@
 		4D386FCC12B2A7D60023DA29 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -317,8 +420,133 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = fs;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator macosx iphoneos";
 				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		F94AABF42877C36B00A35DF2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.libfs.libfs-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Debug;
+		};
+		F94AABF52877C36B00A35DF2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.libfs.libfs-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 			};
 			name = Release;
 		};
@@ -348,6 +576,15 @@
 			buildConfigurations = (
 				4D386FCB12B2A7D60023DA29 /* Debug */,
 				4D386FCC12B2A7D60023DA29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F94AABF32877C36B00A35DF2 /* Build configuration list for PBXNativeTarget "libfs_tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F94AABF42877C36B00A35DF2 /* Debug */,
+				F94AABF52877C36B00A35DF2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

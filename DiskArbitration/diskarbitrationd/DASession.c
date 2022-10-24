@@ -29,21 +29,24 @@
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <dispatch/private.h>
 
 struct __DASession
 {
     CFRuntimeBase      _base;
-
+#if TARGET_OS_OSX
     AuthorizationRef   _authorization;
+#endif
     mach_port_t        _client;
     char *             _name;
     pid_t              _pid;
     DASessionOptions   _options;
     CFMutableArrayRef  _queue;
     CFMutableArrayRef  _register;
-    CFMachPortRef      _server;
-    CFRunLoopSourceRef _source;
-    DASessionState     _state;
+    dispatch_mach_t     _serverChannel;
+    mach_port_t         _server;
+    DASessionState      _state;
+    bool                _keepAlive;
 };
 
 typedef struct __DASession __DASession;
@@ -80,7 +83,7 @@ static CFStringRef __DASessionCopyDescription( CFTypeRef object )
                                      CFGetAllocator( object ),
                                      session->_name,
                                      session->_pid,
-                                     CFMachPortGetPort( session->_server ) );
+                                     session->_server );
 }
 
 static CFStringRef __DASessionCopyFormattingDescription( CFTypeRef object, CFDictionaryRef options )
@@ -92,7 +95,7 @@ static CFStringRef __DASessionCopyFormattingDescription( CFTypeRef object, CFDic
                                      CFSTR( "%s [%d]:%d" ),
                                      session->_name,
                                      session->_pid,
-                                     CFMachPortGetPort( session->_server ) );
+                                     session->_server );
 }
 
 static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
@@ -103,7 +106,9 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 
     if ( session )
     {
+#if TARGET_OS_OSX
         session->_authorization = NULL;
+#endif
         session->_client        = MACH_PORT_NULL;
         session->_name          = NULL;
         session->_pid           = 0;
@@ -111,8 +116,8 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         session->_queue         = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
         session->_register      = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
         session->_server        = NULL;
-        session->_source        = NULL;
         session->_state         = 0;
+        session->_keepAlive     = false;
 
         assert( session->_queue    );
         assert( session->_register );
@@ -124,31 +129,18 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 static void __DASessionDeallocate( CFTypeRef object )
 {
     DASessionRef session = ( DASessionRef ) object;
-
+#if TARGET_OS_OSX
     if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+#endif
     if ( session->_client        )  mach_port_deallocate( mach_task_self( ), session->_client );
     if ( session->_name          )  free( session->_name );
     if ( session->_queue         )  CFRelease( session->_queue );
     if ( session->_register      )  CFRelease( session->_register );
 
-    if ( session->_source )
-    {
-        CFRunLoopSourceInvalidate( session->_source );
-
-        CFRelease( session->_source );
-    }
 
     if ( session->_server )
     {
-        mach_port_t serverPort;
-
-        serverPort = CFMachPortGetPort( session->_server );
-
-        CFMachPortInvalidate( session->_server );
-
-        CFRelease( session->_server );
-
-        mach_port_mod_refs( mach_task_self( ), serverPort, MACH_PORT_RIGHT_RECEIVE, -1 );
+        mach_port_mod_refs( mach_task_self( ), session->_server, MACH_PORT_RIGHT_RECEIVE, -1 );
     }
 }
 
@@ -164,7 +156,7 @@ static CFHashCode __DASessionHash( CFTypeRef object )
 {
     DASessionRef session = ( DASessionRef ) object;
 
-    return ( CFHashCode ) CFMachPortGetPort( session->_server );
+    return ( CFHashCode ) session->_server ;
 }
 
 ///w:start
@@ -192,33 +184,14 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_
 
         if ( status == KERN_SUCCESS )
         {
-            CFMachPortRef     server;
-            CFMachPortContext serverContext;
-
-            serverContext.version         = 0;
-            serverContext.info            = session;
-            serverContext.retain          = NULL;
-            serverContext.release         = NULL;
-            serverContext.copyDescription = NULL;
-
-            /*
-             * Create the session's server port.
-             */
-
-            server = CFMachPortCreateWithPort( allocator, serverPort, _DAServerCallback, &serverContext, NULL );
-
-            if ( server )
+            dispatch_mach_t serverChannel = dispatch_mach_create_f("diskarbitrationd/session",
+                                                                        DAServerWorkLoop(),
+                                                                        serverPort,
+                                                                        DAServerMachHandler);
+            
+            if ( serverChannel )
             {
-                CFRunLoopSourceRef source;
 
-                /*
-                 * Create the session's server port run loop source.
-                 */
-
-                source = CFMachPortCreateRunLoopSource( allocator, server, 0 );
-
-                if ( source )
-                {
                     mach_port_t port;
 
                     /*
@@ -226,10 +199,10 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_
                      */
 
                     status = mach_port_request_notification( mach_task_self( ),
-                                                             CFMachPortGetPort( server ),
+                                                             serverPort,
                                                              MACH_NOTIFY_NO_SENDERS,
                                                              1,
-                                                             CFMachPortGetPort( server ),
+                                                             serverPort,
                                                              MACH_MSG_TYPE_MAKE_SEND_ONCE,
                                                              &port );
 
@@ -237,24 +210,19 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_
                     {
                         assert( port == MACH_PORT_NULL );
 
+                        /*
+                         * Create the session's server port.
+                         */
+
                         session->_name   = strdup( _name );
                         session->_pid    = _pid;
-                        session->_server = server;
-                        session->_source = source;
+                        session->_serverChannel = serverChannel;
+                        session->_server = serverPort;
 
                         return session;
                     }
 
-                    CFRunLoopSourceInvalidate( source );
-
-                    CFRelease( source );
-                }
-
-                CFMachPortInvalidate( server );
-
-                CFRelease( server );
             }
-
             mach_port_mod_refs( mach_task_self( ), serverPort, MACH_PORT_RIGHT_RECEIVE, -1 );
         }
 
@@ -263,11 +231,12 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_
 
     return NULL;
 }
-
+#if TARGET_OS_OSX
 AuthorizationRef DASessionGetAuthorization( DASessionRef session )
 {
     return session->_authorization;
 }
+#endif
 
 CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session )
 {
@@ -281,7 +250,7 @@ CFMutableArrayRef DASessionGetCallbackRegister( DASessionRef session )
 
 mach_port_t DASessionGetID( DASessionRef session )
 {
-    return CFMachPortGetPort( session->_server );
+    return session->_server;
 }
 
 Boolean DASessionGetOption( DASessionRef session, DASessionOption option )
@@ -296,7 +265,7 @@ DASessionOptions DASessionGetOptions( DASessionRef session )
 
 mach_port_t DASessionGetServerPort( DASessionRef session )
 {
-    return CFMachPortGetPort( session->_server );
+    return  session->_server ;
 }
 
 Boolean DASessionGetState( DASessionRef session, DASessionState state )
@@ -307,6 +276,11 @@ Boolean DASessionGetState( DASessionRef session, DASessionState state )
 CFTypeID DASessionGetTypeID( void )
 {
     return __kDASessionTypeID;
+}
+
+Boolean DASessionGetKeepAlive( DASessionRef session )
+{
+    return session->_keepAlive;
 }
 
 void DASessionInitialize( void )
@@ -349,11 +323,22 @@ void DASessionRegisterCallback( DASessionRef session, DACallbackRef callback )
     CFArrayAppendValue( session->_register, callback );
 }
 
-void DASessionScheduleWithRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode )
+void DASessionCancelChannel( DASessionRef session )
 {
-    CFRunLoopAddSource( runLoop, session->_source, runLoopMode );
+    if ( session->_serverChannel )
+    {
+        dispatch_mach_cancel(session->_serverChannel);
+        dispatch_release(session->_serverChannel);
+        session->_serverChannel = NULL;
+    }
 }
 
+void DASessionScheduleWithDispatch( DASessionRef session )
+{
+    dispatch_mach_connect(session->_serverChannel, session->_server, MACH_PORT_NULL, NULL);
+}
+
+#if TARGET_OS_OSX
 void DASessionSetAuthorization( DASessionRef session, AuthorizationRef authorization )
 {
     if ( session->_authorization )
@@ -363,7 +348,7 @@ void DASessionSetAuthorization( DASessionRef session, AuthorizationRef authoriza
 
     session->_authorization = authorization;
 }
-
+#endif
 void DASessionSetClientPort( DASessionRef session, mach_port_t client )
 {
     if ( session->_client )
@@ -414,6 +399,11 @@ void DASessionSetState( DASessionRef session, DASessionState state, Boolean valu
     session->_state |= value ? state : 0;
 }
 
+void DASessionSetKeepAlive( DASessionRef session , bool value)
+{
+    session->_keepAlive = value;
+}
+
 void DASessionUnregisterCallback( DASessionRef session, DACallbackRef callback )
 {
     CFIndex count;
@@ -454,7 +444,3 @@ void DASessionUnregisterCallback( DASessionRef session, DACallbackRef callback )
     }
 }
 
-void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode )
-{
-    CFRunLoopRemoveSource( runLoop, session->_source, runLoopMode );
-}

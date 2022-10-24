@@ -1464,7 +1464,7 @@ SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSign
     SecCmsAttribute* attr;
     SecAsn1Item* ekp;
 
-    /* sanity check - see if verification status is ok (unverified does not count...) */
+    /* see if verification status is ok (unverified does not count...) */
     if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
         return NULL;
 

@@ -299,6 +299,17 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
   if (httpAddrFamily(httpGetAddress(con->http)) == AF_LOCAL)
   {
 #  ifdef __APPLE__
+    {
+      struct xucred cred = { .cr_version = XUCRED_VERSION };
+      socklen_t credsize = sizeof(cred);
+
+      if (getsockopt(httpGetFd(con->http), SOL_LOCAL, LOCAL_PEERCRED, &cred, &credsize) == 0) {
+        if (cred.cr_version == XUCRED_VERSION) {
+          con->peer_uid = cred.cr_uid;
+        }
+      }
+    }
+
     socklen_t	peersize;		/* Size of peer credentials */
     pid_t	peerpid;		/* Peer process ID */
     char	peername[256];		/* Name of process */

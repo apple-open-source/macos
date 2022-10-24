@@ -41,3 +41,6 @@ _trustd:*:282:282::0:0:trustd:/var/empty:/usr/bin/false
 _mmaintenanced:*:283:283::0:0:mmaintenanced:/var/db/mmaintenanced:/usr/bin/false
 _darwindaemon:*:284:284::0:0:Darwin Daemon:/var/db/darwindaemon:/usr/bin/false
 _notification_proxy:*:285:285::0:0:Notification Proxy:/var/empty:/usr/bin/false
+_backboardd:*:287:287::0:0:BackBoard:/var/empty:/usr/bin/false
+_avphidbridge:*:288:288::0:0:Apple Virtual Platform HID Bridge:/var/empty:/usr/bin/false
+_launchservices:*:290:290::0:0:Launch Services:/var/empty:/usr/bin/false

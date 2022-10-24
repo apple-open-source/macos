@@ -2071,7 +2071,7 @@ inline Vector<String> matchAll(const CString& source, std::regex regex)
     std::smatch match;
     for (std::string str = source.data(); std::regex_search(str, match, regex); str = match.suffix()) {
         ASSERT(match.size() == 1);
-        matches.append(match[0].str().c_str());
+        matches.append(String::fromLatin1(match[0].str().c_str()));
     }
     return matches;
 }
@@ -2370,25 +2370,30 @@ void testZDefOfSpillSlotWithOffsetNeedingToBeMaterializedInARegister()
 
     BasicBlock* root = code.addBlock();
 
-    Vector<StackSlot*> slots;
-    for (unsigned i = 0; i < 10000; ++i)
-        slots.append(code.addStackSlot(8, StackSlotKind::Spill));
+    Vector<Tmp> tmps;
+    unsigned numberOfLiveTmps = 10000;
+    for (unsigned i = 0; i < numberOfLiveTmps; ++i)
+        tmps.append(code.newTmp(GP));
 
-    for (auto* slot : slots)
-        root->append(Move32, nullptr, Tmp(GPRInfo::argumentGPR0), Arg::stack(slot));
+    Tmp val = code.newTmp(GP);
+    root->append(Move, nullptr, Arg::imm(0), val);
+    for (auto tmp : tmps) {
+        root->append(Move32, nullptr, val, tmp);
+        root->append(Add64, nullptr, Arg::imm(1), val);
+    }
 
     Tmp loadResult = code.newTmp(GP);
     Tmp sum = code.newTmp(GP);
     root->append(Move, nullptr, Arg::imm(0), sum);
-    for (auto* slot : slots) {
-        root->append(Move, nullptr, Arg::stack(slot), loadResult);
+    for (auto tmp : tmps) {
+        root->append(Move, nullptr, tmp, loadResult);
         root->append(Add64, nullptr, loadResult, sum);
     }
     root->append(Move, nullptr, sum, Tmp(GPRInfo::returnValueGPR));
     root->append(Ret64, nullptr, Tmp(GPRInfo::returnValueGPR));
 
-    int32_t result = compileAndRun<int>(proc, 1);
-    CHECK(result == 10000);
+    const auto result = compileAndRun<uint64_t>(proc);
+    CHECK(result == (numberOfLiveTmps * (numberOfLiveTmps - 1)) / 2);
 }
 
 void testEarlyAndLateUseOfSameTmp()

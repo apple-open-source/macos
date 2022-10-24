@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020 Apple Inc. All rights reserved.
+* Copyright (c) 2020, 2022 Apple Inc. All rights reserved.
 *
 * @APPLE_LICENSE_HEADER_START@
 *
@@ -233,11 +233,17 @@ EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain,
     return ret;
 }
 
+#if TARGET_OS_IPHONE
+#define PREFERENCES_USERNAME CFSTR("mobile")
+#else /* TARGET_OS_IPHONE */
+#define PREFERENCES_USERNAME kCFPreferencesCurrentUser
+#endif /* TARGET_OS_IPHONE */
+
 void
 EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
 {
-    CFDictionaryRef	domain_list;
-    CFDictionaryRef	exceptions_list;
+    CFDictionaryRef	domain_list = NULL;
+    CFDictionaryRef	exceptions_list = NULL;
 
 #if TARGET_OS_IPHONE
     /*
@@ -252,7 +258,7 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
     exceptions_change_check();
     domain_list = CFPreferencesCopyValue(domain,
 					 kEAPTLSTrustExceptionsApplicationID,
-					 kCFPreferencesCurrentUser,
+					 PREFERENCES_USERNAME,
 					 kCFPreferencesAnyHost);
     if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
 	CFRelease(domain_list);
@@ -271,10 +277,10 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
 	CFDictionaryRemoveValue(new_domain_list, identifier);
 	CFPreferencesSetValue(domain, new_domain_list,
 			      kEAPTLSTrustExceptionsApplicationID,
-			      kCFPreferencesCurrentUser,
+			      PREFERENCES_USERNAME,
 			      kCFPreferencesAnyHost);
 	CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-				 kCFPreferencesCurrentUser,
+				 PREFERENCES_USERNAME,
 				 kCFPreferencesAnyHost);
 	exceptions_change_notify();
 	CFRelease(new_domain_list);
@@ -283,32 +289,25 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
     return;
 }
 
-#if TARGET_OS_IPHONE
-#define PREFERENCES_USERNAME CFSTR("mobile")
-#endif /* TARGET_OS_IPHONE */
-
 /* WiFiManager uses this (on iOS) to share the exception with HomePod */
 CFDictionaryRef
 EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier)
 {
     CFDictionaryRef 	domain_list = NULL;
     CFDictionaryRef 	exceptions_list = NULL;
-    CFStringRef 	user_name = NULL;
 
-#if TARGET_OS_IPHONE
-    user_name = PREFERENCES_USERNAME;
-#else /* TARGET_OS_IPHONE */
-    user_name = kCFPreferencesCurrentUser;
-#endif /* TARGET_OS_IPHONE */
     exceptions_change_check();
     domain_list = CFPreferencesCopyValue(domain,
 					 kEAPTLSTrustExceptionsApplicationID,
-					 user_name,
+					 PREFERENCES_USERNAME,
 					 kCFPreferencesAnyHost);
     if (isA_CFDictionary(domain_list) != NULL) {
 	exceptions_list = CFDictionaryGetValue(domain_list, identifier);
 	if (isA_CFDictionary(exceptions_list) != NULL) {
 	    CFRetain(exceptions_list);
+	}
+	else {
+	    exceptions_list = NULL;
 	}
     }
     my_CFRelease(&domain_list);
@@ -320,18 +319,11 @@ void
 EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList)
 {
     CFDictionaryRef 	domain_list = NULL;
-    CFStringRef 	user_name = NULL;
-
-#if TARGET_OS_IPHONE
-    user_name = PREFERENCES_USERNAME;
-#else /* TARGET_OS_IPHONE */
-    user_name = kCFPreferencesCurrentUser;
-#endif /* TARGET_OS_IPHONE */
 
     exceptions_change_check();
     domain_list = CFPreferencesCopyValue(domain,
 					 kEAPTLSTrustExceptionsApplicationID,
-					 user_name,
+					 PREFERENCES_USERNAME,
 					 kCFPreferencesAnyHost);
     if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
 	my_CFRelease(&domain_list);
@@ -354,10 +346,10 @@ EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDi
     }
     CFPreferencesSetValue(domain, domain_list,
 			  kEAPTLSTrustExceptionsApplicationID,
-			  user_name,
+			  PREFERENCES_USERNAME,
 			  kCFPreferencesAnyHost);
     CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-			     user_name,
+			     PREFERENCES_USERNAME,
 			     kCFPreferencesAnyHost);
     exceptions_change_notify();
     my_CFRelease(&domain_list);

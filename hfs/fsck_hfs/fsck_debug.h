@@ -71,7 +71,7 @@ extern unsigned long cur_debug_level;
  * Output:
  *	Nothing
  */
-extern void DPRINTF (unsigned long message_type, char *format, ...);
+extern void DPRINTF (unsigned long message_type, char *format, ...) __printflike(2, 3);
 
 void HexDump(const void *p_arg, unsigned length, int showOffsets);
 

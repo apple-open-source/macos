@@ -59,9 +59,8 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper departByDistrustingSelfWithContainer:self.deps.containerName
-                                                                 context:self.deps.contextID
-                                                                   reply:^(NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper departByDistrustingSelfWithSpecificUser:self.deps.activeAccount
+                                                                      reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             if(error) {
                 self.error = error;

@@ -34,7 +34,6 @@
 
 #include <security_utilities/machserver.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 
 namespace Security {

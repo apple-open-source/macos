@@ -1,0 +1,20 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tftpd</string>
+		<key>OpenSourceVersion</key>
+		<string>2008-02-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/libexec/tftpd?id=b71d8e695c7c6e5d27903b739e3e0a8cf20fa7c5</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>tftp.c: Ignore ENOBUFS when sending (14592597)</string>
+			<string>tftp.c: Avoid option parsing during rollover</string>
+			<string>tftp.c: tftp has 32MB limitation</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

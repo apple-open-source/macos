@@ -1,0 +1,1 @@
+http://ocsp.sca1a.amazontrust.com

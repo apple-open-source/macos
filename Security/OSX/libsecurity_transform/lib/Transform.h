@@ -198,7 +198,7 @@ public:
 	CFStringRef GetName();
 	
 	// Output debugging information if the DEBUG attribute is set for this transform
-	void Debug(const char *fmt, ...);
+	void Debug(CFStringRef format, ...) __attribute__((format(__CFString__, 2, 3)));
 	
 	CFErrorRef RefactorErrorToIncludeAbortingTransform(CFErrorRef sourceError);
     

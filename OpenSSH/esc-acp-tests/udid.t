@@ -11,18 +11,22 @@ function do_acp {
   grep -q "^$princ\$" $tmpdir/results
 }
 
+echo 1..8
 
-echo 1..2
-
+certgen -n $princ "$@"
+{ do_acp && echo ok } || echo not ok
 certgen -n $princ "$@" -O extension:device-udid@corp.apple.com=$udid
-if do_acp; then
-  echo ok
-else
-  echo not ok
-fi
+{ do_acp && echo ok } || echo not ok
+ESC_ACP_MOCK_UDID=$(print $udid | tr '[A-F]' '[a-f]' | tr -d '-')
+{ do_acp && echo ok } || echo not ok
+ESC_ACP_MOCK_UDID=""
+{ do_acp && echo not ok } || echo ok
+ESC_ACP_MOCK_UDID="00008030"
+{ do_acp && echo not ok } || echo ok
 ESC_ACP_MOCK_UDID="00008030-000E508E0240012F"
-if do_acp; then
-  echo not ok
-else
-  echo ok
-fi
+{ do_acp && echo not ok } || echo ok
+ESC_ACP_MOCK_UDID=$udid
+certgen -n $princ "$@" -O extension:device-udid@corp.apple.com=
+{ do_acp && echo not ok } || echo ok
+certgen -n $princ "$@" -O extension:device-udid@corp.apple.com="00008030"
+{ do_acp && echo not ok } || echo ok

@@ -66,15 +66,9 @@ static inline RefPtr<CSSCalcOperationNode> createBlendHalf(const Length& length,
 
 static Vector<Ref<CSSCalcExpressionNode>> createCSS(const Vector<std::unique_ptr<CalcExpressionNode>>& nodes, const RenderStyle& style)
 {
-    Vector<Ref<CSSCalcExpressionNode>> values;
-    values.reserveInitialCapacity(nodes.size());
-    for (auto& node : nodes) {
-        auto cssNode = createCSS(*node, style);
-        if (!cssNode)
-            continue;
-        values.uncheckedAppend(cssNode.releaseNonNull());
-    }
-    return values;
+    return WTF::compactMap(nodes, [&](auto& node) -> RefPtr<CSSCalcExpressionNode> {
+        return createCSS(*node, style);
+    });
 }
 
 static RefPtr<CSSCalcExpressionNode> createCSS(const CalcExpressionNode& node, const RenderStyle& style)
@@ -331,6 +325,8 @@ bool CSSCalcValue::equals(const CSSCalcValue& other) const
 
 inline double CSSCalcValue::clampToPermittedRange(double value) const
 {
+    if (primitiveType() == CSSUnitType::CSS_DEG && (isnan(value) || isinf(value)))
+        return 0;
     return m_shouldClampToNonNegative && value < 0 ? 0 : value;
 }
 

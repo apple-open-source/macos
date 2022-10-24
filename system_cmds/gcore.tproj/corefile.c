@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -35,26 +35,8 @@ make_corefile_mach_header(void *data)
     mh->cputype = is64 ? CPU_TYPE_X86_64 : CPU_TYPE_I386;
     mh->cpusubtype = is64 ? CPU_SUBTYPE_X86_64_ALL : CPU_SUBTYPE_I386_ALL;
 #elif defined(__arm__) || defined(__arm64__)
-#if defined(RC_HIDE_HARDWARE_LATE_FALL_2018_WATCHOS) || defined(__OPEN_SOURCE__)
     mh->cputype = is64 ? CPU_TYPE_ARM64 : CPU_TYPE_ARM;
     mh->cpusubtype = is64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_ARM_ALL;
-#else
-    if (is64) {
-        /* uses the ARMv8 instruction set, LP64 data model */
-        mh->cputype = CPU_TYPE_ARM64;
-        mh->cpusubtype = CPU_SUBTYPE_ARM64_ALL;
-    } else {
-#if defined(__arm64__)
-        /* ILP32 but still uses the ARMv8 instruction set */
-        mh->cputype = CPU_TYPE_ARM64_32;
-        mh->cpusubtype = CPU_SUBTYPE_ARM64_32_ALL;
-#else
-        /* ILP32 using some variant of the ARMv7 ISA */
-        mh->cputype = CPU_TYPE_ARM;
-        mh->cpusubtype = CPU_SUBTYPE_ARM_ALL;
-#endif  /* __arm64__ */
-    }
-#endif /* RC_HIDE .. */
 #else
 #error undefined
 #endif
@@ -254,7 +236,7 @@ make_fileref_command(void *data, const char *pathname, const uuid_t uuid,
  * data than write out the data itself.
  */
 static walk_return_t
-write_fileref_subregion(const struct region *r, const struct subregion *s, struct write_segment_data *wsd)
+make_fileref_subregion_command(const struct region *r, const struct subregion *s, struct write_segment_data *wsd)
 {
     assert(S_LIBENT(s));
     if (OPTIONS_DEBUG(opt, 1) && !issubregiontype(s, SEG_TEXT) && !issubregiontype(s, SEG_LINKEDIT))
@@ -283,7 +265,7 @@ write_fileref_subregion(const struct region *r, const struct subregion *s, struc
  * reference unless we know it hasn't been modified.
  */
 static walk_return_t
-write_fileref_region(const struct region *r, struct write_segment_data *wsd)
+rop_fileref_makeheader(const struct region *r, struct write_segment_data *wsd)
 {
     assert(0 == r->r_nsubregions);
     assert(r->r_info.user_tag != VM_MEMORY_IOKIT);
@@ -306,10 +288,22 @@ write_fileref_region(const struct region *r, struct write_segment_data *wsd)
     return WALK_CONTINUE;
 }
 
+static walk_return_t
+rop_noop(const struct region *__unused r,
+    struct write_segment_data *__unused wsd)
+{
+    return WALK_CONTINUE;
+}
+
+/*
+ * fileref regions only update the mach header, and so the header op
+ * and the write op are the same, while the stream op is a no-op
+ */
 const struct regionop fileref_ops = {
-    print_memory_region,
-    write_fileref_region,
-    del_fileref_region,
+    .rop_header = rop_fileref_makeheader,
+    .rop_stream = rop_noop,
+    .rop_pwrite = rop_fileref_makeheader,
+    .rop_delete = rop_fileref_delete,
 };
 
 
@@ -326,7 +320,7 @@ size_zfod_region(const struct region *r, struct size_core *sc)
 }
 
 static walk_return_t
-write_zfod_region(const struct region *r, struct write_segment_data *wsd)
+rop_zfod_makeheader(const struct region *r, struct write_segment_data *wsd)
 {
     assert(r->r_info.user_tag != VM_MEMORY_IOKIT);
     assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
@@ -340,38 +334,41 @@ write_zfod_region(const struct region *r, struct write_segment_data *wsd)
     return WALK_CONTINUE;
 }
 
+/*
+ * zfod regions only update the mach header, and so the header op
+ * and the write op are the same, while the stream op is a no-op
+ */
 const struct regionop zfod_ops = {
-    print_memory_region,
-    write_zfod_region,
-    del_zfod_region,
+    .rop_header = rop_zfod_makeheader,
+    .rop_stream = rop_noop,
+    .rop_pwrite = rop_zfod_makeheader,
+    .rop_delete = rop_zfod_delete,
 };
 
-#pragma mark -- Regions containing data --
+#pragma mark -- Regions containing data written at offsets beyond the header --
+
+static void
+report_write_memory(const struct vm_range *vr, int error, size_t size, off_t foffset, ssize_t nwritten)
+{
+    hsize_str_t hsz;
+    printvr(vr, "writing %ld bytes at offset %lld -> ", size, foffset);
+    if (error)
+        printf("err #%d - %s ", error, strerror(error));
+    else {
+        printf("%s ", str_hsize(hsz, nwritten));
+        if (size != (size_t)nwritten)
+            printf("[%zd - incomplete write!] ", nwritten);
+        else if (size != V_SIZE(vr))
+            printf("(%s in memory) ",
+                   str_hsize(hsz, V_SIZE(vr)));
+    }
+    printf("\n");
+}
 
 static walk_return_t
-pwrite_memory(struct write_segment_data *wsd, const void *addr, size_t size, const struct vm_range *vr)
+result_write_memory(int error, size_t size, ssize_t nwritten,
+    struct write_segment_data *wsd)
 {
-    assert(size);
-
-    ssize_t nwritten;
-	const int error = bounded_pwrite(wsd->wsd_fd, addr, size, wsd->wsd_foffset, &wsd->wsd_nocache, &nwritten);
-
-    if (error || OPTIONS_DEBUG(opt, 3)) {
-        hsize_str_t hsz;
-        printvr(vr, "writing %ld bytes at offset %lld -> ", size, wsd->wsd_foffset);
-        if (error)
-            printf("err #%d - %s ", error, strerror(error));
-        else {
-            printf("%s ", str_hsize(hsz, nwritten));
-            if (size != (size_t)nwritten)
-                printf("[%zd - incomplete write!] ", nwritten);
-            else if (size != V_SIZE(vr))
-                printf("(%s in memory) ",
-                       str_hsize(hsz, V_SIZE(vr)));
-        }
-        printf("\n");
-    }
-
     walk_return_t step = WALK_CONTINUE;
     switch (error) {
         case 0:
@@ -382,7 +379,7 @@ pwrite_memory(struct write_segment_data *wsd, const void *addr, size_t size, con
                 wsd->wsd_nwritten += nwritten;
             }
             break;
-        case EFAULT:	// transient mapping failure?
+        case EFAULT:    // transient mapping failure?
             break;
         default:        // EROFS, ENOSPC, EFBIG etc. */
             step = WALK_ERROR;
@@ -391,6 +388,29 @@ pwrite_memory(struct write_segment_data *wsd, const void *addr, size_t size, con
     return step;
 }
 
+static walk_return_t
+pwrite_memory(struct write_segment_data *wsd, const void *addr, size_t size, const struct vm_range *vr)
+{
+    assert(size);
+    ssize_t nwritten;
+	const int error = bounded_pwrite(wsd->wsd_fd, addr, size, wsd->wsd_foffset, &wsd->wsd_nocache, &nwritten);
+    if (error || OPTIONS_DEBUG(opt, 3)) {
+        report_write_memory(vr, error, size, wsd->wsd_foffset, nwritten);
+    }
+    return result_write_memory(error, size, nwritten, wsd);
+}
+
+static walk_return_t
+stream_memory(struct write_segment_data *wsd, const void *addr, size_t size, const struct vm_range *vr)
+{
+    assert(size);
+    ssize_t nwritten;
+    const int error = bounded_write(wsd->wsd_fd, addr, size, &nwritten);
+    if (error || OPTIONS_DEBUG(opt, 3)) {
+        report_write_memory(vr, error, size, wsd->wsd_foffset, nwritten);
+    }
+    return result_write_memory(error, size, nwritten, wsd);
+}
 
 /*
  * Write a contiguous range of memory into the core file.
@@ -602,8 +622,31 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
     return WALK_CONTINUE;
 }
 
+static void
+unmap_memory_range(const struct region *r, const struct vm_range *dp)
+{
+    if (V_ADDR(dp)) {
+        const kern_return_t kr = mach_vm_deallocate(mach_task_self(),
+            V_ADDR(dp), V_SIZE(dp));
+        if (KERN_SUCCESS != kr && OPTIONS_DEBUG(opt, 1)) {
+            err_mach(kr, r, "mach_vm_deallocate() post %llx-%llx",
+            V_ADDR(dp), V_SIZE(dp));
+        }
+    }
+}
+
+/*
+ * pwrite a memory range and update the mach header to reflect it
+ * Note that we can do per-segment compression here, which makes
+ * things extra complicated.
+ *
+ * Since some regions can be inconveniently large,
+ * chop them into multiple chunks as we compress them.
+ * (mach_vm_read has 32-bit limitations too).
+ */
 static walk_return_t
-write_memory_range(struct write_segment_data *wsd, const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
+pwrite_memory_range(struct write_segment_data *wsd,
+    const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
 {
     assert(R_ADDR(r) <= vmaddr && R_ENDADDR(r) >= vmaddr + vmsize);
 
@@ -612,12 +655,6 @@ write_memory_range(struct write_segment_data *wsd, const struct region *r, mach_
 
     do {
         vmsize = resid;
-
-        /*
-         * Since some regions can be inconveniently large,
-         * chop them into multiple chunks as we compress them.
-         * (mach_vm_read has 32-bit limitations too).
-         */
         vmsize = vmsize > INT32_MAX ? INT32_MAX : vmsize;
         if (opt->chunksize > 0 && vmsize > opt->chunksize)
             vmsize = opt->chunksize;
@@ -677,11 +714,8 @@ write_memory_range(struct write_segment_data *wsd, const struct region *r, mach_
 		step = pwrite_memory(wsd, srcaddr, filesize, &vr);
 		if (dstbuf)
 			free(dstbuf);
-        if (V_ADDR(dp)) {
-            kern_return_t kr = mach_vm_deallocate(mach_task_self(), V_ADDR(dp), V_SIZE(dp));
-            if (KERN_SUCCESS != kr && OPTIONS_DEBUG(opt, 1))
-                err_mach(kr, r, "mach_vm_deallocate() post %llx-%llx", V_ADDR(dp), V_SIZE(dp));
-        }
+
+        unmap_memory_range(r, dp);
 
 		if (WALK_ERROR == step)
 			break;
@@ -689,6 +723,109 @@ write_memory_range(struct write_segment_data *wsd, const struct region *r, mach_
 		resid -= vmsize;
 		vmaddr += vmsize;
 	} while (resid);
+
+    return step;
+}
+
+/*
+ * A simpler version of pwrite_memory_range() (i.e. no compression)
+ * used for streaming writes that just computes the segment header(s)
+ * update(s) for this range of addresses.
+ */
+static walk_return_t
+makeheader_memory_range(struct write_segment_data *wsd,
+    const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
+{
+    assert(R_ADDR(r) <= vmaddr && R_ENDADDR(r) >= vmaddr + vmsize);
+    assert(!opt->extended);
+
+    mach_vm_offset_t resid = vmsize;
+    walk_return_t step = WALK_CONTINUE;
+
+    do {
+        vmsize = resid;
+        vmsize = vmsize > INT32_MAX ? INT32_MAX : vmsize;
+        assert(vmsize <= INT32_MAX);
+
+        const struct vm_range vr = {
+            .addr = vmaddr,
+            .size = vmsize,
+        };
+        struct vm_range d, *dp = &d;
+
+        step = map_memory_range(wsd, r, &vr, dp);
+        if (WALK_CONTINUE != step) {
+            break;
+        }
+        assert(0 != V_ADDR(dp) && 0 != V_SIZE(dp));
+
+        const size_t filesize = V_SIZEOF(dp);
+        assert(filesize);
+
+        const struct file_range fr = {
+            .off = wsd->wsd_foffset,
+            .size = filesize,
+        };
+        make_segment_command(wsd->wsd_lc, &vr, &fr, &r->r_info, 0, r->r_purgable);
+        // predict what will be written
+        wsd->wsd_foffset += filesize;
+        wsd->wsd_nwritten += filesize;
+
+        unmap_memory_range(r, dp);
+        commit_load_command(wsd, wsd->wsd_lc);
+        resid -= vmsize;
+        vmaddr += vmsize;
+    } while (resid);
+
+    return step;
+}
+
+/*
+ * A simpler version of pwrite_memory_range() (i.e. no compression) used for
+ * streaming that just writes the segment data for this range of addresses.
+ */
+static walk_return_t
+stream_memory_range(struct write_segment_data *wsd,
+    const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
+{
+    assert(R_ADDR(r) <= vmaddr && R_ENDADDR(r) >= vmaddr + vmsize);
+    assert(!opt->extended);
+
+    mach_vm_offset_t resid = vmsize;
+    walk_return_t step = WALK_CONTINUE;
+
+    do {
+        vmsize = resid;
+        vmsize = vmsize > INT32_MAX ? INT32_MAX : vmsize;
+        assert(vmsize <= INT32_MAX);
+
+        const struct vm_range vr = {
+            .addr = vmaddr,
+            .size = vmsize,
+        };
+        struct vm_range d, *dp = &d;
+
+        step = map_memory_range(wsd, r, &vr, dp);
+        if (WALK_CONTINUE != step) {
+            break;
+        }
+        assert(0 != V_ADDR(dp) && 0 != V_SIZE(dp));
+        const void *srcaddr = (const void *)V_ADDR(dp);
+
+        mach_vm_behavior_set(mach_task_self(), V_ADDR(dp), V_SIZE(dp), VM_BEHAVIOR_SEQUENTIAL);
+
+        const size_t filesize = V_SIZEOF(dp);
+        assert(filesize);
+
+        step = stream_memory(wsd, srcaddr, filesize, &vr);
+        unmap_memory_range(r, dp);
+        if (WALK_ERROR == step) {
+            break;
+        }
+
+        resid -= vmsize;
+        vmaddr += vmsize;
+    } while (resid);
 
     return step;
 }
@@ -720,7 +857,23 @@ getvmsize_host(__unused const task_t task, const struct region *r)
 #endif
 
 static walk_return_t
-write_sparse_region(const struct region *r, struct write_segment_data *wsd)
+rop_sparse_nomakeheader(const struct region *__unused r,
+    struct write_segment_data *__unused wsd)
+{
+    printf("%s: sparse regions not supported\n", __func__);
+    return WALK_ERROR;
+}
+
+static walk_return_t
+rop_sparse_nostream(const struct region *__unused r,
+    struct write_segment_data *__unused wsd)
+{
+    printf("%s: sparse regions not supported", __func__);
+    return WALK_ERROR;
+}
+
+static walk_return_t
+rop_sparse_pwrite(const struct region *r, struct write_segment_data *wsd)
 {
     assert(r->r_nsubregions);
     assert(!r->r_inzfodregion);
@@ -733,7 +886,7 @@ write_sparse_region(const struct region *r, struct write_segment_data *wsd)
         const struct subregion *s = r->r_subregions[i];
 
         if (s->s_isuuidref)
-            step = write_fileref_subregion(r, s, wsd);
+            step = make_fileref_subregion_command(r, s, wsd);
         else {
             /* Write this one out as real data */
             mach_vm_size_t vmsize = S_SIZE(s);
@@ -745,7 +898,7 @@ write_sparse_region(const struct region *r, struct write_segment_data *wsd)
                                S_SIZE(s), vmsize);
                 }
             }
-            step = write_memory_range(wsd, r, S_ADDR(s), vmsize);
+            step = pwrite_memory_range(wsd, r, S_ADDR(s), vmsize);
         }
         if (WALK_ERROR == step)
             break;
@@ -754,39 +907,73 @@ write_sparse_region(const struct region *r, struct write_segment_data *wsd)
 }
 
 static walk_return_t
-write_vanilla_region(const struct region *r, struct write_segment_data *wsd)
+rop_vanilla_pwrite(const struct region *r, struct write_segment_data *wsd)
 {
     assert(0 == r->r_nsubregions);
     assert(!r->r_inzfodregion);
     assert(NULL == r->r_fileref);
 
     const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
-    return write_memory_range(wsd, r, R_ADDR(r), vmsize_host);
+    return pwrite_memory_range(wsd, r, R_ADDR(r), vmsize_host);
+}
+
+static walk_return_t
+rop_vanilla_makeheader(const struct region *r, struct write_segment_data *wsd)
+{
+    assert(0 == r->r_nsubregions);
+    assert(!r->r_inzfodregion);
+    assert(NULL == r->r_fileref);
+
+    const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
+    return makeheader_memory_range(wsd, r, R_ADDR(r), vmsize_host);
+}
+
+static walk_return_t
+rop_vanilla_stream(const struct region *r, struct write_segment_data *wsd)
+{
+    assert(0 == r->r_nsubregions);
+    assert(!r->r_inzfodregion);
+    assert(NULL == r->r_fileref);
+
+    const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
+    return stream_memory_range(wsd, r, R_ADDR(r), vmsize_host);
 }
 
 walk_return_t
-region_write_memory(struct region *r, void *arg)
+pwrite_memory_region(struct region *r, void *arg)
 {
     assert(r->r_info.user_tag != VM_MEMORY_IOKIT); // elided in walk_regions()
     assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
-    return ROP_WRITE(r, arg);
+    return ROP_PWRITE(r, arg);
+}
+
+walk_return_t
+makeheader_memory_region(struct region *r, void *arg)
+{
+    assert(r->r_info.user_tag != VM_MEMORY_IOKIT); // elided in walk_regions()
+    assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
+    return ROP_HEADER(r, arg);
+}
+
+walk_return_t
+stream_memory_region(struct region *r, void *arg)
+{
+    assert(r->r_info.user_tag != VM_MEMORY_IOKIT); // elided in walk_regions()
+    assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
+    return ROP_STREAM(r, arg);
 }
 
 /*
  * Handles the cases where segments are broken into chunks i.e. when
- * writing compressed segments.
+ * writing compressed segments.  Maximum segment size is 2GiB.
  */
 static unsigned long
 count_memory_range(mach_vm_offset_t vmsize)
 {
-    unsigned long count;
-    if (opt->chunksize) {
-        count = (size_t)vmsize / opt->chunksize;
-        if (vmsize != (mach_vm_offset_t)count * opt->chunksize)
-            count++;
-    } else
-        count = 1;
-    return count;
+    const mach_vm_offset_t chunksize =
+        (opt->chunksize > 0 && opt->chunksize < INT32_MAX) ?
+        opt->chunksize : INT32_MAX;
+    return (unsigned long)((vmsize + chunksize - 1) / chunksize);
 }
 
 /*
@@ -824,10 +1011,16 @@ size_sparse_region(const struct region *r, struct size_core *sc_sparse, struct s
     }
 }
 
+/*
+ * Sparse regions are complex, experimental, and thus
+ * streaming is currently not supported.
+ */
+
 const struct regionop sparse_ops = {
-    print_memory_region,
-    write_sparse_region,
-    del_sparse_region,
+    .rop_header = rop_sparse_nomakeheader,
+    .rop_stream = rop_sparse_nostream,
+    .rop_pwrite = rop_sparse_pwrite,
+    .rop_delete = rop_sparse_delete,
 };
 
 static void
@@ -845,13 +1038,14 @@ size_vanilla_region(const struct region *r, struct size_core *sc)
 }
 
 const struct regionop vanilla_ops = {
-    print_memory_region,
-    write_vanilla_region,
-    del_vanilla_region,
+    .rop_header = rop_vanilla_makeheader,
+    .rop_stream = rop_vanilla_stream,
+    .rop_pwrite = rop_vanilla_pwrite,
+    .rop_delete = rop_vanilla_delete,
 };
 
 walk_return_t
-region_size_memory(struct region *r, void *arg)
+size_memory_region(struct region *r, void *arg)
 {
     struct size_segment_data *ssd = arg;
 

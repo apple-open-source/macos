@@ -189,6 +189,10 @@ main(argc, argv)
 
 	/* do the sort */
 	tsort();
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 

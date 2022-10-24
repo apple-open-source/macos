@@ -475,6 +475,9 @@ class RemoveArgs : BaseArgs {
     
     var originParentNode : Node_t?
     var originIsEmptyDir : Bool?
+    var negativeOpNum : Int?
+    var originalType : NodeType? // needed for negative remove file/dir
+    var nodePtr : UnsafeMutablePointer<Node_t>? // needed for negative remove file/dir
     
     override func random() -> Bool {
         if (positiveTest) {
@@ -500,14 +503,17 @@ class RemoveArgs : BaseArgs {
             expectedErrorValue = SUCCESS
         } else {
             let negListIndex = Utils.random(0, 2)
+            negativeOpNum = negListIndex
             switch negListIndex {
             case 0:
+                return false // this test-case is disabled for now - need to think what should we test in remove/rmdir
                 testDescription = ("Negative.Removing a non exist file")
                 let dirArray = mountPoint.fsTree.filterArray(exist: true, type: NodeType.Dir, owned : true)
                 if dirArray.count == 0 {
                     return false
                 }
                 let localNode = Node_t(fsTree: mountPoint.fsTree)
+                localNode.type = fileType
                 var randomIndex = Utils.random(0, dirArray.count-1)
                 localNode.dirNode = dirArray[randomIndex]
                 localNode.name = Utils.randomFileName(randomFromRanges: false)
@@ -521,6 +527,7 @@ class RemoveArgs : BaseArgs {
                 originNode = Node_t(node!)
                 originParentNode = Node_t(node!.dirNode!)
                 expectedErrorValue = ENOENT
+                
             case 1:
                 testDescription = ("Negative.Removing a non exist file (which was exist in the past)")
                 let existArray = mountPoint.fsTree.filterArray(exist: false, type: fileType, owned : true)
@@ -538,6 +545,7 @@ class RemoveArgs : BaseArgs {
                 originNode = Node_t(node!)
                 originParentNode = Node_t(node!.dirNode!)
                 expectedErrorValue = ENOENT
+                
             case 2:
                 var dirArray : [Node_t]
                 if fileType == NodeType.Dir {
@@ -561,6 +569,9 @@ class RemoveArgs : BaseArgs {
                 }
                 let randomIndex = Utils.random(((fileType == NodeType.Dir) ? 0 : 1), dirArray.count-1) // Without the root folder in case of dir
                 node = dirArray[randomIndex]
+                nodePtr = .init(&node!) // to restore the type afterwards
+                originalType = node!.type // to restore the type afterwards
+                node!.type = fileType // to cause the error (so deleteNode will call rmdir for file / remove for dir)
                 originNode = Node_t(node!)
                 originParentNode = Node_t(node!.dirNode!)
             
@@ -1425,16 +1436,26 @@ class Randomizer {
     
     func validateRemove(_ removeFileArgs: RemoveArgs) {
         log("start fsop for removing \(removeFileArgs.node!.path!)")
-        let rValue = mountPoint.fsTree.deleteNode(removeFileArgs.fileType!, removeFileArgs.node!.name!, dirNode: removeFileArgs.node!.dirNode)
+        let rValue = mountPoint.fsTree.deleteNode(victimNode: removeFileArgs.node!, dirNode: removeFileArgs.node!.dirNode)
         self.changeNumberOfThreads(by: -1)
         self.validateOperation(positiveTest: removeFileArgs.positiveTest, returnValue: rValue, expectedErrorValue: removeFileArgs.expectedErrorValue, testDescription: removeFileArgs.testDescription)
     }
     
     func validateRmdir(_ removeDirArgs: RemoveDirArgs) {
         log("start fsop for rmdir \(removeDirArgs.node!.path!)")
-        let rValue = mountPoint.fsTree.deleteNode(removeDirArgs.fileType!, removeDirArgs.node!.name!, dirNode: removeDirArgs.node!.dirNode)
+        let rValue = mountPoint.fsTree.deleteNode(victimNode: removeDirArgs.node!, dirNode: removeDirArgs.node!.dirNode)
         self.changeNumberOfThreads(by: -(Global.shared.MaxConcurrentThreads))
         self.validateOperation(positiveTest: removeDirArgs.positiveTest, returnValue: rValue, expectedErrorValue: removeDirArgs.expectedErrorValue, testDescription: removeDirArgs.testDescription)
+    }
+    
+    // This function performs cleanup of the remove/rmdir tests
+    func cleanupRemoveRmdir(_ removeArgs: RemoveArgs) {
+        log("cleanup internal vars of the remove/rmdir op")
+        if (!removeArgs.positiveTest) {
+            if(removeArgs.negativeOpNum! == 2) {
+                removeArgs.nodePtr!.pointee.type = removeArgs.originalType
+            }
+        }
     }
     
     func validateRename(_ renameArgs: RenameArgs) {
@@ -1543,7 +1564,6 @@ class Randomizer {
                         self.validateGetAttr(getAttrArgs)
                     }
                 }
-                
             case .fsops_setattr:
                 log("Running fsops_setattr..")
                 let setAttrArgs = SetAttrArgs(weights: weights, mountPoint: mountPoint)
@@ -1634,7 +1654,6 @@ class Randomizer {
                         self.validateReadLink(readlinkArgs)
                     }
                 }
-
             case .fsops_create:
                 log("Running fsops_create..")
                 let createFileArgs = CreateFileArgs(weights: weights, mountPoint: mountPoint)
@@ -1656,7 +1675,6 @@ class Randomizer {
                         self.validateCreate(createFileArgs)
                     }
                 }
-                
             case .fsops_mkdir:
                 log("Running fsops_mkdir..")
                 let mkdirArgs = MkdirArgs(weights: weights, mountPoint: mountPoint)
@@ -1712,7 +1730,8 @@ class Randomizer {
                 log("\(removeFileArgs.testDescription!) . expected result is \(removeFileArgs.expectedErrorValue)")
                 if createQueue(for: removeFileArgs.node!.path!, requireThreads: 1) == false { continue }
                 if Global.shared.MaxConcurrentThreads == 1 {
-                    validateRemove(removeFileArgs)
+                    self.validateRemove(removeFileArgs)
+                    self.cleanupRemoveRmdir(removeFileArgs)
                 } else {
                     nodesConcurrentQueueDict.elements[removeFileArgs.node!.path!]?.sync(flags: .barrier) {
                         if self.validateUnchangedNode(originNode: removeFileArgs.originNode!, verifyAttributes: true) == false || self.validateUnchangedNode(originNode: removeFileArgs.originParentNode!) == false {
@@ -1720,9 +1739,9 @@ class Randomizer {
                             return
                         }
                         self.validateRemove(removeFileArgs)
+                        self.cleanupRemoveRmdir(removeFileArgs)
                     }
                 }
-                
             case .fsops_rmdir:
                 log("Running fsops_rmdir..")
                 let removeDirArgs = RemoveDirArgs(weights: weights, mountPoint: mountPoint)
@@ -1734,7 +1753,8 @@ class Randomizer {
                 log("\(removeDirArgs.testDescription!) . expected result is \(removeDirArgs.expectedErrorValue)")
                 if createQueue(for: removeDirArgs.node!.path!, requireThreads: Global.shared.MaxConcurrentThreads) == false { continue }
                 if Global.shared.MaxConcurrentThreads == 1 {
-                    validateRmdir(removeDirArgs)
+                    self.validateRmdir(removeDirArgs)
+                    self.cleanupRemoveRmdir(removeDirArgs)
                 } else {
                     nodesConcurrentQueueDict.elements[removeDirArgs.node!.path!]?.sync {
                         if self.validateUnchangedNode(originNode: removeDirArgs.originNode!) == false {
@@ -1747,7 +1767,7 @@ class Randomizer {
                             return
                         }
                         self.validateRmdir(removeDirArgs)
-                        
+                        self.cleanupRemoveRmdir(removeDirArgs)
                     }
                 }
             case .fsops_rename:
@@ -1855,7 +1875,6 @@ class Randomizer {
                         self.validateRead(readArgs)
                     }
                 }
-                
             default:
                 log("Not supported FS operation")
                 continue

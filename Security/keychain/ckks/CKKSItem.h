@@ -57,15 +57,20 @@ NS_ASSUME_NONNULL_BEGIN
                                                                    encryptionVersion:(SecCKKSItemEncryptionVersion)encversion;
 
 
-- (instancetype)initWithCKRecord:(CKRecord*)record;
+- (instancetype)initWithCKRecord:(CKRecord*)record
+                       contextID:(NSString*)contextID;
 - (instancetype)initCopyingCKKSItem:(CKKSItem*)item;
 
 // Use this one if you really don't have any more information
-- (instancetype)initWithUUID:(NSString*)uuid parentKeyUUID:(NSString*)parentKeyUUID zoneID:(CKRecordZoneID*)zoneID;
+- (instancetype)initWithUUID:(NSString*)uuid
+               parentKeyUUID:(NSString*)parentKeyUUID
+                   contextID:(NSString*)contextID
+                      zoneID:(CKRecordZoneID*)zoneID;
 
 // Use this one if you don't have a CKRecord yet
 - (instancetype)initWithUUID:(NSString*)uuid
                parentKeyUUID:(NSString*)parentKeyUUID
+                   contextID:(NSString*)contextID
                       zoneID:(CKRecordZoneID*)zoneID
                      encItem:(NSData* _Nullable)encitem
                   wrappedkey:(CKKSWrappedAESSIVKey* _Nullable)wrappedkey
@@ -74,6 +79,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithUUID:(NSString*)uuid
                parentKeyUUID:(NSString*)parentKeyUUID
+                   contextID:(NSString*)contextID
                       zoneID:(CKRecordZoneID*)zoneID
              encodedCKRecord:(NSData* _Nullable)encodedrecord
                      encItem:(NSData* _Nullable)encitem
@@ -83,6 +89,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithUUID:(NSString*)uuid
                     parentKeyUUID:(NSString*)parentKeyUUID
+                        contextID:(NSString*)contextID
                            zoneID:(CKRecordZoneID*)zoneID
                   encodedCKRecord:(NSData* _Nullable)encodedrecord
                           encItem:(NSData* _Nullable)encitem
@@ -96,26 +103,42 @@ NS_ASSUME_NONNULL_BEGIN
 // Convenience function: set the upload version for this record to be the current OS version
 + (void)setOSVersionInRecord:(CKRecord*)record;
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
 
 @end
 
 @interface CKKSSQLDatabaseObject (CKKSZoneExtras)
 // Convenience function: get all UUIDs of this type on this particular zone
-+ (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
++ (NSArray<NSString*>*)allUUIDsWithContextID:(NSString*)contextID
+                                      zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError * __autoreleasing *)error;
 
 // Same as above, but allow for multiple zones at once
-+ (NSSet<NSString*>*)allUUIDsInZones:(NSSet<CKRecordZoneID*>*)zoneIDs error:(NSError * __autoreleasing *)error;
++ (NSSet<NSString*>*)allUUIDsWithContextID:(NSString*)contextID
+                                   inZones:(NSSet<CKRecordZoneID*>*)zoneIDs
+                                     error:(NSError * __autoreleasing *)error;
 
 // Get all parentKeyUUIDs of this type in this particular zone
-+ (NSSet<NSString*>*)allParentKeyUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
++ (NSSet<NSString*>*)allParentKeyUUIDsInContextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error:(NSError * __autoreleasing *)error;
 
 // Convenience function: get all objects in this particular zone
-+ (NSArray*)all:(CKRecordZoneID*)zoneID error:(NSError* _Nullable __autoreleasing* _Nullable)error;
++ (NSArray*)allWithContextID:(NSString*)contextID
+                      zoneID:(CKRecordZoneID*)zoneID
+                       error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
 // Convenience function: delete all records of this type with this zoneID
-+ (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError* _Nullable __autoreleasing* _Nullable)error;
++ (bool)deleteAllWithContextID:(NSString*)contextID
+                        zoneID:(CKRecordZoneID*)zoneID
+                         error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 @end
 
 NS_ASSUME_NONNULL_END

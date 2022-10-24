@@ -30,8 +30,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
-
 static const char OPTSTR[] =
 	"Cn:o:s:";
 
@@ -43,6 +41,7 @@ static const int g_oflags = DTRACE_O_NODEV;
 
 static dtrace_hdl_t *g_dtp;
 
+__printflike(1, 2)
 static void
 oprintf(const char *fmt, ...)
 {

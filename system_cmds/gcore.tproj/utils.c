@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -418,4 +418,37 @@ bounded_pwrite(int fd, const void *addr, size_t size, off_t off, bool *nocache, 
 	if (nwrittenp)
 		*nwrittenp = nwritten;
 	return 0;
+}
+
+int
+bounded_write(int fd, const void *addr, size_t size, ssize_t *nwrittenp)
+{
+    const ssize_t nwritten = write(fd, addr, size);
+    if (-1 == nwritten) {
+        return errno;
+    }
+    if (nwrittenp) {
+        *nwrittenp = nwritten;
+    }
+    return 0;
+}
+
+int
+bounded_write_zero(int fd, size_t size, ssize_t *nwrittenp)
+{
+    void *zero = calloc(1, size);
+    if (zero) {
+        const ssize_t nwritten = write(fd, zero, size);
+        if (-1 == nwritten) {
+            const int error = errno;
+            free(zero);
+            return error;
+        }
+        if (nwrittenp) {
+            *nwrittenp = nwritten;
+        }
+        free(zero);
+        return 0;
+    }
+    return ENOMEM;
 }

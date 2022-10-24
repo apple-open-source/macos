@@ -153,6 +153,7 @@ dt_set_errno(dtrace_hdl_t *dtp, int err)
 	return (-1);
 }
 
+__printflike(6, 0)
 void
 dt_set_errmsg(dtrace_hdl_t *dtp, const char *errtag, const char *region,
     const char *filename, int lineno, const char *format, va_list ap)

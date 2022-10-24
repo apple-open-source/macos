@@ -523,7 +523,7 @@ static BOOL CopyFileToDisk(NSString *filename, NSURL *localURL, NSError **error)
     return NO;
 }
 
-static void DisableKillSwitches() {
+static void DisableKillSwitches(void) {
     UpdateOTAContextOnDisk((__bridge NSString*)kOTAPKIKillSwitchCT, @0, nil);
     UpdateOTAContextOnDisk((__bridge NSString*)kOTAPKIKillSwitchNonTLSCT, @0, nil);
 }
@@ -1106,7 +1106,7 @@ static CFSetRef CFSetCreateFromPropertyList(CFPropertyListRef plist) {
     return result;
 }
 
-static CF_RETURNS_RETAINED CFSetRef InitializeBlackList() {
+static CF_RETURNS_RETAINED CFSetRef InitializeRevokedList(void) {
     CFPropertyListRef plist = CFPropertyListCopyFromSystem(CFSTR("Blocked"));
     CFSetRef result = CFSetCreateFromPropertyList(plist);
     CFReleaseSafe(plist);
@@ -1114,7 +1114,7 @@ static CF_RETURNS_RETAINED CFSetRef InitializeBlackList() {
     return result;
 }
 
-static CF_RETURNS_RETAINED CFSetRef InitializeGrayList() {
+static CF_RETURNS_RETAINED CFSetRef InitializeDistrustedList(void) {
     CFPropertyListRef plist = CFPropertyListCopyFromSystem(CFSTR("GrayListedKeys"));
     CFSetRef result = CFSetCreateFromPropertyList(plist);
     CFReleaseSafe(plist);
@@ -1122,11 +1122,11 @@ static CF_RETURNS_RETAINED CFSetRef InitializeGrayList() {
     return result;
 }
 
-static CF_RETURNS_RETAINED CFURLRef InitializePinningList() {
+static CF_RETURNS_RETAINED CFURLRef InitializePinningList(void) {
     return SecSystemTrustStoreCopyResourceURL(CFSTR("CertificatePinning"), CFSTR("plist"), NULL);
 }
 
-static CF_RETURNS_RETAINED CFDictionaryRef InitializeAllowList() {
+static CF_RETURNS_RETAINED CFDictionaryRef InitializeAllowList(void) {
     CFPropertyListRef allowList = CFPropertyListCopyFromSystem(CFSTR("Allowed"));
 
     if (allowList && (CFGetTypeID(allowList) == CFDictionaryGetTypeID())) {
@@ -1192,7 +1192,7 @@ static CF_RETURNS_RETAINED CFDictionaryRef InitializeTrustedCTLogs(NSString *fil
     }
 }
 
-static CF_RETURNS_RETAINED CFDictionaryRef InitializeEVPolicyToAnchorDigestsTable() {
+static CF_RETURNS_RETAINED CFDictionaryRef InitializeEVPolicyToAnchorDigestsTable(void) {
     CFDictionaryRef result = NULL;
     CFPropertyListRef evroots = CFPropertyListCopyFromSystem(CFSTR("EVRoots"));
 
@@ -1212,9 +1212,10 @@ static CF_RETURNS_RETAINED CFDictionaryRef InitializeEVPolicyToAnchorDigestsTabl
     return result;
 }
 
-static CFIndex InitializeValidSnapshotVersion(CFIndex *outFormat) {
+static CFIndex InitializeValidSnapshotVersion(CFIndex *outFormat, CFIndex *outGeneration) {
     CFIndex validVersion = 0;
     CFIndex validFormat = 0;
+    CFIndex validGeneration = 0;
     CFDataRef validVersionData = SecSystemTrustStoreCopyResourceContents(CFSTR("ValidUpdate"), CFSTR("plist"), NULL);
     if (NULL != validVersionData)
     {
@@ -1232,12 +1233,20 @@ static CFIndex InitializeValidSnapshotVersion(CFIndex *outFormat) {
             {
                 CFNumberGetValue(formatNumber, kCFNumberCFIndexType, &validFormat);
             }
+            CFNumberRef generationNumber = (CFNumberRef)CFDictionaryGetValue(versionPlist, (const void *)CFSTR("Generation"));
+            if (NULL != generationNumber)
+            {
+                CFNumberGetValue(generationNumber, kCFNumberCFIndexType, &validGeneration);
+            }
         }
         CFReleaseSafe(versionPlist);
         CFReleaseSafe(validVersionData);
     }
     if (outFormat) {
         *outFormat = validFormat;
+    }
+    if (outGeneration) {
+        *outGeneration = validGeneration;
     }
     return validVersion;
 }
@@ -1300,7 +1309,7 @@ static const char* InitializeValidSnapshotData(CFStringRef filename_str) {
     return (const char*)result;
 }
 
-static const char* InitializeValidDatabaseSnapshot() {
+static const char* InitializeValidDatabaseSnapshot(void) {
     return InitializeValidSnapshotData(CFSTR("valid"));
 }
 
@@ -1478,30 +1487,7 @@ static bool InitializeAnchorTable(CFDictionaryRef* pLookupTable, const char** pp
     return result;
 }
 
-static void InitializeEscrowCertificates(CFArrayRef *escrowRoots, CFArrayRef *escrowPCSRoots) {
-    CFDataRef file_data = SecSystemTrustStoreCopyResourceContents(CFSTR("AppleESCertificates"), CFSTR("plist"), NULL);
-
-    if (NULL == file_data) {
-        return;
-    }
-
-    CFPropertyListFormat propFormat;
-    CFDictionaryRef certsDictionary =  CFPropertyListCreateWithData(kCFAllocatorDefault, file_data, 0, &propFormat, NULL);
-    if (NULL != certsDictionary && CFDictionaryGetTypeID() == CFGetTypeID((CFTypeRef)certsDictionary)) {
-        CFArrayRef certs = (CFArrayRef)CFDictionaryGetValue(certsDictionary, CFSTR("ProductionEscrowKey"));
-        if (NULL != certs && CFArrayGetTypeID() == CFGetTypeID((CFTypeRef)certs) && CFArrayGetCount(certs) > 0) {
-            *escrowRoots = CFArrayCreateCopy(kCFAllocatorDefault, certs);
-        }
-        CFArrayRef pcs_certs = (CFArrayRef)CFDictionaryGetValue(certsDictionary, CFSTR("ProductionPCSEscrowKey"));
-        if (NULL != pcs_certs && CFArrayGetTypeID() == CFGetTypeID((CFTypeRef)pcs_certs) && CFArrayGetCount(pcs_certs) > 0) {
-            *escrowPCSRoots = CFArrayCreateCopy(kCFAllocatorDefault, pcs_certs);
-        }
-    }
-    CFReleaseSafe(certsDictionary);
-    CFRelease(file_data);
-}
-
-static CF_RETURNS_RETAINED CFDictionaryRef InitializeEventSamplingRates() {
+static CF_RETURNS_RETAINED CFDictionaryRef InitializeEventSamplingRates(void) {
     NSDictionary *analyticsSamplingRates =  nil;
     NSDictionary *eventSamplingRates = nil;
     NSError *error = nil;
@@ -1528,7 +1514,7 @@ static CF_RETURNS_RETAINED CFDictionaryRef InitializeEventSamplingRates() {
     return NULL;
 }
 
-static CF_RETURNS_RETAINED CFArrayRef InitializeAppleCertificateAuthorities() {
+static CF_RETURNS_RETAINED CFArrayRef InitializeAppleCertificateAuthorities(void) {
     NSArray *appleCAs = nil;
     NSError *error = nil;
     if (ShouldInitializeWithAsset()) {
@@ -1560,14 +1546,12 @@ static dispatch_queue_t kOTAQueue = NULL;
 
 struct _OpaqueSecOTAPKI {
     CFRuntimeBase       _base;
-    CFSetRef            _blackListSet;
-    CFSetRef            _grayListSet;
+    CFSetRef            _revokedListSet;
+    CFSetRef            _distrustedListSet;
     CFDictionaryRef     _allowList;
     CFDictionaryRef     _trustedCTLogs;
     CFDictionaryRef     _nonTlsTrustedCTLogs;
     CFURLRef            _pinningList;
-    CFArrayRef          _escrowCertificates;
-    CFArrayRef          _escrowPCSCertificates;
     CFDictionaryRef     _evPolicyToAnchorMapping;
     CFDictionaryRef     _anchorLookupTable;
     const char*         _anchorTable;
@@ -1575,6 +1559,7 @@ struct _OpaqueSecOTAPKI {
     const char*         _validDatabaseSnapshot;
     CFIndex             _validSnapshotVersion;
     CFIndex             _validSnapshotFormat;
+    CFIndex             _validSnapshotGeneration;
     uint64_t            _assetVersion;
     CFDateRef           _lastAssetCheckIn;
     CFDictionaryRef     _eventSamplingRates;
@@ -1596,10 +1581,8 @@ static CF_RETURNS_RETAINED CFStringRef SecOTAPKICopyFormatDescription(CFTypeRef 
 static void SecOTAPKIDestroy(CFTypeRef cf) {
     SecOTAPKIRef otapkiref = (SecOTAPKIRef)cf;
 
-    CFReleaseNull(otapkiref->_blackListSet);
-    CFReleaseNull(otapkiref->_grayListSet);
-    CFReleaseNull(otapkiref->_escrowCertificates);
-    CFReleaseNull(otapkiref->_escrowPCSCertificates);
+    CFReleaseNull(otapkiref->_revokedListSet);
+    CFReleaseNull(otapkiref->_distrustedListSet);
 
     CFReleaseNull(otapkiref->_evPolicyToAnchorMapping);
     CFReleaseNull(otapkiref->_anchorLookupTable);
@@ -1688,7 +1671,7 @@ static CF_RETURNS_RETAINED CFDateRef InitializeLastAssetCheckIn(void) {
     return NULL;
 }
 
-static SecOTAPKIRef SecOTACreate() {
+static SecOTAPKIRef SecOTACreate(void) {
 
     SecOTAPKIRef otapkiref = NULL;
 
@@ -1711,25 +1694,17 @@ static SecOTAPKIRef SecOTACreate() {
     // Start off by getting the trust store version
     otapkiref->_trustStoreVersion = GetSystemTrustStoreVersion();
 
-    // Get the set of black listed keys
-    CFSetRef blackKeysSet = InitializeBlackList();
-    if (NULL == blackKeysSet) {
-        CFReleaseNull(otapkiref);
-        return otapkiref;
-    }
-    otapkiref->_blackListSet = blackKeysSet;
+    // Get the set of revoked keys (if present)
+    CFSetRef revokedKeysSet = InitializeRevokedList();
+    otapkiref->_revokedListSet = revokedKeysSet;
 
-    // Get the set of gray listed keys
-    CFSetRef grayKeysSet = InitializeGrayList();
-    if (NULL == grayKeysSet) {
-        CFReleaseNull(otapkiref);
-        return otapkiref;
-    }
-    otapkiref->_grayListSet = grayKeysSet;
+    // Get the set of distrusted keys (if present)
+    CFSetRef distrustedKeysSet = InitializeDistrustedList();
+    otapkiref->_distrustedListSet = distrustedKeysSet;
 
     // Get the trusted Certificate Transparency Logs
     otapkiref->_trustedCTLogs = InitializeTrustedCTLogs(kOTATrustTrustedCTLogsFilename);
-    otapkiref->_nonTlsTrustedCTLogs = InitializeTrustedCTLogs(kOTATrustTrustedCTLogsNonTLSFilename);
+    otapkiref->_nonTlsTrustedCTLogs = NULL; // Load these logs JIT
 
     // Get the pinning list
     otapkiref->_pinningList = InitializePinningList();
@@ -1752,23 +1727,13 @@ static SecOTAPKIRef SecOTACreate() {
     otapkiref->_secExperimentAssetVersion = 0;
     // Get the valid update snapshot version and format
     CFIndex update_format = 0;
-    otapkiref->_validSnapshotVersion = InitializeValidSnapshotVersion(&update_format);
+    CFIndex update_generation = 0;
+    otapkiref->_validSnapshotVersion = InitializeValidSnapshotVersion(&update_format, &update_generation);
     otapkiref->_validSnapshotFormat = update_format;
+    otapkiref->_validSnapshotGeneration = update_generation;
 
     // Get the valid database snapshot path (if it exists, NULL otherwise)
     otapkiref->_validDatabaseSnapshot = InitializeValidDatabaseSnapshot();
-
-    CFArrayRef escrowCerts = NULL;
-    CFArrayRef escrowPCSCerts = NULL;
-    InitializeEscrowCertificates(&escrowCerts, &escrowPCSCerts);
-    if (NULL == escrowCerts || NULL == escrowPCSCerts) {
-        CFReleaseNull(escrowCerts);
-        CFReleaseNull(escrowPCSCerts);
-        CFReleaseNull(otapkiref);
-        return otapkiref;
-    }
-    otapkiref->_escrowCertificates = escrowCerts;
-    otapkiref->_escrowPCSCertificates = escrowPCSCerts;
 
     // Get the mapping of EV Policy OIDs to Anchor digest
     CFDictionaryRef evOidToAnchorDigestMap = InitializeEVPolicyToAnchorDigestsTable();
@@ -1807,7 +1772,7 @@ static SecOTAPKIRef SecOTACreate() {
     return otapkiref;
 }
 
-SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef() {
+SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
     __block SecOTAPKIRef result = NULL;
     static dispatch_once_t kInitializeOTAPKI = 0;
     dispatch_once(&kInitializeOTAPKI, ^{
@@ -1877,8 +1842,7 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
     __block NSDictionary *newAnalyticsSamplingRates = NULL;
     __block NSArray *newAppleCAs = NULL;
 
-    NSURL *TrustedCTLogsFileLoc = [NSURL URLWithString:kOTATrustTrustedCTLogsFilename
-                                         relativeToURL:localURL];
+    NSURL *TrustedCTLogsFileLoc = [localURL URLByAppendingPathComponent:kOTATrustTrustedCTLogsFilename];
     newTrustedCTLogs = [NSArray arrayWithContentsOfURL:TrustedCTLogsFileLoc error:error];
     if (!newTrustedCTLogs) {
         secerror("OTATrust: unable to create TrustedCTLogs from asset file: %@", error ? *error: nil);
@@ -1886,8 +1850,7 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
         return NO;
     }
 
-    NSURL *nonTLSTrustedCTLogsFileLoc = [NSURL URLWithString:kOTATrustTrustedCTLogsNonTLSFilename
-                                         relativeToURL:localURL];
+    NSURL *nonTLSTrustedCTLogsFileLoc = [localURL URLByAppendingPathComponent:kOTATrustTrustedCTLogsNonTLSFilename];
     newNonTlsTrustedCTLogs = [NSArray arrayWithContentsOfURL:nonTLSTrustedCTLogsFileLoc error:error];
     if (!newNonTlsTrustedCTLogs) {
         secerror("OTATrust: unable to create TrustedCTLogs_nonTLS from asset file: %@", error ? *error: nil);
@@ -1895,8 +1858,7 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
         return NO;
     }
 
-    NSURL *AnalyticsSamplingRatesFileLoc = [NSURL URLWithString:kOTATrustAnalyticsSamplingRatesFilename
-                                             relativeToURL:localURL];
+    NSURL *AnalyticsSamplingRatesFileLoc = [localURL URLByAppendingPathComponent:kOTATrustAnalyticsSamplingRatesFilename];
     newAnalyticsSamplingRates = [NSDictionary dictionaryWithContentsOfURL:AnalyticsSamplingRatesFileLoc error:error];
     if (!newAnalyticsSamplingRates) {
         secerror("OTATrust: unable to create AnalyticsSamplingRates from asset file: %@", error ? *error: nil);
@@ -1904,8 +1866,7 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
         return NO;
     }
 
-    NSURL *AppleCAsFileLoc = [NSURL URLWithString:kOTATrustAppleCertifcateAuthoritiesFilename
-                                             relativeToURL:localURL];
+    NSURL *AppleCAsFileLoc = [localURL URLByAppendingPathComponent:kOTATrustAppleCertifcateAuthoritiesFilename];
     newAppleCAs = [NSArray arrayWithContentsOfURL:AppleCAsFileLoc error:error];
     if (!newAppleCAs) {
         secerror("OTATrust: unable to create AppleCAs from asset file: %@", error ? *error: nil);
@@ -1917,7 +1878,9 @@ static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **
     dispatch_sync(kOTAQueue, ^{
         secnotice("OTATrust", "updating asset version from %llu to %llu", kCurrentOTAPKIRef->_assetVersion, version);
         CFRetainAssign(kCurrentOTAPKIRef->_trustedCTLogs, (__bridge CFDictionaryRef)ConvertTrustedCTLogsArrayToDictionary(newTrustedCTLogs));
-        CFRetainAssign(kCurrentOTAPKIRef->_nonTlsTrustedCTLogs, (__bridge CFDictionaryRef)ConvertTrustedCTLogsArrayToDictionary(newNonTlsTrustedCTLogs));
+        if (kCurrentOTAPKIRef->_nonTlsTrustedCTLogs) { // if we JIT loaded this log list, update it
+            CFRetainAssign(kCurrentOTAPKIRef->_nonTlsTrustedCTLogs, (__bridge CFDictionaryRef)ConvertTrustedCTLogsArrayToDictionary(newNonTlsTrustedCTLogs));
+        }
         CFRetainAssign(kCurrentOTAPKIRef->_eventSamplingRates, (__bridge CFDictionaryRef)newAnalyticsSamplingRates);
         CFRetainAssign(kCurrentOTAPKIRef->_appleCAs, (__bridge CFArrayRef)newAppleCAs);
         kCurrentOTAPKIRef->_assetVersion = version;
@@ -1955,8 +1918,7 @@ static NSNumber *SecExperimentUpdateAsset(MAAsset *asset, NSNumber *asset_versio
     NSDictionary *newSecExpConfig = NULL;
     uint64_t version = [asset_version unsignedLongLongValue];
 
-    NSURL *secExpConfigFileLoc = [NSURL URLWithString:kOTASecExperimentConfigFilename
-                                        relativeToURL:localURL];
+    NSURL *secExpConfigFileLoc = [localURL URLByAppendingPathComponent:kOTASecExperimentConfigFilename];
     newSecExpConfig = [NSDictionary dictionaryWithContentsOfURL:secExpConfigFileLoc error:error];
     if (!newSecExpConfig) {
         secerror("OTATrust: unable to create SecExperiment from asset file: %@", error ? *error: nil);
@@ -1974,21 +1936,21 @@ static NSNumber *SecExperimentUpdateAsset(MAAsset *asset, NSNumber *asset_versio
 }
 #endif // !TARGET_OS_BRIDGE
 
-CFSetRef SecOTAPKICopyBlackListSet(SecOTAPKIRef otapkiRef) {
+CFSetRef SecOTAPKICopyRevokedListSet(SecOTAPKIRef otapkiRef) {
     if (NULL == otapkiRef) {
         return NULL;
     }
 
-    return CFRetainSafe(otapkiRef->_blackListSet);
+    return CFRetainSafe(otapkiRef->_revokedListSet);
 }
 
 
-CFSetRef SecOTAPKICopyGrayList(SecOTAPKIRef otapkiRef) {
+CFSetRef SecOTAPKICopyDistrustedList(SecOTAPKIRef otapkiRef) {
     if (NULL == otapkiRef) {
         return NULL;
     }
 
-    return CFRetainSafe(otapkiRef->_grayListSet);
+    return CFRetainSafe(otapkiRef->_distrustedListSet);
 }
 
 CFDictionaryRef SecOTAPKICopyAllowList(SecOTAPKIRef otapkiRef) {
@@ -2066,6 +2028,9 @@ CFDictionaryRef SecOTAPKICopyNonTlsTrustedCTLogs(void) {
     __block CFDictionaryRef result = NULL;
     dispatch_sync(kOTAQueue, ^{
         if (kCurrentOTAPKIRef) {
+            if (!kCurrentOTAPKIRef->_nonTlsTrustedCTLogs) {
+                kCurrentOTAPKIRef->_nonTlsTrustedCTLogs = InitializeTrustedCTLogs(kOTATrustTrustedCTLogsNonTLSFilename);
+            }
             result = CFRetainSafe(kCurrentOTAPKIRef->_nonTlsTrustedCTLogs);
         }
     });
@@ -2079,63 +2044,6 @@ CFURLRef SecOTAPKICopyPinningList(SecOTAPKIRef otapkiRef) {
 
     return CFRetainSafe(otapkiRef->_pinningList);
 }
-
-
-/* Returns an array of certificate data (CFDataRef) */
-CFArrayRef SecOTAPKICopyEscrowCertificates(uint32_t escrowRootType, SecOTAPKIRef otapkiRef) {
-    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if (NULL == otapkiRef) {
-        return result;
-    }
-
-    switch (escrowRootType) {
-        // Note: we shouldn't be getting called to return baseline roots,
-        // since this function vends production roots by definition.
-        case kSecCertificateBaselineEscrowRoot:
-        case kSecCertificateProductionEscrowRoot:
-        case kSecCertificateBaselineEscrowBackupRoot:
-        case kSecCertificateProductionEscrowBackupRoot:
-            if (otapkiRef->_escrowCertificates) {
-                CFArrayRef escrowCerts = otapkiRef->_escrowCertificates;
-                CFArrayAppendArray(result, escrowCerts, CFRangeMake(0, CFArrayGetCount(escrowCerts)));
-            }
-            break;
-        case kSecCertificateBaselineEscrowEnrollmentRoot:
-        case kSecCertificateProductionEscrowEnrollmentRoot:
-            if (otapkiRef->_escrowCertificates) {
-                // for enrollment purposes, exclude the v100 root
-                static const unsigned char V100EscrowRoot[] = {
-                    0x65,0x5C,0xB0,0x3C,0x39,0x3A,0x32,0xA6,0x0B,0x96,
-                    0x40,0xC0,0xCA,0x73,0x41,0xFD,0xC3,0x9E,0x96,0xB3
-                };
-                CFArrayRef escrowCerts = otapkiRef->_escrowCertificates;
-                CFIndex idx, count = CFArrayGetCount(escrowCerts);
-                for (idx=0; idx < count; idx++) {
-                    CFDataRef tmpData = (CFDataRef) CFArrayGetValueAtIndex(escrowCerts, idx);
-                    SecCertificateRef tmpCert = (tmpData) ? SecCertificateCreateWithData(NULL, tmpData) : NULL;
-                    CFDataRef sha1Hash = (tmpCert) ? SecCertificateGetSHA1Digest(tmpCert) : NULL;
-                    const uint8_t *dp = (sha1Hash) ? CFDataGetBytePtr(sha1Hash) : NULL;
-                    if (!(dp && !memcmp(V100EscrowRoot, dp, sizeof(V100EscrowRoot))) && tmpData) {
-                        CFArrayAppendValue(result, tmpData);
-                    }
-                    CFReleaseSafe(tmpCert);
-                }
-            }
-            break;
-        case kSecCertificateBaselinePCSEscrowRoot:
-        case kSecCertificateProductionPCSEscrowRoot:
-            if (otapkiRef->_escrowPCSCertificates) {
-                CFArrayRef escrowPCSCerts = otapkiRef->_escrowPCSCertificates;
-                CFArrayAppendArray(result, escrowPCSCerts, CFRangeMake(0, CFArrayGetCount(escrowPCSCerts)));
-            }
-            break;
-        default:
-            break;
-    }
-
-    return result;
-}
-
 
 CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef) {
     if (NULL == otapkiRef) {
@@ -2176,6 +2084,14 @@ CFIndex SecOTAPKIGetValidSnapshotVersion(SecOTAPKIRef otapkiRef) {
     }
 
     return otapkiRef->_validSnapshotVersion;
+}
+
+CFIndex SecOTAPKIGetValidSnapshotGeneration(SecOTAPKIRef otapkiRef) {
+    if (NULL == otapkiRef) {
+        return 0;
+    }
+
+    return otapkiRef->_validSnapshotGeneration;
 }
 
 CFIndex SecOTAPKIGetValidSnapshotFormat(SecOTAPKIRef otapkiRef) {
@@ -2277,23 +2193,6 @@ bool SecOTAPKIKillSwitchEnabled(CFStringRef key) {
             }
         }
     });
-    return result;
-}
-
-/* Returns an array of certificate data (CFDataRef) */
-CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error) {
-    SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-    if (NULL == otapkiref) {
-        SecError(errSecInternal, error, CFSTR("Unable to get the current OTAPKIRef"));
-        return NULL;
-    }
-
-    CFArrayRef result = SecOTAPKICopyEscrowCertificates(escrowRootType, otapkiref);
-    CFRelease(otapkiref);
-
-    if (NULL == result) {
-        SecError(errSecInternal, error, CFSTR("Could not get escrow certificates from the current OTAPKIRef"));
-    }
     return result;
 }
 

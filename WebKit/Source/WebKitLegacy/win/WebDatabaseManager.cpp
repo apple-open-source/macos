@@ -160,13 +160,13 @@ WebDatabaseManager* WebDatabaseManager::createInstance()
 WebDatabaseManager::WebDatabaseManager()
 {
     gClassCount++;
-    gClassNameCount().add("WebDatabaseManager");
+    gClassNameCount().add("WebDatabaseManager"_s);
 }
 
 WebDatabaseManager::~WebDatabaseManager()
 {
     gClassCount--;
-    gClassNameCount().remove("WebDatabaseManager");
+    gClassNameCount().remove("WebDatabaseManager"_s);
 }
 
 // IUnknown ------------------------------------------------------------------------
@@ -426,7 +426,7 @@ static WTF::String databasesDirectory()
         return static_cast<CFStringRef>(directoryPref.get());
 #endif
 
-    return FileSystem::pathByAppendingComponent(FileSystem::localUserSpecificStorageDirectory(), "Databases");
+    return FileSystem::pathByAppendingComponent(FileSystem::localUserSpecificStorageDirectory(), "Databases"_s);
 }
 
 void WebKitInitializeWebDatabasesIfNecessary()

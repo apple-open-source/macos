@@ -1,0 +1,24 @@
+diff --git a/configure b/configure
+index ed0fe05..ac65590 100755
+--- a/configure
++++ b/configure
+@@ -50525,6 +50525,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ 
++#include <stdlib.h>
+ #if TIME_WITH_SYS_TIME
+ # include <sys/time.h>
+ # include <time.h>
+diff --git a/configure.d/config_os_misc4 b/configure.d/config_os_misc4
+index 4dad90b..83c1417 100644
+--- a/configure.d/config_os_misc4
++++ b/configure.d/config_os_misc4
+@@ -168,6 +168,7 @@ else
+     AC_CACHE_CHECK([if sysctl can read kernel information],
+         ac_cv_NETSNMP_CAN_USE_SYSCTL,
+        [AC_TRY_RUN([
++#include <stdlib.h>
+ #if TIME_WITH_SYS_TIME
+ # include <sys/time.h>
+ # include <time.h>

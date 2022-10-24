@@ -54,7 +54,7 @@ public:
 
     using Base::Base;
 
-    BBQPlan(Context*, Ref<ModuleInformation>, uint32_t functionIndex, CalleeGroup*, CompletionTask&&);
+    BBQPlan(Context*, Ref<ModuleInformation>, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, CalleeGroup*, CompletionTask&&);
 
     bool hasWork() const final
     {
@@ -75,6 +75,8 @@ public:
         return Base::parseAndValidateModule(m_source.data(), m_source.size());
     }
 
+    static bool planGeneratesLoopOSREntrypoints(const ModuleInformation&);
+
 private:
     bool prepareImpl() final;
     void compileFunction(uint32_t functionIndex) final;
@@ -88,9 +90,11 @@ private:
     HashMap<uint32_t, std::pair<std::unique_ptr<LinkBuffer>, std::unique_ptr<InternalFunction>>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_embedderToWasmInternalFunctions;
     Vector<CompilationContext> m_compilationContexts;
     Vector<std::unique_ptr<TierUpCount>> m_tierUpCounts;
+    Vector<Vector<CodeLocationLabel<WasmEntryPtrTag>>> m_allLoopEntrypoints;
 
     RefPtr<CalleeGroup> m_calleeGroup { nullptr };
     uint32_t m_functionIndex;
+    std::optional<bool> m_hasExceptionHandlers;
 };
 
 

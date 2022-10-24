@@ -385,7 +385,7 @@ void SwigType_attach_symtab(Symtab *sym) {
  * Debugging function for printing out current scope
  * ----------------------------------------------------------------------------- */
 
-void SwigType_print_scope(Typetab *t) {
+void SwigType_print_scope(__unused Typetab *t) {
   Hash *ttab;
   Iterator i, j;
 
@@ -1874,7 +1874,7 @@ static int SwigType_compare_mangled(const DOH *a, const DOH *b) {
  * Returns the sorted list of mangled type names that should be exported into the
  * wrapper file.
  * ----------------------------------------------------------------------------- */
-List *SwigType_get_sorted_mangled_list() {
+List *SwigType_get_sorted_mangled_list(void) {
   List *l = Keys(r_mangled);
   SortList(l, SwigType_compare_mangled);
   return l;

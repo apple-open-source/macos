@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>logname</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-06-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/logname?id=7672a0148f79063eac8f8e0beb0db5350d02d5d4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-29</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>logname.c: ifndef capsicum</string>
+		    <string>logname.c: Don't ignore errors when flushing stdout (89090667)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

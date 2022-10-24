@@ -26,6 +26,8 @@ typedef NS_ENUM(NSInteger, HIDTransactionDirectionType) {
     HIDTransactionDirectionTypeOutput,
 };
 
+typedef void (^HIDTransactionCommitCallback)(IOReturn status);
+
 __attribute__((visibility("hidden")))
 @interface HIDTransaction : NSObject
 
@@ -75,6 +77,47 @@ __attribute__((visibility("hidden")))
  */
 - (BOOL)commitElements:(NSArray<HIDElement *> *)elements
                  error:(out NSError * _Nullable * _Nullable)outError;
+
+/*!
+ * @method commitElements
+ *
+ * @abstract
+ * Asynchronously commits the element transaction to the device.
+ *
+ * @discussion
+ * Before committing the transaction, a direction should be specified using the
+ * transaction's direction property. If no direction is specified, the default
+ * kIOHIDTransactionDirectionTypeInput will be used.
+ *
+ * For input transactions, the element values will be updated on success.
+ *
+ * Transaction objects can be re-used during the lifetime of the HIDDevice.
+ *
+ * If a callback is provided and success is returned, the callback will be invoked upon
+ * completion of the commit. If a callback is not provided the function
+ * will execute synchronously.
+ *
+ * @param elements
+ * An array of elements to be updated.
+ *
+ * @param outError
+ * An error returned on failure.
+ *
+ * @param timeout
+ * If asynchronous, the time in milliseconds before the call will fail and the
+ * callback invoked with a timeout error code.
+ *
+ * @param callback
+ * The callback to invoke upon completion of an asynchronous call. If the
+ * initial call to commit returns an error status, the callback will not be invoked.
+ *
+ * @result
+ * Returns YES on success.
+ */
+- (BOOL)commitElements:(NSArray<HIDElement *> *)elements
+                 error:(out NSError * _Nullable * _Nullable)outError
+               timeout:(NSInteger)timeout
+              callback:(HIDTransactionCommitCallback _Nullable)callback;
 
 /*!
  * @property direction

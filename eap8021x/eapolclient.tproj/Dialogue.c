@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,7 +92,8 @@ struct CredentialsDialogue_s {
     CFStringRef				ssid;
 };
 
-#define kEAPOLControllerPath	"/System/Library/SystemConfiguration/EAPOLController.bundle"
+#define kEAPOLControllerPath 			"/System/Library/SystemConfiguration/EAPOLController.bundle"
+#define	kSystemConfigurationResourcesPath	"/System/Library/Frameworks/SystemConfiguration.framework"
 
 /*
  * Override values for credentials dialogue.  Used by password change
@@ -415,15 +416,35 @@ copy_icon_url_with_bundle(CFBundleRef bundle, CFStringRef icon_name)
     return (url);
 }
 
+static CFBundleRef
+get_icon_url_bundle(void)
+{
+    static CFBundleRef		bundle = NULL;
+    CFURLRef			url;
+
+    if (bundle != NULL) {
+	return (bundle);
+    }
+    url = CFURLCreateWithFileSystemPath(NULL,
+					CFSTR(kSystemConfigurationResourcesPath),
+					kCFURLPOSIXPathStyle, FALSE);
+    if (url != NULL) {
+	bundle = CFBundleCreate(NULL, url);
+	CFRelease(url);
+    }
+    return (bundle);
+}
+
+
 static CFURLRef
 copy_icon_url(Boolean is_ethernet)
 {
     CFURLRef		url = NULL;
     CFBundleRef 	bundle = NULL;
 
-    bundle = get_bundle();
+    bundle = get_icon_url_bundle();
     if (bundle == NULL) {
-	EAPLOG_FL(LOG_ERR, "get_bundle() returned NULL");
+	EAPLOG_FL(LOG_ERR, "get_icon_url_bundle() returned NULL");
 	return NULL;
     }
     if (is_ethernet) {

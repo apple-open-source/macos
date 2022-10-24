@@ -68,7 +68,7 @@
 
 @implementation MBCController
 
-@synthesize localPlayer, logMouse, dumpLanguageModels;
+@synthesize localPlayer, logMouse, dumpLanguageModels, sharePlaySessionMenuItem;
 
 - (void)copyOpeningBook:(NSString *)book
 {
@@ -124,6 +124,16 @@
 	[self copyOpeningBook:@"sjeng.rc"];
 
     fMatchesToLoad      = [[NSMutableArray alloc] init];
+
+    if ([self isSharePlayEnabled]){
+        NSLog(@"MBCController: Setting up shareplay session");
+        //Setup SharePlay Session
+        [[MBCSharePlayManager sharedInstance] configureSharePlaySessionWithCompletionHandler:nil];
+        [MBCSharePlayManager sharedInstance].connectionDelegate = self;
+    } else {
+        NSLog(@"MBCController: SharePlay feature is disabled");
+    }
+    
     
 	return self;
 }
@@ -142,6 +152,13 @@
     [doc showWindows];
     [doc autorelease];
 }
+
+- (IBAction)newSharePlayGame:(id)sender {
+    [[MBCSharePlayManager sharedInstance] startSharingWithCompletionHandler:^{
+        NSLog(@"MBCSharePlayManager startSharingCompletionHandler completion handler");
+    }];
+}
+
 
 - (BOOL) hideDebugMenu
 {
@@ -295,6 +312,9 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
+    if ([self isSharePlayEnabled]) {
+        sharePlaySessionMenuItem.hidden = NO;
+    }
     [[NSDocumentController sharedDocumentController] setAutosavingDelay:3.0];
     
     [GKLocalPlayer localPlayer].authenticateHandler = ^(NSViewController *viewController, NSError *error) {
@@ -411,6 +431,34 @@
         MBCSideCode side = (MBCSideCode)[defaults integerForKey:kMBCNewGameSides];
         [MBCDocument processNewMatch:match variant:variant side:side document:nil];
     }
+}
+
+#pragma mark - MBCSharePlayConnectionDelegate
+
+- (void) sharePlayConnectionEstablished {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // need new settings, like skip modal, set pvp
+        MBCDocument * doc = [[MBCDocument alloc] initForNewGameSheet:nil];
+        [doc makeWindowControllers];
+        [doc setNeedNewGameSheet:NO];
+        NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setInteger:kHumanVsHuman forKey:kMBCNewGamePlayers];
+        [doc showWindows];
+        [doc autorelease];
+        
+        //short cutting a way to call MBCBoardWin startNewGame on the window that has shareplay connected
+        if([MBCSharePlayManager sharedInstance].boardWindowDelegate) {
+            [[MBCSharePlayManager sharedInstance].boardWindowDelegate startNewGame:nil];
+        }
+    });
+}
+
+#pragma mark - MBCSharePlay
+
+- (BOOL) isSharePlayEnabled {
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"Defaults" ofType:@"plist"];
+    NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:path];
+    return [[dict objectForKey:@"SharePlayEnabled"] boolValue];
 }
 
 @end

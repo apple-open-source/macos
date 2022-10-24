@@ -1,24 +1,46 @@
 #freebsd = https://git.FreeBSD.org/src.git
 #netbsd = https://github.com/NetBSD/src.git
+
 alias/builtin.1	freebsd	share/man/man1/builtin.1	a63d6c943d3e2e14007b20edc4446d8396f3ef0b
 alias/generic.sh	freebsd	usr.bin/alias/generic.sh	923e7a09b08f357a691324bc700da560ff469573
-basename/basename.1	freebsd	usr.bin/basename/basename.1	1d733bbc0d41e6891dec18a336780629d403fa60
+
+apply/tests/legacy_test.sh	freebsd	usr.bin/apply/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+apply/tests/regress.00.in	freebsd	usr.bin/apply/tests/regress.00.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
+apply/tests/regress.00.out	freebsd	usr.bin/apply/tests/regress.00.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+apply/tests/regress.01.out	freebsd	usr.bin/apply/tests/regress.01.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+apply/tests/regress.01.sh	freebsd	usr.bin/apply/tests/regress.01.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+apply/tests/regress.sh	freebsd	usr.bin/apply/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+
+basename/basename.1	freebsd	usr.bin/basename/basename.1	f394c73666ba375cbd6114950b1b1ea5943185a8
 basename/basename.c	freebsd	usr.bin/basename/basename.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+basename/tests/t_basename.sh	freebsd	contrib/netbsd-tests/usr.bin/basename/t_basename.sh	57718be8fa0bd5edc11ab9a72e68cc71982939a6
+
 chroot/chroot.8	freebsd	usr.sbin/chroot/chroot.8	a40cf4175c90142442d0c6515f6c83956336699b
 chroot/chroot.c	freebsd	usr.sbin/chroot/chroot.c	0634390572b2390cfa8e2a3fd83359a944461f34
-date/date.1	freebsd	bin/date/date.1	82178ae09325af5269b8240f39f8d8171b45c422
+
+date/date.1	freebsd	bin/date/date.1	3e4946f0aad9961c6e121192acb33956ff612e46
 date/date.c	freebsd	bin/date/date.c	8b82def341087b6512496f05f3aa3ca0ebc9b5a8
+date/tests/format_string_test.sh	freebsd	bin/date/tests/format_string_test.sh	2c77ec54190294415c52a8da0c0d9c5a957c03a3
+
 dirname/dirname.c	freebsd	usr.bin/dirname/dirname.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+dirname/tests/t_dirname.sh	freebsd	contrib/netbsd-tests/usr.bin/dirname/t_dirname.sh	97bb4528d985130fe091155c4e485ff12322b197
+
+echo/tests/echo_test.sh	freebsd	bin/echo/tests/echo_test.sh	f01753c151b6c3c81a83c7039e3d3f9b70f067ed
+
 env/env.1	freebsd	usr.bin/env/env.1	55deb0a5f089c8a27cfc1666655b93881c2b47ae
 env/env.c	freebsd	usr.bin/env/env.c	0c1a5eaae83267365330437adb60f44e1a622a2b
 env/envopts.c	freebsd	usr.bin/env/envopts.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 env/envopts.h	freebsd	usr.bin/env/envopts.h	1de7b4b805ddbf2429da511c053686ac4591ed89
+
 expr/expr.1	freebsd	bin/expr/expr.1	c5ca929f63a24cbd9907c8d920789d474ee44cc7
 expr/expr.y	freebsd	bin/expr/expr.y	41bd31e656e776866ce3f6d64923913b3cf4a712
+expr/tests/t_expr.sh	freebsd	contrib/netbsd-tests/bin/expr/t_expr.sh	0d972b25f64dc1f52aff3fe09bc62cbaf332df83
+
 false/false.1	freebsd	usr.bin/false/false.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 false/false.c	freebsd	usr.bin/false/false.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 find/extern.h	freebsd	usr.bin/find/extern.h	c305c18ed13bd804440f497c39204d091cb1ca7a
-find/find.1	freebsd	usr.bin/find/find.1	a9275d996c229a30879baa42a6d02d24663ac43b
+find/find.1	freebsd	usr.bin/find/find.1	82483ea7adfe4213059f6dacf31f3bd1327b2cc0
 find/find.c	freebsd	usr.bin/find/find.c	f2ef15fec455a662cfda392260d6b2bb08a82066
 find/find.h	freebsd	usr.bin/find/find.h	c3a6ea5ba6b5a84a0884ae398920378d8efce268
 find/function.c	freebsd	usr.bin/find/function.c	b422540a99094d2a7aa4a4c0b164af28dc50c5aa
@@ -28,8 +50,11 @@ find/main.c	freebsd	usr.bin/find/main.c	b422540a99094d2a7aa4a4c0b164af28dc50c5aa
 find/misc.c	freebsd	usr.bin/find/misc.c	2da6fd55d9e4d2538d337948e04bd3843bbbd0f7
 find/operator.c	freebsd	usr.bin/find/operator.c	b422540a99094d2a7aa4a4c0b164af28dc50c5aa
 find/option.c	freebsd	usr.bin/find/option.c	b422540a99094d2a7aa4a4c0b164af28dc50c5aa
-getopt/getopt.1	freebsd-src	usr.bin/getopt/getopt.1	c47f6acf73561f57a808c87273d044871ceb7953
-getopt/getopt.c	freebsd-src	usr.bin/getopt/getopt.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+find/tests/find_test.sh	freebsd	usr.bin/find/tests/find_test.sh	39afde0dcc44e0033fabdbcc61e28d0358da1ba2
+
+getopt/getopt.1	freebsd	usr.bin/getopt/getopt.1	c47f6acf73561f57a808c87273d044871ceb7953
+getopt/getopt.c	freebsd	usr.bin/getopt/getopt.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+
 hexdump/conv.c	freebsd	usr.bin/hexdump/conv.c	08c80489cdac17e710164ee81a8094362b61f574
 hexdump/display.c	freebsd	usr.bin/hexdump/display.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
 hexdump/hexdump.1	freebsd	usr.bin/hexdump/hexdump.1	ac2adfb86dd0816c99135bf4885515a6b4ba9232
@@ -39,20 +64,136 @@ hexdump/hexsyntax.c	freebsd	usr.bin/hexdump/hexsyntax.c	8a16b7a18f5d0b031f09832f
 hexdump/od.1	freebsd	usr.bin/hexdump/od.1	63280725b2039ebb616adb2e29173de4f179144c
 hexdump/odsyntax.c	freebsd	usr.bin/hexdump/odsyntax.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 hexdump/parse.c	freebsd	usr.bin/hexdump/parse.c	8fb93ac95d6e85fcb6d5f6b223b5ff6c1c6dc53a
+hexdump/tests/d_hexdump_UCflag_a.out	freebsd	usr.bin/hexdump/tests/d_hexdump_UCflag_a.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_UCflag_b.out	freebsd	usr.bin/hexdump/tests/d_hexdump_UCflag_b.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_UCflag_c.out	freebsd	usr.bin/hexdump/tests/d_hexdump_UCflag_c.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_a.in	freebsd	usr.bin/hexdump/tests/d_hexdump_a.in	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_b.in	freebsd	usr.bin/hexdump/tests/d_hexdump_b.in	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_bflag_a.out	freebsd	usr.bin/hexdump/tests/d_hexdump_bflag_a.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_bflag_b.out	freebsd	usr.bin/hexdump/tests/d_hexdump_bflag_b.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_bflag_c.out	freebsd	usr.bin/hexdump/tests/d_hexdump_bflag_c.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_c.in	freebsd	usr.bin/hexdump/tests/d_hexdump_c.in	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_cflag_a.out	freebsd	usr.bin/hexdump/tests/d_hexdump_cflag_a.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_cflag_b.out	freebsd	usr.bin/hexdump/tests/d_hexdump_cflag_b.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_cflag_c.out	freebsd	usr.bin/hexdump/tests/d_hexdump_cflag_c.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_dflag_a_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_a_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_dflag_a_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_a_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_dflag_b_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_b_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_dflag_b_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_b_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_dflag_c_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_c_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_dflag_c_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_dflag_c_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_nflag_a.out	freebsd	usr.bin/hexdump/tests/d_hexdump_nflag_a.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_oflag_a_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_a_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_oflag_a_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_a_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_oflag_b_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_b_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_oflag_b_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_b_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_oflag_c_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_c_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_oflag_c_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_oflag_c_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_sflag_a.out	freebsd	usr.bin/hexdump/tests/d_hexdump_sflag_a.out	b5ddde39acbf9f991ae5be15507dbfb6a4472b15
+hexdump/tests/d_hexdump_xflag_a_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_a_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_xflag_a_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_a_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_xflag_b_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_b_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_xflag_b_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_b_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_xflag_c_eb.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_c_eb.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_hexdump_xflag_c_el.out	freebsd	usr.bin/hexdump/tests/d_hexdump_xflag_c_el.out	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/d_od_cflag_a.out	freebsd	usr.bin/hexdump/tests/d_od_cflag_a.out	6bb764934cb9199e5f82503ebcd57f47743c4679
+hexdump/tests/d_od_cflag_b.out	freebsd	usr.bin/hexdump/tests/d_od_cflag_b.out	6bb764934cb9199e5f82503ebcd57f47743c4679
+hexdump/tests/hexdump_test.sh	freebsd	usr.bin/hexdump/tests/hexdump_test.sh	8a9f144c9e0a67de3654cc2a35e62877d640c34e
+hexdump/tests/od_test.sh	freebsd	usr.bin/hexdump/tests/od_test.sh	f0fb94abca6106e18ceb83ce74c27ce9f455db88
+
 hostname/hostname.1	freebsd	bin/hostname/hostname.1	5145778475a781de3f159ce08e03f40c954f4975
-hostname/hostname.c	freebsd	bin/hostname/hostname.c	33c1e7271ac21a626829289780b88071ae46ec65
+hostname/hostname.c	freebsd	bin/hostname/hostname.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 id/groups.1	freebsd	usr.bin/id/groups.1	fc89b27576312bd32e7e08060991fc3291abd634
 id/id.1	freebsd	usr.bin/id/id.1	97c8162543659f3de5fa13ef78476518ecbd1b2c
 id/id.c	freebsd	usr.bin/id/id.c	4a06e9377398b34922f8a67d7cb3ea980b95bde8
 id/whoami.1	freebsd	usr.bin/id/whoami.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+
 jot/jot.1	freebsd	usr.bin/jot/jot.1	a811237df2db8e1ccd19113e1da3f60dc34a8be3
 jot/jot.c	freebsd	usr.bin/jot/jot.c	814f2cd84c5a7cbe52b99d13326ea5ba5078f976
+jot/tests/legacy_test.sh	freebsd	usr.bin/jot/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ascii.out	freebsd	usr.bin/jot/tests/regress.ascii.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.block.out	freebsd	usr.bin/jot/tests/regress.block.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dddd.out	freebsd	usr.bin/jot/tests/regress.dddd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dddh.out	freebsd	usr.bin/jot/tests/regress.dddh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ddhd.out	freebsd	usr.bin/jot/tests/regress.ddhd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ddhd2.out	freebsd	usr.bin/jot/tests/regress.ddhd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ddhh.out	freebsd	usr.bin/jot/tests/regress.ddhh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ddhh2.out	freebsd	usr.bin/jot/tests/regress.ddhh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhdd.out	freebsd	usr.bin/jot/tests/regress.dhdd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhdh.out	freebsd	usr.bin/jot/tests/regress.dhdh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhhd.out	freebsd	usr.bin/jot/tests/regress.dhhd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhhd2.out	freebsd	usr.bin/jot/tests/regress.dhhd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhhh.out	freebsd	usr.bin/jot/tests/regress.dhhh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.dhhh2.out	freebsd	usr.bin/jot/tests/regress.dhhh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.ed.out	freebsd	usr.bin/jot/tests/regress.ed.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.grep.out	freebsd	usr.bin/jot/tests/regress.grep.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hddd.out	freebsd	usr.bin/jot/tests/regress.hddd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hddd2.out	freebsd	usr.bin/jot/tests/regress.hddd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hddh.out	freebsd	usr.bin/jot/tests/regress.hddh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hddh2.out	freebsd	usr.bin/jot/tests/regress.hddh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hdhd.out	freebsd	usr.bin/jot/tests/regress.hdhd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hdhd2.out	freebsd	usr.bin/jot/tests/regress.hdhd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hdhh.out	freebsd	usr.bin/jot/tests/regress.hdhh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hdhh2.out	freebsd	usr.bin/jot/tests/regress.hdhh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhdd.out	freebsd	usr.bin/jot/tests/regress.hhdd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhdd2.out	freebsd	usr.bin/jot/tests/regress.hhdd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhdh.out	freebsd	usr.bin/jot/tests/regress.hhdh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhdh2.out	freebsd	usr.bin/jot/tests/regress.hhdh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhhd.out	freebsd	usr.bin/jot/tests/regress.hhhd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhhd2.out	freebsd	usr.bin/jot/tests/regress.hhhd2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhhh.out	freebsd	usr.bin/jot/tests/regress.hhhh.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.hhhh2.out	freebsd	usr.bin/jot/tests/regress.hhhh2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.n21.out	freebsd	usr.bin/jot/tests/regress.n21.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.rand1.out	freebsd	usr.bin/jot/tests/regress.rand1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.rand2.out	freebsd	usr.bin/jot/tests/regress.rand2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.sh	freebsd	usr.bin/jot/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.sh	freebsd	usr.bin/jot/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.stutter.out	freebsd	usr.bin/jot/tests/regress.stutter.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.stutter2.out	freebsd	usr.bin/jot/tests/regress.stutter2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.tabs.out	freebsd	usr.bin/jot/tests/regress.tabs.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wX1.out	freebsd	usr.bin/jot/tests/regress.wX1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wXl.out	freebsd	usr.bin/jot/tests/regress.wXl.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wc.out	freebsd	usr.bin/jot/tests/regress.wc.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wdn.out	freebsd	usr.bin/jot/tests/regress.wdn.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.we.out	freebsd	usr.bin/jot/tests/regress.we.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wf.out	freebsd	usr.bin/jot/tests/regress.wf.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wg.out	freebsd	usr.bin/jot/tests/regress.wg.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wgd.out	freebsd	usr.bin/jot/tests/regress.wgd.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wo.out	freebsd	usr.bin/jot/tests/regress.wo.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp1.out	freebsd	usr.bin/jot/tests/regress.wp1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp2.out	freebsd	usr.bin/jot/tests/regress.wp2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp3.out	freebsd	usr.bin/jot/tests/regress.wp3.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp4.out	freebsd	usr.bin/jot/tests/regress.wp4.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp5.out	freebsd	usr.bin/jot/tests/regress.wp5.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wp6.out	freebsd	usr.bin/jot/tests/regress.wp6.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wu.out	freebsd	usr.bin/jot/tests/regress.wu.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wwe.out	freebsd	usr.bin/jot/tests/regress.wwe.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.wx.out	freebsd	usr.bin/jot/tests/regress.wx.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.x.out	freebsd	usr.bin/jot/tests/regress.x.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.xaa.out	freebsd	usr.bin/jot/tests/regress.xaa.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+jot/tests/regress.yes.out	freebsd	usr.bin/jot/tests/regress.yes.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+
 kill/kill.1	freebsd	bin/kill/kill.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 kill/kill.c	freebsd	bin/kill/kill.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 killall/killall.1	freebsd	usr.bin/killall/killall.1	c842df488905df8d2df5e8fbecd4f96a809469c7
 killall/killall.c	freebsd	usr.bin/killall/killall.c	bcd34af4731db389706eda26b068ce5a880e3d9b
+
 lastcomm/lastcomm.1	netbsd	usr.bin/lastcomm/lastcomm.1	de795720d4ec280a613349cf2206269c506a0643
 lastcomm/lastcomm.c	netbsd	usr.bin/lastcomm/lastcomm.c	8ffb493956843552f44bf61951072b4e99380aba
+lastcomm/tests/README	freebsd	usr.bin/lastcomm/tests/README	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/legacy_test.sh	freebsd	usr.bin/lastcomm/tests/legacy_test.sh	a96a4734c0f8dd7c223faeb6047d4000cda67f26
+lastcomm/tests/v1-amd64-acct.in	freebsd	usr.bin/lastcomm/tests/v1-amd64-acct.in	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v1-amd64.out	freebsd	usr.bin/lastcomm/tests/v1-amd64.out	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v1-i386-acct.in	freebsd	usr.bin/lastcomm/tests/v1-i386-acct.in	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v1-i386.out	freebsd	usr.bin/lastcomm/tests/v1-i386.out	b943c77347452f3d5da6c43a7caac9b1c83729a2
+lastcomm/tests/v2-amd64-acct.in	freebsd	usr.bin/lastcomm/tests/v2-amd64-acct.in	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v2-amd64.out	freebsd	usr.bin/lastcomm/tests/v2-amd64.out	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v2-i386-acct.in	freebsd	usr.bin/lastcomm/tests/v2-i386-acct.in	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+lastcomm/tests/v2-i386.out	freebsd	usr.bin/lastcomm/tests/v2-i386.out	b943c77347452f3d5da6c43a7caac9b1c83729a2
+lastcomm/tests/values.sh	freebsd	usr.bin/lastcomm/tests/values.sh	d14afb2adcbf0db6625f582abf0c7154e4e005bd
+
 locate/bigram/locate.bigram.c	freebsd	usr.bin/locate/bigram/locate.bigram.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
 locate/code/locate.code.c	freebsd	usr.bin/locate/code/locate.code.c	df57947f083046d50552e99b91074927d2458708
 locate/locate/concatdb.sh	freebsd	usr.bin/locate/locate/concatdb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
@@ -61,43 +202,119 @@ locate/locate/locate.1	freebsd	usr.bin/locate/locate/locate.1	92b959f1208c3cfb55
 locate/locate/locate.c	freebsd	usr.bin/locate/locate/locate.c	8dddde9ebbe6f5820359344f49cff18b237a5db5
 locate/locate/locate.h	freebsd	usr.bin/locate/locate/locate.h	8dddde9ebbe6f5820359344f49cff18b237a5db5
 locate/locate/locate.rc	freebsd	usr.bin/locate/locate/locate.rc	af1aec74f59ea428c30ace49bf56ed4c4963b515
-locate/locate/locate.updatedb.8	freebsd	usr.bin/locate/locate/locate.updatedb.8 6c7216df785592bb069469113f556dfd1946ed5d
+locate/locate/locate.updatedb.8	freebsd	usr.bin/locate/locate/locate.updatedb.8	6c7216df785592bb069469113f556dfd1946ed5d
 locate/locate/mklocatedb.sh	freebsd	usr.bin/locate/locate/mklocatedb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
 locate/locate/pathnames.h	freebsd	usr.bin/locate/locate/pathnames.h	df57947f083046d50552e99b91074927d2458708
 locate/locate/updatedb.sh	freebsd	usr.bin/locate/locate/updatedb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
 locate/locate/util.c	freebsd	usr.bin/locate/locate/util.c	df57947f083046d50552e99b91074927d2458708
-mktemp/mktemp.1	freebsd-src	usr.bin/mktemp/mktemp.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-mktemp/mktemp.c	freebsd-src	usr.bin/mktemp/mktemp.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+logname/logname.1	freebsd	usr.bin/logname/logname.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+logname/logname.c	freebsd	usr.bin/logname/logname.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+
+mktemp/mktemp.1	freebsd	usr.bin/mktemp/mktemp.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+mktemp/mktemp.c	freebsd	usr.bin/mktemp/mktemp.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+nice/nice.1	freebsd	usr.bin/nice/nice.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+nice/nice.c	freebsd	usr.bin/nice/nice.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 nohup/nohup.1	freebsd	usr.bin/nohup/nohup.1	a641e44515274167ef2e2244fe02ae0e49b91e3b
 nohup/nohup.c	freebsd	usr.bin/nohup/nohup.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 printenv/printenv.1	freebsd	usr.bin/printenv/printenv.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 printenv/printenv.c	freebsd	usr.bin/printenv/printenv.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+
+printf/printf.1	freebsd	usr.bin/printf/printf.1	5dbd4b8e96521244525a0fee29694719c873bd75
+printf/printf.c	freebsd	usr.bin/printf/printf.c	051c7fdd5c7cc8d3f3cf33da7d6102a31d8a00c4
+printf/tests/legacy_test.sh	freebsd	usr.bin/printf/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.b.out	freebsd	usr.bin/printf/tests/regress.b.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.bwidth.out	freebsd	usr.bin/printf/tests/regress.bwidth.out	17fffb23f6e7eb7ec64269676682e16b44094392
+printf/tests/regress.d.out	freebsd	usr.bin/printf/tests/regress.d.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.f.out	freebsd	usr.bin/printf/tests/regress.f.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.l1.out	freebsd	usr.bin/printf/tests/regress.l1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.l2.out	freebsd	usr.bin/printf/tests/regress.l2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.m1.out	freebsd	usr.bin/printf/tests/regress.m1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.m2.out	freebsd	usr.bin/printf/tests/regress.m2.out	cacacde77455a231ee0c9b5de272276c8cc8c208
+printf/tests/regress.m3.out	freebsd	usr.bin/printf/tests/regress.m3.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.m4.out	freebsd	usr.bin/printf/tests/regress.m4.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.m5.out	freebsd	usr.bin/printf/tests/regress.m5.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.missingpos1.out	freebsd	usr.bin/printf/tests/regress.missingpos1.out	f764fa47f09197795f9623aee01fca745799f191
+printf/tests/regress.s.out	freebsd	usr.bin/printf/tests/regress.s.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+printf/tests/regress.sh	freebsd	usr.bin/printf/tests/regress.sh	17fffb23f6e7eb7ec64269676682e16b44094392
+printf/tests/regress.zero.out	freebsd	usr.bin/printf/tests/regress.zero.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+
 pwd/pwd.1	freebsd	bin/pwd/pwd.1	64e352c6dfdb60e27ffc727033d7eda2faafb78f
 pwd/pwd.c	freebsd	bin/pwd/pwd.c	377da671091605bda5554e1fda0371916527eb10
+
+realpath/realpath.1	freebsd	bin/realpath/realpath.1	76ec6f51b933d748c795339a4bd1c676a13a0d12
+realpath/realpath.c	freebsd	bin/realpath/realpath.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 seq/seq.1	freebsd	usr.bin/seq/seq.1	f3ec6af0e4412daec48e73df2bd8841deac59b3d
 seq/seq.c	freebsd	usr.bin/seq/seq.c	905fdc3ff1c2e58478d205cd78d904ffa1f738d4
+seq/tests/seq_test.sh	freebsd	usr.bin/seq/tests/seq_test.sh	905fdc3ff1c2e58478d205cd78d904ffa1f738d4
+
 sleep/sleep.1	freebsd	bin/sleep/sleep.1	43d0803c4545861e8f2411aec0987968b2e4a299
 sleep/sleep.c	freebsd	bin/sleep/sleep.c	1cc908de3ab2e11fca648fc874df2f9d255fc087
+sleep/tests/t_sleep.sh	freebsd	contrib/netbsd-tests/bin/sleep/t_sleep.sh	57718be8fa0bd5edc11ab9a72e68cc71982939a6
+
 su/su.1	freebsd	usr.bin/su/su.1	68fbe6f0b3e8eff10667f63dae166f3c50e1f59a
-su/su.c	freebsd	usr.bin/su/su.c	ff7b6c709179f9a827ddd01c15e6e227bb7fe08
+su/su.c	freebsd	usr.bin/su/su.c	aff7b6c709179f9a827ddd01c15e6e227bb7fe08
+
 tee/tee.1	freebsd	usr.bin/tee/tee.1	9ec571021d73d53bac53aa6db7886ecb8dd09ed3
 tee/tee.c	freebsd	usr.bin/tee/tee.c	377421df9690cddad7f0c8cba84bd392e62a3b6c
+
+test/test.1	freebsd	bin/test/test.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+test/test.c	freebsd	bin/test/test.c	1cc908de3ab2e11fca648fc874df2f9d255fc087
+test/tests/legacy_test.sh	freebsd	bin/test/tests/legacy_test.sh	fb9fb4d390e9c69aad6471887d5ba4fca917b3bf
+
 time/time.1	freebsd	usr.bin/time/time.1	50f54daf41cc757073d1a8b060ef89e7bc798ad9
 time/time.c	freebsd	usr.bin/time/time.c	8a9ab04279e6d01527cf90aae92835d56603ce52
-true/true.1	freebsd	usr.bin/true/true.1	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+true/true.1	freebsd	usr.bin/true/true.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 true/true.c	freebsd	usr.bin/true/true.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+uname/uname.1	freebsd	usr.bin/uname/uname.1	3f6cdd59fecf4077256e37d7de7f9db3ac0e72e2
+uname/uname.c	freebsd	usr.bin/uname/uname.c	fb9a985516b495b6713cda4951a58a721d99df71
+
 users/users.1	freebsd	usr.bin/users/users.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-users/users.c	freebsd	usr.bin/users/users.c	bec6dc30e1a6ec4e96d8b29510d345e3f2a8ea40
+users/users.cc	freebsd	usr.bin/users/users.cc	bec6dc30e1a6ec4e96d8b29510d345e3f2a8ea40
+
+what/what.1	freebsd	usr.bin/what/what.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+what/what.c	freebsd	usr.bin/what/what.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 whereis/pathnames.h	freebsd	usr.bin/whereis/pathnames.h	09d7d4ad9a118f20b40c9ee1097233901bbc038c
 whereis/whereis.1	freebsd	usr.bin/whereis/whereis.1	11d9aa670723f508821f2bf6980a555360783a80
 whereis/whereis.c	freebsd	usr.bin/whereis/whereis.c	f5ce14028c19e5e5be61a2b6aa8242fc36cc8e67
-who/utmpentry.c	netbsd	usr.bin/who/utmpentry.c		b0c553f3f71161615c2935bd9bb563b610d4ce77
-who/utmpentry.h	netbsd	usr.bin/who/utmpentry.h		841e3a1fe173b82647f288ff26dc9d9cc900a11b
-who/who.1	netbsd	usr.bin/who/who.1		713075a0431c4fefbeefcc3abc8fbae4a7cb9892
-who/who.c	netbsd	usr.bin/who/who.c		841e3a1fe173b82647f288ff26dc9d9cc900a11b
-xargs/pathname.h	freebsd	usr.bin/xargs/pathname.h	872b698bd4a1bfc0bf008c09228e6fd238809c75
-xargs/strnsubst.c	freebsd	usr.bin/xargs/strnsubst.c	56640efcbe39386a0152f14fb18a314b85e7e014
-xargs/xargs.1	freebsd	usr.bin/xargs/xargs.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
-xargs/xargs.c	freebsd	usr.bin/xargs/xargs.c	872b698bd4a1bfc0bf008c09228e6fd238809c75
+
+which/which.1	freebsd-src	usr.bin/which/which.1	347307b8e449116ebb85bacba7e7779121881890
+which/which.c	freebsd-src	usr.bin/which/which.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+who/who.1	freebsd	usr.bin/who/who.1	25641c7cccdf3023337856124b8842292b934585
+who/who.c	freebsd	usr.bin/who/who.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+xargs/pathnames.h	freebsd	usr.bin/xargs/pathnames.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+xargs/strnsubst.c	freebsd	usr.bin/xargs/strnsubst.c	dae3a64fb967bbff627efc2e8cdd127c6b93d902
+xargs/tests/legacy_test.sh	freebsd	usr.bin/xargs/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0.in	freebsd	usr.bin/xargs/tests/regress.0.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0.out	freebsd	usr.bin/xargs/tests/regress.0.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0I.out	freebsd	usr.bin/xargs/tests/regress.0I.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0J.out	freebsd	usr.bin/xargs/tests/regress.0J.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0L.out	freebsd	usr.bin/xargs/tests/regress.0L.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.0P1.out	freebsd	usr.bin/xargs/tests/regress.0P1.out	c782f6f05ed80a01a63003a4d47f15989f08da41
+xargs/tests/regress.I.out	freebsd	usr.bin/xargs/tests/regress.I.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.J.out	freebsd	usr.bin/xargs/tests/regress.J.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.L.out	freebsd	usr.bin/xargs/tests/regress.L.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.P1.out	freebsd	usr.bin/xargs/tests/regress.P1.out	c782f6f05ed80a01a63003a4d47f15989f08da41
+xargs/tests/regress.R.out	freebsd	usr.bin/xargs/tests/regress.R.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.in	freebsd	usr.bin/xargs/tests/regress.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.n1.out	freebsd	usr.bin/xargs/tests/regress.n1.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.n2.out	freebsd	usr.bin/xargs/tests/regress.n2.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.n2P0.out	freebsd	usr.bin/xargs/tests/regress.n2P0.out	46e352ca514b88b104385cc67648c12bc82c2961
+xargs/tests/regress.n3.out	freebsd	usr.bin/xargs/tests/regress.n3.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.normal.out	freebsd	usr.bin/xargs/tests/regress.normal.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.quotes.in	freebsd	usr.bin/xargs/tests/regress.quotes.in	3a92d97ff0f22d21608e1c19b83104c4937523b6
+xargs/tests/regress.sh	freebsd	usr.bin/xargs/tests/regress.sh	46e352ca514b88b104385cc67648c12bc82c2961
+xargs/xargs.1	freebsd	usr.bin/xargs/xargs.1	dc940832736fe47d91b70fe993bbe0d8245c857f
+xargs/xargs.c	freebsd	usr.bin/xargs/xargs.c	0d2dcf2166f77fab2af39d9e89bff157ffc0ca5b
+
 yes/yes.1	freebsd	usr.bin/yes/yes.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 yes/yes.c	freebsd	usr.bin/yes/yes.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4

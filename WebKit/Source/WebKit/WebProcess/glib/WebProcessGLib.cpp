@@ -29,7 +29,12 @@
 
 #include "WebKitExtensionManager.h"
 #include "WebKitWebExtensionPrivate.h"
+#include "WebPage.h"
 #include "WebProcessCreationParameters.h"
+
+#if ENABLE(REMOTE_INSPECTOR)
+#include <JavaScriptCore/RemoteInspector.h>
+#endif
 
 #if USE(GSTREAMER)
 #include <WebCore/GStreamerCommon.h>
@@ -59,9 +64,32 @@
 #include <wtf/linux/RealTimeThreads.h>
 #endif
 
+#if USE(ATSPI)
+#include <WebCore/AccessibilityAtspi.h>
+#endif
+
+#if PLATFORM(GTK)
+#include "GtkSettingsManagerProxy.h"
+#include <gtk/gtk.h>
+#endif
+
 namespace WebKit {
 
 using namespace WebCore;
+
+void WebProcess::stopRunLoop()
+{
+    // Pages are normally closed after Close message is received from the UI
+    // process, but it can happen that the connection is closed before the
+    // Close message is processed because the UI process close the socket
+    // right after sending the Close message. Close here any pending page to
+    // ensure the threaded compositor is invalidated and GL resources
+    // released (see https://bugs.webkit.org/show_bug.cgi?id=217655).
+    for (auto& webPage : copyToVector(m_pageMap.values()))
+        webPage->close();
+
+    AuxiliaryProcess::stopRunLoop();
+}
 
 void WebProcess::platformSetCacheModel(CacheModel cacheModel)
 {
@@ -89,7 +117,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
             wpe_loader_init(parameters.implementationLibraryName.data());
 
         RELEASE_ASSERT(is<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()));
-        downcast<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()).initialize(parameters.hostClientFileDescriptor.releaseFileDescriptor());
+        downcast<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()).initialize(parameters.hostClientFileDescriptor.release().release());
     }
 #endif
 
@@ -97,7 +125,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland) {
 #if USE(WPE_RENDERER)
         if (!parameters.isServiceWorkerProcess) {
-            auto hostClientFileDescriptor = parameters.hostClientFileDescriptor.releaseFileDescriptor();
+            auto hostClientFileDescriptor = parameters.hostClientFileDescriptor.release().release();
             if (hostClientFileDescriptor != -1) {
                 wpe_loader_init(parameters.implementationLibraryName.data());
                 m_wpeDisplay = WebCore::PlatformDisplayLibWPE::create();
@@ -128,9 +156,19 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     if (!parameters.applicationName.isEmpty())
         WebCore::setApplicationName(parameters.applicationName);
 
-#if USE(ATSPI)
-    m_accessibility = makeUnique<AccessibilityAtspi>(parameters.accessibilityBusAddress);
+#if ENABLE(REMOTE_INSPECTOR)
+    if (!parameters.inspectorServerAddress.isNull())
+        Inspector::RemoteInspector::setInspectorServerAddress(WTFMove(parameters.inspectorServerAddress));
 #endif
+
+#if USE(ATSPI)
+    AccessibilityAtspi::singleton().connect(parameters.accessibilityBusAddress);
+#endif
+
+#if PLATFORM(GTK)
+    GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
+#endif
+
 }
 
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&&)

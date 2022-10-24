@@ -45,7 +45,9 @@ CF_ASSUME_NONNULL_BEGIN
 	@abstract Returns the type identifier of SecTrustedApplication instances.
 	@result The CFTypeID of SecTrustedApplication instances.
 */
-CFTypeID SecTrustedApplicationGetTypeID(void);
+CFTypeID SecTrustedApplicationGetTypeID(void)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCreateFromPath
@@ -57,8 +59,8 @@ CFTypeID SecTrustedApplicationGetTypeID(void);
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app)
-    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.0, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCopyData
@@ -68,8 +70,8 @@ OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTr
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data)
-    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.0, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationSetData
@@ -79,8 +81,8 @@ OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRe
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data)
-    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.0, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_ASSUME_NONNULL_END
 

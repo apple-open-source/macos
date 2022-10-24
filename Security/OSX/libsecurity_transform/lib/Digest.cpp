@@ -338,7 +338,7 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 				
 			default:
 			{
-				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "%d is an invalid digest size (use 224, 256, 384, 512, or 0).", length);
+				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, CFSTR("%d is an invalid digest size (use 224, 256, 384, 512, or 0)."), (int)length);
                 CFAutorelease(result);
 				return result;
 			}
@@ -385,7 +385,7 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 					
 				default:
 				{
-					CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "%d is an invalid digest size (use 224, 256, 384, 512, or 0).", length);
+					CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, CFSTR("%d is an invalid digest size (use 224, 256, 384, 512, or 0)."), (int)length);
                     CFAutorelease(result);
                     return result;
 				}
@@ -393,7 +393,7 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 		}
 		else
 		{
-			CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidAlgorithm, "%@ is not a supported digest algorithm (use kSecDigestSHA2, kSecDigestMD2, kSecDigestMD5, kSecDigestSHA or kSecDigestSHA2", digestType);
+			CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidAlgorithm, CFSTR("%@ is not a supported digest algorithm (use kSecDigestSHA2, kSecDigestMD2, kSecDigestMD5, kSecDigestSHA or kSecDigestSHA2"), digestType);
             CFAutorelease(result);
             return result;
 		}
@@ -456,7 +456,7 @@ void DigestTransform::AttributeChanged(CFStringRef name, CFTypeRef value)
 			else if (valueType != CFDataGetTypeID())
 			{
 				CFStringRef idType = CFCopyTypeIDDescription(valueType);
-				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "value is not a CFDataRef -- it's a %@ instead", idType);
+				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, CFSTR("value is not a CFDataRef -- it's a %@ instead"), idType);
 				CFReleaseNull(idType);
 				SetAttributeNoCallback(kSecTransformOutputAttributeName, result);
 			}

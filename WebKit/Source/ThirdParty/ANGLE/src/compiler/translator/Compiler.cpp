@@ -206,7 +206,7 @@ int GetMaxUniformVectorsForShaderType(GLenum shaderType, const ShBuiltInResource
 namespace
 {
 
-class TScopedPoolAllocator
+class [[nodiscard]] TScopedPoolAllocator
 {
   public:
     TScopedPoolAllocator(angle::PoolAllocator *allocator) : mAllocator(allocator)
@@ -224,7 +224,7 @@ class TScopedPoolAllocator
     angle::PoolAllocator *mAllocator;
 };
 
-class TScopedSymbolTableLevel
+class [[nodiscard]] TScopedSymbolTableLevel
 {
   public:
     TScopedSymbolTableLevel(TSymbolTable *table) : mTable(table)
@@ -461,7 +461,7 @@ TIntermBlock *TCompiler::compileTreeImpl(const char *const shaderStrings[],
         return nullptr;
     }
 
-    if (parseContext.getTreeRoot() == nullptr)
+    if (!postParseChecks(parseContext))
     {
         return nullptr;
     }
@@ -553,6 +553,8 @@ void TCompiler::setASTMetadata(const TParseContext &parseContext)
     mSymbolTable.setGlobalInvariant(mPragma.stdgl.invariantAll);
 
     mEarlyFragmentTestsSpecified = parseContext.isEarlyFragmentTestsSpecified();
+
+    mEnablesPerSampleShading = parseContext.isSampleQualifierSpecified();
 
     mComputeShaderLocalSizeDeclared = parseContext.isComputeShaderLocalSizeDeclared();
     mComputeShaderLocalSize         = parseContext.getComputeShaderLocalSize();
@@ -1106,14 +1108,27 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
         }
     }
 
-    mEarlyFragmentTestsOptimized = false;
-    if ((compileOptions & SH_EARLY_FRAGMENT_TESTS_OPTIMIZATION) != 0)
+    return true;
+}
+
+bool TCompiler::postParseChecks(const TParseContext &parseContext)
+{
+    std::stringstream errorMessage;
+
+    if (parseContext.getTreeRoot() == nullptr)
     {
-        if (mShaderVersion <= 300 && mShaderType == GL_FRAGMENT_SHADER &&
-            !isEarlyFragmentTestsSpecified())
-        {
-            mEarlyFragmentTestsOptimized = CheckEarlyFragmentTestsFeasible(this, root);
-        }
+        errorMessage << "Shader parsing failed (mTreeRoot == nullptr)";
+    }
+
+    for (TType *type : parseContext.getDeferredArrayTypesToSize())
+    {
+        errorMessage << "Unsized global array type: " << type->getBasicString();
+    }
+
+    if (!errorMessage.str().empty())
+    {
+        mDiagnostics.globalError(errorMessage.str().c_str());
+        return false;
     }
 
     return true;

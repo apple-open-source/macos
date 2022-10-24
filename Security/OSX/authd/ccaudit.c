@@ -43,7 +43,7 @@ AUTH_TYPE_INSTANCE(ccaudit,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID ccaudit_get_type_id() {
+static CFTypeID ccaudit_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -76,7 +76,7 @@ done:
     return ccaudit;
 }
 
-static bool _enabled()
+static bool _enabled(void)
 {
     static dispatch_once_t onceToken;
     static bool enabled = false;

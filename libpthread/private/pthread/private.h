@@ -25,7 +25,10 @@
 #define __PTHREAD_PRIVATE_H__
 
 #include <sys/cdefs.h>
+#include <TargetConditionals.h>
 #include <Availability.h>
+#include <os/tsd.h>
+#include <mach/std_types.h>
 #include <pthread/tsd_private.h>
 
 __API_AVAILABLE(macos(10.9), ios(7.0))
@@ -130,6 +133,8 @@ int pthread_self_is_exiting_np(void);
 #else
 #error "unknown configuration"
 #endif
+#else
+#include <pthread/pthread.h> // for pthread_threadid_np
 #endif // !TARGET_OS_SIMULATOR
 
 /* N.B. DO NOT USE UNLESS YOU ARE REBUILT AS PART OF AN OS TRAIN WORLDBUILD */

@@ -69,7 +69,9 @@ $minorLookupTable = {
 }
 
 def setNameToVersion(setName)
-    if setName =~ /^(.*)\_(\d{4})$/
+    if setName =~ /^(\d{4})\_SU\_([A-Z])$/
+        "0x00#{$1.to_i.to_s(16)}#{($2.ord-54).to_s(16).rjust(2, '0')}00"
+    elsif setName =~ /^(.*)\_(\d{4})$/
         if not $minorLookupTable.key?($1)
             abort("Unknown platform set substring \"#{$1}\"")
         end

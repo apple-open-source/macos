@@ -55,6 +55,14 @@ RemoteCDM::RemoteCDM(WeakPtr<RemoteCDMFactory>&& factory, RemoteCDMIdentifier&& 
 {
 }
 
+#if !RELEASE_LOG_DISABLED
+void RemoteCDM::setLogIdentifier(const void* logIdentifier)
+{
+    if (m_factory)
+        m_factory->gpuProcessConnection().connection().send(Messages::RemoteCDMProxy::SetLogIdentifier(reinterpret_cast<uint64_t>(logIdentifier)), m_identifier);
+}
+#endif
+
 void RemoteCDM::getSupportedConfiguration(CDMKeySystemConfiguration&& configuration, LocalStorageAccess access, SupportedConfigurationCallback&& callback)
 {
     if (!m_factory) {
@@ -64,7 +72,6 @@ void RemoteCDM::getSupportedConfiguration(CDMKeySystemConfiguration&& configurat
 
     m_factory->gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteCDMProxy::GetSupportedConfiguration(WTFMove(configuration), access), WTFMove(callback), m_identifier);
 }
-
 
 bool RemoteCDM::supportsConfiguration(const CDMKeySystemConfiguration&) const
 {
@@ -84,7 +91,7 @@ bool RemoteCDM::supportsSessionTypeWithConfiguration(const CDMSessionType&, cons
     return false;
 }
 
-bool RemoteCDM::supportsInitData(const AtomString& type, const FragmentedSharedBuffer& data) const
+bool RemoteCDM::supportsInitData(const AtomString& type, const SharedBuffer& data) const
 {
     // This check will be done, later, inside RemoteCDMInstanceSessionProxy::requestLicense().
     return true;
@@ -129,10 +136,10 @@ void RemoteCDM::loadAndInitialize()
     m_factory->gpuProcessConnection().connection().send(Messages::RemoteCDMProxy::LoadAndInitialize(), m_identifier);
 }
 
-RefPtr<FragmentedSharedBuffer> RemoteCDM::sanitizeResponse(const FragmentedSharedBuffer& response) const
+RefPtr<SharedBuffer> RemoteCDM::sanitizeResponse(const SharedBuffer& response) const
 {
     // This check will be done, later, inside RemoteCDMInstanceSessionProxy::updateLicense().
-    return response.copy();
+    return response.makeContiguous();
 }
 
 std::optional<String> RemoteCDM::sanitizeSessionId(const String& sessionId) const

@@ -37,7 +37,6 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/RuntimeApplicationChecks.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/text/StringBuilder.h>
@@ -321,7 +320,7 @@ void PrivateClickMeasurementManager::getSignedUnlinkableTokenForDestination(Sour
 
             auto result = PrivateClickMeasurement::calculateAndUpdateDestinationSecretToken(*signatureBase64URL, *attributionTriggerData.destinationUnlinkableToken);
             if (!result) {
-                auto errorMessage = result.error().isEmpty() ? "Unknown" : result.error();
+                auto errorMessage = result.error().isEmpty() ? "Unknown"_s : result.error();
                 RELEASE_LOG_INFO(PrivateClickMeasurement, "Got the following error in calculateAndUpdateSourceSecretToken(): '%{public}s", errorMessage.utf8().data());
                 m_client->broadcastConsoleMessage(MessageLevel::Error, makeString("[Private Click Measurement] "_s, errorMessage));
                 return;
@@ -390,7 +389,7 @@ void PrivateClickMeasurementManager::handleAttribution(AttributionTriggerData&& 
 
             if (publicKeyBase64URL.isEmpty()) {
                 RELEASE_LOG_INFO(PrivateClickMeasurement, "The public key URL was empty.");
-                m_client->broadcastConsoleMessage(MessageLevel::Error, "[Private Click Measurement] The public key URL was empty.");
+                m_client->broadcastConsoleMessage(MessageLevel::Error, "[Private Click Measurement] The public key URL was empty."_s);
                 return;
             }
 
@@ -405,7 +404,7 @@ void PrivateClickMeasurementManager::handleAttribution(AttributionTriggerData&& 
                     return;
                 }
 
-                auto errorMessage = result.error().isEmpty() ? "Unknown" : result.error();
+                auto errorMessage = result.error().isEmpty() ? "Unknown"_s : result.error();
                 RELEASE_LOG_INFO(PrivateClickMeasurement, "Got the following error in calculateAndUpdateDestinationUnlinkableToken(): '%{public}s", errorMessage.utf8().data());
                 m_client->broadcastConsoleMessage(MessageLevel::Error, makeString("[Private Click Measurement] "_s, errorMessage));
                 return;
@@ -667,12 +666,12 @@ void PrivateClickMeasurementManager::clear(CompletionHandler<void()>&& completio
     store().clearPrivateClickMeasurement(WTFMove(completionHandler));
 }
 
-void PrivateClickMeasurementManager::clearForRegistrableDomain(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
+void PrivateClickMeasurementManager::clearForRegistrableDomain(RegistrableDomain&& domain, CompletionHandler<void()>&& completionHandler)
 {
     if (!featureEnabled())
         return completionHandler();
 
-    store().clearPrivateClickMeasurementForRegistrableDomain(domain, WTFMove(completionHandler));
+    store().clearPrivateClickMeasurementForRegistrableDomain(WTFMove(domain), WTFMove(completionHandler));
 }
 
 void PrivateClickMeasurementManager::clearExpired()

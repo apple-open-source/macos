@@ -26,6 +26,8 @@
 #include "config.h"
 #include "SVGElement.h"
 
+#include "CSSComputedStyleDeclaration.h"
+#include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParser.h"
 #include "Document.h"
 #include "ElementChildIterator.h"
@@ -289,10 +291,10 @@ SVGElement* SVGElement::viewportElement() const
     return nullptr;
 }
  
-const WeakHashSet<SVGElement>& SVGElement::instances() const
+const WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>& SVGElement::instances() const
 {
     if (!m_svgRareData) {
-        static NeverDestroyed<WeakHashSet<SVGElement>> emptyInstances;
+        static NeverDestroyed<WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> emptyInstances;
         return emptyInstances;
     }
     return m_svgRareData->instances();
@@ -531,7 +533,16 @@ static MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> createSVGLayerAwareEl
     // List of all SVG elements whose renderers support the layer aware layout / painting / hit-testing mode ('LBSE-mode').
     using namespace SVGNames;
     MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> set;
-    for (auto& tag : { rectTag.get() })
+
+    const Vector<SVGQualifiedName> allowedTags = {
+        circleTag.get(),
+        ellipseTag.get(),
+        gTag.get(),
+        pathTag.get(),
+        rectTag.get(),
+        textTag.get()
+    };
+    for (auto& tag : allowedTags)
         set.add(tag.localName());
     return set;
 }
@@ -591,7 +602,7 @@ void SVGElement::synchronizeAttribute(const QualifiedName& name)
 {
     // If the value of the property has changed, serialize the new value to the attribute.
     if (auto value = propertyRegistry().synchronize(name))
-        setSynchronizedLazyAttribute(name, *value);
+        setSynchronizedLazyAttribute(name, AtomString { *value });
 }
     
 void SVGElement::synchronizeAllAttributes()
@@ -600,7 +611,7 @@ void SVGElement::synchronizeAllAttributes()
     // the properties which have changed but not committed yet.
     auto map = propertyRegistry().synchronizeAllAttributes();
     for (const auto& entry : map)
-        setSynchronizedLazyAttribute(entry.key, entry.value);
+        setSynchronizedLazyAttribute(entry.key, AtomString { entry.value });
 }
 
 void SVGElement::commitPropertyChange(SVGProperty* property)
@@ -610,7 +621,7 @@ void SVGElement::commitPropertyChange(SVGProperty* property)
     // SVGLengthList and not the SVGLength.
     property->setDirty();
 
-    invalidateSVGAttributes();
+    setAnimatedSVGAttributesAreDirty();
     svgAttributeChanged(propertyRegistry().propertyAttributeName(*property));
 }
 
@@ -624,9 +635,9 @@ void SVGElement::commitPropertyChange(SVGAnimatedProperty& animatedProperty)
     if (!propertyRegistry().isAnimatedStylePropertyAttribute(attributeName))
         propertyRegistry().setAnimatedPropertyDirty(attributeName, animatedProperty);
     else
-        setSynchronizedLazyAttribute(attributeName, animatedProperty.baseValAsString());
+        setSynchronizedLazyAttribute(attributeName, AtomString { animatedProperty.baseValAsString() });
 
-    invalidateSVGAttributes();
+    setAnimatedSVGAttributesAreDirty();
     svgAttributeChanged(attributeName);
 }
 
@@ -710,6 +721,20 @@ const RenderStyle* SVGElement::computedStyle(PseudoId pseudoElementSpecifier)
     }
 
     return m_svgRareData->overrideComputedStyle(*this, parentStyle);
+}
+
+ColorInterpolation SVGElement::colorInterpolation() const
+{
+    if (auto renderer = this->renderer())
+        return renderer->style().svgStyle().colorInterpolationFilters();
+
+    // Try to determine the property value from the computed style.
+    if (auto value = ComputedStyleExtractor(const_cast<SVGElement*>(this)).propertyValue(CSSPropertyColorInterpolationFilters, DoNotUpdateLayout)) {
+        if (is<CSSPrimitiveValue>(value))
+            return downcast<CSSPrimitiveValue>(*value);
+    }
+
+    return ColorInterpolation::Auto;
 }
 
 QualifiedName SVGElement::animatableAttributeForName(const AtomString& localName)
@@ -883,20 +908,9 @@ void SVGElement::collectPresentationalHintsForAttribute(const QualifiedName& nam
         addPropertyToPresentationalHintStyle(style, propertyID, value);
 }
 
-void SVGElement::setSVGResourcesInAncestorChainAreDirty()
+void SVGElement::updateSVGRendererForElementChange()
 {
-    ensureUniqueElementData().setSVGResourcesInAncestorChainAreDirty(true);
-    invalidateStyle();
-}
-
-void SVGElement::invalidateSVGResourcesInAncestorChainIfNeeded()
-{
-    if (!elementData() || !elementData()->svgResourcesInAncestorChainAreDirty())
-        return;
-
-    if (auto renderer = this->renderer())
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
-    elementData()->setSVGResourcesInAncestorChainAreDirty(false);
+    document().updateSVGRenderer(*this);
 }
 
 void SVGElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -932,7 +946,7 @@ Node::InsertedIntoAncestorResult SVGElement::insertedIntoAncestor(InsertionType 
 
     if (needsPendingResourceHandling() && insertionType.connectedToDocument && !isInShadowTree()) {
         SVGDocumentExtensions& extensions = document().accessSVGExtensions();
-        String resourceId = getIdAttribute();
+        auto& resourceId = getIdAttribute();
         if (extensions.isIdOfPendingResource(resourceId))
             return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
     }
@@ -953,7 +967,7 @@ void SVGElement::buildPendingResourcesIfNeeded()
         return;
 
     SVGDocumentExtensions& extensions = document().accessSVGExtensions();
-    String resourceId = getIdAttribute();
+    auto resourceId = getIdAttribute();
     if (!extensions.isIdOfPendingResource(resourceId))
         return;
 

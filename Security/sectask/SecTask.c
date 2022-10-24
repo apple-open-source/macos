@@ -182,7 +182,7 @@ SecTaskCopyIdentifier(SecTaskRef task, int op, CFErrorRef *error)
                 return NULL;
 
         bufferlen = ntohl(header.length);
-        /* check for insane values */
+        /* check for obviously wrong values */
         if (bufferlen > 1024 * 1024 || bufferlen < 8) {
                 ret = EINVAL;
                 goto out;
@@ -282,7 +282,7 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
             goto out;		// bail out
         }
         bufferlen = ntohl(header.length);
-        /* check for insane values */
+        /* check for obviously wrong values */
         if (bufferlen > 1024 * 1024 || bufferlen < 8) {
             ret = E2BIG;
             goto out;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -199,6 +199,10 @@ __SCPreferencesSetNetworkConfigurationFlags
 
 Boolean
 __SCPreferencesUsingDefaultPrefs	(SCPreferencesRef	prefs);
+
+__private_extern__
+void
+__SCPreferencesHandleInternalStatus	(uint32_t		*sc_status);
 
 __END_DECLS
 

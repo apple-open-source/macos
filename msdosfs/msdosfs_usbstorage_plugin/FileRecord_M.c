@@ -7,6 +7,7 @@
  */
 
 #include "FileRecord_M.h"
+#include "Common.h"
 #include "FAT_Access_M.h"
 #include "DirOPS_Handler.h"
 #include "Conv.h"
@@ -247,12 +248,10 @@ wait_for_write_conter:
  *                              Cluster chain cache SPI
  * ------------------------------------------------------------------------------------------ */
 
-#define LOWER_BOUND_ENTRIES_TO_EVICT (10)
-
-static uint32_t FILERECORD_GetLastKnownClusterOfChaceEntry(ClusterChainCacheEntry_s* psEntry);
+static uint32_t FILERECORD_GetLastKnownClusterOfCacheEntry(ClusterChainCacheEntry_s* psEntry, int* piError);
 static void     FILERECORD_EvictLRUChainCacheEntry(FileSystemRecord_s* psFSRecord);
 static void     FILERECORD_RemoveChainCacheEntry(ClusterChainCacheEntry_s* psEntryToRemove);
-static uint8_t  FILERECORD_GetLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry);
+static uint8_t  FILERECORD_GetLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry, int* piError);
 static int      FILERECORD_UpdateLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry);
 
 static int      FILERECORD_CreateChainCacheEntry(NodeRecord_s* psNodeRecord,uint32_t uFirstCluster,uint64_t uOffsetInFile);
@@ -268,8 +267,11 @@ static int      FILERECORD_FindClusterToCreateChainCacheEntry(bool* pbFoundLocat
                                                               uint64_t uWantedOffsetInFile, uint32_t* puWantedCluster, uint32_t* puContiguousClusterLength);
 /* ------------------------------------------------------------------------------------------ */
 
-static uint32_t FILERECORD_GetLastKnownClusterOfChaceEntry(ClusterChainCacheEntry_s* psEntry) {
-    uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psEntry);
+static uint32_t FILERECORD_GetLastKnownClusterOfCacheEntry(ClusterChainCacheEntry_s* psEntry, int* piError) {
+    uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psEntry, piError);
+    if (*piError) {
+        return 0;
+    }
     return psEntry->psConsecutiveCluster[uArrayCounter].uActualStartCluster +
            psEntry->psConsecutiveCluster[uArrayCounter].uAmountOfConsecutiveClusters - 1;
 }
@@ -410,8 +412,8 @@ FILERECORD_EvictLRUChainCacheEntry(FileSystemRecord_s* psFSRecord)
 
                 // find the largest element in the array
                 for (int i = 0; i < LOWER_BOUND_ENTRIES_TO_EVICT; i++) {
-                    if (uLargestLRUCounterInArray < psLookupEntry->uLRUCounter) {
-                        uLargestLRUCounterInArray = psLookupEntry->uLRUCounter;
+                    if (uLargestLRUCounterInArray < psLRUEntryToEvict[i]->uLRUCounter) {
+                        uLargestLRUCounterInArray = psLRUEntryToEvict[i]->uLRUCounter;
                         uLargestElementLocation = i;
                     }
                 }
@@ -444,6 +446,9 @@ int FILERECORD_UpdateNewAllocatedClustersInChain(NodeRecord_s* psNodeRecord, uin
 {
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
     bool bForceInsert = false;
+    bool cache_evicted = false;
+    int iError = 0;
+    uint32_t uLastKnownCluster;
 new_one:
     //If file node doesn't have cache
     if (TAILQ_EMPTY(&psNodeRecord->sRecordData.psClusterChainList) || bForceInsert) {
@@ -470,17 +475,36 @@ new_one:
     }
 
     ClusterChainCacheEntry_s* psLastEntry = TAILQ_LAST(&psNodeRecord->sRecordData.psClusterChainList, sConsecutiveClusterList);
-    //update the last entry, only if asked offset is the same as the entry end offset
+    // update the last entry, only if asked offset is the same as the entry end offset
     // otherwise create a new one
     if (GET_ENTRY_END(psLastEntry,psFSRecord) == uOffsetInFile) {
-        uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psLastEntry);
+        uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psLastEntry, &iError);
+        if (iError != 0) {
+            // Something went wrong with our cache. Evict it and try again but only one retry.
+            if (cache_evicted) return EINVAL;
+            // Assumption: Under write lock
+            FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(psNodeRecord, 0, false);
+            cache_evicted = true;
+            goto new_one;
+        }
         //This Entry is Full, need new one
         if (uArrayCounter + 1 == MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY) {
             bForceInsert = true;
             goto new_one;
         } else {
             // if we can extend the last entry, o.w fill a new one
-            if (FILERECORD_GetLastKnownClusterOfChaceEntry(psLastEntry) ==  uFirstCluster - 1) {
+            uLastKnownCluster = FILERECORD_GetLastKnownClusterOfCacheEntry(psLastEntry, &iError);
+            if (iError != 0) {
+                // Something went wrong with our cache. Evict it and try again but only one retry.
+                // We should not get here if we did not get an error for the above
+                // FILERECORD_GetLastElementNumInCacheEntry call but you know...
+                if (cache_evicted) return EINVAL;
+                // Assumption: Under write lock
+                FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(psNodeRecord, 0, false);
+                cache_evicted = true;
+                goto new_one;
+            }
+            if (uLastKnownCluster == (uFirstCluster - 1)) {
                 psLastEntry->psConsecutiveCluster[uArrayCounter].uAmountOfConsecutiveClusters += uChainLength ;
                 psLastEntry->uAmountOfClusters += uChainLength;
                 DIAGNOSTIC_CHECK_CHAIN_CACHE_ENTRY(psNodeRecord);
@@ -505,8 +529,8 @@ FILERECORD_UpdateLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry )
     NodeRecord_s* psNodeRecord = GET_RECORD(psEntry->pvFileOwner);
     FileSystemRecord_s *psFSRecord = GET_FSRECORD(psNodeRecord);
 
-    uint32_t uLastKnownCluster = FILERECORD_GetLastKnownClusterOfChaceEntry(psEntry);
-    if (!CLUSTER_IS_VALID(uLastKnownCluster, psFSRecord)) {
+    uint32_t uLastKnownCluster = FILERECORD_GetLastKnownClusterOfCacheEntry(psEntry, &iError);
+    if ((iError != 0) || (!CLUSTER_IS_VALID(uLastKnownCluster, psFSRecord))) {
         iError = EINVAL;
         MSDOS_LOG(LEVEL_ERROR, "FILERECORD_UpdateLastElementNumInCacheEntry: Last known cluster is invalid");
         goto exit;
@@ -520,7 +544,14 @@ FILERECORD_UpdateLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry )
         goto exit;
     }
 
-    uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psEntry);
+    uint8_t uArrayCounter = FILERECORD_GetLastElementNumInCacheEntry(psEntry, &iError);
+    if (iError) {
+        // we should not get here if we did not get an error for the
+        // above FILERECORD_GetLastKnownClusterOfCacheEntry call
+        MSDOS_LOG(LEVEL_ERROR, "FILERECORD_UpdateLastElementNumInCacheEntry: FILERECORD_GetLastElementNumInCacheEntry failed");
+        goto exit;
+    }
+
     if (NextCluster == uLastKnownCluster + 1) {
         uLastKnownCluster = NextCluster;
         uNewChainLength = FAT_Access_M_ContiguousClustersInChain(psFSRecord, uLastKnownCluster, &NextCluster, &iError);
@@ -559,9 +590,10 @@ exit:
  * Assumption: Under write lock
  */
 static uint8_t
-FILERECORD_GetLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry)
+FILERECORD_GetLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry, int* piError)
 {
     uint8_t uArrayCounter;
+    *piError = 0;
     for ( uArrayCounter = 0; uArrayCounter < MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY; uArrayCounter++)
     {
         if ( psEntry->psConsecutiveCluster[uArrayCounter].uActualStartCluster == 0)
@@ -572,7 +604,8 @@ FILERECORD_GetLastElementNumInCacheEntry(ClusterChainCacheEntry_s* psEntry)
     
     if (uArrayCounter == 0) {
         MSDOS_LOG(LEVEL_ERROR, "FILERECORD_GetLastElementNumInCacheEntry: got psEntry with no valid elements");
-        assert(0);
+        *piError = EINVAL;
+        return MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY;
     }
     return --uArrayCounter;
 }
@@ -584,7 +617,7 @@ FILERECORD_FindClusterToCreateChainCacheEntry(bool* pbFoundLocation, NodeRecord_
 {
     int iError = 0;
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psNodeRecord);
-    while (!(*pbFoundLocation))
+    while (!(*pbFoundLocation) && CLUSTER_IS_VALID(*puWantedCluster, psFSRecord))
     {
         uint32_t NextCluster = 0;
         uint32_t uNewChainLength = FAT_Access_M_ContiguousClustersInChain(psFSRecord, *puWantedCluster, &NextCluster, &iError);
@@ -667,9 +700,8 @@ FILERECORD_GetClusterFromChainArray(NodeRecord_s* psNodeRecord, ClusterChainCach
 {
     *puContiguousClusterLength = 0;
     if (psLookupEntry->uFileOffset > uWantedOffsetInFile) {
-        MSDOS_LOG(LEVEL_ERROR, "FILERECORD_GetClusterFromChainArray: psLookupEntry->uFileOffset [%llu] > uWantedOffsetInFile [%llu].\n",
+        MSDOS_LOG(LEVEL_FAULT, "FILERECORD_GetClusterFromChainArray: psLookupEntry->uFileOffset [%llu] > uWantedOffsetInFile [%llu].\n",
                   psLookupEntry->uFileOffset, uWantedOffsetInFile);
-        assert(0);
         return;
     }
 
@@ -832,12 +864,14 @@ FILERECORD_GetChainFromLastKnownOffset(NodeRecord_s* psNodeRecord, uint64_t uWan
             MSDOS_LOG(LEVEL_FAULT, "Something went wrong with our cache - uLastKnownOffset [%llu], uWantedOffsetInFile [%llu].\n",
                       uLastKnownOffset, uWantedOffsetInFile);
 
-            //Clear the cache for this node
-            FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(psNodeRecord, 0, false);
+            goto clear_node_cache;
         } else {
             uOffsetLocationInClusterChain = (uint32_t) ((uWantedOffsetInFile - uLastKnownOffset)/CLUSTER_SIZE(psFSRecord));
-            *puWantedCluster = FILERECORD_GetLastKnownClusterOfChaceEntry(psLookupEntry);
-
+            *puWantedCluster = FILERECORD_GetLastKnownClusterOfCacheEntry(psLookupEntry, piError);
+            if (*piError != 0) {
+                // Something went wrong with our cache. Evict it and start from the begining
+                goto clear_node_cache;
+            }
             //Get the next cluster according to last known cluster
             *piError = FAT_Access_M_GetClustersFatEntryContent(psFSRecord, *puWantedCluster, puWantedCluster);
             //If we reached the end of the chain
@@ -849,6 +883,9 @@ FILERECORD_GetChainFromLastKnownOffset(NodeRecord_s* psNodeRecord, uint64_t uWan
 
             goto lookup;
         }
+clear_node_cache:
+        // Clear the cache for this node assuming already under write lock
+        FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(psNodeRecord, 0, false);
     }
 
     // No referance entry-> Start from the begining
@@ -885,11 +922,10 @@ FILERECORD_GetChainFromCache(NodeRecord_s* psNodeRecord, uint64_t uWantedOffsetI
     
     if (!CLUSTER_IS_VALID(psNodeRecord->sRecordData.uFirstCluster, psFSRecord))
     {
-        MSDOS_LOG(LEVEL_INFO, "FILERECORD_GetChainFromCache: first cluster is bad: %u.\n", psNodeRecord->sRecordData.uFirstCluster);
-        assert(0);
+        MSDOS_LOG(LEVEL_FAULT, "FILERECORD_GetChainFromCache: first cluster is bad: %u.\n", psNodeRecord->sRecordData.uFirstCluster);
         *puWantedCluster = 0;
         *puContiguousClusterLength =  0;
-        *piError = EINVAL;
+        *piError = EIO;
         return;
     }
 

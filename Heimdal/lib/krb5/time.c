@@ -38,7 +38,7 @@
  * kerberos library can calculate the relative diffrence beteen the
  * KDC time and local system time.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param sec The applications new of "now" in seconds
  * @param usec The applications new of "now" in micro seconds
 

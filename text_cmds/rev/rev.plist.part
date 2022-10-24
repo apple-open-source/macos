@@ -1,0 +1,14 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-12</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceProject</key>
+	<string>rev</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-06-27</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/rev?id=fe5bc3e6afb902a7261dd7b6ee48f91acf9f1a5d</string>
+</dict>

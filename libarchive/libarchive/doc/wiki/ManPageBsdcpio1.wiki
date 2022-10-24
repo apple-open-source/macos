@@ -57,6 +57,13 @@ all operating modes.
 <dt>-0, --null</dt><dd> 
 Read filenames separated by NUL characters instead of newlines. 
 This is necessary if any of the filenames being read might contain newlines. 
+</dd><dt>-6, --pwb</dt><dd> 
+When reading a binary format archive, assume it's the earlier one, 
+from the PWB variant of 6th Edition UNIX. 
+When writing a cpio archive, use the PWB format. 
+</dd><dt>-7, --binary</dt><dd> 
+(o mode only) 
+When writing a cpio archive, use the (newer, non-PWB) binary format. 
 </dd><dt>-A</dt><dd> 
 (o mode only) 
 Append to the specified archive. 

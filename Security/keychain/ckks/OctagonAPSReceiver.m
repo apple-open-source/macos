@@ -77,7 +77,8 @@
 // Same, but for cuttlefish containers (and only remember that a push was received; don't remember the pushes themselves)
 @property NSMutableSet<NSString*>* undeliveredCuttlefishUpdates;
 
-@property (nullable) id<CKKSZoneUpdateReceiverProtocol> zoneUpdateReceiver;
+/* key: contextID, value: id<CKKSZoneUpdateReceiverProtocol> */
+@property NSMutableDictionary<NSString*, id<CKKSZoneUpdateReceiverProtocol>>* zoneUpdateReceiverDictionary;
 @property NSMapTable<NSString*, id<OctagonCuttlefishUpdateReceiver>>* octagonContainerMap;
 @end
 
@@ -185,7 +186,7 @@
         _environmentMap = [NSMutableDictionary dictionary];
 
         _octagonContainerMap = [NSMapTable strongToWeakObjectsMapTable];
-        _zoneUpdateReceiver = nil;
+        _zoneUpdateReceiverDictionary = [NSMutableDictionary dictionary];
 
         WEAKIFY(self);
         void (^clearPushBlock)(void) = ^{
@@ -263,7 +264,7 @@
      * Let server know that device is not unlocked yet
      */
 
-    (void)SecAKSGetHasBeenUnlocked(&hasBeenUnlocked, &error);
+    (void)SecAKSGetHasBeenUnlocked(g_keychain_keybag, &hasBeenUnlocked, &error);
     CFReleaseNull(error);
 
     NSString *eventName = @"CKKS APNS Push Dropped";
@@ -287,6 +288,7 @@
 }
 
 - (CKKSCondition*)registerCKKSReceiver:(id<CKKSZoneUpdateReceiverProtocol>)receiver
+                             contextID:(NSString*)contextID
 {
     CKKSCondition* finished = [[CKKSCondition alloc] init];
 
@@ -300,8 +302,8 @@
 
         ckksnotice_global("octagonpush", "Registering new CKKS push receiver: %@", receiver);
 
-        self.zoneUpdateReceiver = receiver;
-
+        self.zoneUpdateReceiverDictionary[contextID] = receiver;
+       
         NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = [self.undeliveredUpdates copy];
         [self.undeliveredUpdates removeAllObjects];
 
@@ -319,6 +321,7 @@
 
 - (CKKSCondition*)registerCuttlefishReceiver:(id<OctagonCuttlefishUpdateReceiver>)receiver
                             forContainerName:(NSString*)containerName
+                                   contextID:(NSString*)contextID
 {
     CKKSCondition* finished = [[CKKSCondition alloc] init];
 
@@ -330,15 +333,15 @@
             return;
         }
 
-        [self.octagonContainerMap setObject:receiver forKey:containerName];
-        if([self.undeliveredCuttlefishUpdates containsObject:containerName]) {
-            [self.undeliveredCuttlefishUpdates removeObject:containerName];
-
+        [self.octagonContainerMap setObject:receiver forKey:contextID];
+        if([self.undeliveredCuttlefishUpdates containsObject:contextID]) {
+            [self.undeliveredCuttlefishUpdates removeObject:contextID];
+            
             // Now, send the receiver its fake notification!
-            ckkserror_global("octagonpush", "sending fake push to newly-registered cuttlefish receiver(%@): %@", containerName, receiver);
+            ckkserror_global("octagonpush", "sending fake push to newly-registered cuttlefish receiver(%@-%@): %@", containerName, contextID, receiver);
             [receiver notifyContainerChange:nil];
         }
-
+        
         [finished fulfill];
     });
 
@@ -371,26 +374,23 @@
 
         ckksnotice_global("octagonpush", "Received a cuttlefish push to container %@", container);
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastOctagonPush];
-
+        
         if(container) {
-            id<OctagonCuttlefishUpdateReceiver> receiver = [self.octagonContainerMap objectForKey:container];
-
-            if(receiver) {
-                [receiver notifyContainerChange:message];
-            } else {
-                ckkserror_global("octagonpush", "received cuttlefish push for unregistered container: %@", container);
-                [self.undeliveredCuttlefishUpdates addObject:container];
-                [self.clearStalePushNotifications trigger];
-            }
-        } else {
-            // APS stripped the container. Send a push to all registered containers.
             @synchronized(self.octagonContainerMap) {
-                for(id<OctagonCuttlefishUpdateReceiver> receiver in [self.octagonContainerMap objectEnumerator]) {
-                    [receiver notifyContainerChange:nil];
+                if ([self.octagonContainerMap count] == 0) {
+                    ckkserror_global("octagonpush", "received cuttlefish push for unregistered container: %@", container);
+                    [self.undeliveredCuttlefishUpdates addObject:container];
+                    [self.clearStalePushNotifications trigger];
                 }
             }
         }
-
+        
+        @synchronized(self.octagonContainerMap) {
+            for(id<OctagonCuttlefishUpdateReceiver> receiver in [self.octagonContainerMap objectEnumerator]) {
+                [receiver notifyContainerChange:nil];
+            }
+        }
+        
         return;
     }
 
@@ -403,16 +403,19 @@
         rznotification.ckksPushReceivedDate = [NSDate date];
 
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastCKKSPush];
-
-        // Find receiever in map
-        id<CKKSZoneUpdateReceiverProtocol> recv = self.zoneUpdateReceiver;
-        if(recv) {
-            [recv notifyZoneChange:rznotification];
-        } else {
-            ckkserror_global("ckkspush", "received push for unregistered receiver: %@", rznotification);
-            [self.undeliveredUpdates addObject:rznotification];
-            [self.clearStalePushNotifications trigger];
+        
+        @synchronized(self.zoneUpdateReceiverDictionary) {
+            if ([self.zoneUpdateReceiverDictionary count] == 0) {
+                ckkserror_global("ckkspush", "received push for unregistered receiver: %@", rznotification);
+                [self.undeliveredUpdates addObject:rznotification];
+                [self.clearStalePushNotifications trigger];
+            }
+            
+            for(id<CKKSZoneUpdateReceiverProtocol> receiver in [self.zoneUpdateReceiverDictionary objectEnumerator]) {
+                [receiver notifyZoneChange:rznotification];
+            }
         }
+
     } else {
         ckkserror_global("ckkspush", "unexpected notification: %@", notification);
     }

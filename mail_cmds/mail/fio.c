@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)fio.c	8.2 (Berkeley) 4/20/95";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/fio.c,v 1.12 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include <sys/file.h>
@@ -90,9 +85,7 @@ char *removebs(char *input) {
  * Set up the input pointers while copying the mail file into /tmp.
  */
 void
-setptr(ibuf, offset)
-	FILE *ibuf;
-	off_t offset;
+setptr(FILE *ibuf, off_t offset)
 {
 	int c, count;
 	char *cp, *cp2;
@@ -197,10 +190,7 @@ setptr(ibuf, offset)
  * characters written, including the newline if requested.
  */
 int
-putline(obuf, linebuf, outlf)
-	FILE *obuf;
-	char *linebuf;
-	int outlf;
+putline(FILE *obuf, char *linebuf, int outlf)
 {
 	int c;
 
@@ -221,10 +211,7 @@ putline(obuf, linebuf, outlf)
  * include the newline (or carriage return) at the end.
  */
 int
-readline(ibuf, linebuf, linesize)
-	FILE *ibuf;
-	char *linebuf;
-	int linesize;
+readline(FILE *ibuf, char *linebuf, int linesize)
 {
 	int n;
 
@@ -244,8 +231,7 @@ readline(ibuf, linebuf, linesize)
  * passed message pointer.
  */
 FILE *
-setinput(mp)
-	struct message *mp;
+setinput(struct message *mp)
 {
 
 	(void)fflush(otf);
@@ -260,9 +246,7 @@ setinput(mp)
  * a dynamically allocated message structure.
  */
 void
-makemessage(f, omsgCount)
-	FILE *f;
-	int omsgCount;
+makemessage(FILE *f, int omsgCount)
 {
 	size_t size;
 	struct message *nmessage;
@@ -280,7 +264,7 @@ makemessage(f, omsgCount)
 	size -= (omsgCount + 1) * sizeof(struct message);
 	(void)fflush(f);
 	(void)lseek(fileno(f), (off_t)sizeof(*message), 0);
-	if (read(fileno(f), (char *)&message[omsgCount], size) != size)
+	if (read(fileno(f), (void *)&message[omsgCount], size) != size)
 		errx(1, "Message temporary file corrupted");
 	message[msgCount].m_size = 0;
 	message[msgCount].m_lines = 0;
@@ -292,9 +276,7 @@ makemessage(f, omsgCount)
  * If the write fails, return 1, else 0
  */
 int
-append(mp, f)
-	struct message *mp;
-	FILE *f;
+append(struct message *mp, FILE *f)
 {
 	return (fwrite((char *)mp, sizeof(*mp), 1, f) != 1);
 }
@@ -303,8 +285,7 @@ append(mp, f)
  * Delete a file, but only if the file is a plain file.
  */
 int
-rm(name)
-	char *name;
+rm(char *name)
 {
 	struct stat sb;
 
@@ -323,7 +304,7 @@ static sigset_t nset, oset;
  * Hold signals SIGHUP, SIGINT, and SIGQUIT.
  */
 void
-holdsigs()
+holdsigs(void)
 {
 
 	if (sigdepth++ == 0) {
@@ -339,7 +320,7 @@ holdsigs()
  * Release signals SIGHUP, SIGINT, and SIGQUIT.
  */
 void
-relsesigs()
+relsesigs(void)
 {
 
 	if (--sigdepth == 0)
@@ -351,8 +332,7 @@ relsesigs()
  * the passed buffer.
  */
 off_t
-fsize(iob)
-	FILE *iob;
+fsize(FILE *iob)
 {
 	struct stat sbuf;
 
@@ -373,8 +353,7 @@ fsize(iob)
  * Return the file name as a dynamic string.
  */
 char *
-expand(name)
-	char *name;
+expand(char *name)
 {
 	const int flags = GLOB_BRACE|GLOB_TILDE|GLOB_NOSORT|GLOB_NOCHECK;
 	char xname[PATHSIZE];
@@ -449,9 +428,7 @@ expand(name)
  * Determine the current folder directory name.
  */
 int
-getfold(name, namelen)
-	char *name;
-	int namelen;
+getfold(char *name, int namelen)
 {
 	char *folder;
 	int copylen;
@@ -470,7 +447,7 @@ getfold(name, namelen)
  * Return the name of the dead.letter file.
  */
 char *
-getdeadletter()
+getdeadletter(void)
 {
 	char *cp;
 

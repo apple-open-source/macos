@@ -38,8 +38,6 @@ __BEGIN_DECLS
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
                      CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error);
-bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, CFDataRef _Nullable *_Nullable bkUUID, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error);
 bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
                             CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error); // used for backup
 bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef _Nullable *_Nullable paccess_control, CFDataRef acm_context,

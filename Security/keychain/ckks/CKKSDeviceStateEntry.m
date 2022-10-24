@@ -36,6 +36,7 @@
 @implementation CKKSDeviceStateEntry
 
 - (instancetype)initForDevice:(NSString*)device
+                    contextID:(NSString*)contextID
                     osVersion:(NSString*)osVersion
                lastUnlockTime:(NSDate*)lastUnlockTime
                 octagonPeerID:(NSString*)octagonPeerID
@@ -51,6 +52,7 @@
 {
     if((self = [super initWithCKRecordType:SecCKRecordDeviceStateType
                            encodedCKRecord:encodedrecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
         _device = device;
         _osVersion = osVersion;
@@ -165,7 +167,8 @@
 -(NSString*)description {
     NSDate* updated = self.storedCKRecord.modificationDate;
 
-    return [NSString stringWithFormat:@"<CKKSDeviceStateEntry(%@,%@,%@,%@,%@,%@): %@ %@ %@ %@ %@ %@ upd:%@>",
+    return [NSString stringWithFormat:@"<CKKSDeviceStateEntry[%@](%@,%@,%@,%@,%@,%@): %@ %@ %@ %@ %@ %@ upd:%@>",
+            self.contextID,
             self.device,
             self.circlePeerID,
             self.octagonPeerID,
@@ -191,6 +194,7 @@
 
     return ([self.zoneID isEqual: obj.zoneID] &&
             ((self.device == nil && obj.device == nil)                       || [self.device isEqual: obj.device]) &&
+            ((self.contextID == nil && obj.contextID == nil)                 || [self.contextID isEqual: obj.contextID]) &&
             ((self.osVersion == nil && obj.osVersion == nil)                 || [self.osVersion isEqual:obj.osVersion]) &&
             ((self.lastUnlockTime == nil && obj.lastUnlockTime == nil)       || [self.lastUnlockTime isEqual:obj.lastUnlockTime]) &&
             ((self.octagonPeerID == nil && obj.octagonPeerID == nil)         || [self.octagonPeerID isEqual: obj.octagonPeerID]) &&
@@ -206,19 +210,36 @@
 
 #pragma mark - Database Operations
 
-+ (instancetype)fromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
-    return [self fromDatabaseWhere: @{@"device":CKKSNilToNSNull(device), @"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
++ (instancetype)fromDatabase:(NSString*)device
+                   contextID:(NSString*)contextID
+                      zoneID:(CKRecordZoneID*)zoneID
+                       error:(NSError * __autoreleasing *)error {
+    return [self fromDatabaseWhere: @{@"device":CKKSNilToNSNull(device),
+                                      @"contextID":CKKSNilToNSNull(contextID),
+                                      @"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                             error:error];
 }
 
-+ (instancetype)tryFromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
-    return [self tryFromDatabaseWhere: @{@"device":CKKSNilToNSNull(device), @"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
++ (instancetype)tryFromDatabase:(NSString*)device
+                      contextID:(NSString*)contextID
+                         zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
+    return [self tryFromDatabaseWhere: @{@"device":CKKSNilToNSNull(device),
+                                         @"contextID":CKKSNilToNSNull(contextID),
+                                         @"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                error:error];
 }
 
-+ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError * __autoreleasing *)error {
-    return [self tryFromDatabaseWhere: @{@"device":CKKSNilToNSNull([self nameFromCKRecordID:recordID]), @"ckzone": CKKSNilToNSNull(recordID.zoneID.zoneName)} error:error];
++ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID
+                                    contextID:(NSString*)contextID
+                                        error:(NSError * __autoreleasing *)error {
+    return [self tryFromDatabaseWhere: @{@"device":CKKSNilToNSNull([self nameFromCKRecordID:recordID]),
+                                         @"contextID":CKKSNilToNSNull(contextID),
+                                         @"ckzone": CKKSNilToNSNull(recordID.zoneID.zoneName)}
+                                error:error];
 }
 
-+ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
++ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID
+                                       error:(NSError * __autoreleasing *)error {
     return [self allWhere:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
 }
 
@@ -354,33 +375,40 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    return @[@"device", @"ckzone", @"osversion", @"lastunlock",
+    return @[@"contextID",
+             @"device", @"ckzone", @"osversion", @"lastunlock",
              @"peerid", @"circlestatus",
              @"octagonpeerid", @"octagonstatus",
              @"keystate", @"currentTLK", @"currentClassA", @"currentClassC", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
-    return @{@"device":self.device, @"ckzone":self.zoneID.zoneName};
+    return @{
+        @"contextID": self.contextID,
+        @"device": self.device,
+        @"ckzone": self.zoneID.zoneName,
+    };
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
     NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
 
-    return @{@"device":        self.device,
-             @"ckzone":        CKKSNilToNSNull(self.zoneID.zoneName),
-             @"osversion":     CKKSNilToNSNull(self.osVersion),
-             @"lastunlock":    CKKSNilToNSNull(self.lastUnlockTime ? [dateFormat stringFromDate:self.lastUnlockTime] : nil),
-             @"peerid":        CKKSNilToNSNull(self.circlePeerID),
-             @"circlestatus":  (__bridge NSString*)SOSAccountGetSOSCCStatusString(self.circleStatus),
-             @"octagonpeerid": CKKSNilToNSNull(self.octagonPeerID),
-             @"octagonstatus": CKKSNilToNSNull(self.octagonStatus ? OTCliqueStatusToString(self.octagonStatus.status) : nil),
-             @"keystate":      CKKSNilToNSNull(self.keyState),
-             @"currentTLK":    CKKSNilToNSNull(self.currentTLKUUID),
-             @"currentClassA": CKKSNilToNSNull(self.currentClassAUUID),
-             @"currentClassC": CKKSNilToNSNull(self.currentClassCUUID),
-             @"ckrecord":      CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
-             };
+    return @{
+        @"contextID":     self.contextID,
+        @"device":        self.device,
+        @"ckzone":        CKKSNilToNSNull(self.zoneID.zoneName),
+        @"osversion":     CKKSNilToNSNull(self.osVersion),
+        @"lastunlock":    CKKSNilToNSNull(self.lastUnlockTime ? [dateFormat stringFromDate:self.lastUnlockTime] : nil),
+        @"peerid":        CKKSNilToNSNull(self.circlePeerID),
+        @"circlestatus":  (__bridge NSString*)SOSAccountGetSOSCCStatusString(self.circleStatus),
+        @"octagonpeerid": CKKSNilToNSNull(self.octagonPeerID),
+        @"octagonstatus": CKKSNilToNSNull(self.octagonStatus ? OTCliqueStatusToString(self.octagonStatus.status) : nil),
+        @"keystate":      CKKSNilToNSNull(self.keyState),
+        @"currentTLK":    CKKSNilToNSNull(self.currentTLKUUID),
+        @"currentClassA": CKKSNilToNSNull(self.currentClassAUUID),
+        @"currentClassC": CKKSNilToNSNull(self.currentClassCUUID),
+        @"ckrecord":      CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
+    };
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
@@ -391,6 +419,7 @@
     }
 
     return [[CKKSDeviceStateEntry alloc] initForDevice:row[@"device"].asString
+                                             contextID:row[@"contextID"].asString
                                              osVersion:row[@"osversion"].asString
                                         lastUnlockTime:row[@"lastunlock"].asISO8601Date
                                          octagonPeerID:row[@"octagonpeerid"].asString
@@ -417,6 +446,7 @@
                                                                    error:(NSError**)error
 {
     NSError* localerror = nil;
+    NSString* contextID = viewState.contextID;
 
     CKKSAccountStatus hsa2Status = accountTracker.hsa2iCloudAccountStatus;
 
@@ -447,7 +477,7 @@
         return nil;
     }
 
-    CKKSDeviceStateEntry* oldcdse = [CKKSDeviceStateEntry tryFromDatabase:ckdeviceID zoneID:viewState.zoneID error:&localerror];
+    CKKSDeviceStateEntry* oldcdse = [CKKSDeviceStateEntry tryFromDatabase:ckdeviceID contextID:contextID zoneID:viewState.zoneID error:&localerror];
     if(localerror) {
         ckkserror("ckksdevice", viewState, "Couldn't read old CKKSDeviceStateEntry from database: %@", localerror);
         if(error) {
@@ -457,18 +487,36 @@
     }
 
     // Find out what we think the current keys are
-    CKKSCurrentKeyPointer* currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:viewState.zoneID error:&localerror];
-    CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:viewState.zoneID error:&localerror];
-    CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:viewState.zoneID error:&localerror];
+    CKKSCurrentKeyPointer* currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK
+                                                                               contextID:viewState.contextID
+                                                                                  zoneID:viewState.zoneID
+                                                                                   error:&localerror];
+    CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA
+                                                                               contextID:viewState.contextID
+                                                                                  zoneID:viewState.zoneID
+                                                                                   error:&localerror];
+    CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC
+                                                                               contextID:viewState.contextID
+                                                                                  zoneID:viewState.zoneID
+                                                                                   error:&localerror];
     if(localerror) {
         // Things is broken, but the whole point of this record is to share the brokenness. Continue.
         ckkserror("ckksdevice", viewState, "Couldn't read current key pointers from database: %@; proceeding", localerror);
         localerror = nil;
     }
 
-    CKKSKey* suggestedTLK       = currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:currentTLKPointer.currentKeyUUID    zoneID:viewState.zoneID error:&localerror] : nil;
-    CKKSKey* suggestedClassAKey = currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassAPointer.currentKeyUUID zoneID:viewState.zoneID error:&localerror] : nil;
-    CKKSKey* suggestedClassCKey = currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassCPointer.currentKeyUUID zoneID:viewState.zoneID error:&localerror] : nil;
+    CKKSKey* suggestedTLK       = currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:currentTLKPointer.currentKeyUUID
+                                                                                       contextID:viewState.contextID
+                                                                                          zoneID:viewState.zoneID
+                                                                                           error:&localerror] : nil;
+    CKKSKey* suggestedClassAKey = currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassAPointer.currentKeyUUID
+                                                                                       contextID:viewState.contextID
+                                                                                          zoneID:viewState.zoneID
+                                                                                           error:&localerror] : nil;
+    CKKSKey* suggestedClassCKey = currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:currentClassCPointer.currentKeyUUID
+                                                                                       contextID:viewState.contextID
+                                                                                          zoneID:viewState.zoneID
+                                                                                           error:&localerror] : nil;
 
     if(localerror) {
         // Things is broken, but the whole point of this record is to share the brokenness. Continue.
@@ -477,7 +525,8 @@
     }
 
     // Check if we posess the keys in the keychain
-    [suggestedTLK ensureKeyLoaded:&localerror];
+    [suggestedTLK ensureKeyLoadedForContextID:contextID
+                                        error:&localerror];
     if(localerror && [lockStateTracker isLockedError:localerror]) {
         ckkserror("ckksdevice", viewState, "Device is locked; couldn't read TLK from keychain. Assuming it is present and continuing; error was %@", localerror);
         localerror = nil;
@@ -486,7 +535,8 @@
         suggestedTLK = nil;
     }
 
-    [suggestedClassAKey ensureKeyLoaded:&localerror];
+    [suggestedClassAKey ensureKeyLoadedForContextID:contextID
+                                              error:&localerror];
     if(localerror && [lockStateTracker isLockedError:localerror]) {
         ckkserror("ckksdevice", viewState, "Device is locked; couldn't read ClassA key from keychain. Assuming it is present and continuing; error was %@", localerror);
         localerror = nil;
@@ -495,7 +545,8 @@
         suggestedClassAKey = nil;
     }
 
-    [suggestedClassCKey ensureKeyLoaded:&localerror];
+    [suggestedClassCKey ensureKeyLoadedForContextID:contextID
+                                              error:&localerror];
     // class C keys are stored class C, so uh, don't check lock state.
     if(localerror) {
         ckkserror("ckksdevice", viewState, "Couldn't read ClassC key from keychain. We do not have a current ClassC key. Error was %@", localerror);
@@ -521,6 +572,7 @@
 
     // We only really want the oldcdse for its encodedCKRecord, so make a new cdse here
     CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initForDevice:ckdeviceID
+                                                                      contextID:viewState.contextID
                                                                       osVersion:SecCKKSHostOSVersion()
                                                                  lastUnlockTime:lastUnlockDay
                                                                   octagonPeerID:accountTracker.octagonPeerID
@@ -536,11 +588,17 @@
     return newcdse;
 }
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     if(resync) {
         NSError* dserror = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabase:record.recordID.recordName zoneID:record.recordID.zoneID error:&dserror];
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabase:record.recordID.recordName
+                                                                 contextID:contextID
+                                                                    zoneID:record.recordID.zoneID
+                                                                     error:&dserror];
         if(dserror) {
             ckkserror("ckksresync", record.recordID.zoneID, "error loading cdse: %@", dserror);
         }
@@ -555,7 +613,7 @@
     }
 
     NSError* localerror = nil;
-    CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
+    CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record contextID:contextID];
     bool saved = [cdse saveToDatabase:&localerror];
     if (!saved || localerror != nil) {
         ckkserror("ckksdevice", record.recordID.zoneID, "Failed to save device record to database: %@: %@ %@", cdse, localerror, record);
@@ -568,12 +626,17 @@
     return YES;
 }
 
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     NSError* localerror = nil;
     ckksinfo("ckksdevice", recordID.zoneID, "CloudKit notification: deleted device state record(%@): %@", SecCKRecordDeviceStateType, recordID);
 
-    CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabaseFromCKRecordID:recordID error:&localerror];
+    CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry tryFromDatabaseFromCKRecordID:recordID
+                                                                           contextID:contextID
+                                                                               error:&localerror];
     [cdse deleteFromDatabase:&localerror];
 
     ckksinfo("ckksdevice", recordID.zoneID, "CKKSCurrentItemPointer(%@) was deleted: %@ error: %@", cdse, recordID, localerror);

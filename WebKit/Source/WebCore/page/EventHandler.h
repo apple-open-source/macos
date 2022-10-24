@@ -74,6 +74,7 @@ class FrameView;
 class HTMLFrameSetElement;
 class HitTestResult;
 class KeyboardEvent;
+class KeyboardScrollingAnimator;
 class MouseEventWithHitTestResults;
 class Node;
 class Pasteboard;
@@ -352,6 +353,8 @@ public:
     Element* draggingElement() const;
 #endif
 
+    bool canDropCurrentlyDraggedImageAsFile() const;
+
     WEBCORE_EXPORT void invalidateClick();
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -359,6 +362,8 @@ public:
 #endif
 
     static bool scrollableAreaCanHandleEvent(const PlatformWheelEvent&, ScrollableArea&);
+    
+    WEBCORE_EXPORT void selectClosestContextualWordOrLinkFromHitTestResult(const HitTestResult&, AppendTrailingWhitespace);
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -370,9 +375,8 @@ private:
     bool updateSelectionForMouseDownDispatchingSelectStart(Node*, const VisibleSelection&, TextGranularity);
     void selectClosestWordFromHitTestResult(const HitTestResult&, AppendTrailingWhitespace);
     VisibleSelection selectClosestWordFromHitTestResultBasedOnLookup(const HitTestResult&);
-    void selectClosestWordFromMouseEvent(const MouseEventWithHitTestResults&);
-    void selectClosestContextualWordFromMouseEvent(const MouseEventWithHitTestResults&);
-    void selectClosestContextualWordOrLinkFromMouseEvent(const MouseEventWithHitTestResults&);
+    void selectClosestContextualWordFromHitTestResult(const HitTestResult&, AppendTrailingWhitespace);
+    
 
     bool handleMouseDoubleClickEvent(const PlatformMouseEvent&);
 
@@ -381,8 +385,13 @@ private:
     bool handleMousePressEventDoubleClick(const MouseEventWithHitTestResults&);
     bool handleMousePressEventTripleClick(const MouseEventWithHitTestResults&);
 
-    bool startKeyboardScrolling(KeyboardEvent&);
+    bool beginKeyboardScrollGesture(KeyboardScrollingAnimator*, KeyboardEvent&);
     void stopKeyboardScrolling();
+    bool startKeyboardScrollAnimationOnDocument(KeyboardEvent&);
+    bool startKeyboardScrollAnimationOnRenderBoxLayer(KeyboardEvent&, RenderBox*);
+    bool startKeyboardScrollAnimationOnRenderBoxAndItsAncestors(KeyboardEvent&, RenderBox*);
+    bool startKeyboardScrollAnimationOnEnclosingScrollableContainer(KeyboardEvent&, Node*);
+    bool keyboardScrollRecursively(KeyboardEvent&, Node*);
 
 #if ENABLE(DRAG_SUPPORT)
     bool handleMouseDraggedEvent(const MouseEventWithHitTestResults&, CheckDragHysteresis = ShouldCheckDragHysteresis);
@@ -475,7 +484,7 @@ private:
     void processWheelEventForScrollSnap(const PlatformWheelEvent&, const WeakPtr<ScrollableArea>&);
     bool completeWidgetWheelEvent(const PlatformWheelEvent&, const WeakPtr<Widget>&, const WeakPtr<ScrollableArea>&);
 
-    bool handleWheelEventInAppropriateEnclosingBox(Node* startNode, const WheelEvent&, const FloatSize& filteredPlatformDelta, const FloatSize& filteredVelocity, OptionSet<EventHandling>);
+    bool handleWheelEventInAppropriateEnclosingBox(Node* startNode, const WheelEvent&, FloatSize& filteredPlatformDelta, const FloatSize& filteredVelocity, OptionSet<EventHandling>);
 
     bool handleWheelEventInScrollableArea(const PlatformWheelEvent&, ScrollableArea&, OptionSet<EventHandling>);
     std::optional<WheelScrollGestureState> updateWheelGestureState(const PlatformWheelEvent&, OptionSet<EventHandling>);
@@ -541,7 +550,7 @@ private:
     DeferrableOneShotTimer m_textRecognitionHoverTimer;
 #endif
     std::unique_ptr<AutoscrollController> m_autoscrollController;
-    RenderLayer* m_resizeLayer { nullptr };
+    WeakPtr<RenderLayer> m_resizeLayer;
 
     double m_maxMouseMovedDuration { 0 };
 

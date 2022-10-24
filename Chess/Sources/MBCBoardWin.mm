@@ -56,7 +56,9 @@
 #import "MBCUserDefaults.h"
 #import "MBCController.h"
 
+
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <UserNotifications/UserNotifications.h>
 
 @implementation MBCBoardWin
 
@@ -125,6 +127,7 @@
         [notificationCenter
          addObserverForName:MBCGameLoadNotification object:document 
          queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+        NSLog(@"MBCGameLoadNotification");
              NSDictionary * dict    = [note userInfo];
              NSString *     fen     = [dict objectForKey:@"Position"];
              NSString *     holding = [dict objectForKey:@"Holding"];
@@ -138,7 +141,7 @@
          addObserverForName:MBCGameStartNotification object:document 
          queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
              MBCVariant     variant  = [document variant];
-             
+             NSLog(@"MBCGameStartNotfication with variant %d", variant);
              [gameView startGame:variant playing:[document humanSide]];
              [engine setSearchTime:[document integerForKey:kMBCSearchTime]];
              [engine startGame:variant playing:[document engineSide]];
@@ -218,7 +221,30 @@
          }]];
     if ([document needNewGameSheet]) {
         usleep(500000);
+        //shows the settings and start/cancel modal
         [self showNewGameSheet];
+    }
+}
+
+- (void)windowWillLoad {
+    //SharePlay
+    currentSharePlayMoveStringCount = 0;
+    if ([self getSharePlayEnabledDefaultsProperty] == YES) {
+        //Setting the shareplay message delegate to this new window
+        if ([[MBCSharePlayManager sharedInstance] connected] == NO) {
+            NSLog(@"MBCSharePlayManager set BoardWindowDelegate to Self");
+            [MBCSharePlayManager sharedInstance].boardWindowDelegate = self;
+            [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+            [[MBCSharePlayManager sharedInstance] setTotalMoves:0];
+        }
+    }
+}
+
+- (void)windowWillClose:(NSNotification *)notification {
+    NSLog(@"MBCBoardWin: windowWillClose");
+    //send info that we will close
+    if([[MBCSharePlayManager sharedInstance] connected] == YES && [MBCSharePlayManager sharedInstance].boardWindowDelegate == self) {
+        [[MBCSharePlayManager sharedInstance] leaveSession];
     }
 }
 
@@ -270,6 +296,9 @@
 
 - (IBAction)takeback:(id)sender
 {
+    if ([[MBCSharePlayManager sharedInstance] connected] == YES && [[MBCSharePlayManager sharedInstance] boardWindowDelegate] == self) {
+        [[MBCSharePlayManager sharedInstance] sendTakeBackMessage];
+    }
     if ([[self document] match]) {
         [gameInfo willChangeValueForKey:@"gameTitle"];
         [[self document] offerTakeback];
@@ -515,6 +544,7 @@ uint32_t sAttributesForSides[] = {
 
 - (void) gameEnded:(NSNotification *)notification
 {
+    NSLog(@"gameEnded");
 	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification userInfo]);
     
 	[board makeMove:move];
@@ -619,6 +649,7 @@ uint32_t sAttributesForSides[] = {
 
 - (void) executeMove:(NSNotification *)notification
 {
+    NSLog(@"MBCBoardWin executeMove");
 	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification userInfo]);
 
 	[board makeMove:move];
@@ -627,18 +658,23 @@ uint32_t sAttributesForSides[] = {
 	[[self document] updateChangeCount:NSChangeDone];
     [self updateAchievementsForMove:move];
     
-	if (move->fAnimate)
+    if (move->fAnimate){
+        NSLog(@"Move Animation");
 		fCurAnimation = [MBCMoveAnimation moveAnimation:move board:board view:gameView];
-	else 
+        
+    } else {
+        NSLog(@"Posting EndMoveNotification");
 		[[NSNotificationQueue defaultQueue] 
          enqueueNotification:
          [NSNotification 
           notificationWithName:MBCEndMoveNotification
           object:[self document] userInfo:(id)move]
          postingStyle: NSPostWhenIdle];
-	
+    }
+    
     if ([[self document] engineSide] == kNeitherSide)
-        if (MBCMoveCode cmd = [[self board] outcome])
+        if (MBCMoveCode cmd = [[self board] outcome]) {
+            NSLog(@"Posting GameEndNotification");
             [[NSNotificationQueue defaultQueue] 
              enqueueNotification:
              [NSNotification 
@@ -646,20 +682,25 @@ uint32_t sAttributesForSides[] = {
               object:[self document] 
               userInfo:[MBCMove moveWithCommand:cmd]]
              postingStyle: NSPostWhenIdle];
+        }
 }
 
 - (void) commitMove:(NSNotification *)notification
 {
+    NSLog(@"MBCBoardWin CommitMove=%d", [[MBCSharePlayManager sharedInstance] connected]);
+    if ([[MBCSharePlayManager sharedInstance] connected] == YES && [MBCSharePlayManager sharedInstance].boardWindowDelegate == self) {
+        [MBCSharePlayManager sharedInstance].totalMoves++;
+    }
 	[board commitMove];
 	[gameView hideMoves];
 	[[self document] updateChangeCount:NSChangeDone];
     
-    if ([[self document] humanSide] == kBothSides
-        && [gameView facing] != kNeitherSide
-    ) {
+    if ([[self document] humanSide] == kBothSides && [gameView facing] != kNeitherSide
+        && ([[MBCSharePlayManager sharedInstance] boardWindowDelegate] != self || [[MBCSharePlayManager sharedInstance] connected] == NO)) {
 		//
 		// Rotate board
 		//
+        NSLog(@"MBCBoardWin CommitMove Rotate Board");
 		fCurAnimation = [MBCBoardAnimation boardAnimation:gameView];
 	}
 }
@@ -882,6 +923,16 @@ uint32_t sAttributesForSides[] = {
     });
 }
 
+- (BOOL) hideSharePlayProperties {
+    return ![self getSharePlayEnabledDefaultsProperty];
+}
+
+- (BOOL) getSharePlayEnabledDefaultsProperty {
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"Defaults" ofType:@"plist"];
+    NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:path];
+    return [[dict objectForKey:@"SharePlayEnabled"] boolValue];
+}
+
 #pragma mark -
 #pragma mark GKTurnBasedMatchmakerViewControllerDelegate
 // The user has cancelled
@@ -940,5 +991,104 @@ uint32_t sAttributesForSides[] = {
     if (gameCenterViewController) {
         [[GKDialogController sharedDialogController] dismiss:gameCenterViewController];
     }
+}
+
+#pragma mark - MBCSharePlayManagerBoardWindowDelegate
+- (void)connectedToSharePlaySessionWithNumParticipants:(NSInteger)numParticipants {
+    NSLog(@"Number of Participants Currently in Session %d", (int)numParticipants);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[self document] setValue:@"SharePlay" forKey:@"White"];
+        [[self document] setValue:@"Session" forKey:@"Black"];
+    });
+    [[MBCSharePlayManager sharedInstance] setConnected:YES];
+}
+
+- (void)receivedStartSelectionMessageWithMessage:(StartSelectionMessage *)message {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"In dispatch startSelectionWithoutShare");
+        MBCSquare square = message.square;
+        [self.interactive startSelectionWithoutShare:square];
+    });
+    
+}
+
+- (void)receivedEndSelectionMessageWithMessage:(EndSelectionMessage *)message {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"In dispatch startSelectionWithoutShare");
+        MBCSquare square = message.square;
+        BOOL animate = message.animate;
+        [self.interactive endSelectionWithoutShare:square animate:animate];
+    });
+}
+
+- (void)sendNotificationForGameEnded {
+    UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
+    [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert + UNAuthorizationOptionSound)
+       completionHandler:^(BOOL granted, NSError * _Nullable error) {
+          // Enable or disable features based on authorization.
+    }];
+    UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
+    content.title = [NSString localizedUserNotificationStringForKey:@"Game Over" arguments:nil];
+    content.body = [NSString localizedUserNotificationStringForKey:@"A Player Has Left the Session, Ending the Chess Game Now"
+            arguments:nil];
+    // Create the request object.
+    UNNotificationRequest* request = [UNNotificationRequest
+           requestWithIdentifier:@"ChessGameEnds" content:content trigger:nil];
+    [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
+       if (error != nil) {
+           NSLog(@"%@", error.localizedDescription);
+       }
+    }];
+}
+
+- (SharePlayBoardStateMessage *)createBoardStateMessage {
+    SharePlayBoardStateMessage *boardState = [[SharePlayBoardStateMessage alloc] initWithFen:[board fen] holding:[board holding] moves:[board moves] numMoves:[[MBCSharePlayManager sharedInstance] totalMoves]];
+    NSLog(@"MBCBoardWin: sendBoardStateMesage fen:%@ moves:%@ holding:%@", boardState.fen, boardState.moves, boardState.holding);
+    return boardState;
+}
+
+- (void)receivedBoardStateMessageWithFen:(NSString *)fen moves:(NSString *)moves holding:(NSString *)holding {
+    NSLog(@"MBCBoardWin: receivedBoardStateMessageWithMessage fen:%@ moves:%@ holding:%@", fen, moves, holding);
+    if (currentSharePlayMoveStringCount < moves.length) {
+        currentSharePlayMoveStringCount = moves.length;
+        [[MBCSharePlayManager sharedInstance] setTotalMoves:(int)[moves componentsSeparatedByString:@"\n"].count - 1];
+        NSLog(@"MBCBoardWin: %d, movecount", (int)[moves componentsSeparatedByString:@"\n"].count);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [engine setGame:[[self document] variant] fen:fen holding:holding moves:moves];
+            [board setFen:fen holding:holding moves:moves];
+            [self.interactive setLastSide:([moves componentsSeparatedByString:@"\n"].count) & 1 ? kWhiteSide : kBlackSide];
+        });
+    } else {
+        NSLog(@"MBCBoardWin: current board is more ahead, skipping update");
+    }
+}
+
+- (void) sessionDidEnd {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[self document] close];
+        [[self window] performClose:nil];
+    });
+}
+
+- (void)receivedTakeBackMessage {
+    NSLog(@"MBCBoardWin: ReceivedTakeBackMessage");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([[self document] match]) {
+            [gameInfo willChangeValueForKey:@"gameTitle"];
+            [[self document] offerTakeback];
+            [gameInfo didChangeValueForKey:@"gameTitle"];
+        } else {
+            [engine takeback];
+        }
+    });
+}
+
+#pragma mark - UNNotificationCenterDelegate
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+        willPresentNotification:(UNNotification *)notification
+        withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler {
+   // Update the app interface directly.
+    NSLog(@"UNNotificationCenterDelegate callback");
+    completionHandler(UNNotificationPresentationOptionBanner);
 }
 @end

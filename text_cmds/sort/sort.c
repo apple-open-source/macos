@@ -69,7 +69,11 @@ nl_catd catalog;
 
 static bool need_random;
 
+#ifdef __APPLE__
+SHA256_CTX sha256_ctx;
+#else
 MD5_CTX md5_ctx;
+#endif
 
 /*
  * Default messages to use when NLS is disabled or no catalogue
@@ -218,7 +222,7 @@ usage(bool opt_err)
 
 	out = opt_err ? stderr : stdout;
 
-	fprintf(out, getstr(12), getprogname());
+	fprintf(out, fmtcheck(getstr(12), "%s"), getprogname());
 	if (opt_err)
 		exit(2);
 	exit(0);
@@ -866,6 +870,11 @@ fix_obsolete_keys(int *argc, char **argv)
 
 		arg1 = argv[i];
 
+		if (strcmp(arg1, "--") == 0) {
+			/* Following arguments are treated as filenames. */
+			break;
+		}
+
 		if (strlen(arg1) > 1 && arg1[0] == '+') {
 			int c1, f1;
 			char sopts1[128];
@@ -979,8 +988,13 @@ out:
 	if (rsfd >= 0)
 		close(rsfd);
 
+#ifdef __APPLE__
+	SHA256_Init(&sha256_ctx);
+	SHA256_Update(&sha256_ctx, randseed, rd);
+#else
 	MD5Init(&md5_ctx);
 	MD5Update(&md5_ctx, randseed, rd);
+#endif
 }
 
 /*

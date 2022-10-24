@@ -249,7 +249,10 @@ _process_options(optionsRef options, int nOptions, int argc, char * const argv[]
 				argv++;
 				argc--;
 				break;
-			case isBool :
+			case isBool : {
+				Boolean	b		= FALSE;
+				Boolean	set_default	= FALSE;
+
 				if (argc < 1) {
 					SCPrint(TRUE, stdout,
 						CFSTR("%s not specified\n"),
@@ -257,27 +260,27 @@ _process_options(optionsRef options, int nOptions, int argc, char * const argv[]
 					return FALSE;
 				}
 
-				if        ((strcasecmp(argv[0], "disable") == 0) ||
-					   (strcasecmp(argv[0], "no"     ) == 0) ||
-					   (strcasecmp(argv[0], "off"    ) == 0) ||
-					   (strcasecmp(argv[0], "0"      ) == 0)) {
-					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), kCFBooleanFalse);
-				} else if ((strcasecmp(argv[0], "enable") == 0) ||
-					   (strcasecmp(argv[0], "yes"   ) == 0) ||
-					   (strcasecmp(argv[0], "on"   ) == 0) ||
-					   (strcasecmp(argv[0], "1"     ) == 0)) {
-					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), kCFBooleanTrue);
-				} else if (strcmp(argv[0], "") == 0) {
-					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
-				} else {
+				if (!get_bool_from_string(argv[0], FALSE, &b, &set_default)) {
 					SCPrint(TRUE, stdout, CFSTR("invalid value\n"));
 					return FALSE;
+				}
+
+				if (!set_default) {
+					CFDictionarySetValue(newConfiguration,
+							     *(options[optionIndex].key),
+							     b ? kCFBooleanTrue : kCFBooleanFalse);
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
 				}
 
 				argv++;
 				argc--;
 				break;
-			case isBoolean :
+			}
+			case isBoolean : {
+				Boolean	b		= FALSE;
+				Boolean	set_default	= FALSE;
+
 				if (argc < 1) {
 					SCPrint(TRUE, stdout,
 						CFSTR("%s not specified\n"),
@@ -285,26 +288,23 @@ _process_options(optionsRef options, int nOptions, int argc, char * const argv[]
 					return FALSE;
 				}
 
-				if        ((strcasecmp(argv[0], "disable") == 0) ||
-					   (strcasecmp(argv[0], "no"     ) == 0) ||
-					   (strcasecmp(argv[0], "off"    ) == 0) ||
-					   (strcasecmp(argv[0], "0"      ) == 0)) {
-					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_0);
-				} else if ((strcasecmp(argv[0], "enable") == 0) ||
-					   (strcasecmp(argv[0], "yes"   ) == 0) ||
-					   (strcasecmp(argv[0], "on"   ) == 0) ||
-					   (strcasecmp(argv[0], "1"     ) == 0)) {
-					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_1);
-				} else if (strcmp(argv[0], "") == 0) {
-					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
-				} else {
+				if (!get_bool_from_string(argv[0], FALSE, &b, &set_default)) {
 					SCPrint(TRUE, stdout, CFSTR("invalid value\n"));
 					return FALSE;
+				}
+
+				if (!set_default) {
+					CFDictionarySetValue(newConfiguration,
+							     *(options[optionIndex].key),
+							     b ? CFNumberRef_1 : CFNumberRef_0);
+				} else {
+					CFDictionaryRemoveValue(newConfiguration, *(options[optionIndex].key));
 				}
 
 				argv++;
 				argc--;
 				break;
+			}
 			case isNumber :
 				if (argc < 1) {
 					SCPrint(TRUE, stdout,

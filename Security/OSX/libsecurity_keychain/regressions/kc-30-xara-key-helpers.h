@@ -137,7 +137,7 @@ static void testUpdateKey(CFStringRef expectedHash, CFStringRef expectedHashAfte
 // We can't do our normal "add", "copymatching", "update" tests here, so do
 // something special...
 
-static void testKeyPair() {
+static void testKeyPair(void) {
     char* name = "testKeyPair";
     secnotice("integrity", "************************************* %s", name);
 
@@ -263,7 +263,7 @@ static void testAddDuplicateFreeKey(CFStringRef expectedHash) {
 // key attribute as the hash of the public key, it just will never generate a
 // duplicate item.
 
-static void testExportImportKeyPair() {
+static void testExportImportKeyPair(void) {
     char* name = "testExportImportKeyPair";
     secnotice("integrity", "************************************* %s", name);
 

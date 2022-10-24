@@ -27,6 +27,7 @@
 #import "WKWebViewConfigurationInternal.h"
 
 #import "APIPageConfiguration.h"
+#import "CSPExtensionUtilities.h"
 #import "UserInterfaceIdiom.h"
 #import <WebKit/WKPreferences.h>
 #import <WebKit/WKProcessPool.h>
@@ -41,10 +42,10 @@
 #import "WebURLSchemeHandlerCocoa.h"
 #import "_WKApplicationManifestInternal.h"
 #import "_WKVisitedLinkStore.h"
-#import "_WKWebsiteDataStoreInternal.h"
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/Settings.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RobinHoodHashSet.h>
 #import <wtf/URLParser.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -105,7 +106,7 @@ static _WKDragLiftDelay toDragLiftDelay(NSUInteger value)
 static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 {
 #if USE(QUICK_LOOK)
-    static bool shouldDecide = linkedOnOrAfter(SDKVersion::FirstThatDecidesPolicyBeforeLoadingQuickLookPreview);
+    static bool shouldDecide = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DecidesPolicyBeforeLoadingQuickLookPreview);
     return shouldDecide;
 #else
     return false;
@@ -202,7 +203,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _allowsInlineMediaPlaybackAfterFullscreen = !_allowsInlineMediaPlayback;
     _mediaDataLoadsAutomatically = _allowsInlineMediaPlayback;
 #if !PLATFORM(WATCHOS)
-    if (linkedOnOrAfter(SDKVersion::FirstWithMediaTypesRequiringUserActionForPlayback))
+    if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MediaTypesRequiringUserActionForPlayback))
         _mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAudio;
     else
 #endif
@@ -380,7 +381,8 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration.processPool = self.processPool;
     configuration.preferences = self.preferences;
     configuration.userContentController = self.userContentController;
-    configuration.websiteDataStore = self.websiteDataStore;
+    if (self._websiteDataStoreIfExists)
+        [configuration setWebsiteDataStore:self._websiteDataStoreIfExists];
     configuration.defaultWebpagePreferences = self.defaultWebpagePreferences;
     configuration._visitedLinkStore = self._visitedLinkStore;
     configuration._relatedWebView = _relatedWebView.get().get();
@@ -584,24 +586,6 @@ static NSString *defaultApplicationNameForUserAgent()
     return handler ? static_cast<WebKit::WebURLSchemeHandlerCocoa*>(handler.get())->apiHandler() : nil;
 }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-
-ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (_WKWebsiteDataStore *)_websiteDataStore
-ALLOW_DEPRECATED_IMPLEMENTATIONS_END
-{
-    return self.websiteDataStore ? adoptNS([[_WKWebsiteDataStore alloc] initWithDataStore:self.websiteDataStore]).autorelease() : nullptr;
-}
-
-ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (void)_setWebsiteDataStore:(_WKWebsiteDataStore *)websiteDataStore
-ALLOW_DEPRECATED_IMPLEMENTATIONS_END
-{
-    self.websiteDataStore = websiteDataStore ? websiteDataStore->_dataStore.get() : nullptr;
-}
-
-ALLOW_DEPRECATED_DECLARATIONS_END
-
 #if PLATFORM(IOS_FAMILY)
 - (BOOL)limitsNavigationsToAppBoundDomains
 {
@@ -769,9 +753,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return _inlineMediaPlaybackRequiresPlaysInlineAttribute;
 }
 
-- (void)_setInlineMediaPlaybackRequiresPlaysInlineAttribute:(BOOL)requires
+- (void)_setInlineMediaPlaybackRequiresPlaysInlineAttribute:(BOOL)requiresPlaysInlineAttribute
 {
-    _inlineMediaPlaybackRequiresPlaysInlineAttribute = requires;
+    _inlineMediaPlaybackRequiresPlaysInlineAttribute = requiresPlaysInlineAttribute;
 }
 
 - (BOOL)_allowsInlineMediaPlaybackAfterFullscreen
@@ -978,9 +962,26 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     _pageConfiguration->setCORSDisablingPatterns(makeVector<String>(patterns));
 }
 
+- (NSSet<NSString *> *)_maskedURLSchemes
+{
+    const auto& schemes = _pageConfiguration->maskedURLSchemes();
+    NSMutableSet<NSString *> *set = [NSMutableSet setWithCapacity:schemes.size()];
+    for (const auto& scheme : schemes)
+        [set addObject:scheme];
+    return set;
+}
+
+- (void)_setMaskedURLSchemes:(NSSet<NSString *> *)schemes
+{
+    HashSet<String> set;
+    for (NSString *scheme in schemes)
+        set.add(scheme);
+    _pageConfiguration->setMaskedURLSchemes(WTFMove(set));
+}
+
 - (void)_setLoadsFromNetwork:(BOOL)loads
 {
-    _pageConfiguration->setAllowedNetworkHosts(loads ? std::nullopt : std::optional<HashSet<String>> { HashSet<String> { } });
+    _pageConfiguration->setAllowedNetworkHosts(loads ? std::nullopt : std::optional { MemoryCompactLookupOnlyRobinHoodHashSet<String> { } });
 }
 
 - (BOOL)_loadsFromNetwork
@@ -992,7 +993,7 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 {
     if (!hosts)
         return _pageConfiguration->setAllowedNetworkHosts(std::nullopt);
-    HashSet<String> set;
+    MemoryCompactLookupOnlyRobinHoodHashSet<String> set;
     for (NSString *host in hosts)
         set.add(host);
     _pageConfiguration->setAllowedNetworkHosts(WTFMove(set));
@@ -1360,6 +1361,16 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     if (!identifier)
         return nil;
     return identifier;
+}
+
+- (void)_setContentSecurityPolicyModeForExtension:(_WKContentSecurityPolicyModeForExtension)mode
+{
+    _pageConfiguration->setContentSecurityPolicyModeForExtension(WebKit::toContentSecurityPolicyModeForExtension(mode));
+}
+
+- (_WKContentSecurityPolicyModeForExtension)_contentSecurityPolicyModeForExtension
+{
+    return WebKit::toWKContentSecurityPolicyModeForExtension(_pageConfiguration->contentSecurityPolicyModeForExtension());
 }
 
 @end

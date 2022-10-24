@@ -601,7 +601,7 @@ static string mountExistsForUser(const string &translationDirForUser, const Tran
     return result;
 }
 
-/* Given what we think is a valid mountpoint, perform a sanity check, and clean up if we are wrong */
+/* Given what we think is a valid mountpoint, perform a validity check, and clean up if we are wrong */
 static void validateMountpoint(ExtendedAutoFileDesc& mountpointFd, bool owned)
 {
     /* Requirements:
@@ -781,7 +781,7 @@ static string newAppPath (ExtendedAutoFileDesc &mountPointFd, const GenericTrans
 }
 
 /* Given the path to a new mountpoint and the original path to translocate, calculate the path
- to the desired app in the new mountpoint, and sanity check that calculation */
+ to the desired app in the new mountpoint, and verify that calculation */
 static string newAppPath (ExtendedAutoFileDesc &mountPointFd, const TranslocationPath &originalPath)
 {
     string outPath = originalPath.getTranslocatedPathToOriginalPath(mountPointFd.getRealPath()+"/d/"+originalPath.getComponentNameToTranslocate());

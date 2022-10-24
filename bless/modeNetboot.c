@@ -62,7 +62,7 @@ static int parseURL(BLContextPtr context,
 int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
 {
     int ret;
-    BLPreBootEnvType	preboot;
+	BLPreBootEnvType	preboot = getPrebootType();
     char                interface[IF_NAMESIZE];
     char                host[NS_MAXDNAME];
     char                path[MAXPATHLEN];
@@ -74,11 +74,6 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
                            "No NetBoot server specification provided\n");
         return 1;
     }
-    
-    
-	ret = BLGetPreBootEnvironmentType(context, &preboot);
-    if(ret)
-        return 2;
     
 	if(preboot == kBLPreBootEnvType_OpenFirmware) {
 		useBackslash = true;
@@ -144,11 +139,12 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
                                                         interface,
                                                         strcmp(host, "255.255.255.255") == 0 ? NULL : host,
                                                         path,
-                                                        ofstring);
+                                                        ofstring,
+                                                        sizeof(ofstring));
 		if(ret)
 			return 3;
         
-		sprintf(bootdevice, "boot-device=%s", ofstring);
+		snprintf(bootdevice, sizeof(bootdevice), "boot-device=%s", ofstring);
         
         if(actargs[kkernel].present) {
             ret = parseURL(context,
@@ -167,13 +163,14 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
                                                             interface,
                                                             strcmp(host, "255.255.255.255") == 0 ? NULL : host,
                                                             path,
-                                                            ofstring);
+                                                            ofstring,
+                                                            sizeof(ofstring));
 			if(ret)
 				return 4;
             
-            sprintf(bootfile, "boot-file=%s", ofstring);
+            snprintf(bootfile, sizeof(bootfile), "boot-file=%s", ofstring);
         } else {
-            sprintf(bootfile, "boot-file=");
+            snprintf(bootfile, sizeof(bootfile), "boot-file=");
         }
         
         if(actargs[kmkext].present) {
@@ -182,8 +179,8 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
             return 5;
         }
         
-        sprintf(bootcommand, "boot-command=mac-boot");
-        sprintf(bootargs, "boot-args=");
+        strlcpy(bootcommand, "boot-command=mac-boot", sizeof(bootcommand));
+        strlcpy(bootargs, "boot-args=", sizeof(bootargs));
         
         OFSettings[0] = NVRAM;
         OFSettings[1] = bootdevice;
@@ -471,7 +468,7 @@ static int parseURL(BLContextPtr context,
     if(pathString) CFRelease(pathString);
     
 	if(useBackslash) {
-		int i, len;
+		size_t i, len;
 		for(i=0, len=strlen(path); i < len; i++) {
 			if(path[i] == '/') {
 				path[i] = '\\';

@@ -1294,8 +1294,8 @@ show_jobs(const char *dests,		/* I - Destinations */
 		*message,		/* Pointer to job-printer-state-message */
 		*time_at;		/* time-at-xxx attribute name to use */
   int		rank,			/* Rank in queue */
-		jobid,			/* job-id */
-		size;			/* job-k-octets */
+                jobid,			/* job-id */
+                size;			/* job-k-octets */
   time_t	jobtime;		/* time-at-creation */
   char		temp[255],		/* Temporary buffer */
 		date[255];		/* Date buffer */

@@ -77,13 +77,13 @@ IPC_KOBJECT_DEFINE(IKOT_ARCADE_REG,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 
-static struct arcade_register arcade_register_global;
+static SECURITY_READ_ONLY_LATE(struct arcade_register) arcade_register_global;
 
 void
 arcade_prepare(task_t task, thread_t thread)
 {
 	/* Platform binaries are exempt */
-	if (task->t_flags & TF_PLATFORM) {
+	if (task_get_platform_binary(task)) {
 		return;
 	}
 
@@ -278,7 +278,7 @@ arcade_ast(__unused thread_t thread)
 
 restart:
 	lck_mtx_lock(&arcade_upcall_mutex);
-	port = ipc_port_copy_send(arcade_upcall_port);
+	port = ipc_port_copy_send_mqueue(arcade_upcall_port);
 	/*
 	 * if the arcade_upcall_port was inactive, "port" will be IP_DEAD.
 	 * Otherwise, it holds a send right to the arcade_upcall_port.
@@ -294,7 +294,7 @@ restart:
 			lck_mtx_unlock(&arcade_upcall_mutex);
 			goto fail;
 		}
-		port = ipc_port_copy_send(arcade_upcall_port);
+		port = ipc_port_copy_send_mqueue(arcade_upcall_port);
 	}
 	lck_mtx_unlock(&arcade_upcall_mutex);
 

@@ -71,7 +71,8 @@ static struct commands {
 	{"identity",	cmd_identity,	identity_usage},
     {"statshares",  cmd_statshares, statshares_usage},
     {"multichannel", cmd_multichannel, multichannel_usage},
-    {"snapshot",    cmd_snapshot, snapshot_usage},
+    {"snapshot",    cmd_snapshot,   snapshot_usage},
+    {"smbstat",     cmd_smbstat,    smbstat_usage},
 	{NULL, NULL, NULL}
 };
 
@@ -194,6 +195,7 @@ help(void) {
     " statshares    list the attributes of mounted share(s)\n"
     " multichannel  list the attributes of the channels of mounted share(s)\n"
     " snapshot      list snapshots for the mount path \n"
+    " smbstat       list info about item at path \n"
 	"\n");
 	exit(1);
 }

@@ -370,10 +370,10 @@ static OCSPResponse *tpOcspFlushAndReFetch(
 	TPCertInfo			&issuer,
 	OCSPClientCertID	&certID)
 {
-	const CSSM_DATA *derCertID = certID.encode();
 	CSSM_RETURN crtn;
 
 #if OCSPD_ENABLED
+	const CSSM_DATA *derCertID = certID.encode();
 	crtn = ocspdCacheFlush(*derCertID);
 #else
 	crtn = CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */

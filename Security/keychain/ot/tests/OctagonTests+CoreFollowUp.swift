@@ -8,10 +8,11 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
+        let user = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit, containerName: containerName, contextID: contextName)
+
         var selfPeerID: String?
         let prepareExpectation = self.expectation(description: "prepare callback occurs")
-        tphClient.prepare(withContainer: containerName,
-                          context: contextName,
+        tphClient.prepare(with: user,
                           epoch: 0,
                           machineID: "asdf",
                           bottleSalt: "123456789",
@@ -45,7 +46,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .ATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -74,10 +75,13 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
+        let user = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit,
+                                                            containerName: containerName,
+                                                            contextID: contextName)
+
         var selfPeerID: String?
         let prepareExpectation = self.expectation(description: "prepare callback occurs")
-        tphClient.prepare(withContainer: containerName,
-                          context: contextName,
+        tphClient.prepare(with: user,
                           epoch: 0,
                           machineID: "asdf",
                           bottleSalt: "123456789",
@@ -111,7 +115,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .NOTATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -142,10 +146,13 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
+        let user = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit,
+                                                            containerName: containerName,
+                                                            contextID: contextName)
+
         var selfPeerID: String?
         let prepareExpectation = self.expectation(description: "prepare callback occurs")
-        tphClient.prepare(withContainer: containerName,
-                          context: contextName,
+        tphClient.prepare(with: user,
                           epoch: 0,
                           machineID: "asdf",
                           bottleSalt: "123456789",
@@ -179,7 +186,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .NOTATTEMPTED
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -224,10 +231,13 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
+        let user = try CKKSTestsMockAccountsAuthKitAdapter.user(forAuthkit: self.mockAuthKit,
+                                                            containerName: containerName,
+                                                            contextID: contextName)
+
         var selfPeerID: String?
         let prepareExpectation = self.expectation(description: "prepare callback occurs")
-        tphClient.prepare(withContainer: containerName,
-                          context: contextName,
+        tphClient.prepare(with: user,
                           epoch: 0,
                           machineID: "asdf",
                           bottleSalt: "123456789",
@@ -261,7 +271,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         account.trustState = .TRUSTED
         account.attemptedJoin = .UNKNOWN
 
-        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
+        XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "Should be no error saving fake account metadata")
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -299,10 +309,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let iphone = self.manager.context(forContainerName: OTCKContainerName,
                                           contextID: "asdf",
                                           sosAdapter: self.mockSOSAdapter,
+                                          accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
                                           lockStateTracker: self.lockStateTracker,
-                                          accountStateTracker: self.accountStateTracker,
                                           deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone.startOctagonStateMachine()
 
@@ -338,10 +348,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let mac = self.manager.context(forContainerName: OTCKContainerName,
                                        contextID: "asdf",
                                        sosAdapter: self.mockSOSAdapter,
+                                       accountsAdapter: self.mockAuthKit2,
                                        authKitAdapter: self.mockAuthKit2,
                                        tooManyPeersAdapter: self.mockTooManyPeers,
                                        lockStateTracker: self.lockStateTracker,
-                                       accountStateTracker: self.accountStateTracker,
                                        deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iMac7,1", deviceName: "test-mac", serialNumber: "456", osVersion: "macOS (fake version)"))
         mac.startOctagonStateMachine()
 
@@ -370,10 +380,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let iphone = self.manager.context(forContainerName: OTCKContainerName,
                                           contextID: "firstPhone",
                                           sosAdapter: self.mockSOSAdapter,
+                                          accountsAdapter: self.mockAuthKit2,
                                           authKitAdapter: self.mockAuthKit2,
                                           tooManyPeersAdapter: self.mockTooManyPeers,
                                           lockStateTracker: self.lockStateTracker,
-                                          accountStateTracker: self.accountStateTracker,
                                           deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone.startOctagonStateMachine()
 
@@ -387,10 +397,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let tvjoiner = self.manager.context(forContainerName: OTCKContainerName,
                                             contextID: "tv2",
                                             sosAdapter: OTSOSMissingAdapter(),
+                                            accountsAdapter: self.mockAuthKit3,
                                             authKitAdapter: self.mockAuthKit3,
                                             tooManyPeersAdapter: self.mockTooManyPeers,
                                             lockStateTracker: self.lockStateTracker,
-                                            accountStateTracker: self.accountStateTracker,
                                             deviceInformationAdapter: self.mockDeviceInfo)
         self.assertJoinViaProximitySetup(joiningContext: tvjoiner, sponsor: iphone)
         self.sendContainerChangeWaitForFetch(context: iphone)
@@ -424,10 +434,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         let iphone2 = self.manager.context(forContainerName: OTCKContainerName,
                                            contextID: "firstPhone",
                                            sosAdapter: self.mockSOSAdapter,
+                                           accountsAdapter: self.mockAuthKit3,
                                            authKitAdapter: self.mockAuthKit3,
                                            tooManyPeersAdapter: self.mockTooManyPeers,
                                            lockStateTracker: self.lockStateTracker,
-                                           accountStateTracker: self.accountStateTracker,
                                            deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
         iphone2.startOctagonStateMachine()
 

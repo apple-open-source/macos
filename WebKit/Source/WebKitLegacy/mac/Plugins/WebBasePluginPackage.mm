@@ -43,11 +43,10 @@
 #import <wtf/Vector.h>
 #import <wtf/text/CString.h>
 
-#define JavaCocoaPluginIdentifier   "com.apple.JavaPluginCocoa"
-#define JavaCarbonPluginIdentifier  "com.apple.JavaAppletPlugin"
+static constexpr auto JavaCocoaPluginIdentifier ="com.apple.JavaPluginCocoa"_s;
+static constexpr auto JavaCarbonPluginIdentifier = "com.apple.JavaAppletPlugin"_s;
 
-#define QuickTimeCarbonPluginIdentifier       "com.apple.QuickTime Plugin.plugin"
-#define QuickTimeCocoaPluginIdentifier        "com.apple.quicktime.webplugin"
+static constexpr auto QuickTimeCocoaPluginIdentifier = "com.apple.quicktime.webplugin"_s;
 
 @interface NSArray (WebPluginExtensions)
 - (NSArray *)_web_lowercaseStrings;
@@ -151,7 +150,7 @@
                 mimeClassInfo.extensions.append(component);
         }
 
-        mimeClassInfo.type = String(MIME).convertToASCIILowercase();
+        mimeClassInfo.type = AtomString { String(MIME).convertToASCIILowercase() };
         mimeClassInfo.desc = [MIMEDictionary objectForKey:WebPluginTypeDescriptionKey];
 
         pluginInfo.mimes.append(mimeClassInfo);
@@ -245,7 +244,7 @@
 - (BOOL)isQuickTimePlugIn
 {
     const String& bundleIdentifier = [self bundleIdentifier];
-    return bundleIdentifier == QuickTimeCocoaPluginIdentifier || bundleIdentifier == QuickTimeCocoaPluginIdentifier;
+    return bundleIdentifier == QuickTimeCocoaPluginIdentifier;
 }
 
 - (BOOL)isJavaPlugIn
@@ -306,7 +305,7 @@ static inline void swapIntsInHeader(uint32_t* rawData, size_t length)
             if (magic == FAT_CIGAM)
                 swapIntsInHeader(rawData.data(), rawData.size());
             
-            COMPILE_ASSERT(sizeof(struct fat_header) % sizeof(uint32_t) == 0, struct_fat_header_must_be_integral_size_of_uint32_t);
+            static_assert(sizeof(struct fat_header) % sizeof(uint32_t) == 0, "struct fat header must be integral size of uint32_t");
             archs = reinterpret_cast<struct fat_arch*>(rawData.data() + sizeof(struct fat_header) / sizeof(uint32_t));
             numArchs = reinterpret_cast<struct fat_header*>(rawData.data())->nfat_arch;
             
@@ -319,8 +318,9 @@ static inline void swapIntsInHeader(uint32_t* rawData, size_t length)
     if (!archs || !numArchs)
         return NO;
     
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN;
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     const NXArchInfo* localArch = NXGetLocalArchInfo();
+ALLOW_DEPRECATED_DECLARATIONS_END
     if (!localArch)
         return NO;
     
@@ -333,8 +333,9 @@ static inline void swapIntsInHeader(uint32_t* rawData, size_t length)
     cputype = CPU_TYPE_X86_64;
 #endif
     
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return NXFindBestFatArch(cputype, cpusubtype, archs, numArchs) != 0;
-    ALLOW_DEPRECATED_DECLARATIONS_END;
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (UInt32)versionNumber

@@ -187,7 +187,7 @@ CFDataRef SecOTRCopyIncomingBytes(CFDataRef incomingMessage)
     __block CFDataRef result = NULL;
 
     CFDataRef header = CFStringCreateExternalRepresentation(kCFAllocatorDefault, CFSTR("?OTR:"), kCFStringEncodingUTF8, '?');
-    CFRange headerLoc = CFDataFind(incomingMessage, header, CFRangeMake(0, CFDataGetLength(header)), 0);
+    CFRange headerLoc = CFDataFind(incomingMessage, header, CFRangeMake(0, CFDataGetLength(incomingMessage)), 0);
 
     if (kCFNotFound == headerLoc.location) {
         CFRetainAssign(result, incomingMessage);

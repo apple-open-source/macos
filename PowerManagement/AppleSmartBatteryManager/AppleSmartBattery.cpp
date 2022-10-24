@@ -34,8 +34,9 @@
 #include "AppleSmartBatteryKeysPrivate.h"
 #include "battery/adapter.h"
 #include "battery/smcaccessoryinfo_defs.h"
-#include "battery/powerDeliveryShared.h"
 #include "battery/powerTelemetry_defs.h"
+#include "battery/powerDeliveryShared.h"
+#include "battery/battery_data_log.h"
 
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 #include "battery/charger.h"
@@ -129,24 +130,24 @@ enum {
 static const OSSymbol *_MaxErrSym                  = OSSymbol::withCStringNoCopy(kIOPMPSMaxErrKey);
 static const OSSymbol *_DeviceNameSym              = OSSymbol::withCStringNoCopy(kIOPMDeviceNameKey);
 static const OSSymbol *_FullyChargedSym            = OSSymbol::withCStringNoCopy(kIOPMFullyChargedKey);
-static const OSSymbol *_AvgTimeToEmptySym          = OSSymbol::withCStringNoCopy(kAsbAvgTimeToEmptyKey);
-static const OSSymbol *_InstantTimeToEmptySym      = OSSymbol::withCStringNoCopy(kAsbInstantTimeToEmptyKey);
+static const OSSymbol *_AvgTimeToEmptySym          = OSSymbol::withCStringNoCopy(kIOPMPSAvgTimeToEmptyKey);
+static const OSSymbol *_InstantTimeToEmptySym      = OSSymbol::withCStringNoCopy(kIOPMPSInstantTimeToEmptyKey);
 static const OSSymbol *_AmperageSym                = OSSymbol::withCStringNoCopy(kIOPMPSAmperageKey);
 static const OSSymbol *_VoltageSym                 = OSSymbol::withCStringNoCopy(kIOPMPSVoltageKey);
-static const OSSymbol *_InstantAmperageSym         = OSSymbol::withCStringNoCopy(kAsbInstantAmperageKey);
-static const OSSymbol *_AvgTimeToFullSym           = OSSymbol::withCStringNoCopy(kAsbAvgTimeToFullKey);
+static const OSSymbol *_InstantAmperageSym         = OSSymbol::withCStringNoCopy(kIOPMPSInstantAmperageKey);
+static const OSSymbol *_AvgTimeToFullSym           = OSSymbol::withCStringNoCopy(kIOPMPSAvgTimeToFullKey);
 static const OSSymbol *_ManfDateSym                = OSSymbol::withCStringNoCopy(kIOPMPSManufactureDateKey);
 static const OSSymbol *_DesignCapacitySym          = OSSymbol::withCStringNoCopy(kIOPMPSDesignCapacityKey);
 static const OSSymbol *_TemperatureSym             = OSSymbol::withCStringNoCopy(kIOPMPSBatteryTemperatureKey);
-static const OSSymbol *_kCellVoltageSym            = OSSymbol::withCStringNoCopy(kAsbCellVoltageKey);
-static const OSSymbol *_ManufacturerDataSym        = OSSymbol::withCStringNoCopy(kAsbManufacturerDataKey);
-static const OSSymbol *_PFStatusSym                = OSSymbol::withCStringNoCopy(kAsbPFStatusKey);
-static const OSSymbol *_DesignCycleCount70Sym      = OSSymbol::withCStringNoCopy(kAsbDesignCycleCount70Key);
-static const OSSymbol *_DesignCycleCount9CSym      = OSSymbol::withCStringNoCopy(kAsbDesignCycleCount9CKey);
-static const OSSymbol *_PackReserveSym             = OSSymbol::withCStringNoCopy(kAsbPackReserveKey);
-static const OSSymbol *_OpStatusSym                = OSSymbol::withCStringNoCopy(kAsbOpStatusKey);
-static const OSSymbol *_PermanentFailureSym        = OSSymbol::withCStringNoCopy(kAsbPermanentFailureKey);
-static const OSSymbol *_FirmwareSerialNumberSym    = OSSymbol::withCStringNoCopy(kAsbFirmwareSerialNumberKey);
+static const OSSymbol *_ManufacturerDataSym        = OSSymbol::withCStringNoCopy(kIOPMPSManufacturerDataKey);
+static const OSSymbol *_PFStatusSym                = OSSymbol::withCStringNoCopy(kIOPMPSPFStatusKey);
+static const OSSymbol *_DesignCycleCount70Sym      = OSSymbol::withCStringNoCopy(kIOPMPSDesignCycleCount70Key);
+static const OSSymbol *_DesignCycleCount9CSym      = OSSymbol::withCStringNoCopy(kIOPMPSDesignCycleCount9CKey);
+static const OSSymbol *_PackReserveSym             = OSSymbol::withCStringNoCopy(kIOPMPSPackReserveKey);
+static const OSSymbol *_OpStatusSym                = OSSymbol::withCStringNoCopy(kIOPMPSOpStatusKey);
+static const OSSymbol *_PermanentFailureSym        = OSSymbol::withCStringNoCopy(kIOPMPSPermanentFailureKey);
+static const OSSymbol *_FirmwareSerialNumberSym    = OSSymbol::withCStringNoCopy(kIOPMPSFirmwareSerialNumberKey);
+static const OSSymbol *_rawExternalConnectedSym    = OSSymbol::withCStringNoCopy(kIOPMPSRawExternalConnectedKey);
 
 
 #define kBootPathKey             "BootPathUpdated"
@@ -274,7 +275,6 @@ bool AppleSmartBattery::start(IOService *provider)
 
     return true;
 }
-
 
 
 
@@ -483,18 +483,30 @@ bool AppleSmartBattery::initiateNextTransaction(uint32_t state)
     return false;
 }
 
+static bool isWakeFromHibernate(void)
+{
+    UInt32 hibernateState = kIOHibernateStateInactive;
+
+    OSObject* property = IOService::getPMRootDomain()->copyProperty(kIOHibernateStateKey);
+    if(property != nullptr) {
+        OSData *data = OSDynamicCast(OSData,property);
+        if ((data != NULL) && (data->getLength() == sizeof(hibernateState))) {
+            memcpy(&hibernateState, data->getBytesNoCopy(), sizeof(hibernateState));
+        }
+    }
+    OSSafeReleaseNULL(property);
+    return hibernateState == kIOHibernateStateWakingFromHibernate;
+}
 /******************************************************************************
- * AppleSmartBattery::handleSystemSleepWake
+ * AppleSmartBattery::handleSystemSleepWakeGated
  *
  * Caller must hold the gate.
  ******************************************************************************/
-
-IOReturn AppleSmartBattery::handleSystemSleepWakeGated(
-    IOService * powerService, bool isSystemSleep)
+IOReturn AppleSmartBattery::handleSystemSleepWakeGated(IOService *powerService,bool isSystemSleep)
 {
     IOReturn ret = kIOPMAckImplied;
 
-    if (!powerService || (fSystemSleeping == isSystemSleep)) {
+    if (!powerService || (fSystemSleeping  == isSystemSleep)) {
         return kIOPMAckImplied;
     }
 
@@ -517,6 +529,10 @@ IOReturn AppleSmartBattery::handleSystemSleepWakeGated(
 
     IORWLockUnlock(_pollCtrlLock);
 
+    if(!fSystemSleeping && isWakeFromHibernate()) {
+        fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::readShutdownData),this);
+    }
+
     return ret;
 }
 
@@ -527,7 +543,7 @@ IOReturn AppleSmartBattery::handleSystemSleepWake(
 
     fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::handleSystemSleepWakeGated),
                          this, powerService, VOIDPTR(isSystemSleep));
-
+    
     BM_LOG1("SmartBattery: handleSystemSleepWake(%d) = %u\n", isSystemSleep, (uint32_t) ret);
 
     return ret;
@@ -553,6 +569,7 @@ void AppleSmartBattery::acknowledgeSystemSleepWake(void)
     fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::acknowledgeSystemSleepWakeGated),
                          this);
 }
+
 
 /******************************************************************************
  * AppleSmartBattery::pollBatteryState
@@ -677,10 +694,20 @@ void AppleSmartBattery::handleSetOverrideCapacityGated(uint16_t value, bool stic
     setCurrentCapacity(value);
 }
 
-void AppleSmartBattery::handleSetOverrideCapacity(uint16_t value, bool sticky)
+void AppleSmartBattery::handleSetOverrideCapacity(uint16_t value)
 {
-    fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::handleSetOverrideCapacityGated),
-                         this, VOIDPTR(value), VOIDPTR(sticky));
+    OSDictionary *dict = OSDictionary::withCapacity(2);
+    if (!dict) {
+        return;
+    }
+
+    dict->setObject("StickyCapacityOverride", kOSBooleanTrue);
+    SET_INTEGER_IN_DICT(dict, currentCapacityKey, value);
+
+    fWorkLoop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::setPropertiesGated),
+                         this, dict);
+
+    OSSafeReleaseNULL(dict);
 }
 
 void AppleSmartBattery::handleSwitchToTrueCapacityGated(void)
@@ -1267,7 +1294,7 @@ IOReturn AppleSmartBattery::transactionCompletionGated(struct transactionComplet
             } else if (val & NOT_CHARGING_REASON_BATT_CHARGED_TOO_LONG) {
                 error = OSSymbol::withCString("Charged Too Long");
             } else {
-                error = OSSymbol::withCString(kAsbPermanentFailureKey);
+                error = OSSymbol::withCString(kIOPMPSPermanentFailureKey);
             }
 
             setErrorCondition((OSSymbol *)error);

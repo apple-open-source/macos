@@ -26,6 +26,7 @@
 #define SFAnalytics_h
 
 #import <Foundation/Foundation.h>
+#import <Security/SFAnalyticsDefines.h>
 #import <Security/SFAnalyticsSampler.h>
 #import <Security/SFAnalyticsMultiSampler.h>
 #import <Security/SFAnalyticsActivityTracker.h>
@@ -40,6 +41,17 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
     SFAnalyticsTimestampBucketMinute = 1,
     SFAnalyticsTimestampBucketHour = 2,
 };
+
+typedef NS_OPTIONS(uint32_t, SFAnalyticsMetricsHookActions) {
+    SFAnalyticsMetricsHookNoAction = 0,
+    SFAnalyticsMetricsHookExcludeEvent = 1,
+    SFAnalyticsMetricsHookExcludeCount = 2,
+};
+
+typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventName,
+                                                               SFAnalyticsEventClass eventClass,
+                                                               NSDictionary* attributes,
+                                                               SFAnalyticsTimestampBucket timestampBucket);
 
 @protocol SFAnalyticsProtocol <NSObject>
 + (id<SFAnalyticsProtocol> _Nullable)logger;
@@ -78,6 +90,10 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid;
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename; // uses current user UUID for path
 
+- (void)addMetricsHook:(SFAnalyticsMetricsHook)hook;
+- (void)removeMetricsHook:(SFAnalyticsMetricsHook)hook;
+
+- (NSDictionary<NSString*, NSNumber*>*)dailyMetrics;
 - (void)dailyCoreAnalyticsMetrics:(NSString *)eventName;
 
 // Log event-based metrics: create an event corresponding to some event in your feature
@@ -135,6 +151,8 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
 
 - (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName;
 
+- (void)updateCollectionConfigurationWithData:(NSData * _Nullable)data;
+- (void)loadCollectionConfiguration;
 
 // --------------------------------
 // Things below are for subclasses
@@ -150,12 +168,18 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
 - (void)setNumberProperty:(NSNumber* _Nullable)number forKey:(NSString*)key;
 - (NSNumber * _Nullable)numberPropertyForKey:(NSString*)key;
 
+- (NSString* _Nullable)metricsAccountID;
+- (void)setMetricsAccountID:(NSString* _Nullable)accountID;
 
 // --------------------------------
 // Things below are for unit testing
 
 - (void)removeState;    // removes DB object and any samplers
 
+@end
+
+@interface SFAnalytics (SFACollection)
++ (NSData * _Nullable)encodeSFACollection:(NSData *_Nonnull)json error:(NSError **)error;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -73,6 +73,9 @@ extern int      quit_if_one_screen;
 extern int      no_init;
 extern int errmsgs;
 
+#ifdef __APPLE__
+extern int flush_failed;
+#endif
 
 /*
  * Entry point.
@@ -262,6 +265,13 @@ main(argc, argv)
 			} while (edit_next(1) == 0);
 		} else
 			file_errors++;
+#ifdef __APPLE__
+		if (flush_failed)
+		{
+			error("failed to flush output", NULL_PARG);
+			quit(QUIT_ERROR);
+		}
+#endif
 		quit(QUIT_OK);
 	}
 
@@ -344,6 +354,13 @@ main(argc, argv)
 	set_output(1);
 	init();
 	commands();
+#ifdef __APPLE__
+	if (flush_failed)
+	{
+		error("failed to flush output", NULL_PARG);
+		quit(QUIT_ERROR);
+	}
+#endif
 	quit(QUIT_OK);
 	/*NOTREACHED*/
 	return (0);

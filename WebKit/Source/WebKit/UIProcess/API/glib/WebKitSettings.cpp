@@ -57,7 +57,7 @@ using namespace WebKit;
 
 struct _WebKitSettingsPrivate {
     _WebKitSettingsPrivate()
-        : preferences(WebPreferences::create(String(), "WebKit2.", "WebKit2."))
+        : preferences(WebPreferences::create(String(), "WebKit2."_s, "WebKit2."_s))
     {
         defaultFontFamily = preferences->standardFontFamily().utf8();
         monospaceFontFamily = preferences->fixedFontFamily().utf8();
@@ -88,20 +88,20 @@ struct _WebKitSettingsPrivate {
 };
 
 /**
- * SECTION:WebKitSettings
- * @short_description: Control the behaviour of a #WebKitWebView
+ * WebKitSettings:
+ *
+ * Control the behaviour of a #WebKitWebView.
  *
  * #WebKitSettings can be applied to a #WebKitWebView to control text charset,
  * color, font sizes, printing mode, script support, loading of images and various
  * other things on a #WebKitWebView. After creation, a #WebKitSettings object
  * contains default settings.
  *
- * <informalexample><programlisting>
- * /<!-- -->* Disable JavaScript. *<!-- -->/
+ * ```c
+ * // Disable JavaScript
  * WebKitSettings *settings = webkit_web_view_group_get_settings (my_view_group);
  * webkit_settings_set_enable_javascript (settings, FALSE);
- *
- * </programlisting></informalexample>
+ * ```
  */
 
 WEBKIT_DEFINE_TYPE(WebKitSettings, webkit_settings, G_TYPE_OBJECT)
@@ -171,6 +171,7 @@ enum {
     PROP_ENABLE_JAVASCRIPT_MARKUP,
     PROP_ENABLE_MEDIA,
     PROP_MEDIA_CONTENT_TYPES_REQUIRING_HARDWARE_SUPPORT,
+    PROP_ENABLE_WEBRTC,
     N_PROPERTIES,
 };
 
@@ -192,9 +193,6 @@ static void webKitSettingsConstructed(GObject* object)
 #if ENABLE(MEDIA_STREAM)
     prefs->setMediaDevicesEnabled(true);
     prefs->setMediaStreamEnabled(true);
-#if ENABLE(WEB_RTC)
-    prefs->setPeerConnectionEnabled(true);
-#endif
 #endif
 
     // FIXME: Expose API for this when this feature is officially non-experimental.
@@ -229,7 +227,6 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
         webkit_settings_set_enable_html5_database(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_XSS_AUDITOR:
-        webkit_settings_set_enable_xss_auditor(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_FRAME_FLATTENING:
         webkit_settings_set_enable_frame_flattening(settings, g_value_get_boolean(value));
@@ -237,7 +234,6 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_ENABLE_PLUGINS:
         break;
     case PROP_ENABLE_JAVA:
-        webkit_settings_set_enable_java(settings, g_value_get_boolean(value));
         break;
     case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
         webkit_settings_set_javascript_can_open_windows_automatically(settings, g_value_get_boolean(value));
@@ -401,6 +397,9 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
     case PROP_MEDIA_CONTENT_TYPES_REQUIRING_HARDWARE_SUPPORT:
         webkit_settings_set_media_content_types_requiring_hardware_support(settings, g_value_get_string(value));
         break;
+    case PROP_ENABLE_WEBRTC:
+        webkit_settings_set_enable_webrtc(settings, g_value_get_boolean(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
         break;
@@ -431,7 +430,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
         g_value_set_boolean(value, webkit_settings_get_enable_html5_database(settings));
         break;
     case PROP_ENABLE_XSS_AUDITOR:
-        g_value_set_boolean(value, webkit_settings_get_enable_xss_auditor(settings));
+        g_value_set_boolean(value, FALSE);
         break;
     case PROP_ENABLE_FRAME_FLATTENING:
         g_value_set_boolean(value, webkit_settings_get_enable_frame_flattening(settings));
@@ -440,7 +439,7 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
         g_value_set_boolean(value, FALSE);
         break;
     case PROP_ENABLE_JAVA:
-        g_value_set_boolean(value, webkit_settings_get_enable_java(settings));
+        g_value_set_boolean(value, FALSE);
         break;
     case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
         g_value_set_boolean(value, webkit_settings_get_javascript_can_open_windows_automatically(settings));
@@ -597,6 +596,9 @@ static void webKitSettingsGetProperty(GObject* object, guint propId, GValue* val
     case PROP_MEDIA_CONTENT_TYPES_REQUIRING_HARDWARE_SUPPORT:
         g_value_set_string(value, webkit_settings_get_media_content_types_requiring_hardware_support(settings));
         break;
+    case PROP_ENABLE_WEBRTC:
+        g_value_set_boolean(value, webkit_settings_get_enable_webrtc(settings));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
         break;
@@ -710,6 +712,8 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      *
      * Whether to enable the XSS auditor. This feature filters some kinds of
      * reflective XSS attacks on vulnerable web sites.
+     *
+     * Deprecated: 2.38
      */
     sObjProperties[PROP_ENABLE_XSS_AUDITOR] =
         g_param_spec_boolean(
@@ -717,7 +721,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             _("Enable XSS auditor"),
             _("Whether to enable the XSS auditor."),
             TRUE,
-            readWriteConstructParamFlags);
+            static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
 
     /**
      * WebKitSettings:enable-frame-flattening:
@@ -747,19 +751,21 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             _("Enable plugins"),
             _("Enable embedded plugin objects."),
             FALSE,
-            readWriteConstructParamFlags);
+            static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
 
     /**
      * WebKitSettings:enable-java:
      *
      * Determines whether or not Java is enabled on the page.
+     *
+     * Deprecated: 2.38
      */
     sObjProperties[PROP_ENABLE_JAVA] =
         g_param_spec_boolean(
             "enable-java",
             _("Enable Java"),
             _("Whether Java support should be enabled."),
-            TRUE,
+            FALSE,
             readWriteConstructParamFlags);
 
     /**
@@ -1273,7 +1279,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             _("Enable accelerated 2D canvas"),
             _("Whether to enable accelerated 2D canvas"),
             FALSE,
-            readWriteConstructParamFlags);
+            static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
 
     /**
      * WebKitSettings:enable-write-console-messages-to-stdout:
@@ -1557,6 +1563,25 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
             nullptr, // A null string forces the default value.
             readWriteConstructParamFlags);
 
+    /**
+     * WebKitSettings:enable-webrtc:
+     *
+     * Enable WebRTC support for loaded pages.
+     *
+     * Enabling this setting implies that [property@Settings:enable-media-stream]
+     * will be enabled as well.
+     *
+     * See also https://www.w3.org/TR/webrtc/
+     *
+     * Since: 2.38
+     */
+    sObjProperties[PROP_ENABLE_WEBRTC] = g_param_spec_boolean(
+        "enable-webrtc",
+        _("Enable WebRTC"),
+        _("Whether WebRTC content should be handled"),
+        FALSE,
+        readWriteConstructParamFlags);
+
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties);
 }
 
@@ -1813,15 +1838,17 @@ void webkit_settings_set_enable_html5_database(WebKitSettings* settings, gboolea
  * webkit_settings_get_enable_xss_auditor:
  * @settings: a #WebKitSettings
  *
- * Get the #WebKitSettings:enable-xss-auditor property.
+ * The XSS auditor has been removed. This function returns %FALSE.
  *
- * Returns: %TRUE If XSS auditing is enabled or %FALSE otherwise.
+ * Returns: %FALSE
+ *
+ * Deprecated: 2.38. This function does nothing.
  */
 gboolean webkit_settings_get_enable_xss_auditor(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->xssAuditorEnabled();
+    return FALSE;
 }
 
 /**
@@ -1829,19 +1856,13 @@ gboolean webkit_settings_get_enable_xss_auditor(WebKitSettings* settings)
  * @settings: a #WebKitSettings
  * @enabled: Value to be set
  *
- * Set the #WebKitSettings:enable-xss-auditor property.
+ * The XSS auditor has been removed. This function does nothing.
+ *
+ * Deprecated: 2.38. This function does nothing.
  */
 void webkit_settings_set_enable_xss_auditor(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
-
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->xssAuditorEnabled();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setXSSAuditorEnabled(enabled);
-    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_XSS_AUDITOR]);
 }
 
 /**
@@ -1921,13 +1942,17 @@ void webkit_settings_set_enable_plugins(WebKitSettings* settings, gboolean enabl
  *
  * Get the #WebKitSettings:enable-java property.
  *
- * Returns: %TRUE If Java is enabled or %FALSE otherwise.
+ * Returns: %FALSE always.
+ *
+ * Deprecated: 2.38. This function always returns %FALSE.
  */
 gboolean webkit_settings_get_enable_java(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->javaEnabled();
+    g_warning("webkit_settings_get_enable_java is deprecated and always returns FALSE. Java is no longer supported.");
+
+    return FALSE;
 }
 
 /**
@@ -1935,19 +1960,16 @@ gboolean webkit_settings_get_enable_java(WebKitSettings* settings)
  * @settings: a #WebKitSettings
  * @enabled: Value to be set
  *
- * Set the #WebKitSettings:enable-java property.
+ * Set the #WebKitSettings:enable-java property. Deprecated function that does nothing.
+ *
+ * Deprecated: 2.38. This function does nothing.
  */
 void webkit_settings_set_enable_java(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->javaEnabled();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setJavaEnabled(enabled);
-    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_JAVA]);
+    if (enabled)
+        g_warning("webkit_settings_set_enable_java is deprecated and does nothing. Java is no longer supported.");
 }
 
 /**
@@ -2021,7 +2043,7 @@ void webkit_settings_set_enable_hyperlink_auditing(WebKitSettings* settings, gbo
 }
 
 /**
- * webkit_web_settings_get_default_font_family:
+ * webkit_settings_get_default_font_family:
  * @settings: a #WebKitSettings
  *
  * Gets the #WebKitSettings:default-font-family property.
@@ -3089,7 +3111,7 @@ void webkit_settings_set_user_agent(WebKitSettings* settings, const char* userAg
         userAgentString = String::fromUTF8(userAgent);
         g_return_if_fail(WebCore::isValidUserAgentHeaderValue(userAgentString));
     } else
-        userAgentString = WebCore::standardUserAgent("");
+        userAgentString = WebCore::standardUserAgent(emptyString());
 
     CString newUserAgent = userAgentString.utf8();
     if (newUserAgent == priv->userAgent)
@@ -3264,8 +3286,50 @@ void webkit_settings_set_enable_media_stream(WebKitSettings* settings, gboolean 
 
     priv->preferences->setMediaDevicesEnabled(enabled);
     priv->preferences->setMediaStreamEnabled(enabled);
-    priv->preferences->setPeerConnectionEnabled(enabled);
     g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_MEDIA_STREAM]);
+}
+
+/**
+ * webkit_settings_get_enable_webrtc:
+ * @settings: a #WebKitSettings
+ *
+ * Get the [property@Settings:enable-webrtc] property.
+ *
+ * Returns: %TRUE If WebRTC support is enabled or %FALSE otherwise.
+ *
+ * Since: 2.38
+ */
+gboolean webkit_settings_get_enable_webrtc(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return settings->priv->preferences->peerConnectionEnabled();
+}
+
+/**
+ * webkit_settings_set_enable_webrtc:
+ * @settings: a #WebKitSettings
+ * @enabled: Value to be set
+ *
+ * Set the [property@Settings:enable-webrtc] property.
+ *
+ * Setting this property to %TRUE implies the media-stream web-setting will also be enabled.
+ *
+ * Since: 2.38
+ */
+void webkit_settings_set_enable_webrtc(WebKitSettings* settings, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    bool currentValue = priv->preferences->peerConnectionEnabled();
+    if (currentValue == enabled)
+        return;
+
+    if (enabled)
+        webkit_settings_set_enable_media_stream(settings, enabled);
+    priv->preferences->setPeerConnectionEnabled(enabled);
+    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_WEBRTC]);
 }
 
 /**
@@ -3825,6 +3889,12 @@ void webkitSettingsSetMediaCaptureRequiresSecureConnection(WebKitSettings* setti
 {
     WebKitSettingsPrivate* priv = settings->priv;
     priv->preferences->setMediaCaptureRequiresSecureConnection(required);
+}
+
+void webkitSettingsSetGetUserMediaRequiresFocus(WebKitSettings* settings, bool required)
+{
+    WebKitSettingsPrivate* priv = settings->priv;
+    priv->preferences->setGetUserMediaRequiresFocus(required);
 }
 
 /**

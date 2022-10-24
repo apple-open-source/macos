@@ -2089,6 +2089,26 @@ void NumberFormatTest::TestCurrencyNames(void) {
                                              UCURR_LONG_NAME,
                                              &isChoiceFormat, &len, &ec)),
                                              possibleDataError);
+    // Apple tests for rdar://81223844
+    assertEquals("ZWL.getName(LONG_NAME) for he",
+                 UnicodeString(u"דולר זימבבואי (2009)", -1),
+                 UnicodeString(ucurr_getName(u"ZWL", "he",
+                                             UCURR_LONG_NAME,
+                                             &isChoiceFormat, &len, &ec)),
+                                             possibleDataError);
+    assertEquals("CLF.getName(LONG_NAME) for da",
+                 UnicodeString(u"chilensk regningsenhed (UF)", -1),
+                 UnicodeString(ucurr_getName(u"CLF", "da",
+                                             UCURR_LONG_NAME,
+                                             &isChoiceFormat, &len, &ec)),
+                                             possibleDataError);
+    assertEquals("MXV.getName(LONG_NAME) for pl",
+                 UnicodeString(u"meksykańska jednostka inwestycyjna", -1),
+                 UnicodeString(ucurr_getName(u"MXV", "pl",
+                                             UCURR_LONG_NAME,
+                                             &isChoiceFormat, &len, &ec)),
+                                             possibleDataError);
+
     assertSuccess("ucurr_getName", ec);
 
     ec = U_ZERO_ERROR;

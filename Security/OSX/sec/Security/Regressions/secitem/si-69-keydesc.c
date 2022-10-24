@@ -59,7 +59,7 @@ const char *rsaKeyDescription = "<SecKeyRef algorithm id: 1, key type: RSAPublic
 
 const char *ecKeyDescription = "<SecKeyRef curve type: kSecECCurveSecp521r1, algorithm id: 3, key type: ECPublicKey, version: 4, block size: 528 bits, y: 0102670316CE3D31379C0B036594AAD01DA95AE30AF982EF43755B46526C0A023FC3D3420DA7908C4B15888924ED910AA1200D82ED878C988EBEBCA3A7CA502D7173, x: 01413487FDE1515D291207C2575419D2D9189507178AF72D2BF9BCE61BE78135135F1DFAED7E702BCD01A0AA7FE40F4E1956B015FBD8C9E748CFC75EE8CC743461A5";
 
-static void testECKeyDesc() {
+static void testECKeyDesc(void) {
 
     SecKeyRef pubKey = NULL;
     CFStringRef pubRef = NULL;
@@ -95,7 +95,7 @@ fail:
  */
  
 
-static void testRSAKeyDesc()
+static void testRSAKeyDesc(void)
 {   
     SecKeyRef pubKey = NULL;
     CFStringRef pubRef = NULL;

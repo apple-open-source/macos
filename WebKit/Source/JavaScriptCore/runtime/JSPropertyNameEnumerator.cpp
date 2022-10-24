@@ -30,7 +30,7 @@
 
 namespace JSC {
 
-const ClassInfo JSPropertyNameEnumerator::s_info = { "JSPropertyNameEnumerator", nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(JSPropertyNameEnumerator) };
+const ClassInfo JSPropertyNameEnumerator::s_info = { "JSPropertyNameEnumerator"_s, nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(JSPropertyNameEnumerator) };
 
 JSPropertyNameEnumerator* JSPropertyNameEnumerator::create(VM& vm, Structure* structure, uint32_t indexedLength, uint32_t numberStructureProperties, PropertyNameArray&& propertyNames)
 {
@@ -50,7 +50,7 @@ JSPropertyNameEnumerator* JSPropertyNameEnumerator::create(VM& vm, Structure* st
 JSPropertyNameEnumerator::JSPropertyNameEnumerator(VM& vm, Structure* structure, uint32_t indexedLength, uint32_t numberStructureProperties, WriteBarrier<JSString>* propertyNamesBuffer, unsigned propertyNamesSize)
     : JSCell(vm, vm.propertyNameEnumeratorStructure.get())
     , m_propertyNames(vm, this, propertyNamesBuffer)
-    , m_cachedStructureID(structure ? structure->id() : 0)
+    , m_cachedStructureID(vm, this, structure, WriteBarrierStructureID::MayBeNull)
     , m_indexedLength(indexedLength)
     , m_endStructurePropertyIndex(numberStructureProperties)
     , m_endGenericPropertyIndex(propertyNamesSize)
@@ -86,11 +86,7 @@ void JSPropertyNameEnumerator::visitChildrenImpl(JSCell* cell, Visitor& visitor)
         visitor.markAuxiliary(propertyNames);
         visitor.append(propertyNames, propertyNames + thisObject->sizeOfPropertyNames());
     }
-
-    if (thisObject->cachedStructureID()) {
-        VM& vm = visitor.vm();
-        visitor.appendUnbarriered(vm.getStructure(thisObject->cachedStructureID()));
-    }
+    visitor.append(thisObject->m_cachedStructureID);
 }
 
 DEFINE_VISIT_CHILDREN(JSPropertyNameEnumerator);
@@ -109,13 +105,13 @@ void getEnumerablePropertyNames(JSGlobalObject* globalObject, JSObject* base, Pr
             // Although doing this for all objects is spec-conformant, collecting DontEnum properties isn't free.
             mode = DontEnumPropertiesMode::Include;
         }
-        object->methodTable(vm)->getOwnPropertyNames(object, globalObject, propertyNames, mode);
+        object->methodTable()->getOwnPropertyNames(object, globalObject, propertyNames, mode);
     };
 
-    Structure* structure = base->structure(vm);
+    Structure* structure = base->structure();
     if (structure->canAccessPropertiesQuicklyForEnumeration() && indexedLength == base->getArrayLength()) {
         // Inlined JSObject::getOwnNonIndexPropertyNames()
-        base->methodTable(vm)->getOwnSpecialPropertyNames(base, globalObject, propertyNames, DontEnumPropertiesMode::Exclude);
+        base->methodTable()->getOwnSpecialPropertyNames(base, globalObject, propertyNames, DontEnumPropertiesMode::Exclude);
         RETURN_IF_EXCEPTION(scope, void());
 
         base->getNonReifiedStaticPropertyNames(vm, propertyNames, DontEnumPropertiesMode::Exclude);

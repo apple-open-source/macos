@@ -1,17 +1,17 @@
 /*
-    commands.c: Commands sent to the card
-    Copyright (C) 2003-2010   Ludovic Rousseau
-    Copyright (C) 2005 Martin Paljak
+	commands.c: Commands sent to the card
+	Copyright (C) 2003-2010   Ludovic Rousseau
+	Copyright (C) 2005 Martin Paljak
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+	This library is free software; you can redistribute it and/or
+	modify it under the terms of the GNU Lesser General Public
+	License as published by the Free Software Foundation; either
+	version 2.1 of the License, or (at your option) any later version.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+	This library is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+	Lesser General Public License for more details.
 
 	You should have received a copy of the GNU Lesser General Public License
 	along with this library; if not, write to the Free Software Foundation,
@@ -95,6 +95,7 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 	unsigned char buffer[], int voltage)
 {
 	unsigned char cmd[10];
+	int bSeq;
 	status_t res;
 	int length, count = 1;
 	unsigned int atr_len;
@@ -218,10 +219,11 @@ check_again:
 	init_voltage = voltage;
 
 again:
+	bSeq = (*ccid_descriptor->pbSeq)++;
 	cmd[0] = 0x62; /* IccPowerOn */
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
-	cmd[6] = (*ccid_descriptor->pbSeq)++;
+	cmd[6] = bSeq;
 	cmd[7] = voltage;
 	cmd[8] = cmd[9] = 0; /* RFU */
 
@@ -232,7 +234,7 @@ again:
 	/* needed if we go back after a switch to ISO mode */
 	*nlength = length;
 
-	res = ReadPort(reader_index, nlength, buffer);
+	res = ReadPort(reader_index, nlength, buffer, bSeq);
 	CHECK_STATUS(res)
 
 	if (*nlength < CCID_RESPONSE_HEADER_SIZE)
@@ -243,7 +245,7 @@ again:
 
 	if (buffer[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 
 		if (0xBB == buffer[ERROR_OFFSET] &&	/* Protocol error in EMV mode */
 			((GEMPC433 == ccid_descriptor->readerID)
@@ -268,7 +270,7 @@ again:
 		if (voltage)
 		{
 #ifndef NO_LOG
-			const char *voltage_code[] = { "auto", "5V", "3V", "1.8V" };
+			const char *voltage_code[] = { "1.8V", "5V", "3V", "1.8V" };
 #endif
 
 			DEBUG_INFO3("Power up with %s failed. Try with %s.",
@@ -388,6 +390,18 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 			TxBuffer[7] = 0x02;	/* validation key pressed */
 		}
 
+	}
+
+	if ((VENDOR_GEMALTO == GET_VENDOR(ccid_descriptor->readerID))
+		&& (ccid_descriptor->gemalto_firmware_features))
+	{
+		int bEntryValidationCondition = ccid_descriptor->gemalto_firmware_features->bEntryValidationCondition;
+		if (TxBuffer[7] & ~bEntryValidationCondition)
+		{
+			DEBUG_INFO2("Correct bEntryValidationCondition (was 0x%02X)",
+				TxBuffer[7]);
+			TxBuffer[7] &= bEntryValidationCondition;
+		}
 	}
 
 	if ((DELLSCRK == ccid_descriptor->readerID)
@@ -747,6 +761,18 @@ RESPONSECODE SecurePINModify(unsigned int reader_index,
 		}
 	}
 
+	if ((VENDOR_GEMALTO == GET_VENDOR(ccid_descriptor->readerID))
+		&& (ccid_descriptor->gemalto_firmware_features))
+	{
+		int bEntryValidationCondition = ccid_descriptor->gemalto_firmware_features->bEntryValidationCondition;
+		if (TxBuffer[10] & ~bEntryValidationCondition)
+		{
+			DEBUG_INFO2("Correct bEntryValidationCondition (was 0x%02X)",
+				TxBuffer[10]);
+			TxBuffer[10] &= bEntryValidationCondition;
+		}
+	}
+
 	gemalto_modify_pin_bug = has_gemalto_modify_pin_bug(ccid_descriptor);
 	if (gemalto_modify_pin_bug)
 	{
@@ -923,6 +949,7 @@ RESPONSECODE CmdEscapeCheck(unsigned int reader_index,
 	int mayfail)
 {
 	unsigned char *cmd_in, *cmd_out;
+	int bSeq;
 	status_t res;
 	unsigned int length_in, length_out;
 	RESPONSECODE return_value = IFD_SUCCESS;
@@ -953,10 +980,11 @@ again:
 		goto end;
 	}
 
+	bSeq = (*ccid_descriptor->pbSeq)++;
 	cmd_in[0] = 0x6B; /* PC_to_RDR_Escape */
 	i2dw(length_in - 10, cmd_in+1);	/* dwLength */
 	cmd_in[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
-	cmd_in[6] = (*ccid_descriptor->pbSeq)++;
+	cmd_in[6] = bSeq;
 	cmd_in[7] = cmd_in[8] = cmd_in[9] = 0; /* RFU */
 
 	/* copy the command */
@@ -976,7 +1004,7 @@ again:
 
 time_request:
 	length_out = 10 + *RxLength;
-	res = ReadPort(reader_index, &length_out, cmd_out);
+	res = ReadPort(reader_index, &length_out, cmd_out, bSeq);
 
 	/* replay the command if NAK
 	 * This (generally) happens only for the first command sent to the reader
@@ -1016,7 +1044,7 @@ time_request:
 	{
 		/* mayfail: the error may be expected and not fatal */
 		ccid_error(mayfail ? PCSC_LOG_INFO : PCSC_LOG_ERROR,
-			cmd_out[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+			cmd_out[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 		return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1048,6 +1076,7 @@ end:
 RESPONSECODE CmdPowerOff(unsigned int reader_index)
 {
 	unsigned char cmd[10];
+	int bSeq;
 	status_t res;
 	unsigned int length;
 	RESPONSECODE return_value = IFD_SUCCESS;
@@ -1100,17 +1129,18 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 	}
 #endif
 
+	bSeq = (*ccid_descriptor->pbSeq)++;
 	cmd[0] = 0x63; /* IccPowerOff */
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
-	cmd[6] = (*ccid_descriptor->pbSeq)++;
+	cmd[6] = bSeq;
 	cmd[7] = cmd[8] = cmd[9] = 0; /* RFU */
 
 	res = WritePort(reader_index, sizeof(cmd), cmd);
 	CHECK_STATUS(res)
 
 	length = sizeof(cmd);
-	res = ReadPort(reader_index, &length, cmd);
+	res = ReadPort(reader_index, &length, cmd, bSeq);
 	CHECK_STATUS(res)
 
 	if (length < CCID_RESPONSE_HEADER_SIZE)
@@ -1121,7 +1151,7 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 		return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1137,6 +1167,7 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 RESPONSECODE CmdGetSlotStatus(unsigned int reader_index, unsigned char buffer[])
 {
 	unsigned char cmd[10];
+	int bSeq;
 	status_t res;
 	unsigned int length;
 	RESPONSECODE return_value = IFD_SUCCESS;
@@ -1223,17 +1254,18 @@ again_status:
 		InterruptRead(reader_index, 10);
 #endif
 
+	bSeq = (*ccid_descriptor->pbSeq)++;
 	cmd[0] = 0x65; /* GetSlotStatus */
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
-	cmd[6] = (*ccid_descriptor->pbSeq)++;
+	cmd[6] = bSeq;
 	cmd[7] = cmd[8] = cmd[9] = 0; /* RFU */
 
 	res = WritePort(reader_index, sizeof(cmd), cmd);
 	CHECK_STATUS(res)
 
 	length = SIZE_GET_SLOT_STATUS;
-	res = ReadPort(reader_index, &length, buffer);
+	res = ReadPort(reader_index, &length, buffer, bSeq);
 	CHECK_STATUS(res)
 
 	if (length < CCID_RESPONSE_HEADER_SIZE)
@@ -1247,7 +1279,7 @@ again_status:
 		&& (buffer[ERROR_OFFSET] != 0xFE))
 	{
 		return_value = IFD_COMMUNICATION_ERROR;
-		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 	}
 
 	return return_value;
@@ -1522,7 +1554,7 @@ time_request_ICCD_B:
 
 time_request:
 	length = sizeof(cmd);
-	ret = ReadPort(reader_index, &length, cmd);
+	ret = ReadPort(reader_index, &length, cmd, -1);
 
 	/* restore the original value of read timeout */
 	ccid_descriptor -> readTimeout = old_timeout;
@@ -1536,7 +1568,7 @@ time_request:
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 		switch (cmd[ERROR_OFFSET])
 		{
 			case 0xEF:	/* cancel */
@@ -1864,7 +1896,7 @@ static RESPONSECODE T0ProcACK(unsigned int reader_index,
 
 	DEBUG_COMM2("Enter, is_rcv = %d", is_rcv);
 
-	if (proc_len > 0x20000)
+	if (proc_len > 0x200)
 		return IFD_COMMUNICATION_ERROR;
 
 	if (is_rcv == 1)
@@ -1912,29 +1944,29 @@ static RESPONSECODE T0ProcACK(unsigned int reader_index,
 
 #ifdef O2MICRO_OZ776_PATCH
 		if((0 != remain_len) && (0 == (remain_len + 10) % 64))
-        {
+		{
 			/* special hack to avoid a command of size modulo 64
 			 * we send two commands instead */
-            ret_len = 1;
-            return_value = CCID_Transmit(reader_index, 0, *snd_buf, ret_len, 0);
-            if (return_value != IFD_SUCCESS)
-                return return_value;
-            return_value = CCID_Receive(reader_index, &ret_len, tmp_buf, NULL);
-            if (return_value != IFD_SUCCESS)
-                return return_value;
+			ret_len = 1;
+			return_value = CCID_Transmit(reader_index, 0, *snd_buf, ret_len, 0);
+			if (return_value != IFD_SUCCESS)
+				return return_value;
+			return_value = CCID_Receive(reader_index, &ret_len, tmp_buf, NULL);
+			if (return_value != IFD_SUCCESS)
+				return return_value;
 
-            ret_len = remain_len - 1;
-            return_value = CCID_Transmit(reader_index, 0, *snd_buf, ret_len, 0);
-            if (return_value != IFD_SUCCESS)
-                return return_value;
-            return_value = CCID_Receive(reader_index, &ret_len, &tmp_buf[1],
-				NULL);
-            if (return_value != IFD_SUCCESS)
-                return return_value;
+			ret_len = remain_len - 1;
+			return_value = CCID_Transmit(reader_index, 0, *snd_buf, ret_len, 0);
+			if (return_value != IFD_SUCCESS)
+				return return_value;
+			return_value = CCID_Receive(reader_index, &ret_len, &tmp_buf[1],
+					NULL);
+			if (return_value != IFD_SUCCESS)
+				return return_value;
 
-            ret_len += 1;
-        }
-        else
+			ret_len += 1;
+		}
+		else
 #endif
 		{
 			ret_len = remain_len;
@@ -2280,15 +2312,17 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 	unsigned int length, unsigned char buffer[])
 {
 	unsigned char cmd[10+length];	/* CCID + APDU buffer */
+	int bSeq;
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
 	status_t res;
 
 	DEBUG_COMM2("length: %d bytes", length);
 
+	bSeq = (*ccid_descriptor->pbSeq)++;
 	cmd[0] = 0x61; /* SetParameters */
 	i2dw(length, cmd+1);	/* APDU length */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
-	cmd[6] = (*ccid_descriptor->pbSeq)++;
+	cmd[6] = bSeq;
 	cmd[7] = protocol;	/* bProtocolNum */
 	cmd[8] = cmd[9] = 0; /* RFU */
 
@@ -2298,7 +2332,7 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 	CHECK_STATUS(res)
 
 	length = sizeof(cmd);
-	res = ReadPort(reader_index, &length, cmd);
+	res = ReadPort(reader_index, &length, cmd, bSeq);
 	CHECK_STATUS(res)
 
 	if (length < CCID_RESPONSE_HEADER_SIZE)
@@ -2309,7 +2343,7 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 		if (0x00 == cmd[ERROR_OFFSET])	/* command not supported */
 			return IFD_NOT_SUPPORTED;
 		else
@@ -2350,7 +2384,7 @@ static void i2dw(int value, unsigned char buffer[])
 
 /*****************************************************************************
 *
-*                  bei2i (big endian integer to host order interger)
+*					bei2i (big endian integer to host order interger)
 *
 ****************************************************************************/
 

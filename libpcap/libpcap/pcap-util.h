@@ -35,8 +35,8 @@
 #include <pcap/pcap.h>
 #include <uuid/uuid.h>
 
-extern int pcap_ng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper);
-
+extern int pcap_ng_dump_shb(pcap_t *, pcap_dumper_t *);
+extern int pcap_ng_dump_shb_comment(pcap_t *, pcap_dumper_t *, const char *);
 
 struct pcap_if_info {
 	int if_id;
@@ -134,6 +134,16 @@ extern void pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkth
 
 int pcap_set_truncation_mode(pcap_t *p, bool on);
 int pcap_set_pktap_hdr_v2(pcap_t *p, bool on);
+
+#define HAS_PCAP_SET_COMPRESSION 1
+int pcap_set_compression(pcap_t *, int);
+
+#define HAS_PCAP_HEAD_DROP 1
+int pcap_set_head_drop(pcap_t *, int);
+int pcap_get_head_drop(pcap_t *);
+
+int pcap_get_compression_stats(pcap_t *, void *, size_t);
+
 
 #endif /* PRIVATE */
 

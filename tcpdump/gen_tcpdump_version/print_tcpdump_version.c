@@ -7,6 +7,6 @@
 #include "tcpdump_version.h"
 
 int main(int argc, const char * argv[]) {
-	printf("%s\n", version);
+	printf("%s\n", apple_version_string);
 	return 0;
 }

@@ -57,7 +57,7 @@ OSStatus SessionGetInfo(SecuritySessionId requestedSession,
 		*sessionId = session.sessionId();
 	if (attributes)
         *attributes = (SessionAttributeBits)session.flags();
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }
 
 

@@ -36,8 +36,17 @@ extern unsigned int _os_cpu_number_override;
  * is still too large for the available memory.  The largest value added
  * seems to be large_vm_page_quanta_size (in the macro round_large_page_quanta()), so to be safe, we set
  * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
+ *
+ * This value needs to be calculated at runtime, so we'll cache it rather than
+ * recalculate on each use.
  */
-#define MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * large_vm_page_quanta_size))
+#define _MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * large_vm_page_quanta_size))
+
+#if defined(MALLOC_BUILDING_XCTESTS)
+#define malloc_absolute_max_size _MALLOC_ABSOLUTE_MAX_SIZE
+#else
+extern size_t malloc_absolute_max_size; // caches the definition above
+#endif
 
 // Gets the allocation size for a calloc(). Multiples size by num_items and adds
 // extra_size, storing the result in *total_size. Returns 0 on success, -1 (with
@@ -47,13 +56,13 @@ calloc_get_size(size_t num_items, size_t size, size_t extra_size, size_t *total_
 {
 	size_t alloc_size = size;
 	if (num_items != 1 && (os_mul_overflow(num_items, size, &alloc_size)
-			|| alloc_size > MALLOC_ABSOLUTE_MAX_SIZE)) {
-		errno = ENOMEM;
+			|| alloc_size > malloc_absolute_max_size)) {
+		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 		return -1;
 	}
 	if (extra_size && (os_add_overflow(alloc_size, extra_size, &alloc_size)
-			|| alloc_size > MALLOC_ABSOLUTE_MAX_SIZE)) {
-		errno = ENOMEM;
+			|| alloc_size > malloc_absolute_max_size)) {
+		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 		return -1;
 	}
 	*total_size = alloc_size;
@@ -197,23 +206,18 @@ free_list_checksum_botch(rack_t *rack, void *ptr, void *value)
 			"Corrupt value: %p\n", ptr, value);
 }
 
+// TODO: replace uses in small and medium with data PAC when possible
 static MALLOC_INLINE uintptr_t
 free_list_gen_checksum(uintptr_t ptr)
 {
-	uint8_t chk;
-
-	chk = (unsigned char)(ptr >> 0);
-	chk += (unsigned char)(ptr >> 8);
-	chk += (unsigned char)(ptr >> 16);
-	chk += (unsigned char)(ptr >> 24);
 #if __LP64__
-	chk += (unsigned char)(ptr >> 32);
-	chk += (unsigned char)(ptr >> 40);
-	chk += (unsigned char)(ptr >> 48);
-	chk += (unsigned char)(ptr >> 56);
+	uint32_t level1 = (uint32_t)ptr + ((uint32_t)(ptr >> 32));
+#else
+	uint32_t level1 = (uint32_t)ptr;
 #endif
-
-	return chk;
+	uint16_t level2 = (uint16_t)level1 + ((uint16_t)(level1 >> 16));
+	uint8_t level3 = (uint8_t)level2 + ((uint8_t)(level2 >> 8));
+	return level3;
 }
 
 static unsigned
@@ -235,6 +239,41 @@ free_list_count(task_t task, memory_reader_t reader,
 	}
 	return count;
 }
+
+#if __has_feature(ptrauth_calls) && defined(__arm64e__) && !TARGET_OS_SIMULATOR
+
+// We can use data PAC to protect the free list pointers
+static MALLOC_INLINE uintptr_t
+free_list_checksum_ptr(rack_t *rack, void *ptr)
+{
+	uintptr_t signed_ptr = (uintptr_t)ptrauth_sign_unauthenticated(ptr,
+			ptrauth_key_process_dependent_data,
+			ptrauth_blend_discriminator(rack,
+					ptrauth_string_discriminator("malloc freelist")));
+	return signed_ptr;
+}
+
+static MALLOC_INLINE void *
+free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
+{
+	void *stored_ptr = ptr->p;
+	// N.B. we don't use ptrauth_auth_data() because we want to be able to call
+	// free_list_checksum_botch() on failure, which prints a diagnostic first,
+	// rather than trapping directly
+	void *stripped_ptr = ptrauth_strip(stored_ptr, ptrauth_key_process_dependent_data);
+	uintptr_t resigned_ptr = free_list_checksum_ptr(rack, stripped_ptr);
+	if ((uintptr_t)stored_ptr != resigned_ptr) {
+		free_list_checksum_botch(rack, ptr, (void *)ptr->u);
+		__builtin_trap();
+	}
+	return stripped_ptr;
+}
+
+#else // __has_feature(ptrauth_calls) && defined(__arm64e__) && !TARGET_OS_SIMULATOR
+
+// We can't use data PAC so we manually calculate and store a checksum instead
+// TODO: use the high bits on LP64
+// TODO: this can likely still be faster
 
 #define NYBBLE 4
 #if __LP64__
@@ -268,6 +307,8 @@ free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 
 #undef ANTI_NYBBLE
 #undef NYBBLE
+
+#endif // __has_feature(ptrauth_calls) && defined(__arm64e__) && !TARGET_OS_SIMULATOR
 
 #pragma mark recirc helpers
 
@@ -708,6 +749,33 @@ medium_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 			rack->region_generation->num_regions_allocated, rack->region_generation->num_regions_allocated_shift,
 			MEDIUM_REGION_FOR_PTR(ptr));
 	return r ? *r : r;
+}
+
+#pragma mark zero on free
+
+MALLOC_NOEXPORT
+extern bool malloc_zero_on_free;
+
+MALLOC_NOEXPORT
+extern unsigned malloc_zero_on_free_sample_period;
+
+static MALLOC_INLINE bool
+zero_on_free_should_sample(void)
+{
+	bool sample = false;
+	if (malloc_zero_on_free_sample_period != 0) {
+		uintptr_t value = (uintptr_t)_pthread_getspecific_direct(
+				__TSD_MALLOC_ZERO_CORRUPTION_COUNTER);
+		value++;
+		if (value == malloc_zero_on_free_sample_period) {
+			sample = true;
+			value = 0;
+		}
+		_pthread_setspecific_direct(__TSD_MALLOC_ZERO_CORRUPTION_COUNTER,
+				(void *)value);
+	}
+
+	return sample;
 }
 
 #endif // __MAGAZINE_INLINE_H

@@ -67,7 +67,7 @@ static CFTypeRef installerPolicy() CF_RETURNS_RETAINED;
 // Core structure
 //
 PolicyEngine::PolicyEngine()
-	: PolicyDatabase(NULL, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
+	: PolicyDatabase(NULL, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOFOLLOW)
 {
 	try {
 		mOpaqueWhitelist = new OpaqueWhitelist();
@@ -115,10 +115,12 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 //
 static std::string createWhitelistScreen(char type, const Byte *digest, size_t length)
 {
-	char buffer[2*length + 2];
+        size_t cap = 2*length + 2;
+	char buffer[cap];
 	buffer[0] = type;
-	for (size_t n = 0; n < length; n++)
-		sprintf(buffer + 1 + 2*n, "%02.2x", digest[n]);
+	for (size_t n = 0; n < length; n++) {
+                snprintf(buffer + 1 + 2*n, cap - (1 + 2*n), "%02.2x", digest[n]);
+        }
 	return buffer;
 }
 

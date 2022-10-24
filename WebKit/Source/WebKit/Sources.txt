@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 Apple Inc. All rights reserved.
+// Copyright (C) 2018-2022 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -24,12 +24,16 @@
 GPUProcess/GPUProcess.cpp
 GPUProcess/GPUConnectionToWebProcess.cpp
 GPUProcess/GPUProcessCreationParameters.cpp
+GPUProcess/GPUProcessPreferences.cpp
+GPUProcess/graphics/ImageBufferShareableAllocator.cpp
 GPUProcess/graphics/RemoteDisplayListRecorder.cpp
-GPUProcess/graphics/RemoteRenderingBackend.cpp
 GPUProcess/graphics/RemoteGraphicsContextGL.cpp
+GPUProcess/graphics/RemoteImageBuffer.cpp
+GPUProcess/graphics/RemoteRenderingBackend.cpp
 GPUProcess/graphics/RemoteResourceCache.cpp
 GPUProcess/graphics/ScopedRenderingResourcesRequest.cpp
 GPUProcess/graphics/ScopedWebGLRenderingResourcesRequest.cpp
+GPUProcess/graphics/ShareablePixelBuffer.cpp
 GPUProcess/graphics/WebGPU/RemoteAdapter.cpp
 GPUProcess/graphics/WebGPU/RemoteBindGroup.cpp
 GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.cpp
@@ -70,6 +74,7 @@ GPUProcess/media/RemoteMediaPlayerProxy.cpp
 GPUProcess/media/RemoteMediaResource.cpp
 GPUProcess/media/RemoteMediaResourceLoader.cpp
 GPUProcess/media/RemoteMediaResourceManager.cpp
+GPUProcess/media/RemoteVideoFrameObjectHeap.cpp
 GPUProcess/media/RemoteMediaSourceProxy.cpp
 GPUProcess/media/RemoteRemoteCommandListenerProxy.cpp
 GPUProcess/media/RemoteSourceBufferProxy.cpp
@@ -116,9 +121,6 @@ NetworkProcess/Downloads/DownloadMap.cpp
 NetworkProcess/Downloads/DownloadMonitor.cpp
 NetworkProcess/Downloads/PendingDownload.cpp
 
-NetworkProcess/IndexedDB/WebIDBConnectionToClient.cpp
-NetworkProcess/IndexedDB/WebIDBServer.cpp
-
 NetworkProcess/Notifications/NetworkNotificationManager.cpp
 NetworkProcess/Notifications/WebPushDaemonConnection.cpp
 
@@ -141,26 +143,26 @@ NetworkProcess/ServiceWorker/WebSWOriginStore.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerConnection.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerToContextConnection.cpp @no-unify
 
+NetworkProcess/SharedWorker/WebSharedWorker.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServer.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServerConnection.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection.cpp
+
 NetworkProcess/storage/FileSystemStorageManager.cpp
 NetworkProcess/storage/FileSystemStorageHandle.cpp
 NetworkProcess/storage/FileSystemStorageHandleRegistry.cpp
+NetworkProcess/storage/IDBStorageConnectionToClient.cpp
+NetworkProcess/storage/IDBStorageManager.cpp
+NetworkProcess/storage/IDBStorageRegistry.cpp
 NetworkProcess/storage/LocalStorageManager.cpp
 NetworkProcess/storage/MemoryStorageArea.cpp
 NetworkProcess/storage/NetworkStorageManager.cpp
 NetworkProcess/storage/OriginStorageManager.cpp
+NetworkProcess/storage/QuotaManager.cpp
 NetworkProcess/storage/SQLiteStorageArea.cpp
 NetworkProcess/storage/SessionStorageManager.cpp
 NetworkProcess/storage/StorageAreaBase.cpp
 NetworkProcess/storage/StorageAreaRegistry.cpp
-
-NetworkProcess/WebStorage/LocalStorageDatabase.cpp
-NetworkProcess/WebStorage/LocalStorageDatabaseTracker.cpp
-NetworkProcess/WebStorage/LocalStorageNamespace.cpp
-NetworkProcess/WebStorage/SessionStorageNamespace.cpp
-NetworkProcess/WebStorage/StorageArea.cpp
-NetworkProcess/WebStorage/StorageManager.cpp
-NetworkProcess/WebStorage/StorageManagerSet.cpp
-NetworkProcess/WebStorage/TransientLocalStorageNamespace.cpp
 
 NetworkProcess/cache/CacheStorageEngine.cpp
 NetworkProcess/cache/CacheStorageEngineCache.cpp
@@ -200,7 +202,7 @@ Platform/IPC/JSIPCBinding.cpp
 Platform/IPC/MessageReceiveQueueMap.cpp
 Platform/IPC/MessageReceiverMap.cpp
 Platform/IPC/MessageSender.cpp
-Platform/IPC/SharedBufferCopy.cpp
+Platform/IPC/SharedBufferReference.cpp
 Platform/IPC/StreamClientConnection.cpp
 Platform/IPC/StreamConnectionBuffer.cpp
 Platform/IPC/StreamConnectionWorkQueue.cpp
@@ -221,6 +223,7 @@ Shared/EditorState.cpp
 Shared/FontInfo.cpp
 Shared/FrameInfoData.cpp
 Shared/InspectorExtensionTypes.cpp
+Shared/IPCConnectionTester.cpp
 Shared/IPCStreamTester.cpp
 Shared/IPCTester.cpp
 Shared/LayerTreeContext.cpp
@@ -229,10 +232,11 @@ Shared/NavigationActionData.cpp
 Shared/PersistencyUtils.cpp
 Shared/PlatformPopupMenuData.cpp
 Shared/PrintInfo.cpp
+Shared/ProcessTerminationReason.cpp
 Shared/RTCNetwork.cpp
 Shared/RTCPacketOptions.cpp
+Shared/RemoteWorkerInitializationData.cpp
 Shared/ScrollingAccelerationCurve.cpp
-Shared/ServiceWorkerInitializationData.cpp
 Shared/SessionState.cpp
 Shared/ShareableBitmap.cpp
 Shared/ShareableResource.cpp
@@ -256,6 +260,8 @@ Shared/WebCoreArgumentCoders.cpp
 Shared/WebErrors.cpp
 Shared/WebEvent.cpp
 Shared/WebEventConversion.cpp
+Shared/WebFindOptions.cpp
+Shared/WebFoundTextRange.cpp
 Shared/WebGeolocationPosition.cpp
 Shared/WebHitTestResultData.cpp
 Shared/WebImage.cpp
@@ -372,6 +378,7 @@ Shared/WebGPU/WebGPURenderPipelineDescriptor.cpp
 Shared/WebGPU/WebGPURequestAdapterOptions.cpp
 Shared/WebGPU/WebGPUSamplerBindingLayout.cpp
 Shared/WebGPU/WebGPUSamplerDescriptor.cpp
+Shared/WebGPU/WebGPUShaderModuleCompilationHint.cpp
 Shared/WebGPU/WebGPUShaderModuleDescriptor.cpp
 Shared/WebGPU/WebGPUStencilFaceState.cpp
 Shared/WebGPU/WebGPUStorageTextureBindingLayout.cpp
@@ -401,6 +408,7 @@ UIProcess/LegacyGlobalSettings.cpp
 UIProcess/MediaKeySystemPermissionRequestManagerProxy.cpp
 UIProcess/MediaKeySystemPermissionRequestProxy.cpp
 UIProcess/ModelElementController.cpp
+UIProcess/OverrideLanguages.cpp
 UIProcess/PageLoadState.cpp
 UIProcess/ProcessAssertion.cpp
 UIProcess/ProcessThrottler.cpp
@@ -414,6 +422,7 @@ UIProcess/SystemPreviewController.cpp
 UIProcess/SpeechRecognitionPermissionManager.cpp
 UIProcess/TextChecker.cpp
 UIProcess/TextCheckerCompletion.cpp
+UIProcess/UIProcessLogInitialization.cpp
 UIProcess/UserMediaPermissionCheckProxy.cpp
 UIProcess/UserMediaPermissionRequestManagerProxy.cpp
 UIProcess/UserMediaPermissionRequestProxy.cpp
@@ -429,7 +438,6 @@ UIProcess/WebContextConnectionClient.cpp
 UIProcess/WebContextInjectedBundleClient.cpp
 UIProcess/WebContextMenuListenerProxy.cpp
 UIProcess/WebContextMenuProxy.cpp
-UIProcess/WebCookieManagerProxy.cpp
 UIProcess/WebDataListSuggestionsDropdown.cpp
 UIProcess/WebDateTimePicker.cpp
 UIProcess/WebEditCommandProxy.cpp
@@ -461,6 +469,7 @@ UIProcess/API/APIContentRuleListAction.cpp
 UIProcess/API/APIContentRuleListStore.cpp
 UIProcess/API/APIContentWorld.cpp
 UIProcess/API/APIContextMenuElementInfo.cpp
+UIProcess/API/APIDataTask.cpp
 UIProcess/API/APIDebuggableInfo.cpp
 UIProcess/API/APIExperimentalFeature.cpp
 UIProcess/API/APIFrameInfo.cpp
@@ -519,6 +528,7 @@ UIProcess/API/C/WKNotificationManager.cpp
 UIProcess/API/C/WKNotificationPermissionRequest.cpp
 UIProcess/API/C/WKOpenPanelParametersRef.cpp
 UIProcess/API/C/WKOpenPanelResultListener.cpp
+UIProcess/API/C/WKQueryPermissionResultCallback.cpp
 UIProcess/API/C/WKPage.cpp
 UIProcess/API/C/WKPageConfigurationRef.cpp
 UIProcess/API/C/WKPageGroup.cpp
@@ -573,6 +583,7 @@ UIProcess/Media/AudioSessionRoutingArbitratorProxy.cpp
 UIProcess/Media/MediaUsageManager.cpp
 UIProcess/Media/RemoteMediaSessionCoordinatorProxy.cpp
 
+UIProcess/Notifications/ServiceWorkerNotificationHandler.cpp
 UIProcess/Notifications/WebNotification.cpp
 UIProcess/Notifications/WebNotificationManagerMessageHandler.cpp
 UIProcess/Notifications/WebNotificationManagerProxy.cpp
@@ -581,8 +592,6 @@ UIProcess/Notifications/WebNotificationProvider.cpp
 UIProcess/UserContent/WebScriptMessageHandler.cpp
 UIProcess/UserContent/WebUserContentControllerProxy.cpp
 
-UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp
-UIProcess/WebAuthentication/fido/CtapHidDriver.cpp
 UIProcess/WebAuthentication/fido/CtapNfcDriver.cpp
 UIProcess/WebAuthentication/fido/FidoAuthenticator.cpp
 UIProcess/WebAuthentication/fido/FidoService.cpp
@@ -592,12 +601,10 @@ UIProcess/WebAuthentication/Mock/MockAuthenticatorManager.cpp
 UIProcess/WebAuthentication/Mock/MockHidConnection.cpp
 UIProcess/WebAuthentication/Mock/MockHidService.cpp
 
-UIProcess/WebAuthentication/AuthenticatorManager.cpp
 UIProcess/WebAuthentication/AuthenticatorTransportService.cpp
 UIProcess/WebAuthentication/Authenticator.cpp
 UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.cpp
 UIProcess/WebAuthentication/WebAuthenticationRequestData.cpp
-UIProcess/WebAuthentication/WebAuthnProcessProxy.cpp
 
 UIProcess/WebsiteData/WebDeviceOrientationAndMotionAccessController.cpp
 UIProcess/WebsiteData/WebsiteDataRecord.cpp
@@ -605,10 +612,6 @@ UIProcess/WebsiteData/WebsiteDataStore.cpp
 UIProcess/WebsiteData/WebsiteDataStoreConfiguration.cpp
 
 UIProcess/XR/PlatformXRSystem.cpp
-
-WebAuthnProcess/WebAuthnConnectionToWebProcess.cpp
-WebAuthnProcess/WebAuthnProcess.cpp
-WebAuthnProcess/WebAuthnProcessCreationParameters.cpp
 
 WebProcess/WebConnectionToUIProcess.cpp
 WebProcess/WebProcess.cpp
@@ -716,8 +719,10 @@ WebProcess/GPU/graphics/ImageBufferShareableBitmapBackend.cpp
 WebProcess/GPU/graphics/RemoteGraphicsContextGLProxyFunctionsGenerated.cpp
 WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.cpp
 WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp
+WebProcess/GPU/graphics/RemoteImageBufferProxy.cpp
 WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp
 WebProcess/GPU/graphics/RemoteResourceCacheProxy.cpp
+WebProcess/GPU/graphics/ThreadSafeRemoteImageBufferFlusher.cpp
 WebProcess/GPU/media/AudioTrackPrivateRemote.cpp
 WebProcess/GPU/media/MediaPlayerPrivateRemote.cpp
 WebProcess/GPU/media/MediaSourcePrivateRemote.cpp
@@ -735,6 +740,7 @@ WebProcess/GPU/media/RemoteMediaEngineConfigurationFactory.cpp
 WebProcess/GPU/media/RemoteMediaPlayerManager.cpp
 WebProcess/GPU/media/RemoteMediaPlayerMIMETypeCache.cpp @no-unify
 WebProcess/GPU/media/RemoteMediaResourceProxy.cpp
+WebProcess/GPU/media/RemoteVideoFrameProxy.cpp
 WebProcess/GPU/media/RemoteRemoteCommandListener.cpp
 WebProcess/GPU/media/SourceBufferPrivateRemote.cpp
 WebProcess/GPU/media/TextTrackPrivateRemote.cpp
@@ -743,6 +749,7 @@ WebProcess/GPU/media/WebMediaStrategy.cpp
 WebProcess/GPU/webrtc/LibWebRTCCodecs.cpp
 WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp
 WebProcess/GPU/webrtc/MediaRecorderProvider.cpp
+WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor.cpp
 WebProcess/GPU/webrtc/SampleBufferDisplayLayer.cpp
 WebProcess/GPU/webrtc/SampleBufferDisplayLayerManager.cpp
 
@@ -769,27 +776,29 @@ WebProcess/Network/webrtc/WebRTCResolver.cpp
 WebProcess/Notifications/NotificationPermissionRequestManager.cpp
 WebProcess/Notifications/WebNotificationManager.cpp
 
-// TODO: These files should be unified once GTK's PluginProcess2 is removed.
-WebProcess/Plugins/Plugin.cpp @no-unify
-WebProcess/Plugins/PluginView.cpp @no-unify
-WebProcess/Plugins/WebPluginInfoProvider.cpp @no-unify
+WebProcess/Plugins/PluginView.cpp
+WebProcess/Plugins/WebPluginInfoProvider.cpp
 
 WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager.cpp
 
+WebProcess/Storage/RemoteWorkerFrameLoaderClient.cpp
 WebProcess/Storage/WebSWClientConnection.cpp
 WebProcess/Storage/WebSWContextManagerConnection.cpp
 WebProcess/Storage/WebSWOriginTable.cpp
 WebProcess/Storage/WebServiceWorkerFetchTaskClient.cpp
 WebProcess/Storage/WebServiceWorkerProvider.cpp
+WebProcess/Storage/WebSharedWorkerContextManagerConnection.cpp
+WebProcess/Storage/WebSharedWorkerObjectConnection.cpp
+WebProcess/Storage/WebSharedWorkerProvider.cpp
 
 WebProcess/UserContent/WebUserContentController.cpp
 
 WebProcess/WebAuthentication/WebAuthenticatorCoordinator.cpp
-WebProcess/WebAuthentication/WebAuthnProcessConnection.cpp
 
 WebProcess/WebCoreSupport/RemoteWebLockRegistry.cpp
 WebProcess/WebCoreSupport/SessionStateConversion.cpp
 WebProcess/WebCoreSupport/ShareableBitmapUtilities.cpp
+WebProcess/WebCoreSupport/WebAttachmentElementClient.cpp
 WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp
 WebProcess/WebCoreSupport/WebChromeClient.cpp
 WebProcess/WebCoreSupport/WebColorChooser.cpp
@@ -805,6 +814,7 @@ WebProcess/WebCoreSupport/WebGeolocationClient.cpp
 WebProcess/WebCoreSupport/WebMediaKeySystemClient.cpp
 WebProcess/WebCoreSupport/WebMessagePortChannelProvider.cpp
 WebProcess/WebCoreSupport/WebNotificationClient.cpp
+WebProcess/WebCoreSupport/WebPasteboardOverrides.cpp
 WebProcess/WebCoreSupport/WebPerformanceLoggingClient.cpp
 WebProcess/WebCoreSupport/WebPermissionController.cpp
 WebProcess/WebCoreSupport/WebPlatformStrategies.cpp
@@ -829,6 +839,7 @@ WebProcess/WebPage/WebContextMenu.cpp
 WebProcess/WebPage/WebCookieCache.cpp
 WebProcess/WebPage/WebCookieJar.cpp
 WebProcess/WebPage/WebDocumentLoader.cpp
+WebProcess/WebPage/WebFoundTextRangeController.cpp
 WebProcess/WebPage/WebFrame.cpp
 WebProcess/WebPage/WebOpenPanelResultListener.cpp
 WebProcess/WebPage/WebPage.cpp @no-unify
@@ -845,7 +856,9 @@ WebProcess/WebStorage/WebStorageNamespaceProvider.cpp
 
 WebProcess/XR/PlatformXRSystemProxy.cpp
 
+IPCConnectionTesterMessageReceiver.cpp
 IPCStreamTesterMessageReceiver.cpp
+IPCStreamTesterProxyMessageReceiver.cpp
 IPCTesterMessageReceiver.cpp
 NetworkBroadcastChannelRegistryMessageReceiver.cpp
 RTCDataChannelRemoteManagerMessageReceiver.cpp
@@ -868,6 +881,8 @@ RemoteDeviceMessageReceiver.cpp
 RemoteExternalTextureMessageReceiver.cpp
 RemoteGPUMessageReceiver.cpp
 RemoteGPUProxyMessageReceiver.cpp
+RemoteVideoFrameObjectHeapMessageReceiver.cpp
+RemoteVideoFrameObjectHeapProxyProcessorMessageReceiver.cpp
 RemotePipelineLayoutMessageReceiver.cpp
 RemoteQuerySetMessageReceiver.cpp
 RemoteQueueMessageReceiver.cpp
@@ -883,3 +898,7 @@ RemoteWebLockRegistryMessageReceiver.cpp
 ServiceWorkerDownloadTaskMessageReceiver.cpp
 WebBroadcastChannelRegistryMessageReceiver.cpp
 WebLockRegistryProxyMessageReceiver.cpp
+WebSharedWorkerContextManagerConnectionMessageReceiver.cpp
+WebSharedWorkerObjectConnectionMessageReceiver.cpp
+WebSharedWorkerServerConnectionMessageReceiver.cpp
+WebSharedWorkerServerToContextConnectionMessageReceiver.cpp

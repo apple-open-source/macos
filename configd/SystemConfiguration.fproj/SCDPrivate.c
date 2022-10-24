@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -958,7 +958,7 @@ _SC_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFM
 CFStringRef
 _SC_getApplicationBundleID(void)
 {
-	static CFStringRef	bundleID	= NULL;
+	static CFStringRef	bundleID;
 	static dispatch_once_t	once;
 
 	dispatch_once(&once, ^{
@@ -1077,139 +1077,6 @@ _SC_CFBundleGet(void)
 done:
 	return bundle;
 }
-
-
-/*
- * cachedInfo
- *   <dict>
- *      <key>bundleID-tableName</key>
- *      <dict>
- *        ... property list from non-localized bundle URL
- *      </dict>
- *   </dict>
- */
-static CFMutableDictionaryRef	cachedInfo	= NULL;
-
-
-static dispatch_queue_t
-_SC_CFBundleCachedInfoQueue()
-{
-	static dispatch_once_t	once;
-	static dispatch_queue_t	q;
-
-	dispatch_once(&once, ^{
-		q = dispatch_queue_create("_SC_CFBundleCachedInfo", NULL);
-	});
-
-	return q;
-}
-
-
-static CFStringRef
-_SC_CFBundleCachedInfoCopyTableKey(CFBundleRef bundle, CFStringRef tableName)
-{
-	CFStringRef	bundleID;
-	CFStringRef	tableKey;
-
-	bundleID = CFBundleGetIdentifier(bundle);
-	tableKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@: %@"), bundleID, tableName);
-	return tableKey;
-}
-
-
-static CFDictionaryRef
-_SC_CFBundleCachedInfoCopyTable(CFBundleRef bundle, CFStringRef tableName)
-{
-	__block CFDictionaryRef		dict	= NULL;
-
-	dispatch_sync(_SC_CFBundleCachedInfoQueue(), ^{
-		if (cachedInfo != NULL) {
-			CFStringRef	tableKey;
-
-			tableKey = _SC_CFBundleCachedInfoCopyTableKey(bundle, tableName);
-			dict = CFDictionaryGetValue(cachedInfo, tableKey);
-			if (dict != NULL) {
-				CFRetain(dict);
-			}
-			CFRelease(tableKey);
-		}
-	});
-
-	return dict;
-}
-
-
-static void
-_SC_CFBundleCachedInfoSaveTable(CFBundleRef bundle, CFStringRef tableName, CFDictionaryRef table)
-{
-
-	dispatch_sync(_SC_CFBundleCachedInfoQueue(), ^{
-		CFStringRef	tableKey;
-
-		tableKey = _SC_CFBundleCachedInfoCopyTableKey(bundle, tableName);
-		SC_log(LOG_DEBUG, "Caching %@", tableKey);
-
-		if (cachedInfo == NULL) {
-			cachedInfo = CFDictionaryCreateMutable(NULL,
-							       0,
-							       &kCFTypeDictionaryKeyCallBacks,
-							       &kCFTypeDictionaryValueCallBacks);
-		}
-		CFDictionarySetValue(cachedInfo, tableKey, table);
-		CFRelease(tableKey);
-	});
-
-	return;
-}
-
-
-CFStringRef
-_SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFStringRef value, CFStringRef tableName)
-{
-	CFStringRef	str	= NULL;
-	CFDictionaryRef	table	= NULL;
-	CFURLRef	url;
-
-	if ((tableName == NULL) || CFEqual(tableName, CFSTR(""))) {
-		tableName = CFSTR("Localizable");
-	}
-
-	table = _SC_CFBundleCachedInfoCopyTable(bundle, tableName);
-	if (table == NULL) {
-		url = CFBundleCopyResourceURLForLocalization(bundle,
-							     tableName,
-							     CFSTR("strings"),
-							     NULL,
-							     CFSTR("en"));
-		if (url != NULL) {
-			table = _SCCreatePropertyListFromResource(url);
-			CFRelease(url);
-			if (table != NULL) {
-				_SC_CFBundleCachedInfoSaveTable(bundle, tableName, table);
-			}
-		} else {
-			SC_log(LOG_ERR, "failed to get resource url: {bundle:%@, table: %@}", bundle, tableName);
-		}
-	}
-
-	if (table != NULL) {
-		if (isA_CFDictionary(table)) {
-			str = CFDictionaryGetValue(table, key);
-			if (str != NULL) {
-				CFRetain(str);
-			}
-		}
-
-		CFRelease(table);
-	}
-
-	if (str == NULL) {
-		str = CFRetain(value);
-	}
-
-	return str;
-}
-
 
 #pragma mark -
 #pragma mark Mach port / CFMachPort management

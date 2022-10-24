@@ -161,7 +161,7 @@ NSSet<CKKSZoneKeyState*>* CKKSKeyStateValidStates(void)
     return states;
 }
 
-NSSet<CKKSZoneKeyState*>* CKKSKeyStateNonTransientStates()
+NSSet<CKKSZoneKeyState*>* CKKSKeyStateNonTransientStates(void)
 {
     static NSSet<CKKSZoneKeyState*>* states = nil;
     static dispatch_once_t onceToken;
@@ -197,12 +197,12 @@ bool SecCKKSIsEnabled(void) {
     return enableCKKS;
 }
 
-bool SecCKKSEnable() {
+bool SecCKKSEnable(void) {
     enableCKKS = true;
     return enableCKKS;
 }
 
-bool SecCKKSDisable() {
+bool SecCKKSDisable(void) {
     enableCKKS = false;
     return enableCKKS;
 }
@@ -240,7 +240,7 @@ static bool CKKSSyncManifests = false;
 bool SecCKKSSyncManifests(void) {
     return CKKSSyncManifests;
 }
-bool SecCKKSEnableSyncManifests() {
+bool SecCKKSEnableSyncManifests(void) {
     CKKSSyncManifests = true;
     return CKKSSyncManifests;
 }
@@ -253,7 +253,7 @@ static bool CKKSEnforceManifests = false;
 bool SecCKKSEnforceManifests(void) {
     return CKKSEnforceManifests;
 }
-bool SecCKKSEnableEnforceManifests() {
+bool SecCKKSEnableEnforceManifests(void) {
     CKKSEnforceManifests = true;
     return CKKSEnforceManifests;
 }
@@ -440,7 +440,7 @@ void SecCKKSNotifyBlock(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, 
 #endif
 }
 
-void SecCKKS24hrNotification() {
+void SecCKKS24hrNotification(void) {
 #if OCTAGON
     @autoreleasepool {
         [[CKKSViewManager manager] xpc24HrNotification];
@@ -459,7 +459,7 @@ void CKKSRegisterSyncStatusCallback(CFStringRef cfuuid, SecBoolCFErrorCallback c
 #endif
 }
 
-void SecCKKSPerformLocalResync() {
+void SecCKKSPerformLocalResync(void) {
 #if OCTAGON
     if(SecCKKSIsEnabled()) {
         ckksnotice_global("reset", "Local keychain was reset; performing local resync");

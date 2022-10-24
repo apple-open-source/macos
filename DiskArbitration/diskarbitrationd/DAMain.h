@@ -46,6 +46,7 @@ extern Boolean                gDAExit;
 extern CFMutableArrayRef      gDAFileSystemList;
 extern CFMutableArrayRef      gDAFileSystemProbeList;
 extern Boolean                gDAIdle;
+extern Boolean                gDAIdleTimerRunning;
 extern io_iterator_t          gDAMediaAppearedNotification;
 extern io_iterator_t          gDAMediaDisappearedNotification;
 extern IONotificationPortRef  gDAMediaPort;
@@ -59,6 +60,7 @@ extern CFMutableArrayRef      gDARequestList;
 extern CFMutableArrayRef      gDAResponseList;
 extern CFMutableArrayRef      gDASessionList;
 extern CFMutableDictionaryRef gDAUnitList;
+extern Boolean                gDAUnlockedState;
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2005-2007, 2009-2012, 2014, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005-2007, 2009-2012, 2014, 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,10 +36,19 @@
 
 #include <sys/cdefs.h>
 #include <os/availability.h>
-#include <TargetConditionals.h>
 
 #define DISPATCH_MACH_SPI 1
 #include <dispatch/private.h>
+
+/*
+ * SCDynamicStore read no-fault entitlement
+ *
+ *   Key   : "com.apple.SystemConfiguration.SCDynamicStore-read-no-fault"
+ *   Value : Boolean
+ *             TRUE == do not issue a fault (or simulated crash) if a read
+ *		       operation is denied due to a missing entitlement
+ */
+#define kSCReadNoFaultEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-read-no-fault")
 
 /*
  * SCDynamicStore write access entitlement
@@ -58,6 +67,16 @@
  *                     each SCDynamicStore key matching the regex pattern(s)
  */
 #define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
+
+/*
+ * SCDynamicStore write no-fault entitlement
+ *
+ *   Key   : "com.apple.SystemConfiguration.SCDynamicStore-write-no-fault"
+ *   Value : Boolean
+ *             TRUE == do not issue a fault (or simulated crash) if a write
+ *		       operation is denied due to a missing entitlement
+ */
+#define kSCWriteNoFaultEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-no-fault")
 
 /* Per client server state */
 typedef struct {
@@ -84,16 +103,37 @@ typedef struct {
 	audit_token_t		auditToken;
 
 	/*
-	 * write access entitlement associated with this "open" session
+	 * entitlements associated with this "open" session
 	 *
-	 *   kCFNull		caller entitlements unknown (need to fetch)
-	 *   NULL		no entitlement
-	 *   CFBoolean		true/false
-	 *   CFDictionary	"keys"     = CFArray[writable keys]
-	 *			"patterns" = CFArray[writable patterns]
+	 * Note: the dictionary key is the entitlement name.  A
+	 *       value of kCFNull indicates that the entitlement
+	 *       does not exist for the session.
 	 */
-	CFTypeRef		callerWriteEntitlement;
+	CFMutableDictionaryRef	entitlements;
 
+	/*
+	 * isBackgroundAssetExtension
+	 * - NULL means we haven't checked yet
+	 * - kCFBooleanTrue/kCFBooleanFalse otherwise
+	 * - not retained
+	 */
+	CFBooleanRef		isBackgroundAssetExtension;
+
+	/*
+	 * isPlatformBinary
+	 * - NULL means we haven't checked yet
+	 * - kCFBooleanTrue/kCFBooleanFalse otherwise
+	 * - not retained
+	 */
+	CFBooleanRef		isPlatformBinary;
+
+	/*
+	 * isSystemProcess
+	 * - NULL means we haven't checked yet
+	 * - kCFBooleanTrue/kCFBooleanFalse otherwise
+	 * - not retained
+	 */
+	CFBooleanRef		isSystemProcess;
 } serverSession, *serverSessionRef;
 
 __BEGIN_DECLS
@@ -109,10 +149,6 @@ serverSessionRef	getSessionNum	(CFNumberRef	serverKey);
 
 serverSessionRef	getSessionStr	(CFStringRef	serverKey);
 
-serverSessionRef	tempSession	(mach_port_t	server,
-					 CFStringRef	name,
-					 audit_token_t	auditToken);
-
 void			cleanupSession	(serverSessionRef	session);
 
 void			closeSession	(serverSessionRef	session);
@@ -121,8 +157,11 @@ void			listSessions	(FILE		*f);
 
 Boolean			hasRootAccess	(serverSessionRef	session);
 
-Boolean			hasWriteAccess	(serverSessionRef	session,
-					 const char		*op,
+int			checkReadAccess	(serverSessionRef	session,
+					 CFStringRef		key,
+					 CFDictionaryRef	controls);
+
+int			checkWriteAccess(serverSessionRef	session,
 					 CFStringRef		key);
 
 __END_DECLS

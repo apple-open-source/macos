@@ -674,6 +674,7 @@ ___strlcat_chk
 ___strlcpy_chk
 ___strncat_chk
 ___strncpy_chk
+__os_log_at_time
 __os_log_default
 __os_log_internal
 _adler32

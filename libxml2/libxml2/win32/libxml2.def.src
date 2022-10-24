@@ -945,6 +945,7 @@ xmlHashAddEntry3
 xmlHashCopy
 xmlHashCreate
 xmlHashCreateDict
+xmlHashDefaultDeallocator
 xmlHashFree
 xmlHashLookup
 xmlHashLookup2
@@ -1409,6 +1410,7 @@ xmlPatterncompile
 xmlPedanticParserDefault
 xmlPopInput
 xmlPopInputCallbacks
+xmlPopOutputCallbacks
 xmlPreviousElementSibling
 xmlPrintURI
 xmlPushInput

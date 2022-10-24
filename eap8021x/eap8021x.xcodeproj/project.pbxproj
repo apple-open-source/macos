@@ -85,12 +85,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		440EC83627E9014F00F753D6 /* MIBConfigurationAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 440EC83527E9014F00F753D6 /* MIBConfigurationAccess.m */; };
 		44217424207948F200646F75 /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		4423D5752187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
 		4423D5762187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
 		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
-		442573372500525B0098083A /* WiFi.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 442573352500525B0098083A /* WiFi.tiff */; };
-		442573382500525B0098083A /* Network.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 442573362500525B0098083A /* Network.tiff */; };
 		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8F82280B86A00CBCB24 /* libbsm.dylib */; };
 		4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */; };
@@ -105,11 +104,12 @@
 		44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44B18DC71CC8319D000227D6 /* com.apple.eapol.plist in copy os_log subsystem plist */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
 		44B18DC91CC831D0000227D6 /* com.apple.eapol.plist in Copy Files (1 item) */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
-		44B2B61E20AE6A480060E361 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 44B2B61D20AE6A480060E361 /* libio80211.a */; };
 		44B4EB7324633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
 		44B4EB7424633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
 		44D554A22065727300681A0F /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44D554A4206573D400681A0F /* SIMAccessPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D554A3206573D400681A0F /* SIMAccessPrivate.h */; };
+		44D5921B27F7AA8A002FF958 /* IO80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D5921A27F7AA8A002FF958 /* IO80211.framework */; };
+		44D5921D27FB4EA4002FF958 /* IO80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D5921C27FB4EA4002FF958 /* IO80211.framework */; };
 		44EAF9E225DA600300817560 /* AppSSOProviderAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44EC34221D130EC000E1886A /* EAPOLSIMPrefsManage.c in Sources */ = {isa = PBXBuildFile; fileRef = 44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */; };
 		44EC34231D130EC000E1886A /* EAPOLSIMPrefsManage.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44EC34211D130EC000E1886A /* EAPOLSIMPrefsManage.h */; };
@@ -137,7 +137,6 @@
 		F90FEE6D0CA3342D00A7B5A8 /* eapolcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B900C8F7F98000EA394 /* eapolcontroller.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		F90FEE6F0CA3342D00A7B5A8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F90FEE700CA3342D00A7B5A8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
-		F91546660CD78EA1008D9897 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F91546650CD78EA1008D9897 /* libio80211.a */; };
 		F915472C0CD78FA7008D9897 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2D0C8F7F06000EA394 /* EAPClientModule.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		F915472D0CD78FA7008D9897 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B270C8F7F06000EA394 /* DiameterAVP.h */; settings = {ATTRIBUTES = (); }; };
 		F915472E0CD78FA7008D9897 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B410C8F7F06000EA394 /* EAPTLS.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -231,6 +230,7 @@
 		F952CB590D5A72CE00ED1EFD /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B8A0C8F7F80000EA394 /* client.c */; };
 		F952CB5B0D5A72CE00ED1EFD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F952CB5C0D5A72CE00ED1EFD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		F95DEDEE26F1A3510080AA19 /* MobileKeyBag.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F95DEDED26F1A3500080AA19 /* MobileKeyBag.framework */; };
 		F960448810D1A528000D803D /* EAPOLClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448510D1A528000D803D /* EAPOLClientConfiguration.c */; };
 		F960448910D1A528000D803D /* EAPOLClientItemID.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448610D1A528000D803D /* EAPOLClientItemID.c */; };
 		F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448710D1A528000D803D /* EAPOLClientProfile.c */; };
@@ -503,10 +503,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		440EC83527E9014F00F753D6 /* MIBConfigurationAccess.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MIBConfigurationAccess.m; sourceTree = "<group>"; };
+		440EC83727E9015D00F753D6 /* MIBConfigurationAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MIBConfigurationAccess.h; sourceTree = "<group>"; };
 		4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPClientPluginIntrospect.h; sourceTree = "<group>"; };
 		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
-		442573352500525B0098083A /* WiFi.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = WiFi.tiff; sourceTree = "<group>"; };
-		442573362500525B0098083A /* Network.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tiff; sourceTree = "<group>"; };
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		4461C8F82280B86A00CBCB24 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
 		4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
@@ -519,10 +519,11 @@
 		44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = eapolcfg_auth.8; sourceTree = "<group>"; };
 		44980A3C1ABB93B200B76F01 /* sim_simulator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sim_simulator.c; sourceTree = "<group>"; };
 		44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = com.apple.eapol.plist; sourceTree = "<group>"; };
-		44B2B61D20AE6A480060E361 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/usr/local/lib/libio80211.a; sourceTree = DEVELOPER_DIR; };
 		44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPTLSTrustExceptionUtil.c; sourceTree = "<group>"; };
 		44D554A12065727300681A0F /* SIMAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SIMAccess.m; sourceTree = "<group>"; };
 		44D554A3206573D400681A0F /* SIMAccessPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SIMAccessPrivate.h; sourceTree = "<group>"; };
+		44D5921A27F7AA8A002FF958 /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = /System/Library/PrivateFrameworks/IO80211.framework; sourceTree = "<absolute>"; };
+		44D5921C27FB4EA4002FF958 /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = /System/Library/PrivateFrameworks/IO80211.framework; sourceTree = "<absolute>"; };
 		44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppSSOProviderAccess.m; sourceTree = "<group>"; };
 		44EAF9E325DA601600817560 /* AppSSOProviderAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSSOProviderAccess.h; sourceTree = "<group>"; };
 		44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLSIMPrefsManage.c; sourceTree = "<group>"; };
@@ -536,7 +537,6 @@
 		F90640080EF17BF8003227D9 /* fr_sha1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fr_sha1.h; sourceTree = "<group>"; };
 		F90FEE5B0CA3338A00A7B5A8 /* eapolclient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolclient; sourceTree = BUILT_PRODUCTS_DIR; };
 		F90FEE740CA3342D00A7B5A8 /* EAPOLController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EAPOLController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F91546650CD78EA1008D9897 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = SDKs/Extra/usr/local/lib/libio80211.a; sourceTree = DEVELOPER_DIR; };
 		F91547640CD78FA7008D9897 /* EAP8021X.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = EAP8021X.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F917D2F90F1E679500E37956 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/PrivateFrameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		F91F7B220C8F7F06000EA394 /* chap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = chap.c; sourceTree = "<group>"; };
@@ -637,6 +637,7 @@
 		F94E3F800F6729190061BC58 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLControlPrivate.h; sourceTree = "<group>"; };
 		F952CB610D5A72CE00ED1EFD /* eapoltest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapoltest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F95DEDED26F1A3500080AA19 /* MobileKeyBag.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileKeyBag.framework; path = /System/Library/PrivateFrameworks/MobileKeyBag.framework; sourceTree = DEVELOPER_DIR; };
 		F960448510D1A528000D803D /* EAPOLClientConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientConfiguration.c; sourceTree = "<group>"; };
 		F960448610D1A528000D803D /* EAPOLClientItemID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientItemID.c; sourceTree = "<group>"; };
 		F960448710D1A528000D803D /* EAPOLClientProfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientProfile.c; sourceTree = "<group>"; };
@@ -680,12 +681,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44D5921D27FB4EA4002FF958 /* IO80211.framework in Frameworks */,
 				447011B325DB1260007F7D25 /* AppSSO.framework in Frameworks */,
 				F90FEE540CA3338A00A7B5A8 /* EAP8021X.framework in Frameworks */,
 				F90FEE550CA3338A00A7B5A8 /* Security.framework in Frameworks */,
 				F90FEE560CA3338A00A7B5A8 /* CoreFoundation.framework in Frameworks */,
 				F90FEE570CA3338A00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
-				F91546660CD78EA1008D9897 /* libio80211.a in Frameworks */,
 				F930DECD12024F8200316A23 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -700,6 +701,7 @@
 				F90FEE6F0CA3342D00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
 				F90FEE700CA3342D00A7B5A8 /* CoreFoundation.framework in Frameworks */,
 				F925AB3410F7FC0B002AC2E5 /* EAP8021X.framework in Frameworks */,
+				F95DEDEE26F1A3510080AA19 /* MobileKeyBag.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -773,7 +775,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				44B2B61E20AE6A480060E361 /* libio80211.a in Frameworks */,
+				44D5921B27F7AA8A002FF958 /* IO80211.framework in Frameworks */,
 				F98E42EE19017FB600DE4397 /* CoreWLAN.framework in Frameworks */,
 				F98E42EF19017FB600DE4397 /* Foundation.framework in Frameworks */,
 				F9B7FC620C95CE4C00BBD057 /* EAP8021X.framework in Frameworks */,
@@ -812,10 +814,12 @@
 		449213AA1D12062700D8FB30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F95DEDED26F1A3500080AA19 /* MobileKeyBag.framework */,
+				44D5921A27F7AA8A002FF958 /* IO80211.framework */,
+				44D5921C27FB4EA4002FF958 /* IO80211.framework */,
 				447011B225DB125F007F7D25 /* AppSSO.framework */,
 				4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */,
 				4461C8F82280B86A00CBCB24 /* libbsm.dylib */,
-				44B2B61D20AE6A480060E361 /* libio80211.a */,
 				447D07312076C867006B90C4 /* Foundation.framework */,
 				4445AE4320659AD40051CCCD /* CoreTelephony.framework */,
 				442403301DA86E6E0041C533 /* MobileWiFi.framework */,
@@ -1017,8 +1021,6 @@
 		F91F7B9A0C8F8450000EA394 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				442573362500525B0098083A /* Network.tiff */,
-				442573352500525B0098083A /* WiFi.tiff */,
 				F9D5E2CC0C9614E9004C0066 /* Info.plist */,
 				F91F7B5F0C8F7F2C000EA394 /* Localizable.strings */,
 			);
@@ -1047,6 +1049,7 @@
 		F91F7B9D0C8F84A7000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				440EC83527E9014F00F753D6 /* MIBConfigurationAccess.m */,
 				44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */,
 				F98E42EA19017F4900DE4397 /* wireless.m */,
 				F94E3F730F6706420061BC58 /* InterestNotification.c */,
@@ -1067,6 +1070,7 @@
 		F91F7B9E0C8F84B1000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				440EC83727E9015D00F753D6 /* MIBConfigurationAccess.h */,
 				44EAF9E325DA601600817560 /* AppSSOProviderAccess.h */,
 				F94E3F750F6706510061BC58 /* InterestNotification.h */,
 				F91F7B6F0C8F7F55000EA394 /* Alert.h */,
@@ -1148,7 +1152,6 @@
 		F9B0E0470C95BFF600323767 /* External Frameworks And Libraries */ = {
 			isa = PBXGroup;
 			children = (
-				F91546650CD78EA1008D9897 /* libio80211.a */,
 				F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */,
 				F9FE9C6A0C92234E0004CCD4 /* Security.framework */,
 				F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */,
@@ -1547,9 +1550,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				442573382500525B0098083A /* Network.tiff in Resources */,
 				F9F374A80CC579D400AF6F0B /* Localizable.strings in Resources */,
-				442573372500525B0098083A /* WiFi.tiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1582,6 +1583,7 @@
 				F90FEE480CA3338A00A7B5A8 /* main.c in Sources */,
 				F90FEE490CA3338A00A7B5A8 /* Supplicant.c in Sources */,
 				F90FEE4A0CA3338A00A7B5A8 /* Timer.c in Sources */,
+				440EC83627E9014F00F753D6 /* MIBConfigurationAccess.m in Sources */,
 				F90FEE4B0CA3338A00A7B5A8 /* FDHandler.c in Sources */,
 				F90FEE4D0CA3338A00A7B5A8 /* EAPOLSocket.c in Sources */,
 				F90FEE4E0CA3338A00A7B5A8 /* KeyValue.c in Sources */,
@@ -1954,6 +1956,12 @@
 				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					MobileInBoxUpdate,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = "";
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1985,6 +1993,12 @@
 				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					MobileInBoxUpdate,
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = "";
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (

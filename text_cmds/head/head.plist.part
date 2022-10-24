@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-18</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Check ferror (6555390).</string>
+		<string>head.c: remove capsicum support</string>
+		<string>head.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>head</string>
+	<key>OpenSourceVersion</key>
+	<string>2019-12-11</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/head/</string>
+</dict>

@@ -28,16 +28,20 @@
 #import "IOHIDIUnknown2.h"
 #import <IOKit/hid/IOHIDDevicePlugIn.h>
 #import <IOKit/IODataQueueShared.h>
+#import <os/lock_private.h>
 #import "IOHIDDeviceClass.h"
 
 @interface IOHIDQueueClass : IOHIDIUnknown2 {
     IOHIDDeviceQueueInterface   *_queue;
     __weak IOHIDDeviceClass     *_device;
     
+    os_unfair_lock_t            _queueLock;
+
     mach_port_t                 _port;
     CFMachPortRef               _machPort;
     CFRunLoopSourceRef          _runLoopSource;
     
+    IOHIDQueueHeader            *_queueHeader;
     IODataQueueMemory           *_queueMemory;
     vm_size_t                   _queueMemorySize;
     bool                        _queueSizeChanged;
@@ -68,6 +72,8 @@
                   msg:(mach_msg_header_t * _Nonnull)msg
                  size:(CFIndex)size
                  info:(void * _Nullable)info;
+
+- (void)signalQueueEmpty;
 
 @end;
 

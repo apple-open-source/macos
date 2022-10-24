@@ -26,15 +26,14 @@
 [
     Conditional=SERVICE_WORKER,
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
-    ImplementationLacksVTable,
     LegacyNoInterfaceObject,
 ] interface ServiceWorkerInternals {
     undefined setOnline(boolean isOnline);
     undefined terminate();
 
     Promise<FetchResponse> waitForFetchEventToFinish(FetchEvent event);
-    [CallWith=ScriptExecutionContext] FetchEvent createBeingDispatchedFetchEvent();
-    [CallWith=ScriptExecutionContext] FetchResponse createOpaqueWithBlobBodyResponse();
+    [CallWith=CurrentScriptExecutionContext] FetchEvent createBeingDispatchedFetchEvent();
+    [CallWith=CurrentScriptExecutionContext] FetchResponse createOpaqueWithBlobBodyResponse();
 
     sequence<ByteString> fetchResponseHeaderList(FetchResponse response);
 
@@ -51,4 +50,8 @@
     PushSubscription createPushSubscription(USVString endpoint, EpochTimeStamp? expirationTime, ArrayBuffer serverVAPIDPublicKey, ArrayBuffer clientECDHPublicKey, ArrayBuffer auth);
 
     boolean fetchEventIsSameSite(FetchEvent event);
+
+    DOMString serviceWorkerClientInternalIdentifier(ServiceWorkerClient client);
+
+    undefined setAsInspected(boolean isInspected);
 };

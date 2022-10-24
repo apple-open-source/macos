@@ -45,6 +45,7 @@
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 #include <dispatch/dispatch.h>
+#include <notify.h>
 #include <sys/stat.h>
 
 #include "keychain/securityd/SecItemSchema.h"
@@ -354,6 +355,7 @@ static void SecDbTestCorruptionHandler(void)
     }
 }
 
+
 - (void)testInetBinaryFields {
     NSData* note = [@"OBVIOUS_NOTES_DATA" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* history = [@"OBVIOUS_HISTORY_DATA" dataUsingEncoding:NSUTF8StringEncoding];
@@ -536,6 +538,30 @@ static void SecDbTestCorruptionHandler(void)
 
     CFReleaseNull(error);
     free(der);
+}
+
+- (void)testEarlyMilleniumDates {
+    // 0005-08-06 07:58:58 +0000
+    NSDate* date = [NSDate dateWithTimeIntervalSinceReferenceDate:-62969068861+0.123456789];
+    CFAbsoluteTime dateAbs = CFDateGetAbsoluteTime((__bridge CFDateRef)date);
+
+    CFErrorRef error = NULL;
+    size_t plistSize = der_sizeof_plist((__bridge CFDateRef)date, &error);
+    XCTAssert(error == NULL);
+    XCTAssertGreaterThan(plistSize, 0);
+
+    uint8_t* der = calloc(1, plistSize);
+    uint8_t* der_end = der + plistSize;
+    uint8_t* encoderesult = der_encode_plist_repair((__bridge CFDateRef)date, &error, true, der, der_end);
+    XCTAssert(error == NULL);
+    XCTAssertEqual(der, encoderesult);
+
+    CFPropertyListRef decoded = NULL;
+    const uint8_t* decoderesult = der_decode_plist(NULL, &decoded, &error, der, der_end);
+    XCTAssertEqual(der_end, decoderesult);
+    XCTAssertEqual(CFGetTypeID(decoded), CFDateGetTypeID());
+
+    XCTAssertEqual(CFDateGetAbsoluteTime(decoded), dateAbs);
 }
 
 // When this test starts failing, hopefully rdar://problem/60332379 got fixed
@@ -931,8 +957,6 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(return_uuid);
     CFReleaseNull(uuid);
     CFReleaseNull(pref);
-
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
 - (void)testSecItemAddAndCopyMatchingWithUUIDPersistentRefs
@@ -1006,8 +1030,6 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(return_uuid);
     CFReleaseNull(second_return_uuid);
     CFReleaseNull(result);
-
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
 - (void)testSecItemCopyMatchingDoesNotReturnPersistRefs
@@ -1043,7 +1065,6 @@ static void SecDbTestCorruptionHandler(void)
     CFDataRef uuid = CFDictionaryGetValue(result, v10itempersistentref.name);
     XCTAssertNil((__bridge id)uuid, "uuid should be nil");
     CFReleaseNull(persistRef);
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
 - (void)testKeychainItemUpgradePhase3
@@ -1182,7 +1203,6 @@ static void SecDbTestCorruptionHandler(void)
         XCTFail("Expected SecItemCopyMatching to return an Array of 3 items, instead returned: %@", result);
     }
     
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
     CFReleaseNull(oldStylePersistRef1);
     CFReleaseNull(oldStylePersistRef3);
     CFReleaseNull(uuidStylePersistRef);
@@ -1618,8 +1638,6 @@ static void SecDbTestCorruptionHandler(void)
             return (bool)true;
         });
     });
-
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
 - (void)testSecItemFetchDigestsWithUUIDPrefs
@@ -1696,8 +1714,6 @@ static void SecDbTestCorruptionHandler(void)
 
         XCTAssertNil(error, "error should be nil");
     });
-
-    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
 static NSString *certDataBase64 = @"\
@@ -1891,8 +1907,84 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     CheckIdentityItem(@"com.apple.security.ckks", errSecItemNotFound);
     CheckIdentityItem(@"com.apple.lakitu", errSecItemNotFound);
+}
 
+- (void)testSecItemUpdateUpgradesPersistentReference
+{
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+
+    NSDictionary* addQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                (id)kSecValueData : [@"uuid" dataUsingEncoding:NSUTF8StringEncoding],
+                                (id)kSecAttrAccount : @"testKeychainItemUpgradePhase3Account1",
+                                (id)kSecAttrService : @"TestUUIDPersistentRefService",
+                                (id)kSecUseDataProtectionKeychain : @(YES),
+                                (id)kSecReturnAttributes : @(YES),
+                                (id)kSecReturnPersistentRef : @(YES)
+    };
+
+    
+    CFTypeRef result = NULL;
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    CFDataRef oldStylePersistRef = CFRetainSafe(CFDictionaryGetValue(result, kSecValuePersistentRef));
+    XCTAssertNotNil((__bridge id)oldStylePersistRef, @"oldStylePersistRef should not be nil");
+    XCTAssertTrue(CFDataGetLength(oldStylePersistRef) == 12, "oldStylePersistRef should be 12 bytes long");
+    CFReleaseNull(result);
+    CFReleaseNull(oldStylePersistRef);
+
+    SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
+
+    NSMutableDictionary* updateQuery = [addQuery mutableCopy];
+    [updateQuery removeObjectForKey:(id)kSecReturnAttributes];
+    [updateQuery removeObjectForKey:(id)kSecReturnPersistentRef];
+
+    NSMutableDictionary *attributesToUpdate = [updateQuery mutableCopy];
+    [attributesToUpdate removeObjectForKey:(id)kSecClass];
+    [attributesToUpdate addEntriesFromDictionary:@{
+        (id)kSecAttrService: @"am_a_service",
+        (id)kSecValueData: [@"updated uuid" dataUsingEncoding:NSUTF8StringEncoding],
+    }];
+    
+    // updating an item that does not have a persistent reference should gain one after the update completes
+    XCTAssertEqual(SecItemUpdate((__bridge CFDictionaryRef)updateQuery, (__bridge CFDictionaryRef)attributesToUpdate), errSecSuccess, @"SecItemUpdate should have succeeded");
+    
+    NSMutableDictionary *findQuery = [attributesToUpdate mutableCopy];
+    findQuery[(id)kSecClass] = (id)kSecClassGenericPassword;
+    findQuery[(id)kSecReturnAttributes] = @(YES);
+    findQuery[(id)kSecReturnPersistentRef] = @(YES);
+    
+    CFTypeRef item = NULL;
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &item), errSecSuccess, @"SecItemCopyMatching should have succeeded");
+    XCTAssertNotNil((__bridge id)item, "item should not be nil");
+    XCTAssertTrue(isDictionary(item), "item should be a dictionary");
+    CFDataRef foundPref = CFRetainSafe(CFDictionaryGetValue(item, kSecValuePersistentRef));
+    XCTAssertTrue(CFDataGetLength(foundPref) == 20, "persistent ref length should be 20");
+    CFReleaseNull(item);
+    
+    // now let's be sure that an item with an existing persistent reference doesn't get overwritten
+    updateQuery[(id)kSecAttrService] = findQuery[(id)kSecAttrService];
+    
+    [attributesToUpdate addEntriesFromDictionary:@{
+        (id)kSecAttrService: @"service",
+        (id)kSecValueData: [@"replaced uuid" dataUsingEncoding:NSUTF8StringEncoding],
+    }];
+    
+    XCTAssertEqual(SecItemUpdate((__bridge CFDictionaryRef)updateQuery, (__bridge CFDictionaryRef)attributesToUpdate), errSecSuccess, @"SecItemUpdate should have succeeded");
+    
+    findQuery[(id)kSecAttrService] = attributesToUpdate[(id)kSecAttrService];
+    findQuery[(id)kSecValueData] = attributesToUpdate[(id)kSecValueData];
+    
+    CFTypeRef item2 = NULL;
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &item), errSecSuccess, @"SecItemCopyMatching should have succeeded");
+    XCTAssertNotNil((__bridge id)item, "item should not be nil");
+    XCTAssertTrue(isDictionary(item), "item should be a dictionary");
+    CFDataRef foundPref2 = CFDictionaryGetValue(item, kSecValuePersistentRef);
+    XCTAssertTrue(CFDataGetLength(foundPref2) == 20, "persistent ref length should be 20");
+    XCTAssertEqualObjects((__bridge NSData*)foundPref, (__bridge NSData*)foundPref2, "these persistent refs should be equal");
+    CFReleaseNull(item2);
+    CFReleaseNull(foundPref);
 }
 
 -(void)testCopyAccessGroupForPersistentRef
@@ -1938,6 +2030,246 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     XCTAssertTrue(isDictionary(item), "item should be a dictionary");
     CFDataRef foundPref = CFDictionaryGetValue(item, kSecValuePersistentRef);
     XCTAssertEqualObjects((__bridge NSData*)pref1, (__bridge NSData*)foundPref, @"persistent refs should be equal");
+}
+
+- (void)testDeleteItemsOnSignOut {
+    NSArray *allowedAccessGroups = @[
+        @"com.apple.cfnetwork",
+        @"com.apple.safari.credit-cards",
+        @"com.apple.password-manager",
+        @"com.apple.other.agrp",
+        @"com.apple.webkit.webauthn",
+    ];
+    SecurityClient client = {
+        .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
+    };
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.safari.credit-cards",
+        (id)kSecAttrAccount: @"account1",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert Internet password to remove");
+
+    // Items in this access group aren't removed on sign out.
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.other.agrp",
+        (id)kSecAttrAccount: @"account2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert Internet password to keep");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+        (id)kSecAttrService: @"service1",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+        (id)kSecAttrService: @"service2",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert second generic password to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert certificate to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+        (id)kSecAttrLabel: @"origin.example.com",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert first key to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.webkit.webauthn",
+        (id)kSecAttrLabel: @"origin.example.com",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert second key to remove");
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+
+    {
+        dispatch_queue_t notificationQueue = dispatch_queue_create("com.apple.security.secdxctests.KeychainAPITests.testDeleteItemsOnSignOut", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        dispatch_group_t notificationGroup = dispatch_group_create();
+        __auto_type notificationBlock = ^(int token) {
+            dispatch_group_leave(notificationGroup);
+            notify_cancel(token);
+        };
+
+        int keychainChangedNotificationToken = NOTIFY_TOKEN_INVALID;
+        notify_register_dispatch(kSecServerKeychainChangedNotification, &keychainChangedNotificationToken, notificationQueue, notificationBlock);
+        dispatch_group_enter(notificationGroup);
+
+        // rdar://94321820: Password Manager uses this SOS view change
+        // notification to update its UI, instead of the Keychain
+        // changed notification (rdar://32744057). See rdar://89843653
+        // for a related issue with the same cause.
+        int passwordsViewChangeNotificationToken = NOTIFY_TOKEN_INVALID;
+        notify_register_dispatch("com.apple.security.view-change.Passwords", &passwordsViewChangeNotificationToken, notificationQueue, notificationBlock);
+        dispatch_group_enter(notificationGroup);
+
+        CFErrorRef rawError = NULL;
+        XCTAssertTrue(_SecDeleteItemsOnSignOut(&client, &rawError), "Should remove items on sign out");
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertNil(error, "Should not return error for removing items on sign out");
+
+        XCTAssertTrue(!dispatch_group_wait(notificationGroup, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), "Should fire Keychain changed and view change notifications for removed items within 5 seconds");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.safari.credit-cards",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all credit cards");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed first generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassGenericPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed second generic password");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.webkit.webauthn",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all WebAuthn keys");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        CFErrorRef rawError = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassCertificate,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.cfnetwork",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, &rawError);
+        NSError *error = CFBridgingRelease(rawError);
+        XCTAssertFalse(ok, "Should have removed all certificates");
+        XCTAssertEqual(error.code, errSecItemNotFound);
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassInternetPassword,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.other.agrp",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept one Internet password");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"account2");
+    }
+
+    {
+        CFTypeRef rawResult = NULL;
+        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+            (id)kSecAttrAccessGroup: @"com.apple.password-manager",
+
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+            (id)kSecReturnAttributes: @YES,
+        }, &client, &rawResult, NULL);
+        XCTAssertTrue(ok, "Should have kept unsynced key");
+        NSArray *result = CFBridgingRelease(rawResult);
+        XCTAssertEqual(result.count, 1);
+        XCTAssertEqualObjects(result.firstObject[(id)kSecAttrLabel], @"origin.example.net");
+    }
 }
 
 @end

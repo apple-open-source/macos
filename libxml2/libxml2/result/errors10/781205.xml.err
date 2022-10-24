@@ -1,21 +1,17 @@
-Entity: line 1: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+./test/errors10/781205.xml:3: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
 
- %a; 
-    ^
+  %a;
+     ^
 Entity: line 1: 
 <:0000
 ^
-Entity: line 1: parser error : DOCTYPE improperly terminated
- %a; 
-    ^
-Entity: line 1: 
-<:0000
+./test/errors10/781205.xml:4: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+
 ^
-namespace error : Failed to parse QName ':0000'
- %a; 
-    ^
-<:0000
-      ^
-./test/errors10/781205.xml:4: parser error : Start tag doesn't start and stop in the same entity
+./test/errors10/781205.xml:4: parser error : DOCTYPE improperly terminated
+
+^
+./test/errors10/781205.xml:4: parser error : Start tag expected, '<' not found
 
 ^

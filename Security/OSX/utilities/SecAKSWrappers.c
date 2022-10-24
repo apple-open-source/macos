@@ -42,13 +42,6 @@
 #  error "unsupported target platform"
 #endif
 
-#if TARGET_OS_OSX && TARGET_HAS_KEYSTORE
-// OS X
-const keybag_handle_t keybagHandle = session_keybag_handle;
-#elif TARGET_HAS_KEYSTORE                                                         // iOS, but not simulator
-const keybag_handle_t keybagHandle = device_keybag_handle;
-#endif
-
 #if TARGET_HAS_KEYSTORE
 const AKSAssertionType_t lockAssertType = kAKSAssertTypeOther;
 #endif
@@ -62,7 +55,7 @@ static uint32_t count = 0;
 #endif
 const char * const kUserKeybagStateChangeNotification = change_notification;
 
-bool SecAKSUserKeybagHoldLockAssertion(uint64_t timeout, CFErrorRef *error){
+bool SecAKSKeybagHoldLockAssertion(keybag_handle_t handle, uint64_t timeout, CFErrorRef *error){
 #if !TARGET_HAS_KEYSTORE
     return true;
 #else
@@ -71,7 +64,7 @@ bool SecAKSUserKeybagHoldLockAssertion(uint64_t timeout, CFErrorRef *error){
     dispatch_sync(GetKeybagAssertionQueue(), ^{
         if (count == 0) {
             secnotice("lockassertions", "Requesting lock assertion for %lld seconds", timeout);
-            status = aks_assert_hold(keybagHandle, lockAssertType, timeout);
+            status = aks_assert_hold(handle, lockAssertType, timeout);
         }
 
         if (status == kAKSReturnSuccess)
@@ -81,7 +74,7 @@ bool SecAKSUserKeybagHoldLockAssertion(uint64_t timeout, CFErrorRef *error){
 #endif /* !TARGET_HAS_KEYSTORE */
 }
 
-bool SecAKSUserKeybagDropLockAssertion(CFErrorRef *error){
+bool SecAKSKeybagDropLockAssertion(keybag_handle_t handle, CFErrorRef *error){
 #if !TARGET_HAS_KEYSTORE
     return true;
 #else
@@ -90,14 +83,14 @@ bool SecAKSUserKeybagDropLockAssertion(CFErrorRef *error){
     dispatch_sync(GetKeybagAssertionQueue(), ^{
         if (count && (--count == 0)) {
             secnotice("lockassertions", "Dropping lock assertion");
-            status = aks_assert_drop(keybagHandle, lockAssertType);
+            status = aks_assert_drop(handle, lockAssertType);
         }
     });
 
     return SecKernError(status, error, CFSTR("Kern return error"));
 #endif /* !TARGET_HAS_KEYSTORE */
 }
-bool SecAKSDoWithUserBagLockAssertion(CFErrorRef *error, dispatch_block_t action)
+bool SecAKSDoWithKeybagLockAssertion(keybag_handle_t handle, CFErrorRef *error, dispatch_block_t action)
 {
 #if !TARGET_HAS_KEYSTORE
     action();
@@ -107,15 +100,15 @@ bool SecAKSDoWithUserBagLockAssertion(CFErrorRef *error, dispatch_block_t action
 
     bool status = false;
     uint64_t timeout = 60ull;
-    if (SecAKSUserKeybagHoldLockAssertion(timeout, error)) {
+    if (SecAKSKeybagHoldLockAssertion(handle, timeout, error)) {
         action();
-        status = SecAKSUserKeybagDropLockAssertion(error);
+        status = SecAKSKeybagDropLockAssertion(handle, error);
     }
     return status;
 #endif  /* !TARGET_HAS_KEYSTORE */
 }
 
-bool SecAKSDoWithUserBagLockAssertionSoftly(dispatch_block_t action)
+bool SecAKSDoWithKeybagLockAssertionSoftly(keybag_handle_t handle, dispatch_block_t action)
 {
 #if !TARGET_HAS_KEYSTORE
     action();
@@ -124,16 +117,16 @@ bool SecAKSDoWithUserBagLockAssertionSoftly(dispatch_block_t action)
     uint64_t timeout = 60ull;
     CFErrorRef localError = NULL;
 
-    bool heldAssertion = SecAKSUserKeybagHoldLockAssertion(timeout, &localError);
+    bool heldAssertion = SecAKSKeybagHoldLockAssertion(handle, timeout, &localError);
     if (!heldAssertion) {
-        secnotice("secaks", "SecAKSDoWithUserBagLockAssertionSoftly: failed to get assertion proceeding bravely: %@", localError);
+        secnotice("secaks", "SecAKSDoWithKeybagLockAssertionSoftly: failed to get assertion for %d proceeding bravely: %@", handle, localError);
         CFReleaseNull(localError);
     }
 
     action();
 
     if (heldAssertion) {
-        (void)SecAKSUserKeybagDropLockAssertion(&localError);
+        (void)SecAKSKeybagDropLockAssertion(handle, &localError);
         CFReleaseNull(localError);
     }
     return true;

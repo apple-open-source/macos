@@ -267,7 +267,7 @@ static void String_clear(DOH *so) {
 
 static int String_insert(DOH *so, int pos, DOH *str) {
   String *s;
-  char *nstr;
+  __unused char *nstr;
   int len;
   char *data;
 
@@ -455,7 +455,7 @@ static int String_seek(DOH *so, long offset, int whence) {
   } else
     pos = s->sp;
 
-  nsp = pos + offset;
+  nsp = pos + (int) offset;
   if (nsp < 0)
     nsp = 0;
   if (s->len > 0 && nsp > s->len)
@@ -674,7 +674,7 @@ static int replace_simple(String *str, char *token, char *rep, int flags, int co
     return 0;
 
   base = str->str;
-  tokenlen = strlen(token);
+  tokenlen = (int) strlen(token);
   s = (*match) (base, base, token, tokenlen);
 
   if (!s)
@@ -711,7 +711,7 @@ static int replace_simple(String *str, char *token, char *rep, int flags, int co
   }
 
   first = s;
-  replen = strlen(rep);
+  replen = (int) strlen(rep);
 
   delta = (replen - tokenlen);
 

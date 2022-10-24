@@ -153,7 +153,7 @@ OPTIONS
 		     the compression level.  Values between 0 and 9 are sup-
 		     ported.  The interpretation of the compression level de-
 		     pends on the chosen compression method.
-     Format cpio
+     Format bin
 	     hdrcharset
 		     The value is used as a character set name that will be
 		     used when translating file names.
@@ -360,6 +360,14 @@ OPTIONS
 		     values for the following files and/or directories.
 	     indent  XXX needs explanation XXX
      Format newc
+	     hdrcharset
+		     The value is used as a character set name that will be
+		     used when translating file names.
+     Format odc
+	     hdrcharset
+		     The value is used as a character set name that will be
+		     used when translating file names.
+     Format pwb
 	     hdrcharset
 		     The value is used as a character set name that will be
 		     used when translating file names.

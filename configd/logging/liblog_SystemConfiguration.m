@@ -39,7 +39,7 @@
 #import "dnsinfo_internal.h"
 #import <network_information.h>
 
-#define	my_log(__level, __format, ...)	[string appendFormat:@(__format "\n"), ## __VA_ARGS__]
+#define	my_log(__level, __format, ...)	[string appendFormat:@__format "\n", ## __VA_ARGS__]
 #define my_log_context_type	NSMutableString *
 #define	my_log_context_name	string
 #import "dnsinfo_logging.h"

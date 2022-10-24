@@ -17,12 +17,24 @@ PREBINDING = NO;
 WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline $(SECURITY_WARNING_CFLAGS);
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 
-OTHER_CFLAGS = $(inherited) $(LIBXSLT_STACK_AUTO_INIT_$(LIBXSLT_ENABLE_STACK_AUTO_INIT));
+OTHER_CFLAGS = $(inherited) $(LIBXSLT_STACK_AUTO_INIT_$(LIBXSLT_ENABLE_STACK_AUTO_INIT)) $(LIBXSLT_FUZZER_CFLAGS);
+
 LIBXSLT_STACK_AUTO_INIT_YES = -ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang;
 LIBXSLT_ENABLE_STACK_AUTO_INIT[sdk=iphone*] = YES;
 
+LIBXSLT_FUZZER_CFLAGS = $(LIBXSLT_FUZZER_CFLAGS_$(LIBXSLT_FUZZER));
+LIBXSLT_FUZZER_CFLAGS_YES = -g -fno-omit-frame-pointer -fsanitize=fuzzer-no-link,address,undefined -fno-sanitize=float-divide-by-zero,pointer-overflow -fno-sanitize-recover=all -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION;
+
+OTHER_LDFLAGS = $(inherited) $(LIBXSLT_FUZZER_LDFLAGS);
+
+LIBXSLT_FUZZER_LDFLAGS = $(LIBXSLT_FUZZER_LDFLAGS_$(LIBXSLT_FUZZER));
+LIBXSLT_FUZZER_LDFLAGS_YES = -fsanitize=fuzzer,address,undefined;
+
 STRIP_INSTALLED_PRODUCT = YES;
-HEADER_SEARCH_PATHS = /usr/include/libxml2;
+HEADER_SEARCH_PATHS = $(LIBXML2_HEADER_PATH);
+LIBXML2_HEADER_PATH = $(LIBXML2_HEADER_PATH_$(DEPLOYMENT_LOCATION));
+LIBXML2_HEADER_PATH_NO = $(SYMROOT)/$(CONFIGURATION)/usr/include;
+LIBXML2_HEADER_PATH_YES = /usr/include;
 
 DEBUG_DEFINES = $(DEBUG_DEFINES_$(CONFIGURATION));
 DEBUG_DEFINES_Debug = ;

@@ -194,7 +194,7 @@ CFDataRef SOSCoderCopyDER(SOSCoderRef coder, CFErrorRef* error) {
     return encoded;
 }
 
-static SOSCoderRef SOSCoderCreate_internal() {
+static SOSCoderRef SOSCoderCreate_internal(void) {
     SOSCoderRef p = CFTypeAllocate(SOSCoder, struct __OpaqueSOSCoder, kCFAllocatorDefault);
 
     p->peer_id = NULL;

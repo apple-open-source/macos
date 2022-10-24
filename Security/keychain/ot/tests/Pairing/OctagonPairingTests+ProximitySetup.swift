@@ -32,7 +32,7 @@ extension OctagonPairingTests {
         return foundTLK
     }
 
-    func testJoin() {
+    func testJoin() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -57,7 +57,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -141,7 +141,7 @@ extension OctagonPairingTests {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func testJoinRetry() {
+    func testJoinRetry() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -166,7 +166,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -257,7 +257,7 @@ extension OctagonPairingTests {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func testJoinRetryFail() {
+    func testJoinRetryFail() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -282,7 +282,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -366,7 +366,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(self.cuttlefishContext.pairingUUID, "pairingUUID should NOT be nil")
     }
 
-    func testJoinWithCKKSConflict() {
+    func testJoinWithCKKSConflict() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -396,7 +396,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -476,7 +476,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
     }
 
-    func testNextJoiningMessageInterface() {
+    func testNextJoiningMessageInterface() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -484,7 +484,7 @@ extension OctagonPairingTests {
 
         let rpcEpochCallbackOccurs = self.expectation(description: "rpcEpoch callback occurs")
 
-        self.manager.rpcEpoch(with: self.acceptorPairingConfig) { epoch, error in
+        self.manager.rpcEpoch(with: self.acceptorArguments, configuration: self.acceptorPairingConfig) { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be nil")
             rpcEpochCallbackOccurs.fulfill()
@@ -500,7 +500,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -515,7 +515,7 @@ extension OctagonPairingTests {
         var stableInfo = Data(count: 0)
         var stableInfoSig = Data(count: 0)
 
-        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorPairingConfig) { pID, pI, pISig, sI, sISig, error in
+        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorArguments, configuration: initiatorPairingConfig) { pID, pI, pISig, sI, sISig, error in
             XCTAssertNotNil(pID, "peer ID should not be nil")
             XCTAssertNotNil(pI, "permanentInfo should not be nil")
             XCTAssertNotNil(pISig, "permanentInfo Signature should not be nil")
@@ -536,7 +536,7 @@ extension OctagonPairingTests {
         var voucherSig = Data(count: 0)
 
         let voucherCallback = self.expectation(description: "creating voucher message callback")
-        self.manager.rpcVoucher(with: self.acceptorPairingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig ) { v, vS, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPairingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig ) { v, vS, error in
             XCTAssertNil(error, "error should be nil")
             voucher = v
             voucherSig = vS
@@ -545,7 +545,7 @@ extension OctagonPairingTests {
         self.wait(for: [voucherCallback], timeout: 10)
 
         let rpcJoinCallback = self.expectation(description: "joining octagon callback")
-        self.manager.rpcJoin(with: self.initiatorPairingConfig, vouchData: voucher, vouchSig: voucherSig) { error in
+        self.manager.rpcJoin(with: self.initiatorArguments, configuration: initiatorPairingConfig, vouchData: voucher, vouchSig: voucherSig) { error in
             XCTAssertNil(error, "error should be nil")
             rpcJoinCallback.fulfill()
         }
@@ -580,7 +580,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorAwaitingIdentity] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorAwaitingIdentity'")
     }
 
-    func testVoucherCreation() {
+    func testVoucherCreation() throws {
         self.startCKAccountStatusMock()
 
         /*Setup acceptor first*/
@@ -600,7 +600,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorAwaitingIdentity] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorAwaitingIdentity'")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -609,7 +609,7 @@ extension OctagonPairingTests {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateMachineNotStarted, within: 10 * NSEC_PER_SEC)
 
         /* now initiator's turn*/
-        self.manager.startOctagonStateMachine(self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { _ in
+        self.manager.startOctagonStateMachine(self.otcontrolArgumentsFor(context: self.cuttlefishContext)) { _ in
         }
 
         /* calling prepare identity*/
@@ -690,7 +690,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcCallbackOccurs], timeout: 10)
     }
 
-    func testProximitySetupUsingCliqueOctagonAndSOS() {
+    func testProximitySetupUsingCliqueOctagonAndSOS() throws {
         self.startCKAccountStatusMock()
 
         OctagonSetPlatformSupportsSOS(true)
@@ -712,7 +712,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -746,7 +746,7 @@ extension OctagonPairingTests {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         // Initiator should join!
         self.assertEnters(context: initiator1Context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -754,7 +754,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -769,7 +769,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -808,7 +808,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -834,7 +834,7 @@ extension OctagonPairingTests {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         // Initiator should join!
         self.assertEnters(context: initiator1Context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -842,7 +842,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -857,7 +857,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -873,7 +873,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
-    func testProximitySetupOctagonAndSOSWithSOSFailure() {
+    func testProximitySetupOctagonAndSOSWithSOSFailure() throws {
         // ensure Octagon protocol continues even if SOS fails in some way.
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
@@ -898,7 +898,7 @@ extension OctagonPairingTests {
         acceptor.setSOSMessageFailForTesting(true)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -921,7 +921,7 @@ extension OctagonPairingTests {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         // Initiator should join!
         self.assertEnters(context: initiator1Context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -929,7 +929,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -944,7 +944,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -960,7 +960,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
-    func testProximitySetupOctagonAndSOSWithOcatagonInitiatorMessage1Failure() {
+    func testProximitySetupOctagonAndSOSWithOcatagonInitiatorMessage1Failure() throws {
         // ensure Octagon protocol halts if enabled and encounters a failure
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
@@ -984,7 +984,7 @@ extension OctagonPairingTests {
         initiator.setOctagonMessageFailForTesting(true)
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -996,7 +996,7 @@ extension OctagonPairingTests {
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
     }
 
-    func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage1Failure() {
+    func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage1Failure() throws {
         // ensure Octagon protocol continues even if SOS fails in some way.
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
@@ -1018,7 +1018,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1041,7 +1041,7 @@ extension OctagonPairingTests {
         self.wait(for: [firstAcceptorCallback], timeout: 10)
     }
 
-    func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage2Failure() {
+    func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage2Failure() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -1062,7 +1062,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1090,7 +1090,7 @@ extension OctagonPairingTests {
         self.wait(for: [secondInitiatorCallback], timeout: 10)
     }
 
-    func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage2Failure() {
+    func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage2Failure() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -1111,7 +1111,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1140,7 +1140,7 @@ extension OctagonPairingTests {
         self.wait(for: [SecondAcceptorCallback], timeout: 10)
     }
 
-    func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage3Failure() {
+    func testProximitySetupOctagonAndSOSWithOctagonInitiatorMessage3Failure() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -1161,7 +1161,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1209,10 +1209,10 @@ extension OctagonPairingTests {
         let acceptor = self.manager.context(forContainerName: OTCKContainerName,
                                             contextID: self.contextForAcceptor,
                                             sosAdapter: self.mockSOSAdapter,
+                                            accountsAdapter: self.mockAuthKit2,
                                             authKitAdapter: self.mockAuthKit2,
                                             tooManyPeersAdapter: self.mockTooManyPeers,
                                             lockStateTracker: self.lockStateTracker,
-                                            accountStateTracker: self.accountStateTracker,
                                             deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         acceptor.startOctagonStateMachine()
@@ -1230,7 +1230,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 1, "should be 1 bottles")
     }
 
-    func testProximitySetupUsingCliqueAcceptorResolvesVersionToSOSOnly() {
+    func testProximitySetupUsingCliqueAcceptorResolvesVersionToSOSOnly() throws {
         self.startCKAccountStatusMock()
 
         OctagonSetPlatformSupportsSOS(true)
@@ -1259,7 +1259,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1288,7 +1288,7 @@ extension OctagonPairingTests {
  */
     }
 
-    func testProximitySetupUsingCliqueInitiatorResolvesVersionToSOSOnly() {
+    func testProximitySetupUsingCliqueInitiatorResolvesVersionToSOSOnly() throws {
         self.startCKAccountStatusMock()
 
         OctagonSetPlatformSupportsSOS(true)
@@ -1312,7 +1312,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }

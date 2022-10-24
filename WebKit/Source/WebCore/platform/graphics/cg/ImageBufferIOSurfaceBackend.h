@@ -27,8 +27,10 @@
 
 #if HAVE(IOSURFACE)
 
+#include "ImageBuffer.h"
 #include "ImageBufferCGBackend.h"
 #include "IOSurface.h"
+#include "IOSurfacePool.h"
 #include <wtf/IsoMalloc.h>
 
 namespace WebCore {
@@ -42,52 +44,52 @@ public:
     static size_t calculateMemoryCost(const Parameters&);
     static size_t calculateExternalMemoryCost(const Parameters&);
     
-    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const HostWindow*);
+    static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const ImageBuffer::CreationContext&);
     // FIXME: Rename to createUsingColorSpaceOfGraphicsContext() (or something like that).
     static std::unique_ptr<ImageBufferIOSurfaceBackend> create(const Parameters&, const GraphicsContext&);
 
-    ImageBufferIOSurfaceBackend(const Parameters&, std::unique_ptr<IOSurface>&&);
+    ImageBufferIOSurfaceBackend(const Parameters&, std::unique_ptr<IOSurface>&&, IOSurfacePool*);
+    ~ImageBufferIOSurfaceBackend();
+    
+    static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
 
     IOSurface* surface();
-
     GraphicsContext& context() const override;
     void flushContext() override;
 
+protected:
     IntSize backendSize() const override;
     
     RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const override;
+    RefPtr<NativeImage> copyNativeImageForDrawing(BackingStoreCopy = CopyBackingStore) const override;
     RefPtr<NativeImage> sinkIntoNativeImage() override;
 
-    void draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
-    void drawConsuming(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) override;
-
-    std::optional<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&) const override;
+    RefPtr<PixelBuffer> getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect&, const ImageBufferAllocator&) const override;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
 
     bool isInUse() const override;
     void releaseGraphicsContext() override;
-    VolatilityState setVolatile(bool) override;
-    void releaseBufferToPool() override;
+
+    bool setVolatile() final;
+    SetNonVolatileResult setNonVolatile() final;
+    VolatilityState volatilityState() const final;
+    void setVolatilityState(VolatilityState) final;
 
     void ensureNativeImagesHaveCopiedBackingStore() final;
 
-    static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
-
-protected:
     static RetainPtr<CGColorSpaceRef> contextColorSpace(const GraphicsContext&);
     unsigned bytesPerRow() const override;
 
-    // ImageBufferCGBackend overrides.
-    RetainPtr<CGImageRef> copyCGImageForEncoding(CFStringRef destinationUTI, PreserveResolution) const final;
-
-    void prepareToDrawIntoContext(GraphicsContext& destinationContext) override;
+    void finalizeDrawIntoContext(GraphicsContext& destinationContext) override;
     void invalidateCachedNativeImage() const;
+    void invalidateCachedNativeImageIfNeeded() const;
 
     std::unique_ptr<IOSurface> m_surface;
-    IOSurfaceSeed m_lastSeedWhenDrawingImage { 0 };
-    mutable bool m_requiresDrawAfterPutPixelBuffer { false };
-
+    mutable bool m_mayHaveOutstandingBackingStoreReferences { false };
     mutable bool m_needsSetupContext { false };
+    VolatilityState m_volatilityState { VolatilityState::NonVolatile };
+
+    RefPtr<IOSurfacePool> m_ioSurfacePool;
 };
 
 } // namespace WebCore

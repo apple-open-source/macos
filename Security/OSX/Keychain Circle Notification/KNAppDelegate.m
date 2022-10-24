@@ -34,8 +34,12 @@
 #import <utilities/SecCFWrappers.h>
 #import <utilities/SecXPCError.h>
 #import <os/variant_private.h>
+#import <Foundation/NSStringPrivate.h>
 
 #import <Accounts/Accounts.h>
+#import <Accounts/ACAccountStore.h>
+#import <AppleAccount/ACAccount+AppleAccount.h>
+
 #import <AOSAccounts/MobileMePrefsCoreAEPrivate.h>
 #import <AOSAccounts/MobileMePrefsCore.h>
 #import <AOSAccounts/ACAccountStore+iCloudAccount.h>
@@ -43,10 +47,9 @@
 
 #include <msgtracer_client.h>
 #include <msgtracer_keys.h>
-#include <CrashReporterSupport/CrashReporterSupportPrivate.h>
 #import <ProtectedCloudStorage/CloudIdentity.h>
-#import "CoreCDP/CDPFollowUpController.h"
-#import "CoreCDP/CDPFollowUpContext.h"
+#import <CoreCDP/CDPFollowUpController.h>
+#import <CoreCDP/CDPFollowUpContext.h>
 #import <CoreCDP/CDPAccount.h>
 
 static const char     * const kLaunchLaterXPCName      = "com.apple.security.Keychain-Circle-Notification-TICK";
@@ -63,7 +66,7 @@ bool _isAccountICDP = false;
 
 @implementation KNAppDelegate
 
-static NSUserNotificationCenter *appropriateNotificationCenter()
+static NSUserNotificationCenter *appropriateNotificationCenter(void)
 {
     return [NSUserNotificationCenter _centerForIdentifier: @"com.apple.security.keychain-circle-notification"
 													 type: _NSUserNotificationCenterTypeSystem];
@@ -80,7 +83,7 @@ static BOOL isErrorFromXPC(CFErrorRef error)
 
 static void PSKeychainSyncIsUsingICDP(void)
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore = [ACAccountStore defaultStore];
     ACAccount *primaryiCloudAccount = nil;
     
     if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
@@ -134,7 +137,7 @@ static void PSKeychainSyncIsUsingICDP(void)
     secnotice("kcn", "notifyiCloudPreferencesAbout %@", eventName);
     
     NSString *accountID = (__bridge_transfer NSString*)(MMCopyLoggedInAccountFromAccounts());
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore = [ACAccountStore defaultStore];
     ACAccount *primaryiCloudAccount = nil;
     
     if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
@@ -545,8 +548,13 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 		}
 	}
 
+    NSError *error = nil;
 	NSUserNotification *note = [NSUserNotification new];
-    note.title               = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE), applicant.name];
+    note.title               = [NSString stringWithValidatedFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE) validFormatSpecifiers:@"%@" error:&error, applicant.name];
+    if (note.title == nil) {
+        secnotice("kcn", "Failed to get localized string: %@", error);
+        return;
+    }
     note.informativeText	 = [KNAppDelegate localisedApprovalBodyWithDeviceTypeFromPeerInfo:applicant.peerObject];
 	note._displayStyle		 = _NSUserNotificationDisplayStyleAlert;
     note._identityImage		 = [NSImage bundleImageNamed:kAOSUISpyglassAppleID];
@@ -611,7 +619,7 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
         NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
         if (os_variant_has_internal_ui("iCloudKeychain")) {
-            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), "Device became untrusted or password changed"];
+            NSString *reason_str = [NSString stringWithValidatedFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL) validFormatSpecifiers:@"%s" error:nil, "Device became untrusted or password changed"];
             message = [message stringByAppendingString: reason_str];
         }
 
@@ -655,7 +663,7 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
 
         NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
         if (os_variant_has_internal_ui("iCloudKeychain")) {
-            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), sosDepartureReasonCString(reason)];
+            NSString *reason_str = [NSString stringWithValidatedFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL) validFormatSpecifiers:@"%s" error:nil, sosDepartureReasonCString(reason)];
             message = [message stringByAppendingString: reason_str];
         }
 

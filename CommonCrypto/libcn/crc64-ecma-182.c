@@ -23,7 +23,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc64_ecma_182 = {
+const crcDescriptor CC_crc64_ecma_182 = {
     .name = "crc64-ecma-182",
     .defType = model,
     .def.parms.width = 8,

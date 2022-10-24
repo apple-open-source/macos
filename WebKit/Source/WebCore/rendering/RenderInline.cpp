@@ -29,6 +29,7 @@
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
 #include "InlineIteratorInlineBox.h"
+#include "InlineIteratorLineBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
@@ -203,22 +204,22 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 bool RenderInline::mayAffectLayout() const
 {
     auto* parentStyle = &parent()->style();
-    RenderInline* parentRenderInline = is<RenderInline>(*parent()) ? downcast<RenderInline>(parent()) : nullptr;
+    auto* parentRenderInline = dynamicDowncast<RenderInline>(*parent());
     auto hasHardLineBreakChildOnly = firstChild() && firstChild() == lastChild() && firstChild()->isBR();
     bool checkFonts = document().inNoQuirksMode();
     auto mayAffectLayout = (parentRenderInline && parentRenderInline->mayAffectLayout())
         || (parentRenderInline && parentStyle->verticalAlign() != VerticalAlign::Baseline)
         || style().verticalAlign() != VerticalAlign::Baseline
         || style().textEmphasisMark() != TextEmphasisMark::None
-        || (checkFonts && (!parentStyle->fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(style().fontCascade().fontMetrics())
+        || (checkFonts && (!parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(style().fontCascade().metricsOfPrimaryFont())
         || parentStyle->lineHeight() != style().lineHeight()))
         || hasHardLineBreakChildOnly;
 
-    if (!mayAffectLayout && checkFonts && view().usesFirstLineRules()) {
+    if (!mayAffectLayout && checkFonts) {
         // Have to check the first line style as well.
         parentStyle = &parent()->firstLineStyle();
         auto& childStyle = firstLineStyle();
-        mayAffectLayout = !parentStyle->fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().fontMetrics())
+        mayAffectLayout = !parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().metricsOfPrimaryFont())
             || childStyle.verticalAlign() != VerticalAlign::Baseline
             || parentStyle->lineHeight() != childStyle.lineHeight();
     }
@@ -401,18 +402,18 @@ LayoutUnit RenderInline::marginAfter(const RenderStyle* otherStyle) const
     return computeMargin(this, style().marginAfterUsing(otherStyle ? otherStyle : &style()));
 }
 
-const char* RenderInline::renderName() const
+ASCIILiteral RenderInline::renderName() const
 {
     if (isRelativelyPositioned())
-        return "RenderInline (relative positioned)";
+        return "RenderInline (relative positioned)"_s;
     if (isStickilyPositioned())
-        return "RenderInline (sticky positioned)";
+        return "RenderInline (sticky positioned)"_s;
     // FIXME: Temporary hack while the new generated content system is being implemented.
     if (isPseudoElement())
-        return "RenderInline (generated)";
+        return "RenderInline (generated)"_s;
     if (isAnonymous())
-        return "RenderInline (generated)";
-    return "RenderInline";
+        return "RenderInline (generated)"_s;
+    return "RenderInline"_s;
 }
 
 bool RenderInline::nodeAtPoint(const HitTestRequest& request, HitTestResult& result,
@@ -688,7 +689,7 @@ std::optional<LayoutRect> RenderInline::computeVisibleRectInContainer(const Layo
     adjustedRect.setLocation(topLeft);
     if (localContainer->hasNonVisibleOverflow()) {
         // FIXME: Respect the value of context.options.
-        SetForScope<OptionSet<VisibleRectContextOption>> change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
+        SetForScope change(context.options, context.options | VisibleRectContextOption::ApplyCompositedContainerScrolls);
         bool isEmpty = !downcast<RenderBox>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
         if (isEmpty) {
             if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
@@ -855,19 +856,14 @@ LegacyInlineFlowBox* RenderInline::createAndAppendInlineFlowBox()
 
 LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*direction*/, LinePositionMode /*linePositionMode*/) const
 {
-    if (firstLine && view().usesFirstLineRules()) {
-        const RenderStyle& firstLineStyle = this->firstLineStyle();
-        if (&firstLineStyle != &style())
-            return firstLineStyle.computedLineHeight();
-    }
-
-    return style().computedLineHeight();
+    auto& lineStyle = firstLine ? firstLineStyle() : style();
+    return lineStyle.computedLineHeight();
 }
 
 LayoutUnit RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     const RenderStyle& style = firstLine ? firstLineStyle() : this->style();
-    const FontMetrics& fontMetrics = style.fontMetrics();
+    const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
     return LayoutUnit { (fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2).toInt() };
 }
 
@@ -972,11 +968,11 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
     rects.append(LayoutRect());
 
     for (auto box = InlineIterator::firstInlineBoxFor(*this); box; box.traverseNextInlineBox()) {
-        auto line = box->line();
-        LayoutUnit top = std::max(line->top(), LayoutUnit(box->logicalTop()));
-        LayoutUnit bottom = std::min(line->bottom(), LayoutUnit(box->logicalBottom()));
+        auto lineBox = box->lineBox();
+        auto top = LayoutUnit { std::max(lineBox->contentLogicalTop(), box->logicalTop()) };
+        auto bottom = LayoutUnit { std::min(lineBox->contentLogicalBottom(), box->logicalBottom()) };
         // FIXME: This is mixing physical and logical coordinates.
-        rects.append({ LayoutUnit(box->rect().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
+        rects.append({ LayoutUnit(box->visualRectIgnoringBlockDirection().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
     }
     rects.append(LayoutRect());
 

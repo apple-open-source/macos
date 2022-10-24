@@ -1,8 +1,8 @@
-/*	$NetBSD: nice.c,v 1.10 1997/10/19 06:28:04 lukem Exp $	*/
-
-/*
- * Copyright (c) 1989 The Regents of the University of California.
- * All rights reserved.
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Copyright (c) 1989, 1993, 1994
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,87 +32,89 @@
 #include <sys/cdefs.h>
 #ifndef lint
 __COPYRIGHT(
-    "@(#) Copyright (c) 1989 The Regents of the University of California.\n\
- All rights reserved.\n");
+"@(#) Copyright (c) 1989, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n");
 #endif /* not lint */
 
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)nice.c	5.4 (Berkeley) 6/1/90";
-#endif
-__RCSID("$NetBSD: nice.c,v 1.10 1997/10/19 06:28:04 lukem Exp $");
+#ifndef lint
+static char sccsid[] = "@(#)nice.c	8.2 (Berkeley) 4/16/94";
 #endif /* not lint */
+#endif
+
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+
+#include <ctype.h>
+#include <err.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <locale.h>
-#include <ctype.h>
-#include <errno.h>
-#include <err.h>
 #include <unistd.h>
+#include <string.h>
+#ifdef __APPLE__
+#include <locale.h>
+#endif
 
 #define	DEFNICE	10
 
-int	main __P((int, char **));
-static void usage __P((void));
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
-	int niceness = DEFNICE;
-	int c;
+	long niceness = DEFNICE;
+	int ch;
+	char *ep;
 
+#ifdef __APPLE__
 	setlocale(LC_ALL, "");
+#endif
 
-        /* handle obsolete -number syntax */
-        if (argc > 1 && argv[1][0] == '-' && isdigit(argv[1][1])) {
-		niceness = atoi (argv[1] + 1);
-                argc--; argv++;
-        }
+	/* Obsolescent syntax: -number, --number */
+	if (argc >= 2 && argv[1][0] == '-' && (argv[1][1] == '-' ||
+	    isdigit((unsigned char)argv[1][1])) && strcmp(argv[1], "--") != 0)
+		if (asprintf(&argv[1], "-n%s", argv[1] + 1) < 0)
+			err(1, "asprintf");
 
-	while ((c = getopt (argc, argv, "n:")) != -1) {
-		switch (c) {
+	while ((ch = getopt(argc, argv, "n:")) != -1) {
+		switch (ch) {
 		case 'n':
-			niceness = atoi (optarg);
+			errno = 0;
+			niceness = strtol(optarg, &ep, 10);
+			if (ep == optarg || *ep != '\0' || errno ||
+			    niceness < INT_MIN || niceness > INT_MAX)
+				errx(1, "%s: invalid nice value", optarg);
 			break;
-
-		case '?':
 		default:
 			usage();
-			break;
 		}
 	}
-	argc -= optind; argv += optind;
+	argc -= optind;
+	argv += optind;
 
 	if (argc == 0)
 		usage();
 
 	errno = 0;
 	niceness += getpriority(PRIO_PROCESS, 0);
-	if (errno) {
-		err (1, "getpriority");
-		/* NOTREACHED */
-	}
-	if (setpriority(PRIO_PROCESS, 0, niceness)) {
-		warn ("setpriority");
-	}
-
-	execvp(argv[0], &argv[0]);
-	err ((errno == ENOENT) ? 127 : 126, "%s", argv[0]);
-	/* NOTREACHED */
+	if (errno)
+		warn("getpriority");
+	else if (setpriority(PRIO_PROCESS, 0, (int)niceness))
+		warn("setpriority");
+	execvp(*argv, argv);
+	err(errno == ENOENT ? 127 : 126, "%s", *argv);
 }
 
-static void
-usage()
+void
+usage(void)
 {
+
 	(void)fprintf(stderr,
-	    "usage: nice [ -n increment ] utility [ argument ...]\n");
-	
+	    "usage: nice [-n increment] utility [argument ...]\n");
 	exit(1);
 }

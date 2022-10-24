@@ -1,0 +1,27 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>grep</string>
+        <key>OpenSourceVersion</key>
+        <string>2021-01-19</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>https://cgit.freebsd.org/src/tree/usr.bin/grep?id=81c3f64110bb76e24d6062eafd7206c10f676d6f</string>
+        <key>OpenSourceImportDate</key>
+        <string>2021-02-23</string>
+        <key>OpenSourceModifications</key>
+        <array>
+                <string>compression support (file.c, grep.c)</string>
+                <string>file.c: adjust mmap flags</string>
+                <string>grep.c: enable REG_ENHANCED (except for -F mode)</string>
+                <string>util.c: ignore locale for binary files (10462853)</string>
+                <string>grep.c: Remove -P from usage statement (13475367)</string>
+                <string>grep.c: Add -d to usage statement (18742491)</string>
+                <string>util.c: Use mbtowc instead of sscanf (20248554)</string>
+                <string>grep.c, grep.h: Fix default link behavior (25930963)</string>
+                <string>util.c: Skip symbolically linked files with -p (25930963)</string>
+                <string>grep.c, grep.h, util.c: Implement linkbehave correctly (33017461)</string>
+                <string>grep.c: Fix -L return value (88986027)</string>
+                <string>grep.c: Don't ignore errors when flushing stdout (89040553)</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+</dict>

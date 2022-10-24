@@ -59,6 +59,8 @@ xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
 CFArrayRef SecPolicyArrayCreateDeserialized(CFArrayRef serializedPolicies);
 CFArrayRef SecPolicyArrayCreateSerialized(CFArrayRef policies);
 
+void SecPolicySetOptionsValue_internal(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
+
 /*
  * MARK: SecLeafPVC functions
  */

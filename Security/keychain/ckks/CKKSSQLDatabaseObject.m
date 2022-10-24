@@ -160,6 +160,8 @@ __thread bool CKKSSQLInWriteTransaction = false;
              CKKSSQLWhereComparatorAsString(obj.sqlOp),
              CKKSSQLWhereColumnNameAsString(obj.columnName)];
 
+        } else if([value isMemberOfClass:[NSNull class]]) {
+            [whereClause appendFormat: @"%@ is NULL", key];
         } else if([value isMemberOfClass:[CKKSSQLWhereIn class]]) {
             CKKSSQLWhereIn* obj = (CKKSSQLWhereIn*)value;
 
@@ -234,6 +236,8 @@ __thread bool CKKSSQLInWriteTransaction = false;
 
         } else if([whereDict[key] class] == [CKKSSQLWhereColumn class]) {
             // skip
+        } else if([whereDict[key] class] == [NSNull class]) {
+            // skip
         } else if([whereDict[key] isMemberOfClass:[CKKSSQLWhereIn class]]) {
             CKKSSQLWhereIn* obj = (CKKSSQLWhereIn*)whereDict[key];
 
@@ -304,25 +308,46 @@ __thread bool CKKSSQLInWriteTransaction = false;
         NSString * groupByClause = [CKKSSQLDatabaseObject groupByClause: groupColumns];
         NSString * orderByClause = [CKKSSQLDatabaseObject orderByClause: orderColumns];
         NSString * limitClause = (limit > 0 ? [NSString stringWithFormat:@" LIMIT %lu", limit] : @"");
-
+        
         NSString * sql = [[NSString alloc] initWithFormat: @"SELECT %@ FROM %@%@%@%@%@;", columns, table, whereClause, groupByClause, orderByClause, limitClause];
-        SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
-            [self bindWhereClause:stmt whereDict:whereDict cferror:&cferror];
+
+#define CKKS_LOG_QUERY_PLANS 0
+
+#if CKKS_LOG_QUERY_PLANS
+        NSString *eqp = [[NSString alloc] initWithFormat:@"EXPLAIN QUERY PLAN %@", sql];
+        SecDbPrepare(dbconn, (__bridge CFStringRef)eqp, &cferror, ^(sqlite3_stmt *stmt) {
+            secnotice("ckks-sql", "EXPLAIN QUERY PLAN for '%@':", sql);
 
             SecDbStep(dbconn, stmt, &cferror, ^(bool *stop) {
-                __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
+                // First column: Node ID
+                // Second column: Parent Node ID
+                // Third column: Unused
+                // Fourth column: description
+                const char * col = NULL;
 
+                col = (const char *)sqlite3_column_text(stmt, 3);
+                secnotice("ckks-sql", "plan: %s", col);
+            });
+        });
+#endif
+
+        SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
+            [self bindWhereClause:stmt whereDict:whereDict cferror:&cferror];
+            
+            SecDbStep(dbconn, stmt, &cferror, ^(bool *stop) {
+                __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
+                
                 [names enumerateObjectsUsingBlock:^(id  _Nonnull name, NSUInteger i, BOOL * _Nonnull stop) {
                     const char * col = (const char *) sqlite3_column_text(stmt, (int)i);
                     row[name] = [[CKKSSQLResult alloc] init:col ? [NSString stringWithUTF8String:col] : nil];
                 }];
-
+                
                 processRow(row);
             });
         });
         return true;
     });
-
+    
     bool ret = (cferror == NULL);
     SecTranslateError(error, cferror);
     return ret;

@@ -42,6 +42,7 @@ sk{
         an{"aragónčina"}
         ang{"stará angličtina"}
         anp{"angika"}
+        apw{"apache (západná)"}
         ar{"arabčina"}
         ar_001{"arabčina (moderná štandardná)"}
         arc{"aramejčina"}
@@ -199,6 +200,7 @@ sk{
         grc{"starogréčtina"}
         gsw{"nemčina (švajčiarska)"}
         gu{"gudžarátčina"}
+        guc{"wayuu"}
         guz{"gusii"}
         gv{"mančina"}
         gwi{"kučinčina"}
@@ -272,6 +274,7 @@ sk{
         kpe{"kpelle"}
         kr{"kanurijčina"}
         krc{"karačajevsko-balkarčina"}
+        kri{"krio"}
         krl{"karelčina"}
         kru{"kuruchčina"}
         ks{"kašmírčina"}
@@ -524,6 +527,7 @@ sk{
         vai{"vai"}
         ve{"vendčina"}
         vi{"vietnamčina"}
+        vls{"západná flámčina"}
         vo{"volapük"}
         vot{"vodčina"}
         vun{"vunjo"}

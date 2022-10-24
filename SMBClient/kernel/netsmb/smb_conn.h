@@ -36,7 +36,6 @@
 #define _SMB_CONN_H_
 #ifndef _NETINET_IN_H_
 #include <sys/socket.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #endif
 #include <sys/kauth.h>
@@ -49,6 +48,7 @@
 #endif
 
 #include <libkern/OSTypes.h>
+#include <smbclient/smbclient.h>
 
 /*
  * Two levels of connection hierarchy
@@ -111,15 +111,15 @@
 #define	SMBV_NT4                    0x00000100		/* Tells us the server is a NT4 */
 #define	SMBV_WIN2K_XP               0x00000200		/* Tells us the server is Windows 2000 or XP */
 #define SMBV_DARWIN                 0x00000400		/* Mac OS X Server */
-#define SMBV_SMB30                  0x00000800		/* Using SMB 3.0 */
-#define SMBV_SMB2                   0x00001000		/* Using some version of SMB 2 or 3 */
-#define SMBV_SMB2002                0x00002000		/* Using SMB 2.002 */
-#define SMBV_SMB21                  0x00004000		/* Using SMB 2.1 */
-#define SMBV_SMB302                 0x00008000      /* Using SMB 3.0.2 */
+#define SMBV_SMB30                  kSMBAttributes_SessionFlags_SMB30   /* Using SMB 3.0 */
+#define SMBV_SMB2                   kSMBAttributes_SessionFlags_SMB2    /* Using some version of SMB 2 or 3 */
+#define SMBV_SMB2002                kSMBAttributes_SessionFlags_SMB2002 /* Using SMB 2.002 */
+#define SMBV_SMB21                  kSMBAttributes_SessionFlags_SMB21   /* Using SMB 2.1 */
+#define SMBV_SMB302                 kSMBAttributes_SessionFlags_SMB302  /* Using SMB 3.0.2 */
 #define SMBV_SERVER_MODE_MASK       0x0000ff00		/* This nible is reserved for special server types */
 
 #define SMBV_NETWORK_SID            0x00010000		/* The user's sid has been set on the session */
-#define SMBV_SMB311                 0x00020000      /* Using SMB 3.1.1 */
+#define SMBV_SMB311                 kSMBAttributes_SessionFlags_SMB311 /* Using SMB 3.1.1 */
 #define	SMBV_AUTH_DONE              0x00080000		/* Security compeleted successfully */
 #define SMBV_PRIV_GUEST_ACCESS      0x00100000		/* Guest access is private */
 #define SMBV_KERBEROS_ACCESS        0x00200000		/* This session is using Kerberos */
@@ -158,7 +158,7 @@
 #define SMBV_MNT_TIME_MACHINE       0x00020000  /* Time Machine session */
 #define SMBV_HAS_DUR_HNDL_V2        0x00040000  /* Server supports Durable Handle V2 */
 #define SMBV_NO_DUR_HNDL_V2         0x00080000  /* Server does not support Durable Handle V2 */
-#define SMBV_MNT_HIGH_FIDELITY      0x00100000  /* High Fidelity session */
+#define SMBV_MNT_HIGH_FIDELITY      kSMBAttributes_SessionMiscFlags_HighFidelity  /* High Fidelity session */
 #define SMBV_MNT_DATACACHE_OFF      0x00200000  /* Disable data caching */
 #define SMBV_MNT_MDATACACHE_OFF     0x00400000  /* Disable meta data caching */
 #define SMBV_MNT_SNAPSHOT           0x00800000  /* Snapshot mount */
@@ -175,7 +175,7 @@
 
 /*
  * True if dialect is SMB 2.1 or later (i.e., SMB 2.1, SMB 3.0, SMB 3.1, SMB 3.02, ...)
- * Important: Remember to update this when adding new dialects.
+ * Important: Remember to update this and smbclient.h when adding new dialects.
  */
 #define SMBV_SMB21_OR_LATER(sessionp) (((sessionp)->session_flags & (SMBV_SMB21 | SMBV_SMB30 | SMBV_SMB302 | SMBV_SMB311)) != 0)
 
@@ -194,7 +194,7 @@
 #define SMBS_GOING_AWAY		0x0008
 #define	SMBS_GONE			SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
-#define kClientIfBlacklistMaxLen 32 /* max len of client interface blacklist */
+#define kClientIfIgnorelistMaxLen 32 /* max len of client interface ignorelist */
 
 /*
  * Negotiated protocol parameters
@@ -322,22 +322,26 @@ for((var) = SMBLIST_FIRST(head, var);                  \
  * Data structure to access gssd for the use of SPNEGO/Kerberos
  */
 struct smb_gss {
-	au_asid_t     gss_asid;        /* Audit session id to find gss_mp */
-	gssd_nametype gss_target_nt;   /* Service's principal's name type */
-	uint32_t      gss_spn_len;     /* Service's principal's length */
-	uint8_t *     gss_spn;         /* Service's principal name */
-	gssd_nametype gss_client_nt;   /* Client's principal's name type */
-	uint32_t      gss_cpn_len;     /* Client's principal's length */
-	uint8_t *     gss_cpn;         /* Client's principal name */
-	char *        gss_cpn_display; /* String representation of client principal */
-	uint32_t      gss_tokenlen;    /* Gss token length */
-	uint8_t *     gss_token;       /* Gss token */
-	uint64_t      gss_ctx;         /* GSS opaque context handle */
-	uint64_t      gss_cred;        /* GSS opaque cred handle */
-	uint32_t      gss_rflags;      /* Flags returned from gssd */
-	uint32_t      gss_major;       /* GSS major error code */
-	uint32_t      gss_minor;       /* GSS minor (mech) error code */
-	uint32_t      gss_smb_error;   /* Last error returned by smb SetUpAndX */
+	au_asid_t     gss_asid;                     /* Audit session id to find gss_mp */
+	gssd_nametype gss_target_nt;                /* Service's principal's name type */
+	uint32_t      gss_spn_len;                  /* Service's principal's length */
+	uint8_t *     gss_spn;                      /* Service's principal name */
+    size_t        gss_spn_allocsize;            /* Service's principal name alloc size, required when deallocating gss_spn */
+	gssd_nametype gss_client_nt;                /* Client's principal's name type */
+	uint32_t      gss_cpn_len;                  /* Client's principal's length */
+	uint8_t *     gss_cpn;                      /* Client's principal name */
+    size_t        gss_cpn_allocsize;            /* Client's principal name alloc size, required when deallocating gss_cpn */
+	char *        gss_cpn_display;              /* String representation of client principal */
+    size_t        gss_cpn_display_allocsize;    /* gss_cpn_display alloc size, required when deallocating gss_cpn_display */
+    uint32_t      gss_tokenlen;                 /* Gss token length */
+	uint8_t *     gss_token;                    /* Gss token */
+    size_t        gss_token_allocsize;          /* gss_token alloc size, required when deallocating gss_token */
+	uint64_t      gss_ctx;                      /* GSS opaque context handle */
+	uint64_t      gss_cred;                     /* GSS opaque cred handle */
+	uint32_t      gss_rflags;                   /* Flags returned from gssd */
+	uint32_t      gss_major;                    /* GSS major error code */
+	uint32_t      gss_minor;                    /* GSS minor (mech) error code */
+	uint32_t      gss_smb_error;                /* Last error returned by smb SetUpAndX */
 };
 
 struct session_network_interface_info {
@@ -350,8 +354,9 @@ struct session_network_interface_info {
 
     uint32_t max_channels;
     uint32_t max_rss_channels;
-    uint32_t *client_if_blacklist;
-    uint32_t client_if_blacklist_len;
+    uint32_t *client_if_ignorelist;
+    uint32_t client_if_ignorelist_len;
+    size_t client_if_ignorelist_allocsize; /* client_if_ignorelist alloc size, required when deallocating client_if_ignorelist */
     uint32_t prefer_wired;
 
     /*
@@ -402,6 +407,8 @@ struct smb_session {
 	struct smb_connobj	obj;
 	char				*session_srvname;		/* The server name used for tree connect, also used for logging */
 	char				*session_localname;
+    size_t              session_srvname_allocsize;   /* session_srvname allocsize, required for freeing session_srvname */
+    size_t              session_localname_allocsize; /* session_localname_allocsize allocsize, required for freeing session_localname_allocsize */
 	char				ipv4v6DotName[45+1];    /* max IPv6 presentation len */
     
     /*
@@ -418,6 +425,9 @@ struct smb_session {
 	char				*session_username;
 	char				*session_pass;			/* password for usl case */
 	char				*session_domain;		/* workgroup/primary domain */
+    size_t              session_username_allocsize; /* session_username allocsize, required for freeing session_username */
+    size_t              session_pass_allocsize;     /* session_pass allocsize, required for freeing session_pass */
+    size_t              session_domain_allocsize;   /* session_domain allocsize, required for freeing session_domain */
 	int32_t				session_volume_cnt;
 	unsigned			session_timo;			/* default request timeout */
 	int32_t				session_number;			/* number of this session from the client side */
@@ -489,6 +499,8 @@ struct smb_session {
 	uint32_t			*connect_flag;
 	char				*NativeOS;
 	char				*NativeLANManager;
+    size_t              NativeOSAllocSize;          /* NativeOS allocsize, required for freeing NativeOS */
+    size_t              NativeLANManagerAllocSize;  /* NativeLANManager allocsize, required for freeing NativeLANManager */
     
     /* Save the negotiate parameter for Validate Negotiate */
     uint32_t            neg_capabilities;
@@ -575,6 +587,7 @@ struct smb_share {
 	struct smb_connobj obj;
 	lck_mtx_t		ss_stlock;	/* Used to lock the flags field only */
 	char			*ss_name;
+    size_t          ss_name_allocsize; /* ss_name allocsize, required for freeing ss_name */
 	struct smbmount	*ss_mount;	/* used for smb up/down */
 	ss_going_away_t	*ss_going_away;
 	ss_dead_t		*ss_dead;
@@ -624,7 +637,8 @@ int smb_sm_done(void);
 int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
                      vfs_context_t context, struct smb_session **sessionpp,
                      struct smb_dev *sdp, int searchOnly,
-                     uint32_t *matched_dns);
+                     uint32_t *matched_dns, struct sockaddr *saddr,
+                     struct sockaddr *laddr);
 int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup * sspec,
 					vfs_context_t context);
 int smb_sm_tcon(struct smb_session *sessionp, struct smbioc_share *sspec, 
@@ -676,11 +690,12 @@ int  smb1_echo(struct smb_session *sessionp, int timo, uint32_t EchoCount,
 int  smb_checkdir(struct smb_share *share, struct smbnode *dnp, 
                   const char *name, size_t nmlen, vfs_context_t context);
 
-#define SMBIOD_INTR_TIMO		2       
-#define SMBIOD_SLEEP_TIMO       2       
-#define SMB_SEND_WAIT_TIMO		60 * 2	/* How long should we wait for the server to response to a request. */
-#define SMB_FAST_SEND_WAIT_TIMO  1      /* How long should we wait for the server to response to a request during a shutdown or forced unmount. */
-#define SMB_RESP_WAIT_TIMO		35		/* How long should we wait for the server to response to any request. */
+#define SMBIOD_INTR_TIMO         2
+#define SMBIOD_SLEEP_TIMO        2
+#define SMB_SEND_WAIT_TIMO      60 * 2 /* How long should we wait for the server to response to a request. */
+#define SMB_FAST_SEND_WAIT_TIMO  1     /* How long should we wait for the server to response to a request during a shutdown or forced unmount. */
+#define SMB_RESP_WAIT_TIMO      35     /* How long should we wait for the server to response to any request. */
+#define SMB_RESP_TIMO_W_LEASING 45     /* How long should we wait for the server to response to any request when leasing is enabled. */
 
 /*
  * After this many seconds we want an unresponded-to request to trigger 
@@ -749,6 +764,7 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
 #define SMBIOD_EV_ANALYZE_CON      0x0009 // Examime local & remote IF tables and determine if additional connections are required
 #define SMBIOD_EV_ESTABLISH_ALT_CH 0x000a // Connect, Negotiate and Setup an alternate connection
 #define SMBIOD_EV_PROCLAIM_MAIN    0x000b // Force iod to become the main iod
+#define SMBIOD_EV_ECHO             0x000c
 
 #define SMBIOD_EV_MASK            0x00ff
 #define SMBIOD_EV_SYNC            0x0100

@@ -46,7 +46,7 @@ public:
 
     bool isFlexibleBox() const override { return true; }
 
-    const char* renderName() const override;
+    ASCIILiteral renderName() const override;
 
     bool avoidsFloats() const final { return true; }
     bool canDropAnonymousBlockChild() const final { return false; }
@@ -86,6 +86,9 @@ public:
     // Returns true if the position changed. In that case, the child will have to
     // be laid out again.
     bool setStaticPositionForPositionedLayout(const RenderBox&);
+
+    enum class GapType { BetweenLines, BetweenItems };
+    LayoutUnit computeGap(GapType) const;
 
     bool shouldApplyMinBlockSizeAutoForChild(const RenderBox&) const;
 
@@ -148,6 +151,7 @@ private:
     LayoutPoint flowAwareLocationForChild(const RenderBox& child) const;
     bool childHasComputableAspectRatio(const RenderBox&) const;
     bool childHasComputableAspectRatioAndCrossSizeIsConsideredDefinite(const RenderBox&);
+    bool crossAxisIsPhysicalWidth() const;
     bool childCrossSizeShouldUseContainerCrossSize(const RenderBox& child) const;
     LayoutUnit computeCrossSizeForChildUsingContainerCrossSize(const RenderBox& child) const;
     void computeChildIntrinsicLogicalWidths(RenderObject&, LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
@@ -206,8 +210,9 @@ private:
 
     void resetHasDefiniteHeight() { m_hasDefiniteHeight = SizeDefiniteness::Unknown; }
 
-    enum class GapType { BetweenLines, BetweenItems };
-    LayoutUnit computeGap(GapType) const;
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    void layoutUsingFlexFormattingContext();
+#endif
 
     // This is used to cache the preferred size for orthogonal flow children so we
     // don't have to relayout to get it
@@ -223,7 +228,7 @@ private:
     // the first layout likely did not use the correct value for percentage
     // sizing of children.
     HashSet<const RenderBox*> m_relaidOutChildren;
-    
+
     mutable OrderIterator m_orderIterator { *this };
     int m_numberOfInFlowChildrenOnFirstLine { -1 };
     

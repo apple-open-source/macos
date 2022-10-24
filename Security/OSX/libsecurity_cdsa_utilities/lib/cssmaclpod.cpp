@@ -218,8 +218,9 @@ uint32 pinFromAclTag(const char *tag, const char *suffix /* = NULL */)
 		snprintf(format, sizeof(format), "PIN%%d%s%%n", suffix ? suffix : "");
         uint32 pin = 0;
         unsigned consumed = 0;
+        const char *const fmt = fmtcheck(format, "%d%n");
         // sscanf does not count %n as a filled value so number of read variables should be just 1
-        if (sscanf(tag, format, &pin, &consumed) == 1 && consumed == strlen(tag)) {	// complete and sufficient
+        if (sscanf(tag, fmt, &pin, &consumed) == 1 && consumed == strlen(tag)) {	// complete and sufficient
 			return pin;
         }
 	}

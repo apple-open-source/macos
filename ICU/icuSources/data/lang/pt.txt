@@ -42,6 +42,7 @@ pt{
         an{"aragonês"}
         ang{"inglês arcaico"}
         anp{"angika"}
+        apw{"apache oriental"}
         ar{"árabe"}
         ar_001{"árabe moderno"}
         arc{"aramaico"}
@@ -191,6 +192,7 @@ pt{
         grc{"grego arcaico"}
         gsw{"alemão (Suíça)"}
         gu{"guzerate"}
+        guc{"wayuu"}
         guz{"gusii"}
         gv{"manx"}
         gwi{"gwichʼin"}
@@ -266,6 +268,7 @@ pt{
         kpe{"kpelle"}
         kr{"canúri"}
         krc{"karachay-balkar"}
+        kri{"krio"}
         krl{"carélio"}
         kru{"kurukh"}
         ks{"caxemira"}
@@ -517,6 +520,7 @@ pt{
         vai{"vai"}
         ve{"venda"}
         vi{"vietnamita"}
+        vls{"flamengo ocidental"}
         vo{"volapuque"}
         vot{"vótico"}
         vun{"vunjo"}

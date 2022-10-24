@@ -37,6 +37,7 @@
 #include "WebPaymentCoordinatorProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/ApplePayCouponCodeUpdate.h>
+#include <WebCore/ApplePayPaymentAuthorizationResult.h>
 #include <WebCore/ApplePayPaymentMethodUpdate.h>
 #include <WebCore/ApplePayShippingContactUpdate.h>
 #include <WebCore/ApplePayShippingMethodUpdate.h>
@@ -60,8 +61,7 @@ WebPaymentCoordinator::~WebPaymentCoordinator()
 void WebPaymentCoordinator::networkProcessConnectionClosed()
 {
 #if ENABLE(APPLE_PAY_REMOTE_UI)
-    if (remoteUIEnabled())
-        didCancelPaymentSession({ });
+    didCancelPaymentSession({ });
 #endif
 }
 
@@ -97,9 +97,9 @@ void WebPaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, c
 
 bool WebPaymentCoordinator::showPaymentUI(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
 {
-    Vector<String> linkIconURLStrings;
-    for (const auto& linkIconURL : linkIconURLs)
-        linkIconURLStrings.append(linkIconURL.string());
+    auto linkIconURLStrings = linkIconURLs.map([](auto& linkIconURL) {
+        return linkIconURL.string();
+    });
 
     bool result;
     if (!sendSync(Messages::WebPaymentCoordinatorProxy::ShowPaymentUI(m_webPage.identifier(), m_webPage.webPageProxyIdentifier(), originatingURL.string(), linkIconURLStrings, paymentRequest), Messages::WebPaymentCoordinatorProxy::ShowPaymentUI::Reply(result)))
@@ -137,9 +137,9 @@ void WebPaymentCoordinator::completeCouponCodeChange(std::optional<WebCore::Appl
 
 #endif // ENABLE(APPLE_PAY_COUPON_CODE)
 
-void WebPaymentCoordinator::completePaymentSession(std::optional<WebCore::PaymentAuthorizationResult>&& result)
+void WebPaymentCoordinator::completePaymentSession(WebCore::ApplePayPaymentAuthorizationResult&& result)
 {
-    send(Messages::WebPaymentCoordinatorProxy::CompletePaymentSession(result));
+    send(Messages::WebPaymentCoordinatorProxy::CompletePaymentSession(WTFMove(result)));
 }
 
 void WebPaymentCoordinator::abortPaymentSession()
@@ -157,28 +157,13 @@ void WebPaymentCoordinator::paymentCoordinatorDestroyed()
     delete this;
 }
 
-bool WebPaymentCoordinator::supportsUnrestrictedApplePay() const
-{
-#if ENABLE(APPLE_PAY_REMOTE_UI)
-    static bool hasEntitlement = WebProcess::singleton().parentProcessHasEntitlement("com.apple.private.WebKit.UnrestrictedApplePay");
-    return hasEntitlement;
-#else
-    return true;
-#endif
-}
-
-String WebPaymentCoordinator::userAgentScriptsBlockedErrorMessage() const
-{
-    return "Unable to run user agent scripts because this document has previously accessed Apple Pay. Documents can be prevented from accessing Apple Pay by adding a WKUserScript to the WKWebView's WKUserContentController."_s;
-}
-
 IPC::Connection* WebPaymentCoordinator::messageSenderConnection() const
 {
 #if ENABLE(APPLE_PAY_REMOTE_UI)
-    if (remoteUIEnabled())
-        return &WebProcess::singleton().ensureNetworkProcessConnection().connection();
-#endif
+    return &WebProcess::singleton().ensureNetworkProcessConnection().connection();
+#else
     return WebProcess::singleton().parentProcessConnection();
+#endif
 }
 
 uint64_t WebPaymentCoordinator::messageSenderDestinationID() const
@@ -188,7 +173,7 @@ uint64_t WebPaymentCoordinator::messageSenderDestinationID() const
 
 void WebPaymentCoordinator::validateMerchant(const String& validationURLString)
 {
-    paymentCoordinator().validateMerchant(URL(URL(), validationURLString));
+    paymentCoordinator().validateMerchant(URL { validationURLString });
 }
 
 void WebPaymentCoordinator::didAuthorizePayment(const WebCore::Payment& payment)
@@ -229,15 +214,6 @@ WebCore::PaymentCoordinator& WebPaymentCoordinator::paymentCoordinator()
 {
     return m_webPage.corePage()->paymentCoordinator();
 }
-
-#if ENABLE(APPLE_PAY_REMOTE_UI)
-bool WebPaymentCoordinator::remoteUIEnabled() const
-{
-    if (auto page = m_webPage.corePage())
-        return page->settings().applePayRemoteUIEnabled();
-    return false;
-}
-#endif
 
 void WebPaymentCoordinator::getSetupFeatures(const WebCore::ApplePaySetupConfiguration& configuration, const URL& url, CompletionHandler<void(Vector<Ref<WebCore::ApplePaySetupFeature>>&&)>&& completionHandler)
 {

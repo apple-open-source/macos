@@ -94,7 +94,7 @@ keychain_upgrade(bool musr, const char *dbname)
     sqlite3 *db = NULL;
 
     is(sqlite3_open([keychain_path UTF8String], &db), SQLITE_OK, "open db");
-    is(sqlite3_exec(db, "INSERT into ckmirror VALUES(\"ckzone\", \"importantuuid\", \"keyuuid\", 0, \"asdf\", \"qwer\", \"ckrecord\", 0, 0, NULL, NULL, NULL);", NULL, NULL, NULL), SQLITE_OK, "row added to ckmirror table");
+    is(sqlite3_exec(db, "INSERT into ckmirror VALUES(\"ckzone\", \"importantuuid\", \"keyuuid\", 0, \"asdf\", \"qwer\", \"ckrecord\", 0, 0, NULL, NULL, NULL, \"contextID\");", NULL, NULL, NULL), SQLITE_OK, "row added to ckmirror table");
     is(sqlite3_close(db), SQLITE_OK, "close db");
 
     SecKeychainDbForceClose();

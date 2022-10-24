@@ -302,7 +302,7 @@ static IOReturn _copyNextValue(void *iunknown,
     
     entry = IODataQueuePeek(_queueMemory);
     require_action(entry, exit, ret = kIOReturnUnderrun);
-    
+
     elementValue = (IOHIDElementValue *)&(entry->data);
     cookie = (uint32_t)elementValue->cookie;
     
@@ -311,7 +311,7 @@ static IOReturn _copyNextValue(void *iunknown,
                                                    elementValue);
     if (*pValue && _IOHIDValueGetFlags(*pValue) & kIOHIDElementValueOOBReport) {
         uint64_t * reportAddress = (uint64_t *)elementValue->value;
-        [_device releaseOOBReport:*reportAddress];
+        [_device releaseReport:*reportAddress];
     }
     IODataQueueDequeue(_queueMemory, NULL, &dataSize);
     require(*pValue, exit);
@@ -346,9 +346,9 @@ static void _queueCallback(CFMachPortRef port,
 - (void)unmapMemory
 {
 #if !__LP64__
-    vm_address_t        mappedMem = (vm_address_t)_queueMemory;
+    vm_address_t        mappedMem = (vm_address_t)_queueHeader;
 #else
-    mach_vm_address_t   mappedMem = (mach_vm_address_t)_queueMemory;
+    mach_vm_address_t   mappedMem = (mach_vm_address_t)_queueHeader;
 #endif
     
     if (_queueMemory) {
@@ -357,6 +357,7 @@ static void _queueCallback(CFMachPortRef port,
                              mach_task_self(),
                              mappedMem);
         
+        _queueHeader = NULL;
         _queueMemory = NULL;
         _queueMemorySize = 0;
     }
@@ -387,8 +388,9 @@ static void _queueCallback(CFMachPortRef port,
                        &memSize,
                        kIOMapAnywhere);
     
-    _queueMemory = (IODataQueueMemory *)mappedMem;
-    _queueMemorySize = memSize;
+    _queueHeader = (IOHIDQueueHeader *)mappedMem;
+    _queueMemory = (IODataQueueMemory *)(mappedMem + sizeof(IOHIDQueueHeader));
+    _queueMemorySize = memSize - sizeof(IOHIDQueueHeader) - DATA_QUEUE_MEMORY_HEADER_SIZE - DATA_QUEUE_MEMORY_APPENDIX_SIZE;
 
     [self setupAnalytics];
 }
@@ -578,7 +580,7 @@ exit:
     uint32_t tail;
     uint64_t queueUsage;
 
-    require(_queueMemory, exit);
+    require(_queueHeader && _queueMemory, exit);
     require(_usageAnalytics, exit);
 
     head = (uint32_t)_queueMemory->head;
@@ -606,6 +608,22 @@ exit:
     return;
 }
 
+- (void)signalQueueEmpty
+{
+    if (!_queueHeader) {
+        return;
+    }
+
+    if (_queueHeader->status & kIOHIDQueueStatusBlocked) {
+        IOReturn result;
+        result = IOConnectCallScalarMethod(_device.connect,
+                                  kIOHIDLibUserClientResumeReports,
+                                  NULL, 0, NULL, NULL);
+        if (result != kIOReturnSuccess) {
+            HIDLog("kIOHIDLibUserClientResumeReports:%#x", result);
+        }
+    }
+}
 
 @end
 

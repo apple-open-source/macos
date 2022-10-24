@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>write</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/write?id=27ed53c3117c6d937c9f55e94a2354345a42a604</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-19</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>write.c: work even w/o local tty</string>
+			<string>write.c: don't use possibly non-NUL terminated ut_line</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

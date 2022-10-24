@@ -62,8 +62,10 @@
 
         self->_client.task                                   = CFRetainSafe(existingClient->task);
         self->_client.accessGroups                           = CFRetainSafe(existingClient->accessGroups);
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         self->_client.allowSystemKeychain                    = existingClient->allowSystemKeychain;
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         self->_client.allowSyncBubbleKeychain                = existingClient->allowSyncBubbleKeychain;
 #endif
         self->_client.isNetworkExtension                     = existingClient->isNetworkExtension;
@@ -74,7 +76,7 @@
         self->_client.keybag                                 = existingClient->keybag;
 #endif
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        self->_client.inMultiUser                            = existingClient->inMultiUser;
+        self->_client.inEduMode                              = existingClient->inEduMode;
 #endif
 
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER

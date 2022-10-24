@@ -182,7 +182,10 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleTrustServicesCA101</string>
+		<array>
+			<string>GoogleTrustServicesCA101</string>
+			<string>GlobalSignRootCAR2</string>
+		</array>
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
@@ -219,7 +222,10 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleTrustServicesCA101</string>
+		<array>
+			<string>GoogleTrustServicesCA101</string>
+			<string>GlobalSignRootCAR2</string>
+		</array>
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
@@ -260,7 +266,10 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleTrustServicesCA101</string>
+		<array>
+			<string>GoogleTrustServicesCA101</string>
+			<string>GlobalSignRootCAR2</string>
+		</array>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
@@ -429,17 +438,17 @@
 			<key>Properties</key>
 			<dict>
 				<key>SecPolicyName</key>
-				<string>identity.ess.apple.com</string>
+				<string>static.ess.apple.com</string>
 			</dict>
 		</dict>
 		<key>Leaf</key>
-		<string>ids_ist_identity</string>
+		<string>ids_ist_static</string>
 		<key>Intermediates</key>
-		<string>AppleISTCA2G1</string>
+		<string>AppleISTCA2G1-Baltimore</string>
 		<key>Anchors</key>
-		<string>GeoTrustGlobalCA</string>
+		<string>BaltimoreCyberTrustRoot</string>
 		<key>VerifyDate</key>
-		<date>2017-02-08T21:00:00Z</date>
+		<date>2019-01-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -485,7 +494,7 @@
 		<key>Anchors</key>
 		<string>BaltimoreCyberTrustRoot</string>
 		<key>VerifyDate</key>
-		<date>2019-10-04T19:00:00Z</date>
+		<date>2022-06-01T00:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>

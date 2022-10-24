@@ -181,6 +181,7 @@ typedef struct
     uint64_t    uAbsoluteClusterOffset;         // Offset within the system
     uint32_t    uAbsoluteClusterNum;            // Cluster num in the system
     bool        bIsUsed;
+    uint64_t    uLRUCounter;
 
     MultiReadSingleWriteHandler_s   sCDLck;
     uint8_t                         uRefCount;  //Ref Count for amount of threads that are using this cluster data
@@ -202,17 +203,37 @@ struct DirClusterEntry
 };
 TAILQ_HEAD(sDirEntryLocksList_s, DirClusterEntry);
 
-#define DIR_CLUSTER_DATA_TABLE_MAX (10)
+/*
+ * We want to perform fast lookups for directories which contain up to 20K files,
+ * with relatively short names.
+ * Dir-entry size is 96 bytes (assuming the name length is up to 15 characters).
+ * In total, 20K * 96 = ~1.8 MB, so 2MB is a good cache size.
+ * Notes:
+ * 1. 20K files was chosen because of the DCIM limitation of 10K files per dir.
+ *    (we assume 10K files and an Apple-Double file for each one --> 20K total).
+ * 2. This cache size will only be enough for one 20K files directory.
+ *    We assume that this is the common use-case. In case the user deals with
+ *    multiple large directories simultaneously, the cache won't be very effective.
+ * 3. On iOS we use a smaller cache size because of memory limitations.
+ */
+#if TARGET_OS_OSX
+#define DIR_CLUSTER_CACHE_SIZE_IN_BYTES (2*1024*1024) // macOS - 2 MB
+#else
+#define DIR_CLUSTER_CACHE_SIZE_IN_BYTES (512*1024) // iOS - 512 KB
+#endif
+// The number of cache entries depends on the cluster size.
+#define DIR_CLUSTER_CACHE_NUM_ENTRIES(psFSRecord) (DIR_CLUSTER_CACHE_SIZE_IN_BYTES / CLUSTER_SIZE(psFSRecord))
 typedef struct DirClusterCache
 {
     //Global dir clustter cache
     bool                            bIsAllocated;
     pthread_mutex_t                 sDirClusterDataCacheMutex;
     pthread_cond_t                  sDirClusterCacheCond;         // We want to know when an entry is getting freed
-    ClusterData_s                   sDirClusterCacheData[DIR_CLUSTER_DATA_TABLE_MAX];
-    uint8_t                         uNumOfUnusedEntries;
+    ClusterData_s*                  sDirClusterCacheData;
+    uint32_t                        uNumOfUnusedEntries;
     ClusterData_s*                  sGlobalFAT12_16RootClusterrCache; // For FAT12/16 we want to save the root cluster seperatly
                                                                       // since it's in different size (smaller then a regular cluster)
+    uint64_t                        uGlobalLRUCounter;
     
     // Global list of dir entry locks - lock is being used by the directory and by it's childs
     MultiReadSingleWriteHandler_s   sDirClusterCacheListLock;
@@ -317,6 +338,9 @@ typedef struct
 #if DIAGNOSTIC
     DiagnosticDB_s sDiagnosticDB;
 #endif
+
+    volatile atomic_uint_least64_t  uOpenUnlinkedFiles;     /* How many open/unlinked files we have. Device shall remain dirty as
+                                                             * long as this counter is > 0. */
 } FileSystemRecord_s;
 
 /* -------------------------------------------------------------------------------------
@@ -412,6 +436,8 @@ typedef struct
     } sExtraData;
 
     uint32_t                uValidNodeMagic2;
+
+    bool                    isDeleted;
 
 } NodeRecord_s;
 

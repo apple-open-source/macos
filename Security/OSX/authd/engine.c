@@ -38,8 +38,8 @@ static void _set_auth_token_hints(auth_items_t, auth_items_t, auth_token_t);
 static OSStatus _evaluate_user_credential_for_rule(engine_t, credential_t, rule_t, bool, bool, enum Reason *);
 static void _engine_set_credential(engine_t, credential_t, bool);
 static OSStatus _evaluate_rule(engine_t, rule_t, bool *);
-static bool _preevaluate_class_rule(engine_t engine, rule_t rule, const char **group);
-static bool _preevaluate_rule(engine_t engine, rule_t rule, const char **group);
+static bool _preevaluate_class_rule(engine_t engine, rule_t rule, const char **group, bool *sessionOwner, bool *secureToken);
+static bool _preevaluate_rule(engine_t engine, rule_t rule, const char **group, bool *sessionOwner, bool *secureToken);
 
 static uint64_t global_engine_count;
 
@@ -120,7 +120,7 @@ AUTH_TYPE_INSTANCE(engine,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID engine_get_type_id() {
+static CFTypeID engine_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -1016,13 +1016,14 @@ _evaluate_class_rule(engine_t engine, rule_t rule, bool *save_pwd)
 }
 
 static bool
-_preevaluate_class_rule(engine_t engine, rule_t rule, const char **group)
+_preevaluate_class_rule(engine_t engine, rule_t rule, const char **group, bool *sessionOwner, bool *secureToken)
 {
 	os_log_debug(AUTHD_LOG, "engine %lld: _preevaluate_class_rule %{public}s", engine->engine_index, rule_get_name(rule));
 
 	__block bool password_only = false;
+
 	rule_delegates_iterator(rule, ^bool(rule_t delegate) {
-		if (_preevaluate_rule(engine, delegate, group)) {
+		if (_preevaluate_rule(engine, delegate, group, sessionOwner, secureToken)) {
 				password_only = true;
 		}
 		return true;
@@ -1139,7 +1140,7 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
 
 // returns true if this rule or its children contain RC_USER rule with password_only==true
 static bool
-_preevaluate_rule(engine_t engine, rule_t rule, const char **group)
+_preevaluate_rule(engine_t engine, rule_t rule, const char **group, bool *sessionOwner, bool *secureToken)
 {
 	os_log_debug(AUTHD_LOG, "engine %lld: _preevaluate_rule %{public}s", engine->engine_index, rule_get_name(rule));
 
@@ -1151,9 +1152,15 @@ _preevaluate_rule(engine_t engine, rule_t rule, const char **group)
             if (group && !*group) {
                 *group = rule_get_group(rule);
             }
+            if (sessionOwner) {
+                *sessionOwner = rule_get_session_owner(rule);
+            }
+            if (secureToken) {
+                *secureToken = rule_get_securetokenuser(rule);
+            }
 			return rule_get_password_only(rule);
 		case RC_RULE:
-			return _preevaluate_class_rule(engine, rule, group);
+			return _preevaluate_class_rule(engine, rule, group, sessionOwner, secureToken);
 		case RC_MECHANISM:
 			return false;
 		default:
@@ -1312,8 +1319,13 @@ OSStatus engine_get_right_properties(engine_t engine, const char *rightName, CFD
     
     if (rule) {
         const char *group = NULL;
-        bool passwordOnly = _preevaluate_rule(engine, rule, &group);
+        bool sessionOwner = false;
+        bool secureToken = false;
+        bool passwordOnly = _preevaluate_rule(engine, rule, &group, &sessionOwner, &secureToken);
         CFDictionarySetValue(properties, CFSTR(kAuthorizationRuleParameterPasswordOnly), passwordOnly ? kCFBooleanTrue : kCFBooleanFalse);
+        CFDictionarySetValue(properties, CFSTR(kAuthorizationSessionOwnerAccepted), sessionOwner ? kCFBooleanTrue : kCFBooleanFalse);
+        CFDictionarySetValue(properties, CFSTR(kAuthorizationRuleParameterSecureTokenOnly), secureToken ? kCFBooleanTrue : kCFBooleanFalse);
+
         if (group) {
             CFStringRef groupCf = CFStringCreateWithCString(kCFAllocatorDefault, group, kCFStringEncodingUTF8);
             if (groupCf) {
@@ -1406,7 +1418,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     auth_items_remove(engine->context, kAuthorizationEnvironmentPassword);
     auth_items_remove(engine->context, AGENT_CONTEXT_AUTHENTICATION_FAILURE);
     auth_items_remove(engine->context, kAuthorizationPamResult);
-    auth_items_remove(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
     
     if (environment) {
         _parse_environment(engine, environment);
@@ -1483,7 +1494,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 			os_log_debug(AUTHD_LOG, "engine %lld: checking if rule %{public}s contains password-only item", engine->engine_index, key);
 
 			rule_t rule = _find_rule(engine, dbconn, key);
-			if (rule && _preevaluate_rule(engine, rule, NULL)) {
+			if (rule && _preevaluate_rule(engine, rule, NULL, NULL, NULL)) {
 				password_only = true;
                 CFReleaseSafe(rule);
 				return false;
@@ -1606,14 +1617,15 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         status = errAuthorizationDenied;
     }
     
-    const char *reqUser = auth_items_get_string(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
-    if ((status == errAuthorizationSuccess) && reqUser) {
-        os_log(AUTHD_LOG, "Password only prompt for SmartCard-enforced user %s, PIN prompt will follow", reqUser);
+    const char *reqScUser = auth_items_get_string(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
+    if ((status == errAuthorizationSuccess) && reqScUser) {
+        os_log(AUTHD_LOG, "Password only prompt for SmartCard-enforced user %s, PIN prompt will follow", reqScUser);
         AuthorizationRef scAuthorizationRef;
         status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &scAuthorizationRef);
         if (status != errAuthorizationSuccess) {
             os_log_error(AUTHD_LOG, "Unable to create SC only authorization: %d", (int)status);
         } else {
+            auth_items_remove(engine->context, AGENT_CONTEXT_SC_REQUIRED_USER);
             status = errSecInternalError;
             auth_token_t scAuth = NULL;
             auth_rights_t scRights = NULL;
@@ -1631,7 +1643,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             scEnvironment = auth_items_create();
             require_action(scEnvironment != NULL, scDone, os_log_error(AUTHD_LOG, "Unable to create env"));
             
-            auth_items_set_string(scEnvironment, AGENT_HINT_REQUIRED_USER, reqUser);
+            auth_items_set_string(scEnvironment, AGENT_HINT_REQUIRED_USER, reqScUser);
             
             status = server_authorize(scConn, scAuth, kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, scRights, scEnvironment, NULL);
             if (status != errAuthorizationSuccess) {

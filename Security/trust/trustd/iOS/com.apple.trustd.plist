@@ -34,5 +34,12 @@
 	<string>Adaptive</string>
 	<key>MinimalBootProfile</key>
 	<true/>
+	<key>_PanicOnCrash</key>
+	<dict>
+		<key>AutomationOnly</key>
+		<true/>
+		<key>PanicOnConsecutiveCrash</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

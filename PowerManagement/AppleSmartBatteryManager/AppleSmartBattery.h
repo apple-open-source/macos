@@ -72,6 +72,16 @@ typedef struct {
     int pathBits;
 } smcToRegistry;
 
+typedef struct {
+    AbsoluteTime absTime;
+    OSDictionary *dict;
+} streamTimerEvent;
+
+typedef struct {
+    IOSharedDataQueue *queue;
+    AbsoluteTime periodTime;
+    AbsoluteTime wakeupTime;
+} streamQueueCollect;
 
 class AppleSmartBattery : public IOPMPowerSource {
     OSDeclareDefaultStructors(AppleSmartBattery)
@@ -127,10 +137,11 @@ public:
     void    handleBatteryRemoved(void);
     void    handleChargeInhibited(bool charge_state);
     void    handleExclusiveAccess(bool exclusive);
-    void    handleSetOverrideCapacity(uint16_t value, bool sticky);
+    void    handleSetOverrideCapacity(uint16_t value);
     void    handleSwitchToTrueCapacity(void);
     IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
-
+    IOReturn newUserClient(task_t owningTask, void *securityID, UInt32 type, IOUserClient **handler) APPLE_KEXT_OVERRIDE;
+    
 
 protected:
     void    clearBatteryState(bool do_update);
@@ -156,7 +167,7 @@ protected:
     void         externalConnectedTimeout(void);
     uint32_t    _gasGaugeFirmwareVersion;
 #endif // TARGET_OS_IPHONE || TARGET_OS_OSX_AS
-
+    
 private:
     // poll loop control use lock to access
     IORWLock *_pollCtrlLock;
@@ -168,7 +179,7 @@ private:
 
     size_t _batteryCellCount;
 
-    IOReturn setPropertiesGated(OSObject *props, OSDictionary *dict);
+    IOReturn setPropertiesGated(OSDictionary *dict);
     IOReturn handleSystemSleepWakeGated(IOService * powerService, bool isSystemSleep);
     void acknowledgeSystemSleepWakeGated(void);
     void handleBatteryRemovedGated(void);

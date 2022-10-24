@@ -28,6 +28,7 @@
 #include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -98,9 +99,7 @@ smb_dir_cache_add_entry(vnode_t dvp, void *in_cachep,
     //SMB_LOG_DIR_CACHE2("Caching <%s> <%s>\n", name, cache_namep);
 
     /* Create a new cached_dir_entry and insert it into the list */
-    SMB_MALLOC(entry, struct cached_dir_entry *,
-               sizeof (struct cached_dir_entry),
-               M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(entry, struct cached_dir_entry, Z_WAITOK_ZERO);
     
 	entry->name = vfs_addname(name, (uint32_t) name_len, 0, 0);
     entry->name_len = name_len;
@@ -143,9 +142,9 @@ smb_dir_cache_add_entry(vnode_t dvp, void *in_cachep,
         cachep->timer = ts.tv_sec;
         
         /* Remember current dir change cnt to detect local changes */
-		lck_mtx_lock(&dnp->d_dur_handle.lock);
+        smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_add_entry);
         cachep->chg_cnt = dnp->d_changecnt;
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
+        smbnode_lease_unlock(&dnp->n_lease);
 
 		SMB_LOG_DIR_CACHE_LOCK(dnp, "Set chg cnt to %d for <%s> <%s> \n",
                                cachep->chg_cnt, dnp->n_name, cache_namep);
@@ -185,7 +184,8 @@ smb_dir_cache_add_entry(vnode_t dvp, void *in_cachep,
 }
 
 void
-smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked)
+smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked,
+                    vfs_context_t context)
 {
     struct smb_enum_cache *cachep = in_cachep;
     struct smbnode *dnp = NULL;
@@ -228,58 +228,41 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked)
     if (!is_locked) {
         lck_mtx_lock(&dnp->d_enum_cache_list_lock);
     }
-	
-	/* 
-	 * Only check for cache timeout if dir leases are NOT supported
-	 * Did the dir cache expire?
-	 */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	
-	if ((SMBV_SMB3_OR_LATER(sessionp)) &&
-		(sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
-		!(smp->sm_args.altflags & SMBFS_MNT_DIR_LEASE_OFF) &&
-		(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED)) {
-		/* Dir has an active lease, so the dir cache never times out */
-		
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
-	}
-	else {
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
 
-		/* Did the dir cache expire? */
-		if (cachep->timer != 0) {
-			if ((smp->sm_args.dir_cache_max != 0) &&
-				(smp->sm_args.dir_cache_max <= 3600)){
-				dir_cache_max = smp->sm_args.dir_cache_max;
-			}
-			
-			if ((smp->sm_args.dir_cache_min != 0) &&
-				(smp->sm_args.dir_cache_min >= 1)){
-				dir_cache_min = smp->sm_args.dir_cache_min;
-			}
-			
-			SMB_DIR_CACHE_TIME(ts, dnp, attrtimeo, dir_cache_max, dir_cache_min);
-			
-			if ((ts.tv_sec - cachep->timer) > attrtimeo) {
-				if (dnp->d_main_cache.flags & kDirCacheComplete) {
-					/*
-					 * Make sure the enumeration has completed before remvoing it
-					 * Dir cache has expired so remove it
-					 */
-					SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Enum cache has expired <%ld> for <%s> \n",
-										   attrtimeo, dnp->n_name);
-					remove_cache = 1;
-					reason_str = expired_str;
-				}
-			}
-		}
-	}
+    /* Did the dir cache expire? */
+    if (cachep->timer != 0) {
+        if ((smp->sm_args.dir_cache_max != 0) &&
+            (smp->sm_args.dir_cache_max <= 3600)){
+            dir_cache_max = smp->sm_args.dir_cache_max;
+        }
+        
+        if ((smp->sm_args.dir_cache_min != 0) &&
+            (smp->sm_args.dir_cache_min >= 1)){
+            dir_cache_min = smp->sm_args.dir_cache_min;
+        }
+        
+        SMB_DIR_CACHE_TIME(ts, dnp, attrtimeo, dir_cache_max, dir_cache_min);
+        
+        if ((ts.tv_sec - cachep->timer) > attrtimeo) {
+            if (dnp->d_main_cache.flags & kDirCacheComplete) {
+                /*
+                 * Make sure the enumeration has completed before removing it
+                 * Dir cache has expired so remove it
+                 */
+                SMB_LOG_LEASING_LOCK(dnp, "Enum cache has expired <%ld> for <%s> \n",
+                                       attrtimeo, dnp->n_name);
+                remove_cache = 1;
+                reason_str = expired_str;
+            }
+        }
+    }
 
     /* If dir cache has not expired, then was there a local change? */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
+    smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_check);
+
     if ((remove_cache == 0) &&
         (cachep->chg_cnt != dnp->d_changecnt)) {
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
+        smbnode_lease_unlock(&dnp->n_lease);
 
 		SMB_LOG_DIR_CACHE_LOCK(dnp, "Local change for <%s> %d != %d\n",
                                dnp->n_name, cachep->chg_cnt, dnp->d_changecnt);
@@ -287,10 +270,24 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked)
 		reason_str = local_chg_str;
     }
 	else {
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
+        smbnode_lease_unlock(&dnp->n_lease);
 	}
 
     if (remove_cache == 1) {
+        smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_check);
+        if ((SMBV_SMB3_OR_LATER(sessionp)) &&
+            (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
+            !(smp->sm_args.altflags & SMBFS_MNT_DIR_LEASE_OFF) &&
+            (dnp->n_lease.flags & SMB2_LEASE_GRANTED)) {
+            /* Dir has an active lease, we need close it */
+            smbnode_lease_unlock(&dnp->n_lease);
+            smbfs_closedirlookup(dnp, 0, reason_str, context);
+            smbfs_closedirlookup(dnp, 1, reason_str, context);
+        }
+        else {
+            smbnode_lease_unlock(&dnp->n_lease);
+        }
+        
         /* Any locking was already done earlier in this function */
         smb_dir_cache_remove(dvp, cachep, "main", reason_str, 1);
     }
@@ -305,7 +302,8 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked)
 int32_t
 smb_dir_cache_find_entry(vnode_t dvp, void *in_cachep,
                          char *name, size_t name_len,
-                         struct smbfattr *fap, uint64_t req_attrs)
+                         struct smbfattr *fap, uint64_t req_attrs,
+                         vfs_context_t context)
 {
     struct smb_enum_cache *cachep = in_cachep;
     struct smbnode *dnp = NULL;
@@ -336,7 +334,7 @@ smb_dir_cache_find_entry(vnode_t dvp, void *in_cachep,
     lck_mtx_lock(&dnp->d_enum_cache_list_lock);
     
     /* Setup the dir cache */
-    smb_dir_cache_check(dvp, &dnp->d_main_cache, 1);
+    smb_dir_cache_check(dvp, &dnp->d_main_cache, 1, context);
 
     /* Now search the list until we find a match */
     for (entry = cachep->list; entry; entry = entry->next) {
@@ -417,8 +415,16 @@ again:
     }
 	
 	if (error == ETIMEDOUT) {
-		/* Reconnect must have occurred, try again */
-		goto again;
+        if (share->ss_going_away(share)) {
+            /*
+             * the request timed out because the share is going away
+             * we should stop and let the unmount finish
+             */
+            SMBDEBUG("Share going away, not trying again");
+        } else {
+            /* Reconnect must have occurred, try again */
+            goto again;
+        }
 	}
 	
     if (!is_locked) {
@@ -431,6 +437,7 @@ again:
 void
 smb_dir_cache_invalidate(vnode_t vp, uint32_t forceInvalidate)
 {
+#pragma unused(forceInvalidate)
     vnode_t par_vp = NULL;
     vnode_t data_par_vp = NULL;
     struct smbnode *np = VTOSMB(vp);
@@ -440,14 +447,8 @@ smb_dir_cache_invalidate(vnode_t vp, uint32_t forceInvalidate)
         if (!vnode_isnamedstream(vp)) {
             /* Not a named stream, so this is the parent dir */
 			if (vnode_isdir(par_vp)) {
-				/* <33469405> if dir has active lease skip local change notify */
-				lck_mtx_lock(&VTOSMB(par_vp)->d_dur_handle.lock);
-				if (!(VTOSMB(par_vp)->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-					(VTOSMB(par_vp)->d_dur_handle.flags & SMB2_LEASE_BROKEN) ||
-                    (forceInvalidate == 1)) {
-					VTOSMB(par_vp)->d_changecnt++;
-				}
-				lck_mtx_unlock(&VTOSMB(par_vp)->d_dur_handle.lock);
+				/* Dont skip local change notify */
+                VTOSMB(par_vp)->d_changecnt++;
 			}
         }
         else {
@@ -460,14 +461,8 @@ smb_dir_cache_invalidate(vnode_t vp, uint32_t forceInvalidate)
             if (data_par_vp != NULL) {
                 /* Got the real parent dir */
 				if (vnode_isdir(data_par_vp)) {
-					/* <33469405> if dir has active lease skip local change notify */
-					lck_mtx_lock(&VTOSMB(data_par_vp)->d_dur_handle.lock);
-					if (!(VTOSMB(data_par_vp)->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-						(VTOSMB(data_par_vp)->d_dur_handle.flags & SMB2_LEASE_BROKEN) ||
-                        (forceInvalidate == 1)) {
-						VTOSMB(data_par_vp)->d_changecnt++;
-					}
-					lck_mtx_unlock(&VTOSMB(data_par_vp)->d_dur_handle.lock);
+					/* Dont skip local change notify */
+                    VTOSMB(data_par_vp)->d_changecnt++;
 				}
 
 				vnode_put(data_par_vp);
@@ -531,7 +526,7 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
         entryp = entryp->next;
 		
 		vfs_removename(currp->name);
-        SMB_FREE(currp, M_TEMP);
+        SMB_FREE_TYPE(struct cached_dir_entry, currp);
     }
     
     cachep->list = NULL;
@@ -543,9 +538,9 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
 	 * Reset current dir change cnt so we dont keep trying to remove the dir
 	 * cache because the change cnts dont match
 	 */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
+    smbnode_lease_lock(&dnp->n_lease, smb_dir_cache_remove);
 	cachep->chg_cnt = dnp->d_changecnt;
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+    smbnode_lease_unlock(&dnp->n_lease);
 
 	if (!is_locked) {
         lck_mtx_unlock(&dnp->d_enum_cache_list_lock);
@@ -597,7 +592,7 @@ smb_dir_cache_remove_one(vnode_t dvp, void *in_cachep,
             }
             
 			vfs_removename(entryp->name);
-            SMB_FREE(entryp, M_TEMP);
+            SMB_FREE_TYPE(struct cached_dir_entry, entryp);
             break;
         }
         
@@ -632,13 +627,11 @@ smb_global_dir_cache_add_entry(vnode_t dvp, int is_locked)
 		return;
 	}
 	
-	SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Adding dir <%s> entry count <%lld> \n",
+	SMB_LOG_LEASING_LOCK(dnp, "Adding dir <%s> entry count <%lld> \n",
 						   dnp->n_name, dnp->d_main_cache.count);
 	
 	/* Create a new cached_dir_entry and insert it into the list */
-	SMB_MALLOC(entryp, struct global_dir_cache_entry *,
-			   sizeof (struct global_dir_cache_entry),
-			   M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(entryp, struct global_dir_cache_entry, Z_WAITOK_ZERO);
 	
 	entryp->name = vfs_addname(dnp->n_name, (uint32_t) dnp->n_nmlen, 0, 0);
 	entryp->name_len = dnp->n_nmlen;
@@ -707,8 +700,8 @@ smb_global_dir_cache_low_memory(int free_all, void *context_ptr)
                    free_all, 0, 0, 0, 0);
 
     if (free_all) {
-		SMB_LOG_UNIT_TEST("LeaseUnitTest - Low memory call back with <%d> \n",
-                          free_all);
+		SMB_LOG_LEASING("Low memory call back with <%d> \n",
+                        free_all);
 
 		lck_mtx_lock(&global_dir_cache_lock);
 		
@@ -739,7 +732,8 @@ smb_global_dir_cache_low_memory(int free_all, void *context_ptr)
                         error = smbnode_trylock(VTOSMB(dvp), SMBFS_EXCLUSIVE_LOCK);
                         if (error == 0) {
                             /* Got the lock */
-                            SMB_LOG_UNIT_TEST("LeaseUnitTest - Removing dir cache entries for <%s> \n", currentp->name);
+                            SMB_LOG_LEASING("Removing dir cache entries for <%s> \n",
+                                            currentp->name);
 
                             /*
                              * SMBFS_EXCLUSIVE_LOCK should be enough to
@@ -835,7 +829,8 @@ again:
                     error = smbnode_trylock(VTOSMB(dvp), SMBFS_EXCLUSIVE_LOCK);
                     if (error == 0) {
 						/* Got the lock */
-						SMB_LOG_UNIT_TEST("LeaseUnitTest - Removing dir cache entries for <%s> \n", oldestp->name);
+						SMB_LOG_LEASING("Removing dir cache entries for <%s> \n",
+                                        oldestp->name);
 
                         /*
                          * SMBFS_EXCLUSIVE_LOCK should be enough to
@@ -920,7 +915,7 @@ smb_global_dir_cache_remove(int is_locked, int remove_all)
 	}
 
     if (remove_all == 1) {
-        SMB_LOG_UNIT_TEST("LeaseUnitTest - Removing all dirs \n");
+        SMB_LOG_LEASING("Removing all dirs \n");
         entryp = global_dir_cache_head;
         while (entryp != NULL) {
             /* wipe out the enum cache entries */
@@ -928,7 +923,7 @@ smb_global_dir_cache_remove(int is_locked, int remove_all)
             entryp = entryp->next;
 
             vfs_removename(currentp->name);
-            SMB_FREE(currentp, M_TEMP);
+            SMB_FREE_TYPE(struct global_dir_cache_entry, currentp);
         }
 
         global_dir_cache_head = NULL;
@@ -958,11 +953,11 @@ smb_global_dir_cache_remove(int is_locked, int remove_all)
                     }
                 }
 
-                SMB_LOG_UNIT_TEST("LeaseUnitTest - Removing dir <%s> \n",
-                                  currentp->name);
+                SMB_LOG_LEASING("Removing dir <%s> \n",
+                                currentp->name);
 
                 vfs_removename(currentp->name);
-                SMB_FREE(currentp, M_TEMP);
+                SMB_FREE_TYPE(struct global_dir_cache_entry, currentp);
                 currentp = NULL;
 
                 /* on to next entryp */
@@ -1027,10 +1022,10 @@ smb_global_dir_cache_remove_one(vnode_t dvp, int is_locked)
 				}
 			}
 			
-			SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Removing dir <%s> \n", dnp->n_name);
+			SMB_LOG_LEASING_LOCK(dnp, "Removing dir <%s> \n", dnp->n_name);
 
 			vfs_removename(entryp->name);
-			SMB_FREE(entryp, M_TEMP);
+            SMB_FREE_TYPE(struct global_dir_cache_entry, entryp);
 			break;
 		}
 		
@@ -1071,7 +1066,7 @@ smb_global_dir_cache_update_entry(vnode_t dvp)
 		if (dir_vid == entryp->dir_vid) {
 			/* found it, now update it */
 			if (entryp->cached_cnt != (uint64_t) dnp->d_main_cache.count) {
-				SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Updating dir <%s> old entry count <%lld> new entry cnt <%lld> \n",
+				SMB_LOG_LEASING_LOCK(dnp, "Updating dir <%s> old entry count <%lld> new entry cnt <%lld> \n",
 									   dnp->n_name, entryp->cached_cnt, dnp->d_main_cache.count);
 			}
 			

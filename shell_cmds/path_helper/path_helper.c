@@ -191,10 +191,10 @@ int main(int argc, char* argv[]) {
 
 	if (style == STYLE_CSH) {
 		printf("setenv PATH \"%s\";\n", path);
-		if (do_manpath) printf("setenv MANPATH \"%s\";\n", manpath);
+		if (do_manpath) printf("setenv MANPATH \"%s\":;\n", manpath);
 	} else {
 		printf("PATH=\"%s\"; export PATH;\n", path);
-		if (do_manpath) printf("MANPATH=\"%s\"; export MANPATH;\n", manpath);
+		if (do_manpath) printf("MANPATH=\"%s:\"; export MANPATH;\n", manpath);
 	}
 
 	return 0;

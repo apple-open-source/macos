@@ -1204,7 +1204,7 @@ parse_file(FILE *cf, const char *cfname, struct conf_entry **work_p,
 			else if (ul > INT_MAX)
 				errx(1, "interval is too large:\n%s", errline);
 			else
-				working->hours = ul;
+				working->hours = (int) ul;
 
 			if (*ep == '\0' || strcmp(ep, "*") == 0)
 				goto no_trimat;
@@ -1878,7 +1878,7 @@ set_swpid(struct sigwork_entry *swork, const struct conf_entry *ent)
 			    minok, maxok);
 	} else {
 		swork->sw_pidok = 1;
-		swork->sw_pid = rval;
+		swork->sw_pid = (pid_t) rval;
 	}
 
 	return;

@@ -48,9 +48,13 @@ static void TestGetFieldDisplayNames(void);
 static void TestGetDefaultHourCycle(void);
 static void TestGetDefaultHourCycleOnEmptyInstance(void);
 static void TestEras(void);
+static void TestDateTimePatterns(void);
 static void TestJapaneseCalendarItems(void); // rdar://52042600
 static void TestCountryFallback(void);  // rdar://problem/26911014
-static void TestAdlam(void);
+static void TestAdlam(void);    // rdar://80593890
+static void TestRegionOverride(void);   // rdar://93783223
+static void TestForce24(void); // rdar://96019833
+static void TestCloneAllowedHourFormats(void); // rdar://97391281
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
@@ -61,9 +65,13 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestGetDefaultHourCycle);
     TESTCASE(TestGetDefaultHourCycleOnEmptyInstance);
     TESTCASE(TestEras);
+    TESTCASE(TestDateTimePatterns);
     TESTCASE(TestJapaneseCalendarItems);
     TESTCASE(TestCountryFallback);
     TESTCASE(TestAdlam);
+    TESTCASE(TestRegionOverride);
+    TESTCASE(TestForce24);
+    TESTCASE(TestCloneAllowedHourFormats);
 }
 
 /*
@@ -628,6 +636,180 @@ static void TestEras(void) {
     }
 }
 
+enum { kNumDateTimePatterns = 4 };
+
+typedef struct {
+    const char* localeID;
+    const UChar* expectPat[kNumDateTimePatterns];
+} DTPLocaleAndResults;
+
+static void doDTPatternTest(UDateTimePatternGenerator* udtpg,
+                            const UChar** skeletons,
+                            DTPLocaleAndResults* localeAndResultsPtr);
+
+static void TestDateTimePatterns(void) {
+    const UChar* skeletons[kNumDateTimePatterns] = {
+        u"yMMMMEEEEdjmm", // full date, short time
+        u"yMMMMdjmm",     // long date, short time
+        u"yMMMdjmm",      // medium date, short time
+        u"yMdjmm"         // short date, short time
+    };
+    // The following tests some locales in which there are differences between the
+    // DateTimePatterns of various length styles.
+    DTPLocaleAndResults localeAndResults[] = {
+        { "en", { u"EEEE, MMMM d, y 'at' h:mm a", // long != medium
+                  u"MMMM d, y 'at' h:mm a",
+                  u"MMM d, y 'at' h:mm a",
+                  u"M/d/y, h:mm a" } },
+        { "fr", { u"EEEE d MMMM y à HH:mm", // medium != short
+                  u"d MMMM y à HH:mm",
+                  u"d MMM y à HH:mm",
+                  u"dd/MM/y HH:mm" } },
+        { "ha", { u"EEEE d MMMM, y HH:mm", // full != long
+                  u"d MMMM, y 'da' HH:mm",
+                  u"d MMM, y, HH:mm",
+                  u"y-MM-dd, HH:mm" } },
+        { NULL, { NULL, NULL, NULL, NULL } } // terminator
+    };
+
+    const UChar* enDTPatterns[kNumDateTimePatterns] = {
+        u"{1} 'at' {0}",
+        u"{1} 'at' {0}",
+        u"{1} 'at' {0}",
+        u"{1}, {0}"
+    };
+    const UChar* modDTPatterns[kNumDateTimePatterns] = {
+        u"{1} _0_ {0}",
+        u"{1} _1_ {0}",
+        u"{1} _2_ {0}",
+        u"{1} _3_ {0}"
+    };
+    DTPLocaleAndResults enModResults = { "en", { u"EEEE, MMMM d, y _0_ h:mm a",
+                                                 u"MMMM d, y _1_ h:mm a",
+                                                 u"MMM d, y _2_ h:mm a",
+                                                 u"M/d/y _3_ h:mm a" }
+    };
+
+    // Test various locales with standard data
+    UErrorCode status;
+    UDateTimePatternGenerator* udtpg;
+    DTPLocaleAndResults* localeAndResultsPtr = localeAndResults;
+    for (; localeAndResultsPtr->localeID != NULL; localeAndResultsPtr++) {
+        status = U_ZERO_ERROR;
+        udtpg = udatpg_open(localeAndResultsPtr->localeID, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("FAIL: udatpg_open for locale %s: %s", localeAndResultsPtr->localeID, myErrorName(status));
+        } else {
+            doDTPatternTest(udtpg, skeletons, localeAndResultsPtr);
+            udatpg_close(udtpg);
+        }
+    }
+    // Test getting and modifying date-time combining patterns
+    status = U_ZERO_ERROR;
+    udtpg = udatpg_open("en", &status);
+    if (U_FAILURE(status)) {
+        log_data_err("FAIL: udatpg_open #2 for locale en: %s", myErrorName(status));
+    } else {
+        char bExpect[64];
+        char bGet[64];
+        const UChar* uGet;
+        int32_t uGetLen, uExpectLen;
+
+        // Test error: style out of range
+        status = U_ZERO_ERROR;
+        uGet = udatpg_getDateTimeFormatForStyle(udtpg, UDAT_NONE, &uGetLen, &status);
+        if (status != U_ILLEGAL_ARGUMENT_ERROR || uGetLen != 0 || uGet==NULL || *uGet!= 0) {
+            if (uGet==NULL) {
+                log_err("FAIL: udatpg_getDateTimeFormatForStyle with invalid style, expected U_ILLEGAL_ARGUMENT_ERROR "
+                        "and ptr to empty string but got %s, len %d, ptr = NULL\n", myErrorName(status), uGetLen);
+            } else {
+                log_err("FAIL: udatpg_getDateTimeFormatForStyle with invalid style, expected U_ILLEGAL_ARGUMENT_ERROR "
+                        "and ptr to empty string but got %s, len %d, *ptr = %04X\n", myErrorName(status), uGetLen, *uGet);
+            }
+        }
+
+        // Test normal getting and setting
+        for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+            status = U_ZERO_ERROR;
+            uExpectLen = u_strlen(enDTPatterns[patStyle]);
+            uGet = udatpg_getDateTimeFormatForStyle(udtpg, patStyle, &uGetLen, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL udatpg_getDateTimeFormatForStyle %d (en before mod), get %s\n", patStyle, myErrorName(status));
+            } else if (uGetLen != uExpectLen || u_strncmp(uGet, enDTPatterns[patStyle], uExpectLen) != 0) {
+                u_austrcpy(bExpect, enDTPatterns[patStyle]);
+                u_austrcpy(bGet, uGet);
+                log_err("ERROR udatpg_getDateTimeFormatForStyle %d (en before mod), expect %d:\"%s\", get %d:\"%s\"\n",
+                        patStyle, uExpectLen, bExpect, uGetLen, bGet);
+            }
+            status = U_ZERO_ERROR;
+            udatpg_setDateTimeFormatForStyle(udtpg, patStyle, modDTPatterns[patStyle], -1, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL udatpg_setDateTimeFormatForStyle %d (en), get %s\n", patStyle, myErrorName(status));
+            } else {
+                uExpectLen = u_strlen(modDTPatterns[patStyle]);
+                uGet = udatpg_getDateTimeFormatForStyle(udtpg, patStyle, &uGetLen, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL udatpg_getDateTimeFormatForStyle %d (en after  mod), get %s\n", patStyle, myErrorName(status));
+                } else if (uGetLen != uExpectLen || u_strncmp(uGet, modDTPatterns[patStyle], uExpectLen) != 0) {
+                    u_austrcpy(bExpect, modDTPatterns[patStyle]);
+                    u_austrcpy(bGet, uGet);
+                    log_err("ERROR udatpg_getDateTimeFormatForStyle %d (en after  mod), expect %d:\"%s\", get %d:\"%s\"\n",
+                            patStyle, uExpectLen, bExpect, uGetLen, bGet);
+                }
+            }
+        }
+        // Test result of setting
+        doDTPatternTest(udtpg, skeletons, &enModResults);
+        // Test old get/set functions
+        uExpectLen = u_strlen(modDTPatterns[UDAT_MEDIUM]);
+        uGet = udatpg_getDateTimeFormat(udtpg, &uGetLen);
+        if (uGetLen != uExpectLen || u_strncmp(uGet, modDTPatterns[UDAT_MEDIUM], uExpectLen) != 0) {
+            u_austrcpy(bExpect, modDTPatterns[UDAT_MEDIUM]);
+            u_austrcpy(bGet, uGet);
+            log_err("ERROR udatpg_getDateTimeFormat (en after  mod), expect %d:\"%s\", get %d:\"%s\"\n",
+                    uExpectLen, bExpect, uGetLen, bGet);
+        }
+        udatpg_setDateTimeFormat(udtpg, modDTPatterns[UDAT_SHORT], -1); // set all dateTimePatterns to the short format
+        uExpectLen = u_strlen(modDTPatterns[UDAT_SHORT]);
+        u_austrcpy(bExpect, modDTPatterns[UDAT_SHORT]);
+        for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+            status = U_ZERO_ERROR;
+            uGet = udatpg_getDateTimeFormatForStyle(udtpg, patStyle, &uGetLen, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL udatpg_getDateTimeFormatForStyle %d (en after second mod), get %s\n", patStyle, myErrorName(status));
+            } else if (uGetLen != uExpectLen || u_strncmp(uGet, modDTPatterns[UDAT_SHORT], uExpectLen) != 0) {
+                u_austrcpy(bGet, uGet);
+                log_err("ERROR udatpg_getDateTimeFormatForStyle %d (en after second mod), expect %d:\"%s\", get %d:\"%s\"\n",
+                        patStyle, uExpectLen, bExpect, uGetLen, bGet);
+            }
+        }
+
+        udatpg_close(udtpg);
+    }
+}
+
+static void doDTPatternTest(UDateTimePatternGenerator* udtpg,
+                            const UChar** skeletons,
+                            DTPLocaleAndResults* localeAndResultsPtr) {
+    for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+        UChar uGet[64];
+        int32_t uGetLen, uExpectLen;
+        UErrorCode status = U_ZERO_ERROR;
+        uExpectLen = u_strlen(localeAndResultsPtr->expectPat[patStyle]);
+        uGetLen = udatpg_getBestPattern(udtpg, skeletons[patStyle], -1, uGet, 64, &status);
+        if (U_FAILURE(status)) {
+            log_err("FAIL udatpg_getBestPattern locale %s style %d: %s\n", localeAndResultsPtr->localeID, patStyle, myErrorName(status));
+        } else if (uGetLen != uExpectLen || u_strncmp(uGet, localeAndResultsPtr->expectPat[patStyle], uExpectLen) != 0) {
+            char bExpect[64];
+            char bGet[64];
+            u_austrcpy(bExpect, localeAndResultsPtr->expectPat[patStyle]);
+            u_austrcpy(bGet, uGet);
+            log_err("ERROR udatpg_getBestPattern locale %s style %d, expect %d:\"%s\", get %d:\"%s\"\n",
+                    localeAndResultsPtr->localeID, patStyle, uExpectLen, bExpect, uGetLen, bGet);
+        }
+    }
+}
+
 enum { kUFmtMax = 64, kBFmtMax = 128 };
 static void TestJapaneseCalendarItems(void) { // rdar://52042600
     static const UChar* jaJpnCalSkelAndFmt[][2] = {
@@ -815,5 +997,100 @@ static void TestAdlam(void) {
     }
     udatpg_close(dtpg);
 }
+
+// Test for rdar://93783223
+static void TestRegionOverride(void) {
+    typedef struct RegionOverrideTest {
+        const char* locale;
+        const UChar* expectedPattern;
+        UDateFormatHourCycle expectedHourCycle;
+    } RegionOverrideTest;
+    
+    const RegionOverrideTest testCases[] = {
+        { "en_US",           u"h:mm a", UDAT_HOUR_CYCLE_12 },
+        { "en_GB",           u"HH:mm",  UDAT_HOUR_CYCLE_23 },
+        { "en_US@rg=GBZZZZ", u"HH:mm",  UDAT_HOUR_CYCLE_23 },
+        { "en_US@hours=h23", u"HH:mm",  UDAT_HOUR_CYCLE_23 },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UChar actualPattern[200];
+        UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
+        
+        if (assertSuccess("Error creating dtpg", &err)) {
+            UDateFormatHourCycle actualHourCycle = udatpg_getDefaultHourCycle(dtpg, &err);
+            udatpg_getBestPattern(dtpg, u"jmm", -1, actualPattern, 200, &err);
+            
+            if (assertSuccess("Error using dtpg", &err)) {
+                assertIntEquals("Wrong hour cycle", testCases[i].expectedHourCycle, actualHourCycle);
+                assertUEquals("Wrong pattern", testCases[i].expectedPattern, actualPattern);
+            }
+        }
+        udatpg_close(dtpg);
+    }
+}
+
+// Test for rdar://96019833
+static void TestForce24(void) {
+    typedef struct Force24Test {
+        const char* locale;
+        const UChar* skeleton;
+        UDateTimePatternMatchOptions options;
+        const UChar* expectedPattern;
+    } Force24Test;
+    
+    const Force24Test testCases[] = {
+        { "en_US", u"jmm", 0,                           u"h:mm a" },
+        { "en_US", u"jmm", UADATPG_FORCE_24_HOUR_CYCLE, u"HH:mm"  },
+        { "en_US", u"Jmm", 0,                           u"hh:mm"  },
+        { "en_US", u"Jmm", UADATPG_FORCE_24_HOUR_CYCLE, u"HH:mm"  },
+        { "ja_JP", u"jmm", 0,                           u"H:mm"   },
+        { "ja_JP", u"jmm", UADATPG_FORCE_12_HOUR_CYCLE, u"aK:mm"  },
+        { "ja_JP", u"Jmm", 0,                           u"H:mm"   },
+        { "ja_JP", u"Jmm", UADATPG_FORCE_12_HOUR_CYCLE, u"K:mm"   },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
+        
+        if (assertSuccess("Error creating dtpg", &err)) {
+            UChar actualPattern[200];
+            
+            udatpg_getBestPatternWithOptions(dtpg, testCases[i].skeleton, -1, testCases[i].options, actualPattern, 200, &err);
+            if (assertSuccess("Error getting best pattern", &err)) {
+                assertUEquals("Wrong pattern", testCases[i].expectedPattern, actualPattern);
+            }
+        }
+        udatpg_close(dtpg);
+    }
+}
+
+// Test for rdar://97391281
+static void TestCloneAllowedHourFormats(void) {
+    // this is an intermittent failure-- repeat the test a bunch of times in the hopes of seeing it fail
+    int32_t runs = 500;
+    for (int32_t i = 0; i < runs; i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg1 = udatpg_open("en_GB", &err);
+        UDateTimePatternGenerator* dtpg2 = udatpg_clone(dtpg1, &err);
+        
+        if (assertSuccess("Failed to create DateTimePatternGenerators", &err)) {
+            UChar result1[200];
+            UChar result2[200];
+            
+            udatpg_getBestPatternWithOptions(dtpg1, u"jmm", -1, UADATPG_FORCE_12_HOUR_CYCLE, result1, 200, &err);
+            udatpg_getBestPatternWithOptions(dtpg2, u"jmm", -1, UADATPG_FORCE_12_HOUR_CYCLE, result2, 200, &err);
+            
+            assertSuccess("udatpg_getBestPatternWithOptions() failed", &err);
+            assertUEquals("Patterns don't match", result1, result2);
+        }
+        
+        udatpg_close(dtpg1);
+        udatpg_close(dtpg2);
+    }
+}
+
 
 #endif

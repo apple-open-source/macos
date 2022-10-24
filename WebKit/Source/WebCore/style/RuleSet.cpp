@@ -33,9 +33,11 @@
 #include "CSSKeyframesRule.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
+#include "CommonAtomStrings.h"
 #include "HTMLNames.h"
 #include "MediaQueryEvaluator.h"
 #include "RuleSetBuilder.h"
+#include "SVGElement.h"
 #include "SecurityOrigin.h"
 #include "SelectorChecker.h"
 #include "SelectorFilter.h"
@@ -85,13 +87,23 @@ static bool isHostSelectorMatchingInShadowTree(const CSSSelector& startSelector)
     return !hasOnlyOneCompound && hasHostInLastCompound;
 }
 
+static bool shouldHaveBucketForAttributeName(const CSSSelector& attributeSelector)
+{
+    // Don't make buckets for lazy attributes since we don't want to synchronize.
+    if (attributeSelector.attributeCanonicalLocalName() == HTMLNames::styleAttr->localName())
+        return false;
+    if (SVGElement::animatableAttributeForName(attributeSelector.attribute().localName()) != nullQName())
+        return false;
+    return true;
+}
+
 void RuleSet::addRule(const StyleRule& rule, unsigned selectorIndex, unsigned selectorListIndex)
 {
     RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleCount);
-    addRule(WTFMove(ruleData), 0);
+    addRule(WTFMove(ruleData), 0, 0);
 }
 
-void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerIdentifier)
+void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerIdentifier, ContainerQueryIdentifier containerQueryIdentifier)
 {
     ASSERT(ruleData.position() == m_ruleCount);
 
@@ -104,12 +116,20 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
         m_cascadeLayerIdentifierForRulePosition.last() = cascadeLayerIdentifier;
     }
 
+    if (containerQueryIdentifier) {
+        auto oldSize = m_containerQueryIdentifierForRulePosition.size();
+        m_containerQueryIdentifierForRulePosition.grow(m_ruleCount);
+        std::fill(m_containerQueryIdentifierForRulePosition.begin() + oldSize, m_containerQueryIdentifierForRulePosition.end(), 0);
+        m_containerQueryIdentifierForRulePosition.last() = containerQueryIdentifier;
+    }
+
     m_features.collectFeatures(ruleData);
 
     unsigned classBucketSize = 0;
     const CSSSelector* idSelector = nullptr;
     const CSSSelector* tagSelector = nullptr;
     const CSSSelector* classSelector = nullptr;
+    const CSSSelector* attributeSelector = nullptr;
     const CSSSelector* linkSelector = nullptr;
     const CSSSelector* focusSelector = nullptr;
     const CSSSelector* hostPseudoClassSelector = nullptr;
@@ -139,6 +159,16 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
             }
             break;
         }
+        case CSSSelector::Exact:
+        case CSSSelector::Set:
+        case CSSSelector::List:
+        case CSSSelector::Hyphen:
+        case CSSSelector::Contain:
+        case CSSSelector::Begin:
+        case CSSSelector::End:
+            if (shouldHaveBucketForAttributeName(*selector))
+                attributeSelector = selector;
+            break;
         case CSSSelector::Tag:
             if (selector->tagQName().localName() != starAtom())
                 tagSelector = selector;
@@ -184,13 +214,6 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
             }
             break;
         case CSSSelector::Unknown:
-        case CSSSelector::Exact:
-        case CSSSelector::Set:
-        case CSSSelector::List:
-        case CSSSelector::Hyphen:
-        case CSSSelector::Contain:
-        case CSSSelector::Begin:
-        case CSSSelector::End:
         case CSSSelector::PagePseudoClass:
             break;
         }
@@ -253,6 +276,12 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
         return;
     }
 
+    if (attributeSelector) {
+        addToRuleSet(attributeSelector->attribute().localName(), m_attributeLocalNameRules, ruleData);
+        addToRuleSet(attributeSelector->attributeCanonicalLocalName(), m_attributeCanonicalLocalNameRules, ruleData);
+        return;
+    }
+
     if (linkSelector) {
         m_linkPseudoClassRules.append(ruleData);
         return;
@@ -293,6 +322,8 @@ void RuleSet::traverseRuleDatas(Function&& function)
 
     traverseMap(m_idRules);
     traverseMap(m_classRules);
+    traverseMap(m_attributeLocalNameRules);
+    traverseMap(m_attributeCanonicalLocalNameRules);
     traverseMap(m_tagLocalNameRules);
     traverseMap(m_tagLowercaseLocalNameRules);
     traverseMap(m_shadowPseudoElementRules);
@@ -385,6 +416,8 @@ void RuleSet::shrinkToFit()
 {
     shrinkMapVectorsToFit(m_idRules);
     shrinkMapVectorsToFit(m_classRules);
+    shrinkMapVectorsToFit(m_attributeLocalNameRules);
+    shrinkMapVectorsToFit(m_attributeCanonicalLocalNameRules);
     shrinkMapVectorsToFit(m_tagLocalNameRules);
     shrinkMapVectorsToFit(m_tagLowercaseLocalNameRules);
     shrinkMapVectorsToFit(m_shadowPseudoElementRules);
@@ -408,6 +441,8 @@ void RuleSet::shrinkToFit()
 
     m_cascadeLayers.shrinkToFit();
     m_cascadeLayerIdentifierForRulePosition.shrinkToFit();
+    m_containerQueries.shrinkToFit();
+    m_containerQueryIdentifierForRulePosition.shrinkToFit();
     m_resolverMutatingRulesInLayers.shrinkToFit();
 }
 

@@ -58,11 +58,11 @@ static NSString* getSOSView(id object, NSString* itemClass) {
     }
 }
 
-static inline NSNumber *now_msecs() {
+static inline NSNumber *now_msecs(void) {
     return @(((long)[[NSDate date] timeIntervalSince1970] * 1000));
 }
 
-static NSString* cloudKitDeviceID() {
+static NSString* cloudKitDeviceID(void) {
   __block NSString* ret = nil;
 
   if (!os_variant_has_internal_diagnostics("com.apple.security")) {

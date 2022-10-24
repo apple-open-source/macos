@@ -51,6 +51,7 @@
 #include "PaintInfo.h"
 #include "RenderBox.h"
 #include "RenderPtr.h"
+#include "RenderSVGModelObject.h"
 #include "ScrollBehavior.h"
 #include <memory>
 #include <wtf/Markable.h>
@@ -145,9 +146,8 @@ struct ScrollRectToVisibleOptions {
 
 using ScrollingScope = uint64_t;
 
-DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderLayer);
 class RenderLayer : public CanMakeWeakPtr<RenderLayer> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(RenderLayer);
+    WTF_MAKE_ISO_ALLOCATED(RenderLayer);
 public:
     friend class RenderReplica;
     friend class RenderLayerFilters;
@@ -169,7 +169,7 @@ public:
 
     Page& page() const { return renderer().page(); }
     RenderLayerModelObject& renderer() const { return m_renderer; }
-    RenderBox* renderBox() const { return is<RenderBox>(renderer()) ? &downcast<RenderBox>(renderer()) : nullptr; }
+    RenderBox* renderBox() const { return dynamicDowncast<RenderBox>(renderer()); }
 
     RenderLayer* parent() const { return m_parent; }
     RenderLayer* previousSibling() const { return m_previous; }
@@ -427,7 +427,7 @@ public:
 
     // The rect is in the coordinate space of the layer's render object.
     void setBackingNeedsRepaintInRect(const LayoutRect&, GraphicsLayer::ShouldClipToLayer = GraphicsLayer::ClipToLayer);
-    void repaintIncludingNonCompositingDescendants(RenderLayerModelObject* repaintContainer);
+    void repaintIncludingNonCompositingDescendants(const RenderLayerModelObject* repaintContainer);
 
     void styleChanged(StyleDifference, const RenderStyle* oldStyle);
 
@@ -439,7 +439,6 @@ public:
 
     bool hasReflection() const { return renderer().hasReflection(); }
     bool isReflection() const { return renderer().isReplica(); }
-    RenderReplica* reflection() const { return m_reflection.get(); }
     RenderLayer* reflectionLayer() const;
     bool isReflectionLayer(const RenderLayer&) const;
 
@@ -460,8 +459,6 @@ public:
     // FIXME: This can return the RenderView's layer when callers probably want the FrameView as a ScrollableArea.
     RenderLayer* enclosingScrollableLayer(IncludeSelfOrNot, CrossFrameBoundaries) const;
 
-    // "absoluteRect" is in scaled document coordinates.
-    void scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions&);
     // Returns true when the layer could do touch scrolling, but doesn't look at whether there is actually scrollable overflow.
     bool canUseCompositedScrolling() const;
     // Returns true when there is actually scrollable overflow (requires layout to be up-to-date).
@@ -475,9 +472,12 @@ public:
     void updateScrollInfoAfterLayout();
     void updateScrollbarSteps();
 
+    // Returns true if this RenderLayer is a candidate for scrolling during scrollIntoView operations.
+    bool shouldTryToScrollForScrollIntoView() const;
     void autoscroll(const IntPoint&);
 
     bool canResize() const;
+    LayoutSize minimumSizeForResizing(float zoomFactor) const;
     void resize(const PlatformMouseEvent&, const LayoutSize&);
     bool inResizeMode() const { return m_inResizeMode; }
     void setInResizeMode(bool b) { m_inResizeMode = b; }
@@ -496,6 +496,8 @@ public:
 
     void updateLayerPositionsAfterStyleChange();
     void updateLayerPositionsAfterLayout(bool isRelayoutingSubtree, bool didFullRepaint);
+    void updateLayerPositionsAfterOverflowScroll();
+    void updateLayerPositionsAfterDocumentScroll();
 
     bool hasCompositedLayerInEnclosingPaginationChain() const;
     enum PaginationInclusionMode { ExcludeCompositedPaginatedLayers, IncludeCompositedPaginatedLayers };
@@ -506,6 +508,7 @@ public:
         return m_enclosingPaginationLayer.get();
     }
 
+    void setReferenceBoxForPathOperations();
     void updateTransform();
     
 #if ENABLE(CSS_COMPOSITING)
@@ -586,7 +589,11 @@ public:
 
     // Enclosing compositing layer; if includeSelf is true, may return this.
     RenderLayer* enclosingCompositingLayer(IncludeSelfOrNot = IncludeSelf) const;
-    RenderLayer* enclosingCompositingLayerForRepaint(IncludeSelfOrNot = IncludeSelf) const;
+    struct EnclosingCompositingLayerStatus {
+        bool fullRepaintAlreadyScheduled { false };
+        RenderLayer* layer { nullptr };
+    };
+    EnclosingCompositingLayerStatus enclosingCompositingLayerForRepaint(IncludeSelfOrNot = IncludeSelf) const;
     // Ancestor compositing layer, excluding this.
     RenderLayer* ancestorCompositingLayer() const { return enclosingCompositingLayer(ExcludeSelf); }
 
@@ -696,6 +703,8 @@ public:
     WEBCORE_EXPORT IntRect absoluteBoundingBox() const;
     // Device pixel snapped bounding box relative to the root. absoluteBoundingBox() callers will be directed to this.
     FloatRect absoluteBoundingBoxForPainting() const;
+    // Returns the 'reference box' used for clip-path handling (different rules for inlines, wrt. to boxes).
+    FloatRect referenceBoxRectForClipPath(CSSBoxType, const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBounds) const;
 
     // Bounds used for layer overlap testing in RenderLayerCompositor.
     LayoutRect overlapBounds() const;
@@ -715,6 +724,7 @@ public:
 
     void setRepaintStatus(RepaintStatus status) { m_repaintStatus = status; }
     RepaintStatus repaintStatus() const { return static_cast<RepaintStatus>(m_repaintStatus); }
+    bool needsFullRepaint() const { return m_repaintStatus == NeedsFullRepaint || m_repaintStatus == NeedsFullRepaintForPositionedMovementLayout; }
 
     LayoutUnit staticInlinePosition() const { return m_offsetForPosition.width(); }
     LayoutUnit staticBlockPosition() const { return m_offsetForPosition.height(); }
@@ -725,17 +735,20 @@ public:
     bool hasTransform() const { return renderer().hasTransform(); }
     // Note that this transform has the transform-origin baked in.
     TransformationMatrix* transform() const { return m_transform.get(); }
+    // updateTransformFromStyle computes a transform according to the passed options (e.g. transform-origin baked in or excluded) and the given style.
+    void updateTransformFromStyle(TransformationMatrix&, const RenderStyle&, OptionSet<RenderStyle::TransformOperationOption>) const;
     // currentTransform computes a transform which takes accelerated animations into account. The
-    // resulting transform has transform-origin baked in. If the layer does not have a transform,
-    // returns the identity matrix.
+    // resulting transform has transform-origin baked in, unless non-default options are given. If
+    // the layer does not have a transform, the identity matrix is returned.
     TransformationMatrix currentTransform(OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const;
     TransformationMatrix renderableTransform(OptionSet<PaintBehavior>) const;
     
-    // Get the perspective transform, which is applied to transformed sublayers.
-    // Returns true if the layer has a -webkit-perspective.
+    // Get the children transform (to apply a perspective on children), which is applied to transformed sublayers, but not this layer.
+    // Returns true if the layer has a perspective.
     // Note that this transform has the perspective-origin baked in.
-    TransformationMatrix perspectiveTransform(const LayoutRect& layerRect) const;
+    TransformationMatrix perspectiveTransform() const;
     FloatPoint perspectiveOrigin() const;
+    FloatPoint3D transformOriginPixelSnappedIfNeeded() const;
     bool preserves3D() const { return renderer().style().preserves3D(); }
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
     bool hasTransformedAncestor() const { return m_hasTransformedAncestor; }
@@ -818,7 +831,7 @@ public:
 
     Element* enclosingElement() const;
 
-    static Vector<RenderLayer*> topLayerRenderLayers(RenderView&);
+    static Vector<RenderLayer*> topLayerRenderLayers(const RenderView&);
 
     bool establishesTopLayer() const;
     void establishesTopLayerWillChange();
@@ -913,6 +926,11 @@ private:
         EventRegionContext* eventRegionContext { nullptr };
     };
 
+    LayoutPoint paintOffsetForRenderer(const LayerFragment& fragment, const LayerPaintingInfo& paintingInfo) const
+    {
+        return toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + paintingInfo.subpixelOffset);
+    }
+
     // Compute, cache and return clip rects computed with the given layer as the root.
     Ref<ClipRects> updateClipRects(const ClipRectsContext&);
     // Compute and return the clip rects. If useCached is true, will used previously computed clip rects on ancestors
@@ -937,6 +955,8 @@ private:
 
     void updateSelfPaintingLayer();
 
+    void willUpdateLayerPositions();
+
     enum UpdateLayerPositionsFlag {
         CheckForRepaint                     = 1 << 0,
         NeedsFullRepaintInBacking           = 1 << 1,
@@ -952,7 +972,7 @@ private:
     // Returns true if the position changed.
     bool updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* = nullptr);
 
-    void updateLayerPositions(RenderGeometryMap*, OptionSet<UpdateLayerPositionsFlag>);
+    void recursiveUpdateLayerPositions(RenderGeometryMap*, OptionSet<UpdateLayerPositionsFlag>);
 
     enum UpdateLayerPositionsAfterScrollFlag {
         IsOverflowScroll                        = 1 << 0,
@@ -960,11 +980,33 @@ private:
         HasSeenAncestorWithOverflowClip         = 1 << 2,
         HasChangedAncestor                      = 1 << 3,
     };
-    void updateLayerPositionsAfterScroll(RenderGeometryMap*, OptionSet<UpdateLayerPositionsAfterScrollFlag> = { });
+    void recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap*, OptionSet<UpdateLayerPositionsAfterScrollFlag> = { });
 
     RenderLayer* enclosingPaginationLayerInSubtree(const RenderLayer* rootLayer, PaginationInclusionMode) const;
 
-    LayoutPoint renderBoxLocation() const { return is<RenderBox>(renderer()) ? downcast<RenderBox>(renderer()).location() : LayoutPoint(); }
+    LayoutPoint rendererLocation() const
+    {
+        if (is<RenderBox>(renderer()))
+            return downcast<RenderBox>(renderer()).location();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (is<RenderSVGModelObject>(renderer()))
+            return downcast<RenderSVGModelObject>(renderer()).currentSVGLayoutLocation();
+#endif
+
+        return LayoutPoint();
+    }
+
+    LayoutRect rendererBorderBoxRect() const
+    {
+        if (is<RenderBox>(renderer()))
+            return downcast<RenderBox>(renderer()).borderBoxRect();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (is<RenderSVGModelObject>(renderer()))
+            return downcast<RenderSVGModelObject>(renderer()).borderBoxRectEquivalent();
+#endif
+
+        return LayoutRect();
+    }
 
     bool setupFontSubpixelQuantization(GraphicsContext&, bool& didQuantizeFonts);
 
@@ -1031,10 +1073,10 @@ private:
 
     bool shouldBeSelfPaintingLayer() const;
 
-    bool allowsCurrentScroll() const;
-
     void dirtyAncestorChainVisibleDescendantStatus();
     void setAncestorChainHasVisibleDescendant();
+    
+    bool computeHasVisibleContent() const;
 
     bool has3DTransformedDescendant() const { return m_has3DTransformedDescendant; }
     bool has3DTransformedAncestor() const { return m_has3DTransformedAncestor; }
@@ -1064,8 +1106,6 @@ private:
     ClipRect backgroundClipRect(const ClipRectsContext&) const;
 
     RenderLayer* enclosingTransformedAncestor() const;
-
-    LayoutRect getRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const;
 
     // Convert a point in absolute coords into layer coords, taking transforms into account
     LayoutPoint absoluteToContents(const LayoutPoint&) const;

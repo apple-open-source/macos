@@ -73,7 +73,7 @@
 			".indirect_symbol _gCRAnnotations\n\t" \
 			".long 0\n\t" \
 			".previous" \
-			::	[_msgo] "i" (__builtin_offsetof(typeof(gCRAnnotations), message)), \
+			::	[_msgo] "i" (__builtin_offsetof(__typeof__(gCRAnnotations), message)), \
 				[_msg] "i" (("" msg)), \
 				## __VA_ARGS__); })
 
@@ -81,7 +81,7 @@
 		__os_set_crash_log_cause_and_message_impl(msg, \
 				register long _ac asm("r8") = (long)(ac), \
 				"strd	%[_ac], r9, [r10, %[_aco]]\n\t", \
-				[_aco] "i" (__builtin_offsetof(typeof(gCRAnnotations), abort_cause)), \
+				[_aco] "i" (__builtin_offsetof(__typeof__(gCRAnnotations), abort_cause)), \
 				[_ac] "r" (_ac))
 #define _os_set_crash_log_message(msg) \
 			__os_set_crash_log_cause_and_message_impl(msg, (void)0, "")
@@ -99,7 +99,7 @@
 			set_cause \
 			"ldp	x20, x21, [sp], #16" \
 			::	[_cr] "i" (&gCRAnnotations), \
-				[_msgo] "i" (__builtin_offsetof(typeof(gCRAnnotations), message)), \
+				[_msgo] "i" (__builtin_offsetof(__typeof__(gCRAnnotations), message)), \
 				[_msg] "i" (("" msg)), \
 				## __VA_ARGS__); })
 
@@ -113,7 +113,7 @@
 		__os_set_crash_log_cause_and_message_impl(msg, \
 				register uint64_t _ac asm("x8") = __os_set_crash_log_cast_ac(ac), \
 				"str	%[_ac], [x21, %[_aco]]\n\t", \
-				[_aco] "i" (__builtin_offsetof(typeof(gCRAnnotations), abort_cause)), \
+				[_aco] "i" (__builtin_offsetof(__typeof__(gCRAnnotations), abort_cause)), \
 				[_ac] "r" (_ac))
 #define _os_set_crash_log_message(msg) \
 			__os_set_crash_log_cause_and_message_impl(msg, (void)0, "")

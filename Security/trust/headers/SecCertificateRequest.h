@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -57,6 +57,9 @@ extern const unsigned char SecASN1UTF8String;
             with key usage mask using kSecKeyUsage constants.
         @param kSecSubjectAltName       CFDictionaryRef
             with keys defined below.
+        @param kSecCSRBasicConstraintsCA   CFBooleanRef
+            defaults to true, must not set a path length if this is false.
+            Basic constraints will always be marked critical.
         @param kSecCSRBasicContraintsPathLen    CFNumberRef
             if set will include basic constraints and mark it as
             a CA cert.  If 0 <= number < 256, specifies path length, otherwise
@@ -86,15 +89,78 @@ extern const unsigned char SecASN1UTF8String;
             Lifetime of certificate in seconds. If unspecified, the lifetime will
             be 365 days. Only applicable to certificate generation
             (SecGenerateSelfSignedCertificate and SecIdentitySignCertificate)
+        @param kSecCertificateSerialNumber  CFDataRef
+            Data containing the certificate's serial number. This value must be
+            at least 1 byte and not more than 20 bytes in length. If unset,
+            certificates are created with a default serial number of 0x01.
+            Only applicable to certificate generation functions.
 */
 extern const CFStringRef kSecCSRChallengePassword;
 extern const CFStringRef kSecSubjectAltName;
 extern const CFStringRef kSecCertificateKeyUsage;
+extern const CFStringRef kSecCSRBasicConstraintsCA;
 extern const CFStringRef kSecCSRBasicContraintsPathLen;
 extern const CFStringRef kSecCertificateExtendedKeyUsage;
 extern const CFStringRef kSecCertificateExtensions;
 extern const CFStringRef kSecCertificateExtensionsEncoded;
 extern const CFStringRef kSecCertificateLifetime;
+extern const CFStringRef kSecCertificateSerialNumber;
+
+/*
+        Parameter keys for client identity request (SecRequestClientIdentity):
+        @param kSecClientIdentifier     CFStringRef
+            if set, specifies an identifier used for this certificate. This
+            will normally be the same as the common name of the certificate
+            subject, and is considered the entity to which this certificate
+            is being issued.
+        @param kSecAttestationOids     CFArrayRef
+            if set, specifies an array of CFStringRef values which contain OIDs
+            for the type of attestation being requested.
+        @param kSecLocalIssuerIdentity   SecIdentityRef
+            if set, specifies a local identity which is used to issue the
+            certificate. This key is ignored if kSecACMEDirectoryURL is present.
+        @param kSecUseHardwareBoundKey  CFBooleanRef
+            if set with a value of kCFBooleanTrue, will generate a key pair for
+            certification whose private key is bound to the secure enclave.
+            Note: if the private key should be added to the keychain, you must
+            additionally specify kSecAttrIsPermanent with a value of kCFBooleanTrue.
+        @param kSecACMEDirectoryURL    CFURLRef
+            if set, specifies the initial directory location on an ACME server
+            which will be contacted to request a client certificate.
+            Note: the ACME server is expected to understand and issue a custom
+            challenge type which accepts an attestation from the client.
+            if not set, the certificate is issued from kSecLocalIssuerIdentity.
+            if both are unset, a self-signed certificate will be generated.
+        @param kSecACMEPermitLocalIssuer  CFBooleanRef
+            if set with a value of kCFBooleanTrue, and kSecACMEDirectoryURL is
+            also set, then local fallback behavior is enabled. This will attempt
+            to issue the certificate locally if the ACME server cannot be reached
+            or does not return the requested certificate (normally, ACME failures
+            are reported as an error.) This key should only be used for test
+            purposes; in production, a better approach is to call
+            SecRequestClientIdentity again without providing kSecACMEDirectoryURL.
+*/
+extern const CFStringRef kSecClientIdentifier
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecAttestationOids
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecLocalIssuerIdentity
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecUseHardwareBoundKey
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecACMEDirectoryURL
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecACMEPermitLocalIssuer
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+
+
+/* NOTICE: do not use the following constants -- they will be removed! */
+extern const CFStringRef kSecAttestationIdentity
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecChallengeToken
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+extern const CFStringRef kSecACMEServerURL
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
 
 /*
  Keys for kSecSubjectAltName dictionaries:
@@ -192,7 +258,7 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef CF_RETURNS_RETAINED * 
  @function SecGenerateSelfSignedCertificate
  @abstract Return a newly generated certificate for subject and keypair.
  @param subject  RDNs in the subject in array format
- @param paramters    Parameters for the CSR generation. See above.
+ @param parameters    Parameters for the CSR generation. See above.
  @param publicKey    Public key (NOTE: This is unused)
  @param privateKey   Private key
  @result On success, a newly allocated certificate, otherwise NULL
@@ -245,6 +311,46 @@ SecCertificateRef SecIdentitySignCertificateWithAlgorithm(SecIdentityRef issuer,
 CF_RETURNS_RETAINED _Nullable
 SecCertificateRef SecIdentitySignCertificateWithParameters(SecIdentityRef issuer, CFDataRef serialno,
     SecKeyRef publicKey, CFTypeRef subject, CFTypeRef _Nullable extensions, CFDictionaryRef _Nullable parameters);
+
+#ifdef __BLOCKS__
+/*!
+    @typedef SecRequestIdentityCallback
+    @abstract Delivers the result of an asynchronous identity request.
+    @param identity On success, a SecIdentityRef for the newly created identity.
+    @param error On failure, a CFErrorRef with the error result, or NULL on success.
+    @discussion The identity and error parameters will be released automatically after
+    the callback block completes execution. They do not need to be explicitly released. If
+    your code needs to reference these parameters outside the block's scope, you should
+    explicitly retain them, e.g. by assigning to a __block variable.
+ */
+typedef void (^SecRequestIdentityCallback)(
+    SecIdentityRef _Nullable identity,
+    CFErrorRef _Nullable error);
+
+/*!
+    @function SecRequestClientIdentity
+    @abstract Request a new TLS client identity.
+    @param subject An array of values for the requested certificate subject.
+    Example subject (in Objective-C for ease of reading):
+       NSArray *subject = @[
+        @[@[(__bridge NSString*)kSecOidCommonName, @"test"]]
+        @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+        @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc"]],
+     ];
+    @param parameters A dictionary containing parameters for key and
+    CSR generation, optionally using ACME. See keys and values defined above.
+    @param queue A dispatch queue on which the result callback should be
+    executed. This parameter cannot be NULL.
+    @param result A SecRequestIdentityCallback block which will be executed
+    when the identity has been issued. Note that issuance may take some time.
+ */
+void SecRequestClientIdentity(CFArrayRef subject,
+    CFDictionaryRef parameters,
+    dispatch_queue_t queue,
+    SecRequestIdentityCallback result)
+    __OSX_AVAILABLE(13.0) __IOS_AVAILABLE(16.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0);
+
+#endif /* __BLOCKS__ */
 
 /* PRIVATE */
 

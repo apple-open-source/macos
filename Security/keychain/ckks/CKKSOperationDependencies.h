@@ -17,6 +17,8 @@
 #import "keychain/ckks/CKKSZoneModifier.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -42,6 +44,11 @@ NS_ASSUME_NONNULL_BEGIN
 // allViews contains every view+CKZone that CKKS currently knows about
 @property (readonly) NSSet<CKKSKeychainViewState*>* allViews;
 
+// Holds a string describing the CKKS 'context'. Used to separate on-disk data.
+@property (readonly) NSString* contextID;
+
+@property (nullable) TPSpecificUser* activeAccount;
+@property id<OTPersonaAdapter> personaAdapter;
 
 @property (readonly) NSMutableSet<CKKSFetchBecause*>* currentFetchReasons;
 @property (nullable) CKOperationGroup* ckoperationGroup;
@@ -52,6 +59,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKOperationGroup* currentOutgoingQueueOperationGroup;
 
 @property (readonly) id<OctagonStateFlagHandler> flagHandler;
+
+@property (readonly) CKKSLaunchSequence* overallLaunch;
 
 @property (readonly) CKKSAccountStateTracker* accountStateTracker;
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
@@ -78,17 +87,21 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSHashTable<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetProviderOperations;
 
 - (instancetype)initWithViewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
+                         contextID:(NSString*)contextID
+                     activeAccount:(TPSpecificUser* _Nullable)activeAccount
                       zoneModifier:(CKKSZoneModifier*)zoneModifier
                         ckdatabase:(CKDatabase*)ckdatabase
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
                        flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                     overallLaunch:(CKKSLaunchSequence*)overallLaunch
                accountStateTracker:(CKKSAccountStateTracker*)accountStateTracker
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                      peerProviders:(NSArray<id<CKKSPeerProvider>>*)peerProviders
                   databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
-                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier;
+                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
+                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter;
 
 // Convenience method to fetch the trust states from all peer providers
 // Do not call this while on the SQL transaction queue!
@@ -132,6 +145,7 @@ NS_ASSUME_NONNULL_BEGIN
 // I don't know why CKRecordIDs don't have record types, either.
 - (bool)intransactionCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
 
+- (NSData*)keychainMusrForCurrentAccount;
 @end
 
 NS_ASSUME_NONNULL_END

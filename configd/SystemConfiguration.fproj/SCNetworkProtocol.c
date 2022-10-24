@@ -51,7 +51,7 @@ const CFStringRef kSCNetworkProtocolTypeSMB		= CFSTR("SMB");
 #endif	// !TARGET_OS_IPHONE
 
 
-static CFTypeID __kSCNetworkProtocolTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkProtocolTypeID;
 
 
 static const CFRuntimeClass __SCNetworkProtocolClass = {
@@ -65,9 +65,6 @@ static const CFRuntimeClass __SCNetworkProtocolClass = {
 	NULL,					// copyFormattingDesc
 	__SCNetworkProtocolCopyDescription	// copyDebugDesc
 };
-
-
-static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
 
 
 static CFStringRef
@@ -137,7 +134,11 @@ __SCNetworkProtocolHash(CFTypeRef cf)
 static void
 __SCNetworkProtocolInitialize(void)
 {
-	__kSCNetworkProtocolTypeID = _CFRuntimeRegisterClass(&__SCNetworkProtocolClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		__kSCNetworkProtocolTypeID = _CFRuntimeRegisterClass(&__SCNetworkProtocolClass);
+	});
 	return;
 }
 
@@ -151,7 +152,7 @@ __SCNetworkProtocolCreatePrivate(CFAllocatorRef		allocator,
 	uint32_t				size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkProtocolInitialize);
+	__SCNetworkProtocolInitialize();
 
 	/* allocate target */
 	size            = sizeof(SCNetworkProtocolPrivate) - sizeof(CFRuntimeBase);
@@ -241,7 +242,7 @@ _SCNetworkProtocolCompare(const void *val1, const void *val2, void *context)
 CFTypeID
 SCNetworkProtocolGetTypeID()
 {
-	pthread_once(&initialized, __SCNetworkProtocolInitialize);	/* initialize runtime */
+	__SCNetworkProtocolInitialize();	/* initialize runtime */
 	return __kSCNetworkProtocolTypeID;
 }
 

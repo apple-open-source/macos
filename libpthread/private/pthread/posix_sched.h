@@ -52,6 +52,10 @@
 #ifndef _POSIX_SCHED_H
 #define _POSIX_SCHED_H
 
+#ifdef __POSIX_LIB__
+
+#include <mach/policy.h>
+
 struct sched_param
 {
 	int sched_priority;
@@ -65,5 +69,7 @@ struct sched_param
 #define SCHED_OTHER      POLICY_TIMESHARE
 #define SCHED_FIFO       POLICY_FIFO
 #define SCHED_RR         POLICY_RR
+
+#endif /* __POSIX_LIB__ */
 
 #endif /* _POSIX_SCHED_H */

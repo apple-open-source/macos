@@ -182,6 +182,12 @@ main(int argc, char *argv[])
 	} else
 		fmt = generate_format(first, incr, last, equalize, pad);
 
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	for (step = 1, cur = first; incr > 0 ? cur <= last : cur >= last;
 	    cur = first + incr * step++) {
 		printf(fmt, cur);
@@ -201,6 +207,7 @@ main(int argc, char *argv[])
 	 */
 	asprintf(&cur_print, fmt, cur);
 	asprintf(&last_print, fmt, last);
+#pragma clang diagnostic pop
 	if (strcmp(cur_print, last_print) == 0 && cur != last_shown_value) {
 		fputs(last_print, stdout);
 		fputs(sep, stdout);

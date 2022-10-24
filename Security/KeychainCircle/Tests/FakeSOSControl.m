@@ -393,4 +393,9 @@
     return [self sosIsEnabled] ? @"[SOS is active]": @"[SOS is monitoring]";
 }
 
+- (void)setBypass:(BOOL)bypass reply:(void (^)(BOOL, NSError *))reply
+{
+    reply(YES, nil);
+}
+
 @end

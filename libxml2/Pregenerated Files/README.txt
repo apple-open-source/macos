@@ -11,31 +11,21 @@ Steps to rebuild files:
 3. In the libxml2.git source directory (assuming /usr/local/bin is in your path):
    cd libxml2
    glibtoolize --force
-   cp /usr/local/Cellar/pkg-config/0.28/share/aclocal/pkg.m4 ./m4/
+   cp /opt/brew/Cellar/pkg-config/0.29.2_3/share/aclocal/pkg.m4 ./m4/
    aclocal -I m4
    autoheader
    automake --add-missing --force-missing
    autoconf
-   ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --without-python --with-zlib
+   CC="xcrun -sdk macosx.internal cc" ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --without-python --with-xptr-locs --with-zlib
 4. Edit xml2-config.
    a. Fix prefix value:
 -prefix=/usr
 +prefix=$(xcrun -show-sdk-path)/usr
-   b. Remove unnecessary "-L/usr/lib" switches from --libs output:
-            if [ "`uname`" = "Darwin" -a "-L${libdir}" = "-L/usr/lib" ]
-            then
--               echo -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm   
-+               echo -lxml2 -lz   -lpthread   -licucore -lm   
-            else
--               echo -L${libdir} -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm   
-+               echo -L${libdir} -lxml2 -lz   -lpthread   -licucore -lm   
-            fi
-        fi
-   c. Fix --cflags path (make sure to include the space at the end):
+   b. Fix --cflags path (make sure to include the space at the end):
      --cflags)
--       	echo -I${includedir}/libxml2 
-+       	echo -I${includedir} 
-        	;;
+-        cflags="-I${includedir}/libxml2"
++        cflags="-I${includedir}"
+         ;;
 5. [Optional] Run tests (compare output prior to patch as there is some spew):
    make -j $(sysctl -n hw.ncpu)
    make check
@@ -45,22 +35,7 @@ Steps to rebuild files:
    cp -p config.h "../Pregenerated Files/include/"
    cp -p include/libxml/xmlversion.h "../Pregenerated Files/include/libxml/"
    cp -p xml2-config "../Pregenerated Files/"
-7. Apply patch to "./Pregenerated Files/include/libxml/"
-diff --git a/Pregenerated Files/include/libxml/xmlversion.h b/Pregenerated Files/include/libxml/xmlversion.h
-index c4bf45a0..c7992c7a 100644
---- a/Pregenerated Files/include/libxml/xmlversion.h	
-+++ b/Pregenerated Files/include/libxml/xmlversion.h	
-@@ -91,11 +91,7 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
-  * Whether the thread support is configured in
-  */
- #if 1
--#if defined(_REENTRANT) || defined(__MT__) || \
--    (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0 >= 199506L))
- #define LIBXML_THREAD_ENABLED
--#endif
- #endif
- 
- /**
+7. Update Makefile.fuzz from changes to libxml2/fuzz/Makefile.
 8. Run git-add on changed files (including those in libxml2), and check them in.
    cd ..
    git add "Pregenerated Files/include/config.h" "Pregenerated Files/include/libxml/xmlversion.h" "Pregenerated Files/xml2-config"

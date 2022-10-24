@@ -34,7 +34,7 @@
 
 namespace JSC {
 
-const ClassInfo MapPrototype::s_info = { "Map", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(MapPrototype) };
+const ClassInfo MapPrototype::s_info = { "Map"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(MapPrototype) };
 
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncClear);
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncDelete);
@@ -50,7 +50,7 @@ static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncSize);
 void MapPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 
     JSFunction* clearFunc = JSFunction::create(vm, globalObject, 0, vm.propertyNames->clear.string(), mapProtoFuncClear);
     putDirectWithoutTransition(vm, vm.propertyNames->clear, clearFunc, static_cast<unsigned>(PropertyAttribute::DontEnum));
@@ -109,7 +109,7 @@ ALWAYS_INLINE static JSMap* getMap(JSGlobalObject* globalObject, JSValue thisVal
         return nullptr;
     }
 
-    auto* map = jsDynamicCast<JSMap*>(vm, thisValue.asCell());
+    auto* map = jsDynamicCast<JSMap*>(thisValue.asCell());
     if (LIKELY(map))
         return map;
     throwTypeError(globalObject, scope, "Map operation called on non-Map object"_s);
@@ -121,7 +121,7 @@ JSC_DEFINE_HOST_FUNCTION(mapProtoFuncClear, (JSGlobalObject* globalObject, CallF
     JSMap* map = getMap(globalObject, callFrame->thisValue());
     if (!map)
         return JSValue::encode(jsUndefined());
-    map->clear(globalObject);
+    map->clear(globalObject->vm());
     return JSValue::encode(jsUndefined());
 }
 

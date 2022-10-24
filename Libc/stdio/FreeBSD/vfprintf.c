@@ -74,7 +74,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfprintf.c,v 1.90 2009/02/28 06:06:57 das
 
 #include <os/assumes.h>
 #include <mach-o/dyld_priv.h>
-#include <mach/vm_region.h>
+#include <mach/mach.h>
 
 #include "libc_private.h"
 #include "local.h"

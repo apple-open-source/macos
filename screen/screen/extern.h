@@ -35,7 +35,7 @@ extern void  Detach __P((int));
 extern void  Hangup __P((void));
 extern void  Kill __P((int, int));
 #ifdef USEVARARGS
-extern void  Msg __P((int, char *, ...)) __attribute__((format(printf, 2, 3)));
+extern void  Msg __P((int, const char *, ...)) __attribute__((format(printf, 2, 3)));
 extern void  Panic __P((int, char *, ...)) __attribute__((format(printf, 2, 3)));
 #else
 extern void  Msg __P(());
@@ -458,7 +458,7 @@ extern void  TelStatus __P((struct win *, char *, int));
 #endif
 
 /* nethack.c */
-extern char *DoNLS __P((char *));
+extern const char *DoNLS __P((const char *));
 
 /* encoding.c */
 #ifdef ENCODINGS

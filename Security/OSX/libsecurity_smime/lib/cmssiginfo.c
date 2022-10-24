@@ -1589,7 +1589,7 @@ SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSign
 
     (void)SecKeychainCopyDefault(&keychainOrArray);
 
-    /* sanity check - see if verification status is ok (unverified does not count...) */
+    /* see if verification status is ok (unverified does not count...) */
     if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
         return NULL;
 
@@ -1642,7 +1642,7 @@ OSStatus SecCmsSignerInfoSaveSMIMEProfile(SecCmsSignerInfoRef signerinfo)
     OSStatus rv;
     Boolean must_free_cert = PR_FALSE;
 
-    /* sanity check - see if verification status is ok (unverified does not count...) */
+    /* see if verification status is ok (unverified does not count...) */
     if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
         return SECFailure;
 

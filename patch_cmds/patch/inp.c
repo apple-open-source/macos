@@ -43,6 +43,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <time.h>
+#endif
 #include <unistd.h>
 
 #include "common.h"
@@ -110,11 +113,11 @@ scan_input(const char *filename)
 	if (!plan_a(filename))
 		plan_b(filename);
 	if (verbose) {
-		say("Patching file %s using Plan %s...\n", filename,
-		    (using_plan_a ? "A" : "B"));
+		say("Patching file %s using Plan %s...\n",
+		    quoted_name(filename), (using_plan_a ? "A" : "B"));
 #ifdef __APPLE__
-	} else {
-		say("patching file %s\n", filename);
+	} else if (!quiet) {
+		say("patching file %s\n", quoted_name(filename));
 #endif
 	}
 }
@@ -163,7 +166,7 @@ plan_a(const char *filename)
 	statfailed = stat(filename, &filestat);
 	if (statfailed && ok_to_create_file) {
 		if (verbose)
-			say("(Creating file %s...)\n", filename);
+			say("(Creating file %s...)\n", quoted_name(filename));
 
 		/*
 		 * in check_patch case, we still display `Creating file' even
@@ -177,10 +180,11 @@ plan_a(const char *filename)
 		statfailed = stat(filename, &filestat);
 	}
 	if (statfailed)
-		fatal("can't find %s\n", filename);
+		fatal("can't find %s\n", quoted_name(filename));
 	filemode = filestat.st_mode;
 	if (!S_ISREG(filemode))
-		fatal("%s is not a normal file--can't patch\n", filename);
+		fatal("%s is not a normal file--can't patch\n",
+		    quoted_name(filename));
 	if ((uint64_t)filestat.st_size > SIZE_MAX) {
 		say("block too large to mmap\n");
 		return false;
@@ -192,7 +196,7 @@ plan_a(const char *filename)
 		return false;	/* force plan b because plan a bombed */
 	}
 	if ((ifd = open(filename, O_RDONLY)) < 0)
-		pfatal("can't open file %s", filename);
+		pfatal("can't open file %s", quoted_name(filename));
 
 	if (i_size) {
 		i_womp = mmap(NULL, i_size, PROT_READ, MAP_PRIVATE, ifd, 0);
@@ -298,10 +302,10 @@ plan_b(const char *filename)
 
 	using_plan_a = false;
 	if ((ifp = fopen(filename, "r")) == NULL)
-		pfatal("can't open file %s", filename);
+		pfatal("can't open file %s", quoted_name(filename));
 	unlink(TMPINNAME);
 	if ((tifd = open(TMPINNAME, O_EXCL | O_CREAT | O_WRONLY, 0666)) < 0)
-		pfatal("can't open file %s", TMPINNAME);
+		pfatal("can't open file %s", quoted_name(TMPINNAME));
 	while ((p = fgetln(ifp, &len)) != NULL) {
 		if (p[len - 1] == '\n')
 			p[len - 1] = '\0';
@@ -323,7 +327,7 @@ plan_b(const char *filename)
 	}
 	free(lbuf);
 	if (ferror(ifp))
-		pfatal("can't read file %s", filename);
+		pfatal("can't read file %s", quoted_name(filename));
 
 	if (revision != NULL) {
 		if (!found_revision) {
@@ -379,7 +383,7 @@ plan_b(const char *filename)
 	fclose(ifp);
 	close(tifd);
 	if ((tifd = open(TMPINNAME, O_RDONLY)) < 0)
-		pfatal("can't reopen file %s", TMPINNAME);
+		pfatal("can't reopen file %s", quoted_name(TMPINNAME));
 }
 
 /*
@@ -414,7 +418,8 @@ ifetch(LINENUM line, int whichbuf)
 
 			if (read(tifd, tibuf[whichbuf], tibuflen) !=
 			    (ssize_t) tibuflen)
-				pfatal("error reading tmp file %s", TMPINNAME);
+				pfatal("error reading tmp file %s",
+				    quoted_name(TMPINNAME));
 		}
 		return tibuf[whichbuf] + (tireclen * offline);
 	}

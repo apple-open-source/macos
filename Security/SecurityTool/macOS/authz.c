@@ -34,7 +34,7 @@
 // AEWP?
 
 static AuthorizationRef
-read_auth_ref_from_stdin()
+read_auth_ref_from_stdin(void)
 {
 	AuthorizationRef auth_ref = NULL;
 	AuthorizationExternalForm extform;
@@ -93,7 +93,7 @@ write_dict_to_stdout(CFDictionaryRef dict)
 }
 
 static CFDictionaryRef CF_RETURNS_RETAINED
-read_dict_from_stdin()
+read_dict_from_stdin(void)
 {
 	ssize_t bytes_read = 0;
 	uint8_t buffer[4096];

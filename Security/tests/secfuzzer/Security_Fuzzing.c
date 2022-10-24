@@ -48,7 +48,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t len)
 {
     if (mode == MODE_SECCERTIFICATE) {
         SecCertificateFuzzer(data, len);
-    } else if (mode == MODE_SECCERTIFICATE) {
+    } else if (mode == MODE_SECKEYCHAIN) {
         SecKeychainFuzzer(data, len);
     }
 

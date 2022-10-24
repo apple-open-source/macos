@@ -14,9 +14,11 @@ extern "C" {
 
 extern const CFStringRef kSecNullTransformName;
 
-typedef CFTypeRef SecNullTransformRef;
+typedef CFTypeRef SecNullTransformRef
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
-SecNullTransformRef SecNullTransformCreate();
+SecNullTransformRef SecNullTransformCreate()
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 #ifdef __cplusplus
 };

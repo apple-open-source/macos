@@ -31,7 +31,7 @@
 #import <MobileAsset/MAAssetQuery.h>
 #endif // !TARGET_OS_BRIDGE
 
-bool TrustdVariantHasCertificatesBundle() {
+bool TrustdVariantHasCertificatesBundle(void) {
 #if TARGET_OS_BRIDGE
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -43,7 +43,7 @@ bool TrustdVariantHasCertificatesBundle() {
 #endif
 }
 
-bool TrustdVariantAllowsAnalytics() {
+bool TrustdVariantAllowsAnalytics(void) {
 #if TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -55,7 +55,7 @@ bool TrustdVariantAllowsAnalytics() {
 #endif
 }
 
-bool TrustdVariantAllowsKeychain() {
+bool TrustdVariantAllowsKeychain(void) {
 #if TARGET_OS_BRIDGE
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -67,7 +67,7 @@ bool TrustdVariantAllowsKeychain() {
 #endif
 }
 
-bool TrustdVariantAllowsFileWrite() {
+bool TrustdVariantAllowsFileWrite(void) {
     bool result = !os_variant_uses_ephemeral_storage("com.apple.security");
 #if TARGET_OS_BRIDGE
     result = false;
@@ -81,7 +81,7 @@ bool TrustdVariantAllowsFileWrite() {
     return result;
 }
 
-bool TrustdVariantAllowsNetwork() {
+bool TrustdVariantAllowsNetwork(void) {
     // <rdar://32728029>
 #if TARGET_OS_BRIDGE || TARGET_OS_WATCH
     static dispatch_once_t onceToken;
@@ -94,7 +94,7 @@ bool TrustdVariantAllowsNetwork() {
 #endif
 }
 
-bool TrustdVariantAllowsMobileAsset() {
+bool TrustdVariantAllowsMobileAsset(void) {
     BOOL result = NO;
     if (TrustdVariantHasCertificatesBundle() && TrustdVariantAllowsFileWrite()) {
 #if !TARGET_OS_BRIDGE
@@ -121,7 +121,7 @@ bool TrustdVariantAllowsMobileAsset() {
     return result;
 }
 
-bool TrustdVariantLowMemoryDevice() {
+bool TrustdVariantLowMemoryDevice(void) {
 #if TARGET_OS_WATCH
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{

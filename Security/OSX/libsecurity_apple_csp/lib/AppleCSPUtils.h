@@ -63,7 +63,7 @@ void cspValidateKeyAttr(
 	uint32 		keyAttr);
 
 /*
- * Perform sanity check of incoming key attribute bits for a given
+ * Perform check of incoming key attribute bits for a given
  * key type, and return a malKeyStorage value.
  *
  * Called from any routine which generates a new key. This specifically

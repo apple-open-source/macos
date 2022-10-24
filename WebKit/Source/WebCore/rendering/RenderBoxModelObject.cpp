@@ -31,7 +31,6 @@
 #include "CachedImage.h"
 #include "ColorBlending.h"
 #include "Document.h"
-#include "DocumentTimeline.h"
 #include "FloatRoundedRect.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -60,6 +59,7 @@
 #include "RenderView.h"
 #include "ScrollingConstraints.h"
 #include "Settings.h"
+#include "Styleable.h"
 #include "TextBoxPainter.h"
 #include "TransformState.h"
 #include <wtf/IsoMallocInlines.h>
@@ -211,7 +211,7 @@ void RenderBoxModelObject::updateFromStyle()
     setHorizontalWritingMode(styleToUse.isHorizontalWritingMode());
     if (styleToUse.isFlippedBlocksWritingMode())
         view().frameView().setHasFlippedBlockRenderers(true);
-    setPaintContainmentApplies(shouldApplyPaintContainment(*this));
+    setPaintContainmentApplies(shouldApplyPaintContainment());
 }
 
 static LayoutSize accumulateInFlowPositionOffsets(const RenderObject* child)
@@ -722,13 +722,20 @@ void RenderBoxModelObject::paintMaskForTextFillBox(ImageBuffer* maskImage, const
     // the painter it should just modify the clip.
     PaintInfo maskInfo(maskImageContext, LayoutRect { maskRect }, PaintPhase::TextClip, PaintBehavior::ForceBlackText);
     if (inlineBox) {
-        auto paintOffset = scrolledPaintRect.location() - toLayoutSize(LayoutPoint(inlineBox->rect().location()));
+        auto paintOffset = scrolledPaintRect.location() - toLayoutSize(LayoutPoint(inlineBox->visualRectIgnoringBlockDirection().location()));
 
         for (auto box = inlineBox->firstLeafBox(), end = inlineBox->endLeafBox(); box != end; box.traverseNextOnLine()) {
             if (!box->isText())
                 continue;
-            TextBoxPainter textBoxPainter(downcast<InlineIterator::TextBoxIterator>(box), maskInfo, paintOffset);
+            if (auto* legacyTextBox = downcast<LegacyInlineTextBox>(box->legacyInlineBox())) {
+                LegacyTextBoxPainter textBoxPainter(*legacyTextBox, maskInfo, paintOffset);
+                textBoxPainter.paint();
+                continue;
+            }
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+            ModernTextBoxPainter textBoxPainter(box->modernPath().inlineContent(), box->modernPath().box(), maskInfo, paintOffset);
             textBoxPainter.paint();
+#endif
         }
         return;
     }
@@ -894,7 +901,7 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
         maskRect.intersect(snapRectToDevicePixels(paintInfo.rect, deviceScaleFactor));
 
         // Now create the mask.
-        maskImage = ImageBuffer::createCompatibleBuffer(maskRect.size(), DestinationColorSpace::SRGB(), context);
+        maskImage = context.createAlignedImageBuffer(maskRect.size());
         if (!maskImage)
             return;
         paintMaskForTextFillBox(maskImage.get(), maskRect, box, scrolledPaintRect);
@@ -968,7 +975,7 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
                 downcast<BitmapImage>(*image).updateFromSettings(settings());
 
             ImagePaintingOptions options = {
-                op == CompositeOperator::SourceOver ? bgLayer.composite() : op,
+                op == CompositeOperator::SourceOver ? bgLayer.compositeForPainting() : op,
                 bgLayer.blendMode(),
                 decodingModeForImageDraw(*image, paintInfo),
                 ImageOrientation::FromImage,
@@ -1185,15 +1192,11 @@ bool RenderBoxModelObject::fixedBackgroundPaintsInLocalCoordinates() const
     return rootLayer->backing()->backgroundLayerPaintsFixedRootBackground();
 }
 
-static inline LayoutUnit getSpace(LayoutUnit areaSize, LayoutUnit tileSize)
+static inline std::optional<LayoutUnit> getSpace(LayoutUnit areaSize, LayoutUnit tileSize)
 {
-    int numberOfTiles = areaSize / tileSize;
-    LayoutUnit space = -1;
-
-    if (numberOfTiles > 1)
-        space = (areaSize - numberOfTiles * tileSize) / (numberOfTiles - 1);
-
-    return space;
+    if (int numberOfTiles = areaSize / tileSize; numberOfTiles > 1)
+        return (areaSize - numberOfTiles * tileSize) / (numberOfTiles - 1);
+    return std::nullopt;
 }
 
 static LayoutUnit resolveEdgeRelativeLength(const Length& length, Edge edge, LayoutUnit availableSpace, const LayoutSize& areaSize, const LayoutSize& tileSize)
@@ -1336,11 +1339,10 @@ BackgroundImageGeometry RenderBoxModelObject::calculateBackgroundImageGeometry(c
         phase.setWidth(tileSize.width() ? tileSize.width() - fmodf(computedXPosition + left, tileSize.width()) : 0);
         spaceSize.setWidth(0);
     } else if (backgroundRepeatX == FillRepeat::Space && tileSize.width() > 0) {
-        LayoutUnit space = getSpace(positioningAreaSize.width(), tileSize.width());
-        if (space >= 0) {
-            LayoutUnit actualWidth = tileSize.width() + space;
+        if (auto space = getSpace(positioningAreaSize.width(), tileSize.width())) {
+            LayoutUnit actualWidth = tileSize.width() + *space;
             computedXPosition = minimumValueForLength(Length(), availableWidth);
-            spaceSize.setWidth(space);
+            spaceSize.setWidth(*space);
             spaceSize.setHeight(0);
             phase.setWidth(actualWidth ? actualWidth - fmodf((computedXPosition + left), actualWidth) : 0);
         } else
@@ -1361,12 +1363,10 @@ BackgroundImageGeometry RenderBoxModelObject::calculateBackgroundImageGeometry(c
         phase.setHeight(tileSize.height() ? tileSize.height() - fmodf(computedYPosition + top, tileSize.height()) : 0);
         spaceSize.setHeight(0);
     } else if (backgroundRepeatY == FillRepeat::Space && tileSize.height() > 0) {
-        LayoutUnit space = getSpace(positioningAreaSize.height(), tileSize.height());
-
-        if (space >= 0) {
-            LayoutUnit actualHeight = tileSize.height() + space;
+        if (auto space = getSpace(positioningAreaSize.height(), tileSize.height())) {
+            LayoutUnit actualHeight = tileSize.height() + *space;
             computedYPosition = minimumValueForLength(Length(), availableHeight);
-            spaceSize.setHeight(space);
+            spaceSize.setHeight(*space);
             phase.setHeight(actualHeight ? actualHeight - fmodf((computedYPosition + top), actualHeight) : 0);
         } else
             backgroundRepeatY = FillRepeat::NoRepeat;
@@ -2086,10 +2086,8 @@ void RenderBoxModelObject::drawBoxSideFromPath(GraphicsContext& graphicsContext,
                 gapLength += (dashLength  / numberOfGaps);
             }
 
-            DashArray lineDash;
-            lineDash.append(dashLength);
-            lineDash.append(gapLength);
-            graphicsContext.setLineDash(lineDash, dashLength);
+            auto lineDash = DashArray::from(dashLength, gapLength);
+            graphicsContext.setLineDash(WTFMove(lineDash), dashLength);
         }
         
         // FIXME: stroking the border path causes issues with tight corners:
@@ -2213,13 +2211,9 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext& graphicsContex
     //         0----------------3
     //
     Vector<FloatPoint> quad;
-    quad.reserveInitialCapacity(4);
     switch (side) {
     case BoxSide::Top:
-        quad.uncheckedAppend(outerRect.minXMinYCorner());
-        quad.uncheckedAppend(innerRect.minXMinYCorner());
-        quad.uncheckedAppend(innerRect.maxXMinYCorner());
-        quad.uncheckedAppend(outerRect.maxXMinYCorner());
+        quad = { outerRect.minXMinYCorner(), innerRect.minXMinYCorner(), innerRect.maxXMinYCorner(), outerRect.maxXMinYCorner() };
 
         if (!innerBorder.radii().topLeft().isZero())
             findIntersection(outerRect.minXMinYCorner(), innerRect.minXMinYCorner(), innerRect.minXMaxYCorner(), innerRect.maxXMinYCorner(), quad[1]);
@@ -2229,10 +2223,7 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext& graphicsContex
         break;
 
     case BoxSide::Left:
-        quad.uncheckedAppend(outerRect.minXMinYCorner());
-        quad.uncheckedAppend(innerRect.minXMinYCorner());
-        quad.uncheckedAppend(innerRect.minXMaxYCorner());
-        quad.uncheckedAppend(outerRect.minXMaxYCorner());
+        quad = { outerRect.minXMinYCorner(), innerRect.minXMinYCorner(), innerRect.minXMaxYCorner(), outerRect.minXMaxYCorner() };
 
         if (!innerBorder.radii().topLeft().isZero())
             findIntersection(outerRect.minXMinYCorner(), innerRect.minXMinYCorner(), innerRect.minXMaxYCorner(), innerRect.maxXMinYCorner(), quad[1]);
@@ -2242,10 +2233,7 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext& graphicsContex
         break;
 
     case BoxSide::Bottom:
-        quad.uncheckedAppend(outerRect.minXMaxYCorner());
-        quad.uncheckedAppend(innerRect.minXMaxYCorner());
-        quad.uncheckedAppend(innerRect.maxXMaxYCorner());
-        quad.uncheckedAppend(outerRect.maxXMaxYCorner());
+        quad = { outerRect.minXMaxYCorner(), innerRect.minXMaxYCorner(), innerRect.maxXMaxYCorner(), outerRect.maxXMaxYCorner() };
 
         if (!innerBorder.radii().bottomLeft().isZero())
             findIntersection(outerRect.minXMaxYCorner(), innerRect.minXMaxYCorner(), innerRect.minXMinYCorner(), innerRect.maxXMaxYCorner(), quad[1]);
@@ -2255,10 +2243,7 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext& graphicsContex
         break;
 
     case BoxSide::Right:
-        quad.uncheckedAppend(outerRect.maxXMinYCorner());
-        quad.uncheckedAppend(innerRect.maxXMinYCorner());
-        quad.uncheckedAppend(innerRect.maxXMaxYCorner());
-        quad.uncheckedAppend(outerRect.maxXMaxYCorner());
+        quad = { outerRect.maxXMinYCorner(), innerRect.maxXMinYCorner(), innerRect.maxXMaxYCorner(), outerRect.maxXMaxYCorner() };
 
         if (!innerBorder.radii().topRight().isZero())
             findIntersection(outerRect.maxXMinYCorner(), innerRect.maxXMinYCorner(), innerRect.minXMinYCorner(), innerRect.maxXMaxYCorner(), quad[1]);
@@ -2699,10 +2684,8 @@ void RenderBoxModelObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode>
 
 bool RenderBoxModelObject::hasRunningAcceleratedAnimations() const
 {
-    if (auto* node = element()) {
-        if (auto* timeline = node->document().existingTimeline())
-            return timeline->runningAnimationsForRendererAreAllAccelerated(*this);
-    }
+    if (auto styleable = Styleable::fromRenderer(*this))
+        return styleable->runningAnimationsAreAllAccelerated();
     return false;
 }
 
@@ -2721,6 +2704,13 @@ void RenderBoxModelObject::collectAbsoluteQuadsForContinuation(Vector<FloatQuad>
         }
         nextInContinuation->absoluteQuadsIgnoringContinuation({ }, quads, wasFixed);
     }
+}
+
+void RenderBoxModelObject::applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect&, OptionSet<RenderStyle::TransformOperationOption>) const
+{
+    // applyTransform() is only used through RenderLayer*, which only invokes this for RenderBox derived renderers, thus not for
+    // RenderInline/RenderLineBreak - the other two renderers that inherit from RenderBoxModelObject.
+    ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

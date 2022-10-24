@@ -34,3 +34,6 @@ void ht_free_all(LF_HashTable_t* psHT);
 
 /* free the hashtable */
 void ht_DeAllocateHashTable(LF_HashTable_t *psHT);
+
+/* set hashtable incomplete flag */
+void ht_set_incomplete(LF_HashTable_t* psHT, bool val);

@@ -15,6 +15,25 @@
 #include <libxml/xinclude.h>
 #include <libxml/xpointer.h>
 
+/*
+ * for older versions of Python, we don't use PyBytes, but keep PyString
+ * and don't use Capsule but CObjects
+ */
+#if PY_VERSION_HEX < 0x02070000
+#ifndef PyBytes_Check
+#define PyBytes_Check PyString_Check
+#define PyBytes_Size PyString_Size
+#define PyBytes_AsString PyString_AsString
+#define PyBytes_AS_STRING PyString_AS_STRING
+#define PyBytes_GET_SIZE PyString_GET_SIZE
+#endif
+#ifndef PyCapsule_New
+#define PyCapsule_New PyCObject_FromVoidPtrAndDesc
+#define PyCapsule_CheckExact PyCObject_Check
+#define PyCapsule_GetPointer(o, n) PyCObject_GetDesc((o))
+#endif
+#endif
+
 #define PyxmlNode_Get(v) (((v) == Py_None) ? NULL : \
 	(((PyxmlNode_Object *)(v))->obj))
 
@@ -55,8 +74,16 @@ typedef struct {
     xmlCatalogPtr obj;
 } Pycatalog_Object;
 
+#if PY_MAJOR_VERSION >= 3
+FILE *libxml_PyFileGet(PyObject *f);
+void libxml_PyFileRelease(FILE *f);
+#define PyFile_Get(v) (((v) == Py_None) ? NULL : libxml_PyFileGet(v))
+#define PyFile_Release(f) libxml_PyFileRelease(f)
+#else
 #define PyFile_Get(v) (((v) == Py_None) ? NULL : \
 	(PyFile_Check(v) ? (PyFile_AsFile(v)) : stdout))
+#define PyFile_Release(f)
+#endif
 
 PyObject * libxml_intWrap(int val);
 PyObject * libxml_longWrap(long val);

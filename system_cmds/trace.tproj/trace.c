@@ -220,24 +220,24 @@ static int read_command_map(int, uint32_t);
 static void read_cpu_map(int);
 static void find_thread_command(kd_buf *, char **);
 static void create_map_entry(uint64_t, char *);
-static void getdivisor();
-static unsigned long argtoul();
+static void getdivisor(void);
+static unsigned long argtoul(int, char *, char *, int);
 
 static void set_enable(int);
-static void set_remove();
-static void set_nowrap();
+static void set_remove(void);
+static void set_nowrap(void);
 static void set_pidcheck(int, int);
 static void set_pidexclude(int, int);
 static void set_numbufs(int);
-static void set_freerun();
+static void set_freerun(void);
 static void get_bufinfo(kbufinfo_t *);
 static int get_ktrace_state(void);
-static void set_init();
-static void set_kval_list();
+static void set_init(void);
+static void set_kval_list(void);
 static void readtrace(char *);
-static void log_trace();
-static void Log_trace();
-static void read_trace();
+static void log_trace(void);
+static void Log_trace(void);
+static void read_trace(void);
 static void signal_handler(int);
 static void signal_handler_RAW(int);
 static void delete_thread_entry(uint64_t);
@@ -328,8 +328,6 @@ void set_enable(int val)
 
 void set_remove(void)
 {
-	extern int errno;
-
 	errno = 0;
 
 	mib[0] = CTL_KERN;

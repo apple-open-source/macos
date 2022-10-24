@@ -76,8 +76,7 @@
 
 - (void)updateCircleStatus
 {
-    [[KeychainSettings sharedOTControl] status:NULL
-                                       context:OTDefaultContext
+    [[KeychainSettings sharedOTControl] status:[[OTControlArguments alloc] init]
                                          reply:^(NSDictionary* result, NSError* _Nullable error) {
                                              @synchronized (self) {
                                                  self.statusError = nil;
@@ -201,7 +200,7 @@
 
 - (NSString* _Nullable)primaryiCloudAccountAltDSID
 {
-    ACAccountStore *store = [[ACAccountStore alloc] init];
+    ACAccountStore *store = [ACAccountStore defaultStore];
     ACAccount* primaryAccount = [store aa_primaryAppleAccount];
     if(!primaryAccount) {
         return nil;
@@ -214,9 +213,9 @@
 {
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    [[KeychainSettings sharedOTControl] resetAndEstablish:nil
-                                                  context:OTDefaultContext
-                                                  altDSID:[self primaryiCloudAccountAltDSID]
+    OTConfigurationContext* arguments = [[OTConfigurationContext alloc] init];
+    arguments.altDSID = [self primaryiCloudAccountAltDSID];
+    [[KeychainSettings sharedOTControl] resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:arguments]
                                               resetReason:CuttlefishResetReasonUserInitiatedReset
                                                     reply:^(NSError * _Nullable error) {
                                                         if(error) {
@@ -318,7 +317,8 @@
 
         };
 
-        [[KeychainSettings sharedOTControl] status:NULL context:OTDefaultContext reply:replyBlock];
+        [[KeychainSettings sharedOTControl] status:[[OTControlArguments alloc] init]
+                                             reply:replyBlock];
 
         _specifiers = specifiers;
     }

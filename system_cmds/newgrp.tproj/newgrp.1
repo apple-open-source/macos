@@ -22,9 +22,9 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/newgrp/newgrp.1,v 1.3 2005/01/17 07:44:25 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd May 23, 2002
+.Dd February 8, 2013
 .Dt NEWGRP 1
 .Os
 .Sh NAME
@@ -91,5 +91,6 @@ utility appeared in
 .At v6 .
 .Sh BUGS
 Group passwords are inherently insecure as there is no way to stop
-users obtaining the crypted passwords from the group database.
+users obtaining the password hash from the group database.
 Their use is discouraged.
+Instead, users should simply be added to the necessary groups.

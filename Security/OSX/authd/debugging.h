@@ -11,7 +11,7 @@ extern "C" {
 #include <os/activity.h>
 
 #define AUTHD_DEFINE_LOG \
-static os_log_t AUTHD_LOG_DEFAULT() { \
+static os_log_t AUTHD_LOG_DEFAULT(void) { \
 static dispatch_once_t once; \
 static os_log_t log; \
 dispatch_once(&once, ^{ log = os_log_create("com.apple.Authorization", "authd"); }); \

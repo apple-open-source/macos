@@ -33,5 +33,5 @@
 
 BEGIN
 {
-	tracemem(`proc0, 123);
+	tracemem(*`kernproc, 123);
 }

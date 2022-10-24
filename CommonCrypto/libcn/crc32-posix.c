@@ -24,7 +24,7 @@
 
 #include "crc.h"
 
-const crcDescriptor crc32_posix = {
+const crcDescriptor CC_crc32_posix = {
     .name = "crc32-posix",
     .defType = model,
     .def.parms.width = 4,

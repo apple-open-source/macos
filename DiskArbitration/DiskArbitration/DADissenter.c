@@ -25,6 +25,7 @@
 
 #include "DAInternal.h"
 
+#include "DiskArbitrationPrivate.h"
 #include <unistd.h>
 
 DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFStringRef string )
@@ -46,7 +47,7 @@ DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFS
 
     return ( void * ) dissenter;
 }
-
+ 
 pid_t DADissenterGetProcessID( DADissenterRef dissenter )
 {
     return ___CFDictionaryGetIntegerValue( ( void * ) dissenter, _kDADissenterProcessIDKey );

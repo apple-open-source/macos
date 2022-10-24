@@ -41,11 +41,13 @@
 @implementation CKKSTLKShareRecord
 
 - (instancetype)initWithShare:(CKKSTLKShare*)share
+                    contextID:(NSString*)contextID
                        zoneID:(CKRecordZoneID*)zoneID
               encodedCKRecord:(NSData*)encodedCKRecord
 {
     if((self = [super initWithCKRecordType:SecCKRecordTLKShareType
                            encodedCKRecord:encodedCKRecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
         _share = share;
     }
@@ -53,6 +55,7 @@
 }
 
 -(instancetype)init:(CKKSKeychainBackedKey*)key
+          contextID:(NSString*)contextID
              sender:(id<CKKSSelfPeer>)sender
            receiver:(id<CKKSPeer>)receiver
               curve:(SFEllipticCurve)curve
@@ -64,6 +67,7 @@
 {
     if((self = [super initWithCKRecordType:SecCKRecordTLKShareType
                            encodedCKRecord:encodedCKRecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
 
         _share = [[CKKSTLKShare alloc] init:key
@@ -79,6 +83,7 @@
 }
 
 - (instancetype)initForKey:(NSString*)tlkUUID
+                 contextID:(NSString*)contextID
               senderPeerID:(NSString*)senderPeerID
             recieverPeerID:(NSString*)receiverPeerID
   receiverEncPublicKeySPKI:(NSData*)publicKeySPKI
@@ -93,25 +98,27 @@
 {
     if((self = [super initWithCKRecordType:SecCKRecordTLKShareType
                            encodedCKRecord:encodedCKRecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
 
         _share = [[CKKSTLKShare alloc] initForKey:tlkUUID
-                                         senderPeerID:senderPeerID
-                                       recieverPeerID:receiverPeerID
-                             receiverEncPublicKeySPKI:publicKeySPKI
-                                                curve:curve
-                                              version:version
-                                                epoch:epoch
-                                             poisoned:poisoned
-                                           wrappedKey:wrappedKey
-                                            signature:signature
-                                               zoneID:zoneID];
+                                     senderPeerID:senderPeerID
+                                   recieverPeerID:receiverPeerID
+                         receiverEncPublicKeySPKI:publicKeySPKI
+                                            curve:curve
+                                          version:version
+                                            epoch:epoch
+                                         poisoned:poisoned
+                                       wrappedKey:wrappedKey
+                                        signature:signature
+                                           zoneID:zoneID];
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSTLKShare(%@): recv:%@ send:%@ mod:%@>",
+    return [NSString stringWithFormat:@"<CKKSTLKShare[%@](%@): recv:%@ send:%@ mod:%@>",
+            self.contextID,
             self.share.tlkUUID,
             self.share.receiverPeerID,
             self.share.senderPeerID,
@@ -179,9 +186,10 @@
 }
 
 - (instancetype)copyWithZone:(NSZone *)zone {
-    CKKSTLKShareRecord* shareRecord = [[[self class] allocWithZone:zone] init];
-    shareRecord.share = [self.share copyWithZone:zone];
-    return shareRecord;
+    return [[[self class] allocWithZone:zone] initWithShare:[self.share copyWithZone:zone]
+                                                  contextID:self.contextID
+                                                     zoneID:self.zoneID
+                                            encodedCKRecord:self.encodedCKRecord];
 }
 
 - (BOOL)isEqual:(id)object {
@@ -194,6 +202,7 @@
 }
 
 + (CKKSTLKShareRecord*)share:(CKKSKeychainBackedKey*)key
+                   contextID:(NSString*)contextID
                           as:(id<CKKSSelfPeer>)sender
                           to:(id<CKKSPeer>)receiver
                        epoch:(NSInteger)epoch
@@ -203,6 +212,7 @@
     NSError* localerror = nil;
     // Load any existing TLK Share, so we can update it
     CKKSTLKShareRecord* oldShare =  [CKKSTLKShareRecord tryFromDatabase:key.uuid
+                                                              contextID:contextID
                                                          receiverPeerID:receiver.peerID
                                                            senderPeerID:sender.peerID
                                                                  zoneID:key.zoneID
@@ -226,6 +236,7 @@
     }
 
     CKKSTLKShareRecord* sharerecord = [[CKKSTLKShareRecord alloc] initWithShare:share
+                                                                      contextID:contextID
                                                                          zoneID:key.zoneID
                                                                 encodedCKRecord:oldShare.encodedCKRecord];
     return sharerecord;
@@ -244,49 +255,61 @@
 #pragma mark - Database Operations
 
 + (instancetype)fromDatabase:(NSString*)uuid
-             receiverPeerID:(NSString*)receiverPeerID
+                   contextID:(NSString*)contextID
+              receiverPeerID:(NSString*)receiverPeerID
                 senderPeerID:(NSString*)senderPeerID
                       zoneID:(CKRecordZoneID*)zoneID
                        error:(NSError * __autoreleasing *)error {
     return [self fromDatabaseWhere: @{@"uuid":CKKSNilToNSNull(uuid),
+                                      @"contextID":CKKSNilToNSNull(contextID),
                                       @"recvpeerid":CKKSNilToNSNull(receiverPeerID),
                                       @"senderpeerid":CKKSNilToNSNull(senderPeerID),
                                       @"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
 }
 
 + (instancetype)tryFromDatabase:(NSString*)uuid
-                receiverPeerID:(NSString*)receiverPeerID
+                      contextID:(NSString*)contextID
+                 receiverPeerID:(NSString*)receiverPeerID
                    senderPeerID:(NSString*)senderPeerID
                          zoneID:(CKRecordZoneID*)zoneID
                           error:(NSError * __autoreleasing *)error {
     return [self tryFromDatabaseWhere: @{@"uuid":CKKSNilToNSNull(uuid),
+                                         @"contextID":CKKSNilToNSNull(contextID),
                                          @"recvpeerid":CKKSNilToNSNull(receiverPeerID),
                                          @"senderpeerid":CKKSNilToNSNull(senderPeerID),
                                          @"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
 }
 
 + (NSArray<CKKSTLKShareRecord*>*)allFor:(NSString*)receiverPeerID
-                          keyUUID:(NSString*)uuid
-                           zoneID:(CKRecordZoneID*)zoneID
-                            error:(NSError * __autoreleasing *)error {
+                              contextID:(NSString*)contextID
+                                keyUUID:(NSString*)uuid
+                                 zoneID:(CKRecordZoneID*)zoneID
+                                  error:(NSError * __autoreleasing *)error {
     return [self allWhere:@{@"recvpeerid":CKKSNilToNSNull(receiverPeerID),
+                            @"contextID":CKKSNilToNSNull(contextID),
                             @"uuid":uuid,
                             @"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
 }
 
 + (NSArray<CKKSTLKShareRecord*>*)allForUUID:(NSString*)uuid
-                               zoneID:(CKRecordZoneID*)zoneID
-                                error:(NSError * __autoreleasing *)error {
+                                  contextID:(NSString*)contextID
+                                     zoneID:(CKRecordZoneID*)zoneID
+                                      error:(NSError * __autoreleasing *)error {
     return [self allWhere:@{@"uuid":CKKSNilToNSNull(uuid),
+                            @"contextID":CKKSNilToNSNull(contextID),
                             @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error:error];
 }
 
 + (NSArray<CKKSTLKShareRecord*>*)allInZone:(CKRecordZoneID*)zoneID
-                               error:(NSError * __autoreleasing *)error {
-    return [self allWhere:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
+                                 contextID:(NSString*)contextID
+                                     error:(NSError * __autoreleasing *)error {
+   return [self allWhere:@{ @"contextID":CKKSNilToNSNull(contextID),
+                            @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+                         } error:error];
 }
 
 + (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID
+                                    contextID:(NSString*)contextID
                                         error:(NSError * __autoreleasing *)error {
     // Welp. Try to parse!
     NSError *localerror = NULL;
@@ -315,6 +338,7 @@
     NSString* sender = [recordID.recordName substringWithRange:[regexmatch rangeWithName:@"sender"]];
 
     return [self tryFromDatabaseWhere: @{@"uuid":CKKSNilToNSNull(uuid),
+                                         @"contextID":CKKSNilToNSNull(contextID),
                                          @"recvpeerid":CKKSNilToNSNull(receiver),
                                          @"senderpeerid":CKKSNilToNSNull(sender),
                                          @"ckzone": CKKSNilToNSNull(recordID.zoneID.zoneName)} error:error];
@@ -370,7 +394,7 @@
         return false;
     }
 
-    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.contextID];
     return [self isEqual: share];
 }
 
@@ -387,16 +411,16 @@
     NSData* pubkeydata = CKKSUnbase64NullableString(record[SecCKRecordReceiverPublicEncryptionKey]);
 
     self.share = [[CKKSTLKShare alloc] initForKey:((CKReference*)record[SecCKRecordParentKeyRefKey]).recordID.recordName
-                                         senderPeerID:record[SecCKRecordSenderPeerID]
-                                       recieverPeerID:record[SecCKRecordReceiverPeerID]
-                             receiverEncPublicKeySPKI:pubkeydata
-                                                curve:[record[SecCKRecordCurve] longValue] // TODO: sanitize
-                                              version:[record[SecCKRecordVersion] longValue]
-                                                epoch:[record[SecCKRecordEpoch] longValue]
-                                             poisoned:[record[SecCKRecordPoisoned] longValue]
-                                           wrappedKey:[[NSData alloc] initWithBase64EncodedString:record[SecCKRecordWrappedKeyKey] options:0]
-                                            signature:[[NSData alloc] initWithBase64EncodedString:record[SecCKRecordSignature] options:0]
-                                               zoneID:record.recordID.zoneID];
+                                     senderPeerID:record[SecCKRecordSenderPeerID]
+                                   recieverPeerID:record[SecCKRecordReceiverPeerID]
+                         receiverEncPublicKeySPKI:pubkeydata
+                                            curve:[record[SecCKRecordCurve] longValue] // TODO: sanitize
+                                          version:[record[SecCKRecordVersion] longValue]
+                                            epoch:[record[SecCKRecordEpoch] longValue]
+                                         poisoned:[record[SecCKRecordPoisoned] longValue]
+                                       wrappedKey:[[NSData alloc] initWithBase64EncodedString:record[SecCKRecordWrappedKeyKey] options:0]
+                                        signature:[[NSData alloc] initWithBase64EncodedString:record[SecCKRecordSignature] options:0]
+                                           zoneID:record.recordID.zoneID];
 }
 
 #pragma mark - CKKSSQLDatabaseObject methods
@@ -406,11 +430,12 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    return @[@"ckzone", @"uuid", @"senderpeerid", @"recvpeerid", @"recvpubenckey", @"poisoned", @"epoch", @"curve", @"version", @"wrappedkey", @"signature", @"ckrecord"];
+    return @[@"contextID", @"ckzone", @"uuid", @"senderpeerid", @"recvpeerid", @"recvpubenckey", @"poisoned", @"epoch", @"curve", @"version", @"wrappedkey", @"signature", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
     return @{@"uuid":self.share.tlkUUID,
+             @"contextID":self.contextID,
              @"senderpeerid":self.share.senderPeerID,
              @"recvpeerid":self.share.receiverPeerID,
              @"ckzone":self.zoneID.zoneName,
@@ -419,6 +444,7 @@
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
     return @{@"uuid":            self.share.tlkUUID,
+             @"contextID":       self.contextID,
              @"senderpeerid":    self.share.senderPeerID,
              @"recvpeerid":      self.share.receiverPeerID,
              @"recvpubenckey":   CKKSNilToNSNull([self.share.receiverPublicEncryptionKeySPKI base64EncodedStringWithOptions:0]),
@@ -440,26 +466,30 @@
     SecCKKSTLKShareVersion version = (SecCKKSTLKShareVersion)row[@"version"].asNSInteger; // TODO: sanitize
 
     return [[CKKSTLKShareRecord alloc] initForKey:row[@"uuid"].asString
-                               senderPeerID:row[@"senderpeerid"].asString
-                             recieverPeerID:row[@"recvpeerid"].asString
-                   receiverEncPublicKeySPKI:row[@"recvpubenckey"].asBase64DecodedData
-                                      curve:curve
-                                    version:version
-                                      epoch:row[@"epoch"].asNSInteger
-                                   poisoned:row[@"poisoned"].asNSInteger
-                                 wrappedKey:row[@"wrappedkey"].asBase64DecodedData
-                                  signature:row[@"signature"].asBase64DecodedData
-                                     zoneID:zoneID
-                            encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
+                                        contextID:row[@"contextID"].asString
+                                     senderPeerID:row[@"senderpeerid"].asString
+                                   recieverPeerID:row[@"recvpeerid"].asString
+                         receiverEncPublicKeySPKI:row[@"recvpubenckey"].asBase64DecodedData
+                                            curve:curve
+                                          version:version
+                                            epoch:row[@"epoch"].asNSInteger
+                                         poisoned:row[@"poisoned"].asNSInteger
+                                       wrappedKey:row[@"wrappedkey"].asBase64DecodedData
+                                        signature:row[@"signature"].asBase64DecodedData
+                                           zoneID:zoneID
+                                  encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
             ];
 }
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     NSError* localerror = nil;
 
     // CKKSTLKShares get saved with no modification
-    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:contextID];
     bool saved = [share saveToDatabase:&localerror];
     if(!saved || localerror) {
         ckkserror("ckksshare", record.recordID.zoneID, "Couldn't save new TLK share to database: %@ %@", share, localerror);
@@ -471,12 +501,17 @@
     return YES;
 }
 
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     NSError* localerror = nil;
     ckksinfo("ckksshare", recordID.zoneID, "CloudKit notification: deleted tlk share record(%@): %@", SecCKRecordTLKShareType, recordID);
 
-    CKKSTLKShareRecord* share = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:recordID error:&localerror];
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:recordID
+                                                                        contextID:contextID
+                                                                            error:&localerror];
     [share deleteFromDatabase:&localerror];
 
     if(localerror) {
@@ -489,12 +524,17 @@
     return YES;
 }
 
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error
 {
     __block NSNumber *result = nil;
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where:@{
+        @"contextID": contextID,
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+    }
                                       columns:@[@"count(rowid)"]
                                       groupBy:nil
                                       orderBy:nil

@@ -6,6 +6,13 @@
 	<string>0.2.0</string>
 	<key>Project</key>
 	<string>libarchive</string>
+	<key>TestSpecificLogs</key>
+        <array>
+        <string>BATS_TMP_DIR/libarchive_test.*</string>
+		<string>BATS_TMP_DIR/bsdtar_test.*</string>
+		<string>BATS_TMP_DIR/bsdcpio_test.*</string>
+		<string>/var/log/system.log</string>
+        </array>
 	<key>RadarComponents</key>
 	<dict>
 		<key>Name</key>
@@ -23,6 +30,8 @@
 			</array>
 			<key>TestName</key>
 			<string>libarchive.tar</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -36,10 +45,12 @@
 		<dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/libarchive/libarchive_test</string>
+            		<string>/AppleInternal/Tests/libarchive/libarchive_test</string>
 			</array>
 			<key>TestName</key>
 			<string>libarchive.libarchive_test</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -59,6 +70,8 @@
 			</array>
 			<key>TestName</key>
 			<string>libarchive.bsdtar_test</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -78,6 +91,8 @@
 			</array>
 			<key>TestName</key>
 			<string>libarchive.bsdcpio_test</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>

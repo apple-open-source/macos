@@ -55,7 +55,7 @@ class fsAttributesRef  {
         //            UVFS_FSATTR_BLOCKSFREE:         [nil,nil,nil,nil] ,
         //            UVFS_FSATTR_BLOCKSAVAIL:        [nil,nil,nil,nil] ,
         //            UVFS_FSATTR_BLOCKSUSED:         [nil,nil,nil,nil] ,
-        UVFS_FSATTR_FSTYPENAME:         ["FAT","FAT","FAT","ExFAT","HFS", "HFS","HFS", "HFS", "apfs", "apfs"] ,
+        UVFS_FSATTR_FSTYPENAME:         ["msdos","msdos","msdos","ExFAT","HFS", "HFS","HFS", "HFS", "apfs", "apfs"] ,
         UVFS_FSATTR_FSSUBTYPE:          ["FAT12","FAT16","FAT32","","HFS Plus", "HFS Plus (Case Sensitive)","HFS Plus (Journaled)","HFS Plus (Case Sensitive, Journaled)", "APFS", "APFS (Case-sensitive)"] ,
         //            UVFS_FSATTR_VOLNAME:            [nil,nil,nil,nil] ,
         //            UVFS_FSATTR_VOLUUID:            [nil,nil,nil,nil] ,

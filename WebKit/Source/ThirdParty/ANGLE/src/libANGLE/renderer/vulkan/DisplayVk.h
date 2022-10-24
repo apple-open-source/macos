@@ -19,8 +19,9 @@
 
 namespace rx
 {
-class RendererVk;
+constexpr VkDeviceSize kMaxTotalEmptyBufferBytes = 16 * 1024 * 1024;
 
+class RendererVk;
 using ContextVkSet = std::set<ContextVk *>;
 
 class ShareGroupVk : public ShareGroupImpl
@@ -29,37 +30,49 @@ class ShareGroupVk : public ShareGroupImpl
     ShareGroupVk();
     void onDestroy(const egl::Display *display) override;
 
+    FramebufferCache &getFramebufferCache() { return mFramebufferCache; }
+
     // PipelineLayoutCache and DescriptorSetLayoutCache can be shared between multiple threads
     // accessing them via shared contexts. The ShareGroup locks around gl entrypoints ensuring
     // synchronous update to the caches.
     PipelineLayoutCache &getPipelineLayoutCache() { return mPipelineLayoutCache; }
     DescriptorSetLayoutCache &getDescriptorSetLayoutCache() { return mDescriptorSetLayoutCache; }
-    ContextVkSet *getContexts() { return &mContexts; }
+    const ContextVkSet &getContexts() const { return mContexts; }
+    vk::MetaDescriptorPool &getMetaDescriptorPool(DescriptorSetIndex descriptorSetIndex)
+    {
+        return mMetaDescriptorPools[descriptorSetIndex];
+    }
 
     void releaseResourceUseLists(const Serial &submitSerial);
     void acquireResourceUseList(vk::ResourceUseList &&resourceUseList)
     {
         mResourceUseLists.emplace_back(std::move(resourceUseList));
     }
-    void copyResourceUseList(vk::ResourceUseList &resourceUseList)
-    {
-        vk::ResourceUseList copyResourceUseList;
-        copyResourceUseList.copy(resourceUseList);
-        mResourceUseLists.emplace_back(std::move(copyResourceUseList));
-    }
 
     vk::BufferPool *getDefaultBufferPool(RendererVk *renderer,
                                          VkDeviceSize size,
                                          uint32_t memoryTypeIndex);
     void pruneDefaultBufferPools(RendererVk *renderer);
-    bool isDueForBufferPoolPrune();
+    bool isDueForBufferPoolPrune(RendererVk *renderer);
+
+    void calculateTotalBufferCount(size_t *bufferCount, VkDeviceSize *totalSize) const;
+    void logBufferPools() const;
+
+    void addContext(ContextVk *contextVk);
+    void removeContext(ContextVk *contextVk);
 
   private:
+    // VkFramebuffer caches
+    FramebufferCache mFramebufferCache;
+
     // ANGLE uses a PipelineLayout cache to store compatible pipeline layouts.
     PipelineLayoutCache mPipelineLayoutCache;
 
     // DescriptorSetLayouts are also managed in a cache.
     DescriptorSetLayoutCache mDescriptorSetLayoutCache;
+
+    // Descriptor set caches
+    vk::DescriptorSetArray<vk::MetaDescriptorPool> mMetaDescriptorPools;
 
     // The list of contexts within the share group
     ContextVkSet mContexts;
@@ -77,6 +90,10 @@ class ShareGroupVk : public ShareGroupImpl
 
     // The system time when last pruneEmptyBuffer gets called.
     double mLastPruneTime;
+
+    // If true, it is expected that a BufferBlock may still in used by textures that outlived
+    // ShareGroup. The non-empty BufferBlock will be put into RendererVk's orphan list instead.
+    bool mOrphanNonEmptyBufferBlock;
 };
 
 class DisplayVk : public DisplayImpl, public vk::Context
@@ -155,8 +172,8 @@ class DisplayVk : public DisplayImpl, public vk::Context
     // surfaceType, which would still allow the config to be used for pbuffers.
     virtual void checkConfigSupport(egl::Config *config) = 0;
 
-    ANGLE_NO_DISCARD bool getScratchBuffer(size_t requestedSizeBytes,
-                                           angle::MemoryBuffer **scratchBufferOut) const;
+    [[nodiscard]] bool getScratchBuffer(size_t requestedSizeBytes,
+                                        angle::MemoryBuffer **scratchBufferOut) const;
     angle::ScratchBuffer *getScratchBuffer() const { return &mScratchBuffer; }
 
     void handleError(VkResult result,
@@ -166,6 +183,8 @@ class DisplayVk : public DisplayImpl, public vk::Context
 
     // TODO(jmadill): Remove this once refactor is done. http://anglebug.com/3041
     egl::Error getEGLError(EGLint errorCode);
+
+    void initializeFrontendFeatures(angle::FrontendFeatures *features) const override;
 
     void populateFeatureList(angle::FeatureList *features) override;
 

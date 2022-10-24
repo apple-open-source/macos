@@ -46,6 +46,8 @@ private:
     
     dispatch_queue_t            _dispatch_queue;
     dispatch_source_t           _pending_source;
+
+    mach_timebase_info_data_t   _timeInfo;
     
     typedef struct {
         uint32_t                    home_wake;
@@ -67,6 +69,7 @@ private:
     KeyStats _pending_keystats;
     
     CFMutableSetRef             _keyServices;
+    CFMutableDictionaryRef      _multiPressServices;
     
     IOHIDEventRef               _attachEvent;
         
@@ -82,6 +85,9 @@ private:
     static void close(void * self, IOHIDSessionRef inSession, IOOptionBits options);
     static void registerService(void * self, IOHIDServiceRef service);
     static void unregisterService(void * self, IOHIDServiceRef service);
+
+    void registerKeyboardService(IOHIDServiceRef service);
+    void registerMultiPressService(IOHIDServiceRef service);
     
     static void scheduleWithDispatchQueue(void * self, dispatch_queue_t queue);
     static void unscheduleFromDispatchQueue(void * self, dispatch_queue_t queue);

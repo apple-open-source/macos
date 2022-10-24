@@ -94,9 +94,6 @@
 	  <para><ulink url="http://www.w3.org/Style/XSL/">W3C
 	  <acronym>XSL</acronym> page.</ulink></para>
 	</listitem>
-	<listitem>
-	  <para><ulink url="http://xmlsoft.org/XSLT/">libxslt</ulink></para>
-	</listitem>
       </itemizedlist>
 
     </para>

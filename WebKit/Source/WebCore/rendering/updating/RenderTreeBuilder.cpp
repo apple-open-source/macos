@@ -30,6 +30,7 @@
 #include "DocumentInlines.h"
 #include "Frame.h"
 #include "FrameSelection.h"
+#include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGRoot.h"
 #include "RenderButton.h"
 #include "RenderCounter.h"
@@ -78,7 +79,6 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 #include "FrameView.h"
 #include "FrameViewLayoutContext.h"
-#include "RuntimeEnabledFeatures.h"
 #endif
 
 namespace WebCore {
@@ -282,8 +282,15 @@ void RenderTreeBuilder::attachInternal(RenderElement& parent, RenderPtr<RenderOb
         return;
     }
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGContainer>(parent)) {
         svgBuilder().attach(downcast<RenderSVGContainer>(parent), WTFMove(child), beforeChild);
+        return;
+    }
+#endif
+
+    if (is<LegacyRenderSVGContainer>(parent)) {
+        svgBuilder().attach(downcast<LegacyRenderSVGContainer>(parent), WTFMove(child), beforeChild);
         return;
     }
 
@@ -380,8 +387,13 @@ RenderPtr<RenderObject> RenderTreeBuilder::detach(RenderElement& parent, RenderO
     if (is<RenderSVGInline>(parent))
         return svgBuilder().detach(downcast<RenderSVGInline>(parent), child);
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGContainer>(parent))
         return svgBuilder().detach(downcast<RenderSVGContainer>(parent), child);
+#endif
+
+    if (is<LegacyRenderSVGContainer>(parent))
+        return svgBuilder().detach(downcast<LegacyRenderSVGContainer>(parent), child);
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGRoot>(parent))
@@ -651,10 +663,19 @@ void RenderTreeBuilder::normalizeTreeAfterStyleChange(RenderElement& renderer, R
     if (noLongerAffectsParent) {
         childFlowStateChangesAndNoLongerAffectsParentBlock(renderer);
 
-        if (is<RenderBlockFlow>(renderer)) {
+        if (isFloating && is<RenderBlockFlow>(renderer)) {
+            auto clearDescendantFloats = [&] {
+                // These descendent floats can not intrude other, sibling block containers anymore.
+                for (auto& descendant : descendantsOfType<RenderBox>(renderer)) {
+                    if (descendant.isFloatingOrOutOfFlowPositioned())
+                        descendant.removeFloatingOrPositionedChildFromBlockLists();
+                }
+            };
+            clearDescendantFloats();
+            downcast<RenderBlockFlow>(renderer).removeFloatingObjects();
             // Fresh floats need to be reparented if they actually belong to the previous anonymous block.
             // It copies the logic of RenderBlock::addChildIgnoringContinuation
-            if (isFloating && renderer.previousSibling() && renderer.previousSibling()->isAnonymousBlock())
+            if (renderer.previousSibling() && renderer.previousSibling()->isAnonymousBlock())
                 move(downcast<RenderBoxModelObject>(parent), downcast<RenderBoxModelObject>(*renderer.previousSibling()), renderer, RenderTreeBuilder::NormalizeAfterInsertion::No);
         }
     }
@@ -801,6 +822,7 @@ void RenderTreeBuilder::removeAnonymousWrappersForInlineChildrenIfNeeded(RenderE
     }
 
     RenderObject* next = nullptr;
+    auto internalMoveScope = SetForScope { m_internalMovesType, RenderObject::IsInternalMove::Yes };
     for (auto* current = blockParent.firstChild(); current; current = next) {
         next = current->nextSibling();
         if (current->isAnonymousBlock())
@@ -931,12 +953,11 @@ RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderElement(RenderElement
     // that a positioned child got yanked). We also repaint, so that the area exposed when the child
     // disappears gets repainted properly.
     if (!parent.renderTreeBeingDestroyed() && child.everHadLayout()) {
-        child.setNeedsLayoutAndPrefWidthsRecalc();
-        // We only repaint |child| if we have a RenderLayer as its visual overflow may not be tracked by its parent.
         if (child.isBody())
             parent.view().repaintRootContents();
         else
             child.repaint();
+        child.setNeedsLayoutAndPrefWidthsRecalc();
     }
 
     // If we have a line box wrapper, delete it.

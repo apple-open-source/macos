@@ -1015,7 +1015,8 @@ struct ntsid {
  * Some names length limitations. Some of them aren't declared by specs,
  * but we need reasonable limits.
  */
-#define SMB_MAXNetBIOSNAMELEN	15	/* NetBIOS limit */
+#define SMB_MAXNetBIOSNAMELEN    15    /* NetBIOS limit */
+#define SMB_MAX_DOMAIN_NAMELEN  255    /* Max Fully Qual Domain Name len */
 #define SMB_MAX_DNS_SRVNAMELEN	255
 #define SMB_MAXUSERNAMELEN	128
 #define SMB_MAXPASSWORDLEN	128

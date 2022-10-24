@@ -144,6 +144,9 @@ private:
     boolean_t resetStickyKeys(IOHIDEventRef event);
  
     void serialize (CFMutableDictionaryRef dict) const;
+
+    CFStringRef createNXEventActivityString(IOHIDServiceRef sender, NXEventExt * nxEvent);
+    CFStringRef createHIDEventActivityString(IOHIDServiceRef sender, IOHIDEventRef event);
   
 private:
     IOHIDNXEventTranslatorSessionFilter();

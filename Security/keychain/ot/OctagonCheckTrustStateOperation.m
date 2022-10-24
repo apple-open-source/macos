@@ -44,11 +44,10 @@
 
     // Make sure we're in agreement with TPH about _which_ peer ID we should have
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper fetchTrustStateWithContainer:self.deps.containerName
-                                                         context:self.deps.contextID
-                                                           reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
-                                                                   NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
-                                                                   NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper fetchTrustStateWithSpecificUser:self.deps.activeAccount
+                                                              reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
+                                                                      NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
+                                                                      NSError * _Nullable error) {
             STRONGIFY(self);
             if(error || !selfPeerState || !trustedPeers) {
                 secerror("octagon: TPH was unable to determine current peer state: %@", error);

@@ -73,7 +73,6 @@
 
 /* Begin PBXBuildFile section */
 		0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C406A8A1C0FA9A20053517B /* TrustedCTLogs.plist */; };
-		8533E07D1B322F46002A1747 /* Allowed.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8533E07C1B322F46002A1747 /* Allowed.plist */; };
 		BE4DBC631A9401410025962E /* TrustStore.html in Resources */ = {isa = PBXBuildFile; fileRef = BE4DBC621A9401410025962E /* TrustStore.html */; };
 		BE8143DF1F01BD1700E10A15 /* valid.sqlite3 in Resources */ = {isa = PBXBuildFile; fileRef = BE8143DE1F01BD1700E10A15 /* valid.sqlite3 */; };
 		BE9D63131A73159E0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -85,11 +84,9 @@
 		BED4A7FF1A72D73A00C14393 /* certsIndex.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7ED1A72D41900C14393 /* certsIndex.data */; };
 		BED4A8001A72D73A00C14393 /* certsTable.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EE1A72D41900C14393 /* certsTable.data */; };
 		BED4A8011A72D73A00C14393 /* EVRoots.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EF1A72D41900C14393 /* EVRoots.plist */; };
-		BED4A8021A72D73A00C14393 /* GrayListedKeys.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7F01A72D41900C14393 /* GrayListedKeys.plist */; };
 		BED4A8031A72D73A00C14393 /* manifest.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7F11A72D41900C14393 /* manifest.data */; };
 		BED4A8041A72D73A00C14393 /* Blocked.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EB1A72D40300C14393 /* Blocked.plist */; };
 		BED4A8051A72D73A00C14393 /* AssetVersion.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7E91A72D3FD00C14393 /* AssetVersion.plist */; };
-		BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7E71A72D3F900C14393 /* AppleESCertificates.plist */; };
 		BED9C8051ED64DB60052A224 /* ValidUpdate.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED9C8031ED64DA30052A224 /* ValidUpdate.plist */; };
 		D443E1691E28264800CD9CB0 /* CertificatePinning.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */; };
 		D46127422552199100CFA05B /* TrustedCTLogs_nonTLS.plist in Resources */ = {isa = PBXBuildFile; fileRef = D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */; };
@@ -533,12 +530,9 @@
 				BED4A7FF1A72D73A00C14393 /* certsIndex.data in Resources */,
 				BED4A8001A72D73A00C14393 /* certsTable.data in Resources */,
 				BED4A8011A72D73A00C14393 /* EVRoots.plist in Resources */,
-				BED4A8021A72D73A00C14393 /* GrayListedKeys.plist in Resources */,
 				BED4A8031A72D73A00C14393 /* manifest.data in Resources */,
 				BED4A8041A72D73A00C14393 /* Blocked.plist in Resources */,
 				BED4A8051A72D73A00C14393 /* AssetVersion.plist in Resources */,
-				8533E07D1B322F46002A1747 /* Allowed.plist in Resources */,
-				BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */,
 				BE4DBC631A9401410025962E /* TrustStore.html in Resources */,
 				0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */,
 				D46127422552199100CFA05B /* TrustedCTLogs_nonTLS.plist in Resources */,
@@ -750,7 +744,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.Certificates;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
 				WRAPPER_EXTENSION = bundle;
@@ -819,7 +813,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.Certificates;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
 				WRAPPER_EXTENSION = bundle;

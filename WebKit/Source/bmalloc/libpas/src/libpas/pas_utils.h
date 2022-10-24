@@ -66,6 +66,14 @@ PAS_BEGIN_EXTERN_C;
 
 #define PAS_ALIGNED(amount) __attribute__((aligned(amount)))
 
+#if PAS_PLATFORM(PLAYSTATION) && !defined(alignof)
+#define PAS_ALIGNOF(type) _Alignof(type)
+#elif defined(__cplusplus)
+#define PAS_ALIGNOF(type) alignof(type)
+#else
+#define PAS_ALIGNOF(type) _Alignof(type)
+#endif
+
 #define PAS_FORMAT_PRINTF(fmt, args) __attribute__((format(__printf__, fmt, args)))
 
 #define PAS_UNUSED __attribute__((unused))
@@ -212,8 +220,10 @@ PAS_NEVER_INLINE PAS_NO_RETURN void pas_crash_with_info_impl6(uint64_t reason, u
 #else /* PAS_OS(DARWIN) */
 
 #if PAS_ENABLE_TESTING
-PAS_API PAS_NO_RETURN void pas_assertion_failed(
-    const char* filename, int line, const char* function, const char* expression);
+PAS_API PAS_NO_RETURN void pas_assertion_failed(const char* filename, int line, const char* function, const char* expression)
+{
+    pas_panic("%s:%d: %s: assertion %s failed.\n", filename, line, function, expression);
+}
 #else /* PAS_ENABLE_TESTING -> so !PAS_ENABLE_TESTING */
 static PAS_ALWAYS_INLINE PAS_NO_RETURN void pas_assertion_failed(
     const char* filename, int line, const char* function, const char* expression)
@@ -228,6 +238,7 @@ static PAS_ALWAYS_INLINE PAS_NO_RETURN void pas_assertion_failed(
 #endif /* PAS_OS(DARWIN) && PAS_VA_OPT_SUPPORTED */
 
 PAS_API PAS_NO_RETURN PAS_NEVER_INLINE void pas_assertion_failed_no_inline(const char* filename, int line, const char* function, const char* expression);
+PAS_API PAS_NO_RETURN PAS_NEVER_INLINE void pas_assertion_failed_no_inline_with_extra_detail(const char* filename, int line, const char* function, const char* expression, uint64_t extra);
 
 PAS_IGNORE_WARNINGS_BEGIN("missing-noreturn")
 
@@ -269,42 +280,42 @@ static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer1(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl1(line, misc1);
+    pas_crash_with_info_impl1((uint64_t)line, misc1);
 }
 
 static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer2(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1, uint64_t misc2)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl2(line, misc1, misc2);
+    pas_crash_with_info_impl2((uint64_t)line, misc1, misc2);
 }
 
 static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer3(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1, uint64_t misc2, uint64_t misc3)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl3(line, misc1, misc2, misc3);
+    pas_crash_with_info_impl3((uint64_t)line, misc1, misc2, misc3);
 }
 
 static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer4(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl4(line, misc1, misc2, misc3, misc4);
+    pas_crash_with_info_impl4((uint64_t)line, misc1, misc2, misc3, misc4);
 }
 
 static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer5(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl5(line, misc1, misc2, misc3, misc4, misc5);
+    pas_crash_with_info_impl5((uint64_t)line, misc1, misc2, misc3, misc4, misc5);
 }
 
 static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer6(
     const char* filename, int line, const char* function, const char* expression, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6)
 {
     PAS_REPORT_ASSERTION_FAILED(filename, line, function, expression);
-    pas_crash_with_info_impl6(line, misc1, misc2, misc3, misc4, misc5, misc6);
+    pas_crash_with_info_impl6((uint64_t)line, misc1, misc2, misc3, misc4, misc5, misc6);
 }
 
 /* The count argument will always be computed with PAS_VA_NUM_ARGS in the client.
@@ -420,6 +431,15 @@ PAS_IGNORE_WARNINGS_END
         if (PAS_LIKELY(exp)) \
             break; \
         pas_assertion_failed_no_inline(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp); \
+    } while (0)
+
+#define PAS_ASSERT_WITH_EXTRA_DETAIL(exp, extra) \
+    do { \
+        if (!PAS_ENABLE_ASSERT) \
+            break; \
+        if (PAS_LIKELY(exp)) \
+            break; \
+        pas_assertion_failed_no_inline_with_extra_detail(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp, extra); \
     } while (0)
 
 static inline bool pas_is_power_of_2(uintptr_t value)
@@ -972,6 +992,16 @@ static inline void pas_atomic_store_pair(void* raw_ptr, pas_pair value)
 #endif
 }
 
+static inline void pas_atomic_store_pair_relaxed(void* raw_ptr, pas_pair value)
+{
+    /* Since it is __ATOMIC_RELAXED, we do not need to care about memory barrier even when the implementation uses LL/SC. */
+#if PAS_COMPILER(CLANG)
+    __c11_atomic_store((_Atomic pas_pair*)raw_ptr, value, __ATOMIC_RELAXED);
+#else
+    __atomic_store_n((pas_pair*)raw_ptr, value, __ATOMIC_RELAXED);
+#endif
+}
+
 static PAS_ALWAYS_INLINE bool pas_compare_ptr_opaque(uintptr_t a, uintptr_t b)
 {
 #if PAS_COMPILER(CLANG)
@@ -1126,6 +1156,10 @@ static inline bool pas_is_divisible_by(unsigned value, uint64_t magic_constant)
 #ifdef __cplusplus
 enum cpp_initialization_t { cpp_initialization };
 #endif
+
+#define PAS_SYSCALL(x) do { \
+    while ((x) == -1 && errno == EAGAIN) { } \
+} while (0)
 
 PAS_END_EXTERN_C;
 

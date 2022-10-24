@@ -199,7 +199,7 @@ static ssize_t alphaIndex(unsigned char c)
                                          code:OTInheritanceKeyErrorBadChecksumSize
                                   description:[NSString stringWithFormat:@"checksumSize (%zu) too large (%zu)",
                                                         checksumSize,
-                                                        CCSHA256_OUTPUT_SIZE]];
+                                                        (size_t)CCSHA256_OUTPUT_SIZE]];
         }
         return nil;
     }
@@ -274,7 +274,7 @@ static ssize_t alphaIndex(unsigned char c)
                                          code:OTInheritanceKeyErrorBadChecksumSize
                                   description:[NSString stringWithFormat:@"checksumsize (%zu) too long (expected %zu)",
                                                         checksumSize,
-                                                        CCSHA256_OUTPUT_SIZE]];
+                                                        (size_t)CCSHA256_OUTPUT_SIZE]];
         }
         return nil;
     }

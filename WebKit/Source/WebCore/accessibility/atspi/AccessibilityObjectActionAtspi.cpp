@@ -20,7 +20,7 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 
 #include "AccessibilityRootAtspi.h"
 #include <gio/gio.h>
@@ -31,7 +31,6 @@ namespace WebCore {
 GDBusInterfaceVTable AccessibilityObjectAtspi::s_actionFunctions = {
     // method_call
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* methodName, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer userData) {
-        RELEASE_ASSERT(!isMainThread());
         auto atspiObject = Ref { *static_cast<AccessibilityObjectAtspi*>(userData) };
         atspiObject->updateBackingStore();
 
@@ -57,7 +56,6 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_actionFunctions = {
     },
     // get_property
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* propertyName, GError** error, gpointer userData) -> GVariant* {
-        RELEASE_ASSERT(!isMainThread());
         auto atspiObject = Ref { *static_cast<AccessibilityObjectAtspi*>(userData) };
         atspiObject->updateBackingStore();
 
@@ -70,38 +68,29 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_actionFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 String AccessibilityObjectAtspi::actionName() const
 {
-    AXCoreObject* axObject = isMainThread() ? m_coreObject : m_axObject;
-    return axObject ? axObject->actionVerb() : String();
+    return m_coreObject ? m_coreObject->actionVerb() : String();
 }
 
 String AccessibilityObjectAtspi::localizedActionName() const
 {
-    return m_axObject ? m_axObject->localizedActionVerb() : String();
+    return m_coreObject ? m_coreObject->localizedActionVerb() : String();
 }
 
 String AccessibilityObjectAtspi::actionKeyBinding() const
 {
-    return m_axObject ? m_axObject->accessKey() : String();
+    return m_coreObject ? m_coreObject->accessKey() : String();
 }
 
 bool AccessibilityObjectAtspi::doAction() const
 {
-    return Accessibility::retrieveValueFromMainThread<bool>([this]() -> bool {
-        if (m_coreObject)
-            m_coreObject->updateBackingStore();
-
-        if (!m_coreObject)
-            return false;
-
-        return m_coreObject->performDefaultAction();
-    });
+    return m_coreObject ? m_coreObject->performDefaultAction() : false;
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

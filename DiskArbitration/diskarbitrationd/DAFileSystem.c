@@ -32,11 +32,14 @@
 #include <fsproperties.h>
 #include <paths.h>
 #include <unistd.h>
+#if TARGET_OS_OSX
 #include <FSPrivate.h>
+#endif
 #include <sys/attr.h>
 #include <sys/loadable_fs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <os/variant_private.h>
 
 #define __kDAFileSystemUUIDSpaceSHA1 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,               \
                                                                      0xB3, 0xE2, 0x0F, 0x39,            \
@@ -110,6 +113,7 @@ const CFStringRef kDAFileSystemMountArgumentNoWrite     = CFSTR( "rdonly"   );
 const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"    );
 const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update"   );
 const CFStringRef kDAFileSystemMountArgumentNoBrowse    = CFSTR( "nobrowse" );
+const CFStringRef kDAFileSystemMountArgumentSnapshot    = CFSTR( "-s=" );
 
 const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 
@@ -346,17 +350,20 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
 
     context->cleanStatus = status;
 
+#if TARGET_OS_OSX
     context->volumeType = _FSCopyNameForVolumeFormatAtNode( context->devicePath );
+#endif
 
     __DAFileSystemProbeCallback( 0, context, NULL );
 }
 
-CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoint )
+CFStringRef _DAFileSystemCopyNameAndUUID ( DAFileSystemRef filesystem, CFURLRef mountpoint , uuid_t *volumeUUID )
 {
     struct attr_name_t
     {
         uint32_t        size;
         attrreference_t data;
+        uuid_t          uuid;
         char            name[MAXPATHLEN];
     };
 
@@ -367,7 +374,7 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
     int                status   = 0;
 
     attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
-    attrlist.volattr     = ATTR_VOL_INFO | ATTR_VOL_NAME;
+    attrlist.volattr     = ATTR_VOL_INFO | ATTR_VOL_NAME | ATTR_VOL_UUID;
 
     path = ___CFURLCopyFileSystemRepresentation( mountpoint );
     if ( path == NULL )  goto _DAFileSystemCopyNameErr;
@@ -383,6 +390,10 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
             CFRelease(name);
             name = NULL;
         }
+    }
+
+    if (volumeUUID) {
+        memcpy( *volumeUUID, attr.uuid, sizeof( uuid_t ) );
     }
 
 _DAFileSystemCopyNameErr:
@@ -462,9 +473,9 @@ DAFileSystemRef DAFileSystemCreate( CFAllocatorRef allocator, CFURLRef path )
     return filesystem;
 }
 
-CFRunLoopSourceRef DAFileSystemCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order )
+dispatch_mach_t DAFileSystemCreateMachChannel( void )
 {
-    return DACommandCreateRunLoopSource( allocator, order );
+    return DACommandCreateMachChannel();
 }
 
 CFStringRef DAFileSystemGetKind( DAFileSystemRef filesystem )
@@ -537,7 +548,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
     /*
      * Prepare to mount the volume.
      */
-
+#if TARGET_OS_OSX
     /*
      *  Check for UserFS mount support. If the FS bundle supports UserFS and the preference is enabled
      *  Use UserFS APIs to do the mount instead of mount command.
@@ -570,7 +581,14 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
             }
         }
     }
+#endif
     
+#if TARGET_OS_IOS
+    if ( ( userFSPreferenceEnabled == true ) && ( os_variant_has_factory_content( "com.apple.diskarbitrationd" ) == false ) )
+    {
+        useUserFS = TRUE;
+    }
+#endif
    
     command = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( "/sbin/mount" ), kCFURLPOSIXPathStyle, FALSE );
     if ( command == NULL )  { status = ENOTSUP; goto DAFileSystemMountErr; }
@@ -581,8 +599,11 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
     devicePath = CFURLCopyFileSystemPath( device, kCFURLPOSIXPathStyle );
     if ( devicePath == NULL )  { status = EINVAL; goto DAFileSystemMountErr; }
 
-    mountpointPath = CFURLCopyFileSystemPath( mountpoint, kCFURLPOSIXPathStyle );
-    if ( mountpointPath == NULL )  { status = EINVAL; goto DAFileSystemMountErr; }
+    if ( mountpoint )
+    {
+        mountpointPath = CFURLCopyFileSystemPath( mountpoint, kCFURLPOSIXPathStyle );
+        if ( mountpointPath == NULL )  { status = EINVAL; goto DAFileSystemMountErr; }
+    }
 
     options = CFStringCreateMutable( kCFAllocatorDefault, 0 );
     if ( options == NULL )  { status = ENOMEM; goto DAFileSystemMountErr; }
@@ -610,6 +631,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
     context->callback        = callback;
     context->callbackContext = callbackContext;
 
+#if TARGET_OS_OSX || TARGET_OS_IOS
     if ( useUserFS )
     {
         CFArrayRef argumentList;
@@ -621,7 +643,14 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
             CFStringRef dev = CFArrayGetValueAtIndex( argumentList, CFArrayGetCount( argumentList ) - 1 );
             context->deviceName = CFRetain(dev);
             context->fileSystem = CFRetain( DAFileSystemGetKind( filesystem ));
-            context->mountPoint = CFRetain( mountpointPath );
+            if ( mountpointPath )
+            {
+                context->mountPoint = CFRetain( mountpointPath );
+            }
+            else
+            {
+                context->mountPoint = NULL;
+            }
             if ( volumeName )
             {
                 context->volumeName = CFRetain( volumeName );
@@ -629,6 +658,13 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
             else
             {
                 context->volumeName = CFSTR( "Untitled" );
+            }
+            if ( CFStringGetLength( options ))
+            {
+                context->mountOptions = CFRetain( options );
+            } else
+            {
+                context->mountOptions = NULL;
             }
             DAThreadExecute(__DAMountUserFSVolume, context, __DAMountUserFSVolumeCallback, context);
             CFRelease( argumentList );
@@ -639,7 +675,8 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
         }
         goto DAFileSystemMountErr;
     }
-
+#endif
+    
     /*
      * Use mount command to do the mount here.
      */
@@ -697,7 +734,8 @@ DAFileSystemMountErr:
 void DAFileSystemProbe( DAFileSystemRef           filesystem,
                         CFURLRef                  device,
                         DAFileSystemProbeCallback callback,
-                        void *                    callbackContext )
+                        void *                    callbackContext,
+                        bool                      doFsck )
 {
     /*
      * Probe the specified volume.  A status of 0 indicates success.
@@ -740,7 +778,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
 
     repairCommandName = CFDictionaryGetValue( personality, CFSTR( kFSRepairExecutableKey ) );
 
-    if ( repairCommandName )
+    if ( doFsck && repairCommandName )
     {
         repairCommand = ___CFBundleCopyResourceURLInDirectory( filesystem->_id, repairCommandName );
         if ( repairCommand == NULL )  { status = ENOTSUP; goto DAFileSystemProbeErr; }
@@ -952,6 +990,7 @@ void DAFileSystemRepairQuotas( DAFileSystemRef      filesystem,
     context = malloc( sizeof( __DAFileSystemContext ) );
     if ( context == NULL )  { status = ENOMEM; goto DAFileSystemRepairQuotasErr; }
 
+    if ( mountpoint == NULL ) { status = EINVAL; goto DAFileSystemRepairQuotasErr; }
     mountpointPath = CFURLCopyFileSystemPath( mountpoint, kCFURLPOSIXPathStyle );
     if ( mountpointPath == NULL )  { status = EINVAL; goto DAFileSystemRepairQuotasErr; }
 
@@ -1105,5 +1144,6 @@ void __DAMountUserFSVolumeCallback( int status, void * parameter )
     if ( context->deviceName )  CFRelease(context->deviceName);
     if ( context->fileSystem )  CFRelease(context->fileSystem);
     if ( context->mountPoint )  CFRelease(context->mountPoint);
+    if ( context->mountOptions) CFRelease(context->mountOptions);
     free( context );
 }

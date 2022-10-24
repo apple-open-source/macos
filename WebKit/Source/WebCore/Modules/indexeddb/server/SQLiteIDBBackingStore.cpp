@@ -98,37 +98,37 @@ static int idbKeyCollate(int aLength, const void* aBuffer, int bLength, const vo
     return a.compare(b);
 }
 
-static const String v1RecordsTableSchema(const String& tableName)
+static const String v1RecordsTableSchema(ASCIILiteral tableName)
 {
     return makeString("CREATE TABLE ", tableName, " (objectStoreID INTEGER NOT NULL ON CONFLICT FAIL, key TEXT COLLATE IDBKEY NOT NULL ON CONFLICT FAIL UNIQUE ON CONFLICT REPLACE, value NOT NULL ON CONFLICT FAIL)");
 }
 
 static const String& v1RecordsTableSchema()
 {
-    static NeverDestroyed<String> v1RecordsTableSchemaString(v1RecordsTableSchema("Records"));
+    static NeverDestroyed<String> v1RecordsTableSchemaString(v1RecordsTableSchema("Records"_s));
     return v1RecordsTableSchemaString;
 }
 
 static const String& v1RecordsTableSchemaAlternate()
 {
-    static NeverDestroyed<String> v1RecordsTableSchemaString(v1RecordsTableSchema("\"Records\""));
+    static NeverDestroyed<String> v1RecordsTableSchemaString(v1RecordsTableSchema("\"Records\""_s));
     return v1RecordsTableSchemaString;
 }
 
-static const String v2RecordsTableSchema(const String& tableName)
+static const String v2RecordsTableSchema(ASCIILiteral tableName)
 {
     return makeString("CREATE TABLE ", tableName, " (objectStoreID INTEGER NOT NULL ON CONFLICT FAIL, key TEXT COLLATE IDBKEY NOT NULL ON CONFLICT FAIL, value NOT NULL ON CONFLICT FAIL)");
 }
 
 static const String& v2RecordsTableSchema()
 {
-    static NeverDestroyed<String> v2RecordsTableSchemaString(v2RecordsTableSchema("Records"));
+    static NeverDestroyed<String> v2RecordsTableSchemaString(v2RecordsTableSchema("Records"_s));
     return v2RecordsTableSchemaString;
 }
 
 static const String& v2RecordsTableSchemaAlternate()
 {
-    static NeverDestroyed<String> v2RecordsTableSchemaString(v2RecordsTableSchema("\"Records\""));
+    static NeverDestroyed<String> v2RecordsTableSchemaString(v2RecordsTableSchema("\"Records\""_s));
     return v2RecordsTableSchemaString;
 }
 
@@ -147,37 +147,37 @@ static ASCIILiteral v3RecordsTableSchemaTemp()
     return TABLE_SCHEMA_PREFIX "_Temp_Records" V3_RECORDS_TABLE_SCHEMA_SUFFIX;
 }
 
-static const String v1IndexRecordsTableSchema(const String& tableName)
+static const String v1IndexRecordsTableSchema(ASCIILiteral tableName)
 {
     return makeString("CREATE TABLE ", tableName, " (indexID INTEGER NOT NULL ON CONFLICT FAIL, objectStoreID INTEGER NOT NULL ON CONFLICT FAIL, key TEXT COLLATE IDBKEY NOT NULL ON CONFLICT FAIL, value NOT NULL ON CONFLICT FAIL)");
 }
 
 static const String& v1IndexRecordsTableSchema()
 {
-    static NeverDestroyed<String> v1IndexRecordsTableSchemaString(v1IndexRecordsTableSchema("IndexRecords"));
+    static NeverDestroyed<String> v1IndexRecordsTableSchemaString(v1IndexRecordsTableSchema("IndexRecords"_s));
     return v1IndexRecordsTableSchemaString;
 }
 
 static const String& v1IndexRecordsTableSchemaAlternate()
 {
-    static NeverDestroyed<String> v1IndexRecordsTableSchemaString(v1IndexRecordsTableSchema("\"IndexRecords\""));
+    static NeverDestroyed<String> v1IndexRecordsTableSchemaString(v1IndexRecordsTableSchema("\"IndexRecords\""_s));
     return v1IndexRecordsTableSchemaString;
 }
 
-static const String v2IndexRecordsTableSchema(const String& tableName)
+static const String v2IndexRecordsTableSchema(ASCIILiteral tableName)
 {
     return makeString("CREATE TABLE ", tableName, " (indexID INTEGER NOT NULL ON CONFLICT FAIL, objectStoreID INTEGER NOT NULL ON CONFLICT FAIL, key TEXT COLLATE IDBKEY NOT NULL ON CONFLICT FAIL, value TEXT COLLATE IDBKEY NOT NULL ON CONFLICT FAIL)");
 }
 
 static const String& v2IndexRecordsTableSchema()
 {
-    static NeverDestroyed<String> v2IndexRecordsTableSchemaString(v2IndexRecordsTableSchema("IndexRecords"));
+    static NeverDestroyed<String> v2IndexRecordsTableSchemaString(v2IndexRecordsTableSchema("IndexRecords"_s));
     return v2IndexRecordsTableSchemaString;
 }
 
 static const String& v2IndexRecordsTableSchemaAlternate()
 {
-    static NeverDestroyed<String> v2IndexRecordsTableSchemaString(v2IndexRecordsTableSchema("\"IndexRecords\""));
+    static NeverDestroyed<String> v2IndexRecordsTableSchemaString(v2IndexRecordsTableSchema("\"IndexRecords\""_s));
     return v2IndexRecordsTableSchemaString;
 }
 
@@ -236,12 +236,10 @@ static ASCIILiteral indexInfoTableSchemaTemp()
     return TABLE_SCHEMA_PREFIX "_Temp_IndexInfo" INDEX_INFO_TABLE_SCHEMA_SUFFIX;
 }
 
-SQLiteIDBBackingStore::SQLiteIDBBackingStore(PAL::SessionID sessionID, const IDBDatabaseIdentifier& identifier, const String& databaseRootDirectory)
-    : m_sessionID(sessionID)
-    , m_identifier(identifier)
-    , m_databaseRootDirectory(databaseRootDirectory)
+SQLiteIDBBackingStore::SQLiteIDBBackingStore(const IDBDatabaseIdentifier& identifier, const String& databaseDirectory)
+    : m_identifier(identifier)
+    , m_databaseDirectory(databaseDirectory)
 {
-    m_databaseDirectory = fullDatabaseDirectoryWithUpgrade();
 }
 
 SQLiteIDBBackingStore::~SQLiteIDBBackingStore()
@@ -912,22 +910,26 @@ std::unique_ptr<IDBDatabaseInfo> SQLiteIDBBackingStore::extractExistingDatabaseI
     return databaseInfo;
 }
 
-String SQLiteIDBBackingStore::filenameForDatabaseName() const
+String SQLiteIDBBackingStore::encodeDatabaseName(const String& databaseName)
 {
-    ASSERT(!m_identifier.databaseName().isNull());
+    ASSERT(!databaseName.isNull());
+    if (databaseName.isEmpty())
+        return "%00"_s;
 
-    if (m_identifier.databaseName().isEmpty())
-        return "%00";
+    return makeStringByReplacingAll(FileSystem::encodeForFileName(databaseName), '.', "%2E"_s);
+}
 
-    String filename = FileSystem::encodeForFileName(m_identifier.databaseName());
-    filename.replace('.', "%2E");
+String SQLiteIDBBackingStore::decodeDatabaseName(const String& encodedName)
+{
+    if (encodedName == "%00"_s)
+        return emptyString();
 
-    return filename;
+    return FileSystem::decodeFromFilename(makeStringByReplacingAll(encodedName, "%2E"_s, "."_s));
 }
 
 String SQLiteIDBBackingStore::fullDatabasePathForDirectory(const String& fullDatabaseDirectory)
 {
-    return FileSystem::pathByAppendingComponent(fullDatabaseDirectory, "IndexedDB.sqlite3");
+    return FileSystem::pathByAppendingComponent(fullDatabaseDirectory, "IndexedDB.sqlite3"_s);
 }
 
 String SQLiteIDBBackingStore::fullDatabasePath() const
@@ -965,23 +967,6 @@ std::optional<IDBDatabaseNameAndVersion> SQLiteIDBBackingStore::databaseNameAndV
     return IDBDatabaseNameAndVersion { databaseName, *databaseVersion };
 }
 
-String SQLiteIDBBackingStore::fullDatabaseDirectoryWithUpgrade()
-{
-    String oldOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory, "v0");
-    String oldDatabaseDirectory = FileSystem::pathByAppendingComponent(oldOriginDirectory, filenameForDatabaseName());
-    String newOriginDirectory = m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory, "v1");
-    String fileNameHash = SQLiteFileSystem::computeHashForFileName(m_identifier.databaseName());
-    String newDatabaseDirectory = FileSystem::pathByAppendingComponent(newOriginDirectory, fileNameHash);
-    FileSystem::makeAllDirectories(newDatabaseDirectory);
-
-    if (FileSystem::fileExists(oldDatabaseDirectory)) {
-        FileSystem::moveFile(oldDatabaseDirectory, newDatabaseDirectory);
-        FileSystem::deleteEmptyDirectory(oldOriginDirectory);
-    }
-
-    return newDatabaseDirectory;
-}
-
 IDBError SQLiteIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info)
 {
     LOG(IndexedDB, "SQLiteIDBBackingStore::getOrEstablishDatabaseInfo - database %s", m_identifier.databaseName().utf8().data());
@@ -991,11 +976,11 @@ IDBError SQLiteIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info
         return IDBError { };
     }
 
-    String dbFilename = fullDatabasePath();
-
+    String databasePath = fullDatabasePath();
+    FileSystem::makeAllDirectories(FileSystem::parentPath(databasePath));
     m_sqliteDB = makeUnique<SQLiteDatabase>();
-    if (!m_sqliteDB->open(dbFilename)) {
-        LOG_ERROR("Failed to open SQLite database at path '%s'", dbFilename.utf8().data());
+    if (!m_sqliteDB->open(databasePath)) {
+        LOG_ERROR("Failed to open SQLite database at path '%s'", databasePath.utf8().data());
         closeSQLiteDB();
     }
 
@@ -1005,7 +990,7 @@ IDBError SQLiteIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info
     m_sqliteDB->disableThreadingChecks();
     m_sqliteDB->enableAutomaticWALTruncation();
 
-    m_sqliteDB->setCollationFunction("IDBKEY", [](int aLength, const void* a, int bLength, const void* b) {
+    m_sqliteDB->setCollationFunction("IDBKEY"_s, [](int aLength, const void* a, int bLength, const void* b) {
         return idbKeyCollate(aLength, a, bLength, b);
     });
 
@@ -1044,7 +1029,7 @@ IDBError SQLiteIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info
         databaseInfo = createAndPopulateInitialDatabaseInfo();
 
     if (!databaseInfo) {
-        LOG_ERROR("Unable to establish IDB database at path '%s'", dbFilename.utf8().data());
+        LOG_ERROR("Unable to establish IDB database at path '%s'", databasePath.utf8().data());
         closeSQLiteDB();
         return IDBError { UnknownError, "Unable to establish IDB database file"_s };
     }
@@ -1073,7 +1058,7 @@ uint64_t SQLiteIDBBackingStore::databasesSizeForDirectory(const String& director
     for (auto& dbDirectoryName : FileSystem::listDirectory(directory)) {
         auto dbDirectoryPath = FileSystem::pathByAppendingComponent(directory, dbDirectoryName);
         for (auto& fileName : FileSystem::listDirectory(dbDirectoryPath)) {
-            if (fileName.endsWith(".sqlite3"))
+            if (fileName.endsWith(".sqlite3"_s))
                 diskUsage += SQLiteFileSystem::databaseFileSize(FileSystem::pathByAppendingComponent(dbDirectoryPath, fileName));
         }
     }
@@ -1895,7 +1880,7 @@ IDBError SQLiteIDBBackingStore::updateOneIndexForAddRecord(IDBObjectStoreInfo& o
 
         IndexKey indexKey;
         generateIndexKeyForValue(globalObject, info, jsValue, indexKey, objectStoreInfo.keyPath(), key);
-        resultIndexKey = indexKey.isolatedCopy();
+        resultIndexKey = WTFMove(indexKey).isolatedCopy();
     });
 
     if (!resultIndexKey)
@@ -1913,16 +1898,16 @@ IDBError SQLiteIDBBackingStore::updateAllIndexesForAddRecord(const IDBObjectStor
     const auto& indexMap = info.indexMap();
     bool anyRecordsSucceeded = false;
 
-    for (const auto& entry : indexKeys) {
-        auto indexIterator = indexMap.find(entry.key);
+    for (const auto& [indexID, indexKey] : indexKeys) {
+        auto indexIterator = indexMap.find(indexID);
         ASSERT(indexIterator != indexMap.end());
 
         if (indexIterator == indexMap.end()) {
-            error = IDBError { InvalidStateError, "Missing index metadata" };
+            error = IDBError { InvalidStateError, "Missing index metadata"_s };
             break;
         }
 
-        error = uncheckedPutIndexKey(indexIterator->value, key, entry.value, recordID);
+        error = uncheckedPutIndexKey(indexIterator->value, key, indexKey, recordID);
         if (!error.isNull())
             break;
 
@@ -2299,6 +2284,9 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
 
     auto* objectStoreInfo = infoForObjectStore(getAllRecordsData.objectStoreIdentifier);
     ASSERT(objectStoreInfo);
+    if (!objectStoreInfo)
+        return IDBError { UnknownError, "Failed to look up IDBObjectStoreInfo from identifier"_s };
+
     result = { getAllRecordsData.getAllType, objectStoreInfo->keyPath() };
 
     uint32_t targetResults;
@@ -2582,7 +2570,7 @@ IDBError SQLiteIDBBackingStore::uncheckedGetKeyGeneratorValue(int64_t objectStor
 
     int64_t value = sql->columnInt64(0);
     if (value < 0)
-        return IDBError { ConstraintError, "Current key generator value from database is invalid" };
+        return IDBError { ConstraintError, "Current key generator value from database is invalid"_s };
 
     outValue = value;
     return IDBError { };
@@ -2596,7 +2584,7 @@ IDBError SQLiteIDBBackingStore::uncheckedSetKeyGeneratorValue(int64_t objectStor
         || sql->bindInt64(2, value) != SQLITE_OK
         || sql->step() != SQLITE_DONE) {
         LOG_ERROR("Could not update key generator value (%i) - %s", m_sqliteDB->lastError(), m_sqliteDB->lastErrorMsg());
-        return IDBError { ConstraintError, "Error storing new key generator value in database" };
+        return IDBError { ConstraintError, "Error storing new key generator value in database"_s };
     }
 
     return IDBError { };
@@ -2624,7 +2612,7 @@ IDBError SQLiteIDBBackingStore::generateKeyNumber(const IDBResourceIdentifier& t
         return error;
 
     if (currentValue + 1 > maxGeneratorValue)
-        return IDBError { ConstraintError, "Cannot generate new key value over 2^53 for object store operation" };
+        return IDBError { ConstraintError, "Cannot generate new key value over 2^53 for object store operation"_s };
 
     generatedKey = currentValue + 1;
     return uncheckedSetKeyGeneratorValue(objectStoreID, generatedKey);
@@ -2798,7 +2786,6 @@ void SQLiteIDBBackingStore::deleteBackingStore()
 
     SQLiteFileSystem::deleteDatabaseFile(databasePath);
     SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_databaseDirectory);
-    SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_identifier.databaseDirectoryRelativeToRoot(m_databaseRootDirectory));
 }
 
 void SQLiteIDBBackingStore::unregisterCursor(SQLiteIDBCursor& cursor)
@@ -2846,6 +2833,12 @@ bool SQLiteIDBBackingStore::hasTransaction(const IDBResourceIdentifier& transact
 {
     ASSERT(isMainThread());
     return m_transactions.contains(transactionIdentifier);
+}
+
+void SQLiteIDBBackingStore::handleLowMemoryWarning()
+{
+    if (m_sqliteDB)
+        m_sqliteDB->releaseMemory();
 }
 
 #undef TABLE_SCHEMA_PREFIX

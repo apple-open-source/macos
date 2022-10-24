@@ -1,14 +1,22 @@
-Entity: line 1: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+./test/valid/t8a.xml:6: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
 
- %defroot; 
-          ^
+%defroot;%defmiddle;%deftest;
+         ^
 Entity: line 1: 
 &lt;!ELEMENT root (middle) >
 ^
-Entity: line 1: parser error : DOCTYPE improperly terminated
- %defroot; 
-          ^
+./test/valid/t8a.xml:6: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+%defroot;%defmiddle;%deftest;
+                    ^
 Entity: line 1: 
-&lt;!ELEMENT root (middle) >
+&lt;!ELEMENT middle (test) >
+^
+./test/valid/t8a.xml:6: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+%defroot;%defmiddle;%deftest;
+                             ^
+Entity: line 1: 
+&lt;!ELEMENT test (#PCDATA) >
 ^
 ./test/valid/t8a.xml : failed to parse

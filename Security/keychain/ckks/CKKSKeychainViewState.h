@@ -16,6 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CKKSKeychainViewState : NSObject <NSCopying>
 @property (readonly) NSString* zoneName;
 @property (readonly) CKRecordZoneID* zoneID;
+@property (readonly) NSString* contextID;
 
 @property (nullable) CKKSLaunchSequence* launch;
 
@@ -26,6 +27,9 @@ NS_ASSUME_NONNULL_BEGIN
 // This is YES if CKKS should be managing this view: establishing a key hierarchy, processing incoming queue entries, etc.
 @property (readonly) BOOL ckksManagedView;
 
+// This is YES if the initial download of this view should be prioritized over other views.
+@property (readonly) BOOL priorityView;
+
 /* Trigger this to tell the whole machine that this view has changed */
 @property CKKSNearFutureScheduler* notifyViewChangedScheduler;
 
@@ -33,7 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSNearFutureScheduler* notifyViewReadyScheduler;
 
 - (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
+                  forContextID:(NSString *)contextID
                ckksManagedView:(BOOL)ckksManagedView
+                  priorityView:(BOOL)priorityView
     notifyViewChangedScheduler:(CKKSNearFutureScheduler*)notifyViewChangedScheduler
       notifyViewReadyScheduler:(CKKSNearFutureScheduler*)notifyViewReadyScheduler;
 

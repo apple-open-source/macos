@@ -25,11 +25,10 @@
 
 // https://immersive-web.github.io/webxr/#xrrenderstate
 [
-    EnabledBySetting=WebXREnabled,
     Conditional=WEBXR,
+    EnabledBySetting=WebXREnabled,
     SecureContext,
     Exposed=Window,
-    ImplementationLacksVTable,
     InterfaceName=XRRenderState
 ] interface WebXRRenderState {
     readonly attribute double depthNear;

@@ -21,6 +21,7 @@
 #pragma once
 
 #include "CSSRuleList.h"
+#include "CommonAtomStrings.h"
 #include "ExceptionOr.h"
 #include "StyleSheet.h"
 #include <memory>
@@ -39,6 +40,7 @@ class CSSStyleSheet;
 class CachedCSSStyleSheet;
 class Document;
 class Element;
+class WeakPtrImplWithEventTargetData;
 class MediaQuerySet;
 class StyleRuleKeyframes;
 class StyleSheetContents;
@@ -139,7 +141,7 @@ private:
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node& ownerNode, const TextPosition& startPosition, bool isInlineStylesheet, const std::optional<bool>&);
 
     bool isCSSStyleSheet() const final { return true; }
-    String type() const final { return "text/css"_s; }
+    String type() const final { return cssContentTypeAtom(); }
 
     Ref<StyleSheetContents> m_contents;
     bool m_isInlineStylesheet { false };

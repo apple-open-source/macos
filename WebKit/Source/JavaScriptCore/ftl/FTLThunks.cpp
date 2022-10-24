@@ -120,7 +120,7 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> genericGenerationThunkGenerator(
     
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::FTLThunk);
     patchBuffer.link(functionCall, generationFunction.retagged<OperationPtrTag>());
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "%s", name);
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "%s", name);
 }
 
 MacroAssemblerCodeRef<JITThunkPtrTag> osrExitGenerationThunkGenerator(VM& vm)
@@ -139,9 +139,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> lazySlowPathGenerationThunkGenerator(VM& v
 
 static void registerClobberCheck(AssemblyHelpers& jit, RegisterSet dontClobber)
 {
-    if (!Options::clobberAllRegsInFTLICSlowPath())
-        return;
-    
+    ASSERT(Options::clobberAllRegsInFTLICSlowPath());
     RegisterSet clobber = RegisterSet::allRegisters();
     clobber.exclude(RegisterSet::reservedHardwareRegisters());
     clobber.exclude(RegisterSet::stackRegisters());
@@ -202,10 +200,12 @@ MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(VM& vm, const S
     jit.storePtr(GPRInfo::nonArgGPR1, AssemblyHelpers::Address(MacroAssembler::stackPointerRegister, key.offset()));
     jit.prepareCallOperation(vm);
     
-    RegisterSet dontClobber = key.argumentRegisters();
-    if (!key.callTarget())
-        dontClobber.set(GPRInfo::nonArgGPR0);
-    registerClobberCheck(jit, WTFMove(dontClobber));
+    if (UNLIKELY(Options::clobberAllRegsInFTLICSlowPath())) {
+        RegisterSet dontClobber = key.argumentRegistersIfClobberingCheckIsEnabled();
+        if (!key.callTarget())
+            dontClobber.set(GPRInfo::nonArgGPR0);
+        registerClobberCheck(jit, WTFMove(dontClobber));
+    }
 
     AssemblyHelpers::Call call;
     if (key.callTarget())
@@ -243,7 +243,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(VM& vm, const S
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID, LinkBuffer::Profile::FTLThunk);
     if (key.callTarget())
         patchBuffer.link(call, key.callTarget());
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "FTL slow path call thunk for %s", toCString(key).data());
+    return FINALIZE_THUNK(patchBuffer, JITThunkPtrTag, "FTL slow path call thunk for %s", toCString(key).data());
 }
 
 } } // namespace JSC::FTL

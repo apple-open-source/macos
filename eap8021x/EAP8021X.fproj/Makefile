@@ -10,7 +10,7 @@ endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=i386 x86_64
+ARCHS=x86_64
 CORETELEPHONY=
 endif
 
@@ -62,7 +62,7 @@ eapsectrust: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUti
 test_server_names: EAPLog.c EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c EAPUtil.c EAPClientModule.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SERVER_NAMES $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-simtlv: EAPSIMAKAUtil.c EAPUtil.c EAPClientModule.c printdata.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c myCFUtil.c fips186prf.c fr_sha1.c
+simtlv: EAPSIMAKAUtil.c EAPOLSIMPrefsManage.c EAPUtil.c EAPClientModule.c printdata.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c myCFUtil.c fips186prf.c fr_sha1.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -Wcast-align -I. -DEAPSIMAKA_PACKET_DUMP -DTEST_TLVLIST_PARSE $(PF_INC) -framework CoreFoundation -framework SystemConfiguration $(CORETELEPHONY) -framework Security -g -o $@ $^
 
 
@@ -100,11 +100,15 @@ simaka_persist: EAPSIMAKAPersistentState.c EAPKeychainUtil.c myCFUtil.c EAPSecur
 	export CODESIGN_ALLOCATE=$(shell xcrun -sdk $(SDK) -find codesign_allocate)
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
-test_eapaka: eapaka_plugin.c EAPSIMAKAUtil.c SIMAccess.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c fips186prf.c printdata.c myCFUtil.c EAPKeychainUtil.c EAPSecurity.c fr_sha1.c EAPLog.c
+test_eapaka: eapaka_plugin.c EAPOLSIMPrefsManage.c EAPSIMAKAUtil.c SIMAccess.m SIMAccess.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c fips186prf.c printdata.c myCFUtil.c EAPKeychainUtil.c EAPSecurity.c fr_sha1.c EAPLog.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DEAPSIMAKA_PACKET_DUMP -DTEST_EAPAKA_PLUGIN $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
 
 test_gsm_milenage: sim_simulator.c EAPLog.c 
 	$(CC) $(ARCH_FLAGS) -DTEST_GSM_MILENAGE_TEST_VECTOR $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
+
+test_sim_change: SIMAccess.m EAPLog.c myCFUtil.c
+	$(CC) $(ARCH_FLAGS) -DTEST_SIM_CHANGE $(PF_INC) -fobjc-arc -framework Foundation -framework Security -framework SystemConfiguration $(CORETELEPHONY) -g -o $@ $^
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements sim-access-entitlements.plist $@
 
 clean:
 	rm -rf *.dSYM/

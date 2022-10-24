@@ -26,6 +26,7 @@
 
 #include "Document.h"
 #include "ElementInlines.h"
+#include "EventLoop.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -88,7 +89,7 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
         return;
 
     if (m_frameURL.isEmpty())
-        m_frameURL = aboutBlankURL().string();
+        m_frameURL = AtomString { aboutBlankURL().string() };
 
     if (shouldLoadFrameLazily())
         return;
@@ -99,7 +100,7 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
 
     document().willLoadFrameElement(document().completeURL(m_frameURL));
 
-    String frameName = getNameAttribute();
+    auto frameName = getNameAttribute();
     if (frameName.isNull() && UNLIKELY(document().settings().needsFrameNameFallbackToIdQuirk()))
         frameName = getIdAttribute();
 
@@ -114,7 +115,7 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const AtomS
             if (!srcValue.isNull())
                 setLocation(stripLeadingAndTrailingHTMLSpaces(srcValue));
         } else
-            setLocation("about:srcdoc");
+            setLocation("about:srcdoc"_s);
     } else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(value));
     else
@@ -143,7 +144,20 @@ void HTMLFrameElementBase::didFinishInsertingNode()
 
     if (!renderer())
         invalidateStyleAndRenderersForSubtree();
-    openURL();
+
+    auto work = [this, weakThis = WeakPtr { *this }] {
+        if (!weakThis)
+            return;
+        Ref<HTMLFrameElementBase> protectedThis { *this };
+        m_openingURLAfterInserting = true;
+        if (isConnected())
+            openURL();
+        m_openingURLAfterInserting = false;
+    };
+    if (!m_openingURLAfterInserting)
+        work();
+    else
+        document().eventLoop().queueTask(TaskSource::DOMManipulation, WTFMove(work));
 }
 
 void HTMLFrameElementBase::didAttachRenderers()
@@ -228,9 +242,9 @@ int HTMLFrameElementBase::height()
 ScrollbarMode HTMLFrameElementBase::scrollingMode() const
 {
     auto scrollingAttribute = attributeWithoutSynchronization(scrollingAttr);
-    return equalLettersIgnoringASCIICase(scrollingAttribute, "no")
-        || equalLettersIgnoringASCIICase(scrollingAttribute, "noscroll")
-        || equalLettersIgnoringASCIICase(scrollingAttribute, "off")
+    return equalLettersIgnoringASCIICase(scrollingAttribute, "no"_s)
+        || equalLettersIgnoringASCIICase(scrollingAttribute, "noscroll"_s)
+        || equalLettersIgnoringASCIICase(scrollingAttribute, "off"_s)
         ? ScrollbarMode::AlwaysOff : ScrollbarMode::Auto;
 }
 

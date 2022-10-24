@@ -49,45 +49,42 @@
 /* crediting fields are UInt32, but SMB 2/3 Header has UInt16 credit fields */
 #define kCREDIT_MAX_AMT UINT16_MAX
 
-/* smb2_durable_handle flags */
-typedef enum _SMB2_DURABLE_HANDLE_FLAGS
-{
-    SMB2_DURABLE_HANDLE_REQUEST = 0x0001,
-    SMB2_DURABLE_HANDLE_RECONNECT = 0x0002,
-    SMB2_DURABLE_HANDLE_GRANTED = 0x0004,
-    SMB2_LEASE_GRANTED = 0x0008,
-	SMB2_LEASE_PARENT_LEASE_KEY_SET = 0x0010,
-	SMB2_PERSISTENT_HANDLE_REQUEST = 0x0020,
-	SMB2_PERSISTENT_HANDLE_RECONNECT = 0x0040,
-	SMB2_PERSISTENT_HANDLE_GRANTED = 0x0080,
-	SMB2_DURABLE_HANDLE_V2 = 0x0100,
-	SMB2_LEASE_V2 = 0x0200,
-	SMB2_DURABLE_HANDLE_V2_CHECK = 0x0400,
-	SMB2_DURABLE_HANDLE_FAIL = 0x0800,
-	SMB2_LEASE_BROKEN = 0x1000,
-	SMB2_NEW_LEASE_KEY = 0x2000,
-	SMB2_DEFERRED_CLOSE = 0x4000
-} _SMB2_DURABLE_HANDLE_FLAGS;
 
 #ifdef KERNEL
-struct smb2_durable_handle {
-	lck_mtx_t lock;					/* mutex for dirchangecnt and dur_handle */
-	struct timespec	def_close_time;	/* time we deferred a file close */
-	int32_t handle_reuse_cnt;		/* how many times we reused a handle */
-	uint32_t req_lease_state;		/* requested lease state */
-
-	uint8_t create_guid[16];		/* used for SMB 3.x */
+struct smb2_lease {
+	lck_mtx_t lock;                 /* mutex for lease */
+    void *last_op;                  /* tracks last operation that locked the lease */
+    void *activation;               /* thread that locked the lease */
+    uint64_t flags;                 /* internal state flags */
+    uint32_t req_lease_state;       /* requested lease state */
+    uint32_t lease_state;           /* current lease state */
+    uint64_t lease_key_hi;          /* lease key for this vnode */
+    uint64_t lease_key_low;         /* lease key for this vnode */
 	uint64_t par_lease_key_hi;      /* lease key from parent vnode */
 	uint64_t par_lease_key_low;     /* lease key from parent vnode */
-    uint64_t fid;					/* SMBFID to reconnect in durable handle reconnect */
-    uint64_t flags;
-    uint64_t lease_key_hi;			/* guid */
-    uint64_t lease_key_low;			/* vnode vid */
-    uint32_t lease_state;			/* current lease state */
-	uint16_t epoch;					/* used for SMB 3.x */
+    uint16_t epoch;                 /* used for SMB 3.x */
     uint16_t pad;
-	uint32_t timeout;				/* used for SMB 3.x (mSecs) */
+    int32_t handle_reuse_cnt;       /* reused handle count for curr accessMode */
+    time_t def_close_timer;         /* time we deferred a file close */
+    uint32_t pending_break;         /* lease break in progress */
 };
+
+struct smb2_durable_handle {
+    lck_mtx_t lock;                 /* mutex for dur_handle */
+    void *last_op;                  /* tracks last operation that locked the lease */
+    void *activation;               /* thread that locked the lease */
+    uint64_t flags;                 /* internal state flags */
+    uint64_t fid;                   /* used for reconnect */
+    uint32_t timeout;               /* used for SMB 3.x (mSecs) */
+    uint32_t pad;
+    uint8_t create_guid[16];        /* used for SMB 3.x */
+};
+
+struct smb2_dur_hndl_and_lease {
+    struct smb2_lease *leasep;
+    struct smb2_durable_handle *dur_handlep;
+};
+
 #endif
 
 /* 
@@ -620,28 +617,28 @@ struct smb_vnode_attr {
  * M => maximal access
  */
 
-#define SMB2_GENERIC_ALL		0x10000000
-#define SMB2_GENERIC_EXECUTE		0x20000000
-#define SMB2_GENERIC_WRITE		0x40000000
-#define SMB2_GENERIC_READ		0x80000000
+/* #define SMB2_GENERIC_ALL		    0x10000000 */   /* defined in smb.h */
+/* #define SMB2_GENERIC_EXECUTE		0x20000000 */   /* defined in smb.h */
+/* #define SMB2_GENERIC_WRITE		0x40000000 */   /* defined in smb.h */
+/* #define SMB2_GENERIC_READ		0x80000000 */   /* defined in smb.h */
 
 /* #define SMB2_FILE_LIST_DIRECTORY	0x00000001 */   /* defined in smb.h */
 /* #define SMB2_FILE_ADD_FILE		0x00000002 */   /* defined in smb.h */
 /* #define SMB2_FILE_ADD_SUBDIRECTORY	0x00000004 */ /* defined in smb.h */
-#define SMB2_FILE_READ_EA		0x00000008
-#define SMB2_FILE_WRITE_EA		0x00000010
+/* #define SMB2_FILE_READ_EA		0x00000008 */   /* defined in smb.h */
+/* #define SMB2_FILE_WRITE_EA		0x00000010 */   /* defined in smb.h */
 /* #define SMB2_FILE_TRAVERSE		0x00000020 */   /* defined in smb.h */
-#define SMB2_FILE_DELETE_CHILD		0x00000040
-#define SMB2_FILE_READ_ATTRIBUTES	0x00000080
-#define SMB2_FILE_WRITE_ATTRIBUTES	0x00000100
+/* #define SMB2_FILE_DELETE_CHILD		0x00000040 */   /* defined in smb.h */
+/* #define SMB2_FILE_READ_ATTRIBUTES	0x00000080 */   /* defined in smb.h */
+/* #define SMB2_FILE_WRITE_ATTRIBUTES	0x00000100 */   /* defined in smb.h */
 
-#define SMB2_STD_ACCESS_DELETE		0x00010000
-#define SMB2_STD_ACCESS_READ_CONTROL	0x00020000
-#define SMB2_STD_ACCESS_WRITE_DAC	0x00040000
-#define SMB2_STD_ACCESS_WRITE_OWNER	0x00080000
-#define SMB2_STD_ACCESS_SYNCHRONIZE	0x00100000
-#define SMB2_STD_ACCESS_SYSTEM_SECURITY	0x01000000
-#define SMB2_STD_ACCESS_MAXIMAL		0x02000000
+/* #define SMB2_STD_ACCESS_DELETE		0x00010000 */   /* defined in smb.h */
+/* #define SMB2_STD_ACCESS_READ_CONTROL	0x00020000 */   /* defined in smb.h */
+/* #define SMB2_STD_ACCESS_WRITE_DAC	0x00040000 */   /* defined in smb.h */
+/* #define SMB2_STD_ACCESS_WRITE_OWNER	0x00080000 */   /* defined in smb.h */
+/* #define SMB2_STD_ACCESS_SYNCHRONIZE	0x00100000 */   /* defined in smb.h */
+/* #define SMB2_STD_ACCESS_SYSTEM_SECURITY	0x01000000 *//* defined in smb.h */
+/* #define SMB2_STD_ACCESS_MAXIMAL		0x02000000 */   /* defined in smb.h */
 #define SMB2_STD_RESERVED_1		0x04000000
 #define SMB2_STD_RESERVED_2		0x08000000
 
@@ -819,6 +816,7 @@ struct FILE_ALL_INFORMATION
     struct smbfattr *fap;
     const char **namep;
     size_t *name_lenp;
+    size_t *name_allocsize; /* *namep alloc size, required when deallocating *namep, this field is required since name_lenp changes and don't reflect the actual allocation size */
 };
 
 struct FILE_FS_ATTRIBUTE_INFORMATION

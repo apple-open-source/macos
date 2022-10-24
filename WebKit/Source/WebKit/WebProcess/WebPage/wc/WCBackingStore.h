@@ -26,7 +26,8 @@
 #pragma once
 
 #include "ImageBufferBackendHandle.h"
-#include "PlatformRemoteImageBufferProxy.h"
+#include "ImageBufferBackendHandleSharing.h"
+#include <WebCore/ImageBuffer.h>
 
 namespace WebKit {
 
@@ -44,7 +45,12 @@ public:
         bool hasImageBuffer = m_imageBuffer;
         encoder << hasImageBuffer;
         if (hasImageBuffer) {
-            auto handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*m_imageBuffer->ensureBackendCreated()).createImageBufferBackendHandle();
+            ImageBufferBackendHandle handle;
+            if (auto* backend = m_imageBuffer->ensureBackendCreated()) {
+                auto* sharing = backend->toBackendSharing();
+                if (is<ImageBufferBackendHandleSharing>(sharing))
+                    handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
+            }
             encoder << handle;
         }
     }

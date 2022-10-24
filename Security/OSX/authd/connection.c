@@ -43,7 +43,7 @@ AUTH_TYPE_INSTANCE(connection,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID connection_get_type_id() {
+static CFTypeID connection_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     

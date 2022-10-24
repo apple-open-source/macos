@@ -39,14 +39,15 @@ class WorkerInspectorController;
 class WorkerOrWorkletScriptController;
 class WorkerOrWorkletThread;
 
-class WorkerOrWorkletGlobalScope : public ScriptExecutionContext, public RefCounted<WorkerOrWorkletGlobalScope>, public EventTargetWithInlineData {
+class WorkerOrWorkletGlobalScope : public ScriptExecutionContext, public RefCounted<WorkerOrWorkletGlobalScope>, public EventTarget {
     WTF_MAKE_ISO_ALLOCATED(WorkerOrWorkletGlobalScope);
     WTF_MAKE_NONCOPYABLE(WorkerOrWorkletGlobalScope);
 public:
     virtual ~WorkerOrWorkletGlobalScope();
 
     using ScriptExecutionContext::weakPtrFactory;
-    using WeakValueType = ScriptExecutionContext::WeakValueType;
+    using ScriptExecutionContext::WeakValueType;
+    using ScriptExecutionContext::WeakPtrImplType;
 
     bool isClosing() const { return m_isClosing; }
     WorkerOrWorkletThread* workerOrWorkletThread() const { return m_thread; }
@@ -63,6 +64,11 @@ public:
     EventLoopTaskGroup& eventLoop() final;
     bool isContextThread() const final;
     void postTask(Task&&) final; // Executes the task on context's thread asynchronously.
+    std::optional<PAL::SessionID> sessionID() const final { return m_sessionID; }
+
+    // Defined specifcially for WorkerOrWorkletGlobalScope for cooperation with
+    // WorkerEventLoop and WorkerRunLoop, not part of ScriptExecutionContext.
+    void postTaskForMode(Task&&, const String&);
 
     virtual void prepareForDestruction();
 
@@ -75,7 +81,7 @@ public:
     virtual FetchOptions::Destination destination() const = 0;
 
 protected:
-    WorkerOrWorkletGlobalScope(WorkerThreadType, Ref<JSC::VM>&&, WorkerOrWorkletThread*);
+    WorkerOrWorkletGlobalScope(WorkerThreadType, PAL::SessionID, Ref<JSC::VM>&&, WorkerOrWorkletThread*, ScriptExecutionContextIdentifier = { });
 
     // ScriptExecutionContext.
     bool isJSExecutionForbidden() const final;
@@ -94,12 +100,17 @@ private:
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
+#if ENABLE(NOTIFICATIONS)
+    NotificationClient* notificationClient() override { return nullptr; }
+#endif
+
     std::unique_ptr<WorkerOrWorkletScriptController> m_script;
     std::unique_ptr<ScriptModuleLoader> m_moduleLoader;
     WorkerOrWorkletThread* m_thread;
     RefPtr<WorkerEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_defaultTaskGroup;
     std::unique_ptr<WorkerInspectorController> m_inspectorController;
+    PAL::SessionID m_sessionID;
     bool m_isClosing { false };
 };
 

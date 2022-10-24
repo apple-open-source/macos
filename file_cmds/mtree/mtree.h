@@ -68,6 +68,7 @@ typedef struct _node {
 	ino_t	st_ino;				/* inode */
 	char	*acldigest;			/* digest of access control list */
 	u_quad_t  sibling_id;			/* sibling id */
+	u_quad_t  nxattr;			/* xattr count */
 
 #define	F_CKSUM		0x00000001		/* check sum */
 #define	F_DONE		0x00000002		/* directory done */
@@ -99,6 +100,7 @@ typedef struct _node {
 #define F_INODE		0x04000000		/* inode */
 #define F_ACL		0x08000000		/* digest of access control list */
 #define F_SIBLINGID	0x10000000		/* sibling id */
+#define F_NXATTR	0x20000000		/* number of xattrs (includes decmpfs)*/
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */

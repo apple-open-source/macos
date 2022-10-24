@@ -1,0 +1,14 @@
+diff --git a/regexec.c b/regexec.c
+index 452a298..14a15b2 100644
+--- a/regexec.c
++++ b/regexec.c
+@@ -9158,7 +9158,8 @@ NULL
+ 		if  (ST.max == REG_INFTY) {
+ 		    ST.maxpos = loceol - 1;
+ 		    if (utf8_target)
+-			while (UTF8_IS_CONTINUATION(*(U8*)ST.maxpos))
++			while (ST.maxpos > locinput &&
++			       UTF8_IS_CONTINUATION(*(U8*)ST.maxpos))
+ 			    ST.maxpos--;
+ 		}
+ 		else if (utf8_target) {

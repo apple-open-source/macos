@@ -37,8 +37,8 @@ class ImageLoader;
 class Page;
 class RenderImageResource;
 
-template<typename T> class EventSender;
-using ImageEventSender = EventSender<ImageLoader>;
+template<typename T, typename Counter> class EventSender;
+using ImageEventSender = EventSender<ImageLoader, WTF::DefaultWeakPtrImpl>;
 
 enum class RelevantMutation : bool { No, Yes };
 
@@ -70,6 +70,7 @@ public:
 
     void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
 
+    // FIXME: Delete this code. beforeload event no longer exists.
     bool hasPendingBeforeLoadEvent() const { return m_hasPendingBeforeLoadEvent; }
     bool hasPendingActivity() const { return m_hasPendingLoadEvent || m_hasPendingErrorEvent; }
 
@@ -88,7 +89,6 @@ public:
 protected:
     explicit ImageLoader(Element&);
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&) override;
-    void didStartLoading() override;
 
 private:
     void resetLazyImageLoading(Document&);
@@ -112,7 +112,7 @@ private:
 
     bool hasPendingDecodePromises() const { return !m_decodingPromises.isEmpty(); }
     void resolveDecodePromises();
-    void rejectDecodePromises(const char* message);
+    void rejectDecodePromises(ASCIILiteral message);
     void decode();
     
     void timerFired();
@@ -131,7 +131,6 @@ private:
     bool m_imageComplete : 1;
     bool m_loadManually : 1;
     bool m_elementIsProtected : 1;
-    bool m_inUpdateFromElement : 1;
     LazyImageLoadState m_lazyImageLoadState { LazyImageLoadState::None };
 };
 

@@ -2,6 +2,7 @@
 <api name='libexslt'>
   <files>
     <file name='exslt'>
+     <summary>main header file </summary>
      <exports symbol='EXSLT_DATE_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_STRINGS_NAMESPACE' type='macro'/>
      <exports symbol='SAXON_NAMESPACE' type='macro'/>
@@ -31,6 +32,8 @@
      <exports symbol='exsltDateXpathCtxtRegister' type='function'/>
     </file>
     <file name='exsltexports'>
+     <summary>macros for marking symbols as exportable/importable. </summary>
+     <author>Igor Zlatkovic &lt;igor@zlatkovic.com&gt; </author>
      <exports symbol='LIBEXSLT_PUBLIC' type='macro'/>
      <exports symbol='_REENTRANT' type='macro'/>
      <exports symbol='EXSLTCALL' type='macro'/>

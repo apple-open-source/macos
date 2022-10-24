@@ -6,7 +6,7 @@ Version: @VERSION@
 Release: 1%{?dist}%{?extra_release}
 License: MIT
 Group: Development/Libraries
-Source: ftp://xmlsoft.org/libxml2/libxml2-%{version}.tar.gz
+Source: https://download.gnome.org/sources/libxml2/@LIBXML_MAJOR_VERSION@.@LIBXML_MINOR_VERSION@/libxml2-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 BuildRequires: python-devel
 %if 0%{?with_python3}
@@ -15,7 +15,7 @@ BuildRequires: python3-devel
 BuildRequires: zlib-devel
 BuildRequires: pkgconfig
 BuildRequires: xz-devel
-URL: http://xmlsoft.org/
+URL: https://gitlab.gnome.org/GNOME/libxml2
 
 %description
 This library allows to manipulate XML files. It includes support
@@ -57,12 +57,15 @@ Requires: libxml2 = %{version}-%{release}
 Static library for libxml2 provided for specific uses or shaving a few
 microseconds when parsing, do not link to them for generic purpose packages.
 
-%package python
+%package -n python-%{name}
+%{?python_provide:%python_provide python-%{name}}
 Summary: Python bindings for the libxml2 library
 Group: Development/Libraries
 Requires: libxml2 = %{version}-%{release}
+Obsoletes: %{name}-python < %{version}-%{release}
+Provides: %{name}-python = %{version}-%{release}
 
-%description python
+%description -n python-%{name}
 The libxml2-python package contains a Python 2 module that permits applications
 written in the Python programming language, version 2, to use the interface
 supplied by the libxml2 library to manipulate XML files.
@@ -73,12 +76,14 @@ this includes parsing and validation even with complex DTDs, either
 at parse time or later once the document has been modified.
 
 %if 0%{?with_python3}
-%package python3
+%package -n python3-%{name}
 Summary: Python 3 bindings for the libxml2 library
 Group: Development/Libraries
 Requires: libxml2 = %{version}-%{release}
+Obsoletes: %{name}-python3 < %{version}-%{release}
+Provides: %{name}-python3 = %{version}-%{release}
 
-%description python3
+%description -n python3-%{name}
 The libxml2-python3 package contains a Python 3 module that permits
 applications written in the Python programming language, version 3, to use the
 interface supplied by the libxml2 library to manipulate XML files.
@@ -92,9 +97,15 @@ at parse time or later once the document has been modified.
 %prep
 %setup -q
 
+mkdir py3doc
+cp doc/*.py py3doc
+sed -i 's|#!/usr/bin/python |#!%{__python3} |' py3doc/*.py
+
 %build
 %configure
 make %{_smp_mflags}
+
+find doc -type f -exec chmod 0644 \{\} \;
 
 %install
 rm -fr %{buildroot}
@@ -117,7 +128,8 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/doc/libxml2-python-%{version}/*
 gzip -9 -c doc/libxml2-api.xml > doc/libxml2-api.xml.gz
 
 %check
-make runtests
+#disabling python tests from rpm build as broken in Fedora 30
+make PYTHON_SUBDIR="" runtests
 
 %clean
 rm -fr %{buildroot}
@@ -129,7 +141,7 @@ rm -fr %{buildroot}
 %files
 %defattr(-, root, root)
 
-%doc AUTHORS NEWS README Copyright TODO
+%doc NEWS README.md Copyright TODO
 %doc %{_mandir}/man1/xmllint.1*
 %doc %{_mandir}/man1/xmlcatalog.1*
 %doc %{_mandir}/man3/libxml.3*
@@ -142,7 +154,7 @@ rm -fr %{buildroot}
 %defattr(-, root, root)
 
 %doc %{_mandir}/man1/xml2-config.1*
-%doc AUTHORS NEWS README Copyright
+%doc NEWS README.md Copyright
 %doc doc/*.html doc/html doc/*.gif doc/*.png
 %doc doc/tutorial doc/libxml2-api.xml.gz
 %doc doc/examples
@@ -165,7 +177,7 @@ rm -fr %{buildroot}
 
 %{_libdir}/*a
 
-%files python
+%files -n python-%{name}
 %defattr(-, root, root)
 
 %{_libdir}/python2*/site-packages/libxml2.py*
@@ -178,22 +190,20 @@ rm -fr %{buildroot}
 %doc doc/python.html
 
 %if 0%{?with_python3}
-%files python3
+%files -n python3-%{name}
 %defattr(-, root, root)
 
 %{_libdir}/python3*/site-packages/libxml2.py*
 %{_libdir}/python3*/site-packages/drv_libxml2.py*
-%{_libdir}/python3*/site-packages/__pycache__/libxml2.cpython-34.py*
-%{_libdir}/python3*/site-packages/__pycache__/drv_libxml2.cpython-34.py*
+%{_libdir}/python3*/site-packages/__pycache__/*py*
 %{_libdir}/python3*/site-packages/libxml2mod*
 %doc python/TODO
 %doc python/libxml2class.txt
-%doc python/tests/*.py
-%doc doc/*.py
+%doc py3doc/*.py
 %doc doc/python.html
 %endif # with_python3
 
 %changelog
 * @RELDATE@ Daniel Veillard <veillard@redhat.com>
-- upstream release @VERSION@ see http://xmlsoft.org/news.html
+- upstream release @VERSION@
 

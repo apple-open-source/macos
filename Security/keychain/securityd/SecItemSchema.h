@@ -36,6 +36,7 @@ const SecDbSchema* current_schema(void);
 const SecDbSchema * const * all_schemas(void);
 // for tests
 void set_current_schema_index(int idx);
+bool current_schema_index_is_set_for_testing(void);
 void reset_current_schema_index(void);
 
 // class accessors for current schema
@@ -49,6 +50,7 @@ const SecDbClass* identity_class(void);
 
 // Class with 1 element in it which is the database version.
 const SecDbClass* tversion_class(void);
+
 
 // Direct attribute accessors
 // If you change one of these, update it here

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -157,67 +157,43 @@ __SCNetworkConfigurationUpgrade				(SCPreferencesRef	*prefs,
 	@group Interface configuration
  */
 
-static __inline__ CFTypeRef
+static inline CFTypeRef
 isA_SCNetworkInterface(CFTypeRef obj)
 {
 	return (isA_CFType(obj, SCNetworkInterfaceGetTypeID()));
 }
 
-static __inline__ CFTypeRef
+static inline CFTypeRef
+isA_SCNetworkInterfaceOfType(CFTypeRef obj, CFStringRef type)
+{
+	CFStringRef	interfaceType;
+
+	if (!isA_SCNetworkInterface(obj)) {
+		return NULL;
+	}
+	interfaceType = SCNetworkInterfaceGetInterfaceType((SCNetworkInterfaceRef)obj);
+	if (!CFEqual(interfaceType, type)) {
+		return NULL;
+	}
+	return obj;
+}
+
+static inline CFTypeRef
 isA_SCBondInterface(CFTypeRef obj)
 {
-	CFStringRef	interfaceType;
-
-	if (!isA_SCNetworkInterface(obj)) {
-		// if not an SCNetworkInterface
-		return NULL;
-	}
-
-	interfaceType = SCNetworkInterfaceGetInterfaceType((SCNetworkInterfaceRef)obj);
-	if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
-		// if not a Bond
-		return NULL;
-	}
-
-	return obj;
+	return isA_SCNetworkInterfaceOfType(obj, kSCNetworkInterfaceTypeBond);
 }
 
-static __inline__ CFTypeRef
+static inline CFTypeRef
 isA_SCBridgeInterface(CFTypeRef obj)
 {
-	CFStringRef	interfaceType;
-
-	if (!isA_SCNetworkInterface(obj)) {
-		// if not an SCNetworkInterface
-		return NULL;
-	}
-
-	interfaceType = SCNetworkInterfaceGetInterfaceType((SCNetworkInterfaceRef)obj);
-	if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
-		// if not a bridge
-		return NULL;
-	}
-
-	return obj;
+	return isA_SCNetworkInterfaceOfType(obj, kSCNetworkInterfaceTypeBridge);
 }
 
-static __inline__ CFTypeRef
+static inline CFTypeRef
 isA_SCVLANInterface(CFTypeRef obj)
 {
-	CFStringRef	interfaceType;
-
-	if (!isA_SCNetworkInterface(obj)) {
-		// if not an SCNetworkInterface
-		return NULL;
-	}
-
-	interfaceType = SCNetworkInterfaceGetInterfaceType((SCNetworkInterfaceRef)obj);
-	if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
-		// if not a VLAN
-		return NULL;
-	}
-
-	return obj;
+	return isA_SCNetworkInterfaceOfType(obj, kSCNetworkInterfaceTypeVLAN);
 }
 
 /*!
@@ -822,6 +798,28 @@ Boolean
 _SCNetworkInterfaceIsPhysicalEthernet			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.7), ios(5.0));
 
 /*!
+	@function _SCNetworkInterfaceGetAutoConfigure
+	@discussion Indicates whether a network interface has auto-configuration enabled.
+		The result is only meaningful for VLAN and bridge interfaces currently.
+	@param interface The network interface.
+	@result TRUE if the interface has auto-configuration enabled.
+ */
+Boolean
+SCNetworkInterfaceGetAutoConfigure			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(13.0), ios(16.0));
+
+/*!
+	@function _SCNetworkInterfaceSetAutoConfigure
+	@discussion Set whether to auto-configure the interface with IP connectivity.
+		Only works for VLAN and Bridge interfaces currently.
+	@param interface The network interface.
+	@param auto_config Whether to auto configure the interface or not.
+	@result TRUE if auto-configure was set correctly.
+ */
+Boolean
+SCNetworkInterfaceSetAutoConfigure			(SCNetworkInterfaceRef		interface,
+							 Boolean 			auto_config)	API_AVAILABLE(macos(13.0), ios(16.0));
+
+/*!
 	@function _SCNetworkInterfaceForceConfigurationRefresh
 	@discussion Forces a configuration refresh of the
 		specified interface.
@@ -877,6 +875,13 @@ __SCNetworkInterfaceGetDisablePrivateRelayValue		(SCNetworkInterfaceRef		interfa
 Boolean
 __SCNetworkInterfaceSetDisablePrivateRelayValue		(SCNetworkInterfaceRef		interface,
 							 CFTypeRef			disable)	API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(12.0), watchos(8.0), bridgeos(6.0));
+
+Boolean
+__SCNetworkInterfaceSetEnableLowDataModeValue		(SCNetworkInterfaceRef		interface,
+							 CFTypeRef			disable)	API_AVAILABLE(macos(13.0)) SPI_AVAILABLE(ios(16.0), tvos(13.0), watchos(9.0), bridgeos(7.0));
+
+CFTypeRef
+__SCNetworkInterfaceGetEnableLowDataModeValue		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(13.0)) SPI_AVAILABLE(ios(16.0), tvos(13.0), watchos(9.0), bridgeos(7.0));
 
 int
 __SCNetworkInterfaceCreateCapabilities			(SCNetworkInterfaceRef		interface,
@@ -993,6 +998,28 @@ CFDictionaryRef
 SCBridgeInterfaceGetOptions				(SCBridgeInterfaceRef		bridge)		API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(4.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
+	@function SCBridgeInterfaceSetAllowConfiguredMembers
+	@discussion
+	Allow adding member interfaces to the bridge that have configured services.
+	@param bridge The bridge interface.
+	@param enable Indicate whether to allow members with configured services.
+	@result TRUE if the change was successful, FALSE otherwise.
+ */
+Boolean
+SCBridgeInterfaceSetAllowConfiguredMembers		(SCBridgeInterfaceRef		bridge,
+							 Boolean			enable) 	API_AVAILABLE(macos(13.0), ios(16.0));
+
+/*!
+	@function SCBridgeInterfaceGetAllowConfiguredMembers
+	@discussion
+	Return whether the bridge interface allows members with configured services.
+	@param bridge The bridge interface.
+	@result TRUE if the bridge interface allows configured members, FALSE otherwise.
+ */
+Boolean
+SCBridgeInterfaceGetAllowConfiguredMembers		(SCBridgeInterfaceRef		bridge)		API_AVAILABLE(macos(13.0), ios(16.0));
+
+/*!
 	@function SCBridgeInterfaceSetMemberInterfaces
 	@discussion Sets the member interfaces for the specified bridge interface.
 	@param bridge The SCBridgeInterface interface.
@@ -1041,7 +1068,7 @@ _SCBridgeInterfaceCopyActive				(void)						API_AVAILABLE(macos(10.7)) SPI_AVAIL
 	@function _SCBridgeInterfaceUpdateConfiguration
 	@discussion Updates the bridge interface configuration.
 	@param prefs The "preferences" session.
-	@result TRUE if the bridge interface configuration was updated.; FALSE if the
+	@result TRUE if the bridge interface configuration was updated, FALSE if the
 		an error was encountered.
  */
 Boolean
@@ -1125,6 +1152,17 @@ SCNetworkInterfaceGetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface)	API_A
 Boolean
 SCNetworkInterfaceSetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface,
 							 CFDictionaryRef		policy)		API_AVAILABLE(macos(10.13), ios(10.0));
+
+Boolean
+SCNetworkInterfaceGetEnableLowDataMode			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(13.0), ios(16.0));
+
+Boolean
+SCNetworkInterfaceSetEnableLowDataMode			(SCNetworkInterfaceRef		interface,
+							 Boolean			enable)		API_AVAILABLE(macos(13.0), ios(16.0));
+
+Boolean
+SCNetworkInterfaceSupportsLowDataMode			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(13.0)) SPI_AVAILABLE(ios(16.0), tvos(13.0), watchos(9.0), bridgeos(7.0));
+
 
 
 #pragma mark -
@@ -1595,6 +1633,60 @@ _SCNetworkMigrationAreConfigurationsIdentical	(CFURLRef			configurationURL,
 CFArrayRef	// of CFURLRef's
 _SCNetworkConfigurationCopyMigrationRemovePaths	(CFArrayRef	targetPaths,
 						 CFURLRef	targetDir)				API_AVAILABLE(macos(10.10), ios(8.0));
+
+/*!
+	@group InterfaceCost
+ */
+
+/*!
+  @typedef SCNetworkInterfaceCost
+  @discussion The cost of an interface.
+  @constant kSCNetworkInterfaceCostUnspecified The cost of using the
+  interface is not known or specified.
+  @constant kSCNetworkInterfaceCostInexpensive The interface is
+  inexpensive.
+  @constant kSCNetworkInterfaceCostUnspecified The interface is expensive.
+*/
+typedef CF_ENUM(uint32_t, SCNetworkInterfaceCost) {
+	kSCNetworkInterfaceCostUnspecified = 0,
+	kSCNetworkInterfaceCostInexpensive = 1,
+	kSCNetworkInterfaceCostExpensive = 2
+};
+
+/*!
+  @function SCNetworkInterfaceTypeSetTemporaryOverrideCost
+  @discussion
+  Modify the temporary interface cost for the specified interface type.
+  If cost is not kSCNetworkInterfaceCostUnspecified, the value is
+  persisted with an associated expiration of 5 a.m. the next day.
+  If cost is kSCNetworkInterfaceCostUnspecified, the setting (if any) is removed.
+  @param prefs The preferences to modify.
+  @param type The interface type to set the cost override for.
+  @param cost The cost to apply to this interface type.
+  @result TRUE if successful, FALSE otherwise, and SCError() indicates
+  the reason for the failure.
+*/
+Boolean
+SCNetworkInterfaceTypeSetTemporaryOverrideCost(SCPreferencesRef prefs,
+					       CFStringRef type,
+					       SCNetworkInterfaceCost cost)
+	API_AVAILABLE(macos(13.0), ios(16.0));
+
+/*!
+  @function SCNetworkInterfaceTypeGetTemporaryOverrideCost
+  @discussion
+  Retrieve the temporary override cost for the specified interface type.
+  @param prefs The preferences to read the setting from.
+  @param type The interface type to get the cost override for.
+  @result
+  If the setting is not present, or the setting is expired, this function
+  returns kSCNetworkInterfaceCostUnspecified. Otherwise, it returns either
+  kSCNetworkInterfaceCostInexpensive or kSCNetworkInterfaceCostInexpensive.
+*/
+SCNetworkInterfaceCost
+SCNetworkInterfaceTypeGetTemporaryOverrideCost(SCPreferencesRef prefs,
+					       CFStringRef type)
+	API_AVAILABLE(macos(13.0), ios(16.0));
 
 __END_DECLS
 

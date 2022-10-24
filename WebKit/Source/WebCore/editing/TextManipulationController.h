@@ -115,9 +115,8 @@ public:
     using ManipulationItemCallback = Function<void(Document&, const Vector<ManipulationItem>&)>;
     WEBCORE_EXPORT void startObservingParagraphs(ManipulationItemCallback&&, Vector<ExclusionRule>&& = { });
 
-    void didCreateRendererForElement(Element&);
-    void didCreateRendererForTextNode(Text&);
-    void didUpdateContentForText(Text&);
+    void didUpdateContentForNode(Node&);
+    void didAddOrCreateRendererForNode(Node&);
     void removeNode(Node&);
 
     enum class ManipulationFailureType : uint8_t {
@@ -146,7 +145,7 @@ private:
         Position start;
         Position end;
 
-        WeakPtr<Element> element;
+        WeakPtr<Element, WeakPtrImplWithEventTargetData> element;
         QualifiedName attributeName { nullQName() };
 
         Vector<ManipulationToken> tokens;
@@ -179,11 +178,12 @@ private:
     void updateInsertions(Vector<NodeEntry>&, const Vector<Ref<Node>>&, Node*, HashSet<Ref<Node>>&, Vector<NodeInsertion>&);
     std::optional<ManipulationFailureType> replace(const ManipulationItemData&, const Vector<ManipulationToken>&, HashSet<Ref<Node>>& containersWithoutVisualOverflowBeforeReplacement);
 
-    WeakPtr<Document> m_document;
-    WeakHashSet<Element> m_elementsWithNewRenderer;
-    WeakHashSet<Text> m_manipulatedTextsWithNewContent;
-    WeakHashSet<Node> m_textNodesWithNewRenderer;
-    WeakHashSet<Node> m_manipulatedNodes;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
+    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_elementsWithNewRenderer;
+    WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_textNodesWithNewRenderer;
+    WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_manipulatedNodes;
+    WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_manipulatedNodesWithNewContent;
+    WeakHashSet<Node, WeakPtrImplWithEventTargetData> m_addedOrNewlyRenderedNodes;
 
     HashMap<String, bool> m_cachedFontFamilyExclusionResults;
 

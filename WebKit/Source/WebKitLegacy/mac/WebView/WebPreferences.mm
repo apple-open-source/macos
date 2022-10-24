@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -859,16 +859,6 @@ public:
 }
 #endif
 
-- (BOOL)isJavaEnabled
-{
-    return [self _boolValueForKey: WebKitJavaEnabledPreferenceKey];
-}
-
-- (void)setJavaEnabled:(BOOL)flag
-{
-    [self _setBoolValue: flag forKey: WebKitJavaEnabledPreferenceKey];
-}
-
 - (BOOL)isJavaScriptEnabled
 {
     return [self _boolValueForKey: WebKitJavaScriptEnabledPreferenceKey];
@@ -1401,16 +1391,6 @@ public:
     return [self _boolValueForKey:WebKitAlwaysRequestGeolocationPermissionPreferenceKey];
 }
 
-- (void)_setAlwaysUseAcceleratedOverflowScroll:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAlwaysUseAcceleratedOverflowScrollPreferenceKey];
-}
-
-- (BOOL)_alwaysUseAcceleratedOverflowScroll
-{
-    return [self _boolValueForKey:WebKitAlwaysUseAcceleratedOverflowScrollPreferenceKey];
-}
-
 - (void)_setInterpolationQuality:(int)quality
 {
     [self _setIntegerValue:quality forKey:WebKitInterpolationQualityPreferenceKey];
@@ -1826,16 +1806,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:enabled forKey:WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey];
 }
 
-- (BOOL)simpleLineLayoutEnabled
-{
-    return [self _boolValueForKey:WebKitSimpleLineLayoutEnabledPreferenceKey];
-}
-
-- (void)setSimpleLineLayoutEnabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitSimpleLineLayoutEnabledPreferenceKey];
-}
-
 - (BOOL)legacyLineLayoutVisualCoverageEnabled
 {
     return [self _boolValueForKey:WebKitLegacyLineLayoutVisualCoverageEnabledPreferenceKey];
@@ -2019,12 +1989,11 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 - (void)setAVFoundationNSURLSessionEnabled:(BOOL)flag
 {
-    [self _setBoolValue:flag forKey:WebKitAVFoundationNSURLSessionEnabledKey];
 }
 
 - (BOOL)isAVFoundationNSURLSessionEnabled
 {
-    return [self _boolValueForKey:WebKitAVFoundationNSURLSessionEnabledKey];
+    return YES;
 }
 
 - (BOOL)isInheritURIQueryComponentEnabled
@@ -2349,16 +2318,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (BOOL)shouldRespectImageOrientation
 {
     return [self _boolValueForKey:WebKitShouldRespectImageOrientationKey];
-}
-
-- (BOOL)requestAnimationFrameEnabled
-{
-    return [self _boolValueForKey:WebKitRequestAnimationFrameEnabledPreferenceKey];
-}
-
-- (void)setRequestAnimationFrameEnabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitRequestAnimationFrameEnabledPreferenceKey];
 }
 
 - (void)setIncrementalRenderingSuppressionTimeoutInSeconds:(NSTimeInterval)timeout
@@ -2698,16 +2657,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitCustomPasteboardDataEnabledPreferenceKey];
 }
 
-- (BOOL)keygenElementEnabled
-{
-    return [self _boolValueForKey:WebKitKeygenElementEnabledPreferenceKey];
-}
-
-- (void)setKeygenElementEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitKeygenElementEnabledPreferenceKey];
-}
-
 - (BOOL)cacheAPIEnabled
 {
     return [self _boolValueForKey:WebKitCacheAPIEnabledPreferenceKey];
@@ -2820,16 +2769,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitPictureInPictureAPIEnabledKey];
 }
 
-- (BOOL)viewportFitEnabled
-{
-    return [self _boolValueForKey:WebKitViewportFitEnabledPreferenceKey];
-}
-
-- (void)setViewportFitEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitViewportFitEnabledPreferenceKey];
-}
-
 - (BOOL)constantPropertiesEnabled
 {
     return [self _boolValueForKey:WebKitConstantPropertiesEnabledPreferenceKey];
@@ -2870,26 +2809,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey];
 }
 
-- (BOOL)inspectorAdditionsEnabled
-{
-    return [self _boolValueForKey:WebKitInspectorAdditionsEnabledPreferenceKey];
-}
-
-- (void)setInspectorAdditionsEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitInspectorAdditionsEnabledPreferenceKey];
-}
-
-- (BOOL)ariaReflectionEnabled
-{
-    return [self _boolValueForKey:WebKitAriaReflectionEnabledPreferenceKey];
-}
-
-- (void)setAriaReflectionEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAriaReflectionEnabledPreferenceKey];
-}
-
 - (BOOL)mediaCapabilitiesEnabled
 {
     return [self _boolValueForKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
@@ -2898,16 +2817,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setMediaCapabilitiesEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
-}
-
-- (BOOL)selectionAcrossShadowBoundariesEnabled
-{
-    return [self _boolValueForKey:WebKitSelectionAcrossShadowBoundariesEnabledPreferenceKey];
-}
-
-- (void)setSelectionAcrossShadowBoundariesEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitSelectionAcrossShadowBoundariesEnabledPreferenceKey];
 }
 
 - (BOOL)cssLogicalEnabled
@@ -3012,7 +2921,7 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 + (void)_clearNetworkLoaderSession
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies();
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([] { });
 }
 
 - (void)_setBoolPreferenceForTestingWithValue:(BOOL)value forKey:(NSString *)key
@@ -3385,6 +3294,15 @@ static RetainPtr<NSString>& classIBCreatorID()
     return YES;
 }
 
+- (BOOL)requestAnimationFrameEnabled
+{
+    return YES;
+}
+
+- (void)setRequestAnimationFrameEnabled:(BOOL)enabled
+{
+}
+
 - (void)setResourceTimingEnabled:(BOOL)flag
 {
 }
@@ -3439,6 +3357,15 @@ static RetainPtr<NSString>& classIBCreatorID()
     return YES;
 }
 
+- (BOOL)keygenElementEnabled
+{
+    return NO;
+}
+
+- (void)setKeygenElementEnabled:(BOOL)flag
+{
+}
+
 - (void)setVideoPluginProxyEnabled:(BOOL)flag
 {
 }
@@ -3479,12 +3406,30 @@ static RetainPtr<NSString>& classIBCreatorID()
     return NO;
 }
 
+- (BOOL)selectionAcrossShadowBoundariesEnabled
+{
+    return YES;
+}
+
+- (void)setSelectionAcrossShadowBoundariesEnabled:(BOOL)flag
+{
+}
+
 - (BOOL)isXSSAuditorEnabled
 {
-    return FALSE;
+    return NO;
 }
 
 - (void)setXSSAuditorEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)isJavaEnabled
+{
+    return NO;
+}
+
+- (void)setJavaEnabled:(BOOL)flag
 {
 }
 

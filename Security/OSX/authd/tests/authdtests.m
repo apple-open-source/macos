@@ -44,7 +44,7 @@ AuthorizationItem invalidCredentials[] = {
 	{AGENT_PASSWORD, strlen(INCORRECT_PWD), (void *)INCORRECT_PWD,0}
 };
 
-bool getCredentials()
+bool getCredentials(void)
 {
     static dispatch_once_t onceToken = 0;
     dispatch_once(&onceToken, ^{

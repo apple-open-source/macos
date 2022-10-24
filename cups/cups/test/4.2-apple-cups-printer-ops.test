@@ -1,0 +1,130 @@
+#
+# Verify that the CUPS printer operations work.
+#
+# Copyright © 2007-2022 by Apple Inc.
+# Copyright © 2001-2006 by Easy Software Products. All rights reserved.
+#
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+# information.
+#
+# Same as 4.2-cups-printer-ops.test but verify additional attributes
+#
+{
+	# The name of the test...
+	NAME "Add Printer OAuthTest1"
+
+	# The operation to use
+	OPERATION cups-add-printer
+	RESOURCE /admin/
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR name requesting-user-name $user
+	ATTR uri printer-uri $method://$hostname:$port/printers/OAuthTest1
+	ATTR keyword  auth-info-required oauth
+	ATTR name x-apple-extension-identifier com.apple.identifer_for_oauthtest1
+	ATTR name oauth-authorization-scope .scope_for_oauthtest1
+	ATTR uri oauth-authorization-server-uri http://localhost/?oauth
+	
+	FILE testhp.ppd
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+}
+{
+	# The name of the test...
+	NAME "Verify Printer OAuthTest1 Added"
+
+	# The operation to use
+	OPERATION get-printer-attributes
+	RESOURCE /
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/OAuthTest1
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+	EXPECT oauth-authorization-scope
+	EXPECT oauth-authorization-server-uri
+	EXPECT x-apple-extension-identifier
+}
+{
+	# The name of the test...
+	NAME "Verify Printer get-printer-attributes all gets oauth attrs"
+
+	# The operation to use
+	OPERATION get-printer-attributes
+	RESOURCE /
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/OAuthTest1
+	ATTR keyword requested-attributes all
+	
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+	EXPECT oauth-authorization-scope
+	EXPECT oauth-authorization-server-uri
+	EXPECT x-apple-extension-identifier
+}
+{
+	# The name of the test...
+	NAME "Delete Printer OAuthTest1"
+
+	# The operation to use
+	OPERATION cups-delete-printer
+	RESOURCE /admin/
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/OAuthTest1
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+}
+{
+	# The name of the test...
+	NAME "Verify Printer OAuthTest1 Deleted"
+
+	# The operation to use
+	OPERATION get-printer-attributes
+	RESOURCE /
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/OAuthTest1
+
+	# What statuses are OK?
+	STATUS client-error-not-found
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+}

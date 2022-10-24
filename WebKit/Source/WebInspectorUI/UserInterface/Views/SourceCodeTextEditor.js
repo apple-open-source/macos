@@ -314,9 +314,10 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     dialogWasDismissedWithRepresentedObject(goToLineDialog, lineNumber)
     {
-        let position = new WI.SourceCodePosition(lineNumber - 1, 0);
-        let range = new WI.TextRange(lineNumber - 1, 0, lineNumber, 0);
-        this.revealPosition(position, range, false, true);
+        this.revealPosition(new WI.SourceCodePosition(lineNumber - 1, 0), {
+            textRangeToSelect: new WI.TextRange(lineNumber - 1, 0, lineNumber, 0),
+            preventHighlight: true,
+        });
     }
 
     contentDidChange(replacedRanges, newRanges)
@@ -1038,9 +1039,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (this._sourceCode instanceof WI.SourceMapResource)
             return breakpoint.sourceCodeLocation.displaySourceCode === this._sourceCode;
         if (this._sourceCode instanceof WI.Resource)
-            return breakpoint.contentIdentifier === this._sourceCode.contentIdentifier;
-        if (this._sourceCode instanceof WI.Script)
-            return breakpoint.contentIdentifier === this._sourceCode.contentIdentifier || breakpoint.scriptIdentifier === this._sourceCode.id;
+            return breakpoint.contentIdentifier && breakpoint.contentIdentifier === this._sourceCode.contentIdentifier;
+        if (this._sourceCode instanceof WI.Script) {
+            return (breakpoint.contentIdentifier && breakpoint.contentIdentifier === this._sourceCode.contentIdentifier)
+                || (breakpoint.scriptIdentifier && breakpoint.scriptIdentifier === this._sourceCode.id);
+        }
         return false;
     }
 
@@ -1400,7 +1403,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (!breakpoint)
             return;
 
-        breakpoint.cycleToNextMode();
+        breakpoint.disabled = !breakpoint.disabled;
     }
 
     textEditorUpdatedFormatting(textEditor)

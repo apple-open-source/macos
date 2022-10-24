@@ -115,7 +115,7 @@ String *Swig_strip_c_comments(const String *s) {
   }
 
   if (comment_begin && comment_end) {
-    int size = comment_begin - Char(s);
+    int size = (int) (comment_begin - Char(s));
     String *stripmore = 0;
     stripped = NewStringWithSize(s, size);
     Printv(stripped, comment_end + 1, NIL);
@@ -668,7 +668,7 @@ void Swig_scopename_split(const String *s, String **rprefix, String **rlast) {
       *rlast = Copy(s);
       return;
     } else {
-      *rprefix = NewStringWithSize(cc, co - cc - 2);
+      *rprefix = NewStringWithSize(cc, (int) (co - cc - 2));
       *rlast = NewString(co);
       return;
     }
@@ -695,7 +695,7 @@ void Swig_scopename_split(const String *s, String **rprefix, String **rlast) {
   }
 
   if (cc != tmp) {
-    *rprefix = NewStringWithSize(tmp, cc - tmp);
+    *rprefix = NewStringWithSize(tmp, (int) (cc - tmp));
     *rlast = NewString(cc + 2);
     return;
   } else {
@@ -718,7 +718,7 @@ String *Swig_scopename_prefix(const String *s) {
     if (co == cc) {
       return 0;
     } else {
-      String *prefix = NewStringWithSize(cc, co - cc - 2);
+      String *prefix = NewStringWithSize(cc, (int) (co - cc - 2));
       return prefix;
     }
   }
@@ -744,7 +744,7 @@ String *Swig_scopename_prefix(const String *s) {
   }
 
   if (cc != tmp) {
-    return NewStringWithSize(tmp, cc - tmp);
+    return NewStringWithSize(tmp, (int) (cc - tmp));
   } else {
     return 0;
   }
@@ -837,7 +837,7 @@ String *Swig_scopename_first(const String *s) {
     }
   }
   if (*c && (c != tmp)) {
-    return NewStringWithSize(tmp, c - tmp);
+    return NewStringWithSize(tmp, (int) (c - tmp));
   } else {
     return 0;
   }

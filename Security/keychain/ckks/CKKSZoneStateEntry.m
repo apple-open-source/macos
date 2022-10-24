@@ -42,17 +42,19 @@
 
 @implementation CKKSZoneStateEntry
 
-- (instancetype)initWithCKZone:(NSString*)ckzone
-                   zoneCreated:(bool)ckzonecreated
-                zoneSubscribed:(bool)ckzonesubscribed
-                   changeToken:(NSData*)changetoken
-         moreRecordsInCloudKit:(BOOL)moreRecords
-                     lastFetch:(NSDate*)lastFetch
-                      lastScan:(NSDate* _Nullable)lastScan
-                     lastFixup:(CKKSFixup)lastFixup
-            encodedRateLimiter:(NSData*)encodedRateLimiter
+- (instancetype)initWithContextID:(NSString*)contextID
+                         zoneName:(NSString*)ckzone
+                      zoneCreated:(bool)ckzonecreated
+                   zoneSubscribed:(bool)ckzonesubscribed
+                      changeToken:(NSData* _Nullable)changetoken
+            moreRecordsInCloudKit:(BOOL)moreRecords
+                        lastFetch:(NSDate* _Nullable)lastFetch
+                         lastScan:(NSDate* _Nullable)lastScan
+                        lastFixup:(CKKSFixup)lastFixup
+               encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter
 {
     if(self = [super init]) {
+        _contextID = contextID;
         _ckzone = ckzone;
         _ckzonecreated = ckzonecreated;
         _ckzonesubscribed = ckzonesubscribed;
@@ -68,7 +70,8 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSZoneStateEntry(%@): created:%@ subscribed:%@ moreRecords:%@>",
+    return [NSString stringWithFormat:@"<CKKSZoneStateEntry[%@](%@): created:%@ subscribed:%@ moreRecords:%@>",
+            self.contextID,
             self.ckzone,
             self.ckzonecreated ? @"YES" : @"NO",
             self.ckzonesubscribed ? @"YES" : @"NO",
@@ -84,6 +87,7 @@
     CKKSZoneStateEntry* obj = (CKKSZoneStateEntry*) object;
 
     return ([self.ckzone isEqualToString: obj.ckzone] &&
+            ((self.contextID == nil && obj.contextID == nil) || [self.contextID isEqualToString:obj.contextID]) &&
             self.ckzonecreated == obj.ckzonecreated &&
             self.ckzonesubscribed == obj.ckzonesubscribed &&
             ((self.encodedChangeToken == nil && obj.encodedChangeToken == nil) || [self.encodedChangeToken isEqual: obj.encodedChangeToken]) &&
@@ -95,24 +99,27 @@
             true) ? YES : NO;
 }
 
-+ (instancetype) state: (NSString*) ckzone {
++ (instancetype)contextID:(NSString*)contextID
+                 zoneName:(NSString*)ckzone
+{
     NSError* error = nil;
-    CKKSZoneStateEntry* ret = [CKKSZoneStateEntry tryFromDatabase:ckzone error:&error];
+    CKKSZoneStateEntry* ret = [CKKSZoneStateEntry tryFromDatabase:contextID zoneName:ckzone error:&error];
 
     if(error) {
         ckkserror_global("ckks", "error fetching CKState(%@): %@", ckzone, error);
     }
 
     if(!ret) {
-        ret = [[CKKSZoneStateEntry alloc] initWithCKZone:ckzone
-                                             zoneCreated:false
-                                          zoneSubscribed:false
-                                             changeToken:nil
-                                   moreRecordsInCloudKit:NO
-                                               lastFetch:nil
-                                                lastScan:nil
-                                               lastFixup:CKKSCurrentFixupNumber
-                                      encodedRateLimiter:nil];
+        ret = [[CKKSZoneStateEntry alloc] initWithContextID:contextID
+                                                   zoneName:ckzone
+                                                zoneCreated:false
+                                             zoneSubscribed:false
+                                                changeToken:nil
+                                      moreRecordsInCloudKit:NO
+                                                  lastFetch:nil
+                                                   lastScan:nil
+                                                  lastFixup:CKKSCurrentFixupNumber
+                                         encodedRateLimiter:nil];
     }
     return ret;
 }
@@ -149,12 +156,24 @@
 
 #pragma mark - Database Operations
 
-+ (instancetype) fromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"ckzone": CKKSNilToNSNull(ckzone)} error: error];
++ (instancetype)fromDatabase:(NSString*)contextID
+                    zoneName:(NSString*)ckzone
+                       error:(NSError * __autoreleasing *)error
+{
+    return [self fromDatabaseWhere:@{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(ckzone),
+    } error:error];
 }
 
-+ (instancetype) tryFromDatabase: (NSString*) ckzone error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"ckzone": CKKSNilToNSNull(ckzone)} error: error];
++ (instancetype)tryFromDatabase:(NSString*)contextID
+                       zoneName:(NSString*)ckzone
+                          error:(NSError * __autoreleasing *)error
+{
+    return [self tryFromDatabaseWhere:@{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(ckzone),
+    } error:error];
 }
 
 #pragma mark - CKKSSQLDatabaseObject methods
@@ -165,17 +184,21 @@
 
 + (NSArray<NSString*>*) sqlColumns {
     // Note that 'extra' is not currently used, but the schema supports adding a protobuf or other serialized data
-    return @[@"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra"];
+    return @[@"contextID", @"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming", @"lastscan", @"extra"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
-    return @{@"ckzone": self.ckzone};
+    return @{
+        @"contextID": CKKSNilToNSNull(self.contextID),
+        @"ckzone": self.ckzone,
+    };
 }
 
 - (NSDictionary<NSString*,id>*) sqlValues {
     NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
 
     return @{
+        @"contextID": CKKSNilToNSNull(self.contextID),
         @"ckzone": self.ckzone,
         @"ckzonecreated": [NSNumber numberWithBool:self.ckzonecreated],
         @"ckzonesubscribed": [NSNumber numberWithBool:self.ckzonesubscribed],
@@ -189,16 +212,17 @@
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
-    return [[CKKSZoneStateEntry alloc] initWithCKZone:row[@"ckzone"].asString
-                                          zoneCreated:row[@"ckzonecreated"].asBOOL
-                                       zoneSubscribed:row[@"ckzonesubscribed"].asBOOL
-                                          changeToken:row[@"changetoken"].asBase64DecodedData
-                                moreRecordsInCloudKit:row[@"morecoming"].asBOOL
-                                            lastFetch:row[@"lastfetch"].asISO8601Date
-                                             lastScan:row[@"lastscan"].asISO8601Date
-                                            lastFixup:(CKKSFixup)row[@"lastFixup"].asNSInteger
-                                   encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData
-            ];
+    return [[CKKSZoneStateEntry alloc] initWithContextID:row[@"contextID"].asString
+                                                zoneName:row[@"ckzone"].asString
+                                             zoneCreated:row[@"ckzonecreated"].asBOOL
+                                          zoneSubscribed:row[@"ckzonesubscribed"].asBOOL
+                                             changeToken:row[@"changetoken"].asBase64DecodedData
+                                   moreRecordsInCloudKit:row[@"morecoming"].asBOOL
+                                               lastFetch:row[@"lastfetch"].asISO8601Date
+                                                lastScan:row[@"lastscan"].asISO8601Date
+                                               lastFixup:(CKKSFixup)row[@"lastFixup"].asNSInteger
+                                      encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData
+    ];
 }
 
 @end

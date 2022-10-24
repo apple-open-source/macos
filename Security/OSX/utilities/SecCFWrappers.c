@@ -106,7 +106,7 @@ void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef 
 static dispatch_queue_t fqueue_cf;
 static CFCalendarRef sZuluCalendar = NULL;
 
-static dispatch_queue_t SecCFCalendarGetZuluQueue() {
+static dispatch_queue_t SecCFCalendarGetZuluQueue(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         fqueue_cf = dispatch_queue_create("ZuluCalendar", DISPATCH_QUEUE_SERIAL);
@@ -114,7 +114,7 @@ static dispatch_queue_t SecCFCalendarGetZuluQueue() {
     return fqueue_cf;
 }
 
-static CFCalendarRef SecCFCalendarGetZulu() {
+static CFCalendarRef SecCFCalendarGetZulu(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         sZuluCalendar = CFCalendarCreateWithIdentifier(kCFAllocatorDefault, kCFGregorianCalendar);
@@ -180,6 +180,27 @@ void CFStringPerformWithUTF8CFData(CFStringRef inStr, void (^operation)(CFDataRe
     operation(data);
 
     CFReleaseNull(data);
+}
+
+
+CFStringRef CFStringCreateByTrimmingCharactersInSet(CFStringRef string, CFCharacterSetRef set) {
+    CFIndex length = CFStringGetLength(string);
+    CFStringInlineBuffer buffer;
+    CFStringInitInlineBuffer(string, &buffer, CFRangeMake(0, length));
+    CFIndex currentIndex = 0;
+    while (currentIndex < length && CFCharacterSetIsCharacterMember(set, CFStringGetCharacterFromInlineBuffer(&buffer, currentIndex))) {
+        currentIndex++;
+    }
+    CFIndex startIndex = currentIndex;
+    if (startIndex >= length) {
+        return CFSTR("");
+    }
+    currentIndex = length - 1;
+    while (currentIndex > 0 && CFCharacterSetIsCharacterMember(set, CFStringGetCharacterFromInlineBuffer(&buffer, currentIndex))) {
+        currentIndex--;
+    }
+    CFIndex newLength = currentIndex - startIndex + 1;
+    return CFStringCreateWithSubstring(NULL, string, CFRangeMake(startIndex, newLength));
 }
 
 

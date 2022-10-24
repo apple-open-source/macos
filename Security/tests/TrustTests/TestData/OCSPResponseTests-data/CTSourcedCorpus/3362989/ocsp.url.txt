@@ -1,0 +1,1 @@
+http://ocsp.wosign.com/class4/server/ca

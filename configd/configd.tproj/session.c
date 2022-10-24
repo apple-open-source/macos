@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,6 +32,7 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include "SCInternal.h"
 #include "configd.h"
 #include "configd_server.h"
 #include "pattern.h"
@@ -41,7 +42,10 @@
 #include <bsm/libbsm.h>
 #include <os/state_private.h>
 #include <sandbox.h>
-
+#include <System/kern/cs_blobs.h>
+#include <libproc.h>
+#include <mach/mach_init.h>
+#include <mach/task.h>
 
 /* information maintained for the main listener */
 static serverSessionRef		server_session		= NULL;
@@ -93,7 +97,7 @@ static const CFRuntimeClass	__serverSessionClass = {
 	__serverSessionCopyDescription	// copyDebugDesc
 };
 
-static CFTypeID	__serverSessionTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID	__serverSessionTypeID;
 
 
 static CFStringRef
@@ -205,7 +209,7 @@ __serverSessionCreate(CFAllocatorRef allocator, mach_port_t server)
 	}
 
 	session->callerEUID		= 1;		/* not "root" */
-	session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+	session->entitlements		= NULL;		/* all entitlements are UNKNOWN */
 	session->key			= server;
 //	session->store			= NULL;
 
@@ -365,42 +369,6 @@ getSessionStr(CFStringRef serverKey)
 
 
 __private_extern__
-serverSessionRef
-tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
-{
-	static dispatch_once_t		once;
-	SCDynamicStorePrivateRef	storePrivate;	/* temp session */
-	static serverSessionRef		temp_session;
-
-	dispatch_once(&once, ^{
-		temp_session = __serverSessionCreate(NULL, server_session->key);
-		(void) __SCDynamicStoreOpen(&temp_session->store, NULL);
-	});
-
-	if (temp_session->key != server) {
-		// if not SCDynamicStore "server" port
-		return NULL;
-	}
-
-	/* save audit token, caller entitlements */
-	temp_session->auditToken		= auditToken;
-	temp_session->callerEUID		= audit_token_to_euid(auditToken);
-	if ((temp_session->callerWriteEntitlement != NULL) &&
-	    (temp_session->callerWriteEntitlement != kCFNull)) {
-		CFRelease(temp_session->callerWriteEntitlement);
-	}
-	temp_session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
-
-	/* save name */
-	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
-	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
-	storePrivate->name = CFRetain(name);
-
-	return temp_session;
-}
-
-
-__private_extern__
 void
 addSession(serverSessionRef session, Boolean isMain)
 {
@@ -513,9 +481,9 @@ cleanupSession(serverSessionRef session)
 	/*
 	 * release any entitlement info
 	 */
-	if ((session->callerWriteEntitlement != NULL) &&
-	    (session->callerWriteEntitlement != kCFNull)) {
-		CFRelease(session->callerWriteEntitlement);
+	if (session->entitlements != NULL) {
+		CFRelease(session->entitlements);
+		session->entitlements = NULL;
 	}
 
 	/*
@@ -593,10 +561,21 @@ listSessions(FILE *f)
 #include <Security/SecTask.h>
 
 static CFTypeRef
-copyEntitlement(serverSessionRef session, CFStringRef entitlement)
+getEntitlement(serverSessionRef session, CFStringRef entitlement)
 {
 	SecTaskRef	task;
 	CFTypeRef	value	= NULL;
+
+	if (session->entitlements != NULL) {
+		value = CFDictionaryGetValue(session->entitlements, entitlement);
+		if (value != NULL) {
+			if (value == kCFNull) {
+				// if we've already looked for this entitlement
+				value = NULL;
+			}
+			return value;
+		}
+	}
 
 	// Create the security task from the audit token
 	task = SecTaskCreateWithAuditToken(NULL, session->auditToken);
@@ -620,6 +599,18 @@ copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 			CFRelease(error);
 		}
 
+		if (session->entitlements == NULL) {
+			session->entitlements = CFDictionaryCreateMutable(NULL, 0,
+									  &kCFTypeDictionaryKeyCallBacks,
+									  &kCFTypeDictionaryValueCallBacks);
+		}
+		if (value != NULL) {
+			CFDictionarySetValue(session->entitlements, entitlement, value);
+			CFRelease(value);
+		} else {
+			CFDictionarySetValue(session->entitlements, entitlement, kCFNull);
+		}
+
 		CFRelease(task);
 	} else {
 		SC_log(LOG_NOTICE, "SecTaskCreateWithAuditToken() failed: %@",
@@ -629,6 +620,72 @@ copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 	return value;
 }
 
+#if _HAVE_PRIVACY_ACCOUNTING
+static CFDictionaryRef
+copyEntitlementsDictionary(serverSessionRef session, CFArrayRef entitlements)
+{
+	CFDictionaryRef	dict = NULL;
+	SecTaskRef	task;
+
+	task = SecTaskCreateWithAuditToken(NULL, session->auditToken);
+	if (task != NULL) {
+		CFErrorRef	error	= NULL;
+
+		dict = SecTaskCopyValuesForEntitlements(task, entitlements,
+							&error);
+		if (dict == NULL && error != NULL) {
+			CFIndex		code	= CFErrorGetCode(error);
+			CFStringRef	domain	= CFErrorGetDomain(error);
+
+			if (!CFEqual(domain, kCFErrorDomainMach)
+			    || (code != kIOReturnInvalid
+				&& code != kIOReturnNotFound)) {
+				SC_log(LOG_NOTICE,
+				       "SecTaskCopyValuesForEntitlements(%@) "
+				       "failed, error = %@ : %@",
+				       entitlements,  error, session->name);
+			}
+			CFRelease(error);
+		}
+		CFRelease(task);
+	}
+	return (dict);
+}
+
+static const CFStringRef kImplicitlyAssumedIdentityEntitlement =
+	CFSTR("com.apple.private.attribution.implicitly-assumed-identity");
+
+static const CFStringRef kUsageOnlyImplicitlyAssumedIdentityEntitlement =
+	CFSTR("com.apple.private.attribution.usage-reporting-only.implicitly-assumed-identity");
+static const CFStringRef kExplicitlyAssumedIdentitiesEntitlement =
+	CFSTR("com.apple.private.attribution.explicitly-assumed-identities");
+
+static CFArrayRef
+getSystemProcessEntitlementsArray(void)
+{
+	static CFArrayRef	list;
+	const void * 		keys[] = {
+		 kImplicitlyAssumedIdentityEntitlement,
+		 kUsageOnlyImplicitlyAssumedIdentityEntitlement,
+		 kExplicitlyAssumedIdentitiesEntitlement
+	};
+	if (list != NULL) {
+		return (list);
+	}
+	list = CFArrayCreate(NULL,
+			     keys,
+			     sizeof(keys)/ sizeof(keys[0]),
+			     &kCFTypeArrayCallBacks);
+	return (list);
+}
+
+static CFDictionaryRef
+copySystemProcessEntitlementsDictionary(serverSessionRef session)
+{
+	return (copyEntitlementsDictionary(session,
+					   getSystemProcessEntitlementsArray()));
+}
+#endif /* _HAVE_PRIVACY_ACCOUNTING */
 
 static pid_t
 sessionPid(serverSessionRef session)
@@ -637,6 +694,69 @@ sessionPid(serverSessionRef session)
 
 	pid = audit_token_to_pid(session->auditToken);
 	return pid;
+}
+
+static Boolean
+hasBooleanEntitlement(serverSessionRef session, CFStringRef entitlementName)
+{
+	Boolean		allow = FALSE;
+	CFBooleanRef	entitlement;
+
+	entitlement = (CFBooleanRef)getEntitlement(session, entitlementName);
+	if (isA_CFBoolean(entitlement) != NULL) {
+		allow = CFBooleanGetValue(entitlement);
+	}
+	return (allow);
+}
+
+static Boolean
+hasEntitlementForKey(serverSessionRef session, CFStringRef entitlementName,
+		     CFStringRef key)
+{
+	CFTypeRef	entitlement;
+	CFArrayRef	keys;
+	CFArrayRef	patterns;
+
+	entitlement = getEntitlement(session, entitlementName);
+	if (isA_CFDictionary(entitlement) == NULL) {
+		return (FALSE);
+	}
+	/* check for a specific entitlement matching the key */
+	keys = CFDictionaryGetValue(entitlement, CFSTR("keys"));
+	if (isA_CFArray(keys)) {
+		if (CFArrayContainsValue(keys,
+					 CFRangeMake(0, CFArrayGetCount(keys)),
+					 key)) {
+			/* exact match */
+			return TRUE;
+		}
+	}
+	/* check for an entitlement pattern matching the key */
+	patterns = CFDictionaryGetValue(entitlement, CFSTR("patterns"));
+	if (isA_CFArray(patterns)) {
+		CFIndex		i;
+		CFIndex		n	= CFArrayGetCount(patterns);
+
+		for (i = 0; i < n; i++) {
+			CFStringRef	pattern;
+
+			pattern = CFArrayGetValueAtIndex(patterns, i);
+			if (isA_CFString(pattern)) {
+				if (patternKeyMatches(pattern, key)) {
+					/* pattern match */
+					return TRUE;
+				}
+			}
+		}
+	}
+	return FALSE;
+}
+
+
+static Boolean
+isConfigd(serverSessionRef session)
+{
+	return (sessionPid(session) == getpid());
 }
 
 
@@ -660,105 +780,305 @@ hasRootAccess(serverSessionRef session)
 #endif	// !TARGET_OS_SIMULATOR
 }
 
+static Boolean
+sessionHasEntitlement(serverSessionRef session, CFArrayRef list)
+{
+	for (CFIndex i = 0, count = CFArrayGetCount(list); i < count; i++) {
+		CFStringRef	entitlement;
+
+		entitlement = CFArrayGetValueAtIndex(list, i);
+		if (getEntitlement(session, entitlement) != NULL) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
+static Boolean
+myCFBooleanGetValueIfSet(CFBooleanRef b, Boolean * ret_value)
+{
+	if (b == NULL) {
+		*ret_value = FALSE;
+		return (FALSE);
+	}
+	*ret_value = CFBooleanGetValue(b);
+	return (TRUE);
+}
+
+#if _HAVE_BASUPPORT
+#include <BASupport/BASupport.h>
+
+/* "weak_import" to ensure that the compiler doesn't optimize out NULL check */
+extern bool
+ba_is_process_extension(audit_token_t *token)
+	__attribute__((weak_import));
+
+static Boolean
+haveBASupport(void)
+{
+	return (ba_is_process_extension != NULL);
+}
+
+static Boolean
+sessionIsBackgroundAssetExtension(serverSessionRef session)
+{
+	Boolean		isBAE = FALSE;
+
+	if (haveBASupport()
+	    && !myCFBooleanGetValueIfSet(session->isBackgroundAssetExtension,
+				      &isBAE)) {
+		isBAE = ba_is_process_extension(&session->auditToken);
+		session->isBackgroundAssetExtension
+			= isBAE ? kCFBooleanTrue : kCFBooleanFalse;
+	}
+	return (isBAE);
+}
+
+#else /* _HAVE_BASUPPORT */
+
+static Boolean
+sessionIsBackgroundAssetExtension(serverSessionRef session)
+{
+#pragma unused(session)
+	return (FALSE);
+}
+
+#endif /* _HAVE_BASUPPORT */
+
+
+Boolean _should_log_path;
+
+static void
+_log_path(audit_token_t * token, const char * msg)
+{
+	if (_should_log_path) {
+		char 		proc_path[PROC_PIDPATHINFO_MAXSIZE] = {};
+
+		if (proc_pidpath_audittoken(token, proc_path, sizeof(proc_path))
+		    <= 0) {
+			return;
+		}
+		SC_log(LOG_NOTICE, "%s:%s", msg, proc_path);
+	}
+	return;
+}
+
+static Boolean
+sessionIsPlatformBinary(serverSessionRef session)
+{
+	Boolean		isPB = FALSE;
+
+	if (!myCFBooleanGetValueIfSet(session->isPlatformBinary, &isPB)) {
+		SecTaskRef	task;
+
+		task = SecTaskCreateWithAuditToken(NULL, session->auditToken);
+		if (task != NULL) {
+			uint32_t 	csr_status = 0;
+
+			csr_status = SecTaskGetCodeSignStatus(task);
+			CFRelease(task);
+			isPB = ((csr_status & CS_PLATFORM_BINARY) != 0);
+		}
+		/* remember that we checked */
+		session->isPlatformBinary
+			= isPB ? kCFBooleanTrue : kCFBooleanFalse;
+		SC_log(LOG_DEBUG, "%s: %@ is%s a platform binary",
+		       __func__, session, isPB ? "" : " NOT");
+		if (isPB) {
+			_log_path(&session->auditToken,
+				  "SC_PLATFORM_BINARY_PATH");
+		}
+	}
+	return (isPB);
+}
+
+static Boolean
+sessionIsSystemProcess(serverSessionRef session)
+{
+	Boolean		isSystem = FALSE;
+
+#if _HAVE_PRIVACY_ACCOUNTING
+	if (havePrivacyAccounting()
+	    && !myCFBooleanGetValueIfSet(session->isSystemProcess, &isSystem)) {
+		CFDictionaryRef	dict;
+
+		dict = copySystemProcessEntitlementsDictionary(session);
+		if (dict != NULL) {
+			isSystem = isSystemProcess(dict);
+			CFRelease(dict);
+		}
+		/* remember that we checked */
+		session->isSystemProcess
+			= isSystem ? kCFBooleanTrue : kCFBooleanFalse;
+		SC_log(LOG_DEBUG, "%@ is%s a system process",
+		       session, isSystem ? "" : " NOT");
+		if (isSystem) {
+			_log_path(&session->auditToken,
+				  "SC_SYSTEM_PROCESS_PATH");
+		}
+	}
+#else /* _HAVE_PRIVACY_ACCOUNTING */
+#pragma unused(session)
+#endif /* _HAVE_PRIVACY_ACCOUNTING */
+
+	return (isSystem);
+}
 
 __private_extern__
-Boolean
-hasWriteAccess(serverSessionRef session, const char *op, CFStringRef key)
+int
+checkReadAccess(serverSessionRef session, CFStringRef key,
+		CFDictionaryRef controls)
 {
-	Boolean	isSetup;
+	CFArrayRef	read_allow;
+	CFArrayRef	read_deny;
+	int		status = kSCStatusOK;
 
-	// need to special case writing "Setup:" keys
-	isSetup = CFStringHasPrefix(key, kSCDynamicStoreDomainSetup);
+	if (isConfigd(session)) {
+		/* configd can read any key */
+		goto done;
+	}
 
+	/* check whether key has access restrictions */
+	if (controls == NULL) {
+		controls = _storeKeyGetAccessControls(key);
+	}
+	if (controls == NULL) {
+		/* key is unrestricted */
+		goto done;
+	}
+	/*
+	 * Check "deny" restrictions
+	 */
+
+	/* read-deny */
+	read_deny = CFDictionaryGetValue(controls,
+					 kSCDAccessControls_readDeny);
+	if (read_deny != NULL
+	    && sessionHasEntitlement(session, read_deny)) {
+		/* process has a deny entitlement */
+		status = kSCStatusAccessError;
+		SC_log(LOG_INFO,
+		       "%s(%@): %@ has deny entitlement",
+		       __func__, key, session);
+		goto done;
+	}
+
+	/* read-deny-background */
+	if (CFDictionaryContainsKey(controls,
+				    kSCDAccessControls_readDenyBackground)
+	    && sessionIsBackgroundAssetExtension(session)) {
+		/* background asset extension denied access */
+		status = kSCStatusAccessError;
+		SC_log(LOG_INFO,
+		       "%s(%@): %@ deny background asset extension",
+		       __func__, key, session);
+		goto done;
+	}
+
+	/*
+	 * Check "allow" restrictions
+	 */
+
+	/* read-allow */
+	read_allow = CFDictionaryGetValue(controls,
+					  kSCDAccessControls_readAllow);
+	if (read_allow != NULL) {
+		Boolean		no_fault;
+
+		if (sessionHasEntitlement(session, read_allow)) {
+			/* process has allow entitlement */
+			SC_log(LOG_INFO,
+			       "%s(%@): %@ has allow entitlement",
+			       __func__, key, session);
+			goto done;
+		}
+		/* read-allow-system */
+		if (CFDictionaryContainsKey(controls,
+					    kSCDAccessControls_readAllowSystem)
+		    && sessionIsSystemProcess(session)) {
+			/* allow system process */
+			goto done;
+		}
+		no_fault = hasBooleanEntitlement(session,
+						 kSCReadNoFaultEntitlementName);
+		/* read-allow-platform */
+		if (CFDictionaryContainsKey(controls,
+					    kSCDAccessControls_readAllowPlatform)
+		    && sessionIsPlatformBinary(session)) {
+			/* allow platform binary */
+			if (!no_fault) {
+				/* but generate fault on client-side */
+				status = kSCStatusOK_MissingReadEntitlement;
+			}
+			goto done;
+		}
+		/* read not allowed */
+		if (no_fault) {
+			status = kSCStatusAccessError;
+		}
+		else {
+			/* generate fault on client-side */
+			status = kSCStatusAccessError_MissingReadEntitlement;
+		}
+		goto done;
+	}
+
+ done:
+	return (status);
+}
+
+
+__private_extern__
+int
+checkWriteAccess(serverSessionRef session, CFStringRef key)
+{
+	CFDictionaryRef controls;
+	int		status = kSCStatusOK;
+
+	/* check whether key has write protect set */
+	controls = _storeKeyGetAccessControls(key);
+	if (controls != NULL &&
+	    CFDictionaryContainsKey(controls,
+				    kSCDAccessControls_writeProtect)) {
+		/* process must have the key-specific entitlement */
+		if (hasEntitlementForKey(session,
+					 kSCWriteEntitlementName,
+					 key)) {
+			goto done;
+		}
+		/* entitlement is not present */
+		if (!hasBooleanEntitlement(session,
+					   kSCWriteNoFaultEntitlementName)) {
+			/* return internal code to force crash on client-side */
+			status = kSCStatusAccessError_MissingWriteEntitlement;
+		}
+		else {
+			status = kSCStatusAccessError;
+		}
+		goto done;
+	}
+	/* allow configd */
+	if (isConfigd(session)) {
+		goto done;
+	}
+
+	/* allow root process, but log if Setup: key */
 	if (hasRootAccess(session)) {
-		pid_t	pid;
-
-		// grant write access to eUID==0 processes
-
-		pid = sessionPid(session);
-		if (isSetup && (pid != getpid())) {
-			/*
-			 * WAIT!!!
-			 *
-			 * This is NOT configd (or a plugin) trying to
-			 * write to an SCDynamicStore "Setup:" key.  In
-			 * general, this is unwise and we should at the
-			 * very least complain.
-			 */
-			SC_log(LOG_NOTICE, "*** Non-configd process (pid=%d) attempting to %s \"%@\" ***",
-			       pid,
-			       op,
+		if (CFStringHasPrefix(key, kSCDynamicStoreDomainSetup)) {
+			SC_log(LOG_NOTICE,
+			       "*** Non-configd pid %d modifying \"%@\" ***",
+			       sessionPid(session),
 			       key);
 		}
-
-		return TRUE;
+		goto done;
+	}
+	/* check for boolean grant-all or key-specific entitlement */
+	if (!hasBooleanEntitlement(session, kSCWriteEntitlementName)
+	    && !hasEntitlementForKey(session, kSCWriteEntitlementName, key)) {
+		status = kSCStatusAccessError;
+		goto done;
 	}
 
-	if (isSetup) {
-		/*
-		 * STOP!!!
-		 *
-		 * This is a non-root process trying to write to
-		 * an SCDynamicStore "Setup:" key.  This is not
-		 * something we should ever allow (regardless of
-		 * any entitlements).
-		 */
-		SC_log(LOG_NOTICE, "*** Non-root process (pid=%d) attempting to modify \"%@\" ***",
-		       sessionPid(session),
-		       key);
-
-		return FALSE;
-	}
-
-	if (session->callerWriteEntitlement == kCFNull) {
-		session->callerWriteEntitlement = copyEntitlement(session,
-								  kSCWriteEntitlementName);
-	}
-
-	if (session->callerWriteEntitlement == NULL) {
-		return FALSE;
-	}
-
-	if (isA_CFBoolean(session->callerWriteEntitlement) &&
-	    CFBooleanGetValue(session->callerWriteEntitlement)) {
-		// grant write access to "entitled" processes
-		return TRUE;
-	}
-
-	if (isA_CFDictionary(session->callerWriteEntitlement)) {
-		CFArrayRef	keys;
-		CFArrayRef	patterns;
-
-		keys = CFDictionaryGetValue(session->callerWriteEntitlement, CFSTR("keys"));
-		if (isA_CFArray(keys)) {
-			if (CFArrayContainsValue(keys,
-						 CFRangeMake(0, CFArrayGetCount(keys)),
-						 key)) {
-				// if key matches one of the entitlement "keys", grant
-				// write access
-				return TRUE;
-			}
-		}
-
-		patterns = CFDictionaryGetValue(session->callerWriteEntitlement, CFSTR("patterns"));
-		if (isA_CFArray(patterns)) {
-			CFIndex		i;
-			CFIndex		n	= CFArrayGetCount(patterns);
-
-			for (i = 0; i < n; i++) {
-				CFStringRef	pattern;
-
-				pattern = CFArrayGetValueAtIndex(patterns, i);
-				if (isA_CFString(pattern)) {
-					if (patternKeyMatches(pattern, key)) {
-						// if key matches one of the entitlement
-						// "patterns", grant write access
-						return TRUE;
-					}
-				}
-			}
-		}
-	}
-
-	return FALSE;
+ done:
+	return (status);
 }

@@ -1,0 +1,1 @@
+http://moeaca.nat.gov.tw/cgi-bin/OCSP2/ocsp_server.exe

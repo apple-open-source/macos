@@ -501,9 +501,8 @@ IOReturn AppleSmartBatteryManager::setOverrideCapacity(uint16_t level)
 {
     IOReturn ret = kIOReturnSuccess;
     if (_started) {
-        fBattery->handleSetOverrideCapacity(level, true);
+        fBattery->handleSetOverrideCapacity(level);
     }
-    fBattery->updateStatus();
 
     return ret;
 }

@@ -19,7 +19,6 @@ _xsltAttrTemplateProcess
 _xsltAttrTemplateValueProcess
 _xsltAttrTemplateValueProcessNode
 _xsltAttribute
-_xsltCalibrateAdjust
 _xsltCallTemplate
 _xsltCheckExtPrefix
 _xsltCheckExtURI
@@ -113,7 +112,6 @@ _xsltGetKey
 _xsltGetNamespace
 _xsltGetNsProp
 _xsltGetPlainNamespace
-_xsltGetProfileInformation
 _xsltGetQNameURI
 _xsltGetQNameURI2
 _xsltGetSecurityPrefs
@@ -196,7 +194,6 @@ _xsltReleaseRVT
 _xsltResolveStylesheetAttributeSet
 _xsltRunStylesheet
 _xsltRunStylesheetUser
-_xsltSaveProfiling
 _xsltSaveResultTo
 _xsltSaveResultToFd
 _xsltSaveResultToFile
@@ -228,7 +225,6 @@ _xsltSystemPropertyFunction
 _xsltTemplateProcess
 _xsltTestCompMatchList
 _xsltText
-_xsltTimestamp
 _xsltTransformError
 _xsltUninit
 _xsltUnparsedEntityURIFunction
@@ -243,3 +239,15 @@ _xsltXPathCompileFlags
 _xsltXPathFunctionLookup
 _xsltXPathGetTransformContext
 _xsltXPathVariableLookup
+
+# Symbols when WITH_PROFILING is defined.
+_xsltCalibrateAdjust
+_xsltGetProfileInformation
+_xsltSaveProfiling
+_xsltTimestamp
+
+# Symbols added for LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16; see xsltconfig.h.
+_xsltCompMatchClearCache
+_xsltDecimalFormatGetByQName
+_xsltFlagRVTs
+_xsltParseStylesheetUser

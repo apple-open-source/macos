@@ -33,12 +33,16 @@
 #include <cmath>
 #include <iomanip>
 #include <sys/time.h>
+#include <libproc.h>
+#include <libgen.h>
 
 
 enum {
   kIOHIDGlobalModifersReportToService    = 0x1,
   kIOHIDGlobalModifersUse                = 0x2
 };
+
+static const size_t kStrSize = 128;
 
 // AC658E84-3DFE-43DE-945D-6E7919FBEDE1
 #define kIOHIDNXEventTranslatorSessionFilterFactory CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault, 0xAC, 0x65, 0x8E, 0x84, 0x3D, 0xFE, 0x43, 0xDE, 0x94, 0x5D, 0x6E, 0x79, 0x19, 0xFB, 0xED, 0xE1)
@@ -763,8 +767,10 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
     uint64_t                deltaMS             = to_ms(mach_continuous_time()) - to_ms(_displayStateChangeTime);
     uint64_t                eventDelta          = eventTime - _previousEventTime;
     bool                    declareActivity     = true;
-    bool                    nxEvent             = false;
-
+    IOHIDEventRef           nxVendorEvent       = NULL;
+    NXEventExt *            nxEventData         = NULL;
+    CFTypeRef               senderIDKey         = sender;
+    
     // Cancel keyboard/button events when display is asleep or waking up
     // Will still declare using activity.
     if ((_displayState < kPMDisplayDim || (_displayState > kPMDisplayDim && deltaMS < _displayWakeAbortThreshold)) &&
@@ -778,7 +784,8 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
             uint32_t usage = (uint32_t)IOHIDEventGetIntegerValue(vendorEvent, kIOHIDEventFieldVendorDefinedUsage);
             uint32_t page = (uint32_t)IOHIDEventGetIntegerValue(vendorEvent, kIOHIDEventFieldVendorDefinedUsagePage);
             if (page == kHIDPage_AppleVendor && usage == kHIDUsage_AppleVendor_NXEvent) {
-                nxEvent = true;
+                nxVendorEvent = IOHIDEventGetEvent(event, kIOHIDEventTypeVendorDefined);
+                IOHIDEventGetVendorDefinedData(nxVendorEvent, (uint8_t**)&nxEventData, NULL);
             }
         }
     }
@@ -788,8 +795,7 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
         // Only wake/maintain policies should declare activity
         declareActivity = false;
         
-    } else if (policy == kIOHIDEventPowerPolicyMaintainSystem &&
-               nxEvent) {
+    } else if (policy == kIOHIDEventPowerPolicyMaintainSystem && nxEventData) {
         // Limit the number of event that declare activity.
         if (eventDelta < _declareActivityThreshold) {
             declareActivity = false;
@@ -820,85 +826,50 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
     HIDLogActivityDebug ("displayStateFilter policy:%llu declareActivity:%d result:%p event:%d sender:0x%llx eventDelta:0x%llx deltaMS:0x%llx displayState:%u prevTimeStamp:0x%llx eventTime:0x%llx", policy, declareActivity, result, IOHIDEventGetType(event), senderID, eventDelta, deltaMS, _displayState, _previousEventTime, eventTime);
     
     if (declareActivity) {
-        static const size_t kStrSize = 128;
         CFStringRef         tmpStr = NULL;
-        CFStringRef         assertionNameStr = NULL;
+        CFMutableStringRef  assertionNameStr = NULL;
 
         // Log display wakes
         if (_displayState < kPMDisplayDim) {
-            if (nxEvent) {
+            if (nxEventData) {
                 updateNXEventLog(policy, event, eventTime);
             } else {
                 updateDisplayLog(senderID, policy, eventType, eventTime);
             }
         }
-
-        if (sender) {
-            tmpStr = (CFStringRef)_assertionNames[sender];
+        
+        if (nxEventData) {
+            senderIDKey = CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type, &nxEventData->payload.ext_pid);
+        }
+        
+        if (senderIDKey) {
+            tmpStr = (CFStringRef)_assertionNames[senderIDKey];
         }
 
         if (tmpStr) {
             CFRetain(tmpStr);
-        }
-        else {
-            // Cache assertion name
-            char        assertionName[kStrSize] = { 0 };
-            CFStringRef nameCFStr = CFSTR("NULL");
-            char        nameStr[kStrSize] = { 0 };
-            CFStringRef productCFStr = CFSTR("NULL");
-            char        productStr[kStrSize] = { 0 };
-
-            if (sender) {
-                CFTypeRef prop = IOHIDServiceGetProperty(sender, CFSTR(kIOClassKey));
-                if (prop && CFGetTypeID(prop) == CFStringGetTypeID()) {
-                    nameCFStr = (CFStringRef)prop;
-                }
-
-                prop = IOHIDServiceGetProperty(sender, CFSTR(kIOHIDProductKey));
-                if (prop && CFGetTypeID(prop) == CFStringGetTypeID()) {
-                    productCFStr = (CFStringRef)prop;
-                }
-            }
-            CFStringGetCString(nameCFStr, nameStr, kStrSize, kCFStringEncodingUTF8);
-            CFStringGetCString(productCFStr, productStr, kStrSize, kCFStringEncodingUTF8);
-
-            // Assertion name can be up to 128 characters. Limit string sizes to fit this constraint.
-            nameStr[19]    = '\0';
-            productStr[19] = '\0';
-
-            // Assertion name format:
-            // com.apple.iohideventsystem.queue.tickle:serviceID:XXX name:XXX product:XXX eventType:XXX
-            // Only eventType is variable
-            int ret = snprintf(assertionName, kStrSize, "%s.queue.tickle serviceID:%llx name:%s product:%s eventType:",
-                               kIOHIDEventSystemServerName,
-                               (long long unsigned int)senderID,
-                               nameStr,
-                               productStr);
-            if (ret < 0 || ret >= kStrSize) {
-                HIDLogError ("Error generating assertion name (snprintf %d)", ret);
-            }
-
-            tmpStr = CFStringCreateWithCString(NULL, assertionName, kCFStringEncodingUTF8);
-            if (sender && tmpStr) {
-                _assertionNames.SetValueForKey(sender, tmpStr);
+        } else {
+            if (nxEventData) {
+                tmpStr = createNXEventActivityString(sender, nxEventData);
             } else {
-                HIDLogError ("Error generating assertion string");
+                tmpStr = createHIDEventActivityString(sender, event);
+            }
+            if (tmpStr && senderIDKey) {
+                _assertionNames.SetValueForKey(senderIDKey, tmpStr);
             }
         }
 
         if (tmpStr) {
-            assertionNameStr = (CFStringRef)CFStringCreateMutableCopy(NULL, kStrSize, tmpStr);
-            CFStringAppendFormat((CFMutableStringRef)assertionNameStr, NULL, CFSTR("%u"), (unsigned int)eventType);
-            CFRelease(tmpStr);
+            assertionNameStr = CFStringCreateMutableCopy(NULL, kStrSize, tmpStr);
         } else {
             HIDLogError ("No assertion name string for service:%llx", senderID);
-            assertionNameStr = CFSTR(kIOHIDEventSystemServerName ".queue.tickle");
+            assertionNameStr = CFStringCreateMutableCopy(NULL, kStrSize, CFSTR(kIOHIDEventSystemServerName ".queue.tickle"));
         }
 
         if (_updateActivityQueue) {
             CFRetain(assertionNameStr);
             dispatch_async(_updateActivityQueue, ^() {
-                IOReturn status = IOPMAssertionDeclareUserActivity(assertionNameStr,
+                IOReturn status = IOPMAssertionDeclareUserActivity((CFStringRef)assertionNameStr,
                                                                    kIOPMUserActiveLocal,
                                                                    &_AssertionID);
                 if (status) {
@@ -910,11 +881,50 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
                 CFRelease(assertionNameStr);
             });
         }
+        
+        if (senderIDKey && senderIDKey != sender) {
+            CFRelease(senderIDKey);
+        }
+        
+        if (tmpStr) {
+            CFRelease(tmpStr);
+        }
+
         if (assertionNameStr) {
             CFRelease(assertionNameStr);
         }
     }
     return result;
+}
+
+CFStringRef IOHIDNXEventTranslatorSessionFilter::createNXEventActivityString(IOHIDServiceRef sender, NXEventExt * nxEvent) {
+    char processPath[PROC_PIDPATHINFO_MAXSIZE] = {0};
+    char * senderNameStr = NULL;
+    CFStringRef tmpStr = NULL;
+
+    if(proc_pidpath_audittoken(&nxEvent->extension.audit, processPath, sizeof(processPath)) > 0) {
+        senderNameStr = basename(processPath);
+    }
+
+    tmpStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s.queue.tickle.nxevent service:%@ pid:%u process:%s"),
+                                      kIOHIDEventSystemServerName,
+                                      sender ? IOHIDServiceGetProperty(sender, CFSTR(kIOClassKey)) : NULL,
+                                      nxEvent->payload.ext_pid,
+                                      senderNameStr ? senderNameStr : "unknown");
+    return tmpStr;
+}
+
+CFStringRef IOHIDNXEventTranslatorSessionFilter::createHIDEventActivityString(IOHIDServiceRef sender, IOHIDEventRef event) {
+    // Cache assertion name
+    CFStringRef tmpStr = NULL;
+ 
+    tmpStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s.queue.tickle serviceID:%llx service:%@ product:%@ eventType:%u"),
+                                      kIOHIDEventSystemServerName,
+                                      (long long unsigned int)IOHIDEventGetSenderID(event),
+                                      sender ? IOHIDServiceGetProperty(sender, CFSTR(kIOClassKey)) : NULL,
+                                      sender ? IOHIDServiceGetProperty(sender, CFSTR(kIOHIDProductKey)) : NULL,
+                                      IOHIDEventGetType(event));
+    return tmpStr;
 }
 
 //------------------------------------------------------------------------------

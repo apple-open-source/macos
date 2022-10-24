@@ -353,9 +353,9 @@ int pax_wr(ARCHD *);
  * tty_subs.c
  */
 int tty_init(void);
-void tty_prnt(const char *, ...);
+void tty_prnt(const char *, ...) __printflike(1,2);
 int tty_read(char *, int);
-void paxwarn(int, const char *, ...);
-void syswarn(int, int, const char *, ...);
+void paxwarn(int, const char *, ...) __printflike(2,3);
+void syswarn(int, int, const char *, ...) __printflike(3,4);
 
 #endif /* _PAX_EXTERN_H_ */

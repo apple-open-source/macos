@@ -41,42 +41,58 @@ enum {kSecKeychainEnteredBatchModeEventMask = 1 << kSecKeychainEnteredBatchModeE
 
 /* Keychain management */
 OSStatus SecKeychainCreateNew(SecKeychainRef keychainRef, UInt32 passwordLength, const char* inPassword)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainMakeFromFullPath(const char *fullPathName, SecKeychainRef *keychainRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainIsValid(SecKeychainRef keychainRef, Boolean* isValid)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainChangePassword(SecKeychainRef keychainRef, UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainSetBatchMode (SecKeychainRef kcRef, Boolean mode, Boolean rollback)
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.5, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* Keychain list management */
 UInt16 SecKeychainListGetCount(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainListCopyKeychainAtIndex(UInt16 index, SecKeychainRef *keychainRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainListRemoveKeychain(SecKeychainRef *keychainRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainRemoveFromSearchList(SecKeychainRef keychainRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* Login keychain support */
 OSStatus SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, const void* password)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainStash(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.9, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainLogout(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainCopyLogin(SecKeychainRef *keychainRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Boolean resetSearchList)
-    __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.3, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries)
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.9, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainChangeKeyStorePassphrase(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.9, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* Keychain synchronization */
 enum {
@@ -86,56 +102,79 @@ enum {
 typedef UInt32 SecKeychainSyncState;
 
 OSStatus SecKeychainCopySignature(SecKeychainRef keychainRef, CFDataRef *keychainSignature)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlobArray, CFDataRef extraData)
-    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.6, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* Keychain list manipulation */
 OSStatus SecKeychainAddDBToKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainDBIsInKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainRemoveDBFromKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.4, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* server operation (keychain inhibit) */
 void SecKeychainSetServerMode(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.5, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* special calls */
 OSStatus SecKeychainCleanupHandles(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.5, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainSystemKeychainCheckWouldDeadlock(void)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.7, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password)
-    __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.10, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* Token login support */
 OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash, SecKeychainRef userKeychain, CFStringRef password)
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
 OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* calls to interact with keychain versions */
 OSStatus SecKeychainGetKeychainVersion(SecKeychainRef keychain, UInt32* version)
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.11, 10.11))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 OSStatus SecKeychainAttemptMigrationWithMasterKey(SecKeychainRef keychain, UInt32 version, const char* masterKeyFilename)
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.11, 10.11))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* calls for testing only */
 OSStatus SecKeychainGetUserPromptAttempts(uint32_t* attempts)
-    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+API_DEPRECATED("SecKeychain is deprecated", macos(10.12, 10.12))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
  @function SecKeychainMDSInstall
  Set up MDS.
  */
-OSStatus SecKeychainMDSInstall(void);
+OSStatus SecKeychainMDSInstall(void)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #if defined(__cplusplus)
 }

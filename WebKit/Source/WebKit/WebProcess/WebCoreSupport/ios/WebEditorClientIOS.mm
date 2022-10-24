@@ -94,19 +94,17 @@ void WebEditorClient::updateStringForFind(const String& findString)
 
 void WebEditorClient::overflowScrollPositionChanged()
 {
-    m_page->didChangeOverflowScrollPosition();
+    m_page->didScrollSelection();
 }
 
 void WebEditorClient::subFrameScrollPositionChanged()
 {
-    m_page->didChangeOverflowScrollPosition();
+    m_page->didScrollSelection();
 }
 
 bool WebEditorClient::shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection) const
 {
-    // The text selection assistant will handle selection in the case where we are already editing the node
-    auto* editableRoot = newSelection.rootEditableElement();
-    return !editableRoot || editableRoot != targetNode.rootEditableElement() || !m_page->isShowingInputViewForFocusedElement();
+    return m_page->shouldAllowSingleClickToChangeSelection(targetNode, newSelection);
 }
 
 bool WebEditorClient::shouldRevealCurrentSelectionAfterInsertion() const

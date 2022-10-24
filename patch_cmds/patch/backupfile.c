@@ -32,6 +32,12 @@
 /* Which type of backup file names are generated. */
 enum backup_type backup_type = none;
 
+#ifdef __APPLE__
+bool		backup_requested;	/* -b/-V flags */
+bool		backup_mismatch = true;
+char		*simple_backup_prefix;
+#endif
+
 /*
  * The extension added to file names to produce a simple (as opposed to
  * numbered) backup file name.
@@ -56,8 +62,43 @@ find_backup_file_name(const char *file)
 	char	*dir, *base_versions, *tmp_file;
 	int	highest_backup;
 
+#ifdef __APPLE__
+	if (backup_type == simple) {
+		char *backup_file;
+		const char *rslash;
+
+		if (simple_backup_prefix == NULL)
+			return concat(file, simple_backup_suffix);
+
+		/*
+		 * If we have a simple prefix, we need to locate the basename of
+		 * the file to be backed up to inject the prefix at that point.
+		 */
+		rslash = strrchr(file, '/');
+		if (rslash != NULL) {
+			/* Copy up to the slash, inject the slash manually. */
+			if (asprintf(&backup_file, "%.*s/%s%s%s",
+			    (int)(rslash - file),
+			    file, simple_backup_prefix, rslash + 1,
+			    simple_backup_suffix) == -1)
+				return NULL;
+		} else {
+			/*
+			 * No slash, file is simply the basename.  Concatenate
+			 * all three components together.
+			 */
+			if (asprintf(&backup_file, "%s%s%s",
+			    simple_backup_prefix, file,
+			    simple_backup_suffix) == -1)
+				return NULL;
+		}
+
+		return backup_file;
+	}
+#else
 	if (backup_type == simple)
 		return concat(file, simple_backup_suffix);
+#endif
 	tmp_file = strdup(file);
 	if (tmp_file == NULL)
 		return NULL;

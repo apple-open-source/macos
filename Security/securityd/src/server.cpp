@@ -25,8 +25,7 @@
 //
 // server - securityd main server object
 //
-#include <securityd_client/ucsp.h>	// MIG ucsp service
-#include "self.h"					// MIG self service
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <security_utilities/logging.h>
 #include <security_cdsa_client/mdsclient.h>
 #include "server.h"
@@ -40,6 +39,10 @@
 
 #include "agentquery.h"
 
+#define mig_external extern "C"
+#include "selfServer.h"
+#include "ucspServer.h"
+#undef mig_external
 
 using namespace MachPlusPlus;
 
@@ -190,10 +193,6 @@ void Server::threadLimitReached(UInt32 limit)
 // For debug builds, look up request names in a MIG-generated table
 // for better debug-log messages.
 //
-boolean_t ucsp_server(mach_msg_header_t *, mach_msg_header_t *);
-boolean_t self_server(mach_msg_header_t *, mach_msg_header_t *);
-
-
 boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 {
 	return ucsp_server(in, out) || self_server(in, out);
@@ -365,35 +364,17 @@ void Server::SleepWatcher::systemWillSleep()
 {
     secnotice("SecServer", "%p will sleep", this);
     Session::processSystemSleep();
-	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
-		(*it)->systemWillSleep();
 }
 
 void Server::SleepWatcher::systemIsWaking()
 {
     secnotice("SecServer", "%p is waking", this);
-	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
-		(*it)->systemIsWaking();
 }
 
 void Server::SleepWatcher::systemWillPowerOn()
 {
     secnotice("SecServer", "%p will power on", this);
-	Server::active().longTermActivity();
-	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
-		(*it)->systemWillPowerOn();
-}
-
-void Server::SleepWatcher::add(PowerWatcher *client)
-{
-	assert(mPowerClients.find(client) == mPowerClients.end());
-	mPowerClients.insert(client);
-}
-
-void Server::SleepWatcher::remove(PowerWatcher *client)
-{
-	assert(mPowerClients.find(client) != mPowerClients.end());
-	mPowerClients.erase(client);
+    Server::active().longTermActivity();
 }
 
 

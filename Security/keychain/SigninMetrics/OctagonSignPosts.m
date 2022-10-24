@@ -30,7 +30,7 @@ os_log_t _OctagonSignpostLogSystem(void) {
     static os_log_t log = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        log = os_log_create("com.apple.security", "signpost");
+        log = os_log_create("com.apple.security.signposts", "signpost");
     });
     return log;
 }

@@ -35,6 +35,7 @@
 #include <CoreFoundation/CFError.h>
 #include <CoreFoundation/CFString.h>
 #include <sys/types.h>
+#include <Security/SecTrustPriv.h>
 
 __BEGIN_DECLS
 
@@ -42,6 +43,7 @@ void SecTrustSettingsSetDataBlock(uid_t uid, CFStringRef _Nonnull domain, CFData
 
 bool SecTrustSettingsSetData(uid_t uid, CFStringRef _Nonnull domain, CFDataRef _Nullable authExternalForm, CFDataRef _Nullable trustSettings, CFErrorRef _Nonnull * _Nullable error);
 bool SecTrustSettingsCopyData(uid_t uid, CFStringRef _Nonnull domain, CFDataRef * _Nonnull CF_RETURNS_RETAINED trustSettings, CFErrorRef _Nonnull * _Nullable error);
+bool _SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error);
 
 __END_DECLS
 

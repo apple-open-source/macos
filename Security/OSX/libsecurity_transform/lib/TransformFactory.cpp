@@ -108,7 +108,7 @@ SecTransformRef TransformFactory::MakeTransformWithType(CFStringRef type, CFErro
             });
 #else
             *baseError = CreateSecTransformErrorRef(kSecTransformTransformIsNotRegistered, 
-                                                    "The %s transform is not registered", type);
+                                                    CFSTR("The %@ transform is not registered"), type);
 #endif
 		}
 		

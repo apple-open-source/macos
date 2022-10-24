@@ -55,6 +55,7 @@ static int dns_canon_flag = -1;
 static int mutual_auth_flag = 0;
 static int dce_style_flag = 0;
 static int wrapunwrap_flag = 0;
+static int wrapunwrap_short_flag = 0;
 static int iov_flag = 0;
 static int getverifymic_flag = 0;
 static int deleg_flag = 0;
@@ -276,10 +277,48 @@ wrapunwrap(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID mechoid)
     gss_release_buffer(&min_stat, &output_token);
     gss_release_buffer(&min_stat, &output_token2);
 
-#if 0 /* doesn't work for NTLM yet */
     if (!!conf_state != !!flags)
 	errx(1, "conf_state mismatch");
-#endif
+}
+
+static void
+wrapunwrap_shortmessage(gss_ctx_id_t cctx, gss_ctx_id_t sctx, int flags, gss_OID mechoid)
+{
+    gss_buffer_desc output_token, output_token2;
+    OM_uint32 min_stat, maj_stat;
+    gss_qop_t qop_state;
+    int conf_state;
+
+    unsigned char *ptr=malloc(1024);
+    int i=0;
+
+
+    // see https://www.rfc-editor.org/rfc/rfc1964.html#section-1.2.2 for header details
+    ptr[i++] = 0x60;
+    ptr[i++] = 11+2+6+1;
+    memcpy(ptr+i, "\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02",11);  // krb5 mech
+    i+=11;
+    ptr[i++]=0x02;
+    ptr[i++]=0x01;
+
+    ptr[i++]=0x04;
+    ptr[i++] = 0x00;
+    ptr[i++] = 0xff;
+    ptr[i++] = 0xff;
+    ptr[i++] = 0xff;
+    ptr[i++] = 0xff;
+    ptr[i++]=0;
+    output_token.value = ptr;
+    output_token.length = i;
+
+    maj_stat = gss_unwrap(&min_stat, sctx, &output_token,
+			  &output_token2, &conf_state, &qop_state);
+    if (maj_stat != GSS_S_DEFECTIVE_TOKEN)
+	errx(1, "gss_unwrap bad message failed: %s",
+	     gssapi_err(maj_stat, min_stat, mechoid));
+
+    gss_release_buffer(&min_stat, &output_token);
+    gss_release_buffer(&min_stat, &output_token2);
 }
 
 #define USE_CONF		1
@@ -667,6 +706,7 @@ static struct getargs args[] = {
     {"limit-enctype",0,	arg_string,	&limit_enctype_string, "enctype", NULL },
     {"dce-style",0,	arg_flag,	&dce_style_flag, "dce-style", NULL },
     {"wrapunwrap",0,	arg_flag,	&wrapunwrap_flag, "wrap/unwrap", NULL },
+    {"wrapunwrapshort",0,	arg_flag,	&wrapunwrap_short_flag, "wrap/unwrap short message", NULL },
     {"iov", 0, 		arg_flag,	&iov_flag, "wrap/unwrap iov", NULL },
     {"getverifymic",0,	arg_flag,	&getverifymic_flag,
      "get and verify mic", NULL },
@@ -1326,6 +1366,10 @@ main(int argc, char **argv)
 	wrapunwrap(cctx, sctx, 1, actual_mech);
 	wrapunwrap(sctx, cctx, 0, actual_mech);
 	wrapunwrap(sctx, cctx, 1, actual_mech);
+    }
+
+    if (wrapunwrap_short_flag) {
+	wrapunwrap_shortmessage(cctx, sctx, 0, actual_mech);
     }
 
     if (iov_flag) {

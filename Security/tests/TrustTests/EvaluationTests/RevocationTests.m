@@ -135,33 +135,27 @@
     XCTSkipIf(!ping_host("ocsp2.apple.com", "443"), @"Unable to contact required network resource");
 
     SecTrustRef trust;
-    SecCertificateRef rcert0, rcert1;
-    isnt(rcert0 = SecCertificateCreateWithBytes(NULL,
-         _revoked_ist_certificate, sizeof(_revoked_ist_certificate)),
-         NULL, "create rcert0");
-    isnt(rcert1 = SecCertificateCreateWithBytes(NULL,
-         _ist_intermediate_certificate, sizeof(_ist_intermediate_certificate)),
-         NULL, "create rcert1");
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _probablyNotRevokedLeaf, sizeof(_probablyNotRevokedLeaf));
+    SecCertificateRef subCA = SecCertificateCreateWithBytes(NULL, _devIDCA, sizeof(_devIDCA));
     CFMutableArrayRef rcerts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                    &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(rcerts, rcert0);
-    CFArrayAppendValue(rcerts, rcert1);
+    CFArrayAppendValue(rcerts, leaf);
+    CFArrayAppendValue(rcerts, subCA);
 
-    SecPolicyRef sslPolicy = SecPolicyCreateSSL(true, CFSTR("revoked.geotrust-global-ca.test-pages.certificatemanager.apple.com"));
+    SecPolicyRef policy = SecPolicyCreateAppleExternalDeveloper();
     SecPolicyRef ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
-    const void *v_policies[] = { sslPolicy, ocspPolicy };
+    const void *v_policies[] = { policy, ocspPolicy };
     CFArrayRef policies = CFArrayCreate(NULL, v_policies,
                                         array_size(v_policies), &kCFTypeArrayCallBacks);
-    CFRelease(sslPolicy);
+    CFRelease(policy);
     CFRelease(ocspPolicy);
     ok_status(SecTrustCreateWithCertificates(rcerts, policies, &trust),
               "create trust");
-    /* Feb 5th 2015. */
-    CFDateRef date = CFDateCreate(NULL, 444900000);
+    CFDateRef date = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
     CFReleaseSafe(date);
 
-    is(SecTrustGetVerifyTime(trust), 444900000, "get date");
+    is(SecTrustGetVerifyTime(trust), 543000000.0, "get date");
 
     SecTrustResultType trustResult;
     ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
@@ -187,12 +181,11 @@
        produced in the future, it should still be honored since it's
        validly signed.
      */
-    /* Dec 11th 2014. */
-    date = CFDateCreate(NULL, 440000000);
+    date = CFDateCreate(NULL, 540000000.0);
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
     CFReleaseSafe(date);
 
-    is(SecTrustGetVerifyTime(trust), 440000000, "get date");
+    is(SecTrustGetVerifyTime(trust), 540000000.0, "get date");
 
     ok_status(SecTrustGetTrustResult(trust, &trustResult), "evaluate trust");
     is(trustResult, kSecTrustResultFatalTrustFailure);
@@ -213,8 +206,8 @@
     CFReleaseSafe(trust);
     CFReleaseSafe(policies);
     CFReleaseSafe(rcerts);
-    CFReleaseSafe(rcert0);
-    CFReleaseSafe(rcert1);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(subCA);
 }
 
 - (void) test_require_positive_response
@@ -528,8 +521,8 @@ errOut:
         fail("expected trust evaluation to fail and it did not.");
     }
 
-    /* flush the cache and reset the turst, the revoked response should still be present afterwards */
-    XCTAssert(SecTrustFlushResponseCache(NULL));
+    /* flush the cache and reset the trust, the revoked response should still be present afterwards */
+    XCTAssert(SecTrustResetSettings(kSecTrustResetOCSPCache, NULL));
     SecTrustSetNeedsEvaluation(trust);
 
     is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert with cached response succeeded");

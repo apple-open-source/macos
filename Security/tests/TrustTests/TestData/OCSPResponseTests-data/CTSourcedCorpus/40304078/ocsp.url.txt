@@ -1,0 +1,1 @@
+http://ssl.ocsp.luxtrust.lu

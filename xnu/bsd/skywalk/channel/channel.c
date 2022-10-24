@@ -2114,8 +2114,7 @@ ch_connect(struct kern_nexus *nx, struct chreq *chr, struct kern_channel *ch0,
 	cinfo->cinfo_mem_map_size = ch->ch_mmap.ami_mapsize;
 	cinfo->cinfo_schema_offset = chr->cr_memoffset;
 	cinfo->cinfo_num_bufs =
-	    skmem_arena_nexus(ch->ch_na->na_arena)->
-	    arn_rx_pp->pp_buf_region->skr_params.srp_c_obj_cnt;
+	    PP_BUF_REGION_DEF(skmem_arena_nexus(ch->ch_na->na_arena)->arn_rx_pp)->skr_params.srp_c_obj_cnt;
 	/*
 	 * ch_last is really the number of rings, but we need to return
 	 * the actual zero-based ring ID to the client.  Make sure that

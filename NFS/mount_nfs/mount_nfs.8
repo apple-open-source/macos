@@ -316,7 +316,7 @@ mount.  The default is 8192 for UDP mounts and 32768 for TCP mounts.
 .Pp
 .It Cm readahead Ns = Ns Aq Ar maxreadahead
 Set the maximum read-ahead count to the specified value.  The default is 16.  This
-may be in the range of 0 - 128, and determines how many blocks will be
+may be in the range of 0 - 128, and determines how many \fBRead\fR RPCs will be
 read ahead when a large file is being read sequentially.  Trying larger
 values for this is suggested for mounts with a large bandwidth * delay
 product.
@@ -719,6 +719,18 @@ The following error:
 In case the remote host is not running rpc.statd and the client is mounting the NFS directory with remote locks (enabled by default),
 .Nm
 should fail with EPROGUNAVAIL. rpc.statd status can be verified using rpcinfo (see above).
+.Pp
+The following warning:
+.Pp
+.D1 "mount_nfs: wsize/rsize ratio is high: this could end up with unexpected readahead RPCs
+.Pp
+indicates that provided
+.Cm wsize
+is much greater than
+.Cm rsize.
+which could end up with a different amount of
+.Cm readahead
+RPCs compared to the amount requested by the user.
 .Pp
 .Sh SEE ALSO
 .Xr mount 2 ,

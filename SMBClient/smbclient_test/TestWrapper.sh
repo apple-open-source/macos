@@ -172,8 +172,8 @@ parseSMBURL() {
 arguments=( "${@}" )
 argLen="${#arguments[@]}"
 
-whitelist=()
-blacklist=()
+runlist=()
+ignorelist=()
 
 # Arg parsing
 for (( i = 0; i < argLen; i++ )); do
@@ -207,28 +207,28 @@ for (( i = 0; i < argLen; i++ )); do
             i="${nextInd}"
             ;;
         -x | --fsx )
-            whitelist+=( "fsx" )
+            runlist+=( "fsx" )
             ;;
         -t | --fstorture )
-            whitelist+=( "fstorture" )
+            runlist+=( "fstorture" )
             ;;
         -b | --filesbuster )
-            whitelist+=( "filesbuster" )
+            runlist+=( "filesbuster" )
             ;;
         -p | --piston )
-            whitelist+=( "piston" )
+            runlist+=( "piston" )
             ;;
         --no-fsx )
-            blacklist+=( "fsx" )
+            ignorelist+=( "fsx" )
             ;;
         --no-fstorture )
-            blacklist+=( "fstorture" )
+            ignorelist+=( "fstorture" )
             ;;
         --no-filesbuster )
-            blacklist+=( "filesbuster" )
+            ignorelist+=( "filesbuster" )
             ;;
         --no-piston )
-            blacklist+=( "piston" )
+            ignorelist+=( "piston" )
             ;;
         * )
             echo "Unrecognized arg ${arg}"
@@ -254,9 +254,9 @@ elif ! echo "${allFilesystems[@]}" | grep -iq "${filesystem}"; then
     exit 1
 fi
 
-# Make sure that there are no overlaps while also removing blacklisted tests
-for test in "${blacklist[@]}"; do
-    if echo "${whitelist[@]}" | grep -q "${test}"; then
+# Make sure that there are no overlaps while also removing ignorelisted tests
+for test in "${ignorelist[@]}"; do
+    if echo "${runlist[@]}" | grep -q "${test}"; then
         echo "Test ${test} cannot be skipped and run in the same invocation"
         exit 1
     fi
@@ -265,12 +265,12 @@ for test in "${blacklist[@]}"; do
 done
 
 # If specific tests have been specified, then only run those. This is correct
-# as whitelist and blacklist have been show to have no overlaps. Therefore,
-# blacklist is either empty or cannot skip whitelisted tests. In the event
-# that whitelist is empty, all the blacklisted tests have already been removed.
+# as runlist and ignorelist have been show to have no overlaps. Therefore,
+# ignorelist is either empty or cannot skip runlisted tests. In the event
+# that runlist is empty, all the ignorelisted tests have already been removed.
 # If both are empty, allTests still has all the tests in it
-if ! [ -z "${whitelist[@]}" ]; then
-    allTests=( "${whitelist[@]}" )
+if ! [ -z "${runlist[@]}" ]; then
+    allTests=( "${runlist[@]}" )
 fi
 
 if [ "${#allTests[@]}" -eq 0 ]; then

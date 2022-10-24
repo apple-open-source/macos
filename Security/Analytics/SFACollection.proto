@@ -1,0 +1,50 @@
+// protocompiler --outputDir Protobuf --arc < ./SFACollection.proto
+
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+package SecSFA;
+
+option (objc_class_default_visibility) = "hidden";
+
+message ActionTapToRadar {
+    optional string alert = 1;
+    optional string radarDescription = 2;
+    optional string componentName = 3;
+    optional string componentVersion = 4;
+    optional string componentID = 5;
+}
+
+message ActionAutomaticBugCapture {
+    optional string domain = 1;
+    optional string type = 2;
+    optional string subtype = 3;
+}
+
+message ActionDropEvent {
+    optional bool excludeEvent = 1;
+    optional bool excludeCount = 2;
+}
+
+message Action {
+    optional string radarnumber = 1;
+    oneof Action {
+        ActionTapToRadar ttr = 100;
+        ActionAutomaticBugCapture abc = 101;
+        ActionDropEvent drop = 102;
+    }
+}
+
+message Rule {
+    optional string eventType = 1;
+    optional bytes match = 2;
+    optional Action action = 3;
+    optional int64 repeatAfterSeconds = 4;
+    optional string process = 5;
+}
+
+message Rules {
+    repeated Rule rules = 1;
+}

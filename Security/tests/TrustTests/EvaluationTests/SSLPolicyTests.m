@@ -333,7 +333,7 @@ errOut:
                                                                                     subdirectory:testDirectory];
     NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
     NSError *error = nil;
-    XCTAssertTrue([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+    XCTAssertFalse([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
                   "app-trusted smime subCA cert failed: %@", error);
 
     CFReleaseNull(systemRoot);

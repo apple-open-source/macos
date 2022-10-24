@@ -1958,6 +1958,18 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            ((__IOHIDGameControllerEventData*)event)->l4 = (typeof(((__IOHIDGameControllerEventData*)event)->l4)) CAST_INTEGER_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            ((__IOHIDGameControllerEventData*)event)->l5 = (typeof(((__IOHIDGameControllerEventData*)event)->l5)) CAST_INTEGER_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            ((__IOHIDGameControllerEventData*)event)->r4 = (typeof(((__IOHIDGameControllerEventData*)event)->r4)) CAST_INTEGER_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            ((__IOHIDGameControllerEventData*)event)->r5 = (typeof(((__IOHIDGameControllerEventData*)event)->r5)) CAST_INTEGER_TO_FIXED(value); \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -2024,6 +2036,18 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             value = (typeof(value))CAST_INTEGER_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            value = (typeof(value))CAST_FIXED_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->l4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            value = (typeof(value))CAST_FIXED_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->l5); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            value = (typeof(value))CAST_FIXED_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->r4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            value = (typeof(value))CAST_FIXED_TO_INTEGER(((__IOHIDGameControllerEventData*)event)->r5); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
@@ -2092,6 +2116,18 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            ((__IOHIDGameControllerEventData*)event)->l4 = (typeof(((__IOHIDGameControllerEventData*)event)->l4)) CAST_DOUBLE_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            ((__IOHIDGameControllerEventData*)event)->l5 = (typeof(((__IOHIDGameControllerEventData*)event)->l5)) CAST_DOUBLE_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            ((__IOHIDGameControllerEventData*)event)->r4 = (typeof(((__IOHIDGameControllerEventData*)event)->r4)) CAST_DOUBLE_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            ((__IOHIDGameControllerEventData*)event)->r5 = (typeof(((__IOHIDGameControllerEventData*)event)->r5)) CAST_DOUBLE_TO_FIXED(value); \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -2158,6 +2194,18 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            value = (typeof(value))CAST_FIXED_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->l4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            value = (typeof(value))CAST_FIXED_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->l5); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            value = (typeof(value))CAST_FIXED_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->r4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            value = (typeof(value))CAST_FIXED_TO_DOUBLE(((__IOHIDGameControllerEventData*)event)->r5); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
@@ -2226,6 +2274,18 @@ case kIOHIDEventTypeGameController:\
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             ((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight = value ? 1 : 0; \
             break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            ((__IOHIDGameControllerEventData*)event)->l4 = (typeof(((__IOHIDGameControllerEventData*)event)->l4)) CAST_FIXED_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            ((__IOHIDGameControllerEventData*)event)->l5 = (typeof(((__IOHIDGameControllerEventData*)event)->l5)) CAST_FIXED_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            ((__IOHIDGameControllerEventData*)event)->r4 = (typeof(((__IOHIDGameControllerEventData*)event)->r4)) CAST_FIXED_TO_FIXED(value); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            ((__IOHIDGameControllerEventData*)event)->r5 = (typeof(((__IOHIDGameControllerEventData*)event)->r5)) CAST_FIXED_TO_FIXED(value); \
+            break; \
         _IOHIDGameControllerSetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\
@@ -2292,6 +2352,18 @@ case kIOHIDEventTypeGameController:\
             break; \
         case kIOHIDEventFieldGameControllerThumbstickButtonRight: \
             value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((__IOHIDGameControllerEventData*)event)->thumbstickButtonRight); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL4: \
+            value = (typeof(value))CAST_FIXED_TO_FIXED(((__IOHIDGameControllerEventData*)event)->l4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonL5: \
+            value = (typeof(value))CAST_FIXED_TO_FIXED(((__IOHIDGameControllerEventData*)event)->l5); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR4: \
+            value = (typeof(value))CAST_FIXED_TO_FIXED(((__IOHIDGameControllerEventData*)event)->r4); \
+            break; \
+        case kIOHIDEventFieldGameControllerButtonR5: \
+            value = (typeof(value))CAST_FIXED_TO_FIXED(((__IOHIDGameControllerEventData*)event)->r5); \
             break; \
         _IOHIDGameControllerGetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
@@ -5868,9 +5940,30 @@ case kIOHIDEventTypeProximity:\
         case kIOHIDEventFieldProximityDetectionMask: \
             ((IOHIDProximityEventData*)event)->detectionMask = (typeof(((IOHIDProximityEventData*)event)->detectionMask)) CAST_INTEGER_TO_INTEGER(value); \
             break; \
-        case kIOHIDEventFieldProximityLevel: \
-            ((IOHIDProximityEventData*)event)->level = (typeof(((IOHIDProximityEventData*)event)->level)) CAST_INTEGER_TO_INTEGER(value); \
+        case kIOHIDEventFieldProximityProximityType: \
+            ((IOHIDProximityEventData*)event)->proximityType = (typeof(((IOHIDProximityEventData*)event)->proximityType)) CAST_INTEGER_TO_INTEGER(value); \
             break; \
+        case kIOHIDEventFieldProximityLevel: \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.probability = (typeof(((IOHIDProximityEventData*)event)->proximity.probability)) CAST_INTEGER_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.level = (typeof(((IOHIDProximityEventData*)event)->proximity.level)) CAST_INTEGER_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximitySetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -5884,9 +5977,30 @@ case kIOHIDEventTypeProximity:\
         case kIOHIDEventFieldProximityDetectionMask: \
             value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDProximityEventData*)event)->detectionMask); \
             break; \
-        case kIOHIDEventFieldProximityLevel: \
-            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDProximityEventData*)event)->level); \
+        case kIOHIDEventFieldProximityProximityType: \
+            value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDProximityEventData*)event)->proximityType); \
             break; \
+        case kIOHIDEventFieldProximityLevel: \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDProximityEventData*)event)->proximity.probability); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_INTEGER(((IOHIDProximityEventData*)event)->proximity.level); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximityGetSynthesizedFieldsAsIntegerMacro(event,field) \
     }\
     break;\
@@ -5900,9 +6014,30 @@ case kIOHIDEventTypeProximity:\
         case kIOHIDEventFieldProximityDetectionMask: \
             ((IOHIDProximityEventData*)event)->detectionMask = (typeof(((IOHIDProximityEventData*)event)->detectionMask)) CAST_DOUBLE_TO_INTEGER(value); \
             break; \
-        case kIOHIDEventFieldProximityLevel: \
-            ((IOHIDProximityEventData*)event)->level = (typeof(((IOHIDProximityEventData*)event)->level)) CAST_DOUBLE_TO_INTEGER(value); \
+        case kIOHIDEventFieldProximityProximityType: \
+            ((IOHIDProximityEventData*)event)->proximityType = (typeof(((IOHIDProximityEventData*)event)->proximityType)) CAST_DOUBLE_TO_INTEGER(value); \
             break; \
+        case kIOHIDEventFieldProximityLevel: \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.probability = (typeof(((IOHIDProximityEventData*)event)->proximity.probability)) CAST_DOUBLE_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.level = (typeof(((IOHIDProximityEventData*)event)->proximity.level)) CAST_DOUBLE_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximitySetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -5916,9 +6051,30 @@ case kIOHIDEventTypeProximity:\
         case kIOHIDEventFieldProximityDetectionMask: \
             value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDProximityEventData*)event)->detectionMask); \
             break; \
-        case kIOHIDEventFieldProximityLevel: \
-            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDProximityEventData*)event)->level); \
+        case kIOHIDEventFieldProximityProximityType: \
+            value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDProximityEventData*)event)->proximityType); \
             break; \
+        case kIOHIDEventFieldProximityLevel: \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDProximityEventData*)event)->proximity.probability); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_DOUBLE(((IOHIDProximityEventData*)event)->proximity.level); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximityGetSynthesizedFieldsAsDoubleMacro(event,field) \
     }\
     break;\
@@ -5932,9 +6088,30 @@ case kIOHIDEventTypeProximity:\
         case kIOHIDEventFieldProximityDetectionMask: \
             ((IOHIDProximityEventData*)event)->detectionMask = (typeof(((IOHIDProximityEventData*)event)->detectionMask)) CAST_FIXED_TO_INTEGER(value); \
             break; \
-        case kIOHIDEventFieldProximityLevel: \
-            ((IOHIDProximityEventData*)event)->level = (typeof(((IOHIDProximityEventData*)event)->level)) CAST_FIXED_TO_INTEGER(value); \
+        case kIOHIDEventFieldProximityProximityType: \
+            ((IOHIDProximityEventData*)event)->proximityType = (typeof(((IOHIDProximityEventData*)event)->proximityType)) CAST_FIXED_TO_INTEGER(value); \
             break; \
+        case kIOHIDEventFieldProximityLevel: \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.probability = (typeof(((IOHIDProximityEventData*)event)->proximity.probability)) CAST_FIXED_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        ((IOHIDProximityEventData*)event)->proximity.level = (typeof(((IOHIDProximityEventData*)event)->proximity.level)) CAST_FIXED_TO_INTEGER(value); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximitySetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\
@@ -5946,11 +6123,32 @@ case kIOHIDEventTypeProximity:\
     switch (field)\
     {\
         case kIOHIDEventFieldProximityDetectionMask: \
-            value = (typeof(value))CAST_INTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->detectionMask); \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->detectionMask); \
+            break; \
+        case kIOHIDEventFieldProximityProximityType: \
+            value = (typeof(value))CAST_SHORTINTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->proximityType); \
             break; \
         case kIOHIDEventFieldProximityLevel: \
-            value = (typeof(value))CAST_INTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->level); \
-            break; \
+        case kIOHIDEventFieldProbabilityLevel: \
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeProbability) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProbabilityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->proximity.probability); \
+                        break; \
+                }\
+                break;\
+            }\
+            if (((IOHIDProximityEventData*)event)->proximityType == kIOHIDProximityProximityTypeLevel) {\
+                switch (field) \
+                {\
+                    case kIOHIDEventFieldProximityLevel: \
+                        value = (typeof(value))CAST_INTEGER_TO_FIXED(((IOHIDProximityEventData*)event)->proximity.level); \
+                        break; \
+                }\
+                break;\
+            }\
+            break;\
         _IOHIDProximityGetSynthesizedFieldsAsFixedMacro(event,field) \
     }\
     break;\

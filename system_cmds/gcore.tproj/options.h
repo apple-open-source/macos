@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include <sys/types.h>
@@ -41,7 +41,9 @@ struct options {
     compression_algorithm calgorithm; // algorithm in use
 	size_t ncthresh;	// F_NOCACHE enabled *above* this value
     int allfilerefs;    // if set, every mapped file on the root fs is a fileref
-	int dsymforuuid;   // Try dsysForUUID to retrieve symbol-rich executable
+	int dsymforuuid;    // Try dsysForUUID to retrieve symbol-rich executable
+    int gzip;           // pipe corefile via gzip -1 compression
+    int stream;         // write corefile sequentially e.g. no pwrites
 };
 
 extern const struct options *opt;

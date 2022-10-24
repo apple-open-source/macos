@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,9 @@ interface_set_mtu(const char * ifname, int mtu);
 
 int
 interface_up_down(const char * ifname, boolean_t up);
+
+int
+interface_set_noarp(const char * ifname, boolean_t noarp);
 
 int
 interface_get_eflags(int sockfd, const char * name, uint64_t * ret_eflags);

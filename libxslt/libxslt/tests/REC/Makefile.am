@@ -53,6 +53,7 @@ EXTRA_DIST = 						\
     test-5.4-3.out test-5.4-3.xml test-5.4-3.xsl	\
     test-5.4-4.out test-5.4-4.xml test-5.4-4.xsl	\
     test-5.4-5.out test-5.4-5.xml test-5.4-5.xsl	\
+    test-5.5-1.out test-5.5-1.xml test-5.5-1.xsl	\
     test-5.8.out test-5.8.xml test-5.8.xsl		\
     test-6.out test-6.xml test-6.xsl			\
     test-6.1.out test-6.1.xml test-6.1.xsl test-6.1.err	\
@@ -74,6 +75,7 @@ EXTRA_DIST = 						\
     test-7.7-3.out test-7.7-3.xml test-7.7-3.xsl	\
     test-7.7-4.out test-7.7-4.xml test-7.7-4.xsl	\
     test-7.7-5.out test-7.7-5.xml test-7.7-5.xsl	\
+    test-7.7-6.out test-7.7-6.xml test-7.7-6.xsl	\
     test-8-1.out test-8-1.xml test-8-1.xsl		\
     test-9.1-1.out test-9.1-1.xml test-9.1-1.xsl	\
     test-9.1-2.out test-9.1-2.xml test-9.1-2.xsl	\

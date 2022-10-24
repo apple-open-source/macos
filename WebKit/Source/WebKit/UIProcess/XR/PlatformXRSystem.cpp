@@ -28,7 +28,6 @@
 
 #if ENABLE(WEBXR)
 
-#include "PlatformXRCoordinator.h"
 #include "PlatformXRSystemMessages.h"
 #include "PlatformXRSystemProxyMessages.h"
 #include "WebPageProxy.h"
@@ -74,7 +73,7 @@ void PlatformXRSystem::enumerateImmersiveXRDevices(CompletionHandler<void(Vector
     });
 }
 
-void PlatformXRSystem::requestPermissionOnSessionFeatures(const WebCore::SecurityOriginData& securityOriginData, PlatformXR::SessionMode mode, const Vector<PlatformXR::ReferenceSpaceType>& granted, const Vector<PlatformXR::ReferenceSpaceType>& consentRequired, const Vector<PlatformXR::ReferenceSpaceType>& consentOptional,  CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler)
+void PlatformXRSystem::requestPermissionOnSessionFeatures(const WebCore::SecurityOriginData& securityOriginData, PlatformXR::SessionMode mode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& consentRequired, const PlatformXR::Device::FeatureList& consentOptional,  CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler)
 {
     auto* xrCoordinator = PlatformXRSystem::xrCoordinator();
     if (!xrCoordinator) {
@@ -85,20 +84,16 @@ void PlatformXRSystem::requestPermissionOnSessionFeatures(const WebCore::Securit
     xrCoordinator->requestPermissionOnSessionFeatures(m_page, securityOriginData, mode, granted, consentRequired, consentOptional, WTFMove(completionHandler));
 }
 
-void PlatformXRSystem::initializeTrackingAndRendering()
+void PlatformXRSystem::initializeTrackingAndRendering(const WebCore::SecurityOriginData& securityOriginData, PlatformXR::SessionMode mode, const PlatformXR::Device::FeatureList& requestedFeatures)
 {
     auto* xrCoordinator = PlatformXRSystem::xrCoordinator();
     if (!xrCoordinator)
         return;
 
-    auto immersiveSessionActivity = m_page.process().throttler().foregroundActivity("XR immersive session"_s);
+    m_immersiveSessionActivity = m_page.process().throttler().foregroundActivity("XR immersive session"_s).moveToUniquePtr();
 
-    xrCoordinator->startSession(m_page, [weakThis = WeakPtr { *this }, immersiveSessionActivity = WTFMove(immersiveSessionActivity)](XRDeviceIdentifier deviceIdentifier) mutable {
-        RunLoop::main().dispatch([weakThis, deviceIdentifier, immersiveSessionActivity = WTFMove(immersiveSessionActivity)]() mutable {
-            if (weakThis)
-                weakThis->m_page.send(Messages::PlatformXRSystemProxy::SessionDidEnd(deviceIdentifier));
-        });
-    });
+    WeakPtr weakThis { *this };
+    xrCoordinator->startSession(m_page, weakThis, securityOriginData, mode, requestedFeatures);
 }
 
 void PlatformXRSystem::shutDownTrackingAndRendering()
@@ -117,6 +112,29 @@ void PlatformXRSystem::submitFrame()
 {
     if (auto* xrCoordinator = PlatformXRSystem::xrCoordinator())
         xrCoordinator->submitFrame(m_page);
+}
+
+void PlatformXRSystem::sessionDidEnd(XRDeviceIdentifier deviceIdentifier)
+{
+    ensureOnMainRunLoop([weakThis = WeakPtr { *this }, deviceIdentifier]() mutable {
+        auto strongThis = weakThis.get();
+        if (!strongThis)
+            return;
+
+        strongThis->m_page.send(Messages::PlatformXRSystemProxy::SessionDidEnd(deviceIdentifier));
+        strongThis->m_immersiveSessionActivity = nullptr;
+    });
+}
+
+void PlatformXRSystem::sessionDidUpdateVisibilityState(XRDeviceIdentifier deviceIdentifier, PlatformXR::VisibilityState visibilityState)
+{
+    ensureOnMainRunLoop([weakThis = WeakPtr { *this }, deviceIdentifier, visibilityState]() mutable {
+        auto strongThis = weakThis.get();
+        if (!strongThis)
+            return;
+
+        strongThis->m_page.send(Messages::PlatformXRSystemProxy::SessionDidUpdateVisibilityState(deviceIdentifier, visibilityState));
+    });
 }
 
 }

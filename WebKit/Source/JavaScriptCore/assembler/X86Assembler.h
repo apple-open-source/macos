@@ -335,17 +335,17 @@ private:
     
     TwoByteOpcodeID cmovcc(Condition cond)
     {
-        return (TwoByteOpcodeID)(OP2_CMOVCC + cond);
+        return (TwoByteOpcodeID)(OP2_CMOVCC + static_cast<TwoByteOpcodeID>(cond));
     }
 
     TwoByteOpcodeID jccRel32(Condition cond)
     {
-        return (TwoByteOpcodeID)(OP2_JCC_rel32 + cond);
+        return (TwoByteOpcodeID)(OP2_JCC_rel32 + static_cast<TwoByteOpcodeID>(cond));
     }
 
     TwoByteOpcodeID setccOpcode(Condition cond)
     {
-        return (TwoByteOpcodeID)(OP_SETCC + cond);
+        return (TwoByteOpcodeID)(OP_SETCC + static_cast<TwoByteOpcodeID>(cond));
     }
 
     typedef enum {
@@ -3798,12 +3798,10 @@ public:
     {
         setRel32(from, to);
     }
-    
-    static void repatchCompact(void* where, int32_t value)
+
+    static void relinkTailCall(void* from, void* to)
     {
-        ASSERT(value >= std::numeric_limits<int8_t>::min());
-        ASSERT(value <= std::numeric_limits<int8_t>::max());
-        setInt8(where, value);
+        relinkJump(from, to);
     }
 
     static void repatchInt32(void* where, int32_t value)

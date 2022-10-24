@@ -444,7 +444,7 @@ bool os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock);
 OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
 OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
 void
-os_unfair_recursive_lock_assert_owner(os_unfair_recursive_lock_t lock)
+os_unfair_recursive_lock_assert_owner(const os_unfair_recursive_lock *lock)
 {
 	os_unfair_lock_assert_owner(&lock->ourl_lock);
 }
@@ -458,7 +458,7 @@ os_unfair_recursive_lock_assert_owner(os_unfair_recursive_lock_t lock)
 OS_UNFAIR_RECURSIVE_LOCK_AVAILABILITY
 OS_INLINE OS_ALWAYS_INLINE OS_NOTHROW OS_NONNULL_ALL
 void
-os_unfair_recursive_lock_assert_not_owner(os_unfair_recursive_lock_t lock)
+os_unfair_recursive_lock_assert_not_owner(const os_unfair_recursive_lock *lock)
 {
 	os_unfair_lock_assert_not_owner(&lock->ourl_lock);
 }

@@ -12,6 +12,8 @@
 	<true/>
 	<key>com.apple.private.iokit.batteryTester</key>
 	<true/>
+	<key>com.apple.powerd.smartpowernap.tester</key>
+	<true/>
 	<key>com.apple.security.iokit-user-client-class</key>
 	<array>
 		<string>ApplePPMUserClient</string>

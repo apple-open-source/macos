@@ -11,7 +11,7 @@
 #ifdef IN_LIBXML
 #ifdef __GNUC__
 #ifdef PIC
-#ifdef linux
+#ifdef __linux__
 #if (__GNUC__ == 3 && __GNUC_MINOR__ >= 3) || (__GNUC__ > 3)
 
 #include "libxml/c14n.h"
@@ -4312,6 +4312,16 @@ extern __typeof (xmlHashCreateDict) xmlHashCreateDict__internal_alias __attribut
 #endif
 
 #ifdef bottom_hash
+#undef xmlHashDefaultDeallocator
+extern __typeof (xmlHashDefaultDeallocator) xmlHashDefaultDeallocator __attribute((alias("xmlHashDefaultDeallocator__internal_alias")));
+#else
+#ifndef xmlHashDefaultDeallocator
+extern __typeof (xmlHashDefaultDeallocator) xmlHashDefaultDeallocator__internal_alias __attribute((visibility("hidden")));
+#define xmlHashDefaultDeallocator xmlHashDefaultDeallocator__internal_alias
+#endif
+#endif
+
+#ifdef bottom_hash
 #undef xmlHashFree
 extern __typeof (xmlHashFree) xmlHashFree __attribute((alias("xmlHashFree__internal_alias")));
 #else
@@ -7960,6 +7970,18 @@ extern __typeof (xmlPopInputCallbacks) xmlPopInputCallbacks __attribute((alias("
 #ifndef xmlPopInputCallbacks
 extern __typeof (xmlPopInputCallbacks) xmlPopInputCallbacks__internal_alias __attribute((visibility("hidden")));
 #define xmlPopInputCallbacks xmlPopInputCallbacks__internal_alias
+#endif
+#endif
+
+#if defined(LIBXML_OUTPUT_ENABLED)
+#ifdef bottom_xmlIO
+#undef xmlPopOutputCallbacks
+extern __typeof (xmlPopOutputCallbacks) xmlPopOutputCallbacks __attribute((alias("xmlPopOutputCallbacks__internal_alias")));
+#else
+#ifndef xmlPopOutputCallbacks
+extern __typeof (xmlPopOutputCallbacks) xmlPopOutputCallbacks__internal_alias __attribute((visibility("hidden")));
+#define xmlPopOutputCallbacks xmlPopOutputCallbacks__internal_alias
+#endif
 #endif
 #endif
 

@@ -46,7 +46,12 @@
 #include <sys/cdefs.h>
 #include <System/libkern/mkext.h>
 #include <System/libkern/kext_request_keys.h>
+#if __has_include(<libkern/OSKextLibPrivate.h>)
+/* prefer <libkern/OSKextLibPrivate.h> if host side tools SDK is new enough */
+#include <libkern/OSKextLibPrivate.h>
+#else
 #include <System/libkern/OSKextLibPrivate.h>
+#endif
 #include <Kernel/mach/vm_param.h>
 #if __has_include(<prelink.h>)
 /* take prelink.h from host side tools SDK */
@@ -446,7 +451,7 @@ enum enumSegIdx {
 void __sOSKextDefaultLogFunction(
     OSKextRef       aKext,
     OSKextLogSpec   msgLogSpec,
-    const char     * format, ...);
+    const char     * format, ...) __printflike(3, 4);
 void __OSKextLogKernelMessages(
     OSKextRef aKext,
     CFTypeRef kernelMessages);
@@ -454,7 +459,7 @@ void __OSKextLogKernelMessages(
 void (*__sOSKextLogOutputFunction)(
     OSKextRef       aKext,
     OSKextLogSpec   msgLogSpec,
-    const char    * format, ...) =
+    const char    * format, ...) __printflike(3, 4) =
         &__sOSKextDefaultLogFunction;
 
 static const char * safe_mach_error_string(mach_error_t error_code);
@@ -886,7 +891,7 @@ static void __OSKextLoggingCallback(
     KXLDLogLevel        level, 
     const char        * format, 
     va_list             argList,
-    void              * user_data);
+    void              * user_data) __printflike(3, 0);
 #endif /* !IOKIT_EMBEDDED */
 
 
@@ -1188,7 +1193,6 @@ CFStringRef __OSKextCopyExecutableRelativePath(OSKextRef aKext);
 static bool __OSKextShouldLog(
     OSKextRef        aKext,
     OSKextLogSpec    msgLogSpec);
-
 
 Boolean _isArray(CFTypeRef);
 Boolean _isDictionary(CFTypeRef);
@@ -3218,7 +3222,6 @@ CFMutableArrayRef __OSKextCreateKextsFromURL(
         }
         goto finish;
     }
-
 
    /*****
     * If anURL is not a kext bundle, then scan it as a directory
@@ -12327,7 +12330,6 @@ CFDictionaryRef OSKextCopyLoadedKextInfoByUUID(
     CFArrayRef kextIdentifiers,
     CFArrayRef infoKeys)
 {
-
     CFDictionaryRef        result        = NULL;
     OSReturn               op_result     = kOSReturnError;
     CFMutableDictionaryRef requestDict   = NULL;  // must release
@@ -12481,7 +12483,6 @@ CFDictionaryRef OSKextCopyLoadedKextInfo(
     CFArrayRef kextIdentifiers,
     CFArrayRef infoKeys)
 {
-
     CFDictionaryRef        result        = NULL;
     OSReturn               op_result     = kOSReturnError;
     CFMutableDictionaryRef requestDict   = NULL;  // must release
@@ -20328,7 +20329,6 @@ static bool __OSKextShouldLog(
     return logSpecMatch(msgLogSpec, __sUserLogFilter);
 }
 
-
 /*********************************************************************
 *********************************************************************/
 void OSKextLog(
@@ -20604,7 +20604,8 @@ __unused static void __OSKextShowPLKInfo(plkInfo *info)
         uint64_t fileoff = filebase + vmoff;
         uint64_t vmsize = getKCPlkSegVMSize(info, segIdx);
 
-        OSKextLog(NULL, "plk_%s: vmaddr %p vmsize %llu fileoff %llu next_fileoff %llu filesize %llu",
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                  "plk_%s: vmaddr 0x%qx vmsize %llu fileoff %llu next_fileoff %llu filesize %llu",
                   segIdxToName(segIdx), vmbase, vmsize, filebase, fileoff, vmsize );
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2022 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -327,11 +327,16 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
     switch (cmd) {
 
-        case L2TP_CMD_SETFLAGS:
-            LOGIT(rfc, "L2TP command (%p): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
-            rfc->flags = *(u_int32_t *)cmddata;
-           break;
-
+		case L2TP_CMD_SETFLAGS: {
+			uint32_t new_flags = *(u_int32_t *)cmddata;
+			LOGIT(rfc, "L2TP command (%p): set flags = 0x%x\n", rfc, new_flags);
+			if ((rfc->flags & L2TP_FLAG_CONTROL) != (new_flags & L2TP_FLAG_CONTROL) && rfc->socket != NULL) {
+				error = EBUSY;
+			} else {
+				rfc->flags = new_flags;
+			}
+			break;
+		}
         case L2TP_CMD_GETFLAGS:
             LOGIT(rfc, "L2TP command (%p): get flags = 0x%x\n", rfc, rfc->flags);
             *(u_int32_t *)cmddata = rfc->flags;

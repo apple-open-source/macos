@@ -32,9 +32,9 @@
 #include <sys/fcntl.h>
 #include <miscfs/devfs/devfs.h>
 
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 #include <arm/caches_internal.h>
-#endif /* defined(__arm__) || defined(__arm64__) */
+#endif /* defined(__arm64__) */
 
 #include <sys/dtrace.h>
 #include <sys/dtrace_impl.h>
@@ -49,13 +49,7 @@ extern int dtrace_kernel_symbol_mode;
 /* #include <machine/trap.h */
 struct savearea_t; /* Used anonymously */
 
-#if defined(__arm__)
-typedef kern_return_t (*perfCallback)(int, struct savearea_t *, __unused int, __unused int);
-extern perfCallback tempDTraceTrapHook;
-extern kern_return_t fbt_perfCallback(int, struct savearea_t *, __unused int, __unused int);
-#define SDT_PATCHVAL    0xdefc
-#define SDT_AFRAMES             7
-#elif defined(__arm64__)
+#if defined(__arm64__)
 typedef kern_return_t (*perfCallback)(int, struct savearea_t *, __unused int, __unused int);
 extern perfCallback tempDTraceTrapHook;
 extern kern_return_t fbt_perfCallback(int, struct savearea_t *, __unused int, __unused int);
@@ -415,8 +409,8 @@ static const struct cdevsw sdt_cdevsw =
 	.d_read = eno_rdwrt,
 	.d_write = eno_rdwrt,
 	.d_ioctl = eno_ioctl,
-	.d_stop = (stop_fcn_t *)nulldev,
-	.d_reset = (reset_fcn_t *)nulldev,
+	.d_stop = eno_stop,
+	.d_reset = eno_reset,
 	.d_select = eno_select,
 	.d_mmap = eno_mmap,
 	.d_strategy = eno_strat,
@@ -429,7 +423,7 @@ static const struct cdevsw sdt_cdevsw =
 #include <libkern/kernel_mach_header.h>
 
 /*
- * Represents single record in __DATA,__sdt section.
+ * Represents single record in __DATA_CONST,__sdt section.
  */
 typedef struct dtrace_sdt_def {
 	uintptr_t      dsd_addr;    /* probe site location */
@@ -604,7 +598,7 @@ sdt_load_machsect(struct modctl *ctl)
 	}
 
 	/* Locate DTrace SDT section in the object. */
-	if ((sec_sdt = getsectbynamefromheader(mh, "__DATA", "__sdt")) == NULL) {
+	if ((sec_sdt = getsectbynamefromheader(mh, "__DATA_CONST", "__sdt")) == NULL) {
 		return;
 	}
 
@@ -614,13 +608,6 @@ sdt_load_machsect(struct modctl *ctl)
 	dtrace_sdt_def_t *sdtdef = (dtrace_sdt_def_t *)(sec_sdt->addr);
 	for (size_t k = 0; k < sec_sdt->size / sizeof(dtrace_sdt_def_t); k++, sdtdef++) {
 		unsigned long best = 0;
-
-#if defined(__arm__)
-		/* PR8353094 - mask off thumb-bit */
-		sdtdef->dsd_addr &= ~0x1U;
-#elif defined(__arm64__)
-		sdtdef->dsd_addr &= ~0x1LU;
-#endif  /* __arm__ */
 
 		/*
 		 * Static KEXTs share __sdt section with kernel after linking. It is required
@@ -687,7 +674,11 @@ sdt_load_machsect(struct modctl *ctl)
 			(void) strlcpy(sdpd->sdpd_func, funcname, len);
 		}
 
+#if defined(__arm64__)
+		sdpd->sdpd_offset = sdtdef->dsd_addr & ~0x1LU;
+#else
 		sdpd->sdpd_offset = sdtdef->dsd_addr;
+#endif  /* __arm64__ */
 
 		sdpd->sdpd_next = (sdt_probedesc_t *)ctl->mod_sdtdesc;
 		ctl->mod_sdtdesc = sdpd;

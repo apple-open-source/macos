@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1737,6 +1737,7 @@ eapsim_notification(EAPSIMContextRef context,
 	    EAPLOG(LOG_NOTICE, "eapsim: failed to allocate AT_COUNTER, %s",
 		   TLVBufferErrorString(encr_tb_p));
 	    *client_status = kEAPClientStatusAllocationFailed;
+	    pkt = NULL;
 	    goto done;
 	}
 

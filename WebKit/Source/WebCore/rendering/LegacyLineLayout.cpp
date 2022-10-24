@@ -360,19 +360,8 @@ TextAlignMode LegacyLineLayout::textAlignmentForLine(bool endsWithSoftBreak) con
         return *overrideAlignment;
 
     TextAlignMode alignment = style().textAlign();
-#if ENABLE(CSS3_TEXT)
-    TextJustify textJustify = style().textJustify();
-    if (alignment == TextAlignMode::Justify && textJustify == TextJustify::None)
-        return style().direction() == TextDirection::LTR ? TextAlignMode::Left : TextAlignMode::Right;
-#endif
 
     if (endsWithSoftBreak)
-        return alignment;
-
-#if !ENABLE(CSS3_TEXT)
-    return (alignment == TextAlignMode::Justify) ? TextAlignMode::Start : alignment;
-#else
-    if (alignment != TextAlignMode::Justify)
         return alignment;
 
     TextAlignLast alignmentLast = style().textAlignLast();
@@ -390,12 +379,13 @@ TextAlignMode LegacyLineLayout::textAlignmentForLine(bool endsWithSoftBreak) con
     case TextAlignLast::Justify:
         return TextAlignMode::Justify;
     case TextAlignLast::Auto:
-        if (textJustify == TextJustify::Distribute)
-            return TextAlignMode::Justify;
-        return TextAlignMode::Start;
+        if (alignment == TextAlignMode::Justify)
+            return TextAlignMode::Start;
+        return alignment;
     }
-    return alignment;
-#endif
+
+    ASSERT_NOT_REACHED();
+    return TextAlignMode::Start;
 }
 
 static void updateLogicalWidthForLeftAlignedBlock(bool isLeftToRightDirection, BidiRun* trailingSpaceRun, float& logicalLeft, float& totalLogicalWidth, float availableLogicalWidth)
@@ -478,10 +468,10 @@ static inline void setLogicalWidthForTextRun(LegacyRootInlineBox* lineBox, BidiR
         // will keep us from computing glyph bounds in nearly all cases.
         bool includeRootLine = lineBox->includesRootLineBoxFontOrLeading();
         int baselineShift = lineBox->verticalPositionForBox(run->box(), verticalPositionCache);
-        int rootDescent = includeRootLine ? font.fontMetrics().descent() : 0;
-        int rootAscent = includeRootLine ? font.fontMetrics().ascent() : 0;
-        int boxAscent = font.fontMetrics().ascent() - baselineShift;
-        int boxDescent = font.fontMetrics().descent() + baselineShift;
+        int rootDescent = includeRootLine ? font.metricsOfPrimaryFont().descent() : 0;
+        int rootAscent = includeRootLine ? font.metricsOfPrimaryFont().ascent() : 0;
+        int boxAscent = font.metricsOfPrimaryFont().ascent() - baselineShift;
+        int boxDescent = font.metricsOfPrimaryFont().descent() + baselineShift;
         if (boxAscent > rootDescent ||  boxDescent > rootAscent)
             glyphOverflow.computeBounds = true; 
     }
@@ -637,7 +627,7 @@ void LegacyLineLayout::computeExpansionForJustifiedText(BidiRun* firstRun, BidiR
 void LegacyLineLayout::updateLogicalWidthForAlignment(RenderBlockFlow& flow, const TextAlignMode& textAlign, const LegacyRootInlineBox* rootInlineBox, BidiRun* trailingSpaceRun, float& logicalLeft, float& totalLogicalWidth, float& availableLogicalWidth, int expansionOpportunityCount)
 {
     TextDirection direction;
-    if (rootInlineBox && flow.style().unicodeBidi() == Plaintext)
+    if (rootInlineBox && flow.style().unicodeBidi() == UnicodeBidi::Plaintext)
         direction = rootInlineBox->direction();
     else
         direction = flow.style().direction();
@@ -698,10 +688,10 @@ static void updateLogicalInlinePositions(RenderBlockFlow& block, float& lineLogi
 void LegacyLineLayout::computeInlineDirectionPositionsForLine(LegacyRootInlineBox* lineBox, const LineInfo& lineInfo, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap& textBoxDataMap, VerticalPositionCache& verticalPositionCache, WordMeasurements& wordMeasurements)
 {
     TextAlignMode textAlign = textAlignmentForLine(!reachedEnd && !lineBox->endsWithBreak());
-    
-    // CSS 2.1: "'Text-indent' only affects a line if it is the first formatted line of an element. For example, the first line of an anonymous block 
+
+    // CSS 2.1: "'Text-indent' only affects a line if it is the first formatted line of an element. For example, the first line of an anonymous block
     // box is only affected if it is the first child of its parent element."
-    // CSS3 "text-indent", "-webkit-each-line" affects the first line of the block container as well as each line after a forced line break,
+    // CSS3 "text-indent", "each-line" affects the first line of the block container as well as each line after a forced line break,
     // but does not affect lines after a soft wrap break.
     bool isFirstLine = lineInfo.isFirstLine() && !(m_flow.isAnonymousBlock() && m_flow.parent()->firstChild() != &m_flow);
     bool isAfterHardLineBreak = lineBox->prevRootBox() && lineBox->prevRootBox()->endsWithBreak();
@@ -712,7 +702,7 @@ void LegacyLineLayout::computeInlineDirectionPositionsForLine(LegacyRootInlineBo
     updateLogicalInlinePositions(m_flow, lineLogicalLeft, lineLogicalRight, availableLogicalWidth, isFirstLine, shouldIndentText, 0);
     bool needsWordSpacing;
 
-    if (firstRun && firstRun->renderer().isReplaced()) {
+    if (firstRun && firstRun->renderer().isReplacedOrInlineBlock()) {
         RenderBox& renderBox = downcast<RenderBox>(firstRun->renderer());
         updateLogicalInlinePositions(m_flow, lineLogicalLeft, lineLogicalRight, availableLogicalWidth, isFirstLine, shouldIndentText, renderBox.logicalHeight());
     }
@@ -728,9 +718,9 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
 {
     // Tatechuyoko is modeled as the Object Replacement Character (U+FFFC), which can never have expansion opportunities inside nor intrinsically adjacent to it.
     if (textBox.renderer().style().textCombine() == TextCombine::All)
-        return ForbidLeftExpansion | ForbidRightExpansion;
+        return ExpansionBehavior::forbidAll();
 
-    ExpansionBehavior result = 0;
+    auto result = ExpansionBehavior::forbidAll();
     bool setLeftExpansion = false;
     bool setRightExpansion = false;
     if (textAlign == TextAlignMode::Justify) {
@@ -743,7 +733,7 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
                         // FIXME: This leftExpansionOpportunity doesn't actually work because it doesn't perform the UBA
                         if (FontCascade::leftExpansionOpportunity(downcast<RenderText>(leafChild->renderer()).stringView(), leafChild->direction())) {
                             setRightExpansion = true;
-                            result |= ForceRightExpansion;
+                            result.right = ExpansionBehavior::Behavior::Force;
                         }
                     }
                 }
@@ -758,7 +748,7 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
                         // FIXME: This leftExpansionOpportunity doesn't actually work because it doesn't perform the UBA
                         if (FontCascade::rightExpansionOpportunity(downcast<RenderText>(leafChild->renderer()).stringView(), leafChild->direction())) {
                             setLeftExpansion = true;
-                            result |= ForceLeftExpansion;
+                            result.left = ExpansionBehavior::Behavior::Force;
                         }
                     }
                 }
@@ -769,44 +759,45 @@ static inline ExpansionBehavior expansionBehaviorForInlineTextBox(RenderBlockFlo
             RenderRubyBase& rubyBase = downcast<RenderRubyBase>(block);
             if (&textBox == rubyBase.firstRootBox()->firstLeafDescendant()) {
                 setLeftExpansion = true;
-                result |= ForbidLeftExpansion;
+                result.left = ExpansionBehavior::Behavior::Forbid;
             } if (&textBox == rubyBase.firstRootBox()->lastLeafDescendant()) {
                 setRightExpansion = true;
-                result |= ForbidRightExpansion;
+                result.right = ExpansionBehavior::Behavior::Forbid;
             }
         }
     }
     if (!setLeftExpansion)
-        result |= isAfterExpansion ? ForbidLeftExpansion : AllowLeftExpansion;
+        result.left = isAfterExpansion ? ExpansionBehavior::Behavior::Forbid : ExpansionBehavior::Behavior::Allow;
     if (!setRightExpansion)
-        result |= AllowRightExpansion;
+        result.right = ExpansionBehavior::Behavior::Allow;
     return result;
 }
 
 static inline void applyExpansionBehavior(LegacyInlineTextBox& textBox, ExpansionBehavior expansionBehavior)
 {
-    switch (expansionBehavior & LeftExpansionMask) {
-    case ForceLeftExpansion:
+    switch (expansionBehavior.left) {
+    case ExpansionBehavior::Behavior::Force:
         textBox.setForceLeftExpansion();
         break;
-    case ForbidLeftExpansion:
+    case ExpansionBehavior::Behavior::Forbid:
         textBox.setCanHaveLeftExpansion(false);
         break;
-    case AllowLeftExpansion:
+    case ExpansionBehavior::Behavior::Allow:
         textBox.setCanHaveLeftExpansion(true);
         break;
     default:
         ASSERT_NOT_REACHED();
         break;
-    }
-    switch (expansionBehavior & RightExpansionMask) {
-    case ForceRightExpansion:
+    };
+
+    switch (expansionBehavior.right) {
+    case ExpansionBehavior::Behavior::Force:
         textBox.setForceRightExpansion();
         break;
-    case ForbidRightExpansion:
+    case ExpansionBehavior::Behavior::Forbid:
         textBox.setCanHaveRightExpansion(false);
         break;
-    case AllowRightExpansion:
+    case ExpansionBehavior::Behavior::Allow:
         textBox.setCanHaveRightExpansion(true);
         break;
     default:
@@ -1201,12 +1192,12 @@ static inline void constructBidiRunsForSegment(InlineBidiResolver& topResolver, 
         ASSERT(isolatedInline);
 
         InlineBidiResolver isolatedResolver;
-        EUnicodeBidi unicodeBidi = isolatedInline->style().unicodeBidi();
+        auto unicodeBidi = isolatedInline->style().unicodeBidi();
         TextDirection direction;
-        if (unicodeBidi == Plaintext)
+        if (unicodeBidi == UnicodeBidi::Plaintext)
             determineDirectionality(direction, LegacyInlineIterator(isolatedInline, &isolatedRun.object, 0));
         else {
-            ASSERT(unicodeBidi == Isolate || unicodeBidi == IsolateOverride);
+            ASSERT(unicodeBidi == UnicodeBidi::Isolate || unicodeBidi == UnicodeBidi::IsolateOverride);
             direction = isolatedInline->style().direction();
         }
         isolatedResolver.setStatus(BidiStatus(direction, isOverride(unicodeBidi)));
@@ -1316,7 +1307,7 @@ static void repaintSelfPaintInlineBoxes(const LegacyRootInlineBox& firstRootInli
     for (auto* rootInlineBox = &firstRootInlineBox; rootInlineBox; rootInlineBox = rootInlineBox->nextRootBox()) {
         if (rootInlineBox->hasSelfPaintInlineBox()) {
             for (auto* inlineBox = rootInlineBox->firstChild(); inlineBox; inlineBox = inlineBox->nextOnLine()) {
-                if (auto* renderer = is<RenderLayerModelObject>(inlineBox->renderer()) ? &downcast<RenderLayerModelObject>(inlineBox->renderer()) : nullptr; renderer && renderer->hasSelfPaintingLayer())
+                if (auto* renderer = dynamicDowncast<RenderLayerModelObject>(inlineBox->renderer()); renderer && renderer->hasSelfPaintingLayer())
                     renderer->repaint();
             }
         }
@@ -1347,7 +1338,7 @@ void LegacyLineLayout::layoutRunsAndFloats(LineLayoutState& layoutState, bool ha
             // that the block really needed a full layout, we missed our chance to repaint the layer
             // before layout started. Luckily the layer has cached the repaint rect for its original
             // position and size, and so we can use that to make a repaint happen now.
-            m_flow.repaintUsingContainer(m_flow.containerForRepaint(), m_flow.layerRepaintRects()->clippedOverflowRect);
+            m_flow.repaintUsingContainer(m_flow.containerForRepaint().renderer, m_flow.layerRepaintRects()->clippedOverflowRect);
         }
     }
 
@@ -1454,7 +1445,7 @@ void LegacyLineLayout::layoutRunsAndFloatsInRange(LineLayoutState& layoutState, 
         } else {
             VisualDirectionOverride override = (styleToUse.rtlOrdering() == Order::Visual ? (styleToUse.direction() == TextDirection::LTR ? VisualLeftToRightOverride : VisualRightToLeftOverride) : NoVisualOverride);
 
-            if (isNewUBAParagraph && styleToUse.unicodeBidi() == Plaintext && !resolver.context()->parent()) {
+            if (isNewUBAParagraph && styleToUse.unicodeBidi() == UnicodeBidi::Plaintext && !resolver.context()->parent()) {
                 TextDirection direction = styleToUse.direction();
                 determineDirectionality(direction, resolver.position());
                 resolver.setStatus(BidiStatus(direction, isOverride(styleToUse.unicodeBidi())));
@@ -1763,7 +1754,7 @@ void LegacyLineLayout::layoutLineBoxes(bool relayoutChildren, LayoutUnit& repain
             if (!hasInlineChild && o.isInline())
                 hasInlineChild = true;
 
-            if (o.isReplaced() || o.isFloating() || o.isOutOfFlowPositioned()) {
+            if (o.isReplacedOrInlineBlock() || o.isFloating() || o.isOutOfFlowPositioned()) {
                 RenderBox& box = downcast<RenderBox>(o);
 
                 if (relayoutChildren || box.hasRelativeDimensions())
@@ -1977,7 +1968,8 @@ LegacyRootInlineBox* LegacyLineLayout::determineStartPosition(LineLayoutState& l
                     if (!floatingBox)
                         continue;
                     auto* floatingObject = m_flow.insertFloatingObject(*floatingBox);
-                    ASSERT_WITH_SECURITY_IMPLICATION(!floatingObject->originatingLine());
+                    ASSERT_WITH_SECURITY_IMPLICATION(!floatingObject->originatingLine() || floatingObject->originatingLine() == line);
+                    ASSERT(!floatingObject->originatingLine());
                     floatingObject->setOriginatingLine(*line);
                     m_flow.setLogicalHeight(m_flow.logicalTopForChild(*floatingBox) - m_flow.marginBeforeForChild(*floatingBox));
                     m_flow.positionNewFloats();
@@ -1999,7 +1991,7 @@ LegacyRootInlineBox* LegacyLineLayout::determineStartPosition(LineLayoutState& l
         resolver.setStatus(lastLine->lineBreakBidiStatus());
     } else {
         TextDirection direction = style().direction();
-        if (style().unicodeBidi() == Plaintext)
+        if (style().unicodeBidi() == UnicodeBidi::Plaintext)
             determineDirectionality(direction, LegacyInlineIterator(&m_flow, firstInlineRendererSkippingEmpty(m_flow), 0));
         resolver.setStatus(BidiStatus(direction, isOverride(style().unicodeBidi())));
         LegacyInlineIterator iter = LegacyInlineIterator(&m_flow, firstInlineRendererSkippingEmpty(m_flow, &resolver), 0);

@@ -41,14 +41,12 @@ enum {
 
 static int DeleteHierarchy(char *path, int pathMax);
 static int DeleteFileWithPrejudice(const char *path, struct stat *sb);
-#if !TARGET_CPU_ARM64
 static int CopyKernelCollectionFiles(BLContextPtr context, const char *systemKCPath, const char *prebootKCPath);
 static int GetFilesInDirWithPrefix(const char *directory, const char *prefix, char ***outFileList, int *outNumFiles);
 static int CopyKCFile(BLContextPtr context, const char *from, const char *to);
 static bool StringHasSuffix(const char *str, const char *suffix);
 static void FreeFileList(char **list, int num);
 static int StringCompare(const void *a, const void *b);
-#endif /* TARGET_CPU_ARM64 */
 
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
@@ -73,7 +71,6 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     char            prebootKCPath[MAXPATHLEN];
     bool            mustUnmount = false;
     uint64_t        blessIDs[2];
-#if !TARGET_CPU_ARM64
     char            bootEFIloc[MAXPATHLEN];
     CFDataRef       booterData;
     struct statfs   sfs;
@@ -82,7 +79,6 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     char            *pathEnd2;
     struct stat     existingStat;
     bool            copyBootEFI = (actargs[kbootefi].hasArg == 1);
-#endif /* TARGET_CPU_ARM64 */
     uint16_t        role;
     struct statfs   sb;
 	char			bridgeDstVersionPath[MAXPATHLEN];
@@ -99,14 +95,8 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     bool            isARV;
     int             vol_fd = -1;
     bool            untagRootSnapshot = false;
-    BLPreBootEnvType    firmwareType;
+	BLPreBootEnvType    firmwareType = getPrebootType();
     int isAPFS = false;
-
-    ret = BLGetPreBootEnvironmentType(context, &firmwareType);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError,  "Could not determine firmware environment\n");
-        return 1;
-    }
 
     // Is this already a preboot or recovery volume?
     if (APFSVolumeRole(rootBSD, &role, NULL)) {
@@ -216,10 +206,10 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     if (ret)
         goto exit;
 
-#if !TARGET_CPU_ARM64
     if (bootEFISourceLocation) {
         snprintf(bootEFIloc, sizeof bootEFIloc, "%s", bootEFISourceLocation);
-#endif /* TARGET_CPU_ARM64 */
+    }
+    if (firmwareType == kBLPreBootEnvType_iBoot || bootEFISourceLocation) {
         ret = GetMountForBSD(context, rootBSD, systemPath, sizeof systemPath);
         if (ret) {
             blesscontextprintf(context, kBLLogLevelError, "Error looking up mount points\n");
@@ -267,7 +257,6 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
             }
             rootBSD = systemDev + strlen(_PATH_DEV);
         }
-
         
         if (createSnapshot || sealedSnapshot) {
             if ((role != APFS_VOL_ROLE_SYSTEM)) {
@@ -280,18 +269,18 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
                  ret = ENOTSUP;
                  goto exit;
             }
-         }
-        if (firmwareType != kBLPreBootEnvType_iBoot &&  (createSnapshot || sealedSnapshot)) {
-            if (actargs[kbootefi].present) {
-                if (actargs[kbootefi].hasArg) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot along with an argument to --bootefi.\n" );
+            if (firmwareType != kBLPreBootEnvType_iBoot) {
+                if (actargs[kbootefi].present) {
+                    if (actargs[kbootefi].hasArg) {
+                        blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot along with an argument to --bootefi.\n" );
+                        ret = ENOTSUP;
+                        goto exit;
+                    }
+                } else {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot without --bootefi.\n" );
                     ret = ENOTSUP;
                     goto exit;
                 }
-            } else {
-                blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot without --bootefi.\n" );
-                ret = ENOTSUP;
-                goto exit;
             }
         }
         
@@ -348,133 +337,131 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
                 snprintf(kcPath, sizeof kcPath, "%s", systemPath);
             }
         }
-#if !TARGET_CPU_ARM64
-        
-        if (kcPath[0]) {
-            
-            // booter needs to be fetched from snapshot root or live system if efiboot is not passed in.
-            if (copyBootEFI == false) {
-                snprintf(bootEFIloc, sizeof bootEFIloc, "%s%s", kcPath, bootEFISourceLocation);
-                copyBootEFI = true;
+        if (true == untagRootSnapshot) {
+            if ((vol_fd = open(systemPath, O_RDONLY)) < 0) {
+                ret = errno;
+                blesscontextprintf(context, kBLLogLevelError, "Couldn't open volume %s: %s\n", systemPath, strerror(ret));
+                goto exit;
             }
             
-            // Let's copy kernel collections
-            strlcat(kcPath, kBL_PATH_KERNELCOLLECTIONS, sizeof kcPath);
-            ret = CopyKernelCollectionFiles(context, kcPath, prebootKCPath);
-            if (ret) {
+            if (fs_snapshot_root(vol_fd, "", 0) < 0) {
+                ret = errno;
+                blesscontextprintf(context, kBLLogLevelError, "Coulnd't revert current boot snapshot on volume %s: %s\n", systemPath, strerror(ret));
                 goto exit;
             }
         }
-        
-        if (true == copyBootEFI) {
-            blesscontextprintf(context, kBLLogLevelVerbose, "booter path %s\n", bootEFIloc);
 
-            // The booter got written.  We'll have to rewrite it to the preboot volume.
-            ret = BLLoadFile(context, bootEFIloc, 0, &booterData);
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load booter data from %s\n",
-							   bootEFIloc);
+        if (firmwareType != kBLPreBootEnvType_iBoot) {
+            if (kcPath[0]) {
+                // booter needs to be fetched from snapshot root or live system if efiboot is not passed in.
+                if (copyBootEFI == false) {
+                    snprintf(bootEFIloc, sizeof bootEFIloc, "%s%s", kcPath, bootEFISourceLocation);
+                    copyBootEFI = true;
+                }
+                // Let's copy kernel collections
+                strlcat(kcPath, kBL_PATH_KERNELCOLLECTIONS, sizeof kcPath);
+                ret = CopyKernelCollectionFiles(context, kcPath, prebootKCPath);
+                if (ret) {
+                    goto exit;
+                }
             }
         
-            if (booterData) {
-                // check to see if needed
-                CFDataRef oldEFIdata = NULL;
-            
-                ret = lstat(prebootFolderPath, &existingStat);
-            
-                if (ret == 0 && S_ISREG(existingStat.st_mode)) {
-                ret = BLLoadFile(context, prebootFolderPath, 0, &oldEFIdata);
+            if (true == copyBootEFI) {
+                blesscontextprintf(context, kBLLogLevelVerbose, "booter path %s\n", bootEFIloc);
+
+                // The booter got written.  We'll have to rewrite it to the preboot volume.
+                ret = BLLoadFile(context, bootEFIloc, 0, &booterData);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load booter data from %s\n",
+                               bootEFIloc);
                 }
-                if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, booterData)) {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
-                                       prebootFolderPath);
-                } else {
-                    ret = BLCreateFileWithOptions(context, booterData, prebootFolderPath, 0, 0, 0, kTryPreallocate);
-                    if (ret) {
-                        blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", prebootFolderPath);
-                        ret = 7;
-                        goto exit;
+        
+                if (booterData) {
+                    // check to see if needed
+                    CFDataRef oldEFIdata = NULL;
+            
+                    ret = lstat(prebootFolderPath, &existingStat);
+            
+                    if (ret == 0 && S_ISREG(existingStat.st_mode)) {
+                        ret = BLLoadFile(context, prebootFolderPath, 0, &oldEFIdata);
+                    }
+                    if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, booterData)) {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
+                                           prebootFolderPath);
                     } else {
-                        blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
-                                       prebootFolderPath);
+                        ret = BLCreateFileWithOptions(context, booterData, prebootFolderPath, 0, 0, 0, kTryPreallocate);
+                        if (ret) {
+                            blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", prebootFolderPath);
+                            ret = 7;
+                            goto exit;
+                        } else {
+                            blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
+                                               prebootFolderPath);
+                        }
+                    }
+                    if (oldEFIdata) {
+                        CFRelease(oldEFIdata);
+                    }
+                    ret = CopyManifests(context, prebootFolderPath, bootEFIloc, systemPath);
+                    if (ret) {
+                        blesscontextprintf(context, kBLLogLevelError, "Couldn't copy img4 manifests for file %s\n", bootEFIloc);
+                    }
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
+                }
+                ret = statfs(bootEFIloc, &sfs);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelError, "Could not get filesystem information for file %s\n", bootEFIloc);
+                    ret = errno;
+                    goto exit;
+                }
+                strlcpy(bridgeSrcVersionPath, sfs.f_mntonname, sizeof bridgeSrcVersionPath);
+                strlcat(bridgeDstVersionPath, "/", sizeof bridgeDstVersionPath);
+                pathEnd = bridgeSrcVersionPath + strlen(bridgeSrcVersionPath);
+                pathEnd2 = bridgeDstVersionPath + strlen(bridgeDstVersionPath);
+                strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_BIN, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
+                if (access(bridgeSrcVersionPath, R_OK) < 0) {
+                    ret = ENOENT;
+                } else {
+                    ret = BLLoadFile(context, bridgeSrcVersionPath, 0, &versionData);
+                }
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load version data from %s\n",
+                                       bridgeSrcVersionPath);
+                   ret = 0;
+                }
+                if (versionData) {
+                    strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_BIN), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
+                    ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
+                    CFRelease(versionData);
+                    if (ret) {
+                        blesscontextprintf(context, kBLLogLevelError, "Couldn't create file at %s\n", bridgeDstVersionPath);
+                        goto exit;
                     }
                 }
-                if (oldEFIdata) CFRelease(oldEFIdata);
-                ret = CopyManifests(context, prebootFolderPath, bootEFIloc, systemPath);
+                strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_PLIST, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
+                if (access(bridgeSrcVersionPath, R_OK) < 0) {
+                    ret = ENOENT;
+                } else {
+                    ret = BLLoadFile(context, bridgeSrcVersionPath, 0, &versionData);
+                }
                 if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError, "Couldn't copy img4 manifests for file %s\n", bootEFIloc);
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load version data from %s\n",
+                                       bridgeSrcVersionPath);
+                    ret = 0;
                 }
-            } else {
-                blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
-            }
-            ret = statfs(bootEFIloc, &sfs);
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelError, "Could not get filesystem information for file %s\n", bootEFIloc);
-                ret = errno;
-                goto exit;
-            }
-            strlcpy(bridgeSrcVersionPath, sfs.f_mntonname, sizeof bridgeSrcVersionPath);
-            strlcat(bridgeDstVersionPath, "/", sizeof bridgeDstVersionPath);
-            pathEnd = bridgeSrcVersionPath + strlen(bridgeSrcVersionPath);
-            pathEnd2 = bridgeDstVersionPath + strlen(bridgeDstVersionPath);
-            strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_BIN, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
-            if (access(bridgeSrcVersionPath, R_OK) < 0) {
-                ret = ENOENT;
-            } else {
-                ret = BLLoadFile(context, bridgeSrcVersionPath, 0, &versionData);
-            }
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load version data from %s\n",
-                                   bridgeSrcVersionPath);
-                ret = 0;
-            }
-            if (versionData) {
-                strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_BIN), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
-                ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
-                CFRelease(versionData);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError, "Couldn't create file at %s\n", bridgeDstVersionPath);
-                    goto exit;
+                if (versionData) {
+                    strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_PLIST), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
+                    ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
+                    CFRelease(versionData);
+                    if (ret) {
+                        blesscontextprintf(context, kBLLogLevelError, "Couldn't create file at %s\n", bridgeDstVersionPath);
+                        goto exit;
+                    }
                 }
             }
-            strlcpy(pathEnd, kBL_PATH_BRIDGE_VERSION_PLIST, bridgeSrcVersionPath + sizeof bridgeSrcVersionPath - pathEnd);
-            if (access(bridgeSrcVersionPath, R_OK) < 0) {
-                ret = ENOENT;
-            } else {
-                ret = BLLoadFile(context, bridgeSrcVersionPath, 0, &versionData);
-            }
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load version data from %s\n",
-                                   bridgeSrcVersionPath);
-                ret = 0;
-            }
-            if (versionData) {
-                strlcpy(pathEnd2, basename(kBL_PATH_BRIDGE_VERSION_PLIST), bridgeDstVersionPath + sizeof bridgeDstVersionPath - pathEnd2);
-                ret = BLCreateFileWithOptions(context, versionData, bridgeDstVersionPath, 0, 0, 0, 0);
-                CFRelease(versionData);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError, "Couldn't create file at %s\n", bridgeDstVersionPath);
-                    goto exit;
-                }
-            }
-#endif  /* TARGET_CPU_ARM64 */
-            if (true == untagRootSnapshot)
-            {
-                if ((vol_fd = open(systemPath, O_RDONLY)) < 0) {
-                    ret = errno;
-                    blesscontextprintf(context, kBLLogLevelError, "Couldn't open volume %s: %s\n", systemPath, strerror(ret));
-                    goto exit;
-                }
-                
-                if (fs_snapshot_root(vol_fd, "", 0) < 0) {
-                    ret = errno;
-                    blesscontextprintf(context, kBLLogLevelError, "Coulnd't revert current boot snapshot on volume %s: %s\n", systemPath, strerror(ret));
-                    goto exit;
-                }
-            }
-#if !TARGET_CPU_ARM64
         }
-    } else {
+    } else if (firmwareType != kBLPreBootEnvType_iBoot){
         ret = lstat(prebootFolderPath, &existingStat);
         if (ret) {
             blesscontextprintf(context, kBLLogLevelError, "Could not access boot.efi file at %s\n",
@@ -483,13 +470,15 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
             goto exit;
         }
     }
-#endif /* TARGET_CPU_ARM64 */
+
     if (setIDs) {
-        ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
-            ret = 6;
-            goto exit;
+        if (firmwareType != kBLPreBootEnvType_iBoot) {
+            ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
+                ret = 6;
+                goto exit;
+            }
         }
         ret = BLSetAPFSBlessData(context,  prebootMountPoint, blessIDs);
         if (ret) {
@@ -764,7 +753,7 @@ static int DeleteHierarchy(char *path, int pathMax)
 	readdir(dp);
 	readdir(dp);
 	if (path[strlen(path)-1] != '/') strlcat(path, "/", pathMax);
-	endIdx = strlen(path);
+	endIdx = (int)strlen(path);
 	ret = 0;
 	while ((dirent = readdir(dp)) != NULL) {
 		if (endIdx + dirent->d_namlen >= pathMax) continue;
@@ -799,7 +788,6 @@ static int DeleteFileWithPrejudice(const char *path, struct stat *sb)
 	return (unlink(path) < 0) ? errno : 0;
 }
 
-#if !TARGET_CPU_ARM64
 
 // We have two tasks: copy any appropriate files from the system location,
 // and delete any files in the target location that aren't getting copied.
@@ -910,7 +898,7 @@ static int GetFilesInDirWithPrefix(const char *directory, const char *prefix, ch
 	struct stat		sb;
 	char			path[MAXPATHLEN];
 	int				endIdx;
-	int				prefixLen = strlen(prefix);
+	int				prefixLen = (int)strlen(prefix);
 	char			**list = NULL;
 	int				numFiles = 0;
 	int				listSize = 10;
@@ -928,7 +916,7 @@ static int GetFilesInDirWithPrefix(const char *directory, const char *prefix, ch
 	readdir(dp); readdir(dp);
 	strlcpy(path, directory, sizeof path);
 	if (path[strlen(path)-1] != '/') strlcat(path, "/", sizeof path);
-	endIdx = strlen(path);
+	endIdx = (int)strlen(path);
 	while ((dirent = readdir(dp)) != NULL) {
 		if (strncmp(dirent->d_name, prefix, prefixLen) != 0) continue;
 		if (endIdx + dirent->d_namlen >= sizeof path) continue;
@@ -1036,8 +1024,8 @@ static int CopyKCFile(BLContextPtr context, const char *from, const char *to)
 	}
 	lseek(fdFrom, 0, SEEK_SET);
 	while (fileSize > 0) {
-		bytes = MIN(fileSize, 0x100000);
-		if ((bytes = read(fdFrom, buffer, bytes)) < 0) {
+		bytes = (int)MIN(fileSize, 0x100000);
+		if ((bytes = (int)read(fdFrom, buffer, bytes)) < 0) {
 			ret = errno;
 			blesscontextprintf(context, kBLLogLevelError, "Error reading from %s: %s\n", from, strerror(ret));
 			goto exit;
@@ -1065,14 +1053,13 @@ static bool StringHasSuffix(const char *str, const char *suffix)
 	int strLength;
 	int suffixLength;
 
-	strLength = strlen(str);
-	suffixLength = strlen(suffix);
+	strLength = (int)strlen(str);
+	suffixLength = (int)strlen(suffix);
 	if (strLength < suffixLength) return false;
 	cmp = str + strLength - suffixLength;
 	return strcmp(cmp, suffix) == 0;
 }
 
-#endif /* !TARGET_CPU_ARM64 */
 
 int extractDiskFromMountPoint(BLContextPtr context, const char *mnt, char *disk, size_t disk_size) {
 	struct	statfs sb;

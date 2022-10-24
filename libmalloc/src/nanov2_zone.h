@@ -29,21 +29,21 @@
 #pragma mark -
 #pragma mark Address Structure
 
-#if TARGET_OS_OSX || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
+#if TARGET_OS_OSX || TARGET_OS_SIMULATOR || MALLOC_TARGET_DK_OSX
 
 #define NANOV2_REGION_BITS		15
 #define NANOV2_ARENA_BITS		3
 #define NANOV2_BLOCK_BITS		12
 #define NANOV2_OFFSET_BITS		14
 
-#else // TARGET_OS_OSX || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
+#else // TARGET_OS_OSX || TARGET_OS_SIMULATOR || MALLOC_TARGET_DK_OSX
 
 #define NANOV2_REGION_BITS		0
 #define NANOV2_ARENA_BITS		3
 #define NANOV2_BLOCK_BITS		12
 #define NANOV2_OFFSET_BITS		14
 
-#endif // TARGET_OS_OSX || TARGET_OS_SIMULATOR || TARGET_OS_DRIVERKIT
+#endif // TARGET_OS_OSX || TARGET_OS_SIMULATOR || MALLOC_TARGET_DK_OSX
 
 #if NANOV2_REGION_BITS > 0
 #define NANOV2_MULTIPLE_REGIONS	1
@@ -181,8 +181,10 @@ MALLOC_STATIC_ASSERT(sizeof(nanov2_arena_metablock_t) == NANOV2_BLOCK_SIZE,
 // Structure overlaid on slots that are on the block freelist.
 typedef struct {
     uint64_t double_free_guard;
-    uint16_t next_slot;
+    uint64_t next_slot; // Legal values are <= NEXT_SLOT_VALID_MASK
 } nanov2_free_slot_t;
+
+#define NEXT_SLOT_VALID_MASK 0x7ff
 
 MALLOC_STATIC_ASSERT(
 		sizeof(nanov2_free_slot_t) <= NANO_REGIME_QUANTA_SIZE,
@@ -258,9 +260,6 @@ typedef struct nanozonev2_s {
 
 	// Locks for the current allocation blocks.
 	_malloc_lock_s		current_block_lock[NANO_SIZE_CLASSES][MAX_CURRENT_BLOCKS];
-
-	// Lock for delegate_allocations.
-	_malloc_lock_s		delegate_allocations_lock;
 
 	// Mask of size classes for which allocation should be delegated when a new
 	// block is needed and the class has become full.

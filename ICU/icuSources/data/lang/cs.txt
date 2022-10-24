@@ -45,6 +45,7 @@ cs{
         an{"aragonština"}
         ang{"staroangličtina"}
         anp{"angika"}
+        apw{"apačská (západní)"}
         ar{"arabština"}
         ar_001{"arabština (moderní standardní)"}
         arc{"aramejština"}

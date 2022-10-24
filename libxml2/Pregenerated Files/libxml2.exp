@@ -38,12 +38,10 @@ _checkNamespace
 _comment
 _docbDefaultSAXHandlerInit
 _elementDecl
-_emptyExp
 _endDocument
 _endElement
 _entityDecl
 _externalSubset
-_forbiddenExp
 _getColumnNumber
 _getEntity
 _getLineNumber
@@ -348,25 +346,6 @@ _xmlElemDump
 _xmlEncodeEntities
 _xmlEncodeEntitiesReentrant
 _xmlEncodeSpecialChars
-_xmlExpCtxtNbCons
-_xmlExpCtxtNbNodes
-_xmlExpDump
-_xmlExpExpDerive
-_xmlExpFree
-_xmlExpFreeCtxt
-_xmlExpGetLanguage
-_xmlExpGetStart
-_xmlExpIsNillable
-_xmlExpMaxToken
-_xmlExpNewAtom
-_xmlExpNewCtxt
-_xmlExpNewOr
-_xmlExpNewRange
-_xmlExpNewSeq
-_xmlExpParse
-_xmlExpRef
-_xmlExpStringDerive
-_xmlExpSubsume
 _xmlFileClose
 _xmlFileMatch
 _xmlFileOpen
@@ -1609,27 +1588,8 @@ _xmlXPathWrapExternal
 _xmlXPathWrapNodeSet
 _xmlXPathWrapString
 _xmlXPatherror
-_xmlXPtrBuildNodeList
 _xmlXPtrEval
-_xmlXPtrEvalRangePredicate
-_xmlXPtrFreeLocationSet
-_xmlXPtrLocationSetAdd
-_xmlXPtrLocationSetCreate
-_xmlXPtrLocationSetDel
-_xmlXPtrLocationSetMerge
-_xmlXPtrLocationSetRemove
-_xmlXPtrNewCollapsedRange
 _xmlXPtrNewContext
-_xmlXPtrNewLocationSetNodeSet
-_xmlXPtrNewLocationSetNodes
-_xmlXPtrNewRange
-_xmlXPtrNewRangeNodeObject
-_xmlXPtrNewRangeNodePoint
-_xmlXPtrNewRangeNodes
-_xmlXPtrNewRangePointNode
-_xmlXPtrNewRangePoints
-_xmlXPtrRangeToFunction
-_xmlXPtrWrapLocationSet
 
 # Symbols deprecated from DOCBparser.h.
 _docbCreateFileParserCtxt
@@ -1642,6 +1602,33 @@ _docbParseDocument
 _docbParseFile
 _docbSAXParseDoc
 _docbSAXParseFile
+
+# Symbols added for LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16; see xmlversion.h.
+_xmlHashDefaultDeallocator
+_xmlPopOutputCallbacks
+
+# Symbols in LIBXML_EXPR_ENABLED from xmlregexp.h.
+#_emptyExp
+#_forbiddenExp
+#_xmlExpCtxtNbCons
+#_xmlExpCtxtNbNodes
+#_xmlExpDump
+#_xmlExpExpDerive
+#_xmlExpFree
+#_xmlExpFreeCtxt
+#_xmlExpGetLanguage
+#_xmlExpGetStart
+#_xmlExpIsNillable
+#_xmlExpMaxToken
+#_xmlExpNewAtom
+#_xmlExpNewCtxt
+#_xmlExpNewOr
+#_xmlExpNewRange
+#_xmlExpNewSeq
+#_xmlExpParse
+#_xmlExpRef
+#_xmlExpStringDerive
+#_xmlExpSubsume
 
 # Symbols in LIBXML_DEBUG_ENABLED from debugXML.h and xpathInternals.h.
 _xmlBoolToText
@@ -1704,3 +1691,24 @@ _xmlStructuredError
 _xmlStructuredErrorContext
 _xmlSubstituteEntitiesDefaultValue
 _xmlTreeIndentString
+
+# Symbols for deprecated XPointer Location Set
+_xmlXPtrBuildNodeList
+_xmlXPtrEvalRangePredicate
+_xmlXPtrFreeLocationSet
+_xmlXPtrLocationSetAdd
+_xmlXPtrLocationSetCreate
+_xmlXPtrLocationSetDel
+_xmlXPtrLocationSetMerge
+_xmlXPtrLocationSetRemove
+_xmlXPtrNewCollapsedRange
+_xmlXPtrNewLocationSetNodeSet
+_xmlXPtrNewLocationSetNodes
+_xmlXPtrNewRange
+_xmlXPtrNewRangeNodeObject
+_xmlXPtrNewRangeNodePoint
+_xmlXPtrNewRangeNodes
+_xmlXPtrNewRangePointNode
+_xmlXPtrNewRangePoints
+_xmlXPtrRangeToFunction
+_xmlXPtrWrapLocationSet

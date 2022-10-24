@@ -17,9 +17,12 @@
 #define COMPRESSED_FILE_NAME	"aria"
 #define DESTINATION_FILE_NAME	"lieder"
 
-static bool verify_compressed_type(const char *test_directory, const char *type) {
+static bool verify_compressed_type(const char *test_directory, const char *type,
+	bool copy_stat) {
 	char src_name[BSIZE_B], dst_name[BSIZE_B];
 	struct stat sb = {0};
+	struct timespec orig_mtime, orig_atime;
+	copyfile_flags_t copy_flags = COPYFILE_DATA | COPYFILE_XATTR;
 	int src_fd, dst_fd;
 	bool success = true;
 
@@ -46,10 +49,25 @@ static bool verify_compressed_type(const char *test_directory, const char *type)
 	assert_no_err(stat(src_name, &sb));
 	success = success && verify_st_flags(&sb, UF_COMPRESSED);
 
-	// Verify that copyfile(COPYFILE_DATA | COPYFILE_XATTR) creates a compressed file.
-	assert_no_err(copyfile(src_name, dst_name, NULL, COPYFILE_DATA | COPYFILE_XATTR));
+	if (copy_stat) {
+		// Save the {m, a}times of this file.
+		orig_mtime = sb.st_mtimespec;
+		orig_atime = sb.st_atimespec;
+
+		copy_flags |= COPYFILE_STAT;
+	}
+
+	// Verify that copyfile(COPYFILE_DATA | COPYFILE_XATTR {| COPYFILE_STAT})
+	// creates a compressed file.
+	assert_no_err(copyfile(src_name, dst_name, NULL, copy_flags));
 	assert_no_err(stat(dst_name, &sb));
 	success = success && verify_st_flags(&sb, UF_COMPRESSED);
+
+	if (copy_stat) {
+		// Verify that the mtime & atime of the copy matches the original.
+		success = success && verify_times("mtime", &orig_mtime, &sb.st_mtimespec);
+		success = success && verify_times("atime", &orig_atime, &sb.st_atimespec);
+	}
 
 	// Verify that the contents are identical.
 	success = success && verify_copy_contents(src_name, dst_name);
@@ -85,7 +103,9 @@ bool do_compressed_type_test(const char *apfs_test_directory, __unused size_t bl
 	create_test_file_name(apfs_test_directory, "compressed_type", test_folder_id, test_dir);
 	assert_no_err(mkdir(test_dir, DEFAULT_MKDIR_PERM));
 
-	success = verify_compressed_type(test_dir, "14");
+	// Test with both the copyfile_data() and copyfile_stat() paths.
+	success = verify_compressed_type(test_dir, "14", false);
+	success = verify_compressed_type(test_dir, "14", true);
 
 	if (success) {
 		printf("PASS  [compressed_type]\n");

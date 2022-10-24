@@ -1,5 +1,3 @@
-.\"	$NetBSD: mkfifo.1,v 1.6 1997/10/19 05:11:52 lukem Exp $
-.\"
 .\" Copyright (c) 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -14,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -35,69 +29,73 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)mkfifo.1	8.2 (Berkeley) 1/5/94
+.\" $FreeBSD$
 .\"
 .Dd January 5, 1994
 .Dt MKFIFO 1
-.Os BSD 4.4
+.Os
 .Sh NAME
 .Nm mkfifo
 .Nd make fifos
 .Sh SYNOPSIS
-.Nm mkfifo
+.Nm
 .Op Fl m Ar mode
-.Ar fifo_name  ...
+.Ar fifo_name ...
 .Sh DESCRIPTION
-.Nm mkfifo
-creates the fifos requested, in the order specified.
-By default,
-the resulting fifos have mode
-.Li \&0666
-(rw-rw-rw-), limited by the current
-.Xr umask 2 .
+The
+.Nm
+utility creates the fifos requested, in the order specified.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width indent
 .It Fl m
-Set the file permission bits of newly-created fifos to
-.Ar mode ,
-without respect to the current umask.
-.Pp
-The mode is specified as in 
-.Xr chmod 1 .
-In symbolic mode strings, the 
-.Dq + 
-and 
-.Dq -
-operators are interpreted relative to an assumed initial mode of 
-.Dq a=rw
+Set the file permission bits of the created fifos to the
+specified mode, ignoring the
+.Xr umask 2
+of the calling process.
+The
+.Ar mode
+argument takes any format that can be specified to the
+.Xr chmod 1
+command.
+If a symbolic mode is specified, the op symbols
+.Ql +
+(plus) and
+.Ql -
+(hyphen) are interpreted relative to an assumed initial mode of
+.Dq Li a=rw
+(read and write permissions for all).
 .El
 .Pp
-.Nm mkfifo
-requires write permission in the parent directory.
-.Pp
-.Nm mkfifo
-exits with 0 if successful, and with >0 if an error occurred.
-.Sh LEGACY DESCRIPTION
-In legacy mode, the fifo's file permission bits
-are always limited by the current umask.
-.Pp
-For more information about legacy mode, see
-.Xr compat 5 .
+If the
+.Fl m
+option is not specified, fifos are created with mode
+.Li 0666
+modified by the
+.Xr umask 2
+of the calling process.
+The
+.Nm
+utility requires write permission in the parent directory.
+.Sh EXIT STATUS
+.Ex -std
 .Sh SEE ALSO
 .Xr mkdir 1 ,
 .Xr rm 1 ,
 .Xr umask 1 ,
 .Xr mkfifo 2 ,
+.Xr mknod 2 ,
 .Xr umask 2 ,
 .Xr compat 5 ,
 .Xr mknod 8
 .Sh STANDARDS
 The
-.Nm mkfifo
+.Nm
 utility is expected to be
-.St -p1003.2-92
+.St -p1003.2
 compliant.
 .Sh HISTORY
-.Nm mkfifo
+The
+.Nm
 command appeared in
 .Bx 4.4 .

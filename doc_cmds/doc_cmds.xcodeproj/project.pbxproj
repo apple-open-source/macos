@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD91BA500FC231AB00643D04 /* Build configuration list for PBXAggregateTarget "Build All" */;
 			buildPhases = (
+				32F19DB9281AF4AD004437FE /* ShellScript */,
 			);
 			dependencies = (
 				FD91BA6B0FC231C500643D04 /* PBXTargetDependency */,
@@ -42,7 +43,6 @@
 		FD91BA6F0FC231EA00643D04 /* makewhatis.c in Sources */ = {isa = PBXBuildFile; fileRef = FD91BA3E0FC2311E00643D04 /* makewhatis.c */; };
 		FD91BA830FC2328800643D04 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD91BA820FC2328800643D04 /* libz.dylib */; };
 		FD91BAA10FC2332800643D04 /* intro.1 in man1 */ = {isa = PBXBuildFile; fileRef = FD91BA440FC2316200643D04 /* intro.1 */; };
-		FD91BAA30FC2335800643D04 /* doc_cmds.plist in OpenSourceVersions */ = {isa = PBXBuildFile; fileRef = FD91BA2F0FC2311E00643D04 /* doc_cmds.plist */; };
 		FD91BAA50FC2336F00643D04 /* doc_cmds.txt in OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = FD91BA300FC2311E00643D04 /* doc_cmds.txt */; };
 		FD91BAAD0FC233BB00643D04 /* checknr.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA260FC2311E00643D04 /* checknr.1 */; };
 		FD91BAB00FC233DD00643D04 /* colcrt.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD91BA2B0FC2311E00643D04 /* colcrt.1 */; };
@@ -100,7 +100,6 @@
 			dstPath = /usr/local/OpenSourceVersions;
 			dstSubfolderSpec = 0;
 			files = (
-				FD91BAA30FC2335800643D04 /* doc_cmds.plist in OpenSourceVersions */,
 			);
 			name = OpenSourceVersions;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -164,7 +163,6 @@
 		FD91BA270FC2311E00643D04 /* checknr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = checknr.c; sourceTree = "<group>"; };
 		FD91BA2B0FC2311E00643D04 /* colcrt.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = colcrt.1; sourceTree = "<group>"; };
 		FD91BA2C0FC2311E00643D04 /* colcrt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = colcrt.c; sourceTree = "<group>"; };
-		FD91BA2F0FC2311E00643D04 /* doc_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = doc_cmds.plist; sourceTree = "<group>"; };
 		FD91BA300FC2311E00643D04 /* doc_cmds.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = doc_cmds.txt; sourceTree = "<group>"; };
 		FD91BA3D0FC2311E00643D04 /* makewhatis.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = makewhatis.8; sourceTree = "<group>"; };
 		FD91BA3E0FC2311E00643D04 /* makewhatis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = makewhatis.c; sourceTree = "<group>"; };
@@ -218,7 +216,6 @@
 				FD91BA250FC2311E00643D04 /* checknr */,
 				FD91BA2A0FC2311E00643D04 /* colcrt */,
 				FD91BA3A0FC2311E00643D04 /* makewhatis */,
-				FD91BA2F0FC2311E00643D04 /* doc_cmds.plist */,
 				FD91BA300FC2311E00643D04 /* doc_cmds.txt */,
 				FD91BA440FC2316200643D04 /* intro.1 */,
 			);
@@ -325,9 +322,16 @@
 /* Begin PBXProject section */
 		FD91BA090FC2310A00643D04 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = FD91BA0C0FC2310A00643D04 /* Build configuration list for PBXProject "doc_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = FD91BA070FC2310A00643D04;
 			productRefGroup = FD91BA4D0FC231AB00643D04 /* Products */;
 			projectDirPath = "";
@@ -343,6 +347,23 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		32F19DB9281AF4AD004437FE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
+		};
 		FD91BAC90FC2359F00643D04 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

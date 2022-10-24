@@ -23,18 +23,24 @@
 
 #ifndef OTDefines_h
 #define OTDefines_h
-#if OCTAGON
 #include <Foundation/Foundation.h>
 #include "utilities/debugging.h"
+
+
+#if OCTAGON
 #import "keychain/ot/OTConstants.h"
+#endif // OCTAGON
 
 NS_ASSUME_NONNULL_BEGIN
+
+extern NSString* const OTCKContainerName;
+
+#if OCTAGON
 
 extern NSString* const OctagonEventAttributeZoneName;
 extern NSString* const OctagonEventAttributeFailureReason;
 extern NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp;
 
-extern NSString* OTCKContainerName;
 extern NSString* const CuttlefishTrustZone;
 extern NSString* const TrustedPeersHelperErrorDomain;
 
@@ -88,6 +94,8 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorTestGeneratedFailure = 9999,
 };
 
+#endif // OCTAGON
+
 NS_ASSUME_NONNULL_END
-#endif
+
 #endif /* OTDefines_h */

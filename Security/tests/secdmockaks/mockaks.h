@@ -80,6 +80,7 @@ int MKBForegroundUserSessionID( CFErrorRef _Nullable * _Nullable error);
 + (void)reset;
 
 + (void)failNextDecryptRefKey:(NSError* _Nonnull) decryptRefKeyError;
++ (void)resetDecryptRefKeyFailures;
 + (NSError * _Nullable)popDecryptRefKeyFailure;
 
 + (void)setOperationsUntilUnlock:(int)val;

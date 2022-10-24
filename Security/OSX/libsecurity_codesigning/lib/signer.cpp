@@ -182,6 +182,9 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
 		entitlements = code->component(cdEntitlementSlot);
 	
+	// So long and thanks for all the fish
+	launchConstraints = std::move(state.mLaunchConstraints);
+	
 	// work out the CodeDirectory flags word
 	bool haveCdFlags = false;
 	if (!haveCdFlags && state.mCdFlagsGiven) {
@@ -258,7 +261,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 					MacOSError::throwMe(errSecCSResourceRulesInvalid);
 			}
 		
-		// if we got one from anywhere (but the defaults), sanity-check it
+		// if we got one from anywhere (but the defaults), check it
 		if (resourceRules) {
 			CFTypeRef rules = CFDictionaryGetValue(resourceRules, CFSTR("rules"));
 			if (!rules || CFGetTypeID(rules) != CFDictionaryGetTypeID())
@@ -728,15 +731,27 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.preservePreEncryptHashMap(preEncryptHashMap);
 	builder.runTimeVersion(runtimeVersion);
 
-	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot))
+	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot)) {
 		builder.specialSlot(cdInfoSlot, data);
+	}
 	if (ireqs) {
 		CFRef<CFDataRef> data = makeCFData(*ireqs);
 		writer.component(cdRequirementsSlot, data);
 		builder.specialSlot(cdRequirementsSlot, data);
 	}
-	if (resourceDirectory)
+	if (resourceDirectory) {
 		builder.specialSlot(cdResourceDirSlot, resourceDictData);
+	}
+	
+	int lwcrSlot = cdLaunchConstraintSelf;
+	for (auto& lwcr : launchConstraints) {
+		if (lwcr) {
+			writer.component(lwcrSlot, lwcr);
+			builder.specialSlot(lwcrSlot, lwcr);
+		}
+		lwcrSlot++;
+	}
+	
 	if (entitlements) {
 		writer.component(cdEntitlementSlot, entitlements);
 		builder.specialSlot(cdEntitlementSlot, entitlements);
@@ -755,8 +770,9 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 			builder.addExecSegFlags(execSegFlags);
 		}
 	}
-	if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot))
+	if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot)) {
 		builder.specialSlot(cdRepSpecificSlot, repSpecific);
+	}
 	
 	writer.addDiscretionary(builder);
 	

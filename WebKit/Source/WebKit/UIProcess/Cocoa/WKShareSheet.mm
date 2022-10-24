@@ -28,11 +28,11 @@
 
 #if PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 
-#import "QuarantineSPI.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ShareData.h>
+#import <pal/spi/mac/QuarantineSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Scope.h>
 #import <wtf/UUID.h>
@@ -96,9 +96,9 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
         String fileName;
         RetainPtr<NSData> fileData;
     };
-    Vector<FileWriteTask> fileWriteTasks;
-    for (auto& file : files)
-        fileWriteTasks.append({ file.fileName.isolatedCopy(), file.fileData->createNSData() });
+    auto fileWriteTasks = files.map([](auto& file) {
+        return FileWriteTask { file.fileName.isolatedCopy(), file.fileData->createNSData() };
+    });
 
     auto queue = WorkQueue::create("com.apple.WebKit.WKShareSheet.ShareableFileWriter");
     queue->dispatch([shareDataArray = WTFMove(shareDataArray), fileWriteTasks = WTFMove(fileWriteTasks), temporaryDirectory = retainPtr(temporaryDirectory), completionHandler = WTFMove(completionHandler)]() mutable {
@@ -178,7 +178,12 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
         NSRect mouseLocationInWindow = [webView.window convertRectFromScreen:mouseLocationRect];
         presentationRect = [webView convertRect:mouseLocationInWindow fromView:nil];
     }
+
+#if HAVE(SHARING_SERVICE_PICKER_POPOVER_SPI)
+    [_sharingServicePicker.get() showPopoverRelativeToRect:presentationRect ofView:webView preferredEdge:NSMinYEdge completion:^(NSSharingService *sharingService) { }];
+#else
     [_sharingServicePicker showRelativeToRect:presentationRect ofView:webView preferredEdge:NSMinYEdge];
+#endif
 #else
     _shareSheetViewController = adoptNS([[UIActivityViewController alloc] initWithActivityItems:sharingItems applicationActivities:nil]);
 
@@ -331,7 +336,7 @@ static void appendFilesAsShareableURLs(RetainPtr<NSMutableArray>&& shareDataArra
 
 + (NSURL *)createRandomSharingDirectoryForFile:(NSURL *)temporaryDirectory
 {
-    NSString *randomDirectory = createCanonicalUUIDString();
+    NSString *randomDirectory = createVersion4UUIDString();
     if (![randomDirectory length] || !temporaryDirectory)
         return nil;
     NSURL *dataPath = [temporaryDirectory URLByAppendingPathComponent:randomDirectory isDirectory:YES];

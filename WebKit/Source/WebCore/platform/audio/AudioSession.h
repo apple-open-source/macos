@@ -115,6 +115,9 @@ public:
     enum class MayResume { No, Yes };
     virtual void endInterruption(MayResume);
 
+    virtual void beginInterruptionForTesting() { beginInterruption(); }
+    virtual void endInterruptionForTesting() { endInterruption(MayResume::Yes); }
+
     class InterruptionObserver : public CanMakeWeakPtr<InterruptionObserver> {
     public:
         virtual ~InterruptionObserver() = default;
@@ -135,6 +138,8 @@ public:
     virtual void setHostProcessAttribution(audit_token_t) { };
     virtual void setPresentingProcesses(Vector<audit_token_t>&&) { };
 
+    bool isInterrupted() const { return m_isInterrupted; }
+
 protected:
     friend class NeverDestroyed<AudioSession>;
     AudioSession();
@@ -146,6 +151,7 @@ protected:
     WeakPtr<AudioSessionRoutingArbitrationClient> m_routingArbitrationClient;
     AudioSession::CategoryType m_categoryOverride { AudioSession::CategoryType::None };
     bool m_active { false }; // Used only for testing.
+    bool m_isInterrupted { false };
 
     static bool s_shouldManageAudioSessionCategory;
 };

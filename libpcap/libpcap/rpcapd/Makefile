@@ -38,6 +38,7 @@ mandir = ${datarootdir}/man
 
 # VPATH
 srcdir = .
+top_srcdir = ..
 
 
 #
@@ -48,22 +49,22 @@ LD = /usr/bin/ld
 CC = gcc
 AR = ar
 LN_S = ln -s
-MKDEP = 
+MKDEP =
 CCOPT =  -fvisibility=hidden -fno-common
-INCLS = -I. -I.. -I. -I./..  -I/usr/local/include
-DEFS = -DHAVE_CONFIG_H 
-ADDLOBJS = 
-ADDLARCHIVEOBJS = 
-LIBS = 
-PTHREAD_LIBS = 
+INCLS = -I. -I.. -I. -I./..
+DEFS = -DHAVE_CONFIG_H
+ADDLOBJS =
+ADDLARCHIVEOBJS =
+LIBS =
+PTHREAD_LIBS =
 CROSSFLAGS=
 CFLAGS = -g -O2   ${CROSSFLAGS}
 LDFLAGS =  ${CROSSFLAGS}
 DYEXT = dylib
-V_RPATH_OPT = 
-DEPENDENCY_CFLAG = 
+V_RPATH_OPT =
+DEPENDENCY_CFLAG =
 PROG=libpcap
-RPCAPD_LIBS = 
+RPCAPD_LIBS =
 
 # Standard CFLAGS
 FULL_CFLAGS = $(CCOPT)  $(INCLS) $(DEFS) $(CFLAGS)
@@ -84,7 +85,7 @@ SRC =	daemon.c \
 	log.c \
 	rpcapd.c
 
-OBJ =	$(SRC:.c=.o) ../rpcap-protocol.o ../sockutils.o ../fmtutils.o
+OBJ =	$(SRC:.c=.o) ../rpcap-protocol.o ../sockutils.o ../fmtutils.o ../sslutils.o
 PUBHDR =
 
 HDR = $(PUBHDR) log.h
@@ -138,4 +139,4 @@ tags: $(TAGFILES)
 	ctags -wtd $(TAGFILES)
 
 depend:
-	../$(MKDEP) -c "$(CC)" -m "$(DEPENDENCY_CFLAG)" $(CFLAGS) $(DEFS) $(INCLS) $(SRC)
+	$(MKDEP) -c "$(CC)" -m "$(DEPENDENCY_CFLAG)" -s "$(srcdir)" $(CFLAGS) $(DEFS) $(INCLS) $(SRC)

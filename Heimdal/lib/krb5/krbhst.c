@@ -151,6 +151,7 @@ query_release(void *ctx)
 	    heim_release(query->array[n]);
 	}
 	free(query->array);
+	query->len = 0;
     }
 #endif
     heim_release(query->handle);
@@ -1202,10 +1203,14 @@ parse_hostspec(krb5_context context,
 void
 _krb5_free_krbhst_info(krb5_krbhst_info *hi)
 {
-    if (hi->ai != NULL)
+    if (hi->ai != NULL) {
 	freeaddrinfo(hi->ai);
-    if (hi->path)
+	hi->ai = NULL;
+    }
+    if (hi->path) {
 	free(hi->path);
+	hi->path = NULL;
+    }
     free(hi);
 }
 
@@ -1924,10 +1929,15 @@ krbhost_dealloc(void *ptr)
 	next = h->next;
 	_krb5_free_krbhst_info(h);
     }
-    if (handle->hostname)
+    handle->hosts = NULL;
+    if (handle->hostname) {
 	free(handle->hostname);
-    if (handle->sitename)
+	handle->hostname = NULL;
+    }
+    if (handle->sitename) {
 	free(handle->sitename);
+	handle->sitename = NULL;
+    }
 #if __APPLE__
     if (handle->main_sd) {
 	DNSServiceRef client = handle->main_sd;
@@ -1938,13 +1948,18 @@ krbhost_dealloc(void *ptr)
 	});
     }
 #endif
-    if (handle->srv_queue)
+    if (handle->srv_queue) {
 	heim_queue_release(handle->srv_queue);
-    if (handle->addrinfo_queue)
+	handle->srv_queue = NULL;
+    }
+    if (handle->addrinfo_queue) {
 	heim_queue_release(handle->addrinfo_queue);
+	handle->addrinfo_queue = NULL;
+    }
     HEIMDAL_MUTEX_destroy(&handle->mutex);
 
     free(handle->realm);
+    handle->realm = NULL;
 }
 
 static struct krb5_krbhst_data*

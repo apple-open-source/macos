@@ -53,6 +53,7 @@
 #include <netsmb/smb_dev.h>
 
 #include <smbfs/smbfs.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -98,13 +99,17 @@ int
 smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
 		   int usingUnicode, size_t *lenp)
 {
-	struct smbnode *npstack[SMBFS_MAXPATHCOMP];
-	struct smbnode **npp = &npstack[0];
+	struct smbnode **npstack;
+	struct smbnode **npp;
 	int i, error = 0;
     int add_slash = 1;
     int lock_count = 0;
-	struct smbnode *lock_stack[SMBFS_MAXPATHCOMP + 1]; /* stream file adds one */
-	struct smbnode **locked_npp = &lock_stack[0];
+	struct smbnode **lock_stack;
+	struct smbnode **locked_npp;
+    SMB_MALLOC_TYPE_COUNT(npstack, struct smbnode *, SMBFS_MAXPATHCOMP, Z_WAITOK);
+    npp = &npstack[0];
+    SMB_MALLOC_TYPE_COUNT(lock_stack, struct smbnode *, SMBFS_MAXPATHCOMP+1, Z_WAITOK); /* stream file adds one */
+    locked_npp = &lock_stack[0];
     vnode_t par_vp = NULL;
 
     if (smp->sm_args.network_path) {
@@ -227,7 +232,13 @@ done:
             vnode_put(lock_stack[i]->n_vnode);
         }
     }
-    
+    if (npstack) {
+        SMB_FREE_TYPE_COUNT(struct smbnode *, SMBFS_MAXPATHCOMP, npstack);
+    }
+    if (lock_stack) {
+        SMB_FREE_TYPE_COUNT(struct smbnode *, SMBFS_MAXPATHCOMP+1, lock_stack);
+    }
+
 	return error;
 }
 
@@ -388,8 +399,7 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 	
 	/* Need to save the submount path for Resolve ID */
 	smp->sm_args.local_path_len = args->path_len;
-	SMB_MALLOC(smp->sm_args.local_path, char *, smp->sm_args.local_path_len + 1,
-			   M_TEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(smp->sm_args.local_path, smp->sm_args.local_path_len + 1, Z_WAITOK_ZERO);
 	if (smp->sm_args.local_path == NULL) {
 		/* Should never happen */
 		smp->sm_args.local_path_len = 0;
@@ -399,11 +409,10 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 
 	/* Create network path version of the submount path (assume max len) */
 	smp->sm_args.network_path_len = (args->path_len * 2) + 2;
-	SMB_MALLOC(smp->sm_args.network_path, char *, smp->sm_args.network_path_len,
-			   M_TEMP, M_WAITOK);
+    SMB_MALLOC_DATA(smp->sm_args.network_path, smp->sm_args.network_path_len, Z_WAITOK);
 	if (smp->sm_args.network_path == NULL) {
 		/* Should never happen */
-		SMB_FREE(smp->sm_args.local_path, M_TEMP);
+        SMB_FREE_DATA(smp->sm_args.local_path, smp->sm_args.local_path_len + 1);
 		smp->sm_args.local_path_len = 0;
 
 		smp->sm_args.network_path_len = 0;
@@ -422,10 +431,10 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 	if (error || (smp->sm_args.network_path_len == 0)) {
 		SMBDEBUG("Deep Path Failed %d\n", error);
 		
-		SMB_FREE(smp->sm_args.local_path, M_TEMP);
+        SMB_FREE_DATA(smp->sm_args.local_path, smp->sm_args.local_path_len + 1);
 		smp->sm_args.local_path_len = 0;
 		
-		SMB_FREE(smp->sm_args.network_path, M_TEMP);
+        SMB_FREE_DATA(smp->sm_args.network_path, smp->sm_args.network_path_len);
 		smp->sm_args.network_path_len = 0;
 	}
 }
@@ -441,7 +450,7 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
  *	This routine will not free the ntwrk_name.
  */
 char *
-smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, int usingUnicode)
+smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, size_t *allocsize, int usingUnicode)
 {
 	char *dst, *odst = NULL;
 	size_t inlen, outlen, length;
@@ -463,7 +472,8 @@ smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, int usingUnicode)
 	} else {
 		length = MIN(*nmlen * 3, SMB_MAXPKTLEN);
 	}
-	SMB_MALLOC(dst, char *, length+1, M_TEMP, M_WAITOK | M_ZERO);
+    *allocsize = length + 1;
+    SMB_MALLOC_DATA(dst, *allocsize, Z_WAITOK_ZERO);
 	outlen = length;
 	inlen = *nmlen;
 	odst = dst;
@@ -493,4 +503,30 @@ smb_get_share_with_reference(struct smbmount *smp)
 	smb_share_ref(share);
 	lck_rw_unlock_shared(&smp->sm_rw_sharelock);
 	return share;
+}
+
+int
+smbfs_is_dir(struct smbnode *np)
+{
+    int is_dir = 0;
+
+    /* Is it a directory? */
+    if (np->n_vnode) {
+        /* If we have a vnode, then check vnode type */
+        if (vnode_isdir(np->n_vnode)) {
+            is_dir = 1;
+        }
+    }
+    else {
+        /*
+         * No vnode, so have to rely on n_dosattr instead.
+         * If its a reparse point, then it is NOT a dir!
+         */
+        if ((np->n_dosattr & SMB_EFA_DIRECTORY) &&
+            !(np->n_dosattr & SMB_EFA_REPARSE_POINT)) {
+            is_dir = 1;
+        }
+    }
+
+    return(is_dir);
 }

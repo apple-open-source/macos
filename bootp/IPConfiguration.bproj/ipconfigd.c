@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -312,37 +312,79 @@ typedef struct {
     boolean_t			prefs_requested;
 } DisableUntilNeededInfo, * DisableUntilNeededInfoRef;
 
+typedef CF_ENUM(uint32_t, IFStateFlags) {
+    kIFStateFlagsStartupReady			= 0x00000001,
+    kIFStateFlagsBusy				= 0x00000002,
+    kIFStateFlagsServicesReady			= 0x00000004,
+    kIFStateFlagsFailureSymptomReported		= 0x00000008,
+    kIFStateFlagsNetBoot			= 0x00000010,
+    kIFStateFlagsLinkTimerSuppressed		= 0x00000020,
+    kIFStateFlagsIPv4PublishNeedsAttention	= 0x00000040,
+    kIFStateFlagsIPv4AddressesScrubbed		= 0x00000080,
+
+    kIFStateFlagsDisableCGA			= 0x00010000,
+    kIFStateFlagsDisablePerformNUD		= 0x00020000,
+    kIFStateFlagsDisableDAD			= 0x00040000,
+    kIFStateFlagsPLATDiscoveryComplete		= 0x00080000,
+    kIFStateFlagsNAT64PrefixAvailable		= 0x00100000,
+    kIFStateFlagsCLAT46Available		= 0x00200000,
+    kIFStateFlagsCLAT46Active			= 0x00400000,
+};
+
 struct IFState {
+    IFStateFlags		flags;
     interface_t *		if_p;
     CFStringRef			ifname;
     dynarray_t			services;
     dynarray_t			services_v6;
     ServiceRef			linklocal_service_p;
-    boolean_t			startup_ready;
-    boolean_t			netboot;
     WiFiInfoRef			wifi_info_p;
     timer_callout_t *		timer;
     struct in_addr		v4_link_local;
     uint32_t			wake_generation;
-    boolean_t			disable_perform_nud;
-    boolean_t			disable_dad;
-    boolean_t			nat64_prefix_available;
-    boolean_t			plat_discovery_complete;
     struct in6_addr		ipv6_linklocal;
-    boolean_t			disable_cga;
-    boolean_t			link_timer_suppressed;
     CFMutableArrayRef		neighbor_advert_list;
     ActiveDuringSleepInfo	active_during_sleep;
     DisableUntilNeededInfo	disable_until_needed;
     unsigned int		rank;
-    boolean_t			services_ready;
-    boolean_t			failure_symptom_reported;
-    boolean_t			ipv4_addresses_scrubbed;
-    boolean_t			busy;
     uint8_t			v6_ll_collision_count;
-    boolean_t			dhcp_waiting;
-    boolean_t			clat46_active;
 };
+
+STATIC Boolean
+FlagsAreSet(uint32_t flags, uint32_t flags_to_check)
+{
+    return ((flags & flags_to_check) != 0);
+}
+
+STATIC Boolean
+IFStateFlagsAreSet(IFStateRef ifstate, IFStateFlags flags)
+{
+    return (FlagsAreSet(ifstate->flags, flags));
+}
+
+STATIC void
+IFStateFlagsSet(IFStateRef ifstate, IFStateFlags flags)
+{
+    ifstate->flags |= flags;
+}
+
+STATIC void
+IFStateFlagsClear(IFStateRef ifstate, IFStateFlags flags)
+{
+    ifstate->flags &= ~flags;
+}
+
+STATIC void
+IFStateFlagsSetOrClear(IFStateRef ifstate, IFStateFlags flags,
+		       boolean_t set)
+{
+    if (set) {
+	IFStateFlagsSet(ifstate, flags);
+    }
+    else {
+	IFStateFlagsClear(ifstate, flags);
+    }
+}
 
 typedef dynarray_t	IFStateList_t;
 
@@ -572,6 +614,7 @@ static interface_list_t *	S_interfaces = NULL;
 static CFBundleRef		S_bundle = NULL;
 static CFRunLoopObserverRef	S_observer = NULL;
 static boolean_t		S_linklocal_needs_attention = FALSE;
+static boolean_t		S_ipv4_publish_needs_attention = FALSE;
 static IFStateList_t		S_ifstate_list;
 static io_connect_t 		S_power_connection;
 static SCDynamicStoreRef	S_scd_session = NULL;
@@ -662,7 +705,7 @@ static boolean_t
 all_services_ready();
 
 static void
-S_linklocal_elect(CFArrayRef service_order);
+linklocal_elect(CFArrayRef service_order);
 
 static CFArrayRef
 S_copy_service_order(SCDynamicStoreRef session);
@@ -744,7 +787,7 @@ IFStateSetIPv6LinkLocalAddress(IFStateRef ifstate,
 			       const struct in6_addr * addr);
 
 static void
-S_linklocal_start(ServiceRef parent_service_p, boolean_t allocate);
+linklocal_start(ServiceRef parent_service_p, boolean_t allocate);
 
 static WiFiInfoRef
 S_copy_wifi_info(CFStringRef ifname);
@@ -775,6 +818,12 @@ ServiceGetRank(ServiceRef service_p, CFArrayRef service_order);
 
 STATIC CFDictionaryRef
 ServiceCopySummary(ServiceRef service_p);
+
+STATIC void
+ServiceSetIPv4PublishNeedsAttention(ServiceRef service_p);
+
+STATIC void
+ServiceSetIsPublished(ServiceRef service_p);
 
 STATIC void
 process_link_timer_expired(IFStateRef ifstate);
@@ -1468,6 +1517,7 @@ ActiveDuringSleepProcess(IFStateList_t * list)
     int 		i;
     int			if_count;
 
+    my_log(LOG_DEBUG, "%s", __func__);
     if_count = dynarray_count(list);
     for (i = 0; i < if_count; i++) {
 	IFStateRef		ifstate = dynarray_element(list, i);
@@ -1542,16 +1592,16 @@ IFStateComputeRank(IFStateRef ifstate, CFArrayRef service_order)
     Rank	rank_v6;
     boolean_t	ready;
 
-    ifstate->services_ready = FALSE;
+    IFStateFlagsClear(ifstate, kIFStateFlagsServicesReady);
     rank_v4 = service_list_get_rank(&ifstate->services, service_order,
 				    &ready);
     if (ready) {
-	ifstate->services_ready = TRUE;
+	IFStateFlagsSet(ifstate, kIFStateFlagsServicesReady);
     }
     rank_v6 = service_list_get_rank(&ifstate->services_v6, service_order,
 				    &ready);
     if (ready) {
-	ifstate->services_ready = TRUE;
+	IFStateFlagsSet(ifstate, kIFStateFlagsServicesReady);
     }
     ifstate->rank = (rank_v4 < rank_v6) ? rank_v4 : rank_v6;
     return;
@@ -1582,6 +1632,7 @@ DisableUntilNeededProcess(IFStateList_t * list, CFArrayRef service_order)
     CFIndex 		i;
     ptrlist_t		ranked_list;
 
+    my_log(LOG_DEBUG, "%s", __func__);
     ptrlist_init(&ranked_list);
     IFStateRankedListPopulate(&ranked_list, list, service_order);
     count = ptrlist_count(&ranked_list);
@@ -1612,7 +1663,7 @@ DisableUntilNeededProcess(IFStateList_t * list, CFArrayRef service_order)
 	    interface_up_down(if_name(if_p), FALSE);
 	    ifstate->disable_until_needed.interface_disabled = TRUE;
 	}
-	if (ifstate->services_ready) {
+	if (IFStateFlagsAreSet(ifstate, kIFStateFlagsServicesReady)) {
 	    better_interface_has_connectivity = TRUE;
 	}
     }
@@ -2131,7 +2182,7 @@ IFState_service_add(IFStateRef ifstate, CFStringRef serviceID,
 	if (info->disable_cga) {
 	    /* service doesn't want CGA */
 	    my_log(LOG_INFO, "%s: CGA is disabled\n", if_name(if_p));
-	    ifstate->disable_cga = TRUE;
+	    IFStateFlagsSet(ifstate, kIFStateFlagsDisableCGA);
 	}
 
 	if (IN6_IS_ADDR_LINKLOCAL(&info->ipv6_linklocal)) {
@@ -2315,7 +2366,7 @@ IFState_detach_IPv4(IFStateRef ifstate)
     if (dynarray_count(&ifstate->services) == 0) {
 	interface_t *	if_p = ifstate->if_p;
 
-	ifstate->startup_ready = TRUE;
+	IFStateFlagsSet(ifstate, kIFStateFlagsStartupReady);
 	inet_detach_interface(if_name(if_p));
     }
     return;
@@ -2332,7 +2383,7 @@ IFState_detach_IPv6(IFStateRef ifstate)
 	    (void)inet6_rtadv_disable(if_name(if_p));
 	    (void)inet6_linklocal_stop(if_name(if_p));
 	    IFStateClearIPv6LinkLocalAddress(ifstate);
-	    ifstate->disable_cga = FALSE;
+	    IFStateFlagsClear(ifstate, kIFStateFlagsDisableCGA);
 	}
 	inet6_detach_interface(if_name(if_p));
     }
@@ -2357,7 +2408,7 @@ IFState_attach_IPv6(IFStateRef ifstate, boolean_t set_iff_up)
     loop_or_stf = (ift_type == IFT_LOOP) || (ift_type == IFT_STF);
     if (!loop_or_stf && !if_is_awdl(if_p)) {
 	ipv6_ll = IFStateIPv6LinkLocalAddress(ifstate);
-	use_cga = !ifstate->disable_cga;
+	use_cga = !IFStateFlagsAreSet(ifstate, kIFStateFlagsDisableCGA);
     }
     if (inet6_attach_interface(if_name(if_p), set_iff_up) == 0) {
 	proto_attached = TRUE;
@@ -2368,11 +2419,17 @@ IFState_attach_IPv6(IFStateRef ifstate, boolean_t set_iff_up)
 	link_status_t		link = if_get_link_status(if_p);
 
 	if (link.valid == FALSE || link.active) {
+	    boolean_t	perform_nud;
+	    boolean_t	dad;
+
 	    /* start IPv6 Link Local */
+	    perform_nud
+		= !IFStateFlagsAreSet(ifstate, kIFStateFlagsDisablePerformNUD);
+	    dad = !IFStateFlagsAreSet(ifstate, kIFStateFlagsDisableDAD);
 	    (void)inet6_linklocal_start(if_name(if_p), ipv6_ll,
-					!ifstate->disable_perform_nud,
+					perform_nud,
 					use_cga,
-					!ifstate->disable_dad,
+					dad,
 					ifstate->v6_ll_collision_count);
 	}
     }
@@ -2395,6 +2452,14 @@ IFStateReportState(IFStateRef ifstate,
     }
     my_SCDynamicStoreSetInterface(S_scd_session, ifstate->ifname, entity, dict);
     my_CFRelease(&dict);
+    return;
+}
+
+STATIC void
+IFStateSetIPv4PublishNeedsAttention(IFStateRef ifstate)
+{
+    S_ipv4_publish_needs_attention = TRUE;
+    IFStateFlagsSet(ifstate, kIFStateFlagsIPv4PublishNeedsAttention);
     return;
 }
 
@@ -2609,13 +2674,13 @@ IFStateProcessBusy(IFStateRef ifstate)
 
     busy = service_list_check_busy(&ifstate->services)
 	|| service_list_check_busy(&ifstate->services_v6);
-    if (busy != ifstate->busy) {
-	ifstate->busy = busy;
+    if (busy != IFStateFlagsAreSet(ifstate, kIFStateFlagsBusy)) {
+	IFStateFlagsSetOrClear(ifstate, kIFStateFlagsBusy, busy);
 	my_log(LOG_INFO, "%s: %sbusy", if_name(ifstate->if_p),
 	       busy ? "" : "not ");
 	IFStateReportState(ifstate,
 			   kSCEntNetInterfaceIPConfigurationBusy,
-			   ifstate->busy);
+			   IFStateFlagsAreSet(ifstate, kIFStateFlagsBusy));
     }
     return;
 }
@@ -2838,7 +2903,7 @@ S_netboot_init()
 	goto done;
     }
     ifstate = IFStateList_ifstate_create(&S_ifstate_list, if_p);
-    ifstate->netboot = TRUE;
+    IFStateFlagsSet(ifstate, kIFStateFlagsNetBoot);
     if (is_dhcp == TRUE) {
 	dhcpol_t		options;
 
@@ -2861,9 +2926,9 @@ S_netboot_init()
 }
 
 static void
-set_entity_value(CFStringRef * entities, 
+set_entity_value(CFTypeRef * entities,
 		 CFDictionaryRef * values, int size,
-		 CFStringRef entity, CFDictionaryRef value,
+		 CFTypeRef entity, CFDictionaryRef value,
 		 int * count_p)
 {
     int		i;
@@ -2896,7 +2961,7 @@ service_clear(ServiceRef service_p, ipconfig_status_t status)
 
 
 STATIC CFStringRef
-create_entities_summary(CFStringRef * entities,
+create_entities_summary(CFTypeRef * entities,
 			CFDictionaryRef * values,
 			CFIndex count)
 {
@@ -2906,25 +2971,31 @@ create_entities_summary(CFStringRef * entities,
     str = CFStringCreateMutable(NULL, 0);
     added_count = 0;
     for (CFIndex i = 0; i < count; i++) {
+	CFTypeRef	entity = entities[i];
+
 	if (values[i] == NULL) {
 	    continue;
+	}
+	if (entity == kServiceEntity) {
+	    /* service dictionary containing RankLast */
+	    entity = CFSTR("RankLast");
 	}
 	added_count++;
 	STRING_APPEND(str, "%s%@",
 		      (added_count != 1) ? ", " : "",
-		      entities[i]);
+		      entity);
     }
     return (str);
 }
 
-#define N_PUBLISH_ENTITIES	6
+#define N_PUBLISH_ENTITIES	7
 
 static void
 service_publish_clear(ServiceRef service_p, ipconfig_status_t status)
 {
     CFDictionaryRef	dns_dict = NULL;
     CFDictionaryRef	capport_dict = NULL;
-    CFStringRef		entities[N_PUBLISH_ENTITIES];
+    CFTypeRef		entities[N_PUBLISH_ENTITIES];
     int			entity_count;
     CFDictionaryRef	values[N_PUBLISH_ENTITIES];
 
@@ -2952,13 +3023,15 @@ service_publish_clear(ServiceRef service_p, ipconfig_status_t status)
 			 kSCEntNetSMB, NULL, &entity_count);
 #endif /* TARGET_OS_OSX */
 	ServiceSetActiveDuringSleepNeedsAttention(service_p);
+	ServiceSetIPv4PublishNeedsAttention(service_p);
     }
     else {
 	/* IPv6 */
 	entity_count = 0;
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetIPv6, NULL, &entity_count);
-	if (service_p->no_publish) {
+	/* CLAT46 is active, IPv4 also needs removing */
+	if (service_clat46_is_active(service_p)) {
 	    set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			     kSCEntNetIPv4, NULL, &entity_count);
 	}
@@ -2970,6 +3043,8 @@ service_publish_clear(ServiceRef service_p, ipconfig_status_t status)
 			 kSCEntNetDNS, dns_dict, &entity_count);
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetCaptivePortal, capport_dict, &entity_count);
+	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
+			 kServiceEntity, NULL, &entity_count);
     }
     my_SCDynamicStoreSetService(S_scd_session,
 				service_p->serviceID,
@@ -2991,7 +3066,7 @@ all_services_ready()
 	IFStateRef	ifstate = dynarray_element(&S_ifstate_list, i);
 
 	if (dynarray_count(&ifstate->services) == 0
-	    && ifstate->startup_ready == FALSE) {
+	    && !IFStateFlagsAreSet(ifstate, kIFStateFlagsStartupReady)) {
 	    return (FALSE);
 	}
 	for (j = 0; j < dynarray_count(&ifstate->services); j++) {
@@ -3140,10 +3215,10 @@ service_scrub_old_ipv4_addresses(ServiceRef service_p)
     boolean_t		logged = FALSE;
     ServiceIPv4Ref	v4_p = &service_p->u.v4;
 
-    if (ifstate->ipv4_addresses_scrubbed) {
+    if (IFStateFlagsAreSet(ifstate, kIFStateFlagsIPv4AddressesScrubbed)) {
 	return;
     }
-    ifstate->ipv4_addresses_scrubbed = TRUE;
+    IFStateFlagsSet(ifstate, kIFStateFlagsIPv4AddressesScrubbed);
 
     /* this function only handles a single routable service */
     count = dynarray_count(&ifstate->services);
@@ -3198,30 +3273,6 @@ ServiceSetBusy(ServiceRef service_p, boolean_t busy)
 }
 
 PRIVATE_EXTERN void
-ServiceSetDHCPWaiting(ServiceRef service_p, boolean_t waiting)
-{
-    IFStateRef		ifstate = service_ifstate(service_p);
-
-    if (ifstate->dhcp_waiting != waiting) {
-	my_log(LOG_INFO, "%s: DHCPWaiting %s",
-	       if_name(ifstate->if_p),
-	       waiting ? "true" : "false");
-	ifstate->dhcp_waiting = waiting;
-	service_list_event(&ifstate->services_v6,
-			   IFEventID_dhcp_waiting_changed_e,
-			   NULL);
-    }
- }
-
-PRIVATE_EXTERN boolean_t
-ServiceGetDHCPWaiting(ServiceRef service_p)
-{
-    IFStateRef		ifstate = service_ifstate(service_p);
-
-    return (ifstate->dhcp_waiting);
-}
-
-PRIVATE_EXTERN void
 ServiceDetachIPv4(ServiceRef service_p)
 {
     IFStateRef		ifstate = service_ifstate(service_p);
@@ -3236,7 +3287,7 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     CFDictionaryRef		dhcp_dict = NULL;
     CFDictionaryRef		dns_dict = NULL;
     CFDictionaryRef		capport_dict = NULL;
-    CFStringRef			entities[N_PUBLISH_ENTITIES];
+    CFTypeRef			entities[N_PUBLISH_ENTITIES];
     CFStringRef			entities_summary;
     int				entity_count;
     interface_t *		if_p = service_interface(service_p);
@@ -3257,17 +3308,21 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 #endif /* TARGET_OS_OSX */
     ServiceRef			the_service_p;
     CFDictionaryRef		values[N_PUBLISH_ENTITIES];
+    boolean_t			was_published;
 
     if (service_p->serviceID == NULL) {
 	return;
     }
     info_p = &service_p->u.v4.info;
-    service_p->ready = TRUE;
-    service_p->status = ipconfig_status_success_e;
-
+    was_published = ServiceIsPublished(service_p);
+    ServiceSetIsPublished(service_p);
     if (S_scd_session == NULL) {
 	/* configd is not running */
 	return;
+    }
+    if (!was_published) {
+	/* we're publishing now, so deliver notification */
+	ServiceSetIPv4PublishNeedsAttention(service_p);
     }
     if (dhcp_info_p != NULL) {
 	options = dhcp_info_p->options;
@@ -3279,6 +3334,13 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 				      IS_IPV4);
 	if (parent_service_p == NULL
 	    || parent_service_p->u.v4.info.addr.s_addr != 0) {
+	    return;
+	}
+	if (service_p->method == ipconfig_method_linklocal_e
+	    && IFStateFlagsAreSet(ifstate, kIFStateFlagsCLAT46Active)) {
+	    my_log(LOG_NOTICE,
+		   "%s: not publishing IPv4LL service, CLAT46 is active",
+		   if_name(if_p));
 	    return;
 	}
 	serviceID = service_p->parent_serviceID;
@@ -3303,7 +3365,8 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     /* InterfaceName */
     CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, ifstate->ifname);
 
-    if (ifstate->netboot && service_p->parent_serviceID == NULL) {
+    if (IFStateFlagsAreSet(ifstate, kIFStateFlagsNetBoot)
+	&& service_p->parent_serviceID == NULL) {
 	CFNumberRef	primary;
 	int		enabled = 1;
 
@@ -3485,6 +3548,13 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 		     kSCEntNetDHCP, dhcp_dict, &entity_count);
 
+    /* service */
+    if (service_p->method != ipconfig_method_linklocal_e) {
+	/* remove Rank */
+	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
+			 kServiceEntity, NULL, &entity_count);
+    }
+
     my_SCDynamicStoreSetService(S_scd_session,
 				serviceID,
 				entities, values, entity_count,
@@ -3501,9 +3571,9 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     ServiceSetActiveDuringSleepNeedsAttention(service_p);
     setDisableUntilNeededNeedsAttention();
     if (ipconfig_method_routable(service_p->method)
-	&& ifstate->failure_symptom_reported) {
+	&& IFStateFlagsAreSet(ifstate, kIFStateFlagsFailureSymptomReported)) {
 	report_address_acquisition_symptom(if_link_index(ifstate->if_p), true);
-	ifstate->failure_symptom_reported = FALSE;
+	IFStateFlagsClear(ifstate, kIFStateFlagsFailureSymptomReported);
 	my_log(LOG_NOTICE,
 	       "%s %s: reported address acquisition success symptom",
 	       ipconfig_method_string(service_p->method),
@@ -3667,13 +3737,13 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 			  ipv6_info_t * ipv6_info_p,
 			  CFStringRef signature)
 {
-    CFStringRef			entities[N_PUBLISH_ENTITIES];
-    CFStringRef			entities_summary;
-    int				entity_count;
-    const char *		extra_string;
     CFDictionaryRef		dhcp_dict = NULL;
     CFDictionaryRef		dns_dict = NULL;
     CFDictionaryRef		capport_dict = NULL;
+    CFTypeRef			entities[N_PUBLISH_ENTITIES];
+    CFStringRef			entities_summary;
+    int				entity_count;
+    const char *		extra_string;
     interface_t *		if_p = service_interface(service_p);
     IFStateRef			ifstate = service_ifstate(service_p);
     CFDictionaryRef		ipv4_dict = NULL;
@@ -3681,6 +3751,7 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     CFStringRef			nat64_prefix = NULL;
     DHCPv6OptionListRef		options = NULL;
     boolean_t			perform_plat_discovery = FALSE;
+    CFDictionaryRef		rank_dict = NULL;
     CFDictionaryRef		values[N_PUBLISH_ENTITIES];
 
     if (service_p->serviceID == NULL) {
@@ -3689,8 +3760,7 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     if (addresses == NULL || addresses_count == 0) {
 	return;
     }
-    service_p->ready = TRUE;
-    service_p->status = ipconfig_status_success_e;
+    ServiceSetIsPublished(service_p);
 
     if (S_scd_session == NULL) {
 	/* configd is not running */
@@ -3776,6 +3846,26 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 		     kSCEntNetDHCPv6, dhcp_dict, &entity_count);
     set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 		     kSCEntNetCaptivePortal, capport_dict, &entity_count);
+
+    /*
+     * If IPv4 hasn't published, and we're not publishing IPv4,
+     * demote the rank to RankLast to allow a fully dual-stack
+     * or NAT64 service to get priority.
+     */
+    if (!service_interface_ipv4_published(service_p) && ipv4_dict == NULL) {
+	/* demote the service to RankLast */
+	const void *	key = kSCPropNetServicePrimaryRank;
+	const void *	rank = kSCValNetServicePrimaryRankLast;
+
+	rank_dict = CFDictionaryCreate(NULL,
+				       &key,
+				       &rank,
+				       1,
+				       &kCFTypeDictionaryKeyCallBacks,
+				       &kCFTypeDictionaryValueCallBacks);
+    }
+    set_entity_value(entities, values, N_PUBLISH_ENTITIES,
+		     kServiceEntity, rank_dict, &entity_count);
     entities_summary = create_entities_summary(entities, values, entity_count);
     my_SCDynamicStoreSetService(S_scd_session,
 				service_p->serviceID,
@@ -3785,12 +3875,13 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     my_CFRelease(&dns_dict);
     my_CFRelease(&dhcp_dict);
     my_CFRelease(&capport_dict);
+    my_CFRelease(&rank_dict);
 
     setDisableUntilNeededNeedsAttention();
     if (ipconfig_method_routable(service_p->method)
-	&& ifstate->failure_symptom_reported) {
+	&& IFStateFlagsAreSet(ifstate, kIFStateFlagsFailureSymptomReported)) {
 	report_address_acquisition_symptom(if_link_index(ifstate->if_p), true);
-	ifstate->failure_symptom_reported = FALSE;
+	IFStateFlagsClear(ifstate, kIFStateFlagsFailureSymptomReported);
 	my_log(LOG_NOTICE,
 	       "%s %s: reported address acquisition success symptom",
 	       ipconfig_method_string(service_p->method),
@@ -3820,13 +3911,20 @@ ServiceIsPublished(ServiceRef service_p)
     return (service_p->ready && service_p->status == ipconfig_status_success_e);
 }
 
+STATIC void
+ServiceSetIsPublished(ServiceRef service_p)
+{
+    service_p->ready = TRUE;
+    service_p->status = ipconfig_status_success_e;
+}
+
 PRIVATE_EXTERN void
 ServiceGenerateFailureSymptom(ServiceRef service_p)
 {
     IFStateRef	ifstate = service_ifstate(service_p);
     ServiceRef	routable_service_p;
 
-    if (ifstate->failure_symptom_reported) {
+    if (IFStateFlagsAreSet(ifstate, kIFStateFlagsFailureSymptomReported)) {
 	my_log(LOG_INFO, "%s %s: symptom failure already reported",
 	       ipconfig_method_string(service_p->method),
 	       if_name(ifstate->if_p));
@@ -3843,7 +3941,7 @@ ServiceGenerateFailureSymptom(ServiceRef service_p)
     }
     if (report_address_acquisition_symptom(if_link_index(ifstate->if_p),
 					   false)) {
-	ifstate->failure_symptom_reported = TRUE;
+	IFStateFlagsSet(ifstate, kIFStateFlagsFailureSymptomReported);
 	my_log(LOG_NOTICE,
 	       "%s %s: reported address acquisition failure symptom",
 	       ipconfig_method_string(service_p->method),
@@ -4088,7 +4186,7 @@ ServiceGetRank(ServiceRef service_p, CFArrayRef service_order)
     int i;
     CFStringRef serviceID = service_p->serviceID;
 
-    if (service_ifstate(service_p)->netboot
+    if (IFStateFlagsAreSet(service_ifstate(service_p), kIFStateFlagsNetBoot)
 	&& service_p->method == ipconfig_method_dhcp_e) {
 	/* the netboot service is the best service */
 	return (RANK_HIGHEST);
@@ -4195,7 +4293,7 @@ ServiceDADIsEnabled(ServiceRef service_p)
 {
     IFStateRef			ifstate = service_ifstate(service_p);
 
-    return (!ifstate->disable_dad);
+    return (!IFStateFlagsAreSet(ifstate, kIFStateFlagsDisableDAD));
 }
 
 /*
@@ -4243,7 +4341,7 @@ linklocal_service_change(ServiceRef parent_service_p, boolean_t allocate)
 }
 
 PRIVATE_EXTERN void
-linklocal_set_needs_attention()
+linklocal_set_needs_attention(void)
 {
     S_linklocal_needs_attention = TRUE;
     return;
@@ -4267,12 +4365,12 @@ linklocal_get_address(ServiceRef ll_service_p)
 }
 
 /*
- * Function: S_linklocal_start
+ * Function: linklocal_start
  * Purpose:
  *   Start a child link-local service for the given parent service.
  */
 static void
-S_linklocal_start(ServiceRef parent_service_p, boolean_t allocate)
+linklocal_start(ServiceRef parent_service_p, boolean_t allocate)
 
 {
     IFStateRef			ifstate = service_ifstate(parent_service_p);
@@ -4295,14 +4393,18 @@ S_linklocal_start(ServiceRef parent_service_p, boolean_t allocate)
 }
 
 /*
- * Function: S_linklocal_elect
+ * Function: linklocal_elect
  * Purpose:
+ *   Determine the "best" interface to be the parent of the IPv4LL service.
+ *   Only a DHCP service can be the parent of an IPv4LL service.
+ *   Once found, instantiate the service in either allocate or no-allocate mode.
  */
 static void
-S_linklocal_elect(CFArrayRef service_order)
+linklocal_elect(CFArrayRef service_order)
 {
     int 		i;
 
+    my_log(LOG_DEBUG, "%s", __func__);
     for (i = 0; i < dynarray_count(&S_ifstate_list); i++) {
 	Rank		best_rank = RANK_NONE;
 	ServiceRef	best_service_p = NULL;
@@ -4355,7 +4457,8 @@ S_linklocal_elect(CFArrayRef service_order)
 		if (info_p->addr.s_addr == 0) {
 		    if (service_p->method != ipconfig_method_dhcp_e
 			|| G_dhcp_failure_configures_linklocal == FALSE
-			|| (service_p->status != ipconfig_status_no_server_e)) {
+			|| (service_p->status != ipconfig_status_no_server_e)
+			|| service_clat46_is_active(service_p)) {
 			/* service isn't ready to be a parent */
 			continue;
 		    }
@@ -4382,7 +4485,7 @@ S_linklocal_elect(CFArrayRef service_order)
 			/* service has no IP address, allocate a linklocal IP */
 			allocate = LINKLOCAL_ALLOCATE;
 		    }
-		    S_linklocal_start(best_service_p, allocate);
+		    linklocal_start(best_service_p, allocate);
 		}
 	    }
 	}
@@ -4528,7 +4631,7 @@ service_enable_clat46(ServiceRef service_p)
 }
 
 PRIVATE_EXTERN boolean_t
-service_clat46_is_enabled(ServiceRef service_p)
+service_clat46_is_configured(ServiceRef service_p)
 {
     if (!ServiceIsIPv6(service_p)) {
 	return (FALSE);
@@ -4542,18 +4645,32 @@ service_clat46_is_active(ServiceRef service_p)
     IFStateRef		ifstate;
 
     ifstate = service_ifstate(service_p);
-    return (ifstate->clat46_active);
+    return (IFStateFlagsAreSet(ifstate, kIFStateFlagsCLAT46Active));
 }
 
 PRIVATE_EXTERN void
-service_clat46_set_active(ServiceRef service_p, boolean_t active)
+service_clat46_set_is_active(ServiceRef service_p, boolean_t active)
 {
     IFStateRef		ifstate = service_ifstate(service_p);
 
-    if (active != ifstate->clat46_active) {
-	ifstate->clat46_active = active;
+    if (active != IFStateFlagsAreSet(ifstate, kIFStateFlagsCLAT46Active)) {
 	my_log(LOG_DEBUG, "%s: CLAT46 %sactive", if_name(ifstate->if_p),
-	       active ? "" : "in");
+	       active ? "" : "not ");
+	IFStateFlagsSetOrClear(ifstate, kIFStateFlagsCLAT46Active, active);
+	/* CLAT46 state impacts IPv4LL election */
+	linklocal_set_needs_attention();
+    }
+}
+
+PRIVATE_EXTERN void
+service_clat46_set_is_available(ServiceRef service_p, boolean_t available)
+{
+    IFStateRef		ifstate = service_ifstate(service_p);
+
+    if (available != IFStateFlagsAreSet(ifstate, kIFStateFlagsCLAT46Available)) {
+	IFStateFlagsSetOrClear(ifstate, kIFStateFlagsCLAT46Available, available);
+	my_log(LOG_DEBUG, "%s: CLAT46 %savailable", if_name(ifstate->if_p),
+	       available ? "" : "not ");
     }
 }
 
@@ -4563,7 +4680,7 @@ service_nat64_prefix_available(ServiceRef service_p)
     IFStateRef		ifstate;
 
     ifstate = service_ifstate(service_p);
-    return (ifstate->nat64_prefix_available);
+    return (IFStateFlagsAreSet(ifstate, kIFStateFlagsNAT64PrefixAvailable));
 }
 
 PRIVATE_EXTERN boolean_t
@@ -4572,8 +4689,17 @@ service_plat_discovery_failed(ServiceRef service_p)
     IFStateRef		ifstate;
 
     ifstate = service_ifstate(service_p);
-    return (ifstate->plat_discovery_complete
-	    && !ifstate->nat64_prefix_available);
+    return (IFStateFlagsAreSet(ifstate, kIFStateFlagsPLATDiscoveryComplete)
+	    && !IFStateFlagsAreSet(ifstate, kIFStateFlagsNAT64PrefixAvailable));
+}
+
+PRIVATE_EXTERN boolean_t
+service_plat_discovery_complete(ServiceRef service_p)
+{
+   IFStateRef		ifstate;
+
+   ifstate = service_ifstate(service_p);
+   return (IFStateFlagsAreSet(ifstate, kIFStateFlagsPLATDiscoveryComplete));
 }
 
 /**
@@ -4900,7 +5026,7 @@ ServiceIsIPv6(ServiceRef service_p)
 PRIVATE_EXTERN boolean_t
 ServiceIsNetBoot(ServiceRef service_p)
 {
-    return (service_p->ifstate->netboot);
+    return (IFStateFlagsAreSet(service_p->ifstate, kIFStateFlagsNetBoot));
 }
 
 PRIVATE_EXTERN void *
@@ -5069,6 +5195,33 @@ ServiceGetNetworkID(ServiceRef service_p)
     return (WiFiInfoGetNetworkID(ifstate->wifi_info_p));
 }
 
+STATIC void
+ServiceSetIPv4PublishNeedsAttention(ServiceRef service_p)
+{
+    IFStateSetIPv4PublishNeedsAttention(service_ifstate(service_p));
+}
+
+STATIC void
+IPv4ServicePublishProcess(IFStateList_t * list)
+{
+    int		if_count;
+
+    my_log(LOG_DEBUG, "%s", __func__);
+    if_count = dynarray_count(list);
+    for (int i = 0; i < if_count; i++) {
+	IFStateRef	ifstate = dynarray_element(list, i);
+
+	if (!IFStateFlagsAreSet(ifstate,
+				kIFStateFlagsIPv4PublishNeedsAttention)) {
+	    continue;
+	}
+	IFStateFlagsClear(ifstate, kIFStateFlagsIPv4PublishNeedsAttention);
+	service_list_event(&ifstate->services_v6,
+			   IFEventID_ipv4_publish_e,
+			   NULL);
+    }
+}
+
 PRIVATE_EXTERN void
 ServiceSetActiveDuringSleepNeedsAttention(ServiceRef service_p)
 {
@@ -5085,7 +5238,8 @@ ServiceGetAPNName(ServiceRef service_p)
 PRIVATE_EXTERN boolean_t
 ServiceIsCGAEnabled(ServiceRef service_p)
 {
-    return (!service_ifstate(service_p)->disable_cga);
+    return (!IFStateFlagsAreSet(service_ifstate(service_p),
+				kIFStateFlagsDisableCGA));
 }
 
 PRIVATE_EXTERN boolean_t
@@ -5649,7 +5803,8 @@ config_method_change(ServiceRef service_p,
 	IFStateRef	ifstate = service_ifstate(service_p);
 
 	if (dynarray_count(&ifstate->services_v6) == 1
-	    && (info->disable_cga != ifstate->disable_cga
+	    && ((info->disable_cga
+		 != IFStateFlagsAreSet(ifstate, kIFStateFlagsDisableCGA))
 		|| !IN6_ARE_ADDR_EQUAL(&info->ipv6_linklocal,
 				       &ifstate->ipv6_linklocal))) {
 	    /*
@@ -6015,10 +6170,13 @@ add_or_set_service(const char * name, ipconfig_method_info_t info,
 	my_log(LOG_INFO, "set interface %s mtu to %d", name, mtu);
 	interface_set_mtu(name, mtu);
     }
-    ifstate->disable_perform_nud = !perform_nud;
-    ifstate->disable_dad = !enable_dad;
-    ifstate->nat64_prefix_available = FALSE;
-    ifstate->plat_discovery_complete = FALSE;
+    IFStateFlagsSetOrClear(ifstate, kIFStateFlagsDisablePerformNUD,
+			   !perform_nud);
+    IFStateFlagsSetOrClear(ifstate, kIFStateFlagsDisableDAD,
+			   !enable_dad);
+    IFStateFlagsClear(ifstate,
+		      kIFStateFlagsNAT64PrefixAvailable
+		      | kIFStateFlagsPLATDiscoveryComplete);
     if (clear_state) {
 	if (ipconfig_method_is_v6(method)) {
 	    IFState_detach_IPv6(ifstate);
@@ -6255,7 +6413,8 @@ ipconfig_method_from_cfstring(CFStringRef m, ipconfig_method_t * method)
 	return (FALSE);
     }
     if (CFEqual(m, kSCValNetIPv4ConfigMethodBOOTP)) {
-	*method = ipconfig_method_bootp_e;
+	my_log(LOG_INFO, "BOOTP is deprecated, using DHCP instead");
+	*method = ipconfig_method_dhcp_e;
     }
     else if (CFEqual(m, kSCValNetIPv4ConfigMethodDHCP)) {
 	*method = ipconfig_method_dhcp_e;
@@ -7650,9 +7809,21 @@ check_for_detached_interfaces()
 	return;
     }
     for (i = 0; i < count; i++) {
+	interface_t *	if_p;
 	IFStateRef	ifstate = dynarray_element(&S_ifstate_list, i);
+	boolean_t	need_remove = FALSE;
 	
-	if (ifl_find_name(S_interfaces, if_name(ifstate->if_p)) == NULL) {
+	if_p = ifl_find_name(S_interfaces, if_name(ifstate->if_p));
+	if (if_p == NULL) {
+	    need_remove = TRUE;
+	}
+	else if (if_link_index(if_p) != if_link_index(ifstate->if_p)) {
+	    my_log(LOG_NOTICE, "%s: index changed from %d => %d",
+		   if_name(if_p), if_link_index(ifstate->if_p),
+		   if_link_index(if_p));
+	    need_remove = TRUE;
+	}
+	if (need_remove) {
 	    names[names_count++] = if_name(ifstate->if_p);
 	}
     }
@@ -7677,14 +7848,10 @@ runloop_observer(CFRunLoopObserverRef observer,
 	service_order = S_copy_service_order(S_scd_session);
 	if (S_linklocal_needs_attention) {
 	    S_linklocal_needs_attention = FALSE;
-	    my_log(LOG_DEBUG, "runloop_observer: calling S_linklocal_elect");
-	    S_linklocal_elect(service_order);
+	    linklocal_elect(service_order);
 	}
-
 	if (S_disable_until_needed_needs_attention) {
 	    S_disable_until_needed_needs_attention = FALSE;
-	    my_log(LOG_DEBUG,
-		   "runloop_observer: calling DisableUntilNeededProcess");
 	    DisableUntilNeededProcess(&S_ifstate_list, service_order);
 	}
 	my_CFRelease(&service_order);
@@ -7692,6 +7859,10 @@ runloop_observer(CFRunLoopObserverRef observer,
     if (S_active_during_sleep_needs_attention) {
 	S_active_during_sleep_needs_attention = FALSE;
 	ActiveDuringSleepProcess(&S_ifstate_list);
+    }
+    if (S_ipv4_publish_needs_attention) {
+	S_ipv4_publish_needs_attention = FALSE;
+	IPv4ServicePublishProcess(&S_ifstate_list);
     }
     my_SCDynamicStorePublish(S_scd_session);
     return;
@@ -7760,8 +7931,8 @@ S_ifstate_process_wake(IFStateRef ifstate)
 	       if_name(if_p));
 	return;
     }
-    if (ifstate->link_timer_suppressed) {
-	ifstate->link_timer_suppressed = FALSE;
+    if (IFStateFlagsAreSet(ifstate, kIFStateFlagsLinkTimerSuppressed)) {
+	IFStateFlagsClear(ifstate,  kIFStateFlagsLinkTimerSuppressed);
 	my_log(LOG_INFO, "%s: processing link timer expired at wake",
 	       if_name(if_p));
 	process_link_timer_expired(ifstate);
@@ -8050,7 +8221,7 @@ link_refresh(SCDynamicStoreRef session, CFStringRef cache_key)
 	return;
     }
     ifstate = IFStateListGetIFState(&S_ifstate_list, ifn_cf, NULL);
-    if (ifstate == NULL || ifstate->netboot) {
+    if (ifstate == NULL || IFStateFlagsAreSet(ifstate, kIFStateFlagsNetBoot)) {
 	/* don't propagate media status events for netboot interface */
 	goto done;
     }
@@ -8092,7 +8263,7 @@ handle_ipv6_linklocal_duplicated(IFStateRef ifstate,
     inet_ntop(AF_INET6, linklocal, ntopbuf, sizeof(ntopbuf));
     my_log(LOG_NOTICE, "%s: IPv6LL address %s is duplicated",
 	   if_name(ifstate->if_p), ntopbuf);
-    if (ifstate->disable_cga) {
+    if (IFStateFlagsAreSet(ifstate, kIFStateFlagsDisableCGA)) {
 	/* nothing to be done about this */
 	goto done;
     }
@@ -8231,17 +8402,25 @@ process_plat_discovery_complete(SCDynamicStoreRef session,
     }
     ifstate = IFStateListGetIFState(&S_ifstate_list, ifn_cf, NULL);
     if (ifstate != NULL) {
-	boolean_t	success;
+	boolean_t	has_prefix;
 
 	/* we're successful if the interface has prefixes */
-	success = inet6_has_nat64_prefixlist(if_name(ifstate->if_p));
-	ifstate->nat64_prefix_available = success;
-	if (success || plat_discovery_is_complete(session, cache_key)) {
-	    ifstate->plat_discovery_complete = TRUE;
+	has_prefix = inet6_has_nat64_prefixlist(if_name(ifstate->if_p));
+	IFStateFlagsSetOrClear(ifstate, kIFStateFlagsNAT64PrefixAvailable,
+			       has_prefix);
+	if (has_prefix || plat_discovery_is_complete(session, cache_key)) {
+	    IFStateFlagsSet(ifstate, kIFStateFlagsPLATDiscoveryComplete);
+	    my_log(LOG_INFO,
+		   "%@: PLATDiscovery complete (%sNAT64)", ifn_cf,
+		   has_prefix ? "" : "no ");
+	    service_list_event(&ifstate->services_v6,
+			       IFEventID_plat_discovery_complete_e,
+			       &has_prefix);
 	}
-	service_list_event(&ifstate->services_v6,
-			   IFEventID_plat_discovery_complete_e,
-			   &success);
+	else {
+	    my_log(LOG_DEBUG,
+		   "%@: PLATDiscovery incomplete", ifn_cf);
+	}
     }
     my_CFRelease(&ifn_cf);
     return;
@@ -8326,7 +8505,7 @@ ap_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
     }
     ifstate = IFStateListGetIFState(&S_ifstate_list, ifn_cf, NULL);
     my_CFRelease(&ifn_cf);
-    if (ifstate == NULL || ifstate->netboot) {
+    if (ifstate == NULL || IFStateFlagsAreSet(ifstate, kIFStateFlagsNetBoot)) {
 	/* don't propagate media status events for netboot interface */
 	goto done;
     }
@@ -8425,12 +8604,15 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 	/* make sure address information is up to date */
 	link_address_changed = if_link_update(if_p);
     }
-    if (ifstate == NULL || ifstate->netboot) {
+    if (ifstate == NULL || IFStateFlagsAreSet(ifstate, kIFStateFlagsNetBoot)) {
 	/* don't propagate media status events for netboot interface */
 	goto done;
     }
     ifstate->v6_ll_collision_count = 0;
-    ifstate->failure_symptom_reported = FALSE;
+    IFStateFlagsClear(ifstate,
+		      kIFStateFlagsFailureSymptomReported
+		      | kIFStateFlagsPLATDiscoveryComplete
+		      | kIFStateFlagsNAT64PrefixAvailable);
     if_link_copy(ifstate->if_p, if_p);
     if (link_status.valid == FALSE) {
 	my_log(LOG_NOTICE, "%s link is unknown", ifn);
@@ -8458,7 +8640,7 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
     IFState_update_link_event_data(ifstate, &link_event);
     link_active = (!link_status.valid || link_status.active);
     if (link_active) {
-	ifstate->link_timer_suppressed = FALSE;
+	IFStateFlagsClear(ifstate,  kIFStateFlagsLinkTimerSuppressed);
 	timer_cancel(ifstate->timer);
     }
     else {
@@ -8467,10 +8649,10 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 		   "%s: suppressing link inactive timer (going to sleep)",
 		   ifn);
 	    timer_cancel(ifstate->timer);
-	    ifstate->link_timer_suppressed = TRUE;
+	    IFStateFlagsSet(ifstate,  kIFStateFlagsLinkTimerSuppressed);
 	}
 	else {
-	    ifstate->link_timer_suppressed = FALSE;
+	    IFStateFlagsClear(ifstate,  kIFStateFlagsLinkTimerSuppressed);
 	    my_log(LOG_INFO,
 		   "%s: scheduling link inactive timer for %g secs",
 		   ifn,
@@ -8542,7 +8724,7 @@ arp_collision(SCDynamicStoreRef session, CFStringRef cache_key)
 	goto done;
     }
     ifstate = IFStateListGetIFState(&S_ifstate_list, ifn_cf, NULL);
-    if (ifstate == NULL || ifstate->netboot) {
+    if (ifstate == NULL || IFStateFlagsAreSet(ifstate, kIFStateFlagsNetBoot)) {
 	/* don't propogate collision events for netboot interface */
 	goto done;
     }
@@ -8755,15 +8937,15 @@ copy_icon_url(CFStringRef icon)
     CFURLRef		np_url;
     CFURLRef		url = NULL;
 
-#define kNetworkPrefPanePath	"/System/Library/PreferencePanes/Network.prefPane"
+#define kSystemConfigurationFramework	"/System/Library/Frameworks/SystemConfiguration.framework"
     np_url = CFURLCreateWithFileSystemPath(NULL,
-					   CFSTR(kNetworkPrefPanePath),
+					   CFSTR(kSystemConfigurationFramework),
 					   kCFURLPOSIXPathStyle, FALSE);
     if (np_url != NULL) {
 	np_bundle = CFBundleCreate(NULL, np_url);
 	if (np_bundle != NULL) {
 	    url = CFBundleCopyResourceURL(np_bundle, icon, 
-					  CFSTR("icns"), NULL);
+					  CFSTR("tiff"), NULL);
 	    CFRelease(np_bundle);
 	}
 	CFRelease(np_url);
@@ -8786,12 +8968,16 @@ ServiceRemoveAddressConflict(ServiceRef service_p)
     return;
 }
 
+#define kIconNetwork		CFSTR("Network")
+#define kIconWiFi		CFSTR("WiFi")
+
 static void
 service_notify_user(ServiceRef service_p, CFArrayRef header,
 		    CFStringRef message)
 {
     CFMutableDictionaryRef	dict;
     SInt32			error;
+    CFStringRef			icon_name;
     CFURLRef			icon_url;
     CFUserNotificationRef 	notify;
     CFRunLoopSourceRef		rls;
@@ -8808,7 +8994,9 @@ service_notify_user(ServiceRef service_p, CFArrayRef header,
     CFDictionarySetValue(dict, kCFUserNotificationLocalizationURLKey,
 			 url);
     CFRelease(url);
-    icon_url = copy_icon_url(CFSTR("Network"));
+    icon_name = if_is_wireless(service_ifstate(service_p)->if_p)
+	? kIconWiFi : kIconNetwork;
+    icon_url = copy_icon_url(icon_name);
     if (icon_url != NULL) {
 	CFDictionarySetValue(dict, kCFUserNotificationIconURLKey,
 			     icon_url);

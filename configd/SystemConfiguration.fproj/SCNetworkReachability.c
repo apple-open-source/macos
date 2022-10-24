@@ -128,7 +128,7 @@ static Boolean
 __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPrivate,
 					dispatch_queue_t		queue);
 
-static CFTypeID __kSCNetworkReachabilityTypeID	= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkReachabilityTypeID;
 
 
 static const CFRuntimeClass __SCNetworkReachabilityClass = {
@@ -144,7 +144,6 @@ static const CFRuntimeClass __SCNetworkReachabilityClass = {
 };
 
 
-static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
 
 static dispatch_queue_t
 _callback_queue()
@@ -390,10 +389,14 @@ __SCNetworkReachabilityDeallocate(CFTypeRef cf)
 static void
 __SCNetworkReachabilityInitialize(void)
 {
-	__kSCNetworkReachabilityTypeID = _CFRuntimeRegisterClass(&__SCNetworkReachabilityClass);
+	static dispatch_once_t  initialized;
 
-	pthread_mutexattr_init(&lock_attr);
-	pthread_mutexattr_settype(&lock_attr, PTHREAD_MUTEX_ERRORCHECK);
+	dispatch_once(&initialized, ^{
+		__kSCNetworkReachabilityTypeID = _CFRuntimeRegisterClass(&__SCNetworkReachabilityClass);
+
+		pthread_mutexattr_init(&lock_attr);
+		pthread_mutexattr_settype(&lock_attr, PTHREAD_MUTEX_ERRORCHECK);
+	});
 
 	return;
 }
@@ -405,7 +408,7 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 	uint32_t				size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkReachabilityInitialize);
+	__SCNetworkReachabilityInitialize();
 
 	/* allocate target */
 	size          = sizeof(SCNetworkReachabilityPrivate) - sizeof(CFRuntimeBase);
@@ -945,7 +948,7 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 CFTypeID
 SCNetworkReachabilityGetTypeID(void)
 {
-	pthread_once(&initialized, __SCNetworkReachabilityInitialize);	/* initialize runtime */
+	__SCNetworkReachabilityInitialize();	/* initialize runtime */
 	return __kSCNetworkReachabilityTypeID;
 }
 

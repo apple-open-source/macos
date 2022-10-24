@@ -74,6 +74,9 @@ nihosts:
 interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
+interface_changes: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACE_CHANGES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+
 interfaces-no-sc: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -DNO_SYSTEMCONFIGURATION=1 -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 

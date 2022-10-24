@@ -641,7 +641,7 @@ config_read(struct nfs_conf_statd * conf)
 			continue;
 		}
 		tmp = !value ? 1 : strtol(value, NULL, 0);
-		DEBUG(1, "%4ld %s=%s (%d)\n", linenum, key, value ? value : "", tmp);
+		DEBUG(1, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
 
 		if (tmp > INT32_MAX) {
 			tmp = INT32_MAX;
@@ -786,9 +786,6 @@ statd_notify_start(void)
 }
 #pragma clang diagnostic pop
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-
 /*
  * our own little logging function...
  */
@@ -811,7 +808,6 @@ SYSLOG(int pri, const char *fmt, ...)
 	}
 	va_end(ap);
 }
-#pragma clang diagnostic pop
 
 /*
  * Compare the addresses in two addrinfo structures.

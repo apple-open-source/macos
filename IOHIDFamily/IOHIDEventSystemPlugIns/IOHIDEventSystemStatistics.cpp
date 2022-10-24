@@ -45,6 +45,15 @@
 #define kCoreAnalyticsDictionaryAppleKeyboardCursorCountKey         "cursorKeyCount"
 #define kCoreAnalyticsDictionaryAppleKeyboardModifierCountKey       "modifierKeyCount"
 
+#define kCoreAnalyticsDictionaryAppleMultiPressEvents               "com.apple.iohid.buttons.doublePressTiming"
+#define kCoreAnalyticsDictionaryAppleMultiPressFailIntervalsKey     "PressFailureTime"
+#define kCoreAnalyticsDictionaryAppleMultiPressPassIntervalsKey     "PressSuccessTime"
+
+
+#define kMaxMultiPressTime (2 * NSEC_PER_SEC)
+
+#define ABS_TO_NS(t,b)               ((t * (b).numer)/ (b).denom)
+
 #define kAppleVendorID 1452
 
 // 072BC077-E984-4C2A-BB72-D4769CE44FAF
@@ -198,8 +207,12 @@ boolean_t IOHIDEventSystemStatistics::open(IOHIDSessionRef session, IOOptionBits
                                                  kHIDPage_AppleVendorSmartCover,
                                                  kHIDUsage_AppleVendorSmartCover_Attach,
                                                  0, 0);
+
+    _multiPressServices = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    mach_timebase_info(&_timeInfo);
     
-    if (!_keyServices || !_attachEvent) {
+    if (!_keyServices || !_attachEvent || !_multiPressServices) {
         return false;
     }
     return true;
@@ -223,14 +236,14 @@ void IOHIDEventSystemStatistics::close(IOHIDSessionRef session, IOOptionBits opt
         _keyServices = NULL;
     }
     
-    if (_keyServices) {
-        CFRelease(_keyServices);
-        _keyServices = NULL;
-    }
-    
     if (_attachEvent) {
         CFRelease(_attachEvent);
         _attachEvent = NULL;
+    }
+
+    if (_multiPressServices) {
+        CFRelease(_multiPressServices);
+        _multiPressServices = NULL;
     }
 }
 
@@ -243,30 +256,73 @@ void IOHIDEventSystemStatistics::registerService(void * self, IOHIDServiceRef se
 }
 void IOHIDEventSystemStatistics::registerService(IOHIDServiceRef service)
 {
-    if ( IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard) )
-    {
-        CFTypeRef   obj;
-        uint32_t    vendorID = 0;
-        
-        obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDVendorIDKey));
-        if (obj && CFGetTypeID(obj) == CFNumberGetTypeID())
-            CFNumberGetValue((CFNumberRef)obj, kCFNumberIntType, &vendorID);
-        
-        // Check for Apple vendorID.
-        if (vendorID != kAppleVendorID)
-            return;
+    registerKeyboardService(service);
+    registerMultiPressService(service);
+}
 
-        // Check for AccessoryID Bus transport.
-        obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDTransportKey));
-        if (!obj || CFGetTypeID(obj) != CFStringGetTypeID() || !CFEqual((CFStringRef)obj, CFSTR(kIOHIDTransportAIDBValue)))
-            return;
+void IOHIDEventSystemStatistics::registerKeyboardService(IOHIDServiceRef service)
+{
+    if (!IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard)) {
+        return;
+    }
 
-        _pending_keystats.enumeration_count++;
-        
-        if (_keyServices)
-            CFSetAddValue(_keyServices, service);
-        
-        HIDLogDebug("Apple Keyboard registered");
+    CFTypeRef   obj;
+    uint32_t    vendorID = 0;
+    
+    obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDVendorIDKey));
+    if (obj && CFGetTypeID(obj) == CFNumberGetTypeID()) {
+        CFNumberGetValue((CFNumberRef)obj, kCFNumberIntType, &vendorID);
+    }
+    
+    // Check for Apple vendorID.
+    if (vendorID != kAppleVendorID) {
+        return;
+    }
+
+    // Check for AccessoryID Bus transport.
+    obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDTransportKey));
+    if (!obj || CFGetTypeID(obj) != CFStringGetTypeID() || !CFEqual((CFStringRef)obj, CFSTR(kIOHIDTransportAIDBValue))) {
+        return;
+    }
+
+    _pending_keystats.enumeration_count++;
+    
+    if (_keyServices) {
+        CFSetAddValue(_keyServices, service);
+    }
+    
+    HIDLogDebug("Apple Keyboard registered");
+}
+
+void IOHIDEventSystemStatistics::registerMultiPressService(IOHIDServiceRef service)
+{
+    CFTypeRef enabledProp = IOHIDServiceGetProperty(service, CFSTR(kIOHIDKeyboardPressCountTrackingEnabledKey));
+    if (!enabledProp) {
+        return;
+    }
+
+    bool isEnabled = false;
+    if (CFGetTypeID(enabledProp) == CFBooleanGetTypeID()) {
+        CFBooleanRef boolVal = (CFBooleanRef)enabledProp;
+        isEnabled = boolVal == kCFBooleanTrue;
+    } else if (CFGetTypeID(enabledProp) == CFNumberGetTypeID()) {
+        CFNumberRef enabledNum = (CFNumberRef)enabledProp;
+        uint64_t enabledVal = 0;
+        CFNumberGetValue(enabledNum, kCFNumberLongLongType, &enabledVal);
+        isEnabled = enabledVal != 0;
+    }
+
+    if (isEnabled && _multiPressServices) {
+        CFMutableDictionaryRef mpServiceDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (mpServiceDict) {
+            CFTypeRef multiPressUsages = IOHIDServiceGetProperty(service, CFSTR(kIOHIDKeyboardPressCountUsagePairsKey));
+            if (multiPressUsages) {
+                CFDictionarySetValue(mpServiceDict, CFSTR("MultiPressUsages"), multiPressUsages);
+            }
+            CFDictionarySetValue(_multiPressServices, service, mpServiceDict);
+            HIDLogDebug("Added MultiPress Analytics for service:%@ %@", IOHIDServiceGetRegistryID(service), multiPressUsages);
+            CFRelease(mpServiceDict);
+        }
     }
 }
 
@@ -283,6 +339,12 @@ void IOHIDEventSystemStatistics::unregisterService(IOHIDServiceRef service)
         CFSetRemoveValue(_keyServices, service);
         
         HIDLogDebug("Apple Keyboard unregistered");
+    }
+
+    if (_multiPressServices && CFDictionaryContainsKey(_multiPressServices, service)) {
+        CFDictionaryRemoveValue(_multiPressServices, service);
+
+        HIDLogDebug("MultiPress service removed: %@", IOHIDServiceGetRegistryID(service));
     }
 }
 
@@ -379,6 +441,7 @@ void IOHIDEventSystemStatistics::handlePendingStats()
         
         bcopy(&_pending_keystats, &keyStats, sizeof(KeyStats));
         bzero(&_pending_keystats, sizeof(KeyStats));
+
     });
     
     analytics_send_event_lazy(kCoreAnalyticsDictionaryAppleButtonEvents, ^xpc_object_t {
@@ -462,6 +525,24 @@ bool IOHIDEventSystemStatistics::collectKeyStats(IOHIDServiceRef sender, IOHIDEv
     return true;
 }
 
+static bool isMultiPressUsage(CFTypeRef usages, CFIndex usagePage, CFIndex usage) {
+    if (usages == NULL) {
+        return true;
+    }
+
+    CFIndex usagePair = (usagePage << 16) | usage;
+    CFNumberRef usagePairNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &usagePair);
+    bool isUsage = true;
+
+    if (CFGetTypeID(usages) == CFArrayGetTypeID()) {
+        CFArrayRef usagePairArray = (CFArrayRef)usages;
+        CFRange range = CFRangeMake(0, CFArrayGetCount(usagePairArray));
+        isUsage = CFArrayContainsValue(usagePairArray, range, usagePairNum);
+    }
+
+    CFRelease(usagePairNum);
+    return isUsage;
+}
 
 //------------------------------------------------------------------------------
 // IOHIDEventSystemStatistics::filter
@@ -507,8 +588,73 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                 }
             }
 
-            if ( signal )
+            if ( signal ) {
                 dispatch_source_merge_data(_pending_source, 1);
+            }
+
+            if (sender && _multiPressServices && CFDictionaryContainsKey(_multiPressServices, sender)) {
+                CFTypeRef obj = CFDictionaryGetValue(_multiPressServices, sender);
+                if (CFGetTypeID(obj) == CFDictionaryGetTypeID()) {
+                    CFMutableDictionaryRef mpServiceInfo = (CFMutableDictionaryRef)obj;
+                    uint64_t eventTime = ABS_TO_NS(IOHIDEventGetTimeStampOfType(event, kIOHIDEventTimestampTypeAbsolute), _timeInfo);
+                    CFIndex eventPressCount = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardPressCount);
+                    CFIndex eventState = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown);
+                    CFIndex eventUsagePage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage);
+                    CFIndex eventUsage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage);
+                    CFIndex eventLongPress = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardLongPress);
+                    IOHIDEventPhaseBits eventPhase = IOHIDEventGetPhase(event);
+                    CFTypeRef usages = CFDictionaryGetValue(mpServiceInfo, CFSTR("MultiPressUsages"));
+                    bool eventMultiPressUsage =  isMultiPressUsage(usages, eventUsagePage, eventUsage);
+
+                    if (eventState && eventMultiPressUsage && !(eventPhase & kIOHIDEventPhaseEnded) && !eventLongPress) {
+                        uint64_t prevEventTime = 0;
+                        uint64_t prevPressCount = 0;
+                        uint64_t pressInterval = 0;
+
+                        obj = CFDictionaryGetValue(mpServiceInfo, CFSTR("PressCount"));
+                        if (obj && CFGetTypeID(obj) == CFNumberGetTypeID()) {
+                            CFNumberGetValue((CFNumberRef)obj, kCFNumberLongLongType, &prevPressCount);
+                        }
+                        obj = CFDictionaryGetValue(mpServiceInfo, CFSTR("MultiPressTime"));
+                        if (obj && CFGetTypeID(obj) == CFNumberGetTypeID()) {
+                            CFNumberGetValue((CFNumberRef)obj, kCFNumberLongLongType, &prevEventTime);
+                        }
+
+                        pressInterval = eventTime - prevEventTime;
+
+                        if (prevPressCount && prevEventTime && prevPressCount == eventPressCount) {
+                            if (pressInterval < kMaxMultiPressTime) {
+                                HIDLogDebug("PressInterval Failed: %llu", pressInterval);
+                                __block uint64_t pressTime = pressInterval;
+                                analytics_send_event_lazy(kCoreAnalyticsDictionaryAppleMultiPressEvents, ^xpc_object_t{
+                                    xpc_object_t keyDictionary = xpc_dictionary_create(NULL, NULL, 0);
+
+                                    xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryAppleMultiPressFailIntervalsKey, pressTime / NSEC_PER_MSEC);
+
+                                    return keyDictionary;
+                                });
+                            }
+                        } else if (prevPressCount && prevEventTime && prevPressCount < eventPressCount) {
+                            HIDLogDebug("PressInterval Success: %llu", pressInterval);
+                            __block uint64_t pressTime = pressInterval;
+                            analytics_send_event_lazy(kCoreAnalyticsDictionaryAppleMultiPressEvents, ^xpc_object_t{
+                                xpc_object_t keyDictionary = xpc_dictionary_create(NULL, NULL, 0);
+
+                                xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryAppleMultiPressPassIntervalsKey, pressTime / NSEC_PER_MSEC);
+
+                                return keyDictionary;
+                            });
+                        }
+                        // Set the previous event time info
+                        CFNumberRef eventPressNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, &eventPressCount);
+                        CFNumberRef eventTimeNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, &eventTime);
+                        CFDictionarySetValue(mpServiceInfo, CFSTR("PressCount"), eventPressNum);
+                        CFDictionarySetValue(mpServiceInfo, CFSTR("MultiPressTime"), eventTimeNum);
+                        CFRelease(eventPressNum);
+                        CFRelease(eventTimeNum);
+                    }
+                }
+            }
         }
         
     }

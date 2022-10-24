@@ -48,6 +48,8 @@
 #include "HIDDeviceIvar.h"
 #include <IOKit/hid/IOHIDPreferences.h>
 
+
+
 typedef struct  __IOHIDDevice {
     struct objc_object base;
     struct {
@@ -183,7 +185,7 @@ CFStringRef IOHIDDeviceCopyDescription(IOHIDDeviceRef device)
     CFStringRef         subDescription  = NULL;
     io_name_t           name            = "";
     io_registry_entry_t regEntry        = MACH_PORT_NULL;
-    
+
     regEntry = device->service;
     if ( regEntry && (IOObjectRetain(regEntry) != KERN_SUCCESS)) {
         regEntry = MACH_PORT_NULL;
@@ -236,7 +238,6 @@ CFStringRef IOHIDDeviceCopyDescription(IOHIDDeviceRef device)
     
     CFStringAppend(description, CFSTR(">"));
 exit:
-    
     if ( regEntry )
         IOObjectRelease(regEntry);
     
@@ -337,8 +338,15 @@ void __IOHIDDeviceNotification(
                             void *                  messageArgument __unused)
 {
     CFIndex index, count = 0;
-    if ( !device || (messageType != kIOMessageServiceIsTerminated) || !device->removalCallbackSet || !(count=CFSetGetCount(device->removalCallbackSet)))
+
+    if (!device || (messageType != kIOMessageServiceIsTerminated)) {
         return;
+    }
+    os_unfair_recursive_lock_lock(&device->callbackLock);
+    if ( !device->removalCallbackSet || !(count=CFSetGetCount(device->removalCallbackSet))) {
+        os_unfair_recursive_lock_unlock(&device->callbackLock);
+        return;
+    }
     
     CFRetain(device);
     
@@ -366,6 +374,7 @@ void __IOHIDDeviceNotification(
         info->callback(info->context, kIOReturnSuccess, device);
     }
 
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
     CFRelease(device);
 }
 
@@ -417,6 +426,8 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     device->deviceInterface = deviceInterface;
     device->deviceTimeStampedInterface = deviceTimeStampedInterface;
     device->service         = service;
+    device->deviceLock      = OS_UNFAIR_RECURSIVE_LOCK_INIT;
+    device->callbackLock    = OS_UNFAIR_RECURSIVE_LOCK_INIT;
     
     IORegistryEntryGetRegistryEntryID(service, &device->regID);
 
@@ -452,7 +463,11 @@ IOReturn IOHIDDeviceOpen(
                                 IOHIDDeviceRef                  device, 
                                 IOOptionBits                    options)
 {
-    return (*device->deviceInterface)->open(device->deviceInterface, options);
+    IOReturn result;
+
+    result = (*device->deviceInterface)->open(device->deviceInterface, options);
+
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -462,12 +477,18 @@ IOReturn IOHIDDeviceClose(
                                 IOHIDDeviceRef                  device, 
                                 IOOptionBits                    options)
 {
+    IOReturn result;
+
+    os_unfair_recursive_lock_lock(&device->callbackLock);
     if ( device->inputValueCallbackSet )
         CFSetRemoveAllValues(device->inputValueCallbackSet);
     if ( device->inputReportCallbackSet )
         CFSetRemoveAllValues(device->inputReportCallbackSet);
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
     
-    return (*device->deviceInterface)->close(device->deviceInterface, options);
+    result = (*device->deviceInterface)->close(device->deviceInterface, options);
+
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -537,6 +558,7 @@ CFTypeRef IOHIDDeviceGetProperty(
     CFTypeRef   property = NULL;
     IOReturn    ret;
     
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     ret = (*device->deviceInterface)->getProperty(
                                             device->deviceInterface,
                                             key, 
@@ -550,6 +572,7 @@ CFTypeRef IOHIDDeviceGetProperty(
             property = NULL;
         }
     }
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 
     return property;
 }
@@ -562,13 +585,17 @@ Boolean IOHIDDeviceSetProperty(
                                 CFStringRef                     key,
                                 CFTypeRef                       property)
 {
+    Boolean result = FALSE;
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if (!device->properties) {
         device->properties = CFDictionaryCreateMutable(CFGetAllocator(device),
                                                         0,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks);
-        if (!device->properties)
-            return FALSE;
+        if (!device->properties) {
+            os_unfair_recursive_lock_unlock(&device->deviceLock);
+            return result;
+        }
     }
     
     device->isDirty = TRUE;
@@ -585,9 +612,11 @@ Boolean IOHIDDeviceSetProperty(
     }
     
 exit:
-    return (*device->deviceInterface)->setProperty(device->deviceInterface, 
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
+    result = (*device->deviceInterface)->setProperty(device->deviceInterface, 
                                                    key, 
                                                    property) == kIOReturnSuccess;
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -606,7 +635,7 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
                                         matching,
                                         &elements,
                                         options);
-                                        
+    
     if ( ret != kIOReturnSuccess && elements ) {
         CFRelease(elements);
         elements = NULL;
@@ -621,6 +650,7 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
             element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements, index);
             _IOHIDElementSetDevice(element, device);
             
+            os_unfair_recursive_lock_lock(&device->deviceLock);
             if (device->elements ||
                 (device->elements = CFSetCreateMutable(CFGetAllocator(device),
                                                         0,
@@ -632,6 +662,7 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
                     }
                 }
             }
+            os_unfair_recursive_lock_unlock(&device->deviceLock);
         }
     }
     
@@ -641,6 +672,7 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
 //------------------------------------------------------------------------------
 // __IOHIDDeviceSetupAsyncSupport
 //------------------------------------------------------------------------------
+// This function should only be called under the deviceLock lock.
 Boolean __IOHIDDeviceSetupAsyncSupport(IOHIDDeviceRef device)
 {
     IOReturn                    ret             = kIOReturnError;
@@ -683,6 +715,7 @@ void IOHIDDeviceScheduleWithRunLoop(
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
 {
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if (device->runLoop) {
         IOHIDDeviceUnscheduleFromRunLoop(device, device->runLoop, device->runLoopMode);
     }
@@ -698,11 +731,15 @@ void IOHIDDeviceScheduleWithRunLoop(
     if (source) {
         CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
     }
+
+    IOHIDQueueRef queue = device->queue;
+
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
     
     // Default queue has already been created, so go ahead and schedule it
-    if (device->queue) {
-        IOHIDQueueScheduleWithRunLoop(device->queue, device->runLoop, device->runLoopMode);
-        IOHIDQueueStart(device->queue);
+    if (queue) {
+        IOHIDQueueScheduleWithRunLoop(queue, runLoop, runLoopMode);
+        IOHIDQueueStart(queue);
     }
 }
 
@@ -714,15 +751,23 @@ void IOHIDDeviceUnscheduleFromRunLoop(
                                 CFRunLoopRef                    runLoop __unused,
                                 CFStringRef                     runLoopMode __unused)
 {
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if (!device->runLoop) {
+        os_unfair_recursive_lock_unlock(&device->deviceLock);
         return;
     }
+
+    IOHIDQueueRef queue = device->queue;
+    CFRunLoopRef prevRunLoop = device->runLoop;
+    CFStringRef prevRunLoopMode = device->runLoopMode;
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
     
-    if (device->queue) {
-      IOHIDQueueStop(device->queue);
-      IOHIDQueueUnscheduleFromRunLoop(device->queue, device->runLoop, device->runLoopMode);
+    if (queue) {
+      IOHIDQueueStop(queue);
+      IOHIDQueueUnscheduleFromRunLoop(queue, prevRunLoop, prevRunLoopMode);
     }
-    
+
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if (device->notificationPort) {
         CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
         if (source) {
@@ -736,6 +781,7 @@ void IOHIDDeviceUnscheduleFromRunLoop(
     
     device->runLoop = NULL;
     device->runLoopMode = NULL;
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 }
 
 //------------------------------------------------------------------------------
@@ -743,6 +789,7 @@ void IOHIDDeviceUnscheduleFromRunLoop(
 //------------------------------------------------------------------------------
 void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
 {
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     os_assert(__IOHIDDeviceSetupAsyncSupport(device));
     
     char label[256] = {0};
@@ -762,21 +809,25 @@ void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
                 size_t size = 0;
                 mach_msg_header_t *header = dispatch_mach_msg_get_msg(message, &size);
                 
-                // this will call into _cfmachPortCallback in IOHIDDeviceClass
+                // this will call into _portCallback in IOHIDDeviceClass
                 ((CFRunLoopSourceContext1*)&device->sourceContext)->perform(header, size, NULL, device->queuePort);
                 break;
             }
             case DISPATCH_MACH_CANCELED: {
+                os_unfair_recursive_lock_lock(&device->deviceLock);
                 dispatch_release(device->dispatchMach);
                 device->dispatchMach = NULL;
-                
-                if (device->cancelHandler && !device->queue) {
+                IOHIDQueueRef queue = device->queue;
+                os_unfair_recursive_lock_unlock(&device->deviceLock);
+
+                os_unfair_recursive_lock_lock(&device->callbackLock);
+                if (device->cancelHandler && !queue) {
                     (device->cancelHandler)();
                     Block_release(device->cancelHandler);
                     device->cancelHandler = NULL;
                 }
-                
-                 dispatch_release(device->dispatchQueue);
+                os_unfair_recursive_lock_unlock(&device->callbackLock);
+                dispatch_release(device->dispatchQueue);
                 CFRelease(device);
                 break;
             }
@@ -792,19 +843,25 @@ void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
         
         CFRetain(device);
         IOHIDQueueSetCancelHandler(device->queue, ^{
+            os_unfair_recursive_lock_lock(&device->deviceLock);
             CFRelease(device->queue);
             device->queue = NULL;
-            
-            if (device->cancelHandler && !device->dispatchMach) {
+            dispatch_mach_t dispatchMach = device->dispatchMach;
+            os_unfair_recursive_lock_unlock(&device->deviceLock);
+
+            os_unfair_recursive_lock_lock(&device->callbackLock);
+            if (device->cancelHandler && !dispatchMach) {
                 (device->cancelHandler)();
                 Block_release(device->cancelHandler);
                 device->cancelHandler = NULL;
             }
+            os_unfair_recursive_lock_unlock(&device->callbackLock);
             CFRelease(device);
         });
     }
     
 exit:
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
     return;
 }
 
@@ -813,9 +870,11 @@ exit:
 //------------------------------------------------------------------------------
 void IOHIDDeviceSetCancelHandler(IOHIDDeviceRef device, dispatch_block_t handler)
 {
+    os_unfair_recursive_lock_lock(&device->callbackLock);
     os_assert(!device->cancelHandler && handler);
     
     device->cancelHandler = Block_copy(handler);
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
 }
 
 //------------------------------------------------------------------------------
@@ -876,6 +935,7 @@ void IOHIDDeviceRegisterRemovalCallback(
     
     os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&device->callbackLock);
     if (!device->removalCallbackSet) {
         device->removalCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
     }
@@ -886,8 +946,6 @@ void IOHIDDeviceRegisterRemovalCallback(
     require(infoRef, cleanup);
 
     if (callback) {
-        kern_return_t kret = 0;
-        
         CFSetAddValue(device->removalCallbackSet, infoRef);
         
         if (!device->notificationPort) {
@@ -903,19 +961,23 @@ void IOHIDDeviceRegisterRemovalCallback(
             }
         }
         
-        kret = IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
-                                                device->service,            // service
-                                                kIOGeneralInterest,         // interestType
-                                                (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
-                                                device,                     // refCon
-                                                &(device->notification)     // notification
-                                                );
-        require_noerr(kret, cleanup);
+        if (!device->notification) {
+            kern_return_t kret = 0;
+            kret = IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
+                                                    device->service,            // service
+                                                    kIOGeneralInterest,         // interestType
+                                                    (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
+                                                    device,                     // refCon
+                                                    &(device->notification)     // notification
+                                                    );
+            require_noerr(kret, cleanup);
+        }
     } else {
         CFSetRemoveValue(device->removalCallbackSet, infoRef);
     }
     
 cleanup:
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
     CFRELEASE_IF_NOT_NULL(infoRef);
 }
 
@@ -963,8 +1025,9 @@ CFArrayRef __IOHIDDeviceCopyMatchingInputElements(IOHIDDeviceRef device, CFArray
             CFRelease(matching[index]);
     }
     
-    if ( !multiple )
+    if ( !multiple ) {
         return NULL;
+    }
         
     count = CFArrayGetCount( multiple );
    
@@ -1002,8 +1065,9 @@ void __IOHIDDeviceRegisterMatchingInputElements(
 {
     CFArrayRef elements = __IOHIDDeviceCopyMatchingInputElements(device, mutlipleMatch);
     
-    if ( !elements )
+    if ( !elements ) {
         return;
+    }
         
     CFIndex         i, count;
     IOHIDElementRef element;
@@ -1032,27 +1096,32 @@ void IOHIDDeviceRegisterInputValueCallback(
 {
     CFDataRef                                   infoRef = NULL;
     IOHIDDeviceInputElementValueCallbackInfo    info    = {context, callback};
+    CFMutableSetRef inputValueSet = NULL;
     
     os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
     
     CFRetain(device);
     
+    os_unfair_recursive_lock_lock(&device->callbackLock);
     if (!device->inputValueCallbackSet) {
-        device->inputValueCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
+        inputValueSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
+        device->inputValueCallbackSet = inputValueSet;
+    } else {
+        inputValueSet = device->inputValueCallbackSet;
     }
-    require(device->inputValueCallbackSet, cleanup);
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
+    require(inputValueSet, cleanup);
 
     infoRef = CFDataCreate(CFGetAllocator(device), (const UInt8 *) &info, sizeof(info));
     require(infoRef, cleanup);
 
     if (callback) {
         // adding a callback
+        os_unfair_recursive_lock_lock(&device->deviceLock);
         if ( !device->queue ) {
             device->queue = IOHIDQueueCreate(CFGetAllocator(device), device, 20, 0);
-            require(device->queue, cleanup);
-            
+            require_action(device->queue, cleanup, os_unfair_recursive_lock_unlock(&device->deviceLock));
             __IOHIDDeviceRegisterMatchingInputElements(device, device->queue, device->inputMatchingMultiple);
-            
             // If a run loop has been already set, go ahead and schedule the queues
             if ( device->runLoop ) {
                 IOHIDQueueScheduleWithRunLoop(device->queue,
@@ -1067,29 +1136,42 @@ void IOHIDDeviceRegisterInputValueCallback(
                 
                 CFRetain(device);
                 IOHIDQueueSetCancelHandler(device->queue, ^{
+                    os_unfair_recursive_lock_lock(&device->deviceLock);
                     CFRelease(device->queue);
                     device->queue = NULL;
-                    
-                    if (device->cancelHandler && !device->dispatchMach) {
+                    dispatch_mach_t dispatchMach = device->dispatchMach;
+                    os_unfair_recursive_lock_unlock(&device->deviceLock);
+
+                    os_unfair_recursive_lock_lock(&device->callbackLock);
+                    if (device->cancelHandler && !dispatchMach) {
                         (device->cancelHandler)();
                         Block_release(device->cancelHandler);
                         device->cancelHandler = NULL;
                     }
+                    os_unfair_recursive_lock_unlock(&device->callbackLock);
                     CFRelease(device);
                 });
             }
         }
+        os_unfair_recursive_lock_unlock(&device->deviceLock);
+        os_unfair_recursive_lock_lock(&device->callbackLock);
         CFSetAddValue(device->inputValueCallbackSet, infoRef);
+        os_unfair_recursive_lock_unlock(&device->callbackLock);
     }
     else {
         // removing a callback
+        os_unfair_recursive_lock_lock(&device->callbackLock);
         CFSetRemoveValue(device->inputValueCallbackSet, infoRef);
+        os_unfair_recursive_lock_unlock(&device->callbackLock);
     }
     
-    if (device && device->queue)
+    os_unfair_recursive_lock_lock(&device->deviceLock);
+    if (device->queue) {
         IOHIDQueueRegisterValueAvailableCallback(device->queue, 
                                                  __IOHIDDeviceInputElementValueCallback, 
                                                  device);
+    }
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 
 cleanup:
     CFRELEASE_IF_NOT_NULL(infoRef);
@@ -1125,6 +1207,7 @@ void IOHIDDeviceSetInputValueMatchingMultiple(
 {
     os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if ( device->queue ) {
         IOHIDValueRef   value;
         CFArrayRef      elements;
@@ -1133,8 +1216,9 @@ void IOHIDDeviceSetInputValueMatchingMultiple(
         IOHIDQueueStop(device->queue);
         
         // drain the queue
-        while ( (value = IOHIDQueueCopyNextValue(device->queue)) )
+        while ( (value = IOHIDQueueCopyNextValue(device->queue)) ) {
             CFRelease(value);
+        }
 
         // clear the exising elements from the queue            
         elements = _IOHIDQueueCopyElements(device->queue);
@@ -1155,11 +1239,12 @@ void IOHIDDeviceSetInputValueMatchingMultiple(
         IOHIDQueueStart(device->queue);
     }
 
-    if ( device->inputMatchingMultiple ) 
+    if ( device->inputMatchingMultiple ) {
         CFRelease(device->inputMatchingMultiple);
+    }
     
     device->inputMatchingMultiple = multiple ? (CFArrayRef)CFRetain(multiple) : NULL;
-    
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1170,7 +1255,8 @@ IOReturn IOHIDDeviceSetValue(
                                 IOHIDElementRef                 element, 
                                 IOHIDValueRef                   value)
 {
-    return (*device->deviceInterface)->setValue(
+    IOReturn result;
+    result = (*device->deviceInterface)->setValue(
                                                 device->deviceInterface,
                                                 element,
                                                 value,
@@ -1178,6 +1264,7 @@ IOReturn IOHIDDeviceSetValue(
                                                 NULL,
                                                 NULL,
                                                 0);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1204,20 +1291,19 @@ IOReturn IOHIDDeviceSetValueWithCallback(
     IOHIDDeviceCallbackInfo * elementInfo = 
             (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
     
-    if ( !elementInfo )
+    if ( !elementInfo ) {
         return kIOReturnNoMemory;
+    }
 
     elementInfo->device     = device;
     elementInfo->callback   = callback;
     elementInfo->context    = context;
-
-    uint32_t timeoutMS = timeout * 1000;
     
     IOReturn ret = (*device->deviceInterface)->setValue(
                                                 device->deviceInterface,
                                                 element,
                                                 value,
-                                                timeoutMS,
+                                                timeout,
                                                 __IOHIDDeviceValueCallback,
                                                 elementInfo,
                                                 0);
@@ -1322,7 +1408,7 @@ IOReturn IOHIDDeviceGetValue(
                                 IOHIDElementRef                 element, 
                                 IOHIDValueRef *                 pValue)
 {
-    return (*device->deviceInterface)->getValue(
+    IOReturn result = (*device->deviceInterface)->getValue(
                                                 device->deviceInterface,
                                                 element,
                                                 pValue,
@@ -1330,6 +1416,7 @@ IOReturn IOHIDDeviceGetValue(
                                                 NULL,
                                                 NULL,
                                                 0);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1341,7 +1428,7 @@ IOReturn IOHIDDeviceGetValueWithOptions (
                              IOHIDValueRef *                 pValue,
                              uint32_t                        options)
 {
-    return (*device->deviceInterface)->getValue(
+    IOReturn result = (*device->deviceInterface)->getValue(
                                                 device->deviceInterface,
                                                 element,
                                                 pValue,
@@ -1349,6 +1436,7 @@ IOReturn IOHIDDeviceGetValueWithOptions (
                                                 NULL,
                                                 NULL,
                                                 options);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1381,26 +1469,27 @@ IOReturn IOHIDDeviceGetValueWithCallback(
     IOHIDDeviceCallbackInfo * elementInfo = 
             (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
     
-    if ( !elementInfo )
+    if ( !elementInfo ) {
         return kIOReturnNoMemory;
+    }
 
     elementInfo->device     = device;
     elementInfo->callback   = callback;
     elementInfo->context    = context;
-
-    uint32_t timeoutMS = timeout * 1000;
     
     IOReturn ret = (*device->deviceInterface)->getValue(
                                                 device->deviceInterface,
                                                 element,
                                                 pValue,
-                                                timeoutMS,
+                                                timeout,
                                                 __IOHIDDeviceValueCallback,
                                                 elementInfo,
                                                 0);
+
                                                 
-    if ( ret != kIOReturnSuccess )
+    if ( ret != kIOReturnSuccess ) {
         free(elementInfo);
+    }
         
     return ret;
 }
@@ -1478,11 +1567,11 @@ IOReturn IOHIDDeviceCopyValueMultipleWithCallback(
             
             for ( index = 0; index<count; index++ ) {
                 IOHIDElementRef element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements, index);
-                value = IOHIDTransactionGetValue(transaction, element, 0);
+                value = _IOHIDElementGetValue(element);
                 if ( !value )
                     continue;
                      
-                CFDictionarySetValue(multiple, element, value); 
+                CFDictionarySetValue(multiple, element, value);
             }
             
             if ( CFDictionaryGetCount(multiple) == 0 ) {
@@ -1541,6 +1630,7 @@ void __IOHIDDeviceInputElementValueCallback(
         return;
     
     CFRetain(device);
+    os_unfair_recursive_lock_lock(&device->callbackLock);
 
     CFIndex count = CFSetGetCount(device->inputValueCallbackSet);
     
@@ -1567,6 +1657,7 @@ void __IOHIDDeviceInputElementValueCallback(
             CFRelease(value);
         }
     }
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
 
     CFRelease(device);
 }
@@ -1617,8 +1708,7 @@ void __IOHIDDeviceTransactionCallback(
                 if ( !element )
                     continue;
 
-                /* FIX ME: provide an option to get transaction value before it is cleared */
-                value = IOHIDTransactionGetValue(transaction, element, 0);
+                value = _IOHIDElementGetValue(element);
                 if ( !value )
                     continue;
                     
@@ -1730,10 +1820,9 @@ void __IOHIDDeviceInputReportCallback(  void *                  context,
                                         CFIndex                 reportLength)
 {
     IOHIDDeviceRef  device  = (IOHIDDeviceRef)context;
-    CFIndex         count;
     
-    if (device && device->inputReportCallbackSet && (count = CFSetGetCount(device->inputReportCallbackSet)) ) {
-        
+    os_unfair_recursive_lock_lock(&device->callbackLock);
+    if (CFSetGetCount(device->inputReportCallbackSet)) {
         IOHIDDeviceInputReportApplierContext applierContext = {
             context, result, device, type, reportID, report, reportLength, 0
         };
@@ -1745,6 +1834,7 @@ void __IOHIDDeviceInputReportCallback(  void *                  context,
         
         CFRelease(device);
     }
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1761,7 +1851,8 @@ void __IOHIDDeviceInputReportWithTimeStampCallback(void *                  conte
 {
     IOHIDDeviceRef  device = (IOHIDDeviceRef)context;
     
-    if (device && device->inputReportCallbackSet && CFSetGetCount(device->inputReportCallbackSet) ) {
+    os_unfair_recursive_lock_lock(&device->callbackLock);
+    if (CFSetGetCount(device->inputReportCallbackSet)) {
         IOHIDDeviceInputReportApplierContext applierContext = {
             context, result, device, type, reportID, report, reportLength, timeStamp
         };
@@ -1770,9 +1861,9 @@ void __IOHIDDeviceInputReportWithTimeStampCallback(void *                  conte
         CFSetApplyFunction(device->inputReportCallbackSet,
                            (CFSetApplierFunction)__IOHIDDeviceInputReportApplier,
                            &applierContext);
-        
         CFRelease(device);
     }
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1814,10 +1905,12 @@ void __IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                    
     CFDataRef                       infoRef = NULL;
     
     CFRetain(device);
-    
+
+    os_unfair_recursive_lock_lock(&device->callbackLock);
     if (!device->inputReportCallbackSet) {
         device->inputReportCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
     }
+    os_unfair_recursive_lock_unlock(&device->callbackLock);
     require(device->inputReportCallbackSet, cleanup);
     
     // adding or modifying a callback
@@ -1825,8 +1918,10 @@ void __IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                    
     require(infoRef, cleanup);
     
     if (callback || callbackWithTimeStamp) {
+        os_unfair_recursive_lock_lock(&device->callbackLock);
         CFSetAddValue(device->inputReportCallbackSet, infoRef);
-        
+        os_unfair_recursive_lock_unlock(&device->callbackLock);
+
         if (device->deviceTimeStampedInterface) {
             (*device->deviceTimeStampedInterface)->
                     setInputReportWithTimeStampCallback(device->deviceInterface,
@@ -1846,7 +1941,9 @@ void __IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                    
         }
     }
     else {
+        os_unfair_recursive_lock_lock(&device->callbackLock);
         CFSetRemoveValue(device->inputReportCallbackSet, infoRef);
+        os_unfair_recursive_lock_unlock(&device->callbackLock);
     }
     
 cleanup:
@@ -1892,7 +1989,9 @@ IOReturn IOHIDDeviceSetReport(
                                 const uint8_t *                 report,
                                 CFIndex                         reportLength)
 {
-    return (*device->deviceInterface)->setReport(
+    IOReturn result;
+
+    result = (*device->deviceInterface)->setReport(
                                                 device->deviceInterface,
                                                 reportType,
                                                 reportID,
@@ -1902,6 +2001,7 @@ IOReturn IOHIDDeviceSetReport(
                                                 NULL,
                                                 NULL,
                                                 0);
+    return result;
 }
                                 
 //------------------------------------------------------------------------------
@@ -1926,17 +2026,16 @@ IOReturn IOHIDDeviceSetReportWithCallback(
     info_ptr->callback = callback;
     info_ptr->device = device;
     
-    uint32_t timeoutMS = timeout * 1000;
-    
     IOReturn result = (*device->deviceInterface)->setReport(device->deviceInterface,
                                                              reportType,
                                                              reportID,
                                                              report,
                                                              reportLength,
-                                                             timeoutMS,
+                                                             timeout,
                                                              __IOHIDDeviceReportCallbackOnce,
                                                              info_ptr,
                                                              0);
+
     if (result)
         free(info_ptr);
     return result;
@@ -1952,7 +2051,9 @@ IOReturn IOHIDDeviceGetReport(
                                 uint8_t *                       report,
                                 CFIndex *                       pReportLength)
 {
-    return (*device->deviceInterface)->getReport(
+    IOReturn result;
+
+    result = (*device->deviceInterface)->getReport(
                                                 device->deviceInterface,
                                                 reportType,
                                                 reportID,
@@ -1962,6 +2063,7 @@ IOReturn IOHIDDeviceGetReport(
                                                 NULL,
                                                 NULL,
                                                 0);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1990,17 +2092,16 @@ IOReturn IOHIDDeviceGetReportWithCallback(
     
     memcpy(info_ptr, &info, sizeof(info));
     
-    uint32_t timeoutMS = timeout * 1000;
-    
     IOReturn result = (*device->deviceInterface)->getReport(device->deviceInterface,
                                                             reportType,
                                                             reportID,
                                                             report,
                                                             pReportLength,
-                                                            timeoutMS,
+                                                            timeout,
                                                             __IOHIDDeviceReportCallbackOnce,
                                                             (void *) info_ptr,
                                                             0);
+
     if (result)
         free(info_ptr);
     return result;
@@ -2019,6 +2120,7 @@ uint64_t IOHIDDeviceGetRegistryEntryID(IOHIDDeviceRef device)
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 CFStringRef __IOHIDDeviceGetRootKey(IOHIDDeviceRef device)
 {
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     if (!device->rootKey) {
         // Device Root Key
         // All *required* matching information
@@ -2048,6 +2150,7 @@ CFStringRef __IOHIDDeviceGetRootKey(IOHIDDeviceRef device)
                                                    product,
                                                    serial);
     }
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
     
     return device->rootKey;
 }
@@ -2138,7 +2241,7 @@ void __IOHIDDeviceLoadProperties(IOHIDDeviceRef device)
             // Are there any UUIDs for this device?
             CFArrayRef uuids = (CFArrayRef)IOHIDPreferencesCopyDomain(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
             if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID()) && CFArrayGetCount(uuids)) {
-                // VTN3 ¥ TODO: Add optional matching based on location ID and anything else you can think of
+                // VTN3 Â¥ TODO: Add optional matching based on location ID and anything else you can think of
                 uuidStr = (CFStringRef)CFArrayGetValueAtIndex(uuids, 0);
             }
         }

@@ -27,7 +27,7 @@
  *
  */
 
-
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 #include <libkern/c++/OSContainers.h>
@@ -52,13 +52,13 @@
 #undef super
 #define super IOUserClient
 
-OSDefineMetaClassAndStructors(IOHIDUserClient, IOUserClient)
+OSDefineMetaClassAndStructors(IOHIDUserClient, IOUserClient2022)
 
-OSDefineMetaClassAndStructors(IOHIDParamUserClient, IOUserClient)
+OSDefineMetaClassAndStructors(IOHIDParamUserClient, IOUserClient2022)
 
 //OSDefineMetaClassAndStructors(IOHIDStackShotUserClient, IOUserClient)
 
-OSDefineMetaClassAndStructors(IOHIDEventSystemUserClient, IOUserClient)
+OSDefineMetaClassAndStructors(IOHIDEventSystemUserClient, IOUserClient2022)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -97,6 +97,11 @@ bool IOHIDUserClient::start( IOService * _owner )
     
     if( !super::start( _owner ))
         return( false);
+
+    setProperty(kIOUserClientDefaultLockingKey,                           kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSetPropertiesKey,              kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSingleThreadExternalMethodKey, kOSBooleanFalse);
+    setProperty(kIOUserClientEntitlementsKey,                             kOSBooleanFalse);
     
     return( true );
 }
@@ -200,6 +205,11 @@ IOReturn IOHIDUserClient::clientMemoryForType( UInt32 type,
     return kIOReturnSuccess;
 }
 
+IOReturn IOHIDUserClient::externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * arguments)
+{
+    return IOUserClient::externalMethod(selector, (IOExternalMethodArguments *)arguments);
+}
+
 IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
                         IOService ** targetP, UInt32 index )
 {
@@ -271,12 +281,22 @@ bool IOHIDParamUserClient::start( IOService * _owner )
     if( !super::start( _owner ))
         return( false);
 
+    setProperty(kIOUserClientDefaultLockingKey,                           kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSetPropertiesKey,              kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSingleThreadExternalMethodKey, kOSBooleanFalse);
+    setProperty(kIOUserClientEntitlementsKey,                             kOSBooleanFalse);
+
     return( true );
 }
 
 IOService * IOHIDParamUserClient::getService( void )
 {
     return( owner );
+}
+
+IOReturn IOHIDParamUserClient::externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * arguments)
+{
+    return IOUserClient::externalMethod(selector, (IOExternalMethodArguments *)arguments);
 }
 
 IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
@@ -410,6 +430,11 @@ bool IOHIDEventSystemUserClient::start( IOService * provider )
        return false;
     }
 
+    setProperty(kIOUserClientDefaultLockingKey,                           kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSetPropertiesKey,              kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSingleThreadExternalMethodKey, kOSBooleanFalse);
+    setProperty(kIOUserClientEntitlementsKey,                             kOSBooleanFalse);
+
     return( true );
 }
 
@@ -483,6 +508,11 @@ IOReturn IOHIDEventSystemUserClient::clientMemoryForTypeGated( UInt32 type,
     
 exit:
     return ret;
+}
+
+IOReturn IOHIDEventSystemUserClient::externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * arguments)
+{
+    return IOUserClient::externalMethod(selector, (IOExternalMethodArguments *)arguments);
 }
 
 IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(

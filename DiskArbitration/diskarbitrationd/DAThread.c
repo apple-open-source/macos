@@ -22,6 +22,7 @@
  */
 
 #include "DAThread.h"
+#include "DAServer.h"
 
 #include <pthread.h>
 #include <sysexits.h>
@@ -29,15 +30,15 @@
 
 enum
 {
-    __kDAThreadRunLoopSourceJobKindExecute = 0x00000001
+    __kDAThreadMachChannelJobKindExecute = 0x00000001
 };
 
-typedef UInt32 __DAThreadRunLoopSourceJobKind; 
+typedef UInt32 __DAThreadMachChannelJobKind;
 
-struct __DAThreadRunLoopSourceJob
+struct __DAThreadMachChannelJob
 {
-    __DAThreadRunLoopSourceJobKind      kind;
-    struct __DAThreadRunLoopSourceJob * next;
+    __DAThreadMachChannelJobKind      kind;
+    struct __DAThreadMachChannelJob * next;
 
     union
     {
@@ -54,11 +55,12 @@ struct __DAThreadRunLoopSourceJob
     };
 };
 
-typedef struct __DAThreadRunLoopSourceJob __DAThreadRunLoopSourceJob;
+typedef struct __DAThreadMachChannelJob __DAThreadMachChannelJob;
 
-static __DAThreadRunLoopSourceJob * __gDAThreadRunLoopSourceJobs = NULL;
-static pthread_mutex_t              __gDAThreadRunLoopSourceLock = PTHREAD_MUTEX_INITIALIZER;
-static CFMachPortRef                __gDAThreadRunLoopSourcePort = NULL;
+static __DAThreadMachChannelJob * __gDAThreadMachChannelJobs = NULL;
+static pthread_mutex_t              __gDAThreadMachChannelLock = PTHREAD_MUTEX_INITIALIZER;
+static mach_port_t                __gDAThreadMachChannelPort = NULL;
+static dispatch_mach_t            __gDAThreadChannel = NULL;
 
 static void * __DAThreadFunction( void * context )
 {
@@ -66,13 +68,13 @@ static void * __DAThreadFunction( void * context )
      * Run a thread.
      */
 
-    __DAThreadRunLoopSourceJob * job;
+    __DAThreadMachChannelJob * job;
 
-    pthread_mutex_lock( &__gDAThreadRunLoopSourceLock );
+    pthread_mutex_lock( &__gDAThreadMachChannelLock );
 
-    for ( job = __gDAThreadRunLoopSourceJobs; job; job = job->next )
+    for ( job = __gDAThreadMachChannelJobs; job; job = job->next )
     {
-        assert( job->kind == __kDAThreadRunLoopSourceJobKindExecute );
+        assert( job->kind == __kDAThreadMachChannelJobKindExecute );
 
         if ( pthread_equal( job->execute.thread, pthread_self( ) ) )
         {
@@ -80,7 +82,7 @@ static void * __DAThreadFunction( void * context )
         }
     }
 
-    pthread_mutex_unlock( &__gDAThreadRunLoopSourceLock );
+    pthread_mutex_unlock( &__gDAThreadMachChannelLock );
 
     if ( job )
     {
@@ -89,25 +91,24 @@ static void * __DAThreadFunction( void * context )
 
         job->execute.status = ( ( DAThreadFunction ) job->execute.function )( job->execute.functionContext );
 
-        pthread_mutex_lock( &__gDAThreadRunLoopSourceLock );
+        pthread_mutex_lock( &__gDAThreadMachChannelLock );
 
         job->execute.exited = TRUE;
 
-        pthread_mutex_unlock( &__gDAThreadRunLoopSourceLock );
+        pthread_mutex_unlock( &__gDAThreadMachChannelLock );
 
         message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
         message.msgh_id          = 0;
         message.msgh_local_port  = MACH_PORT_NULL;
-        message.msgh_remote_port = CFMachPortGetPort( __gDAThreadRunLoopSourcePort );
+        message.msgh_remote_port =  __gDAThreadMachChannelPort ;
         message.msgh_reserved    = 0;
         message.msgh_size        = sizeof( message );
 
-        status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
-
-        if ( status == MACH_SEND_TIMED_OUT )
-        {
-            mach_msg_destroy( &message );
-        }
+        dispatch_mach_msg_t m = dispatch_mach_msg_create(&message,
+                    message.msgh_size, DISPATCH_MACH_MSG_DESTRUCTOR_DEFAULT,
+                    NULL);
+        dispatch_mach_send(__gDAThreadChannel, m, 0);
+        dispatch_release(m);
     }
 
     pthread_detach( pthread_self( ) );
@@ -115,117 +116,129 @@ static void * __DAThreadFunction( void * context )
     return NULL;
 }
 
-static void __DAThreadRunLoopSourceCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info )
+static void __DAThreadMachChannelHandler ( void *context, dispatch_mach_reason_t reason,
+                                          dispatch_mach_msg_t msg, mach_error_t error )
 {
     /*
-     * Process a DAThread CFRunLoopSource fire.
+     * Process a DAThread CFMachChannel fire.
      */
 
-    __DAThreadRunLoopSourceJob * job     = NULL;
-    __DAThreadRunLoopSourceJob * jobLast = NULL;
-
-    pthread_mutex_lock( &__gDAThreadRunLoopSourceLock );
-
-    /*
-     * Scan through job list.
-     */
-
-    for ( job = __gDAThreadRunLoopSourceJobs; job; jobLast = NULL )
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED)
     {
-        for ( job = __gDAThreadRunLoopSourceJobs; job; jobLast = job, job = job->next )
+        mach_msg_header_t   *header = dispatch_mach_msg_get_msg(msg, NULL);
+        
+        __DAThreadMachChannelJob * job     = NULL;
+        __DAThreadMachChannelJob * jobLast = NULL;
+
+        pthread_mutex_lock( &__gDAThreadMachChannelLock );
+
+        /*
+         * Scan through job list.
+         */
+
+        for ( job = __gDAThreadMachChannelJobs; job; jobLast = NULL )
         {
-            assert( job->kind == __kDAThreadRunLoopSourceJobKindExecute );
-
-            if ( job->execute.exited )
+            for ( job = __gDAThreadMachChannelJobs; job; jobLast = job, job = job->next )
             {
-                /*
-                 * Process the job's callback.
-                 */
+                assert( job->kind == __kDAThreadMachChannelJobKindExecute );
 
-                if ( jobLast )
+                if ( job->execute.exited )
                 {
-                    jobLast->next = job->next;
+                    /*
+                     * Process the job's callback.
+                     */
+
+                    if ( jobLast )
+                    
+                    {
+                        jobLast->next = job->next;
+                    }
+                    else
+                    {
+                        __gDAThreadMachChannelJobs = job->next;
+                    }
+
+                    pthread_mutex_unlock( &__gDAThreadMachChannelLock );
+
+                    /*
+                     * Issue the callback.
+                     */
+
+                    if ( job->execute.callback )
+                    {
+                        ( job->execute.callback )( job->execute.status, job->execute.callbackContext );
+                    }
+
+                    /*
+                     * Release our resources.
+                     */
+
+                    free( job );
+
+                    pthread_mutex_lock( &__gDAThreadMachChannelLock );
+
+                    break;
                 }
-                else
-                {
-                    __gDAThreadRunLoopSourceJobs = job->next;
-                }
-
-                pthread_mutex_unlock( &__gDAThreadRunLoopSourceLock );
-
-                /*
-                 * Issue the callback.
-                 */
-
-                if ( job->execute.callback )
-                {
-                    ( job->execute.callback )( job->execute.status, job->execute.callbackContext );
-                }
-
-                /*
-                 * Release our resources.
-                 */
-
-                free( job );
-
-                pthread_mutex_lock( &__gDAThreadRunLoopSourceLock );
-
-                break;
             }
         }
-    }
 
-    pthread_mutex_unlock( &__gDAThreadRunLoopSourceLock );
+        pthread_mutex_unlock( &__gDAThreadMachChannelLock );
+        mach_msg_destroy( header );
+    }
 }
 
-CFRunLoopSourceRef DAThreadCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order )
+dispatch_mach_t DAThreadCreateMachChannel( void )
 {
-    /*
-     * Create a CFRunLoopSource for DAThread callbacks.
-     */
-
-    CFRunLoopSourceRef source = NULL;
-
     /*
      * Initialize our minimal state.
      */
 
-    if ( __gDAThreadRunLoopSourcePort == NULL )
+    if ( __gDAThreadMachChannelPort == 0 )
     {
         /*
          * Create the global CFMachPort.  It will be used to post jobs to the run loop.
          */
 
-        __gDAThreadRunLoopSourcePort = CFMachPortCreate( kCFAllocatorDefault, __DAThreadRunLoopSourceCallback, NULL, NULL );
+        kern_return_t status;
 
-        if ( __gDAThreadRunLoopSourcePort )
+        status = mach_port_allocate( mach_task_self( ), MACH_PORT_RIGHT_RECEIVE, &__gDAThreadMachChannelPort );
+
+        if ( status == KERN_SUCCESS )
         {
+            status = mach_port_insert_right(mach_task_self(), __gDAThreadMachChannelPort, __gDAThreadMachChannelPort, MACH_MSG_TYPE_MAKE_SEND);
             /*
              * Set up the global CFMachPort.  It requires no more than one queue element.
              */
 
-            mach_port_limits_t limits = { 0 };
+            if ( status == KERN_SUCCESS )
+            {
+                mach_port_limits_t limits = { 0 };
 
-            limits.mpl_qlimit = 1;
+                limits.mpl_qlimit = 1;
 
-            mach_port_set_attributes( mach_task_self( ),
-                                      CFMachPortGetPort( __gDAThreadRunLoopSourcePort ),
+                mach_port_set_attributes( mach_task_self( ),
+                                       __gDAThreadMachChannelPort ,
                                       MACH_PORT_LIMITS_INFO,
                                       ( mach_port_info_t ) &limits,
                                       MACH_PORT_LIMITS_INFO_COUNT );
+            }
         }
     }
 
     /*
-     * Obtain the CFRunLoopSource for our CFMachPort.
+     * Obtain the CFMachChannel for our CFMachPort.
      */
 
-    if ( __gDAThreadRunLoopSourcePort )
+    if ( __gDAThreadMachChannelPort )
     {
-        source = CFMachPortCreateRunLoopSource( allocator, __gDAThreadRunLoopSourcePort, order );
+        __gDAThreadChannel = dispatch_mach_create_f("diskarbitrationd/thread",
+                                                DAServerWorkLoop(),
+                                                NULL,
+                                               __DAThreadMachChannelHandler);
+        dispatch_mach_connect( __gDAThreadChannel, __gDAThreadMachChannelPort, __gDAThreadMachChannelPort, NULL);
     }
 
-    return source;
+    return __gDAThreadChannel;
 }
 
 void DAThreadExecute( DAThreadFunction function, void * functionContext, DAThreadExecuteCallback callback, void * callbackContext )
@@ -241,13 +254,13 @@ void DAThreadExecute( DAThreadFunction function, void * functionContext, DAThrea
      * State our assumptions.
      */
 
-    assert( __gDAThreadRunLoopSourcePort );
+    assert( __gDAThreadMachChannelPort );
 
     /*
      * Run the thread.
      */
 
-    pthread_mutex_lock( &__gDAThreadRunLoopSourceLock );
+    pthread_mutex_lock( &__gDAThreadMachChannelLock );
 
     status = pthread_create( &thread, NULL, __DAThreadFunction, NULL );
 
@@ -257,14 +270,14 @@ void DAThreadExecute( DAThreadFunction function, void * functionContext, DAThrea
          * Register this callback job on our queue.
          */
 
-        __DAThreadRunLoopSourceJob * job;
+        __DAThreadMachChannelJob * job;
 
-        job = malloc( sizeof( __DAThreadRunLoopSourceJob ) );
+        job = malloc( sizeof( __DAThreadMachChannelJob ) );
 
         if ( job )
         {
-            job->kind = __kDAThreadRunLoopSourceJobKindExecute;
-            job->next = __gDAThreadRunLoopSourceJobs;
+            job->kind = __kDAThreadMachChannelJobKindExecute;
+            job->next = __gDAThreadMachChannelJobs;
 
             job->execute.exited          = FALSE;
             job->execute.status          = 0;
@@ -274,11 +287,11 @@ void DAThreadExecute( DAThreadFunction function, void * functionContext, DAThrea
             job->execute.function        = function;
             job->execute.functionContext = functionContext;
 
-            __gDAThreadRunLoopSourceJobs = job;
+            __gDAThreadMachChannelJobs = job;
         }
     }
 
-    pthread_mutex_unlock( &__gDAThreadRunLoopSourceLock );
+    pthread_mutex_unlock( &__gDAThreadMachChannelLock );
 
     /*
      * Complete the call in case we had a local failure.

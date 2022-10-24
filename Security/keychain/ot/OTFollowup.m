@@ -32,8 +32,12 @@
 
 #import <CoreCDP/CDPFollowUpController.h>
 #import <CoreCDP/CDPFollowUpContext.h>
-
+#import "keychain/ot/OTConstants.h"
+#import <Accounts/Accounts.h>
+#import <Accounts/Accounts_Private.h>
+#import <AppleAccount/ACAccount+AppleAccount.h>
 #include "utilities/debugging.h"
+#import "OTFollowup.h"
 
 static NSString * const kOTFollowupEventCompleteKey = @"OTFollowupContextType";
 
@@ -60,7 +64,6 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
 @property NSTimeInterval previousFollowupEnd;
 @property NSTimeInterval followupStart;
 @property NSTimeInterval followupEnd;
-
 @property NSMutableSet<NSString*>* postedCFUTypes;
 @end
 
@@ -100,9 +103,14 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
 }
 
 - (BOOL)postFollowUp:(OTFollowupContextType)contextType
+       activeAccount:(TPSpecificUser*)activeAccount
                error:(NSError **)error
 {
     CDPFollowUpContext *context = [self createCDPFollowupContext:contextType];
+    if (OctagonSupportsPersonaMultiuser()) {
+        secnotice("followup", "Setting altdsid (%@) on context for persona (%@)", activeAccount.altDSID, activeAccount.personaUniqueString);
+        [context setAltDSID:activeAccount.altDSID];
+    }
     if (!context) {
         return NO;
     }
@@ -124,10 +132,15 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
 }
 
 - (BOOL)clearFollowUp:(OTFollowupContextType)contextType
+        activeAccount:(TPSpecificUser*)activeAccount
                 error:(NSError **)error
 {
     // Note(caw): we don't track metrics for clearing CFU prompts.
     CDPFollowUpContext *context = [self createCDPFollowupContext:contextType];
+    if (OctagonSupportsPersonaMultiuser()) {
+        secnotice("followup", "Setting altdsid (%@) on context for persona (%@)", activeAccount.altDSID, activeAccount.personaUniqueString);
+        [context setAltDSID:activeAccount.altDSID];
+    }
     if (!context) {
         return NO;
     }

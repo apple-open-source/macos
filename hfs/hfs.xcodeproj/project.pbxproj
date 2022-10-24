@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 53;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -167,6 +167,10 @@
 
 /* Begin PBXBuildFile section */
 		0703A0541CD826160035BCFD /* test-defrag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0703A0531CD826160035BCFD /* test-defrag.c */; };
+		070DB015268FCDF500ACF231 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
+		070DB017268FCDF500ACF231 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
+		070DB019268FCDF500ACF231 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
+		070DB046268FD5A200ACF231 /* hfsutil_fuzzmain.c in Sources */ = {isa = PBXBuildFile; fileRef = 070DB045268FD59300ACF231 /* hfsutil_fuzzmain.c */; };
 		07C2BF891CB43F5E00D8327D /* test-renamex.c in Sources */ = {isa = PBXBuildFile; fileRef = 07C2BF881CB43F5E00D8327D /* test-renamex.c */; };
 		09D6B7D71E317ED2003C20DC /* test_disklevel.c in Sources */ = {isa = PBXBuildFile; fileRef = 09D6B7D61E317ED2003C20DC /* test_disklevel.c */; };
 		18B450692104D958002052BF /* lf_hfs_journal.c in Sources */ = {isa = PBXBuildFile; fileRef = 18B450682104D958002052BF /* lf_hfs_journal.c */; };
@@ -312,6 +316,7 @@
 		90F5EBBB2063CC3A004397B2 /* lf_hfs_btree_node_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBBA2063CC3A004397B2 /* lf_hfs_btree_node_ops.c */; };
 		90F5EBBF2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBBD2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c */; };
 		90F5EBC12063CE12004397B2 /* lf_hfs_btree_allocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBC02063CE12004397B2 /* lf_hfs_btree_allocate.c */; };
+		9A8C9A93287FF9600078618B /* hfs_xctests_utilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A8C9A92287FF9600078618B /* hfs_xctests_utilities.m */; };
 		A64B3BE822E8D388009A2B10 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9022D16F205EC16900D9A2AE /* CoreFoundation.framework */; };
 		A64B3BF522E8D4D6009A2B10 /* lf_cs_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = A64B3BF322E8D4D6009A2B10 /* lf_cs_logging.h */; };
 		A64B3BF722E8D4D6009A2B10 /* lf_cs_logging.c in Sources */ = {isa = PBXBuildFile; fileRef = A64B3BF422E8D4D6009A2B10 /* lf_cs_logging.c */; };
@@ -333,6 +338,13 @@
 		C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
 		C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */; };
 		C1B6FA3010CC0B9500778D48 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
+		D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */; };
+		D39F154B287D55BD00366492 /* hfs_xctests.m in Sources */ = {isa = PBXBuildFile; fileRef = D39F154A287D55BD00366492 /* hfs_xctests.m */; };
+		D39F154C287D55BD00366492 /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
+		D39F1555287D563300366492 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D39F1554287D563300366492 /* CoreFoundation.framework */; };
+		900BDEEB1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEE91FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h */; };
+		D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */; };
+		D3A4BC40287D61EC00866287 /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3A4BC3F287D61EB00866287 /* UserFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		D759E27020AD75FC00792EDA /* lf_hfs_link.h in Headers */ = {isa = PBXBuildFile; fileRef = D759E26E20AD75FC00792EDA /* lf_hfs_link.h */; };
 		D759E27120AD75FC00792EDA /* lf_hfs_link.c in Sources */ = {isa = PBXBuildFile; fileRef = D759E26F20AD75FC00792EDA /* lf_hfs_link.c */; };
 		D769A1CC206107190022791F /* lf_hfs_vnode.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1CB206107190022791F /* lf_hfs_vnode.c */; };
@@ -454,11 +466,11 @@
 		FB76B3DC1B7A530500FA9F2B /* test-external-jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = FB76B3DA1B7A52BE00FA9F2B /* test-external-jnl.c */; };
 		FB76B3EE1B7BE24B00FA9F2B /* disk-image.m in Sources */ = {isa = PBXBuildFile; fileRef = FB76B3EB1B7BDFDB00FA9F2B /* disk-image.m */; };
 		FB76B3F21B7BE79800FA9F2B /* systemx.c in Sources */ = {isa = PBXBuildFile; fileRef = FB76B3EF1B7BE67400FA9F2B /* systemx.c */; };
-		FB7B02E81B55634F00BEE4BE /* hfs.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = C1B6FD2B10CC0DB200778D48 /* hfs.util */; };
-		FB7B02E91B55644A00BEE4BE /* mount_hfs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D0E899C1534FE65004CD678 /* mount_hfs */; };
-		FB7B02EA1B55663400BEE4BE /* fsck_hfs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4DFD93F41535FF510039B6BA /* fsck_hfs */; };
-		FB81AFBB1B83E2C0004E8F76 /* CopyHFSMeta in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDD9FA2C14A132BF0043D4A9 /* CopyHFSMeta */; };
-		FB81AFBC1B83E2C6004E8F76 /* newfs_hfs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4DE6C75B153504C100C11066 /* newfs_hfs */; };
+		FB7B02E81B55634F00BEE4BE /* hfs.util in Copy Files */ = {isa = PBXBuildFile; fileRef = C1B6FD2B10CC0DB200778D48 /* hfs.util */; };
+		FB7B02E91B55644A00BEE4BE /* mount_hfs in Copy Files */ = {isa = PBXBuildFile; fileRef = 4D0E899C1534FE65004CD678 /* mount_hfs */; };
+		FB7B02EA1B55663400BEE4BE /* fsck_hfs in Copy Files */ = {isa = PBXBuildFile; fileRef = 4DFD93F41535FF510039B6BA /* fsck_hfs */; };
+		FB81AFBB1B83E2C0004E8F76 /* CopyHFSMeta in Copy Files */ = {isa = PBXBuildFile; fileRef = FDD9FA2C14A132BF0043D4A9 /* CopyHFSMeta */; };
+		FB81AFBC1B83E2C6004E8F76 /* newfs_hfs in Copy Files */ = {isa = PBXBuildFile; fileRef = 4DE6C75B153504C100C11066 /* newfs_hfs */; };
 		FBAA824C1B56F24E00EE6863 /* hfs_alloc_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FBAA823D1B56F22400EE6863 /* hfs_alloc_test.c */; };
 		FBAA82581B56F27200EE6863 /* hfs_extents_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FBAA823E1B56F22400EE6863 /* hfs_extents_test.c */; };
 		FBAA82641B56F28F00EE6863 /* rangelist_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FBAA82401B56F22400EE6863 /* rangelist_test.c */; };
@@ -598,6 +610,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = A64B3B9022E8D36F009A2B10;
 			remoteInfo = livefiles_cs;
+		};
+		D39F154D287D55BD00366492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 900BDED31FF919C2002F7EC0;
+			remoteInfo = livefiles_hfs;
 		};
 		FB48E4BB1BB30CC400523121 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -742,6 +761,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		070DB018268FCDF500ACF231 /* Copy man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				070DB019268FCDF500ACF231 /* hfs.util.8 in Copy man8 */,
+			);
+			name = "Copy man8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		4D07DCB61538EF3A002B57CB /* Copy man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -846,18 +876,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		FB7B02E71B55634200BEE4BE /* CopyFiles */ = {
+		FB7B02E71B55634200BEE4BE /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = Contents/Resources;
+			dstPath = $FS_BUNDLE_BIN_DIR;
 			dstSubfolderSpec = 1;
 			files = (
-				FB81AFBC1B83E2C6004E8F76 /* newfs_hfs in CopyFiles */,
-				FB81AFBB1B83E2C0004E8F76 /* CopyHFSMeta in CopyFiles */,
-				FB7B02EA1B55663400BEE4BE /* fsck_hfs in CopyFiles */,
-				FB7B02E91B55644A00BEE4BE /* mount_hfs in CopyFiles */,
-				FB7B02E81B55634F00BEE4BE /* hfs.util in CopyFiles */,
+				FB81AFBC1B83E2C6004E8F76 /* newfs_hfs in Copy Files */,
+				FB81AFBB1B83E2C0004E8F76 /* CopyHFSMeta in Copy Files */,
+				FB7B02EA1B55663400BEE4BE /* fsck_hfs in Copy Files */,
+				FB7B02E91B55644A00BEE4BE /* mount_hfs in Copy Files */,
+				FB7B02E81B55634F00BEE4BE /* hfs.util in Copy Files */,
 			);
+			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FBAA82431B56F24100EE6863 /* CopyFiles */ = {
@@ -900,6 +931,9 @@
 
 /* Begin PBXFileReference section */
 		0703A0531CD826160035BCFD /* test-defrag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-defrag.c"; sourceTree = "<group>"; };
+		070DB01E268FCDF500ACF231 /* hfs.util-fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "hfs.util-fuzzer"; sourceTree = BUILT_PRODUCTS_DIR; };
+		070DB044268FD04800ACF231 /* Fuzzing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Fuzzing.xcconfig; sourceTree = "<group>"; };
+		070DB045268FD59300ACF231 /* hfsutil_fuzzmain.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hfsutil_fuzzmain.c; sourceTree = "<group>"; };
 		07C2BF881CB43F5E00D8327D /* test-renamex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-renamex.c"; sourceTree = "<group>"; };
 		09D6B7D61E317ED2003C20DC /* test_disklevel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_disklevel.c; sourceTree = "<group>"; };
 		18B450682104D958002052BF /* lf_hfs_journal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lf_hfs_journal.c; sourceTree = "<group>"; };
@@ -1076,6 +1110,8 @@
 		90F5EBBA2063CC3A004397B2 /* lf_hfs_btree_node_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_node_ops.c; sourceTree = "<group>"; };
 		90F5EBBD2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_misc_ops.c; sourceTree = "<group>"; };
 		90F5EBC02063CE12004397B2 /* lf_hfs_btree_allocate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_allocate.c; sourceTree = "<group>"; };
+		9A8C9A91287FF95F0078618B /* hfs_xctests.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hfs_xctests.h; sourceTree = "<group>"; };
+		9A8C9A92287FF9600078618B /* hfs_xctests_utilities.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = hfs_xctests_utilities.m; sourceTree = "<group>"; };
 		9D7AAC861B44874E0001F573 /* mount_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_hfs.osx.entitlements; sourceTree = "<group>"; };
 		9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = hfs_util.osx.entitlements; sourceTree = "<group>"; };
 		9D9067881B44633C003D2117 /* fsck_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_hfs.osx.entitlements; sourceTree = "<group>"; };
@@ -1099,10 +1135,16 @@
 		A6BE9C8B24C63369005E033C /* test-symlinks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-symlinks.c"; sourceTree = "<group>"; };
 		A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-get-volume-create-time.c"; sourceTree = "<group>"; };
 		C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_jnl.c; sourceTree = "<group>"; };
-		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; };
+		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; usesTabs = 1; };
 		C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hfs.util.8; sourceTree = "<group>"; };
 		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D39F1548287D55BD00366492 /* hfs_xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hfs_xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D39F154A287D55BD00366492 /* hfs_xctests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = hfs_xctests.m; sourceTree = "<group>"; };
+		D39F1554287D563300366492 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3A4BC3F287D61EB00866287 /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
 		D759E26E20AD75FC00792EDA /* lf_hfs_link.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_link.h; sourceTree = "<group>"; };
 		D759E26F20AD75FC00792EDA /* lf_hfs_link.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_link.c; sourceTree = "<group>"; };
 		D769A1CB206107190022791F /* lf_hfs_vnode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vnode.c; sourceTree = "<group>"; };
@@ -1265,6 +1307,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		070DB016268FCDF500ACF231 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				070DB017268FCDF500ACF231 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4D07DCB51538EF3A002B57CB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1337,6 +1387,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3A4BC40287D61EC00866287 /* UserFS.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1364,6 +1415,16 @@
 			files = (
 				A6873B9F234287200045680B /* IOKit.framework in Frameworks */,
 				A64B3BE822E8D388009A2B10 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D39F1545287D55BD00366492 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D39F154C287D55BD00366492 /* livefiles_hfs.dylib in Frameworks */,
+				D39F1555287D563300366492 /* CoreFoundation.framework in Frameworks */,
+				D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1431,6 +1492,7 @@
 		08FB7794FE84155DC02AAC07 /* hfs */ = {
 			isa = PBXGroup;
 			children = (
+				070DB044268FD04800ACF231 /* Fuzzing.xcconfig */,
 				A64B3B8822E8D2A6009A2B10 /* livefiles_cs_plugin */,
 				900BDECD1FF91960002F7EC0 /* livefiles_hfs_plugin */,
 				4DFD953D15377C7D0039B6BA /* hfs.xcconfig */,
@@ -1446,6 +1508,7 @@
 				FB5E57081B8BE9F400C34A07 /* hfs_encodings */,
 				FBBBE2811B55F354009F534D /* tests */,
 				FBCC52FF1B852759008B752C /* hfs-alloc-trace */,
+				D39F1549287D55BD00366492 /* hfs_xctests */,
 				FDD9FA4014A133A50043D4A9 /* Frameworks */,
 				C1B6FD2C10CC0DB200778D48 /* Products */,
 				FB02B8CE1B5ED0B50093DD47 /* make_opensource.sh */,
@@ -1719,8 +1782,20 @@
 				900BDEDD1FF919DE002F7EC0 /* livefiles_hfs_tester */,
 				A64B3BE022E8D36F009A2B10 /* livefiles_cs.dylib */,
 				A64B3BEE22E8D388009A2B10 /* livefiles_cs_tester */,
+				070DB01E268FCDF500ACF231 /* hfs.util-fuzzer */,
+				D39F1548287D55BD00366492 /* hfs_xctests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D39F1549287D55BD00366492 /* hfs_xctests */ = {
+			isa = PBXGroup;
+			children = (
+				9A8C9A92287FF9600078618B /* hfs_xctests_utilities.m */,
+				9A8C9A91287FF95F0078618B /* hfs_xctests.h */,
+				D39F154A287D55BD00366492 /* hfs_xctests.m */,
+			);
+			path = hfs_xctests;
 			sourceTree = "<group>";
 		};
 		D7978444206006CC00E93B37 /* Recovered References */ = {
@@ -1921,6 +1996,7 @@
 			children = (
 				C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */,
 				C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */,
+				070DB045268FD59300ACF231 /* hfsutil_fuzzmain.c */,
 				C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */,
 				4D7C8964192141CA002013C9 /* hfs_util.ios.entitlements */,
 				9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */,
@@ -1931,6 +2007,9 @@
 		FDD9FA4014A133A50043D4A9 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D3A4BC3F287D61EB00866287 /* UserFS.framework */,
+				D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */,
+				D39F1554287D563300366492 /* CoreFoundation.framework */,
 				A64B3C1822EA2C5E009A2B10 /* IOKit.framework */,
 				A6873B9E234287200045680B /* IOKit.framework */,
 				C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */,
@@ -2097,6 +2176,24 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		070DB012268FCDF500ACF231 /* hfs.util-fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 070DB01A268FCDF500ACF231 /* Build configuration list for PBXNativeTarget "hfs.util-fuzzer" */;
+			buildPhases = (
+				070DB013268FCDF500ACF231 /* Sources */,
+				070DB016268FCDF500ACF231 /* Frameworks */,
+				070DB018268FCDF500ACF231 /* Copy man8 */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "hfs.util-fuzzer";
+			productInstallPath = "$(HOME)/bin";
+			productName = hfs;
+			productReference = 070DB01E268FCDF500ACF231 /* hfs.util-fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
 		4D07DCB71538EF3A002B57CB /* fstyp_hfs */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4D07DCC01538EF3A002B57CB /* Build configuration list for PBXNativeTarget "fstyp_hfs" */;
@@ -2204,7 +2301,7 @@
 			buildConfigurationList = 4DFD951B1537402A0039B6BA /* Build configuration list for PBXNativeTarget "hfs.fs" */;
 			buildPhases = (
 				4DFD95101537402A0039B6BA /* Resources */,
-				FB7B02E71B55634200BEE4BE /* CopyFiles */,
+				FB7B02E71B55634200BEE4BE /* Copy Files */,
 				52C08E592179679300D1618E /* Create Symlink */,
 			);
 			buildRules = (
@@ -2325,6 +2422,24 @@
 			productName = livefiles_cs_tester;
 			productReference = A64B3BEE22E8D388009A2B10 /* livefiles_cs_tester */;
 			productType = "com.apple.product-type.tool";
+		};
+		D39F1547287D55BD00366492 /* hfs_xctests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D39F1553287D55BD00366492 /* Build configuration list for PBXNativeTarget "hfs_xctests" */;
+			buildPhases = (
+				D39F1544287D55BD00366492 /* Sources */,
+				D39F1545287D55BD00366492 /* Frameworks */,
+				D39F1546287D55BD00366492 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D39F154E287D55BD00366492 /* PBXTargetDependency */,
+			);
+			name = hfs_xctests;
+			productName = hfs_xctests;
+			productReference = D39F1548287D55BD00366492 /* hfs_xctests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		FB20E0DF1AE950C200CEBE7B /* kext */ = {
 			isa = PBXNativeTarget;
@@ -2527,6 +2642,9 @@
 					A64B3BE122E8D388009A2B10 = {
 						ProvisioningStyle = Automatic;
 					};
+					D39F1547287D55BD00366492 = {
+						CreatedOnToolsVersion = 14.0;
+					};
 					DB1AAB7C20472D140036167F = {
 						CreatedOnToolsVersion = 9.3;
 						ProvisioningStyle = Automatic;
@@ -2613,6 +2731,8 @@
 				9430FE92211658C1009CC8AF /* hfs_livefiles */,
 				A64B3B9022E8D36F009A2B10 /* livefiles_cs */,
 				A64B3BE122E8D388009A2B10 /* livefiles_cs_tester */,
+				070DB012268FCDF500ACF231 /* hfs.util-fuzzer */,
+				D39F1547287D55BD00366492 /* hfs_xctests */,
 			);
 		};
 /* End PBXProject section */
@@ -2623,6 +2743,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				4DFD9538153746210039B6BA /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D39F1546287D55BD00366492 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2821,6 +2948,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		070DB013268FCDF500ACF231 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				070DB046268FD5A200ACF231 /* hfsutil_fuzzmain.c in Sources */,
+				070DB015268FCDF500ACF231 /* hfsutil_jnl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4D07DCB41538EF3A002B57CB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2996,6 +3132,15 @@
 				A6873B9B234286730045680B /* lf_cs_logging.c in Sources */,
 				A6873B9D2342868D0045680B /* lf_cs_vfsops.c in Sources */,
 				A6873B9C234286780045680B /* lf_cs_checksum.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D39F1544287D55BD00366492 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D39F154B287D55BD00366492 /* hfs_xctests.m in Sources */,
+				9A8C9A93287FF9600078618B /* hfs_xctests_utilities.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3248,6 +3393,11 @@
 			target = A64B3B9022E8D36F009A2B10 /* livefiles_cs */;
 			targetProxy = A6873BA0234287A00045680B /* PBXContainerItemProxy */;
 		};
+		D39F154E287D55BD00366492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 900BDED31FF919C2002F7EC0 /* livefiles_hfs */;
+			targetProxy = D39F154D287D55BD00366492 /* PBXContainerItemProxy */;
+		};
 		FB48E4BC1BB30CC400523121 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FB48E49B1BB3070400523121 /* OSX Kernel Framework Headers */;
@@ -3362,6 +3512,1018 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		070DB01B268FCDF500ACF231 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.ios.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = hfs_util/hfs_util.osx.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				OTHER_CFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		070DB01C268FCDF500ACF231 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				OTHER_CFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		070DB01D268FCDF500ACF231 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				OTHER_CFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Coverage;
+		};
+		070DB01F268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4DFD953D15377C7D0039B6BA /* hfs.xcconfig */;
+			buildSettings = {
+				ENABLE_TESTABILITY = YES;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+			};
+			name = Fuzzing;
+		};
+		070DB020268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+		070DB021268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+		070DB022268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+		070DB023268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Winteger-overflow",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB024268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
+				COPY_PHASE_STRIP = NO;
+				INFOPLIST_FILE = fs/Info.plist;
+				INFOPLIST_OUTPUT_FORMAT = binary;
+				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
+				INSTALL_PATH = /System/Library/Filesystems;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
+				PRODUCT_NAME = hfs;
+				STRINGS_FILE_OUTPUT_ENCODING = binary;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Fuzzing;
+		};
+		070DB025268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.ios.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				PRODUCT_NAME = hfs.util;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB026268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = CopyHFSMeta/CopyHFSMeta.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		070DB027268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.ios.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				EXCLUDED_SOURCE_FILE_NAMES = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = optical.c;
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = optical.c;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB028268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = newfs_hfs/newfs_hfs.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB029268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = newfs_hfs/newfs_hfs.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG_BUILD=1";
+				PRODUCT_NAME = newfs_hfs_debug;
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		070DB02A268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.ios.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BSD=1",
+					"CONFIG_HFS_TRIM=1",
+					"DEBUG_BUILD=0",
+				);
+				INSTALLHDRS_COPY_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB02B268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fstyp_hfs/fstyp_hfs.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		070DB02C268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BSD=1",
+					"FSCK_MAKESTRINGS=1",
+				);
+				PRODUCT_NAME = fsck_makestrings;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		070DB02D268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_MASTER_OBJECT_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				STRIPFLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB02E268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_RUN_UNIFDEF = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UKERNEL";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(PROJECT_DERIVED_FILE_DIR)/kext-Info.plist";
+				INSTALL_MODE_FLAG = "a+rX";
+				MODULE_NAME = "com.apple.file-systems.hfs.kext";
+				MODULE_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.hfs.kext;
+				PRODUCT_NAME = HFS;
+				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-unused-parameter",
+					"-Wno-shorten-64-to-32",
+					"-Wformat-nonliteral",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Fuzzing;
+		};
+		070DB02F268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				INFOPLIST_FILE = "$(SRCROOT)/hfs_encodings/HFSEncodings-Info.plist";
+				INSTALL_MODE_FLAG = "a+rX";
+				MODULE_NAME = "com.apple.file-systems.hfs.kext";
+				MODULE_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.hfs.encodings.kext;
+				PRODUCT_NAME = HFSEncodings;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = macosx;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Fuzzing;
+		};
+		070DB030268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		070DB031268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Fuzzing;
+		};
+		070DB032268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Fuzzing;
+		};
+		070DB033268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_HEADERS_RUN_UNIFDEF = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-DKERNEL";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/Frameworks;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = Kernel;
+				PUBLIC_HEADERS_FOLDER_PATH = Kernel.framework/Versions/A/Headers/hfs;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Fuzzing;
+		};
+		070DB034268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-shorten-64-to-32",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB035268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					HFS_EXTENTS_TEST,
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		070DB036268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
+		070DB037268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FB2B5C671B877A4D00ACEDD9 /* hfs-tests.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tests/hfs-tests.entitlements";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					DEBUG,
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/hfs;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-fexceptions";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/tests";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Winteger-overflow",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB038268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB039268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+				);
+			};
+			name = Fuzzing;
+		};
+		070DB03A268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Fuzzing;
+		};
+		070DB03B268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_HEADERS_RUN_UNIFDEF = YES;
+				COPY_HEADERS_UNIFDEF_FLAGS = "-UKERNEL";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/hfs;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/hfs;
+			};
+			name = Fuzzing;
+		};
+		070DB03C268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+		070DB03D268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
+		070DB03E268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_OBJC_UNUSED_IVARS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "livefiles_hfs_plugin/**";
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Fuzzing;
+		};
+		070DB03F268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = livefiles_hfs_plugin/livefiles_hfs_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = livefiles_hfs_plugin/;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Fuzzing;
+		};
+		070DB040268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Fuzzing;
+		};
+		070DB041268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_OBJC_UNUSED_IVARS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"LF_CS_USE_OSLOG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "livefiles_cs_plugin/**";
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Fuzzing;
+		};
+		070DB042268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = livefiles_cs_plugin/livefiles_cs_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = livefiles_cs_plugin/;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/hfs;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Fuzzing;
+		};
+		070DB043268FD00800ACF231 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 070DB044268FD04800ACF231 /* Fuzzing.xcconfig */;
+			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				OTHER_CFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=fuzzer,address",
+					"-fno-sanitize-coverage=pc-table",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+			};
+			name = Fuzzing;
+		};
 		07828B5A1E3FDD25009D2106 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3392,6 +4554,12 @@
 				PRODUCT_NAME = hfs.util;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -3427,6 +4595,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -3465,6 +4639,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -3483,6 +4663,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -3518,6 +4704,7 @@
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
 				INFOPLIST_OUTPUT_FORMAT = binary;
+				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /System/Library/Filesystems;
 				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
@@ -3561,6 +4748,12 @@
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -4329,6 +5522,268 @@
 			};
 			name = Coverage;
 		};
+		D39F154F287D55BD00366492 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystem.hfs-xctests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				USE_HEADERMAP = YES;
+			};
+			name = Release;
+		};
+		D39F1550287D55BD00366492 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystem.hfs-xctests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				USE_HEADERMAP = YES;
+			};
+			name = Debug;
+		};
+		D39F1551287D55BD00366492 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystem.hfs-xctests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				USE_HEADERMAP = YES;
+			};
+			name = Fuzzing;
+		};
+		D39F1552287D55BD00366492 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystem.hfs-xctests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				USE_HEADERMAP = YES;
+			};
+			name = Coverage;
+		};
 		DB1AAB7D20472D140036167F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4357,7 +5812,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -4400,6 +5855,7 @@
 					"$(inherited)",
 					"-Wno-unused-parameter",
 					"-Wno-shorten-64-to-32",
+					"-Wformat-nonliteral",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4618,6 +6074,12 @@
 				PRODUCT_NAME = HFSEncodings;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -4641,6 +6103,12 @@
 				PRODUCT_NAME = HFSEncodings;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -5202,6 +6670,7 @@
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
 				INFOPLIST_OUTPUT_FORMAT = binary;
+				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /System/Library/Filesystems;
 				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
@@ -5213,11 +6682,17 @@
 		FBD5C7DC1B1D591800B4620E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				PRODUCT_NAME = hfs.util;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -5235,7 +6710,7 @@
 		FBD5C7DE1B1D591800B4620E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				EXCLUDED_SOURCE_FILE_NAMES = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = optical.c;
@@ -5243,6 +6718,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -5254,6 +6735,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -5271,7 +6758,7 @@
 		FBD5C7E11B1D591800B4620E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"BSD=1",
@@ -5282,6 +6769,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -5345,6 +6838,12 @@
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -5352,7 +6851,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -5394,6 +6893,7 @@
 					"$(inherited)",
 					"-Wno-unused-parameter",
 					"-Wno-shorten-64-to-32",
+					"-Wformat-nonliteral",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -5452,6 +6952,7 @@
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = fs/Info.plist;
 				INFOPLIST_OUTPUT_FORMAT = binary;
+				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /System/Library/Filesystems;
 				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = hfs;
@@ -5463,11 +6964,17 @@
 		FBD69B1B1B94E9990022ECAD /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = hfs_util/hfs_util.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				PRODUCT_NAME = hfs.util;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Coverage;
 		};
@@ -5485,7 +6992,7 @@
 		FBD69B1D1B94E9990022ECAD /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = mount_hfs/mount_hfs.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				EXCLUDED_SOURCE_FILE_NAMES = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = optical.c;
@@ -5493,6 +7000,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Coverage;
 		};
@@ -5504,6 +7017,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Coverage;
 		};
@@ -5521,7 +7040,7 @@
 		FBD69B201B94E9990022ECAD /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = fsck_hfs/fsck_hfs.ios.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"BSD=1",
@@ -5532,6 +7051,12 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Coverage;
 		};
@@ -5595,6 +7120,12 @@
 				STRIPFLAGS = "";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Coverage;
 		};
@@ -5602,7 +7133,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FB20E1781AE968BD00CEBE7B /* kext.xcconfig */;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -5644,6 +7175,7 @@
 					"$(inherited)",
 					"-Wno-unused-parameter",
 					"-Wno-shorten-64-to-32",
+					"-Wformat-nonliteral",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -5668,6 +7200,12 @@
 				PRODUCT_NAME = HFSEncodings;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-missing-field-initializers",
+					"-Wformat-nonliteral",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Coverage;
@@ -5976,11 +7514,23 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		070DB01A268FCDF500ACF231 /* Build configuration list for PBXNativeTarget "hfs.util-fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				070DB01B268FCDF500ACF231 /* Release */,
+				070DB01C268FCDF500ACF231 /* Debug */,
+				070DB043268FD00800ACF231 /* Fuzzing */,
+				070DB01D268FCDF500ACF231 /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		07828B5D1E3FDD25009D2106 /* Build configuration list for PBXAggregateTarget "hfs_libraries" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				07828B5A1E3FDD25009D2106 /* Release */,
 				07828B5B1E3FDD25009D2106 /* Debug */,
+				070DB03D268FD00800ACF231 /* Fuzzing */,
 				07828B5C1E3FDD25009D2106 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -5991,6 +7541,7 @@
 			buildConfigurations = (
 				1DEB928708733DD80010E9CD /* Release */,
 				FBD5C7DC1B1D591800B4620E /* Debug */,
+				070DB025268FD00800ACF231 /* Fuzzing */,
 				FBD69B1B1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6001,6 +7552,7 @@
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
 				FBD5C7D71B1D591800B4620E /* Debug */,
+				070DB01F268FD00800ACF231 /* Fuzzing */,
 				FBD69B161B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6011,6 +7563,7 @@
 			buildConfigurations = (
 				4D07DCBF1538EF3A002B57CB /* Release */,
 				FBD5C7E21B1D591800B4620E /* Debug */,
+				070DB02B268FD00800ACF231 /* Fuzzing */,
 				FBD69B211B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6021,6 +7574,7 @@
 			buildConfigurations = (
 				4D0E89A41534FE65004CD678 /* Release */,
 				FBD5C7DE1B1D591800B4620E /* Debug */,
+				070DB027268FD00800ACF231 /* Fuzzing */,
 				FBD69B1D1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6031,6 +7585,7 @@
 			buildConfigurations = (
 				4DBD523D1548A488007AA736 /* Release */,
 				FBD5C7DA1B1D591800B4620E /* Debug */,
+				070DB023268FD00800ACF231 /* Fuzzing */,
 				FBD69B191B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6041,6 +7596,7 @@
 			buildConfigurations = (
 				4DD302591538DB2700001AA0 /* Release */,
 				FBD5C7D81B1D591800B4620E /* Debug */,
+				070DB020268FD00800ACF231 /* Fuzzing */,
 				FBD69B171B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6051,6 +7607,7 @@
 			buildConfigurations = (
 				4DD3025C1538DB3A00001AA0 /* Release */,
 				FBD5C7D91B1D591800B4620E /* Debug */,
+				070DB021268FD00800ACF231 /* Fuzzing */,
 				FBD69B181B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6061,6 +7618,7 @@
 			buildConfigurations = (
 				4DE6C763153504C100C11066 /* Release */,
 				FBD5C7DF1B1D591800B4620E /* Debug */,
+				070DB028268FD00800ACF231 /* Fuzzing */,
 				FBD69B1E1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6071,6 +7629,7 @@
 			buildConfigurations = (
 				4DFD93FB1535FF510039B6BA /* Release */,
 				FBD5C7E11B1D591800B4620E /* Debug */,
+				070DB02A268FD00800ACF231 /* Fuzzing */,
 				FBD69B201B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6081,6 +7640,7 @@
 			buildConfigurations = (
 				4DFD94AE153649070039B6BA /* Release */,
 				FBD5C7E01B1D591800B4620E /* Debug */,
+				070DB029268FD00800ACF231 /* Fuzzing */,
 				FBD69B1F1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6091,6 +7651,7 @@
 			buildConfigurations = (
 				4DFD94E515373C2C0039B6BA /* Release */,
 				FBD5C7E31B1D591800B4620E /* Debug */,
+				070DB02C268FD00800ACF231 /* Fuzzing */,
 				FBD69B221B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6101,6 +7662,7 @@
 			buildConfigurations = (
 				4DFD951C1537402A0039B6BA /* Release */,
 				FBD5C7DB1B1D591800B4620E /* Debug */,
+				070DB024268FD00800ACF231 /* Fuzzing */,
 				FBD69B1A1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6111,6 +7673,7 @@
 			buildConfigurations = (
 				86CBF380183186C300A64A93 /* Release */,
 				FBD5C7E41B1D591800B4620E /* Debug */,
+				070DB02D268FD00800ACF231 /* Fuzzing */,
 				FBD69B231B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6121,6 +7684,7 @@
 			buildConfigurations = (
 				900BDED61FF919C2002F7EC0 /* Release */,
 				900BDED71FF919C2002F7EC0 /* Debug */,
+				070DB03E268FD00800ACF231 /* Fuzzing */,
 				900BDED81FF919C2002F7EC0 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6131,6 +7695,7 @@
 			buildConfigurations = (
 				900BDEE21FF919DE002F7EC0 /* Release */,
 				900BDEE31FF919DE002F7EC0 /* Debug */,
+				070DB03F268FD00800ACF231 /* Fuzzing */,
 				900BDEE41FF919DE002F7EC0 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6141,6 +7706,7 @@
 			buildConfigurations = (
 				9430FE93211658C2009CC8AF /* Release */,
 				9430FE94211658C2009CC8AF /* Debug */,
+				070DB040268FD00800ACF231 /* Fuzzing */,
 				9430FE95211658C2009CC8AF /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6151,6 +7717,7 @@
 			buildConfigurations = (
 				A64B3BDD22E8D36F009A2B10 /* Release */,
 				A64B3BDE22E8D36F009A2B10 /* Debug */,
+				070DB041268FD00800ACF231 /* Fuzzing */,
 				A64B3BDF22E8D36F009A2B10 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6161,7 +7728,19 @@
 			buildConfigurations = (
 				A64B3BEB22E8D388009A2B10 /* Release */,
 				A64B3BEC22E8D388009A2B10 /* Debug */,
+				070DB042268FD00800ACF231 /* Fuzzing */,
 				A64B3BED22E8D388009A2B10 /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D39F1553287D55BD00366492 /* Build configuration list for PBXNativeTarget "hfs_xctests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D39F154F287D55BD00366492 /* Release */,
+				D39F1550287D55BD00366492 /* Debug */,
+				D39F1551287D55BD00366492 /* Fuzzing */,
+				D39F1552287D55BD00366492 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -6171,6 +7750,7 @@
 			buildConfigurations = (
 				DB1AAB7D20472D140036167F /* Release */,
 				DB1AAB7E20472D140036167F /* Debug */,
+				070DB022268FD00800ACF231 /* Fuzzing */,
 				DB1AAB7F20472D140036167F /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6181,6 +7761,7 @@
 			buildConfigurations = (
 				FB20E0E71AE950C200CEBE7B /* Release */,
 				FBD5C7E51B1D591800B4620E /* Debug */,
+				070DB02E268FD00800ACF231 /* Fuzzing */,
 				FBD69B241B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6191,6 +7772,7 @@
 			buildConfigurations = (
 				FB48E4A31BB3070500523121 /* Release */,
 				FB48E4A41BB3070500523121 /* Debug */,
+				070DB033268FD00800ACF231 /* Fuzzing */,
 				FB48E4A51BB3070500523121 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6201,6 +7783,7 @@
 			buildConfigurations = (
 				FB48E5091BB3798500523121 /* Release */,
 				FB48E50A1BB3798500523121 /* Debug */,
+				070DB03B268FD00800ACF231 /* Fuzzing */,
 				FB48E50B1BB3798500523121 /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6211,6 +7794,7 @@
 			buildConfigurations = (
 				FB55AE711B7D47B300701D03 /* Release */,
 				FB55AE721B7D47B300701D03 /* Debug */,
+				070DB039268FD00800ACF231 /* Fuzzing */,
 				FBD69B2F1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6221,6 +7805,7 @@
 			buildConfigurations = (
 				FB75A4001B4AE765004B5A74 /* Release */,
 				FB75A4011B4AE765004B5A74 /* Debug */,
+				070DB02F268FD00800ACF231 /* Fuzzing */,
 				FBD69B251B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6231,6 +7816,7 @@
 			buildConfigurations = (
 				FB76B3D71B7A4BE600FA9F2B /* Release */,
 				FB76B3D81B7A4BE600FA9F2B /* Debug */,
+				070DB037268FD00800ACF231 /* Fuzzing */,
 				FBD69B2D1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6241,6 +7827,7 @@
 			buildConfigurations = (
 				FB7C140E1C2368E6004F8B2C /* Release */,
 				FB7C140F1C2368E6004F8B2C /* Debug */,
+				070DB03C268FD00800ACF231 /* Fuzzing */,
 				FB7C14101C2368E6004F8B2C /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6251,6 +7838,7 @@
 			buildConfigurations = (
 				FBA95AAB1B5025E700887E82 /* Release */,
 				FBA95AAC1B5025E700887E82 /* Debug */,
+				070DB032268FD00800ACF231 /* Fuzzing */,
 				FBD69B281B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6261,6 +7849,7 @@
 			buildConfigurations = (
 				FBAA824A1B56F24100EE6863 /* Release */,
 				FBAA824B1B56F24100EE6863 /* Debug */,
+				070DB034268FD00800ACF231 /* Fuzzing */,
 				FBD69B2A1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6271,6 +7860,7 @@
 			buildConfigurations = (
 				FBAA82561B56F26A00EE6863 /* Release */,
 				FBAA82571B56F26A00EE6863 /* Debug */,
+				070DB035268FD00800ACF231 /* Fuzzing */,
 				FBD69B2B1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6281,6 +7871,7 @@
 			buildConfigurations = (
 				FBAA82621B56F28C00EE6863 /* Release */,
 				FBAA82631B56F28C00EE6863 /* Debug */,
+				070DB036268FD00800ACF231 /* Fuzzing */,
 				FBD69B2C1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6291,6 +7882,7 @@
 			buildConfigurations = (
 				FBAA82671B56F2AB00EE6863 /* Release */,
 				FBAA82681B56F2AB00EE6863 /* Debug */,
+				070DB038268FD00800ACF231 /* Fuzzing */,
 				FBD69B2E1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6301,6 +7893,7 @@
 			buildConfigurations = (
 				FBC234C01B4D87A20002D849 /* Release */,
 				FBC234C11B4D87A20002D849 /* Debug */,
+				070DB031268FD00800ACF231 /* Fuzzing */,
 				FBD69B271B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6311,6 +7904,7 @@
 			buildConfigurations = (
 				FBCC53021B852759008B752C /* Release */,
 				FBCC53031B852759008B752C /* Debug */,
+				070DB03A268FD00800ACF231 /* Fuzzing */,
 				FBD69B301B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6321,6 +7915,7 @@
 			buildConfigurations = (
 				FBE3F7831AF67748005BB768 /* Release */,
 				FBD5C7E61B1D591800B4620E /* Debug */,
+				070DB030268FD00800ACF231 /* Fuzzing */,
 				FBD69B261B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -6331,6 +7926,7 @@
 			buildConfigurations = (
 				FDD9FA3414A132BF0043D4A9 /* Release */,
 				FBD5C7DD1B1D591800B4620E /* Debug */,
+				070DB026268FD00800ACF231 /* Fuzzing */,
 				FBD69B1C1B94E9990022ECAD /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;

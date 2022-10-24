@@ -36,7 +36,7 @@
 // =================================================================================================================
 // SEC_OS_IPHONE            0               1               1                   1                   1
 // SEC_OS_OSX               1               0               0                   0                   0
-// SEC_OS_OSX_INCLUDES      1               1               0                   0                   0
+// SEC_OS_OSX_INCLUDES      1               1               0                   0                   1
 
 #if TARGET_OS_OSX
   #ifdef SEC_IOS_ON_OSX
@@ -51,7 +51,7 @@
   #define SEC_OS_IPHONE 1
 
   #define SEC_OS_OSX 0
-  #define SEC_OS_OSX_INCLUDES 0
+  #define SEC_OS_OSX_INCLUDES 1
 #endif // TARGET_OS_MACCATALYST
 
 #ifndef SEC_OS_IPHONE
@@ -59,7 +59,7 @@
     #define SEC_OS_IPHONE TARGET_OS_IPHONE
 
     #define SEC_OS_OSX TARGET_OS_OSX
-    #define SEC_OS_OSX_INCLUDES TARGET_OS_OSX
+    #define SEC_OS_OSX_INCLUDES TARGET_OS_OSX || TARGET_OS_MACCATALYST
 #endif
 
 #if defined(__clang__)

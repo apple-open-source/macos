@@ -26,6 +26,10 @@
 #include "config.h"
 #include "StreamConnectionWorkQueue.h"
 
+#if USE(FOUNDATION)
+#include <wtf/AutodrainedPool.h>
+#endif
+
 namespace IPC {
 
 StreamConnectionWorkQueue::StreamConnectionWorkQueue(const char* name)
@@ -75,14 +79,15 @@ void StreamConnectionWorkQueue::removeStreamConnection(StreamServerConnection& c
     wakeUp();
 }
 
-void StreamConnectionWorkQueue::stopAndWaitForCompletion()
+void StreamConnectionWorkQueue::stopAndWaitForCompletion(WTF::Function<void()>&& cleanupFunction)
 {
-    m_shouldQuit = true;
     RefPtr<Thread> processingThread;
     {
         Locker locker { m_lock };
+        m_cleanupFunction = WTFMove(cleanupFunction);
         processingThread = WTFMove(m_processingThread);
     }
+    m_shouldQuit = true;
     if (!processingThread)
         return;
     ASSERT(Thread::current().uid() != processingThread->uid());
@@ -107,6 +112,11 @@ void StreamConnectionWorkQueue::startProcessingThread()
             processStreams();
             if (m_shouldQuit) {
                 processStreams();
+                {
+                    Locker locker { m_lock };
+                    if (m_cleanupFunction)
+                        m_cleanupFunction();
+                }
                 return;
             }
             m_wakeUpSemaphore.wait();
@@ -120,6 +130,9 @@ void StreamConnectionWorkQueue::processStreams()
     constexpr size_t defaultMessageLimit = 1000;
     bool hasMoreToProcess = false;
     do {
+#if USE(FOUNDATION)
+        AutodrainedPool perProcessingIterationPool;
+#endif
         Deque<WTF::Function<void()>> functions;
         Vector<Ref<StreamServerConnection>> connections;
         {

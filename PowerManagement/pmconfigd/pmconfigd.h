@@ -54,8 +54,9 @@
 
 #include <System/sys/kdebug.h>
 
-
+#if !(BHUI_XCTEST || POWERD_IOS_XCTEST)
 #include "powermanagementServer.h" // mig generated
+#endif
 
 #include "PMStore.h"
 #include "PMSettings.h"
@@ -73,7 +74,8 @@
 #include "StandbyTimer.h"
 #include "PrivateLib.h"
 #include "BatteryDataCollectionManager.h"
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include "PMSmartPowerNapPredictor.h"
+#if TARGET_OS_OSX
 #include "PMDisplay.h"
 #endif
 
@@ -171,5 +173,8 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  // Reevaluate DW thermal emergency message
  __private_extern__ void evaluateDWThermalMsg(void);
  
+#ifdef XCTEST
+void xctSetIsDisplayAsleep(bool isDisplayAsleep);
+#endif
 
 #endif /* pmconfigd_h */

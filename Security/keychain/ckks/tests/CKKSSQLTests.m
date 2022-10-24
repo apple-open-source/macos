@@ -62,6 +62,7 @@
     CKKSOutgoingQueueEntry* one = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:
                                    [[CKKSItem alloc] initWithUUID:[[NSUUID UUID] UUIDString]
                                                     parentKeyUUID:[[NSUUID UUID] UUIDString]
+                                                        contextID:CKKSMockCloudKitContextID
                                                            zoneID:self.testZoneID
                                                           encItem:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
                                                        wrappedkey:[[CKKSWrappedAESSIVKey alloc]initWithBase64: @"KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="]
@@ -76,6 +77,7 @@
     CKKSOutgoingQueueEntry* two = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:
                                    [[CKKSItem alloc] initWithUUID:[[NSUUID UUID] UUIDString]
                                                     parentKeyUUID:[[NSUUID UUID] UUIDString]
+                                                        contextID:CKKSMockCloudKitContextID
                                                            zoneID:self.testZoneID
                                                           encItem:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
                                                        wrappedkey:[[CKKSWrappedAESSIVKey alloc]initWithBase64: @"KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="]
@@ -89,6 +91,7 @@
     CKKSOutgoingQueueEntry* three = [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:
                                    [[CKKSItem alloc] initWithUUID:[[NSUUID UUID] UUIDString]
                                                     parentKeyUUID:[[NSUUID UUID] UUIDString]
+                                                        contextID:CKKSMockCloudKitContextID
                                                            zoneID:self.testZoneID
                                                           encItem:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
                                                        wrappedkey:[[CKKSWrappedAESSIVKey alloc]initWithBase64: @"KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="]
@@ -116,7 +119,11 @@
     NSError * nserror;
     __block CFErrorRef error = NULL;
 
-    CKKSOutgoingQueueEntry* shouldFail = [CKKSOutgoingQueueEntry fromDatabase:testUUID state:SecCKKSStateInFlight zoneID:self.testZoneID error: &nserror];
+    CKKSOutgoingQueueEntry* shouldFail = [CKKSOutgoingQueueEntry fromDatabase:testUUID
+                                                                        state:SecCKKSStateInFlight
+                                                                    contextID:CKKSMockCloudKitContextID
+                                                                       zoneID:self.testZoneID
+                                                                        error: &nserror];
     XCTAssertNil(shouldFail, "Can't find a nonexisting object");
     XCTAssertNotNil(nserror, "NSError exists when things break");
 
@@ -125,11 +132,11 @@
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "called while self still exists");
 
-        NSString * sql = @"insert INTO outgoingqueue (UUID, parentKeyUUID, ckzone, action, state, accessgroup, gencount, encitem, wrappedkey, encver) VALUES (?,?,?,?,?,?,?,?,?,?);";
+        NSString * sql = @"insert INTO outgoingqueue (UUID, parentKeyUUID, ckzone, action, state, accessgroup, gencount, encitem, wrappedkey, encver,contextID) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
         SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &error, ^void (sqlite3_stmt *stmt) {
             SecDbBindText(stmt, 1, [testUUID UTF8String], strlen([testUUID UTF8String]), NULL, &error);
             SecDbBindText(stmt, 2, [[testKeyUUID UUIDString] UTF8String], strlen([[testKeyUUID UUIDString] UTF8String]), NULL, &error);
-            SecDbBindObject(stmt, 3, (__bridge CFStringRef) weakSelf.testZoneID.zoneName, &error);
+            SecDbBindObject(stmt, 3, (__bridge CFStringRef) @"testzone", &error);
             SecDbBindText(stmt, 4, "newitem", strlen("newitem"), NULL, &error);
             SecDbBindText(stmt, 5, "unprocessed", strlen("unprocessed"), NULL, &error);
             SecDbBindText(stmt, 6, "com.apple.access", strlen("com.apple.access"), NULL, &error);
@@ -137,6 +144,8 @@
             SecDbBindText(stmt, 8, "bm9uc2Vuc2UK", strlen("bm9uc2Vuc2UK"), NULL, &error);
             SecDbBindObject(stmt, 9, CFSTR("KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="), &error);
             SecDbBindText(stmt, 10, "0", strlen("0"), NULL, &error);
+            SecDbBindObject(stmt, 11, (__bridge CFStringRef)CKKSMockCloudKitContextID, &error);
+
 
             SecDbStep(dbconn, stmt, &error, ^(bool *stop) {
                 // don't do anything, I guess?
@@ -155,6 +164,7 @@
     // Create another oqe with different values
     CKKSItem* baseitem = [[CKKSItem alloc] initWithUUID: [[NSUUID UUID] UUIDString]
                                           parentKeyUUID:[[NSUUID UUID] UUIDString]
+                                              contextID:CKKSMockCloudKitContextID
                                                  zoneID:self.testZoneID
                                                 encItem:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
                                              wrappedkey:[[CKKSWrappedAESSIVKey alloc]initWithBase64: @"KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="]
@@ -172,7 +182,11 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    CKKSOutgoingQueueEntry * oqe = [CKKSOutgoingQueueEntry fromDatabase:testUUID state:@"unprocessed" zoneID:self.testZoneID error: &nserror];
+    CKKSOutgoingQueueEntry * oqe = [CKKSOutgoingQueueEntry fromDatabase:testUUID
+                                                                  state:@"unprocessed"
+                                                              contextID:CKKSMockCloudKitContextID
+                                                                 zoneID:self.testZoneID
+                                                                  error: &nserror];
     XCTAssertNil(nserror, "no error occurred creating from database");
 
     XCTAssertNotNil(oqe, "load outgoing queue entry from database");
@@ -193,7 +207,11 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    CKKSOutgoingQueueEntry * oqe2 = [CKKSOutgoingQueueEntry fromDatabase:testUUID state:@"savedtocloud" zoneID:self.testZoneID error: &nserror];
+    CKKSOutgoingQueueEntry * oqe2 = [CKKSOutgoingQueueEntry fromDatabase:testUUID
+                                                                   state:@"savedtocloud"
+                                                               contextID:CKKSMockCloudKitContextID
+                                                                  zoneID:self.testZoneID
+                                                                   error: &nserror];
     XCTAssertNil(nserror, "no error occurred");
 
     XCTAssertEqualObjects(oqe2.item.parentKeyUUID, @"not a parent key either", @"parent key uuid persisted through db save and load");
@@ -230,13 +248,21 @@
         return CKKSDatabaseTransactionCommit;
     }];
 
-    oqe2 = [CKKSOutgoingQueueEntry fromDatabase:testUUID state:@"savedtocloud" zoneID:self.testZoneID error: &nserror];
+    oqe2 = [CKKSOutgoingQueueEntry fromDatabase:testUUID
+                                          state:@"savedtocloud"
+                                      contextID:CKKSMockCloudKitContextID
+                                         zoneID:self.testZoneID
+                                          error:&nserror];
     XCTAssertNil(oqe2, "Can't find a nonexisting object");
     XCTAssertNotNil(nserror, "NSError exists when things break");
 
     // Test loading other
     nserror = nil;
-    CKKSOutgoingQueueEntry* other2 = [CKKSOutgoingQueueEntry fromDatabase: other.item.uuid state:SecCKKSStateError zoneID:self.testZoneID error:&nserror];
+    CKKSOutgoingQueueEntry* other2 = [CKKSOutgoingQueueEntry fromDatabase:other.item.uuid
+                                                                    state:SecCKKSStateError
+                                                                contextID:CKKSMockCloudKitContextID
+                                                                   zoneID:self.testZoneID
+                                                                    error:&nserror];
     XCTAssertNil(nserror, "No error loading other2 from database");
     XCTAssertNotNil(other2, "Able to re-load other.");
     XCTAssertEqualObjects(other, other2, "loaded object is equal to object");
@@ -247,6 +273,7 @@
 
     CKKSItem* baseitem = [[CKKSItem alloc] initWithUUID: [[NSUUID UUID] UUIDString]
                                           parentKeyUUID:[[NSUUID UUID] UUIDString]
+                                              contextID:CKKSMockCloudKitContextID
                                                  zoneID:self.testZoneID
                                                 encItem:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
                                              wrappedkey:[[CKKSWrappedAESSIVKey alloc]initWithBase64: @"KFfL58XtugiYNoD859EjG0StfrYd6eakm0CQrgX7iO+DEo4kio3WbEeA1kctCU0GaeTGsRFpbdy4oo6jXhVu7cZqB0svhUPGq55aGnszUjI="]
@@ -284,41 +311,56 @@
 }
 
 -(void)testCKKSZoneStateEntrySQL {
-    CKKSZoneStateEntry* zse = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
-                                                             zoneCreated:true
-                                                          zoneSubscribed:true
-                                                             changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                   moreRecordsInCloudKit:YES
-                                                               lastFetch:[NSDate date]
-                                                                lastScan:[NSDate date]
-                                                               lastFixup:CKKSCurrentFixupNumber
-                                                      encodedRateLimiter:nil];
+    NSString* context1 = @"context1";
+    CKKSZoneStateEntry* zse = [[CKKSZoneStateEntry alloc] initWithContextID:context1
+                                                                   zoneName:@"sqltest"
+                                                                zoneCreated:true
+                                                             zoneSubscribed:true
+                                                                changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                      moreRecordsInCloudKit:YES
+                                                                  lastFetch:[NSDate date]
+                                                                   lastScan:[NSDate date]
+                                                                  lastFixup:CKKSCurrentFixupNumber
+                                                         encodedRateLimiter:nil];
     zse.rateLimiter = [[CKKSRateLimiter alloc] init];
 
-    CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
-                                                                  zoneCreated:true
-                                                               zoneSubscribed:true
-                                                                  changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                        moreRecordsInCloudKit:YES
-                                                                    lastFetch:zse.lastFetchTime
-                                                                     lastScan:zse.lastLocalKeychainScanTime
-                                                                    lastFixup:CKKSCurrentFixupNumber
-                                                           encodedRateLimiter:zse.encodedRateLimiter];
+    CKKSZoneStateEntry* zse2 = [[CKKSZoneStateEntry alloc] initWithContextID:@"other_context"
+                                                                    zoneName:@"sqltest"
+                                                                 zoneCreated:true
+                                                              zoneSubscribed:true
+                                                                 changeToken:[@"other_nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                       moreRecordsInCloudKit:NO
+                                                                   lastFetch:[NSDate date]
+                                                                    lastScan:[NSDate date]
+                                                                   lastFixup:1
+                                                          encodedRateLimiter:nil];
 
-    CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithCKZone:@"sqltest"
-                                                                      zoneCreated:true
-                                                                   zoneSubscribed:true
-                                                                      changeToken:[@"allnonsense" dataUsingEncoding:NSUTF8StringEncoding]
-                                                            moreRecordsInCloudKit:NO
-                                                                        lastFetch:zse.lastFetchTime
-                                                                         lastScan:zse.lastLocalKeychainScanTime
-                                                                        lastFixup:CKKSCurrentFixupNumber
-                                                               encodedRateLimiter:zse.encodedRateLimiter];
-    XCTAssertEqualObjects(zse, zseClone, "CKKSZoneStateEntry isEqual of equal objects seems sane");
-    XCTAssertNotEqualObjects(zse, zseDifferent, "CKKSZoneStateEntry isEqual of nonequal objects seems sane");
+    CKKSZoneStateEntry* zseClone = [[CKKSZoneStateEntry alloc] initWithContextID:context1
+                                                                        zoneName:@"sqltest"
+                                                                     zoneCreated:true
+                                                                  zoneSubscribed:true
+                                                                     changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                           moreRecordsInCloudKit:YES
+                                                                       lastFetch:zse.lastFetchTime
+                                                                        lastScan:zse.lastLocalKeychainScanTime
+                                                                       lastFixup:CKKSCurrentFixupNumber
+                                                              encodedRateLimiter:zse.encodedRateLimiter];
+
+    CKKSZoneStateEntry* zseDifferent = [[CKKSZoneStateEntry alloc] initWithContextID:context1
+                                                                            zoneName:@"sqltest"
+                                                                         zoneCreated:true
+                                                                      zoneSubscribed:true
+                                                                         changeToken:[@"allnonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                               moreRecordsInCloudKit:NO
+                                                                           lastFetch:zse.lastFetchTime
+                                                                            lastScan:zse.lastLocalKeychainScanTime
+                                                                           lastFixup:CKKSCurrentFixupNumber
+                                                                  encodedRateLimiter:zse.encodedRateLimiter];
+    XCTAssertEqualObjects(zse, zseClone, "CKKSZoneStateEntry isEqual of equal objects seems okay");
+    XCTAssertNotEqualObjects(zse, zseDifferent, "CKKSZoneStateEntry isEqual of nonequal objects seems okay");
 
     NSError* error = nil;
-    CKKSZoneStateEntry* loaded = [CKKSZoneStateEntry tryFromDatabase: @"sqltest" error:&error];
+    CKKSZoneStateEntry* loaded = [CKKSZoneStateEntry tryFromDatabase:context1 zoneName:@"sqltest" error:&error];
     XCTAssertNil(error, "No error trying to load nonexistent record");
     XCTAssertNil(loaded, "No record saved in database");
 
@@ -326,10 +368,13 @@
         NSError* saveError = nil;
         [zse saveToDatabase:&saveError];
         XCTAssertNil(saveError, "no error occurred saving CKKSZoneStateEntry to database");
+
+        [zse2 saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "no error occurred saving CKKSZoneStateEntry to database");
         return CKKSDatabaseTransactionCommit;
     }];
 
-    loaded = [CKKSZoneStateEntry tryFromDatabase: @"sqltest" error:&error];
+    loaded = [CKKSZoneStateEntry tryFromDatabase:context1 zoneName:@"sqltest" error:&error];
     XCTAssertNil(error, "No error trying to load saved record");
     XCTAssertNotNil(loaded, "CKKSZoneStateEntry came back out of database");
 
@@ -349,12 +394,34 @@
                                                                    "lastFetchTime persisted through db save and load");
     XCTAssert([[NSCalendar currentCalendar] isDate:zse.lastLocalKeychainScanTime equalToDate:loaded.lastLocalKeychainScanTime toUnitGranularity:NSCalendarUnitMinute],
               "lastLocalKeychainScanTime persisted through db save and load");
+
+    {
+        NSError* otherContextError = nil;
+        CKKSZoneStateEntry* loadedOtherContext = [CKKSZoneStateEntry tryFromDatabase:@"missing_context" zoneName:@"sqltest" error:&otherContextError];
+        XCTAssertNil(loadedOtherContext, "Should be no zone state entry for missing context");
+        XCTAssertNil(otherContextError, "Should be no error loading no item");
+    }
+
+    {
+        NSError* otherContextError = nil;
+        CKKSZoneStateEntry* loadedOtherContext = [CKKSZoneStateEntry tryFromDatabase:@"other_context" zoneName:@"sqltest" error:&otherContextError];
+        XCTAssertNotNil(loadedOtherContext, "Should be an zone state entry for other contextID");
+        XCTAssertNil(otherContextError, "Should be no error loading no item");
+
+        XCTAssertEqualObjects(zse2.ckzone,             loadedOtherContext.ckzone,              "ckzone persisted through db save and load");
+        XCTAssertEqual       (zse2.ckzonecreated,      loadedOtherContext.ckzonecreated,       "ckzonecreated persisted through db save and load");
+        XCTAssertEqual       (zse2.ckzonesubscribed,   loadedOtherContext.ckzonesubscribed,    "ckzonesubscribed persisted through db save and load");
+        XCTAssertEqualObjects(zse2.encodedChangeToken, loadedOtherContext.encodedChangeToken, "encodedChangeToken persisted through db save and load");
+
+        XCTAssertNotEqualObjects(loadedOtherContext, loaded, "Should not match object from other context");
+    }
 }
 
 -(void)testRoundtripCKKSDeviceStateEntry {
     // Very simple test: can these objects roundtrip through the db?
     NSString* testUUID = @"157A3171-0677-451B-9EAE-0DDC4D4315B0";
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:testUUID
+                                                                   contextID:CKKSMockCloudKitContextID
                                                                    osVersion:@"faux-version"
                                                               lastUnlockTime:nil
                                                                octagonPeerID:@"peerID"
@@ -376,7 +443,10 @@
     }];
 
     NSError* loadError = nil;
-    CKKSDeviceStateEntry* loadedCDSE = [CKKSDeviceStateEntry fromDatabase:testUUID zoneID:self.testZoneID error:&loadError];
+    CKKSDeviceStateEntry* loadedCDSE = [CKKSDeviceStateEntry fromDatabase:testUUID
+                                                                contextID:CKKSMockCloudKitContextID
+                                                                   zoneID:self.testZoneID
+                                                                    error:&loadError];
     XCTAssertNil(loadError, "No error loading CDSE");
     XCTAssertNotNil(loadedCDSE, "Received a CDSE back");
 
@@ -435,12 +505,17 @@
 
     NSError* error = nil;
 
-    key = [CKKSKey fromDatabase:testUUID zoneID:self.testZoneID error:&error];
+    key = [CKKSKey fromDatabase:testUUID
+                      contextID:CKKSMockCloudKitContextID
+                         zoneID:self.testZoneID
+                          error:&error];
+
     XCTAssertNil(key, "key does not exist yet");
     XCTAssertNotNil(error, "error exists when things go wrong");
     error = nil;
 
     key = [[CKKSKey alloc] initWithWrappedKeyData:wrappedkey.wrappedData
+                                        contextID:CKKSMockCloudKitContextID
                                              uuid:testUUID
                                     parentKeyUUID:testParentUUID
                                          keyclass:SecCKKSKeyClassA
@@ -462,7 +537,11 @@
     }];
     error = nil;
 
-    CKKSKey* key2 = [CKKSKey fromDatabase:testUUID zoneID:self.testZoneID error:&error];
+    CKKSKey* key2 = [CKKSKey fromDatabase:testUUID
+                                contextID:CKKSMockCloudKitContextID
+                                   zoneID:self.testZoneID
+                                    error:&error];
+
     XCTAssertNil(error, "no error exists when loading key");
     XCTAssertNotNil(key2, "key was fetched properly");
 
@@ -479,6 +558,26 @@
 
     XCTAssertEqualObjects(kbkey.wrappedkey, kbkey2.wrappedkey, "wrapped keys match");
     XCTAssertEqualObjects(kbkey, kbkey2, "keychain-backed keys match");
+
+
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* deleteError = nil;
+        bool result = [CKKSKey deleteAllWithContextID:CKKSMockCloudKitContextID
+                                               zoneID:self.testZoneID
+                                                error:&deleteError];
+        XCTAssertTrue(result, "Should be success deleting all keys");
+        XCTAssertNil(deleteError, "Should be no error deleting all keys");
+        return CKKSDatabaseTransactionCommit;
+    }];
+
+    NSError* loadError = nil;
+    CKKSKey* key3 = [CKKSKey fromDatabase:testUUID
+                                contextID:CKKSMockCloudKitContextID
+                                   zoneID:self.testZoneID
+                                    error:&loadError];
+    
+    XCTAssertNil(key3, "Should have no item after deletion");
+    XCTAssertNotNil(loadError, "Should have an error trying to load a deleted key");
 }
 
 - (void)testWhere {
@@ -487,6 +586,7 @@
     NSData* testCKRecord = [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding];
 
     CKKSKey* tlk = [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="]
+                                                    contextID:CKKSMockCloudKitContextID
                                                          uuid:@"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"
                                                      keyclass:SecCKKSKeyClassTLK
                                                         state: SecCKKSProcessedStateLocal
@@ -514,6 +614,7 @@
 
     NSString* secondUUID = @"8b2aeb7f-0000-0000-0000-70d5c728ebf7";
     CKKSKey* secondtlk = [[CKKSKey alloc] initSelfWrappedWithAESKey:[[CKKSAESSIVKey alloc] initWithBase64: @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="]
+                                                          contextID:CKKSMockCloudKitContextID
                                                                uuid:secondUUID
                                                            keyclass:SecCKKSKeyClassTLK
                                                               state:SecCKKSProcessedStateLocal

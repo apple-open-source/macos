@@ -79,7 +79,11 @@ static int  vcmp(const void *, const void *);
 static VAR var[] = {
 	/* 4133537: 5 characters to accomodate 100% or more */
 	{"%cpu", "%CPU", NULL, 0, pcpu, NULL, 5, 0, CHAR, NULL, 0},
+#ifdef __APPLE__
+	{"%mem", "%MEM", NULL, ENTITLED, pmem, NULL, 4},
+#else
 	{"%mem", "%MEM", NULL, 0, pmem, NULL, 4},
+#endif
 	{"acflag", "ACFLG",
 		NULL, 0, pvar, NULL, 3, POFF(p_acflag), USHORT, "x"},
 	{"acflg", "", "acflag"},
@@ -154,7 +158,11 @@ static VAR var[] = {
 	{"rgid", "RGID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_pcred.p_rgid),
 		UINT, UIDFMT},
 	{"rgroup", "RGROUP", "rgid"},
+#ifdef __APPLE__
+	{"rss", "RSS", NULL, ENTITLED, p_rssize, NULL, 6},
+#else
 	{"rss", "RSS", NULL, 0, p_rssize, NULL, 6},
+#endif
 #if FIXME
 	{"rtprio", "RTPRIO", NULL, 0, rtprior, NULL, 7, POFF(p_rtprio)},
 #endif /* FIXME */
@@ -175,13 +183,21 @@ static VAR var[] = {
 	{"start", "STARTED", NULL, LJUST|USER, started, NULL, 7},
 	{"stat", "", "state"},
 	{"state", "STAT", NULL, 0, state, NULL, 4},
+#ifdef __APPLE__
+	{"stime", "STIME", NULL, USER|ENTITLED, pstime, NULL, 9},
+#else
 	{"stime", "STIME", NULL, USER, pstime, NULL, 9},
+#endif
 	{"svgid", "SVGID", NULL, 0,
 		evar, NULL, UIDLEN, EOFF(e_pcred.p_svgid), UINT, UIDFMT},
 	{"svuid", "SVUID", NULL, 0,
 		evar, NULL, UIDLEN, EOFF(e_pcred.p_svuid), UINT, UIDFMT},
 	{"tdev", "TDEV", NULL, 0, tdev, NULL, 4},
+#ifdef __APPLE__
+	{"time", "TIME", NULL, USER|ENTITLED, cputime, NULL, 9},
+#else
 	{"time", "TIME", NULL, USER, cputime, NULL, 9},
+#endif
 	{"tpgid", "TPGID",
 		NULL, 0, evar, NULL, 4, EOFF(e_tpgid), UINT, PIDFMT},
 	{"tsess", "TSESS", NULL, 0, evar, NULL, 6, EOFF(e_tsess), KPTR, "lx"},
@@ -194,9 +210,17 @@ static VAR var[] = {
 	{"upr", "UPR", NULL, 0, pvar, NULL, 3, POFF(p_usrpri), CHAR, "d"},
 	{"user", "USER", NULL, LJUST|DSIZ, uname, s_uname, USERLEN},
 	{"usrpri", "", "upr"},
+#ifdef __APPLE__
+	{"utime", "UTIME", NULL, USER|ENTITLED, putime, NULL, 9},
+#else
 	{"utime", "UTIME", NULL, USER, putime, NULL, 9},
+#endif
 	{"vsize", "", "vsz"},
+#ifdef __APPLE__
+	{"vsz", "VSZ", NULL, ENTITLED, vsize, NULL, 8},
+#else
 	{"vsz", "VSZ", NULL, 0, vsize, NULL, 8},
+#endif
 	{"wchan", "WCHAN", NULL, LJUST, wchan, NULL, 6},
 	{"wq", "WQ", NULL, 0, wq, NULL, 4, 0, CHAR, NULL, 0},
 	{"wqb", "WQB", NULL, 0, wq, NULL, 4, 0, CHAR, NULL, 0},
@@ -327,6 +351,16 @@ findvar(char *p, int user, char **header)
 		}
 		return ((VAR *)NULL);
 	}
+#if PS_ENTITLEMENT_ENFORCED
+	/*
+	 * Entitlements aren't actually required on these fields for !macOS.
+	 */
+	if (v && (v->flag & ENTITLED) != 0) {
+		warnx("%s: requires entitlement", p);
+		eval = 1;
+		v = NULL;
+	} else	/* Don't warn on a keyword not found. */
+#endif
 	if (!v) {
 		warnx("%s: keyword not found", p);
 		eval = 1;

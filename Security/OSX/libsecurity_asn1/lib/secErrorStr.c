@@ -206,6 +206,6 @@ const char* SECErrorString(PRErrorCode err)
     }
 
     /* Not found, not thread safe */
-    sprintf(badStr, "UNKNOWN (%d(d)", err);
+    snprintf(badStr, sizeof(badStr), "UNKNOWN (%d(d)", err);
     return badStr;
 }

@@ -1,6 +1,6 @@
 /*
- * Summary: compile-time version informations
- * Description: compile-time version informations for the XML library
+ * Summary: compile-time version information
+ * Description: compile-time version information for the XML library
  *
  * Copy: See Copyright for the status of this software.
  *
@@ -11,6 +11,11 @@
 #define __XML_VERSION_H__
 
 #include <libxml/xmlexports.h>
+
+#ifdef __APPLE__
+#include <Availability.h>
+#include <TargetConditionals.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,26 +34,26 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
  *
  * the version string like "1.2.3"
  */
-#define LIBXML_DOTTED_VERSION "2.9.4"
+#define LIBXML_DOTTED_VERSION "2.9.13"
 
 /**
  * LIBXML_VERSION:
  *
  * the version number: 1.2.3 value is 10203
  */
-#define LIBXML_VERSION 20904
+#define LIBXML_VERSION 20913
 
 /**
  * LIBXML_VERSION_STRING:
  *
  * the version number string, 1.2.3 value is "10203"
  */
-#define LIBXML_VERSION_STRING "20904"
+#define LIBXML_VERSION_STRING "20913"
 
 /**
  * LIBXML_VERSION_EXTRA:
  *
- * extra version information, used to show a CVS compilation
+ * extra version information, used to show a git commit description
  */
 #define LIBXML_VERSION_EXTRA ""
 
@@ -58,7 +63,7 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
  * Macro to check that the libxml version in use is compatible with
  * the version the software has been compiled against
  */
-#define LIBXML_TEST_VERSION xmlCheckVersion(20904);
+#define LIBXML_TEST_VERSION xmlCheckVersion(20913);
 
 #ifndef VMS
 #if 0
@@ -257,6 +262,15 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
 #endif
 
 /**
+ * LIBXML_XPTR_LOCS_ENABLED:
+ *
+ * Whether support for XPointer locations is configured in
+ */
+#if 1
+#define LIBXML_XPTR_LOCS_ENABLED
+#endif
+
+/**
  * LIBXML_XINCLUDE_ENABLED:
  *
  * Whether XInclude is configured in
@@ -350,8 +364,10 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
  * LIBXML_EXPR_ENABLED:
  *
  * Whether the formal expressions interfaces are compiled in
+ *
+ * This code is unused and disabled unconditionally for now.
  */
-#if 1
+#if 0
 #define LIBXML_EXPR_ENABLED
 #endif
 
@@ -407,9 +423,6 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
 #endif
 
 #ifdef __GNUC__
-#ifdef HAVE_ANSIDECL_H
-#include <ansidecl.h>
-#endif
 
 /**
  * ATTRIBUTE_UNUSED:
@@ -459,6 +472,18 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
 # define LIBXML_ATTR_FORMAT(fmt,args)
 #endif
 
+#ifndef XML_DEPRECATED
+#  ifdef IN_LIBXML
+#    define XML_DEPRECATED
+#  elif defined(__APPLE__)
+/* Apple has its own deprecation macros that include OS versions. */
+#    define XML_DEPRECATED
+#  else
+/* Available since at least GCC 3.1 */
+#    define XML_DEPRECATED __attribute__((deprecated))
+#  endif
+#endif
+
 #else /* ! __GNUC__ */
 /**
  * ATTRIBUTE_UNUSED:
@@ -478,7 +503,50 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
  * Macro used to indicate to GCC the parameter are printf like
  */
 #define LIBXML_ATTR_FORMAT(fmt,args)
+/**
+ * XML_DEPRECATED:
+ *
+ * Macro used to indicate that a function, variable, type or struct member
+ * is deprecated.
+ */
+#ifndef XML_DEPRECATED
+#define XML_DEPRECATED
+#endif
 #endif /* __GNUC__ */
+
+/**
+ * LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16:
+ * LIBXML_HAS_XPATH_RESOURCE_LIMITS:
+ *
+ * Macros used for binary compatibility between Apple's v2.9.4 and v2.9.12+.
+ */
+
+#ifdef __APPLE__
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 160000 \
+    || defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 130000 \
+    || defined(__TV_OS_VERSION_MIN_REQUIRED) && __TV_OS_VERSION_MIN_REQUIRED >= 160000 \
+    || defined(__WATCH_OS_VERSION_MIN_REQUIRED) && __WATCH_OS_VERSION_MIN_REQUIRED >= 90000
+#define LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16 \
+        __IOS_AVAILABLE(16.0) __OSX_AVAILABLE(13.0) __TVOS_AVAILABLE(16.0) __WATCHOS_AVAILABLE(9.0)
+#define LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(libxml2_version) \
+        __OSX_DEPRECATED(10.4, 13.0, "Also deprecated in libxml2 " # libxml2_version) \
+        __IOS_DEPRECATED(2.0, 16.0, "Also deprecated in libxml2 " # libxml2_version) \
+        __TVOS_DEPRECATED(9.0, 16.0, "Also deprecated in libxml2 " # libxml2_version) \
+        __WATCHOS_DEPRECATED(1.0, 9.0, "Also deprecated in libxml2 " # libxml2_version)
+#define LIBXML_HAS_ICU_PIVOT_BUFFER
+#define LIBXML_HAS_XPATH_RESOURCE_LIMITS
+#else
+#define LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16
+#define LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(libxml2_version)
+#undef LIBXML_HAS_ICU_PIVOT_BUFFER
+#undef LIBXML_HAS_XPATH_RESOURCE_LIMITS
+#endif
+#else
+#define LIBXML_API_AVAILABLE_MACOS13_IOS16_WATCHOS9_TVOS16
+#define LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(libxml2_version)
+#define LIBXML_HAS_ICU_PIVOT_BUFFER
+#define LIBXML_HAS_XPATH_RESOURCE_LIMITS
+#endif /* __APPLE__ */
 
 #ifdef __cplusplus
 }

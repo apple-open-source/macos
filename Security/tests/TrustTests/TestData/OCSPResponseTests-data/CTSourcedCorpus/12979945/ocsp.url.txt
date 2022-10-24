@@ -1,0 +1,1 @@
+http://ocsp.acedicom.edicomgroup.com/caedicomroot

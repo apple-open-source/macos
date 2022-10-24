@@ -60,13 +60,13 @@ bool isSingleUser();
 * @method getFixedValue
 *
 * @abstract
-* convert length in cm to IOFixed milimeter for given unit exponent.
+* convert length in cm to IOFixed millimeter for given unit exponent.
 *
 * @discussion
 * As per HID spec  unit and unit exponent can be associated with given value.
 * Example :
 * Value : 0x100, Unit : 0x11, Unit Exponent : 0xE represents 25.6 mm (256 * 10–2 cm).
-* This function converts value based on unit and unit exponent to IOFixed. Currenlty
+* This function converts value based on unit and unit exponent to IOFixed. Currently
 * it only supports unit as length in cm.
 *
 * @param value
@@ -111,6 +111,15 @@ __attribute__((optnone)) __attribute__((unused)) static uint32_t gIOHIDFamilyDtr
  funcType : 1(getReport), 2(setReport), 3(handleReport),
  */
 void hid_trace(HIDTraceFunctionType functionType, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4, uintptr_t arg5);
+
+/*!
+ * @define kIOHIDMessageInterfaceRematch
+ *
+ * @abstract
+ * Message from an IOHIDDevice to tell an IOHIDInterface to terminate any clients and rematch
+ *
+ */
+#define kIOHIDMessageInterfaceRematch iokit_vendor_specific_msg(3)
 
 __END_DECLS
 

@@ -24,7 +24,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool) isAuthenticated;
 
 // Returns an NSData that refers to the key in the context.
-// It becomes invalid when this context is released.
 - (NSData* _Nullable) getKey;
 
 @end

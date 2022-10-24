@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
 
 #include "CGDisplayStreamScreenCaptureSource.h"
-#include "CoreVideoSoftLink.h"
 #include "ImageTransferSessionVT.h"
 #include "Logging.h"
 #include "MediaSampleAVFObjC.h"
@@ -40,7 +39,6 @@
 #include "Timer.h"
 #include <IOSurface/IOSurfaceRef.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
-#include <pal/cf/CoreMediaSoftLink.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <pal/spi/cocoa/IOSurfaceSPI.h>
@@ -52,18 +50,35 @@
 #include "ReplayKitCaptureSource.h"
 #endif
 
+#if HAVE(SCREEN_CAPTURE_KIT)
+#include "ScreenCaptureKitCaptureSource.h"
+#endif
+
+#include "CoreVideoSoftLink.h"
+#include <pal/cf/CoreMediaSoftLink.h>
+
 namespace WebCore {
 
-CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints)
+CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
 {
     switch (device.type()) {
     case CaptureDevice::DeviceType::Screen:
 #if PLATFORM(IOS)
-        return create(ReplayKitCaptureSource::create(device.persistentId()), device, WTFMove(hashSalt), constraints);
+        return create(ReplayKitCaptureSource::create(device.persistentId()), device, WTFMove(hashSalt), constraints, pageIdentifier);
 #else
-        return create(CGDisplayStreamScreenCaptureSource::create(device.persistentId()), device, WTFMove(hashSalt), constraints);
+#if HAVE(SCREEN_CAPTURE_KIT)
+        if (ScreenCaptureKitCaptureSource::isAvailable())
+            return create(ScreenCaptureKitCaptureSource::create(device, constraints), device, WTFMove(hashSalt), constraints, pageIdentifier);
+#endif
+        return create(CGDisplayStreamScreenCaptureSource::create(device.persistentId()), device, WTFMove(hashSalt), constraints, pageIdentifier);
 #endif
     case CaptureDevice::DeviceType::Window:
+#if HAVE(SCREEN_CAPTURE_KIT)
+        if (ScreenCaptureKitCaptureSource::isAvailable())
+            return create(ScreenCaptureKitCaptureSource::create(device, constraints), device, WTFMove(hashSalt), constraints, pageIdentifier);
+#endif
+        break;
+    case CaptureDevice::DeviceType::SystemAudio:
     case CaptureDevice::DeviceType::Microphone:
     case CaptureDevice::DeviceType::Speaker:
     case CaptureDevice::DeviceType::Camera:
@@ -75,12 +90,12 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& devi
     return { };
 }
 
-CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Capturer>, String>&& capturer, const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints)
+CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Capturer>, String>&& capturer, const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
 {
     if (!capturer.has_value())
         return CaptureSourceOrError { WTFMove(capturer.error()) };
 
-    auto source = adoptRef(*new DisplayCaptureSourceCocoa(WTFMove(capturer.value()), String { device.label() }, String { device.persistentId() }, WTFMove(hashSalt)));
+    auto source = adoptRef(*new DisplayCaptureSourceCocoa(WTFMove(capturer.value()), AtomString { device.label() }, String { device.persistentId() }, WTFMove(hashSalt), pageIdentifier));
     if (constraints) {
         auto result = source->applyConstraints(*constraints);
         if (result)
@@ -90,13 +105,13 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Captur
     return CaptureSourceOrError(WTFMove(source));
 }
 
-DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(UniqueRef<Capturer>&& capturer, String&& name, String&& deviceID, String&& hashSalt)
-    : RealtimeMediaSource(Type::Video, WTFMove(name), WTFMove(deviceID), WTFMove(hashSalt))
+DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(UniqueRef<Capturer>&& capturer, AtomString&& name, String&& deviceID, String&& hashSalt, PageIdentifier pageIdentifier)
+    : RealtimeMediaSource(RealtimeMediaSource::Type::Video, WTFMove(name), WTFMove(deviceID), WTFMove(hashSalt), pageIdentifier)
     , m_capturer(WTFMove(capturer))
     , m_timer(RunLoop::current(), this, &DisplayCaptureSourceCocoa::emitFrame)
-    , m_capturerIsRunningObserver([weakThis = WeakPtr { *this }] (bool isRunning) { if (weakThis) weakThis->notifyMutedChange(!isRunning); })
+    , m_userActivity("App nap disabled for screen capture")
 {
-    m_capturer->setIsRunningObserver(&m_capturerIsRunningObserver);
+    m_capturer->setObserver(this);
 }
 
 DisplayCaptureSourceCocoa::~DisplayCaptureSourceCocoa()
@@ -159,6 +174,7 @@ void DisplayCaptureSourceCocoa::startProducingData()
 {
     m_startTime = MonotonicTime::now();
     m_timer.startRepeating(1_s / frameRate());
+    m_userActivity.start();
 
     commitConfiguration();
     if (!m_capturer->start())
@@ -168,6 +184,7 @@ void DisplayCaptureSourceCocoa::startProducingData()
 void DisplayCaptureSourceCocoa::stopProducingData()
 {
     m_timer.stop();
+    m_userActivity.stop();
     m_elapsedTime += MonotonicTime::now() - m_startTime;
     m_startTime = MonotonicTime::nan();
 
@@ -255,35 +272,45 @@ void DisplayCaptureSourceCocoa::emitFrame()
         updateFrameSize();
     }
 
-    auto sample = WTF::switchOn(frame,
-        [this, sampleTime](RetainPtr<IOSurfaceRef>& surface) -> RefPtr<MediaSample> {
+    auto videoFrame = WTF::switchOn(frame,
+        [this, sampleTime](RetainPtr<IOSurfaceRef>& surface) -> RefPtr<VideoFrame> {
             if (!surface)
                 return nullptr;
 
-            return m_imageTransferSession->createMediaSample(surface.get(), sampleTime, size());
+            return m_imageTransferSession->createVideoFrame(surface.get(), sampleTime, size());
         },
-        [this, sampleTime](RefPtr<NativeImage>& image) -> RefPtr<MediaSample> {
+        [this, sampleTime](RefPtr<NativeImage>& image) -> RefPtr<VideoFrame> {
             if (!image)
                 return nullptr;
 
-            return m_imageTransferSession->createMediaSample(image->platformImage().get(), sampleTime, size());
+            return m_imageTransferSession->createVideoFrame(image->platformImage().get(), sampleTime, size());
         },
-        [this, sampleTime](RetainPtr<CMSampleBufferRef>& sample) -> RefPtr<MediaSample> {
+        [this, sampleTime](RetainPtr<CMSampleBufferRef>& sample) -> RefPtr<VideoFrame> {
             if (!sample)
                 return nullptr;
 
-            return m_imageTransferSession->createMediaSample(sample.get(), sampleTime, size());
+            return m_imageTransferSession->createVideoFrame(sample.get(), sampleTime, size());
         }
     );
 
-    if (!sample) {
+    if (!videoFrame) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    VideoSampleMetadata metadata;
+    VideoFrameTimeMetadata metadata;
     metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
-    videoSampleAvailable(*sample.get(), metadata);
+    videoFrameAvailable(*videoFrame.get(), metadata);
+}
+
+void DisplayCaptureSourceCocoa::capturerConfigurationChanged()
+{
+    m_currentSettings = { };
+    auto capturerIntrinsicSize = m_capturer->intrinsicSize();
+    if (this->intrinsicSize() != capturerIntrinsicSize) {
+        m_capabilities = { };
+        setIntrinsicSize(capturerIntrinsicSize);
+    }
 }
 
 void DisplayCaptureSourceCocoa::setLogger(const Logger& logger, const void* identifier)
@@ -303,10 +330,9 @@ WTFLogChannel& DisplayCaptureSourceCocoa::Capturer::logChannel() const
     return LogWebRTC;
 }
 
-void DisplayCaptureSourceCocoa::Capturer::capturerIsRunningChanged(bool running)
+void DisplayCaptureSourceCocoa::Capturer::setObserver(CapturerObserver* observer)
 {
-    if (m_observer)
-        (*m_observer)(running);
+    m_observer = WeakPtr { observer };
 }
 
 } // namespace WebCore

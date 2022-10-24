@@ -227,14 +227,14 @@ typedef void (^HIDPropertyChangedHandler)(NSString *property,
  * @method setEventHandler
  *
  * @abstract
- * Registers a handler to recieve HID events from matched services.
+ * Registers a handler to receive HID events from matched services.
  *
  * @discussion
  * This call must occur before the client is activated. The client must be
  * activated in order to receive events.
  *
  * The client must have the kIOHIDEventSystemClientEventMonitorEntitlement
- * entitlement in order to receive keyboard, digitizer, or ponter events,
+ * entitlement in order to receive keyboard, digitizer, or pointer events,
  * unless it is of type kHIDEventSystemClientTypeAdmin (which requires the
  * kIOHIDEventSystemClientAdminEntitlement entitlement).
  *
@@ -293,7 +293,7 @@ typedef void (^HIDPropertyChangedHandler)(NSString *property,
  * If a client is interested in receiving service removal notifications, the
  * HIDServiceClient's setRemovalHandler method may be used. The client should
  * set this handler within the context of this service notification handler in
- * order to be gauranteed delivery of the notification.
+ * order to be guaranteed delivery of the notification.
  *
  * This call must occur before the client is activated. The client must be
  * activated in order to receive events.
@@ -307,7 +307,7 @@ typedef void (^HIDPropertyChangedHandler)(NSString *property,
  * @method setPropertyChangedHandler
  *
  * @abstract
- * Registers a handler to be recieve notifications when a property changes.
+ * Registers a handler to be receive notifications when a property changes.
  *
  * @discussion
  * This call must occur before the client is activated. The client must be
@@ -368,7 +368,7 @@ typedef void (^HIDPropertyChangedHandler)(NSString *property,
  * Returns an array of HID services matching the client's criteria.
  *
  * @discussion
- * The client should set matching service critera in the setMatching method. If
+ * The client should set matching service criteria in the setMatching method. If
  * no matching criteria is provided, all currently enumerated services will be
  * returned.
  */

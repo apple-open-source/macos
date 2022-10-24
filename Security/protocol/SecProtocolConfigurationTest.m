@@ -399,7 +399,7 @@ isLocalTLD(NSString *host)
 
                 sec_protocol_options_t options = [self create_sec_protocol_options];
                 sec_protocol_options_t transformed = sec_protocol_configuration_copy_transformed_options_for_host(configuration, options, [domain cStringUsingEncoding:NSUTF8StringEncoding]);
-                sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
+                (void)sec_protocol_options_access_handle(transformed, ^bool(void *handle) {
                     sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
                     SEC_PROTOCOL_METADATA_VALIDATE(content, false);
 
@@ -410,6 +410,7 @@ isLocalTLD(NSString *host)
                     } else {
                         XCTAssertTrue(content->ciphersuites == nil);
                     }
+                    return true;
                 });
 
                 bool is_direct = isLocalTLD(domain);

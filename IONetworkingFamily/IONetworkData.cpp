@@ -335,11 +335,14 @@ bool IONetworkData::writeBytes(const void * srcBuffer,
                                UInt32       srcBufferSize,
                                UInt32       writeOffset)
 {
+    UInt32 new_offset;
+    
     if ( _buffer == 0 ) return false;
+    
+    if (os_add_overflow(writeOffset, srcBufferSize, &new_offset))
+        return false;
 
-    if ( srcBufferSize          &&
-         (writeOffset < _size)  &&
-         ((writeOffset + srcBufferSize) <= _size) )
+    if ( srcBufferSize && (writeOffset < _size) && (new_offset <= _size) )
     {
         bcopy(srcBuffer, (char *) _buffer + writeOffset, srcBufferSize);
         return true;

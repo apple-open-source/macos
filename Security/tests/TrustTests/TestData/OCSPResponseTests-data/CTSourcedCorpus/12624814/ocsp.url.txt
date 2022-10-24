@@ -1,0 +1,1 @@
+http://pkicvs.cisco.com/pki/ocsp

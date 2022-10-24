@@ -27,7 +27,6 @@
 #include "kc-helpers.h"
 
 #import <Cocoa/Cocoa.h>
-#import <Security/SecTransform.h>
 #import <Security/SecItemPriv.h>
 #import <Security/CMSEncoder.h>
 #import <Security/CMSDecoder.h>

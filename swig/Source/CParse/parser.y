@@ -28,7 +28,7 @@ char cvsroot_parser_y[] = "$Id: parser.y 11582 2009-08-15 10:40:19Z wsfulton $";
  *                               Externals
  * ----------------------------------------------------------------------------- */
 
-int  yyparse();
+int  yyparse(void);
 
 /* NEW Variables */
 
@@ -2617,7 +2617,7 @@ types_directive : TYPES LPAREN parms RPAREN stringbracesemi {
 template_directive: SWIGTEMPLATE LPAREN idstringopt RPAREN idcolonnt LESSTHAN valparms GREATERTHAN SEMI {
                   Parm *p, *tp;
 		  Node *n;
-		  Node *tnode = 0;
+		  __unused Node *tnode = 0;
 		  Symtab *tscope = 0;
 		  int     specialized = 0;
 

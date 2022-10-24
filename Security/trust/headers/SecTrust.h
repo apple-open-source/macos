@@ -534,6 +534,7 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
     certificate chain regardless of the errors being presented, for the
     current application/server/protocol combination.
  */
+__nullable
 CFDataRef SecTrustCopyExceptions(SecTrustRef trust)
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 

@@ -62,13 +62,13 @@ AccessibleBase::AccessibleBase(AccessibilityObject* obj, HWND window)
     ASSERT_ARG(obj, obj);
     m_object->setWrapper(this);
     ++gClassCount;
-    gClassNameCount().add("AccessibleBase");
+    gClassNameCount().add("AccessibleBase"_s);
 }
 
 AccessibleBase::~AccessibleBase()
 {
     --gClassCount;
-    gClassNameCount().remove("AccessibleBase");
+    gClassNameCount().remove("AccessibleBase"_s);
 }
 
 AccessibleBase* AccessibleBase::createInstance(AccessibilityObject* obj, HWND window)
@@ -1039,7 +1039,7 @@ HRESULT AccessibleBase::getAccessibilityObjectForChild(VARIANT vChild, Accessibi
         if (!document)
             return E_FAIL;
 
-        childObj = document->axObjectCache()->objectFromAXID(makeObjectIdentifier<AXIDType>(-vChild.lVal));
+        childObj = document->axObjectCache()->objectForID(makeObjectIdentifier<AXIDType>(-vChild.lVal));
     } else {
         size_t childIndex = static_cast<size_t>(vChild.lVal - 1);
 

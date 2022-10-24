@@ -146,8 +146,8 @@ struct smbioc_negotiate {
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
     int32_t     ioc_mc_max_channel;
     int32_t     ioc_mc_max_rss_channel;
-    uint32_t    ioc_mc_client_if_blacklist[kClientIfBlacklistMaxLen] __attribute((aligned(8)));
-    uint32_t    ioc_mc_client_if_blacklist_len;
+    uint32_t    ioc_mc_client_if_ignorelist[kClientIfIgnorelistMaxLen] __attribute((aligned(8)));
+    uint32_t    ioc_mc_client_if_ignorelist_len;
 
     uint8_t     ioc_session_uuid[16];
 };
@@ -167,7 +167,7 @@ struct smbioc_setup {
 	user_addr_t	ioc_gss_target_name;/* Target name */
 	char		ioc_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
 	char		ioc_password[SMB_MAXPASSWORDLEN + 1] __attribute((aligned(8)));
-	char		ioc_domain[SMB_MAXNetBIOSNAMELEN + 1] __attribute((aligned(8)));
+	char		ioc_domain[SMB_MAX_DOMAIN_NAMELEN + 1] __attribute((aligned(8)));
     char        ioc_dns_name[255] __attribute((aligned(8)));
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
 };
@@ -298,33 +298,34 @@ struct smbioc_session_properties {
     char        snapshot_time[32] __attribute((aligned(8)));
 };
 
-struct adress_propreties {
-    uint8_t  addr_family;
-    union {
-        char addr_ipv4[4];
-        char addr_ipv6[16];
-    };
+struct nic_properties {
+    uint64_t if_index;
+    uint32_t capabilities;
+    uint32_t nic_type;
+    uint64_t speed;
+    uint8_t  ip_types;
+    uint8_t  state;
+    uint32_t num_of_addrs;
+    uint32_t size;
+    struct address_properties {
+        uint8_t  addr_family;
+        union {
+            char addr_ipv4[4];
+            char addr_ipv6[16];
+        };
+    } addr_list[];
 };
 
-#define MAX_NUM_OF_NICS 16
-#define MAX_ADDRS_FOR_NIC 8
 #define SERVER_NICS 0
 #define CLIENT_NICS 1
+
 struct smbioc_nic_info {
     uint32_t    ioc_version;
     uint32_t    ioc_reserved;
     uint8_t     flags;  // server or client
     uint32_t    num_of_nics;
-    struct nic_properties {
-        uint64_t if_index;
-        uint32_t capabilities;
-        uint32_t nic_type;
-        uint64_t speed;
-        uint8_t  ip_types;
-        uint8_t  state;
-        uint32_t num_of_addrs;
-        struct adress_propreties addr_list[MAX_ADDRS_FOR_NIC];
-    } nic_props[MAX_NUM_OF_NICS];
+    uint32_t    nic_props_buffer_len;
+    SMB_IOC_POINTER(struct nic_properties *, nic_props_buffer);
 };
 
 #define MAX_NUM_OF_IODS_IN_QUERY 64
@@ -345,7 +346,7 @@ struct smbioc_multichannel_properties {
         uint64_t iod_prop_rx;
         uint64_t iod_prop_tx;
         struct timespec iod_prop_setup_time;
-        struct adress_propreties  iod_prop_s_addr;
+        struct address_properties  iod_prop_s_addr;
     } iod_properties[MAX_NUM_OF_IODS_IN_QUERY];
 };
 
@@ -410,13 +411,18 @@ struct smb_dev {
  */
 int smb_usr_set_network_identity(struct smb_session *sessionp, struct smbioc_ntwrk_identity *ntwrkID);
 int smb_usr_negotiate(struct smbioc_negotiate *dp, vfs_context_t context, 
-					  struct smb_dev *sdp, int searchOnly);
-int smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *data, vfs_context_t context);
+					  struct smb_dev *sdp, int searchOnly,
+                      struct sockaddr *saddr, struct sockaddr *laddr);
+int smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *data, vfs_context_t context,
+                          char *twordsp, char *tbytesp, char *responsep);
 int smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *data, vfs_context_t context);
-int smb_usr_convert_path_to_network(struct smb_session *session, struct smbioc_path_convert * dp);
-int smb_usr_convert_network_to_path(struct smb_session *session, struct smbioc_path_convert * dp);
+int smb_usr_convert_path_to_network(struct smb_session *session, char *src, uint32_t src_len,
+                                    char *dst, uint64_t *dst_len, uint32_t flags);
+int smb_usr_convert_network_to_path(struct smb_session *session, char *src, uint32_t src_len,
+                                    char *dst, uint64_t *dst_len, uint32_t flags);
 int smb_dev2share(int fd, struct smb_share **outShare);
-int smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl * fsctl, vfs_context_t context);
+int smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl * fsctl,
+                  vfs_context_t context, char *tdatap, char *rdatap);
 int smb_cpdatain(struct mbchain *mbp, user_addr_t data, int len, 
                  vfs_context_t context);
 

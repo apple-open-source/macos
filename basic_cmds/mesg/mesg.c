@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1987, 1993
  *	The Regents of the University of California.  All rights reserved.
  * (c) UNIX System Laboratories, Inc.
@@ -15,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -48,7 +46,7 @@ static char sccsid[] = "@(#)mesg.c	8.2 (Berkeley) 1/21/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/mesg/mesg.c,v 1.8 2002/09/04 23:29:04 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -74,7 +72,7 @@ main(int argc, char *argv[])
 		default:
 			usage();
 		}
-//	argc -= optind;
+	argc -= optind;
 	argv += optind;
 
 	if ((tty = ttyname(STDIN_FILENO)) == NULL &&
@@ -111,6 +109,6 @@ main(int argc, char *argv[])
 static void
 usage(void)
 {
-	(void)fprintf(stderr, "usage: mesg [y | n]\n");
+	(void)fprintf(stderr, "usage: mesg [n | y]\n");
 	exit(2);
 }

@@ -88,6 +88,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDEvent (HIDGameControllerEventPrivate)
 
+@property double gameControllerButtonL4;
+@property double gameControllerButtonL5;
+@property double gameControllerButtonR4;
+@property double gameControllerButtonR5;
 @property double gameControllerDirectionPadDown;
 @property double gameControllerDirectionPadLeft;
 @property double gameControllerDirectionPadRight;
@@ -239,8 +243,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDEvent (HIDProximityEventPrivate)
 
-@property uint32_t proximityDetectionMask;
+@property uint32_t probabilityLevel;
+@property uint16_t proximityDetectionMask;
 @property uint32_t proximityLevel;
+@property uint16_t proximityProximityType;
 @end
 
 @interface HIDEvent (HIDKeyboardEventPrivate)

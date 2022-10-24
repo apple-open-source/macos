@@ -99,7 +99,7 @@ void HTMLSlotElement::attributeChanged(const QualifiedName& name, const AtomStri
     }
 }
 
-const Vector<WeakPtr<Node>>* HTMLSlotElement::assignedNodes() const
+const Vector<WeakPtr<Node, WeakPtrImplWithEventTargetData>>* HTMLSlotElement::assignedNodes() const
 {
     RefPtr shadowRoot = containingShadowRoot();
     if (!shadowRoot)
@@ -146,7 +146,7 @@ Vector<Ref<Node>> HTMLSlotElement::assignedNodes(const AssignedNodesOptions& opt
         return nodes;
     }
 
-    if (auto* nodes = assignedNodes(); nodes) {
+    if (auto* nodes = assignedNodes()) {
         return compactMap(*nodes, [](auto& nodeWeakPtr) -> RefPtr<Node> {
             return nodeWeakPtr.get();
         });

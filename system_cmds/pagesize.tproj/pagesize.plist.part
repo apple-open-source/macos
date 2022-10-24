@@ -1,0 +1,15 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>pagesize</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/pagesize?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-12-09</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

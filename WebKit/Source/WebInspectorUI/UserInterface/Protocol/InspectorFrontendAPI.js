@@ -27,16 +27,6 @@ InspectorFrontendAPI = {
     _loaded: false,
     _pendingCommands: [],
 
-    savedURL: function(url)
-    {
-        // Not used yet.
-    },
-
-    appendedToURL: function(url)
-    {
-        // Not used yet.
-    },
-
     isTimelineProfilingEnabled: function()
     {
         return WI.timelineManager.isCapturing();
@@ -254,5 +244,11 @@ InspectorFrontendAPI = {
     evaluateScriptInExtensionTab(extensionTabID, scriptSource)
     {
         return WI.sharedApp.extensionController.evaluateScriptInExtensionTab(extensionTabID, scriptSource);
+    },
+
+    // Returns a string (WI.WebInspectorExtension.ErrorCode) if an error occurred.
+    navigateTabForExtension(extensionTabID, sourceURL)
+    {
+        return WI.sharedApp.extensionController.navigateTabForExtension(extensionTabID, sourceURL);
     },
 };

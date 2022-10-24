@@ -67,6 +67,7 @@ convert_strings(char *buf, char **Strings, int count, int size, char *table)
 {
     int i;
     char *p;
+    bool corrupt = FALSE;
 
     for (i = 0; i < count; i++) {
 	if (IS_NEG1(buf + 2 * i)) {
@@ -76,8 +77,20 @@ convert_strings(char *buf, char **Strings, int count, int size, char *table)
 	} else if ((int) LOW_MSB(buf + 2 * i) > size) {
 	    Strings[i] = ABSENT_STRING;
 	} else {
-	    Strings[i] = (LOW_MSB(buf + 2 * i) + table);
-	    TR(TRACE_DATABASE, ("Strings[%d] = %s", i, _nc_visbuf(Strings[i])));
+	    int nn = LOW_MSB(buf + 2 * i);
+	    if (nn >= 0 && nn < size) {
+		Strings[i] = (nn + table);
+		TR(TRACE_DATABASE, ("Strings[%d] = %s", i,
+				    _nc_visbuf(Strings[i])));
+	    } else {
+		if (!corrupt) {
+		    corrupt = TRUE;
+		    TR(TRACE_DATABASE,
+		       ("ignore out-of-range index %d to Strings[]", nn));
+		    _nc_warning("corrupt data found in convert_strings");
+		}
+		Strings[i] = ABSENT_STRING;
+	    }
 	}
 
 	/* make sure all strings are NUL terminated */

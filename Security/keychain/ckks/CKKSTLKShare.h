@@ -47,6 +47,7 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
 // that data will be signed or its signature verified.
 
 @interface CKKSTLKShare : NSObject <NSCopying, NSSecureCoding>
+
 @property SFEllipticCurve curve;
 @property SecCKKSTLKShareVersion version;
 

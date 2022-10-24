@@ -91,10 +91,6 @@ public:
 	
 	Port primaryServicePort() const	{ return mServerPort; }
 	
-	// listen on additional ports (dispatching to the main handler)
-	void add(Port receiver);
-	void remove(Port receiver);
-
 	// the currently active server in this thread (there can only be one)
 	static MachServer &active()
 	{ assert(perThread().server); return *perThread().server; }

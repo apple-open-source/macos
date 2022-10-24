@@ -26,16 +26,15 @@
 #pragma once
 
 #include "Connection.h"
+#include "QuotaManager.h"
 #include <wtf/text/WTFString.h>
-
-namespace WebCore {
-struct ClientOrigin;
-}
 
 namespace WebKit {
 
 class FileSystemStorageHandleRegistry;
 class FileSystemStorageManager;
+class IDBStorageManager;
+class IDBStorageRegistry;
 class LocalStorageManager;
 class SessionStorageManager;
 class StorageAreaRegistry;
@@ -44,35 +43,56 @@ enum class WebsiteDataType : uint32_t;
 class OriginStorageManager {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    OriginStorageManager(String&& path, String&& localStoragePath);
+    static String originFileIdentifier();
+
+    OriginStorageManager(uint64_t quota, QuotaManager::IncreaseQuotaFunction&&, String&& path, String&& cusotmLocalStoragePath, String&& customIDBStoragePath, String&& cacheStoragePath, bool shouldUseCustomPaths);
     ~OriginStorageManager();
 
     void connectionClosed(IPC::Connection::UniqueID);
     bool persisted() const { return m_persisted; }
     void setPersisted(bool value);
+    const String& path() const { return m_path; }
+    QuotaManager& quotaManager();
     FileSystemStorageManager& fileSystemStorageManager(FileSystemStorageHandleRegistry&);
     LocalStorageManager& localStorageManager(StorageAreaRegistry&);
     LocalStorageManager* existingLocalStorageManager();
     SessionStorageManager& sessionStorageManager(StorageAreaRegistry&);
     SessionStorageManager* existingSessionStorageManager();
+    IDBStorageManager& idbStorageManager(IDBStorageRegistry&);
+    IDBStorageManager* existingIDBStorageManager();
+    String resolvedPath(WebsiteDataType);
     bool isActive();
     bool isEmpty();
     OptionSet<WebsiteDataType> fetchDataTypesInList(OptionSet<WebsiteDataType>);
     void deleteData(OptionSet<WebsiteDataType>, WallTime);
-    void moveData(OptionSet<WebsiteDataType>, const String& newPath, const String& localStoragePath);
+    void moveData(OptionSet<WebsiteDataType>, const String& localStoragePath, const String& idbStoragePath);
+    void deleteEmptyDirectory();
+    std::optional<WallTime> originFileCreationTimestamp() const { return m_originFileCreationTimestamp; }
+    void setOriginFileCreationTimestamp(std::optional<WallTime> timestamp) { m_originFileCreationTimestamp = timestamp; }
+#if PLATFORM(IOS_FAMILY)
+    bool includedInBackup() const { return m_includedInBackup; }
+    void markIncludedInBackup() { m_includedInBackup = true; }
+#endif
 
 private:
     enum class StorageBucketMode : bool;
     class StorageBucket;
     StorageBucket& defaultBucket();
 
-    void createOriginFileIfNecessary(const WebCore::ClientOrigin&);
-    void deleteOriginFileIfNecessary();
-
     std::unique_ptr<StorageBucket> m_defaultBucket;
     String m_path;
+    String m_customLocalStoragePath;
+    String m_customIDBStoragePath;
+    String m_cacheStoragePath;
+    uint64_t m_quota;
+    QuotaManager::IncreaseQuotaFunction m_increaseQuotaFunction;
+    RefPtr<QuotaManager> m_quotaManager;
     bool m_persisted { false };
-    String m_localStoragePath;
+    bool m_shouldUseCustomPaths;
+    std::optional<WallTime> m_originFileCreationTimestamp;
+#if PLATFORM(IOS_FAMILY)
+    bool m_includedInBackup { false };
+#endif
 };
 
 } // namespace WebKit

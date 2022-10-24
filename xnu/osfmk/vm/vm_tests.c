@@ -91,7 +91,7 @@ vm_test_collapse_compressor(void)
 	/* map backing object */
 	backing_offset = 0;
 	kr = vm_map_enter(kernel_map, &backing_offset, backing_size, 0,
-	    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_NONE,
+	    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_DATA,
 	    backing_object, 0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -141,7 +141,7 @@ vm_test_collapse_compressor(void)
 	/* map top object */
 	top_offset = 0;
 	kr = vm_map_enter(kernel_map, &top_offset, top_size, 0,
-	    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_NONE,
+	    VM_FLAGS_ANYWHERE, VM_MAP_KERNEL_FLAGS_DATA,
 	    top_object, 0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -428,7 +428,7 @@ vm_test_device_pager_transpose(void)
 	device_mapping = 0;
 	kr = vm_map_enter_mem_object(kernel_map, &device_mapping, size, 0,
 	    VM_FLAGS_ANYWHERE,
-	    VM_MAP_KERNEL_FLAGS_NONE,
+	    VM_MAP_KERNEL_FLAGS_DATA,
 	    VM_KERN_MEMORY_NONE,
 	    (void *)device_pager, 0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_ALL,
@@ -859,7 +859,7 @@ vm_test_map_copy_adjust_to_target(void)
 	addr4k = 0x1000;
 	size4k = 0x3000;
 	kr = vm_map_enter(map4k, &addr4k, size4k, 0, VM_FLAGS_ANYWHERE,
-	    VM_MAP_KERNEL_FLAGS_NONE, 0, obj1, 0,
+	    VM_MAP_KERNEL_FLAGS_DATA, 0, obj1, 0,
 	    FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
 	    VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -870,7 +870,7 @@ vm_test_map_copy_adjust_to_target(void)
 	addr16k = 0x4000;
 	size16k = 0x8000;
 	kr = vm_map_enter(map16k, &addr16k, size16k, 0, VM_FLAGS_ANYWHERE,
-	    VM_MAP_KERNEL_FLAGS_NONE, 0, obj1, 0,
+	    VM_MAP_KERNEL_FLAGS_DATA, 0, obj1, 0,
 	    FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
 	    VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -941,82 +941,9 @@ vm_test_map_copy_adjust_to_target(void)
 }
 #endif /* MACH_ASSERT */
 
-void vm_test_watch3_overmap(void);
-void
-vm_test_watch3_overmap(void)
-{
-#if __arm && !__arm64__
-	kern_return_t kr;
-	ledger_t ledger;
-	pmap_t user_pmap;
-	vm_map_t user_map;
-	vm_object_t object;
-	vm_map_address_t address;
-	int chunk;
-
-	if (PAGE_SIZE != FOURK_PAGE_SIZE) {
-		printf("VM_TESTS: %s:%d SKIP (PAGE_SIZE 0x%x)\n",
-		    __FUNCTION__, __LINE__, PAGE_SIZE);
-		return;
-	}
-	printf("VM_TESTS: %s:%d\n", __FUNCTION__, __LINE__);
-	ledger = ledger_instantiate(task_ledger_template,
-	    LEDGER_CREATE_ACTIVE_ENTRIES);
-	assert(ledger);
-	user_pmap = pmap_create_options(ledger, 0, 0);
-	assert(user_pmap);
-	ledger_dereference(ledger);
-	user_map = vm_map_create_options(user_pmap,
-	    0x1000000ULL,
-	    0x2000000ULL,
-	    VM_MAP_CREATE_PAGEABLE);
-	assert(user_map);
-	vm_map_set_page_shift(user_map, SIXTEENK_PAGE_SHIFT);
-	object = vm_object_allocate(FOURK_PAGE_SIZE);
-	assert(object);
-	address = 0;
-	kr = vm_map_enter(user_map,
-	    &address,
-	    SIXTEENK_PAGE_SIZE,
-	    0,               /* mask */
-	    VM_FLAGS_ANYWHERE,
-	    VM_MAP_KERNEL_FLAGS_NONE,
-	    0,               /* alias */
-	    object,
-	    0,               /* offset */
-	    FALSE,
-	    VM_PROT_DEFAULT,
-	    VM_PROT_DEFAULT,
-	    VM_INHERIT_DEFAULT);
-	assertf(kr == KERN_SUCCESS, "kr 0x%x", kr);
-	kr = vm_fault(user_map,
-	    address,
-	    VM_PROT_READ,
-	    FALSE,
-	    0,
-	    TRUE,
-	    NULL,
-	    0);
-	assert(kr == KERN_SUCCESS);
-	for (chunk = 1; chunk < 4; chunk++) {
-		kr = vm_fault(user_map,
-		    address + (chunk * FOURK_PAGE_SIZE),
-		    VM_PROT_READ,
-		    FALSE,
-		    0,
-		    TRUE,
-		    NULL,
-		    0);
-		assertf(kr == KERN_MEMORY_ERROR, "kr 0x%x", kr);
-	}
-	vm_map_deallocate(user_map);
-	printf("VM_TESTS: %s:%d PASS\n", __FUNCTION__, __LINE__);
-#endif /* __arm__ && !__arm64__ */
-}
-
 #if __arm64__ && !KASAN
-void vm_test_per_mapping_internal_accounting(void);
-void
+__attribute__((noinline))
+static void
 vm_test_per_mapping_internal_accounting(void)
 {
 	ledger_t ledger;
@@ -1136,7 +1063,7 @@ vm_test_per_mapping_internal_accounting(void)
 	    PAGE_SIZE,
 	    0,
 	    VM_FLAGS_ANYWHERE,
-	    VM_MAP_KERNEL_FLAGS_NONE,
+	    VM_MAP_KERNEL_FLAGS_DATA,
 	    0,
 	    device_object,
 	    0,
@@ -1172,6 +1099,206 @@ vm_test_per_mapping_internal_accounting(void)
 }
 #endif /* __arm64__ && !KASAN */
 
+static void
+vm_test_kernel_tag_accounting_kma(kma_flags_t base, kma_flags_t bit)
+{
+	vm_tag_t tag = VM_KERN_MEMORY_REASON; /* unused during POST */
+	uint64_t init_size = vm_tag_get_size(tag);
+	uint64_t final_size = init_size + PAGE_SIZE;
+	vm_address_t  address;
+	kern_return_t kr;
+
+	/*
+	 * Test the matrix of:
+	 *  - born with or without bit
+	 *  - bit flipped or not
+	 *  - dies with or without bit
+	 */
+	for (uint32_t i = 0; i < 4; i++) {
+		kma_flags_t flags1 = base | ((i & 1) ? bit : KMA_NONE);
+		kma_flags_t flags2 = base | ((i & 2) ? bit : KMA_NONE);
+
+		kr = kmem_alloc(kernel_map, &address, PAGE_SIZE, flags1, tag);
+		assert3u(kr, ==, KERN_SUCCESS);
+
+		if (flags1 & (KMA_VAONLY | KMA_PAGEABLE)) {
+			assert3u(init_size, ==, vm_tag_get_size(tag));
+		} else {
+			assert3u(final_size, ==, vm_tag_get_size(tag));
+		}
+
+		if ((flags1 ^ flags2) == KMA_VAONLY) {
+			if (flags1 & KMA_VAONLY) {
+				kernel_memory_populate(address, PAGE_SIZE,
+				    KMA_KOBJECT | KMA_NOFAIL, tag);
+			} else {
+				kernel_memory_depopulate(address, PAGE_SIZE,
+				    KMA_KOBJECT, tag);
+			}
+		}
+
+		if ((flags1 ^ flags2) == KMA_PAGEABLE) {
+			if (flags1 & KMA_PAGEABLE) {
+				kr = vm_map_wire_kernel(kernel_map,
+				    address, address + PAGE_SIZE,
+				    VM_PROT_DEFAULT, tag, false);
+				assert3u(kr, ==, KERN_SUCCESS);
+			} else {
+				kr = vm_map_unwire(kernel_map,
+				    address, address + PAGE_SIZE, false);
+				assert3u(kr, ==, KERN_SUCCESS);
+			}
+		}
+
+		if (flags2 & (KMA_VAONLY | KMA_PAGEABLE)) {
+			assert3u(init_size, ==, vm_tag_get_size(tag));
+		} else {
+			assert3u(final_size, ==, vm_tag_get_size(tag));
+		}
+
+		kmem_free(kernel_map, address, PAGE_SIZE);
+		assert3u(init_size, ==, vm_tag_get_size(tag));
+	}
+}
+
+__attribute__((noinline))
+static void
+vm_test_kernel_tag_accounting(void)
+{
+	printf("%s: test running\n", __func__);
+
+	printf("%s: account (KMA_KOBJECT + populate)...\n", __func__);
+	vm_test_kernel_tag_accounting_kma(KMA_KOBJECT, KMA_VAONLY);
+	printf("%s:     PASS\n", __func__);
+
+	printf("%s: account (regular object + wiring)...\n", __func__);
+	vm_test_kernel_tag_accounting_kma(KMA_NONE, KMA_PAGEABLE);
+	printf("%s:     PASS\n", __func__);
+
+	printf("%s: test passed\n", __func__);
+
+#undef if_bit
+}
+
+__attribute__((noinline))
+static void
+vm_test_collapse_overflow(void)
+{
+	vm_object_t object, backing_object;
+	vm_object_size_t size;
+	vm_page_t m;
+
+	/* create an object for which (int)(size>>PAGE_SHIFT) = 0 */
+	size = 0x400000000000ULL;
+	assert((int)(size >> PAGE_SHIFT) == 0);
+	backing_object = vm_object_allocate(size);
+	assert(backing_object);
+	vm_object_reference(backing_object);
+	/* insert a page */
+	m = VM_PAGE_NULL;
+	while (m == VM_PAGE_NULL) {
+		m = vm_page_grab();
+		if (m == VM_PAGE_NULL) {
+			VM_PAGE_WAIT();
+		}
+	}
+	assert(m);
+	vm_object_lock(backing_object);
+	vm_page_insert(m, backing_object, 0);
+	vm_object_unlock(backing_object);
+	/* make it back another object */
+	object = vm_object_allocate(size);
+	assert(object);
+	vm_object_reference(object);
+	object->shadow = backing_object;
+	vm_object_reference(backing_object);
+	/* trigger a bypass */
+	vm_object_lock(object);
+	vm_object_collapse(object, 0, TRUE);
+	if (object->shadow != backing_object) {
+		panic("%s:%d FAIL\n", __FUNCTION__, __LINE__);
+	}
+	vm_object_unlock(object);
+	/* cleanup */
+	vm_object_deallocate(object);
+	vm_object_deallocate(backing_object);
+
+	printf("%s:%d PASS\n", __FUNCTION__, __LINE__);
+}
+
+__attribute__((noinline))
+static void
+vm_test_physical_size_overflow(void)
+{
+	vm_map_address_t start;
+	mach_vm_size_t size;
+	kern_return_t kr;
+	mach_vm_size_t phys_size;
+	bool fail;
+	int failures = 0;
+
+	/* size == 0 */
+	start = 0x100000;
+	size = 0x0;
+	kr = vm_map_range_physical_size(kernel_map,
+	    start,
+	    size,
+	    &phys_size);
+	fail = (kr != KERN_SUCCESS || phys_size != 0);
+	printf("%s:%d %s start=0x%llx size=0x%llx -> kr=%d phys_size=0x%llx\n",
+	    __FUNCTION__, __LINE__,
+	    (fail ? "FAIL" : "PASS"),
+	    (uint64_t)start, size, kr, phys_size);
+	failures += fail;
+
+	/* plain wraparound */
+	start = 0x100000;
+	size = 0xffffffffffffffff - 0x10000;
+	kr = vm_map_range_physical_size(kernel_map,
+	    start,
+	    size,
+	    &phys_size);
+	fail = (kr != KERN_INVALID_ARGUMENT || phys_size != 0);
+	printf("%s:%d %s start=0x%llx size=0x%llx -> kr=%d phys_size=0x%llx\n",
+	    __FUNCTION__, __LINE__,
+	    (fail ? "FAIL" : "PASS"),
+	    (uint64_t)start, size, kr, phys_size);
+	failures += fail;
+
+	/* wraparound after rounding */
+	start = 0xffffffffffffff00;
+	size = 0xf0;
+	kr = vm_map_range_physical_size(kernel_map,
+	    start,
+	    size,
+	    &phys_size);
+	fail = (kr != KERN_INVALID_ARGUMENT || phys_size != 0);
+	printf("%s:%d %s start=0x%llx size=0x%llx -> kr=%d phys_size=0x%llx\n",
+	    __FUNCTION__, __LINE__,
+	    (fail ? "FAIL" : "PASS"),
+	    (uint64_t)start, size, kr, phys_size);
+	failures += fail;
+
+	/* wraparound to start after rounding */
+	start = 0x100000;
+	size = 0xffffffffffffffff;
+	kr = vm_map_range_physical_size(kernel_map,
+	    start,
+	    size,
+	    &phys_size);
+	fail = (kr != KERN_INVALID_ARGUMENT || phys_size != 0);
+	printf("%s:%d %s start=0x%llx size=0x%llx -> kr=%d phys_size=0x%llx\n",
+	    __FUNCTION__, __LINE__,
+	    (fail ? "FAIL" : "PASS"),
+	    (uint64_t)start, size, kr, phys_size);
+	failures += fail;
+
+	if (failures) {
+		panic("%s: FAIL (failures=%d)", __FUNCTION__, failures);
+	}
+	printf("%s: PASS\n", __FUNCTION__);
+}
+
 boolean_t vm_tests_in_progress = FALSE;
 
 kern_return_t
@@ -1190,10 +1317,12 @@ vm_tests(void)
 #if PMAP_CREATE_FORCE_4K_PAGES && MACH_ASSERT
 	vm_test_4k();
 #endif /* PMAP_CREATE_FORCE_4K_PAGES && MACH_ASSERT */
-	vm_test_watch3_overmap();
 #if __arm64__ && !KASAN
 	vm_test_per_mapping_internal_accounting();
 #endif /* __arm64__ && !KASAN */
+	vm_test_kernel_tag_accounting();
+	vm_test_collapse_overflow();
+	vm_test_physical_size_overflow();
 
 	vm_tests_in_progress = FALSE;
 
@@ -1220,7 +1349,7 @@ vm_map_non_aligned_test(__unused int64_t in, int64_t *out)
 		}
 
 		vm_map_lock(map);
-		if (!vm_map_lookup_entry(map, (vm_address_t)addr, &entry)) {
+		if (!vm_map_lookup_entry(map, addr, &entry)) {
 			panic("couldn't find the entry we just made: "
 			    "map:%p addr:0x%0llx", map, addr);
 		}
@@ -1231,9 +1360,9 @@ vm_map_non_aligned_test(__unused int64_t in, int64_t *out)
 		 *  2 * 4k
 		 *  1 * 16k
 		 */
-		vm_map_clip_end(map, entry, (vm_address_t)addr + VM_MAP_PAGE_SIZE(map));
+		vm_map_clip_end(map, entry, addr + VM_MAP_PAGE_SIZE(map));
 		entry->map_aligned = FALSE;
-		vm_map_clip_end(map, entry, (vm_address_t)addr + PAGE_SIZE * 2);
+		vm_map_clip_end(map, entry, addr + PAGE_SIZE * 2);
 		vm_map_unlock(map);
 
 		kr = mach_vm_deallocate(map, addr, size);

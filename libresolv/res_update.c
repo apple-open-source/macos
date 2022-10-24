@@ -83,7 +83,7 @@ struct zonegrp {
 
 /* Forward. */
 
-static void	res_dprintf(const char *, ...);
+static void	res_dprintf(const char *, ...) __printflike(1, 2);
 
 /* Macros. */
 

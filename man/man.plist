@@ -4,24 +4,25 @@
 	<key>OpenSourceProject</key>
 	<string>man</string>
 	<key>OpenSourceVersion</key>
-	<string>1.6g</string>
+	<string>2021-01-09</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://primates.ximian.com/~flucifredi/man/</string>
-	<key>OpenSourceURL</key>
-	<string>http://ftp.vim.org/ibiblio/apps/doctools/man/man-1.6g.tar.gz</string>
-	<key>OpenSourceSHA512256</key>
-	<string>7163565a7c83e624f27d70c5cbe48a4da9e43eb070a7fb50db34f801452616f3</string>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/man?id=f555b39e6bb7cbfbe1905e90f64c4dfc4456fabb</string>
 	<key>OpenSourceImportDate</key>
-	<string>2019-04-22</string>
+	<string>2021-09-23</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Disabled makewhatis, man2html, and man2dvi.</string>
-		<string>54797218: Add read-only system volume support to makewhatis.</string>
+		<string>man.sh: add xcode paths (82464700)</string>
+		<string>man.sh: advise brew instead of pkg (82464700)</string>
+		<string>man.sh: drop not-applicable MACHINE checks (82464700)</string>
+		<string>man.sh: try makewhatis.local if missing whatis (82464700)</string>
+		<string>man.sh: echo(1) does not support -e (82464700)</string>
+		<string>man.sh: remove lzma/xz (82464700)</string>
+		<string>man.sh: use more -E for the default PAGER (82464700)</string>
+		<string>man.sh: implement whatis MANSECT filtering (8400932)</string>
+		<string>man.1: describe apropos/whatis (8400932)</string>
 	</array>
 	<key>OpenSourceLicense</key>
-	<string>GPL</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>man.txt</string>
+	<string>BSD</string>
 </dict>
 </array>
 </plist>

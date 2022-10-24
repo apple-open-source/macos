@@ -68,7 +68,6 @@ struct IsolatedSession {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     SessionWrapper sessionWithCredentialStorage;
-    SessionWrapper sessionWithoutCredentialStorage;
     WallTime lastUsed;
 };
 
@@ -87,7 +86,6 @@ public:
     std::unique_ptr<IsolatedSession> appBoundSession;
 
     SessionWrapper sessionWithCredentialStorage;
-    SessionWrapper sessionWithoutCredentialStorage;
     SessionWrapper ephemeralStatelessSession;
 
 private:
@@ -121,7 +119,6 @@ public:
     bool fastServerTrustEvaluationEnabled() const { return m_fastServerTrustEvaluationEnabled; }
     bool deviceManagementRestrictionsEnabled() const { return m_deviceManagementRestrictionsEnabled; }
     bool allLoadsBlockedByDeviceManagementRestrictionsForTesting() const { return m_allLoadsBlockedByDeviceManagementRestrictionsForTesting; }
-    bool webPushDaemonUsesMockBundlesForTesting() const final { return m_webPushDaemonUsesMockBundlesForTesting; }
 
     DMFWebsitePolicyMonitor *deviceManagementPolicyMonitor();
 
@@ -142,6 +139,8 @@ public:
 
     void removeNetworkWebsiteData(std::optional<WallTime>, std::optional<HashSet<WebCore::RegistrableDomain>>&&, CompletionHandler<void()>&&) override;
 
+    void removeDataTask(DataTaskIdentifier);
+
 private:
     void invalidateAndCancel() override;
     void clearCredentials() override;
@@ -151,6 +150,8 @@ private:
 #if ENABLE(APP_BOUND_DOMAINS)
     SessionWrapper& appBoundSession(WebPageProxyIdentifier, WebCore::StoredCredentialsPolicy);
 #endif
+
+    void donateToSKAdNetwork(WebCore::PrivateClickMeasurement&&) final;
 
     Vector<WebCore::SecurityOriginData> hostNamesWithAlternativeServices() const override;
     void deleteAlternativeServicesForHostNames(const Vector<String>&) override;
@@ -162,7 +163,8 @@ private:
     void removeWebSocketTask(SessionSet&, WebSocketTask&) final;
 #endif
 
-    void requestResource(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(const IPC::DataReference&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&) final;
+    void dataTaskWithRequest(WebPageProxyIdentifier, WebCore::ResourceRequest&&, CompletionHandler<void(DataTaskIdentifier)>&&) final;
+    void cancelDataTask(DataTaskIdentifier) final;
     void addWebPageNetworkParameters(WebPageProxyIdentifier, WebPageNetworkParameters&&) final;
     void removeWebPageNetworkParameters(WebPageProxyIdentifier) final;
     size_t countNonDefaultSessionSets() const final;
@@ -183,11 +185,11 @@ private:
     RetainPtr<DMFWebsitePolicyMonitor> m_deviceManagementPolicyMonitor;
     bool m_deviceManagementRestrictionsEnabled { false };
     bool m_allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
-    bool m_webPushDaemonUsesMockBundlesForTesting { false };
     bool m_shouldLogCookieInformation { false };
     bool m_fastServerTrustEvaluationEnabled { false };
     String m_dataConnectionServiceType;
     bool m_preventsSystemHTTPProxyAuthentication { false };
+    HashMap<DataTaskIdentifier, RetainPtr<NSURLSessionDataTask>> m_dataTasksForAPI;
 };
 
 } // namespace WebKit

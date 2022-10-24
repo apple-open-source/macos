@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -11,7 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 1812F1EF1C8F923900F3DC9E /* Build configuration list for PBXAggregateTarget "All_Bridge" */;
 			buildPhases = (
-				1812F1ED1C8F923900F3DC9E /* CopyFiles */,
+				2A51183C27E41FB20059F4ED /* Install Test Files */,
 			);
 			dependencies = (
 				358407D62245AD55006A0D8E /* PBXTargetDependency */,
@@ -70,9 +70,10 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = BA4FD2FF1372FE4E0025925C /* Build configuration list for PBXAggregateTarget "All_MacOSX" */;
 			buildPhases = (
-				C9D64CD21B91066B00CFA43B /* CopyFiles */,
 				587B8CAD2489CB170001CD8D /* Copy internal getty */,
 				587B8CAE2489CB9C0001CD8D /* Copy Files */,
+				D367A7FC26D6FF410095030D /* Install OpenSource plist */,
+				2A51183E27E420B40059F4ED /* Install Test Files */,
 			);
 			dependencies = (
 				358407D22245AD40006A0D8E /* PBXTargetDependency */,
@@ -230,7 +231,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = BACC1D191377B4C9007728F4 /* Build configuration list for PBXAggregateTarget "All_iOS" */;
 			buildPhases = (
-				C9D64CD01B91064700CFA43B /* CopyFiles */,
+				2A51183D27E4206D0059F4ED /* Install Test Files */,
 			);
 			dependencies = (
 				358407D42245AD4B006A0D8E /* PBXTargetDependency */,
@@ -320,7 +321,8 @@
 		0D06BC661E8F091F00C6EC2D /* mslutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 0D06BC651E8F091F00C6EC2D /* mslutil.c */; };
 		1523FE6C1595056C00661E82 /* ltop.c in Sources */ = {isa = PBXBuildFile; fileRef = 1523FE6B1595056C00661E82 /* ltop.c */; };
 		1523FE6D1595058100661E82 /* ltop.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1523FE6A1595056C00661E82 /* ltop.1 */; };
-		1812F1EE1C8F923900F3DC9E /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
+		2A51183727E41ADB0059F4ED /* arch_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A51182527E41A340059F4ED /* arch_type.c */; };
+		2A51183B27E41B6F0059F4ED /* getconf_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A51182427E41A340059F4ED /* getconf_test.sh */; };
 		2AD06CBF26A93BB40052D4CC /* unsigned_limits.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AD06CBE26A93BB40052D4CC /* unsigned_limits.c */; };
 		358407CE2245AC09006A0D8E /* cpuctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 358407CD2245AC09006A0D8E /* cpuctl.c */; };
 		358407D02245AC32006A0D8E /* cpuctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 358407CF2245AC32006A0D8E /* cpuctl.8 */; };
@@ -522,13 +524,11 @@
 		C96F50BE15BDFF03008682F7 /* lsmp.c in Sources */ = {isa = PBXBuildFile; fileRef = C96F50AD15BDCE8E008682F7 /* lsmp.c */; };
 		C9779F6E159A2A0C009436FD /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
 		C99490E52090F56F00246D9D /* zprint.lua in Copy Lua library */ = {isa = PBXBuildFile; fileRef = C99490E32090F55D00246D9D /* zprint.lua */; };
-		C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
-		C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
 		C9E0691A1C58BD7E00C956EB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA9B766D13739D27001BB39F /* CoreFoundation.framework */; };
 		C9E0691C1C58BDA000C956EB /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */; };
 		C9E0691E1C58BDB800C956EB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691D1C58BDB800C956EB /* IOKit.framework */; };
-		CEB165CC246C599A00228592 /* test_zprint.lua in CopyFiles */ = {isa = PBXBuildFile; fileRef = CEB165CB246C599A00228592 /* test_zprint.lua */; };
 		CEB165CE246C59C100228592 /* test_zprint.lua in Copy test */ = {isa = PBXBuildFile; fileRef = CEB165CB246C599A00228592 /* test_zprint.lua */; };
+		D32A1C2227BB053D007F04E8 /* libEndpointSecuritySystem.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D32A1C2127BB053D007F04E8 /* libEndpointSecuritySystem.tbd */; platformFilters = (macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		D37CC32C2395D9F100288C74 /* mslutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0D06BC671E8F0B4100C6EC2D /* mslutil.1 */; };
 		F2291F551FFEBB6A00161936 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */; };
 		F2291F601FFEBB9E00161936 /* zlog.c in Sources */ = {isa = PBXBuildFile; fileRef = F2291F5F1FFEBB9E00161936 /* zlog.c */; };
@@ -910,6 +910,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = BACC1D0D1377B481007728F4;
 			remoteInfo = mean;
+		};
+		2A51183827E41B530059F4ED /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA2DE9181372FA9100D1913C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A51182627E41A5E0059F4ED;
+			remoteInfo = getconf_arch_type;
 		};
 		358407D12245AD40006A0D8E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1750,21 +1757,22 @@
 		1523FE5F1595048900661E82 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/local/share/man/man1;
+			dstPath = "$(INSTALL_PATH)/../share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
 				1523FE6D1595058100661E82 /* ltop.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		1812F1ED1C8F923900F3DC9E /* CopyFiles */ = {
+		2A51183A27E41B570059F4ED /* Copy Test Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstPath = /AppleInternal/Tests/system_cmds/getconf;
 			dstSubfolderSpec = 0;
 			files = (
-				1812F1EE1C8F923900F3DC9E /* system_cmds.plist in CopyFiles */,
+				2A51183B27E41B6F0059F4ED /* getconf_test.sh in Copy Test Files */,
 			);
+			name = "Copy Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		3521C84B2245AA92001B3201 /* CopyFiles */ = {
@@ -2325,7 +2333,7 @@
 		C96F50B315BDCEC3008682F7 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/local/share/man/man1;
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				C96F50BD15BDFEFB008682F7 /* lsmp.1 in CopyFiles */,
@@ -2341,27 +2349,6 @@
 				C99490E52090F56F00246D9D /* zprint.lua in Copy Lua library */,
 			);
 			name = "Copy Lua library";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		C9D64CD01B91064700CFA43B /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		C9D64CD21B91066B00CFA43B /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */,
-				CEB165CC246C599A00228592 /* test_zprint.lua in CopyFiles */,
-			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		CEB165CD246C599F00228592 /* Copy test */ = {
@@ -2401,6 +2388,9 @@
 		1523FE6B1595056C00661E82 /* ltop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ltop.c; sourceTree = "<group>"; };
 		189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		18EA07101C99C76C006D3005 /* EmbeddedOSSupportHost.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EmbeddedOSSupportHost.framework; path = System/Library/PrivateFrameworks/EmbeddedOSSupportHost.framework; sourceTree = SDKROOT; };
+		2A51182427E41A340059F4ED /* getconf_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = getconf_test.sh; path = getconf.tproj/tests/getconf_test.sh; sourceTree = SOURCE_ROOT; };
+		2A51182527E41A340059F4ED /* arch_type.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = arch_type.c; path = getconf.tproj/tests/arch_type.c; sourceTree = SOURCE_ROOT; };
+		2A51183627E41A5E0059F4ED /* arch_type */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arch_type; sourceTree = BUILT_PRODUCTS_DIR; };
 		2AD06CBD26A3E3F10052D4CC /* unsigned_limits.gperf */ = {isa = PBXFileReference; lastKnownFileType = text; path = unsigned_limits.gperf; sourceTree = "<group>"; };
 		2AD06CBE26A93BB40052D4CC /* unsigned_limits.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = unsigned_limits.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		3521C84D2245AA92001B3201 /* cpuctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cpuctl; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2544,7 +2534,6 @@
 		BA4FD2531372FAFA0025925C /* iostat.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = iostat.c; sourceTree = "<group>"; };
 		BA4FD2571372FAFA0025925C /* latency.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = latency.1; sourceTree = "<group>"; };
 		BA4FD2581372FAFA0025925C /* latency.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = latency.c; sourceTree = "<group>"; };
-		BA4FD25B1372FAFA0025925C /* klogin.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = klogin.c; sourceTree = "<group>"; };
 		BA4FD25C1372FAFA0025925C /* login.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = login.1; sourceTree = "<group>"; };
 		BA4FD25D1372FAFA0025925C /* login.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = login.c; sourceTree = "<group>"; };
 		BA4FD25E1372FAFA0025925C /* login.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = login.h; sourceTree = "<group>"; };
@@ -2688,10 +2677,11 @@
 		C96F50AD15BDCE8E008682F7 /* lsmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lsmp.c; path = lsmp.tproj/lsmp.c; sourceTree = SOURCE_ROOT; };
 		C96F50B715BDCEC3008682F7 /* lsmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lsmp; sourceTree = BUILT_PRODUCTS_DIR; };
 		C99490E32090F55D00246D9D /* zprint.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zprint.lua; sourceTree = "<group>"; };
-		C9D64CCF1B91063200CFA43B /* system_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = system_cmds.plist; path = tests/system_cmds.plist; sourceTree = "<group>"; };
+		C9D64CCF1B91063200CFA43B /* system_cmds.plist.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = system_cmds.plist.in; path = tests/system_cmds.plist.in; sourceTree = "<group>"; };
 		C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = SDKROOT; };
 		C9E0691D1C58BDB800C956EB /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		CEB165CB246C599A00228592 /* test_zprint.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_zprint.lua; sourceTree = "<group>"; };
+		D32A1C2127BB053D007F04E8 /* libEndpointSecuritySystem.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libEndpointSecuritySystem.tbd; path = usr/lib/libEndpointSecuritySystem.tbd; sourceTree = SDKROOT; };
 		F2291F5D1FFEBB6A00161936 /* zlog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = zlog; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2291F5F1FFEBB9E00161936 /* zlog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zlog.c; sourceTree = "<group>"; };
 		F27B70272044CB40003C04FC /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -2729,6 +2719,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				C9779F6E159A2A0C009436FD /* libutil.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A51183027E41A5E0059F4ED /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2815,6 +2812,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D32A1C2227BB053D007F04E8 /* libEndpointSecuritySystem.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3142,11 +3140,22 @@
 		189337C11CC7CB4800B2A6A4 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D32A1C2127BB053D007F04E8 /* libEndpointSecuritySystem.tbd */,
 				F27B70272044CB40003C04FC /* CoreFoundation.framework */,
 				08ADC98B1E70715D0001CB70 /* ktrace.framework */,
 				189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		2A51182327E419E90059F4ED /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A51182527E41A340059F4ED /* arch_type.c */,
+				2A51182427E41A340059F4ED /* getconf_test.sh */,
+			);
+			name = tests;
+			path = getconf.tproj;
 			sourceTree = "<group>";
 		};
 		3F56BF751F56057800266763 /* Recovered References */ = {
@@ -3250,7 +3259,7 @@
 				08CE3D321E6E22DE00DF1B78 /* stackshot.c */,
 				18EA07101C99C76C006D3005 /* EmbeddedOSSupportHost.framework */,
 				BA4FD1E11372FAFA0025925C /* APPLE_LICENSE */,
-				C9D64CCF1B91063200CFA43B /* system_cmds.plist */,
+				C9D64CCF1B91063200CFA43B /* system_cmds.plist.in */,
 				BA4FD1D91372FAFA0025925C /* ac.tproj */,
 				BA4FD1DD1372FAFA0025925C /* accton.tproj */,
 				BA4FD1E21372FAFA0025925C /* arch.tproj */,
@@ -3494,6 +3503,7 @@
 				BA4FD23C1372FAFA0025925C /* progenv.gperf */,
 				2AD06CBD26A3E3F10052D4CC /* unsigned_limits.gperf */,
 				BA4FD23D1372FAFA0025925C /* sysconf.gperf */,
+				2A51182327E419E90059F4ED /* tests */,
 				BA4B7A231373C2DC00003422 /* Generated Source */,
 			);
 			path = getconf.tproj;
@@ -3551,7 +3561,6 @@
 			isa = PBXGroup;
 			children = (
 				43A96C7223D2DAAE0033235B /* login.entitlements */,
-				BA4FD25B1372FAFA0025925C /* klogin.c */,
 				BA4FD25C1372FAFA0025925C /* login.1 */,
 				BA4FD25D1372FAFA0025925C /* login.c */,
 				BA4FD25E1372FAFA0025925C /* login.h */,
@@ -3852,6 +3861,7 @@
 				0D06BC5E1E8F08CB00C6EC2D /* mslutil */,
 				F2291F5D1FFEBB6A00161936 /* zlog */,
 				3521C84D2245AA92001B3201 /* cpuctl */,
+				2A51183627E41A5E0059F4ED /* arch_type */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4027,6 +4037,7 @@
 				1523FE5B1595048900661E82 /* Sources */,
 				1523FE5D1595048900661E82 /* Frameworks */,
 				1523FE5F1595048900661E82 /* CopyFiles */,
+				640A85F1273E95F00083F3B5 /* Compatibility Alias */,
 			);
 			buildRules = (
 			);
@@ -4035,6 +4046,22 @@
 			name = ltop;
 			productName = ac;
 			productReference = 1523FE631595048900661E82 /* ltop */;
+			productType = "com.apple.product-type.tool";
+		};
+		2A51182627E41A5E0059F4ED /* getconf_arch_type */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A51183327E41A5E0059F4ED /* Build configuration list for PBXNativeTarget "getconf_arch_type" */;
+			buildPhases = (
+				2A51182827E41A5E0059F4ED /* Sources */,
+				2A51183027E41A5E0059F4ED /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = getconf_arch_type;
+			productName = arch_type;
+			productReference = 2A51183627E41A5E0059F4ED /* arch_type */;
 			productType = "com.apple.product-type.tool";
 		};
 		3521C84C2245AA92001B3201 /* cpuctl */ = {
@@ -4288,10 +4315,12 @@
 				BA4B7A0F1373BE9D00003422 /* Sources */,
 				BA4B7A111373BE9D00003422 /* Frameworks */,
 				BA4B7A121373BE9D00003422 /* CopyFiles */,
+				2A51183A27E41B570059F4ED /* Copy Test Files */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2A51183927E41B530059F4ED /* PBXTargetDependency */,
 			);
 			name = getconf;
 			productName = ac;
@@ -5130,6 +5159,7 @@
 				BA4B79FD1373B9E900003422 /* fs_usage */,
 				C20D8C681C1A102F00C1226B /* gcore */,
 				BA4B7A0E1373BE9D00003422 /* getconf */,
+				2A51182627E41A5E0059F4ED /* getconf_arch_type */,
 				BA4B7A3F137648E100003422 /* getty */,
 				BA4B7A5D13765CC700003422 /* hostinfo */,
 				550C19E21804D226001DA380 /* iosim */,
@@ -5179,6 +5209,66 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A51183C27E41FB20059F4ED /* Install Test Files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/system_cmds.plist.in",
+			);
+			name = "Install Test Files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/system_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install-test-files.sh\n";
+		};
+		2A51183D27E4206D0059F4ED /* Install Test Files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/system_cmds.plist.in",
+			);
+			name = "Install Test Files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/system_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install-test-files.sh\n";
+		};
+		2A51183E27E420B40059F4ED /* Install Test Files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/system_cmds.plist.in",
+			);
+			name = "Install Test Files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/system_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install-test-files.sh\n";
+		};
 		587B8CAD2489CB170001CD8D /* Copy internal getty */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -5198,6 +5288,26 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "cp -f \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+		640A85F1273E95F00083F3B5 /* Compatibility Alias */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compatibility Alias";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/sh -v -e";
+			shellScript = "# On platforms where ltop is in /usr/bin, add a compatibility copy in /usr/local/bin for now\n# Can't just symlink it because /usr/bin/ltop won't be mastered into any images right away\n\n[ \"${INSTALL_PATH}\" = \"/usr/bin\" ] || exit 0\n\nmkdir -p \"${DSTROOT}/usr/local/bin\"\ncp \"${DSTROOT}/usr/bin/ltop\" \"${DSTROOT}/usr/local/bin/ltop\"\n";
+			showEnvVarsInLog = 0;
 		};
 		BA4B79F91373B6A400003422 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5464,6 +5574,24 @@
 			shellScript = "set -x\nset -e\n\nln -fhv \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nmkdir -p \"${DSTROOT}/usr/share/man/man8\"\necho \".so man8/reboot.8\" > \"${DSTROOT}/usr/share/man/man8/halt.8\"\n";
 			showEnvVarsInLog = 0;
 		};
+		D367A7FC26D6FF410095030D /* Install OpenSource plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install OpenSource plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xscripts/install-opensource.sh\n";
+		};
 		FD0AA4911630C39500606589 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -5510,6 +5638,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				1523FE6C1595056C00661E82 /* ltop.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A51182827E41A5E0059F4ED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A51183727E41ADB0059F4ED /* arch_type.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6213,6 +6349,11 @@
 			target = BACC1D0D1377B481007728F4 /* mean */;
 			targetProxy = 1812F1EC1C8F923900F3DC9E /* PBXContainerItemProxy */;
 		};
+		2A51183927E41B530059F4ED /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A51182627E41A5E0059F4ED /* getconf_arch_type */;
+			targetProxy = 2A51183827E41B530059F4ED /* PBXContainerItemProxy */;
+		};
 		358407D22245AD40006A0D8E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3521C84C2245AA92001B3201 /* cpuctl */;
@@ -6813,6 +6954,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = stackshot.tproj/entitlements.plist;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -6855,6 +6997,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = stackshot.tproj/entitlements.plist;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -7054,7 +7197,8 @@
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd",
 				);
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH = /usr/bin;
+				"INSTALL_PATH[sdk=macosx*]" = /usr/local/bin;
 				PRODUCT_NAME = ltop;
 			};
 			name = Release;
@@ -7122,6 +7266,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wcast-align",
+					"-Werror=strict-prototypes",
 				);
 			};
 			name = Debug;
@@ -7403,7 +7548,8 @@
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd",
 				);
-				INSTALL_PATH = /usr/local/bin;
+				INSTALL_PATH = /usr/bin;
+				"INSTALL_PATH[sdk=macosx*]" = /usr/local/bin;
 				PRODUCT_NAME = ltop;
 			};
 			name = Debug;
@@ -7731,6 +7877,32 @@
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = iosim;
+			};
+			name = Debug;
+		};
+		2A51183427E41A5E0059F4ED /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					APPLE_GETCONF_UNDERSCORE,
+				);
+				INSTALL_PATH = /AppleInternal/Tests/system_cmds/getconf;
+				PRODUCT_NAME = arch_type;
+			};
+			name = Release;
+		};
+		2A51183527E41A5E0059F4ED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					APPLE_GETCONF_UNDERSCORE,
+				);
+				INSTALL_PATH = /AppleInternal/Tests/system_cmds/getconf;
+				PRODUCT_NAME = arch_type;
 			};
 			name = Debug;
 		};
@@ -8099,6 +8271,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wcast-align",
+					"-Werror=strict-prototypes",
 				);
 			};
 			name = Release;
@@ -8777,6 +8950,15 @@
 			buildConfigurations = (
 				1812F1F01C8F923900F3DC9E /* Release */,
 				1812F1F11C8F923900F3DC9E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A51183327E41A5E0059F4ED /* Build configuration list for PBXNativeTarget "getconf_arch_type" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A51183427E41A5E0059F4ED /* Release */,
+				2A51183527E41A5E0059F4ED /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

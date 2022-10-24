@@ -40,8 +40,13 @@
 #include <curses.priv.h>
 
 #include <ctype.h>
+#include <stdio.h>
 #include <term.h>
 #include <tic.h>
+
+// FIXME: why do we need this prototype here?
+// Without it, we won't build even though we're including stdio.h above...
+__const char *fmtcheck(const char *, const char *) __attribute__((format_arg(2)));
 
 MODULE_ID("$Id: lib_tparm.c,v 1.76 2008/08/16 19:22:55 tom Exp $")
 
@@ -144,7 +149,7 @@ save_text(const char *fmt, const char *s, int len)
 
     get_space(s_len + 1);
 
-    (void) sprintf(TPS(out_buff) + TPS(out_used), fmt, s);
+    (void) sprintf(TPS(out_buff) + TPS(out_used), fmtcheck(fmt, "%s"), s);
     TPS(out_used) += strlen(TPS(out_buff) + TPS(out_used));
 }
 
@@ -156,7 +161,7 @@ save_number(const char *fmt, int number, int len)
 
     get_space((unsigned) len + 1);
 
-    (void) sprintf(TPS(out_buff) + TPS(out_used), fmt, number);
+    (void) sprintf(TPS(out_buff) + TPS(out_used), fmtcheck(fmt, "%d"), number);
     TPS(out_used) += strlen(TPS(out_buff) + TPS(out_used));
 }
 

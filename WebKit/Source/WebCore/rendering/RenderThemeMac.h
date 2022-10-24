@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -41,8 +41,6 @@ class RenderThemeMac final : public RenderThemeCocoa {
 public:
     friend NeverDestroyed<RenderThemeMac>;
 
-    CFStringRef contentSizeCategory() const final;
-
     // A method asking if the control changes its tint when the window has focus or not.
     bool controlSupportsTints(const RenderObject&) const final;
 
@@ -66,9 +64,7 @@ public:
     Color platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const final;
     Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
     Color platformTextSearchHighlightColor(OptionSet<StyleColorOptions>) const final;
-#if ENABLE(APP_HIGHLIGHTS)
-    Color platformAppHighlightColor(OptionSet<StyleColorOptions>) const final;
-#endif
+    Color platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const final;
     Color platformDefaultButtonTextColor(OptionSet<StyleColorOptions>) const final;
 
     ScrollbarControlSize scrollbarControlSizeForPart(ControlPart) final { return ScrollbarControlSize::Small; }
@@ -99,6 +95,8 @@ public:
     bool usesTestModeFocusRingColor() const;
     // A view associated to the contained document.
     NSView* documentViewFor(const RenderObject&) const;
+
+    WEBCORE_EXPORT static RetainPtr<NSImage> iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
 private:
     RenderThemeMac();
@@ -148,10 +146,6 @@ private:
     
 #if ENABLE(SERVICE_CONTROLS)
     void adjustImageControlsButtonStyle(RenderStyle&, const Element*) const final;
-#endif
-
-#if ENABLE(VIDEO)
-    bool supportsClosedCaptioning() const final { return true; }
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -208,7 +202,6 @@ private:
     NSCell *listButton() const;
 #endif
 
-    NSLevelIndicatorStyle levelIndicatorStyleFor(ControlPart) const;
     NSLevelIndicatorCell *levelIndicatorFor(const RenderMeter&) const;
 
     int minimumProgressBarHeight(const RenderStyle&) const;

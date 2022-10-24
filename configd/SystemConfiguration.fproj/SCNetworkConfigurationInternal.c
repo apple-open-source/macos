@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2013, 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -751,24 +751,43 @@ __copyProtocolTemplate(CFStringRef      interfaceType,
 }
 
 
+static void
+ifreq_init_with_interface(struct ifreq * ifr_p, CFStringRef interface)
+{
+	memset(ifr_p, 0, sizeof(*ifr_p));
+	(void) _SC_cfstring_to_cstring(interface,
+				       ifr_p->ifr_name,
+				       sizeof(ifr_p->ifr_name),
+				       kCFStringEncodingUTF8);
+
+}
+
 __private_extern__ Boolean
 __createInterface(int s, CFStringRef interface)
 {
 	struct ifreq	ifr;
 
-	memset(&ifr, 0, sizeof(ifr));
-	(void) _SC_cfstring_to_cstring(interface,
-				       ifr.ifr_name,
-				       sizeof(ifr.ifr_name),
-				       kCFStringEncodingASCII);
-
+	ifreq_init_with_interface(&ifr, interface);
 	if (ioctl(s, SIOCIFCREATE, &ifr) == -1) {
 		SC_log(LOG_NOTICE, "could not create interface \"%@\": %s",
 		       interface,
 		       strerror(errno));
 		return FALSE;
 	}
-
+	ifreq_init_with_interface(&ifr, interface);
+	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
+		SC_log(LOG_NOTICE, "SIOCGIFFLAGS failed \"%@\": %s",
+		       interface,
+		       strerror(errno));
+	} else if ((ifr.ifr_flags & IFF_UP) == 0) {
+		/* mark the interface up */
+		ifr.ifr_flags |= IFF_UP;
+		if (ioctl(s, SIOCSIFFLAGS, &ifr) == -1) {
+			SC_log(LOG_NOTICE, "SIOCSIFFLAGS failed \"%@\": %s",
+			       interface,
+			       strerror(errno));
+		}
+	}
 	return TRUE;
 }
 
@@ -778,12 +797,7 @@ __destroyInterface(int s, CFStringRef interface)
 {
 	struct ifreq	ifr;
 
-	memset(&ifr, 0, sizeof(ifr));
-	(void) _SC_cfstring_to_cstring(interface,
-				       ifr.ifr_name,
-				       sizeof(ifr.ifr_name),
-				       kCFStringEncodingASCII);
-
+	ifreq_init_with_interface(&ifr, interface);
 	if (ioctl(s, SIOCIFDESTROY, &ifr) == -1) {
 		SC_log(LOG_NOTICE, "could not destroy interface \"%@\": %s",
 		       interface,
@@ -1016,6 +1030,7 @@ __str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
 Boolean
 _SCNetworkConfigurationBypassSystemInterfaces(SCPreferencesRef prefs)
 {
+#ifndef TEST_SCNETWORKINTERFACE
 	Boolean		bypass;
 	uint32_t	nc_flags;
 
@@ -1031,7 +1046,7 @@ _SCNetworkConfigurationBypassSystemInterfaces(SCPreferencesRef prefs)
 		// if not using the default prefs (i.e. /L/P/SC/preferences.plist)
 		return TRUE;
 	}
-
+#endif
 	return FALSE;
 }
 
@@ -1039,6 +1054,7 @@ _SCNetworkConfigurationBypassSystemInterfaces(SCPreferencesRef prefs)
 void
 _SCNetworkConfigurationSetBypassSystemInterfaces(SCPreferencesRef prefs, Boolean shouldBypass)
 {
+#ifndef TEST_SCNETWORKINTERFACE
 	uint32_t	nc_flags;
 
 	nc_flags = __SCPreferencesGetNetworkConfigurationFlags(prefs);
@@ -1049,7 +1065,7 @@ _SCNetworkConfigurationSetBypassSystemInterfaces(SCPreferencesRef prefs, Boolean
 	}
 	nc_flags |= kSCNetworkConfigurationFlagsBypassSystemInterfacesForced;
 	__SCPreferencesSetNetworkConfigurationFlags(prefs, nc_flags);
-
+#endif
 	return;
 }
 

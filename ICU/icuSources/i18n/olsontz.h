@@ -289,7 +289,7 @@ private:
      * Default constructor.  Creates a time zone with an empty ID and
      * a fixed GMT offset of zero.
      */
-    OlsonTimeZone();
+    OlsonTimeZone() = delete;
 
 private:
 

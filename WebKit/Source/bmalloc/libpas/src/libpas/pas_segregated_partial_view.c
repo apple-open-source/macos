@@ -37,6 +37,8 @@
 #include "pas_segregated_shared_view_inlines.h"
 #include "pas_shared_handle_or_page_boundary_inlines.h"
 
+size_t pas_segregated_partial_view_count = 0;
+
 pas_segregated_partial_view*
 pas_segregated_partial_view_create(
     pas_segregated_size_directory* directory,
@@ -53,6 +55,8 @@ pas_segregated_partial_view_create(
         sizeof(pas_segregated_partial_view),
         "pas_segregated_partial_view",
         pas_object_allocation);
+
+    pas_segregated_partial_view_count++;
 
     /* We attach to a shared view lazily - once we know what we're allocating. */
     pas_compact_segregated_shared_view_ptr_store(&result->shared_view, NULL);
@@ -158,7 +162,7 @@ bool pas_segregated_partial_view_should_table(
     shared_handle_or_page_boundary = shared_view->shared_handle_or_page_boundary;
     shared_handle = pas_unwrap_shared_handle(shared_handle_or_page_boundary, *page_config);
     page = pas_segregated_page_for_boundary(shared_handle->page_boundary, *page_config);
-    return !page->num_non_empty_words;
+    return !page->emptiness.num_non_empty_words;
 }
 
 static pas_heap_summary compute_summary(pas_segregated_partial_view* view)
@@ -241,6 +245,9 @@ static pas_heap_summary compute_summary(pas_segregated_partial_view* view)
                 pas_free_object_range);
         }
     }
+
+    if (view->is_in_use_for_allocation)
+        result.cached += pas_heap_summary_total(result);
 
     return result;
 }

@@ -259,6 +259,11 @@ struct IOPCIEvent
     uint32_t      data[5];
 };
 
+enum IOPCIResetType {
+    kIOPCIResetNone,
+    kIOPCIResetHot,
+};
+
 __exported_push
 class __kpi_deprecated("Use PCIDriverKit") IOPCIEventSource : public IOEventSource
 {
@@ -293,6 +298,8 @@ __exported_pop
 
 typedef IOReturn (*IOPCIDeviceConfigHandler)(void * ref,
                                                 IOMessage message, IOPCIDevice * device, uint32_t state);
+
+typedef IOPCIResetType (* IOPCIDeviceCrashNotification_t)(void *clientObject, IOPCIDevice *device);
 
 /*! @class IOPCIDevice : public IOService
     @abstract An IOService class representing a PCI device.
@@ -903,6 +910,44 @@ public:
 						  uint64_t offset,
 						  uint8_t  data);
 
+	/*!
+	 * @brief       Register a dext crash notification handler for this PCI device.
+	 * @discussion  The handler is invoked prior to disabling and terminating the crashed device,
+	 *              and it returns an IOPCIResetType to control whether and how the device is reset.
+	 *              kIOPCIResetNone: Do not reset the device, only terminate it
+	 *              kIOPCIResetHot: Perform a hot reset, terminate the device and any multi-function peers
+	 * @param       handler The notification handler
+	 * @param       clientObject The client object pointer passed to the handler
+	 */
+	void registerCrashNotification(IOPCIDeviceCrashNotification_t handler, void *clientObject);
+
+	void unregisterCrashNotification(void);
+
+	/*! @function setLinkSpeed
+	 *   @abstract    Set the link speed upper bound and optionally retrain
+	 *   @discussion  This function writes the device's upstream bridge's target-link-speed. This setting will be enforced during subsequent
+	 *                reset-initiated link trainings, and the function will immediately retrain the link if the retrain parameter is true.
+	 *                If retrain is true, this function will not return until training completes. The user must call IOPCIDevice::getLinkSpeed() to
+	 *                see the result of link training; a return value of kIOReturnSuccess does not indicate the requested link speed was reached.
+	 *   @param linkSpeed A tIOPCILinkSpeed.
+	 *   @param retrain If true, the function will retrain the link.
+	 *   @result      kIOReturnSuccess if there were no errors, such as linkSpeed unsupported by the upstream bridge. kIOReturnSuccess does not
+	 *                indicate the requested link speed was reached.
+	 */
+	IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed,
+						  bool            retrain = false);
+
+	/*! @function getLinkSpeed
+	 *   @abstract    Get the endpoint's link speed
+	 *   @param linkSpeed A pointer to a tIOPCILinkSpeed.
+	 *   @result      Returns an IOReturn code indicating success or failure.
+	 */
+	IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed);
+
+private:
+	static uint16_t getCloseCommandMask(uint32_t vendorDevice);
+
+public:
 	/*! @function setBusLeadEnable
 	 *  @abstract Sets the device's bus lead enable.
 	 *  @discussion This method sets the bus lead enable bit in the device's command config space register to the passed value, and returns the previous state of the enable.
@@ -910,6 +955,34 @@ public:
 	 *  @result True if bus leading was previously enabled, false otherwise.
 	 */
     bool setBusLeadEnable( bool enable );
+
+	/*! @function reset
+	 *   @abstract     Reset the PCIe device.
+	 *   @discussion   If this is a multi-function device, all functions associated with the device will be reset.
+	 *                 Device configuration state is saved prior to resetting the device and restored after reset completes.
+	 *                 During reset, the caller must not attempt to access the device.
+	 *                 This call will block until the link comes up and the device is usable (except for type kIOPCIDeviceResetTypeWarmResetDisable).
+	 *   @param type     tIOPCIDeviceResetTypes.
+	 *   @param options  tIOPCIDeviceResetOptions.
+	 *   @return       kIOReturnSuccess if the reset specified is supported
+	 */
+	IOReturn reset(tIOPCIDeviceResetTypes type,
+				   tIOPCIDeviceResetOptions options = kIOPCIDeviceResetOptionNone);
+
+private:
+	void releasePowerAssertion(void);
+	void powerAssertionTimeout(IOTimerEventSource* timer);
+	bool childPublished(void* refcon __unused, IOService* newService, IONotifier* notifier __unused);
+	bool childMatched(void* refcon __unused, IOService* newService, IONotifier* notifier __unused);
+
+public:
+	virtual bool setProperty(const OSSymbol * aKey, OSObject * anObject);
+	virtual bool setProperty(const OSString * aKey, OSObject * anObject);
+	virtual bool setProperty(const char * aKey, OSObject * anObject);
+	virtual bool setProperty(const char * aKey, const char * aString);
+	virtual bool setProperty(const char * aKey, bool aBoolean);
+	virtual bool setProperty(const char * aKey, unsigned long long aValue, unsigned int aNumberOfBits);
+	virtual bool setProperty(const char * aKey, void * bytes, unsigned int length);
 };
 __exported_pop
 

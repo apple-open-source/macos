@@ -28,6 +28,12 @@
 #include "IOHIDDevice.h"
 #include "IOHIDTransaction.h"
 
+typedef struct {
+    void              * context;
+    IOHIDCallback       callback;
+    IOHIDTransactionRef transaction;
+} IOHIDTransactionCallbackInfo;
+
 static IOHIDTransactionRef  __IOHIDTransactionCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
@@ -50,8 +56,6 @@ typedef struct __IOHIDTransaction
     CFStringRef                             runLoopMode;
 
     IOHIDDeviceRef                          device;
-    void *                                  context;
-    IOHIDCallback                           callback;
     IOOptionBits                            options;
 } __IOHIDTransaction, *__IOHIDTransactionRef;
 
@@ -134,12 +138,15 @@ void __IOHIDTransactionCommitCallback(
                                     IOReturn                result,
                                     void *                  sender)
 {
-    IOHIDTransactionRef transaction = (IOHIDTransactionRef)context;
-    
-    if ((transaction->transactionInterface == sender) && transaction->callback)
-        (*transaction->callback)(   transaction->context,
-                                    result,
-                                    transaction);
+    IOHIDTransactionCallbackInfo * info = (IOHIDTransactionCallbackInfo *)context;
+
+    if (info) {
+        if ((info->transaction->transactionInterface == sender) && info->callback) {
+            info->callback(info->context, result, info->transaction);
+        }
+
+        free(info);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -387,7 +394,7 @@ IOHIDValueRef IOHIDTransactionGetValue(
 IOReturn IOHIDTransactionCommit(
                                 IOHIDTransactionRef             transaction)
 {
-    return IOHIDTransactionCommitWithCallback(transaction, 0, NULL, NULL);
+    return (*transaction->transactionInterface)->commit(transaction->transactionInterface, 0, NULL, NULL, 0);
 }
                                 
 //------------------------------------------------------------------------------
@@ -399,17 +406,21 @@ IOReturn IOHIDTransactionCommitWithCallback(
                                 IOHIDCallback                   callback, 
                                 void *                          context)
 {
-    uint32_t    timeoutMS = timeout / 1000;
+    IOReturn                       ret  = kIOReturnNoMemory;
+    IOHIDTransactionCallbackInfo * info = (IOHIDTransactionCallbackInfo *)malloc(sizeof(IOHIDTransactionCallbackInfo));
 
-    transaction->callback   = callback;
-    transaction->context    = context;
-    
-    return (*transaction->transactionInterface)->commit(
-                                            transaction->transactionInterface,
-                                            timeoutMS,
-                                            __IOHIDTransactionCommitCallback,
-                                            transaction,
-                                            0);
+    if (info) {
+        info->context     = context;
+        info->callback    = callback;
+        info->transaction = transaction;
+        
+        ret = (*transaction->transactionInterface)->commit(transaction->transactionInterface, timeout, __IOHIDTransactionCommitCallback, info, 0);
+    }
+
+    if (ret && info) {
+        free(info);
+    }
+    return ret;
 }
 
 //------------------------------------------------------------------------------

@@ -665,14 +665,14 @@ static int dump_toc_chksum(const char *filename)
 	
 	// locate data to sign
 	const char *value;
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/offset" ,&value) ) {
+	if( 0 != xar_prop_get_expect_notnull((xar_file_t)x, "checksum/offset" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/offset in archive.\n");
 		exit(1);
 	}
 	
 	uint32_t dataToSignOffset = xar_get_heap_offset(x);
 	dataToSignOffset += strtoull(value, (char **)NULL, 10);
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/size" ,&value) ) {
+	if( 0 != xar_prop_get_expect_notnull((xar_file_t)x, "checksum/size" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/size in archive.\n");
 		exit(1);
 	}

@@ -74,11 +74,13 @@ WI.CompletionSuggestionsView = class CompletionSuggestionsView extends WI.Object
         this._selectedIndex = index;
 
         selectedItemElement = this._selectedItemElement;
-        if (!selectedItemElement)
-            return;
+        if (selectedItemElement) {
+            selectedItemElement.classList.add("selected");
+            selectedItemElement.scrollIntoViewIfNeeded(false);
+        }
 
-        selectedItemElement.classList.add("selected");
-        selectedItemElement.scrollIntoViewIfNeeded(false);
+        if (this._completions[this._selectedIndex])
+            this._delegate?.completionSuggestionsSelectedCompletion?.(this, WI.CSSCompletions.getCompletionText(this._completions[this._selectedIndex]));
     }
 
     selectNext()
@@ -89,9 +91,6 @@ WI.CompletionSuggestionsView = class CompletionSuggestionsView extends WI.Object
             this.selectedIndex = 0;
         else
             ++this.selectedIndex;
-
-        if (this._completions[this.selectedIndex])
-            this._delegate?.completionSuggestionsSelectedCompletion?.(this, this.getCompletionText(this._completions[this.selectedIndex]));
     }
 
     selectPrevious()
@@ -100,9 +99,6 @@ WI.CompletionSuggestionsView = class CompletionSuggestionsView extends WI.Object
             this.selectedIndex = this._containerElement.children.length - 1;
         else
             --this.selectedIndex;
-
-        if (this._completions[this.selectedIndex])
-            this._delegate?.completionSuggestionsSelectedCompletion?.(this, this.getCompletionText(this._completions[this.selectedIndex]));
     }
 
     isHandlingClickEvent()
@@ -192,19 +188,6 @@ WI.CompletionSuggestionsView = class CompletionSuggestionsView extends WI.Object
             this._containerElement.appendChild(itemElement);
             this._delegate?.completionSuggestionsViewCustomizeCompletionElement?.(this, itemElement, completion);
         }
-    }
-
-    getCompletionText(completion)
-    {
-        console.assert(typeof completion === "string" || completion instanceof WI.QueryResult, completion);
-
-        if (typeof completion === "string")
-            return completion;
-
-        if (completion instanceof WI.QueryResult)
-            return completion.value;
-
-        return "";
     }
 
     // Private

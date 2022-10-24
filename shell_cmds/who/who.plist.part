@@ -1,19 +1,19 @@
 	<dict>
 		<key>OpenSourceProject</key>
-		<string>dirname</string>
+		<string>who</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-06-06</string>
+		<string>2020-08-30</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/usr.bin/who/</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/who?id=25641c7cccdf3023337856124b8842292b934585</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-06-06</string>
+		<string>2021-10-20</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>various who(1) options (-b, etc) are unimplemented and undocumented (4859581)</string>
-		    <string>utmpentry.c: eliminate confusing utmp messages</string>
-		    <string>who.c: Remove unncessary chdir</string>
 		    <string>STD: VSC: who.ex failures (6179576)</string>
 		    <string>Per POSIX, print "LOGIN" for LOGIN_PROCESS ttys (6591397)</string>
+		    <string>who.c: Don't ignore errors when flushing stdout (89090667)</string>
+		    <string>STD: VSC: who.ex{1003} failure: Don't call ttystat (88457179)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

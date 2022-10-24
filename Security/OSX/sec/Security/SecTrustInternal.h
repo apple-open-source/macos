@@ -50,6 +50,7 @@ __BEGIN_DECLS
 #define kSecTrustSettingsAuthExternalForm "auth"
 #define kSecTrustSettingsDomain "domain"
 #define kSecTrustSettingsData "settings"
+#define kSecTrustURLAttribution "attribution"
 
 /* args_out keys. */
 #define kSecTrustDetailsKey "details"

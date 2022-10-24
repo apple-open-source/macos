@@ -77,7 +77,7 @@ new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_subma
 }
 
 void
-del_fileref_region(struct region *r)
+rop_fileref_delete(struct region *r)
 {
     assert(&fileref_ops == r->r_op);
     /* r->r_fileref->fr_libent is a reference into the name table */
@@ -88,7 +88,7 @@ del_fileref_region(struct region *r)
 }
 
 void
-del_zfod_region(struct region *r)
+rop_zfod_delete(struct region *r)
 {
     assert(&zfod_ops == r->r_op);
     assert(r->r_inzfodregion && 0 == r->r_nsubregions);
@@ -98,7 +98,7 @@ del_zfod_region(struct region *r)
 }
 
 void
-del_vanilla_region(struct region *r)
+rop_vanilla_delete(struct region *r)
 {
     assert(&vanilla_ops == r->r_op);
     assert(!r->r_inzfodregion && 0 == r->r_nsubregions);
@@ -201,7 +201,7 @@ walk_regions(task_t task, struct regionhead *rhead)
 
         if (OPTIONS_DEBUG(opt, 3)) {
             struct region *d = new_region(vm_addr, vm_size, &info, sc);
-            ROP_PRINT(d);
+            print_memory_region(d);
             ROP_DELETE(d);
         }
 
@@ -418,7 +418,7 @@ print_memory_region(const struct region *r)
 walk_return_t
 region_print_memory(struct region *r, __unused void *arg)
 {
-    ROP_PRINT(r);
+    print_memory_region(r);
     return WALK_CONTINUE;
 }
 
@@ -426,7 +426,7 @@ void
 print_one_memory_region(const struct region *r)
 {
     print_memory_region_header();
-    ROP_PRINT(r);
+    print_memory_region(r);
 }
 
 #ifdef RDAR_23744374

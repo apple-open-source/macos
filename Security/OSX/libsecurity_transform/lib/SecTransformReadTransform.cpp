@@ -46,7 +46,7 @@ static SecTransformInstanceBlock StreamTransformImplementation(CFStringRef name,
 			// Ensure that indeed we do have a CFReadStreamRef
 			if (NULL == item || CFReadStreamGetTypeID() != CFGetTypeID(item))
 			{
-				return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "The input attribute item was nil or not a read stream");
+				return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("The input attribute item was nil or not a read stream"));
 			}
 			
 			// This now is a safe cast
@@ -61,14 +61,14 @@ static SecTransformInstanceBlock StreamTransformImplementation(CFStringRef name,
 					if (!CFReadStreamOpen(input))
 					{
 						// We didn't open properly.  Error out
-						return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "An error occurred while opening the stream.");
+						return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("An error occurred while opening the stream."));
 					}
 				}
 				break;
 
 				case kCFStreamStatusError:
 				{
-					return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "The read stream is in an error state");
+					return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("The read stream is in an error state"));
 				}
 
 				default:

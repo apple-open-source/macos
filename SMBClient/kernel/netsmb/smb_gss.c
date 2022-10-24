@@ -84,7 +84,7 @@ smb_gss_negotiate(struct smbiod *iod, vfs_context_t context)
 		return EPIPE;
 
     if (gp->gss_spn != NULL) {
-        SMB_FREE(gp->gss_spn, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_spn, gp->gss_spn_allocsize);
     }
 	
 	/*
@@ -132,9 +132,10 @@ __unused static void
 smb_gss_reset(__unused struct smb_gss *gp)
 {
 	if (gp->gss_token != NULL) {
-        SMB_FREE(gp->gss_token, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_token, gp->gss_token_allocsize);
     }
 	gp->gss_tokenlen = 0;
+    gp->gss_token_allocsize = 0;
 	gp->gss_ctx = 0;
 	gp->gss_cred = 0;
 	gp->gss_major = 0;
@@ -151,16 +152,16 @@ smb_gss_destroy(struct smb_gss *gp)
 {
 	
     if (gp->gss_cpn) {
-        SMB_FREE(gp->gss_cpn, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_cpn, gp->gss_cpn_allocsize);
     }
     if (gp->gss_cpn_display) {
-        SMB_FREE(gp->gss_cpn_display, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_cpn_display, gp->gss_cpn_display_allocsize);
     }
     if (gp->gss_spn) {
-        SMB_FREE(gp->gss_spn, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_spn, gp->gss_spn_allocsize);
     }
     if (gp->gss_token) {
-        SMB_FREE(gp->gss_token, M_SMBTEMP);
+        SMB_FREE_DATA(gp->gss_token, gp->gss_token_allocsize);
     }
 	bzero(gp, sizeof(struct smb_gss));
 }
@@ -383,8 +384,7 @@ retry:
             /* Alternate channel: Derive SMB 3 channel signing key */
             if (SMBV_SMB3_OR_LATER(sessionp)) {
                 iod->iod_mackeylen = keylen;
-                SMB_MALLOC(iod->iod_mackey, uint8_t *,
-                           iod->iod_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+                SMB_MALLOC_DATA(iod->iod_mackey, iod->iod_mackeylen, Z_WAITOK_ZERO);
 
                 error = gss_mach_vmcopyout((vm_map_copy_t) okey,
                                            iod->iod_mackeylen,
@@ -397,8 +397,7 @@ retry:
 
                 /* [MS-SMB2] 3.2.1.3 Session.FullSessionKey */
                 iod->iod_full_mackeylen = iod->iod_mackeylen;
-                SMB_MALLOC(iod->iod_full_mackey, uint8_t *,
-                           iod->iod_full_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+                SMB_MALLOC_DATA(iod->iod_full_mackey, iod->iod_full_mackeylen, Z_WAITOK_ZERO);
                 memcpy(iod->iod_full_mackey, iod->iod_mackey,
                        iod->iod_mackeylen);
 
@@ -425,8 +424,7 @@ retry:
             
             /* [MS-SMB2] 3.2.1.3 Session.SessionKey */
             sessionp->session_mackeylen = keylen;
-            SMB_MALLOC(sessionp->session_mackey, uint8_t *,
-                       sessionp->session_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+            SMB_MALLOC_DATA(sessionp->session_mackey, sessionp->session_mackeylen, Z_WAITOK_ZERO);
             
             
             error = gss_mach_vmcopyout((vm_map_copy_t) okey,
@@ -439,8 +437,7 @@ retry:
             
             /* [MS-SMB2] 3.2.1.3 Session.FullSessionKey */
             sessionp->full_session_mackeylen = sessionp->session_mackeylen;
-            SMB_MALLOC(sessionp->full_session_mackey, uint8_t *,
-                       sessionp->full_session_mackeylen, M_SMBTEMP, M_WAITOK | M_ZERO);
+            SMB_MALLOC_DATA(sessionp->full_session_mackey, sessionp->full_session_mackeylen, Z_WAITOK_ZERO);
             memcpy(sessionp->full_session_mackey, sessionp->session_mackey,
                    sessionp->session_mackeylen);
 
@@ -486,12 +483,13 @@ retry:
 
 	/* Free context token used as input */
     if (cp->gss_token != NULL) {
-        SMB_FREE(cp->gss_token, M_SMBTEMP);
+        SMB_FREE_DATA(cp->gss_token, cp->gss_token_allocsize);
     }
 	cp->gss_tokenlen = 0;
 	
 	if (otokenlen > 0) {
-		SMB_MALLOC(cp->gss_token, uint8_t *, otokenlen, M_SMBTEMP, M_WAITOK);
+        cp->gss_token_allocsize = otokenlen;
+        SMB_MALLOC_DATA(cp->gss_token, cp->gss_token_allocsize, Z_WAITOK);
 		error = gss_mach_vmcopyout((vm_map_copy_t) otoken, otokenlen, cp->gss_token);
 		if (error)
 			goto out;
@@ -500,9 +498,11 @@ retry:
 
 	if (cp->gss_cpn_display == NULL && display_name[0]) {
 		size_t len = strnlen(display_name, MAX_DISPLAY_STR);
-		SMB_MALLOC(cp->gss_cpn_display, char *, len, M_SMBTEMP, M_WAITOK);
-		if (cp->gss_cpn_display)
+        cp->gss_cpn_display_allocsize = len;
+        SMB_MALLOC_DATA(cp->gss_cpn_display, cp->gss_cpn_display_allocsize, Z_WAITOK);
+        if (cp->gss_cpn_display) {
 			strlcpy(cp->gss_cpn_display, display_name, len);
+        }
 		SMBDEBUG("Received display name %s\n", display_name);
 	}
 	
@@ -518,7 +518,7 @@ retry:
 	return (0);
 	
 out:
-	SMB_FREE(cp->gss_token, M_SMBTEMP);
+    SMB_FREE_DATA(cp->gss_token, cp->gss_token_allocsize);
 	cp->gss_tokenlen = 0;
 	
 	return (EAUTH);
@@ -659,8 +659,7 @@ smb_gss_alt_ch_session_setup(struct smbiod *iod)
                                               iod->iod_sess_setup_reply_len);
             
             /* Free the saved Session Setup reply */
-            SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
-            iod->iod_sess_setup_reply = NULL;
+            SMB_FREE_DATA(iod->iod_sess_setup_reply, iod->iod_sess_setup_reply_len);
 
             if (error) {
                 SMBERROR("smb3_verify_session_setup returned %d. id: %u\n",
@@ -693,7 +692,8 @@ smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
 	uint8_t		wc;
 	uint16_t	bc, toklen;
 	int			error;
-	uint32_t	tokenlen;
+    uint32_t	tokenlen;
+    size_t      allocated_token_len;
 	uint32_t	maxtokenlen;
 	uint8_t *	tokenptr;
 	
@@ -706,6 +706,7 @@ smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
 #endif // SMB_DEBUG
 
 	tokenptr = gp->gss_token;	/* Get the start of the Kerberos blob */
+    allocated_token_len = gp->gss_token_allocsize;
 	do {
 		uint16_t maxtx = sessionp->session_txmax;
 		if (rqp)	/* If we are looping then release it, before getting it again */
@@ -750,7 +751,7 @@ smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
 	} while (gp->gss_tokenlen && (error == EAGAIN));
 	
 	/* Free the gss spnego token that we sent */
-	SMB_FREE(gp->gss_token, M_SMBTEMP);
+    SMB_FREE_DATA(gp->gss_token, allocated_token_len);
 	gp->gss_tokenlen = 0;
 	gp->gss_smb_error = error;	/* Hold on to the last smb error returned */
 	/* EAGAIN is not  really an  error, reset it to no error */
@@ -786,11 +787,12 @@ smb1_gss_ssandx(struct smb_session *sessionp, uint32_t caps, uint16_t *action,
 	md_get_uint16le(mdp, action);	/* action */
 	md_get_uint16le(mdp, &toklen);	/* Spnego token length */
 	gp->gss_tokenlen = toklen;
+    gp->gss_token_allocsize = toklen;
 	md_get_uint16le(mdp, &bc); /* remaining bytes */
 	/*
 	 * Set the gss token from the server
 	 */
-    SMB_MALLOC(gp->gss_token, uint8_t *, gp->gss_tokenlen, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(gp->gss_token, gp->gss_token_allocsize, Z_WAITOK);
     if (gp->gss_token == NULL)
         goto bad;
 	error = md_get_mem(mdp, (caddr_t) gp->gss_token, gp->gss_tokenlen, MB_MSYSTEM);
@@ -985,8 +987,7 @@ again:
                  */
                 if (iod->iod_sess_setup_reply != NULL) {
                     /* Free the saved Session Setup reply */
-                    SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
-                    iod->iod_sess_setup_reply = NULL;
+                    SMB_FREE_DATA(iod->iod_sess_setup_reply, iod->iod_sess_setup_reply_len);
                 }
             }
         }
@@ -1020,8 +1021,7 @@ again:
                                               iod->iod_sess_setup_reply_len);
             
             /* Free the saved Session Setup reply */
-            SMB_FREE(iod->iod_sess_setup_reply, M_SMBTEMP);
-            iod->iod_sess_setup_reply = NULL;
+            SMB_FREE_DATA(iod->iod_sess_setup_reply, iod->iod_sess_setup_reply_len);
 
             if (error) {
                 SMBERROR("smb3_verify_session_setup returned %d. id: %u\n",
@@ -1152,7 +1152,8 @@ smb_gss_dup(struct smb_gss *parent_gp, struct smb_gss *new_gp) {
 
     // dup gss_cpn
     if (parent_gp->gss_cpn_len) {
-        SMB_MALLOC(new_gp->gss_cpn, typeof(new_gp->gss_cpn), parent_gp->gss_cpn_len, M_SMBTEMP, M_WAITOK);
+        new_gp->gss_cpn_allocsize = parent_gp->gss_cpn_len;
+        SMB_MALLOC_DATA(new_gp->gss_cpn, new_gp->gss_cpn_allocsize, Z_WAITOK);
         if (!new_gp->gss_cpn) {
             error = ENOMEM;
             goto exit;
@@ -1163,7 +1164,8 @@ smb_gss_dup(struct smb_gss *parent_gp, struct smb_gss *new_gp) {
 
     // dup gss_spn
     if (parent_gp->gss_spn_len) {
-        SMB_MALLOC(new_gp->gss_spn, typeof(new_gp->gss_spn), parent_gp->gss_spn_len, M_SMBTEMP, M_WAITOK);
+        new_gp->gss_spn_allocsize = parent_gp->gss_spn_len;
+        SMB_MALLOC_DATA(new_gp->gss_spn, new_gp->gss_spn_allocsize, Z_WAITOK);
         if (!new_gp->gss_spn) {
             error = ENOMEM;
             goto exit;
@@ -1175,7 +1177,8 @@ smb_gss_dup(struct smb_gss *parent_gp, struct smb_gss *new_gp) {
     // dup gss_cpn_display
     if (parent_gp->gss_cpn_display && parent_gp->gss_cpn_display[0]) {
         size_t len = strnlen(parent_gp->gss_cpn_display, MAX_DISPLAY_STR);
-        SMB_MALLOC(new_gp->gss_cpn_display, char *, len, M_SMBTEMP, M_WAITOK);
+        new_gp->gss_cpn_display_allocsize = len;
+        SMB_MALLOC_DATA(new_gp->gss_cpn_display, new_gp->gss_cpn_display_allocsize, Z_WAITOK);
         if (!new_gp->gss_cpn_display) {
             error = ENOMEM;
             goto exit;

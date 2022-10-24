@@ -28,6 +28,7 @@
 #include "DebuggerPrimitives.h"
 #include "JSCJSValue.h"
 #include <wtf/Forward.h>
+#include <wtf/ListHashSet.h>
 
 namespace JSC {
 
@@ -115,6 +116,7 @@ public:
 
     enum class BlackboxType { Deferred, Ignored };
     void setBlackboxType(SourceID, std::optional<BlackboxType>);
+    void setBlackboxBreakpointEvaluations(bool);
     void clearBlackbox();
 
     bool isPaused() const { return m_isPaused; }
@@ -135,8 +137,8 @@ public:
     void didExecuteProgram(CallFrame*);
     void didReachDebuggerStatement(CallFrame*);
 
-    void willRunMicrotask();
-    void didRunMicrotask();
+    JS_EXPORT_PRIVATE void willRunMicrotask();
+    JS_EXPORT_PRIVATE void didRunMicrotask();
 
     void registerCodeBlock(CodeBlock*);
 
@@ -145,8 +147,8 @@ public:
         virtual ~Client() = default;
 
         virtual JSObject* debuggerScopeExtensionObject(Debugger&, JSGlobalObject*, DebuggerCallFrame&) { return nullptr; }
-        virtual void debuggerWillEvaluate(Debugger&, const Breakpoint::Action&) { }
-        virtual void debuggerDidEvaluate(Debugger&, const Breakpoint::Action&) { }
+        virtual void debuggerWillEvaluate(Debugger&, JSGlobalObject*, const Breakpoint::Action&) { }
+        virtual void debuggerDidEvaluate(Debugger&, JSGlobalObject*, const Breakpoint::Action&) { }
     };
 
     void setClient(Client*);
@@ -181,6 +183,7 @@ public:
         virtual void breakpointActionLog(JSGlobalObject*, const String& /* data */) { }
         virtual void breakpointActionSound(BreakpointActionID) { }
         virtual void breakpointActionProbe(JSGlobalObject*, BreakpointActionID, unsigned /* batchId */, unsigned /* sampleId */, JSValue /* result */) { }
+        virtual void didDeferBreakpointPause(BreakpointID) { }
     };
 
     JS_EXPORT_PRIVATE void addObserver(Observer&);
@@ -257,7 +260,7 @@ private:
         Debugger& m_debugger;
     };
 
-    RefPtr<Breakpoint> didHitBreakpoint(JSGlobalObject*, SourceID, const TextPosition&);
+    RefPtr<Breakpoint> didHitBreakpoint(SourceID, const TextPosition&);
 
     DebuggerParseData& debuggerParseData(SourceID, SourceProvider*);
 
@@ -299,6 +302,7 @@ private:
     HashSet<JSGlobalObject*> m_globalObjects;
     HashMap<SourceID, DebuggerParseData, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_parseDataMap;
     HashMap<SourceID, BlackboxType, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_blackboxedScripts;
+    bool m_blackboxBreakpointEvaluations : 1;
 
     bool m_pauseAtNextOpportunity : 1;
     bool m_pauseOnStepNext : 1;
@@ -322,6 +326,7 @@ private:
     HashMap<SourceID, LineToBreakpointsMap, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_breakpointsForSourceID;
     HashSet<Ref<Breakpoint>> m_breakpoints;
     RefPtr<Breakpoint> m_specialBreakpoint;
+    ListHashSet<Ref<Breakpoint>> m_deferredBreakpoints;
     BreakpointID m_pausingBreakpointID;
 
     RefPtr<Breakpoint> m_pauseOnAllExceptionsBreakpoint;

@@ -52,6 +52,8 @@
 #include <os/availability.h>
 #include <stdint.h>
 
+OS_ASSUME_PTR_ABI_SINGLE_BEGIN;
+
 /*!
  * @const DARWIN_API_VERSION
  * The API version of the library. This version will be changed in accordance
@@ -117,5 +119,7 @@ typedef uint32_t os_struct_magic_t;
  * A type representing the version of a transparent structure.
  */
 typedef uint32_t os_struct_version_t;
+
+OS_ASSUME_PTR_ABI_SINGLE_END;
 
 #endif // __DARWIN_API_H

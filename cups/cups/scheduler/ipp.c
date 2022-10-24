@@ -2490,7 +2490,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   }
 
   if ((attr = ippFindAttribute(con->request, "printer-is-shared", IPP_TAG_BOOLEAN)) != NULL)
-  {
+  { // REMINDSMA: num_auth_info_required isn't set yet, so I don't think this is working as expected.
     if (ippGetBoolean(attr, 0) &&
         printer->num_auth_info_required == 1 &&
 	!strcmp(printer->auth_info_required[0], "negotiate"))
@@ -2621,6 +2621,35 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   if ((attr = ippFindAttribute(con->request, "auth-info-required",
                                IPP_TAG_KEYWORD)) != NULL)
     cupsdSetAuthInfoRequired(printer, NULL, attr);
+
+  {
+    struct PerStringAttr {
+      const char* attrName;
+      ipp_tag_t   stringTag;
+      char**      pString;
+    } perAttr[] = {
+      { "oauth-authorization-scope",      IPP_TAG_NAME,    &printer->oauth_scope },
+      { "oauth-authorization-server-uri", IPP_TAG_URI,     &printer->oauth_uri },
+      { "x-apple-extension-identifier",   IPP_TAG_NAME,    &printer->source_app  }
+    };
+    struct PerStringAttr* per = perAttr;
+    struct PerStringAttr* perEnd = &perAttr[sizeof(perAttr) / sizeof(perAttr[0])];
+    while (per < perEnd) {
+      attr = ippFindAttribute(con->request, per->attrName, per->stringTag);
+
+      if (attr == NULL) {
+	    char with_default[IPP_MAX_NAME];
+        snprintf(with_default, sizeof(with_default), "%s-default", per->attrName);
+        attr = ippFindAttribute(con->request, with_default, 0);
+      }
+
+      if (attr != NULL) {
+        cupsdSetString(per->pString, ippGetString(attr, 0, NULL));
+      }
+
+      ++per;
+    }
+  }
 
  /*
   * See if we have all required attributes...
@@ -9475,7 +9504,10 @@ save_auth_info(
 	                auth_info->values[i].string.text);
       else if (!strcmp(dest->auth_info_required[i], "negotiate"))
         cupsdSetStringf(job->auth_env + i, "AUTH_NEGOTIATE=%s",
-	                auth_info->values[i].string.text);
+                        auth_info->values[i].string.text);
+      else if (!strcmp(dest->auth_info_required[i], "oauth"))
+        cupsdSetStringf(job->auth_env + i, "AUTH_BEARER_TOKEN=%s",
+                        auth_info->values[i].string.text);
       else
         i --;
     }
@@ -9528,6 +9560,17 @@ save_auth_info(
     cupsdSetStringf(&job->auth_uid, "AUTH_UID=%d", (int)con->gss_uid);
   }
 #endif /* HAVE_GSSAPI */
+
+  // This is for if we need to xpc back for auth in the non kerberos case
+  // but of course, we can't reuse AUTH_UID because some other random
+  // piece of this mess assumes that AUTH_UID is somehow a trigger
+  // to use kerberos as opposed to a generic statement of intent.  This is
+  // what life is like in this code.
+  if (con->peer_uid > 0)
+  {
+    cupsFilePrintf(fp, "bearer_uid %d\n", (int)con->peer_uid);
+    cupsdSetStringf(&job->auth_bearer_uid, "AUTH_BEARER_UID=%d", (int)con->peer_uid);
+  }
 
  /*
   * Write a random number of newlines to the end of the file...

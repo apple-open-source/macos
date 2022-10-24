@@ -38,5 +38,7 @@ extern const char *str_tagr(tag_str_t, const struct region *);
 extern char *strconcat(const char *, const char *, size_t);
 extern unsigned long simple_namehash(const char *);
 extern int bounded_pwrite(int, const void *, size_t, off_t, bool *, ssize_t *);
+extern int bounded_write(int, const void *, size_t, ssize_t *);
+extern int bounded_write_zero(int, size_t, ssize_t *);
 
 #endif /* _UTILS_H */

@@ -25,6 +25,7 @@
 #define __PTHREAD_DEPENDENCY_PRIVATE__
 
 #include <os/base.h>
+#include <stdint.h>
 #include <sys/cdefs.h>
 #include <pthread/pthread.h>
 #include <Availability.h>

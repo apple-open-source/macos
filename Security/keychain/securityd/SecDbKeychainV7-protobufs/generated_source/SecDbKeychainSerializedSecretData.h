@@ -14,7 +14,6 @@
 @interface SecDbKeychainSerializedSecretData : PBCodable <NSCopying>
 {
     NSData *_ciphertext;
-    NSData *_secDbBackupWrappedItemKey;
     NSString *_tamperCheck;
     NSData *_wrappedKey;
 }
@@ -25,9 +24,6 @@
 @property (nonatomic, retain) NSData *wrappedKey;
 
 @property (nonatomic, retain) NSString *tamperCheck;
-
-@property (nonatomic, readonly) BOOL hasSecDbBackupWrappedItemKey;
-@property (nonatomic, retain) NSData *secDbBackupWrappedItemKey;
 
 // Performs a shallow copy into other
 - (void)copyTo:(SecDbKeychainSerializedSecretData *)other;

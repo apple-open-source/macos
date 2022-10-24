@@ -63,6 +63,7 @@
  *	Virtual memory mapping module.
  */
 
+#include <mach/vm_types.h>
 #include <mach_assert.h>
 
 #include <vm/vm_options.h>
@@ -106,6 +107,7 @@
 #include <mach/mach_host_server.h>
 #include <vm/vm_protos.h>
 #include <vm/vm_purgeable_internal.h>
+#include <vm/vm_reclaim_internal.h>
 
 #include <vm/vm_protos.h>
 #include <vm/vm_shared_region.h>
@@ -115,17 +117,13 @@
 
 #include <sys/resource.h>
 #include <sys/codesign.h>
+#include <sys/code_signing.h>
 #include <sys/mman.h>
 #include <sys/reboot.h>
 #include <sys/kdebug_triage.h>
 
-#if __LP64__
-#define HAVE_VM_MAP_RESERVED_ENTRY_ZONE 0
-#else
-#define HAVE_VM_MAP_RESERVED_ENTRY_ZONE 1
-#endif
-
 #include <libkern/section_keywords.h>
+
 #if DEVELOPMENT || DEBUG
 extern int proc_selfcsflags(void);
 int panic_on_unsigned_execute = 0;
@@ -175,6 +173,11 @@ static TUNABLE(bool, vm_map_executable_immutable,
     "vm_map_executable_immutable", true);
 #else
 #define vm_map_executable_immutable true
+#endif
+
+#if CONFIG_MAP_RANGES
+static TUNABLE(bool, vm_map_user_ranges, "vm_map_user_ranges", true);
+static SECURITY_READ_ONLY_LATE(uint8_t) vm_map_range_id_map[VM_MEMORY_COUNT];
 #endif
 
 os_refgrp_decl(static, map_refgrp, "vm_map", NULL);
@@ -412,6 +415,10 @@ void vm_map_footprint_query_page_info(
 	vm_map_offset_t curr_s_offset,
 	int             *disposition_p);
 
+#if CONFIG_MAP_RANGES
+static void vm_map_range_map_init(void);
+#endif /* CONFIG_MAP_RANGES */
+
 pid_t find_largest_process_vm_map_entries(void);
 
 extern int exit_with_guard_exception(void *p, mach_exception_data_type_t code,
@@ -484,7 +491,7 @@ vm_map_entry_copy(
 	new->in_transition = FALSE;
 	new->wired_count = 0;
 	new->user_wired_count = 0;
-	new->permanent = FALSE;
+	new->vme_permanent = FALSE;
 	vm_map_entry_copy_code_signing(map, new, old);
 	vm_map_entry_copy_pmap_cs_assoc(map, new, old);
 	if (new->iokit_acct) {
@@ -533,6 +540,25 @@ vm_map_try_lock_read(vm_map_t map)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+/*!
+ * @function kdp_vm_map_is_acquired_exclusive
+ *
+ * @abstract
+ * Checks if vm map is acquired exclusive.
+ *
+ * @discussion
+ * NOT SAFE: To be used only by kernel debugger.
+ *
+ * @param map map to check
+ *
+ * @returns TRUE if the map is acquired exclusively.
+ */
+boolean_t
+kdp_vm_map_is_acquired_exclusive(vm_map_t map)
+{
+	return kdp_lck_rw_lock_is_acquired_exclusive(&map->lock);
 }
 
 /*
@@ -690,44 +716,24 @@ override_nx(vm_map_t map, uint32_t user_tag) /* map unused on arm */
  *	vm_object_copy_strategically() in vm_object.c.
  */
 
-static SECURITY_READ_ONLY_LATE(zone_t) vm_map_zone;       /* zone for vm_map structures */
-static SECURITY_READ_ONLY_LATE(zone_t) vm_map_copy_zone;  /* zone for vm_map_copy structures */
-
-SECURITY_READ_ONLY_LATE(zone_t)        vm_map_entry_zone; /* zone for vm_map_entry structures */
-SECURITY_READ_ONLY_LATE(zone_t)        vm_map_holes_zone; /* zone for vm map holes (vm_map_links) structures */
-#if HAVE_VM_MAP_RESERVED_ENTRY_ZONE
-SECURITY_READ_ONLY_LATE(zone_t)        vm_map_entry_reserved_zone;
-#endif /* HAVE_VM_MAP_RESERVED_ENTRY_ZONE */
+ZONE_DECLARE_ID(ZONE_ID_VM_MAP_COPY, struct vm_map_copy);
 
 #define VM_MAP_ZONE_NAME "maps"
 #define VM_MAP_ZFLAGS ( \
 	ZC_NOENCRYPT | \
-	ZC_NOGZALLOC | \
 	ZC_VM_LP64)
 
 #define VM_MAP_ENTRY_ZONE_NAME "VM map entries"
 #define VM_MAP_ENTRY_ZFLAGS ( \
 	ZC_NOENCRYPT | \
 	ZC_CACHING | \
-	ZC_NOGZALLOC | \
 	ZC_KASAN_NOQUARANTINE | \
 	ZC_VM_LP64)
-
-#if HAVE_VM_MAP_RESERVED_ENTRY_ZONE
-#define VM_MAP_ENTRY_RESERVED_ZONE_NAME "Reserved VM map entries"
-#define VM_MAP_ENTRY_RESERVED_ZFLAGS ( \
-	ZC_NOENCRYPT | \
-	ZC_NOCACHING | \
-	ZC_NOGZALLOC | \
-	ZC_KASAN_NOQUARANTINE | \
-	ZC_VM)
-#endif /* HAVE_VM_MAP_RESERVED_ENTRY_ZONE */
 
 #define VM_MAP_HOLES_ZONE_NAME "VM map holes"
 #define VM_MAP_HOLES_ZFLAGS ( \
 	ZC_NOENCRYPT | \
 	ZC_CACHING | \
-	ZC_NOGZALLOC | \
 	ZC_KASAN_NOQUARANTINE | \
 	ZC_VM_LP64)
 
@@ -1108,31 +1114,27 @@ vm_map_init(void)
 	    sizeof(debug4k_filter));
 #endif /* MACH_ASSERT */
 
-	vm_map_zone = zone_create_ext(VM_MAP_ZONE_NAME, sizeof(struct _vm_map),
+	zone_create_ext(VM_MAP_ZONE_NAME, sizeof(struct _vm_map),
 	    VM_MAP_ZFLAGS, ZONE_ID_VM_MAP, NULL);
 
 	/*
 	 * Don't quarantine because we always need elements available
 	 * Disallow GC on this zone... to aid the GC.
 	 */
-	vm_map_entry_zone = zone_create_ext(VM_MAP_ENTRY_ZONE_NAME,
+	zone_create_ext(VM_MAP_ENTRY_ZONE_NAME,
 	    sizeof(struct vm_map_entry), VM_MAP_ENTRY_ZFLAGS,
 	    ZONE_ID_VM_MAP_ENTRY, ^(zone_t z) {
 		z->z_elems_rsv = (uint16_t)(32 *
 		(ml_early_cpu_max_number() + 1));
 	});
-#if HAVE_VM_MAP_RESERVED_ENTRY_ZONE
-	vm_map_entry_reserved_zone = zone_create(VM_MAP_ENTRY_RESERVED_ZONE_NAME,
-	    sizeof(struct vm_map_entry), VM_MAP_ENTRY_RESERVED_ZFLAGS);
-#endif /* HAVE_VM_MAP_RESERVED_ENTRY_ZONE */
 
-	vm_map_holes_zone = zone_create_ext(VM_MAP_HOLES_ZONE_NAME,
+	zone_create_ext(VM_MAP_HOLES_ZONE_NAME,
 	    sizeof(struct vm_map_links), VM_MAP_HOLES_ZFLAGS,
 	    ZONE_ID_VM_MAP_HOLES, ^(zone_t z) {
 		z->z_elems_rsv = (uint16_t)(16 * 1024 / zone_elem_size(z));
 	});
 
-	vm_map_copy_zone = zone_create_ext("VM map copies", sizeof(struct vm_map_copy),
+	zone_create_ext("VM map copies", sizeof(struct vm_map_copy),
 	    ZC_NOENCRYPT | ZC_CACHING, ZONE_ID_VM_MAP_COPY, NULL);
 
 	/*
@@ -1182,6 +1184,10 @@ vm_map_init(void)
 		    &vm_memory_malloc_no_cow_mask,
 		    sizeof(vm_memory_malloc_no_cow_mask));
 	}
+
+#if CONFIG_MAP_RANGES
+	vm_map_range_map_init();
+#endif /* CONFIG_MAP_RANGES */
 
 #if DEBUG
 	PE_parse_boot_argn("vm_check_map_sanity", &vm_check_map_sanity, sizeof(vm_check_map_sanity));
@@ -1276,7 +1282,7 @@ vm_map_disable_hole_optimization(vm_map_t map)
 
 			hole_entry->vme_next = NULL;
 			hole_entry->vme_prev = NULL;
-			zfree(vm_map_holes_zone, hole_entry);
+			zfree_id(ZONE_ID_VM_MAP_HOLES, hole_entry);
 
 			if (next_hole_entry == head_entry) {
 				hole_entry = NULL;
@@ -1453,7 +1459,7 @@ vm_map_create_options(
 	}
 #endif /* DEBUG || DEVELOPMENT */
 
-	result = zalloc_flags(vm_map_zone, Z_WAITOK | Z_NOFAIL | Z_ZERO);
+	result = zalloc_id(ZONE_ID_VM_MAP, Z_WAITOK | Z_NOFAIL | Z_ZERO);
 
 	vm_map_first_entry(result) = vm_map_to_entry(result);
 	vm_map_last_entry(result)  = vm_map_to_entry(result);
@@ -1481,10 +1487,11 @@ vm_map_create_options(
 	if (options & VM_MAP_CREATE_CORPSE_FOOTPRINT) {
 		result->has_corpse_footprint = true;
 	} else if (!(options & VM_MAP_CREATE_DISABLE_HOLELIST)) {
-		struct vm_map_links *hole_entry = zalloc(vm_map_holes_zone);
+		struct vm_map_links *hole_entry;
 
+		hole_entry = zalloc_id(ZONE_ID_VM_MAP_HOLES, Z_WAITOK | Z_NOFAIL);
 		hole_entry->start = min;
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 		hole_entry->end = result->max_offset;
 #else
 		hole_entry->end = MAX(max, (vm_map_offset_t)MACH_VM_MAX_ADDRESS);
@@ -1526,7 +1533,7 @@ vm_map_adjust_offsets(
 		struct vm_map_links *hole = map->holes_list;
 
 		hole->start = min_off;
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 		hole->end = max_off;
 #else
 		hole->end = MAX(max_off, (vm_map_offset_t)MACH_VM_MAX_ADDRESS);
@@ -1596,32 +1603,9 @@ static vm_map_entry_t
 _vm_map_entry_create(
 	struct vm_map_header    *map_header __unused)
 {
-	vm_map_entry_t  entry = NULL;
-	zone_t zone = vm_map_entry_zone;
+	vm_map_entry_t entry = NULL;
 
-#if HAVE_VM_MAP_RESERVED_ENTRY_ZONE
-	zone_security_flags_t zsflags = zone_security_array[ZONE_ID_VM_MAP_ENTRY];
-	if (map_header == &zone_submap(zsflags)->hdr) {
-		/*
-		 * If we are trying to allocate an entry for the submap
-		 * of the vm_map_entry_zone, then this can cause recursive
-		 * locking of this map.
-		 *
-		 * Try to allocate _without blocking_ from this zone,
-		 * but if it is depleted, we need to go to the
-		 * vm_map_entry_reserved_zone which is in the zalloc
-		 * "VM" submap, which can grow without taking any map lock.
-		 *
-		 * Note: the vm_map_entry_zone has a rather high "reserve"
-		 * setup in order to minimize usage of the reserved one.
-		 */
-		entry = zalloc_flags(vm_map_entry_zone, Z_NOWAIT | Z_ZERO);
-		zone = vm_map_entry_reserved_zone;
-	}
-#endif
-	if (entry == NULL) {
-		entry = zalloc_flags(zone, Z_WAITOK | Z_ZERO);
-	}
+	entry = zalloc_id(ZONE_ID_VM_MAP_ENTRY, Z_WAITOK | Z_ZERO);
 
 	/*
 	 * Help the compiler with what we know to be true,
@@ -1630,15 +1614,8 @@ _vm_map_entry_create(
 	 * See rdar://87041299
 	 */
 	__builtin_assume(entry->vme_object_value == 0);
-#if __LP64__
 	__builtin_assume(*(uint64_t *)(&entry->vme_object_value + 1) == 0);
 	__builtin_assume(*(uint64_t *)(&entry->vme_object_value + 2) == 0);
-#else
-	__builtin_assume(*(uint32_t *)(&entry->vme_object_value + 1) == 0);
-	__builtin_assume(*(uint32_t *)(&entry->vme_object_value + 2) == 0);
-	__builtin_assume(*(uint32_t *)(&entry->vme_object_value + 3) == 0);
-	__builtin_assume(*(uint32_t *)(&entry->vme_object_value + 4) == 0);
-#endif
 
 	static_assert(VM_MAX_TAG_VALUE <= VME_ALIAS_MASK,
 	    "VME_ALIAS_MASK covers tags");
@@ -1676,12 +1653,6 @@ vm_map_entry_dispose(
 #if MAP_ENTRY_INSERTION_DEBUG
 	btref_put(entry->vme_insertion_bt);
 #endif
-#if HAVE_VM_MAP_RESERVED_ENTRY_ZONE
-	if (zone_id_for_element(entry, sizeof(*entry)) != ZONE_ID_VM_MAP_ENTRY) {
-		zfree(vm_map_entry_reserved_zone, entry);
-		return;
-	}
-#endif /* HAVE_VM_MAP_RESERVED_ENTRY_ZONE */
 	zfree(vm_map_entry_zone, entry);
 }
 
@@ -1763,7 +1734,7 @@ first_free_is_valid(
 	_vm_map_store_entry_link(&(copy)->cpy_hdr, after_where, (entry))
 
 #define vm_map_copy_entry_unlink(copy, entry)                           \
-	_vm_map_store_entry_unlink(&(copy)->cpy_hdr, (entry))
+	_vm_map_store_entry_unlink(&(copy)->cpy_hdr, (entry), false)
 
 /*
  *	vm_map_destroy:
@@ -1786,10 +1757,8 @@ vm_map_destroy(
 	(void)vm_map_delete(map, map->min_offset, map->max_offset, flags,
 	    KMEM_GUARD_NONE, &zap);
 	/* clean up leftover special mappings (commpage, GPU carveout, etc...) */
-#if     !defined(__arm__)
 	(void)vm_map_delete(map, 0x0, 0xFFFFFFFFFFFFF000ULL, flags,
 	    KMEM_GUARD_NONE, &zap);
-#endif /* !__arm__ */
 
 	vm_map_disable_hole_optimization(map);
 	vm_map_corpse_footprint_destroy(map);
@@ -1804,31 +1773,9 @@ vm_map_destroy(
 		pmap_destroy(map->pmap);
 	}
 
-#if LOCKS_INDIRECT_ALLOW
-	if (vm_map_lck_attr.lck_attr_val & LCK_ATTR_DEBUG) {
-		/*
-		 * If lock debugging is enabled the mutexes get tagged as LCK_MTX_TAG_INDIRECT.
-		 * And this is regardless of whether the lck_mtx_ext_t is embedded in the
-		 * structure or kalloc'ed via lck_mtx_init.
-		 * An example is s_lock_ext within struct _vm_map.
-		 *
-		 * A lck_mtx_destroy on such a mutex will attempt a kfree and panic. We
-		 * can add another tag to detect embedded vs alloc'ed indirect external
-		 * mutexes but that'll be additional checks in the lock path and require
-		 * updating dependencies for the old vs new tag.
-		 *
-		 * Since the kfree() is for LCK_MTX_TAG_INDIRECT mutexes and that tag is applied
-		 * just when lock debugging is ON, we choose to forego explicitly destroying
-		 * the vm_map mutex and rw lock. Because the vm_map_lck_grp is
-		 * permanent, this has no serious side-effect.
-		 */
-	} else
-#endif /* LOCKS_INDIRECT_ALLOW */
-	{
-		lck_rw_destroy(&(map)->lock, &vm_map_lck_grp);
-	}
+	lck_rw_destroy(&map->lock, &vm_map_lck_grp);
 
-	zfree(vm_map_zone, map);
+	zfree_id(ZONE_ID_VM_MAP, map);
 }
 
 /*
@@ -1946,20 +1893,35 @@ vm_map_adjust_direction(
 #endif /* !ZSECURITY_CONFIG(KERNEL_DATA_SPLIT) */
 
 /*
+ *	Routine:	vm_map_range_invalid_panic
+ *	Purpose:
+ *			Panic on detection of an invalid range id.
+ */
+__abortlike
+static void
+vm_map_range_invalid_panic(
+	vm_map_t                map,
+	vm_map_range_id_t       range_id)
+{
+	panic("invalid range ID (%u) for map %p", range_id, map);
+}
+
+/*
  *	Routine:	vm_map_get_range
  *	Purpose:
  *			Adjust bounds based on security policy.
  */
-static struct kmem_range
+static struct mach_vm_range
 vm_map_get_range(
 	vm_map_t                map,
-	vm_map_offset_t        *address,
+	vm_map_address_t       *address,
 	vm_map_kernel_flags_t  *vmk_flags,
 	vm_map_size_t           size)
 {
-	struct kmem_range effective_range = {};
+	struct mach_vm_range effective_range = {};
+	vm_map_range_id_t range_id = vmk_flags->vmkf_range_id;
+
 	if (map == kernel_map) {
-		kmem_range_id_t range_id = vmk_flags->vmkf_range_id;
 		effective_range = kmem_ranges[range_id];
 
 		if (startup_phase >= STARTUP_SUB_KMEM) {
@@ -1969,9 +1931,19 @@ vm_map_get_range(
 			 * the range, causing vm_map_store_find_space to fail.
 			 */
 			*address = 0ull;
-			assert(range_id != 0);
+			/*
+			 * Ensure that range_id passed in by the caller is within meaningful
+			 * bounds. Range id of KMEM_RANGE_ID_NONE will cause vm_map_locate_space
+			 * to fail as the corresponding range is invalid. Range id larger than
+			 * KMEM_RANGE_ID_MAX will lead to an OOB access.
+			 */
+			if ((range_id == KMEM_RANGE_ID_NONE) ||
+			    (range_id > KMEM_RANGE_ID_MAX)) {
+				vm_map_range_invalid_panic(map, range_id);
+			}
 #if ZSECURITY_CONFIG(KERNEL_DATA_SPLIT)
 			/*
+			 * Each allocation front looks like [ S | L | S ]
 			 * Adjust range for allocations larger than KMEM_SMALLMAP_THRESHOLD.
 			 * Allocations smaller than KMEM_SMALLMAP_THRESHOLD are allowed to
 			 * use the entire range. Two small allocations from different fronts
@@ -1985,6 +1957,14 @@ vm_map_get_range(
 			vm_map_adjust_direction(vmk_flags, size);
 #endif /* ZSECURITY_CONFIG(KERNEL_DATA_SPLIT) */
 		}
+#if CONFIG_MAP_RANGES
+	} else if (map->uses_user_ranges) {
+		if (range_id > UMEM_RANGE_ID_MAX) {
+			vm_map_range_invalid_panic(map, range_id);
+		}
+
+		effective_range = map->user_range[range_id];
+#endif /* CONFIG_MAP_RANGES */
 	} else {
 		/*
 		 * If minimum is 0, bump it up by PAGE_SIZE.  We want to limit
@@ -2017,7 +1997,7 @@ vm_map_locate_space(
 	vm_map_offset_t        *start_inout,
 	vm_map_entry_t         *entry_out)
 {
-	struct kmem_range effective_range = {};
+	struct mach_vm_range effective_range = {};
 	vm_map_size_t   guard_offset;
 	vm_map_offset_t hint, limit;
 	vm_map_entry_t  entry;
@@ -2172,7 +2152,7 @@ vm_map_find_space(
 		new_entry->map_aligned = true;
 	}
 	if (vmk_flags.vmkf_permanent) {
-		new_entry->permanent = true;
+		new_entry->vme_permanent = true;
 	}
 
 	vm_map_lock(map);
@@ -2275,7 +2255,7 @@ vm_map_pmap_enter(
 		m = vm_page_lookup(object, offset);
 
 		if (m == VM_PAGE_NULL || m->vmp_busy || m->vmp_fictitious ||
-		    (m->vmp_unusual && (m->vmp_error || m->vmp_restart || m->vmp_absent))) {
+		    (m->vmp_unusual && (VMP_ERROR_GET(m) || m->vmp_restart || m->vmp_absent))) {
 			vm_object_unlock(object);
 			return;
 		}
@@ -2321,7 +2301,7 @@ vm_map_random_address_for_size(
 	vm_map_entry_t  prev_entry = VM_MAP_ENTRY_NULL;
 	vm_map_size_t   vm_hole_size = 0;
 	vm_map_size_t   addr_space_size;
-	struct kmem_range effective_range = vm_map_get_range(map, address, &vmk_flags, size);
+	struct mach_vm_range effective_range = vm_map_get_range(map, address, &vmk_flags, size);
 
 	addr_space_size = effective_range.max_address - effective_range.min_address;
 	if (size >= addr_space_size) {
@@ -2442,6 +2422,7 @@ vm_map_enter(
 	boolean_t               iokit_acct = vmk_flags.vmkf_iokit_acct;
 	boolean_t               resilient_codesign = ((flags & VM_FLAGS_RESILIENT_CODESIGN) != 0);
 	boolean_t               resilient_media = ((flags & VM_FLAGS_RESILIENT_MEDIA) != 0);
+	boolean_t               entry_for_tpro = ((flags & VM_FLAGS_TPRO) != 0);
 	unsigned int            superpage_size = ((flags & VM_FLAGS_SUPERPAGE_MASK) >> VM_FLAGS_SUPERPAGE_SHIFT);
 	vm_tag_t                user_alias;
 	kern_return_t           kr;
@@ -2517,8 +2498,8 @@ vm_map_enter(
 		    vm_prot_t, cur_protection);
 		printf("CODE SIGNING: %d[%s] %s: curprot cannot be write+execute. %s\n",
 		    proc_selfpid(),
-		    (current_task()->bsd_info
-		    ? proc_name_address(current_task()->bsd_info)
+		    (get_bsdtask_info(current_task())
+		    ? proc_name_address(get_bsdtask_info(current_task()))
 		    : "?"),
 		    __FUNCTION__,
 		    (vm_protect_wx_fail ? "failing" : "turning off execute"));
@@ -2565,12 +2546,18 @@ vm_map_enter(
 	}
 
 	if (is_submap) {
+		vm_map_t submap;
 		if (purgable) {
 			/* submaps can not be purgeable */
 			return KERN_INVALID_ARGUMENT;
 		}
 		if (object == VM_OBJECT_NULL) {
 			/* submaps can not be created lazily */
+			return KERN_INVALID_ARGUMENT;
+		}
+		submap = (vm_map_t) object;
+		if (VM_MAP_PAGE_SHIFT(submap) != VM_MAP_PAGE_SHIFT(map)) {
+			/* page size mismatch */
 			return KERN_INVALID_ARGUMENT;
 		}
 	}
@@ -2648,7 +2635,10 @@ vm_map_enter(
 	    (object != VM_OBJECT_NULL &&
 	    (object->vo_size != size ||
 	    object->purgable == VM_PURGABLE_DENY))
-	    || size > ANON_MAX_SIZE)) { /* LP64todo: remove when dp capable */
+#if __LP64__
+	    || size > ANON_MAX_SIZE
+#endif
+	    )) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -2660,14 +2650,6 @@ vm_map_enter(
 
 		if (flags & VM_FLAGS_RANDOM_ADDR) {
 			vmk_flags.vmkf_random_address = true;
-		}
-
-		/*
-		 * Default to data range when an explicit range id isn't specified
-		 */
-		if ((vmk_flags.vmkf_range_id == KMEM_RANGE_ID_NONE) &&
-		    (map == kernel_map)) {
-			vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
 		}
 
 		result = vm_map_locate_space(map, size, mask, vmk_flags,
@@ -2691,11 +2673,9 @@ vm_map_enter(
 			 * Allow an insertion beyond the map's max offset.
 			 */
 			effective_max_offset = 0x00000000FFFFF000ULL;
-#if !defined(__arm__)
 			if (vm_map_is_64bit(map)) {
 				effective_max_offset = 0xFFFFFFFFFFFFF000ULL;
 			}
-#endif  /* __arm__ */
 #if XNU_TARGET_OS_OSX
 		} else if (__improbable(vmk_flags.vmkf_32bit_map_va)) {
 			effective_max_offset = MIN(map->max_offset, 0x00000000FFFFF000ULL);
@@ -2739,6 +2719,7 @@ vm_map_enter(
 
 		if (overwrite) {
 			vmr_flags_t remove_flags = VM_MAP_REMOVE_NO_MAP_ALIGN;
+			kern_return_t remove_kr;
 
 			/*
 			 * Fixed mapping and "overwrite" flag: attempt to
@@ -2757,8 +2738,15 @@ vm_map_enter(
 				/* we can overwrite immutable mappings */
 				remove_flags |= VM_MAP_REMOVE_IMMUTABLE;
 			}
-			(void)vm_map_delete(map, start, end, remove_flags,
-			    KMEM_GUARD_NONE, &zap_old_list);
+			if (vmk_flags.vmkf_remap_prot_copy) {
+				remove_flags |= VM_MAP_REMOVE_IMMUTABLE_CODE;
+			}
+			remove_kr = vm_map_delete(map, start, end, remove_flags,
+			    KMEM_GUARD_NONE, &zap_old_list).kmr_return;
+			if (remove_kr) {
+				/* XXX FBDP restore zap_old_list? */
+				RETURN(remove_kr);
+			}
 		}
 
 		/*
@@ -2870,6 +2858,7 @@ vm_map_enter(
 
 	if (purgable ||
 	    entry_for_jit ||
+	    entry_for_tpro ||
 	    vm_memory_malloc_no_cow(user_alias)) {
 		if (object == VM_OBJECT_NULL) {
 			object = vm_object_allocate(size);
@@ -2918,10 +2907,10 @@ vm_map_enter(
 	    ((user_alias == VM_MEMORY_REALLOC) ||
 	    (VME_ALIAS(entry) == alias)) &&
 	    (entry->no_cache == no_cache) &&
-	    (entry->permanent == permanent) &&
+	    (entry->vme_permanent == permanent) &&
 	    /* no coalescing for immutable executable mappings */
 	    !((entry->protection & VM_PROT_EXECUTE) &&
-	    entry->permanent) &&
+	    entry->vme_permanent) &&
 	    (!entry->superpage_size && !superpage_size) &&
 	    /*
 	     * No coalescing if not map-aligned, to avoid propagating
@@ -2995,7 +2984,8 @@ vm_map_enter(
 		 * default pager.
 		 */
 		tmp_start = tmp2_start;
-		if (object == VM_OBJECT_NULL &&
+		if (!is_submap &&
+		    object == VM_OBJECT_NULL &&
 		    size > chunk_size &&
 		    max_protection != VM_PROT_NONE &&
 		    superpage_size == 0) {
@@ -3101,7 +3091,7 @@ vm_map_enter(
 					if (submap->pmap == NULL) {
 						/* let's proceed without nesting... */
 					}
-#if     defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 					else {
 						pmap_set_nested(submap->pmap);
 					}
@@ -3153,6 +3143,7 @@ vm_map_enter(
 
 				/* create one vm_object per superpage */
 				sp_object = vm_object_allocate((vm_map_size_t)(entry->vme_end - entry->vme_start));
+				sp_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
 				sp_object->phys_contiguous = TRUE;
 				sp_object->vo_shadow_offset = (vm_object_offset_t)VM_PAGE_GET_PHYS_PAGE(pages) * PAGE_SIZE;
 				VME_OBJECT_SET(entry, sp_object, false, 0);
@@ -3198,8 +3189,8 @@ BailOut:
 			result = KERN_NO_SPACE;
 			printf("%d[%s] %s: map size 0x%llx over RLIMIT_AS 0x%llx\n",
 			    proc_selfpid(),
-			    (current_task()->bsd_info
-			    ? proc_name_address(current_task()->bsd_info)
+			    (get_bsdtask_info(current_task())
+			    ? proc_name_address(get_bsdtask_info(current_task()))
 			    : "?"),
 			    __FUNCTION__,
 			    (uint64_t) map->size,
@@ -3218,8 +3209,8 @@ BailOut:
 			result = KERN_NO_SPACE;
 			printf("%d[%s] %s: map size 0x%llx over RLIMIT_DATA 0x%llx\n",
 			    proc_selfpid(),
-			    (current_task()->bsd_info
-			    ? proc_name_address(current_task()->bsd_info)
+			    (get_bsdtask_info(current_task())
+			    ? proc_name_address(get_bsdtask_info(current_task()))
 			    : "?"),
 			    __FUNCTION__,
 			    (uint64_t) map->size,
@@ -3286,9 +3277,31 @@ BailOut:
 
 	assert(map_locked == TRUE);
 
+	if (new_mapping_established) {
+		/*
+		 * If we release the map lock for any reason below,
+		 * another thread could deallocate our new mapping,
+		 * releasing the caller's reference on "caller_object",
+		 * which was transferred to the mapping.
+		 * If this was the only reference, the object could be
+		 * destroyed.
+		 *
+		 * We need to take an extra reference on "caller_object"
+		 * to keep it alive if we need to return the caller's
+		 * reference to the caller in case of failure.
+		 */
+		if (is_submap) {
+			vm_map_reference((vm_map_t)caller_object);
+		} else {
+			vm_object_reference(caller_object);
+		}
+	}
+
 	if (!keep_map_locked) {
 		vm_map_unlock(map);
 		map_locked = FALSE;
+		entry = VM_MAP_ENTRY_NULL;
+		new_entry = VM_MAP_ENTRY_NULL;
 	}
 
 	/*
@@ -3303,7 +3316,7 @@ BailOut:
 			assert(!keep_map_locked);
 			pmap_empty = FALSE; /* pmap won't be empty */
 			kr = vm_map_wire_kernel(map, start, end,
-			    new_entry->protection, VM_KERN_MEMORY_MLOCK,
+			    cur_protection, VM_KERN_MEMORY_MLOCK,
 			    TRUE);
 			result = kr;
 		}
@@ -3312,17 +3325,7 @@ BailOut:
 
 	if (result != KERN_SUCCESS) {
 		if (new_mapping_established) {
-			/*
-			 * The caller had an extra reference on the VM object
-			 * it gave us.
-			 * We've transferred that reference to the mapping we
-			 * just established but we're about to undo that mapping
-			 * and release that reference.
-			 * The caller expects its reference to be consumed on
-			 * success only, so we have to get the extra reference
-			 * back for the caller.
-			 */
-			vm_object_reference(caller_object);
+			vmr_flags_t remove_flags = VM_MAP_REMOVE_NO_FLAGS;
 
 			/*
 			 * We have to get rid of the new mappings since we
@@ -3330,13 +3333,18 @@ BailOut:
 			 * Try and do that atomically, to minimize the risk
 			 * that someone else create new mappings that range.
 			 */
-
 			if (!map_locked) {
 				vm_map_lock(map);
 				map_locked = TRUE;
 			}
-			(void)vm_map_delete(map, *address, *address + size,
-			    VM_MAP_REMOVE_NO_MAP_ALIGN | VM_MAP_REMOVE_NO_YIELD,
+			remove_flags |= VM_MAP_REMOVE_NO_MAP_ALIGN;
+			remove_flags |= VM_MAP_REMOVE_NO_YIELD;
+			if (permanent) {
+				remove_flags |= VM_MAP_REMOVE_IMMUTABLE;
+			}
+			(void) vm_map_delete(map,
+			    *address, *address + size,
+			    remove_flags,
 			    KMEM_GUARD_NONE, &zap_new_list);
 		}
 
@@ -3402,6 +3410,33 @@ BailOut:
 
 	vm_map_zap_dispose(&zap_old_list);
 	vm_map_zap_dispose(&zap_new_list);
+
+	if (new_mapping_established) {
+		/*
+		 * The caller had a reference on "caller_object" and we
+		 * transferred that reference to the mapping.
+		 * We also took an extra reference on "caller_object" to keep
+		 * it alive while the map was unlocked.
+		 */
+		if (result == KERN_SUCCESS) {
+			/*
+			 * On success, the caller's reference on the object gets
+			 * tranferred to the mapping.
+			 * Release our extra reference.
+			 */
+			if (is_submap) {
+				vm_map_deallocate((vm_map_t)caller_object);
+			} else {
+				vm_object_deallocate(caller_object);
+			}
+		} else {
+			/*
+			 * On error, the caller expects to still have a
+			 * reference on the object it gave us.
+			 * Let's use our extra reference for that.
+			 */
+		}
+	}
 
 	return result;
 
@@ -3485,8 +3520,8 @@ vm_map_enter_fourk(
 		printf("CODE SIGNING: %d[%s] %s: curprot cannot be write+execute. "
 		    "turning off execute\n",
 		    proc_selfpid(),
-		    (current_task()->bsd_info
-		    ? proc_name_address(current_task()->bsd_info)
+		    (get_bsdtask_info(current_task())
+		    ? proc_name_address(get_bsdtask_info(current_task()))
 		    : "?"),
 		    __FUNCTION__);
 		cur_protection &= ~VM_PROT_EXECUTE;
@@ -3992,14 +4027,11 @@ vm_map_enter_mem_object_helper(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	/*
-	 * Redirect to kmem_ranges[data]
-	 */
-	if (target_map == kernel_map) {
-		vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+#if __arm64__
+	if (cur_protection & VM_PROT_EXECUTE) {
+		cur_protection |= VM_PROT_READ;
 	}
 
-#if __arm64__
 	if (fourk && VM_MAP_PAGE_SHIFT(target_map) < PAGE_SHIFT) {
 		/* no "fourk" if map is using a sub-page page size */
 		fourk = FALSE;
@@ -4310,7 +4342,6 @@ vm_map_enter_mem_object_helper(
 				if (copy_entry->is_sub_map) {
 					vmk_remap_flags.vmkf_submap = TRUE;
 					vm_map_reference(copy_submap);
-					copy_object = (vm_object_t)(uintptr_t) copy_submap;
 				} else {
 					if (!copy &&
 					    copy_object != VM_OBJECT_NULL &&
@@ -4328,7 +4359,7 @@ vm_map_enter_mem_object_helper(
 						 * the named entry's lock here.
 						 */
 						// assert(copy_object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC);
-						VME_OBJECT_SHADOW(copy_entry, copy_size);
+						VME_OBJECT_SHADOW(copy_entry, copy_size, TRUE);
 						assert(copy_object != VME_OBJECT(copy_entry));
 						if (!copy_entry->needs_copy &&
 						    copy_entry->protection & VM_PROT_WRITE) {
@@ -4343,7 +4374,6 @@ vm_map_enter_mem_object_helper(
 							    0,
 							    prot);
 						}
-
 						copy_entry->needs_copy = FALSE;
 						copy_entry->is_shared = TRUE;
 						copy_object = VME_OBJECT(copy_entry);
@@ -5117,9 +5147,10 @@ extern pmap_paddr_t     avail_start, avail_end;
 kern_return_t
 vm_map_enter_cpm(
 	vm_map_t                map,
-	vm_map_offset_t *addr,
+	vm_map_offset_t        *addr,
 	vm_map_size_t           size,
-	int                     flags)
+	int                     flags,
+	vm_map_kernel_flags_t   vmk_flags)
 {
 	vm_object_t             cpm_obj;
 	pmap_t                  pmap;
@@ -5223,7 +5254,7 @@ vm_map_enter_cpm(
 		size,
 		(vm_map_offset_t)0,
 		flags,
-		VM_MAP_KERNEL_FLAGS_NONE,
+		vmk_flags,
 		cpm_obj,
 		(vm_object_offset_t)0,
 		FALSE,
@@ -5307,7 +5338,6 @@ vm_map_enter_cpm(
 		assert(!m->vmp_fictitious);
 		assert(!m->vmp_private);
 		assert(!m->vmp_absent);
-		assert(!m->vmp_error);
 		assert(!m->vmp_cleaning);
 		assert(!m->vmp_laundry);
 		assert(!m->vmp_precious);
@@ -5341,10 +5371,11 @@ vm_map_enter_cpm(
 
 kern_return_t
 vm_map_enter_cpm(
-	__unused vm_map_t       map,
+	__unused vm_map_t                map,
 	__unused vm_map_offset_t        *addr,
-	__unused vm_map_size_t  size,
-	__unused int            flags)
+	__unused vm_map_size_t           size,
+	__unused int                     flags,
+	__unused vm_map_kernel_flags_t   vmk_flags)
 {
 	return KERN_FAILURE;
 }
@@ -5807,8 +5838,8 @@ vm_map_protect(
 			    vm_prot_t, new_prot);
 			printf("CODE SIGNING: %d[%s] %s can't have both write and exec at the same time\n",
 			    proc_selfpid(),
-			    (current_task()->bsd_info
-			    ? proc_name_address(current_task()->bsd_info)
+			    (get_bsdtask_info(current_task())
+			    ? proc_name_address(get_bsdtask_info(current_task()))
 			    : "?"),
 			    __FUNCTION__);
 			return KERN_PROTECTION_FAILURE;
@@ -5829,7 +5860,6 @@ vm_map_protect(
 		cur_prot = VM_PROT_NONE;
 		kflags = VM_MAP_KERNEL_FLAGS_NONE;
 		kflags.vmkf_remap_prot_copy = TRUE;
-		kflags.vmkf_overwrite_immutable = TRUE;
 		new_start = start;
 		kr = vm_map_remap(map,
 		    &new_start,
@@ -5917,6 +5947,15 @@ vm_map_protect(
 			return KERN_PROTECTION_FAILURE;
 		}
 
+#if __arm64e__
+		/* Disallow remapping hw assisted TPRO mappings */
+		if (current->used_for_tpro) {
+			vm_map_unlock(map);
+			return KERN_PROTECTION_FAILURE;
+		}
+#endif /* __arm64e__ */
+
+
 		if ((new_prot & VM_PROT_WRITE) &&
 		    (new_prot & VM_PROT_ALLEXEC) &&
 #if XNU_TARGET_OS_OSX
@@ -5934,8 +5973,8 @@ vm_map_protect(
 			    vm_prot_t, new_prot);
 			printf("CODE SIGNING: %d[%s] %s can't have both write and exec at the same time\n",
 			    proc_selfpid(),
-			    (current_task()->bsd_info
-			    ? proc_name_address(current_task()->bsd_info)
+			    (get_bsdtask_info(current_task())
+			    ? proc_name_address(get_bsdtask_info(current_task()))
 			    : "?"),
 			    __FUNCTION__);
 			new_prot &= ~VM_PROT_ALLEXEC;
@@ -6553,13 +6592,13 @@ vm_map_wire_nested(
 					continue;
 				}
 
-				/* call vm_map_lookup_locked to */
+				/* call vm_map_lookup_and_lock_object to */
 				/* cause any needs copy to be   */
 				/* evaluated */
 				local_start = entry->vme_start;
 				lookup_map = map;
 				vm_map_lock_write_to_read(map);
-				rc = vm_map_lookup_locked(
+				rc = vm_map_lookup_and_lock_object(
 					&lookup_map, local_start,
 					(access_type | extra_prots),
 					OBJECT_LOCK_EXCLUSIVE,
@@ -6783,8 +6822,8 @@ vm_map_wire_nested(
 			    "0x%llx to 0x%llx: rejected to preserve "
 			    "code-signing\n",
 			    proc_selfpid(),
-			    (current_task()->bsd_info
-			    ? proc_name_address(current_task()->bsd_info)
+			    (get_bsdtask_info(current_task())
+			    ? proc_name_address(get_bsdtask_info(current_task()))
 			    : "?"),
 			    (uint64_t) entry->vme_start,
 			    (uint64_t) entry->vme_end);
@@ -6819,7 +6858,8 @@ vm_map_wire_nested(
 				goto done;
 			}
 
-			VME_OBJECT_SHADOW(entry, size);
+			VME_OBJECT_SHADOW(entry, size,
+			    vm_map_always_shadow(map));
 			entry->needs_copy = FALSE;
 		} else if (VME_OBJECT(entry) == VM_OBJECT_NULL) {
 			if (wire_and_extract) {
@@ -6833,6 +6873,86 @@ vm_map_wire_nested(
 			VME_OBJECT_SET(entry, vm_object_allocate(size), false, 0);
 			VME_OFFSET_SET(entry, (vm_object_offset_t)0);
 			assert(entry->use_pmap);
+		} else if (VME_OBJECT(entry)->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
+			if (wire_and_extract) {
+				/*
+				 * We're supposed to share with the original
+				 * provider so should not be COPY_SYMMETRIC.
+				 */
+				rc = KERN_INVALID_ARGUMENT;
+				goto done;
+			}
+			/*
+			 * Force an unrequested "copy-on-write" but only for
+			 * the range we're wiring.
+			 */
+//			printf("FBDP %s:%d map %p entry %p [ 0x%llx 0x%llx ] s 0x%llx end 0x%llx wire&extract=%d\n", __FUNCTION__, __LINE__, map, entry, (uint64_t)entry->vme_start, (uint64_t)entry->vme_end, (uint64_t)s, (uint64_t)end, wire_and_extract);
+			vm_map_clip_start(map, entry, s);
+			vm_map_clip_end(map, entry, end);
+			/* recompute "size" */
+			size = entry->vme_end - entry->vme_start;
+			/* make a shadow object */
+			vm_object_t orig_object;
+			vm_object_offset_t orig_offset;
+			orig_object = VME_OBJECT(entry);
+			orig_offset = VME_OFFSET(entry);
+			VME_OBJECT_SHADOW(entry, size, vm_map_always_shadow(map));
+			if (VME_OBJECT(entry) != orig_object) {
+				/*
+				 * This mapping has not been shared (or it would be
+				 * COPY_DELAY instead of COPY_SYMMETRIC) and it has
+				 * not been copied-on-write (or it would be marked
+				 * as "needs_copy" and would have been handled above
+				 * and also already write-protected).
+				 * We still need to write-protect here to prevent
+				 * other threads from modifying these pages while
+				 * we're in the process of copying and wiring
+				 * the copied pages.
+				 * Since the mapping is neither shared nor COWed,
+				 * we only need to write-protect the PTEs for this
+				 * mapping.
+				 */
+				vm_object_pmap_protect(orig_object,
+				    orig_offset,
+				    size,
+				    map->pmap,
+				    VM_MAP_PAGE_SIZE(map),
+				    entry->vme_start,
+				    entry->protection & ~VM_PROT_WRITE);
+			}
+		}
+		if (VME_OBJECT(entry)->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
+			/*
+			 * Make the object COPY_DELAY to get a stable object
+			 * to wire.
+			 * That should avoid creating long shadow chains while
+			 * wiring/unwiring the same range repeatedly.
+			 * That also prevents part of the object from being
+			 * wired while another part is "needs_copy", which
+			 * could result in conflicting rules wrt copy-on-write.
+			 */
+			vm_object_t object;
+
+			object = VME_OBJECT(entry);
+			vm_object_lock(object);
+			if (object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
+				assertf(vm_object_round_page(VME_OFFSET(entry) + size) - vm_object_trunc_page(VME_OFFSET(entry)) == object->vo_size,
+				    "object %p size 0x%llx entry %p [0x%llx:0x%llx:0x%llx] size 0x%llx\n",
+				    object, (uint64_t)object->vo_size,
+				    entry,
+				    (uint64_t)entry->vme_start,
+				    (uint64_t)entry->vme_end,
+				    (uint64_t)VME_OFFSET(entry),
+				    (uint64_t)size);
+				assertf(object->ref_count == 1,
+				    "object %p ref_count %d\n",
+				    object, object->ref_count);
+				assertf(!entry->needs_copy,
+				    "entry %p\n", entry);
+				object->copy_strategy = MEMORY_OBJECT_COPY_DELAY;
+				object->true_share = TRUE;
+			}
+			vm_object_unlock(object);
 		}
 
 		vm_map_clip_start(map, entry, s);
@@ -7463,9 +7583,9 @@ vm_map_entry_zap(
 	}
 	assert(entry->wired_count == 0);
 	assert(entry->user_wired_count == 0);
-	assert(!entry->permanent);
+	assert(!entry->vme_permanent);
 
-	vm_map_store_entry_unlink(map, entry);
+	vm_map_store_entry_unlink(map, entry, false);
 	map->size -= e - s;
 
 	vm_map_zap_append(zap, entry);
@@ -7630,7 +7750,7 @@ virt_memory_guard_ast(
 		 * raise a simulated crash.
 		 */
 		if (sync_exception_result != KERN_SUCCESS) {
-			task_violated_guard(code, subcode, NULL);
+			task_violated_guard(code, subcode, NULL, FALSE);
 		}
 	}
 }
@@ -7670,6 +7790,41 @@ vm_map_guard_exception(
 		fatal = TRUE;
 	}
 	thread_guard_violation(current_thread(), code, subcode, fatal);
+}
+
+static kern_return_t
+vm_map_delete_submap_recurse(
+	vm_map_t submap,
+	vm_map_offset_t submap_start,
+	vm_map_offset_t submap_end)
+{
+	vm_map_entry_t submap_entry;
+
+	/*
+	 * Verify that the submap does not contain any "permanent" entries
+	 * within the specified range.
+	 * We do not care about gaps.
+	 */
+
+	vm_map_lock(submap);
+
+	if (!vm_map_lookup_entry(submap, submap_start, &submap_entry)) {
+		submap_entry = submap_entry->vme_next;
+	}
+
+	for (;
+	    submap_entry != vm_map_to_entry(submap) &&
+	    submap_entry->vme_start < submap_end;
+	    submap_entry = submap_entry->vme_next) {
+		if (submap_entry->vme_permanent) {
+			/* "permanent" entry -> fail */
+			vm_map_unlock(submap);
+			return KERN_PROTECTION_FAILURE;
+		}
+	}
+	/* no "permanent" entries in the range -> success */
+	vm_map_unlock(submap);
+	return KERN_SUCCESS;
 }
 
 __abortlike
@@ -7743,10 +7898,9 @@ __options_decl(vm_map_delete_state_t, uint32_t, {
  *	interruptibly if VM_MAP_REMOVE_INTERRUPTIBLE is set.
  *
  *
- *	When VM_MAP_REMOVE_RETURN_ERRORS is not passed,
- *	then any error in removing mappings will lead to a panic
- *	so that clients do not have to repeat the panic code
- *	at each call site.  If VM_MAP_REMOVE_INTERRUPTIBLE
+ *	When the map is a kernel map, then any error in removing mappings
+ *	will lead to a panic so that clients do not have to repeat the panic
+ *	code at each call site.  If VM_MAP_REMOVE_INTERRUPTIBLE
  *	is also passed, then KERN_ABORTED will not lead to a panic.
  *
  *	This routine is called with map locked and leaves map locked.
@@ -7959,7 +8113,7 @@ vm_map_delete(
 			 * permanent entries never die, even
 			 * if VM_MAP_REMOVE_IMMUTABLE is passed.
 			 */
-			if (entry->permanent) {
+			if (entry->vme_permanent) {
 				__vm_map_delete_permanent_panic(map, start, end, entry);
 			}
 
@@ -7982,6 +8136,84 @@ vm_map_delete(
 			    start, end - start, guard);
 		}
 
+		/*
+		 * Step 2.1: handle "permanent" and "submap" entries
+		 * *before* clipping to avoid triggering some unnecessary
+		 * un-nesting of the shared region.
+		 */
+		if (entry->vme_permanent && entry->is_sub_map) {
+//			printf("FBDP %s:%d permanent submap...\n", __FUNCTION__, __LINE__);
+			/*
+			 * Un-mapping a "permanent" mapping of a user-space
+			 * submap is not allowed unless...
+			 */
+			if (flags & VM_MAP_REMOVE_IMMUTABLE) {
+				/*
+				 * a. explicitly requested by the kernel caller.
+				 */
+//				printf("FBDP %s:%d flags & REMOVE_IMMUTABLE\n", __FUNCTION__, __LINE__);
+			} else if ((flags & VM_MAP_REMOVE_IMMUTABLE_CODE) &&
+			    developer_mode_state()) {
+				/*
+				 * b. we're in "developer" mode (for
+				 *    breakpoints, dtrace probes, ...).
+				 */
+//				printf("FBDP %s:%d flags & REMOVE_IMMUTABLE_CODE\n", __FUNCTION__, __LINE__);
+			} else if (map->terminated) {
+				/*
+				 * c. this is the final address space cleanup.
+				 */
+//				printf("FBDP %s:%d map->terminated\n", __FUNCTION__, __LINE__);
+			} else {
+				vm_map_offset_t submap_start, submap_end;
+				kern_return_t submap_kr;
+
+				/*
+				 * Check if there are any "permanent" mappings
+				 * in this range in the submap.
+				 */
+				if (entry->in_transition) {
+					/* can that even happen ? */
+					goto in_transition;
+				}
+				/* compute the clipped range in the submap */
+				submap_start = s - entry->vme_start;
+				submap_start += VME_OFFSET(entry);
+				submap_end = end - entry->vme_start;
+				submap_end += VME_OFFSET(entry);
+				submap_kr = vm_map_delete_submap_recurse(
+					VME_SUBMAP(entry),
+					submap_start,
+					submap_end);
+				if (submap_kr != KERN_SUCCESS) {
+					/*
+					 * There are some "permanent" mappings
+					 * in the submap: we are not allowed
+					 * to remove this range.
+					 */
+					printf("%d[%s] removing permanent submap entry "
+					    "%p [0x%llx:0x%llx] prot 0x%x/0x%x -> KERN_PROT_FAILURE\n",
+					    proc_selfpid(),
+					    (get_bsdtask_info(current_task())
+					    ? proc_name_address(get_bsdtask_info(current_task()))
+					    : "?"), entry,
+					    (uint64_t)entry->vme_start,
+					    (uint64_t)entry->vme_end,
+					    entry->protection,
+					    entry->max_protection);
+					DTRACE_VM6(vm_map_delete_permanent_deny_submap,
+					    vm_map_entry_t, entry,
+					    vm_map_offset_t, entry->vme_start,
+					    vm_map_offset_t, entry->vme_end,
+					    vm_prot_t, entry->protection,
+					    vm_prot_t, entry->max_protection,
+					    int, VME_ALIAS(entry));
+					ret.kmr_return = KERN_PROTECTION_FAILURE;
+					goto out;
+				}
+				/* no permanent mappings: proceed */
+			}
+		}
 
 		/*
 		 * Step 3: Perform any clipping needed.
@@ -8016,6 +8248,25 @@ vm_map_delete(
 			vm_map_clip_end(map, entry, end);
 		}
 
+		if (entry->vme_permanent && entry->is_sub_map) {
+			/*
+			 * We already went through step 2.1 which did not deny
+			 * the removal of this "permanent" and "is_sub_map"
+			 * entry.
+			 * Now that we've clipped what we actually want to
+			 * delete, undo the "permanent" part to allow the
+			 * removal to proceed.
+			 */
+			DTRACE_VM6(vm_map_delete_permanent_allow_submap,
+			    vm_map_entry_t, entry,
+			    vm_map_offset_t, entry->vme_start,
+			    vm_map_offset_t, entry->vme_end,
+			    vm_prot_t, entry->protection,
+			    vm_prot_t, entry->max_protection,
+			    int, VME_ALIAS(entry));
+			entry->vme_permanent = false;
+		}
+
 		assert(s == entry->vme_start);
 		assert(entry->vme_end <= end);
 
@@ -8027,6 +8278,7 @@ vm_map_delete(
 		if (entry->in_transition) {
 			wait_result_t wait_result;
 
+in_transition:
 			/*
 			 * Another thread is wiring/unwiring this entry.
 			 * Let the other thread know we are waiting.
@@ -8213,10 +8465,30 @@ vm_map_delete(
 		 * Step 6: Entry is unwired and ready for us to delete !
 		 */
 
-		if (!entry->permanent) {
+		if (!entry->vme_permanent) {
 			/*
 			 * Typical case: the entry really shouldn't be permanent
 			 */
+		} else if ((flags & VM_MAP_REMOVE_IMMUTABLE_CODE) &&
+		    (entry->protection & VM_PROT_EXECUTE) &&
+		    developer_mode_state()) {
+			/*
+			 * Allow debuggers to undo executable mappings
+			 * when developer mode is on.
+			 */
+#if 0
+			printf("FBDP %d[%s] removing permanent executable entry "
+			    "%p [0x%llx:0x%llx] prot 0x%x/0x%x\n",
+			    proc_selfpid(),
+			    (current_task()->bsd_info
+			    ? proc_name_address(current_task()->bsd_info)
+			    : "?"), entry,
+			    (uint64_t)entry->vme_start,
+			    (uint64_t)entry->vme_end,
+			    entry->protection,
+			    entry->max_protection);
+#endif
+			entry->vme_permanent = FALSE;
 		} else if ((flags & VM_MAP_REMOVE_IMMUTABLE) || map->terminated) {
 #if 0
 			printf("FBDP %d[%s] removing permanent entry "
@@ -8230,16 +8502,10 @@ vm_map_delete(
 			    entry->protection,
 			    entry->max_protection);
 #endif
-			entry->permanent = FALSE;
+			entry->vme_permanent = FALSE;
 		} else {
-			/*
-			 * dtrace -n 'vm_map_delete_permanent {
-			 *     print("start=0x%llx end=0x%llx prot=0x%x/0x%x\n", arg0, arg1, arg2, arg3);
-			 *     stack();
-			 *     ustack();
-			 * }'
-			 */
-			DTRACE_VM5(vm_map_delete_permanent,
+			DTRACE_VM6(vm_map_delete_permanent,
+			    vm_map_entry_t, entry,
 			    vm_map_offset_t, entry->vme_start,
 			    vm_map_offset_t, entry->vme_end,
 			    vm_prot_t, entry->protection,
@@ -8361,11 +8627,33 @@ vm_map_delete(
 		next = entry->vme_next;
 		ret.kmr_size += entry->vme_end - entry->vme_start;
 
-		if (entry->permanent) {
+		if (entry->vme_permanent) {
 			/*
 			 * A permanent entry can not be removed, so leave it
 			 * in place but remove all access permissions.
 			 */
+			if (!entry->pmap_cs_associated) {
+				printf("%s:%d %d[%s] map %p entry %p [ 0x%llx - 0x%llx ] submap %d prot 0x%x/0x%x -> 0/0\n",
+				    __FUNCTION__, __LINE__,
+				    proc_selfpid(),
+				    (get_bsdtask_info(current_task())
+				    ? proc_name_address(get_bsdtask_info(current_task()))
+				    : "?"),
+				    map,
+				    entry,
+				    (uint64_t)entry->vme_start,
+				    (uint64_t)entry->vme_end,
+				    entry->is_sub_map,
+				    entry->protection,
+				    entry->max_protection);
+			}
+			DTRACE_VM6(vm_map_delete_permanent_prot_none,
+			    vm_map_entry_t, entry,
+			    vm_map_offset_t, entry->vme_start,
+			    vm_map_offset_t, entry->vme_end,
+			    vm_prot_t, entry->protection,
+			    vm_prot_t, entry->max_protection,
+			    int, VME_ALIAS(entry));
 			entry->protection = VM_PROT_NONE;
 			entry->max_protection = VM_PROT_NONE;
 		} else {
@@ -8398,7 +8686,7 @@ vm_map_delete(
 	}
 
 out:
-	if ((flags & VM_MAP_REMOVE_RETURN_ERRORS) == 0 && ret.kmr_return) {
+	if ((state & VMDS_KERNEL_PMAP) && ret.kmr_return) {
 		__vm_map_delete_failed_panic(map, start, end, ret.kmr_return);
 	}
 
@@ -8471,7 +8759,6 @@ vm_map_terminate(
 	return KERN_SUCCESS;
 }
 
-
 /*
  *	Routine:	vm_map_copy_allocate
  *
@@ -8483,7 +8770,7 @@ vm_map_copy_allocate(void)
 {
 	vm_map_copy_t new_copy;
 
-	new_copy = zalloc_flags(vm_map_copy_zone, Z_WAITOK | Z_ZERO);
+	new_copy = zalloc_id(ZONE_ID_VM_MAP_COPY, Z_WAITOK | Z_ZERO);
 	new_copy->c_u.hdr.rb_head_store.rbh_root = (void*)(int)SKIP_RB_TREE;
 	vm_map_copy_first_entry(new_copy) = vm_map_copy_to_entry(new_copy);
 	vm_map_copy_last_entry(new_copy) = vm_map_copy_to_entry(new_copy);
@@ -8542,7 +8829,7 @@ vm_map_copy_discard(
 		}
 		kfree_data(copy->cpy_kdata, copy->size);
 	}
-	zfree(vm_map_copy_zone, copy);
+	zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 }
 
 /*
@@ -8583,7 +8870,7 @@ vm_map_copy_copy(
 	 * from the old one into it.
 	 */
 
-	new_copy = (vm_map_copy_t) zalloc(vm_map_copy_zone);
+	new_copy = zalloc_id(ZONE_ID_VM_MAP_COPY, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	memcpy((void *) new_copy, (void *) copy, sizeof(struct vm_map_copy));
 #if __has_feature(ptrauth_calls)
 	if (copy->type == VM_MAP_COPY_KERNEL_BUFFER) {
@@ -8633,6 +8920,37 @@ vm_map_entry_is_overwritable(
 		 * and not cs_debugged.
 		 */
 		return FALSE;
+	}
+
+#if __arm64e__
+	/* Do not allow overwrite HW assisted TPRO entries */
+	if (entry->used_for_tpro) {
+		return FALSE;
+	}
+#endif /* __arm64e__ */
+
+	if (entry->vme_permanent) {
+		if (entry->is_sub_map) {
+			/*
+			 * We can't tell if the submap contains "permanent"
+			 * entries within the range targeted by the caller.
+			 * The caller will have to check for that with
+			 * vm_map_overwrite_submap_recurse() for example.
+			 */
+		} else {
+			/*
+			 * Do not allow overwriting of a "permanent"
+			 * entry.
+			 */
+			DTRACE_VM6(vm_map_delete_permanent_deny_overwrite,
+			    vm_map_entry_t, entry,
+			    vm_map_offset_t, entry->vme_start,
+			    vm_map_offset_t, entry->vme_end,
+			    vm_prot_t, entry->protection,
+			    vm_prot_t, entry->max_protection,
+			    int, VME_ALIAS(entry));
+			return FALSE;
+		}
 	}
 #endif /* !__x86_64__ */
 	return TRUE;
@@ -9128,6 +9446,7 @@ start_overwrite:
 					/* if this is a COW submap */
 					/* just back the range with a */
 					/* anonymous entry */
+					assert(!entry->vme_permanent);
 					if (entry->vme_end < dst_end) {
 						sub_end = entry->vme_end;
 					} else {
@@ -9146,6 +9465,7 @@ start_overwrite:
 					assert(!entry->iokit_acct);
 					entry->use_pmap = TRUE;
 					vm_map_deallocate(VME_SUBMAP(entry));
+					assert(!entry->vme_permanent);
 					VME_OBJECT_SET(entry, VM_OBJECT_NULL, false, 0);
 					VME_OFFSET_SET(entry, 0);
 					entry->is_shared = FALSE;
@@ -9588,7 +9908,7 @@ blunt_copy:
 		goto blunt_copy;
 	}
 	for (;
-	    (entry != vm_map_copy_to_entry(copy) &&
+	    (entry != vm_map_to_entry(dst_map) &&
 	    entry->vme_start < dst_addr + copy_size);
 	    entry = entry->vme_next) {
 		if (entry->is_sub_map) {
@@ -9863,7 +10183,8 @@ vm_map_copy_overwrite_unaligned(
 			}
 			VME_OBJECT_SHADOW(entry,
 			    (vm_map_size_t)(entry->vme_end
-			    - entry->vme_start));
+			    - entry->vme_start),
+			    vm_map_always_shadow(dst_map));
 			entry->needs_copy = FALSE;
 			vm_map_lock_write_to_read(dst_map);
 		}
@@ -10218,6 +10539,7 @@ vm_map_copy_overwrite_aligned(
 			}
 
 			if (old_object != VM_OBJECT_NULL) {
+				assert(!entry->vme_permanent);
 				if (entry->is_sub_map) {
 					if (entry->use_pmap) {
 #ifndef NO_NESTED_PMAP
@@ -10272,6 +10594,7 @@ vm_map_copy_overwrite_aligned(
 				/* use pmap accounting */
 				entry->use_pmap = TRUE;
 			}
+			assert(!entry->vme_permanent);
 			VME_OBJECT_SET(entry, VME_OBJECT(copy_entry), false, 0);
 			object = VME_OBJECT(entry);
 			entry->needs_copy = copy_entry->needs_copy;
@@ -10312,7 +10635,8 @@ slow_copy:
 			if (entry->needs_copy) {
 				VME_OBJECT_SHADOW(entry,
 				    (entry->vme_end -
-				    entry->vme_start));
+				    entry->vme_start),
+				    vm_map_always_shadow(dst_map));
 				entry->needs_copy = FALSE;
 			}
 
@@ -10463,10 +10787,10 @@ vm_map_copyin_kernel_buffer(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	copy = zalloc_flags(vm_map_copy_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	copy = zalloc_id(ZONE_ID_VM_MAP_COPY, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	copy->cpy_kdata = kalloc_data(len, Z_WAITOK);
 	if (copy->cpy_kdata == NULL) {
-		zfree(vm_map_copy_zone, copy);
+		zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 		return KERN_RESOURCE_SHORTAGE;
 	}
 
@@ -10477,7 +10801,7 @@ vm_map_copyin_kernel_buffer(
 	kr = copyinmap(src_map, src_addr, copy->cpy_kdata, (vm_size_t)len);
 	if (kr != KERN_SUCCESS) {
 		kfree_data(copy->cpy_kdata, len);
-		zfree(vm_map_copy_zone, copy);
+		zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 		return kr;
 	}
 
@@ -10540,6 +10864,11 @@ vm_map_copyout_kernel_buffer(
 		/*
 		 * Allocate space in the target map for the data
 		 */
+		vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
+
+		if (map == kernel_map) {
+			vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+		}
 		*addr = 0;
 		kr = vm_map_enter(map,
 		    addr,
@@ -10547,7 +10876,7 @@ vm_map_copyout_kernel_buffer(
 		    VM_MAP_PAGE_MASK(map)),
 		    (vm_map_offset_t) 0,
 		    VM_FLAGS_ANYWHERE,
-		    VM_MAP_KERNEL_FLAGS_NONE,
+		    vmk_flags,
 		    VM_KERN_MEMORY_NONE,
 		    VM_OBJECT_NULL,
 		    (vm_object_offset_t) 0,
@@ -10604,7 +10933,7 @@ vm_map_copyout_kernel_buffer(
 			/*
 			 * Deallocate the space we allocated in the target map.
 			 */
-			vm_map_remove(map,
+			(void) vm_map_remove(map,
 			    vm_map_trunc_page(*addr,
 			    VM_MAP_PAGE_MASK(map)),
 			    vm_map_round_page((*addr +
@@ -10617,7 +10946,7 @@ vm_map_copyout_kernel_buffer(
 		/* copy was successful, dicard the copy structure */
 		if (consume_on_success) {
 			kfree_data(copy->cpy_kdata, copy_size);
-			zfree(vm_map_copy_zone, copy);
+			zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 		}
 	}
 
@@ -10652,7 +10981,7 @@ vm_map_copy_insert(
 		    VM_MAP_KERNEL_FLAGS_NONE);
 		after_where = entry;
 	}
-	zfree(vm_map_copy_zone, copy);
+	zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 }
 
 /*
@@ -10868,7 +11197,7 @@ vm_map_copyout_internal(
 		/* Account for non-pagealigned copy object */
 		*dst_addr += (vm_map_offset_t)(copy->offset - offset);
 		if (consume_on_success) {
-			zfree(vm_map_copy_zone, copy);
+			zfree_id(ZONE_ID_VM_MAP_COPY, copy);
 		}
 		return KERN_SUCCESS;
 	}
@@ -11975,12 +12304,15 @@ CopySuccessful: ;
 	 * copy was successful.
 	 */
 	if (src_destroy) {
+		vmr_flags_t remove_flags = VM_MAP_REMOVE_NO_FLAGS;
+
+		if (src_map == kernel_map) {
+			remove_flags |= VM_MAP_REMOVE_KUNWIRE;
+		}
 		(void)vm_map_remove_and_unlock(src_map,
 		    vm_map_trunc_page(src_addr, VM_MAP_PAGE_MASK(src_map)),
 		    src_end,
-		    ((src_map == kernel_map) ?
-		    VM_MAP_REMOVE_KUNWIRE :
-		    VM_MAP_REMOVE_NO_FLAGS),
+		    remove_flags,
 		    KMEM_GUARD_NONE);
 	} else {
 		/* fix up the damage we did in the base map */
@@ -12285,6 +12617,7 @@ vm_map_fork_share(
 	if (old_entry->is_sub_map) {
 		assert(old_entry->wired_count == 0);
 #ifndef NO_NESTED_PMAP
+#if !PMAP_FORK_NEST
 		if (old_entry->use_pmap) {
 			kern_return_t   result;
 
@@ -12296,6 +12629,7 @@ vm_map_fork_share(
 				panic("vm_map_fork_share: pmap_nest failed!");
 			}
 		}
+#endif /* !PMAP_FORK_NEST */
 #endif  /* NO_NESTED_PMAP */
 	} else if (object == VM_OBJECT_NULL) {
 		object = vm_object_allocate((vm_map_size_t)(old_entry->vme_end -
@@ -12398,7 +12732,8 @@ vm_map_fork_share(
 		 */
 		VME_OBJECT_SHADOW(old_entry,
 		    (vm_map_size_t) (old_entry->vme_end -
-		    old_entry->vme_start));
+		    old_entry->vme_start),
+		    vm_map_always_shadow(old_map));
 
 		/*
 		 *	If we're making a shadow for other than
@@ -12598,6 +12933,62 @@ vm_map_fork_copy(
 	return TRUE;
 }
 
+#if PMAP_FORK_NEST
+#define PMAP_FORK_NEST_DEBUG 0
+static inline void
+vm_map_fork_unnest(
+	pmap_t new_pmap,
+	vm_map_offset_t pre_nested_start,
+	vm_map_offset_t pre_nested_end,
+	vm_map_offset_t start,
+	vm_map_offset_t end)
+{
+	kern_return_t kr;
+	vm_map_offset_t nesting_mask, start_unnest, end_unnest;
+
+	assertf(pre_nested_start <= pre_nested_end,
+	    "pre_nested start 0x%llx end 0x%llx",
+	    (uint64_t)pre_nested_start, (uint64_t)pre_nested_end);
+	assertf(start <= end,
+	    "start 0x%llx end 0x%llx",
+	    (uint64_t) start, (uint64_t)end);
+
+	if (pre_nested_start == pre_nested_end) {
+		/* nothing was pre-nested: done */
+		return;
+	}
+	if (end <= pre_nested_start) {
+		/* fully before pre-nested range: done */
+		return;
+	}
+	if (start >= pre_nested_end) {
+		/* fully after pre-nested range: done */
+		return;
+	}
+	/* ignore parts of range outside of pre_nested range */
+	if (start < pre_nested_start) {
+		start = pre_nested_start;
+	}
+	if (end > pre_nested_end) {
+		end = pre_nested_end;
+	}
+	nesting_mask = pmap_shared_region_size_min(new_pmap) - 1;
+	start_unnest = start & ~nesting_mask;
+	end_unnest = (end + nesting_mask) & ~nesting_mask;
+	kr = pmap_unnest(new_pmap,
+	    (addr64_t)start_unnest,
+	    (uint64_t)(end_unnest - start_unnest));
+#if PMAP_FORK_NEST_DEBUG
+	printf("PMAP_FORK_NEST %s:%d new_pmap %p 0x%llx:0x%llx -> pmap_unnest 0x%llx:0x%llx kr 0x%x\n", __FUNCTION__, __LINE__, new_pmap, (uint64_t)start, (uint64_t)end, (uint64_t)start_unnest, (uint64_t)end_unnest, kr);
+#endif /* PMAP_FORK_NEST_DEBUG */
+	assertf(kr == KERN_SUCCESS,
+	    "0x%llx 0x%llx pmap_unnest(%p, 0x%llx, 0x%llx) -> 0x%x",
+	    (uint64_t)start, (uint64_t)end, new_pmap,
+	    (uint64_t)start_unnest, (uint64_t)(end_unnest - start_unnest),
+	    kr);
+}
+#endif /* PMAP_FORK_NEST */
+
 /*
  *	vm_map_fork:
  *
@@ -12638,8 +13029,6 @@ vm_map_fork(
 	    old_map->pmap->pm_task_map != TASK_MAP_32BIT;
 #elif defined(__arm64__)
 	    old_map->pmap->is_64bit;
-#elif defined(__arm__)
-	    FALSE;
 #else
 #error Unknown architecture.
 #endif
@@ -12648,6 +13037,9 @@ vm_map_fork(
 	pmap_flags |= pmap_is64bit ? PMAP_CREATE_64BIT : 0;
 #if defined(HAS_APPLE_PAC)
 	pmap_flags |= old_map->pmap->disable_jop ? PMAP_CREATE_DISABLE_JOP : 0;
+#endif
+#if CONFIG_ROSETTA
+	pmap_flags |= old_map->pmap->is_rosetta ? PMAP_CREATE_ROSETTA : 0;
 #endif
 #if PMAP_CREATE_FORCE_4K_PAGES
 	if (VM_MAP_PAGE_SIZE(old_map) == FOURK_PAGE_SIZE &&
@@ -12682,8 +13074,24 @@ vm_map_fork(
 	/* inherit the parent map's page size */
 	vm_map_set_page_shift(new_map, VM_MAP_PAGE_SHIFT(old_map));
 
+#if CONFIG_MAP_RANGES
+	/* inherit the parent map's VM ranges */
+	vm_map_range_fork(new_map, old_map);
+#endif
 	/* ensure PMAP_CS structures are prepared for the fork */
 	pmap_cs_fork_prepare(old_map->pmap, new_pmap);
+
+#if PMAP_FORK_NEST
+	/*
+	 * Pre-nest the shared region's pmap.
+	 */
+	vm_map_offset_t pre_nested_start = 0, pre_nested_end = 0;
+	pmap_fork_nest(old_map->pmap, new_pmap,
+	    &pre_nested_start, &pre_nested_end);
+#if PMAP_FORK_NEST_DEBUG
+	printf("PMAP_FORK_NEST %s:%d old %p new %p pre_nested start 0x%llx end 0x%llx\n", __FUNCTION__, __LINE__, old_map->pmap, new_pmap, (uint64_t)pre_nested_start, (uint64_t)pre_nested_end);
+#endif /* PMAP_FORK_NEST_DEBUG */
+#endif /* PMAP_FORK_NEST */
 
 	for (old_entry = vm_map_first_entry(old_map); old_entry != vm_map_to_entry(old_map);) {
 		/*
@@ -12691,6 +13099,20 @@ vm_map_fork(
 		 */
 		if ((options & VM_MAP_FORK_CORPSE_FOOTPRINT) &&
 		    get_system_inshutdown()) {
+#if PMAP_FORK_NEST
+			new_entry = vm_map_last_entry(new_map);
+			if (new_entry == vm_map_to_entry(new_map)) {
+				/* unnest all that was pre-nested */
+				vm_map_fork_unnest(new_pmap,
+				    pre_nested_start, pre_nested_end,
+				    vm_map_min(new_map), vm_map_max(new_map));
+			} else if (new_entry->vme_end < vm_map_max(new_map)) {
+				/* unnest hole at the end, if pre-nested */
+				vm_map_fork_unnest(new_pmap,
+				    pre_nested_start, pre_nested_end,
+				    new_entry->vme_end, vm_map_max(new_map));
+			}
+#endif /* PMAP_FORK_NEST */
 			vm_map_corpse_footprint_collect_done(new_map);
 			vm_map_unlock(new_map);
 			vm_map_unlock(old_map);
@@ -12701,6 +13123,35 @@ vm_map_fork(
 		}
 
 		entry_size = old_entry->vme_end - old_entry->vme_start;
+
+#if PMAP_FORK_NEST
+		/*
+		 * Undo any unnecessary pre-nesting.
+		 */
+		vm_map_offset_t prev_end;
+		if (old_entry == vm_map_first_entry(old_map)) {
+			prev_end = vm_map_min(old_map);
+		} else {
+			prev_end = old_entry->vme_prev->vme_end;
+		}
+		if (prev_end < old_entry->vme_start) {
+			/* unnest hole before this entry, if pre-nested */
+			vm_map_fork_unnest(new_pmap,
+			    pre_nested_start, pre_nested_end,
+			    prev_end, old_entry->vme_start);
+		}
+		if (old_entry->is_sub_map && old_entry->use_pmap) {
+			/* keep this entry nested in the child */
+#if PMAP_FORK_NEST_DEBUG
+			printf("PMAP_FORK_NEST %s:%d new_pmap %p keeping 0x%llx:0x%llx nested\n", __FUNCTION__, __LINE__, new_pmap, (uint64_t)old_entry->vme_start, (uint64_t)old_entry->vme_end);
+#endif /* PMAP_FORK_NEST_DEBUG */
+		} else {
+			/* undo nesting for this entry, if pre-nested */
+			vm_map_fork_unnest(new_pmap,
+			    pre_nested_start, pre_nested_end,
+			    old_entry->vme_start, old_entry->vme_end);
+		}
+#endif /* PMAP_FORK_NEST */
 
 		old_entry_inheritance = old_entry->inheritance;
 		/*
@@ -12762,9 +13213,9 @@ vm_map_fork(
 
 			new_entry = vm_map_entry_create(new_map); /* never the kernel map or descendants */
 			vm_map_entry_copy(old_map, new_entry, old_entry);
-			if (old_entry->permanent) {
+			if (old_entry->vme_permanent) {
 				/* inherit "permanent" on fork() */
-				new_entry->permanent = TRUE;
+				new_entry->vme_permanent = TRUE;
 			}
 
 			if (new_entry->used_for_jit == TRUE && new_map->jit_entry_exists == FALSE) {
@@ -12865,6 +13316,21 @@ slow_vm_map_fork_copy:
 		old_entry = old_entry->vme_next;
 	}
 
+#if PMAP_FORK_NEST
+	new_entry = vm_map_last_entry(new_map);
+	if (new_entry == vm_map_to_entry(new_map)) {
+		/* unnest all that was pre-nested */
+		vm_map_fork_unnest(new_pmap,
+		    pre_nested_start, pre_nested_end,
+		    vm_map_min(new_map), vm_map_max(new_map));
+	} else if (new_entry->vme_end < vm_map_max(new_map)) {
+		/* unnest hole at the end, if pre-nested */
+		vm_map_fork_unnest(new_pmap,
+		    pre_nested_start, pre_nested_end,
+		    new_entry->vme_end, vm_map_max(new_map));
+	}
+#endif /* PMAP_FORK_NEST */
+
 #if defined(__arm64__)
 	pmap_insert_sharedpage(new_map->pmap);
 #endif /* __arm64__ */
@@ -12904,7 +13370,8 @@ vm_map_exec(
 	cpu_type_t      cpu,
 	cpu_subtype_t   cpu_subtype,
 	boolean_t       reslide,
-	boolean_t       is_driverkit)
+	boolean_t       is_driverkit,
+	uint32_t        rsr_version)
 {
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: task %p: vm_map_exec(%p,%p,%p,0x%x,0x%x): ->\n",
@@ -12916,7 +13383,7 @@ vm_map_exec(
 		cpu_subtype));
 	(void) vm_commpage_enter(new_map, task, is64bit);
 
-	(void) vm_shared_region_enter(new_map, task, is64bit, fsroot, cpu, cpu_subtype, reslide, is_driverkit);
+	(void) vm_shared_region_enter(new_map, task, is64bit, fsroot, cpu, cpu_subtype, reslide, is_driverkit, rsr_version);
 
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: task %p: vm_map_exec(%p,%p,%p,0x%x,0x%x): <-\n",
@@ -12968,21 +13435,21 @@ vm_map_exec(
 	return KERN_SUCCESS;
 }
 
-uint64_t vm_map_lookup_locked_copy_slowly_count = 0;
-uint64_t vm_map_lookup_locked_copy_slowly_size = 0;
-uint64_t vm_map_lookup_locked_copy_slowly_max = 0;
-uint64_t vm_map_lookup_locked_copy_slowly_restart = 0;
-uint64_t vm_map_lookup_locked_copy_slowly_error = 0;
-uint64_t vm_map_lookup_locked_copy_strategically_count = 0;
-uint64_t vm_map_lookup_locked_copy_strategically_size = 0;
-uint64_t vm_map_lookup_locked_copy_strategically_max = 0;
-uint64_t vm_map_lookup_locked_copy_strategically_restart = 0;
-uint64_t vm_map_lookup_locked_copy_strategically_error = 0;
-uint64_t vm_map_lookup_locked_copy_shadow_count = 0;
-uint64_t vm_map_lookup_locked_copy_shadow_size = 0;
-uint64_t vm_map_lookup_locked_copy_shadow_max = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_slowly_count = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_slowly_size = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_slowly_max = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_slowly_restart = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_slowly_error = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_strategically_count = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_strategically_size = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_strategically_max = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_strategically_restart = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_strategically_error = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_shadow_count = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_shadow_size = 0;
+uint64_t vm_map_lookup_and_lock_object_copy_shadow_max = 0;
 /*
- *	vm_map_lookup_locked:
+ *	vm_map_lookup_and_lock_object:
  *
  *	Finds the VM object, offset, and
  *	protection for a given virtual address in the
@@ -13009,7 +13476,7 @@ uint64_t vm_map_lookup_locked_copy_shadow_max = 0;
  *	remain the same.
  */
 kern_return_t
-vm_map_lookup_locked(
+vm_map_lookup_and_lock_object(
 	vm_map_t                *var_map,       /* IN/OUT */
 	vm_map_offset_t         vaddr,
 	vm_prot_t               fault_type,
@@ -13109,6 +13576,8 @@ submap_recurse:
 		vm_prot_t               subentry_protection;
 		vm_prot_t               subentry_max_protection;
 		boolean_t               subentry_no_copy_on_read;
+		boolean_t               subentry_permanent;
+		boolean_t               subentry_pmap_cs_associated;
 		boolean_t               mapped_needs_copy = FALSE;
 		vm_map_version_t        version;
 
@@ -13286,7 +13755,7 @@ RetrySubMap:
 					vm_map_unlock(*real_map);
 				}
 				*real_map = map;
-				kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_NO_COW_ON_EXECUTABLE), 0 /* arg */);
+				ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_NO_COW_ON_EXECUTABLE), 0 /* arg */);
 				vm_map_lock_write_to_read(map);
 				kr = KERN_PROTECTION_FAILURE;
 				DTRACE_VM4(submap_no_copy_executable,
@@ -13344,14 +13813,14 @@ RetrySubMap:
 					*real_map = map;
 					vm_object_deallocate(copy_object);
 					copy_object = VM_OBJECT_NULL;
-					kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_COPY_SLOWLY_FAILED), 0 /* arg */);
+					ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_COPY_SLOWLY_FAILED), 0 /* arg */);
 					vm_map_lock_write_to_read(map);
 					DTRACE_VM4(submap_copy_error_slowly,
 					    vm_object_t, sub_object,
 					    vm_object_offset_t, submap_entry_offset,
 					    vm_object_size_t, submap_entry_size,
 					    int, kr);
-					vm_map_lookup_locked_copy_slowly_error++;
+					vm_map_lookup_and_lock_object_copy_slowly_error++;
 					return kr;
 				}
 
@@ -13365,13 +13834,13 @@ RetrySubMap:
 					vm_object_deallocate(copy_object);
 					copy_object = VM_OBJECT_NULL;
 					vm_map_lock_write_to_read(map);
-					vm_map_lookup_locked_copy_slowly_restart++;
+					vm_map_lookup_and_lock_object_copy_slowly_restart++;
 					goto RetrySubMap;
 				}
-				vm_map_lookup_locked_copy_slowly_count++;
-				vm_map_lookup_locked_copy_slowly_size += submap_entry_size;
-				if (submap_entry_size > vm_map_lookup_locked_copy_slowly_max) {
-					vm_map_lookup_locked_copy_slowly_max = submap_entry_size;
+				vm_map_lookup_and_lock_object_copy_slowly_count++;
+				vm_map_lookup_and_lock_object_copy_slowly_size += submap_entry_size;
+				if (submap_entry_size > vm_map_lookup_and_lock_object_copy_slowly_max) {
+					vm_map_lookup_and_lock_object_copy_slowly_max = submap_entry_size;
 				}
 			} else if (sub_object->copy_strategy != MEMORY_OBJECT_COPY_SYMMETRIC) {
 				submap_entry_offset = VME_OFFSET(submap_entry);
@@ -13398,7 +13867,7 @@ RetrySubMap:
 					vm_object_deallocate(copy_object);
 					copy_object = VM_OBJECT_NULL;
 					vm_map_lock_write_to_read(map);
-					vm_map_lookup_locked_copy_strategically_restart++;
+					vm_map_lookup_and_lock_object_copy_strategically_restart++;
 					goto RetrySubMap;
 				}
 				if (kr != KERN_SUCCESS) {
@@ -13412,23 +13881,23 @@ RetrySubMap:
 					*real_map = map;
 					vm_object_deallocate(copy_object);
 					copy_object = VM_OBJECT_NULL;
-					kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_COPY_STRAT_FAILED), 0 /* arg */);
+					ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_SUBMAP_COPY_STRAT_FAILED), 0 /* arg */);
 					vm_map_lock_write_to_read(map);
 					DTRACE_VM4(submap_copy_error_strategically,
 					    vm_object_t, sub_object,
 					    vm_object_offset_t, submap_entry_offset,
 					    vm_object_size_t, submap_entry_size,
 					    int, kr);
-					vm_map_lookup_locked_copy_strategically_error++;
+					vm_map_lookup_and_lock_object_copy_strategically_error++;
 					return kr;
 				}
 				assert(copy_object != VM_OBJECT_NULL);
 				assert(copy_object != sub_object);
 				object_copied = TRUE;
-				vm_map_lookup_locked_copy_strategically_count++;
-				vm_map_lookup_locked_copy_strategically_size += submap_entry_size;
-				if (submap_entry_size > vm_map_lookup_locked_copy_strategically_max) {
-					vm_map_lookup_locked_copy_strategically_max = submap_entry_size;
+				vm_map_lookup_and_lock_object_copy_strategically_count++;
+				vm_map_lookup_and_lock_object_copy_strategically_size += submap_entry_size;
+				if (submap_entry_size > vm_map_lookup_and_lock_object_copy_strategically_max) {
+					vm_map_lookup_and_lock_object_copy_strategically_max = submap_entry_size;
 				}
 			} else {
 				/* set up shadow object */
@@ -13464,10 +13933,10 @@ RetrySubMap:
 					VM_MAP_PAGE_SIZE(map),
 					submap_entry->vme_start,
 					prot);
-				vm_map_lookup_locked_copy_shadow_count++;
-				vm_map_lookup_locked_copy_shadow_size += submap_entry_size;
-				if (submap_entry_size > vm_map_lookup_locked_copy_shadow_max) {
-					vm_map_lookup_locked_copy_shadow_max = submap_entry_size;
+				vm_map_lookup_and_lock_object_copy_shadow_count++;
+				vm_map_lookup_and_lock_object_copy_shadow_size += submap_entry_size;
+				if (submap_entry_size > vm_map_lookup_and_lock_object_copy_shadow_max) {
+					vm_map_lookup_and_lock_object_copy_shadow_max = submap_entry_size;
 				}
 			}
 
@@ -13488,6 +13957,9 @@ RetrySubMap:
 			subentry_protection = submap_entry->protection;
 			subentry_max_protection = submap_entry->max_protection;
 			subentry_no_copy_on_read = submap_entry->vme_no_copy_on_read;
+			subentry_permanent = submap_entry->vme_permanent;
+			subentry_pmap_cs_associated = submap_entry->pmap_cs_associated;
+
 			vm_map_unlock(map);
 			submap_entry = NULL; /* not valid after map unlock */
 
@@ -13577,8 +14049,10 @@ RetrySubMap:
 				entry->protection |= subentry_protection;
 			}
 			entry->max_protection |= subentry_max_protection;
-			/* propagate no_copy_on_read */
+			/* propagate some attributes from subentry */
 			entry->vme_no_copy_on_read = subentry_no_copy_on_read;
+			entry->vme_permanent = subentry_permanent;
+			entry->pmap_cs_associated = subentry_pmap_cs_associated;
 
 			if ((entry->protection & VM_PROT_WRITE) &&
 			    (entry->protection & VM_PROT_EXECUTE) &&
@@ -13598,8 +14072,8 @@ RetrySubMap:
 				    vm_prot_t, entry->protection);
 				printf("CODE SIGNING: %d[%s] %s can't have both write and exec at the same time\n",
 				    proc_selfpid(),
-				    (current_task()->bsd_info
-				    ? proc_name_address(current_task()->bsd_info)
+				    (get_bsdtask_info(current_task())
+				    ? proc_name_address(get_bsdtask_info(current_task()))
 				    : "?"),
 				    __FUNCTION__);
 				entry->protection &= ~VM_PROT_EXECUTE;
@@ -13679,7 +14153,7 @@ protection_failure:
 		/*
 		 * Noisy (esp. internally) and can be inferred from CrashReports. So OFF for now.
 		 *
-		 * kernel_triage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_PROTECTION_FAILURE), 0);
+		 * ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_PROTECTION_FAILURE), 0);
 		 */
 		return KERN_PROTECTION_FAILURE;
 	}
@@ -13727,7 +14201,8 @@ protection_failure:
 			}
 			VME_OBJECT_SHADOW(entry,
 			    (vm_map_size_t) (entry->vme_end -
-			    entry->vme_start));
+			    entry->vme_start),
+			    vm_map_always_shadow(map));
 			entry->needs_copy = FALSE;
 
 			vm_map_lock_write_to_read(map);
@@ -15080,7 +15555,7 @@ vm_map_simplify_entry(
 	    (prev_entry->use_pmap == this_entry->use_pmap) &&
 	    (VME_ALIAS(prev_entry) == VME_ALIAS(this_entry)) &&
 	    (prev_entry->no_cache == this_entry->no_cache) &&
-	    (prev_entry->permanent == this_entry->permanent) &&
+	    (prev_entry->vme_permanent == this_entry->vme_permanent) &&
 	    (prev_entry->map_aligned == this_entry->map_aligned) &&
 	    (prev_entry->zero_wired_pages == this_entry->zero_wired_pages) &&
 	    (prev_entry->used_for_jit == this_entry->used_for_jit) &&
@@ -15104,7 +15579,11 @@ vm_map_simplify_entry(
 	    (prev_entry->superpage_size == FALSE) &&
 	    (this_entry->superpage_size == FALSE)
 	    ) {
-		vm_map_store_entry_unlink(map, prev_entry);
+		if (prev_entry->vme_permanent) {
+			assert(this_entry->vme_permanent);
+			prev_entry->vme_permanent = false;
+		}
+		vm_map_store_entry_unlink(map, prev_entry, true);
 		assert(prev_entry->vme_start < this_entry->vme_end);
 		if (prev_entry->map_aligned) {
 			assert(VM_MAP_PAGE_ALIGNED(prev_entry->vme_start,
@@ -15666,7 +16145,7 @@ vm_map_entry_is_reusable(
 		entry->max_protection != VM_PROT_ALL ||
 		entry->inheritance != VM_INHERIT_DEFAULT ||
 		entry->no_cache ||
-		entry->permanent ||
+		entry->vme_permanent ||
 		entry->superpage_size != FALSE ||
 		entry->zero_wired_pages ||
 		entry->wired_count != 0 ||
@@ -16167,7 +16646,7 @@ vm_map_entry_insert(
 	 */
 	new_entry->use_pmap = !vmk_flags.vmkf_submap;
 	new_entry->no_cache = no_cache;
-	new_entry->permanent = permanent;
+	new_entry->vme_permanent = permanent;
 	new_entry->translated_allow_execute = vmk_flags.vmkf_translated_allow_execute;
 	new_entry->vme_no_copy_on_read = vmk_flags.vmkf_no_copy_on_read;
 	new_entry->superpage_size = (superpage_size != 0);
@@ -16588,8 +17067,8 @@ vm_map_remap_extract(
 				if (__improbable(copy_entry->vme_kernel_object)) {
 					printf("%d[%s]: rejecting attempt to extract from kernel_object\n",
 					    proc_selfpid(),
-					    (current_task()->bsd_info
-					    ? proc_name_address(current_task()->bsd_info)
+					    (get_bsdtask_info(current_task())
+					    ? proc_name_address(get_bsdtask_info(current_task()))
 					    : "?"));
 					DTRACE_VM(extract_kernel_only);
 					result = KERN_INVALID_RIGHT;
@@ -16632,8 +17111,8 @@ vm_map_remap_extract(
 			if (__improbable(object == kernel_object)) {
 				printf("%d[%s]: rejecting attempt to extract from kernel_object\n",
 				    proc_selfpid(),
-				    (current_task()->bsd_info
-				    ? proc_name_address(current_task()->bsd_info)
+				    (get_bsdtask_info(current_task())
+				    ? proc_name_address(get_bsdtask_info(current_task()))
 				    : "?"));
 				DTRACE_VM(extract_kernel_only);
 				result = KERN_INVALID_RIGHT;
@@ -16678,6 +17157,21 @@ vm_map_remap_extract(
 
 			if (object == VM_OBJECT_NULL) {
 				assert(!src_entry->needs_copy);
+				if (src_entry->max_protection == VM_PROT_NONE) {
+					assert(src_entry->protection == VM_PROT_NONE);
+					/*
+					 * No VM object and no permissions:
+					 * this must be a reserved range with
+					 * nothing to share or copy.
+					 * There could also be all sorts of
+					 * pmap shenanigans within that reserved
+					 * range, so let's just copy the map
+					 * entry as is to remap a similar
+					 * reserved range.
+					 */
+					offset = 0; /* no object => no offset */
+					goto copy_src_entry;
+				}
 				object = vm_object_allocate(entry_size);
 				VME_OFFSET_SET(src_entry, 0);
 				VME_OBJECT_SET(src_entry, object, false, 0);
@@ -16705,7 +17199,8 @@ vm_map_remap_extract(
 			    (object->internal && !object->true_share &&
 			    !src_entry->is_shared &&
 			    object->vo_size > entry_size)) {
-				VME_OBJECT_SHADOW(src_entry, entry_size);
+				VME_OBJECT_SHADOW(src_entry, entry_size,
+				    vm_map_always_shadow(map));
 				assert(src_entry->use_pmap);
 
 				if (!src_entry->needs_copy &&
@@ -16784,6 +17279,7 @@ vm_map_remap_extract(
 		offset = (VME_OFFSET(src_entry) +
 		    (src_start - src_entry->vme_start));
 
+copy_src_entry:
 		new_entry = _vm_map_entry_create(map_header);
 		vm_map_entry_copy(map, new_entry, src_entry);
 		if (new_entry->is_sub_map) {
@@ -16809,17 +17305,21 @@ vm_map_remap_extract(
 		new_entry->vme_end = map_address + tmp_size;
 		assert(new_entry->vme_start < new_entry->vme_end);
 		if (copy && vmk_flags.vmkf_remap_prot_copy) {
+			/* security: keep "permanent" and "pmap_cs_associated" */
+			new_entry->vme_permanent = src_entry->vme_permanent;
+			new_entry->pmap_cs_associated = src_entry->pmap_cs_associated;
 			/*
 			 * Remapping for vm_map_protect(VM_PROT_COPY)
 			 * to convert a read-only mapping into a
 			 * copy-on-write version of itself but
 			 * with write access:
-			 * keep the original inheritance and add
-			 * VM_PROT_WRITE to the max protection.
+			 * keep the original inheritance but let's not
+			 * add VM_PROT_WRITE to the max protection yet
+			 * since we want to do more security checks against
+			 * the target map.
 			 */
 			new_entry->inheritance = src_entry->inheritance;
 			new_entry->protection &= max_prot_for_prot_copy;
-			new_entry->max_protection |= VM_PROT_WRITE;
 		} else {
 			new_entry->inheritance = inheritance;
 			if (!vm_remap_legacy) {
@@ -17047,7 +17547,7 @@ RestartCopy:
 		    src_entry != CAST_TO_VM_MAP_ENTRY(&map_header->links);
 		    src_entry = new_entry) {
 			new_entry = src_entry->vme_next;
-			_vm_map_store_entry_unlink(map_header, src_entry);
+			_vm_map_store_entry_unlink(map_header, src_entry, false);
 			if (src_entry->is_sub_map) {
 				vm_map_deallocate(VME_SUBMAP(src_entry));
 			} else {
@@ -17649,11 +18149,25 @@ vm_map_range_physical_size(
 	vm_map_offset_t adjusted_start, adjusted_end;
 	vm_map_size_t   adjusted_size;
 	vm_prot_t       cur_prot, max_prot;
-	vm_map_offset_t overmap_start, overmap_end, trimmed_start;
+	vm_map_offset_t overmap_start, overmap_end, trimmed_start, end;
 	vm_map_kernel_flags_t vmk_flags;
+
+	if (size == 0) {
+		DEBUG4K_SHARE("map %p start 0x%llx size 0x%llx -> phys_size 0!\n", map, (uint64_t)start, (uint64_t)size);
+		*phys_size = 0;
+		return KERN_SUCCESS;
+	}
 
 	adjusted_start = vm_map_trunc_page(start, VM_MAP_PAGE_MASK(map));
 	adjusted_end = vm_map_round_page(start + size, VM_MAP_PAGE_MASK(map));
+	if (__improbable(os_add_overflow(start, size, &end) ||
+	    adjusted_end <= adjusted_start)) {
+		/* wraparound */
+		printf("%s:%d(start=0x%llx, size=0x%llx) pgmask 0x%x: wraparound\n", __FUNCTION__, __LINE__, (uint64_t)start, (uint64_t)size, VM_MAP_PAGE_MASK(map));
+		*phys_size = 0;
+		return KERN_INVALID_ARGUMENT;
+	}
+	assert(adjusted_end > adjusted_start);
 	adjusted_size = adjusted_end - adjusted_start;
 	*phys_size = adjusted_size;
 	if (VM_MAP_PAGE_SIZE(map) == PAGE_SIZE) {
@@ -17662,13 +18176,15 @@ vm_map_range_physical_size(
 	if (start == 0) {
 		adjusted_start = vm_map_trunc_page(start, PAGE_MASK);
 		adjusted_end = vm_map_round_page(start + size, PAGE_MASK);
+		if (__improbable(adjusted_end <= adjusted_start)) {
+			/* wraparound */
+			printf("%s:%d(start=0x%llx, size=0x%llx) pgmask 0x%x: wraparound\n", __FUNCTION__, __LINE__, (uint64_t)start, (uint64_t)size, PAGE_MASK);
+			*phys_size = 0;
+			return KERN_INVALID_ARGUMENT;
+		}
+		assert(adjusted_end > adjusted_start);
 		adjusted_size = adjusted_end - adjusted_start;
 		*phys_size = adjusted_size;
-		return KERN_SUCCESS;
-	}
-	if (adjusted_size == 0) {
-		DEBUG4K_SHARE("map %p start 0x%llx size 0x%llx adjusted 0x%llx -> phys_size 0!\n", map, (uint64_t)start, (uint64_t)size, (uint64_t)adjusted_size);
-		*phys_size = 0;
 		return KERN_SUCCESS;
 	}
 
@@ -17965,6 +18481,61 @@ vm_map_remap(
 		new_entry = entry->vme_next;
 		vm_map_copy_entry_unlink(copy_map, entry);
 		if (result == KERN_SUCCESS) {
+			if (vmk_flags.vmkf_remap_prot_copy) {
+				/*
+				 * This vm_map_remap() is for a
+				 * vm_protect(VM_PROT_COPY), so the caller
+				 * expects to be allowed to add write access
+				 * to this new mapping.  This is done by
+				 * adding VM_PROT_WRITE to each entry's
+				 * max_protection... unless some security
+				 * settings disallow it.
+				 */
+				bool allow_write = false;
+				if (entry->vme_permanent) {
+					/* immutable mapping... */
+					if ((entry->max_protection & VM_PROT_EXECUTE) &&
+					    developer_mode_state()) {
+						/*
+						 * ... but executable and
+						 * possibly being debugged,
+						 * so let's allow it to become
+						 * writable, for breakpoints
+						 * and dtrace probes, for
+						 * example.
+						 */
+						allow_write = true;
+					} else {
+						printf("%d[%s] vm_remap(0x%llx,0x%llx) VM_PROT_COPY denied on permanent mapping prot 0x%x/0x%x developer %d\n",
+						    proc_selfpid(),
+						    (get_bsdtask_info(current_task())
+						    ? proc_name_address(get_bsdtask_info(current_task()))
+						    : "?"),
+						    (uint64_t)memory_address,
+						    (uint64_t)size,
+						    entry->protection,
+						    entry->max_protection,
+						    developer_mode_state());
+						DTRACE_VM6(vm_map_delete_permanent_deny_protcopy,
+						    vm_map_entry_t, entry,
+						    vm_map_offset_t, entry->vme_start,
+						    vm_map_offset_t, entry->vme_end,
+						    vm_prot_t, entry->protection,
+						    vm_prot_t, entry->max_protection,
+						    int, VME_ALIAS(entry));
+					}
+				} else {
+					allow_write = true;
+				}
+
+				/*
+				 * VM_PROT_COPY: allow this mapping to become
+				 * writable, unless it was "permanent".
+				 */
+				if (allow_write) {
+					entry->max_protection |= VM_PROT_WRITE;
+				}
+			}
 			if (flags & VM_FLAGS_RESILIENT_CODESIGN) {
 				/* no codesigning -> read-only access */
 				entry->max_protection = VM_PROT_READ;
@@ -18066,8 +18637,12 @@ vm_map_remap_range_allocate(
 		if (flags & VM_FLAGS_RANDOM_ADDR) {
 			vmk_flags.vmkf_random_address = true;
 		}
+
 		if (start) {
-			vmk_flags.vmkf_range_id = kmem_addr_get_range(start, size);
+			/* override the target range if a hint has been provided */
+			vmk_flags.vmkf_range_id = (map == kernel_map ?
+			    kmem_addr_get_range(start, size) :
+			    VM_MAP_REMAP_RANGE_ID(map, NULL, start, size));
 		}
 
 		kr = vm_map_locate_space(map, size, mask, vmk_flags,
@@ -18121,8 +18696,15 @@ vm_map_remap_range_allocate(
 			if (vmk_flags.vmkf_overwrite_immutable) {
 				remove_flags |= VM_MAP_REMOVE_IMMUTABLE;
 			}
-			(void)vm_map_delete(map, start, end, remove_flags,
-			    KMEM_GUARD_NONE, zap_list);
+			if (vmk_flags.vmkf_remap_prot_copy) {
+				remove_flags |= VM_MAP_REMOVE_IMMUTABLE_CODE;
+			}
+			kr = vm_map_delete(map, start, end, remove_flags,
+			    KMEM_GUARD_NONE, zap_list).kmr_return;
+			if (kr != KERN_SUCCESS) {
+				/* XXX FBDP restore zap_list? */
+				return kr;
+			}
 		}
 
 		/*
@@ -18546,7 +19128,7 @@ vm_map_footprint_query_page_info(
 	} else if (pmap_disp & (PMAP_QUERY_PAGE_ALTACCT |
 	    PMAP_QUERY_PAGE_COMPRESSED_ALTACCT)) {
 		/* alternate accounting */
-#if (__arm__ || __arm64__) && (DEVELOPMENT || DEBUG)
+#if __arm64__ && (DEVELOPMENT || DEBUG)
 		if (map->pmap->footprint_was_suspended) {
 			/*
 			 * The assertion below can fail if dyld
@@ -18558,7 +19140,7 @@ vm_map_footprint_query_page_info(
 			 * accounting".
 			 */
 		} else
-#endif /* (__arm__ || __arm64__) && (DEVELOPMENT || DEBUG) */
+#endif /* __arm64__ && (DEVELOPMENT || DEBUG) */
 		{
 			assertf(!map_entry->use_pmap, "offset 0x%llx map_entry %p", (uint64_t) curr_s_offset, map_entry);
 		}
@@ -19596,7 +20178,7 @@ vm_map_disallow_data_exec(vm_map_t map)
 void
 vm_map_set_32bit(vm_map_t map)
 {
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 	map->max_offset = pmap_max_offset(FALSE, ARM_PMAP_MAX_OFFSET_DEVICE);
 #else
 	map->max_offset = (vm_map_offset_t)VM_MAX_ADDRESS;
@@ -19607,7 +20189,7 @@ vm_map_set_32bit(vm_map_t map)
 void
 vm_map_set_64bit(vm_map_t map)
 {
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 	map->max_offset = pmap_max_offset(TRUE, ARM_PMAP_MAX_OFFSET_DEVICE);
 #else
 	map->max_offset = (vm_map_offset_t)MACH_VM_MAX_ADDRESS;
@@ -19620,7 +20202,7 @@ vm_map_set_64bit(vm_map_t map)
 void
 vm_map_set_jumbo(vm_map_t map)
 {
-#if defined (__arm64__) && !defined(CONFIG_ARROW)
+#if defined (__arm64__) && !XNU_TARGET_OS_OSX
 	vm_map_set_max_addr(map, ~0);
 #else /* arm64 */
 	(void) map;
@@ -19641,20 +20223,38 @@ vm_map_set_jit_entitled(vm_map_t map)
 }
 
 /*
+ * This map has TPRO enabled
+ */
+void
+vm_map_set_tpro(vm_map_t map)
+{
+#if defined (__arm64e__)
+	pmap_set_tpro(map->pmap);
+#else /* arm64e */
+	(void) map;
+#endif
+}
+
+/*
  * Expand the maximum size of an existing map.
  */
 void
 vm_map_set_max_addr(vm_map_t map, vm_map_offset_t new_max_offset)
 {
 #if defined(__arm64__)
-	vm_map_offset_t max_supported_offset = 0;
-	vm_map_offset_t old_max_offset = map->max_offset;
+	vm_map_offset_t max_supported_offset;
+	vm_map_offset_t old_max_offset;
+
+	vm_map_lock(map);
+
+	old_max_offset = map->max_offset;
 	max_supported_offset = pmap_max_offset(vm_map_is_64bit(map), ARM_PMAP_MAX_OFFSET_JUMBO);
 
 	new_max_offset = trunc_page(new_max_offset);
 
 	/* The address space cannot be shrunk using this routine. */
 	if (old_max_offset >= new_max_offset) {
+		vm_map_unlock(map);
 		return;
 	}
 
@@ -19664,24 +20264,30 @@ vm_map_set_max_addr(vm_map_t map, vm_map_offset_t new_max_offset)
 
 	map->max_offset = new_max_offset;
 
-	if (map->holes_list->prev->vme_end == old_max_offset) {
-		/*
-		 * There is already a hole at the end of the map; simply make it bigger.
-		 */
-		map->holes_list->prev->vme_end = map->max_offset;
-	} else {
-		/*
-		 * There is no hole at the end, so we need to create a new hole
-		 * for the new empty space we're creating.
-		 */
-		struct vm_map_links *new_hole = zalloc(vm_map_holes_zone);
-		new_hole->start = old_max_offset;
-		new_hole->end = map->max_offset;
-		new_hole->prev = map->holes_list->prev;
-		new_hole->next = (struct vm_map_entry *)map->holes_list;
-		map->holes_list->prev->links.next = (struct vm_map_entry *)new_hole;
-		map->holes_list->prev = (struct vm_map_entry *)new_hole;
+	if (map->holelistenabled) {
+		if (map->holes_list->prev->vme_end == old_max_offset) {
+			/*
+			 * There is already a hole at the end of the map; simply make it bigger.
+			 */
+			map->holes_list->prev->vme_end = map->max_offset;
+		} else {
+			/*
+			 * There is no hole at the end, so we need to create a new hole
+			 * for the new empty space we're creating.
+			 */
+			struct vm_map_links *new_hole;
+
+			new_hole = zalloc_id(ZONE_ID_VM_MAP_HOLES, Z_WAITOK | Z_NOFAIL);
+			new_hole->start = old_max_offset;
+			new_hole->end = map->max_offset;
+			new_hole->prev = map->holes_list->prev;
+			new_hole->next = (struct vm_map_entry *)map->holes_list;
+			map->holes_list->prev->links.next = (struct vm_map_entry *)new_hole;
+			map->holes_list->prev = (struct vm_map_entry *)new_hole;
+		}
 	}
+
+	vm_map_unlock(map);
 #else
 	(void)map;
 	(void)new_max_offset;
@@ -19691,7 +20297,7 @@ vm_map_set_max_addr(vm_map_t map, vm_map_offset_t new_max_offset)
 vm_map_offset_t
 vm_compute_max_offset(boolean_t is64)
 {
-#if defined(__arm__) || defined(__arm64__)
+#if defined(__arm64__)
 	return pmap_max_offset(is64, ARM_PMAP_MAX_OFFSET_DEVICE);
 #else
 	return is64 ? (vm_map_offset_t)MACH_VM_MAX_ADDRESS : (vm_map_offset_t)VM_MAX_ADDRESS;
@@ -19740,14 +20346,12 @@ vm_map_get_max_loader_aslr_slide_pages(vm_map_t map)
 #endif
 }
 
-#ifndef __arm__
 boolean_t
 vm_map_is_64bit(
 	vm_map_t map)
 {
 	return map->max_offset > ((vm_map_offset_t)VM_MAX_ADDRESS);
 }
-#endif
 
 boolean_t
 vm_map_has_hard_pagezero(
@@ -19843,9 +20447,11 @@ vm_map_raise_min_offset(
 
 	map->min_offset = new_min_offset;
 
-	assert(map->holes_list);
-	map->holes_list->start = new_min_offset;
-	assert(new_min_offset < map->holes_list->end);
+	if (map->holelistenabled) {
+		assert(map->holes_list);
+		map->holes_list->start = new_min_offset;
+		assert(new_min_offset < map->holes_list->end);
+	}
 
 	vm_map_unlock(map);
 
@@ -20065,7 +20671,7 @@ vm_map_sign(vm_map_t map,
 		}
 		/* deal with special page status */
 		if (m->vmp_busy ||
-		    (m->vmp_unusual && (m->vmp_error || m->vmp_restart || m->vmp_private || m->vmp_absent))) {
+		    (m->vmp_unusual && (VMP_ERROR_GET(m) || m->vmp_restart || m->vmp_private || m->vmp_absent))) {
 			vm_object_unlock(object);
 			return KERN_FAILURE;
 		}
@@ -20200,7 +20806,7 @@ vm_map_inject_error(vm_map_t map, vm_map_offset_t vaddr)
 	vaddr = vm_map_trunc_page(vaddr, PAGE_MASK);
 	vm_map_lock(map);
 
-	result = vm_map_lookup_locked(&map, vaddr, VM_PROT_READ,
+	result = vm_map_lookup_and_lock_object(&map, vaddr, VM_PROT_READ,
 	    OBJECT_LOCK_EXCLUSIVE, &version, &object, &offset, &prot, &wired,
 	    NULL, &real_map, NULL);
 	if (object == NULL) {
@@ -21587,6 +22193,244 @@ vm_map_get_pmap(vm_map_t map)
 	return vm_map_pmap(map);
 }
 
+#if CONFIG_MAP_RANGES
+/*
+ * vm_map_range_map_init:
+ *  initializes the VM range ID map to enable index lookup
+ *  of user VM ranges based on VM tag from userspace.
+ */
+static void
+vm_map_range_map_init(void)
+{
+	/* maintain status quo by default */
+	for (int i = 0; i < VM_MEMORY_COUNT; i++) {
+		vm_map_range_id_map[i] = UMEM_RANGE_ID_DEFAULT;
+	}
+
+	/* move all MALLOC allocations to heap range  */
+	vm_map_range_id_map[VM_MEMORY_MALLOC] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_HUGE] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_LARGE] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_LARGE_REUSABLE] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_LARGE_REUSED] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_MEDIUM] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_NANO] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_PGUARD] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_PROB_GUARD] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_SMALL] = UMEM_RANGE_ID_HEAP;
+	vm_map_range_id_map[VM_MEMORY_MALLOC_TINY] = UMEM_RANGE_ID_HEAP;
+}
+
+/*
+ * vm_map_range_configure:
+ *	configures the user vm_map ranges by increasing the maximum VA range of
+ *  the map and carving out a range at the end of VA space (searching backwards
+ *  in the newly expanded map).
+ */
+kern_return_t
+vm_map_range_configure(vm_map_t map)
+{
+	vm_map_size_t           addr_space_size;
+	vm_map_offset_t         start, end, saved_max, random_addr;
+
+	if (!vm_map_user_ranges) {
+		return KERN_SUCCESS;
+	}
+
+	/* Should not be applying ranges to kernel map or kernel map submaps */
+	assert(map != kernel_map);
+	assert(vm_map_pmap(map) != kernel_pmap);
+
+	/* save the existing max offset */
+	vm_map_lock_read(map);
+	saved_max = map->max_offset;
+	vm_map_unlock_read(map);
+
+	/*
+	 * Check that we're not already jumbo'd. If so we cannot guarantee that
+	 * we can set up the ranges safely without interfering with the existing
+	 * map.
+	 */
+	if (saved_max > vm_compute_max_offset(vm_map_is_64bit(map))) {
+		return KERN_NO_SPACE;
+	}
+
+	/* expand the default VM space to the largest possible address */
+	vm_map_set_jumbo(map);
+
+	vm_map_lock(map);
+	addr_space_size = map->max_offset - saved_max;
+
+	if (addr_space_size <= VM_MAP_USER_RANGE_MAX) {
+		vm_map_unlock(map);
+		return KERN_NO_SPACE;
+	}
+
+	addr_space_size -= VM_MAP_USER_RANGE_MAX;
+	random_addr = (vm_map_offset_t)random();
+	random_addr <<= VM_MAP_PAGE_SHIFT(map);
+	random_addr %= addr_space_size;
+
+	/*
+	 * round off the start so we begin on a L2 TT boundary and ensure we have
+	 * at least a ARM_TT_L2_SIZE sized hole between existing map range and
+	 * new range(s).
+	 */
+	start = vm_map_round_page(saved_max + random_addr + 1, ARM_TT_L2_OFFMASK);
+	end = MIN(map->max_offset, start + VM_MAP_USER_RANGE_MAX);
+	assert(start > saved_max);
+	assert(end <= map->max_offset);
+
+	/* default range covers the "normal" heap range */
+	map->user_range[UMEM_RANGE_ID_DEFAULT].min_address = map->min_offset;
+	map->user_range[UMEM_RANGE_ID_DEFAULT].max_address = saved_max;
+
+	/* heap range covers the new extended range */
+	map->user_range[UMEM_RANGE_ID_HEAP].min_address = start;
+	map->user_range[UMEM_RANGE_ID_HEAP].max_address = end;
+	map->uses_user_ranges = true;
+	vm_map_unlock(map);
+
+	return KERN_SUCCESS;
+}
+
+/*
+ * vm_map_range_fork:
+ *	clones the array of ranges from old_map to new_map in support
+ *  of a VM map fork.
+ */
+void
+vm_map_range_fork(vm_map_t new_map, vm_map_t old_map)
+{
+	int i = 0;
+
+	if (!old_map->uses_user_ranges) {
+		/* nothing to do */
+		return;
+	}
+
+	for (i = 0; i < UMEM_RANGE_COUNT; i++) {
+		new_map->user_range[i].min_address = old_map->user_range[i].min_address;
+		new_map->user_range[i].max_address = old_map->user_range[i].max_address;
+	}
+
+	new_map->uses_user_ranges = true;
+}
+
+/*
+ * vm_map_get_user_range_id:
+ *	looks up the vm_map_range_id_map lookup table to determine which range ID to
+ *  utilize for any given user memory tag. If no ranges are present return the
+ *  default range.
+ */
+__attribute__((overloadable))
+vm_map_range_id_t
+vm_map_get_user_range_id(vm_map_t map, uint16_t tag)
+{
+	vm_map_range_id_t range_id = UMEM_RANGE_ID_DEFAULT;
+
+	if (map != NULL && map->uses_user_ranges && tag < VM_MEMORY_COUNT) {
+		range_id = vm_map_range_id_map[tag];
+	}
+
+	return range_id;
+}
+
+/*
+ * vm_map_get_user_range_id:
+ *	determines which range ID the given addr/size combination maps to. If
+ *  range ID cannot be determined return the default range.
+ */
+__attribute__((overloadable))
+vm_map_range_id_t
+vm_map_get_user_range_id(
+	vm_map_t                map,
+	mach_vm_offset_t        addr,
+	mach_vm_size_t          size)
+{
+	vm_map_range_id_t range_id = UMEM_RANGE_ID_MAX;
+
+	if (map == NULL || !map->uses_user_ranges) {
+		return UMEM_RANGE_ID_DEFAULT;
+	}
+
+	for (; range_id > UMEM_RANGE_ID_DEFAULT; --range_id) {
+		if (mach_vm_range_contains(&map->user_range[range_id], addr, size)) {
+			break;
+		}
+	}
+
+	assert(range_id < UMEM_RANGE_COUNT);
+	return range_id;
+}
+
+/*
+ * vm_map_get_user_range:
+ *	copy the VM user range for the given VM map and range ID.
+ */
+kern_return_t
+vm_map_get_user_range(
+	vm_map_t                map,
+	vm_map_range_id_t       range_id,
+	mach_vm_range_t         range)
+{
+	if (map == NULL ||
+	    !map->uses_user_ranges ||
+	    range_id > UMEM_RANGE_ID_MAX ||
+	    range == NULL) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	*range = map->user_range[range_id];
+	return KERN_SUCCESS;
+}
+#endif /* CONFIG_MAP_RANGES */
+
+/*
+ * vm_map_entry_has_device_pager:
+ * Check if the vm map entry specified by the virtual address has a device pager.
+ * If the vm map entry does not exist or if the map is NULL, this returns FALSE.
+ */
+boolean_t
+vm_map_entry_has_device_pager(vm_map_t map, vm_map_offset_t vaddr)
+{
+	vm_map_entry_t entry;
+	vm_object_t object;
+	boolean_t result;
+
+	if (map == NULL) {
+		return FALSE;
+	}
+
+	vm_map_lock(map);
+	while (TRUE) {
+		if (!vm_map_lookup_entry(map, vaddr, &entry)) {
+			result = FALSE;
+			break;
+		}
+		if (entry->is_sub_map) {
+			// Check the submap
+			vm_map_t submap = VME_SUBMAP(entry);
+			assert(submap != NULL);
+			vm_map_lock(submap);
+			vm_map_unlock(map);
+			map = submap;
+			continue;
+		}
+		object = VME_OBJECT(entry);
+		if (object != NULL && object->pager != NULL && is_device_pager_ops(object->pager->mo_pager_ops)) {
+			result = TRUE;
+			break;
+		}
+		result = FALSE;
+		break;
+	}
+
+	vm_map_unlock(map);
+	return result;
+}
+
+
 #if MACH_ASSERT
 
 extern int pmap_ledgers_panic;
@@ -21732,4 +22576,14 @@ MACRO_END
 		}
 	}
 }
+
+void
+vm_map_pmap_set_process(
+	vm_map_t map,
+	int pid,
+	char *procname)
+{
+	pmap_set_process(vm_map_pmap(map), pid, procname);
+}
+
 #endif /* MACH_ASSERT */

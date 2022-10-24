@@ -34,7 +34,6 @@
 #include "dictionary.h"
 #include "SharedMemoryClient.h"
 
-#include <securityd_client/ucspNotify.h>
 #include <security_utilities/casts.h>
 
 #include <Security/SecKeychain.h>

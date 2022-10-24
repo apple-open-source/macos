@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2015-08-04</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceProject</key>
+	<string>ee</string>
+	<key>OpenSourceSCM</key>
+	<string>svn co http://svn.freebsd.org/base/head/contrib/ee/</string>
+	<key>OpenSourceVersion</key>
+	<string>2011-12-17</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://svnweb.freebsd.org/base/head/contrib/ee/</string>
+</dict>

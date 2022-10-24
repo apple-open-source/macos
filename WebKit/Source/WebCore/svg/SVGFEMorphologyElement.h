@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -46,9 +46,9 @@ struct SVGPropertyTraits<MorphologyOperatorType> {
 
     static MorphologyOperatorType fromString(const String& value)
     {
-        if (value == "erode")
+        if (value == "erode"_s)
             return MorphologyOperatorType::Erode;
-        if (value == "dilate")
+        if (value == "dilate"_s)
             return MorphologyOperatorType::Dilate;
         return MorphologyOperatorType::Unknown;
     }
@@ -80,8 +80,9 @@ private:
     void parseAttribute(const QualifiedName&, const AtomString&) override;
     void svgAttributeChanged(const QualifiedName&) override;
 
-    bool setFilterEffectAttribute(FilterEffect*, const QualifiedName&) override;
-    RefPtr<FilterEffect> build(SVGFilterBuilder&) const override;
+    bool setFilterEffectAttribute(FilterEffect&, const QualifiedName&) override;
+    Vector<AtomString> filterEffectInputsNames() const override { return { AtomString { in1() } }; }
+    RefPtr<FilterEffect> createFilterEffect(const FilterEffectVector&, const GraphicsContext& destinationContext) const override;
 
     PropertyRegistry m_propertyRegistry { *this };
     Ref<SVGAnimatedString> m_in1 { SVGAnimatedString::create(this) };

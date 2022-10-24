@@ -142,7 +142,7 @@ db_build(ifiles)
 
 		/* Find the end of the name field. */
 		if ((p = strchr(bp, ':')) == NULL) {
-			warnx("no name field: %.*s", MIN(len, 20), bp);
+			warnx("no name field: %.*s", (int)MIN(len, 20), bp);
 			continue;
 		}
 
@@ -153,7 +153,7 @@ db_build(ifiles)
 			break;
 		case 2:
 			((char *)(data.data))[0] = TCERR;
-			warnx("Record not tc expanded: %.*s", p - bp, bp);
+			warnx("Record not tc expanded: %.*s", (int)(p - bp), bp);
 			break;
 		}
 
@@ -171,7 +171,7 @@ db_build(ifiles)
 			/* NOTREACHED */
 		case 1:
 			warnx("ignored duplicate: %.*s",
-			    key.size, (char *)key.data);
+			    (int)key.size, (char *)key.data);
 			continue;
 		}
 		++reccnt;
@@ -197,7 +197,7 @@ db_build(ifiles)
 					/* NOTREACHED */
 				case 1:
 					warnx("ignored duplicate: %.*s",
-					    key.size, (char *)key.data);
+					    (int)key.size, (char *)key.data);
 				}
 				t = p + 1;
 			}

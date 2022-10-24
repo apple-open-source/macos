@@ -2466,7 +2466,7 @@ open_xattrfile(vnode_t vp, int fileflags, vnode_t *xvpp, vfs_context_t context)
 	char smallname[64];
 	char *filename = NULL;
 	const char *basename = NULL;
-	size_t alloc_len;
+	size_t alloc_len = 0;
 	size_t copy_len;
 	errno_t error;
 	int opened = 0;

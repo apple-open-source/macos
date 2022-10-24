@@ -1,2 +1,4 @@
-Regexp: .{4294967295}
+Regexp: .{2147483647}
+input: Fail
+Regexp: .{2147483648}
    failed to compile

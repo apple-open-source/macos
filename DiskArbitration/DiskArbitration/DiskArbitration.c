@@ -30,7 +30,10 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 #include <Security/Authorization.h>
+#endif
+#include <os/log.h>
 
 CFDictionaryRef kDADiskDescriptionMatchMediaUnformatted   = NULL;
 CFDictionaryRef kDADiskDescriptionMatchMediaWhole         = NULL;
@@ -44,8 +47,9 @@ __private_extern__ char *      _DADiskGetID( DADiskRef disk );
 __private_extern__ mach_port_t _DADiskGetSessionID( DADiskRef disk );
 __private_extern__ void        _DADiskInitialize( void );
 __private_extern__ void        _DADiskSetDescription( DADiskRef disk, CFDictionaryRef description );
-
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session );
+#endif
 __private_extern__ mach_port_t      _DASessionGetID( DASessionRef session );
 __private_extern__ void             _DASessionInitialize( void );
 
@@ -53,11 +57,21 @@ __private_extern__ void             _DASessionInitialize( void );
  * Helper functions used by framework for storing callback information in the session's register dictionary
  *
  */
-__private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator, mach_vm_offset_t address, mach_vm_offset_t context);
+__private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
+                                                           mach_vm_offset_t address,
+                                                           mach_vm_offset_t context,
+                                                           _DACallbackKind kind,
+                                                           CFIndex         order,
+                                                           CFDataRef match,
+                                                           CFDataRef      watch,
+                                                           bool block);
 __private_extern__ SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback);
 __private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index);
 __private_extern__ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address, mach_vm_offset_t context);
 __private_extern__ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index);
+__private_extern__ DAReturn _DASessionRecreate( DASessionRef session );
+__private_extern__ bool _DASessionIsKeepAlive( DASessionRef session );
+
 
 static void __DAInitialize( void )
 {
@@ -152,7 +166,8 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
                                   CFTypeRef      argument2,
                                   CFTypeRef      argument3,
                                   void *         address,
-                                  void *         context )
+                                  void *         context,
+                                  bool           block )
 {
     DAReturn status;
 
@@ -163,6 +178,15 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
         CFDataRef _argument2 = NULL;
         CFDataRef _argument3 = NULL;
 
+#if TARGET_OS_IOS
+        if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                goto exit;
+            }
+        }
+#endif
         if ( argument2 )  _argument2 = _DASerialize( kCFAllocatorDefault, argument2 );
         if ( argument3 )  _argument3 = _DASerialize( kCFAllocatorDefault, argument3 );
 
@@ -170,7 +194,7 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
          * store the callback and context in the session instead of passing it directly over to the server for security reasons.
          * pass the handle to the callback object to the server which will be used to lookup the correct callback
          */
-        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context);
+        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context, UINT32_MAX, NULL, NULL, NULL, block );
         SInt32 index = DAAddCallbackToSession(session, callback);
         CFRelease(callback);
         status = _DAServerSessionQueueRequest( _DASessionGetID( session ),
@@ -187,7 +211,7 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
         if ( _argument2 )  CFRelease( _argument2 );
         if ( _argument3 )  CFRelease( _argument3 );
     }
-
+exit:
     return status;
 }
                               
@@ -201,7 +225,18 @@ static void __DAQueueResponse( DASessionRef    session,
 {
     CFDataRef _response = NULL;
 
+#if TARGET_OS_IOS
+    if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
+    {
+        if ( _DASessionRecreate (session) != kDAReturnSuccess )
+        {
+            return;
+        }
+    }
+#endif
+    
     if ( response )  _response = _DASerialize( kCFAllocatorDefault, response );
+    
 
     _DAServerSessionQueueResponse( _DASessionGetID( session ),
                                    ( uintptr_t              ) address,
@@ -220,6 +255,9 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
     DAReturn status;
 
     status = kDAReturnNotPrivileged;
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_BRIDGE
+    status = kDAReturnSuccess;
+#endif
 
     if ( status )
     {
@@ -243,6 +281,7 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
         }
     }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     if ( status )
     {
         AuthorizationRef authorization;
@@ -329,7 +368,7 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
             }
         }
     }
-
+#endif
     return status;
 }
 
@@ -362,7 +401,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 {
     DADiskRef disk     = NULL;
     CFTypeRef response = NULL;
-    
+
     if ( argument0 )
     {
         disk = _DADiskCreateFromSerialization( CFGetAllocator( session ), session, argument0 );
@@ -373,6 +412,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
      * Use it as the key to find the actual callback address and context
      */
     SInt32 index = address;
+
     CFMutableDictionaryRef callback = DAGetCallbackFromSession(session, index);
     if (NULL == callback)
     {
@@ -380,6 +420,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
     }
     address = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
     context = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
+    int block = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackBlockKey );
     
     if (NULL == address)
     {
@@ -389,95 +430,201 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
     {
         case _kDADiskAppearedCallback:
         {
-            ( ( DADiskAppearedCallback ) address )( disk, context );
+            if ( block )
+            {
+                ( ( DADiskAppearedCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                ( ( DADiskAppearedCallback ) address )( disk, context );
+            }
+            
 
             break;
         }
         case _kDADiskClaimCallback:
         {
-            ( ( DADiskClaimCallback ) address )( disk, argument1, context );
+            if ( block )
+            {
+                ( ( DADiskClaimCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskClaimCallback ) address )( disk, argument1, context );
+            }
 
             break;
         }
         case _kDADiskClaimReleaseCallback:
         {
-            response = ( ( DADiskClaimReleaseCallback ) address )( disk, context );
-
+            if ( block )
+            {
+                response = ( ( DADiskClaimReleaseCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                response = ( ( DADiskClaimReleaseCallback ) address )( disk, context );
+            }
             response = response ? response : kCFNull;
 
             break;
         }
         case _kDADiskDescriptionChangedCallback:
         {
-            ( ( DADiskDescriptionChangedCallback ) address )( disk, argument1, context );
+            if ( block )
+            {
+                ( ( DADiskDescriptionChangedCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskDescriptionChangedCallback ) address )( disk, argument1, context );
+            }
 
             break;
         }
         case _kDADiskDisappearedCallback:
         {
-            ( ( DADiskDisappearedCallback ) address )( disk, context );
-
+            if ( block )
+            {
+                ( ( DADiskDisappearedCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                ( ( DADiskDisappearedCallback ) address )( disk, context );
+            }
+            
             break;
         }
         case _kDADiskEjectCallback:
         {
-            ( ( DADiskEjectCallback ) address )( disk, argument1, context );
-
+            if ( block )
+            {
+                ( ( DADiskEjectCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskEjectCallback ) address )( disk, argument1, context );
+            }
             break;
         }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         case _kDADiskEjectApprovalCallback:
         {
-            response = ( ( DADiskEjectApprovalCallback ) address )( disk, context );
-
+            if ( block )
+            {
+                response = ( ( DADiskEjectApprovalCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                response = ( ( DADiskEjectApprovalCallback ) address )( disk, context );
+            }
+            
             response = response ? response : kCFNull;
             
             break;
         }
+#endif
         case _kDADiskMountCallback:
         {
-            ( ( DADiskMountCallback ) address )( disk, argument1, context );
+            if ( block )
+            {
+                ( ( DADiskMountCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskMountCallback ) address )( disk, argument1, context );
+            }
 
             break;
         }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         case _kDADiskMountApprovalCallback:
         {
-            response = ( ( DADiskMountApprovalCallback ) address )( disk, context );
+            if ( block )
+            {
+                response = ( ( DADiskMountApprovalCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                response = ( ( DADiskMountApprovalCallback ) address )( disk, context );
+            }
 
             response = response ? response : kCFNull;
             
             break;
         }
+#endif
         case _kDADiskPeekCallback:
         {
-            ( ( DADiskPeekCallback ) address )( disk, context );
-
+            if ( block )
+            {
+                ( ( DADiskPeekCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                ( ( DADiskPeekCallback ) address )( disk, context );
+                
+            }
+            
             response = kCFNull;
 
             break;
         }
         case _kDADiskRenameCallback:
         {
-            ( ( DADiskRenameCallback ) address )( disk, argument1, context );
+            if ( block )
+            {
+                ( ( DADiskRenameCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskRenameCallback ) address )( disk, argument1, context );
+            }
 
             break;
         }
         case _kDADiskUnmountCallback:
         {
-            ( ( DADiskUnmountCallback ) address )( disk, argument1, context );
+            if ( block )
+            {
+                ( ( DADiskUnmountCallbackBlock ) address )( disk, argument1 );
+            }
+            else
+            {
+                ( ( DADiskUnmountCallback ) address )( disk, argument1, context );
+            }
 
             break;
         }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         case _kDADiskUnmountApprovalCallback:
         {
-            response = ( ( DADiskUnmountApprovalCallback ) address )( disk, context );
-
+            if ( block )
+            {
+                response = ( ( DADiskUnmountApprovalCallbackBlock ) address )( disk );
+            }
+            else
+            {
+                response = ( ( DADiskUnmountApprovalCallback ) address )( disk, context );
+            }
+            
             response = response ? response : kCFNull;
             
             break;
         }
+#endif
         case _kDAIdleCallback:
         {
-            ( ( DAIdleCallback ) address )( context );
+            
+            if  ( block )
+            {
+                ( ( DAIdleCallbackBlock ) address )( );
+            }
+            else
+            {
+                ( ( DAIdleCallback ) address )( context );
+            }
+            
 
             break;
         }
@@ -538,21 +685,31 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              _DACallbackKind kind,
                                              CFIndex         order,
                                              CFDictionaryRef match,
-                                             CFArrayRef      watch )
+                                             CFArrayRef      watch,
+                                             bool block )
 {
     if ( session )
     {
         CFDataRef _match = NULL;
         CFDataRef _watch = NULL;
-
+        
+#if TARGET_OS_IOS
+    if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
+    {
+        if ( _DASessionRecreate (session) != kDAReturnSuccess )
+        {
+            return;
+        }
+    }
+#endif
         if ( match )  _match = _DASerializeDiskDescription( kCFAllocatorDefault, match );
         if ( watch )  _watch = _DASerialize( kCFAllocatorDefault, watch );
-
+        
         /*
          * store the callback and context in the session instead of passing it directly over to the server for security reasons.
          * pass the handle to the callback object to the server which will be used to lookup the correct callback
          */
-        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context);
+        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context, kind, order, _match, _watch, block);
         SInt32 index = DAAddCallbackToSession(session, callback);
         CFRelease(callback);
         _DAServerSessionRegisterCallback( _DASessionGetID( session ),
@@ -579,17 +736,27 @@ __private_extern__ void _DAUnregisterCallback( DASessionRef session, void * addr
          * pass the handle to the callback object to the server to unregister the callback
          * since only the keys are passed to the server to avoid security issues.
          */
+#if TARGET_OS_IOS
+    if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
+    {
+        if ( _DASessionRecreate (session) != kDAReturnSuccess )
+        {
+            return;
+        }
+    }
+#endif
         SInt32 matchingIndex = DARemoveCallbackFromSession(session, address, context);
         _DAServerSessionUnregisterCallback( _DASessionGetID( session ), ( uintptr_t ) matchingIndex, ( uintptr_t ) matchingIndex );
     }
 }
 
-void DADiskClaim( DADiskRef                  disk,
-                  DADiskClaimOptions         options,
-                  DADiskClaimReleaseCallback release,
-                  void *                     releaseContext,
-                  DADiskClaimCallback        callback,
-                  void *                     callbackContext )
+__private_extern__ void DADiskClaimCommon ( DADiskRef                  disk,
+                        DADiskClaimOptions         options,
+                        DADiskClaimReleaseCallback release,
+                        void *                     releaseContext,
+                        DADiskClaimCallback        callback,
+                        void *                     callbackContext,
+                        bool                       block )
 {
     CFNumberRef _release;
     CFNumberRef _releaseContext;
@@ -603,13 +770,13 @@ void DADiskClaim( DADiskRef                  disk,
          * store the callback and context in the session instead of passing it directly over to the server for security reasons.
          * pass the handle to the callback object to the server which will be used to lookup the correct callback
          */
-        CFMutableDictionaryRef   releaseCallback =  DACallbackCreate(kCFAllocatorDefault, release, releaseContext);
+        CFMutableDictionaryRef   releaseCallback =  DACallbackCreate(kCFAllocatorDefault, release, releaseContext, UINT32_MAX, NULL, NULL, NULL, block );
         SInt32 index = DAAddCallbackToSession(_DADiskGetSession( disk ), releaseCallback);
         CFRelease(releaseCallback);
         _release        = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault,  index );
         _releaseContext = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault,  index );
 
-        status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskClaim, disk, options, _release, _releaseContext, callback, callbackContext );
+        status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskClaim, disk, options, _release, _releaseContext, callback, callbackContext, block );
 
         if ( _release        )  CFRelease( _release        );
         if ( _releaseContext )  CFRelease( _releaseContext );
@@ -623,14 +790,33 @@ void DADiskClaim( DADiskRef                  disk,
 
             dissenter = DADissenterCreate( kCFAllocatorDefault, status, NULL );
 
-            ( callback )( disk, dissenter, callbackContext );
+            if ( block )
+            {
+                DADiskClaimCallbackBlock callbackBlock = (DADiskClaimCallbackBlock) callback;
+                ( callbackBlock )( disk, dissenter );
+                Block_release ( callbackBlock );
+            }
+            else
+            {
+                ( callback )( disk, dissenter, callbackContext );
+            }
 
             CFRelease( dissenter );
         }
     }
 }
 
-void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context )
+void DADiskClaim( DADiskRef                  disk,
+                  DADiskClaimOptions         options,
+                  DADiskClaimReleaseCallback release,
+                  void *                     releaseContext,
+                  DADiskClaimCallback        callback,
+                  void *                     callbackContext )
+{
+    DADiskClaimCommon( disk, options, release, releaseContext, callback, callbackContext, false );
+}
+
+__private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block )
 {
     DAReturn status;
 
@@ -642,7 +828,7 @@ void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallbac
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskEject, disk, options, NULL, NULL, callback, context );
+            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskEject, disk, options, NULL, NULL, callback, context, block );
         }
     }
 
@@ -654,13 +840,28 @@ void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallbac
 
             dissenter = DADissenterCreate( kCFAllocatorDefault, status, NULL );
 
-            ( callback )( disk, dissenter, context );
+            if ( block )
+            {
+                DADiskEjectCallbackBlock callbackBlock = (DADiskEjectCallbackBlock) callback;
+                ( callbackBlock )(  disk, dissenter );
+                Block_release ( callbackBlock );
+            }
+            else
+            {
+                ( callback )(  disk, dissenter, context );
+            }
 
             CFRelease( dissenter );
         }
     }
 }
 
+void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context )
+{
+    DADiskEjectCommon(disk, options, callback, context, false );
+}
+
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 DADiskOptions DADiskGetOptions( DADiskRef disk )
 {
     int32_t options;
@@ -674,6 +875,7 @@ DADiskOptions DADiskGetOptions( DADiskRef disk )
 
     return options;
 }
+#endif
 
 Boolean DADiskIsClaimed( DADiskRef disk )
 {
@@ -683,9 +885,20 @@ Boolean DADiskIsClaimed( DADiskRef disk )
 
     if ( disk )
     {
+        
+#if TARGET_OS_IOS
+        DASessionRef session = _DADiskGetSession( disk);
+        if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                goto exit;
+            }
+        }
+#endif
         _DAServerDiskIsClaimed( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), &claimed );
     }
-
+exit:
     return claimed;
 }
 
@@ -694,12 +907,13 @@ void DADiskMount( DADiskRef disk, CFURLRef path, DADiskMountOptions options, DAD
     DADiskMountWithArguments( disk, path, options, callback, context, NULL );
 }
 
-void DADiskMountWithArguments( DADiskRef           disk,
+__private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk,
                                CFURLRef            path,
                                DADiskMountOptions  options,
                                DADiskMountCallback callback,
                                void *              context,
-                               CFStringRef         arguments[] )
+                               CFStringRef         arguments[],
+                               bool                block )
 {
     CFMutableStringRef argument;
     DAReturn           status;
@@ -767,7 +981,7 @@ void DADiskMountWithArguments( DADiskRef           disk,
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskMount, disk, options, path ? CFURLGetString( path ) : NULL, argument, callback, context );
+            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskMount, disk, options, path ? CFURLGetString( path ) : NULL, argument, callback, context, block );
         }
     }
 
@@ -788,15 +1002,33 @@ void DADiskMountWithArguments( DADiskRef           disk,
             DADissenterRef dissenter;
 
             dissenter = DADissenterCreate( kCFAllocatorDefault, status, NULL );
-
-            ( callback )( disk, dissenter, context );
+            if ( block )
+            {
+                 DADiskMountCallbackBlock callbackBlock = (DADiskMountCallbackBlock) callback;
+                 ( callbackBlock )( disk, dissenter );
+                 Block_release ( callbackBlock );
+            }
+            else
+            {
+                ( callback )( disk, dissenter, context );
+            }
 
             CFRelease( dissenter );
         }
     }
 }
 
-void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context )
+void DADiskMountWithArguments( DADiskRef           disk,
+                               CFURLRef            path,
+                               DADiskMountOptions  options,
+                               DADiskMountCallback callback,
+                               void *              context,
+                               CFStringRef         arguments[] )
+{
+    DADiskMountWithArgumentsCommon( disk, path, options, callback, context, arguments, false );
+}
+
+__private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context, bool block )
 {
     DAReturn status;
 
@@ -812,7 +1044,7 @@ void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options
 
                 if ( status == kDAReturnSuccess )
                 {
-                    status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskRename, disk, options, name, NULL, callback, context );
+                    status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskRename, disk, options, name, NULL, callback, context, block );
                 }
             }
         }
@@ -826,13 +1058,27 @@ void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options
 
             dissenter = DADissenterCreate( kCFAllocatorDefault, status, NULL );
 
-            ( callback )( disk, dissenter, context );
+            if ( block )
+            {
+                DADiskRenameCallbackBlock callbackBlock = (DADiskRenameCallbackBlock) callback;
+                ( callbackBlock )(  disk, dissenter );
+                Block_release ( callbackBlock );
+            }
+            else
+            {
+                ( callback )(  disk, dissenter, context );
+            }
 
             CFRelease( dissenter );
         }
     }
 }
 
+void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context )
+{
+    DADiskRenameCommon( disk, name, options, callback, context, false );
+}
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 DAReturn DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value )
 {
     DAReturn status;
@@ -846,8 +1092,9 @@ DAReturn DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value 
 
     return status;
 }
+#endif
 
-void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context )
+__private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context, bool block )
 {
     DAReturn status;
 
@@ -859,7 +1106,7 @@ void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountC
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskUnmount, disk, options, NULL, NULL, callback, context );
+            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskUnmount, disk, options, NULL, NULL, callback, context, block );
         }
     }
 
@@ -871,11 +1118,25 @@ void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountC
 
             dissenter = DADissenterCreate( kCFAllocatorDefault, status, NULL );
 
-            ( callback )( disk, dissenter, context );
+            if ( block )
+            {
+                DADiskUnmountCallbackBlock callbackBlock = ( DADiskUnmountCallbackBlock ) callback;
+                ( callbackBlock )(  disk, dissenter );
+                Block_release ( callbackBlock);
+            }
+            else
+            {
+                ( callback )(  disk, dissenter, context );
+            }
 
             CFRelease( dissenter );
         }
     }
+}
+
+void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context )
+{
+    DADiskUnmountCommon( disk, options, callback, context, false );
 }
 
 void DARegisterDiskAppearedCallback( DASessionRef           session,
@@ -883,7 +1144,7 @@ void DARegisterDiskAppearedCallback( DASessionRef           session,
                                      DADiskAppearedCallback callback,
                                      void *                 context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskAppearedCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskAppearedCallback, 0, match, NULL, false );
 }
 
 void DARegisterDiskDescriptionChangedCallback( DASessionRef                     session,
@@ -892,7 +1153,7 @@ void DARegisterDiskDescriptionChangedCallback( DASessionRef                     
                                                DADiskDescriptionChangedCallback callback,
                                                void *                           context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskDescriptionChangedCallback, 0, match, watch );
+    _DARegisterCallback( session, callback, context, _kDADiskDescriptionChangedCallback, 0, match, watch, false );
 }
 
 void DARegisterDiskDisappearedCallback( DASessionRef              session,
@@ -900,32 +1161,34 @@ void DARegisterDiskDisappearedCallback( DASessionRef              session,
                                         DADiskDisappearedCallback callback,
                                         void *                    context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskDisappearedCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskDisappearedCallback, 0, match, NULL, false );
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskEjectApprovalCallback callback,
                                           void *                      context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskEjectApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskEjectApprovalCallback, 0, match, NULL, false );
 }
-
+#endif
 void DARegisterDiskPeekCallback( DASessionRef        session,
                                  CFDictionaryRef     match,
                                  CFIndex             order,
                                  DADiskPeekCallback  callback,
                                  void *              context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskPeekCallback, order, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskPeekCallback, order, match, NULL, false );
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DARegisterDiskMountApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskMountApprovalCallback callback,
                                           void *                      context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskMountApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskMountApprovalCallback, 0, match, NULL, false );
 }
 
 void DARegisterDiskUnmountApprovalCallback( DASessionRef                  session,
@@ -933,13 +1196,24 @@ void DARegisterDiskUnmountApprovalCallback( DASessionRef                  sessio
                                             DADiskUnmountApprovalCallback callback,
                                             void *                        context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskUnmountApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskUnmountApprovalCallback, 0, match, NULL, false );
 }
 
+#endif
 void DADiskUnclaim( DADiskRef disk )
 {
     if ( disk )
     {
+#if TARGET_OS_IOS
+        DASessionRef session = _DADiskGetSession( disk);
+        if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                return;
+            }
+        }
+#endif
         _DAServerDiskUnclaim( _DADiskGetSessionID( disk ), _DADiskGetID( disk ) );
     }
 }
@@ -949,7 +1223,9 @@ void DAUnregisterCallback( DASessionRef session, void * callback, void * context
     _DAUnregisterCallback( session, callback, context );
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 void DAUnregisterApprovalCallback( DASessionRef session, void * callback, void * context )
 {
     _DAUnregisterCallback( session, callback, context );
 }
+#endif

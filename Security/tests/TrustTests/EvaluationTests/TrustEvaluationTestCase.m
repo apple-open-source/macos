@@ -50,6 +50,7 @@
 + (void) setUp {
     /* Use the production Valid DB by default (so we'll have data to test against) */
     CFPreferencesSetAppValue(CFSTR("ValidUpdateServer"), kValidUpdateProdServer, kSecurityPreferencesDomain);
+    CFPreferencesSetAppValue(CFSTR("DefaultHTTPTimeout"), (__bridge CFNumberRef)(@10), kSecurityPreferencesDomain);
     CFPreferencesAppSynchronize(kSecurityPreferencesDomain);
 
     NSURL *tmpDirURL = setUpTmpDir();

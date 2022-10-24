@@ -127,7 +127,7 @@ GetByStatus GetByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
     if (!structureID)
         return GetByStatus(NoInformation, false);
 
-    Structure* structure = vm.heap.structureIDTable().get(structureID);
+    Structure* structure = structureID.decode();
 
     if (structure->takesSlowPathInDFGForImpureProperty())
         return GetByStatus(NoInformation, false);
@@ -215,7 +215,7 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(
         return GetByStatus(NoInformation);
         
     case CacheType::GetByIdSelf: {
-        Structure* structure = stubInfo->inlineAccessBaseStructure(profiledBlock->vm());
+        Structure* structure = stubInfo->inlineAccessBaseStructure();
         if (structure->takesSlowPathInDFGForImpureProperty())
             return GetByStatus(JSC::slowVersion(summary), stubInfo);
         CacheableIdentifier identifier = stubInfo->identifier();

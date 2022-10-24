@@ -12,6 +12,8 @@ Patches = \
 	src__cmd__ksh93__sh.1.diff \
 	src__lib__libast__features__lib.diff \
 	src__lib__libast__features__common.diff \
+	src__lib__libcmd__Mamfile.diff \
+	src__lib__libsum__Mamfile.diff \
 	src__cmd__ksh93__jobs.c.diff \
 	src__cmd__ksh93__parse.c.diff \
 	src__cmd__ksh93__sh__array.c.diff \

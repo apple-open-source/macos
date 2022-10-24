@@ -95,7 +95,7 @@
 		<key>com.apple.kpi.mach</key>
 		<string>8.0.0b2</string>
 		<key>com.apple.kpi.private</key>
-		<string>8.0.0</string>
+		<string>22.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0b2</string>
 	</dict>

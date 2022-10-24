@@ -34,6 +34,7 @@
 #include <arm/vmparam.h>
 #include <arm/cpu_data_internal.h>
 #include <arm/misc_protos.h>
+#include <arm64/machine_machdep.h>
 #include <arm64/proc_reg.h>
 #include <sys/random.h>
 #if __has_feature(ptrauth_calls)
@@ -363,8 +364,9 @@ machine_thread_state_convert_to_user(
 	}
 
 	// Note that kernel threads never have disable_user_jop set
-	if (current_thread()->machine.disable_user_jop || !thread_is_64bit_addr(current_thread()) ||
-	    thread->machine.disable_user_jop || !thread_is_64bit_addr(thread)
+	if ((current_thread()->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+	    !thread_is_64bit_addr(current_thread()) ||
+	    (thread->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) || !thread_is_64bit_addr(thread)
 	    ) {
 		ts64->flags = __DARWIN_ARM_THREAD_STATE64_FLAGS_NO_PTRAUTH;
 		return KERN_SUCCESS;
@@ -494,7 +496,7 @@ machine_thread_state_check_pac_state(
 {
 	bool send_event = false;
 	task_t task = current_task();
-	void *proc = task->bsd_info;
+	void *proc = get_bsdtask_info(task);
 	char *proc_name = (char *) "unknown";
 
 	if (((ts64->flags & __DARWIN_ARM_THREAD_STATE64_FLAGS_KERNEL_SIGNED_PC) &&
@@ -524,7 +526,7 @@ machine_thread_state_check_sigreturn_token(
 	thread_t thread)
 {
 	task_t task = current_task();
-	void *proc = task->bsd_info;
+	void *proc = get_bsdtask_info(task);
 	char *proc_name = (char *) "unknown";
 	bool token_matched = true;
 	bool kernel_signed_pc = !!(ts64->flags & __DARWIN_ARM_THREAD_STATE64_FLAGS_KERNEL_SIGNED_PC);
@@ -618,8 +620,10 @@ machine_thread_state_convert_from_user(
 	}
 
 	// Note that kernel threads never have disable_user_jop set
-	if (current_thread()->machine.disable_user_jop || !thread_is_64bit_addr(current_thread())) {
-		if (thread->machine.disable_user_jop || !thread_is_64bit_addr(thread)) {
+	if ((current_thread()->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+	    !thread_is_64bit_addr(current_thread())) {
+		if ((thread->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+		    !thread_is_64bit_addr(thread)) {
 			ts64->flags = __DARWIN_ARM_THREAD_STATE64_FLAGS_NO_PTRAUTH;
 			return KERN_SUCCESS;
 		}
@@ -628,7 +632,8 @@ machine_thread_state_convert_from_user(
 	}
 
 	if (ts64->flags & __DARWIN_ARM_THREAD_STATE64_FLAGS_NO_PTRAUTH) {
-		if (thread->machine.disable_user_jop || !thread_is_64bit_addr(thread)
+		if ((thread->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+		    !thread_is_64bit_addr(thread)
 		    ) {
 			return KERN_SUCCESS;
 		}
@@ -756,8 +761,9 @@ machine_thread_siguctx_pointer_convert_to_user(
 	user_addr_t *uctxp)
 {
 #if __has_feature(ptrauth_calls)
-	if (current_thread()->machine.disable_user_jop || !thread_is_64bit_addr(current_thread())) {
-		assert(thread->machine.disable_user_jop || !thread_is_64bit_addr(thread));
+	if ((current_thread()->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+	    !thread_is_64bit_addr(current_thread())) {
+		assert((thread->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) || !thread_is_64bit_addr(thread));
 		return KERN_SUCCESS;
 	}
 
@@ -790,8 +796,10 @@ machine_thread_function_pointers_convert_from_user(
 	uint32_t count)
 {
 #if __has_feature(ptrauth_calls)
-	if (current_thread()->machine.disable_user_jop || !thread_is_64bit_addr(current_thread())) {
-		assert(thread->machine.disable_user_jop || !thread_is_64bit_addr(thread));
+	if ((current_thread()->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+	    !thread_is_64bit_addr(current_thread())) {
+		assert((thread->machine.arm_machine_flags & ARM_MACHINE_THREAD_DISABLE_USER_JOP) ||
+		    !thread_is_64bit_addr(thread));
 		return KERN_SUCCESS;
 	}
 

@@ -81,6 +81,10 @@ main(int argc, char **argv)
 		argv++;
 		(void)printf("%s\n", p);
 	}
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 

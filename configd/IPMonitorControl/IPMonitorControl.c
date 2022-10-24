@@ -71,7 +71,7 @@ struct IPMonitorControl {
 STATIC CFStringRef	__IPMonitorControlCopyDebugDesc(CFTypeRef cf);
 STATIC void		__IPMonitorControlDeallocate(CFTypeRef cf);
 
-STATIC CFTypeID __kIPMonitorControlTypeID = _kCFRuntimeNotATypeID;
+STATIC CFTypeID __kIPMonitorControlTypeID;
 
 STATIC const CFRuntimeClass __IPMonitorControlClass = {
     0,					/* version */

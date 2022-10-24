@@ -149,8 +149,8 @@ private:
 
     // Keyboard Event Repeats
     IOHIDEventRef   _keyRepeatEvent;
-    UInt32          _keyRepeatInitialDelayMS;
-    UInt32          _keyRepeatDelayMS;
+    uint64_t        _keyRepeatInitialDelayMS;
+    uint64_t        _keyRepeatDelayMS;
 
     IOHIDEventRef   _delayedCapsLockEvent;
     UInt32          _capsLockDelayMS;
@@ -212,7 +212,7 @@ private:
     void dispatchSlowKey(void);
     void resetSlowKey(void);
 
-    IOHIDEventRef processKeyRepeats(IOHIDEventRef event, UInt32 keyRepeatInitialDelayMS, UInt32 keyRepeatDelayMS);
+    IOHIDEventRef processKeyRepeats(IOHIDEventRef event, uint64_t keyRepeatInitialDelayMS, uint64_t keyRepeatDelayMS);
     void dispatchKeyRepeat(void);
 
     void processCapsLockState(IOHIDEventRef event);

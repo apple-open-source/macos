@@ -71,7 +71,7 @@ MachServer::MachServer(const char *name, const Bootstrap &boot)
 void MachServer::setup(const char *name)
 {
 	workerTimeout = 60 * 2;	// 2 minutes default timeout
-	maxWorkerCount = 100;	// sanity check limit
+	maxWorkerCount = 100;	// make sure we don't go too wide
 	useFloatingThread = false; // tight thread management
     
     mPortSet += mServerPort;
@@ -81,24 +81,6 @@ MachServer::~MachServer()
 {
 	// The ReceivePort members will clean themselves up.
 	// The bootstrap server will clear us from its map when our receive port dies.
-}
-
-
-//
-// Add and remove extra listening ports.
-// Messages directed to those ports are dispatched through the main handler.
-// To get automatic call-out to another handler, use the Handler class.
-//
-void MachServer::add(Port receiver)
-{
-    secinfo("machserver", "port add: %d", receiver.port());
-	mPortSet += receiver;
-}
-
-void MachServer::remove(Port receiver)
-{
-    secinfo("machserver", "port remove: %d", receiver.port());
-	mPortSet -= receiver;
 }
 
 

@@ -53,3 +53,4 @@
 #define ND_ASCII_TOUPPER(c)	(((c) >= 'a' && (c) <= 'z') ? (c) - 'a' + 'A' : (c))
 
 #endif /* netdissect-ctype.h */
+

@@ -2025,6 +2025,26 @@
     CFRELEASE_NULL(afterAttributes);
 }
 
+- (void)testUpdatingCredUUIDShouldFail
+{
+
+    HeimCredGlobalCTX.isMultiUser = NO;
+    HeimCredGlobalCTX.useUidMatching = YES;
+    _currentUid = 501;
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+    XCTAssertTrue(worked, "Credential was created successfully");
+
+    NSDictionary *attributes = @{(id)kHEIMAttrUUID:(id)CFBridgingRelease(CFUUIDCreate(NULL))};
+    uint64_t result = [GSSCredTestUtil setAttributes:self.peer uuid:uuid attributes:(__bridge CFDictionaryRef)(attributes) returningDictionary:NULL];
+    XCTAssertEqual(result, kHeimCredErrorUpdateNotAllowed, "Updating the credentail UUID should not be allowed.");
+
+    CFRELEASE_NULL(uuid);
+}
+
 // mocks
 
 static NSArray<NSString*> *_entitlements;

@@ -859,7 +859,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (BOOL)readFromURL:(NSURL *)absoluteURL ofType:(NSString *)typeName error:(NSError **)outError
 {
-	BOOL loaded = [super readFromURL:absoluteURL ofType:typeName error:outError];
+    BOOL loaded = [super readFromURL:absoluteURL ofType:typeName error:outError];
 	if (loaded && [absoluteURL isEqual:[MBCDocument casualGameSaveLocation]]) // Upgrade legacy autosave
 		[self setFileURL:nil];
 

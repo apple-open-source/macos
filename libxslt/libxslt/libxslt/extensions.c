@@ -221,6 +221,11 @@ xsltFreeExtModule(xsltExtModulePtr ext)
     xmlFree(ext);
 }
 
+static void
+xsltFreeExtModuleEntry(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xsltFreeExtModule((xsltExtModulePtr) payload);
+}
+
 /**
  * xsltNewExtData:
  * @extModule:  the module
@@ -260,6 +265,11 @@ xsltFreeExtData(xsltExtDataPtr ext)
     if (ext == NULL)
         return;
     xmlFree(ext);
+}
+
+static void
+xsltFreeExtDataEntry(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xsltFreeExtData((xsltExtDataPtr) payload);
 }
 
 /**
@@ -304,6 +314,11 @@ xsltFreeExtElement(xsltExtElementPtr ext)
     if (ext == NULL)
         return;
     xmlFree(ext);
+}
+
+static void
+xsltFreeExtElementEntry(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xsltFreeExtElement((xsltExtElementPtr) payload);
 }
 
 
@@ -953,9 +968,10 @@ struct _xsltInitExtCtxt {
  * Initializes an extension module
  */
 static void
-xsltInitCtxtExt(xsltExtDataPtr styleData, xsltInitExtCtxt * ctxt,
-                const xmlChar * URI)
+xsltInitCtxtExt(void *payload, void *data, const xmlChar * URI)
 {
+    xsltExtDataPtr styleData = (xsltExtDataPtr) payload;
+    xsltInitExtCtxt *ctxt = (xsltInitExtCtxt *) data;
     xsltExtModulePtr module;
     xsltExtDataPtr ctxtData;
     void *extData;
@@ -1048,8 +1064,7 @@ xsltInitCtxtExts(xsltTransformContextPtr ctxt)
 
     while (style != NULL) {
         if (style->extInfos != NULL) {
-            xmlHashScan(style->extInfos,
-                        (xmlHashScanner) xsltInitCtxtExt, &ctx);
+            xmlHashScan(style->extInfos, xsltInitCtxtExt, &ctx);
             if (ctx.ret == -1)
                 return (-1);
         }
@@ -1071,9 +1086,10 @@ xsltInitCtxtExts(xsltTransformContextPtr ctxt)
  * Shutdown an extension module loaded
  */
 static void
-xsltShutdownCtxtExt(xsltExtDataPtr data, xsltTransformContextPtr ctxt,
-                    const xmlChar * URI)
+xsltShutdownCtxtExt(void *payload, void *vctxt, const xmlChar * URI)
 {
+    xsltExtDataPtr data = (xsltExtDataPtr) payload;
+    xsltTransformContextPtr ctxt = (xsltTransformContextPtr) vctxt;
     xsltExtModulePtr module;
 
     if ((data == NULL) || (ctxt == NULL) || (URI == NULL))
@@ -1102,9 +1118,8 @@ xsltShutdownCtxtExts(xsltTransformContextPtr ctxt)
         return;
     if (ctxt->extInfos == NULL)
         return;
-    xmlHashScan(ctxt->extInfos, (xmlHashScanner) xsltShutdownCtxtExt,
-                ctxt);
-    xmlHashFree(ctxt->extInfos, (xmlHashDeallocator) xsltFreeExtData);
+    xmlHashScan(ctxt->extInfos, xsltShutdownCtxtExt, ctxt);
+    xmlHashFree(ctxt->extInfos, xsltFreeExtDataEntry);
     ctxt->extInfos = NULL;
 }
 
@@ -1117,9 +1132,10 @@ xsltShutdownCtxtExts(xsltTransformContextPtr ctxt)
  * Shutdown an extension module loaded
  */
 static void
-xsltShutdownExt(xsltExtDataPtr data, xsltStylesheetPtr style,
-                const xmlChar * URI)
+xsltShutdownExt(void *payload, void *vctxt, const xmlChar * URI)
 {
+    xsltExtDataPtr data = (xsltExtDataPtr) payload;
+    xsltStylesheetPtr style = (xsltStylesheetPtr) vctxt;
     xsltExtModulePtr module;
 
     if ((data == NULL) || (style == NULL) || (URI == NULL))
@@ -1137,8 +1153,7 @@ xsltShutdownExt(xsltExtDataPtr data, xsltStylesheetPtr style,
     * Don't remove the entry from the hash table here, since
     * this will produce segfaults - this fixes bug #340624.
     *
-    * xmlHashRemoveEntry(style->extInfos, URI,
-    *   (xmlHashDeallocator) xsltFreeExtData);
+    * xmlHashRemoveEntry(style->extInfos, URI, xsltFreeExtDataEntry);
     */
 }
 
@@ -1155,8 +1170,8 @@ xsltShutdownExts(xsltStylesheetPtr style)
         return;
     if (style->extInfos == NULL)
         return;
-    xmlHashScan(style->extInfos, (xmlHashScanner) xsltShutdownExt, style);
-    xmlHashFree(style->extInfos, (xmlHashDeallocator) xsltFreeExtData);
+    xmlHashScan(style->extInfos, xsltShutdownExt, style);
+    xmlHashFree(style->extInfos, xsltFreeExtDataEntry);
     style->extInfos = NULL;
 }
 
@@ -1344,8 +1359,7 @@ xsltUnregisterExtModule(const xmlChar * URI)
 
     xmlMutexLock(xsltExtMutex);
 
-    ret = xmlHashRemoveEntry(xsltExtensionsHash, URI,
-                             (xmlHashDeallocator) xsltFreeExtModule);
+    ret = xmlHashRemoveEntry(xsltExtensionsHash, URI, xsltFreeExtModuleEntry);
 
     xmlMutexUnlock(xsltExtMutex);
 
@@ -1365,8 +1379,7 @@ xsltUnregisterAllExtModules(void)
 
     xmlMutexLock(xsltExtMutex);
 
-    xmlHashFree(xsltExtensionsHash,
-                (xmlHashDeallocator) xsltFreeExtModule);
+    xmlHashFree(xsltExtensionsHash, xsltFreeExtModuleEntry);
     xsltExtensionsHash = NULL;
 
     xmlMutexUnlock(xsltExtMutex);
@@ -1505,6 +1518,11 @@ xsltUnregisterAllExtModuleFunction(void)
 }
 
 
+static void
+xsltFreeElemPreComp(xsltElemPreCompPtr comp) {
+    xmlFree(comp);
+}
+
 /**
  * xsltNewElemPreComp:
  * @style:  the XSLT stylesheet
@@ -1529,8 +1547,7 @@ xsltNewElemPreComp(xsltStylesheetPtr style, xmlNodePtr inst,
     }
     memset(cur, 0, sizeof(xsltElemPreComp));
 
-    xsltInitElemPreComp(cur, style, inst, function,
-                        (xsltElemPreCompDeallocator) xmlFree);
+    xsltInitElemPreComp(cur, style, inst, function, xsltFreeElemPreComp);
 
     return (cur);
 }
@@ -1662,7 +1679,7 @@ xsltRegisterExtModuleElement(const xmlChar * name, const xmlChar * URI,
     }
 
     xmlHashUpdateEntry2(xsltElementsHash, name, URI, (void *) ext,
-                        (xmlHashDeallocator) xsltFreeExtElement);
+                        xsltFreeExtElementEntry);
 
 done:
     xmlMutexUnlock(xsltExtMutex);
@@ -1805,7 +1822,7 @@ xsltUnregisterExtModuleElement(const xmlChar * name, const xmlChar * URI)
     xmlMutexLock(xsltExtMutex);
 
     ret = xmlHashRemoveEntry2(xsltElementsHash, name, URI,
-                              (xmlHashDeallocator) xsltFreeExtElement);
+                              xsltFreeExtElementEntry);
 
     xmlMutexUnlock(xsltExtMutex);
 
@@ -1822,7 +1839,7 @@ xsltUnregisterAllExtModuleElement(void)
 {
     xmlMutexLock(xsltExtMutex);
 
-    xmlHashFree(xsltElementsHash, (xmlHashDeallocator) xsltFreeExtElement);
+    xmlHashFree(xsltElementsHash, xsltFreeExtElementEntry);
     xsltElementsHash = NULL;
 
     xmlMutexUnlock(xsltExtMutex);
@@ -1970,12 +1987,6 @@ xsltGetExtInfo(xsltStylesheetPtr style, const xmlChar * URI)
 
 /************************************************************************
  *									*
- *		Test module http://xmlsoft.org/XSLT/			*
- *									*
- ************************************************************************/
-
-/************************************************************************
- *									*
  *		Test of the extension module API			*
  *									*
  ************************************************************************/
@@ -2080,7 +2091,7 @@ xsltExtElementPreCompTest(xsltStylesheetPtr style, xmlNodePtr inst,
  * @ctxt:  an XSLT processing context
  * @node:  The current node
  * @inst:  the instruction in the stylesheet
- * @comp:  precomputed informations
+ * @comp:  precomputed information
  *
  * Process a libxslt:test node
  */
@@ -2264,7 +2275,7 @@ xsltRegisterTestModule(void)
 static void
 xsltHashScannerModuleFree(void *payload ATTRIBUTE_UNUSED,
                           void *data ATTRIBUTE_UNUSED,
-                          xmlChar * name ATTRIBUTE_UNUSED)
+                          const xmlChar *name ATTRIBUTE_UNUSED)
 {
 #ifdef WITH_MODULES
     xmlModuleClose(payload);
@@ -2335,10 +2346,11 @@ xsltCleanupGlobals(void)
 
 static void
 xsltDebugDumpExtensionsCallback(void *function ATTRIBUTE_UNUSED,
-                                FILE * output, const xmlChar * name,
+                                void *data, const xmlChar * name,
                                 const xmlChar * URI,
                                 const xmlChar * not_used ATTRIBUTE_UNUSED)
 {
+    FILE *output = (FILE *) data;
     if (!name || !URI)
         return;
     fprintf(output, "{%s}%s\n", URI, name);
@@ -2346,10 +2358,11 @@ xsltDebugDumpExtensionsCallback(void *function ATTRIBUTE_UNUSED,
 
 static void
 xsltDebugDumpExtModulesCallback(void *function ATTRIBUTE_UNUSED,
-                                FILE * output, const xmlChar * URI,
+                                void *data, const xmlChar * URI,
                                 const xmlChar * not_used ATTRIBUTE_UNUSED,
                                 const xmlChar * not_used2 ATTRIBUTE_UNUSED)
 {
+    FILE *output = (FILE *) data;
     if (!URI)
         return;
     fprintf(output, "%s\n", URI);
@@ -2373,9 +2386,8 @@ xsltDebugDumpExtensions(FILE * output)
     else {
         fprintf(output, "Registered Extension Functions:\n");
         xmlMutexLock(xsltExtMutex);
-        xmlHashScanFull(xsltFunctionsHash,
-                        (xmlHashScannerFull)
-                        xsltDebugDumpExtensionsCallback, output);
+        xmlHashScanFull(xsltFunctionsHash, xsltDebugDumpExtensionsCallback,
+                        output);
         xmlMutexUnlock(xsltExtMutex);
     }
     if (!xsltElementsHash)
@@ -2383,9 +2395,8 @@ xsltDebugDumpExtensions(FILE * output)
     else {
         fprintf(output, "\nRegistered Extension Elements:\n");
         xmlMutexLock(xsltExtMutex);
-        xmlHashScanFull(xsltElementsHash,
-                        (xmlHashScannerFull)
-                        xsltDebugDumpExtensionsCallback, output);
+        xmlHashScanFull(xsltElementsHash, xsltDebugDumpExtensionsCallback,
+                        output);
         xmlMutexUnlock(xsltExtMutex);
     }
     if (!xsltExtensionsHash)
@@ -2393,9 +2404,8 @@ xsltDebugDumpExtensions(FILE * output)
     else {
         fprintf(output, "\nRegistered Extension Modules:\n");
         xmlMutexLock(xsltExtMutex);
-        xmlHashScanFull(xsltExtensionsHash,
-                        (xmlHashScannerFull)
-                        xsltDebugDumpExtModulesCallback, output);
+        xmlHashScanFull(xsltExtensionsHash, xsltDebugDumpExtModulesCallback,
+                        output);
         xmlMutexUnlock(xsltExtMutex);
     }
 

@@ -28,10 +28,12 @@
 
 #include "Logging.h"
 #include "RemoteCaptureSampleManagerMessages.h"
+#include "RemoteVideoFrameObjectHeapProxy.h"
+#include "RemoteVideoFrameProxy.h"
 #include "SharedRingBufferStorage.h"
 #include "WebProcess.h"
-#include <WebCore/ImageTransferSessionVT.h>
-#include <WebCore/RemoteVideoSample.h>
+#include <WebCore/CVUtilities.h>
+#include <WebCore/VideoFrameCV.h>
 #include <WebCore/WebAudioBufferList.h>
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -52,7 +54,7 @@ RemoteCaptureSampleManager::~RemoteCaptureSampleManager()
 void RemoteCaptureSampleManager::stopListeningForIPC()
 {
     if (m_isRegisteredToParentProcessConnection)
-        WebProcess::singleton().parentProcessConnection()->removeThreadMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
+        WebProcess::singleton().parentProcessConnection()->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
     setConnection(nullptr);
 }
 
@@ -65,23 +67,23 @@ void RemoteCaptureSampleManager::setConnection(IPC::Connection* connection)
     if (connection == parentConnection) {
         if (!m_isRegisteredToParentProcessConnection) {
             m_isRegisteredToParentProcessConnection = true;
-            parentConnection->addThreadMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), this);
+            parentConnection->addWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), m_queue, *this);
         }
         return;
     }
     if (m_connection)
-        m_connection->removeThreadMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
+        m_connection->removeWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName());
 
     m_connection = WTFMove(connection);
 
     if (m_connection)
-        m_connection->addThreadMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), this);
+        m_connection->addWorkQueueMessageReceiver(Messages::RemoteCaptureSampleManager::messageReceiverName(), m_queue, *this);
 }
 
 void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeAudioSource>&& source)
 {
     ASSERT(WTF::isMainRunLoop());
-    setConnection(source->connection());
+    setConnection(&source->connection());
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, source = WTFMove(source)]() mutable {
         auto identifier = source->identifier();
@@ -94,26 +96,13 @@ void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeAudioSource>&& sour
 void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeVideoSource>&& source)
 {
     ASSERT(WTF::isMainRunLoop());
-    setConnection(source->connection());
+    setConnection(&source->connection());
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, source = WTFMove(source)]() mutable {
         auto identifier = source->identifier();
 
         ASSERT(!m_videoSources.contains(identifier));
-        m_videoSources.add(identifier, makeUnique<RemoteVideo>(WTFMove(source)));
-    });
-}
-
-void RemoteCaptureSampleManager::addSource(Ref<RemoteRealtimeDisplaySource>&& source)
-{
-    ASSERT(WTF::isMainRunLoop());
-    setConnection(source->connection());
-
-    m_queue->dispatch([this, protectedThis = Ref { *this }, source = WTFMove(source)]() mutable {
-        auto identifier = source->identifier();
-
-        ASSERT(!m_videoSources.contains(identifier));
-        m_videoSources.add(identifier, makeUnique<RemoteVideo>(WTFMove(source)));
+        m_videoSources.add(identifier, WTFMove(source));
     });
 }
 
@@ -127,15 +116,16 @@ void RemoteCaptureSampleManager::removeSource(WebCore::RealtimeMediaSourceIdenti
     });
 }
 
-void RemoteCaptureSampleManager::didUpdateSourceConnection(IPC::Connection* connection)
+void RemoteCaptureSampleManager::didUpdateSourceConnection(IPC::Connection& connection)
 {
     ASSERT(WTF::isMainRunLoop());
-    setConnection(connection);
+    setConnection(&connection);
 }
 
-void RemoteCaptureSampleManager::dispatchToThread(Function<void()>&& callback)
+void RemoteCaptureSampleManager::setVideoFrameObjectHeapProxy(RemoteVideoFrameObjectHeapProxy* proxy)
 {
-    m_queue->dispatch(WTFMove(callback));
+    Locker lock(m_videoFrameObjectHeapProxyLock);
+    m_videoFrameObjectHeapProxy = proxy;
 }
 
 void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier identifier, const SharedMemory::IPCHandle& ipcHandle, const WebCore::CAAudioStreamDescription& description, uint64_t numberOfFrames, IPC::Semaphore&& semaphore, const MediaTime& mediaTime, size_t frameChunkSize)
@@ -150,16 +140,34 @@ void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourc
     iterator->value->setStorage(ipcHandle.handle, description, numberOfFrames, WTFMove(semaphore), mediaTime, frameChunkSize);
 }
 
-void RemoteCaptureSampleManager::videoSampleAvailable(RealtimeMediaSourceIdentifier identifier, RemoteVideoSample&& sample, VideoSampleMetadata metadata)
+void RemoteCaptureSampleManager::videoFrameAvailable(RealtimeMediaSourceIdentifier identifier, RemoteVideoFrameProxy::Properties&& properties, VideoFrameTimeMetadata metadata)
 {
     ASSERT(!WTF::isMainRunLoop());
-
+    // Create videoFrame before early outs so that the reference in `properties` is adopted.
+    Ref<RemoteVideoFrameProxy> videoFrame = [&] {
+        // FIXME: We need to either get GPUProcess or UIProcess object heap proxy. For now we always go to GPUProcess.
+        Locker lock(m_videoFrameObjectHeapProxyLock);
+        return RemoteVideoFrameProxy::create(*m_connection, *m_videoFrameObjectHeapProxy, WTFMove(properties));
+    }();
     auto iterator = m_videoSources.find(identifier);
     if (iterator == m_videoSources.end()) {
-        RELEASE_LOG_ERROR(WebRTC, "Unable to find source %llu for remoteVideoSampleAvailable", identifier.toUInt64());
+        RELEASE_LOG_ERROR(WebRTC, "Unable to find source %llu for videoFrameAvailable", identifier.toUInt64());
         return;
     }
-    iterator->value->videoSampleAvailable(WTFMove(sample), metadata);
+    iterator->value->remoteVideoFrameAvailable(WTFMove(videoFrame), metadata);
+}
+
+void RemoteCaptureSampleManager::videoFrameAvailableCV(RealtimeMediaSourceIdentifier identifier, RetainPtr<CVPixelBufferRef>&& pixelBuffer, WebCore::VideoFrame::Rotation rotation, bool mirrored, MediaTime presentationTime, WebCore::VideoFrameTimeMetadata metadata)
+{
+    ASSERT(!WTF::isMainRunLoop());
+    auto iterator = m_videoSources.find(identifier);
+    if (iterator == m_videoSources.end()) {
+        RELEASE_LOG_ERROR(WebRTC, "Unable to find source %llu for videoFrameAvailableCV", identifier.toUInt64());
+        return;
+    }
+
+    auto videoFrame = VideoFrameCV::create(presentationTime, mirrored, rotation, WTFMove(pixelBuffer));
+    iterator->value->remoteVideoFrameAvailable(videoFrame.get(), metadata);
 }
 
 RemoteCaptureSampleManager::RemoteAudio::RemoteAudio(Ref<RemoteRealtimeAudioSource>&& source)
@@ -225,33 +233,6 @@ void RemoteCaptureSampleManager::RemoteAudio::setStorage(const SharedMemory::Han
     m_buffer = makeUnique<WebAudioBufferList>(description, m_frameChunkSize);
 
     startThread();
-}
-
-RemoteCaptureSampleManager::RemoteVideo::RemoteVideo(Source&& source)
-    : m_source(WTFMove(source))
-{
-}
-
-void RemoteCaptureSampleManager::RemoteVideo::videoSampleAvailable(RemoteVideoSample&& remoteSample, VideoSampleMetadata metadata)
-{
-    if (!m_imageTransferSession || m_imageTransferSession->pixelFormat() != remoteSample.videoFormat())
-        m_imageTransferSession = ImageTransferSessionVT::create(remoteSample.videoFormat());
-
-    if (!m_imageTransferSession) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    auto sampleRef = m_imageTransferSession->createMediaSample(remoteSample);
-    if (!sampleRef) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-    switchOn(m_source, [&](Ref<RemoteRealtimeVideoSource>& source) {
-        source->videoSampleAvailable(*sampleRef, remoteSample.size(), metadata);
-    }, [&](Ref<RemoteRealtimeDisplaySource>& source) {
-        source->remoteVideoSampleAvailable(*sampleRef, metadata);
-    });
 }
 
 }

@@ -39,7 +39,7 @@
 #include <Security/SecKey.h>
 #include <Security/SecAsn1Types.h>
 
-#if TARGET_OS_OSX
+#if SEC_OS_OSX_INCLUDES
 #include <Security/x509defs.h>
 #endif
 

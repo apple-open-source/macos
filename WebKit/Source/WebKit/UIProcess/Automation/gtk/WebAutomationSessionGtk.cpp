@@ -319,13 +319,9 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
 
 void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const String& keySequence)
 {
-    CString keySequenceUTF8 = keySequence.utf8();
-    const char* p = keySequenceUTF8.data();
     auto* viewWidget = reinterpret_cast<WebKitWebViewBase*>(page.viewWidget());
-    do {
-        webkitWebViewBaseSynthesizeKeyEvent(viewWidget, KeyEventType::Insert, gdk_unicode_to_keyval(g_utf8_get_char(p)), m_currentModifiers, ShouldTranslateKeyboardState::Yes);
-        p = g_utf8_next_char(p);
-    } while (*p);
+    for (auto codePoint : StringView(keySequence).codePoints())
+        webkitWebViewBaseSynthesizeKeyEvent(viewWidget, KeyEventType::Insert, gdk_unicode_to_keyval(codePoint), m_currentModifiers, ShouldTranslateKeyboardState::Yes);
 }
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 
@@ -335,7 +331,7 @@ void WebAutomationSession::platformSimulateWheelInteraction(WebPageProxy& page, 
     auto* viewWidget = reinterpret_cast<WebKitWebViewBase*>(page.viewWidget());
     FloatSize scrollDelta(delta);
     scrollDelta.scale(1 / static_cast<float>(Scrollbar::pixelsPerLineStep()));
-    webkitWebViewBaseSynthesizeWheelEvent(viewWidget, -scrollDelta.width(), -scrollDelta.height(), locationInViewport.x(), locationInViewport.y(), WheelEventPhase::NoPhase, WheelEventPhase::NoPhase);
+    webkitWebViewBaseSynthesizeWheelEvent(viewWidget, -scrollDelta.width(), -scrollDelta.height(), locationInViewport.x(), locationInViewport.y(), WheelEventPhase::NoPhase, WheelEventPhase::NoPhase, false);
 }
 #endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 

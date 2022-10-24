@@ -118,6 +118,10 @@ main(int argc, char *argv[])
 		rval = sequential(argv);
 	else
 		rval = parallel(argv);
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(2, "stdout");
+#endif
 	exit(rval);
 }
 

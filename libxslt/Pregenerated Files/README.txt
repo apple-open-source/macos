@@ -13,12 +13,12 @@ Steps to rebuild files:
    cd libxslt.git/libxslt
    glibtoolize --force
    mkdir m4
-   cp /usr/local/Cellar/pkg-config/0.28/share/aclocal/pkg.m4 ./m4/
+   cp /opt/brew/Cellar/pkg-config/0.29.2_3/share/aclocal/pkg.m4 ./m4/
    aclocal -I m4
    autoheader
    automake --add-missing --force-missing
    autoconf
-   ./configure --prefix=/usr --without-python --disable-static
+   CC="xcrun -sdk macosx.internal cc" ./configure --prefix=/usr --without-python --disable-static --with-profiler
 4. Edit config.h to make these changes:
 
 --- config.h.orig	2015-12-05 13:52:59.000000000 -0800
@@ -91,40 +91,24 @@ Steps to rebuild files:
  	exit 0
  	;;
  
-@@ -91,9 +91,9 @@
- 
- the_libs="-L${libdir} -lxslt  -lxml2 -lz -lpthread -licucore -lm  "
- if test "$includedir" != "/usr/include"; then
--    the_flags="$the_flags -I$includedir `/usr/bin/xml2-config --cflags`"
-+    the_flags="$the_flags -I$includedir `$(xcrun -show-sdk-path)/usr/bin/xml2-config --cflags`"
- else
--    the_flags="$the_flags `/usr/bin/xml2-config --cflags`"
-+    the_flags="$the_flags `$(xcrun -show-sdk-path)/usr/bin/xml2-config --cflags`"
- fi
- 
- if $cflags; then
-
-7. Fix permissions on xslt-config.
+6. Fix permissions on xslt-config.
    chmod 755 xslt-config
-8. Revert unwanted changes:
-   git checkout HEAD doc/xsltproc.1
-9. [Optional] Run tests (compare output prior to patch as there is some spew):
+7. [Optional] Run tests (compare output prior to patch as there is some spew):
    make -j $(sysctl -n hw.ncpu)
    make tests
    To run tests with AddressSanitizer enabled, re-run configure with this environment variable:
      CC="xcrun -sdk macosx.internal cc -fsanitize=address"
    NOTE: This currently doesn't work; I haven't figured out why yet! Compile with Xcode to get ASan builds for now.
-10. Copy replacement files into place:
+8. Copy replacement files into place:
    cp -p config.h "../Pregenerated Files/include/"
    cp -p libexslt/exsltconfig.h "../Pregenerated Files/include/libexslt/"
    cp -p libxslt/xsltconfig.h "../Pregenerated Files/include/libxslt/"
    cp -p xslt-config "../Pregenerated Files/"
-11. Run git-add on changed files (including those in libxslt), and check them in.
+9. Run git-add on changed files (including those in libxslt), and check them in.
    cd ..
    git add "Pregenerated Files/include/config.h" "Pregenerated Files/include/libexslt/exsltconfig.h" "Pregenerated Files/include/libxslt/xsltconfig.h" "Pregenerated Files/xslt-config"
-   git add libxslt/config.h.in
-12. Update libxslt.plist with libxslt version, md5 hash, radars to upstream as needed.
-13. Run git-commit to commit the updated files.
-14. Clean up the files generated from Step 3.
+10. Update libxslt.plist with libxslt version, md5 hash, radars to upstream as needed.
+11. Run git-commit to commit the updated files.
+12. Clean up the files generated from Step 3.
    git status --ignored
    git clean --force -d -x

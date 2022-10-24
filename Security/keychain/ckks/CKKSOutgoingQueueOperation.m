@@ -68,7 +68,9 @@
     return self;
 }
 
-+ (NSArray<CKKSOutgoingQueueEntry*>* _Nullable)ontransactionFetchEntries:(CKKSKeychainViewState*)viewState error:(NSError**)error
++ (NSArray<CKKSOutgoingQueueEntry*>* _Nullable)ontransactionFetchEntries:(CKKSKeychainViewState*)viewState
+                                                               contextID:(NSString*)contextID
+                                                                   error:(NSError**)error
 {
     NSSet<NSString*>* priorityUUIDs = [[CKKSViewManager manager] pendingCallbackUUIDs];
 
@@ -77,7 +79,10 @@
 
     for(NSString* uuid in priorityUUIDs) {
         NSError* priorityFetchError = nil;
-        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:uuid zoneID:viewState.zoneID error:&priorityFetchError];
+        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:uuid
+                                                                    contextID:contextID
+                                                                       zoneID:viewState.zoneID
+                                                                        error:&priorityFetchError];
 
         if(priorityFetchError) {
             ckkserror("ckksoutgoing", viewState.zoneID, "Unable to fetch priority uuid %@: %@", uuid, priorityFetchError);
@@ -103,6 +108,7 @@
     // We only actually care about queue items in the 'new' state
     NSArray<CKKSOutgoingQueueEntry*> * newEntries = [CKKSOutgoingQueueEntry fetch:SecCKKSOutgoingQueueItemsAtOnce
                                                                             state:SecCKKSStateNew
+                                                                        contextID:contextID
                                                                            zoneID:viewState.zoneID
                                                                             error:error];
     if(!newEntries) {
@@ -129,9 +135,14 @@
 {
     WEAKIFY(self);
 
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     NSHashTable<CKModifyRecordsOperation*>* ckWriteOperations = [NSHashTable weakObjectsHashTable];
+
+    [self.deps.overallLaunch addEvent:@"process-outgoing-queue-begin"];
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         if (self.deps.syncingPolicy.isInheritedAccount || ![self.deps.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
@@ -143,7 +154,9 @@
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
 
-            NSArray<CKKSOutgoingQueueEntry*>* queueEntries = [CKKSOutgoingQueueOperation ontransactionFetchEntries:viewState error:&error];
+            NSArray<CKKSOutgoingQueueEntry*>* queueEntries = [CKKSOutgoingQueueOperation ontransactionFetchEntries:viewState
+                                                                                                         contextID:self.deps.contextID
+                                                                                                             error:&error];
 
             if(!queueEntries || error) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Error fetching outgoing queue records: %@", error);
@@ -162,8 +175,14 @@
             NSMutableSet<CKKSOutgoingQueueEntry*>*oqesModified = [[NSMutableSet alloc] init];
             NSMutableArray<CKRecordID *>* recordIDsToDelete = [[NSMutableArray alloc] init];
 
-            CKKSCurrentKeyPointer* currentClassAKeyPointer = [CKKSCurrentKeyPointer fromDatabase:SecCKKSKeyClassA zoneID:viewState.zoneID error:&error];
-            CKKSCurrentKeyPointer* currentClassCKeyPointer = [CKKSCurrentKeyPointer fromDatabase:SecCKKSKeyClassC zoneID:viewState.zoneID error:&error];
+            CKKSCurrentKeyPointer* currentClassAKeyPointer = [CKKSCurrentKeyPointer fromDatabase:SecCKKSKeyClassA
+                                                                                       contextID:viewState.contextID
+                                                                                          zoneID:viewState.zoneID
+                                                                                           error:&error];
+            CKKSCurrentKeyPointer* currentClassCKeyPointer = [CKKSCurrentKeyPointer fromDatabase:SecCKKSKeyClassC
+                                                                                       contextID:viewState.contextID
+                                                                                         zoneID:viewState.zoneID
+                                                                                           error:&error];
             NSMutableDictionary<CKKSKeyClass*, CKKSCurrentKeyPointer*>* currentKeysToSave = [[NSMutableDictionary alloc] init];
             bool needsReencrypt = false;
 
@@ -174,7 +193,11 @@
             }
 
             for(CKKSOutgoingQueueEntry* oqe in queueEntries) {
-                CKKSOutgoingQueueEntry* inflight = [CKKSOutgoingQueueEntry tryFromDatabase: oqe.uuid state:SecCKKSStateInFlight zoneID:viewState.zoneID error:&error];
+                CKKSOutgoingQueueEntry* inflight = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid
+                                                                                     state:SecCKKSStateInFlight
+                                                                                 contextID:self.deps.contextID
+                                                                                    zoneID:viewState.zoneID
+                                                                                     error:&error];
                 if(!error && inflight) {
                     // There is an inflight request with this UUID. Leave this request in-queue until CloudKit returns and we resolve the inflight request.
                     continue;
@@ -230,7 +253,10 @@
 
                 } else if ([oqe.action isEqualToString: SecCKKSActionModify]) {
                     // Load the existing item from the ckmirror.
-                    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid zoneID:viewState.zoneID error:&error];
+                    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid
+                                                                   contextID:self.deps.contextID
+                                                                      zoneID:viewState.zoneID
+                                                                       error:&error];
                     if(!ckme) {
                         // This is a problem: we have an update to an item that doesn't exist.
                         // Either: an Add operation we launched failed due to a CloudKit error (conflict?) and this is a follow-on update
@@ -446,7 +472,11 @@
 
                             if([recordIDsModified containsObject:recordID]) {
                                 NSError* localerror = nil;
-                                CKKSOutgoingQueueEntry* inflightOQE = [CKKSOutgoingQueueEntry tryFromDatabase:recordID.recordName state:SecCKKSStateInFlight zoneID:recordID.zoneID error:&localerror];
+                                CKKSOutgoingQueueEntry* inflightOQE = [CKKSOutgoingQueueEntry tryFromDatabase:recordID.recordName
+                                                                                                        state:SecCKKSStateInFlight
+                                                                                                    contextID:self.deps.contextID
+                                                                                                       zoneID:recordID.zoneID
+                                                                                                        error:&localerror];
                                 [inflightOQE intransactionMoveToState:SecCKKSStateNew viewState:viewState error:&localerror];
                                 if(localerror) {
                                     ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't clean up outgoing queue entry: %@", localerror);
@@ -494,6 +524,7 @@
             if([record.recordType isEqualToString: SecCKRecordItemType]) {
                 CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:record.recordID.recordName
                                                                              state:SecCKKSStateInFlight
+                                                                         contextID:self.deps.contextID
                                                                             zoneID:viewState.zoneID
                                                                              error:&localError];
                 [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&localError];
@@ -502,7 +533,7 @@
                     self.error = viewError = localError;
                 }
                 localError = nil;
-                CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord: record];
+                CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:record contextID:self.deps.contextID];
                 [ckme saveToDatabase: &localError];
                 if(localError) {
                     ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckmirror: %@", record.recordID.recordName, localError);
@@ -513,7 +544,7 @@
 
                 // And the CKCurrentKeyRecords (do we need to do this? Will the server update the change tag on a save which saves nothing?)
             } else if([record.recordType isEqualToString: SecCKRecordCurrentKeyType]) {
-                CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord: record];
+                CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord:record contextID:self.deps.contextID];
                 [currentkey saveToDatabase: &localError];
                 if(localError) {
                     ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to currentkey: %@", record.recordID.recordName, localError);
@@ -521,7 +552,7 @@
                 }
 
             } else if ([record.recordType isEqualToString:SecCKRecordDeviceStateType]) {
-                CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
+                CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record contextID:self.deps.contextID];
                 [newcdse saveToDatabase:&localError];
                 if(localError) {
                     ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't save %@ to ckdevicestate: %@", record.recordID.recordName, localError);
@@ -541,6 +572,7 @@
 
             CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:ckrecordID.recordName
                                                                          state:SecCKKSStateInFlight
+                                                                     contextID:self.deps.contextID
                                                                         zoneID:viewState.zoneID
                                                                          error:&localError];
             [oqe intransactionMoveToState:SecCKKSStateDeleted viewState:viewState error:&localError];
@@ -549,7 +581,10 @@
                 self.error = viewError = localError;
             }
             localError = nil;
-            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase: ckrecordID.recordName zoneID:viewState.zoneID error:&localError];
+            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:ckrecordID.recordName
+                                                           contextID:self.deps.contextID
+                                                              zoneID:viewState.zoneID
+                                                               error:&localError];
             [ckme deleteFromDatabase: &localError];
             if(localError) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't delete %@ from ckmirror: %@", ckrecordID.recordName, localError);
@@ -560,6 +595,8 @@
         }
 
         [plstats commit];
+
+        [self.deps.overallLaunch addEvent:@"process-outgoing-queue-complete"];
 
         if(viewError) {
             ckkserror("ckksoutgoing", viewState.zoneID, "Operation failed; rolling back: %@", self.error);
@@ -609,7 +646,11 @@
        [recordID.recordName hasPrefix:@"ManifestLeafRecord:-:"]) {
         // Nothing to do here. We need a whole key refetch and synchronize.
     } else {
-        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:recordID.recordName state:SecCKKSStateInFlight zoneID:viewState.zoneID error:&error];
+        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:recordID.recordName
+                                                                     state:SecCKKSStateInFlight
+                                                                 contextID:self.deps.contextID
+                                                                    zoneID:viewState.zoneID
+                                                                     error:&error];
         [oqe intransactionMarkAsError:itemerror
                             viewState:viewState
                                 error:&error];
@@ -634,7 +675,11 @@
            [recordID.recordName isEqualToString: SecCKKSKeyClassC]) {
             // Nothing to do here. We need a whole key refetch and synchronize.
         } else {
-            CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:recordID.recordName state:SecCKKSStateInFlight zoneID:viewState.zoneID error:&error];
+            CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry fromDatabase:recordID.recordName
+                                                                         state:SecCKKSStateInFlight
+                                                                     contextID:self.deps.contextID
+                                                                        zoneID:viewState.zoneID
+                                                                         error:&error];
             [oqe intransactionMoveToState:state
                                 viewState:viewState
                                     error:&error];

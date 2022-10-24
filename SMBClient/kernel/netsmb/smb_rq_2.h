@@ -61,11 +61,13 @@ typedef enum _SMB2_CREATE_RQ_FLAGS
     SMB2_CREATE_DUR_HANDLE           = 0x0040, /* Get a durable handle */
     SMB2_CREATE_DUR_HANDLE_RECONNECT = 0x0080, /* Reopen file that has durable handle */
     SMB2_CREATE_ASSUME_DELETE        = 0x0100, /* Assume delete access in Max Access */
-	SMB2_CREATE_HANDLE_RECONNECT     = 0x0200, /* Reopen file that does not have a durable handle */
-	SMB2_CREATE_DIR_LEASE            = 0x0400, /* Request a Dir Lease */
-	SMB2_CREATE_SET_DFS_FLAG         = 0x0800, /* Set the DFS Flag in the header */
+    SMB2_CREATE_HANDLE_RECONNECT     = 0x0200, /* Reopen file that does not have a durable handle */
+    SMB2_CREATE_DIR_LEASE            = 0x0400, /* Request a Dir Lease */
+    SMB2_CREATE_SET_DFS_FLAG         = 0x0800, /* Set the DFS Flag in the header */
     SMB2_CREATE_REPLAY_FLAG          = 0x1000, /* This is a retransmit, ie, set the SMB2_FLAGS_REPLAY_OPERATIONS flag */
-    SMB2_CREATE_ADD_TIME_WARP        = 0x2000  /* Add Time Warp Context */
+    SMB2_CREATE_ADD_TIME_WARP        = 0x2000, /* Add Time Warp Context */
+    SMB2_CREATE_QUERY_DISK_ID        = 0x4000, /* Add Query on Disk ID Create Context */
+    SMB2_CREATE_FILE_LEASE           = 0x8000  /* Request a file Lease */
 } _SMB2_CREATE_RQ_FLAGS;
 
 /* smb2_cmpd_position flags */
@@ -97,12 +99,12 @@ struct smb2_change_notify_rq {
 struct smb2_close_rq {
     struct smb_share *share;
     uint32_t flags;
-    uint32_t pad;
+    uint32_t add_flush;
     SMBFID fid;
     enum smb_mc_control mc_flags;
     
     /* return values */
-	uint32_t ret_ntstatus;
+    uint32_t ret_ntstatus;
     uint32_t ret_attributes;
 	uint64_t ret_create_time;
 	uint64_t ret_access_time;
@@ -110,12 +112,15 @@ struct smb2_close_rq {
 	uint64_t ret_change_time;
     uint64_t ret_alloc_size;
 	uint64_t ret_eof;
+    uint16_t ret_flags;
+    uint8_t pad2[6];
 };
 
 struct smb2_create_ctx_resolve_id {
     uint64_t file_id;
     uint32_t *ret_errorp;
     char **ret_pathp;
+    size_t ret_pathp_allocsize; /* *ret_pathp alloc size, required when freeing *ret_pathp */
 };
 
 struct smb2_create_rq {
@@ -134,6 +139,7 @@ struct smb2_create_rq {
     struct smbnode *dnp;
     char *namep;
     char *strm_namep;               /* stream name */
+    size_t strm_name_allocsize;     /* strm_namep alloc size, required when freeing strm_namep */
     void *create_contextp;          /* used for various create contexts */
 	struct timespec req_time;       /* time this create was done */
     enum smb_mc_control mc_flags;
@@ -153,6 +159,8 @@ struct smb2_create_rq {
     SMBFID ret_fid;
 	uint32_t ret_max_access;
 	uint32_t ret_pad2;
+    uint64_t ret_disk_file_id;
+    uint64_t ret_volume_id;
 };
 
 struct smb2_get_dfs_referral {
@@ -216,6 +224,17 @@ struct smb2_copychunk_result {
     uint32_t    total_bytes_written;
 }__attribute__((__packed__));
 
+struct smb2_flush_rq {
+    struct smb_share *share;
+    uint64_t full_sync;
+    SMBFID fid;
+    enum smb_mc_control mc_flags;
+    
+    /* return values */
+    uint32_t ret_ntstatus;
+    uint32_t pad;
+};
+
 struct smb2_ioctl_rq {
     struct smb_share *share;
     uint32_t ctl_code;
@@ -225,6 +244,7 @@ struct smb2_ioctl_rq {
 	uint32_t snd_output_len;
 	uint32_t rcv_input_len;
 	uint32_t rcv_output_len;
+    size_t   rcv_output_allocsize;
     enum smb_mc_control mc_flags;
 
     /* uio buffers used for ioctls from user space */
@@ -255,6 +275,7 @@ struct smb2_query_dir_rq {
     uint32_t name_flags;    /* use UTF_SFM_CONVERSIONS or not */
     struct smbnode *dnp;
     char *namep;
+    size_t name_allocsize;  /* namep alloc size, required when freeing namep */
     enum smb_mc_control mc_flags;
 
     /* uio buffers used for ioctls from user space */

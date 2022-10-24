@@ -1,12 +1,6 @@
 #define IN_LIBEXSLT
 #include "libexslt.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
-#include <win32config.h>
-#else
-#include "config.h"
-#endif
-
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
@@ -14,10 +8,9 @@
 #include <libxml/encoding.h>
 #include <libxml/uri.h>
 
-#include <libxslt/xsltconfig.h>
-#include <libxslt/xsltutils.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/extensions.h>
+#include "xsltutils.h"
+#include "xsltInternals.h"
+#include "extensions.h"
 
 #include "exslt.h"
 
@@ -101,7 +94,7 @@ exsltCryptoHex2Bin (const unsigned char *hex, int hexlen,
 	else if (tmp >= 'a' && tmp <= 'f')
 	    lo = 10 + (tmp - 'a');
 
-	result = hi << 4;
+	result = (unsigned char) (hi << 4);
 	result += lo;
 	bin[j++] = result;
     }
@@ -109,7 +102,7 @@ exsltCryptoHex2Bin (const unsigned char *hex, int hexlen,
     return j;
 }
 
-#if defined(WIN32)
+#if defined(_WIN32) && !defined(__CYGWIN__)
 
 #define HAVE_CRYPTO
 #define PLATFORM_HASH	exsltCryptoCryptoApiHash
@@ -121,18 +114,20 @@ exsltCryptoHex2Bin (const unsigned char *hex, int hexlen,
 
 #include <windows.h>
 #include <wincrypt.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "advapi32.lib")
+#endif
 
 static void
 exsltCryptoCryptoApiReportError (xmlXPathParserContextPtr ctxt,
 				 int line) {
-    LPVOID lpMsgBuf;
+    char *lpMsgBuf;
     DWORD dw = GetLastError ();
 
-    FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER |
 		   FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
 		   MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
-		   (LPTSTR) & lpMsgBuf, 0, NULL);
+		   &lpMsgBuf, 0, NULL);
 
     xsltTransformError (xsltXPathGetTransformContext (ctxt), NULL, NULL,
 			"exslt:crypto error (line %d). %s", line,
@@ -143,7 +138,7 @@ exsltCryptoCryptoApiReportError (xmlXPathParserContextPtr ctxt,
 static HCRYPTHASH
 exsltCryptoCryptoApiCreateHash (xmlXPathParserContextPtr ctxt,
 				HCRYPTPROV hCryptProv, ALG_ID algorithm,
-				const char *msg, unsigned int msglen,
+				const unsigned char *msg, unsigned int msglen,
 				char *dest, unsigned int destlen)
 {
     HCRYPTHASH hHash = 0;
@@ -154,12 +149,12 @@ exsltCryptoCryptoApiCreateHash (xmlXPathParserContextPtr ctxt,
 	return 0;
     }
 
-    if (!CryptHashData (hHash, (const BYTE *) msg, msglen, 0)) {
+    if (!CryptHashData (hHash, msg, msglen, 0)) {
 	exsltCryptoCryptoApiReportError (ctxt, __LINE__);
 	goto fail;
     }
 
-    if (!CryptGetHashParam (hHash, HP_HASHVAL, dest, &dwHashLen, 0)) {
+    if (!CryptGetHashParam (hHash, HP_HASHVAL, (BYTE *) dest, &dwHashLen, 0)) {
 	exsltCryptoCryptoApiReportError (ctxt, __LINE__);
 	goto fail;
     }
@@ -194,8 +189,8 @@ exsltCryptoCryptoApiHash (xmlXPathParserContextPtr ctxt,
     }
 
     hHash = exsltCryptoCryptoApiCreateHash (ctxt, hCryptProv,
-					    algorithm, msg, msglen,
-					    dest, HASH_DIGEST_LENGTH);
+					    algorithm, (unsigned char *) msg,
+                                            msglen, dest, HASH_DIGEST_LENGTH);
     if (0 != hHash) {
 	CryptDestroyHash (hHash);
     }
@@ -212,7 +207,7 @@ exsltCryptoCryptoApiRc4Encrypt (xmlXPathParserContextPtr ctxt,
     HCRYPTKEY hKey;
     HCRYPTHASH hHash;
     DWORD dwDataLen;
-    unsigned char hash[HASH_DIGEST_LENGTH];
+    char hash[HASH_DIGEST_LENGTH];
 
     if (msglen > destlen) {
 	xsltTransformError (xsltXPathGetTransformContext (ctxt), NULL,
@@ -263,7 +258,7 @@ exsltCryptoCryptoApiRc4Decrypt (xmlXPathParserContextPtr ctxt,
     HCRYPTKEY hKey;
     HCRYPTHASH hHash;
     DWORD dwDataLen;
-    unsigned char hash[HASH_DIGEST_LENGTH];
+    char hash[HASH_DIGEST_LENGTH];
 
     if (msglen > destlen) {
 	xsltTransformError (xsltXPathGetTransformContext (ctxt), NULL,
@@ -305,7 +300,7 @@ exsltCryptoCryptoApiRc4Decrypt (xmlXPathParserContextPtr ctxt,
     CryptReleaseContext (hCryptProv, 0);
 }
 
-#endif /* defined(WIN32) */
+#endif /* defined(_WIN32) */
 
 #if defined(HAVE_GCRYPT)
 

@@ -141,7 +141,7 @@ int BLDeviceNeedsBooter(BLContextPtr context, const char * device,
 	contextprintf(context, kBLLogLevelVerbose,  "NOT Apple_HFS, Apple_Boot_RAID, or Apple_Boot partition.\n");
 	
 	// check if partition is Apple_HFS
-	ret = BLGetParentDevice(context, device, wholename, &partnum);
+	ret = BLGetParentDevice(context, device, wholename, sizeof(wholename), &partnum);
 	if(ret) {
 		contextprintf(context, kBLLogLevelError,  "Could not determine partition for %s\n", device);	
 		return 2;
@@ -154,7 +154,7 @@ int BLDeviceNeedsBooter(BLContextPtr context, const char * device,
     }
     
 	// devname now points to "disk1s3"
-	sprintf(bootername, "%ss%u", wholename + 5, partnum - 1);
+	snprintf(bootername, sizeof(bootername), "%ss%u", wholename + 5, partnum - 1);
 
 	contextprintf(context, kBLLogLevelVerbose,  "Looking for external loader at %s\n", bootername );	
 

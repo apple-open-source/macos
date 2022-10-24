@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2007 Diomidis Spinellis
  * All rights reserved.
  *
@@ -26,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.sbin/sa/db.c,v 1.3 2008/02/21 07:12:56 grog Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/acct.h>
@@ -44,7 +46,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/sa/db.c,v 1.3 2008/02/21 07:12:56 grog Exp $");
 #include "extern.h"
 
 /* Key used to store the version of the database data elements. */
-#define VERSION_KEY "\0VERSION"
+static char VERSION_KEY[] = "\0VERSION";
 
 /*
  * Create the in-memory database, *mdb.
@@ -79,7 +81,7 @@ db_copy_in(DB **mdb, const char *dbname, const char *uname, BTREEINFO *bti,
 
 	/* Obtain/set version. */
 	version = 1;
-	key.data = &VERSION_KEY;
+	key.data = (void*)&VERSION_KEY;
 	key.size = sizeof(VERSION_KEY);
 
 	rv = DB_GET(ddb, &key, &data, 0);
@@ -176,7 +178,7 @@ db_copy_out(DB *mdb, const char *dbname, const char *uname, BTREEINFO *bti)
 out:
 #ifndef __APPLE__
 	/* Add a version record. */
-	key.data = &VERSION_KEY;
+	key.data = (void*)&VERSION_KEY;
 	key.size = sizeof(VERSION_KEY);
 	version = 2;
 	data.data = &version;

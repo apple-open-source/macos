@@ -30,8 +30,8 @@
 #include "MediaPlayerPrivateAVFoundation.h"
 #include <CoreMedia/CMTime.h>
 #include <wtf/Function.h>
-#include <wtf/HashMap.h>
 #include <wtf/Observer.h>
+#include <wtf/RobinHoodHashMap.h>
 
 OBJC_CLASS AVAssetImageGenerator;
 OBJC_CLASS AVAssetTrack;
@@ -69,7 +69,7 @@ class MediaPlaybackTarget;
 class MediaSelectionGroupAVFObjC;
 class PixelBufferConformerCV;
 class QueuedVideoOutput;
-class FragmentedSharedBuffer;
+class SharedBuffer;
 class VideoLayerManagerObjC;
 class VideoTrackPrivateAVFObjC;
 class WebCoreAVFResourceLoader;
@@ -233,7 +233,10 @@ private:
     bool hasContextRenderer() const final;
     bool hasLayerRenderer() const final;
 
-    void updateVideoLayerGravity() final;
+
+    enum class ShouldAnimate : bool { No, Yes };
+    void updateVideoLayerGravity() final { updateVideoLayerGravity(ShouldAnimate::No); }
+    void updateVideoLayerGravity(ShouldAnimate);
 
     bool didPassCORSAccessCheck() const final;
     std::optional<bool> wouldTaintOrigin(const SecurityOrigin&) const final;
@@ -263,14 +266,14 @@ private:
     bool updateLastPixelBuffer();
     bool videoOutputHasAvailableFrame();
     void paintWithVideoOutput(GraphicsContext&, const FloatRect&);
-    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime() final;
+    RefPtr<VideoFrame> videoFrameForCurrentTime() final;
     RefPtr<NativeImage> nativeImageForCurrentTime() final;
     DestinationColorSpace colorSpace() final;
     void waitForVideoOutputMediaDataWillChange();
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void keyAdded() final;
-    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient*) final;
+    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&) final;
 #endif
 
     String languageOfPrimaryAudioTrack() const final;
@@ -349,7 +352,12 @@ private:
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
+    void setResourceOwner(const ProcessIdentity& resourceOwner) final { m_resourceOwner = resourceOwner; }
+
     void checkNewVideoFrameMetadata();
+
+    std::optional<bool> allTracksArePlayable() const;
+    bool trackIsPlayable(AVAssetTrack*) const;
 
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
@@ -379,8 +387,8 @@ private:
     friend class WebCoreAVFResourceLoader;
     HashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
     RetainPtr<WebCoreAVFLoaderDelegate> m_loaderDelegate;
-    HashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_keyURIToRequestMap;
-    HashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_sessionIDToRequestMap;
+    MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_keyURIToRequestMap;
+    MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_sessionIDToRequestMap;
 
     RetainPtr<AVPlayerItemLegibleOutput> m_legibleOutput;
 
@@ -395,7 +403,7 @@ private:
     RefPtr<InbandMetadataTextTrackPrivateAVF> m_metadataTrack;
 #endif
 
-    HashMap<String, RefPtr<InbandChapterTrackPrivateAVFObjC>> m_chapterTracks;
+    MemoryCompactRobinHoodHashMap<String, RefPtr<InbandChapterTrackPrivateAVFObjC>> m_chapterTracks;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && PLATFORM(MAC)
     RetainPtr<AVOutputContext> m_outputContext;
@@ -430,7 +438,7 @@ private:
     mutable std::optional<WallTime> m_wallClockAtCachedCurrentTime;
     mutable int m_timeControlStatusAtCachedCurrentTime { 0 };
     mutable double m_requestedRateAtCachedCurrentTime { 0 };
-    RefPtr<FragmentedSharedBuffer> m_keyID;
+    RefPtr<SharedBuffer> m_keyID;
     double m_cachedRate { 0 };
     bool m_requestedPlaying { false };
     double m_requestedRate { 1.0 };
@@ -450,7 +458,9 @@ private:
     bool m_cachedCanPlayFastForward { false };
     bool m_cachedCanPlayFastReverse { false };
     mutable bool m_cachedAssetIsLoaded { false };
+    mutable bool m_cachedTracksAreLoaded { false };
     mutable std::optional<bool> m_cachedAssetIsPlayable;
+    mutable std::optional<bool> m_cachedTracksArePlayable;
     bool m_muted { false };
     bool m_shouldObserveTimeControlStatus { false };
     mutable std::optional<bool> m_tracksArePlayable;
@@ -470,6 +480,7 @@ private:
     mutable std::optional<NSTimeInterval> m_cachedLiveUpdateInterval;
     std::unique_ptr<Observer<void()>> m_currentImageChangedObserver;
     std::unique_ptr<Observer<void()>> m_waitForVideoOutputMediaDataWillChangeObserver;
+    ProcessIdentity m_resourceOwner;
 };
 
 }

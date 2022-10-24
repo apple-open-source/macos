@@ -97,7 +97,8 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOHIDElement,  8);
     virtual void                            setValue(UInt32 value, IOOptionBits options) = 0;
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  9);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  9);
+    virtual bool                            getReportType(IOHIDReportType * reportType) const = 0;
     OSMetaClassDeclareReservedUnused(IOHIDElement, 10);
     OSMetaClassDeclareReservedUnused(IOHIDElement, 11);
     OSMetaClassDeclareReservedUnused(IOHIDElement, 12);

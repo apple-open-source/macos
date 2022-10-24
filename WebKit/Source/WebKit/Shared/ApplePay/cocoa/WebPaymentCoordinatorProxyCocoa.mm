@@ -30,7 +30,10 @@
 
 #import "APIUIClient.h"
 #import "ApplePayPaymentSetupFeaturesWebKit.h"
+#import "AutomaticReloadPaymentRequest.h"
 #import "PaymentSetupConfigurationWebKit.h"
+#import "PaymentTokenContext.h"
+#import "RecurringPaymentRequest.h"
 #import "WKPaymentAuthorizationDelegate.h"
 #import "WebPageProxy.h"
 #import "WebPaymentCoordinatorProxy.h"
@@ -41,7 +44,6 @@
 #import <WebCore/ApplePayShippingContactUpdate.h>
 #import <WebCore/ApplePayShippingMethod.h>
 #import <WebCore/ApplePayShippingMethodUpdate.h>
-#import <WebCore/PaymentAuthorizationStatus.h>
 #import <WebCore/PaymentHeaders.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RunLoop.h>
@@ -49,10 +51,6 @@
 #import <wtf/cocoa/VectorCocoa.h>
 
 #import <pal/cocoa/PassKitSoftLink.h>
-
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WebPaymentCoordinatorProxyCocoaAdditions.mm>
-#endif
 
 // FIXME: We don't support any platforms without -setThumbnailURLs:, so this can be removed.
 @interface PKPaymentRequest ()
@@ -79,7 +77,7 @@ WebPaymentCoordinatorProxy::~WebPaymentCoordinatorProxy()
 void WebPaymentCoordinatorProxy::platformCanMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, WTF::Function<void(bool)>&& completionHandler)
 {
 #if PLATFORM(MAC)
-    if (!PAL::isPassKitFrameworkAvailable())
+    if (!PAL::isPassKitCoreFrameworkAvailable())
         return completionHandler(false);
 #endif
 
@@ -96,7 +94,7 @@ void WebPaymentCoordinatorProxy::platformCanMakePaymentsWithActiveCard(const Str
 void WebPaymentCoordinatorProxy::platformOpenPaymentSetup(const String& merchantIdentifier, const String& domainName, WTF::Function<void(bool)>&& completionHandler)
 {
 #if PLATFORM(MAC)
-    if (!PAL::isPassKitFrameworkAvailable())
+    if (!PAL::isPassKitCoreFrameworkAvailable())
         return completionHandler(false);
 #endif
 
@@ -113,15 +111,15 @@ static RetainPtr<NSSet> toPKContactFields(const WebCore::ApplePaySessionPaymentR
     Vector<NSString *> result;
 
     if (contactFields.postalAddress)
-        result.append(PAL::get_PassKit_PKContactFieldPostalAddress());
+        result.append(PKContactFieldPostalAddress);
     if (contactFields.phone)
-        result.append(PAL::get_PassKit_PKContactFieldPhoneNumber());
+        result.append(PKContactFieldPhoneNumber);
     if (contactFields.email)
-        result.append(PAL::get_PassKit_PKContactFieldEmailAddress());
+        result.append(PKContactFieldEmailAddress);
     if (contactFields.name)
-        result.append(PAL::get_PassKit_PKContactFieldName());
+        result.append(PKContactFieldName);
     if (contactFields.phoneticName)
-        result.append(PAL::get_PassKit_PKContactFieldPhoneticName());
+        result.append(PKContactFieldPhoneticName);
 
     return adoptNS([[NSSet alloc] initWithObjects:result.data() count:result.size()]);
 }
@@ -257,10 +255,6 @@ static PKPaymentRequestAPIType toAPIType(WebCore::ApplePaySessionPaymentRequest:
     }
 }
 
-#if !USE(APPLE_INTERNAL_SDK)
-static void merge(PKPaymentRequest *, const WebCore::ApplePaySessionPaymentRequest&) { }
-#endif
-
 RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
 {
     auto result = adoptNS([PAL::allocPKPaymentRequestInstance() init]);
@@ -343,14 +337,27 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
         [result setShippingContactEditingMode:toPKShippingContactEditingMode(*shippingContactEditingMode)];
 #endif
 
-    merge(result.get(), paymentRequest);
+#if HAVE(PASSKIT_RECURRING_PAYMENTS)
+    if (auto& recurringPaymentRequest = paymentRequest.recurringPaymentRequest())
+        [result setRecurringPaymentRequest:platformRecurringPaymentRequest(*recurringPaymentRequest).get()];
+#endif
+
+#if HAVE(PASSKIT_AUTOMATIC_RELOAD_PAYMENTS)
+    if (auto& automaticReloadPaymentRequest = paymentRequest.automaticReloadPaymentRequest())
+        [result setAutomaticReloadPaymentRequest:platformAutomaticReloadPaymentRequest(*automaticReloadPaymentRequest).get()];
+#endif
+
+#if HAVE(PASSKIT_MULTI_MERCHANT_PAYMENTS)
+    if (auto& multiTokenContexts = paymentRequest.multiTokenContexts())
+        [result setMultiTokenContexts:platformPaymentTokenContexts(*multiTokenContexts).get()];
+#endif
 
     return result;
 }
 
-void WebPaymentCoordinatorProxy::platformCompletePaymentSession(const std::optional<WebCore::PaymentAuthorizationResult>& result)
+void WebPaymentCoordinatorProxy::platformCompletePaymentSession(WebCore::ApplePayPaymentAuthorizationResult&& result)
 {
-    m_authorizationPresenter->completePaymentSession(result);
+    m_authorizationPresenter->completePaymentSession(WTFMove(result));
 }
 
 void WebPaymentCoordinatorProxy::platformCompleteMerchantValidation(const WebCore::PaymentMerchantSession& paymentMerchantSession)

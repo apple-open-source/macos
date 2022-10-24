@@ -23,8 +23,17 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value);
 void SecCoreAnalyticsSendKernEntropyAnalytics(void);
+void SecCoreAnalyticsSendLegacyKeychainUIEvent(const char* _Nonnull dialogType, const char* _Nonnull clientPath);
+
+#ifdef __cplusplus
+}
+#endif
 
 #if __OBJC__
 

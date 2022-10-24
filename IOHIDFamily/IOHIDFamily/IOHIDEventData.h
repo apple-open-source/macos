@@ -132,15 +132,15 @@ enum {
 /*!
  @typedef    IOHIDSystemQueueElement
  @abstract   Memory structure defining the layout of each event queue element
- @discussion The IOHIDEventQueueElement represents a portion of mememory in the
+ @discussion The IOHIDEventQueueElement represents a portion of memory in the
  new IOHIDEventQueue.  It is possible that a event queue element
  can contain multiple interpretations of a given event.  The first
  event is always considered the primary event.
  @field      timeStamp   Time at which event was dispatched
  @field      senderID    RegistryID of sending service
- @field      options     Options for further developement
+ @field      options     Options for further development
  @field      eventCount  The number of events contained in this transaction
- @field      payload     Begining offset of contiguous mememory that contains the
+ @field      payload     Beginning offset of contiguous memory that contains the
  pertinent attribute and event data
  */
 typedef struct  __attribute__((packed,,aligned(4))) _IOHIDSystemQueueElement {

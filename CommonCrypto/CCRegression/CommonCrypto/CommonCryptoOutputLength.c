@@ -19,9 +19,10 @@ testOutputLength(CCOperation op, CCMode mode, CCAlgorithm alg, size_t keyLength,
     CCCryptorRef cryptorRef;
     size_t retval;
     CCCryptorStatus status;
-    uint8_t iv[16];
-    uint8_t key[32];
-    uint8_t dataIn[MAXSTART], dataOut[MAXOUT];
+    uint8_t iv[16] = {0};
+    uint8_t key[32] = {0};
+    uint8_t dataIn[MAXSTART] = {0};
+    uint8_t dataOut[MAXOUT] = {0};
     size_t moved = 0;
     
     status = CCCryptorCreateWithMode(op, mode, alg, padding, iv, key, keyLength, NULL, 0, 1, kCCModeOptionCTR_BE, &cryptorRef);

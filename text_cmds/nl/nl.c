@@ -92,10 +92,12 @@ static void	filter(void);
 static void	parse_numbering(const char *, int);
 static void	usage(void);
 
+#ifndef __APPLE__
 /*
  * Dynamically allocated buffer suitable for string representation of ints.
  */
 static char *intbuffer;
+#endif /* ! __APPLE__ */
 
 /* delimiter characters that indicate the start of a logical page section */
 static char delim[2 * MB_LEN_MAX];
@@ -135,7 +137,11 @@ main(int argc, char *argv[])
 	long val;
 	unsigned long uval;
 	char *ep;
+#ifndef __APPLE__
 	size_t intbuffersize, clen;
+#else /* __APPLE__ */
+	size_t clen;
+#endif /* ! __APPLE__ */
 	char delim1[MB_LEN_MAX] = { '\\' }, delim2[MB_LEN_MAX] = { ':' };
 	size_t delim1len = 1, delim2len = 1;
 
@@ -257,14 +263,20 @@ main(int argc, char *argv[])
 	memcpy(delim + delim1len, delim2, delim2len);
 	delimlen = delim1len + delim2len;
 
+#ifndef __APPLE__
 	/* Allocate a buffer suitable for preformatting line number. */
 	intbuffersize = max((int)INT_STRLEN_MAXIMUM, width) + 1; /* NUL */
 	if ((intbuffer = malloc(intbuffersize)) == NULL)
 		err(EXIT_FAILURE, "cannot allocate preformatting buffer");
+#endif /* ! __APPLE__ */
 
 	/* Do the work. */
 	filter();
 
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(EXIT_SUCCESS);
 	/* NOTREACHED */
 }
@@ -278,7 +290,9 @@ filter(void)
 	int line;		/* logical line number */
 	int section;		/* logical page section */
 	unsigned int adjblank;	/* adjacent blank lines */
+#ifndef __APPLE__
 	int consumed;		/* intbuffer measurement */
+#endif /* ! __APPLE__ */
 	int donumber = 0, idx;
 
 	adjblank = 0;
@@ -340,9 +354,13 @@ filter(void)
 
 		if (donumber) {
 			/* Note: sprintf() is safe here. */
-			consumed = sprintf(intbuffer, format, width, line);
+#ifndef __APPLE__
+			consumed = sprintf(intbuffer, fmtcheck(format, "%*d"), width, line);
 			(void)printf("%s",
 			    intbuffer + max(0, consumed - width));
+#else /* __APPLE__ */
+			(void)printf(fmtcheck(format, "%*d"), width, line);
+#endif /* ! __APPLE__ */
 			line += incr;
 		} else {
 			(void)printf("%*s", width, "");

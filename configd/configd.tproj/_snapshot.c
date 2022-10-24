@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2015, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2015, 2018, 2019, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -191,17 +191,14 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 
 __private_extern__
 kern_return_t
-_snapshot(mach_port_t server, int *sc_status, audit_token_t audit_token)
+_snapshot(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession;
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		mySession = tempSession(server, CFSTR("SCDynamicStoreSnapshot"), audit_token);
-		if (mySession == NULL) {
-			/* you must have an open session to play */
-			return kSCStatusNoStoreSession;
-		}
+		/* you must have an open session to play */
+		return kSCStatusNoStoreSession;
 	}
 
 	if (!hasRootAccess(mySession)) {

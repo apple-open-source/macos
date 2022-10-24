@@ -22,17 +22,17 @@ class OctagonCustodianTests: OctagonTestsBase {
         return self.manager.context(forContainerName: OTCKContainerName,
                                     contextID: contextID,
                                     sosAdapter: self.mockSOSAdapter,
+                                    accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
                                     lockStateTracker: self.lockStateTracker,
-                                    accountStateTracker: self.accountStateTracker,
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-RK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
 
     func createAndSetCustodianRecoveryKey(context: OTCuttlefishContext) throws -> (OTCustodianRecoveryKey, CustodianRecoveryKey) {
         var retCRK: OTCustodianRecoveryKey?
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: context.contextID, uuid: nil) { crk, error in
+        self.manager.createCustodianRecoveryKey(self.otcontrolArgumentsFor(context: context), uuid: nil) { crk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(crk, "crk should be non-nil")
             XCTAssertNotNil(crk?.uuid, "uuid should be non-nil")
@@ -45,12 +45,12 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         self.assertEnters(context: context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let container = try self.tphClient.getContainer(withContainer: context.containerName, context: context.contextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
         let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: otcrk.uuid))
 
         let crkWithKeys = try CustodianRecoveryKey(tpCustodian: custodian,
                                                    recoveryKeyString: otcrk.recoveryString,
-                                                   recoverySalt: try XCTUnwrap(self.mockAuthKit.altDSID))
+                                                   recoverySalt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         return (otcrk, crkWithKeys)
     }
@@ -273,7 +273,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: nil) { crk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: nil) { crk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(crk, "crk should be non-nil")
             XCTAssertNotNil(crk!.uuid, "uuid should be non-nil")
@@ -320,7 +320,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         // And a custodian recovery key is set
         var retCRK: OTCustodianRecoveryKey?
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: nil) { crk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: nil) { crk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(crk, "crk should be non-nil")
             XCTAssertNotNil(crk!.uuid, "uuid should be non-nil")
@@ -340,7 +340,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: self.otcliqueContext.context)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
         let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: retCRK!.uuid), "Should be able to find the CRK we just created")
         let cuttlefishContextPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
         self.assertTLKSharesInCloudKit(receiverPeerID: custodian.peerID, senderPeerID: cuttlefishContextPeerID)
@@ -380,7 +380,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
         let uuid = UUID()
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: uuid) { crk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(crk, "crk should be non-nil")
             XCTAssertEqual(uuid, crk!.uuid)
@@ -419,7 +419,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
         let uuid = UUID()
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: uuid) { crk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { crk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(crk, "crk should be non-nil")
             XCTAssertEqual(uuid, crk!.uuid)
@@ -427,7 +427,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         }
         self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
 
-        self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 0)
+        try self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 0)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
     }
@@ -447,7 +447,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -503,7 +503,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -525,7 +525,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(establishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -583,7 +583,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -615,7 +615,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let newCliqueContext = OTConfigurationContext()
         newCliqueContext.context = OTDefaultContext
         newCliqueContext.dsid = self.otcliqueContext.dsid
-        newCliqueContext.altDSID = self.mockAuthKit.altDSID!
+        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         newCliqueContext.otControl = self.otControl
 
         let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -645,7 +645,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: recoveryContext)
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -667,7 +667,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(establishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -725,7 +725,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -748,7 +748,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryExpectation returns")
         var crk: OTCustodianRecoveryKey?
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: establishContextID, uuid: nil) { retcrk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: nil) { retcrk, error in
             XCTAssertNil(error, "error should be nil")
             crk = retcrk!
             XCTAssertNotNil(crk!.uuid, "uuid should not be nil")
@@ -757,7 +757,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
         let recoveryKey = crk!.recoveryString
 
-        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.altDSID))
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let newUUID = UUID()
@@ -809,7 +809,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -832,7 +832,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryExpectation returns")
         var crk: OTCustodianRecoveryKey?
-        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: establishContextID, uuid: nil) { retcrk, error in
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: nil) { retcrk, error in
             XCTAssertNil(error, "error should be nil")
             crk = retcrk!
             XCTAssertNotNil(crk!.uuid, "uuid should not be nil")
@@ -841,7 +841,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
         let recoveryKey = crk!.recoveryString
 
-        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.altDSID))
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let anotherRecoveryKey = SecRKCreateRecoveryKeyString(nil)
@@ -893,7 +893,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -918,7 +918,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         let recoveryKey = otcrk.recoveryString
 
-        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.altDSID))
+        try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         XCTAssertNoThrow(try clique.removeFriends(inClique: [crk.peerID]), "Removing should not error")
@@ -990,7 +990,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         // Now, let's fake that the peerContext received these cuttlefish updates without receiving the custodian updates, because it was on old software at the time
 
-        let container = try self.tphClient.getContainer(withContainer: peerContext.containerName, context: peerContext.contextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(peerContext.activeAccount))
         container.testIgnoreCustodianUpdates = true
 
         self.sendContainerChangeWaitForFetch(context: peerContext)
@@ -1070,7 +1070,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         // Now, let's fake that the peerContext received these cuttlefish updates without receiving the custodian updates, because it was on old software at the time
 
-        let container = try self.tphClient.getContainer(withContainer: peerContext.containerName, context: peerContext.contextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(peerContext.activeAccount))
         container.testIgnoreCustodianUpdates = true
 
         self.sendContainerChangeWaitForFetch(context: peerContext)
@@ -1143,7 +1143,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1217,7 +1217,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1298,7 +1298,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1375,7 +1375,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1466,7 +1466,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }
@@ -1546,14 +1546,14 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
 
         let removeCustodianRecoveryKeyExpectation2 = self.expectation(description: "removeCustodianRecoveryKey2 returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNotNil(error, "error should not be nil")
             removeCustodianRecoveryKeyExpectation2.fulfill()
         }
@@ -1590,7 +1590,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: UUID()) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { error in
             XCTAssertNotNil(error, "error should not be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }
@@ -1612,7 +1612,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1640,7 +1640,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         // Remove the CRK
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: establishContextID, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }
@@ -1700,7 +1700,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try clique.removeFriends(inClique: [crk.peerID]), "Removing should not error")
 
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }
@@ -1788,7 +1788,7 @@ class OctagonCustodianTests: OctagonTestsBase {
 
         // Remove the CRK
         let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
-        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+        self.manager.removeCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: otcrk.uuid) { error in
             XCTAssertNil(error, "error should be nil")
             removeCustodianRecoveryKeyExpectation.fulfill()
         }

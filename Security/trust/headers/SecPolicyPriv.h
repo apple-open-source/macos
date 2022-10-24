@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,6 +60,8 @@ extern const CFStringRef kSecPolicyAppleQAProfileSigner
 extern const CFStringRef kSecPolicyAppleServerAuthentication
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 extern const CFStringRef kSecPolicyAppleIDValidationRecordSigning
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+extern const CFStringRef kSecPolicyAppleIDValidationShortcutSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 extern const CFStringRef kSecPolicyAppleSMPEncryption
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_8_0);
@@ -209,6 +211,10 @@ extern const CFStringRef kSecPolicyAppleMDLTerminalAuth
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 extern const CFStringRef kSecPolicyAppleCHIPUpdateSigning
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+extern const CFStringRef kSecPolicyAppleOrderBundleSigner
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+extern const CFStringRef kSecPolicyAppleQiSigning
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 
 
 /*!
@@ -235,6 +241,7 @@ extern const CFStringRef kSecPolicyAppleCHIPUpdateSigning
     @constant kSecPolicyNameAppleUpdatesService
     @constant kSecPolicyNameApplePushCertPortal
     @constant kSecPolicyNameApplePotluckService
+    @constant kSecPolicyNameAppleMacOSSoftwareUpdate
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -276,6 +283,8 @@ extern const CFStringRef kSecPolicyNameApplePushCertPortal
     API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
 extern const CFStringRef kSecPolicyNameApplePotluckService
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+extern const CFStringRef kSecPolicyNameAppleMacOSSoftwareUpdate
+    API_AVAILABLE(macos(13.0), ios(16.1), watchos(9.1), tvos(16.1));
 
 /*!
  @enum Policy Value Constants
@@ -953,6 +962,27 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void);
 
 /*!
+ @function SecPolicyCreatePrivacyConfigurationProfileSigner
+ @abstract Returns a policy object for evaluating certificate chains for signing
+ Configuration Profiles.
+ @param allowProd Specify whether to allow the Prod cert
+ @param allowQA Specify whether to allow the QA cert
+ @discussion This policy uses the Basic X.509 policy with validity check
+ and pinning options:
+    * The chain is anchored to any of the Apple Root CAs.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3.
+    * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.16 if allowProd is specified,
+     or OID 1.2.840.113635.100.4.17 if allowQA is specified.
+ @result A policy object. The caller is responsible for calling CFRelease
+    on this when it is no longer needed. Specifying false for both allowProd and allowQA will return NULL.
+*/
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreatePrivacyConfigurationProfileSigner(bool allowProd, bool allowQA)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+
+
+/*!
  @function SecPolicyCreateAppleIDValidationRecordSigningPolicy
  @abstract Returns a policy object for evaluating certificate chains for signing
  Apple ID Validation Records.
@@ -968,6 +998,19 @@ SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void);
 */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void);
+
+/*!
+ @function SecPolicyCreateAppleIDValidationShortcutSigningPolicy
+ @abstract Returns a policy object for evaluating certificate chains for signing
+ Apple ID Validation Records in a Shortcut file context.
+ @discussion This policy makes the same validity and pinning checks as
+ SecPolicyCreateAppleIDValidationRecordSigningPolicy, with the following exception:
+    * Temporal validity (expiration) is not checked.
+ @result A policy object. The caller is responsible for calling CFRelease
+     on this when it is no longer needed.
+*/
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleIDValidationShortcutSigningPolicy(void);
 
 /*!
  @function SecPolicyCreateAppleSMPEncryption
@@ -1943,6 +1986,26 @@ SecPolicyRef SecPolicyCreateSSLWithKeyUsage(Boolean server, CFStringRef __nullab
     API_AVAILABLE(macos(11.3), ios(14.5), watchos(7.4), tvos(14.5));
 
 /*!
+ @function SecPolicyCreateSSLWithATSPinning
+ @abstract Returns a policy object for evaluating SSL certificate chains (with pinning enforcement)
+ @param server Passing true for this parameter creates a policy for SSL
+ server certificates.
+ @param hostname The policy will require the specified hostname to match the hostname in the leaf certificate.
+ Pinning rules applicable to the hostname will be enforced.
+ @param nsAppTransportSecurityDict NSAppTransportSecurity dictionary.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ @discussion This function is equivalent to SecPolicyCreateSSL in the following cases:
+   * hostname is NULL
+   * nsAppTransportSecurityDict is NULL
+   * nsAppTransportSecurityDict does not contain the NSPinnedDomains key
+   * the NSPinnedDomains value does not contain an entry for the hostname
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateSSLWithATSPinning(Boolean server, CFStringRef hostname, CFDictionaryRef nsAppTransportSecurityDict)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(8.0), tvos(16.0));
+
+/*!
  @function SecPolicySetSHA256Pins
  @abstract Sets the SubjectPublicKeyInfo (SPKI) pins.
  @param policy The policy to modify.
@@ -2012,6 +2075,38 @@ SecPolicyRef SecPolicyCreateMDLTerminalAuth(bool checkExtension, bool leafIsCA)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleCHIPUpdateSigning(void)
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
+
+/*!
+ @function SecPolicyCreateOrderBundleSigner
+ @abstract Returns a policy object for verifying Order Bundle signing certificates
+ @parameter orderTypeId
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to any of the Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.14.2 with a value
+      matching the orderTypeId.
+     * The leaf has an EKU matching 1.2.840.113635.100.4.19.
+     * Revocation is checked via any available method
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateOrderBundleSigner(CFStringRef orderTypeId)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+
+/*!
+ @function SecPolicyCreateQiSigning
+ @abstract Returns a policy object for verifying Qi signing certificates
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check.
+ The intended use of this policy is that the caller pass the Qi Root(s) to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateQiSigning(void)
+    API_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
 
 /*
  *  Legacy functions (OS X only)
@@ -2117,6 +2212,7 @@ extern const CFStringRef kSecPolicyCheckRevocation;
 extern const CFStringRef kSecPolicyCheckRevocationIfTrusted;
 extern const CFStringRef kSecPolicyCheckRevocationOnline;
 extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
+extern const CFStringRef kSecPolicyCheckRevocationDbIgnored;
 extern const CFStringRef kSecPolicyCheckSSLHostname;
 extern const CFStringRef kSecPolicyCheckServerAuthEKU;
 extern const CFStringRef kSecPolicyCheckSignatureHashAlgorithms;
@@ -2229,7 +2325,16 @@ bool SecPolicyCheckCertDuplicateExtension(SecCertificateRef cert, CFTypeRef pvcV
 void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName);
 __nullable CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);
 
-void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
+/*!
+ @function SecPolicySetOptionsValue
+ @abstract Modify a value for the given policy.
+ @param policy A policy reference.
+ @param key A predefined constant string that identifies the value to set.
+ @param value The new value to set for this key.
+ @discussion This function is deprecated in macOS 13.0 and later, and in iOS 16.0 and later. Changing policy values after the initial creation of a SecPolicyRef can lead to inconsistent evaluation results in any SecTrustRef which retains the policy instance. Your code should only set policy values by supplying them to the appropriate policy creation function, and avoid changing them once the policy has been used to create a trust reference.
+ */
+void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value)
+    API_DEPRECATED("SecPolicySetOptionsValue is deprecated. Set policy values by supplying them to the appropriate policy creation function instead.", macos(10.14,13.0), ios(12.0,16.0));
 
 bool SecDNSIsTLD(CFStringRef reference);
 

@@ -1,0 +1,22 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>telnet</string>
+		<key>OpenSourceVersion</key>
+		<string>2008-02-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/telnet?id=8409aedfa67396980986b68417d5e6ef1351b491</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>telnet.c: (4022837)</string>
+			<string>commands.c: Drop obsolete RFC 2292 API</string>
+			<string>commands.c: Use fork rather than vfork</string>
+			<string>commands.c: telnet goes to MX host when it shouldn't (5760578)</string>
+			<string>utilities.c: Fix -Wformat-security issues</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

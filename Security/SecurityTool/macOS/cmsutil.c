@@ -106,7 +106,7 @@ static CSSM_KEYUSE CERT_KeyUsageForCertUsage(SECCertUsage certUsage)
     case certUsageStatusResponder:       return CSSM_KEYUSE_SIGN;
     case certUsageAnyCA:                 return CSSM_KEYUSE_SIGN;
     default:
-        sec_error("CERT_PolicyForCertUsage %ld: unknown certUsage", certUsage);
+        sec_error("CERT_PolicyForCertUsage %u: unknown certUsage", certUsage);
         return CSSM_KEYUSE_SIGN;
     }
 }
@@ -132,7 +132,7 @@ static SecPolicyRef CERT_PolicyForCertUsage(SECCertUsage certUsage, const char *
     case certUsageStatusResponder:       policyOID = &CSSMOID_APPLE_TP_REVOCATION_OCSP; break;
     case certUsageAnyCA:                 policyOID = &CSSMOID_APPLE_X509_BASIC; break;
     default:
-        sec_error("CERT_PolicyForCertUsage %ld: unknown certUsage", certUsage);
+        sec_error("CERT_PolicyForCertUsage %u: unknown certUsage", certUsage);
         goto loser;
     }
 
@@ -935,7 +935,7 @@ static OSStatus get_enc_params(struct encryptOptionsStr *encryptOptions)
         }
     }
     if (i == nlevels)
-        sec_error("could not retrieve enveloped data: messsage has: %ld levels", nlevels);
+        sec_error("could not retrieve enveloped data: messsage has: %d levels", nlevels);
 
 loser:
     if (env_cmsg)

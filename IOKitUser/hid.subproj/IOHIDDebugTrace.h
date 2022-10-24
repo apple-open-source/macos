@@ -67,7 +67,7 @@ enum {
     kHID_ES_Session_Dispatch            = 0x2051,       //0x5238144
     kHID_ES_Session_Filters             = 0x2052,       //0x5238148
     kHID_ES_Create                      = 0x2053,       //0x523814c
-    kHID_ES_Open                        = 0x2054        //0x5238150
+    kHID_ES_Open                        = 0x2054,       //0x5238150
 };
 
 #define IOHID_DEBUG_CODE(code)          IOKDBG_CODE(DBG_IOHID, code)

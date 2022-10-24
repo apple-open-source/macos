@@ -240,6 +240,41 @@ SMBTransactNamedPipe(
 }
 
 NTSTATUS
+SMBNamedPipeWait(
+    SMBHANDLE   inConnection,
+    SMBFID        hNamedPipe,
+    const void *inBuffer,
+    size_t        inBufferSize,
+    void *        outBuffer,
+    size_t        outBufferSize,
+    size_t *    bytesRead)
+{
+    int error;
+    NTSTATUS status;
+    void * hContext;
+    const char    *namePipe = "\\PIPE\\"; /* Always just pipe for us */
+    uint64_t    setup[2];
+
+    status = SMBServerContext(inConnection, &hContext);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+    setup[0] = TRANS_WAIT_NAMED_PIPE; 
+    setup[1] = hNamedPipe;
+    
+    error = smb2io_transact(hContext, setup, 2, namePipe, NULL, 0,
+                            inBuffer, inBufferSize, NULL, NULL,
+                            outBuffer, &outBufferSize);
+    status = SMBMapError(error);
+    if (!NT_SUCCESS(status) && (status != STATUS_BUFFER_OVERFLOW)) {
+        return status;
+    }
+
+    *bytesRead = outBufferSize;
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
 SMBReadFile(
     SMBHANDLE   inConnection,
     SMBFID      hFile,

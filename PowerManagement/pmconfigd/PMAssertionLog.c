@@ -102,10 +102,12 @@ static void logAssertionActivity(assertLogAction  action,
     bool            logBT = false;
     CFDateRef       time = NULL, createTime = NULL;
     CFStringRef     actionStr = NULL;
-    CFNumberRef     pid_cf = NULL, retain_cf = NULL, uniqueAID = NULL;
+    CFNumberRef     pid_cf = NULL, retain_cf = NULL, uniqueAID = NULL, category = NULL;
     CFTypeRef       type = NULL, name = NULL, btSymbols = NULL;
     CFTypeRef       onBehalfPid = NULL, onBehalfPidStr = NULL;
-    CFTypeRef       onBehalfBundleID = NULL;
+    CFTypeRef       onBehalfBundleID = NULL, usingFrameworkBundleID = NULL;
+    CFTypeRef       instanceMetadata = NULL;
+    CFBooleanRef    wasCoalesced = NULL;
     CFStringRef     procName = NULL;
 
     CFMutableDictionaryRef  entry = NULL;
@@ -164,6 +166,10 @@ static void logAssertionActivity(assertLogAction  action,
         actionStr = CFSTR(kPMASLAssertionActionSystemTimeout);
         break;
 
+    case kAOffloadedLog:
+        actionStr = CFSTR(kPMASLAssertionActionOffloaded);
+        break;
+
     default:
         return;
     }
@@ -179,20 +185,37 @@ static void logAssertionActivity(assertLogAction  action,
         INFO_LOG("Assertion bufffer initialized. Sending high water mark notification");
     }
 
-    entry = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
-                                      &kCFTypeDictionaryValueCallBacks);
+    CFIndex arrayCount = CFArrayGetCount(activity.log);
+    if ((activity.idx % AA_MAX_ENTRIES) < arrayCount) {
+        // Re-use object
+        entry = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(activity.log, (activity.idx % AA_MAX_ENTRIES));
+        CFRetain(entry);
+        CFDictionaryRemoveAllValues(entry);
+    } else {
+        // Holds 16 Key-Value pairs max. Some fixed number helps with fragmentation by avoiding
+        // re-hashing and since this is a high traffic path.
+        entry = CFDictionaryCreateMutable(kCFAllocatorDefault, 16, &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks);
+    }
+
     if (!entry) return;
 
-    // Current time of this activity
-    time = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
-    if (time) {
+    // Check if activity is already tagged with time - for async assertions
+    
+    if ((time = CFDictionaryGetValue(props, kIOPMAssertionActivityTime)) != NULL) {
         CFDictionarySetValue(entry, kIOPMAssertionActivityTime, time);
-        CFRelease(time);
     }
     else {
-        // Not much to log, if we can't even get the time of activity
-        CFRelease(entry);
-        return;
+        time = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+        if (time) {
+            CFDictionarySetValue(entry, kIOPMAssertionActivityTime, time);
+            CFRelease(time);
+        }
+        else {
+            // Not much to log, if we can't even get the time of activity
+            CFRelease(entry);
+            return;
+        }
     }
 
     // Creation time of assertion
@@ -220,8 +243,7 @@ static void logAssertionActivity(assertLogAction  action,
             CFDictionarySetValue(entry, kIOPMAssertionProcessKey, procName);
         }
     }
-
-      
+    
     // Retain count
     if ((retain_cf = CFNumberCreate(NULL, kCFNumberIntType, &assertion->retainCnt)) != NULL) {
         CFDictionarySetValue(entry, kIOPMAssertionRetainCountKey, retain_cf);
@@ -243,11 +265,28 @@ static void logAssertionActivity(assertLogAction  action,
     if ((onBehalfBundleID = CFDictionaryGetValue(props, kIOPMAssertionOnBehalfOfBundleID)) != NULL)
         CFDictionarySetValue(entry, kIOPMAssertionOnBehalfOfBundleID, onBehalfBundleID);
 
+    // UsingFramework
+    if ((usingFrameworkBundleID = CFDictionaryGetValue(props, kIOPMAssertionFrameworkIDKey)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionFrameworkIDKey, usingFrameworkBundleID);
+    
+    // InstanceMetadata
+    if ((instanceMetadata = CFDictionaryGetValue(props, kIOPMAssertionInstanceMetadataKey)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionInstanceMetadataKey, instanceMetadata);
+    
+    // Category
+    if ((category = CFDictionaryGetValue(props, kIOPMAssertionCategoryKey)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionCategoryKey, category);
+    
+    // Coalesced
+    if ((wasCoalesced = CFDictionaryGetValue(props, kIOPMAssertionIsCoalescedKey)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionIsCoalescedKey, wasCoalesced);
+    
     if (logBT) {
         // Backtrace of assertion creation
         if ((btSymbols = CFDictionaryGetValue(props, kIOPMAssertionCreatorBacktrace)) != NULL)
             CFDictionarySetValue(entry, kIOPMAssertionCreatorBacktrace, btSymbols);
     }
+    
 
     CFArraySetValueAtIndex(activity.log, (activity.idx % AA_MAX_ENTRIES), entry);
     activity.idx++;
@@ -273,7 +312,8 @@ __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type)
 static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, size_t bufsize)
 {
     if ((assertion->audioin || assertion->audioout || assertion->gps || assertion->baseband
-            || assertion->bluetooth || assertion->allowsDeviceRestart || assertion->budgetedActivity) == 0) {
+            || assertion->bluetooth || assertion->allowsDeviceRestart || assertion->perfUnrestricted
+            || assertion->camera ||  assertion->budgetedActivity) == 0) {
         return;
     }
     snprintf(aBuf, bufsize, "[Qualifiers:");
@@ -296,8 +336,16 @@ static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, si
         strlcat(aBuf, " Bluetooth", bufsize);
     }
 
+    if (assertion->camera) {
+        strlcat(aBuf, " Camera", bufsize);
+    }
+
     if (assertion->allowsDeviceRestart) {
         strlcat(aBuf, " AllowsDeviceRestart", bufsize);
+    }
+
+    if (assertion->perfUnrestricted) {
+        strlcat(aBuf, " PerfUnrestricted", bufsize);
     }
 
     if (assertion->budgetedActivity) {
@@ -396,7 +444,7 @@ static void logAssertionToASL(assertLogAction  action,
     if (!(gDebugFlags & kIOPMDebugLogAssertionSynchronous)) {
 
         assertType = &gAssertionTypes[assertion->kassert];
-        if ((action == kACreateLog)  || (action == kATurnOnLog))
+        if ((action == kACreateLog)  || (action == kATurnOnLog) || (action == kAOffloadedLog))
         {
             /*
              * Log on create
@@ -469,6 +517,9 @@ static void logAssertionToASL(assertLogAction  action,
         break;
     case kASystemTimeoutLog:
         assertionAction = kPMASLAssertionActionSystemTimeout;
+        break;
+    case kAOffloadedLog:
+        assertionAction = kPMASLAssertionActionOffloaded;
         break;
 
 
@@ -664,15 +715,33 @@ void logAsyncAssertionActivity(ProcessInfo *pinfo, CFArrayRef assertionActivity)
         CFDictionaryRef props = (CFDictionaryRef)CFArrayGetValueAtIndex(assertionActivity, i);
         assertion->props = (CFMutableDictionaryRef)props;
         assertion->pinfo = pinfo;
-
-        if (CFDictionaryContainsKey(props, kIOPMAssertionCreateDateKey)) {
-            // was it logged already
-            if (!CFDictionaryContainsKey(props, kIOPMAsyncAssertionLoggedCreate)) {
+        CFStringRef actionStr;
+        
+        if ((actionStr = CFDictionaryGetValue(props, kIOPMAssertionActivityAction)) != NULL) {
+            if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionCreate), 0) == kCFCompareEqualTo) {
                 logAssertionActivity(kACreateLog, assertion);
             }
+            else if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionRelease), 0) == kCFCompareEqualTo) {
+                logAssertionActivity(kAReleaseLog, assertion);
+            }
+            else if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionTurnOn), 0) == kCFCompareEqualTo) {
+                logAssertionActivity(kATurnOnLog, assertion);
+            }
+            else if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionTurnOff), 0) == kCFCompareEqualTo) {
+                logAssertionActivity(kATurnOffLog, assertion);
+            }
+            else if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionTimeOut), 0) == kCFCompareEqualTo) {
+                logAssertionActivity(kATimeoutLog, assertion);
+            }
+            else if (CFStringCompare(actionStr, CFSTR(kPMAsyncAssertionActionNameChange), 0) == kCFCompareEqualTo) {
+                logAssertionActivity(kANameChangeLog, assertion);
+            }
+            else {
+                ERROR_LOG("Unexpected value encountered for key kPMAsyncAssertionActionNameChange: %@.", actionStr);
+            }
         }
-        if (CFDictionaryContainsKey(props, kIOPMAssertionReleaseDateKey)) {
-            logAssertionActivity(kAReleaseLog, assertion);
+        else {
+            ERROR_LOG("logAsyncAssertionActivity: No kIOPMAssertionActivityAction key present when trying to log.");
         }
     }
     free(assertion);
@@ -738,7 +807,7 @@ CFMutableArrayRef _getAssertionActivityUpdates(uint32_t *refCnt, uint32_t *overf
         endIdx = (writeToIdx -1) % AA_MAX_ENTRIES;
     }
 
-    updates = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    updates = CFArrayCreateMutable(NULL, AA_MAX_ENTRIES, &kCFTypeArrayCallBacks);
     if (updates == NULL) {
         goto exit;
     }

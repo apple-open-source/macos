@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 /* Read a line from stdin into buffer as a null terminated string.  If buffer is
    non NULL use at most buffer_size bytes and return a pointer to buffer.  Otherwise
@@ -123,7 +124,7 @@ read_file(const char *name, CSSM_DATA *outData)
 	}
 	if (bytes_read != (ssize_t)length)
 	{
-		sec_error("read %s: only read %d of %qu bytes", name, bytes_read, length);
+        sec_error("read %s: only read %zd of %" PRId64 " bytes", name, bytes_read, (int64_t)length);
 		result = -1;
 		goto loser;
 	}

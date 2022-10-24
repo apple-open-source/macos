@@ -55,7 +55,8 @@ public:
 	void oidParse(
 		const unsigned char	*oidp,
 		unsigned			oidLen,
-		char 				*strBuf);
+		char				*strBuf,
+		size_t				strLen);
 
 };
 

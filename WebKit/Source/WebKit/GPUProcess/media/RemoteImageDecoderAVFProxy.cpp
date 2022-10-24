@@ -32,10 +32,11 @@
 #include "GPUProcess.h"
 #include "RemoteImageDecoderAVFManagerMessages.h"
 #include "RemoteImageDecoderAVFProxyMessages.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "WebCoreArgumentCoders.h"
-#include <WebCore/IOSurface.h>
+#include <CoreGraphics/CGImage.h>
 #include <WebCore/ImageDecoderAVFObjC.h>
+#include <wtf/Scope.h>
 
 namespace WebKit {
 
@@ -46,9 +47,9 @@ RemoteImageDecoderAVFProxy::RemoteImageDecoderAVFProxy(GPUConnectionToWebProcess
 {
 }
 
-void RemoteImageDecoderAVFProxy::createDecoder(const IPC::SharedBufferCopy& data, const String& mimeType, CompletionHandler<void(std::optional<ImageDecoderIdentifier>&&)>&& completionHandler)
+void RemoteImageDecoderAVFProxy::createDecoder(const IPC::SharedBufferReference& data, const String& mimeType, CompletionHandler<void(std::optional<ImageDecoderIdentifier>&&)>&& completionHandler)
 {
-    auto imageDecoder = ImageDecoderAVFObjC::create(data.safeBuffer(), mimeType, AlphaOption::Premultiplied, GammaAndColorProfileOption::Ignored);
+    auto imageDecoder = ImageDecoderAVFObjC::create(data.isNull() ? SharedBuffer::create() : data.unsafeBuffer().releaseNonNull(), mimeType, AlphaOption::Premultiplied, GammaAndColorProfileOption::Ignored);
 
     std::optional<ImageDecoderIdentifier> imageDecoderIdentifier;
     if (!imageDecoder)
@@ -94,7 +95,7 @@ void RemoteImageDecoderAVFProxy::setExpectedContentSize(ImageDecoderIdentifier i
     m_imageDecoders.get(identifier)->setExpectedContentSize(expectedContentSize);
 }
 
-void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, const IPC::SharedBufferCopy& data, bool allDataReceived, CompletionHandler<void(size_t frameCount, const IntSize& size, bool hasTrack, std::optional<Vector<ImageDecoder::FrameInfo>>&&)>&& completionHandler)
+void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, const IPC::SharedBufferReference& data, bool allDataReceived, CompletionHandler<void(size_t frameCount, const IntSize& size, bool hasTrack, std::optional<Vector<ImageDecoder::FrameInfo>>&&)>&& completionHandler)
 {
     ASSERT(m_imageDecoders.contains(identifier));
     if (!m_imageDecoders.contains(identifier)) {
@@ -103,7 +104,7 @@ void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, cons
     }
 
     auto imageDecoder = m_imageDecoders.get(identifier);
-    imageDecoder->setData(data.safeBuffer(), allDataReceived);
+    imageDecoder->setData(data.isNull() ? SharedBuffer::create() : data.unsafeBuffer().releaseNonNull(), allDataReceived);
 
     auto frameCount = imageDecoder->frameCount();
 
@@ -114,27 +115,43 @@ void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, cons
     completionHandler(frameCount, imageDecoder->size(), imageDecoder->hasTrack(), WTFMove(frameInfos));
 }
 
-void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier identifier, size_t index, CompletionHandler<void(std::optional<WTF::MachSendRight>&&, WebCore::DestinationColorSpace)>&& completionHandler)
+void RemoteImageDecoderAVFProxy::createFrameImageAtIndex(ImageDecoderIdentifier identifier, size_t index, CompletionHandler<void(std::optional<WebKit::ShareableBitmap::Handle>&&)>&& completionHandler)
 {
     ASSERT(m_imageDecoders.contains(identifier));
-    if (!m_imageDecoders.contains(identifier)) {
-        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
+
+    ShareableBitmap::Handle imageHandle;
+
+    auto invokeCallbackAtScopeExit = makeScopeExit([&] {
+        auto handle = !imageHandle.isNull() ? WTFMove(imageHandle) : std::optional<ShareableBitmap::Handle> { };
+        completionHandler(WTFMove(handle));
+    });
+
+    if (!m_imageDecoders.contains(identifier))
         return;
-    }
 
     auto frameImage = m_imageDecoders.get(identifier)->createFrameImageAtIndex(index);
-    if (!frameImage) {
-        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
+    if (!frameImage)
         return;
-    }
 
-    auto surface = IOSurface::createFromImage(frameImage.get());
-    if (!surface) {
-        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
+    size_t width = CGImageGetWidth(frameImage.get());
+    size_t height = CGImageGetHeight(frameImage.get());
+    if (width > std::numeric_limits<int>::max() || height > std::numeric_limits<int>::max())
         return;
-    }
+    DestinationColorSpace colorSpace { CGImageGetColorSpace(frameImage.get()) };
+    bool isOpaque = false;
 
-    completionHandler(surface->createSendRight(), surface->colorSpace());
+    auto bitmap = ShareableBitmap::create(IntSize(width, height), { WTFMove(colorSpace), isOpaque });
+    if (!bitmap)
+        return;
+    auto context = bitmap->createGraphicsContext();
+    if (!context)
+        return;
+
+    auto nativeImage = NativeImage::create(frameImage.get());
+    FloatSize imageSize { float(width), float(height) };
+    FloatRect imageRect { { }, imageSize };
+    context->drawNativeImage(*nativeImage, imageSize, imageRect, imageRect, { CompositeOperator::Copy });
+    bitmap->createHandle(imageHandle);
 }
 
 void RemoteImageDecoderAVFProxy::clearFrameBufferCache(ImageDecoderIdentifier identifier, size_t index)

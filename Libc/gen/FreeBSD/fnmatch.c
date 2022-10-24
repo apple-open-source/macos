@@ -96,11 +96,14 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 	locale_t loc;
 	int recursion;
 {
+	const char *bt_pattern, *bt_string;
+	mbstate_t bt_patmbs, bt_strmbs;
 	char *newp, *news;
 	char c;
 	wchar_t pc, sc;
 	size_t pclen, sclen;
 
+	bt_pattern = bt_string = NULL;
 	if (recursion-- <= 0)
 		return RETURN_ERROR;
 	for (;;) {
@@ -122,16 +125,18 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 		case EOS:
 			if ((flags & FNM_LEADING_DIR) && sc == '/')
 				return (0);
-			return (sc == EOS ? 0 : FNM_NOMATCH);
+			if (sc == EOS)
+				return (0);
+			goto backtrack;
 		case '?':
 			if (sc == EOS)
 				return (FNM_NOMATCH);
 			if (sc == '/' && (flags & FNM_PATHNAME))
-				return (FNM_NOMATCH);
+				goto backtrack;
 			if (sc == '.' && (flags & FNM_PERIOD) &&
 			    (string == stringstart ||
 			    ((flags & FNM_PATHNAME) && *(string - 1) == '/')))
-				return (FNM_NOMATCH);
+				goto backtrack;
 			string += sclen;
 			break;
 		case '*':
@@ -143,7 +148,7 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 			if (sc == '.' && (flags & FNM_PERIOD) &&
 			    (string == stringstart ||
 			    ((flags & FNM_PATHNAME) && *(string - 1) == '/')))
-				return (FNM_NOMATCH);
+				goto backtrack;
 
 			/* Optimize for pattern with * at end or before /. */
 			if (c == EOS)
@@ -159,34 +164,26 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 				break;
 			}
 
-			/* General case, use recursion. */
-			int ret;
-			while (sc != EOS) {
-				if ((ret = fnmatch1(pattern, string, stringstart,
-				    flags, patmbs, strmbs, loc, recursion)) != FNM_NOMATCH)
-					return (ret);
-				sclen = mbrtowc_l(&sc, string, MB_LEN_MAX,
-				    &strmbs, loc);
-				if (sclen == (size_t)-1 ||
-				    sclen == (size_t)-2) {
-					sc = (unsigned char)*string;
-					sclen = 1;
-					memset(&strmbs, 0, sizeof(strmbs));
-				}
-				if (sc == '/' && flags & FNM_PATHNAME)
-					break;
-				string += sclen;
-			}
-			return (FNM_NOMATCH);
+			/*
+			 * First try the shortest match for the '*' that
+			 * could work. We can forget any earlier '*' since
+			 * there is no way having it match more characters
+			 * can help us, given that we are already here.
+			 */
+			bt_pattern = pattern;
+			bt_patmbs = patmbs;
+			bt_string = string;
+			bt_strmbs = strmbs;
+			break;
 		case '[':
 			if (sc == EOS)
 				return (FNM_NOMATCH);
 			if (sc == '/' && (flags & FNM_PATHNAME))
-				return (FNM_NOMATCH);
+				goto backtrack;
 			if (sc == '.' && (flags & FNM_PERIOD) &&
 			    (string == stringstart ||
 			    ((flags & FNM_PATHNAME) && *(string - 1) == '/')))
-				return (FNM_NOMATCH);
+				goto backtrack;
 
 			switch (rangematch(pattern, sc, string + sclen, flags,
 			    &newp, &news, &patmbs, &strmbs, loc)) {
@@ -201,7 +198,7 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 				string = news;
 				break;
 			case RANGE_NOMATCH:
-				return (FNM_NOMATCH);
+				goto backtrack;
 			}
 			break;
 		case '\\':
@@ -223,14 +220,41 @@ fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
 #if !__DARWIN_UNIX03
 		norm:
 #endif /* !__DARWIN_UNIX03 */
+			string += sclen;
 			if (pc == sc)
 				;
 			else if ((flags & FNM_CASEFOLD) &&
 				 (towlower_l(pc, loc) == towlower_l(sc, loc)))
 				;
-			else
-				return (FNM_NOMATCH);
-			string += sclen;
+			else {
+		backtrack:
+				/*
+				 * If we have a mismatch (other than hitting
+				 * the end of the string), go back to the last
+				 * '*' seen and have it match one additional
+				 * character.
+				 */
+				if (bt_pattern == NULL)
+					return (FNM_NOMATCH);
+				sclen = mbrtowc(&sc, bt_string, MB_LEN_MAX,
+				    &bt_strmbs);
+				if (sclen == (size_t)-1 ||
+				    sclen == (size_t)-2) {
+					sc = (unsigned char)*bt_string;
+					sclen = 1;
+					memset(&bt_strmbs, 0,
+					    sizeof(bt_strmbs));
+				}
+				if (sc == EOS)
+					return (FNM_NOMATCH);
+				if (sc == '/' && flags & FNM_PATHNAME)
+					return (FNM_NOMATCH);
+				bt_string += sclen;
+				pattern = bt_pattern;
+				patmbs = bt_patmbs;
+				string = bt_string;
+				strmbs = bt_strmbs;
+			}
 			break;
 		}
 	}

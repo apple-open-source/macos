@@ -40,8 +40,8 @@
     @typedef IOHIDEventType
     @abstract The type of event represented by an IOHIDEventRef.
     @discussion It is possible that a single IOHIDEventRef can conform to
-    multiple event types through the use of sub events.  For futher information
-    as to how to determinte the type of event please reference IOHIDEventGetType 
+    multiple event types through the use of sub events.  For further information
+    as to how to determine the type of event please reference IOHIDEventGetType 
     and IOHIDEventConformsTo.
     @constant kIOHIDEventTypeNULL
     @constant kIOHIDEventTypeVendorDefined
@@ -112,7 +112,7 @@ enum {
     kIOHIDEventTypeSymbolicHotKey,
     kIOHIDEventTypePower,                   // 25
     kIOHIDEventTypeLED,
-    kIOHIDEventTypeFluidTouchGesture,       // This will eventually superseed Navagation and Dock swipes
+    kIOHIDEventTypeFluidTouchGesture,       // This will eventually supersede Navagation and Dock swipes
     kIOHIDEventTypeBoundaryScroll,
     kIOHIDEventTypeBiometric,
     kIOHIDEventTypeUnicode,                 // 30
@@ -411,6 +411,7 @@ typedef uint32_t IOHIDSwipeMask;
     @constant kIOHIDGestureMotionFromBottomEdge
     @constant kIOHIDGestureMotionOffBottomEdge
     @constant kIOHIDGestureMotionLongPress
+    @constant kIOHIDGestureMotionTwoFingerLongPress
 
 */
 enum {
@@ -430,6 +431,7 @@ enum {
     kIOHIDGestureMotionFromBottomEdge,
     kIOHIDGestureMotionOffBottomEdge,
     kIOHIDGestureMotionLongPress,
+    kIOHIDGestureMotionTwoFingerLongPress,
 };
 typedef uint16_t IOHIDGestureMotion;
 
@@ -509,7 +511,7 @@ typedef uint32_t IOHIDDigitizerTransducerType;
     @typedef IOHIDDigitizerEventMask
     @abstract Event mask detailing the events being dispatched by a digitizer.
     @discussion It is possible for digitizer events to contain child digitizer events, effectively, behaving as collections.  
-    In the collection case, the child event mask field referrence by kIOHIDEventFieldDigitizerChildEventMask will detail the 
+    In the collection case, the child event mask field referenced by kIOHIDEventFieldDigitizerChildEventMask will detail the 
     cumulative event state of the child digitizer events.
     <br>
     <b>Please Note:</b>
@@ -529,10 +531,10 @@ typedef uint32_t IOHIDDigitizerTransducerType;
     @constant kIOHIDDigitizerEventSwipePending Issued to indicate that an edge swipe is pending 
     @constant kIOHIDDigitizerEventFromEdgeForcePending Issued to indicate that edge press is pending
     @constant kIOHIDDigitizerEventFromEdgeForceActive Issued to indicate that edge press is active
-    @constant kIOHIDDigitizerEventUpSwipe Issued when an up swipe has been detected.
-    @constant kIOHIDDigitizerEventDownSwipe Issued when an down swipe has been detected.
-    @constant kIOHIDDigitizerEventLeftSwipe Issued when an left swipe has been detected.
-    @constant kIOHIDDigitizerEventRightSwipe Issued when an right swipe has been detected.
+    @constant kIOHIDDigitizerEventSwipeUp Issued when an up swipe has been detected.
+    @constant kIOHIDDigitizerEventSwipeDown Issued when a down swipe has been detected.
+    @constant kIOHIDDigitizerEventSwipeLeft Issued when a left swipe has been detected.
+    @constant kIOHIDDigitizerEventSwipeRight Issued when a right swipe has been detected.
     @constant kIOHIDDigitizerEventSwipeMask Mask used to gather swipe events.
 */
 enum {
@@ -610,6 +612,7 @@ typedef uint32_t IOHIDDigitizerEventUpdateMask;
     @constant kIOHIDEventOptionIsBuiltIn Event is treated as if it came from a built-in device.
     @constant kIOHIDEventOptionInterpolated Event is interpolated from hid reports.
     @constant kIOHIDEventOptionInjected Event is injected by a tool or filter.
+    @constant kIOHIDEventOptionContinuousTime Event timestamp is continuous time, pulling the Absolute Time will trigger conversion that may change across sleeps.
     @constant kIOHIDEventOptionPixelUnits Alternate spelling of kIOHIDEventOptionIsPixelUnits, prefer using kIOHIDEventOptionIsPixelUnits instead.
 */
 enum {
@@ -621,9 +624,31 @@ enum {
     kIOHIDEventOptionIsBuiltIn                              = 1<<4,
     kIOHIDEventOptionInterpolated                           = 1<<5,
     kIOHIDEventOptionInjected                               = 1<<6,
-    kIOHIDEventOptionReserved8                              = 1<<8,  // See IOHIDEventServiceTypes.h
+    kIOHIDEventOptionContinuousTime                         = 1<<7,
+    kIOHIDEventOptionReserved8                              = 1<<8,  // Multiple flags, see IOHIDEventServiceTypes.h
     kIOHIDEventOptionReserved9                              = 1<<9,  // See kIOHIDEventScrollMomentumWillBegin below
     kIOHIDEventOptionReserved10                             = 1<<10, // See kIOHIDEventScrollMomentumInterrupted below
+    kIOHIDEventOptionReserved11                             = 1<<11, // Not currently used
+    kIOHIDEventOptionReserved12                             = 1<<12, // Not currently used
+    kIOHIDEventOptionReserved13                             = 1<<13, // Not currently used
+    kIOHIDEventOptionReserved14                             = 1<<14, // Not currently used
+    kIOHIDEventOptionReserved15                             = 1<<15, // Not currently used
+    kIOHIDEventOptionReserved16                             = 1<<16, // Multiple flags, see IOHIDEventData.h
+    kIOHIDEventOptionReserved17                             = 1<<17, // Multiple flags, see IOHIDEventData.h
+    kIOHIDEventOptionReserved18                             = 1<<18, // Multiple flags, see IOHIDEventData.h
+    kIOHIDEventOptionReserved19                             = 1<<19, // Multiple flags, see IOHIDEventData.h
+    kIOHIDEventOptionReserved20                             = 1<<20, // Not currently used
+    kIOHIDEventOptionReserved21                             = 1<<21, // See kIOHIDKeyboardStickyKeysOn in IOHIDEventData.h
+    kIOHIDEventOptionReserved22                             = 1<<22, // See kIOHIDKeyboardStickyKeysOff in IOHIDEventData.h
+    kIOHIDEventOptionReserved23                             = 1<<23, // See kIOHIDEventOptionIsZeroEvent in IOHIDEventData.h
+    kIOHIDEventOptionReserved24                             = 1<<24, // See kIOHIDEventPhaseBegan below
+    kIOHIDEventOptionReserved25                             = 1<<25, // See kIOHIDEventPhaseChanged below
+    kIOHIDEventOptionReserved26                             = 1<<26, // See kIOHIDEventPhaseEnded below
+    kIOHIDEventOptionReserved27                             = 1<<27, // See kIOHIDEventPhaseCancelled below
+    kIOHIDEventOptionReserved28                             = 1<<28, // See kIOHIDEventScrollMomentumContinue below
+    kIOHIDEventOptionReserved29                             = 1<<29, // See kIOHIDEventScrollMomentumStart below
+    kIOHIDEventOptionReserved30                             = 1<<30, // See kIOHIDEventScrollMomentumEnd below
+    kIOHIDEventOptionReserved31                             = 1<<31, // See kIOHIDEventPhaseMayBegin below
 
     // misspellings
     kIOHIDEventOptionPixelUnits                             = kIOHIDEventOptionIsPixelUnits,
@@ -661,7 +686,7 @@ typedef uint8_t IOHIDEventScrollMomentumBits;
 
 /*!
  @typedef IOHIDSymbolicHotKey
- @abstract Enumerted values for sending symbolic hot key events.
+ @abstract Enumerated values for sending symbolic hot key events.
  @constant kIOHIDSymbolicHotKeyDictionaryApp    This will get translated into a kCGSDictionaryAppHotKey by CG.
  @constant kIOHIDSymbolicHotKeyIronwoodApp      This will get translated into a kCGSIronwoodHotKey by CG.
  @constant kIOHIDSymbolicHotKeyDictationApp     This will get translated into a kCGSDictationHotKey by CG.
@@ -747,6 +772,25 @@ enum {
 enum {
     kIOHIDKeyboardStickyKeyToggleOn    = 1,
     kIOHIDKeyboardStickyKeyToggleOff   = 2
+};
+
+/*!
+    @typedef IOHIDEventTimestampType
+    @abstract Types for getting and setting timestamps on HID events.
+    @constant kIOHIDEventTimestampTypeAbsolute Get or set the timestamp as mach_absolute_time, convert if necessary.
+    @constant kIOHIDEventTimestampTypeContinuous Get or set the timestamp as mach_continuous_time, convert if necessary.
+    @constant kIOHIDEventTimestampTypeDefault Get or set a raw timestamp, with no conversion.
+*/
+
+typedef enum {
+    kIOHIDEventTimestampTypeAbsolute,
+    kIOHIDEventTimestampTypeContinuous,
+    kIOHIDEventTimestampTypeDefault,
+} IOHIDEventTimestampType;
+
+enum {
+    kIOHIDProximityProximityTypeLevel = 0,
+    kIOHIDProximityProximityTypeProbability
 };
 
 #endif /* _IOKIT_HID_IOHIDEVENTTYPES_H } */

@@ -132,6 +132,11 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * their size in the block, and store it both after the 'next' pointer, and in
  * the last 2 bytes of the block.
  *
+ * With zero-on-free, free blocks of two or more quanta are zeroed out after
+ * their leading inline metadata.  This invariant is maintained when blocks are
+ * split and coalesced, enabling calloc(3) to return free blocks as-is after
+ * clearing the metadata.
+ *
  * 1-quantum block
  * Offset (32-bit mode)	(64-bit mode)
  * 0x0          0x0      : previous
@@ -143,6 +148,7 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * 0x0          0x0      : previous
  * 0x4          0x08     : next
  * 0x8          0x10     : size (in quantum counts)
+ * 0xa          0x12     : start of zeroed body
  * end - 2      end - 2  : size (in quantum counts)
  * end          end
  *
@@ -730,7 +736,11 @@ MALLOC_STATIC_ASSERT(sizeof(struct medium_region) == 128 * 1024 * 1024,
 typedef struct large_entry_s {
 	vm_address_t address;
 	vm_size_t size;
+#if CONFIG_DEFERRED_RECLAIM
+	uint64_t reclaim_index;
+#else
 	boolean_t did_madvise_reusable;
+#endif /* CONFIG_DEFERRED_RECLAIM */
 } large_entry_t;
 
 #if !CONFIG_LARGE_CACHE && DEBUG_MALLOC

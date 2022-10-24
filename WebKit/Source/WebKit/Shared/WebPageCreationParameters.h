@@ -37,6 +37,7 @@
 #include "WebURLSchemeHandlerIdentifier.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
+#include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/DestinationColorSpace.h>
 #include <WebCore/FloatSize.h>
 #include <WebCore/HighlightVisibility.h>
@@ -49,15 +50,11 @@
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ViewportArguments.h>
-#include <wtf/HashMap.h>
+#include <wtf/RobinHoodHashSet.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(APPLICATION_MANIFEST)
 #include <WebCore/ApplicationManifest.h>
-#endif
-
-#if PLATFORM(GTK)
-#include "GtkSettingsState.h"
 #endif
 
 namespace IPC {
@@ -165,9 +162,6 @@ struct WebPageCreationParameters {
     WebCore::FloatSize viewportConfigurationViewSize;
     std::optional<WebCore::ViewportArguments> overrideViewportArguments;
 #endif
-#if ENABLE(ATTACHMENT_ELEMENT)
-    std::optional<Vector<SandboxExtension::Handle>> attachmentElementExtensionHandles;
-#endif
 #if PLATFORM(IOS_FAMILY)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
@@ -181,8 +175,6 @@ struct WebPageCreationParameters {
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
-    Vector<SandboxExtension::Handle> mediaExtensionHandles; // FIXME(207716): Remove when GPU process is complete.
-    Vector<SandboxExtension::Handle> mediaIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuMachExtensionHandles;
 #endif
@@ -197,6 +189,9 @@ struct WebPageCreationParameters {
 #endif
 #if PLATFORM(WIN)
     uint64_t nativeWindowHandle;
+#endif
+#if USE(GRAPHICS_LAYER_WC)
+    bool usesOffscreenRendering { false };
 #endif
     bool shouldScaleViewToFitDocument;
 
@@ -227,9 +222,10 @@ struct WebPageCreationParameters {
 
     String overriddenMediaType;
     Vector<String> corsDisablingPatterns;
+    HashSet<String> maskedURLSchemes;
     bool userScriptsShouldWaitUntilNotification { true };
     bool loadsSubresources { true };
-    std::optional<HashSet<String>> allowedNetworkHosts;
+    std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> allowedNetworkHosts;
 
     bool crossOriginAccessControlCheckEnabled { true };
     String processDisplayName;
@@ -239,6 +235,7 @@ struct WebPageCreationParameters {
     bool shouldCaptureVideoInUIProcess { false };
     bool shouldCaptureVideoInGPUProcess { false };
     bool shouldCaptureDisplayInUIProcess { false };
+    bool shouldCaptureDisplayInGPUProcess { false };
     bool shouldRenderCanvasInGPUProcess { false };
     bool shouldRenderDOMInGPUProcess { false };
     bool shouldPlayMediaInGPUProcess { false };
@@ -255,10 +252,6 @@ struct WebPageCreationParameters {
     bool canUseCredentialStorage { true };
 
     WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
-
-#if PLATFORM(GTK)
-    GtkSettingsState gtkSettings;
-#endif
     
     bool httpsUpgradeEnabled { true };
 
@@ -273,6 +266,10 @@ struct WebPageCreationParameters {
 #if HAVE(TOUCH_BAR)
     bool requiresUserActionForEditingControlsManager { false };
 #endif
+
+    bool hasResizableWindows { false };
+
+    WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 };
 
 } // namespace WebKit

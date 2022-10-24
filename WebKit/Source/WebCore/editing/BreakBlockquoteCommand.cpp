@@ -26,6 +26,7 @@
 #include "config.h"
 #include "BreakBlockquoteCommand.h"
 
+#include "CommonAtomStrings.h"
 #include "Editing.h"
 #include "ElementInlines.h"
 #include "HTMLBRElement.h"
@@ -87,7 +88,7 @@ void BreakBlockquoteCommand::doApply()
             return lineBreak;
 
         auto container = HTMLDivElement::create(document());
-        container->setDir("auto"_s);
+        container->setDir(autoAtom());
         container->appendChild(lineBreak);
         return container;
     }();

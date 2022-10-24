@@ -176,8 +176,8 @@ private:
     UnicodeString       fRuleString;
     UBool               fDontFreeData;
 
-    RBBIDataWrapper57(const RBBIDataWrapper57 &other); /*  forbid copying of this class */
-    RBBIDataWrapper57 &operator=(const RBBIDataWrapper57 &other); /*  forbid copying of this class */
+    RBBIDataWrapper57(const RBBIDataWrapper57 &other) = delete; /*  forbid copying of this class */
+    RBBIDataWrapper57 &operator=(const RBBIDataWrapper57 &other) = delete; /*  forbid copying of this class */
 };
 
 

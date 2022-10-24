@@ -57,33 +57,18 @@
 {
     self.finishOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishOp];
-    
-    NSString* salt = nil;
 
-    NSError *authKitError = nil;
-    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
-
-    if (altDSID) {
-        salt = altDSID;
-    } else {
-        secnotice("octagon", "authkit doesn't know about the altdsid, using stored value: %@", authKitError);
-
-        NSError* accountError = nil;
-        OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
-
-        if(account && !accountError) {
-            secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
-            salt = account.altDSID;
-        } else {
-            if (accountError == nil) {
-                accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
-            }
-            secerror("failed to retrieve account object: %@", accountError);
-            self.error = accountError;
-            [self runBeforeGroupFinished:self.finishOp];
-            return;
-        }
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishOp];
+        return;
     }
+
+    NSString* salt = altDSID;
 
     WEAKIFY(self);
 
@@ -114,16 +99,15 @@
         return;
     }
 
-    [self.deps.cuttlefishXPCWrapper createCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                    context:self.deps.contextID
-                                                                recoveryKey:recoveryString
-                                                                       salt:salt
-                                                                   ckksKeys:viewKeySets
-                                                                       uuid:self.uuid
-                                                                       kind:TPPBCustodianRecoveryKey_Kind_RECOVERY_KEY
-                                                                      reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                                              TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
-                                                                              NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper createCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                   recoveryKey:recoveryString
+                                                                          salt:salt
+                                                                      ckksKeys:viewKeySets
+                                                                          uuid:self.uuid
+                                                                          kind:TPPBCustodianRecoveryKey_Kind_RECOVERY_KEY
+                                                                         reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                                 TrustedPeersHelperCustodianRecoveryKey *_Nullable crk,
+                                                                                 NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
             if(error){

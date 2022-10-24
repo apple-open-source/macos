@@ -31,11 +31,15 @@
 @implementation CKKSCurrentKeyPointer
 
 - (instancetype)initForClass:(CKKSKeyClass*)keyclass
+                   contextID:(NSString*)contextID
               currentKeyUUID:(NSString*)currentKeyUUID
                       zoneID:(CKRecordZoneID*)zoneID
              encodedCKRecord: (NSData*) encodedrecord
 {
-    if(self = [super initWithCKRecordType: SecCKRecordCurrentKeyType encodedCKRecord:encodedrecord zoneID:zoneID]) {
+    if(self = [super initWithCKRecordType: SecCKRecordCurrentKeyType
+                          encodedCKRecord:encodedrecord
+                                contextID:contextID
+                                   zoneID:zoneID]) {
         _keyclass = keyclass;
         _currentKeyUUID = currentKeyUUID;
 
@@ -47,7 +51,11 @@
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSCurrentKeyPointer(%@) %@: %@>", self.zoneID.zoneName, self.keyclass, self.currentKeyUUID];
+    return [NSString stringWithFormat:@"<CKKSCurrentKeyPointer(%@, %@) %@: %@>",
+            self.zoneID.zoneName,
+            self.contextID,
+            self.keyclass,
+            self.currentKeyUUID];
 }
 
 - (instancetype)copyWithZone:(NSZone*)zone {
@@ -133,20 +141,39 @@
 
 #pragma mark - Load from database
 
-+ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError * __autoreleasing *)error
 {
-    return [self fromDatabaseWhere: @{@"keyclass": keyclass, @"ckzone":zoneID.zoneName} error: error];
+    return [self fromDatabaseWhere: @{@"keyclass": keyclass,
+                                      @"contextID": contextID,
+                                      @"ckzone":zoneID.zoneName
+                                    } error: error];
 }
 
-+ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError * __autoreleasing *)error
 {
-    return [self tryFromDatabaseWhere: @{@"keyclass": keyclass, @"ckzone":zoneID.zoneName} error: error];
+    return [self tryFromDatabaseWhere: @{@"keyclass": keyclass,
+                                         @"contextID": contextID,
+                                         @"ckzone":zoneID.zoneName
+                                       } error: error];
 }
 
-+ (instancetype _Nullable)forKeyClass:(CKKSKeyClass*)keyclass withKeyUUID:(NSString*)keyUUID zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (instancetype _Nullable)forKeyClass:(CKKSKeyClass*)keyclass
+                            contextID:(NSString*)contextID
+                          withKeyUUID:(NSString*)keyUUID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                error:(NSError * __autoreleasing *)error
 {
     NSError* localerror = nil;
-    CKKSCurrentKeyPointer* current = [self tryFromDatabase: keyclass zoneID:zoneID error: &localerror];
+    CKKSCurrentKeyPointer* current = [self tryFromDatabase:keyclass
+                                                 contextID:contextID
+                                                    zoneID:zoneID
+                                                     error:&localerror ];
     if(localerror) {
         if(error) {
             *error = localerror;
@@ -159,7 +186,11 @@
         return current;
     }
 
-    return [[CKKSCurrentKeyPointer alloc] initForClass: keyclass currentKeyUUID: keyUUID zoneID:zoneID encodedCKRecord:nil];
+    return [[CKKSCurrentKeyPointer alloc] initForClass:keyclass
+                                             contextID:contextID
+                                        currentKeyUUID:keyUUID
+                                                zoneID:zoneID
+                                       encodedCKRecord:nil];
 }
 
 + (NSArray<CKKSCurrentKeyPointer*>*)all:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
@@ -184,15 +215,16 @@
 }
 
 + (NSArray<NSString*>*) sqlColumns {
-    return @[@"keyclass", @"currentKeyUUID", @"ckzone", @"ckrecord"];
+    return @[@"contextID", @"keyclass", @"currentKeyUUID", @"ckzone", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
-    return @{@"keyclass": self.keyclass, @"ckzone":self.zoneID.zoneName};
+    return @{@"contextID": self.contextID, @"keyclass": self.keyclass, @"ckzone":self.zoneID.zoneName};
 }
 
 - (NSDictionary<NSString*,NSString*>*) sqlValues {
     return @{@"keyclass": self.keyclass,
+             @"contextID": self.contextID,
              @"currentKeyUUID": CKKSNilToNSNull(self.currentKeyUUID),
              @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),
              @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
@@ -201,19 +233,24 @@
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
     return [[CKKSCurrentKeyPointer alloc] initForClass:(CKKSKeyClass*)row[@"keyclass"].asString
+                                             contextID:row[@"contextID"].asString
                                         currentKeyUUID:row[@"currentKeyUUID"].asString
                                                 zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
                                        encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
 }
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
                             resync:(BOOL)resync
                        flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error
 {
     // Pull out the old CKP, if it exists
     NSError* ckperror = nil;
-    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)record.recordID.recordName) zoneID:record.recordID.zoneID error:&ckperror];
+    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)record.recordID.recordName)
+                                                                 contextID:contextID
+                                                                    zoneID:record.recordID.zoneID
+                                                                     error:&ckperror];
     if(ckperror) {
         ckkserror("ckkskey", record.recordID.zoneID, "error loading ckp: %@", ckperror);
     }
@@ -229,7 +266,7 @@
     }
 
     NSError* localerror = nil;
-    CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord:record];
+    CKKSCurrentKeyPointer* currentkey = [[CKKSCurrentKeyPointer alloc] initWithCKRecord:record contextID:contextID];
 
     bool saved = [currentkey saveToDatabase:&localerror];
     if(!saved || localerror != nil) {
@@ -253,11 +290,15 @@
 }
 
 + (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
                              error:(NSError**)error
 {
     // Pull out the old CKP, if it exists
     NSError* ckperror = nil;
-    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)recordID.recordName) zoneID:recordID.zoneID error:&ckperror];
+    CKKSCurrentKeyPointer* oldckp = [CKKSCurrentKeyPointer tryFromDatabase:((CKKSKeyClass*)recordID.recordName)
+                                                                 contextID:contextID
+                                                                    zoneID:recordID.zoneID
+                                                                     error:&ckperror];
     if(ckperror) {
         ckkserror("ckkskey", recordID.zoneID, "error loading ckp: %@", ckperror);
         if(error) {
@@ -288,27 +329,48 @@
 
 @implementation CKKSCurrentKeySet
 - (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
+                     contextID:(NSString*)contextID
 {
     if((self = [super init])) {
         _zoneID = zoneID;
+        _contextID = contextID;
     }
 
     return self;
 }
 
 + (CKKSCurrentKeySet*)loadForZone:(CKRecordZoneID*)zoneID
+                        contextID:(NSString*)contextID
 {
     @autoreleasepool {
-        CKKSCurrentKeySet* set = [[CKKSCurrentKeySet alloc] initWithZoneID:zoneID];
+        CKKSCurrentKeySet* set = [[CKKSCurrentKeySet alloc] initWithZoneID:zoneID contextID:contextID];
         NSError* error = nil;
 
-        set.currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:zoneID error:&error];
-        set.currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:zoneID error:&error];
-        set.currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:zoneID error:&error];
+        set.currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK
+                                                                contextID:contextID
+                                                                   zoneID:zoneID
+                                                                    error:&error];
+        set.currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA
+                                                                contextID:contextID
+                                                                   zoneID:zoneID
+                                                                    error:&error];
+        set.currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC
+                                                                contextID:contextID
+                                                                   zoneID:zoneID
+                                                                    error:&error];
 
-        set.tlk    = set.currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:set.currentTLKPointer.currentKeyUUID    zoneID:zoneID error:&error] : nil;
-        set.classA = set.currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassAPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
-        set.classC = set.currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassCPointer.currentKeyUUID zoneID:zoneID error:&error] : nil;
+        set.tlk    = set.currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabase:set.currentTLKPointer.currentKeyUUID
+                                                                              contextID:contextID
+                                                                                 zoneID:zoneID
+                                                                                  error:&error] : nil;
+        set.classA = set.currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassAPointer.currentKeyUUID
+                                                                              contextID:contextID
+                                                                                 zoneID:zoneID
+                                                                                  error:&error] : nil;
+        set.classC = set.currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabase:set.currentClassCPointer.currentKeyUUID
+                                                                              contextID:contextID
+                                                                                 zoneID:zoneID
+                                                                                  error:&error] : nil;
 
         set.pendingTLKShares = nil;
 
@@ -322,7 +384,8 @@
 
 -(NSString*)description {
     if(self.error) {
-        return [NSString stringWithFormat:@"<CKKSCurrentKeySet(%@): %@:%@ %@:%@ %@:%@ new:%d %@>",
+        return [NSString stringWithFormat:@"<CKKSCurrentKeySet[%@](%@): %@:%@ %@:%@ %@:%@ new:%d %@>",
+                self.contextID,
                 self.zoneID.zoneName,
                 self.currentTLKPointer.currentKeyUUID, self.tlk,
                 self.currentClassAPointer.currentKeyUUID, self.classA,
@@ -331,7 +394,8 @@
                 self.error];
 
     } else {
-        return [NSString stringWithFormat:@"<CKKSCurrentKeySet(%@): %@:%@ %@:%@ %@:%@ new:%d>",
+        return [NSString stringWithFormat:@"<CKKSCurrentKeySet[%@](%@): %@:%@ %@:%@ %@:%@ new:%d>",
+                self.contextID,
                 self.zoneID.zoneName,
                 self.currentTLKPointer.currentKeyUUID, self.tlk,
                 self.currentClassAPointer.currentKeyUUID, self.classA,

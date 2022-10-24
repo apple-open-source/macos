@@ -397,7 +397,7 @@ static void SOSTestDataSourceFactoryDispose(SOSDataSourceFactoryRef factory)
     free(dsf);
 }
 
-SOSDataSourceFactoryRef SOSTestDataSourceFactoryCreate() {
+SOSDataSourceFactoryRef SOSTestDataSourceFactoryCreate(void) {
     SOSTestDataSourceFactoryRef dsf = calloc(1, sizeof(struct SOSTestDataSourceFactory));
     
     dsf->dsf.copy_name = SOSTestDataSourceFactoryCopyName;

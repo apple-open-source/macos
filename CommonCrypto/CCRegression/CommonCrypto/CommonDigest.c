@@ -41,6 +41,10 @@ typedef struct DigestVector_t {
     char *sha384str;
     char *sha512str;
     char *rmd160str;
+    char *sha3224str;
+    char *sha3256str;
+    char *sha3384str;
+    char *sha3512str;
 } DigestVector;
 
 static DigestVector dv[] = {
@@ -64,6 +68,10 @@ static DigestVector dv[] = {
         "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
         "9c1185a5c5e9fc54612808977ee8f548b2258d31",
+        "6b4e03423667dbb73b6e15454f0eb1abd4597f9a1b078e3f5b5a6bc7",
+        "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a",
+        "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004",
+        "a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26",
     },
     {
         "",
@@ -85,6 +93,10 @@ static DigestVector dv[] = {
         "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
         "9c1185a5c5e9fc54612808977ee8f548b2258d31",
+        "6b4e03423667dbb73b6e15454f0eb1abd4597f9a1b078e3f5b5a6bc7",
+        "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a",
+        "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004",
+        "a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26",
     },
     {
         "Test vector from febooti.com",
@@ -106,6 +118,10 @@ static DigestVector dv[] = {
         "388bb2d487de48740f45fcb44152b0b665428c49def1aaf7c7f09a40c10aff1cd7c3fe3325193c4dd35d4eaa032f49b0",
         "09fb898bc97319a243a63f6971747f8e102481fb8d5346c55cb44855adc2e0e98f304e552b0db1d4eeba8a5c8779f6a3010f0e1a2beb5b9547a13b6edca11e8a",
         "4e1ff644ca9f6e86167ccb30ff27e0d84ceb2a61",
+        "712b74ec9f797c79c4eee0d0e2811ae2ff1c842cc8a1dc9ab879d26d",
+        "b9e427bc6b91050aa8fca25294a44d5ea4287974c48594cb1bdbcb889850dc58",
+        "30d5db177314d5f54a2cb2d63bbe3248b70f46979628a421130df2c3c6eabdc7170c4cadca2f682df2e6d2fef50bdee0",
+        "332f7fcf0ca71eae0a950a9e9748f7711998c78a9ed7728c227cfc77325ba6633851b2080b7eadfedb8ca59d03a3d7f2c7c300081a4f2b384f854ffd40f6d622",
     },
     { // Test from <rdar://problem/11285435> CC_SHA512_Init(),CC_SHA512_Update(),CC_SHA512_Final() gives wrong digest
         "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
@@ -127,6 +143,10 @@ static DigestVector dv[] = {
         "09330c33f71147e83d192fc782cd1b4753111b173b3b05d22fa08086e3b0f712fcc7c71a557e2db966c3e9fa91746039",
         "8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb6889018501d289e4900f7e4331b99dec4b5433ac7d329eeb6dd26545e96e55b874be909",
         "6f3fa39b6b503c384f919a49a7aa5c2c08bdfb45",
+        "543e6868e1666c1a643630df77367ae5a62a85070a51c14cbf665cbc",
+        "916f6061fe879741ca6469b43971dfdb28b1a32dc36cb3254e812be27aad1d18",
+        "79407d3b5916b59c3e30b09822974791c313fb9ecc849e406f23592d04f625dc8c709b98b43b3852b337216179aa7fc7",
+        "afebb2ef542e6579c50cad06d2e578f9f8dd6881d7dc824d26360feebf18a4fa73e3261122948efcfd492e74e82e2189ed0fb440d187f382270cb455f21dd185",
     }
 };
 
@@ -430,18 +450,44 @@ static int testDigests(DigestVector *dv) {
     ok(status &= testAllDigests(kCCDigestSHA512, dv->input, expectedMD, expectedIntermediate), "Testing all SHA512 Implementations");
     free(expectedMD);
     free(expectedIntermediate);
+    
+    // SHA3 does not have "original" API.
+    expectedMD = hexStringToBytesIfNotNULL(dv->sha3224str);
+    ok(status &= testAllDigests(kCCDigestSHA3_224, dv->input, expectedMD, NULL), "Testing all SHA3-224 Implementations");
+    free(expectedMD);
+    
+    expectedMD = hexStringToBytesIfNotNULL(dv->sha3256str);
+    ok(status &= testAllDigests(kCCDigestSHA3_256, dv->input, expectedMD, NULL), "Testing all SHA3-256 Implementations");
+    free(expectedMD);
+    
+    expectedMD = hexStringToBytesIfNotNULL(dv->sha3384str);
+    ok(status &= testAllDigests(kCCDigestSHA3_384, dv->input, expectedMD, NULL), "Testing all SHA3-384 Implementations");
+    free(expectedMD);
+    
+    expectedMD = hexStringToBytesIfNotNULL(dv->sha3512str);
+    ok(status &= testAllDigests(kCCDigestSHA3_512, dv->input, expectedMD, NULL), "Testing all SHA3-512 Implementations");
+    free(expectedMD);
 
     return status;
 }
 
 static size_t testsPerVector = 229;
+static size_t testsPerNewAPI = 19;
 
 int CommonDigest(int __unused argc, char *const * __unused argv) {
 
-	plan_tests((int) (dvLen*testsPerVector+5));
-    is(CC_SHA256(NULL, 1, (unsigned char *)1),NULL, "NULL data");
-    is(CC_SHA256(NULL, 0, NULL),NULL, "NULL output");
-    is(CCDigestGetOutputSize(kCCDigestSHA512),(size_t)64, "Out of bound by one");
+    size_t nsha3tests = 4 * dvLen * testsPerNewAPI;
+	plan_tests((int) (dvLen*testsPerVector + 12 + nsha3tests));
+    is(CC_SHA256(NULL, 1, (unsigned char *)1), NULL, "NULL data");
+    is(CC_SHA256(NULL, 0, NULL), NULL, "NULL output");
+    is(CCDigestGetOutputSize(kCCDigestSHA224), (size_t)28, "Output size of SHA224");
+    is(CCDigestGetOutputSize(kCCDigestSHA256), (size_t)32, "Output size of SHA256");
+    is(CCDigestGetOutputSize(kCCDigestSHA384), (size_t)48, "Output size of SHA384");
+    is(CCDigestGetOutputSize(kCCDigestSHA512), (size_t)64, "Output size of SHA512");
+    is(CCDigestGetOutputSize(kCCDigestSHA3_224), (size_t)28, "Output size of SHA3-224");
+    is(CCDigestGetOutputSize(kCCDigestSHA3_256), (size_t)32, "Output size of SHA3-256");
+    is(CCDigestGetOutputSize(kCCDigestSHA3_384), (size_t)48, "Output size of SHA3-384");
+    is(CCDigestGetOutputSize(kCCDigestSHA3_512), (size_t)64, "Output size of SHA3-512");
     is(CCDigestGetOutputSize(CC_MAX_N_DIGESTS),(size_t)kCCUnimplemented, "Out of bound by one");
     is(CCDigestGetOutputSize(CC_MAX_N_DIGESTS+500),(size_t)kCCUnimplemented, "Out of bound by a lot");
     

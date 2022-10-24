@@ -219,6 +219,10 @@ pl{
             "CHF",
             "frank szwajcarski",
         }
+        CLF{
+            "CLF",
+            "chilijska jednostka rozliczeniowa",
+        }
         CLP{
             "CLP",
             "peso chilijskie",
@@ -630,6 +634,10 @@ pl{
         MXP{
             "MXP",
             "peso srebrne meksykańskie (1861–1992)",
+        }
+        MXV{
+            "MXV",
+            "meksykańska jednostka inwestycyjna",
         }
         MYR{
             "MYR",

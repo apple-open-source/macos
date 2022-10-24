@@ -74,15 +74,21 @@
 
 - (void)groupStart {
     WEAKIFY(self);
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     if (self.deps.syncingPolicy.isInheritedAccount) {
         secnotice("ckksshare", "Account is inherited, bailing out of healing TLKShares");
         self.nextState = self.intendedState;
         return;
     }
+
+    [self.deps.overallLaunch addEvent:@"heal-tlk-shares-begin"];
     
     self.setResultStateOperation = [CKKSResultOperation named:@"determine-next-state" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
         STRONGIFY(self);
+
+        [self.deps.overallLaunch addEvent:@"heal-tlk-shares-complete"];
 
         if(self.failedDueToEssentialTrustState) {
             self.nextState = CKKSStateLoseTrust;
@@ -124,7 +130,8 @@
     __block CKKSCurrentKeySet* keyset = nil;
 
     [self.deps.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
-        keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+        keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID
+                                      contextID:viewState.contextID ];
     }];
 
     if(keyset.error) {
@@ -270,7 +277,7 @@
 
                 // Save the new CKRecords to the database
                 for(CKRecord* record in savedRecords) {
-                    CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                    CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
                     bool saved = [savedShare saveToDatabase:&localerror];
 
                     if(!saved || localerror != nil) {
@@ -378,7 +385,8 @@
                                                 error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
-    CKKSKeychainBackedKey* keychainBackedTLK = [keyset.tlk ensureKeyLoaded:&localerror];
+    CKKSKeychainBackedKey* keychainBackedTLK = [keyset.tlk ensureKeyLoadedForContextID:keyset.zoneID.ownerName
+                                                                                 error:&localerror];
 
     if(keychainBackedTLK == nil) {
         ckkserror("ckksshare", keyset.tlk, "TLK not loaded; cannot make shares for peers: %@", localerror);
@@ -411,6 +419,7 @@
         // Create a share for this peer.
         ckksnotice("ckksshare", keyset.tlk, "Creating share of %@ as %@ for %@", keyset.tlk, trustState.currentSelfPeers.currentSelf, peer);
         CKKSTLKShareRecord* newShare = [CKKSTLKShareRecord share:keychainBackedTLK
+                                                       contextID:keyset.tlk.contextID
                                                               as:trustState.currentSelfPeers.currentSelf
                                                               to:peer
                                                            epoch:-1
@@ -486,6 +495,7 @@
         if(databaseProvider == nil) {
             @autoreleasepool {
                 existingTLKSharesForPeer = [CKKSTLKShareRecord allFor:peer.peerID
+                                                            contextID:keyset.tlk.contextID
                                                               keyUUID:keyset.tlk.uuid
                                                                zoneID:keyset.tlk.zoneID
                                                                 error:&loadError];
@@ -494,6 +504,7 @@
             [databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
                 @autoreleasepool {
                     existingTLKSharesForPeer = [CKKSTLKShareRecord allFor:peer.peerID
+                                                                contextID:keyset.tlk.contextID
                                                                   keyUUID:keyset.tlk.uuid
                                                                    zoneID:keyset.tlk.zoneID
                                                                     error:&loadError];

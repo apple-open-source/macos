@@ -7475,7 +7475,7 @@ static const UldnItem en_StdMidLong[] = {
 	{ "ojs",                    TEST_ULOC_LOCALE, u"Oji-Cree" }, // other sub-lang
 	{ "ttm",                    TEST_ULOC_LOCALE, u"Northern Tutchone" },
 	{ "tce",                    TEST_ULOC_LOCALE, u"Southern Tutchone" },
-	// tests for rdar://74820154, rdar://75064267
+	// tests for rdar://74820154, rdar://75064267, rdar://89394823 
 	{ "ain",                    TEST_ULOC_LOCALE, u"Ainu" },
 	{ "am",                     TEST_ULOC_LOCALE, u"Amharic" },
 	{ "ff_Adlm",                TEST_ULOC_LOCALE, u"Fula (Adlam)" },
@@ -7486,6 +7486,7 @@ static const UldnItem en_StdMidLong[] = {
 	{ "syr",                    TEST_ULOC_LOCALE, u"Assyrian" },
 	{ "ti",                     TEST_ULOC_LOCALE, u"Tigrinya" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"Hanifi Rohingya" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"Apache, Western" },
     // baseline tests for rdar://76655165
     { "ky",                     TEST_ULDN_LANGUAGE, u"Kyrgyz" },
     { "ps",                     TEST_ULDN_LANGUAGE, u"Pashto" },
@@ -7500,6 +7501,10 @@ static const UldnItem en_StdMidLong[] = {
     { "en_GB",                  TEST_ULOC_LOCALE,   u"English (United Kingdom)" },
     { "fr_CG",                  TEST_ULOC_LOCALE,   u"French (Congo - Brazzaville)" },
     { "fr_FR",                  TEST_ULOC_LOCALE,   u"French (France)" },
+	// tests for rdar://80374611
+	{ "mdh",                    TEST_ULOC_LOCALE, u"Maguindanaon" },
+	{ "otk",                    TEST_ULOC_LOCALE, u"Old Turkish" },
+	{ "oui",                    TEST_ULOC_LOCALE, u"Old Uighur" },
 };
 
 static const UldnItem en_StdMidShrt[] = {
@@ -7670,12 +7675,13 @@ static const UldnItem fr_StdMidLong[] = {
 	{ "ojs",                    TEST_ULDN_LOCALE, u"oji-cree" }, // other sub-lang
 	{ "ttm",                    TEST_ULDN_LOCALE, u"tutchone du Nord" },
 	{ "tce",                    TEST_ULDN_LOCALE, u"tutchone du Sud" },
-	// tests for rdar://75064267
+	// tests for rdar://75064267, rdar://89394823 
 	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifi du Rohingya" },
 	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syriaque" },
 	{ "syr",                    TEST_ULOC_LOCALE, u"soureth" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"apache occidental" },
 };
 
 static const UldnItem fr_StdMidShrt[] = {
@@ -7706,11 +7712,12 @@ static const UldnItem ca_StdLstLong[] = {
 
 static const UldnItem nb_StdMidLong[] = {
 	{ "ur_Arab",                TEST_ULDN_LOCALE, u"urdu (naskh)" },
-	// tests for rdar://75064267
+	// tests for rdar://75064267, rdar://89394823 
 	{ "rhg",                    TEST_ULOC_LOCALE, u"rohingya" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"adlam" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"hanifisk rohingya" },
 	{ "Syrc",                   TEST_ULDN_SCRIPT, u"syrisk" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"apache, vestlig" },
 };
 
 static const UldnItem ur_StdMidLong[] = {
@@ -7775,11 +7782,13 @@ static const UldnItem zh_StdMidLong[] = {
     
     { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯语（内志）" },  // Apple <rdar://69728925>
 
-	// tests for rdar://75064267
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233
 	{ "rhg",                    TEST_ULOC_LOCALE, u"罗兴亚语" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"阿德拉姆文" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"哈乃斐罗兴亚文" },
 	{ "Syrc",                   TEST_ULDN_SCRIPT, u"叙利亚文" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" },
+	{ "guc",                    TEST_ULOC_LOCALE, u"瓦尤语" },
 };
 
 static const UldnItem zh_Hant_StdMidLong[] = {
@@ -7787,6 +7796,7 @@ static const UldnItem zh_Hant_StdMidLong[] = {
 	{ "MO",                     TEST_ULDN_REGION, u"澳門" },
     
     { "ars",                    TEST_ULDN_LANGUAGE, u"阿拉伯文（內志）" },  // Apple <rdar://69728925>
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕切文（西部）" }, // Apple rdar://89394823 
 };
 
 static const UldnItem zh_Hant_HK_StdMidLong[] = {
@@ -7806,6 +7816,7 @@ static const UldnItem yue_Hans_StdMidLong[] = {
 	{ "yue_Hant_HK",            TEST_ULOC_LOCALE, u"繁体粤语（香港）" },    // Apple <rdar://problem/53136228>
 	{ "HK",                     TEST_ULDN_REGION, u"香港" },
 	{ "MO",                     TEST_ULDN_REGION, u"澳门" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"阿帕奇语（西方）" }, // Apple rdar://89394823 
 };
 
 static const UldnItem nds_StdMidLong[] = { // Apple <rdar://problem/64703717>
@@ -7814,18 +7825,20 @@ static const UldnItem nds_StdMidLong[] = { // Apple <rdar://problem/64703717>
 
 static const UldnItem hi_StdMidLong[] = { // Apple <rdar://problem/53653337>
 	{ "Aran",                   TEST_ULDN_SCRIPT, u"नस्तालीक़" },
-	// tests for rdar://75064267
+	// tests for rdar://75064267, rdar://89394823, rdar://59762233
 	{ "rhg",                    TEST_ULOC_LOCALE, u"रोहिंग्या" },
 	{ "Adlm",                   TEST_ULDN_SCRIPT, u"अदलाम" },
 	{ "Rohg",                   TEST_ULDN_SCRIPT, u"हनिफ़ी रोहिंग्या" },
 	{ "Syrc",                   TEST_ULDN_SCRIPT, u"सिरियेक" },
+	{ "apw",                    TEST_ULOC_LOCALE, u"अपाची, पश्चिमी" },
+	{ "guc",                    TEST_ULOC_LOCALE, u"वायु" },
 };
 
 static const UldnItem hi_Latn_StdMidLong[] = { // Apple <rdar://problem/53216112>
 	{ "en",                     TEST_ULDN_LOCALE, u"English" },
 	{ "hi_Deva",                TEST_ULDN_LOCALE, u"Hindi (Devanagari)" },
 	{ "hi_Latn",                TEST_ULDN_LOCALE, u"Hindi (Latin)" },
-	{ "hi_Latn_IN",             TEST_ULDN_LOCALE, u"Hindi (Latin, Bhaarat)" },
+	{ "hi_Latn_IN",             TEST_ULDN_LOCALE, u"Hindi (Latin, India)" },
 };
 
 static const UldnItem mni_Beng_StdMidLong[] = { // Apple <rdar://problem/54153189>
@@ -7864,6 +7877,7 @@ static const UldnItem es_MX_StdBegLong[] = { // Apple <rdar://69835367>
     { "009",                TEST_ULDN_REGION, u"Oceanía" },
 	{ "HK",                 TEST_ULDN_REGION, u"Hong-Kong" },
 	{ "MO",                 TEST_ULDN_REGION, u"Macao" },
+	{ "guc",                TEST_ULDN_LANGUAGE, u"Wayú" }, // rdar://59762233
 };
 
 static const UldnItem ms_StdMidLong[] = {
@@ -7871,6 +7885,11 @@ static const UldnItem ms_StdMidLong[] = {
 	{ "wuu",                TEST_ULDN_LOCALE, u"Dialek Shanghai" },
 	{ "HK",                 TEST_ULDN_REGION, u"Hong Kong" },
 	{ "MO",                 TEST_ULDN_REGION, u"Macau" },
+	// rdar://59762233
+	{ "arc",                TEST_ULDN_LOCALE, u"Aramia" },
+	{ "car",                TEST_ULDN_LOCALE, u"Carib" },
+	{ "guc",                TEST_ULDN_LOCALE, u"Wayuu" },
+	{ "vls",                TEST_ULDN_LOCALE, u"Flemish Barat" },
 };
 
 static const UldnItem ain_StdMidLong[] = { // Apple <rdar:/74820154>
@@ -7887,6 +7906,25 @@ static const UldnItem ff_Adlm_StdMidLong[] = { // Apple <rdar:/74820154>
 
 static const UldnItem ig_StdMidLong[] = { // Apple <rdar:/74820154>
 	{ "ig",                 TEST_ULOC_LOCALE, u"Igbo" },
+};
+
+static const UldnItem kk_StdMidLong[] = { // Apple <rdar://95015661>
+    { "AT",                 TEST_ULDN_REGION,   u"Аустрия" },
+    { "AU",                 TEST_ULDN_REGION,   u"Аустралия" },
+    { "053",                TEST_ULDN_REGION,   u"Аустралазия" },
+    { "de_AT",              TEST_ULOC_LOCALE,   u"неміс тілі (Аустрия)" },
+    { "en_AU",              TEST_ULOC_LOCALE,   u"ағылшын тілі (Аустралия)" },
+    // Apple rdar://95777359
+    { "yue_Hans",           TEST_ULOC_LOCALE, u"кантон тілі (жеңілдетілген жазу)" },
+    { "yue_Hant",           TEST_ULOC_LOCALE, u"кантон тілі (дәстүрлі жазу)" },
+    { "Hans",               TEST_ULDN_SCRIPT, u"жеңілдетілген қытай иероглифы" },
+    { "Hant",               TEST_ULDN_SCRIPT, u"дәстүрлі қытай иероглифы" },
+    { "en_ZA",              TEST_ULOC_LOCALE, u"ағылшын тілі (Оңтүстік Африка)" },
+};
+
+static const UldnItem kk_DiaMidLong[] = { // Apple <rdar://95015661>
+    { "de_AT",              TEST_ULDN_LOCALE,   u"аустриялық неміс тілі" },
+    { "en_AU",              TEST_ULDN_LOCALE,   u"аустралиялық ағылшын тілі" },
 };
 
 static const UldnItem nv_StdMidLong[] = { // Apple <rdar:/74820154>
@@ -7919,6 +7957,40 @@ static const UldnItem yi_StdMidLong[] = { // https://unicode-org.atlassian.net/b
 	{ "ji",                     TEST_ULDN_LANGUAGE, u"ייִדיש" },
 	{ "ji_US",                  TEST_ULOC_LOCALE, u"ייִדיש (פֿאַראייניגטע שטאַטן)" },
 	{ "ji",                     TEST_ULOC_LANGUAGE, u"ייִדיש" },
+};
+
+static const UldnItem apw_StdMidLong[] = { // Apple rdar://89394823 rdar://94490599
+	{ "apw",                TEST_ULOC_LOCALE, u"Nṉee biyátiʼ" },
+	{ "Latn",               TEST_ULDN_SCRIPT, u"Latin" },
+};
+
+static const UldnItem dz_StdMidLong[] = { // Apple rdar://89394823
+	{ "dz",                TEST_ULOC_LOCALE, u"རྫོང་ཁ་" },
+};
+
+static const UldnItem sm_StdMidLong[] = { // Apple rdar://89394823
+	{ "sm",                TEST_ULOC_LOCALE, u"Gagana faʻa Sāmoa" },
+};
+
+static const UldnItem el_StdMidLong[] = { // Apple rdar://84190308, rdar://89394823, rdar://59762233
+	{ "NL",                 TEST_ULDN_REGION, u"Κάτω Χώρες" },
+	{ "apw",                TEST_ULOC_LOCALE, u"Απάτσι, Δυτικοί" },
+	{ "guc",                TEST_ULOC_LOCALE, u"Ουαγού" },
+};
+
+static const UldnItem it_StdMidLong[] = { // Apple rdar://85413154
+	{ "SH",                 TEST_ULDN_REGION, u"Sant'Elena" },
+	{ "CI",                 TEST_ULDN_REGION, u"Côte d'Ivoire" },
+	{ "qug@currency=ECS",   TEST_ULOC_LOCALE, u"quechua dell'altopiano del Chimborazo (Valuta=sucre dell'Ecuador)" },
+};
+
+static const UldnItem no_StdLstLong[] = { // Apple rdar://81296782
+    { "en",                 TEST_ULDN_LANGUAGE, u"Engelsk" },
+    { "sv",                 TEST_ULDN_LANGUAGE, u"Svensk" },
+    { "no",                 TEST_ULDN_LANGUAGE, u"Norsk" },
+    { "fr",                 TEST_ULDN_LANGUAGE, u"Fransk" },
+    { "ja",                 TEST_ULDN_LANGUAGE, u"Japansk" },
+    { "zh",                 TEST_ULDN_LANGUAGE, u"Kinesisk" },
 };
 
 static const UldnLocAndOpts uldnLocAndOpts[] = {
@@ -7971,6 +8043,14 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "rhg", optStdMidLong, rhg_StdMidLong, UPRV_LENGTHOF(rhg_StdMidLong) }, // rdar:/74820154
     { "syr", optStdMidLong, syr_StdMidLong, UPRV_LENGTHOF(syr_StdMidLong) }, // rdar:/74820154
     { "ti", optStdMidLong, ti_StdMidLong, UPRV_LENGTHOF(ti_StdMidLong) }, // rdar:/74820154
+    { "apw", optStdMidLong, apw_StdMidLong, UPRV_LENGTHOF(apw_StdMidLong) }, // rdar:/89394823
+    { "dz", optStdMidLong, dz_StdMidLong, UPRV_LENGTHOF(dz_StdMidLong) }, // rdar:/89394823
+    { "sm", optStdMidLong, sm_StdMidLong, UPRV_LENGTHOF(sm_StdMidLong) }, // rdar:/89394823
+    { "el", optStdMidLong, el_StdMidLong, UPRV_LENGTHOF(el_StdMidLong) }, // rdar:/84190308
+    { "it", optStdMidLong, it_StdMidLong, UPRV_LENGTHOF(it_StdMidLong) }, // rdar:/85413154
+    { "no", optStdLstLong, no_StdLstLong, UPRV_LENGTHOF(no_StdLstLong) }, // rdar://81296782
+    { "kk", optStdMidLong, kk_StdMidLong, UPRV_LENGTHOF(kk_StdMidLong) }, // rdar://95015661
+    { "kk", optDiaMidLong, kk_DiaMidLong, UPRV_LENGTHOF(kk_DiaMidLong) }, // rdar://95015661
     { NULL, NULL, NULL, 0 }
 };
 
@@ -9512,6 +9592,11 @@ static const char * locsToUseMAK[]     = { "sr_Latn_RS" };
 static const char * appleLocsMAL[]     = { "en_US", "fa_AF" };
 static const char * prefLangsMAL[]     = { "prs_AF" };
 static const char * locsToUseMAL[]     = { "fa_AF" };
+// For rdar://99195843
+static const char * appleLocsMAM[]    = { "en", "no" };
+static const char * prefLangsMAMa[]   = { "nn" };
+static const char * prefLangsMAMb[]   = { "nb" };
+static const char * locsToUseMAM[]    = { "no" };
 
 
 typedef struct {
@@ -9655,6 +9740,8 @@ static const MultiPrefTest multiTestSets[] = {
     { "MAJdd",   appleLocsMAJd,  UPRV_LENGTHOF(appleLocsMAJd), prefLangsMAJd, UPRV_LENGTHOF(prefLangsMAJd), locsToUseMAJd,     UPRV_LENGTHOF(locsToUseMAJd)  }, // rdar://79163271
     { "MAK",     appleLocsMAK,   UPRV_LENGTHOF(appleLocsMAK),  prefLangsMAK,  UPRV_LENGTHOF(prefLangsMAK),  locsToUseMAK,     UPRV_LENGTHOF(locsToUseMAK)  },  // rdar://79163271
     { "MAL",     appleLocsMAL,   UPRV_LENGTHOF(appleLocsMAL),  prefLangsMAL,  UPRV_LENGTHOF(prefLangsMAL),  locsToUseMAL,     UPRV_LENGTHOF(locsToUseMAL)  },  // rdar://79163271
+    { "MAMa",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMa,  UPRV_LENGTHOF(prefLangsMAMa),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
+    { "MAMb",    appleLocsMAM,   UPRV_LENGTHOF(appleLocsMAM),  prefLangsMAMb,  UPRV_LENGTHOF(prefLangsMAMb),  locsToUseMAM,     UPRV_LENGTHOF(locsToUseMAM)  },  // rdar://99195843
 
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };
@@ -9791,11 +9878,14 @@ static void TestNorwegianDisplayNames(void) {
 
 static void TestSpecificDisplayNames(void) {
     
-    // first column is language whose name we want, second column is language to display it in, third column is expected result
+    // first column is locale whose name we want, second column is language to display it in, third column is expected result
     static const char* testLanguages[] = {
-        "wuu", "sv",    "shanghainesiska", // rdar://66154565
-        "mi",  "en",    "Māori",           // rdar://75300243
-        "mi",  "en_NZ", "Māori",           // rdar://75300243
+        "wuu",   "sv",      "shanghainesiska",   // rdar://66154565
+        "mi",    "en",      "Māori",             // rdar://75300243
+        "mi",    "en_NZ",   "Māori",             // rdar://75300243
+        "hi_IN", "hi_Latn", "Hindi (India)",     // rdar://80522845
+        "nv",    "hi",      "नावाहो",              // rdar://82306232
+        "es_PA", "it",      "spagnolo (Panama)", // rdar://85413128
     };
     int32_t testLanguagesLength = UPRV_LENGTHOF(testLanguages);
     
@@ -9803,7 +9893,7 @@ static void TestSpecificDisplayNames(void) {
         UErrorCode err = U_ZERO_ERROR;
         UChar displayName[200];
         char displayNameUTF8[200];
-        uloc_getDisplayLanguage(testLanguages[i], testLanguages[i + 1], displayName, 200, &err);
+        uloc_getDisplayName(testLanguages[i], testLanguages[i + 1], displayName, 200, &err);
         
         if (assertSuccess("Error getting display language", &err)) {
             u_strToUTF8(displayNameUTF8, 200, NULL, displayName, -1, &err);

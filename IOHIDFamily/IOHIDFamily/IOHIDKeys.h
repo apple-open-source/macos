@@ -43,8 +43,8 @@ __BEGIN_DECLS
 
 /*!
     @defined HID Device Property Keys
-    @abstract Keys that represent properties of a paticular device.
-    @discussion Keys that represent properties of a paticular device.  Can be added
+    @abstract Keys that represent properties of a particular device.
+    @discussion Keys that represent properties of a particular device.  Can be added
         to your matching dictionary when refining searches for HID devices.
         <br><br>
         <b>Please note:</b><br>
@@ -67,7 +67,7 @@ __BEGIN_DECLS
         These usage pairs describe all application type collections (behaviors) defined 
         by the device.
         <br><br>
-        An application intersted in only matching on one criteria would only add the 
+        An application interested in only matching on one criteria would only add the 
         kIOHIDDeviceUsageKey and kIOHIDDeviceUsagePageKey keys to the matching dictionary.
         If it is interested in a device that has multiple behaviors, the application would
         instead add an array or dictionaries referenced by kIOHIDDeviceUsagePairsKey to his 
@@ -108,7 +108,7 @@ __BEGIN_DECLS
     @define kIOHIDElementKey
     @abstract Keys that represents an element property.
     @discussion Property for a HID Device or element dictionary.
-        Elements can be heirarchical, so they can contain other elements.
+        Elements can be hierarchical, so they can contain other elements.
 */
 #define kIOHIDElementKey                    "Elements"
 
@@ -177,7 +177,7 @@ __BEGIN_DECLS
 
 /*!
     @defined kIOHIDElementCalibrationSaturationMinKey
-    @abstract The mininum tolerance to be used when calibrating a logical element value. 
+    @abstract The minimum tolerance to be used when calibrating a logical element value. 
     @discussion The saturation property is used to allow for slight differences in the minimum and maximum value returned by an element. 
 */
 #define kIOHIDElementCalibrationSaturationMinKey    "CalibrationSaturationMin"
@@ -213,7 +213,7 @@ __BEGIN_DECLS
 /*!
     @defined kIOHIDKeyboardSupportsEscKey
     @abstract Describe if keyboard device supports esc key.
-    @discussion Keyboard devices having full HID keyboard descriptor can specify if esc key is actually supported or not. For new macs with TouchBar this is ideal scenario where keyboard descriptor by defaultspecifies presence of esc key but through given property client can check if key is present or not
+    @discussion Keyboard devices having full HID keyboard descriptor can specify if esc key is actually supported or not. For new macs with TouchBar this is ideal scenario where keyboard descriptor by default specifies presence of esc key but through given property client can check if key is present or not
  */
 #define kIOHIDKeyboardSupportsEscKey                 "HIDKeyboardSupportsEscKey"
 
@@ -224,10 +224,12 @@ __BEGIN_DECLS
   @constant kIOHIDOptionsTypeSeizeDevice Used to open exclusive
     communication with the device.  This will prevent the system
     and other clients from receiving events from the device.
+  @constant kIOHIDOptionsTypeMaskPrivate Mask for reserved internal usage values.
 */
 enum {
     kIOHIDOptionsTypeNone     = 0x00,
-    kIOHIDOptionsTypeSeizeDevice = 0x01
+    kIOHIDOptionsTypeSeizeDevice = 0x01,
+    kIOHIDOptionsTypeMaskPrivate = 0xff0000,
 };
 typedef uint32_t IOHIDOptionsType;
 
@@ -261,6 +263,28 @@ enum {
 };
 typedef uint32_t IOHIDStandardType;
 
+/*!
+  @typedef kIOHIDDigitizerGestureCharacterStateKey
+  @abstract Type to define what physical layout the device is referencing.
+  @constant kIOHIDKeyboardPhysicalLayoutTypeUnknown Unknown.
+  @constant kIOHIDKeyboardPhysicalLayoutType101 ANSI.
+  @constant kIOHIDKeyboardPhysicalLayoutType103 Korean.
+  @constant kIOHIDKeyboardPhysicalLayoutType102 ISO.
+  @constant kIOHIDKeyboardPhysicalLayoutType104 ABNT Brazil.
+  @constant kIOHIDKeyboardPhysicalLayoutType106 JIS.
+  @constant kIOHIDKeyboardPhysicalLayoutTypeVendor Vendor specific layout.
+*/
+enum {
+    kIOHIDKeyboardPhysicalLayoutTypeUnknown  = 0x0,
+    kIOHIDKeyboardPhysicalLayoutType101      = 0x1,
+    kIOHIDKeyboardPhysicalLayoutType103      = 0x2,
+    kIOHIDKeyboardPhysicalLayoutType102      = 0x3,
+    kIOHIDKeyboardPhysicalLayoutType104      = 0x4,
+    kIOHIDKeyboardPhysicalLayoutType106      = 0x5,
+    kIOHIDKeyboardPhysicalLayoutTypeVendor   = 0x6,
+};
+typedef uint32_t IOHIDKeyboardPhysicalLayoutType;
+
 #define kIOHIDDigitizerGestureCharacterStateKey "DigitizerCharacterGestureState"
 
 /* 
@@ -286,7 +310,7 @@ typedef uint32_t IOHIDStandardType;
 
 /*!
     @defined kFnKeyboardUsageMapKey
-    @abstract top row key reampping for consumer usages
+    @abstract top row key remapping for consumer usages
     @discussion string of comma separated uint64_t value representing (usagePage<<32) | usage pairs
  
  */
@@ -420,6 +444,22 @@ typedef uint32_t IOHIDStandardType;
                     If the key is not set then the device will have acceleration applied to it's events by default.
  */
 #define kIOHIDScrollAccelerationSupportKey     "HIDSupportsScrollAcceleration"
+
+/*!
+     @defined    kIOHIDKeyboardLayoutValueKey
+     @abstract   Property to report the value read from the device used to determine the keyboard layout
+     @discussion Property value if set represents the raw value recieved from the device.
+                    Supported usages and their value's meaning:
+                        * Usage: kHIDPage_Consumer/kHIDUsage_Csmr_KeyboardPhysicalLayout
+                            - 0: Unknown Layout - kIOHIDStandardTypeUnspecified
+                            - 1: 101 (e.g. US) - kIOHIDStandardTypeANSI
+                            - 2: 103 (Korea) - kIOHIDStandardTypeUnspecified
+                            - 3: 102 (e.g. German) - kIOHIDStandardTypeISO
+                            - 4: 104 (e.g. ABNT Brazil) - kIOHIDStandardTypeUnspecified
+                            - 5: 106 (DOS/V Japan) - kIOHIDStandardTypeJIS
+                            - 6: Vendor-specific - kIOHIDStandardTypeUnspecified
+ */
+#define kIOHIDKeyboardLayoutValueKey "HIDKeyboardLayoutValue"
 
 __END_DECLS
 

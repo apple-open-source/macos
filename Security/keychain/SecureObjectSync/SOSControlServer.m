@@ -258,6 +258,11 @@
     return [self.account sosIsEnabledString];
 }
 
+- (void)setBypass:(BOOL)bypass reply:(void(^)(BOOL result, NSError *error))reply
+{
+    [self.account setBypass:bypass reply:reply];
+}
+
 @end
 
 @implementation SOSClientRemote

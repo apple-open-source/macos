@@ -28,8 +28,9 @@
 
 #include "CSSMarkup.h"
 #include "CSSSelectorList.h"
+#include "CommonAtomStrings.h"
+#include "DeprecatedGlobalSettings.h"
 #include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SelectorPseudoTypeMap.h"
 #include <wtf/Assertions.h>
 #include <wtf/StdLibExtras.h>
@@ -132,10 +133,11 @@ static unsigned simpleSelectorSpecificityInternal(const CSSSelector& simpleSelec
         case CSSSelector::PseudoClassNthLastChild:
         case CSSSelector::PseudoClassHost:
             return CSSSelector::addSpecificities(static_cast<unsigned>(SelectorSpecificityIncrement::ClassB), simpleSelector.selectorList() ? maxSpecificity(*simpleSelector.selectorList()) : 0);
+        case CSSSelector::PseudoClassRelativeScope:
+            return 0;
         default:
-            break;
+            return static_cast<unsigned>(SelectorSpecificityIncrement::ClassB);
         }
-        return static_cast<unsigned>(SelectorSpecificityIncrement::ClassB);
     case CSSSelector::Exact:
     case CSSSelector::Class:
     case CSSSelector::Set:
@@ -280,11 +282,11 @@ CSSSelector::PseudoElementType CSSSelector::parsePseudoElementType(StringView na
 
     auto type = parsePseudoElementString(name);
     if (type == PseudoElementUnknown) {
-        if (name.startsWith("-webkit-"))
+        if (name.startsWith("-webkit-"_s) || name.startsWith("-apple-"_s))
             type = PseudoElementWebKitCustom;
     }
 
-    if (type == PseudoElementHighlight && !RuntimeEnabledFeatures::sharedFeatures().highlightAPIEnabled())
+    if (type == PseudoElementHighlight && !DeprecatedGlobalSettings::highlightAPIEnabled())
         return PseudoElementUnknown;
 
     return type;
@@ -744,10 +746,10 @@ String CSSSelector::selectorText(const String& rightSide) const
                 break;
             }
             case CSSSelector::PseudoElementWebKitCustomLegacyPrefixed:
-                if (cs->value() == "placeholder")
-                    builder.append("::-webkit-input-placeholder");
-                if (cs->value() == "file-selector-button")
-                    builder.append("::-webkit-file-upload-button");
+                if (cs->value() == "placeholder"_s)
+                    builder.append("::-webkit-input-placeholder"_s);
+                if (cs->value() == "file-selector-button"_s)
+                    builder.append("::-webkit-file-upload-button"_s);
                 break;
 #if ENABLE(VIDEO)
             case CSSSelector::PseudoElementCue: {

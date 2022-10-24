@@ -78,7 +78,7 @@ void Swig_warning(int wnum, const_String_or_char_ptr filename, int line, const c
     unsigned long result = strtoul(msg, &msg, 10);
     if (msg != Char(out)) {
       msg++;
-      wnum = result;
+      wnum = (int) result;
     }
   }
 

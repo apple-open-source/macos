@@ -57,6 +57,16 @@
 
 __BEGIN_DECLS
 
+
+#define DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS DEPRECATED_ATTRIBUTE  __SPI_AVAILABLE(ios(1.0), macCatalyst(14.0))
+#define __UNAVAILABLE_PUBLIC_IOS __API_AVAILABLE(macos(1.0)) __SPI_AVAILABLE(ios(1.0), macCatalyst(14.0))
+
+#if TARGET_OS_IOS
+#define AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS
+#else
+#define AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5
+#endif
+
 /*! @header IOKitLib
 IOKitLib implements non-kernel task access to common IOKit object types - IORegistryEntry, IOService, IOIterator etc. These functions are generic - families may provide API that is more specific.<br>
 IOKitLib represents IOKit objects outside the kernel with the types io_object_t, io_registry_entry_t, io_service_t, & io_connect_t. Function names usually begin with the type of object they are compatible with - eg. IOObjectRelease can be used with any io_object_t. Inside the kernel, the c++ class hierarchy allows the subclasses of each object type to receive the same requests from user level clients, for example in the kernel, IOService is a subclass of IORegistryEntry, which means any of the IORegistryEntryXXX functions in IOKitLib may be used with io_service_t's as well as io_registry_t's. There are functions available to introspect the class of the kernel object which any io_object_t et al. represents.
@@ -121,7 +131,8 @@ __API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 
 extern
 const mach_port_t kIOMasterPortDefault
-__API_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(1.0, 15.0));
+__API_AVAILABLE(macCatalyst(1.0))
+__API_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", macos(10.0, 12.0)) __SPI_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", ios(1.0, 15.0), watchos(1.0, 8.0), tvos(1.0, 15.0));
 
 
 
@@ -131,7 +142,8 @@ __API_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", macos(10.0, 12.0), ios(1
 kern_return_t
 IOMasterPort( mach_port_t	bootstrapPort,
 	      mach_port_t *	mainPort )
-__API_DEPRECATED_WITH_REPLACEMENT("IOMainPort", macos(10.0, 12.0), ios(1.0, 15.0), watchos(1.0, 8.0), tvos(1.0, 15.0));
+__API_AVAILABLE(macCatalyst(1.0))
+__API_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", macos(10.0, 12.0)) __SPI_DEPRECATED_WITH_REPLACEMENT("kIOMainPortDefault", ios(1.0, 15.0), watchos(1.0, 8.0), tvos(1.0, 15.0));
 
 
 /*! @function IONotificationPortCreate
@@ -146,7 +158,7 @@ IONotificationPortCreate(
 
 /*! @function IONotificationPortDestroy
     @abstract Destroys a notification object created with IONotificationPortCreate.
-                Also destroys any mach_port's or CFRunLoopSources obatined from 
+                Also destroys any mach_port's or CFRunLoopSources obtained from 
                 <code>@link IONotificationPortGetRunLoopSource @/link</code>
                 or <code>@link IONotificationPortGetMachPort @/link</code>
     @param notify A reference to the notification object. */
@@ -441,7 +453,7 @@ IOServiceAddNotification(
 	CFDictionaryRef	matching,
 	mach_port_t	wakePort,
 	uintptr_t	reference,
-	io_iterator_t *	notification )  DEPRECATED_ATTRIBUTE;
+	io_iterator_t *	notification )  DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 /*! @function IOServiceAddMatchingNotification
     @abstract Look up registered IOService objects that match a matching dictionary, and install a notification request of new IOServices that match.
@@ -505,7 +517,7 @@ IOServiceMatchPropertyTable(
 
 /*! @function IOServiceGetBusyState
     @abstract Returns the busyState of an IOService.
-    @discussion Many activities in IOService are asynchronous. When registration, matching, or termination is in progress on an IOService, its busyState is increased by one. Change in busyState to or from zero also changes the IOService's provider's busyState by one, which means that an IOService is marked busy when any of the above activities is ocurring on it or any of its clients.
+    @discussion Many activities in IOService are asynchronous. When registration, matching, or termination is in progress on an IOService, its busyState is increased by one. Change in busyState to or from zero also changes the IOService's provider's busyState by one, which means that an IOService is marked busy when any of the above activities is occurring on it or any of its clients.
     @param service The IOService whose busyState to return.
     @param busyState The busyState count is returned.
     @result A kern_return_t error code. */
@@ -529,7 +541,7 @@ IOServiceWaitQuiet(
 
 /*! @function IOKitGetBusyState
     @abstract Returns the busyState of all IOServices.
-    @discussion Many activities in IOService are asynchronous. When registration, matching, or termination is in progress on an IOService, its busyState is increased by one. Change in busyState to or from zero also changes the IOService's provider's busyState by one, which means that an IOService is marked busy when any of the above activities is ocurring on it or any of its clients. IOKitGetBusyState returns the busy state of the root of the service plane which reflects the busy state of all IOServices.
+    @discussion Many activities in IOService are asynchronous. When registration, matching, or termination is in progress on an IOService, its busyState is increased by one. Change in busyState to or from zero also changes the IOService's provider's busyState by one, which means that an IOService is marked busy when any of the above activities is occurring on it or any of its clients. IOKitGetBusyState returns the busy state of the root of the service plane which reflects the busy state of all IOServices.
     @param mainPort The main port obtained from IOMainPort(). Pass kIOMainPortDefault to look up the default main port.
     @param busyState The busyState count is returned.
     @result A kern_return_t error code. */
@@ -539,8 +551,23 @@ IOKitGetBusyState(
 	mach_port_t	mainPort,
 	uint32_t *	busyState );
 
+/*! @function IOKitWaitQuietWithOptions
+    @abstract Wait for all IOServices' busyState to be zero.
+    @discussion Blocks the caller until all IOServices are non busy, see IOKitGetBusyState.
+    @param mainPort The main port obtained from IOMainPort(). Pass kIOMainPortDefault to look up the default main port.
+    @param waitTime Specifies a maximum time to wait.
+    @param options Specifies the options to be passed to the kernel
+    @result Returns an error code if mach synchronization primitives fail, kIOReturnTimeout, or kIOReturnSuccess. */
+
+kern_return_t
+IOKitWaitQuietWithOptions(
+    mach_port_t      mainPort,
+    mach_timespec_t * waitTime,
+    IOOptionBits         options ) __SPI_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0));
+
+
 /*! @function IOKitWaitQuiet
-    @abstract Wait for a all IOServices' busyState to be zero.
+    @abstract Wait for all IOServices' busyState to be zero.
     @discussion Blocks the caller until all IOServices are non busy, see IOKitGetBusyState.
     @param mainPort The main port obtained from IOMainPort(). Pass kIOMainPortDefault to look up the default main port.
     @param waitTime Specifies a maximum time to wait.
@@ -577,7 +604,7 @@ IOServiceOpen(
 kern_return_t
 IOServiceRequestProbe(
 	io_service_t    service,
-	uint32_t	options );
+	uint32_t	options ) __UNAVAILABLE_PUBLIC_IOS;
 
 // options for IOServiceAuthorize()
 enum {
@@ -594,12 +621,12 @@ enum {
 kern_return_t
 IOServiceAuthorize(
 	io_service_t	service,
-	uint32_t	options );
+	uint32_t	options ) __UNAVAILABLE_PUBLIC_IOS;
 
 int
 IOServiceOpenAsFileDescriptor(
 	io_service_t	service,
-	int		oflag );
+	int		oflag ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * *ff * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -641,7 +668,7 @@ IOConnectRelease(
     @abstract Returns the IOService a connect handle was opened on.
     @discussion Finds the service object a connection was opened on.
     @param connect The connect handle created by IOServiceOpen.
-    @param service On succes, the service handle the connection was opened on, which should be released with IOObjectRelease.
+    @param service On success, the service handle the connection was opened on, which should be released with IOObjectRelease.
     @result A kern_return_t error code. */
 
 kern_return_t
@@ -671,7 +698,7 @@ IOConnectSetNotificationPort(
     @param connect The connect handle created by IOServiceOpen.
     @param memoryType What is being requested to be mapped, not interpreted by IOKit and family defined. The family may support physical hardware or shared memory mappings.
     @param intoTask The task port for the task in which to create the mapping. This may be different to the task which the opened the connection.
-    @param atAddress An in/out parameter - if the kIOMapAnywhere option is not set, the caller should pass the address where it requests the mapping be created, otherwise nothing need to set on input. The address of the mapping created is passed back on sucess.
+    @param atAddress An in/out parameter - if the kIOMapAnywhere option is not set, the caller should pass the address where it requests the mapping be created, otherwise nothing need to set on input. The address of the mapping created is passed back on success.
     @param ofSize The size of the mapping created is passed back on success.
     @result A kern_return_t error code. */
 
@@ -706,7 +733,7 @@ IOConnectMapMemory(
     @param connect The connect handle created by IOServiceOpen.
     @param memoryType What is being requested to be mapped, not interpreted by IOKit and family defined. The family may support physical hardware or shared memory mappings.
     @param intoTask The task port for the task in which to create the mapping. This may be different to the task which the opened the connection.
-    @param atAddress An in/out parameter - if the kIOMapAnywhere option is not set, the caller should pass the address where it requests the mapping be created, otherwise nothing need to set on input. The address of the mapping created is passed back on sucess.
+    @param atAddress An in/out parameter - if the kIOMapAnywhere option is not set, the caller should pass the address where it requests the mapping be created, otherwise nothing need to set on input. The address of the mapping created is passed back on success.
     @param ofSize The size of the mapping created is passed back on success.
     @result A kern_return_t error code. */
 
@@ -774,7 +801,7 @@ kern_return_t IOConnectUnmapMemory64(
 kern_return_t
 IOConnectSetCFProperties(
 	io_connect_t	connect,
-	CFTypeRef	properties );
+	CFTypeRef	properties ) __UNAVAILABLE_PUBLIC_IOS;
 
 /*! @function IOConnectSetCFProperty
     @abstract Set a CF container based property on a connection.
@@ -788,7 +815,7 @@ kern_return_t
 IOConnectSetCFProperty(
 	io_connect_t	connect,
         CFStringRef	propertyName,
-	CFTypeRef	property );
+	CFTypeRef	property ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -875,25 +902,25 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 kern_return_t
 IOConnectTrap0(io_connect_t	connect,
-	       uint32_t		index );
+	       uint32_t		index ) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap1(io_connect_t	connect,
 	       uint32_t		index,
-	       uintptr_t	p1 );
+	       uintptr_t	p1 ) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap2(io_connect_t	connect,
 	       uint32_t		index,
 	       uintptr_t	p1,
-	       uintptr_t	p2);
+	       uintptr_t	p2) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap3(io_connect_t	connect,
 	       uint32_t		index,
 	       uintptr_t	p1,
 	       uintptr_t	p2,
-	       uintptr_t	p3);
+	       uintptr_t	p3) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap4(io_connect_t	connect,
@@ -901,7 +928,7 @@ IOConnectTrap4(io_connect_t	connect,
 	       uintptr_t	p1,
 	       uintptr_t	p2,
 	       uintptr_t	p3,
-	       uintptr_t	p4);
+	       uintptr_t	p4) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap5(io_connect_t	connect,
@@ -910,7 +937,7 @@ IOConnectTrap5(io_connect_t	connect,
 	       uintptr_t	p2,
 	       uintptr_t	p3,
 	       uintptr_t	p4,
-	       uintptr_t	p5);
+	       uintptr_t	p5) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectTrap6(io_connect_t	connect,
@@ -920,7 +947,7 @@ IOConnectTrap6(io_connect_t	connect,
 	       uintptr_t	p3,
 	       uintptr_t	p4,
 	       uintptr_t	p5,
-	       uintptr_t	p6);
+	       uintptr_t	p6) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -934,7 +961,7 @@ IOConnectTrap6(io_connect_t	connect,
 kern_return_t
 IOConnectAddClient(
 	io_connect_t	connect,
-	io_connect_t	client );
+	io_connect_t	client ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1190,7 +1217,7 @@ IORegistryEntryGetProperty(
 	io_registry_entry_t	entry,
 	const io_name_t		propertyName,
 	io_struct_inband_t	buffer,
-	uint32_t	      * size );
+	uint32_t	      * size ) __UNAVAILABLE_PUBLIC_IOS;
 
 /*! @function IORegistryEntrySetCFProperties
     @abstract Set CF container based properties in a registry entry.
@@ -1202,7 +1229,7 @@ IORegistryEntryGetProperty(
 kern_return_t
 IORegistryEntrySetCFProperties(
 	io_registry_entry_t	entry,
-	CFTypeRef	 	properties );
+	CFTypeRef	 	properties ) __UNAVAILABLE_PUBLIC_IOS;
 
 /*! @function IORegistryEntrySetCFProperty
     @abstract Set a CF container based property in a registry entry.
@@ -1216,7 +1243,7 @@ kern_return_t
 IORegistryEntrySetCFProperty(
 	io_registry_entry_t	entry,
         CFStringRef		propertyName,
-	CFTypeRef	 	property );
+	CFTypeRef	 	property ) __UNAVAILABLE_PUBLIC_IOS;
 
 /*! @function IORegistryEntryGetChildIterator
     @abstract Returns an iterator over an registry entry's child entries in a plane.
@@ -1330,7 +1357,7 @@ CFMutableDictionaryRef
 IOOpenFirmwarePathMatching(
 	mach_port_t	mainPort,
 	uint32_t	options,
-	const char *	path ) DEPRECATED_ATTRIBUTE;
+	const char *	path ) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 /*! @function IORegistryEntryIDMatching
     @abstract Create a matching dictionary that specifies an IOService match based on a registry entry ID.
@@ -1347,7 +1374,7 @@ IORegistryEntryIDMatching(
 kern_return_t
 IOServiceOFPathToBSDName(mach_port_t		mainPort,
                          const io_name_t	openFirmwarePath,
-                         io_name_t		bsdName) DEPRECATED_ATTRIBUTE;
+                         io_name_t		bsdName) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 						 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1400,7 +1427,7 @@ OSGetNotificationFromMessage(
         uint32_t    	      * type,
         uintptr_t	      * reference,
 	void		     ** content,
-        vm_size_t	      * size );
+        vm_size_t	      * size ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1411,25 +1438,25 @@ IOCatalogueSendData(
         mach_port_t             mainPort,
         uint32_t                flag,
         const char             *buffer,
-        uint32_t                size );
+        uint32_t                size ) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOCatalogueTerminate(
         mach_port_t		mainPort,
         uint32_t                flag,
-	io_name_t		description );
+	io_name_t		description ) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOCatalogueGetData(
         mach_port_t             mainPort,
         uint32_t                flag,
         char                  **buffer,
-        uint32_t               *size );
+        uint32_t               *size ) __UNAVAILABLE_PUBLIC_IOS;
 
 kern_return_t
 IOCatalogueModuleLoaded(
         mach_port_t             mainPort,
-        io_name_t               name );
+        io_name_t               name ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* Use IOCatalogueSendData(), with kIOCatalogResetDrivers, to replace catalogue
  * rather than emptying it. Doing so keeps instance counts down by uniquing
@@ -1438,7 +1465,7 @@ IOCatalogueModuleLoaded(
 kern_return_t
 IOCatalogueReset(
         mach_port_t             mainPort,
-        uint32_t                flag );
+        uint32_t                flag ) __UNAVAILABLE_PUBLIC_IOS;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1454,7 +1481,7 @@ typedef struct IOObject IOObject;
 
 kern_return_t
 IORegistryDisposeEnumerator(
-	io_enumerator_t	enumerator ) DEPRECATED_ATTRIBUTE;
+	io_enumerator_t	enumerator ) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 IOMapMemory(
@@ -1463,14 +1490,14 @@ IOMapMemory(
 	task_port_t	intoTask,
 	vm_address_t *	atAddress,
 	vm_size_t    *	ofSize,
-	uint32_t	flags ) DEPRECATED_ATTRIBUTE;
+	uint32_t	flags ) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 // for CGS
 
 kern_return_t
 IOCompatibiltyNumber(
 	mach_port_t	connect,
-	uint32_t *	objectNumber ) DEPRECATED_ATTRIBUTE;
+	uint32_t *	objectNumber ) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 // Traditional IOUserClient transport routines
 kern_return_t
@@ -1479,7 +1506,7 @@ IOConnectMethodScalarIScalarO(
         uint32_t	index,
         IOItemCount	scalarInputCount,
         IOItemCount	scalarOutputCount,
-        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectMethodScalarIStructureO(
@@ -1487,7 +1514,7 @@ IOConnectMethodScalarIStructureO(
         uint32_t	index,
         IOItemCount	scalarInputCount,
         IOByteCount *	structureSize,
-        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectMethodScalarIStructureI(
@@ -1495,7 +1522,7 @@ IOConnectMethodScalarIStructureI(
         uint32_t	index,
         IOItemCount	scalarInputCount,
         IOByteCount	structureSize,
-        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+        ... ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 IOConnectMethodStructureIStructureO(
@@ -1504,9 +1531,9 @@ IOConnectMethodStructureIStructureO(
         IOItemCount	structureInputSize,
         IOByteCount *	structureOutputSize,
         void *		inputStructure,
-        void *		ouputStructure ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+        void *		ouputStructure ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5_EXCLUDE_PUBLIC_IOS;
 
-// Compatability with earlier Mig interface routines
+// Compatibility with earlier Mig interface routines
 #if IOCONNECT_NO_32B_METHODS
 
 kern_return_t
@@ -1516,14 +1543,14 @@ io_connect_map_memory(
 	task_port_t		intoTask,
 	vm_address_t		*atAddress,
 	vm_size_t		*ofSize,
-	IOOptionBits		options) DEPRECATED_ATTRIBUTE;
+	IOOptionBits		options) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_connect_unmap_memory(
 	io_connect_t		connect,
 	uint32_t		memoryType,
 	task_port_t		fromTask,
-	vm_address_t		atAddress) DEPRECATED_ATTRIBUTE;
+	vm_address_t		atAddress) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_connect_method_scalarI_scalarO(
@@ -1532,7 +1559,7 @@ io_connect_method_scalarI_scalarO(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_scalar_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_connect_method_scalarI_structureO(
@@ -1541,7 +1568,7 @@ io_connect_method_scalarI_structureO(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_connect_method_scalarI_structureI(
@@ -1550,7 +1577,7 @@ io_connect_method_scalarI_structureI(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t inputStruct,
-	mach_msg_type_number_t inputStructCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t inputStructCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_connect_method_structureI_structureO(
@@ -1559,7 +1586,7 @@ io_connect_method_structureI_structureO(
 	io_struct_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_async_method_scalarI_scalarO(
@@ -1571,7 +1598,7 @@ io_async_method_scalarI_scalarO(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_scalar_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_async_method_scalarI_structureO(
@@ -1583,7 +1610,7 @@ io_async_method_scalarI_structureO(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_async_method_scalarI_structureI(
@@ -1595,7 +1622,7 @@ io_async_method_scalarI_structureI(
 	io_scalar_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t inputStruct,
-	mach_msg_type_number_t inputStructCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t inputStructCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 
 kern_return_t
 io_async_method_structureI_structureO(
@@ -1607,7 +1634,7 @@ io_async_method_structureI_structureO(
 	io_struct_inband_t input,
 	mach_msg_type_number_t inputCnt,
 	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE;
+	mach_msg_type_number_t *outputCnt) DEPRECATED_ATTRIBUTE_EXCLUDE_PUBLIC_IOS;
 #endif // IOCONNECT_NO_32B_METHODS
 
 #endif /* defined(__LP64__) */

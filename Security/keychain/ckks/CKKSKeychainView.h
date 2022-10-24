@@ -60,6 +60,7 @@
 #import "keychain/ckks/CKKSProvideKeySetOperation.h"
 #import "keychain/ckks/CKKSOperationDependencies.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 #include "CKKS.h"
 
@@ -97,6 +98,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSLockStateTracker* lockStateTracker;
 
 @property (readonly) OctagonStateMachine* stateMachine;
+@property id<OTPersonaAdapter> personaAdapter;
 
 @property (readonly, nullable) TPSyncingPolicy* syncingPolicy;
 
@@ -141,13 +143,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKKSOperationDependencies* operationDependencies;
 
 - (instancetype)initWithContainer:(CKContainer*)container
+                        contextID:(NSString*)contextID
+                    activeAccount:(TPSpecificUser* _Nullable)activeAccount
                    accountTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
-                    changeFetcher:(CKKSZoneChangeFetcher*)fetcher
-                     zoneModifier:(CKKSZoneModifier*)zoneModifier
                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
-        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
+        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
+                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter;
 
 /* Trust state management */
 

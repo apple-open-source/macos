@@ -19,8 +19,6 @@
 	<string>com.apple.securityd</string>
 	<key>MachServices</key>
 	<dict>
-		<key>com.apple.security.tribeca</key>
-		<true/>
 		<key>com.apple.security.octagon</key>
 		<true/>
 		<key>com.apple.securityd</key>
@@ -88,11 +86,6 @@
 		</dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
-			<key>com.apple.system.clock_set</key>
-			<dict>
-				<key>Notification</key>
-				<string>com.apple.system.clock_set</string>
-			</dict>
 			<key>com.apple.springboard.lockstate</key>
 			<dict>
 				<key>Notification</key>

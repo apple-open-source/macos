@@ -240,6 +240,12 @@
  */
 #define kAuthorizationRuleParameterSecureTokenOnly  "securetoken-only"
 
+/*! @defined kAuthorizationSessionOwnerAccepted
+ boolean, default false - if true, accepts current session owner, not requiring membership in any group
+ */
+#define kAuthorizationSessionOwnerAccepted  "session-owner-ok"
+
+
 /*
  * Hints for internal Authorization use
  */

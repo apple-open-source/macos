@@ -2713,6 +2713,8 @@ static void TestGetFunctionalEquivalent(void) {
         "f",    "yue_Hans@collation=stroke",      "zh@collation=stroke",
         "f",    "mo",                             "mo", /* ? */
         "t",    "no",                             "no", /* ? */
+        "t",    "nb",                             "no", /* rdar://100502233 */
+        "t",    "nn",                             "no", /* rdar://100502233 */
         "f",    "ars",                            "ar", /* ? */
         "f",    "wuu",                            "wuu", /* ? */
         /* Additions to test locales without resources */

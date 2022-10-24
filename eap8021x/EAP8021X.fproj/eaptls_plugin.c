@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -626,8 +626,11 @@ eaptls_process(EAPClientPluginDataRef plugin,
 	*out_pkt_p = eaptls_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
-	if (context->trust_proceed) {
+	/* accept EAP-Success only if key material is computed */
+	if (context->key_data_valid) {
 	    context->plugin_state = kEAPClientStateSuccess;
+	} else {
+	    EAPLOG_FL(LOG_NOTICE, "TLS handshake is not complete, discarding EAP-Success packet");
 	}
 	break;
     case kEAPCodeFailure:

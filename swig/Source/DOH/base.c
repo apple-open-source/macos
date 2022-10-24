@@ -134,7 +134,7 @@ int DohLen(const DOH *obj) {
     }
     return 0;
   } else {
-    return strlen((char *) obj);
+    return (int) strlen((char *) obj);
   }
 }
 
@@ -624,7 +624,7 @@ int DohRead(DOH *obj, void *buffer, int length) {
     return -1;
   }
   /* Hmmm.  Not a file.  Maybe it's a real FILE */
-  return fread(buffer, 1, length, (FILE *) b);
+  return (int) fread(buffer, 1, length, (FILE *) b);
 }
 
 /* -----------------------------------------------------------------------------
@@ -642,7 +642,7 @@ int DohWrite(DOH *obj, void *buffer, int length) {
     return -1;
   }
   /* Hmmm.  Not a file.  Maybe it's a real FILE */
-  return fwrite(buffer, 1, length, (FILE *) b);
+  return (int) fwrite(buffer, 1, length, (FILE *) b);
 }
 
 /* -----------------------------------------------------------------------------

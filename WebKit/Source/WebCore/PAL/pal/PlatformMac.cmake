@@ -9,6 +9,8 @@ list(APPEND PAL_PUBLIC_HEADERS
     cf/OTSVGTable.h
     cf/VideoToolboxSoftLink.h
 
+    cg/CoreGraphicsSoftLink.h
+
     cocoa/AppSSOSoftLink.h
     cocoa/AVFoundationSoftLink.h
     cocoa/CoreMLSoftLink.h
@@ -88,6 +90,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/PassKitSPI.h
     spi/cocoa/QuartzCoreSPI.h
     spi/cocoa/RevealSPI.h
+    spi/cocoa/SceneKitSPI.h
     spi/cocoa/SecKeyProxySPI.h
     spi/cocoa/ServersSPI.h
     spi/cocoa/SpeechSPI.h
@@ -96,6 +99,9 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/VisionKitCoreSPI.h
     spi/cocoa/WebFilterEvaluatorSPI.h
     spi/cocoa/pthreadSPI.h
+
+    spi/ios/DataDetectorsUISPI.h
+    spi/ios/GraphicsServicesSPI.h
 
     spi/mac/CoreUISPI.h
     spi/mac/DataDetectorsSPI.h
@@ -122,6 +128,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/mac/NSScrollerImpSPI.h
     spi/mac/NSScrollingInputFilterSPI.h
     spi/mac/NSScrollingMomentumCalculatorSPI.h
+    spi/mac/NSServicesRolloverButtonCellSPI.h
     spi/mac/NSSharingServicePickerSPI.h
     spi/mac/NSSharingServiceSPI.h
     spi/mac/NSSpellCheckerSPI.h
@@ -132,7 +139,6 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/mac/NSWindowSPI.h
     spi/mac/PIPSPI.h
     spi/mac/QuickLookMacSPI.h
-    spi/mac/SpeechSynthesisSPI.h
     spi/mac/SystemPreviewSPI.h
     spi/mac/TelephonyUtilitiesSPI.h
 
@@ -154,6 +160,8 @@ list(APPEND PAL_SOURCES
     cf/CoreTextSoftLink.cpp
     cf/OTSVGTable.cpp
     cf/VideoToolboxSoftLink.cpp
+
+    cg/CoreGraphicsSoftLink.cpp
 
     cocoa/AppSSOSoftLink.mm
     cocoa/AVFoundationSoftLink.mm

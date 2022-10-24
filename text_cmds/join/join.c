@@ -285,6 +285,10 @@ main(int argc, char *argv[])
 			joinlines(F2, NULL);
 			slurp(F2);
 		}
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 

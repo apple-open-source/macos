@@ -298,6 +298,10 @@ typedef struct {
     IOHIDGameControllerEventData base;
     uint32_t thumbstickButtonLeft:1;
     uint32_t thumbstickButtonRight:1;
+    IOFixed l4;
+    IOFixed l5;
+    IOFixed r4;
+    IOFixed r5;
 } __IOHIDGameControllerEventData;
 
 typedef struct {
@@ -685,8 +689,12 @@ typedef struct {
     uint32_t options;
     uint8_t depth;
     uint8_t reserved[3];
-    uint32_t detectionMask;
-    uint32_t level;
+    uint16_t detectionMask;
+    uint16_t proximityType;
+    union  {
+        uint32_t level;
+        uint32_t probability;
+    } proximity;
 } IOHIDProximityEventData;
 
 typedef struct {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,18 +76,18 @@ static size_t sizeOfItemInBytes(ItemType type)
         return sizeof(ClipOutToPath);
     case ItemType::ClipPath:
         return sizeof(ClipPath);
-    case ItemType::BeginClipToDrawingCommands:
-        return sizeof(BeginClipToDrawingCommands);
-    case ItemType::EndClipToDrawingCommands:
-        return sizeof(EndClipToDrawingCommands);
     case ItemType::DrawFilteredImageBuffer:
         return sizeof(DrawFilteredImageBuffer);
     case ItemType::DrawGlyphs:
         return sizeof(DrawGlyphs);
+    case ItemType::DrawDecomposedGlyphs:
+        return sizeof(DrawDecomposedGlyphs);
     case ItemType::DrawImageBuffer:
         return sizeof(DrawImageBuffer);
     case ItemType::DrawNativeImage:
         return sizeof(DrawNativeImage);
+    case ItemType::DrawSystemImage:
+        return sizeof(DrawSystemImage);
     case ItemType::DrawPattern:
         return sizeof(DrawPattern);
     case ItemType::DrawRect:
@@ -132,8 +132,6 @@ static size_t sizeOfItemInBytes(ItemType type)
         return sizeof(FillPath);
     case ItemType::FillEllipse:
         return sizeof(FillEllipse);
-    case ItemType::FlushContext:
-        return sizeof(FlushContext);
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
         return sizeof(PaintFrameForMedia);
@@ -190,10 +188,7 @@ bool isDrawingItem(ItemType type)
     case ItemType::ClipToImageBuffer:
     case ItemType::ClipOutToPath:
     case ItemType::ClipPath:
-    case ItemType::BeginClipToDrawingCommands:
-    case ItemType::EndClipToDrawingCommands:
     case ItemType::ConcatenateCTM:
-    case ItemType::FlushContext:
     case ItemType::Restore:
     case ItemType::Rotate:
     case ItemType::Save:
@@ -217,10 +212,12 @@ bool isDrawingItem(ItemType type)
     case ItemType::DrawFocusRingPath:
     case ItemType::DrawFocusRingRects:
     case ItemType::DrawGlyphs:
+    case ItemType::DrawDecomposedGlyphs:
     case ItemType::DrawImageBuffer:
     case ItemType::DrawLine:
     case ItemType::DrawLinesForText:
     case ItemType::DrawNativeImage:
+    case ItemType::DrawSystemImage:
     case ItemType::DrawPattern:
     case ItemType::DrawPath:
     case ItemType::DrawRect:
@@ -284,7 +281,6 @@ bool isInlineItem(ItemType type)
      * and (3) all the "static constexpr bool isInlineItem"s inside the individual item classes. */
 
     switch (type) {
-    case ItemType::BeginClipToDrawingCommands:
     case ItemType::ClipOutToPath:
     case ItemType::ClipPath:
     case ItemType::DrawFocusRingPath:
@@ -301,6 +297,7 @@ bool isInlineItem(ItemType type)
     case ItemType::SetLineDash:
     case ItemType::SetState:
     case ItemType::StrokePath:
+    case ItemType::DrawSystemImage:
         return false;
     case ItemType::ApplyDeviceScaleFactor:
 #if USE(CG)
@@ -313,11 +310,11 @@ bool isInlineItem(ItemType type)
     case ItemType::Clip:
     case ItemType::ClipOut:
     case ItemType::ClipToImageBuffer:
-    case ItemType::EndClipToDrawingCommands:
     case ItemType::ConcatenateCTM:
     case ItemType::DrawDotsForDocumentMarker:
     case ItemType::DrawEllipse:
     case ItemType::DrawFilteredImageBuffer:
+    case ItemType::DrawDecomposedGlyphs:
     case ItemType::DrawImageBuffer:
     case ItemType::DrawNativeImage:
     case ItemType::DrawPattern:
@@ -332,7 +329,6 @@ bool isInlineItem(ItemType type)
     case ItemType::FillBezierCurve:
 #endif
     case ItemType::FillRect:
-    case ItemType::FlushContext:
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
 #endif

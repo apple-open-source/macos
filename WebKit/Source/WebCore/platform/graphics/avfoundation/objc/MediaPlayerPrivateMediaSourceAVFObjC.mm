@@ -32,13 +32,16 @@
 #import "AVAssetTrackUtilities.h"
 #import "AVStreamDataParserMIMETypeCache.h"
 #import "CDMSessionAVStreamSession.h"
+#import "ContentTypeUtilities.h"
 #import "GraphicsContext.h"
+#import "IOSurface.h"
 #import "Logging.h"
 #import "MediaSessionManagerCocoa.h"
 #import "MediaSourcePrivateAVFObjC.h"
 #import "MediaSourcePrivateClient.h"
 #import "PixelBufferConformerCV.h"
 #import "TextTrackRepresentation.h"
+#import "VideoFrameCV.h"
 #import "VideoLayerManagerObjC.h"
 #import "WebCoreDecompressionSession.h"
 #import <AVFoundation/AVAsset.h>
@@ -80,6 +83,18 @@ String convertEnumerationToString(MediaPlayerPrivateMediaSourceAVFObjC::SeekStat
     ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
+
+#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+
+static bool isCopyDisplayedPixelBufferAvailable()
+{
+    static auto result = [] {
+        return [PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(copyDisplayedPixelBuffer)];
+    }();
+    return MediaSessionManagerCocoa::mediaSourceInlinePaintingEnabled() && result;
+}
+
+#endif // HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     
 #pragma mark -
 #pragma mark MediaPlayerPrivateMediaSourceAVFObjC
@@ -258,6 +273,9 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndC
     if (!parameters.isMediaSource)
         return MediaPlayer::SupportsType::IsNotSupported;
 
+    if (!contentTypeMeetsContainerAndCodecTypeRequirements(parameters.type, parameters.allowedMediaContainerTypes, parameters.allowedMediaCodecTypes))
+        return MediaPlayer::SupportsType::IsNotSupported;
+
     auto supported = SourceBufferParser::isContentTypeSupported(parameters.type);
 
     if (supported != MediaPlayer::SupportsType::IsSupported)
@@ -279,7 +297,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::load(const String&)
     m_player->networkStateChanged();
 }
 
-void MediaPlayerPrivateMediaSourceAVFObjC::load(const URL&, const ContentType&, MediaSourcePrivateClient* client)
+void MediaPlayerPrivateMediaSourceAVFObjC::load(const URL&, const ContentType&, MediaSourcePrivateClient& client)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
@@ -653,11 +671,10 @@ RefPtr<NativeImage> MediaPlayerPrivateMediaSourceAVFObjC::nativeImageForCurrentT
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastPixelBuffer()
 {
-#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    if (m_videoOutput) {
-        CMTime outputTime;
-        if (auto pixelBuffer = adoptCF([m_videoOutput copyPixelBufferForSourceTime:PAL::toCMTime(currentMediaTime()) sourceTimeForDisplay:&outputTime])) {
-            ALWAYS_LOG(LOGIDENTIFIER, "new pixelbuffer found for time ", PAL::toMediaTime(outputTime));
+#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+    if (isCopyDisplayedPixelBufferAvailable()) {
+        if (auto pixelBuffer = adoptCF([m_sampleBufferDisplayLayer copyDisplayedPixelBuffer])) {
+            ALWAYS_LOG(LOGIDENTIFIER, "displayed pixelbuffer copied for time ", currentMediaTime());
             m_lastPixelBuffer = WTFMove(pixelBuffer);
             return true;
         }
@@ -672,7 +689,13 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastPixelBuffer()
     if (!newPixelBuffer)
         return false;
 
-    m_lastPixelBuffer = newPixelBuffer;
+    m_lastPixelBuffer = WTFMove(newPixelBuffer);
+
+    if (m_resourceOwner) {
+        if (auto surface = CVPixelBufferGetIOSurface(m_lastPixelBuffer.get()))
+            IOSurface::setOwnershipIdentity(surface, m_resourceOwner);
+    }
+
     return true;
 }
 
@@ -717,21 +740,27 @@ void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsCo
     context.drawNativeImage(*image, imageRect.size(), outputRect, imageRect);
 }
 
-std::optional<MediaSampleVideoFrame> MediaPlayerPrivateMediaSourceAVFObjC::videoFrameForCurrentTime()
+#if !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+void MediaPlayerPrivateMediaSourceAVFObjC::willBeAskedToPaintGL()
 {
     // We have been asked to paint into a WebGL canvas, so take that as a signal to create
     // a decompression session, even if that means the native video can't also be displayed
     // in page.
-    if (!m_hasBeenAskedToPaintGL) {
-        m_hasBeenAskedToPaintGL = true;
-        acceleratedRenderingStateChanged();
-    }
+    if (m_hasBeenAskedToPaintGL)
+        return;
 
+    m_hasBeenAskedToPaintGL = true;
+    acceleratedRenderingStateChanged();
+}
+#endif
+
+RefPtr<VideoFrame> MediaPlayerPrivateMediaSourceAVFObjC::videoFrameForCurrentTime()
+{
     if (!m_isGatheringVideoFrameMetadata)
         updateLastPixelBuffer();
     if (!m_lastPixelBuffer)
-        return std::nullopt;
-    return MediaSampleVideoFrame { RetainPtr { m_lastPixelBuffer }, ImageOrientation::None };
+        return nullptr;
+    return VideoFrameCV::create(currentMediaTime(), false, VideoFrame::Rotation::None, RetainPtr { m_lastPixelBuffer });
 }
 
 DestinationColorSpace MediaPlayerPrivateMediaSourceAVFObjC::colorSpace()
@@ -750,15 +779,39 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::supportsAcceleratedRendering() const
     return true;
 }
 
+bool MediaPlayerPrivateMediaSourceAVFObjC::shouldEnsureLayer() const
+{
+#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+    return isCopyDisplayedPixelBufferAvailable() && [&] {
+        if (m_sampleBufferDisplayLayer)
+            return !CGRectIsEmpty([m_sampleBufferDisplayLayer bounds]);
+        return !m_player->playerContentBoxRect().isEmpty();
+    }();
+#else
+    return !m_hasBeenAskedToPaintGL;
+#endif
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::playerContentBoxRectChanged(const LayoutRect& newRect)
+{
+    if (!m_sampleBufferDisplayLayer && !newRect.isEmpty())
+        updateDisplayLayerAndDecompressionSession();
+}
+
 void MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged()
 {
-    if (!m_hasBeenAskedToPaintGL || isVideoOutputAvailable()) {
+    updateDisplayLayerAndDecompressionSession();
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::updateDisplayLayerAndDecompressionSession()
+{
+    if (shouldEnsureLayer()) {
         destroyDecompressionSession();
         ensureLayer();
-    } else {
-        destroyLayer();
-        ensureDecompressionSession();
+        return;
     }
+    destroyLayer();
+    ensureDecompressionSession();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::notifyActiveSourceBuffersChanged()
@@ -845,15 +898,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
         return;
     }
 
-#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    ASSERT(!m_videoOutput);
-    if (isVideoOutputAvailable()) {
-        m_videoOutput = adoptNS([PAL::allocAVSampleBufferVideoOutputInstance() init]);
-        ASSERT(m_videoOutput);
-        [m_sampleBufferDisplayLayer setOutput:m_videoOutput.get()];
-    }
-#endif
-
     if ([m_sampleBufferDisplayLayer respondsToSelector:@selector(setPreventsDisplaySleepDuringVideoPlayback:)])
         m_sampleBufferDisplayLayer.get().preventsDisplaySleepDuringVideoPlayback = NO;
 
@@ -921,15 +965,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyDecompressionSession()
 bool MediaPlayerPrivateMediaSourceAVFObjC::shouldBePlaying() const
 {
     return m_playing && !seeking() && allRenderersHaveAvailableSamples() && m_readyState >= MediaPlayer::ReadyState::HaveFutureData;
-}
-
-bool MediaPlayerPrivateMediaSourceAVFObjC::isVideoOutputAvailable() const
-{
-#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    return MediaSessionManagerCocoa::mediaSourceInlinePaintingEnabled() && PAL::getAVSampleBufferVideoOutputClass();
-#else
-    return false;
-#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
@@ -1100,7 +1135,7 @@ AVStreamSession* MediaPlayerPrivateMediaSourceAVFObjC::streamSession()
                 return nil;
         }
 
-        String storagePath = FileSystem::pathByAppendingComponent(storageDirectory, "SecureStop.plist");
+        String storagePath = FileSystem::pathByAppendingComponent(storageDirectory, "SecureStop.plist"_s);
         m_streamSession = adoptNS([PAL::allocAVStreamSessionInstance() initWithStorageDirectoryAtURL:[NSURL fileURLWithPath:storagePath]]);
     }
     return m_streamSession.get();
@@ -1135,7 +1170,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setCDMSession(LegacyCDMSession* sessi
 #endif // ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
-void MediaPlayerPrivateMediaSourceAVFObjC::keyNeeded(Uint8Array* initData)
+void MediaPlayerPrivateMediaSourceAVFObjC::keyNeeded(const SharedBuffer& initData)
 {
     m_player->keyNeeded(initData);
 }
@@ -1293,6 +1328,21 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     m_sampleBufferAudioRendererMap.remove(iter);
     m_player->renderingModeChanged();
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::removeAudioTrack(AudioTrackPrivate& track)
+{
+    m_player->removeAudioTrack(track);
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::removeVideoTrack(VideoTrackPrivate& track)
+{
+    m_player->removeVideoTrack(track);
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::removeTextTrack(InbandTextTrackPrivate& track)
+{
+    m_player->removeTextTrack(track);
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::characteristicsChanged()

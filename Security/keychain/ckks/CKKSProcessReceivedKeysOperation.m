@@ -57,6 +57,9 @@
 }
 
 - (void)main {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     NSArray<CKKSPeerProviderState*>* currentTrustStates = self.deps.currentTrustStates;
@@ -75,7 +78,8 @@
             // If that's not the case (as in, we have some item for which we don't have a synckey), then we need to
             // request a refetch/reset.
 
-            NSArray<CKKSKey*>* remoteKeys = [CKKSKey remoteKeys:viewState.zoneID error:&loadError];
+            NSArray<CKKSKey*>* remoteKeys = [CKKSKey remoteKeysForContextID:self.deps.contextID
+                                                                     zoneID:viewState.zoneID error:&loadError];
             if(!remoteKeys || loadError) {
                 ckkserror("ckkskey", viewState.zoneID, "couldn't fetch list of remote keys: %@", loadError);
                 self.error = loadError;
@@ -99,7 +103,9 @@
 
             // Check for the existence of a key which we don't have
             NSError* parentKeyUUIDsError = nil;
-            BOOL allIQEsHaveKeys = [CKKSIncomingQueueEntry allIQEsHaveValidUnwrappingKeys:viewState.zoneID error:&parentKeyUUIDsError];
+            BOOL allIQEsHaveKeys = [CKKSIncomingQueueEntry allIQEsHaveValidUnwrappingKeysInContextID:self.deps.contextID
+                                                                                              zoneID:viewState.zoneID
+                                                                                               error:&parentKeyUUIDsError];
 
             if(parentKeyUUIDsError != nil) {
                 ckkserror("ckkskey", viewState.zoneID, "Unable to determine if all IQEs have parent keys: %@", parentKeyUUIDsError);
@@ -113,7 +119,8 @@
             }
 
             // Now that we have some state, load the existing keyset
-            set = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+            set = [CKKSCurrentKeySet loadForZone:viewState.zoneID
+                                       contextID:self.deps.contextID];
 
             if([newZoneState isEqualToString:SecCKKSZoneKeyStateError]) {
                 return CKKSDatabaseTransactionRollback;
@@ -149,18 +156,45 @@
     NSError* localerror = nil;
     CKKSKey* tlk = nil;
     CKKSKey* topKey = nil;
+    NSString *contextID = view.contextID;
 
     ckksinfo("ckkskey", view.zoneID, "remote keys: %@", remoteKeys);
 
     // current TLK record:
-    CKKSCurrentKeyPointer* currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK zoneID:view.zoneID error:&localerror];
-    CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA   zoneID:view.zoneID error:&localerror];
-    CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC   zoneID:view.zoneID error:&localerror];
+    CKKSCurrentKeyPointer* currentTLKPointer    = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassTLK
+                                                                               contextID:contextID
+                                                                                  zoneID:view.zoneID
+                                                                                   error:&localerror];
+    CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassA
+                                                                               contextID:contextID
+                                                                                  zoneID:view.zoneID
+                                                                                   error:&localerror];
+    CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer tryFromDatabase: SecCKKSKeyClassC
+                                                                               contextID:contextID
+                                                                                  zoneID:view.zoneID
+                                                                                   error:&localerror];
 
     // Do these pointers point at anything?
-    CKKSKey* suggestedTLK    = currentTLKPointer.currentKeyUUID    ? [CKKSKey tryFromDatabaseAnyState:currentTLKPointer.currentKeyUUID    zoneID:view.zoneID error:&localerror] : nil;
-    CKKSKey* suggestedClassA = currentClassAPointer.currentKeyUUID ? [CKKSKey tryFromDatabaseAnyState:currentClassAPointer.currentKeyUUID zoneID:view.zoneID error:&localerror] : nil;
-    CKKSKey* suggestedClassC = currentClassCPointer.currentKeyUUID ? [CKKSKey tryFromDatabaseAnyState:currentClassCPointer.currentKeyUUID zoneID:view.zoneID error:&localerror] : nil;
+    CKKSKey* suggestedTLK    = currentTLKPointer.currentKeyUUID
+        ? [CKKSKey tryFromDatabaseAnyState:currentTLKPointer.currentKeyUUID
+                                 contextID:contextID
+                                    zoneID:view.zoneID
+                                     error:&localerror]
+        : nil;
+
+    CKKSKey* suggestedClassA = currentClassAPointer.currentKeyUUID
+        ? [CKKSKey tryFromDatabaseAnyState:currentClassAPointer.currentKeyUUID
+                                 contextID:contextID
+                                    zoneID:view.zoneID
+                                     error:&localerror]
+        : nil;
+
+    CKKSKey* suggestedClassC = currentClassCPointer.currentKeyUUID
+        ? [CKKSKey tryFromDatabaseAnyState:currentClassCPointer.currentKeyUUID
+                                 contextID:contextID
+                                    zoneID:view.zoneID
+                                     error:&localerror]
+        : nil;
 
     if(!currentTLKPointer || !currentClassAPointer || !currentClassCPointer ||
        !currentTLKPointer.currentKeyUUID || !currentClassAPointer.currentKeyUUID || !currentClassCPointer.currentKeyUUID ||
@@ -214,8 +248,9 @@
 
     // This key is our proposed TLK.
     NSError* tlkRecoveryError = nil;
-    if(![tlk tlkMaterialPresentOrRecoverableViaTLKShare:currentTrustStates
-                                                  error:&tlkRecoveryError]) {
+    if(![tlk tlkMaterialPresentOrRecoverableViaTLKShareForContextID:contextID
+                                                     forTrustStates:currentTrustStates
+                                                              error:&tlkRecoveryError]) {
         // TLK is valid, but not present locally
         if([self.deps.lockStateTracker isLockedError:tlkRecoveryError]) {
             ckksnotice("ckkskey", view.zoneID, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", tlk);
@@ -272,7 +307,7 @@
 
         // Okay, it wraps to the TLK. Can we unwrap it?
         NSError* unwrapError = nil;
-        if(![key unwrapViaKeyHierarchy:&unwrapError] || unwrapError != nil) {
+        if(![key unwrapViaKeyHierarchy: &unwrapError] || unwrapError != nil) {
             if(unwrapError && [self.deps.lockStateTracker isLockedError:unwrapError]) {
                 ckksnotice("ckkskey", view.zoneID, "Couldn't unwrap new key (%@), but keybag appears to be locked. Entering waitforunlock.", key);
                 if(outError) {
@@ -301,7 +336,7 @@
 
         if([key.uuid isEqualToString: currentClassAPointer.currentKeyUUID] ||
            [key.uuid isEqualToString: currentClassCPointer.currentKeyUUID]) {
-            [key saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
+            [key saveToDatabaseAsOnlyCurrentKeyForClassAndState:&localerror];
         } else {
             [key saveToDatabase: &localerror];
         }

@@ -61,6 +61,9 @@ typedef CF_ENUM(int8_t, SecValidPolicy) {
     kSecValidPolicyTimeStamping = 5,
 };
 
+extern CFIndex kValidUpdateCurrentGeneration;
+extern CFIndex kValidUpdateOldGeneration;
+
 /*!
     @typedef SecValidInfoRef
     @abstract CFType used to return valid info lookup results.
@@ -112,6 +115,8 @@ void SecRevocationDbCheckNextUpdate(void);
  */
 bool SecRevocationDbUpdate(CFErrorRef *error);
 
+bool SecRevocationDbRemoveAllEntries(CFErrorRef *error);
+
 /*!
 	@function SecRevocationDbCopyMatching
 	@abstract Returns a SecValidInfo reference if matching revocation (or allow list) info was found.
@@ -146,6 +151,12 @@ bool SecRevocationDbSerialInFilter(CFDataRef serialData, CFDataRef xmlData);
  */
 CFIndex SecRevocationDbGetVersion(void);
 
+/*!
+    @function SecRevocationDbGetLocalGeneration
+    @abstract Returns a CFIndex containing the generation number of the database.
+    @result On success, the returned generation will be a value greater than zero. If the version cannot be obtained, -1 is returned.
+ */
+CFIndex SecRevocationDbGetLocalGeneration(void);
 /*!
 	@function SecRevocationDbGetSchemaVersion
 	@abstract Returns a CFIndex containing the schema version number of the database.
@@ -195,6 +206,8 @@ extern const CFStringRef kValidUpdateCarryServer;
  */
 CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyUpdateSource(void);
 
+CFIndex SecRevocationDbGetGeneration(void);
+void SecRevocationDbSetGeneration(CFIndex generation);
 
 __END_DECLS
 

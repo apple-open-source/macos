@@ -1,0 +1,6 @@
+#freebsd-src = https://git.FreeBSD.org/src.git
+
+man/man.1	freebsd-src	usr.bin/man/man.1	9e23004023791963526bec16a85d3124b1bc4d5d
+man/man.conf.5	freebsd-src	usr.bin/man/man.conf.5	8cc9f126eea721eff056e374811b52026aa8da01
+man/man.sh	freebsd-src	usr.bin/man/man.sh	f555b39e6bb7cbfbe1905e90f64c4dfc4456fabb
+man/manpath.1	freebsd-src	usr.bin/man/manpath.1	971c1c421998b70e86d0d000f285c1002d2600be

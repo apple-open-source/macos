@@ -58,34 +58,34 @@
 
 - (void)forwardInvocation:(NSInvocation *)invocation
 {
-    if(sel_isEqual(invocation.selector, @selector(fetchEscrowContents:contextID:reply:))) {
+    if(sel_isEqual(invocation.selector, @selector(fetchEscrowContents:reply:))) {
         if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonEscrow]) {
             secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonEscrow);
-            [invocation setSelector:@selector(failFetchEscrowContents:contextID:reply:)];
+            [invocation setSelector:@selector(failFetchEscrowContents:reply:)];
             [invocation invokeWithTarget:self];
             return;
         }
     }
-    if(sel_isEqual(invocation.selector, @selector(setLocalSecureElementIdentity:contextID:secureElementIdentity:reply:))) {
+    if(sel_isEqual(invocation.selector, @selector(setLocalSecureElementIdentity:secureElementIdentity:reply:))) {
         if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
             secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
-            [invocation setSelector:@selector(failSetLocalSecureElementIdentity:contextID:secureElementIdentity:reply:)];
+            [invocation setSelector:@selector(failSetLocalSecureElementIdentity:secureElementIdentity:reply:)];
             [invocation invokeWithTarget:self];
             return;
         }
     }
-    if(sel_isEqual(invocation.selector, @selector(removeLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:))) {
+    if(sel_isEqual(invocation.selector, @selector(removeLocalSecureElementIdentityPeerID:secureElementIdentityPeerID:reply:))) {
         if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
             secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
-            [invocation setSelector:@selector(failRemoveLocalSecureElementIdentityPeerID:contextID:secureElementIdentityPeerID:reply:)];
+            [invocation setSelector:@selector(failRemoveLocalSecureElementIdentityPeerID:secureElementIdentityPeerID:reply:)];
             [invocation invokeWithTarget:self];
             return;
         }
     }
-    if(sel_isEqual(invocation.selector, @selector(fetchTrustedSecureElementIdentities:contextID:reply:))) {
+    if(sel_isEqual(invocation.selector, @selector(fetchTrustedSecureElementIdentities:reply:))) {
         if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonSecureElement]) {
             secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonSecureElement);
-            [invocation setSelector:@selector(failFetchTrustedSecureElementIdentities:contextID:reply:)];
+            [invocation setSelector:@selector(failFetchTrustedSecureElementIdentities:reply:)];
             [invocation invokeWithTarget:self];
             return;
         }
@@ -93,8 +93,7 @@
     [invocation invokeWithTarget:self.manager];
 }
 
-- (void)failFetchEscrowContents:(NSString*)containerName
-                      contextID:(NSString *)contextID
+- (void)failFetchEscrowContents:(OTConfigurationContext*)arguments
                           reply:(void (^)(NSData* _Nullable entropy,
                                           NSString* _Nullable bottleID,
                                           NSData* _Nullable signingPublicKey,
@@ -105,8 +104,7 @@
                                       description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonEscrow]]);
 }
 
-- (void)failSetLocalSecureElementIdentity:(NSString* _Nullable)containerName
-                                contextID:(NSString*)contextID
+- (void)failSetLocalSecureElementIdentity:(OTConfigurationContext*)arguments
                     secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
                                     reply:(void (^)(NSError* _Nullable error))reply
 {
@@ -115,8 +113,7 @@
                        description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
 }
 
-- (void)failRemoveLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
-                                         contextID:(NSString*)contextID
+- (void)failRemoveLocalSecureElementIdentityPeerID:(OTConfigurationContext*)arguments
                        secureElementIdentityPeerID:(NSData*)sePeerID
                                              reply:(void (^)(NSError* _Nullable error))reply
 {
@@ -125,8 +122,7 @@
                        description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonSecureElement]]);
 }
 
-- (void)failFetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
-                                      contextID:(NSString*)contextID
+- (void)failFetchTrustedSecureElementIdentities:(OTConfigurationContext*)arguments
                                           reply:(void (^)(OTCurrentSecureElementIdentities* currentSet,
                                                           NSError* replyError))reply
 {

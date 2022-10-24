@@ -39,7 +39,7 @@
 
 #define MAX_SCREENS 64  // same as EV_MAX_SCREENS in HIDSystem
 
-class IOHIDUserClient : public IOUserClient
+class IOHIDUserClient : public IOUserClient2022
 {
     OSDeclareDefaultStructors(IOHIDUserClient)
 
@@ -62,6 +62,8 @@ public:
     virtual IOReturn clientMemoryForType( UInt32 type,
         UInt32 * flags, IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
 
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args) APPLE_KEXT_OVERRIDE;
+
     virtual IOExternalMethod * getTargetAndMethodForIndex(
                         IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
 
@@ -76,7 +78,7 @@ public:
 };
 
 
-class IOHIDParamUserClient : public IOUserClient
+class IOHIDParamUserClient : public IOUserClient2022
 {
     OSDeclareDefaultStructors(IOHIDParamUserClient)
 
@@ -88,6 +90,8 @@ public:
 
     // IOUserClient methods    
     virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
+
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args) APPLE_KEXT_OVERRIDE;
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(
                         IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
@@ -103,7 +107,7 @@ private:
     virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
 };
 
-class IOHIDEventSystemUserClient : public IOUserClient
+class IOHIDEventSystemUserClient : public IOUserClient2022
 {
     OSDeclareDefaultStructors(IOHIDEventSystemUserClient)
 
@@ -122,6 +126,7 @@ public:
     // IOUserClient methods    
     virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
 
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args) APPLE_KEXT_OVERRIDE;
     virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn createEventQueue(void*,void*,void*,void*,void*,void*);
     virtual IOReturn createEventQueueGated(void*p1,void*p2,void*p3, void*);

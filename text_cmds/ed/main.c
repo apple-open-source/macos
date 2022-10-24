@@ -102,7 +102,7 @@ int lineno;			/* script line number */
 static const char *prompt;	/* command-line prompt */
 static const char *dps = "*";	/* default command-line prompt */
 
-static const char *usage = "usage: %s [-] [-sx] [-p string] [file]\n";
+static const char * const usage = "usage: %s [-] [-sx] [-p string] [file]\n";
 
 /* ed: line editor */
 int

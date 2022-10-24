@@ -245,7 +245,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	    p += l; len -= l;
 
 	    /*
-	     * Only allow indefinite encoding for OCTET STRING and BER
+	     * Only allow indefinite encoding for OCTET STRING and nested BER
 	     * for now. Should handle BIT STRING too.
 	     */
 
@@ -255,13 +255,14 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 
 		if (((subtype->tt & A1_OP_MASK) == A1_OP_PARSE) &&
 		    A1_PARSE_TYPE(subtype->tt) == A1T_OCTET_STRING)
-		    subflags |= A1_PF_INDEFINTE;
+		    subflags |= A1_PF_NESTED_INDEFINITE;
 	    }
 
 	    if (datalen == ASN1_INDEFINITE) {
 		if ((flags & A1_PF_ALLOW_BER) == 0)
 		    return ASN1_GOT_BER;
 		is_indefinite = 1;
+		subflags |= A1_PF_INDEFINITE;
 		datalen = len;
 		if (datalen < 2)
 		    return ASN1_OVERRUN;
@@ -326,7 +327,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	     * INDEFINITE primitive types are one element after the
 	     * same type but non-INDEFINITE version.
 	    */
-	    if (flags & A1_PF_INDEFINTE)
+	    if (flags & A1_PF_NESTED_INDEFINITE)
 		type++;
 
 	    if (type >= sizeof(asn1_template_prim)/sizeof(asn1_template_prim[0])) {
@@ -348,6 +349,18 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	    size_t vallength = 0;
 
 	    while (len > 0) {
+		/* If the outer SEQ OF/SET_OF was indefinite, check for EOC to stop
+		 * parsing items. */
+		if (flags & A1_PF_INDEFINITE) {
+		    Der_type dertype;
+		    size_t datalen, l;
+		    ret = der_match_tag_and_length(p, len, ASN1_C_UNIV,
+						   &dertype, UT_EndOfContent,
+						   &datalen, &l);
+		    if (ret == 0)
+			break;
+		}
+
 		void *tmp;
 		size_t newlen = vallength + ellen;
 		if (vallength > newlen)
@@ -361,7 +374,7 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 		el->val = tmp;
 		el->len++;
 
-		ret = _asn1_decode(t->ptr, flags & (~A1_PF_INDEFINTE), p, len,
+		ret = _asn1_decode(t->ptr, flags & (~(A1_PF_INDEFINITE | A1_PF_NESTED_INDEFINITE)), p, len,
 				   DPO(el->val, vallength), &newsize);
 		if (ret)
 		    return ret;

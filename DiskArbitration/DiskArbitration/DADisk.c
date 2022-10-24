@@ -26,6 +26,7 @@
 #include "DAInternal.h"
 #include "DAServer.h"
 #include "DASession.h"
+#include "DiskArbitrationPrivate.h"
 
 #include <paths.h>
 #include <mach/mach.h>
@@ -337,8 +338,21 @@ DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef sessio
     if ( name )
     {
         char id[MAXPATHLEN];
-
-        if ( strncmp( name, _PATH_DEV, strlen( _PATH_DEV ) ) )
+        char *startStr;
+        char *endStr;
+        
+        startStr = strstr(name, "://disk");
+        if ( startStr )
+        {
+            startStr = startStr + strlen("://");
+            endStr = strchr(startStr, '/');
+            if ( endStr != NULL )
+            {
+                strlcpy( id, _PATH_DEV, sizeof( id ) );
+                strlcat( id, startStr , strlen( id ) + ( endStr - startStr + 1)  );
+            }
+        }
+        else if ( strncmp( name, _PATH_DEV, strlen( _PATH_DEV ) ) )
         {
             strlcpy( id, _PATH_DEV, sizeof( id ) );
             strlcat( id, name,      sizeof( id ) );

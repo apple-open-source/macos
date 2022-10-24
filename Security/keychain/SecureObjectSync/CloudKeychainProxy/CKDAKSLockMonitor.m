@@ -88,7 +88,8 @@
     CFErrorRef aksError = NULL;
     bool locked = true; // Assume locked if we get an error
 
-    if (!SecAKSGetIsLocked(&locked, &aksError)) {
+    // user_only_keybag_handle ok to use here, since we don't call CKP from securityd_system
+    if (!SecAKSGetIsLocked(user_only_keybag_handle, &locked, &aksError)) {
         secerror("%@ Got error querying lock state: %@", self, aksError);
         CFReleaseSafe(aksError);
     }

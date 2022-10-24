@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,11 @@ public:
         add(renderingResourceIdentifier, WTFMove(font), m_fontCount);
     }
 
+    void add(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, Ref<WebCore::DecomposedGlyphs>&& decomposedGlyphs)
+    {
+        add(renderingResourceIdentifier, WTFMove(decomposedGlyphs), m_decomposedGlyphsCount);
+    }
+
     WebCore::ImageBuffer* getImageBuffer(WebCore::RenderingResourceIdentifier renderingResourceIdentifier) const final
     {
         return get<WebCore::ImageBuffer>({ renderingResourceIdentifier, m_webProcessIdentifier });
@@ -69,9 +74,19 @@ public:
         return get<WebCore::NativeImage>({ renderingResourceIdentifier, m_webProcessIdentifier });
     }
 
+    std::optional<WebCore::SourceImage> getSourceImage(WebCore::RenderingResourceIdentifier renderingResourceIdentifier) const final
+    {
+        return getSourceImage({ renderingResourceIdentifier, m_webProcessIdentifier });
+    }
+
     WebCore::Font* getFont(WebCore::RenderingResourceIdentifier renderingResourceIdentifier) const final
     {
         return get<WebCore::Font>({ renderingResourceIdentifier, m_webProcessIdentifier });
+    }
+
+    WebCore::DecomposedGlyphs* getDecomposedGlyphs(WebCore::RenderingResourceIdentifier renderingResourceIdentifier) const final
+    {
+        return get<WebCore::DecomposedGlyphs>({ renderingResourceIdentifier, m_webProcessIdentifier });
     }
 
     WebCore::ImageBuffer* getImageBuffer(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
@@ -83,28 +98,29 @@ public:
     {
         return get<WebCore::NativeImage>(renderingResourceIdentifier);
     }
+    
+    std::optional<WebCore::SourceImage> getSourceImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
+    {
+        if (!renderingResourceIdentifier)
+            return std::nullopt;
+
+        if (auto nativeImage = getNativeImage(renderingResourceIdentifier))
+            return { { *nativeImage } };
+
+        if (auto imageBuffer = getImageBuffer(renderingResourceIdentifier))
+            return { { *imageBuffer } };
+
+        return std::nullopt;
+    }
 
     WebCore::Font* getFont(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
     {
         return get<WebCore::Font>(renderingResourceIdentifier);
     }
 
-    bool hasImageBuffer() const
+    WebCore::DecomposedGlyphs* getDecomposedGlyphs(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
     {
-        checkInvariants();
-        return m_imageBufferCount;
-    }
-
-    bool hasNativeImage() const
-    {
-        checkInvariants();
-        return m_nativeImageCount;
-    }
-
-    bool hasFont() const
-    {
-        checkInvariants();
-        return m_fontCount;
+        return get<WebCore::DecomposedGlyphs>(renderingResourceIdentifier);
     }
 
     bool removeImageBuffer(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
@@ -122,18 +138,27 @@ public:
         return remove<WebCore::Font>(renderingResourceIdentifier, m_fontCount);
     }
 
-    void deleteAllFonts()
+    bool removeDecomposedGlyphs(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+    {
+        return remove<WebCore::DecomposedGlyphs>(renderingResourceIdentifier, m_decomposedGlyphsCount);
+    }
+
+    void releaseAllResources()
     {
         checkInvariants();
 
-        if (!m_fontCount)
+        if (!m_nativeImageCount && !m_fontCount && !m_decomposedGlyphsCount)
             return;
 
         m_resources.removeIf([] (const auto& resource) {
-            return std::holds_alternative<Ref<WebCore::Font>>(resource.value);
+            return std::holds_alternative<Ref<WebCore::NativeImage>>(resource.value)
+                || std::holds_alternative<Ref<WebCore::Font>>(resource.value)
+                || std::holds_alternative<Ref<WebCore::DecomposedGlyphs>>(resource.value);
         });
 
+        m_nativeImageCount = 0;
         m_fontCount = 0;
+        m_decomposedGlyphsCount = 0;
 
         checkInvariants();
     }
@@ -159,8 +184,8 @@ private:
         auto iterator = m_resources.find(renderingResourceIdentifier);
         if (iterator == m_resources.end())
             return nullptr;
-        ASSERT(std::holds_alternative<Ref<T>>(iterator->value));
-        return std::get<Ref<T>>(iterator->value).ptr();
+        auto value = std::get_if<Ref<T>>(&iterator->value);
+        return value ? value->ptr() : nullptr;
     }
 
     template <typename T>
@@ -192,6 +217,7 @@ private:
         unsigned imageBufferCount = 0;
         unsigned nativeImageCount = 0;
         unsigned fontCount = 0;
+        unsigned decomposedGlyphsCount = 0;
         for (const auto& pair : m_resources) {
             WTF::switchOn(pair.value, [&] (std::monostate) {
                 ASSERT_NOT_REACHED();
@@ -201,22 +227,25 @@ private:
                 ++nativeImageCount;
             }, [&] (const Ref<WebCore::Font>&) {
                 ++fontCount;
+            }, [&] (const Ref<WebCore::DecomposedGlyphs>&) {
+                ++decomposedGlyphsCount;
             });
         }
         ASSERT(imageBufferCount == m_imageBufferCount);
         ASSERT(nativeImageCount == m_nativeImageCount);
         ASSERT(fontCount == m_fontCount);
-        ASSERT(m_resources.size() == m_imageBufferCount + m_nativeImageCount + m_fontCount);
+        ASSERT(decomposedGlyphsCount == m_decomposedGlyphsCount);
+        ASSERT(m_resources.size() == m_imageBufferCount + m_nativeImageCount + m_fontCount + m_decomposedGlyphsCount);
 #endif
     }
 
-    using Resource = std::variant<std::monostate, Ref<WebCore::ImageBuffer>, Ref<WebCore::NativeImage>, Ref<WebCore::Font>>;
+    using Resource = std::variant<std::monostate, Ref<WebCore::ImageBuffer>, Ref<WebCore::NativeImage>, Ref<WebCore::Font>, Ref<WebCore::DecomposedGlyphs>>;
     HashMap<QualifiedRenderingResourceIdentifier, Resource> m_resources;
     WebCore::ProcessIdentifier m_webProcessIdentifier;
     unsigned m_imageBufferCount { 0 };
     unsigned m_nativeImageCount { 0 };
     unsigned m_fontCount { 0 };
-
+    unsigned m_decomposedGlyphsCount { 0 };
 };
 
 } // namespace WebKit

@@ -31,8 +31,6 @@
 #include <securityd_client/ssclient.h>
 #include <security_cdsa_utilities/cssmwalkers.h>
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
-#include <securityd_client/ucsp.h>
-#include <securityd_client/ucspNotify.h>
 
 namespace Security {
 namespace SecurityServer {

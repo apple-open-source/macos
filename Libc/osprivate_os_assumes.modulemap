@@ -1,0 +1,6 @@
+// Standalone module because os/assumes.h includes os/log_private.h,
+// which includes Foundation headers.
+module OSPrivate_os_assumes [system] {
+  header "os/assumes.h"
+  export *
+}

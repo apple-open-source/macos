@@ -70,6 +70,18 @@ enum IOPCIBARType
 };
 
 /*!
+ * @brief Link speeds for <code>SetLinkSpeed</code> and <code>GetLinkSpeed</code>
+ */
+enum IOPCILinkSpeed
+{
+    kPCILinkSpeed_2_5_GTs = 1, // Gen 1
+    kPCILinkSpeed_5_GTs,       // Gen 2
+    kPCILinkSpeed_8_GTs,       // Gen 3
+    kPCILinkSpeed_16_GTs,      // Gen 4
+    kPCILinkSpeed_32_GTs,      // Gen 5
+};
+
+/*!
    @iig implementation
    #if KERNEL
    #include <IOKit/pci/IOPCIDevice.h>
@@ -368,6 +380,31 @@ public:
                uint64_t* barSize = 0,
                uint8_t*  barType = 0);
 
+#pragma mark Link Management
+
+    /*! @function SetLinkSpeed
+     *   @abstract    Set the link speed upper bound and optionally retrain
+     *   @discussion  This function writes the device's upstream bridge's target-link-speed. This setting will be enforced during subsequent
+     *                reset-initiated link trainings, and the function will immediately retrain the link if the retrain parameter is true.
+     *                If retrain is true, this function will not return until training completes. The user must call IOPCIDevice::GetLinkSpeed() to
+     *                see the result of link training; a return value of kIOReturnSuccess does not indicate the requested link speed was reached.
+     *   @param       linkSpeed A IOPCILinkSpeed.
+     *   @param       retrain If true, the function will retrain the link.
+     *   @result      kIOReturnSuccess if there were no errors, such as linkSpeed unsupported by the upstream bridge. kIOReturnSuccess does not
+     *                indicate the requested link speed was reached.
+     */
+    virtual kern_return_t
+    SetLinkSpeed(IOPCILinkSpeed linkSpeed,
+                 bool           retrain = false);
+
+    /*! @function GetLinkSpeed
+     *   @abstract  Get the endpoint's link speed
+     *   @param     linkSpeed A pointer to a IOPCILinkSpeed.
+     *   @result    Returns an IOReturn code indicating success or failure.
+     */
+    virtual kern_return_t
+    GetLinkSpeed(IOPCILinkSpeed *linkSpeed);
+
 #pragma mark Interrupts Allocation
 
     /*!
@@ -384,6 +421,35 @@ public:
                         uint32_t numRequired  = 1,
                         uint32_t numRequested = 1,
                         IOOptionBits options  = 0);
+
+#pragma mark Reset
+
+    /*! @function reset
+     *   @abstract     Reset the PCIe device.
+     *   @discussion   If this is a multi-function device, all functions associated with the device will be reset.
+     *                 Device configuration state is saved prior to resetting the device and restored after reset completes.
+     *                 During reset, the caller must not attempt to access the device.
+     *                 This call will block until the link comes up and the device is usable (except for type kIOPCIDeviceResetTypeWarmResetDisable).
+     *   @param type     tIOPCIDeviceResetTypes.
+     *   @param options  tIOPCIDeviceResetOptions.
+     *   @return       kIOReturnSuccess if the reset specified is supported
+     */
+    virtual kern_return_t
+    Reset(IOOptionBits type,
+          IOOptionBits options = 0);
+
+#pragma mark Active State Power Management
+
+    /*!
+     * @brief       Configure ASPM settings.
+     * @discussion  This method will enable/disable ASPM L0s and L1, on the device and its upstream bridge, if both
+     *              are capable of the requested ASPM level(s). When ASPM is enabled, this method will also enable any L1 substates that
+     *              both link partners are capable of, and disable L1 substates when ASPM is disabled.
+     * @param       aspmLinkControl The level of ASPM to be enabled on the link. (See tIOPCILinkControlASPMBits.)
+     * @result      kIOReturnSuccess if there were no errors.
+     */
+    virtual kern_return_t
+    SetASPMState(IOOptionBits aspmLinkControl);
 };
 
 #pragma mark Private Class Extension

@@ -47,6 +47,7 @@ class IOPCIHostBridge;
 #include <IOKit/IOUserClient.h>
 #include <IOKit/pci/IOPCIConfigurator.h>
 #include <IOKit/IODeviceMemory.h>
+#include <IOKit/IOTimerEventSource.h>
 
 enum
 {
@@ -139,6 +140,17 @@ struct IOPCIDeviceExpansionData
 	IOMemoryMap*    deviceMemoryMap[kIOPCIRangeExpansionROM + 1];
 
 	uint8_t       interruptVectorsResolved;
+
+	IOPCIDeviceCrashNotification_t crashNotification;
+	void *crashNotificationRef;
+
+	bool inReset;
+
+	IOTimerEventSource*     _powerAssertionTimer;
+	IOPMDriverAssertionID   _powerAssertion;
+	uint32_t                _powerAssertionRefCnt;
+	IONotifier*             _publishNotifier;
+	IONotifier*             _matchedNotifier;
 };
 
 enum
@@ -302,6 +314,7 @@ enum
 
 #define kIOPCIExpressMaxLatencyKey    "pci-max-latency"
 #define kIOPCIExpressMaxPayloadSize   "pci-max-payload-size"
+#define kIOPCIExpressEndpointMaxReadRequestSize   "pci-ep-max-read-request-size"
 
 #define kIOPCIExpressErrorUncorrectableMaskKey	    "pci-aer-uncorrectable"
 #define kIOPCIExpressErrorUncorrectableSeverityKey	"pci-aer-uncorrectable-severity"
@@ -313,11 +326,15 @@ enum
 
 #define kIOPCIFunctionsDependentKey     "pci-functions-dependent"
 
+#define kIOPCIBridgeSplayMask "pci-splay-mask"
+
 #define kIOPCISlotCommandCompleted "IOPCISlotCommandCompleted"
 #define kIOPCISlotPowerController  "IOPCISlotPowerController"
 #define kIOPCISlotDevicePresent    "IOPCISlotDevicePresent"
 
 #define kIOPCIPowerOnProbeKey      "IOPCIPowerOnProbe"
+
+#define kIOCLxEnabledKey           "CLx Enabled"
 
 enum
 {
@@ -649,6 +666,9 @@ public:
     // Host bridge data is shared, when bridges have shared resources, i.e. PCIe config space (legacy systems).
     // They must be unique, if bridge has no resources to share (Apple Silicone).
     IOPCIHostBridgeData *bridgeData;
+protected:
+    virtual IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain) override { return kIOReturnUnsupported; };
+    virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) override { return kIOReturnUnsupported; };
 };
 __exported_pop
 

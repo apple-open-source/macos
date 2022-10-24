@@ -39,7 +39,7 @@ static bool CFDataMatches(CFDataRef data, size_t amount, const uint8_t* bytes)
 }
 
 
-static void testAppendShort()
+static void testAppendShort(void)
 {
     CFMutableDataRef result = CFDataCreateMutable(kCFAllocatorDefault, 0);
     
@@ -70,7 +70,7 @@ static void testAppendShort()
     CFRelease(result);
 }
 
-static void testAppendLong()
+static void testAppendLong(void)
 {
     CFMutableDataRef result = CFDataCreateMutable(kCFAllocatorDefault, 0);
 
@@ -101,7 +101,7 @@ static void testAppendLong()
     CFRelease(result);
 }
 
-static void testAppendLongLong()
+static void testAppendLongLong(void)
 {
     CFMutableDataRef result = CFDataCreateMutable(kCFAllocatorDefault, 0);
 
@@ -132,7 +132,7 @@ static void testAppendLongLong()
     CFRelease(result);
 }
 
-static void testAppendLongLongCompact()
+static void testAppendLongLongCompact(void)
 {
     CFMutableDataRef result = CFDataCreateMutable(kCFAllocatorDefault, 0);
 
@@ -181,7 +181,7 @@ static void testAppendLongLongCompact()
     CFRelease(result);
 }
 
-static void testAppendData()
+static void testAppendData(void)
 {
     CFMutableDataRef result = CFDataCreateMutable(kCFAllocatorDefault, 0);
     
@@ -213,7 +213,7 @@ static void testAppendData()
 }
 
 
-static void testAppendMPI()
+static void testAppendMPI(void)
 {
     const size_t kUnitBufferN = 1024;
     cc_unit unitBuffer[1024];

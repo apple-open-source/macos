@@ -85,6 +85,7 @@
     // Fetch status, to make sure we can
 
     // Can only fetch status from the default persona.
+    [self.mockPersonaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier:nil];
     self.mockPersonaAdapter.isDefaultPersona = YES;
 
     XCTestExpectation* statusCompletes = [self expectationWithDescription:@"status completes"];

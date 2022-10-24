@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)head.c	8.2 (Berkeley) 4/20/95";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/head.c,v 1.8 2003/01/09 05:08:37 mikeh Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include "extern.h"
@@ -54,11 +49,10 @@ static const char rcsid[] =
 /*
  * See if the passed line buffer is a mail header.
  * Return true if yes.  Note the extreme pains to
- * accomodate all funny formats.
+ * accommodate all funny formats.
  */
 int
-ishead(linebuf)
-	char linebuf[];
+ishead(char linebuf[])
 {
 	struct headline hl;
 	char parbuf[BUFSIZ];
@@ -80,10 +74,8 @@ ishead(linebuf)
 	return (1);
 }
 
-/*ARGSUSED*/
 void
-fail(linebuf, reason)
-	const char *linebuf, *reason;
+fail(const char *linebuf __unused, const char *reason __unused)
 {
 
 	/*
@@ -100,9 +92,7 @@ fail(linebuf, reason)
  * structure.  Actually, it scans.
  */
 void
-parse(line, hl, pbuf)
-	char line[], pbuf[];
-	struct headline *hl;
+parse(char line[], struct headline *hl, char pbuf[])
 {
 	char *cp, *sp;
 	char word[LINESIZE];
@@ -141,9 +131,7 @@ parse(line, hl, pbuf)
  * the left string into it.
  */
 char *
-copyin(src, space)
-	char *src;
-	char **space;
+copyin(char *src, char **space)
 {
 	char *cp, *top;
 
@@ -190,8 +178,7 @@ static char *date_formats[] = {
 };
 
 int
-isdate(date)
-	char date[];
+isdate(char date[])
 {
 	int i;
 
@@ -207,8 +194,7 @@ isdate(date)
  * Return 1 if they match, 0 if they don't
  */
 int
-cmatch(cp, tp)
-	char *cp, *tp;
+cmatch(char *cp, char *tp)
 {
 
 	while (*cp != '\0' && *tp != '\0')
@@ -263,8 +249,7 @@ cmatch(cp, tp)
  * or NULL if none follow.
  */
 char *
-nextword(wp, wbuf)
-	char *wp, *wbuf;
+nextword(char *wp, char *wbuf)
 {
 	int c;
 

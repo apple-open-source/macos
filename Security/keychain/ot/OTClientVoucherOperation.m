@@ -97,18 +97,17 @@
 
     secnotice("octagon", "vouching with %d keysets", (int)viewKeySets.count);
 
-    [self.operationDependencies.cuttlefishXPCWrapper vouchWithContainer:self.deviceInfo.containerName
-                                                                context:self.deviceInfo.contextID
-                                                                 peerID:self.peerID
-                                                          permanentInfo:self.permanentInfo
-                                                       permanentInfoSig:self.permanentInfoSig
-                                                             stableInfo:self.stableInfo
-                                                          stableInfoSig:self.stableInfoSig
-                                                               ckksKeys:viewKeySets
-                                                                  reply:^(NSData * _Nullable voucher,
-                                                                          NSData * _Nullable voucherSig,
-                                                                          NSError * _Nullable error)
-         {
+    [self.operationDependencies.cuttlefishXPCWrapper vouchWithSpecificUser:self.operationDependencies.activeAccount
+                                                                    peerID:self.peerID
+                                                             permanentInfo:self.permanentInfo
+                                                          permanentInfoSig:self.permanentInfoSig
+                                                                stableInfo:self.stableInfo
+                                                             stableInfoSig:self.stableInfoSig
+                                                                  ckksKeys:viewKeySets
+                                                                     reply:^(NSData * _Nullable voucher,
+                                                                             NSData * _Nullable voucherSig,
+                                                                             NSError * _Nullable error)
+     {
              STRONGIFY(self);
              if(error){
                  secerror("octagon: Error preparing voucher: %@", error);

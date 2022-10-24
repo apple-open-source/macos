@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>calendar</string>
+		<key>OpenSourceVersion</key>
+		<string>2002-08-14</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/calendar?id=67cb90ecd74ae825d4f5a0fcb3efa85c875b31d7</string>
+		<key>OpenSourceImportDate</key>
+		<string>2003-03-14</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>caldendar.c: match default as per man page</string>
+			<string>io.c: add -w flag to CPP</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>misc_cmds.txt</string>
+	</dict>

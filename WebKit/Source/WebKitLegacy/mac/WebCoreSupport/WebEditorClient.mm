@@ -55,6 +55,7 @@
 #import "WebViewInternal.h"
 #import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/ArchiveResource.h>
+#import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/Editor.h>
@@ -69,7 +70,6 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformKeyboardEvent.h>
-#import <WebCore/RuntimeEnabledFeatures.h>
 #import <WebCore/Settings.h>
 #import <WebCore/SpellChecker.h>
 #import <WebCore/StyleProperties.h>
@@ -98,12 +98,6 @@
 using namespace WebCore;
 
 using namespace HTMLNames;
-
-#if !PLATFORM(IOS_FAMILY)
-@interface NSSpellChecker (WebNSSpellCheckerDetails)
-- (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
-@end
-#endif
 
 // FIXME: Seems likely we can get rid of this legacy code for watchOS and tvOS.
 #if PLATFORM(WATCHOS) || PLATFORM(APPLETV)
@@ -450,7 +444,7 @@ static NSDictionary *attributesForAttributedStringConversion()
         nil]);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    if (!RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled())
+    if (!DeprecatedGlobalSettings::attachmentElementEnabled())
         [excludedElements addObject:@"object"];
 #endif
 
@@ -705,39 +699,49 @@ void WebEditorClient::handleInputMethodKeydown(KeyboardEvent& event)
 
 #define FormDelegateLog(ctrl)  LOG(FormDelegate, "control=%@", ctrl)
 
-void WebEditorClient::textFieldDidBeginEditing(Element* element)
+template <typename T>
+static DOMElement *dynamicDowncastToKit(Element& element)
 {
-    if (!is<HTMLInputElement>(*element))
-        return;
+    auto* coreInputElement = dynamicDowncast<T>(element);
+    if (!coreInputElement)
+        return nil;
 
-    DOMHTMLInputElement* inputElement = kit(downcast<HTMLInputElement>(element));
-    FormDelegateLog(inputElement);
-    CallFormDelegate(m_webView, @selector(textFieldDidBeginEditing:inFrame:), inputElement, kit(element->document().frame()));
+    return kit(coreInputElement);
 }
 
-void WebEditorClient::textFieldDidEndEditing(Element* element)
+void WebEditorClient::textFieldDidBeginEditing(Element& element)
 {
-    if (!is<HTMLInputElement>(*element))
+    auto *inputElement = dynamicDowncastToKit<HTMLInputElement>(element);
+    if (!inputElement)
         return;
 
-    DOMHTMLInputElement* inputElement = kit(downcast<HTMLInputElement>(element));
     FormDelegateLog(inputElement);
-    CallFormDelegate(m_webView, @selector(textFieldDidEndEditing:inFrame:), inputElement, kit(element->document().frame()));
+    CallFormDelegate(m_webView, @selector(textFieldDidBeginEditing:inFrame:), inputElement, kit(element.document().frame()));
 }
 
-void WebEditorClient::textDidChangeInTextField(Element* element)
+void WebEditorClient::textFieldDidEndEditing(Element& element)
 {
-    if (!is<HTMLInputElement>(*element))
+    auto *inputElement = dynamicDowncastToKit<HTMLInputElement>(element);
+    if (!inputElement)
+        return;
+
+    FormDelegateLog(inputElement);
+    CallFormDelegate(m_webView, @selector(textFieldDidEndEditing:inFrame:), inputElement, kit(element.document().frame()));
+}
+
+void WebEditorClient::textDidChangeInTextField(Element& element)
+{
+    auto *inputElement = dynamicDowncastToKit<HTMLInputElement>(element);
+    if (!inputElement)
         return;
 
 #if !PLATFORM(IOS_FAMILY)
-    if (!UserTypingGestureIndicator::processingUserTypingGesture() || UserTypingGestureIndicator::focusedElementAtGestureStart() != element)
+    if (!UserTypingGestureIndicator::processingUserTypingGesture() || UserTypingGestureIndicator::focusedElementAtGestureStart() != &element)
         return;
 #endif
 
-    DOMHTMLInputElement* inputElement = kit(downcast<HTMLInputElement>(element));
     FormDelegateLog(inputElement);
-    CallFormDelegate(m_webView, @selector(textDidChangeInTextField:inFrame:), inputElement, kit(element->document().frame()));
+    CallFormDelegate(m_webView, @selector(textDidChangeInTextField:inFrame:), inputElement, kit(element.document().frame()));
 }
 
 static SEL selectorForKeyEvent(KeyboardEvent* event)
@@ -747,55 +751,55 @@ static SEL selectorForKeyEvent(KeyboardEvent* event)
     // not relying on the selector in the new implementation.
     // The key identifiers are from <http://www.w3.org/TR/DOM-Level-3-Events/keyset.html#KeySet-Set>
     const String& key = event->keyIdentifier();
-    if (key == "Up")
+    if (key == "Up"_s)
         return @selector(moveUp:);
-    if (key == "Down")
+    if (key == "Down"_s)
         return @selector(moveDown:);
 IGNORE_WARNINGS_BEGIN("undeclared-selector")
-    if (key == "U+001B")
+    if (key == "U+001B"_s)
         return @selector(cancel:);
-    if (key == "U+0009") {
+    if (key == "U+0009"_s) {
         if (event->shiftKey())
             return @selector(insertBacktab:);
         return @selector(insertTab:);
     }
-    if (key == "Enter")
+    if (key == "Enter"_s)
         return @selector(insertNewline:);
 IGNORE_WARNINGS_END
     return 0;
 }
 
-bool WebEditorClient::doTextFieldCommandFromEvent(Element* element, KeyboardEvent* event)
+bool WebEditorClient::doTextFieldCommandFromEvent(Element& element, KeyboardEvent* event)
 {
-    if (!is<HTMLInputElement>(*element))
+    auto *inputElement = dynamicDowncastToKit<HTMLInputElement>(element);
+    if (!inputElement)
         return NO;
 
-    DOMHTMLInputElement* inputElement = kit(downcast<HTMLInputElement>(element));
     FormDelegateLog(inputElement);
     if (SEL commandSelector = selectorForKeyEvent(event))
-        return CallFormDelegateReturningBoolean(NO, m_webView, @selector(textField:doCommandBySelector:inFrame:), inputElement, commandSelector, kit(element->document().frame()));
+        return CallFormDelegateReturningBoolean(NO, m_webView, @selector(textField:doCommandBySelector:inFrame:), inputElement, commandSelector, kit(element.document().frame()));
     return NO;
 }
 
-void WebEditorClient::textWillBeDeletedInTextField(Element* element)
+void WebEditorClient::textWillBeDeletedInTextField(Element& element)
 {
-    if (!is<HTMLInputElement>(*element))
+    auto *inputElement = dynamicDowncastToKit<HTMLInputElement>(element);
+    if (!inputElement)
         return;
 
-    DOMHTMLInputElement* inputElement = kit(downcast<HTMLInputElement>(element));
     FormDelegateLog(inputElement);
     // We're using the deleteBackward selector for all deletion operations since the autofill code treats all deletions the same way.
-    CallFormDelegateReturningBoolean(NO, m_webView, @selector(textField:doCommandBySelector:inFrame:), inputElement, @selector(deleteBackward:), kit(element->document().frame()));
+    CallFormDelegateReturningBoolean(NO, m_webView, @selector(textField:doCommandBySelector:inFrame:), inputElement, @selector(deleteBackward:), kit(element.document().frame()));
 }
 
-void WebEditorClient::textDidChangeInTextArea(Element* element)
+void WebEditorClient::textDidChangeInTextArea(Element& element)
 {
-    if (!is<HTMLTextAreaElement>(*element))
+    auto *textAreaElement = dynamicDowncastToKit<HTMLTextAreaElement>(element);
+    if (!textAreaElement)
         return;
 
-    DOMHTMLTextAreaElement* textAreaElement = kit(downcast<HTMLTextAreaElement>(element));
     FormDelegateLog(textAreaElement);
-    CallFormDelegate(m_webView, @selector(textDidChangeInTextArea:inFrame:), textAreaElement, kit(element->document().frame()));
+    CallFormDelegate(m_webView, @selector(textDidChangeInTextArea:inFrame:), textAreaElement, kit(element.document().frame()));
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -915,13 +919,6 @@ void WebEditorClient::checkSpellingOfString(StringView text, int* misspellingLoc
     
     if (misspellingLength)
         *misspellingLength = range.length;
-}
-
-String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String& inputWord)
-{
-    // This method can be implemented using customized algorithms for the particular browser.
-    // Currently, it computes an empty string.
-    return String();
 }
 
 void WebEditorClient::checkGrammarOfString(StringView text, Vector<GrammarDetail>& details, int* badGrammarLocation, int* badGrammarLength)
@@ -1175,7 +1172,7 @@ void WebEditorClient::handleAcceptedCandidateWithSoftSpaces(TextCheckingResult a
         if (replacementLength > 0) {
             NSRange replacedRange = NSMakeRange(acceptedCandidate.range.location, replacementLength);
             NSRange softSpaceRange = NSMakeRange(NSMaxRange(replacedRange) - 1, 1);
-            if (acceptedCandidate.replacement.endsWith(" "))
+            if (acceptedCandidate.replacement.endsWith(' '))
                 [(WebHTMLView *)view _setSoftSpaceRange:softSpaceRange];
         }
     }

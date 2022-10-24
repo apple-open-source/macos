@@ -40,7 +40,7 @@ void SecKeySetAuxilliaryCDSAKeyForKey(SecKeyRef cf, SecKeyRef auxKey);
 SecKeyRef SecKeyCopyAuxilliaryCDSAKeyForKey(SecKeyRef cf);
 #endif
 
-extern struct ccrng_state *ccrng_seckey;
+struct ccrng_state *ccrng_seckey(void);
 
 enum {
     // Keep in sync with SecKeyOperationType enum in SecKey.h

@@ -66,13 +66,12 @@
     }
 
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.deps.containerName
-                                                            context:self.deps.contextID
-                                                    modelIDOverride:nil
-                                                 isInheritedAccount:self.isInheritedAccount
-                                                              reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                      TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
-                                                                      NSError* _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithSpecificUser:self.deps.activeAccount
+                                                       modelIDOverride:nil
+                                                    isInheritedAccount:self.isInheritedAccount
+                                                                 reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                         TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
+                                                                         NSError* _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
 

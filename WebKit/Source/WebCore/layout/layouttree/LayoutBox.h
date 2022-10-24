@@ -52,6 +52,10 @@ public:
         TableBox, // The table box is a block-level box that contains the table's internal table boxes.
         Image,
         IFrame,
+        InsideListMarker,
+        OutsideListMarker,
+        IntegrationBlockContainer,
+        IntegrationInlineBlock, // Integration sets up inline-block boxes as replaced boxes.
         GenericElement
     };
 
@@ -133,13 +137,17 @@ public:
     bool isTableColumn() const { return style().display() == DisplayType::TableColumn; }
     bool isTableCell() const { return style().display() == DisplayType::TableCell; }
     bool isInternalTableBox() const;
-    bool isFlexBox() const { return style().display() == DisplayType::Flex; }
+    bool isFlexBox() const { return style().display() == DisplayType::Flex || style().display() == DisplayType::InlineFlex; }
     bool isFlexItem() const;
     bool isIFrame() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IFrame; }
     bool isImage() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Image; }
+    bool isListMarker() const { return m_elementAttributes && (m_elementAttributes.value().elementType == ElementType::InsideListMarker || m_elementAttributes.value().elementType == ElementType::OutsideListMarker); }
+    bool isInsideListMarker() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::InsideListMarker; }
+    bool isOutsideListMarker() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::OutsideListMarker; }
     bool isInternalRubyBox() const { return false; }
-    bool isIntegrationBlockContainer() const { return m_isIntegrationBlockContainer; }
+    bool isIntegrationBlockContainer() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IntegrationBlockContainer; }
     bool isIntegrationRoot() const { return isIntegrationBlockContainer() && !m_parent; }
+    bool isIntegrationInlineBlock() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IntegrationInlineBlock; }
 
     const ContainerBox& parent() const { return *m_parent; }
     const Box* nextSibling() const { return m_nextSibling.get(); }
@@ -176,7 +184,6 @@ public:
     std::optional<LayoutUnit> columnWidth() const;
 
     void setIsAnonymous() { m_isAnonymous = true; }
-    void setIsIntegrationBlockContainer() { m_isIntegrationBlockContainer = true; }
 
     bool canCacheForLayoutState(const LayoutState&) const;
     BoxGeometry* cachedGeometryForLayoutState(const LayoutState&) const;
@@ -228,7 +235,6 @@ private:
     unsigned m_baseTypeFlags : 6; // OptionSet<BaseTypeFlag>
     bool m_hasRareData : 1;
     bool m_isAnonymous : 1;
-    bool m_isIntegrationBlockContainer : 1;
 };
 
 inline bool Box::isContainingBlockForInFlow() const

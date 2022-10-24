@@ -2538,6 +2538,8 @@ pmap_query_resident(
 	return resident_bytes;
 }
 
+uint64_t pmap_query_page_info_retries;
+
 kern_return_t
 pmap_query_page_info(
 	pmap_t          pmap,
@@ -2548,8 +2550,8 @@ pmap_query_page_info(
 	boolean_t       is_ept;
 	pmap_paddr_t    pa;
 	ppnum_t         pai;
-	pd_entry_t      *pde;
-	pt_entry_t      *pte;
+	pd_entry_t      *pde_p;
+	pt_entry_t      *pte_p, pte;
 
 	pmap_intr_assert();
 	if (pmap == PMAP_NULL || pmap == kernel_pmap) {
@@ -2562,23 +2564,27 @@ pmap_query_page_info(
 
 	PMAP_LOCK_EXCLUSIVE(pmap);
 
-	pde = pmap_pde(pmap, va);
-	if (!pde ||
-	    !(*pde & PTE_VALID_MASK(is_ept)) ||
-	    (*pde & PTE_PS)) {
+	pde_p = pmap_pde(pmap, va);
+	if (!pde_p ||
+	    !(*pde_p & PTE_VALID_MASK(is_ept)) ||
+	    (*pde_p & PTE_PS)) {
 		goto done;
 	}
 
-	pte = pmap_pte(pmap, va);
-	if (pte == PT_ENTRY_NULL) {
+try_again:
+	disp = 0;
+
+	pte_p = pmap_pte(pmap, va);
+	if (pte_p == PT_ENTRY_NULL) {
 		goto done;
 	}
 
-	pa = pte_to_pa(*pte);
+	pte = *pte_p;
+	pa = pte_to_pa(pte);
 	if (pa == 0) {
-		if (PTE_IS_COMPRESSED(*pte, pte, pmap, va)) {
+		if (PTE_IS_COMPRESSED(pte, pte_p, pmap, va)) {
 			disp |= PMAP_QUERY_PAGE_COMPRESSED;
-			if (*pte & PTE_COMPRESSED_ALT) {
+			if (pte & PTE_COMPRESSED_ALT) {
 				disp |= PMAP_QUERY_PAGE_COMPRESSED_ALTACCT;
 			}
 		}
@@ -2596,7 +2602,11 @@ pmap_query_page_info(
 			disp |= PMAP_QUERY_PAGE_INTERNAL;
 		}
 	}
-
+	if (__improbable(pte_p != pmap_pte(pmap, va) || pte != *pte_p)) {
+		/* something changed: try again */
+		pmap_query_page_info_retries++;
+		goto try_again;
+	}
 done:
 	PMAP_UNLOCK_EXCLUSIVE(pmap);
 	*disp_p = disp;

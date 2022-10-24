@@ -29,6 +29,7 @@
 #if ENABLE(REMOTE_INSPECTOR)
 
 #include "APIPageConfiguration.h"
+#include "InspectorResourceURLSchemeHandler.h"
 #include "WebInspectorUIProxy.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
@@ -101,7 +102,7 @@ LRESULT RemoteWebInspectorUIProxy::onClose()
 
 WebPageProxy* RemoteWebInspectorUIProxy::platformCreateFrontendPageAndWindow()
 {
-    RefPtr<WebPreferences> preferences = WebPreferences::create(String(), "WebKit2.", "WebKit2.");
+    RefPtr<WebPreferences> preferences = WebPreferences::create(String(), "WebKit2."_s, "WebKit2."_s);
     preferences->setAllowFileAccessFromFileURLs(true);
 
 #if ENABLE(DEVELOPER_MODE)
@@ -132,12 +133,14 @@ WebPageProxy* RemoteWebInspectorUIProxy::platformCreateFrontendPageAndWindow()
 
 void RemoteWebInspectorUIProxy::platformResetState() { }
 void RemoteWebInspectorUIProxy::platformBringToFront() { }
-void RemoteWebInspectorUIProxy::platformSave(const String&, const String&, bool, bool) { }
-void RemoteWebInspectorUIProxy::platformAppend(const String&, const String&) { }
+void RemoteWebInspectorUIProxy::platformSave(Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool /* forceSaveAs */) { }
+void RemoteWebInspectorUIProxy::platformLoad(const String&, CompletionHandler<void(const String&)>&& completionHandler) { completionHandler(nullString()); }
+void RemoteWebInspectorUIProxy::platformPickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler) { completionHandler({ }); }
 void RemoteWebInspectorUIProxy::platformSetSheetRect(const WebCore::FloatRect&) { }
 void RemoteWebInspectorUIProxy::platformSetForcedAppearance(WebCore::InspectorFrontendClient::Appearance) { }
 void RemoteWebInspectorUIProxy::platformStartWindowDrag() { }
 void RemoteWebInspectorUIProxy::platformOpenURLExternally(const String&) { }
+void RemoteWebInspectorUIProxy::platformRevealFileExternally(const String&) { }
 void RemoteWebInspectorUIProxy::platformShowCertificate(const WebCore::CertificateInfo&) { }
 
 void RemoteWebInspectorUIProxy::platformCloseFrontendPageAndWindow()

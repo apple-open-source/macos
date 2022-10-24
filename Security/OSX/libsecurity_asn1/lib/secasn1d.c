@@ -153,7 +153,7 @@ static const char* const flag_names[] = {/* flags, right to left */
                                          "unknown 20",  "unknown 40", "unknown 80"};
 
 static int /* bool */
-formatKind(unsigned long kind, char* buf)
+formatKind(unsigned long kind, char* buf, size_t buf_sz)
 {
     int i;
     unsigned long k = kind & SEC_ASN1_TAGNUM_MASK;
@@ -162,29 +162,36 @@ formatKind(unsigned long kind, char* buf)
 
     buf[0] = 0;
     if ((kind & SEC_ASN1_CLASS_MASK) != SEC_ASN1_UNIVERSAL) {
-        sprintf(buf, " %s", class_names[(kind & SEC_ASN1_CLASS_MASK) >> 6]);
+        snprintf(buf, buf_sz, " %s", class_names[(kind & SEC_ASN1_CLASS_MASK) >> 6]);
+        buf_sz -= strlen(buf);
         buf += strlen(buf);
     }
     if (kind & SEC_ASN1_METHOD_MASK) {
-        sprintf(buf, " %s", method_names[1]);
+        snprintf(buf, buf_sz, " %s", method_names[1]);
+        buf_sz -= strlen(buf);
         buf += strlen(buf);
     }
     if ((kind & SEC_ASN1_CLASS_MASK) == SEC_ASN1_UNIVERSAL) {
         if (k || !notag) {
-            sprintf(buf, " %s", type_names[k]);
+            snprintf(buf, buf_sz, " %s", type_names[k]);
+            buf_sz -= strlen(buf);
+            buf += strlen(buf);
             if ((k == SEC_ASN1_SET || k == SEC_ASN1_SEQUENCE) && (kind & SEC_ASN1_GROUP)) {
+                snprintf(buf, buf_sz, "_OF");
+                buf_sz -= strlen(buf);
                 buf += strlen(buf);
-                sprintf(buf, "_OF");
             }
         }
     } else {
-        sprintf(buf, " [%lu]", k);
+        snprintf(buf, buf_sz, " [%lu]", k);
+        buf_sz -= strlen(buf);
+        buf += strlen(buf);
     }
-    buf += strlen(buf);
 
     for (k = kind >> 8, i = 0; k; k >>= 1, ++i) {
         if (k & 1) {
-            sprintf(buf, " %s", flag_names[i]);
+            snprintf(buf, buf_sz, " %s", flag_names[i]);
+            buf_sz -= strlen(buf);
             buf += strlen(buf);
         }
     }
@@ -783,7 +790,7 @@ static unsigned long sec_asn1d_parse_identifier(sec_asn1d_state* state, const ch
 #ifdef DEBUG_ASN1D_STATES
     if (doDumpStates > 0) {
         char kindBuf[256];
-        formatKind(byte, kindBuf);
+        formatKind(byte, kindBuf, sizeof(kindBuf));
         printf("Found tag %02x %s\n", byte, kindBuf);
     }
 #endif
@@ -2700,7 +2707,7 @@ static void dump_states(SEC_ASN1DecoderContext* cx)
             printf("  ");
         }
 
-        i = formatKind(state->theTemplate->kind, kindBuf);
+        i = formatKind(state->theTemplate->kind, kindBuf, sizeof(kindBuf));
         printf("%s: tmpl %p, kind%s", (state == cx->current) ? "STATE" : "State", state->theTemplate, kindBuf);
         printf(" %s", (state->place <= notInUse) ? place_names[state->place] : "(undefined)");
         if (!i) {

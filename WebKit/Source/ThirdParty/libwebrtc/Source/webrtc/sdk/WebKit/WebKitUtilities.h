@@ -26,6 +26,7 @@
 #pragma once
 
 #include "api/video/video_frame_buffer.h"
+#include "api/video/video_rotation.h"
 #include "api/scoped_refptr.h"
 #include <CoreFoundation/CFBase.h>
 #include <functional>
@@ -48,6 +49,15 @@ bool isH264HardwareEncoderAllowed();
 
 enum class BufferType { I420, I010 };
 CVPixelBufferRef createPixelBufferFromFrame(const VideoFrame&, const std::function<CVPixelBufferRef(size_t, size_t, BufferType)>& createPixelBuffer) CF_RETURNS_RETAINED;
+CVPixelBufferRef createPixelBufferFromFrameBuffer(VideoFrameBuffer&, const std::function<CVPixelBufferRef(size_t, size_t, BufferType)>& createPixelBuffer) CF_RETURNS_RETAINED;
+CVPixelBufferRef pixelBufferFromFrame(const VideoFrame&) CF_RETURNS_RETAINED;
 rtc::scoped_refptr<webrtc::VideoFrameBuffer> pixelBufferToFrame(CVPixelBufferRef);
+bool copyVideoFrameBuffer(VideoFrameBuffer&, uint8_t*);
 
+typedef CVPixelBufferRef (*GetBufferCallback)(void*);
+typedef void (*ReleaseBufferCallback)(void*);
+rtc::scoped_refptr<VideoFrameBuffer> toWebRTCVideoFrameBuffer(void*, GetBufferCallback, ReleaseBufferCallback, int width, int height);
+void* videoFrameBufferProvider(const VideoFrame&);
+
+bool convertBGRAToYUV(CVPixelBufferRef sourceBuffer, CVPixelBufferRef destinationBuffer);
 }

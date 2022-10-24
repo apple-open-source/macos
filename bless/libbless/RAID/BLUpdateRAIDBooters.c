@@ -69,7 +69,7 @@ int getExternalBooter(BLContextPtr context,
 int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueData,
 					CFDataRef bootxData, CFDataRef labelData);
 
-CFDataRef _createLabel(BLContextPtr context, CFStringRef name, int index);
+static CFDataRef _createLabel(BLContextPtr context, CFStringRef name, long index);
 
 int BLUpdateRAIDBooters(BLContextPtr context, const char * device,
 						CFTypeRef bootData,
@@ -147,6 +147,7 @@ int BLUpdateRAIDBooters(BLContextPtr context, const char * device,
 	if(CFGetTypeID(bootData) == CFArrayGetTypeID()) {
 		CFIndex i, count = CFArrayGetCount(bootData);
 		
+		if (count > INT_MAX) count = INT_MAX;		// It should never be close to this big
 		for(i=0; i < count; i++) {
 			CFDictionaryRef dict = CFArrayGetValueAtIndex(bootData,i);
 			CFDataRef	tempLabel = NULL;
@@ -287,7 +288,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
 	
 	pspec = xspec = lspec1 = lspec2 = NULL;
 	
-	sprintf(device, "/dev/%s", devname);
+	snprintf(device, sizeof(device), "/dev/%s", devname);
 
 	specCount = 1; // plist
 	if(labelData) specCount += 2;
@@ -399,7 +400,7 @@ int updateAppleBoot(BLContextPtr context, const char *devname, CFDataRef opaqueD
     return 0;
 }
 
-CFDataRef _createLabel(BLContextPtr context, CFStringRef name, int index)
+static CFDataRef _createLabel(BLContextPtr context, CFStringRef name, long index)
 {
 	CFDataRef newLabel = NULL;
 	char label[MAXPATHLEN];
@@ -407,7 +408,7 @@ CFDataRef _createLabel(BLContextPtr context, CFStringRef name, int index)
 	CFStringRef nameWithNum = NULL;
 	
 	nameWithNum = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,
-										   CFSTR("%@ %d"), name, index);
+										   CFSTR("%@ %ld"), name, index);
 	if(nameWithNum == NULL)
 	   return NULL;
 	

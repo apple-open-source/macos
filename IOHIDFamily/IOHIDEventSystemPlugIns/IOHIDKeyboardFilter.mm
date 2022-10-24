@@ -57,7 +57,7 @@
 #import "AppleKeyboardStateManager.h"
 
 #define kCapsLockDelayMS    75
-#define kLockKeyDelayMS     0
+#define kLockKeyDelayMS     150
 #define kEjectKeyDelayMS    0
 #define kSlowKeyMinMS       1
 #define kSlowRepeatDelayMS  420
@@ -463,7 +463,7 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
         if (value) {
             uint64_t valueProp = 0;
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt64Type, &valueProp);
-            _keyRepeatInitialDelayMS = (UInt32)valueProp / 1000000;
+            _keyRepeatInitialDelayMS = valueProp / 1000000;
 #if (kMinKeyRepeatMS > 0)
             if (_keyRepeatInitialDelayMS && _keyRepeatInitialDelayMS < kMinKeyRepeatMS) {
                 _keyRepeatInitialDelayMS = kMinKeyRepeatMS;
@@ -475,7 +475,7 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
         if (value) {
             uint64_t valueProp = 0;
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt64Type, &valueProp);
-            _keyRepeatDelayMS = (UInt32)valueProp / 1000000;
+            _keyRepeatDelayMS = valueProp / 1000000;
             // Bound key repeat interval.
             if (_keyRepeatDelayMS && _keyRepeatDelayMS < kMinKeyRepeatMS) {
                 _keyRepeatDelayMS = kMinKeyRepeatMS;
@@ -610,7 +610,7 @@ void IOHIDKeyboardFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
                 IOHIDLogError("IOPMConnectionCreate: %#x", ret);
             }
         });
-        dispatch_async(_queue, _pmInitBlock);
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), _pmInitBlock);
     }
 
     _lockKeyDelayTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
@@ -659,6 +659,7 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
 
     if (_pmInitBlock) {
         dispatch_block_cancel(_pmInitBlock);
+        dispatch_block_wait(_pmInitBlock, DISPATCH_TIME_FOREVER);
 #if !__has_feature(objc_arc)
         Block_release(_pmInitBlock);
 #endif
@@ -729,8 +730,6 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
 
         CFRelease(service);
     });
-
-    //_queue = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -825,12 +824,12 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         if (numProp) {
             uint64_t valueProp = 0;
             CFNumberGetValue(numProp, kCFNumberSInt64Type, &valueProp);
-            _keyRepeatInitialDelayMS = (UInt32)valueProp / 1000000;
+            _keyRepeatInitialDelayMS = valueProp / 1000000;
             // Bound key repeat interval. 0 disables key repeats.
             if (_keyRepeatInitialDelayMS && _keyRepeatInitialDelayMS < kMinKeyRepeatMS) {
                 _keyRepeatInitialDelayMS = kMinKeyRepeatMS;
             }
-            HIDLogDebug("[%@] _keyRepeatInitialDelayMS: %d", SERVICE_ID, (int)_keyRepeatInitialDelayMS);
+            HIDLogDebug("[%@] _keyRepeatInitialDelayMS: %lld", SERVICE_ID, _keyRepeatInitialDelayMS);
         }
     } else if (CFStringCompare(key, CFSTR(kIOHIDServiceKeyRepeatDelayKey), kNilOptions) == kCFCompareEqualTo) {
 
@@ -839,12 +838,12 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
         if (numProp) {
             uint64_t valueProp = 0;
             CFNumberGetValue(numProp, kCFNumberSInt64Type, &valueProp);
-            _keyRepeatDelayMS = (UInt32)valueProp / 1000000;
+            _keyRepeatDelayMS = valueProp / 1000000;
             // Bound key repeat interval.
             if (_keyRepeatDelayMS && _keyRepeatDelayMS < kMinKeyRepeatMS) {
                 _keyRepeatDelayMS = kMinKeyRepeatMS;
             }
-            HIDLogDebug("[%@] _keyRepeatDelayMS: %d", SERVICE_ID, (int)_keyRepeatDelayMS);
+            HIDLogDebug("[%@] _keyRepeatDelayMS: %lld", SERVICE_ID, _keyRepeatDelayMS);
         }
     } else if (CFStringCompare(key, CFSTR(kIOHIDServiceCapsLockStateKey), kNilOptions) == kCFCompareEqualTo) {
 
@@ -1285,6 +1284,8 @@ bool isNotRepeated(UInt32 usagePage, UInt32 usage)
     } else if (usagePage == kHIDPage_AppleVendorKeyboard &&
              usage == kHIDUsage_AppleVendorKeyboard_CapsLockState) {
 
+        isNotRepeated = true;
+    } else if (usagePage == kHIDPage_AppleVendorDisplayCover) {
         isNotRepeated = true;
     }
 
@@ -2114,7 +2115,7 @@ void  IOHIDKeyboardFilter::dispatchKeyRepeat(void)
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::processKeyRepeats
 //------------------------------------------------------------------------------
-IOHIDEventRef IOHIDKeyboardFilter::processKeyRepeats(IOHIDEventRef event, UInt32 keyRepeatInitialDelayMS, UInt32 keyRepeatDelayMS)
+IOHIDEventRef IOHIDKeyboardFilter::processKeyRepeats(IOHIDEventRef event, uint64_t keyRepeatInitialDelayMS, uint64_t keyRepeatDelayMS)
 {
     UInt32      usage              = 0;
     UInt32      usagePage          = 0;
@@ -2509,7 +2510,14 @@ IOHIDEventRef IOHIDKeyboardFilter::processLockKeyDelay(IOHIDEventRef event)
     keyDown     = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown);
 
     if ( !((usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_ALTerminalLockOrScreensaver))) {
-        goto exit;
+        #if TARGET_OS_IOS
+            if (!IOHIDServiceConformsTo(_service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard) ||
+                !((usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Power))) {
+                goto exit;
+            }
+        #else
+            goto exit;
+        #endif
     }
 
     // Let through already-delayed lock key events.
@@ -2688,6 +2696,7 @@ void IOHIDKeyboardFilter::serialize (CFMutableDictionaryRef dict) const {
     serializer.SetValueForKey(CFSTR(kIOHIDUserKeyUsageMapKey), serializeMapper(_userKeyMap));
     serializer.SetValueForKey(CFSTR(kIOHIDServiceInitialKeyRepeatDelayKey), (uint64_t)_keyRepeatInitialDelayMS);
     serializer.SetValueForKey(CFSTR(kIOHIDServiceKeyRepeatDelayKey), (uint64_t)_keyRepeatDelayMS);
+    serializer.SetValueForKey(CFSTR(kIOHIDServiceLockKeyDelayKey), (uint64_t)_lockKeyDelayMS);
     serializer.SetValueForKey(CFSTR("CapsLockState"), (uint64_t)_capsLockState);
     serializer.SetValueForKey(CFSTR("CapsLockLEDState"), (uint64_t)_capsLockLEDState);
     serializer.SetValueForKey(CFSTR("MatchScore"), (uint64_t)_matchScore);

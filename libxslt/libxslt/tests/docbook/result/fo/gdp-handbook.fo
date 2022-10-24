@@ -92,11 +92,11 @@
         <fo:block text-align="center" margin-left="-4pc" keep-with-next="always" font-size="24.8832pt" font-weight="bold" font-family="Helvetica">
           <fo:block keep-with-next.within-column="always" hyphenate="false">The GNOME Handbook of Writing Software Documentation</fo:block>
         </fo:block>
-        <fo:block>David Mason<fo:block><fo:block>Red Hat, Inc.</fo:block><fo:block wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block>David Mason<fo:block><fo:block>Red Hat, Inc.</fo:block><fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false">
             <fo:inline font-family="Courier">&lt;dcm@redhat.com&gt;</fo:inline>
-          </fo:block></fo:block>Daniel Mueth<fo:block><fo:block wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          </fo:block></fo:block>Daniel Mueth<fo:block><fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false">
             <fo:inline font-family="Courier">&lt;d-mueth@uchicago.edu&gt;</fo:inline>
-          </fo:block></fo:block>Alexander Kirillov<fo:block><fo:block wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          </fo:block></fo:block>Alexander Kirillov<fo:block><fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" linefeed-treatment="preserve" white-space-collapse="false">
             <fo:inline font-family="Courier">&lt;kirillov@math.sunysb.edu&gt;</fo:inline>
           </fo:block></fo:block></fo:block>
         <fo:block>
@@ -382,7 +382,7 @@
           people to make announcements and suggestions and to discuss
           issues in the comments section.
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2979832">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348418272">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Note</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Note that the information in the
@@ -409,7 +409,7 @@
         source nature of SGML. To contribute to the GDP you should
         learn to use DocBook.
       </fo:block>
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2979895">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348423072">
             <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           To get started writing for the GDP you do not need to rush
@@ -490,8 +490,8 @@
           DTD's.  To install the GDP custom DTD with PNG image support
           by hand:
         </fo:block>
-            <fo:list-block id="id2980206" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2980213" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348443424" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348444000">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -506,7 +506,7 @@
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2980259" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348447456">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -517,11 +517,11 @@
               distribution. (On Red Hat it is usually in
               /usr/lib/sgml/CATALOG.) Add the following line to this
               file:
-              <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+              <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.0//EN" "png-support-3.0.dtd"
               </fo:block> 
               If you are using the 3.1 DTD, use:
-              <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+              <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN" "png-support-3.1.dtd"
               </fo:block> 
             </fo:block>
@@ -540,14 +540,14 @@ PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN" "png-support-3.1.dtd"
         </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Articles:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 &lt;!DOCTYPE Article PUBLIC "-//GNOME//DTD DocBook PNG Variant
 V1.1//EN"[]&gt;
           </fo:block>
         </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Books:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 &lt;!DOCTYPE Book PUBLIC "-//GNOME//DTD DocBook PNG Variant
 V1.1//EN"[]&gt;
           </fo:block>
@@ -620,7 +620,7 @@ V1.1//EN"[]&gt;
           mydocument.sgml</fo:inline>, after which you can print out or
           view the resulting .ps file.  
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2980630">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348464736">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
             The html files you get will not look quite the same as the
@@ -656,7 +656,7 @@ V1.1//EN"[]&gt;
           include the extension of the image file, since DocBook
           Tools will automatically insert it for you. For example:
         </fo:block>
-            <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+            <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;figure&gt;
  &lt;title&gt;My Image&lt;/title&gt;
@@ -676,7 +676,7 @@ V1.1//EN"[]&gt;
           the directory.
         </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-          If you want to create PostScript ouput, you will need to create an
+          If you want to create PostScript output, you will need to create an
           EPS version of your image file to be displayed in the
           PostScript file. There is a simple script available which
           allows you to change a PNG image into an EPS file
@@ -700,8 +700,8 @@ V1.1//EN"[]&gt;
           The following resources on the web are useful for learning
           DocBook:
         </fo:block>
-            <fo:list-block id="id2980841" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2980848" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348478752" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348479328">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -715,7 +715,7 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2980882" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348482016">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -728,7 +728,7 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2980911" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348484128">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -742,7 +742,7 @@ V1.1//EN"[]&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2980940" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348486240">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -766,8 +766,8 @@ V1.1//EN"[]&gt;
           The following sections of this document are designed to help
           documentation authors write correct and consistent DocBook:
         </fo:block>
-            <fo:list-block id="id2980987" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2980994" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348489696" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348490272">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1373,8 +1373,8 @@ V1.1//EN"[]&gt;
       advised</fo:inline> that the documentation writers conform to XML
       syntax rules. Here are most important differences:
       </fo:block>
-          <fo:list-block id="id2982897" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-            <fo:list-item id="id2982900" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+          <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348613152" provisional-distance-between-starts="1in" provisional-label-separation="0.25in">
+            <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348613536">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Minimization</fo:inline></fo:inline>
@@ -1395,7 +1395,7 @@ V1.1//EN"[]&gt;
          </fo:block>
               </fo:list-item-body>
             </fo:list-item>
-            <fo:list-item id="id2983001" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348621792">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Self-closing tags</fo:inline></fo:inline>
@@ -1415,7 +1415,7 @@ V1.1//EN"[]&gt;
           </fo:block>
               </fo:list-item-body>
             </fo:list-item>
-            <fo:list-item id="id2983063" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348626976">
               <fo:list-item-label end-indent="label-end()">
                 <fo:block>
                   <fo:inline> <fo:inline font-style="italic">Case sensitive tags</fo:inline></fo:inline>
@@ -1487,7 +1487,7 @@ V1.1//EN"[]&gt;
           <fo:inline font-family="Courier">&lt;note&gt;</fo:inline>, <fo:inline font-family="Courier">&lt;tip&gt;</fo:inline>,
           <fo:inline font-family="Courier">&lt;warning&gt;</fo:inline>,
           <fo:inline font-family="Courier">&lt;important&gt;</fo:inline> respectively. For example:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;tip&gt;
  &lt;title&gt;TIP&lt;/title&gt;
@@ -1521,7 +1521,7 @@ V1.1//EN"[]&gt;
           To include screenshots and other figures, use the following
           tags:
           
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;figure id="shot1"&gt;
  &lt;title&gt;Screenshot&lt;/title&gt;
@@ -1537,7 +1537,7 @@ V1.1//EN"[]&gt;
           
           <fo:block id="shot1" space-before.minimum="1em" space-before.optimum="1.5em" space-before.maximum="2em" space-after.minimum="1em" space-after.optimum="1.5em" space-after.maximum="2em" keep-with-previous.within-column="always"><fo:block font-weight="bold" font-size="12pt" hyphenate="false" keep-with-next.within-column="always" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">Screenshot</fo:block><fo:block><fo:block><fo:external-graphic src="url(file:figures/example_screenshot)" content-width="auto" content-height="auto" width="auto" height="auto"/></fo:block></fo:block></fo:block>
         </fo:block>
-            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2983467">
+            <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348576864">
               <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
               <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
             Notice in this example that the screenshot file name does
@@ -1557,7 +1557,7 @@ V1.1//EN"[]&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           To show a file fragment--for example, program
           listing--use <fo:inline font-family="Courier">&lt;programlisting&gt;</fo:inline> tag:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;programlisting&gt;
 [Desktop Entry] 
@@ -1569,7 +1569,7 @@ Type=Application
 &lt;/programlisting&gt;
           </fo:block>
           which produces
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 [Desktop Entry] 
 Name=Gnumeric spreadsheet 
 Exec=gnumeric
@@ -1584,7 +1584,7 @@ Type=Application
           To show a record of terminal session--i.e., sequence of
           commands entered at the command line--use
           <fo:inline font-family="Courier">&lt;screen&gt;</fo:inline> tag:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;screen&gt;
 &lt;prompt&gt;bash$&lt;/prompt&gt;&lt;userinput&gt;make love&lt;/userinput&gt; 
@@ -1592,14 +1592,14 @@ make: *** No rule to make target `love'. Stop.
 &lt;/screen&gt;
           </fo:block>
           which produces
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 <fo:inline font-family="Courier">bash$</fo:inline><fo:inline font-weight="bold" font-family="Courier">make love</fo:inline>  
 make: *** No rule to make target `love'.  Stop.
           </fo:block>
           Note the use of tags <fo:inline font-family="Courier">&lt;prompt&gt;</fo:inline> and
           <fo:inline font-family="Courier">&lt;userinput&gt;</fo:inline> for marking system prompt
           and commands entered by user.
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2983637"><fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block><fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348664224"><fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block><fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
               Note that both <fo:inline font-family="Courier">&lt;programlisting&gt;</fo:inline>
               and <fo:inline font-family="Courier">&lt;screen&gt;</fo:inline> preserve linebreaks,
               but interpret SGML tags (unlike LaTeX
@@ -1623,8 +1623,8 @@ make: *** No rule to make target `love'.  Stop.
 	  <fo:inline font-family="Courier">&lt;orderedlist&gt;</fo:inline>, and 
 	  <fo:inline font-family="Courier">&lt;variablelist&gt;</fo:inline>.
 	</fo:block>
-            <fo:list-block id="id2983722" provisional-distance-between-starts="1in" provisional-label-separation="0.25in" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-              <fo:list-item id="id2983725" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348671520" provisional-distance-between-starts="1in" provisional-label-separation="0.25in">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348671904">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;itemizedlist&gt;</fo:inline></fo:inline>
@@ -1634,7 +1634,7 @@ make: *** No rule to make target `love'.  Stop.
                   <fo:block> 
 		This is the simplest unnumbered list, parallel to
 	    <fo:inline font-family="Courier">&lt;ul&gt;</fo:inline> in HTML. Here is an example: 
-		<fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+		<fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;itemizedlist&gt;
   &lt;listitem&gt;
@@ -1663,8 +1663,8 @@ make: *** No rule to make target `love'.  Stop.
 		</fo:block>
 		and output:
                 </fo:block>
-                  <fo:list-block id="id2983762" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-                    <fo:list-item id="id2983766" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                  <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348675360" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+                    <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348675744">
                       <fo:list-item-label end-indent="label-end()">
                         <fo:block>•</fo:block>
                       </fo:list-item-label>
@@ -1676,7 +1676,7 @@ make: *** No rule to make target `love'.  Stop.
 		    </fo:block>
                       </fo:list-item-body>
                     </fo:list-item>
-                    <fo:list-item id="id2983811" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                    <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348677856">
                       <fo:list-item-label end-indent="label-end()">
                         <fo:block>•</fo:block>
                       </fo:list-item-label>
@@ -1689,7 +1689,7 @@ make: *** No rule to make target `love'.  Stop.
 		    </fo:block>
                       </fo:list-item-body>
                     </fo:list-item>
-                    <fo:list-item id="id2983834" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+                    <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348679968">
                       <fo:list-item-label end-indent="label-end()">
                         <fo:block>•</fo:block>
                       </fo:list-item-label>
@@ -1718,7 +1718,7 @@ make: *** No rule to make target `love'.  Stop.
 	      </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2983961" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348689568">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;orderedlist&gt;</fo:inline></fo:inline>
@@ -1741,7 +1741,7 @@ make: *** No rule to make target `love'.  Stop.
 	      </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984039" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348696480">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>
                     <fo:inline> <fo:inline font-family="Courier">&lt;variablelist&gt;</fo:inline></fo:inline>
@@ -1758,7 +1758,7 @@ make: *** No rule to make target `love'.  Stop.
 	    computer to search.  The lines you are reading now were
 	    produced by <fo:inline font-family="Courier">&lt;variablelist&gt;</fo:inline>. The
 	    source looked liked this:
-		<fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+		<fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;variablelist&gt;
   &lt;varlistentry&gt;
@@ -1812,8 +1812,8 @@ make: *** No rule to make target `love'.  Stop.
                 </fo:block>
               </fo:block>
             </fo:block>
-            <fo:list-block id="id2984177" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2984180" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348705888" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348706272">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1824,7 +1824,7 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984198" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348708192">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1839,7 +1839,7 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984234" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348711456">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1850,7 +1850,7 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984251" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348713184">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1860,7 +1860,7 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984267" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348714912">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1871,7 +1871,7 @@ make: *** No rule to make target `love'.  Stop.
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984285" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348716640">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1888,7 +1888,7 @@ make: *** No rule to make target `love'.  Stop.
           Main Menu-&gt;Utilities-&gt;GNOME
             terminal
           there is a special construction for this, too:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;menuchoice&gt;
  &lt;guimenu&gt;Main Menu&lt;/guimenu&gt; &lt;guisubmenu&gt;Utilities&lt;/guisubmenu&gt;
@@ -1911,7 +1911,7 @@ make: *** No rule to make target `love'.  Stop.
           automatically inserts the full name of the element you refer
           to (section, figure, etc.), while the second just creates a
           link (in HTML output). Here is an example:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 An example of a &lt;link linkend="extip"&gt;tip&lt;/link&gt; was given in
 &lt;xref linkend="notes" /&gt;.  
           </fo:block>
@@ -1925,7 +1925,7 @@ An example of a &lt;link linkend="extip"&gt;tip&lt;/link&gt; was given in
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">  To produce a link  to an external source, such as a
           Web page or a local file, use <fo:inline font-family="Courier">&lt;ulink&gt;</fo:inline>
           tag, for example:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
  To find more about GNOME, please visit &lt;ulink type="http"
 url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt; 
           </fo:block>
@@ -1951,8 +1951,8 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
           Here are some tags used to describe operating system-related
           things:  
         </fo:block>
-            <fo:list-block id="id2984574" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2984578" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348729504" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348729888">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1966,7 +1966,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984618" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348733728">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1980,7 +1980,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984666" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348737760">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -1994,7 +1994,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984707" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348741600">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2006,7 +2006,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984739" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348744672">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2020,7 +2020,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2984780" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348748512">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2066,7 +2066,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           To mark up a combination of keystrokes, use the
           <fo:inline font-family="Courier">&lt;keycombo&gt;</fo:inline> wrapper:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;keycombo&gt;
  &lt;keycap&gt;Ctrl&lt;/keycap&gt;
@@ -2078,7 +2078,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Finally, if you want to show a shortcut for some menu
           command, here are the appropriate tags (rather long):
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;menuchoice&gt;
  &lt;shortcut&gt;
@@ -2101,7 +2101,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">  To mark up e-mail
         address, use <fo:inline font-family="Courier">&lt;email&gt;</fo:inline>:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
  The easiest way to get in touch with me is by e-mail
 (&lt;email&gt;me@mydomain.com&lt;/email&gt;)
           </fo:block>
@@ -2131,8 +2131,8 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
 	  here is partial list of most commonly used enitites:
 	</fo:block>
-            <fo:list-block id="id2985133" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
-              <fo:list-item id="id2985136" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+            <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348792672" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348793056">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2142,7 +2142,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2985150" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348794592">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2152,7 +2152,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2985164" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348796128">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2162,7 +2162,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2985179" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348798240">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2172,7 +2172,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
 	  </fo:block>
                 </fo:list-item-body>
               </fo:list-item>
-              <fo:list-item id="id2985192" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
+              <fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348799968">
                 <fo:list-item-label end-indent="label-end()">
                   <fo:block>•</fo:block>
                 </fo:list-item-label>
@@ -2260,7 +2260,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           Application documentation should identify the version of the
           application for which the documentation is written:
-          <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+          <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;sect1 id="intro"&gt;
  &lt;title&gt;Introduction&lt;/title&gt;
@@ -2336,7 +2336,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
       PNG format only) when appropriate.  They should also describe
       each feature and preference option available.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985521">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348824736">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Documentation Availability</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Applications and applets should not rely on documentation
@@ -2352,7 +2352,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
     versions 1.x and the templates in <fo:basic-link internal-destination="template2-2x">the section called “Template 2: Applet Manual For GNOME 2.x”</fo:basic-link>
     for GNOME versions 2.x.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985590">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348828768">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Manuals For Large Applications</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Manuals for very large applications, such as GNOME Workshop
@@ -2363,7 +2363,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
         <fo:inline font-family="Courier">&lt;sect1&gt;</fo:inline>).
       </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985636">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348832800">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Applet Manuals in GNOME 2.0</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         Note that applet manuals in GNOME 2.0 are treated in a special
@@ -2393,7 +2393,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
             </fo:block>
           </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985728">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348839328">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         This section is for developers.  Documentation authors
@@ -2406,7 +2406,7 @@ url="http://www.gnome.org"&gt;GNOME Web page&lt;/ulink&gt;
       Help menu at the top right of the
       application. To do this, you must first write a
       <fo:inline font-family="Courier">topic.dat</fo:inline> file. The format for this file is:
-      <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+      <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 One line for each 'topic'.
 
 Two columns, as defined by perl -e 'split(/\s+/,$aline,2)'
@@ -2418,7 +2418,7 @@ Second column is the user-visible topic name.
       </fo:block>
       For example, Gnumeric's
       <fo:inline font-family="Courier">topic.dat</fo:inline> file is:
-      <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+      <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 gnumeric.html   Gnumeric manual
 function-reference.html Gnumeric function reference
       </fo:block>
@@ -2430,7 +2430,7 @@ function-reference.html Gnumeric function reference
       from SGML into HTML with <fo:inline font-weight="bold">db2html</fo:inline>) should be
       placed in this directory too.
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2985873">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348850272">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Note</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
        If the help files are not present in the correct directory, the
@@ -2441,7 +2441,7 @@ function-reference.html Gnumeric function reference
       The <fo:inline font-family="Courier">topic.dat</fo:inline> file is used by the GNOME
       menu building code to generate the Help
       menu. When you define your menu:  
-<fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+<fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 GnomeUIInfo helpmenu[] = {
               {GNOME_APP_UI_ITEM, 
                N_("About"), N_("Info about this program"),
@@ -2470,7 +2470,7 @@ GnomeUIInfo helpmenu[] = {
             </fo:block>
           </fo:block>
         </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986001">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348777696">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         This section is for developers.  Documentation authors
@@ -2494,7 +2494,7 @@ GnomeUIInfo helpmenu[] = {
       To make the Help buttons call the correct document in the GNOME Help
       Browser the developer should add code based on the following example:
     </fo:block>
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 gchar *tmp;
 tmp = gnome_help_file_find_file ("module", "page.html");
 if (tmp) {
@@ -2502,7 +2502,7 @@ if (tmp) {
   g_free(tmp);
 }
     </fo:block>
-        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986105">
+        <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348859104">
           <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">NOTE</fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         The example above is in the C language, please refer to other
@@ -2572,7 +2572,7 @@ if (tmp) {
               </fo:block>
             </fo:block>
           </fo:block>
-          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="id2986296">
+          <fo:block space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" start-indent="0.25in" end-indent="0.25in" id="idp106373348872928">
             <fo:block font-size="14pt" font-weight="bold" keep-with-next="always">Developer Information</fo:block>
             <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
           This section is for developers.  Documentation authors
@@ -2588,7 +2588,7 @@ if (tmp) {
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
         To add an applet's manual to its applet menu, use:
-<fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+<fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 /* add an item to the applet menu */
 applet_widget_register_callback(APPLET_WIDGET(applet), "manual",
 _("Manual"), &amp;open_manual, NULL);
@@ -2608,7 +2608,7 @@ _("Manual"), &amp;open_manual, NULL);
         You will also want to add an About menu
         item to the applet's menu.  This is a
         stock menu item and is done:
-<fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+<fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
        GNOME_STOCK_MENU_ABOUT, _("About"), &amp;my_applet_cb_about,
        NULL);
@@ -2740,7 +2740,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"> 
          Just as you need to juggle expert and novice readers,
          you'll have to juggle a number of other extremes as you write:
-         <fo:list-block id="id2986718" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em"><fo:list-item id="id2986722" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+         <fo:list-block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348901152" provisional-distance-between-starts="1.5em" provisional-label-separation="0.2em"><fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348901536"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Documents should be complete, yet concise.  You should
               describe every feature, but you'll have decide how much
               detail is really necessary.  It's not, for example,
@@ -2750,7 +2750,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
               you spend fewer words on the obvious, you can spend more
               time clarifying the ambiguous labels and explaining
               items that are more complex.
-            </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986742" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+            </fo:block></fo:list-item-body></fo:list-item><fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348902688"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Be engaging and friendly, yet professional. Games
               documents may be less formal than productivity
               application documents (people don't
@@ -2759,14 +2759,14 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
               maintain a standard of style which holds the reader's
               interest without resorting to jokes and untranslatable
               allusions or puns.
-           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986772" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+           </fo:block></fo:list-item-body></fo:list-item><fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348904992"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               Examples, tips, notes, and screenshots are useful to
               break up long stretches of text, but too many can get in
               the way, and make your documents too choppy to read.
               It's good to provide a screenshot of any dialog windows
               a user might run into, but if a dialog box has several
               tabs, it's not usually necessary to have one for each.
-           </fo:block></fo:list-item-body></fo:list-item><fo:list-item id="id2986790" space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
+           </fo:block></fo:list-item-body></fo:list-item><fo:list-item space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em" id="idp106373348906144"><fo:list-item-label end-indent="label-end()"><fo:block>•</fo:block></fo:list-item-label><fo:list-item-body start-indent="body-start()"><fo:block>
               The GDP strives to have all of its documentation conform
               to certain standards of style and content, but every
               document (and every writer) is different.  You will need
@@ -3055,7 +3055,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
         manuals.  You can always get the latest copy of this
         template from  <fo:basic-link external-destination="http://developer.gnome.org/projects/gdp/templates.html">GDP
         Documentation Templates</fo:basic-link><fo:inline hyphenate="false"> [http://developer.gnome.org/projects/gdp/templates.html]</fo:inline>.
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 
 &lt;!DOCTYPE Article PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN"[
@@ -3809,7 +3809,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
         where
         <fo:inline font-family="Courier"><fo:inline font-style="italic" font-family="Courier">appletname</fo:inline></fo:inline> is
         the name of the applet.
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 
 &lt;!DOCTYPE Article PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN"[
@@ -3889,7 +3889,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
 
 
 </fo:block>
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
         &lt;!--  Template Version: 1.0.1  (do not remove this line) --&gt;
 
@@ -4148,7 +4148,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
         the applet document.
       </fo:block>
           <fo:block space-before.optimum="1em" space-before.minimum="0.8em" space-before.maximum="1.2em">
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 &lt;!DOCTYPE book PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN"[
 &lt;!ENTITY TEMPLATE-APPLET SYSTEM "gnome-applet-template.sgml.part"&gt;
@@ -4603,7 +4603,7 @@ applet_widget_register_stock_callback (APPLET_WIDGET(applet), "about",
 
 	</fo:block>
 	
-        <fo:block wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve" font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em">
+        <fo:block font-family="Courier" font-size="9pt" space-before.minimum="0.8em" space-before.optimum="1em" space-before.maximum="1.2em" wrap-option="no-wrap" text-align="start" white-space-collapse="false" linefeed-treatment="preserve">
 
 
   &lt;!-- Please replace everywhere below GNOMEAPPLET with the name of --&gt;

@@ -347,9 +347,9 @@ static void handleTimerExpiration(void *info)
 static void
 schedulePowerEvent(PowerEventBehavior *behave)
 {
-    CFAbsoluteTime                  fire_time = 0.0;
     CFDictionaryRef                 upcoming = NULL;
     CFDateRef                       temp_date = NULL;
+    CFDateRef now = NULL;
 
     if(behave->timer) 
     {
@@ -382,12 +382,15 @@ schedulePowerEvent(PowerEventBehavior *behave)
     behave->currentEvent = (CFDictionaryRef)upcoming;
     
     temp_date = _getScheduledEventDate(upcoming);
-    if(!temp_date) goto exit;
+    if (!temp_date) goto exit;
 
-    fire_time = CFDateGetAbsoluteTime(temp_date);
+    now = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+    if (!now) goto exit;
 
-    int delta = (int)(fire_time - CFAbsoluteTimeGetCurrent());
-    if (delta) {
+    CFTimeInterval delta = CFDateGetTimeIntervalSinceDate(temp_date, now);
+    // If dispatch_time detects an overflow after adding the offset to the current time, it automatically replaces the timer with
+    // DISPATCH_TIME_FOREVER. However, we need to make sure delta * NSEC_PER_SEC doesn't wrap around.
+    if (delta > 0.001 && delta < (INT64_MAX / NSEC_PER_SEC)) {
         behave->timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
         dispatch_source_set_event_handler(behave->timer, ^{
             handleTimerExpiration(behave);
@@ -395,11 +398,14 @@ schedulePowerEvent(PowerEventBehavior *behave)
 
         if(behave->timer) {
             dispatch_resume(behave->timer);
-            dispatch_source_set_timer(behave->timer, dispatch_walltime(DISPATCH_TIME_NOW, delta*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+            dispatch_source_set_timer(behave->timer, dispatch_time(DISPATCH_WALLTIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
         }
+    } else {
+        ERROR_LOG("AutoWakeScheduler: Not arming timer for a past or distant future event at %@", temp_date);
     }
 
 exit:
+    if (now) CFRelease(now);
     return;
 }
 

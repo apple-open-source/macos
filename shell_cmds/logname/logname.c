@@ -1,6 +1,6 @@
-/*	$NetBSD: logname.c,v 1.7 1997/10/19 04:20:06 lukem Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,59 +29,51 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1991, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)logname.c	8.2 (Berkeley) 4/3/94";
+#endif /* not lint */
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1991, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+__FBSDID("$FreeBSD$");
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)logname.c	8.2 (Berkeley) 4/3/94";
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
 #endif
-__RCSID("$NetBSD: logname.c,v 1.7 1997/10/19 04:20:06 lukem Exp $");
-#endif /* not lint */
-
+#include <err.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <locale.h>
-#include <unistd.h>
-#include <err.h>
 
-int	main __P((int, char **));
-void	usage __P((void));
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[] __unused)
 {
-	int ch;
 	char *p;
 
-	setlocale(LC_ALL, "");
-
-	while ((ch = getopt(argc, argv, "")) != -1)
-		switch (ch) {
-		case '?':
-		default:
-			usage();
-			/* NOTREACHED */
-		}
-
-	if (argc != optind) {
+#ifndef __APPLE__
+    if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
+	if (argc != 1)
 		usage();
-		/* NOTREACHED */
-	}
-
 	if ((p = getlogin()) == NULL)
-		err(1, "getlogin");
+		err(1, NULL);
 	(void)printf("%s\n", p);
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "usage: logname\n");
 	exit(1);

@@ -17,7 +17,6 @@
 #include "compiler/translator/tree_util/BuiltIn.h"
 #include "compiler/translator/tree_util/IntermNode_util.h"
 #include "compiler/translator/tree_util/IntermTraverse.h"
-#include "compiler/translator/tree_util/RunAtTheBeginningOfShader.h"
 #include "compiler/translator/tree_util/RunAtTheEndOfShader.h"
 
 namespace sh
@@ -102,10 +101,10 @@ class GLSampleMaskRelatedReferenceTraverser : public TIntermTraverser
 
 }  // anonymous namespace
 
-ANGLE_NO_DISCARD bool RewriteSampleMask(TCompiler *compiler,
-                                        TIntermBlock *root,
-                                        TSymbolTable *symbolTable,
-                                        const TIntermTyped *numSamplesUniform)
+[[nodiscard]] bool RewriteSampleMask(TCompiler *compiler,
+                                     TIntermBlock *root,
+                                     TSymbolTable *symbolTable,
+                                     const TIntermTyped *numSamplesUniform)
 {
     const TIntermSymbol *redeclaredGLSampleMask = nullptr;
     GLSampleMaskRelatedReferenceTraverser indexTraverser(&redeclaredGLSampleMask,
@@ -164,9 +163,9 @@ ANGLE_NO_DISCARD bool RewriteSampleMask(TCompiler *compiler,
     return RunAtTheEndOfShader(compiler, root, multiSampleOrNot, symbolTable);
 }
 
-ANGLE_NO_DISCARD bool RewriteSampleMaskIn(TCompiler *compiler,
-                                          TIntermBlock *root,
-                                          TSymbolTable *symbolTable)
+[[nodiscard]] bool RewriteSampleMaskIn(TCompiler *compiler,
+                                       TIntermBlock *root,
+                                       TSymbolTable *symbolTable)
 {
     const TIntermSymbol *redeclaredGLSampleMaskIn = nullptr;
     GLSampleMaskRelatedReferenceTraverser indexTraverser(&redeclaredGLSampleMaskIn,

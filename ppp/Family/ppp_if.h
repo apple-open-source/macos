@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2018, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,7 +103,7 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m);
 void ppp_if_error(ifnet_t ifp);
 int ppp_if_xmit(ifnet_t ifp, mbuf_t m);
 
-
+bool ppp_if_host_has_unit(void *host);
 
 #define APPLE_PPP_NAME	"ppp"
 

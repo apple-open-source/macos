@@ -231,7 +231,7 @@ int     same_netobj(const netobj *n0, const netobj *n1);
 int     same_filelock_identity(const struct file_lock *fl0,
     const struct file_lock *fl2);
 
-static void debuglog(char const *fmt, ...);
+static void debuglog(char const *fmt, ...) __attribute__((format(printf, 1, 2)));
 void dump_static_object(const unsigned char* object, const int sizeof_object,
     unsigned char* hbuff, const int sizeof_hbuff,
     unsigned char* cbuff, const int sizeof_cbuff);
@@ -266,10 +266,6 @@ enum nlm4_stats do_unlock(struct file_lock *fl);
 enum nlm4_stats do_lock(struct file_lock *fl);
 void    do_clear(const char *hostname);
 
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-
 void
 debuglog(char const *fmt, ...)
 {
@@ -285,7 +281,6 @@ debuglog(char const *fmt, ...)
 	vsyslog(LOG_DEBUG, fmt, ap);
 	va_end(ap);
 }
-#pragma clang diagnostic pop
 
 void
 dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
@@ -1604,7 +1599,7 @@ lock_partialfilelock(struct file_lock *fl)
 		retval = PFL_NFSRESERR;
 		break;
 	default:
-		debuglog("Unmatched lnlstatus %d\n");
+		debuglog("Unmatched lnlstatus %d\n", lnlstatus);
 		retval = PFL_NFSDENIED_NOLOCK;
 		break;
 	}
@@ -2120,8 +2115,9 @@ void
 do_notify_mounts(const char *hostname)
 {
 	struct addrinfo *ailist = NULL, *ai, aihints;
-	struct lockd_notify ln, *lnp = NULL;
+	struct lockd_notify ln = {}, *lnp = &ln;
 	int addrcount, addrmax;
+	struct sockaddr_storage ss = {};
 
 	/* Get the list of addresses for this hostname. */
 	/* Send a lockd-notify with the addresses into the kernel. */
@@ -2139,12 +2135,12 @@ do_notify_mounts(const char *hostname)
 	}
 	debuglog("do_notify_mounts for %s, addrcount %d", hostname, addrcount);
 	if (addrcount > 1) {
-		lnp = malloc(sizeof(*lnp) + ((addrcount - 1) * sizeof(struct sockaddr_storage)));
+		lnp->ln_addr = malloc(addrcount * sizeof(struct sockaddr_storage));
 	}
-	if (lnp) { /* send all the addresses in one notification */
+	if (lnp->ln_addr) { /* send all the addresses in one notification */
 		addrmax = addrcount;
 	} else { /* just send single-address notification(s) */
-		lnp = &ln;
+		lnp->ln_addr = &ss;
 		addrmax = 1;
 	}
 
@@ -2175,6 +2171,9 @@ do_notify_mounts(const char *hostname)
 			addrcount--;
 		}
 		nfsclnt(NFSCLNT_LOCKDNOTIFY, lnp);
+	}
+	if (lnp->ln_addr != &ss) {
+		free(lnp->ln_addr);
 	}
 	freeaddrinfo(ailist);
 }

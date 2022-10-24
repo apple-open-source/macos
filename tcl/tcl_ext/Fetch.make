@@ -174,4 +174,3 @@ $(SRCROOT)/$(Project)$(UrlExt):
 	'\t</dict>"}; {print}' $(Plist) > $(Plist).1 && $(MV) $(Plist).1 $(Plist)
 
 .PHONY: $(fetch_targets)
-.NOTPARALLEL:

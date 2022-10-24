@@ -593,7 +593,7 @@ static void writePeerCerts(
 	}
 	numCerts = CFArrayGetCount(peerCerts);
 	for(i=0; i<numCerts; i++) {
-		sprintf(fileName, "%s%02d.cer", fileBase, (int)i);
+		snprintf(fileName, sizeof(fileName), "%s%02d.cer", fileBase, (int)i);
 		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(peerCerts, i);
 		writeFileSizet(fileName, SecCertificateGetBytePtr(certRef),
 			SecCertificateGetLength(certRef));

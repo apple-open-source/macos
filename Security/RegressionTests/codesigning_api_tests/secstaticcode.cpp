@@ -95,7 +95,7 @@ _attachFAT32DiskImage(void)
 static int
 _copySafariBundleToVolume(void)
 {
-    const char *command = BUILD_COMMAND("cp -R " kSafariBundleOnSystemPath " " kSafariBundleOnVolumePath);
+    const char *command = BUILD_COMMAND("cp -RL " kSafariBundleOnSystemPath " " kSafariBundleOnVolumePath);
     return system(command);
 }
 
@@ -122,10 +122,11 @@ _confirmValidationPolicy(const char *path)
     require_noerr(status, done);
     require(codeRef, done);
 
-    // Validate binary without kSecCSSkipXattrFiles. Expectation is this should fail.
+    // Validate binary without kSecCSSkipXattrFiles. Expectation is this should pass since the default behavior
+    // now includes allowing xattr files.
     status = SecStaticCodeCheckValidity(codeRef, validateFlags, NULL);
-    if (!status) {
-        INFO("%s validated without kSecCSSkipXattrFiles flag", path);
+    if (status) {
+        INFO("%s failed to validate without kSecCSSkipXattrFiles flag: %d", path, status);
         goto done;
     }
 
@@ -134,11 +135,12 @@ _confirmValidationPolicy(const char *path)
     require_noerr(status, done);
     require(codeRef, done);
 
-    // Validate binary with kSecCSSkipXattrFiles. Expectation is this should pass.
+    // Validate binary with kSecCSSkipXattrFiles. Expectation is this should also pass as this flag
+    // no longer has any particular meaning.
     validateFlags |= kSecCSSkipXattrFiles;
     status = SecStaticCodeCheckValidity(codeRef, validateFlags, NULL);
     if (status) {
-        INFO("%s is not valid even with kSecCSSkipXattrFiles flag", path);
+        INFO("%s is not valid with kSecCSSkipXattrFiles flag: %d", path, status);
         goto done;
     }
 
@@ -150,12 +152,13 @@ done:
 }
 
 static int
-CheckCheckValidity_kSecCSSkipXattrFiles(void)
+CheckCheckValidityWithXattrFiles(void)
 {
     const char *xattrName = NULL;
     uint32_t xattrValue = 0;
     const char *safariBinary = NULL;
     const char *safariCodeResources = NULL;
+    const char *safariContents = NULL;
 
     BEGIN();
 
@@ -199,6 +202,13 @@ CheckCheckValidity_kSecCSSkipXattrFiles(void)
         goto done;
     }
     INFO("Wrote xattr \'%s\' to %s", xattrName, safariCodeResources);
+
+    safariContents = kSafariBundleOnVolumePath "/Contents";
+    if (setxattr(safariContents, xattrName, &xattrValue, sizeof(xattrValue), 0, 0)) {
+        FAIL("%s setxattr error: %d [%s]", safariContents, errno, strerror(errno));
+        goto done;
+    }
+    INFO("Wrote xattr \'%s\' to %s", xattrName, safariContents);
 
     // Validate Safari.app with and without kSecCSSkipXattrFiles flag.
     if (_confirmValidationPolicy(kSafariBundleOnVolumePath)) {
@@ -504,7 +514,7 @@ CheckSingleResourceValidationAPI(void)
     }
 
     system("rm -rf  /tmp/Safari.app");
-    system("cp -R /Applications/Safari.app /tmp/");
+    system("cp -RL /Applications/Safari.app /tmp/");
 
     // Create new SecStaticCode object referencing app in temp location.
     url.take(CFURLCreateWithString(NULL, CFSTR("/tmp/Safari.app"), NULL));
@@ -1057,7 +1067,7 @@ static int runTests(int (*testList[])(void), int testCount)
 int main(int argc, const char *argv[])
 {
     static int (*signedTestList[])(void) = {
-        CheckCheckValidity_kSecCSSkipXattrFiles,
+        CheckCheckValidityWithXattrFiles,
         CheckAppleProcessNetworkDefault,
         CheckAppleProcessCanUseNetworkWithFlag,
         CheckAppleProcessCanDenyNetworkWithFlag,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2016,2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,7 @@ typedef CF_OPTIONS(uint32_t, SecAppleTrustAnchorFlags) {
 };
 
 /*
- * Return true if the certificate is an the Apple Trust anchor.
+ * Return true if the certificate is an Apple Trust anchor.
  */
 bool
 SecIsAppleTrustAnchor(SecCertificateRef cert,
@@ -48,6 +48,18 @@ SecIsAppleTrustAnchorData(CFDataRef cert,
 			  SecAppleTrustAnchorFlags flags);
 
 CFArrayRef SecGetAppleTrustAnchors(bool allowNonProduction);
+
+/*
+ * Return true if the certificate is an Apple Code Signing anchor.
+ */
+bool
+SecIsAppleCodeSigningAnchor(SecCertificateRef cert);
+
+/*
+ * Return true if the issuer hash is an Apple Code Signing issuer.
+ */
+bool
+SecIsAppleCodeSigningIssuer(CFDataRef issuerHash);
 
 __END_DECLS
 

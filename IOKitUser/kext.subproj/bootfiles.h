@@ -169,6 +169,14 @@
  */
 #define kRecoveryBootModeObliteration "obliteration"
 
+/* Ignition failure flow
+   Set by: libignition
+   Cleared by: Boot Recovery Assistant
+
+   Used by libigition to trigger handling ignition failures
+*/
+#define kRecoveryBootModeIgnitionFailure "ignition-failure"
+
 /* The kernel */
 #define kDefaultKernelPath  "/System/Library/Kernels/kernel"
 //#define kDefaultKernel      "/mach_kernel"

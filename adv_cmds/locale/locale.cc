@@ -373,16 +373,28 @@ int main(int argc, char *argv[]) {
 		    cout << "LC_ALL=" << endl;
 		}
 
+		if (cout.fail() || cout.flush().fail()) {
+			clog << "failed to flush stdout" << endl;
+			return 1;
+		}
 		return 0;
 	}
 
 	if (sw_all_locales) {
 		list_all_valid_locales();
+		if (cout.fail() || cout.flush().fail()) {
+			clog << "failed to flush stdout" << endl;
+			return 1;
+		}
 		return 0;
 	}
 
 	if (sw_charmaps) {
 	        show_all_unique_codesets();
+		if (cout.fail() || cout.flush().fail()) {
+			clog << "failed to flush stdout" << endl;
+			return 1;
+		}
 		return 0;
 	}
 
@@ -424,5 +436,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (exit_val == 0 && (cout.fail() || cout.flush().fail())) {
+		clog << "failed to flush stdout" << endl;
+		exit_val = 1;
+	}
 	return exit_val;
 }

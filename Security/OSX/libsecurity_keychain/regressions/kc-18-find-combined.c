@@ -1101,12 +1101,14 @@ static void PrintSecIdentity(SecIdentityRef identity)
 }
 
 
+static void PrintCFStringWithFormat(const char *formatStr, CFStringRef inStr) __attribute__((format(printf, 1, 0)));
+
 static void PrintCFStringWithFormat(const char *formatStr, CFStringRef inStr)
 {
 	char *buf = (char*)malloc(MAXNAMELEN);
 	if (buf) {
 		if (CFStringGetCString(inStr, buf, (CFIndex)MAXNAMELEN, kCFStringEncodingUTF8)) {
-			fprintf(stdout, formatStr, buf);
+			fprintf(stdout, fmtcheck(formatStr, "%s"), buf);
 			fflush(stdout);
 		}
 		free(buf);

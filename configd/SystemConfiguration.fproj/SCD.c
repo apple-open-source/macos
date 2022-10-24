@@ -58,7 +58,6 @@ _SCLogDestination	_sc_log		= kSCLogDestinationDefault;
 #pragma mark Thread specific data
 
 
-static pthread_once_t	tsKeyInitialized	= PTHREAD_ONCE_INIT;
 static pthread_key_t	tsDataKey;
 
 
@@ -83,7 +82,12 @@ __SCThreadSpecificDataFinalize(void *arg)
 static void
 __SCThreadSpecificKeyInitialize()
 {
-	pthread_key_create(&tsDataKey, __SCThreadSpecificDataFinalize);
+	static dispatch_once_t  tsKeyInitialized;
+
+	dispatch_once(&tsKeyInitialized, ^{
+		pthread_key_create(&tsDataKey, __SCThreadSpecificDataFinalize);
+	});
+
 	return;
 }
 
@@ -93,7 +97,8 @@ __SCThreadSpecificDataRef
 __SCGetThreadSpecificData()
 {
 	__SCThreadSpecificDataRef	tsd;
-	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
+
+	__SCThreadSpecificKeyInitialize();
 
 	tsd = pthread_getspecific(tsDataKey);
 	if (tsd == NULL) {

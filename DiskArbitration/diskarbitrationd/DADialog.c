@@ -32,6 +32,7 @@
 
 static void __DADialogShow( CFMutableArrayRef diskinfoarray, _DAAgentAction action )
 {
+#if TARGET_OS_OSX
     xpc_object_t message;
 
     message = xpc_dictionary_create( NULL, NULL, 0 );
@@ -79,6 +80,7 @@ static void __DADialogShow( CFMutableArrayRef diskinfoarray, _DAAgentAction acti
 
         xpc_release( message );
     }
+#endif
 }
 
 static CFBooleanRef IsNotificationDisabled( CFStringRef preference)
@@ -93,15 +95,17 @@ static CFBooleanRef IsNotificationDisabled( CFStringRef preference)
 
 void DADialogShowDeviceRemoval( CFMutableArrayRef diskinfoarray )
 {
+#if TARGET_OS_OSX
     if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableEjectNotificationKey ) )
     {
         __DADialogShow( diskinfoarray, _kDAAgentActionShowDeviceRemoval );
     }
+#endif
 }
 
 void DADialogShowDeviceUnreadable( DADiskRef disk )
 {
-    
+ #if TARGET_OS_OSX   
     if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableUnreadableNotificationKey ) )
     {
         CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -110,11 +114,13 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
         __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnreadable );
         CFRelease( diskInfoArray );
     }
+ #endif
     DALogError( "disk is not readable %@", disk);
 }
 
 void DADialogShowDeviceUnrepairable( DADiskRef disk )
 {
+ #if TARGET_OS_OSX 
     if ( kCFBooleanFalse == IsNotificationDisabled ( kDAPreferenceDisableUnrepairableNotificationKey ) )
     {
         CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -123,6 +129,7 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
         __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnrepairable );
         CFRelease( diskInfoArray );
     }
+ #endif
     DALogError( "disk is not repairable %@", disk);
 }
 

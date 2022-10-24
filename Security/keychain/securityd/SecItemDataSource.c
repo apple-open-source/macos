@@ -66,9 +66,23 @@ static const SecDbClass *dsSyncedClassesV0Ptrs[] = {
     NULL,
     NULL,
 };
-static size_t dsSyncedClassesV0Size = (array_size(dsSyncedClassesV0Ptrs));
+#define dsSyncedClassesV0Size (array_size(dsSyncedClassesV0Ptrs))
 
-static const SecDbClass** dsSyncedClassesV0() {
+static const SecDbClass** dsSyncedClassesV0(void) {
+    // for testing, recalculate every time
+    if (current_schema_index_is_set_for_testing()) {
+        static const SecDbClass* forTesting[dsSyncedClassesV0Size] = {
+            NULL,
+            NULL,
+            NULL,
+        };
+        forTesting[0] = genp_class();
+        forTesting[1] = inet_class();
+        forTesting[2] = keys_class();
+        return forTesting;
+    }
+
+    // otherwise, not testing, set it once and reuse the value
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         dsSyncedClassesV0Ptrs[0] = genp_class();
@@ -87,7 +101,23 @@ static const SecDbClass *dsSyncedClassesPtrs[] = {
 };
 #define dsSyncedClassesSize (array_size(dsSyncedClassesPtrs))
 
-static const SecDbClass** dsSyncedClasses() {
+static const SecDbClass** dsSyncedClasses(void) {
+    // for testing, recalculate every time
+    if (current_schema_index_is_set_for_testing()) {
+        static const SecDbClass* forTesting[dsSyncedClassesSize] = {
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+        };
+        forTesting[0] = genp_class();
+        forTesting[1] = inet_class();
+        forTesting[2] = keys_class();
+        forTesting[3] = cert_class();
+        return forTesting;
+    }
+
+    // otherwise, not testing, set it once and reuse the value
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         dsSyncedClassesPtrs[0] = genp_class();         // genp must be first!
@@ -573,7 +603,7 @@ SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SO
     }
 
     if (SecKeychainIsStaticPersistentRefsEnabled()) {
-        secinfo ("ds", "setting UUID persistent ref on peersitem: %@", peersItem);
+        secinfo ("ds", "setting UUID persistent ref on peersitem: " SECDBITEM_FMT, peersItem);
 
         CFUUIDRef uuidRef = CFUUIDCreate(kCFAllocatorDefault);
         CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(uuidRef);
@@ -582,7 +612,7 @@ SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SO
         CFErrorRef setError = NULL;
         SecDbItemSetPersistentRef(peersItem, uuidData, &setError);
         if (setError) {
-            secnotice("ds", "failed to set persistent ref on item %@, error: %@", peersItem, setError);
+            secnotice("ds", "failed to set persistent ref on item " SECDBITEM_FMT ", error: %@", peersItem, setError);
             CFReleaseNull(setError);
         }
         CFReleaseNull(uuidData);
@@ -602,9 +632,9 @@ SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SO
         if (CFEqual(mergedItem, myItem)) {
             // Conflict resolver choose my (local) item
             if (SecDbItemIsEngineInternalState(myItem))
-                secdebug ("ds", "Conflict resolver chose my (local) item: %@", myItem);
+                secdebug ("ds", "Conflict resolver chose my (local) item: " SECDBITEM_FMT, myItem);
             else
-                secnotice("ds", "Conflict resolver chose my (local) item: %@", myItem);
+                secnotice("ds", "Conflict resolver chose my (local) item: " SECDBITEM_FMT, myItem);
             mr = kSOSMergeLocalObject;
         } else {
             CFRetainAssign(replacedItem, myItem);
@@ -612,16 +642,16 @@ SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SO
             if (CFEqual(mergedItem, peersItem)) {
                 // Conflict resolver chose peer's item
                 if (SecDbItemIsEngineInternalState(peersItem))
-                    secdebug ("ds", "Conflict resolver chose peers item: %@", peersItem);
+                    secdebug ("ds", "Conflict resolver chose peers item: " SECDBITEM_FMT, peersItem);
                 else
-                    secnotice("ds", "Conflict resolver chose peers item: %@", peersItem);
+                    secnotice("ds", "Conflict resolver chose peers item: " SECDBITEM_FMT, peersItem);
                 mr = kSOSMergePeersObject;
             } else {
                 // Conflict resolver created a new item; return it to our caller
                 if (SecDbItemIsEngineInternalState(mergedItem))
-                    secdebug ("ds", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                    secdebug ("ds", "Conflict resolver created a new item; return it to our caller: " SECDBITEM_FMT, mergedItem);
                 else
-                    secnotice("ds", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                    secnotice("ds", "Conflict resolver created a new item; return it to our caller: " SECDBITEM_FMT, mergedItem);
                 mr = kSOSMergeCreatedObject;
             }
         }
@@ -630,7 +660,7 @@ SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObject, SO
     if (insertedOrReplaced && !attemptedMerge) {
         // SecDbItemInsertOrReplace succeeded and conflict block was never called -> insert succeeded.
         // We have peersItem in the database so we need to report that
-        secnotice("ds", "Insert succeeded for: %@", peersItem);
+        secnotice("ds", "Insert succeeded for: " SECDBITEM_FMT, peersItem);
         mr = kSOSMergePeersObject;
 
         // Report only if we had an error, too. Shouldn't happen in practice.
@@ -936,7 +966,7 @@ static dispatch_once_t sDSFQueueOnce;
 static dispatch_queue_t sDSFQueue;
 static CFMutableDictionaryRef sDSTable = NULL;
 
-void SecItemDataSourceFactoryReleaseAll() {
+void SecItemDataSourceFactoryReleaseAll(void) {
     // Ensure that the queue is set up
     (void) SecItemDataSourceFactoryGetShared(nil);
 

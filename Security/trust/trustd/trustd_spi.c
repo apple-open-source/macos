@@ -57,7 +57,6 @@ struct trustd trustd_spi = {
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
     .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
     .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
-    .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_copy_trusted_ct_logs       = SecOTAPKICopyCurrentTrustedCTLogs,
     .sec_ota_pki_copy_ct_log_for_keyid      = SecOTAPKICopyCTLogForKeyID,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
@@ -78,6 +77,7 @@ struct trustd trustd_spi = {
     .sec_trust_store_copy_transparent_connection_pins = _SecTrustStoreCopyTransparentConnectionPins,
     .sec_trust_settings_set_data            = SecTrustSettingsSetData,
     .sec_trust_settings_copy_data           = SecTrustSettingsCopyData,
+    .sec_trust_reset_settings               = _SecTrustResetSettings,
 };
 #endif
 

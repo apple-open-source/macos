@@ -36,6 +36,8 @@
 #include <CoreFoundation/CFDate.h>
 #include "trust/trustd/SecOCSPRequest.h"
 #include <security_asn1/ocspTemplates.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/DER_Keys.h>
 
 __BEGIN_DECLS
 
@@ -43,17 +45,40 @@ __BEGIN_DECLS
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 // rdar://56649059 (SecOCSPRequest and SecOCSPResponse should use libDER instead of libASN1)
 
-typedef enum {
-	kSecOCSPBad = -2,
-	kSecOCSPUnknown = -1,
-	kSecOCSPSuccess = 0,
-	kSecOCSPMalformedRequest = 1,
-	kSecOCSPInternalError = 2,
-	kSecOCSPTryLater = 3,
-	kSecOCSPUnused = 4,
-	kSecOCSPSigRequired = 5,
-	kSecOCSPUnauthorized = 6
-} SecOCSPResponseStatus;
+/*
+ OCSPResponseStatus ::= ENUMERATED {
+     successful            (0), -- Response has valid confirmations
+     malformedRequest      (1), -- Illegal confirmation request
+     internalError         (2), -- Internal error in issuer
+     tryLater              (3), -- Try again later
+                                -- (4) is not used
+     sigRequired           (5), -- Must sign the request
+     unauthorized          (6)  -- Request unauthorized
+ }
+*/
+typedef CF_ENUM(uint8_t, OCSPResponseStatus) {
+    OCSPResponseStatusSuccessful = 0,
+    OCSPResponseStatusMalformedRequest = 1,
+    OCSPResponseStatusTnternalError = 2,
+    OCSPResponseStatusTryLater = 3,
+    OCSPResponseStatusSigRequired = 5,
+    OCSPResponseStatusUnauthorized = 6,
+};
+
+typedef struct {
+    DERItem responseData;
+    DERItem signatureAlgorithm;
+    DERItem signature;
+    DERItem certs;
+} DERBasicOCSPResponse;
+
+typedef struct {
+    DERItem version;
+    DERItem responderId;
+    DERItem producedAt;
+    DERItem responses;
+    DERItem extensions;
+} DER_OCSPResponseData;
 
 enum {
     kSecRevocationReasonUnrevoked               = -2,
@@ -72,7 +97,6 @@ enum {
 };
 typedef int32_t SecRevocationReason;
 
-
 /*!
 	@typedef SecOCSPResponseRef
 	@abstract Object used for ocsp response decoding.
@@ -81,23 +105,26 @@ typedef struct __SecOCSPResponse *SecOCSPResponseRef;
 
 struct __SecOCSPResponse {
         CFDataRef data;
-        SecAsn1CoderRef coder;
-        SecOCSPResponseStatus responseStatus;
-        CFDataRef nonce;
+        OCSPResponseStatus responseStatus;
         CFAbsoluteTime producedAt;
         CFAbsoluteTime latestNextUpdate;
         CFAbsoluteTime expireTime;
-        SecAsn1OCSPBasicResponse basicResponse;
-        SecAsn1OCSPResponseData responseData;
-        SecAsn1OCSPResponderIDTag responderIdTag;
-        SecAsn1OCSPResponderID responderID;
+        DERBasicOCSPResponse basicResponse;
+        DER_OCSPResponseData responseData;
+        DERDecodedInfo responderId;
         int64_t responseID;
+};
+
+typedef CF_ENUM(uint8_t, OCSPCertStatus) {
+    OCSPCertStatusGood = 0,
+    OCSPCertStatusRevoked = 1,
+    OCSPCertStatusUnknown = 2,
 };
 
 typedef struct __SecOCSPSingleResponse *SecOCSPSingleResponseRef;
 
 struct __SecOCSPSingleResponse {
-    SecAsn1OCSPCertStatusTag certStatus;
+    OCSPCertStatus certStatus;
     CFAbsoluteTime thisUpdate;
     CFAbsoluteTime nextUpdate;		/* may be NULL_TIME */
     CFAbsoluteTime revokedTime;		/* != NULL_TIME for certStatus == CS_Revoked */
@@ -125,11 +152,9 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 
 CFDataRef SecOCSPResponseGetData(SecOCSPResponseRef this);
 
-SecOCSPResponseStatus SecOCSPGetResponseStatus(SecOCSPResponseRef ocspResponse);
+OCSPResponseStatus SecOCSPGetResponseStatus(SecOCSPResponseRef ocspResponse);
 
 CFAbsoluteTime SecOCSPResponseGetExpirationTime(SecOCSPResponseRef ocspResponse);
-
-CFDataRef SecOCSPResponseGetNonce(SecOCSPResponseRef ocspResponse);
 
 CFAbsoluteTime SecOCSPResponseProducedAt(SecOCSPResponseRef ocspResponse);
 
@@ -158,6 +183,8 @@ bool SecOCSPSingleResponseCalculateValidity(SecOCSPSingleResponseRef this, CFAbs
 CFArrayRef SecOCSPSingleResponseCopySCTs(SecOCSPSingleResponseRef this);
 
 void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this);
+
+bool SecOCSPResponseForSingleResponse(SecOCSPResponseRef response, DERReturn (^operation)(SecOCSPSingleResponseRef singleResponse, DER_OCSPCertID *certId, DERAlgorithmId *hashAlgorithm, bool *stop));
 
 /* Returns the SecCertificateRef whose leaf signed this ocspResponse if
    we can find one and NULL if we can't find a valid signer. The issuerPath

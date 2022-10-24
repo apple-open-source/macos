@@ -1475,6 +1475,9 @@ OM_uint32 _gssapi_unwrap_cfx(OM_uint32 *minor_status,
     len = input_message_buffer->length;
     len -= (p - (u_char *)input_message_buffer->value);
 
+    if (len > input_message_buffer->length)  // the unsigned int wrapped
+	return GSS_S_DEFECTIVE_TOKEN;
+
     if (token_flags & CFXSealed) {
 	/*
 	 * this is really ugly, but needed against windows

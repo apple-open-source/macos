@@ -972,131 +972,190 @@ settbr(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 	}
 }
 
-static int
-get_int64(uint64_t *i, char const *s)
+static bool
+get_longlong(long long *value, char const *s)
 {
+    long long result;
 	char *cp;
-	*i = strtol(s, &cp, 10);
-	if (cp == s || errno != 0) {
-		return (-1);
-	}
-	return (0);
+	result = strtoll(s, &cp, 10);
+    if (cp == s) {
+        return false; // no digits at all
+    }
+    if (result == 0) {
+        if (errno == EINVAL) {
+            return false;
+        }
+    } else if (result == LLONG_MIN || result == LLONG_MAX) {
+        if (errno == ERANGE) {
+            fprintf(stderr, "The value provided was out of range\n");
+            return false;
+        }
+    }
+
+    *value = result;
+	return true;
 }
 
-static int
-get_int32(uint32_t *i, char const *s)
+static bool
+get_uint32(uint32_t *value, char const *s)
 {
-	char *cp;
-	*i = strtol(s, &cp, 10);
-	if (cp == s || errno != 0) {
-		return (-1);
-	}
-	return (0);
+    long long result;
+    if (!get_longlong(&result, s)) {
+        return false;
+    }
+
+    if (result > UINT32_MAX) {
+        fprintf(stderr, "The value provided was out of range\n");
+    }
+
+    *value = (uint32_t)result;
+    return true;
 }
 
-static int
+static bool
+get_uint64(uint64_t *value, char const *s)
+{
+    long long result;
+    if (!get_longlong(&result, s)) {
+        return false;
+    }
+
+    if (result > UINT64_MAX) {
+        fprintf(stderr, "The value provided was out of range\n");
+    }
+
+    *value = (uint64_t)result;
+    return true;
+}
+
+static bool
 get_percent(double *d, const char *s)
 {
 	char *cp;
 	*d = strtod(s, &cp) / (double)100;
 	if (*d == HUGE_VALF || *d == HUGE_VALL) {
-		return (-1);
+		return false;
 	}
 	if (*d == 0.0 || (*cp != '\0' && strcmp(cp, "%") != 0)) {
-		return (-1);
+		return false;
 	}
-	return (0);
+	return true;
 }
 
-static int
+static bool
 get_percent_fixed_point(uint32_t *i, const char *s)
 {
 	double p;
 
-	if (get_percent(&p, s) != 0){
-		return (-1);
+	if (!get_percent(&p, s)){
+		return false;
 	}
 
 	*i = p * IF_NETEM_PARAMS_PSCALE;
-	return (0);
+	return true;
 }
 
 static int
 netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 {
 	int argc_saved = argc;
-	uint64_t bandwitdh = 0;
+	uint64_t bandwitdh = UINT64_MAX;
 	uint32_t latency = 0, jitter = 0;
 	uint32_t corruption = 0;
 	uint32_t duplication = 0;
 	uint32_t loss_p_gr_gl = 0, loss_p_gr_bl = 0, loss_p_bl_br = 0,
 	    loss_p_bl_gr = 0, loss_p_br_bl = 0;
+	uint32_t loss_recovery_ms = 0;
 	uint32_t reordering = 0;
+	uint32_t output_ival_ms = 0;
 
 	bzero(p, sizeof (*p));
+	p->ifnetem_model = IF_NETEM_MODEL_NLC; /* default NLC model */
 
 	/* take out "input"/"output" */
 	argc--, argv++;
 
 	for ( ; argc > 0; ) {
-		if (strcmp(*argv, "bandwidth") == 0) {
+		if (strcmp(*argv, "model") == 0) {
 			argc--, argv++;
-			if (argc <= 0 || get_int64(&bandwitdh, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (strcmp(*argv, "nlc") == 0) {
+				p->ifnetem_model = IF_NETEM_MODEL_NLC;
+			} else if (strcmp(*argv, "iod") == 0) {
+				p->ifnetem_model = IF_NETEM_MODEL_IOD;
+			} else if (strcmp(*argv, "fpd") == 0) {
+				p->ifnetem_model = IF_NETEM_MODEL_FPD;
+			} else {
+				err(1, "Invalid model '%s'", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "bandwidth") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || !get_uint64(&bandwitdh, *argv)) {
+				err(1, "Invalid value '%s' for bandwidth", *argv);
 			}
 			argc--, argv++;
 		} else if (strcmp(*argv, "corruption") == 0) {
 			argc--, argv++;
-			if (argc <= 0 ||
-			    get_percent_fixed_point(&corruption, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (argc <= 0 || !get_percent_fixed_point(&corruption, *argv)) {
+				err(1, "Invalid value '%s' for corruption", *argv);
 			}
 			argc--, argv++;
 		} else if (strcmp(*argv, "delay") == 0) {
 			argc--, argv++;
-			if (argc <= 0 || get_int32(&latency, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (argc <= 0 || !get_uint32(&latency, *argv)) {
+				err(1, "Invalid value '%s' for delay", *argv);
 			}
 			argc--, argv++;
-			if (argc > 0 && get_int32(&jitter, *argv) == 0) {
+			if (argc > 0 && get_uint32(&jitter, *argv)) {
 				argc--, argv++;
 			}
 		} else if (strcmp(*argv, "duplication") == 0) {
 			argc--, argv++;
-			if (argc <= 0 ||
-			    get_percent_fixed_point(&duplication, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (argc <= 0 || !get_percent_fixed_point(&duplication, *argv)) {
+				err(1, "Invalid value '%s' for duplication", *argv);
 				return (-1);
 			}
 			argc--, argv++;
 		} else if (strcmp(*argv, "loss") == 0) {
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&loss_p_gr_gl, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (argc <= 0 || !get_percent_fixed_point(&loss_p_gr_gl, *argv)) {
+				err(1, "Invalid value '%s' for loss", *argv);
 			}
 			/* we may have all 5 probs, use naive model if not */
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&loss_p_gr_bl, *argv) != 0) {
+			if (argc <= 0 || !get_percent_fixed_point(&loss_p_gr_bl, *argv)) {
 				continue;
 			}
 			/* if more than p_gr_gl, then should have all probs */
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&loss_p_bl_br, *argv) != 0) {
+			if (argc <= 0 || !get_percent_fixed_point(&loss_p_bl_br, *argv)) {
 				err(1, "Invalid value '%s' for p_bl_br", *argv);
 			}
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&loss_p_bl_gr, *argv) != 0) {
+			if (argc <= 0 || !get_percent_fixed_point(&loss_p_bl_gr, *argv)) {
 				err(1, "Invalid value '%s' for p_bl_gr", *argv);
 			}
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&loss_p_br_bl, *argv) != 0) {
+			if (argc <= 0 || !get_percent_fixed_point(&loss_p_br_bl, *argv)) {
 				err(1, "Invalid value '%s' for p_br_bl", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "recovery") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || !get_uint32(&loss_recovery_ms, *argv)) {
+				err(1, "Invalid value '%s' for recovery", *argv);
 			}
 			argc--, argv++;
 		} else if (strcmp(*argv, "reordering") == 0) {
 			argc--, argv++;
-			if (argc <= 0 || get_percent_fixed_point(&reordering, *argv) != 0) {
-				err(1, "Invalid value '%s'", *argv);
+			if (argc <= 0 || !get_percent_fixed_point(&reordering, *argv)) {
+				err(1, "Invalid value '%s' for reordering", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "ival") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || !get_uint32(&output_ival_ms, *argv)) {
+				err(1, "Invalid value '%s' for ival", *argv);
 			}
 			argc--, argv++;
 		} else {
@@ -1158,12 +1217,33 @@ netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
 	p->ifnetem_loss_p_bl_br = loss_p_bl_br;
 	p->ifnetem_loss_p_bl_gr = loss_p_bl_gr;
 	p->ifnetem_loss_p_br_bl = loss_p_br_bl;
+	p->ifnetem_loss_recovery_ms = loss_recovery_ms;
 	p->ifnetem_reordering_p = reordering;
+	p->ifnetem_output_ival_ms = output_ival_ms;
 
 	return (argc_saved - argc);
 }
 
-void
+static char *
+netem_model_str(if_netem_model_t model)
+{
+	switch (model) {
+		case IF_NETEM_MODEL_NLC:
+			return ("Network link conditioner");
+			break;
+		case IF_NETEM_MODEL_IOD:
+			return ("In-order delivery");
+			break;
+		case IF_NETEM_MODEL_FPD:
+			return ("Fast packet delivery");
+			break;
+		default:
+			return ("unknown");
+			break;
+	}
+}
+
+static void
 print_netem_params(struct if_netem_params *p, const char *desc)
 {
 	struct if_netem_params zero_params;
@@ -1175,11 +1255,30 @@ print_netem_params(struct if_netem_params *p, const char *desc)
 	} else {
 		printf(
 		    "%s NetEm Parameters\n"
-		    "\tbandwidth rate                 %llubps\n"
+		    "\tmodel                          %s\n",
+		    desc, netem_model_str(p->ifnetem_model));
+
+		if (p->ifnetem_bandwidth_bps == UINT64_MAX) {
+			printf("\tbandwidth rate                 unlimited\n");
+		} else if (p->ifnetem_bandwidth_bps == 0) {
+			printf("\tbandwidth rate                 0, blocking all\n");
+		} else {
+			printf("\tbandwidth rate                 %llubps\n",
+			    p->ifnetem_bandwidth_bps);
+		}
+
+		printf(
 		    "\tdelay latency                  %dms\n"
-		    "\t      jitter                   %dms\n",
-		    desc, p->ifnetem_bandwidth_bps,
-		    p->ifnetem_latency_ms, p->ifnetem_jitter_ms);
+		    "\t      jitter                   %dms\n"
+		    "\tcorruption                     %.3f%%\n"
+		    "\treordering                     %.3f%%\n\n"
+		    "\trecovery                       %dms\n",
+		    p->ifnetem_latency_ms,
+		    p->ifnetem_jitter_ms,
+		    (double) p->ifnetem_corruption_p / pscale,
+		    (double) p->ifnetem_reordering_p / pscale,
+		    p->ifnetem_loss_recovery_ms);
+
 		if (p->ifnetem_loss_p_gr_bl == 0 &&
 		    p->ifnetem_loss_p_bl_br == 0 &&
 		    p->ifnetem_loss_p_bl_gr == 0 &&
@@ -1200,11 +1299,6 @@ print_netem_params(struct if_netem_params *p, const char *desc)
 		    (double) p->ifnetem_loss_p_bl_gr / pscale,
 		    (double) p->ifnetem_loss_p_br_bl / pscale);
 		}
-		printf(
-		    "\tcorruption                     %.3f%%\n"
-		    "\treordering                     %.3f%%\n\n",
-		    (double) p->ifnetem_corruption_p / pscale,
-		    (double) p->ifnetem_reordering_p / pscale);
 	}
 }
 
@@ -1388,7 +1482,6 @@ setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
-#ifdef SIOCSIFCONSTRAINED
 void
 setconstrained(const char *vname, int value, int s, const struct afswtch *afp)
 {
@@ -1398,7 +1491,6 @@ setconstrained(const char *vname, int value, int s, const struct afswtch *afp)
     if (ioctl(s, SIOCSIFCONSTRAINED, (caddr_t)&ifr) < 0)
         Perror(vname);
 }
-#endif
 
 static void
 setifmpklog(const char *vname, int value, int s, const struct afswtch *afp)
@@ -1474,10 +1566,8 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_FASTLANE;
         else if (strcmp(arg, "rfc4594") == 0)
             ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_RFC4594;
-#ifdef IFRTYPE_QOSMARKING_CUSTOM
         else if (strcmp(arg, "custom") == 0)
             ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_CUSTOM;
-#endif /* IFRTYPE_QOSMARKING_CUSTOM */
 		else if (strcasecmp(arg, "none") == 0 || strcasecmp(arg, "off") == 0)
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_MODE_NONE;
 		else
@@ -1543,13 +1633,11 @@ setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
 void
 setifmarkwakepkt(const char *vname, int value, int s, const struct afswtch *afp)
 {
-#if defined(SIOCSIFMARKWAKEPKT)
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_intval = value;
 
 	if (ioctl(s, SIOCSIFMARKWAKEPKT, (caddr_t)&ifr) < 0)
 		Perror(vname);
-#endif /* SIOCSIFMARKWAKEPKT */
 }
 
 void
@@ -1560,6 +1648,17 @@ setnoackpri(const char *vname, int value, int s, const struct afswtch *afp)
 
 	if (ioctl(s, SIOCSIFNOACKPRIO, (caddr_t)&ifr) < 0)
 		Perror(vname);
+}
+
+void
+setnoshaping(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_intval = value;
+#ifdef SIOCSIFNOTRAFFICSHAPING
+	if (ioctl(s, SIOCSIFNOTRAFFICSHAPING, (caddr_t)&ifr) < 0)
+		Perror(vname);
+#endif /* SIOCSIFNOTRAFFICSHAPING */
 }
 
 struct str2num {
@@ -1665,7 +1764,7 @@ show_routermode6(void)
 "\20MULTICAST"
 
 #define	IFEFBITS \
-"\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
+"\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5ADV_REPORT\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
 "\12VLAN\13BOND\14ARPLL\15CLAT46\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
 "\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
@@ -1673,7 +1772,7 @@ show_routermode6(void)
 
 #define	IFXFBITS \
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
-"\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT"
+"\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -2096,15 +2195,14 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			    ifr.ifr_start_delay_timeout/1000);
 		}
 	}
-#if defined(IFCAP_HW_TIMESTAMP) && defined(IFCAP_SW_TIMESTAMP)
-	if ((curcap & (IFCAP_HW_TIMESTAMP | IFCAP_SW_TIMESTAMP)) &&
+
+    if ((curcap & (IFCAP_HW_TIMESTAMP | IFCAP_SW_TIMESTAMP)) &&
 	    ioctl(s, SIOCGIFTIMESTAMPENABLED, &ifr) != -1) {
 		printf("\ttimestamp: %s\n",
 		       (ifr.ifr_intval != 0) ? "enabled" : "disabled");
 	}
-#endif
-#if defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE)
-	if (ioctl(s, SIOCGQOSMARKINGENABLED, &ifr) != -1) {
+
+    if (ioctl(s, SIOCGQOSMARKINGENABLED, &ifr) != -1) {
 		printf("\tqosmarking enabled: %s mode: ",
 		       ifr.ifr_qosmarking_enabled ? "yes" : "no");
 		if (ioctl(s, SIOCGQOSMARKINGMODE, &ifr) != -1) {
@@ -2115,11 +2213,9 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
                 case IFRTYPE_QOSMARKING_RFC4594:
                     printf("RFC4594\n");
                     break;
-#ifdef IFRTYPE_QOSMARKING_CUSTOM
                 case IFRTYPE_QOSMARKING_CUSTOM:
                     printf("custom\n");
                     break;
-#endif /* IFRTYPE_QOSMARKING_CUSTOM */
 				case IFRTYPE_QOSMARKING_MODE_NONE:
 					printf("none\n");
 					break;
@@ -2129,7 +2225,6 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			}
 		}
 	}
-#endif /* defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE) */
 
 	if (ioctl(s, SIOCGIFLOWPOWER, &ifr) != -1) {
 		printf("\tlow power mode: %s\n",
@@ -2463,6 +2558,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-markwakepkt",	0,	setifmarkwakepkt),
 	DEF_CMD("noackpri",  1,      setnoackpri),
 	DEF_CMD("-noackpri", 0,      setnoackpri),
+	DEF_CMD("noshaping",  1,      setnoshaping),
+	DEF_CMD("-noshaping", 0,      setnoshaping),
 };
 
 static __constructor void

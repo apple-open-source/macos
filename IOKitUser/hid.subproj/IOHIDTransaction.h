@@ -257,13 +257,8 @@ IOHIDValueRef _Nullable IOHIDTransactionGetValue(
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
        
 /*!
-	@function   IOHIDTransactionCommit
-	@abstract   Synchronously commits element transaction to the device.
-    @discussion In regards to kIOHIDTransactionDirectionTypeOutput direction, 
-                default element values will be used if element values are not 
-                set.  If neither are set, that element will be omitted from the 
-                commit. After a transaction is committed, transaction element 
-                values will be cleared and default values preserved.
+    @function   IOHIDTransactionCommit
+    @abstract   Synchronously commits element transaction to the device.
     @param      transaction IOHIDTransaction object to be modified.
     @result     Returns kIOReturnSuccess if successful or a kern_return_t if 
                 unsuccessful.
@@ -274,20 +269,14 @@ IOReturn IOHIDTransactionCommit(
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*!
-	@function   IOHIDTransactionCommitWithCallback
-	@abstract   Commits element transaction to the device.
-    @discussion In regards to kIOHIDTransactionDirectionTypeOutput direction, 
-                default element values will be used if element values are not 
-                set.  If neither are set, that element will be omitted from the 
-                commit. After a transaction is committed, transaction element 
-                values will be cleared and default values preserved.
-                <br>
-                <b>Note:</b> It is possible for elements from different reports
+    @function   IOHIDTransactionCommitWithCallback
+    @abstract   Asynchronously commits element transaction to the device.
+    @discussion It is possible for elements from different reports
                 to be present in a given transaction causing a commit to
                 transcend multiple reports. Keep this in mind when setting a 
                 appropriate timeout.
     @param      transaction IOHIDTransaction object to be modified.
-    @param      timeout Timeout for issuing the transaction.
+    @param      timeout Timeout in milliseconds for the transaction.
     @param      callback Callback of type IOHIDCallback to be used when 
                 transaction has been completed.  If null, this method will 
                 behave synchronously.

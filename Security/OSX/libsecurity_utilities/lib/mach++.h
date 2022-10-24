@@ -34,7 +34,7 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/debugging_internal.h>
 #include <mach/mach.h>
-#include <servers/bootstrap.h>
+#include <bootstrap.h>
 #include <set>
 
 // yes, we use some UNIX (non-mach) headers...

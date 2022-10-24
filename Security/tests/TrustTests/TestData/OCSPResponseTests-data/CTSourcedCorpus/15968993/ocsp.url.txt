@@ -1,0 +1,1 @@
+http://ocsp1.wosign.com/ca8/server4

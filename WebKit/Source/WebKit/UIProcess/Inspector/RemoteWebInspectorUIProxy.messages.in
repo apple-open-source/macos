@@ -27,8 +27,9 @@ messages -> RemoteWebInspectorUIProxy {
     ResetState()
     BringToFront()
 
-    Save(String filename, String content, bool base64Encoded, bool forceSaveAs)
-    Append(String filename, String content)
+    Save(Vector<WebCore::InspectorFrontendClient::SaveData> saveDatas, bool forceSaveAs)
+    Load(String path) -> (String content)
+    PickColorFromScreen() -> (std::optional<WebCore::Color> color)
 
     SetForcedAppearance(WebCore::InspectorFrontendClient::Appearance appearance)
 
@@ -37,6 +38,8 @@ messages -> RemoteWebInspectorUIProxy {
     StartWindowDrag()
 
     OpenURLExternally(String url)
+    RevealFileExternally(String path)
+
     ShowCertificate(WebCore::CertificateInfo certificateInfo)
 
     SendMessageToBackend(String message)

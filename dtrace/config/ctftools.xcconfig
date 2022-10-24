@@ -2,7 +2,7 @@
 // On OSX, binaries are not built fat.
 VALID_ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_64_BIT)
 ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_64_BIT)
-INSTALL_PATH = $(DT_TOOLCHAIN_DIR)/usr/local/bin
+INSTALL_PATH = $(TOOLCHAIN_INSTALL_DIR)/usr/local/bin
 
 STRIP_STYLE = debugging
 

@@ -450,7 +450,7 @@ static void tryEdgeCases(uint32_t flags)
 
 #define kTestTestCount (2 * kEdgeCaseTestCount)
 
-static void tests()
+static void tests(void)
 {
     tryEdgeCases(0);
     tryEdgeCases(kSecOTRUseAppleCustomMessageFormat);

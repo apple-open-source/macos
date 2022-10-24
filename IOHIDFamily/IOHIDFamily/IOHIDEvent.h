@@ -39,6 +39,17 @@
 
 typedef struct IOHIDEventData IOHIDEventData;
 
+/*!
+    @class    IOHIDEvent
+    @abstract Create an IOHIDEvent for use inside of the IOHID Event System.
+              IOHIDEvents represent an action produced by a HID device or service,
+              and can be entered into the IOHID Event System for distrubution to clients
+              on the system listening for such events.
+              All methods to create an IOHIDEvent take timestamp and options parameters.
+              The timestamp can be interpreted in two ways currently, as mach absolute time or
+              mach continuous time. The default is mach absolute time. To change this behavior,
+              set kIOHIDEventOptionContinuousTime in the options passed to the creation method.
+ */
 #if defined(KERNEL) && !defined(KERNEL_PRIVATE)
 class __deprecated_msg("Use DriverKit") IOHIDEvent : public OSObject
 #else
@@ -51,7 +62,7 @@ class IOHIDEvent : public OSObject
     OSArray *           _children;
     IOHIDEvent *        _parent;
     size_t              _capacity;
-    AbsoluteTime        _timeStamp;
+    UInt64              _timeStamp;
     UInt64              _senderID;
     uint64_t            _typeMask;
     IOOptionBits        _options;
@@ -59,19 +70,19 @@ class IOHIDEvent : public OSObject
 
     bool initWithCapacity(IOByteCount capacity);
     bool initWithType(IOHIDEventType type, IOByteCount additionalCapacity=0);
-    bool initWithTypeTimeStamp(IOHIDEventType type, AbsoluteTime timeStamp, IOOptionBits options = 0, IOByteCount additionalCapacity=0);
+    bool initWithTypeTimeStamp(IOHIDEventType type, UInt64 timeStamp, IOOptionBits options = 0, IOByteCount additionalCapacity=0);
     IOByteCount getLength(UInt32 * eventCount);
     IOByteCount appendBytes(UInt8 * bytes, IOByteCount withLength);
     
     static IOHIDEvent * _axisEvent (    IOHIDEventType          type,
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent * _motionEvent (  IOHIDEventType          type,
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -88,14 +99,14 @@ public:
                                         IOOptionBits            options = 0);
                                         
     static IOHIDEvent *     keyboardEvent(  
-                                        AbsoluteTime            timeStamp, 
+                                        UInt64                  timeStamp,
                                         UInt32                  usagePage,
                                         UInt32                  usage,
                                         Boolean                 down,
                                         IOOptionBits            options = 0);
     
     static IOHIDEvent *     keyboardEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  usagePage,
                                         UInt32                  usage,
                                         Boolean                 down,
@@ -106,35 +117,35 @@ public:
 
     
     static IOHIDEvent *     translationEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     scrollEventWithFixed (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOOptionBits            options = 0);
   
     static IOHIDEvent *     scrollEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         SInt32                  x,
                                         SInt32                  y,
                                         SInt32                  z,
                                         IOOptionBits            options = 0);
  
     static IOHIDEvent *     zoomEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOOptionBits            options = 0);
                                        
     static IOHIDEvent *     accelerometerEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -143,7 +154,7 @@ public:
                                         UInt32                  sequence = 0,
                                         IOOptionBits            options = 0);
 
-    static IOHIDEvent *     gyroEvent ( AbsoluteTime            timeStamp,
+    static IOHIDEvent *     gyroEvent ( UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -153,7 +164,7 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     compassEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -163,21 +174,21 @@ public:
                                         IOOptionBits            options = 0);
     
     static IOHIDEvent *     buttonEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  mask,
                                         UInt8                   number,
                                         bool                    state,
                                         IOOptionBits            options = 0);
                                         
     static IOHIDEvent *     buttonEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  mask,
                                         UInt8                   number,
                                         IOFixed                 pressure,
                                         IOOptionBits            options = 0);    
                                         
     static IOHIDEvent *     ambientLightSensorEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  level,
                                         UInt32                  channel0    = 0,
                                         UInt32                  channel1    = 0,
@@ -186,7 +197,7 @@ public:
                                         IOOptionBits            options     = 0);
 
     static IOHIDEvent *     ambientLightSensorEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  level,
                                         UInt8                   colorSpace,
                                         IOHIDDouble             colorComponent0,
@@ -195,19 +206,25 @@ public:
                                         IOOptionBits            options);
   
     static IOHIDEvent *     proximityEvent (
-                                        AbsoluteTime                timeStamp,
-                                        IOHIDProximityDetectionMask    mask,
-                                        UInt32                        level,
+                                        UInt64                      timeStamp,
+                                        IOHIDProximityDetectionMask mask,
+                                        UInt32                      level,
                                         IOOptionBits                options = 0);
     
+    static IOHIDEvent *     proximityEventWithProbability (
+                                        UInt64                      timeStamp,
+                                        IOHIDProximityDetectionMask mask,
+                                        UInt32                      probability,
+                                        IOOptionBits                options = 0);
+
     static IOHIDEvent *     temperatureEvent (
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 temperature,
                                         IOOptionBits            options = 0);
 
 
     static IOHIDEvent *     relativePointerEventWithFixed(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -216,7 +233,7 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     relativePointerEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         SInt32                  x,
                                         SInt32                  y,
                                         SInt32                  z,
@@ -225,7 +242,7 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     absolutePointerEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -234,7 +251,7 @@ public:
                                         IOOptionBits            options = 0);
     
     static IOHIDEvent *     multiAxisPointerEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
@@ -246,7 +263,7 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     digitizerEvent(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -260,7 +277,7 @@ public:
                                         IOOptionBits                    options     = 0 );
     
     static IOHIDEvent *     digitizerEventWithTiltOrientation(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -276,7 +293,7 @@ public:
                                         IOOptionBits                    options         = 0 );
 
     static IOHIDEvent *     digitizerEventWithPolarOrientation(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -292,7 +309,7 @@ public:
                                         IOOptionBits                    options         = 0 );
     
     static IOHIDEvent *     digitizerEventWithPolarOrientation(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -310,7 +327,7 @@ public:
                                         IOOptionBits                    options         = 0 );
 
     static IOHIDEvent *     digitizerEventWithPolarOrientation(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -330,7 +347,7 @@ public:
                                         IOOptionBits                    options         = 0 );
 
     static IOHIDEvent *     digitizerEventWithQualityOrientation(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         UInt32                          transducerID,
                                         IOHIDDigitizerTransducerType    type,
                                         bool                            inRange,
@@ -349,14 +366,14 @@ public:
                                         IOOptionBits                    options         = 0 );
 
     static IOHIDEvent *     powerEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         int64_t                 measurement,
                                         IOHIDPowerType          powerType,
                                         IOHIDPowerSubType       powerSubType    = 0,
                                         IOOptionBits            options         = 0);
 
     static IOHIDEvent *     vendorDefinedEvent(
-                                        AbsoluteTime            timeStamp,
+                                        UInt64                  timeStamp,
                                         UInt32                  usagePage,
                                         UInt32                  usage,
                                         UInt32                  version,
@@ -364,16 +381,16 @@ public:
                                         UInt32                  length,
                                         IOOptionBits            options = 0);
 
-    static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options=0);
+    static IOHIDEvent *     biometricEvent(UInt64 timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options=0);
     
-    static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, UInt32 usagePage, UInt32 usage, UInt8 tapCount, IOOptionBits options=0);
+    static IOHIDEvent *     biometricEvent(UInt64 timeStamp, IOFixed level, IOHIDBiometricEventType eventType, UInt32 usagePage, UInt32 usage, UInt8 tapCount, IOOptionBits options=0);
     
-    static IOHIDEvent *     atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
+    static IOHIDEvent *     atmosphericPressureEvent(UInt64 timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
 
-    static IOHIDEvent *     unicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options);
+    static IOHIDEvent *     unicodeEvent(UInt64 timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options);
 
     static IOHIDEvent *     standardGameControllerEvent(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         IOFixed                         dpadUp,
                                         IOFixed                         dpadDown,
                                         IOFixed                         dpadLeft,
@@ -387,7 +404,7 @@ public:
                                         IOOptionBits                    options = 0);
 
     static IOHIDEvent *     extendedGameControllerEvent(
-                                        AbsoluteTime                    timeStamp,
+                                        UInt64                          timeStamp,
                                         IOFixed                         dpadUp,
                                         IOFixed                         dpadDown,
                                         IOFixed                         dpadLeft,
@@ -407,13 +424,13 @@ public:
                                         IOOptionBits                    options = 0);
 
     
-    static IOHIDEvent *     orientationEvent(AbsoluteTime timeStamp, UInt32 orientationType, IOOptionBits options = 0);
+    static IOHIDEvent *     orientationEvent(UInt64 timeStamp, UInt32 orientationType, IOOptionBits options = 0);
 
-    static IOHIDEvent *     humidityEvent(AbsoluteTime timeStamp, IOFixed rh, UInt32 sequence=0, IOOptionBits options=0);
+    static IOHIDEvent *     humidityEvent(UInt64 timeStamp, IOFixed rh, UInt32 sequence=0, IOOptionBits options=0);
 
-    static IOHIDEvent *     brightnessEvent(AbsoluteTime timeStamp, IOFixed currentBrightness, IOFixed targetBrightness, UInt64 transitionTime, IOOptionBits options = 0);
+    static IOHIDEvent *     brightnessEvent(UInt64 timeStamp, IOFixed currentBrightness, IOFixed targetBrightness, UInt64 transitionTime, IOOptionBits options = 0);
 
-    static IOHIDEvent *     genericGestureEvent(AbsoluteTime timeStamp, IOHIDGenericGestureType gestureType, IOOptionBits options = 0);
+    static IOHIDEvent *     genericGestureEvent(UInt64 timeStamp, IOHIDGenericGestureType gestureType, IOOptionBits options = 0);
 
     virtual void            appendChild(IOHIDEvent *childEvent);
     OSArray*                getChildren();
@@ -451,6 +468,10 @@ public:
 
     virtual IOHIDDouble     getDoubleValue( IOHIDEventField  key,  IOOptionBits  options);
     virtual void            setDoubleValue( IOHIDEventField  key, IOHIDDouble value, IOOptionBits  options);
+
+    virtual UInt64          getTimeStampOfType(IOHIDEventTimestampType type);
+
+    virtual void            setTimeStampOfType(UInt64 timeStamp, IOHIDEventTimestampType type);
     
     inline  IOOptionBits    getOptions() { return _options; };
 

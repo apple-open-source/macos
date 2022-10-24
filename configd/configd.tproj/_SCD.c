@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,7 @@
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
+#include "scdtest.h"
 
 
 __private_extern__ CFMutableDictionaryRef	storeData		= NULL;
@@ -52,9 +53,233 @@ __private_extern__ CFMutableSetRef		removedSessionKeys	= NULL;
 __private_extern__ CFMutableSetRef		needsNotification	= NULL;
 
 
+#if TARGET_OS_OSX
+
+static void
+install_console_user_write_restriction(void)
+{
+	CFDictionaryRef	controls;
+	CFStringRef	key;
+
+	/*
+	 * rdar://64659598 Only entitled processes should be able to call SCDynamicStoreSetConsoleInformation
+	 *
+	 * <key>write-protect</key>
+	 * <true/> [value is immaterial]
+	 */
+	key = kSCDAccessControls_writeProtect;
+	controls = CFDictionaryCreate(NULL,
+				      (const void * *)&key,
+				      (const void * *)&kCFBooleanTrue,
+				      1,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	key = SCDynamicStoreKeyCreateConsoleUser(NULL);
+	_storeKeySetAccessControls(key, controls);
+	CFRelease(key);
+
+	CFRelease(controls);
+}
+
+#endif /* TARGET_OS_OSX */
+
+#define _SET_KEY_VALUE_ELEMENT(kl, vl, c, k, v) {			\
+	long _limit = sizeof(kl) / sizeof(kl[0]);			\
+									\
+	if ((c) >= _limit) {						\
+		SC_log(LOG_ERR,						\
+		       "%s:%d _SET_KEY_VALUE_ELEMENT (%ld >= %ld)",	\
+		       __func__, __LINE__, (long)c, (long)_limit);	\
+	}								\
+	else {								\
+	      kl[c] = k;						\
+	      vl[c] = v;						\
+	      c++;							\
+	}								\
+}
+
+static void
+install_device_name_read_restrictions(void)
+{
+#define N_KEYS		5
+	CFDictionaryRef	controls;
+	CFIndex		count;
+	CFStringRef	entitlements[2];
+	CFStringRef	key;
+	CFStringRef	keys[N_KEYS];
+	CFArrayRef	read_allow = NULL;
+	CFArrayRef	read_deny;
+	CFTypeRef	values[N_KEYS];
+
+	/* deny App Clips */
+	count = 0;
+	entitlements[0] = CFSTR(APP_CLIP_ENTITLEMENT);
+	read_deny = CFArrayCreate(NULL,
+				  (const void * *)entitlements,
+				  1,
+				  &kCFTypeArrayCallBacks);
+	_SET_KEY_VALUE_ELEMENT(keys, values, count,
+			       kSCDAccessControls_readDeny,
+			       read_deny);
+
+	/* deny Background Asset Extensions */
+	_SET_KEY_VALUE_ELEMENT(keys, values, count,
+			       kSCDAccessControls_readDenyBackground,
+			       kCFBooleanTrue);
+#if TARGET_OS_IPHONE
+	/* allow entitlement */
+	entitlements[0] = CFSTR(DEVICE_NAME_PUBLIC_ENTITLEMENT);
+	entitlements[1] = CFSTR(DEVICE_NAME_PRIVATE_ENTITLEMENT);
+	read_allow = CFArrayCreate(NULL,
+				   (const void * *)entitlements,
+				   2,
+				   &kCFTypeArrayCallBacks);
+	_SET_KEY_VALUE_ELEMENT(keys, values, count,
+			       kSCDAccessControls_readAllow,
+			       read_allow);
+
+	/* allow Platform Binaries */
+	_SET_KEY_VALUE_ELEMENT(keys, values, count,
+			       kSCDAccessControls_readAllowPlatform,
+			       kCFBooleanTrue);
+
+	/* allow System processes */
+	_SET_KEY_VALUE_ELEMENT(keys, values, count,
+			       kSCDAccessControls_readAllowSystem,
+			       kCFBooleanTrue);
+#endif /* TARGET_OS_IPHONE */
+	controls = CFDictionaryCreate(NULL,
+				      (const void * *)keys,
+				      (const void * *)values,
+				      count,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	if (read_allow != NULL) {
+		CFRelease(read_allow);
+	}
+	CFRelease(read_deny);
+
+	/* set access control for ComputerName, LocalHostName, and HostName */
+	key = SCDynamicStoreKeyCreateComputerName(NULL);
+	_storeKeySetAccessControls(key, controls);
+	CFRelease(key);
+	key = SCDynamicStoreKeyCreateHostNames(NULL);
+	_storeKeySetAccessControls(key, controls);
+	CFRelease(key);
+
+	CFRelease(controls);
+}
+
+
+static CFDictionaryRef
+create_entitlement_controls(CFStringRef entitlement, CFStringRef key)
+{
+	CFArrayRef	list;
+	CFDictionaryRef	controls;
+
+	list = CFArrayCreate(NULL,
+			     (const void * *)&entitlement, 1,
+			     &kCFTypeArrayCallBacks);
+	controls = CFDictionaryCreate(NULL,
+				      (const void * *)&key,
+				      (const void * *)&list,
+				      1,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	CFRelease(list);
+	return (controls);
+}
+
+static CFDictionaryRef
+create_boolean_controls(CFStringRef key)
+{
+	CFDictionaryRef	controls;
+
+	controls = CFDictionaryCreate(NULL,
+				      (const void * *)&key,
+				      (const void * *)&kCFBooleanTrue,
+				      1,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	return (controls);
+}
+
+static void
+install_test_restrictions(void)
+{
+	CFDictionaryRef	controls;
+
+	/*
+	 * read-deny
+	 */
+	controls = create_entitlement_controls(SCDTEST_READ_DENY1_ENTITLEMENT,
+					       kSCDAccessControls_readDeny);
+	_storeKeySetAccessControls(SCDTEST_READ_DENY1_KEY, controls);
+	CFRelease(controls);
+
+	controls = create_entitlement_controls(SCDTEST_READ_DENY2_ENTITLEMENT,
+					       kSCDAccessControls_readDeny);
+	_storeKeySetAccessControls(SCDTEST_READ_DENY2_KEY, controls);
+	CFRelease(controls);
+
+	/*
+	 * read-allow
+	 */
+	controls = create_entitlement_controls(SCDTEST_READ_ALLOW1_ENTITLEMENT,
+					       kSCDAccessControls_readAllow);
+	_storeKeySetAccessControls(SCDTEST_READ_ALLOW1_KEY, controls);
+	CFRelease(controls);
+	controls = create_entitlement_controls(SCDTEST_READ_ALLOW2_ENTITLEMENT,
+					       kSCDAccessControls_readAllow);
+	_storeKeySetAccessControls(SCDTEST_READ_ALLOW2_KEY, controls);
+	CFRelease(controls);
+
+	/*
+	 * write-protect
+	 */
+	controls = create_boolean_controls(kSCDAccessControls_writeProtect);
+	_storeKeySetAccessControls(SCDTEST_WRITE_PROTECT1_KEY, controls);
+	_storeKeySetAccessControls(SCDTEST_WRITE_PROTECT2_KEY, controls);
+	CFRelease(controls);
+}
+
 __private_extern__
 void
-_addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
+__SCDynamicStoreInit(void)
+{
+	storeData          = CFDictionaryCreateMutable(NULL,
+						       0,
+						       &kCFTypeDictionaryKeyCallBacks,
+						       &kCFTypeDictionaryValueCallBacks);
+	patternData        = CFDictionaryCreateMutable(NULL,
+						       0,
+						       &kCFTypeDictionaryKeyCallBacks,
+						       &kCFTypeDictionaryValueCallBacks);
+	changedKeys        = CFSetCreateMutable(NULL,
+						0,
+						&kCFTypeSetCallBacks);
+	deferredRemovals   = CFSetCreateMutable(NULL,
+						0,
+						&kCFTypeSetCallBacks);
+	removedSessionKeys = CFSetCreateMutable(NULL,
+						0,
+						&kCFTypeSetCallBacks);
+
+#if TARGET_OS_OSX
+	install_console_user_write_restriction();
+#endif /* TARGET_OS_OSX */
+	install_device_name_read_restrictions();
+
+	if (_SC_isAppleInternal()) {
+		install_test_restrictions();
+	}
+	return;
+}
+
+
+__private_extern__
+void
+_storeAddWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 {
 	CFDictionaryRef		dict;
 	CFMutableDictionaryRef	newDict;
@@ -130,7 +355,7 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFRelease(newDict);
 
 #ifdef	DEBUG
-	SC_log(LOG_DEBUG, "  _addWatcher: %@, %@", sessionNum, watchedKey);
+	SC_log(LOG_DEBUG, "  _storeAddWatcher: %@, %@", sessionNum, watchedKey);
 #endif	/* DEBUG */
 
 	return;
@@ -139,7 +364,7 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 
 __private_extern__
 void
-_removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
+_storeRemoveWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 {
 	CFDictionaryRef		dict;
 	CFMutableDictionaryRef	newDict;
@@ -158,7 +383,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	if ((dict == NULL) || !CFDictionaryContainsKey(dict, kSCDWatchers)) {
 		/* key doesn't exist (isn't this really fatal?) */
 #ifdef	DEBUG
-		SC_log(LOG_DEBUG, "  _removeWatcher: %@, %@, key not watched", sessionNum, watchedKey);
+		SC_log(LOG_DEBUG, "  _storeRemoveWatcher: %@, %@, key not watched", sessionNum, watchedKey);
 #endif	/* DEBUG */
 		return;
 	}
@@ -180,7 +405,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 					sessionNum);
 	if (i == kCFNotFound) {
 #ifdef	DEBUG
-		SC_log(LOG_DEBUG, "  _removeWatcher: %@, %@, session not watching", sessionNum, watchedKey);
+		SC_log(LOG_DEBUG, "  _storeRemoveWatcher: %@, %@, session not watching", sessionNum, watchedKey);
 #endif	/* DEBUG */
 		CFRelease(newDict);
 		CFRelease(newWatchers);
@@ -223,8 +448,55 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFRelease(newDict);
 
 #ifdef	DEBUG
-	SC_log(LOG_DEBUG, "  _removeWatcher: %@, %@", sessionNum, watchedKey);
+	SC_log(LOG_DEBUG, "  _storeRemoveWatcher: %@, %@", sessionNum, watchedKey);
 #endif	/* DEBUG */
+
+	return;
+}
+
+
+__private_extern__
+CFDictionaryRef
+_storeKeyGetAccessControls(CFStringRef key)
+{
+	CFDictionaryRef		controls	= NULL;
+	CFDictionaryRef		dict		= NULL;
+
+	if (CFDictionaryGetValueIfPresent(storeData, key, (const void **)&dict) &&
+	    isA_CFDictionary(dict) &&
+	    CFDictionaryGetValueIfPresent(dict, kSCDAccessControls, (const void **)&controls) &&
+	    isA_CFDictionary(controls)) {
+		return controls;
+	}
+
+	return NULL;
+}
+
+
+__private_extern__
+void
+_storeKeySetAccessControls(CFStringRef key, CFDictionaryRef controls)
+{
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict;
+
+	// get the dictionary associated with this key out of the store
+	dict = CFDictionaryGetValue(storeData, key);
+	if (dict != NULL) {
+		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+	} else {
+		newDict = CFDictionaryCreateMutable(NULL,
+						    0,
+						    &kCFTypeDictionaryKeyCallBacks,
+						    &kCFTypeDictionaryValueCallBacks);
+	}
+
+	// save "controls" associated with this key
+	CFDictionarySetValue(newDict, kSCDAccessControls, controls);
+
+	// update the store for this key
+	CFDictionarySetValue(storeData, key, newDict);
+	CFRelease(newDict);
 
 	return;
 }

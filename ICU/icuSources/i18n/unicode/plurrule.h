@@ -312,7 +312,8 @@ public:
      * @return
      * @internal
      */
-    static UBool hasOverride(const Locale &locale);
+    // FIXME: unimplemented
+    //static UBool hasOverride(const Locale &locale);
 
     /**
      * For ICU use only.
@@ -569,9 +570,10 @@ private:
     RuleChain  *mRules;
     StandardPluralRanges *mStandardPluralRanges;
 
-    PluralRules();   // default constructor not implemented
-    void            parseDescription(const UnicodeString& ruleData, UErrorCode &status);
-    int32_t         getNumberValue(const UnicodeString& token) const;
+    PluralRules() = delete;   // default constructor not implemented
+    //FIXME: unimplemented
+    //void            parseDescription(const UnicodeString& ruleData, UErrorCode &status);
+    //int32_t         getNumberValue(const UnicodeString& token) const;
     UnicodeString   getRuleFromResource(const Locale& locale, UPluralType type, UErrorCode& status);
     RuleChain      *rulesForKeyword(const UnicodeString &keyword) const;
     PluralRules    *clone(UErrorCode& status) const;

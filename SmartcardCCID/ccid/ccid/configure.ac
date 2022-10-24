@@ -4,7 +4,7 @@
 # Require autoconf 2.61
 AC_PREREQ([2.69])
 
-AC_INIT([ccid],[1.4.34])
+AC_INIT([ccid],[1.5.0])
 AC_CONFIG_SRCDIR(src/ifdhandler.c)
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip subdir-objects foreign)
@@ -66,14 +66,12 @@ LT_INIT
 AC_SUBST(LIBTOOL_DEPS)
 
 # Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS(errno.h fcntl.h stdlib.h unistd.h termios.h string.h sys/time.h sys/types.h stdarg.h arpa/inet.h stdio.h,,
 	[AC_MSG_ERROR([some header files not found])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
 
 # Checks for library functions.
 AC_CHECK_FUNCS(select strerror strncpy memcpy strlcpy strlcat)
@@ -289,18 +287,12 @@ AC_SUBST(bundle)
 AC_SUBST(usbdropdir)
 AC_SUBST(ccidtwindir)
 AC_SUBST(serialconfdir)
-AS_AC_EXPAND(bindir_exp,$bindir)
-AS_AC_EXPAND(sysconfdir_exp,$sysconfdir)
 
 cat << EOF
 
 libccid has been configured with following options:
 
 Version:             ${PACKAGE_VERSION}
-User binaries:       $(eval eval eval echo "${bindir_exp}")
-Configuration files: $(eval eval eval echo "${sysconfdir_exp}")
-
-
 Host:                ${host}
 Compiler:            ${CC}
 Preprocessor flags:  ${CPPFLAGS}

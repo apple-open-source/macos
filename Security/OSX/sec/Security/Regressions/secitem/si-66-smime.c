@@ -2743,11 +2743,14 @@ static void tests(void)
     msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, signed_receipt_bin, signed_receipt_bin_len, kCFAllocatorNull);
     policy = SecPolicyCreateBasicX509();
 #if TARGET_OS_IPHONE
-    ok(errSecDecode == SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+    OSStatus expectedStatus = errSecDecode;
 #else
-    // macOS can handle undefined OIDs.
-    ok_status(SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+    OSStatus expectedStatus = errSecSuccess;
 #endif
+    if (useMessageSecurityEnabled()) {
+        expectedStatus = errSecAuthFailed;
+    }
+    is(expectedStatus, SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
     CFReleaseNull(trust);
     CFReleaseNull(policy);
     CFReleaseNull(msg);

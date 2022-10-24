@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-19 Apple, Inc. All rights reserved.
+ * Copyright (c) 2013-22 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,8 @@
 
 __BEGIN_DECLS
 
+__ptrcheck_abi_assume_single()
+
 /*
  * xattr_operation_intent_t is used to declare what the intent of the copy is.
  * Not a bit-field (for now, at least).
@@ -50,12 +52,16 @@ __BEGIN_DECLS
  * XATTR_OPERATION_INTENT_SYNC  indicates that the EA is attached to an object that
  * is being synced to other storages for the same user.  For example synced to
  * iCloud.
+ *
+ * XATTR_OPERATION_INTENT_BACKUP indicates that the EA is attached to an object
+ * that is being backed-up.  For example, being backed-up to Time Machine.
  */
 
 #define XATTR_OPERATION_INTENT_COPY	1
 #define XATTR_OPERATION_INTENT_SAVE	2
 #define XATTR_OPERATION_INTENT_SHARE	3
 #define XATTR_OPERATION_INTENT_SYNC	4
+#define XATTR_OPERATION_INTENT_BACKUP	5
 
 typedef unsigned int xattr_operation_intent_t;
 
@@ -104,8 +110,17 @@ typedef uint64_t xattr_flags_t;
  */
 #define XATTR_FLAG_SYNCABLE	((xattr_flags_t)0x0008)
 
+/*
+ * XATTR_FLAG_ONLY_BACKUP
+ * Declares that the extended attribute should only be copied if the intention
+ * is XATTR_OPERATION_INTENT_BACKUP. That intention is distinct from the
+ * XATTR_OPERATION_INTENT_SYNC intention in that there is no desire to minimize the
+ * amount of metadata being moved.
+ */
+#define XATTR_FLAG_ONLY_BACKUP	((xattr_flags_t)0x0010)
+
 /* Given a named extended attribute, and a copy intent, should the EA be preserved? */
-extern int xattr_preserve_for_intent(const char *, xattr_operation_intent_t) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
+extern int xattr_preserve_for_intent(const char *__unsafe_indexable, xattr_operation_intent_t) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
 
 /*
  * Given an extended attribute name, and a set of properties, return an
@@ -119,7 +134,7 @@ extern int xattr_preserve_for_intent(const char *, xattr_operation_intent_t) __O
  * If the EA name is in the internal list, and the properties are the same as
  * defined there, then it will also return an unmodified copy of the EA name.
  */
-extern char *xattr_name_with_flags(const char *, xattr_flags_t) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
+extern char *xattr_name_with_flags(const char *__unsafe_indexable, xattr_flags_t) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
 
 /*
  * Given an extended attribute name, which may or may not have properties encoded
@@ -128,13 +143,13 @@ extern char *xattr_name_with_flags(const char *, xattr_flags_t) __OSX_AVAILABLE_
  * errno will be set to ENOMEM if it cannot be allocated.  The caller must deallocate
  * the return value.
  */
-extern char *xattr_name_without_flags(const char *) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
+extern char *xattr_name_without_flags(const char *__unsafe_indexable) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
 
 /*
  * Given an EA name, return the properties.  If the name is in the internal list,
  * those properties will be returned.  Unknown property encodings are ignored.
  */
-extern xattr_flags_t xattr_flags_from_name(const char *) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
+extern xattr_flags_t xattr_flags_from_name(const char *__unsafe_indexable) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
 
 /*
  * Given an xattr_operation_intent_t and an xattr_flags_t, return whether it should

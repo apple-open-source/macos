@@ -209,9 +209,9 @@ private:
 
     void setName(const char* name);
 
-    static UBool isValidDigitString(const UnicodeString &str);
-
-    UBool hasContiguousDecimalDigits() const;
+    //FIXME: unimplemented
+    //static UBool isValidDigitString(const UnicodeString &str);
+    //UBool hasContiguousDecimalDigits() const;
 };
 
 U_NAMESPACE_END

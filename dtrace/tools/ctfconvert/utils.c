@@ -60,6 +60,7 @@ getpname(void)
 }
 #endif /* __APPLE__ */
 
+__printflike(1, 0)
 void
 vwarn(const char *format, va_list alist)
 {
@@ -75,6 +76,7 @@ vwarn(const char *format, va_list alist)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 warn(const char *format, ...)
 {
@@ -85,6 +87,7 @@ warn(const char *format, ...)
 	va_end(alist);
 }
 
+__printflike(1, 0)
 void
 vdie(const char *format, va_list alist)
 {
@@ -93,6 +96,7 @@ vdie(const char *format, va_list alist)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 die(const char *format, ...)
 {

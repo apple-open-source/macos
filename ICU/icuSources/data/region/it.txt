@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 it{
@@ -78,7 +78,7 @@ it{
         CF{"Repubblica Centrafricana"}
         CG{"Congo-Brazzaville"}
         CH{"Svizzera"}
-        CI{"Côte d’Ivoire"}
+        CI{"Côte d'Ivoire"}
         CK{"Isole Cook"}
         CL{"Cile"}
         CM{"Camerun"}
@@ -213,7 +213,7 @@ it{
         NU{"Niue"}
         NZ{"Nuova Zelanda"}
         OM{"Oman"}
-        PA{"Panamá"}
+        PA{"Panama"}
         PE{"Perù"}
         PF{"Polinesia francese"}
         PG{"Papua Nuova Guinea"}
@@ -240,7 +240,7 @@ it{
         SD{"Sudan"}
         SE{"Svezia"}
         SG{"Singapore"}
-        SH{"Sant’Elena"}
+        SH{"Sant'Elena"}
         SI{"Slovenia"}
         SJ{"Svalbard e Jan Mayen"}
         SK{"Slovacchia"}
@@ -307,7 +307,7 @@ it{
     Countries%variant{
         CD{"Congo (RDC)"}
         CG{"Congo (Repubblica)"}
-        CI{"Costa d’Avorio"}
+        CI{"Costa d'Avorio"}
         CZ{"Repubblica Ceca"}
         FK{"Isole Falkland (Isole Malvine)"}
         SZ{"Regno di eSwatini"}

@@ -3,8 +3,18 @@
 //  Security
 //
 
-#import "SecABC.h"
+#import <SoftLinking/SoftLinking.h>
 #import <os/log.h>
+
+#import "SecABC.h"
+
+/*
+ * This is using soft linking since we need upward (to workaround BNI build dependencies)
+ * and weak linking since SymptomDiagnosticReporter is not available on base and darwinOS.
+ */
+
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, SymptomDiagnosticReporter);
+SOFT_LINK_CLASS(SymptomDiagnosticReporter, SDRDiagnosticReporter);
 
 
 #if ABC_BUGCAPTURE
@@ -19,6 +29,7 @@ void SecABCTrigger(CFStringRef type,
     [SecABC triggerAutoBugCaptureWithType:(__bridge NSString *)type
                                   subType:(__bridge NSString *)subtype
                            subtypeContext:(__bridge NSString *)subtypeContext
+                                   domain:@"com.apple.security.keychain"
                                    events:nil
                                   payload:(__bridge NSDictionary *)payload
                           detectedProcess:nil];
@@ -33,6 +44,7 @@ void SecABCTrigger(CFStringRef type,
     [self triggerAutoBugCaptureWithType: type
                                 subType: subType
                          subtypeContext: nil
+                                 domain: @"com.apple.security.keychain"
                                  events: nil
                                 payload: nil
                         detectedProcess: nil];
@@ -41,29 +53,31 @@ void SecABCTrigger(CFStringRef type,
 
 + (void)triggerAutoBugCaptureWithType:(NSString *)type
                               subType:(NSString *)subType
-                       subtypeContext:(NSString *)subtypeContext
-                               events:(NSArray *)events
-                              payload:(NSDictionary *)payload
-                      detectedProcess:(NSString *)process
+                       subtypeContext:(NSString * _Nullable)subtypeContext
+                               domain:(NSString *)domain
+                               events:(NSArray * _Nullable)events
+                              payload:(NSDictionary * _Nullable)payload
+                      detectedProcess:(NSString * _Nullable)process
 {
 #if ABC_BUGCAPTURE
-    os_log(OS_LOG_DEFAULT, "TriggerABC for %{public}@/%{public}@/%{public}@",
-           type, subType, subtypeContext);
+    os_log_info(OS_LOG_DEFAULT, "TriggerABC for %{public}@/%{public}@/%{public}@",
+                type, subType, subtypeContext);
 
     // no ABC on darwinos
-    if ([SDRDiagnosticReporter class] == nil) {
+    Class sdrDiagReporter = getSDRDiagnosticReporterClass();
+    if (sdrDiagReporter == nil) {
         return;
     }
 
-    SDRDiagnosticReporter *diagnosticReporter = [[SDRDiagnosticReporter alloc] init];
-    NSMutableDictionary *signature = [diagnosticReporter signatureWithDomain:@"com.apple.security.keychain"
+    SDRDiagnosticReporter *diagnosticReporter = [[sdrDiagReporter alloc] init];
+    NSMutableDictionary *signature = [diagnosticReporter signatureWithDomain:domain
                                                                         type:type
                                                                      subType:subType
                                                               subtypeContext:subtypeContext
                                                              detectedProcess:process?:[[NSProcessInfo processInfo] processName]
                                                       triggerThresholdValues:nil];
     if (signature == NULL) {
-        os_log(OS_LOG_DEFAULT, "TriggerABC signature generation failed");
+        os_log_error(OS_LOG_DEFAULT, "TriggerABC signature generation failed");
         return;
     }
 
@@ -74,8 +88,9 @@ void SecABCTrigger(CFStringRef type,
                                                     actions:NULL
                                                       reply:^void(NSDictionary *response)
     {
-        os_log(OS_LOG_DEFAULT, "Received response from Diagnostic Reporter - %{public}@/%{public}@/%{public}@: %{public}@",
-               type, subType, subtypeContext, response);
+        os_log_info(OS_LOG_DEFAULT,
+                    "Received response from Diagnostic Reporter - %{public}@/%{public}@/%{public}@: %{public}@",
+                    type, subType, subtypeContext, response);
     }];
 #endif
 }

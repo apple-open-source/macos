@@ -29,14 +29,13 @@
 using namespace WebCore;
 
 /**
- * SECTION: WebKitURIResponse
- * @Short_description: Represents a URI response
- * @Title: WebKitURIResponse
+ * WebKitURIResponse:
+ *
+ * Represents an URI response.
  *
  * A #WebKitURIResponse contains information such as the URI, the
  * status code, the content length, the mime type, the HTTP status or
  * the suggested filename.
- *
  */
 
 enum {
@@ -179,7 +178,9 @@ static void webkit_uri_response_class_init(WebKitURIResponseClass* responseClass
  * webkit_uri_response_get_uri:
  * @response: a #WebKitURIResponse
  *
- * Returns: the uri of the #WebKitURIResponse
+ * Gets the URI which resulted in the response.
+ *
+ * Returns: response URI, as a string.
  */
 const gchar* webkit_uri_response_get_uri(WebKitURIResponse* response)
 {
@@ -227,13 +228,15 @@ guint64 webkit_uri_response_get_content_length(WebKitURIResponse* response)
  * webkit_uri_response_get_mime_type:
  * @response: a #WebKitURIResponse
  *
- * Returns: the MIME type of the #WebKitURIResponse
+ * Gets the MIME type of the response.
+ *
+ * Returns: MIME type, as a string.
  */
 const gchar* webkit_uri_response_get_mime_type(WebKitURIResponse* response)
 {
     g_return_val_if_fail(WEBKIT_IS_URI_RESPONSE(response), 0);
 
-    response->priv->mimeType = response->priv->resourceResponse.mimeType().utf8();
+    response->priv->mimeType = response->priv->resourceResponse.mimeType().string().utf8();
     return response->priv->mimeType.data();
 }
 

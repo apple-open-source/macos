@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -297,7 +297,7 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
  */
 
 int
-coredump_write(
+coredump_pwrite(
     const task_t task,
     const int fd,
     struct regionhead *rhead,
@@ -308,7 +308,7 @@ coredump_write(
     struct size_segment_data ssda;
     bzero(&ssda, sizeof (ssda));
 
-    if (walk_region_list(rhead, region_size_memory, &ssda) < 0) {
+    if (walk_region_list(rhead, size_memory_region, &ssda) < 0) {
         warnx(0, "cannot count segments");
         return EX_OSERR;
     }
@@ -380,7 +380,7 @@ coredump_write(
     };
 
 	int ecode = 0;
-    if (0 != walk_region_list(rhead, region_write_memory, &wsda))
+    if (0 != walk_region_list(rhead, pwrite_memory_region, &wsda))
         ecode = EX_IOERR;
 
     del_region_list(rhead);
@@ -418,6 +418,145 @@ coredump_write(
             printf(", referenced %s", str_hsize(hsz, ssda.ssd_fileref.memsize));
         if (ssda.ssd_zfod.memsize)
             printf(", zfod %s", str_hsize(hsz, ssda.ssd_zfod.memsize));
+        printf(")\n");
+    }
+    free(header);
+    return ecode;
+}
+
+/*
+ * Like coredump_write() above, but arranges to stream the core dump
+ * sequentially so that it can be e.g. compressed on the fly via a pipe.
+ */
+int
+coredump_stream(const task_t task, const int fd, struct regionhead *rhead)
+{
+    assert(!opt->extended);
+
+    struct size_segment_data ssda;
+    bzero(&ssda, sizeof (ssda));
+
+    if (walk_region_list(rhead, size_memory_region, &ssda) < 0) {
+        warnx(0, "cannot count segments");
+        return EX_OSERR;
+    }
+
+    unsigned thread_count = 0;
+    mach_port_t *threads = NULL;
+    kern_return_t ret = task_threads(task, &threads, &thread_count);
+    if (KERN_SUCCESS != ret || thread_count < 1) {
+        err_mach(ret, NULL, "cannot retrieve threads");
+        thread_count = 0;
+    }
+
+    if (OPTIONS_DEBUG(opt, 3)) {
+        print_memory_region_header();
+        walk_region_list(rhead, region_print_memory, NULL);
+        printf("\nmach header %lu\n", sizeof (native_mach_header_t));
+        printf("threadcount %u threadsize %lu\n", thread_count, thread_count * sizeof_LC_THREAD());
+        printf("fileref %lu %lu %llu\n", ssda.ssd_fileref.count, ssda.ssd_fileref.headersize, ssda.ssd_fileref.memsize);
+        printf("zfod %lu %lu %llu\n", ssda.ssd_zfod.count, ssda.ssd_zfod.headersize, ssda.ssd_zfod.memsize);
+        printf("vanilla %lu %lu %llu\n", ssda.ssd_vanilla.count, ssda.ssd_vanilla.headersize, ssda.ssd_vanilla.memsize);
+        printf("sparse %lu %lu %llu\n", ssda.ssd_sparse.count, ssda.ssd_sparse.headersize, ssda.ssd_sparse.memsize);
+    }
+
+    const size_t headersize = sizeof (native_mach_header_t) +
+        thread_count * sizeof_LC_THREAD() +
+        ssda.ssd_fileref.headersize +
+        ssda.ssd_zfod.headersize +
+        ssda.ssd_vanilla.headersize +
+        ssda.ssd_sparse.headersize;
+
+    void *header = calloc(1, headersize);
+    if (NULL == header) {
+        errx(EX_OSERR, "out of memory for header");
+    }
+
+    native_mach_header_t *mh = make_corefile_mach_header(header);
+    struct load_command *lc = (void *)(mh + 1);
+
+    if (opt->verbose) {
+        const unsigned long fileref_count = ssda.ssd_fileref.count;
+        const unsigned long segment_count = fileref_count +
+            ssda.ssd_zfod.count + ssda.ssd_vanilla.count + ssda.ssd_sparse.count;
+        printf("Writing %lu segments", segment_count);
+        if (0 != fileref_count) {
+            printf(" (including %lu file reference%s (%lu bytes))",
+                fileref_count, 1 == fileref_count ? "" : "s",
+                ssda.ssd_fileref.headersize);
+        }
+        printf("\n");
+    }
+
+    const mach_vm_offset_t pagesize = ((mach_vm_offset_t)1 << pageshift_host);
+    const mach_vm_offset_t pagemask = pagesize - 1;
+    const mach_vm_offset_t data_offset = ((mach_vm_offset_t)headersize + pagemask) & ~pagemask;
+
+    struct write_segment_data wsda = {
+        .wsd_task = task,
+        .wsd_mh = mh,
+        .wsd_lc = lc,
+        .wsd_fd = fd,
+        .wsd_nocache = false,
+        .wsd_foffset = data_offset,
+        .wsd_nwritten = 0,
+    };
+
+    int ecode = 0;
+    do {
+        if (0 != walk_region_list(rhead, makeheader_memory_region, &wsda)) {
+            ecode = EX_IOERR;
+            break;
+        }
+
+        struct thread_command *tc = (void *)wsda.wsd_lc;
+
+        for (unsigned t = 0; t < thread_count; t++) {
+            dump_thread_state(mh, tc, threads[t]);
+            mach_port_deallocate(mach_task_self(), threads[t]);
+            tc = (void *)((caddr_t)tc + tc->cmdsize);
+        }
+
+        if (headersize != sizeof (*mh) + mh->sizeofcmds) {
+            ecode = EX_SOFTWARE;
+            break;
+        }
+        if (0 != bounded_write(fd, header, headersize, NULL)) {
+            ecode = EX_IOERR;
+            break;
+        }
+
+        // Write zeroes beyond the header to the next page boundary
+        if (0 != bounded_write_zero(fd, (size_t)(data_offset - headersize), NULL)) {
+            ecode = EX_IOERR;
+            break;
+        }
+        wsda.wsd_foffset = data_offset;
+        wsda.wsd_nwritten = data_offset;
+
+        if (0 != walk_region_list(rhead, stream_memory_region, &wsda)) {
+            ecode = EX_IOERR;
+            break;
+        }
+        validate_core_header(mh, wsda.wsd_foffset);
+        del_region_list(rhead);
+    } while (0);
+
+    if (ecode) {
+        warnx("failed to write core file correctly");
+    } else if (opt->verbose) {
+        hsize_str_t hsz;
+        printf("Wrote %s to stream ", str_hsize(hsz, wsda.wsd_nwritten));
+        printf("(memory image %s", str_hsize(hsz, ssda.ssd_vanilla.memsize));
+        if (ssda.ssd_sparse.memsize) {
+            printf("+%s", str_hsize(hsz, ssda.ssd_sparse.memsize));
+        }
+        if (ssda.ssd_fileref.memsize) {
+            printf(", referenced %s", str_hsize(hsz, ssda.ssd_fileref.memsize));
+        }
+        if (ssda.ssd_zfod.memsize) {
+            printf(", zfod %s", str_hsize(hsz, ssda.ssd_zfod.memsize));
+        }
         printf(")\n");
     }
     free(header);
@@ -635,8 +774,13 @@ coredump(task_t task, int fd, const struct proc_bsdinfo *__unused pbi)
         printf("Optimization(s) done\n");
 
 done:
-    if (0 == ecode)
-        ecode = coredump_write(task, fd, rhead, aout_uuid, aout_load_addr, dyld_addr);
+    if (0 == ecode) {
+        if (opt->stream) {
+            ecode = coredump_stream(task, fd, rhead);
+        } else {
+            ecode = coredump_pwrite(task, fd, rhead, aout_uuid, aout_load_addr, dyld_addr);
+        }
+    }
     return ecode;
 }
 

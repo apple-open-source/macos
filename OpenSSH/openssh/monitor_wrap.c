@@ -918,6 +918,25 @@ mm_audit_run_command(const char *command)
 }
 #endif /* SSH_AUDIT_EVENTS */
 
+#ifdef __APPLE_ENDPOINTSECURITY__
+void
+mm_submit_ess_event(const char *source_address, const char *username, ssh_audit_event_t event)
+{
+	struct sshbuf *m;
+	int r;
+
+	debug3("%s entering", __func__);
+
+	if ((m = sshbuf_new()) == NULL)
+		fatal("sshbuf_new failed");
+	if ((r = sshbuf_put_cstring(m, source_address)) != 0 || (r = sshbuf_put_cstring(m, username)) != 0 || (r = sshbuf_put_u32(m, event)) != 0)
+		fatal("buffer error: %s", ssh_err(r));
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_ENDPOINTSECURITY_EVENT, m);
+	sshbuf_free(m);
+}
+#endif
+
 #ifdef GSSAPI
 OM_uint32
 mm_ssh_gssapi_server_ctx(Gssctxt **ctx, gss_OID goid)

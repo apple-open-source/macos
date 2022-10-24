@@ -1167,14 +1167,13 @@ ol_link_tls=no
 if test $ol_with_tls = secure-transport || test $ol_with_tls = auto ; then
 	save_CPPFLAGS="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS -F/System/Library/PrivateFrameworks"
-	AC_CHECK_HEADERS(Security/SecureTransport.h CoreDaemon/XSCipher.h)
+	AC_CHECK_HEADERS(Security/SecureTransport.h)
 	CPPFLAGS="$save_CPPFLAGS"
-	if test $ac_cv_header_Security_SecureTransport_h = yes &&
-	   test $ac_cv_header_CoreDaemon_XSCipher_h = yes ; then
+	if test $ac_cv_header_Security_SecureTransport_h = yes ; then
 		ol_with_tls=secure-transport
 		ol_link_tls=yes
 		AC_DEFINE(HAVE_SECURE_TRANSPORT, 1, [define if you have SecureTransport])
-		TLS_LIBS="-framework Security -framework CoreDaemon"
+		TLS_LIBS="-framework Security"
 	elif test $ol_with_tls = secure-transport ; then
 		AC_ERROR([Can't build with SecureTransport: required header not found])
 	fi

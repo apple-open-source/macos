@@ -27,7 +27,6 @@
 #import "CKKS.h"
 #import "SecDbKeychainItemV7.h"
 #import "SecDbKeychainMetadataKeyStore.h"
-#import "SecDbBackupManager_Internal.h"
 #import "SecAKSObjCWrappers.h"
 #import "SecItemPriv.h"
 #import "SecTaskPriv.h"
@@ -50,14 +49,8 @@
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccmode.h>
 #include <corecrypto/ccwrap.h>
-#include "CheckV12DevEnabled.h"
 
 void* testlist = NULL;
-
-// TODO: Switch to '1' closer to deployment, but leave at '0' for now to test not breaking people
-static int testCheckV12DevEnabled(void) {
-    return 0;
-}
 
 @implementation KeychainXCTestFailureLogger
 - (instancetype)init {
@@ -202,11 +195,10 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     id refKeyMock = OCMClassMock([SecAKSRefKey class]);
     [[[refKeyMock stub] andCall:@selector(alloc) onObject:[FakeAKSRefKey class]] alloc];
 
-    checkV12DevEnabled = testCheckV12DevEnabled;
     NSArray* partsOfName = [self.name componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" ]"]];
     self.keychainDirectoryPrefix = partsOfName[1];
 
-    // Calls SecKeychainDbReset which also resets metadata keys and backup manager
+    // Calls SecKeychainDbReset which also resets metadata keys
     secd_test_setup_temp_keychain([self.keychainDirectoryPrefix UTF8String], NULL);
 
     _originalAccessGroups = SecAccessGroupsGetCurrent();

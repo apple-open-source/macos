@@ -47,8 +47,8 @@ __FBSDID("$FreeBSD$");
 #ifndef __APPLE__
 #include <sys/capsicum.h>
 #include <capsicum_helpers.h>
-#include <err.h>
 #endif
+#include <err.h>
 #include <locale.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -95,5 +95,9 @@ main(int argc, char *argv[])
 
 	(void)next(argv);
 	display();
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(exitval);
 }

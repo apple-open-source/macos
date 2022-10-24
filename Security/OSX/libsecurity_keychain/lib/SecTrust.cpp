@@ -60,6 +60,7 @@ OSStatus SecTrustSetParameters(
     CSSM_TP_ACTION action,
     CFDataRef actionData)
 {
+	BEGIN_SECTRUSTAPI
 	/* bridge to support API functionality for legacy callers */
 	OSStatus status;
 	CSSM_APPLE_TP_ACTION_FLAGS actionFlags = 0;
@@ -77,18 +78,19 @@ OSStatus SecTrustSetParameters(
 	syslog(LOG_ERR, "WARNING: SecTrustSetParameters was deprecated in 10.7. Use SecTrustSetOptions instead.");
 #endif
 
-	return status;
+	END_SECTRUSTAPI(status);
 }
 
 /* OS X only: __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA) */
 OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is currently unsupported in unified SecTrust */
     // TODO: pull all certs out of the specified keychains for the evaluation?
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustSetKeychains does nothing in 10.11. Use SecTrustSetAnchorCertificates{Only} to provide anchors.");
 #endif
-	return errSecSuccess;
+	END_SECTRUSTAPI(errSecSuccess);
 }
 
 //
@@ -100,6 +102,7 @@ OSStatus SecTrustGetResult(
     SecTrustResultType *result,
 	CFArrayRef *certChain, CSSM_TP_APPLE_EVIDENCE_INFO **statusChain)
 {
+	BEGIN_SECTRUSTAPI
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustGetResult has been deprecated since 10.7. Please use SecTrustGetTrustResult instead.");
@@ -118,7 +121,7 @@ OSStatus SecTrustGetResult(
 	if (statusChain) {
         *statusChain = SecTrustGetEvidenceInfo(trustRef);
 	}
-	return status;
+	END_SECTRUSTAPI(status);
 }
 
 //
@@ -127,6 +130,7 @@ OSStatus SecTrustGetResult(
 /* OS X only: __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA) */
 OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
 {
+	BEGIN_SECTRUSTAPI
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecTrustCopyExtendedResult will be deprecated in an upcoming release. Please use SecTrustCopyResult instead.");
@@ -137,7 +141,7 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
 		return errSecParam;
 	}
 	*result = resultDict;
-	return errSecSuccess;
+	END_SECTRUSTAPI(errSecSuccess);
 }
 
 //
@@ -146,6 +150,7 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_PTR *result)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustGetCssmResult has been deprecated since 10.7, and has no functional equivalent in 10.11. Please use SecTrustCopyResult instead.");
@@ -153,7 +158,7 @@ OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_
 	if (result) {
 		*result = NULL;
 	}
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }
 
 static uint8_t convertCssmResultToPriority(CSSM_RETURN resultCode) {
@@ -188,19 +193,20 @@ static uint8_t convertCssmResultToPriority(CSSM_RETURN resultCode) {
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
 {
+    BEGIN_SECTRUSTAPI
     /* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecTrustGetCssmResultCode has been deprecated since 10.7, and will be removed in a future release. Please use SecTrustCopyProperties instead.");
 #endif
     if (!trustRef || !result) {
-        return errSecParam;
+        END_SECTRUSTAPI(errSecParam);
     }
 
     SecTrustResultType trustResult = kSecTrustResultInvalid;
     (void) SecTrustGetTrustResult(trustRef, &trustResult);
     if (trustResult == kSecTrustResultProceed || trustResult == kSecTrustResultUnspecified) {
         if (result) { *result = 0; }
-        return errSecSuccess;
+        END_SECTRUSTAPI(errSecSuccess);
     }
 
     OSStatus cssmResultCode = errSecSuccess;
@@ -228,12 +234,13 @@ OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
     if (result) {
         *result = cssmResultCode;
     }
-    return errSecSuccess;
+    END_SECTRUSTAPI(errSecSuccess);
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustGetTPHandle has been deprecated since 10.7, and cannot return CSSM objects in 10.11. Please stop using it.");
@@ -241,7 +248,7 @@ OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 	if (handle) {
 		*handle = NULL;
 	}
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }
 
 //
@@ -339,6 +346,7 @@ typedef struct __TSecTrust {
     void*                   _legacy_status_array;
     dispatch_queue_t        _trustQueue;
     CFDataRef               _auditToken;
+    uint64_t                _attribution;
 } TSecTrust;
 
 CFArrayRef SecTrustCopyInputCertificates(SecTrustRef trust)
@@ -678,6 +686,7 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
 OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 	uint32 *cssmAnchorCount)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustGetCSSMAnchorCertificates has been deprecated since 10.5, and cannot return CSSM objects in 10.11. Please stop using it.");
@@ -688,7 +697,7 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 	if (cssmAnchorCount) {
 		*cssmAnchorCount = 0;
 	}
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }
 
 
@@ -699,11 +708,12 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting *trustSetting)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustGetUserTrust has been deprecated since 10.5, and does nothing in 10.11. Please stop using it.");
 #endif
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }
 
 //
@@ -713,11 +723,12 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
 OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting trustSetting)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustSetUserTrust has been deprecated since 10.5, and does nothing in 10.11. Please stop using it.");
 #endif
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }
 
 //
@@ -728,9 +739,10 @@ OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
 OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting trustSetting)
 {
+	BEGIN_SECTRUSTAPI
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecTrustSetUserTrustLegacy does nothing in 10.11. Please stop using it.");
 #endif
-	return errSecServiceNotAvailable;
+	END_SECTRUSTAPI(errSecServiceNotAvailable);
 }

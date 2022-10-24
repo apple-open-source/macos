@@ -1,0 +1,32 @@
+# This file defines a list of fnmatch(3) patterns that should be
+# symlinked to the original data template path instead of copied.
+#
+# Patterns apply to files by default. Include a trailing slash to
+# indicate the pattern applies to a directory.
+#
+# Patterns must specify the full hierarchy to match. Recursive
+# wildcards like ** are not supported, except at the end of a
+# pattern where /** is interpreted to mean FNM_LEADING_DIR.
+
+# Link large bundles for the sunsetted Print Products feature in iPhoto/Photos.
+# This breaks Photos if the top-level bundles are symlinks, so link ./Contents instead.
+Library/Application Support/Apple/Photos/Print Products/Catalogs/*.ppcatalog/Contents/
+Library/Application Support/Apple/Photos/Print Products/Previews/*.pppreview/Contents/
+Library/Application Support/Apple/Photos/Print Products/Themes/*.pptheme/Contents/
+
+# Link large preinstalled MobileAssets.
+System/Library/AssetsV2/PreinstalledAssetsV2/*/com_apple_MobileAsset_VoiceTriggerAssetsMac/*.asset/AssetData/
+System/Library/AssetsV2/PreinstalledAssetsV2/*/com_apple_MobileAsset_ContextKit/*.asset/AssetData/
+System/Library/PreinstalledAssetsV2/*/com_apple_MobileAsset_VoiceTriggerAssetsMac/*.asset/AssetData/
+System/Library/PreinstalledAssetsV2/*/com_apple_MobileAsset_ContextKit/*.asset/AssetData/
+
+# Link large MobileDevices icons instead of copying them.
+#
+# Replacing these files with symlinks breaks code signature checks, but avoids
+# changes in PackageKit, SystemMigration, and LaunchServices to correctly handle
+# symlinks to bundles at these paths. Since these bundles just need to be scanned
+# for Uniform Type Identifiers and artwork, this seems like a reasonable tradeoff.
+System/Library/CoreServices/CoreTypes.bundle/Contents/Library/MobileDevices*.bundle/Contents/Resources/*.icns
+
+# Link stock User Pictures instead of copying them.
+Library/User Pictures/**

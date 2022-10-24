@@ -155,7 +155,7 @@ xsltExtElementPreCompTest(xsltStylesheetPtr style, xmlNodePtr inst,
  * @ctxt:  an XSLT processing context
  * @node:  The current node
  * @inst:  the instruction in the stylesheet
- * @comp:  precomputed informations
+ * @comp:  precomputed information
  *
  * Process a libxslt:test node
  */

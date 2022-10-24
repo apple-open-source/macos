@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,12 +33,9 @@
 #if 0
 static char sccsid[] = "@(#)vars.c	8.1 (Berkeley) 6/6/93";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/vars.c,v 1.4 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include "extern.h"
@@ -55,8 +50,7 @@ static const char rcsid[] =
  * Assign a value to a variable.
  */
 void
-assign(name, value)
-	const char *name, *value;
+assign(const char *name, const char *value)
 {
 	struct var *vp;
 	int h;
@@ -64,13 +58,14 @@ assign(name, value)
 	h = hash(name);
 	vp = lookup(name);
 	if (vp == NULL) {
-		vp = calloc(sizeof(*vp), 1);
+		if ((vp = calloc(1, sizeof(*vp))) == NULL)
+			err(1, "Out of memory");
 		vp->v_name = vcopy(name);
 		vp->v_link = variables[h];
 		variables[h] = vp;
 	}
 	else
-		v_free(vp->v_value);
+		vfree(vp->v_value);
 	vp->v_value = vcopy(value);
 }
 
@@ -80,8 +75,7 @@ assign(name, value)
  * Thus, we cannot free same!
  */
 void
-v_free(cp)
-	char *cp;
+vfree(char *cp)
 {
 	if (*cp != '\0')
 		(void)free(cp);
@@ -93,8 +87,7 @@ v_free(cp)
  */
 
 char *
-vcopy(str)
-	const char *str;
+vcopy(const char *str)
 {
 	char *new;
 	unsigned len;
@@ -114,8 +107,7 @@ vcopy(str)
  */
 
 char *
-value(name)
-	const char *name;
+value(const char *name)
 {
 	struct var *vp;
 
@@ -130,8 +122,7 @@ value(name)
  */
 
 struct var *
-lookup(name)
-	const char *name;
+lookup(const char *name)
 {
 	struct var *vp;
 
@@ -146,8 +137,7 @@ lookup(name)
  */
 
 struct grouphead *
-findgroup(name)
-	char name[];
+findgroup(char name[])
 {
 	struct grouphead *gh;
 
@@ -161,8 +151,7 @@ findgroup(name)
  * Print a group out on stdout
  */
 void
-printgroup(name)
-	char name[];
+printgroup(char name[])
 {
 	struct grouphead *gh;
 	struct group *gp;
@@ -182,8 +171,7 @@ printgroup(name)
  * the variable or group hash table.
  */
 int
-hash(name)
-	const char *name;
+hash(const char *name)
 {
 	int h = 0;
 

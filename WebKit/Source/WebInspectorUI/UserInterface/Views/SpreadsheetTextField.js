@@ -123,7 +123,6 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         this._element.classList.add("editing");
         this._element.contentEditable = "plaintext-only";
         this._element.spellcheck = false;
-        this._element.scrollIntoViewIfNeeded(false);
 
         this._element.focus();
         this._selectText();
@@ -431,9 +430,8 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         if (!this._completionProvider)
             return;
 
-        let useFuzzyMatching = WI.settings.experimentalCSSCompletionFuzzyMatching.value;
         let valueWithoutSuggestion = this.valueWithoutSuggestion();
-        let {completions, prefix} = this._completionProvider(valueWithoutSuggestion, {allowEmptyPrefix: forceCompletions, caretPosition: this._getCaretPosition(), useFuzzyMatching});
+        let {completions, prefix} = this._completionProvider(valueWithoutSuggestion, {allowEmptyPrefix: forceCompletions, caretPosition: this._getCaretPosition()});
         this._completionPrefix = prefix;
 
         if (!completions.length) {
@@ -442,7 +440,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         }
 
         // No need to show the completion popover with only one item that matches the entered value.
-        if (completions.length === 1 && this._suggestionsView.getCompletionText(completions[0]) === valueWithoutSuggestion) {
+        if (completions.length === 1 && WI.CSSCompletions.getCompletionText(completions[0]) === valueWithoutSuggestion) {
             this.discardCompletion();
             return;
         }
@@ -455,7 +453,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
         this._suggestionsView.update(completions);
 
-        if (completions.length === 1 && this._suggestionsView.getCompletionText(completions[0]).startsWith(this._completionPrefix)) {
+        if (completions.length === 1 && WI.CSSCompletions.getCompletionText(completions[0]).startsWith(this._completionPrefix)) {
             // No need to show the completion popover with only one item that begins with the completion prefix.
             // When using fuzzy matching, the completion prefix may not occur at the beginning of the suggestion.
             this._suggestionsView.hide();
@@ -464,8 +462,10 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
         this._suggestionsView.selectedIndex = NaN;
         if (this._completionPrefix) {
-            // Select first item and call completionSuggestionsSelectedCompletion.
-            this._suggestionsView.selectNext();
+            if (this._delegate?.spreadsheetTextFieldInitialCompletionIndex)
+                this._suggestionsView.selectedIndex = this._delegate.spreadsheetTextFieldInitialCompletionIndex(this, completions);
+            else
+                this._suggestionsView.selectNext();
         } else
             this.suggestionHint = "";
     }

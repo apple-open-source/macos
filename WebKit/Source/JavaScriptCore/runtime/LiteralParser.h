@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,7 +68,7 @@ struct JSONPData {
 template <typename CharType>
 struct LiteralParserToken {
 private:
-WTF_MAKE_NONCOPYABLE(LiteralParserToken<CharType>);
+WTF_MAKE_NONCOPYABLE(LiteralParserToken);
 
 public:
     LiteralParserToken() = default;
@@ -202,10 +202,10 @@ private:
 
     void setErrorMessageForToken(TokenType);
 
-    JSGlobalObject* m_globalObject;
-    CodeBlock* m_nullOrCodeBlock;
+    JSGlobalObject* const m_globalObject;
+    CodeBlock* const m_nullOrCodeBlock;
     typename LiteralParser<CharType>::Lexer m_lexer;
-    ParserMode m_mode;
+    const ParserMode m_mode;
     String m_parseErrorMessage;
 };
 

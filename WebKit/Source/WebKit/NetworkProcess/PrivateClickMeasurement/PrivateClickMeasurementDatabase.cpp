@@ -489,14 +489,15 @@ void Database::clearPrivateClickMeasurement(std::optional<WebCore::RegistrableDo
     ASSERT(!RunLoop::isMain());
 
     // Default to clear all entries if no domain is specified.
-    String bindParameter = "%";
+    String bindParameter;
     if (domain) {
         auto domainIDToMatch = domainID(*domain);
         if (!domainIDToMatch)
             return;
 
         bindParameter = String::number(*domainIDToMatch);
-    }
+    } else
+        bindParameter = "%"_s;
 
     auto transactionScope = beginTransactionIfNecessary();
 
@@ -712,46 +713,13 @@ void Database::destroyStatements()
 
 void Database::addDestinationTokenColumnsIfNecessary()
 {
-    String attributedTableName("AttributedPrivateClickMeasurement"_s);
+    constexpr auto attributedTableName = "AttributedPrivateClickMeasurement"_s;
     String destinationKeyIDColumnName("destinationKeyID"_s);
     auto columns = columnsForTable(attributedTableName);
     if (!columns.size() || columns.last() != destinationKeyIDColumnName) {
         addMissingColumnToTable(attributedTableName, "destinationToken TEXT"_s);
         addMissingColumnToTable(attributedTableName, "destinationSignature TEXT"_s);
-        addMissingColumnToTable(attributedTableName, "destinationKeyID TEXT");
-    }
-}
-
-Vector<String> Database::columnsForTable(const String& tableName)
-{
-    auto statement = m_database.prepareStatementSlow(makeString("PRAGMA table_info(", tableName, ")"));
-
-    if (!statement) {
-        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::columnsForTable Unable to prepare statement to fetch schema for table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
-        ASSERT_NOT_REACHED();
-        return { };
-    }
-
-    Vector<String> columns;
-    while (statement->step() == SQLITE_ROW) {
-        auto name = statement->columnText(1);
-        columns.append(name);
-    }
-
-    return columns;
-}
-
-void Database::addMissingColumnToTable(const String& tableName, const String& columnName)
-{
-    auto statement = m_database.prepareStatementSlow(makeString("ALTER TABLE ", tableName, " ADD COLUMN ", columnName));
-    if (!statement) {
-        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::addMissingColumnToTable Unable to prepare statement to add missing columns to table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
-        ASSERT_NOT_REACHED();
-        return;
-    }
-    if (statement->step() != SQLITE_DONE) {
-        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::addMissingColumnToTable error executing statement to add missing columns to table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
-        ASSERT_NOT_REACHED();
+        addMissingColumnToTable(attributedTableName, "destinationKeyID TEXT"_s);
     }
 }
 

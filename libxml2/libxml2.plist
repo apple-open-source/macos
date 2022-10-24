@@ -5,22 +5,21 @@
 	<key>OpenSourceProject</key>
 	<string>libxml2</string>
 	<key>OpenSourceVersion</key>
-	<string>2.9.4</string>
+	<string>2.9.13</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://xmlsoft.org/</string>
+	<string>https://gitlab.gnome.org/GNOME/libxml2</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxml2-2.9.4.tar.gz</string>
+	<string>https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.9.13/libxml2-v2.9.13.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>ae249165c173b1ff386ee8ad676815f5</string>
+	<string>99dbd55a77c09edeeaaef5412e98769b</string>
 	<key>OpenSourceImportDate</key>
-	<string>2016-05-27</string>
+	<string>2022-02-25</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libxml2.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>rdar://problem/3874282</string>
 		<string>rdar://problem/3960539</string>
 		<string>rdar://problem/4723997</string>
 		<string>rdar://problem/5014269</string>
@@ -36,7 +35,6 @@
 		<string>rdar://problem/10772343</string>
 		<string>rdar://problem/12751928</string>
 		<string>rdar://problem/12938958</string>
-		<string>rdar://problem/26527606</string>
 	</array>
 </dict>
 </plist>

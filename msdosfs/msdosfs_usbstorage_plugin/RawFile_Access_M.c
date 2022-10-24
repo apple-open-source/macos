@@ -184,8 +184,8 @@ retry:
     }
 }
 
-static void unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset) {
- 
+static int unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset) {
+    int iError = 0;
     pthread_mutex_lock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
     uint64_t uSector = uOffset / SECTOR_SIZE(GET_FSRECORD(psFileNode));
     bool unregistered = false;
@@ -200,8 +200,14 @@ static void unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOff
             break;
         }
     }
-    assert(unregistered);
+
+    if (unregistered == false) {
+       MSDOS_LOG(LEVEL_FAULT, "unregisterUnAlignedCondTable: failed to unregister\n");
+       iError = EIO;
+    }
+
     pthread_mutex_unlock(&psFileNode->sExtraData.sFileData.sUnAlignedWriteLck);
+    return iError;
 }
 
 size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLength, void *pvBuf, int* piError)
@@ -211,7 +217,6 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
     uint32_t uClusterSize           = CLUSTER_SIZE(psFSRecord);
     uint32_t uSectorSize            = SECTOR_SIZE(psFSRecord);
 
-    // Fill the buffer until the buffer is full or till the end of the file
     while ( uActuallyWritten < uLength )
     {
         /* Calculate how many bytes are still missing to add to the device
@@ -233,7 +238,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             break;
         }
 
-        //Calculate offset - offset by sector and need to add the offset by sector
+        // Calculate offset - offset by sector and need to add the offset by sector
         uint64_t uWriteOffset = DIROPS_VolumeOffsetForCluster( psFSRecord, uCurrentCluster ) + ( ROUND_DOWN(uOffset, uSectorSize)  % uClusterSize );
 
         // Check if uOffset isn't in metadata zone
@@ -283,7 +288,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             }
 
             free(pvBuffer);
-            unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
+            *piError = unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
 
         }
         // If uBytesStillMissing < uSectorSize, need to R/M/W 1 sector.
@@ -324,7 +329,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             }
 
             free(pvBuffer);
-            unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
+            *piError = unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
         }
         // Can write buffer size chunk
         else

@@ -71,9 +71,6 @@ OSDefineMetaClassAndStructors(AppleUserHIDDevice, IOHIDDevice)
 #define _inputReportCount               ivar->inputReportCount
 #define _inputReportTime                ivar->inputReportTime
 
-
-#define kIOUserHIDDeviceTimeoutUS     5000000ULL
-
 #define dispatch_workloop_sync_with_ret(b)                        \
         _commandGate ? _commandGate->runActionBlock(^IOReturn{    \
             if (isInactive()) {                     \
@@ -247,11 +244,8 @@ bool AppleUserHIDDevice::handleStart( IOService * provider )
     _commandGate = IOCommandGate::commandGate(this);
     require_action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDDeviceLogError("_commandGate"));
 
-    _requestTimeout = kIOUserHIDDeviceTimeoutUS;
     value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
-    if (value) {
-        _requestTimeout = value->unsigned32BitValue();
-    }
+    _requestTimeout = value && value->unsigned32BitValue() >= kIOHIDDeviceMinAsyncRequestTimeout * 1000 && value->unsigned32BitValue() <= kIOHIDDeviceMaxAsyncRequestTimeout * 1000 ? value->unsigned32BitValue() : kIOHIDDeviceDefaultAsyncRequestTimeout * 1000;
     
     debugSerializer = OSSerializer::forTarget(this,
                                               OSMemberFunctionCast(OSSerializerCallback,
@@ -533,7 +527,8 @@ bool AppleUserHIDDevice::setProperty(const OSSymbol * aKey, OSObject * anObject)
     require_action(s->text() && s->getLength(), exit, HIDDeviceLogError("serialize"));
     
     md = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
-                                               kIOMemoryKernelUserShared,
+                                               kIOMemoryKernelUserShared |
+                                               kIOMemoryThreadSafe,
                                                s->getLength());
     require_action (md, exit, HIDDeviceLogError("IOBufferMemoryDescriptor"));
     
@@ -633,8 +628,11 @@ IOReturn AppleUserHIDDevice::setReport(IOMemoryDescriptor  * report,
     if (OSDynamicCast(IOBufferMemoryDescriptor, report) == NULL || ((IOBufferMemoryDescriptor*)report)->getCapacity() < PAGE_SIZE) {
         require_noerr_action(report->prepare(), exit, HIDDeviceLogError("Unable to prepare report for setReport."));
         memBuff = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn |
-                                                        kIOMemoryKernelUserShared,
+                                                        kIOMemoryKernelUserShared |
+                                                        kIOMemoryThreadSafe,
                                                         report->getLength());
+
+        require_action(memBuff, exit, ret = kIOReturnNoMemory);
 
         report->readBytes(0, memBuff->getBytesNoCopy(), report->getLength());
 
@@ -680,15 +678,15 @@ IOReturn AppleUserHIDDevice::processReport(HIDReportCommandType    command,
                                            IOHIDCompletion         * completion,
                                            bool                    releaseReport)
 {
-    IOReturn                ret = kIOReturnSuccess;
+    AbsoluteTime              ts;
+    IOReturn                  ret    = kIOReturnSuccess;
     OSAction                * action = NULL;
     IOHIDReportCompletion   * reportCompletion;
-    ret = CreateAction_CompleteReport(
-                           sizeof (IOHIDReportCompletion),
-                           &action);
+
+    ret = CreateAction_CompleteReport(sizeof(IOHIDReportCompletion), &action);
     require_noerr_action(ret, exit, HIDDeviceLogError("CreateAction_CompleteReport:%x", ret));
     
-    reportCompletion = (IOHIDReportCompletion *) action->GetReference();
+    reportCompletion                = (IOHIDReportCompletion *) action->GetReference();
     reportCompletion->report        = report;
     reportCompletion->completion    = completion ? *completion : (IOHIDCompletion){NULL, NULL, NULL};
     reportCompletion->releaseReport = releaseReport;
@@ -730,13 +728,7 @@ IOReturn AppleUserHIDDevice::processReport(HIDReportCommandType    command,
     _ProcessReport(command, report, reportType, options, completionTimeout, action);
     
     if (completion == NULL || completion->action == NULL) {
-        AbsoluteTime    ts;
-        
-        if (!completionTimeout) {
-            completionTimeout = _requestTimeout;
-        } else {
-            completionTimeout *= 1000;
-        }
+        completionTimeout = completionTimeout >= kIOHIDDeviceMinAsyncRequestTimeout && completionTimeout <= kIOHIDDeviceMaxAsyncRequestTimeout ? completionTimeout * 1000 : _requestTimeout;
 
         clock_interval_to_deadline(completionTimeout, kMicrosecondScale,  &ts);
         ret = _commandGate->commandSleep((void *)action, ts, THREAD_ABORTSAFE);
@@ -749,9 +741,7 @@ IOReturn AppleUserHIDDevice::processReport(HIDReportCommandType    command,
         }
         
         if (gIOHIDFamilyDtraceDebug()) {
-            
             IOBufferMemoryDescriptor *bmd = OSDynamicCast(IOBufferMemoryDescriptor, report);
-            
             hid_trace(reportType == kIOHIDReportTypeInput ? kHIDTraceGetReport : kHIDTraceSetReport, (uintptr_t)getRegistryEntryID(), (uintptr_t)(options & 0xff), (uintptr_t)report->getLength(), bmd ? (uintptr_t)bmd->getBytesNoCopy() : 0, (uintptr_t)mach_absolute_time());
         }
         
@@ -796,6 +786,7 @@ exit:
 //----------------------------------------------------------------------------------------------------
 void AppleUserHIDDevice::completeReport(OSAction * action, IOReturn status, uint32_t actualByteCount)
 {
+    uint64_t remaining = 0;
     bool async = false;
 
     require_action (_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
@@ -809,17 +800,17 @@ void AppleUserHIDDevice::completeReport(OSAction * action, IOReturn status, uint
     IOLockUnlock(_asyncActionsLock);
     
     if (async) {
-        if (actualByteCount <= reportCompletion->report->getLength()) {
+        if (!os_sub_overflow(reportCompletion->report->getLength(), actualByteCount, &remaining)) {
             if (reportCompletion->releaseReport) {
-                if (reportCompletion->report) {
-                    reportCompletion->report->complete();
-                }
+                reportCompletion->report->complete();
                 OSSafeReleaseNULL(reportCompletion->report);
             }
             reportCompletion->completion.action(reportCompletion->completion.target,
                                                 reportCompletion->completion.parameter,
                                                 status,
-                                                actualByteCount);
+                                                (uint32_t)remaining);
+        } else {
+            HIDDeviceLogError("Async report completion dropped, weird size: %u", actualByteCount);
         }
 
     } else {

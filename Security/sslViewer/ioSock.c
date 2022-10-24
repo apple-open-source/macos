@@ -111,7 +111,7 @@ static void tprintf(
 static time_t lastTime = (time_t)0;
 #define TIME_INTERVAL		3
 
-static void outputDot()
+static void outputDot(void)
 {
 	time_t thisTime = time(0);
 	

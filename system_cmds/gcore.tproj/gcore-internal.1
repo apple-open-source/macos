@@ -1,14 +1,16 @@
-.Dd September 29, 2016
+.Dd December 16, 2021
 .Dt GCORE-INTERNAL 1
 .Os Darwin
 .Sh NAME
-.Nm gcore-internal
+.Nm gcore
 .Nd get core images of running processes and corpses
 .Sh SYNOPSIS
 .Nm
 .Op Fl x
 .Op Fl F
 .Op Fl C
+.Op Fl S
+.Op Fl g
 .Op Fl Z Ar compopts
 .Op Fl t Ar threshold
 .Op Fl d
@@ -37,6 +39,17 @@ command intended, for the moment, for internal use only.
 .Pp
 The following set of additional flags are available:
 .Bl -tag -width Fl
+.It Fl g
+Stream the core file content through an invocation of
+.Xr gzip 1 ,
+writing the gzip-compressed content to the destination file.
+The resulting core file should be uncompressed with
+.Xr gunzip 1
+.Em before
+attempting to examine it with, for example,
+.Xr otool 1
+or
+.Xr lldb 1 .
 .It Fl x
 Create extended (compact) core files.
 With this flag,
@@ -82,6 +95,10 @@ Specify compression options e.g. algorithm and chunksize.
 Set the threshold at which I/O caching is disabled to
 .Ar threshold
 KiBytes.
+.It Fl S
+Write the core file using only streaming operations (needed for the
+.Fl g
+option).
 .It Fl d
 Enable debugging of the
 .Nm
@@ -161,6 +178,8 @@ into the core file at a later time.
 .Sh SEE ALSO
 .Xr dsymForUUID 1 ,
 .Xr dyld 1 ,
+.Xr gzip 1 ,
+.Xr gunzip 1 ,
 .Xr update_dyld_shared_cache 1
 .Sh BUGS
 When using the

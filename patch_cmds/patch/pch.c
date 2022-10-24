@@ -31,12 +31,18 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
+#ifdef __APPLE__
+#include <errno.h>
+#endif
 #include <libgen.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <time.h>
+#endif
 #include <unistd.h>
 
 #include "common.h"
@@ -54,6 +60,10 @@ static LINENUM	p_repl_lines;	/* # lines in replacement text */
 static LINENUM	p_end = -1;	/* last line in hunk */
 static LINENUM	p_max;		/* max allowed value of p_end */
 static LINENUM	p_context = 3;	/* # of context lines */
+#ifdef __APPLE__
+static LINENUM	p_leading_ctx;	/* # of leading context lines */
+static LINENUM	p_trailing_ctx;	/* # of trailing context lines */
+#endif
 static LINENUM	p_input_line = 0;	/* current line # from patch file */
 static char	**p_line = NULL;/* the text of the hunk */
 static unsigned short	*p_len = NULL; /* length of each line */
@@ -95,6 +105,9 @@ re_patch(void)
 	p_end = (LINENUM) - 1;
 	p_max = 0;
 	p_indent = 0;
+#ifdef __APPLE__
+	p_leading_ctx = p_trailing_ctx = 0;
+#endif
 }
 
 /*
@@ -109,21 +122,22 @@ open_patch_file(const char *filename)
 	if (filename == NULL || *filename == '\0' || strEQ(filename, "-")) {
 		pfp = fopen(TMPPATNAME, "w");
 		if (pfp == NULL)
-			pfatal("can't create %s", TMPPATNAME);
+			pfatal("can't create %s", quoted_name(TMPPATNAME));
 		while ((nr = fread(buf, 1, buf_size, stdin)) > 0) {
 			nw = fwrite(buf, 1, nr, pfp);
 			if (nr != nw)
-				pfatal("write error to %s", TMPPATNAME);
+				pfatal("write error to %s",
+				    quoted_name(TMPPATNAME));
 		}
 		if (ferror(pfp) || fclose(pfp))
-			pfatal("can't write %s", TMPPATNAME);
+			pfatal("can't write %s", quoted_name(TMPPATNAME));
 		filename = TMPPATNAME;
 	}
 	pfp = fopen(filename, "r");
 	if (pfp == NULL)
-		pfatal("patch file %s not found", filename);
+		pfatal("patch file %s not found", quoted_name(filename));
 	if (fstat(fileno(pfp), &filestat))
-		pfatal("can't stat %s", filename);
+		pfatal("can't stat %s", quoted_name(filename));
 	p_filesize = filestat.st_size;
 	next_intuit_at(0, 1L);	/* start at the beginning */
 	set_hunkmax();
@@ -218,7 +232,11 @@ there_is_another_patch(void)
 		if (*buf != '\n') {
 			free(bestguess);
 			bestguess = xstrdup(buf);
+#ifdef __APPLE__
+			filearg[0] = fetchname(buf, &exists, 0, NULL);
+#else
 			filearg[0] = fetchname(buf, &exists, 0);
+#endif
 		}
 		/*
 		 * fetchname can now return buf = NULL, exists = true, to
@@ -234,7 +252,11 @@ there_is_another_patch(void)
 			if (verbose)
 				say("Skipping patch...\n");
 			free(filearg[0]);
+#ifdef __APPLE__
+			filearg[0] = fetchname(bestguess, &exists, 0, NULL);
+#else
 			filearg[0] = fetchname(bestguess, &exists, 0);
+#endif
 			skip_rest_of_patch = true;
 			return true;
 		}
@@ -258,11 +280,89 @@ p4_fetchname(struct file_name *name, char *str)
 	if (h != NULL)
 		*h = '\0';
 
+#ifdef __APPLE__
+	name->path = fetchname(str, &name->exists, strippath, NULL);
+#else
 	name->path = fetchname(str, &name->exists, strippath);
+#endif
 }
 
-/* Determine what kind of diff is in the remaining part of the patch file. */
+#ifdef __APPLE__
+static int
+parse_diff_timestamp(const char *tail, struct tm *tm)
+{
+	const char *res, *time_format;
+	char *dot, *tz;
 
+	/*
+	 * tail == NULL is a possible result of fetchname() failing, so just
+	 * kick back EINVAL and let the caller get on with it.
+	 */
+	if (tail == NULL)
+		return (EINVAL);
+
+	/*
+	 * tail is the bit just after the filename, so strip off any leading tab
+	 * characters.
+	 */
+	while (isspace(*tail) && *tail != '\0')
+		tail++;
+
+	if (*tail == '\0')
+		return (EINVAL);
+
+	/* Attempt to parse it according to the locale. */
+	res = strptime(tail, "%c", tm);
+	if (res != NULL && *res == '\n')
+		return (0);
+
+	tz = xstrdup(tail);
+	time_format = "%Y-%m-%d %H:%M:%S";
+
+	/*
+	 * Legacy (non-conformant) versions of diff(1) included nanoseconds and
+	 * timezones in their format.  We can accept the timezone, but we should
+	 * strip off the nanosecond tail.
+	 */
+	dot = strchr(tz, '.');
+	if (dot != NULL) {
+		char *tzpart;
+
+		time_format = "%Y-%m-%d %H:%M:%S %z";
+
+		*dot++ = ' ';
+		tzpart = dot;
+		while (isdigit(*tzpart) && *tzpart != '\0')
+			tzpart++;
+
+		if (*tzpart != ' ') {
+			free(tz);
+			return (EINVAL);
+		}
+
+		/*
+		 * We validated the intermediate bit and advanced to the
+		 * timezone specifier, so now we replace the rest with the tz
+		 * part before our final parse.
+		 */
+		tzpart++;
+		while (*tzpart != '\0')
+			*dot++ = *tzpart++;
+		*dot = '\0';
+	}
+
+	res = strptime(tz, time_format, tm);
+	if (res == NULL || *res != '\n') {
+		free(tz);
+		return (EINVAL);
+	}
+
+	free(tz);
+	return (0);
+}
+#endif
+
+/* Determine what kind of diff is in the remaining part of the patch file. */
 static int
 intuit_diff_type(void)
 {
@@ -271,12 +371,30 @@ intuit_diff_type(void)
 	LINENUM	fcl_line = -1;
 	bool	last_line_was_command = false, this_is_a_command = false;
 	bool	stars_last_line = false, stars_this_line = false;
+#ifdef __APPLE__
+	const char *endp = NULL;
+#endif
 	char	*s, *t;
 	int	indent, retval;
 	struct file_name names[MAX_FILE];
 	int	piece_of_git = 0;
 
 	memset(names, 0, sizeof(names));
+#ifdef __APPLE__
+	if (settime) {
+		/*
+		 * settime_gmtoff should reflect UTC or the local timezone,
+		 * based on whether -T or -Z were used.  However, we may
+		 * actually ignore that entirely if the timezone is specified
+		 * in the time format.  This happens with the "legacy" unified
+		 * diff format, where we'll zap the nanosecond part but leave
+		 * the time offset intact -- we'll assume that -T/-Z were just
+		 * a best guess and we'll do what the header tells us.
+		 */
+		names[OLD_FILE].mtime.tm_gmtoff = settime_gmtoff;
+		names[NEW_FILE].mtime = names[OLD_FILE].mtime;
+	}
+#endif
 	ok_to_create_file = false;
 	fseeko(pfp, p_base, SEEK_SET);
 	p_input_line = p_bline - 1;
@@ -317,26 +435,54 @@ intuit_diff_type(void)
 			p_indent = indent;	/* assume this for now */
 		}
 		if (!stars_last_line && strnEQ(s, "*** ", 4))
+#ifdef __APPLE__
+		{
+			names[OLD_FILE].path = fetchname(s + 4,
+			    &names[OLD_FILE].exists, strippath, &endp);
+			names[OLD_FILE].mtime_set = parse_diff_timestamp(endp,
+			    &names[OLD_FILE].mtime) == 0;
+		}
+#else
 			names[OLD_FILE].path = fetchname(s + 4,
 			    &names[OLD_FILE].exists, strippath);
+#endif
 		else if (strnEQ(s, "--- ", 4)) {
 			size_t off = 4;
 			if (piece_of_git && strippath == 957 &&
 			    strnEQ(s, "--- a/", 6))
 				off = 6;
+#ifdef __APPLE__
+			names[NEW_FILE].path = fetchname(s + off,
+			    &names[NEW_FILE].exists, strippath, &endp);
+			names[NEW_FILE].mtime_set = parse_diff_timestamp(endp,
+			    &names[NEW_FILE].mtime) == 0;
+#else
 			names[NEW_FILE].path = fetchname(s + off,
 			    &names[NEW_FILE].exists, strippath);
+#endif
 		} else if (strnEQ(s, "+++ ", 4)) {
 			/* pretend it is the old name */
 			size_t off = 4;
 			if (piece_of_git && strippath == 957 &&
 			    strnEQ(s, "+++ b/", 6))
 				off = 6;
+#ifdef __APPLE__
+			names[OLD_FILE].path = fetchname(s + off,
+			    &names[OLD_FILE].exists, strippath, &endp);
+			names[OLD_FILE].mtime_set = parse_diff_timestamp(endp,
+			    &names[OLD_FILE].mtime) == 0;
+#else
 			names[OLD_FILE].path = fetchname(s + off,
 			    &names[OLD_FILE].exists, strippath);
+#endif
 		} else if (strnEQ(s, "Index:", 6))
+#ifdef __APPLE__
+			names[INDEX_FILE].path = fetchname(s + 6,
+			    &names[INDEX_FILE].exists, strippath, NULL);
+#else
 			names[INDEX_FILE].path = fetchname(s + 6,
 			    &names[INDEX_FILE].exists, strippath);
+#endif
 		else if (strnEQ(s, "Prereq:", 7)) {
 			for (t = s + 7; isspace((unsigned char)*t); t++)
 				;
@@ -457,6 +603,38 @@ scan_exit:
 		else
 			bestguess = best_name(names, true);
 	}
+#ifdef __APPLE__
+	/*
+	 * We disable -T/-Z if we couldn't parse an mtime from one of the files
+	 * in the header.
+	 */
+	if (retval != 0 && settime &&
+	    (!names[OLD_FILE].mtime_set || !names[NEW_FILE].mtime_set)) {
+		settime = false;
+		if (verbose)
+			say("WARNING: failed to parse mtime from patch header\n");
+	}
+	if (retval != 0 && settime) {
+		long old_off, new_off;
+
+		old_off = names[OLD_FILE].mtime.tm_gmtoff;
+		new_off = names[NEW_FILE].mtime.tm_gmtoff;
+
+		mtime_old = timegm(&names[OLD_FILE].mtime);
+		mtime_new = timegm(&names[NEW_FILE].mtime);
+
+		/*
+		 * Reapply the offsets we lost in conversion to time_t.  If the
+		 * patch header had a timezone specified, these will reflect
+		 * that.  Otherwise, these will be whatever we initialized
+		 * gmtoff to in the beginning based on -T (local) or -Z (UTC).
+		 */
+		if (old_off != 0)
+			mtime_old -= old_off;
+		if (new_off != 0)
+			mtime_new -= new_off;
+	}
+#endif
 	free(names[OLD_FILE].path);
 	free(names[NEW_FILE].path);
 	free(names[INDEX_FILE].path);
@@ -619,6 +797,9 @@ another_hunk(void)
 					    p_input_line, buf);
 				}
 				context = 0;
+#ifdef __APPLE__
+				p_leading_ctx = p_trailing_ctx = 0;
+#endif
 				p_line[p_end] = savestr(buf);
 				if (out_of_mem) {
 					p_end--;
@@ -748,8 +929,28 @@ another_hunk(void)
 				if (context >= 0) {
 					if (context < p_context)
 						p_context = context;
+#ifdef __APPLE__
+					/*
+					 * Note that this is technically
+					 * inaccurate, but it's close enough
+					 * that the difference doesn't matter
+					 * for us.  In a context diff,  we may
+					 * end up with a misleading
+					 * p_leading_ctx > 0 when the first line
+					 * is an insertion at BOF, but in those
+					 * cases we'll have other context that
+					 * must line up.  If the only difference
+					 * is in-fact just an insertion at the
+					 * beginning, p_leading_ctx == 0 will
+					 * hold true.
+					 */
+					p_leading_ctx = p_context;
+#endif
 					context = -1000;
 				}
+#ifdef __APPLE__
+				p_trailing_ctx = 0;
+#endif
 				p_line[p_end] = savestr(buf + 2);
 				if (out_of_mem) {
 					p_end--;
@@ -792,6 +993,9 @@ another_hunk(void)
 					goto hunk_done;
 				}
 				context++;
+#ifdef __APPLE__
+				p_trailing_ctx++;
+#endif
 				if (!repl_beginning)
 					ptrn_copiable++;
 				p_line[p_end] = savestr(buf + 2);
@@ -997,6 +1201,9 @@ hunk_done:
 				p_char[fillold] = ch;
 				p_line[fillold] = s;
 				p_len[fillold++] = strlen(s);
+#ifdef __APPLE__
+				p_trailing_ctx = 0;
+#endif
 				if (fillold > p_ptrn_lines) {
 					if (remove_special_line()) {
 						p_len[fillold - 1] -= 1;
@@ -1016,6 +1223,9 @@ hunk_done:
 					malformed();
 				}
 				context++;
+#ifdef __APPLE__
+				p_trailing_ctx++;
+#endif
 				p_char[fillold] = ch;
 				p_line[fillold] = s;
 				p_len[fillold++] = strlen(s);
@@ -1041,6 +1251,10 @@ hunk_done:
 					p_end = fillold - 1;
 					malformed();
 				}
+#ifdef __APPLE__
+				if (ch == '+')
+					p_trailing_ctx = 0;
+#endif
 				p_char[fillnew] = ch;
 				p_line[fillnew] = s;
 				p_len[fillnew++] = strlen(s);
@@ -1058,6 +1272,9 @@ hunk_done:
 			if (ch != ' ' && context > 0) {
 				if (context < p_context)
 					p_context = context;
+#ifdef __APPLE__
+				p_leading_ctx = p_context;
+#endif
 				context = -1000;
 			}
 		}		/* while */
@@ -1406,6 +1623,28 @@ pch_context(void)
 	return p_context;
 }
 
+#ifdef __APPLE__
+/*
+ * Return the actual number of context lines before the first changed line.
+ * Note that pch_context() is generally bogus if the first line of the diff is
+ * an actual action.
+ */
+LINENUM
+pch_leading_context(void)
+{
+	return p_leading_ctx;
+}
+
+/*
+ * Return the number of context lines after the last changed lined.
+ */
+LINENUM
+pch_trailing_context(void)
+{
+	return p_trailing_ctx;
+}
+#endif
+
 /*
  * Return the length of a particular patch line.
  */
@@ -1456,7 +1695,8 @@ do_ed_script(void)
 	if (!skip_rest_of_patch) {
 		if (copy_file(filearg[0], TMPOUTNAME) < 0) {
 			unlink(TMPOUTNAME);
-			fatal("can't create temp file %s", TMPOUTNAME);
+			fatal("can't create temp file %s",
+			    quoted_name(TMPOUTNAME));
 		}
 		snprintf(buf, buf_size, "%s%s%s", _PATH_RED,
 		    verbose ? " " : " -s ", TMPOUTNAME);
@@ -1510,7 +1750,11 @@ do_ed_script(void)
 	pclose(pipefp);
 	ignore_signals();
 	if (!check_only) {
+#ifdef __APPLE__
+		if (move_file(TMPOUTNAME, outname, true) < 0) {
+#else
 		if (move_file(TMPOUTNAME, outname) < 0) {
+#endif
 			toutkeep = true;
 			chmod(TMPOUTNAME, filemode);
 		} else
@@ -1601,7 +1845,36 @@ compare_names(const struct file_name *names, bool assume_exists)
 static char *
 best_name(const struct file_name *names, bool assume_exists)
 {
+#ifdef __APPLE__
+	const char *best, *path;
+	int i;
+#else
 	char *best;
+#endif
+
+#ifdef __APPLE__
+	/*
+	 * Check for VCS masters before deferring to compare_names().  If we
+	 * have an exact match in one of our VCS, then we don't need to look any
+	 * further -- this is the name that should match, whether the underlying
+	 * patch vcs driver supports checking out files from that system or not.
+	 */
+	if (vcsget != VCS_DISABLED) {
+		best = NULL;
+		for (i = INDEX_FILE; i >= OLD_FILE; i--) {
+			path = names[i].path;
+			if (path == NULL)
+				continue;
+			if (vcs_probe(path, names[i].exists, true) == 0) {
+				best = path;
+				break;
+			}
+		}
+
+		if (best != NULL)
+			return (xstrdup(best));
+	}
+#endif
 
 	best = compare_names(names, assume_exists);
 

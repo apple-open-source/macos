@@ -25,6 +25,8 @@ __BEGIN_DECLS
 #include <kern/kalloc.h>
 __END_DECLS
 
+__typed_allocators_ignore_push
+
 static inline void *
 malloc(size_t size)
 {
@@ -40,6 +42,8 @@ free(void *addr, size_t size)
 {
 	kheap_free(KHEAP_DEFAULT, addr, size);
 }
+
+__typed_allocators_ignore_pop
 
 #endif /* KERNEL */
 

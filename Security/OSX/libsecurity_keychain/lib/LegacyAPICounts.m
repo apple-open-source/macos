@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2020-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,7 +32,7 @@
 
 #pragma mark - File-Private
 
-static NSString* applicationIdentifierForSelf() {
+static NSString* applicationIdentifierForSelf(void) {
     NSString* identifier = nil;
     SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
 
@@ -68,20 +68,10 @@ static NSString* applicationIdentifierForSelf() {
     return identifier;
 }
 
-static BOOL countLegacyAPIEnabledForThread() {
-    NSNumber* value = [[NSThread currentThread] threadDictionary][@"countLegacyAPIEnabled"];
-
-    // No value means not set at all, so not disabled by SecItem*
-    if (!value || (value && [value isKindOfClass:[NSNumber class]] && [value boolValue])) {
-        return YES;
-    }
-    return NO;
-}
-
 static NSString* identifier;
 static BOOL shouldCount;
 
-static void setup() {
+static void setup(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         identifier = applicationIdentifierForSelf() ?: @"unknown";
@@ -93,6 +83,16 @@ static void setup() {
 
 void setCountLegacyAPIEnabledForThread(bool value) {
     [[NSThread currentThread] threadDictionary][@"countLegacyAPIEnabled"] = value ? @YES : @NO;
+}
+
+bool countLegacyAPIEnabledForThread(void) {
+    NSNumber* value = [[NSThread currentThread] threadDictionary][@"countLegacyAPIEnabled"];
+
+    // No value means not set at all, so not disabled by SecItem*
+    if (!value || (value && [value isKindOfClass:[NSNumber class]] && [value boolValue])) {
+        return true;
+    }
+    return false;
 }
 
 void countLegacyAPI(dispatch_once_t* token, const char* api) {

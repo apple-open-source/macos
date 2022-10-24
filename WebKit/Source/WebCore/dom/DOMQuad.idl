@@ -27,7 +27,6 @@
 
 [
     Exposed=(Window,Worker),
-    ImplementationLacksVTable,
     JSCustomMarkFunction,
     TaggedWrapper,
 ] interface DOMQuad {

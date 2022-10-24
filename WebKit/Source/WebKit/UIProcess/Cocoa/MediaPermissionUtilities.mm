@@ -109,12 +109,12 @@ bool checkUsageDescriptionStringForSpeechRecognition()
 static NSString* visibleDomain(const String& host)
 {
     auto domain = WTF::URLHelpers::userVisibleURL(host.utf8());
-    return startsWithLettersIgnoringASCIICase(domain, "www.") ? domain.substring(4) : domain;
+    return startsWithLettersIgnoringASCIICase(domain, "www."_s) ? StringView(domain).substring(4).createNSString().autorelease() : static_cast<NSString *>(domain);
 }
 
 NSString *applicationVisibleNameFromOrigin(const WebCore::SecurityOriginData& origin)
 {
-    if (origin.protocol != "http" && origin.protocol != "https")
+    if (origin.protocol != "http"_s && origin.protocol != "https"_s)
         return nil;
 
     return visibleDomain(origin.host);
@@ -190,6 +190,8 @@ static NSString *doNotAllowButtonText(MediaPermissionReason reason)
 
 void alertForPermission(WebPageProxy& page, MediaPermissionReason reason, const WebCore::SecurityOriginData& origin, CompletionHandler<void(bool)>&& completionHandler)
 {
+    ASSERT(isMainRunLoop());
+
 #if PLATFORM(IOS_FAMILY)
     if (reason == MediaPermissionReason::DeviceOrientation) {
         if (auto& userPermissionHandler = page.deviceOrientationUserPermissionHandlerForTesting())

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,11 +112,26 @@ update_key(SCDynamicStoreRef session,
     return;
 }
 
+STATIC void
+dictSetKeyValue(const void *key, const void *value, void *context)
+{
+    CFMutableDictionaryRef	dict = (CFMutableDictionaryRef)context;
+
+    CFDictionarySetValue(dict, key, value);
+}
+
+STATIC void
+my_CFDictionarySetDictionaryValues(CFMutableDictionaryRef dict,
+					CFDictionaryRef value)
+{
+    CFDictionaryApplyFunction(value, dictSetKeyValue, (void *)dict);
+}
+
 PRIVATE_EXTERN void
 my_SCDynamicStoreSetService(SCDynamicStoreRef store, 
 			    CFStringRef serviceID,
-			    CFStringRef entities[],
-			    CFDictionaryRef values[],
+			    CFTypeRef * entities,
+			    CFDictionaryRef * values,
 			    int count,
 			    boolean_t alternate_location)
 {
@@ -143,7 +158,10 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 	CFStringRef		key;
 
 	for (i = 0; i < count; i++) {
-	    if (values[i] == NULL) {
+	    CFTypeRef		entity = entities[i];
+	    CFDictionaryRef	value = values[i];
+
+	    if (value == NULL) {
 		continue;
 	    }
 	    if (dict == NULL) {
@@ -151,7 +169,12 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 						 &kCFTypeDictionaryKeyCallBacks,
 						 &kCFTypeDictionaryValueCallBacks);
 	    }
-	    CFDictionarySetValue(dict, entities[i], values[i]);
+	    if (entity == kServiceEntity) {
+		my_CFDictionarySetDictionaryValues(dict, value);
+	    }
+	    else {
+		CFDictionarySetValue(dict, entity, value);
+	    }
 	}
 	key = IPConfigurationServiceKey(serviceID);
 	update_key(store, key, dict);
@@ -162,12 +185,18 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
     }
     else {
 	for (i = 0; i < count; i++) {
+	    CFTypeRef	entity;
 	    CFStringRef	key;
-	    
+
+	    entity = entities[i];
+	    if (entity == kServiceEntity) {
+		/* setting the service key i.e. no entity */
+		entity = NULL;
+	    }
 	    key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							      kSCDynamicStoreDomainState,
 							      serviceID, 
-							      entities[i]);
+							      entity);
 	    update_key(store, key, values[i]);
 	    CFRelease(key);
 	}

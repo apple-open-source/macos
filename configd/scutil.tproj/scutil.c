@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -116,8 +116,10 @@ static const struct option longopts[] = {
 #if	!TARGET_OS_IPHONE
 	{ "allow-new-interfaces", no_argument,		NULL,	0	},
 #endif	// !TARGET_OS_IPHONE
-	{ "disable-until-needed", no_argument,		NULL,	0	},
-	{ "disable-private-relay", no_argument,		NULL,	0	},
+	{ DISABLE_UNTIL_NEEDED, no_argument,		NULL,	0	},
+	{ DISABLE_PRIVATE_RELAY, no_argument,		NULL,	0	},
+	{ ENABLE_LOW_DATA_MODE, no_argument,		NULL,	0	},
+	{ OVERRIDE_EXPENSIVE,	no_argument,		NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
@@ -434,6 +436,9 @@ usage(const char *command)
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-private-relay <interfaceName> [on|off ]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage Private Relay preferences.\n"));
 
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --enable-private-relay <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage Low Data Mode preferences.\n"));
 	}
 
 #if	!TARGET_OS_IPHONE
@@ -487,6 +492,8 @@ main(int argc, char * const argv[])
 	Boolean			doRank			= FALSE;
 	Boolean			doReach			= FALSE;
 	Boolean			doSnap			= FALSE;
+	Boolean			enableLowDataMode	= FALSE;
+	Boolean			overrideExpensive	= FALSE;
 	char			*error			= NULL;
 	char			*get			= NULL;
 	char			*log			= NULL;
@@ -581,11 +588,17 @@ main(int argc, char * const argv[])
 				allowNewInterfaces = TRUE;
 				xStore++;
 #endif	// !TARGET_OS_IPHONE
-			} else if (strcmp(longopts[opti].name, "disable-until-needed") == 0) {
+			} else if (strcmp(longopts[opti].name, DISABLE_UNTIL_NEEDED) == 0) {
 				disableUntilNeeded = TRUE;
 				xStore++;
-			} else if (strcmp(longopts[opti].name, "disable-private-relay") == 0) {
+			} else if (strcmp(longopts[opti].name, DISABLE_PRIVATE_RELAY) == 0) {
 				disablePrivateRelay = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, ENABLE_LOW_DATA_MODE) == 0) {
+				enableLowDataMode = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, OVERRIDE_EXPENSIVE) == 0) {
+				overrideExpensive = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "user") == 0) {
 				username = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
@@ -757,6 +770,18 @@ main(int argc, char * const argv[])
 	/* disablePrivateRelay */
 	if (disablePrivateRelay) {
 		do_disable_private_relay(argc, argv);
+		exit(0);
+	}
+
+	/* enableLowDataMode */
+	if (enableLowDataMode) {
+		do_enable_low_data_mode(argc, argv);
+		exit(0);
+	}
+
+	/* overrideExpensive */
+	if (overrideExpensive) {
+		do_override_expensive(argc, argv);
 		exit(0);
 	}
 

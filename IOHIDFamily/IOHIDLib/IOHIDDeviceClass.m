@@ -31,6 +31,7 @@
 #import "HIDLibElement.h"
 #import <IOKit/IODataQueueClient.h>
 #import <mach/mach_port.h>
+#import <mach/message.h>
 #import <IOKit/hid/IOHIDLibPrivate.h>
 #import <IOKit/hid/IOHIDPrivateKeys.h>
 #import "IOHIDDescriptorParser.h"
@@ -51,6 +52,48 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
 #endif
 
 @implementation IOHIDDeviceClass
+
+/**
+ *  Lifetime: Object, created in init, released in dealloc. Safe to read outside lock.
+ *  IOHIDDeviceTimeStampedDeviceInterface   *_device;
+ *  Lifetime: Object, created in start, released in dealloc. Safe to read outside lock.
+ *  io_service_t                            _service;
+ *  Lifetime: Object, created in initConnect, released in dealloc. Doesn't change. Safe to read outside lock, after calling initConnect.
+ *  io_connect_t                            _connect;
+ *
+ *  os_unfair_recursive_lock_t              _deviceLock;
+ *  Lifetime: Object, created in initPort, released in dealloc. Doesn't change. Safe to read outside lock, after calling initPort.
+ *  mach_port_t                             _port;  
+ *  Lifetime: Object, created in initPort, released in dealloc. Doesn't change. Safe to read outside lock, after calling initPort.
+ *  CFMachPortRef                           _machPort;
+ *  Lifetime: Object, created in initPort, released in dealloc. Doesn't change. Safe to read outside lock, after calling initPort.
+ *  CFRunLoopSourceRef                      _runLoopSource;
+ *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
+ *  BOOL                                    _opened;
+ *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
+ *  BOOL                                    _tccRequested;
+ *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
+ *  BOOL                                    _tccGranted;
+ * 
+ *  Lifetime: Object, need to sync with _deviceLock for reading/writing.
+ *  IOHIDQueueClass                         *_queue;
+ *  Lifetime: Object, created in initElements, released in dealloc. Doesn't change. Mutating or reading/writing elements requires the _deviceLock.
+ *  NSMutableArray                          *_elements;
+ *  Lifetime: Object, created in initElements, released in dealloc. Doesn't change. Mutating or reading/writing elements requires the _deviceLock.
+ *  NSMutableArray                          *_sortedElements;
+ *  Lifetime: Object, created in initElements, released in dealloc. Doesn't change. Mutating or reading/writing elements requires the _deviceLock.
+ *  NSMutableArray                          *_reportElements;
+ *  Lifetime: Object, created in init, released in dealloc. Only read/write under _deviceLock.
+ *  NSMutableDictionary                     *_properties;
+ * 
+ *  Lifetime: None, use _deviceLock for reading the value. _callbackLock should be held when calling into the service or to update callback to ensure that the callback isn't used after it's requested to change.
+ *  IOHIDReportCallback                     _inputReportCallback;
+ *  IOHIDReportWithTimeStampCallback        _inputReportTimestampCallback;
+ *  void                                    *_inputReportContext;
+ *  
+ *  uint8_t                                 *_inputReportBuffer;
+ *  CFIndex                                 _inputReportBufferLength;
+ */
 
 @synthesize port = _port;
 @synthesize runLoopSource = _runLoopSource;
@@ -132,8 +175,10 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
     size_t bufferSize;
     NSMutableData *data = nil;
     uint32_t maxCookie = 0;
-    
-    require_action_quiet(!_elements, exit, ret = kIOReturnSuccess);
+
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    require_action_quiet(!_elements, exit, os_unfair_recursive_lock_unlock(&_deviceLock); ret = kIOReturnSuccess);
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     ret = [self initConnect];
     require_noerr(ret, exit);
@@ -163,8 +208,9 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
                               &bufferSize);
     require_noerr_action(ret, exit, HIDLogError("IOConnectCallMethod(kIOHIDLibUserClientGetElements):%x", ret));
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     _elements = [[NSMutableArray alloc] init];
-    
+
     for (uint32_t i = 0; i < bufferSize; i += sizeof(IOHIDElementStruct)) {
         IOHIDElementStruct *elementStruct = &[data mutableBytes][i];
         IOHIDElementRef parentRef = NULL;
@@ -216,6 +262,7 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
             }
         }
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     input = kHIDReportHandlerType;
     bufferSize = sizeof(IOHIDElementStruct) * reportCount;
@@ -237,6 +284,7 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
          * These report handler elements are by our IOHIDQueue for receiving
          * input reports.
          */
+        os_unfair_recursive_lock_lock(&_deviceLock);
         _reportElements = [[NSMutableArray alloc] init];
         
         for (uint32_t i = 0; i < bufferSize; i += sizeof(IOHIDElementStruct)) {
@@ -252,6 +300,8 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
                 maxCookie = element.elementCookie;
             }
         }
+    } else {
+        os_unfair_recursive_lock_lock(&_deviceLock);
     }
     
     // Keep an array of elements sorted by cookie, for faster access in
@@ -268,6 +318,7 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
     for (HIDLibElement *element in _reportElements) {
         [_sortedElements replaceObjectAtIndex:element.elementCookie withObject:element];
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     ret = kIOReturnSuccess;
     
@@ -281,13 +332,19 @@ static void _portCallback(CFMachPortRef port,
                           void *info)
 {
     IOHIDDeviceClass *me = (__bridge id)info;
-    
-    [me->_queue queueCallback:port msg:msg size:size info:info];
+
+    if (((mach_msg_header_t *)msg)->msgh_id == kOSNotificationMessageID) {
+        IODispatchCalloutFromMessage(0, msg, 0);
+    } else {
+        [me->_queue queueCallback:port msg:msg size:size info:info];
+    }
 }
 
 - (void)initPort
 {
     CFMachPortContext context = { 0, (__bridge void *)self, NULL, NULL, NULL };
+
+    os_unfair_recursive_lock_lock(&_deviceLock);
     
     require_quiet(!_port, exit);
     
@@ -304,19 +361,25 @@ static void _portCallback(CFMachPortRef port,
                                                    _machPort,
                                                    0);
     require(_runLoopSource, exit);
-    
 exit:
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     return;
 }
 
-- (void)initQueue
+- (mach_port_t)getPort
 {
+    [self initPort];
+    return _port;
+}
+
+- (void)initQueue
+{   
+    os_unfair_recursive_lock_lock(&_deviceLock);
     require_quiet(!_queue, exit);
-    
+
     [self initPort];
     
     require_noerr([self initElements], exit);
-    
     _queue = [[IOHIDQueueClass alloc] initWithDevice:self
                                                 port:_port
                                               source:_runLoopSource];
@@ -330,21 +393,26 @@ exit:
     }
     
 exit:
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     return;
 }
 
 - (IOReturn)initConnect
 {
     IOReturn ret = kIOReturnError;
-    
+    io_connect_t connection;
+
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if (_connect) {
+        os_unfair_recursive_lock_unlock(&_deviceLock);
         return kIOReturnSuccess;
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     uint64_t regID;
     
     IORegistryEntryGetRegistryEntryID(_service, &regID);
-    
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if (!_tccRequested) {
         NSNumber *tcc = CFBridgingRelease(IORegistryEntryCreateCFProperty(
                                     _service,
@@ -364,16 +432,23 @@ exit:
     if (!_tccGranted) {
         HIDLogError("0x%llx: TCC deny IOHIDDeviceOpen", regID);
     }
-    require_action(_tccGranted, exit, ret = kIOReturnNotPermitted);
+    require_action(_tccGranted, exit, {
+        ret = kIOReturnNotPermitted;
+        os_unfair_recursive_lock_unlock(&_deviceLock);
+    });
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     ret = IOServiceOpen(_service,
                         mach_task_self(),
                         kIOHIDLibUserClientConnectManager,
-                        &_connect);
-    require_action(ret == kIOReturnSuccess && _connect, exit,
+                        &connection);
+    require_action(ret == kIOReturnSuccess && connection, exit,
                    HIDLogError("IOServiceOpen failed: 0x%x", ret));
-    
+
     ret = kIOReturnSuccess;
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    _connect = connection;
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
 exit:
     return ret;
@@ -384,7 +459,9 @@ exit:
 {
     IOReturn ret  = IOObjectRetain(service);
     require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass failed to retain service object with err %x", ret));
+    os_unfair_recursive_lock_lock(&_deviceLock);
     _service = service;
+    os_unfair_recursive_lock_unlock(&_deviceLock);
 exit:
     return ret;
 }
@@ -410,19 +487,20 @@ static IOReturn _open(void *iunknown, IOOptionBits options)
     ret = [self initConnect];
     require_noerr(ret, exit);
     
-    ret = IOConnectCallScalarMethod(_connect,
-                                    kIOHIDLibUserClientOpen,
-                                    &input,
-                                    1,
-                                    0,
-                                    NULL);
-    require_noerr_action(ret, exit, HIDLogError("IOConnectCallMethod(kIOHIDLibUserClientOpen):%x", ret));
+    ret = IOConnectCallScalarMethod(_connect, kIOHIDLibUserClientOpen, &input, 1, 0, NULL);
+    if (ret == kIOReturnExclusiveAccess) {
+        HIDLogInfo("Device is seized, reports will be dropped until the seizing client closes");
+    } else {
+        require_noerr_action(ret, exit, HIDLogError("IOConnectCallMethod(kIOHIDLibUserClientOpen):%x", ret));
+    }
     
-    _opened = (ret == kIOReturnSuccess);
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    _opened = (ret == kIOReturnSuccess || ret == kIOReturnExclusiveAccess);
         
     if (_inputReportCallback || _inputReportTimestampCallback) {
         [_queue start];
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
 exit:
     return ret;
@@ -440,14 +518,18 @@ static IOReturn _close(void * iunknown, IOOptionBits options)
 {
     IOReturn ret;
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     require_action(_opened, exit, ret = kIOReturnNotOpen);
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     ret = [self initConnect];
-    require_noerr(ret, exit);
+    require_noerr_action(ret, exit, os_unfair_recursive_lock_lock(&_deviceLock));
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if (_inputReportCallback || _inputReportTimestampCallback) {
         [_queue stop];
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
 
     ret = IOConnectCallScalarMethod(_connect,
                                     kIOHIDLibUserClientClose,
@@ -456,9 +538,11 @@ static IOReturn _close(void * iunknown, IOOptionBits options)
                                     0,
                                     NULL);
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     _opened = false;
     
 exit:
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     return ret;
 }
 
@@ -478,7 +562,9 @@ static IOReturn _getProperty(void *iunknown,
         return kIOReturnBadArgument;
     }
 
+    os_unfair_recursive_lock_lock(&_deviceLock);
     CFTypeRef prop = (__bridge CFTypeRef)_properties[key];
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     if (!prop) {
         if ([key isEqualToString:@(kIOHIDUniqueIDKey)]) {
             uint64_t regID;
@@ -498,7 +584,9 @@ static IOReturn _getProperty(void *iunknown,
         if (prop) {
             // Force a copy of the string to avoid the key reference from getting courrpted
             NSString * dictKey = [key mutableCopy];
+            os_unfair_recursive_lock_lock(&_deviceLock);
             _properties[dictKey] = (__bridge id)prop;
+            os_unfair_recursive_lock_unlock(&_deviceLock);
             CFRelease(prop);
         }
     }
@@ -527,6 +615,7 @@ static IOReturn _setProperty(void *iunknown,
     NSString* keyCopy = [key mutableCopy];
     id propertyCopy = property ? (__bridge_transfer id)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, (__bridge CFTypeRef)property, kCFPropertyListMutableContainersAndLeaves) : nil;
 
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if ([key isEqualToString:@(kIOHIDDeviceSuspendKey)]) {
         require(_queue, exit);
         
@@ -535,12 +624,15 @@ static IOReturn _setProperty(void *iunknown,
         } else {
             [_queue start];
         }
-    } else if ([key isEqualToString:@kIOHIDMaxReportBufferCountKey] || [key isEqualToString:@kIOHIDReportBufferEntrySizeKey]) {
+    } else if ([key isEqualToString:@kIOHIDMaxReportBufferCountKey] || [key isEqualToString:@kIOHIDReportBufferEntrySizeKey] || [key isEqualToString:@kIOHIDDeviceForceInterfaceRematchKey]) {
+        os_unfair_recursive_lock_unlock(&_deviceLock);
         ret = IOConnectSetCFProperty(_connect, (__bridge CFStringRef)key, (__bridge CFTypeRef)property);
+        os_unfair_recursive_lock_lock(&_deviceLock);
     }
     
 exit:
     _properties[keyCopy] = propertyCopy;
+    os_unfair_recursive_lock_unlock(&_deviceLock);
 
     return ret;
 }
@@ -561,7 +653,9 @@ static IOReturn _getAsyncEventSource(void *iunknown, CFTypeRef *pSource)
     
     [self initPort];
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     *pSource = _runLoopSource;
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     return kIOReturnSuccess;
 }
@@ -662,7 +756,9 @@ static IOReturn _copyMatchingElements(void *iunknown,
         return ret;
     }
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     NSMutableArray *elements = [[NSMutableArray alloc] initWithArray:_elements];
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     NSMutableArray *result = nil;
     
     [matching enumerateKeysAndObjectsUsingBlock:^(NSString *key,
@@ -774,6 +870,7 @@ static IOReturn _setValue(void *iunknown,
     NSUInteger elementIndex;
     CFIndex valueLength = 0;
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     require_action(_opened, exit, ret = kIOReturnNotOpen);
     
     ret = [self initElements];
@@ -805,13 +902,11 @@ static IOReturn _setValue(void *iunknown,
     inputSize = (uint32_t)(sizeof(IOHIDElementValueHeader) + valueLength);
     inputStruct = malloc(inputSize);
     _IOHIDValueCopyToElementValueHeader(value, inputStruct);
-
-    input = 1;
     
     ret = IOConnectCallMethod(_connect,
                               kIOHIDLibUserClientPostElementValues,
-                              NULL,
-                              0,
+                              &input,
+                              1,
                               inputStruct,
                               inputSize,
                               0,
@@ -827,6 +922,7 @@ static IOReturn _setValue(void *iunknown,
         [element setValueRef:value];
     }
 exit:
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     return ret;
 }
 
@@ -865,13 +961,14 @@ static IOReturn _getValue(void *iunknown,
     size_t inputSize = 0;
     size_t outputSize = 0;
     size_t elementSize = 0;
-    uint64_t updateOptions = 0;
+    uint64_t updateOptions[3] = {0};
     NSUInteger elementIndex;
     
     if (!pValue) {
         return kIOReturnBadArgument;
     }
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     require_action(_opened, exit, ret = kIOReturnNotOpen);
     
     ret = [self initElements];
@@ -902,12 +999,12 @@ static IOReturn _getValue(void *iunknown,
     // Do not poll to the device if options prevent poll, or we are not getting a feature report
     if (options & kHIDGetElementValuePreventPoll ||
         element.type != kIOHIDElementTypeFeature) {
-        updateOptions |= kIOHIDElementPreventPoll;
+        updateOptions[2] |= kIOHIDElementPreventPoll;
     }
 
     // Call to device if Forcing Poll
-    if (options & kHIDGetElementValueForcePoll && updateOptions & kIOHIDElementPreventPoll) {
-        updateOptions ^= kIOHIDElementPreventPoll;
+    if (options & kHIDGetElementValueForcePoll && updateOptions[2] & kIOHIDElementPreventPoll) {
+        updateOptions[2] ^= kIOHIDElementPreventPoll;
     }
 
     input =  (uint32_t)element.elementCookie;
@@ -918,8 +1015,8 @@ static IOReturn _getValue(void *iunknown,
 
     ret = IOConnectCallMethod(_connect,
                               kIOHIDLibUserClientUpdateElementValues,
-                              &updateOptions,
-                              1,
+                              updateOptions,
+                              3,
                               &input,
                               sizeof(input),
                               0,
@@ -954,6 +1051,7 @@ static IOReturn _getValue(void *iunknown,
     *pValue = element.valueRef;
     
 exit:
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     if (elementValue) {
         free(elementValue);
     }
@@ -973,7 +1071,9 @@ static void _valueAvailableCallback(void *context,
     IOHIDValueRef value;
     CFIndex size = 0;
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     while ((result = [_queue copyNextValue:&value]) == kIOReturnSuccess) {
+        os_unfair_recursive_lock_unlock(&_deviceLock);
         IOHIDElementRef element;
         uint32_t reportID;
         uint64_t timestamp;
@@ -982,6 +1082,7 @@ static void _valueAvailableCallback(void *context,
             size = min(_inputReportBufferLength, IOHIDValueGetLength(value));
             if (size < 0) {
                 CFRelease(value);
+                os_unfair_recursive_lock_lock(&_deviceLock);
                 continue;
             }
             
@@ -991,7 +1092,6 @@ static void _valueAvailableCallback(void *context,
         element = IOHIDValueGetElement(value);
         reportID = IOHIDElementGetReportID(element);
         timestamp = IOHIDValueGetTimeStamp(value);
-        
         if (IOHIDFAMILY_HID_TRACE_ENABLED()) {
             
             uint64_t regID;
@@ -1000,30 +1100,46 @@ static void _valueAvailableCallback(void *context,
             IOHIDFAMILY_HID_TRACE(kHIDTraceHandleReport, (uintptr_t)regID, (uintptr_t)reportID, (uintptr_t)size, (uintptr_t)timestamp, (uintptr_t)_inputReportBuffer);
             
         }
+
+        os_unfair_recursive_lock_lock(&_deviceLock);
+        IOHIDReportCallback inputReportCallback = _inputReportCallback;
+        IOHIDReportWithTimeStampCallback inputReportTimestampCallback = _inputReportTimestampCallback;
+        void * inputReportContext = _inputReportContext;
+        uint8_t * inputReportBuffer = _inputReportBuffer;
+        os_unfair_recursive_lock_unlock(&_deviceLock);
         
-        if (_inputReportCallback) {
-            (_inputReportCallback)(_inputReportContext,
+        if (inputReportCallback) {
+            os_unfair_recursive_lock_lock(&_callbackLock);
+            (inputReportCallback)(inputReportContext,
                                    result,
                                    &_device,
                                    kIOHIDReportTypeInput,
                                    reportID,
-                                   _inputReportBuffer,
+                                   inputReportBuffer,
                                    size);
+            os_unfair_recursive_lock_unlock(&_callbackLock);
         }
 
-        if (_inputReportTimestampCallback) {
-            (_inputReportTimestampCallback)(_inputReportContext,
+        if (inputReportTimestampCallback) {
+            os_unfair_recursive_lock_lock(&_callbackLock);
+            (inputReportTimestampCallback)(inputReportContext,
                                             result,
                                             &_device,
                                             kIOHIDReportTypeInput,
                                             reportID,
-                                            _inputReportBuffer,
+                                            inputReportBuffer,
                                             size,
                                             timestamp);
+            os_unfair_recursive_lock_unlock(&_callbackLock);
         }
 
         CFRelease(value);
+        os_unfair_recursive_lock_lock(&_deviceLock);
     }
+
+    // If there are any blocked reports signal that they can be dequeued
+    [_queue signalQueueEmpty];
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
 }
 
@@ -1050,45 +1166,56 @@ static IOReturn _setInputReportCallback(void *iunknown,
                            context:(void *)context
                            options:(IOOptionBits __unused)options
 {
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    os_unfair_recursive_lock_lock(&_callbackLock);
     _inputReportBuffer = report;
     _inputReportBufferLength = reportLength;
     _inputReportContext = context;
     _inputReportCallback = callback;
+    os_unfair_recursive_lock_unlock(&_callbackLock);
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     [self initQueue];
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if (_opened) {
         [_queue start];
     }
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     return kIOReturnSuccess;
 }
 
 typedef struct {
-    IOHIDReportType type;
-    uint8_t *buffer;
-    uint32_t reportID;
+    IOHIDReportType     type;
+    uint8_t           * buffer;
+    uint32_t            reportID;
     IOHIDReportCallback callback;
-    void *context;
-    void *sender;
+    void              * context;
+    void              * sender;
+    void              * device;
 } AsyncReportContext;
 
-static void _asyncCallback(void *context, IOReturn result, uint32_t bufferSize)
+static void _asyncCallback(void * context, IOReturn result, uint32_t bufferSize, uint64_t addr)
 {
-    AsyncReportContext *asyncContext = (AsyncReportContext *)context;
-    
+    AsyncReportContext * asyncContext = (AsyncReportContext *)context;
+
     if (!asyncContext || !asyncContext->callback) {
         return;
     }
-    
+
+    if (addr && asyncContext->sender) {
+        bcopy((void *)addr, asyncContext->buffer, bufferSize);
+        [(__bridge IOHIDDeviceClass *)asyncContext->sender releaseReport:addr];
+    }
+
     ((IOHIDReportCallback)asyncContext->callback)(asyncContext->context,
                                                   result,
-                                                  asyncContext->sender,
+                                                  asyncContext->device,
                                                   asyncContext->type,
                                                   asyncContext->reportID,
                                                   asyncContext->buffer,
                                                   bufferSize);
-    
     free(asyncContext);
 }
 
@@ -1130,7 +1257,12 @@ static IOReturn _setReport(void *iunknown,
     input[0] = reportType;
     input[1] = reportID;
     
-    require_action(_opened, exit, ret = kIOReturnNotOpen);
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    require_action(_opened, exit, {
+        ret = kIOReturnNotOpen;
+        os_unfair_recursive_lock_unlock(&_deviceLock);
+    });
+    os_unfair_recursive_lock_unlock(&_deviceLock);
 
     if (callback) {
         io_async_ref64_t asyncRef;
@@ -1146,7 +1278,8 @@ static IOReturn _setReport(void *iunknown,
         asyncContext->reportID = reportID;
         asyncContext->callback = callback;
         asyncContext->context = context;
-        asyncContext->sender = &_device;
+        asyncContext->sender = (__bridge void *) self;
+        asyncContext->device = &_device;
         
         asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)_asyncCallback;
         asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)asyncContext;
@@ -1227,7 +1360,12 @@ static IOReturn _getReport(void *iunknown,
         return kIOReturnBadArgument;
     }
     
-    require_action(_opened, exit, ret = kIOReturnNotOpen);
+    os_unfair_recursive_lock_lock(&_deviceLock);
+    require_action(_opened, exit, {
+        ret = kIOReturnNotOpen;
+        os_unfair_recursive_lock_unlock(&_deviceLock);
+    });
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     
     input[0] = reportType;
     input[1] = reportID;
@@ -1246,7 +1384,8 @@ static IOReturn _getReport(void *iunknown,
         asyncContext->reportID = reportID;
         asyncContext->callback = callback;
         asyncContext->context = context;
-        asyncContext->sender = &_device;
+        asyncContext->sender = (__bridge void *)self;
+        asyncContext->device = &_device;
         
         asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)_asyncCallback;
         asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)asyncContext;
@@ -1312,21 +1451,24 @@ static IOReturn _setInputReportWithTimeStampCallback(void *iunknown,
                             context:(void *)context
                             options:(IOOptionBits __unused)options
 {
+    os_unfair_recursive_lock_lock(&_deviceLock);
     _inputReportBuffer = report;
     _inputReportBufferLength = reportLength;
     _inputReportContext = context;
     _inputReportTimestampCallback = callback;
-    
+    os_unfair_recursive_lock_unlock(&_deviceLock);
+
     [self initQueue];
     
+    os_unfair_recursive_lock_lock(&_deviceLock);
     if (_opened) {
         [_queue start];
     }
-    
+    os_unfair_recursive_lock_unlock(&_deviceLock);
     return kIOReturnSuccess;
 }
 
-- (void)releaseOOBReport:(uint64_t)reportAddress
+- (void)releaseReport:(uint64_t)reportAddress
 {
     // Release report from kernel mapping.
     uint64_t inputs[] = {reportAddress};
@@ -1369,7 +1511,9 @@ static IOReturn _setInputReportWithTimeStampCallback(void *iunknown,
     };
     
     _properties = [[NSMutableDictionary alloc] init];
-    
+    _deviceLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
+    _callbackLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
+
     return self;
 }
 

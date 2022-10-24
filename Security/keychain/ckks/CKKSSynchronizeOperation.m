@@ -41,17 +41,21 @@
 - (instancetype)init {
     return nil;
 }
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks {
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                            dependencies:(CKKSOperationDependencies*)dependencies {
     if(self = [super init]) {
         _ckks = ckks;
         _restartCount = 0;
+        _deps = dependencies;
     }
     return self;
 }
 
 - (void)groupStart {
     WEAKIFY(self);
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     /*
      * Synchronizations (or resynchronizations) are complicated beasts. We will:
      *

@@ -35,6 +35,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSCKRecordHolder;
 @class FakeCKZone;
 
+extern NSString* const CKKSMockCloudKitContextID;
+
 typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 @interface FakeCKOperation : NSBlockOperation

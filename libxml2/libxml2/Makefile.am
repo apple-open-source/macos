@@ -2,13 +2,13 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = include . doc example $(FUZZ_SUBDIR) $(PYTHON_SUBDIR) xstc
+SUBDIRS = include . doc example fuzz xstc $(PYTHON_SUBDIR)
 
 DIST_SUBDIRS = include . doc example fuzz python xstc
 
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(srcdir)/include
 
-AM_CFLAGS = $(THREAD_CFLAGS) $(Z_CFLAGS) $(LZMA_CFLAGS)
+AM_CFLAGS = $(EXTRA_CFLAGS) $(THREAD_CFLAGS) $(Z_CFLAGS) $(LZMA_CFLAGS)
 
 check_PROGRAMS=testSchemas testRelax testSAX testHTML testXPath testURI \
                testThreads testC14N testAutomata testRegexp \
@@ -55,7 +55,8 @@ libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 		$(trio_sources) \
 		xmlreader.c relaxng.c dict.c SAX2.c \
 		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c \
-		xmlmodule.c schematron.c xzlib.c
+		xmlmodule.c schematron.c xzlib.c \
+		xmlversion.c
 
 DEPS = $(top_builddir)/libxml2.la
 LDADDS = $(STATIC_BINARIES) $(top_builddir)/libxml2.la $(THREAD_LIBS) $(Z_LIBS) $(LZMA_LIBS) $(ICONV_LIBS) $(M_LIBS) $(WIN32_EXTRA_LIBADD)
@@ -126,11 +127,7 @@ testC14N_LDFLAGS =
 testC14N_DEPENDENCIES = $(DEPS)
 testC14N_LDADD= $(LDADDS)
 
-if THREADS_W32
-testThreads_SOURCES = testThreadsWin32.c
-else
 testThreads_SOURCES = testThreads.c
-endif
 testThreads_LDFLAGS = 
 testThreads_DEPENDENCIES = $(DEPS)
 testThreads_LDADD= $(BASE_THREAD_LIBS) $(LDADDS)
@@ -206,9 +203,15 @@ runtests: runtest$(EXEEXT) testrecurse$(EXEEXT) testapi$(EXEEXT) \
           testchar$(EXEEXT) testdict$(EXEEXT) runxmlconf$(EXEEXT)
 	[ -d test   ] || $(LN_S) $(srcdir)/test   .
 	[ -d result ] || $(LN_S) $(srcdir)/result .
-	$(CHECKER) ./runtest$(EXEEXT) && $(CHECKER) ./testrecurse$(EXEEXT) &&$(CHECKER) ./testapi$(EXEEXT) && $(CHECKER) ./testchar$(EXEEXT)&& $(CHECKER) ./testdict$(EXEEXT) && $(CHECKER) ./runxmlconf$(EXEEXT)
+	$(CHECKER) ./runtest$(EXEEXT) && \
+	    $(CHECKER) ./testrecurse$(EXEEXT) && \
+	    ASAN_OPTIONS="$$ASAN_OPTIONS:detect_leaks=0" $(CHECKER) ./testapi$(EXEEXT) && \
+	    $(CHECKER) ./testchar$(EXEEXT) && \
+	    $(CHECKER) ./testdict$(EXEEXT) && \
+	    $(CHECKER) ./runxmlconf$(EXEEXT)
 	@(if [ "$(PYTHON_SUBDIR)" != "" ] ; then cd python ; \
 	    $(MAKE) tests ; fi)
+	@cd fuzz; $(MAKE) tests
 
 check: all runtests
 
@@ -230,7 +233,7 @@ tests: XMLtests XMLRecovertests XMLenttests NStests IDtests Errtests APItests $(
 
 APItests: testapi$(EXEEXT)
 	@echo "## Running the API regression tests this may take a little while"
-	-@($(CHECKER) $(top_builddir)/testapi -q)
+	-@(ASAN_OPTIONS="$$ASAN_OPTIONS:detect_leaks=0" $(CHECKER) $(top_builddir)/testapi -q)
 
 HTMLtests : testHTML$(EXEEXT)
 	@(echo > .memdump)
@@ -969,7 +972,10 @@ Regexptests: testRegexp$(EXEEXT)
 	      if [ -n "$$log" ] ; then echo $$name result ; echo "$$log" ; fi ; \
 	      rm result.$$name error.$$name ; \
 	  fi ; fi ; done)
-	@echo "## Formal expresssions regression tests"
+
+# Disabled for now
+Exptests: testRegexp$(EXEEXT)
+	@echo "## Formal expressions regression tests"
 	-@(for i in $(srcdir)/test/expr/* ; do \
 	  name=`basename $$i`; \
 	  if [ ! -d $$i ] ; then \
@@ -1284,15 +1290,15 @@ cleanup:
 
 dist-hook: cleanup libxml2.spec
 	-cp libxml2.spec $(distdir)
-	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn --exclude .git win32 macos os400 vms VxWorks bakefile test result) | (cd $(distdir); tar xf -)
+	(cd $(srcdir) ; tar -cf - --exclude .git win32 macos os400 vms VxWorks bakefile test result) | (cd $(distdir); tar xf -)
 
 dist-source: distdir
 	$(AMTAR) -chof - --exclude Tests --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
 
 dist-test: distdir
 	(mkdir -p $(distdir))
-	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn --exclude .git xstc/Tests) | (cd $(distdir); tar xf -)
-	tar -cf - $(distdir)/test $(distdir)/result $(distdir)/xstc/Tests  $(distdir)/Makefile.tests $(distdir)/README $(distdir)/README.tests $(distdir)/AUTHORS $(distdir)/testapi.c $(distdir)/runtest.c $(distdir)/runsuite.c | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-tests+"`.tar.gz
+	(cd $(srcdir) ; tar -cf - --exclude .git xstc/Tests) | (cd $(distdir); tar xf -)
+	tar -cf - $(distdir)/test $(distdir)/result $(distdir)/xstc/Tests  $(distdir)/Makefile.tests $(distdir)/README.md $(distdir)/README.tests $(distdir)/testapi.c $(distdir)/runtest.c $(distdir)/runsuite.c | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-tests+"`.tar.gz
 	@(rm -rf $(distdir)/xstc/Test)
 
 cleantar:
@@ -1312,6 +1318,7 @@ xml2Conf.sh: xml2Conf.sh.in Makefile
 	    -e 's?\@XML_INCLUDEDIR\@?$(XML_INCLUDEDIR)?g' \
 	    -e 's?\@VERSION\@?$(VERSION)?g' \
 	    -e 's?\@XML_LIBS\@?$(XML_LIBS)?g' \
+	    -e 's?\@XML_PRIVATE_LIBS\@?$(XML_PRIVATE_LIBS)?g' \
 	       < $(srcdir)/xml2Conf.sh.in > xml2Conf.tmp \
 	&& mv xml2Conf.tmp xml2Conf.sh
 
@@ -1320,7 +1327,6 @@ DISTCLEANFILES = COPYING missing.lst
 
 confexecdir=$(libdir)
 confexec_DATA = xml2Conf.sh
-CVS_EXTRA_DIST=
 EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
              libxml.m4 Copyright check-xml-test-suite.py gentest.py \
 	     check-relaxng-test-suite.py check-relaxng-test-suite2.py \
@@ -1330,10 +1336,12 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 	     libxml2-config.cmake.in autogen.sh \
 	     trionan.c trionan.h triostr.c triostr.h trio.c trio.h \
 	     triop.h triodef.h libxml.h elfgcchack.h xzlib.h buf.h \
-	     enc.h save.h testThreadsWin32.c genUnicode.py TODO_SCHEMAS \
+	     enc.h save.h genUnicode.py TODO_SCHEMAS \
 	     dbgen.pl dbgenattr.pl regressions.py regressions.xml \
 	     README.tests Makefile.tests libxml2.syms timsort.h \
-	     $(CVS_EXTRA_DIST)
+	     README.zOS README.md \
+	     CMakeLists.txt config.h.cmake.in libxml2-config.cmake.cmake.in \
+	     xmlversionInternal.h
 
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -1345,27 +1353,27 @@ cmake_DATA = libxml2-config.cmake
 #
 # Install the tests program sources as examples 
 #
-BASE_DIR=$(datadir)/doc
-DOC_MODULE=libxml2-$(VERSION)
-EXAMPLES_DIR=$(BASE_DIR)/$(DOC_MODULE)/examples
+EXAMPLES_DIR=$(docdir)/examples
 
 install-data-local: 
-	$(MKDIR_P) $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)
-	-$(INSTALL) -m 0644 $(srcdir)/Copyright $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)
+	$(MKDIR_P) $(DESTDIR)$(docdir)
+	-$(INSTALL) -m 0644 $(srcdir)/Copyright $(DESTDIR)$(docdir)
 	$(MKDIR_P) $(DESTDIR)$(EXAMPLES_DIR)
 	-$(INSTALL) -m 0644 $(srcdir)/xmllint.c $(DESTDIR)$(EXAMPLES_DIR)
 	-$(INSTALL) -m 0644 $(srcdir)/testSAX.c $(DESTDIR)$(EXAMPLES_DIR)
 	-$(INSTALL) -m 0644 $(srcdir)/testHTML.c $(DESTDIR)$(EXAMPLES_DIR)
 	-$(INSTALL) -m 0644 $(srcdir)/testXPath.c $(DESTDIR)$(EXAMPLES_DIR)
+	@echo "If the documentation is installed, please also look at html/examples for more." > $(DESTDIR)$(EXAMPLES_DIR)/README
 
 uninstall-local:
+	rm -f $(DESTDIR)$(EXAMPLES_DIR)/README
 	rm -f $(DESTDIR)$(EXAMPLES_DIR)/testXPath.c
 	rm -f $(DESTDIR)$(EXAMPLES_DIR)/testHTML.c
 	rm -f $(DESTDIR)$(EXAMPLES_DIR)/testSAX.c
 	rm -f $(DESTDIR)$(EXAMPLES_DIR)/xmllint.c
 	rm -rf $(DESTDIR)$(EXAMPLES_DIR)
-	rm -f $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)/Copyright
-	rm -rf $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)
+	rm -f $(DESTDIR)$(docdir)/Copyright
+	rm -rf $(DESTDIR)$(docdir)
 
 tst: tst.c
 	$(CC) $(CFLAGS) -Iinclude -o tst tst.c .libs/libxml2.a -lpthread -lm -lz -llzma

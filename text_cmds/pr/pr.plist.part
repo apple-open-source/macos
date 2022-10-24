@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-17</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Conformance fixes (3743086, 3936126).</string>
+		<string>pr.c: fix buffer overflow with -n -m (78111812)</string>
+		<string>pr.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>pr</string>
+	<key>OpenSourceVersion</key>
+	<string>2019-03-11</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/pr?id=809a8352dd5bb83dca991ff6c82e509208afad26</string>
+</dict>

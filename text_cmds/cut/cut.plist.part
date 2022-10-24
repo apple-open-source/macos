@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-05-03</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>cut.1: improved description (4873845)</string>
+		<string>cut.c: abort on file stream errors (6555390)</string>
+		<string>cut.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>cut</string>
+	<key>OpenSourceVersion</key>
+	<string>2018-05-23</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/cut?id=6872fd3c9470e867df5ff4cdcbcfe758248b6b48</string>
+</dict>

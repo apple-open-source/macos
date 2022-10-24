@@ -410,6 +410,8 @@ mdprivatekeys	mod/mod_md.html#mdprivatekeys
 mdrenewmode	mod/mod_md.html#mdrenewmode
 mdrenewwindow	mod/mod_md.html#mdrenewwindow
 mdrequirehttps	mod/mod_md.html#mdrequirehttps
+mdretrydelay	mod/mod_md.html#mdretrydelay
+mdretryfailover	mod/mod_md.html#mdretryfailover
 mdserverstatus	mod/mod_md.html#mdserverstatus
 mdstapleothers	mod/mod_md.html#mdstapleothers
 mdstapling	mod/mod_md.html#mdstapling
@@ -690,8 +692,8 @@ tlshonorclientorder	mod/mod_tls.html#tlshonorclientorder
 tlsoptions	mod/mod_tls.html#tlsoptions
 tlsprotocol	mod/mod_tls.html#tlsprotocol
 tlsproxyca	mod/mod_tls.html#tlsproxyca
-tlsproxycipherprefer	mod/mod_tls.html#tlsproxycipherprefer
-tlsproxyciphersuppress	mod/mod_tls.html#tlsproxyciphersuppress
+tlsproxyciphersprefer	mod/mod_tls.html#tlsproxyciphersprefer
+tlsproxycipherssuppress	mod/mod_tls.html#tlsproxycipherssuppress
 tlsproxyengine	mod/mod_tls.html#tlsproxyengine
 tlsproxymachinecertificate	mod/mod_tls.html#tlsproxymachinecertificate
 tlsproxyprotocol	mod/mod_tls.html#tlsproxyprotocol

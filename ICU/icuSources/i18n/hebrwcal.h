@@ -185,7 +185,8 @@ public:
      * @param right    the object to be copied.
      * @internal
      */
-    HebrewCalendar& operator=(const HebrewCalendar& right);
+    //FIXME: unimplemented
+    //HebrewCalendar& operator=(const HebrewCalendar& right);
 
     /**
      * Create and return a polymorphic copy of this calendar.

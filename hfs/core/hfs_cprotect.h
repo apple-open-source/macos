@@ -164,9 +164,9 @@ typedef struct cprotect {
 	cp_key_revision_t				cp_key_revision;
 	uint16_t						cp_raw_open_count;
 #if HFS_CONFIG_KEY_ROLL
-	struct hfs_cp_key_roll_ctx	   *cp_key_roll_ctx;
+	struct hfs_cp_key_roll_ctx		*cp_key_roll_ctx;
 #endif
-	cp_key_pair_t					cp_keys;	// Variable length
+	cp_key_pair_t					*cp_keys;	// Variable length
 } *cprotect_t;
 
 // -- On-Disk Structures --

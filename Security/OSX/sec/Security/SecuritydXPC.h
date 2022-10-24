@@ -42,6 +42,7 @@ bool SecXPCDictionarySetString(xpc_object_t message, const char *key, CFStringRe
 bool SecXPCDictionarySetStringOptional(xpc_object_t message, const char *key, CFStringRef string, CFErrorRef *error);
 
 bool SecXPCDictionarySetInt64(xpc_object_t message, const char *key, int64_t value, CFErrorRef *error);
+bool SecXPCDictionarySetUInt64(xpc_object_t message, const char *key, uint64_t value, CFErrorRef *error);
 
 bool SecXPCDictionarySetFileDescriptor(xpc_object_t message, const char *key, int fd, CFErrorRef *error);
 int SecXPCDictionaryDupFileDescriptor(xpc_object_t message, const char *key, CFErrorRef *error);
@@ -62,6 +63,7 @@ bool SecXPCDictionaryGetBool(xpc_object_t message, const char *key, CFErrorRef *
 bool SecXPCDictionaryGetDouble(xpc_object_t message, const char *key, double *pvalue, CFErrorRef *error) ;
 
 CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char *key, CFErrorRef *error);
+CFDictionaryRef SecXPCDictionaryCopyDictionaryWithoutZeroingDataInMessage(xpc_object_t message, const char *key, CFErrorRef *error);
 
 bool SecXPCDictionaryCopyDictionaryOptional(xpc_object_t message, const char *key, CFDictionaryRef *pdictionary, CFErrorRef *error);
 

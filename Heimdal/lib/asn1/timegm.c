@@ -74,7 +74,7 @@ _der_timegm (struct tm *tm)
       return -1;
   if (tm->tm_min < 0 || tm->tm_min > 59)
       return -1;
-  if (tm->tm_sec < 0 || tm->tm_sec > 59)
+  if (tm->tm_sec < 0 || tm->tm_sec > 60)
       return -1;
 
   for (i = 70; i < tm->tm_year; ++i)

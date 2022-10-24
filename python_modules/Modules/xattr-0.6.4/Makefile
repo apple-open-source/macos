@@ -22,6 +22,6 @@ endif
 
 postinstall:
 ####### rdar://76017541 (Remove /usr/bin/xattr from python_modules)
-	rm -f $(DSTROOT)/usr/bin/xattr
+	rm -f $(DSTROOT)$(BINDIR)/xattr
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt
 	cp -f $(NAME).partial $(OSV)/$(NAME)-$(VERSION).partial

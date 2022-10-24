@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -193,7 +193,7 @@ interface_up_down(const char * ifname, boolean_t up)
     }
     else {
 	my_log(LOG_INFO,
-	       "interface_up_down(%s, %s)", ifname,
+	       "%s(%s, %s)", __func__, ifname,
 	       up ? "UP" : "DOWN");
 	ret = interface_set_flags(s, ifname,
 				  up ? IFF_UP : 0,
@@ -202,6 +202,28 @@ interface_up_down(const char * ifname, boolean_t up)
     }
     return (ret);
 }
+
+PRIVATE_EXTERN int
+interface_set_noarp(const char * ifname, boolean_t noarp)
+{
+    int 	ret = 0;
+    int 	s = inet_dgram_socket();
+
+    if (s < 0) {
+	ret = errno;
+    }
+    else {
+	my_log(LOG_INFO, "%s(%s, %s NOARP)",
+	       __func__, ifname,
+	       noarp ? "set" : "clear");
+	ret = interface_set_flags(s, ifname,
+				  noarp ? IFF_NOARP : 0,
+				  !noarp ? IFF_NOARP : 0);
+	close(s);
+    }
+    return (ret);
+}
+
 
 PRIVATE_EXTERN int
 inet_attach_interface(const char * ifname, boolean_t set_iff_up)

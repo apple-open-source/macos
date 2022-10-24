@@ -711,7 +711,7 @@ skmem_cache_create(const char *name, size_t bufsize, size_t bufalign,
 
 	skm->skm_region = region;
 	/* callee holds reference */
-	skmem_region_slab_config(region, skm);
+	skmem_region_slab_config(region, skm, true);
 	objsize = region->skr_c_obj_size;
 	skm->skm_objsize = objsize;
 
@@ -891,7 +891,7 @@ skmem_cache_destroy(struct skmem_cache *skm)
 	    skm->skm_name, SK_KVA(skm));
 
 	/* callee releases reference */
-	skmem_region_slab_config(skm->skm_region, NULL);
+	skmem_region_slab_config(skm->skm_region, skm, false);
 	skm->skm_region = NULL;
 
 #if KASAN

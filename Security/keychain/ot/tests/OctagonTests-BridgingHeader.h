@@ -71,6 +71,8 @@
 
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"
+#import "keychain/ot/OTAuthKitAdapter.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 #import "KeychainCircle/generated_source/KCInitialMessageData.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"

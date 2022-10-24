@@ -37,7 +37,6 @@
 #include <sys/kern_event.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
-#include <sys/sysctl.h>
 #include <sys/utsname.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -603,7 +602,7 @@ pcap_filter_pktap(pcap_t *pcap, pcap_dumper_t *dumper, struct pcap_if_info *if_i
  * Add a section header block when needed
  */
 int
-pcap_ng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
+pcap_ng_dump_shb_comment(pcap_t *pcap, pcap_dumper_t *dumper, const char *comment)
 {
 	pcapng_block_t block = NULL;
 	int retval;
@@ -641,20 +640,12 @@ pcap_ng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
 	block = dumper->dump_block;
 
 	if (pcap->shb_added == 0 || dumper->shb_added == 0) {
-		
 		char buf[256];
 		
 		retval = pcap_ng_block_reset(block, PCAPNG_BT_SHB);
 		if (retval != 0) {
 			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 				 "%s: pcap_ng_block_reset(PCAPNG_BT_SHB) failed", __func__);
-			return (0);
-		}
-		retval = pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT,
-							      "section header block");
-		if(retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_OPT_COMMENT) failed", __func__);
 			return (0);
 		}
 		
@@ -681,13 +672,28 @@ pcap_ng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
 				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_SHB_USERAPPL) failed", __func__);
 			return (0);
 		}
-		
+
+		if (comment != NULL && *comment != 0) {
+			retval = pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+			if(retval != 0) {
+				snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+					 "%s: pcap_ng_block_add_option_with_string(PCAPNG_OPT_COMMENT) failed", __func__);
+				return (0);
+			}
+		}
+
 		(void) pcap_ng_dump_block(dumper, block);
 		
 		pcap->shb_added = 1;
 		dumper->shb_added = 1;
 	}
 	return (1);
+}
+
+int
+pcap_ng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
+{
+	return pcap_ng_dump_shb_comment(pcap, dumper, NULL);
 }
 
 struct pcap_proc_info *
@@ -954,7 +960,7 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktp_hdr->pth_trace_tag, 2);
 	}
 #endif /* PKTAP_HAS_TRACE_TAG */
-	if (comment != NULL) {
+	if (comment != NULL && *comment != 0) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
 	}
 	if (pktp_hdr->pth_flags & PTH_FLAG_NEW_FLOW) {
@@ -1027,15 +1033,15 @@ pcap_ng_dump_decryption_secrets(pcap_t *pcap, pcap_dumper_t *dumper,
 int
 pcap_apple_set_exthdr(pcap_t *p, int v)
 {
-    int status = -1;
-    
+	int status = -1;
+
 #ifdef BIOCSEXTHDR
-    if (ioctl(p->fd, BIOCSEXTHDR, (caddr_t)&v) < 0) {
-        snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "BIOCSEXTHDR: %s",
-                 pcap_strerror(errno));
-        status = PCAP_ERROR;
-    } else {
-        p->extendedhdr = v;
+	if (ioctl(p->fd, BIOCSEXTHDR, (caddr_t)&v) < 0) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "BIOCSEXTHDR: %s",
+			 pcap_strerror(errno));
+		status = PCAP_ERROR;
+	} else {
+		p->extendedhdr = v;
 		status = 0;
 	}
 #endif /* BIOCSEXTHDR */
@@ -1071,10 +1077,76 @@ pcap_set_pktap_hdr_v2(pcap_t *p, bool on)
 
 #ifdef BIOCSPKTHDRV2
 	p->pktaphdrv2 = on;
-        status = 0;
+	status = 0;
 #endif /* BIOCSPKTHDRV2 */
-    
-    return (status);
+
+	return (status);
+}
+
+int
+pcap_set_compression(pcap_t *p, int v)
+{
+	int status = PCAP_ERROR;
+
+	if (v >= 0 && v <= 2) {
+		p->compression_mode = v;
+		status = 0;
+	}
+
+	return status;
+}
+
+int
+pcap_set_head_drop(pcap_t *p, int v)
+{
+	p->head_drop = !!v;
+
+	return 0;
+}
+
+int
+pcap_get_head_drop(pcap_t *p)
+{
+	return p->head_drop;
+}
+
+int
+pcap_get_compression_stats(pcap_t *p, void *bufp, size_t buflen)
+{
+	if (p->compression_mode == 1) {
+#ifdef HAS_BPF_HDR_COMP
+		struct bpf_comp_stats bcs;
+
+		if (ioctl(p->fd, BIOCGHDRCOMPSTATS, (caddr_t)&bcs) < 0) {
+			pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+									  errno, "BIOCGHDRCOMPSTATS");
+			return PCAP_ERROR;
+		}
+
+		(void)snprintf(bufp, buflen,
+					   "K tot_rd %llu tot_sz %llu tot_hdr_sz %llu no_prfx_cnt %llu prfx_cnt %llu tot_prfx_sz %llu max_prfx_sz %llu",
+					   bcs.bcs_total_read,
+					   bcs.bcs_total_size,
+					   bcs.bcs_total_hdr_size,
+					   bcs.bcs_count_no_common_prefix,
+					   bcs.bcs_count_compressed_prefix,
+					   bcs.bcs_total_compressed_prefix_size,
+					   bcs.bcs_max_compressed_prefix_size);
+		return 0;
+#endif /* HAS_BPF_HDR_COMP */
+	} else if (p->compression_mode == 2) {
+		(void)snprintf(bufp, buflen,
+					   "U tot_rd %llu tot_sz %llu tot_hdr_sz %llu no_prfx_cnt %llu prfx_cnt %llu tot_prfx_sz %llu max_prfx_sz %u",
+					   p->total_read,
+					   p->total_size,
+					   p->total_hdr_size,
+					   p->count_no_common_prefix,
+					   p->count_common_prefix,
+					   p->total_common_prefix_size,
+					   p->max_common_prefix_size);
+		return 0;
+	}
+	return -1;
 }
 
 static char *
@@ -1172,7 +1244,6 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 			}
 		}
 
-#ifdef BPF_PKTFLAGS_WAKE_PKT
 		if (bhep->bh_pktflags & BPF_PKTFLAGS_WAKE_PKT) {
 			bzero(&tmpbuf, sizeof (tmpbuf));
 			tlen = snprintf(tmpbuf, sizeof (tmpbuf),
@@ -1183,7 +1254,6 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 			}
 		}
 	}
-#endif /* BPF_PKTFLAGS_WAKE_PKT */
 
 	if (bhep->bh_unsent_bytes > 0) {
 		bzero(&tmpbuf, sizeof (tmpbuf));
@@ -1444,12 +1514,7 @@ pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pktap_v2_hdr->pth_flowid != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLOW_ID , &pktap_v2_hdr->pth_flowid, 4);
 	}
-#ifdef PKTAP_HAS_TRACE_TAG
-	if (pktp_hdr->pth_trace_tag != 0) {
-		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktap_v2_hdr->pth_trace_tag, 2);
-	}
-#endif /* PKTAP_HAS_TRACE_TAG */
-	if (comment != NULL) {
+	if (comment != NULL && *comment != 0) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
 	}
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_NEW_FLOW) {

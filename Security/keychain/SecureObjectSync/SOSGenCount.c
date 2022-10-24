@@ -70,7 +70,7 @@ static SOSGenCountRef sosGenerationCreateOrIncrement(SOSGenCountRef gen) {
     return CFNumberCreate(NULL, kCFNumberSInt64Type, &value);
 }
 
-SOSGenCountRef SOSGenerationCreate() {
+SOSGenCountRef SOSGenerationCreate(void) {
     return sosGenerationCreateOrIncrement(NULL);
 }
 

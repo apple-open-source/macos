@@ -46,6 +46,7 @@ bool _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, S
 bool _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error);
 bool _SecItemDeleteAll(CFErrorRef *error);
 bool _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error);
+bool _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error);
 
 bool _SecServerRestoreKeychain(CFErrorRef *error);
 bool _SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);

@@ -39,6 +39,8 @@ __BEGIN_DECLS
 #include <os/base_private.h>
 #include <stdint.h>
 
+OS_ASSUME_PTR_ABI_SINGLE_BEGIN
+
 #if __GNUC__
 #define os_constant(x) __builtin_constant_p((x))
 #define os_hardware_trap() __asm__ __volatile__ (""); __builtin_trap()
@@ -70,15 +72,21 @@ __BEGIN_DECLS
 	})
 
 #if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
+
 #include <os/log_private.h>
 
-#define __os_crash_fmt(...) \
+#define OS_CRASH_MSG_BUFSZ 80
+
+#define __os_crash_fmt(fmt, ...) \
 	({ \
-		const size_t __size = os_log_pack_size(__VA_ARGS__); \
-		uint8_t __buf[__size] __attribute__((aligned(__alignof(os_log_pack_s)))); \
-		os_log_pack_t __pack = (os_log_pack_t)&__buf; \
-		os_log_pack_fill(__pack, __size, errno, __VA_ARGS__); \
-		_os_crash_fmt(__pack, __size); \
+		const char *__fmt_tmp = NULL; \
+		char __buf[OS_CRASH_MSG_BUFSZ] = { 0 }; \
+		char *__composed = os_log_send_and_compose( \
+				OS_LOG_F_SEND | OS_LOG_F_COMPOSE, \
+				&__fmt_tmp, __buf, sizeof(__buf), \
+				OS_LOG_DEFAULT, OS_LOG_TYPE_ERROR, \
+				fmt, __VA_ARGS__); \
+		_os_crash_msg(__fmt_tmp, __composed); \
 		os_hardware_trap(); \
 	})
 
@@ -99,9 +107,19 @@ __BEGIN_DECLS
 #define os_crash(...) \
 	__os_crash_invoke(__has_more_than_one_argument(__VA_ARGS__), __VA_ARGS__)
 
+/*
+ * This API may have been adopted via the older `__os_crash_fmt` macro, so it
+ * must remain until all adopters have been rebuilt with the newer macro.
+ */
+API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0))
 OS_COLD
 extern void
 _os_crash_fmt(os_log_pack_t, size_t);
+
+API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
+OS_COLD
+extern void
+_os_crash_msg(const char *, char *);
 
 /*!
  * @function os_assert_sprintf
@@ -292,7 +310,7 @@ os_set_crash_callback(os_crash_callback_t callback) {
 #else // OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
 #define _os_assert_crash(e, ...) ({ \
-		char *_fail_message = _os_assert_log(e); \
+		char *__unsafe_indexable _fail_message = _os_assert_log(e); \
 		os_crash(_fail_message); \
 		free(_fail_message); \
 })
@@ -496,7 +514,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 			__OS_COMPILETIME_ASSERT__(e); \
 		} \
 									\
-		char *_fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
+		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -509,7 +527,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 			__OS_COMPILETIME_ASSERT__(!(e)); \
 		} \
 \
-		char *_fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
+		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)_e); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -518,7 +536,7 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING ignored, void *ctx, const char *
 #define posix_assert_zero_ctx(f, ctx, e) __extension__({ \
 	__typeof__(e) _e = os_slowpath(e); \
 	if (_e == (__typeof__(e))-1) { \
-		char *_fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)errno); \
+		char *__unsafe_indexable _fail_message = _os_assert_log_ctx((f), (ctx), (uint64_t)(uintptr_t)errno); \
 		os_crash(_fail_message);	     \
 		free(_fail_message); \
 	} \
@@ -538,7 +556,7 @@ _os_assumes_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED
-extern char *
+extern char *__unsafe_indexable
 _os_assert_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
@@ -548,7 +566,7 @@ _os_assumes_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
 OS_COLD OS_NOT_TAIL_CALLED
-extern char *
+extern char *__unsafe_indexable
 _os_assert_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
@@ -556,5 +574,6 @@ extern void
 _os_avoid_tail_call(void);
 
 __END_DECLS
+OS_ASSUME_PTR_ABI_SINGLE_END
 
 #endif /* __OS_ASSUMES_H__ */

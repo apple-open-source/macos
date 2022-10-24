@@ -30,6 +30,7 @@
 
 #include "CSSValuePool.h"
 #include "CanvasRenderingContext.h"
+#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "HTMLCanvasElement.h"
 #include "ImageBitmap.h"
@@ -39,7 +40,6 @@
 #include "MIMETypeRegistry.h"
 #include "OffscreenCanvasRenderingContext2D.h"
 #include "PlaceholderRenderingContext.h"
-#include "RuntimeEnabledFeatures.h"
 #include "WorkerGlobalScope.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -68,7 +68,7 @@ RefPtr<ImageBuffer> DetachedOffscreenCanvas::takeImageBuffer()
     return WTFMove(m_buffer);
 }
 
-WeakPtr<HTMLCanvasElement> DetachedOffscreenCanvas::takePlaceholderCanvas()
+WeakPtr<HTMLCanvasElement, WeakPtrImplWithEventTargetData> DetachedOffscreenCanvas::takePlaceholderCanvas()
 {
     ASSERT(isMainThread());
     return std::exchange(m_placeholderCanvas, nullptr);
@@ -78,7 +78,7 @@ bool OffscreenCanvas::enabledForContext(ScriptExecutionContext& context)
 {
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
     if (context.isWorkerGlobalScope())
-        return RuntimeEnabledFeatures::sharedFeatures().offscreenCanvasInWorkersEnabled();
+        return DeprecatedGlobalSettings::offscreenCanvasInWorkersEnabled();
 #endif
 
     ASSERT(context.isDocument());
@@ -283,7 +283,7 @@ ExceptionOr<RefPtr<ImageBitmap>> OffscreenCanvas::transferToImageBitmap()
         // As the canvas context state is stored in GraphicsContext, which is owned
         // by buffer(), to avoid resetting the context state, we have to make a copy and
         // clear the original buffer rather than returning the original buffer.
-        auto bufferCopy = buffer()->copyRectToBuffer(FloatRect(FloatPoint(), buffer()->logicalSize()), buffer()->colorSpace(), *drawingContext());
+        auto bufferCopy = buffer()->clone();
         downcast<OffscreenCanvasRenderingContext2D>(*m_context).clearCanvas();
         clearCopiedImage();
 
@@ -451,14 +451,13 @@ void OffscreenCanvas::commitToPlaceholderCanvas()
         m_context->paintRenderingResultsToCanvas();
 
     if (m_placeholderData->bufferPipeSource) {
-        auto bufferCopy = imageBuffer->copyRectToBuffer(FloatRect(FloatPoint(), imageBuffer->logicalSize()), DestinationColorSpace::SRGB(), imageBuffer->context());
-        if (bufferCopy)
+        if (auto bufferCopy = imageBuffer->clone())
             m_placeholderData->bufferPipeSource->handle(WTFMove(bufferCopy));
     }
 
     Locker locker { m_placeholderData->bufferLock };
     bool shouldPushBuffer = !m_placeholderData->pendingCommitBuffer;
-    m_placeholderData->pendingCommitBuffer = imageBuffer->copyRectToBuffer(FloatRect(FloatPoint(), imageBuffer->logicalSize()), DestinationColorSpace::SRGB(), imageBuffer->context());
+    m_placeholderData->pendingCommitBuffer = imageBuffer->clone();
     if (m_placeholderData->pendingCommitBuffer && shouldPushBuffer)
         pushBufferToPlaceholder();
 }

@@ -577,6 +577,7 @@
 
     // Another machine comes along and updates the pointer!
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
                                                                     currentItemUUID:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
@@ -589,7 +590,7 @@
     // Ensure that receiving the current item pointer generates a notification
     keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self waitForExpectations:@[keychainChanged] timeout:8];
@@ -597,6 +598,7 @@
 
     // And again!
     CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
                                                                     currentItemUUID:pcsItemRecordID2.recordName
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
@@ -608,7 +610,7 @@
 
     keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self waitForExpectations:@[keychainChanged] timeout:8];
@@ -663,6 +665,7 @@
 
     // Another machine comes along and updates the pointer!
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
                                                                     currentItemUUID:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
@@ -672,7 +675,7 @@
     CKRecord* currentPointerRecord = self.keychainZone.currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found record in CloudKit at expected UUID");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self fetchCurrentPointer:false persistentRef:persistentRef];
@@ -683,7 +686,7 @@
     // Another machine comes along and deletes the pointer!
     [self.keychainZone deleteCKRecordIDFromZone: currentPointerRecordID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self waitForExpectations:@[keychainChanged] timeout:8];
 
@@ -735,6 +738,7 @@
 
     // Someone else sets the current record pointer
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
                                                                     currentItemUUID:recordUUID
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
@@ -842,13 +846,16 @@
     modifiedRecord[SecCKRecordServerWasCurrent] = [NSNumber numberWithInteger:10];
     [self.keychainZone addToZone:modifiedRecord];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Check that the number is on the CKKSMirrorEntry
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:@"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID error:&error];
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
+                                                    contextID:self.defaultCKKS.operationDependencies.contextID
+                                                       zoneID:self.keychainZoneID
+                                                        error:&error];
 
         XCTAssertNil(error, "no error fetching ckme");
         XCTAssertNotNil(ckme, "Received a ckme");
@@ -1156,7 +1163,7 @@
     [self waitForExpectations:@[setCurrentExpectation] timeout:20];
 
     // Reissue a fetch and find the new persistent ref and sha1 for the item at this UUID
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // The conflicting item update should have won
@@ -1319,7 +1326,7 @@
     [self waitForExpectations:@[setCurrentExpectation] timeout:20];
 
     // Reissue a fetch and find the new persistent ref and sha1 for the item at this UUID
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // The conflicting item update should have won

@@ -42,6 +42,7 @@ da{
         an{"aragonesisk"}
         ang{"oldengelsk"}
         anp{"angika"}
+        apw{"apache, vestlig"}
         ar{"arabisk"}
         ar_001{"moderne standardarabisk"}
         arc{"aramæisk"}
@@ -200,6 +201,7 @@ da{
         grc{"oldgræsk"}
         gsw{"schweizertysk"}
         gu{"gujarati"}
+        guc{"wayuu"}
         guz{"gusii"}
         gv{"manx"}
         gwi{"gwichin"}
@@ -275,6 +277,7 @@ da{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karatjai-balkar"}
+        kri{"krio"}
         krl{"karelsk"}
         kru{"kurukh"}
         ks{"kashmiri"}
@@ -527,6 +530,7 @@ da{
         vai{"vai"}
         ve{"venda"}
         vi{"vietnamesisk"}
+        vls{"vestflamsk"}
         vo{"volapyk"}
         vot{"votisk"}
         vun{"vunjo"}

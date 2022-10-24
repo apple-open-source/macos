@@ -40,11 +40,24 @@
 namespace JSC { namespace Wasm {
 
 struct PatchpointExceptionHandle {
+    PatchpointExceptionHandle(std::optional<bool> hasExceptionHandlers)
+        : m_hasExceptionHandlers(hasExceptionHandlers)
+    { }
+
+    PatchpointExceptionHandle(std::optional<bool> hasExceptionHandlers, unsigned callSiteIndex, unsigned numLiveValues)
+        : m_hasExceptionHandlers(hasExceptionHandlers)
+        , m_callSiteIndex(callSiteIndex)
+        , m_numLiveValues(numLiveValues)
+    { }
+
     template <typename Generator>
     void generate(CCallHelpers& jit, const B3::StackmapGenerationParams& params, Generator* generator) const
     {
-        if (m_callSiteIndex == s_invalidCallSiteIndex)
+        if (m_callSiteIndex == s_invalidCallSiteIndex) {
+            if (!m_hasExceptionHandlers || m_hasExceptionHandlers.value())
+                jit.store32(CCallHelpers::TrustedImm32(m_callSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
             return;
+        }
 
         StackMap values(m_numLiveValues);
         unsigned paramsOffset = params.size() - m_numLiveValues;
@@ -58,29 +71,38 @@ struct PatchpointExceptionHandle {
 
     static constexpr unsigned s_invalidCallSiteIndex = std::numeric_limits<unsigned>::max();
 
+    std::optional<bool> m_hasExceptionHandlers;
     unsigned m_callSiteIndex { s_invalidCallSiteIndex };
     unsigned m_numLiveValues;
 };
 
 
-static inline void computeExceptionHandlerLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)
+static inline void computeExceptionHandlerAndLoopEntrypointLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, Vector<CodeLocationLabel<WasmEntryPtrTag>>& loopEntrypoints, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)
 {
     if (!context.procedure)
         return;
 
-    unsigned entrypointIndex = 0;
+    unsigned entrypointIndex = 1;
     unsigned numEntrypoints = context.procedure->numEntrypoints();
     for (const UnlinkedHandlerInfo& handlerInfo : function->exceptionHandlers) {
-        RELEASE_ASSERT(entrypointIndex < numEntrypoints);
         if (handlerInfo.m_type == HandlerType::Delegate) {
             handlers.append({ });
             continue;
         }
 
-        ++entrypointIndex;
+        RELEASE_ASSERT(entrypointIndex < numEntrypoints);
         handlers.append(linkBuffer.locationOf<ExceptionHandlerPtrTag>(context.procedure->code().entrypointLabel(entrypointIndex)));
+        ++entrypointIndex;
     }
-    RELEASE_ASSERT(entrypointIndex == numEntrypoints - 1);
+
+    for (; entrypointIndex < numEntrypoints; ++entrypointIndex)
+        loopEntrypoints.append(linkBuffer.locationOf<WasmEntryPtrTag>(context.procedure->code().entrypointLabel(entrypointIndex)));
+}
+
+static inline void computeExceptionHandlerLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)
+{
+    Vector<CodeLocationLabel<WasmEntryPtrTag>> ignored;
+    computeExceptionHandlerAndLoopEntrypointLocations(handlers, ignored, function, context, linkBuffer);
 }
 
 static inline void emitRethrowImpl(CCallHelpers& jit)

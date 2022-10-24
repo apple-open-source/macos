@@ -424,7 +424,7 @@ OcspRespStatus tpVerifyOcspResp(
     ocspResp_genTime = (char *)malloc(GENERAL_TIME_STRLEN + 1);
     if (ocspResp_cssmTime && ocspResp_genTime) {
         cssmTimeStr = vfyCtx.verifyTime;        // store old verify time for other ctx users
-        cfAbsTimeToGgenTime(ocspResp.producedAt(), ocspResp_genTime);
+        cfAbsTimeToGgenTime2(ocspResp.producedAt(), ocspResp_genTime, GENERAL_TIME_STRLEN + 1);
         tpTimeToCssmTimestring(ocspResp_genTime,GENERAL_TIME_STRLEN,ocspResp_cssmTime);
         vfyCtx.verifyTime = ocspResp_cssmTime;
     }

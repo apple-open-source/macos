@@ -336,6 +336,7 @@
 #include <kern/zalloc.h>
 #include <kern/debug.h>
 
+#include <net/ntstat.h>
 #include <net/content_filter.h>
 #include <net/content_filter_crypto.h>
 
@@ -354,11 +355,7 @@
 #include <kern/task.h>
 #include <mach/task_info.h>
 
-#if !XNU_TARGET_OS_OSX
-#define MAX_CONTENT_FILTER 2
-#else
 #define MAX_CONTENT_FILTER 8
-#endif
 
 extern struct inpcbinfo ripcbinfo;
 struct cfil_entry;
@@ -563,7 +560,9 @@ TAILQ_HEAD(cfil_sock_head_stats, cfil_info) cfil_sock_head_stats;
 #define IS_RAW(so)  (so && so->so_proto && so->so_proto->pr_type == SOCK_RAW  && so->so_proto->pr_protocol == IPPROTO_RAW)
 
 #define OPTIONAL_IP_HEADER(so) (!IS_TCP(so) && !IS_UDP(so))
-#define GET_SO_PROTO(so) ((so && so->so_proto) ? so->so_proto->pr_protocol : IPPROTO_MAX)
+#define GET_SO_PROTOCOL(so) ((so && so->so_proto) ? so->so_proto->pr_protocol : IPPROTO_IP)
+#define GET_SO_INP_PROTOCOL(so) ((so && sotoinpcb(so)) ? sotoinpcb(so)->inp_ip_p : IPPROTO_IP)
+#define GET_SO_PROTO(so) ((GET_SO_PROTOCOL(so) != IPPROTO_IP) ? GET_SO_PROTOCOL(so) : GET_SO_INP_PROTOCOL(so))
 #define IS_INP_V6(inp) (inp && (inp->inp_vflag & INP_IPV6))
 
 #define UNCONNECTED(inp) (inp && (((inp->inp_vflag & INP_IPV4) && (inp->inp_faddr.s_addr == INADDR_ANY)) || \
@@ -2204,10 +2203,18 @@ cfil_ctl_getopt(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo,
 			goto return_already_unlocked;
 		}
 
+		if (sock->so_proto == NULL || sock->so_proto->pr_domain == NULL) {
+			CFIL_LOG(LOG_INFO, "CFIL: GET_SOCKET_INFO failed: so %llx NULL so_proto / pr_domain",
+			    (uint64_t)VM_KERNEL_ADDRPERM(sock));
+			error = EINVAL;
+			socket_unlock(sock, 1);
+			goto return_already_unlocked;
+		}
+
 		// Fill out family, type, and protocol
 		sock_info->cfs_sock_family = sock->so_proto->pr_domain->dom_family;
 		sock_info->cfs_sock_type = sock->so_proto->pr_type;
-		sock_info->cfs_sock_protocol = sock->so_proto->pr_protocol;
+		sock_info->cfs_sock_protocol = GET_SO_PROTO(sock);
 
 		// Source and destination addresses
 		struct inpcb *inp = sotoinpcb(sock);
@@ -2577,7 +2584,8 @@ cfil_info_alloc(struct socket *so, struct soflow_hash_entry *hash_entry)
 	if (hash_entry == NULL) {
 		// This is the TCP case, cfil_info is tracked per socket
 		if (inp->inp_flowhash == 0) {
-			inp->inp_flowhash = inp_calc_flowhash(inp);
+			inp_calc_flowhash(inp);
+			ASSERT(inp->inp_flowhash != 0);
 		}
 
 		so->so_cfil = cfil_info;
@@ -2965,6 +2973,7 @@ cfil_dispatch_attach_event_sign(cfil_crypto_state_t crypto_state,
     struct cfil_msg_sock_attached *msg)
 {
 	struct cfil_crypto_data data = {};
+	struct iovec extra_data[1] = { { NULL, 0 } };
 
 	if (crypto_state == NULL || msg == NULL || cfil_info == NULL) {
 		return false;
@@ -2986,13 +2995,18 @@ cfil_dispatch_attach_event_sign(cfil_crypto_state_t crypto_state,
 		data.local.sin6 = msg->cfs_dst.sin6;
 	}
 
+	if (strlen(msg->cfs_remote_domain_name) > 0) {
+		extra_data[0].iov_base = msg->cfs_remote_domain_name;
+		extra_data[0].iov_len = strlen(msg->cfs_remote_domain_name);
+	}
+
 	// At attach, if local address is already present, no need to re-sign subsequent data messages.
 	if (!NULLADDRESS(data.local)) {
 		cfil_info->cfi_isSignatureLatest = true;
 	}
 
 	msg->cfs_signature_length = sizeof(cfil_crypto_signature);
-	if (cfil_crypto_sign_data(crypto_state, &data, msg->cfs_signature, &msg->cfs_signature_length) != 0) {
+	if (cfil_crypto_sign_data(crypto_state, &data, extra_data, sizeof(extra_data) / sizeof(extra_data[0]), msg->cfs_signature, &msg->cfs_signature_length) != 0) {
 		msg->cfs_signature_length = 0;
 		CFIL_LOG(LOG_ERR, "CFIL: Failed to sign attached msg <sockID %llu>",
 		    msg->cfs_msghdr.cfm_sock_id);
@@ -3000,6 +3014,36 @@ cfil_dispatch_attach_event_sign(cfil_crypto_state_t crypto_state,
 	}
 
 	return true;
+}
+
+struct cfil_sign_parameters {
+	cfil_crypto_state_t csp_state;
+	struct cfil_crypto_data *csp_data;
+	uint8_t *csp_signature;
+	uint32_t *csp_signature_size;
+};
+
+static void
+cfil_sign_with_domain_name(char *domain_name, void *ctx)
+{
+	struct cfil_sign_parameters *parameters = (struct cfil_sign_parameters *)ctx;
+	struct iovec extra_data[1] = { { NULL, 0 } };
+
+	if (parameters == NULL) {
+		return;
+	}
+
+	if (domain_name != NULL) {
+		extra_data[0].iov_base = domain_name;
+		extra_data[0].iov_len = strlen(domain_name);
+	}
+
+	*(parameters->csp_signature_size) = sizeof(cfil_crypto_signature);
+	if (cfil_crypto_sign_data(parameters->csp_state, parameters->csp_data,
+	    extra_data, sizeof(extra_data) / sizeof(extra_data[0]),
+	    parameters->csp_signature, parameters->csp_signature_size) != 0) {
+		*(parameters->csp_signature_size) = 0;
+	}
 }
 
 static boolean_t
@@ -3025,7 +3069,7 @@ cfil_dispatch_data_event_sign(cfil_crypto_state_t crypto_state,
 		data.effective_pid = so->last_pid;
 		memcpy(data.effective_uuid, so->last_uuid, sizeof(uuid_t));
 	}
-	data.socketProtocol = so->so_proto->pr_protocol;
+	data.socketProtocol = GET_SO_PROTO(so);
 
 	if (data.direction == CFS_CONNECTION_DIR_OUT) {
 		data.remote.sin6 = msg->cfc_dst.sin6;
@@ -3042,9 +3086,15 @@ cfil_dispatch_data_event_sign(cfil_crypto_state_t crypto_state,
 		cfil_info->cfi_isSignatureLatest = true;
 	}
 
-	msg->cfd_signature_length = sizeof(cfil_crypto_signature);
-	if (cfil_crypto_sign_data(crypto_state, &data, msg->cfd_signature, &msg->cfd_signature_length) != 0) {
-		msg->cfd_signature_length = 0;
+	struct cfil_sign_parameters parameters = {
+		.csp_state = crypto_state,
+		.csp_data = &data,
+		.csp_signature = msg->cfd_signature,
+		.csp_signature_size = &msg->cfd_signature_length,
+	};
+	necp_with_inp_domain_name(so, &parameters, cfil_sign_with_domain_name);
+
+	if (msg->cfd_signature_length == 0) {
 		CFIL_LOG(LOG_ERR, "CFIL: Failed to sign data msg <sockID %llu>",
 		    msg->cfd_msghdr.cfm_sock_id);
 		return false;
@@ -3080,7 +3130,7 @@ cfil_dispatch_closed_event_sign(cfil_crypto_state_t crypto_state,
 		data.effective_pid = so->last_pid;
 		memcpy(data.effective_uuid, so->last_uuid, sizeof(uuid_t));
 	}
-	data.socketProtocol = so->so_proto->pr_protocol;
+	data.socketProtocol = GET_SO_PROTO(so);
 
 	/*
 	 * Fill in address info:
@@ -3091,8 +3141,8 @@ cfil_dispatch_closed_event_sign(cfil_crypto_state_t crypto_state,
 		hash_entry_ptr = cfil_info->cfi_hash_entry;
 	} else if (cfil_info->cfi_so_attach_faddr.sa.sa_len > 0 ||
 	    cfil_info->cfi_so_attach_laddr.sa.sa_len > 0) {
-		soflow_fill_hash_entry_from_address(&hash_entry, TRUE, &cfil_info->cfi_so_attach_laddr.sa, FALSE);
-		soflow_fill_hash_entry_from_address(&hash_entry, FALSE, &cfil_info->cfi_so_attach_faddr.sa, FALSE);
+		soflow_fill_hash_entry_from_address(&hash_entry, TRUE, SA(&cfil_info->cfi_so_attach_laddr.sa), FALSE);
+		soflow_fill_hash_entry_from_address(&hash_entry, FALSE, SA(&cfil_info->cfi_so_attach_faddr.sa), FALSE);
 		hash_entry_ptr = &hash_entry;
 	}
 	if (hash_entry_ptr != NULL) {
@@ -3105,9 +3155,15 @@ cfil_dispatch_closed_event_sign(cfil_crypto_state_t crypto_state,
 	data.byte_count_in = cfil_info->cfi_byte_inbound_count;
 	data.byte_count_out = cfil_info->cfi_byte_outbound_count;
 
-	msg->cfc_signature_length = sizeof(cfil_crypto_signature);
-	if (cfil_crypto_sign_data(crypto_state, &data, msg->cfc_signature, &msg->cfc_signature_length) != 0) {
-		msg->cfc_signature_length = 0;
+	struct cfil_sign_parameters parameters = {
+		.csp_state = crypto_state,
+		.csp_data = &data,
+		.csp_signature = msg->cfc_signature,
+		.csp_signature_size = &msg->cfc_signature_length
+	};
+	necp_with_inp_domain_name(so, &parameters, cfil_sign_with_domain_name);
+
+	if (msg->cfc_signature_length == 0) {
 		CFIL_LOG(LOG_ERR, "CFIL: Failed to sign closed msg <sockID %llu>",
 		    msg->cfc_msghdr.cfm_sock_id);
 		return false;
@@ -3116,21 +3172,53 @@ cfil_dispatch_closed_event_sign(cfil_crypto_state_t crypto_state,
 	return true;
 }
 
+static void
+cfil_populate_attached_msg_domain_name(char *domain_name, void *ctx)
+{
+	struct cfil_msg_sock_attached *msg_attached = (struct cfil_msg_sock_attached *)ctx;
+
+	if (msg_attached == NULL) {
+		return;
+	}
+
+	if (domain_name != NULL) {
+		strlcpy(msg_attached->cfs_remote_domain_name, domain_name, sizeof(msg_attached->cfs_remote_domain_name));
+	}
+}
+
+static bool
+cfil_copy_audit_token(pid_t pid, audit_token_t *buffer)
+{
+	bool success = false;
+	proc_t p = proc_find(pid);
+	if (p != PROC_NULL) {
+		task_t t = proc_task(p);
+		if (t != TASK_NULL) {
+			audit_token_t audit_token = {};
+			mach_msg_type_number_t count = TASK_AUDIT_TOKEN_COUNT;
+			if (task_info(t, TASK_AUDIT_TOKEN, (task_info_t)&audit_token, &count) == KERN_SUCCESS) {
+				memcpy(buffer, &audit_token, sizeof(audit_token_t));
+				success = true;
+			}
+		}
+		proc_rele(p);
+	}
+	return success;
+}
+
 static int
 cfil_dispatch_attach_event(struct socket *so, struct cfil_info *cfil_info,
     uint32_t kcunit, int conn_dir)
 {
 	errno_t error = 0;
 	struct cfil_entry *entry = NULL;
-	struct cfil_msg_sock_attached msg_attached;
+	struct cfil_msg_sock_attached *msg_attached;
 	struct content_filter *cfc = NULL;
 	struct inpcb *inp = (struct inpcb *)so->so_pcb;
 	struct soflow_hash_entry *hash_entry_ptr = NULL;
 	struct soflow_hash_entry hash_entry;
 
 	memset(&hash_entry, 0, sizeof(struct soflow_hash_entry));
-	proc_t p = PROC_NULL;
-	task_t t = TASK_NULL;
 
 	socket_lock_assert_owned(so);
 
@@ -3173,24 +3261,30 @@ cfil_dispatch_attach_event(struct socket *so, struct cfil_info *cfil_info,
 		goto done;
 	}
 
-	bzero(&msg_attached, sizeof(struct cfil_msg_sock_attached));
-	msg_attached.cfs_msghdr.cfm_len = sizeof(struct cfil_msg_sock_attached);
-	msg_attached.cfs_msghdr.cfm_version = CFM_VERSION_CURRENT;
-	msg_attached.cfs_msghdr.cfm_type = CFM_TYPE_EVENT;
-	msg_attached.cfs_msghdr.cfm_op = CFM_OP_SOCKET_ATTACHED;
-	msg_attached.cfs_msghdr.cfm_sock_id = entry->cfe_cfil_info->cfi_sock_id;
+	msg_attached = kalloc_data(sizeof(struct cfil_msg_sock_attached), Z_WAITOK);
+	if (msg_attached == NULL) {
+		error = ENOMEM;
+		goto done;
+	}
 
-	msg_attached.cfs_sock_family = so->so_proto->pr_domain->dom_family;
-	msg_attached.cfs_sock_type = so->so_proto->pr_type;
-	msg_attached.cfs_sock_protocol = so->so_proto->pr_protocol;
-	msg_attached.cfs_pid = so->last_pid;
-	memcpy(msg_attached.cfs_uuid, so->last_uuid, sizeof(uuid_t));
+	bzero(msg_attached, sizeof(struct cfil_msg_sock_attached));
+	msg_attached->cfs_msghdr.cfm_len = sizeof(struct cfil_msg_sock_attached);
+	msg_attached->cfs_msghdr.cfm_version = CFM_VERSION_CURRENT;
+	msg_attached->cfs_msghdr.cfm_type = CFM_TYPE_EVENT;
+	msg_attached->cfs_msghdr.cfm_op = CFM_OP_SOCKET_ATTACHED;
+	msg_attached->cfs_msghdr.cfm_sock_id = entry->cfe_cfil_info->cfi_sock_id;
+
+	msg_attached->cfs_sock_family = so->so_proto->pr_domain->dom_family;
+	msg_attached->cfs_sock_type = so->so_proto->pr_type;
+	msg_attached->cfs_sock_protocol = GET_SO_PROTO(so);
+	msg_attached->cfs_pid = so->last_pid;
+	memcpy(msg_attached->cfs_uuid, so->last_uuid, sizeof(uuid_t));
 	if (so->so_flags & SOF_DELEGATED) {
-		msg_attached.cfs_e_pid = so->e_pid;
-		memcpy(msg_attached.cfs_e_uuid, so->e_uuid, sizeof(uuid_t));
+		msg_attached->cfs_e_pid = so->e_pid;
+		memcpy(msg_attached->cfs_e_uuid, so->e_uuid, sizeof(uuid_t));
 	} else {
-		msg_attached.cfs_e_pid = so->last_pid;
-		memcpy(msg_attached.cfs_e_uuid, so->last_uuid, sizeof(uuid_t));
+		msg_attached->cfs_e_pid = so->last_pid;
+		memcpy(msg_attached->cfs_e_uuid, so->last_uuid, sizeof(uuid_t));
 	}
 
 	/*
@@ -3202,46 +3296,47 @@ cfil_dispatch_attach_event(struct socket *so, struct cfil_info *cfil_info,
 		hash_entry_ptr = cfil_info->cfi_hash_entry;
 	} else if (cfil_info->cfi_so_attach_faddr.sa.sa_len > 0 ||
 	    cfil_info->cfi_so_attach_laddr.sa.sa_len > 0) {
-		soflow_fill_hash_entry_from_address(&hash_entry, TRUE, &cfil_info->cfi_so_attach_laddr.sa, FALSE);
-		soflow_fill_hash_entry_from_address(&hash_entry, FALSE, &cfil_info->cfi_so_attach_faddr.sa, FALSE);
+		soflow_fill_hash_entry_from_address(&hash_entry, TRUE, SA(&cfil_info->cfi_so_attach_laddr.sa), FALSE);
+		soflow_fill_hash_entry_from_address(&hash_entry, FALSE, SA(&cfil_info->cfi_so_attach_faddr.sa), FALSE);
 		hash_entry_ptr = &hash_entry;
 	}
 	if (hash_entry_ptr != NULL) {
 		cfil_fill_event_msg_addresses(hash_entry_ptr, inp,
-		    &msg_attached.cfs_src, &msg_attached.cfs_dst,
+		    &msg_attached->cfs_src, &msg_attached->cfs_dst,
 		    !IS_INP_V6(inp), conn_dir == CFS_CONNECTION_DIR_OUT);
 	}
-	msg_attached.cfs_conn_dir = conn_dir;
+	msg_attached->cfs_conn_dir = conn_dir;
 
-	if (msg_attached.cfs_e_pid != 0) {
-		p = proc_find(msg_attached.cfs_e_pid);
-		if (p != PROC_NULL) {
-			t = proc_task(p);
-			if (t != TASK_NULL) {
-				audit_token_t audit_token;
-				mach_msg_type_number_t count = TASK_AUDIT_TOKEN_COUNT;
-				if (task_info(t, TASK_AUDIT_TOKEN, (task_info_t)&audit_token, &count) == KERN_SUCCESS) {
-					memcpy(&msg_attached.cfs_audit_token, &audit_token, sizeof(msg_attached.cfs_audit_token));
-				} else {
-					CFIL_LOG(LOG_ERR, "CFIL: Failed to get process audit token <sockID %llu> ",
-					    entry->cfe_cfil_info->cfi_sock_id);
-				}
-			}
-			proc_rele(p);
+	if (msg_attached->cfs_e_pid != 0) {
+		if (!cfil_copy_audit_token(msg_attached->cfs_e_pid, (audit_token_t *)&msg_attached->cfs_audit_token)) {
+			CFIL_LOG(LOG_ERR, "CFIL: Failed to get effective audit token for <sockID %llu> ", entry->cfe_cfil_info->cfi_sock_id);
 		}
 	}
+
+	if (msg_attached->cfs_pid != 0) {
+		if (msg_attached->cfs_pid == msg_attached->cfs_e_pid) {
+			memcpy(&msg_attached->cfs_real_audit_token, &msg_attached->cfs_audit_token, sizeof(msg_attached->cfs_real_audit_token));
+		} else if (!cfil_copy_audit_token(msg_attached->cfs_pid, (audit_token_t *)&msg_attached->cfs_real_audit_token)) {
+			CFIL_LOG(LOG_ERR, "CFIL: Failed to get real audit token for <sockID %llu> ", entry->cfe_cfil_info->cfi_sock_id);
+		}
+	}
+
+	necp_with_inp_domain_name(so, msg_attached, cfil_populate_attached_msg_domain_name);
 
 	if (cfil_info->cfi_debug) {
 		cfil_info_log(LOG_INFO, cfil_info, "CFIL: SENDING ATTACH UP");
 	}
 
-	cfil_dispatch_attach_event_sign(entry->cfe_filter->cf_crypto_state, cfil_info, &msg_attached);
+	cfil_dispatch_attach_event_sign(entry->cfe_filter->cf_crypto_state, cfil_info, msg_attached);
 
 	error = ctl_enqueuedata(entry->cfe_filter->cf_kcref,
 	    entry->cfe_filter->cf_kcunit,
-	    &msg_attached,
+	    msg_attached,
 	    sizeof(struct cfil_msg_sock_attached),
 	    CTL_DATA_EOR);
+
+	kfree_data(msg_attached, sizeof(struct cfil_msg_sock_attached));
+
 	if (error != 0) {
 		CFIL_LOG(LOG_ERR, "ctl_enqueuedata() failed: %d", error);
 		goto done;
@@ -5558,7 +5653,7 @@ sysctl_cfil_sock_list(struct sysctl_oid *oidp, void *arg1, int arg2,
 		stat.cfs_sock_id = cfi->cfi_sock_id;
 		stat.cfs_flags = cfi->cfi_flags;
 
-		if (so != NULL) {
+		if (so != NULL && so->so_proto != NULL && so->so_proto->pr_domain != NULL) {
 			stat.cfs_pid = so->last_pid;
 			memcpy(stat.cfs_uuid, so->last_uuid,
 			    sizeof(uuid_t));
@@ -5574,7 +5669,7 @@ sysctl_cfil_sock_list(struct sysctl_oid *oidp, void *arg1, int arg2,
 
 			stat.cfs_sock_family = so->so_proto->pr_domain->dom_family;
 			stat.cfs_sock_type = so->so_proto->pr_type;
-			stat.cfs_sock_protocol = so->so_proto->pr_protocol;
+			stat.cfs_sock_protocol = GET_SO_PROTO(so);
 		}
 
 		stat.cfs_snd.cbs_pending_first =
@@ -5872,7 +5967,7 @@ cfil_sock_udp_get_info(struct socket *so, uint32_t filter_control_unit, bool out
 
 	cfil_info = cfil_info_alloc(so, hash_entry);
 	if (cfil_info == NULL) {
-		CFIL_LOG(LOG_ERR, "CFIL: UDP failed to alloc cfil_info");
+		CFIL_LOG(LOG_ERR, "CFIL: <so %llx> UDP failed to alloc cfil_info", (uint64_t)VM_KERNEL_ADDRPERM(so));
 		OSIncrementAtomic(&cfil_stats.cfs_sock_attach_no_mem);
 		return NULL;
 	}
@@ -5880,15 +5975,15 @@ cfil_sock_udp_get_info(struct socket *so, uint32_t filter_control_unit, bool out
 	cfil_info->cfi_dir = outgoing ? CFS_CONNECTION_DIR_OUT : CFS_CONNECTION_DIR_IN;
 	cfil_info->cfi_debug = DEBUG_FLOW(sotoinpcb(so), so, local, remote);
 	if (cfil_info->cfi_debug) {
-		CFIL_LOG(LOG_INFO, "CFIL: UDP (outgoing %d) - debug flow with port %d", outgoing, cfil_log_port);
-		CFIL_LOG(LOG_INFO, "CFIL: UDP so_gencnt %llx entry flowhash %x cfil %p sockID %llx",
-		    so->so_gencnt, hash_entry->soflow_flowhash, cfil_info, cfil_info->cfi_sock_id);
+		CFIL_LOG(LOG_INFO, "CFIL: <so %llx> UDP (outgoing %d) - debug flow with port %d", (uint64_t)VM_KERNEL_ADDRPERM(so), outgoing, cfil_log_port);
+		CFIL_LOG(LOG_INFO, "CFIL: <so %llx> UDP so_gencnt %llx entry flowhash %x cfil %p sockID %llx",
+		    (uint64_t)VM_KERNEL_ADDRPERM(so), so->so_gencnt, hash_entry->soflow_flowhash, cfil_info, cfil_info->cfi_sock_id);
 	}
 
 	if (cfil_info_attach_unit(so, filter_control_unit, cfil_info) == 0) {
 		CFIL_INFO_FREE(cfil_info);
-		CFIL_LOG(LOG_ERR, "CFIL: UDP cfil_info_attach_unit(%u) failed",
-		    filter_control_unit);
+		CFIL_LOG(LOG_ERR, "CFIL: <so %llx> UDP cfil_info_attach_unit(%u) failed",
+		    (uint64_t)VM_KERNEL_ADDRPERM(so), filter_control_unit);
 		OSIncrementAtomic(&cfil_stats.cfs_sock_attach_failed);
 		return NULL;
 	}
@@ -5917,6 +6012,8 @@ cfil_sock_udp_get_info(struct socket *so, uint32_t filter_control_unit, bool out
 	    outgoing ? CFS_CONNECTION_DIR_OUT : CFS_CONNECTION_DIR_IN);
 	/* We can recover from flow control or out of memory errors */
 	if (error != 0 && error != ENOBUFS && error != ENOMEM) {
+		CFIL_LOG(LOG_ERR, "CFIL: UDP <so %llx> cfil_dispatch_attach_event failed <error %d>",
+		    (uint64_t)VM_KERNEL_ADDRPERM(so), error);
 		return NULL;
 	}
 
@@ -5964,9 +6061,18 @@ cfil_sock_udp_handle_data(bool outgoing, struct socket *so,
 		return error;
 	}
 
+	if (hash_entry == NULL) {
+		CFIL_LOG(LOG_ERR, "CFIL: <so %llx> NULL soflow_hash_entry", (uint64_t)VM_KERNEL_ADDRPERM(so));
+		return EPIPE;
+	}
+
+	if (hash_entry->soflow_db == NULL) {
+		CFIL_LOG(LOG_ERR, "CFIL: <so %llx> NULL soflow_hash_entry db", (uint64_t)VM_KERNEL_ADDRPERM(so));
+		return EPIPE;
+	}
+
 	cfil_info = cfil_sock_udp_get_info(so, filter_control_unit, outgoing, hash_entry, local, remote);
 	if (cfil_info == NULL) {
-		CFIL_LOG(LOG_ERR, "CFIL: <so %llx> Falied to get UDP cfil_info", (uint64_t)VM_KERNEL_ADDRPERM(so));
 		return EPIPE;
 	}
 	// Update last used timestamp, this is for flow Idle TO
@@ -6036,8 +6142,6 @@ cfil_filters_udp_attached_per_flow(struct socket *so,
 			continue;
 		}
 
-		apply_context->attached = 1;
-
 		if (apply_context->need_wait == TRUE) {
 			if (cfil_info->cfi_debug) {
 				cfil_info_log(LOG_INFO, cfil_info, "CFIL: UDP PER-FLOW WAIT FOR FLOW TO FINISH");
@@ -6077,8 +6181,10 @@ cfil_filters_udp_attached_per_flow(struct socket *so,
 				}
 
 				entry->cfe_flags |= CFEF_CFIL_DETACHED;
+				return false;
 			}
 		}
+		apply_context->attached = 1;
 		return false;
 	}
 	return true;

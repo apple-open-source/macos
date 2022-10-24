@@ -27,6 +27,9 @@
 
 #if ENABLE(IMAGE_ANALYSIS)
 
+OBJC_CLASS NSAttributedString;
+OBJC_CLASS VKCImageAnalysis;
+
 #if ENABLE(DATA_DETECTION)
 OBJC_CLASS DDScannerResult;
 #endif
@@ -36,6 +39,8 @@ OBJC_CLASS DDScannerResult;
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+struct CharacterRange;
 
 struct TextRecognitionWordData {
     TextRecognitionWordData(const String& theText, FloatQuad&& quad, bool leadingWhitespace)
@@ -81,14 +86,16 @@ template<class Decoder> std::optional<TextRecognitionWordData> TextRecognitionWo
 }
 
 struct TextRecognitionLineData {
-    TextRecognitionLineData(FloatQuad&& quad, Vector<TextRecognitionWordData>&& theChildren)
+    TextRecognitionLineData(FloatQuad&& quad, Vector<TextRecognitionWordData>&& theChildren, bool newline)
         : normalizedQuad(WTFMove(quad))
         , children(WTFMove(theChildren))
+        , hasTrailingNewline(newline)
     {
     }
 
     FloatQuad normalizedQuad;
     Vector<TextRecognitionWordData> children;
+    bool hasTrailingNewline { true };
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<TextRecognitionLineData> decode(Decoder&);
@@ -114,6 +121,7 @@ template<class Encoder> void TextRecognitionLineData::encode(Encoder& encoder) c
 {
     encoder << normalizedQuad;
     encoder << children;
+    encoder << hasTrailingNewline;
 }
 
 template<class Decoder> std::optional<TextRecognitionLineData> TextRecognitionLineData::decode(Decoder& decoder)
@@ -128,7 +136,12 @@ template<class Decoder> std::optional<TextRecognitionLineData> TextRecognitionLi
     if (!children)
         return std::nullopt;
 
-    return {{ WTFMove(*normalizedQuad), WTFMove(*children) }};
+    std::optional<bool> hasTrailingNewline;
+    decoder >> hasTrailingNewline;
+    if (!hasTrailingNewline)
+        return std::nullopt;
+
+    return { { WTFMove(*normalizedQuad), WTFMove(*children), *hasTrailingNewline } };
 }
 
 struct TextRecognitionBlockData {
@@ -175,6 +188,10 @@ struct TextRecognitionResult {
 
     Vector<TextRecognitionBlockData> blocks;
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    RetainPtr<VKCImageAnalysis> platformData;
+#endif
+
     bool isEmpty() const
     {
         if (!lines.isEmpty())
@@ -202,6 +219,9 @@ template<class Encoder> void TextRecognitionResult::encode(Encoder& encoder) con
     encoder << dataDetectors;
 #endif
     encoder << blocks;
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    encoder << platformData;
+#endif
 }
 
 template<class Decoder> std::optional<TextRecognitionResult> TextRecognitionResult::decode(Decoder& decoder)
@@ -223,14 +243,28 @@ template<class Decoder> std::optional<TextRecognitionResult> TextRecognitionResu
     if (!blocks)
         return std::nullopt;
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    std::optional<RetainPtr<VKCImageAnalysis>> platformData;
+    decoder >> platformData;
+    if (!platformData)
+        return std::nullopt;
+#endif
+
     return {{
         WTFMove(*lines),
 #if ENABLE(DATA_DETECTION)
         WTFMove(*dataDetectors),
 #endif
         WTFMove(*blocks),
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+        WTFMove(*platformData),
+#endif
     }};
 }
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+RetainPtr<NSAttributedString> stringForRange(const TextRecognitionResult&, const CharacterRange&);
+#endif
 
 } // namespace WebCore
 

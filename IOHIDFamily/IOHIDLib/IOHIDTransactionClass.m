@@ -272,155 +272,196 @@ exit:
     return ret;
 }
 
+typedef struct {
+    IOHIDCallback    callback;
+    void           * context;
+    void           * device;
+    void           * transaction;
+    NSArray        * elements;
+} AsyncCommitContext;
+
+static void _asyncCallback(void * context, IOReturn result, uint32_t bufferSize, uint64_t addr)
+{
+    HIDLibElement      * element;
+    IOHIDValueRef        value;
+    IOHIDElementValue  * elementVal;
+    size_t               dataOffset   = 0;
+    AsyncCommitContext * asyncContext = (AsyncCommitContext *)context;
+
+    if (!asyncContext || !asyncContext->callback) {
+        return;
+    }
+
+    if (asyncContext->elements && addr && bufferSize) {
+        for (element in asyncContext->elements) {
+            elementVal = (IOHIDElementValue *)((uint8_t *)addr + dataOffset);
+
+            dataOffset += elementVal->totalSize;
+            if (elementVal->totalSize < ELEMENT_VALUE_HEADER_SIZE(elementVal) || dataOffset > bufferSize) {
+                HIDLogError("Unable to copy back value for element, unexpected size(%d)", elementVal->totalSize);
+                break;
+            } else if (elementVal->cookie != element.elementCookie) {
+                HIDLogError("Unable to copy back value for element, unexpected cookie(%ld) expected:%d", (long)elementVal->cookie, element.elementCookie);
+                break;
+            }
+
+            value = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault, element.elementRef, elementVal);
+            [element setValueRef:value];
+            if (value) {
+                CFRelease(value);
+            }
+        }
+        [(__bridge IOHIDDeviceClass *)asyncContext->device releaseReport:addr];
+    }
+
+    ((IOHIDCallback)asyncContext->callback)(asyncContext->context, result, asyncContext->transaction);
+
+    asyncContext->elements = NULL;
+    free(asyncContext);
+}
+
 static IOReturn _commit(void *iunknown,
-                        uint32_t timeout __unused,
-                        IOHIDCallback callback __unused,
-                        void *context __unused,
-                        IOOptionBits options __unused)
+                        uint32_t timeout,
+                        IOHIDCallback callback,
+                        void *context,
+                        IOOptionBits options)
 {
     IUnknownVTbl *vtbl = *((IUnknownVTbl**)iunknown);
     IOHIDTransactionClass *me = (__bridge id)vtbl->_reserved;
     
-    return [me commit];
+    return [me commit:context timeout:timeout callback:callback options:options];
 }
 
-- (IOReturn)commit
+- (IOReturn)commit:(void *)context
+           timeout:(uint32_t)timeout
+          callback:(IOHIDCallback)callback
+           options:(IOOptionBits)options
 {
-    IOReturn ret = kIOReturnError;
-    uint32_t count = (uint32_t)_elements.count;
-    bool output = (_direction == kIOHIDTransactionDirectionTypeOutput);
+    uint64_t                  regID;
+    IOReturn                  ret          = kIOReturnError;
+    uint64_t                  input[3]     = {0};
+    size_t                    dataSize     = 0;
+    size_t                    dataOffset   = 0;
+    void                    * cookies      = NULL;
+    void                    * elementData  = NULL;
+    uint32_t                  count        = (uint32_t)_elements.count;
+    size_t                    cookiesSize  = count * sizeof(uint32_t);
+    AsyncCommitContext      * asyncContext = NULL;
+    HIDLibElement           * element;
+    size_t                    elementSize;
+    IOHIDValueRef             value;
+    IOHIDElementValue       * elementVal;
+    IOHIDElementValueHeader * elementValHeader;
+    io_async_ref64_t          asyncRef;
 
     require(count, exit);
 
-    if (output) {
-        size_t dataSize = 0;
-        size_t dataOffset = 0;
-        uint8_t *elementData = NULL;
-        IOHIDElementValueHeader *elementVal;
+    IORegistryEntryGetRegistryEntryID(_device.service, &regID);
 
+    input[2] = options;
+
+    if (callback) {
+        input[0] = timeout;
+        require((asyncContext = (AsyncCommitContext *)calloc(1, sizeof(AsyncCommitContext))), exit);
+
+        asyncContext->callback    = callback;
+        asyncContext->context     = context;
+        asyncContext->device      = (__bridge void *)_device;
+        asyncContext->transaction = &_interface;
+        asyncContext->elements    = NULL;
+
+        asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)_asyncCallback;
+        asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)asyncContext;
+    }
+
+    if (_direction == kIOHIDTransactionDirectionTypeOutput) {
         for (uint32_t i = 0; i < count; i++) {
-            HIDLibElement *element = [_elements objectAtIndex:i];
-            size_t elementSize = 0;
-            uint64_t regID;
-            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
+            element = [_elements objectAtIndex:i];
 
-            ret = [_device setValue:element.elementRef
-                              value:element.valueRef
-                            timeout:0
-                           callback:nil
-                            context:nil
-                            options:kHIDSetElementValuePendEvent];
-
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#llx):setValue ...:%#x", regID, ret));
+            ret = [_device setValue:element.elementRef value:element.valueRef timeout:0 callback:nil context:nil options:kHIDSetElementValuePendEvent];
+            require_noerr_action(ret, exit, HIDLogError("setValue(%#llx):%#x", regID, ret));
             
             elementSize = sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(element.valueRef);
             dataSize += elementSize;
         }
-        elementData = malloc(dataSize);
-        bzero(elementData, dataSize);
-        require_action(elementData, exit, ret = kIOReturnNoMemory);
-        dataOffset = 0;
+
+        require_action((elementData = malloc(dataSize)), exit, ret = kIOReturnNoMemory);
 
         for (uint32_t i = 0; i < count; i++) {
-            HIDLibElement *element = [_elements objectAtIndex:i];
-            elementVal = (IOHIDElementValueHeader *)(elementData + dataOffset);
-            _IOHIDValueCopyToElementValueHeader(element.valueRef, elementVal);
-            dataOffset += elementVal->length + sizeof(IOHIDElementValueHeader);
+            element = [_elements objectAtIndex:i];
+            elementValHeader = (IOHIDElementValueHeader *)(elementData + dataOffset);
+            _IOHIDValueCopyToElementValueHeader(element.valueRef, elementValHeader);
+            dataOffset += elementValHeader->length + sizeof(IOHIDElementValueHeader);
         }
 
-        ret = IOConnectCallMethod(_device.connect,
-                                  kIOHIDLibUserClientPostElementValues,
-                                  NULL,
-                                  0,
-                                  elementData,
-                                  dataSize,
-                                  NULL,
-                                  0,
-                                  NULL,
-                                  NULL);
-        free(elementData);
-
-        if (ret) {
-            uint64_t regID;
-            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
-            HIDLogError("kIOHIDLibUserClientPostElementValues(%#llx):%#x", regID, ret);
+        if (callback) {
+            ret = IOConnectCallAsyncMethod(_device.connect, kIOHIDLibUserClientPostElementValues, [_device getPort], asyncRef, kIOAsyncCalloutCount, input, 1, elementData, dataSize, NULL, NULL, NULL, NULL);
+        } else {
+            ret = IOConnectCallMethod(_device.connect, kIOHIDLibUserClientPostElementValues, input, 1, elementData, dataSize, NULL, NULL, NULL, NULL);
         }
+        require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientPostElementValues(%#llx):%#x", regID, ret));
+
     } else {
-        size_t cookiesSize = count * sizeof(uint32_t);
-        void *cookies = NULL;
+        for (uint32_t i = 0; i < count; i++) {
+            element = [_elements objectAtIndex:i];
+            elementSize = sizeof(IOHIDElementValue) + _IOHIDElementGetLength(element.elementRef);
+            value = element.valueRef;
+            dataSize += elementSize;
 
-        size_t outputSize = 0;
-        void *outputValues = NULL;
+            ret = [_device getValue:element.elementRef value:&value timeout:0 callback:nil context:nil options:kHIDGetElementValuePendEvent];
+            require_noerr_action(ret, exit, HIDLogError("getValue(%#llx):%#x", regID, ret));
+        }
 
-        uint64_t updateOptions = 0;
-        size_t dataOffset = 0;
+        require_action((cookies = malloc(cookiesSize)), exit, ret = kIOReturnNoMemory);
 
         for (uint32_t i = 0; i < count; i++) {
-            HIDLibElement *element = [_elements objectAtIndex:i];
-            size_t elementValueSize = sizeof(IOHIDElementValue) + _IOHIDElementGetLength(element.elementRef);
-            IOHIDValueRef valueRef = element.valueRef;
-            outputSize += elementValueSize;
-            uint64_t regID;
-            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
-
-            ret = [_device getValue:element.elementRef
-                              value:&valueRef
-                            timeout:0
-                           callback:nil
-                            context:nil
-                            options:kHIDGetElementValuePendEvent];
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass(%#llx):setValue ...:%#x", regID, ret));
-        }
-        cookies = malloc(cookiesSize);
-        require_action(cookies, exit, ret = kIOReturnNoMemory);
-        outputValues = malloc(outputSize);
-        if (!outputValues) {
-            ret = kIOReturnNoMemory;
-            free(cookies);
-            goto exit;
+            element = [_elements objectAtIndex:i];
+            *((uint32_t *)cookies + i) = (uint32_t)element.elementCookie;
         }
 
-        for (uint32_t i = 0; i < count; i++) {
-            HIDLibElement *element = [_elements objectAtIndex:i];
-            *((uint32_t*)cookies+i) = (uint32_t)element.elementCookie;
-        }
+        if (callback) {
+            input[1] = dataSize;
+            require_action((asyncContext->elements = [NSArray arrayWithArray:_elements]), exit, ret = kIOReturnNoMemory);
+            ret = IOConnectCallAsyncMethod(_device.connect, kIOHIDLibUserClientUpdateElementValues, [_device getPort], asyncRef, kIOAsyncCalloutCount, input, 3, cookies, cookiesSize, NULL, NULL, NULL, NULL);
+            require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
+        } else {
+            require_action((elementData = calloc(1, dataSize)), exit, ret = kIOReturnNoMemory);
+            ret = IOConnectCallMethod(_device.connect, kIOHIDLibUserClientUpdateElementValues, input, 3, cookies, cookiesSize, NULL, NULL, elementData, &dataSize);
+            require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret));
 
-        ret = IOConnectCallMethod(_device.connect,
-                                  kIOHIDLibUserClientUpdateElementValues,
-                                  &updateOptions,
-                                  1,
-                                  cookies,
-                                  cookiesSize,
-                                  0,
-                                  0,
-                                  outputValues,
-                                  &outputSize);
-        if (ret != kIOReturnSuccess) {
-            uint64_t regID;
-            IORegistryEntryGetRegistryEntryID(_device.service, &regID);
-            HIDLogError("kIOHIDLibUserClientUpdateElementValues(%#llx):%#x", regID, ret);
-            free(cookies);
-            free(outputValues);
-            goto exit;
-        }
-        
-        for (HIDLibElement *element in _elements) {
-            IOHIDValueRef value = NULL;
-            IOHIDElementValue *elementVal = (IOHIDElementValue*)((uint8_t*)outputValues + dataOffset);
-            dataOffset += elementVal->totalSize;
+            for (element in _elements) {
+                elementVal = (IOHIDElementValue *)((uint8_t *)elementData + dataOffset);
+                dataOffset += elementVal->totalSize;
 
-            value = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault,
-                                                         element.elementRef,
-                                                         elementVal);
+                if (elementVal->totalSize < ELEMENT_VALUE_HEADER_SIZE(elementVal) || dataOffset > dataSize) {
+                    HIDLogError("Unable to copy back value for element, unexpected size(%d)", elementVal->totalSize);
+                    break;
+                } else if (elementVal->cookie != element.elementCookie) {
+                    HIDLogError("Unable to copy back value for element, unexpected cookie(%ld) expected:%d", (long)elementVal->cookie, element.elementCookie);
+                    break;
+                }
 
-            [element setValueRef:value];
-            CFRelease(value);
+                value = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault, element.elementRef, elementVal);
+                [element setValueRef:value];
+                if (value) {
+                    CFRelease(value);
+                }
+            }
         }
-        free(cookies);
-        free(outputValues);
     }
-    
+
 exit:
+    if (cookies) {
+        free(cookies);
+    }
+    if (elementData) {
+        free(elementData);
+    }
+    if (asyncContext && ret) {
+        asyncContext->elements = NULL;
+        free(asyncContext);
+    }
+
     return ret;
 }
 
@@ -714,7 +755,7 @@ static IOReturn _commitOutput(void *iunknown,
     IUnknownVTbl *vtbl = *((IUnknownVTbl**)iunknown);
     IOHIDOutputTransactionClass *me = (__bridge id)vtbl->_reserved;
     
-    return [me commit];
+    return [me commit:nil timeout:0 callback:nil options:0];
 }
 
 static IOReturn _clearOutput(void *iunknown)

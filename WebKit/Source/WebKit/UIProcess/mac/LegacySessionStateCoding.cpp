@@ -205,7 +205,7 @@ private:
     template<typename Type>
     HistoryEntryDataEncoder& encodeArithmeticType(Type value)
     {
-        static_assert(std::is_arithmetic<Type>::value, "");
+        static_assert(std::is_arithmetic<Type>::value);
 
         encodeFixedLengthData(reinterpret_cast<uint8_t*>(&value), sizeof(value), sizeof(value));
         return *this;
@@ -515,7 +515,9 @@ RefPtr<API::Data> encodeLegacySessionState(const SessionState& sessionState)
     CFIndex length = CFDataGetLength(data.get());
 
     size_t bufferSize = length + sizeof(uint32_t);
-    auto buffer = MallocPtr<uint8_t, HistoryEntryDataEncoderMalloc>::malloc(bufferSize);
+    auto buffer = MallocPtr<uint8_t, HistoryEntryDataEncoderMalloc>::tryMalloc(bufferSize);
+    if (!buffer)
+        return nullptr;
 
     // Put the session state version number at the start of the buffer
     buffer.get()[0] = (sessionStateDataVersion & 0xff000000) >> 24;
@@ -608,6 +610,15 @@ public:
         decodeFixedLengthData(reinterpret_cast<uint8_t*>(buffer), length * sizeof(UChar), alignof(UChar));
 
         value = string;
+        return *this;
+    }
+
+    HistoryEntryDataDecoder& operator>>(AtomString& value)
+    {
+        // FIXME: This could be more efficient but this matches what the IPC decoder currently does.
+        String string;
+        *this >> string;
+        value = AtomString { string };
         return *this;
     }
 
@@ -738,7 +749,7 @@ private:
     template<typename Type>
     HistoryEntryDataDecoder& decodeArithmeticType(Type& value)
     {
-        static_assert(std::is_arithmetic<Type>::value, "");
+        static_assert(std::is_arithmetic<Type>::value);
         value = Type();
 
         decodeFixedLengthData(reinterpret_cast<uint8_t*>(&value), sizeof(value), sizeof(value));
@@ -902,9 +913,9 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
     uint64_t documentStateVectorSize;
     decoder >> documentStateVectorSize;
 
-    Vector<String> documentState;
+    Vector<AtomString> documentState;
     for (uint64_t i = 0; i < documentStateVectorSize; ++i) {
-        String state;
+        AtomString state;
         decoder >> state;
 
         if (!decoder.isValid())
@@ -1146,7 +1157,7 @@ bool decodeLegacySessionState(const uint8_t* bytes, size_t size, SessionState& s
     }
 
     if (auto provisionalURLString = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(sessionStateDictionary, provisionalURLKey))) {
-        sessionState.provisionalURL = URL(URL(), provisionalURLString);
+        sessionState.provisionalURL = URL { provisionalURLString };
         if (!sessionState.provisionalURL.isValid())
             return false;
     }

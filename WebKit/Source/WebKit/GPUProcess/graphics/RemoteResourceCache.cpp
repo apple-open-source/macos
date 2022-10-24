@@ -53,9 +53,20 @@ void RemoteResourceCache::cacheNativeImage(Ref<NativeImage>&& image, QualifiedRe
     m_resourceHeap.add(renderingResourceIdentifier, WTFMove(image));
 }
 
+void RemoteResourceCache::cacheDecomposedGlyphs(Ref<DecomposedGlyphs>&& decomposedGlyphs, QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+{
+    ASSERT(renderingResourceIdentifier.object() == decomposedGlyphs->renderingResourceIdentifier());
+    m_resourceHeap.add(renderingResourceIdentifier, WTFMove(decomposedGlyphs));
+}
+
 NativeImage* RemoteResourceCache::cachedNativeImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getNativeImage(renderingResourceIdentifier);
+}
+
+std::optional<WebCore::SourceImage> RemoteResourceCache::cachedSourceImage(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
+{
+    return m_resourceHeap.getSourceImage(renderingResourceIdentifier);
 }
 
 void RemoteResourceCache::cacheFont(Ref<Font>&& font, QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
@@ -69,16 +80,22 @@ Font* RemoteResourceCache::cachedFont(QualifiedRenderingResourceIdentifier rende
     return m_resourceHeap.getFont(renderingResourceIdentifier);
 }
 
-void RemoteResourceCache::deleteAllFonts()
+DecomposedGlyphs* RemoteResourceCache::cachedDecomposedGlyphs(QualifiedRenderingResourceIdentifier renderingResourceIdentifier) const
 {
-    m_resourceHeap.deleteAllFonts();
+    return m_resourceHeap.getDecomposedGlyphs(renderingResourceIdentifier);
 }
 
-bool RemoteResourceCache::releaseRemoteResource(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteResourceCache::releaseAllResources()
+{
+    m_resourceHeap.releaseAllResources();
+}
+
+bool RemoteResourceCache::releaseResource(QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
 {
     if (m_resourceHeap.removeImageBuffer(renderingResourceIdentifier)
         || m_resourceHeap.removeNativeImage(renderingResourceIdentifier)
-        || m_resourceHeap.removeFont(renderingResourceIdentifier))
+        || m_resourceHeap.removeFont(renderingResourceIdentifier)
+        || m_resourceHeap.removeDecomposedGlyphs(renderingResourceIdentifier))
         return true;
 
     // Caching the remote resource should have happened before releasing it.

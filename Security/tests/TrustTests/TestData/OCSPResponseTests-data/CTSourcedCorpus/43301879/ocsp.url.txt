@@ -1,0 +1,1 @@
+http://ocsp2.globalsign.com/cloudsslsha2g3

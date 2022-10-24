@@ -122,7 +122,8 @@ public:
    * ------------------------------------------------------------ */
 
   virtual void main(int argc, char *argv[]) {
-    int i, orig_len;
+    int i;
+    size_t orig_len;
 
      SWIG_library_directory("guile");
      SWIG_typemap_lang("guile");
@@ -730,9 +731,9 @@ public:
 
       // Produce names of source and target
       if (args_passed_as_array)
-	sprintf(source, "argv[%d]", i);
+	snprintf(source, sizeof(source), "argv[%d]", i);
       else
-	sprintf(source, "s_%d", i);
+	snprintf(source, sizeof(source), "s_%d", i);
       String *target = Getattr(p, "lname");
 
       if (!args_passed_as_array) {

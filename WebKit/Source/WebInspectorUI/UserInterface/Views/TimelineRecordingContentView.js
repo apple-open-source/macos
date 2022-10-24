@@ -202,6 +202,11 @@ WI.TimelineRecordingContentView = class TimelineRecordingContentView extends WI.
         return this._recording.canExport();
     }
 
+    get saveMode()
+    {
+        return this._recording.exportMode;
+    }
+
     get saveData()
     {
         return {customSaveHandler: () => { this._exportTimelineRecording(); }};
@@ -476,11 +481,11 @@ WI.TimelineRecordingContentView = class TimelineRecordingContentView extends WI.
             this._startTimeNeedsReset = false;
         }
 
-        if (WI.timelineManager.capturingState !== WI.TimelineManager.CapturingState.Stopping) {
+        if (WI.timelineManager.capturingState !== WI.TimelineManager.CapturingState.Stopping || this._recording.imported) {
             // Only update end time while not stopping, otherwise the interface continues scrolling.
             this._timelineOverview.endTime = Math.max(endTime, currentTime);
 
-            if (WI.timelineManager.capturingState !== WI.TimelineManager.CapturingState.Inactive) {
+            if (WI.timelineManager.capturingState !== WI.TimelineManager.CapturingState.Inactive || this._recording.imported) {
                 // Only update current time while active/starting or else the interface continues scrolling.
                 this._currentTime = currentTime;
                 this._timelineOverview.currentTime = currentTime;
@@ -490,10 +495,14 @@ WI.TimelineRecordingContentView = class TimelineRecordingContentView extends WI.
         if (this.currentTimelineView)
             this._updateTimelineViewTimes(this.currentTimelineView);
 
-        // Force a layout now since we are already in an animation frame and don't need to delay it until the next.
-        this._timelineOverview.updateLayoutIfNeeded();
-        if (this.currentTimelineView)
-            this.currentTimelineView.updateLayoutIfNeeded();
+        if (this._recording.imported) {
+            this._timelineOverview.needsLayout();
+            this.currentTimelineView?.needsLayout();
+        } else {
+            // Force a layout now since we are already in an animation frame and don't need to delay it until the next.
+            this._timelineOverview.updateLayoutIfNeeded();
+            this.currentTimelineView?.updateLayoutIfNeeded();
+        }
     }
 
     _startUpdatingCurrentTime(startTime)
@@ -624,11 +633,11 @@ WI.TimelineRecordingContentView = class TimelineRecordingContentView extends WI.
 
         let filename = frameName ? `${frameName}-recording` : this._recording.displayName;
 
-        WI.FileUtilities.save({
+        const forceSaveAs = true;
+        WI.FileUtilities.save(this._recording.exportMode, {
             content: JSON.stringify(json),
             suggestedName: filename + ".json",
-            forceSaveAs: true,
-        });
+        }, forceSaveAs);
     }
 
     _exportButtonNavigationItemClicked(event)

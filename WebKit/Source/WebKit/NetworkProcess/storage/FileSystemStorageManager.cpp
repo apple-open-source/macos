@@ -46,6 +46,11 @@ FileSystemStorageManager::~FileSystemStorageManager()
     close();
 }
 
+bool FileSystemStorageManager::isActive() const
+{
+    return !m_handles.isEmpty();
+}
+
 Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> FileSystemStorageManager::createHandle(IPC::Connection::UniqueID connection, FileSystemStorageHandle::Type type, String&& path, String&& name, bool createIfNecessary)
 {
     ASSERT(!RunLoop::isMain());
@@ -72,7 +77,9 @@ Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> FileSystem
         }
     }
 
-    auto newHandle = makeUnique<FileSystemStorageHandle>(*this, type, WTFMove(path), WTFMove(name));
+    auto newHandle = FileSystemStorageHandle::create(*this, type, WTFMove(path), WTFMove(name));
+    if (!newHandle)
+        return makeUnexpected(FileSystemStorageError::Unknown);
     auto newHandleIdentifier = newHandle->identifier();
     m_handlesByConnection.ensure(connection, [&] {
         return HashSet<WebCore::FileSystemHandleIdentifier> { };

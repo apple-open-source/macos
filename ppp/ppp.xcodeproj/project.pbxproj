@@ -1177,8 +1177,6 @@
 		725D8ABB0DA5C12400017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = EMBEDDED/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AC20DA5C14800017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AD40DA5C45700017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = Dialogs/EMBEDDED/en.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
-		727412011728A2A600221EE3 /* diagnostics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = diagnostics.h; path = Controller/diagnostics.h; sourceTree = "<group>"; };
-		727412021728A2A600221EE3 /* diagnostics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = diagnostics.c; path = Controller/diagnostics.c; sourceTree = "<group>"; };
 		728CB6870D404F8C00B1964E /* L2TP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		7290FEDD0D3318CC0027CEAD /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B41EC415ED9F4B00C31217 /* algorithm_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = algorithm_types.h; path = "Drivers/L2TP/L2TP-plugin/algorithm_types.h"; sourceTree = "<group>"; };
@@ -1203,7 +1201,6 @@
 		B08969281640385600E79570 /* pppcontroller_mach_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pppcontroller_mach_defines.h; sourceTree = "<group>"; };
 		B0F8AFDA16A074D500545847 /* PPP Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "PPP Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
-		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
 		BA1E33C40F3FFDF200E52690 /* sessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sessionTracer.h; sourceTree = "<group>"; };
 		BAC29FA410D493F9007AC660 /* nat_port_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nat_port_mapping.c; path = Controller/nat_port_mapping.c; sourceTree = "<group>"; };
 		C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ne_sm_bridge_private.h; sourceTree = "<group>"; };
@@ -1738,8 +1735,6 @@
 			isa = PBXGroup;
 			children = (
 				C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */,
-				727412011728A2A600221EE3 /* diagnostics.h */,
-				727412021728A2A600221EE3 /* diagnostics.c */,
 				C4D868D816C06D1200ECF818 /* reachability.c */,
 				7208653016A762D7004A5747 /* controller_options.c */,
 				7129A45DFFF956F311CA2CDC /* ppp_manager.c */,
@@ -1749,7 +1744,6 @@
 				23B708FF061CA53B008BA483 /* scnc_utils.c */,
 				01A345D600C4684A7F000001 /* scnc_client.c */,
 				7129A463FFF956F311CA2CDC /* scnc_main.c */,
-				BA1E33C30F3FFDF200E52690 /* sessionTracer.c */,
 				BAC29FA410D493F9007AC660 /* nat_port_mapping.c */,
 			);
 			name = Sources;
@@ -1836,30 +1830,10 @@
 			children = (
 				23055F1505E1807F00EAB16F /* PPP-kext-Info.plist */,
 				2D5033B90072595C7F000001 /* Sources */,
-				7129A472FFF956F311CA2CDC /* Headers */,
+				C4F5E5962841607200EFC2C3 /* Headers */,
 			);
 			path = Family;
 			sourceTree = SOURCE_ROOT;
-		};
-		7129A472FFF956F311CA2CDC /* Headers */ = {
-			isa = PBXGroup;
-			children = (
-				014A7C5C00754CF87F000001 /* if_ppp.h */,
-				014A7C5D00754CF87F000001 /* if_ppplink.h */,
-				014A7C6600754CF87F000001 /* ppp_comp.h */,
-				014A7C5F00754CF87F000001 /* ppp_defs.h */,
-				F526A6FC01911B0201CA2DD5 /* ppp_compress.h */,
-				014A7C6000754CF87F000001 /* ppp_domain.h */,
-				014A7C6200754CF87F000001 /* ppp_if.h */,
-				014A7C6300754CF87F000001 /* ppp_ip.h */,
-				FA2201D90368D08E04CA2CDC /* ppp_ipv6.h */,
-				014A7C6400754CF87F000001 /* ppp_link.h */,
-				014A7C6500754CF87F000001 /* ppp_serial.h */,
-				014A7C6700754CF87F000001 /* slcompress.h */,
-			);
-			name = Headers;
-			path = PPP.kmodproj;
-			sourceTree = "<group>";
 		};
 		7129A485FFF956F311CA2CDC /* Drivers */ = {
 			isa = PBXGroup;
@@ -1964,8 +1938,7 @@
 				7240E453152617B2001F555F /* NetworkConnect_512x512.png */,
 				7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */,
 			);
-			name = NetworkConnectIcons;
-			path = ../Dialogs/NetworkConnectIcons;
+			path = NetworkConnectIcons;
 			sourceTree = "<group>";
 		};
 		725D8AB50DA5C0F200017E37 /* EMBEDDED */ = {
@@ -2004,6 +1977,25 @@
 				C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C4F5E5962841607200EFC2C3 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				014A7C5C00754CF87F000001 /* if_ppp.h */,
+				014A7C5D00754CF87F000001 /* if_ppplink.h */,
+				014A7C6600754CF87F000001 /* ppp_comp.h */,
+				014A7C5F00754CF87F000001 /* ppp_defs.h */,
+				F526A6FC01911B0201CA2DD5 /* ppp_compress.h */,
+				014A7C6000754CF87F000001 /* ppp_domain.h */,
+				014A7C6200754CF87F000001 /* ppp_if.h */,
+				014A7C6300754CF87F000001 /* ppp_ip.h */,
+				FA2201D90368D08E04CA2CDC /* ppp_ipv6.h */,
+				014A7C6400754CF87F000001 /* ppp_link.h */,
+				014A7C6500754CF87F000001 /* ppp_serial.h */,
+				014A7C6700754CF87F000001 /* slcompress.h */,
+			);
+			name = Headers;
 			sourceTree = "<group>";
 		};
 		F517DE960237251F01E059DF /* Libraries */ = {

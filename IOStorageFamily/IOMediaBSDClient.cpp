@@ -150,6 +150,8 @@ protected:
                                        vm_size_t   messageArgumentSize );
 
 public:
+    IOOverrideTypedOperators(AnchorTable);
+
     AnchorTable();
     ~AnchorTable();
 
@@ -207,6 +209,8 @@ protected:
     UInt32 _tableCount;
 
 public:
+    IOOverrideTypedOperators(MinorTable);
+
     MinorTable();
     ~MinorTable();
 
@@ -254,6 +258,8 @@ protected:
 ///w:stop
 
 public:
+    IOOverrideTypedOperators(IOMediaBSDClientGlobals);
+
     IOMediaBSDClientGlobals();
     ~IOMediaBSDClientGlobals();
 
@@ -919,7 +925,8 @@ static int _IOMedia_is_APFS(IOMedia *media)
 
 	if ((iter = IORegistryIterator::iterateOver(media, gIOServicePlane, 0))) {
 		while ((entry = iter->getNextObject())) {
-			if (entry->metaCast("AppleAPFSContainer") != NULL) {
+			if (entry->metaCast("AppleAPFSContainer") != NULL ||
+				entry->metaCast("AppleAPFSContainerScheme") != NULL) {
 				apfs = true;
 				break;
 			}

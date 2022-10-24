@@ -51,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSKeychainViewState;
 
 @interface CKKSDeviceStateEntry : CKKSCKRecordHolder
+
 @property NSString* device;
 
 @property (nullable) NSString* osVersion;
@@ -71,13 +72,26 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSString* currentClassAUUID;
 @property (nullable) NSString* currentClassCUUID;
 
-+ (instancetype)fromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(NSString*)device zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype)fromDatabase:(NSString*)device
+                   contextID:(NSString*)contextID
+                      zoneID:(CKRecordZoneID*)zoneID
+                       error:(NSError* __autoreleasing*)error;
+
++ (instancetype)tryFromDatabase:(NSString*)device
+                      contextID:(NSString*)contextID
+                         zoneID:(CKRecordZoneID*)zoneID
+                          error:(NSError* __autoreleasing*)error;
+
++ (instancetype)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID
+                                    contextID:(NSString*)contextID
+                                        error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID
+                                       error:(NSError* __autoreleasing*)error;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initForDevice:(NSString*)device
+                    contextID:(NSString*)contextID
                     osVersion:(NSString* _Nullable)osVersion
                lastUnlockTime:(NSDate* _Nullable)lastUnlockTime
                 octagonPeerID:(NSString* _Nullable)octagonPeerID
@@ -96,8 +110,15 @@ NS_ASSUME_NONNULL_BEGIN
                                                         lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                                                                    error:(NSError**)error;
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
 
 @end
 

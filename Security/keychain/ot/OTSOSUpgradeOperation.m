@@ -5,6 +5,7 @@
 #import <CloudKit/CloudKit_Private.h>
 #import <Security/SecKey.h>
 #import <Security/SecKeyPriv.h>
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #include "keychain/SecureObjectSync/SOSAccount.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
@@ -198,16 +199,17 @@
         return;
     }
 
-    NSString* bottleSalt = nil;
-    NSError *authKitError = nil;
-
-    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
-    if(altDSID) {
-        bottleSalt = altDSID;
-    } else {
-        secnotice("octagon-sos", "Unable to fetch altDSID from AuthKit: %@", authKitError);
-        bottleSalt = account.altDSID;
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
     }
+
+    NSString* bottleSalt = altDSID;
 
     NSError* sosViewError = nil;
     BOOL safariViewEnabled = [self.deps.sosAdapter safariViewSyncingEnabled:&sosViewError];
@@ -217,32 +219,31 @@
 
     secnotice("octagon-sos", "Safari view is: %@", safariViewEnabled ? @"enabled" : @"disabled");
 
-    [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
-                                                 context:self.deps.contextID
-                                                   epoch:self.deviceInfo.epoch
-                                               machineID:self.deviceInfo.machineID
-                                              bottleSalt:bottleSalt
-                                                bottleID:[NSUUID UUID].UUIDString
-                                                 modelID:self.deviceInfo.modelID
-                                              deviceName:self.deviceInfo.deviceName
-                                            serialNumber:self.self.deviceInfo.serialNumber
-                                               osVersion:self.deviceInfo.osVersion
-                                           policyVersion:self.policyOverride
-                                           policySecrets:nil
-                               syncUserControllableViews:safariViewEnabled ?
-                                                            TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
-                                                            TPPBPeerStableInfoUserControllableViewStatus_DISABLED
-                                   secureElementIdentity:existingSecureElementIdentity
-                                                 setting:settings
-                             signingPrivKeyPersistentRef:signingKeyPersistRef
-                                 encPrivKeyPersistentRef:encryptionKeyPersistRef
-                                                   reply:^(NSString * _Nullable peerID,
-                                                           NSData * _Nullable permanentInfo,
-                                                           NSData * _Nullable permanentInfoSig,
-                                                           NSData * _Nullable stableInfo,
-                                                           NSData * _Nullable stableInfoSig,
-                                                           TPSyncingPolicy* _Nullable syncingPolicy,
-                                                           NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper prepareWithSpecificUser:self.deps.activeAccount
+                                                      epoch:self.deviceInfo.epoch
+                                                  machineID:self.deviceInfo.machineID
+                                                 bottleSalt:bottleSalt
+                                                   bottleID:[NSUUID UUID].UUIDString
+                                                    modelID:self.deviceInfo.modelID
+                                                 deviceName:self.deviceInfo.deviceName
+                                               serialNumber:self.self.deviceInfo.serialNumber
+                                                  osVersion:self.deviceInfo.osVersion
+                                              policyVersion:self.policyOverride
+                                              policySecrets:nil
+                                  syncUserControllableViews:safariViewEnabled ?
+      TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
+     TPPBPeerStableInfoUserControllableViewStatus_DISABLED
+                                      secureElementIdentity:existingSecureElementIdentity
+                                                    setting:settings
+                                signingPrivKeyPersistentRef:signingKeyPersistRef
+                                    encPrivKeyPersistentRef:encryptionKeyPersistRef
+                                                      reply:^(NSString * _Nullable peerID,
+                                                              NSData * _Nullable permanentInfo,
+                                                              NSData * _Nullable permanentInfoSig,
+                                                              NSData * _Nullable stableInfo,
+                                                              NSData * _Nullable stableInfoSig,
+                                                              TPSyncingPolicy* _Nullable syncingPolicy,
+                                                              NSError * _Nullable error) {
             STRONGIFY(self);
 
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePrepare hardFailure:true result:error];
@@ -267,7 +268,7 @@
             if(!persisted || localError) {
                 secerror("octagon-ckks: Error persisting new views and policy: %@", localError);
                 self.error = localError;
-                [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
+                [self handlePrepareErrors:localError nextExpectedState:OctagonStateBecomeUntrusted];
                 [self runBeforeGroupFinished:self.finishedOp];
                 return;
             }
@@ -281,43 +282,42 @@
 - (void)afterPrepare
 {
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper preflightPreapprovedJoinWithContainer:self.deps.containerName
-                                                                  context:self.deps.contextID
-                                                          preapprovedKeys:self.peerPreapprovedSPKIs
-                                                                    reply:^(BOOL launchOkay, NSError * _Nullable error) {
-            STRONGIFY(self);
+    [self.deps.cuttlefishXPCWrapper preflightPreapprovedJoinWithSpecificUser:self.deps.activeAccount
+                                                             preapprovedKeys:self.peerPreapprovedSPKIs
+                                                                       reply:^(BOOL launchOkay, NSError * _Nullable error) {
+        STRONGIFY(self);
 
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
-            if(error) {
-                secerror("octagon-sos: preflightPreapprovedJoin failed: %@", error);
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
+        if(error) {
+            secerror("octagon-sos: preflightPreapprovedJoin failed: %@", error);
 
-                self.error = error;
-                self.nextState = OctagonStateBecomeUntrusted;
-                [self runBeforeGroupFinished:self.finishedOp];
-                return;
-            }
+            self.error = error;
+            self.nextState = OctagonStateBecomeUntrusted;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
 
-            if(!launchOkay) {
-                secnotice("octagon-sos", "TPH believes a preapprovedJoin will fail; aborting.");
-                self.nextState = OctagonStateBecomeUntrusted;
-                [self runBeforeGroupFinished:self.finishedOp];
-                return;
-            }
+        if(!launchOkay) {
+            secnotice("octagon-sos", "TPH believes a preapprovedJoin will fail; aborting.");
+            self.nextState = OctagonStateBecomeUntrusted;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
 
-            secnotice("octagon-sos", "TPH believes a preapprovedJoin might succeed; continuing.");
-            [self afterPreflight];
-        }];
+        secnotice("octagon-sos", "TPH believes a preapprovedJoin might succeed; continuing.");
+        [self afterPreflight];
+    }];
 }
 
 - (void)afterPreflight
 {
     WEAKIFY(self);
     self.updateOp = [[OTUpdateTrustedDeviceListOperation alloc] initWithDependencies:self.deps
-                                                                     intendedState:OctagonStateReady
-                                                                  listUpdatesState:OctagonStateReady
+                                                                       intendedState:OctagonStateReady
+                                                                    listUpdatesState:OctagonStateReady
                                                             authenticationErrorState:OctagonStateLostAccountAuth
-                                                                        errorState:OctagonStateError
-                                                                         retryFlag:nil];
+                                                                          errorState:OctagonStateError
+                                                                           retryFlag:nil];
     self.updateOp.logForUpgrade = YES;
     [self runBeforeGroupFinished:self.updateOp];
 
@@ -396,15 +396,14 @@
 
     secnotice("octagon-sos", "Beginning SOS upgrade with %d key sets and %d SOS peers", (int)viewKeySets.count, (int)self.peerPreapprovedSPKIs.count);
 
-    [self.deps.cuttlefishXPCWrapper attemptPreapprovedJoinWithContainer:self.deps.containerName
-                                                                context:self.deps.contextID
-                                                               ckksKeys:viewKeySets
-                                                              tlkShares:pendingTLKShares
-                                                        preapprovedKeys:self.peerPreapprovedSPKIs
-                                                                  reply:^(NSString * _Nullable peerID,
-                                                                          NSArray<CKRecord*>* keyHierarchyRecords,
-                                                                          TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                          NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper attemptPreapprovedJoinWithSpecificUser:self.deps.activeAccount
+                                                                  ckksKeys:viewKeySets
+                                                                 tlkShares:pendingTLKShares
+                                                           preapprovedKeys:self.peerPreapprovedSPKIs
+                                                                     reply:^(NSString * _Nullable peerID,
+                                                                             NSArray<CKRecord*>* keyHierarchyRecords,
+                                                                             TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
 
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreapprovedJoin hardFailure:true result:error];

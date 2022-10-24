@@ -20,6 +20,7 @@
 		<string>CVE-2016-0634</string>
 		<string>Unblock all signals before running exit trap</string>
 		<string>Add deprecation notice when started as an interactive shell</string>
+		<string>Fix mandoc errors (#59291607)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>bash</string>

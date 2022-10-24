@@ -44,6 +44,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
+#if SEC_XR
+        TPClearBecomeiPadOverride()
+#endif
+
         autoreleasepool {
             let testName = self.name.components(separatedBy: CharacterSet(charactersIn: " ]"))[1]
             cuttlefish = FakeCuttlefishServer(nil, ckZones: [:], ckksZoneKeys: [:])
@@ -77,6 +81,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         self.cuttlefish = nil
         self.manateeKeySet = nil
+
+#if SEC_XR
+        TPClearBecomeiPadOverride()
+#endif
 
         autoreleasepool {
             if let nskeychainDir: NSURL = SecCopyHomeURL(), let keychainDir: URL = nskeychainDir as URL? {
@@ -3870,4 +3878,31 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             }
         }
     }
+
+    #if SEC_XR
+    func testFetchCurrentPolicyWithModelIDOverride() throws {
+        let store = tmpStoreDescription(name: "container.db")
+        let container = try Container(name: ContainerName(container: "test", context: "contextID"), persistentStoreDescription: store, darwinNotifier: FakeCKKSNotifier.self, cuttlefish: cuttlefish)
+
+        TPSetBecomeiPadOverride(false)
+        do {
+            let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self, modelIDOverride: "iCycle1,1")
+            XCTAssertNil(policy, "Should not have some policy with FF not set")
+            XCTAssertNotNil(policyError, "Should have an error fetching policy with FF not set")
+        }
+
+        TPSetBecomeiPadOverride(true)
+        do {
+            let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self, modelIDOverride: "iProd1,1")
+            XCTAssertNotNil(policy, "Should have some policy")
+            XCTAssertNil(policyError, "Should have no error fetching policy")
+        }
+
+        do {
+            let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self, modelIDOverride: "iCycle1,1")
+            XCTAssertNotNil(policy, "Should have some policy")
+            XCTAssertNil(policyError, "Should have no error fetching policy")
+        }
+    }
+    #endif // SEC_XR
 }

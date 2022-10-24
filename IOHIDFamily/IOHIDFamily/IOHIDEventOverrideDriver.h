@@ -29,7 +29,7 @@
 
 class IOHIDEvent;
 
-/*! @class IOHIDOverridRepairDriver : public IOHIDEventDriver
+/*! @class IOHIDEventOverrideDriver : public IOHIDEventDriver
     @abstract
     @discussion
 */

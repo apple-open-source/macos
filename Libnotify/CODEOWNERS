@@ -1,8 +1,8 @@
 # Darwin Systems Management
 # Brycen Wershing <brycen@apple.com>
-* @bwershing
 # Matt Watson <mwatson@apple.com>
-* @mwatson
 # Drew Terry <drewterry@apple.com>
-* @andrew_terry
+* @bwershing  @mwatson @andrew_terry
+
+CODEOWNERS.toplevel.create_pull_request_comment disable
 

@@ -200,10 +200,11 @@ vi{
                 "GGGGGyMMdd",
             }
             availableFormats{
+                Ed{"E, d"}
                 M{"'tháng' L"}
                 MEd{"E, dd-M"}
                 MMMMEd{"E, dd MMMM"}
-                d{"'Ngày' dd"}
+                d{"d"}
             }
             eras{
                 abbreviated{

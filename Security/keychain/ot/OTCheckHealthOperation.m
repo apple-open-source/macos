@@ -150,11 +150,14 @@
     }
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper requestHealthCheckWithContainer:self.deps.containerName
-                                                            context:self.deps.contextID
-                                                requiresEscrowCheck: [self checkIfPasscodeIsSetForDevice]
-                                                   knownFederations:[SecureBackup knownICDPFederations:NULL]
-                                                              reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError *error) {
+    [self.deps.cuttlefishXPCWrapper requestHealthCheckWithSpecificUser:self.deps.activeAccount
+                                                   requiresEscrowCheck:[self checkIfPasscodeIsSetForDevice]
+                                                      knownFederations:[SecureBackup knownICDPFederations:NULL]
+                                                                 reply:^(BOOL postRepairCFU,
+                                                                         BOOL postEscrowCFU,
+                                                                         BOOL resetOctagon,
+                                                                         BOOL leaveTrust,
+                                                                         OTEscrowMoveRequestContext *moveRequest, NSError *error) {
             STRONGIFY(self);
             if(error) {
                 secerror("octagon-health: error: %@", error);

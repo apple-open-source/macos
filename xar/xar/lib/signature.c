@@ -258,11 +258,11 @@ uint8_t xar_signature_copy_signed_data(xar_signature_t sig, uint8_t **data, uint
 	/* Get the checksum, to be used for signing.  If we support multiple checksums
 		in the future, all checksums should be retrieved						*/
 	if(length) {
-		if(0 == xar_prop_get( XAR_FILE(x) , "checksum/size", &value)){
+		if(0 == xar_prop_get_expect_notnull( XAR_FILE(x) , "checksum/size", &value)){
 			*length  = strtoull( value, (char **)NULL, 10);
 		}
 
-		if(0 == xar_prop_get( XAR_FILE(x) , "checksum/offset", &value)){
+		if(0 == xar_prop_get_expect_notnull( XAR_FILE(x) , "checksum/offset", &value)){
 			offset  = strtoull( value, (char **)NULL, 10);
 		}
 	

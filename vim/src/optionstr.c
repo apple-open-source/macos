@@ -242,9 +242,7 @@ check_buf_options(buf_T *buf)
     check_string_option(&buf->b_p_cms);
 #endif
     check_string_option(&buf->b_p_nf);
-#ifdef FEAT_TEXTOBJ
     check_string_option(&buf->b_p_qe);
-#endif
 #ifdef FEAT_SYN_HL
     check_string_option(&buf->b_p_syn);
     check_string_option(&buf->b_s.b_syn_isk);
@@ -255,9 +253,7 @@ check_buf_options(buf_T *buf)
     check_string_option(&buf->b_s.b_p_spl);
     check_string_option(&buf->b_s.b_p_spo);
 #endif
-#ifdef FEAT_SEARCHPATH
     check_string_option(&buf->b_p_sua);
-#endif
     check_string_option(&buf->b_p_cink);
     check_string_option(&buf->b_p_cino);
     check_string_option(&buf->b_p_cinsd);
@@ -537,7 +533,7 @@ set_string_option(
 	    saved_newval = vim_strsave(s);
 	}
 #endif
-	if ((errmsg = did_set_string_option(opt_idx, varp, TRUE, oldval, NULL,
+	if ((errmsg = did_set_string_option(opt_idx, varp, oldval, NULL,
 					   opt_flags, &value_checked)) == NULL)
 	    did_set_option(opt_idx, opt_flags, TRUE, value_checked);
 
@@ -639,13 +635,13 @@ check_stl_option(char_u *s)
 
 /*
  * Handle string options that need some action to perform when changed.
+ * The new value must be allocated.
  * Returns NULL for success, or an unstranslated error message for an error.
  */
     char *
 did_set_string_option(
     int		opt_idx,		// index in options[] table
     char_u	**varp,			// pointer to the option variable
-    int		new_value_alloced,	// new value was allocated
     char_u	*oldval,		// previous value of the option
     char	*errbuf,		// buffer for errors, or NULL
     int		opt_flags,		// OPT_LOCAL and/or OPT_GLOBAL
@@ -758,7 +754,7 @@ did_set_string_option(
 	    errmsg = e_invalid_argument;
 	// list setting requires a redraw
 	if (curwin->w_briopt_list)
-	    redraw_all_later(NOT_VALID);
+	    redraw_all_later(UPD_NOT_VALID);
     }
 #endif
 
@@ -866,24 +862,8 @@ did_set_string_option(
     {
 	if (check_opt_strings(p_ambw, p_ambw_values, FALSE) != OK)
 	    errmsg = e_invalid_argument;
-	else if (set_chars_option(curwin, &p_fcs) != NULL)
-	    errmsg = e_conflicts_with_value_of_fillchars;
 	else
-	{
-	    tabpage_T	*tp;
-	    win_T	*wp;
-
-	    FOR_ALL_TAB_WINDOWS(tp, wp)
-	    {
-		if (set_chars_option(wp, &wp->w_p_lcs) != NULL)
-		{
-		    errmsg = e_conflicts_with_value_of_listchars;
-		    goto ambw_end;
-		}
-	    }
-	}
-ambw_end:
-	{}
+	    errmsg = check_chars_options();
     }
 
     // 'background'
@@ -1137,7 +1117,7 @@ ambw_end:
 	    // Redraw needed when switching to/from "mac": a CR in the text
 	    // will be displayed differently.
 	    if (get_fileformat(curbuf) == EOL_MAC || *oldval == 'm')
-		redraw_curbuf_later(NOT_VALID);
+		redraw_curbuf_later(UPD_NOT_VALID);
 	}
     }
 
@@ -1188,10 +1168,8 @@ ambw_end:
 	    // When setting the global value to empty, make it "zip".
 	    if (*p_cm == NUL)
 	    {
-		if (new_value_alloced)
-		    free_string_option(p_cm);
+		free_string_option(p_cm);
 		p_cm = vim_strsave((char_u *)"zip");
-		new_value_alloced = TRUE;
 	    }
 	    // When using ":set cm=name" the local value is going to be empty.
 	    // Do that here, otherwise the crypt functions will still use the
@@ -1304,36 +1282,47 @@ ambw_end:
 	}
     }
 
-    // global 'listchars'
-    else if (varp == &p_lcs)
+    // global 'listchars' or 'fillchars'
+    else if (varp == &p_lcs || varp == &p_fcs)
     {
-	errmsg = set_chars_option(curwin, varp);
+	char_u **local_ptr = varp == &p_lcs
+					 ? &curwin->w_p_lcs : &curwin->w_p_fcs;
+
+	// only apply the global value to "curwin" when it does not have a
+	// local value
+	errmsg = set_chars_option(curwin, varp,
+			      **local_ptr == NUL || !(opt_flags & OPT_GLOBAL));
 	if (errmsg == NULL)
 	{
 	    tabpage_T	*tp;
-	    win_T		*wp;
+	    win_T	*wp;
 
-	    // The current window is set to use the global 'listchars' value.
-	    // So clear the window-local value.
+	    // If the current window is set to use the global
+	    // 'listchars'/'fillchars' value, clear the window-local value.
 	    if (!(opt_flags & OPT_GLOBAL))
-		clear_string_option(&curwin->w_p_lcs);
+		clear_string_option(local_ptr);
 	    FOR_ALL_TAB_WINDOWS(tp, wp)
+	    {
+		// If the current window has a local value need to apply it
+		// again, it was changed when setting the global value.
 		// If no error was returned above, we don't expect an error
 		// here, so ignore the return value.
-		(void)set_chars_option(wp, &wp->w_p_lcs);
+		local_ptr = varp == &p_lcs ? &wp->w_p_lcs : &wp->w_p_fcs;
+		if (**local_ptr == NUL)
+		    (void)set_chars_option(wp, local_ptr, TRUE);
+	    }
 
-	    redraw_all_later(NOT_VALID);
+	    redraw_all_later(UPD_NOT_VALID);
 	}
     }
-
     // local 'listchars'
     else if (varp == &curwin->w_p_lcs)
-	errmsg = set_chars_option(curwin, varp);
+	errmsg = set_chars_option(curwin, varp, TRUE);
 
-    // 'fillchars'
-    else if (varp == &p_fcs)
+    // local 'fillchars'
+    else if (varp == &curwin->w_p_fcs)
     {
-	errmsg = set_chars_option(curwin, varp);
+	errmsg = set_chars_option(curwin, varp, TRUE);
     }
 
 #ifdef FEAT_CMDWIN
@@ -1430,8 +1419,7 @@ ambw_end:
 		t_colors = colors;
 		if (t_colors <= 1)
 		{
-		    if (new_value_alloced)
-			vim_free(T_CCO);
+		    vim_free(T_CCO);
 		    T_CCO = empty_option;
 		}
 #if defined(FEAT_VTP) && defined(FEAT_TERMGUICOLORS)
@@ -1449,7 +1437,7 @@ ambw_end:
 	if (varp == &T_ME)
 	{
 	    out_str(T_ME);
-	    redraw_later(CLEAR);
+	    redraw_later(UPD_CLEAR);
 #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
 	    // Since t_me has been set, this probably means that the user
 	    // wants to use this as default colors.  Need to reset default
@@ -1462,9 +1450,8 @@ ambw_end:
 	}
 	if (varp == &T_BE && termcap_active)
 	{
-#ifdef FEAT_JOB_CHANNEL
-	    ch_log_output = TRUE;
-#endif
+	    MAY_WANT_TO_LOG_THIS;
+
 	    if (*T_BE == NUL)
 		// When clearing t_BE we assume the user no longer wants
 		// bracketed paste, thus disable it by writing t_BD.
@@ -1501,12 +1488,8 @@ ambw_end:
 	    if (STRCMP(p, "*") == 0)
 	    {
 		p = gui_mch_font_dialog(oldval);
-
-		if (new_value_alloced)
-		    free_string_option(p_guifont);
-
+		free_string_option(p_guifont);
 		p_guifont = (p != NULL) ? p : vim_strsave(oldval);
-		new_value_alloced = TRUE;
 	    }
 # endif
 	    if (p != NULL && gui_init_font(p_guifont, FALSE) != OK)
@@ -1516,10 +1499,8 @@ ambw_end:
 		{
 		    // Dialog was cancelled: Keep the old value without giving
 		    // an error message.
-		    if (new_value_alloced)
-			free_string_option(p_guifont);
+		    free_string_option(p_guifont);
 		    p_guifont = vim_strsave(oldval);
-		    new_value_alloced = TRUE;
 		}
 		else
 # endif
@@ -1788,7 +1769,7 @@ ambw_end:
 	    if (curwin->w_status_height)
 	    {
 		curwin->w_redr_status = TRUE;
-		redraw_later(VALID);
+		redraw_later(UPD_VALID);
 	    }
 	    curbuf->b_help = (curbuf->b_p_bt[0] == 'h');
 	    redraw_titles();
@@ -1940,10 +1921,8 @@ ambw_end:
 				      REPTERM_FROM_PART | REPTERM_DO_LT, NULL);
 	    if (p != NULL)
 	    {
-		if (new_value_alloced)
-		    free_string_option(p_pt);
+		free_string_option(p_pt);
 		p_pt = p;
-		new_value_alloced = TRUE;
 	    }
 	}
     }
@@ -2359,10 +2338,8 @@ ambw_end:
 	    name = get_scriptlocal_funcname(*p_opt);
 	    if (name != NULL)
 	    {
-		if (new_value_alloced)
-		    free_string_option(*p_opt);
+		free_string_option(*p_opt);
 		*p_opt = name;
-		new_value_alloced = TRUE;
 	    }
 	}
 
@@ -2476,8 +2453,7 @@ ambw_end:
     // If error detected, restore the previous value.
     if (errmsg != NULL)
     {
-	if (new_value_alloced)
-	    free_string_option(*varp);
+	free_string_option(*varp);
 	*varp = oldval;
 	// When resetting some values, need to act on it.
 	if (did_chartab)
@@ -2496,10 +2472,7 @@ ambw_end:
 	// our fingers (esp. init_highlight()).
 	if (free_oldval)
 	    free_string_option(oldval);
-	if (new_value_alloced)
-	    set_option_flag(opt_idx, P_ALLOCED);
-	else
-	    clear_option_flag(opt_idx, P_ALLOCED);
+	set_option_flag(opt_idx, P_ALLOCED);
 
 	if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0
 		&& is_global_local_option(opt_idx))
@@ -2604,7 +2577,7 @@ ambw_end:
     // redraw
     if ((varp == &p_flp || varp == &(curbuf->b_p_flp))
 	    && curwin->w_briopt_list)
-	redraw_all_later(NOT_VALID);
+	redraw_all_later(UPD_NOT_VALID);
 #endif
 
     if (curwin->w_curswant != MAXCOL

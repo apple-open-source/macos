@@ -73,21 +73,8 @@ enum {
 
 class IODTNVRAMVariables;
 class IODTNVRAMDiags;
-
-class IODTNVRAMFormatHandler
-{
-public:
-	virtual
-	~IODTNVRAMFormatHandler();
-	virtual IOReturn setVariable(const uuid_t varGuid, const char *variableName, OSObject *object) = 0;
-	virtual bool     setController(IONVRAMController *_nvramController) = 0;
-	virtual bool     sync(void) = 0;
-	virtual IOReturn flush(const uuid_t guid, IONVRAMOperation op) = 0;
-	virtual uint32_t getGeneration(void) const = 0;
-	virtual uint32_t getVersion(void) const = 0;
-	virtual uint32_t getSystemUsed(void) const = 0;
-	virtual uint32_t getCommonUsed(void) const = 0;
-};
+class IODTNVRAMPlatformNotifier;
+class IODTNVRAMFormatHandler;
 
 class IODTNVRAM : public IOService
 {
@@ -98,8 +85,9 @@ private:
 	friend class IONVRAMCHRPHandler;
 	friend class IONVRAMV3Handler;
 
-	IODTNVRAMDiags         *_diags;
-	IODTNVRAMFormatHandler *_format;
+	IODTNVRAMPlatformNotifier *_notifier;
+	IODTNVRAMDiags            *_diags;
+	IODTNVRAMFormatHandler    *_format;
 
 	IORWLock               *_variableLock;
 	IOLock                 *_controllerLock;
@@ -139,6 +127,7 @@ public:
 	virtual void registerNVRAMController(IONVRAMController *controller);
 
 	virtual void sync(void);
+	virtual void reload(void);
 
 	virtual bool serializeProperties(OSSerialize *s) const APPLE_KEXT_OVERRIDE;
 	virtual OSPtr<OSObject> copyProperty(const OSSymbol *aKey) const APPLE_KEXT_OVERRIDE;

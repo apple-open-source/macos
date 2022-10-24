@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = uri.dict
+timeout = 2

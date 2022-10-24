@@ -26,18 +26,630 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      language = ""
-      shouldUseLaunchSchemeArgsEnv = "YES">
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      codeCoverageEnabled = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D32A18FA27A9647C00574BF7"
+               BuildableName = "msdos_unit_tests.xctest"
+               BlueprintName = "msdos_unit_tests"
+               ReferencedContainer = "container:msdosfs.xcodeproj">
+            </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testBSDFlags">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testChangeAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testChangeRootDirAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCheckFragmentedDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCreate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCreateFileInVolumeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCreateHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCreateThousandFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testCreateTwice">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testDirtyBit">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testDirtyBitLock">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFSTypename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFileAllocatedSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFillRootDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFragmentedFileLastCacheEntryIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFragmentedFileStartOfFileIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFragmentedFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testFragmentedSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testGetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testHandlingLongNameEntry">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testLongFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testLookup">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testManyFilesInDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMinimalFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMkdir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultiThreadRWDifferentAndSameFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultiThreadRWDifferentFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultiThreadRWSameCluster">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultiThreadRWSameFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultiThreadRWSameFileHalfBlockSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultipleThreadsCloningADirectory">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultipleThreadsCreatingAndRemovingOneThreadLookingUp">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testMultipleThreadsRWSameFileRandomOffsets">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testNonContiguousFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testOUReclaim">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreAllocChangeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreAllocFragmentedFile1">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreAllocFragmentedFile2">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreAllocFragmentedFile3">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreAllocFragmentedFile4">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testPreallocationValidation">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testReadDirAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testReaddir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRemoveFileAndDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRenameSimple">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRenameToHardlink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testRunOutOfSpace">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testScanDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSimpleCreateAndMakeDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSingleThreadReadDirMultiThreadFileOps">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSubFolders">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSupportedUnicodeNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testSymLinkShortBuf">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testTimeStampAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testTruncate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testUnicodeSpecialCases">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testVolumeName">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testVolumeUUID">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testWriteRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testWriteToFileAfterRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT12/testZeroSizeFileOnEmptyDMG">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testBSDFlags">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testChangeAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testChangeRootDirAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCheckFragmentedDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCreate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCreateFileInVolumeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCreateHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCreateThousandFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testCreateTwice">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testDirtyBit">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testDirtyBitLock">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFSTypename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFileAllocatedSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFillRootDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFragmentedFileLastCacheEntryIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFragmentedFileStartOfFileIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFragmentedFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testFragmentedSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testGetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testHandlingLongNameEntry">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testLongFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testLookup">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testManyFilesInDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMinimalFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMkdir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultiThreadRWDifferentAndSameFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultiThreadRWDifferentFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultiThreadRWSameCluster">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultiThreadRWSameFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultiThreadRWSameFileHalfBlockSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultipleThreadsCloningADirectory">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultipleThreadsCreatingAndRemovingOneThreadLookingUp">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testMultipleThreadsRWSameFileRandomOffsets">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testNonContiguousFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testOUReclaim">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreAllocChangeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreAllocFragmentedFile1">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreAllocFragmentedFile2">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreAllocFragmentedFile3">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreAllocFragmentedFile4">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testPreallocationValidation">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testReadDirAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testReaddir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRemoveFileAndDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRenameSimple">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRenameToHardlink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testRunOutOfSpace">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testScanDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSimpleCreateAndMakeDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSingleThreadReadDirMultiThreadFileOps">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSubFolders">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSupportedUnicodeNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testSymLinkShortBuf">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testTimeStampAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testTruncate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testUnicodeSpecialCases">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testVolumeName">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testVolumeUUID">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testWriteRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testWriteToFileAfterRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT16/testZeroSizeFileOnEmptyDMG">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testBSDFlags">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testChangeAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testChangeRootDirAttributes">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCheckFragmentedDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCreate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCreateFileInVolumeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCreateHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCreateThousandFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testCreateTwice">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testDirtyBit">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testDirtyBitLock">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFSTypename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFileAllocatedSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFillRootDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFragmentedFileLastCacheEntryIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFragmentedFileStartOfFileIsMissing">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFragmentedFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testFragmentedSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testGetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testHandlingLongNameEntry">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testHardLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testLongFileNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testLookup">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testManyFilesInDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMinimalFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMkdir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultiThreadRWDifferentAndSameFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultiThreadRWDifferentFiles">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultiThreadRWSameCluster">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultiThreadRWSameFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultiThreadRWSameFileHalfBlockSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultipleThreadsCloningADirectory">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultipleThreadsCreatingAndRemovingOneThreadLookingUp">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testMultipleThreadsRWSameFileRandomOffsets">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testNonContiguousFile">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testOUReclaim">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreAllocChangeSize">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreAllocFragmentedFile1">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreAllocFragmentedFile2">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreAllocFragmentedFile3">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreAllocFragmentedFile4">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testPreallocationValidation">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testReadDirAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testReaddir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRemoveFileAndDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRenameSimple">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRenameToHardlink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testRunOutOfSpace">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testScanDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSetFSAttr">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSimpleCreateAndMakeDir">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSingleThreadReadDirMultiThreadFileOps">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSubFolders">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSupportedUnicodeNames">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSymLink">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testSymLinkShortBuf">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testTimeStampAttrs">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testTruncate">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testUnicodeSpecialCases">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testVolumeName">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testVolumeUUID">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testWriteRead">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testWriteToFileAfterRename">
+               </Test>
+               <Test
+                  Identifier = "MsdosUnitTestsFAT32/testZeroSizeFileOnEmptyDMG">
+               </Test>
+            </SelectedTests>
+         </TestableReference>
       </Testables>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      language = ""
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
@@ -53,8 +665,6 @@
             ReferencedContainer = "container:msdosfs.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -62,6 +672,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4D3DCB2008E084D300C78A0B"
+            BuildableName = "msdosfs OSX"
+            BlueprintName = "msdosfs OSX"
+            ReferencedContainer = "container:msdosfs.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

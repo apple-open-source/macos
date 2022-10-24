@@ -35,12 +35,12 @@ namespace CodeSigning {
 namespace SQLite = SQLite3;
 
 
-static const char opaqueDatabase[] = "/var/db/gkopaque.bundle/Contents/Resources/gkopaque.db";
+static const char opaqueDatabase[] = "/private/var/db/gkopaque.bundle/Contents/Resources/gkopaque.db";
 
 
 class OpaqueWhitelist : public SQLite::Database {
 public:
-	OpaqueWhitelist(const char *path = NULL, int flags = SQLITE_OPEN_READWRITE);
+	OpaqueWhitelist(const char *path = NULL, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOFOLLOW);
 	virtual ~OpaqueWhitelist();
 
 public:

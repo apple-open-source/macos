@@ -34,7 +34,9 @@
 
 #include <sysexits.h>
 #include <unistd.h>
+#if TARGET_OS_OSX
 #include <FSPrivate.h>
+#endif
 #include <sys/attr.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
@@ -173,6 +175,7 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 ///w:start
                 if ( strcmp( mountList[mountListIndex].f_fstypename, "hfs" ) == 0 )
                 {
+ #if TARGET_OS_OSX
                     object = _FSCopyNameForVolumeFormatAtURL( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) );
 
                     if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeTypeKey, object ) )
@@ -186,6 +189,7 @@ DAReturn _DADiskRefresh( DADiskRef disk )
                     {
                         CFRelease( object );
                     }
+#endif
                 }
 ///w:stop
                 /*
@@ -210,60 +214,65 @@ DAReturn _DADiskRefresh( DADiskRef disk )
                         CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
                     }
 
+#if TARGET_OS_OSX
                     if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
                     {
+                        
+                        uuid_t volUUID;
+                        CFStringRef name = _DAFileSystemCopyNameAndUUID( DADiskGetFileSystem( disk ), path, &volUUID);
+                        CFUUIDRef UUID = NULL;
+                        UUID = CFUUIDCreateWithBytes(kCFAllocatorDefault, volUUID[0], volUUID[1], volUUID[2],
+                                                     volUUID[3], volUUID[4], volUUID[5], volUUID[6],
+                                                     volUUID[7], volUUID[8], volUUID[9], volUUID[10],
+                                                     volUUID[11], volUUID[12], volUUID[13], volUUID[14], volUUID[15]);
 
-                        CFStringRef name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
-
-                            if ( name )
+                        if ( name && UUID )
+                        {
+                            if ( ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeUUIDKey, UUID ) == kCFCompareEqualTo ) &&
+                                DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
                             {
-                                struct statfs fs     = { 0 };
-                                int sts = ___statfs( mountList[mountListIndex].f_mntonname, &fs, MNT_NOWAIT );
-                                
-                                if ( ( sts == 0 ) &&
-                                    ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) ) &&
-                                    ( strcmp( _DAVolumeGetID( &fs ), DADiskGetID( disk ) ) == 0 ) )
+                                DALogInfo( "volume name changed for %@ to name %@.", disk, name);
+
+                                DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
+
+                                CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
+
+                                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaPathKey ) )
                                 {
-                                    DALogInfo( "volume name changed for %@ to name %@.", disk, name);
-                                    
-                                    DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
-
-                                    CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
-
-                                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaPathKey ) )
+                                    CFURLRef mountpoint;
+                                    if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
                                     {
-                                        CFURLRef mountpoint;
-                                        if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
+                                        mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                        if ( mountpoint )
                                         {
-                                            mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+                                            DADiskSetBypath( disk, mountpoint );
 
-                                            if ( mountpoint )
-                                            {
-                                                DADiskSetBypath( disk, mountpoint );
-
-                                                CFRelease( mountpoint );
-                                            }
+                                            CFRelease( mountpoint );
                                         }
-                                        else
+                                    }
+                                    else
+                                    {
+                                        mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                        if ( mountpoint )
                                         {
-                                            mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+                                            DADiskSetBypath( disk, mountpoint );
 
-                                            if ( mountpoint )
-                                            {
-                                                DADiskSetBypath( disk, mountpoint );
+                                            DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
 
-                                                DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
+                                            CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
 
-                                                CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
-
-                                                CFRelease( mountpoint );
-                                            }
+                                            CFRelease( mountpoint );
                                         }
                                     }
                                 }
-                                CFRelease( name );
                             }
+                        }
+                        if ( name ) CFRelease( name );
+                        if ( UUID ) CFRelease( UUID );
                     }
+#endif
                     CFRelease( path );
                 }
 
@@ -346,8 +355,6 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             if ( path )
             {
                 DADiskSetBypath( disk, path );
-                
-                DALogInfo( "updated volumepath for disk , id = %@.", disk );
 
                 DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );
 
@@ -402,7 +409,7 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding )
     name1 = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
     if ( name1 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
 
-    name2 = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path1 );
+    name2 = _DAFileSystemCopyNameAndUUID( DADiskGetFileSystem( disk ), path1, NULL);
     if ( name2 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
 
     status = CFEqual( name1, name2 );
@@ -444,11 +451,12 @@ _DADiskSetEncodingErr:
 
 errno_t _DADiskGetEncryptionStatus( CFAllocatorRef allocator, DADiskRef disk, CFBooleanRef *encryption_status, CFNumberRef *encryption_details )
 {
-    bool encrypted;
-    UInt32 detail;
-    errno_t error;
-
-    error = _FSGetMediaEncryptionStatusAtPath( DADiskGetBSDPath(disk, FALSE), &encrypted, &detail );
+    bool encrypted = kCFBooleanFalse;
+    UInt32 detail = 0;
+    errno_t error = 0;
+#if TARGET_OS_OSX
+   error = _FSGetMediaEncryptionStatusAtPath( DADiskGetBSDPath(disk, FALSE), &encrypted, &detail );
+#endif
 
     if ( error == 0 )
     {

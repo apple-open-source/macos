@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015-2017, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2015, 2016, 2020-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -119,11 +119,11 @@ kern_return_t
 _configremove(mach_port_t		server,
 	      xmlData_t			keyRef,		/* raw XML bytes */
 	      mach_msg_type_number_t	keyLen,
-	      int			*sc_status,
-	      audit_token_t		audit_token)
+	      int			*sc_status)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
 	serverSessionRef	mySession;
+	int			status;
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, keyRef, keyLen)) {
@@ -138,16 +138,21 @@ _configremove(mach_port_t		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		mySession = tempSession(server, CFSTR("SCDynamicStoreRemoveValue"), audit_token);
-		if (mySession == NULL) {
-			/* you must have an open session to play */
-			*sc_status = kSCStatusNoStoreSession;
-			goto done;
-		}
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		goto done;
 	}
 
-	if (!hasWriteAccess(mySession, "remove", key)) {
-		*sc_status = kSCStatusAccessError;
+	status = checkWriteAccess(mySession, key);
+	if (status != kSCStatusOK) {
+#ifdef	DEBUG
+		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
+
+		SC_trace("!remove : %5d : %@",
+			 storePrivate->server,
+			 key);
+#endif	// DEBUG
+		*sc_status = status;
 		goto done;
 	}
 

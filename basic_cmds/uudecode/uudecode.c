@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -43,7 +41,7 @@ static char sccsid[] = "@(#)uudecode.c	8.2 (Berkeley) 4/2/94";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/usr.bin/uudecode/uudecode.c 214010 2010-10-18 05:44:11Z edwin $");
+__FBSDID("$FreeBSD$");
 
 /*
  * uudecode [file ...]
@@ -64,14 +62,23 @@ __FBSDID("$FreeBSD: head/usr.bin/uudecode/uudecode.c 214010 2010-10-18 05:44:11Z
 #include <libgen.h>
 #include <pwd.h>
 #include <resolv.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#endif
+
 static const char *infile, *outfile;
 static FILE *infp, *outfp;
-static int base64, cflag, iflag, oflag, pflag, rflag, sflag;
+static bool base64, cflag, iflag, oflag, pflag, rflag, sflag;
+#ifdef __APPLE__
+static bool unix2003compat;
+#endif
+
 
 static void	usage(void);
 static int	decode(void);
@@ -85,49 +92,53 @@ main(int argc, char *argv[])
 	int rval, ch;
 
 	if (strcmp(basename(argv[0]), "b64decode") == 0)
-		base64 = 1;
+		base64 = true;
 
 	while ((ch = getopt(argc, argv, "cimo:prs")) != -1) {
 		switch (ch) {
 		case 'c':
 			if (oflag || rflag)
 				usage();
-			cflag = 1; /* multiple uudecode'd files */
+			cflag = true; /* multiple uudecode'd files */
 			break;
 		case 'i':
-			iflag = 1; /* ask before override files */
+			iflag = true; /* ask before override files */
 			break;
 		case 'm':
-			base64 = 1;
+			base64 = true;
 			break;
 		case 'o':
 			if (cflag || pflag || rflag || sflag)
 				usage();
-			oflag = 1; /* output to the specified file */
-			sflag = 1; /* do not strip pathnames for output */
+			oflag = true; /* output to the specified file */
+			sflag = true; /* do not strip pathnames for output */
 			outfile = optarg; /* set the output filename */
 			break;
 		case 'p':
 			if (oflag)
 				usage();
-			pflag = 1; /* print output to stdout */
+			pflag = true; /* print output to stdout */
 			break;
 		case 'r':
 			if (cflag || oflag)
 				usage();
-			rflag = 1; /* decode raw data */
+			rflag = true; /* decode raw data */
 			break;
 		case 's':
 			if (oflag)
 				usage();
-			sflag = 1; /* do not strip pathnames for output */
+			sflag = true; /* do not strip pathnames for output */
 			break;
 		default:
 			usage();
 		}
 	}
-//	argc -= optind;
+	argc -= optind;
 	argv += optind;
+
+#ifdef __APPLE__
+	unix2003compat = COMPAT_MODE("bin/uudecode", "Unix2003");
+#endif
 
 	if (*argv != NULL) {
 		rval = 0;
@@ -181,20 +192,20 @@ decode2(void)
 {
 	int flags, fd, mode;
 	size_t n, m;
-	char *p, *q = NULL, *orig_outfile = NULL;
+	char *p, *q;
 	void *handle;
 	struct passwd *pw;
 	struct stat st;
 	char buf[MAXPATHLEN + 1];
 
-	base64 = 0;
+	base64 = false;
 	/* search for header line */
 	for (;;) {
 		if (fgets(buf, sizeof(buf), infp) == NULL)
 			return (EOF);
 		p = buf;
 		if (strncmp(p, "begin-base64 ", 13) == 0) {
-			base64 = 1;
+			base64 = true;
 			p += 13;
 		} else if (strncmp(p, "begin ", 6) == 0)
 			p += 6;
@@ -213,14 +224,24 @@ decode2(void)
 		if (n > 0)
 			break;
 	}
-    orig_outfile = q;
+
 	handle = setmode(p);
 	if (handle == NULL) {
 		warnx("%s: unable to parse file mode", infile);
 		return (1);
 	}
-	mode = getmode(handle, 0);
+	mode = getmode(handle, 0)
+#ifndef __APPLE__
+	    & 0666
+#endif
+	    ;
 	free(handle);
+
+#ifdef __APPLE__
+	/* POSIX says "/dev/stdout" is a 'magic cookie' not a special file. */
+	if (strcmp(q, "/dev/stdout") == 0)
+		outfp = stdout;
+#endif
 
 	if (sflag) {
 		/* don't strip, so try ~user/file expansion */
@@ -253,41 +274,56 @@ decode2(void)
 		if (p != NULL)
 			q = p + 1;
 	}
-	if (!oflag) {
-		outfile = q ? strdup(q) : q;
-    }
+	if (!oflag)
+		outfile = q;
 
+#ifdef __APPLE__
+	if (!oflag && outfp != NULL) {
+	} else
+#endif
 	/* POSIX says "/dev/stdout" is a 'magic cookie' not a special file. */
-	if (pflag || (strcmp(oflag ? outfile : orig_outfile, "/dev/stdout") == 0)) {
+	if (pflag || strcmp(outfile, "/dev/stdout") == 0)
 		outfp = stdout;
-	} else {
-        char pwd[MAXPATHLEN] = "";
-        char targetpath[MAXPATHLEN];
+	else {
 		flags = O_WRONLY | O_CREAT | O_EXCL;
 		if (lstat(outfile, &st) == 0) {
-			if (iflag && !S_ISFIFO(st.st_mode)) {
+			if (iflag
+#ifdef __APPLE__
+			    && !S_ISFIFO(st.st_mode)
+#endif
+			    ) {
 				warnc(EEXIST, "%s: %s", infile, outfile);
 				return (0);
 			}
-            
-            flags = O_RDWR;
 			switch (st.st_mode & S_IFMT) {
 			case S_IFREG:
+#ifdef __APPLE__
 				flags |= O_NOFOLLOW | O_TRUNC;
+				flags &= ~O_EXCL;
 				break;
+#endif
 			case S_IFLNK:
-                if (NULL == realpath(".", pwd)) {
-                    warn("Unable to get realpath for .");
-                    return (1);
-                }
-                flags |= O_CREAT; // for dangling symlinks
-				break;
+#ifdef __APPLE__
+				/* Section 2.9.1.4, P1003.3.2/D8 mandates folowing symlink. */
+				if (unix2003compat) {
+					flags |= O_TRUNC;
+					flags &= ~O_EXCL;
+					break;
+				}
+#endif
+				/* avoid symlink attacks */
+				if (unlink(outfile) == 0 || errno == ENOENT)
+					break;
+				warn("%s: unlink %s", infile, outfile);
+				return (1);
 			case S_IFDIR:
 				warnc(EISDIR, "%s: %s", infile, outfile);
 				return (1);
-            case S_IFIFO:
-                flags &= ~O_EXCL;
-                break;
+#ifdef __APPLE__
+			case S_IFIFO:
+				flags &= ~O_EXCL;
+				break;
+#endif
 			default:
 				if (oflag) {
 					/* trust command-line names */
@@ -301,36 +337,20 @@ decode2(void)
 			warn("%s: %s", infile, outfile);
 			return (1);
 		}
-        fd = open(outfile, flags, mode);
-        if (fd < 0) {
+		if ((fd = open(outfile, flags, mode)) < 0 ||
+		    (outfp = fdopen(fd, "w")) == NULL) {
 			warn("%s: %s", infile, outfile);
-            return (1);
-        }
-        if (pwd[0]) {
-            if (-1 != fcntl(fd, F_GETPATH, targetpath)) {
-                if (strstr(targetpath, pwd) != targetpath) {
-                    warnx("Target path %s is not based at %s", targetpath, pwd);
-                    close(fd);
-                    return (1);
-                }
-                ftruncate(fd, 0);
-            } else {
-                close(fd);
-                warn("Unable to get path for target: %s", outfile);
-                return (1);
-            }
-        }
-		if ((outfp = fdopen(fd, "w")) == NULL) {
-			warn("%s: %s", infile, outfile);
-            close(fd);
 			return (1);
 		}
-        if (fchmod(fileno(outfp), mode) && (EPERM != errno)) {
-            warn("%s: %s", infile, outfile);
-            close(fd);
-            return 1;
-        }
+#ifdef __APPLE__
+		if (fchmod(fileno(outfp), mode) && EPERM != errno) {
+			warn("%s: %s", infile, outfile);
+			close(fd);
+			return 1;
+		}
+#endif
 	}
+
 	if (base64)
 		return (base64_decode());
 	else
@@ -338,7 +358,7 @@ decode2(void)
 }
 
 static int
-uugetline(char *buf, size_t size)
+get_line(char *buf, size_t size)
 {
 
 	if (fgets(buf, size, infp) != NULL)
@@ -376,7 +396,7 @@ uu_decode(void)
 
 	/* for each input line */
 	for (;;) {
-		switch (uugetline(buf, sizeof(buf))) {
+		switch (get_line(buf, sizeof(buf))) {
 		case 0:
 			return (0);
 		case 1:
@@ -388,7 +408,7 @@ uu_decode(void)
 
 #define OUT_OF_RANGE do {						\
 	warnx("%s: %s: character out of range: [%d-%d]",		\
-	    infile, outfile, 1 + ' ', 077 + ' ' + 1);			\
+	    infile, outfile, ' ', 077 + ' ' + 1);			\
 	return (1);							\
 } while (0)
 
@@ -414,7 +434,7 @@ uu_decode(void)
 			} else {
 				if (i >= 1) {
 					if (!(IS_DEC(*p) && IS_DEC(*(p + 1))))
-	                                	OUT_OF_RANGE;
+						OUT_OF_RANGE;
 					ch = DEC(p[0]) << 2 | DEC(p[1]) >> 4;
 					putc(ch, outfp);
 				}
@@ -435,7 +455,7 @@ uu_decode(void)
 				}
 			}
 	}
-	switch (uugetline(buf, sizeof(buf))) {
+	switch (get_line(buf, sizeof(buf))) {
 	case 0:
 		return (0);
 	case 1:
@@ -456,7 +476,7 @@ base64_decode(void)
 	leftover[0] = '\0';
 	for (;;) {
 		strcpy(inbuf, leftover);
-		switch (uugetline(inbuf + strlen(inbuf),
+		switch (get_line(inbuf + strlen(inbuf),
 		    sizeof(inbuf) - strlen(inbuf))) {
 		case 0:
 			return (0);

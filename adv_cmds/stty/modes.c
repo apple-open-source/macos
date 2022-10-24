@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,16 +33,15 @@ static char sccsid[] = "@(#)modes.c	8.3 (Berkeley) 4/2/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/stty/modes.c,v 1.12 2002/06/30 05:15:04 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <stddef.h>
 #include <string.h>
 #include "stty.h"
 
 #ifdef __APPLE__
 #include <get_compat.h>
-#else 
+#else
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */
 
@@ -62,7 +57,7 @@ struct modes {
  * The code in optlist() depends on minus options following regular
  * options, i.e. "foo" must immediately precede "-foo".
  */
-struct modes cmodes[] = {
+static const struct modes cmodes[] = {
 	{ "cs5",	CS5, CSIZE },
 	{ "cs6",	CS6, CSIZE },
 	{ "cs7",	CS7, CSIZE },
@@ -101,10 +96,14 @@ struct modes cmodes[] = {
 	{ "-rtsflow",	0, CRTS_IFLOW },
 	{ "mdmbuf",	MDMBUF, 0 },
 	{ "-mdmbuf",	0, MDMBUF },
+#ifndef __APPLE__
+	{ "rtsdtr",	0, CNO_RTSDTR },
+	{ "-rtsdtr",	CNO_RTSDTR, 0 },
+#endif
 	{ NULL,		0, 0 },
 };
 
-struct modes imodes[] = {
+static const struct modes imodes[] = {
 	{ "ignbrk",	IGNBRK, 0 },
 	{ "-ignbrk",	0, IGNBRK },
 	{ "brkint",	BRKINT, 0 },
@@ -137,12 +136,14 @@ struct modes imodes[] = {
 	{ "-decctlq",	IXANY, 0 },
 	{ "imaxbel",	IMAXBEL, 0 },
 	{ "-imaxbel",	0, IMAXBEL },
+#ifdef __APPLE__
 	{ "iutf8",	IUTF8, 0 },
 	{ "-iutf8",	0, IUTF8 },
+#endif
 	{ NULL,		0, 0 },
 };
 
-struct modes lmodes[] = {
+static const struct modes lmodes[] = {
 	{ "echo",	ECHO, 0 },
 	{ "-echo",	0, ECHO },
 	{ "echoe",	ECHOE, 0 },
@@ -194,22 +195,27 @@ struct modes lmodes[] = {
 	{ NULL,		0, 0 },
 };
 
-struct modes omodes[] = {
+static const struct modes omodes[] = {
 	{ "opost",	OPOST, 0 },
 	{ "-opost",	0, OPOST },
 	{ "litout",	0, OPOST },
 	{ "-litout",	OPOST, 0 },
 	{ "onlcr",	ONLCR, 0 },
 	{ "-onlcr",	0, ONLCR },
-#ifndef __APPLE__
-	{ "ocrnl",	OCRNL, 0 },
-	{ "-ocrnl",	0, OCRNL },
-#endif
+#ifdef __APPLE__
 	{ "tabs",	0, OXTABS },		/* "preserve" tabs */
 	{ "-tabs",	OXTABS, 0 },
 	{ "oxtabs",	OXTABS, 0 },
 	{ "-oxtabs",	0, OXTABS },
-#ifndef __APPLE__
+#else
+	{ "ocrnl",	OCRNL, 0 },
+	{ "-ocrnl",	0, OCRNL },
+	{ "tabs",	TAB0, TABDLY },		/* "preserve" tabs */
+	{ "-tabs",	TAB3, TABDLY },
+	{ "oxtabs",	TAB3, TABDLY },
+	{ "-oxtabs",	TAB0, TABDLY },
+	{ "tab0",	TAB0, TABDLY },
+	{ "tab3",	TAB3, TABDLY },
 	{ "onocr",	ONOCR, 0 },
 	{ "-onocr",	0, ONOCR },
 	{ "onlret",	ONLRET, 0 },
@@ -218,6 +224,7 @@ struct modes omodes[] = {
 	{ NULL,		0, 0 },
 };
 
+#ifdef __APPLE__
 struct modes umodes[] = {	/* For Unix conformance only */
 	{ "ocrnl",	OCRNL, 0 },
 	{ "-ocrnl",	0, OCRNL },
@@ -256,13 +263,14 @@ struct modes umodes[] = {	/* For Unix conformance only */
 
 	{ NULL,		0, 0 },
 };
+#endif
 
 #define	CHK(s)	(*name == s[0] && !strcmp(name, s))
 
 int
 msearch(char ***argvp, struct info *ip)
 {
-	struct modes *mp;
+	const struct modes *mp;
 	char *name;
 
 	name = **argvp;
@@ -295,6 +303,7 @@ msearch(char ***argvp, struct info *ip)
 			ip->set = 1;
 			return (1);
 		}
+#ifdef __APPLE__
 	if (COMPAT_MODE("bin/stty", "Unix2003")) {
 		for (mp = umodes; mp->name; ++mp)
 			if (CHK(mp->name)) {
@@ -302,7 +311,8 @@ msearch(char ***argvp, struct info *ip)
 				ip->t.c_oflag |= mp->set;
 				ip->set = 1;
 				return (1);
-		}
+			}
 	}
+#endif
 	return (0);
 }

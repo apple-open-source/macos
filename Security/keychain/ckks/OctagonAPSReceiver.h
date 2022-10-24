@@ -61,12 +61,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)registerForEnvironment:(NSString*)environmentName;
 
-- (CKKSCondition*)registerCKKSReceiver:(id<CKKSZoneUpdateReceiverProtocol>)receiver;
+- (CKKSCondition*)registerCKKSReceiver:(id<CKKSZoneUpdateReceiverProtocol>)receiver
+                             contextID:(NSString*)contextID;
 
 // APS reserves the right to coalesce pushes by topic. So, any cuttlefish container push might hide pushes for other cuttlefish containers.
 // This is okay for now, as we only have one active cuttlefish container per device, but if we start to have multiple accounts, this handling might need to change.
-- (CKKSCondition*)registerCuttlefishReceiver:(id<OctagonCuttlefishUpdateReceiver>)receiver forContainerName:(NSString*)containerName;
-
+- (CKKSCondition*)registerCuttlefishReceiver:(id<OctagonCuttlefishUpdateReceiver>)receiver
+                            forContainerName:(NSString*)containerName
+                                   contextID:(NSString*)contextID;
 // Test support:
 - (instancetype)initWithNamedDelegatePort:(NSString*)namedDelegatePort
                      apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass;

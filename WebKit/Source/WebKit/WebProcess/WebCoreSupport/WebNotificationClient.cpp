@@ -40,34 +40,64 @@ using namespace WebCore;
 WebNotificationClient::WebNotificationClient(WebPage* page)
     : m_page(page)
 {
+    ASSERT(isMainRunLoop());
 }
 
 WebNotificationClient::~WebNotificationClient()
 {
+    ASSERT(isMainRunLoop());
 }
 
-bool WebNotificationClient::show(Notification& notification)
+bool WebNotificationClient::show(Notification& notification, CompletionHandler<void()>&& callback)
 {
-    return WebProcess::singleton().supplement<WebNotificationManager>()->show(notification, m_page);
+    auto* context = notification.scriptExecutionContext();
+    ASSERT(context);
+
+    bool result;
+    callOnMainRunLoopAndWait([&result, protectedNotification = Ref { notification }, page = m_page, contextIdentifier = context->identifier(), callbackIdentifier = context->addNotificationCallback(WTFMove(callback))]() {
+        result = WebProcess::singleton().supplement<WebNotificationManager>()->show(protectedNotification.get(), page, [contextIdentifier, callbackIdentifier] {
+            ScriptExecutionContext::postTaskTo(contextIdentifier, [callbackIdentifier](auto& context) {
+                if (auto callback = context.takeNotificationCallback(callbackIdentifier))
+                    callback();
+            });
+        });
+    });
+    return result;
 }
 
 void WebNotificationClient::cancel(Notification& notification)
 {
-    WebProcess::singleton().supplement<WebNotificationManager>()->cancel(notification, m_page);
+    callOnMainRunLoopAndWait([protectedNotification = Ref { notification }, page = m_page]() {
+        WebProcess::singleton().supplement<WebNotificationManager>()->cancel(protectedNotification.get(), page);
+    });
 }
 
 void WebNotificationClient::notificationObjectDestroyed(Notification& notification)
 {
-    WebProcess::singleton().supplement<WebNotificationManager>()->didDestroyNotification(notification, m_page);
+    // Make sure this Notification object is deallocated on this thread by holding one last ref() to it here
+    auto lastNotificationRef = Ref { notification };
+
+    callOnMainRunLoopAndWait([&notification, page = m_page]() {
+        WebProcess::singleton().supplement<WebNotificationManager>()->didDestroyNotification(notification, page);
+    });
 }
 
 void WebNotificationClient::notificationControllerDestroyed()
 {
-    delete this;
+    callOnMainRunLoop([this] {
+        delete this;
+    });
 }
 
 void WebNotificationClient::requestPermission(ScriptExecutionContext& context, PermissionHandler&& permissionHandler)
 {
+    // Only Window clients can request permission
+    ASSERT(isMainRunLoop());
+    ASSERT(m_page);
+
+    if (!context.isDocument() || WebProcess::singleton().sessionID().isEphemeral())
+        return permissionHandler(NotificationClient::Permission::Denied);
+
     auto* securityOrigin = context.securityOrigin();
     if (!securityOrigin)
         return permissionHandler(NotificationClient::Permission::Denied);
@@ -76,9 +106,20 @@ void WebNotificationClient::requestPermission(ScriptExecutionContext& context, P
 
 NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExecutionContext* context)
 {
-    if (!context || !context->isDocument() || !context->securityOrigin())
+    if (!context
+        || (!context->isDocument() && !context->isServiceWorkerGlobalScope())
+        || WebProcess::singleton().sessionID().isEphemeral())
         return NotificationClient::Permission::Denied;
-    return m_page->notificationPermissionRequestManager()->permissionLevel(context->securityOrigin()->data());
+
+    auto* origin = context->securityOrigin();
+    if (!origin)
+        return NotificationClient::Permission::Denied;
+
+    NotificationClient::Permission resultPermission;
+    callOnMainRunLoopAndWait([&resultPermission, origin = origin->data().toString().isolatedCopy()] {
+        resultPermission = WebProcess::singleton().supplement<WebNotificationManager>()->policyForOrigin(origin);
+    });
+    return resultPermission;
 }
 
 } // namespace WebKit

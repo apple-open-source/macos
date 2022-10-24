@@ -40,6 +40,8 @@
 #include "FrameLoaderClient.h"
 #include "FrameLoaderStateMachine.h"
 #include "FrameView.h"
+#include "HistoryController.h"
+#include "HistoryItem.h"
 #include "MIMETypeRegistry.h"
 #include "PluginDocument.h"
 #include "RawDataDocumentParser.h"
@@ -112,7 +114,7 @@ bool DocumentWriter::begin()
     return begin(URL());
 }
 
-Ref<Document> DocumentWriter::createDocument(const URL& url)
+Ref<Document> DocumentWriter::createDocument(const URL& url, ScriptExecutionContextIdentifier documentIdentifier)
 {
     if (!m_frame->loader().stateMachine().isDisplayingInitialEmptyDocument() && m_frame->loader().client().shouldAlwaysUsePluginDocument(m_mimeType))
         return PluginDocument::create(*m_frame, url);
@@ -122,10 +124,10 @@ Ref<Document> DocumentWriter::createDocument(const URL& url)
 #endif
     if (!m_frame->loader().client().hasHTMLView())
         return Document::createNonRenderedPlaceholder(*m_frame, url);
-    return DOMImplementation::createDocument(m_mimeType, m_frame.get(), m_frame->settings(), url);
+    return DOMImplementation::createDocument(m_mimeType, m_frame.get(), m_frame->settings(), url, documentIdentifier);
 }
 
-bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* ownerDocument)
+bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* ownerDocument, ScriptExecutionContextIdentifier documentIdentifier, const NavigationAction* triggeringAction)
 {
     // We grab a local copy of the URL because it's easy for callers to supply
     // a URL that will be deallocated during the execution of this function.
@@ -134,7 +136,7 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
-    Ref<Document> document = createDocument(url);
+    Ref<Document> document = createDocument(url, documentIdentifier);
     
     // If the new document is for a Plugin but we're supposed to be sandboxed from Plugins,
     // then replace the document with one whose parser will ignore the incoming data (bug 39323)
@@ -191,19 +193,32 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         document->setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { url }, document));
         document->contentSecurityPolicy()->copyStateFrom(ownerDocument->contentSecurityPolicy());
         document->contentSecurityPolicy()->setInsecureNavigationRequestsToUpgrade(ownerDocument->contentSecurityPolicy()->takeNavigationRequestsToUpgrade());
-    } else if (existingDocument) {
-        if (url.protocolIsData() || url.protocolIsBlob()) {
-            document->setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { url }, document));
-            document->contentSecurityPolicy()->copyStateFrom(existingDocument->contentSecurityPolicy());
-            document->setCrossOriginEmbedderPolicy(existingDocument->crossOriginEmbedderPolicy());
+    } else if (url.hasLocalScheme()) {
+        // https://html.spec.whatwg.org/multipage/origin.html#determining-navigation-params-policy-container
+        auto* currentHistoryItem = m_frame->loader().history().currentItem();
 
-            // Fix up 'self' for blob: and data:, which is inherited from its embedding document or opener.
+        if (!url.protocolIsBlob() && currentHistoryItem && currentHistoryItem->policyContainer()) {
+            const auto& policyContainerFromHistory = currentHistoryItem->policyContainer();
+            ASSERT(policyContainerFromHistory);
+            document->inheritPolicyContainerFrom(*policyContainerFromHistory);
+        } else if (url == aboutSrcDocURL()) {
             auto* parentFrame = m_frame->tree().parent();
-            if (auto* ownerFrame = parentFrame ? parentFrame : m_frame->loader().opener())
-                document->contentSecurityPolicy()->updateSourceSelf(ownerFrame->document()->securityOrigin());
+            if (parentFrame && parentFrame->document()) {
+                document->inheritPolicyContainerFrom(parentFrame->document()->policyContainer());
+                document->contentSecurityPolicy()->updateSourceSelf(parentFrame->document()->securityOrigin());
+            }
+        } else if (triggeringAction && triggeringAction->requester()) {
+            document->inheritPolicyContainerFrom(triggeringAction->requester()->policyContainer);
+            document->contentSecurityPolicy()->updateSourceSelf(triggeringAction->requester()->securityOrigin);
         }
-        document->contentSecurityPolicy()->setInsecureNavigationRequestsToUpgrade(existingDocument->contentSecurityPolicy()->takeNavigationRequestsToUpgrade());
+
+        // https://html.spec.whatwg.org/multipage/origin.html#requires-storing-the-policy-container-in-history
+        if (triggeringAction && triggeringAction->type() != NavigationType::BackForward && !url.protocolIsBlob() && currentHistoryItem)
+            currentHistoryItem->setPolicyContainer(document->policyContainer());
     }
+
+    if (existingDocument && existingDocument->contentSecurityPolicy() && document->contentSecurityPolicy())
+        document->contentSecurityPolicy()->setInsecureNavigationRequestsToUpgrade(existingDocument->contentSecurityPolicy()->takeNavigationRequestsToUpgrade());
 
     Ref protectedFrame = *m_frame;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +33,12 @@
 #include "GPUError.h"
 #include "GPUErrorFilter.h"
 #include "GPURenderPipeline.h"
+#include "GPUQueue.h"
 #include "JSDOMPromiseDeferred.h"
 #include "ScriptExecutionContext.h"
 #include <optional>
 #include <pal/graphics/WebGPU/WebGPUDevice.h>
+#include <wtf/IsoMalloc.h>
 #include <wtf/Ref.h>
 #include <wtf/text/WTFString.h>
 
@@ -73,7 +75,8 @@ class GPUSupportedLimits;
 class GPUTexture;
 struct GPUTextureDescriptor;
 
-class GPUDevice : public ActiveDOMObject, public EventTargetWithInlineData {
+class GPUDevice : public RefCounted<GPUDevice>, public ActiveDOMObject, public EventTarget {
+    WTF_MAKE_ISO_ALLOCATED(GPUDevice);
 public:
     static Ref<GPUDevice> create(ScriptExecutionContext* scriptExecutionContext, Ref<PAL::WebGPU::Device>&& backing)
     {
@@ -87,6 +90,8 @@ public:
 
     Ref<GPUSupportedFeatures> features() const;
     Ref<GPUSupportedLimits> limits() const;
+
+    GPUQueue& queue() const;
 
     void destroy();
 
@@ -122,10 +127,14 @@ public:
     PAL::WebGPU::Device& backing() { return m_backing; }
     const PAL::WebGPU::Device& backing() const { return m_backing; }
 
+    using RefCounted::ref;
+    using RefCounted::deref;
+
 private:
     GPUDevice(ScriptExecutionContext* scriptExecutionContext, Ref<PAL::WebGPU::Device>&& backing)
         : ActiveDOMObject { scriptExecutionContext }
         , m_backing(WTFMove(backing))
+        , m_queue(GPUQueue::create(Ref { m_backing->queue() }))
     {
     }
 
@@ -133,14 +142,15 @@ private:
     // FIXME: We probably need to override more methods to make this work properly.
     const char* activeDOMObjectName() const final { return "GPUDevice"; }
 
-    // EventTargetWithInlineData.
+    // EventTarget.
     EventTargetInterface eventTargetInterface() const final { return GPUDeviceEventTargetInterfaceType; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
     LostPromise m_lostPromise;
-    Ref<PAL::WebGPU::Device>&& m_backing;
+    Ref<PAL::WebGPU::Device> m_backing;
+    Ref<GPUQueue> m_queue;
 };
 
 }

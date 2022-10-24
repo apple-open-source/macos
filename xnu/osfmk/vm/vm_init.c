@@ -140,8 +140,6 @@ vm_mem_bootstrap(void)
 
 	kernel_startup_initialize_upto(STARTUP_SUB_ZALLOC);
 
-	vm_page_delayed_work_init_ctx();
-
 	if (iokit_iomd_setownership_enabled) {
 		kprintf("IOKit IOMD setownership ENABLED\n");
 	} else {

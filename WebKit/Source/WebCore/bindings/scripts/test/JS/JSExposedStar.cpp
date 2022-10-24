@@ -22,7 +22,8 @@
 #include "JSExposedStar.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -30,7 +31,9 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMGlobalObjectInlines.h"
 #include "JSDOMOperation.h"
+#include "JSDOMWindowBase.h"
 #include "JSDOMWrapperCache.h"
+#include "JSWorkerGlobalScopeBase.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/HeapAnalyzer.h>
@@ -68,7 +71,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSExposedStarPrototype, Base);
         return &vm.plainObjectSpace();
@@ -90,7 +93,7 @@ STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSExposedStarPrototype, JSExposedStarPrototy
 
 using JSExposedStarDOMConstructor = JSDOMConstructorNotConstructable<JSExposedStar>;
 
-template<> const ClassInfo JSExposedStarDOMConstructor::s_info = { "ExposedStar", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStarDOMConstructor) };
+template<> const ClassInfo JSExposedStarDOMConstructor::s_info = { "ExposedStar"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStarDOMConstructor) };
 
 template<> JSValue JSExposedStarDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
@@ -110,29 +113,29 @@ template<> void JSExposedStarDOMConstructor::initializeProperties(VM& vm, JSDOMG
 
 static const HashTableValue JSExposedStarPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsExposedStarConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
-    { "operationForAllContexts", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsExposedStarPrototypeFunction_operationForAllContexts), (intptr_t) (0) } },
-    { "operationJustForWindowContexts", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsExposedStarPrototypeFunction_operationJustForWindowContexts), (intptr_t) (0) } },
-    { "operationJustForWorkerContexts", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsExposedStarPrototypeFunction_operationJustForWorkerContexts), (intptr_t) (0) } },
+    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsExposedStarConstructor, 0 } },
+    { "operationForAllContexts"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsExposedStarPrototypeFunction_operationForAllContexts, 0 } },
+    { "operationJustForWindowContexts"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsExposedStarPrototypeFunction_operationJustForWindowContexts, 0 } },
+    { "operationJustForWorkerContexts"_s, static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { HashTableValue::NativeFunctionType, jsExposedStarPrototypeFunction_operationJustForWorkerContexts, 0 } },
 };
 
-const ClassInfo JSExposedStarPrototype::s_info = { "ExposedStar", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStarPrototype) };
+const ClassInfo JSExposedStarPrototype::s_info = { "ExposedStar"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStarPrototype) };
 
 void JSExposedStarPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSExposedStar::info(), JSExposedStarPrototypeTableValues, *this);
     bool hasDisabledRuntimeProperties = false;
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isDocument()) {
+    if (!(globalObject())->inherits<JSDOMWindowBase>()) {
         hasDisabledRuntimeProperties = true;
-        auto propertyName = Identifier::fromString(vm, reinterpret_cast<const LChar*>("operationJustForWindowContexts"), strlen("operationJustForWindowContexts"));
+        auto propertyName = Identifier::fromString(vm, "operationJustForWindowContexts"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
     }
-    if (!jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isWorkerGlobalScope()) {
+    if (!(globalObject())->inherits<JSWorkerGlobalScopeBase>()) {
         hasDisabledRuntimeProperties = true;
-        auto propertyName = Identifier::fromString(vm, reinterpret_cast<const LChar*>("operationJustForWorkerContexts"), strlen("operationJustForWorkerContexts"));
+        auto propertyName = Identifier::fromString(vm, "operationJustForWorkerContexts"_s);
         VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
         DeletePropertySlot slot;
         JSObject::deleteProperty(this, globalObject(), propertyName, slot);
@@ -142,7 +145,7 @@ void JSExposedStarPrototype::finishCreation(VM& vm)
     JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
-const ClassInfo JSExposedStar::s_info = { "ExposedStar", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStar) };
+const ClassInfo JSExposedStar::s_info = { "ExposedStar"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSExposedStar) };
 
 JSExposedStar::JSExposedStar(Structure* structure, JSDOMGlobalObject& globalObject, Ref<ExposedStar>&& impl)
     : JSEventTarget(structure, globalObject, WTFMove(impl))
@@ -152,7 +155,7 @@ JSExposedStar::JSExposedStar(Structure* structure, JSDOMGlobalObject& globalObje
 void JSExposedStar::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 
     static_assert(!std::is_base_of<ActiveDOMObject, ExposedStar>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
@@ -177,7 +180,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsExposedStarConstructor, (JSGlobalObject* lexicalGloba
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSExposedStarPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSExposedStarPrototype*>(JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSExposedStar::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
@@ -228,27 +231,14 @@ JSC_DEFINE_HOST_FUNCTION(jsExposedStarPrototypeFunction_operationJustForWorkerCo
     return IDLOperation<JSExposedStar>::call<jsExposedStarPrototypeFunction_operationJustForWorkerContextsBody>(*lexicalGlobalObject, *callFrame, "operationJustForWorkerContexts");
 }
 
-JSC::IsoSubspace* JSExposedStar::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSExposedStar::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForExposedStar.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSExposedStar> || !JSExposedStar::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSExposedStar>)
-        spaces.m_subspaceForExposedStar = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSExposedStar);
-    else
-        spaces.m_subspaceForExposedStar = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSExposedStar);
-    auto* space = spaces.m_subspaceForExposedStar.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSExposedStar::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSExposedStar, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForExposedStar.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForExposedStar = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForExposedStar.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForExposedStar = WTFMove(space); }
+    );
 }
 
 void JSExposedStar::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
@@ -272,24 +262,22 @@ extern "C" { extern void* _ZTVN7WebCore11ExposedStarE[]; }
 JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<ExposedStar>&& impl)
 {
 
+    if constexpr (std::is_polymorphic_v<ExposedStar>) {
 #if ENABLE(BINDING_INTEGRITY)
-    const void* actualVTablePointer = getVTablePointer(impl.ptr());
+        const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = __identifier("??_7ExposedStar@WebCore@@6B@");
+        void* expectedVTablePointer = __identifier("??_7ExposedStar@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = &_ZTVN7WebCore11ExposedStarE[2];
+        void* expectedVTablePointer = &_ZTVN7WebCore11ExposedStarE[2];
 #endif
 
-    // If this fails ExposedStar does not have a vtable, so you need to add the
-    // ImplementationLacksVTable attribute to the interface definition
-    static_assert(std::is_polymorphic<ExposedStar>::value, "ExposedStar is not polymorphic");
-
-    // If you hit this assertion you either have a use after free bug, or
-    // ExposedStar has subclasses. If ExposedStar has subclasses that get passed
-    // to toJS() we currently require ExposedStar you to opt out of binding hardening
-    // by adding the SkipVTableValidation attribute to the interface IDL definition
-    RELEASE_ASSERT(actualVTablePointer == expectedVTablePointer);
+        // If you hit this assertion you either have a use after free bug, or
+        // ExposedStar has subclasses. If ExposedStar has subclasses that get passed
+        // to toJS() we currently require ExposedStar you to opt out of binding hardening
+        // by adding the SkipVTableValidation attribute to the interface IDL definition
+        RELEASE_ASSERT(actualVTablePointer == expectedVTablePointer);
 #endif
+    }
     return createWrapper<ExposedStar>(globalObject, WTFMove(impl));
 }
 
@@ -298,9 +286,9 @@ JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* g
     return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
-ExposedStar* JSExposedStar::toWrapped(JSC::VM& vm, JSC::JSValue value)
+ExposedStar* JSExposedStar::toWrapped(JSC::VM&, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicCast<JSExposedStar*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSExposedStar*>(value))
         return &wrapper->wrapped();
     return nullptr;
 }

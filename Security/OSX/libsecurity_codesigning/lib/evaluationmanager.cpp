@@ -24,9 +24,6 @@
 #include "evaluationmanager.h"
 #include "policyengine.h"
 #include <security_utilities/cfmunge.h>
-#include <Security/SecEncodeTransform.h>
-#include <Security/SecDigestTransform.h>
-#include <xpc/xpc.h>
 #include <exception>
 #include <vector>
 
@@ -40,44 +37,8 @@ namespace CodeSigning {
 
 static CFStringRef EvaluationTaskCreateKey(CFURLRef path, AuthorityType type)
 {
-    CFErrorRef errors = NULL;
-
-    /* concatenate the type and the path before hashing */
-    string pathString  = std::to_string(type)+cfString(path);
-    CFRef<CFDataRef> data = makeCFData(pathString.c_str(), pathString.size());
-    CFRef<SecGroupTransformRef> group = SecTransformCreateGroupTransform();
-
-    CFRef<SecTransformRef> sha1 = SecDigestTransformCreate(kSecDigestSHA2, 256, &errors);
-    if( errors )
-    {
-        CFError::throwMe();
-    }
-
-    CFRef<SecTransformRef> b64 = SecEncodeTransformCreate(kSecBase64Encoding, &errors);
-    if ( errors )
-    {
-        CFError::throwMe();
-    }
-
-    SecTransformSetAttribute(sha1, kSecTransformInputAttributeName, data, &errors);
-    if ( errors )
-    {
-        CFError::throwMe();
-    }
-
-    SecTransformConnectTransforms(sha1, kSecTransformOutputAttributeName, b64, kSecTransformInputAttributeName, group, &errors);
-    if ( errors )
-    {
-        CFError::throwMe();
-    }
-
-    CFRef<CFDataRef> keyData = (CFDataRef)SecTransformExecute(group, &errors);
-    if ( errors )
-    {
-        CFError::throwMe();
-    }
-
-    return makeCFString(keyData);
+    string pathString = std::to_string(type)+cfString(path);
+    return makeCFString(pathString);
 }
 
 #pragma mark - EvaluationTask
@@ -116,9 +77,6 @@ private:
     dispatch_once_t                    mAssessmentKicked;
     int32_t                            mReferenceCount;
     int32_t                            mEvalCount;
-// This whole thing is a pre-existing crutch and must be fixed soon.
-#define UNOFFICIAL_MAX_XPC_ID_LENGTH 127
-    char                               mXpcActivityName[UNOFFICIAL_MAX_XPC_ID_LENGTH];
     bool                               mSharable;
 
     CFCopyRef<CFURLRef>                mPath;
@@ -136,8 +94,6 @@ EvaluationTask::EvaluationTask(PolicyEngine *engine, CFURLRef path, AuthorityTyp
     mAssessmentKicked(0), mReferenceCount(0), mEvalCount(0), mSharable(true),
     mExceptionToRethrow(0)
 {
-    mXpcActivityName[0] = 0;
-
     mWorkQueue = dispatch_queue_create("EvaluationTask", 0);
     mFeedbackQueue = dispatch_queue_create("EvaluationTaskFeedback", 0);
 
@@ -157,7 +113,6 @@ EvaluationTask::~EvaluationTask()
 void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef context)
 {
     bool performTheEvaluation = false;
-    bool lowPriority = flags & kSecAssessmentFlagLowPriority;
 
     // each evaluation task performs at most a single evaluation
     if (OSAtomicIncrement32Barrier(&mEvalCount) == 1)
@@ -207,11 +162,6 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
             // assessment or we will be quite soon
             dispatch_semaphore_wait(mAssessmentLock, DISPATCH_TIME_FOREVER);
 
-            // Unregister a possibly still scheduled activity, as it lost its point.
-            if (strlen(mXpcActivityName)) {
-                xpc_activity_unregister(mXpcActivityName);
-            }
-
             // copy the original context into our own mutable dictionary and replace
             // (or assign) the feedback entry within it to our multi-receiver
             // feedback relay block
@@ -247,46 +197,9 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
         // wait for the assessment to start
         dispatch_semaphore_wait(startLock, DISPATCH_TIME_FOREVER);
         dispatch_release(startLock);
-
-        if (lowPriority) {
-            // This whole thing is a crutch and should be handled differently.
-            // Maybe by having just one activity that just kicks off all remaining
-            // background assessments, CTS determines that it's a good time.
-            
-            // Convert the evaluation path and type to a base64 encoded hash to use as a key
-            // Use that to generate an xpc_activity identifier. This identifier should be smaller
-            // than 128 characters due to rdar://problem/20094806
-
-            CFCopyRef<CFStringRef> cfKey(EvaluationTaskCreateKey(mPath, mType));
-            string key = cfStringRelease(cfKey);
-            snprintf(mXpcActivityName, UNOFFICIAL_MAX_XPC_ID_LENGTH, "com.apple.security.assess/%s", key.c_str());
-
-            // schedule the assessment to be permitted to run (beyond start) -- this
-            // will either happen once we're no longer on battery power, or
-            // immediately, based on the flag value of kSecAssessmentFlagLowPriority
-            xpc_object_t criteria = xpc_dictionary_create(NULL, NULL, 0);
-            xpc_dictionary_set_bool(criteria, XPC_ACTIVITY_REPEATING, false);
-            xpc_dictionary_set_int64(criteria, XPC_ACTIVITY_DELAY, 0);
-            xpc_dictionary_set_int64(criteria, XPC_ACTIVITY_GRACE_PERIOD, 0);
-
-            xpc_dictionary_set_string(criteria, XPC_ACTIVITY_PRIORITY, XPC_ACTIVITY_PRIORITY_MAINTENANCE);
-            xpc_dictionary_set_bool(criteria, XPC_ACTIVITY_ALLOW_BATTERY, false);
-
-            xpc_activity_register(mXpcActivityName, criteria, ^(xpc_activity_t activity) {
-                // We use the Evaluation Manager to get the task, as the task may be gone already
-                // (and with it, its mAssessmentKicked member).
-                EvaluationManager::globalManager()->kickTask(cfKey);
-            });
-            xpc_release(criteria);
-        }
     }
 
-    // If this is a foreground assessment to begin with, or if an assessment
-    // with an existing task has been requested in the foreground, kick it
-    // immediately.
-    if (!lowPriority) {
-        kick();
-    }
+    kick();
 }
 
 void EvaluationTask::kick() {

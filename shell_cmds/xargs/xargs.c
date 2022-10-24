@@ -346,7 +346,7 @@ parse_input(int argc, char *argv[])
 				/* don't count empty line */
 				break;
 			}
-			if (!last_was_blank ) {
+			if (Iflag || !last_was_blank) {
 				/* only count if NOT continuation line */
 				count++;
 			} 

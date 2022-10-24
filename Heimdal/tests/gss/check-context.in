@@ -180,6 +180,13 @@ for mech in krb5 spnego; do
 		{ eval "$testfailed"; }
 done
 
+echo "======test short des3 message fails" ; > ${testdir}/messages.log
+    ${test_context} --mech-type=krb5 \
+        --wrapunwrapshort \
+        --session-enctype="des3-cbc-sha1" \
+        --name-type=hostbased-service host@no-aes.test.h5l.se || \
+        { eval "$testfailed"; }
+
 echo "======test unreadable/non existant keytab and its error message" ; > ${testdir}/messages.log
 ${test_context} --mech-type=krb5 host@lucid.test.h5l.se || \
 	{ eval "$testfailed"; }

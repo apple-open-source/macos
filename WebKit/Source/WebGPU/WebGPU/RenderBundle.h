@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,31 +25,47 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 
+struct WGPURenderBundleImpl {
+};
+
 namespace WebGPU {
 
-class RenderBundle : public RefCounted<RenderBundle> {
+class Device;
+
+// https://gpuweb.github.io/gpuweb/#gpurenderbundle
+class RenderBundle : public WGPURenderBundleImpl, public RefCounted<RenderBundle> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RenderBundle> create()
+    static Ref<RenderBundle> create(id<MTLIndirectCommandBuffer> indirectCommandBuffer, Device& device)
     {
-        return adoptRef(*new RenderBundle());
+        return adoptRef(*new RenderBundle(indirectCommandBuffer, device));
+    }
+    static Ref<RenderBundle> createInvalid(Device& device)
+    {
+        return adoptRef(*new RenderBundle(device));
     }
 
     ~RenderBundle();
 
-    void setLabel(const char*);
+    void setLabel(String&&);
+
+    bool isValid() const { return m_indirectCommandBuffer; }
+
+    id<MTLIndirectCommandBuffer> indirectCommandBuffer() const { return m_indirectCommandBuffer; }
+
+    Device& device() const { return m_device; }
 
 private:
-    RenderBundle();
+    RenderBundle(id<MTLIndirectCommandBuffer>, Device&);
+    RenderBundle(Device&);
+
+    const id<MTLIndirectCommandBuffer> m_indirectCommandBuffer { nil };
+
+    const Ref<Device> m_device;
 };
 
 } // namespace WebGPU
-
-struct WGPURenderBundleImpl {
-    Ref<WebGPU::RenderBundle> renderBundle;
-};

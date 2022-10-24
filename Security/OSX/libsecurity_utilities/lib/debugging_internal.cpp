@@ -161,12 +161,12 @@ Target::~Target()
 }
 
 
-static void addScope(char *&bufp, const char *scope)
+static void addScope(char *&bufp, size_t bufp_sz, const char *scope)
 {
 	if (const char *sep = strchr(scope, ',')) {
-		bufp += sprintf(bufp, "%-*s", Name::maxLength, (const char *)Name(scope, sep));
+		bufp += std::snprintf(bufp, bufp_sz, "%-*s", Name::maxLength, (const char *)Name(scope, sep));
 	} else {    // single scope
-		bufp += sprintf(bufp, "%-*s", Name::maxLength, scope);
+		bufp += std::snprintf(bufp, bufp_sz, "%-*s", Name::maxLength, scope);
 	}
 }
 
@@ -186,44 +186,44 @@ void Target::message(const char *scope, const char *format, va_list args)
 			time_t now = time(NULL);
 			char *date = ctime(&now);
 			date[19] = '\0';
-			bufp += sprintf(bufp, "%s ", date + 4);	// Nov 24 18:22:48
+			bufp += std::snprintf(bufp, sizeof(buffer) - (bufp - buffer), "%s ", date + 4);	// Nov 24 18:22:48
 		}
 
 		// leading scope
 		if (showScope && scope)
-			addScope(bufp, scope);
+			addScope(bufp, sizeof(buffer) - (bufp - buffer), scope);
 		
 		if (showProc || showThread) {
 			char sub[maxProgNameLength + 20];
 			unsigned plen = 0;
 			if (showProc && showThread)
-				plen = sprintf(sub, "%s[%d]", progName, getpid());
+				plen = std::snprintf(sub, sizeof(sub), "%s[%d]", progName, getpid());
 			else if (showProc)
-				plen = sprintf(sub, "%s", progName);
+				plen = std::snprintf(sub, sizeof(sub),"%s", progName);
 			else
-				plen = sprintf(sub, "[%d]", getpid());
+				plen = std::snprintf(sub, sizeof(sub),"[%d]", getpid());
 			unsigned int id = perThread().id;
 			if (id > 1)
-				plen += sprintf(sub + plen, ":%d", id);
+				plen += std::snprintf(sub + plen, sizeof(sub) - plen, ":%d", id);
 			if (plen <= procLength)
-				bufp += sprintf(bufp, "%-*s ", int(procLength), sub);
+				bufp += std::snprintf(bufp, sizeof(buffer) - (bufp - buffer), "%-*s ", int(procLength), sub);
 			else
-				bufp += sprintf(bufp, "%s ", sub + plen - procLength);
+				bufp += std::snprintf(bufp, sizeof(buffer) - (bufp - buffer), "%s ", sub + plen - procLength);
 		}
 
 		// scope after proc/thread/pid
 		if (showScopeRight && scope)
-			addScope(bufp, scope);
+			addScope(bufp, sizeof(buffer) - (bufp - buffer), scope);
 
 		// now stuff the message body in, slightly roasted
 		size_t left = buffer + sizeof(buffer) - bufp - 1;	// reserve one
 		size_t written = vsnprintf(bufp, left, format, args);
-        for (char *p = bufp; *p; p++) {
-            if (!isprint(*p)) {
-                *p = '?';
-            }
-        }
-		if (written >= left) {	// snprintf overflowed
+	for (char *p = bufp; *p; p++) {
+	    if (!isprint(*p)) {
+		*p = '?';
+	    }
+	}
+		if (written >= left) {	// std::snprintf overflowed
 			bufp += left;
 			strcpy(bufp - 3, "...");
 		} else

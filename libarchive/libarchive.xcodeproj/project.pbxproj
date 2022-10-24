@@ -61,7 +61,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		352152AA24AD15B70003876C /* test_zip_bomb.c in Install BATS plist */ = {isa = PBXBuildFile; fileRef = 352152A924AD15B70003876C /* test_zip_bomb.c */; };
 		352152AB24AD15DB0003876C /* test_zip_bomb.c in Sources */ = {isa = PBXBuildFile; fileRef = 352152A924AD15B70003876C /* test_zip_bomb.c */; };
 		355B1D4C2694F22E00F84F9E /* test_leaks.c in Sources */ = {isa = PBXBuildFile; fileRef = 355B1D4B2694F22E00F84F9E /* test_leaks.c */; };
 		355B1D4D26964E0F00F84F9E /* test_leaks.c in Sources */ = {isa = PBXBuildFile; fileRef = 355B1D4B2694F22E00F84F9E /* test_leaks.c */; };
@@ -528,7 +527,13 @@
 		CA0BE38C2212140400E93D29 /* err.c in Sources */ = {isa = PBXBuildFile; fileRef = FDE953B21148815D0033A30A /* err.c */; };
 		CA0BE38D2212154800E93D29 /* cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8A58104DCC930096D791 /* cmdline.c */; };
 		CAC43C8D2343EE980076863B /* test_read_format_zip_multithread.c in Sources */ = {isa = PBXBuildFile; fileRef = CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */; };
+		D30BB69C2790EBE500A6D9D7 /* libarchive.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9B8961104D9F050096D791 /* libarchive.2.dylib */; };
+		D30BB69E2790EC2000A6D9D7 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */; };
 		D34826F925DC7B3200D25C4E /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D34826F825DC7B3200D25C4E /* liblzma.tbd */; };
+		D371B89726DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c in Sources */ = {isa = PBXBuildFile; fileRef = D371B89526DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c */; };
+		D371B89826DD9D8E00E8D454 /* archive_write_set_format_cpio_odc.c in Sources */ = {isa = PBXBuildFile; fileRef = D371B89626DD9D8E00E8D454 /* archive_write_set_format_cpio_odc.c */; };
+		D39FDC4E278FBFBC00BF9A2C /* test_short_writes.c in Sources */ = {isa = PBXBuildFile; fileRef = D39FDC4A278FB5F800BF9A2C /* test_short_writes.c */; };
+		D39FDC4F278FBFC500BF9A2C /* test_write_disk_fixup.c in Sources */ = {isa = PBXBuildFile; fileRef = D39FDC4C278FB62C00BF9A2C /* test_write_disk_fixup.c */; };
 		D3B0EF6A25CC803B00E729D9 /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B0EF6925CC803B00E729D9 /* libxml2.tbd */; };
 		D3B0EF7725CC805900E729D9 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B0EF7625CC805900E729D9 /* libiconv.tbd */; };
 		D3B0EF8425CC806500E729D9 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D3B0EF8325CC806500E729D9 /* libbz2.tbd */; };
@@ -824,7 +829,6 @@
 				CA0BE0A8220E6A5C00E93D29 /* test_common.h in Install BATS plist */,
 				CA0BE31C220E754700E93D29 /* test.h in Install BATS plist */,
 				CA0BE0A9220E6A5C00E93D29 /* test_utils.h in Install BATS plist */,
-				352152AA24AD15B70003876C /* test_zip_bomb.c in Install BATS plist */,
 			);
 			name = "Install BATS plist";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1313,7 +1317,12 @@
 		CA0BE3572212129200E93D29 /* test_option_uuencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_uuencode.c; path = libarchive/cpio/test/test_option_uuencode.c; sourceTree = SOURCE_ROOT; };
 		CA0BE3582212129200E93D29 /* test_option_J_upper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_J_upper.c; path = libarchive/cpio/test/test_option_J_upper.c; sourceTree = SOURCE_ROOT; };
 		CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_read_format_zip_multithread.c; path = libarchive/libarchive/test/test_read_format_zip_multithread.c; sourceTree = SOURCE_ROOT; };
+		D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
 		D34826F825DC7B3200D25C4E /* liblzma.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblzma.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/liblzma.tbd; sourceTree = DEVELOPER_DIR; };
+		D371B89526DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_write_set_format_cpio_binary.c; path = libarchive/libarchive/archive_write_set_format_cpio_binary.c; sourceTree = "<group>"; };
+		D371B89626DD9D8E00E8D454 /* archive_write_set_format_cpio_odc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_write_set_format_cpio_odc.c; path = libarchive/libarchive/archive_write_set_format_cpio_odc.c; sourceTree = "<group>"; };
+		D39FDC4A278FB5F800BF9A2C /* test_short_writes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_short_writes.c; path = libarchive/libarchive/test/test_short_writes.c; sourceTree = SOURCE_ROOT; };
+		D39FDC4C278FB62C00BF9A2C /* test_write_disk_fixup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_write_disk_fixup.c; path = libarchive/libarchive/test/test_write_disk_fixup.c; sourceTree = SOURCE_ROOT; };
 		D3B0EF6925CC803B00E729D9 /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
 		D3B0EF7625CC805900E729D9 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
 		D3B0EF8325CC806500E729D9 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/libbz2.tbd; sourceTree = DEVELOPER_DIR; };
@@ -1458,6 +1467,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D30BB69B2790EBDF00A6D9D7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D30BB69E2790EC2000A6D9D7 /* libiconv.tbd in Frameworks */,
+				D30BB69C2790EBE500A6D9D7 /* libarchive.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD9B895F104D9F050096D791 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1494,6 +1512,7 @@
 		3EE6CF4B1FA8D08E0018AA21 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D30BB69D2790EC2000A6D9D7 /* libiconv.tbd */,
 				D34826F825DC7B3200D25C4E /* liblzma.tbd */,
 				D3B0EF9025CC806D00E729D9 /* libz.tbd */,
 				D3B0EF8325CC806500E729D9 /* libbz2.tbd */,
@@ -1593,7 +1612,6 @@
 		CA0BE0B5220E6CF300E93D29 /* libarchive_test */ = {
 			isa = PBXGroup;
 			children = (
-				355B1D4B2694F22E00F84F9E /* test_leaks.c */,
 				CA0BE0BB220E6D2600E93D29 /* list.h */,
 				CA0BE0BA220E6D2600E93D29 /* read_open_memory.c */,
 				CA0BE0BC220E6D2600E93D29 /* test_acl_nfs4.c */,
@@ -1663,6 +1681,7 @@
 				CA0BE112220E6DB800E93D29 /* test_filter_count.c */,
 				CA0BE19D220E6E3F00E93D29 /* test_fuzz.c */,
 				CA0BE18C220E6E3E00E93D29 /* test_gnutar_filename_encoding.c */,
+				355B1D4B2694F22E00F84F9E /* test_leaks.c */,
 				CA0BE189220E6E3D00E93D29 /* test_link_resolver.c */,
 				CA0BE185220E6E3D00E93D29 /* test_open_failure.c */,
 				CA0BE18B220E6E3D00E93D29 /* test_open_fd.c */,
@@ -1787,6 +1806,7 @@
 				CA0BE25E220E702400E93D29 /* test_read_too_many_filters.c */,
 				CA0BE28A220E702900E93D29 /* test_read_truncated_filter.c */,
 				CA0BE244220E702100E93D29 /* test_read_truncated.c */,
+				D39FDC4A278FB5F800BF9A2C /* test_short_writes.c */,
 				CA0BE232220E701F00E93D29 /* test_sparse_basic.c */,
 				CA0BE277220E702700E93D29 /* test_tar_filenames.c */,
 				CA0BE268220E702500E93D29 /* test_tar_large.c */,
@@ -1795,6 +1815,7 @@
 				CA0BE273220E702600E93D29 /* test_warn_missing_hardlink_target.c */,
 				CA0BE239220E702000E93D29 /* test_write_disk_appledouble.c */,
 				CA0BE278220E702700E93D29 /* test_write_disk_failures.c */,
+				D39FDC4C278FB62C00BF9A2C /* test_write_disk_fixup.c */,
 				CA0BE290220E702A00E93D29 /* test_write_disk_hardlink.c */,
 				CA0BE275220E702600E93D29 /* test_write_disk_hfs_compression.c */,
 				CA0BE26C220E702500E93D29 /* test_write_disk_lookup.c */,
@@ -2113,7 +2134,9 @@
 				3EE6CECA1FA8CFB50018AA21 /* archive_write_set_format_7zip.c */,
 				FD9B8994104DC7F00096D791 /* archive_write_set_format_ar.c */,
 				FD9B8995104DC7F00096D791 /* archive_write_set_format_by_name.c */,
+				D371B89526DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c */,
 				FD9B8996104DC7F00096D791 /* archive_write_set_format_cpio_newc.c */,
+				D371B89626DD9D8E00E8D454 /* archive_write_set_format_cpio_odc.c */,
 				FD9B8997104DC7F00096D791 /* archive_write_set_format_cpio.c */,
 				3EE6CEE41FA8CFB90018AA21 /* archive_write_set_format_filter_by_ext.c */,
 				3EE6CEF61FA8CFBC0018AA21 /* archive_write_set_format_gnutar.c */,
@@ -2233,6 +2256,7 @@
 			buildConfigurationList = CA0BE0B8220E6CF300E93D29 /* Build configuration list for PBXNativeTarget "libarchive_test" */;
 			buildPhases = (
 				CA0BE0B0220E6CF300E93D29 /* Sources */,
+				D30BB69B2790EBDF00A6D9D7 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -2804,6 +2828,7 @@
 				CA0BE311220E716B00E93D29 /* archive_cmdline.c in Sources */,
 				CA0BE156220E6DEA00E93D29 /* test_archive_read_set_format_option.c in Sources */,
 				CA0BE2B2220E702B00E93D29 /* test_read_format_zip_encryption_data.c in Sources */,
+				D39FDC4E278FBFBC00BF9A2C /* test_short_writes.c in Sources */,
 				CA0BE20A220E6F8000E93D29 /* test_read_format_gtar_lzma.c in Sources */,
 				CA0BE2EF220E702B00E93D29 /* test_write_format_iso9660_zisofs.c in Sources */,
 				CA0BE1BF220E6E4000E93D29 /* test_read_format_cpio_bin_gz.c in Sources */,
@@ -2813,6 +2838,7 @@
 				CA0BE15C220E6DEA00E93D29 /* test_archive_string.c in Sources */,
 				CA0BE1BB220E6E4000E93D29 /* test_read_filter_lzop_multiple_parts.c in Sources */,
 				CA0BE222220E6F8000E93D29 /* test_read_format_tlz.c in Sources */,
+				D39FDC4F278FBFC500BF9A2C /* test_write_disk_fixup.c in Sources */,
 				CA0BE2AD220E702B00E93D29 /* test_write_format_mtree_classic_indent.c in Sources */,
 				CA0BE1B4220E6E4000E93D29 /* test_read_disk.c in Sources */,
 				CA0BE205220E6F8000E93D29 /* test_read_format_isorr_rr_moved.c in Sources */,
@@ -2970,6 +2996,7 @@
 				FD9B89B5104DC7F10096D791 /* archive_read_support_format_iso9660.c in Sources */,
 				3EE6CF1F1FA8CFD60018AA21 /* archive_read_support_filter_lzop.c in Sources */,
 				FD9B89B6104DC7F10096D791 /* archive_read_support_format_mtree.c in Sources */,
+				D371B89826DD9D8E00E8D454 /* archive_write_set_format_cpio_odc.c in Sources */,
 				FDE9534811487ECA0033A30A /* archive_read_support_format_raw.c in Sources */,
 				FD9B89B7104DC7F10096D791 /* archive_read_support_format_tar.c in Sources */,
 				3EE6CF021FA8CFD60018AA21 /* archive_acl.c in Sources */,
@@ -3025,6 +3052,7 @@
 				3EE6CF3C1FA8CFD60018AA21 /* archive_write_set_format_filter_by_ext.c in Sources */,
 				3EE6CF351FA8CFD60018AA21 /* archive_write_add_filter_none.c in Sources */,
 				FDE9534F11487F410033A30A /* archive_write_set_format_zip.c in Sources */,
+				D371B89726DD9D8E00E8D454 /* archive_write_set_format_cpio_binary.c in Sources */,
 				3EE6CF2D1FA8CFD60018AA21 /* archive_write_add_filter_by_name.c in Sources */,
 				3EE6CF101FA8CFD60018AA21 /* archive_random.c in Sources */,
 				3EE6CF1E1FA8CFD60018AA21 /* archive_read_support_filter_lz4.c in Sources */,
@@ -3236,10 +3264,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
-				OTHER_LDFLAGS = (
-					"-liconv",
-					"-larchive",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx watchos appletvos bridgeos iphoneos";
@@ -3368,6 +3392,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				WARNING_CFLAGS = "-Werror=format-nonliteral";
 			};
 			name = Release;
 		};

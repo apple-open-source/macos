@@ -598,7 +598,7 @@ config_read(struct nfs_conf_server *conf)
 		}
 
 		tmp = !value ? 1 : strtol(value, NULL, 0);
-		DEBUG(2, "%4ld %s=%s (%d)", linenum, key, value ? value : "", tmp);
+		DEBUG(2, "%4ld %s=%s (%ld)", linenum, key, value ? value : "", tmp);
 
 		if (tmp > INT32_MAX) {
 			tmp = INT32_MAX;
@@ -1241,9 +1241,6 @@ register_services(void)
 	}
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-
 /*
  * our own little logging function...
  */
@@ -1266,7 +1263,6 @@ SYSLOG(int pri, const char *fmt, ...)
 	}
 	va_end(ap);
 }
-#pragma clang diagnostic pop
 
 /*
  * get the PID from the given pidfile
@@ -1341,6 +1337,18 @@ signal_nfsd(int signal)
 	}
 }
 
+static int
+nfsd_try_open_exports(void)
+{
+	FILE *exports;
+	if ((exports = fopen(exportsfilepath, "r")) == NULL) {
+		log(LOG_ERR, "Can't open %s, %s", exportsfilepath, strerror(errno));
+		return errno;
+	}
+	fclose(exports);
+	return 0;
+}
+
 /*
  * Check whether the given service appears to be permanently enabled (not Disabled).
  *
@@ -1398,6 +1406,11 @@ nfsd_is_loaded(void)
 static int
 nfsd_enable(void)
 {
+	int rv = nfsd_try_open_exports();
+	if (rv) {
+		return rv;
+	}
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-w", _PATH_NFSD_PLIST, NULL };
 	return safe_exec((char *const*)args, 0);
 }
@@ -1408,6 +1421,13 @@ nfsd_enable(void)
 static int
 nfsd_disable(void)
 {
+	if (!nfsd_is_running()) {
+		int rv = nfsd_is_loaded() ? nfsd_start() : nfsd_load();
+		if (rv) {
+			return rv;
+		}
+	}
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "unload", "-w", _PATH_NFSD_PLIST, NULL };
 	return safe_exec((char *const*)args, 0);
 }
@@ -1418,6 +1438,11 @@ nfsd_disable(void)
 static int
 nfsd_load(void)
 {
+	int rv = nfsd_try_open_exports();
+	if (rv) {
+		return rv;
+	}
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-F", _PATH_NFSD_PLIST, NULL };
 	return safe_exec((char *const*)args, 0);
 }
@@ -1449,6 +1474,11 @@ nfsd_unload(void)
 static int
 nfsd_start(void)
 {
+	int rv = nfsd_try_open_exports();
+	if (rv) {
+		return rv;
+	}
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "start", _NFSD_SERVICE_LABEL, NULL };
 	return safe_exec((char *const*)args, 0);
 }
@@ -1459,6 +1489,11 @@ nfsd_start(void)
 static int
 nfsd_kickstart(void)
 {
+	int rv = nfsd_try_open_exports();
+	if (rv) {
+		return rv;
+	}
+
 	const char *const args[] = { _PATH_LAUNCHCTL, "kickstart", "-k", _NFSD_KICKSTART_LABEL, NULL };
 	return safe_exec((char *const*)args, 0);
 }

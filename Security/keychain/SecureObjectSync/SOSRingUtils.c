@@ -600,15 +600,15 @@ static CFDataRef SOSRingCreateHash(const struct ccdigest_info *di, SOSRingRef ri
 
     size_t dersize = der_sizeof_plist(ring->signedInformation, error);
     if(dersize == 0) {
-        return false;
+        return NULL;
     }
     uint8_t *der = malloc(dersize);
     if (der == NULL) {
-        return false;
+        return NULL;
     }
     if (der_encode_plist(ring->signedInformation, error, der, der+dersize) == NULL) {
         free(der);
-        return false;
+        return NULL;
     }
 
     ccdigest(di, dersize, der, hash_result);

@@ -6,15 +6,21 @@ if [ $# -ne 4 ]; then
     echo "usage: ${PROGNAME} name input output options"
 fi
 
+export TZ=GMT0
+
+if [ -z "$TCPDUMP_BIN" ];then
+	TCPDUMP_BIN=tcpdump
+fi
+
 name="$1"
 input="$2"
 output="$3"
 options="$4"
 
-echo "$ tcpdump --apple-arp-plain -n -t -r $input $options" >>verbose-outputs.txt
+echo "$" "${TCPDUMP_BIN}" "--apple-arp-plain -# -n -r $input $options" >>verbose-outputs.txt
 
 #use eval otherwise $option may contain double quotes '"'
-eval tcpdump 2>>verbose-outputs.txt --apple-arp-plain -n -t -r $input $options >NEW/$output
+eval ${TCPDUMP_BIN} 2>>verbose-outputs.txt --apple-ext-fmt 0 -\# -n -r $input $options >NEW/$output
 r=$?
 status=$r
 coredump=0
@@ -24,7 +30,7 @@ if [ $r -lt 128 ]; then
 fi
 if [ $r -ne 0 ]; then
     # this means tcpdump failed.
-    printf "\nEXIT CODE %08x: dump:%d code: %d\n" $r $coredump $status >> NEW/$output
+    printf "EXIT CODE %08x: dump:%d code: %d\n" $r $coredump $status >> NEW/$output
     r=0
 fi
 
@@ -49,7 +55,7 @@ if [ -a "DIFF/$output.diff" ]; then
 fi
 
 if [ $r -eq -1 ]; then
-    printf " (failed to execute: tcpdump -n -t -r $input $options)\n"
+    printf " (failed to execute: ${TCPDUMP_BIN} -n -t -r $input $options)\n"
     exit 30
 fi
 

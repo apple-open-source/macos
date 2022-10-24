@@ -2492,7 +2492,18 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	    vsiz++;
 #endif
     }
+#ifdef __APPLE__
+    /*
+     * rdar://92128183 (zsh out-of-bounds crash at zle.so:  zrefresh)
+     *
+     * Since ZR_strlen() can be called on arbitrary slices of vbuf,
+     * make sure it's properly terminated.
+     */
+    vbuf = (REFRESH_STRING)zalloc((vsiz + 1) * sizeof(*vbuf));
+    vbuf[vsiz] = zr_zr;
+#else /* !__APPLE__ */
     vbuf = (REFRESH_STRING)zalloc(vsiz * sizeof(*vbuf));
+#endif /* __APPLE__ */
 
     if (tmpcs < 0) {
 #ifdef DEBUG
@@ -2646,6 +2657,21 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	if ((winpos = nvcs - ((winw - hasam) / 2)) < 0)
 	    winpos = 0;
     }
+
+#ifdef __APPLE__
+    /*
+     * rdar://92128183 (zsh out-of-bounds crash at zle.so:  zrefresh)
+     *
+     * winpos is used directly as an index into vbuf, which is allocated above to
+     * be vsiz bytes long (including terminator).
+     * Clamp the value of winpos between (0, vsiz) to avoid a heap overflow.
+     */
+    if (winpos < 0)
+	winpos = 0;
+    if (winpos > vsiz)
+	winpos = vsiz;
+#endif /* __APPLE__ */
+
     if (winpos) {
 	vbuf[winpos].chr = ZWC('<');	/* line continues to the left */
 	vbuf[winpos].atr = 0;

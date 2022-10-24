@@ -45,6 +45,9 @@
 static void
 WriteIncludes(FILE *file)
 {
+  if (EmitCountAnnotations) {
+  	fprintf(file, "#include <sys/cdefs.h>\n");
+  }
   fprintf(file, "#define EXPORT_BOOLEAN\n");
   fprintf(file, "#include <mach/boolean.h>\n");
   fprintf(file, "#include <mach/message.h>\n");

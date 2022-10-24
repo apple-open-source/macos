@@ -13,6 +13,8 @@ var args: ArraySlice<String> = CommandLine.arguments[1...]
 var context: String = OTDefaultContext
 var container: String = "com.apple.security.keychain"
 
+var specificAltDSID: String?
+
 // Only used for prepare, but in the absence of a real command line library this is the easiest way to get them
 var modelID: String?
 var machineID: String?
@@ -48,7 +50,7 @@ enum Command {
 
 func printUsage() {
     print("Usage:", (CommandLine.arguments[0] as NSString).lastPathComponent,
-          "[--container CONTAINER] [--context CONTEXT] COMMAND")
+          "[--container CONTAINER] [--context CONTEXT] [--altDSID altDSID] COMMAND")
     print()
     print("Commands:")
     print("  allow [--idms] MACHINEID ...")
@@ -140,6 +142,14 @@ while let arg = argIterator.next() {
             exitUsage(1)
         }
         context = newContext!
+
+    case "--altDSID":
+        guard let newContext = argIterator.next() else {
+            print("Error: --altDSID takes a value")
+            print()
+            exitUsage(1)
+        }
+        specificAltDSID = newContext
 
     case "--modelid":
         let newModelID = argIterator.next()
@@ -476,6 +486,22 @@ if commands.isEmpty {
     exitUsage(0)
 }
 
+// Figure out the specific user to invoke
+let specificUser: TPSpecificUser
+do {
+    let accounts = OTAccountsActualAdapter()
+
+    specificUser = try accounts.findAccount(forCurrentThread: OTPersonaActualAdapter(),
+                                            optionalAltDSID: specificAltDSID,
+                                            cloudkitContainerName: container,
+                                            octagonContextID: context)
+} catch {
+    print("Unable to find account matching persona and altDSID: \(error)\n\n")
+    exitUsage(EXIT_FAILURE)
+}
+
+logger.log("Invoking for \(specificUser)")
+
 // JSONSerialization has no idea how to handle NSData. Help it out.
 func cleanDictionaryForJSON(_ d: [AnyHashable: Any]) -> [AnyHashable: Any] {
     func cleanValue(_ value: Any) -> Any {
@@ -506,7 +532,7 @@ for command in commands {
     switch command {
     case .dump:
         logger.log("dumping (\(container), \(context))")
-        tpHelper.dump(withContainer: container, context: context) { reply, error in
+        tpHelper.dump(with: specificUser) { reply, error in
             guard error == nil else {
                 print("Error dumping:", error!)
                 return
@@ -525,7 +551,7 @@ for command in commands {
 
     case .depart:
         logger.log("departing (\(container), \(context))")
-        tpHelper.departByDistrustingSelf(withContainer: container, context: context) { error in
+        tpHelper.departByDistrustingSelf(with: specificUser) { error in
             guard error == nil else {
                 print("Error departing:", error!)
                 return
@@ -536,7 +562,7 @@ for command in commands {
 
     case .distrust(let peerIDs):
         logger.log("distrusting \(peerIDs.description) for (\(container), \(context))")
-        tpHelper.distrustPeerIDs(withContainer: container, context: context, peerIDs: peerIDs) { error in
+        tpHelper.distrustPeerIDs(with: specificUser, peerIDs: peerIDs) { error in
             guard error == nil else {
                 print("Error distrusting:", error!)
                 return
@@ -546,8 +572,7 @@ for command in commands {
 
     case let .join(voucher, voucherSig):
         logger.log("joining (\(container), \(context))")
-        tpHelper.join(withContainer: container,
-                      context: context,
+        tpHelper.join(with: specificUser,
                       voucherData: voucher,
                       voucherSig: voucherSig,
                       ckksKeys: [],
@@ -562,8 +587,7 @@ for command in commands {
 
     case .establish:
         logger.log("establishing (\(container), \(context))")
-        tpHelper.establish(withContainer: container,
-                           context: context,
+        tpHelper.establish(with: specificUser,
                            ckksKeys: [],
                            tlkShares: [],
                            preapprovedKeys: preapprovedKeys ?? []) { peerID, _, _, error in
@@ -576,7 +600,7 @@ for command in commands {
 
     case .healthInquiry:
         logger.log("healthInquiry (\(container), \(context))")
-        tpHelper.pushHealthInquiry(withContainer: container, context: context) { error in
+        tpHelper.pushHealthInquiry(with: specificUser) { error in
             guard error == nil else {
                 print("Error healthInquiry: \(String(describing: error))")
                 return
@@ -586,7 +610,7 @@ for command in commands {
 
     case .localReset:
         logger.log("local-reset (\(container), \(context))")
-        tpHelper.localReset(withContainer: container, context: context) { error in
+        tpHelper.localReset(with: specificUser) { error in
             guard error == nil else {
                 print("Error resetting:", error!)
                 return
@@ -599,7 +623,7 @@ for command in commands {
     case .supportApp:
         logger.log("supportApp (\(container), \(context))")
 
-        tpHelper.getSupportAppInfo(withContainer: container, context: context) { data, error in
+        tpHelper.getSupportAppInfo(with: specificUser) { data, error in
             guard error == nil else {
                 print("Error getting supportApp:", error!)
                 return
@@ -639,8 +663,7 @@ for command in commands {
             abort()
         }
 
-        tpHelper.prepare(withContainer: container,
-                         context: context,
+        tpHelper.prepare(with: specificUser,
                          epoch: epoch,
                          machineID: machineID!,
                          bottleSalt: bottleSalt,
@@ -679,8 +702,7 @@ for command in commands {
 
     case .update:
         logger.log("updating (\(container), \(context))")
-        tpHelper.update(withContainer: container,
-                        context: context,
+        tpHelper.update(with: specificUser,
                         forceRefetch: false,
                         deviceName: deviceName,
                         serialNumber: serialNumber,
@@ -699,7 +721,7 @@ for command in commands {
 
     case .reset:
         logger.log("resetting (\(container), \(context))")
-        tpHelper.reset(withContainer: container, context: context, resetReason: .userInitiatedReset) { error in
+        tpHelper.reset(with: specificUser, resetReason: .userInitiatedReset) { error in
             guard error == nil else {
                 print("Error during reset:", error!)
                 return
@@ -710,7 +732,7 @@ for command in commands {
 
     case .validate:
         logger.log("validate (\(container), \(context))")
-        tpHelper.validatePeers(withContainer: container, context: context) { reply, error in
+        tpHelper.validatePeers(with: specificUser) { reply, error in
             guard error == nil else {
                 print("Error validating:", error!)
                 return
@@ -729,7 +751,7 @@ for command in commands {
 
     case .viableBottles:
         logger.log("viableBottles (\(container), \(context))")
-        tpHelper.fetchViableBottles(withContainer: container, context: context) { sortedBottleIDs, partialBottleIDs, error in
+        tpHelper.fetchViableBottles(with: specificUser) { sortedBottleIDs, partialBottleIDs, error in
             guard error == nil else {
                 print("Error fetching viable bottles:", error!)
                 return
@@ -746,8 +768,7 @@ for command in commands {
 
     case let .vouch(peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig):
         logger.log("vouching (\(container), \(context))")
-        tpHelper.vouch(withContainer: container,
-                       context: context,
+        tpHelper.vouch(with: specificUser,
                        peerID: peerID,
                        permanentInfo: permanentInfo,
                        permanentInfoSig: permanentInfoSig,
@@ -770,8 +791,7 @@ for command in commands {
 
     case let .vouchWithBottle(bottleID, entropy, salt):
         logger.log("vouching with bottle (\(container), \(context))")
-        tpHelper.vouchWithBottle(withContainer: container,
-                                 context: context,
+        tpHelper.vouchWithBottle(with: specificUser,
                                  bottleID: bottleID,
                                  entropy: entropy,
                                  bottleSalt: salt,
@@ -790,8 +810,7 @@ for command in commands {
 
     case let .fetchRecoverableTLKShares(peerID):
         logger.log("fetching recoverable TLKShares for (\(container), \(context))")
-        tpHelper.fetchRecoverableTLKShares(withContainer: container,
-                                           context: context,
+        tpHelper.fetchRecoverableTLKShares(with: specificUser,
                                            peerID: peerID) { records, error in
             guard error == nil else {
                 print("Error during fetchRecoverableTLKShares", error!)
@@ -849,7 +868,9 @@ for command in commands {
         }
         let allMachineIDs = machineIDs.union(idmsDeviceIDs)
         print("Setting allowed machineIDs to \(allMachineIDs)")
-        tpHelper.setAllowedMachineIDsWithContainer(container, context: context, allowedMachineIDs: allMachineIDs, honorIDMSListChanges: accountIsDemo) { listChanged, error in
+        tpHelper.setAllowedMachineIDsWith(specificUser,
+                                          allowedMachineIDs: allMachineIDs,
+                                          honorIDMSListChanges: accountIsDemo) { listChanged, error in
             guard error == nil else {
                 print("Error during allow:", error!)
                 return

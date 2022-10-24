@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -389,7 +389,7 @@ __freeMediaList(struct ifmediareq *ifm)
 
 
 static struct ifmediareq *
-__copyMediaList(CFStringRef interfaceName)
+__copyMediaList(CFStringRef interfaceName, Boolean * is_present)
 {
 	struct ifmediareq	*ifm;
 	Boolean			ok	= FALSE;
@@ -421,7 +421,6 @@ __copyMediaList(CFStringRef interfaceName)
 			goto done;
 		}
 	}
-
 	ok = TRUE;
 
     done :
@@ -431,6 +430,9 @@ __copyMediaList(CFStringRef interfaceName)
 		__freeMediaList(ifm);
 		ifm = NULL;
 		_SCErrorSet(kSCStatusFailed);
+	}
+	if (is_present != NULL) {
+		*is_present = ok;
 	}
 	return ifm;
 }
@@ -563,7 +565,7 @@ __SCNetworkInterfaceCreateMediaOptions(SCNetworkInterfaceRef interface, CFDictio
 
 	/* set type */
 
-	ifm = __copyMediaList(interfaceName);
+	ifm = __copyMediaList(interfaceName, NULL);
 	if (ifm != NULL) {
 		if (ifm->ifm_count > 0) {
 			ifm_new = IFM_TYPE(ifm->ifm_ulist[0]);
@@ -698,7 +700,7 @@ SCNetworkInterfaceCopyMediaOptions(SCNetworkInterfaceRef	interface,
 		return FALSE;
 	}
 
-	ifm = __copyMediaList(interfaceName);
+	ifm = __copyMediaList(interfaceName, NULL);
 	if (ifm == NULL) {
 		return FALSE;
 	}
@@ -852,29 +854,36 @@ _SCNetworkInterfaceIsPhysicalEthernet(SCNetworkInterfaceRef interface)
 	int			i;
 	struct ifmediareq	*ifm;
 	CFStringRef		interfaceName;
+	CFStringRef 		interfaceType;
+	Boolean			is_present = FALSE;
 	Boolean			realEthernet = FALSE;
 
+	_SCErrorSet(kSCStatusOK);
 	if (!isA_SCNetworkInterface(interface)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
-
+	interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+	if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet)) {
+		return FALSE;
+	}
+	if (_SCNetworkInterfaceIsHiddenConfiguration(interface)
+	    || _SCNetworkInterfaceIsHiddenInterface(interface)
+	    || _SCNetworkInterfaceIsTethered(interface)
+	    || _SCNetworkInterfaceIsBluetoothPAN(interface)) {
+		return (FALSE);
+	}
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
-	ifm = __copyMediaList(interfaceName);
+	ifm = __copyMediaList(interfaceName, &is_present);
 	if (ifm == NULL) {
-		CFStringRef interfaceType;
-
-		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
-		if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet) &&
-		    !_SCNetworkInterfaceIsTethered(interface) &&
-		    !_SCNetworkInterfaceIsBluetoothPAN(interface)) {
-		    // if likely physical ethernet interface
-		    return TRUE;
+		if (is_present) {
+			/* could be physical ethernet */
+			return TRUE;
 		}
 		return FALSE;
 	}

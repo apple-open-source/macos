@@ -29,7 +29,7 @@
 #include "FilterImage.h"
 #include "FilterImageVector.h"
 #include "FloatRect.h"
-#include "IntRectExtent.h"
+#include "LengthBox.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomString.h>
 
@@ -93,12 +93,8 @@ public:
     static AtomString sourceGraphicName() { return filterName(Type::SourceGraphic); }
     AtomString filterName() const { return filterName(m_filterType); }
 
-#if USE(CORE_IMAGE)
-    virtual bool supportsCoreImageRendering() const { return false; }
-#endif
-
+    virtual bool supportsAcceleratedRendering() const { return false; }
     virtual RefPtr<FilterImage> apply(const Filter&, FilterImage&, FilterResults&) { return nullptr; }
-    virtual IntOutsets outsets() const { return { }; }
 
     virtual WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation = FilterRepresentation::TestOutput) const = 0;
 

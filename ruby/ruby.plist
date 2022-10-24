@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2021-08-23</string>
+	<string>2022-06-07</string>
 	<key>OpenSourceLicense</key>
 	<string>ruby</string>
 	<key>OpenSourceLicenseFile</key>
@@ -14,15 +14,16 @@
 		<string>Use SDKROOT / xcrun to find set RbConfig::CONFIG["includedir"]</string>
 		<string>Change default bindir for gems to /usr/local/bin</string>
 		<string>Include/Link with LibreSSL</string>
+		<string>Use runtime architecture for RbConfig::CONFIG["host*"] (82712310)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ruby</string>
 	<key>OpenSourceSHA256</key>
-	<string>1807b78577bc08596a390e8a41aede37b8512190e05c133b17d0501791a8ca6d</string>
+	<string>0dc609f263d49c4176d5725deefc337273676395985b5e017789373e8cadf16e</string>
 	<key>OpenSourceURL</key>
-	<string>https://cache.ruby-lang.org/pub/ruby/2.6/ruby-2.6.8.tar.gz</string>
+	<string>https://cache.ruby-lang.org/pub/ruby/2.6/ruby-2.6.10.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>2.6.8</string>
+	<string>2.6.10</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ruby-lang.org/</string>
 </dict>

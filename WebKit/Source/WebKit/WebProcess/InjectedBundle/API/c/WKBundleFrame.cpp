@@ -163,12 +163,13 @@ WKStringRef WKBundleFrameCopyLayerTreeAsText(WKBundleFrameRef frameRef)
 
 bool WKBundleFrameAllowsFollowingLink(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return WebKit::toImpl(frameRef)->allowsFollowingLink(URL(URL(), WebKit::toWTFString(urlRef)));
+    return WebKit::toImpl(frameRef)->allowsFollowingLink(URL { WebKit::toWTFString(urlRef) });
 }
 
-bool WKBundleFrameHandlesPageScaleGesture(WKBundleFrameRef frameRef)
+bool WKBundleFrameHandlesPageScaleGesture(WKBundleFrameRef)
 {
-    return WebKit::toImpl(frameRef)->handlesPageScaleGesture();
+    // Deprecated, always returns false, but result is not meaningful.
+    return false;
 }
 
 WKRect WKBundleFrameGetContentBounds(WKBundleFrameRef frameRef)
@@ -208,12 +209,12 @@ bool WKBundleFrameGetDocumentBackgroundColor(WKBundleFrameRef frameRef, double* 
 
 WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return WebKit::toCopiedAPI(WebKit::toImpl(frameRef)->suggestedFilenameForResourceWithURL(URL(URL(), WebKit::toWTFString(urlRef))));
+    return WebKit::toCopiedAPI(WebKit::toImpl(frameRef)->suggestedFilenameForResourceWithURL(URL { WebKit::toWTFString(urlRef) }));
 }
 
 WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return WebKit::toCopiedAPI(WebKit::toImpl(frameRef)->mimeTypeForResourceWithURL(URL(URL(), WebKit::toWTFString(urlRef))));
+    return WebKit::toCopiedAPI(WebKit::toImpl(frameRef)->mimeTypeForResourceWithURL(URL { WebKit::toWTFString(urlRef) }));
 }
 
 bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frameRef)
@@ -233,7 +234,7 @@ void WKBundleFrameSetTextDirection(WKBundleFrameRef frameRef, WKStringRef direct
 
 void WKBundleFrameSetAccessibleName(WKBundleFrameRef frameRef, WKStringRef accessibleNameRef)
 {
-    WebKit::toImpl(frameRef)->setAccessibleName(WebKit::toWTFString(accessibleNameRef));
+    WebKit::toImpl(frameRef)->setAccessibleName(AtomString { WebKit::toWTFString(accessibleNameRef) });
 }
 
 WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frameRef)

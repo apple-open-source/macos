@@ -53,7 +53,7 @@ leaks(int argc, char *const *argv)
 		char pidstr[8];
 		int ix;
 	
-		sprintf(pidstr, "%d", parent);
+		snprintf(pidstr, sizeof(pidstr), "%d", parent);
 		argvec[0] = "/usr/bin/leaks";
 		for (ix = 1; ix < argc; ++ix)
 			argvec[ix] = argv[ix];

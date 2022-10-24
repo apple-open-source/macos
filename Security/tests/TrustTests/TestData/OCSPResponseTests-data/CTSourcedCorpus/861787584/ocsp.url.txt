@@ -1,0 +1,1 @@
+http://jcsitlssignpublicca-ocsp.managedpki.ne.jp/OcspServer

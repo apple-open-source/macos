@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,11 +29,13 @@
 #if PLATFORM(MAC)
 
 #import "APIUIClient.h"
+#import "CocoaImage.h"
 #import "Connection.h"
 #import "DataReference.h"
 #import "EditorState.h"
 #import "FontInfo.h"
 #import "FrameInfoData.h"
+#import "ImageAnalysisUtilities.h"
 #import "InsertTextOptions.h"
 #import "MenuUtilities.h"
 #import "NativeWebKeyboardEvent.h"
@@ -206,16 +208,6 @@ void WebPageProxy::attributedSubstringForCharacterRangeAsync(const EditingRange&
     sendWithAsyncReply(Messages::WebPage::AttributedSubstringForCharacterRangeAsync(range), WTFMove(callbackFunction));
 }
 
-void WebPageProxy::fontAtSelection(CompletionHandler<void(const FontInfo&, double, bool)>&& callback)
-{
-    if (!hasRunningProcess()) {
-        callback({ }, 0, false);
-        return;
-    }
-
-    sendWithAsyncReply(Messages::WebPage::FontAtSelection(), WTFMove(callback));
-}
-
 String WebPageProxy::stringSelectionForPasteboard()
 {
     String value;
@@ -232,15 +224,10 @@ RefPtr<WebCore::SharedBuffer> WebPageProxy::dataSelectionForPasteboard(const Str
     if (!hasRunningProcess())
         return nullptr;
 
-    SharedMemory::IPCHandle ipcHandle;
+    RefPtr<WebCore::SharedBuffer> buffer;
     const Seconds messageTimeout(20);
-    sendSync(Messages::WebPage::GetDataSelectionForPasteboard(pasteboardType), Messages::WebPage::GetDataSelectionForPasteboard::Reply(ipcHandle), messageTimeout);
-    MESSAGE_CHECK_WITH_RETURN_VALUE(!ipcHandle.handle.isNull(), nullptr);
-
-    auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    if (!sharedMemoryBuffer)
-        return nullptr;
-    return sharedMemoryBuffer->createSharedBuffer(ipcHandle.dataSize);
+    sendSync(Messages::WebPage::GetDataSelectionForPasteboard(pasteboardType), Messages::WebPage::GetDataSelectionForPasteboard::Reply(buffer), messageTimeout);
+    return buffer;
 }
 
 bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
@@ -255,13 +242,6 @@ bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
     sendSync(Messages::WebPage::ReadSelectionFromPasteboard(pasteboardName), Messages::WebPage::ReadSelectionFromPasteboard::Reply(result), messageTimeout);
     return result;
 }
-
-#if ENABLE(SERVICE_CONTROLS)
-void WebPageProxy::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
-{
-    send(Messages::WebPage::ReplaceSelectionWithPasteboardData(types, data));
-}
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
 
@@ -450,7 +430,7 @@ void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const St
     }
 
     auto sanitizedFilename = ResourceResponseBase::sanitizeSuggestedFilename(suggestedFilename);
-    if (!sanitizedFilename.endsWithIgnoringASCIICase(".pdf")) {
+    if (!sanitizedFilename.endsWithIgnoringASCIICase(".pdf"_s)) {
         WTFLogAlways("Cannot save file without .pdf extension to the temporary directory.");
         return;
     }
@@ -530,12 +510,11 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
         [nsMenu insertItem:nsItem.get() atIndex:i];
     }
     NSWindow *window = pageClient().platformWindow();
-    auto windowNumber = [window windowNumber];
     auto location = [window convertRectFromScreen: { contextMenu.point, NSZeroSize }].origin;
-    NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeRightMouseDown location:location modifierFlags:0 timestamp:0 windowNumber:windowNumber context:0 eventNumber:0 clickCount:1 pressure:1];
+    auto event = createSyntheticEventForContextMenu(location);
 
-    auto view = [pageClient().platformWindow() contentView];
-    [NSMenu popUpContextMenu:nsMenu.get() withEvent:event forView:view];
+    auto view = window.contentView;
+    [NSMenu popUpContextMenu:nsMenu.get() withEvent:event.get() forView:view];
 
     if (auto selectedMenuItem = [menuTarget selectedMenuItem]) {
         NSInteger tag = selectedMenuItem.tag;
@@ -573,9 +552,9 @@ void WebPageProxy::didUpdateEditorState(const EditorState& oldEditorState, const
     
     if (newEditorState.shouldIgnoreSelectionChanges)
         return;
-    
-    pageClient().selectionDidChange();
+
     updateFontAttributesAfterEditorStateChange();
+    pageClient().selectionDidChange();
 }
 
 void WebPageProxy::startWindowDrag()
@@ -620,11 +599,16 @@ NSWindow *WebPageProxy::paymentCoordinatorPresentingWindow(const WebPaymentCoord
 
 #if ENABLE(CONTEXT_MENUS)
 
-NSMenu *WebPageProxy::platformActiveContextMenu() const
+NSMenu *WebPageProxy::activeContextMenu() const
 {
     if (m_activeContextMenu)
         return m_activeContextMenu->platformMenu();
     return nil;
+}
+
+RetainPtr<NSEvent> WebPageProxy::createSyntheticEventForContextMenu(FloatPoint location) const
+{
+    return [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:location modifierFlags:0 timestamp:0 windowNumber:pageClient().platformWindow().windowNumber context:nil eventNumber:0 clickCount:0 pressure:0];
 }
 
 void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData& item)
@@ -651,11 +635,6 @@ void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCat
 PlatformView* WebPageProxy::platformView() const
 {
     return [pageClient().platformWindow() contentView];
-}
-
-bool WebPageProxy::useiTunesAVOutputContext() const
-{
-    return m_preferences->store().getBoolValueForKey(WebPreferencesKey::useiTunesAVOutputContextKey());
 }
 
 #if ENABLE(UI_PROCESS_PDF_HUD)
@@ -701,12 +680,29 @@ void WebPageProxy::pdfOpenWithPreview(PDFPluginIdentifier identifier)
 
 #endif // ENABLE(UI_PROCESS_PDF_HUD)
 
-#if PLATFORM(MAC)
 void WebPageProxy::changeUniversalAccessZoomFocus(const WebCore::IntRect& viewRect, const WebCore::IntRect& selectionRect)
 {
     WebCore::changeUniversalAccessZoomFocus(viewRect, selectionRect);
 }
-#endif
+
+void WebPageProxy::showFontPanel()
+{
+    // FIXME (rdar://21577518): Enable the system font panel for all web views, not just editable ones.
+    if (m_isEditable)
+        [[NSFontManager sharedFontManager] orderFrontFontPanel:nil];
+}
+
+void WebPageProxy::showStylesPanel()
+{
+    if (m_isEditable)
+        [[NSFontManager sharedFontManager] orderFrontStylesPanel:nil];
+}
+
+void WebPageProxy::showColorPanel()
+{
+    if (m_isEditable)
+        [[NSApplication sharedApplication] orderFrontColorPanel:nil];
+}
 
 Color WebPageProxy::platformUnderPageBackgroundColor() const
 {
@@ -741,7 +737,7 @@ void WebPageProxy::closeSharedPreviewPanelIfNecessary()
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity activity)
+void WebPageProxy::handleContextMenuLookUpImage()
 {
     ASSERT(m_activeContextMenuContextData.webHitTestResultData());
     
@@ -749,7 +745,7 @@ void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity acti
     if (!result.imageBitmap)
         return;
 
-    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { URL { }, result.absoluteImageURL }, activity);
+    showImageInQuickLookPreviewPanel(*result.imageBitmap, result.toolTipText, URL { result.absoluteImageURL }, QuickLookPreviewActivity::VisualSearch);
 }
 
 void WebPageProxy::showImageInQuickLookPreviewPanel(ShareableBitmap& imageBitmap, const String& tooltip, const URL& imageURL, QuickLookPreviewActivity activity)
@@ -789,6 +785,29 @@ void WebPageProxy::showImageInQuickLookPreviewPanel(ShareableBitmap& imageBitmap
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+void WebPageProxy::handleContextMenuCopySubject(const String& preferredMIMEType)
+{
+    if (!m_activeContextMenu)
+        return;
+
+    RetainPtr image = m_activeContextMenu->copySubjectResult();
+    if (!image)
+        return;
+
+    auto [data, type] = imageDataForRemoveBackground(image.get(), preferredMIMEType.createCFString().get());
+    if (!data)
+        return;
+
+    auto pasteboard = NSPasteboard.generalPasteboard;
+    auto pasteboardType = (__bridge NSString *)type.get();
+    [pasteboard declareTypes:@[pasteboardType] owner:nil];
+    [pasteboard setData:data.get() forType:pasteboardType];
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 } // namespace WebKit
 

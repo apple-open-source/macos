@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,6 @@ struct CSSParserContext {
     bool counterStyleAtRulesEnabled { false };
     bool counterStyleAtRuleImageSymbolsEnabled { false };
     bool cssColor4 { false };
-    bool deferredCSSParserEnabled { false };
     bool individualTransformPropertiesEnabled { false };
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
     bool legacyOverflowScrollingTouchEnabled { false };
@@ -89,9 +88,13 @@ struct CSSParserContext {
     bool gradientPremultipliedAlphaInterpolationEnabled { false };
     bool gradientInterpolationColorSpacesEnabled { false };
     bool inputSecurityEnabled { false };
+    bool subgridEnabled { false };
+    bool containIntrinsicSizeEnabled { false };
     bool motionPathEnabled { false };
+    bool cssTextAlignLastEnabled { false };
+    bool cssTextJustifyEnabled { false };
 
-    // RuntimeEnabledFeatures.
+    // DeprecatedGlobalSettings.
 #if ENABLE(ATTACHMENT_ELEMENT)
     bool attachmentEnabled { false };
 #endif

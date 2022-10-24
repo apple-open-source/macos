@@ -26,6 +26,9 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+// IOKIT_ENABLE_SHARED_PTR must be defined before all other includes
+#define IOKIT_ENABLE_SHARED_PTR
+
 #include <mach/mach_types.h>
 #include <sys/mount.h>
 #include <libkern/libkern.h>
@@ -38,6 +41,8 @@
 #include "hfs.h"
 #include "hfs_dbg.h"
 #include "hfs_cnode.h"
+
+#define NANOSECONDS_IN_SECOND 1000000000ULL
 
 #ifndef panic_on_assert
 bool panic_on_assert;
@@ -146,8 +151,8 @@ void com_apple_filesystems_hfs::stop(IOService *provider)
 int hfs_is_ejectable(const char *cdev_name)
 {
 	int ret = 0;
-	OSDictionary *dictionary;
-	OSString *dev_name;
+	OSSharedPtr<OSDictionary> dictionary;
+	OSSharedPtr<OSString> dev_name;
 
 	if (strncmp(cdev_name, "/dev/", 5) == 0) {
 		cdev_name += 5;
@@ -157,23 +162,20 @@ int hfs_is_ejectable(const char *cdev_name)
 	if( dictionary ) {
 		dev_name = OSString::withCString( cdev_name );
 		if( dev_name ) {
-			IOService *service;
-			mach_timespec_t tv = { 5, 0 };    // wait up to "timeout" seconds for the device
+			OSSharedPtr<IOService> service;
+			uint64_t timeout = 5ULL * NANOSECONDS_IN_SECOND;    // wait up to 5 seconds for the device
 
 			dictionary->setObject(kIOBSDNameKey, dev_name);
-			dictionary->retain();
-			service = IOService::waitForService(dictionary, &tv);
+			service = IOService::waitForMatchingService(dictionary.get(), timeout);
 			if( service ) {
-				OSBoolean *ejectable = (OSBoolean *)service->getProperty("Ejectable");
+				OSSharedPtr<OSBoolean> ejectable = OSDynamicPtrCast<OSBoolean>(service->copyProperty("Ejectable"));
 
 				if( ejectable ) {
 					ret = (int)ejectable->getValue();
 				}
 
 			}
-			dev_name->release();
 		}
-		dictionary->release();
 	}
 
 	return ret;
@@ -185,24 +187,23 @@ void hfs_iterate_media_with_content(const char *content_uuid_cstring,
 												void *arg),
 									void *arg)
 {
-	OSDictionary *dictionary;
-	OSString *content_uuid_string;
+	OSSharedPtr<OSDictionary> dictionary;
+	OSSharedPtr<OSString> content_uuid_string;
 
 	dictionary = IOService::serviceMatching("IOMedia");
 	if (dictionary) {
 		content_uuid_string = OSString::withCString(content_uuid_cstring);
 		if (content_uuid_string) {
 			IOService *service;
-			OSIterator *iter;
+			OSSharedPtr<OSIterator> iter;
 
 			dictionary->setObject("Content", content_uuid_string);
-			dictionary->retain();
 
-			iter = IOService::getMatchingServices(dictionary);
+			iter = IOService::getMatchingServices(dictionary.get());
 			while (iter && (service = (IOService *)iter->getNextObject())) {
 				if (service) {
-					OSString *iostr = (OSString *) service->getProperty(kIOBSDNameKey);
-					OSString *uuidstr = (OSString *)service->getProperty("UUID");
+					OSSharedPtr<OSString> iostr = OSDynamicPtrCast<OSString>(service->copyProperty(kIOBSDNameKey));
+					OSSharedPtr<OSString> uuidstr = OSDynamicPtrCast<OSString>(service->copyProperty("UUID"));
 					const char *uuid;
 
 					if (iostr) {
@@ -217,21 +218,16 @@ void hfs_iterate_media_with_content(const char *content_uuid_cstring,
 					}
 				}
 			}
-			if (iter)
-				iter->release();
-
-			content_uuid_string->release();
 		}
-		dictionary->release();
 	}
 }
 
 kern_return_t hfs_get_platform_serial_number(char *serial_number_str,
 											 uint32_t len)
 {
-	OSDictionary * platform_dict;
-	IOService *platform;
-	OSString *  string;
+	OSSharedPtr<OSDictionary> platform_dict;
+	OSSharedPtr<IOService> platform;
+	OSSharedPtr<OSString> string;
 
 	if (len < 1) {
 		return 0;
@@ -243,9 +239,9 @@ kern_return_t hfs_get_platform_serial_number(char *serial_number_str,
 		return KERN_NOT_SUPPORTED;
 	}
 
-	platform = IOService::waitForService( platform_dict );
+	platform = IOService::waitForMatchingService( platform_dict.get() );
 	if (platform) {
-		string = (OSString *)platform->getProperty(kIOPlatformSerialNumberKey);
+		string = OSDynamicPtrCast<OSString>( platform->copyProperty( kIOPlatformSerialNumberKey ) );
 		if (string == 0) {
 			return KERN_NOT_SUPPORTED;
 		} else {

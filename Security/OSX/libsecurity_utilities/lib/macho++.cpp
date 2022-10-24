@@ -459,58 +459,56 @@ const version_min_command *MachOBase::findMinVersion() const
 
 const build_version_command *MachOBase::findBuildVersion() const
 {
-    for (const load_command *command = loadCommands(); command; command = nextCommand(command)) {
-        if (flip(command->cmd) == LC_BUILD_VERSION) {
-            if(flip(command->cmdsize) < sizeof(build_version_command)) {
-                UnixError::throwMe(ENOEXEC);
-            }
-            
-            return reinterpret_cast<const build_version_command *>(command);
-        }
-    }
-    return NULL;
+	for (const load_command *command = loadCommands(); command; command = nextCommand(command)) {
+		if (flip(command->cmd) == LC_BUILD_VERSION) {
+			if(flip(command->cmdsize) < sizeof(build_version_command)) {
+				UnixError::throwMe(ENOEXEC);
+			}
+			return reinterpret_cast<const build_version_command *>(command);
+		}
+	}
+	return NULL;
 }
 
 bool MachOBase::version(uint32_t *platform, uint32_t *minVersion, uint32_t *sdkVersion) const
 {
-    const build_version_command *bc = findBuildVersion();
-    
-    if (bc != NULL) {
-        if (platform != NULL) { *platform = flip(bc->platform); }
-        if (minVersion != NULL) { *minVersion = flip(bc->minos); }
-        if (sdkVersion != NULL) { *sdkVersion = flip(bc->sdk); }
-        return true;
-    }
-    
-    const version_min_command *vc = findMinVersion();
-    
-    if (vc != NULL) {
-        uint32_t pf;
-        switch (flip(vc->cmd)) {
-        case LC_VERSION_MIN_MACOSX:
-            pf = PLATFORM_MACOS;
-            break;
-        case LC_VERSION_MIN_IPHONEOS:
-            pf = PLATFORM_IOS;
-            break;
-        case LC_VERSION_MIN_WATCHOS:
-            pf = PLATFORM_WATCHOS;
-            break;
-        case LC_VERSION_MIN_TVOS:
-            pf = PLATFORM_TVOS;
-            break;
-        default:
-            // Old style load command, but we don't know what platform to map to.
-            pf = 0;
-        }
-                
-        if (platform != NULL) { *platform = pf; }
-        if (minVersion != NULL) { *minVersion = flip(vc->version); }
-        if (sdkVersion != NULL) { *sdkVersion = flip(vc->sdk); }
-        return true;
-    }
-    
-    return false;
+	const build_version_command *bc = findBuildVersion();
+
+	if (bc != NULL) {
+		if (platform != NULL) { *platform = flip(bc->platform); }
+		if (minVersion != NULL) { *minVersion = flip(bc->minos); }
+		if (sdkVersion != NULL) { *sdkVersion = flip(bc->sdk); }
+		return true;
+	}
+
+	const version_min_command *vc = findMinVersion();
+	if (vc != NULL) {
+		uint32_t pf;
+		switch (flip(vc->cmd)) {
+		case LC_VERSION_MIN_MACOSX:
+			pf = PLATFORM_MACOS;
+			break;
+		case LC_VERSION_MIN_IPHONEOS:
+			pf = PLATFORM_IOS;
+			break;
+		case LC_VERSION_MIN_WATCHOS:
+			pf = PLATFORM_WATCHOS;
+			break;
+		case LC_VERSION_MIN_TVOS:
+			pf = PLATFORM_TVOS;
+			break;
+		default:
+			// Old style load command, but we don't know what platform to map to.
+			pf = 0;
+		}
+
+		if (platform != NULL) { *platform = pf; }
+		if (minVersion != NULL) { *minVersion = flip(vc->version); }
+		if (sdkVersion != NULL) { *sdkVersion = flip(vc->sdk); }
+		return true;
+	}
+
+	return false;
 }
 
 //
@@ -780,22 +778,35 @@ const fat_arch *Universal::findArch(const Architecture &target) const
 {
 	assert(isUniversal());
 	const fat_arch *end = mArchList + mArchCount;
-	// exact match
-	for (const fat_arch *arch = mArchList; arch < end; ++arch)
-		if (arch->cputype == target.cpuType()
-			&& (arch->cpusubtype & ~CPU_SUBTYPE_MASK) == target.cpuSubtype())
+	// First match should be for all fields, including capabilities.
+	for (const fat_arch *arch = mArchList; arch < end; ++arch) {
+		if (arch->cputype == target.cpuType() &&
+			arch->cpusubtype == target.cpuSubtypeFull()) {
 			return arch;
-	// match for generic model of main architecture
-	for (const fat_arch *arch = mArchList; arch < end; ++arch)
-		if (arch->cputype == target.cpuType()
-			&& (arch->cpusubtype & ~CPU_SUBTYPE_MASK) == 0)
+		}
+	}
+	// Second, look for the a valid type match, ignoring capabilities.
+	for (const fat_arch *arch = mArchList; arch < end; ++arch) {
+		if (arch->cputype == target.cpuType() &&
+			(arch->cpusubtype & ~CPU_SUBTYPE_MASK) == target.cpuSubtype()) {
 			return arch;
-	// match for any subarchitecture of the main architecture (questionable)
-	for (const fat_arch *arch = mArchList; arch < end; ++arch)
-		if (arch->cputype == target.cpuType())
+		}
+	}
+	// Third, prioritize match for generic model of main architecture.
+	for (const fat_arch *arch = mArchList; arch < end; ++arch) {
+		if (arch->cputype == target.cpuType() &&
+			(arch->cpusubtype & ~CPU_SUBTYPE_MASK) == 0) {
 			return arch;
-	// no match
-	UnixError::throwMe(ENOEXEC);	// not found	
+		}
+	}
+	// Finally, try just matching any subarchitecture of the main architecture (questionable).
+	for (const fat_arch *arch = mArchList; arch < end; ++arch) {
+		if (arch->cputype == target.cpuType()) {
+			return arch;
+		}
+	}
+	// No match, return an error.
+	UnixError::throwMe(ENOEXEC);
 }
 
 MachO *Universal::findImage(const Architecture &target) const
@@ -883,7 +894,7 @@ uint32_t Universal::typeOf(FileDesc fd)
 			return 0;
 		}
 	}
-    return 0;
+	return 0;
 }
 
 //

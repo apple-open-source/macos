@@ -7,7 +7,7 @@ AM_CFLAGS = $(LIBXML_CFLAGS)
 
 DOCS_DIR = $(datadir)/doc/libxslt-python-$(LIBXSLT_VERSION)
 # libxsltclass.txt is generated
-DOCS = TODO
+DOCS=
 
 EXTRA_DIST = 			\
 	libxslt.c		\
@@ -19,7 +19,7 @@ EXTRA_DIST = 			\
 	libxslt-python-api.xml	\
 	$(DOCS)
 
-libxsltmod_la_LDFLAGS =  $(WIN32_EXTRA_LDFLAGS) -module -avoid-version
+libxsltmod_la_LDFLAGS =  -module -avoid-version
 
 if WITH_PYTHON
 mylibs = \

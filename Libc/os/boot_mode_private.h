@@ -26,6 +26,7 @@
 #include <os/base.h>
 #include <os/availability.h>
 
+OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 __BEGIN_DECLS
 
 #define OS_BOOT_MODE_FVUNLOCK "fvunlock"
@@ -60,8 +61,9 @@ __BEGIN_DECLS
 API_AVAILABLE(macosx(10.16)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos)
 OS_EXPORT OS_WARN_RESULT
 bool
-os_boot_mode_query(const char **boot_mode_out);
+os_boot_mode_query(const char *__unsafe_indexable *boot_mode_out);
 
 __END_DECLS
+OS_ASSUME_PTR_ABI_SINGLE_END
 
 #endif // __OS_BOOT_MODE_H__

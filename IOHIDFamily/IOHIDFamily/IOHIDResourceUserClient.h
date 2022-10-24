@@ -58,7 +58,7 @@ typedef enum {
 
 /*!
     @enum IOHIDResourceUserClientResponseIndex
-    @abstract reponse indexes for report response
+    @abstract response indexes for report response
 */
 typedef enum {
     kIOHIDResourceUserClientResponseIndexResult = 0,
@@ -135,7 +135,7 @@ public:
     virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
 };
 
-class IOHIDResourceDeviceUserClient : public IOUserClient
+class IOHIDResourceDeviceUserClient : public IOUserClient2022
 {
     OSDeclareDefaultStructors(IOHIDResourceDeviceUserClient);
     
@@ -144,7 +144,7 @@ private:
     IOHIDResource *         _owner;
     OSDictionary *          _properties;
     IOHIDUserDevice *       _device;
-    IOTimerEventSource *    _createDeviceTimer;
+    IOTimerEventSource *    _asyncReportTimer;
     IOCommandGate *         _commandGate;
     mach_port_t             _port;
     task_t                  _owningTask;
@@ -165,9 +165,11 @@ private:
     UInt32                  _getReportTimeoutCount;
     UInt32                  _enqueueFailCount;
     UInt32                  _handleReportCount;
+    UInt32                  _outstandingAsyncCount;
+    bool                    _asyncSupport;
     bool                    _privileged;
 
-    static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
+    static const IOExternalMethodDispatch2022 _methods[kIOHIDResourceDeviceUserClientMethodCount];
 
     static IOReturn _createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _terminateDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
@@ -176,15 +178,9 @@ private:
     static IOReturn _registerService(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _releaseToken(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
 
-
-    void createAndStartDeviceAsyncCallback();
-
     typedef struct {
-        uint32_t                    selector;
-        IOExternalMethodArguments * arguments;
-        IOExternalMethodDispatch *  dispatch;
-        OSObject *                  target;
-        void *                      reference;
+        uint32_t                          selector;
+        IOExternalMethodArgumentsOpaque * arguments;
     } ExternalMethodGatedArguments;
 
     IOReturn externalMethodGated(ExternalMethodGatedArguments * arguments);
@@ -192,20 +188,22 @@ private:
     IOReturn clientMemoryForTypeGated(IOOptionBits * options, IOMemoryDescriptor ** memory);
     
     typedef struct {
-        IOMemoryDescriptor *        report;
-        IOHIDReportType             reportType;
-        IOOptionBits                options;
+        IOMemoryDescriptor * report;
+        IOHIDReportType      reportType;
+        IOOptionBits         options;
+        UInt32               completionTimeout;
+        IOHIDCompletion    * completion;
     } ReportGatedArguments;
     
     IOReturn getReportGated(ReportGatedArguments * arguments);
     IOReturn setReportGated(ReportGatedArguments * arguments);
     
     IOReturn createAndStartDevice();
-    IOReturn createAndStartDeviceAsync();
     IOReturn createDevice(IOExternalMethodArguments *arguments);
     IOReturn handleReport(IOExternalMethodArguments *arguments);
     IOReturn postReportResult(IOExternalMethodArguments *arguments);
     IOReturn terminateDevice();
+    void setNextAsyncTimeout();
     void cleanupPendingReports();
 
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
@@ -243,9 +241,7 @@ public:
         @abstract 
         @discussion 
     */
-    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
-                               IOExternalMethodDispatch *dispatch, OSObject *target, 
-                               void *reference) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
 
@@ -261,13 +257,16 @@ public:
     virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon) APPLE_KEXT_OVERRIDE;
-    
+
     virtual IOReturn getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
 
     virtual IOReturn setReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
+
+    virtual IOReturn getReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion = 0);
+
+    virtual IOReturn setReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion = 0);
     
     virtual IOReturn setProperties(OSObject *properties) APPLE_KEXT_OVERRIDE;
-
 };
 
 

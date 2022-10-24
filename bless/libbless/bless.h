@@ -125,12 +125,6 @@ typedef struct {
 #define kBL_PATH_PPC_BOOTX_XCOFF "/usr/standalone/ppc/bootx.xcoff"
 
 /*!
- * @define kBL_PATH_PPC_BOOTX_BOOTINFO
- * @discussion bootinfo format Secondary loader for New World
- */
-#define kBL_PATH_PPC_BOOTX_BOOTINFO "/usr/standalone/ppc/bootx.bootinfo"
-
-/*!
  * @define kBL_PATH_CORESERVICES
  * @discussion Default blessed system folder for Mac OS X
  */
@@ -413,8 +407,7 @@ int BLSetTypeAndCreator(BLContextPtr context,
  * @discussion Bless the volume, using <b>dirX</b>
  *    for <i>finderinfo[5]</i>, <b>dir9</b>
  *    for <i>finderinfo[3]</i>, and selecting one
- *    of them for <i>finderinfo[0]</i> based
- *    on <b>useX</b>
+ *    of them for <i>finderinfo[0]</i>
  * @param context Bless Library context
  * @param mountpoint mountpoint of volume
  * @param dirX directory ID of Mac OS X 
@@ -422,17 +415,12 @@ int BLSetTypeAndCreator(BLContextPtr context,
  *    folder
  * @param dir9 directory ID of Mac OS 9
  *    <i>/System Folder</i> folder
- * @param useX preferentially use <b>dirX</b>
- *    for <i>finderinfo[0]</i>, which is
- *    the only thing Open Firmware uses for
- *    loading the secondary loader
  */
 
 int BLBlessDir(BLContextPtr context,
 	       const char * mountpoint,
 	       uint32_t dirX,
-	       uint32_t dir9,
-	       int useX);
+	       uint32_t dir9);
 
 
 
@@ -849,6 +837,7 @@ int BLGetCommonMountPoint(BLContextPtr context,
  *    a leaf device, and return which slice this is
  * @param context Bless Library context
  * @param partitionDev partition to use
+ * @param parentDevSize size of parent dev buffer
  * @param parentDev parent partition of <b>partitionDev</b>
  * @param partitionNum which partition of <b>parentDev</b>
  *    is <b>partitionDev</b>
@@ -856,6 +845,7 @@ int BLGetCommonMountPoint(BLContextPtr context,
 int BLGetParentDevice(BLContextPtr context,
 		      const char * partitionDev,
 		      char * parentDev,
+			  uint32_t parentDevSize,
 		      uint32_t *partitionNum);
 
 
@@ -869,6 +859,7 @@ int BLGetParentDevice(BLContextPtr context,
  * @param context Bless Library context
  * @param partitionDev partition to use
  * @param parentDev parent partition of <b>partitionDev</b>
+ * @param parentDevSize size of parent dev buffer
  * @param partitionNum which partition of <b>parentDev</b>
  *    is <b>partitionDev</b>
  * @param pmapType the partition type
@@ -876,6 +867,7 @@ int BLGetParentDevice(BLContextPtr context,
 int BLGetParentDeviceAndPartitionType(BLContextPtr context,
 		      const char * partitionDev,
 		      char * parentDev,
+		      uint32_t parentDevSize,
 		      uint32_t *partitionNum,
 		    BLPartitionType *pmapType);
 
@@ -1042,10 +1034,12 @@ int BLIsOpenFirmwarePresent(BLContextPtr context);
  * @param context Bless Library context
  * @param mntfrm partition device to use
  * @param ofstring resulting OF string
+ * @param ofstringSize OF string buffer siize
  */
 int BLGetOpenFirmwareBootDevice(BLContextPtr context,
 				const char * mntfrm,
-				char * ofstring);
+				char * ofstring,
+				uint32_t ofstringSize);
 
 
 
@@ -1060,16 +1054,19 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context,
  * @param context Bless Library context
  * @param mountpoint mountpoint to use
  * @param ofstring resulting OF string
+ * @param ofstringSize OF string buffer siize
  */
 int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
 					     const char * mountpoint,
-					     char * ofstring);
+					     char * ofstring,
+					     uint32_t ofstringSize);
 
 int BLGetOpenFirmwareBootDeviceForNetworkPath(BLContextPtr context,
                                                const char *interface,
                                                const char *host,
                                                const char *path,
-											   char * ofstring);
+											   char * ofstring,
+											   uint32_t ofstringSize);
 
 
 

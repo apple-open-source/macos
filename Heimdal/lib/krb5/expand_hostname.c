@@ -53,7 +53,7 @@ copy_hostname(krb5_context context,
  * canonical one in the newly allocated space returned in
  * new_hostname.
 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param orig_hostname hostname to canonicalise.
  * @param new_hostname output hostname, caller must free hostname with
  *        krb5_xfree().
@@ -128,7 +128,7 @@ vanilla_hostname (krb5_context context,
  * and return the realms new_hostname is believed to belong to in
  * realms.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param orig_hostname hostname to canonicalise.
  * @param new_hostname output hostname, caller must free hostname with
  *        krb5_xfree().

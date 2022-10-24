@@ -52,14 +52,16 @@
 
 int BLGetParentDevice(BLContextPtr context,  const char * partitionDev,
 		      char * parentDev,
+		      uint32_t parentDevSize,
 		      uint32_t *partitionNum) {
 
-    return BLGetParentDeviceAndPartitionType(context, partitionDev, parentDev, partitionNum, NULL);
+    return BLGetParentDeviceAndPartitionType(context, partitionDev, parentDev, parentDevSize, partitionNum, NULL);
 }
 
     
 int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * partitionDev,
 			 char * parentDev,
+			 uint32_t parentDevSize,
 			 uint32_t *partitionNum,
 			BLPartitionType *partitionType) {
 
@@ -197,7 +199,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
             CFRelease(content);
             content = NULL;
 
-            sprintf(parentDev, "/dev/%s",par);
+            snprintf(parentDev, parentDevSize, "/dev/%s",par);
             break;
         }
 

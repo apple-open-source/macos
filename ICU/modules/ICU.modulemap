@@ -19,6 +19,7 @@ module ICU [extern_c] [system] {
     header "uchar.h"
     header "uiter.h"
     header "utext.h"
+    header "uidna.h"
     header "uregex.h"
     header "ustring.h"
     

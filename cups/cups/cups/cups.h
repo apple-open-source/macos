@@ -190,7 +190,6 @@ extern "C" {
 #  define CUPS_SIDES_TWO_SIDED_PORTRAIT	"two-sided-long-edge"
 #  define CUPS_SIDES_TWO_SIDED_LANDSCAPE "two-sided-short-edge"
 
-
 /*
  * Types and structures...
  */
@@ -318,6 +317,11 @@ typedef const char *(*cups_password_cb2_t)(const char *prompt, http_t *http,
 					   void *user_data);
 					/* New password callback
 					 * @since CUPS 1.4/macOS 10.6@ */
+
+typedef char* (*bearer_token_callback_t)(http_t* http,
+                                            const char* resource,
+                                               void* user_data);
+
 
 typedef int (*cups_server_cert_cb_t)(http_t *http, void *tls,
 				     cups_array_t *certs, void *user_data);
@@ -603,6 +607,8 @@ extern const char	*cupsHashString(const unsigned char *hash, size_t hashsize, ch
 /* New in CUPS 2.3 */
 extern int		cupsAddDestMediaOptions(http_t *http, cups_dest_t *dest, cups_dinfo_t *dinfo, unsigned flags, cups_size_t *size, int num_options, cups_option_t **options) _CUPS_API_2_3;
 extern ipp_attribute_t	*cupsEncodeOption(ipp_t *ipp, ipp_tag_t group_tag, const char *name, const char *value) _CUPS_API_2_3;
+
+extern void             cupsSetBearerTokenCB(http_t *http, bearer_token_callback_t cb, void* user_data) _CUPS_API_2_3;
 
 #  ifdef __cplusplus
 }

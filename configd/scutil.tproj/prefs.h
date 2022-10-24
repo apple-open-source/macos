@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2005-2007, 2012, 2013, 2015-2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,6 +41,11 @@ extern Boolean	_prefs_changed;
 
 __BEGIN_DECLS
 
+#define DISABLE_UNTIL_NEEDED	"disable-until-needed"
+#define DISABLE_PRIVATE_RELAY	"disable-private-relay"
+#define ENABLE_LOW_DATA_MODE	"enable-low-data-mode"
+#define OVERRIDE_EXPENSIVE	"override-expensive"
+
 AuthorizationRef	_prefs_AuthorizationCreate	(void);
 void			_prefs_AuthorizationFree	(AuthorizationRef authorization);
 
@@ -72,6 +77,8 @@ void	do_prefs_remove		(int argc, char * const argv[]);
 void	do_log			(char *pref, int argc, char * const argv[]);
 void	do_disable_until_needed	(int argc, char * const argv[]);
 void	do_disable_private_relay(int argc, char * const argv[]);
+void	do_enable_low_data_mode	(int argc, char * const argv[]);
+void	do_override_expensive	(int argc, char * const argv[]);
 
 
 #if	!TARGET_OS_IPHONE

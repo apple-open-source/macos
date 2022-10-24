@@ -27,7 +27,7 @@
     passwords.)
  */
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -47,7 +47,6 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecItemInternal.h>
-#include "keychain/securityd/SecDbBackupManager.h"
 #import "keychain/SecureObjectSync/SOSChangeTracker.h"
 #include "keychain/SecureObjectSync/SOSDigestVector.h"
 #include "keychain/SecureObjectSync/SOSEngine.h"
@@ -95,6 +94,7 @@
 #include "SecItemServer+SWC.h"
 #include <ipc/server_entitlement_helpers.h>
 
+#include <os/assumes.h>
 #include <os/variant_private.h>
 
 
@@ -112,7 +112,7 @@ void SecItemServerSetKeychainChangedNotification(const char *notification_name)
     g_keychain_changed_notification = notification_name;
 }
 
-void SecKeychainChanged() {
+void SecKeychainChanged(void) {
     static dispatch_once_t once;
     static sec_action_t action;
 
@@ -271,9 +271,11 @@ static bool DBClassesAreEqual(const SecDbClass* class1, const SecDbClass* class2
     return false;
 }
 
-static bool ShouldRenameTable(const SecDbClass* class1, const SecDbClass* class2, int oldTableVersion)
-{
-    return oldTableVersion < 10 || !DBClassesAreEqual(class1, class2);
+static void bounceLKAReportKeychainUpgradeOutcomeWithError(int oldVersion, int newVersion, LKAKeychainUpgradeOutcome outcome, CFErrorRef error) {
+    // Once we start upgrading system keychain DBs, we should change this. But we need LKA to use the correct keybag. See rdar://88044320
+#if !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
+    LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, outcome, error);
+#endif
 }
 
 #define SCHEMA_VERSION(schema) ((((schema)->minorVersion) << 8) | ((schema)->majorVersion))
@@ -289,10 +291,9 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     const SecDbSchema *newSchema = current_schema();
     int newVersion = SCHEMA_VERSION(newSchema);
     __block bool ok = true;
-    SecDbClass const *const *oldClass;
-    SecDbClass const *const *newClass;
     SecDbQueryRef query = NULL;
     CFMutableStringRef sql = NULL;
+    CFArrayRef classNamesToMigrateAsArray = NULL;
     SecDbClass* renamedOldClass = NULL;
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     __block int64_t itemsMigrated = 0;
@@ -301,45 +302,105 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
     gettimeofday(&start, NULL);
 #endif
 
-    // Rename existing tables to names derived from old schema names
-    sql = CFStringCreateMutable(NULL, 0);
-    bool oldClassDone = false;
-    CFMutableArrayRef classIndexesForNewTables = CFArrayCreateMutable(NULL, 0, NULL);
-    int classIndex = 0;
-    for (oldClass = oldSchema->classes, newClass = newSchema->classes;
-         *newClass != NULL; classIndex++, oldClass++, newClass++) {
-        if (!oldClassDone) {
-            oldClassDone |= (*oldClass) == NULL; // Check if the new schema has more tables than the old
+    CFCharacterSetRef asciiDigits = CFCharacterSetCreateWithCharactersInRange(NULL, CFRangeMake('0', '9'));
+
+    // Make a mapping of normalized class names to their indexes in the schema's
+    // class list for the old and new schemas.
+    CFMutableDictionaryRef oldClasses = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
+    {
+        int classIndex = 0;
+        const SecDbClass * const *oldClass = oldSchema->classes;
+        for (; *oldClass != NULL; classIndex++, oldClass++) {
+            // Trim the numbers from the class name, so that we can match up
+            // pre-version 10.0 and post-version 10.0 classes. Before schema
+            // version 10.0, whenever we added a new schema, we would also need
+            // to manually rename the previous schema's item classes with the
+            // previous schema's version number. Since version 10.0, we add
+            // `_old` to the previous schema's table names instead, so it's no
+            // longer necessary to rename the old classes by hand.
+            CFStringRef oldClassName = CFStringCreateByTrimmingCharactersInSet((*oldClass)->name, asciiDigits);
+            os_assert(!CFDictionaryContainsKey(oldClasses, oldClassName));
+            CFDictionarySetValue(oldClasses, oldClassName, (void *)(intptr_t)classIndex);
+            CFReleaseNull(oldClassName);
         }
-
-        if (!oldClassDone && !CFEqual((*oldClass)->name, (*newClass)->name) && ShouldRenameTable(*oldClass, *newClass, oldSchema->majorVersion)) {
-            CFStringAppendFormat(sql, NULL, CFSTR("ALTER TABLE %@ RENAME TO %@_old;"), (*newClass)->name, (*oldClass)->name);
-            CFArrayAppendValue(classIndexesForNewTables, (void*)(long)classIndex);
-
-        } else if (!oldClassDone && !DBClassesAreEqual(*oldClass, *newClass)) {
-            CFStringAppendFormat(sql, NULL, CFSTR("ALTER TABLE %@ RENAME TO %@_old;"), (*newClass)->name, (*oldClass)->name);
-            CFArrayAppendValue(classIndexesForNewTables, (void*)(long)classIndex);
-        }
-
-        if(oldClassDone && *newClass) {
-            // These should be no-ops, unless you're upgrading a previously-upgraded database with an invalid version number
-            CFStringAppendFormat(sql, NULL, CFSTR("DROP TABLE IF EXISTS %@;"), (*newClass)->name);
-            
-            if (classIndexesForNewTables) {
-                CFArrayAppendValue(classIndexesForNewTables, (void*)(long)classIndex);
-            }
+    }
+    CFMutableDictionaryRef newClasses = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
+    {
+        int classIndex = 0;
+        const SecDbClass * const *newClass = newSchema->classes;
+        for (; *newClass != NULL; classIndex++, newClass++) {
+            CFStringRef newClassName = CFStringCreateByTrimmingCharactersInSet((*newClass)->name, asciiDigits);
+            os_assert(!CFDictionaryContainsKey(newClasses, newClassName));
+            CFDictionarySetValue(newClasses, newClassName, (void *)(intptr_t)classIndex);
+            CFReleaseNull(newClassName);
         }
     }
 
+    CFReleaseNull(asciiDigits);
+
+    // Class names that exist in both the old and new schemas, and are not
+    // equal, must be migrated.
+    CFMutableSetRef classNamesToMigrate = CFSetCreateMutableForCFTypes(NULL);
+    CFDictionaryForEach(oldClasses, ^(const void *className, const void *oldClassIndexPtr) {
+        const void *newClassIndexPtr;
+        if (CFDictionaryGetValueIfPresent(newClasses, className, &newClassIndexPtr)) {
+            int oldClassIndex = (int)(intptr_t)oldClassIndexPtr;
+            const SecDbClass *oldClass = oldSchema->classes[oldClassIndex];
+
+            int newClassIndex = (int)(intptr_t)newClassIndexPtr;
+            const SecDbClass *newClass = newSchema->classes[newClassIndex];
+
+            if (!DBClassesAreEqual(oldClass, newClass)) {
+                CFSetAddValue(classNamesToMigrate, className);
+            }
+        }
+    });
+
+    // Rename existing tables to names derived from old schema names
+    sql = CFStringCreateMutable(NULL, 0);
+    CFMutableArrayRef classIndexesForNewTables = CFArrayCreateMutable(NULL, 0, NULL);
+    CFSetForEach(classNamesToMigrate, ^(const void *className) {
+        int oldClassIndex = (int)(intptr_t)CFDictionaryGetValue(oldClasses, className);
+        const SecDbClass *oldClass = oldSchema->classes[oldClassIndex];
+
+        int newClassIndex = (int)(intptr_t)CFDictionaryGetValue(newClasses, className);
+        const SecDbClass *newClass = newSchema->classes[newClassIndex];
+
+        CFStringAppendFormat(sql, NULL, CFSTR("ALTER TABLE %@ RENAME TO %@_old;"), newClass->name, oldClass->name);
+        CFArrayAppendValue(classIndexesForNewTables, (void*)(long)newClassIndex);
+    });
+
+    // Drop any tables for classes in the old schema that have been removed from
+    // the new schema.
+    CFDictionaryForEach(oldClasses, ^(const void *oldClassName, const void *oldClassIndexPtr) {
+        if (!CFSetContainsValue(classNamesToMigrate, oldClassName) && !CFDictionaryContainsKey(newClasses, oldClassName)) {
+            int oldClassIndex = (int)(intptr_t)oldClassIndexPtr;
+            const SecDbClass *oldClass = oldSchema->classes[oldClassIndex];
+            CFStringAppendFormat(sql, NULL, CFSTR("DROP TABLE IF EXISTS %@;"), oldClass->name);
+        }
+    });
+
+    // Drop any tables for the new schema that already exist. These should be
+    // no-ops, unless you're upgrading a previously-upgraded database with an
+    // invalid version number.
+    CFDictionaryForEach(newClasses, ^(const void *newClassName, const void *newClassIndexPtr) {
+        if (!CFSetContainsValue(classNamesToMigrate, newClassName) && !CFDictionaryContainsKey(oldClasses, newClassName)) {
+            int newClassIndex = (int)(intptr_t)newClassIndexPtr;
+            const SecDbClass *newClass = newSchema->classes[newClassIndex];
+            CFStringAppendFormat(sql, NULL, CFSTR("DROP TABLE IF EXISTS %@;"), newClass->name);
+            CFArrayAppendValue(classIndexesForNewTables, (void*)(long)newClassIndex);
+        }
+    });
+
     if(CFStringGetLength(sql) > 0) {
         require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
-                             LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1AlterTables, error ? *error : NULL));
+                             bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1AlterTables, error ? *error : NULL));
     }
     CFReleaseNull(sql);
 
     // Drop indices that that new schemas will use
     sql = CFStringCreateMutable(NULL, 0);
-    for (newClass = newSchema->classes; *newClass != NULL; newClass++) {
+    for (const SecDbClass * const *newClass = newSchema->classes; *newClass != NULL; newClass++) {
         SecDbForEachAttrWithMask((*newClass), desc, kSecDbIndexFlag | kSecDbInFlag) {
             CFStringAppendFormat(sql, 0, CFSTR("DROP INDEX IF EXISTS %@%@;"), (*newClass)->name, desc->name);
             if (desc->kind == kSecDbSyncAttr) {
@@ -348,25 +409,29 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
         }
     }
     require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
-                         LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropIndices, error ? *error : NULL));
+                         bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropIndices, error ? *error : NULL));
     CFReleaseNull(sql);
 
     // Create tables for new schema.
     require_action_quiet(ok &= SecItemDbCreateSchema(dbt, newSchema, classIndexesForNewTables, false, error), out,
-                         LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1CreateSchema, error ? *error : NULL));
+                         bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1CreateSchema, error ? *error : NULL));
+
     // Go through all classes of current schema to transfer all items to new tables.
-    for (oldClass = oldSchema->classes, newClass = newSchema->classes;
-         *oldClass != NULL && *newClass != NULL; oldClass++, newClass++) {
+    classNamesToMigrateAsArray = CFSetCopyValues(classNamesToMigrate);
+    for (CFIndex i = 0; i < CFArrayGetCount(classNamesToMigrateAsArray); i++) {
+        CFStringRef className = CFArrayGetValueAtIndex(classNamesToMigrateAsArray, i);
 
-        if (CFEqual((*oldClass)->name, (*newClass)->name) && DBClassesAreEqual(*oldClass, *newClass)) {
-            continue;
-        }
+        int oldClassIndex = (int)(intptr_t)CFDictionaryGetValue(oldClasses, className);
+        const SecDbClass *oldClass = oldSchema->classes[oldClassIndex];
 
-        secnotice("upgr", "Upgrading table %@", (*oldClass)->name);
+        int newClassIndex = (int)(intptr_t)CFDictionaryGetValue(newClasses, className);
+        const SecDbClass *newClass = newSchema->classes[newClassIndex];
+
+        secnotice("upgr", "Upgrading table %@", oldClass->name);
 
         // Create a new 'old' class with a new 'old' name.
         int count = 0;
-        SecDbForEachAttr(*oldClass, attr) {
+        SecDbForEachAttr(oldClass, attr) {
             count++;
         }
         if(renamedOldClass) {
@@ -374,14 +439,14 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             free(renamedOldClass);
         }
         renamedOldClass = (SecDbClass*) malloc(sizeof(SecDbClass) + sizeof(SecDbAttr*)*(count+1));
-        renamedOldClass->name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@_old"), (*oldClass)->name);
-        renamedOldClass->itemclass = (*oldClass)->itemclass;
+        renamedOldClass->name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@_old"), oldClass->name);
+        renamedOldClass->itemclass = oldClass->itemclass;
         for(; count >= 0; count--) {
-            renamedOldClass->attrs[count] = (*oldClass)->attrs[count];
+            renamedOldClass->attrs[count] = oldClass->attrs[count];
         }
 
         // SecDbItemSelect only works for item classes.
-        if((*oldClass)->itemclass) {
+        if(oldClass->itemclass) {
             // Prepare query to iterate through all items in cur_class.
             if (query != NULL)
                 query_destroy(query, NULL);
@@ -400,7 +465,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 itemsMigrated++;
     #endif
                 // Switch item to the new class.
-                item->class = *newClass;
+                item->class = newClass;
 
                 if (isClassD(item)) {
                     // Decrypt the item.
@@ -420,11 +485,11 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 // <rdar://problem/33401870>
                 if (CFEqualSafe(SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup), kSecAttrAccessGroupToken) &&
                     SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL) {
-                    secnotice("upgr", "dropping item during schema upgrade due to agrp=com.apple.token: %@", item);
+                    secnotice("upgr", "dropping item during schema upgrade due to agrp=com.apple.token: " SECDBITEM_FMT, item);
                 } else {
                     // Insert new item into the new table.
                     if (!SecDbItemInsert(item, dbt, false, false, &localError)) {
-                        secerror("item: %@ insert during upgrade: %@", item, localError);
+                        secerror("item: " SECDBITEM_FMT " insert during upgrade: %@", item, localError);
                         ok = false;
                     }
                 }
@@ -464,7 +529,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             });
 
             require_action_quiet(ok, out,
-                                 LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1Items, error ? *error : NULL));
+                                 bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1Items, error ? *error : NULL));
         } else {
             // This table does not contain secdb items, and must be transferred without using SecDbItemSelect.
             // For now, this code does not support removing or renaming any columns, or adding any new non-null columns.
@@ -474,7 +539,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
 
             CFMutableStringRef columns = CFStringCreateMutable(NULL, 0);
 
-            SecDbForEachAttr(renamedOldClass, attr) {
+            SecDbForEachAttrWithMask(renamedOldClass, attr, kSecDbInFlag) {
                 if(comma) {
                     CFStringAppendFormat(columns, NULL, CFSTR(","));
                 }
@@ -482,30 +547,29 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                 comma = true;
             }
 
-            CFStringAppendFormat(sql, NULL, CFSTR("INSERT OR REPLACE INTO %@ (%@) SELECT %@ FROM %@;"), (*newClass)->name, columns, columns, renamedOldClass->name);
+            CFStringAppendFormat(sql, NULL, CFSTR("INSERT OR REPLACE INTO %@ (%@) SELECT %@ FROM %@;"), newClass->name, columns, columns, renamedOldClass->name);
 
             CFReleaseNull(columns);
             require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
-                                 LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1NonItems, error ? *error : NULL));
+                                 bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1NonItems, error ? *error : NULL));
         }
     }
 
     // Remove old tables from the DB.
     CFReleaseNull(sql);
     sql = CFStringCreateMutable(NULL, 0);
-    for (oldClass = oldSchema->classes, newClass = newSchema->classes;
-         *oldClass != NULL && *newClass != NULL; oldClass++, newClass++) {
-        if (CFEqual((*oldClass)->name, (*newClass)->name) && DBClassesAreEqual(*oldClass, *newClass)) {
-            continue;
-        }
+    CFSetForEach(classNamesToMigrate, ^(const void *className) {
+        int oldClassIndex = (int)(intptr_t)CFDictionaryGetValue(oldClasses, className);
+        const SecDbClass *oldClass = oldSchema->classes[oldClassIndex];
 
-        CFStringAppendFormat(sql, NULL, CFSTR("DROP TABLE %@_old;"), (*oldClass)->name);
-    }
+        CFStringAppendFormat(sql, NULL, CFSTR("DROP TABLE %@_old;"), oldClass->name);
+    });
 
     if(CFStringGetLength(sql) > 0) {
         require_action_quiet(ok &= SecDbExec(dbt, sql, error), out,
-                             LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropOld, error ? *error : NULL));
+                             bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase1DropOld, error ? *error : NULL));
     }
+
 out:
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     measureUpgradePhase1(&start, ok, SecBucket2Significant(itemsMigrated));
@@ -520,6 +584,10 @@ out:
         CFReleaseNull(renamedOldClass->name);
         free(renamedOldClass);
     }
+    CFReleaseNull(classNamesToMigrateAsArray);
+    CFReleaseNull(classNamesToMigrate);
+    CFReleaseNull(oldClasses);
+    CFReleaseNull(newClasses);
     return ok;
 }
 
@@ -536,17 +604,6 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
     struct timeval start;
 
     gettimeofday(&start, NULL);
-#endif
-
-#if SECDB_BACKUPS_ENABLED
-    CFErrorRef backuperror = NULL;
-    if (!SecDbBackupCreateOrLoadBackupInfrastructure(&backuperror)) {
-        secerror("upgr: failed to create backup infrastructure: %@", backuperror);
-    } else {
-        secnotice("upgr", "setup backup infrastructure");
-    }
-#else
-    secnotice("upgr", "skipping backup setup for this platform");
 #endif
 
     // Go through all classes in new schema
@@ -598,12 +655,16 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                 // <rdar://problem/33401870>
                 if (CFEqualSafe(SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup), kSecAttrAccessGroupToken) &&
                     SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL) {
-                    secnotice("upgr", "dropping item during item upgrade due to agrp=com.apple.token: %@", item);
+                    secnotice("upgr", "dropping item during item upgrade due to agrp=com.apple.token: " SECDBITEM_FMT, item);
                     ok = SecDbItemDelete(item, threadDbt, kCFBooleanFalse, false, &localError);
                 } else {
                     // Replace item with the new value in the table; this will cause the item to be decoded and recoded back,
                     // incl. recalculation of item's hash.
+// radar:87784851
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbool-conversion"
                     ok = SecDbItemUpdate(item, item, threadDbt, false, query->q_uuid_from_primary_key, &localError);
+#pragma clang diagnostic pop
                 }
             }
 
@@ -628,7 +689,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                         // remember that DB still needs phase2 migration to be run next time a connection is made.  Also
                         // stop iterating next items, it would be just waste of time because the whole iteration will be run
                         // next time when this phase2 will be rerun.
-                        LKAReportKeychainUpgradeOutcome(oldVersion, newVersion, LKAKeychainUpgradeOutcomeLocked);
+                        bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomeLocked, NULL);
                         *inProgress = true;
                         *stop = true;
                         ok = true;
@@ -640,13 +701,13 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                         break;
                     case SQLITE_CONSTRAINT:         // yeah...
                         if (!CFEqual(kSecDbErrorDomain, CFErrorGetDomain(localError))) {
-                            secerror("Received SQLITE_CONSTRAINT with wrong error domain. Huh? Item: %@, error: %@", item, localError);
+                            secerror("Received SQLITE_CONSTRAINT with wrong error domain. Huh? Item: " SECDBITEM_FMT ", error: %@", item, localError);
                             break;
                         }
                     case errSecDuplicateItem:
                         // continue to upgrade and don't propagate errors for insert failures
                         // that are typical of a single item failure
-                        secnotice("upgr", "Ignoring duplicate item: %@", item);
+                        secnotice("upgr", "Ignoring duplicate item: " SECDBITEM_FMT, item);
                         secdebug("upgr", "Duplicate item error: %@", localError);
                         ok = true;
                         break;
@@ -670,7 +731,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
             *stop = *stop || !ok;
 
         });
-        require_action(ok, out, LKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase2, error ? *error : NULL));
+        require_action(ok, out, bounceLKAReportKeychainUpgradeOutcomeWithError(oldVersion, newVersion, LKAKeychainUpgradeOutcomePhase2, error ? *error : NULL));
     }
 
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -864,7 +925,7 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
                     CFReleaseNull(uuidData);
 
                     if (!setResult || localError || testError || errorForRowID(row_cf)) {
-                        secerror("upgr-phase3: failed to set persistentref for item:%@, error:%@", item, localError);
+                        secerror("upgr-phase3: failed to set persistentref for item:" SECDBITEM_FMT ", error:%@", item, localError);
                         if (localError) {
                             if (phase3EvaluateErrorAndStop(localError, error)) {
                                 shouldStopIteratingArray = true;
@@ -875,7 +936,7 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
                             }
                             CFReleaseNull(localError);
                         } else if (testError) {
-                            secerror("upgr-phase3: TEST ERROR PATH:%@, error:%@", item, testError);
+                            secerror("upgr-phase3: TEST ERROR PATH:" SECDBITEM_FMT ", error:%@", item, testError);
                             if (phase3EvaluateErrorAndStop(testError, error)) {
                                 shouldStopIteratingArray = true;
                                 *inProgress = true;
@@ -884,7 +945,7 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
                             }
                         } else if (errorForRowID(row_cf)) {
                             CFErrorRef errorForRow = errorForRowID(row_cf);
-                            secerror("upgr-phase3: TEST ERROR FOR ROWID PATH:%@, error:%@", item, errorForRow);
+                            secerror("upgr-phase3: TEST ERROR FOR ROWID PATH:" SECDBITEM_FMT ", error:%@", item, errorForRow);
                             if (phase3EvaluateErrorAndStop(errorForRow, error)) {
                                 shouldStopIteratingArray = true;
                                 *inProgress = true;
@@ -900,9 +961,13 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
                         }
                     } else {
                         CFErrorRef updateError = NULL;
+// radar:87784851
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbool-conversion"
                         bool updateResult = SecDbItemUpdate(item, item, inDbt, false, query->q_uuid_from_primary_key, &updateError);
+#pragma clang diagnostic pop
                         if (!updateResult || updateError) {
-                            secnotice("upgr-phase3", "phase3: failed to update item %@: %d, error: %@", item, updateResult, updateError);
+                            secnotice("upgr-phase3", "phase3: failed to update item " SECDBITEM_FMT ": %d, error: %@", item, updateResult, updateError);
                             if (updateError) {
                                 if (phase3EvaluateErrorAndStop(updateError, error)) {
                                     shouldStopIteratingArray = true;
@@ -915,7 +980,7 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
 
                             CFReleaseNull(updateError);
                         } else {
-                            secnotice("upgr-phase3", "updated item %@: %d", item, updateResult);
+                            secnotice("upgr-phase3", "updated item " SECDBITEM_FMT ": %d", item, updateResult);
                         }
                     }
                     CFReleaseNull(localError);
@@ -939,11 +1004,11 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
     return true;
 }
 
-void clearLastRowIDHandledForTests() {
+void clearLastRowIDHandledForTests(void) {
     CFReleaseNull(lastRowIDHandled);
 }
 
-CFNumberRef lastRowIDHandledForTests() {
+CFNumberRef lastRowIDHandledForTests(void) {
     return lastRowIDHandled;
 }
 
@@ -951,7 +1016,7 @@ void setExpectedErrorForTests(CFErrorRef error) {
     testError = error;
 }
 
-void clearTestError() {
+void clearTestError(void) {
     testError = NULL;
 }
 
@@ -959,7 +1024,7 @@ void setRowIDToErrorDictionary(CFDictionaryRef dictionary) {
     rowIDAndErrorDictionary = CFRetainSafe(dictionary);
 }
 
-void clearRowIDAndErrorDictionary() {
+void clearRowIDAndErrorDictionary(void) {
     CFReleaseNull(rowIDAndErrorDictionary);
 }
 
@@ -990,6 +1055,29 @@ static void performCustomIndexProcessing(SecDbConnectionRef dbt) {
     require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_subj ON cert(agrp, musr, tomb, subj);"), &cfErr), errhandler);
     require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_atag ON keys(agrp, musr, tomb, atag);"), &cfErr), errhandler);
 
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS synckeys_contextID_ckzone_keyclass_state ON synckeys(contextID, ckzone, keyclass, state);"), &cfErr), errhandler);
+
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_UUID ON incomingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_state ON incomingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS incomingqueue_contextID_ckzone_parentkeyUUID ON incomingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_UUID ON outgoingqueue(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_state ON outgoingqueue(contextID, ckzone, state);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS outgoingqueue_contextID_ckzone_parentkeyUUID ON outgoingqueue(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_UUID ON ckmirror(contextID, ckzone, UUID);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS ckmirror_contextID_ckzone_parentkeyUUID ON ckmirror(contextID, ckzone, parentKeyUUID);"), &cfErr), errhandler);
+
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS tlksharecontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentitemscontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckdevicestatecontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS outgoingqueuecontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS incomingqueuecontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS synckeyscontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckmirrorcontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS currentkeyscontextID;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS ckstatecontextID;"), &cfErr), errhandler);
+
+    
+    
     secnotice("upgr", "processed custom indexes (now or in the past)");
     CFReleaseNull(cfErr);   // Should be nil but belt and suspenders
     return;
@@ -1037,7 +1125,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
         // If this is empty database, just create table according to schema and be done with it.
         require_action_quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError);
                              performCustomIndexProcessing(dbt);
-                             LKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNewDb, localError));
+                             bounceLKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNewDb, localError));
 
         int oldVersion = VERSION_OLD(version2);
         version2 = VERSION_NEW(version2);
@@ -1046,7 +1134,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
                              ok = SecDbError(SQLITE_CORRUPT, &localError,
                                              CFSTR("Half migrated but obsolete DB found: found 0x%x(0x%x) but 0x%x is needed"),
                                              version2, oldVersion, SCHEMA_VERSION(newSchema));
-                             LKAReportKeychainUpgradeOutcome(version2, newVersion, LKAKeychainUpgradeOutcomeObsoleteDb));
+                             bounceLKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeObsoleteDb, NULL));
 
         // Check whether we have both old and new tables in the DB.
         if (oldVersion == 0) {
@@ -1067,7 +1155,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
             require_action_quiet(oldSchema != NULL, out,
                                  ok = SecDbError(SQLITE_CORRUPT, &localError, CFSTR("no schema for version: 0x%x"), oldVersion);
                                  secerror("no schema for version 0x%x", oldVersion);
-                                 LKAReportKeychainUpgradeOutcome(version2, newVersion, LKAKeychainUpgradeOutcomeNoSchema));
+                                 bounceLKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNoSchema, NULL));
 
             secnotice("upgr", "Upgrading from version 0x%x to 0x%x", oldVersion, SCHEMA_VERSION(newSchema));
             SecSignpostStart(SecSignpostUpgradePhase1);
@@ -1175,7 +1263,7 @@ out:
     } else {
         // Things seemed to go okay!
         if (didPhase2) {
-            LKAReportKeychainUpgradeOutcome(version, newVersion, LKAKeychainUpgradeOutcomeSuccess);
+            bounceLKAReportKeychainUpgradeOutcomeWithError(version, newVersion, LKAKeychainUpgradeOutcomeSuccess, NULL);
         }
 
         //If we're done here, we should opportunistically re-add all indices (just in case)
@@ -1417,6 +1505,9 @@ out:
 CFStringRef __SecKeychainCopyPath(void) {
     CFStringRef kcRelPath = NULL;
 
+#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
+    kcRelPath = CFSTR("system-keychain-2.db");
+#else
     if (os_variant_is_recovery("securityd")) {
         kcRelPath = CFSTR("keychain-recovery-2.db");
     } else if (use_hwaes()) {
@@ -1424,6 +1515,7 @@ CFStringRef __SecKeychainCopyPath(void) {
     } else {
         kcRelPath = CFSTR("keychain-2-debug.db");
     }
+#endif // SECURITYD_SYSTEM
 
     CFStringRef kcPath = NULL;
     CFURLRef kcURL = SecCopyURLForFileInKeychainDirectory(kcRelPath);
@@ -1530,7 +1622,7 @@ SecDbRef SecKeychainDbInitialize(SecDbRef db) {
 static SecDbRef _kc_dbhandle = NULL;
 static dispatch_queue_t _kc_dbhandle_dispatch = NULL;
 static dispatch_once_t _kc_dbhandle_dispatch_onceToken = 0;
-static dispatch_queue_t get_kc_dbhandle_dispatch() {
+static dispatch_queue_t get_kc_dbhandle_dispatch(void) {
     dispatch_once(&_kc_dbhandle_dispatch_onceToken, ^{
         _kc_dbhandle_dispatch = dispatch_queue_create("sec_kc_dbhandle", DISPATCH_QUEUE_SERIAL);
     });
@@ -1569,7 +1661,7 @@ static SecDbRef kc_dbhandle(CFErrorRef* error)
 
 static dispatch_queue_t _async_db_dispatch = NULL;
 static dispatch_once_t _async_db_dispatch_onceToken = 0;
-static dispatch_queue_t get_async_db_dispatch() {
+static dispatch_queue_t get_async_db_dispatch(void) {
     dispatch_once(&_async_db_dispatch_onceToken, ^{
         _async_db_dispatch = dispatch_queue_create("sec_async_db", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     });
@@ -1606,7 +1698,6 @@ void SecKeychainDbReset(dispatch_block_t inbetween)
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
         CFReleaseNull(_kc_dbhandle);
         SecDbResetMetadataKeys();
-        SecDbResetBackupManager();
         if (inbetween)
             inbetween();
     });
@@ -1915,11 +2006,11 @@ void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sql
 
     dispatch_async(get_async_db_dispatch(), ^{
         __block CFErrorRef localErr = NULL;
-        kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt) {
+        kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt2) {
             CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
             __block bool ok = true;
-            ok &= SecDbPrepare(dbt, sql, &localErr, ^(sqlite3_stmt *stmt) {
-                ok &= SecDbStep(dbt, stmt, &localErr, NULL);
+            ok &= SecDbPrepare(dbt2, sql, &localErr, ^(sqlite3_stmt *stmt) {
+                ok &= SecDbStep(dbt2, stmt, &localErr, NULL);
             });
 
             if (!ok || localErr) {
@@ -2031,7 +2122,35 @@ static bool nonAPIAttributesInDictionary(CFDictionaryRef attrs) {
     return CFDictionaryContainsKey(attrs, kSecAttrAppClipItem);
 }
 
-static bool appClipHasSaneAccessGroups(SecurityClient* client) {
+#if KCSHARING || KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+static bool
+SecItemSynchronizable(CFDictionaryRef query)
+{
+    bool result = false;
+    CFTypeRef value = CFDictionaryGetValue(query, kSecAttrSynchronizable);
+    if (isBoolean(value))
+        return CFBooleanGetValue(value);
+    else if (isNumber(value)) {
+        SInt32 number = 0;
+        (void)CFNumberGetValue(value, kCFNumberSInt32Type, &number);
+        result = !!number;
+    } else if (isString(value)) {
+        SInt32 number = CFStringGetIntValue((CFStringRef)value);
+        CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%ld"), (long)number);
+        // If a string converted to an int isn't equal to the int printed as
+        // a string, return false
+        if (CFEqual(t, value)) {
+            result = !!number;
+        }
+        CFRelease(t);
+    }
+
+    return result;
+}
+#endif
+
+
+static bool appClipHasAcceptableAccessGroups(SecurityClient* client) {
     if (!client || !client->applicationIdentifier || !client->accessGroups) {
         secerror("item: no app clip client or attributes not set, cannot verify restrictions");
         return false;
@@ -2061,6 +2180,7 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
         SecError(errSecParam, error, CFSTR("Non-API attributes present in query"));
         return false;
     }
+
 
     CFArrayRef accessGroups = CFRetainSafe(client->accessGroups);
 
@@ -2118,32 +2238,40 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
             }
         }
 
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        if (q->q_sync_bubble && client->inMultiUser) {
+        if (q->q_sync_bubble && client->inEduMode) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCreateSyncBubbleUserUUID(q->q_sync_bubble);
-        } else if (client->inMultiUser && client->isNetworkExtension) {
+        } else if (client->inEduMode && client->isNetworkExtension) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCreateBothUserAndSystemUUID(client->uid);
-        } else if (q->q_system_keychain && client->inMultiUser) {
+        } else if ((q->q_system_keychain == SystemKeychainFlag_EDUMODE && client->inEduMode) || q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
+#else // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        if (q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
+#endif // !KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
         } else {
-            q->q_system_keychain = false;
+            q->q_system_keychain = SystemKeychainFlag_NEITHER;
         }
-#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 
         query_set_caller_access_groups(q, accessGroups);
-        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+        if (client->isAppClip && !appClipHasAcceptableAccessGroups(client)) {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        } else if (q->q_system_keychain != SystemKeychainFlag_NEITHER && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-        } else if (q->q_system_keychain && q->q_sync_bubble) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        } else if (q->q_system_keychain != SystemKeychainFlag_NEITHER && q->q_sync_bubble) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("can't do both system and syncbubble keychain"));
-#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_use_item_list) {
             ok = SecError(errSecUseItemListUnsupported, error, CFSTR("use item list unsupported"));
         } else if (q->q_match_issuer && ((q->q_class != cert_class()) &&
@@ -2176,24 +2304,6 @@ _SecItemCopyMatching(CFDictionaryRef query, SecurityClient *client, CFTypeRef *r
     return SecItemServerCopyMatching(query, result, client, error);
 }
 
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-static bool
-SecItemSynchronizable(CFDictionaryRef query)
-{
-    bool result = false;
-    CFTypeRef value = CFDictionaryGetValue(query, kSecAttrSynchronizable);
-    if (isBoolean(value))
-        return CFBooleanGetValue(value);
-    else if (isNumber(value)) {
-        SInt32 number = 0;
-        (void)CFNumberGetValue(value, kCFNumberSInt32Type, &number);
-        result = !!number;
-    }
-
-    return result;
-}
-#endif
-
 static CFArrayRef
 SecurityClientCopyWritableAccessGroups(SecurityClient *client) {
     if (client == NULL || client->accessGroups == NULL) {
@@ -2217,6 +2327,7 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
         return false;
     }
 
+
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     bool ok = true;
@@ -2230,7 +2341,6 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
 
     Query *q = query_create_with_limit(attributes, client->musr, 0, client, error);
     if (q) {
-        /* Access group sanity checking. */
         CFStringRef agrp = (CFStringRef)CFDictionaryGetValue(attributes,
             kSecAttrAccessGroup);
 
@@ -2259,12 +2369,12 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
                 CFRelease(dict);
             }
         }
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        if (q->q_system_keychain && client->inMultiUser) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        if ((q->q_system_keychain == SystemKeychainFlag_EDUMODE && client->inEduMode) || q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
         } else {
-            q->q_system_keychain = false;
+            q->q_system_keychain = SystemKeychainFlag_NEITHER;
         }
         query_add_attribute_with_desc(&v8musr, q->q_musrView, q);
 #endif
@@ -2289,18 +2399,20 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
                 CFReleaseNull(uuid);
                 CFReleaseNull(uuidData);
             }
-            if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+            if (client->isAppClip && !appClipHasAcceptableAccessGroups(client)) {
                 ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
             } else if (client->isAppClip && CFEqualSafe(CFDictionaryGetValue(attributes, kSecAttrSynchronizable), kCFBooleanTrue)) {
                 ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to add synchronizable items to the keychain"));
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-            } else if (q->q_system_keychain && !client->allowSystemKeychain) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+            } else if (q->q_system_keychain != SystemKeychainFlag_NEITHER && !client->allowSystemKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
+            } else if (q->q_system_keychain == SystemKeychainFlag_ALWAYS && SecItemSynchronizable(attributes)) {
+                ok = SecError(errSecItemInvalidKey, error, CFSTR("Can't store system keychain (always) and synchronizable"));
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
             } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-            } else if (q->q_system_keychain && SecItemSynchronizable(attributes) && !client->inMultiUser) {
-                ok = SecError(errSecInvalidKey, error, CFSTR("Can't store system keychain and synchronizable"));
-#endif
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
             } else if (q->q_row_id || q->q_token_object_id) {
                 ok = SecError(errSecValuePersistentRefUnsupported, error, CFSTR("q_row_id"));  // TODO: better error string
             } else if (!q->q_error) {
@@ -2323,6 +2435,67 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
     return ok;
 }
 
+
+bool
+_SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error)
+{
+    bool ok = kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, error, ^bool {
+            __block bool didDelete = true;
+
+            CFDataRef musr = client->musr ?: SecMUSRGetSingleUserKeychainUUID();
+            const SecDbClass *classes[] = {
+                inet_class(),
+                genp_class(),
+                cert_class(),
+                keys_class(),
+            };
+            CFArrayRef accessGroups = CFArrayCreateForCFTypes(
+                NULL,
+                CFSTR("com.apple.cfnetwork"),
+                CFSTR("com.apple.safari.credit-cards"),
+                CFSTR("com.apple.password-manager"),
+                CFSTR("com.apple.webkit.webauthn"),
+                NULL
+            );
+
+            for (size_t classIndex = 0; didDelete && classIndex < array_size(classes); classIndex++) {
+                secinfo("SecDeleteItemsOnSignOut", "Deleting items from class=%@ with multi-user view=%@", classes[classIndex]->name, musr);
+
+                Query *query = query_create(classes[classIndex], musr, NULL, client, error);
+                if (!query) {
+                    didDelete = false;
+                    break;
+                }
+                query_add_attribute(kSecAttrMultiUser, musr, query);
+                query_add_attribute(kSecAttrSynchronizable, kCFBooleanTrue, query);
+                for (CFIndex groupIndex = 0; groupIndex < CFArrayGetCount(accessGroups); groupIndex++) {
+                    query_add_or_attribute(kSecAttrAccessGroup, CFArrayGetValueAtIndex(accessGroups, groupIndex), query);
+                }
+                didDelete &= SecDbItemSelect(query, dbt, error, NULL, ^bool(const SecDbAttr *attr) {
+                    return CFDictionaryContainsKey(query->q_item, attr->name);
+                }, NULL, NULL, ^(SecDbItemRef item, bool *stop) {
+                    didDelete &= SecDbItemDelete(item, dbt, kCFBooleanFalse, false, error);
+                    if (!didDelete) {
+                        *stop = true;
+                    }
+                });
+                (void)query_destroy(query, NULL);
+            }
+
+            CFReleaseNull(accessGroups);
+
+            return didDelete;
+        });
+    });
+
+    if (ok) {
+        SecKeychainChanged();
+    }
+
+    return ok;
+}
+
 bool
 _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
                SecurityClient *client, CFErrorRef *error)
@@ -2331,6 +2504,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
         SecError(errSecParam, error, CFSTR("Non-API attributes present"));
         return false;
     }
+
 
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
@@ -2371,29 +2545,31 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
         ok = false;
     }
     if (ok) {
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        if (q->q_system_keychain && client->inMultiUser) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        if ((q->q_system_keychain == SystemKeychainFlag_EDUMODE && client->inEduMode) || q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
         } else {
-            q->q_system_keychain = false;
+            q->q_system_keychain = SystemKeychainFlag_NEITHER;
         }
-#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         query_set_caller_access_groups(q, accessGroups);
-        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+        if (client->isAppClip && !appClipHasAcceptableAccessGroups(client)) {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
         } else if (client->isAppClip && (CFEqualSafe(CFDictionaryGetValue(query, kSecAttrSynchronizable), kCFBooleanTrue) ||
             CFEqualSafe(CFDictionaryGetValue(attributesToUpdate, kSecAttrSynchronizable), kCFBooleanTrue)))
         {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to make items synchronizable"));
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        } else if (q->q_system_keychain != SystemKeychainFlag_NEITHER && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
+        } else if (q->q_system_keychain == SystemKeychainFlag_ALWAYS && SecItemSynchronizable(attributesToUpdate)) {
+            ok = SecError(errSecItemInvalidKey, error, CFSTR("Can't update a system keychain (always) item with synchronizable"));
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-        } else if (q->q_system_keychain && SecItemSynchronizable(attributesToUpdate) && !client->inMultiUser) {
-            ok = SecError(errSecInvalidKey, error, CFSTR("Can't update an system keychain item with synchronizable"));
-#endif
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_use_item_list) {
             ok = SecError(errSecUseItemListUnsupported, error, CFSTR("use item list not supported"));
         } else if (q->q_return_type & kSecReturnDataMask) {
@@ -2406,7 +2582,6 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
         } else if (q->q_return_type & kSecReturnPersistentRefMask) {
             ok = SecError(errSecReturnPersistentRefUnsupported, error, CFSTR("return persistent ref not supported by update"));
         } else {
-            /* Access group sanity checking. */
             CFStringRef agrp = (CFStringRef)CFDictionaryGetValue(attributesToUpdate,
                 kSecAttrAccessGroup);
             if (agrp) {
@@ -2444,6 +2619,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
         return false;
     }
 
+
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     CFIndex ag_count;
@@ -2478,24 +2654,26 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
     Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
     bool ok;
     if (q) {
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        if (q->q_system_keychain && client->inMultiUser) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        if ((q->q_system_keychain == SystemKeychainFlag_EDUMODE && client->inEduMode) || q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
             CFReleaseNull(q->q_musrView);
             q->q_musrView = SecMUSRCopySystemKeychainUUID();
         } else {
-            q->q_system_keychain = false;
+            q->q_system_keychain = SystemKeychainFlag_NEITHER;
         }
-#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 
         query_set_caller_access_groups(q, accessGroups);
-        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+        if (client->isAppClip && !appClipHasAcceptableAccessGroups(client)) {
             ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        } else if (q->q_system_keychain != SystemKeychainFlag_NEITHER && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-#endif
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         } else if (q->q_limit != kSecMatchUnlimited) {
             ok = SecError(errSecMatchLimitUnsupported, error, CFSTR("match limit not supported by delete"));
         } else if (query_match_count(q) != 0) {
@@ -2669,20 +2847,15 @@ _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient 
         illegalAccessGroups = CFSetCreate(NULL, (const void **)values, sizeof(values)/sizeof(values[0]), &kCFTypeSetCallBacks);
     });
 
-    static CFTypeRef qclasses[] = {
-        NULL,
-        NULL,
-        NULL,
-        NULL
-    };
     // strange construction needed for schema indirection
-    static dispatch_once_t qclassesOnceToken;
-    dispatch_once(&qclassesOnceToken, ^{
-        qclasses[0] = inet_class();
-        qclasses[1] = genp_class();
-        qclasses[2] = keys_class();
-        qclasses[3] = cert_class();
-    });
+    const CFTypeRef qclassesPtrs[] = {
+        inet_class(),
+        genp_class(),
+        keys_class(),
+        cert_class(),
+    };
+    // have to do another layer of indirection because the block below cannot refer to a declaration with an array type
+    const CFTypeRef* qclasses = qclassesPtrs;
 
     require_action_quiet(isArray(accessGroups), fail,
                          ok = false;
@@ -2717,7 +2890,7 @@ _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient 
             bool ok1 = true;
             size_t n;
 
-            for (n = 0; n < sizeof(qclasses)/sizeof(qclasses[0]) && ok1; n++) {
+            for (n = 0; n < array_size(qclassesPtrs) && ok1; n++) {
                 Query *q;
 
                 q = query_create(qclasses[n], client->musr, NULL, client, error);
@@ -2774,8 +2947,12 @@ _SecAddNegativeWebCredential(SecurityClient *client, CFStringRef fqdn, CFStringR
     SecurityClient swcclient = {
         .task = NULL,
         .accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks),
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = false,
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSyncBubbleKeychain = false,
+#endif
         .isNetworkExtension = false,
         .musr = client->musr,
     };
@@ -2909,10 +3086,13 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     // give ourselves access to see matching items for kSecSafariAccessGroup
     swcclient.task = NULL;
     swcclient.accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks);
-    swcclient.allowSystemKeychain = false;
     swcclient.musr = client->musr;
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
     swcclient.allowSystemKeychain = false;
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     swcclient.allowSyncBubbleKeychain = false;
+#endif
     swcclient.isNetworkExtension = false;
 
 
@@ -3268,15 +3448,15 @@ _SecServerRestoreTruthInTheCloud(CFDataRef keybag, CFDataRef password, CFDiction
                         OSStatus status = SecErrorGetOSStatus(localError);
                         if (status == errSecDuplicateItem) {
                             // Log and ignore duplicate item errors during restore
-                            secnotice("titc", "restore %@ not replacing existing item", item);
+                            secnotice("titc", "restore " SECDBITEM_FMT " not replacing existing item", item);
                         } else if (status == errSecDecode) {
                             // Log and ignore corrupted item errors during restore
-                            secnotice("titc", "restore %@ skipping corrupted item %@", item, localError);
+                            secnotice("titc", "restore " SECDBITEM_FMT " skipping corrupted item %@", item, localError);
                         } else {
                             if (status == errSecInteractionNotAllowed)
                                 *stop = true;
                             // Propagate the first other error upwards (causing the restore to fail).
-                            secerror("restore %@ failed %@", item, localError);
+                            secerror("restore " SECDBITEM_FMT " failed %@", item, localError);
                             ok = false;
                             if (error && !*error) {
                                 *error = localError;
@@ -3512,14 +3692,14 @@ _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error)
                 }
 
                 if (!SecDbItemSetSyncable(dbi, true, &cferror)) {
-                    secinfo("ImportInitialSyncItems", "Failed to set sync=1: %@ for item %@", cferror, dbi);
+                    secinfo("ImportInitialSyncItems", "Failed to set sync=1: %@ for item " SECDBITEM_FMT, cferror, dbi);
                     CFReleaseNull(cferror);
                     CFReleaseNull(dbi);
                     continue;
                 }
 
                 if (!SecDbItemInsert(dbi, dbt, false, false, &cferror)) {
-                    secinfo("ImportInitialSyncItems", "Item store failed with: %@: %@", cferror, dbi);
+                    secinfo("ImportInitialSyncItems", "Item store failed with: %@: " SECDBITEM_FMT, cferror, dbi);
                     CFReleaseNull(cferror);
                 }
                 CFReleaseNull(dbi);
@@ -3645,7 +3825,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
                     }
 
                     if (!SecDbItemInsert(new_item, dbt, false, false, &error3)) {
-                        secnotice("syncbubble", "migration failed with %@ for item %@", error3, new_item);
+                        secnotice("syncbubble", "migration failed with %@ for item " SECDBITEM_FMT, error3, new_item);
                     }
                     CFRelease(new_item);
                     CFReleaseNull(error3);
@@ -3790,10 +3970,12 @@ _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClien
     bool onlyDelete = false;
     bool copyNSURLSesssion = false;
 
-    if (!client->inMultiUser)
+    if (!client->inEduMode)
         return false;
 
-    secnotice("syncbubble", "migration for uid %d uid for services %@", (int)uid, services);
+    SecSignpostStart(SecSignpostSecSyncBubbleTransfer);
+
+    secnotice("syncbubble", "migration for uid %d for services %@", (int)uid, services);
 
 #if TARGET_OS_SIMULATOR
     // no delete in sim
@@ -3854,6 +4036,8 @@ _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClien
     require(res, fail);
 
 fail:
+    secnotice("syncbubble", "migration for uid %d complete", (int)uid);
+    SecSignpostStop(SecSignpostSecSyncBubbleTransfer);
     return res;
 }
 
@@ -3868,7 +4052,7 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
 
     /*
      * we are not in multi user yet, about to switch, otherwise we would
-     * check that for client->inMultiuser here
+     * check that for client->inEduMode here
      */
 
     kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
@@ -3905,7 +4089,7 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
                     CFErrorRef itemError = NULL;
 
                     if (!SecDbItemSetValueWithName(item, kSecAttrMultiUser, systemUUID, &itemError)) {
-                        secerror("item: %@ update musr to system failed: %@", item, itemError);
+                        secerror("item: " SECDBITEM_FMT " update musr to system failed: %@", item, itemError);
                         ok = false;
                         goto out;
                     }
@@ -3913,7 +4097,7 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
                     if (!SecDbItemDoUpdate(item, item, dbt, &itemError, ^bool (const SecDbAttr *attr) {
                         return attr->kind == kSecDbRowIdAttr;
                     })) {
-                        secerror("item: %@ insert during UPDATE: %@", item, itemError);
+                        secerror("item: " SECDBITEM_FMT " insert during UPDATE: %@", item, itemError);
                         ok = false;
                         goto out;
                     }
@@ -3982,8 +4166,10 @@ CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef
     SecurityClient client = {
         .task = NULL,
         .accessGroups = accessGroups,
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = true,
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSyncBubbleKeychain = false,
 #endif
         .isNetworkExtension = false,
@@ -4010,8 +4196,10 @@ bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumbe
     SecurityClient client = {
         .task = NULL,
         .accessGroups = accessGroups,
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = true,
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSyncBubbleKeychain = false,
 #endif
         .isNetworkExtension = false,

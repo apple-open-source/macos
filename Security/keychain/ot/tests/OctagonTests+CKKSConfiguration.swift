@@ -83,7 +83,7 @@ class OctagonCKKSConfigurationTestsPolicyEnabledTests: OctagonTestsBase {
         self.cuttlefishContext.reset(ckks: self.defaultCKKS)
         XCTAssertNil(self.defaultCKKS.syncingPolicy, "CKKS policy should be reset (by the test)")
 
-        self.otControl.refetchCKKSPolicy(nil, contextID: self.cuttlefishContext.contextID) { error in
+        self.otControl.refetchCKKSPolicy(self.otcontrolArgumentsFor(context: self.cuttlefishContext)) { error in
             XCTAssertNil(error, "Should be no error refetching the CKKS policy")
         }
 

@@ -14,7 +14,9 @@ extern char g_test_url1[1024];
 extern char g_test_url2[1024];
 extern char g_test_url3[1024];
 extern CFMutableDictionaryRef json_dict;
+extern CFMutableDictionaryRef test_mdata_dict;
 extern int list_tests_only;
+extern int list_tests_with_mdata;
 
 static int testCaseResult = 0;
 static char *testLimitedGlobingRule = NULL;
@@ -84,19 +86,21 @@ returnNull(Method method)
     int numClasses;
     int superResult = 0;
 
-    /* Save some JSON data */
-    if (testLimitedGlobingRule == NULL) {
-        json_add_inputs_str(json_dict, "limit", "none");
+    if (list_tests_with_mdata == 0) {
+        /* Save some JSON data */
+        if (testLimitedGlobingRule == NULL) {
+            json_add_inputs_str(json_dict, "limit", "none");
+        }
+        else {
+            json_add_inputs_str(json_dict, "limit", testLimitedGlobingRule);
+        }
+        json_add_inputs_str(json_dict, "URL1", g_test_url1);
+        json_add_inputs_str(json_dict, "URL2", g_test_url2);
+        json_add_inputs_str(json_dict, "URL3", g_test_url3);
+        json_add_time_stamp(json_dict, "start_time");
     }
-    else {
-        json_add_inputs_str(json_dict, "limit", testLimitedGlobingRule);
-    }
-    json_add_inputs_str(json_dict, "URL1", g_test_url1);
-    json_add_inputs_str(json_dict, "URL2", g_test_url2);
-    json_add_inputs_str(json_dict, "URL3", g_test_url3);
-    json_add_time_stamp(json_dict, "start_time");
 
-    if (list_tests_only == 0) {
+    if ((list_tests_only == 0) && (list_tests_with_mdata == 0)) {
         FXCTPrintf("[TEST] %s\n", getprogname());
     }
 
@@ -171,8 +175,11 @@ returnNull(Method method)
                         [tc setUp];
 
                     ranTests++;
-
-                    FXCTPrintf("[BEGIN] %s:%s\n", class_getName(testClass), mname);
+                
+                    if (list_tests_with_mdata == 0) {
+                        FXCTPrintf("[BEGIN] %s:%s\n", class_getName(testClass), mname);
+                    }
+                
                     @try {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -187,9 +194,11 @@ returnNull(Method method)
                         testCaseResult = 1;
                     }
                     @finally {
-                        FXCTPrintf("[%s] %s:%s\n",
-                                   testCaseResult == 0 ? "PASS" : "FAIL",
-                                   class_getName(testClass), mname);
+                        if (list_tests_with_mdata == 0) {
+                            FXCTPrintf("[%s] %s:%s\n",
+                                       testCaseResult == 0 ? "PASS" : "FAIL",
+                                       class_getName(testClass), mname);
+                        }
 
                          json_add_time_stamp(test_results, "end_time");
 
@@ -205,9 +214,14 @@ returnNull(Method method)
                             json_add_results_str(test_results, "result", "Pass");
                         }
 
-                        /* Save this test results into JSON data */
-                        json_add_outputs_dict(json_dict, mname, test_results);
-
+                        if (list_tests_with_mdata == 0) {
+                            /* Save this test results into JSON data */
+                            json_add_outputs_dict(json_dict, mname, test_results);
+                        }
+                        else {
+                            json_add_dict(json_dict, mname, test_mdata_dict);
+                        }
+                        
                         if ([tc respondsToSelector:@selector(tearDown)])
                             [tc tearDown];
                     }
@@ -220,26 +234,28 @@ returnNull(Method method)
         }
     }
 
-    if (list_tests_only == 0) {
+    if ((list_tests_only == 0) && (list_tests_with_mdata == 0)) {
         FXCTPrintf("[SUMMARY]\n"
                    "ran %ld tests %ld failed\n",
                    ranTests, failedTests);
     }
     
-    /* Save some JSON test suite data */
-    json_add_time_stamp(json_dict, "end_time");
-    passTests = ranTests - failedTests;
-    json_add_results(json_dict, "total_tests", &ranTests, sizeof(ranTests));
-    json_add_results(json_dict, "passed_tests", &passTests, sizeof(passTests));
-    json_add_results(json_dict, "failed_tests", &failedTests, sizeof(failedTests));
-    if (superResult) {
-         /* Save in JSON overall pass/fail */
-         json_add_results_str(json_dict, "result", "Fail");
-     }
-     else {
-         /* Save in JSON overall pass/fail */
-         json_add_results_str(json_dict, "result", "Pass");
-     }
+    if (list_tests_with_mdata == 0) {
+        /* Save some JSON test suite data */
+        json_add_time_stamp(json_dict, "end_time");
+        passTests = ranTests - failedTests;
+        json_add_results(json_dict, "total_tests", &ranTests, sizeof(ranTests));
+        json_add_results(json_dict, "passed_tests", &passTests, sizeof(passTests));
+        json_add_results(json_dict, "failed_tests", &failedTests, sizeof(failedTests));
+        if (superResult) {
+             /* Save in JSON overall pass/fail */
+             json_add_results_str(json_dict, "result", "Fail");
+         }
+         else {
+             /* Save in JSON overall pass/fail */
+             json_add_results_str(json_dict, "result", "Pass");
+         }
+    }
 
     return superResult;
 }

@@ -33,13 +33,14 @@
 namespace WebCore {
 
 class RenderBlockFlow;
+class RenderFlexibleBox;
 class RenderInline;
 
 namespace LayoutIntegration {
 
 enum class AvoidanceReason : uint64_t {
     FlowIsInsideANonMultiColumnThread            = 1LLU  << 0,
-    FlowHasHorizonalWritingMode                  = 1LLU  << 1,
+    // Unused                                    = 1LLU  << 1,
     // Unused                                    = 1LLU  << 2,
     ContentIsRuby                                = 1LLU  << 3,
     FlowIsPaginated                              = 1LLU  << 4,
@@ -53,9 +54,9 @@ enum class AvoidanceReason : uint64_t {
     // Unused                                    = 1LLU  << 12,
     FlowHasOverflowNotVisible                    = 1LLU  << 13,
     // Unused                                    = 1LLU  << 14,
-    FlowMayNotBeLTR                              = 1LLU  << 15,
+    // Unused                                    = 1LLU  << 15,
     FlowHasLineBoxContainProperty                = 1LLU  << 16,
-    FlowIsNotTopToBottom                         = 1LLU  << 17,
+    FlowHasUnsupportedWritingMode                = 1LLU  << 17,
     // Unused                                    = 1LLU  << 18,
     // Unused                                    = 1LLU  << 19,
     FlowHasLineAlignEdges                        = 1LLU  << 20,
@@ -78,7 +79,7 @@ enum class AvoidanceReason : uint64_t {
     ContentIsRenderQuote                         = 1LLU  << 37,
     FlowTextIsTextFragment                       = 1LLU  << 38,
     FlowTextIsSVGInlineText                      = 1LLU  << 39,
-    FlowHasComplexFontCodePath                   = 1LLU  << 40,
+    // Unused                                    = 1LLU  << 40,
     FeatureIsDisabled                            = 1LLU  << 41,
     FlowDoesNotEstablishInlineFormattingContext  = 1LLU  << 42,
     // Unused                                    = 1LLU  << 43,
@@ -99,13 +100,15 @@ enum class AvoidanceReason : uint64_t {
     UnsupportedImageMap                          = 1LLU  << 58,
     InlineBoxNeedsLayer                          = 1LLU  << 59,
     BoxDecorationBreakClone                      = 1LLU  << 60,
-    // Unused                                    = 1LLU  << 61,
+    FlowIsUnsupportedListItem                    = 1LLU  << 61,
     EndOfReasons                                 = 1LLU  << 62
 };
 
 bool canUseForLineLayout(const RenderBlockFlow&);
 bool canUseForLineLayoutAfterStyleChange(const RenderBlockFlow&, StyleDifference);
 bool canUseForLineLayoutAfterInlineBoxStyleChange(const RenderInline&, StyleDifference);
+
+bool canUseForFlexLayout(const RenderFlexibleBox&);
 
 enum class IncludeReasons { First , All };
 OptionSet<AvoidanceReason> canUseForLineLayoutWithReason(const RenderBlockFlow&, IncludeReasons);

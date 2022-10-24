@@ -16,6 +16,7 @@
 #include "ctype_test.h"
 #include "identical_test.h"
 #include "readonly_fd_test.h"
+#include "revert_writable_test.h"
 #include "sparse_test.h"
 #include "stat_test.h"
 #include "xattr_test.h"
@@ -65,7 +66,9 @@ int main(__unused int argc, __unused const char * argv[]) {
 	failed |= do_preserve_dst_flags_test(TEST_DIR, stb.f_bsize);
 	failed |= do_preserve_dst_tracked_test(TEST_DIR, stb.f_bsize);
 	failed |= do_src_dst_identical_test(TEST_DIR, stb.f_bsize);
+	failed |= do_revert_writable_test(TEST_DIR, stb.f_bsize);
 	failed |= do_xattr_test(TEST_DIR, stb.f_bsize);
+	failed |= do_xattr_flags_test(TEST_DIR, stb.f_bsize);
 	failed |= do_bsize_test(TEST_DIR, stb.f_bsize);
 	failed |= do_compressed_type_test(TEST_DIR, stb.f_bsize);
 

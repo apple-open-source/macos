@@ -476,6 +476,12 @@ main(int argc, char *argv[])
 out:
 	if (magic)
 		magic_close(magic);
+#ifdef __APPLE__
+	if (e == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0)) {
+		file_warnx("failed to flush output");
+		e = 1;
+	}
+#endif
 	return e;
 }
 

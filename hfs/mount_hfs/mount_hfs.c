@@ -457,6 +457,49 @@ load_encoding(struct hfs_mnt_encoding *encp)
 }
 
 /*
+ *  Given the input device pathname, construct likely disk and rdisk representations;
+ *  if it does not conform to expected pattern assume it is a filename and use as-is.
+ */
+static void
+device_parse(const char *name, char device[], char rdevice[], size_t len, char **disk)
+{
+	size_t p = strlen(_PATH_DEV);
+
+	const char *disk_name = name;
+	// check if name starts with /dev/
+	if (!strncmp(_PATH_DEV, name, p)) {
+		disk_name = name + p;
+	}
+
+	// check for diskXX name
+	if (!strncmp(disk_name, "disk", strlen("disk"))) {
+		snprintf(device, len, "%s%s", _PATH_DEV, disk_name);
+		if (rdevice)
+			snprintf(rdevice, len, "%sr%s", _PATH_DEV, disk_name);
+		if (disk)
+			*disk = device + p;
+		return;
+	}
+
+	// check for rdiskXX name
+	if (!strncmp(disk_name, "rdisk", strlen("rdisk"))) {
+		snprintf(device, len, "%s%s", _PATH_DEV, disk_name + 1);
+		if (rdevice)
+			snprintf(rdevice, len, "%s%s", _PATH_DEV, disk_name);
+		if (disk)
+			*disk = device + p;
+		return;
+	}
+
+	// not matching a bsd device format, assume it's a file
+	strlcpy(device, name, len);
+	if (rdevice)
+		strlcpy(rdevice, name, len);
+	if (disk)
+		*disk = device;
+}
+
+/*
  * Given the input device pathname, construct likely disk representation; If
  * it does not conform to expected pattern assume it is a filename and use
  * as-is.
@@ -464,19 +507,7 @@ load_encoding(struct hfs_mnt_encoding *encp)
 static void
 sanitize_device_name(const char *name, char disk[], const size_t len)
 {
-	size_t p, d;
-	char fmt[32];
-
-	p = strlen(_PATH_DEV);
-	d = snprintf(disk, len, "%sdisk", _PATH_DEV);
-	if (d < len) {
-		snprintf(fmt, sizeof(fmt), "%s%%%zds", disk, len - d);
-		if (sscanf(name, &fmt[0], &disk[d]) == 1 ||
-				sscanf(name, &fmt[p], &disk[d]) == 1) {
-			return;
-		}
-	}
-	strlcpy(disk, name, len);
+	device_parse(name, disk, NULL, len, NULL);
 }
 
 int

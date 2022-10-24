@@ -1,0 +1,1 @@
+http://ocsp.trustcor.ca/root/eca1

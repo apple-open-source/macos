@@ -29,12 +29,7 @@
 
 #include "QualifiedRenderingResourceIdentifier.h"
 #include "QualifiedResourceHeap.h"
-#include <WebCore/Font.h>
-#include <WebCore/ImageBuffer.h>
-#include <WebCore/NativeImage.h>
 #include <WebCore/ProcessIdentifier.h>
-#include <WebCore/RenderingResourceIdentifier.h>
-#include <wtf/HashMap.h>
 
 namespace WebKit {
 
@@ -45,17 +40,19 @@ public:
     RemoteResourceCache(WebCore::ProcessIdentifier webProcessIdentifier);
 
     void cacheImageBuffer(Ref<WebCore::ImageBuffer>&&, QualifiedRenderingResourceIdentifier);
-    WebCore::ImageBuffer* cachedImageBuffer(QualifiedRenderingResourceIdentifier) const;
     void cacheNativeImage(Ref<WebCore::NativeImage>&&, QualifiedRenderingResourceIdentifier);
-    WebCore::NativeImage* cachedNativeImage(QualifiedRenderingResourceIdentifier) const;
     void cacheFont(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
+    void cacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs>&&, QualifiedRenderingResourceIdentifier);
+
+    WebCore::ImageBuffer* cachedImageBuffer(QualifiedRenderingResourceIdentifier) const;
+    WebCore::NativeImage* cachedNativeImage(QualifiedRenderingResourceIdentifier) const;
     WebCore::Font* cachedFont(QualifiedRenderingResourceIdentifier) const;
-    void deleteAllFonts();
-    bool releaseRemoteResource(QualifiedRenderingResourceIdentifier);
+    WebCore::DecomposedGlyphs* cachedDecomposedGlyphs(QualifiedRenderingResourceIdentifier) const;
 
-    const WebCore::DisplayList::ResourceHeap& resourceHeap() const { return m_resourceHeap; }
+    std::optional<WebCore::SourceImage> cachedSourceImage(QualifiedRenderingResourceIdentifier) const;
 
-    bool hasActiveDrawables() const { return m_resourceHeap.hasImageBuffer() || m_resourceHeap.hasNativeImage(); }
+    void releaseAllResources();
+    bool releaseResource(QualifiedRenderingResourceIdentifier);
 
 private:
     QualifiedResourceHeap m_resourceHeap;

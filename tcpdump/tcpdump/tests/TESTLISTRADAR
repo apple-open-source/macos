@@ -7,6 +7,8 @@ radar-30878508		radar-30878508.pcap	radar-30878508.out	-w `mktemp /tmp/tcpdump-t
 
 radar-31053702		radar-31053702.pcapng	radar-31053702.out	-w `mktemp /tmp/tcpdump-test-radar-31053702-XXXXXXXX`
 
+radar-33413692		radar-33413692.pcap	radar-33413692.out	-vvv port 67 or 68
+
 radar-61850230		radar-61850230.pcapng	radar-61850230.out	-v -K -g tcp
 
 radar-63494669		radar-63494669.pcapng	radar-63494669.out	-k
@@ -16,3 +18,5 @@ radar-74957353		radar-74957353.pcapng	radar-74957353.out	tcp
 radar-79792659		radar-79792659.pcapng	radar-79792659.out	-k
 
 radar-81131821		radar-81131821.pcapng	radar-81131821.out
+
+radar-88502733		radar-88502733.pcapng	radar-88502733.out	--apple-ext-fmt 1

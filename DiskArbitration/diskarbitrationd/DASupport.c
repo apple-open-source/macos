@@ -44,6 +44,11 @@
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_BRIDGE
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+#endif
+
 struct __DAAuthorizeWithCallbackContext
 {
     DAAuthorizeCallback callback;
@@ -61,13 +66,14 @@ typedef struct __DAAuthorizeWithCallbackContext __DAAuthorizeWithCallbackContext
 
 static pthread_mutex_t __gDAAuthorizeWithCallbackLock = PTHREAD_MUTEX_INITIALIZER;
 
+#if TARGET_OS_OSX
 int __DAAuthorizeWithCallback( void * parameter )
 {
     __DAAuthorizeWithCallbackContext * context = parameter;
 
     pthread_mutex_lock( &__gDAAuthorizeWithCallbackLock );
 
-    context->status = DAAuthorize( context->session, context->options, context->disk, context->userUID, context->userGID, context->right );
+    context->status = DAAuthorize( context->session, context->options, context->disk, context->userUID, context->userGID,  context->right );
 
     pthread_mutex_unlock( &__gDAAuthorizeWithCallbackLock );
 
@@ -86,7 +92,7 @@ void __DAAuthorizeWithCallbackCallback( int status, void * parameter )
     free( context->right );
     free( context );
 }
-
+#endif
 DAReturn DAAuthorize( DASessionRef        session,
                       _DAAuthorizeOptions options,
                       DADiskRef           disk,
@@ -97,6 +103,9 @@ DAReturn DAAuthorize( DASessionRef        session,
     DAReturn status;
 
     status = kDAReturnNotPrivileged;
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_BRIDGE
+    status = kDAReturnSuccess;
+#endif
 
     if ( status )
     {
@@ -112,7 +121,7 @@ DAReturn DAAuthorize( DASessionRef        session,
             }
         }
     }
-
+#if TARGET_OS_OSX
     if ( status )
     {
         AuthorizationRef authorization;
@@ -199,10 +208,11 @@ DAReturn DAAuthorize( DASessionRef        session,
             }
         }
     }
-
+#endif
     return status;
 }
 
+#if TARGET_OS_OSX
 void DAAuthorizeWithCallback( DASessionRef        session,
                               _DAAuthorizeOptions options,
                               DADiskRef           disk,
@@ -238,6 +248,7 @@ void DAAuthorizeWithCallback( DASessionRef        session,
         ( callback )( kDAReturnNotPrivileged, callbackContext );
     }
 }
+#endif
 
 static struct timespec __gDAFileSystemListTime1 = { 0, 0 };
 static struct timespec __gDAFileSystemListTime2 = { 0, 0 };
@@ -719,6 +730,7 @@ const CFStringRef kDAPreferenceAutoMountDisableKey                = CFSTR( "DAAu
 const CFStringRef kDAPreferenceEnableUserFSMountExternalKey       = CFSTR( "DAEnableUserFSMountExternal" );
 const CFStringRef kDAPreferenceEnableUserFSMountInternalKey       = CFSTR( "DAEnableUserFSMountInternal" );
 const CFStringRef kDAPreferenceEnableUserFSMountRemovableKey      = CFSTR( "DAEnableUserFSMountRemovable" );
+const CFStringRef kDAPreferenceFileSystemDisableUserFSKey         = CFSTR( "DAFileSystemDisableUserFS" );
 const CFStringRef kDAPreferenceDisableEjectNotificationKey        = CFSTR( "DADisableEjectNotification" );
 const CFStringRef kDAPreferenceDisableUnreadableNotificationKey   = CFSTR( "DADisableUnreadableNotification" );
 const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey = CFSTR( "DADisableUnrepairableNotification" );
@@ -893,6 +905,16 @@ void DAPreferenceListRefresh( void )
                 if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
                 {
                     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceEnableUserFSMountRemovableKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceFileSystemDisableUserFSKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFArrayGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceFileSystemDisableUserFSKey, value );
                 }
             }
             

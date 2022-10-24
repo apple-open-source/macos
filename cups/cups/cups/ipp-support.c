@@ -1382,9 +1382,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-account-id",
     "job-account-id-default",
     "job-account-id-supported",
-    "job-accounting-sheets"
-    "job-accounting-sheets-default"
-    "job-accounting-sheets-supported"
+    "job-accounting-sheets",
+    "job-accounting-sheets-default",
+    "job-accounting-sheets-supported",
     "job-accounting-user-id",
     "job-accounting-user-id-default",
     "job-accounting-user-id-supported",
@@ -1697,6 +1697,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "multiple-operation-time-out",
     "multiple-operation-time-out-action",
     "natural-language-configured",
+    "oauth-authorization-scope",
+    "oauth-authorization-server-uri",
     "operations-supported",
     "pages-per-minute",
     "pages-per-minute-color",
@@ -1795,7 +1797,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "which-jobs-supported",
     "xri-authentication-supported",
     "xri-security-supported",
-    "xri-uri-scheme-supported"
+    "xri-uri-scheme-supported",
+    "x-apple-extension-identifier"
   };
   static const char * const resource_description[] =
   {					/* resource-description group - IPP System */

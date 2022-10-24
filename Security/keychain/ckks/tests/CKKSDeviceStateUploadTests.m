@@ -156,7 +156,10 @@
     // And now, if the update is old enough, that'll work too
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.accountStateTracker.ckdeviceID zoneID:self.keychainZoneID error:&error];
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.accountStateTracker.ckdeviceID
+                                                              contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                 zoneID:self.keychainZoneID
+                                                                  error:&error];
         XCTAssertNil(error, "No error fetching device state entry");
         XCTAssertNotNil(cdse, "Fetched device state entry");
 
@@ -216,7 +219,10 @@
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:oldDeviceID zoneID:self.keychainZoneID error:&error];
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:oldDeviceID
+                                                              contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                 zoneID:self.keychainZoneID
+                                                                  error:&error];
         XCTAssertNil(error, "No error fetching device state entry");
         XCTAssertNotNil(cdse, "Fetched device state entry");
 
@@ -410,6 +416,7 @@
 
     NSDate* date = [[NSCalendar currentCalendar] startOfDayForDate:[NSDate date]];
     CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"otherdevice"
+                                                                   contextID:self.defaultCKKS.operationDependencies.contextID
                                                                    osVersion:@"fake-version"
                                                               lastUnlockTime:date
                                                                octagonPeerID:nil
@@ -426,6 +433,7 @@
     [self.keychainZone addToZone:record];
 
     CKKSDeviceStateEntry* oldcdse = [[CKKSDeviceStateEntry alloc] initForDevice:@"olderotherdevice"
+                                                                      contextID:self.defaultCKKS.operationDependencies.contextID
                                                                       osVersion:nil // old-style, no OSVersion or lastUnlockTime
                                                                  lastUnlockTime:nil
                                                                   octagonPeerID:nil
@@ -441,6 +449,7 @@
     [self.keychainZone addToZone:[oldcdse CKRecordWithZoneID:self.keychainZoneID]];
 
     CKKSDeviceStateEntry* octagonOnly = [[CKKSDeviceStateEntry alloc] initForDevice:@"octagon-only"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
                                                                           osVersion:@"octagon-version"
                                                                      lastUnlockTime:date
                                                                       octagonPeerID:@"octagon-peer-ID"
@@ -456,7 +465,7 @@
     [self.keychainZone addToZone:[octagonOnly CKRecordWithZoneID:self.keychainZoneID]];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{

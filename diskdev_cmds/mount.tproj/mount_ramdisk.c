@@ -42,6 +42,8 @@
 #include <unistd.h>
 
 #include <APFS/APFSConstants.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitLib.h>
 #include <MediaKit/MKMedia.h>
 #include <MediaKit/MKMediaAccess.h>
 #include <MediaKit/GPTTypes.h>
@@ -285,20 +287,60 @@ truncate_whitespace(char *str)
 	}
 }
 
-// Triggers newfs_apfs for the target device
+#define DATA_VOL_NAME "Var"
+
+// Triggers newfs_apfs for the target device and returns the volume device
 int
-construct_apfs_volume(char *mounted_device_name)
+construct_apfs_volume(char *mounted_device_name, char *volume_device, size_t size)
 {
 	int return_val = -1;
 	int status = -1;
-	char *command[5] = { "/sbin/newfs_apfs", "-v", "Var", mounted_device_name, NULL };
+	char *command[5] = { "/sbin/newfs_apfs", "-v", DATA_VOL_NAME, mounted_device_name, NULL };
+	io_object_t vol = IO_OBJECT_NULL;
+	CFStringRef vol_name = NULL;
 
+	if ((volume_device == NULL) || (size <= strlen(_PATH_DEV))) {
+		fprintf(stderr, "Invalid output buffer, size %zu\n", size);
+		errno_or_sysexit(EINVAL, -1);
+	}
+
+	// Create the volume
 	status = run_command(command, NULL, &return_val, NULL);
-	if (status >= 0) {
+	if (status > 0) {
 		return return_val;
-	} else {
+	} else if (status < 0) {
 		fprintf(stderr, "Failed to execute command %s\n", command[0]);
 		errno_or_sysexit(errno, -1);
+	}
+
+	// Find the volume device
+	vol = IOServiceGetMatchingService(kIOMainPortDefault,
+									  IOServiceNameMatching(DATA_VOL_NAME));
+	if (vol == IO_OBJECT_NULL) {
+		fprintf(stderr, "Failed to find service matching: %s\n", DATA_VOL_NAME);
+		errno_or_sysexit(ENODEV, -1);
+	} else if (!IOObjectConformsTo(vol, APFS_VOLUME_OBJECT)) {
+		fprintf(stderr, "Service %s is not an apfs volume\n", DATA_VOL_NAME);
+		IOObjectRelease(vol);
+		errno_or_sysexit(ENXIO, -1);
+	}
+
+	// Extract the volume device
+	vol_name = IORegistryEntryCreateCFProperty(vol, CFSTR(kIOBSDNameKey),
+											   kCFAllocatorDefault, 0);
+	IOObjectRelease(vol);
+	if (vol_name) {
+		strlcpy(volume_device, _PATH_DEV, size);
+		if (!CFStringGetCString(vol_name, volume_device + strlen(_PATH_DEV),
+								size - strlen(_PATH_DEV), kCFStringEncodingUTF8)) {
+			CFRelease(vol_name);
+			errno_or_sysexit(EINVAL, -1);
+		}
+		CFRelease(vol_name);
+		return 0;
+	} else {
+		fprintf(stderr, "Failed to extract bsd name of volume %s\n", DATA_VOL_NAME);
+		errno_or_sysexit(ENOMEM, -1);
 	}
 
 	// shouldn't reach here. This is to satisfy the compiler
@@ -626,12 +668,10 @@ create_mount_ramdisk(struct fstab *fs, int init_flags, char *options)
 		fprintf(stdout, "Creating apfs volume on partition %s\n", ramdisk_container);
 	}
 
-	if (construct_apfs_volume(ramdisk_container) != 0) {
+	if (construct_apfs_volume(ramdisk_container, ramdisk_volume, sizeof(ramdisk_volume)) != 0) {
 		fprintf(stderr, "Failed to construct the apfs volume on the ramdisk.\n");
 		exit(errno_or_sysexit(ECHILD, -1));
 	}
-
-	snprintf(ramdisk_volume, sizeof(ramdisk_volume), "%ss1", ramdisk_container);
 
 	if (verify_file_existence(ramdisk_volume) != 0) {
 		fprintf(stderr, "Failed to verify %s with issue %s\n", ramdisk_volume, strerror(errno));

@@ -160,7 +160,7 @@ SECOidTag SecCmsAttributeGetType(SecCmsAttribute* attr)
 /*
  * SecCmsAttributeGetValue - return the first attribute value
  *
- * We do some sanity checking first:
+ * We do some basic checking first:
  * - Multiple values are *not* expected.
  * - Empty values are *not* expected.
  */

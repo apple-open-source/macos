@@ -27,6 +27,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTPersonaAdapter
 - (BOOL)currentThreadIsForPrimaryiCloudAccount;
+
+// This should only be nil on platforms that do not support personas.
+- (NSString* _Nullable)currentThreadPersonaUniqueString;
+
+// If nil, this will revert to the default persona.
+- (void)prepareThreadForKeychainAPIUseForPersonaIdentifier:(NSString* _Nullable)personaUniqueString;
+- (void)performBlockWithPersonaIdentifier:(NSString* _Nullable)personaUniqueString
+                                    block:(void (^) (void)) block;
 @end
 
 @interface OTPersonaActualAdapter : NSObject <OTPersonaAdapter>

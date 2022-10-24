@@ -43,6 +43,22 @@ NS_ASSUME_NONNULL_BEGIN
 @class OTJoiningConfiguration;
 @class OTSecureElementPeerIdentity;
 
+
+@interface OTControlArguments : NSObject <NSSecureCoding>
+@property (strong) NSString* contextID;
+@property (strong) NSString* containerName;
+@property (strong, nullable) NSString* altDSID;
+
+- (instancetype)init;
+- (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration;
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID;
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID;
+
+- (OTConfigurationContext*)makeConfigurationContext;
+@end
+
 @interface OTControl : NSObject
 
 @property (assign) BOOL synchronous;
@@ -54,43 +70,47 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)restore:(NSString *)contextID dsid:(NSString *)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID
           reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply
-    API_DEPRECATED("Use OTClique API", macos(10.14, 10.15.1), ios(4, 17.2));
+API_DEPRECATED("Use OTClique API", macos(10.14, 10.15.1), ios(4, 17.2));
 - (void)encryptionKey:(void (^)(NSData* result, NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 - (void)signingKey:(void (^)(NSData* result, NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 - (void)listOfRecords:(void (^)(NSArray* list, NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 - (void)reset:(void (^)(BOOL result, NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 
-- (void)signIn:(NSString*)dsid container:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply;
-- (void)signOut:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply;
-- (void)notifyIDMSTrustLevelChangeForContainer:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply;
+- (void)appleAccountSignedIn:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply;
+- (void)appleAccountSignedOut:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply;
+- (void)notifyIDMSTrustLevelChangeForAltDSID:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply;
 
-- (void)rpcEpochWithConfiguration:(OTJoiningConfiguration*)config
-                            reply:(void (^)(uint64_t epoch,
-                                            NSError * _Nullable error))reply;
+- (void)rpcEpochWithArguments:(OTControlArguments*)arguments
+                configuration:(OTJoiningConfiguration*)config
+                        reply:(void (^)(uint64_t epoch,
+                                        NSError * _Nullable error))reply;
 
-- (void)rpcPrepareIdentityAsApplicantWithConfiguration:(OTJoiningConfiguration*)config
-                                                 reply:(void (^)(NSString * _Nullable peerID,
-                                                                 NSData * _Nullable permanentInfo,
-                                                                 NSData * _Nullable permanentInfoSig,
-                                                                 NSData * _Nullable stableInfo,
-                                                                 NSData * _Nullable stableInfoSig,
-                                                                 NSError * _Nullable error))reply;
-- (void)rpcVoucherWithConfiguration:(OTJoiningConfiguration*)config
-                             peerID:(NSString*)peerID
-                      permanentInfo:(NSData *)permanentInfo
-                   permanentInfoSig:(NSData *)permanentInfoSig
-                         stableInfo:(NSData *)stableInfo
-                      stableInfoSig:(NSData *)stableInfoSig
-                              reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply;
+- (void)rpcPrepareIdentityAsApplicantWithArguments:(OTControlArguments*)arguments
+                                     configuration:(OTJoiningConfiguration*)config
+                                             reply:(void (^)(NSString * _Nullable peerID,
+                                                             NSData * _Nullable permanentInfo,
+                                                             NSData * _Nullable permanentInfoSig,
+                                                             NSData * _Nullable stableInfo,
+                                                             NSData * _Nullable stableInfoSig,
+                                                             NSError * _Nullable error))reply;
+- (void)rpcVoucherWithArguments:(OTControlArguments*)arguments
+                  configuration:(OTJoiningConfiguration*)config
+                         peerID:(NSString*)peerID
+                  permanentInfo:(NSData *)permanentInfo
+               permanentInfoSig:(NSData *)permanentInfoSig
+                     stableInfo:(NSData *)stableInfo
+                  stableInfoSig:(NSData *)stableInfoSig
+                          reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply;
 
-- (void)rpcJoinWithConfiguration:(OTJoiningConfiguration*)config
-                       vouchData:(NSData*)vouchData
-                        vouchSig:(NSData*)vouchSig
-                           reply:(void (^)(NSError * _Nullable error))reply;
+- (void)rpcJoinWithArguments:(OTControlArguments*)arguments
+               configuration:(OTJoiningConfiguration*)config
+                   vouchData:(NSData*)vouchData
+                    vouchSig:(NSData*)vouchSig
+                       reply:(void (^)(NSError * _Nullable error))reply;
 
 
 
@@ -102,37 +122,37 @@ NS_ASSUME_NONNULL_BEGIN
                                        NSString* _Nullable bottleID,
                                        NSData* _Nullable signingPublicKey,
                                        NSError* _Nullable error))reply
-    API_DEPRECATED("Use OTClique API", macos(10.14, 10.15), ios(4, 17));
+API_DEPRECATED("Use OTClique API", macos(10.14, 10.15), ios(4, 17));
 
 // Call this to 'launch' a preflighted bottled peer entry. This indicates that you've successfully stored the entropy,
 // and we should save the bottled peer entry off-device for later retrieval.
 - (void)launchBottledPeer:(NSString*)contextID
                  bottleID:(NSString*)bottleID
                     reply:(void (^ _Nullable)(NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 
 // Call this to scrub the launch of a preflighted bottled peer entry. This indicates you've terminally failed to store the
 // preflighted entropy, and this bottled peer will never be used again and can be deleted.
 - (void)scrubBottledPeer:(NSString*)contextID
                 bottleID:(NSString*)bottleID
                    reply:(void (^ _Nullable)(NSError* _Nullable error))reply
-    API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
+API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 
 - (void)status:(NSString* _Nullable)container
        context:(NSString*)context
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
 
-- (void)fetchEgoPeerID:(NSString* _Nullable)container
-               context:(NSString*)context
+- (void)status:(OTControlArguments*)arguments
+         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
+
+- (void)fetchEgoPeerID:(OTControlArguments*)arguments
                  reply:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))reply;
 
-- (void)fetchCliqueStatus:(NSString* _Nullable)container
-                  context:(NSString*)context
+- (void)fetchCliqueStatus:(OTControlArguments*)arguments
             configuration:(OTOperationConfiguration *)configuration
                     reply:(void (^)(CliqueStatus cliqueStatus, NSError* _Nullable error))reply;
 
-- (void)fetchTrustStatus:(NSString* _Nullable)container
-                 context:(NSString*)context
+- (void)fetchTrustStatus:(OTControlArguments*)arguments
            configuration:(OTOperationConfiguration *)configuration
                    reply:(void (^)(CliqueStatus status,
                                    NSString* _Nullable peerID,
@@ -141,126 +161,99 @@ NS_ASSUME_NONNULL_BEGIN
                                    NSError * _Nullable error))reply;
 
 // Likely won't be used once Octagon is turned on for good
-- (void)startOctagonStateMachine:(NSString* _Nullable)container
-                         context:(NSString*)context
+- (void)startOctagonStateMachine:(OTControlArguments*)arguments
                            reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)resetAndEstablish:(NSString* _Nullable)container
-                  context:(NSString*)context
-                  altDSID:(NSString*)altDSID
+- (void)resetAndEstablish:(OTControlArguments*)arguments
               resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)establish:(NSString* _Nullable)container
-          context:(NSString*)context
-          altDSID:(NSString*)altDSID
-            reply:(void (^)(NSError* _Nullable error))reply;
+- (void)establish:(OTControlArguments*)arguments
+            reply:(void (^)(NSError * _Nullable))reply;
 
-- (void)leaveClique:(NSString* _Nullable)container
-            context:(NSString*)context
+- (void)leaveClique:(OTControlArguments*)arguments
               reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)removeFriendsInClique:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)removeFriendsInClique:(OTControlArguments*)arguments
                       peerIDs:(NSArray<NSString*>*)peerIDs
                         reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)peerDeviceNamesByPeerID:(NSString* _Nullable)container
-                        context:(NSString*)context
+- (void)peerDeviceNamesByPeerID:(OTControlArguments*)arguments
                           reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
 
-- (void)fetchAllViableBottles:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)fetchAllViableBottles:(OTControlArguments*)arguments
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*> * _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
--(void)restore:(NSString* _Nullable)containerName
-     contextID:(NSString *)contextID
-    bottleSalt:(NSString *)bottleSalt
-       entropy:(NSData *)entropy
-      bottleID:(NSString *)bottleID
-         reply:(void (^)(NSError * _Nullable))reply;
+- (void)restoreFromBottle:(OTControlArguments*)arguments
+                  entropy:(NSData *)entropy
+                 bottleID:(NSString *)bottleID
+                    reply:(void (^)(NSError * _Nullable))reply;
 
-- (void)fetchEscrowContents:(NSString* _Nullable)containerName
-                  contextID:(NSString *)contextID
+- (void)fetchEscrowContents:(OTControlArguments*)arguments
                       reply:(void (^)(NSData* _Nullable entropy,
                                       NSString* _Nullable bottleID,
                                       NSData* _Nullable signingPublicKey,
                                       NSError* _Nullable error))reply;
 
-- (void) createRecoveryKey:(NSString* _Nullable)containerName
-                 contextID:(NSString *)contextID
-               recoveryKey:(NSString *)recoveryKey
-                     reply:(void (^)( NSError * _Nullable))reply;
+- (void)createRecoveryKey:(OTControlArguments*)arguments
+              recoveryKey:(NSString *)recoveryKey
+                    reply:(void (^)( NSError * _Nullable))reply;
 
-- (void) joinWithRecoveryKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
-                 recoveryKey:(NSString*)recoveryKey
-                       reply:(void (^)(NSError * _Nullable))reply;
+- (void)joinWithRecoveryKey:(OTControlArguments*)arguments
+                recoveryKey:(NSString*)recoveryKey
+                      reply:(void (^)(NSError * _Nullable))reply;
 
-- (void) createCustodianRecoveryKey:(NSString* _Nullable)containerName
-                          contextID:(NSString *)contextID
-                               uuid:(NSUUID *_Nullable)uuid
-                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
+- (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
+                              uuid:(NSUUID *_Nullable)uuid
+                             reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
 
-- (void) joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                            contextID:(NSString *)contextID
-                 custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
-                                reply:(void(^)(NSError* _Nullable error)) reply;
+- (void)joinWithCustodianRecoveryKey:(OTControlArguments*)arguments
+                custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                               reply:(void(^)(NSError* _Nullable error)) reply;
 
-- (void) preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
-                          custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
-                                         reply:(void(^)(NSError* _Nullable error)) reply;
+- (void)preflightJoinWithCustodianRecoveryKey:(OTControlArguments*)arguments
+                         custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
+                                        reply:(void(^)(NSError* _Nullable error)) reply;
 
-- (void) removeCustodianRecoveryKey:(NSString* _Nullable)containerName
-                          contextID:(NSString *)contextID
-                               uuid:(NSUUID *)uuid
-                              reply:(void (^)(NSError *_Nullable error))reply;
+- (void)removeCustodianRecoveryKey:(OTControlArguments*)arguments
+                              uuid:(NSUUID *)uuid
+                             reply:(void (^)(NSError *_Nullable error))reply;
 
-- (void) createInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
-                         uuid:(NSUUID *_Nullable)uuid
-                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+- (void)createInheritanceKey:(OTControlArguments*)arguments
+                        uuid:(NSUUID *_Nullable)uuid
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
 
-- (void) generateInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
-                         uuid:(NSUUID *_Nullable)uuid
-                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+- (void)generateInheritanceKey:(OTControlArguments*)arguments
+                          uuid:(NSUUID *_Nullable)uuid
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
 
-- (void) storeInheritanceKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
-                          ik:(OTInheritanceKey *)ik
-                       reply:(void (^)(NSError *_Nullable error)) reply;
+- (void)storeInheritanceKey:(OTControlArguments*)arguments
+                         ik:(OTInheritanceKey *)ik
+                      reply:(void (^)(NSError *_Nullable error)) reply;
 
-- (void) joinWithInheritanceKey:(NSString* _Nullable)containerName
-                      contextID:(NSString *)contextID
-                 inheritanceKey:(OTInheritanceKey *)ik
-                          reply:(void(^)(NSError* _Nullable error)) reply;
+- (void)joinWithInheritanceKey:(OTControlArguments*)arguments
+                inheritanceKey:(OTInheritanceKey *)ik
+                         reply:(void(^)(NSError* _Nullable error)) reply;
 
-- (void) preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
-                               contextID:(NSString *)contextID
-                          inheritanceKey:(OTInheritanceKey *)ik
-                                   reply:(void(^)(NSError* _Nullable error)) reply;
+- (void)preflightJoinWithInheritanceKey:(OTControlArguments*)arguments
+                         inheritanceKey:(OTInheritanceKey *)ik
+                                  reply:(void(^)(NSError* _Nullable error)) reply;
 
-- (void) removeInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
-                         uuid:(NSUUID *)uuid
-                        reply:(void (^)(NSError *_Nullable error))reply;
+- (void)removeInheritanceKey:(OTControlArguments*)arguments
+                        uuid:(NSUUID *)uuid
+                       reply:(void (^)(NSError *_Nullable error))reply;
 
-- (void)healthCheck:(NSString* _Nullable)container
-            context:(NSString *)context
+- (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
               reply:(void (^)(NSError *_Nullable error))reply;
 
-- (void)waitForOctagonUpgrade:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)postCDPFollowupResult:(BOOL)success
+- (void)postCDPFollowupResult:(OTControlArguments*)arguments
+                      success:(BOOL)success
                          type:(OTCliqueCDPContextType)type
                         error:(NSError * _Nullable)error
-                containerName:(NSString* _Nullable)containerName
-                  contextName:(NSString *)contextName
                         reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)tapToRadar:(NSString *)action
@@ -268,68 +261,63 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              radar:(NSString *)radar
              reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)setCDPEnabled:(NSString* _Nullable)containerName
-            contextID:(NSString*)contextID
+- (void)setCDPEnabled:(OTControlArguments*)arguments
                 reply:(void (^)(NSError* _Nullable error))reply;
 
-- (void)getCDPStatus:(NSString* _Nullable)containerName
-           contextID:(NSString*)contextID
+- (void)getCDPStatus:(OTControlArguments*)arguments
                reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply;
 
-- (void)refetchCKKSPolicy:(NSString* _Nullable)containerName
-                contextID:(NSString*)contextID
+- (void)refetchCKKSPolicy:(OTControlArguments*)arguments
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 
-- (void)fetchEscrowRecords:(NSString * _Nullable)container
-                 contextID:(NSString*)contextID
+- (void)fetchEscrowRecords:(OTControlArguments*)arguments
                 forceFetch:(BOOL)forceFetch
                      reply:(void (^)(NSArray<NSData*>* _Nullable records,
                                      NSError* _Nullable error))reply;
 
-- (void)setUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
-                                 contextID:(NSString*)contextID
+- (void)setUserControllableViewsSyncStatus:(OTControlArguments*)arguments
                                    enabled:(BOOL)enabled
                                      reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
 
-- (void)fetchUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
-                                   contextID:(NSString*)contextID
+- (void)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
 
-- (void)invalidateEscrowCache:(NSString * _Nullable)containerName
-                    contextID:(NSString*)contextID
+- (void)invalidateEscrowCache:(OTControlArguments*)arguments
                         reply:(nonnull void (^)(NSError * _Nullable error))reply;
 
-- (void)resetAccountCDPContents:(NSString* _Nullable)containerName
-                      contextID:(NSString*)contextID
+- (void)resetAccountCDPContents:(OTControlArguments*)arguments
                           reply:(void (^)(NSError* _Nullable error))reply;
 
 
-- (void)setLocalSecureElementIdentity:(NSString* _Nullable)containerName
-                            contextID:(NSString*)contextID
+- (void)setLocalSecureElementIdentity:(OTControlArguments*)arguments
                 secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
                                 reply:(void (^)(NSError* _Nullable))reply;
 
-- (void)removeLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
-                                     contextID:(NSString*)contextID
+- (void)removeLocalSecureElementIdentityPeerID:(OTControlArguments*)arguments
                    secureElementIdentityPeerID:(NSData*)sePeerID
                                          reply:(void (^)(NSError* _Nullable))reply;
 
-- (void)fetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
-                                  contextID:(NSString*)contextID
+- (void)fetchTrustedSecureElementIdentities:(OTControlArguments*)arguments
                                       reply:(void (^)(OTCurrentSecureElementIdentities* _Nullable currentSet,
                                                       NSError* _Nullable replyError))reply;
 
 
 
-- (void)waitForPriorityViewKeychainDataRecovery:(NSString* _Nullable)containerName
-                                      contextID:(NSString*)contextID
+- (void)waitForPriorityViewKeychainDataRecovery:(OTControlArguments*)arguments
                                           reply:(void (^)(NSError* _Nullable replyError))reply;
 
-- (void)tlkRecoverabilityForEscrowRecordData:(NSString* _Nullable)containerName
-                                   contextID:(NSString*)contextID
+- (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
+
+// Note the lack of arguments: these are global notifications, and don't come in for any particular context/account
+- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
+                           reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)setMachineIDOverride:(OTControlArguments*)arguments
+                   machineID:(NSString*)machineID
+                       reply:(void (^)(NSError* _Nullable replyError))reply;
 
 @end
 

@@ -80,7 +80,7 @@ purgeable_free(szone_t *szone, void *ptr)
 	entry = large_entry_for_pointer_no_lock(szone, ptr);
 	SZONE_UNLOCK(szone);
 	if (entry) {
-		return free_large(szone, ptr);
+		return (void)free_large(szone, ptr, false);
 	} else {
 		return szone_free(szone->helper_zone, ptr);
 	}

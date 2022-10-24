@@ -28,6 +28,7 @@
 #include "Connection.h"
 #include "MessageReceiverMap.h"
 #include "MessageSender.h"
+#include "SandboxExtension.h"
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/UserActivity.h>
@@ -43,6 +44,10 @@
 
 OBJC_CLASS NSDictionary;
 
+namespace IPC {
+class SharedBufferReference;
+}
+
 namespace WebKit {
 
 class SandboxInitializationParameters;
@@ -56,7 +61,7 @@ public:
     void initialize(const AuxiliaryProcessInitializationParameters&);
 
     // disable and enable termination of the process. when disableTermination is called, the
-    // process won't terminate unless a corresponding disableTermination call is made.
+    // process won't terminate unless a corresponding enableTermination call is made.
     void disableTermination();
     void enableTermination();
 
@@ -87,6 +92,8 @@ public:
     void setQOS(int latencyQOS, int throughputQOS);
 #endif
 
+    static void applySandboxProfileForDaemon(const String& profilePath, const String& userDirectorySuffix);
+
     IPC::Connection* parentProcessConnection() const { return m_connection.get(); }
 
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
@@ -96,14 +103,12 @@ public:
 #endif
     
 #if PLATFORM(COCOA)
-    bool parentProcessHasEntitlement(const char* entitlement);
+    bool parentProcessHasEntitlement(ASCIILiteral entitlement);
 #endif
 
 protected:
     explicit AuxiliaryProcess();
     virtual ~AuxiliaryProcess();
-
-    void setTerminationTimeout(Seconds seconds) { m_terminationTimeout = seconds; }
 
     virtual void initializeProcess(const AuxiliaryProcessInitializationParameters&);
     virtual void initializeProcessName(const AuxiliaryProcessInitializationParameters&);
@@ -145,6 +150,16 @@ protected:
 #endif
     void applyProcessCreationParameters(const AuxiliaryProcessCreationParameters&);
 
+#if PLATFORM(MAC)
+    void openDirectoryCacheInvalidated(SandboxExtension::Handle&&);
+#endif
+
+    void populateMobileGestaltCache(std::optional<SandboxExtension::Handle>&& mobileGestaltExtensionHandle);
+
+#if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
+    void consumeAudioComponentRegistrations(const IPC::SharedBufferReference&);
+#endif
+    
 private:
     virtual bool shouldOverrideQuarantine() { return true; }
 
@@ -158,20 +173,13 @@ private:
 
     void shutDown();
 
-    void terminationTimerFired();
-
     void platformInitialize(const AuxiliaryProcessInitializationParameters&);
     void platformStopRunLoop();
 
-    // The timeout, in seconds, before this process will be terminated if termination
-    // has been enabled. If the timeout is 0 seconds, the process will be terminated immediately.
-    Seconds m_terminationTimeout;
-
-    // A termination counter; when the counter reaches zero, the process will be terminated
-    // after a given period of time.
+    // A termination counter; when the counter reaches zero, the process will be terminated.
     unsigned m_terminationCounter;
 
-    RunLoop::Timer<AuxiliaryProcess> m_terminationTimer;
+    bool m_isInShutDown { false };
 
     RefPtr<IPC::Connection> m_connection;
     IPC::MessageReceiverMap m_messageReceiverMap;
@@ -187,14 +195,13 @@ struct AuxiliaryProcessInitializationParameters {
     String uiProcessName;
     String clientIdentifier;
     String clientBundleIdentifier;
-    uint32_t clientSDKVersion;
     std::optional<WebCore::ProcessIdentifier> processIdentifier;
     IPC::Connection::Identifier connectionIdentifier;
     HashMap<String, String> extraInitializationData;
     WebCore::AuxiliaryProcessType processType;
 #if PLATFORM(COCOA)
     OSObjectPtr<xpc_object_t> priorityBoostMessage;
-    std::optional<LinkedOnOrAfterOverride> clientLinkedOnOrAfterOverride;
+    SDKAlignedBehaviors clientSDKAlignedBehaviors;
 #endif
 };
 

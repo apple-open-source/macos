@@ -42,7 +42,9 @@ extern "C" {
  * Determine whether the application at path satisfies the trust expressed in appRef.
  */
 OSStatus
-SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const char *path) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const char *path)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCreateFromRequirement
@@ -60,7 +62,9 @@ SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const cha
 	@result A result code. See SecBase.h and CSCommon.h.
 */
 OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
-	SecRequirementRef requirement, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	SecRequirementRef requirement, SecTrustedApplicationRef *app)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCopyRequirement
@@ -78,7 +82,9 @@ OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
 		no SecRequirementRef could be obtained.
  */
 OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
-	SecRequirementRef *requirement) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	SecRequirementRef *requirement)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*!
@@ -101,7 +107,9 @@ OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
 	@result A result code. See SecBase.h and CSCommon.h.
  */
 OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
-	SecCertificateRef anchor, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	SecCertificateRef anchor, SecTrustedApplicationRef *app)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*!
@@ -118,7 +126,9 @@ OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
  */
 OSStatus SecTrustedApplicationCopyExternalRepresentation(
 	SecTrustedApplicationRef appRef,
-	CFDataRef *externalRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	CFDataRef *externalRef)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCreateWithExternalRepresentation
@@ -133,7 +143,9 @@ OSStatus SecTrustedApplicationCopyExternalRepresentation(
  */
 OSStatus SecTrustedApplicationCreateWithExternalRepresentation(
 	CFDataRef externalRef,
-	SecTrustedApplicationRef *appRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	SecTrustedApplicationRef *appRef)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*
@@ -146,10 +158,14 @@ enum {
 
 OSStatus
 SecTrustedApplicationMakeEquivalent(SecTrustedApplicationRef oldRef,
-	SecTrustedApplicationRef newRef, UInt32 flags) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+	SecTrustedApplicationRef newRef, UInt32 flags)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 OSStatus
-SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 flags) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 flags)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*
@@ -157,7 +173,9 @@ SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 f
  * pre-emptive code equivalency establishment
  */
 OSStatus
-SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*
@@ -165,7 +183,9 @@ SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path
  * This is for system update installers (only)!
  */
 OSStatus
-SecTrustedApplicationUseAlternateSystem(const char *systemRoot) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+SecTrustedApplicationUseAlternateSystem(const char *systemRoot)
+API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
+API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 #if defined(__cplusplus)

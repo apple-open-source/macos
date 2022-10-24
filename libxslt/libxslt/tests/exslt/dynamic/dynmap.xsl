@@ -17,6 +17,7 @@
  </number>
  <string>
   <xsl:copy-of select="dyn:map(*, 'name()')"/>
+  <xsl:copy-of select="dyn:map(., '&quot;&amp;&#41;&quot;')"/>
  </string>  
  <namespace>
   <xsl:copy-of select="dyn:map(namespace::*, 'name(/*)')"/>

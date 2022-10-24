@@ -618,6 +618,10 @@ IOHIDValueRef _IOHIDElementGetValue(IOHIDElementRef element)
 //------------------------------------------------------------------------------
 void _IOHIDElementSetValue(IOHIDElementRef element, IOHIDValueRef value)
 {
+    if (element->value == value) {
+        return;
+    }
+
     if (element->value) {
         CFRelease(element->value);
         element->value = NULL;

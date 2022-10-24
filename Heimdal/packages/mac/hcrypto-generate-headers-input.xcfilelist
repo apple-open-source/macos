@@ -8,7 +8,6 @@ ${SRCROOT}/lib/hcrypto/evp-cc.h
 ${SRCROOT}/lib/hcrypto/evp-hcrypto.h
 ${SRCROOT}/lib/hcrypto/rsa.h
 ${SRCROOT}/lib/hcrypto/dsa.h
-${SRCROOT}/lib/hcrypto/md2.h
 ${SRCROOT}/lib/hcrypto/md4.h
 ${SRCROOT}/lib/hcrypto/md5.h
 ${SRCROOT}/lib/hcrypto/sha.h

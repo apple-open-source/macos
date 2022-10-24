@@ -33,11 +33,15 @@ NS_ASSUME_NONNULL_BEGIN
 // Helper class that includes a single encoded CKRecord
 @interface CKKSCKRecordHolder : CKKSSQLDatabaseObject
 
-- (instancetype)initWithCKRecord:(CKRecord*)record;
+
+- (instancetype)initWithCKRecord:(CKRecord*)record
+                       contextID:(NSString*)contextID;
 - (instancetype)initWithCKRecordType:(NSString*)recordType
                      encodedCKRecord:(NSData* _Nullable)encodedCKRecord
+                           contextID:(NSString*)contextID
                               zoneID:(CKRecordZoneID*)zoneID;
 
+@property (readonly) NSString* contextID;
 @property CKRecordZoneID* zoneID;
 @property NSString* ckRecordType;
 @property (nullable, copy) NSData* encodedCKRecord;

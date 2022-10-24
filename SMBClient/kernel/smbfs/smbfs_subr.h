@@ -37,10 +37,6 @@
 
 #include <libkern/OSTypes.h>
 
-#ifdef MALLOC_DECLARE
-MALLOC_DECLARE(M_SMBFSDATA);
-#endif
-
 #ifdef SMB_VNODE_DEBUG
 #define SMBVDEBUG(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
 #else
@@ -169,6 +165,7 @@ struct smbfs_fctx {
 	struct smbfattr	f_attr;		/* current attributes */
 	char *			f_LocalName;
 	size_t			f_LocalNameLen;
+    size_t          f_LocalNameAllocSize; /* f_LocalName alloc size, required when freeing f_LocalName */
 	char *			f_NetworkNameBuffer;
 	size_t			f_MaxNetworkNameBufferSize;
 	uint32_t		f_NetworkNameLen;
@@ -188,7 +185,8 @@ struct smbfs_fctx {
 	uint16_t	f_Sid;
 	uint16_t	f_infolevel;
 	uint32_t	f_rnamelen;
-	char *		f_rname;	/* resume name, always a network name */
+	char *		f_rname;	        /* resume name, always a network name */
+    size_t      f_rname_allocsize;  /* f_rname alloc size, required when freeing f_rname */
 	uint32_t	f_rnameofs;
 	int			f_rkey;		/* resume key */
     /* SMB 2/3 fields */
@@ -223,7 +221,7 @@ int smb1fs_smb_create_reparse_symlink(struct smb_share *share, struct smbnode *d
 void smbfs_update_symlink_cache(struct smbnode *np, char *target, size_t targetlen);
 int smbfs_smb_get_reparse_tag(struct smb_share *share, SMBFID fid,
                               uint32_t *reparseTag, char **outTarget, 
-                              size_t *outTargetlen, vfs_context_t context);
+                              size_t *outTargetlen, size_t *outTargetAllocSize, vfs_context_t context);
 int smb1fs_smb_markfordelete(struct smb_share *share, SMBFID fid, 
                              vfs_context_t context);
 int smb1fs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np,
@@ -258,8 +256,15 @@ int smb1fs_set_allocation(struct smb_share *share, SMBFID fid,
                           uint64_t newsize, vfs_context_t context);
 int smbfs_seteof(struct smb_share *share, struct smbnode *np, SMBFID fid, 
                      uint64_t newsize, vfs_context_t context);
-int smbfs_smb_fsync(struct smb_share *share, struct smbnode *np, uint32_t full_sync,
+
+/* smbfs_smb_fsync flags */
+enum {
+    kFullSync = 0x01,   /* Need to do a full sync */
+    kCloseFile = 0x02   /* Coming from vnop_close */
+};
+int smbfs_smb_fsync(struct smb_share *share, struct smbnode *np, uint32_t flags,
                     vfs_context_t context);
+
 int smb1fs_smb_query_info(struct smb_share *share, struct smbnode *np, 
                           const char *name, size_t len, uint32_t *attr, 
                           vfs_context_t context);
@@ -304,7 +309,8 @@ int smb1fs_smb_open_read(struct smb_share *share, struct smbnode *dnp,
 int smbfs_smb_open_file(struct smb_share *share, struct smbnode *np,
                         uint32_t rights, uint32_t shareMode, SMBFID *fidp,
                         const char *name, size_t nmlen, int xattr,
-                        struct smbfattr *fap, vfs_context_t context);
+                        struct smbfattr *fap, struct smb2_dur_hndl_and_lease *dur_hndl_leasep,
+                        vfs_context_t context);
 int smbfs_smb_open_xattr(struct smb_share *share, struct smbnode *np, uint32_t rights,
                          uint32_t shareMode, SMBFID *fidp, const char *name, 
                          size_t *sizep, vfs_context_t context);
@@ -335,7 +341,7 @@ int smbfs_findnext(struct smbfs_fctx *, vfs_context_t);
 void smbfs_closedirlookup(struct smbnode *, int32_t is_readdir,
                           const char *reason, vfs_context_t);
 int smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep, 
-				 size_t *nmlenp, struct smbfattr *fap, vfs_context_t context);
+				 size_t *nmlenp, size_t *name_allocsize, struct smbfattr *fap, vfs_context_t context);
 int smbfs_smb_getsec(struct smb_share *share, struct smbnode *np,
                      uint32_t desired_access, SMBFID fid, uint32_t selector,
                      struct ntsecdesc **res, size_t *rt_len, vfs_context_t context);
@@ -345,7 +351,7 @@ int smb1fs_setsec(struct smb_share *share, SMBFID fid, uint32_t selector,
                   vfs_context_t context);
 void smb_time_NT2local(uint64_t nsec, struct timespec *tsp);
 void smb_time_local2NT(struct timespec *tsp, uint64_t *nsec, int fat_fstype);
-char *smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, int usingUnicode);
+char *smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, size_t *allocsize, int usingUnicode);
 void smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args, 
 							 int usingUnicode);
 int smbfs_fullpath(struct mbchain *mbp, struct smbnode *dnp, const char *name, 
@@ -361,5 +367,6 @@ int smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *dnp_or_np,
                          size_t in_nmlen, uint32_t disp, int xattr, 
                          struct smbfattr *fap, int do_create, 
                          vfs_context_t context);
+int smbfs_is_dir(struct smbnode *np);
 
 #endif /* !_FS_SMBFS_SMBFS_SUBR_H_ */

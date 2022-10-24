@@ -1,8 +1,9 @@
 0755	root	wheel	Library/Managed Preferences
 0751	272	272	private/var/db/diagnostics
+0750	501	501	private/var/db/fpsd
 0700	267	267	private/var/db/gpsd
-0750	283	283	private/var/db/mmaintenanced
 0750	501	501	private/var/db/nearbyd
+0700	501	501	private/var/db/biome
 0755	root	wheel	private/var/db/ExtensibleSSO
 0755	root	wheel	private/var/db/ExtensibleSSO/Configuration
 0755	root	wheel	private/var/hardware
@@ -26,8 +27,10 @@
 0750	501	501	private/var/mobile/Media/PhotoData
 0750	501	501	private/var/mobile/Media/Photos
 1777	root	wheel	private/var/cores
+0755	270	270	private/var/dextcores
 0777	root	wheel	private/var/logs
 0755	501	501	private/var/logs/mediaserverd
+0755	501	501	private/var/logs/hidfw-crashlogs
 0755	root	wheel	private/var/Managed Preferences
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences

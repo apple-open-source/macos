@@ -52,6 +52,7 @@
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
 #import "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 #import "keychain/ot/OTManager.h"
+#import "keychain/ot/OTControl.h"
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
@@ -162,7 +163,7 @@ CFDataRef SOSItemCopy(CFStringRef service, CFErrorRef* error)
     return result;
 }
 
-static CFDataRef SOSKeychainCopySavedAccountData()
+static CFDataRef SOSKeychainCopySavedAccountData(void)
 {
     CFErrorRef error = NULL;
     CFDataRef accountData = SOSItemCopy(kSOSAccountLabel, &error);
@@ -609,7 +610,8 @@ static bool do_if_after_first_unlock(CFErrorRef *error, dispatch_block_t action)
     return true;
 #else
     bool beenUnlocked = false;
-    require_quiet(SecAKSGetHasBeenUnlocked(&beenUnlocked, error), fail);
+    // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
+    require_quiet(SecAKSGetHasBeenUnlocked(user_only_keybag_handle, &beenUnlocked, error), fail);
 
     require_action_quiet(beenUnlocked, fail,
                          SOSCreateErrorWithFormat(kSOSErrorNotReady, NULL, error, NULL,
@@ -665,7 +667,8 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
         return result;
     }
 
-    result = SecAKSDoWithUserBagLockAssertion(&localError, ^{
+    // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
+    result = SecAKSDoWithKeybagLockAssertion(user_only_keybag_handle, &localError, ^{
         // SOSAccountGhostBustingOptions need to be retrieved from RAMP while not holding the account queue
         // yet we only want to request RAMP info if it's "time" to ghostbust.
 
@@ -758,7 +761,8 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
     }
 
     bool isUnlocked = false;
-    (void) SecAKSGetIsUnlocked(&isUnlocked, &statusError);
+    // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
+    (void) SecAKSGetIsUnlocked(user_only_keybag_handle, &isUnlocked, &statusError);
     if(!isUnlocked){
         secnotice("while-unlocked-hack", "Not trying action, aks bag locked (%@)", statusError);
         if (error && !*error && localError) {
@@ -792,7 +796,7 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
 
 
 
-CFTypeRef SOSKeychainAccountGetSharedAccount()
+CFTypeRef SOSKeychainAccountGetSharedAccount(void)
 {
     __block SOSAccount* result = NULL;
     result = GetSharedAccount(FOR_EXISTING_ACCOUNT);
@@ -816,8 +820,7 @@ static int sosOTViewCheck(void) {
     
     if(otm) {
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-        [otm fetchUserControllableViewsSyncStatus:nil
-                                        contextID: OTDefaultContext
+        [otm fetchUserControllableViewsSyncStatus:[[OTControlArguments alloc] init]
                                             reply:^(BOOL nowSyncing, NSError* _Nullable fetchError) {
             if(fetchError) {
                 secnotice("SOSMonitorMode", "fetching user-controllable-sync status errored: %@", fetchError);
@@ -1277,7 +1280,7 @@ bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error)
     return removeResult;
 }
 
-void SOSCCNotifyLoggedIntoAccount_Server() {
+void SOSCCNotifyLoggedIntoAccount_Server(void) {
     // This call is mixed in with SOSCCSetUserCredentialsAndDSID calls from our accountsd plugin
     dispatch_async(SOSCCCredentialQueue(), ^{
         CFErrorRef error = NULL;
@@ -1483,12 +1486,17 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     bool timed_out = false;
     __block CFStringRef inSyncCallID = NULL;
     __block time_t start;
+// radar:93473790
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbool-conversion"
     __block CFBooleanRef shouldUseInitialSyncV0 = false;
-    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCWaitForInitialSync);
+#pragma clang diagnostic pop
 
     if(!checkIfSOSIsEnabled()) {
         return true;
     }
+
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCWaitForInitialSync);
 
     secnotice("initial sync", "Wait for initial sync start!");
     

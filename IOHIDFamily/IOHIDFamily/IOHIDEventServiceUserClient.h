@@ -42,22 +42,18 @@ enum IOHIDEventServiceUserClientCommandCodes {
 
 class IOHIDEventServiceQueue;
 
-class IOHIDEventServiceUserClient : public IOUserClient
+class IOHIDEventServiceUserClient : public IOUserClient2022
 {
     OSDeclareDefaultStructors(IOHIDEventServiceUserClient)
 
 private:
   
-  typedef struct ExternalMethodGatedArguments {
-    uint32_t                    selector;
-    IOExternalMethodArguments * arguments;
-    IOExternalMethodDispatch *  dispatch;
-    OSObject *                  target;
-    void *                      reference;
-  } ExternalMethodGatedArguments;
+    typedef struct ExternalMethodGatedArguments {
+        uint32_t                          selector;
+        IOExternalMethodArgumentsOpaque * arguments;
+    } ExternalMethodGatedArguments;
   
-    static const IOExternalMethodDispatch
-		sMethods[kIOHIDEventServiceUserClientNumCommands];
+    static const IOExternalMethodDispatch2022 sMethods[kIOHIDEventServiceUserClientNumCommands];
 
     IOHIDEventService *         _owner;
     IOHIDEventServiceQueue *    _queue;
@@ -129,12 +125,7 @@ protected:
                                 IOOptionBits *                  options,
                                 IOMemoryDescriptor **           memory );
   
-    virtual IOReturn externalMethod(
-                                uint32_t                        selector, 
-                                IOExternalMethodArguments *     arguments,
-                                IOExternalMethodDispatch *      dispatch, 
-                                OSObject *                      target, 
-                                void *                          reference) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args) APPLE_KEXT_OVERRIDE;
 
     IOReturn externalMethodGated(ExternalMethodGatedArguments *arguments);
  

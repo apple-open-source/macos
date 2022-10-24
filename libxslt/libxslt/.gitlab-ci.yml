@@ -1,0 +1,299 @@
+.test:
+  # Reuse libxml2 image
+  image: registry.gitlab.gnome.org/gnome/libxml2
+  script:
+    - |
+      git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git
+      cd libxml2
+      sh autogen.sh $CONFIG
+      make -j$(nproc)
+      cd ..
+      sh autogen.sh $CONFIG --with-libxml-src=libxml2
+      # Don't run make in "doc" directory
+      for target in libxslt libexslt xsltproc python tests/plugins; do
+          make -j$(nproc) -C $target V=1 CFLAGS="$CFLAGS -Werror"
+      done
+      make -j$(nproc) -C tests/fuzz V=1 CFLAGS="$CFLAGS -Werror" testTargets
+      make -s -C tests tests | tee test.log
+      make -s -C xsltproc tests | tee -a test.log
+      ! grep -qv '^## Running' test.log
+      make -s -C python tests
+
+gcc:
+  extends: .test
+  variables:
+    CFLAGS: "-O2 -std=c89 -D_POSIX_C_SOURCE=200112L"
+
+gcc:python3:
+  extends: .test
+  only:
+    - schedules
+  variables:
+    CONFIG: "--with-python=/usr/bin/python3"
+    CFLAGS: "-O2"
+
+clang:asan:
+  extends: .test
+  variables:
+    CONFIG: "--without-python"
+    CC: clang
+    CFLAGS: "-O2 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -Wimplicit-int-conversion -Wno-error=cast-align"
+    # LeakSanitizer requires SYS_CAP_PTRACE
+    ASAN_OPTIONS: "detect_leaks=0"
+    UBSAN_OPTIONS: "print_stacktrace=1"
+
+clang:msan:
+  extends: .test
+  only:
+    - schedules
+  variables:
+    CONFIG: "--without-python --without-zlib --without-lzma --without-crypto"
+    CC: clang
+    CFLAGS: "-O2 -g -fno-omit-frame-pointer -fsanitize=memory -Wimplicit-int-conversion -Wno-error=cast-align"
+
+.cmake:linux:
+  image: registry.gitlab.gnome.org/gnome/libxml2
+  before_script:
+    - git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git libxml2-source
+    - cmake -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_INSTALL_PREFIX=libxml2-install -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBXML2_WITH_TESTS=OFF -S libxml2-source -B libxml2-build
+    - cmake --build libxml2-build --target install
+    - mkdir -p libxml2-install/share/libxml2
+    - cp libxml2-source/Copyright libxml2-install/share/libxml2
+    - export CMAKE_PREFIX_PATH=$CI_PROJECT_DIR/libxml2-install:$CMAKE_PREFIX_PATH
+    - export PATH=$CI_PROJECT_DIR/libxml2-install/bin:$PATH
+    - export LD_LIBRARY_PATH=$CI_PROJECT_DIR/libxml2-install/bin:$LD_LIBRARY_PATH
+  script:
+    - cmake -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DCMAKE_INSTALL_PREFIX=libxslt-install -DCMAKE_BUILD_TYPE=RelWithDebInfo -S . -B libxslt-build
+    - cmake --build libxslt-build --target install
+    - mkdir -p libxslt-install/share/libxslt
+    - cp Copyright libxslt-install/share/libxslt
+  after_script:
+    - cd libxslt-install
+    - tar -czf ../libxslt-$CI_COMMIT_SHORT_SHA-$CC-$SUFFIX.tar.gz *
+  artifacts:
+    paths:
+      - libxslt-$CI_COMMIT_SHORT_SHA-$CC-$SUFFIX.tar.gz
+    expire_in: 1 day
+
+cmake:linux:gcc:shared:
+  extends: .cmake:linux
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    CC: gcc
+    SUFFIX: shared
+
+cmake:linux:gcc:static:
+  extends: .cmake:linux
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    CC: gcc
+    SUFFIX: static
+
+cmake:linux:clang:shared:
+  extends: .cmake:linux
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    CC: clang
+    SUFFIX: shared
+
+cmake:linux:clang:static:
+  extends: .cmake:linux
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    CC: clang
+    SUFFIX: static
+
+.cmake:mingw:
+  tags:
+    - win32-ps
+  before_script:
+    - "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12"
+    - $Env:Path="C:\msys64\$Env:MINGW_PATH\bin;C:\msys64\usr\bin;$Env:Path"
+    - pacman --noconfirm -Syu
+    - pacman --noconfirm -S
+        $Env:MINGW_PACKAGE_PREFIX-cmake
+        $Env:MINGW_PACKAGE_PREFIX-libiconv
+        $Env:MINGW_PACKAGE_PREFIX-ninja
+        $Env:MINGW_PACKAGE_PREFIX-python
+        $Env:MINGW_PACKAGE_PREFIX-python2
+        $Env:MINGW_PACKAGE_PREFIX-xz
+        $Env:MINGW_PACKAGE_PREFIX-zlib
+    - if (-not (Test-Path 7za.exe)) {
+        Invoke-WebRequest -Uri https://www.7-zip.org/a/7z1900-extra.7z -OutFile 7z1900-extra.7z ;
+        cmake -E tar xf 7z1900-extra.7z 7za.exe
+      }
+    - git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git libxml2-source
+    - cmake -G Ninja -DBUILD_SHARED_LIBS=$Env:BUILD_SHARED_LIBS -DCMAKE_INSTALL_PREFIX=libxml2-install -DLIBXML2_WITH_TESTS=OFF -S libxml2-source -B libxml2-build
+    - cmake --build libxml2-build --config RelWithDebInfo --target install
+    - New-Item -ItemType Directory libxml2-install\share\libxml2
+    - Copy-Item libxml2-source\Copyright libxml2-install\share\libxml2
+    - $Env:CMAKE_PREFIX_PATH="$Env:CI_PROJECT_DIR\libxml2-install;$Env:CMAKE_PREFIX_PATH"
+    - $Env:Path="$Env:CI_PROJECT_DIR\libxml2-install\bin;$Env:Path"
+  script:
+    - cmake -G Ninja -DBUILD_SHARED_LIBS="$Env:BUILD_SHARED_LIBS" -DCMAKE_INSTALL_PREFIX=libxslt-install -DCMAKE_BUILD_TYPE=RelWithDebInfo -S . -B libxslt-build
+    - cmake --build libxslt-build --target install
+    - New-Item -ItemType Directory libxslt-install\share\libxslt
+    - Copy-Item Copyright libxslt-install\share\libxslt
+  after_script:
+    - .\7za.exe a libxslt-$Env:CI_COMMIT_SHORT_SHA-$Env:MINGW_PACKAGE_PREFIX-$Env:SUFFIX.7z .\libxslt-install\*
+  cache:
+    key: "$MINGW_PACKAGE_PREFIX"
+    paths:
+      - 7za.exe
+  artifacts:
+    paths:
+      - libxslt-$Env:CI_COMMIT_SHORT_SHA-$Env:MINGW_PACKAGE_PREFIX-$Env:SUFFIX.7z
+    expire_in: 1 day
+
+cmake:mingw:w64-i686:shared:
+  extends: .cmake:mingw
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    MINGW_PACKAGE_PREFIX: mingw-w64-i686
+    MINGW_PATH: mingw32
+    SUFFIX: shared
+
+cmake:mingw:w64-i686:static:
+  extends: .cmake:mingw
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    MINGW_PACKAGE_PREFIX: mingw-w64-i686
+    MINGW_PATH: mingw32
+    SUFFIX: static
+
+cmake:mingw:w64-x86_64:shared:
+  extends: .cmake:mingw
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+    MINGW_PATH: mingw64
+    SUFFIX: shared
+
+cmake:mingw:w64-x86_64:static:
+  extends: .cmake:mingw
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+    MINGW_PATH: mingw64
+    SUFFIX: static
+
+.cmake:msvc:
+  tags:
+    - win32-ps
+  variables:
+    CMAKE_VERSION: 3.19.4
+  before_script:
+    - "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12"
+    - if (-not (Test-Path cmake-$Env:CMAKE_VERSION-win64-x64)) {
+        Invoke-WebRequest -Uri http://github.com/Kitware/CMake/releases/download/v$Env:CMAKE_VERSION/cmake-$Env:CMAKE_VERSION-win64-x64.zip -OutFile cmake-$Env:CMAKE_VERSION-win64-x64.zip ;
+        Expand-Archive cmake-$Env:CMAKE_VERSION-win64-x64.zip -DestinationPath .
+      }
+    - $Env:Path="$Env:CI_PROJECT_DIR\cmake-$Env:CMAKE_VERSION-win64-x64\bin;$Env:Path"
+    - if (-not (Test-Path 7za.exe)) {
+        Invoke-WebRequest -Uri https://www.7-zip.org/a/7z1900-extra.7z -OutFile 7z1900-extra.7z ;
+        cmake -E tar xf 7z1900-extra.7z 7za.exe
+      }
+    - git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git libxml2-source
+    - cmake -DBUILD_SHARED_LIBS="$Env:BUILD_SHARED_LIBS" -DCMAKE_INSTALL_PREFIX=libxml2-install -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_LZMA=OFF -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_ZLIB=OFF -S libxml2-source -B libxml2-build
+    - cmake --build libxml2-build --config Debug --target install
+    - cmake --build libxml2-build --config Release --target install
+    - New-Item -ItemType Directory libxml2-install\share\libxml2
+    - Copy-Item libxml2-source\Copyright libxml2-install\share\libxml2
+    - $Env:CMAKE_PREFIX_PATH="$Env:CI_PROJECT_DIR\libxml2-install;$Env:CMAKE_PREFIX_PATH"
+    - $Env:Path="$Env:CI_PROJECT_DIR\libxml2-install\bin;$Env:Path"
+  script:
+    - cmake -DBUILD_SHARED_LIBS="$Env:BUILD_SHARED_LIBS" -DCMAKE_INSTALL_PREFIX=libxslt-install -DLIBXSLT_WITH_PYTHON=OFF -S . -B libxslt-build
+    - cmake --build libxslt-build --config Debug --target install
+    - cmake --build libxslt-build --config Release --target install
+    - New-Item -ItemType Directory libxslt-install\share\libxslt
+    - Copy-Item Copyright libxslt-install\share\libxslt
+    - cd libxslt-build
+    - ctest -C Debug -VV
+    - ctest -C Release -VV
+  after_script:
+    - .\7za.exe a libxslt-$Env:CI_COMMIT_SHORT_SHA-$Env:CMAKE_GENERATOR_TOOLSET-$Env:CMAKE_GENERATOR_PLATFORM-$Env:SUFFIX.7z .\libxslt-install\*
+  cache:
+    key: "msvc"
+    paths:
+      - cmake-$Env:CMAKE_VERSION-win64-x64/
+      - 7za.exe
+  artifacts:
+    paths:
+      - libxslt-$Env:CI_COMMIT_SHORT_SHA-$Env:CMAKE_GENERATOR_TOOLSET-$Env:CMAKE_GENERATOR_PLATFORM-$Env:SUFFIX.7z
+    expire_in: 1 day
+
+.cmake:msvc:v141:
+  extends: .cmake:msvc
+  variables:
+    CMAKE_GENERATOR: Visual Studio 15 2017
+    CMAKE_GENERATOR_TOOLSET: v141
+
+.cmake:msvc:v141:x64:
+  extends: .cmake:msvc:v141
+  variables:
+    CMAKE_GENERATOR_PLATFORM: x64
+
+cmake:msvc:v141:x64:shared:
+  extends: .cmake:msvc:v141:x64
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    SUFFIX: shared
+
+cmake:msvc:v141:x64:static:
+  extends: .cmake:msvc:v141:x64
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    SUFFIX: static
+
+.cmake:msvc:v141:x86:
+  extends: .cmake:msvc:v141
+  only:
+    - schedules
+  variables:
+    CMAKE_GENERATOR_PLATFORM: Win32
+
+cmake:msvc:v141:x86:shared:
+  extends: .cmake:msvc:v141:x86
+  variables:
+    BUILD_SHARED_LIBS: "ON"
+    SUFFIX: shared
+
+cmake:msvc:v141:x86:static:
+  extends: .cmake:msvc:v141:x86
+  only:
+    - schedules
+  variables:
+    BUILD_SHARED_LIBS: "OFF"
+    SUFFIX: static
+
+pages:
+  script:
+    - mkdir -p public/EXSLT
+    - cp -r doc/devhelp doc/tutorial doc/tutorial2 doc/xsltproc.html public
+    - cp -r doc/EXSLT/devhelp public/EXSLT
+  artifacts:
+    paths:
+      - public
+    exclude:
+      - public/devhelp/Makefile*
+      - public/devhelp/*.xsl
+      - public/EXSLT/devhelp/Makefile*
+      - public/EXSLT/devhelp/*.xsl
+  only:
+    - master@GNOME/libxslt

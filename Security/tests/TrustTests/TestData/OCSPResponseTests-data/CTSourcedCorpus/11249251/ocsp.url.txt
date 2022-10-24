@@ -1,0 +1,1 @@
+http://ocsp.rootca2.amazontrust.com

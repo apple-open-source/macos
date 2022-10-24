@@ -68,8 +68,8 @@ struct smb_prefs {
 
     int32_t             mc_max_channels;
     int32_t             mc_max_rss_channels;
-    uint32_t            mc_client_if_blacklist[kClientIfBlacklistMaxLen];
-    uint32_t            mc_client_if_blacklist_len;
+    uint32_t            mc_client_if_ignorelist[kClientIfIgnorelistMaxLen];
+    uint32_t            mc_client_if_ignorelist_len;
     
     int32_t             encrypt_algorithm_map;
     uint32_t            force_sess_encrypt;

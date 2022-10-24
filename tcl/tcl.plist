@@ -649,28 +649,6 @@
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
-		<string>snack</string>
-		<key>OpenSourceVersion</key>
-		<string>2.2.10</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.speech.kth.se/snack/</string>
-		<key>OpenSourceURL</key>
-		<string>http://www.speech.kth.se/snack/dist/snack2.2.10.tar.gz</string>
-		<key>OpenSourceSHA1</key>
-		<string>2c333fde061cf1cb7d5932c9cff4eb968c7d095a</string>
-		<key>OpenSourceImportDate</key>
-		<string>2005-12-15</string>
-		<key>OpenSourceLicense</key>
-		<string>GPL</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>snack.txt</string>
-		<key>OpenSourceModifications</key>
-		<array>
-		    <string>TEA buildsystem</string>
-		</array>
-	</dict>
-	<dict>
-		<key>OpenSourceProject</key>
 		<string>tclresource</string>
 		<key>OpenSourceVersion</key>
 		<string>1.1.2</string>

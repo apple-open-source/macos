@@ -34,6 +34,10 @@
 #include "StreamConnectionWorkQueue.h"
 #include "StreamServerConnection.h"
 
+#if USE(FOUNDATION)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 namespace WebKit {
 
 RefPtr<IPCStreamTester> IPCStreamTester::create(IPC::Connection& connection, IPCStreamTesterIdentifier identifier, IPC::StreamConnectionBuffer&& stream)
@@ -57,7 +61,7 @@ void IPCStreamTester::initialize()
     m_streamConnection->startReceivingMessages(*this, Messages::IPCStreamTester::messageReceiverName(), m_identifier.toUInt64());
     m_streamConnection->open();
     workQueue().dispatch([this] {
-        m_streamConnection->connection().send(Messages::IPCStreamTesterProxy::WasCreated(workQueue().wakeUpSemaphore()), m_identifier);
+        m_streamConnection->connection().send(Messages::IPCStreamTesterProxy::WasCreated(workQueue().wakeUpSemaphore(), m_streamConnection->clientWaitSemaphore()), m_identifier);
     });
 }
 
@@ -87,6 +91,50 @@ void IPCStreamTester::syncMessageReturningSharedMemory1(uint32_t byteCount, Comp
     completionHandler(WTFMove(result));
 }
 
+void IPCStreamTester::syncCrashOnZero(int32_t value, CompletionHandler<void(int32_t)>&& completionHandler)
+{
+    if (!value) {
+        // Use exit so that we don't leave a crash report.
+#if OS(WINDOWS)
+        // Calling _exit in non-main threads may cause a deadlock in WTF::Thread::ThreadHolder::~ThreadHolder.
+        TerminateProcess(GetCurrentProcess(), EXIT_SUCCESS);
+#else
+        _exit(EXIT_SUCCESS);
+#endif
+    }
+    completionHandler(value);
+}
+
+#if USE(FOUNDATION)
+
+namespace {
+struct UseCountHolder {
+    std::shared_ptr<bool> value;
+};
+}
+
+static void releaseUseCountHolder(CFAllocatorRef, const void* value)
+{
+    delete static_cast<const UseCountHolder*>(value);
+}
+
+#endif
+
+void IPCStreamTester::checkAutoreleasePool(CompletionHandler<void(int32_t)>&& completionHandler)
+{
+    if (!m_autoreleasePoolCheckValue)
+        m_autoreleasePoolCheckValue = std::make_shared<bool>(true);
+    completionHandler(m_autoreleasePoolCheckValue.use_count());
+
+#if USE(FOUNDATION)
+    static const CFArrayCallBacks arrayCallbacks {
+        .release = releaseUseCountHolder,
+    };
+    const void* values[] = { new UseCountHolder { m_autoreleasePoolCheckValue } };
+    CFArrayRef releaseDetector = CFArrayCreate(kCFAllocatorDefault, values, 1, &arrayCallbacks);
+    CFAutorelease(releaseDetector);
+#endif
+}
 }
 
 #endif

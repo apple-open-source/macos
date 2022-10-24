@@ -516,7 +516,7 @@ struct krb5_rd_req_out_ctx_data {
  * krb5_rd_req_ctx(). The caller should free the context with
  * krb5_rd_req_in_ctx_free() when done with the context.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param ctx in ctx to krb5_rd_req_ctx().
  *
  * @return Kerberos 5 error code, see krb5_get_error_message().
@@ -540,7 +540,7 @@ krb5_rd_req_in_ctx_alloc(krb5_context context, krb5_rd_req_in_ctx *ctx)
 /**
  * Set the keytab that krb5_rd_req_ctx() will use.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param in in ctx to krb5_rd_req_ctx().
  * @param keytab keytab that krb5_rd_req_ctx() will use, only copy the
  *        pointer, so the caller must free they keytab after
@@ -563,7 +563,7 @@ krb5_rd_req_in_set_keytab(krb5_context context,
 /**
  * Set if krb5_rq_red() is going to check the Windows PAC or not
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param in krb5_rd_req_in_ctx to check the option on.
  * @param flag flag to select if to check the pac (TRUE) or not (FALSE).
  *
@@ -666,7 +666,7 @@ krb5_rd_req_in_ctx_free(krb5_context context, krb5_rd_req_in_ctx ctx)
 /**
  * Free the krb5_rd_req_out_ctx.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param ctx krb5_rd_req_out_ctx context to free.
  *
  * @ingroup krb5_auth
@@ -823,7 +823,7 @@ get_key_from_keytab(krb5_context context,
  * The core server function that verify application authentication
  * requests from clients.
  *
- * @param context Keberos 5 context.
+ * @param context Kerberos 5 context.
  * @param auth_context the authentication context, can be NULL, then
  *        default values for the authentication context will used.
  * @param inbuf the (AP-REQ) authentication buffer

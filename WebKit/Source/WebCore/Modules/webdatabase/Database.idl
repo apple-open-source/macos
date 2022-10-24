@@ -27,8 +27,7 @@
  */
 
 [
-    ImplementationLacksVTable,
-    EnabledAtRuntime=WebSQLEnabled,
+    EnabledByDeprecatedGlobalSetting=WebSQLEnabled,
     Exposed=Window
 ] interface Database {
     readonly attribute DOMString version;

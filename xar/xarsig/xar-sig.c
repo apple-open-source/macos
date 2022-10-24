@@ -242,13 +242,13 @@ static void extract_data_to_sign(const char *filename) {
 	}
 
 	// locate data to sign
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/offset" ,&value) ) {
+	if( 0 != xar_prop_get_expect_notnull((xar_file_t)x, "checksum/offset" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/offset in archive.\n");
 		exit(1);
 	}
 	dataToSignOffset = xar_get_heap_offset(x);
 	dataToSignOffset += strtoull(value, (char **)NULL, 10);
-	if( 0 != xar_prop_get((xar_file_t)x, "checksum/size" ,&value) ) {
+	if( 0 != xar_prop_get_expect_notnull((xar_file_t)x, "checksum/size" ,&value) ) {
 		fprintf(stderr, "Could not locate checksum/size in archive.\n");
 		exit(1);
 	}
@@ -518,7 +518,7 @@ static void replace_sign(const char *filename) {
 		const char *unsafe_name;
 		char* name;
 		xar_prop_get(f, "name", &unsafe_name);	// filename, without any path info
-		if (xar_is_safe_filename(unsafe_name, &name) < 0)
+		if (!unsafe_name || xar_is_safe_filename(unsafe_name, &name) < 0)
 		{
 			fprintf(stderr, "Error creating new archive %s. '%s' is not safe.\n", new_xar_path, unsafe_name);
 			unlink(new_xar_path);

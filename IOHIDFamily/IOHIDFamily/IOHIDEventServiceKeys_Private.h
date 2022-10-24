@@ -179,7 +179,7 @@
  * @defined     kIOHIDElementKey
  * @abstract    Keys that represents an element property.
  * @discussion  Property for a HID Device or element dictionary.
- *              Elements can be heirarchical, so they can contain other elements.
+ *              Elements can be hierarchical, so they can contain other elements.
  */
 #define kIOHIDElementKey                    "Elements"
 
@@ -187,7 +187,7 @@
  * @defined     kIOHIDElementParentCollectionKey
  * @abstract    Keys that represents an element parent property.
  * @discussion  Property for a HID Device or element dictionary.
- *              Elements can be heirarchical, so they can contain other elements.
+ *              Elements can be hierarchical, so they can contain other elements.
  */
 #define kIOHIDElementParentCollectionKey            "ParentCollection"
 

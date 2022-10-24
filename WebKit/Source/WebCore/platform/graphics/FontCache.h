@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include "Timer.h"
 #include <array>
 #include <limits.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
 #include <wtf/HashFunctions.h>
@@ -257,6 +258,11 @@ struct FontCascadeCacheKey {
     unsigned fontSelectorVersion;
 };
 
+inline void add(Hasher& hasher, const FontCascadeCacheKey& key)
+{
+    add(hasher, key.fontDescriptionKey, key.families, key.fontSelectorId, key.fontSelectorVersion);
+}
+
 bool operator==(const FontCascadeCacheKey&, const FontCascadeCacheKey&);
 
 struct FontCascadeCacheEntry {
@@ -267,7 +273,7 @@ struct FontCascadeCacheEntry {
 };
 
 struct FontCascadeCacheKeyHash {
-    static unsigned hash(const FontCascadeCacheKey&);
+    static unsigned hash(const FontCascadeCacheKey& key) { return computeHash(key); }
     static bool equal(const FontCascadeCacheKey& a, const FontCascadeCacheKey& b) { return a == b; }
     static constexpr bool safeToCompareToEmptyOrDeleted = false;
 };
@@ -291,7 +297,7 @@ public:
 
     // These methods are implemented by the platform.
     enum class PreferColoredFont : bool { No, Yes };
-    RefPtr<Font> systemFallbackForCharacters(const FontDescription&, const Font* originalFontData, IsForPlatformFont, PreferColoredFont, const UChar* characters, unsigned length);
+    RefPtr<Font> systemFallbackForCharacters(const FontDescription&, const Font& originalFontData, IsForPlatformFont, PreferColoredFont, const UChar* characters, unsigned length);
     Vector<String> systemFontFamilies();
     void platformInit();
 
@@ -321,9 +327,19 @@ public:
     void removeClient(FontSelector&);
 
     unsigned short generation() const { return m_generation; }
-    WEBCORE_EXPORT void invalidate();
     static void registerFontCacheInvalidationCallback(Function<void()>&&);
-    WEBCORE_EXPORT static void invalidateAllFontCaches();
+
+    // The invalidation callback runs a style recalc on the page.
+    // If we're invalidating because of memory pressure, we shouldn't run a style recalc.
+    // A style recalc would just allocate a bunch of the memory that we're trying to release.
+    // On the other hand, if we're invalidating because the set of installed fonts changed,
+    // or if some accessibility text settings were altered, we should run a style recalc
+    // so the user can immediately see the effect of the new environment.
+    enum class ShouldRunInvalidationCallback : bool {
+        No,
+        Yes
+    };
+    WEBCORE_EXPORT static void invalidateAllFontCaches(ShouldRunInvalidationCallback = ShouldRunInvalidationCallback::Yes);
 
     WEBCORE_EXPORT size_t fontCount();
     WEBCORE_EXPORT size_t inactiveFontCount();
@@ -343,25 +359,26 @@ public:
 #endif
 
     std::unique_ptr<FontPlatformData> createFontPlatformDataForTesting(const FontDescription&, const AtomString& family);
-    
-    bool shouldMockBoldSystemFontForAccessibility() const { return m_shouldMockBoldSystemFontForAccessibility; }
-    void setShouldMockBoldSystemFontForAccessibility(bool shouldMockBoldSystemFontForAccessibility) { m_shouldMockBoldSystemFontForAccessibility = shouldMockBoldSystemFontForAccessibility; }
 
     struct PrewarmInformation {
         Vector<String> seenFamilies;
         Vector<String> fontNamesRequiringSystemFallback;
 
         bool isEmpty() const;
-        PrewarmInformation isolatedCopy() const;
+        PrewarmInformation isolatedCopy() const & { return { crossThreadCopy(seenFamilies), crossThreadCopy(fontNamesRequiringSystemFallback) }; }
+        PrewarmInformation isolatedCopy() && { return { crossThreadCopy(WTFMove(seenFamilies)), crossThreadCopy(WTFMove(fontNamesRequiringSystemFallback)) }; }
 
         template<class Encoder> void encode(Encoder&) const;
         template<class Decoder> static std::optional<PrewarmInformation> decode(Decoder&);
     };
     PrewarmInformation collectPrewarmInformation() const;
-    void prewarm(const PrewarmInformation&);
+    void prewarm(PrewarmInformation&&);
     static void prewarmGlobally();
 
 private:
+    void invalidate();
+    void platformInvalidate();
+
     WEBCORE_EXPORT void purgeInactiveFontDataIfNeeded();
     void pruneUnreferencedEntriesFromFontCascadeCache();
     void pruneSystemFallbackFonts();
@@ -380,8 +397,6 @@ private:
 #endif
 
     Timer m_purgeTimer;
-    
-    bool m_shouldMockBoldSystemFontForAccessibility { false };
 
     HashSet<FontSelector*> m_clients;
     struct FontDataCaches;
@@ -425,11 +440,6 @@ inline void FontCache::platformPurgeInactiveFontData()
 inline bool FontCache::PrewarmInformation::isEmpty() const
 {
     return seenFamilies.isEmpty() && fontNamesRequiringSystemFallback.isEmpty();
-}
-
-inline FontCache::PrewarmInformation FontCache::PrewarmInformation::isolatedCopy() const
-{
-    return { seenFamilies.isolatedCopy(), fontNamesRequiringSystemFallback.isolatedCopy() };
 }
 
 template<class Encoder>

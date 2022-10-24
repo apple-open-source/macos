@@ -231,6 +231,10 @@ main(int argc, char **argv)
 	}
 	for (ep = environ; *ep; ep++)
 		(void)printf("%s%c", *ep, term);
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(0);
 }
 

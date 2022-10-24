@@ -69,7 +69,7 @@ typedef struct OSNotificationHeader64 NotificationHeader;
 
 // XXX gvdl: Need to conditionalise this for LP64
 #define mig_external __private_extern__
-#include <iokitmig64.h>
+#include "iokitmig64.h"
 #undef mig_external
 
 #else
@@ -89,7 +89,7 @@ typedef struct OSNotificationHeader64 NotificationHeader;
 #   endif
 
 typedef struct OSNotificationHeader NotificationHeader;
-#include <iokitmig32.h>
+#include "iokitmig32.h"
 
 #endif
 
@@ -103,7 +103,6 @@ uint64_t
 gIOKitLibServerVersion;
 CFOptionFlags
 gIOKitLibSerializeOptions = kIOCFSerializeToBinary;
-
 
 /*
  * Ports
@@ -130,6 +129,14 @@ __IOGetDefaultMasterPort()
 
     return( masterPort );
 }
+
+#if TARGET_OS_SIMULATOR
+/* compatibility symbol for IOKit_sim */
+extern kern_return_t
+host_get_io_master(
+	host_t host,
+	io_main_t *io_main);
+#endif /* TARGET_OS_SIMULATOR */
 
 kern_return_t
 #if TARGET_OS_SIMULATOR
@@ -169,7 +176,11 @@ IOMasterPort( mach_port_t bootstrapPort __unused, mach_port_t * masterPort )
 #endif
 
     host_port = mach_host_self();
+#if TARGET_OS_SIMULATOR
     result = host_get_io_master(host_port, masterPort);
+#else
+    result = host_get_io_main(host_port, masterPort);
+#endif /* TARGET_OS_SIMULATOR */
 
     static dispatch_once_t versionOnce;
     dispatch_once(&versionOnce, ^{
@@ -244,8 +255,7 @@ IOObjectGetClass(
 	io_object_t	object,
 	io_name_t       className )
 {
-    kern_return_t result = _IOObjectGetClass(object, 0, className);
-    return result;
+    return _IOObjectGetClass(object, 0, className);
 }
 
 kern_return_t
@@ -270,8 +280,7 @@ _IOObjectGetClass(
     }
 #endif /* !TARGET_OS_SIMULATOR */
 
-    kern_return_t result = ( override ? kIOReturnSuccess : io_object_get_class( object, className ));
-    return result;
+    return ( override ? kIOReturnSuccess : io_object_get_class( object, className ));
 }
 
 
@@ -1378,6 +1387,43 @@ IOServiceWaitQuiet(
     return( kr );
 }
 
+kern_return_t
+IOKitWaitQuietWithOptions(
+                          mach_port_t     _masterPort,
+                          mach_timespec_t * waitTime,
+                          IOOptionBits    options )
+{
+#if IOKIT_SERVER_VERSION >= 20210810 && !TARGET_OS_SIMULATOR
+
+    io_service_t     root;
+    kern_return_t    kr;
+    mach_timespec_t    defaultWait = { 0, -1 };
+    mach_port_t        masterPort;
+
+    if (MACH_PORT_NULL == _masterPort)
+    masterPort = __IOGetDefaultMasterPort();
+    else
+    masterPort = _masterPort;
+
+    kr = io_registry_entry_from_path( masterPort,
+            kIOServicePlane ":/", &root );
+
+    if( kr == KERN_SUCCESS) {
+    if( 0 == waitTime)
+        waitTime = &defaultWait;
+    kr = io_service_wait_quiet_with_options( root, *waitTime, options );
+    IOObjectRelease( root );
+    }
+
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+    mach_port_deallocate(mach_task_self(), masterPort);
+
+    return( kr );
+#else // IOKIT_SERVER_VERSION >= 20210810 && !TARGET_OS_SIMULATOR
+#pragma unused(_masterPort, waitTime, options)
+    return KERN_NOT_SUPPORTED;
+#endif
+}
 
 kern_return_t
 IOKitWaitQuiet(
@@ -2301,8 +2347,7 @@ IORegistryEntryGetPath(
 	const io_name_t		plane,
 	io_string_t		path )
 {
-    kern_return_t kr = io_registry_entry_get_path( entry, (char *) plane, path );
-    return kr;
+    return io_registry_entry_get_path( entry, (char *) plane, path );
 }
 
 CFStringRef
@@ -2357,8 +2402,7 @@ IORegistryEntryGetName(
 	io_registry_entry_t	entry,
 	io_name_t 	        name )
 {
-    kern_return_t result = ( io_registry_entry_get_name( entry, name ));
-    return result;
+    return io_registry_entry_get_name( entry, name );
 }
 
 kern_return_t
@@ -2370,9 +2414,8 @@ IORegistryEntryGetNameInPlane(
 
     if( NULL == plane)
         plane = "";
-    kern_return_t result = ( io_registry_entry_get_name_in_plane( entry,
+    return ( io_registry_entry_get_name_in_plane( entry,
                                                                  (char *) plane, name ));
-    return result;
 }
 
 kern_return_t
@@ -2384,9 +2427,8 @@ IORegistryEntryGetLocationInPlane(
 
     if( NULL == plane)
         plane = "";
-    kern_return_t result = ( io_registry_entry_get_location_in_plane( entry,
-                                                                     (char *) plane, location ));
-    return result;
+    return io_registry_entry_get_location_in_plane( entry,
+                                                                     (char *) plane, location );
 }
 
 kern_return_t
@@ -2503,7 +2545,7 @@ IORegistryEntrySearchCFProperty(
         if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
             cStr = buffer;
     }
-if (!cStr) kr = kIOReturnError;
+    if (!cStr) kr = kIOReturnError;
 #if IOKIT_SERVER_VERSION >= 20140421
     else if (kIOCFSerializeToBinary & gIOKitLibSerializeOptions)
     {
@@ -3006,7 +3048,7 @@ IOInitContainerClasses()
 /* 32bit binary compatibility routines for deprecated APIs */
 #if !defined(__LP64__)
 
-// Compatability routines with 32bit IOKitLib
+// Compatibility routines with 32bit IOKitLib
 kern_return_t
 IOConnectMethodScalarIScalarO( 
 	io_connect_t	connect,

@@ -62,6 +62,16 @@ void SessionStorageManager::connectionClosed(IPC::Connection::UniqueID connectio
         storageArea->removeListener(connection);
 }
 
+void SessionStorageManager::removeNamespace(StorageNamespaceIdentifier namespaceIdentifier)
+{
+    auto identifier = m_storageAreasByNamespace.take(namespaceIdentifier);
+    if (!identifier.isValid())
+        return;
+
+    m_storageAreas.remove(identifier);
+    m_registry.unregisterStorageArea(identifier);
+}
+
 StorageAreaIdentifier SessionStorageManager::addStorageArea(std::unique_ptr<MemoryStorageArea> storageArea, StorageNamespaceIdentifier namespaceIdentifier)
 {
     auto identifier = storageArea->identifier();
@@ -72,7 +82,7 @@ StorageAreaIdentifier SessionStorageManager::addStorageArea(std::unique_ptr<Memo
     return identifier;
 }
 
-StorageAreaIdentifier SessionStorageManager::connectToSessionStorageArea(IPC::Connection::UniqueID connection, const WebCore::ClientOrigin& origin, StorageNamespaceIdentifier namespaceIdentifier)
+StorageAreaIdentifier SessionStorageManager::connectToSessionStorageArea(IPC::Connection::UniqueID connection, StorageAreaMapIdentifier sourceIdentifier, const WebCore::ClientOrigin& origin, StorageNamespaceIdentifier namespaceIdentifier)
 {
     auto identifier = m_storageAreasByNamespace.get(namespaceIdentifier);
     if (!identifier.isValid()) {
@@ -84,8 +94,22 @@ StorageAreaIdentifier SessionStorageManager::connectToSessionStorageArea(IPC::Co
     if (!storageArea)
         return StorageAreaIdentifier { };
 
-    storageArea->addListener(connection);
+    storageArea->addListener(connection, sourceIdentifier);
+
     return identifier;
+}
+
+void SessionStorageManager::cancelConnectToSessionStorageArea(IPC::Connection::UniqueID connection, StorageNamespaceIdentifier namespaceIdentifier)
+{
+    auto identifier = m_storageAreasByNamespace.get(namespaceIdentifier);
+    if (!identifier.isValid())
+        return;
+
+    auto* storageArea = m_storageAreas.get(identifier);
+    if (!storageArea)
+        return;
+
+    storageArea->removeListener(connection);
 }
 
 void SessionStorageManager::disconnectFromStorageArea(IPC::Connection::UniqueID connection, StorageAreaIdentifier identifier)

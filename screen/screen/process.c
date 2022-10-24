@@ -948,7 +948,7 @@ char **args;
     {
       if (i != n && i != n + 1 && i != n + 2 && i != n + 3)
         {
-	  Msg(0, orformat[3], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[3], "%s %s %s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 1], argss[n + 2], argss[n + 3], "");
 	  return -1;
 	}
@@ -958,7 +958,7 @@ char **args;
     {
       if (i != n && i != n + 1 && i != n + 2)
 	{
-	  Msg(0, orformat[2], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[2], "%s %s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 1], argss[n + 2], "");
           return -1;
 	}
@@ -968,7 +968,7 @@ char **args;
     {
       if (i != n && i != n + 1 && i != n + 3)
         {
-	  Msg(0, orformat[2], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[2], "%s %s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 1], argss[n + 3], "");
 	  return -1;
 	}
@@ -978,7 +978,7 @@ char **args;
     {
       if (i != n && i != n + 2 && i != n + 3)
         {
-	  Msg(0, orformat[2], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[2], "%s %s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 2], argss[n + 3], "");
 	  return -1;
 	}
@@ -987,7 +987,7 @@ char **args;
     {
       if (i != n && i != n + 1)
         {
-	  Msg(0, orformat[1], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[1], "%s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 1], n != 0 ? "s" : "");
 	  return -1;
 	}
@@ -996,7 +996,7 @@ char **args;
     {
       if (i != n && i != n + 2)
         {
-	  Msg(0, orformat[1], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[1], "%s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 2], "s");
 	  return -1;
 	}
@@ -1005,14 +1005,14 @@ char **args;
     {
       if (i != n && i != n + 3)
         {
-	  Msg(0, orformat[1], rc_name, comms[nr].name, argss[n], 
+	  Msg(0, fmtcheck(orformat[1], "%s %s %s %s %s"), rc_name, comms[nr].name, argss[n],
 	      argss[n + 3], "");
 	  return -1;
 	}
     }
   else if (i != n)
     {
-      Msg(0, orformat[0], rc_name, comms[nr].name, argss[n], n != 1 ? "s" : "");
+      Msg(0, fmtcheck(orformat[0], "%s %s %s %s"), rc_name, comms[nr].name, argss[n], n != 1 ? "s" : "");
       return -1;
     }
   return i;
@@ -4634,7 +4634,7 @@ PreviousWindow()
 static int
 MoreWindows()
 {
-  char *m = "No other window.";
+  const char * const m = "No other window.";
   if (windows && (fore == 0 || windows->w_next))
     return 1;
   if (fore == 0)

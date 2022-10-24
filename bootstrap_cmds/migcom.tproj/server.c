@@ -365,11 +365,11 @@ WriteSubsystem(FILE *file, statement_t *stats)
     fprintf(file, "\tunsigned int\tmaxsize;\t/* Max msg size */\n");
     if (UseRPCTrap) {
       fprintf(file, "\tvm_address_t\tbase_addr;\t/* Base address */\n");
-      fprintf(file, "\tstruct rpc_routine_descriptor\t/*Array of routine descriptors */\n");
+      fprintf(file, "\tstruct rpc_routine_descriptor\t/* Array of routine descriptors */\n");
     }
     else {
       fprintf(file, "\tvm_address_t\treserved;\t/* Reserved */\n");
-      fprintf(file, "\tstruct routine_descriptor\t/*Array of routine descriptors */\n");
+      fprintf(file, "\tstruct routine_descriptor\t/* Array of routine descriptors */\n");
     }
     fprintf(file, "\t\troutine[%d];\n", rtNumber);
     if (UseRPCTrap) {
@@ -1394,9 +1394,7 @@ WriteDestroyPortArg(FILE *file, argument_t *arg)
    */
   if ((it->itInTrans != strNULL) &&
       (it->itOutName == MACH_MSG_TYPE_PORT_SEND)) {
-    fprintf(file, "\n");
-    fprintf(file, "\tif (IP_VALID((ipc_port_t)%s))\n", InArgMsgField(arg, ""));
-    fprintf(file, "\t\tipc_port_release_send((ipc_port_t)%s);\n", InArgMsgField(arg, ""));
+    fprintf(file, "\tipc_port_release_send((ipc_port_t)%s);\n", InArgMsgField(arg, ""));
   }
 }
 
@@ -1751,6 +1749,8 @@ WriteKPD_ool(FILE *file, argument_t *arg)
     fprintf(file, "\t%ssize = ", string);
     if (akCheck(count->argKind, akbVarNeeded))
       fprintf(file, "%s%s", count->argName, subindex);
+    else if (akCheck(arg->argKind, akbReplyCopy))
+      fprintf(file, "In%dP->%s%s", arg->argRequestPos, count->argMsgField, subindex);
     else
       fprintf(file, "OutP->%s%s", count->argMsgField, subindex);
 
@@ -1807,6 +1807,8 @@ WriteKPD_oolport(FILE *file, argument_t *arg)
     fprintf(file, "\t%scount = ", string);
     if (akCheck(count->argKind, akbVarNeeded))
       fprintf(file, "%s%s;\n", count->argName, subindex);
+    else if (akCheck(arg->argKind, akbReplyCopy))
+      fprintf(file, "In%dP->%s%s;\n", arg->argRequestPos, count->argMsgField, subindex);
     else
       fprintf(file, "OutP->%s%s;\n", count->argMsgField, subindex);
   }

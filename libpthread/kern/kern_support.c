@@ -1040,7 +1040,6 @@ _pthread_init(void)
 
 	pth_global_hashinit();
 	psynch_thcall = thread_call_allocate(psynch_wq_cleanup, NULL);
-	psynch_zoneinit();
 
 	int policy_bootarg;
 	if (PE_parse_boot_argn("pthread_mutex_default_policy", &policy_bootarg, sizeof(policy_bootarg))) {

@@ -56,15 +56,15 @@ char	       *blockcheck __P((char *name));
 void            cleanup_fs_fd __P((void));
 void		catch __P((int));
 void		ckfini __P((int markclean));
-void		pfatal __P((const char *fmt, ...));
-void		pwarn __P((const char *fmt, ...));
-void		logstring(void *, const char *);     // write to log file 
-void		outstring(void *, const char *);     // write to standard out
-void 		llog(const char *fmt, ...);          // write to log file
-void 		olog(const char *fmt, ...);          // write to standard out
-void            plog(const char *fmt, ...);          // printf replacement that writes to both log file and standard out
-void            vplog(const char *fmt, va_list ap);  // vprintf replacement that writes to both log file and standard out
-void            fplog(FILE *stream, const char *fmt, ...);    // fprintf replacement that writes to both log file and standard out
+void		pfatal __P((const char *fmt, ...)) __printflike(1, 2);
+void		pwarn __P((const char *fmt, ...)) __printflike(1, 2);
+void		logstring(void *, const char *) __printflike(2, 0);     // write to log file 
+void		outstring(void *, const char *) __printflike(2, 0);     // write to standard out
+void 		llog(const char *fmt, ...) __printflike(1, 2);          // write to log file
+void 		olog(const char *fmt, ...) __printflike(1, 2);          // write to standard out
+void            plog(const char *fmt, ...) __printflike(1, 2);          // printf replacement that writes to both log file and standard out
+void            vplog(const char *fmt, va_list ap) __printflike(1, 0);  // vprintf replacement that writes to both log file and standard out
+void            fplog(FILE *stream, const char *fmt, ...) __printflike(2, 3);    // fprintf replacement that writes to both log file and standard out
 #define printf  plog      // just in case someone tries to use printf/fprint
 #define fprintf fplog
 

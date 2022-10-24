@@ -101,13 +101,13 @@ interface_option_iterator(pcapng_block_t block, struct pcapng_option_info *optio
 			interface_info->if_name = malloc(option_info->length + 1);
 			if (interface_info->if_name == NULL)
 				break;
-			snprintf(interface_info->if_name, option_info->length + 1, "%s", option_info->value);
+			snprintf(interface_info->if_name, option_info->length + 1, "%s", (char *)option_info->value);
 			break;
 		case 3:
 			interface_info->if_desc = malloc(option_info->length + 1);
 			if (interface_info->if_desc == NULL)
 				break;
-			snprintf(interface_info->if_desc, option_info->length + 1, "%s", option_info->value);
+			snprintf(interface_info->if_desc, option_info->length + 1, "%s", (char *)option_info->value);
 			break;
 		case 4:
 			break;
@@ -198,7 +198,7 @@ block_option_iterator(pcapng_block_t block, struct pcapng_option_info *option_in
 			
 		case 1:
 			printf("      opt_comment: %-*s\n",
-				   option_info->length, option_info->value);
+				   option_info->length, (char *)option_info->value);
 			break;
 			
 		default:
@@ -210,15 +210,15 @@ block_option_iterator(pcapng_block_t block, struct pcapng_option_info *option_in
 					switch (option_info->code) {
 						case 2:
 							printf("      shb_hardware: %-*s\n",
-								   option_info->length, option_info->value);
+								   option_info->length, (char *)option_info->value);
 							break;
 						case 3:
 							printf("      shb_os: %-*s\n",
-								   option_info->length, option_info->value);
+								   option_info->length, (char *)option_info->value);
 							break;
 						case 4:
 							printf("      shb_userappl: %-*s\n",
-								   option_info->length, option_info->value);
+								   option_info->length, (char *)option_info->value);
 							break;
 						default:
 							printf("      <unkown shb option>\n");
@@ -230,11 +230,11 @@ block_option_iterator(pcapng_block_t block, struct pcapng_option_info *option_in
 					switch (option_info->code) {
 						case 2:
 							printf("      if_name: %-*s\n",
-								   option_info->length, option_info->value);
+								   option_info->length, (char *)option_info->value);
 							break;
 						case 3:
 							printf("      if_desc: %-*s\n",
-								   option_info->length, option_info->value);
+								   option_info->length, (char *)option_info->value);
 							break;
 						case 4:
 							printf("      if_IPv4addr\n");

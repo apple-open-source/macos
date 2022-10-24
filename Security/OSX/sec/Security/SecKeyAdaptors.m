@@ -54,7 +54,7 @@
 
 #include <os/log.h>
 
-static os_log_t _SECKEY_LOG() {
+static os_log_t _SECKEY_LOG(void) {
     static dispatch_once_t once;
     static os_log_t log;
     dispatch_once(&once, ^{ log = os_log_create("com.apple.security", "seckey"); });
@@ -429,7 +429,7 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
         if (pss) {
             NSMutableData *salt = [NSMutableData dataWithLength:di->output_size];
             require_action_quiet(salt != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
-            int err = ccrng_generate(ccrng_seckey, di->output_size, salt.mutableBytes);
+            int err = ccrng_generate(ccrng_seckey(), di->output_size, salt.mutableBytes);
             require_noerr_action_quiet(err, out, SecError(errSecInternal, error, CFSTR("PSS salt gen fail (%zu bytes), err %d"),
                                                           di->output_size, err));
             err = ccrsa_emsa_pss_encode(di, di, di->output_size, salt.bytes,
@@ -615,10 +615,10 @@ static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *conte
     PerformWithCFDataBuffer(ccn_sizeof_size(size), ^(uint8_t *buffer, CFDataRef data) {
         int err;
         if (di != NULL) {
-            err = ccrsa_oaep_encode(di, ccrng_seckey, size, (cc_unit *)buffer,
+            err = ccrsa_oaep_encode(di, ccrng_seckey(), size, (cc_unit *)buffer,
                                     CFDataGetLength(in1), CFDataGetBytePtr(in1));
         } else {
-            err = ccrsa_eme_pkcs1v15_encode(ccrng_seckey, size, (cc_unit *)buffer,
+            err = ccrsa_eme_pkcs1v15_encode(ccrng_seckey(), size, (cc_unit *)buffer,
                                             CFDataGetLength(in1), CFDataGetBytePtr(in1));
         }
         require_noerr_action_quiet(err, out, SecError(errSecParam, error,

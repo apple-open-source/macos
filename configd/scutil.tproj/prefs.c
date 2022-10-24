@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2017, 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,12 +33,15 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <os/feature_private.h>
 #include "scutil.h"
 #include "commands.h"
 #include "prefs.h"
 
+#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 #include "SCNetworkConfigurationInternal.h"
+
+
 
 /* -------------------- */
 
@@ -1160,112 +1163,174 @@ copy_configured_interface(SCPreferencesRef prefs, CFStringRef if_name)
 	return (ret_if);
 }
 
-static void
-disable_until_needed_usage(void)
+typedef Boolean (*get_func_ref)(SCNetworkInterfaceRef interface);
+typedef Boolean (*set_func_ref)(SCNetworkInterfaceRef interface, Boolean value);
+typedef Boolean (*remove_func_ref)(SCNetworkInterfaceRef interface, CFTypeRef value);
+
+static void  __attribute__((noreturn))
+interface_usage(const char * attribute)
 {
-	fprintf(stderr, "usage: scutil --disable-until-needed <interfaceName> [on|off|default]\n");
-	return;
+	fprintf(stderr, "usage: scutil --%s <interfaceName> [on|off|default]\n",
+		attribute);
+	exit(1);
 }
 
-#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
+static void
+do_interface_bool(int argc, char * const argv[],
+		  const char * attribute,
+		  get_func_ref get_func,
+		  set_func_ref set_func,
+		  remove_func_ref remove_func)
+{
+	const char * 		if_name;
+	CFStringRef		if_name_cf;
+	SCNetworkInterfaceRef	net_if;
+	Boolean			on		= FALSE;
+	Boolean			ok;
+	Boolean			set_default	= FALSE;
+	Boolean			set_value	= FALSE;
+
+	if (argc < 1 || argc > 2) {
+		interface_usage(attribute);
+	}
+	if_name = argv[0];
+	if (argc > 1) {
+		if (!get_bool_from_string(argv[1], TRUE, &on, &set_default)) {
+			interface_usage(attribute);
+		}
+		set_value = TRUE;
+	}
+	ok = _prefs_open(CFSTR("scutil"), NULL);
+	if (!ok) {
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("Could not open prefs: %s\n"),
+			SCErrorString(SCError()));
+		exit(1);
+	}
+	if_name_cf = CFStringCreateWithCStringNoCopy(NULL,
+						     if_name,
+						     kCFStringEncodingUTF8,
+						     kCFAllocatorNull);
+	net_if = copy_configured_interface(prefs, if_name_cf);
+	CFRelease(if_name_cf);
+	if (net_if == NULL) {
+		fprintf(stderr, "%s is not configured\n", if_name);
+		exit(1);
+	}
+	if (set_value) {
+		if (!set_default) {
+			ok = (*set_func)(net_if, on);
+		} else {
+			ok = (*remove_func)(net_if, NULL);
+		}
+		if (!ok) {
+			fprintf(stderr,
+				"failed to set %s: %s\n",
+				attribute,
+				SCErrorString(SCError()));
+			exit(1);
+		}
+		_prefs_save();
+	} else {
+		on = (*get_func)(net_if);
+		printf("%s %s is %s\n", if_name, attribute, on_off_str(on));
+	}
+	_prefs_close();
+	CFRelease(net_if);
+
+	return;
+}
 
 __private_extern__
 void
 do_disable_until_needed(int argc, char * const argv[])
 {
-	const char * 		if_name;
-	CFStringRef		if_name_cf;
-	SCNetworkInterfaceRef	net_if;
-	Boolean			on		= FALSE;
-	Boolean			ok;
-	Boolean			set_default	= FALSE;
-	Boolean			set_value	= FALSE;
-
-	if (argc < 1 || argc > 2) {
-		disable_until_needed_usage();
-		exit(1);
-	}
-	if_name = argv[0];
-	if (argc > 1) {
-		if (!get_bool_from_string(argv[1], TRUE, &on, &set_default)) {
-			disable_until_needed_usage();
-			exit(1);
-		}
-		set_value = TRUE;
-	}
-	ok = _prefs_open(CFSTR("scutil --disable-until-needed"), NULL);
-	if (!ok) {
-		SCPrint(TRUE,
-			stdout,
-			CFSTR("Could not open prefs: %s\n"),
-			SCErrorString(SCError()));
-		exit(1);
-	}
-	if_name_cf = CFStringCreateWithCStringNoCopy(NULL,
-						     if_name,
-						     kCFStringEncodingASCII,
-						     kCFAllocatorNull);
-	net_if = copy_configured_interface(prefs, if_name_cf);
-	CFRelease(if_name_cf);
-	if (net_if == NULL) {
-		fprintf(stderr, "%s is not configured\n", if_name);
-		exit(1);
-	}
-	if (set_value) {
-		if (!set_default) {
-			ok = SCNetworkInterfaceSetDisableUntilNeeded(net_if, on);
-		} else {
-			ok = __SCNetworkInterfaceSetDisableUntilNeededValue(net_if, NULL);
-		}
-		if (!ok) {
-			fprintf(stderr, "failed to set preferences\n");
-			exit(1);
-		}
-		_prefs_save();
-	} else {
-		on = SCNetworkInterfaceGetDisableUntilNeeded(net_if);
-		printf("%s disable-until-needed is %s\n", if_name, on_off_str(on));
-	}
-	_prefs_close();
-	CFRelease(net_if);
-
-	return;
+	do_interface_bool(argc, argv, DISABLE_UNTIL_NEEDED,
+			  SCNetworkInterfaceGetDisableUntilNeeded,
+			  SCNetworkInterfaceSetDisableUntilNeeded,
+			  __SCNetworkInterfaceSetDisableUntilNeededValue);
 }
 
 /* -------------------- */
 
-static void
-disable_private_relay_usage(void)
-{
-	fprintf(stderr, "usage: scutil --disable-private-relay <interfaceName> [on|off|default]\n");
-	return;
-}
 
 __private_extern__
 void
 do_disable_private_relay(int argc, char * const argv[])
 {
-	const char * 		if_name;
-	CFStringRef		if_name_cf;
-	SCNetworkInterfaceRef	net_if;
-	Boolean			on		= FALSE;
+	do_interface_bool(argc, argv, DISABLE_PRIVATE_RELAY,
+			  SCNetworkInterfaceGetDisablePrivateRelay,
+			  SCNetworkInterfaceSetDisablePrivateRelay,
+			  __SCNetworkInterfaceSetDisablePrivateRelayValue);
+}
+
+/* -------------------- */
+
+
+__private_extern__
+void
+do_enable_low_data_mode(int argc, char * const argv[])
+{
+	if (!os_feature_enabled(Network, low_data_mode)) {
+		fprintf(stderr,
+			"Warning: Low Data Mode feature is disabled.\n");
+	}
+	do_interface_bool(argc, argv, ENABLE_LOW_DATA_MODE,
+			  SCNetworkInterfaceGetEnableLowDataMode,
+			  SCNetworkInterfaceSetEnableLowDataMode,
+			  __SCNetworkInterfaceSetEnableLowDataModeValue);
+}
+
+/* -------------------- */
+
+static void  __attribute__((noreturn))
+override_expensive_usage(void)
+{
+	fprintf(stderr,
+		"usage: scutil --%s wifi [expensive|inexpensive|default]\n",
+		OVERRIDE_EXPENSIVE);
+	exit(1);
+}
+
+void
+do_override_expensive(int argc, char * const argv[])
+{
+	SCNetworkInterfaceCost 	cost = kSCNetworkInterfaceCostUnspecified;
 	Boolean			ok;
-	Boolean			set_default	= FALSE;
-	Boolean			set_value	= FALSE;
+	Boolean			set_value = FALSE;
+	const char * 		type;
+	CFStringRef		type_cf;
 
 	if (argc < 1 || argc > 2) {
-		disable_private_relay_usage();
-		exit(1);
+		override_expensive_usage();
 	}
-	if_name = argv[0];
+	type = argv[0];
+	if (strcasecmp(type, "wifi") == 0
+	    || strcasecmp(type, "ieee80211") == 0) {
+		type_cf = kSCNetworkInterfaceTypeIEEE80211;
+	}
+	else {
+		override_expensive_usage();
+	}
 	if (argc > 1) {
-		if (!get_bool_from_string(argv[1], TRUE, &on, &set_default)) {
-			disable_private_relay_usage();
-			exit(1);
+		const char *	str = argv[1];
+
+		if (strcasecmp(str, "expensive") == 0) {
+			cost = kSCNetworkInterfaceCostExpensive;
+		}
+		else if (strcasecmp(str, "inexpensive") == 0) {
+			cost = kSCNetworkInterfaceCostInexpensive;
+		}
+		else if (strcasecmp(str, "default") == 0) {
+			cost = kSCNetworkInterfaceCostUnspecified;
+		}
+		else {
+			override_expensive_usage();
 		}
 		set_value = TRUE;
 	}
-	ok = _prefs_open(CFSTR("scutil --disable-private-relay"), NULL);
+	ok = _prefs_open(CFSTR("scutil"), NULL);
 	if (!ok) {
 		SCPrint(TRUE,
 			stdout,
@@ -1273,33 +1338,41 @@ do_disable_private_relay(int argc, char * const argv[])
 			SCErrorString(SCError()));
 		exit(1);
 	}
-	if_name_cf = CFStringCreateWithCStringNoCopy(NULL,
-						     if_name,
-						     kCFStringEncodingASCII,
-						     kCFAllocatorNull);
-	net_if = copy_configured_interface(prefs, if_name_cf);
-	CFRelease(if_name_cf);
-	if (net_if == NULL) {
-		fprintf(stderr, "%s is not configured\n", if_name);
-		exit(1);
-	}
 	if (set_value) {
-		if (!set_default) {
-			ok = SCNetworkInterfaceSetDisablePrivateRelay(net_if, on);
-		} else {
-			ok = __SCNetworkInterfaceSetDisablePrivateRelayValue(net_if, NULL);
-		}
+		Boolean			ok;
+
+		ok = SCNetworkInterfaceTypeSetTemporaryOverrideCost(prefs,
+								    type_cf,
+								    cost);
 		if (!ok) {
-			fprintf(stderr, "failed to set preferences\n");
+			fprintf(stderr,
+				"failed to set expensive override: %s\n",
+				SCErrorString(SCError()));
 			exit(1);
 		}
 		_prefs_save();
 	} else {
-		on = SCNetworkInterfaceGetDisablePrivateRelay(net_if);
-		printf("%s disable-private-relay is %s\n", if_name, on_off_str(on));
+		const char *	cost_str;
+
+		cost = SCNetworkInterfaceTypeGetTemporaryOverrideCost(prefs,
+								      type_cf);
+		switch (cost) {
+		case kSCNetworkInterfaceCostExpensive:
+			cost_str = "override is expensive";
+			break;
+		case kSCNetworkInterfaceCostInexpensive:
+			cost_str = "override is inexpensive";
+			break;
+		case kSCNetworkInterfaceCostUnspecified:
+		default:
+			cost_str = "no override";
+			break;
+		}
+		SCPrint(TRUE, stdout, CFSTR("%@: %s\n"), type_cf, cost_str);
 	}
 	_prefs_close();
-	CFRelease(net_if);
+	CFRelease(type_cf);
 
 	return;
 }
+

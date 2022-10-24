@@ -50,7 +50,7 @@
   </example>
   <example filename='parse1.c'>
     <synopsis>Parse an XML file to a tree and free it</synopsis>
-    <purpose>Demonstrate the use of xmlReadFile() to read an XML file into a tree and and xmlFreeDoc() to free the resulting tree</purpose>
+    <purpose>Demonstrate the use of xmlReadFile() to read an XML file into a tree and xmlFreeDoc() to free the resulting tree</purpose>
     <usage>parse1 test1.xml</usage>
     <test>parse1 test1.xml</test>
     <author>Daniel Veillard</author>
@@ -96,7 +96,7 @@
   </example>
   <example filename='parse3.c'>
     <synopsis>Parse an XML document in memory to a tree and free it</synopsis>
-    <purpose>Demonstrate the use of xmlReadMemory() to read an XML file into a tree and and xmlFreeDoc() to free the resulting tree</purpose>
+    <purpose>Demonstrate the use of xmlReadMemory() to read an XML file into a tree and xmlFreeDoc() to free the resulting tree</purpose>
     <usage>parse3</usage>
     <test>parse3</test>
     <author>Daniel Veillard</author>
@@ -117,7 +117,7 @@
   </example>
   <example filename='parse4.c'>
     <synopsis>Parse an XML document chunk by chunk to a tree and free it</synopsis>
-    <purpose>Demonstrate the use of xmlCreatePushParserCtxt() and xmlParseChunk() to read an XML file progressively into a tree and and xmlFreeDoc() to free the resulting tree</purpose>
+    <purpose>Demonstrate the use of xmlCreatePushParserCtxt() and xmlParseChunk() to read an XML file progressively into a tree and xmlFreeDoc() to free the resulting tree</purpose>
     <usage>parse4 test3.xml</usage>
     <test>parse4 test3.xml</test>
     <author>Daniel Veillard</author>
@@ -141,7 +141,7 @@
   </example>
   <example filename='reader1.c'>
     <synopsis>Parse an XML file with an xmlReader</synopsis>
-    <purpose>Demonstrate the use of xmlReaderForFile() to parse an XML file and dump the informations about the nodes found in the process. (Note that the XMLReader functions require libxml2 version later than 2.6.)</purpose>
+    <purpose>Demonstrate the use of xmlReaderForFile() to parse an XML file and dump the information about the nodes found in the process. (Note that the XMLReader functions require libxml2 version later than 2.6.)</purpose>
     <usage>reader1 &lt;filename&gt;</usage>
     <test>reader1 test2.xml &gt; reader1.tmp &amp;&amp; diff reader1.tmp $(srcdir)/reader1.res</test>
     <author>Daniel Veillard</author>

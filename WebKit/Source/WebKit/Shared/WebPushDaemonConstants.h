@@ -27,6 +27,9 @@
 
 namespace WebKit::WebPushD {
 
+// If an origin processes more than this many silent pushes, then it will be unsubscribed from push.
+constexpr unsigned maxSilentPushCount = 3;
+
 constexpr const char* protocolVersionKey = "protocol version";
 constexpr uint64_t protocolVersionValue = 1;
 constexpr const char* protocolEncodedMessageKey = "encoded message";
@@ -35,6 +38,7 @@ constexpr const char* protocolDebugMessageKey { "debug message" };
 constexpr const char* protocolDebugMessageLevelKey { "debug message level" };
 
 constexpr const char* protocolMessageTypeKey { "message type" };
+
 enum class MessageType : uint8_t {
     EchoTwice = 1,
     RequestSystemNotificationPermission,
@@ -43,7 +47,22 @@ enum class MessageType : uint8_t {
     SetDebugModeIsEnabled,
     UpdateConnectionConfiguration,
     InjectPushMessageForTesting,
+    InjectEncryptedPushMessageForTesting,
     GetPendingPushMessages,
+    SubscribeToPushService,
+    UnsubscribeFromPushService,
+    GetPushSubscription,
+    GetPushPermissionState,
+    IncrementSilentPushCount,
+    RemoveAllPushSubscriptions,
+    RemovePushSubscriptionsForOrigin,
+    SetPublicTokenForTesting,
+    SetPushAndNotificationsEnabledForOrigin,
+    GetOriginsWithPushSubscriptions,
+};
+
+enum class RawXPCMessageType : uint8_t {
+    GetPushTopicsForTesting = 192,
 };
 
 inline bool messageTypeSendsReply(MessageType messageType)
@@ -55,9 +74,34 @@ inline bool messageTypeSendsReply(MessageType messageType)
     case MessageType::RequestSystemNotificationPermission:
     case MessageType::GetPendingPushMessages:
     case MessageType::InjectPushMessageForTesting:
+    case MessageType::InjectEncryptedPushMessageForTesting:
+    case MessageType::SubscribeToPushService:
+    case MessageType::UnsubscribeFromPushService:
+    case MessageType::GetPushSubscription:
+    case MessageType::GetPushPermissionState:
+    case MessageType::IncrementSilentPushCount:
+    case MessageType::RemoveAllPushSubscriptions:
+    case MessageType::RemovePushSubscriptionsForOrigin:
+    case MessageType::SetPublicTokenForTesting:
+    case MessageType::SetPushAndNotificationsEnabledForOrigin:
+    case MessageType::GetOriginsWithPushSubscriptions:
         return true;
     case MessageType::SetDebugModeIsEnabled:
     case MessageType::UpdateConnectionConfiguration:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+enum class DaemonMessageType : uint8_t {
+    DebugMessage = 1,
+};
+
+inline bool daemonMessageTypeSendsReply(DaemonMessageType messageType)
+{
+    switch (messageType) {
+    case DaemonMessageType::DebugMessage:
         return false;
     }
     ASSERT_NOT_REACHED();

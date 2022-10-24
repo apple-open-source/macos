@@ -151,16 +151,6 @@ typedef struct {
 #define KMEM_GUARD_NONE         (kmem_guard_t){ }
 #define KMEM_GUARD_SUBMAP       (kmem_guard_t){ .kmg_atomic = 0, .kmg_submap = 1 }
 
-/*!
- * @typedef
- *
- * @brief
- * Pair of a min/max address used to denote a memory region.
- */
-typedef struct kmem_range {
-	vm_offset_t min_address;
-	vm_offset_t max_address;
-} __attribute__((aligned(2 * sizeof(vm_offset_t)))) * kmem_range_t;
 
 /*!
  * @typedef kmem_flags_t
@@ -336,31 +326,60 @@ __options_decl(kmem_flags_t, uint32_t, {
 
 #pragma mark kmem range methods
 
-extern struct kmem_range kmem_ranges[KMEM_RANGE_COUNT];
-extern struct kmem_range kmem_large_ranges[KMEM_RANGE_COUNT];
+extern struct mach_vm_range kmem_ranges[KMEM_RANGE_COUNT];
+extern struct mach_vm_range kmem_large_ranges[KMEM_RANGE_COUNT];
 #define KMEM_RANGE_MASK       0x3fff
 #define KMEM_HASH_SET         0x4000
 #define KMEM_DIRECTION_MASK   0x8000
 
-__attribute__((overloadable))
-extern bool kmem_range_contains(
-	const struct kmem_range *r,
-	vm_offset_t             addr);
+__stateful_pure
+extern mach_vm_size_t mach_vm_range_size(
+	const struct mach_vm_range *r);
 
-__attribute__((overloadable))
-extern bool kmem_range_contains(
-	const struct kmem_range *r,
-	vm_offset_t             addr,
-	vm_offset_t             size);
+__attribute__((overloadable, pure))
+extern bool mach_vm_range_contains(
+	const struct mach_vm_range *r,
+	mach_vm_offset_t        addr);
 
-extern vm_size_t kmem_range_size(
-	const struct kmem_range *r);
+__attribute__((overloadable, pure))
+extern bool mach_vm_range_contains(
+	const struct mach_vm_range *r,
+	mach_vm_offset_t        addr,
+	mach_vm_offset_t        size);
 
+__attribute__((overloadable, pure))
+extern bool mach_vm_range_intersects(
+	const struct mach_vm_range *r1,
+	const struct mach_vm_range *r2);
+
+__attribute__((overloadable, pure))
+extern bool mach_vm_range_intersects(
+	const struct mach_vm_range *r1,
+	mach_vm_offset_t        addr,
+	mach_vm_offset_t        size);
+
+/*
+ * @function kmem_range_id_contains
+ *
+ * @abstract Return whether the region of `[addr, addr + size)` is completely
+ * within the memory range.
+ */
+__pure2
 extern bool kmem_range_id_contains(
 	kmem_range_id_t         range_id,
 	vm_map_offset_t         addr,
 	vm_map_size_t           size);
 
+/*
+ * @function kmem_range_id_size
+ *
+ * @abstract Return the addressable size of the memory range.
+ */
+__pure2
+extern vm_map_size_t kmem_range_id_size(
+	kmem_range_id_t         range_id);
+
+__pure2
 extern kmem_range_id_t kmem_addr_get_range(
 	vm_map_offset_t         addr,
 	vm_map_size_t           size);
@@ -404,7 +423,7 @@ __options_decl(kmem_claims_flags_t, uint32_t, {
  * Security config that creates the additional splits in non data part of
  * kernel_map
  */
-#if KASAN || !defined(__LP64__) || (__arm64__ && !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR))
+#if KASAN || (__arm64__ && !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR))
 #   define ZSECURITY_CONFIG_KERNEL_PTR_SPLIT        OFF
 #else
 #   define ZSECURITY_CONFIG_KERNEL_PTR_SPLIT        ON
@@ -418,7 +437,7 @@ __options_decl(kmem_claims_flags_t, uint32_t, {
 
 struct kmem_range_startup_spec {
 	const char             *kc_name;
-	struct kmem_range      *kc_range;
+	struct mach_vm_range   *kc_range;
 	vm_map_size_t           kc_size;
 	vm_map_size_t           (^kc_calculate_sz)(void);
 	kmem_claims_flags_t     kc_flags;
@@ -695,7 +714,7 @@ __options_decl(kms_flags_t, uint32_t, {
  */
 extern kmem_return_t kmem_suballoc(
 	vm_map_t                parent,
-	vm_offset_t            *addr,
+	mach_vm_offset_t       *addr,
 	vm_size_t               size,
 	vm_map_create_options_t vmc_options,
 	int                     vm_flags,
@@ -1158,6 +1177,8 @@ extern vm_tag_t         vm_tag_alloc(vm_allocation_site_t * site);
 extern void             vm_tag_alloc_locked(vm_allocation_site_t * site, vm_allocation_site_t ** releasesiteP);
 
 extern void             vm_tag_update_size(vm_tag_t tag, int64_t size);
+
+extern uint64_t         vm_tag_get_size(vm_tag_t tag);
 
 #if VM_TAG_SIZECLASSES
 

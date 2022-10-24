@@ -115,7 +115,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
 #if SHAREDWEBCREDENTIALS
 
-    /* sanity check input arguments */
+    /* type check input arguments */
 	CFStringRef errStr = NULL;
 	if (!fqdn || CFGetTypeID(fqdn) != CFStringGetTypeID() || !CFStringGetLength(fqdn) ||
 		!account || CFGetTypeID(account) != CFStringGetTypeID() || !CFStringGetLength(account) ) {
@@ -177,7 +177,7 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
     __block CFStringRef serverStr = CFRetainSafe(fqdn);
     __block CFStringRef accountStr = CFRetainSafe(account);
 
-    /* sanity check input arguments */
+    /* type check input arguments */
     CFStringRef errStr = NULL;
     if (fqdn && (CFGetTypeID(fqdn) != CFStringGetTypeID() || !CFStringGetLength(fqdn))) {
         errStr = CFSTR("fqdn was empty or not a CFString");

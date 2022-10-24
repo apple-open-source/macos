@@ -634,13 +634,25 @@ closefile(FILE *f, const char *fn)
 	} else if (f == stdin) {
 		;
 	} else if (f == stdout) {
+#ifdef __APPLE__
+		if (ferror(f) != 0 || fflush(f) != 0)
+			err(2, "stdout");
+#else
 		fflush(f);
+#endif
 	} else {
 		if (file_is_tmp(fn) && compress_program != NULL) {
 			if(pclose(f)<0)
 				err(2,NULL);
 		} else
+#ifdef __APPLE__
+		{
+			if (ferror(f) != 0 || fclose(f) != 0)
+				err(2, "output");
+		}
+#else
 			fclose(f);
+#endif
 	}
 }
 

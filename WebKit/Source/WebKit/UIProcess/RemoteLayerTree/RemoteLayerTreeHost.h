@@ -46,7 +46,7 @@ public:
     ~RemoteLayerTreeHost();
 
     RemoteLayerTreeNode* nodeForID(WebCore::GraphicsLayer::PlatformLayerID) const;
-    RemoteLayerTreeNode* rootNode() const { return m_rootNode; }
+    RemoteLayerTreeNode* rootNode() const { return m_rootNode.get(); }
 
     CALayer *layerForID(WebCore::GraphicsLayer::PlatformLayerID) const;
     CALayer *rootLayer() const;
@@ -76,6 +76,10 @@ public:
     CALayer *layerWithIDForTesting(uint64_t) const;
 
     bool replayCGDisplayListsIntoBackingStore() const;
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    const HashMap<WebCore::GraphicsLayer::PlatformLayerID, CGRect>& overlayRegionsWithIDs() const { return m_overlayRegionsWithIDs; }
+    void updateOverlayRegionsWithIDs(const HashMap<WebCore::GraphicsLayer::PlatformLayerID, CGRect> &overlayRegions) { m_overlayRegionsWithIDs = overlayRegions; }
+#endif
 
 private:
     void createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties&);
@@ -86,9 +90,12 @@ private:
     RemoteLayerBackingStore::LayerContentsType layerContentsType() const;
 
     RemoteLayerTreeDrawingAreaProxy* m_drawingArea { nullptr };
-    RemoteLayerTreeNode* m_rootNode { nullptr };
+    WeakPtr<RemoteLayerTreeNode> m_rootNode;
     HashMap<WebCore::GraphicsLayer::PlatformLayerID, std::unique_ptr<RemoteLayerTreeNode>> m_nodes;
     HashMap<WebCore::GraphicsLayer::PlatformLayerID, RetainPtr<WKAnimationDelegate>> m_animationDelegates;
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    HashMap<WebCore::GraphicsLayer::PlatformLayerID, CGRect> m_overlayRegionsWithIDs;
+#endif
     bool m_isDebugLayerTreeHost { false };
 };
 

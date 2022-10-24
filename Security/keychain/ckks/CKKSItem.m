@@ -43,14 +43,20 @@
 
 @implementation CKKSItem
 
-- (instancetype) initWithCKRecord: (CKRecord*) record {
-    if(self = [super initWithCKRecord: record]) {
+- (instancetype) initWithCKRecord:(CKRecord*)record
+                        contextID:(NSString*)contextID
+{
+    if(self = [super initWithCKRecord:record
+                            contextID:contextID]) {
     }
     return self;
 }
 
 - (instancetype) initCopyingCKKSItem: (CKKSItem*) item {
-    if(self = [super initWithCKRecordType: item.ckRecordType encodedCKRecord:item.encodedCKRecord zoneID:item.zoneID]) {
+    if(self = [super initWithCKRecordType:item.ckRecordType
+                          encodedCKRecord:item.encodedCKRecord
+                                contextID:item.contextID
+                                   zoneID:item.zoneID]) {
         _uuid = item.uuid;
         _parentKeyUUID = item.parentKeyUUID;
         _generationCount = item.generationCount;
@@ -67,10 +73,12 @@
 
 - (instancetype) initWithUUID: (NSString*) uuid
                 parentKeyUUID: (NSString*) parentKeyUUID
+                    contextID:(NSString*)contextID
                        zoneID: (CKRecordZoneID*) zoneID
 {
     return [self initWithUUID:uuid
                 parentKeyUUID:parentKeyUUID
+                    contextID:contextID
                        zoneID:zoneID
               encodedCKRecord:nil
                       encItem:nil
@@ -81,6 +89,7 @@
 
 - (instancetype) initWithUUID: (NSString*) uuid
                 parentKeyUUID: (NSString*) parentKeyUUID
+                    contextID:(NSString*)contextID
                        zoneID: (CKRecordZoneID*) zoneID
                       encItem: (NSData*) encitem
                    wrappedkey: (CKKSWrappedAESSIVKey*) wrappedkey
@@ -89,6 +98,7 @@
 {
     return [self initWithUUID:uuid
                 parentKeyUUID:parentKeyUUID
+                    contextID:contextID
                        zoneID:zoneID
               encodedCKRecord:nil
                       encItem:encitem
@@ -99,6 +109,7 @@
 
 - (instancetype) initWithUUID: (NSString*) uuid
                 parentKeyUUID: (NSString*) parentKeyUUID
+                    contextID:(NSString*)contextID
                        zoneID: (CKRecordZoneID*)zoneID
               encodedCKRecord: (NSData*) encodedrecord
                       encItem: (NSData*) encitem
@@ -108,6 +119,7 @@
 {
     return [self initWithUUID:uuid
                 parentKeyUUID:parentKeyUUID
+                    contextID:contextID
                        zoneID:zoneID
               encodedCKRecord:encodedrecord
                       encItem:encitem
@@ -121,6 +133,7 @@ plaintextPCSServiceIdentifier:nil
 
 - (instancetype) initWithUUID: (NSString*) uuid
                 parentKeyUUID: (NSString*) parentKeyUUID
+                    contextID:(NSString*)contextID
                        zoneID: (CKRecordZoneID*)zoneID
               encodedCKRecord: (NSData*) encodedrecord
                       encItem: (NSData*) encitem
@@ -131,7 +144,10 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
         plaintextPCSPublicKey: (NSData*) pcsPublicKey
    plaintextPCSPublicIdentity: (NSData*) pcsPublicIdentity
 {
-    if(self = [super initWithCKRecordType: SecCKRecordItemType encodedCKRecord:encodedrecord zoneID:zoneID]) {
+    if(self = [super initWithCKRecordType:SecCKRecordItemType
+                          encodedCKRecord:encodedrecord
+                                contextID:contextID
+                                   zoneID:zoneID]) {
         _uuid = uuid;
         _parentKeyUUID = parentKeyUUID;
         _generationCount = genCount;
@@ -157,6 +173,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     return ([self.uuid isEqual: obj.uuid] &&
             [self.parentKeyUUID isEqual: obj.parentKeyUUID] &&
             [self.zoneID isEqual: obj.zoneID] &&
+            ((self.contextID == nil && obj.contextID == nil) || ([self.contextID isEqualToString:obj.contextID])) &&
             ((self.encitem == nil && obj.encitem == nil) || ([self.encitem isEqual: obj.encitem])) &&
             [self.wrappedkey isEqual: obj.wrappedkey] &&
             self.generationCount == obj.generationCount &&
@@ -435,31 +452,39 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 // You must subclass CKKSItem to have this work correctly, although you can call back up into this class to use these if you like.
 
 + (NSArray<NSString*>*)sqlColumns {
-    return @[@"UUID", @"parentKeyUUID", @"ckzone", @"encitem", @"wrappedkey", @"gencount", @"encver", @"ckrecord",
+    return @[@"contextID", @"UUID", @"parentKeyUUID", @"ckzone", @"encitem", @"wrappedkey", @"gencount", @"encver", @"ckrecord",
              @"pcss", @"pcsk", @"pcsi"];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
-    return @{@"UUID": self.uuid, @"ckzone":self.zoneID.zoneName};
+    return @{
+        @"contextID": CKKSNilToNSNull(self.contextID),
+        @"UUID": self.uuid,
+        @"ckzone":self.zoneID.zoneName
+    };
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
-    return @{@"UUID": self.uuid,
-             @"parentKeyUUID": self.parentKeyUUID,
-             @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),
-             @"encitem": self.base64encitem,
-             @"wrappedkey": [self.wrappedkey base64WrappedKey],
-             @"gencount": [[NSNumber numberWithInteger:self.generationCount] stringValue],
-             @"encver": [[NSNumber numberWithInteger:self.encver] stringValue],
-             @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
-             @"pcss": CKKSNilToNSNull(self.plaintextPCSServiceIdentifier),
-             @"pcsk": CKKSNilToNSNull([self.plaintextPCSPublicKey base64EncodedStringWithOptions:0]),
-             @"pcsi": CKKSNilToNSNull([self.plaintextPCSPublicIdentity base64EncodedStringWithOptions:0])};
+    return @{
+        @"contextID": CKKSNilToNSNull(self.contextID),
+        @"UUID": self.uuid,
+        @"parentKeyUUID": self.parentKeyUUID,
+        @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),
+        @"encitem": self.base64encitem,
+        @"wrappedkey": [self.wrappedkey base64WrappedKey],
+        @"gencount": [[NSNumber numberWithInteger:self.generationCount] stringValue],
+        @"encver": [[NSNumber numberWithInteger:self.encver] stringValue],
+        @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
+        @"pcss": CKKSNilToNSNull(self.plaintextPCSServiceIdentifier),
+        @"pcsk": CKKSNilToNSNull([self.plaintextPCSPublicKey base64EncodedStringWithOptions:0]),
+        @"pcsi": CKKSNilToNSNull([self.plaintextPCSPublicIdentity base64EncodedStringWithOptions:0])
+    };
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
     return [[CKKSItem alloc] initWithUUID:row[@"UUID"].asString
                             parentKeyUUID:row[@"parentKeyUUID"].asString
+                                contextID:row[@"contextID"].asString
                                    zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
                           encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
                                   encItem:row[@"encitem"].asBase64DecodedData
@@ -472,12 +497,16 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
             ];
 }
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     NSError* localerror = nil;
     // Find if we knew about this record in the past
     bool update = false;
     CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:[[record recordID] recordName]
+                                                   contextID:contextID
                                                       zoneID:record.recordID.zoneID
                                                        error:&localerror];
 
@@ -529,7 +558,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
         [ckme setFromCKRecord: record];
     } else {
         // Have to make a new CKKSMirrorEntry
-        ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:record];
+        ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:record contextID:contextID];
     }
 
     bool mirrorsaved = [ckme saveToDatabase:&localerror];
@@ -547,6 +576,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     // A remote change has occurred for this UUID. Delete any pending IQEs, in any state.
     NSError* iqeLoadError = nil;
     CKKSIncomingQueueEntry* loadediqe = [CKKSIncomingQueueEntry tryFromDatabase:ckme.item.uuid
+                                                                      contextID:contextID
                                                                          zoneID:ckme.item.zoneID
                                                                           error:&iqeLoadError];
     if(iqeLoadError) {
@@ -583,6 +613,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
                                                                               states:@[SecCKKSStateNew,
                                                                                        SecCKKSStateReencrypt,
                                                                                        SecCKKSStateError]
+                                                                           contextID:contextID
                                                                               zoneID:record.recordID.zoneID
                                                                                error:&localerror];
     if(!siblings || localerror) {
@@ -605,11 +636,15 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 }
 
 
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error
 {
     ckksnotice("ckks", recordID.zoneID, "CloudKit notification: deleted record(%@): %@", SecCKRecordItemType, recordID);
     NSError* iqeerror = nil;
     CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:recordID.recordName
+                                                   contextID:contextID
                                                       zoneID:recordID.zoneID
                                                        error:error];
 
@@ -639,6 +674,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
                                                                                   states:@[SecCKKSStateNew,
                                                                                            SecCKKSStateReencrypt,
                                                                                            SecCKKSStateError]
+                                                                               contextID:contextID
                                                                                   zoneID:recordID.zoneID
                                                                                    error:&deleteError];
         if(deleteError) {
@@ -672,7 +708,9 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 
 @implementation CKKSSQLDatabaseObject (CKKSZoneExtras)
 
-+ (NSSet<NSString*>*)allUUIDsInZones:(NSSet<CKRecordZoneID*>*)zoneIDs error:(NSError * __autoreleasing *)error
++ (NSSet<NSString*>*)allUUIDsWithContextID:(NSString*)contextID
+                                   inZones:(NSSet<CKRecordZoneID*>*)zoneIDs
+                                     error:(NSError * __autoreleasing *)error
 {
     __block NSMutableSet<NSString*>* uuids = [NSMutableSet set];
 
@@ -682,7 +720,10 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     }
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[self sqlTable]
-                                        where:@{@"ckzone": [[CKKSSQLWhereIn alloc] initWithValues:zoneNames]}
+                                        where:@{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": [[CKKSSQLWhereIn alloc] initWithValues:zoneNames]
+    }
                                       columns:@[@"UUID"]
                                       groupBy:nil
                                       orderBy:nil
@@ -694,14 +735,19 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     return uuids;
 }
 
-+ (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
++ (NSArray<NSString*>*)allUUIDsWithContextID:(NSString*)contextID
+                                      zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError * __autoreleasing *)error {
     __block NSMutableArray<NSString*>* uuids = [[NSMutableArray alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [self sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
-                                      columns: @[@"UUID"]
-                                      groupBy: nil
-                                      orderBy:nil
+                                        where:@{
+                                            @"contextID": CKKSNilToNSNull(contextID),
+                                            @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+                                        }
+                                        columns: @[@"UUID"]
+                                        groupBy: nil
+                                        orderBy:nil
                                         limit: -1
                                    processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                        [uuids addObject: row[@"UUID"].asString];
@@ -710,29 +756,46 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     return uuids;
 }
 
-+ (NSSet<NSString*>*)allParentKeyUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (NSSet<NSString*>*)allParentKeyUUIDsInContextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error:(NSError * __autoreleasing *)error
 {
     __block NSMutableSet<NSString*>* uuids = [NSMutableSet set];
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[self sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
-                                      columns:@[@"parentKeyUUID"]
-                                      groupBy:nil
-                                      orderBy:nil
+                                        where:@{
+                                            @"contextID": CKKSNilToNSNull(contextID),
+                                            @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+                                        }
+                                        columns:@[@"parentKeyUUID"]
+                                        groupBy:nil
+                                        orderBy:nil
                                         limit:-1
-                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
-                                       [uuids addObject:row[@"parentKeyUUID"].asString];
-                                   }
+                                        processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                            [uuids addObject:row[@"parentKeyUUID"].asString];
+                                        }
                                         error: error];
     return uuids;
 }
 
-+ (NSArray*) all:(CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)} error:error];
++ (NSArray*)allWithContextID:(NSString*)contextID
+                      zoneID:(CKRecordZoneID*)zoneID
+                       error:(NSError * __autoreleasing *)error
+{
+    return [self allWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+    } error:error];
 }
 
-+ (bool) deleteAll:(CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error {
-    bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{@"ckzone":CKKSNilToNSNull(zoneID.zoneName)} connection:nil error: error];
++ (bool)deleteAllWithContextID:(NSString*)contextID
+                        zoneID:(CKRecordZoneID*)zoneID
+                         error:(NSError * __autoreleasing *)error
+{
+    bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } connection:nil error: error];
 
     if(ok) {
         secdebug("ckksitem", "Deleted all %@", self);

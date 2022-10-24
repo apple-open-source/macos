@@ -1,0 +1,17 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-09-13</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>banner.c: use __COPYRIGHT (81852097)</string>
+		<string>banner.c: convert nchars to size_t from int (81852097)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>banner</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-07-27</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/banner?id=b77e235dd52a682c11ddd93256b3848cdc6f1d72</string>
+</dict>

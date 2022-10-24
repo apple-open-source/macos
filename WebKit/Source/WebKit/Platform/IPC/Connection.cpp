@@ -435,12 +435,11 @@ void Connection::invalidate()
 {
     ASSERT(RunLoop::isMain());
 
-    if (!isValid()) {
-        // Someone already called invalidate().
+    if (std::exchange(m_didInvalidationOnMainThread, true))
         return;
-    }
-    
+
     m_isValid = false;
+
     clearAsyncReplyHandlers(*this);
 
     m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
@@ -665,7 +664,10 @@ std::unique_ptr<Decoder> Connection::sendSyncMessage(SyncRequestID syncRequestID
         encoder->setShouldMaintainOrderingWithAsyncMessages();
 
     auto messageName = encoder->messageName();
-    sendMessage(WTFMove(encoder), sendOptions);
+
+    // Since sync IPC is blocking the current thread, make sure we use the same priority for the IPC sending thread
+    // as the current thread.
+    sendMessage(WTFMove(encoder), sendOptions, Thread::currentThreadQOS());
 
     // Then wait for a reply. Waiting for a reply could involve dispatching incoming sync messages, so
     // keep an extra reference to the connection here in case it's invalidated.
@@ -906,6 +908,7 @@ void Connection::postConnectionDidCloseOnConnectionWorkQueue()
 void Connection::connectionDidClose()
 {
     // The connection is now invalid.
+    m_isValid = false;
     platformInvalidate();
 
     {
@@ -935,12 +938,8 @@ void Connection::connectionDidClose()
     RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
         // If the connection has been explicitly invalidated before dispatchConnectionDidClose was called,
         // then the connection will be invalid here.
-        if (!protectedThis->isValid())
+        if (std::exchange(protectedThis->m_didInvalidationOnMainThread, true))
             return;
-
-        // Set m_isValid to false before calling didClose, otherwise, sendSync will try to send a message
-        // to the connection and will then wait indefinitely for a reply.
-        protectedThis->m_isValid = false;
 
         protectedThis->m_client.didClose(protectedThis.get());
 
@@ -1072,7 +1071,8 @@ void Connection::enqueueIncomingMessage(std::unique_ptr<Decoder> incomingMessage
 
 void Connection::dispatchMessage(Decoder& decoder)
 {
-    RELEASE_ASSERT(isValid());
+    ASSERT(RunLoop::isMain());
+    RELEASE_ASSERT(!m_didInvalidationOnMainThread);
     if (decoder.messageReceiverName() == ReceiverName::AsyncReply) {
         auto handler = takeAsyncReplyHandler(*this, decoder.destinationID());
         if (!handler) {

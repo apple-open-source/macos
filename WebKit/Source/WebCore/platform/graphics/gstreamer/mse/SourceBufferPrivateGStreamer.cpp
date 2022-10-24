@@ -120,6 +120,8 @@ void SourceBufferPrivateGStreamer::removedFromMediaSource()
     for (auto& track : m_tracks.values())
         track->remove();
     m_hasBeenRemovedFromMediaSource = true;
+
+    m_appendPipeline->stopParser();
 }
 
 MediaPlayer::ReadyState SourceBufferPrivateGStreamer::readyState() const
@@ -207,7 +209,7 @@ bool SourceBufferPrivateGStreamer::isActive() const
     return m_isActive;
 }
 
-void SourceBufferPrivateGStreamer::didReceiveInitializationSegment(SourceBufferPrivateClient::InitializationSegment&& initializationSegment, CompletionHandler<void()>&& completionHandler)
+void SourceBufferPrivateGStreamer::didReceiveInitializationSegment(SourceBufferPrivateClient::InitializationSegment&& initializationSegment, CompletionHandler<void(SourceBufferPrivateClient::ReceiveResult)>&& completionHandler)
 {
     m_hasReceivedInitializationSegment = true;
     for (auto& trackInfo : initializationSegment.videoTracks) {
@@ -295,7 +297,7 @@ size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const
         //           MSE_MAX_BUFFER_SIZE='*:100M'
         //           MSE_MAX_BUFFER_SIZE='video:90M,T:100000'
 
-        String s(std::getenv("MSE_MAX_BUFFER_SIZE"));
+        auto s = String::fromLatin1(std::getenv("MSE_MAX_BUFFER_SIZE"));
         if (!s.isEmpty()) {
             Vector<String> entries = s.split(',');
             for (const String& entry : entries) {
@@ -310,17 +312,17 @@ size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const
                 else if (value.endsWith('m'))
                     units = 1024 * 1024;
                 if (units != 1)
-                    value = value.substring(0, value.length()-1);
+                    value = value.left(value.length()-1);
                 auto parsedSize = parseInteger<size_t>(value);
                 if (!parsedSize)
                     continue;
                 size_t size = *parsedSize;
 
-                if (key == "a" || key == "audio" || key == "*")
+                if (key == "a"_s || key == "audio"_s || key == "*"_s)
                     maxBufferSizeAudio = size * units;
-                if (key == "v" || key == "video" || key == "*")
+                if (key == "v"_s || key == "video"_s || key == "*"_s)
                     maxBufferSizeVideo = size * units;
-                if (key == "t" || key == "text" || key == "*")
+                if (key == "t"_s || key == "text"_s || key == "*"_s)
                     maxBufferSizeText = size * units;
             }
         }

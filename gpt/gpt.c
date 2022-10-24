@@ -43,7 +43,10 @@ __FBSDID("$FreeBSD: src/sbin/gpt/gpt.c,v 1.16.2.4.6.1 2010/02/10 00:26:20 kensmi
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#include <System/sys/csr.h>
+#endif
 #include "map.h"
 #include "gpt.h"
 
@@ -117,6 +120,23 @@ crc32(const void *buf, size_t size)
 		crc = crc32_tab[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
 
 	return crc ^ ~0U;
+}
+
+static bool
+gpt_modification_allowed(void) {
+
+#if TARGET_OS_OSX
+	if (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0) {
+		//implies SIP disablement
+		return true;
+	}
+
+	return false;
+#else
+	//non-Mac likely won't have this tool
+	return true;
+#endif
+
 }
 
 uint8_t *
@@ -793,5 +813,18 @@ main(int argc, char *argv[])
 		errx(1, "unknown command: %s", cmd);
 
 	prefix(cmd);
-	return ((*cmdsw[i].fptr)(argc, argv));
+	//check if operation is permitted
+	if (gpt_modification_allowed()) {
+		return ((*cmdsw[i].fptr)(argc, argv));
+	}
+	else {
+		//only show and help are allowed.
+		if (strncmp(cmd, "help", strlen("help")) == 0 ||
+					strncmp(cmd, "show", strlen("show")) == 0) {
+			return ((*cmdsw[i].fptr)(argc, argv));
+		}
+		errx (1, "operation not permitted: %s", cmd);
+	}
+
+	return -1;
 }

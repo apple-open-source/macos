@@ -218,7 +218,7 @@ int blessViaBootability(BLContextPtr context, struct clarg actargs[klast])
 		blesscontextprintf(context, kBLLogLevelVerbose,  "Bootability succeeded\n");
 	} else {
 		blesscontextprintf(context, kBLLogLevelError,  "Bootability failed %s\n", error.description.UTF8String);
-		ret = error.code;
+		ret = (int)error.code;
 	}
 out:
 	[manager release];

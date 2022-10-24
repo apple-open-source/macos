@@ -45,7 +45,7 @@ static void nsprintf(NSString *fmt, ...)
 #endif
 }
 
-static NSXPCConnection* getConnection()
+static NSXPCConnection* getConnection(void)
 {
     NSXPCConnection* connection = [[NSXPCConnection alloc] initWithMachServiceName:@"com.apple.securityuploadd" options:0];
     connection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(supdProtocol)];
@@ -188,24 +188,50 @@ forceOldUploadDate(void)
     [connection invalidate];
 }
 
+static void
+encodeSFACollection(NSString *jsonFile)
+{
+    NSData *data = [NSData dataWithContentsOfFile:jsonFile];
+    NSError *error = nil;
+
+    if (data == NULL) {
+        fprintf(stderr, "file have no data: %s", [jsonFile UTF8String]);
+        exit(1);
+    }
+
+    NSData *encoded = [SFAnalytics encodeSFACollection:data error:&error];
+    if (encoded == NULL) {
+        fprintf(stderr, "error: %s\n", [[error description] UTF8String]);
+        exit(1);
+    }
+    fwrite(encoded.bytes, encoded.length, 1, stdout);
+    return;
+}
+
+
 static int forceUpload = false;
 static int getJSON = false;
 static int getChunkedJSON = false;
 static int getSysdiagnose = false;
 static int getInfo = false;
 static int setOldUploadDate = false;
-static char *topicName = nil;
+static int sfaCollection = false;
+static char *topicName = NULL;
+static char *inputJsonFile = NULL;
 
 int main(int argc, char **argv)
 {
     static struct argument options[] = {
         { .shortname='t', .longname="topicName", .argument=&topicName, .description="Operate on a non-default topic"},
+        { .shortname='j', .longname="jsonFile", .argument=&inputJsonFile, .description="Input JSON file"},
         { .command="sysdiagnose", .flag=&getSysdiagnose, .flagval=true, .description="Retrieve the current sysdiagnose dump for security analytics"},
         { .command="get", .flag=&getJSON, .flagval=true, .description="Get the JSON blob we would upload to the server if an upload were due"},
         { .command="getChunked", .flag=&getChunkedJSON, .flagval=true, .description="Chunk the JSON blob"},
         { .command="upload", .flag=&forceUpload, .flagval=true, .description="Force an upload of analytics data to server (ignoring privacy settings)"},
         { .command="info", .flag=&getInfo, .flagval=true, .description="Request info about clients"},
         { .command="set-old-upload-date", .flag=&setOldUploadDate, .flagval=true, .description="Clear last upload date"},
+        { .command="encode-sfa-collection", .flag=&sfaCollection, .flagval=true, .description="Encode SFA Collection"},
+
         {}  // Need this!
     };
 
@@ -238,6 +264,13 @@ int main(int argc, char **argv)
             getInfoDump();
         } else if (setOldUploadDate) {
             forceOldUploadDate();
+        } else if (sfaCollection) {
+            if (inputJsonFile == NULL) {
+                print_usage(&args);
+                return -1;
+            }
+            NSString *str = [NSString stringWithUTF8String:inputJsonFile];
+            encodeSFACollection(str);
         } else {
             print_usage(&args);
             return -1;

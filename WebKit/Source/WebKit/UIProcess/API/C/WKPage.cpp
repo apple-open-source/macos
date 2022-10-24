@@ -65,6 +65,7 @@
 #include "NotificationPermissionRequest.h"
 #include "PageClient.h"
 #include "PrintInfo.h"
+#include "QueryPermissionResultCallback.h"
 #include "SpeechRecognitionPermissionRequest.h"
 #include "WKAPICast.h"
 #include "WKPagePolicyClientInternal.h"
@@ -104,6 +105,15 @@
 namespace API {
 using namespace WebCore;
 using namespace WebKit;
+
+#if ENABLE(CONTEXT_MENUS)
+static Vector<RefPtr<API::Object>> toAPIObjectVector(const Vector<Ref<WebContextMenuItem>>& menuItemsVector)
+{
+    return menuItemsVector.map([](auto& menuItem) -> RefPtr<API::Object> {
+        return menuItem.ptr();
+    });
+}
+#endif
     
 template<> struct ClientTraits<WKPageLoaderClientBase> {
     typedef std::tuple<WKPageLoaderClientV0, WKPageLoaderClientV1, WKPageLoaderClientV2, WKPageLoaderClientV3, WKPageLoaderClientV4, WKPageLoaderClientV5, WKPageLoaderClientV6> Versions;
@@ -118,7 +128,7 @@ template<> struct ClientTraits<WKPagePolicyClientBase> {
 };
 
 template<> struct ClientTraits<WKPageUIClientBase> {
-    typedef std::tuple<WKPageUIClientV0, WKPageUIClientV1, WKPageUIClientV2, WKPageUIClientV3, WKPageUIClientV4, WKPageUIClientV5, WKPageUIClientV6, WKPageUIClientV7, WKPageUIClientV8, WKPageUIClientV9, WKPageUIClientV10, WKPageUIClientV11, WKPageUIClientV12, WKPageUIClientV13, WKPageUIClientV14, WKPageUIClientV15, WKPageUIClientV16, WKPageUIClientV17> Versions;
+    typedef std::tuple<WKPageUIClientV0, WKPageUIClientV1, WKPageUIClientV2, WKPageUIClientV3, WKPageUIClientV4, WKPageUIClientV5, WKPageUIClientV6, WKPageUIClientV7, WKPageUIClientV8, WKPageUIClientV9, WKPageUIClientV10, WKPageUIClientV11, WKPageUIClientV12, WKPageUIClientV13, WKPageUIClientV14, WKPageUIClientV15, WKPageUIClientV16, WKPageUIClientV17, WKPageUIClientV18> Versions;
 };
 
 #if ENABLE(CONTEXT_MENUS)
@@ -175,20 +185,20 @@ WKPageConfigurationRef WKPageCopyPageConfiguration(WKPageRef pageRef)
 void WKPageLoadURL(WKPageRef pageRef, WKURLRef URLRef)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->loadRequest(URL(URL(), toWTFString(URLRef)));
+    toImpl(pageRef)->loadRequest(URL { toWTFString(URLRef) });
 }
 
 void WKPageLoadURLWithShouldOpenExternalURLsPolicy(WKPageRef pageRef, WKURLRef URLRef, bool shouldOpenExternalURLs)
 {
     CRASH_IF_SUSPENDED;
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy = shouldOpenExternalURLs ? WebCore::ShouldOpenExternalURLsPolicy::ShouldAllow : WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow;
-    toImpl(pageRef)->loadRequest(URL(URL(), toWTFString(URLRef)), shouldOpenExternalURLsPolicy);
+    toImpl(pageRef)->loadRequest(URL { toWTFString(URLRef) }, shouldOpenExternalURLsPolicy);
 }
 
 void WKPageLoadURLWithUserData(WKPageRef pageRef, WKURLRef URLRef, WKTypeRef userDataRef)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->loadRequest(URL(URL(), toWTFString(URLRef)), WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, toImpl(userDataRef));
+    toImpl(pageRef)->loadRequest(URL { toWTFString(URLRef) }, WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, toImpl(userDataRef));
 }
 
 void WKPageLoadURLRequest(WKPageRef pageRef, WKURLRequestRef urlRequestRef)
@@ -271,7 +281,7 @@ void WKPageLoadAlternateHTMLStringWithUserData(WKPageRef pageRef, WKStringRef ht
 {
     CRASH_IF_SUSPENDED;
     String string = toWTFString(htmlStringRef);
-    toImpl(pageRef)->loadAlternateHTML(dataFrom(string), encodingOf(string), URL(URL(), toWTFString(baseURLRef)), URL(URL(), toWTFString(unreachableURLRef)), toImpl(userDataRef));
+    toImpl(pageRef)->loadAlternateHTML(dataFrom(string), encodingOf(string), URL { toWTFString(baseURLRef) }, URL { toWTFString(unreachableURLRef) }, toImpl(userDataRef));
 }
 
 void WKPageLoadPlainTextString(WKPageRef pageRef, WKStringRef plainTextStringRef)
@@ -309,7 +319,7 @@ void WKPageReload(WKPageRef pageRef)
     CRASH_IF_SUSPENDED;
     OptionSet<WebCore::ReloadOption> reloadOptions;
 #if PLATFORM(COCOA)
-    if (linkedOnOrAfter(SDKVersion::FirstWithExpiredOnlyReloadBehavior))
+    if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ExpiredOnlyReloadBehavior))
         reloadOptions.add(WebCore::ReloadOption::ExpiredOnly);
 #endif
 
@@ -505,13 +515,13 @@ void WKPageTerminate(WKPageRef pageRef)
 
 WKStringRef WKPageGetSessionHistoryURLValueType()
 {
-    static API::String& sessionHistoryURLValueType = API::String::create("SessionHistoryURL").leakRef();
+    static auto& sessionHistoryURLValueType = API::String::create("SessionHistoryURL"_s).leakRef();
     return toAPI(&sessionHistoryURLValueType);
 }
 
 WKStringRef WKPageGetSessionBackForwardListItemValueType()
 {
-    static API::String& sessionBackForwardListValueType = API::String::create("SessionBackForwardListItem").leakRef();
+    static auto& sessionBackForwardListValueType = API::String::create("SessionBackForwardListItem"_s).leakRef();
     return toAPI(&sessionBackForwardListValueType);
 }
 
@@ -944,12 +954,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
         void getContextMenuFromProposedMenu(WebPageProxy& page, Vector<Ref<WebKit::WebContextMenuItem>>&& proposedMenuVector, WebKit::WebContextMenuListenerProxy& contextMenuListener, const WebHitTestResultData& hitTestResultData, API::Object* userData) override
         {
             if (m_client.base.version >= 4 && m_client.getContextMenuFromProposedMenuAsync) {
-                Vector<RefPtr<API::Object>> proposedMenuItems;
-                proposedMenuItems.reserveInitialCapacity(proposedMenuVector.size());
-                
-                for (const auto& menuItem : proposedMenuVector)
-                    proposedMenuItems.uncheckedAppend(menuItem.ptr());
-                
+                auto proposedMenuItems = toAPIObjectVector(proposedMenuVector);
                 auto webHitTestResult = API::HitTestResult::create(hitTestResultData);
                 m_client.getContextMenuFromProposedMenuAsync(toAPI(&page), toAPI(API::Array::create(WTFMove(proposedMenuItems)).ptr()), toAPI(&contextMenuListener), toAPI(webHitTestResult.ptr()), toAPI(userData), m_client.base.clientInfo);
                 return;
@@ -965,11 +970,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
                 return;
             }
 
-            Vector<RefPtr<API::Object>> proposedMenuItems;
-            proposedMenuItems.reserveInitialCapacity(proposedMenuVector.size());
-
-            for (const auto& menuItem : proposedMenuVector)
-                proposedMenuItems.uncheckedAppend(menuItem.ptr());
+            auto proposedMenuItems = toAPIObjectVector(proposedMenuVector);
 
             WKArrayRef newMenu = nullptr;
             if (m_client.base.version >= 2) {
@@ -1009,12 +1010,7 @@ void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuCl
             if (!canShowContextMenu())
                 return;
 
-            Vector<RefPtr<API::Object>> menuItems;
-            menuItems.reserveInitialCapacity(menuItemsVector.size());
-
-            for (const auto& menuItem : menuItemsVector)
-                menuItems.uncheckedAppend(menuItem.ptr());
-
+            auto menuItems = toAPIObjectVector(menuItemsVector);
             m_client.showContextMenu(toAPI(&page), toAPI(menuLocation), toAPI(API::Array::create(WTFMove(menuItems)).ptr()), m_client.base.clientInfo);
         }
 
@@ -1101,19 +1097,12 @@ void WKPageSetPageFindMatchesClient(WKPageRef pageRef, const WKPageFindMatchesCl
             if (!m_client.didFindStringMatches)
                 return;
 
-            Vector<RefPtr<API::Object>> matches;
-            matches.reserveInitialCapacity(matchRects.size());
-
-            for (const auto& rects : matchRects) {
-                Vector<RefPtr<API::Object>> apiRects;
-                apiRects.reserveInitialCapacity(rects.size());
-
-                for (const auto& rect : rects)
-                    apiRects.uncheckedAppend(API::Rect::create(toAPI(rect)));
-
-                matches.uncheckedAppend(API::Array::create(WTFMove(apiRects)));
-            }
-
+            auto matches = matchRects.map([](auto& rects) -> RefPtr<API::Object> {
+                auto apiRects = rects.map([](auto& rect) -> RefPtr<API::Object> {
+                    return API::Rect::create(toAPI(rect));
+                });
+                return API::Array::create(WTFMove(apiRects));
+            });
             m_client.didFindStringMatches(toAPI(page), toAPI(string.impl()), toAPI(API::Array::create(WTFMove(matches)).ptr()), index, m_client.base.clientInfo);
         }
 
@@ -1266,11 +1255,9 @@ void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClientBase* 
 
             RefPtr<API::Array> removedItemsArray;
             if (!removedItems.isEmpty()) {
-                Vector<RefPtr<API::Object>> removedItemsVector;
-                removedItemsVector.reserveInitialCapacity(removedItems.size());
-                for (auto& removedItem : removedItems)
-                removedItemsVector.append(WTFMove(removedItem));
-
+                auto removedItemsVector = WTF::map(WTFMove(removedItems), [](auto&& removedItem) -> RefPtr<API::Object> {
+                    return WTFMove(removedItem);
+                });
                 removedItemsArray = API::Array::create(WTFMove(removedItemsVector));
             }
 
@@ -1595,21 +1582,21 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
             if (m_client.createNewPage_deprecatedForUseWithV1 || m_client.createNewPage_deprecatedForUseWithV0) {
                 API::Dictionary::MapType map;
                 if (windowFeatures.x)
-                    map.set("x", API::Double::create(*windowFeatures.x));
+                    map.set("x"_s, API::Double::create(*windowFeatures.x));
                 if (windowFeatures.y)
-                    map.set("y", API::Double::create(*windowFeatures.y));
+                    map.set("y"_s, API::Double::create(*windowFeatures.y));
                 if (windowFeatures.width)
-                    map.set("width", API::Double::create(*windowFeatures.width));
+                    map.set("width"_s, API::Double::create(*windowFeatures.width));
                 if (windowFeatures.height)
-                    map.set("height", API::Double::create(*windowFeatures.height));
-                map.set("menuBarVisible", API::Boolean::create(windowFeatures.menuBarVisible));
-                map.set("statusBarVisible", API::Boolean::create(windowFeatures.statusBarVisible));
-                map.set("toolBarVisible", API::Boolean::create(windowFeatures.toolBarVisible));
-                map.set("locationBarVisible", API::Boolean::create(windowFeatures.locationBarVisible));
-                map.set("scrollbarsVisible", API::Boolean::create(windowFeatures.scrollbarsVisible));
-                map.set("resizable", API::Boolean::create(windowFeatures.resizable));
-                map.set("fullscreen", API::Boolean::create(windowFeatures.fullscreen));
-                map.set("dialog", API::Boolean::create(windowFeatures.dialog));
+                    map.set("height"_s, API::Double::create(*windowFeatures.height));
+                map.set("menuBarVisible"_s, API::Boolean::create(windowFeatures.menuBarVisible));
+                map.set("statusBarVisible"_s, API::Boolean::create(windowFeatures.statusBarVisible));
+                map.set("toolBarVisible"_s, API::Boolean::create(windowFeatures.toolBarVisible));
+                map.set("locationBarVisible"_s, API::Boolean::create(windowFeatures.locationBarVisible));
+                map.set("scrollbarsVisible"_s, API::Boolean::create(windowFeatures.scrollbarsVisible));
+                map.set("resizable"_s, API::Boolean::create(windowFeatures.resizable));
+                map.set("fullscreen"_s, API::Boolean::create(windowFeatures.fullscreen));
+                map.set("dialog"_s, API::Boolean::create(windowFeatures.dialog));
                 Ref<API::Dictionary> featuresMap = API::Dictionary::create(WTFMove(map));
 
                 if (m_client.createNewPage_deprecatedForUseWithV1) {
@@ -2190,6 +2177,15 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClientBase* wkClient
 
             m_client.decidePolicyForMediaKeySystemPermissionRequest(toAPI(&page), toAPI(&origin), toAPI(API::String::create(keySystem).ptr()), toAPI(MediaKeySystemPermissionCallback::create(WTFMove(completionHandler)).ptr()));
         }
+
+        void queryPermission(const WTF::String& permissionName, API::SecurityOrigin& origin, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&& completionHandler) final
+        {
+            if (!m_client.queryPermission) {
+                completionHandler({ });
+                return;
+            }
+            m_client.queryPermission(toAPI(API::String::create(permissionName).ptr()), toAPI(&origin), toAPI(QueryPermissionResultCallback::create(WTFMove(completionHandler)).ptr()));
+        }
     };
 
     toImpl(pageRef)->setUIClient(makeUnique<UIClient>(wkClient));
@@ -2725,7 +2721,7 @@ static PrintInfo printInfoFromWKPrintInfo(const WKPrintInfo& printInfo)
 void WKPageComputePagesForPrinting(WKPageRef pageRef, WKFrameRef frame, WKPrintInfo printInfo, WKPageComputePagesForPrintingFunction callback, void* context)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->computePagesForPrinting(toImpl(frame), printInfoFromWKPrintInfo(printInfo), [context, callback](const Vector<WebCore::IntRect>& rects, double scaleFactor, const WebCore::FloatBoxExtent& computedPageMargin) {
+    toImpl(pageRef)->computePagesForPrinting(toImpl(frame)->frameID(), printInfoFromWKPrintInfo(printInfo), [context, callback](const Vector<WebCore::IntRect>& rects, double scaleFactor, const WebCore::FloatBoxExtent& computedPageMargin) {
         Vector<WKRect> wkRects(rects.size());
         for (size_t i = 0; i < rects.size(); ++i)
             wkRects[i] = toAPI(rects[i]);
@@ -2966,10 +2962,14 @@ WKMediaState WKPageGetMediaState(WKPageRef page)
         state |= kWKMediaHasMutedAudioCaptureDevice;
     if (coreState & WebCore::MediaProducerMediaState::HasMutedVideoCaptureDevice)
         state |= kWKMediaHasMutedVideoCaptureDevice;
-    if (coreState & WebCore::MediaProducerMediaState::HasActiveDisplayCaptureDevice)
-        state |= kWKMediaHasActiveDisplayCaptureDevice;
-    if (coreState & WebCore::MediaProducerMediaState::HasMutedDisplayCaptureDevice)
-        state |= kWKMediaHasMutedDisplayCaptureDevice;
+    if (coreState & WebCore::MediaProducerMediaState::HasActiveScreenCaptureDevice)
+        state |= kWKMediaHasActiveScreenCaptureDevice;
+    if (coreState & WebCore::MediaProducerMediaState::HasMutedScreenCaptureDevice)
+        state |= kWKMediaHasMutedScreenCaptureDevice;
+    if (coreState & WebCore::MediaProducerMediaState::HasActiveWindowCaptureDevice)
+        state |= kWKMediaHasActiveWindowCaptureDevice;
+    if (coreState & WebCore::MediaProducerMediaState::HasMutedWindowCaptureDevice)
+        state |= kWKMediaHasMutedWindowCaptureDevice;
 
     return state;
 }
@@ -3079,7 +3079,7 @@ void WKPageSimulatePrivateClickMeasurementSessionRestart(WKPageRef pageRef, WKPa
 void WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTesting(WKPageRef pageRef, WKURLRef URLRef, WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->setPrivateClickMeasurementTokenPublicKeyURLForTesting(URL(URL(), toWTFString(URLRef)), [callbackContext, callback] () {
+    toImpl(pageRef)->setPrivateClickMeasurementTokenPublicKeyURLForTesting(URL { toWTFString(URLRef) }, [callbackContext, callback] () {
         callback(callbackContext);
     });
 }
@@ -3087,7 +3087,7 @@ void WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTesting(WKPageRef pageR
 void WKPageSetPrivateClickMeasurementTokenSignatureURLForTesting(WKPageRef pageRef, WKURLRef URLRef, WKPageSetPrivateClickMeasurementTokenSignatureURLForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->setPrivateClickMeasurementTokenSignatureURLForTesting(URL(URL(), toWTFString(URLRef)), [callbackContext, callback] () {
+    toImpl(pageRef)->setPrivateClickMeasurementTokenSignatureURLForTesting(URL { toWTFString(URLRef) }, [callbackContext, callback] () {
         callback(callbackContext);
     });
 }
@@ -3095,7 +3095,7 @@ void WKPageSetPrivateClickMeasurementTokenSignatureURLForTesting(WKPageRef pageR
 void WKPageSetPrivateClickMeasurementAttributionReportURLsForTesting(WKPageRef pageRef, WKURLRef sourceURL, WKURLRef destinationURL, WKPageSetPrivateClickMeasurementAttributionReportURLsForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->setPrivateClickMeasurementAttributionReportURLsForTesting(URL(URL(), toWTFString(sourceURL)), URL(URL(), toWTFString(destinationURL)), [callbackContext, callback] () {
+    toImpl(pageRef)->setPrivateClickMeasurementAttributionReportURLsForTesting(URL { toWTFString(sourceURL) }, URL { toWTFString(destinationURL) }, [callbackContext, callback] () {
         callback(callbackContext);
     });
 }

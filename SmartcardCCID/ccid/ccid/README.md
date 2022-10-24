@@ -42,8 +42,8 @@ Supported operating systems:
 See also https://ccid.apdu.fr/ for more information.
 
 
-Debug informations:
-===================
+Debug information:
+==================
 
 The driver uses the debug function provided by pcscd. So if pcscd sends
 its debug to stdout (`pcscd --foreground`) then the CCID driver will also
@@ -55,7 +55,7 @@ The `Info.plist` file is installed, by default, in
 `/usr/local/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist`
 or set the environment variable `LIBCCID_ifdLogLevel`.
 
-The debug level is set in the `ifdLogLevel` field. It is a binary OR
+The debug level is set in the `ifdLogLevel` field. It is a binary OR
 combination of 4 different levels.
 - 1: critical: important error messages
 - 2: info:     informative messages like what reader was detected
@@ -68,7 +68,7 @@ By default the debug level is set to 3 (1 + 2) and correspond to the
 critical and info levels.
 
 You have to restart the driver so it reads the configuration file again
-and use the new debug level value.  To restart the driver you just need
+and uses the new debug level value.  To restart the driver you just need
 to unplug all your CCID readers so the driver is unloaded and then replug
 your readers. You can also restart pcscd.
 
@@ -91,7 +91,7 @@ combination of 4 different levels.
 By default the voltage level is set to 0 and corresponds to 5V.
 
 You have to restart the driver so it reads the configuration file again
-and use the new voltage level value.  To restart the driver you just need
+and uses the new voltage level value.  To restart the driver you just need
 to unplug all your CCID readers so the driver is unloaded and then replug
 your readers.  You can also restart pcscd.
 
@@ -116,6 +116,83 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 History:
 ========
+
+1.5.0 - 27 January 2022, Ludovic Rousseau
+   - Add support of
+     - ACS ACR1281U
+     - Circle CCR7125 ICC
+     - Circle CIR125 ICC
+     - Circle CIR125-DOT ICC
+     - Circle CIR215 CL with iProduct 0x2100
+     - Circle CIR315 DI
+     - Circle CIR315 with idProduct: 0x0324
+     - Circle CIR315 with idProduct: 0x7004
+     - Circle CIR415 CL
+     - Circle CIR515 ICC
+     - Circle CIR615 CL
+     - Circle CIR615 CL & 1S
+     - ELYCTIS CL reader
+     - Nitrokey Nitrokey 3
+     - Thales Shield M4 Reader
+   - Add support of simultaneous slot access on multi slots readers
+   - Use FeliCa instead of Felica on SONY request
+   - Fix SafeNet eToken 5110 SC issue
+   - Allow vendor control commands for Omnikey 5427 CK
+   - always compute readTimeout to use a value greater than default 3 seconds
+   - Check the bSeq value when receiving a CCID frame
+   - Avoid logging errors when a reader is removed
+   - Some other minor improvements
+
+1.4.36 - 30 August 2021, Ludovic Rousseau
+   - Add support of
+     - Lenovo Lenovo Smartcard Wired Keyboard II
+     - REINER SCT tanJack USB
+     - SafeNet eToken 5110+ FIPS
+     - SafeNet eToken 5300 C
+     - jSolutions s.r.o. Multi SIM card reader 4/8
+   - parse: fix check when bNumDataRatesSupported = 0
+
+1.4.35 - 25 July 2021, Ludovic Rousseau
+   - Add support of
+     - ArkSigner Connect2Sign
+     - Circle CCR7115 ICC
+     - Circle CCR7315
+     - Circle CIR215 CL
+     - Circle CIR215 PICC
+     - Circle CIR315
+     - Circle CIR315 (idProduct: 0x3100)
+     - Circle CIR315 CL
+     - Circle CIR315 Dual & 1S
+     - Circle CIR415 CL & 1S
+     - Circle Idaxis SecurePIV
+     - DUALi DE-ABCM6 RFRW
+     - Feitian R701
+     - Generic EMV Smartcard Reader (0x058C:0x9590)
+     - INMAX DWR18 HC
+     - INMAX DWR18 HPC
+     - Identiv Identiv uTrust 4711 F CL + SAM Reader
+     - Identiv uTrust 3721 Contactless Reader
+     - Infocrypt HWDSSL DEVICE
+     - Infocrypt Token++ lite
+     - MK Technology KeyPass D1
+     - SONY Felica RC-S300/P
+     - SONY Felica RC-S300/S
+     - SONY Felica RC-S660/U
+     - SYNNIX CL-2100R
+     - SoloKeys Solo 2
+     - Spyrus Inc PocketVault P-3X (idProduct: 0x3203)
+  - parse: use "ICCD token" for ICCD tokens
+  - Support 4 card slots with Feitian R502 C9
+  - ccid_usb: ask for bNumDataRatesSupported data rates
+  - Solve a performance issue with T=1 and CCID_CLASS_AUTO_PPS_PROP
+  - Fix a possible buffer overflow in T0ProcACK
+  - IFDHSetProtocolParameters: set IFSC/IFSD only for TPDU readers
+  - CCID serial: Reset buffers on failed read
+  - Fix yylex missing symbol
+  - Gemalto pinpad: fix incorrect bEntryValidationCondition for
+    SecurePINVerify and SecurePINModify
+  - Fix bit4id miniLector-EVO pinpad support
+  - The Kobil TriBank reader does NOT support extended APDU
 
 1.4.34 - 24 January 2021, Ludovic Rousseau
    - Add support of

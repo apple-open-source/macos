@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>truncate</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-08-21</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/truncate?id=ce71a0fa99ccfbd4720b4f3d7254f53c2ac97fc1</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-12-14</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>truncate.1, truncate.c: remove -d support (86492112)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

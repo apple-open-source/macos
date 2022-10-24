@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,12 +30,7 @@
 #include "CSSValueKey.h"
 #include "RenderThemeCocoa.h"
 
-#if USE(SYSTEM_PREVIEW)
-#include "IOSurface.h"
-#include <wtf/RetainPtr.h>
-#endif
-
-OBJC_CLASS CIContext;
+OBJC_CLASS UIImage;
 
 namespace WebCore {
     
@@ -50,10 +45,6 @@ public:
 
     static void adjustRoundBorderRadius(RenderStyle&, RenderBox&);
 
-    CFStringRef contentSizeCategory() const final;
-
-    WEBCORE_EXPORT static void setContentSizeCategory(const String&);
-
 #if USE(SYSTEM_PREVIEW)
     void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&) override;
 #endif
@@ -66,6 +57,13 @@ public:
     WEBCORE_EXPORT static void setFocusRingColor(const Color&);
 
     WEBCORE_EXPORT static Color systemFocusRingColor();
+
+    struct IconAndSize {
+        RetainPtr<UIImage> icon;
+        FloatSize size;
+    };
+
+    WEBCORE_EXPORT static IconAndSize iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
 private:
     bool canPaint(const PaintInfo&, const Settings&) const final;
@@ -165,9 +163,7 @@ private:
     Color platformInactiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const override;
     Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
 
-#if ENABLE(APP_HIGHLIGHTS)
-    Color platformAppHighlightColor(OptionSet<StyleColorOptions>) const final;
-#endif
+    Color platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const final;
 
 #if ENABLE(TOUCH_EVENTS)
     Color platformTapHighlightColor() const override { return SRGBA<uint8_t> { 26, 26, 26, 77 } ; }
@@ -179,11 +175,9 @@ private:
     LayoutSize attachmentIntrinsicSize(const RenderAttachment&) const override;
     int attachmentBaseline(const RenderAttachment&) const override;
     bool attachmentShouldAllowWidthToShrink(const RenderAttachment&) const override { return true; }
+    String attachmentStyleSheet() const final;
     bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) override;
 #endif
-
-    bool shouldMockBoldSystemFontForAccessibility() const override { return m_shouldMockBoldSystemFontForAccessibility; }
-    void setShouldMockBoldSystemFontForAccessibility(bool shouldMockBoldSystemFontForAccessibility) override { m_shouldMockBoldSystemFontForAccessibility = shouldMockBoldSystemFontForAccessibility; }
 
 private:
     RenderThemeIOS();
@@ -210,14 +204,6 @@ private:
     Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
 
     void adjustStyleForAlternateFormControlDesignTransition(RenderStyle&, const Element*) const;
-
-#if USE(SYSTEM_PREVIEW)
-    RetainPtr<CIContext> m_ciContext;
-    std::unique_ptr<IOSurface> m_largeBadgeSurface;
-    std::unique_ptr<IOSurface> m_smallBadgeSurface;
-#endif
-
-    bool m_shouldMockBoldSystemFontForAccessibility { false };
 };
 
 }

@@ -1,5 +1,3 @@
-#include "../IOHIDFamily/IOHIDFamily.xcconfig"
-
 MACH_O_TYPE = mh_dylib
 MACH_O_TYPE[sdk=macosx*] = mh_bundle
 PRODUCT_TYPE = com.apple.product-type.framework
@@ -9,3 +7,4 @@ ARCHS[sdk=macosx*] = i386 x86_64
 VALID_ARCHS[sdk=macosx*] = i386 x86_64
 OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern
 OTHER_CPLUSPLUSFLAGS = $(inherited) -ftrivial-auto-var-init=pattern
+WARNING_CFLAGS = $(inherited) -Wno-unknown-pragmas -Wno-four-char-constants -Wmost

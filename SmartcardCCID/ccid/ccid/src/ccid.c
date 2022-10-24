@@ -1,16 +1,16 @@
 /*
-    ccid.c: CCID common code
-    Copyright (C) 2003-2010   Ludovic Rousseau
+	ccid.c: CCID common code
+	Copyright (C) 2003-2010   Ludovic Rousseau
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+	This library is free software; you can redistribute it and/or
+	modify it under the terms of the GNU Lesser General Public
+	License as published by the Free Software Foundation; either
+	version 2.1 of the License, or (at your option) any later version.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+	This library is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+	Lesser General Public License for more details.
 
 	You should have received a copy of the GNU Lesser General Public License
 	along with this library; if not, write to the Free Software Foundation,
@@ -226,7 +226,7 @@ static void set_gemalto_firmware_features(unsigned int reader_index)
 		ret = CmdEscapeCheck(reader_index, cmd, sizeof cmd,
 			(unsigned char*)gf_features, &len_features, 0, TRUE);
 		if ((IFD_SUCCESS == ret) &&
-		    (len_features == sizeof *gf_features))
+			(len_features == sizeof *gf_features))
 		{
 			/* Command is supported if it succeeds at CCID level */
 			/* and returned size matches our expectation */
@@ -505,6 +505,12 @@ int ccid_open_hack_post(unsigned int reader_index)
 			ccid_descriptor->dwFeatures |= CCID_CLASS_EXTENDED_APDU;
 			break;
 
+		case KOBIL_TRIBANK:
+			/* Firmware does NOT supported extended APDU */
+			ccid_descriptor->dwFeatures &= ~CCID_CLASS_EXCHANGE_MASK;
+			ccid_descriptor->dwFeatures |= CCID_CLASS_SHORT_APDU;
+			break;
+
 #if 0
 		/* SCM SCR331-DI contactless */
 		case SCR331DI:
@@ -563,6 +569,20 @@ int ccid_open_hack_post(unsigned int reader_index)
 		case SCM_SCL011:
 			/* restore default timeout (modified in ccid_open_hack_pre()) */
 			ccid_descriptor->readTimeout = DEFAULT_COM_READ_TIMEOUT;
+			break;
+
+		case BIT4ID_MINILECTOR:
+			/* The firmware 1.11 advertises pinpad but actually doesn't
+			 * have one */
+			ccid_descriptor->bPINSupport = 0;
+			break;
+
+		case SAFENET_ETOKEN_5100:
+			/* the old SafeNet eToken 5110 SC (firmware 0.12 & 0.13)
+			 * does not like IFSD negotiation. So disable it. */
+			if ((0x0012 == ccid_descriptor->IFD_bcdDevice)
+				|| (0x0013 == ccid_descriptor->IFD_bcdDevice))
+				ccid_descriptor->dwFeatures |= CCID_CLASS_AUTO_IFSD;
 			break;
 	}
 

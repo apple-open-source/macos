@@ -332,7 +332,7 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 			    KMA_GUARD_LAST | KMA_ZERO);
 
 			if (((uint32_t) alignment) != alignment) {
-				return NULL;
+				return false;
 			}
 			if (kheap == KHEAP_DATA_BUFFERS) {
 				kma_flags = (kma_flags_t) (kma_flags | KMA_DATA);
@@ -365,10 +365,14 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 			}
 #endif /* defined(__x86_64__) */
 		} else if (alignment > 1) {
+			/* BEGIN IGNORE CODESTYLE */
+			__typed_allocators_ignore_push
 			_buffer = IOMallocAligned_internal(kheap, capacity, alignment,
 			    Z_ZERO_VM_TAG_BT_BIT);
 		} else {
 			_buffer = IOMalloc_internal(kheap, capacity, Z_ZERO_VM_TAG_BT_BIT);
+			__typed_allocators_ignore_pop
+			/* END IGNORE CODESTYLE */
 		}
 		if (!_buffer) {
 			return false;
@@ -738,9 +742,13 @@ IOBufferMemoryDescriptor::free()
 #endif
 			IOStatisticsAlloc(kIOStatisticsFreeAligned, size);
 		} else if (alignment > 1) {
+			/* BEGIN IGNORE CODESTYLE */
+			__typed_allocators_ignore_push
 			IOFreeAligned_internal(kheap, buffer, size);
 		} else {
 			IOFree_internal(kheap, buffer, size);
+			__typed_allocators_ignore_pop
+			/* END IGNORE CODESTYLE */
 		}
 	}
 	if (range && (kIOMemoryAsReference & flags)) {

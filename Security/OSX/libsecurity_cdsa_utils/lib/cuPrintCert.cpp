@@ -128,7 +128,7 @@ static const char *tagTypeString(
 		case BER_TAG_GENERALIZED_TIME:
 			return "BER_TAG_GENERALIZED_TIME";
 		default:
-			sprintf(unknownType, "Other type (0x%x)", tagType);
+			snprintf(unknownType, sizeof(unknownType), "Other type (0x%x)", tagType);
 			return unknownType;
 	}
 }
@@ -150,7 +150,7 @@ static void printOid(OidParser &parser, const CSSM_DATA *oid)
 		printf("EMPTY\n");
 		return;
 	}
-	parser.oidParse(oid->Data, (unsigned int)oid->Length, strBuf);
+	parser.oidParse(oid->Data, (unsigned int)oid->Length, strBuf, sizeof(strBuf));
 	printf("%s\n", strBuf);
 }
 

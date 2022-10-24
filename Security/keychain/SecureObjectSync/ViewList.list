@@ -49,4 +49,4 @@ DOVIEWMACRO(ApplePay,               "ApplePay",             "applepay",         
 DOVIEWMACRO(Home,                   "Home",                 "home",                    CKKS, D,  , A,  ,  )
 DOVIEWMACRO(LimitedPeersAllowed,    "LimitedPeersAllowed",  "limitedpeersallowed",     CKKS, D,  , A,  ,  )
 DOVIEWMACRO(MFi,                    "MFi",                  "mfi",                     CKKS, D,  , A,  ,  )
-
+DOVIEWMACRO(Mail,                   "Mail",                 "mail",                    CKKS, D,  , A,  ,  )

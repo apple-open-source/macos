@@ -97,5 +97,8 @@ _mmaintenanced:*:283:_mmaintenanced
 _darwindaemon:*:284:_darwindaemon
 _notification_proxy:*:285:_notification_proxy
 _accessory_mobile_share:*:286:mobile,_accessoryupdater
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater
+_backboardd:*:287:_backboardd
+_avphidbridge:*:288:_avphidbridge
+_launchservices:*:290:_launchservices
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater,_backboardd,_launchservices
 mobile:*:501:mobile

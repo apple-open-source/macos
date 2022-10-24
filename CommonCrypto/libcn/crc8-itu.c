@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc8_itu = {
+const crcDescriptor CC_crc8_itu = {
     .name = "crc8-itu",
     .defType = model,
     .def.parms.width = 1,

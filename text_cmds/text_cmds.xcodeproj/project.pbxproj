@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -13,6 +13,7 @@
 			buildPhases = (
 				FC6C98FD149A989300DDCC47 /* Install open source info */,
 				FD3562041B828154008A70F6 /* Install grep variant links */,
+				2A6BBF43275EAE8D00EBBEA6 /* Install test files */,
 			);
 			dependencies = (
 				FC7A7E95149875E00086576A /* PBXTargetDependency */,
@@ -57,6 +58,352 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A62DBC4276951EA001389AF /* COPYRIGHT in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A62DBC3276951E3001389AF /* COPYRIGHT */; };
+		2A6BBF67275EAFD000EBBEA6 /* d_align.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF5D275EAFCA00EBBEA6 /* d_align.in */; };
+		2A6BBF68275EAFD000EBBEA6 /* d_align.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF66275EAFCA00EBBEA6 /* d_align.out */; };
+		2A6BBF69275EAFD000EBBEA6 /* d_b_output.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF60275EAFCA00EBBEA6 /* d_b_output.in */; };
+		2A6BBF6A275EAFD000EBBEA6 /* d_b_output.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF61275EAFCA00EBBEA6 /* d_b_output.out */; };
+		2A6BBF6B275EAFD000EBBEA6 /* d_s_output.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF5F275EAFCA00EBBEA6 /* d_s_output.in */; };
+		2A6BBF6C275EAFD000EBBEA6 /* d_s_output.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF65275EAFCA00EBBEA6 /* d_s_output.out */; };
+		2A6BBF6D275EAFD000EBBEA6 /* d_se_output.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF63275EAFCA00EBBEA6 /* d_se_output.in */; };
+		2A6BBF6E275EAFD000EBBEA6 /* d_se_output.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF62275EAFCA00EBBEA6 /* d_se_output.out */; };
+		2A6BBF6F275EAFD000EBBEA6 /* d_vt_output.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF64275EAFCA00EBBEA6 /* d_vt_output.in */; };
+		2A6BBF70275EAFD000EBBEA6 /* d_vt_output.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF5E275EAFCA00EBBEA6 /* d_vt_output.out */; };
+		2A6BBF71275EAFD000EBBEA6 /* t_cat.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF5C275EAFCA00EBBEA6 /* t_cat.sh */; };
+		2A6BBF7D275EB03D00EBBEA6 /* col_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF79275EB01400EBBEA6 /* col_test.sh */; };
+		2A6BBF7E275EB03D00EBBEA6 /* hlf.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF77275EB01400EBBEA6 /* hlf.in */; };
+		2A6BBF7F275EB03D00EBBEA6 /* hlf2.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF78275EB01400EBBEA6 /* hlf2.in */; };
+		2A6BBF80275EB03D00EBBEA6 /* nl.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF76275EB01400EBBEA6 /* nl.in */; };
+		2A6BBF81275EB03D00EBBEA6 /* nl2.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF74275EB01400EBBEA6 /* nl2.in */; };
+		2A6BBF82275EB03D00EBBEA6 /* nl3.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF73275EB01400EBBEA6 /* nl3.in */; };
+		2A6BBF83275EB03D00EBBEA6 /* rlf.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF75275EB01400EBBEA6 /* rlf.in */; };
+		2A6BBF84275EB03D00EBBEA6 /* rlf2.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF7A275EB01400EBBEA6 /* rlf2.in */; };
+		2A6BBF85275EB03D00EBBEA6 /* rlf3.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF7B275EB01400EBBEA6 /* rlf3.in */; };
+		2A6BBF93275EB19600EBBEA6 /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8A275EB14C00EBBEA6 /* legacy_test.sh */; };
+		2A6BBF94275EB19600EBBEA6 /* regress.00.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8B275EB14C00EBBEA6 /* regress.00.out */; };
+		2A6BBF95275EB19600EBBEA6 /* regress.00a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8E275EB14C00EBBEA6 /* regress.00a.in */; };
+		2A6BBF96275EB19600EBBEA6 /* regress.00b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8C275EB14C00EBBEA6 /* regress.00b.in */; };
+		2A6BBF97275EB19600EBBEA6 /* regress.01.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8D275EB14C00EBBEA6 /* regress.01.out */; };
+		2A6BBF98275EB19600EBBEA6 /* regress.01a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF90275EB14C00EBBEA6 /* regress.01a.in */; };
+		2A6BBF99275EB19600EBBEA6 /* regress.01b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF8F275EB14C00EBBEA6 /* regress.01b.in */; };
+		2A6BBF9A275EB19600EBBEA6 /* regress.02.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF91275EB14C00EBBEA6 /* regress.02.out */; };
+		2A6BBF9B275EB19600EBBEA6 /* regress.02a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF87275EB14C00EBBEA6 /* regress.02a.in */; };
+		2A6BBF9C275EB19600EBBEA6 /* regress.02b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF88275EB14C00EBBEA6 /* regress.02b.in */; };
+		2A6BBF9D275EB19600EBBEA6 /* regress.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF89275EB14C00EBBEA6 /* regress.sh */; };
+		2A6BBFA1275EB39D00EBBEA6 /* csplit_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBF9F275EB34000EBBEA6 /* csplit_test.sh */; };
+		2A6BBFAD275EB43600EBBEA6 /* cut2_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFAC275EB42F00EBBEA6 /* cut2_test.sh */; };
+		2A6BBFAE275EB43600EBBEA6 /* d_basic.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA4275EB42F00EBBEA6 /* d_basic.out */; };
+		2A6BBFAF275EB43600EBBEA6 /* d_cut.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA6275EB42F00EBBEA6 /* d_cut.in */; };
+		2A6BBFB0275EB43600EBBEA6 /* d_dflag.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA8275EB42F00EBBEA6 /* d_dflag.out */; };
+		2A6BBFB1275EB43600EBBEA6 /* d_dsflag.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA7275EB42F00EBBEA6 /* d_dsflag.out */; };
+		2A6BBFB2275EB43600EBBEA6 /* d_latin1.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA5275EB42F00EBBEA6 /* d_latin1.in */; };
+		2A6BBFB3275EB43600EBBEA6 /* d_sflag.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFA9275EB42F00EBBEA6 /* d_sflag.out */; };
+		2A6BBFB4275EB43600EBBEA6 /* d_utf8.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFAA275EB42F00EBBEA6 /* d_utf8.in */; };
+		2A6BBFB5275EB43600EBBEA6 /* t_cut.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFAB275EB42F00EBBEA6 /* t_cut.sh */; };
+		2A6BBFB9275EB4D700EBBEA6 /* fold_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFB8275EB4D500EBBEA6 /* fold_test.sh */; };
+		2A6BBFEC275EB57E00EBBEA6 /* d_basic.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC2275EB57500EBBEA6 /* d_basic.out */; };
+		2A6BBFED275EB57E00EBBEA6 /* d_begin_end_a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE8275EB57600EBBEA6 /* d_begin_end_a.out */; };
+		2A6BBFEE275EB57E00EBBEA6 /* d_begin_end_b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCB275EB57500EBBEA6 /* d_begin_end_b.out */; };
+		2A6BBFEF275EB57E00EBBEA6 /* d_binary.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFBC275EB57500EBBEA6 /* d_binary.out */; };
+		2A6BBFF0275EB57E00EBBEA6 /* d_color_a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC7275EB57500EBBEA6 /* d_color_a.in */; };
+		2A6BBFF1275EB57E00EBBEA6 /* d_color_a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD3275EB57600EBBEA6 /* d_color_a.out */; };
+		2A6BBFF2275EB57E00EBBEA6 /* d_color_b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDF275EB57600EBBEA6 /* d_color_b.in */; };
+		2A6BBFF3275EB57E00EBBEA6 /* d_color_b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC3275EB57500EBBEA6 /* d_color_b.out */; };
+		2A6BBFF4275EB57E00EBBEA6 /* d_color_c.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCE275EB57500EBBEA6 /* d_color_c.out */; };
+		2A6BBFF5275EB57E00EBBEA6 /* d_context_a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC9275EB57500EBBEA6 /* d_context_a.in */; };
+		2A6BBFF6275EB57E00EBBEA6 /* d_context_a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC5275EB57500EBBEA6 /* d_context_a.out */; };
+		2A6BBFF7275EB57E00EBBEA6 /* d_context_b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCF275EB57500EBBEA6 /* d_context_b.in */; };
+		2A6BBFF8275EB57E00EBBEA6 /* d_context_b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFBD275EB57500EBBEA6 /* d_context_b.out */; };
+		2A6BBFF9275EB57E00EBBEA6 /* d_context_c.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC6275EB57500EBBEA6 /* d_context_c.out */; };
+		2A6BBFFA275EB57E00EBBEA6 /* d_context_d.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD4275EB57600EBBEA6 /* d_context_d.out */; };
+		2A6BBFFB275EB57E00EBBEA6 /* d_context_e.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDC275EB57600EBBEA6 /* d_context_e.in */; };
+		2A6BBFFC275EB57E00EBBEA6 /* d_context_e.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE4275EB57600EBBEA6 /* d_context_e.out */; };
+		2A6BBFFD275EB57E00EBBEA6 /* d_context_f.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE2275EB57600EBBEA6 /* d_context_f.out */; };
+		2A6BBFFE275EB57E00EBBEA6 /* d_context_g.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE0275EB57600EBBEA6 /* d_context_g.out */; };
+		2A6BBFFF275EB57E00EBBEA6 /* d_context2_a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCD275EB57500EBBEA6 /* d_context2_a.out */; };
+		2A6BC000275EB57E00EBBEA6 /* d_context2_b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD5275EB57600EBBEA6 /* d_context2_b.out */; };
+		2A6BC001275EB57E00EBBEA6 /* d_context2_c.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC8275EB57500EBBEA6 /* d_context2_c.out */; };
+		2A6BC002275EB57E00EBBEA6 /* d_egrep.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFEB275EB57700EBBEA6 /* d_egrep.out */; };
+		2A6BC003275EB57E00EBBEA6 /* d_escmap.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDB275EB57600EBBEA6 /* d_escmap.in */; };
+		2A6BC004275EB57E00EBBEA6 /* d_f_file_empty.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD8275EB57600EBBEA6 /* d_f_file_empty.in */; };
+		2A6BC005275EB57E00EBBEA6 /* d_file_exp.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFBE275EB57500EBBEA6 /* d_file_exp.in */; };
+		2A6BC006275EB57E00EBBEA6 /* d_file_exp.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD9275EB57600EBBEA6 /* d_file_exp.out */; };
+		2A6BC007275EB57E00EBBEA6 /* d_ignore_case.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCC275EB57500EBBEA6 /* d_ignore_case.out */; };
+		2A6BC008275EB57E00EBBEA6 /* d_input in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFBF275EB57500EBBEA6 /* d_input */; };
+		2A6BC009275EB57E00EBBEA6 /* d_invert.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD7275EB57600EBBEA6 /* d_invert.in */; };
+		2A6BC00A275EB57E00EBBEA6 /* d_invert.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDD275EB57600EBBEA6 /* d_invert.out */; };
+		2A6BC00B275EB57E00EBBEA6 /* d_oflag_zerolen_a.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE9275EB57600EBBEA6 /* d_oflag_zerolen_a.in */; };
+		2A6BC00C275EB57E00EBBEA6 /* d_oflag_zerolen_a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC4275EB57500EBBEA6 /* d_oflag_zerolen_a.out */; };
+		2A6BC00D275EB57E00EBBEA6 /* d_oflag_zerolen_b.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDA275EB57600EBBEA6 /* d_oflag_zerolen_b.in */; };
+		2A6BC00E275EB57E00EBBEA6 /* d_oflag_zerolen_b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFDE275EB57600EBBEA6 /* d_oflag_zerolen_b.out */; };
+		2A6BC00F275EB57E00EBBEA6 /* d_oflag_zerolen_c.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD0275EB57500EBBEA6 /* d_oflag_zerolen_c.in */; };
+		2A6BC010275EB57E00EBBEA6 /* d_oflag_zerolen_c.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE5275EB57600EBBEA6 /* d_oflag_zerolen_c.out */; };
+		2A6BC011275EB57E00EBBEA6 /* d_oflag_zerolen_d.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC0275EB57500EBBEA6 /* d_oflag_zerolen_d.in */; };
+		2A6BC012275EB57E00EBBEA6 /* d_oflag_zerolen_e.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE1275EB57600EBBEA6 /* d_oflag_zerolen_e.in */; };
+		2A6BC013275EB57E00EBBEA6 /* d_oflag_zerolen_e.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE6275EB57600EBBEA6 /* d_oflag_zerolen_e.out */; };
+		2A6BC014275EB57E00EBBEA6 /* d_recurse_symlink.err in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFC1275EB57500EBBEA6 /* d_recurse_symlink.err */; };
+		2A6BC015275EB57E00EBBEA6 /* d_recurse_symlink.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE7275EB57600EBBEA6 /* d_recurse_symlink.out */; };
+		2A6BC016275EB57E00EBBEA6 /* d_recurse.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD2275EB57600EBBEA6 /* d_recurse.out */; };
+		2A6BC017275EB57E00EBBEA6 /* d_whole_line.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD1275EB57500EBBEA6 /* d_whole_line.out */; };
+		2A6BC018275EB57E00EBBEA6 /* d_word_regexps.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFE3275EB57600EBBEA6 /* d_word_regexps.out */; };
+		2A6BC019275EB57E00EBBEA6 /* d_zgrep.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFD6275EB57600EBBEA6 /* d_zgrep.out */; };
+		2A6BC01A275EB57E00EBBEA6 /* grep_freebsd_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFEA275EB57700EBBEA6 /* grep_freebsd_test.sh */; };
+		2A6BC01B275EB57E00EBBEA6 /* t_grep.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BBFCA275EB57500EBBEA6 /* t_grep.sh */; };
+		2A6BC01F275EB76100EBBEA6 /* head_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC01D275EB74500EBBEA6 /* head_test.sh */; };
+		2A6BC027275EB83E00EBBEA6 /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC024275EB7CA00EBBEA6 /* legacy_test.sh */; };
+		2A6BC028275EB83E00EBBEA6 /* regress.1.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC025275EB7CA00EBBEA6 /* regress.1.in */; };
+		2A6BC029275EB83E00EBBEA6 /* regress.2.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC026275EB7CA00EBBEA6 /* regress.2.in */; };
+		2A6BC02A275EB83E00EBBEA6 /* regress.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC023275EB7CA00EBBEA6 /* regress.out */; };
+		2A6BC02B275EB83E00EBBEA6 /* regress.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC022275EB7CA00EBBEA6 /* regress.sh */; };
+		2A6BC06F275EB8ED00EBBEA6 /* 1.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC063275EB8DF00EBBEA6 /* 1.sha512-p.chk */; };
+		2A6BC070275EB8ED00EBBEA6 /* 1.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC03C275EB8DD00EBBEA6 /* 1.sha512sum-p.chk */; };
+		2A6BC071275EB8ED00EBBEA6 /* 2.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC031275EB8DD00EBBEA6 /* 2.inp */; };
+		2A6BC072275EB8ED00EBBEA6 /* 2.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC069275EB8DF00EBBEA6 /* 2.sha512-p.chk */; };
+		2A6BC073275EB8ED00EBBEA6 /* 2.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC042275EB8DD00EBBEA6 /* 2.sha512sum-p.chk */; };
+		2A6BC074275EB8ED00EBBEA6 /* 3.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC041275EB8DD00EBBEA6 /* 3.inp */; };
+		2A6BC075275EB8ED00EBBEA6 /* 3.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC030275EB8DD00EBBEA6 /* 3.sha512-p.chk */; };
+		2A6BC076275EB8ED00EBBEA6 /* 3.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC045275EB8DE00EBBEA6 /* 3.sha512sum-p.chk */; };
+		2A6BC077275EB8ED00EBBEA6 /* 4.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04E275EB8DE00EBBEA6 /* 4.inp */; };
+		2A6BC078275EB8ED00EBBEA6 /* 4.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC059275EB8DF00EBBEA6 /* 4.sha512-p.chk */; };
+		2A6BC079275EB8ED00EBBEA6 /* 4.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04F275EB8DE00EBBEA6 /* 4.sha512sum-p.chk */; };
+		2A6BC07A275EB8ED00EBBEA6 /* 5.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC037275EB8DD00EBBEA6 /* 5.inp */; };
+		2A6BC07B275EB8ED00EBBEA6 /* 5.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04A275EB8DE00EBBEA6 /* 5.sha512-p.chk */; };
+		2A6BC07C275EB8ED00EBBEA6 /* 5.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC06B275EB8DF00EBBEA6 /* 5.sha512sum-p.chk */; };
+		2A6BC07D275EB8ED00EBBEA6 /* 6.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05D275EB8DF00EBBEA6 /* 6.inp */; };
+		2A6BC07E275EB8ED00EBBEA6 /* 6.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC06A275EB8DF00EBBEA6 /* 6.sha512-p.chk */; };
+		2A6BC07F275EB8ED00EBBEA6 /* 6.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC040275EB8DD00EBBEA6 /* 6.sha512sum-p.chk */; };
+		2A6BC080275EB8ED00EBBEA6 /* 7.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC046275EB8DE00EBBEA6 /* 7.inp */; };
+		2A6BC081275EB8ED00EBBEA6 /* 7.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC03B275EB8DD00EBBEA6 /* 7.sha512-p.chk */; };
+		2A6BC082275EB8ED00EBBEA6 /* 7.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC036275EB8DD00EBBEA6 /* 7.sha512sum-p.chk */; };
+		2A6BC083275EB8ED00EBBEA6 /* 8.inp in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC058275EB8DF00EBBEA6 /* 8.inp */; };
+		2A6BC084275EB8ED00EBBEA6 /* 8.sha512-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04D275EB8DE00EBBEA6 /* 8.sha512-p.chk */; };
+		2A6BC085275EB8ED00EBBEA6 /* 8.sha512sum-p.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05F275EB8DF00EBBEA6 /* 8.sha512sum-p.chk */; };
+		2A6BC086275EB8ED00EBBEA6 /* algorithms.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC054275EB8DE00EBBEA6 /* algorithms.txt */; };
+		2A6BC087275EB8ED00EBBEA6 /* bsd-c-test.SH in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC064275EB8DF00EBBEA6 /* bsd-c-test.SH */; };
+		2A6BC088275EB8ED00EBBEA6 /* bsd-p-test.SH in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05A275EB8DF00EBBEA6 /* bsd-p-test.SH */; };
+		2A6BC089275EB8ED00EBBEA6 /* bsd-s-test.SH in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC056275EB8DF00EBBEA6 /* bsd-s-test.SH */; };
+		2A6BC08A275EB8ED00EBBEA6 /* coreutils-c-test.SH in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC043275EB8DD00EBBEA6 /* coreutils-c-test.SH */; };
+		2A6BC08B275EB8ED00EBBEA6 /* md5.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC03A275EB8DD00EBBEA6 /* md5.digest */; };
+		2A6BC08C275EB8ED00EBBEA6 /* md5sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05B275EB8DF00EBBEA6 /* md5sum.digest */; };
+		2A6BC08D275EB8ED00EBBEA6 /* rmd160.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC053275EB8DE00EBBEA6 /* rmd160.digest */; };
+		2A6BC08E275EB8ED00EBBEA6 /* rmd160sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC065275EB8DF00EBBEA6 /* rmd160sum.digest */; };
+		2A6BC08F275EB8ED00EBBEA6 /* self-test.md5.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04B275EB8DE00EBBEA6 /* self-test.md5.chk */; };
+		2A6BC090275EB8ED00EBBEA6 /* self-test.rmd160.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC06C275EB8DF00EBBEA6 /* self-test.rmd160.chk */; };
+		2A6BC091275EB8ED00EBBEA6 /* self-test.SH in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC03D275EB8DD00EBBEA6 /* self-test.SH */; };
+		2A6BC093275EB8ED00EBBEA6 /* self-test.sha1.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC047275EB8DE00EBBEA6 /* self-test.sha1.chk */; };
+		2A6BC094275EB8ED00EBBEA6 /* self-test.sha224.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05E275EB8DF00EBBEA6 /* self-test.sha224.chk */; };
+		2A6BC095275EB8ED00EBBEA6 /* self-test.sha256.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC02E275EB8DD00EBBEA6 /* self-test.sha256.chk */; };
+		2A6BC096275EB8ED00EBBEA6 /* self-test.sha384.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC049275EB8DE00EBBEA6 /* self-test.sha384.chk */; };
+		2A6BC097275EB8ED00EBBEA6 /* self-test.sha512.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC067275EB8DF00EBBEA6 /* self-test.sha512.chk */; };
+		2A6BC098275EB8ED00EBBEA6 /* self-test.sha512t256.chk in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC03E275EB8DD00EBBEA6 /* self-test.sha512t256.chk */; };
+		2A6BC09C275EB8ED00EBBEA6 /* sha1.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC05C275EB8DF00EBBEA6 /* sha1.digest */; };
+		2A6BC09D275EB8ED00EBBEA6 /* sha1sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC057275EB8DF00EBBEA6 /* sha1sum.digest */; };
+		2A6BC09E275EB8ED00EBBEA6 /* sha224.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC052275EB8DE00EBBEA6 /* sha224.digest */; };
+		2A6BC09F275EB8ED00EBBEA6 /* sha224sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC061275EB8DF00EBBEA6 /* sha224sum.digest */; };
+		2A6BC0A0275EB8ED00EBBEA6 /* sha256.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC050275EB8DE00EBBEA6 /* sha256.digest */; };
+		2A6BC0A1275EB8ED00EBBEA6 /* sha256sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC034275EB8DD00EBBEA6 /* sha256sum.digest */; };
+		2A6BC0A2275EB8ED00EBBEA6 /* sha384.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC051275EB8DE00EBBEA6 /* sha384.digest */; };
+		2A6BC0A3275EB8ED00EBBEA6 /* sha384sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC033275EB8DD00EBBEA6 /* sha384sum.digest */; };
+		2A6BC0A4275EB8ED00EBBEA6 /* sha512.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC04C275EB8DE00EBBEA6 /* sha512.digest */; };
+		2A6BC0A5275EB8ED00EBBEA6 /* sha512sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC066275EB8DF00EBBEA6 /* sha512sum.digest */; };
+		2A6BC0A6275EB8ED00EBBEA6 /* sha512t256.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC06D275EB8DF00EBBEA6 /* sha512t256.digest */; };
+		2A6BC0A7275EB8ED00EBBEA6 /* sha512t256sum.digest in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC039275EB8DD00EBBEA6 /* sha512t256sum.digest */; };
+		2A6BC0B8275EBBDE00EBBEA6 /* across.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B6275EBBC000EBBEA6 /* across.out */; };
+		2A6BC0B9275EBBDE00EBBEA6 /* basic2_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B4275EBBC000EBBEA6 /* basic2_test.sh */; };
+		2A6BC0BA275EBBDE00EBBEA6 /* d_basic.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B3275EBBBF00EBBEA6 /* d_basic.in */; };
+		2A6BC0BB275EBBDE00EBBEA6 /* d_basic.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B2275EBBBF00EBBEA6 /* d_basic.out */; };
+		2A6BC0BC275EBBDE00EBBEA6 /* merge.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B5275EBBC000EBBEA6 /* merge.out */; };
+		2A6BC0BD275EBBDE00EBBEA6 /* other.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B0275EBBBF00EBBEA6 /* other.in */; };
+		2A6BC0BE275EBBDE00EBBEA6 /* t_basic.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0B1275EBBBF00EBBEA6 /* t_basic.sh */; };
+		2A6BC0BF275EBBDE00EBBEA6 /* threecol.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0AF275EBBBF00EBBEA6 /* threecol.out */; };
+		2A6BC0C3275EBCB200EBBEA6 /* rs_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0C2275EBCB000EBBEA6 /* rs_test.sh */; };
+		2A6BC191275EBDDE00EBBEA6 /* d_c2048.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FF275EBD8600EBBEA6 /* d_c2048.in */; };
+		2A6BC192275EBDDE00EBBEA6 /* hanoi.sed in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F9275EBD8600EBBEA6 /* hanoi.sed */; };
+		2A6BC193275EBDDE00EBBEA6 /* inplace_race_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F2275EBD8600EBBEA6 /* inplace_race_test.sh */; };
+		2A6BC194275EBDDE00EBBEA6 /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0EF275EBD8500EBBEA6 /* legacy_test.sh */; };
+		2A6BC195275EBDDE00EBBEA6 /* math.sed in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F7275EBD8600EBBEA6 /* math.sed */; };
+		2A6BC196275EBDDE00EBBEA6 /* multi_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0EE275EBD8500EBBEA6 /* multi_test.sh */; };
+		2A6BC197275EBDDE00EBBEA6 /* regress.b2a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F1275EBD8600EBBEA6 /* regress.b2a.out */; };
+		2A6BC198275EBDDE00EBBEA6 /* regress.bcb.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F5275EBD8600EBBEA6 /* regress.bcb.out */; };
+		2A6BC199275EBDDE00EBBEA6 /* regress.c0.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC100275EBD8600EBBEA6 /* regress.c0.out */; };
+		2A6BC19A275EBDDE00EBBEA6 /* regress.c1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FA275EBD8600EBBEA6 /* regress.c1.out */; };
+		2A6BC19B275EBDDE00EBBEA6 /* regress.c2.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F8275EBD8600EBBEA6 /* regress.c2.out */; };
+		2A6BC19C275EBDDE00EBBEA6 /* regress.c3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F4275EBD8600EBBEA6 /* regress.c3.out */; };
+		2A6BC19D275EBDDE00EBBEA6 /* regress.G.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F6275EBD8600EBBEA6 /* regress.G.out */; };
+		2A6BC19E275EBDDE00EBBEA6 /* regress.hanoi.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FB275EBD8600EBBEA6 /* regress.hanoi.out */; };
+		2A6BC19F275EBDDE00EBBEA6 /* regress.icase1.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FC275EBD8600EBBEA6 /* regress.icase1.out */; };
+		2A6BC1A0275EBDDE00EBBEA6 /* regress.icase2.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FD275EBD8600EBBEA6 /* regress.icase2.out */; };
+		2A6BC1A1275EBDDE00EBBEA6 /* regress.icase3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0FE275EBD8600EBBEA6 /* regress.icase3.out */; };
+		2A6BC1A2275EBDDE00EBBEA6 /* regress.icase4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F0275EBD8500EBBEA6 /* regress.icase4.out */; };
+		2A6BC1A3275EBDDE00EBBEA6 /* regress.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC101275EBD8600EBBEA6 /* regress.in */; };
+		2A6BC1A4275EBDDE00EBBEA6 /* regress.math.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC0F3275EBD8600EBBEA6 /* regress.math.out */; };
+		2A6BC1A5275EBDE700EBBEA6 /* regress.not.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18F275EBDCB00EBBEA6 /* regress.not.out */; };
+		2A6BC1A6275EBDE700EBBEA6 /* regress.P.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18A275EBDCA00EBBEA6 /* regress.P.out */; };
+		2A6BC1A7275EBDE700EBBEA6 /* regress.psl.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18E275EBDCA00EBBEA6 /* regress.psl.out */; };
+		2A6BC1A8275EBDE700EBBEA6 /* regress.s3.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18C275EBDCA00EBBEA6 /* regress.s3.out */; };
+		2A6BC1A9275EBDE700EBBEA6 /* regress.s4.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC187275EBDCA00EBBEA6 /* regress.s4.out */; };
+		2A6BC1AA275EBDE700EBBEA6 /* regress.s5.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC190275EBDCB00EBBEA6 /* regress.s5.out */; };
+		2A6BC1AB275EBDE700EBBEA6 /* regress.sg.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC188275EBDCA00EBBEA6 /* regress.sg.out */; };
+		2A6BC1AC275EBDE700EBBEA6 /* regress.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC186275EBDCA00EBBEA6 /* regress.sh */; };
+		2A6BC1AD275EBDE700EBBEA6 /* regress.y.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18B275EBDCA00EBBEA6 /* regress.y.out */; };
+		2A6BC1AE275EBDE700EBBEA6 /* sed2_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC18D275EBDCA00EBBEA6 /* sed2_test.sh */; };
+		2A6BC1AF275EBDE700EBBEA6 /* t_sed.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC189275EBDCA00EBBEA6 /* t_sed.sh */; };
+		2A6BC1B1275EBE3500EBBEA6 /* 1.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10B275EBDB700EBBEA6 /* 1.1 */; };
+		2A6BC1B2275EBE3500EBBEA6 /* 1.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC184275EBDBD00EBBEA6 /* 1.2 */; };
+		2A6BC1B3275EBE3500EBBEA6 /* 1.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC142275EBDBA00EBBEA6 /* 1.3 */; };
+		2A6BC1B4275EBE3500EBBEA6 /* 1.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15A275EBDBB00EBBEA6 /* 1.4 */; };
+		2A6BC1B5275EBE3500EBBEA6 /* 1.4.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17F275EBDBD00EBBEA6 /* 1.4.1 */; };
+		2A6BC1B6275EBE3500EBBEA6 /* 1.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC179275EBDBD00EBBEA6 /* 1.5 */; };
+		2A6BC1B7275EBE3500EBBEA6 /* 1.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16E275EBDBC00EBBEA6 /* 1.6 */; };
+		2A6BC1B8275EBE3500EBBEA6 /* 1.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12B275EBDB900EBBEA6 /* 1.7 */; };
+		2A6BC1B9275EBE3500EBBEA6 /* 1.8 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC182275EBDBD00EBBEA6 /* 1.8 */; };
+		2A6BC1BA275EBE3500EBBEA6 /* 1.9 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC120275EBDB800EBBEA6 /* 1.9 */; };
+		2A6BC1BB275EBE3500EBBEA6 /* 1.10 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10F275EBDB700EBBEA6 /* 1.10 */; };
+		2A6BC1BC275EBE3500EBBEA6 /* 1.11 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC147275EBDBA00EBBEA6 /* 1.11 */; };
+		2A6BC1BD275EBE3500EBBEA6 /* 1.12 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC180275EBDBD00EBBEA6 /* 1.12 */; };
+		2A6BC1BE275EBE3500EBBEA6 /* 1.13 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC11F275EBDB800EBBEA6 /* 1.13 */; };
+		2A6BC1BF275EBE3500EBBEA6 /* 1.14 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC104275EBDB700EBBEA6 /* 1.14 */; };
+		2A6BC1C0275EBE3500EBBEA6 /* 1.15 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC151275EBDBB00EBBEA6 /* 1.15 */; };
+		2A6BC1C1275EBE3500EBBEA6 /* 1.16 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC150275EBDBB00EBBEA6 /* 1.16 */; };
+		2A6BC1C2275EBE3500EBBEA6 /* 1.17 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC110275EBDB700EBBEA6 /* 1.17 */; };
+		2A6BC1C3275EBE3500EBBEA6 /* 1.18 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC156275EBDBB00EBBEA6 /* 1.18 */; };
+		2A6BC1C4275EBE3500EBBEA6 /* 2.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC138275EBDB900EBBEA6 /* 2.1 */; };
+		2A6BC1C5275EBE3500EBBEA6 /* 2.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC141275EBDBA00EBBEA6 /* 2.2 */; };
+		2A6BC1C6275EBE3500EBBEA6 /* 2.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13F275EBDBA00EBBEA6 /* 2.3 */; };
+		2A6BC1C7275EBE3500EBBEA6 /* 2.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC122275EBDB800EBBEA6 /* 2.4 */; };
+		2A6BC1C9275EBE3500EBBEA6 /* 2.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC118275EBDB800EBBEA6 /* 2.6 */; };
+		2A6BC1CC275EBE3500EBBEA6 /* 2.9 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16C275EBDBC00EBBEA6 /* 2.9 */; };
+		2A6BC1CD275EBE3500EBBEA6 /* 2.10 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12C275EBDB900EBBEA6 /* 2.10 */; };
+		2A6BC1CE275EBE3500EBBEA6 /* 2.11 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12D275EBDB900EBBEA6 /* 2.11 */; };
+		2A6BC1CF275EBE3500EBBEA6 /* 2.12 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC121275EBDB800EBBEA6 /* 2.12 */; };
+		2A6BC1D0275EBE3500EBBEA6 /* 2.13 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC161275EBDBC00EBBEA6 /* 2.13 */; };
+		2A6BC1D1275EBE3500EBBEA6 /* 2.14 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC135275EBDB900EBBEA6 /* 2.14 */; };
+		2A6BC1D2275EBE3500EBBEA6 /* 2.15 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC181275EBDBD00EBBEA6 /* 2.15 */; };
+		2A6BC1D3275EBE3500EBBEA6 /* 2.16 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC143275EBDBA00EBBEA6 /* 2.16 */; };
+		2A6BC1D4275EBE3500EBBEA6 /* 2.17 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC152275EBDBB00EBBEA6 /* 2.17 */; };
+		2A6BC1D5275EBE3500EBBEA6 /* 2.18 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13A275EBDBA00EBBEA6 /* 2.18 */; };
+		2A6BC1D6275EBE3600EBBEA6 /* 2.19 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16B275EBDBC00EBBEA6 /* 2.19 */; };
+		2A6BC1D7275EBE3600EBBEA6 /* 2.20 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC149275EBDBA00EBBEA6 /* 2.20 */; };
+		2A6BC1D8275EBE3600EBBEA6 /* 2.21 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC172275EBDBC00EBBEA6 /* 2.21 */; };
+		2A6BC1D9275EBE3600EBBEA6 /* 2.22 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14C275EBDBA00EBBEA6 /* 2.22 */; };
+		2A6BC1DA275EBE3600EBBEA6 /* 2.23 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC154275EBDBB00EBBEA6 /* 2.23 */; };
+		2A6BC1DB275EBE3600EBBEA6 /* 3.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12A275EBDB900EBBEA6 /* 3.1 */; };
+		2A6BC1DC275EBE3600EBBEA6 /* 3.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC159275EBDBB00EBBEA6 /* 3.2 */; };
+		2A6BC1DD275EBE3600EBBEA6 /* 3.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC146275EBDBA00EBBEA6 /* 3.3 */; };
+		2A6BC1DE275EBE3600EBBEA6 /* 3.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC164275EBDBC00EBBEA6 /* 3.4 */; };
+		2A6BC1DF275EBE3600EBBEA6 /* 4.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17B275EBDBD00EBBEA6 /* 4.1 */; };
+		2A6BC1E0275EBE3600EBBEA6 /* 4.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC160275EBDBC00EBBEA6 /* 4.2 */; };
+		2A6BC1E1275EBE3600EBBEA6 /* 4.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC162275EBDBC00EBBEA6 /* 4.3 */; };
+		2A6BC1E2275EBE3600EBBEA6 /* 4.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15C275EBDBB00EBBEA6 /* 4.4 */; };
+		2A6BC1E3275EBE3600EBBEA6 /* 4.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC148275EBDBA00EBBEA6 /* 4.5 */; };
+		2A6BC1E4275EBE3600EBBEA6 /* 4.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC108275EBDB700EBBEA6 /* 4.6 */; };
+		2A6BC1E5275EBE3600EBBEA6 /* 4.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC145275EBDBA00EBBEA6 /* 4.7 */; };
+		2A6BC1E7275EBE3600EBBEA6 /* 5.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC117275EBDB800EBBEA6 /* 5.1 */; };
+		2A6BC1E8275EBE3600EBBEA6 /* 5.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC158275EBDBB00EBBEA6 /* 5.2 */; };
+		2A6BC1E9275EBE3600EBBEA6 /* 5.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC134275EBDB900EBBEA6 /* 5.3 */; };
+		2A6BC1EA275EBE3600EBBEA6 /* 5.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC173275EBDBC00EBBEA6 /* 5.4 */; };
+		2A6BC1EB275EBE3600EBBEA6 /* 5.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12E275EBDB900EBBEA6 /* 5.5 */; };
+		2A6BC1EC275EBE3600EBBEA6 /* 5.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14A275EBDBA00EBBEA6 /* 5.6 */; };
+		2A6BC1ED275EBE3600EBBEA6 /* 5.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC109275EBDB700EBBEA6 /* 5.7 */; };
+		2A6BC1EE275EBE3600EBBEA6 /* 5.8 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC105275EBDB700EBBEA6 /* 5.8 */; };
+		2A6BC1EF275EBE3600EBBEA6 /* 6.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15B275EBDBB00EBBEA6 /* 6.1 */; };
+		2A6BC1F0275EBE3600EBBEA6 /* 6.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC12F275EBDB900EBBEA6 /* 6.2 */; };
+		2A6BC1F2275EBE3600EBBEA6 /* 6.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC107275EBDB700EBBEA6 /* 6.4 */; };
+		2A6BC1F3275EBE3600EBBEA6 /* 6.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13C275EBDBA00EBBEA6 /* 6.5 */; };
+		2A6BC1F5275EBE3600EBBEA6 /* 7.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10A275EBDB700EBBEA6 /* 7.1 */; };
+		2A6BC1F6275EBE3600EBBEA6 /* 7.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14B275EBDBA00EBBEA6 /* 7.2 */; };
+		2A6BC1F7275EBE3600EBBEA6 /* 7.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10C275EBDB700EBBEA6 /* 7.3 */; };
+		2A6BC1F8275EBE3600EBBEA6 /* 7.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC136275EBDB900EBBEA6 /* 7.4 */; };
+		2A6BC1F9275EBE3600EBBEA6 /* 7.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17C275EBDBD00EBBEA6 /* 7.5 */; };
+		2A6BC1FA275EBE3600EBBEA6 /* 7.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC111275EBDB700EBBEA6 /* 7.6 */; };
+		2A6BC1FB275EBE3600EBBEA6 /* 7.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC130275EBDB900EBBEA6 /* 7.7 */; };
+		2A6BC1FC275EBE3600EBBEA6 /* 7.8 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17A275EBDBD00EBBEA6 /* 7.8 */; };
+		2A6BC1FD275EBE3600EBBEA6 /* 8.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16D275EBDBC00EBBEA6 /* 8.1 */; };
+		2A6BC1FE275EBE3600EBBEA6 /* 8.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15D275EBDBB00EBBEA6 /* 8.2 */; };
+		2A6BC1FF275EBE3600EBBEA6 /* 8.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC175275EBDBD00EBBEA6 /* 8.3 */; };
+		2A6BC200275EBE3600EBBEA6 /* 8.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC113275EBDB700EBBEA6 /* 8.4 */; };
+		2A6BC201275EBE3600EBBEA6 /* 8.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC139275EBDB900EBBEA6 /* 8.5 */; };
+		2A6BC202275EBE3600EBBEA6 /* 8.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC116275EBDB800EBBEA6 /* 8.6 */; };
+		2A6BC203275EBE3600EBBEA6 /* 8.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC183275EBDBD00EBBEA6 /* 8.7 */; };
+		2A6BC204275EBE3600EBBEA6 /* 8.8 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10E275EBDB700EBBEA6 /* 8.8 */; };
+		2A6BC205275EBE3600EBBEA6 /* 8.9 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC178275EBDBD00EBBEA6 /* 8.9 */; };
+		2A6BC206275EBE3600EBBEA6 /* 8.10 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC11E275EBDB800EBBEA6 /* 8.10 */; };
+		2A6BC207275EBE3600EBBEA6 /* 8.11 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14D275EBDBB00EBBEA6 /* 8.11 */; };
+		2A6BC208275EBE3600EBBEA6 /* 8.12 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC132275EBDB900EBBEA6 /* 8.12 */; };
+		2A6BC209275EBE3600EBBEA6 /* 8.13 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16A275EBDBC00EBBEA6 /* 8.13 */; };
+		2A6BC20A275EBE3600EBBEA6 /* 8.14 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC128275EBDB900EBBEA6 /* 8.14 */; };
+		2A6BC20B275EBE3600EBBEA6 /* 8.15 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14F275EBDBB00EBBEA6 /* 8.15 */; };
+		2A6BC20C275EBE3600EBBEA6 /* 8.16 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC16F275EBDBC00EBBEA6 /* 8.16 */; };
+		2A6BC20D275EBE3600EBBEA6 /* 8.17 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC106275EBDB700EBBEA6 /* 8.17 */; };
+		2A6BC20E275EBE3600EBBEA6 /* 8.18 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC112275EBDB700EBBEA6 /* 8.18 */; };
+		2A6BC20F275EBE3600EBBEA6 /* 8.19 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC127275EBDB900EBBEA6 /* 8.19 */; };
+		2A6BC210275EBE3600EBBEA6 /* 8.20 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC114275EBDB800EBBEA6 /* 8.20 */; };
+		2A6BC211275EBE3600EBBEA6 /* 8.21 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC153275EBDBB00EBBEA6 /* 8.21 */; };
+		2A6BC212275EBE3600EBBEA6 /* 8.22 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC168275EBDBC00EBBEA6 /* 8.22 */; };
+		2A6BC213275EBE3600EBBEA6 /* 8.23 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC174275EBDBD00EBBEA6 /* 8.23 */; };
+		2A6BC214275EBE3600EBBEA6 /* 9.1 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC125275EBDB800EBBEA6 /* 9.1 */; };
+		2A6BC215275EBE3600EBBEA6 /* 9.2 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC169275EBDBC00EBBEA6 /* 9.2 */; };
+		2A6BC216275EBE3600EBBEA6 /* 9.3 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC176275EBDBD00EBBEA6 /* 9.3 */; };
+		2A6BC217275EBE3600EBBEA6 /* 9.4 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15F275EBDBB00EBBEA6 /* 9.4 */; };
+		2A6BC218275EBE3600EBBEA6 /* 9.5 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC123275EBDB800EBBEA6 /* 9.5 */; };
+		2A6BC219275EBE3600EBBEA6 /* 9.6 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13D275EBDBA00EBBEA6 /* 9.6 */; };
+		2A6BC21A275EBE3600EBBEA6 /* 9.7 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC133275EBDB900EBBEA6 /* 9.7 */; };
+		2A6BC21B275EBE3600EBBEA6 /* 9.8 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC177275EBDBD00EBBEA6 /* 9.8 */; };
+		2A6BC21C275EBE3600EBBEA6 /* 9.9 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC11B275EBDB800EBBEA6 /* 9.9 */; };
+		2A6BC21D275EBE3600EBBEA6 /* 9.10 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13B275EBDBA00EBBEA6 /* 9.10 */; };
+		2A6BC21E275EBE3600EBBEA6 /* 9.11 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC170275EBDBC00EBBEA6 /* 9.11 */; };
+		2A6BC21F275EBE3600EBBEA6 /* 9.12 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC171275EBDBC00EBBEA6 /* 9.12 */; };
+		2A6BC220275EBE3600EBBEA6 /* 9.13 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC10D275EBDB700EBBEA6 /* 9.13 */; };
+		2A6BC221275EBE3600EBBEA6 /* 9.14 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC14E275EBDBB00EBBEA6 /* 9.14 */; };
+		2A6BC222275EBE3600EBBEA6 /* 9.15 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC11D275EBDB800EBBEA6 /* 9.15 */; };
+		2A6BC223275EBE3600EBBEA6 /* 9.16 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC129275EBDB900EBBEA6 /* 9.16 */; };
+		2A6BC224275EBE3600EBBEA6 /* 9.17 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC13E275EBDBA00EBBEA6 /* 9.17 */; };
+		2A6BC225275EBE3600EBBEA6 /* 9.18 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC126275EBDB900EBBEA6 /* 9.18 */; };
+		2A6BC226275EBE3600EBBEA6 /* 9.19 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC11C275EBDB800EBBEA6 /* 9.19 */; };
+		2A6BC227275EBE3600EBBEA6 /* 9.20 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC15E275EBDBB00EBBEA6 /* 9.20 */; };
+		2A6BC228275EBE3600EBBEA6 /* 9.21 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC115275EBDB800EBBEA6 /* 9.21 */; };
+		2A6BC229275EBE3600EBBEA6 /* 9.22 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC157275EBDBB00EBBEA6 /* 9.22 */; };
+		2A6BC22A275EBE3600EBBEA6 /* 9.23 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC166275EBDBC00EBBEA6 /* 9.23 */; };
+		2A6BC22B275EBE3600EBBEA6 /* 9.24 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC185275EBDBD00EBBEA6 /* 9.24 */; };
+		2A6BC22C275EBE3600EBBEA6 /* 9.25 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17D275EBDBD00EBBEA6 /* 9.25 */; };
+		2A6BC22D275EBE3600EBBEA6 /* 9.26 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC140275EBDBA00EBBEA6 /* 9.26 */; };
+		2A6BC22E275EBE3600EBBEA6 /* 9.27 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC165275EBDBC00EBBEA6 /* 9.27 */; };
+		2A6BC22F275EBE3600EBBEA6 /* 9.28 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC131275EBDB900EBBEA6 /* 9.28 */; };
+		2A6BC230275EBE3600EBBEA6 /* 9.29 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC17E275EBDBD00EBBEA6 /* 9.29 */; };
+		2A6BC231275EBE3600EBBEA6 /* 9.30 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC137275EBDB900EBBEA6 /* 9.30 */; };
+		2A6BC232275EBE3600EBBEA6 /* 9.31 in Copy Multitest Files */ = {isa = PBXBuildFile; fileRef = 2A6BC163275EBDBC00EBBEA6 /* 9.31 */; };
+		2A6BC23A275EC0E700EBBEA6 /* d_any_char_dflag_out.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC239275EC0E200EBBEA6 /* d_any_char_dflag_out.txt */; };
+		2A6BC23B275EC0E700EBBEA6 /* d_any_char_fflag_out.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC236275EC0E200EBBEA6 /* d_any_char_fflag_out.txt */; };
+		2A6BC23C275EC0E700EBBEA6 /* d_any_char_iflag_out.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC235275EC0E200EBBEA6 /* d_any_char_iflag_out.txt */; };
+		2A6BC23D275EC0E700EBBEA6 /* d_any_char_in.txt in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC237275EC0E200EBBEA6 /* d_any_char_in.txt */; };
+		2A6BC23E275EC0E700EBBEA6 /* t_sort.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC238275EC0E200EBBEA6 /* t_sort.sh */; };
+		2A6BC243275EC1DB00EBBEA6 /* tail_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC240275EC1BD00EBBEA6 /* tail_test.sh */; };
+		2A6BC258275EC27100EBBEA6 /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC245275EC25700EBBEA6 /* legacy_test.sh */; };
+		2A6BC259275EC27100EBBEA6 /* regress.00.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC250275EC25800EBBEA6 /* regress.00.out */; };
+		2A6BC25A275EC27100EBBEA6 /* regress.0a.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC249275EC25700EBBEA6 /* regress.0a.out */; };
+		2A6BC25B275EC27100EBBEA6 /* regress.0b.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC255275EC25800EBBEA6 /* regress.0b.out */; };
+		2A6BC25C275EC27100EBBEA6 /* regress.0c.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24E275EC25700EBBEA6 /* regress.0c.out */; };
+		2A6BC25D275EC27100EBBEA6 /* regress.0d.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC246275EC25700EBBEA6 /* regress.0d.out */; };
+		2A6BC25E275EC27100EBBEA6 /* regress.01.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC248275EC25700EBBEA6 /* regress.01.out */; };
+		2A6BC25F275EC27100EBBEA6 /* regress.02.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC253275EC25800EBBEA6 /* regress.02.out */; };
+		2A6BC260275EC27100EBBEA6 /* regress.03.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC256275EC25800EBBEA6 /* regress.03.out */; };
+		2A6BC261275EC27100EBBEA6 /* regress.04.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC252275EC25800EBBEA6 /* regress.04.out */; };
+		2A6BC262275EC27100EBBEA6 /* regress.05.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC247275EC25700EBBEA6 /* regress.05.out */; };
+		2A6BC263275EC27100EBBEA6 /* regress.06.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24B275EC25700EBBEA6 /* regress.06.out */; };
+		2A6BC264275EC27100EBBEA6 /* regress.07.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC251275EC25800EBBEA6 /* regress.07.out */; };
+		2A6BC265275EC27100EBBEA6 /* regress.08.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24C275EC25700EBBEA6 /* regress.08.out */; };
+		2A6BC266275EC27100EBBEA6 /* regress.09.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24A275EC25700EBBEA6 /* regress.09.out */; };
+		2A6BC267275EC27100EBBEA6 /* regress.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24D275EC25700EBBEA6 /* regress.in */; };
+		2A6BC268275EC27100EBBEA6 /* regress.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC254275EC25800EBBEA6 /* regress.sh */; };
+		2A6BC269275EC27100EBBEA6 /* regress2.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC24F275EC25700EBBEA6 /* regress2.in */; };
+		2A6BC273275EC2FB00EBBEA6 /* d_basic.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC26F275EC2F400EBBEA6 /* d_basic.in */; };
+		2A6BC274275EC2FB00EBBEA6 /* d_basic.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC271275EC2F400EBBEA6 /* d_basic.out */; };
+		2A6BC275275EC2FB00EBBEA6 /* d_counts.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC270275EC2F400EBBEA6 /* d_counts.out */; };
+		2A6BC276275EC2FB00EBBEA6 /* d_input.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC26D275EC2F400EBBEA6 /* d_input.in */; };
+		2A6BC277275EC2FB00EBBEA6 /* d_show_duplicates.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC26C275EC2F400EBBEA6 /* d_show_duplicates.out */; };
+		2A6BC278275EC2FB00EBBEA6 /* d_show_uniques.out in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC272275EC2F400EBBEA6 /* d_show_uniques.out */; };
+		2A6BC279275EC2FB00EBBEA6 /* t_uniq.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A6BC26E275EC2F400EBBEA6 /* t_uniq.sh */; };
+		2AA02961280DE826002436E7 /* t_basic.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AA02960280DE7F2002436E7 /* t_basic.sh */; };
 		2AC6B55E268C1B16006AA0B7 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AC6B55D268C1B16006AA0B7 /* libutil.tbd */; };
 		FC6C98FC149A94EB00DDCC47 /* libcurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC6C98FB149A94EB00DDCC47 /* libcurses.dylib */; };
 		FC7A7DE514986CD60086576A /* banner.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B4C149866AE0086576A /* banner.c */; };
@@ -407,6 +754,532 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A6BBF37275EAC8100EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/cat;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBF67275EAFD000EBBEA6 /* d_align.in in Copy Test Files */,
+				2A6BBF68275EAFD000EBBEA6 /* d_align.out in Copy Test Files */,
+				2A6BBF69275EAFD000EBBEA6 /* d_b_output.in in Copy Test Files */,
+				2A6BBF6A275EAFD000EBBEA6 /* d_b_output.out in Copy Test Files */,
+				2A6BBF6B275EAFD000EBBEA6 /* d_s_output.in in Copy Test Files */,
+				2A6BBF6C275EAFD000EBBEA6 /* d_s_output.out in Copy Test Files */,
+				2A6BBF6D275EAFD000EBBEA6 /* d_se_output.in in Copy Test Files */,
+				2A6BBF6E275EAFD000EBBEA6 /* d_se_output.out in Copy Test Files */,
+				2A6BBF6F275EAFD000EBBEA6 /* d_vt_output.in in Copy Test Files */,
+				2A6BBF70275EAFD000EBBEA6 /* d_vt_output.out in Copy Test Files */,
+				2A6BBF71275EAFD000EBBEA6 /* t_cat.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBF7C275EB01A00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/col;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBF7D275EB03D00EBBEA6 /* col_test.sh in Copy Test Files */,
+				2A6BBF7E275EB03D00EBBEA6 /* hlf.in in Copy Test Files */,
+				2A6BBF7F275EB03D00EBBEA6 /* hlf2.in in Copy Test Files */,
+				2A6BBF80275EB03D00EBBEA6 /* nl.in in Copy Test Files */,
+				2A6BBF81275EB03D00EBBEA6 /* nl2.in in Copy Test Files */,
+				2A6BBF82275EB03D00EBBEA6 /* nl3.in in Copy Test Files */,
+				2A6BBF83275EB03D00EBBEA6 /* rlf.in in Copy Test Files */,
+				2A6BBF84275EB03D00EBBEA6 /* rlf2.in in Copy Test Files */,
+				2A6BBF85275EB03D00EBBEA6 /* rlf3.in in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBF92275EB18000EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/comm;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBF93275EB19600EBBEA6 /* legacy_test.sh in Copy Test Files */,
+				2A6BBF94275EB19600EBBEA6 /* regress.00.out in Copy Test Files */,
+				2A6BBF95275EB19600EBBEA6 /* regress.00a.in in Copy Test Files */,
+				2A6BBF96275EB19600EBBEA6 /* regress.00b.in in Copy Test Files */,
+				2A6BBF97275EB19600EBBEA6 /* regress.01.out in Copy Test Files */,
+				2A6BBF98275EB19600EBBEA6 /* regress.01a.in in Copy Test Files */,
+				2A6BBF99275EB19600EBBEA6 /* regress.01b.in in Copy Test Files */,
+				2A6BBF9A275EB19600EBBEA6 /* regress.02.out in Copy Test Files */,
+				2A6BBF9B275EB19600EBBEA6 /* regress.02a.in in Copy Test Files */,
+				2A6BBF9C275EB19600EBBEA6 /* regress.02b.in in Copy Test Files */,
+				2A6BBF9D275EB19600EBBEA6 /* regress.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBFA0275EB38900EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/csplit;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBFA1275EB39D00EBBEA6 /* csplit_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBFA2275EB40500EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/cut;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBFAD275EB43600EBBEA6 /* cut2_test.sh in Copy Test Files */,
+				2A6BBFAE275EB43600EBBEA6 /* d_basic.out in Copy Test Files */,
+				2A6BBFAF275EB43600EBBEA6 /* d_cut.in in Copy Test Files */,
+				2A6BBFB0275EB43600EBBEA6 /* d_dflag.out in Copy Test Files */,
+				2A6BBFB1275EB43600EBBEA6 /* d_dsflag.out in Copy Test Files */,
+				2A6BBFB2275EB43600EBBEA6 /* d_latin1.in in Copy Test Files */,
+				2A6BBFB3275EB43600EBBEA6 /* d_sflag.out in Copy Test Files */,
+				2A6BBFB4275EB43600EBBEA6 /* d_utf8.in in Copy Test Files */,
+				2A6BBFB5275EB43600EBBEA6 /* t_cut.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBFB6275EB4BE00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/fold;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BBFB9275EB4D700EBBEA6 /* fold_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BBFBA275EB55000EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/grep;
+			dstSubfolderSpec = 0;
+			files = (
+				2A62DBC4276951EA001389AF /* COPYRIGHT in Copy Test Files */,
+				2A6BBFEC275EB57E00EBBEA6 /* d_basic.out in Copy Test Files */,
+				2A6BBFED275EB57E00EBBEA6 /* d_begin_end_a.out in Copy Test Files */,
+				2A6BBFEE275EB57E00EBBEA6 /* d_begin_end_b.out in Copy Test Files */,
+				2A6BBFEF275EB57E00EBBEA6 /* d_binary.out in Copy Test Files */,
+				2A6BBFF0275EB57E00EBBEA6 /* d_color_a.in in Copy Test Files */,
+				2A6BBFF1275EB57E00EBBEA6 /* d_color_a.out in Copy Test Files */,
+				2A6BBFF2275EB57E00EBBEA6 /* d_color_b.in in Copy Test Files */,
+				2A6BBFF3275EB57E00EBBEA6 /* d_color_b.out in Copy Test Files */,
+				2A6BBFF4275EB57E00EBBEA6 /* d_color_c.out in Copy Test Files */,
+				2A6BBFF5275EB57E00EBBEA6 /* d_context_a.in in Copy Test Files */,
+				2A6BBFF6275EB57E00EBBEA6 /* d_context_a.out in Copy Test Files */,
+				2A6BBFF7275EB57E00EBBEA6 /* d_context_b.in in Copy Test Files */,
+				2A6BBFF8275EB57E00EBBEA6 /* d_context_b.out in Copy Test Files */,
+				2A6BBFF9275EB57E00EBBEA6 /* d_context_c.out in Copy Test Files */,
+				2A6BBFFA275EB57E00EBBEA6 /* d_context_d.out in Copy Test Files */,
+				2A6BBFFB275EB57E00EBBEA6 /* d_context_e.in in Copy Test Files */,
+				2A6BBFFC275EB57E00EBBEA6 /* d_context_e.out in Copy Test Files */,
+				2A6BBFFD275EB57E00EBBEA6 /* d_context_f.out in Copy Test Files */,
+				2A6BBFFE275EB57E00EBBEA6 /* d_context_g.out in Copy Test Files */,
+				2A6BBFFF275EB57E00EBBEA6 /* d_context2_a.out in Copy Test Files */,
+				2A6BC000275EB57E00EBBEA6 /* d_context2_b.out in Copy Test Files */,
+				2A6BC001275EB57E00EBBEA6 /* d_context2_c.out in Copy Test Files */,
+				2A6BC002275EB57E00EBBEA6 /* d_egrep.out in Copy Test Files */,
+				2A6BC003275EB57E00EBBEA6 /* d_escmap.in in Copy Test Files */,
+				2A6BC004275EB57E00EBBEA6 /* d_f_file_empty.in in Copy Test Files */,
+				2A6BC005275EB57E00EBBEA6 /* d_file_exp.in in Copy Test Files */,
+				2A6BC006275EB57E00EBBEA6 /* d_file_exp.out in Copy Test Files */,
+				2A6BC007275EB57E00EBBEA6 /* d_ignore_case.out in Copy Test Files */,
+				2A6BC008275EB57E00EBBEA6 /* d_input in Copy Test Files */,
+				2A6BC009275EB57E00EBBEA6 /* d_invert.in in Copy Test Files */,
+				2A6BC00A275EB57E00EBBEA6 /* d_invert.out in Copy Test Files */,
+				2A6BC00B275EB57E00EBBEA6 /* d_oflag_zerolen_a.in in Copy Test Files */,
+				2A6BC00C275EB57E00EBBEA6 /* d_oflag_zerolen_a.out in Copy Test Files */,
+				2A6BC00D275EB57E00EBBEA6 /* d_oflag_zerolen_b.in in Copy Test Files */,
+				2A6BC00E275EB57E00EBBEA6 /* d_oflag_zerolen_b.out in Copy Test Files */,
+				2A6BC00F275EB57E00EBBEA6 /* d_oflag_zerolen_c.in in Copy Test Files */,
+				2A6BC010275EB57E00EBBEA6 /* d_oflag_zerolen_c.out in Copy Test Files */,
+				2A6BC011275EB57E00EBBEA6 /* d_oflag_zerolen_d.in in Copy Test Files */,
+				2A6BC012275EB57E00EBBEA6 /* d_oflag_zerolen_e.in in Copy Test Files */,
+				2A6BC013275EB57E00EBBEA6 /* d_oflag_zerolen_e.out in Copy Test Files */,
+				2A6BC014275EB57E00EBBEA6 /* d_recurse_symlink.err in Copy Test Files */,
+				2A6BC015275EB57E00EBBEA6 /* d_recurse_symlink.out in Copy Test Files */,
+				2A6BC016275EB57E00EBBEA6 /* d_recurse.out in Copy Test Files */,
+				2A6BC017275EB57E00EBBEA6 /* d_whole_line.out in Copy Test Files */,
+				2A6BC018275EB57E00EBBEA6 /* d_word_regexps.out in Copy Test Files */,
+				2A6BC019275EB57E00EBBEA6 /* d_zgrep.out in Copy Test Files */,
+				2A6BC01A275EB57E00EBBEA6 /* grep_freebsd_test.sh in Copy Test Files */,
+				2A6BC01B275EB57E00EBBEA6 /* t_grep.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC01E275EB74E00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/head;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC01F275EB76100EBBEA6 /* head_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC020275EB7AD00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/join;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC027275EB83E00EBBEA6 /* legacy_test.sh in Copy Test Files */,
+				2A6BC028275EB83E00EBBEA6 /* regress.1.in in Copy Test Files */,
+				2A6BC029275EB83E00EBBEA6 /* regress.2.in in Copy Test Files */,
+				2A6BC02A275EB83E00EBBEA6 /* regress.out in Copy Test Files */,
+				2A6BC02B275EB83E00EBBEA6 /* regress.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC02C275EB8AD00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/md5;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC06F275EB8ED00EBBEA6 /* 1.sha512-p.chk in Copy Test Files */,
+				2A6BC070275EB8ED00EBBEA6 /* 1.sha512sum-p.chk in Copy Test Files */,
+				2A6BC071275EB8ED00EBBEA6 /* 2.inp in Copy Test Files */,
+				2A6BC072275EB8ED00EBBEA6 /* 2.sha512-p.chk in Copy Test Files */,
+				2A6BC073275EB8ED00EBBEA6 /* 2.sha512sum-p.chk in Copy Test Files */,
+				2A6BC074275EB8ED00EBBEA6 /* 3.inp in Copy Test Files */,
+				2A6BC075275EB8ED00EBBEA6 /* 3.sha512-p.chk in Copy Test Files */,
+				2A6BC076275EB8ED00EBBEA6 /* 3.sha512sum-p.chk in Copy Test Files */,
+				2A6BC077275EB8ED00EBBEA6 /* 4.inp in Copy Test Files */,
+				2A6BC078275EB8ED00EBBEA6 /* 4.sha512-p.chk in Copy Test Files */,
+				2A6BC079275EB8ED00EBBEA6 /* 4.sha512sum-p.chk in Copy Test Files */,
+				2A6BC07A275EB8ED00EBBEA6 /* 5.inp in Copy Test Files */,
+				2A6BC07B275EB8ED00EBBEA6 /* 5.sha512-p.chk in Copy Test Files */,
+				2A6BC07C275EB8ED00EBBEA6 /* 5.sha512sum-p.chk in Copy Test Files */,
+				2A6BC07D275EB8ED00EBBEA6 /* 6.inp in Copy Test Files */,
+				2A6BC07E275EB8ED00EBBEA6 /* 6.sha512-p.chk in Copy Test Files */,
+				2A6BC07F275EB8ED00EBBEA6 /* 6.sha512sum-p.chk in Copy Test Files */,
+				2A6BC080275EB8ED00EBBEA6 /* 7.inp in Copy Test Files */,
+				2A6BC081275EB8ED00EBBEA6 /* 7.sha512-p.chk in Copy Test Files */,
+				2A6BC082275EB8ED00EBBEA6 /* 7.sha512sum-p.chk in Copy Test Files */,
+				2A6BC083275EB8ED00EBBEA6 /* 8.inp in Copy Test Files */,
+				2A6BC084275EB8ED00EBBEA6 /* 8.sha512-p.chk in Copy Test Files */,
+				2A6BC085275EB8ED00EBBEA6 /* 8.sha512sum-p.chk in Copy Test Files */,
+				2A6BC086275EB8ED00EBBEA6 /* algorithms.txt in Copy Test Files */,
+				2A6BC087275EB8ED00EBBEA6 /* bsd-c-test.SH in Copy Test Files */,
+				2A6BC088275EB8ED00EBBEA6 /* bsd-p-test.SH in Copy Test Files */,
+				2A6BC089275EB8ED00EBBEA6 /* bsd-s-test.SH in Copy Test Files */,
+				2A6BC08A275EB8ED00EBBEA6 /* coreutils-c-test.SH in Copy Test Files */,
+				2A6BC08B275EB8ED00EBBEA6 /* md5.digest in Copy Test Files */,
+				2A6BC08C275EB8ED00EBBEA6 /* md5sum.digest in Copy Test Files */,
+				2A6BC08D275EB8ED00EBBEA6 /* rmd160.digest in Copy Test Files */,
+				2A6BC08E275EB8ED00EBBEA6 /* rmd160sum.digest in Copy Test Files */,
+				2A6BC08F275EB8ED00EBBEA6 /* self-test.md5.chk in Copy Test Files */,
+				2A6BC090275EB8ED00EBBEA6 /* self-test.rmd160.chk in Copy Test Files */,
+				2A6BC091275EB8ED00EBBEA6 /* self-test.SH in Copy Test Files */,
+				2A6BC093275EB8ED00EBBEA6 /* self-test.sha1.chk in Copy Test Files */,
+				2A6BC094275EB8ED00EBBEA6 /* self-test.sha224.chk in Copy Test Files */,
+				2A6BC095275EB8ED00EBBEA6 /* self-test.sha256.chk in Copy Test Files */,
+				2A6BC096275EB8ED00EBBEA6 /* self-test.sha384.chk in Copy Test Files */,
+				2A6BC097275EB8ED00EBBEA6 /* self-test.sha512.chk in Copy Test Files */,
+				2A6BC098275EB8ED00EBBEA6 /* self-test.sha512t256.chk in Copy Test Files */,
+				2A6BC09C275EB8ED00EBBEA6 /* sha1.digest in Copy Test Files */,
+				2A6BC09D275EB8ED00EBBEA6 /* sha1sum.digest in Copy Test Files */,
+				2A6BC09E275EB8ED00EBBEA6 /* sha224.digest in Copy Test Files */,
+				2A6BC09F275EB8ED00EBBEA6 /* sha224sum.digest in Copy Test Files */,
+				2A6BC0A0275EB8ED00EBBEA6 /* sha256.digest in Copy Test Files */,
+				2A6BC0A1275EB8ED00EBBEA6 /* sha256sum.digest in Copy Test Files */,
+				2A6BC0A2275EB8ED00EBBEA6 /* sha384.digest in Copy Test Files */,
+				2A6BC0A3275EB8ED00EBBEA6 /* sha384sum.digest in Copy Test Files */,
+				2A6BC0A4275EB8ED00EBBEA6 /* sha512.digest in Copy Test Files */,
+				2A6BC0A5275EB8ED00EBBEA6 /* sha512sum.digest in Copy Test Files */,
+				2A6BC0A6275EB8ED00EBBEA6 /* sha512t256.digest in Copy Test Files */,
+				2A6BC0A7275EB8ED00EBBEA6 /* sha512t256sum.digest in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC0B7275EBBCA00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/pr;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC0B8275EBBDE00EBBEA6 /* across.out in Copy Test Files */,
+				2A6BC0B9275EBBDE00EBBEA6 /* basic2_test.sh in Copy Test Files */,
+				2A6BC0BA275EBBDE00EBBEA6 /* d_basic.in in Copy Test Files */,
+				2A6BC0BB275EBBDE00EBBEA6 /* d_basic.out in Copy Test Files */,
+				2A6BC0BC275EBBDE00EBBEA6 /* merge.out in Copy Test Files */,
+				2A6BC0BD275EBBDE00EBBEA6 /* other.in in Copy Test Files */,
+				2A6BC0BE275EBBDE00EBBEA6 /* t_basic.sh in Copy Test Files */,
+				2A6BC0BF275EBBDE00EBBEA6 /* threecol.out in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC0C0275EBC8700EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/rs;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC0C3275EBCB200EBBEA6 /* rs_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC0C4275EBCF200EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/sed;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC191275EBDDE00EBBEA6 /* d_c2048.in in Copy Test Files */,
+				2A6BC192275EBDDE00EBBEA6 /* hanoi.sed in Copy Test Files */,
+				2A6BC193275EBDDE00EBBEA6 /* inplace_race_test.sh in Copy Test Files */,
+				2A6BC194275EBDDE00EBBEA6 /* legacy_test.sh in Copy Test Files */,
+				2A6BC195275EBDDE00EBBEA6 /* math.sed in Copy Test Files */,
+				2A6BC196275EBDDE00EBBEA6 /* multi_test.sh in Copy Test Files */,
+				2A6BC197275EBDDE00EBBEA6 /* regress.b2a.out in Copy Test Files */,
+				2A6BC198275EBDDE00EBBEA6 /* regress.bcb.out in Copy Test Files */,
+				2A6BC199275EBDDE00EBBEA6 /* regress.c0.out in Copy Test Files */,
+				2A6BC19A275EBDDE00EBBEA6 /* regress.c1.out in Copy Test Files */,
+				2A6BC19B275EBDDE00EBBEA6 /* regress.c2.out in Copy Test Files */,
+				2A6BC19C275EBDDE00EBBEA6 /* regress.c3.out in Copy Test Files */,
+				2A6BC19D275EBDDE00EBBEA6 /* regress.G.out in Copy Test Files */,
+				2A6BC19E275EBDDE00EBBEA6 /* regress.hanoi.out in Copy Test Files */,
+				2A6BC19F275EBDDE00EBBEA6 /* regress.icase1.out in Copy Test Files */,
+				2A6BC1A0275EBDDE00EBBEA6 /* regress.icase2.out in Copy Test Files */,
+				2A6BC1A1275EBDDE00EBBEA6 /* regress.icase3.out in Copy Test Files */,
+				2A6BC1A2275EBDDE00EBBEA6 /* regress.icase4.out in Copy Test Files */,
+				2A6BC1A3275EBDDE00EBBEA6 /* regress.in in Copy Test Files */,
+				2A6BC1A4275EBDDE00EBBEA6 /* regress.math.out in Copy Test Files */,
+				2A6BC1A5275EBDE700EBBEA6 /* regress.not.out in Copy Test Files */,
+				2A6BC1A6275EBDE700EBBEA6 /* regress.P.out in Copy Test Files */,
+				2A6BC1A7275EBDE700EBBEA6 /* regress.psl.out in Copy Test Files */,
+				2A6BC1A8275EBDE700EBBEA6 /* regress.s3.out in Copy Test Files */,
+				2A6BC1A9275EBDE700EBBEA6 /* regress.s4.out in Copy Test Files */,
+				2A6BC1AA275EBDE700EBBEA6 /* regress.s5.out in Copy Test Files */,
+				2A6BC1AB275EBDE700EBBEA6 /* regress.sg.out in Copy Test Files */,
+				2A6BC1AC275EBDE700EBBEA6 /* regress.sh in Copy Test Files */,
+				2A6BC1AD275EBDE700EBBEA6 /* regress.y.out in Copy Test Files */,
+				2A6BC1AE275EBDE700EBBEA6 /* sed2_test.sh in Copy Test Files */,
+				2A6BC1AF275EBDE700EBBEA6 /* t_sed.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC1B0275EBE0200EBBEA6 /* Copy Multitest Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/sed/regress.multitest.out;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC1B1275EBE3500EBBEA6 /* 1.1 in Copy Multitest Files */,
+				2A6BC1B2275EBE3500EBBEA6 /* 1.2 in Copy Multitest Files */,
+				2A6BC1B3275EBE3500EBBEA6 /* 1.3 in Copy Multitest Files */,
+				2A6BC1B4275EBE3500EBBEA6 /* 1.4 in Copy Multitest Files */,
+				2A6BC1B5275EBE3500EBBEA6 /* 1.4.1 in Copy Multitest Files */,
+				2A6BC1B6275EBE3500EBBEA6 /* 1.5 in Copy Multitest Files */,
+				2A6BC1B7275EBE3500EBBEA6 /* 1.6 in Copy Multitest Files */,
+				2A6BC1B8275EBE3500EBBEA6 /* 1.7 in Copy Multitest Files */,
+				2A6BC1B9275EBE3500EBBEA6 /* 1.8 in Copy Multitest Files */,
+				2A6BC1BA275EBE3500EBBEA6 /* 1.9 in Copy Multitest Files */,
+				2A6BC1BB275EBE3500EBBEA6 /* 1.10 in Copy Multitest Files */,
+				2A6BC1BC275EBE3500EBBEA6 /* 1.11 in Copy Multitest Files */,
+				2A6BC1BD275EBE3500EBBEA6 /* 1.12 in Copy Multitest Files */,
+				2A6BC1BE275EBE3500EBBEA6 /* 1.13 in Copy Multitest Files */,
+				2A6BC1BF275EBE3500EBBEA6 /* 1.14 in Copy Multitest Files */,
+				2A6BC1C0275EBE3500EBBEA6 /* 1.15 in Copy Multitest Files */,
+				2A6BC1C1275EBE3500EBBEA6 /* 1.16 in Copy Multitest Files */,
+				2A6BC1C2275EBE3500EBBEA6 /* 1.17 in Copy Multitest Files */,
+				2A6BC1C3275EBE3500EBBEA6 /* 1.18 in Copy Multitest Files */,
+				2A6BC1C4275EBE3500EBBEA6 /* 2.1 in Copy Multitest Files */,
+				2A6BC1C5275EBE3500EBBEA6 /* 2.2 in Copy Multitest Files */,
+				2A6BC1C6275EBE3500EBBEA6 /* 2.3 in Copy Multitest Files */,
+				2A6BC1C7275EBE3500EBBEA6 /* 2.4 in Copy Multitest Files */,
+				2A6BC1C9275EBE3500EBBEA6 /* 2.6 in Copy Multitest Files */,
+				2A6BC1CC275EBE3500EBBEA6 /* 2.9 in Copy Multitest Files */,
+				2A6BC1CD275EBE3500EBBEA6 /* 2.10 in Copy Multitest Files */,
+				2A6BC1CE275EBE3500EBBEA6 /* 2.11 in Copy Multitest Files */,
+				2A6BC1CF275EBE3500EBBEA6 /* 2.12 in Copy Multitest Files */,
+				2A6BC1D0275EBE3500EBBEA6 /* 2.13 in Copy Multitest Files */,
+				2A6BC1D1275EBE3500EBBEA6 /* 2.14 in Copy Multitest Files */,
+				2A6BC1D2275EBE3500EBBEA6 /* 2.15 in Copy Multitest Files */,
+				2A6BC1D3275EBE3500EBBEA6 /* 2.16 in Copy Multitest Files */,
+				2A6BC1D4275EBE3500EBBEA6 /* 2.17 in Copy Multitest Files */,
+				2A6BC1D5275EBE3500EBBEA6 /* 2.18 in Copy Multitest Files */,
+				2A6BC1D6275EBE3600EBBEA6 /* 2.19 in Copy Multitest Files */,
+				2A6BC1D7275EBE3600EBBEA6 /* 2.20 in Copy Multitest Files */,
+				2A6BC1D8275EBE3600EBBEA6 /* 2.21 in Copy Multitest Files */,
+				2A6BC1D9275EBE3600EBBEA6 /* 2.22 in Copy Multitest Files */,
+				2A6BC1DA275EBE3600EBBEA6 /* 2.23 in Copy Multitest Files */,
+				2A6BC1DB275EBE3600EBBEA6 /* 3.1 in Copy Multitest Files */,
+				2A6BC1DC275EBE3600EBBEA6 /* 3.2 in Copy Multitest Files */,
+				2A6BC1DD275EBE3600EBBEA6 /* 3.3 in Copy Multitest Files */,
+				2A6BC1DE275EBE3600EBBEA6 /* 3.4 in Copy Multitest Files */,
+				2A6BC1DF275EBE3600EBBEA6 /* 4.1 in Copy Multitest Files */,
+				2A6BC1E0275EBE3600EBBEA6 /* 4.2 in Copy Multitest Files */,
+				2A6BC1E1275EBE3600EBBEA6 /* 4.3 in Copy Multitest Files */,
+				2A6BC1E2275EBE3600EBBEA6 /* 4.4 in Copy Multitest Files */,
+				2A6BC1E3275EBE3600EBBEA6 /* 4.5 in Copy Multitest Files */,
+				2A6BC1E4275EBE3600EBBEA6 /* 4.6 in Copy Multitest Files */,
+				2A6BC1E5275EBE3600EBBEA6 /* 4.7 in Copy Multitest Files */,
+				2A6BC1E7275EBE3600EBBEA6 /* 5.1 in Copy Multitest Files */,
+				2A6BC1E8275EBE3600EBBEA6 /* 5.2 in Copy Multitest Files */,
+				2A6BC1E9275EBE3600EBBEA6 /* 5.3 in Copy Multitest Files */,
+				2A6BC1EA275EBE3600EBBEA6 /* 5.4 in Copy Multitest Files */,
+				2A6BC1EB275EBE3600EBBEA6 /* 5.5 in Copy Multitest Files */,
+				2A6BC1EC275EBE3600EBBEA6 /* 5.6 in Copy Multitest Files */,
+				2A6BC1ED275EBE3600EBBEA6 /* 5.7 in Copy Multitest Files */,
+				2A6BC1EE275EBE3600EBBEA6 /* 5.8 in Copy Multitest Files */,
+				2A6BC1EF275EBE3600EBBEA6 /* 6.1 in Copy Multitest Files */,
+				2A6BC1F0275EBE3600EBBEA6 /* 6.2 in Copy Multitest Files */,
+				2A6BC1F2275EBE3600EBBEA6 /* 6.4 in Copy Multitest Files */,
+				2A6BC1F3275EBE3600EBBEA6 /* 6.5 in Copy Multitest Files */,
+				2A6BC1F5275EBE3600EBBEA6 /* 7.1 in Copy Multitest Files */,
+				2A6BC1F6275EBE3600EBBEA6 /* 7.2 in Copy Multitest Files */,
+				2A6BC1F7275EBE3600EBBEA6 /* 7.3 in Copy Multitest Files */,
+				2A6BC1F8275EBE3600EBBEA6 /* 7.4 in Copy Multitest Files */,
+				2A6BC1F9275EBE3600EBBEA6 /* 7.5 in Copy Multitest Files */,
+				2A6BC1FA275EBE3600EBBEA6 /* 7.6 in Copy Multitest Files */,
+				2A6BC1FB275EBE3600EBBEA6 /* 7.7 in Copy Multitest Files */,
+				2A6BC1FC275EBE3600EBBEA6 /* 7.8 in Copy Multitest Files */,
+				2A6BC1FD275EBE3600EBBEA6 /* 8.1 in Copy Multitest Files */,
+				2A6BC1FE275EBE3600EBBEA6 /* 8.2 in Copy Multitest Files */,
+				2A6BC1FF275EBE3600EBBEA6 /* 8.3 in Copy Multitest Files */,
+				2A6BC200275EBE3600EBBEA6 /* 8.4 in Copy Multitest Files */,
+				2A6BC201275EBE3600EBBEA6 /* 8.5 in Copy Multitest Files */,
+				2A6BC202275EBE3600EBBEA6 /* 8.6 in Copy Multitest Files */,
+				2A6BC203275EBE3600EBBEA6 /* 8.7 in Copy Multitest Files */,
+				2A6BC204275EBE3600EBBEA6 /* 8.8 in Copy Multitest Files */,
+				2A6BC205275EBE3600EBBEA6 /* 8.9 in Copy Multitest Files */,
+				2A6BC206275EBE3600EBBEA6 /* 8.10 in Copy Multitest Files */,
+				2A6BC207275EBE3600EBBEA6 /* 8.11 in Copy Multitest Files */,
+				2A6BC208275EBE3600EBBEA6 /* 8.12 in Copy Multitest Files */,
+				2A6BC209275EBE3600EBBEA6 /* 8.13 in Copy Multitest Files */,
+				2A6BC20A275EBE3600EBBEA6 /* 8.14 in Copy Multitest Files */,
+				2A6BC20B275EBE3600EBBEA6 /* 8.15 in Copy Multitest Files */,
+				2A6BC20C275EBE3600EBBEA6 /* 8.16 in Copy Multitest Files */,
+				2A6BC20D275EBE3600EBBEA6 /* 8.17 in Copy Multitest Files */,
+				2A6BC20E275EBE3600EBBEA6 /* 8.18 in Copy Multitest Files */,
+				2A6BC20F275EBE3600EBBEA6 /* 8.19 in Copy Multitest Files */,
+				2A6BC210275EBE3600EBBEA6 /* 8.20 in Copy Multitest Files */,
+				2A6BC211275EBE3600EBBEA6 /* 8.21 in Copy Multitest Files */,
+				2A6BC212275EBE3600EBBEA6 /* 8.22 in Copy Multitest Files */,
+				2A6BC213275EBE3600EBBEA6 /* 8.23 in Copy Multitest Files */,
+				2A6BC214275EBE3600EBBEA6 /* 9.1 in Copy Multitest Files */,
+				2A6BC215275EBE3600EBBEA6 /* 9.2 in Copy Multitest Files */,
+				2A6BC216275EBE3600EBBEA6 /* 9.3 in Copy Multitest Files */,
+				2A6BC217275EBE3600EBBEA6 /* 9.4 in Copy Multitest Files */,
+				2A6BC218275EBE3600EBBEA6 /* 9.5 in Copy Multitest Files */,
+				2A6BC219275EBE3600EBBEA6 /* 9.6 in Copy Multitest Files */,
+				2A6BC21A275EBE3600EBBEA6 /* 9.7 in Copy Multitest Files */,
+				2A6BC21B275EBE3600EBBEA6 /* 9.8 in Copy Multitest Files */,
+				2A6BC21C275EBE3600EBBEA6 /* 9.9 in Copy Multitest Files */,
+				2A6BC21D275EBE3600EBBEA6 /* 9.10 in Copy Multitest Files */,
+				2A6BC21E275EBE3600EBBEA6 /* 9.11 in Copy Multitest Files */,
+				2A6BC21F275EBE3600EBBEA6 /* 9.12 in Copy Multitest Files */,
+				2A6BC220275EBE3600EBBEA6 /* 9.13 in Copy Multitest Files */,
+				2A6BC221275EBE3600EBBEA6 /* 9.14 in Copy Multitest Files */,
+				2A6BC222275EBE3600EBBEA6 /* 9.15 in Copy Multitest Files */,
+				2A6BC223275EBE3600EBBEA6 /* 9.16 in Copy Multitest Files */,
+				2A6BC224275EBE3600EBBEA6 /* 9.17 in Copy Multitest Files */,
+				2A6BC225275EBE3600EBBEA6 /* 9.18 in Copy Multitest Files */,
+				2A6BC226275EBE3600EBBEA6 /* 9.19 in Copy Multitest Files */,
+				2A6BC227275EBE3600EBBEA6 /* 9.20 in Copy Multitest Files */,
+				2A6BC228275EBE3600EBBEA6 /* 9.21 in Copy Multitest Files */,
+				2A6BC229275EBE3600EBBEA6 /* 9.22 in Copy Multitest Files */,
+				2A6BC22A275EBE3600EBBEA6 /* 9.23 in Copy Multitest Files */,
+				2A6BC22B275EBE3600EBBEA6 /* 9.24 in Copy Multitest Files */,
+				2A6BC22C275EBE3600EBBEA6 /* 9.25 in Copy Multitest Files */,
+				2A6BC22D275EBE3600EBBEA6 /* 9.26 in Copy Multitest Files */,
+				2A6BC22E275EBE3600EBBEA6 /* 9.27 in Copy Multitest Files */,
+				2A6BC22F275EBE3600EBBEA6 /* 9.28 in Copy Multitest Files */,
+				2A6BC230275EBE3600EBBEA6 /* 9.29 in Copy Multitest Files */,
+				2A6BC231275EBE3600EBBEA6 /* 9.30 in Copy Multitest Files */,
+				2A6BC232275EBE3600EBBEA6 /* 9.31 in Copy Multitest Files */,
+			);
+			name = "Copy Multitest Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC234275EC06F00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/sort;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC23A275EC0E700EBBEA6 /* d_any_char_dflag_out.txt in Copy Test Files */,
+				2A6BC23B275EC0E700EBBEA6 /* d_any_char_fflag_out.txt in Copy Test Files */,
+				2A6BC23C275EC0E700EBBEA6 /* d_any_char_iflag_out.txt in Copy Test Files */,
+				2A6BC23D275EC0E700EBBEA6 /* d_any_char_in.txt in Copy Test Files */,
+				2A6BC23E275EC0E700EBBEA6 /* t_sort.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC242275EC1C900EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/tail;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC243275EC1DB00EBBEA6 /* tail_test.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC257275EC25B00EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/tr;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC258275EC27100EBBEA6 /* legacy_test.sh in Copy Test Files */,
+				2A6BC259275EC27100EBBEA6 /* regress.00.out in Copy Test Files */,
+				2A6BC25A275EC27100EBBEA6 /* regress.0a.out in Copy Test Files */,
+				2A6BC25B275EC27100EBBEA6 /* regress.0b.out in Copy Test Files */,
+				2A6BC25C275EC27100EBBEA6 /* regress.0c.out in Copy Test Files */,
+				2A6BC25D275EC27100EBBEA6 /* regress.0d.out in Copy Test Files */,
+				2A6BC25E275EC27100EBBEA6 /* regress.01.out in Copy Test Files */,
+				2A6BC25F275EC27100EBBEA6 /* regress.02.out in Copy Test Files */,
+				2A6BC260275EC27100EBBEA6 /* regress.03.out in Copy Test Files */,
+				2A6BC261275EC27100EBBEA6 /* regress.04.out in Copy Test Files */,
+				2A6BC262275EC27100EBBEA6 /* regress.05.out in Copy Test Files */,
+				2A6BC263275EC27100EBBEA6 /* regress.06.out in Copy Test Files */,
+				2A6BC264275EC27100EBBEA6 /* regress.07.out in Copy Test Files */,
+				2A6BC265275EC27100EBBEA6 /* regress.08.out in Copy Test Files */,
+				2A6BC266275EC27100EBBEA6 /* regress.09.out in Copy Test Files */,
+				2A6BC267275EC27100EBBEA6 /* regress.in in Copy Test Files */,
+				2A6BC268275EC27100EBBEA6 /* regress.sh in Copy Test Files */,
+				2A6BC269275EC27100EBBEA6 /* regress2.in in Copy Test Files */,
+				2AA02961280DE826002436E7 /* t_basic.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2A6BC26B275EC2D400EBBEA6 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/text_cmds/uniq;
+			dstSubfolderSpec = 0;
+			files = (
+				2A6BC273275EC2FB00EBBEA6 /* d_basic.in in Copy Test Files */,
+				2A6BC274275EC2FB00EBBEA6 /* d_basic.out in Copy Test Files */,
+				2A6BC275275EC2FB00EBBEA6 /* d_counts.out in Copy Test Files */,
+				2A6BC276275EC2FB00EBBEA6 /* d_input.in in Copy Test Files */,
+				2A6BC277275EC2FB00EBBEA6 /* d_show_duplicates.out in Copy Test Files */,
+				2A6BC278275EC2FB00EBBEA6 /* d_show_uniques.out in Copy Test Files */,
+				2A6BC279275EC2FB00EBBEA6 /* t_uniq.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FC7A7B37149865C80086576A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -752,6 +1625,369 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A62DBC3276951E3001389AF /* COPYRIGHT */ = {isa = PBXFileReference; lastKnownFileType = text; name = COPYRIGHT; path = tests/COPYRIGHT; sourceTree = "<group>"; };
+		2A6BBF5C275EAFCA00EBBEA6 /* t_cat.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_cat.sh; path = tests/t_cat.sh; sourceTree = "<group>"; };
+		2A6BBF5D275EAFCA00EBBEA6 /* d_align.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_align.in; path = tests/d_align.in; sourceTree = "<group>"; };
+		2A6BBF5E275EAFCA00EBBEA6 /* d_vt_output.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_vt_output.out; path = tests/d_vt_output.out; sourceTree = "<group>"; };
+		2A6BBF5F275EAFCA00EBBEA6 /* d_s_output.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_s_output.in; path = tests/d_s_output.in; sourceTree = "<group>"; };
+		2A6BBF60275EAFCA00EBBEA6 /* d_b_output.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_b_output.in; path = tests/d_b_output.in; sourceTree = "<group>"; };
+		2A6BBF61275EAFCA00EBBEA6 /* d_b_output.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_b_output.out; path = tests/d_b_output.out; sourceTree = "<group>"; };
+		2A6BBF62275EAFCA00EBBEA6 /* d_se_output.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_se_output.out; path = tests/d_se_output.out; sourceTree = "<group>"; };
+		2A6BBF63275EAFCA00EBBEA6 /* d_se_output.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_se_output.in; path = tests/d_se_output.in; sourceTree = "<group>"; };
+		2A6BBF64275EAFCA00EBBEA6 /* d_vt_output.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_vt_output.in; path = tests/d_vt_output.in; sourceTree = "<group>"; };
+		2A6BBF65275EAFCA00EBBEA6 /* d_s_output.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_s_output.out; path = tests/d_s_output.out; sourceTree = "<group>"; };
+		2A6BBF66275EAFCA00EBBEA6 /* d_align.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_align.out; path = tests/d_align.out; sourceTree = "<group>"; };
+		2A6BBF73275EB01400EBBEA6 /* nl3.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = nl3.in; path = tests/nl3.in; sourceTree = "<group>"; };
+		2A6BBF74275EB01400EBBEA6 /* nl2.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = nl2.in; path = tests/nl2.in; sourceTree = "<group>"; };
+		2A6BBF75275EB01400EBBEA6 /* rlf.in */ = {isa = PBXFileReference; lastKnownFileType = file; name = rlf.in; path = tests/rlf.in; sourceTree = "<group>"; };
+		2A6BBF76275EB01400EBBEA6 /* nl.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = nl.in; path = tests/nl.in; sourceTree = "<group>"; };
+		2A6BBF77275EB01400EBBEA6 /* hlf.in */ = {isa = PBXFileReference; lastKnownFileType = file; name = hlf.in; path = tests/hlf.in; sourceTree = "<group>"; };
+		2A6BBF78275EB01400EBBEA6 /* hlf2.in */ = {isa = PBXFileReference; lastKnownFileType = file; name = hlf2.in; path = tests/hlf2.in; sourceTree = "<group>"; };
+		2A6BBF79275EB01400EBBEA6 /* col_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = col_test.sh; path = tests/col_test.sh; sourceTree = "<group>"; };
+		2A6BBF7A275EB01400EBBEA6 /* rlf2.in */ = {isa = PBXFileReference; lastKnownFileType = file; name = rlf2.in; path = tests/rlf2.in; sourceTree = "<group>"; };
+		2A6BBF7B275EB01400EBBEA6 /* rlf3.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = rlf3.in; path = tests/rlf3.in; sourceTree = "<group>"; };
+		2A6BBF87275EB14C00EBBEA6 /* regress.02a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.02a.in; path = tests/regress.02a.in; sourceTree = "<group>"; };
+		2A6BBF88275EB14C00EBBEA6 /* regress.02b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.02b.in; path = tests/regress.02b.in; sourceTree = "<group>"; };
+		2A6BBF89275EB14C00EBBEA6 /* regress.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = regress.sh; path = tests/regress.sh; sourceTree = "<group>"; };
+		2A6BBF8A275EB14C00EBBEA6 /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2A6BBF8B275EB14C00EBBEA6 /* regress.00.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.00.out; path = tests/regress.00.out; sourceTree = "<group>"; };
+		2A6BBF8C275EB14C00EBBEA6 /* regress.00b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.00b.in; path = tests/regress.00b.in; sourceTree = "<group>"; };
+		2A6BBF8D275EB14C00EBBEA6 /* regress.01.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.01.out; path = tests/regress.01.out; sourceTree = "<group>"; };
+		2A6BBF8E275EB14C00EBBEA6 /* regress.00a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.00a.in; path = tests/regress.00a.in; sourceTree = "<group>"; };
+		2A6BBF8F275EB14C00EBBEA6 /* regress.01b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.01b.in; path = tests/regress.01b.in; sourceTree = "<group>"; };
+		2A6BBF90275EB14C00EBBEA6 /* regress.01a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.01a.in; path = tests/regress.01a.in; sourceTree = "<group>"; };
+		2A6BBF91275EB14C00EBBEA6 /* regress.02.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.02.out; path = tests/regress.02.out; sourceTree = "<group>"; };
+		2A6BBF9F275EB34000EBBEA6 /* csplit_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = csplit_test.sh; path = tests/csplit_test.sh; sourceTree = "<group>"; };
+		2A6BBFA4275EB42F00EBBEA6 /* d_basic.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.out; path = tests/d_basic.out; sourceTree = "<group>"; };
+		2A6BBFA5275EB42F00EBBEA6 /* d_latin1.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_latin1.in; path = tests/d_latin1.in; sourceTree = "<group>"; };
+		2A6BBFA6275EB42F00EBBEA6 /* d_cut.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_cut.in; path = tests/d_cut.in; sourceTree = "<group>"; };
+		2A6BBFA7275EB42F00EBBEA6 /* d_dsflag.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_dsflag.out; path = tests/d_dsflag.out; sourceTree = "<group>"; };
+		2A6BBFA8275EB42F00EBBEA6 /* d_dflag.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_dflag.out; path = tests/d_dflag.out; sourceTree = "<group>"; };
+		2A6BBFA9275EB42F00EBBEA6 /* d_sflag.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_sflag.out; path = tests/d_sflag.out; sourceTree = "<group>"; };
+		2A6BBFAA275EB42F00EBBEA6 /* d_utf8.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_utf8.in; path = tests/d_utf8.in; sourceTree = "<group>"; };
+		2A6BBFAB275EB42F00EBBEA6 /* t_cut.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_cut.sh; path = tests/t_cut.sh; sourceTree = "<group>"; };
+		2A6BBFAC275EB42F00EBBEA6 /* cut2_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = cut2_test.sh; path = tests/cut2_test.sh; sourceTree = "<group>"; };
+		2A6BBFB8275EB4D500EBBEA6 /* fold_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = fold_test.sh; path = tests/fold_test.sh; sourceTree = "<group>"; };
+		2A6BBFBC275EB57500EBBEA6 /* d_binary.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_binary.out; path = tests/d_binary.out; sourceTree = "<group>"; };
+		2A6BBFBD275EB57500EBBEA6 /* d_context_b.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_b.out; path = tests/d_context_b.out; sourceTree = "<group>"; };
+		2A6BBFBE275EB57500EBBEA6 /* d_file_exp.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_file_exp.in; path = tests/d_file_exp.in; sourceTree = "<group>"; };
+		2A6BBFBF275EB57500EBBEA6 /* d_input */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_input; path = tests/d_input; sourceTree = "<group>"; };
+		2A6BBFC0275EB57500EBBEA6 /* d_oflag_zerolen_d.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_d.in; path = tests/d_oflag_zerolen_d.in; sourceTree = "<group>"; };
+		2A6BBFC1275EB57500EBBEA6 /* d_recurse_symlink.err */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_recurse_symlink.err; path = tests/d_recurse_symlink.err; sourceTree = "<group>"; };
+		2A6BBFC2275EB57500EBBEA6 /* d_basic.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.out; path = tests/d_basic.out; sourceTree = "<group>"; };
+		2A6BBFC3275EB57500EBBEA6 /* d_color_b.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_color_b.out; path = tests/d_color_b.out; sourceTree = "<group>"; };
+		2A6BBFC4275EB57500EBBEA6 /* d_oflag_zerolen_a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_a.out; path = tests/d_oflag_zerolen_a.out; sourceTree = "<group>"; };
+		2A6BBFC5275EB57500EBBEA6 /* d_context_a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_a.out; path = tests/d_context_a.out; sourceTree = "<group>"; };
+		2A6BBFC6275EB57500EBBEA6 /* d_context_c.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_c.out; path = tests/d_context_c.out; sourceTree = "<group>"; };
+		2A6BBFC7275EB57500EBBEA6 /* d_color_a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_color_a.in; path = tests/d_color_a.in; sourceTree = "<group>"; };
+		2A6BBFC8275EB57500EBBEA6 /* d_context2_c.out */ = {isa = PBXFileReference; lastKnownFileType = file; name = d_context2_c.out; path = tests/d_context2_c.out; sourceTree = "<group>"; };
+		2A6BBFC9275EB57500EBBEA6 /* d_context_a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_a.in; path = tests/d_context_a.in; sourceTree = "<group>"; };
+		2A6BBFCA275EB57500EBBEA6 /* t_grep.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_grep.sh; path = tests/t_grep.sh; sourceTree = "<group>"; };
+		2A6BBFCB275EB57500EBBEA6 /* d_begin_end_b.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_begin_end_b.out; path = tests/d_begin_end_b.out; sourceTree = "<group>"; };
+		2A6BBFCC275EB57500EBBEA6 /* d_ignore_case.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_ignore_case.out; path = tests/d_ignore_case.out; sourceTree = "<group>"; };
+		2A6BBFCD275EB57500EBBEA6 /* d_context2_a.out */ = {isa = PBXFileReference; lastKnownFileType = file; name = d_context2_a.out; path = tests/d_context2_a.out; sourceTree = "<group>"; };
+		2A6BBFCE275EB57500EBBEA6 /* d_color_c.out */ = {isa = PBXFileReference; lastKnownFileType = file; name = d_color_c.out; path = tests/d_color_c.out; sourceTree = "<group>"; };
+		2A6BBFCF275EB57500EBBEA6 /* d_context_b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_b.in; path = tests/d_context_b.in; sourceTree = "<group>"; };
+		2A6BBFD0275EB57500EBBEA6 /* d_oflag_zerolen_c.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_c.in; path = tests/d_oflag_zerolen_c.in; sourceTree = "<group>"; };
+		2A6BBFD1275EB57500EBBEA6 /* d_whole_line.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_whole_line.out; path = tests/d_whole_line.out; sourceTree = "<group>"; };
+		2A6BBFD2275EB57600EBBEA6 /* d_recurse.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_recurse.out; path = tests/d_recurse.out; sourceTree = "<group>"; };
+		2A6BBFD3275EB57600EBBEA6 /* d_color_a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_color_a.out; path = tests/d_color_a.out; sourceTree = "<group>"; };
+		2A6BBFD4275EB57600EBBEA6 /* d_context_d.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_d.out; path = tests/d_context_d.out; sourceTree = "<group>"; };
+		2A6BBFD5275EB57600EBBEA6 /* d_context2_b.out */ = {isa = PBXFileReference; lastKnownFileType = file; name = d_context2_b.out; path = tests/d_context2_b.out; sourceTree = "<group>"; };
+		2A6BBFD6275EB57600EBBEA6 /* d_zgrep.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_zgrep.out; path = tests/d_zgrep.out; sourceTree = "<group>"; };
+		2A6BBFD7275EB57600EBBEA6 /* d_invert.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_invert.in; path = tests/d_invert.in; sourceTree = "<group>"; };
+		2A6BBFD8275EB57600EBBEA6 /* d_f_file_empty.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_f_file_empty.in; path = tests/d_f_file_empty.in; sourceTree = "<group>"; };
+		2A6BBFD9275EB57600EBBEA6 /* d_file_exp.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_file_exp.out; path = tests/d_file_exp.out; sourceTree = "<group>"; };
+		2A6BBFDA275EB57600EBBEA6 /* d_oflag_zerolen_b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_b.in; path = tests/d_oflag_zerolen_b.in; sourceTree = "<group>"; };
+		2A6BBFDB275EB57600EBBEA6 /* d_escmap.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_escmap.in; path = tests/d_escmap.in; sourceTree = "<group>"; };
+		2A6BBFDC275EB57600EBBEA6 /* d_context_e.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_e.in; path = tests/d_context_e.in; sourceTree = "<group>"; };
+		2A6BBFDD275EB57600EBBEA6 /* d_invert.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_invert.out; path = tests/d_invert.out; sourceTree = "<group>"; };
+		2A6BBFDE275EB57600EBBEA6 /* d_oflag_zerolen_b.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_b.out; path = tests/d_oflag_zerolen_b.out; sourceTree = "<group>"; };
+		2A6BBFDF275EB57600EBBEA6 /* d_color_b.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_color_b.in; path = tests/d_color_b.in; sourceTree = "<group>"; };
+		2A6BBFE0275EB57600EBBEA6 /* d_context_g.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_g.out; path = tests/d_context_g.out; sourceTree = "<group>"; };
+		2A6BBFE1275EB57600EBBEA6 /* d_oflag_zerolen_e.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_e.in; path = tests/d_oflag_zerolen_e.in; sourceTree = "<group>"; };
+		2A6BBFE2275EB57600EBBEA6 /* d_context_f.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_f.out; path = tests/d_context_f.out; sourceTree = "<group>"; };
+		2A6BBFE3275EB57600EBBEA6 /* d_word_regexps.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_word_regexps.out; path = tests/d_word_regexps.out; sourceTree = "<group>"; };
+		2A6BBFE4275EB57600EBBEA6 /* d_context_e.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_context_e.out; path = tests/d_context_e.out; sourceTree = "<group>"; };
+		2A6BBFE5275EB57600EBBEA6 /* d_oflag_zerolen_c.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_c.out; path = tests/d_oflag_zerolen_c.out; sourceTree = "<group>"; };
+		2A6BBFE6275EB57600EBBEA6 /* d_oflag_zerolen_e.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_e.out; path = tests/d_oflag_zerolen_e.out; sourceTree = "<group>"; };
+		2A6BBFE7275EB57600EBBEA6 /* d_recurse_symlink.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_recurse_symlink.out; path = tests/d_recurse_symlink.out; sourceTree = "<group>"; };
+		2A6BBFE8275EB57600EBBEA6 /* d_begin_end_a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_begin_end_a.out; path = tests/d_begin_end_a.out; sourceTree = "<group>"; };
+		2A6BBFE9275EB57600EBBEA6 /* d_oflag_zerolen_a.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_oflag_zerolen_a.in; path = tests/d_oflag_zerolen_a.in; sourceTree = "<group>"; };
+		2A6BBFEA275EB57700EBBEA6 /* grep_freebsd_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = grep_freebsd_test.sh; path = tests/grep_freebsd_test.sh; sourceTree = "<group>"; };
+		2A6BBFEB275EB57700EBBEA6 /* d_egrep.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_egrep.out; path = tests/d_egrep.out; sourceTree = "<group>"; };
+		2A6BC01D275EB74500EBBEA6 /* head_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = head_test.sh; path = tests/head_test.sh; sourceTree = "<group>"; };
+		2A6BC022275EB7CA00EBBEA6 /* regress.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = regress.sh; path = tests/regress.sh; sourceTree = "<group>"; };
+		2A6BC023275EB7CA00EBBEA6 /* regress.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.out; path = tests/regress.out; sourceTree = "<group>"; };
+		2A6BC024275EB7CA00EBBEA6 /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2A6BC025275EB7CA00EBBEA6 /* regress.1.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.1.in; path = tests/regress.1.in; sourceTree = "<group>"; };
+		2A6BC026275EB7CA00EBBEA6 /* regress.2.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.2.in; path = tests/regress.2.in; sourceTree = "<group>"; };
+		2A6BC02E275EB8DD00EBBEA6 /* self-test.sha256.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha256.chk"; path = "tests/self-test.sha256.chk"; sourceTree = "<group>"; };
+		2A6BC02F275EB8DD00EBBEA6 /* skein512.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein512.digest; path = tests/skein512.digest; sourceTree = "<group>"; };
+		2A6BC030275EB8DD00EBBEA6 /* 3.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "3.sha512-p.chk"; path = "tests/3.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC031275EB8DD00EBBEA6 /* 2.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.inp; path = tests/2.inp; sourceTree = "<group>"; };
+		2A6BC032275EB8DD00EBBEA6 /* 1.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.inp; path = tests/1.inp; sourceTree = "<group>"; };
+		2A6BC033275EB8DD00EBBEA6 /* sha384sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha384sum.digest; path = tests/sha384sum.digest; sourceTree = "<group>"; };
+		2A6BC034275EB8DD00EBBEA6 /* sha256sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha256sum.digest; path = tests/sha256sum.digest; sourceTree = "<group>"; };
+		2A6BC035275EB8DD00EBBEA6 /* skein256.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein256.digest; path = tests/skein256.digest; sourceTree = "<group>"; };
+		2A6BC036275EB8DD00EBBEA6 /* 7.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "7.sha512sum-p.chk"; path = "tests/7.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC037275EB8DD00EBBEA6 /* 5.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.inp; path = tests/5.inp; sourceTree = "<group>"; };
+		2A6BC038275EB8DD00EBBEA6 /* self-test.sh_inp */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "self-test.sh_inp"; path = "tests/self-test.sh_inp"; sourceTree = "<group>"; };
+		2A6BC039275EB8DD00EBBEA6 /* sha512t256sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha512t256sum.digest; path = tests/sha512t256sum.digest; sourceTree = "<group>"; };
+		2A6BC03A275EB8DD00EBBEA6 /* md5.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = md5.digest; path = tests/md5.digest; sourceTree = "<group>"; };
+		2A6BC03B275EB8DD00EBBEA6 /* 7.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "7.sha512-p.chk"; path = "tests/7.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC03C275EB8DD00EBBEA6 /* 1.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "1.sha512sum-p.chk"; path = "tests/1.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC03D275EB8DD00EBBEA6 /* self-test.SH */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "self-test.SH"; path = "tests/self-test.SH"; sourceTree = "<group>"; };
+		2A6BC03E275EB8DD00EBBEA6 /* self-test.sha512t256.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha512t256.chk"; path = "tests/self-test.sha512t256.chk"; sourceTree = "<group>"; };
+		2A6BC03F275EB8DD00EBBEA6 /* self-test.skein1024.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.skein1024.chk"; path = "tests/self-test.skein1024.chk"; sourceTree = "<group>"; };
+		2A6BC040275EB8DD00EBBEA6 /* 6.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "6.sha512sum-p.chk"; path = "tests/6.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC041275EB8DD00EBBEA6 /* 3.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 3.inp; path = tests/3.inp; sourceTree = "<group>"; };
+		2A6BC042275EB8DD00EBBEA6 /* 2.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "2.sha512sum-p.chk"; path = "tests/2.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC043275EB8DD00EBBEA6 /* coreutils-c-test.SH */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "coreutils-c-test.SH"; path = "tests/coreutils-c-test.SH"; sourceTree = "<group>"; };
+		2A6BC044275EB8DE00EBBEA6 /* skein1024.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein1024.digest; path = tests/skein1024.digest; sourceTree = "<group>"; };
+		2A6BC045275EB8DE00EBBEA6 /* 3.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "3.sha512sum-p.chk"; path = "tests/3.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC046275EB8DE00EBBEA6 /* 7.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.inp; path = tests/7.inp; sourceTree = "<group>"; };
+		2A6BC047275EB8DE00EBBEA6 /* self-test.sha1.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha1.chk"; path = "tests/self-test.sha1.chk"; sourceTree = "<group>"; };
+		2A6BC048275EB8DE00EBBEA6 /* self-test.skein512.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.skein512.chk"; path = "tests/self-test.skein512.chk"; sourceTree = "<group>"; };
+		2A6BC049275EB8DE00EBBEA6 /* self-test.sha384.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha384.chk"; path = "tests/self-test.sha384.chk"; sourceTree = "<group>"; };
+		2A6BC04A275EB8DE00EBBEA6 /* 5.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "5.sha512-p.chk"; path = "tests/5.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC04B275EB8DE00EBBEA6 /* self-test.md5.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.md5.chk"; path = "tests/self-test.md5.chk"; sourceTree = "<group>"; };
+		2A6BC04C275EB8DE00EBBEA6 /* sha512.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha512.digest; path = tests/sha512.digest; sourceTree = "<group>"; };
+		2A6BC04D275EB8DE00EBBEA6 /* 8.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "8.sha512-p.chk"; path = "tests/8.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC04E275EB8DE00EBBEA6 /* 4.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.inp; path = tests/4.inp; sourceTree = "<group>"; };
+		2A6BC04F275EB8DE00EBBEA6 /* 4.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "4.sha512sum-p.chk"; path = "tests/4.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC050275EB8DE00EBBEA6 /* sha256.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha256.digest; path = tests/sha256.digest; sourceTree = "<group>"; };
+		2A6BC051275EB8DE00EBBEA6 /* sha384.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha384.digest; path = tests/sha384.digest; sourceTree = "<group>"; };
+		2A6BC052275EB8DE00EBBEA6 /* sha224.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha224.digest; path = tests/sha224.digest; sourceTree = "<group>"; };
+		2A6BC053275EB8DE00EBBEA6 /* rmd160.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = rmd160.digest; path = tests/rmd160.digest; sourceTree = "<group>"; };
+		2A6BC054275EB8DE00EBBEA6 /* algorithms.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = algorithms.txt; path = tests/algorithms.txt; sourceTree = "<group>"; };
+		2A6BC055275EB8DE00EBBEA6 /* skein512sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein512sum.digest; path = tests/skein512sum.digest; sourceTree = "<group>"; };
+		2A6BC056275EB8DF00EBBEA6 /* bsd-s-test.SH */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "bsd-s-test.SH"; path = "tests/bsd-s-test.SH"; sourceTree = "<group>"; };
+		2A6BC057275EB8DF00EBBEA6 /* sha1sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha1sum.digest; path = tests/sha1sum.digest; sourceTree = "<group>"; };
+		2A6BC058275EB8DF00EBBEA6 /* 8.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.inp; path = tests/8.inp; sourceTree = "<group>"; };
+		2A6BC059275EB8DF00EBBEA6 /* 4.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "4.sha512-p.chk"; path = "tests/4.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC05A275EB8DF00EBBEA6 /* bsd-p-test.SH */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "bsd-p-test.SH"; path = "tests/bsd-p-test.SH"; sourceTree = "<group>"; };
+		2A6BC05B275EB8DF00EBBEA6 /* md5sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = md5sum.digest; path = tests/md5sum.digest; sourceTree = "<group>"; };
+		2A6BC05C275EB8DF00EBBEA6 /* sha1.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha1.digest; path = tests/sha1.digest; sourceTree = "<group>"; };
+		2A6BC05D275EB8DF00EBBEA6 /* 6.inp */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.inp; path = tests/6.inp; sourceTree = "<group>"; };
+		2A6BC05E275EB8DF00EBBEA6 /* self-test.sha224.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha224.chk"; path = "tests/self-test.sha224.chk"; sourceTree = "<group>"; };
+		2A6BC05F275EB8DF00EBBEA6 /* 8.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "8.sha512sum-p.chk"; path = "tests/8.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC060275EB8DF00EBBEA6 /* self-test.skein256.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.skein256.chk"; path = "tests/self-test.skein256.chk"; sourceTree = "<group>"; };
+		2A6BC061275EB8DF00EBBEA6 /* sha224sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha224sum.digest; path = tests/sha224sum.digest; sourceTree = "<group>"; };
+		2A6BC062275EB8DF00EBBEA6 /* skein1024sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein1024sum.digest; path = tests/skein1024sum.digest; sourceTree = "<group>"; };
+		2A6BC063275EB8DF00EBBEA6 /* 1.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "1.sha512-p.chk"; path = "tests/1.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC064275EB8DF00EBBEA6 /* bsd-c-test.SH */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "bsd-c-test.SH"; path = "tests/bsd-c-test.SH"; sourceTree = "<group>"; };
+		2A6BC065275EB8DF00EBBEA6 /* rmd160sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = rmd160sum.digest; path = tests/rmd160sum.digest; sourceTree = "<group>"; };
+		2A6BC066275EB8DF00EBBEA6 /* sha512sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha512sum.digest; path = tests/sha512sum.digest; sourceTree = "<group>"; };
+		2A6BC067275EB8DF00EBBEA6 /* self-test.sha512.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.sha512.chk"; path = "tests/self-test.sha512.chk"; sourceTree = "<group>"; };
+		2A6BC068275EB8DF00EBBEA6 /* skein256sum.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = skein256sum.digest; path = tests/skein256sum.digest; sourceTree = "<group>"; };
+		2A6BC069275EB8DF00EBBEA6 /* 2.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "2.sha512-p.chk"; path = "tests/2.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC06A275EB8DF00EBBEA6 /* 6.sha512-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "6.sha512-p.chk"; path = "tests/6.sha512-p.chk"; sourceTree = "<group>"; };
+		2A6BC06B275EB8DF00EBBEA6 /* 5.sha512sum-p.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "5.sha512sum-p.chk"; path = "tests/5.sha512sum-p.chk"; sourceTree = "<group>"; };
+		2A6BC06C275EB8DF00EBBEA6 /* self-test.rmd160.chk */ = {isa = PBXFileReference; lastKnownFileType = text; name = "self-test.rmd160.chk"; path = "tests/self-test.rmd160.chk"; sourceTree = "<group>"; };
+		2A6BC06D275EB8DF00EBBEA6 /* sha512t256.digest */ = {isa = PBXFileReference; lastKnownFileType = text; name = sha512t256.digest; path = tests/sha512t256.digest; sourceTree = "<group>"; };
+		2A6BC0AF275EBBBF00EBBEA6 /* threecol.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = threecol.out; path = tests/threecol.out; sourceTree = "<group>"; };
+		2A6BC0B0275EBBBF00EBBEA6 /* other.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = other.in; path = tests/other.in; sourceTree = "<group>"; };
+		2A6BC0B1275EBBBF00EBBEA6 /* t_basic.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_basic.sh; path = tests/t_basic.sh; sourceTree = "<group>"; };
+		2A6BC0B2275EBBBF00EBBEA6 /* d_basic.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.out; path = tests/d_basic.out; sourceTree = "<group>"; };
+		2A6BC0B3275EBBBF00EBBEA6 /* d_basic.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.in; path = tests/d_basic.in; sourceTree = "<group>"; };
+		2A6BC0B4275EBBC000EBBEA6 /* basic2_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = basic2_test.sh; path = tests/basic2_test.sh; sourceTree = "<group>"; };
+		2A6BC0B5275EBBC000EBBEA6 /* merge.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = merge.out; path = tests/merge.out; sourceTree = "<group>"; };
+		2A6BC0B6275EBBC000EBBEA6 /* across.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = across.out; path = tests/across.out; sourceTree = "<group>"; };
+		2A6BC0C2275EBCB000EBBEA6 /* rs_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = rs_test.sh; path = tests/rs_test.sh; sourceTree = "<group>"; };
+		2A6BC0EE275EBD8500EBBEA6 /* multi_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = multi_test.sh; path = tests/multi_test.sh; sourceTree = "<group>"; };
+		2A6BC0EF275EBD8500EBBEA6 /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2A6BC0F0275EBD8500EBBEA6 /* regress.icase4.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.icase4.out; path = tests/regress.icase4.out; sourceTree = "<group>"; };
+		2A6BC0F1275EBD8600EBBEA6 /* regress.b2a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.b2a.out; path = tests/regress.b2a.out; sourceTree = "<group>"; };
+		2A6BC0F2275EBD8600EBBEA6 /* inplace_race_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = inplace_race_test.sh; path = tests/inplace_race_test.sh; sourceTree = "<group>"; };
+		2A6BC0F3275EBD8600EBBEA6 /* regress.math.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.math.out; path = tests/regress.math.out; sourceTree = "<group>"; };
+		2A6BC0F4275EBD8600EBBEA6 /* regress.c3.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.c3.out; path = tests/regress.c3.out; sourceTree = "<group>"; };
+		2A6BC0F5275EBD8600EBBEA6 /* regress.bcb.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.bcb.out; path = tests/regress.bcb.out; sourceTree = "<group>"; };
+		2A6BC0F6275EBD8600EBBEA6 /* regress.G.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.G.out; path = tests/regress.G.out; sourceTree = "<group>"; };
+		2A6BC0F7275EBD8600EBBEA6 /* math.sed */ = {isa = PBXFileReference; lastKnownFileType = text; name = math.sed; path = tests/math.sed; sourceTree = "<group>"; };
+		2A6BC0F8275EBD8600EBBEA6 /* regress.c2.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.c2.out; path = tests/regress.c2.out; sourceTree = "<group>"; };
+		2A6BC0F9275EBD8600EBBEA6 /* hanoi.sed */ = {isa = PBXFileReference; lastKnownFileType = text; name = hanoi.sed; path = tests/hanoi.sed; sourceTree = "<group>"; };
+		2A6BC0FA275EBD8600EBBEA6 /* regress.c1.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.c1.out; path = tests/regress.c1.out; sourceTree = "<group>"; };
+		2A6BC0FB275EBD8600EBBEA6 /* regress.hanoi.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.hanoi.out; path = tests/regress.hanoi.out; sourceTree = "<group>"; };
+		2A6BC0FC275EBD8600EBBEA6 /* regress.icase1.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.icase1.out; path = tests/regress.icase1.out; sourceTree = "<group>"; };
+		2A6BC0FD275EBD8600EBBEA6 /* regress.icase2.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.icase2.out; path = tests/regress.icase2.out; sourceTree = "<group>"; };
+		2A6BC0FE275EBD8600EBBEA6 /* regress.icase3.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.icase3.out; path = tests/regress.icase3.out; sourceTree = "<group>"; };
+		2A6BC0FF275EBD8600EBBEA6 /* d_c2048.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_c2048.in; path = tests/d_c2048.in; sourceTree = "<group>"; };
+		2A6BC100275EBD8600EBBEA6 /* regress.c0.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.c0.out; path = tests/regress.c0.out; sourceTree = "<group>"; };
+		2A6BC101275EBD8600EBBEA6 /* regress.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.in; path = tests/regress.in; sourceTree = "<group>"; };
+		2A6BC104275EBDB700EBBEA6 /* 1.14 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.14; path = sed/tests/regress.multitest.out/1.14; sourceTree = "<group>"; };
+		2A6BC105275EBDB700EBBEA6 /* 5.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.8; path = sed/tests/regress.multitest.out/5.8; sourceTree = "<group>"; };
+		2A6BC106275EBDB700EBBEA6 /* 8.17 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.17; path = sed/tests/regress.multitest.out/8.17; sourceTree = "<group>"; };
+		2A6BC107275EBDB700EBBEA6 /* 6.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.4; path = sed/tests/regress.multitest.out/6.4; sourceTree = "<group>"; };
+		2A6BC108275EBDB700EBBEA6 /* 4.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.6; path = sed/tests/regress.multitest.out/4.6; sourceTree = "<group>"; };
+		2A6BC109275EBDB700EBBEA6 /* 5.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.7; path = sed/tests/regress.multitest.out/5.7; sourceTree = "<group>"; };
+		2A6BC10A275EBDB700EBBEA6 /* 7.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 7.1; path = sed/tests/regress.multitest.out/7.1; sourceTree = "<group>"; };
+		2A6BC10B275EBDB700EBBEA6 /* 1.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 1.1; path = sed/tests/regress.multitest.out/1.1; sourceTree = "<group>"; };
+		2A6BC10C275EBDB700EBBEA6 /* 7.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.3; path = sed/tests/regress.multitest.out/7.3; sourceTree = "<group>"; };
+		2A6BC10D275EBDB700EBBEA6 /* 9.13 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.13; path = sed/tests/regress.multitest.out/9.13; sourceTree = "<group>"; };
+		2A6BC10E275EBDB700EBBEA6 /* 8.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.8; path = sed/tests/regress.multitest.out/8.8; sourceTree = "<group>"; };
+		2A6BC10F275EBDB700EBBEA6 /* 1.10 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.10; path = sed/tests/regress.multitest.out/1.10; sourceTree = "<group>"; };
+		2A6BC110275EBDB700EBBEA6 /* 1.17 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.17; path = sed/tests/regress.multitest.out/1.17; sourceTree = "<group>"; };
+		2A6BC111275EBDB700EBBEA6 /* 7.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.6; path = sed/tests/regress.multitest.out/7.6; sourceTree = "<group>"; };
+		2A6BC112275EBDB700EBBEA6 /* 8.18 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.18; path = sed/tests/regress.multitest.out/8.18; sourceTree = "<group>"; };
+		2A6BC113275EBDB700EBBEA6 /* 8.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.4; path = sed/tests/regress.multitest.out/8.4; sourceTree = "<group>"; };
+		2A6BC114275EBDB800EBBEA6 /* 8.20 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.20; path = sed/tests/regress.multitest.out/8.20; sourceTree = "<group>"; };
+		2A6BC115275EBDB800EBBEA6 /* 9.21 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.21; path = sed/tests/regress.multitest.out/9.21; sourceTree = "<group>"; };
+		2A6BC116275EBDB800EBBEA6 /* 8.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.6; path = sed/tests/regress.multitest.out/8.6; sourceTree = "<group>"; };
+		2A6BC117275EBDB800EBBEA6 /* 5.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 5.1; path = sed/tests/regress.multitest.out/5.1; sourceTree = "<group>"; };
+		2A6BC118275EBDB800EBBEA6 /* 2.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.6; path = sed/tests/regress.multitest.out/2.6; sourceTree = "<group>"; };
+		2A6BC119275EBDB800EBBEA6 /* 6.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.6; path = sed/tests/regress.multitest.out/6.6; sourceTree = "<group>"; };
+		2A6BC11A275EBDB800EBBEA6 /* 6.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.3; path = sed/tests/regress.multitest.out/6.3; sourceTree = "<group>"; };
+		2A6BC11B275EBDB800EBBEA6 /* 9.9 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.9; path = sed/tests/regress.multitest.out/9.9; sourceTree = "<group>"; };
+		2A6BC11C275EBDB800EBBEA6 /* 9.19 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.19; path = sed/tests/regress.multitest.out/9.19; sourceTree = "<group>"; };
+		2A6BC11D275EBDB800EBBEA6 /* 9.15 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.15; path = sed/tests/regress.multitest.out/9.15; sourceTree = "<group>"; };
+		2A6BC11E275EBDB800EBBEA6 /* 8.10 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.10; path = sed/tests/regress.multitest.out/8.10; sourceTree = "<group>"; };
+		2A6BC11F275EBDB800EBBEA6 /* 1.13 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.13; path = sed/tests/regress.multitest.out/1.13; sourceTree = "<group>"; };
+		2A6BC120275EBDB800EBBEA6 /* 1.9 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.9; path = sed/tests/regress.multitest.out/1.9; sourceTree = "<group>"; };
+		2A6BC121275EBDB800EBBEA6 /* 2.12 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.12; path = sed/tests/regress.multitest.out/2.12; sourceTree = "<group>"; };
+		2A6BC122275EBDB800EBBEA6 /* 2.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.4; path = sed/tests/regress.multitest.out/2.4; sourceTree = "<group>"; };
+		2A6BC123275EBDB800EBBEA6 /* 9.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.5; path = sed/tests/regress.multitest.out/9.5; sourceTree = "<group>"; };
+		2A6BC124275EBDB800EBBEA6 /* 4.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.8; path = sed/tests/regress.multitest.out/4.8; sourceTree = "<group>"; };
+		2A6BC125275EBDB800EBBEA6 /* 9.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 9.1; path = sed/tests/regress.multitest.out/9.1; sourceTree = "<group>"; };
+		2A6BC126275EBDB900EBBEA6 /* 9.18 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.18; path = sed/tests/regress.multitest.out/9.18; sourceTree = "<group>"; };
+		2A6BC127275EBDB900EBBEA6 /* 8.19 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.19; path = sed/tests/regress.multitest.out/8.19; sourceTree = "<group>"; };
+		2A6BC128275EBDB900EBBEA6 /* 8.14 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.14; path = sed/tests/regress.multitest.out/8.14; sourceTree = "<group>"; };
+		2A6BC129275EBDB900EBBEA6 /* 9.16 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.16; path = sed/tests/regress.multitest.out/9.16; sourceTree = "<group>"; };
+		2A6BC12A275EBDB900EBBEA6 /* 3.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 3.1; path = sed/tests/regress.multitest.out/3.1; sourceTree = "<group>"; };
+		2A6BC12B275EBDB900EBBEA6 /* 1.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.7; path = sed/tests/regress.multitest.out/1.7; sourceTree = "<group>"; };
+		2A6BC12C275EBDB900EBBEA6 /* 2.10 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.10; path = sed/tests/regress.multitest.out/2.10; sourceTree = "<group>"; };
+		2A6BC12D275EBDB900EBBEA6 /* 2.11 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.11; path = sed/tests/regress.multitest.out/2.11; sourceTree = "<group>"; };
+		2A6BC12E275EBDB900EBBEA6 /* 5.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.5; path = sed/tests/regress.multitest.out/5.5; sourceTree = "<group>"; };
+		2A6BC12F275EBDB900EBBEA6 /* 6.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.2; path = sed/tests/regress.multitest.out/6.2; sourceTree = "<group>"; };
+		2A6BC130275EBDB900EBBEA6 /* 7.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.7; path = sed/tests/regress.multitest.out/7.7; sourceTree = "<group>"; };
+		2A6BC131275EBDB900EBBEA6 /* 9.28 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.28; path = sed/tests/regress.multitest.out/9.28; sourceTree = "<group>"; };
+		2A6BC132275EBDB900EBBEA6 /* 8.12 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.12; path = sed/tests/regress.multitest.out/8.12; sourceTree = "<group>"; };
+		2A6BC133275EBDB900EBBEA6 /* 9.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.7; path = sed/tests/regress.multitest.out/9.7; sourceTree = "<group>"; };
+		2A6BC134275EBDB900EBBEA6 /* 5.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.3; path = sed/tests/regress.multitest.out/5.3; sourceTree = "<group>"; };
+		2A6BC135275EBDB900EBBEA6 /* 2.14 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.14; path = sed/tests/regress.multitest.out/2.14; sourceTree = "<group>"; };
+		2A6BC136275EBDB900EBBEA6 /* 7.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.4; path = sed/tests/regress.multitest.out/7.4; sourceTree = "<group>"; };
+		2A6BC137275EBDB900EBBEA6 /* 9.30 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.30; path = sed/tests/regress.multitest.out/9.30; sourceTree = "<group>"; };
+		2A6BC138275EBDB900EBBEA6 /* 2.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 2.1; path = sed/tests/regress.multitest.out/2.1; sourceTree = "<group>"; };
+		2A6BC139275EBDB900EBBEA6 /* 8.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.5; path = sed/tests/regress.multitest.out/8.5; sourceTree = "<group>"; };
+		2A6BC13A275EBDBA00EBBEA6 /* 2.18 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.18; path = sed/tests/regress.multitest.out/2.18; sourceTree = "<group>"; };
+		2A6BC13B275EBDBA00EBBEA6 /* 9.10 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.10; path = sed/tests/regress.multitest.out/9.10; sourceTree = "<group>"; };
+		2A6BC13C275EBDBA00EBBEA6 /* 6.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 6.5; path = sed/tests/regress.multitest.out/6.5; sourceTree = "<group>"; };
+		2A6BC13D275EBDBA00EBBEA6 /* 9.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.6; path = sed/tests/regress.multitest.out/9.6; sourceTree = "<group>"; };
+		2A6BC13E275EBDBA00EBBEA6 /* 9.17 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.17; path = sed/tests/regress.multitest.out/9.17; sourceTree = "<group>"; };
+		2A6BC13F275EBDBA00EBBEA6 /* 2.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.3; path = sed/tests/regress.multitest.out/2.3; sourceTree = "<group>"; };
+		2A6BC140275EBDBA00EBBEA6 /* 9.26 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.26; path = sed/tests/regress.multitest.out/9.26; sourceTree = "<group>"; };
+		2A6BC141275EBDBA00EBBEA6 /* 2.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.2; path = sed/tests/regress.multitest.out/2.2; sourceTree = "<group>"; };
+		2A6BC142275EBDBA00EBBEA6 /* 1.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.3; path = sed/tests/regress.multitest.out/1.3; sourceTree = "<group>"; };
+		2A6BC143275EBDBA00EBBEA6 /* 2.16 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.16; path = sed/tests/regress.multitest.out/2.16; sourceTree = "<group>"; };
+		2A6BC144275EBDBA00EBBEA6 /* 2.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.8; path = sed/tests/regress.multitest.out/2.8; sourceTree = "<group>"; };
+		2A6BC145275EBDBA00EBBEA6 /* 4.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.7; path = sed/tests/regress.multitest.out/4.7; sourceTree = "<group>"; };
+		2A6BC146275EBDBA00EBBEA6 /* 3.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 3.3; path = sed/tests/regress.multitest.out/3.3; sourceTree = "<group>"; };
+		2A6BC147275EBDBA00EBBEA6 /* 1.11 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.11; path = sed/tests/regress.multitest.out/1.11; sourceTree = "<group>"; };
+		2A6BC148275EBDBA00EBBEA6 /* 4.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.5; path = sed/tests/regress.multitest.out/4.5; sourceTree = "<group>"; };
+		2A6BC149275EBDBA00EBBEA6 /* 2.20 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.20; path = sed/tests/regress.multitest.out/2.20; sourceTree = "<group>"; };
+		2A6BC14A275EBDBA00EBBEA6 /* 5.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.6; path = sed/tests/regress.multitest.out/5.6; sourceTree = "<group>"; };
+		2A6BC14B275EBDBA00EBBEA6 /* 7.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.2; path = sed/tests/regress.multitest.out/7.2; sourceTree = "<group>"; };
+		2A6BC14C275EBDBA00EBBEA6 /* 2.22 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.22; path = sed/tests/regress.multitest.out/2.22; sourceTree = "<group>"; };
+		2A6BC14D275EBDBB00EBBEA6 /* 8.11 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.11; path = sed/tests/regress.multitest.out/8.11; sourceTree = "<group>"; };
+		2A6BC14E275EBDBB00EBBEA6 /* 9.14 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.14; path = sed/tests/regress.multitest.out/9.14; sourceTree = "<group>"; };
+		2A6BC14F275EBDBB00EBBEA6 /* 8.15 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.15; path = sed/tests/regress.multitest.out/8.15; sourceTree = "<group>"; };
+		2A6BC150275EBDBB00EBBEA6 /* 1.16 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.16; path = sed/tests/regress.multitest.out/1.16; sourceTree = "<group>"; };
+		2A6BC151275EBDBB00EBBEA6 /* 1.15 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.15; path = sed/tests/regress.multitest.out/1.15; sourceTree = "<group>"; };
+		2A6BC152275EBDBB00EBBEA6 /* 2.17 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.17; path = sed/tests/regress.multitest.out/2.17; sourceTree = "<group>"; };
+		2A6BC153275EBDBB00EBBEA6 /* 8.21 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.21; path = sed/tests/regress.multitest.out/8.21; sourceTree = "<group>"; };
+		2A6BC154275EBDBB00EBBEA6 /* 2.23 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.23; path = sed/tests/regress.multitest.out/2.23; sourceTree = "<group>"; };
+		2A6BC155275EBDBB00EBBEA6 /* 2.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.5; path = sed/tests/regress.multitest.out/2.5; sourceTree = "<group>"; };
+		2A6BC156275EBDBB00EBBEA6 /* 1.18 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.18; path = sed/tests/regress.multitest.out/1.18; sourceTree = "<group>"; };
+		2A6BC157275EBDBB00EBBEA6 /* 9.22 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.22; path = sed/tests/regress.multitest.out/9.22; sourceTree = "<group>"; };
+		2A6BC158275EBDBB00EBBEA6 /* 5.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.2; path = sed/tests/regress.multitest.out/5.2; sourceTree = "<group>"; };
+		2A6BC159275EBDBB00EBBEA6 /* 3.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 3.2; path = sed/tests/regress.multitest.out/3.2; sourceTree = "<group>"; };
+		2A6BC15A275EBDBB00EBBEA6 /* 1.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.4; path = sed/tests/regress.multitest.out/1.4; sourceTree = "<group>"; };
+		2A6BC15B275EBDBB00EBBEA6 /* 6.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 6.1; path = sed/tests/regress.multitest.out/6.1; sourceTree = "<group>"; };
+		2A6BC15C275EBDBB00EBBEA6 /* 4.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.4; path = sed/tests/regress.multitest.out/4.4; sourceTree = "<group>"; };
+		2A6BC15D275EBDBB00EBBEA6 /* 8.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.2; path = sed/tests/regress.multitest.out/8.2; sourceTree = "<group>"; };
+		2A6BC15E275EBDBB00EBBEA6 /* 9.20 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.20; path = sed/tests/regress.multitest.out/9.20; sourceTree = "<group>"; };
+		2A6BC15F275EBDBB00EBBEA6 /* 9.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.4; path = sed/tests/regress.multitest.out/9.4; sourceTree = "<group>"; };
+		2A6BC160275EBDBC00EBBEA6 /* 4.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.2; path = sed/tests/regress.multitest.out/4.2; sourceTree = "<group>"; };
+		2A6BC161275EBDBC00EBBEA6 /* 2.13 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.13; path = sed/tests/regress.multitest.out/2.13; sourceTree = "<group>"; };
+		2A6BC162275EBDBC00EBBEA6 /* 4.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 4.3; path = sed/tests/regress.multitest.out/4.3; sourceTree = "<group>"; };
+		2A6BC163275EBDBC00EBBEA6 /* 9.31 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.31; path = sed/tests/regress.multitest.out/9.31; sourceTree = "<group>"; };
+		2A6BC164275EBDBC00EBBEA6 /* 3.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 3.4; path = sed/tests/regress.multitest.out/3.4; sourceTree = "<group>"; };
+		2A6BC165275EBDBC00EBBEA6 /* 9.27 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.27; path = sed/tests/regress.multitest.out/9.27; sourceTree = "<group>"; };
+		2A6BC166275EBDBC00EBBEA6 /* 9.23 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.23; path = sed/tests/regress.multitest.out/9.23; sourceTree = "<group>"; };
+		2A6BC167275EBDBC00EBBEA6 /* 2.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.7; path = sed/tests/regress.multitest.out/2.7; sourceTree = "<group>"; };
+		2A6BC168275EBDBC00EBBEA6 /* 8.22 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.22; path = sed/tests/regress.multitest.out/8.22; sourceTree = "<group>"; };
+		2A6BC169275EBDBC00EBBEA6 /* 9.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.2; path = sed/tests/regress.multitest.out/9.2; sourceTree = "<group>"; };
+		2A6BC16A275EBDBC00EBBEA6 /* 8.13 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.13; path = sed/tests/regress.multitest.out/8.13; sourceTree = "<group>"; };
+		2A6BC16B275EBDBC00EBBEA6 /* 2.19 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.19; path = sed/tests/regress.multitest.out/2.19; sourceTree = "<group>"; };
+		2A6BC16C275EBDBC00EBBEA6 /* 2.9 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.9; path = sed/tests/regress.multitest.out/2.9; sourceTree = "<group>"; };
+		2A6BC16D275EBDBC00EBBEA6 /* 8.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 8.1; path = sed/tests/regress.multitest.out/8.1; sourceTree = "<group>"; };
+		2A6BC16E275EBDBC00EBBEA6 /* 1.6 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.6; path = sed/tests/regress.multitest.out/1.6; sourceTree = "<group>"; };
+		2A6BC16F275EBDBC00EBBEA6 /* 8.16 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.16; path = sed/tests/regress.multitest.out/8.16; sourceTree = "<group>"; };
+		2A6BC170275EBDBC00EBBEA6 /* 9.11 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.11; path = sed/tests/regress.multitest.out/9.11; sourceTree = "<group>"; };
+		2A6BC171275EBDBC00EBBEA6 /* 9.12 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.12; path = sed/tests/regress.multitest.out/9.12; sourceTree = "<group>"; };
+		2A6BC172275EBDBC00EBBEA6 /* 2.21 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.21; path = sed/tests/regress.multitest.out/2.21; sourceTree = "<group>"; };
+		2A6BC173275EBDBC00EBBEA6 /* 5.4 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 5.4; path = sed/tests/regress.multitest.out/5.4; sourceTree = "<group>"; };
+		2A6BC174275EBDBD00EBBEA6 /* 8.23 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.23; path = sed/tests/regress.multitest.out/8.23; sourceTree = "<group>"; };
+		2A6BC175275EBDBD00EBBEA6 /* 8.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.3; path = sed/tests/regress.multitest.out/8.3; sourceTree = "<group>"; };
+		2A6BC176275EBDBD00EBBEA6 /* 9.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.3; path = sed/tests/regress.multitest.out/9.3; sourceTree = "<group>"; };
+		2A6BC177275EBDBD00EBBEA6 /* 9.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.8; path = sed/tests/regress.multitest.out/9.8; sourceTree = "<group>"; };
+		2A6BC178275EBDBD00EBBEA6 /* 8.9 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.9; path = sed/tests/regress.multitest.out/8.9; sourceTree = "<group>"; };
+		2A6BC179275EBDBD00EBBEA6 /* 1.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.5; path = sed/tests/regress.multitest.out/1.5; sourceTree = "<group>"; };
+		2A6BC17A275EBDBD00EBBEA6 /* 7.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.8; path = sed/tests/regress.multitest.out/7.8; sourceTree = "<group>"; };
+		2A6BC17B275EBDBD00EBBEA6 /* 4.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 4.1; path = sed/tests/regress.multitest.out/4.1; sourceTree = "<group>"; };
+		2A6BC17C275EBDBD00EBBEA6 /* 7.5 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 7.5; path = sed/tests/regress.multitest.out/7.5; sourceTree = "<group>"; };
+		2A6BC17D275EBDBD00EBBEA6 /* 9.25 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.25; path = sed/tests/regress.multitest.out/9.25; sourceTree = "<group>"; };
+		2A6BC17E275EBDBD00EBBEA6 /* 9.29 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.29; path = sed/tests/regress.multitest.out/9.29; sourceTree = "<group>"; };
+		2A6BC17F275EBDBD00EBBEA6 /* 1.4.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = 1.4.1; path = sed/tests/regress.multitest.out/1.4.1; sourceTree = "<group>"; };
+		2A6BC180275EBDBD00EBBEA6 /* 1.12 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.12; path = sed/tests/regress.multitest.out/1.12; sourceTree = "<group>"; };
+		2A6BC181275EBDBD00EBBEA6 /* 2.15 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 2.15; path = sed/tests/regress.multitest.out/2.15; sourceTree = "<group>"; };
+		2A6BC182275EBDBD00EBBEA6 /* 1.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.8; path = sed/tests/regress.multitest.out/1.8; sourceTree = "<group>"; };
+		2A6BC183275EBDBD00EBBEA6 /* 8.7 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 8.7; path = sed/tests/regress.multitest.out/8.7; sourceTree = "<group>"; };
+		2A6BC184275EBDBD00EBBEA6 /* 1.2 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 1.2; path = sed/tests/regress.multitest.out/1.2; sourceTree = "<group>"; };
+		2A6BC185275EBDBD00EBBEA6 /* 9.24 */ = {isa = PBXFileReference; lastKnownFileType = text; name = 9.24; path = sed/tests/regress.multitest.out/9.24; sourceTree = "<group>"; };
+		2A6BC186275EBDCA00EBBEA6 /* regress.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = regress.sh; path = tests/regress.sh; sourceTree = "<group>"; };
+		2A6BC187275EBDCA00EBBEA6 /* regress.s4.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.s4.out; path = tests/regress.s4.out; sourceTree = "<group>"; };
+		2A6BC188275EBDCA00EBBEA6 /* regress.sg.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.sg.out; path = tests/regress.sg.out; sourceTree = "<group>"; };
+		2A6BC189275EBDCA00EBBEA6 /* t_sed.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_sed.sh; path = tests/t_sed.sh; sourceTree = "<group>"; };
+		2A6BC18A275EBDCA00EBBEA6 /* regress.P.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.P.out; path = tests/regress.P.out; sourceTree = "<group>"; };
+		2A6BC18B275EBDCA00EBBEA6 /* regress.y.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.y.out; path = tests/regress.y.out; sourceTree = "<group>"; };
+		2A6BC18C275EBDCA00EBBEA6 /* regress.s3.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.s3.out; path = tests/regress.s3.out; sourceTree = "<group>"; };
+		2A6BC18D275EBDCA00EBBEA6 /* sed2_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = sed2_test.sh; path = tests/sed2_test.sh; sourceTree = "<group>"; };
+		2A6BC18E275EBDCA00EBBEA6 /* regress.psl.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.psl.out; path = tests/regress.psl.out; sourceTree = "<group>"; };
+		2A6BC18F275EBDCB00EBBEA6 /* regress.not.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.not.out; path = tests/regress.not.out; sourceTree = "<group>"; };
+		2A6BC190275EBDCB00EBBEA6 /* regress.s5.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.s5.out; path = tests/regress.s5.out; sourceTree = "<group>"; };
+		2A6BC235275EC0E200EBBEA6 /* d_any_char_iflag_out.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_any_char_iflag_out.txt; path = tests/d_any_char_iflag_out.txt; sourceTree = "<group>"; };
+		2A6BC236275EC0E200EBBEA6 /* d_any_char_fflag_out.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_any_char_fflag_out.txt; path = tests/d_any_char_fflag_out.txt; sourceTree = "<group>"; };
+		2A6BC237275EC0E200EBBEA6 /* d_any_char_in.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_any_char_in.txt; path = tests/d_any_char_in.txt; sourceTree = "<group>"; };
+		2A6BC238275EC0E200EBBEA6 /* t_sort.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_sort.sh; path = tests/t_sort.sh; sourceTree = "<group>"; };
+		2A6BC239275EC0E200EBBEA6 /* d_any_char_dflag_out.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_any_char_dflag_out.txt; path = tests/d_any_char_dflag_out.txt; sourceTree = "<group>"; };
+		2A6BC240275EC1BD00EBBEA6 /* tail_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = tail_test.sh; path = tests/tail_test.sh; sourceTree = "<group>"; };
+		2A6BC245275EC25700EBBEA6 /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2A6BC246275EC25700EBBEA6 /* regress.0d.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.0d.out; path = tests/regress.0d.out; sourceTree = "<group>"; };
+		2A6BC247275EC25700EBBEA6 /* regress.05.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.05.out; path = tests/regress.05.out; sourceTree = "<group>"; };
+		2A6BC248275EC25700EBBEA6 /* regress.01.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.01.out; path = tests/regress.01.out; sourceTree = "<group>"; };
+		2A6BC249275EC25700EBBEA6 /* regress.0a.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.0a.out; path = tests/regress.0a.out; sourceTree = "<group>"; };
+		2A6BC24A275EC25700EBBEA6 /* regress.09.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.09.out; path = tests/regress.09.out; sourceTree = "<group>"; };
+		2A6BC24B275EC25700EBBEA6 /* regress.06.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.06.out; path = tests/regress.06.out; sourceTree = "<group>"; };
+		2A6BC24C275EC25700EBBEA6 /* regress.08.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.08.out; path = tests/regress.08.out; sourceTree = "<group>"; };
+		2A6BC24D275EC25700EBBEA6 /* regress.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.in; path = tests/regress.in; sourceTree = "<group>"; };
+		2A6BC24E275EC25700EBBEA6 /* regress.0c.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.0c.out; path = tests/regress.0c.out; sourceTree = "<group>"; };
+		2A6BC24F275EC25700EBBEA6 /* regress2.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress2.in; path = tests/regress2.in; sourceTree = "<group>"; };
+		2A6BC250275EC25800EBBEA6 /* regress.00.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.00.out; path = tests/regress.00.out; sourceTree = "<group>"; };
+		2A6BC251275EC25800EBBEA6 /* regress.07.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.07.out; path = tests/regress.07.out; sourceTree = "<group>"; };
+		2A6BC252275EC25800EBBEA6 /* regress.04.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.04.out; path = tests/regress.04.out; sourceTree = "<group>"; };
+		2A6BC253275EC25800EBBEA6 /* regress.02.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.02.out; path = tests/regress.02.out; sourceTree = "<group>"; };
+		2A6BC254275EC25800EBBEA6 /* regress.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = regress.sh; path = tests/regress.sh; sourceTree = "<group>"; };
+		2A6BC255275EC25800EBBEA6 /* regress.0b.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.0b.out; path = tests/regress.0b.out; sourceTree = "<group>"; };
+		2A6BC256275EC25800EBBEA6 /* regress.03.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = regress.03.out; path = tests/regress.03.out; sourceTree = "<group>"; };
+		2A6BC26C275EC2F400EBBEA6 /* d_show_duplicates.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_show_duplicates.out; path = tests/d_show_duplicates.out; sourceTree = "<group>"; };
+		2A6BC26D275EC2F400EBBEA6 /* d_input.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_input.in; path = tests/d_input.in; sourceTree = "<group>"; };
+		2A6BC26E275EC2F400EBBEA6 /* t_uniq.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_uniq.sh; path = tests/t_uniq.sh; sourceTree = "<group>"; };
+		2A6BC26F275EC2F400EBBEA6 /* d_basic.in */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.in; path = tests/d_basic.in; sourceTree = "<group>"; };
+		2A6BC270275EC2F400EBBEA6 /* d_counts.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_counts.out; path = tests/d_counts.out; sourceTree = "<group>"; };
+		2A6BC271275EC2F400EBBEA6 /* d_basic.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_basic.out; path = tests/d_basic.out; sourceTree = "<group>"; };
+		2A6BC272275EC2F400EBBEA6 /* d_show_uniques.out */ = {isa = PBXFileReference; lastKnownFileType = text; name = d_show_uniques.out; path = tests/d_show_uniques.out; sourceTree = "<group>"; };
+		2AA02960280DE7F2002436E7 /* t_basic.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = t_basic.sh; path = tests/t_basic.sh; sourceTree = "<group>"; };
 		2AC6B55D268C1B16006AA0B7 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		3EF506E11F7ABD7500421EB3 /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = tests; sourceTree = "<group>"; };
 		FC6C98FB149A94EB00DDCC47 /* libcurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurses.dylib; path = /usr/lib/libcurses.dylib; sourceTree = "<absolute>"; };
@@ -989,9 +2225,6 @@
 		FC7A7C60149866AF0086576A /* POSIX */ = {isa = PBXFileReference; lastKnownFileType = text; path = POSIX; sourceTree = "<group>"; };
 		FC7A7C61149866AF0086576A /* process.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = process.c; sourceTree = "<group>"; };
 		FC7A7C62149866AF0086576A /* sed.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = sed.1; sourceTree = "<group>"; };
-		FC7A7C64149866AF0086576A /* hanoi.sed */ = {isa = PBXFileReference; lastKnownFileType = text; path = hanoi.sed; sourceTree = "<group>"; };
-		FC7A7C65149866AF0086576A /* math.sed */ = {isa = PBXFileReference; lastKnownFileType = text; path = math.sed; sourceTree = "<group>"; };
-		FC7A7C66149866AF0086576A /* sed.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = sed.test; sourceTree = "<group>"; };
 		FC7A7C93149866AF0086576A /* sort.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sort.c; sourceTree = "<group>"; };
 		FC7A7CB4149866AF0086576A /* split.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = split.1; sourceTree = "<group>"; };
 		FC7A7CB5149866AF0086576A /* split.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = split.c; sourceTree = "<group>"; };
@@ -1085,7 +2318,6 @@
 		FDF283661DAED0C000CF8C36 /* vsort.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vsort.c; sourceTree = "<group>"; };
 		FDF283671DAED0C000CF8C36 /* vsort.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vsort.h; sourceTree = "<group>"; };
 		FDF2836E1DAED24800CF8C36 /* sort.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = sort.xcconfig; sourceTree = "<group>"; };
-		FDF2836F1DAED7C700CF8C36 /* commoncrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = commoncrypto.c; sourceTree = "<group>"; };
 		FDF283701DAED7C700CF8C36 /* commoncrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = commoncrypto.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1340,6 +2572,497 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A6BBF5B275EAFBA00EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBF5D275EAFCA00EBBEA6 /* d_align.in */,
+				2A6BBF66275EAFCA00EBBEA6 /* d_align.out */,
+				2A6BBF60275EAFCA00EBBEA6 /* d_b_output.in */,
+				2A6BBF61275EAFCA00EBBEA6 /* d_b_output.out */,
+				2A6BBF5F275EAFCA00EBBEA6 /* d_s_output.in */,
+				2A6BBF65275EAFCA00EBBEA6 /* d_s_output.out */,
+				2A6BBF63275EAFCA00EBBEA6 /* d_se_output.in */,
+				2A6BBF62275EAFCA00EBBEA6 /* d_se_output.out */,
+				2A6BBF64275EAFCA00EBBEA6 /* d_vt_output.in */,
+				2A6BBF5E275EAFCA00EBBEA6 /* d_vt_output.out */,
+				2A6BBF5C275EAFCA00EBBEA6 /* t_cat.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBF72275EB00600EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBF79275EB01400EBBEA6 /* col_test.sh */,
+				2A6BBF77275EB01400EBBEA6 /* hlf.in */,
+				2A6BBF78275EB01400EBBEA6 /* hlf2.in */,
+				2A6BBF76275EB01400EBBEA6 /* nl.in */,
+				2A6BBF74275EB01400EBBEA6 /* nl2.in */,
+				2A6BBF73275EB01400EBBEA6 /* nl3.in */,
+				2A6BBF75275EB01400EBBEA6 /* rlf.in */,
+				2A6BBF7A275EB01400EBBEA6 /* rlf2.in */,
+				2A6BBF7B275EB01400EBBEA6 /* rlf3.in */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBF86275EB13700EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBF8A275EB14C00EBBEA6 /* legacy_test.sh */,
+				2A6BBF8B275EB14C00EBBEA6 /* regress.00.out */,
+				2A6BBF8E275EB14C00EBBEA6 /* regress.00a.in */,
+				2A6BBF8C275EB14C00EBBEA6 /* regress.00b.in */,
+				2A6BBF8D275EB14C00EBBEA6 /* regress.01.out */,
+				2A6BBF90275EB14C00EBBEA6 /* regress.01a.in */,
+				2A6BBF8F275EB14C00EBBEA6 /* regress.01b.in */,
+				2A6BBF91275EB14C00EBBEA6 /* regress.02.out */,
+				2A6BBF87275EB14C00EBBEA6 /* regress.02a.in */,
+				2A6BBF88275EB14C00EBBEA6 /* regress.02b.in */,
+				2A6BBF89275EB14C00EBBEA6 /* regress.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBF9E275EB32900EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBF9F275EB34000EBBEA6 /* csplit_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBFA3275EB42300EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBFAC275EB42F00EBBEA6 /* cut2_test.sh */,
+				2A6BBFA4275EB42F00EBBEA6 /* d_basic.out */,
+				2A6BBFA6275EB42F00EBBEA6 /* d_cut.in */,
+				2A6BBFA8275EB42F00EBBEA6 /* d_dflag.out */,
+				2A6BBFA7275EB42F00EBBEA6 /* d_dsflag.out */,
+				2A6BBFA5275EB42F00EBBEA6 /* d_latin1.in */,
+				2A6BBFA9275EB42F00EBBEA6 /* d_sflag.out */,
+				2A6BBFAA275EB42F00EBBEA6 /* d_utf8.in */,
+				2A6BBFAB275EB42F00EBBEA6 /* t_cut.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBFB7275EB4CA00EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BBFB8275EB4D500EBBEA6 /* fold_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BBFBB275EB56300EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A62DBC3276951E3001389AF /* COPYRIGHT */,
+				2A6BBFC2275EB57500EBBEA6 /* d_basic.out */,
+				2A6BBFE8275EB57600EBBEA6 /* d_begin_end_a.out */,
+				2A6BBFCB275EB57500EBBEA6 /* d_begin_end_b.out */,
+				2A6BBFBC275EB57500EBBEA6 /* d_binary.out */,
+				2A6BBFC7275EB57500EBBEA6 /* d_color_a.in */,
+				2A6BBFD3275EB57600EBBEA6 /* d_color_a.out */,
+				2A6BBFDF275EB57600EBBEA6 /* d_color_b.in */,
+				2A6BBFC3275EB57500EBBEA6 /* d_color_b.out */,
+				2A6BBFCE275EB57500EBBEA6 /* d_color_c.out */,
+				2A6BBFC9275EB57500EBBEA6 /* d_context_a.in */,
+				2A6BBFC5275EB57500EBBEA6 /* d_context_a.out */,
+				2A6BBFCF275EB57500EBBEA6 /* d_context_b.in */,
+				2A6BBFBD275EB57500EBBEA6 /* d_context_b.out */,
+				2A6BBFC6275EB57500EBBEA6 /* d_context_c.out */,
+				2A6BBFD4275EB57600EBBEA6 /* d_context_d.out */,
+				2A6BBFDC275EB57600EBBEA6 /* d_context_e.in */,
+				2A6BBFE4275EB57600EBBEA6 /* d_context_e.out */,
+				2A6BBFE2275EB57600EBBEA6 /* d_context_f.out */,
+				2A6BBFE0275EB57600EBBEA6 /* d_context_g.out */,
+				2A6BBFCD275EB57500EBBEA6 /* d_context2_a.out */,
+				2A6BBFD5275EB57600EBBEA6 /* d_context2_b.out */,
+				2A6BBFC8275EB57500EBBEA6 /* d_context2_c.out */,
+				2A6BBFEB275EB57700EBBEA6 /* d_egrep.out */,
+				2A6BBFDB275EB57600EBBEA6 /* d_escmap.in */,
+				2A6BBFD8275EB57600EBBEA6 /* d_f_file_empty.in */,
+				2A6BBFBE275EB57500EBBEA6 /* d_file_exp.in */,
+				2A6BBFD9275EB57600EBBEA6 /* d_file_exp.out */,
+				2A6BBFCC275EB57500EBBEA6 /* d_ignore_case.out */,
+				2A6BBFBF275EB57500EBBEA6 /* d_input */,
+				2A6BBFD7275EB57600EBBEA6 /* d_invert.in */,
+				2A6BBFDD275EB57600EBBEA6 /* d_invert.out */,
+				2A6BBFE9275EB57600EBBEA6 /* d_oflag_zerolen_a.in */,
+				2A6BBFC4275EB57500EBBEA6 /* d_oflag_zerolen_a.out */,
+				2A6BBFDA275EB57600EBBEA6 /* d_oflag_zerolen_b.in */,
+				2A6BBFDE275EB57600EBBEA6 /* d_oflag_zerolen_b.out */,
+				2A6BBFD0275EB57500EBBEA6 /* d_oflag_zerolen_c.in */,
+				2A6BBFE5275EB57600EBBEA6 /* d_oflag_zerolen_c.out */,
+				2A6BBFC0275EB57500EBBEA6 /* d_oflag_zerolen_d.in */,
+				2A6BBFE1275EB57600EBBEA6 /* d_oflag_zerolen_e.in */,
+				2A6BBFE6275EB57600EBBEA6 /* d_oflag_zerolen_e.out */,
+				2A6BBFC1275EB57500EBBEA6 /* d_recurse_symlink.err */,
+				2A6BBFE7275EB57600EBBEA6 /* d_recurse_symlink.out */,
+				2A6BBFD2275EB57600EBBEA6 /* d_recurse.out */,
+				2A6BBFD1275EB57500EBBEA6 /* d_whole_line.out */,
+				2A6BBFE3275EB57600EBBEA6 /* d_word_regexps.out */,
+				2A6BBFD6275EB57600EBBEA6 /* d_zgrep.out */,
+				2A6BBFEA275EB57700EBBEA6 /* grep_freebsd_test.sh */,
+				2A6BBFCA275EB57500EBBEA6 /* t_grep.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC01C275EB73400EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC01D275EB74500EBBEA6 /* head_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC021275EB7BE00EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC024275EB7CA00EBBEA6 /* legacy_test.sh */,
+				2A6BC025275EB7CA00EBBEA6 /* regress.1.in */,
+				2A6BC026275EB7CA00EBBEA6 /* regress.2.in */,
+				2A6BC023275EB7CA00EBBEA6 /* regress.out */,
+				2A6BC022275EB7CA00EBBEA6 /* regress.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC02D275EB8C800EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC032275EB8DD00EBBEA6 /* 1.inp */,
+				2A6BC063275EB8DF00EBBEA6 /* 1.sha512-p.chk */,
+				2A6BC03C275EB8DD00EBBEA6 /* 1.sha512sum-p.chk */,
+				2A6BC031275EB8DD00EBBEA6 /* 2.inp */,
+				2A6BC069275EB8DF00EBBEA6 /* 2.sha512-p.chk */,
+				2A6BC042275EB8DD00EBBEA6 /* 2.sha512sum-p.chk */,
+				2A6BC041275EB8DD00EBBEA6 /* 3.inp */,
+				2A6BC030275EB8DD00EBBEA6 /* 3.sha512-p.chk */,
+				2A6BC045275EB8DE00EBBEA6 /* 3.sha512sum-p.chk */,
+				2A6BC04E275EB8DE00EBBEA6 /* 4.inp */,
+				2A6BC059275EB8DF00EBBEA6 /* 4.sha512-p.chk */,
+				2A6BC04F275EB8DE00EBBEA6 /* 4.sha512sum-p.chk */,
+				2A6BC037275EB8DD00EBBEA6 /* 5.inp */,
+				2A6BC04A275EB8DE00EBBEA6 /* 5.sha512-p.chk */,
+				2A6BC06B275EB8DF00EBBEA6 /* 5.sha512sum-p.chk */,
+				2A6BC05D275EB8DF00EBBEA6 /* 6.inp */,
+				2A6BC06A275EB8DF00EBBEA6 /* 6.sha512-p.chk */,
+				2A6BC040275EB8DD00EBBEA6 /* 6.sha512sum-p.chk */,
+				2A6BC046275EB8DE00EBBEA6 /* 7.inp */,
+				2A6BC03B275EB8DD00EBBEA6 /* 7.sha512-p.chk */,
+				2A6BC036275EB8DD00EBBEA6 /* 7.sha512sum-p.chk */,
+				2A6BC058275EB8DF00EBBEA6 /* 8.inp */,
+				2A6BC04D275EB8DE00EBBEA6 /* 8.sha512-p.chk */,
+				2A6BC05F275EB8DF00EBBEA6 /* 8.sha512sum-p.chk */,
+				2A6BC054275EB8DE00EBBEA6 /* algorithms.txt */,
+				2A6BC064275EB8DF00EBBEA6 /* bsd-c-test.SH */,
+				2A6BC05A275EB8DF00EBBEA6 /* bsd-p-test.SH */,
+				2A6BC056275EB8DF00EBBEA6 /* bsd-s-test.SH */,
+				2A6BC043275EB8DD00EBBEA6 /* coreutils-c-test.SH */,
+				2A6BC03A275EB8DD00EBBEA6 /* md5.digest */,
+				2A6BC05B275EB8DF00EBBEA6 /* md5sum.digest */,
+				2A6BC053275EB8DE00EBBEA6 /* rmd160.digest */,
+				2A6BC065275EB8DF00EBBEA6 /* rmd160sum.digest */,
+				2A6BC04B275EB8DE00EBBEA6 /* self-test.md5.chk */,
+				2A6BC06C275EB8DF00EBBEA6 /* self-test.rmd160.chk */,
+				2A6BC03D275EB8DD00EBBEA6 /* self-test.SH */,
+				2A6BC038275EB8DD00EBBEA6 /* self-test.sh_inp */,
+				2A6BC047275EB8DE00EBBEA6 /* self-test.sha1.chk */,
+				2A6BC05E275EB8DF00EBBEA6 /* self-test.sha224.chk */,
+				2A6BC02E275EB8DD00EBBEA6 /* self-test.sha256.chk */,
+				2A6BC049275EB8DE00EBBEA6 /* self-test.sha384.chk */,
+				2A6BC067275EB8DF00EBBEA6 /* self-test.sha512.chk */,
+				2A6BC03E275EB8DD00EBBEA6 /* self-test.sha512t256.chk */,
+				2A6BC060275EB8DF00EBBEA6 /* self-test.skein256.chk */,
+				2A6BC048275EB8DE00EBBEA6 /* self-test.skein512.chk */,
+				2A6BC03F275EB8DD00EBBEA6 /* self-test.skein1024.chk */,
+				2A6BC05C275EB8DF00EBBEA6 /* sha1.digest */,
+				2A6BC057275EB8DF00EBBEA6 /* sha1sum.digest */,
+				2A6BC052275EB8DE00EBBEA6 /* sha224.digest */,
+				2A6BC061275EB8DF00EBBEA6 /* sha224sum.digest */,
+				2A6BC050275EB8DE00EBBEA6 /* sha256.digest */,
+				2A6BC034275EB8DD00EBBEA6 /* sha256sum.digest */,
+				2A6BC051275EB8DE00EBBEA6 /* sha384.digest */,
+				2A6BC033275EB8DD00EBBEA6 /* sha384sum.digest */,
+				2A6BC04C275EB8DE00EBBEA6 /* sha512.digest */,
+				2A6BC066275EB8DF00EBBEA6 /* sha512sum.digest */,
+				2A6BC06D275EB8DF00EBBEA6 /* sha512t256.digest */,
+				2A6BC039275EB8DD00EBBEA6 /* sha512t256sum.digest */,
+				2A6BC035275EB8DD00EBBEA6 /* skein256.digest */,
+				2A6BC068275EB8DF00EBBEA6 /* skein256sum.digest */,
+				2A6BC02F275EB8DD00EBBEA6 /* skein512.digest */,
+				2A6BC055275EB8DE00EBBEA6 /* skein512sum.digest */,
+				2A6BC044275EB8DE00EBBEA6 /* skein1024.digest */,
+				2A6BC062275EB8DF00EBBEA6 /* skein1024sum.digest */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC0AE275EBBA900EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC0B6275EBBC000EBBEA6 /* across.out */,
+				2A6BC0B4275EBBC000EBBEA6 /* basic2_test.sh */,
+				2A6BC0B3275EBBBF00EBBEA6 /* d_basic.in */,
+				2A6BC0B2275EBBBF00EBBEA6 /* d_basic.out */,
+				2A6BC0B5275EBBC000EBBEA6 /* merge.out */,
+				2A6BC0B0275EBBBF00EBBEA6 /* other.in */,
+				2A6BC0B1275EBBBF00EBBEA6 /* t_basic.sh */,
+				2A6BC0AF275EBBBF00EBBEA6 /* threecol.out */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC0C1275EBCA100EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC0C2275EBCB000EBBEA6 /* rs_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC0C5275EBD5700EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC0FF275EBD8600EBBEA6 /* d_c2048.in */,
+				2A6BC0F9275EBD8600EBBEA6 /* hanoi.sed */,
+				2A6BC0F2275EBD8600EBBEA6 /* inplace_race_test.sh */,
+				2A6BC0EF275EBD8500EBBEA6 /* legacy_test.sh */,
+				2A6BC0F7275EBD8600EBBEA6 /* math.sed */,
+				2A6BC0EE275EBD8500EBBEA6 /* multi_test.sh */,
+				2A6BC0F1275EBD8600EBBEA6 /* regress.b2a.out */,
+				2A6BC0F5275EBD8600EBBEA6 /* regress.bcb.out */,
+				2A6BC100275EBD8600EBBEA6 /* regress.c0.out */,
+				2A6BC0FA275EBD8600EBBEA6 /* regress.c1.out */,
+				2A6BC0F8275EBD8600EBBEA6 /* regress.c2.out */,
+				2A6BC0F4275EBD8600EBBEA6 /* regress.c3.out */,
+				2A6BC0F6275EBD8600EBBEA6 /* regress.G.out */,
+				2A6BC0FB275EBD8600EBBEA6 /* regress.hanoi.out */,
+				2A6BC0FC275EBD8600EBBEA6 /* regress.icase1.out */,
+				2A6BC0FD275EBD8600EBBEA6 /* regress.icase2.out */,
+				2A6BC0FE275EBD8600EBBEA6 /* regress.icase3.out */,
+				2A6BC0F0275EBD8500EBBEA6 /* regress.icase4.out */,
+				2A6BC101275EBD8600EBBEA6 /* regress.in */,
+				2A6BC0F3275EBD8600EBBEA6 /* regress.math.out */,
+				2A6BC103275EBD9F00EBBEA6 /* regress.multitest.out */,
+				2A6BC18F275EBDCB00EBBEA6 /* regress.not.out */,
+				2A6BC18A275EBDCA00EBBEA6 /* regress.P.out */,
+				2A6BC18E275EBDCA00EBBEA6 /* regress.psl.out */,
+				2A6BC18C275EBDCA00EBBEA6 /* regress.s3.out */,
+				2A6BC187275EBDCA00EBBEA6 /* regress.s4.out */,
+				2A6BC190275EBDCB00EBBEA6 /* regress.s5.out */,
+				2A6BC188275EBDCA00EBBEA6 /* regress.sg.out */,
+				2A6BC186275EBDCA00EBBEA6 /* regress.sh */,
+				2A6BC18B275EBDCA00EBBEA6 /* regress.y.out */,
+				2A6BC18D275EBDCA00EBBEA6 /* sed2_test.sh */,
+				2A6BC189275EBDCA00EBBEA6 /* t_sed.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC103275EBD9F00EBBEA6 /* regress.multitest.out */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC10B275EBDB700EBBEA6 /* 1.1 */,
+				2A6BC184275EBDBD00EBBEA6 /* 1.2 */,
+				2A6BC142275EBDBA00EBBEA6 /* 1.3 */,
+				2A6BC15A275EBDBB00EBBEA6 /* 1.4 */,
+				2A6BC17F275EBDBD00EBBEA6 /* 1.4.1 */,
+				2A6BC179275EBDBD00EBBEA6 /* 1.5 */,
+				2A6BC16E275EBDBC00EBBEA6 /* 1.6 */,
+				2A6BC12B275EBDB900EBBEA6 /* 1.7 */,
+				2A6BC182275EBDBD00EBBEA6 /* 1.8 */,
+				2A6BC120275EBDB800EBBEA6 /* 1.9 */,
+				2A6BC10F275EBDB700EBBEA6 /* 1.10 */,
+				2A6BC147275EBDBA00EBBEA6 /* 1.11 */,
+				2A6BC180275EBDBD00EBBEA6 /* 1.12 */,
+				2A6BC11F275EBDB800EBBEA6 /* 1.13 */,
+				2A6BC104275EBDB700EBBEA6 /* 1.14 */,
+				2A6BC151275EBDBB00EBBEA6 /* 1.15 */,
+				2A6BC150275EBDBB00EBBEA6 /* 1.16 */,
+				2A6BC110275EBDB700EBBEA6 /* 1.17 */,
+				2A6BC156275EBDBB00EBBEA6 /* 1.18 */,
+				2A6BC138275EBDB900EBBEA6 /* 2.1 */,
+				2A6BC141275EBDBA00EBBEA6 /* 2.2 */,
+				2A6BC13F275EBDBA00EBBEA6 /* 2.3 */,
+				2A6BC122275EBDB800EBBEA6 /* 2.4 */,
+				2A6BC155275EBDBB00EBBEA6 /* 2.5 */,
+				2A6BC118275EBDB800EBBEA6 /* 2.6 */,
+				2A6BC167275EBDBC00EBBEA6 /* 2.7 */,
+				2A6BC144275EBDBA00EBBEA6 /* 2.8 */,
+				2A6BC16C275EBDBC00EBBEA6 /* 2.9 */,
+				2A6BC12C275EBDB900EBBEA6 /* 2.10 */,
+				2A6BC12D275EBDB900EBBEA6 /* 2.11 */,
+				2A6BC121275EBDB800EBBEA6 /* 2.12 */,
+				2A6BC161275EBDBC00EBBEA6 /* 2.13 */,
+				2A6BC135275EBDB900EBBEA6 /* 2.14 */,
+				2A6BC181275EBDBD00EBBEA6 /* 2.15 */,
+				2A6BC143275EBDBA00EBBEA6 /* 2.16 */,
+				2A6BC152275EBDBB00EBBEA6 /* 2.17 */,
+				2A6BC13A275EBDBA00EBBEA6 /* 2.18 */,
+				2A6BC16B275EBDBC00EBBEA6 /* 2.19 */,
+				2A6BC149275EBDBA00EBBEA6 /* 2.20 */,
+				2A6BC172275EBDBC00EBBEA6 /* 2.21 */,
+				2A6BC14C275EBDBA00EBBEA6 /* 2.22 */,
+				2A6BC154275EBDBB00EBBEA6 /* 2.23 */,
+				2A6BC12A275EBDB900EBBEA6 /* 3.1 */,
+				2A6BC159275EBDBB00EBBEA6 /* 3.2 */,
+				2A6BC146275EBDBA00EBBEA6 /* 3.3 */,
+				2A6BC164275EBDBC00EBBEA6 /* 3.4 */,
+				2A6BC17B275EBDBD00EBBEA6 /* 4.1 */,
+				2A6BC160275EBDBC00EBBEA6 /* 4.2 */,
+				2A6BC162275EBDBC00EBBEA6 /* 4.3 */,
+				2A6BC15C275EBDBB00EBBEA6 /* 4.4 */,
+				2A6BC148275EBDBA00EBBEA6 /* 4.5 */,
+				2A6BC108275EBDB700EBBEA6 /* 4.6 */,
+				2A6BC145275EBDBA00EBBEA6 /* 4.7 */,
+				2A6BC124275EBDB800EBBEA6 /* 4.8 */,
+				2A6BC117275EBDB800EBBEA6 /* 5.1 */,
+				2A6BC158275EBDBB00EBBEA6 /* 5.2 */,
+				2A6BC134275EBDB900EBBEA6 /* 5.3 */,
+				2A6BC173275EBDBC00EBBEA6 /* 5.4 */,
+				2A6BC12E275EBDB900EBBEA6 /* 5.5 */,
+				2A6BC14A275EBDBA00EBBEA6 /* 5.6 */,
+				2A6BC109275EBDB700EBBEA6 /* 5.7 */,
+				2A6BC105275EBDB700EBBEA6 /* 5.8 */,
+				2A6BC15B275EBDBB00EBBEA6 /* 6.1 */,
+				2A6BC12F275EBDB900EBBEA6 /* 6.2 */,
+				2A6BC11A275EBDB800EBBEA6 /* 6.3 */,
+				2A6BC107275EBDB700EBBEA6 /* 6.4 */,
+				2A6BC13C275EBDBA00EBBEA6 /* 6.5 */,
+				2A6BC119275EBDB800EBBEA6 /* 6.6 */,
+				2A6BC10A275EBDB700EBBEA6 /* 7.1 */,
+				2A6BC14B275EBDBA00EBBEA6 /* 7.2 */,
+				2A6BC10C275EBDB700EBBEA6 /* 7.3 */,
+				2A6BC136275EBDB900EBBEA6 /* 7.4 */,
+				2A6BC17C275EBDBD00EBBEA6 /* 7.5 */,
+				2A6BC111275EBDB700EBBEA6 /* 7.6 */,
+				2A6BC130275EBDB900EBBEA6 /* 7.7 */,
+				2A6BC17A275EBDBD00EBBEA6 /* 7.8 */,
+				2A6BC16D275EBDBC00EBBEA6 /* 8.1 */,
+				2A6BC15D275EBDBB00EBBEA6 /* 8.2 */,
+				2A6BC175275EBDBD00EBBEA6 /* 8.3 */,
+				2A6BC113275EBDB700EBBEA6 /* 8.4 */,
+				2A6BC139275EBDB900EBBEA6 /* 8.5 */,
+				2A6BC116275EBDB800EBBEA6 /* 8.6 */,
+				2A6BC183275EBDBD00EBBEA6 /* 8.7 */,
+				2A6BC10E275EBDB700EBBEA6 /* 8.8 */,
+				2A6BC178275EBDBD00EBBEA6 /* 8.9 */,
+				2A6BC11E275EBDB800EBBEA6 /* 8.10 */,
+				2A6BC14D275EBDBB00EBBEA6 /* 8.11 */,
+				2A6BC132275EBDB900EBBEA6 /* 8.12 */,
+				2A6BC16A275EBDBC00EBBEA6 /* 8.13 */,
+				2A6BC128275EBDB900EBBEA6 /* 8.14 */,
+				2A6BC14F275EBDBB00EBBEA6 /* 8.15 */,
+				2A6BC16F275EBDBC00EBBEA6 /* 8.16 */,
+				2A6BC106275EBDB700EBBEA6 /* 8.17 */,
+				2A6BC112275EBDB700EBBEA6 /* 8.18 */,
+				2A6BC127275EBDB900EBBEA6 /* 8.19 */,
+				2A6BC114275EBDB800EBBEA6 /* 8.20 */,
+				2A6BC153275EBDBB00EBBEA6 /* 8.21 */,
+				2A6BC168275EBDBC00EBBEA6 /* 8.22 */,
+				2A6BC174275EBDBD00EBBEA6 /* 8.23 */,
+				2A6BC125275EBDB800EBBEA6 /* 9.1 */,
+				2A6BC169275EBDBC00EBBEA6 /* 9.2 */,
+				2A6BC176275EBDBD00EBBEA6 /* 9.3 */,
+				2A6BC15F275EBDBB00EBBEA6 /* 9.4 */,
+				2A6BC123275EBDB800EBBEA6 /* 9.5 */,
+				2A6BC13D275EBDBA00EBBEA6 /* 9.6 */,
+				2A6BC133275EBDB900EBBEA6 /* 9.7 */,
+				2A6BC177275EBDBD00EBBEA6 /* 9.8 */,
+				2A6BC11B275EBDB800EBBEA6 /* 9.9 */,
+				2A6BC13B275EBDBA00EBBEA6 /* 9.10 */,
+				2A6BC170275EBDBC00EBBEA6 /* 9.11 */,
+				2A6BC171275EBDBC00EBBEA6 /* 9.12 */,
+				2A6BC10D275EBDB700EBBEA6 /* 9.13 */,
+				2A6BC14E275EBDBB00EBBEA6 /* 9.14 */,
+				2A6BC11D275EBDB800EBBEA6 /* 9.15 */,
+				2A6BC129275EBDB900EBBEA6 /* 9.16 */,
+				2A6BC13E275EBDBA00EBBEA6 /* 9.17 */,
+				2A6BC126275EBDB900EBBEA6 /* 9.18 */,
+				2A6BC11C275EBDB800EBBEA6 /* 9.19 */,
+				2A6BC15E275EBDBB00EBBEA6 /* 9.20 */,
+				2A6BC115275EBDB800EBBEA6 /* 9.21 */,
+				2A6BC157275EBDBB00EBBEA6 /* 9.22 */,
+				2A6BC166275EBDBC00EBBEA6 /* 9.23 */,
+				2A6BC185275EBDBD00EBBEA6 /* 9.24 */,
+				2A6BC17D275EBDBD00EBBEA6 /* 9.25 */,
+				2A6BC140275EBDBA00EBBEA6 /* 9.26 */,
+				2A6BC165275EBDBC00EBBEA6 /* 9.27 */,
+				2A6BC131275EBDB900EBBEA6 /* 9.28 */,
+				2A6BC17E275EBDBD00EBBEA6 /* 9.29 */,
+				2A6BC137275EBDB900EBBEA6 /* 9.30 */,
+				2A6BC163275EBDBC00EBBEA6 /* 9.31 */,
+			);
+			name = regress.multitest.out;
+			path = ..;
+			sourceTree = "<group>";
+		};
+		2A6BC233275EC02F00EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC239275EC0E200EBBEA6 /* d_any_char_dflag_out.txt */,
+				2A6BC236275EC0E200EBBEA6 /* d_any_char_fflag_out.txt */,
+				2A6BC235275EC0E200EBBEA6 /* d_any_char_iflag_out.txt */,
+				2A6BC237275EC0E200EBBEA6 /* d_any_char_in.txt */,
+				2A6BC238275EC0E200EBBEA6 /* t_sort.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC23F275EC1AF00EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC240275EC1BD00EBBEA6 /* tail_test.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC244275EC24600EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC245275EC25700EBBEA6 /* legacy_test.sh */,
+				2A6BC250275EC25800EBBEA6 /* regress.00.out */,
+				2A6BC249275EC25700EBBEA6 /* regress.0a.out */,
+				2A6BC255275EC25800EBBEA6 /* regress.0b.out */,
+				2A6BC24E275EC25700EBBEA6 /* regress.0c.out */,
+				2A6BC246275EC25700EBBEA6 /* regress.0d.out */,
+				2A6BC248275EC25700EBBEA6 /* regress.01.out */,
+				2A6BC253275EC25800EBBEA6 /* regress.02.out */,
+				2A6BC256275EC25800EBBEA6 /* regress.03.out */,
+				2A6BC252275EC25800EBBEA6 /* regress.04.out */,
+				2A6BC247275EC25700EBBEA6 /* regress.05.out */,
+				2A6BC24B275EC25700EBBEA6 /* regress.06.out */,
+				2A6BC251275EC25800EBBEA6 /* regress.07.out */,
+				2A6BC24C275EC25700EBBEA6 /* regress.08.out */,
+				2A6BC24A275EC25700EBBEA6 /* regress.09.out */,
+				2A6BC24D275EC25700EBBEA6 /* regress.in */,
+				2A6BC254275EC25800EBBEA6 /* regress.sh */,
+				2A6BC24F275EC25700EBBEA6 /* regress2.in */,
+				2AA02960280DE7F2002436E7 /* t_basic.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
+		2A6BC26A275EC2C000EBBEA6 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2A6BC26F275EC2F400EBBEA6 /* d_basic.in */,
+				2A6BC271275EC2F400EBBEA6 /* d_basic.out */,
+				2A6BC270275EC2F400EBBEA6 /* d_counts.out */,
+				2A6BC26D275EC2F400EBBEA6 /* d_input.in */,
+				2A6BC26C275EC2F400EBBEA6 /* d_show_duplicates.out */,
+				2A6BC272275EC2F400EBBEA6 /* d_show_uniques.out */,
+				2A6BC26E275EC2F400EBBEA6 /* t_uniq.sh */,
+			);
+			name = tests;
+			sourceTree = "<group>";
+		};
 		2AC6B55C268C1B16006AA0B7 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -1450,6 +3173,7 @@
 			children = (
 				FC7A7B4F149866AE0086576A /* cat.1 */,
 				FC7A7B50149866AE0086576A /* cat.c */,
+				2A6BBF5B275EAFBA00EBBEA6 /* tests */,
 			);
 			path = cat;
 			sourceTree = "<group>";
@@ -1460,6 +3184,7 @@
 				FC7A7B53149866AE0086576A /* col.1 */,
 				FC7A7B54149866AE0086576A /* col.c */,
 				FC7A7B56149866AE0086576A /* README */,
+				2A6BBF72275EB00600EBBEA6 /* tests */,
 			);
 			path = col;
 			sourceTree = "<group>";
@@ -1487,6 +3212,7 @@
 			children = (
 				FC7A7B60149866AE0086576A /* comm.1 */,
 				FC7A7B61149866AE0086576A /* comm.c */,
+				2A6BBF86275EB13700EBBEA6 /* tests */,
 			);
 			path = comm;
 			sourceTree = "<group>";
@@ -1496,6 +3222,7 @@
 			children = (
 				FC7A7B64149866AE0086576A /* csplit.1 */,
 				FC7A7B65149866AE0086576A /* csplit.c */,
+				2A6BBF9E275EB32900EBBEA6 /* tests */,
 			);
 			path = csplit;
 			sourceTree = "<group>";
@@ -1505,6 +3232,7 @@
 			children = (
 				FC7A7B68149866AE0086576A /* cut.1 */,
 				FC7A7B69149866AE0086576A /* cut.c */,
+				2A6BBFA3275EB42300EBBEA6 /* tests */,
 			);
 			path = cut;
 			sourceTree = "<group>";
@@ -1723,6 +3451,7 @@
 			children = (
 				FC7A7C28149866AF0086576A /* fold.1 */,
 				FC7A7C29149866AF0086576A /* fold.c */,
+				2A6BBFB7275EB4CA00EBBEA6 /* tests */,
 			);
 			path = fold;
 			sourceTree = "<group>";
@@ -1732,6 +3461,7 @@
 			children = (
 				FC7A7C2C149866AF0086576A /* head.1 */,
 				FC7A7C2D149866AF0086576A /* head.c */,
+				2A6BC01C275EB73400EBBEA6 /* tests */,
 			);
 			path = head;
 			sourceTree = "<group>";
@@ -1741,6 +3471,7 @@
 			children = (
 				FC7A7C30149866AF0086576A /* join.1 */,
 				FC7A7C31149866AF0086576A /* join.c */,
+				2A6BC021275EB7BE00EBBEA6 /* tests */,
 			);
 			path = join;
 			sourceTree = "<group>";
@@ -1771,6 +3502,7 @@
 				FC7A7C3E149866AF0086576A /* commoncrypto.h */,
 				FC7A7C40149866AF0086576A /* md5.1 */,
 				FC7A7C41149866AF0086576A /* md5.c */,
+				2A6BC02D275EB8C800EBBEA6 /* tests */,
 			);
 			path = md5;
 			sourceTree = "<group>";
@@ -1801,6 +3533,7 @@
 				FC7A7C4E149866AF0086576A /* pr.1 */,
 				FC7A7C4F149866AF0086576A /* pr.c */,
 				FC7A7C50149866AF0086576A /* pr.h */,
+				2A6BC0AE275EBBA900EBBEA6 /* tests */,
 			);
 			path = pr;
 			sourceTree = "<group>";
@@ -1819,6 +3552,7 @@
 			children = (
 				FC7A7C57149866AF0086576A /* rs.1 */,
 				FC7A7C58149866AF0086576A /* rs.c */,
+				2A6BC0C1275EBCA100EBBEA6 /* tests */,
 			);
 			path = rs;
 			sourceTree = "<group>";
@@ -1834,19 +3568,9 @@
 				FC7A7C60149866AF0086576A /* POSIX */,
 				FC7A7C61149866AF0086576A /* process.c */,
 				FC7A7C62149866AF0086576A /* sed.1 */,
-				FC7A7C63149866AF0086576A /* TEST */,
+				2A6BC0C5275EBD5700EBBEA6 /* tests */,
 			);
 			path = sed;
-			sourceTree = "<group>";
-		};
-		FC7A7C63149866AF0086576A /* TEST */ = {
-			isa = PBXGroup;
-			children = (
-				FC7A7C64149866AF0086576A /* hanoi.sed */,
-				FC7A7C65149866AF0086576A /* math.sed */,
-				FC7A7C66149866AF0086576A /* sed.test */,
-			);
-			path = TEST;
 			sourceTree = "<group>";
 		};
 		FC7A7C67149866AF0086576A /* sort */ = {
@@ -1856,7 +3580,6 @@
 				FDF283581DAED0C000CF8C36 /* bwstring.h */,
 				FDF283591DAED0C000CF8C36 /* coll.c */,
 				FDF2835A1DAED0C000CF8C36 /* coll.h */,
-				FDF2836F1DAED7C700CF8C36 /* commoncrypto.c */,
 				FDF283701DAED7C700CF8C36 /* commoncrypto.h */,
 				FDF2835B1DAED0C000CF8C36 /* file.c */,
 				FDF2835C1DAED0C000CF8C36 /* file.h */,
@@ -1868,6 +3591,7 @@
 				FDF283641DAED0C000CF8C36 /* sort.1.in */,
 				FC7A7C93149866AF0086576A /* sort.c */,
 				FDF283651DAED0C000CF8C36 /* sort.h */,
+				2A6BC233275EC02F00EBBEA6 /* tests */,
 				FDF283661DAED0C000CF8C36 /* vsort.c */,
 				FDF283671DAED0C000CF8C36 /* vsort.h */,
 			);
@@ -1893,6 +3617,7 @@
 				FC7A7CBC149866AF0086576A /* reverse.c */,
 				FC7A7CBD149866AF0086576A /* tail.1 */,
 				FC7A7CBE149866AF0086576A /* tail.c */,
+				2A6BC23F275EC1AF00EBBEA6 /* tests */,
 			);
 			path = tail;
 			sourceTree = "<group>";
@@ -1906,6 +3631,7 @@
 				FC7A7CC4149866AF0086576A /* cset.h */,
 				FC7A7CC5149866AF0086576A /* extern.h */,
 				FC7A7CC7149866AF0086576A /* str.c */,
+				2A6BC244275EC24600EBBEA6 /* tests */,
 				FC7A7CC8149866AF0086576A /* tr.1 */,
 				FC7A7CC9149866AF0086576A /* tr.c */,
 			);
@@ -1933,6 +3659,7 @@
 		FC7A7CD1149866AF0086576A /* uniq */ = {
 			isa = PBXGroup;
 			children = (
+				2A6BC26A275EC2C000EBBEA6 /* tests */,
 				FC7A7CD3149866AF0086576A /* uniq.1 */,
 				FC7A7CD4149866AF0086576A /* uniq.c */,
 			);
@@ -1986,6 +3713,7 @@
 				FD3561FA1B827F9F008A70F6 /* grep.c */,
 				FD3561FB1B827F9F008A70F6 /* grep.h */,
 				FD3561FC1B827F9F008A70F6 /* queue.c */,
+				2A6BBFBB275EB56300EBBEA6 /* tests */,
 				FD3561FD1B827F9F008A70F6 /* util.c */,
 			);
 			path = grep;
@@ -2053,6 +3781,7 @@
 				FC7A7CE5149867ED0086576A /* Sources */,
 				FC7A7CE6149867ED0086576A /* Frameworks */,
 				FC7A7CE7149867ED0086576A /* CopyFiles */,
+				2A6BBF37275EAC8100EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2070,6 +3799,7 @@
 				FC7A7CED149869E90086576A /* Sources */,
 				FC7A7CEE149869E90086576A /* Frameworks */,
 				FC7A7CEF149869E90086576A /* CopyFiles */,
+				2A6BBF7C275EB01A00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2121,6 +3851,7 @@
 				FC7A7D0514986A1B0086576A /* Sources */,
 				FC7A7D0614986A1B0086576A /* Frameworks */,
 				FC7A7D0714986A1B0086576A /* CopyFiles */,
+				2A6BBF92275EB18000EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2138,6 +3869,7 @@
 				FC7A7D0D14986A1E0086576A /* Sources */,
 				FC7A7D0E14986A1E0086576A /* Frameworks */,
 				FC7A7D0F14986A1E0086576A /* CopyFiles */,
+				2A6BBFA0275EB38900EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2155,6 +3887,7 @@
 				FC7A7D1514986A210086576A /* Sources */,
 				FC7A7D1614986A210086576A /* Frameworks */,
 				FC7A7D1714986A210086576A /* CopyFiles */,
+				2A6BBFA2275EB40500EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2224,6 +3957,7 @@
 				FC7A7D3514986A2B0086576A /* Sources */,
 				FC7A7D3614986A2B0086576A /* Frameworks */,
 				FC7A7D3714986A2B0086576A /* CopyFiles */,
+				2A6BBFB6275EB4BE00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2241,6 +3975,7 @@
 				FC7A7D3D14986A2F0086576A /* Sources */,
 				FC7A7D3E14986A2F0086576A /* Frameworks */,
 				FC7A7D3F14986A2F0086576A /* CopyFiles */,
+				2A6BC01E275EB74E00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2258,6 +3993,7 @@
 				FC7A7D4514986A310086576A /* Sources */,
 				FC7A7D4614986A310086576A /* Frameworks */,
 				FC7A7D4714986A310086576A /* CopyFiles */,
+				2A6BC020275EB7AD00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2309,6 +4045,7 @@
 				FC7A7D5D14986A390086576A /* Sources */,
 				FC7A7D5E14986A390086576A /* Frameworks */,
 				FC7A7D5F14986A390086576A /* CopyFiles */,
+				2A6BC02C275EB8AD00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2360,6 +4097,7 @@
 				FC7A7D7514986A400086576A /* Sources */,
 				FC7A7D7614986A400086576A /* Frameworks */,
 				FC7A7D7714986A400086576A /* CopyFiles */,
+				2A6BC0B7275EBBCA00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2394,6 +4132,7 @@
 				FC7A7D8514986A430086576A /* Sources */,
 				FC7A7D8614986A430086576A /* Frameworks */,
 				FC7A7D8714986A430086576A /* CopyFiles */,
+				2A6BC0C0275EBC8700EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2411,6 +4150,8 @@
 				FC7A7D8D14986A450086576A /* Sources */,
 				FC7A7D8E14986A450086576A /* Frameworks */,
 				FC7A7D8F14986A450086576A /* CopyFiles */,
+				2A6BC0C4275EBCF200EBBEA6 /* Copy Test Files */,
+				2A6BC1B0275EBE0200EBBEA6 /* Copy Multitest Files */,
 			);
 			buildRules = (
 			);
@@ -2428,6 +4169,7 @@
 				FC7A7D9514986A470086576A /* Sources */,
 				FC7A7D9614986A470086576A /* Frameworks */,
 				FDF283721DAEE22200CF8C36 /* ShellScript */,
+				2A6BC234275EC06F00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2462,6 +4204,7 @@
 				FC7A7DA514986A4A0086576A /* Sources */,
 				FC7A7DA614986A4A0086576A /* Frameworks */,
 				FC7A7DA714986A4A0086576A /* CopyFiles */,
+				2A6BC242275EC1C900EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2479,6 +4222,7 @@
 				FC7A7DAD14986A500086576A /* Sources */,
 				FC7A7DAE14986A500086576A /* Frameworks */,
 				FC7A7DAF14986A500086576A /* CopyFiles */,
+				2A6BC257275EC25B00EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2530,6 +4274,7 @@
 				FC7A7DC514986A560086576A /* Sources */,
 				FC7A7DC614986A560086576A /* Frameworks */,
 				FC7A7DC714986A560086576A /* CopyFiles */,
+				2A6BC26B275EC2D400EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2598,6 +4343,7 @@
 				FD3561EE1B827EE0008A70F6 /* Sources */,
 				FD3561EF1B827EE0008A70F6 /* Frameworks */,
 				FD3561F01B827EE0008A70F6 /* Install Man Page */,
+				2A6BBFBA275EB55000EBBEA6 /* Copy Test Files */,
 			);
 			buildRules = (
 			);
@@ -2631,7 +4377,7 @@
 		FC7A7B30149865C80086576A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 1400;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
 					3EF506E21F7ABE4D00421EB3 = {
@@ -2647,11 +4393,12 @@
 				};
 			};
 			buildConfigurationList = FC7A7B33149865C80086576A /* Build configuration list for PBXProject "text_cmds" */;
-			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = FC7A7B2E149865C70086576A;
 			productRefGroup = FC7A7B3A149865C80086576A /* Products */;
@@ -2700,6 +4447,24 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A6BBF43275EAE8D00EBBEA6 /* Install test files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install test files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-test-files.sh\n";
+		};
 		FC6C98FD149A989300DDCC47 /* Install open source info */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -2712,7 +4477,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FC6C98FE149A99C400DDCC47 /* ShellScript */ = {
@@ -3300,26 +5065,56 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/bin;
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = __;
+				WARNING_CFLAGS = (
+					"-Werror=format-nonliteral",
+					"-Werror=format",
+				);
 			};
 			name = Release;
 		};
 		FC7A7B45149865C80086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3327,6 +5122,7 @@
 		FC7A7CE9149867ED0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3335,6 +5131,7 @@
 		FC7A7CF1149869E90086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3342,6 +5139,7 @@
 		FC7A7CF914986A160086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3349,6 +5147,7 @@
 		FC7A7D0114986A190086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3356,6 +5155,7 @@
 		FC7A7D0914986A1B0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3363,6 +5163,7 @@
 		FC7A7D1114986A1E0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3370,6 +5171,7 @@
 		FC7A7D1914986A210086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3377,6 +5179,7 @@
 		FC7A7D2114986A230086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				INSTALL_PATH = /bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3386,6 +5189,7 @@
 		FC7A7D2914986A240086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3393,6 +5197,7 @@
 		FC7A7D3114986A280086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3400,6 +5205,7 @@
 		FC7A7D3914986A2B0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3407,6 +5213,7 @@
 		FC7A7D4114986A2F0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3415,6 +5222,7 @@
 		FC7A7D4914986A310086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3422,6 +5230,7 @@
 		FC7A7D5114986A340086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3429,6 +5238,7 @@
 		FC7A7D5914986A360086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3437,6 +5247,7 @@
 		FC7A7D6114986A390086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /sbin;
 				"OTHER_LDFLAGS[sdk=macosx*]" = "-lCrashReporterClient";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3447,6 +5258,7 @@
 		FC7A7D6914986A3C0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3454,6 +5266,7 @@
 		FC7A7D7114986A3D0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3461,6 +5274,7 @@
 		FC7A7D7914986A400086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3469,6 +5283,7 @@
 		FC7A7D8114986A410086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3476,6 +5291,7 @@
 		FC7A7D8914986A430086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3484,6 +5300,7 @@
 		FC7A7D9114986A450086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3493,12 +5310,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDF2836E1DAED24800CF8C36 /* sort.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FC7A7DA114986A480086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -3508,6 +5327,7 @@
 		FC7A7DA914986A4A0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3516,6 +5336,7 @@
 		FC7A7DB114986A500086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3523,6 +5344,7 @@
 		FC7A7DB914986A530086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3530,6 +5352,7 @@
 		FC7A7DC114986A540086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3537,6 +5360,7 @@
 		FC7A7DC914986A560086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3544,6 +5368,7 @@
 		FC7A7DD114986A580086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3551,6 +5376,7 @@
 		FC7A7DD914986A5A0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3558,6 +5384,7 @@
 		FC7A7DE114986A5C0086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -3566,6 +5393,7 @@
 		FC7A7E93149875C30086576A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -3574,6 +5402,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FD3562031B82803F008A70F6 /* grep.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
@@ -3581,6 +5410,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FD2BDC161B7188240053EE6B /* ee.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};

@@ -1,7 +1,7 @@
 /*
 	File:		MBCController.h
 	Contains:	Managing the entire user interface
-	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	ï¿½ 2002-2011 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -48,6 +48,7 @@
 #import <AppKit/AppKit.h>
 
 #import "MBCBoard.h"
+#import "Chess-Swift.h"
 
 @class MBCBoard;
 @class MBCBoardView;
@@ -56,7 +57,7 @@
 @class NSSpeechSynthesizer;
 @class MBCDocument;
 
-@interface MBCController : NSObject <GKLocalPlayerListener>
+@interface MBCController : NSObject <GKLocalPlayerListener, MBCSharePlayConnectionDelegate>
 {
     IBOutlet NSObjectController *   fCurrentDocument;
     
@@ -68,6 +69,8 @@
 @property (nonatomic, assign)   GKLocalPlayer * localPlayer;
 @property (nonatomic)           BOOL            logMouse;
 @property (nonatomic)           BOOL            dumpLanguageModels;
+@property (assign) IBOutlet     NSMenuItem    * sharePlaySessionMenuItem;
+
 
 - (id) init;
 - (void) awakeFromNib;

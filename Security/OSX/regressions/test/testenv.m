@@ -64,13 +64,11 @@ rmdir_recursive(const char *path)
 {
 #if (!TARGET_OS_SIMULATOR)
     char command_buf[256];
-	if (strlen(path) + 10 > sizeof(command_buf) || strchr(path, '\''))
+    if (snprintf(command_buf, sizeof(command_buf), "/bin/rm -rf '%s'", path) >= (int)sizeof(command_buf))
 	{
 		fprintf(stdout, "# rmdir_recursive: invalid path: %s", path);
 		return -1;
 	}
-
-	sprintf(command_buf, "/bin/rm -rf '%s'", path);
 	return system(command_buf);
 #else
     fprintf(stdout, "# rmdir_recursive: simulator can't rmdir, leaving path: %s\n", path);

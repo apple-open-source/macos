@@ -159,8 +159,8 @@ private:
     UnicodeSet *gRuleSet_name_char;
     UnicodeSet *gRuleSet_name_start_char;
 
-    RBBIRuleScanner57(const RBBIRuleScanner57 &other); // forbid copying of this class
-    RBBIRuleScanner57 &operator=(const RBBIRuleScanner57 &other); // forbid copying of this class
+    RBBIRuleScanner57(const RBBIRuleScanner57 &other) = delete; // forbid copying of this class
+    RBBIRuleScanner57 &operator=(const RBBIRuleScanner57 &other) = delete; // forbid copying of this class
 };
 
 U_NAMESPACE_END

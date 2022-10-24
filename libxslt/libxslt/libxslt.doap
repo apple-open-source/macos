@@ -6,14 +6,26 @@
 
   <name xml:lang="en">libxslt</name>
   <shortdesc xml:lang="en">XSLT transformation library</shortdesc>
-  <homepage rdf:resource="http://xmlsoft.org/XSLT/" />
+  <description>Libxslt is the XSLT C library developed for the GNOME project.
+XSLT itself is a an XML language to define transformation for XML. Libxslt is
+based on libxml2, the XML C library developed for the GNOME project. It also
+implements most of the EXSLT set of processor-portable extensions
+functions and some of Saxon's evaluate and expressions
+extensions.</description>
   <mailing-list rdf:resource="http://mail.gnome.org/mailman/listinfo/xslt" />
-  <category rdf:resource="http://api.gnome.org/doap-extensions#platform" />
+  <category rdf:resource="http://api.gnome.org/doap-extensions#infrastructure" />
+  <programming-language>C</programming-language>
 
   <maintainer>
     <foaf:Person>
       <foaf:name>Daniel Veillard</foaf:name>
       <gnome:userid>veillard</gnome:userid>
+    </foaf:Person>
+  </maintainer>
+  <maintainer>
+    <foaf:Person>
+      <foaf:name>Nick Wellnhofer</foaf:name>
+      <gnome:userid>nwellnhof</gnome:userid>
     </foaf:Person>
   </maintainer>
 </Project>

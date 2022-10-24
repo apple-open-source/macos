@@ -207,6 +207,44 @@ _pthread_qos_class_decode(pthread_priority_t pp, int *relpri, unsigned long *fla
 	return qc;
 }
 
+pthread_priority_t
+_pthread_qos_class_and_override_encode(qos_class_t qc, int relpri, unsigned long flags, qos_class_t qco)
+{
+	thread_qos_t req = _pthread_qos_class_to_thread_qos(qc);
+	thread_qos_t ovr = _pthread_qos_class_to_thread_qos(qco);
+	return _pthread_priority_make_from_thread_qos_and_override(req, relpri, ovr, flags);
+}
+
+qos_class_t
+_pthread_qos_class_and_override_decode(pthread_priority_t pp, int *relpri,
+		unsigned long *flags, qos_class_t *qco)
+{
+	thread_qos_t req = _pthread_priority_thread_qos(pp);
+	thread_qos_t ovr = _pthread_priority_thread_override_qos(pp);
+
+	if (qco) *qco = _pthread_qos_class_from_thread_qos(ovr);
+	if (flags) *flags = (pp & _PTHREAD_PRIORITY_FLAGS_MASK);
+	if (relpri) *relpri = _pthread_priority_relpri(pp);
+
+	return _pthread_qos_class_from_thread_qos(req);
+}
+
+pthread_priority_t
+_pthread_sched_pri_encode(int sched_pri, unsigned long flags)
+{
+	return _pthread_priority_make_from_sched_pri(sched_pri, flags);
+}
+
+int
+_pthread_sched_pri_decode(pthread_priority_t pp, unsigned long *flags)
+{
+	// Strip out SCHED_PRI flag and keep the rest
+	if (flags)
+		*flags = (pp & (_PTHREAD_PRIORITY_FLAGS_MASK & ~_PTHREAD_PRIORITY_SCHED_PRI_FLAG));
+
+	return _pthread_priority_sched_pri(pp);
+}
+
 // Encode a legacy workqueue API priority into a pthread_priority_t. This API
 // is deprecated and can be removed when the simulator no longer uses it.
 pthread_priority_t
@@ -234,6 +272,7 @@ int
 _pthread_set_properties_self(_pthread_set_flags_t flags,
 		pthread_priority_t priority, mach_port_t voucher)
 {
+
 	pthread_t self = pthread_self();
 	_pthread_set_flags_t kflags = flags;
 	int rv = 0;
@@ -255,8 +294,12 @@ skip:
 	 // attributes then we still want to set the TSD in userspace.
 	if ((flags & _PTHREAD_SET_SELF_QOS_FLAG) != 0) {
 		if (rv == 0 || errno == ENOENT) {
-			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS,
-					priority);
+
+			// Mask away any override information in the priority and only put req QoS
+			// information in the TSD
+			priority &= ~(_PTHREAD_PRIORITY_OVERRIDE_QOS_FLAG | _PTHREAD_PRIORITY_VALID_OVERRIDE_QOS_MASK);
+
+			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
 		}
 	}
 

@@ -25,7 +25,6 @@ class FSTree {
     var lock = CriticalSection("FSTree") //NSLock()
     var LSpaths: [String] = []
     let excludesFiles = [".fseventsd",".Spotlight-V100", ".Trashes"]
-    var rootInitNlinkDiffrential : UInt32 = 0
     
     // This init is just a place holder:
     init( fsType: FSTypes, testerFsOps : UVFSFSOps, caseSensitiveFS: Bool = false) {
@@ -99,7 +98,6 @@ class FSTree {
                 lock.enter()
                 nodesArr.append(newNode)
                 lock.exit()
-                Global.shared.lookupCounterIncrement(1)
             }
             error = brdg_fsops_getattr(&testerFsOps, &pOutNode, &outAttrs)
             if error == SUCCESS {
@@ -114,16 +112,21 @@ class FSTree {
     }
     
     func deleteNode( _ node : Node_t, force : Bool = false) ->Int32 {
-        return deleteNode(node.type!,node.name!, dirNode: node.dirNode!, force)
+        return deleteNode(victimNode: node, dirNode: node.dirNode!, force)
     }
     
-    func deleteNode(_ type: NodeType, _ name: String, dirNode: Node_t? = nil, _ force : Bool = false) -> Int32 {
+    func deleteNode(victimNode: Node_t, dirNode: Node_t? = nil, _ force : Bool = false) -> Int32 {
         var error : Int32
-        assert(name != "/", "cannot delete the root directory assert")
+        assert(victimNode.name != "/", "cannot delete the root directory assert")
         
         let dirNode = (dirNode ?? nodesArr[0])
-        let path : String = Node_t.combinePathAndName(path: dirNode.path!, name: name)
-        let index = path.lastIndex(of: "/") ?? path.startIndex
+        let path : String = Node_t.combinePathAndName(path: dirNode.path!, name: victimNode.name!)
+        var index = path.lastIndex(of: "/") ?? path.startIndex
+        if (index == path.endIndex) {
+            // If a file/dir ends with "/", the index will be the last character, find a new index. (e.g. /testfile/ or /bla/bla/dir/)
+            let fixedPath = String(path[..<path.index(path.endIndex, offsetBy: -1)])
+            index = fixedPath.lastIndex(of: "/") ?? fixedPath.startIndex
+        }
         let entityNode = findNodeByPath(path: path)
         let nameNode = String(path[index...])
         var nameDirNode = entityNode?.dirNode
@@ -138,7 +141,7 @@ class FSTree {
         } else {
             nameDirNode = dirNode
         }
-        
+
         var forceString : String = ""
         if force, entityNode?.attrs?.isReadOnly() ?? false {
             var rwAttr = entityNode?.attrs!
@@ -151,19 +154,19 @@ class FSTree {
             }
             forceString = "with force"
         }
-        log("Erasing node \(forceString) of type \(type) and name \(path)")
+        log("Erasing node \(forceString) of type \(victimNode.type!) and name \(path)")
 
 
-        switch (type) {
+        switch (victimNode.type!) {
         case NodeType.File, NodeType.SymLink:
-            error = brdg_fsops_remove(&testerFsOps, &(nameDirNode!.node), nameNode)
+            error = brdg_fsops_remove(&testerFsOps, &(nameDirNode!.node), nameNode, victimNode.node!)
         case NodeType.HardLink:
-            error = brdg_fsops_remove(&testerFsOps, &(nameDirNode!.node), nameNode)
+            error = brdg_fsops_remove(&testerFsOps, &(nameDirNode!.node), nameNode, victimNode.node!)
             if error == SUCCESS {
                 entityNode?.cNode?.nlink -= 1
             }
         case NodeType.Dir:
-            error = brdg_fsops_rmdir(&testerFsOps, &(nameDirNode!.node), nameNode)
+            error = brdg_fsops_rmdir(&testerFsOps, &(nameDirNode!.node), nameNode, victimNode.node!)
         }
         
         if (error == SUCCESS) {
@@ -500,9 +503,6 @@ class FSTree {
                 toNodeExist!.cNode!.nlink -= 1
             }
             if toNodeExist?.lookuped == true && reclaimToNode == true {
-                if (brdg_fsops_reclaim(&testerFsOps, &(toNode)) == SUCCESS) {
-                    Global.shared.lookupCounterIncrement(-1)
-                }
                 toNodeExist?.lookuped = false
             }
             
@@ -585,7 +585,6 @@ class FSTree {
         }
         if (pOutNode == nil) {
             error = brdg_fsops_lookup(&testerFsOps, &(_dirNode.node), String(nameNodesArr[nameNodesArr.count - 1]), &pOutNode)
-            Global.shared.lookupCounterIncrement((error == SUCCESS) ? 1 : 0)
         } else {
             error = SUCCESS
         }
@@ -622,17 +621,20 @@ class FSTree {
             log("Can't find requested file \(path)")
             return ENOENT
         }
+        var error : Int32 = SUCCESS
         if reclaimNode!.lookuped == true {
-            if (brdg_fsops_reclaim(&testerFsOps, &(reclaimNode!.node)) == SUCCESS) {
-                Global.shared.lookupCounterIncrement(-1)
+            error = reclaim_node(reclaimNode!)
+            if (error == SUCCESS) {
+                reclaimNode!.lookuped = false
+                reclaimNode!.node = nil
+            } else {
+                log("Failed to reclaim node \(name)");
             }
-            reclaimNode!.lookuped = false
-            reclaimNode!.node = nil
         } else {
             log("Node is alreday reclaimed")
         }
-        
-        return SUCCESS
+
+        return error
     }
     
     
@@ -652,7 +654,6 @@ class FSTree {
         }
         else{
             let error = reclaim_node(node)
-            Global.shared.lookupCounterIncrement(-1)
             return error
         }
     }
@@ -981,9 +982,8 @@ class FSTree {
         self.setRootDir(rootFileNode)
         // Build the FSTree based on what's currently in the FS:
         try self.buildFSTreeArrByPlugin()
-        self.calculateRootNlinks(rootFileNode)
     }
-    
+
     func setRootDir (_ rootNode : Node_t) {
         if (nodesArr.isEmpty == false) {
             nodesArr[0] = Node_t(rootNode)
@@ -991,15 +991,8 @@ class FSTree {
             nodesArr.append(Node_t(rootNode))
         }
     }
-    
-    func calculateRootNlinks(_ rootNode : Node_t){
-        // Calculate the difference between the attrs.nlink and the nlink seen by the Tester, to take it into account later on (validateTree)
-        let _ = getAttributes(rootNode)
-        log("calculateRootNlinks fa_nlink=\(rootNode.attrs!.fa_nlink) , nlinks=\(rootNode.nlinks), rootInitNlinkDiffrential=\((rootNode.attrs!.fa_nlink) - rootNode.nlinks)")
-        rootInitNlinkDiffrential = (rootNode.attrs!.fa_nlink) - rootNode.nlinks
-    }
-    
-    
+
+
     func emptyArr() {
         log("Emptying FSTree..")
         nodesArr.removeAll()

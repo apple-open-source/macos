@@ -15,7 +15,7 @@
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static inline void*
-t_posix_memalign(size_t alignment, size_t size)
+t_posix_memalign(size_t alignment, size_t size, bool scribble)
 {
 	void *ptr = NULL;
 	int result = posix_memalign(&ptr, alignment, size);
@@ -25,11 +25,13 @@ t_posix_memalign(size_t alignment, size_t size)
 	T_QUIET; T_ASSERT_EQ((intptr_t)ptr % alignment, 0ul, "pointer should be properly aligned");
 	T_QUIET; T_EXPECT_LE(size, allocated_size, "allocation size");
 
-	// Scribble memory pointed to by `ptr` to make sure we're not using that
-	// memory for control structures. This also makes sure the memory can be
-	// written to.
-	const uint64_t pat = 0xdeadbeefcafebabeull;
-	memset_pattern8(ptr, &pat, size);
+	if (scribble) {
+		// Scribble memory pointed to by `ptr` to make sure we're not using that
+		// memory for control structures. This also makes sure the memory can be
+		// written to.
+		const uint64_t pat = 0xdeadbeefcafebabeull;
+		memset_pattern8(ptr, &pat, size);
+	}
 	return ptr;
 }
 
@@ -38,7 +40,7 @@ T_DECL(posix_memalign_free, "posix_memalign all power of two alignments <= 4096"
 	for (size_t alignment = sizeof(void*); alignment < 4096; alignment *= 2) {
 		// test several sizes
 		for (size_t size = alignment; size <= 256*alignment; size += 8) {
-			void* ptr = t_posix_memalign(alignment, size);
+			void* ptr = t_posix_memalign(alignment, size, true);
 			free(ptr);
 		}
 	}
@@ -77,3 +79,16 @@ T_DECL(posix_memalign_allocate_size_0, "posix_memalign should return something t
 	T_QUIET; T_ASSERT_EQ(result, 0, "posix_memalign should not return an error when asked for size 0");
 	free(ptr);
 }
+
+#if __LP64__ && TARGET_OS_OSX
+T_DECL(posix_memalign_large, "posix_memalign all power of two alignments up to 64GB")
+{
+	for (size_t alignment = sizeof(void*); alignment <= UINT64_C(68719476736); alignment *= 2) {
+		// don't scribble - we don't want to actually touch that many pages, we just
+		// verify that the allocated pointer looks reasonable
+		void* ptr = t_posix_memalign(alignment, alignment, false);
+		free(ptr);
+	}
+	T_END;
+}
+#endif // __LP64__ && TARGET_OS_OSX

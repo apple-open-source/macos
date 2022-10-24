@@ -35,7 +35,7 @@
 #pragma clang diagnostic ignored "-Wunused-variable"
 #pragma clang diagnostic ignored "-Wunused-function"
 
-static void makeOldKeychainBlob() {
+static void makeOldKeychainBlob(void) {
     char* name = "makeOldKeychainBlob";
 
     SecKeychainRef kc = newKeychain(keychainName);
@@ -46,7 +46,7 @@ static void makeOldKeychainBlob() {
     makeKeyPair(name, kc, NULL, NULL);
 }
 
-static void makeEmptyKeychainBlob() {
+static void makeEmptyKeychainBlob(void) {
     newKeychain(keychainName);
 }
 

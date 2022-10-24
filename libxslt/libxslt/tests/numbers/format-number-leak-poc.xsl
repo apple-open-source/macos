@@ -2,18 +2,18 @@
 
 <xsl:output indent="yes"/>
 
-<xsl:decimal-format name="1"  digit="&#x20;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="2"  digit="&#x28;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="3"  digit="&#x30;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="4"  digit="&#x38;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="5"  digit="&#x40;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="6"  digit="&#x48;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="7"  digit="&#x50;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="8"  digit="&#x58;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="9"  digit="&#x60;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="10" digit="&#x68;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="11" digit="&#x70;" decimal-separator="" zero-digit="a"/>
-<xsl:decimal-format name="12" digit="&#x78;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n1"  digit="&#x20;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n2"  digit="&#x28;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n3"  digit="&#x30;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n4"  digit="&#x38;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n5"  digit="&#x40;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n6"  digit="&#x48;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n7"  digit="&#x50;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n8"  digit="&#x58;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n9"  digit="&#x60;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n10" digit="&#x68;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n11" digit="&#x70;" decimal-separator="" zero-digit="a"/>
+<xsl:decimal-format name="n12" digit="&#x78;" decimal-separator="" zero-digit="a"/>
 
 <!-- 200 characters. -->
 <xsl:variable name="buf" select="'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'"/>
@@ -84,7 +84,7 @@ function convertToHex() {
     <xsl:param name="size"/>
     <xsl:param name="pattern"/>
 
-    <xsl:variable name="format-name" select="string(position())"/>
+    <xsl:variable name="format-name" select="concat('n', string(position()))"/>
     <xsl:variable name="bytes" select="substring-after(format-number(0, $pattern, $format-name), $pattern)"/>
 
     <xsl:if test="$bytes">

@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 kk{
@@ -33,7 +33,7 @@ kk{
         }
         AUD{
             "A$",
-            "Австралия доллары",
+            "Аустралия доллары",
         }
         AWG{
             "AWG",
@@ -784,8 +784,8 @@ kk{
             other{"Аргентина песосы"}
         }
         AUD{
-            one{"Австралия доллары"}
-            other{"Австралия доллары"}
+            one{"Аустралия доллары"}
+            other{"Аустралия доллары"}
         }
         AWG{
             one{"Аруба флорині"}

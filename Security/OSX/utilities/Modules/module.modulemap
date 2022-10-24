@@ -1,0 +1,321 @@
+module security_utilities [system] {
+  module adornments {
+    requires cplusplus
+    header "adornments.h"
+    export *
+  }
+
+  module alloc {
+    requires cplusplus
+    header "alloc.h"
+    export *
+  }
+
+  module blob {
+    requires cplusplus
+    header "blob.h"
+    export *
+  }
+
+  module casts {
+    requires cplusplus
+    header "casts.h"
+    export *
+  }
+
+  module ccaudit {
+    requires cplusplus
+    header "ccaudit.h"
+    export *
+  }
+
+  module cfclass {
+    requires cplusplus
+    header "cfclass.h"
+    export *
+  }
+
+  module cfmach__ {
+    requires cplusplus
+    header "cfmach++.h"
+    export *
+  }
+
+  module cfmunge {
+    requires cplusplus
+    header "cfmunge.h"
+    export *
+  }
+
+  module cfutilities {
+    requires cplusplus
+    header "cfutilities.h"
+    export *
+  }
+
+  module coderepository {
+    requires cplusplus
+    header "coderepository.h"
+    export *
+  }
+
+  module crc {
+    header "crc.h"
+    export *
+  }
+
+  module daemon {
+    requires cplusplus
+    header "daemon.h"
+    export *
+  }
+
+  module debugging {
+    header "debugging.h"
+    export *
+  }
+
+  module debugging_internal {
+    header "debugging_internal.h"
+    export *
+
+    // utilities_dtrace.h is conceptually part of debugging_internal.h, but is
+    // a generated header. utilities_dtrace.h isn't standalone, so it needs to
+    // be excluded so that the compiler doesn't try to compile it by itself.
+    // Importing debugging_internal will import utilities_dtrace.h's API via
+    // the include from debugging_internal.h and the export here though. Things
+    // will just get weird if any other header includes utilities_dtrace.h.
+    exclude header "utilities_dtrace.h"
+  }
+
+  module debugsupport {
+    requires cplusplus
+    header "debugsupport.h"
+    export *
+  }
+
+  module dispatch {
+    requires cplusplus
+    header "dispatch.h"
+    export *
+  }
+
+  module dyldcache {
+    requires cplusplus
+    header "dyldcache.h"
+    export *
+  }
+
+  module dyld_cache_format {
+    header "dyld_cache_format.h"
+    export *
+  }
+
+  module endian {
+    requires cplusplus
+    header "endian.h"
+    export *
+  }
+
+  module errors {
+    requires cplusplus
+    header "errors.h"
+    export *
+  }
+
+  module globalizer {
+    requires cplusplus
+    header "globalizer.h"
+    export *
+  }
+
+  module hashing {
+    requires cplusplus
+    header "hashing.h"
+    export *
+  }
+
+  module kq__ {
+    requires cplusplus
+    header "kq++.h"
+    export *
+  }
+
+  module logging {
+    requires cplusplus
+    header "logging.h"
+    export *
+  }
+
+  module mach__ {
+    requires cplusplus
+    header "mach++.h"
+    export *
+  }
+
+  module macho__ {
+    requires cplusplus
+    header "macho++.h"
+    export *
+  }
+
+  module machserver {
+    requires cplusplus
+    header "machserver.h"
+    export *
+  }
+
+  module memstreams {
+    requires cplusplus
+    header "memstreams.h"
+    export *
+  }
+
+  module memutils {
+    requires cplusplus
+    header "memutils.h"
+    export *
+  }
+
+  module muscle__ {
+    requires cplusplus
+    header "muscle++.h"
+    export *
+  }
+
+  module osxcode {
+    requires cplusplus
+    header "osxcode.h"
+    export *
+  }
+
+  module pcsc__ {
+    requires cplusplus
+    header "pcsc++.h"
+    export *
+  }
+
+  module powerwatch {
+    requires cplusplus
+    header "powerwatch.h"
+    export *
+  }
+
+  module refcount {
+    requires cplusplus
+    header "refcount.h"
+    export *
+  }
+
+  module seccfobject {
+    requires cplusplus
+    header "seccfobject.h"
+    export *
+  }
+
+  module security_utilities {
+    header "security_utilities.h"
+    export *
+  }
+
+  module simpleprefs {
+    requires cplusplus
+    header "simpleprefs.h"
+    export *
+  }
+
+  explicit module simulatecrash_assert {
+    header "simulatecrash_assert.h"
+    export *
+  }
+
+  module sqlite__ {
+    requires cplusplus
+    header "sqlite++.h"
+    export *
+  }
+
+  module superblob {
+    requires cplusplus
+    header "superblob.h"
+    export *
+  }
+
+  module threading {
+    requires cplusplus
+    header "threading.h"
+    export *
+  }
+
+  module threading_internal {
+    requires cplusplus
+    header "threading_internal.h"
+    export *
+  }
+
+  module timeflow {
+    requires cplusplus
+    header "timeflow.h"
+    export *
+  }
+
+  module tqueue {
+    requires cplusplus
+    header "tqueue.h"
+    export *
+  }
+
+  module trackingallocator {
+    requires cplusplus
+    header "trackingallocator.h"
+    export *
+  }
+
+  module transactions {
+    requires cplusplus
+    header "transactions.h"
+    export *
+  }
+
+  module unix__ {
+    requires cplusplus
+    header "unix++.h"
+    export *
+  }
+
+  module unixchild {
+    requires cplusplus
+    header "unixchild.h"
+    export *
+  }
+
+  module utilities {
+    requires cplusplus
+    header "utilities.h"
+    export *
+  }
+
+  module utility_config {
+    requires cplusplus
+    header "utility_config.h"
+    export *
+  }
+  
+  link "security_utilities"
+}
+
+// The headers in this module use the security_cdsa_client module, which
+// uses security_utilities. This module is to break the cycle.
+module security_utilities__cdsa [system] {
+  module CSPDLTransaction {
+    requires cplusplus
+    header "CSPDLTransaction.h"
+    export *
+  }
+
+  module FileLockTransaction {
+    requires cplusplus
+    header "FileLockTransaction.h"
+    export *
+  }
+}

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -171,7 +172,7 @@ ExceptionOr<void> AudioParamTimeline::insertEvent(ParamEvent&& event)
             // Otherwise, make sure this event doesn't overlap any existing SetValueCurve event.
             auto parentEventEndTime = paramEvent.time() + paramEvent.duration();
             if (event.time() >= paramEvent.time() && event.time() < parentEventEndTime)
-                return Exception { NotSupportedError, "Events are overlapping" };
+                return Exception { NotSupportedError, "Events are overlapping"_s };
         }
 
         if (paramEvent.time() > insertTime)
@@ -218,7 +219,7 @@ ExceptionOr<void> AudioParamTimeline::cancelAndHoldAtTime(Seconds cancelTime)
     Locker locker { m_eventsLock };
 
     // Find the first event at or just past cancelTime.
-    size_t i = m_events.findMatching([&](auto& event) {
+    size_t i = m_events.findIf([&](auto& event) {
         return event.time() > cancelTime;
     });
     i = (i == notFound) ? m_events.size() : i;

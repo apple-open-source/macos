@@ -71,6 +71,11 @@ typedef struct
 	char bMaxSlotIndex;
 
 	/*
+	 * Maximum number of slots which can be simultaneously busy
+	 */
+	char bMaxCCIDBusySlots;
+
+	/*
 	 * Slot in use
 	 */
 	char bCurrentSlotIndex;
@@ -232,12 +237,15 @@ typedef struct
 #define HID_OMNIKEY_5422 0x076B5422
 #define HID_OMNIKEY_3X21 0x076B3031 /* OMNIKEY 3121 or 3021 or 1021 */
 #define HID_OMNIKEY_3821 0x076B3821 /* OMNIKEY 3821 */
+#define HID_OMNIKEY_5427CK 0x076B5427 /* OMNIKEY 5427 CK */
 #define HID_OMNIKEY_6121 0x076B6632 /* OMNIKEY 6121 */
 #define CHERRY_XX44	0x046A00A7 /* Cherry Smart Terminal xx44 */
 #define FUJITSU_D323 0x0BF81024 /* Fujitsu Smartcard Reader D323 */
 #define IDENTIV_uTrust3700F		0x04E65790
 #define IDENTIV_uTrust3701F		0x04E65791
 #define IDENTIV_uTrust4701F		0x04E65724
+#define BIT4ID_MINILECTOR		0x25DD3111
+#define SAFENET_ETOKEN_5100		0x05290620
 
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)

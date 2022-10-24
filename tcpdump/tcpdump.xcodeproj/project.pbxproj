@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		560DAE3E27457858006E8589 /* print-quic.c in Sources */ = {isa = PBXBuildFile; fileRef = 560DAE3D27457858006E8589 /* print-quic.c */; };
+		560DAE3F27457883006E8589 /* print-quic.c in Sources */ = {isa = PBXBuildFile; fileRef = 560DAE3D27457858006E8589 /* print-quic.c */; };
 		720E462C1231629A0056BE01 /* print-forces.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462B1231629A0056BE01 /* print-forces.c */; };
 		720E462E123163AB0056BE01 /* print-ipnet.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462D123163AB0056BE01 /* print-ipnet.c */; };
 		720E46301231644C0056BE01 /* print-usb.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462F1231644C0056BE01 /* print-usb.c */; };
@@ -57,7 +59,6 @@
 		7244CBF71624FF2100141ECF /* checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = FC79153F103A295700CBA90E /* checksum.c */; };
 		7244CBF81624FF2100141ECF /* cpack.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791540103A295700CBA90E /* cpack.c */; };
 		7244CBF91624FF2100141ECF /* gmpls.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791541103A295700CBA90E /* gmpls.c */; };
-		7244CBFA1624FF2100141ECF /* gmt2local.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791542103A295700CBA90E /* gmt2local.c */; };
 		7244CBFB1624FF2100141ECF /* ipproto.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791543103A295700CBA90E /* ipproto.c */; };
 		7244CBFC1624FF2100141ECF /* l2vpn.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791544103A295700CBA90E /* l2vpn.c */; };
 		7244CBFD1624FF2100141ECF /* machdep.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791545103A295700CBA90E /* machdep.c */; };
@@ -173,10 +174,8 @@
 		7244CC6B1624FF2100141ECF /* print-vtp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B3103A295700CBA90E /* print-vtp.c */; };
 		7244CC6C1624FF2100141ECF /* print-wb.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B4103A295700CBA90E /* print-wb.c */; };
 		7244CC6D1624FF2100141ECF /* print-zephyr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B5103A295700CBA90E /* print-zephyr.c */; };
-		7244CC6E1624FF2100141ECF /* setsignal.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B6103A295700CBA90E /* setsignal.c */; };
 		7244CC6F1624FF2100141ECF /* smbutil.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B7103A295700CBA90E /* smbutil.c */; };
 		7244CC701624FF2100141ECF /* tcpdump.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B8103A295700CBA90E /* tcpdump.c */; };
-		7244CC721624FF2100141ECF /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791662103A2F9100CBA90E /* version.c */; };
 		7244CC731624FF2100141ECF /* print-pflog.c in Sources */ = {isa = PBXBuildFile; fileRef = E07AD53010AA1D0300E8B167 /* print-pflog.c */; };
 		7244CC741624FF2100141ECF /* print-forces.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462B1231629A0056BE01 /* print-forces.c */; };
 		7244CC751624FF2100141ECF /* print-ipnet.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462D123163AB0056BE01 /* print-ipnet.c */; };
@@ -232,6 +231,38 @@
 		727CF9311E49269E00BAE514 /* strtoaddr.c in Sources */ = {isa = PBXBuildFile; fileRef = 727CF92B1E49264A00BAE514 /* strtoaddr.c */; };
 		727D62CA25C4D9FE0003EC82 /* pktmetadatafilter_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 727D62C925C4D9FE0003EC82 /* pktmetadatafilter_test.c */; };
 		727D62CF25C4DC950003EC82 /* pktmetadatafilter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72575F7E166D607900EFB348 /* pktmetadatafilter.c */; };
+		728656FC27285D100052BDCF /* print-ipoib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656EE27285D0F0052BDCF /* print-ipoib.c */; };
+		728656FD27285D100052BDCF /* print-bcm-li.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656EF27285D100052BDCF /* print-bcm-li.c */; };
+		728656FE27285D100052BDCF /* print-macsec.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F027285D100052BDCF /* print-macsec.c */; };
+		728656FF27285D100052BDCF /* print-brcmtag.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F127285D100052BDCF /* print-brcmtag.c */; };
+		7286570027285D100052BDCF /* print-ptp.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F227285D100052BDCF /* print-ptp.c */; };
+		7286570127285D100052BDCF /* print-ssh.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F327285D100052BDCF /* print-ssh.c */; };
+		7286570227285D100052BDCF /* print-openflow-1.3.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F427285D100052BDCF /* print-openflow-1.3.c */; };
+		7286570327285D100052BDCF /* print-arista.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F527285D100052BDCF /* print-arista.c */; };
+		7286570427285D100052BDCF /* print-vsock.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F627285D100052BDCF /* print-vsock.c */; };
+		7286570527285D100052BDCF /* print-zep.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F727285D100052BDCF /* print-zep.c */; };
+		7286570727285D100052BDCF /* print-ip-demux.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F927285D100052BDCF /* print-ip-demux.c */; };
+		7286570827285D100052BDCF /* print-dsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656FA27285D100052BDCF /* print-dsa.c */; };
+		7286570927285D100052BDCF /* print-someip.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656FB27285D100052BDCF /* print-someip.c */; };
+		7286570D27285E750052BDCF /* fptype.c in Sources */ = {isa = PBXBuildFile; fileRef = 7286570A27285E740052BDCF /* fptype.c */; };
+		7286571227285F060052BDCF /* netdissect-alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7286571127285F060052BDCF /* netdissect-alloc.c */; };
+		72865718272860050052BDCF /* ntp.c in Sources */ = {isa = PBXBuildFile; fileRef = 72865714272860040052BDCF /* ntp.c */; };
+		7286571B2729FCF90052BDCF /* fptype.c in Sources */ = {isa = PBXBuildFile; fileRef = 7286570A27285E740052BDCF /* fptype.c */; };
+		7286571C2729FCF90052BDCF /* netdissect-alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7286571127285F060052BDCF /* netdissect-alloc.c */; };
+		7286571D2729FCF90052BDCF /* ntp.c in Sources */ = {isa = PBXBuildFile; fileRef = 72865714272860040052BDCF /* ntp.c */; };
+		7286571E2729FCF90052BDCF /* print-arista.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F527285D100052BDCF /* print-arista.c */; };
+		7286571F2729FCF90052BDCF /* print-bcm-li.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656EF27285D100052BDCF /* print-bcm-li.c */; };
+		728657202729FCF90052BDCF /* print-brcmtag.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F127285D100052BDCF /* print-brcmtag.c */; };
+		728657212729FCF90052BDCF /* print-dsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656FA27285D100052BDCF /* print-dsa.c */; };
+		728657222729FCF90052BDCF /* print-ip-demux.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F927285D100052BDCF /* print-ip-demux.c */; };
+		728657232729FCF90052BDCF /* print-ipoib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656EE27285D0F0052BDCF /* print-ipoib.c */; };
+		728657242729FCF90052BDCF /* print-macsec.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F027285D100052BDCF /* print-macsec.c */; };
+		728657252729FCF90052BDCF /* print-openflow-1.3.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F427285D100052BDCF /* print-openflow-1.3.c */; };
+		728657262729FCF90052BDCF /* print-ptp.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F227285D100052BDCF /* print-ptp.c */; };
+		728657272729FCF90052BDCF /* print-someip.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656FB27285D100052BDCF /* print-someip.c */; };
+		728657282729FCF90052BDCF /* print-ssh.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F327285D100052BDCF /* print-ssh.c */; };
+		728657292729FCF90052BDCF /* print-vsock.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F627285D100052BDCF /* print-vsock.c */; };
+		7286572A2729FCF90052BDCF /* print-zep.c in Sources */ = {isa = PBXBuildFile; fileRef = 728656F727285D100052BDCF /* print-zep.c */; };
 		72D1EDC31AAB9ABF00405853 /* print-kev_msg.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D1EDC21AAB9ABF00405853 /* print-kev_msg.c */; };
 		72D1EDC41AAB9ABF00405853 /* print-kev_msg.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D1EDC21AAB9ABF00405853 /* print-kev_msg.c */; };
 		72DA6D101E4A569100568AC1 /* print_tcpdump_version.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DA6D0F1E4A569100568AC1 /* print_tcpdump_version.c */; };
@@ -243,7 +274,6 @@
 		FC791683103A35FE00CBA90E /* checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = FC79153F103A295700CBA90E /* checksum.c */; };
 		FC791684103A35FE00CBA90E /* cpack.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791540103A295700CBA90E /* cpack.c */; };
 		FC791685103A35FE00CBA90E /* gmpls.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791541103A295700CBA90E /* gmpls.c */; };
-		FC791686103A35FE00CBA90E /* gmt2local.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791542103A295700CBA90E /* gmt2local.c */; };
 		FC791687103A35FE00CBA90E /* ipproto.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791543103A295700CBA90E /* ipproto.c */; };
 		FC791688103A35FE00CBA90E /* l2vpn.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791544103A295700CBA90E /* l2vpn.c */; };
 		FC791689103A35FE00CBA90E /* machdep.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791545103A295700CBA90E /* machdep.c */; };
@@ -359,10 +389,8 @@
 		FC7916F7103A35FE00CBA90E /* print-vtp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B3103A295700CBA90E /* print-vtp.c */; };
 		FC7916F8103A35FE00CBA90E /* print-wb.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B4103A295700CBA90E /* print-wb.c */; };
 		FC7916F9103A35FE00CBA90E /* print-zephyr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B5103A295700CBA90E /* print-zephyr.c */; };
-		FC7916FA103A35FE00CBA90E /* setsignal.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B6103A295700CBA90E /* setsignal.c */; };
 		FC7916FB103A35FE00CBA90E /* smbutil.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B7103A295700CBA90E /* smbutil.c */; };
 		FC7916FC103A35FE00CBA90E /* tcpdump.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B8103A295700CBA90E /* tcpdump.c */; };
-		FC7916FE103A35FE00CBA90E /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791662103A2F9100CBA90E /* version.c */; };
 		FC7916FF103A360A00CBA90E /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC791654103A2F1B00CBA90E /* libpcap.dylib */; };
 /* End PBXBuildFile section */
 
@@ -425,6 +453,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		560DAE3D27457858006E8589 /* print-quic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-quic.c"; path = "tcpdump/print-quic.c"; sourceTree = "<group>"; };
 		5634B0A91C6D5DBD00A352B2 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = tcpdump/entitlements.plist; sourceTree = "<group>"; };
 		720E462B1231629A0056BE01 /* print-forces.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-forces.c"; path = "tcpdump/print-forces.c"; sourceTree = "<group>"; };
 		720E462D123163AB0056BE01 /* print-ipnet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ipnet.c"; path = "tcpdump/print-ipnet.c"; sourceTree = "<group>"; };
@@ -432,7 +461,6 @@
 		720E46311231647B0056BE01 /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = tcpdump/signature.c; sourceTree = "<group>"; };
 		720E4635123164FE0056BE01 /* bpf_dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_dump.c; path = tcpdump/bpf_dump.c; sourceTree = "<group>"; };
 		7218C1291F6749360052EB54 /* TESTLIST */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TESTLIST; path = tcpdump/tests/TESTLIST; sourceTree = "<group>"; };
-		7218C12A1F6749360052EB54 /* TESTonce */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TESTonce; path = tcpdump/tests/TESTonce; sourceTree = "<group>"; };
 		7218C12B1F6749360052EB54 /* TESTrun.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = TESTrun.sh; path = tcpdump/tests/TESTrun.sh; sourceTree = "<group>"; };
 		7218C12D1F67496C0052EB54 /* crypto.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = crypto.sh; path = tcpdump/tests/crypto.sh; sourceTree = "<group>"; };
 		7218C12E1F67498B0052EB54 /* isis-seg-fault-1-v.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "isis-seg-fault-1-v.sh"; path = "tcpdump/tests/isis-seg-fault-1-v.sh"; sourceTree = "<group>"; };
@@ -471,21 +499,17 @@
 		7255E40B1C9CB5A800D64FA0 /* tcpdump.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = tcpdump.1; path = tcpdump/tcpdump.1; sourceTree = "<group>"; };
 		72575F7E166D607900EFB348 /* pktmetadatafilter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pktmetadatafilter.c; path = tcpdump/pktmetadatafilter.c; sourceTree = "<group>"; };
 		72575F81166D60C400EFB348 /* pktmetadatafilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pktmetadatafilter.h; path = tcpdump/pktmetadatafilter.h; sourceTree = "<group>"; };
-		725CC4BA15D5B0B000D88ACA /* acconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = acconfig.h; path = tcpdump/acconfig.h; sourceTree = "<group>"; };
 		725CC4BB15D5B0B000D88ACA /* addrtoname.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = addrtoname.h; path = tcpdump/addrtoname.h; sourceTree = "<group>"; };
 		725CC4BC15D5B0B000D88ACA /* af.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = af.h; path = tcpdump/af.h; sourceTree = "<group>"; };
 		725CC4BD15D5B0B000D88ACA /* ah.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ah.h; path = tcpdump/ah.h; sourceTree = "<group>"; };
 		725CC4BF15D5B0B000D88ACA /* appletalk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = appletalk.h; path = tcpdump/appletalk.h; sourceTree = "<group>"; };
 		725CC4C215D5B0B000D88ACA /* atm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = atm.h; path = tcpdump/atm.h; sourceTree = "<group>"; };
-		725CC4C315D5B0B000D88ACA /* atmuni31.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = atmuni31.h; path = tcpdump/atmuni31.h; sourceTree = "<group>"; };
 		725CC4C615D5B0B000D88ACA /* chdlc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = chdlc.h; path = tcpdump/chdlc.h; sourceTree = "<group>"; };
 		725CC4C715D5B0B000D88ACA /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = tcpdump/config.h; sourceTree = "<group>"; };
 		725CC4C815D5B0B000D88ACA /* cpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cpack.h; path = tcpdump/cpack.h; sourceTree = "<group>"; };
-		725CC4CE15D5B0B000D88ACA /* ether.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ether.h; path = tcpdump/ether.h; sourceTree = "<group>"; };
 		725CC4CF15D5B0B000D88ACA /* ethertype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ethertype.h; path = tcpdump/ethertype.h; sourceTree = "<group>"; };
 		725CC4D015D5B0B000D88ACA /* extract.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = extract.h; path = tcpdump/extract.h; sourceTree = "<group>"; };
 		725CC4D315D5B0B000D88ACA /* gmpls.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gmpls.h; path = tcpdump/gmpls.h; sourceTree = "<group>"; };
-		725CC4D415D5B0B000D88ACA /* gmt2local.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gmt2local.h; path = tcpdump/gmt2local.h; sourceTree = "<group>"; };
 		725CC4D915D5B0B000D88ACA /* interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = interface.h; path = tcpdump/interface.h; sourceTree = "<group>"; };
 		725CC4DA15D5B0B000D88ACA /* ip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ip.h; path = tcpdump/ip.h; sourceTree = "<group>"; };
 		725CC4DB15D5B0B000D88ACA /* ip6.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ip6.h; path = tcpdump/ip6.h; sourceTree = "<group>"; };
@@ -506,12 +530,10 @@
 		725CC4F715D5B0B000D88ACA /* ppp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ppp.h; path = tcpdump/ppp.h; sourceTree = "<group>"; };
 		725CC4F915D5B0B000D88ACA /* rpc_auth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rpc_auth.h; path = tcpdump/rpc_auth.h; sourceTree = "<group>"; };
 		725CC4FA15D5B0B000D88ACA /* rpc_msg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rpc_msg.h; path = tcpdump/rpc_msg.h; sourceTree = "<group>"; };
-		725CC4FE15D5B0B000D88ACA /* setsignal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = setsignal.h; path = tcpdump/setsignal.h; sourceTree = "<group>"; };
 		725CC4FF15D5B0B000D88ACA /* signature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = signature.h; path = tcpdump/signature.h; sourceTree = "<group>"; };
 		725CC50015D5B0B000D88ACA /* slcompress.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = slcompress.h; path = tcpdump/slcompress.h; sourceTree = "<group>"; };
 		725CC50315D5B0B000D88ACA /* smb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = smb.h; path = tcpdump/smb.h; sourceTree = "<group>"; };
 		725CC50415D5B0B000D88ACA /* tcp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tcp.h; path = tcpdump/tcp.h; sourceTree = "<group>"; };
-		725CC50515D5B0B000D88ACA /* tcpdump-stdinc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "tcpdump-stdinc.h"; path = "tcpdump/tcpdump-stdinc.h"; sourceTree = "<group>"; };
 		725CC50A15D5B0B000D88ACA /* udp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udp.h; path = tcpdump/udp.h; sourceTree = "<group>"; };
 		727B12DA162745A90039A877 /* libpcap_static.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpcap_static.a; path = ../../../../usr/local/lib/libpcap_static.a; sourceTree = "<group>"; };
 		727B12FE1628DC590039A877 /* pktaputil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pktaputil.c; path = tcpdump/pktaputil.c; sourceTree = "<group>"; };
@@ -536,9 +558,35 @@
 		727CF92D1E49266700BAE514 /* openflow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = openflow.h; path = tcpdump/openflow.h; sourceTree = "<group>"; };
 		727CF92E1E49266700BAE514 /* print.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = print.h; path = tcpdump/print.h; sourceTree = "<group>"; };
 		727CF92F1E49266700BAE514 /* strtoaddr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = strtoaddr.h; path = tcpdump/strtoaddr.h; sourceTree = "<group>"; };
-		727CF9301E49268D00BAE514 /* rpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rpl.h; path = tcpdump/rpl.h; sourceTree = "<group>"; };
 		727D62C725C4D9FE0003EC82 /* pktmetadatafilter_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pktmetadatafilter_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		727D62C925C4D9FE0003EC82 /* pktmetadatafilter_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pktmetadatafilter_test.c; sourceTree = "<group>"; };
+		728656EE27285D0F0052BDCF /* print-ipoib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ipoib.c"; path = "tcpdump/print-ipoib.c"; sourceTree = "<group>"; };
+		728656EF27285D100052BDCF /* print-bcm-li.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-bcm-li.c"; path = "tcpdump/print-bcm-li.c"; sourceTree = "<group>"; };
+		728656F027285D100052BDCF /* print-macsec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-macsec.c"; path = "tcpdump/print-macsec.c"; sourceTree = "<group>"; };
+		728656F127285D100052BDCF /* print-brcmtag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-brcmtag.c"; path = "tcpdump/print-brcmtag.c"; sourceTree = "<group>"; };
+		728656F227285D100052BDCF /* print-ptp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ptp.c"; path = "tcpdump/print-ptp.c"; sourceTree = "<group>"; };
+		728656F327285D100052BDCF /* print-ssh.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ssh.c"; path = "tcpdump/print-ssh.c"; sourceTree = "<group>"; };
+		728656F427285D100052BDCF /* print-openflow-1.3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-openflow-1.3.c"; path = "tcpdump/print-openflow-1.3.c"; sourceTree = "<group>"; };
+		728656F527285D100052BDCF /* print-arista.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-arista.c"; path = "tcpdump/print-arista.c"; sourceTree = "<group>"; };
+		728656F627285D100052BDCF /* print-vsock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-vsock.c"; path = "tcpdump/print-vsock.c"; sourceTree = "<group>"; };
+		728656F727285D100052BDCF /* print-zep.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-zep.c"; path = "tcpdump/print-zep.c"; sourceTree = "<group>"; };
+		728656F927285D100052BDCF /* print-ip-demux.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ip-demux.c"; path = "tcpdump/print-ip-demux.c"; sourceTree = "<group>"; };
+		728656FA27285D100052BDCF /* print-dsa.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-dsa.c"; path = "tcpdump/print-dsa.c"; sourceTree = "<group>"; };
+		728656FB27285D100052BDCF /* print-someip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-someip.c"; path = "tcpdump/print-someip.c"; sourceTree = "<group>"; };
+		7286570A27285E740052BDCF /* fptype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fptype.c; path = tcpdump/fptype.c; sourceTree = "<group>"; };
+		7286570B27285E740052BDCF /* fptype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fptype.h; path = tcpdump/fptype.h; sourceTree = "<group>"; };
+		7286570C27285E740052BDCF /* ftmacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ftmacros.h; path = tcpdump/ftmacros.h; sourceTree = "<group>"; };
+		7286570E27285F050052BDCF /* funcattrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = funcattrs.h; path = tcpdump/funcattrs.h; sourceTree = "<group>"; };
+		7286570F27285F050052BDCF /* netdissect-alloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "netdissect-alloc.h"; path = "tcpdump/netdissect-alloc.h"; sourceTree = "<group>"; };
+		7286571027285F050052BDCF /* netdissect-ctype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "netdissect-ctype.h"; path = "tcpdump/netdissect-ctype.h"; sourceTree = "<group>"; };
+		7286571127285F060052BDCF /* netdissect-alloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "netdissect-alloc.c"; path = "tcpdump/netdissect-alloc.c"; sourceTree = "<group>"; };
+		72865713272860040052BDCF /* ntp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntp.h; path = tcpdump/ntp.h; sourceTree = "<group>"; };
+		72865714272860040052BDCF /* ntp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntp.c; path = tcpdump/ntp.c; sourceTree = "<group>"; };
+		72865715272860050052BDCF /* timeval-operations.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "timeval-operations.h"; path = "tcpdump/timeval-operations.h"; sourceTree = "<group>"; };
+		72865716272860050052BDCF /* status-exit-codes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "status-exit-codes.h"; path = "tcpdump/status-exit-codes.h"; sourceTree = "<group>"; };
+		72865717272860050052BDCF /* varattrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = varattrs.h; path = tcpdump/varattrs.h; sourceTree = "<group>"; };
+		728657192729FB7C0052BDCF /* TESTonce.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = TESTonce.sh; path = tcpdump/tests/TESTonce.sh; sourceTree = "<group>"; };
+		7286571A2729FB7C0052BDCF /* TESTLISTRADAR */ = {isa = PBXFileReference; lastKnownFileType = text; name = TESTLISTRADAR; path = tcpdump/tests/TESTLISTRADAR; sourceTree = "<group>"; };
 		728F2C3525F82F2900591787 /* gen_tcpdump_version.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = gen_tcpdump_version.sh; path = gen_tcpdump_version/gen_tcpdump_version.sh; sourceTree = "<group>"; };
 		728F2C3725F850CE00591787 /* print-tcpdump-git-branch.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "print-tcpdump-git-branch.sh"; path = "gen_tcpdump_version/print-tcpdump-git-branch.sh"; sourceTree = "<group>"; };
 		72D1EDC21AAB9ABF00405853 /* print-kev_msg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-kev_msg.c"; path = "tcpdump/print-kev_msg.c"; sourceTree = "<group>"; };
@@ -550,7 +598,6 @@
 		FC79153F103A295700CBA90E /* checksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = checksum.c; path = tcpdump/checksum.c; sourceTree = "<group>"; };
 		FC791540103A295700CBA90E /* cpack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cpack.c; path = tcpdump/cpack.c; sourceTree = "<group>"; };
 		FC791541103A295700CBA90E /* gmpls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gmpls.c; path = tcpdump/gmpls.c; sourceTree = "<group>"; };
-		FC791542103A295700CBA90E /* gmt2local.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gmt2local.c; path = tcpdump/gmt2local.c; sourceTree = "<group>"; };
 		FC791543103A295700CBA90E /* ipproto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ipproto.c; path = tcpdump/ipproto.c; sourceTree = "<group>"; };
 		FC791544103A295700CBA90E /* l2vpn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = l2vpn.c; path = tcpdump/l2vpn.c; sourceTree = "<group>"; };
 		FC791545103A295700CBA90E /* machdep.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = machdep.c; path = tcpdump/machdep.c; sourceTree = "<group>"; };
@@ -666,7 +713,6 @@
 		FC7915B3103A295700CBA90E /* print-vtp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-vtp.c"; path = "tcpdump/print-vtp.c"; sourceTree = "<group>"; };
 		FC7915B4103A295700CBA90E /* print-wb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-wb.c"; path = "tcpdump/print-wb.c"; sourceTree = "<group>"; };
 		FC7915B5103A295700CBA90E /* print-zephyr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-zephyr.c"; path = "tcpdump/print-zephyr.c"; sourceTree = "<group>"; };
-		FC7915B6103A295700CBA90E /* setsignal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = setsignal.c; path = tcpdump/setsignal.c; sourceTree = "<group>"; };
 		FC7915B7103A295700CBA90E /* smbutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = smbutil.c; path = tcpdump/smbutil.c; sourceTree = "<group>"; };
 		FC7915B8103A295700CBA90E /* tcpdump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tcpdump.c; path = tcpdump/tcpdump.c; sourceTree = "<group>"; };
 		FC791654103A2F1B00CBA90E /* libpcap.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpcap.dylib; path = /usr/lib/libpcap.dylib; sourceTree = "<absolute>"; };
@@ -728,6 +774,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				560DAE3D27457858006E8589 /* print-quic.c */,
 				FC79153D103A295700CBA90E /* addrtoname.c */,
 				727CF9161E4915C300BAE514 /* addrtostr.c */,
 				FC79153E103A295700CBA90E /* af.c */,
@@ -735,14 +782,16 @@
 				720E4635123164FE0056BE01 /* bpf_dump.c */,
 				FC79153F103A295700CBA90E /* checksum.c */,
 				FC791540103A295700CBA90E /* cpack.c */,
+				7286570A27285E740052BDCF /* fptype.c */,
 				FC791541103A295700CBA90E /* gmpls.c */,
-				FC791542103A295700CBA90E /* gmt2local.c */,
 				72272A3315D58874006E4EBD /* in_cksum.c */,
 				FC791543103A295700CBA90E /* ipproto.c */,
 				FC791544103A295700CBA90E /* l2vpn.c */,
 				FC791545103A295700CBA90E /* machdep.c */,
+				7286571127285F060052BDCF /* netdissect-alloc.c */,
 				727CF9251E4925FE00BAE514 /* netdissect.c */,
 				FC791546103A295700CBA90E /* nlpid.c */,
+				72865714272860040052BDCF /* ntp.c */,
 				FC791547103A295700CBA90E /* oui.c */,
 				FC791548103A295700CBA90E /* parsenfsfh.c */,
 				727B12FE1628DC590039A877 /* pktaputil.c */,
@@ -755,11 +804,14 @@
 				722B0E021AE8248100DAFE7A /* print-aoe.c */,
 				FC79154C103A295700CBA90E /* print-ap1394.c */,
 				FC79154D103A295700CBA90E /* print-arcnet.c */,
+				728656F527285D100052BDCF /* print-arista.c */,
 				FC79154E103A295700CBA90E /* print-arp.c */,
 				FC79154F103A295700CBA90E /* print-ascii.c */,
 				FC791550103A295700CBA90E /* print-atalk.c */,
 				FC791551103A295700CBA90E /* print-atm.c */,
 				72272A3515D58874006E4EBD /* print-babel.c */,
+				728656EF27285D100052BDCF /* print-bcm-li.c */,
+				728656F127285D100052BDCF /* print-brcmtag.c */,
 				FC791552103A295700CBA90E /* print-beep.c */,
 				FC791553103A295700CBA90E /* print-bfd.c */,
 				FC791554103A295700CBA90E /* print-bgp.c */,
@@ -776,6 +828,7 @@
 				FC79155D103A295700CBA90E /* print-decnet.c */,
 				FC79155E103A295700CBA90E /* print-dhcp6.c */,
 				FC79155F103A295700CBA90E /* print-domain.c */,
+				728656FA27285D100052BDCF /* print-dsa.c */,
 				FC791560103A295700CBA90E /* print-dtp.c */,
 				FC791561103A295700CBA90E /* print-dvmrp.c */,
 				FC791562103A295700CBA90E /* print-eap.c */,
@@ -799,12 +852,14 @@
 				FC79156E103A295700CBA90E /* print-icmp6.c */,
 				FC79156F103A295700CBA90E /* print-igmp.c */,
 				FC791570103A295700CBA90E /* print-igrp.c */,
+				728656F927285D100052BDCF /* print-ip-demux.c */,
 				FC791571103A295700CBA90E /* print-ip.c */,
 				FC791572103A295700CBA90E /* print-ip6.c */,
 				FC791573103A295700CBA90E /* print-ip6opts.c */,
 				FC791574103A295700CBA90E /* print-ipcomp.c */,
 				FC791575103A295700CBA90E /* print-ipfc.c */,
 				720E462D123163AB0056BE01 /* print-ipnet.c */,
+				728656EE27285D0F0052BDCF /* print-ipoib.c */,
 				FC791576103A295700CBA90E /* print-ipx.c */,
 				FC791577103A295700CBA90E /* print-isakmp.c */,
 				FC791578103A295700CBA90E /* print-isoclns.c */,
@@ -822,6 +877,7 @@
 				FC791581103A295700CBA90E /* print-lspping.c */,
 				FC791582103A295700CBA90E /* print-lwapp.c */,
 				FC791583103A295700CBA90E /* print-lwres.c */,
+				728656F027285D100052BDCF /* print-macsec.c */,
 				722B0E091AE8248100DAFE7A /* print-m3ua.c */,
 				727CF90B1E49144100BAE514 /* print-medsa.c */,
 				FC791584103A295700CBA90E /* print-mobile.c */,
@@ -838,6 +894,7 @@
 				FC79158B103A295700CBA90E /* print-null.c */,
 				FC79158C103A295700CBA90E /* print-olsr.c */,
 				722B0E0C1AE8248200DAFE7A /* print-openflow-1.0.c */,
+				728656F427285D100052BDCF /* print-openflow-1.3.c */,
 				722B0E0D1AE8248200DAFE7A /* print-openflow.c */,
 				FC79158D103A295700CBA90E /* print-ospf.c */,
 				FC79158E103A295700CBA90E /* print-ospf6.c */,
@@ -850,6 +907,7 @@
 				FC791591103A295700CBA90E /* print-ppp.c */,
 				FC791592103A295700CBA90E /* print-pppoe.c */,
 				FC791593103A295700CBA90E /* print-pptp.c */,
+				728656F227285D100052BDCF /* print-ptp.c */,
 				FC791594103A295700CBA90E /* print-radius.c */,
 				FC791595103A295700CBA90E /* print-raw.c */,
 				727CF9071E49141400BAE514 /* print-resp.c */,
@@ -870,6 +928,8 @@
 				FC7915A2103A295700CBA90E /* print-smb.c */,
 				722B0E0F1AE8248200DAFE7A /* print-smtp.c */,
 				FC7915A3103A295700CBA90E /* print-snmp.c */,
+				728656FB27285D100052BDCF /* print-someip.c */,
+				728656F327285D100052BDCF /* print-ssh.c */,
 				FC7915A4103A295700CBA90E /* print-stp.c */,
 				FC7915A5103A295700CBA90E /* print-sunatm.c */,
 				FC7915A6103A295700CBA90E /* print-sunrpc.c */,
@@ -888,15 +948,16 @@
 				FC7915B0103A295700CBA90E /* print-vjc.c */,
 				FC7915B1103A295700CBA90E /* print-vqp.c */,
 				FC7915B2103A295700CBA90E /* print-vrrp.c */,
+				728656F627285D100052BDCF /* print-vsock.c */,
 				FC7915B3103A295700CBA90E /* print-vtp.c */,
 				727CF90D1E49144100BAE514 /* print-vxlan-gpe.c */,
 				724976E717BC46EF0041BF58 /* print-vxlan.c */,
 				FC7915B4103A295700CBA90E /* print-wb.c */,
+				728656F727285D100052BDCF /* print-zep.c */,
 				FC7915B5103A295700CBA90E /* print-zephyr.c */,
 				724976E817BC46EF0041BF58 /* print-zeromq.c */,
 				727CF9261E4925FE00BAE514 /* print.c */,
 				72299C101610D5EE00833F01 /* print_pktap.c */,
-				FC7915B6103A295700CBA90E /* setsignal.c */,
 				720E46311231647B0056BE01 /* signature.c */,
 				FC7915B7103A295700CBA90E /* smbutil.c */,
 				727CF92B1E49264A00BAE514 /* strtoaddr.c */,
@@ -922,8 +983,9 @@
 			isa = PBXGroup;
 			children = (
 				7218C1291F6749360052EB54 /* TESTLIST */,
-				7218C12A1F6749360052EB54 /* TESTonce */,
+				7286571A2729FB7C0052BDCF /* TESTLISTRADAR */,
 				7218C12B1F6749360052EB54 /* TESTrun.sh */,
+				728657192729FB7C0052BDCF /* TESTonce.sh */,
 				7218C12D1F67496C0052EB54 /* crypto.sh */,
 				7218C12E1F67498B0052EB54 /* isis-seg-fault-1-v.sh */,
 				7218C12F1F67499C0052EB54 /* lmp-v.sh */,
@@ -945,7 +1007,6 @@
 		725CC4B815D5B05700D88ACA /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				725CC4BA15D5B0B000D88ACA /* acconfig.h */,
 				725CC4BB15D5B0B000D88ACA /* addrtoname.h */,
 				727CF9151E4915B900BAE514 /* addrtostr.h */,
 				725CC4BC15D5B0B000D88ACA /* af.h */,
@@ -953,15 +1014,15 @@
 				725CC4BF15D5B0B000D88ACA /* appletalk.h */,
 				727CF9231E49169800BAE514 /* ascii_strcasecmp.h */,
 				725CC4C215D5B0B000D88ACA /* atm.h */,
-				725CC4C315D5B0B000D88ACA /* atmuni31.h */,
 				725CC4C615D5B0B000D88ACA /* chdlc.h */,
 				725CC4C715D5B0B000D88ACA /* config.h */,
 				725CC4C815D5B0B000D88ACA /* cpack.h */,
-				725CC4CE15D5B0B000D88ACA /* ether.h */,
 				725CC4CF15D5B0B000D88ACA /* ethertype.h */,
 				725CC4D015D5B0B000D88ACA /* extract.h */,
+				7286570B27285E740052BDCF /* fptype.h */,
+				7286570C27285E740052BDCF /* ftmacros.h */,
+				7286570E27285F050052BDCF /* funcattrs.h */,
 				725CC4D315D5B0B000D88ACA /* gmpls.h */,
-				725CC4D415D5B0B000D88ACA /* gmt2local.h */,
 				725CC4D915D5B0B000D88ACA /* interface.h */,
 				725CC4DA15D5B0B000D88ACA /* ip.h */,
 				725CC4DB15D5B0B000D88ACA /* ip6.h */,
@@ -972,11 +1033,14 @@
 				725CC4E715D5B0B000D88ACA /* mib.h */,
 				725CC4E815D5B0B000D88ACA /* mpls.h */,
 				725CC4E915D5B0B000D88ACA /* nameser.h */,
+				7286570F27285F050052BDCF /* netdissect-alloc.h */,
+				7286571027285F050052BDCF /* netdissect-ctype.h */,
 				727CF9061E4908F800BAE514 /* netdissect-stdinc.h */,
 				725CC4EB15D5B0B000D88ACA /* netdissect.h */,
 				725CC4EC15D5B0B000D88ACA /* nfs.h */,
 				725CC4ED15D5B0B000D88ACA /* nfsfh.h */,
 				725CC4EE15D5B0B000D88ACA /* nlpid.h */,
+				72865713272860040052BDCF /* ntp.h */,
 				727CF92D1E49266700BAE514 /* openflow.h */,
 				725CC4F115D5B0B000D88ACA /* ospf.h */,
 				725CC4F315D5B0B000D88ACA /* oui.h */,
@@ -986,15 +1050,15 @@
 				727CF92E1E49266700BAE514 /* print.h */,
 				725CC4F915D5B0B000D88ACA /* rpc_auth.h */,
 				725CC4FA15D5B0B000D88ACA /* rpc_msg.h */,
-				727CF9301E49268D00BAE514 /* rpl.h */,
-				725CC4FE15D5B0B000D88ACA /* setsignal.h */,
 				725CC4FF15D5B0B000D88ACA /* signature.h */,
 				725CC50015D5B0B000D88ACA /* slcompress.h */,
 				725CC50315D5B0B000D88ACA /* smb.h */,
+				72865716272860050052BDCF /* status-exit-codes.h */,
 				727CF92F1E49266700BAE514 /* strtoaddr.h */,
 				725CC50415D5B0B000D88ACA /* tcp.h */,
-				725CC50515D5B0B000D88ACA /* tcpdump-stdinc.h */,
+				72865715272860050052BDCF /* timeval-operations.h */,
 				725CC50A15D5B0B000D88ACA /* udp.h */,
+				72865717272860050052BDCF /* varattrs.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -1115,7 +1179,6 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				DefaultBuildSystemTypeForWorkspace = Original;
 				LastSwiftUpdateCheck = 0700;
 				LastUpgradeCheck = 0800;
 				TargetAttributes = {
@@ -1163,7 +1226,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/sh -v";
-			shellScript = "print_tcpdump_version()\n{\n    cat tcpdump/VERSION\n}\n\nprint_darwin_version()\n{\n    echo ${darwin_version}\n}\n\nif [ -z \"${RC_ProjectSourceVersion}\" ]; then\n    if [ -f .git/config ]; then\n        grep -q tcpdump.git .git/config\n        if [ $? -eq 0 ]; then\n            darwin_version=\"`git status|head -n 1|awk '{ print $NF }'` (`date '+%Y-%m-%d %H:%M:%S'`)\"\n        fi\n    fi\nelif [ \"${RC_ProjectSourceVersion}\" = \"9999.99.99\" ]; then\n\techo ${RC_ProjectNameAndSourceVersion}|grep -q \"^tcpdump-Branch.*__\"\n\tif [ $? -eq 0 ]; then\n\t\tbranch=\"`echo ${RC_ProjectNameAndSourceVersion}|sed s/^tcpdump-Branch.*__//`\"\n\t\tif [ -n \"${branch}\" ]; then\n\t\t\tdarwin_version=\"${branch}\"\n\t\tfi\n\tfi\nelse\n    darwin_version=\"${RC_ProjectSourceVersion}\"\nfi\n\nif [ -z \"${darwin_version}\" ]; then\n    darwin_version=\"main (`date '+%Y-%m-%d %H:%M:%S'`)\"\nfi\n\nversion_string=\"`print_tcpdump_version` -- Apple version `print_darwin_version`\"\n\nmkdir -p \"${SHARED_DERIVED_FILE_DIR}\"\n\necho \"const char version[] = \\\"${version_string}\\\";\" > \"${SHARED_DERIVED_FILE_DIR}/tcpdump_version.h\"\n\nexit 0\n";
+			shellScript = "print_darwin_version()\n{\n    echo ${darwin_version}\n}\n\nif [ -z \"${RC_ProjectSourceVersion}\" ]; then\n    if [ -f .git/config ]; then\n        grep -q tcpdump.git .git/config\n        if [ $? -eq 0 ]; then\n            darwin_version=\"`git status|head -n 1|awk '{ print $NF }'` (`date '+%Y-%m-%d %H:%M:%S'`)\"\n        fi\n    fi\nelif [ \"${RC_ProjectSourceVersion}\" = \"9999.99.99\" ]; then\n\techo ${RC_ProjectNameAndSourceVersion}|grep -q \"^tcpdump-Branch.*__\"\n\tif [ $? -eq 0 ]; then\n\t\tbranch=\"`echo ${RC_ProjectNameAndSourceVersion}|sed s/^tcpdump-Branch.*__//`\"\n\t\tif [ -n \"${branch}\" ]; then\n\t\t\tdarwin_version=\"${branch}\"\n\t\tfi\n\tfi\nelse\n    darwin_version=\"${RC_ProjectSourceVersion}\"\nfi\n\nif [ -z \"${darwin_version}\" ]; then\n    darwin_version=\"main (`date '+%Y-%m-%d %H:%M:%S'`)\"\nfi\n\nversion_string=\"Apple version `print_darwin_version`\"\n\nmkdir -p \"${SHARED_DERIVED_FILE_DIR}\"\n\necho \"const char apple_version_string[] = \\\"${version_string}\\\";\" > \"${SHARED_DERIVED_FILE_DIR}/tcpdump_version.h\"\n\nexit 0\n";
 		};
 		FC791702103A362700CBA90E /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1193,14 +1256,16 @@
 				7244CC781624FF2100141ECF /* bpf_dump.c in Sources */,
 				7244CBF71624FF2100141ECF /* checksum.c in Sources */,
 				7244CBF81624FF2100141ECF /* cpack.c in Sources */,
+				7286571B2729FCF90052BDCF /* fptype.c in Sources */,
 				7244CBF91624FF2100141ECF /* gmpls.c in Sources */,
-				7244CBFA1624FF2100141ECF /* gmt2local.c in Sources */,
 				7244CC7B1624FF2100141ECF /* in_cksum.c in Sources */,
 				7244CBFB1624FF2100141ECF /* ipproto.c in Sources */,
 				7244CBFC1624FF2100141ECF /* l2vpn.c in Sources */,
 				7244CBFD1624FF2100141ECF /* machdep.c in Sources */,
+				7286571C2729FCF90052BDCF /* netdissect-alloc.c in Sources */,
 				727CF9291E49260E00BAE514 /* netdissect.c in Sources */,
 				7244CBFE1624FF2100141ECF /* nlpid.c in Sources */,
+				7286571D2729FCF90052BDCF /* ntp.c in Sources */,
 				7244CBFF1624FF2100141ECF /* oui.c in Sources */,
 				7244CC001624FF2100141ECF /* parsenfsfh.c in Sources */,
 				727B13001628DC590039A877 /* pktaputil.c in Sources */,
@@ -1213,15 +1278,18 @@
 				722B0E201AE87A0200DAFE7A /* print-aoe.c in Sources */,
 				7244CC041624FF2100141ECF /* print-ap1394.c in Sources */,
 				7244CC051624FF2100141ECF /* print-arcnet.c in Sources */,
+				7286571E2729FCF90052BDCF /* print-arista.c in Sources */,
 				7244CC061624FF2100141ECF /* print-arp.c in Sources */,
 				7244CC071624FF2100141ECF /* print-ascii.c in Sources */,
 				7244CC081624FF2100141ECF /* print-atalk.c in Sources */,
 				7244CC091624FF2100141ECF /* print-atm.c in Sources */,
 				7244CC7D1624FF2100141ECF /* print-babel.c in Sources */,
+				7286571F2729FCF90052BDCF /* print-bcm-li.c in Sources */,
 				7244CC0A1624FF2100141ECF /* print-beep.c in Sources */,
 				7244CC0B1624FF2100141ECF /* print-bfd.c in Sources */,
 				7244CC0C1624FF2100141ECF /* print-bgp.c in Sources */,
 				7244CC0D1624FF2100141ECF /* print-bootp.c in Sources */,
+				728657202729FCF90052BDCF /* print-brcmtag.c in Sources */,
 				7244CC0E1624FF2100141ECF /* print-bt.c in Sources */,
 				722B0E211AE87A0200DAFE7A /* print-calm-fast.c in Sources */,
 				7244CC7E1624FF2100141ECF /* print-carp.c in Sources */,
@@ -1234,6 +1302,7 @@
 				7244CC151624FF2100141ECF /* print-decnet.c in Sources */,
 				7244CC161624FF2100141ECF /* print-dhcp6.c in Sources */,
 				7244CC171624FF2100141ECF /* print-domain.c in Sources */,
+				728657212729FCF90052BDCF /* print-dsa.c in Sources */,
 				7244CC181624FF2100141ECF /* print-dtp.c in Sources */,
 				7244CC191624FF2100141ECF /* print-dvmrp.c in Sources */,
 				7244CC1A1624FF2100141ECF /* print-eap.c in Sources */,
@@ -1257,12 +1326,14 @@
 				7244CC261624FF2100141ECF /* print-icmp6.c in Sources */,
 				7244CC271624FF2100141ECF /* print-igmp.c in Sources */,
 				7244CC281624FF2100141ECF /* print-igrp.c in Sources */,
+				728657222729FCF90052BDCF /* print-ip-demux.c in Sources */,
 				7244CC291624FF2100141ECF /* print-ip.c in Sources */,
 				7244CC2A1624FF2100141ECF /* print-ip6.c in Sources */,
 				7244CC2B1624FF2100141ECF /* print-ip6opts.c in Sources */,
 				7244CC2C1624FF2100141ECF /* print-ipcomp.c in Sources */,
 				7244CC2D1624FF2100141ECF /* print-ipfc.c in Sources */,
 				7244CC751624FF2100141ECF /* print-ipnet.c in Sources */,
+				728657232729FCF90052BDCF /* print-ipoib.c in Sources */,
 				7244CC2E1624FF2100141ECF /* print-ipx.c in Sources */,
 				7244CC2F1624FF2100141ECF /* print-isakmp.c in Sources */,
 				7244CC301624FF2100141ECF /* print-isoclns.c in Sources */,
@@ -1281,6 +1352,7 @@
 				7244CC3A1624FF2100141ECF /* print-lwapp.c in Sources */,
 				7244CC3B1624FF2100141ECF /* print-lwres.c in Sources */,
 				722B0E271AE87A0200DAFE7A /* print-m3ua.c in Sources */,
+				728657242729FCF90052BDCF /* print-macsec.c in Sources */,
 				727CF91B1E49160600BAE514 /* print-medsa.c in Sources */,
 				7244CC3C1624FF2100141ECF /* print-mobile.c in Sources */,
 				7244CC3D1624FF2100141ECF /* print-mobility.c in Sources */,
@@ -1296,6 +1368,7 @@
 				7244CC431624FF2100141ECF /* print-null.c in Sources */,
 				7244CC441624FF2100141ECF /* print-olsr.c in Sources */,
 				722B0E2A1AE87A0200DAFE7A /* print-openflow-1.0.c in Sources */,
+				728657252729FCF90052BDCF /* print-openflow-1.3.c in Sources */,
 				722B0E2B1AE87A0200DAFE7A /* print-openflow.c in Sources */,
 				7244CC451624FF2100141ECF /* print-ospf.c in Sources */,
 				7244CC461624FF2100141ECF /* print-ospf6.c in Sources */,
@@ -1308,6 +1381,7 @@
 				7244CC491624FF2100141ECF /* print-ppp.c in Sources */,
 				7244CC4A1624FF2100141ECF /* print-pppoe.c in Sources */,
 				7244CC4B1624FF2100141ECF /* print-pptp.c in Sources */,
+				728657262729FCF90052BDCF /* print-ptp.c in Sources */,
 				7244CC4C1624FF2100141ECF /* print-radius.c in Sources */,
 				7244CC4D1624FF2100141ECF /* print-raw.c in Sources */,
 				727CF91F1E49160600BAE514 /* print-resp.c in Sources */,
@@ -1328,6 +1402,8 @@
 				7244CC5A1624FF2100141ECF /* print-smb.c in Sources */,
 				722B0E2D1AE87A0200DAFE7A /* print-smtp.c in Sources */,
 				7244CC5B1624FF2100141ECF /* print-snmp.c in Sources */,
+				728657272729FCF90052BDCF /* print-someip.c in Sources */,
+				728657282729FCF90052BDCF /* print-ssh.c in Sources */,
 				7244CC5C1624FF2100141ECF /* print-stp.c in Sources */,
 				7244CC5D1624FF2100141ECF /* print-sunatm.c in Sources */,
 				7244CC5E1624FF2100141ECF /* print-sunrpc.c in Sources */,
@@ -1341,26 +1417,27 @@
 				7244CC651624FF2100141ECF /* print-token.c in Sources */,
 				7244CC661624FF2100141ECF /* print-udld.c in Sources */,
 				7244CC671624FF2100141ECF /* print-udp.c in Sources */,
+				560DAE3F27457883006E8589 /* print-quic.c in Sources */,
 				723CA049265ED315007C96B4 /* print-unsupported.c in Sources */,
 				7244CC761624FF2100141ECF /* print-usb.c in Sources */,
 				7244CC681624FF2100141ECF /* print-vjc.c in Sources */,
 				7244CC691624FF2100141ECF /* print-vqp.c in Sources */,
 				7244CC6A1624FF2100141ECF /* print-vrrp.c in Sources */,
+				728657292729FCF90052BDCF /* print-vsock.c in Sources */,
 				7244CC6B1624FF2100141ECF /* print-vtp.c in Sources */,
 				727CF91D1E49160600BAE514 /* print-vxlan-gpe.c in Sources */,
 				724976EE17BC49140041BF58 /* print-vxlan.c in Sources */,
 				7244CC6C1624FF2100141ECF /* print-wb.c in Sources */,
 				7244CC6D1624FF2100141ECF /* print-zephyr.c in Sources */,
+				7286572A2729FCF90052BDCF /* print-zep.c in Sources */,
 				724976EF17BC49720041BF58 /* print-zeromq.c in Sources */,
 				727CF92A1E49260E00BAE514 /* print.c in Sources */,
 				7244CC821624FF2100141ECF /* print_pktap.c in Sources */,
-				7244CC6E1624FF2100141ECF /* setsignal.c in Sources */,
 				7244CC771624FF2100141ECF /* signature.c in Sources */,
 				7244CC6F1624FF2100141ECF /* smbutil.c in Sources */,
 				727CF9311E49269E00BAE514 /* strtoaddr.c in Sources */,
 				7244CC701624FF2100141ECF /* tcpdump.c in Sources */,
 				727CF91E1E49160600BAE514 /* util-print.c in Sources */,
-				7244CC721624FF2100141ECF /* version.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1391,9 +1468,9 @@
 				727CF9221E49168900BAE514 /* ascii_strcasecmp.c in Sources */,
 				720E4636123164FE0056BE01 /* bpf_dump.c in Sources */,
 				FC791683103A35FE00CBA90E /* checksum.c in Sources */,
+				7286570427285D100052BDCF /* print-vsock.c in Sources */,
 				FC791684103A35FE00CBA90E /* cpack.c in Sources */,
 				FC791685103A35FE00CBA90E /* gmpls.c in Sources */,
-				FC791686103A35FE00CBA90E /* gmt2local.c in Sources */,
 				72272A3915D58874006E4EBD /* in_cksum.c in Sources */,
 				FC791687103A35FE00CBA90E /* ipproto.c in Sources */,
 				FC791688103A35FE00CBA90E /* l2vpn.c in Sources */,
@@ -1415,6 +1492,8 @@
 				FC791692103A35FE00CBA90E /* print-arp.c in Sources */,
 				FC791693103A35FE00CBA90E /* print-ascii.c in Sources */,
 				FC791694103A35FE00CBA90E /* print-atalk.c in Sources */,
+				7286570727285D100052BDCF /* print-ip-demux.c in Sources */,
+				7286570127285D100052BDCF /* print-ssh.c in Sources */,
 				FC791695103A35FE00CBA90E /* print-atm.c in Sources */,
 				72272A3B15D58874006E4EBD /* print-babel.c in Sources */,
 				FC791696103A35FE00CBA90E /* print-beep.c in Sources */,
@@ -1427,10 +1506,12 @@
 				FC79169B103A35FE00CBA90E /* print-cdp.c in Sources */,
 				FC79169C103A35FE00CBA90E /* print-cfm.c in Sources */,
 				FC79169D103A35FE00CBA90E /* print-chdlc.c in Sources */,
+				7286570927285D100052BDCF /* print-someip.c in Sources */,
 				FC79169E103A35FE00CBA90E /* print-cip.c in Sources */,
 				FC79169F103A35FE00CBA90E /* print-cnfp.c in Sources */,
 				FC7916A0103A35FE00CBA90E /* print-dccp.c in Sources */,
 				FC7916A1103A35FE00CBA90E /* print-decnet.c in Sources */,
+				7286570027285D100052BDCF /* print-ptp.c in Sources */,
 				FC7916A2103A35FE00CBA90E /* print-dhcp6.c in Sources */,
 				FC7916A3103A35FE00CBA90E /* print-domain.c in Sources */,
 				FC7916A4103A35FE00CBA90E /* print-dtp.c in Sources */,
@@ -1455,11 +1536,13 @@
 				FC7916B1103A35FE00CBA90E /* print-icmp.c in Sources */,
 				FC7916B2103A35FE00CBA90E /* print-icmp6.c in Sources */,
 				FC7916B3103A35FE00CBA90E /* print-igmp.c in Sources */,
+				7286570827285D100052BDCF /* print-dsa.c in Sources */,
 				FC7916B4103A35FE00CBA90E /* print-igrp.c in Sources */,
 				FC7916B5103A35FE00CBA90E /* print-ip.c in Sources */,
 				FC7916B6103A35FE00CBA90E /* print-ip6.c in Sources */,
 				FC7916B7103A35FE00CBA90E /* print-ip6opts.c in Sources */,
 				FC7916B8103A35FE00CBA90E /* print-ipcomp.c in Sources */,
+				728656FE27285D100052BDCF /* print-macsec.c in Sources */,
 				FC7916B9103A35FE00CBA90E /* print-ipfc.c in Sources */,
 				720E462E123163AB0056BE01 /* print-ipnet.c in Sources */,
 				FC7916BA103A35FE00CBA90E /* print-ipx.c in Sources */,
@@ -1468,6 +1551,7 @@
 				FC7916BD103A35FE00CBA90E /* print-juniper.c in Sources */,
 				72D1EDC31AAB9ABF00405853 /* print-kev_msg.c in Sources */,
 				FC7916BE103A35FE00CBA90E /* print-krb.c in Sources */,
+				7286570227285D100052BDCF /* print-openflow-1.3.c in Sources */,
 				FC7916BF103A35FE00CBA90E /* print-l2tp.c in Sources */,
 				FC7916C0103A35FE00CBA90E /* print-lane.c in Sources */,
 				FC7916C1103A35FE00CBA90E /* print-ldp.c in Sources */,
@@ -1492,6 +1576,8 @@
 				FC7916CD103A35FE00CBA90E /* print-nfs.c in Sources */,
 				727CF9121E49144100BAE514 /* print-nsh.c in Sources */,
 				FC7916CE103A35FE00CBA90E /* print-ntp.c in Sources */,
+				728656FD27285D100052BDCF /* print-bcm-li.c in Sources */,
+				728656FC27285D100052BDCF /* print-ipoib.c in Sources */,
 				FC7916CF103A35FE00CBA90E /* print-null.c in Sources */,
 				FC7916D0103A35FE00CBA90E /* print-olsr.c in Sources */,
 				722B0E1B1AE8248200DAFE7A /* print-openflow-1.0.c in Sources */,
@@ -1517,6 +1603,8 @@
 				FC7916DD103A35FE00CBA90E /* print-rsvp.c in Sources */,
 				FC7916DE103A35FE00CBA90E /* print-rt6.c in Sources */,
 				722B0E1D1AE8248200DAFE7A /* print-rtsp.c in Sources */,
+				728656FF27285D100052BDCF /* print-brcmtag.c in Sources */,
+				72865718272860050052BDCF /* ntp.c in Sources */,
 				FC7916DF103A35FE00CBA90E /* print-rx.c in Sources */,
 				FC7916E0103A35FE00CBA90E /* print-sctp.c in Sources */,
 				FC7916E1103A35FE00CBA90E /* print-sflow.c in Sources */,
@@ -1525,12 +1613,14 @@
 				FC7916E4103A35FE00CBA90E /* print-sll.c in Sources */,
 				FC7916E5103A35FE00CBA90E /* print-slow.c in Sources */,
 				FC7916E6103A35FE00CBA90E /* print-smb.c in Sources */,
+				560DAE3E27457858006E8589 /* print-quic.c in Sources */,
 				722B0E1E1AE8248200DAFE7A /* print-smtp.c in Sources */,
 				FC7916E7103A35FE00CBA90E /* print-snmp.c in Sources */,
 				FC7916E8103A35FE00CBA90E /* print-stp.c in Sources */,
 				FC7916E9103A35FE00CBA90E /* print-sunatm.c in Sources */,
 				FC7916EA103A35FE00CBA90E /* print-sunrpc.c in Sources */,
 				FC7916EB103A35FE00CBA90E /* print-symantec.c in Sources */,
+				7286571227285F060052BDCF /* netdissect-alloc.c in Sources */,
 				FC7916EC103A35FE00CBA90E /* print-syslog.c in Sources */,
 				FC7916ED103A35FE00CBA90E /* print-tcp.c in Sources */,
 				FC7916EE103A35FE00CBA90E /* print-telnet.c in Sources */,
@@ -1543,6 +1633,7 @@
 				723CA048265ED315007C96B4 /* print-unsupported.c in Sources */,
 				720E46301231644C0056BE01 /* print-usb.c in Sources */,
 				FC7916F4103A35FE00CBA90E /* print-vjc.c in Sources */,
+				7286570D27285E750052BDCF /* fptype.c in Sources */,
 				FC7916F5103A35FE00CBA90E /* print-vqp.c in Sources */,
 				FC7916F6103A35FE00CBA90E /* print-vrrp.c in Sources */,
 				FC7916F7103A35FE00CBA90E /* print-vtp.c in Sources */,
@@ -1551,15 +1642,15 @@
 				FC7916F8103A35FE00CBA90E /* print-wb.c in Sources */,
 				FC7916F9103A35FE00CBA90E /* print-zephyr.c in Sources */,
 				724976F017BC49720041BF58 /* print-zeromq.c in Sources */,
+				7286570327285D100052BDCF /* print-arista.c in Sources */,
 				727CF9281E4925FE00BAE514 /* print.c in Sources */,
+				7286570527285D100052BDCF /* print-zep.c in Sources */,
 				72299C111610D5EE00833F01 /* print_pktap.c in Sources */,
-				FC7916FA103A35FE00CBA90E /* setsignal.c in Sources */,
 				720E46321231647B0056BE01 /* signature.c in Sources */,
 				FC7916FB103A35FE00CBA90E /* smbutil.c in Sources */,
 				727CF92C1E49264A00BAE514 /* strtoaddr.c in Sources */,
 				FC7916FC103A35FE00CBA90E /* tcpdump.c in Sources */,
 				727CF9141E49144100BAE514 /* util-print.c in Sources */,
-				FC7916FE103A35FE00CBA90E /* version.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1628,9 +1719,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
+				COPY_PHASE_STRIP = NO;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = tcpdumpstatic;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 				WARNING_LDFLAGS = "";
 			};
 			name = Release;
@@ -1639,12 +1732,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
+				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = tcpdumpstatic;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 				WARNING_LDFLAGS = "";
 			};
 			name = Debug;
@@ -1693,7 +1788,6 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				OTHER_CFLAGS = "-DDEBUG=1";
@@ -1753,7 +1847,6 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1769,6 +1862,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPRESSION = lossless;
 				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_TESTABILITY = YES;
@@ -1820,6 +1914,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tcpdump;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 				WARNING_LDFLAGS = "";
 			};
 			name = Debug;
@@ -1854,7 +1949,6 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1897,7 +1991,6 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1910,6 +2003,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tcpdump;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 				WARNING_LDFLAGS = "";
 			};
 			name = Release;

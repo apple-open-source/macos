@@ -73,7 +73,7 @@
 /* #undef USEMEMCPY */
 
 /* Define when "man -s 2" is to be used */
-#define USEMAN_S 1
+/* #undef USEMAN_S */
 
 /* Define to empty if the keyword does not work.  */
 /* #undef const */
@@ -141,12 +141,6 @@
 /* Define to range of pty names to try */
 #define PTYRANGE0 "pqrstuvw"
 #define PTYRANGE1 "0123456789abcdef"
-
-/* Define as the return type of signal handlers (int or void).  */
-#define RETSIGTYPE void
-
-/* Define as the command at the end of signal handlers ("" or "return 0;").  */
-#define SIGRETURN return
 
 /* Define if struct sigcontext is present */
 #define HAVE_SIGCONTEXT 1
@@ -241,6 +235,7 @@
 #define HAVE_UTIME 1
 /* #undef HAVE_BIND_TEXTDOMAIN_CODESET */
 #define HAVE_MBLEN 1
+/* #define HAVE_TIMER_CREATE 1 */  /* only for macOS via Xcode */
 
 /* Define, if needed, for accessing large files. */
 /* #undef _LARGE_FILES */
@@ -518,3 +513,6 @@
 
 /* Define if _SC_SIGSTKSZ is available via sysconf() */
 /* #undef HAVE_SYSCONF_SIGSTKSZ */
+
+/* Define if you want to load libgpm dynamically */
+/* #undef DYNAMIC_GPM */

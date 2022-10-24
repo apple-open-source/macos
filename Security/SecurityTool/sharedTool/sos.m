@@ -62,41 +62,50 @@
     return self;
 }
 
+- (void)setBypassBit:(BOOL)bypass
+{
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        
+    [[self.connection remoteObjectProxy] setBypass:bypass reply:^(BOOL result, NSError *error) {
+        dispatch_semaphore_signal(sema);
+        printf("setting bypass complete\n");
+    }];
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+}
+
+
 - (void)printPerformanceCounters:(bool)asPList
 {
-    dispatch_semaphore_t sema1 = dispatch_semaphore_create(0);
-    dispatch_semaphore_t sema2 = dispatch_semaphore_create(0);
-    dispatch_semaphore_t sema3 = dispatch_semaphore_create(0);
+    dispatch_group_t group = dispatch_group_create();
     
     NSMutableDictionary<NSString *, NSNumber *> *merged = [NSMutableDictionary dictionary];
     __block NSMutableDictionary<NSString *, NSString *> *diagnostics = [NSMutableDictionary dictionary];
     
+    dispatch_group_enter(group);
     [[self.connection remoteObjectProxy] kvsPerformanceCounters:^(NSDictionary <NSString *, NSNumber *> *counters){
         if (counters == NULL){
             printf("no KVS counters!");
-            return;
+        } else {
+            [merged addEntriesFromDictionary:counters];
         }
-       
-        [merged addEntriesFromDictionary:counters];
-        dispatch_semaphore_signal(sema1);
+        dispatch_group_leave(group);
     }];
     
+    dispatch_group_enter(group);
     [[self.connection remoteObjectProxy] rateLimitingPerformanceCounters:^(NSDictionary <NSString *, NSString *> *returnedDiagnostics){
         if (returnedDiagnostics == NULL){
             printf("no rate limiting counters!");
-            return;
+        } else {
+            diagnostics = [[NSMutableDictionary alloc] initWithDictionary:returnedDiagnostics];
         }
-        diagnostics = [[NSMutableDictionary alloc]initWithDictionary:returnedDiagnostics];
-        dispatch_semaphore_signal(sema3);
+        dispatch_group_leave(group);
     }];
-    dispatch_semaphore_wait(sema1, DISPATCH_TIME_FOREVER);
-    dispatch_semaphore_wait(sema2, DISPATCH_TIME_FOREVER);
-    dispatch_semaphore_wait(sema3, DISPATCH_TIME_FOREVER);
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     
     if (asPList) {
         NSData *data = [NSPropertyListSerialization dataWithPropertyList:merged format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL];
 
-        printf("%.*s\n", (int)[data length], [data bytes]);
+        fwrite([data bytes], [data length], 1, stdout);
     } else {
         [merged enumerateKeysAndObjectsUsingBlock:^(NSString * key, NSNumber * obj, BOOL *stop) {
             printf("%s - %lld\n", [key UTF8String], [obj longLongValue]);
@@ -119,6 +128,56 @@ usage(const char *command, struct option *options)
         printf("\t [-%c|--%s\n", options[n].val, options[n].name);
     }
 
+}
+
+int
+command_bypass(__unused int argc, __unused char * const * argv)
+{
+    @autoreleasepool {
+        int option_index = 0, ch;
+
+        SOSStatus *control = [[SOSStatus alloc] init];
+
+        bool setBypass = false;
+        bool clearBypass = false;
+
+        struct option long_options[] =
+        {
+            /* These options set a flag. */
+            {"set",    no_argument, NULL, 's'},
+            {"clear",    no_argument, NULL, 'c'},
+            {0, 0, 0, 0}
+        };
+
+        while ((ch = getopt_long(argc, argv, "sc", long_options, &option_index)) != -1) {
+            switch  (ch) {
+                case 's': {
+                    setBypass = true;
+                    break;
+                }
+                case 'c': {
+                    clearBypass = true;
+                    break;
+                }
+                case '?':
+                default:
+                {
+                    usage("bypass", long_options);
+                    return SHOW_USAGE_MESSAGE;
+                }
+            }
+        }
+        if (setBypass) {
+            printf("setting account bypass\n");
+            [control setBypassBit:YES];
+        }
+        if (clearBypass) {
+            printf("clearing account bypass\n");
+            [control setBypassBit:NO];
+        }
+    }
+
+    return 0;
 }
 
 int

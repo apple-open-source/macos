@@ -275,42 +275,16 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
     return nil;
 }
 
-- (void)notifyContainerChange
-{
-    secerror("OTCuttlefishContext: received a cuttlefish push notification (%@)", self.containerName);
-    [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        secerror("octagon: Can't talk with TrustedPeersHelper, update is lost: %@", error);
-
-    }] updateWithContainer:self.containerName
-     context:self.contextID
-     forceRefetch:NO
-     deviceName:nil
-     serialNumber:nil
-     osVersion:nil
-     policyVersion:nil
-     policySecrets:nil
-     syncUserControllableViews:nil
-     secureElementIdentity:nil
-     reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* policy, NSError* error) {
-         if(error) {
-             secerror("OTCuttlefishContext: updating errored: %@", error);
-         } else {
-             secerror("OTCuttlefishContext: update complete");
-         }
-     }];
-}
-
 #pragma mark --- External Interfaces
 
 - (void)rpcEpoch:(OTCuttlefishContext*)cuttlefishContext
            reply:(void (^)(uint64_t epoch,
                            NSError * _Nullable error))reply
 {
-    OTEpochOperation* pendingOp = [[OTEpochOperation alloc] init:self.containerName
-                                                       contextID:self.contextID
-                                                   intendedState:OctagonStateAcceptorAwaitingIdentity
-                                                      errorState:OctagonStateAcceptorDone
-                                            cuttlefishXPCWrapper:cuttlefishContext.cuttlefishXPCWrapper];
+    OTEpochOperation* pendingOp = [[OTEpochOperation alloc] initWithSpecificUser:cuttlefishContext.operationDependencies.activeAccount
+                                                                   intendedState:OctagonStateAcceptorAwaitingIdentity
+                                                                      errorState:OctagonStateAcceptorDone
+                                                            cuttlefishXPCWrapper:cuttlefishContext.cuttlefishXPCWrapper];
 
     OctagonStateTransitionRequest<OTEpochOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"rpcEpoch"
                                                                                                sourceStates:[NSSet setWithArray:@[OctagonStateAcceptorBeginClientJoin]]

@@ -139,8 +139,9 @@ RefPtr<NativeImage> BitmapImage::frameImageAtIndexCacheIfNeeded(size_t index, Su
     return m_source->frameImageAtIndexCacheIfNeeded(index, subsamplingLevel);
 }
 
-RefPtr<NativeImage> BitmapImage::nativeImage()
+RefPtr<NativeImage> BitmapImage::nativeImage(const DestinationColorSpace&)
 {
+    // FIXME: Handle the case when the requested colorSpace is not equal to BitmapImage::colorSpace().
     return frameImageAtIndexCacheIfNeeded(0, SubsamplingLevel::Default);
 }
 
@@ -161,7 +162,7 @@ RefPtr<NativeImage> BitmapImage::preTransformedNativeImageForCurrentFrame(bool r
         return image;
 
     auto correctedSizeFloat = correctedSize ? FloatSize(correctedSize.value()) : size();
-    auto buffer = ImageBuffer::create(correctedSizeFloat, RenderingMode::Unaccelerated, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    auto buffer = ImageBuffer::create(correctedSizeFloat, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!buffer)
         return image;
 
@@ -348,7 +349,7 @@ void BitmapImage::drawPattern(GraphicsContext& ctxt, const FloatRect& destRect, 
     }
 
     if (!m_cachedImage) {
-        auto buffer = ImageBuffer::createCompatibleBuffer(expandedIntSize(tileRect.size()), DestinationColorSpace::SRGB(), ctxt);
+        auto buffer = ctxt.createAlignedImageBuffer(expandedIntSize(tileRect.size()));
         if (!buffer)
             return;
 

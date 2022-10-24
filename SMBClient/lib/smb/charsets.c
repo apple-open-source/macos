@@ -167,8 +167,7 @@ convert_unicode_to_utf8(const uint16_t *unicode_string, size_t maxLen, uint32_t 
 	
 	 /* Number of characters not bytes */
 	maxLen = maxLen / 2;
-	for (uslen = 0; (unicode_string[uslen] != 0) && (uslen < maxLen); uslen++);
-	
+    for (uslen = 0; (uslen < maxLen) && (unicode_string[uslen] != 0); uslen++);
 	/* Convert to CFString */
 	string_ref = CFStringCreateWithCharacters(kCFAllocatorDefault,
 											  unicode_string, uslen);
@@ -233,7 +232,7 @@ bad:
  * XXX - <rdar://problem/7518600>  will clean this up
 */
 unsigned short *
-convert_utf8_to_leunicode(const char *utf8_string)
+convert_utf8_to_leunicode(const char *utf8_string, size_t utf8_maxLen)
 {
 	CFStringRef s;
 	CFIndex maxlen;
@@ -249,7 +248,14 @@ convert_utf8_to_leunicode(const char *utf8_string)
 		return NULL;
 	}
 
-	maxlen = CFStringGetLength(s);
+	if (utf8_maxLen > LONG_MAX) {
+		os_log_debug(OS_LOG_DEFAULT, "Illegal utf8_maxLen size %zu on \"%s\"",
+					utf8_maxLen, utf8_string);
+        CFRelease(s);
+		return NULL;
+	}
+
+	maxlen = MIN((CFIndex)utf8_maxLen, CFStringGetLength(s));
 	result = malloc(2*(maxlen + 1));
 	if (result == NULL) {
 		os_log_debug(OS_LOG_DEFAULT, "Couldn't allocate buffer for Unicode string for \"%s\" - skipping, syserr = %s",

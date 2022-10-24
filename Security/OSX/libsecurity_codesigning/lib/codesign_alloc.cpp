@@ -363,7 +363,7 @@ bool code_sign_allocate(const char* existingFilePath,
         // gather signature space needed for each slice
         const struct fat_header* inFatHeader = (struct fat_header*)mh;
         const struct fat_arch* inArches = (struct fat_arch*)((char*)mh + sizeof(struct fat_header));
-        const int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
+        const unsigned int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
         unsigned int *__os_free sigSpace = (unsigned int*)calloc(fatCount, sizeof(unsigned int));
         unsigned int totalSigSize = 0;
         for (unsigned int i=0; i < fatCount; ++i) {
@@ -655,7 +655,7 @@ bool code_sign_deallocate(const char* existingFilePath,
         // gather signature space needed for each slice
         const struct fat_header* inFatHeader = (struct fat_header*)mh;
         const struct fat_arch* inArches = (struct fat_arch*)((char*)mh + sizeof(struct fat_header));
-        const int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
+        const unsigned int fatCount = OSSwapBigToHostInt32(inFatHeader->nfat_arch);
         // allocate output buffer, worst case size
         worstCaseOutputSize = inputFileLen + (fatCount * 0x4000);
         if (!vm_alloc(output, worstCaseOutputSize, errorMessage)) {

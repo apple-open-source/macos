@@ -510,6 +510,7 @@ si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 
 	if (src->name == NULL) return;
 	if (string_equal(src->name, "cache")) return;
+	if (!si_module_allows_caching(src)) return;
 
 	cat = item->type;
 	if ((cat < 0) || (cat >= CACHE_COUNT)) return;
@@ -547,6 +548,7 @@ si_cache_add_list(si_mod_t *si, si_mod_t *src, si_list_t *list)
 
 	if (src->name == NULL) return;
 	if (string_equal(src->name, "cache")) return;
+	if (!si_module_allows_caching(src)) return;
 
 	item = list->entry[0];
 	if (item == NULL) return;

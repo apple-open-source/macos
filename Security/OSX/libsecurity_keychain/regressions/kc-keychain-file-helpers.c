@@ -2310,7 +2310,7 @@ unsigned char test_keychain[] = {
 unsigned int test_keychain_len = 45864;
 
 
-SecKeychainRef CF_RETURNS_RETAINED getPopulatedTestKeychain() {
+SecKeychainRef CF_RETURNS_RETAINED getPopulatedTestKeychain(void) {
     deleteKeychainFiles(keychainFile);
 
     writeFile(keychainFile, test_keychain, test_keychain_len);
@@ -2322,7 +2322,7 @@ SecKeychainRef CF_RETURNS_RETAINED getPopulatedTestKeychain() {
 }
 #define getPopulatedTestKeychainTests 2
 
-SecKeychainRef CF_RETURNS_RETAINED getEmptyTestKeychain() {
+SecKeychainRef CF_RETURNS_RETAINED getEmptyTestKeychain(void) {
     deleteKeychainFiles(keychainFile);
 
     SecKeychainRef kc = NULL;
@@ -2352,7 +2352,7 @@ void initializeKeychainTests(const char* thisTestName) {
 }
 
 // Use this at the bottom of every test to make sure everything is gone
-void deleteTestFiles() {
+void deleteTestFiles(void) {
     deleteKeychainFiles(keychainFile);
 }
 

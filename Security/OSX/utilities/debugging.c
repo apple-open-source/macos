@@ -339,7 +339,7 @@ static void ApplyScopeByTypeForID(CFPropertyListRef scopes, SecDebugScopeID whic
     }
 }
 
-static void setup_config_settings() {
+static void setup_config_settings(void) {
     CFStringRef logFileName;
 #if TARGET_OS_IPHONE
     logFileName = CFSTR(".GlobalPreferences.plist");
@@ -357,7 +357,7 @@ static void setup_config_settings() {
     CFReleaseSafe(prefURL);
 }
 
-static void setup_defaults_settings() {
+static void setup_defaults_settings(void) {
     CFPropertyListRef scopes_value = CFPreferencesCopyValue(CFSTR("Logging"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
 
     ApplyScopeByTypeForID(scopes_value, kScopeIDDefaults);
@@ -365,7 +365,7 @@ static void setup_defaults_settings() {
     CFReleaseSafe(scopes_value);
 }
 
-static void setup_circle_defaults_settings() {
+static void setup_circle_defaults_settings(void) {
     CFPropertyListRef scopes_value = CFPreferencesCopyValue(CFSTR("Circle-Logging"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
 
     ApplyScopeByTypeForID(scopes_value, kScopeIDDefaults);
@@ -373,7 +373,7 @@ static void setup_circle_defaults_settings() {
     CFReleaseSafe(scopes_value);
 }
 
-static void setup_environment_scopes() {
+static void setup_environment_scopes(void) {
     const char *cur_scope = getenv("DEBUGSCOPE");
     if (cur_scope == NULL)
         cur_scope = "";

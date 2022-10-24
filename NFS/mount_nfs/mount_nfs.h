@@ -109,6 +109,7 @@ struct nfs_options_client {
 	char *          sprinc;                                 /* principal of the server */
 	char *          local_nfs_port;                         /* unix domain address "port" for nfs protocol */
 	char *          local_mount_port;                       /* unix domain address "port" for mount protocol */
+	int             force_localhost;                        /* force connection to localhost */
 };
 
 extern struct nfs_options_client options;

@@ -217,6 +217,7 @@ static int insert_block(journal *jnl, struct bucket **buf_ptr, int blk_index, of
 	} while(0)
 
 
+#define BLHDR_TO_BLHDRIM(hdr) (block_list_header_in_memory *)((char *)(hdr) - offsetof(block_list_header_in_memory, blhdr))
 
 //
 // this isn't a great checksum routine but it will do for now.
@@ -540,7 +541,11 @@ write_journal_header(journal *jnl, int updating_start, uint32_t sequence_num)
 	return 0;
 }
 
-
+static inline int32_t
+journal_max_blocks(journal *jnl)
+{
+	return ((jnl->jhdr->blhdr_size / sizeof(block_info)) - 1);
+}
 
 //
 // this is a work function used to free up transactions that
@@ -568,8 +573,10 @@ free_old_stuff(journal *jnl)
 		for (blhdr = tr->blhdr; blhdr; blhdr = next_blhdr) {
 			next_blhdr = (block_list_header *)((long)blhdr->binfo[0].bnum);
 			blhdr->binfo[0].bnum = 0xdeadc0de;
-		    
-			hfs_free(blhdr, tr->tbuffer_size);
+			// get block_list_header_in_memory pointer, since this is what we really allocated in memory
+			block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
+			hfs_free_data(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
+			hfs_delete_with_hdr(blhdrim, block_list_header_in_memory, block_info, journal_max_blocks(jnl));
 
 			KERNEL_DEBUG(0xbbbbc01c, jnl, tr, tr->tbuffer_size, 0, 0);
 		}
@@ -794,7 +801,7 @@ swap_block_list_header(journal *jnl, block_list_header *blhdr)
 	blhdr->checksum   = SWAP32(blhdr->checksum);
 	blhdr->flags      = SWAP32(blhdr->flags);
 
-	if (blhdr->num_blocks >= ((jnl->jhdr->blhdr_size / sizeof(block_info)) - 1)) {
+	if (blhdr->num_blocks >= journal_max_blocks(jnl)) {
 		printf("jnl: %s: blhdr num blocks looks suspicious (%d / blhdr size %d).  not swapping.\n", jnl->jdev_name, blhdr->num_blocks, jnl->jhdr->blhdr_size);
 		return;
 	}
@@ -1181,7 +1188,9 @@ replay_journal(journal *jnl)
 	orig_jnl_start = jnl->jhdr->start;
 
 	// allocate memory for the header_block.  we'll read each blhdr into this
-	buff = hfs_malloc(jnl->jhdr->blhdr_size);
+	// When replaying a journal, the in-memory representation is the same as on disk representation, so no need to use
+	// block_list_header_in_memory structure when replaying
+	buff = hfs_new_with_hdr(block_list_header, block_info, journal_max_blocks(jnl));
 
 	// allocate memory for the coalesce buffer
 	co_buf = hfs_new_data(struct bucket, num_buckets);
@@ -1503,8 +1512,9 @@ restart_replay:
 	// free the coalesce buffer
 	hfs_delete_data(co_buf, struct bucket, num_buckets);
 	co_buf = NULL;
-  
-	hfs_free(buff, jnl->jhdr->blhdr_size);
+
+	blhdr = (block_list_header *)buff;
+	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
 	return 0;
 
 bad_replay:
@@ -1512,7 +1522,9 @@ bad_replay:
 		hfs_free_data(block_ptr, max_bsize);
 	}
 	hfs_delete_data(co_buf, struct bucket, num_buckets);
-	hfs_free(buff, jnl->jhdr->blhdr_size);
+
+	blhdr = (block_list_header *)buff;
+	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
 
 	return -1;
 }
@@ -2516,7 +2528,9 @@ journal_allocate_transaction(journal *jnl)
 
 	tr->tbuffer_size = jnl->tbuffer_size;
 
-	tr->tbuffer = hfs_malloc(tr->tbuffer_size);
+	block_list_header_in_memory* blhdrim = hfs_new_with_hdr(block_list_header_in_memory, block_info, journal_max_blocks(jnl));
+	blhdrim->buffers = hfs_malloc_data(tr->tbuffer_size - jnl->jhdr->blhdr_size);
+	tr->tbuffer = (char*)&blhdrim->blhdr;
 
 	if (vfs_isswapmount(jnl->fsmount) && (was_vm_privileged == FALSE))
 		set_vm_privilege(FALSE);
@@ -2525,9 +2539,8 @@ journal_allocate_transaction(journal *jnl)
 	memset(tr->tbuffer, 0, BLHDR_CHECKSUM_SIZE);
 	// Fill up the rest of the block with unimportant bytes (0x5a 'Z' chosen for visibility)
 	memset(tr->tbuffer + BLHDR_CHECKSUM_SIZE, 0x5a, jnl->jhdr->blhdr_size - BLHDR_CHECKSUM_SIZE);
-
 	tr->blhdr = (block_list_header *)tr->tbuffer;
-	tr->blhdr->max_blocks = (jnl->jhdr->blhdr_size / sizeof(block_info)) - 1;
+	tr->blhdr->max_blocks = journal_max_blocks(jnl);
 	tr->blhdr->num_blocks = 1;      // accounts for this header block
 	tr->blhdr->bytes_used = jnl->jhdr->blhdr_size;
 	tr->blhdr->flags = BLHDR_CHECK_CHECKSUMS | BLHDR_FIRST_HEADER;
@@ -2866,19 +2879,20 @@ journal_modify_block_end(journal *jnl, struct buf *bp, void (*func)(buf_t bp, vo
 		// through prev->binfo[0].bnum.  that's a skanky way to do things but
 		// avoids having yet another linked list of small data structures to manage.
 
-		nblhdr = hfs_malloc(tr->tbuffer_size);
-
+		block_list_header_in_memory* blhdrim = hfs_new_with_hdr(block_list_header_in_memory, block_info, journal_max_blocks(jnl));
+		blhdrim->buffers = hfs_malloc_data(tr->tbuffer_size - jnl->jhdr->blhdr_size);
+		nblhdr = &blhdrim->blhdr;
 		// journal replay code checksum check depends on this.
 		memset(nblhdr, 0, BLHDR_CHECKSUM_SIZE);
 		// Fill up the rest of the block with unimportant bytes
-		memset(nblhdr + BLHDR_CHECKSUM_SIZE, 0x5a, jnl->jhdr->blhdr_size - BLHDR_CHECKSUM_SIZE);
+		memset((char*)nblhdr + BLHDR_CHECKSUM_SIZE, 0x5a, jnl->jhdr->blhdr_size - BLHDR_CHECKSUM_SIZE);
 
 		// initialize the new guy
-		nblhdr->max_blocks = (jnl->jhdr->blhdr_size / sizeof(block_info)) - 1;
+		nblhdr->max_blocks = journal_max_blocks(jnl);
 		nblhdr->num_blocks = 1;      // accounts for this header block
 		nblhdr->bytes_used = jnl->jhdr->blhdr_size;
 		nblhdr->flags = BLHDR_CHECK_CHECKSUMS;
-	    
+
 		tr->num_blhdrs++;
 		tr->total_bytes += jnl->jhdr->blhdr_size;
 
@@ -3824,9 +3838,13 @@ end_transaction(transaction *tr, int force_it, errno_t (*callback)(void*), void 
 	 * occurred while we were waiting for it to finish, we
 	 * need to notice and abort the current transaction
 	 */
-	if ((jnl->flags & JOURNAL_INVALID) || jnl->flush_aborted == TRUE) {
+	bool is_revoked = (vnode_isrecycled(jnl->jdev) || ((jnl->fsdev != jnl->jdev) && vnode_isrecycled(jnl->fsdev)));
+	if ((jnl->flags & JOURNAL_INVALID) || jnl->flush_aborted == TRUE || is_revoked) {
 		unlock_condition(jnl, &jnl->flushing);
 
+		if (is_revoked) {
+			jnl->flags |= JOURNAL_DEV_REVOKED;
+		}
 		abort_transaction(jnl, tr);
 		ret_val = -1;
 		KERNEL_DEBUG(0xbbbbc018|DBG_FUNC_END, jnl, tr, ret_val, 0, 0);
@@ -3912,7 +3930,11 @@ end_transaction(transaction *tr, int force_it, errno_t (*callback)(void*), void 
 		buf_t	sbp;
 		int32_t	bsize;
 
-		tbuffer_offset = jnl->jhdr->blhdr_size;
+		// get block_list_header_in_memory pointer, since this is what we really allocated in memory and where the pointer
+		// to the buffers buffer is
+		block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
+
+		tbuffer_offset = 0;
 
 		for (i = 1; i < blhdr->num_blocks; i++) {
 
@@ -3962,8 +3984,8 @@ end_transaction(transaction *tr, int force_it, errno_t (*callback)(void*), void 
 				bsize = buf_size(bp);
 
 				buf_setfilter(bp, NULL, NULL, &func, &arg);
-				
-				blkptr = (char *)&((char *)blhdr)[tbuffer_offset];
+
+				blkptr = (char*)&blhdrim->buffers[tbuffer_offset];
 
 				sbp = buf_create_shadow_priv(bp, FALSE, (uintptr_t)blkptr, 0, 0);
 
@@ -4098,7 +4120,9 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 	end  = jnl->jhdr->end;
 
 	for (blhdr = tr->blhdr; blhdr; blhdr = (block_list_header *)((long)blhdr->binfo[0].bnum)) {
-
+		// get block_list_header_in_memory pointer, since this is what we really allocated in memory and where the pointer
+		// to the buffers buffer is
+		block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
 		amt = blhdr->bytes_used;
 
 		blhdr->binfo[0].u.bi.b.sequence_num = tr->sequence_num;
@@ -4107,7 +4131,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 		blhdr->checksum = calc_checksum((char *)blhdr, BLHDR_CHECKSUM_SIZE);
 
 		bparray = hfs_new(buf_t, blhdr->num_blocks);
-		tbuffer_offset = jnl->jhdr->blhdr_size;
+		tbuffer_offset = 0;
 
 		for (i = 1; i < blhdr->num_blocks; i++) {
 			void (*func)(buf_t, void *);
@@ -4192,7 +4216,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 				bparray[i] = bp;
 				bsize = buf_size(bp);
 				blhdr->binfo[i].u.bi.bsize = bsize;
-				blhdr->binfo[i].u.bi.b.cksum = calc_checksum(&((char *)blhdr)[tbuffer_offset], bsize);
+				blhdr->binfo[i].u.bi.b.cksum = calc_checksum(&blhdrim->buffers[tbuffer_offset], bsize);
 			} else {
 				bparray[i] = NULL;
 				bsize = blhdr->binfo[i].u.bi.bsize;
@@ -4207,8 +4231,18 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 		 */
 		wait_condition(jnl, &jnl->writing_header, "finish_end_transaction");
 
-		if (jnl->write_header_failed == FALSE)
-			ret = write_journal_data(jnl, &end, blhdr, amt);
+		if (jnl->write_header_failed == FALSE) {
+			int header_amt = amt;
+			int buffers_amt = 0;
+			if (amt > jnl->jhdr->blhdr_size) {
+				header_amt = jnl->jhdr->blhdr_size;
+				buffers_amt = amt - header_amt;
+			}
+			ret = write_journal_data(jnl, &end, blhdr, header_amt);
+			if (buffers_amt) {
+				ret += write_journal_data(jnl, &end, blhdrim->buffers, buffers_amt);
+			}
+		}
 		else 
 			ret_val = -1;
 		/*
@@ -4451,7 +4485,9 @@ abort_transaction(journal *jnl, transaction *tr)
 				sbp = tbp;
 				buf_setfilter(tbp, NULL, NULL, NULL, NULL);
 			} else {
-				hfs_assert(ISSET(buf_flags(tbp), B_LOCKED));
+				if (!(jnl->flags & JOURNAL_DEV_REVOKED)) {
+					hfs_assert(ISSET(buf_flags(tbp), B_LOCKED));
+				}
 
 				sbp = NULL;
 
@@ -4507,7 +4543,10 @@ abort_transaction(journal *jnl, transaction *tr)
 
 		// we can free blhdr here since we won't need it any more
 		blhdr->binfo[0].bnum = 0xdeadc0de;
-		hfs_free(blhdr, tr->tbuffer_size);
+		// get block_list_header_in_memory pointer, since this is what we really allocated in memory
+		block_list_header_in_memory *blhdrim = BLHDR_TO_BLHDRIM(blhdr);
+		hfs_free_data(blhdrim->buffers, tr->tbuffer_size - jnl->jhdr->blhdr_size);
+		hfs_delete_with_hdr(blhdrim, block_list_header_in_memory, block_info, journal_max_blocks(jnl));
 	}
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006-2008, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006-2009, 2011, 2012, 2015, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -400,7 +400,7 @@ patternAddSession(CFStringRef pattern, CFNumberRef sessionNum)
 		CFStringRef     matchingKey;
 
 		matchingKey = CFArrayGetValueAtIndex(pInfo, i);
-		_addWatcher(sessionNum, matchingKey);
+		_storeAddWatcher(sessionNum, matchingKey);
 	}
 
 	CFRelease(pInfo);
@@ -428,7 +428,7 @@ patternRemoveSession(CFStringRef pattern, CFNumberRef sessionNum)
 		CFStringRef     matchingKey;
 
 		matchingKey = CFArrayGetValueAtIndex(pInfo, i);
-		_removeWatcher(sessionNum, matchingKey);
+		_storeRemoveWatcher(sessionNum, matchingKey);
 	}
 
 	/* remove session from watchers */
@@ -499,7 +499,7 @@ addKeyForPattern(const void *key, void *val, void *context)
 			for (i = 0; i < n; i++) {
 				CFNumberRef	sessionNum	= CFArrayGetValueAtIndex(pSessions, i);
 
-				_addWatcher(sessionNum, storeKey);
+				_storeAddWatcher(sessionNum, storeKey);
 			}
 
 			/* add key, update pattern watcher info */
@@ -576,7 +576,7 @@ removeKeyFromPattern(const void *key, void *val, void *context)
 	for (i = 0; i < n; i++) {
 		CFNumberRef	sessionNum	= CFArrayGetValueAtIndex(pSessions, i);
 
-		_removeWatcher(sessionNum, storeKey);
+		_storeRemoveWatcher(sessionNum, storeKey);
 	}
 
 	CFDictionarySetValue(patternData, pattern, pInfo_new);

@@ -456,7 +456,7 @@ public:
       String *ln = Getattr(p, "lname");
 
       /* Look for an input typemap */
-      sprintf(source, "%d", i + 1);
+      snprintf(source, sizeof(source), "%d", i + 1);
       if ((tm = Getattr(p, "tmap:in"))) {
         Replaceall(tm, "$source", source);
         Replaceall(tm, "$target", ln);

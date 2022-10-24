@@ -1,0 +1,1 @@
+http://verokey.ocsp.sectigo.com

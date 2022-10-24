@@ -1,0 +1,4 @@
+    1  20:45:00.533122 IP 192.168.0.1.57734 > 192.0.2.1.8080: Flags [SEWA], seq 1147178817, win 65535, options [mss 1460,nop,wscale 6,nop,nop,TS val 2715338221 ecr 0,sackOK,eol], length 0
+    2  20:45:00.634200 IP 192.0.2.1.8080 > 192.168.0.1.57734: Flags [S.W], seq 0, ack 1147178818, win 5792, options [mss 1460,sackOK,TS val 700 ecr 2715338221,nop,wscale 7], length 0
+    3  20:45:00.643126 IP 192.168.0.1.57734 > 192.0.2.1.8080: Flags [.W], ack 1, win 2058, options [nop,nop,TS val 2715338324 ecr 700], length 0
+    4  20:45:01.659972 IP 192.168.0.1.57734 > 192.0.2.1.8080: Flags [R], seq 1147178818, win 0, length 0

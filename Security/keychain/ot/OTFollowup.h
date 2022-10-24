@@ -29,6 +29,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreCDP/CDPFollowUpController.h>
 #import "keychain/ckks/CKKSAnalytics.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 
 #if TARGET_OS_IOS || TARGET_OS_OSX
 #define OCTAGON_PLATFORM_SUPPORTS_RK_CFU 1
@@ -60,8 +61,10 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 - (id)initWithFollowupController:(id<OctagonFollowUpControllerProtocol>)cdpFollowupController;
 
 - (BOOL)postFollowUp:(OTFollowupContextType)contextType
+       activeAccount:(TPSpecificUser*)activeAccount
                error:(NSError **)error;
 - (BOOL)clearFollowUp:(OTFollowupContextType)contextType
+        activeAccount:(TPSpecificUser*)activeAccount
                 error:(NSError **)error;
 
 - (NSDictionary *_Nullable)sysdiagnoseStatus;

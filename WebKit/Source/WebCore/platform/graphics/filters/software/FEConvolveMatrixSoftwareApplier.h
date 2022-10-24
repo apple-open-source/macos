@@ -3,7 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Zoltan Herczeg <zherczeg@webkit.org>
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 #include "FilterEffectApplier.h"
 #include "IntPoint.h"
 #include "IntSize.h"
+#include "PixelBuffer.h"
 #include <JavaScriptCore/TypedArrayAdaptersForwardDeclarations.h>
 #include <wtf/Vector.h>
 
@@ -34,19 +35,19 @@ namespace WebCore {
 class FEConvolveMatrix;
 enum class EdgeModeType;
 
-class FEConvolveMatrixSoftwareApplier : public FilterEffectConcreteApplier<FEConvolveMatrix> {
+class FEConvolveMatrixSoftwareApplier final : public FilterEffectConcreteApplier<FEConvolveMatrix> {
     WTF_MAKE_FAST_ALLOCATED;
     using Base = FilterEffectConcreteApplier<FEConvolveMatrix>;
 
 public:
     using Base::Base;
 
-    bool apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const override;
-
 private:
+    bool apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const final;
+
     struct PaintingData {
-        const Uint8ClampedArray& srcPixelArray;
-        Uint8ClampedArray& dstPixelArray;
+        const PixelBuffer& sourcePixelBuffer;
+        PixelBuffer& destinationPixelBuffer;
         int width;
         int height;
 
@@ -60,7 +61,7 @@ private:
     };
 
     static inline uint8_t clampRGBAValue(float channel, uint8_t max = 255);
-    static inline void setDestinationPixels(const Uint8ClampedArray& sourcePixels, Uint8ClampedArray& destPixels, int& pixel, float* totals, float divisor, float bias, bool preserveAlphaValues);
+    static inline void setDestinationPixels(const PixelBuffer& sourcePixelBuffer, PixelBuffer& destinationPixelBuffer, int& pixel, float* totals, float divisor, float bias, bool preserveAlphaValues);
 
     static inline int getPixelValue(const PaintingData&, int x, int y);
 

@@ -180,6 +180,7 @@ usage()
 
 void
 #if __STDC__
+__printflike(1, 2)
 err(const char *fmt, ...)
 #else
 err(fmt, va_alist)

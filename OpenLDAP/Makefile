@@ -96,7 +96,7 @@ apple_framework:
 	rm -rf ${OBJROOT}/libraries/libldap_r/*test.o
 	xcrun cc ${RC_CFLAGS} -install_name /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP -compatibility_version 1.0.0 -current_version 2.4.0 \
 		-o ${SYMROOT}/LDAP ${LDAP_SECTORDER_FLAGS} ${OBJROOT}/libraries/liblber/*.o ${OBJROOT}/libraries/libldap_r/*.o \
-		-lsasl2 -framework Security -F/System/Library/PrivateFrameworks -framework CoreDaemon -lresolv ${Extra_LD_Libraries} "-Wl,-exported_symbols_list" \
+		-lsasl2 -framework Security -F/System/Library/PrivateFrameworks -lresolv ${Extra_LD_Libraries} "-Wl,-exported_symbols_list" \
 		${SRCROOT}/AppleExtras/ldap.exp -twolevel_namespace -dead_strip "-Wl,-single_module" -dynamiclib
 	mkdir -p ${DSTROOT}/System/Library/Frameworks/LDAP.framework/Versions/A/Headers
 	mkdir -p ${DSTROOT}/System/Library/Frameworks/LDAP.framework/Versions/A/PrivateHeaders

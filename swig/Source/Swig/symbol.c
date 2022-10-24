@@ -1113,7 +1113,7 @@ Node *Swig_symbol_clookup_check(const_String_or_char_ptr name, Symtab *n, int (*
  * ----------------------------------------------------------------------------- */
 
 Node *Swig_symbol_clookup_local(const_String_or_char_ptr name, Symtab *n) {
-  Hash *h, *hsym;
+  Hash * __unused h, *hsym;
   Node *s = 0;
 
   if (!n) {
@@ -1161,7 +1161,7 @@ Node *Swig_symbol_clookup_local(const_String_or_char_ptr name, Symtab *n) {
  * ----------------------------------------------------------------------------- */
 
 Node *Swig_symbol_clookup_local_check(const_String_or_char_ptr name, Symtab *n, int (*checkfunc) (Node *)) {
-  Hash *h, *hsym;
+  Hash * __unused h, *hsym;
   Node *s = 0;
 
   if (!n) {

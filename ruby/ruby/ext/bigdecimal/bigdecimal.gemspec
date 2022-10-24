@@ -14,16 +14,11 @@ Gem::Specification.new do |s|
   s.license       = "ruby"
 
   s.require_paths = %w[lib]
-  s.extensions    = %w[ext/bigdecimal/extconf.rb ext/bigdecimal/util/extconf.rb]
+  s.extensions    = %w[ext/bigdecimal/extconf.rb]
   s.files         = %w[
     bigdecimal.gemspec
     ext/bigdecimal/bigdecimal.c
-    ext/bigdecimal/bigdecimal.def
     ext/bigdecimal/bigdecimal.h
-    ext/bigdecimal/depend
-    ext/bigdecimal/extconf.rb
-    ext/bigdecimal/util/extconf.rb
-    ext/bigdecimal/util/util.c
     lib/bigdecimal.rb
     lib/bigdecimal/jacobian.rb
     lib/bigdecimal/ludcmp.rb

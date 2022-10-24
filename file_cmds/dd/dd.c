@@ -173,6 +173,10 @@ setup(void)
 		in.fd = open(in.name, O_RDONLY | iflags, 0);
 		if (in.fd == -1)
 			err(1, "%s", in.name);
+#ifdef __APPLE__
+		if (ddflags & C_IDIRECT)
+			(void)fcntl(in.fd, F_NOCACHE, 1);
+#endif
 	}
 
 	getfdtype(&in);
@@ -226,6 +230,10 @@ setup(void)
 			cap_rights_clear(&rights, CAP_READ);
 #endif
 		}
+#ifdef __APPLE__
+		if (ddflags & C_ODIRECT)
+			(void)fcntl(out.fd, F_NOCACHE, 1);
+#endif
 		if (out.fd == -1)
 			err(1, "%s", out.name);
 	}

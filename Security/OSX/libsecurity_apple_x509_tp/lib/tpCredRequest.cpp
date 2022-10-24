@@ -151,7 +151,7 @@ CSSM_X509_TIME * AppleTPSession::buildX509Time(
 	char *ts = (char *)malloc(GENERALIZED_TIME_STRLEN + 1);
 	{
 		StLock<Mutex> _(tpTimeLock());
-		timeAtNowPlus(secondsFromNow, TP_TIME_FORMAT, ts);
+		timeAtNowPlus(secondsFromNow, TP_TIME_FORMAT, ts, GENERALIZED_TIME_STRLEN + 1);
 	}
 	xtime->time.Data = (uint8 *)ts;
 	xtime->time.Length = strlen(ts);

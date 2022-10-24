@@ -73,10 +73,17 @@ extern size_t nthreads;
  */
 extern bool debug_sort;
 
+#ifdef __APPLE__
+/*
+ * SHA256 context for random hash function
+ */
+extern SHA256_CTX sha256_ctx;
+#else
 /*
  * MD5 context for random hash function
  */
 extern MD5_CTX md5_ctx;
+#endif
 
 /*
  * sort.c

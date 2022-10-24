@@ -26,7 +26,6 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonRandom.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
-#include <Security/Security.h>
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"

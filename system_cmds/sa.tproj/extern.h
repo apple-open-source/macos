@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-4-Clause
+ *
  * Copyright (c) 1994 Christopher G. Demetriou
  * All rights reserved.
  *
@@ -27,7 +29,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.sbin/sa/extern.h,v 1.7 2007/05/22 06:51:38 dds Exp $
+ * $FreeBSD$
  */
 
 #include <sys/types.h>
@@ -41,8 +43,8 @@
 struct cmdinfo {
 	char		ci_comm[MAXCOMLEN+2];	/* command name (+ '*') */
 	uid_t		ci_uid;			/* user id */
-#ifdef __APPLE__
 	u_quad_t	ci_calls;		/* number of calls */
+#ifdef __APPLE__
 	u_quad_t	ci_etime;		/* elapsed time */
 	u_quad_t	ci_utime;		/* user time */
 	u_quad_t	ci_stime;		/* system time */
@@ -95,7 +97,7 @@ void	pacct_print(void);
 
 #ifndef __APPLE__
 /* external functions in readrec.c */
-int	readrec_forward(FILE *f, struct acctv2 *av2);
+int	readrec_forward(FILE *f, struct acctv3 *av2);
 #endif
 
 /* external functions in usrdb.c */

@@ -32,7 +32,7 @@
 .\"	@(#)cp.1	8.3 (Berkeley) 4/18/94
 .\" $FreeBSD$
 .\"
-.Dd June 6, 2015
+.Dd February 23, 2022
 .Dt CP 1
 .Os
 .Sh NAME
@@ -54,6 +54,14 @@
 .Oc
 .Op Fl fi | n
 .Op Fl alpsvXx
+.Ar source_file ... target_directory
+.Nm
+.Op Fl f | i | n
+.Op Fl alPpsvx
+.Ar source_file target_file
+.Nm
+.Op Fl f | i | n
+.Op Fl alPpsvx
 .Ar source_file ... target_directory
 .Sh DESCRIPTION
 In the first synopsis form, the
@@ -84,10 +92,10 @@ If the
 .Fl R
 option is specified, all symbolic links are followed.
 .It Fl P
-If the
+No symbolic links are followed.
+This is the default if the
 .Fl R
-option is specified, no symbolic links are followed.
-This is the default.
+option is specified.
 .It Fl R
 If
 .Ar source_file
@@ -106,6 +114,12 @@ indirected through, and for
 to create special files rather than copying them as normal files.
 Created directories have the same mode as the corresponding source
 directory, unmodified by the process' umask.
+.Pp
+In
+.Fl R
+mode,
+.Nm
+will continue copying even if errors are detected.
 .Pp
 Note that
 .Nm
@@ -183,40 +197,6 @@ If the source file has both its set-user-ID and set-group-ID bits on,
 and either the user ID or group ID cannot be preserved, neither
 the set-user-ID nor set-group-ID bits are preserved in the copy's
 permissions.
-.It Fl R
-If
-.Ar source_file
-designates a directory,
-.Nm
-copies the directory and the entire subtree connected at that point.
-If the
-.Ar source_file
-ends in a
-.Pa / ,
-the contents of the directory are copied rather than the
-directory itself.
-This option also causes symbolic links to be copied, rather than
-indirected through, and for
-.Nm
-to create special files rather than copying them as normal files.
-Created directories have the same mode as the corresponding source
-directory, unmodified by the process' umask.
-.Pp
-In
-.Fl R
-mode,
-.Nm
-will continue copying even if errors are detected. 
-.Pp
-Note that
-.Nm
-copies hard-linked files as separate files.
-If you need to preserve hard links, consider using
-.Xr tar 1 ,
-.Xr cpio 1 ,
-or
-.Xr pax 1
-instead.
 .It Fl s
 Create symbolic links to regular files in a hierarchy instead of copying.
 .It Fl v
@@ -293,6 +273,22 @@ argument for
 .Xr stty 1 )
 signal, the current input and output file and the percentage complete
 will be written to the standard output.
+.Pp
+If
+.Nm
+encounters an I/O error during the copy, then
+.Nm
+may leave a partially copied
+.Ar target_file
+in place.
+.Nm
+specifically avoids cleaning up the output file in error cases to avoid
+further data loss in cases where the source may not be recoverable.
+Alternatives, like
+.Xr install 1 ,
+may be preferred if stronger guarantees about the
+.Ar target_file
+are required.
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
@@ -366,6 +362,7 @@ mode, copying will terminate if an error is encountered.
 For more information about legacy mode, see
 .Xr compat 5 .
 .Sh SEE ALSO
+.Xr install 1 ,
 .Xr mv 1 ,
 .Xr rcp 1 ,
 .Xr umask 2 ,

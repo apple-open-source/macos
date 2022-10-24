@@ -52,6 +52,18 @@ T_DECL(should_sample_counter, "should_sample_counter")
 	T_EXPECT_FALSE(should_sample_counter(7), "1/3 -> skip");
 	T_EXPECT_FALSE(should_sample_counter(7), "2/3 -> skip");
 	T_EXPECT_TRUE (should_sample_counter(7), "3/3 -> sample");
+
+	rand_ret_value = 0;
+	malloc_thread_options_t opts = {.DisableProbabilisticGuardMalloc = true};
+	malloc_set_thread_options(opts);
+	T_EXPECT_EQ(TSD_GET_COUNTER(), k_no_sample, "set no sample marker");
+	T_EXPECT_FALSE(should_sample_counter(8), "sampling disabled");
+	T_EXPECT_EQ(TSD_GET_COUNTER(), k_no_sample, "no sample marker retained");
+
+	opts.DisableProbabilisticGuardMalloc = false;
+	malloc_set_thread_options(opts);
+	T_EXPECT_EQ(TSD_GET_COUNTER(), 0, "regenerate sample counter");
+	T_EXPECT_TRUE(should_sample_counter(7), "sampling re-enabled");
 }
 
 T_DECL(should_sample, "should_sample")

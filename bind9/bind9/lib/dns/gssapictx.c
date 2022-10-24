@@ -858,8 +858,9 @@ gss_error_tostring(isc_uint32_t major, isc_uint32_t minor,
 	(void)gss_display_status(&minor_stat, minor, GSS_C_MECH_CODE,
 				 GSS_C_NULL_OID, &msg_ctx, &msg_minor);
 
-	snprintf(buf, buflen, "GSSAPI error: Major = %s, Minor = %s.",
-		(char *)msg_major.value, (char *)msg_minor.value);
+	snprintf(buf, buflen, "GSSAPI error: Major = %.*s, Minor = %.*s.",
+		 (int)msg_major.length, (char *)msg_major.value,
+		 (int)msg_minor.length, (char *)msg_minor.value);
 
 	if (msg_major.length != 0U)
 		(void)gss_release_buffer(&minor_stat, &msg_major);

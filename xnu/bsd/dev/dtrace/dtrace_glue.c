@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,7 @@ sprlock(pid_t pid)
 		return PROC_NULL;
 	}
 
-	task_suspend_internal(p->task);
+	task_suspend_internal(proc_task(p));
 
 	dtrace_sprlock(p);
 
@@ -94,7 +94,7 @@ sprunlock(proc_t *p)
 	if (p != PROC_NULL) {
 		dtrace_sprunlock(p);
 
-		task_resume_internal(p->task);
+		task_resume_internal(proc_task(p));
 
 		proc_rele(p);
 	}
@@ -115,9 +115,9 @@ uread(proc_t *p, void *buf, user_size_t len, user_addr_t a)
 	kern_return_t ret;
 
 	ASSERT(p != PROC_NULL);
-	ASSERT(p->task != NULL);
+	ASSERT(proc_task(p) != NULL);
 
-	task_t task = p->task;
+	task_t task = proc_task(p);
 
 	/*
 	 * Grab a reference to the task vm_map_t to make sure
@@ -146,9 +146,9 @@ uwrite(proc_t *p, void *buf, user_size_t len, user_addr_t a)
 	kern_return_t ret;
 
 	ASSERT(p != NULL);
-	ASSERT(p->task != NULL);
+	ASSERT(proc_task(p) != NULL);
 
-	task_t task = p->task;
+	task_t task = proc_task(p);
 
 	/*
 	 * Grab a reference to the task vm_map_t to make sure
@@ -291,11 +291,7 @@ typedef struct wrap_timer_call {
 typedef struct cyc_list {
 	cyc_omni_handler_t cyl_omni;
 	wrap_timer_call_t cyl_wrap_by_cpus[];
-#if __arm__ && (__BIGGEST_ALIGNMENT__ > 4)
-} __attribute__ ((aligned(8))) cyc_list_t;
-#else
 } cyc_list_t;
-#endif
 
 /* CPU going online/offline notifications */
 void (*dtrace_cpu_state_changed_hook)(int, boolean_t) = NULL;
@@ -310,22 +306,21 @@ dtrace_install_cpu_hooks(void)
 void
 dtrace_cpu_state_changed(int cpuid, boolean_t is_running)
 {
-#pragma unused(cpuid)
 	wrap_timer_call_t       *wrapTC = NULL;
 	boolean_t               suspend = (is_running ? FALSE : TRUE);
 	dtrace_icookie_t        s;
 
 	/* Ensure that we're not going to leave the CPU */
 	s = dtrace_interrupt_disable();
-	assert(cpuid == cpu_number());
 
-	LIST_FOREACH(wrapTC, &(cpu_list[cpu_number()].cpu_cyc_list), entries) {
-		assert(wrapTC->cpuid == cpu_number());
+	LIST_FOREACH(wrapTC, &(cpu_list[cpuid].cpu_cyc_list), entries) {
+		assert3u(wrapTC->cpuid, ==, cpuid);
 		if (suspend) {
 			assert(!wrapTC->suspended);
 			/* If this fails, we'll panic anyway, so let's do this now. */
 			if (!timer_call_cancel(&wrapTC->call)) {
-				panic("timer_call_set_suspend() failed to cancel a timer call");
+				panic("timer_call_cancel() failed to cancel a timer call: %p",
+				    &wrapTC->call);
 			}
 			wrapTC->suspended = TRUE;
 		} else {
@@ -625,6 +620,9 @@ debug_enter(char *c)
  * kmem
  */
 
+// rdar://88962505
+__typed_allocators_ignore_push
+
 void *
 dt_kmem_alloc_tag(size_t size, int kmflag, vm_tag_t tag)
 {
@@ -655,6 +653,7 @@ dt_kmem_free(void *buf, size_t size)
 	kheap_free(KHEAP_DTRACE, buf, size);
 }
 
+__typed_allocators_ignore_pop
 
 
 /*

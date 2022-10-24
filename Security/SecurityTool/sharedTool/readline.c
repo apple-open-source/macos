@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 /* Inspects a file's existence and size.  Returns a file handle or -1 on failure */
 int inspect_file_and_size(const char* name, off_t *out_off_end) {

@@ -10,6 +10,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>pwd.1, pwd.c: improve POSIX conformance (4207130)</string>
+			<string>pwd.c: Don't ignore errors when flushing stdout (89090667)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

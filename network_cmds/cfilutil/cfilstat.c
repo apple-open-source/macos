@@ -39,6 +39,16 @@
 #define IPPROTOCOL_TCP        6
 #define IPPROTOCOL_UDP        17
 
+
+#define sprint_offset(str, len, fmt, offset) do { \
+	if (offset == CFM_MAX_OFFSET) \
+		snprintf(str, len, "%s", "MAX"); \
+	else \
+		snprintf(str, len, fmt, offset); \
+} while (0)
+
+
+
 void
 print_filter_list()
 {
@@ -82,15 +92,6 @@ print_filter_list()
 	} while (1);
 	
 	free(buffer);
-}
-
-void
-sprint_offset(char *str, size_t len, const char *fmt, uint64_t offset)
-{
-	if (offset == CFM_MAX_OFFSET)
-		snprintf(str, len, "%s", "MAX");
-	else
-		snprintf(str, len, fmt, offset);
 }
 
 void

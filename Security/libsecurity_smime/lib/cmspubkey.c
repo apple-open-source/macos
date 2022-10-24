@@ -93,14 +93,6 @@ OSStatus SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool* poolp,
         goto loser;
     }
 
-#if 0
-    /* sanity check */
-    keyType = SECKEY_GetPublicKeyType(publickey);
-    PORT_Assert(keyType == rsaKey);
-    if (keyType != rsaKey) {
-	goto loser;
-    }
-#endif
     /* allocate memory for the encrypted key */
 #if TARGET_OS_OSX
     rv = SecKeyGetStrengthInBits(publickey, NULL, &data_len);

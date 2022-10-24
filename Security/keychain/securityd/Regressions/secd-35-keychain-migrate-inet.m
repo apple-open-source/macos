@@ -49,7 +49,7 @@ CFArrayRef SecAccessGroupsGetCurrent(void);
 
 int secd_35_keychain_migrate_inet(int argc, char *const *argv)
 {
-    plan_tests(11 + kSecdTestSetupTestCount);
+    plan_tests(14 + kSecdTestSetupTestCount);
 
     __block keybag_handle_t keybag;
     __block keybag_state_t state;
@@ -128,6 +128,14 @@ int secd_35_keychain_migrate_inet(int argc, char *const *argv)
     CFReleaseSafe(query);
 
     secd_test_teardown_delete_temp_keychain("secd_35_keychain_migrate_inet");
+
+    void* buf = NULL;
+    int bufLen = 0;
+    ok(kAKSReturnSuccess == aks_save_bag(keybag, &buf, &bufLen), "failed to save keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_unload_bag(keybag), "failed to unload keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_invalidate_bag(buf, bufLen), "failed to invalidate keybag");
+    free(buf);
+
     return 0;
 }
 

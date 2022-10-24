@@ -24,7 +24,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -79,7 +79,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -116,7 +116,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -215,7 +215,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -251,7 +251,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -328,7 +328,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
         self.wait(for: [fetchViableBottlesExpectation], timeout: 1)
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
         container.escrowCacheTimeout = 1
 
         // sleep to invalidate the cache
@@ -378,7 +378,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         bottlerotcliqueContext.overrideEscrowCache = false
 
@@ -472,8 +472,6 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
     }
 
     func testSignInWithEscrowPrecachingEnabled() throws {
-        self.startCKAccountStatusMock()
-
         let contextName = OTDefaultContext
         let containerName = OTCKContainerName
         OctagonSetPlatformSupportsSOS(true)
@@ -482,8 +480,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
+
+        self.startCKAccountStatusMock()
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -491,8 +490,8 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
 
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
-        self.mockAuthKit.hsa2 = true
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
 
         do {
             // expect fetch escrow record fetch
@@ -512,7 +511,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             let signInExpectation = self.expectation(description: "signing in expectation")
 
-            self.manager.sign(in: newAltDSID, container: containerName, context: contextName) { error in
+            self.manager.appleAccountSigned(in: OTControlArguments(containerName: containerName, contextID: contextName, altDSID: newAltDSID)) { error in
                 XCTAssertNil(error, "error should not be nil")
                 signInExpectation.fulfill()
             }
@@ -535,7 +534,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         do {
             let signOutExpectation = self.expectation(description: "signed out expectation")
 
-            self.manager.signOut(containerName, context: contextName) { error in
+            self.manager.appleAccountSignedOut(OTControlArguments(containerName: containerName, contextID: contextName, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
                 XCTAssertNil(error, "error should not be nil")
                 signOutExpectation.fulfill()
             }
@@ -563,7 +562,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             let signInExpectation = self.expectation(description: "signing in expectation")
 
-            self.manager.sign(in: newAltDSID, container: containerName, context: contextName) { error in
+            self.manager.appleAccountSigned(in: OTControlArguments(containerName: containerName, contextID: contextName, altDSID: newAltDSID)) { error in
                 XCTAssertNil(error, "error should not be nil")
                 signInExpectation.fulfill()
             }
@@ -582,8 +581,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
-        self.mockAuthKit.hsa2 = true
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -601,7 +599,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let joinerContext = self.makeInitiatorContext(contextID: initiatorContextID)
         self.assertJoinViaEscrowRecovery(joiningContext: joinerContext, sponsor: self.cuttlefishContext)
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: OTDefaultContext)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -719,7 +717,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -733,7 +731,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: bottlerContext)
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
 
         OctagonSetPlatformSupportsSOS(true)
 
@@ -784,7 +782,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -819,13 +817,13 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
 
         let removeExpectation = self.expectation(description: "remove expectation")
-        self.manager.invalidateEscrowCache(OTCKContainerName, contextID: initiatorContextID) { error in
+        self.manager.invalidateEscrowCache(OTControlArguments(configuration: bottlerotcliqueContext)) { error in
             XCTAssertNil(error, "error should not be nil")
             removeExpectation.fulfill()
         }
         self.wait(for: [removeExpectation], timeout: 10)
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
 
         let fetchViableBottlesAfterCacheRemovalExpectation = self.expectation(description: "fetchViableBottles expectation after cache removal")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
@@ -876,7 +874,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -909,13 +907,13 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
 
         let removeExpectation = self.expectation(description: "remove expectation")
-        self.manager.invalidateEscrowCache(OTCKContainerName, contextID: initiatorContextID) { error in
+        self.manager.invalidateEscrowCache(OTControlArguments(configuration: bottlerotcliqueContext)) { error in
             XCTAssertNil(error, "error should not be nil")
             removeExpectation.fulfill()
         }
         self.wait(for: [removeExpectation], timeout: 10)
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: initiatorContextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
 
         let fetchViableBottlesAfterCacheRemovalExpectation = self.expectation(description: "fetchViableBottles expectation after cache removal")
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
@@ -961,7 +959,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = contextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -998,7 +996,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1026,7 +1024,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
         // now call fetchviablebottles, we should get the uncached version
@@ -1072,9 +1070,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
 
             var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0]) {retViews, error in
                 XCTAssertNotNil(retViews, "retViews should not be nil")
-#if !TARGET_OS_WATCH && !TARGET_OS_TV
+#if !os(watchOS) && !os(tvOS)
                 XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
 #endif
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
@@ -1084,9 +1082,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
             tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1]) {retViews, error in
                 XCTAssertNotNil(retViews, "retViews should not be nil")
-#if !TARGET_OS_WATCH && !TARGET_OS_TV
+#if !os(watchOS) && !os(tvOS)
                 XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
 #endif
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
@@ -1107,7 +1105,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
         // now call fetchviablebottles, we should get the uncached version
@@ -1160,7 +1158,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             self.wait(for: [resetExpectation], timeout: 10)
 
             var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0]) {retViews, error in
                 XCTAssertNil(retViews, "retViews should be nil")
                 XCTAssertNotNil(error, "error should not be nil")
                 XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
@@ -1170,7 +1168,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
             tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1]) {retViews, error in
                 XCTAssertNil(retViews, "retViews should be nil")
                 XCTAssertNotNil(error, "error should not be nil")
                 XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
@@ -1191,7 +1189,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = OTDefaultContext
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
 
         let clique = OTClique(contextData: bottlerotcliqueContext)
@@ -1241,7 +1239,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
 
             var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[0]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0]) {retViews, error in
                 if retViews == nil {
                     XCTAssertNil(retViews, "retViews should be nil")
                     XCTAssertNotNil(error, "error should not be nil")
@@ -1249,7 +1247,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
                     XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
                 } else {
                     XCTAssertNotNil(retViews, "retViews should not be nil")
-#if !TARGET_OS_WATCH && !TARGET_OS_TV
+#if !os(watchOS) && !os(tvOS)
                 XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
 #endif
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
@@ -1260,7 +1258,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
             tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
-            self.manager.tlkRecoverability(forEscrowRecordData: OTCKContainerName, contextID: OTDefaultContext, record: escrowRecordDatas[1]) {retViews, error in
+            self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1]) {retViews, error in
                 if retViews == nil {
                     XCTAssertNil(retViews, "retViews should be nil")
                     XCTAssertNotNil(error, "error should not be nil")
@@ -1268,7 +1266,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
                     XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
                 } else {
                     XCTAssertNotNil(retViews, "retViews should not be nil")
-#if !TARGET_OS_WATCH && !TARGET_OS_TV
+#if !os(watchOS) && !os(tvOS)
                 XCTAssertTrue(retViews!.contains("Manatee"), "should contain Manatee view")
 #endif
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")

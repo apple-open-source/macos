@@ -14,7 +14,7 @@
 
 #include "test_utils/ANGLETest.h"
 #include "util/OSWindow.h"
-#include "util/x11/X11Window.h"
+#include "util/linux/x11/X11Window.h"
 
 using namespace angle;
 
@@ -24,7 +24,7 @@ namespace
 const EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
 }
 
-class EGLX11VisualHintTest : public ANGLETest
+class EGLX11VisualHintTest : public ANGLETest<>
 {
   public:
     void testSetUp() override { mDisplay = XOpenDisplay(nullptr); }

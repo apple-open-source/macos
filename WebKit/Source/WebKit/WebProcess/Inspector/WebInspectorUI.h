@@ -28,6 +28,8 @@
 #include "Connection.h"
 #include "DebuggableInfoData.h"
 #include "WebPageProxyIdentifier.h"
+#include <WebCore/Color.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/InspectorDebuggableType.h>
 #include <WebCore/InspectorFrontendAPIDispatcher.h>
 #include <WebCore/InspectorFrontendClient.h>
@@ -94,9 +96,6 @@ public:
 
     void updateFindString(const String&);
 
-    void didSave(const String& url);
-    void didAppend(const String& url);
-
     void sendMessageToFrontend(const String& message);
     void evaluateInFrontendForTesting(const String& expression);
 
@@ -138,10 +137,16 @@ public:
     void changeSheetRect(const WebCore::FloatRect&) override;
 
     void openURLExternally(const String& url) override;
+    void revealFileExternally(const String& path) override;
 
-    bool canSave() override;
-    void save(const WTF::String& url, const WTF::String& content, bool base64Encoded, bool forceSaveAs) override;
-    void append(const WTF::String& url, const WTF::String& content) override;
+    bool canSave(WebCore::InspectorFrontendClient::SaveMode) override;
+    void save(Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool forceSaveAs) override;
+
+    bool canLoad() override;
+    void load(const WTF::String& path, WTF::CompletionHandler<void(const WTF::String&)>&&) override;
+
+    bool canPickColorFromScreen() override;
+    void pickColorFromScreen(WTF::CompletionHandler<void(const std::optional<WebCore::Color>&)>&&) override;
 
     void inspectedURLChanged(const String&) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
@@ -154,7 +159,7 @@ public:
         
 #if ENABLE(INSPECTOR_EXTENSIONS)
     bool supportsWebExtensions() override;
-    void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
+    void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, WebCore::FrameIdentifier) override;
     void didHideExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
     void didNavigateExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, const URL&) override;
     void inspectedPageDidNavigate(const URL&) override;

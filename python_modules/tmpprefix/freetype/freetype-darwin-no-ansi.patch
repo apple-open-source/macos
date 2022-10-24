@@ -1,0 +1,28 @@
+diff --git a/builds/unix/configure b/builds/unix/configure
+index 5917c6e..17ddb63 100755
+--- a/builds/unix/configure
++++ b/builds/unix/configure
+@@ -13342,6 +13342,9 @@ if test "x$GCC" = xyes; then
+   *-*-aix*)
+     XX_ANSIFLAGS="-pedantic"
+     ;;
++  *-*-darwin*)
++    XX_ANSIFLAGS="-pedantic"
++    ;;
+   *)
+     GCC_VERSION=`$CC -dumpversion`
+     GCC_MAJOR=`echo "$GCC_VERSION" | sed 's/\([^.][^.]*\).*/\1/'`
+diff --git a/builds/unix/configure.ac b/builds/unix/configure.ac
+index ad3c694..b83a806 100644
+--- a/builds/unix/configure.ac
++++ b/builds/unix/configure.ac
+@@ -249,6 +249,9 @@ if test "x$GCC" = xyes; then
+   *-*-aix*)
+     XX_ANSIFLAGS="-pedantic"
+     ;;
++  *-*-darwin*)
++    XX_ANSIFLAGS="-pedantic"
++    ;;
+   *)
+     GCC_VERSION=`$CC -dumpversion`
+     GCC_MAJOR=`echo "$GCC_VERSION" | sed 's/\([[^.]][[^.]]*\).*/\1/'`

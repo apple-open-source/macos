@@ -425,23 +425,27 @@ static void update_physmem(struct globalstat *gs,
     char wired[6];
     char used[6];
     char physfree[6];
-    uint64_t total_free, total_used, total_used_count;
-    struct top_uinteger wiredresult, usedresult,
-	physfreeresult;
-    
+    char compressor[6];
+    uint64_t total_free, total_used, total_used_count, total_compressor;
+    struct top_uinteger wiredresult, usedresult, physfreeresult,
+			compressorresult;
+
     total_free = (uint64_t)tsamp->vm_stat.free_count * tsamp->pagesize;
     total_used_count = (uint64_t)tsamp->vm_stat.wire_count + tsamp->vm_stat.inactive_count
 			+ tsamp->vm_stat.active_count + tsamp->vm_stat.compressor_page_count;
     total_used = total_used_count * tsamp->pagesize;
+    total_compressor = tsamp->vm_stat.compressor_page_count * tsamp->pagesize;
 
     wiredresult = top_init_uinteger(tsamp->vm_stat.wire_count
 				    * tsamp->pagesize, false);
     usedresult = top_init_uinteger(total_used, false);
     physfreeresult = top_init_uinteger(total_free, false);
+    compressorresult = top_init_uinteger(total_compressor, false);
 
     if(top_humanize_uinteger(wired, sizeof(wired), wiredresult)
        || top_humanize_uinteger(used, sizeof(used), usedresult)
-       || top_humanize_uinteger(physfree, sizeof(physfree), physfreeresult)) {
+       || top_humanize_uinteger(physfree, sizeof(physfree), physfreeresult)
+       || top_humanize_uinteger(compressor, sizeof(compressor), compressorresult)) {
 	fprintf(stderr, "top_humanize_uinteger failure in %s\n", __func__);
 	reset_globalstat(gs);
 	return;
@@ -449,9 +453,9 @@ static void update_physmem(struct globalstat *gs,
 
     gs->length = snprintf(gs->data, sizeof(gs->data),
 			  "PhysMem: "
-			  "%s used (%s wired), "
+			  "%s used (%s wired, %s compressor), "
 			  "%s unused.",
-			  used, wired,
+			  used, wired, compressor,
 			  physfree);
 
     if(gs->length < 0) {

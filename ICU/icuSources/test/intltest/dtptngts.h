@@ -13,6 +13,8 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/dtptngen.h"
+#include "unicode/ustring.h"
 #include "intltest.h"
 
 /**
@@ -38,7 +40,16 @@ private:
     void testGetDefaultHourCycle_OnEmptyInstance();
     void test_jConsistencyOddLocales();
     void testBestPattern();
+    void testDateTimePatterns();
     void testHorizontalInheritance();   // Apple rdar://78420184
+
+    // items for testDateTimePatterns();
+    enum { kNumDateTimePatterns = 4 };
+    typedef struct {
+        const char* localeID;
+        const UnicodeString expectPat[kNumDateTimePatterns];
+    } DTPLocaleAndResults;
+    void doDTPatternTest(DateTimePatternGenerator* dtpg, UnicodeString* skeletons, DTPLocaleAndResults* localeAndResultsPtr);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

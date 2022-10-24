@@ -129,7 +129,8 @@ char *BN_bn2dec(const BIGNUM *a)
 	i=BN_num_bits(a)*3;
 	num=(i/10+i/1000+3)+1;
 	bn_data=(BN_ULONG *)Malloc((num/BN_DEC_NUM+1)*sizeof(BN_ULONG));
-	buf=(char *)Malloc(num+3);
+    size_t buf_sz=num+3;
+	buf=(char *)Malloc(buf_sz);
 	if ((buf == NULL) || (bn_data == NULL))
 		{
 		BNerr(BN_F_BN_BN2DEC,ERR_R_MALLOC_FAILURE);
@@ -157,12 +158,12 @@ char *BN_bn2dec(const BIGNUM *a)
 		/* We now have a series of blocks, BN_DEC_NUM chars
 		 * in length, where the last one needs truncation.
 		 * The blocks need to be reversed in order. */
-		sprintf(p,BN_DEC_FMT1,(unsigned long)*lp);
+		snprintf(p,buf_sz-(p-buf),BN_DEC_FMT1,(unsigned long)*lp);
 		while (*p) p++;
 		while (lp != bn_data)
 			{
 			lp--;
-			sprintf(p,BN_DEC_FMT2,(unsigned long)*lp);
+			snprintf(p,buf_sz-(p-buf),BN_DEC_FMT2,(unsigned long)*lp);
 			while (*p) p++;
 			}
 		}

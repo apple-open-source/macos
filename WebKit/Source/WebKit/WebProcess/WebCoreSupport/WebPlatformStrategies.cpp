@@ -33,7 +33,7 @@
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NetworkResourceLoadParameters.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
 #include "WebFrame.h"
@@ -140,14 +140,9 @@ RefPtr<WebCore::SharedBuffer> WebPlatformStrategies::bufferForType(const String&
         return SharedBuffer::create(WTFMove(overrideBuffer));
 
     // Fallback to messaging the UI process for native pasteboard content.
-    SharedMemory::IPCHandle ipcHandle;
-    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardBufferForType(pasteboardName, pasteboardType, pageIdentifier(context)), Messages::WebPasteboardProxy::GetPasteboardBufferForType::Reply(ipcHandle), 0);
-    if (ipcHandle.handle.isNull())
-        return nullptr;
-    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    if (!sharedMemoryBuffer)
-        return nullptr;
-    return sharedMemoryBuffer->createSharedBuffer(ipcHandle.dataSize);
+    RefPtr<WebCore::SharedBuffer> buffer;
+    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardBufferForType(pasteboardName, pasteboardType, pageIdentifier(context)), Messages::WebPasteboardProxy::GetPasteboardBufferForType::Reply(buffer), 0);
+    return buffer;
 }
 
 void WebPlatformStrategies::getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName, const PasteboardContext* context)
@@ -212,15 +207,10 @@ int64_t WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, c
 int64_t WebPlatformStrategies::setBufferForType(SharedBuffer* buffer, const String& pasteboardType, const String& pasteboardName, const PasteboardContext* context)
 {
     SharedMemory::Handle handle;
-    if (buffer && buffer->size()) {
-        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
-        // FIXME: Null check prevents crashing, but it is not great that we will have empty pasteboard content for this type,
-        // because we've already set the types.
-        if (sharedMemoryBuffer)
-            sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
-    }
+    // FIXME: Null check prevents crashing, but it is not great that we will have empty pasteboard content for this type,
+    // because we've already set the types.
     int64_t newChangeCount { 0 };
-    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, pasteboardType, SharedMemory::IPCHandle { WTFMove(handle), buffer ? buffer->size() : 0 }, pageIdentifier(context)), Messages::WebPasteboardProxy::SetPasteboardBufferForType::Reply(newChangeCount), 0);
+    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, pasteboardType, buffer ? RefPtr { buffer } : SharedBuffer::create(), pageIdentifier(context)), Messages::WebPasteboardProxy::SetPasteboardBufferForType::Reply(newChangeCount), 0);
     return newChangeCount;
 }
 
@@ -326,10 +316,9 @@ Vector<String> WebPlatformStrategies::readFilePathsFromClipboard(const String& p
 
 RefPtr<SharedBuffer> WebPlatformStrategies::readBufferFromClipboard(const String& pasteboardName, const String& pasteboardType)
 {
-
-    IPC::SharedBufferCopy data;
-    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::ReadBuffer(pasteboardName, pasteboardType), Messages::WebPasteboardProxy::ReadBuffer::Reply(data), 0);
-    return data.buffer();
+    RefPtr<SharedBuffer> buffer;
+    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::ReadBuffer(pasteboardName, pasteboardType), Messages::WebPasteboardProxy::ReadBuffer::Reply(buffer), 0);
+    return buffer;
 }
 
 void WebPlatformStrategies::writeToClipboard(const String& pasteboardName, SelectionData&& selectionData)
@@ -387,6 +376,11 @@ bool WebPlatformStrategies::containsStringSafeForDOMToReadForType(const String& 
 
 int WebPlatformStrategies::getPasteboardItemsCount(const String& pasteboardName, const PasteboardContext* context)
 {
+    if (!WebPasteboardOverrides::sharedPasteboardOverrides().overriddenTypes(pasteboardName).isEmpty()) {
+        // Override pasteboards currently only support single pasteboard items.
+        return 1;
+    }
+
     uint64_t itemsCount { 0 };
     WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::GetPasteboardItemsCount(pasteboardName, pageIdentifier(context)), Messages::WebPasteboardProxy::GetPasteboardItemsCount::Reply(itemsCount), 0);
     return itemsCount;
@@ -394,6 +388,9 @@ int WebPlatformStrategies::getPasteboardItemsCount(const String& pasteboardName,
 
 std::optional<Vector<PasteboardItemInfo>> WebPlatformStrategies::allPasteboardItemInfo(const String& pasteboardName, int64_t changeCount, const PasteboardContext* context)
 {
+    if (auto info = WebPasteboardOverrides::sharedPasteboardOverrides().overriddenInfo(pasteboardName))
+        return { { WTFMove(*info) } };
+
     std::optional<Vector<PasteboardItemInfo>> allInfo;
     WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::AllPasteboardItemInfo(pasteboardName, changeCount, pageIdentifier(context)), Messages::WebPasteboardProxy::AllPasteboardItemInfo::Reply(allInfo), 0);
     return allInfo;
@@ -401,6 +398,9 @@ std::optional<Vector<PasteboardItemInfo>> WebPlatformStrategies::allPasteboardIt
 
 std::optional<PasteboardItemInfo> WebPlatformStrategies::informationForItemAtIndex(size_t index, const String& pasteboardName, int64_t changeCount, const PasteboardContext* context)
 {
+    if (auto info = WebPasteboardOverrides::sharedPasteboardOverrides().overriddenInfo(pasteboardName))
+        return info;
+
     std::optional<PasteboardItemInfo> info;
     WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::InformationForItemAtIndex(index, pasteboardName, changeCount, pageIdentifier(context)), Messages::WebPasteboardProxy::InformationForItemAtIndex::Reply(info), 0);
     return info;
@@ -408,15 +408,13 @@ std::optional<PasteboardItemInfo> WebPlatformStrategies::informationForItemAtInd
 
 RefPtr<WebCore::SharedBuffer> WebPlatformStrategies::readBufferFromPasteboard(std::optional<size_t> index, const String& pasteboardType, const String& pasteboardName, const PasteboardContext* context)
 {
-    SharedMemory::IPCHandle ipcHandle;
-    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::ReadBufferFromPasteboard(index, pasteboardType, pasteboardName, pageIdentifier(context)), Messages::WebPasteboardProxy::ReadBufferFromPasteboard::Reply(ipcHandle), 0);
-    if (ipcHandle.handle.isNull())
-        return nullptr;
+    Vector<uint8_t> overrideBuffer;
+    if (WebPasteboardOverrides::sharedPasteboardOverrides().getDataForOverride(pasteboardName, pasteboardType, overrideBuffer))
+        return SharedBuffer::create(WTFMove(overrideBuffer));
 
-    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    if (!sharedMemoryBuffer)
-        return nullptr;
-    return sharedMemoryBuffer->createSharedBuffer(ipcHandle.dataSize);
+    RefPtr<WebCore::SharedBuffer> buffer;
+    WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::ReadBufferFromPasteboard(index, pasteboardType, pasteboardName, pageIdentifier(context)), Messages::WebPasteboardProxy::ReadBufferFromPasteboard::Reply(buffer), 0);
+    return buffer;
 }
 
 URL WebPlatformStrategies::readURLFromPasteboard(size_t index, const String& pasteboardName, String& title, const PasteboardContext* context)

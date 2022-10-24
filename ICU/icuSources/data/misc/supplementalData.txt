@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 supplementalData:table(nofallback){
@@ -11960,6 +11960,12 @@ supplementalData:table(nofallback){
         aoz{
             primary{
                 scripts{"Latn"}
+            }
+        }
+        apw{
+            primary{
+                scripts{"Latn"}
+                territories{"US"}
             }
         }
         ar{
@@ -34373,8 +34379,8 @@ supplementalData:table(nofallback){
         JP{
             allowed{
                 "H",
-                "h",
                 "K",
+                "h",
             }
             preferred{"H"}
         }
@@ -35604,11 +35610,11 @@ supplementalData:table(nofallback){
             86400000,
         }
         AE:intvector{
+            2,
             1,
-            1,
-            6,
-            0,
             7,
+            0,
+            1,
             86400000,
         }
         AF:intvector{

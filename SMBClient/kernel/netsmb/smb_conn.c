@@ -252,14 +252,16 @@ struct sockaddr *
 smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 {
 	struct sockaddr *sa2;
+    struct sockaddr_nb* alloc_type;
 
     if (sa->sa_len > sizeof(struct sockaddr_nb)) {
         SMBERROR("invalid sa_len %d\n", sa->sa_len);
         return NULL;
     }
-
-	SMB_MALLOC(sa2, struct sockaddr *, sizeof(struct sockaddr_nb), M_SONAME,
-	       canwait ? M_WAITOK : M_NOWAIT);
+    // We have to handle IPv4, IPv6 and NetBios socket addresses, so we allocate enough space
+    // for the largest address to fit it.
+    SMB_MALLOC_TYPE(alloc_type, struct sockaddr_nb, canwait ? Z_WAITOK : Z_NOWAIT);
+    sa2 = (struct sockaddr*) alloc_type;
 	if (sa2)
 		bcopy(sa, sa2, sa->sa_len);
 	return (sa2);
@@ -402,43 +404,45 @@ static void smb_session_free(struct smb_connobj *cp)
     SMB_LOG_MC("*** smb_session_free: all iods reclaimed *** \n");
 
     if (sessionp->NativeOS) {
-        SMB_FREE(sessionp->NativeOS, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->NativeOS, sessionp->NativeOSAllocSize);
     }
     
     if (sessionp->NativeLANManager) {
-        SMB_FREE(sessionp->NativeLANManager, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->NativeLANManager, sessionp->NativeLANManagerAllocSize);
     }
     
     if (sessionp->session_username) {
-        SMB_FREE(sessionp->session_username, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_username, sessionp->session_username_allocsize);
     }
     
     if (sessionp->session_srvname) {
-        SMB_FREE(sessionp->session_srvname, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_srvname, sessionp->session_srvname_allocsize);
     }
     
     if (sessionp->session_localname) {
-        SMB_FREE(sessionp->session_localname, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_localname, sessionp->session_localname_allocsize);
     }
     
     if (sessionp->session_pass) {
-        SMB_FREE(sessionp->session_pass, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_pass, sessionp->session_pass_allocsize);
     }
     
     if (sessionp->session_domain) {
-        SMB_FREE(sessionp->session_domain, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_domain, sessionp->session_domain_allocsize);
     }
     
 	if (sessionp->session_mackey) {
-		SMB_FREE(sessionp->session_mackey, M_SMBTEMP);
+        // session_mackeylen gets changed, and full_session_mackeylen holds the malloc size for both session_mackey and full_session_mackey
+        SMB_FREE_DATA(sessionp->session_mackey, sessionp->full_session_mackeylen);
     }
     
     if (sessionp->full_session_mackey) {
-        SMB_FREE(sessionp->full_session_mackey, M_SMBTEMP);
+        SMB_FREE_DATA(sessionp->full_session_mackey, sessionp->full_session_mackeylen);
     }
 
     if (sessionp->session_saddr) {
-        SMB_FREE(sessionp->session_saddr, M_SONAME);
+        struct sockaddr_nb* allocated_socket = (struct sockaddr_nb*) sessionp->session_saddr;
+        SMB_FREE_TYPE(struct sockaddr_nb, allocated_socket);
     }
 
     if (sessionp->throttle_info)
@@ -470,7 +474,7 @@ static void smb_session_free(struct smb_connobj *cp)
     SMB_SESSION_LEASELOCK(sessionp);
     TAILQ_FOREACH_SAFE(lease_rqp, &sessionp->session_lease_list, link, tmp_lease_rqp) {
         TAILQ_REMOVE(&sessionp->session_lease_list, lease_rqp, link);
-        SMB_FREE(lease_rqp, M_SMBIOD);
+        SMB_FREE_TYPE(struct lease_rq, lease_rqp);
     }
 
     SMB_SESSION_LEASEUNLOCK(sessionp);
@@ -496,7 +500,7 @@ static void smb_session_free(struct smb_connobj *cp)
 #endif
 
     if (sessionp) {
-        SMB_FREE(sessionp, M_SMBCONN);
+        SMB_FREE_TYPE(struct smb_session, sessionp);
     }
 }
 
@@ -563,7 +567,7 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 
     SMB_LOG_MC("*** create session ****.\n");
     
-	SMB_MALLOC(sessionp, struct smb_session *, sizeof(*sessionp), M_SMBCONN, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(sessionp, struct smb_session, Z_WAITOK_ZERO);
 	smb_co_init(SESSION_TO_CP(sessionp), SMBL_SESSION, "smb_session", vfs_context_proc(context));
 	sessionp->obj.co_free = smb_session_free;
 	sessionp->obj.co_gone = smb_session_gone;
@@ -618,9 +622,10 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     /* Message ID and credit checking debugging code */
     lck_mtx_init(&sessionp->session_mid_lock, session_st_lck_group, session_st_lck_attr);
 #endif
-	sessionp->session_srvname = smb_strndup(session_spec->ioc_ssn.ioc_srvname, sizeof(session_spec->ioc_ssn.ioc_srvname));
-	if (sessionp->session_srvname)
-		sessionp->session_localname = smb_strndup(session_spec->ioc_ssn.ioc_localname,  sizeof(session_spec->ioc_ssn.ioc_localname));
+	sessionp->session_srvname = smb_strndup(session_spec->ioc_ssn.ioc_srvname, sizeof(session_spec->ioc_ssn.ioc_srvname), &sessionp->session_srvname_allocsize);
+    if (sessionp->session_srvname) {
+		sessionp->session_localname = smb_strndup(session_spec->ioc_ssn.ioc_localname, sizeof(session_spec->ioc_ssn.ioc_localname), &sessionp->session_localname_allocsize);
+    }
 	if ((sessionp->session_srvname == NULL) || (sessionp->session_localname == NULL)) {
 		error = ENOMEM;
 	}
@@ -643,9 +648,20 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
 		return error;
 	}
     iod->iod_message_id = 1;
-    iod->iod_saddr  = saddr;
-    iod->iod_laddr  = laddr;
-    
+    iod->iod_saddr  = smb_dup_sockaddr(saddr, 1);
+
+    if (!iod->iod_saddr) {
+        return ENOMEM;
+    }
+
+    if (iod->iod_saddr->sa_family == AF_NETBIOS) {
+        iod->iod_laddr = smb_dup_sockaddr(laddr, 1);
+
+        if (!iod->iod_laddr) {
+            return ENOMEM;
+        }
+    }
+
     sessionp->session_lease_flags = 0;
     lck_mtx_init(&sessionp->session_lease_lock,
                  session_st_lck_group, session_st_lck_attr);
@@ -776,8 +792,8 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     smb2_mc_init(&sessionp->session_interface_table,
                  session_spec->ioc_mc_max_channel,
                  session_spec->ioc_mc_max_rss_channel,
-                 session_spec->ioc_mc_client_if_blacklist,
-                 session_spec->ioc_mc_client_if_blacklist_len,
+                 session_spec->ioc_mc_client_if_ignorelist,
+                 session_spec->ioc_mc_client_if_ignorelist_len,
                  (sessionp->session_flags & SMBV_MC_PREFER_WIRED));
 
     smb_sm_lock_session_list();
@@ -1152,10 +1168,10 @@ tryagain:
 
 int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
                      vfs_context_t context, struct smb_session **sessionpp,
-                     struct smb_dev *sdp, int searchOnly, uint32_t *matched_dns)
+                     struct smb_dev *sdp, int searchOnly, uint32_t *matched_dns,
+                     struct sockaddr *saddr, struct sockaddr *laddr)
 {
 	struct smb_session *sessionp = NULL;
-	struct sockaddr	*saddr = NULL, *laddr = NULL;
 	int error;
     char *dns_name = NULL;
 
@@ -1164,26 +1180,13 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 		SMBERROR("session_spec is null \n");
 		return EINVAL;
 	}
-	
-	saddr = smb_memdupin(session_spec->ioc_kern_saddr, session_spec->ioc_saddr_len);
-	if (saddr == NULL) {
-		return ENOMEM;
-	}
 
-	if (session_spec->ioc_saddr_len < 3) {
-		/* Paranoid check - Have to have at least sa_len and sa_family */
-		SMBERROR("invalid ioc_saddr_len (%d) \n", session_spec->ioc_saddr_len);
-		SMB_FREE(saddr, M_SMBDATA);
-		return EINVAL;
-	}
-	
-    if (saddr->sa_len != session_spec->ioc_saddr_len) {
-        SMBERROR("invalid parameter ioc_saddr->sa_len (%u) != ioc_saddr_len (%lu)",
-        saddr->sa_len, sizeof(*saddr));
-        SMB_FREE(saddr, M_SMBDATA);
+    if (saddr == NULL) {
+        /* Paranoid check */
+        SMBERROR("saddr is null \n");
         return EINVAL;
     }
-    
+
 	*sessionpp = sessionp = NULL;
 
     if (searchOnly) {
@@ -1216,27 +1219,13 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 	}
 		
 	if ((error == 0) || (searchOnly)) {
-		SMB_FREE(saddr, M_SMBDATA);
-		saddr = NULL;
 		session_spec->ioc_extra_flags |= SMB_SHARING_SESSION;
 	} else {
 		/* NetBIOS connections require a local address */
-		if (saddr->sa_family == AF_NETBIOS) {
-			laddr = smb_memdupin(session_spec->ioc_kern_laddr, session_spec->ioc_laddr_len);
-			if (laddr == NULL) {
-				SMB_FREE(saddr, M_SMBDATA);
-				saddr = NULL;
-				return ENOMEM;
-			}
-            if (laddr->sa_len != session_spec->ioc_laddr_len) {
-                SMBERROR("invalid parameter ioc_laddr->sa_len (%u) != ioc_laddr_len (%lu)",
-                laddr->sa_len, sizeof(*laddr));
-                SMB_FREE(saddr, M_SMBDATA);
-                SMB_FREE(laddr, M_SMBDATA);
-                return EINVAL;
-            }
-        }
-		/* If smb_session_create fails it will clean up saddr and laddr */
+		if ((saddr->sa_family == AF_NETBIOS) && (laddr == NULL)) {
+            SMBERROR("laddr is null \n");
+            return EINVAL;
+		}
 #ifdef SMB_DEBUG
         char str[128];
         smb2_sockaddr_to_str(saddr, str, sizeof(str));
@@ -1301,16 +1290,16 @@ int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
 	 * never want to use any values left over from any previous calls.
 	 */
     if (sessionp->session_username != NULL) {
-        SMB_FREE(sessionp->session_username, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_username, sessionp->session_username_allocsize);
     }
     if (sessionp->session_pass != NULL) {
-        SMB_FREE(sessionp->session_pass, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_pass, sessionp->session_pass_allocsize);
     }
     if (sessionp->session_domain != NULL) {
-        SMB_FREE(sessionp->session_domain, M_SMBSTR);
+        SMB_FREE_DATA(sessionp->session_domain, sessionp->session_domain_allocsize);
     }
     if (iod->iod_gss.gss_cpn != NULL) {
-        SMB_FREE(iod->iod_gss.gss_cpn, M_SMBSTR);
+        SMB_FREE_DATA(iod->iod_gss.gss_cpn, iod->iod_gss.gss_cpn_allocsize);
     }
 	/* 
 	 * Freeing the SPN will make sure we never use the hint. Remember that the 
@@ -1318,11 +1307,11 @@ int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
 	 * land to send us a SPN, if we are going to use one.
 	 */
     if (iod->iod_gss.gss_spn != NULL) {
-        SMB_FREE(iod->iod_gss.gss_spn, M_SMBSTR);
+        SMB_FREE_DATA(iod->iod_gss.gss_spn, iod->iod_gss.gss_spn_allocsize);
     }
-	sessionp->session_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user));
-	sessionp->session_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password));
-	sessionp->session_domain = smb_strndup(sspec->ioc_domain, sizeof(sspec->ioc_domain));
+	sessionp->session_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user), &sessionp->session_username_allocsize);
+	sessionp->session_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password), &sessionp->session_pass_allocsize);
+	sessionp->session_domain = smb_strndup(sspec->ioc_domain, sizeof(sspec->ioc_domain), &sessionp->session_domain_allocsize);
 
 	if ((sessionp->session_pass == NULL) || (sessionp->session_domain == NULL) || 
 		(sessionp->session_username == NULL)) {
@@ -1335,12 +1324,14 @@ int smb_sm_ssnsetup(struct smb_session *sessionp, struct smbioc_setup *sspec,
 		iod->iod_gss.gss_cpn = smb_memdupin(sspec->ioc_gss_client_name, sspec->ioc_gss_client_size);
 	}
 	iod->iod_gss.gss_cpn_len = sspec->ioc_gss_client_size;
+    iod->iod_gss.gss_cpn_allocsize = sspec->ioc_gss_client_size;
 	iod->iod_gss.gss_client_nt = sspec->ioc_gss_client_nt;
 
 	if (sspec->ioc_gss_target_size) {
 		iod->iod_gss.gss_spn = smb_memdupin(sspec->ioc_gss_target_name, sspec->ioc_gss_target_size);
 	}
 	iod->iod_gss.gss_spn_len = sspec->ioc_gss_target_size;
+    iod->iod_gss.gss_spn_allocsize = sspec->ioc_gss_target_size;
 	iod->iod_gss.gss_target_nt = sspec->ioc_gss_target_nt;
 	if (!(sspec->ioc_userflags & SMBV_ANONYMOUS_ACCESS)) {
 		SMB_LOG_AUTH("client size = %d client name type = %d\n", 
@@ -1367,20 +1358,20 @@ done:
 		 */ 
 		sessionp->session_flags &= ~(SMBV_GUEST_ACCESS | SMBV_PRIV_GUEST_ACCESS | 
 						   SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
-        if (sessionp->session_username) {
-            SMB_FREE(sessionp->session_username, M_SMBSTR);
+        if (sessionp->session_username != NULL) {
+            SMB_FREE_DATA(sessionp->session_username, sessionp->session_username_allocsize);
         }
-        if (sessionp->session_pass) {
-            SMB_FREE(sessionp->session_pass, M_SMBSTR);
+        if (sessionp->session_pass != NULL) {
+            SMB_FREE_DATA(sessionp->session_pass, sessionp->session_pass_allocsize);
         }
-        if (sessionp->session_domain) {
-            SMB_FREE(sessionp->session_domain, M_SMBSTR);
+        if (sessionp->session_domain != NULL) {
+            SMB_FREE_DATA(sessionp->session_domain, sessionp->session_domain_allocsize);
         }
-        if (iod->iod_gss.gss_cpn) {
-            SMB_FREE(iod->iod_gss.gss_cpn, M_SMBSTR);
+        if (iod->iod_gss.gss_cpn != NULL) {
+            SMB_FREE_DATA(iod->iod_gss.gss_cpn, iod->iod_gss.gss_cpn_allocsize);
         }
         if (iod->iod_gss.gss_spn) {
-            SMB_FREE(iod->iod_gss.gss_spn, M_SMBSTR);
+            SMB_FREE_DATA(iod->iod_gss.gss_spn, iod->iod_gss.gss_spn_allocsize);
         }
         
 		iod->iod_gss.gss_spn_len = 0;
@@ -1397,12 +1388,12 @@ static void smb_share_free(struct smb_connobj *cp)
 {
 	struct smb_share *share = (struct smb_share *)cp;
 	
-	SMB_FREE(share->ss_name, M_SMBSTR);
+    SMB_FREE_DATA(share->ss_name, share->ss_name_allocsize);
 	lck_mtx_destroy(&share->ss_stlock, ssst_lck_group);
 	lck_mtx_destroy(&share->ss_shlock, ssst_lck_group);
 	lck_mtx_destroy(&share->ss_fid_lock, fid_lck_grp);
 	smb_co_done(SSTOCP(share));
-	SMB_FREE(share, M_SMBCONN);
+    SMB_FREE_TYPE(struct smb_share, share);
 }
 
 static void smb_share_gone(struct smb_connobj *cp, vfs_context_t context)
@@ -1441,13 +1432,13 @@ smb_share_create(struct smb_session *sessionp, struct smbioc_share *shspec,
 	if (context == NULL)
 		return ENOTSUP;
 	
-	SMB_MALLOC(share, struct smb_share *, sizeof(*share), M_SMBCONN, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(share, struct smb_share, Z_WAITOK_ZERO);
 	if (share == NULL) {
 		return ENOMEM;
 	}
-	share->ss_name = smb_strndup(shspec->ioc_share, sizeof(shspec->ioc_share));
+	share->ss_name = smb_strndup(shspec->ioc_share, sizeof(shspec->ioc_share), &share->ss_name_allocsize);
 	if (share->ss_name == NULL) {
-		SMB_FREE(share, M_SMBCONN);
+        SMB_FREE_TYPE(struct smb_share, share);
 		return ENOMEM;
 	}
 	/* The smb_co_init routine locks the share and takes a reference */
@@ -1593,8 +1584,8 @@ int smb_session_query_net_if(struct smb_session *sessionp)
         goto exit;
     }
 
-    SMB_LOG_UNIT_TEST("MultiChannelUnitTest - Time to recheck server interfaces %ld >= %d \n",
-                      elapsed_time.tv_sec, SMB_SESSION_QUERY_NET_IF_TIMEOUT_SEC);
+    SMB_LOG_MC("MultiChannelUnitTest - Time to recheck server interfaces %ld >= %d \n",
+               elapsed_time.tv_sec, SMB_SESSION_QUERY_NET_IF_TIMEOUT_SEC);
 
     /* Get an iod to send query on */
     error = smb_iod_get_main_iod(sessionp, &iod, __FUNCTION__);
@@ -1672,9 +1663,7 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
     iod->iod_conn_entry.client_if_idx  = con_entry->con_client_nic->nic_index;
     iod->iod_conn_entry.selected_saddr = TAILQ_FIRST(&con_entry->con_server_nic->addr_list);
     if (con_entry->active_state != SMB2_MC_FUNC_ACTIVE) {
-        SMB_IOD_FLAGSLOCK(iod);
-        iod->iod_flags |= SMBIOD_INACTIVE_CHANNEL;
-        SMB_IOD_FLAGSUNLOCK(iod);
+        smb_iod_inactive(iod);
     }
     
     /* Find a suitable Server's IP address */
@@ -2186,7 +2175,7 @@ smb_session_lease_thread(void *arg)
             smbfs_handle_lease_break(lease_rqp, context);
 
             /* Done with this lease break; free it */
-            SMB_FREE(lease_rqp, M_SMBIOD);
+            SMB_FREE_TYPE(struct lease_rq, lease_rqp);
             
             /* Loop around and check for more work */
             sessionp->session_lease_work_flag = 1;

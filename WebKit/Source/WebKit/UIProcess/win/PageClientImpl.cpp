@@ -35,7 +35,6 @@
 #include "WebView.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/NotImplemented.h>
-#include <d3d11_1.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -341,6 +340,11 @@ void PageClientImpl::didFinishNavigation(API::Navigation*)
 void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType)
 {
     notImplemented();
+}
+
+bool PageClientImpl::usesOffscreenRendering() const
+{
+    return m_view.usesOffscreenRendering();
 }
 
 void PageClientImpl::didChangeBackgroundColor()

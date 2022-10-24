@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013, 2015-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -596,19 +596,24 @@ SCVLANInterfaceGetTag(SCVLANInterfaceRef vlan)
 }
 
 
-CFDictionaryRef
-SCVLANInterfaceGetOptions(SCVLANInterfaceRef vlan)
+static CFDictionaryRef
+__SCVLANInterfaceGetOptions(SCVLANInterfaceRef vlan)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)vlan;
 
+	return interfacePrivate->vlan.options;
+}
+
+CFDictionaryRef
+SCVLANInterfaceGetOptions(SCVLANInterfaceRef vlan)
+{
 	if (!isA_SCVLANInterface(vlan)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
 
-	return interfacePrivate->vlan.options;
+	return __SCVLANInterfaceGetOptions(vlan);
 }
-
 
 Boolean
 SCVLANInterfaceSetPhysicalInterfaceAndTag(SCVLANInterfaceRef vlan, SCNetworkInterfaceRef physical, CFNumberRef tag)
@@ -783,22 +788,11 @@ SCVLANInterfaceSetLocalizedDisplayName(SCVLANInterfaceRef vlan, CFStringRef newN
 	return ok;
 }
 
-
-Boolean
-SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
+static Boolean
+__SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)vlan;
 	Boolean				ok			= TRUE;
-
-	if (!isA_SCVLANInterface(vlan)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
-
-	if ((newOptions != NULL) && !isA_CFDictionary(newOptions)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
 
 	// set options in the stored preferences
 	if (interfacePrivate->prefs != NULL) {
@@ -815,6 +809,7 @@ SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
 		dict = SCPreferencesPathGetValue(interfacePrivate->prefs, path);
 		if (!isA_CFDictionary(dict)) {
 			// if the prefs are confused
+			SC_log(LOG_NOTICE, "%s: bad preferences", __func__);
 			CFRelease(path);
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
@@ -845,6 +840,75 @@ SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
 	}
 
 	return ok;
+}
+
+Boolean
+SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
+{
+	if (!isA_SCVLANInterface(vlan)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if ((newOptions != NULL) && !isA_CFDictionary(newOptions)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+	return __SCVLANInterfaceSetOptions(vlan, newOptions);
+}
+
+__private_extern__
+Boolean
+__SCVLANInterfaceSetAutoConfigure(SCVLANInterfaceRef vlan,
+				  Boolean auto_configure)
+{
+	Boolean			changed = FALSE;
+	CFMutableDictionaryRef	new_options;
+	Boolean			ok = TRUE;
+	CFDictionaryRef		options;
+
+	options = __SCVLANInterfaceGetOptions(vlan);
+	if (options != NULL) {
+		new_options = CFDictionaryCreateMutableCopy(NULL, 0, options);
+	} else {
+		new_options = CFDictionaryCreateMutable(NULL,
+							0,
+							&kCFTypeDictionaryKeyCallBacks,
+							&kCFTypeDictionaryValueCallBacks);
+		changed = TRUE;
+	}
+	if (auto_configure == FALSE) {
+		CFDictionarySetValue(new_options, kAutoConfigure,
+				     kCFBooleanFalse);
+	} else {
+		CFDictionaryRemoveValue(new_options, kAutoConfigure);
+	}
+	if (options != NULL) {
+		changed = !CFEqual(options, new_options);
+	}
+	if (changed) {
+		ok = __SCVLANInterfaceSetOptions(vlan, new_options);
+	}
+	CFRelease(new_options);
+	return ok;
+}
+
+__private_extern__
+Boolean
+__SCVLANInterfaceGetAutoConfigure(SCVLANInterfaceRef vlan)
+{
+	CFDictionaryRef		options;
+	CFBooleanRef		val = NULL;
+
+	options = __SCVLANInterfaceGetOptions(vlan);
+	if (options != NULL) {
+		val = CFDictionaryGetValue(options, kAutoConfigure);
+	}
+	if (isA_CFBoolean(val) == NULL) {
+		/* unspecified means TRUE */
+		return (TRUE);
+	}
+	return (CFBooleanGetValue(val));
 }
 
 

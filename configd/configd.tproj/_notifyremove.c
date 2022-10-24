@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010-2012, 2015, 2016, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010, 2012, 2015, 2016, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -100,7 +100,7 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 		 * store to remove our interest in any changes.
 		 */
 		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
-		_removeWatcher(sessionNum, key);
+		_storeRemoveWatcher(sessionNum, key);
 		CFRelease(sessionNum);
 	}
 

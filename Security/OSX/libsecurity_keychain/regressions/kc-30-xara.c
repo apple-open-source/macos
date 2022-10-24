@@ -55,7 +55,7 @@ static void *cssmRealloc(void *ptr, CSSM_SIZE size, void *allocRef) { return rea
 static void *cssmCalloc(uint32 num, CSSM_SIZE size, void *allocRef) { return calloc( num, size ); }
 static CSSM_API_MEMORY_FUNCS memFuncs = { cssmMalloc, cssmFree, cssmRealloc, cssmCalloc, NULL };
 
-static CSSM_DL_DB_HANDLE initializeDL() {
+static CSSM_DL_DB_HANDLE initializeDL(void) {
     CSSM_VERSION version = { 2, 0 };
     CSSM_DL_DB_HANDLE dldbHandle = { 0, 0 };
     CSSM_GUID myGuid = { 0xFADE, 0, 0, { 1, 2, 3, 4, 5, 6, 7, 0 } };
@@ -296,9 +296,9 @@ static void testAddAfterCorruptKey(CSSM_DL_DB_HANDLE dldbHandle) {
 #define version_MacOS_10_0 0x00000100
 #define version_partition 0x00000200
 
-static void testKeychainUpgrade() {
+static void testKeychainUpgrade(void) {
     char name[100];
-    sprintf(name, "testKeychainUpgrade");
+    snprintf(name, sizeof(name), "testKeychainUpgrade");
     secnotice("integrity", "************************************* %s", name);
     UInt32 version;
     char* path = malloc(sizeof(char) * 400);
@@ -343,7 +343,7 @@ static void testKeychainUpgrade() {
     kc = openCustomKeychain(name, keychainName, "password");
 
     // Directly after an upgrade, no items should have partition ID lists
-    dispatch_group_async(g, release_queue, ^() {
+    dispatch_group_async(g, release_queue, ^{
         secerror("beginning 1\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
@@ -355,7 +355,7 @@ static void testKeychainUpgrade() {
         secerror("ending 1\n");
     });
 
-    dispatch_group_async(g, release_queue, ^() {
+    dispatch_group_async(g, release_queue, ^{
         usleep(0.1 * USEC_PER_SEC); // use different timings to try to find multithreaded upgrade bugs
         secerror("beginning 2\n");
         SecKeychainRef blockKc;
@@ -368,7 +368,7 @@ static void testKeychainUpgrade() {
         secerror("ending 2\n");
     });
 
-    dispatch_group_async(g, release_queue, ^() {
+    dispatch_group_async(g, release_queue, ^{
         usleep(0.3 * USEC_PER_SEC);
         secerror("beginning 3\n");
         SecKeychainRef blockKc;
@@ -381,7 +381,7 @@ static void testKeychainUpgrade() {
         secerror("ending 3\n");
     });
 
-    dispatch_group_async(g, release_queue, ^() {
+    dispatch_group_async(g, release_queue, ^{
         usleep(0.5 * USEC_PER_SEC);
         secerror("beginning 4\n");
         SecKeychainRef blockKc;
@@ -394,7 +394,7 @@ static void testKeychainUpgrade() {
         secerror("ending 4\n");
     });
 
-    dispatch_group_async(g, release_queue, ^() {
+    dispatch_group_async(g, release_queue, ^{
         usleep(1 * USEC_PER_SEC);
         secerror("beginning 5\n");
         SecKeychainRef blockKc;
@@ -478,9 +478,9 @@ static void testKeychainUpgrade() {
         + 1)
 
 // tests that SecKeychainCreate over an old .keychain file returns an empty keychain
-static void testKeychainCreateOver() {
+static void testKeychainCreateOver(void) {
     char name[100];
-    sprintf(name, "testKeychainCreateOver");
+    snprintf(name, sizeof(name), "testKeychainCreateOver");
     secnotice("integrity", "************************************* %s", name);
     UInt32 version;
     char* path = malloc(sizeof(char) * 400);
@@ -544,7 +544,7 @@ static void testKeychainCreateOver() {
 + checkNTests \
 + 4 + 1 + 2)
 
-static void testKeychainDowngrade() {
+static void testKeychainDowngrade(void) {
     char *name = "testKeychainDowngrade";
     secnotice("integrity", "************************************* %s", name);
 
@@ -621,9 +621,9 @@ static void testKeychainDowngrade() {
         + 1)\
 
 // Test opening and upgrading a v256 keychain at a -db filename.
-static void testKeychainWrongFile256() {
+static void testKeychainWrongFile256(void) {
     char name[100];
-    sprintf(name, "testKeychainWrongFile256");
+    snprintf(name, sizeof(name), "testKeychainWrongFile256");
     secnotice("integrity", "************************************* %s", name);
     UInt32 version;
 
@@ -690,9 +690,9 @@ static void testKeychainWrongFile256() {
         + 1)
 
 // Test opening and upgrading a v512 keychain at a .keychain filename.
-static void testKeychainWrongFile512() {
+static void testKeychainWrongFile512(void) {
     char name[100];
-    sprintf(name, "testKeychainWrongFile512");
+    snprintf(name, sizeof(name), "testKeychainWrongFile512");
     secnotice("integrity", "************************************* %s", name);
     UInt32 version;
 
@@ -839,9 +839,9 @@ static void checkAccessLength(const char * name, SecAccessRef access, int expect
 }
 #define checkAccessLengthTests 2
 
-static void testUidAccess() {
+static void testUidAccess(void) {
     char name[100];
-    sprintf(name, "testUidAccess");
+    snprintf(name, sizeof(name), "testUidAccess");
     secnotice("integrity", "************************************* %s", name);
 
     SecAccessRef access = makeUidAccess(getuid());
@@ -942,9 +942,9 @@ static SecAccessRef makeMultipleUidAccess(uid_t* uids, uint32 count)
     SecAccessCreateFromOwnerAndACL(&owner, count, acls, &access);
     return access;
 }
-static void testMultipleUidAccess() {
+static void testMultipleUidAccess(void) {
     char name[100];
-    sprintf(name, "testMultipleUidAccess");
+    snprintf(name, sizeof(name), "testMultipleUidAccess");
     secnotice("integrity", "************************************* %s", name);
 
     uid_t uids[5];
@@ -974,9 +974,9 @@ static void testMultipleUidAccess() {
 }
 #define testMultipleUidAccessTests (newKeychainTests + checkNTests + 3)
 
-static void testRootUidAccess() {
+static void testRootUidAccess(void) {
     char name[100];
-    sprintf(name, "testRootUidAccess");
+    snprintf(name, sizeof(name), "testRootUidAccess");
     secnotice("integrity", "************************************* %s", name);
 
     CFErrorRef error = NULL;
@@ -1011,9 +1011,9 @@ static void testRootUidAccess() {
 }
 #define testRootUidAccessTests (newKeychainTests + 2 + checkNTests + 4 + checkNTests)
 
-static void testBadACL() {
+static void testBadACL(void) {
     char name[100];
-    sprintf(name, "testBadACL");
+    snprintf(name, sizeof(name), "testBadACL");
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainItemRef item = NULL;
@@ -1078,9 +1078,9 @@ static void testBadACL() {
        + 2*(checkNTests + readPasswordContentsWithResultTests + deleteItemTests + checkNTests) \
        + makeItemTests*2 + checkNTests*2 + readPasswordContentsTests*2 + 1)
 
-static void testIterateLockedKeychain() {
+static void testIterateLockedKeychain(void) {
     char name[100];
-    sprintf(name, "testIterateLockedKeychain");
+    snprintf(name, sizeof(name), "testIterateLockedKeychain");
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainItemRef item = NULL;

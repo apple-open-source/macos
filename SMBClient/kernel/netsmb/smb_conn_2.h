@@ -37,13 +37,11 @@ int smb2_smb_close_fid(struct smb_share *share, SMBFID fid,
                        vfs_context_t context);
 int smb2_smb_create(struct smb_share *share, struct smb2_create_rq *createp, 
                     struct smb_rq **compound_rqp, vfs_context_t context);
-int smb2_smb_dur_handle_init(struct smb_share *share, struct smbnode *np,
-							 uint64_t flags, struct smb2_durable_handle *dur_handlep);
-void smb2_smb_dur_handle_free(struct smb2_durable_handle *dur_handlep);
 int smb_smb_echo(struct smbiod *iod, int timeout, uint32_t EchoCount,
                  vfs_context_t context);
-int smb2_smb_flush(struct smb_share *share, SMBFID fid, uint32_t full_sync,
-				   vfs_context_t context);
+int smb2_smb_flush(struct smb_share *share, struct smb2_flush_rq *flushp,
+                   struct smb_rq **compound_rqp, struct smbiod *iod,
+                   vfs_context_t context);
 uint32_t smb2_smb_get_client_capabilities(struct smb_session *sessionp);
 uint32_t smb2_smb_get_client_dialects(struct smb_session *sessionp, int inReconnect,
                                       uint16_t *dialect_cnt, uint16_t dialects[],
@@ -67,6 +65,7 @@ int smb2_smb_parse_change_notify(struct smb_rq *rqp, uint32_t *events);
 int smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
                           struct smb2_create_rq *createp);
 int smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep);
+int smb2_smb_parse_flush(struct mdchain *mdp, struct smb2_flush_rq *flushp);
 int smb2_smb_parse_ioctl(struct mdchain *mdp, struct smb2_ioctl_rq *ioctlp);
 int smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m);
 int smb2_smb_parse_read_one(struct mdchain *mdp, user_ssize_t *rresid,

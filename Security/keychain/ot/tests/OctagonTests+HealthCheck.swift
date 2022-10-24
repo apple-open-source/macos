@@ -25,21 +25,21 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -60,7 +60,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.cuttlefishContext.checkOctagonHealth(false) { error in
-            XCTAssertNotNil(error, "error should be present; device is not healthy")
+            XCTAssertNil(error, "should be no error")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -85,7 +85,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let healthCheckCallback2 = self.expectation(description: "healthCheckCallback callback occurs")
         cuttlefishContext.checkOctagonHealth(false) { error in
-            XCTAssertNotNil(error, "error should be present; device is not healthy")
+            XCTAssertNil(error, "should be no error")
             healthCheckCallback2.fulfill()
         }
         self.wait(for: [healthCheckCallback2], timeout: 10)
@@ -122,9 +122,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // now let's ruin account state, and say we are untrusted
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             accountState.trustState = OTAccountMetadataClassC_TrustState(rawValue: 1)!
-            try accountState.saveToKeychain(forContainer: containerName, contextID: contextName)
+            try accountState.saveToKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(1, accountState.trustState.rawValue, "Saved account state should have the same peer ID that prepare returned")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -141,7 +141,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: cuttlefishContext)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -182,7 +182,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "Saved account state should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -197,7 +197,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // now lets completely wipe cuttlefish state
         let resetCallback = self.expectation(description: "resetCallback callback occurs")
-        self.tphClient.localReset(withContainer: containerName, context: contextName) { error in
+        self.tphClient.localReset(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { error in
             XCTAssertNil(error, "error should be nil")
             resetCallback.fulfill()
         }
@@ -205,7 +205,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         cuttlefishContext.checkOctagonHealth(false) { error in
-            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -243,7 +243,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let originalCliqueIdentifier = clique.cliqueMemberIdentifier
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -254,14 +254,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.followupHandler.clearAllPostedFlags()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -297,8 +297,6 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     }
 
     func testCuttlefishResponseResetOctagon() throws {
-        let contextName = OTDefaultContext
-        let containerName = OTCKContainerName
         self.fakeCuttlefishServer.returnResetOctagonResponse = true
         let (cuttlefishContext, cliqueIdentifier) = try responseTestsSetup(expectedState: OctagonStateReady)
 
@@ -307,7 +305,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         var newCliqueIdentifier: String?
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             newCliqueIdentifier = egoSelf!["peerID"]! as? String
@@ -348,7 +346,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNotNil(error, "Should be an error calling 'healthCheck'")
             XCTAssertEqual(error!._domain, CKKSResultErrorDomain, "Error domain should be CKKSResultErrorDomain")
             XCTAssertEqual(error!._code, CKKSResultTimedOut, "Error result should be CKKSResultTimedOut")
@@ -368,7 +366,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let otcliqueContext = OTConfigurationContext()
         otcliqueContext.context = contextName
         otcliqueContext.dsid = "1234"
-        otcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        otcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         otcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: otcliqueContext, resetReason: .testGenerated)
@@ -383,14 +381,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -411,9 +409,8 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
-            XCTAssertNotNil(error, "error should not be nil")
-            XCTAssertEqual((error! as NSError).code, 30, "Error code should be 30")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -435,14 +432,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -465,9 +462,8 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
-            XCTAssertNotNil(error, "error should not be nil")
-            XCTAssertEqual((error! as NSError).code, 30, "Error code should be 30")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -486,14 +482,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -507,7 +503,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
     func testHealthCheckNoAccount() throws {
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
+        self.mockAuthKit.removePrimaryAccount()
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
@@ -524,9 +520,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNotNil(error, "error should not be nil")
-            XCTAssertEqual((error! as NSError).code, 3, "Error code should be 3")
+            XCTAssertEqual((error! as NSError).code, OctagonError.noAppleAccount.rawValue, "Error code should be NoAppleAccount")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
@@ -546,7 +542,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -572,7 +568,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -611,7 +607,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -621,14 +617,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -650,7 +646,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         do {
-            _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: self.cuttlefishContext.containerName, contextID: self.cuttlefishContext.contextID)
+            _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: self.cuttlefishContext.containerName, contextID: self.cuttlefishContext.contextID, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTFail("shouldn't have been able to load the class c metadata")
         } catch {
             // We expected this error; fall through
@@ -661,7 +657,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // A health check should fail, and leave us waiting for the initial unlock
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNotNil(error, "error should be present")
             healthCheckCallback.fulfill()
         }
@@ -694,7 +690,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -702,10 +698,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         var before: UInt64 = 0
         var healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             do {
-                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
+                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
                 XCTAssertNotNil(state)
                 XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
                 before = state.lastHealthCheckup
@@ -717,7 +713,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -731,7 +727,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         sleep(5)
 
         healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -739,7 +735,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         var after: UInt64 = 0
         do {
-            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
+            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertNotNil(state)
             XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
             after = state.lastHealthCheckup
@@ -752,10 +748,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         var healthCheckMinusTwoDays: UInt64 = 0
         // update the last health check to something way in the past
         do {
-            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
+            let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             state.lastHealthCheckup -= 172800000 /* 2 days of seconds * 1000*/
             healthCheckMinusTwoDays = state.lastHealthCheckup
-            XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext), "saving to the keychain should work")
+            XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil), "saving to the keychain should work")
         } catch {
             XCTFail("error loading from keychain: \(error)")
         }
@@ -765,10 +761,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         // check health again, should be updated
         var updatedHealthCheck: UInt64 = 0
         healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             do {
-                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
+                let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
                 XCTAssertNotNil(state)
                 XCTAssertNotNil(state.lastHealthCheckup, "last Health Check should not be nil")
                 updatedHealthCheck = state.lastHealthCheckup
@@ -787,10 +783,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let bottlerContext = self.manager.context(forContainerName: OTCKContainerName,
                                                   contextID: initiatorContextID,
                                                   sosAdapter: self.mockSOSAdapter,
+                                                  accountsAdapter: self.mockAuthKit2,
                                                   authKitAdapter: self.mockAuthKit2,
                                                   tooManyPeersAdapter: self.mockTooManyPeers,
                                                   lockStateTracker: self.lockStateTracker,
-                                                  accountStateTracker: self.accountStateTracker,
                                                   deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1",
                                                                                                     deviceName: "test-bottler-iphone-2",
                                                                                                     serialNumber: "456",
@@ -806,7 +802,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = initiatorContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -884,9 +880,6 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     }
 
     func testHealthCheckWhileLocked() throws {
-        let containerName = OTCKContainerName
-        let contextName = OTDefaultContext
-
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
@@ -910,7 +903,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -922,7 +915,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
     func testHealthCheckWhileSA() throws {
         // Account is SA
-        self.mockAuthKit.hsa2 = false
+        let primaryAccount = try XCTUnwrap(self.mockAuthKit.primaryAccount())
+        let account = CloudKitAccount(altDSID: primaryAccount.altDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
@@ -930,7 +925,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -975,7 +970,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [statusexpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -1109,7 +1104,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
@@ -1149,7 +1144,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [leaveExpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false) { error in
             XCTAssertNotNil(error, "error should not be nil")
             healthCheckCallback.fulfill()
         }

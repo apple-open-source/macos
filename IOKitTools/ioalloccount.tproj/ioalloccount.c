@@ -101,7 +101,7 @@ int main(int argc, char ** argv)
 
     // Obtain the registry root entry.
 
-    root = IORegistryGetRootEntry(kIOMasterPortDefault);
+    root = IORegistryGetRootEntry(kIOMainPortDefault);
     if (!root) {
         fprintf(stderr, "Error: Can't get registry root.\n");
         goto finish;

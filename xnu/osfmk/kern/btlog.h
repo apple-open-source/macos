@@ -266,6 +266,7 @@ extern void btlog_erase(
 	btlog_t                 btlog,
 	void                   *element);
 
+#if !__has_ptrcheck // rdar://88209707
 /*!
  * @function btlog_get_records()
  *
@@ -276,7 +277,7 @@ extern kern_return_t btlog_get_records(
 	btlog_t                 btlog,
 	struct zone_btrecord *__counted_by(*numrecs) *records,
 	unsigned int           *numrecs);
-
+#endif
 
 /*!
  * @function btlog_guess_top()
@@ -308,7 +309,7 @@ extern uint32_t btlog_guess_top(
  */
 extern void btlog_copy_backtraces_for_elements(
 	btlog_t                 btlog,
-	vm_address_t *__counted_by(*count) instances,
+	vm_address_t *__counted_by(*count)instances,
 	uint32_t               *count,
 	uint32_t                elem_size,
 	leak_site_proc          proc);

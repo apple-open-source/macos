@@ -1291,13 +1291,13 @@ ItemImpl::setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data
     {
         if (length == sizeof(UInt32))
         {
-            MacSecondsToTimeString(*reinterpret_cast<const UInt32 *>(buf), 16, &timeString);
+            MacSecondsToTimeString(*reinterpret_cast<const UInt32 *>(buf), 16, &timeString, 16);
             buf = &timeString;
             length = 16;
         }
         else if (length == sizeof(SInt64))
         {
-            MacLongDateTimeToTimeString(*reinterpret_cast<const SInt64 *>(buf), 16, &timeString);
+            MacLongDateTimeToTimeString(*reinterpret_cast<const SInt64 *>(buf), 16, &timeString, 16);
             buf = &timeString;
             length = 16;
         }

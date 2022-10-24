@@ -36,23 +36,25 @@
 #include "ExceptionEventLocation.h"
 #include "FunctionHasExecutedCache.h"
 #include "Heap.h"
+#include "IndexingType.h"
 #include "Integrity.h"
+#include "Interpreter.h"
 #include "Intrinsic.h"
 #include "JSCJSValue.h"
 #include "JSDateMath.h"
 #include "JSLock.h"
 #include "JSONAtomStringCache.h"
-#include "MacroAssemblerCodeRef.h"
 #include "Microtask.h"
 #include "NativeFunction.h"
 #include "NumericStrings.h"
 #include "SmallStrings.h"
 #include "Strong.h"
-#include "StructureCache.h"
 #include "SubspaceAccess.h"
 #include "ThunkGenerator.h"
 #include "VMTraps.h"
 #include "WasmContext.h"
+#include "WeakGCMap.h"
+#include <variant>
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/Deque.h>
@@ -60,14 +62,14 @@
 #include <wtf/Forward.h>
 #include <wtf/Gigacage.h>
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StackPointer.h>
 #include <wtf/Stopwatch.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueArray.h>
+#include <wtf/text/SymbolImpl.h>
 #include <wtf/text/SymbolRegistry.h>
-#include <wtf/text/WTFString.h>
+
 #if ENABLE(REGEXP_TRACING)
 #include <wtf/ListHashSet.h>
 #endif
@@ -110,7 +112,6 @@ class FuzzerAgent;
 class HasOwnPropertyCache;
 class HeapAnalyzer;
 class HeapProfiler;
-class Interpreter;
 class IntlCache;
 class JSDestructibleObjectHeapCellType;
 class JSGlobalObject;
@@ -131,6 +132,7 @@ class ShadowChicken;
 class SharedJITStubSet;
 class SourceProvider;
 class SourceProviderCache;
+class StackFrame;
 class Structure;
 class Symbol;
 class TypedArrayController;
@@ -161,7 +163,6 @@ class Signature;
 }
 
 struct EntryFrame;
-struct Instruction;
 
 class QueuedTask {
     WTF_MAKE_NONCOPYABLE(QueuedTask);
@@ -246,6 +247,8 @@ public:
 
     struct ClientData {
         JS_EXPORT_PRIVATE virtual ~ClientData() = 0;
+
+        JS_EXPORT_PRIVATE virtual String overrideSourceURL(const StackFrame&, const String& originalSourceURL) const = 0;
     };
 
     bool isSharedInstance() { return vmType == APIShared; }
@@ -253,9 +256,9 @@ public:
     JS_EXPORT_PRIVATE static bool sharedInstanceExists();
     JS_EXPORT_PRIVATE static VM& sharedInstance();
 
-    JS_EXPORT_PRIVATE static Ref<VM> create(HeapType = SmallHeap, WTF::RunLoop* = nullptr);
-    JS_EXPORT_PRIVATE static RefPtr<VM> tryCreate(HeapType = SmallHeap, WTF::RunLoop* = nullptr);
-    static Ref<VM> createContextGroup(HeapType = SmallHeap);
+    JS_EXPORT_PRIVATE static Ref<VM> create(HeapType = HeapType::Small, WTF::RunLoop* = nullptr);
+    JS_EXPORT_PRIVATE static RefPtr<VM> tryCreate(HeapType = HeapType::Small, WTF::RunLoop* = nullptr);
+    static Ref<VM> createContextGroup(HeapType = HeapType::Small);
     JS_EXPORT_PRIVATE ~VM();
 
     Watchdog& ensureWatchdog();
@@ -335,6 +338,9 @@ private:
 
 public:
     Heap heap;
+    GCClient::Heap clientHeap;
+
+    bool isInService() const { return m_isInService; }
 
     const HeapCellType& cellHeapCellType() { return heap.cellHeapCellType; }
     const JSDestructibleObjectHeapCellType& destructibleObjectHeapCellType() { return heap.destructibleObjectHeapCellType; };
@@ -351,166 +357,35 @@ public:
     ALWAYS_INLINE CompleteSubspace& variableSizedCellSpace() { return heap.variableSizedCellSpace; }
     ALWAYS_INLINE CompleteSubspace& destructibleObjectSpace() { return heap.destructibleObjectSpace; }
 
-    ALWAYS_INLINE IsoSubspace& arraySpace() { return heap.arraySpace; }
-    ALWAYS_INLINE IsoSubspace& bigIntSpace() { return heap.bigIntSpace; }
-    ALWAYS_INLINE IsoSubspace& calleeSpace() { return heap.calleeSpace; }
-    ALWAYS_INLINE IsoSubspace& clonedArgumentsSpace() { return heap.clonedArgumentsSpace; }
-    ALWAYS_INLINE IsoSubspace& customGetterSetterSpace() { return heap.customGetterSetterSpace; }
-    ALWAYS_INLINE IsoSubspace& dateInstanceSpace() { return heap.dateInstanceSpace; }
-    ALWAYS_INLINE IsoSubspace& domAttributeGetterSetterSpace() { return heap.domAttributeGetterSetterSpace; }
-    ALWAYS_INLINE IsoSubspace& exceptionSpace() { return heap.exceptionSpace; }
-    ALWAYS_INLINE IsoSubspace& executableToCodeBlockEdgeSpace() { return heap.executableToCodeBlockEdgeSpace; }
-    ALWAYS_INLINE IsoSubspace& functionSpace() { return heap.functionSpace; }
-    ALWAYS_INLINE IsoSubspace& getterSetterSpace() { return heap.getterSetterSpace; }
-    ALWAYS_INLINE IsoSubspace& globalLexicalEnvironmentSpace() { return heap.globalLexicalEnvironmentSpace; }
-    ALWAYS_INLINE IsoSubspace& internalFunctionSpace() { return heap.internalFunctionSpace; }
-    ALWAYS_INLINE IsoSubspace& jsProxySpace() { return heap.jsProxySpace; }
-    ALWAYS_INLINE IsoSubspace& nativeExecutableSpace() { return heap.nativeExecutableSpace; }
-    ALWAYS_INLINE IsoSubspace& numberObjectSpace() { return heap.numberObjectSpace; }
-    ALWAYS_INLINE IsoSubspace& plainObjectSpace() { return heap.plainObjectSpace; }
-    ALWAYS_INLINE IsoSubspace& promiseSpace() { return heap.promiseSpace; }
-    ALWAYS_INLINE IsoSubspace& propertyNameEnumeratorSpace() { return heap.propertyNameEnumeratorSpace; }
-    ALWAYS_INLINE IsoSubspace& propertyTableSpace() { return heap.propertyTableSpace; }
-    ALWAYS_INLINE IsoSubspace& regExpSpace() { return heap.regExpSpace; }
-    ALWAYS_INLINE IsoSubspace& regExpObjectSpace() { return heap.regExpObjectSpace; }
-    ALWAYS_INLINE IsoSubspace& ropeStringSpace() { return heap.ropeStringSpace; }
-    ALWAYS_INLINE IsoSubspace& scopedArgumentsSpace() { return heap.scopedArgumentsSpace; }
-    ALWAYS_INLINE IsoSubspace& sparseArrayValueMapSpace() { return heap.sparseArrayValueMapSpace; }
-    ALWAYS_INLINE IsoSubspace& stringSpace() { return heap.stringSpace; }
-    ALWAYS_INLINE IsoSubspace& stringObjectSpace() { return heap.stringObjectSpace; }
-    ALWAYS_INLINE IsoSubspace& structureChainSpace() { return heap.structureChainSpace; }
-    ALWAYS_INLINE IsoSubspace& structureRareDataSpace() { return heap.structureRareDataSpace; }
-    ALWAYS_INLINE IsoSubspace& structureSpace() { return heap.structureSpace; }
-    ALWAYS_INLINE IsoSubspace& brandedStructureSpace() { return heap.brandedStructureSpace; }
-    ALWAYS_INLINE IsoSubspace& symbolTableSpace() { return heap.symbolTableSpace; }
+#define DEFINE_ISO_SUBSPACE_ACCESSOR(name, heapCellType, type) \
+    ALWAYS_INLINE GCClient::IsoSubspace& name() { return clientHeap.name; }
 
-#define DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(name) \
+    FOR_EACH_JSC_ISO_SUBSPACE(DEFINE_ISO_SUBSPACE_ACCESSOR)
+#undef DEFINE_ISO_SUBSPACE_ACCESSOR
+
+#define DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR_IMPL(name, heapCellType, type) \
     template<SubspaceAccess mode> \
-    ALWAYS_INLINE IsoSubspace* name() { return heap.name<mode>(); }
+    ALWAYS_INLINE GCClient::IsoSubspace* name() { return clientHeap.name<mode>(); }
 
-#if JSC_OBJC_API_ENABLED
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiWrapperObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(objCCallbackFunctionSpace)
-#endif
-#ifdef JSC_GLIB_API_ENABLED
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiWrapperObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jscCallbackFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackAPIWrapperGlobalObjectSpace)
-#endif
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiGlobalObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiValueWrapperSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(arrayBufferSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(arrayIteratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(asyncGeneratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigInt64ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigIntObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigUint64ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(booleanObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(boundFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackConstructorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackGlobalObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(customGetterFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(customSetterFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(dataViewSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(debuggerScopeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(errorInstanceSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(float32ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(float64ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(functionRareDataSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(generatorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(globalObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(injectedScriptHostSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int8ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int16ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int32ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(javaScriptCallFrameSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jsModuleRecordSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapBucketSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapIteratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(moduleNamespaceObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(nativeStdFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyRevokeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scopedArgumentsTableSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetchParametersSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetcherSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setBucketSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setIteratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(shadowRealmSpace);
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(strictEvalActivationSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(stringIteratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(sourceCodeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(symbolSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(symbolObjectSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(templateObjectDescriptorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalCalendarSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalDurationSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalInstantSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalPlainTimeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalTimeZoneSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint8ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint8ClampedArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint16ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint32ArraySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedEvalCodeBlockSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedFunctionCodeBlockSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedModuleProgramCodeBlockSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedProgramCodeBlockSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(finalizationRegistrySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakObjectRefSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakSetSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakMapSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(withScopeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlCollatorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlDateTimeFormatSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlDisplayNamesSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlListFormatSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlLocaleSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlNumberFormatSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlPluralRulesSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlRelativeTimeFormatSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmentIteratorSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmenterSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmentsSpace)
-#if ENABLE(WEBASSEMBLY)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jsToWasmICCalleeSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyExceptionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyFunctionSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyGlobalSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyInstanceSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyMemorySpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyModuleSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyModuleRecordSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyTableSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyTagSpace)
-    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyWrapperFunctionSpace)
-#endif
+#define DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR(name) \
+    DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR_IMPL(name, unused, unused2)
 
-#undef DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER
+    FOR_EACH_JSC_DYNAMIC_ISO_SUBSPACE(DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR_IMPL)
 
-    ALWAYS_INLINE IsoCellSet& executableToCodeBlockEdgesWithConstraints() { return heap.executableToCodeBlockEdgesWithConstraints; }
-    ALWAYS_INLINE IsoCellSet& executableToCodeBlockEdgesWithFinalizers() { return heap.executableToCodeBlockEdgesWithFinalizers; }
+    ALWAYS_INLINE GCClient::IsoSubspace& codeBlockSpace() { return clientHeap.codeBlockSpace; }
 
-#define DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(name) \
-    template<SubspaceAccess mode> \
-    ALWAYS_INLINE IsoSubspace* name() { return heap.name<mode>(); }
+    DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR(evalExecutableSpace)
+    DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR(moduleProgramExecutableSpace)
 
-    using SpaceAndSet = Heap::SpaceAndSet;
-    ALWAYS_INLINE SpaceAndSet& codeBlockSpace() { return heap.codeBlockSpace; }
+#undef DEFINE_DYNAMIC_ISO_SUBSPACE_ACCESSOR_IMPL
+#undef DEFINE_DYNAMIC_ISO_SUBSPACE_GETTER
 
-    DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(evalExecutableSpace)
-    DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(moduleProgramExecutableSpace)
-
-    ALWAYS_INLINE SpaceAndSet& functionExecutableSpace() { return heap.functionExecutableSpace; }
-    ALWAYS_INLINE SpaceAndSet& programExecutableSpace() { return heap.programExecutableSpace; }
-    ALWAYS_INLINE SpaceAndSet& unlinkedFunctionExecutableSpace() { return heap.unlinkedFunctionExecutableSpace; }
+    ALWAYS_INLINE GCClient::IsoSubspace& functionExecutableSpace() { return clientHeap.functionExecutableSpace; }
+    ALWAYS_INLINE GCClient::IsoSubspace& programExecutableSpace() { return clientHeap.programExecutableSpace; }
+    ALWAYS_INLINE GCClient::IsoSubspace& unlinkedFunctionExecutableSpace() { return clientHeap.unlinkedFunctionExecutableSpace; }
 
     VMType vmType;
-    ClientData* clientData;
+    ClientData* clientData { nullptr };
     EntryFrame* topEntryFrame { nullptr };
     // NOTE: When throwing an exception while rolling back the call frame, this may be equal to
     // topEntryFrame.
@@ -562,7 +437,6 @@ public:
     Strong<Structure> hashMapBucketSetStructure;
     Strong<Structure> hashMapBucketMapStructure;
     Strong<Structure> bigIntStructure;
-    Strong<Structure> executableToCodeBlockEdgeStructure;
 
     Strong<JSPropertyNameEnumerator> m_emptyPropertyNameEnumerator;
 
@@ -574,15 +448,18 @@ public:
     Weak<NativeExecutable> m_slowBoundExecutable;
     Weak<NativeExecutable> m_slowCanConstructBoundExecutable;
 
+    Weak<NativeExecutable> m_fastRemoteFunctionExecutable;
+    Weak<NativeExecutable> m_slowRemoteFunctionExecutable;
+
     Ref<DeferredWorkTimer> deferredWorkTimer;
 
-    JSCell* currentlyDestructingCallbackObject;
+    JSCell* currentlyDestructingCallbackObject { nullptr };
     const ClassInfo* currentlyDestructingCallbackObjectClassInfo { nullptr };
 
     AtomStringTable* m_atomStringTable;
     WTF::SymbolRegistry m_symbolRegistry;
-    WTF::SymbolRegistry m_privateSymbolRegistry;
-    CommonIdentifiers* propertyNames;
+    WTF::SymbolRegistry m_privateSymbolRegistry { WTF::SymbolRegistry::Type::PrivateSymbol };
+    CommonIdentifiers* propertyNames { nullptr };
     const ArgList* emptyList;
     SmallStrings smallStrings;
     NumericStrings numericStrings;
@@ -669,18 +546,13 @@ public:
     SourceProviderCache* addSourceProviderCache(SourceProvider*);
     void clearSourceProviderCaches();
 
-    StructureCache structureCache;
-    InlineWatchpointSet m_structureCacheClearedWatchpoint;
-
     typedef HashMap<RefPtr<SourceProvider>, RefPtr<SourceProviderCache>> SourceProviderCacheMap;
     SourceProviderCacheMap sourceProviderCacheMap;
-    Interpreter* interpreter;
 #if ENABLE(JIT)
     std::unique_ptr<JITThunks> jitStubs;
     MacroAssemblerCodeRef<JITThunkPtrTag> getCTIStub(ThunkGenerator);
     std::unique_ptr<SharedJITStubSet> m_sharedJITStubs;
-
-#endif // ENABLE(JIT)
+#endif
 #if ENABLE(FTL_JIT)
     std::unique_ptr<FTL::Thunks> ftlThunks;
 #endif
@@ -689,6 +561,7 @@ public:
     NativeExecutable* getHostFunction(NativeFunction, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, const String& name);
 
     NativeExecutable* getBoundFunction(bool isJSFunction, bool canConstruct);
+    NativeExecutable* getRemoteFunction(bool isJSFunction);
 
     MacroAssemblerCodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
     MacroAssemblerCodeRef<JSEntryPtrTag> getCTILinkCall();
@@ -730,8 +603,6 @@ public:
         return OBJECT_OFFSETOF(VM, heap) + OBJECT_OFFSETOF(Heap, m_mutatorShouldBeFenced);
     }
 
-    void restorePreviousException(Exception* exception) { setException(exception); }
-
     void clearLastException() { m_lastException = nullptr; }
 
     CallFrame** addressOfCallFrameForCatch() { return &callFrameForCatch; }
@@ -753,17 +624,6 @@ public:
         return result;
     }
     
-    ALWAYS_INLINE Structure* getStructure(StructureID id)
-    {
-        return heap.structureIDTable().get(decontaminate(id));
-    }
-
-    // FIXME: rdar://69036888: remove this function when no longer needed.
-    ALWAYS_INLINE Structure* tryGetStructure(StructureID id)
-    {
-        return heap.structureIDTable().tryGet(decontaminate(id));
-    }
-
     void* stackPointerAtVMEntry() const { return m_stackPointerAtVMEntry; }
     void setStackPointerAtVMEntry(void*);
 
@@ -788,25 +648,24 @@ public:
         return isSafeToRecurse(m_stackLimit);
     }
 
-    void** addressOfLastStackTop() { return &m_lastStackTop; }
     void* lastStackTop() { return m_lastStackTop; }
     void setLastStackTop(const Thread&);
     
     void firePrimitiveGigacageEnabledIfNecessary()
     {
-        if (m_needToFirePrimitiveGigacageEnabled) {
+        if (UNLIKELY(m_needToFirePrimitiveGigacageEnabled)) {
             m_needToFirePrimitiveGigacageEnabled = false;
             m_primitiveGigacageEnabled.fireAll(*this, "Primitive gigacage disabled asynchronously");
         }
     }
 
     EncodedJSValue encodedHostCallReturnValue { };
-    unsigned varargsLength;
     CallFrame* newCallFrameReturnValue;
-    CallFrame* callFrameForCatch;
+    CallFrame* callFrameForCatch { nullptr };
     CalleeBits calleeForWasmCatch;
     void* targetMachinePCForThrow;
-    const Instruction* targetInterpreterPCForThrow;
+    JSOrWasmInstruction targetInterpreterPCForThrow;
+    unsigned varargsLength;
     uint32_t osrExitIndex;
     void* osrExitJumpDestination;
     RegExp* m_executingRegExp { nullptr };
@@ -817,6 +676,7 @@ public:
     // - You can only write to entries in the ScratchBuffer from the main thread.
     ScratchBuffer* scratchBufferForSize(size_t size);
     void clearScratchBuffers();
+    bool isScratchBuffer(void*);
 
     EncodedJSValue* exceptionFuzzingBuffer(size_t size)
     {
@@ -835,8 +695,9 @@ public:
     bool hasCheckpointOSRSideState() const { return m_checkpointSideState.size(); }
     void scanSideState(ConservativeRoots&) const;
 
+    Interpreter interpreter;
     unsigned disallowVMEntryCount { 0 };
-    VMEntryScope* entryScope;
+    VMEntryScope* entryScope { nullptr };
 
     JSObject* stringRecursionCheckFirstObject { nullptr };
     HashSet<JSObject*> stringRecursionCheckVisitedObjects;
@@ -851,8 +712,8 @@ public:
 
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     static constexpr size_t patternContextBufferSize = 8192; // Space allocated to save nested parenthesis context
-    UniqueArray<char> m_regExpPatternContexBuffer;
     Lock m_regExpPatternContextLock;
+    UniqueArray<char> m_regExpPatternContexBuffer;
     char* acquireRegExpPatternContexBuffer() WTF_ACQUIRES_LOCK(m_regExpPatternContextLock);
     void releaseRegExpPatternContexBuffer() WTF_RELEASES_LOCK(m_regExpPatternContextLock);
 #else
@@ -866,17 +727,14 @@ public:
     HasOwnPropertyCache* ensureHasOwnPropertyCache();
 
 #if ENABLE(REGEXP_TRACING)
-    typedef ListHashSet<RegExp*> RTTraceList;
-    RTTraceList* m_rtTraceList;
+    ListHashSet<RegExp*> m_rtTraceList;
+    void addRegExpToTrace(RegExp*);
+    JS_EXPORT_PRIVATE void dumpRegExpTrace();
 #endif
 
-    void resetDateCache() { dateCache.reset(); }
+    void resetDateCacheIfNecessary() { dateCache.resetIfNecessary(); }
 
     RegExpCache* regExpCache() { return m_regExpCache; }
-#if ENABLE(REGEXP_TRACING)
-    void addRegExpToTrace(RegExp*);
-#endif
-    JS_EXPORT_PRIVATE void dumpRegExpTrace();
 
     bool isCollectorBusyOnCurrentThread() { return heap.currentThreadIsDoingGCWork(); }
 
@@ -967,34 +825,9 @@ public:
 
     static void setCrashOnVMCreation(bool);
 
-    class DeferExceptionScope {
-    public:
-        DeferExceptionScope(VM& vm)
-            : m_vm(vm)
-            , m_exceptionWasSet(vm.m_exception)
-            , m_savedException(vm.m_exception, nullptr)
-            , m_savedLastException(vm.m_lastException, nullptr)
-        {
-            if (m_exceptionWasSet)
-                m_vm.traps().clearTrapBit(VMTraps::NeedExceptionHandling);
-        }
-
-        ~DeferExceptionScope()
-        {
-            if (m_exceptionWasSet)
-                m_vm.traps().setTrapBit(VMTraps::NeedExceptionHandling);
-        }
-
-    private:
-        VM& m_vm;
-        bool m_exceptionWasSet;
-        SetForScope<Exception*> m_savedException;
-        SetForScope<Exception*> m_savedLastException;
-    };
-
-    void addLoopHintExecutionCounter(const Instruction*);
-    uintptr_t* getLoopHintExecutionCounter(const Instruction*);
-    void removeLoopHintExecutionCounter(const Instruction*);
+    void addLoopHintExecutionCounter(const JSInstruction*);
+    uintptr_t* getLoopHintExecutionCounter(const JSInstruction*);
+    void removeLoopHintExecutionCounter(const JSInstruction*);
 
     ALWAYS_INLINE void writeBarrier(const JSCell* from) { heap.writeBarrier(from); }
     ALWAYS_INLINE void writeBarrier(const JSCell* from, JSValue to) { heap.writeBarrier(from, to); }
@@ -1016,8 +849,6 @@ public:
 #endif
 
 private:
-    friend class LLIntOffsetsExtractor;
-
     VM(VMType, HeapType, WTF::RunLoop* = nullptr, bool* success = nullptr);
     static VM*& sharedInstanceInternal();
     void createNativeThunk();
@@ -1065,10 +896,10 @@ private:
     void didExhaustMicrotaskQueue();
 
 #if ENABLE(GC_VALIDATION)
-    const ClassInfo* m_initializingObjectClass;
+    const ClassInfo* m_initializingObjectClass { nullptr };
 #endif
 
-    void* m_stackPointerAtVMEntry;
+    void* m_stackPointerAtVMEntry { nullptr };
     size_t m_currentSoftReservedZoneSize;
     void* m_stackLimit { nullptr };
     void* m_softStackLimit { nullptr };
@@ -1104,16 +935,17 @@ private:
     HashMap<RefPtr<UniquedStringImpl>, RefPtr<WatchpointSet>> m_impurePropertyWatchpointSets;
     std::unique_ptr<TypeProfiler> m_typeProfiler;
     std::unique_ptr<TypeProfilerLog> m_typeProfilerLog;
-    unsigned m_typeProfilerEnabledCount;
+    unsigned m_typeProfilerEnabledCount { 0 };
     bool m_needToFirePrimitiveGigacageEnabled { false };
+    bool m_isInService { false };
     Lock m_scratchBufferLock;
     Vector<ScratchBuffer*> m_scratchBuffers;
     size_t m_sizeOfLastScratchBuffer { 0 };
     Vector<std::unique_ptr<CheckpointOSRExitSideState>, expectedMaxActiveSideStateCount> m_checkpointSideState;
-    InlineWatchpointSet m_primitiveGigacageEnabled;
+    InlineWatchpointSet m_primitiveGigacageEnabled { IsWatched };
     FunctionHasExecutedCache m_functionHasExecutedCache;
     std::unique_ptr<ControlFlowProfiler> m_controlFlowProfiler;
-    unsigned m_controlFlowProfilerEnabledCount;
+    unsigned m_controlFlowProfilerEnabledCount { 0 };
     Deque<std::unique_ptr<QueuedTask>> m_microtaskQueue;
     MallocPtr<EncodedJSValue, VMMalloc> m_exceptionFuzzBuffer;
     VMTraps m_traps;
@@ -1137,7 +969,7 @@ private:
     bool m_executionForbiddenOnTermination { false };
 
     Lock m_loopHintExecutionCountLock;
-    HashMap<const Instruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
+    HashMap<const JSInstruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
 
 #if ENABLE(DFG_DOES_GC_VALIDATION)
     DoesGCCheck m_doesGC;
@@ -1146,12 +978,13 @@ private:
     VM* m_prev; // Required by DoublyLinkedListNode.
     VM* m_next; // Required by DoublyLinkedListNode.
 
-    // Friends for exception checking purpose only.
     friend class Heap;
-    friend class CatchScope;
-    friend class ExceptionScope;
+    friend class CatchScope; // Friend for exception checking purpose only.
+    friend class ExceptionScope; // Friend for exception checking purpose only.
     friend class JSDollarVMHelper;
-    friend class ThrowScope;
+    friend class LLIntOffsetsExtractor;
+    friend class SuspendExceptionScope;
+    friend class ThrowScope; // Friend for exception checking purpose only.
     friend class VMTraps;
     friend class WTF::DoublyLinkedListNode<VM>;
 };

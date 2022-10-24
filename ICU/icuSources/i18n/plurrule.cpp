@@ -1919,14 +1919,11 @@ bool FixedDecimal::operator==(const FixedDecimal &other) const {
 }
 
 UnicodeString FixedDecimal::toString() const {
-    char pattern[15];
     char buffer[20];
     if (exponent != 0) {
-        snprintf(pattern, sizeof(pattern), "%%.%dfe%%d", visibleDecimalDigitCount);
-        snprintf(buffer, sizeof(buffer), pattern, source, exponent);
+        snprintf(buffer, sizeof(buffer), "%.*fe%d", (int)visibleDecimalDigitCount, source, exponent);
     } else {
-        snprintf(pattern, sizeof(pattern), "%%.%df", visibleDecimalDigitCount);
-        snprintf(buffer, sizeof(buffer), pattern, source);
+        snprintf(buffer, sizeof(buffer), "%.*f", (int)visibleDecimalDigitCount, source);
     }
     return UnicodeString(buffer, -1, US_INV);
 }

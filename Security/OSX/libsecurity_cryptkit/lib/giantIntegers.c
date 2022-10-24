@@ -83,9 +83,9 @@ void printGiantBuf(giant x)
 {
 	int i;
 
-	sprintf(printbuf2, "sign=%d cap=%d n[]=", x->sign, x->capacity);
+	snprintf(printbuf2, sizeof(printbuf2), "sign=%d cap=%d n[]=", x->sign, x->capacity);
 	for(i=0; i<abs(x->sign); i++) {
-		sprintf(printbuf3 + 10*i, "%u:", x->n[i]);
+		snprintf(printbuf3 + 10*i, sizeof(printbuf3) - 10*i, "%u:", x->n[i]);
 	}
 }
 
@@ -95,9 +95,9 @@ void printGiantBuf2(giant x)
 {
 	int i;
 
-	sprintf(printbuf4, "sign=%d cap=%d n[]=", x->sign, x->capacity);
+	snprintf(printbuf4, sizeof(printbuf4), "sign=%d cap=%d n[]=", x->sign, x->capacity);
 	for(i=0; i<abs(x->sign); i++) {
-		sprintf(printbuf5 + 10*i, "%u:", x->n[i]);
+		snprintf(printbuf5 + 10*i, sizeof(printbuf5) - 10*i, "%u:", x->n[i]);
 	}
 }
 #endif	/* FEE_DEBUG */

@@ -5505,6 +5505,7 @@ structLocale:table(nofallback){
         an{""}
         ang{""}
         anp{""}
+        apw{""}
         ar{""}
         arc{""}
         arn{""}

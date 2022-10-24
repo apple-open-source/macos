@@ -14,7 +14,6 @@ _kSecFrameworkBundleID
 
 #include "CSSMOID.exp-in"
 
-#if TARGET_OS_IPHONE
 _NtlmCreateClientRequest
 _NtlmCreateClientResponse
 __NtlmCreateClientResponse
@@ -22,6 +21,7 @@ _NtlmGeneratePasswordHashes
 _NtlmGeneratorCreate
 _NtlmGeneratorRelease
 _NtlmGetNegotiatedVersion
+#if TARGET_OS_IPHONE
 _OID_PKIX_OCSP_BASIC
 _OID_PKIX_OCSP
 _OID_PKIX_OCSP_ARCHIVE_CUTOFF
@@ -341,6 +341,7 @@ SEC_EXP_CLASS(SecuritydXPCClient)
 SEC_EXP_CLASS(SecXPCHelper)
 SEC_EXP_CLASS(OTClique)
 SEC_EXP_CLASS(OTConfigurationContext)
+SEC_EXP_CLASS(OTControlArguments)
 SEC_EXP_CLASS(OTBottleIDs)
 SEC_EXP_CLASS(OTOperationConfiguration)
 _kSecEntitlementPrivateOctagonEscrow
@@ -387,12 +388,14 @@ _OctagonPlatformSupportsSOS
 _OctagonSetPlatformSupportsSOS
 _OctagonIsSOSFeatureEnabled
 _OctagonSetSOSFeatureEnabled
-_SecKVSOnCloudKitIsEnabled
-_SecKVSOnCloudKitSetOverrideIsEnabled
 _SecErrorIsNestedErrorCappingEnabled
 _SecErrorSetOverrideNestedErrorCappingIsEnabled
 _SecKeychainIsStaticPersistentRefsEnabled
 _SecKeychainSetOverrideStaticPersistentRefsIsEnabled
+
+_OctagonSupportsPersonaMultiuser
+_OctagonSetSupportsPersonaMultiuser
+_OctagonClearSupportsPersonaMultiuserOverride
 
 SEC_EXP_CLASS(OTJoiningConfiguration)
 SEC_EXP_CLASS(OTControl)
@@ -401,6 +404,8 @@ SEC_EXP_CLASS(SecuritydXPCClient)
 _SecAccessGroupsGetCurrent
 _SecAccessGroupsSetCurrent
 _SecSecurityClientGet
+_SecSecurityFixUpClientWithPersona
+
 _SecSecurityClientRegularToAppClip
 _SecSecurityClientAppClipToRegular
 _SecSecurityClientSetApplicationIdentifier
@@ -445,13 +450,6 @@ _SecTaskGetTypeID
 _SecTaskEntitlementsValidated
 
 _kSecRandomDefault
-
-#if TARGET_OS_IPHONE
-_vmdh_create
-_vmdh_destroy
-_vmdh_encrypt_password
-_vmdh_generate_key
-#endif
 
 _SecSMIMEFindBulkAlgForRecipients
 
@@ -1648,6 +1646,9 @@ _kSecCodeSignerEditCMS
 _kSecCodeSignerEditCpuSubtype
 _kSecCodeSignerEditCpuType
 _kSecCodeSignerEntitlements
+_kSecCodeSignerLaunchConstraintSelf
+_kSecCodeSignerLaunchConstraintParent
+_kSecCodeSignerLaunchConstraintResponsible
 _kSecCodeSignerFlags
 _kSecCodeSignerIdentifier
 _kSecCodeSignerIdentifierPrefix
@@ -1679,6 +1680,9 @@ _kSecCodeInfoTimestamp
 _kSecCodeInfoDesignatedRequirement
 _kSecCodeInfoEntitlements
 _kSecCodeInfoEntitlementsDER
+_kSecCodeInfoLaunchConstraintsSelf
+_kSecCodeInfoLaunchConstraintsParent
+_kSecCodeInfoLaunchConstraintsResponsible
 _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoFlags
 _kSecCodeInfoFormat
@@ -1687,6 +1691,7 @@ _kSecCodeInfoDigestAlgorithms
 _kSecCodeInfoPlatformIdentifier
 _kSecCodeInfoIdentifier
 _kSecCodeInfoImplicitDesignatedRequirement
+_kSecCodeInfoDefaultDesignatedLightweightCodeRequirement
 _kSecCodeInfoMainExecutable
 _kSecCodeInfoPList
 _kSecCodeInfoRequirements
@@ -2089,6 +2094,7 @@ _OBJC_CLASS_$_SecCoreAnalytics
 _SecCoreAnalyticsValue
 _SecCoreAnalyticsSendValue
 _SecCoreAnalyticsSendKernEntropyAnalytics
+_SecCoreAnalyticsSendLegacyKeychainUIEvent
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
 _SFAnalyticsSamplerIntervalOncePerReport
@@ -2170,8 +2176,6 @@ _lprofCurFilename*
 
 _SecCreateCFErrorWithXPCObject
 _SecCreateXPCObjectWithCFError
-
-_SecItemVerifyBackupIntegrity
 
 _SecItemDeleteKeychainItemsForAppClip
 _SecItemPromoteAppClipItemsToParentApp

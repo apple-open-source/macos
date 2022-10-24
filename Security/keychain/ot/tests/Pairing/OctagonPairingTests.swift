@@ -1,3 +1,4 @@
+import Security
 #if OCTAGON
 
 func GenerateFullECKey(keySize: Int) -> (SecKey) {
@@ -170,8 +171,6 @@ extension OctagonTestsBase {
                                                     uniqueDeviceID: sponsorDeviceID,
                                                     uniqueClientID: initiatorDeviceID,
                                                     pairingUUID: UUID().uuidString,
-                                                    containerName: OTCKContainerName,
-                                                    contextID: sponsor.contextID,
                                                     epoch: 1,
                                                     isInitiator: false)
 
@@ -179,8 +178,6 @@ extension OctagonTestsBase {
                                                      uniqueDeviceID: initiatorDeviceID,
                                                      uniqueClientID: initiatorDeviceID,
                                                      pairingUUID: UUID().uuidString,
-                                                     containerName: OTCKContainerName,
-                                                     contextID: initiator.contextID,
                                                      epoch: 1,
                                                      isInitiator: true)
 
@@ -213,6 +210,9 @@ extension OctagonTestsBase {
         sponsorPairingChannel?.setControlObject(self.otControl)
         initiatorPairingChannel?.setControlObject(self.otControl)
 
+        sponsorPairingChannel?.setSessionControlArguments(self.otcontrolArgumentsFor(context: sponsor))
+        initiatorPairingChannel?.setSessionControlArguments(self.otcontrolArgumentsFor(context: initiator))
+
         let (acceptorPairingConfig, initiatorPairingConfig) = self.joiningConfigurations(initiator: initiator,
                                                                                          initiatorDeviceID: initiatorChannelContext.uniqueDeviceID,
                                                                                          sponsor: sponsor,
@@ -237,10 +237,12 @@ extension OctagonTestsBase {
                                                                     sponsorDeviceID: UUID().uuidString)
 
         return try self.setupKCJoiningSessionObjects(dsid: 0x123456,
+                                                     sponsorArguments: self.otcontrolArgumentsFor(context: sponsor),
                                                      sponsorConfiguration: acceptorJoiningConfig)
     }
 
     func setupKCJoiningSessionObjects(dsid: UInt64,
+                                      sponsorArguments: OTControlArguments,
                                       sponsorConfiguration: OTJoiningConfiguration) throws -> (KCJoiningRequestTestDelegate, KCJoiningAcceptTestDelegate, KCJoiningAcceptSession, KCJoiningRequestSecretSession) {
         let secret = "123456"
         let code = "987654"
@@ -254,10 +256,10 @@ extension OctagonTestsBase {
                                                        circleDelegate: acceptDelegate as KCJoiningAcceptCircleDelegate,
                                                        dsid: dsid,
                                                        rng: ccrng(nil))
-        requestSession.setControlObject(self.otControl)
         acceptSession.setControlObject(self.otControl)
 
         // requestSessions don't need control objects
+        acceptSession.setSessionControlArguments(sponsorArguments)
         acceptSession.setConfiguration(sponsorConfiguration)
 
         return (requestDelegate, acceptDelegate, acceptSession, requestSession)
@@ -364,6 +366,9 @@ class OctagonPairingTests: OctagonTestsBase {
     var cuttlefishContextForAcceptor: OTCuttlefishContext!
     var contextForAcceptor = "defaultContextForAcceptor"
 
+    var initiatorArguments: OTControlArguments!
+    var acceptorArguments: OTControlArguments!
+
     var initiatorPiggybackingConfig: OTJoiningConfiguration!
     var acceptorPiggybackingConfig: OTJoiningConfiguration!
 
@@ -408,26 +413,31 @@ class OctagonPairingTests: OctagonTestsBase {
         self.cuttlefishContextForAcceptor = self.manager.context(forContainerName: OTCKContainerName,
                                                                  contextID: self.contextForAcceptor,
                                                                  sosAdapter: self.sosAdapterForAcceptor,
+                                                                 accountsAdapter: self.mockAuthKit3,
                                                                  authKitAdapter: self.mockAuthKit3,
                                                                  tooManyPeersAdapter: self.mockTooManyPeers,
                                                                  lockStateTracker: self.lockStateTracker,
-                                                                 accountStateTracker: self.accountStateTracker,
                                                                  deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
+
+        self.acceptorArguments = OTControlArguments(containerName: OTCKContainerName,
+                                                    contextID: self.contextForAcceptor,
+                                                    altDSID: nil)
+
+        self.initiatorArguments = OTControlArguments(containerName: OTCKContainerName,
+                                                     contextID: OTDefaultContext,
+                                                     altDSID: nil)
 
         self.acceptorPiggybackingConfig = OTJoiningConfiguration(protocolType: OTProtocolPiggybacking,
                                                                  uniqueDeviceID: "acceptor",
                                                                  uniqueClientID: self.initiatorName,
                                                                  pairingUUID: UUID().uuidString,
-                                                                 containerName: OTCKContainerName,
-                                                                 contextID: self.contextForAcceptor,
                                                                  epoch: 1,
                                                                  isInitiator: false)
+
         self.initiatorPiggybackingConfig = OTJoiningConfiguration(protocolType: OTProtocolPiggybacking,
                                                                   uniqueDeviceID: "initiator",
                                                                   uniqueClientID: "acceptor",
                                                                   pairingUUID: UUID().uuidString,
-                                                                  containerName: OTCKContainerName,
-                                                                  contextID: OTDefaultContext,
                                                                   epoch: 1,
                                                                   isInitiator: true)
 
@@ -435,16 +445,12 @@ class OctagonPairingTests: OctagonTestsBase {
                                                             uniqueDeviceID: "acceptor",
                                                             uniqueClientID: self.initiatorName,
                                                             pairingUUID: UUID().uuidString,
-                                                            containerName: OTCKContainerName,
-                                                            contextID: self.contextForAcceptor,
                                                             epoch: 1,
                                                             isInitiator: false)
         self.initiatorPairingConfig = OTJoiningConfiguration(protocolType: OTProtocolPairing,
                                                              uniqueDeviceID: "initiator",
                                                              uniqueClientID: "acceptor",
                                                              pairingUUID: UUID().uuidString,
-                                                             containerName: OTCKContainerName,
-                                                             contextID: OTDefaultContext,
                                                              epoch: 1,
                                                              isInitiator: true)
     }
@@ -491,20 +497,23 @@ class OctagonPairingTests: OctagonTestsBase {
         acceptor.setControlObject(self.otControl)
         initiator.setControlObject(self.otControl)
 
+        acceptor.setSessionControlArguments(OTControlArguments(containerName: OTCKContainerName,
+                                                               contextID: acceptorContextID,
+                                                               altDSID: nil))
+        initiator.setSessionControlArguments(OTControlArguments(containerName: OTCKContainerName,
+                                                                contextID: initiatorContextID,
+                                                                altDSID: nil))
+
         let acceptorPairingConfig = OTJoiningConfiguration(protocolType: OTProtocolPairing,
                                                            uniqueDeviceID: acceptorUniqueID,
                                                            uniqueClientID: initiatorUniqueID,
                                                            pairingUUID: UUID().uuidString,
-                                                           containerName: OTCKContainerName,
-                                                           contextID: acceptorContextID,
                                                            epoch: 1,
                                                            isInitiator: false)
         let initiatorPairingConfig = OTJoiningConfiguration(protocolType: OTProtocolPairing,
                                                             uniqueDeviceID: initiatorUniqueID,
                                                             uniqueClientID: initiatorUniqueID,
                                                             pairingUUID: UUID().uuidString,
-                                                            containerName: OTCKContainerName,
-                                                            contextID: initiatorContextID,
                                                             epoch: 1,
                                                             isInitiator: true)
 
@@ -527,16 +536,16 @@ class OctagonPairingTests: OctagonTestsBase {
     func setupOTCliquePair(withNumber count: String) -> (OTClique?, OTClique?) {
         let secondAcceptorData = OTConfigurationContext()
         secondAcceptorData.context = "secondAcceptor"
-        secondAcceptorData.dsid = "a-"+count
-        secondAcceptorData.altDSID = "alt-a-"+count
+        secondAcceptorData.dsid = "a-" + count
+        secondAcceptorData.altDSID = "alt-a-" + count
 
         let acceptor = OTClique(contextData: secondAcceptorData)
         XCTAssertNotNil(acceptor, "Clique should not be nil")
 
         let secondInitiatorData = OTConfigurationContext()
         secondInitiatorData.context = "secondInitiator"
-        secondInitiatorData.dsid = "i-"+count
-        secondInitiatorData.altDSID = "alt-i-"+count
+        secondInitiatorData.dsid = "i-" + count
+        secondInitiatorData.altDSID = "alt-i-" + count
 
         let initiator = OTClique(contextData: secondInitiatorData)
         XCTAssertNotNil(initiator, "Clique should not be nil")
@@ -548,7 +557,9 @@ class OctagonPairingTests: OctagonTestsBase {
         let dsid: UInt64 = 0x1234567887654321
 
         do {
-            return try self.setupKCJoiningSessionObjects(dsid: dsid, sponsorConfiguration: self.acceptorPiggybackingConfig)
+            return try self.setupKCJoiningSessionObjects(dsid: dsid,
+                                                         sponsorArguments: self.acceptorArguments,
+                                                         sponsorConfiguration: self.acceptorPiggybackingConfig)
         } catch {
             XCTFail("error creating test clique: \(error)")
             return (nil, nil, nil, nil)

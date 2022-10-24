@@ -193,6 +193,7 @@ int32_t xar_opt_unset(xar_t x, const char *option);
 int32_t xar_prop_set(xar_file_t f, const char *key, const char *value);
 int32_t xar_prop_create(xar_file_t f, const char *key, const char *value);
 int32_t xar_prop_get(xar_file_t f, const char *key, const char **value);
+int32_t xar_prop_get_expect_notnull(xar_file_t f, const char *key, const char **value);
 
 xar_iter_t xar_iter_new(void);
 void xar_iter_free(xar_iter_t i);
@@ -267,6 +268,7 @@ char *xar_get_path(xar_file_t f) API_DEPRECATED("Use xar_get_safe_path instead",
 char *xar_get_safe_path(xar_file_t f) API_AVAILABLE(macos(12.0));
 off_t	xar_get_heap_offset(xar_t x);
 uint64_t xar_ntoh64(uint64_t num);
+int xar_get_archive_fd(xar_t x);
 
 #if __cplusplus
 }

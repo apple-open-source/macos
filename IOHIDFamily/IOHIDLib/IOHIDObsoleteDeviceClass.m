@@ -201,7 +201,7 @@ static IOReturn _getElementValue(void *iunknown,
     uint32_t length;
 
     require(elementRef, exit);
-    
+
     ret = [super getValue:elementRef
                     value:&value
                   timeout:0

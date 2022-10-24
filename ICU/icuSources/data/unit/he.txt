@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 he{
@@ -811,11 +811,11 @@ he{
             }
             kilometer{
                 dnam{"קילומטרים"}
-                many{"{0} ק״מ"}
-                one{"קילומטר {0}"}
-                other{"{0} ק״מ"}
+                many{"{0} ק״מ"}
+                one{"קילומטר {0}"}
+                other{"{0} ק״מ"}
                 per{"{0}/ק״מ"}
-                two{"{0} ק״מ"}
+                two{"{0} ק״מ"}
             }
             light-year{
                 dnam{"שנות אור"}
@@ -842,10 +842,10 @@ he{
             }
             mile{
                 dnam{"מייל"}
-                many{"{0} מייל"}
-                one{"{0} מייל"}
-                other{"{0} מייל"}
-                two{"{0} מייל"}
+                many{"{0} מייל"}
+                one{"{0} מייל"}
+                other{"{0} מייל"}
+                two{"{0} מייל"}
             }
             mile-scandinavian{
                 dnam{"מייל-סקנדינביה"}
@@ -1795,11 +1795,11 @@ he{
             }
             kilometer{
                 dnam{"ק״מ"}
-                many{"{0} ק״מ"}
-                one{"{0} ק״מ"}
-                other{"{0} ק״מ"}
+                many{"{0} ק״מ"}
+                one{"{0} ק״מ"}
+                other{"{0} ק״מ"}
                 per{"{0}/ק״מ"}
-                two{"{0} ק״מ"}
+                two{"{0} ק״מ"}
             }
             light-year{
                 dnam{"שנות אור"}
@@ -1825,10 +1825,10 @@ he{
             }
             mile{
                 dnam{"מייל"}
-                many{"{0} מייל"}
-                one{"מייל {0}"}
-                other{"{0} מייל"}
-                two{"{0} מייל"}
+                many{"{0} מייל"}
+                one{"מייל {0}"}
+                other{"{0} מייל"}
+                two{"{0} מייל"}
             }
             mile-scandinavian{
                 dnam{"smi"}
@@ -2760,11 +2760,11 @@ he{
             }
             kilometer{
                 dnam{"ק״מ"}
-                many{"{0} ק״מ"}
-                one{"{0} ק״מ"}
-                other{"{0} ק״מ"}
+                many{"{0} ק״מ"}
+                one{"{0} ק״מ"}
+                other{"{0} ק״מ"}
                 per{"{0}/ק״מ"}
-                two{"{0} ק״מ"}
+                two{"{0} ק״מ"}
             }
             light-year{
                 dnam{"שנות אור"}
@@ -2790,10 +2790,10 @@ he{
             }
             mile{
                 dnam{"מייל"}
-                many{"{0} מייל"}
-                one{"{0} מייל"}
-                other{"{0} מייל"}
-                two{"{0} מייל"}
+                many{"{0} מייל"}
+                one{"{0} מייל"}
+                other{"{0} מייל"}
+                two{"{0} מייל"}
             }
             mile-scandinavian{
                 dnam{"smi"}

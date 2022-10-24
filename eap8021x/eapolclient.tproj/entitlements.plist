@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.developer.driverkit.userclient-access</key>
+	<array>
+		<string>com.apple.DriverKit-AppleBCMWLAN</string>
+	</array>
+	<key>com.apple.private.mobileinboxupdater.xpc</key>
+	<true/>
+	<key>com.apple.private.mobileinboxupdater.eapCredentialEnabled</key>
+	<true/>
 	<key>com.apple.coretelephony.Identity.get</key>
 	<true/>
 	<key>com.apple.private.AppSSO.FetchNetworkCredentials</key>

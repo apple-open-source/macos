@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>mkfifo</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-07-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/mkfifo?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-08-18</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>mkfifo.c: mkfifo fails when -m option is used (3936105)</string>
+			<string>mkfifo.c: use __COPYRIGHT, move cdefs.h earlier (81181925)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

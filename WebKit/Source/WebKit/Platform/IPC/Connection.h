@@ -57,11 +57,6 @@
 #include <wtf/glib/GSocketMonitor.h>
 #endif
 
-namespace WebKit {
-namespace IPCTestingAPI {
-class JSIPC;
-}
-}
 
 namespace IPC {
 
@@ -333,6 +328,7 @@ public:
     void setIgnoreInvalidMessageForTesting() { m_ignoreInvalidMessageForTesting = true; }
     bool ignoreInvalidMessageForTesting() const { return m_ignoreInvalidMessageForTesting; }
     void dispatchIncomingMessageForTesting(std::unique_ptr<Decoder>&&);
+    std::unique_ptr<Decoder> waitForMessageForTesting(MessageName, uint64_t destinationID, Timeout, OptionSet<WaitForOption>);
 #endif
 
     void dispatchMessageReceiverMessage(MessageReceiver&, std::unique_ptr<Decoder>&&);
@@ -407,6 +403,7 @@ private:
     Client& m_client;
     UniqueID m_uniqueID;
     bool m_isServer;
+    bool m_didInvalidationOnMainThread { false }; // Main thread only.
     std::atomic<bool> m_isValid { true };
 
     bool m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage { false };
@@ -524,13 +521,12 @@ private:
     HANDLE m_connectionPipe { INVALID_HANDLE_VALUE };
 #endif
     friend class StreamClientConnection;
-    friend class WebKit::IPCTestingAPI::JSIPC;
 };
 
 template<typename T>
 bool Connection::send(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions, std::optional<Thread::QOS> qos)
 {
-    COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
+    static_assert(!T::isSync, "Async message expected");
 
     auto encoder = makeUniqueRef<Encoder>(T::name(), destinationID);
     encoder.get() << message.arguments();
@@ -555,7 +551,7 @@ CompletionHandler<void(Decoder*)> takeAsyncReplyHandler(Connection&, uint64_t);
 template<typename T, typename C>
 uint64_t Connection::sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID, OptionSet<SendOption> sendOptions)
 {
-    COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
+    static_assert(!T::isSync, "Async message expected");
 
     if (!isValid()) {
         RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
@@ -599,7 +595,7 @@ void moveTuple(std::tuple<A...>&& a, std::tuple<B...>& b)
 
 template<typename T> Connection::SendSyncResult Connection::sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, Timeout timeout, OptionSet<SendSyncOption> sendSyncOptions)
 {
-    COMPILE_ASSERT(T::isSync, SyncMessageExpected);
+    static_assert(T::isSync, "Sync message expected");
     RELEASE_ASSERT(RunLoop::isMain());
 
     SyncRequestID syncRequestID;
@@ -656,6 +652,14 @@ template<typename T> bool Connection::waitForAsyncCallbackAndDispatchImmediately
     handler(decoder.get());
     return true;
 }
+
+#if ENABLE(IPC_TESTING_API)
+inline std::unique_ptr<Decoder> Connection::waitForMessageForTesting(MessageName messageName, uint64_t destinationID, Timeout timeout, OptionSet<WaitForOption> options)
+{
+    return waitForMessage(messageName, destinationID, timeout, options);
+}
+#endif
+
 
 class UnboundedSynchronousIPCScope {
 public:

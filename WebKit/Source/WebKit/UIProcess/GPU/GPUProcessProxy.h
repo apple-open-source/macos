@@ -33,8 +33,10 @@
 #include "ProcessTerminationReason.h"
 #include "ProcessThrottler.h"
 #include "ProcessThrottlerClient.h"
+#include "ShareableBitmap.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebProcessProxyMessagesReplies.h"
+#include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <memory>
 #include <pal/SessionID.h>
@@ -48,6 +50,7 @@
 #endif
 
 namespace WebCore {
+class CaptureDevice;
 struct MockMediaDevice;
 struct ScreenProperties;
 struct SecurityOriginData;
@@ -69,7 +72,7 @@ public:
     static GPUProcessProxy* singletonIfCreated();
     ~GPUProcessProxy();
 
-    void getGPUProcessConnection(WebProcessProxy&, const GPUProcessConnectionParameters&, Messages::WebProcessProxy::GetGPUProcessConnectionDelayedReply&&);
+    void createGPUProcessConnection(WebProcessProxy&, IPC::Attachment&& connectionIdentifier, GPUProcessConnectionParameters&&);
 
     ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
@@ -84,6 +87,12 @@ public:
     void removeMockMediaDevice(const String&);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
+    void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
+#endif
+
+#if HAVE(SC_CONTENT_SHARING_SESSION)
+    void showWindowPicker(CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
+    void showScreenPicker(CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&&);
 #endif
 
     void removeSession(PAL::SessionID);
@@ -93,11 +102,18 @@ public:
     void setScreenProperties(const WebCore::ScreenProperties&);
 #endif
 
+#if HAVE(POWERLOG_TASK_MODE_QUERY)
+    void enablePowerLogging();
+    static bool isPowerLoggingInTaskMode();
+#endif
+
     void updatePreferences(WebProcessProxy&);
     void updateScreenPropertiesIfNeeded();
 
     void terminateForTesting();
     void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
+
+    void requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier, WebCore::MediaPlayerIdentifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&&);
 
 private:
     explicit GPUProcessProxy();
@@ -111,12 +127,12 @@ private:
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
 
-    void gpuProcessExited(GPUProcessTerminationReason);
+    void gpuProcessExited(ProcessTerminationReason);
 
     // ProcessThrottlerClient
     ASCIILiteral clientName() const final { return "GPUProcess"_s; }
-    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final;
-    void sendProcessDidResume() final;
+    void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
+    void sendProcessDidResume(ResumeReason) final;
 
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
@@ -131,8 +147,6 @@ private:
 
     void terminateWebProcess(WebCore::ProcessIdentifier);
     void processIsReadyToExit();
-
-    void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture);
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     void didCreateContextForVisibilityPropagation(WebPageProxyIdentifier, WebCore::PageIdentifier, LayerHostingContextID);
@@ -151,27 +165,11 @@ private:
     bool m_hasSentTCCDSandboxExtension { false };
     bool m_hasSentCameraSandboxExtension { false };
     bool m_hasSentMicrophoneSandboxExtension { false };
-    bool m_hasSentNetworkProcessXPCEndpoint { false };
+    bool m_hasSentDisplayCaptureSandboxExtension { false };
 #endif
 
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
-    bool m_hasEnabledWebMParser { false };
-#endif
-
-#if ENABLE(WEBM_FORMAT_READER)
-    bool m_hasEnabledWebMFormatReader { false };
-#endif
-
-#if ENABLE(OPUS)
-    bool m_hasEnabledOpus { false };
-#endif
-
-#if ENABLE(VORBIS)
-    bool m_hasEnabledVorbis { false };
-#endif
-
-#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    bool m_hasEnabledMediaSourceInlinePainting { false };
+#if HAVE(SCREEN_CAPTURE_KIT)
+    bool m_hasEnabledScreenCaptureKit { false };
 #endif
 
     HashSet<PAL::SessionID> m_sessionIDs;

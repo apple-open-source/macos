@@ -333,7 +333,7 @@ public:
 			}
 			return; // no additional validation performed
 		}
-		// perform a basic sanity check of the input CSSM_KEY
+		// perform a basic version check of the input CSSM_KEY
 		if (!(k) || (k->KeyHeader.HeaderVersion > CSSM_KEYHEADER_VERSION)) {
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
 		}

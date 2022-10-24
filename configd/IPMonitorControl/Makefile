@@ -34,8 +34,5 @@ ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
 if_rank_assert: IPMonitorControlServer.c IPMonitorControl.c main.c
 	$(CC) -DTEST_IPMONITOR_CONTROL -I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(ARCH_FLAGS) -isysroot $(SYSROOT) $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -Wall -g -o $@ $^
 
-IPMonitorAWDReportTest: IPMonitorAWDReport.m
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_IPMONITOR_AWD_REPORT -framework Foundation -weak_framework WirelessDiagnostics -framework CoreFoundation -framework SystemConfiguration -framework ProtocolBuffer $(PF_INC) -I AWD AWD/AWDIPMonitorInterfaceAdvisoryReport.m -o $@ $^
-
 clean:
 	rm -rf *.dSYM *~ *.o if_rank_assert

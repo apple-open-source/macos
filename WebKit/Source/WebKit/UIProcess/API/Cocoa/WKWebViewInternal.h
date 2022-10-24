@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -140,10 +140,8 @@ class ViewGestureController;
     _WKRenderingProgressEvents _observedRenderingProgressEvents;
     BOOL _usePlatformFindUI;
 
-#if PLATFORM(IOS_FAMILY)
     CocoaEdgeInsets _minimumViewportInset;
     CocoaEdgeInsets _maximumViewportInset;
-#endif
 
 #if PLATFORM(MAC)
     std::unique_ptr<WebKit::WebViewImpl> _impl;
@@ -164,10 +162,13 @@ class ViewGestureController;
     RetainPtr<WKFullScreenWindowController> _fullScreenWindowController;
 #endif
 
-#if HAVE(UIFINDINTERACTION)
-    RetainPtr<_UIFindInteraction> _findInteraction;
     BOOL _findInteractionEnabled;
+#if HAVE(UIFINDINTERACTION)
+    RetainPtr<UIFindInteraction> _findInteraction;
 #endif
+
+    WebCore::GraphicsLayer::PlatformLayerID _pendingFindLayerID;
+    WebCore::GraphicsLayer::PlatformLayerID _committedFindLayerID;
 
     RetainPtr<_WKRemoteObjectRegistry> _remoteObjectRegistry;
 
@@ -192,6 +193,7 @@ class ViewGestureController;
     UIEdgeInsets _unobscuredSafeAreaInsets;
     BOOL _haveSetUnobscuredSafeAreaInsets;
     BOOL _avoidsUnsafeArea;
+    BOOL _needsToPresentLockdownModeMessage;
     UIRectEdge _obscuredInsetEdgesAffectedBySafeArea;
 
     UIInterfaceOrientation _interfaceOrientationOverride;
@@ -217,6 +219,13 @@ class ViewGestureController;
     std::optional<CGRect> _frozenVisibleContentRect;
     std::optional<CGRect> _frozenUnobscuredContentRect;
 
+    struct LiveResizeParameters {
+        CGFloat viewWidth;
+        CGPoint initialScrollPosition;
+    };
+    std::optional<LiveResizeParameters> _liveResizeParameters;
+    RetainPtr<id> _endLiveResizeNotificationObserver;
+
     BOOL _commitDidRestoreScrollPosition;
     std::optional<WebCore::FloatPoint> _scrollOffsetToRestore;
     WebCore::FloatBoxExtent _obscuredInsetsWhenSaved;
@@ -224,6 +233,10 @@ class ViewGestureController;
     std::optional<WebCore::FloatPoint> _unobscuredCenterToRestore;
     std::optional<WebKit::TransactionID> _firstTransactionIDAfterPageRestore;
     double _scaleToRestore;
+
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    Vector<RetainPtr<id<_UIInvalidatable>>> _resizeAssertions;
+#endif
 
     BOOL _allowsBackForwardNavigationGestures;
 

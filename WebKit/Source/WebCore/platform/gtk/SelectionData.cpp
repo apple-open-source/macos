@@ -22,14 +22,13 @@
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
-static void replaceNonBreakingSpaceWithSpace(String& str)
+static void replaceNonBreakingSpaceWithSpace(String& string)
 {
-    static const UChar NonBreakingSpaceCharacter = 0xA0;
-    static const UChar SpaceCharacter = ' ';
-    str.replace(NonBreakingSpaceCharacter, SpaceCharacter);
+    string = makeStringByReplacingAll(string, noBreakSpace, space);
 }
 
 void SelectionData::setText(const String& newText)
@@ -61,7 +60,7 @@ void SelectionData::setURIList(const String& uriListString)
         if (line[0] == '#')
             continue;
 
-        URL url = URL(URL(), line);
+        URL url { line };
         if (url.isValid()) {
             if (!setURL) {
                 m_url = url;

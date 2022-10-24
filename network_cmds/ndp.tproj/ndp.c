@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -393,7 +393,6 @@ set(int argc, char **argv)
 	int gai_error;
 	u_char *ea;
 	char *host = argv[0], *eaddr = argv[1];
-	int ealen;
 
 	getsocket();
 	argc -= 2;
@@ -417,10 +416,8 @@ set(int argc, char **argv)
 	}
 #endif
 	ea = (u_char *)LLADDR(&sdl_m);
-
-	ealen = ndp_ether_aton(eaddr, ea);
-	if (ealen != -1)
-		sdl_m.sdl_alen = ealen;
+	if (ndp_ether_aton(eaddr, ea) == 0)
+		sdl_m.sdl_alen = 6;
 	flags = expire_time = 0;
 	while (argc-- > 0) {
 		if (strncmp(argv[0], "temp", 4) == 0) {
@@ -442,8 +439,7 @@ set(int argc, char **argv)
 		    (rtm->rtm_flags & RTF_LLINFO) &&
 		    !(rtm->rtm_flags & RTF_GATEWAY)) switch (sdl->sdl_type) {
 		case IFT_ETHER: case IFT_FDDI: case IFT_ISO88023:
-			case IFT_ISO88024: case IFT_ISO88025:
-			case IFT_6LOWPAN:
+		case IFT_ISO88024: case IFT_ISO88025:
 			goto overwrite;
 		}
 		/*
@@ -1070,18 +1066,17 @@ ether_str(struct sockaddr_dl *sdl)
 static int
 ndp_ether_aton(char *a, u_char *n)
 {
-	int i, o[8];
-	int len;
+	int i, o[6];
 
-	len = sscanf(a, "%x:%x:%x:%x:%x:%x:%x:%x", &o[0], &o[1], &o[2], &o[3], &o[4],
-	    &o[5], &o[6], &o[7]);
-	if (len != 6 && len != 8) {
+	i = sscanf(a, "%x:%x:%x:%x:%x:%x", &o[0], &o[1], &o[2], &o[3], &o[4],
+	    &o[5]);
+	if (i != 6) {
 		fprintf(stderr, "ndp: invalid Ethernet address '%s'\n", a);
-		return (-1);
+		return (1);
 	}
-	for (i = 0; i < len; i++)
+	for (i = 0; i < 6; i++)
 		n[i] = o[i];
-	return (len);
+	return (0);
 }
 
 static void

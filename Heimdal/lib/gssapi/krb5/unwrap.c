@@ -97,6 +97,9 @@ unwrap_des
 
   len = p - (u_char *)input_message_buffer->value;
 
+  if (len > input_message_buffer->length)
+     return GSS_S_DEFECTIVE_TOKEN;
+
   if(cstate) {
       /* decrypt data */
       memcpy (&deskey, key->keyvalue.data, sizeof(deskey));
@@ -250,6 +253,9 @@ unwrap_des3
   p += 28;
 
   len = p - (u_char *)input_message_buffer->value;
+
+if (len > input_message_buffer->length)
+    return GSS_S_DEFECTIVE_TOKEN;
 
   if(cstate) {
       /* decrypt data */

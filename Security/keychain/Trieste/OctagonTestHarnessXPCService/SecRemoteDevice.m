@@ -376,7 +376,9 @@
 #if OCTAGON
     OTControl *ot = [self OTControl];
 
-    [ot resetAndEstablish:nil context:OTDefaultContext altDSID:altDSID resetReason:CuttlefishResetReasonTestGenerated reply:^(NSError * _Nullable error) {
+    OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
+
+    [ot resetAndEstablish:arguments resetReason:CuttlefishResetReasonTestGenerated reply:^(NSError * _Nullable error) {
         complete(error == NULL, error);
     }];
 #else
@@ -388,7 +390,7 @@
 {
 #if OCTAGON
     OTControl *ot = [self OTControl];
-    [ot fetchEgoPeerID:nil context:OTDefaultContext reply:^(NSString * _Nullable peerID, NSError * _Nullable error) {
+    [ot fetchEgoPeerID:[[OTControlArguments alloc] init] reply:^(NSString * _Nullable peerID, NSError * _Nullable error) {
         complete(peerID, error);
     }];
 #else
@@ -402,7 +404,7 @@
 #if OCTAGON
     OTControl *ot = [self OTControl];
     OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
-    [ot fetchCliqueStatus:nil context:OTDefaultContext configuration:configuration reply:^(CliqueStatus cliqueStatus, NSError * _Nullable error) {
+    [ot fetchCliqueStatus:[[OTControlArguments alloc] init] configuration:configuration reply:^(CliqueStatus cliqueStatus, NSError * _Nullable error) {
         os_log(NULL, "[%@] otInCircle: clique: %d error: %@", self.name, (int)cliqueStatus, error);
         complete(cliqueStatus == CliqueStatusIn, error);
     }];

@@ -637,6 +637,8 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     IOBlockStorageDriver * driver  = (IOBlockStorageDriver *) target;
     bool                   isWrite;
     AbsoluteTime           time;
+    AbsoluteTime           preCompletionTime;
+    AbsoluteTime           postCompletionTime;
     UInt64                 timeInNanoseconds;
     IOService *            device = driver;
 
@@ -654,21 +656,9 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
 
     // Update the total number of bytes transferred and the total transfer time.
 
-    clock_get_uptime(&time);
+    clock_get_uptime(&preCompletionTime);
 
-    auto perfControlClient = driver->_perfControlClient;
-    if (perfControlClient && context->perfControlContext) {
-        IOPerfControlClient::WorkEndArgs end_args;
-        end_args.end_time = time;
-
-        if (driver->_userBlockStorageDevice)
-        {
-            device = driver->getProvider();
-        }
-
-        perfControlClient->workEndWithContext(device, context->perfControlContext, &end_args);
-    }
-
+    time = preCompletionTime;
     SUB_ABSOLUTETIME(&time, &context->timeStart);
     absolutetime_to_nanoseconds(time, &timeInNanoseconds);
 
@@ -684,6 +674,32 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     // Complete the transfer request.
 
     IOStorage::complete(&context->request.completion, status, actualByteCount);
+
+    clock_get_uptime(&postCompletionTime);
+
+    auto perfControlClient = driver->_perfControlClient;
+    if (perfControlClient && context->perfControlContext) {
+        IOPerfControlClient::WorkEndArgs endArgs;
+        endArgs.version = IOBlockStorageCurrentWorkArgsVersion;
+        endArgs.size = sizeof(IOPerfControlClient::WorkEndArgs);
+
+        // IOPerfControl needs both the timestamps to separately compute Drive time and CPU time
+        // pre_completion_time - Helps compute Drive I/O time
+        // post_completion_time -  Helps compute CPU active time which includes upstream completion
+        endArgs.end_time = preCompletionTime;
+
+        IOBlockStorageWorkEndArgs storageEndArgs;
+        storageEndArgs.postCompletionTime = postCompletionTime;
+
+        endArgs.driver_data = reinterpret_cast<void*>(&storageEndArgs);
+
+        if (driver->_userBlockStorageDevice)
+        {
+            device = driver->getProvider();
+        }
+
+        perfControlClient->workEndWithContext(device, context->perfControlContext, &endArgs);
+    }
 
     // Release our resources.
 
@@ -3499,6 +3515,8 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
 
     if (_perfControlClient && context->perfControlContext) {
         IOPerfControlClient::WorkSubmitArgs submitArgs;
+        submitArgs.version = IOBlockStorageCurrentWorkArgsVersion;
+        submitArgs.size = sizeof(IOPerfControlClient::WorkSubmitArgs);
         submitArgs.submit_time = context->timeStart;
 
         IOBlockStorageWorkFlags flags;

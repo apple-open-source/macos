@@ -21,6 +21,7 @@
 #include "JSCWrapperMap.h"
 
 #include "APICast.h"
+#include "IntegrityInlines.h"
 #include "JSAPIWrapperGlobalObject.h"
 #include "JSAPIWrapperObject.h"
 #include "JSCClassPrivate.h"
@@ -123,13 +124,12 @@ gpointer WrapperMap::wrappedObject(JSGlobalContextRef jsContext, JSObjectRef jsO
 {
     ASSERT(toJSGlobalObject(jsContext)->wrapperMap() == this);
     JSLockHolder locker(toJS(jsContext));
-    VM& vm = toJS(jsContext)->vm();
     auto* object = toJS(jsObject);
-    if (object->inherits(vm, JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::info())) {
+    if (object->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperObject>>()) {
         if (auto* wrapper = JSC::jsCast<JSC::JSAPIWrapperObject*>(object)->wrappedObject())
             return static_cast<JSC::JSCGLibWrapperObject*>(wrapper)->object();
     }
-    if (object->inherits(vm, JSC::JSCallbackObject<JSC::JSAPIWrapperGlobalObject>::info())) {
+    if (object->inherits<JSC::JSCallbackObject<JSC::JSAPIWrapperGlobalObject>>()) {
         if (auto* wrapper = JSC::jsCast<JSC::JSAPIWrapperGlobalObject*>(object)->wrappedObject())
             return wrapper->object();
     }

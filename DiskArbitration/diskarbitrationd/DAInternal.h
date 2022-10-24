@@ -100,6 +100,7 @@ const CFStringRef _kDACallbackDiskKey;          /* ( DADisk       ) */
 const CFStringRef _kDACallbackKindKey;          /* ( CFNumber     ) */
 const CFStringRef _kDACallbackMatchKey;         /* ( CFDictionary ) */
 const CFStringRef _kDACallbackOrderKey;         /* ( CFNumber     ) */
+const CFStringRef _kDACallbackBlockKey;         /* ( CFNumber     ) */
 const CFStringRef _kDACallbackSessionKey;       /* ( DASession    ) */
 const CFStringRef _kDACallbackTimeKey;          /* ( CFDate       ) */
 const CFStringRef _kDACallbackWatchKey;         /* ( CFArray      ) */
@@ -146,6 +147,7 @@ __private_extern__ CFTypeRef              _DAUnserializeWithBytes( CFAllocatorRe
 __private_extern__ char * _DAVolumeCopyID( const struct statfs * fs );
 __private_extern__ char * _DAVolumeGetID( const struct statfs * fs );
 __private_extern__ int __DAVolumeGetDeviceIDForLifsMount( char *mntpoint, char *devname, int len );
+__private_extern__ int _DAVolumeGetDevicePathForLifsMount( const struct statfs * fs, char *devicePath, int size );
 
 #ifdef __cplusplus
 }

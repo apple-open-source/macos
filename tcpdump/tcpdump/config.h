@@ -1,15 +1,15 @@
 /* config.h.  Generated from config.h.in by configure.  */
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif /* __APPLE__ */
 
+/* Define to 1 if arpa/inet.h declares `ether_ntohost' */
+/* #undef ARPA_INET_H_DECLARES_ETHER_NTOHOST */
+
 /* define if you want to build the possibly-buggy SMB printer */
 /* #undef ENABLE_SMB */
-
-/* Define to 1 if you have the `alarm' function. */
-#define HAVE_ALARM 1
 
 /* Define to 1 if you have the `bpf_dump' function. */
 #define HAVE_BPF_DUMP 1
@@ -36,9 +36,6 @@
 /* Define to 1 if you have the `ether_ntohost' function. */
 #define HAVE_ETHER_NTOHOST 1
 
-/* Define to 1 if you have the `EVP_CipherInit_ex' function. */
-/* #undef HAVE_EVP_CIPHERINIT_EX */
-
 /* Define to 1 if you have the `EVP_CIPHER_CTX_new' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_NEW */
 #define HAVE_EVP_CIPHER_CTX_NEW 1
@@ -54,6 +51,9 @@
 
 /* define if you have getrpcbynumber() */
 #define HAVE_GETRPCBYNUMBER 1
+
+/* Define to 1 if you have the `getservent' function. */
+#define HAVE_GETSERVENT 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -72,11 +72,8 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* Define to 1 if you have the <netinet/ether.h> header file. */
-/* #undef HAVE_NETINET_ETHER_H */
-
-/* Define to 1 if you have the <netinet/if_ether.h> header file. */
-#define HAVE_NETINET_IF_ETHER_H 1
+/* Define to 1 if you have the <net/if.h> header file. */
+#define HAVE_NET_IF_H 1
 
 /* Define to 1 if you have the <net/if_pflog.h> header file. */
 #define HAVE_NET_IF_PFLOG_H 1
@@ -117,11 +114,17 @@
 /* Define to 1 if you have the `pcap_dump_flush' function. */
 #define HAVE_PCAP_DUMP_FLUSH 1
 
-/* define if libpcap has pcap_dump_ftell() */
+/* Define to 1 if you have the `pcap_dump_ftell' function. */
 #define HAVE_PCAP_DUMP_FTELL 1
+
+/* Define to 1 if you have the `pcap_dump_ftell64' function. */
+#define HAVE_PCAP_DUMP_FTELL64 1
 
 /* Define to 1 if you have the `pcap_findalldevs' function. */
 #define HAVE_PCAP_FINDALLDEVS 1
+
+/* Define to 1 if you have the `pcap_findalldevs_ex' function. */
+/* #undef HAVE_PCAP_FINDALLDEVS_EX */
 
 /* Define to 1 if you have the `pcap_free_datalinks' function. */
 #define HAVE_PCAP_FREE_DATALINKS 1
@@ -135,8 +138,11 @@
 /* define if libpcap has pcap_list_datalinks() */
 #define HAVE_PCAP_LIST_DATALINKS 1
 
-/* Define to 1 if you have the <pcap/nflog.h> header file. */
-/* #undef HAVE_PCAP_NFLOG_H */
+/* Define to 1 if you have the `pcap_open' function. */
+/* #undef HAVE_PCAP_OPEN */
+
+/* Define to 1 if you have the <pcap/pcap-inttypes.h> header file. */
+#define HAVE_PCAP_PCAP_INTTYPES_H 1
 
 /* Define to 1 if you have the `pcap_setdirection' function. */
 #define HAVE_PCAP_SETDIRECTION 1
@@ -158,9 +164,6 @@
 
 /* Define to 1 if you have the `pcap_set_tstamp_type' function. */
 #define HAVE_PCAP_SET_TSTAMP_TYPE 1
-
-/* Define to 1 if you have the <pcap/usb.h> header file. */
-#define HAVE_PCAP_USB_H 1
 
 /* define if libpcap has pcap_version */
 /* #undef HAVE_PCAP_VERSION */
@@ -253,49 +256,34 @@
 /* #undef NETINET_ETHER_H_DECLARES_ETHER_NTOHOST */
 
 /* Define to 1 if netinet/if_ether.h declares `ether_ntohost' */
-#define NETINET_IF_ETHER_H_DECLARES_ETHER_NTOHOST /**/
+/* #undef NETINET_IF_ETHER_H_DECLARES_ETHER_NTOHOST */
+
+/* Define to 1 if net/ethernet.h declares `ether_ntohost' */
+#define NET_ETHERNET_H_DECLARES_ETHER_NTOHOST 1
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME ""
+#define PACKAGE_NAME "tcpdump"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING ""
+#define PACKAGE_STRING "tcpdump 4.99.1"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME ""
+#define PACKAGE_TARNAME "tcpdump"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION ""
-
-/* define if the platform doesn't define PRId64 */
-/* #undef PRId64 */
-
-/* define if the platform doesn't define PRIo64 */
-/* #undef PRIo64 */
-
-/* define if the platform doesn't define PRIx64 */
-/* #undef PRIu64 */
-
-/* define if the platform doesn't define PRIu64 */
-/* #undef PRIx64 */
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#define RETSIGTYPE void
-
-/* return value of signal handlers */
-#define RETSIGVAL /**/
+#define PACKAGE_VERSION "4.99.1"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#define TIME_WITH_SYS_TIME 1
+/* Define to 1 if sys/ethernet.h declares `ether_ntohost' */
+/* #undef SYS_ETHERNET_H_DECLARES_ETHER_NTOHOST */
 
 /* define if you have ether_ntohost() and it works */
 #define USE_ETHER_NTOHOST 1
@@ -308,9 +296,6 @@
 
 /* define if should drop privileges by default */
 /* #undef WITH_USER */
-
-/* get BSD semantics on Irix */
-/* #undef _BSD_SIGNALS */
 
 /* define on AIX to get certain functions */
 /* #undef _SUN */
@@ -347,22 +332,6 @@
 /* Define as token for inline if inlining supported */
 #define inline inline
 
-/* Define to the type of a signed integer type of width exactly 16 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef int16_t */
-
-/* Define to the type of a signed integer type of width exactly 32 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef int32_t */
-
-/* Define to the type of a signed integer type of width exactly 64 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef int64_t */
-
-/* Define to the type of a signed integer type of width exactly 8 bits if such
-   a type exists and the standard includes do not define it. */
-/* #undef int8_t */
-
 /* Define to `uint16_t' if u_int16_t not defined. */
 /* #undef u_int16_t */
 
@@ -374,22 +343,6 @@
 
 /* Define to `uint8_t' if u_int8_t not defined. */
 /* #undef u_int8_t */
-
-/* Define to the type of an unsigned integer type of width exactly 16 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef uint16_t */
-
-/* Define to the type of an unsigned integer type of width exactly 32 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef uint32_t */
-
-/* Define to the type of an unsigned integer type of width exactly 64 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef uint64_t */
-
-/* Define to the type of an unsigned integer type of width exactly 8 bits if
-   such a type exists and the standard includes do not define it. */
-/* #undef uint8_t */
 
 /* Define to the type of an unsigned integer type wide enough to hold a
    pointer, if such a type exists, and if the system does not define it. */

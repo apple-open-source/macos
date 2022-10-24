@@ -1,0 +1,17 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-04-28</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>cat.c: remove capsicum support</string>
+		<string>cat.c: remove `cat -v` multibyte support (75696174)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>cat</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-01-20</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/bin/cat?id=81c3f64110bb76e24d6062eafd7206c10f676d6f</string>
+</dict>

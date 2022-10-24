@@ -26,6 +26,9 @@
 
 #include <IOKit/perfcontrol/IOPerfControl.h>
 
+#define IOBlockStorageWorkArgsVersion2        2
+#define IOBlockStorageCurrentWorkArgsVersion  IOBlockStorageWorkArgsVersion2
+
 struct IOBlockStorageWorkFlags
 {
     /* isRead is True for read op */
@@ -36,6 +39,12 @@ struct IOBlockStorageWorkFlags
 
     /* Size of the I/O in bytes */
     uint64_t ioSize{};
+};
+
+struct IOBlockStorageWorkEndArgs
+{
+    /* Timestamp taken after the completion handler has finished */
+    uint64_t postCompletionTime;
 };
 
 #endif /* IOBlockStoragePerfControlExports_h */

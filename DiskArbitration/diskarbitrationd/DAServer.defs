@@ -23,20 +23,29 @@
 
 #include <mach/mach_types.defs>
 #include <mach/std_types.defs>
+#include <TargetConditionals.h>
 
 subsystem DAServer 0;
 
 import <mach/mach.h>;
 import <sys/types.h>;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 import <Security/Authorization.h>;
+#endif
 
 import "DAServer.defs.h";
+
+UseSpecialReplyPort 1;
+
+MsgOption MACH_SEND_PROPAGATE_QOS;
 
 type ___caddr_t                   = c_string [*:1024]   ctype : caddr_t;
 type ___path_t                    = c_string [*:4096]   ctype : ___path_t;
 type ___uid_t                     = int32_t             ctype : uid_t;
 type ___vm_address_t              = array [] of char    ctype : vm_address_t;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 type ___AuthorizationExternalForm = struct [32] of char ctype : AuthorizationExternalForm;
+#endif
 
 routine _DAServerDiskCopyDescription( _session     : mach_port_t;
                                       _disk        : ___caddr_t;
@@ -108,15 +117,10 @@ routine _DAServerSessionRegisterCallback( _session : mach_port_t;
 
 simpleroutine _DAServerSessionRelease( _session : mach_port_t );
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
 simpleroutine _DAServerSessionSetAuthorization( _session       : mach_port_t;
                                                 _authorization : ___AuthorizationExternalForm );
-
-simpleroutine _DAServerSessionSetClientPort( _session : mach_port_t;
-                                             _client  : mach_port_make_send_t );
-
-simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
-                                                  _address : mach_vm_offset_t;
-                                                  _context : mach_vm_offset_t );
 
 routine _DAServermkdir( _session : mach_port_t;
                         _path    : ___path_t;
@@ -125,3 +129,15 @@ routine _DAServermkdir( _session : mach_port_t;
 routine _DAServerrmdir( _session : mach_port_t;
                         _path    : ___path_t;
        ServerAuditToken _token   : audit_token_t );
+#endif
+
+routine _DAServerSessionSetKeepAlive( _session : mach_port_t );
+
+simpleroutine _DAServerSessionSetClientPort( _session : mach_port_t;
+                                             _client  : mach_port_make_send_t );
+
+simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
+                                                  _address : mach_vm_offset_t;
+                                                  _context : mach_vm_offset_t );
+
+

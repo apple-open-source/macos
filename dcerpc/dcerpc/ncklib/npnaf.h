@@ -142,7 +142,7 @@ typedef struct rpc_addr_np_t
     rpc_protseq_id_t        rpc_protseq_id;
     socklen_t               len;
     struct sockaddr_un      sa;
-    char                    remote_host[64];
+    char                    remote_host[PATH_MAX];
 } rpc_np_addr_t, *rpc_np_addr_p_t;
 
 /*

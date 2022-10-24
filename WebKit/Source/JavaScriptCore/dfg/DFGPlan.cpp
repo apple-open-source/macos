@@ -64,6 +64,7 @@
 #include "DFGStoreBarrierClusteringPhase.h"
 #include "DFGStoreBarrierInsertionPhase.h"
 #include "DFGStrengthReductionPhase.h"
+#include "DFGThunks.h"
 #include "DFGTierUpCheckInjectionPhase.h"
 #include "DFGTypeCheckHoistingPhase.h"
 #include "DFGUnificationPhase.h"
@@ -112,6 +113,8 @@ Profiler::CompilationKind profilerCompilationKindForMode(JITCompilationMode mode
         return Profiler::DFG;
     case JITCompilationMode::DFG:
         return Profiler::DFG;
+    case JITCompilationMode::UnlinkedDFG:
+        return Profiler::UnlinkedDFG;
     case JITCompilationMode::FTL:
         return Profiler::FTL;
     case JITCompilationMode::FTLForOSREntry:
@@ -315,7 +318,8 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     }
 
     switch (m_mode) {
-    case JITCompilationMode::DFG: {
+    case JITCompilationMode::DFG:
+    case JITCompilationMode::UnlinkedDFG: {
         dfg.m_fixpointState = FixpointConverged;
 
         RUN_PHASE(performTierUpCheckInjection);
@@ -550,8 +554,9 @@ CompilationResult Plan::finalize()
             m_codeBlock->shrinkToFit(locker, CodeBlock::ShrinkMode::LateShrink);
         }
 
-        // Since Plan::reallyAdd could fire watchpoints (see ArrayBufferViewWatchpointAdaptor::add), it is possible that the current CodeBlock is now invalidated.
-        if (!m_codeBlock->jitCode()->dfgCommon()->isStillValid) {
+        // Since Plan::reallyAdd could fire watchpoints (see ArrayBufferViewWatchpointAdaptor::add),
+        // it is possible that the current CodeBlock is now invalidated & jettisoned.
+        if (m_codeBlock->isJettisoned()) {
             CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
             return CompilationInvalidated;
         }
@@ -562,7 +567,7 @@ CompilationResult Plan::finalize()
             for (WriteBarrier<JSCell>& reference : m_codeBlock->jitCode()->dfgCommon()->m_weakReferences)
                 trackedReferences.add(reference.get());
             for (StructureID structureID : m_codeBlock->jitCode()->dfgCommon()->m_weakStructureReferences)
-                trackedReferences.add(m_vm->getStructure(structureID));
+                trackedReferences.add(structureID.decode());
             for (WriteBarrier<Unknown>& constant : m_codeBlock->constants())
                 trackedReferences.add(constant.get());
 
@@ -676,6 +681,14 @@ void Plan::cleanMustHandleValuesIfNecessary()
         if (!liveness[local])
             m_mustHandleValues.local(local) = std::nullopt;
     }
+}
+
+std::unique_ptr<JITData> Plan::finalizeJITData(const JITCode& jitCode)
+{
+    auto osrExitThunk = m_vm->getCTIStub(osrExitGenerationThunkGenerator).retagged<OSRExitPtrTag>();
+    auto exits = JITData::ExitVector::createWithSizeAndConstructorArguments(jitCode.m_osrExit.size(), osrExitThunk);
+    auto jitData = JITData::create(jitCode, WTFMove(exits));
+    return jitData;
 }
 
 } } // namespace JSC::DFG

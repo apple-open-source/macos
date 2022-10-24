@@ -99,13 +99,6 @@ __BEGIN_DECLS
 
 #pragma GCC visibility push(hidden)
 
-#if CONFIG_GZALLOC
-typedef struct gzalloc_data {
-	uint32_t        gzfc_index;
-	vm_offset_t     *gzfc;
-} gzalloc_data_t;
-#endif
-
 /*
  *	A zone is a collection of fixed size blocks for which there
  *	is fast allocation/deallocation access.  Kernel routines can
@@ -148,6 +141,55 @@ struct zone_stats {
 
 STAILQ_HEAD(zone_depot, zone_magazine);
 
+/* see https://lemire.me/blog/2019/02/20/more-fun-with-fast-remainders-when-the-divisor-is-a-constant/ */
+#define Z_MAGIC_QUO(s)      (((1ull << 32) - 1) / (uint64_t)(s) + 1)
+#define Z_MAGIC_ALIGNED(s)  (~0u / (uint32_t)(s) + 1)
+
+/*
+ * Returns (offs / size) if offs is small enough
+ * and magic = Z_MAGIC_QUO(size)
+ */
+static inline uint32_t
+Z_FAST_QUO(uint64_t offs, uint64_t magic)
+{
+	return (offs * magic) >> 32;
+}
+
+/*
+ * Returns (offs % size) if offs is small enough
+ * and magic = Z_MAGIC_QUO(size)
+ */
+static inline uint32_t
+Z_FAST_MOD(uint64_t offs, uint64_t magic, uint64_t size)
+{
+	uint32_t lowbits = (uint32_t)(offs * magic);
+
+	return (lowbits * size) >> 32;
+}
+
+/*
+ * Returns whether (offs % size) == 0 if offs is small enough
+ * and magic = Z_MAGIC_ALIGNED(size)
+ */
+static inline bool
+Z_FAST_ALIGNED(uint64_t offs, uint32_t magic)
+{
+	return (uint32_t)(offs * magic) < magic;
+}
+
+struct zone_size_params {
+	uint32_t            z_align_magic;  /* magic to use with Z_FAST_ALIGNED()  */
+	uint32_t            z_elem_size;    /* size of an element                  */
+};
+
+struct zone_expand {
+	struct zone_expand *ze_next;
+	thread_t            ze_thread;
+	bool                ze_pg_wait;
+	bool                ze_vm_priv;
+	bool                ze_clear_priv;
+};
+
 struct zone {
 	/*
 	 * Readonly / rarely written fields
@@ -164,23 +206,23 @@ struct zone {
 	const char         *z_name;
 	struct zone_view   *z_views;
 
-	struct thread      *z_expander;
+	struct zone_expand *z_expander;
 	struct zone_cache  *__zpercpu z_pcpu_cache;
 
-	uint16_t            z_chunk_pages;  /* size used for more memory in pages  */
-	uint16_t            z_chunk_elems;  /* count of allocations per chunk      */
-	uint16_t            z_elems_rsv;    /* maintain a free reserve of elements */
-	uint16_t            z_elem_size;    /* size of an element                  */
-	uint16_t            z_pgz_oob_offs; /* element initial offset              */
+	uint64_t            z_quo_magic;
+	uint32_t            z_align_magic;
+	uint16_t            z_elem_size;
+	uint16_t            z_elem_offs;
+	uint16_t            z_chunk_pages;
+	uint16_t            z_chunk_elems;
 
-	uint64_t /* 48 bits */
+	uint32_t /* 32 bits */
 	/*
 	 * Lifecycle state (Mutable after creation)
 	 */
 	    z_destroyed        :1,  /* zone is (being) destroyed */
 	    z_async_refilling  :1,  /* asynchronous allocation pending? */
 	    z_expanding_wait   :1,  /* is thread waiting for expansion? */
-	    z_expander_vm_priv :1,  /* a vm privileged thread is expanding */
 
 	/*
 	 * Behavior configuration bits
@@ -194,7 +236,7 @@ struct zone {
 	    no_callout         :1,
 	    z_destructible     :1,  /* zone can be zdestroy()ed  */
 
-	    _reserved          :19,
+	    _reserved          :6,
 
 	/*
 	 * Debugging features
@@ -202,8 +244,6 @@ struct zone {
 	    alignment_required :1,  /* element alignment needs to be preserved */
 	    z_pgz_tracked      :1,  /* this zone is tracked by pgzalloc */
 	    z_pgz_use_guards   :1,  /* this zone uses guards with PGZ */
-	    z_gzalloc_tracked  :1,  /* this zone is tracked by gzalloc */
-	    z_nogzalloc        :1,  /* this zone doesn't participate with (p)gzalloc */
 	    kasan_fakestacks   :1,
 	    kasan_noquarantine :1,  /* whether to use the kasan quarantine */
 	    z_tags_sizeclass   :6,  /* idx into zone_tags_sizeclasses to associate
@@ -277,10 +317,9 @@ struct zone {
 	uint32_t            z_elems_free_min;
 	uint32_t            z_elems_free;   /* Number of free elements             */
 	uint32_t            z_elems_avail;  /* Number of elements available        */
+	uint32_t            z_elems_rsv;
+	uint32_t            z_array_size_class;
 
-#if CONFIG_GZALLOC
-	gzalloc_data_t      gz;
-#endif
 #if KASAN_ZALLOC
 	uint32_t            z_kasan_redzone;
 	spl_t               z_kasan_spl;
@@ -298,9 +337,10 @@ struct zone {
 	struct btlog       *z_btlog;
 	struct btlog       *z_btlog_disabled;
 #endif
-#if DEBUG || DEVELOPMENT
+#if KASAN_TBI
+	struct btlog       *z_btlog_kasan;
+#endif /* KASAN_TBI */
 	struct zone        *z_kt_next;
-#endif
 };
 
 /*!
@@ -355,7 +395,7 @@ typedef struct zone_security_flags {
  * not break third party kexts that haven't yet been recompiled
  * to use the new iokit macros.
  */
-#if PLATFORM_MacOSX && __x86_64__
+#if XNU_PLATFORM_MacOSX && __x86_64__
 #   define ZSECURITY_CONFIG_STRICT_IOKIT_FREE           OFF
 #else
 #   define ZSECURITY_CONFIG_STRICT_IOKIT_FREE           ON
@@ -502,14 +542,19 @@ struct kt_heap_zones {
 	struct kalloc_type_var_view    *views;
 };
 
+typedef union kalloc_type_views {
+	struct kalloc_type_view     *ktv_fixed;
+	struct kalloc_type_var_view *ktv_var;
+} kalloc_type_views_t;
+
 #define KT_VAR_MAX_HEAPS 8
 #define MAX_ZONES       650
 extern struct kt_heap_zones     kalloc_type_heap_array[KT_VAR_MAX_HEAPS];
 extern zone_id_t _Atomic        num_zones;
 extern uint32_t                 zone_view_count;
-extern struct zone              zone_array[];
+extern struct zone              zone_array[MAX_ZONES];
+extern struct zone_size_params  zone_ro_size_params[ZONE_ID__LAST_RO + 1];
 extern zone_security_flags_t    zone_security_array[];
-extern uint16_t                 zone_ro_elem_size[];
 extern const char * const       kalloc_heap_names[KHEAP_ID_COUNT];
 extern mach_memory_info_t      *panic_kext_memory_info;
 extern vm_size_t                panic_kext_memory_size;
@@ -529,14 +574,26 @@ __abortlike
 extern void zone_invalid_panic(zone_t zone);
 
 __pure2
+static inline zone_t
+zone_by_id(size_t zid)
+{
+	return (zone_t)((uintptr_t)zone_array + zid * sizeof(struct zone));
+}
+
+__pure2
 static inline zone_id_t
 zone_index(zone_t z)
 {
-	zone_id_t zid = (zone_id_t)(z - zone_array);
-	if (__improbable(zid >= MAX_ZONES)) {
+	unsigned long delta;
+	uint64_t quo;
+
+	delta = (unsigned long)z - (unsigned long)zone_array;
+	if (delta >= MAX_ZONES * sizeof(*z)) {
 		zone_invalid_panic(z);
 	}
-	return zid;
+	quo = Z_FAST_QUO(delta, Z_MAGIC_QUO(sizeof(*z)));
+	__builtin_assume(quo < MAX_ZONES);
+	return (zone_id_t)quo;
 }
 
 __pure2
@@ -547,13 +604,6 @@ zone_is_ro(zone_t zone)
 	       zone <= &zone_array[ZONE_ID__LAST_RO];
 }
 
-__pure2
-static inline vm_offset_t
-zone_elem_size_ro(zone_id_t zid)
-{
-	return zone_ro_elem_size[zid];
-}
-
 static inline bool
 zone_addr_size_crosses_page(mach_vm_address_t addr, mach_vm_size_t size)
 {
@@ -562,15 +612,9 @@ zone_addr_size_crosses_page(mach_vm_address_t addr, mach_vm_size_t size)
 
 __pure2
 static inline uint16_t
-zone_oob_offs(zone_t zone)
+zone_elem_offs(zone_t zone)
 {
-	uint16_t offs = 0;
-#if ZSECURITY_CONFIG(PGZ_OOB_ADJUST)
-	offs = zone->z_pgz_oob_offs;
-#else
-	(void)zone;
-#endif
-	return offs;
+	return zone->z_elem_offs;
 }
 
 __pure2
@@ -578,17 +622,6 @@ static inline vm_offset_t
 zone_elem_size(zone_t zone)
 {
 	return zone->z_elem_size;
-}
-
-__pure2
-static inline vm_offset_t
-zone_elem_size_safe(zone_t zone)
-{
-	if (zone_is_ro(zone)) {
-		zone_id_t zid = zone_index(zone);
-		return zone_elem_size_ro(zid);
-	}
-	return zone_elem_size(zone);
 }
 
 __pure2
@@ -766,6 +799,12 @@ extern bool     zone_maps_owned(
 	vm_address_t    addr,
 	vm_size_t       size);
 
+#if KASAN_LIGHT
+extern bool     kasan_zone_maps_owned(
+	vm_address_t    addr,
+	vm_size_t       size);
+#endif /* KASAN_LIGHT */
+
 extern void     zone_map_sizes(
 	vm_map_size_t  *psize,
 	vm_map_size_t  *pfree,
@@ -786,11 +825,10 @@ zalloc_flags_get_tag(zalloc_flags_t flags)
 	return (vm_tag_t)((flags & Z_VM_TAG_MASK) >> Z_VM_TAG_SHIFT);
 }
 
-extern void    *zalloc_ext(
+extern struct kalloc_result zalloc_ext(
 	zone_t          zone,
 	zone_stats_t    zstats,
-	zalloc_flags_t  flags,
-	vm_size_t       elem_size);
+	zalloc_flags_t  flags);
 
 extern void     zfree_ext(
 	zone_t          zone,
@@ -804,9 +842,14 @@ extern zone_id_t zone_id_for_element(
 
 #if ZSECURITY_CONFIG(PGZ_OOB_ADJUST)
 extern void *zone_element_pgz_oob_adjust(
-	struct kalloc_result kr,
+	void           *addr,
+	vm_size_t       req_size,
 	vm_size_t       elem_size);
 #endif /* !ZSECURITY_CONFIG(PGZ_OOB_ADJUST) */
+
+extern void zone_element_bounds_check(
+	vm_address_t    addr,
+	vm_size_t       len);
 
 extern vm_size_t zone_element_size(
 	void           *addr,
@@ -951,17 +994,6 @@ zone_unlock(zone_t zone)
 #endif /* KASAN_ZALLOC */
 }
 
-#if CONFIG_GZALLOC
-void gzalloc_init(void);
-void gzalloc_zone_init(zone_t);
-void gzalloc_empty_free_cache(zone_t);
-boolean_t gzalloc_enabled(void);
-
-vm_offset_t gzalloc_alloc(zone_t, zone_stats_t zstats, zalloc_flags_t flags);
-void gzalloc_free(zone_t, zone_stats_t zstats, void *);
-boolean_t gzalloc_element_size(void *, zone_t *, vm_size_t *);
-#endif /* CONFIG_GZALLOC */
-
 #define MAX_ZONE_NAME   32      /* max length of a zone name we can take from the boot-args */
 
 int track_this_zone(const char *zonename, const char *logname);
@@ -971,9 +1003,6 @@ extern zone_t kalloc_type_dst_zone;
 
 #if DEBUG || DEVELOPMENT
 extern vm_size_t zone_element_info(void *addr, vm_tag_t * ptag);
-extern bool zalloc_disable_copyio_check;
-#else
-#define zalloc_disable_copyio_check false
 #endif /* DEBUG || DEVELOPMENT */
 
 #pragma GCC visibility pop

@@ -533,7 +533,7 @@ static JSObjectRef objCCallbackFunctionCallAsConstructor(JSContextRef callerCont
     return const_cast<JSObjectRef>(result);
 }
 
-const JSC::ClassInfo ObjCCallbackFunction::s_info = { "CallbackFunction", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(ObjCCallbackFunction) };
+const JSC::ClassInfo ObjCCallbackFunction::s_info = { "CallbackFunction"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(ObjCCallbackFunction) };
 
 static JSC_DECLARE_HOST_FUNCTION(callObjCCallbackFunction);
 static JSC_DECLARE_HOST_FUNCTION(constructObjCCallbackFunction);
@@ -574,10 +574,10 @@ void ObjCCallbackFunction::destroy(JSCell* cell)
 String ObjCCallbackFunctionImpl::name()
 {
     if (m_type == CallbackInitMethod)
-        return class_getName(m_instanceClass.get());
+        return String::fromLatin1(class_getName(m_instanceClass.get()));
     // FIXME: Maybe we could support having the selector as the name of the non-init 
     // functions to make it a bit more user-friendly from the JS side?
-    return "";
+    return emptyString();
 }
 
 JSValueRef ObjCCallbackFunctionImpl::call(JSContext *context, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -752,9 +752,9 @@ JSObjectRef objCCallbackFunctionForBlock(JSContext *context, id target)
     return objCCallbackFunctionForInvocation(context, invocation, CallbackBlock, nil, signature);
 }
 
-id tryUnwrapConstructor(JSC::VM* vm, JSObjectRef object)
+id tryUnwrapConstructor(JSObjectRef object)
 {
-    if (!toJS(object)->inherits<JSC::ObjCCallbackFunction>(*vm))
+    if (!toJS(object)->inherits<JSC::ObjCCallbackFunction>())
         return nil;
     JSC::ObjCCallbackFunctionImpl* impl = static_cast<JSC::ObjCCallbackFunction*>(toJS(object))->impl();
     if (!impl->isConstructible())

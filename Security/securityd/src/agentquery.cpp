@@ -49,6 +49,8 @@
 // Includes for <rdar://problem/34677969> Always require the user's password on keychain approval dialogs
 #include "server.h"
 
+#import "utilities/SecCoreAnalytics.h"
+
 #define SECURITYAGENT_BOOTSTRAP_NAME_BASE               "com.apple.security.agent"
 #define SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE   "com.apple.security.agent.login"
 
@@ -521,9 +523,12 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 	// keychain name into hints
 	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? (uint32_t)strlen(database) : 0, const_cast<char*>(database))));
 
+    Process &thisprocess = Server::process();
+
 	if (mPassphraseCheck)
 	{
 		create("builtin", "confirm-access-password");
+        SecCoreAnalyticsSendLegacyKeychainUIEvent("QueryKeychainUse::queryUser", thisprocess.getPath().c_str());
 
 		CssmAutoData data(Allocator::standard(Allocator::sensitive));
 
@@ -579,6 +584,8 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 //        create("builtin", "confirm-access");
 //        setInput(hints, context);
 //        invoke();
+
+        SecCoreAnalyticsSendLegacyKeychainUIEvent("QueryKeychainUse::queryUser (fallback)", thisprocess.getPath().c_str());
         
         // This is a hack to support <rdar://problem/34677969>, we can never simply prompt for confirmation
         secerror("ACL validation fallback case! Must ask user for account password because we have no database");
@@ -940,7 +947,7 @@ Reason QueryNewPassphrase::accept(CssmManagedData &passphrase, CssmData *oldPass
 	if (oldPassphrase && !safer_cast<KeychainDatabase&>(database).validatePassphrase(*oldPassphrase))
 		return SecurityAgent::oldPassphraseWrong;
 
-	// sanity check the new passphrase (but allow user override)
+	// Validate the new passphrase (but allow user override)
 	if (!(mPassphraseValid && passphrase.get() == mPassphrase)) {
 		mPassphrase = passphrase;
         if (oldPassphrase) mOldPassphrase = *oldPassphrase;
@@ -1100,6 +1107,9 @@ QueryKeychainAuth::performQuery(const KeychainDatabase& db, const char *descript
 
     AuthItem *usernameItem;
     AuthItem *passwordItem;
+
+    Process &thisprocess = Server::process();
+    SecCoreAnalyticsSendLegacyKeychainUIEvent("QueryKeychainAuth::performQuery", thisprocess.getPath().c_str());
 
     // This entire do..while requires the UI lock because we do accept() in the condition, which in some cases is reentrant
     StSyncLock<Mutex, Mutex> syncLock(db.common().uiLock(), db.common());

@@ -41,7 +41,6 @@
 #include "webdav_network.h"
 #include "webdav_utils.h"
 #include "webdav_cookie.h"
-#include "EncodedSourceID.h"
 #include "LogMessage.h"
 
 extern char *CopyCFStringToCString(CFStringRef theString);

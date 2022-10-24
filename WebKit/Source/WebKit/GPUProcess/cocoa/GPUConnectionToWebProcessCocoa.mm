@@ -28,6 +28,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#import "Logging.h"
 #import "MediaPermissionUtilities.h"
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/RealtimeMediaSourceCenter.h>
@@ -49,8 +50,10 @@ namespace WebKit {
 bool GPUConnectionToWebProcess::setCaptureAttributionString()
 {
 #if HAVE(SYSTEM_STATUS)
-    if (![PAL::getSTDynamicActivityAttributionPublisherClass() respondsToSelector:@selector(setCurrentAttributionStringWithFormat:auditToken:)])
+    if (![PAL::getSTDynamicActivityAttributionPublisherClass() respondsToSelector:@selector(setCurrentAttributionStringWithFormat:auditToken:)]
+        && ![PAL::getSTDynamicActivityAttributionPublisherClass() respondsToSelector:@selector(setCurrentAttributionWebsiteString:auditToken:)]) {
         return true;
+    }
 
     auto auditToken = gpuProcess().parentProcessConnection()->getAuditToken();
     if (!auditToken)
@@ -60,9 +63,12 @@ bool GPUConnectionToWebProcess::setCaptureAttributionString()
     if (!visibleName)
         visibleName = gpuProcess().applicationVisibleName();
 
-    RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_NSSTRING(@"“%@” in “%%@”", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
-
-    [PAL::getSTDynamicActivityAttributionPublisherClass() setCurrentAttributionStringWithFormat:formatString.get() auditToken:auditToken.value()];
+    if ([PAL::getSTDynamicActivityAttributionPublisherClass() respondsToSelector:@selector(setCurrentAttributionWebsiteString:auditToken:)])
+        [PAL::getSTDynamicActivityAttributionPublisherClass() setCurrentAttributionWebsiteString:visibleName auditToken:auditToken.value()];
+    else {
+        RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_NSSTRING(@"%@ in %%@", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
+        [PAL::getSTDynamicActivityAttributionPublisherClass() setCurrentAttributionStringWithFormat:formatString.get() auditToken:auditToken.value()];
+    }
 #endif
 
     return true;
@@ -74,17 +80,23 @@ void GPUConnectionToWebProcess::setTCCIdentity()
 {
 #if !PLATFORM(MACCATALYST)
     auto auditToken = gpuProcess().parentProcessConnection()->getAuditToken();
-    if (!auditToken)
+    if (!auditToken) {
+        RELEASE_LOG_ERROR(WebRTC, "getAuditToken returned null");
         return;
+    }
 
     NSError *error = nil;
     auto bundleProxy = [LSBundleProxy bundleProxyWithAuditToken:*auditToken error:&error];
-    if (error)
+    if (error) {
+        RELEASE_LOG_ERROR(WebRTC, "-[LSBundleProxy bundleProxyWithAuditToken:error:] failed with error %s", [[error localizedDescription] UTF8String]);
         return;
+    }
 
     auto identity = adoptOSObject(tcc_identity_create(TCC_IDENTITY_CODE_BUNDLE_ID, [bundleProxy.bundleIdentifier UTF8String]));
-    if (!identity)
+    if (!identity) {
+        RELEASE_LOG_ERROR(WebRTC, "tcc_identity_create returned null");
         return;
+    }
 
     WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(WTFMove(identity));
 #endif // !PLATFORM(MACCATALYST)

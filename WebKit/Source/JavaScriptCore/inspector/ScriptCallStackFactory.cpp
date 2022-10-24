@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  * Copyright (c) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
@@ -51,11 +51,11 @@ public:
     {
     }
 
-    StackVisitor::Status operator()(StackVisitor& visitor) const
+    IterationStatus operator()(StackVisitor& visitor) const
     {
         if (m_needToSkipAFrame) {
             m_needToSkipAFrame = false;
-            return StackVisitor::Continue;
+            return IterationStatus::Continue;
         }
 
         if (m_remainingCapacityForFrameCapture) {
@@ -65,10 +65,10 @@ public:
             m_frames.append(ScriptCallFrame(visitor->functionName(), visitor->sourceURL(), visitor->sourceID(), line, column));
 
             m_remainingCapacityForFrameCapture--;
-            return StackVisitor::Continue;
+            return IterationStatus::Continue;
         }
 
-        return StackVisitor::Done;
+        return IterationStatus::Done;
     }
 
 private:
@@ -124,10 +124,10 @@ static bool extractSourceInformationFromException(JSC::JSGlobalObject* globalObj
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
     // FIXME: <http://webkit.org/b/115087> Web Inspector: Should not need to evaluate JavaScript handling exceptions
-    JSValue lineValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "line"));
-    JSValue columnValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "column"));
-    JSValue sourceURLValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "sourceURL"));
-    
+    JSValue lineValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "line"_s));
+    JSValue columnValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "column"_s));
+    JSValue sourceURLValue = exceptionObject->getDirect(vm, Identifier::fromString(vm, "sourceURL"_s));
+
     bool result = false;
     if (lineValue && lineValue.isNumber()
         && sourceURLValue && sourceURLValue.isString()) {
@@ -135,17 +135,17 @@ static bool extractSourceInformationFromException(JSC::JSGlobalObject* globalObj
         *columnNumber = columnValue && columnValue.isNumber() ? int(columnValue.toNumber(globalObject)) : 0;
         *sourceURL = sourceURLValue.toWTFString(globalObject);
         result = true;
-    } else if (ErrorInstance* error = jsDynamicCast<ErrorInstance*>(vm, exceptionObject)) {
+    } else if (ErrorInstance* error = jsDynamicCast<ErrorInstance*>(exceptionObject)) {
         unsigned unsignedLine;
         unsigned unsignedColumn;
-        result = getLineColumnAndSource(error->stackTrace(), unsignedLine, unsignedColumn, *sourceURL);
+        result = getLineColumnAndSource(vm, error->stackTrace(), unsignedLine, unsignedColumn, *sourceURL);
         *lineNumber = static_cast<int>(unsignedLine);
         *columnNumber = static_cast<int>(unsignedColumn);
     }
-    
+
     if (sourceURL->isEmpty())
         *sourceURL = "undefined"_s;
-    
+
     scope.clearException();
     return result;
 }
@@ -160,7 +160,7 @@ Ref<ScriptCallStack> createScriptCallStackFromException(JSC::JSGlobalObject* glo
         unsigned column;
         stackTrace[i].computeLineAndColumn(line, column);
         String functionName = stackTrace[i].functionName(vm);
-        frames.append(ScriptCallFrame(functionName, stackTrace[i].sourceURL(), stackTrace[i].sourceID(), line, column));
+        frames.append(ScriptCallFrame(functionName, stackTrace[i].sourceURL(vm), stackTrace[i].sourceID(), line, column));
     }
 
     // Fallback to getting at least the line and sourceURL from the exception object if it has values and the exceptionStack doesn't.
@@ -179,7 +179,7 @@ Ref<ScriptCallStack> createScriptCallStackFromException(JSC::JSGlobalObject* glo
             // example - it uses firstNonNativeCallFrame). This looks like it splats something else
             // over it. That something else is probably already at stackTrace[1].
             // https://bugs.webkit.org/show_bug.cgi?id=176663
-            if (!stackTrace[0].hasLineAndColumnInfo() || stackTrace[0].sourceURL().isEmpty()) {
+            if (!stackTrace[0].hasLineAndColumnInfo() || stackTrace[0].sourceURL(vm).isEmpty()) {
                 const ScriptCallFrame& firstCallFrame = frames.first();
                 if (extractSourceInformationFromException(globalObject, exceptionObject, &lineNumber, &columnNumber, &exceptionSourceURL))
                     frames[0] = ScriptCallFrame(firstCallFrame.functionName(), exceptionSourceURL, stackTrace[0].sourceID(), lineNumber, columnNumber);

@@ -201,9 +201,14 @@ rip_input(struct mbuf *m, int iphlen)
 	struct mbuf *opts = 0;
 	int skipit = 0, ret = 0;
 	struct ifnet *ifp = m->m_pkthdr.rcvif;
+	boolean_t is_wake_pkt = false;
 
 	/* Expect 32-bit aligned data pointer on strict-align platforms */
 	MBUF_STRICT_DATA_ALIGNMENT_CHECK_32(m);
+
+	if ((m->m_flags & M_PKTHDR) && (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT)) {
+		is_wake_pkt = true;
+	}
 
 	ripsrc.sin_addr = ip->ip_src;
 	lck_rw_lock_shared(&ripcbinfo.ipi_lock);
@@ -242,9 +247,7 @@ rip_input(struct mbuf *m, int iphlen)
 				int error = 0;
 				if ((last->inp_flags & INP_CONTROLOPTS) != 0 ||
 				    SOFLOW_ENABLED(last->inp_socket) ||
-				    (last->inp_socket->so_options & SO_TIMESTAMP) != 0 ||
-				    (last->inp_socket->so_options & SO_TIMESTAMP_MONOTONIC) != 0 ||
-				    (last->inp_socket->so_options & SO_TIMESTAMP_CONTINUOUS) != 0) {
+				    SO_RECV_CONTROL_OPTS(last->inp_socket)) {
 					ret = ip_savecontrol(last, &opts, ip, n);
 					if (ret != 0) {
 						m_freem(n);
@@ -276,6 +279,10 @@ rip_input(struct mbuf *m, int iphlen)
 						ipstat.ips_raw_sappend_fail++;
 					}
 				}
+				if (is_wake_pkt) {
+					soevent(last->in6p_socket,
+					    SO_FILT_HINT_LOCKED | SO_FILT_HINT_WAKE_PKT);
+				}
 				opts = 0;
 			}
 		}
@@ -296,9 +303,7 @@ rip_input(struct mbuf *m, int iphlen)
 		if (last) {
 			if ((last->inp_flags & INP_CONTROLOPTS) != 0 ||
 			    SOFLOW_ENABLED(last->inp_socket) ||
-			    (last->inp_socket->so_options & SO_TIMESTAMP) != 0 ||
-			    (last->inp_socket->so_options & SO_TIMESTAMP_MONOTONIC) != 0 ||
-			    (last->inp_socket->so_options & SO_TIMESTAMP_CONTINUOUS) != 0) {
+			    SO_RECV_CONTROL_OPTS(last->inp_socket)) {
 				ret = ip_savecontrol(last, &opts, ip, m);
 				if (ret != 0) {
 					m_freem(m);
@@ -324,6 +329,10 @@ rip_input(struct mbuf *m, int iphlen)
 				sorwakeup(last->inp_socket);
 			} else {
 				ipstat.ips_raw_sappend_fail++;
+			}
+			if (is_wake_pkt) {
+				soevent(last->in6p_socket,
+				    SO_FILT_HINT_LOCKED | SO_FILT_HINT_WAKE_PKT);
 			}
 		} else {
 			m_freem(m);
@@ -478,7 +487,8 @@ rip_output(
 	ipoa.ipoa_netsvctype = netsvctype;
 
 	if (inp->inp_flowhash == 0) {
-		inp->inp_flowhash = inp_calc_flowhash(inp);
+		inp_calc_flowhash(inp);
+		ASSERT(inp->inp_flowhash != 0);
 	}
 
 	/*

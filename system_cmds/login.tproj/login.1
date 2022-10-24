@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)login.1	8.2 (Berkeley) 5/5/94
-.\" $FreeBSD: src/usr.bin/login/login.1,v 1.33 2007/11/30 11:02:36 philip Exp $
+.\" $FreeBSD$
 .\"
-.Dd September 13, 2006
+.Dd July 20, 2019
 .Dt LOGIN 1
 .Os
 .Sh NAME
@@ -40,7 +36,8 @@
 .Nd log into the computer
 .Sh SYNOPSIS
 .Nm
-.Op Fl pq
+.\" .Op Fl fp
+.Op Fl fpq
 .Op Fl h Ar hostname
 .Op Ar user
 .Nm
@@ -100,11 +97,21 @@ This forces quiet logins, as if a
 .Pa .hushlogin
 is present.
 .El
+.\" .Pp
+.\" Login access can be controlled via
+.\" .Xr login.access 5
+.\" or the login class in
+.\" .Xr login.conf 5 ,
+.\" which provides
+.\" allow and deny records based on time, tty and remote host name.
 .Pp
 If the file
+.\" .Pa /etc/fbtab
 .Pa /etc/nologin
 exists,
 .Nm
+.\" changes the protection and ownership of certain devices specified in this
+.\" file.
 dislays its contents to the user and exits.
 This is used by
 .Xr shutdown  8
@@ -117,6 +124,7 @@ logged in, the message of the day as well as other information.
 If the file
 .Pa .hushlogin
 exists in the user's home directory, all of these messages are suppressed.
+If
 .Fl q
 is specified, all of these messages are suppressed.
 This is to simplify logins for non-human users, such as
@@ -136,6 +144,12 @@ utility enters information into the environment (see
 specifying the user's home directory (HOME), command interpreter (SHELL),
 search path (PATH), terminal type (TERM) and user name (both LOGNAME and
 USER).
+.\" Other environment variables may be set due to entries in the login
+.\" class capabilities database, for the login class assigned in the
+.\" user's system passwd record.
+.\" The login class also controls the maximum and current process resource
+.\" limits granted to a login, process priorities and many other aspects of
+.\" a user's login environment.
 .Pp
 Some shells may provide a builtin
 .Nm
@@ -151,7 +165,13 @@ Failure to determine the current auditing state will
 result in an error exit from
 .Nm .
 .Sh FILES
+.\" .Bl -tag -width ".Pa /etc/security/audit_control" -compact
 .Bl -tag -width /var/mail/userXXX -compact
+.\" .It Pa /etc/fbtab
+.\" changes device protections
+.\" .It Pa /etc/login.conf
+.\" login class capabilities database
+.\" .It Pa /var/run/motd
 .It Pa /etc/motd
 message-of-the-day
 .It Pa /etc/nologin
@@ -173,10 +193,14 @@ global flags for auditing
 .Sh SEE ALSO
 .Xr builtin 1 ,
 .Xr chpass 1 ,
+.Xr csh 1 ,
 .Xr newgrp 1 ,
 .Xr passwd 1 ,
 .Xr rlogin 1 ,
 .Xr getpass 3 ,
+.\" .Xr fbtab 5 ,
+.\" .Xr login.access 5 ,
+.\" .Xr login.conf 5 ,
 .Xr utmpx 5 ,
 .Xr environ 7
 .Sh HISTORY

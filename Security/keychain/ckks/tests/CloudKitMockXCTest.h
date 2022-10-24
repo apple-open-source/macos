@@ -52,6 +52,105 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSReachabilityTracker;
 @class SOSCKKSPeerAdapter;
 
+@interface CloudKitAccount : NSObject
+@property (strong, retain) NSString* altDSID;
+@property (strong, retain) NSString* appleAccountID;
+@property (strong, retain) NSString* persona;
+@property bool hsa2;
+@property bool demo;
+@property bool isPrimary;
+@property bool isDataSeparated;
+
+@property CKAccountStatus accountStatus;
+@property (nullable) NSError* ckAccountStatusFetchError;
+@property BOOL iCloudHasValidCredentials;
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus;
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                 appleAccountID:(NSString*)appleAccountID
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus;
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                 appleAccountID:(NSString*)appleAccountID
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+                      isPrimary:(bool)isPrimary
+                isDataSeparated:(bool)isDataSeparated;
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+                      isPrimary:(bool)isPrimary
+                isDataSeparated:(bool)isDataSeparated;
+@end
+
+@interface CKKSTestsMockAccountsAuthKitAdapter : NSObject<OTAccountsAdapter, OTAuthKitAdapter>
+@property (strong, retain) NSMutableDictionary<NSString*, CloudKitAccount*>* accounts; /* AltDSID to CloudKitAccount */
+@property bool injectAuthErrorsAtFetchTime;
+@property NSString* currentMachineID;
+@property NSMutableSet<NSString*>* otherDevices;
+@property NSMutableSet<NSString*>* excludeDevices;
+@property NSMutableArray<NSError*>* machineIDFetchErrors;
+@property (nullable) CKKSCondition* fetchCondition;
+@property uint64_t fetchInvocations;
+@property CKKSListenerCollection<OTAuthKitAdapterNotifier>* listeners;
+
+-(instancetype)initWithAltDSID:(NSString* _Nullable)altDSID machineID:(NSString*)machineID otherDevices:(NSSet<NSString*>*)otherDevices;
+
++ (TPSpecificUser* _Nullable)userForAuthkit:(CKKSTestsMockAccountsAuthKitAdapter*)authkit
+                              containerName:(NSString*)containerName
+                                  contextID:(NSString*)contextID
+                                      error:(NSError**)error;
+
+- (TPSpecificUser * _Nullable)findAccountForCurrentThread:(nonnull id<OTPersonaAdapter>)personaAdapter
+                                          optionalAltDSID:(NSString * _Nullable)altDSID
+                                    cloudkitContainerName:(nonnull NSString *)cloudkitContainerName
+                                         octagonContextID:(nonnull NSString *)octagonContextID
+                                                    error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
+
+- (NSArray<TPSpecificUser *> * _Nullable)inflateAllTPSpecificUsers:(nonnull NSString *)cloudkitContainerName
+                                                  octagonContextID:(nonnull NSString *)octagonContextID;
+
+
+- (CloudKitAccount* _Nullable)accountForAltDSID:(NSString*)altDSID;
+
+- (BOOL)accountIsDemoAccountByAltDSID:(nonnull NSString *)altDSID error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
+- (BOOL)accountIsHSA2ByAltDSID:(nonnull NSString *)altDSID;
+
+- (NSSet<NSString*>*)currentDeviceList;
+- (void)fetchCurrentDeviceListByAltDSID:(nonnull NSString *)altDSID
+                                  reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))complete;
+- (NSString * _Nullable)machineID:(NSError *__autoreleasing  _Nullable * _Nullable)error;
+
+- (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;
+
+- (CloudKitAccount* _Nullable)primaryAccount;
+- (NSString* _Nullable) primaryAltDSID;
+- (void)add:(CloudKitAccount*) account;
+- (void)removeAccountForPersona:(NSString*)persona;
+- (void)removePrimaryAccount;
+
+- (void)sendIncompleteNotification;
+- (void)addAndSendNotification:(NSString*)machineID;
+- (void)sendAddNotification:(NSString*)machineID altDSID:(NSString*)altDSID;
+- (void)removeAndSendNotification:(NSString*)machineID;
+- (void)sendRemoveNotification:(NSString*)machineID altDSID:(NSString*)altDSID;
+
+@end
+
+
 @interface CKKSTestFailureLogger : NSObject <XCTestObservation>
 @end
 
@@ -68,9 +167,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) id mockFakeCKFetchRecordZoneChangesOperation;
 @property (nullable) id mockFakeCKFetchRecordsOperation;
 @property (nullable) id mockFakeCKQueryOperation;
-
 @property (nullable) id mockAccountStateTracker;
-
+@property (nullable) CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 @property (nullable) id mockTTR;
 @property BOOL isTTRRatelimited;
 @property (nullable) XCTestExpectation *ttrExpectation;
@@ -87,9 +185,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) NSString* ckDeviceID;
 @property (readonly) CKKSAccountStateTracker* accountStateTracker;
-
-
-@property NSString* apsEnvironment;
 
 @property bool aksLockState;  // The current 'AKS lock state'
 @property CKKSMockLockStateProvider* lockStateProvider;
@@ -110,6 +205,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property bool silentFetchesAllowed;
 @property bool silentZoneDeletesAllowed;
+
+@property CKKSTestsMockAccountsAuthKitAdapter* mockAccountsAuthKitAdapter;
 
 @property CKKSMockSOSPresentAdapter* mockSOSAdapter;
 @property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
@@ -147,7 +244,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)cleanUpDirectories;
 
-- (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID;
+- (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID
+          contextID:(NSString*)contextID;
 
 - (void)expectCKModifyItemRecords:(NSUInteger)expectedNumberOfRecords
          currentKeyPointerRecords:(NSUInteger)expectedCurrentKeyRecords
@@ -274,6 +372,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Schedule an operation for execution (and failure), with some existing record errors.
 // Other records in the operation but not in failedRecords will have CKErrorBatchRequestFailed errors created.
 - (void)rejectWrite:(CKModifyRecordsOperation*)op failedRecords:(NSMutableDictionary<CKRecordID*, NSError*>*)failedRecords;
+
+
+- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)altDSID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler;
 
 @end
 

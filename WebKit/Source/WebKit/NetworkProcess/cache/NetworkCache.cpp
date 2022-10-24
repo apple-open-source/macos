@@ -58,21 +58,19 @@ using namespace FileSystem;
 static const AtomString& resourceType()
 {
     ASSERT(WTF::RunLoop::isMain());
-    static NeverDestroyed<const AtomString> resource("Resource", AtomString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomString> resource("Resource"_s);
     return resource;
 }
 
 static size_t computeCapacity(CacheModel cacheModel, const String& cachePath)
 {
-    unsigned urlCacheMemoryCapacity = 0;
-    uint64_t urlCacheDiskCapacity = 0;
     if (auto diskFreeSize = FileSystem::volumeFreeSpace(cachePath)) {
         // As a fudge factor, use 1000 instead of 1024, in case the reported byte
         // count doesn't align exactly to a megabyte boundary.
         *diskFreeSize /= KB * 1000;
-        calculateURLCacheSizes(cacheModel, *diskFreeSize, urlCacheMemoryCapacity, urlCacheDiskCapacity);
+        return calculateURLCacheDiskCapacity(cacheModel, *diskFreeSize);
     }
-    return urlCacheDiskCapacity;
+    return 0;
 }
 
 RefPtr<Cache> Cache::open(NetworkProcess& networkProcess, const String& cachePath, OptionSet<CacheOption> options, PAL::SessionID sessionID)
@@ -130,7 +128,7 @@ Cache::Cache(NetworkProcess& networkProcess, const String& storageDirectory, Ref
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
         // Triggers with "touch $cachePath/dump".
-        CString dumpFilePath = fileSystemRepresentation(pathByAppendingComponent(m_storage->basePathIsolatedCopy(), "dump"));
+        CString dumpFilePath = fileSystemRepresentation(pathByAppendingComponent(m_storage->basePathIsolatedCopy(), "dump"_s));
         GRefPtr<GFile> dumpFile = adoptGRef(g_file_new_for_path(dumpFilePath.data()));
         GFileMonitor* monitor = g_file_monitor_file(dumpFile.get(), G_FILE_MONITOR_NONE, nullptr, nullptr);
         g_signal_connect_swapped(monitor, "changed", G_CALLBACK(dumpFileChanged), this);
@@ -249,7 +247,7 @@ static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& req
     ASSERT(request.cachePolicy() != WebCore::ResourceRequestCachePolicy::DoNotUseAnyCache);
 
     // FIXME: Support HEAD requests.
-    if (request.httpMethod() != "GET")
+    if (request.httpMethod() != "GET"_s)
         return RetrieveDecision::NoDueToHTTPMethod;
     if (request.cachePolicy() == WebCore::ResourceRequestCachePolicy::ReloadIgnoringCacheData && !request.isConditional())
         return RetrieveDecision::NoDueToReloadIgnoringCache;
@@ -259,7 +257,7 @@ static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& req
 
 static bool isMediaMIMEType(const String& type)
 {
-    return startsWithLettersIgnoringASCIICase(type, "video/") || startsWithLettersIgnoringASCIICase(type, "audio/");
+    return startsWithLettersIgnoringASCIICase(type, "video/"_s) || startsWithLettersIgnoringASCIICase(type, "audio/"_s);
 }
 
 static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalRequest, const WebCore::ResourceResponse& response, size_t bodySize)
@@ -267,7 +265,7 @@ static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalR
     if (!originalRequest.url().protocolIsInHTTPFamily() || !response.isInHTTPFamily())
         return StoreDecision::NoDueToProtocol;
 
-    if (originalRequest.httpMethod() != "GET")
+    if (originalRequest.httpMethod() != "GET"_s)
         return StoreDecision::NoDueToHTTPMethod;
 
     auto requestDirectives = WebCore::parseCacheControlDirectives(originalRequest.httpHeaderFields());
@@ -348,7 +346,7 @@ void Cache::startAsyncRevalidationIfNeeded(const WebCore::ResourceRequest& reque
         auto revalidation = makeUnique<AsyncRevalidation>(*this, frameID, request, WTFMove(entry), isNavigatingToAppBoundDomain, [this, key](auto result) {
             ASSERT(m_pendingAsyncRevalidations.contains(key));
             m_pendingAsyncRevalidations.remove(key);
-            LOG(NetworkCache, "(NetworkProcess) Async revalidation completed for '%s' with result %d", key.identifier().utf8().data(), static_cast<int>(result));
+            LOG(NetworkCache, "(NetworkProcess) revalidation completed for '%s' with result %d", key.identifier().utf8().data(), static_cast<int>(result));
         });
         addResult.iterator->value.add(*revalidation);
         return revalidation;
@@ -599,7 +597,7 @@ void Cache::traverse(Function<void(const TraversalEntry*)>&& traverseHandler)
 
 String Cache::dumpFilePath() const
 {
-    return pathByAppendingComponent(m_storage->versionPath(), "dump.json");
+    return pathByAppendingComponent(m_storage->versionPath(), "dump.json"_s);
 }
 
 void Cache::dumpContentsToFile()
@@ -607,8 +605,9 @@ void Cache::dumpContentsToFile()
     auto fd = openFile(dumpFilePath(), FileOpenMode::Write);
     if (!isHandleValid(fd))
         return;
-    auto prologue = String("{\n\"entries\": [\n").utf8();
-    writeToFile(fd, prologue.data(), prologue.length());
+
+    static const char prologue[] = "{\n\"entries\": [\n";
+    writeToFile(fd, prologue, strlen(prologue));
 
     struct Totals {
         unsigned count { 0 };
@@ -661,7 +660,7 @@ void Cache::clear(WallTime modifiedSince, Function<void()>&& completionHandler)
     LOG(NetworkCache, "(NetworkProcess) clearing cache");
 
     String anyType;
-    m_storage->clear(anyType, modifiedSince, WTFMove(completionHandler));
+    m_storage->clear(WTFMove(anyType), modifiedSince, WTFMove(completionHandler));
 
     deleteDumpFile();
 }

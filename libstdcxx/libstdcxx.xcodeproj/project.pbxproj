@@ -82,6 +82,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.llvm.clang.1_0;
 			fileType = sourcecode.cpp;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 			);
@@ -1696,12 +1698,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libstdc++.dylib" */;
 			buildPhases = (
-				F91B4536114720F70052EBA1 /* install headers */,
 				D2AAC0610554660B00DB518D /* Sources */,
 				D289988505E68E00004EDB86 /* Frameworks */,
 				F91B442311471C0E0052EBA1 /* add symlink */,
 				F91B4152114712E80052EBA1 /* OpenSourceLicenses */,
 				F91B43C1114713B20052EBA1 /* OpenSourceVersions */,
+				87A789B526EA65B80063E0CC /* ShellScript */,
 			);
 			buildRules = (
 				F9AA45971295B93E00CB8390 /* PBXBuildRule */,
@@ -1740,6 +1742,23 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		87A789B526EA65B80063E0CC /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Defeat the empty roots B&I verifier\nmkdir -p ${DSTROOT}/AppleInternal\n";
+		};
 		F91B442311471C0E0052EBA1 /* add symlink */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -1753,21 +1772,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "if [ -e  ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/lib/libstdc++.6.0.9.dylib ]; then\n\tcd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/lib\n\tln -sf  libstdc++.6.0.9.dylib  libstdc++.6.dylib\n\tln -sf  libstdc++.6.dylib  libstdc++.dylib\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		F91B4536114720F70052EBA1 /* install headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "install headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncp -r ${SRCROOT}/include/c++/4.2.1/* ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\nfind . -print0 | xargs -0 chmod a+r\nfind . -type d -print0 | xargs -0 chmod a+x\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1930,6 +1934,7 @@
 				LIB_iphoneos = "";
 				LIB_iphonesimulator = "-Wl,-reexport-lc++abi";
 				LIB_macosx = "";
+				"ORDER_FILE[sdk=iphoneos*]" = "${SDKROOT}/AppleInternal/OrderFiles/libstdcxx.order";
 				"OTHER_CFLAGS[arch=armv6]" = "-mno-thumb";
 				OTHER_CPLUSPLUSFLAGS = (
 					"-nostdinc++",
@@ -1959,6 +1964,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Debug;
 		};
@@ -1971,6 +1977,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Release;
 		};

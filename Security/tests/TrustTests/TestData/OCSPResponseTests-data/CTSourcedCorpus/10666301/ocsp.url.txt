@@ -1,0 +1,1 @@
+http://ocsp.a-trust.at/ocsp

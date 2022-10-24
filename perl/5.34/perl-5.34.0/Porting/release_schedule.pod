@@ -1,0 +1,94 @@
+=encoding utf8
+
+=head1 NAME
+
+release_schedule - Perl 5 release schedule
+
+=head1 STABLE RELEASE SCHEDULE
+
+This schedule lists the projected or historical development and
+release schedules for the next, current and previous stable versions
+of Perl.  Dates with two or more question marks will only be releases if
+deemed necessary by the Steering Council.
+
+=head2 Perl 5.32
+
+  2020-06-20  5.32.0 ✓        Sawyer X
+  2021-01-23  5.32.1 ✓        Steve Hay
+
+=head2 Perl 5.30
+
+  2019-05-22  5.30.0 ✓        Sawyer X
+  2019-11-10  5.30.1 ✓        Steve Hay
+  2020-03-14  5.30.2 ✓        Steve Hay
+  2020-06-01  5.30.3 ✓        Steve Hay
+
+=head1 DEVELOPMENT RELEASE SCHEDULE
+
+This schedule lists the release engineers for at least the next
+four months of releases of bleadperl. If there are fewer than
+four months listed as you make a release, it's important
+that you extend the schedule AND B<identify the next release engineer>.
+
+Before adding a release engineer, you B<must> contact them and they
+B<must> consent to ship the release.
+
+When shipping a release, you should include the schedule for (at least)
+the next four releases. If a stable version of Perl is released,
+you should reset the version numbers to the next blead series.
+
+=head2 Perl 5.33
+
+  2020-07-17  5.33.0 ✓       Sawyer X
+  2020-08-20  5.33.1 ✓       Karen Etheridge
+  2020-09-20  5.33.2 ✓       Sawyer X
+  2020-10-20  5.33.3 ✓       Steve Hay
+  2020-11-20  5.33.4 ✓       Tom Hukins
+  2020-12-20  5.33.5 ✓       Max Maischein
+  2021-01-20  5.33.6 ✓       Richard Leach
+  2021-02-20  5.33.7 ✓       Renee Bäcker   Contentious changes freeze
+  2021-03-20  5.33.8 ✓       atoomic        User-visible changes to
+                                            correctly functioning programs
+                                            freeze
+  2021-04-20  5.33.9 ✓       Todd Rinaldo   Full code freeze
+  2021-05-20  5.34.0         Sawyer X       Stable release!
+
+=head1 VICTIMS
+
+The following porters have all consented to do at least
+one release of bleadperl.  If you can't do a release
+and can't find a substitute amongst this list, mail p5p.
+
+(Please do not add any names to this list without prior
+consent of the Steering Council.)
+
+  Abigail <abigail@abigail.be>
+  Aristotle Pagaltzis <pagaltzis@gmx.de>
+  Ask Bjørn Hansen <ask@perl.org>
+  Chris Williams <bingos@cpan.org>
+  Dave Cross <dave@perlhacks.com>
+  Dave Rolsky <autarch@urth.org>
+  David Golden <dagolden@cpan.org>
+  Florian Ragwitz <rafl@debian.org>
+  Jesse Luehrs <doy@cpan.org>
+  Jesse Vincent <jesse@cpan.org>
+  Leon Brocard <acme@astray.com>
+  Matt Trout <mst@shadowcat.co.uk>
+  Matthew Horsfall <wolfsage@gmail.com>
+  Max Maischein <corion@cpan.org>
+  Peter Martini <petercmartini@gmail.com>
+  Philippe Bruhat <book@cpan.org>
+  Ricardo Signes <rjbs@cpan.org>
+  Stevan Little <stevan@cpan.org>
+  Steve Hay <steve.m.hay@googlemail.com>
+  Tatsuhiko Miyagawa <miyagawa@bulknews.net>
+  Tony Cook <tony@develop-help.com>
+  Yves Orton <demerphq@gmail.com>
+  Zefram <zefram@fysh.org>
+  Ævar Arnfjörð Bjarmason <avar@cpan.org>
+
+=head1 AUTHOR
+
+Jesse Vincent <jesse@cpan.org>
+
+=cut

@@ -114,7 +114,6 @@
 		01560DFD241969D3001AA29A /* vsock.c in Sources */ = {isa = PBXBuildFile; fileRef = 01560DFC241969D3001AA29A /* vsock.c */; };
 		03EB2F9A120A1DDA0007C1A0 /* ip6addrctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D2B04E41208C12F0004A3F3 /* ip6addrctl.8 */; };
 		4D2B04F81208C21B0004A3F3 /* ip6addrctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D2B04E51208C12F0004A3F3 /* ip6addrctl.c */; };
-		565825A4133921A3003E5FA5 /* mnc_error.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825961339217B003E5FA5 /* mnc_error.c */; };
 		565825A5133921A3003E5FA5 /* mnc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825971339217B003E5FA5 /* mnc_main.c */; };
 		565825A6133921A3003E5FA5 /* mnc_multicast.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825981339217B003E5FA5 /* mnc_multicast.c */; };
 		565825A7133921A3003E5FA5 /* mnc_opts.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825991339217B003E5FA5 /* mnc_opts.c */; };
@@ -209,7 +208,6 @@
 		72B732DF1899B0380060E6D4 /* cfilutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B732DE1899B0380060E6D4 /* cfilutil.1 */; };
 		72B732EF1899B23A0060E6D4 /* cfilutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B732EE1899B23A0060E6D4 /* cfilutil.c */; };
 		72B732F11899B2430060E6D4 /* cfilstat.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B732F01899B2430060E6D4 /* cfilstat.c */; };
-		72B7F36B1BA69352003A9AA2 /* if6lowpan.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B7F36A1BA69281003A9AA2 /* if6lowpan.c */; };
 		72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
 		72D000C4142BB11100151981 /* dnctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D000C3142BB11100151981 /* dnctl.c */; };
 		72D33F572271319400EF5B5E /* rtadvd_logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D33F562271220100EF5B5E /* rtadvd_logging.c */; };
@@ -219,6 +217,7 @@
 		72E650A9107BF2F000AAF325 /* af_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A4107BF2F000AAF325 /* af_link.c */; };
 		72E650AA107BF2F000AAF325 /* ifbridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A5107BF2F000AAF325 /* ifbridge.c */; };
 		72E650AB107BF2F000AAF325 /* ifclone.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A6107BF2F000AAF325 /* ifclone.c */; };
+		72E8547D27A8D1A10019A4A1 /* bpf.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E8547C27A8D1A10019A4A1 /* bpf.c */; };
 		E01AB0901368880F008C66FF /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E01AB08F1368880F008C66FF /* libutil.dylib */; };
 		F940359D1E2FF5A900283EB1 /* iffake.c in Sources */ = {isa = PBXBuildFile; fileRef = F940359C1E2FF58500283EB1 /* iffake.c */; };
 		F97F1E041E9C3FC8002355FF /* nexus.c in Sources */ = {isa = PBXBuildFile; fileRef = F97F1E031E9C3FBC002355FF /* nexus.c */; };
@@ -988,7 +987,6 @@
 		4D2B04F31208C2040004A3F3 /* ip6addrctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ip6addrctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		565825941339217B003E5FA5 /* mnc.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mnc.1; sourceTree = "<group>"; };
 		565825951339217B003E5FA5 /* LICENCE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENCE; sourceTree = "<group>"; };
-		565825961339217B003E5FA5 /* mnc_error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mnc_error.c; sourceTree = "<group>"; };
 		565825971339217B003E5FA5 /* mnc_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mnc_main.c; sourceTree = "<group>"; };
 		565825981339217B003E5FA5 /* mnc_multicast.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mnc_multicast.c; sourceTree = "<group>"; };
 		565825991339217B003E5FA5 /* mnc_opts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mnc_opts.c; sourceTree = "<group>"; };
@@ -1148,7 +1146,6 @@
 		72B732DE1899B0380060E6D4 /* cfilutil.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = cfilutil.1; sourceTree = "<group>"; };
 		72B732EE1899B23A0060E6D4 /* cfilutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cfilutil.c; sourceTree = "<group>"; };
 		72B732F01899B2430060E6D4 /* cfilstat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cfilstat.c; sourceTree = "<group>"; };
-		72B7F36A1BA69281003A9AA2 /* if6lowpan.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = if6lowpan.c; sourceTree = "<group>"; };
 		72CD1DB50EE8C619005F825D /* libipsec.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libipsec.dylib; path = /usr/lib/libipsec.dylib; sourceTree = "<absolute>"; };
 		72D000C3142BB11100151981 /* dnctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dnctl.c; sourceTree = "<group>"; };
 		72D33F552271220100EF5B5E /* rtadvd_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtadvd_logging.h; sourceTree = "<group>"; };
@@ -1159,6 +1156,7 @@
 		72E650A4107BF2F000AAF325 /* af_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_link.c; sourceTree = "<group>"; };
 		72E650A5107BF2F000AAF325 /* ifbridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifbridge.c; sourceTree = "<group>"; };
 		72E650A6107BF2F000AAF325 /* ifclone.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifclone.c; sourceTree = "<group>"; };
+		72E8547C27A8D1A10019A4A1 /* bpf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bpf.c; sourceTree = "<group>"; };
 		E01AB08F1368880F008C66FF /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = $SDKROOT/usr/lib/libutil.dylib; sourceTree = "<group>"; };
 		F940359C1E2FF58500283EB1 /* iffake.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iffake.c; sourceTree = "<group>"; };
 		F97F1E031E9C3FBC002355FF /* nexus.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nexus.c; sourceTree = "<group>"; };
@@ -1355,7 +1353,6 @@
 			children = (
 				565825941339217B003E5FA5 /* mnc.1 */,
 				565825951339217B003E5FA5 /* LICENCE */,
-				565825961339217B003E5FA5 /* mnc_error.c */,
 				565825971339217B003E5FA5 /* mnc_main.c */,
 				565825981339217B003E5FA5 /* mnc_multicast.c */,
 				565825991339217B003E5FA5 /* mnc_opts.c */,
@@ -1471,7 +1468,6 @@
 		726120540EE86F0900AFED1B /* ifconfig.tproj */ = {
 			isa = PBXGroup;
 			children = (
-				72B7F36A1BA69281003A9AA2 /* if6lowpan.c */,
 				72E650A2107BF2F000AAF325 /* af_inet.c */,
 				72E650A3107BF2F000AAF325 /* af_inet6.c */,
 				72E650A4107BF2F000AAF325 /* af_link.c */,
@@ -1515,6 +1511,7 @@
 		7261208A0EE86F4800AFED1B /* netstat.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				72E8547C27A8D1A10019A4A1 /* bpf.c */,
 				7261208B0EE86F4800AFED1B /* data.c */,
 				7261208C0EE86F4800AFED1B /* DERIVED_FILES */,
 				7261208D0EE86F4800AFED1B /* if.c */,
@@ -2499,7 +2496,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				565825A4133921A3003E5FA5 /* mnc_error.c in Sources */,
 				565825A5133921A3003E5FA5 /* mnc_main.c in Sources */,
 				565825A6133921A3003E5FA5 /* mnc_multicast.c in Sources */,
 				565825A7133921A3003E5FA5 /* mnc_opts.c in Sources */,
@@ -2533,6 +2529,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72E8547D27A8D1A10019A4A1 /* bpf.c in Sources */,
 				7216D24C0EE896F300AE70E4 /* data.c in Sources */,
 				7216D24D0EE896F300AE70E4 /* if.c in Sources */,
 				7216D24E0EE896F300AE70E4 /* inet.c in Sources */,
@@ -2677,7 +2674,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72B7F36B1BA69352003A9AA2 /* if6lowpan.c in Sources */,
 				7261215A0EE8883900AFED1B /* ifbond.c in Sources */,
 				7261215B0EE8883900AFED1B /* ifconfig.c in Sources */,
 				7261215C0EE8883900AFED1B /* ifmedia.c in Sources */,
@@ -3077,7 +3073,10 @@
 				SDKROOT = macosx.internal;
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 				ZERO_LINK = NO;
 			};
 			name = "Ignore Me";
@@ -3085,7 +3084,6 @@
 		03B2DBE3100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = network_cmds;
@@ -3174,6 +3172,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
+				USE_HEADERMAP = NO;
 			};
 			name = "Ignore Me";
 		};
@@ -3323,7 +3322,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = 0555;
-				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
@@ -3338,7 +3336,6 @@
 		4D2B04F61208C2050004A3F3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3365,7 +3362,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
@@ -3381,7 +3377,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3410,7 +3405,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -3428,7 +3422,6 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -3680,6 +3673,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
+				USE_HEADERMAP = NO;
 			};
 			name = Debug;
 		};
@@ -3695,6 +3689,7 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
+				USE_HEADERMAP = NO;
 			};
 			name = Release;
 		};
@@ -4122,7 +4117,10 @@
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Debug;
 		};
@@ -4149,7 +4147,10 @@
 				SDKROOT = macosx.internal;
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
 				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -4251,7 +4252,6 @@
 		726121440EE8717500AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = network_cmds;
@@ -4261,7 +4261,6 @@
 		726121450EE8717500AFED1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = network_cmds;
@@ -4367,7 +4366,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -4401,7 +4399,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -4469,7 +4466,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -4503,7 +4499,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -4594,7 +4589,6 @@
 		72ABD0821083D743008C721C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = "All-EmbeddedOther";
@@ -4607,7 +4601,6 @@
 		72ABD0831083D743008C721C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "All-EmbeddedOther";
@@ -4725,7 +4718,6 @@
 		72C77D681484199C002D2577 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = network_cmds_libs;
@@ -4735,7 +4727,6 @@
 		72C77D691484199C002D2577 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = network_cmds_libs;
@@ -4746,7 +4737,6 @@
 		72C77D6A1484199C002D2577 /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = network_cmds_libs;

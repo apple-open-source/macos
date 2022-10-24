@@ -60,7 +60,7 @@ static inline uint32_t ccGetCipherBlockSize(CCCryptor *ref) {
     }
 }
 
-const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction)
+corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction)
 {
     switch(mode) {
         case kCCModeECB:  return (corecryptoMode) ccmodeList[cipher][direction].ecb();

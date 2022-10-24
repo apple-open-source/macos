@@ -62,8 +62,8 @@ static void tests(void)
     const char *home_dir = getenv("HOME");
     char keychain_dir[1000];
     char keychain_name[1000];
-    sprintf(keychain_dir, "%s/Library/Keychains", home_dir);
-    sprintf(keychain_name, "%s/keychain-2-debug.db", keychain_dir);
+    snprintf(keychain_dir, sizeof(keychain_dir), "%s/Library/Keychains", home_dir);
+    snprintf(keychain_name, sizeof(keychain_name), "%s/keychain-2-debug.db", keychain_dir);
     int fd;
     ok_unix(fd = open(keychain_name, O_RDWR | O_CREAT | O_TRUNC, 0644),
         "create keychain file");

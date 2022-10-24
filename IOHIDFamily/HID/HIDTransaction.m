@@ -58,24 +58,41 @@
                                  (IOHIDTransactionDirectionType)direction);
 }
 
+typedef void (^CommitCallbackInternal)(IOReturn status);
+
+static void asyncCommitCallback(void   * context,
+                                IOReturn result,
+                                void   * sender __unused)
+{
+    HIDTransactionCommitCallback callback = (__bridge HIDTransactionCommitCallback)context;
+
+    callback(result);
+
+    Block_release(context);
+}
+
 - (BOOL)commitElements:(NSArray<HIDElement *> *)elements
                  error:(out NSError **)outError
 {
+    return [self commitElements:elements error:outError timeout:0 callback:nil];
+}
+
+- (BOOL)commitElements:(NSArray<HIDElement *> *)elements
+                 error:(out NSError **)outError
+               timeout:(NSInteger)timeout
+              callback:(HIDTransactionCommitCallback _Nullable)callback
+{
     IOReturn ret = kIOReturnError;
     
-    for (HIDElement *element in elements) {
-        IOHIDTransactionAddElement(_transaction,
-                                   (__bridge IOHIDElementRef)element);
-        
-        if (self.direction == kIOHIDTransactionDirectionTypeOutput) {
-            IOHIDTransactionSetValue(_transaction,
-                                     (__bridge IOHIDElementRef)element,
-                                     element.valueRef,
-                                     kIOHIDOptionsTypeNone);
-        }
+    for (HIDElement * element in elements) {
+        IOHIDTransactionAddElement(_transaction, (__bridge IOHIDElementRef)element);
     }
-    
-    ret = IOHIDTransactionCommit(_transaction);
+
+    if (callback) {
+        ret = IOHIDTransactionCommitWithCallback(_transaction, timeout, asyncCommitCallback, Block_copy((__bridge void *)callback));
+    } else {
+        ret = IOHIDTransactionCommit(_transaction);
+    }
     
     if (ret != kIOReturnSuccess) {
         IOHIDTransactionClear(_transaction);
@@ -83,22 +100,14 @@
         if (outError) {
             *outError = [NSError errorWithIOReturn:ret];
         }
+
+        if (callback) {
+            Block_release((__bridge void *)callback);
+        }
         
         return NO;
     }
-    
-    if (self.direction == kIOHIDTransactionDirectionTypeInput) {
-        for (HIDElement *element in elements) {
-            IOHIDValueRef val = IOHIDTransactionGetValue(
-                                            _transaction,
-                                            (__bridge IOHIDElementRef)element,
-                                            kIOHIDOptionsTypeNone);
-            if (val) {
-                [element setValueRef:val];
-            }
-        }
-    }
-    
+
     IOHIDTransactionClear(_transaction);
     return (ret == kIOReturnSuccess);
 }

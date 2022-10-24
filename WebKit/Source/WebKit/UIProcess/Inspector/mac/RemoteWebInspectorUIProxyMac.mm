@@ -43,6 +43,8 @@
 #import <SecurityInterface/SFCertificatePanel.h>
 #import <SecurityInterface/SFCertificateView.h>
 #import <WebCore/CertificateInfo.h>
+#import <WebCore/Color.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/text/Base64.h>
 
 @interface WKRemoteWebInspectorUIProxyObjCAdapter : NSObject <NSWindowDelegate, WKInspectorViewControllerDelegate> {
@@ -147,90 +149,49 @@ void RemoteWebInspectorUIProxy::platformBringToFront()
     [m_window makeFirstResponder:webView()];
 }
 
-void RemoteWebInspectorUIProxy::platformSave(const String& suggestedURL, const String& content, bool base64Encoded, bool forceSaveDialog)
+void RemoteWebInspectorUIProxy::platformSave(Vector<InspectorFrontendClient::SaveData>&& saveDatas, bool forceSaveAs)
 {
-    // FIXME: Share with WebInspectorUIProxyMac.
+    RetainPtr<NSString> urlCommonPrefix;
+    for (auto& item : saveDatas) {
+        if (!urlCommonPrefix)
+            urlCommonPrefix = item.url;
+        else
+            urlCommonPrefix = [urlCommonPrefix commonPrefixWithString:item.url options:0];
+    }
+    if ([urlCommonPrefix hasSuffix:@"."])
+        urlCommonPrefix = [urlCommonPrefix substringToIndex:[urlCommonPrefix length] - 1];
 
-    ASSERT(!suggestedURL.isEmpty());
-    
-    NSURL *platformURL = m_suggestedToActualURLMap.get(suggestedURL).get();
+    RetainPtr platformURL = m_suggestedToActualURLMap.get(urlCommonPrefix.get());
     if (!platformURL) {
-        platformURL = [NSURL URLWithString:suggestedURL];
+        platformURL = [NSURL URLWithString:urlCommonPrefix.get()];
         // The user must confirm new filenames before we can save to them.
-        forceSaveDialog = true;
-    }
-    
-    ASSERT(platformURL);
-    if (!platformURL)
-        return;
-
-    // Necessary for the block below.
-    String suggestedURLCopy = suggestedURL;
-    String contentCopy = content;
-
-    auto saveToURL = ^(NSURL *actualURL) {
-        ASSERT(actualURL);
-
-        m_suggestedToActualURLMap.set(suggestedURLCopy, actualURL);
-
-        if (base64Encoded) {
-            auto decodedData = base64Decode(contentCopy, Base64DecodeOptions::ValidatePadding);
-            if (!decodedData)
-                return;
-            auto dataContent = adoptNS([[NSData alloc] initWithBytes:decodedData->data() length:decodedData->size()]);
-            [dataContent writeToURL:actualURL atomically:YES];
-        } else
-            [contentCopy writeToURL:actualURL atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-
-        m_inspectorPage->send(Messages::RemoteWebInspectorUI::DidSave([actualURL absoluteString]));
-    };
-
-    if (!forceSaveDialog) {
-        saveToURL(platformURL);
-        return;
+        forceSaveAs = true;
     }
 
-    NSSavePanel *panel = [NSSavePanel savePanel];
-    panel.nameFieldStringValue = platformURL.lastPathComponent;
-
-    // If we have a file URL we've already saved this file to a path and
-    // can provide a good directory to show. Otherwise, use the system's
-    // default behavior for the initial directory to show in the dialog.
-    if (platformURL.isFileURL)
-        panel.directoryURL = [platformURL URLByDeletingLastPathComponent];
-
-    auto completionHandler = ^(NSInteger result) {
-        if (result == NSModalResponseCancel)
-            return;
-        ASSERT(result == NSModalResponseOK);
-        saveToURL(panel.URL);
-    };
-
-    NSWindow *window = m_window ? m_window.get() : [NSApp keyWindow];
-    if (window)
-        [panel beginSheetModalForWindow:window completionHandler:completionHandler];
-    else
-        completionHandler([panel runModal]);
+    WebInspectorUIProxy::showSavePanel(m_window.get(), platformURL.get(), WTFMove(saveDatas), forceSaveAs, [urlCommonPrefix, protectedThis = Ref { *this }] (NSURL *actualURL) {
+        protectedThis->m_suggestedToActualURLMap.set(urlCommonPrefix.get(), actualURL);
+    });
 }
 
-void RemoteWebInspectorUIProxy::platformAppend(const String& suggestedURL, const String& content)
+void RemoteWebInspectorUIProxy::platformLoad(const String& path, CompletionHandler<void(const String&)>&& completionHandler)
 {
-    // FIXME: Share with WebInspectorUIProxyMac.
+    if (auto contents = FileSystem::readEntireFile(path))
+        completionHandler(String::adopt(WTFMove(*contents)));
+    else
+        completionHandler(nullString());
+}
 
-    ASSERT(!suggestedURL.isEmpty());
-    
-    RetainPtr<NSURL> actualURL = m_suggestedToActualURLMap.get(suggestedURL);
-    // Do not append unless the user has already confirmed this filename in save().
-    if (!actualURL)
-        return;
+void RemoteWebInspectorUIProxy::platformPickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&& completionHandler)
+{
+    auto sampler = adoptNS([[NSColorSampler alloc] init]);
+    [sampler.get() showSamplerWithSelectionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSColor *selectedColor) mutable {
+        if (!selectedColor) {
+            completionHandler(std::nullopt);
+            return;
+        }
 
-    NSFileHandle *handle = [NSFileHandle fileHandleForWritingToURL:actualURL.get() error:NULL];
-    [handle seekToEndOfFile];
-    [handle writeData:[content dataUsingEncoding:NSUTF8StringEncoding]];
-    [handle closeFile];
-
-    WebPageProxy* inspectorPage = webView()->_page.get();
-    inspectorPage->send(Messages::RemoteWebInspectorUI::DidAppend([actualURL absoluteString]));
+        completionHandler(Color::createAndPreserveColorSpace(selectedColor.CGColor));
+    }).get()];
 }
 
 void RemoteWebInspectorUIProxy::platformSetSheetRect(const FloatRect& rect)
@@ -270,6 +231,11 @@ void RemoteWebInspectorUIProxy::platformStartWindowDrag()
 void RemoteWebInspectorUIProxy::platformOpenURLExternally(const String& url)
 {
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:url]];
+}
+
+void RemoteWebInspectorUIProxy::platformRevealFileExternally(const String& path)
+{
+    [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[ [NSURL URLWithString:path] ]];
 }
 
 void RemoteWebInspectorUIProxy::platformShowCertificate(const CertificateInfo& certificateInfo)

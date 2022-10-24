@@ -214,7 +214,7 @@ pad(struct openfile *ip)
 	strlcpy(lp, ip->sepstring, line + sizeof(line) - lp);
 	lp += strlen(lp);
 	if (ip->pad) {
-		snprintf(lp, line + sizeof(line) - lp, ip->format, "");
+		snprintf(lp, line + sizeof(line) - lp, fmtcheck(ip->format, "%s"), "");
 		lp += strlen(lp);
 	}
 	return (lp);
@@ -247,7 +247,7 @@ gatherline(struct openfile *ip)
 	}
 	strlcpy(lp, ip->sepstring, line + sizeof(line) - lp);
 	lp += strlen(lp);
-	snprintf(lp, line + sizeof(line) - lp, ip->format, s);
+	snprintf(lp, line + sizeof(line) - lp, fmtcheck(ip->format, "%s"), s);
 	lp += strlen(lp);
 	return (lp);
 }

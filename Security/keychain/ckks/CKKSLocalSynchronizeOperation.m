@@ -44,10 +44,12 @@
     return nil;
 }
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                   operationDependencies:(CKKSOperationDependencies*)operationDependencies
 {
     if(self = [super init]) {
         _ckks = ckks;
         _restartCount = 0;
+        _deps = operationDependencies;
 
         [self addNullableDependency:ckks.holdLocalSynchronizeOperation];
     }
@@ -56,7 +58,9 @@
 
 - (void)groupStart {
     WEAKIFY(self);
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     /*
      * A local synchronize is very similar to a CloudKit synchronize, but it won't cause any (non-essential)
      * CloudKit operations to occur.
@@ -149,7 +153,7 @@
                 [ids addObject:viewState.zoneID];
             }
 
-            NSSet<NSString*>* iqes = [CKKSIncomingQueueEntry allUUIDsInZones:ids error:&error];
+            NSSet<NSString*>* iqes = [CKKSIncomingQueueEntry allUUIDsWithContextID:ckks.operationDependencies.contextID inZones:ids error:&error];
             if(error) {
                 ckkserror("ckksresync", ckks, "Couldn't fetch IQEs: %@", error);
             }
@@ -196,13 +200,16 @@
 }
 
 - (void)main {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
             NSError* error = nil;
 
-            NSArray<CKKSMirrorEntry*>* mirrorItems = [CKKSMirrorEntry all:viewState.zoneID error:&error];
+            NSArray<CKKSMirrorEntry*>* mirrorItems = [CKKSMirrorEntry allWithContextID:self.deps.contextID zoneID:viewState.zoneID error:&error];
 
             if(error) {
                 ckkserror("ckksresync", viewState.zoneID, "Couldn't fetch mirror items: %@", error);

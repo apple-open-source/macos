@@ -108,6 +108,12 @@ display(void)
 				return;
 			eaddress = address;
 		}
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 		for (pr = endfu->nextpr; pr; pr = pr->nextpr)
 			switch(pr->flags) {
 			case F_ADDRESS:
@@ -117,6 +123,7 @@ display(void)
 				(void)printf("%s", pr->fmt);
 				break;
 			}
+#pragma clang diagnostic pop
 	}
 }
 
@@ -133,6 +140,12 @@ print(PR *pr, u_char *bp)
 	u_int32_t u4;
 	u_int64_t u8;
 
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	switch(pr->flags) {
 	case F_ADDRESS:
 		(void)printf(pr->fmt, (quad_t)address);
@@ -185,7 +198,11 @@ print(PR *pr, u_char *bp)
 		}
 		break;
 	case F_P:
+#ifdef __APPLE__ /* rdar://91259683 */
+		(void)printf(pr->fmt, isprint(*bp) && isascii(*bp) ? *bp : '.');
+#else
 		(void)printf(pr->fmt, isprint(*bp) ? *bp : '.');
+#endif /* __APPLE__ */
 		break;
 	case F_STR:
 		(void)printf(pr->fmt, (char *)bp);
@@ -216,6 +233,7 @@ print(PR *pr, u_char *bp)
 		}
 		break;
 	}
+#pragma clang diagnostic pop
 }
 
 void

@@ -1317,12 +1317,16 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
             CFArrayRemoveAllValues(db->idleWriteConnections);
             CFArrayRemoveAllValues(db->idleReadConnections);
         } else {
+            CFIndex totalCachedConnections = CFArrayGetCount(db->idleReadConnections) + CFArrayGetCount(db->idleWriteConnections);
             CFMutableArrayRef cache = readOnly ? db->idleReadConnections : db->idleWriteConnections;
             CFIndex count = CFArrayGetCount(cache);
-            if ((unsigned long)count < (readOnly ? kSecDbMaxReaders : kSecDbMaxWriters)) {
+            if ((unsigned long)count < (readOnly ? kSecDbMaxReaders : kSecDbMaxWriters) &&
+                totalCachedConnections < db->maxIdleHandles) {
                 CFArrayAppendValue(cache, dbconn);
-            } else {
+            } else if (db->maxIdleHandles >= kSecDbMaxIdleHandles) {
                 secerror("dbconn: did not expect to run out of room in the %s cache when releasing connection", readOnly ? "ro" : "rw");
+            } else {
+                secnotice("dbconn", "releasing %s connection rather than storing in size %d cache", readOnly ? "ro" : "rw", db->maxIdleHandles);
             }
         }
     });

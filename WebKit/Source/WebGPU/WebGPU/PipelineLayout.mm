@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,27 +26,66 @@
 #import "config.h"
 #import "PipelineLayout.h"
 
-#import "WebGPUExt.h"
+#import "APIConversions.h"
+#import "BindGroupLayout.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-PipelineLayout::PipelineLayout() = default;
+Ref<PipelineLayout> Device::createPipelineLayout(const WGPUPipelineLayoutDescriptor& descriptor)
+{
+    if (descriptor.nextInChain)
+        return PipelineLayout::createInvalid(*this);
+
+    Vector<Ref<BindGroupLayout>> bindGroupLayouts;
+    bindGroupLayouts.reserveInitialCapacity(descriptor.bindGroupLayoutCount);
+    for (uint32_t i = 0; i < descriptor.bindGroupLayoutCount; ++i) {
+        auto* bindGroupLayout = descriptor.bindGroupLayouts[i];
+        bindGroupLayouts.uncheckedAppend(WebGPU::fromAPI(bindGroupLayout));
+    }
+    return PipelineLayout::create(WTFMove(bindGroupLayouts), *this);
+}
+
+PipelineLayout::PipelineLayout(Vector<Ref<BindGroupLayout>>&& bindGroupLayouts, Device& device)
+    : m_bindGroupLayouts(WTFMove(bindGroupLayouts))
+    , m_device(device)
+{
+}
+
+PipelineLayout::PipelineLayout(Device& device)
+    : m_device(device)
+{
+}
 
 PipelineLayout::~PipelineLayout() = default;
 
-void PipelineLayout::setLabel(const char* label)
+void PipelineLayout::setLabel(String&&)
 {
-    UNUSED_PARAM(label);
+    // There is no Metal object that represents a pipeline layout.
 }
 
+bool PipelineLayout::operator==(const PipelineLayout& other) const
+{
+    UNUSED_PARAM(other);
+    // FIXME: Implement this
+    return false;
 }
+
+bool PipelineLayout::operator!=(const PipelineLayout& other) const
+{
+    return !(*this == other);
+}
+
+} // namespace WebGPU
+
+#pragma mark WGPU Stubs
 
 void wgpuPipelineLayoutRelease(WGPUPipelineLayout pipelineLayout)
 {
-    delete pipelineLayout;
+    WebGPU::fromAPI(pipelineLayout).deref();
 }
 
 void wgpuPipelineLayoutSetLabel(WGPUPipelineLayout pipelineLayout, const char* label)
 {
-    pipelineLayout->pipelineLayout->setLabel(label);
+    WebGPU::fromAPI(pipelineLayout).setLabel(WebGPU::fromAPI(label));
 }

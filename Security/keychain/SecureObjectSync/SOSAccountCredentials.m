@@ -175,7 +175,8 @@ static void SOSAccountSetPrivateCredential(SOSAccount* account, SecKeyRef privat
             bool locked = false;
             CFErrorRef lockCheckError = NULL;
             
-            if (!SecAKSGetIsLocked(&locked, &lockCheckError)) {
+            // user_only_keybag_handle ok to use here, since we don't use SOS from securityd_system
+            if (!SecAKSGetIsLocked(user_only_keybag_handle, &locked, &lockCheckError)) {
                 secerror("Checking for locked after change failed: %@", lockCheckError);
             }
             

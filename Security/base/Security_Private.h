@@ -24,6 +24,9 @@
 #ifndef _SECURITY_PRIVATE_H_
 #define _SECURITY_PRIVATE_H_
 
+// This header is here solely to build the private module. Clients should
+// include the individual headers they need.
+#if __building_module(Security_Private)
 #include <Security/certExtensionTemplates.h>
 #include <Security/CKKSControl.h>
 #include <Security/CKKSControlProtocol.h>
@@ -33,6 +36,7 @@
 #include <Security/EscrowRequestXPCProtocol.h>
 #include <Security/LocalKeychainAnalytics.h>
 #include <Security/nameTemplates.h>
+#include <Security/NtlmGenerator.h>
 #include <Security/ocspTemplates.h>
 #include <Security/OctagonSignPosts.h>
 #include <Security/OTClique.h>
@@ -45,9 +49,11 @@
 #include <Security/secasn1t.h>
 #include <Security/SecBase64.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificateRequest.h>
 #include <Security/SecCFAllocator.h>
 #include <Security/SecCMS.h>
+#include <Security/SecCMSInternal.h>
 #include <Security/SecCmsBase.h>
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsDecoder.h>
@@ -84,7 +90,10 @@
 #include <Security/SecPasswordGenerate.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecProtocolConfiguration.h>
+#include <Security/SecProtocolPriv.h>
+#include <Security/SecProtocolTypesPriv.h>
 #include <Security/SecRecoveryKey.h>
+#include <Security/SecSCEP.h>
 #include <Security/SecServerEncryptionSupport.h>
 #include <Security/SecSignpost.h>
 #include <Security/SecSMIME.h>
@@ -143,18 +152,20 @@
 #include <Security/sslTypes.h>
 #include <Security/TrustSettingsSchema.h>
 #include <Security/tsaSupport.h>
-#elif !TARGET_OS_MACCATALYST
+#else
+#include <Security/certextensions.h>
 #include <Security/CMSDecoder.h>
 #include <Security/CMSEncoder.h>
 #include <Security/CodeSigning.h>
 #include <Security/CSCommon.h>
-#include <Security/NtlmGenerator.h>
+#include <Security/oids.h>
 #include <Security/oidsalg.h>
 #include <Security/oidsocsp.h>
 #include <Security/pbkdf2.h>
 #include <Security/SecAsn1Coder.h>
 #include <Security/SecAsn1Templates.h>
 #include <Security/SecAsn1Types.h>
+#include <Security/SecCertificateInternal.h>
 #include <Security/SecCode.h>
 #include <Security/SecECKeyPriv.h>
 #include <Security/SecEMCSPriv.h>
@@ -166,12 +177,12 @@
 #include <Security/SecPBKDF.h>
 #include <Security/SecRequirement.h>
 #include <Security/SecRSAKey.h>
-#include <Security/SecSCEP.h>
 #include <Security/SecStaticCode.h>
 #include <Security/SecTask.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
-#include <Security/vmdh.h>
 #endif
+#endif
+
 
 #endif // _SECURITY_PRIVATE_H_

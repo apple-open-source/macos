@@ -355,7 +355,9 @@ ast_taken_user(void)
 	 * upon return to userspace.
 	 */
 	assert(thread->kern_promotion_schedpri == 0);
-	assert(thread->rwlock_count == 0);
+	if (thread->rwlock_count > 0) {
+		panic("rwlock_count is %d for thread %p, possibly it still holds a rwlock", thread->rwlock_count, thread);
+	}
 	assert(thread->priority_floor_count == 0);
 
 	assert3u(0, ==, thread->sched_flags &

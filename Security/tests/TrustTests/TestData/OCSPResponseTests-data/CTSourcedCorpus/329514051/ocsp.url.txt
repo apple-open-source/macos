@@ -1,0 +1,1 @@
+http://ocsp.globalsign.com/ca/gsovsha2g4r3

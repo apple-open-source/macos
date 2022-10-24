@@ -73,6 +73,7 @@ struct ctf_buf {
 };
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 parseterminate(char *fmt, ...)
 {

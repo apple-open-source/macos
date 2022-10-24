@@ -70,7 +70,7 @@ inline bool operator != (const CSSM_DATE &d1, const CSSM_DATE &d2)
 //
 // Yet another CSSM date/time format is CSSM_TIMESTRING. This is
 // defined as "char *", just so you can't use the type system
-// to keep things sane, so we can't really PodWrap it the usual way.
+// to keep things coordinated, so we can't really PodWrap it the usual way.
 // What *were* they thinking?
 // The format is allegedly "yyyymmddhhmmss", and the standard says
 // nothing about trailing null characters.

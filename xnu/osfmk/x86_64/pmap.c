@@ -369,8 +369,11 @@ pmap_ro_zone_validate_element_dst(
 	vm_offset_t         offset,
 	vm_size_t           new_data_size)
 {
-	vm_size_t elem_size = zone_elem_size_ro(zid);
-	vm_offset_t sum = 0, page = trunc_page(va);
+	vm_size_t elem_size = zone_ro_size_params[zid].z_elem_size;
+
+	/* Check element is from correct zone and properly aligned */
+	zone_require_ro(zid, elem_size, (void*)va);
+
 	if (__improbable(new_data_size > (elem_size - offset))) {
 		panic("%s: New data size %lu too large for elem size %lu at addr %p",
 		    __func__, (uintptr_t)new_data_size, (uintptr_t)elem_size, (void*)va);
@@ -379,18 +382,6 @@ pmap_ro_zone_validate_element_dst(
 		panic("%s: Offset %lu too large for elem size %lu at addr %p",
 		    __func__, (uintptr_t)offset, (uintptr_t)elem_size, (void*)va);
 	}
-	if (__improbable(os_add3_overflow(va, offset, new_data_size, &sum))) {
-		panic("%s: Integer addition overflow %p + %lu + %lu = %lu",
-		    __func__, (void*)va, (uintptr_t)offset, (uintptr_t) new_data_size,
-		    (uintptr_t)sum);
-	}
-	if (__improbable((va - page) % elem_size)) {
-		panic("%s: Start of element %p is not aligned to element size %lu",
-		    __func__, (void *)va, (uintptr_t)elem_size);
-	}
-
-	/* Check element is from correct zone */
-	zone_require_ro(zid, elem_size, (void*)va);
 }
 
 static void
@@ -2637,7 +2628,7 @@ pmap_list_resident_pages(
 #if CONFIG_COREDUMP
 /* temporary workaround */
 boolean_t
-coredumpok(__unused vm_map_t map, __unused mach_vm_offset_t va)
+coredumpok(vm_map_t map, mach_vm_offset_t va)
 {
 #if 0
 	pt_entry_t     *ptep;
@@ -2648,6 +2639,9 @@ coredumpok(__unused vm_map_t map, __unused mach_vm_offset_t va)
 	}
 	return (*ptep & (INTEL_PTE_NCACHE | INTEL_PTE_WIRED)) != (INTEL_PTE_NCACHE | INTEL_PTE_WIRED);
 #else
+	if (vm_map_entry_has_device_pager(map, va)) {
+		return FALSE;
+	}
 	return TRUE;
 #endif
 }
@@ -3253,7 +3247,7 @@ pmap_check_ledgers(
 	int     pid;
 	char    *procname;
 
-	if (pmap->pmap_pid == 0) {
+	if (pmap->pmap_pid == 0 || pmap->pmap_pid == -1) {
 		/*
 		 * This pmap was not or is no longer fully associated
 		 * with a task (e.g. the old pmap after a fork()/exec() or
@@ -3281,7 +3275,7 @@ pmap_set_process(
 	int pid,
 	char *procname)
 {
-	if (pmap == NULL) {
+	if (pmap == NULL || pmap->pmap_pid == -1) {
 		return;
 	}
 
@@ -3357,40 +3351,6 @@ pmap_verify_noncacheable(uintptr_t vaddr)
 	panic("pmap_verify_noncacheable: IO read from a cacheable address? address: 0x%lx, PTE: %p, *PTE: 0x%llx", vaddr, ptep, *ptep);
 	/*NOTREACHED*/
 	return 0;
-}
-
-void
-trust_cache_init(void)
-{
-	// Unsupported on this architecture.
-}
-
-kern_return_t
-pmap_load_legacy_trust_cache(struct pmap_legacy_trust_cache __unused *trust_cache,
-    const vm_size_t __unused trust_cache_len)
-{
-	// Unsupported on this architecture.
-	return KERN_NOT_SUPPORTED;
-}
-
-pmap_tc_ret_t
-pmap_load_image4_trust_cache(struct pmap_image4_trust_cache __unused *trust_cache,
-    const vm_size_t __unused trust_cache_len,
-    uint8_t const * __unused img4_manifest,
-    const vm_size_t __unused img4_manifest_buffer_len,
-    const vm_size_t __unused img4_manifest_actual_len,
-    bool __unused dry_run)
-{
-	// Unsupported on this architecture.
-	return PMAP_TC_UNKNOWN_FORMAT;
-}
-
-
-bool
-pmap_is_trust_cache_loaded(const uuid_t __unused uuid)
-{
-	// Unsupported on this architecture.
-	return false;
 }
 
 bool
@@ -3532,6 +3492,20 @@ pmap_has_ppl(void)
 	return false;
 }
 
+bool
+pmap_has_iofilter_protected_write()
+{
+	// Not supported on this architecture.
+	return false;
+}
+
+__attribute__((__noreturn__))
+void
+pmap_iofilter_protected_write(__unused vm_address_t addr, __unused uint64_t value, __unused uint64_t width)
+{
+	panic("%s called on an unsupported platform.", __FUNCTION__);
+}
+
 void* __attribute__((noreturn))
 pmap_image4_pmap_data(
 	__unused size_t *allocated_size)
@@ -3579,18 +3553,6 @@ pmap_image4_copy_object(
 	__unused size_t *object_length)
 {
 	panic("PMAP_IMG4: copy object API not supported on this architecture");
-}
-
-void
-pmap_lockdown_image4_slab(__unused vm_offset_t slab, __unused vm_size_t slab_len, __unused uint64_t flags)
-{
-	// Unsupported on this architecture.
-}
-
-void
-pmap_lockdown_image4_late_slab(__unused vm_offset_t slab, __unused vm_size_t slab_len, __unused uint64_t flags)
-{
-	// Unsupported on this architecture.
 }
 
 kern_return_t

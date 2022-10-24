@@ -25,15 +25,17 @@
 
 #pragma once
 
+#include <wtf/text/ASCIILiteral.h>
+
 namespace WebKit {
 
 namespace LaunchServicesDatabaseXPCConstants {
 
-constexpr auto xpcUpdateLaunchServicesDatabaseMessageName = "update-launch-services-database-message";
-constexpr auto xpcLaunchServicesDatabaseKey = "launch-services-database";
-constexpr auto xpcRequestLaunchServicesDatabaseUpdateMessageName = "request-launch-services-database-update-message";
-constexpr auto xpcLaunchServicesDatabaseXPCEndpointNameKey = "xpc-endpoint-launch-services-database";
-constexpr auto xpcLaunchServicesDatabaseXPCEndpointMessageName = "xpc-endpoint-launch-services-database-message";
+constexpr auto xpcUpdateLaunchServicesDatabaseMessageName = "update-launch-services-database-message"_s;
+constexpr auto xpcLaunchServicesDatabaseKey = "launch-services-database"_s;
+constexpr auto xpcRequestLaunchServicesDatabaseUpdateMessageName = "request-launch-services-database-update-message"_s;
+constexpr auto xpcLaunchServicesDatabaseXPCEndpointNameKey = "xpc-endpoint-launch-services-database"_s;
+constexpr auto xpcLaunchServicesDatabaseXPCEndpointMessageName = "xpc-endpoint-launch-services-database-message"_s;
 } // namespace LaunchServicesDatabaseXPCConstants
 
 } // namespace WebKit

@@ -48,6 +48,7 @@ static void __DARequestClaimReleaseCallback( CFTypeRef response, void * context 
 static void __DARequestEjectCallback( int status, void * context );
 static void __DARequestEjectApprovalCallback( CFTypeRef response, void * context );
 static int  __DARequestEjectEject( void * context );
+static int  __DARequestUnmountUnmount( void * context );
 static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * context );
 static void __DARequestMountApprovalCallback( CFTypeRef response, void * context );
 static void __DARequestProbeCallback( int status, void * context );
@@ -61,6 +62,7 @@ static void __DARequestMountAuthorizationCallback( DAReturn status, void * conte
 static int  __DARequestUnmountTickle( void * context );
 static void __DARequestUnmountTickleCallback( int status, void * context );
 
+#if TARGET_OS_OSX
 static void __DARequestAuthorize( DARequestRef        request,
                                   DAAuthorizeCallback callback,
                                   void *              callbackContext,
@@ -100,6 +102,7 @@ static void __DARequestAuthorize( DARequestRef        request,
         ( callback )( kDAReturnNotPrivileged, callbackContext );
     }
 }
+#endif
 ///w:stop
 static void __DARequestDispatchCallback( DARequestRef request, DADissenterRef dissenter )
 {
@@ -282,6 +285,7 @@ static Boolean __DARequestEject( DARequestRef request )
 {
     DADiskRef disk;
 
+
     disk = DARequestGetDisk( request );
 
     /*
@@ -371,6 +375,7 @@ static void __DARequestEjectCallback( int status, void * context )
 {
     DADiskRef    disk;
     DARequestRef request = context;
+
 
     disk = DARequestGetDisk( request );
 
@@ -489,15 +494,23 @@ static Boolean __DARequestMount( DARequestRef request )
          * Determine whether the disk is mounted.
          */
 
+        CFStringRef arguments;
+
+        arguments = DARequestGetArgument3( request );
+
         if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
         {
-            CFStringRef arguments;
-
-            arguments = DARequestGetArgument3( request );
-
-            if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
+            if ( arguments == NULL || ( DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE  &&
+                DAMountContainsArgument( arguments, kDAFileSystemMountArgumentSnapshot ) == FALSE ) ) 
             {
                 status = kDAReturnBusy;
+            }
+        }
+        else
+        {
+            if ( arguments != NULL && DAMountContainsArgument( arguments, kDAFileSystemMountArgumentSnapshot ) == TRUE)
+            {
+                status = EINVAL;
             }
         }
 
@@ -588,7 +601,7 @@ static Boolean __DARequestMount( DARequestRef request )
         DAReturn status;
 
         status = kDAReturnSuccess;
-
+#if TARGET_OS_OSX
         if ( DARequestGetDissenter( request ) )
         {
             DADissenterRef dissenter;
@@ -630,6 +643,7 @@ static Boolean __DARequestMount( DARequestRef request )
             return FALSE;
         }
         else
+#endif
         {
             DARequestSetState( request, _kDARequestStateStagedAuthorize, TRUE );
         }
@@ -720,16 +734,22 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
          */
 
         CFStringRef arguments;
-
-        DADiskSetBypath( disk, mountpoint );
-
-        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
-
+        
         arguments = DARequestGetArgument3( request );
-
-        if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
+        if ( mountpoint != NULL )
         {
-            DADiskDescriptionChangedCallback( disk, kDADiskDescriptionVolumePathKey );
+            if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentSnapshot ) == FALSE )
+            {
+
+                DADiskSetBypath( disk, mountpoint );
+
+                DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
+
+                if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
+                {
+                    DADiskDescriptionChangedCallback( disk, kDADiskDescriptionVolumePathKey );
+                }
+            }
         }
     }
 
@@ -1098,6 +1118,7 @@ static void __DARequestRenameCallback( int status, void * context )
             CFRelease( keys );
         }
 
+
         DALogInfo( "renamed disk, id = %@, success.", disk );
     }
 
@@ -1115,7 +1136,6 @@ static void __DARequestRenameCallback( int status, void * context )
 static Boolean __DARequestUnmount( DARequestRef request )
 {
     DADiskRef disk;
-
 
     disk = DARequestGetDisk( request );
 
@@ -1242,12 +1262,7 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
         DALogInfo( "unmounted disk, id = %@, ongoing.", disk );
 
-        DAFileSystemUnmountWithArguments( DADiskGetFileSystem( disk ),
-                                          DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ),
-                                          __DARequestUnmountCallback,
-                                          request,
-                                          ( options & kDADiskUnmountOptionForce ) ? kDAFileSystemUnmountArgumentForce : NULL,
-                                          NULL );
+        DAThreadExecute( __DARequestUnmountUnmount, request, __DARequestUnmountCallback, request );
 
         return TRUE;
     }
@@ -1402,6 +1417,56 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
     DAStageSignal( );
 
     CFRelease( request );
+}
+
+static int __DARequestUnmountUnmount( void * context )
+{
+    DADiskRef    disk;
+    CFURLRef     mountpoint;
+    char *       path;
+    DARequestRef request = context;
+    int          flags = 0;
+    int          status = EINVAL;
+    
+    disk = DARequestGetDisk( request );
+
+    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+    
+    if ( path )
+    {
+        DADiskUnmountOptions options;
+
+        options = DARequestGetArgument1( request );
+        
+        if ( options & kDADiskUnmountOptionForce )
+        {
+            flags = flags | MNT_FORCE;
+            
+#if 0
+            /*
+             * To be added later.
+             */
+            if ( DADiskGetState( disk, kDADiskStateZombie ) )
+            {
+                int ret = revoke ( DADiskGetBSDPath( disk, FALSE ) );
+                if ( -1 == ret )
+                {
+                    DALogInfo( "revoke of %@ failed with status %d", disk, errno);
+                }
+            }
+#endif
+
+        }
+        status = unmount( path, flags );
+        if ( -1 == status )
+        {
+            status = errno;
+        }
+    }
+        
+    return status;
 }
 
 static int  __DARequestUnmountGetProcessID( void * context )

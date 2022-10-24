@@ -156,7 +156,7 @@ static int findMatch(BLContextPtr context, CFStringRef legacyType,
 		return 2;
 	}
 		
-	numfs = getfsstat(buf, bufsize, MNT_NOWAIT);
+	numfs = getfsstat(buf, (int)bufsize, MNT_NOWAIT);
 	if(numfs < 0) {
 		contextprintf(context, kBLLogLevelError, "Could not get list of filesystems\n");		
 		return 1;

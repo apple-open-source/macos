@@ -58,7 +58,7 @@
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _trust_server_leaf_cert, sizeof(_trust_server_leaf_cert));
     NSArray *certs = @[(__bridge id)leaf];
     CFRelease(leaf);
-    SecPathBuilderRef builder = SecPathBuilderCreate(NULL, NULL, (__bridge CFArrayRef)certs, NULL, false, false, NULL, NULL, NULL, NULL, 0.0, NULL, NULL, NULL, NULL);
+    SecPathBuilderRef builder = SecPathBuilderCreate(NULL, NULL, (__bridge CFArrayRef)certs, NULL, false, false, NULL, NULL, NULL, NULL, 0.0, NULL, NULL, 0, NULL, NULL);
     // Set path
     SecPathBuilderSetPath(builder, path);
 

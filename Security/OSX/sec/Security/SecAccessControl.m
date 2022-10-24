@@ -77,6 +77,15 @@ static void dumpValue(id value, NSMutableString *target, NSString *separator) {
             dumpValue(obj, target, @"");
             [target appendString:@")"];
         }];
+    } else if ([value isKindOfClass:NSArray.class]) {
+        [target appendString:@"["];
+        NSString *arraySeparator = @"";
+        for (id obj in value) {
+            [target appendString:arraySeparator];
+            dumpValue(obj, target, separator);
+            arraySeparator = @",";
+        }
+        [target appendString:@"]"];
     }
 }
 
@@ -127,7 +136,7 @@ SecAccessControlRef SecAccessControlCreate(CFAllocatorRef allocator, CFErrorRef 
     return access_control;
 }
 
-static CFDataRef _getEmptyData() {
+static CFDataRef _getEmptyData(void) {
     static CFMutableDataRef emptyData = NULL;
     static dispatch_once_t onceToken;
 

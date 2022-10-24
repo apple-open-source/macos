@@ -87,10 +87,18 @@
  * runtime on top of each allocation.
  */
 
+_Static_assert(!KASAN_LIGHT, "Light mode not supported by KASan Classic.");
+
 /* Configuration options */
 static unsigned quarantine_enabled = 1;               /* Quarantine on/off */
 static unsigned free_yield = 0;                       /* ms yield after each free */
 static bool checks_enabled = false;                   /* Poision checking on/off */
+
+/*
+ * LLVM contains enough logic to inline check operations against the shadow
+ * table and uses this symbol as an anchor to find it in memory.
+ */
+const uintptr_t __asan_shadow_memory_dynamic_address = KASAN_OFFSET;
 
 void
 kasan_impl_init(void)

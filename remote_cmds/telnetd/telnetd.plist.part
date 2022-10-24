@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>telnetd</string>
+		<key>OpenSourceVersion</key>
+		<string>2008-02-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/libexec/telnetd?id=2e3838552652a5dbb8a6ca0d5b25799f8e90dd98</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>ext.h: Report version as FreeBSD</string>
+			<string>sys_term.c: Voicetool doesn't allow double byte character entry (7905033)</string>
+			<string>termstat.c: Voicetool doesn't allow double byte character entry (7905033)</string>
+			<string>utility.c: Voicetool doesn't allow double byte character entry (7905033)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

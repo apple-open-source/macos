@@ -13,6 +13,7 @@
 
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#include <cstdint>
 
 #include <deque>
 #include <memory>
@@ -90,7 +91,8 @@ class CommandQueue final : public WrappedObject<id<MTLCommandQueue>>, angle::Non
     };
     std::deque<CmdBufferQueueEntry> mMetalCmdBuffers;
 
-    uint64_t mQueueSerialCounter = 1;
+    uint64_t mQueueSerialCounter  = 1;
+    uint64_t mLastCommittedSerial = 0;
     std::atomic<uint64_t> mCommittedBufferSerial{0};
     std::atomic<uint64_t> mCompletedBufferSerial{0};
 
@@ -331,7 +333,7 @@ class RenderCommandEncoder final : public CommandEncoder
 
     // Restart the encoder so that new commands can be encoded.
     // NOTE: parent CommandBuffer's restart() must be called before this.
-    RenderCommandEncoder &restart(const RenderPassDesc &desc);
+    RenderCommandEncoder &restart(const RenderPassDesc &desc, uint32_t deviceMaxRenderTargets);
 
     RenderCommandEncoder &setRenderPipelineState(id<MTLRenderPipelineState> state);
     RenderCommandEncoder &setTriangleFillMode(MTLTriangleFillMode mode);

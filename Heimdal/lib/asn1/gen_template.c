@@ -938,7 +938,7 @@ generate_template(const Symbol *s)
 #endif
 		"    ret = _asn1_decode_top(asn1_%s, 0|%s, [input bytes], [input length], data, &size);\n"
 		"    if (ret) return ret;\n"
-		"    if (size != [input length]) return ASN1_EXTRA_DATA;\n"
+		"    %s\n"
 		"    return 0;\n"
 		"}\n"
 		"\n",
@@ -948,7 +948,8 @@ generate_template(const Symbol *s)
 #ifdef ASN1_CAPTURE_DATA
 		dupname,
 #endif
-		support_ber ? "A1_PF_ALLOW_BER" : "0");
+		support_ber ? "A1_PF_ALLOW_BER" : "0",
+		extra_data_type(s->name) ? "" : "if (size != [input length]) return ASN1_EXTRA_DATA;");
     }
 
     fprintf(f,

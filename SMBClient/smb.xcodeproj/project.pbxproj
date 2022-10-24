@@ -233,8 +233,8 @@
 		9AF9D0C51624F3F7005A4E83 /* statshares.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AF9D0C41624F3F7005A4E83 /* statshares.c */; };
 		A21A77E20AF825D40062C8C6 /* smb_gss.h in Headers */ = {isa = PBXBuildFile; fileRef = A21A77E10AF825D40062C8C6 /* smb_gss.h */; };
 		A23AA8110AF6DB25005DE569 /* smb_gss.c in Sources */ = {isa = PBXBuildFile; fileRef = A23AA8100AF6DB25005DE569 /* smb_gss.c */; };
+		AE04A64F26B1440600FB3D2E /* libsmb.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45329CD809E23B4200B4975E /* libsmb.a */; };
 		AE10327C24F3E6F800829097 /* interface.c in Sources */ = {isa = PBXBuildFile; fileRef = AE10327B24F3E6F800829097 /* interface.c */; };
-		AE10327D24F3E6F800829097 /* interface.c in Sources */ = {isa = PBXBuildFile; fileRef = AE10327B24F3E6F800829097 /* interface.c */; };
 		AEF0E3F0249A456D0054A239 /* multichannel.c in Sources */ = {isa = PBXBuildFile; fileRef = AEF0E3EF249A456D0054A239 /* multichannel.c */; };
 		B3DF4B4623CDAFE600046249 /* json_support.m in Sources */ = {isa = PBXBuildFile; fileRef = B3DF4B4523CDAFE600046249 /* json_support.m */; };
 		B3DF4B4823CDB5D100046249 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3DF4B4723CDB5D100046249 /* Foundation.framework */; };
@@ -286,6 +286,7 @@
 		DD7C30F621C0650800AF36C9 /* SMBClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6516D750F181911003A80A8 /* SMBClient.framework */; };
 		DD90E05B14BE642600430D94 /* smb_fid.c in Sources */ = {isa = PBXBuildFile; fileRef = DD90E05A14BE642500430D94 /* smb_fid.c */; };
 		DD90E05E14BE652B00430D94 /* smb_fid.h in Headers */ = {isa = PBXBuildFile; fileRef = DD90E05D14BE652B00430D94 /* smb_fid.h */; };
+		DD930F3626C5C72C00B04738 /* smbstat.c in Sources */ = {isa = PBXBuildFile; fileRef = DD930F3526C5C72C00B04738 /* smbstat.c */; };
 		DD9C01C721C06DA0003CCE78 /* netshareenum.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4588355810EA9C2000D182A4 /* netshareenum.cpp */; };
 		DD9C01C821C06DE7003CCE78 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDFAFDDB21C062DA00EC4114 /* DCERPC.framework */; };
 		DD9C01C921C06DEC003CCE78 /* librpc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45BAC46110DC0B66008D40D3 /* librpc.a */; };
@@ -467,6 +468,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4568138809E1E9D80028549B;
 			remoteInfo = smbfs.kext;
+		};
+		AE04A64D26B1440100FB3D2E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2D8D2F38009679647F000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 45329C0109E23B4200B4975E;
+			remoteInfo = libsmb.a;
 		};
 		AE12EBEA24E9169D000ADA15 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -846,6 +854,7 @@
 		DD8277811EEB348400DED795 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		DD90E05A14BE642500430D94 /* smb_fid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smb_fid.c; sourceTree = "<group>"; };
 		DD90E05D14BE652B00430D94 /* smb_fid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smb_fid.h; sourceTree = "<group>"; };
+		DD930F3526C5C72C00B04738 /* smbstat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smbstat.c; sourceTree = "<group>"; };
 		DDBF327524F81E4D00853149 /* TestWrapper.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = TestWrapper.sh; sourceTree = "<group>"; };
 		DDC45B1420C6FA9700731219 /* smb-client-diagnose */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "smb-client-diagnose"; sourceTree = "<group>"; };
 		DDE8D7FF15503FEB00D088FE /* smbfs_attrlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smbfs_attrlist.c; sourceTree = "<group>"; };
@@ -1013,6 +1022,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE04A64F26B1440600FB3D2E /* libsmb.a in Frameworks */,
 				D70368DB23BDF6DA003A0982 /* CoreFoundation.framework in Frameworks */,
 				D70368D723BDF674003A0982 /* SMBClient.framework in Frameworks */,
 				D797CB1923BA273500AF97C2 /* Network.framework in Frameworks */,
@@ -1254,6 +1264,7 @@
 				4513D346111DEE5900CEEA11 /* identity.c */,
 				453DD7181234623300F0C433 /* dfs.c */,
 				9AF9D0C41624F3F7005A4E83 /* statshares.c */,
+				DD930F3526C5C72C00B04738 /* smbstat.c */,
 				AEF0E3EF249A456D0054A239 /* multichannel.c */,
 				DD6972782550758600CE6E22 /* snapshot.c */,
 			);
@@ -1897,6 +1908,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				AE04A64E26B1440100FB3D2E /* PBXTargetDependency */,
 			);
 			name = mc_notifier;
 			productName = mc_notifier_d;
@@ -2124,7 +2136,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e # exit on error\nrm -rf ${SMBFS_LIBRPC}/nt\nmkdir -p ${SMBFS_LIBRPC}/nt\ncp -frp ${SDKROOT}/usr/local/include/nt/lsarpc.* ${SMBFS_LIBRPC}/nt\ncp -frp ${SDKROOT}/usr/local/include/nt/srvsvc.* ${SMBFS_LIBRPC}/nt\ncp -frp ${SDKROOT}/usr/local/include/nt/dtyp.* ${SMBFS_LIBRPC}/nt";
+			shellScript = "set -e # exit on error\nrm -rf ${SMBFS_LIBRPC}/nt\nmkdir -p ${SMBFS_LIBRPC}/nt\nditto ${SDKROOT}/usr/local/include/nt/lsarpc.* ${SMBFS_LIBRPC}/nt\nditto ${SDKROOT}/usr/local/include/nt/srvsvc.* ${SMBFS_LIBRPC}/nt\nditto ${SDKROOT}/usr/local/include/nt/dtyp.* ${SMBFS_LIBRPC}/nt\n";
 		};
 		7228799B163766BB0050EFA4 /* Generate lsarpc client stubs */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2156,7 +2168,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "rm -rf ${SMBFS_LIBRPC}/nt/srvsvc_client.*\n${SMBFS_LIBRPC}/make-idl-client ${SMBFS_LIBRPC} ${SMBFS_LIBRPC}/nt/srvsvc.idl";
+			shellScript = "rm -rf ${SMBFS_LIBRPC}/nt/srvsvc_client.*\n${SMBFS_LIBRPC}/make-idl-client ${SMBFS_LIBRPC} ${SMBFS_LIBRPC}/nt/srvsvc.idl\n";
 		};
 		722879AD1638BFB80050EFA4 /* Link Client Stubs to Sources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2172,7 +2184,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "rm -rf ${SMBFS_LIBRPC}/lsarpc_client.c\nln -s ${DERIVED_FILE_DIR}/lsarpc_client.c ${SMBFS_LIBRPC}/lsarpc_client.c\nrm -rf ${SMBFS_LIBRPC}/srvsvc_client.c\nln -s ${DERIVED_FILE_DIR}/srvsvc_client.c ${SMBFS_LIBRPC}/srvsvc_client.c";
+			shellScript = "rm -rf ${SMBFS_LIBRPC}/lsarpc_client.c\nln -s ${DERIVED_FILE_DIR}/lsarpc_client.c ${SMBFS_LIBRPC}/lsarpc_client.c\nrm -rf ${SMBFS_LIBRPC}/srvsvc_client.c\nln -s ${DERIVED_FILE_DIR}/srvsvc_client.c ${SMBFS_LIBRPC}/srvsvc_client.c\n";
 		};
 		DD68E09C268E5E8C007D8ECF /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2255,6 +2267,7 @@
 				4588355C10EA9C2000D182A4 /* netshareenum.cpp in Sources */,
 				9AF9D0C51624F3F7005A4E83 /* statshares.c in Sources */,
 				DD6972792550758600CE6E22 /* snapshot.c in Sources */,
+				DD930F3626C5C72C00B04738 /* smbstat.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2365,7 +2378,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D70368E023BE45FD003A0982 /* main.m in Sources */,
-				AE10327D24F3E6F800829097 /* interface.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2492,6 +2504,11 @@
 			isa = PBXTargetDependency;
 			target = 4568138809E1E9D80028549B /* smbfs.kext */;
 			targetProxy = 7254E9591638EE9F00EBD277 /* PBXContainerItemProxy */;
+		};
+		AE04A64E26B1440100FB3D2E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 45329C0109E23B4200B4975E /* libsmb.a */;
+			targetProxy = AE04A64D26B1440100FB3D2E /* PBXContainerItemProxy */;
 		};
 		AE12EBEB24E9169D000ADA15 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -3401,6 +3418,7 @@
 					"-Wformat=2",
 					"-Wformat-security",
 					"-Wshorten-64-to-32",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -3476,6 +3494,7 @@
 					"-Wformat=2",
 					"-Wformat-security",
 					"-Wshorten-64-to-32",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4043,6 +4062,7 @@
 					"-Wformat=2",
 					"-Wformat-security",
 					"-Wshorten-64-to-32",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -4109,6 +4129,7 @@
 					kernel/sys5,
 				);
 				INFOPLIST_FILE = "SMBClient-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SMBClient;
@@ -4692,6 +4713,7 @@
 					kernel/sys5,
 				);
 				INFOPLIST_FILE = "SMBClient-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SMBClient;
@@ -4758,6 +4780,7 @@
 					kernel/sys5,
 				);
 				INFOPLIST_FILE = "SMBClient-Info.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SMBClient;
@@ -4933,7 +4956,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				INSTALL_PATH = /usr/libexec;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = NO;
@@ -4997,7 +5020,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				INSTALL_PATH = /usr/libexec;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -5060,9 +5083,14 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/\"",
 				);
 				INSTALL_PATH = /usr/libexec;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -5457,7 +5485,12 @@
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/SMBClient;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "-DFAKE_XC_TEST";
+				OTHER_CFLAGS = (
+					"-DFAKE_XC_TEST",
+					"-fcoverage-mapping",
+					"-fprofile-instr-generate",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -5640,6 +5673,11 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = (
+					"-fcoverage-mapping",
+					"-fprofile-instr-generate",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 			};

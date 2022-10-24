@@ -10,7 +10,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -27,7 +27,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)sync.8	8.1 (Berkeley) 5/31/93
-.\" $FreeBSD: src/bin/sync/sync.8,v 1.16 2005/01/10 08:39:26 imp Exp $
+.\" $FreeBSD$
 .\"
 .Dd May 31, 1993
 .Dt SYNC 8
@@ -43,9 +43,13 @@ The
 utility
 can be called to ensure that all disk writes have been completed before the
 processor is halted in a way not suitably done by
-.Xr shutdown 8 .
+.Xr reboot 8
+or
+.Xr halt 8 .
 Generally, it is preferable to use
-.Xr shutdown 8
+.Xr reboot 8
+or
+.Xr halt 8
 to shut down the system,
 as they may perform additional actions
 such as resynchronizing the hardware clock
@@ -60,7 +64,8 @@ function call.
 .Sh SEE ALSO
 .Xr fsync 2 ,
 .Xr sync 2 ,
-.Xr shutdown 8
+.Xr halt 8 ,
+.Xr reboot 8
 .Sh HISTORY
 A
 .Nm

@@ -754,6 +754,11 @@ buf_setvnode(buf_t bp, vnode_t vp)
 	bp->b_vp = vp;
 }
 
+vnode_t
+buf_vnop_vnode(buf_t bp)
+{
+	return bp->b_vnop_vp ? bp->b_vnop_vp :  bp->b_vp;
+}
 
 void *
 buf_callback(buf_t bp)
@@ -1539,7 +1544,9 @@ buf_strategy(vnode_t devvp, void *ap)
 	 * we were able to successfully set up the
 	 * physical block mapping
 	 */
+	bp->b_vnop_vp = devvp;
 	error = VOCALL(devvp->v_op, VOFFSET(vnop_strategy), ap);
+	bp->b_vnop_vp = NULLVP;
 	DTRACE_FSINFO(strategy, vnode_t, vp);
 	return error;
 }
@@ -4157,6 +4164,9 @@ buf_biodone(buf_t bp)
 
 	KERNEL_DEBUG((FSDBG_CODE(DBG_FSRW, 387)) | DBG_FUNC_START,
 	    bp, bp->b_datap, bp->b_flags, 0, 0);
+
+	/* Record our progress. */
+	vfs_update_last_completion_time();
 
 	if (ISSET(bp->b_flags, B_DONE)) {
 		panic("biodone already");

@@ -101,6 +101,7 @@
     // Add some current item pointers. They don't necessarily need to point to anything...
 
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
+                                                                          contextID:self.defaultCKKS.operationDependencies.contextID
                                                                     currentItemUUID:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
@@ -111,6 +112,7 @@
     XCTAssertNotNil(currentPointerRecord, "Found record in CloudKit at expected UUID");
 
     CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice2"
+                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
                                                                      currentItemUUID:@"10E76B80-CE1C-A52A-B0CB-462A2EBA05AF"
                                                                                state:SecCKKSProcessedStateRemote
                                                                               zoneID:self.keychainZoneID
@@ -120,7 +122,7 @@
     CKRecord* currentPointerRecord2 = self.keychainZone.currentDatabase[currentPointerRecordID2];
     XCTAssertNotNil(currentPointerRecord2, "Found record in CloudKit at expected UUID");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Tear down the CKKS object
@@ -129,7 +131,7 @@
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         // Edit the zone state entry to have no fixups
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
 
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
@@ -140,6 +142,7 @@
 
         // And add a garbage CIP
         CKKSCurrentItemPointer* cip3 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"garbage"
+                                                                               contextID:self.defaultCKKS.operationDependencies.contextID
                                                                          currentItemUUID:@"10E76B80-CE1C-A52A-B0CB-462A2EBA05AF"
                                                                                    state:SecCKKSProcessedStateLocal
                                                                                   zoneID:self.keychainZoneID
@@ -171,13 +174,15 @@
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         // The zone state entry should be up the most recent fixup level
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
         XCTAssertEqual(ckse.lastFixup, CKKSCurrentFixupNumber, "CKSE should have the current fixup number stored");
 
         // The garbage CIP should be gone, and CKKS should have caught up to the CIP change
-        NSArray<CKKSCurrentItemPointer*>* allCIPs = [CKKSCurrentItemPointer allInZone:self.keychainZoneID error:&error];
+        NSArray<CKKSCurrentItemPointer*>* allCIPs = [CKKSCurrentItemPointer allInZone:self.keychainZoneID
+                                                                            contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                error:&error];
         XCTAssertNil(error, "no error loading all CIPs from database");
 
         XCTestExpectation* foundCIP2 = [self expectationWithDescription: @"found CIP2"];
@@ -198,7 +203,7 @@
     [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         // Edit the zone state entry to have no fixups
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:viewState.zoneID.zoneName error:&error];
 
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
@@ -238,11 +243,12 @@
                                                                      viewList:self.managedViewList];
 
     CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.keychainZoneKeys.tlk getKeychainBackedKey:&error]
-                                           as:remotePeer1
-                                           to:self.mockSOSAdapter.selfPeer
-                                        epoch:-1
-                                     poisoned:0
-                                        error:&error];
+                                                contextID:self.defaultCKKS.operationDependencies.contextID
+                                                       as:remotePeer1
+                                                       to:self.mockSOSAdapter.selfPeer
+                                                    epoch:-1
+                                                 poisoned:0
+                                                    error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
     XCTAssertNotNil(share, "Should be able to create a share");
 
@@ -276,7 +282,9 @@
     // and check that the share made it
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
-        CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
+        CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID
+                                                                                 contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                                     error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding new TLKShare record in database");
         XCTAssertNotNil(localshare, "Should be able to find a new TLKShare record in database");
     }];
@@ -323,7 +331,10 @@
     // Corrupt the second item's CKMirror entry to only contain system fields in the CKRecord portion (to emulate early CKKS behavior)
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:secondRecordID.recordName zoneID:self.keychainZoneID error:&error];
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:secondRecordID.recordName
+                                                    contextID:self.defaultCKKS.operationDependencies.contextID
+                                                       zoneID:self.keychainZoneID
+                                                        error:&error];
         XCTAssertNil(error, "Should have no error pulling second CKKSMirrorEntry from database");
 
         NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
@@ -384,7 +395,9 @@
     // Modify the sqlite DB to simulate how earlier verions would save these records
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID
+                                                              contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                 zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
 
         XCTAssertNotNil(cdse.octagonPeerID, "CDSE should have an octagon peer ID");
@@ -422,7 +435,9 @@
     // And all CDSEs should have an octagon peer ID again!
     [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
-        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID
+                                                              contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                 zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
 
         XCTAssertNotNil(cdse.octagonPeerID, "CDSE should have an octagon peer ID");
@@ -451,7 +466,7 @@
     [self.keychainZone addToZone:ckr];
 
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:ckr];
+        CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:ckr contextID:self.defaultCKKS.operationDependencies.contextID];
         NSError* error = nil;
         [ckme saveToDatabase:&error];
 

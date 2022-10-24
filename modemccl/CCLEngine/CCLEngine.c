@@ -48,6 +48,7 @@ Includes
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOCFUnserialize.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <CoreFoundation/CFBundlePriv.h>
 
 #include "CCLArgFunctions.h"
 #include "cclkeys.h"
@@ -2410,11 +2411,7 @@ void SetSpeed(void)
 CFStringRef copyUserLocalizedString(CFBundleRef bundle,
     CFStringRef key, CFStringRef value, CFArrayRef userLanguages) 
 {
-    CFStringRef 	result = NULL, errStr= NULL;
-    CFDictionaryRef 	stringTable;
-    CFDataRef 		tableData;
-    SInt32 		errCode;
-    CFURLRef 		tableURL;
+    CFStringRef 	result = NULL;
     CFArrayRef		locArray, prefArray;
 
     if (userLanguages == NULL)
@@ -2428,23 +2425,7 @@ CFStringRef copyUserLocalizedString(CFBundleRef bundle,
         prefArray = CFBundleCopyLocalizationsForPreferences(locArray, userLanguages);
         if (prefArray) {
             if (CFArrayGetCount(prefArray)) {
-                tableURL = CFBundleCopyResourceURLForLocalization(bundle, CFSTR("Localizable"), CFSTR("strings"), NULL, 
-                                    CFArrayGetValueAtIndex(prefArray, 0));
-                if (tableURL) {
-                    if (CFURLCreateDataAndPropertiesFromResource(NULL, tableURL, &tableData, NULL, NULL, &errCode)) {
-                        stringTable = CFPropertyListCreateFromXMLData(NULL, tableData, kCFPropertyListImmutable, &errStr);
-                        if (errStr)
-                            CFRelease(errStr);
-                        if (stringTable) {
-                            result = CFDictionaryGetValue(stringTable, key);
-                            if (result)
-                                CFRetain(result);
-                            CFRelease(stringTable);
-                        }
-                        CFRelease(tableData);
-                    }
-                    CFRelease(tableURL);
-                }
+                result = CFBundleCopyLocalizedStringForLocalization(bundle, key, value, CFSTR("Localizable"), CFArrayGetValueAtIndex(prefArray, 0));
             }
             CFRelease(prefArray);
         }

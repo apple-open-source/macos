@@ -54,7 +54,6 @@
 #import "RenderBlock.h"
 #import "RenderImage.h"
 #import "RuntimeApplicationChecks.h"
-#import "RuntimeEnabledFeatures.h"
 #import "SharedBuffer.h"
 #import "StyleProperties.h"
 #import "WebContentReader.h"
@@ -66,33 +65,12 @@
 
 namespace WebCore {
 
-void Editor::showFontPanel()
-{
-    auto* client = this->client();
-    if (!client || !client->canShowFontPanel())
-        return;
-
-    [[NSFontManager sharedFontManager] orderFrontFontPanel:nil];
-}
-
-void Editor::showStylesPanel()
-{
-    [[NSFontManager sharedFontManager] orderFrontStylesPanel:nil];
-}
-
-void Editor::showColorPanel()
-{
-    [[NSApplication sharedApplication] orderFrontColorPanel:nil];
-}
-
 void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> options)
 {
     auto range = selectedRange();
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // FIXME: How can this hard-coded pasteboard name be right, given that the passed-in pasteboard has a name?
-    client()->setInsertionPasteboard(NSGeneralPboard);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    client()->setInsertionPasteboard(NSPasteboardNameGeneral);
 
     bool chosePlainText;
     RefPtr<DocumentFragment> fragment = webContentFromPasteboard(*pasteboard, *range, options.contains(PasteOption::AllowPlainText), chosePlainText);
@@ -102,8 +80,9 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
 
     if (fragment && shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
         pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), false, options.contains(PasteOption::IgnoreMailBlockquote) ? MailBlockquoteHandling::IgnoreBlockquote : MailBlockquoteHandling::RespectBlockquote );
-
-    client()->setInsertionPasteboard(String());
+    
+    if (auto* client = this->client())
+        client->setInsertionPasteboard(String());
 }
 
 void Editor::platformCopyFont()
@@ -179,73 +158,6 @@ void Editor::platformPasteFont()
     style->setProperty(CSSPropertyWebkitTextDecorationsInEffect, (underlineStyle != NSUnderlineStyleNone) ? CSSValueUnderline : ((strikethroughStyle != NSUnderlineStyleNone) ? CSSValueLineThrough : CSSValueNone));
 
     applyStyleToSelection(style.ptr(), EditAction::PasteFont);
-
-    client()->setInsertionPasteboard(String());
-}
-
-void Editor::readSelectionFromPasteboard(const String& pasteboardName)
-{
-    Pasteboard pasteboard(PagePasteboardContext::create(m_document.pageID()), pasteboardName);
-    if (m_document.selection().selection().isContentRichlyEditable())
-        pasteWithPasteboard(&pasteboard, { PasteOption::AllowPlainText });
-    else
-        pasteAsPlainTextWithPasteboard(pasteboard);
-}
-
-static void maybeCopyNodeAttributesToFragment(const Node& node, DocumentFragment& fragment)
-{
-    // This is only supported for single-Node fragments.
-    Node* firstChild = fragment.firstChild();
-    if (!firstChild || firstChild != fragment.lastChild())
-        return;
-
-    // And only supported for HTML elements.
-    if (!node.isHTMLElement() || !firstChild->isHTMLElement())
-        return;
-
-    // And only if the source Element and destination Element have the same HTML tag name.
-    const HTMLElement& oldElement = downcast<HTMLElement>(node);
-    HTMLElement& newElement = downcast<HTMLElement>(*firstChild);
-    if (oldElement.localName() != newElement.localName())
-        return;
-
-    for (const Attribute& attribute : oldElement.attributesIterator()) {
-        if (newElement.hasAttribute(attribute.name()))
-            continue;
-        newElement.setAttribute(attribute.name(), attribute.value());
-    }
-}
-
-void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
-{
-    ASSERT(node);
-
-    if (node->document() != m_document)
-        return;
-
-    Ref<Document> protector(m_document);
-
-    auto range = makeRangeSelectingNodeContents(*node);
-    m_document.selection().setSelection(VisibleSelection(range), FrameSelection::DoNotSetFocus);
-
-    Pasteboard pasteboard(PagePasteboardContext::create(m_document.pageID()), pasteboardName);
-
-    if (!m_document.selection().selection().isContentRichlyEditable()) {
-        pasteAsPlainTextWithPasteboard(pasteboard);
-        return;
-    }
-
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    // FIXME: How can this hard-coded pasteboard name be right, given that the passed-in pasteboard has a name?
-    client()->setInsertionPasteboard(NSGeneralPboard);
-    ALLOW_DEPRECATED_DECLARATIONS_END
-
-    bool chosePlainText;
-    if (auto fragment = webContentFromPasteboard(pasteboard, range, true, chosePlainText)) {
-        maybeCopyNodeAttributesToFragment(*node, *fragment);
-        if (shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
-            pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(pasteboard), false, MailBlockquoteHandling::IgnoreBlockquote);
-    }
 
     client()->setInsertionPasteboard(String());
 }
@@ -337,10 +249,8 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
     if (!pasteboard.isStatic())
         pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
 
-    if (auto imageRange = makeRangeSelectingNode(imageElement)) {
-        auto serializeComposedTree = m_document.settings().selectionAcrossShadowBoundariesEnabled() ? SerializeComposedTree::Yes : SerializeComposedTree::No;
-        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingLocalFileURLsForPrivacy, serializeComposedTree);
-    }
+    if (auto imageRange = makeRangeSelectingNode(imageElement))
+        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingURLsForPrivacy, SerializeComposedTree::Yes);
 
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;

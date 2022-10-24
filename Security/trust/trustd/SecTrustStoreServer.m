@@ -280,11 +280,11 @@ ConfigCheckerAndSetter checkInputExceptionsAndSetAppExceptions = ^bool(id inConf
 static _Atomic bool gHasCTExceptions = false;
 #define kSecCTExceptionsChanged "com.apple.trustd.ct.exceptions-changed"
 
-static NSURL *CTExceptionsOldFileURL() {
+static NSURL *CTExceptionsOldFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(CFSTR("CTExceptions.plist")));
 }
 
-static NSURL *CTExceptionsFileURL() {
+static NSURL *CTExceptionsFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInPrivateTrustdDirectory(CFSTR("CTExceptions.plist")));
 }
 
@@ -396,11 +396,11 @@ ConfigCheckerAndSetter checkInputAdditionsAndSetAppAdditions = ^bool(id inConfig
 static _Atomic bool gHasCARevocationAdditions = false;
 #define kSecCARevocationChanged "com.apple.trustd.ca.revocation-changed"
 
-static NSURL *CARevocationOldFileURL() {
+static NSURL *CARevocationOldFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(CFSTR("CARevocation.plist")));
 }
 
-static NSURL *CARevocationFileURL() {
+static NSURL *CARevocationFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInPrivateTrustdDirectory(CFSTR("CARevocation.plist")));
 }
 
@@ -465,11 +465,11 @@ static _Atomic bool gHasTransparentConnectionPins = false;
 #define kSecTransparentConnectionPinsChanged "com.apple.trustd.hrn.pins-changed"
 const NSString *kSecCAPinsKey = @"CAPins";
 
-static NSURL *TransparentConnectionPinsOldFileURL() {
+static NSURL *TransparentConnectionPinsOldFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(CFSTR("TransparentConnectionPins.plist")));
 }
 
-static NSURL *TransparentConnectionPinsFileURL() {
+static NSURL *TransparentConnectionPinsFileURL(void) {
     return CFBridgingRelease(SecCopyURLForFileInPrivateTrustdDirectory(CFSTR("TransparentConnectionPins.plist")));
 }
 

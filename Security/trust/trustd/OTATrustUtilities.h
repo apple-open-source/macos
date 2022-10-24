@@ -51,12 +51,12 @@ SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void);
 // Accessor to retrieve a copy of the current black listed key.
 // Caller is responsible for releasing the returned CFSetRef
 CF_EXPORT
-CFSetRef SecOTAPKICopyBlackListSet(SecOTAPKIRef otapkiRef);
+CFSetRef SecOTAPKICopyRevokedListSet(SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve a copy of the current gray listed key.
 // Caller is responsible for releasing the returned CFSetRef
 CF_EXPORT
-CFSetRef SecOTAPKICopyGrayList(SecOTAPKIRef otapkiRef);
+CFSetRef SecOTAPKICopyDistrustedList(SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve a copy of the current allow list dictionary.
 // Caller is responsible for releasing the returned CFDictionaryRef
@@ -77,11 +77,6 @@ CFDictionaryRef SecOTAPKICopyTrustedCTLogs(void);
 // Caller is responsible for releasing the returned CFURLRef
 CF_EXPORT
 CFURLRef SecOTAPKICopyPinningList(SecOTAPKIRef otapkiRef);
-
-// Accessor to retrieve the array of Escrow certificates.
-// Caller is responsible for releasing the returned CFArrayRef
-CF_EXPORT
-CFArrayRef SecOTAPKICopyEscrowCertificates(uint32_t escrowRootType, SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve the dictionary of EV Policy OIDs to Anchor digest.
 // Caller is responsible for releasing the returned CFDictionaryRef
@@ -124,6 +119,9 @@ CFIndex SecOTAPKIGetValidSnapshotVersion(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 CFIndex SecOTAPKIGetValidSnapshotFormat(SecOTAPKIRef otapkiRef);
 
+CF_EXPORT
+CFIndex SecOTAPKIGetValidSnapshotGeneration(SecOTAPKIRef otapkiRef);
+
 // Accessor to retrieve the OTAPKI trust store version
 // Note: Trust store is not mutable by assets
 CF_EXPORT
@@ -153,10 +151,6 @@ CFArrayRef SecOTAPKICopyAppleCertificateAuthorities(void);
 extern const CFStringRef kOTAPKIKillSwitchCT;
 extern const CFStringRef kOTAPKIKillSwitchNonTLSCT;
 bool SecOTAPKIKillSwitchEnabled(CFStringRef switchKey);
-
-// SPI to return the array of currently trusted Escrow certificates
-CF_EXPORT
-CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error);
 
 // SPI to return the array of currently (TLS) trusted CT logs
 CF_EXPORT

@@ -84,6 +84,11 @@ void mm_audit_event(struct ssh *, ssh_audit_event_t);
 void mm_audit_run_command(const char *);
 #endif
 
+#ifdef __APPLE_ENDPOINTSECURITY__
+#include "audit.h"
+void mm_submit_ess_event(const char *, const char *, ssh_audit_event_t);
+#endif
+
 struct Session;
 void mm_terminate(void);
 int mm_pty_allocate(int *, int *, char *, size_t);

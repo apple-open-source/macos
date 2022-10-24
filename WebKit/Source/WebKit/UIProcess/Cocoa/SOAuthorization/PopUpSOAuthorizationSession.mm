@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #import "APINavigationAction.h"
 #import <WebKit/WKNavigationDelegatePrivate.h>
+#import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKUIDelegate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import "WKWebViewInternal.h"
@@ -93,13 +94,13 @@
 
 namespace WebKit {
 
-Ref<SOAuthorizationSession> PopUpSOAuthorizationSession::create(SOAuthorization *soAuthorization, WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
+Ref<SOAuthorizationSession> PopUpSOAuthorizationSession::create(WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
 {
-    return adoptRef(*new PopUpSOAuthorizationSession(soAuthorization, page, WTFMove(navigationAction), WTFMove(newPageCallback), WTFMove(uiClientCallback)));
+    return adoptRef(*new PopUpSOAuthorizationSession(page, WTFMove(navigationAction), WTFMove(newPageCallback), WTFMove(uiClientCallback)));
 }
 
-PopUpSOAuthorizationSession::PopUpSOAuthorizationSession(SOAuthorization *soAuthorization, WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
-    : SOAuthorizationSession(soAuthorization, WTFMove(navigationAction), page, InitiatingAction::PopUp)
+PopUpSOAuthorizationSession::PopUpSOAuthorizationSession(WebPageProxy& page, Ref<API::NavigationAction>&& navigationAction, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
+    : SOAuthorizationSession(WTFMove(navigationAction), page, InitiatingAction::PopUp)
     , m_newPageCallback(WTFMove(newPageCallback))
     , m_uiClientCallback(WTFMove(uiClientCallback))
 {
@@ -183,13 +184,16 @@ void PopUpSOAuthorizationSession::initSecretWebView()
         return;
     auto configuration = adoptNS([[initiatorWebView configuration] copy]);
     [configuration _setRelatedWebView:initiatorWebView.get()];
+    auto secretViewPreferences = adoptNS([[configuration preferences] copy]);
+    [secretViewPreferences _setExtensibleSSOEnabled:NO];
+    [configuration setPreferences:secretViewPreferences.get()];
     m_secretWebView = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration.get()]);
 
     m_secretDelegate = adoptNS([[WKSOSecretDelegate alloc] initWithSession:this]);
     [m_secretWebView setUIDelegate:m_secretDelegate.get()];
     [m_secretWebView setNavigationDelegate:m_secretDelegate.get()];
 
-    m_secretWebView->_page->preferences().setExtensibleSSOEnabled(false);
+    RELEASE_ASSERT(!m_secretWebView->_page->preferences().isExtensibleSSOEnabled());
     WTFLogAlways("SecretWebView is created.");
 }
 

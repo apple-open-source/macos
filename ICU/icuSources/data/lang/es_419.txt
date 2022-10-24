@@ -28,6 +28,7 @@ es_419{
         goh{"alemán de la alta edad antigua"}
         grc{"griego clásico"}
         gu{"gujarati"}
+        guc{"wayú"}
         ht{"haitiano"}
         kbd{"cabardiano"}
         krc{"karachái-bálkaro"}

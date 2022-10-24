@@ -558,13 +558,13 @@ CFErrorRef Transform::SendMetaAttribute(SecTransformStringOrAttributeRef key, Se
 			break;
 			
 		case kSecTransformMetaAttributeHasOutboundConnections:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't set kSecTransformMetaAttributeHasOutboundConnections for %@ (or any other attribute)", ah);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't set kSecTransformMetaAttributeHasOutboundConnections for %@ (or any other attribute)"), ah);
 			
 		case kSecTransformMetaAttributeHasInboundConnection:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't set kSecTransformMetaAttributeHasInboundConnection for %@ (or any other attribute)", ah);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't set kSecTransformMetaAttributeHasInboundConnection for %@ (or any other attribute)"), ah);
 			
 		case kSecTransformMetaAttributeCanCycle:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "kSecTransformMetaAttributeCanCycle not yet supported (%@)", ah);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("kSecTransformMetaAttributeCanCycle not yet supported (%@)"), ah);
 			
 		case kSecTransformMetaAttributeExternalize:
 			ta->ignore_while_externalizing = CFBooleanGetValue((CFBooleanRef)value) ? 0 : 1;
@@ -574,13 +574,13 @@ CFErrorRef Transform::SendMetaAttribute(SecTransformStringOrAttributeRef key, Se
 			return SetAttributeNoCallback(ah, value);
 			
 		case kSecTransformMetaAttributeRef:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't set kSecTransformMetaAttributeRef for %@ (or any other attribute)", ah);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't set kSecTransformMetaAttributeRef for %@ (or any other attribute)"), ah);
 			
 		case kSecTransformMetaAttributeName:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't set kSecTransformMetaAttributeName for %@ (or any other attribute)", ah);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't set kSecTransformMetaAttributeName for %@ (or any other attribute)"), ah);
 			
 		default:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't set unknown meta attribute #%d to %@ on %@", type, value, key);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't set unknown meta attribute #%d to %@ on %@"), (int)type, value, key);
 	}
 	
 	return NULL;
@@ -613,7 +613,7 @@ CFTypeRef Transform::GetMetaAttribute(SecTransformStringOrAttributeRef key, SecT
 		case kSecTransformMetaAttributeName:
 			return ta->name;
 		default:
-			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't get unknown meta attribute #%d from %@", type, key);
+			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Can't get unknown meta attribute #%d from %@"), (int)type, key);
 	}
 	
 	return NULL;
@@ -689,14 +689,14 @@ void Transform::AbortJustThisTransform(CFErrorRef abortErr)
             dispatch_async(mActivationQueue, abortAction);
         }
 	} else {
-        Debug("%@ set to %@ while processing ABORT=%@, this extra set will be ignored", AbortAH, abortErr, mAbortError);
+        Debug(CFSTR("%@ set to %@ while processing ABORT=%@, this extra set will be ignored"), AbortAH, abortErr, mAbortError);
     }
 }
 
 // abort all transforms in the root group & below
 void Transform::AbortAllTransforms(CFTypeRef err)
 {
-	Debug("%@ set to %@, aborting\n", AbortAH, err);
+	Debug(CFSTR("%@ set to %@, aborting\n"), AbortAH, err);
 	CFErrorRef error = NULL;
 	
 	CFTypeRef replacementErr = NULL;
@@ -705,7 +705,7 @@ void Transform::AbortAllTransforms(CFTypeRef err)
 	{
         CFStringRef thisErrorTypeDescription = CFCopyTypeIDDescription(CFGetTypeID(err));
         CFStringRef regularErrorTypeDescription = CFCopyTypeIDDescription(CFErrorGetTypeID());
-		replacementErr = err = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "ABORT set to a %@ (%@) not a %@", thisErrorTypeDescription, err, regularErrorTypeDescription);
+		replacementErr = err = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, CFSTR("ABORT set to a %@ (%@) not a %@"), thisErrorTypeDescription, err, regularErrorTypeDescription);
         CFReleaseNull(thisErrorTypeDescription);
         CFReleaseNull(regularErrorTypeDescription);
 	}
@@ -754,7 +754,7 @@ CFErrorRef Transform::Disconnect(Transform* destinationTransform, CFStringRef my
 	
 	if (src->connections == NULL)
 	{
-		return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Cannot find transform in destination.");
+		return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, CFSTR("Cannot find transform in destination."));
 	}
 	
 	CFIndex numConnections = CFArrayGetCount(src->connections);
@@ -787,7 +787,7 @@ CFErrorRef Transform::Connect(GroupTransform *group, Transform* destinationTrans
 {
 	if (group == NULL) 
 	{
-		CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, "Can not make connections without a specific group (do not call with group = NULL)");
+		CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, CFSTR("Can not make connections without a specific group (do not call with group = NULL)"));
 		return err;
 	}
     
@@ -806,16 +806,16 @@ CFErrorRef Transform::Connect(GroupTransform *group, Transform* destinationTrans
 	
 	if (newSourceGroup != newDestinationGroup && mGroup) 
 	{
-        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, "Can not make connections between transforms in different groups (%@ is in %@, %@ is in %@)", GetName(), newSourceGroup->GetName(), destinationTransform->GetName(), newDestinationGroup->GetName());
+        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, CFSTR("Can not make connections between transforms in different groups (%@ is in %@, %@ is in %@)"), GetName(), newSourceGroup->GetName(), destinationTransform->GetName(), newDestinationGroup->GetName());
 		return err;
 	}
     
     if (!validConnectionPoint(srcAttr)) {
-        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, "Can not make a connection from non-exported attribute %@ of %@", srcAttr, this->GetName());
+        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, CFSTR("Can not make a connection from non-exported attribute %@ of %@"), srcAttr, this->GetName());
         return err;
     }
     if (!destinationTransform->validConnectionPoint(destAttr)) {
-        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, "Can not make a connection to non-exported attribute %@ of %@", destAttr, destinationTransform->GetName());
+        CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorInvalidConnection, CFSTR("Can not make a connection to non-exported attribute %@ of %@"), destAttr, destinationTransform->GetName());
         return err;
     }
     
@@ -860,7 +860,7 @@ CFErrorRef Transform::SetAttributeNoCallback(SecTransformStringOrAttributeRef ke
 	if (ah == AbortAH && value && (mIsActive || !ta->deferred))
 	{
 		AbortAllTransforms(value);
-		return CreateSecTransformErrorRef(kSecTransformErrorAbortInProgress, "Abort started");
+		return CreateSecTransformErrorRef(kSecTransformErrorAbortInProgress, CFSTR("Abort started"));
 	}
 	
 	bool do_propagate = true;
@@ -884,7 +884,7 @@ CFErrorRef Transform::SetAttributeNoCallback(SecTransformStringOrAttributeRef ke
 			{
 				if (ta->deferred)
 				{
-					Debug("%@ deferred value=%p\n", ah, value);
+					Debug(CFSTR("%@ deferred value=%p\n"), ah, value);
 				}
 				
 				CFTypeRef src = SingleShotSource::Make(value, this, name);
@@ -917,7 +917,7 @@ CFErrorRef Transform::SetAttributeNoCallback(SecTransformStringOrAttributeRef ke
 	// propagate the changes out to all connections
 	if (ta->connections && mIsActive && do_propagate && !(mAbortError || mIsFinalizing))
 	{
-		Debug("Propagating from %@ to %@\n", ah, ta->connections);
+		Debug(CFSTR("Propagating from %@ to %@\n"), ah, ta->connections);
 		CFIndex i, numConnections = CFArrayGetCount(ta->connections);
 		for(i = 0; i < numConnections; ++i) {
 			SecTransformAttributeRef ah = static_cast<SecTransformAttributeRef>(const_cast<void *>(CFArrayGetValueAtIndex(ta->connections, i)));
@@ -969,7 +969,7 @@ CFErrorRef Transform::ExternalSetAttribute(CFTypeRef key, CFTypeRef value)
 		}
 		else
 		{
-			return CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "%@ can not be set while %@ is executing", ah, this->GetName());
+			return CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, CFSTR("%@ can not be set while %@ is executing"), ah, this->GetName());
 		}
 	}
 }
@@ -980,7 +980,7 @@ CFErrorRef Transform::SetAttribute(CFTypeRef key, CFTypeRef value)
 {
 	if (mAbortError)
 	{
-        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorAborted, "ABORT has been sent to the transform (%@)", mAbortError);
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorAborted, CFSTR("ABORT has been sent to the transform (%@)"), mAbortError);
         CFAutorelease(result);
         return result;
 	}
@@ -996,14 +996,14 @@ CFErrorRef Transform::SetAttribute(CFTypeRef key, CFTypeRef value)
 		ah = getAH(static_cast<CFStringRef>(key));
 		if (!ah)
 		{
-            CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorUnsupportedAttribute, "Can't set attribute %@ in transform %@", key, GetName());
+            CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorUnsupportedAttribute, CFSTR("Can't set attribute %@ in transform %@"), key, GetName());
             CFAutorelease(result);
             return result;
 		}
 	}
 	else
 	{
-        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "Transform::SetAttribute called with %@, requires a string or an AttributeHandle", key);
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, CFSTR("Transform::SetAttribute called with %@, requires a string or an AttributeHandle"), key);
         CFAutorelease(result);
         return result;
 	}
@@ -1031,7 +1031,7 @@ CFErrorRef Transform::SetAttribute(CFTypeRef key, CFTypeRef value)
 		dispatch_sync(ta->q, set);
 	}
 	if (dispatch_semaphore_wait(ta->semaphore, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC))) {
-		Debug("Send from %@ to %@ is still waiting\n", GetName(), ah);
+		Debug(CFSTR("Send from %@ to %@ is still waiting\n"), GetName(), ah);
 		dispatch_semaphore_wait(ta->semaphore, DISPATCH_TIME_FOREVER);
 	}
 	
@@ -1147,7 +1147,7 @@ void Transform::try_pushbacks() {
 	}
 }
 
-void Transform::Debug(const char *cfmt, ...) {
+void Transform::Debug(CFStringRef format, ...) {
 	CFTypeRef d = ah2ta(DebugAH)->value;
 	if (d) {
 		CFWriteStreamRef out = NULL;
@@ -1166,14 +1166,10 @@ void Transform::Debug(const char *cfmt, ...) {
 		}
 		
 		va_list ap;
-		va_start(ap, cfmt);
-		
-		CFStringRef fmt = CFStringCreateWithCString(NULL, cfmt, kCFStringEncodingUTF8);
-		CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
-		CFReleaseNull(fmt);
+		va_start(ap, format);
+		CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, format, ap);
 		va_end(ap);
 
-		
 		CFIndex sz = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8);
 		sz += 1;
 		CFIndex used = 0;
@@ -1216,7 +1212,7 @@ void Transform::Do(SecTransformAttributeRef ah, CFTypeRef value)
 	
 	if (mIsFinalizing)
 	{
-		Debug("Ignoring value %p sent to %@ (on queue %s) during finalization", value, ah, dispatch_queue_get_label(dispatch_get_current_queue()));
+		Debug(CFSTR("Ignoring value %p sent to %@ (on queue %s) during finalization"), value, ah, dispatch_queue_get_label(dispatch_get_current_queue()));
 		return;
 	}
 	
@@ -1229,22 +1225,22 @@ void Transform::Do(SecTransformAttributeRef ah, CFTypeRef value)
 	if (mAbortError && (!(ah == this->AbortAH || ah == getTA(CFSTR("INPUT"), true)) && (value == NULL || CFGetTypeID(value) != CFErrorGetTypeID())))
 	{
 		if (value) {
-            Debug("Ignoring value (%@) sent to %@ during abort\n", value, ah);            
+            Debug(CFSTR("Ignoring value (%@) sent to %@ during abort\n"), value, ah);            
         } else {
-            Debug("Ignoring NULL sent to %@ during abort\n", ah);            
+            Debug(CFSTR("Ignoring NULL sent to %@ during abort\n"), ah);            
         }
 		return;
 	}
 	
 	if (mIsActive || (mAlwaysSelfNotify && !ta->deferred)) 
 	{
-		Debug("AttributeChanged: %@ (%s) = %@\n", ah, mIsActive ? "is executing" : "self notify set", value ? value : (CFTypeRef)CFSTR("(NULL)"));
+		Debug(CFSTR("AttributeChanged: %@ (%s) = %@\n"), ah, mIsActive ? "is executing" : "self notify set", value ? value : (CFTypeRef)CFSTR("(NULL)"));
 		AttributeChanged(ah, value);
 	} 
 	
 	if (mPushedback && CFArrayGetCount(mPushedback) && !mProcessingPushbacks) 
 	{
-		Debug("will process pushbacks (%@) later\n", mPushedback);
+		Debug(CFSTR("will process pushbacks (%@) later\n"), mPushedback);
 		mProcessingPushbacks = TRUE;
 		dispatch_async(mDispatchQueue, ^{ try_pushbacks(); });
 	}
@@ -1301,7 +1297,7 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
 	{
 		if (errorRef)
 		{
-			*errorRef = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "The %@ transform has already executed, it may not be executed again.", GetName());
+			*errorRef = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, CFSTR("The %@ transform has already executed, it may not be executed again."), GetName());
 		}
 		
 		return NULL;
@@ -1421,7 +1417,7 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
     if (!TransformCanExecute())
 	{
 		// oops, this transform isn't ready to go
-		return CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "The transform %@ was not ready for execution.", GetName());
+		return CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("The transform %@ was not ready for execution."), GetName());
 	}
 	
 	// check to see if required attributes are connected or set
@@ -1440,7 +1436,7 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
 	}
 	if (still_need) {
 		CFStringRef elist = CFStringCreateByCombiningStrings(NULL, still_need, CFSTR(", "));
-		CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorMissingParameter, "Can not execute %@, missing required attributes: %@", GetName(), elist);
+		CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorMissingParameter, CFSTR("Can not execute %@, missing required attributes: %@"), GetName(), elist);
 		CFReleaseNull(elist);
 		CFReleaseNull(still_need);
 		return err;
@@ -1461,7 +1457,7 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
 				if (outputAttached)
 				{
 					// oops, we've already done that.
-					return CreateSecTransformErrorRef(kSecTransformErrorMoreThanOneOutput, "Both %@ and %@ have loose outputs, attach one to something", outputAttached, ta->transform->GetName());
+					return CreateSecTransformErrorRef(kSecTransformErrorMoreThanOneOutput, CFSTR("Both %@ and %@ have loose outputs, attach one to something"), outputAttached, ta->transform->GetName());
 				}
 				// Delay the connect until after ForAllNodes returns
 				dispatch_async(phase2, ^{
@@ -1477,7 +1473,7 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
 				
 				// add the monitor to the output so that it doesn't get activated twice
 			} else {
-				return CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, "Attribute %@ (in %@) requires an outbound connection and doesn't have one", ta->name, GetName());
+				return CreateSecTransformErrorRef(kSecTransformErrorNotInitializedCorrectly, CFSTR("Attribute %@ (in %@) requires an outbound connection and doesn't have one"), ta->name, GetName());
 			}
 			
 			break;
@@ -1749,7 +1745,7 @@ CFDictionaryRef Transform::Externalize(CFErrorRef* error)
 {
 	if (mIsActive) 
 	{
-		return (CFDictionaryRef)CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "The %@ transform is executing, you need to externalize it prior to execution", GetName());
+		return (CFDictionaryRef)CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, CFSTR("The %@ transform is executing, you need to externalize it prior to execution"), GetName());
 	}
 	
 	// make arrays to hold the transforms and the connections

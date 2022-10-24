@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,6 +54,8 @@
 #endif	// IFT_BRIDGE
 
 /* ---------- Bridge support ---------- */
+
+#define kAllowConfiguredMembers		CFSTR("AllowConfiguredMembers")
 
 static int
 inet_dgram_socket()
@@ -270,7 +272,6 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 	}
 	return context.bridges;
 }
-
 
 __private_extern__ void
 __SCBridgeInterfaceListCollectMembers(CFArrayRef interfaces, CFMutableSetRef set)
@@ -603,17 +604,23 @@ SCBridgeInterfaceGetMemberInterfaces(SCBridgeInterfaceRef bridge)
 }
 
 
-CFDictionaryRef
-SCBridgeInterfaceGetOptions(SCBridgeInterfaceRef bridge)
+static CFDictionaryRef
+__SCBridgeInterfaceGetOptions(SCBridgeInterfaceRef bridge)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bridge;
 
+	return interfacePrivate->bridge.options;
+}
+
+
+CFDictionaryRef
+SCBridgeInterfaceGetOptions(SCBridgeInterfaceRef bridge)
+{
 	if (!isA_SCBridgeInterface(bridge)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
-
-	return interfacePrivate->bridge.options;
+	return (__SCBridgeInterfaceGetOptions(bridge));
 }
 
 
@@ -694,6 +701,7 @@ __SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef m
 Boolean
 SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef members)
 {
+	Boolean				allow_configured_members;
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bridge;
 	Boolean				ok;
 	int				sc_status		= kSCStatusOK;
@@ -702,7 +710,7 @@ SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef mem
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
-
+	allow_configured_members = SCBridgeInterfaceGetAllowConfiguredMembers(bridge);
 	if (members != NULL) {
 		CFIndex		n_members;
 
@@ -758,9 +766,13 @@ SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef mem
 
 			if ((available != NULL) &&
 			    CFArrayContainsValue(available, CFRangeMake(0, n_available), member)) {
+				if (allow_configured_members) {
+					// bridge allows configured members
+					continue;
+				}
+
 				// available members are allowed but cannot be associated
 				// with any other network services.
-
 				if (services == NULL) {
 					services = __SCNetworkServiceCopyAllEnabled(interfacePrivate->prefs);
 				}
@@ -857,21 +869,11 @@ SCBridgeInterfaceSetLocalizedDisplayName(SCBridgeInterfaceRef bridge, CFStringRe
 }
 
 
-Boolean
-SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOptions)
+static Boolean
+__SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOptions)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bridge;
 	Boolean				ok			= TRUE;
-
-	if (!isA_SCBridgeInterface(bridge)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
-
-	if ((newOptions != NULL) && !isA_CFDictionary(newOptions)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
 
 	// set options in the stored preferences
 	if (interfacePrivate->prefs != NULL) {
@@ -888,6 +890,7 @@ SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOpti
 		dict = SCPreferencesPathGetValue(interfacePrivate->prefs, path);
 		if (!isA_CFDictionary(dict)) {
 			// if the prefs are confused
+			SC_log(LOG_NOTICE, "%s: bad preferences", __func__);
 			CFRelease(path);
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
@@ -932,8 +935,136 @@ SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOpti
 			}
 		}
 	}
-
 	return ok;
+}
+
+Boolean
+SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOptions)
+{
+	if (!isA_SCBridgeInterface(bridge)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+	if ((newOptions != NULL) && !isA_CFDictionary(newOptions)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+	return __SCBridgeInterfaceSetOptions(bridge, newOptions);
+}
+
+__private_extern__
+Boolean
+__SCBridgeInterfaceSetAutoConfigure(SCBridgeInterfaceRef bridge,
+				    Boolean auto_configure)
+{
+	Boolean				changed = FALSE;
+	CFMutableDictionaryRef		new_options;
+	Boolean				ok = TRUE;
+	CFDictionaryRef			options;
+
+	options = __SCBridgeInterfaceGetOptions(bridge);
+	if (options != NULL) {
+		new_options = CFDictionaryCreateMutableCopy(NULL, 0, options);
+	} else {
+		new_options = CFDictionaryCreateMutable(NULL,
+							0,
+							&kCFTypeDictionaryKeyCallBacks,
+							&kCFTypeDictionaryValueCallBacks);
+		changed = TRUE;
+	}
+	if (auto_configure == FALSE) {
+		CFDictionarySetValue(new_options, kAutoConfigure,
+				     kCFBooleanFalse);
+	} else {
+		CFDictionaryRemoveValue(new_options, kAutoConfigure);
+	}
+	if (options != NULL) {
+		changed = !CFEqual(options, new_options);
+	}
+	if (changed) {
+		ok = __SCBridgeInterfaceSetOptions(bridge, new_options);
+	}
+	CFRelease(new_options);
+	return ok;
+}
+
+__private_extern__
+Boolean
+__SCBridgeInterfaceGetAutoConfigure(SCBridgeInterfaceRef bridge)
+{
+	CFDictionaryRef		options;
+	CFBooleanRef		val = NULL;
+
+	options = __SCBridgeInterfaceGetOptions(bridge);
+	if (options != NULL) {
+		val = CFDictionaryGetValue(options, kAutoConfigure);
+	}
+	if (isA_CFBoolean(val) == NULL) {
+		/* unspecified means TRUE */
+		return (TRUE);
+	}
+	return (CFBooleanGetValue(val));
+}
+
+
+Boolean
+SCBridgeInterfaceSetAllowConfiguredMembers(SCBridgeInterfaceRef bridge,
+					   Boolean allow)
+{
+	Boolean				changed = FALSE;
+	CFMutableDictionaryRef		new_options;
+	Boolean				ok = TRUE;
+	CFDictionaryRef			options;
+
+	if (!isA_SCBridgeInterface(bridge)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+	options = __SCBridgeInterfaceGetOptions(bridge);
+	if (options != NULL) {
+		new_options = CFDictionaryCreateMutableCopy(NULL, 0, options);
+	} else {
+		new_options = CFDictionaryCreateMutable(NULL,
+							0,
+							&kCFTypeDictionaryKeyCallBacks,
+							&kCFTypeDictionaryValueCallBacks);
+		changed = TRUE;
+	}
+	if (allow) {
+		CFDictionarySetValue(new_options, kAllowConfiguredMembers,
+				     kCFBooleanTrue);
+	} else {
+		CFDictionaryRemoveValue(new_options, kAllowConfiguredMembers);
+	}
+	if (options != NULL) {
+		changed = !CFEqual(options, new_options);
+	}
+	if (changed) {
+		ok = __SCBridgeInterfaceSetOptions(bridge, new_options);
+	}
+	CFRelease(new_options);
+	return ok;
+}
+
+Boolean
+SCBridgeInterfaceGetAllowConfiguredMembers(SCBridgeInterfaceRef bridge)
+{
+	Boolean			allow = FALSE;
+	CFDictionaryRef		options;
+	CFBooleanRef		val = NULL;
+
+	if (!isA_SCBridgeInterface(bridge)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+	options = __SCBridgeInterfaceGetOptions(bridge);
+	if (options != NULL) {
+		val = CFDictionaryGetValue(options, kAllowConfiguredMembers);
+	}
+	if (isA_CFBoolean(val) != NULL) {
+		allow = CFBooleanGetValue(val);
+	}
+	return (allow);
 }
 
 
@@ -1171,15 +1302,17 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 	 * members that should now be associated with the bridge.
 	 */
 	for (i = 0; i < nConfig; i++) {
+		Boolean			allow_configured_members;
 		SCBridgeInterfaceRef	c_bridge;
 		CFArrayRef		c_bridge_interfaces;
 		CFStringRef		c_bridge_if;
 		CFIndex			c_count;
 		Boolean			found		= FALSE;
+		Boolean			inheritMAC	= FALSE;
 		CFIndex			j;
-		Boolean			setMAC		= FALSE;
 
 		c_bridge            = CFArrayGetValueAtIndex(config, i);
+		allow_configured_members = SCBridgeInterfaceGetAllowConfiguredMembers(c_bridge);
 		c_bridge_if         = SCNetworkInterfaceGetBSDName(c_bridge);
 		c_bridge_interfaces = SCBridgeInterfaceGetMemberInterfaces(c_bridge);
 		c_count             = (c_bridge_interfaces != NULL) ? CFArrayGetCount(c_bridge_interfaces) : 0;
@@ -1212,13 +1345,14 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						goto done;
 					}
 				}
-
 				/*
-				 * ensure that the first member of the bridge matches, if
-				 * not then we remove all current members and add them
-				 * back in the preferred order.
+				 * If the bridge doesn't allow members to have a configuration,
+				 * ensure that the first member of the bridge matches what the
+				 * configuration requested. If not, remove all current members and
+				 * add them back in the preferred order.
 				 */
-				if ((c_count > 0) &&
+				if (!allow_configured_members &&
+				    (c_count > 0) &&
 				    (a_count > 0) &&
 				    !CFEqual(CFArrayGetValueAtIndex(c_bridge_interfaces, 0),
 					     CFArrayGetValueAtIndex(a_bridge_interfaces, 0))) {
@@ -1244,8 +1378,11 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 					a_count = 0;	// all active members have been removed
 				}
 
-				if (a_count == 0) {
-					setMAC = TRUE;
+				if (allow_configured_members) {
+					/* bridge needs its own MAC address */
+				} else if (a_count == 0) {
+					/* bridge inherits MAC address from the first member */
+					inheritMAC = TRUE;
 				}
 
 				/*
@@ -1271,11 +1408,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 							continue;
 						}
 
-						/*
-						 * if this is the first member interface, set the MAC address
-						 * of the bridge.
-						 */
-						if (setMAC) {
+						if (inheritMAC) {
 							CFDataRef	macAddr;
 
 							macAddr = _SCNetworkInterfaceGetHardwareAddress(c_interface);
@@ -1283,7 +1416,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 								// if bridge MAC could not be set
 								ok = FALSE;
 							}
-							setMAC = FALSE;
+							inheritMAC = FALSE;
 						}
 
 						/*
@@ -1322,7 +1455,13 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				continue;
 			}
 
-			setMAC = TRUE;
+			if (allow_configured_members) {
+				/* bridge needs its own MAC address */
+			}
+			else {
+				/* bridge inherits MAC address from the first member */
+				inheritMAC = TRUE;
+			}
 
 			/*
 			 * add the member interfaces
@@ -1343,7 +1482,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				 * if this is the first member interface, set the MAC address
 				 * of the bridge.
 				 */
-				if (setMAC) {
+				if (inheritMAC) {
 					CFDataRef	macAddr;
 
 					macAddr = _SCNetworkInterfaceGetHardwareAddress(c_interface);
@@ -1351,7 +1490,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						// if bridge MAC could not be set
 						ok = FALSE;
 					}
-					setMAC = FALSE;
+					inheritMAC = FALSE;
 				}
 
 				/*

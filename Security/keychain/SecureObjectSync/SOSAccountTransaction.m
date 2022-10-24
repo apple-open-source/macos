@@ -235,7 +235,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     CFErrorRef localError = NULL;
     bool notifyEngines = false;
 
-    SOSPeerInfoRef mpi = self.account.peerInfo;
+    SOSPeerInfoRef mpi = NULL;
 
     bool isInCircle = [self.account isInCircle:NULL];
 
@@ -253,7 +253,8 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         SOSAccountCancelSyncChecking(self.account);
     }
 
-    // If our identity changed our inital set should be everything.
+    // If our identity changed, our initial set should be everything.
+    mpi = self.account.peerInfo;
     if (sosIsEnabled && [self.initialID isEqualToString: (__bridge NSString *)(SOSPeerInfoGetPeerID(mpi))]) {
         self.initialUnsyncedViews = (__bridge_transfer NSSet<NSString*>*) SOSViewCopyViewSet(kViewSetAll);
     }

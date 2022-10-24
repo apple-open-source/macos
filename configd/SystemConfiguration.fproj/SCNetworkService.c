@@ -47,7 +47,7 @@ static Boolean		__SCNetworkServiceEqual			(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkServiceHash			(CFTypeRef cf);
 
 
-static CFTypeID __kSCNetworkServiceTypeID		= _kCFRuntimeNotATypeID;
+static CFTypeID __kSCNetworkServiceTypeID;
 
 
 static const CFRuntimeClass __SCNetworkServiceClass = {
@@ -62,8 +62,6 @@ static const CFRuntimeClass __SCNetworkServiceClass = {
 	__SCNetworkServiceCopyDescription	// copyDebugDesc
 };
 
-
-static pthread_once_t		initialized		= PTHREAD_ONCE_INIT;
 
 
 static CFStringRef
@@ -143,7 +141,12 @@ __SCNetworkServiceHash(CFTypeRef cf)
 static void
 __SCNetworkServiceInitialize(void)
 {
-	__kSCNetworkServiceTypeID = _CFRuntimeRegisterClass(&__SCNetworkServiceClass);
+	static dispatch_once_t  initialized;
+
+	dispatch_once(&initialized, ^{
+		 __kSCNetworkServiceTypeID = _CFRuntimeRegisterClass(&__SCNetworkServiceClass);
+	});
+
 	return;
 }
 
@@ -158,7 +161,7 @@ __SCNetworkServiceCreatePrivate(CFAllocatorRef		allocator,
 	uint32_t				size;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkServiceInitialize);
+	__SCNetworkServiceInitialize();
 
 	/* allocate target */
 	size           = sizeof(SCNetworkServicePrivate) - sizeof(CFRuntimeBase);
@@ -1392,7 +1395,7 @@ SCNetworkServiceGetServiceID(SCNetworkServiceRef service)
 CFTypeID
 SCNetworkServiceGetTypeID(void)
 {
-	pthread_once(&initialized, __SCNetworkServiceInitialize);	/* initialize runtime */
+	__SCNetworkServiceInitialize();	/* initialize runtime */
 	return __kSCNetworkServiceTypeID;
 }
 

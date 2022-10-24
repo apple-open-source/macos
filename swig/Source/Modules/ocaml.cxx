@@ -439,7 +439,7 @@ public:
     String *outarg = NewString("");
     String *build = NewString("");
     String *tm;
-    int argout_set = 0;
+    __unused int argout_set = 0;
     int i = 0;
     int numargs;
     int numreq;
@@ -875,7 +875,7 @@ public:
    * ------------------------------------------------------------ */
 
   virtual int staticmemberfunctionHandler(Node *n) {
-    int rv;
+    __unused int rv;
     static_member_function = 1;
     rv = Language::staticmemberfunctionHandler(n);
     static_member_function = 0;
@@ -992,7 +992,7 @@ public:
       find_marker += strlen("(*Stream:");
 
       if (next) {
-	int num_chars = next - find_marker;
+	int num_chars = (int) (next - find_marker);
 	String *stream_name = NewString(find_marker);
 	Delslice(stream_name, num_chars, Len(stream_name));
 	File *fout = Swig_filebyname(stream_name);
@@ -1003,7 +1003,7 @@ public:
 	  if (!following)
 	    following = next + strlen(next);
 	  String *chunk = NewString(next);
-	  Delslice(chunk, following - next, Len(chunk));
+	  Delslice(chunk, (int) (following - next), Len(chunk));
 	  Printv(fout, chunk, NIL);
 	}
       }
@@ -1523,7 +1523,7 @@ public:
 	  if (SwigType_ispointer(ptype) || SwigType_isreference(ptype)) {
 	    Node *module = Getattr(parent, "module");
 	    Node *target = Swig_directormap(module, ptype);
-	    sprintf(source, "obj%d", idx++);
+	    snprintf(source, sizeof(source), "obj%d", idx++);
 	    String *nonconst = 0;
 	    /* strip pointer/reference --- should move to Swig/stype.c */
 	    String *nptype = NewString(Char(ptype) + 2);

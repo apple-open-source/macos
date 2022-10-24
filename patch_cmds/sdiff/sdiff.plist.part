@@ -1,0 +1,12 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sdiff</string>
+		<key>OpenSourceVersion</key>
+		<string>2017-12-06</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/sdiff?id=9f72a83a066bd84cfe0bc47975b3510f71df4cdc</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-27</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+	</dict>

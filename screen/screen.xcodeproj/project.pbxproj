@@ -43,12 +43,6 @@
 		FC7EF6E20FF2BC6D00469DB2 /* screen.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6DA0FF2BC4300469DB2 /* screen.txt */; };
 		FC7EF6E60FF2BC8200469DB2 /* screen.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6C80FF2BC1F00469DB2 /* screen.plist */; };
 		FC7EF6EC0FF2BCB100469DB2 /* screen.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6E90FF2BCA700469DB2 /* screen.1 */; };
-		FC7EF6F90FF2BCD600469DB2 /* screen.info in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F20FF2BCCE00469DB2 /* screen.info */; };
-		FC7EF6FA0FF2BCD600469DB2 /* screen.info-1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F30FF2BCCE00469DB2 /* screen.info-1 */; };
-		FC7EF6FB0FF2BCD600469DB2 /* screen.info-2 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F40FF2BCCE00469DB2 /* screen.info-2 */; };
-		FC7EF6FC0FF2BCD600469DB2 /* screen.info-3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F50FF2BCCE00469DB2 /* screen.info-3 */; };
-		FC7EF6FD0FF2BCD600469DB2 /* screen.info-4 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F60FF2BCCE00469DB2 /* screen.info-4 */; };
-		FC7EF6FE0FF2BCD600469DB2 /* screen.info-5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF6F70FF2BCCE00469DB2 /* screen.info-5 */; };
 		FC7EF7210FF2BD4E00469DB2 /* 01 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF7100FF2BD3A00469DB2 /* 01 */; };
 		FC7EF7220FF2BD4E00469DB2 /* 02 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF7110FF2BD3A00469DB2 /* 02 */; };
 		FC7EF7230FF2BD4E00469DB2 /* 03 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC7EF7120FF2BD3A00469DB2 /* 03 */; };
@@ -96,21 +90,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				FC7EF6E60FF2BC8200469DB2 /* screen.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		FC7EF6F80FF2BCCE00469DB2 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/info;
-			dstSubfolderSpec = 0;
-			files = (
-				FC7EF6F90FF2BCD600469DB2 /* screen.info in CopyFiles */,
-				FC7EF6FA0FF2BCD600469DB2 /* screen.info-1 in CopyFiles */,
-				FC7EF6FB0FF2BCD600469DB2 /* screen.info-2 in CopyFiles */,
-				FC7EF6FC0FF2BCD600469DB2 /* screen.info-3 in CopyFiles */,
-				FC7EF6FD0FF2BCD600469DB2 /* screen.info-4 in CopyFiles */,
-				FC7EF6FE0FF2BCD600469DB2 /* screen.info-5 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -199,12 +178,6 @@
 		FC7EF6C80FF2BC1F00469DB2 /* screen.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = screen.plist; sourceTree = "<group>"; };
 		FC7EF6DA0FF2BC4300469DB2 /* screen.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = screen.txt; sourceTree = "<group>"; };
 		FC7EF6E90FF2BCA700469DB2 /* screen.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = screen.1; path = screen/doc/screen.1; sourceTree = "<group>"; };
-		FC7EF6F20FF2BCCE00469DB2 /* screen.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screen.info; path = screen/doc/screen.info; sourceTree = "<group>"; };
-		FC7EF6F30FF2BCCE00469DB2 /* screen.info-1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "screen.info-1"; path = "screen/doc/screen.info-1"; sourceTree = "<group>"; };
-		FC7EF6F40FF2BCCE00469DB2 /* screen.info-2 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "screen.info-2"; path = "screen/doc/screen.info-2"; sourceTree = "<group>"; };
-		FC7EF6F50FF2BCCE00469DB2 /* screen.info-3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "screen.info-3"; path = "screen/doc/screen.info-3"; sourceTree = "<group>"; };
-		FC7EF6F60FF2BCCE00469DB2 /* screen.info-4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "screen.info-4"; path = "screen/doc/screen.info-4"; sourceTree = "<group>"; };
-		FC7EF6F70FF2BCCE00469DB2 /* screen.info-5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "screen.info-5"; path = "screen/doc/screen.info-5"; sourceTree = "<group>"; };
 		FC7EF7100FF2BD3A00469DB2 /* 01 */ = {isa = PBXFileReference; lastKnownFileType = file; name = 01; path = screen/utf8encodings/01; sourceTree = "<group>"; };
 		FC7EF7110FF2BD3A00469DB2 /* 02 */ = {isa = PBXFileReference; lastKnownFileType = file; name = 02; path = screen/utf8encodings/02; sourceTree = "<group>"; };
 		FC7EF7120FF2BD3A00469DB2 /* 03 */ = {isa = PBXFileReference; lastKnownFileType = file; name = 03; path = screen/utf8encodings/03; sourceTree = "<group>"; };
@@ -320,12 +293,6 @@
 			isa = PBXGroup;
 			children = (
 				FC7EF6E90FF2BCA700469DB2 /* screen.1 */,
-				FC7EF6F20FF2BCCE00469DB2 /* screen.info */,
-				FC7EF6F30FF2BCCE00469DB2 /* screen.info-1 */,
-				FC7EF6F40FF2BCCE00469DB2 /* screen.info-2 */,
-				FC7EF6F50FF2BCCE00469DB2 /* screen.info-3 */,
-				FC7EF6F60FF2BCCE00469DB2 /* screen.info-4 */,
-				FC7EF6F70FF2BCCE00469DB2 /* screen.info-5 */,
 			);
 			name = Documentation;
 			sourceTree = "<group>";
@@ -365,7 +332,6 @@
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
 				FC7EF7050FF2BD1600469DB2 /* CopyFiles */,
 				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
-				FC7EF6F80FF2BCCE00469DB2 /* CopyFiles */,
 				FC7EF6EA0FF2BCA700469DB2 /* CopyFiles */,
 				FC7EF6EB0FF2BCA700469DB2 /* CopyFiles */,
 			);
@@ -385,7 +351,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1330;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "screen" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -452,6 +418,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = screen.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = screen;
 			};
@@ -473,6 +440,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -495,6 +463,7 @@
 				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Werror=format-nonliteral";
 				WARNING_LDFLAGS = "";
 			};
 			name = Release;

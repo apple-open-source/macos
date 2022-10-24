@@ -78,11 +78,12 @@
 
 namespace WebKit {
 
-RemoteDevice::RemoteDevice(PAL::WebGPU::Device& device, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+RemoteDevice::RemoteDevice(PAL::WebGPU::Device& device, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier, WebGPUIdentifier queueIdentifier)
     : m_backing(device)
     , m_objectHeap(objectHeap)
-    , m_streamConnection(WTFMove(streamConnection))
+    , m_streamConnection(streamConnection.copyRef())
     , m_identifier(identifier)
+    , m_queue(RemoteQueue::create(device.queue(), objectHeap, WTFMove(streamConnection), queueIdentifier))
 {
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteDevice::messageReceiverName(), m_identifier.toUInt64());
 }
@@ -92,6 +93,11 @@ RemoteDevice::~RemoteDevice() = default;
 void RemoteDevice::stopListeningForIPC()
 {
     m_streamConnection->stopReceivingMessages(Messages::RemoteDevice::messageReceiverName(), m_identifier.toUInt64());
+}
+
+RemoteQueue& RemoteDevice::queue()
+{
+    return m_queue;
 }
 
 void RemoteDevice::destroy()
@@ -219,7 +225,7 @@ void RemoteDevice::createRenderPipeline(const WebGPU::RenderPipelineDescriptor& 
     m_objectHeap.addObject(identifier, remoteRenderPipeline);
 }
 
-void RemoteDevice::createComputePipelineAsync(const WebGPU::ComputePipelineDescriptor& descriptor, WebGPUIdentifier identifier, WTF::CompletionHandler<void()>&& callback)
+void RemoteDevice::createComputePipelineAsync(const WebGPU::ComputePipelineDescriptor& descriptor, WebGPUIdentifier identifier, CompletionHandler<void()>&& callback)
 {
     auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor);
     ASSERT(convertedDescriptor);
@@ -235,7 +241,7 @@ void RemoteDevice::createComputePipelineAsync(const WebGPU::ComputePipelineDescr
     });
 }
 
-void RemoteDevice::createRenderPipelineAsync(const WebGPU::RenderPipelineDescriptor& descriptor, WebGPUIdentifier identifier, WTF::CompletionHandler<void()>&& callback)
+void RemoteDevice::createRenderPipelineAsync(const WebGPU::RenderPipelineDescriptor& descriptor, WebGPUIdentifier identifier, CompletionHandler<void()>&& callback)
 {
     auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor);
     ASSERT(convertedDescriptor);
@@ -295,7 +301,7 @@ void RemoteDevice::pushErrorScope(PAL::WebGPU::ErrorFilter errorFilter)
     m_backing->pushErrorScope(errorFilter);
 }
 
-void RemoteDevice::popErrorScope(WTF::CompletionHandler<void(std::optional<WebGPU::Error>&&)>&& callback)
+void RemoteDevice::popErrorScope(CompletionHandler<void(std::optional<WebGPU::Error>&&)>&& callback)
 {
     m_backing->popErrorScope([callback = WTFMove(callback)] (std::optional<PAL::WebGPU::Error>&& error) mutable {
         if (!error) {

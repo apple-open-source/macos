@@ -29,6 +29,7 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPreferencesPathKey.h>
 
 #include <stdarg.h>
 

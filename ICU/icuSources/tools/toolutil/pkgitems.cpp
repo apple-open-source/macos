@@ -47,6 +47,7 @@
 
 U_CDECL_BEGIN
 
+__attribute__((format(printf, 2, 0)))
 static void U_CALLCONV
 printError(void *context, const char *fmt, va_list args) {
     vfprintf((FILE *)context, fmt, args);

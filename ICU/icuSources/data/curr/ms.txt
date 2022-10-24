@@ -119,6 +119,10 @@ ms{
             "CHF",
             "Franc Switzerland",
         }
+        CLF{
+            "CLF",
+            "Unit Akaun Chile (UF)",
+        }
         CLP{
             "CLP",
             "Peso Chile",
@@ -406,6 +410,10 @@ ms{
         MXN{
             "MXN",
             "Peso Mexico",
+        }
+        MXV{
+            "MXV",
+            "Unit Pelaburan Mexico",
         }
         MYR{
             "RM",

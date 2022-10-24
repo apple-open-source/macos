@@ -17,10 +17,11 @@
 #include <AssertMacros.h>
 #include <CoreFoundation/CFXPCBridge.h>
 #include <CoreGraphics/CGWindow.h>
+#include <CoreFoundation/CFBundlePriv.h>
 #include <dlfcn.h>
 #include <os/log.h>
 
-static os_log_t AUTH_LOG_DEFAULT() {
+static os_log_t AUTH_LOG_DEFAULT(void) {
     static dispatch_once_t once;
     static os_log_t log;
     dispatch_once(&once, ^{ log = os_log_create("com.apple.Authorization", "framework"); });
@@ -30,7 +31,7 @@ static os_log_t AUTH_LOG_DEFAULT() {
 #define AUTH_LOG AUTH_LOG_DEFAULT()
 
 static dispatch_queue_t
-get_authorization_dispatch_queue()
+get_authorization_dispatch_queue(void)
 {
     static dispatch_once_t onceToken = 0;
     static dispatch_queue_t connection_queue = NULL;
@@ -43,7 +44,7 @@ get_authorization_dispatch_queue()
 }
 
 static xpc_connection_t
-get_authorization_connection()
+get_authorization_connection(void)
 {
     static xpc_connection_t connection = NULL;
     
@@ -417,7 +418,7 @@ void AuthorizationCopyRightsAsync(AuthorizationRef authorization,
 	});
 }
 
-OSStatus AuthorizationDismiss()
+OSStatus AuthorizationDismiss(void)
 {
     OSStatus status = errAuthorizationInternal;
     xpc_object_t message = NULL;
@@ -735,39 +736,17 @@ OSStatus AuthorizationRightSet(AuthorizationRef authRef,
                     
                     if (!oneLocalization)
                         continue;
-                    
-                    // @@@ no way to get "Localized" and "strings" as constants?
-                    CFURLRef locURL = CFBundleCopyResourceURLForLocalization(clientBundle, tableName ? tableName :  CFSTR("Localizable"), CFSTR("strings"), NULL /*subDirName*/, oneLocalization);
-                    
-                    if (!locURL)
-                        continue;
-                    
-                    CFDataRef tableData = NULL;
-                    SInt32 errCode;
-                    CFStringRef errStr = NULL;
-                    CFPropertyListRef stringTable = NULL;
-                    
-                    CFURLCreateDataAndPropertiesFromResource(CFGetAllocator(clientBundle), locURL, &tableData, NULL, NULL, &errCode);
-                    CFReleaseSafe(locURL);
-                    if (errCode)
-                    {
-                        CFReleaseSafe(tableData);
-                        continue;
-                    }
-                    
-                    stringTable = CFPropertyListCreateFromXMLData(CFGetAllocator(clientBundle), tableData, kCFPropertyListImmutable, &errStr);
-                    CFReleaseSafe(errStr);
-                    CFReleaseSafe(tableData);
-                    
-                    CFStringRef value = (CFStringRef)CFDictionaryGetValue(stringTable, descriptionKey);
+
+                    CFStringRef value = CFBundleCopyLocalizedStringForLocalization(clientBundle, descriptionKey, NULL, tableName ? tableName :  CFSTR("Localizable"), oneLocalization);
+
                     if (value == NULL || CFEqual(value, CFSTR(""))) {
-                        CFReleaseSafe(stringTable);
+                        CFReleaseSafe(value);
                         continue;
                     } else {
-                        // oneLocalization/value into our dictionary 
+                        // oneLocalization/value into our dictionary
                         CFDictionarySetValue(locDict, oneLocalization, value);
-                        CFReleaseSafe(stringTable);
                     }
+                    CFReleaseSafe(value);
                 }
                 CFReleaseSafe(bundleLocalizations);
             }

@@ -139,9 +139,9 @@ static const SingleUnitFormat en_AU_singFmt[] = {
 
 static const SingleUnitFormat fr_singFmt[] = {
 //    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
-    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minute",                   "0 minute",                   "0\\u00A0mn",       "0,0\\u00A0mn",   "0mn",         "0mn",       0,1,    0,1   },
-    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1\\u00A0mn",       "1,0\\u00A0mn",   "1mn",         "1mn",       0,1,    0,1   },
-    { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25\\u00A0mn",    "5,2\\u00A0mn",   "5mn",         "5mn",       0,1,    0,1   },
+    { UAMEASUNIT_DURATION_MINUTE,           0.0,   "0,00 minute",                   "0 minute",                   "0\\u00A0min",      "0,0\\u00A0min",  "0min",        "0min",      0,1,    0,1   },
+    { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1\\u00A0min",      "1,0\\u00A0min",  "1min",        "1min",      0,1,    0,1   },
+    { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25\\u00A0min",   "5,2\\u00A0min",  "5min",        "5min",      0,1,    0,1   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20\\u00A0centim\\u00E8tres", "37\\u00A0centim\\u00E8tres", "37,203\\u202Fcm",  "37,2\\u202Fcm",  "37 cm",       "37 cm",     0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20\\u00A0degr\\u00E9s Celsius","37\\u00A0degr\\u00E9s Celsius", "37,203\\u202F\\u00B0C", "37,2\\u202F\\u00B0C",  "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20\\u00A0degr\\u00E9s Fahrenheit", "37\\u00A0degr\\u00E9s Fahrenheit", "37,203\\u202F\\u00B0F",  "37,2\\u202F\\u00B0F",  "37\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
@@ -204,6 +204,14 @@ static const SingleUnitFormat nl_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const SingleUnitFormat he_singFmt[] = {
+//    unit                                 value   wide_2                                      wide_0                                   shrt_X                                       shrt_1                                     narr_0
+//      numr_0                                 wide_0  narr_0
+    { UAMEASUNIT_LENGTH_KILOMETER,         37.203, "37.20\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37.203\\u202f\\u05e7\\u05f4\\u05de",        "37.2\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",        "37\\u202f\\u05e7\\u05f4\\u05de",      0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_MILE,              37.203, "37.20\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.203\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37.2\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc", "37\\u202f\\u05de\\u05d9\\u05d9\\u05dc",    0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 static const SingleUnitFormat it_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
     { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 ore",                 "37 ore",               "37,203 h",              "37,2 h", 				"37 h",       "37 h",      0,2,    0,2 },
@@ -220,6 +228,14 @@ static const SingleUnitFormat nb_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const SingleUnitFormat pl_singFmt[] = {
+//    unit                  value  wide_2        wide_0            shrt_X            shrt_1       narr_0   numr_0   wide_0 narr_0
+    // rdar://84870068
+    { UAMEASUNIT_DURATION_DAY,  1, "1,00 dnia",  "1 dzie\\u0144",  "1 dzie\\u0144",  "1,0 dnia",  "1 d.",  "1 d.",  0,1,   0,1 },
+    { UAMEASUNIT_DURATION_DAY,  2, "2,00 dnia",  "2 dni",          "2 dni",          "2,0 dnia",  "2 dn.", "2 dn.", 0,1,   0,1 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 static const SingleUnitFormat ro_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
     { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 ore",                 "37 de ore",            "37,203 ore",            "37,2 ore", 			"37 h",       "37 h",      0,2,    0,2 },
@@ -227,10 +243,21 @@ static const SingleUnitFormat ro_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const SingleUnitFormat ru_singFmt[] = {
+//    unit                                 value wide_2                                                             wide_0                                                          shrt_X                      shrt_1                        narr_0                      numr_0                      wide_0  narr_0
+    { UAMEASUNIT_SPEED_MILE_PER_HOUR,      1.0,  "1,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438\\u043B\\u044F \\u0432 \\u0447\\u0430\\u0441", "1 \\u043C\\u0438/\\u0447", "1,0 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", "1 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
+    { UAMEASUNIT_SPEED_MILE_PER_HOUR,      2.0,  "2,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "2 \\u043C\\u0438/\\u0447", "2,0 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", "2 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
+    { UAMEASUNIT_SPEED_MILE_PER_HOUR,      5.0,  "5,00 \\u043C\\u0438\\u043B\\u0438 \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438\\u043B\\u044C \\u0432 \\u0447\\u0430\\u0441", "5 \\u043C\\u0438/\\u0447", "5,0 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", "5 \\u043C\\u0438/\\u0447", 0,1,    0,1 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 static const SingleUnitFormat uk_singFmt[] = {
-//    unit                                 value   wide_2                                wide_0                                    shrt_X               shrt_1                 narr_0               numr_0               wide_0  narr_0
-    { UAMEASUNIT_LENGTH_FOOT,               1.0,   "1,00 \\u0444\\u0443\\u0442\\u0430",  "1 \\u0444\\u0443\\u0442",                "1 \\u0444\\u0442",  "1,0 \\u0444\\u0442",  "1 \\u0444\\u0442",  "1 \\u0444\\u0442",  0,1,    0,1 },
-    { UAMEASUNIT_LENGTH_FOOT,               10.0,  "10,00 \\u0444\\u0443\\u0442\\u0430", "10 \\u0444\\u0443\\u0442\\u0456\\u0432", "10 \\u0444\\u0442", "10,0 \\u0444\\u0442", "10 \\u0444\\u0442", "10 \\u0444\\u0442", 0,2,    0,2 },
+//    unit                                 value   wide_2                                                     wide_0                                           shrt_X                      shrt_1                        narr_0                     numr_0                    wide_0  narr_0
+    { UAMEASUNIT_LENGTH_FOOT,               1.0,   "1,00 \\u0444\\u0443\\u0442\\u0430",                       "1 \\u0444\\u0443\\u0442",                       "1 \\u0444\\u0442",         "1,0 \\u0444\\u0442",         "1 \\u0444\\u0442",        "1 \\u0444\\u0442",  0,1,    0,1 },
+    { UAMEASUNIT_LENGTH_FOOT,               10.0,  "10,00 \\u0444\\u0443\\u0442\\u0430",                      "10 \\u0444\\u0443\\u0442\\u0456\\u0432",        "10 \\u0444\\u0442",        "10,0 \\u0444\\u0442",        "10 \\u0444\\u0442",       "10 \\u0444\\u0442", 0,2,    0,2 },
+    { UAMEASUNIT_DURATION_HOUR,             10.0,  "10,00 \\u0433\\u043e\\u0434\\u0438\\u043d\\u0438",        "10 \\u0433\\u043e\\u0434\\u0438\\u043d",        "10 \\u0433\\u043e\\u0434", "10,0 \\u0433\\u043e\\u0434", "10\\u202f\\u0433",        "10\\u202f\\u0433", 0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,           10.0,  "10,00 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d\\u0438", "10 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d", "10 \\u0445\\u0432",        "10,0 \\u0445\\u0432",        "10\\u202f\\u0445\\u0432", "10\\u202f\\u0445\\u0432", 0,2,    0,2 },
+    { UAMEASUNIT_DURATION_SECOND,           10.0,  "10,00 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434\\u0438", "10 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434", "10 \\u0441",               "10,0 \\u0441",               "10\\u202f\\u0441",        "10\\u202f\\u0441", 0,2,    0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -238,6 +265,21 @@ static const SingleUnitFormat vi_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X          shrt_1              narr_0          numr_0          wide_0  narr_0
     { UAMEASUNIT_ENERGY_KILOCALORIE,       123.0,  "123,00 kil\\u00F4calo",     "123 kil\\u00F4calo",   "123 kcal",     "123,0 kcal",       "123 kcal",     "123 kcal",     0,3,    0,3 },
     { UAMEASUNIT_ENERGY_KILOJOULE,         123.0,  "123,00 kil\\u00F4jun",      "123 kil\\u00F4jun",    "123 kJ",       "123,0 kJ",         "123 kJ",       "123 kJ",       0,3,    0,3 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat zh_singFmt[] = {
+//    unit                                 value   wide_2                                wide_0                             shrt_X                          shrt_1                        narr_0                      numr_0                      wide_0  narr_0
+    { UAMEASUNIT_DIGITAL_GIGABYTE,         37.203, "37.20\\u5409\\u5B57\\u8282",         "37\\u5409\\u5B57\\u8282",         "37.203 GB",                    "37.2 GB",                    "37 GB",                    "37 GB",                    0,2,    0,2   },
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "37.20\\u516C\\u91CC/\\u5C0F\\u65F6", "37\\u516C\\u91CC/\\u5C0F\\u65F6", "37.203\\u516C\\u91CC/\\u65F6", "37.2\\u516C\\u91CC/\\u65F6", "37\\u516C\\u91CC/\\u65F6", "37\\u516C\\u91CC/\\u65F6", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20\\u534E\\u6C0F\\u5EA6",         "37\\u534E\\u6C0F\\u5EA6",         "37.203\\u00B0F",               "37.2\\u00B0F",               "37\\u00B0F",               "37\\u00B0",                0,2,    0,2   },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat zh_Hant_HK_singFmt[] = {
+//    unit                                 value   wide_2                                wide_0                             shrt_X              shrt_1            narr_0        numr_0       wide_0  narr_0
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "\\u6bcf\\u5c0f\\u664237.20\\u516c\\u91cc", "\\u6bcf\\u5c0f\\u664237\\u516c\\u91cc", "37.203\\u516c\\u91cc/\\u5c0f\\u6642",      "37.2\\u516c\\u91cc/\\u5c0f\\u6642",      "37km/h",     "37km/h",    3,5,    0,2   },
+    { UAMEASUNIT_SPEED_MILE_PER_HOUR,      37.203, "\\u6bcf\\u5c0f\\u664237.20\\u82f1\\u91cc", "\\u6bcf\\u5c0f\\u664237\\u82f1\\u91cc", "37.203\\u54e9/\\u5c0f\\u6642",      "37.2\\u54e9/\\u5c0f\\u6642",      "37mph",     "37mph",    3,5,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -270,8 +312,10 @@ static const SingleUnitName en_GB_singNam[] = {
 };
 
 static const SingleUnitName zh_singNam[] = {
-//    unit                                 wide                     shrt                     narr
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u534E\\u6C0F\\u5EA6", "\\u534E\\u6C0F\\u5EA6", "\\u00B0F"  },
+//    unit                                 wide                             shrt                             narr
+    { UAMEASUNIT_DIGITAL_GIGABYTE,         "\\u5409\\u5B57\\u8282",         "GB",                            "GB" },
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, "\\u516C\\u91CC/\\u5C0F\\u65F6", "\\u516C\\u91CC/\\u5C0F\\u65F6", "\\u516C\\u91CC/\\u5C0F\\u65F6" },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u534E\\u6C0F\\u5EA6",         "\\u00B0F",                      "\\u00B0F" },
     { (UAMeasureUnit)0, NULL, NULL, NULL }
 };
 
@@ -282,8 +326,17 @@ static const SingleUnitName zh_Hant_singNam[] = {
 };
 
 static const SingleUnitName zh_Hant_HK_singNam[] = {
-//    unit                                 wide                            shrt              narr
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u83EF\\u6C0F\\u5EA6",        "\\u00B0F",       "\\u00B0F"  },
+//    unit                                 wide                                   shrt                                   narr
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "\\u83EF\\u6C0F\\u5EA6",               "\\u00B0F",                           "\\u00B0F"  },
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, "\\u516c\\u91cc\\u6bcf\\u5c0f\\u6642", "\\u516c\\u91cc\\u6bcf\\u5c0f\\u6642", "\\u516c\\u91cc\\u6bcf\\u5c0f\\u6642"          },
+    { UAMEASUNIT_SPEED_MILE_PER_HOUR,      "\\u82f1\\u91cc\\u6bcf\\u5c0f\\u6642", "\\u82f1\\u91cc\\u6bcf\\u5c0f\\u6642", "\\u82f1\\u91cc\\u6bcf\\u5c0f\\u6642"          },
+    { (UAMeasureUnit)0, NULL, NULL, NULL }
+};
+
+static const SingleUnitName pl_singNam[] = {
+//    unit                     wide                 shrt   narr
+    { UAMEASUNIT_SPEED_KNOT,   "w\\u0119z\\u0142y", "w.",  "w."  },
+    { UAMEASUNIT_DURATION_DAY, "dni",               "dni", "dzie\\u0144"  },  // rdar://84870068
     { (UAMeasureUnit)0, NULL, NULL, NULL }
 };
 
@@ -368,6 +421,27 @@ static const MultipleUnitFormat hi_multFmt[] = {
     { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
+static const MultipleUnitFormat uk_multFmt[] = {
+//    measures     count                       wide_2                                                                                                    wide_0
+    { meas_hrMnSc, UPRV_LENGTHOF(meas_hrMnSc), "37 \\u0433\\u043e\\u0434\\u0438\\u043d, 12 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d \\u0456 5,32 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434\\u0438",
+        /* wide_0 */                           "37 \\u0433\\u043e\\u0434\\u0438\\u043d, 12 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d \\u0456 5 \\u0441\\u0435\\u043a\\u0443\\u043d\\u0434",
+        /* shrt_X, shrt_1 */                   "37 \\u0433\\u043e\\u0434, 12 \\u0445\\u0432, 5,32 \\u0441", "37 \\u0433\\u043e\\u0434, 12 \\u0445\\u0432, 5,3 \\u0441",
+        /* shrtr_1, narr_0 */                  "37 \\u0433\\u043e\\u0434 12 \\u0445\\u0432 5,3 \\u0441", "37\\u202f\\u0433 12\\u202f\\u0445\\u0432 5\\u202f\\u0441",
+        /* numr_0, numr_2 */                   "37:12:05", "37:12:05,32",
+        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,10,19},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,10,12},{UAMEASUNIT_DURATION_SECOND,22,34},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,22,26}},
+        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 7,12},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 7, 9},{UAMEASUNIT_DURATION_SECOND,13,18},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,13,16}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 8},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 11},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 11}} },
+    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 \\u0433\\u043e\\u0434\\u0438\\u043d \\u0456 12,10 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d\\u0438", "37 \\u0433\\u043e\\u0434\\u0438\\u043d \\u0456 12 \\u0445\\u0432\\u0438\\u043b\\u0438\\u043d",
+        /* shrt_X, shrt_1 */                   "37 \\u0433\\u043e\\u0434, 12,1 \\u0445\\u0432", "37 \\u0433\\u043e\\u0434, 12,1 \\u0445\\u0432",
+        /* shrtr_1, narr_0 numr_0 numr_2 */    "37 \\u0433\\u043e\\u0434 12,1 \\u0445\\u0432", "37\\u202f\\u0433 12\\u202f\\u0445\\u0432",    "37:12",    "37:12,10",
+        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,11,24},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,11,16}},
+        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 7,14},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 7, 11}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 8},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 8}} },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
+};
+
 static const UAMeasureUnit unit_hrMnSc[] = { UAMEASUNIT_DURATION_HOUR, UAMEASUNIT_DURATION_MINUTE,  UAMEASUNIT_DURATION_SECOND };
 static const UAMeasureUnit unit_hrMn[]   = { UAMEASUNIT_DURATION_HOUR, UAMEASUNIT_DURATION_MINUTE   };
 static const UAMeasureUnit unit_mCm[]    = { UAMEASUNIT_LENGTH_METER,  UAMEASUNIT_LENGTH_CENTIMETER };
@@ -414,7 +488,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "fr",         fr_singFmt,      NULL,            NULL,            NULL            }, // fr: try plural cases for 1, other
     { "fr_CA",      fr_CA_singFmt,   NULL,            NULL,            NULL            },
     { "ja",         NULL,            NULL,            NULL,            ja_multNam      }, // ja: try plural cases for other only
-    { "zh_Hans",    NULL,            zh_singNam,      NULL,            NULL            }, // zh_Hans: try plural cases for other only
+    { "zh_Hans",    zh_singFmt,      zh_singNam,      NULL,            NULL            }, // zh_Hans: try plural cases for other only
 
     // ============= TIER 2,3 and sublocales
     { "ar",         NULL,            NULL,            NULL,            NULL            }, // ar: try plural cases for 0, 1, 2, 3, 11, 100
@@ -425,7 +499,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "es",         NULL,            NULL,            NULL,            NULL            }, // es: try plural cases for 1, other
     { "es_MX",      NULL,            NULL,            NULL,            NULL            },
     { "fi",         fi_singFmt,      NULL,            NULL,            NULL            }, // fi: try plural cases for 1, other
-    { "he",         NULL,            NULL,            he_multFmt,      NULL            }, // he: try plural cases for 1, 2, 20, 3
+    { "he",         he_singFmt,      NULL,            he_multFmt,      NULL            }, // he: try plural cases for 1, 2, 20, 3
     { "hi",         NULL,            NULL,            hi_multFmt,      NULL            }, // hi: try plural cases for 1 (covers 0.0-1.0), other
     { "hr",         NULL,            NULL,            NULL,            NULL            }, // hr: try plural cases for 1, 2, 5
     { "hu",         NULL,            NULL,            NULL,            NULL            }, // hu: try plural cases for 1, other
@@ -435,19 +509,19 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "ms",         NULL,            NULL,            NULL,            NULL            }, // ms: try plural cases for other only
     { "nb",         nb_singFmt,      NULL,            NULL,            NULL            }, // nb: try plural cases for 1, other
     { "nl",         nl_singFmt,      NULL,            NULL,            NULL            }, // nl: try plural cases for 1, other
-    { "pl",         NULL,            NULL,            NULL,            NULL            }, // pl: try plural cases for 1, 2, 5, 8.5
+    { "pl",         pl_singFmt,      pl_singNam,      NULL,            NULL            }, // pl: try plural cases for 1, 2, 5, 8.5
     { "pt",         NULL,            NULL,            NULL,            NULL            }, // pt: try plural cases for 1, other
     { "pt_PT",      NULL,            NULL,            NULL,            NULL            },
     { "ro",         ro_singFmt,      NULL,            NULL,            NULL            }, // ro: try plural cases for 1, 2, 20
-    { "ru",         NULL,            NULL,            NULL,            NULL            }, // ru: try plural cases for 1, 2, 5, 8.5
+    { "ru",         ru_singFmt,      NULL,            NULL,            NULL            }, // ru: try plural cases for 1, 2, 5, 8.5
     { "sk",         NULL,            NULL,            NULL,            NULL            }, // sk: try plural cases for 1, 2, 8.5, 5
     { "sv",         NULL,            NULL,            NULL,            NULL            }, // sv: try plural cases for 1, other
     { "th",         NULL,            NULL,            NULL,            NULL            }, // th: try plural cases for other only
     { "tr",         NULL,            NULL,            NULL,            NULL            }, // tr: try plural cases for 1, other
-    { "uk",         uk_singFmt,      NULL,            NULL,            NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
+    { "uk",         uk_singFmt,      NULL,            uk_multFmt,      NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
     { "vi",         vi_singFmt,      NULL,            NULL,            NULL            }, // vi: try plural cases for other only
     { "zh_Hant",    zh_Hant_singFmt, zh_Hant_singNam, NULL,            NULL            }, // zh_Hant: try plural cases for other only
-    { "zh_Hant_HK", NULL,            zh_Hant_HK_singNam, NULL,         NULL            }, 
+    { "zh_Hant_HK", zh_Hant_HK_singFmt, zh_Hant_HK_singNam, NULL,      NULL            },
 
     // =============TERMINATOR
     { NULL, NULL, NULL, NULL, NULL }

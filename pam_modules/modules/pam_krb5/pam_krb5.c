@@ -328,7 +328,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
-	krbret = krb5_cc_initialize(pam_context, ccache, princ);
+	krbret = krb5_cc_initialize(pam_context, ccache, creds.client);
 	if (krbret != 0) {
 		PAM_VERBOSE_ERROR("Kerberos 5 error");
 		PAM_LOG("Error krb5_cc_initialize(): %s",

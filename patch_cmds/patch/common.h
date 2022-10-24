@@ -87,6 +87,9 @@ extern int	debug;
 extern bool	force;
 extern bool	batch;
 extern bool	verbose;
+#ifdef __APPLE__
+extern bool	quiet;
+#endif
 extern bool	reverse;
 extern bool	noreverse;
 extern bool	skip_rest_of_patch;
@@ -110,3 +113,34 @@ extern LINENUM	input_lines;	/* how long is input file in lines */
 
 extern int	posix;
 
+#ifdef __APPLE__
+enum vcsopt {
+	VCS_DEFAULT,
+	VCS_DISABLED,
+	VCS_PROMPT,
+	VCS_ALWAYS
+};
+
+enum quote_options {
+	QO_LITERAL,
+	QO_SHELL,
+	QO_SHELL_ALWAYS,
+	QO_C,
+	QO_ESCAPE,	/* C without quotes */
+};
+
+extern enum vcsopt	vcsget;
+extern enum quote_options	quote_opt;
+
+int vcs_probe(const char *filename, bool missing, bool check_only);
+bool vcs_prompt(const char *filename);
+bool vcs_supported(void);
+const char *vcs_name(void);
+int vcs_checkout(const char *filename, bool missing);
+
+extern long	settime_gmtoff;
+extern bool	settime;
+
+extern time_t	mtime_old;
+extern time_t	mtime_new;
+#endif

@@ -24,7 +24,7 @@
 #include "crc.h"
 
 
-const crcDescriptor crc16_usb = {
+const crcDescriptor CC_crc16_usb = {
     .name = "crc16-usb",
     .defType = model,
     .def.parms.width = 2,

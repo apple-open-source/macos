@@ -70,6 +70,7 @@ dt_pid_objname(char *buf, size_t len, Lmid_t lmid, const char *obj)
 		(void) snprintf(buf, len, "LM%llx`%s", lmid, obj);
 }
 
+__printflike(6, 7)
 int
 dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
     fasttrap_probe_spec_t *ftp, dt_errtag_t tag, const char *fmt, ...)

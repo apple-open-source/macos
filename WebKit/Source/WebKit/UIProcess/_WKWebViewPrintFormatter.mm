@@ -30,6 +30,8 @@
 
 #import "WKWebViewInternal.h"
 #import "_WKFrameHandle.h"
+#import <wtf/Condition.h>
+#import <wtf/Locker.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SetForScope.h>
 
@@ -40,8 +42,16 @@
 
 @implementation _WKWebViewPrintFormatter {
     RetainPtr<_WKFrameHandle> _frameToPrint;
-    RetainPtr<CGPDFDocumentRef> _printedDocument;
     BOOL _suppressPageCountRecalc;
+
+    Lock _printLock;
+    Condition _printCompletionCondition;
+    RetainPtr<CGPDFDocumentRef> _printedDocument;
+}
+
+- (BOOL)requiresMainThread
+{
+    return self._webView._printProvider._wk_printFormatterRequiresMainThread;
 }
 
 - (_WKFrameHandle *)frameToPrint
@@ -61,9 +71,36 @@
     return static_cast<WKWebView *>(view);
 }
 
+- (CGPDFDocumentRef)_printedDocument
+{
+    if (self.requiresMainThread)
+        return _printedDocument.get();
+
+    Locker locker { _printLock };
+    return _printedDocument.get();
+}
+
+- (void)_setPrintedDocument:(CGPDFDocumentRef)printedDocument
+{
+    if (self.requiresMainThread) {
+        _printedDocument = printedDocument;
+        return;
+    }
+
+    Locker locker { _printLock };
+    _printedDocument = printedDocument;
+    _printCompletionCondition.notifyOne();
+}
+
+- (void)_waitForPrintedDocument
+{
+    Locker locker { _printLock };
+    _printCompletionCondition.wait(_printLock);
+}
+
 - (void)_setSnapshotPaperRect:(CGRect)paperRect
 {
-    SetForScope<BOOL> suppressPageCountRecalc(_suppressPageCountRecalc, YES);
+    SetForScope suppressPageCountRecalc(_suppressPageCountRecalc, YES);
     UIPrintPageRenderer *printPageRenderer = self.printPageRenderer;
     printPageRenderer.paperRect = paperRect;
     printPageRenderer.printableRect = paperRect;
@@ -71,7 +108,7 @@
 
 - (NSInteger)_recalcPageCount
 {
-    _printedDocument = nullptr;
+    [self _setPrintedDocument:nullptr];
     NSUInteger pageCount = [self._webView._printProvider _wk_pageCountForPrintFormatter:self];
     return std::min<NSUInteger>(pageCount, NSIntegerMax);
 }
@@ -91,9 +128,11 @@
 
 - (void)drawInRect:(CGRect)rect forPageAtIndex:(NSInteger)pageIndex
 {
-    if (!_printedDocument) {
-        _printedDocument = self._webView._printProvider._wk_printedDocument;
-        if (!_printedDocument)
+    RetainPtr<CGPDFDocumentRef> printedDocument = [self _printedDocument];
+    if (!printedDocument) {
+        [self._webView._printProvider _wk_requestDocumentForPrintFormatter:self];
+        printedDocument = [self _printedDocument];
+        if (!printedDocument)
             return;
     }
 
@@ -101,7 +140,7 @@
     if (offsetFromStartPage < 0)
         return;
 
-    CGPDFPageRef page = CGPDFDocumentGetPage(_printedDocument.get(), offsetFromStartPage + 1);
+    CGPDFPageRef page = CGPDFDocumentGetPage(printedDocument.get(), offsetFromStartPage + 1);
     if (!page)
         return;
 

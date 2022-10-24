@@ -486,18 +486,7 @@ __options_decl(kalloc_type_variant_t, uint16_t, {
 	kalloc_type_##func##_fixed(__VA_ARGS__):    \
 	kalloc_type_##func##_var(__VA_ARGS__))
 
-/*
- * Fields of kalloc_type views that are required to make a redirection
- * decision i.e VM or data-only
- */
-struct kalloc_type_atom {
-	kalloc_type_flags_t  kt_flags;
-	vm_size_t            kt_size;
-	const char          *kt_sig_hdr;
-	const char          *kt_sig_type;
-};
-
-TUNABLE(kalloc_type_options_t, kt_options, "kt", KT_OPTIONS_LOOSE_FREE);
+TUNABLE(kalloc_type_options_t, kt_options, "kt", 0);
 TUNABLE(uint16_t, kt_var_heaps, "kt_var_heaps",
     ZSECURITY_CONFIG_KT_VAR_BUDGET);
 /*
@@ -518,11 +507,6 @@ __SECTION_START_SYM(KALLOC_TYPE_SEGMENT, "__kalloc_var");
 extern struct kalloc_type_var_view kalloc_type_sec_end_var[]
 __SECTION_END_SYM(KALLOC_TYPE_SEGMENT, "__kalloc_var");
 
-typedef union kalloc_type_views {
-	struct kalloc_type_view     *ktv_fixed;
-	struct kalloc_type_var_view *ktv_var;
-} kalloc_type_views_t;
-
 __startup_data
 static kalloc_type_views_t *kt_buffer = NULL;
 __startup_data
@@ -533,13 +517,11 @@ uint32_t kalloc_type_hash_seed;
 _Static_assert(__builtin_popcount(KT_SUMMARY_MASK_TYPE_BITS) == (KT_GRANULE_MAX + 1),
     "KT_SUMMARY_MASK_TYPE_BITS doesn't match KT_GRANULE_MAX");
 
-#if DEBUG || DEVELOPMENT
 /*
  * For use by lldb to iterate over kalloc types
  */
-uint64_t num_kt_sizeclass = MAX_K_ZONE(k_zone_cfg);
+SECURITY_READ_ONLY_LATE(uint64_t) num_kt_sizeclass = MAX_K_ZONE(k_zone_cfg);
 SECURITY_READ_ONLY_LATE(zone_t) kalloc_type_zarray[MAX_K_ZONE(k_zone_cfg)];
-#endif
 
 #define KT_GET_HASH(flags) (uint16_t)((flags & KT_HASH) >> 16)
 static_assert(KT_HASH >> 16 == (KMEM_RANGE_MASK | KMEM_HASH_SET |
@@ -660,83 +642,83 @@ kalloc_type_assign_zone_var(kalloc_type_var_view_t *cur,
 	}
 }
 
-static inline char
-kalloc_type_granule_to_char(kt_granule_t granule)
+__startup_func
+static inline void
+kalloc_type_slide_fixed(vm_offset_t addr)
 {
-	return (char) (granule + '0');
+	kalloc_type_view_t ktv = (struct kalloc_type_view *) addr;
+	ktv->kt_signature += vm_kernel_slide;
+	ktv->kt_zv.zv_name += vm_kernel_slide;
+	ktv->kt_flags |= KT_SLID;
 }
 
-static bool
-kalloc_type_sig_check(const char *sig, const kt_granule_t gr)
+__startup_func
+static inline void
+kalloc_type_slide_var(vm_offset_t addr)
 {
-	while (*sig == kalloc_type_granule_to_char(gr & KT_GRANULE_PADDING) ||
-	    *sig == kalloc_type_granule_to_char(gr & KT_GRANULE_POINTER) ||
-	    *sig == kalloc_type_granule_to_char(gr & KT_GRANULE_DATA) ||
-	    *sig == kalloc_type_granule_to_char(gr & KT_GRANULE_PAC)) {
-		sig++;
+	kalloc_type_var_view_t ktv = (struct kalloc_type_var_view *) addr;
+	if (ktv->kt_sig_hdr) {
+		ktv->kt_sig_hdr += vm_kernel_slide;
 	}
-	return *sig == '\0';
+	ktv->kt_sig_type += vm_kernel_slide;
+	ktv->kt_name += vm_kernel_slide;
+	ktv->kt_flags |= KT_SLID;
 }
 
-/*
- * Check if signature of type is made up of only the specified granules
- */
-static bool
-kalloc_type_check(struct kalloc_type_atom kt_atom,
-    kalloc_type_flags_t change_flag, kalloc_type_flags_t check_flag,
-    const kt_granule_t check_gr)
+__startup_func
+static void
+kalloc_type_validate_flags(
+	kalloc_type_flags_t   kt_flags,
+	const char           *kt_name,
+	uuid_string_t         kext_uuid)
 {
-	kalloc_type_flags_t flags = kt_atom.kt_flags;
-	if (flags & change_flag) {
-		return flags & check_flag;
-	} else {
-		bool kt_hdr_check = kt_atom.kt_sig_hdr?
-		    kalloc_type_sig_check(kt_atom.kt_sig_hdr, check_gr): true;
-		bool kt_type_check = kalloc_type_sig_check(kt_atom.kt_sig_type, check_gr);
-		return kt_hdr_check && kt_type_check;
+	if (!(kt_flags & KT_CHANGED) || !(kt_flags & KT_CHANGED2)) {
+		panic("kalloc_type_view(%s) from kext(%s) hasn't been rebuilt with "
+		    "required xnu headers", kt_name, kext_uuid);
 	}
+}
+
+static kalloc_type_flags_t
+kalloc_type_get_flags_fixed(vm_offset_t addr, uuid_string_t kext_uuid)
+{
+	kalloc_type_view_t ktv = (kalloc_type_view_t) addr;
+	kalloc_type_validate_flags(ktv->kt_flags, ktv->kt_zv.zv_name, kext_uuid);
+	return ktv->kt_flags;
+}
+
+static kalloc_type_flags_t
+kalloc_type_get_flags_var(vm_offset_t addr, uuid_string_t kext_uuid)
+{
+	kalloc_type_var_view_t ktv = (kalloc_type_var_view_t) addr;
+	kalloc_type_validate_flags(ktv->kt_flags, ktv->kt_name, kext_uuid);
+	return ktv->kt_flags;
 }
 
 /*
  * Check if signature of type is made up of only data and padding
  */
 static bool
-kalloc_type_is_data(struct kalloc_type_atom kt_atom)
+kalloc_type_is_data(kalloc_type_flags_t kt_flags)
 {
-	return kalloc_type_check(kt_atom, KT_CHANGED, KT_DATA_ONLY,
-	           KT_GRANULE_DATA);
-}
-
-/*
- * Use this version after early boot as sites from kexts that haven't yet
- * been recompiled with the latest kalloc type defintions, have been fixed
- * up.
- */
-static bool
-kalloc_type_is_data_fast(struct kalloc_type_atom kt_atom)
-{
-	return kt_atom.kt_flags & KT_DATA_ONLY;
+	assert(kt_flags & KT_CHANGED);
+	return kt_flags & KT_DATA_ONLY;
 }
 
 /*
  * Check if signature of type is made up of only pointers
  */
 static bool
-kalloc_type_is_ptr_array(struct kalloc_type_atom kt_atom)
+kalloc_type_is_ptr_array(kalloc_type_flags_t kt_flags)
 {
-	return kalloc_type_check(kt_atom, KT_CHANGED2, KT_PTR_ARRAY,
-	           KT_GRANULE_POINTER | KT_GRANULE_PAC);
+	assert(kt_flags & KT_CHANGED2);
+	return kt_flags & KT_PTR_ARRAY;
 }
 
 static bool
-kalloc_type_from_vm(struct kalloc_type_atom kt_atom)
+kalloc_type_from_vm(kalloc_type_flags_t kt_flags)
 {
-	kalloc_type_flags_t flags = kt_atom.kt_flags;
-	if (flags & KT_CHANGED) {
-		return flags & KT_VM;
-	} else {
-		return kt_atom.kt_size > KHEAP_MAX_SIZE;
-	}
+	assert(kt_flags & KT_CHANGED);
+	return kt_flags & KT_VM;
 }
 
 __startup_func
@@ -759,42 +741,6 @@ kalloc_type_view_count(kalloc_type_variant_t type, vm_offset_t start,
     vm_offset_t end)
 {
 	return (end - start) / kalloc_type_func(type, view_sz);
-}
-
-static inline struct kalloc_type_atom
-kalloc_type_get_atom_fixed(vm_offset_t addr, bool slide)
-{
-	struct kalloc_type_atom kt_atom = {};
-	kalloc_type_view_t ktv = (struct kalloc_type_view *) addr;
-	kt_atom.kt_flags = ktv->kt_flags;
-	kt_atom.kt_size = ktv->kt_size;
-	if (slide) {
-		ktv->kt_signature += vm_kernel_slide;
-		ktv->kt_zv.zv_name += vm_kernel_slide;
-		ktv->kt_flags |= KT_SLID;
-	}
-	kt_atom.kt_sig_type = ktv->kt_signature;
-	return kt_atom;
-}
-
-static inline struct kalloc_type_atom
-kalloc_type_get_atom_var(vm_offset_t addr, bool slide)
-{
-	struct kalloc_type_atom kt_atom = {};
-	kalloc_type_var_view_t ktv = (struct kalloc_type_var_view *) addr;
-	kt_atom.kt_flags = ktv->kt_flags;
-	kt_atom.kt_size = ktv->kt_size_hdr + ktv->kt_size_type;
-	if (slide) {
-		if (ktv->kt_sig_hdr) {
-			ktv->kt_sig_hdr += vm_kernel_slide;
-		}
-		ktv->kt_sig_type += vm_kernel_slide;
-		ktv->kt_name += vm_kernel_slide;
-		ktv->kt_flags |= KT_SLID;
-	}
-	kt_atom.kt_sig_hdr = ktv->kt_sig_hdr;
-	kt_atom.kt_sig_type = ktv->kt_sig_type;
-	return kt_atom;
 }
 
 __startup_func
@@ -828,16 +774,6 @@ static void
 kalloc_type_handle_data_view_var(vm_offset_t addr)
 {
 	kalloc_type_var_view_t ktv = (kalloc_type_var_view_t) addr;
-	kalloc_type_flags_t kt_flags = ktv->kt_flags;
-
-	/*
-	 * To avoid having to recompute this until rdar://85182551 lands
-	 * in the build and kexts are rebuilt.
-	 */
-	if (!(kt_flags & KT_CHANGED)) {
-		ktv->kt_flags |= (KT_CHANGED | KT_DATA_ONLY);
-	}
-
 	kalloc_type_assign_zone_var(&ktv, &ktv + 1, KT_VAR_DATA_HEAP);
 }
 
@@ -933,8 +869,13 @@ kalloc_type_update_view_var(vm_offset_t addr)
 
 __startup_func
 static void
-kalloc_type_view_copy(const kalloc_type_variant_t type, vm_offset_t start,
-    vm_offset_t end, uint64_t *cur_count, bool slide)
+kalloc_type_view_copy(
+	const kalloc_type_variant_t   type,
+	vm_offset_t                   start,
+	vm_offset_t                   end,
+	uint64_t                     *cur_count,
+	bool                          slide,
+	uuid_string_t                 kext_uuid)
 {
 	uint64_t count = kalloc_type_view_count(type, start, end);
 	if (count + *cur_count >= kt_count) {
@@ -942,13 +883,16 @@ kalloc_type_view_copy(const kalloc_type_variant_t type, vm_offset_t start,
 	}
 	vm_offset_t cur = start;
 	while (cur < end) {
-		struct kalloc_type_atom kt_atom = kalloc_type_func(type, get_atom, cur,
-		    slide);
+		if (slide) {
+			kalloc_type_func(type, slide, cur);
+		}
+		kalloc_type_flags_t kt_flags = kalloc_type_func(type, get_flags, cur,
+		    kext_uuid);
 		kalloc_type_func(type, mark_processed, cur);
 		/*
 		 * Skip views that go to the VM
 		 */
-		if (kalloc_type_from_vm(kt_atom)) {
+		if (kalloc_type_from_vm(kt_flags)) {
 			cur += kalloc_type_func(type, view_sz);
 			continue;
 		}
@@ -959,7 +903,7 @@ kalloc_type_view_copy(const kalloc_type_variant_t type, vm_offset_t start,
 		 * variable kalloc_type handles the actual redirection in the entry points
 		 * kalloc/kfree_type_var_impl.
 		 */
-		if (kalloc_type_is_data(kt_atom)) {
+		if (kalloc_type_is_data(kt_flags)) {
 			kalloc_type_func(type, handle_data_view, cur);
 			cur += kalloc_type_func(type, view_sz);
 			continue;
@@ -973,7 +917,7 @@ kalloc_type_view_copy(const kalloc_type_variant_t type, vm_offset_t start,
 		/*
 		 * Redirect variable sized pointer arrays to KT_VAR_PTR_HEAP
 		 */
-		if (type == KTV_VAR && kalloc_type_is_ptr_array(kt_atom)) {
+		if (type == KTV_VAR && kalloc_type_is_ptr_array(kt_flags)) {
 			kalloc_type_handle_parray_var(cur);
 			cur += kalloc_type_func(type, view_sz);
 			continue;
@@ -1005,7 +949,7 @@ kalloc_type_view_parse(const kalloc_type_variant_t type)
 		kalloc_type_view_copy(type,
 		    kalloc_type_var(type, sec_start),
 		    kalloc_type_var(type, sec_end),
-		    &cur_count, 0);
+		    &cur_count, false, NULL);
 	} else if (kc_format == KCFormatFileset) {
 		/*
 		 * If kc uses filesets, traverse __kalloc_type section for each
@@ -1028,8 +972,14 @@ kalloc_type_view_parse(const kalloc_type_variant_t type)
 			kernel_section_t *sect = (kernel_section_t *)getsectbynamefromheader(
 				kext_mh, KALLOC_TYPE_SEGMENT, KALLOC_TYPE_SECTION(type));
 			if (sect != NULL) {
+				unsigned long uuidlen = 0;
+				void *kext_uuid = getuuidfromheader(kext_mh, &uuidlen);
+				uuid_string_t kext_uuid_str;
+				if ((kext_uuid != NULL) && (uuidlen == sizeof(uuid_t))) {
+					uuid_unparse_upper(*(uuid_t *)kext_uuid, kext_uuid_str);
+				}
 				kalloc_type_view_copy(type, sect->addr, sect->addr + sect->size,
-				    &cur_count, false);
+				    &cur_count, false, kext_uuid_str);
 			}
 		}
 	} else if (kc_format == KCFormatKCGEN) {
@@ -1038,7 +988,7 @@ kalloc_type_view_parse(const kalloc_type_variant_t type)
 		 */
 		kalloc_type_view_copy(type,
 		    kalloc_type_var(type, sec_start),
-		    kalloc_type_var(type, sec_end), &cur_count, false);
+		    kalloc_type_var(type, sec_end), &cur_count, false, NULL);
 
 #if defined(__LP64__)
 		/*
@@ -1107,7 +1057,7 @@ kalloc_type_view_parse(const kalloc_type_variant_t type)
 					if (kt_sect) {
 						kalloc_type_view_copy(type, kt_sect->addr + vm_kernel_slide,
 						    kt_sect->addr + kt_sect->size + vm_kernel_slide, &cur_count,
-						    true);
+						    true, NULL);
 					}
 				}
 				/*
@@ -1394,11 +1344,9 @@ kalloc_type_create_zone_for_size(zone_t *kt_zones_for_size,
 		snprintf(z_name, MAX_ZONE_NAME, "kalloc.type%u.%zu", i,
 		    (size_t) z_size);
 		zone_t z = zone_create(z_name, z_size, ZC_KALLOC_TYPE);
-#if DEBUG || DEVELOPMENT
 		if (i != 0) {
 			p_zone->z_kt_next = z;
 		}
-#endif
 		p_zone = z;
 		kt_zones_for_size[i] = z;
 	}
@@ -1464,14 +1412,12 @@ kalloc_type_create_zones_fixed(uint16_t *kt_skip_list_start,
 			KHEAP_DEFAULT, z_size);
 #endif /* !ZSECURITY_CONFIG(KALLOC_TYPE) */
 
-#if DEBUG || DEVELOPMENT
 		kalloc_type_zarray[i] = kt_zones_for_size[0];
 		/*
 		 * Ensure that there is enough space to shuffle n_unique_sig
 		 * indices
 		 */
 		assert(n_unique_sig < kt_shuffle_count);
-#endif
 
 		/*
 		 * Get a shuffled set of signature indices
@@ -1539,7 +1485,11 @@ kalloc_type_create_zones_var(void)
 
 			zone_t z_ptr = zone_create_ext(z_name, kheap_zsize[j], flags,
 			    ZONE_ID_ANY, ^(zone_t z){
+				uint32_t size  = z->z_elem_size;
+				uint32_t scale = kalloc_log2down(size) - 1;
+
 				zone_security_array[zone_index(z)].z_kheap_id = KHEAP_ID_KT_VAR;
+				z->z_array_size_class = 2 * scale | ((size >> scale) & 1);
 			});
 			if (j == 0) {
 				kalloc_type_heap_array[i].kh_zstart = zone_index(z_ptr);
@@ -1764,7 +1714,7 @@ kalloc_type_zone_for_size(kalloc_type_var_view_t kt_view, size_t size)
 		 * . (size - 1) >> (log2down(size - 1) - 1) is either 0x2 or 0x3
 		 */
 		size -= 1;
-		idx   = kmem_log2down((uint32_t)size);
+		idx   = kalloc_log2down((uint32_t)size);
 		zid  += KHEAP_EXTRA_ZONES +
 		    2 * (idx - KHEAP_START_IDX) +
 		    ((uint32_t)size >> (idx - 1)) - 2;
@@ -1863,6 +1813,140 @@ kalloc_guard(vm_tag_t tag, uint16_t type_hash, const void *owner)
 	return guard;
 }
 
+#if __arm64e__
+
+#define KALLOC_ARRAY_TYPE_SHIFT (64 - T1SZ_BOOT - 2)
+
+SECURITY_READ_ONLY_LATE(uint32_t) kalloc_array_type_shift = KALLOC_ARRAY_TYPE_SHIFT;
+
+/*
+ * Zone encoding is:
+ *
+ *   <PAC SIG><1><2 bits of type><PTR value><4 bits of size class>
+ *
+ * VM encoding is:
+ *
+ *   <PAC SIG><1><2 bits of 0><PTR value><14 bits of page count>
+ */
+
+static_assert(T1SZ_BOOT + 2 + VM_KERNEL_POINTER_SIGNIFICANT_BITS <= 64);
+
+__attribute__((always_inline))
+struct kalloc_result
+__kalloc_array_decode(vm_address_t ptr)
+{
+	struct kalloc_result kr;
+	vm_address_t type = (ptr >> KALLOC_ARRAY_TYPE_SHIFT) & 0x3;
+
+	if (type) {
+		kr.size = type << (ptr & 0xf);
+		ptr &= ~0xfull;
+	} else {
+		kr.size = (ptr & PAGE_MASK) << PAGE_SHIFT;
+		ptr &= ~PAGE_MASK;
+	}
+	ptr |= 3ull << KALLOC_ARRAY_TYPE_SHIFT;
+
+	kr.addr = (void *)ptr;
+	return kr;
+}
+
+static inline void *
+__kalloc_array_encode_zone(zone_t z, void *ptr, vm_size_t size __unused)
+{
+	vm_address_t addr = (vm_address_t)ptr;
+	vm_address_t idx = z->z_array_size_class;
+
+	if ((idx & 1) == 0) {
+		addr &= ~(0x1ull << KALLOC_ARRAY_TYPE_SHIFT);
+	}
+	addr |= (idx >> 1);
+
+	return (void *)addr;
+}
+
+static inline vm_address_t
+__kalloc_array_encode_vm(vm_address_t addr, vm_size_t size)
+{
+	addr &= ~(0x3ull << KALLOC_ARRAY_TYPE_SHIFT);
+
+	return addr | atop(size);
+}
+
+#else
+
+SECURITY_READ_ONLY_LATE(uint32_t) kalloc_array_type_shift = 0;
+
+/*
+ * Encoding is:
+ * bits  0..46: pointer value
+ * bits 47..47: 0: zones, 1: VM
+ * bits 48..63: zones: elem size, VM: number of pages
+ */
+
+#define KALLOC_ARRAY_TYPE_BIT   47
+static_assert(KALLOC_ARRAY_TYPE_BIT > VM_KERNEL_POINTER_SIGNIFICANT_BITS);
+static_assert(__builtin_clzll(KHEAP_MAX_SIZE) > KALLOC_ARRAY_TYPE_BIT);
+
+__attribute__((always_inline))
+struct kalloc_result
+__kalloc_array_decode(vm_address_t ptr)
+{
+	struct kalloc_result kr;
+
+	kr.size = ptr >> (KALLOC_ARRAY_TYPE_BIT + 1);
+	if (ptr & (1ull << KALLOC_ARRAY_TYPE_BIT)) {
+		kr.size <<= PAGE_SHIFT;
+	}
+	kr.addr = (void *)(ptr | ~0ull << KALLOC_ARRAY_TYPE_BIT);
+
+	return kr;
+}
+
+static inline void *
+__kalloc_array_encode_zone(zone_t z __unused, void *ptr, vm_size_t size)
+{
+	vm_address_t addr = (vm_address_t)ptr;
+
+	addr &= (1ull << KALLOC_ARRAY_TYPE_BIT) - 1; /* clear bit */
+	addr |= size << (KALLOC_ARRAY_TYPE_BIT + 1);
+
+	return (void *)addr;
+}
+
+static inline vm_address_t
+__kalloc_array_encode_vm(vm_address_t addr, vm_size_t size)
+{
+	addr &= (2ull << KALLOC_ARRAY_TYPE_BIT) - 1; /* keep bit */
+	addr |= size << (KALLOC_ARRAY_TYPE_BIT + 1 - PAGE_SHIFT);
+
+	return addr;
+}
+
+#endif
+
+vm_size_t
+kalloc_next_good_size(vm_size_t size, uint32_t period)
+{
+	uint32_t scale = kalloc_log2down((uint32_t)size);
+	vm_size_t step;
+
+	if (size < KHEAP_STEP_START) {
+		return KHEAP_STEP_START;
+	}
+	if (size < 2 * KHEAP_STEP_START) {
+		return 2 * KHEAP_STEP_START;
+	}
+	if (size < KHEAP_MAX_SIZE) {
+		step = 1ul << (scale - 1);
+	} else {
+		step = round_page(1ul << (scale - kalloc_log2down(period)));
+	}
+
+	return (size + step) & -step;
+}
+
+
 #pragma mark kalloc
 
 static inline kalloc_heap_t
@@ -1873,8 +1957,7 @@ kalloc_type_get_heap(kalloc_type_var_view_t kt_view, bool kt_free __unused)
 	/*
 	 * Redirect data-only views
 	 */
-	if (kalloc_type_is_data_fast(kalloc_type_func(KTV_VAR, get_atom,
-	    (vm_offset_t) kt_view, false))) {
+	if (kalloc_type_is_data(kt_view->kt_flags)) {
 		return KHEAP_DATA_BUFFERS;
 	}
 
@@ -1923,6 +2006,10 @@ kalloc_large(
 		return (struct kalloc_result){ };
 	}
 
+	if ((flags & Z_KALLOC_ARRAY) && req_size > KALLOC_ARRAY_SIZE_MAX) {
+		return (struct kalloc_result){ };
+	}
+
 #ifndef __x86_64__
 	/*
 	 * (73465472) on Intel we didn't use to pass this flag,
@@ -1956,11 +2043,14 @@ kalloc_large(
 	}
 
 #if KASAN_KALLOC
+	if (flags & Z_KALLOC_ARRAY) {
+		req_size = round_page(req_size);
+	}
 	/* large allocation - use guard pages instead of small redzones */
 	size = round_page(kasan_alloc_resize(req_size) + ptoa(2));
 #else
 	size = round_page(req_size);
-	if (flags & Z_FULLSIZE) {
+	if (flags & (Z_FULLSIZE | Z_KALLOC_ARRAY)) {
 		req_size = size;
 	}
 #endif
@@ -1976,7 +2066,15 @@ kalloc_large(
 		/* fixup the return address to skip the redzone */
 		addr = kasan_alloc(addr, size, req_size, PAGE_SIZE);
 #else
+#if CONFIG_KERNEL_TBI && KASAN_TBI
+		if ((flags & Z_MAY_COPYINMAP) == 0) {
+			addr = kasan_tbi_tag_large_alloc(addr, size, req_size);
+		}
+#endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
 #endif
+		if (flags & Z_KALLOC_ARRAY) {
+			addr = __kalloc_array_encode_vm(addr, req_size);
+		}
 	} else {
 		addr = 0;
 	}
@@ -1995,18 +2093,23 @@ kalloc_zone(
 	struct kalloc_result kr;
 	vm_size_t esize;
 
-	esize   = zone_elem_size(z);
-	kr.addr = zalloc_ext(z, zstats ?: z->z_stats, flags | Z_SKIP_KASAN, esize);
-	kr.size = req_size;
+	kr = zalloc_ext(z, zstats ?: z->z_stats, flags | Z_SKIP_KASAN);
+	esize = kr.size;
 
 	if (__probable(kr.addr)) {
-#if !KASAN_KALLOC
-		if (flags & Z_FULLSIZE) {
-			kr.size = req_size = esize;
+#if KASAN_KALLOC
+		flags &= ~Z_FULLSIZE;
+#endif /* KASAN_KALLOC */
+		if (flags & (Z_FULLSIZE | Z_KALLOC_ARRAY)) {
+#if KASAN_CLASSIC
+			kr.size -= kasan_alloc_resize(req_size) - req_size;
+#endif
+			req_size = kr.size;
+		} else {
+			kr.size = req_size;
 		}
-#endif /* !KASAN_KALLOC */
 #if ZSECURITY_CONFIG(PGZ_OOB_ADJUST)
-		kr.addr = zone_element_pgz_oob_adjust(kr, esize);
+		kr.addr = zone_element_pgz_oob_adjust(kr.addr, req_size, esize);
 #endif /* !ZSECURITY_CONFIG(PGZ_OOB_ADJUST) */
 #if KASAN_KALLOC
 		kr.addr = (void *)kasan_alloc((vm_offset_t)kr.addr, esize,
@@ -2022,11 +2125,17 @@ kalloc_zone(
 		kr.addr = (void *)kasan_tbi_tag_zalloc((vm_offset_t)kr.addr,
 		    esize, K_SANE_SIZE(kr.size), false);
 #endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
+
+		if (flags & Z_KALLOC_ARRAY) {
+			kr.addr = __kalloc_array_encode_zone(z, kr.addr, kr.size);
+		}
 	}
 
-	DTRACE_VM3(kalloc, vm_size_t, kr.size, vm_size_t, req_size, void*, kr.addr);
+	DTRACE_VM3(kalloc, vm_size_t, req_size, vm_size_t, esize, void*, kr.addr);
 	return kr;
 }
+
+#undef kalloc_ext
 
 struct kalloc_result
 kalloc_ext(
@@ -2268,7 +2377,7 @@ kfree_heap_confusion_panic(kalloc_heap_t kheap, void *data, size_t size, zone_t 
 	const char *kheap_name = "";
 
 	if (kheap == KHEAP_ANY) {
-		kheap_name = "KHEAP_ANY (default/kalloc type var/data)";
+		kheap_name = "KHEAP_ANY (default/kalloc type var)";
 	} else {
 		kheap_name = kalloc_heap_names[kheap->kh_heap_id];
 	}
@@ -2347,6 +2456,14 @@ kfree_large(
 	kmf_flags_t             flags,
 	void                   *owner)
 {
+#if CONFIG_KERNEL_TBI && KASAN_TBI
+	if (flags & KMF_GUESS_SIZE) {
+		size = kmem_size_guard(kernel_map, VM_KERNEL_TBI_FILL(addr),
+		    kalloc_guard(VM_KERN_MEMORY_NONE, 0, owner));
+		flags &= ~KMF_GUESS_SIZE;
+	}
+	addr = kasan_tbi_tag_large_free(addr, size);
+#endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
 #if KASAN_KALLOC
 	/* TODO: quarantine for kasan large that works with guards */
 	kasan_poison_range(addr, size, ASAN_VALID);
@@ -2399,9 +2516,7 @@ kfree_zone(
 		if (zstats == NULL) {
 			zstats = KHEAP_KT_VAR->kh_stats;
 		}
-	} else if (zsflags.z_kheap_id != KHEAP_ID_DEFAULT &&
-	    (kt_options & KT_OPTIONS_LOOSE_FREE &&
-	    zsflags.z_kheap_id != KHEAP_ID_DATA_BUFFERS)) {
+	} else if (zsflags.z_kheap_id != KHEAP_ID_DEFAULT) {
 		kfree_heap_confusion_panic(kheap, data, size, z);
 	}
 
@@ -2425,8 +2540,8 @@ kfree_zone(
 
 void
 kfree_ext(
-	void                   *kheap_or_kt_view,
-	void                   *data,
+	void                   *kheap_or_kt_view __unsafe_indexable,
+	void                   *data __unsafe_indexable,
 	vm_size_t               size)
 {
 	vm_size_t adj_size, bucket_size;
@@ -2673,6 +2788,12 @@ krealloc_large(
 	old_size = round_page(old_req_size);
 #endif
 
+#if CONFIG_KERNEL_TBI && KASAN_TBI
+	if ((flags & Z_MAY_COPYINMAP) == 0) {
+		addr = kasan_tbi_tag_large_free(addr, old_size);
+	}
+#endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
+
 	kmr = kmem_realloc_guard(kernel_map, addr, old_size, new_size,
 	    kmr_flags, kalloc_guard(tag, kt_hash, owner));
 
@@ -2686,7 +2807,7 @@ krealloc_large(
 	}
 
 	counter_add(&kalloc_large_total, delta);
-	KALLOC_ZINFO_SALLOC((vm_offset_t)delta);
+	KALLOC_ZINFO_SALLOC(delta);
 
 	if (addr != 0) {
 		DTRACE_VM3(kfree, vm_size_t, old_size, vm_size_t, old_req_size,
@@ -2712,6 +2833,13 @@ krealloc_large(
 		__nosan_bzero((char *)kmr.kmr_address + old_req_size,
 		    MIN(needs_zero_end, new_req_size) - old_req_size);
 	}
+#else
+#if CONFIG_KERNEL_TBI && KASAN_TBI
+	if ((flags & Z_MAY_COPYINMAP) == 0) {
+		kmr.kmr_address = kasan_tbi_tag_large_alloc(kmr.kmr_address,
+		    new_size, new_req_size);
+	}
+#endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
 #endif
 
 	DTRACE_VM3(kalloc, vm_size_t, new_size, vm_size_t, new_req_size,
@@ -2719,14 +2847,16 @@ krealloc_large(
 	return (struct kalloc_result){ .addr = kmr.kmr_ptr, .size = new_req_size };
 }
 
+#undef krealloc_ext
+
 struct kalloc_result
 krealloc_ext(
-	void                   *kheap_or_kt_view __unsafe_indexable,
-	void                   *addr,
-	vm_size_t               old_size,
-	vm_size_t               new_size,
-	zalloc_flags_t          flags,
-	void                   *owner)
+	void                 *kheap_or_kt_view __unsafe_indexable,
+	void                 *addr,
+	vm_size_t             old_size,
+	vm_size_t             new_size,
+	zalloc_flags_t        flags,
+	void                 *owner)
 {
 	vm_size_t old_bucket_size, new_bucket_size, min_size;
 	vm_size_t adj_new_size, adj_old_size;
@@ -2825,7 +2955,8 @@ krealloc_ext(
 		kr.size = new_size;
 #if ZSECURITY_CONFIG(PGZ_OOB_ADJUST)
 		if (old_z) {
-			kr.addr = zone_element_pgz_oob_adjust(kr, new_bucket_size);
+			kr.addr = zone_element_pgz_oob_adjust(kr.addr,
+			    new_size, new_bucket_size);
 			if (kr.addr != addr) {
 				memmove(kr.addr, addr, min_size);
 				bzero((char *)kr.addr + min_size,
@@ -2847,8 +2978,13 @@ krealloc_ext(
 		 * Validate the current buffer, then generate a new tag,
 		 * even if the address is stable, it's a "new" allocation.
 		 */
-		kr.addr = (void *)kasan_tbi_tag_zalloc((vm_offset_t)kr.addr,
-		    kr.size, new_bucket_size, false);
+		if (old_z) {
+			kr.addr = (void *)kasan_tbi_tag_zalloc((vm_offset_t)kr.addr,
+			    new_bucket_size, kr.size, false);
+		} else {
+			kr.addr = (void *)kasan_tbi_tag_large_alloc((vm_offset_t)kr.addr,
+			    new_bucket_size, kr.size);
+		}
 #endif /* CONFIG_KERNEL_TBI && KASAN_TBI */
 		return kr;
 	}
@@ -2942,7 +3078,7 @@ kheap_startup_init(kalloc_heap_t kheap)
 	kheap->kh_tag = tag;
 	zone_view_count += 1;
 
-#if PLATFORM_MacOSX
+#if XNU_PLATFORM_MacOSX
 	if (kheap == KERN_OS_MALLOC) {
 		kheap->kh_type_hash = (uint16_t) kalloc_hash_adjust(
 			(uint32_t) early_random(), 0);
@@ -2952,7 +3088,7 @@ kheap_startup_init(kalloc_heap_t kheap)
 
 #pragma mark IOKit/libkern helpers
 
-#if PLATFORM_MacOSX
+#if XNU_PLATFORM_MacOSX
 
 void *
 kern_os_malloc_external(size_t size);
@@ -2999,7 +3135,7 @@ kern_os_realloc_external(void *addr, size_t nsize)
 	return __kheap_realloc(KERN_OS_MALLOC, addr, osize - oob_offs, nsize, flags, NULL);
 }
 
-#endif /* PLATFORM_MacOSX */
+#endif /* XNU_PLATFORM_MacOSX */
 
 void
 kern_os_zfree(zone_t zone, void *addr, vm_size_t size)
@@ -3025,9 +3161,7 @@ kern_os_zfree(zone_t zone, void *addr, vm_size_t size)
 bool
 IOMallocType_from_vm(kalloc_type_view_t ktv)
 {
-	struct kalloc_type_atom kt_atom = kalloc_type_func(KTV_FIXED, get_atom,
-	    (vm_offset_t)ktv, false);
-	return kalloc_type_from_vm(kt_atom);
+	return kalloc_type_from_vm(ktv->kt_flags);
 }
 
 void
@@ -3178,10 +3312,10 @@ static int
 kalloc_type_test_data_redirect()
 {
 	struct kalloc_type_view ktv_data = {
-		.kt_signature = __builtin_xnu_type_signature(struct test_kt_data)
+		.kt_flags = KALLOC_TYPE_ADJUST_FLAGS(KT_SHARED_ACCT, struct test_kt_data),
+		.kt_signature = KALLOC_TYPE_EMIT_SIG(struct test_kt_data),
 	};
-	if (!kalloc_type_is_data(kalloc_type_func(KTV_FIXED, get_atom,
-	    (vm_offset_t)&ktv_data, false))) {
+	if (!kalloc_type_is_data(ktv_data.kt_flags)) {
 		printf("%s: data redirect failed\n", __func__);
 		return 0;
 	}
@@ -3238,31 +3372,107 @@ static int
 run_kalloc_test(int64_t in __unused, int64_t *out)
 {
 	*out = 0;
-	uint64_t * data_ptr;
-	size_t alloc_size, old_alloc_size;
+	uint64_t *data_ptr;
+	void *strippedp_old, *strippedp_new;
+	size_t alloc_size = 0, old_alloc_size = 0;
+	struct kalloc_result kr = {};
 
 	printf("%s: test running\n", __func__);
 
+	/*
+	 * Test size 0: alloc, free, realloc
+	 */
+	data_ptr = kalloc_ext(KHEAP_DATA_BUFFERS, alloc_size, Z_WAITOK | Z_NOFAIL,
+	    NULL).addr;
+	if (!data_ptr) {
+		printf("%s: kalloc 0 returned null\n", __func__);
+		return 0;
+	}
+	kheap_free(KHEAP_DATA_BUFFERS, data_ptr, alloc_size);
+
+	data_ptr = kalloc_ext(KHEAP_DATA_BUFFERS, alloc_size, Z_WAITOK | Z_NOFAIL,
+	    NULL).addr;
+	alloc_size = sizeof(uint64_t) + 1;
+	data_ptr = krealloc_ext(KHEAP_DATA_BUFFERS, kr.addr, old_alloc_size,
+	    alloc_size, Z_WAITOK | Z_NOFAIL, NULL).addr;
+	if (!data_ptr) {
+		printf("%s: krealloc -> old size 0 failed\n", __func__);
+		return 0;
+	}
+	*data_ptr = 0;
+
+	/*
+	 * Test krealloc: same sizeclass, different size classes, 2pgs,
+	 * VM (with owner)
+	 */
+	old_alloc_size = alloc_size;
+	alloc_size++;
+	kr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, old_alloc_size, alloc_size,
+	    Z_WAITOK | Z_NOFAIL, NULL);
+
+#if CONFIG_KERNEL_TBI
+	strippedp_old = VM_KERNEL_TBI_FILL(data_ptr);
+	strippedp_new = VM_KERNEL_TBI_FILL(kr.addr);
+#else /* CONFIG_KERNEL_TBI */
+	strippedp_old = data_ptr;
+	strippedp_new = kr.addr;
+#endif /* !CONFIG_KERNEL_TBI */
+
+	if (!kr.addr || (strippedp_old != strippedp_new) ||
+	    (test_bucket_size(KHEAP_DATA_BUFFERS, kr.size) !=
+	    test_bucket_size(KHEAP_DATA_BUFFERS, old_alloc_size))) {
+		printf("%s: krealloc -> same size class failed\n", __func__);
+		return 0;
+	}
+	data_ptr = kr.addr;
+	*data_ptr = 0;
+
+	old_alloc_size = alloc_size;
+	alloc_size *= 2;
+	kr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, old_alloc_size, alloc_size,
+	    Z_WAITOK | Z_NOFAIL, NULL);
+
+#if CONFIG_KERNEL_TBI
+	strippedp_old = VM_KERNEL_TBI_FILL(data_ptr);
+	strippedp_new = VM_KERNEL_TBI_FILL(kr.addr);
+#else /* CONFIG_KERNEL_TBI */
+	strippedp_old = data_ptr;
+	strippedp_new = kr.addr;
+#endif /* !CONFIG_KERNEL_TBI */
+
+	if (!kr.addr || (strippedp_old == strippedp_new) ||
+	    (test_bucket_size(KHEAP_DATA_BUFFERS, kr.size) ==
+	    test_bucket_size(KHEAP_DATA_BUFFERS, old_alloc_size))) {
+		printf("%s: krealloc -> different size class failed\n", __func__);
+		return 0;
+	}
+	data_ptr = kr.addr;
+	*data_ptr = 0;
+
+	kheap_free(KHEAP_DATA_BUFFERS, kr.addr, alloc_size);
+
 	alloc_size = 3544;
 	data_ptr = kalloc_ext(KHEAP_DATA_BUFFERS, alloc_size,
-	    Z_WAITOK, &data_ptr).addr;
+	    Z_WAITOK | Z_FULLSIZE, &data_ptr).addr;
 	if (!data_ptr) {
-		printf("%s: kalloc 3544 returned not null\n", __func__);
+		printf("%s: kalloc 3544 with owner and Z_FULLSIZE returned not null\n",
+		    __func__);
 		return 0;
 	}
+	*data_ptr = 0;
 
 	data_ptr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, alloc_size,
-	    PAGE_SIZE, Z_REALLOCF | Z_WAITOK, &data_ptr).addr;
-	*data_ptr = 0;
+	    PAGE_SIZE * 2, Z_REALLOCF | Z_WAITOK, &data_ptr).addr;
 	if (!data_ptr) {
-		printf("%s: krealoc -> 2pgs returned not null\n", __func__);
+		printf("%s: krealloc -> 2pgs returned not null\n", __func__);
 		return 0;
 	}
+	*data_ptr = 0;
 
-	data_ptr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, PAGE_SIZE,
+	data_ptr = krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, PAGE_SIZE * 2,
 	    KHEAP_MAX_SIZE * 2, Z_REALLOCF | Z_WAITOK, &data_ptr).addr;
 	if (!data_ptr) {
-		printf("%s: krealoc -> VM1 returned not null\n", __func__);
+		printf("%s: krealloc -> VM1 returned not null\n", __func__);
 		return 0;
 	}
 	*data_ptr = 0;
@@ -3271,51 +3481,12 @@ run_kalloc_test(int64_t in __unused, int64_t *out)
 	    KHEAP_MAX_SIZE * 4, Z_REALLOCF | Z_WAITOK, &data_ptr).addr;
 	*data_ptr = 0;
 	if (!data_ptr) {
-		printf("%s: krealoc -> VM2 returned not null\n", __func__);
+		printf("%s: krealloc -> VM2 returned not null\n", __func__);
 		return 0;
 	}
 
 	krealloc_ext(KHEAP_DATA_BUFFERS, data_ptr, KHEAP_MAX_SIZE * 4,
 	    0, Z_REALLOCF | Z_WAITOK, &data_ptr);
-
-	alloc_size = sizeof(uint64_t) + 1;
-	data_ptr = kalloc_ext(KHEAP_DEFAULT, alloc_size, Z_WAITOK, NULL).addr;
-	if (!data_ptr) {
-		printf("%s: kalloc sizeof(uint64_t) returned null\n", __func__);
-		return 0;
-	}
-
-	struct kalloc_result kr = {};
-	old_alloc_size = alloc_size;
-	alloc_size++;
-	kr = krealloc_ext(KHEAP_DEFAULT, data_ptr, old_alloc_size, alloc_size,
-	    Z_WAITOK | Z_NOFAIL, NULL);
-	if (!kr.addr || kr.addr != data_ptr ||
-	    test_bucket_size(KHEAP_DEFAULT, kr.size) !=
-	    test_bucket_size(KHEAP_DEFAULT, old_alloc_size)) {
-		printf("%s: same size class realloc failed\n", __func__);
-		return 0;
-	}
-
-	old_alloc_size = alloc_size;
-	alloc_size *= 2;
-	kr = krealloc_ext(KHEAP_DEFAULT, kr.addr, old_alloc_size, alloc_size,
-	    Z_WAITOK | Z_NOFAIL, NULL);
-	if (!kr.addr || test_bucket_size(KHEAP_DEFAULT, kr.size) ==
-	    test_bucket_size(KHEAP_DEFAULT, old_alloc_size)) {
-		printf("%s: new size class realloc failed\n", __func__);
-		return 0;
-	}
-
-	old_alloc_size = alloc_size;
-	alloc_size *= 2;
-	data_ptr = krealloc_ext(KHEAP_DEFAULT, kr.addr, old_alloc_size,
-	    alloc_size, Z_WAITOK | Z_NOFAIL, NULL).addr;
-	if (!data_ptr) {
-		printf("%s: realloc without old size returned null\n", __func__);
-		return 0;
-	}
-	kheap_free(KHEAP_DEFAULT, data_ptr, alloc_size);
 
 	printf("%s: test passed\n", __func__);
 	*out = 1;

@@ -262,7 +262,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 					
 					if (NULL == base32values) {
 						// There is only one supported type, so we don't want to mention it in an error message
-						CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Unknown base32 type '%@'", value);
+						CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Unknown base32 type '%@'"), value);
 						
 						SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, bad_type);
 						
@@ -447,7 +447,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 				}
 				else
 				{
-					CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Unsupported decode type '%@', supported types are kSecBase64Encoding, kSecBase32Encoding, and kSecGZipEncoding", value);
+					CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Unsupported decode type '%@', supported types are kSecBase64Encoding, kSecBase32Encoding, and kSecGZipEncoding"), value);
 					
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, bad_type);
 					
@@ -584,7 +584,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 			} else if (CFGetTypeID(value) == CFStringGetTypeID()) {
 				int requested_length = CFStringGetIntValue(value);
 				if (requested_length == 0 && CFStringCompare(CFSTR("0"), value, kCFCompareAnchored)) {
-                    CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Could not convert '%@' to a number, please set %@ to a numeric value", kSecEncodeLineLengthAttribute, value);
+                    CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Could not convert '%@' to a number, please set %@ to a numeric value"), kSecEncodeLineLengthAttribute, value);
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
                     CFReleaseNull(error);
 				} else {
@@ -592,7 +592,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 				}
 			} else {
 				CFStringRef valueType = CFCopyTypeIDDescription(CFGetTypeID(value));
-                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "%@ requires a CFNumber, but was set to a %@ (%@)", kSecEncodeLineLengthAttribute, valueType, value);
+                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, CFSTR("%@ requires a CFNumber, but was set to a %@ (%@)"), kSecEncodeLineLengthAttribute, valueType, value);
 				SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
 				CFReleaseNull(valueType);
                 CFReleaseNull(error);
@@ -749,7 +749,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 					
 					if (NULL == base32alphabet) {
 						// There is only one supported type, so we don't want to mention it in an error message
-						CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Unknown base32 type '%@'", value);
+						CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Unknown base32 type '%@'"), value);
 						
 						SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, bad_type);
 						
@@ -959,7 +959,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 				} 
 				else 
 				{
-					CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Unsupported encode type '%@', supported types are kSecBase64Encoding, kSecBase32Encoding, and kSecGZipEncoding", value);
+					CFErrorRef bad_type = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, CFSTR("Unsupported encode type '%@', supported types are kSecBase64Encoding, kSecBase32Encoding, and kSecGZipEncoding"), value);
 					
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, bad_type);
 					

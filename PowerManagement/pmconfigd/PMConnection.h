@@ -65,6 +65,10 @@ __private_extern__ void PMConnection_prime(void);
 __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
 __private_extern__ bool isInSilentRunningMode(void);
 
+__private_extern__ IOReturn setRestrictedPerfMode(bool restrictPerf);
+__private_extern__ bool isInPerfRestrictedMode(void);
+__private_extern__ void evaluatePerfMode(void);
+
 __private_extern__ bool _can_revert_sleep(void);
 __private_extern__ void _set_sleep_revert(bool state);
 

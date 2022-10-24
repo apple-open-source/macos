@@ -1,0 +1,22 @@
+
+#------------------------------------------------------------------------------
+# $File: metallib,v 1.12 2020/10/22 11:25:44 john_doe Exp $
+# metallib:  file(1) magic for MetalLib
+#
+
+# From: John Doe <john_doe@unknown.us>
+0	belong		0xcbfebabe
+>4	belong		1		GPU Mach-O universal binary with 1 architecture:
+>>8	use		mach-o		\b
+>4	ubelong		>1
+>>8	use		mach-o		\b
+>>4	ubelong		>1
+>>>28	use		mach-o		\b
+>>4	ubelong		>2
+>>>48	use		mach-o		\b
+>>4	ubelong		>3
+>>>68	use		mach-o		\b
+>>4	ubelong		>4
+>>>88	use		mach-o		\b
+>>4	ubelong		>5
+>>>108	use		mach-o		\b

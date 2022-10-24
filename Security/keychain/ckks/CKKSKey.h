@@ -51,19 +51,26 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Fetches and attempts to unwrap/load this key for use
 // This will fail if this key isn't a Keychain-backed AES-SIV key for which we have the key bytes
-+ (instancetype _Nullable)loadKeyWithUUID:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)loadKeyWithUUID:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
 
 // Returns a keychain-backed key, if one can be created from the key data
 - (CKKSKeychainBackedKey* _Nullable)getKeychainBackedKey:(NSError**)error;
 
-// Creates new random keys, in the parent's zone
-+ (instancetype _Nullable)randomKeyWrappedByParent:(CKKSKey*)parentKey error:(NSError* __autoreleasing*)error;
+// Creates new random keys, in the parent's zone using the same contextID
++ (instancetype _Nullable)randomKeyWrappedByParent:(CKKSKey*)parentKey
+                                             error:(NSError* __autoreleasing*)error;
+
 + (instancetype _Nullable)randomKeyWrappedByParent:(CKKSKey*)parentKey
                                           keyclass:(CKKSKeyClass*)keyclass
                                              error:(NSError* __autoreleasing*)error;
 
 // Creates a new random key that wraps itself
-+ (instancetype _Nullable)randomKeyWrappedBySelf:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)randomKeyWrappedBySelf:(CKRecordZoneID*)zoneID
+                                       contextID:(NSString*)contextID
+                                           error:(NSError* __autoreleasing*)error;
 
 /* Helper functions for persisting key material in the keychain */
 - (BOOL)saveKeyMaterialToKeychain:(NSError* __autoreleasing*)error;
@@ -80,33 +87,62 @@ NS_ASSUME_NONNULL_BEGIN
 // First, attempts to load the key from the keychain. If it isn't present, this will
 // load the TLKShares for this key from the database, then attempts to use them to unwrap this key.
 // If no TLKShares are trusted, returns an error.
-- (BOOL)tlkMaterialPresentOrRecoverableViaTLKShare:(NSArray<CKKSPeerProviderState*>*)trustStates
-                                             error:(NSError**)error;
+- (BOOL)tlkMaterialPresentOrRecoverableViaTLKShareForContextID:(NSString*)contextID
+                                                forTrustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
+                                                         error:(NSError**)error;
 
-+ (instancetype _Nullable)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error;
 + (instancetype _Nullable)fromDatabaseAnyState:(NSString*)uuid
+                                     contextID:(NSString*)contextID
                                         zoneID:(CKRecordZoneID*)zoneID
                                          error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabaseAnyState:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSKey*>* _Nullable)selfWrappedKeys:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-
-+ (instancetype _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSKey*>* _Nullable)currentKeysForClass:(CKKSKeyClass*)keyclass
-                                    state:(CKKSProcessedState*)state
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
                                    zoneID:(CKRecordZoneID*)zoneID
                                     error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSKey*>*)allKeys:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSKey*>*)remoteKeys:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSKey*>*)localKeys:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)tryFromDatabaseAnyState:(NSString*)uuid
+                                        contextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSKey*>* _Nullable)selfWrappedKeysForContextID:(NSString*)contextID
+                                                     zoneID:(CKRecordZoneID*)zoneID
+                                                      error:(NSError* __autoreleasing*)error;
+
++ (instancetype _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass
+                                   contextID:(NSString*)contextID
+                                      zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSKey*>* _Nullable)currentKeysForClass:(CKKSKeyClass*)keyclass
+                                          contextID:(NSString*)contextID
+                                              state:(CKKSProcessedState*)state
+                                             zoneID:(CKRecordZoneID*)zoneID
+                                              error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSKey*>*)allKeysForContextID:(NSString*)contextID
+                                     zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSKey*>*)remoteKeysForContextID:(NSString*)contextID
+                                        zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSKey*>*)localKeysForContextID:(NSString*)contextID
+                                       zoneID:(CKRecordZoneID*)zoneID
+                                      error:(NSError* __autoreleasing*)error;
 
 - (bool)saveToDatabaseAsOnlyCurrentKeyForClassAndState:(NSError* __autoreleasing*)error;
 
 - (instancetype)init NS_UNAVAILABLE;
 
 - (instancetype)initSelfWrappedWithAESKey:(CKKSAESSIVKey*)aeskey
+                                contextID:(NSString*)contextID
                                      uuid:(NSString*)uuid
                                  keyclass:(CKKSKeyClass*)keyclass
                                     state:(CKKSProcessedState*)state
@@ -115,6 +151,7 @@ NS_ASSUME_NONNULL_BEGIN
                                currentkey:(NSInteger)currentkey;
 
 - (instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData
+                             contextID:(NSString*)contextID
                                   uuid:(NSString*)uuid
                          parentKeyUUID:(NSString*)parentKeyUUID
                               keyclass:(CKKSKeyClass*)keyclass
@@ -130,10 +167,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Attempts checks if the AES key is already loaded, or attempts to load it from the keychain.
 // This will return a ready-to-use CKKSKeychainBackedKey, or fail.
-- (CKKSKeychainBackedKey* _Nullable)ensureKeyLoaded:(NSError* __autoreleasing*)error;
+- (CKKSKeychainBackedKey* _Nullable)ensureKeyLoadedForContextID:(NSString*)contextID
+                                                          error:(NSError* __autoreleasing*)error;
 
 // Attempts to unwrap this key via unwrapping its wrapping keys via the key hierarchy.
-- (CKKSAESSIVKey* _Nullable)unwrapViaKeyHierarchy:(NSError* __autoreleasing*)error;
+- (CKKSAESSIVKey* _Nullable)unwrapViaKeyHierarchy: (NSError* __autoreleasing*)error;
 
 // On a self-wrapped key, determine if this AES-SIV key is the self-wrapped key.
 // If it is, save the key as this CKKSKey's unwrapped key.
@@ -152,17 +190,25 @@ NS_ASSUME_NONNULL_BEGIN
                            error:(NSError* __autoreleasing*)error;
 
 - (NSData* _Nullable)serializeAsProtobuf:(NSError* __autoreleasing*)error;
-+ (CKKSKey* _Nullable)loadFromProtobuf:(NSData*)data error:(NSError* __autoreleasing*)error;
++ (CKKSKey* _Nullable)loadFromProtobuf:(NSData*)data
+                             contextID:(NSString*)contextID
+                                 error:(NSError* __autoreleasing *)error;
 
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSDictionary<NSString*, NSNumber*>*)countsByClass:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error;
++ (NSDictionary<NSString*,NSNumber*>*)countsByClassWithContextID:(NSString*)contextID
+                                                          zoneID:(CKRecordZoneID*)zoneID
+                                                           error:(NSError * __autoreleasing *)error;
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
                             resync:(BOOL)resync
                        flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error;
 
 + (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
                              error:(NSError**)error;
 @end
 

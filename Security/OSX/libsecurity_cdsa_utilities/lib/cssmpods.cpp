@@ -36,14 +36,18 @@
 //
 char *Guid::toString(char buffer[stringRepLength+1]) const
 {
-    sprintf(buffer, "{%8.8x-%4.4hx-%4.4hx-",
-            int(n2h(Data1)), n2h(Data2), n2h(Data3));
+    size_t cap = stringRepLength+1;
+    snprintf(buffer, cap, "{%8.8x-%4.4hx-%4.4hx-",
+             int(n2h(Data1)), n2h(Data2), n2h(Data3));
     for (int n = 0; n < 2; n++) {
-        sprintf(buffer + 20 + 2*n, "%2.2hhx", Data4[n]);
+        size_t off = 20 + 2*n;
+        snprintf(buffer + off, cap - off, "%2.2hhx", Data4[n]);
     }
     buffer[24] = '-';
-    for (int n = 2; n < 8; n++)
-        sprintf(buffer + 21 + 2*n, "%2.2hhx", Data4[n]);
+    for (int n = 2; n < 8; n++) {
+        size_t off = 21 + 2 * n;
+        snprintf(buffer + off, cap - off, "%2.2hhx", Data4[n]);
+    }
     buffer[37] = '}';
     buffer[38] = '\0';
     return buffer;
@@ -73,7 +77,7 @@ void Guid::parseGuid(const char *string)
 	// cookies, everybody's better off if we just cut-and-paste them
 	// around the universe...
 	
-	// do sanity checking, don't assume that what's passed in makes sense
+	// Don't assume that what's passed in makes sense
 	if (string == NULL)
 	{
         CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
@@ -177,5 +181,5 @@ CSSM_RETURN CryptoDataClass::callbackShim(CSSM_DATA *output, void *ctx)
 {
 	BEGIN_API_NO_METRICS
 	*output = reinterpret_cast<CryptoDataClass *>(ctx)->yield();
-	END_API(CSSM)
+	END_API_NO_METRICS(CSSM)
 }

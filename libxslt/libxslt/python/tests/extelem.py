@@ -1,7 +1,6 @@
 #!/usr/bin/python -u
 import sys
 import string
-import StringIO
 import libxml2
 # Memory debug specific
 libxml2.debugMemory(1)
@@ -57,24 +56,16 @@ result = style.applyStylesheet(doc, None)
 style.freeStylesheet()
 doc.freeDoc()
 
-
-extensions = StringIO.StringIO()
-libxslt.debugDumpExtensions(extensions)
-
-if 0 and extensions.buf.find(EXT_URL) < 0:
-    print "Element extension not registered (or dumping broken)"
-    sys.exit(1)
-
 root = result.children
 
 if root.name != "article":
-    print "Unexpected root node name"
+    print("Unexpected root node name")
     sys.exit(1)
 if root.content != "SUCCESS":
-    print "Unexpected root node content, extension function failed"
+    print("Unexpected root node content, extension function failed")
     sys.exit(1)
 if insertNodeName != 'article':
-    print "The function callback failed to access its context"
+    print("The function callback failed to access its context")
     sys.exit(1)
 
 result.dump(sys.stdout)
@@ -83,7 +74,8 @@ result.freeDoc()
 # Memory debug specific
 libxslt.cleanup()
 if libxml2.debugMemory(1) == 0:
-    print "OK"
+    print("OK")
 else:
-    print "Memory leak %d bytes" % (libxml2.debugMemory(1))
+    print("Memory leak %d bytes" % (libxml2.debugMemory(1)))
     libxml2.dumpMemory()
+    sys.exit(255)

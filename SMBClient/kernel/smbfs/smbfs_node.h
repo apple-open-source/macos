@@ -105,22 +105,55 @@ enum {
 struct ByteRangeLockEntry {
 	int64_t		offset;
 	int64_t		length;
-	uint32_t	lck_pid;
+	uint32_t    lck_pid;
+    pid_t       p_pid;      /* pid that did this BRL */
 	struct ByteRangeLockEntry *next;
+};
+
+/*
+ * The sharedFID open/closes its current FID due to upgrades/downgrades which
+ * is a problem for Byte Range Locks because a close releases any current BRLs.
+ * Have to open and keep open yet another FID for the BRLs.
+ *
+ * Example
+ * 1. Proc A opens foo with Read, takes out BRL1
+ * 2. Proc B opens foo with Read/Write. sharedFID open foo for read/write and
+ *    closes previous open that had Read. Have to keep BRL1 intact.
+ */
+struct fileRefEntryBRL {
+    int32_t         refcnt;     /* set via vnop_ioctl(BRL) and vnop_advlock() */
+    SMBFID          fid;        /* file handle */
+    uint16_t        accessMode; /* access mode for this open */
+    uint32_t        rights;     /* nt granted rights */
+    struct ByteRangeLockEntry *lockList;
+    struct smb2_durable_handle dur_handle;
 };
 
 /* Used for Open Deny */
 struct fileRefEntry {
-    uint32_t        refcnt;     /* open file reference count */
+    int32_t         refcnt;     /* open file reference count (signed) */
     uint32_t        mmapped;    /* This entry has been mmaped */
-    pid_t           p_pid;      /* proc that did the open */
-    SMBFID          fid;        /* file handle, SMB 1 fid in volatile */
-    uint16_t        accessMode; /* access mode for this open */
+    SMBFID          fid;        /* file handle */
+    uint16_t        accessMode; /* original access mode requested for this open */
+    uint32_t        mmapMode;   /* The mode we used when opening from mmap */
     uint32_t        rights;     /* nt granted rights */
-    struct proc     *proc;      /* used in cluster IO strategy function */
-    struct ByteRangeLockEntry *lockList;
-    struct smb2_durable_handle *dur_handlep;
-    struct fileRefEntry	*next;
+    int32_t         openRWCnt;  /* number of rw opens */
+    int32_t         openRCnt;   /* number of r opens */
+    int32_t         openWCnt;   /* number of w opens */
+    int32_t         isEXLOCK;   /* set if its an O_EXLOCK open */
+    int32_t         isSHLOCK;   /* set if its an O_SHLOCK open */
+    lck_mtx_t       BRL_lock;   /* byte range list lock */
+    struct ByteRangeLockEntry *lockList;    /* Used ONLY by lockFID for BRLs */
+    struct smb2_durable_handle dur_handle;
+    
+    /*
+     * Used ONLY by sharedFID for byte range locks
+     * [0] - Used for Read/Write FIDs
+     * [1] - Used for Read FIDs
+     * [2] - Used for Write FIDs
+     * Never do a deferred close on these
+     */
+    struct fileRefEntryBRL lockEntries[3];
 };
 
 /* enum cache flags */
@@ -145,7 +178,7 @@ struct smb_dir_cookie {
     struct timespec last_used;
     uint64_t        resume_offset;
     uint64_t        resume_node_id;
-    char            resume_name[PATH_MAX];
+    char            *resume_name_p;
 };
 
 #define kSMBDirCookieMaxCnt 25
@@ -167,36 +200,29 @@ struct smb_open_dir {
     struct smb_enum_cache overflow_cache;       /* overflow dir cache */
 	lck_mtx_t		enum_cache_list_lock;       /* dir enum list lock */
 	u_int32_t       dirchangecnt;	/* changes each insert/delete. used by readdirattr */
-	struct smb2_durable_handle dur_handle;	/* stores the dir lease */
     uint64_t        cookie_curr_key; /* Can never be zero */
     lck_mtx_t       cookie_lock;    /* smb_dir_cookie array lock */
     struct smb_dir_cookie cookies[kSMBDirCookieMaxCnt];
 };
 
 struct smb_open_file {
-	int32_t         refcnt;		/* open file reference count */
-	SMBFID          fid;		/* file handle, SMB 1 fid in volatile */
-	uint32_t		rights;		/* nt granted rights */
-	uint16_t		accessMode;	/* access mode used when opening  */
-	uint32_t		mmapMode;	/* The mode we used when opening from mmap */
-	int32_t			needClose;	/* we opened it in the read call */
-	int32_t			openRWCnt;	/* number of rw opens */
-	int32_t			openRCnt;	/* number of r opens */
-	int32_t			openWCnt;	/* number of w opens */
-	int32_t			openTotalWriteCnt; /* nbr of w opens (shared and nonshared) */
-	int32_t			clusterCloseError;	/* Error to be return on user close */
-	uint32_t		openState;	/* Do we need to revoke or reopen the file */
-	lck_mtx_t		openStateLock;	/* Locks the openState */
-	lck_mtx_t		clusterWriteLock; /* Used for cluster writes */
-	lck_mtx_t		openDenyListLock;	/* Locks the open deny list */
-	struct fileRefEntry	*openDenyList;
-	struct smbfs_flock	*smbflock;	/*  Our flock structure */
-	struct smb2_durable_handle dur_handle;	/* stores the shared file lease <future work> */
+    int32_t         needClose;          /* we opened it in the read call */
+    int32_t         openTotalWriteCnt;  /* nbr of w opens (shared and nonshared) */
+    int32_t         clusterCloseError;  /* Error to be return on user close */
+    uint32_t        openState;          /* Do we need to revoke or reopen the file */
+    lck_mtx_t       openStateLock;      /* Locks the openState */
+    lck_mtx_t       clusterWriteLock;   /* Used for cluster writes */
+    struct fileRefEntry    sharedFID;
+    struct fileRefEntry    lockFID;
+    struct smbfs_flock     *smbflock;   /* Our flock structure, only on sharedFID */
+    pid_t                  smbflock_pid; /* pid used to obtain the flock on sharedFID */
+    int32_t         hasBRLs;            /* fsctl(Byte range locks) were used, thus non cacheable */
 };
 
 struct smbnode {
 	lck_rw_t			n_rwlock;	
 	void *				n_lastvop;	/* tracks last operation that locked the smbnode */
+    bool                n_write_unsafe; /* vop is a read operation, ie we cannot pushdirty the UBC */
 	void *				n_activation;
 	uint32_t			n_lockState;	/* current lock state */
 	uint32_t			n_flag;
@@ -236,7 +262,7 @@ struct smbnode {
 	union {
 		struct smb_open_dir	dir;
 		struct smb_open_file file;
-	}open_type;
+	} open_type;
 	void				*acl_cache_data;
 	time_t				acl_cache_timer;
 	int					acl_error;
@@ -244,10 +270,12 @@ struct smbnode {
 	lck_mtx_t			f_ACLCacheLock;     /* Locks the ACL Cache */
 	lck_rw_t			n_name_rwlock;      /* Read/Write lock for n_name */
 	lck_rw_t			n_parent_rwlock;    /* Read/Write lock for n_parent_vid */
-	char				*n_name;	/* node's file or directory name */
-	size_t				n_nmlen;	/* node's name length */
-	size_t				n_snmlen;	/* if a stream then the legnth of the stream name */
-	char				*n_sname;	/* if a stream then the the name of the stream */
+	char				*n_name;	        /* node's file or directory name */
+	size_t				n_nmlen;	        /* node's name length */
+    size_t              n_name_allocsize;   /* n_name alloc size, required when freeing n_name */
+	size_t				n_snmlen;	        /* if a stream then the legnth of the stream name */
+	char				*n_sname;	        /* if a stream then the the name of the stream */
+    size_t              n_sname_allocsize;  /* n_sname alloc size, required when freeing n_sname */
 	LIST_ENTRY(smbnode)	n_hash;
 	uint32_t			maxAccessRights;
 	struct timespec		maxAccessRightChTime;	/* change time */
@@ -255,6 +283,7 @@ struct smbnode {
 	uint16_t			n_fstatus;				/* Does the node have any named streams */
 	char				*n_symlink_target;
 	size_t				n_symlink_target_len;
+    size_t              n_symlink_target_allocsize; /* n_symlink_target alloc size, required when freeing n_symlink_target */
 	time_t				n_symlink_cache_timer;
 	struct timespec		n_last_write_time;
 	uint64_t			n_lease_key_hi;			/* Used for Dir Lease or shared FID */
@@ -264,7 +293,8 @@ struct smbnode {
     struct timespec     n_last_close_mtime;     /* modify time on last close */
     u_quad_t            n_last_close_size;      /* data size on last close */
 
-    struct smb_vnode_attr n_hifi_attrs;     /* Cached hifi attributes from server */
+    struct smb_vnode_attr n_hifi_attrs;         /* Cached hifi attributes from server */
+    struct smb2_lease   n_lease;                /* lease for both dirs/files */
 };
 
 /* Directory items */
@@ -285,30 +315,56 @@ struct smbnode {
 #define d_main_cache open_type.dir.main_cache
 #define d_overflow_cache open_type.dir.overflow_cache
 #define d_enum_cache_list_lock open_type.dir.enum_cache_list_lock
-#define d_dur_handle open_type.dir.dur_handle
 #define d_cookie_lock open_type.dir.cookie_lock
 #define d_cookies open_type.dir.cookies
 #define d_cookie_cur_key open_type.dir.cookie_curr_key
 
 /* File items */
-#define f_refcnt open_type.file.refcnt
-#define f_fid open_type.file.fid
-#define f_rights open_type.file.rights
-#define f_accessMode open_type.file.accessMode
-#define f_mmapMode open_type.file.mmapMode
+#define f_sharedFID open_type.file.sharedFID
+#define f_lockFID open_type.file.lockFID
+#define f_sharedFID_refcnt open_type.file.sharedFID.refcnt
+#define f_lockFID_refcnt open_type.file.lockFID.refcnt
+#define f_sharedFID_mmapped open_type.file.sharedFID.mmapped
+#define f_lockFID_mmapped open_type.file.lockFID.mmapped
+#define f_sharedFID_p_pid open_type.file.sharedFID.p_pid
+#define f_lockFID_p_pid open_type.file.lockFID.p_pid
+#define f_sharedFID_fid open_type.file.sharedFID.fid
+#define f_lockFID_fid open_type.file.lockFID.fid
+#define f_sharedFID_accessMode open_type.file.sharedFID.accessMode
+#define f_lockFID_accessMode open_type.file.lockFID.accessMode
+#define f_sharedFID_mmapMode open_type.file.sharedFID.mmapMode
+#define f_lockFID_mmapMode open_type.file.lockFID.mmapMode
+#define f_sharedFID_rights open_type.file.sharedFID.rights
+#define f_lockFID_rights open_type.file.lockFID.rights
+#define f_sharedFID_openRWCnt open_type.file.sharedFID.openRWCnt
+#define f_lockFID_openRWCnt open_type.file.lockFID.openRWCnt
+#define f_sharedFID_openRCnt open_type.file.sharedFID.openRCnt
+#define f_lockFID_openRCnt open_type.file.lockFID.openRCnt
+#define f_sharedFID_openWCnt open_type.file.sharedFID.openWCnt
+#define f_lockFID_openWCnt open_type.file.lockFID.openWCnt
+#define f_sharedFID_isEXLOCK open_type.file.sharedFID.isEXLOCK
+#define f_lockFID_isEXLOCK open_type.file.lockFID.isEXLOCK
+#define f_sharedFID_isSHLOCK open_type.file.sharedFID.isSHLOCK
+#define f_lockFID_isSHLOCK open_type.file.lockFID.isSHLOCK
+//#define f_sharedFID_lockList open_type.file.sharedFID.lockList /* do not use */
+#define f_lockFID_lockList open_type.file.lockFID.lockList
+#define f_sharedFID_BRL_lock open_type.file.sharedFID.BRL_lock
+#define f_lockFID_BRL_lock open_type.file.lockFID.BRL_lock
+#define f_sharedFID_dur_handle open_type.file.sharedFID.dur_handle
+#define f_lockFID_dur_handle open_type.file.lockFID.dur_handle
+#define f_sharedFID_lockEntries open_type.file.sharedFID.lockEntries
+//#define f_lockFID_lockEntries open_type.file.lockFID.lockEntries  /* do not use */
+
 #define f_needClose open_type.file.needClose
-#define f_openRWCnt open_type.file.openRWCnt
-#define f_openRCnt open_type.file.openRCnt
-#define f_openWCnt open_type.file.openWCnt
 #define f_openTotalWCnt open_type.file.openTotalWriteCnt
-#define f_openDenyList open_type.file.openDenyList
 #define f_smbflock open_type.file.smbflock
+#define f_smbflock_pid open_type.file.smbflock_pid
 #define f_openState open_type.file.openState
 #define f_openStateLock open_type.file.openStateLock
 #define f_clusterWriteLock open_type.file.clusterWriteLock
 #define f_openDenyListLock open_type.file.openDenyListLock
 #define f_clusterCloseError open_type.file.clusterCloseError
-#define f_dur_handle open_type.file.dur_handle
+#define f_hasBRLs open_type.file.hasBRLs
 
 /* Attribute cache timeouts in seconds */
 #define	SMB_MINATTRTIMO 2
@@ -373,15 +429,21 @@ struct smbfattr;
 /* Global Lease Hash functions */
 struct smb_lease {
 	LIST_ENTRY(smb_lease) lease_hash;
-	vnode_t             vnode;
-	uint32_t            vid;
-	SMBFID				fid;			/* to find File Ref */
+    uint64_t lease_key_hi;
+    uint64_t lease_key_low;
+	vnode_t vnode;
+	uint32_t vid;
 };
 
-void smb2_lease_hash_add(vnode_t vp, SMBFID fid, uint64_t lease_key_hi, uint64_t lease_key_low);
-struct smb_lease *smb2_lease_hash_get(uint64_t lease_key_hi, uint64_t lease_key_low);
-void smb2_lease_hash_remove(vnode_t vp, struct smb_lease *in_leasep,
-							uint64_t lease_key_hi, uint64_t lease_key_low);
+/* smbfs_add_update_lease flags */
+typedef enum _SMBFS_ADD_UPDATE_LEASE_FLAGS
+{
+    SMBFS_LEASE_ADD = 1,
+    SMBFS_LEASE_REMOVE = 2,
+    SMBFS_LEASE_UPDATE = 3
+} _SMBFS_ADD_UPDATE_LEASE_FLAGS;
+
+#define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
 
 int smbnode_lock(struct smbnode *np, enum smbfslocktype);
 int smbnode_trylock(struct smbnode *np, enum smbfslocktype locktype);
@@ -420,21 +482,6 @@ int smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
                           struct timespec *reqtime,
                           const char *new_name, size_t name_len);
 
-int FindByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset, 
-						int64_t length, uint32_t lck_pid);
-void AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset, 
-							  int64_t length, int8_t unLock, uint32_t lck_pid);
-void AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, uint32_t rights,
-                SMBFID fid, struct smb2_durable_handle *dur_handle, struct fileRefEntry **fndEntry);
-void CloseDeferredFileRefs(vnode_t vp, const char *reason, uint32_t check_time, vfs_context_t context);
-int32_t FindFileEntryByFID(vnode_t vp, SMBFID fid, struct fileRefEntry **fndEntry);
-int32_t FindFileEntryByLease(vnode_t vp, struct smb_lease *leasep, struct fileRefEntry **fndEntry);
-int32_t FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, SMBFID *fid);
-int32_t FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
-                    int64_t offset, int64_t length, 
-                    struct fileRefEntry **fndEntry, 
-                    SMBFID *fid);
-void RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry, int is_locked);
 void smb_get_uid_gid_mode(struct smb_share *share, struct smbmount *smp,
                           struct smbfattr *fap, uint32_t flags,
                           uid_t *uid, gid_t *gid, mode_t *mode,
@@ -449,7 +496,6 @@ int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
                  SMBFID fid, vfs_context_t context);
 int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
 				  SMBFID fid, int ioflag, vfs_context_t context);
-int smbfs_reconnect(struct smbmount *smp);
 int32_t smbfs_IObusy(struct smbmount *smp);
 void smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent);
 void smbfs_CloseChildren(struct smb_share *share,
@@ -457,9 +503,64 @@ void smbfs_CloseChildren(struct smb_share *share,
                          u_int32_t need_lock,
 						 struct rename_lock_list **rename_child_listp,
                          vfs_context_t context);
+
+
+#pragma mark - Reconnect Prototypes
+int smb2fs_reconnect_dur_handle(struct smb_share *share, vnode_t vp,
+                                struct fileRefEntry *fileEntry, struct fileRefEntryBRL *fileBRLEntry);
+int smb2fs_reconnect(struct smbmount *smp);
+int smbfs_reconnect(struct smbmount *smp);
+
+
+#pragma mark - Durable Handles and Leasing Prototypes
+int smbnode_dur_handle_lock(struct smb2_durable_handle *dur_handlep, void *last_op);
+int smbnode_dur_handle_unlock(struct smb2_durable_handle *dur_handlep);
+int smbnode_lease_lock(struct smb2_lease *leasep, void *last_op);
+int smbnode_lease_unlock(struct smb2_lease *leasep);
+
+void CloseDeferredFileRefs(vnode_t vp, const char *reason, uint32_t check_time, vfs_context_t context);
+
+int smb2_dur_handle_init(struct smb_share *share, uint64_t flags,
+                         struct smb2_durable_handle *dur_handlep,
+                         int initialize);
+void smb2_dur_handle_free(struct smb2_durable_handle *dur_handlep);
+int smb2_lease_init(struct smb_share *share, struct smbnode *dnp, struct smbnode *np,
+                    uint64_t flags, struct smb2_lease *leasep,
+                    int initialize);
+void smb2_lease_free(struct smb2_lease *leasep);
+
+int smbfs_add_update_lease(struct smb_share *share, vnode_t vp, struct smb2_lease *in_leasep,
+                           uint32_t flags, uint32_t need_lock,
+                           const char *reason);
 int16_t smbfs_get_epoch_delta(uint16_t server_epoch, uint16_t file_epoch);
+uint32_t smbfs_get_req_lease_state(uint32_t access_rights);
 int smbfs_handle_lease_break(struct lease_rq *lease_rqp, vfs_context_t context);
 int smbfs_handle_dir_lease_break(struct lease_rq *lease_rqp);
-#define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
+void smbfs_lease_hash_add(vnode_t vp, uint64_t lease_key_hi, uint64_t lease_key_low,
+                          uint32_t need_lock);
+struct smb_lease *smbfs_lease_hash_get(uint64_t lease_key_hi, uint64_t lease_key_low);
+void smbfs_lease_hash_remove(vnode_t vp, struct smb_lease *in_leasep,
+                            uint64_t lease_key_hi, uint64_t lease_key_low);
+
+
+#pragma mark - lockFID, sharedFID, BRL LockEntries Prototypes
+void AddRemoveByteRangeLockEntry(struct fileRefEntry *fileEntry, struct fileRefEntryBRL *fileBRLEntry,
+                                 int64_t offset, int64_t length, int8_t unLock, uint32_t lck_pid, vfs_context_t context);
+int CheckByteRangeLockEntry(struct fileRefEntry *fileEntry, struct fileRefEntryBRL *fileBRLEntry,
+                            int64_t offset, int64_t length, int exact_match, pid_t *lock_holder);
+
+int FindByteRangeLockEntry(struct fileRefEntry *fileEntry, struct fileRefEntryBRL *fileBRLEntry,
+                           int64_t offset, int64_t length, vfs_context_t context);
+int32_t FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode,
+                    int64_t offset, int64_t length, SMBFID *fid);
+int smbfs_clear_lockEntries(vnode_t vp, struct fileRefEntryBRL *fileBRLEntry);
+struct fileRefEntryBRL * smbfs_find_lockEntry(vnode_t vp, uint16_t accessMode);
+int smbfs_free_locks_on_close(struct smb_share *share, vnode_t vp,
+                              int openMode, vfs_context_t context);
+int smbfs_get_lockEntry(struct smb_share *share, vnode_t vp,
+                        uint16_t accessMode,
+                        struct fileRefEntryBRL **ret_entry,
+                        vfs_context_t context);
+
 
 #endif /* _FS_SMBFS_NODE_H_ */

@@ -88,6 +88,12 @@
 
 @implementation secdmockaks
 
+- (void)setUp
+{
+    [SecMockAKS resetDecryptRefKeyFailures];
+    [super setUp];
+}
+
 - (void)tearDown
 {
     clearTestError();
@@ -95,6 +101,7 @@
     clearRowIDAndErrorDictionary();
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     reset_current_schema_index();
+    [SecMockAKS resetDecryptRefKeyFailures];
 }
 
 - (void)testAddDeleteItem
@@ -122,8 +129,13 @@
 
 - (void)createManyItems
 {
+    [self createItems:50];
+}
+
+- (void)createItems:(unsigned)num
+{
     unsigned n;
-    for (n = 0; n < 50; n++) {
+    for (n = 0; n < num; n++) {
         NSDictionary* item = @{
             (id)kSecClass : (id)kSecClassGenericPassword,
             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
@@ -184,6 +196,23 @@
     }
 }
 
+- (void)findManyItemsWithData:(unsigned)searchLimit
+{
+    unsigned n;
+    for (n = 0; n < searchLimit; n++) {
+        NSDictionary* item = @{
+            (id)kSecClass : (id)kSecClassGenericPassword,
+            (id)kSecAttrAccount : [NSString stringWithFormat:@"TestAccount-%u", n],
+            (id)kSecAttrService : @"TestService",
+            (id)kSecReturnAttributes : @(YES),
+            (id)kSecReturnData : @(YES),
+            (id)kSecUseDataProtectionKeychain : @(YES)
+        };
+        OSStatus result = SecItemCopyMatching((__bridge CFDictionaryRef)item, NULL);
+        XCTAssertEqual(result, errSecSuccess, @"failed to find test item to keychain: %u", n);
+    }
+}
+
 - (void)findNoItems:(unsigned)searchLimit
 {
     unsigned n;
@@ -208,6 +237,31 @@
     };
     OSStatus result = SecItemDelete((__bridge CFDictionaryRef)item);
     XCTAssertEqual(result, 0, @"failed to delete all test items");
+}
+
+- (int)getCurrentDbVersion
+{
+    __block int version;
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        CFErrorRef error = NULL;
+        SecKeychainDbGetVersion(dbt, &version, &error);
+        XCTAssertEqual(error, NULL, "error getting version");
+        return true;
+    });
+
+    return version;
+}
+
+- (int)getCurrentSchemaVersion
+{
+    __block int version;
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        const SecDbSchema *schema = current_schema();
+        version = (((schema)->minorVersion) << 8) | ((schema)->majorVersion);
+        return true;
+    });
+
+    return version;
 }
 
 - (void)testSecItemServerDeleteAll
@@ -499,6 +553,7 @@
     [self checkIncremental];
 }
 
+
 - (void)testUpgradeFromPreviousVersion
 {
     SecKeychainDbReset(^{
@@ -521,6 +576,48 @@
 
     NSLog(@"find items from old database");
     [self findManyItems:50];
+}
+
+- (void)testSecKeychainForceUpgradeWhenNotNeeded
+{
+    [self createManyItems];
+
+    OSStatus status = _SecKeychainForceUpgradeIfNeeded();
+    XCTAssertEqual(status, errSecSuccess, "failed to no-op upgrade");
+
+    XCTAssertEqual([self getCurrentDbVersion], [self getCurrentSchemaVersion], "current db version is unexpectedly not the current schema version");
+
+    [self findManyItems:50];
+}
+
+- (void)testSecKeychainForceUpgrade
+{
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to previous schema version, in fresh location");
+        set_current_schema_index(1);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    int oldVersion = [self getCurrentDbVersion];
+
+    [self createItems:1000];
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    OSStatus status = _SecKeychainForceUpgradeIfNeeded();
+    XCTAssertEqual(status, errSecSuccess, "failed to upgrade if needed");
+
+    int newVersion = [self getCurrentDbVersion];
+
+    XCTAssertNotEqual(newVersion, oldVersion, "oldVersion is unexpectedly same as newVersion");
+    XCTAssertEqual(newVersion, [self getCurrentSchemaVersion], "newVersion is unexpectedly not the current schema version");
+
+    [self findManyItems:1000];
 }
 
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
@@ -634,12 +731,14 @@
     
     [self createManyItems];
     [self findManyItems:10];
+    [self findManyItemsWithData:10];
     
     SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
     
     [self findNoItems:10];
     [self createManyItems];
     [self findManyItems:10];
+    [self findManyItemsWithData:10];
     
     [self deleteAllItems];
     [self findNoItems:10];
@@ -647,6 +746,7 @@
     SecSecuritySetPersonaMusr(NULL);
     
     [self findManyItems:10];
+    [self findManyItemsWithData:10];
     [self deleteAllItems];
     [self findNoItems:10];
     
@@ -681,6 +781,20 @@
     
     
     [self findNoItems:10];
+}
+
+- (void)testSecKeychainDeleteMultiUserBadUUID
+{
+    XCTestExpectation *expectation = [self expectationWithDescription:@"wait for deletion error"];
+
+    _SecKeychainDeleteMultiUser(@"foo", ^(bool status, NSError *error) {
+        [expectation fulfill];
+        XCTAssertFalse(status);
+        XCTAssertNotNil(error);
+        XCTAssertEqual([error code], errSecParam);
+    });
+
+    [self waitForExpectations:@[expectation] timeout:1.0];
 }
 
 #endif /* TARGET_OS_IOS */
@@ -1272,6 +1386,7 @@
                 });
                 
                 XCTAssertTrue(ret, "Should have a positive result");
+                return ret;
             });
             
         });
@@ -1286,6 +1401,7 @@
                 });
                 
                 XCTAssertTrue(ret, "Should have a positive result");
+                return ret;
             });
             
             XCTAssertEqual(transactionError, NULL, "Should have been no error in transaction");
@@ -3861,6 +3977,123 @@
     }
 }
 
+// kSecAccessControlBiometryCurrentSet is only supported on iOS & macOS, and BATS doesn't setup biometry
+// So only run this on iOS simulators
+#if TARGET_OS_IOS && TARGET_OS_SIMULATOR
+- (void)testAddDeleteItemWithBiometryCurrentSet
+{
+    SecAccessControlRef acRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlBiometryCurrentSet, NULL);
+    NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                            (id)kSecAttrAccount : @"TestAccount",
+                            (id)kSecAttrService : @"TestService",
+                            (id)kSecUseDataProtectionKeychain : @(YES),
+                            (id)kSecAttrAccessControl : (__bridge id)acRef,
+    };
+
+    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(result, 0, @"failed to add test item to keychain");
+
+    NSMutableDictionary* dataQuery = item.mutableCopy;
+    [dataQuery removeObjectForKey:(id)kSecValueData];
+    [dataQuery removeObjectForKey:(id)kSecAttrAccessControl];
+    dataQuery[(id)kSecReturnData] = @(YES);
+
+    result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
+    XCTAssertEqual(result, 0, @"failed to delete item");
+}
+#endif
+
 #endif /* USE_KEYSTORE */
+
+static void helper_SecItemIsSystemBoundMatchAnyString(NSDictionary* baseItem, NSDictionary* tests, id attrToChange, const SecDbClass * cls, bool inEduMode) {
+    NSArray* keys = [tests allKeys];
+    for (NSString* key in keys) {
+        NSMutableDictionary* item = [baseItem mutableCopy];
+        item[attrToChange] = key;
+        bool success = SecItemIsSystemBound((__bridge CFDictionaryRef)item, cls, inEduMode);
+        XCTAssertEqualObjects(tests[key], success ? @YES : @NO);
+    }
+}
+
+- (void)testSecItemIsSystemBoundMatchAnyString {
+    // to test for crash, see rdar://91199569
+    NSDictionary *item;
+    NSDictionary *tests;
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"apple",
+        (id)kSecAttrService : @"com.apple.managedconfiguration",
+    };
+    tests = @{
+        @"Public" : @YES,
+        @"Private" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrAccount, genp_class(), false);
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"com.apple.apsd",
+    };
+    tests = @{
+        @"push.apple.com" : @YES,
+        @"push.apple.com,PerAppToken.v0" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrService, genp_class(), true);
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"appleaccount",
+    };
+    tests = @{
+        @"com.apple.appleaccount.fmf.token" : @YES,
+        @"com.apple.appleaccount.fmf.apptoken" : @YES,
+        @"com.apple.appleaccount.fmip.siritoken" : @YES,
+        @"com.apple.appleaccount.cloudkit.token" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrService, genp_class(), true);
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"apple",
+    };
+    tests = @{
+        @"com.apple.account.AppleAccount.token" : @YES,
+        @"com.apple.account.AppleAccount.password" : @YES,
+        @"com.apple.account.AppleAccount.rpassword" : @YES,
+        @"com.apple.account.idms.token" : @YES,
+        @"com.apple.account.idms.heartbeat-token" : @YES,
+        @"com.apple.account.idms.continuation-key" : @YES,
+        @"com.apple.account.CloudKit.token" : @YES,
+        @"com.apple.account.IdentityServices.password" : @YES,
+        @"com.apple.account.IdentityServices.rpassword" : @YES,
+        @"com.apple.account.IdentityServices.token" : @YES,
+        @"BackupIDSAccountToken" : @YES,
+        @"com.apple.ids" : @YES,
+        @"ids" : @YES,
+        @"IDS" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrService, genp_class(), true);
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"ichat",
+    };
+    tests = @{
+        @"ids" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrService, genp_class(), true);
+
+    item = @{
+        (id)kSecAttrAccessGroup : @"ichat",
+    };
+    tests = @{
+        @"iMessage Encryption Key" : @YES,
+        @"iMessage Signing Key" : @YES,
+        @"Abyssmal Drop" : @NO,
+    };
+    helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrLabel, keys_class(), true);
+}
 
 @end

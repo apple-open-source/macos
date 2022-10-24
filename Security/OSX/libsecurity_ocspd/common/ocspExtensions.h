@@ -111,7 +111,7 @@ private:
 	 * -- On encode, *we* (this class) allocate with our mCoder.
 	 */
 	NSS_CertExtension		*mNssExt;
-	SecAsn1CoderRef			mCoder;
+    [[maybe_unused]] SecAsn1CoderRef			mCoder;
 	bool					mCritical;			// convenience - it's also in mNssExt
 	OCSPExtensionTag		mTag;
 	

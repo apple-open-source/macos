@@ -1,0 +1,24 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2022-05-21</string>
+	<key>OpenSourceLicense</key>
+	<string>bsd</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>gzip.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>gzip.c: adjust --version output</string>
+		<string>gzip.c: timespec portability fixes</string>
+		<string>gzip.c: preserve ACLs/EAs (3753276)</string>
+		<string>gzip.c: clear type/creator (4123341)</string>
+		<string>gzip.c, gzip.1: zcat conformance (3675040)</string>
+		<string>zmore: work as zless or zmore</string>
+		<string>gzip.c: don't ignore errors on stdout (89147045)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>gzip</string>
+	<key>OpenSourceVersion</key>
+	<string>2022-05-20</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/gzip?id=5b7adeb1845c7491a655d2b2e1ab55d7b7b96a34</string>
+</dict>

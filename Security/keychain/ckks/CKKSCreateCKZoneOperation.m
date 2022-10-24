@@ -28,18 +28,23 @@
 
 - (void)groupStart
 {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     __block NSMutableArray<CKRecordZone*>* zonesNeedingCreation = [NSMutableArray array];
 
     [self.deps.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         for(CKKSKeychainViewState* viewState in self.deps.views) {
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
 
             if(ckse.ckzonecreated && ckse.ckzonesubscribed) {
                 ckksinfo("ckkskey", viewState.zoneID, "Zone is already created and subscribed");
+                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateInitialized;
             } else {
                 CKRecordZone* zone = [[CKRecordZone alloc] initWithZoneID:viewState.zoneID];
                 [zonesNeedingCreation addObject:zone];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateInitializing;
+                [viewState.launch addEvent:@"zone-create"];
             }
         }
     }];
@@ -50,6 +55,7 @@
     }
 
     ckksnotice_global("ckkszone", "Asking to create and subscribe to CloudKit zones: %@", zonesNeedingCreation);
+    [self.deps.overallLaunch addEvent:@"zone-create"];
 
     CKKSZoneModifyOperations* zoneOps = [self.deps.zoneModifier createZones:zonesNeedingCreation];
 
@@ -125,8 +131,13 @@
                            zoneSubscribed,
                            zoneOps.zoneSubscriptionOperation.error);
 
+                if(zoneCreated && zoneSubscribed) {
+                    // Success! This zone is initialized.
+                    viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateInitialized;
+                }
+
                 NSError* error = nil;
-                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
                 ckse.ckzonecreated = zoneCreated;
                 ckse.ckzonesubscribed = zoneSubscribed;
 

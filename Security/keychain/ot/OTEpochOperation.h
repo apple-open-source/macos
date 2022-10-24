@@ -28,16 +28,16 @@
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/CuttlefishXPCWrapper.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTEpochOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
-- (instancetype)init:(NSString*)containerName
-           contextID:(NSString*)contextID
-       intendedState:(OctagonState*)intendedState
-          errorState:(OctagonState*)errorState
-cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
+- (instancetype)initWithSpecificUser:(TPSpecificUser*)specificUser
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState
+                cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 
 @property (nonatomic) uint64_t epoch;
 

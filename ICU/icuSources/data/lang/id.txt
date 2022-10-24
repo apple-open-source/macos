@@ -44,6 +44,7 @@ id{
         an{"Aragon"}
         ang{"Inggris Kuno"}
         anp{"Angika"}
+        apw{"Apache, Barat"}
         ar{"Arab"}
         ar_001{"Arab Standar Modern"}
         arc{"Aram"}
@@ -203,6 +204,7 @@ id{
         grc{"Yunani Kuno"}
         gsw{"Jerman (Swiss)"}
         gu{"Gujarat"}
+        guc{"Wayuu"}
         guz{"Gusii"}
         gv{"Manx"}
         gwi{"Gwich’in"}
@@ -542,6 +544,7 @@ id{
         ve{"Venda"}
         vec{"Venesia"}
         vi{"Vietnam"}
+        vls{"Flam Barat"}
         vo{"Volapuk"}
         vot{"Votia"}
         vun{"Vunjo"}

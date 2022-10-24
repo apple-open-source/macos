@@ -19,6 +19,7 @@ $(FREETYPEDIR):
 	tar xjof $(FREETYPENAMEVERS).tar.bz2 -C $(FREETYPETOP)
 	cp $(FREETYPEDIR)/builds/mac/ftmac.c $(FREETYPEDIR)/src/base/ftmac.c
 	ed - $(FREETYPEDIR)/include/freetype/config/ftoption.h < $(FREETYPESRC)/ftoption.h.ed
+	patch -d $(FREETYPEDIR) -p1 < $(FREETYPESRC)/freetype-darwin-no-ansi.patch
 	cp -f $(FREETYPEDIR)/docs/LICENSE.TXT $(OSL)/$(FREETYPENAMEVERS).txt
 	cp -f $(FREETYPESRC)/$(FREETYPENAME).partial $(OSV)/$(FREETYPENAMEVERS).partial
 

@@ -1,0 +1,18 @@
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>libmd</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-10-09</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/lib/libmd?id=3d265fce43746c293ae826e9603adbfe09f93cf6</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-07-31</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libmd.txt</string>
+	</dict>
+</array>
+</plist>

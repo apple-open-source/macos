@@ -19,11 +19,17 @@
 	<true/>
 	<key>com.apple.private.keychain.inet_expansion_fields</key>
 	<true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
+	<key>com.apple.private.syncbubble-keychain</key>
+	<true/>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
 		<string>CloudKit</string>
 	</array>
 	<key>com.apple.CloudKeychainProxy.client</key>
+	<true/>
+	<key>com.apple.private.CoreAuthentication.SPI</key>
 	<true/>
 </dict>
 </plist>

@@ -161,6 +161,14 @@ FOUNDATION_EXPORT const unsigned char OctagonTrustVersionString[];
  */
 - (NSArray<NSString*>* _Nullable)tlkRecoverabilityForEscrowRecord:(OTEscrowRecord*)record error:(NSError**)error;
 
+/* *
+  * @abstract                        Deliver a notification about a IDMS Trusted Device List Change
+  * @param notificationDictionary    The notification payload
+  * @param error                     An error parameter: filled in if the call times out or delivery fails in any way
+  * @return BOOL                     Whether or not the payload was delivered successfully
+  */
+- (BOOL)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
+                           error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

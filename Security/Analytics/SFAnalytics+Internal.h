@@ -37,6 +37,10 @@
 
 - (void)drainLogQueue;
 
+- (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key;
+- (NSData*)dataPropertyForKey:(NSString*)key;
+
+
 @property (nonatomic) SFAnalyticsSQLiteStore* database;
 @property (nonatomic) dispatch_queue_t queue;
 

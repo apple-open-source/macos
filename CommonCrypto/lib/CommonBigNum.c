@@ -158,22 +158,38 @@ CCBigNumFromHexString(CCStatus *status, const char *in)
                 *status = kCCDecodeError;
             return NULL;
         }
+    } else {
+        *status = kCCMemoryFailure;
     }
     return (CCBigNumRef)r;
 }
 
 char *
-CCBigNumToHexString(CCStatus *  __unused status, const CCBigNumRef bn)
+CCBigNumToHexString(CCStatus *status, const CCBigNumRef bn)
 {
     CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     size_t to_size = ccz_write_radix_size(s, 16);
+    if (to_size == 0) {
+        *status = kCCParamError;
+        return NULL;
+    }
+
     char *to = malloc(to_size+1);
-    ccz_write_radix(s, to_size, to, 16);
+    if (!to) {
+        *status = kCCMemoryFailure;
+        return NULL;
+    }
+
+    if (ccz_write_radix(s, to_size, to, 16)) {
+        *status = kCCParamError;
+        free(to);
+        return NULL;
+    }
+
     to[to_size] = 0;
     return to;
 }
-
 
 CCBigNumRef
 CCBigNumFromDecimalString(CCStatus *status, const char *in)
@@ -187,18 +203,35 @@ CCBigNumFromDecimalString(CCStatus *status, const char *in)
                 *status = kCCDecodeError;
             return NULL;
         }
+    } else {
+        *status = kCCMemoryFailure;
     }
     return (CCBigNumRef)r;
 }
 
 char *
-CCBigNumToDecimalString(CCStatus * __unused status, const CCBigNumRef bn)
+CCBigNumToDecimalString(CCStatus *status, const CCBigNumRef bn)
 {
     CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     size_t to_size = ccz_write_radix_size(s, 10);
+    if (to_size == 0) {
+        *status = kCCParamError;
+        return NULL;
+    }
+
     char *to = malloc(to_size+1);
-    ccz_write_radix(s, to_size, to, 10);
+    if (!to) {
+        *status = kCCMemoryFailure;
+        return NULL;
+    }
+
+    if (ccz_write_radix(s, to_size, to, 10)) {
+        *status = kCCParamError;
+        free(to);
+        return NULL;
+    }
+
     to[to_size] = 0;
     return to;
 }

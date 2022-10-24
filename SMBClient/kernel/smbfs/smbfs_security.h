@@ -26,11 +26,12 @@ void smbfs_clear_acl_cache(struct smbnode *np);
 int smbfs_getsecurity(struct smb_share	*share, struct smbnode *np, 
 					  struct vnode_attr *vap, vfs_context_t context);
 int smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap, 
-					  vfs_context_t context);
+                      SMBFID *fidp, vfs_context_t context);
 void smb_get_sid_list(struct smb_share *share, struct smbmount *smp, struct mdchain *mdp, 
 					  uint32_t ntwrk_sids_cnt, uint32_t ntwrk_sid_size);
 uint32_t smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t context);
 int smbfs_compose_create_acl(struct vnode_attr *vap, struct vnode_attr *svrva, 
 							 kauth_acl_t *savedacl);
 int smbfs_is_sid_known(ntsid_t *sid);
-int smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode, vfs_context_t context);
+int smbfs_set_ace_modes(struct smb_share *share, struct smbnode *np, uint64_t vamode,
+                        SMBFID *fidp, vfs_context_t context);

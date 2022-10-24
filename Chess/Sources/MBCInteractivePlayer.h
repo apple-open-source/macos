@@ -48,6 +48,7 @@
 
 #import "MBCPlayer.h"
 #import "MBCMoveGenerator.h"
+#import "Chess-Swift.h"
 
 @class MBCBoardWin;
 @class MBCLanguageModel;
@@ -83,7 +84,9 @@
 // dragging.
 //
 - (void) startSelection:(MBCSquare)square;
+- (void) startSelectionWithoutShare:(MBCSquare)square;
 - (void) endSelection:(MBCSquare)square animate:(BOOL)animate;
+- (void) endSelectionWithoutShare:(MBCSquare)square animate:(BOOL)animate;
 
 //
 // If we recognize a move, we have to broadcast it
@@ -97,6 +100,8 @@
 - (void) announceLastMove:(MBCMove *) move;
 
 - (void) removeController;
+
+- (void) setLastSide:(MBCSide) side;
 
 @end
 

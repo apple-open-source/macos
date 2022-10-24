@@ -208,8 +208,6 @@ void pas_segregated_page_construct(pas_segregated_page* page,
     pas_page_base_construct(
         &page->base, pas_page_kind_for_segregated_variant_and_role(page_config.variant, role));
 
-    page->use_epoch = PAS_EPOCH_INVALID;
-
     if (verbose) {
         pas_log("Constructing page %p with boundary %p for view %p and config %s.\n",
                 page, pas_segregated_page_boundary(page, page_config),
@@ -224,8 +222,12 @@ void pas_segregated_page_construct(pas_segregated_page* page,
     page->owner = owner;
     pas_zero_memory(page->alloc_bits, pas_segregated_page_config_num_alloc_bytes(page_config));
 
-    page->num_non_empty_words = 0;
-    
+    pas_segregated_page_emptiness emptiness = {
+        .use_epoch = PAS_EPOCH_INVALID,
+        .num_non_empty_words = 0,
+    };
+    pas_atomic_store_pair_relaxed(&page->emptiness, *(pas_pair*)&emptiness);
+
     page->view_cache_index = (pas_allocator_index)UINT_MAX;
 
     switch (role) {
@@ -243,7 +245,6 @@ void pas_segregated_page_construct(pas_segregated_page* page,
 
         if (pas_segregated_size_directory_view_cache_capacity(directory)) {
             PAS_ASSERT(directory->view_cache_index);
-            PAS_ASSERT(directory->view_cache_index < (pas_allocator_index)UINT_MAX);
             page->view_cache_index = directory->view_cache_index;
         } else
             PAS_ASSERT(directory->view_cache_index == (pas_allocator_index)UINT_MAX);
@@ -295,7 +296,7 @@ void pas_segregated_page_construct(pas_segregated_page* page,
     page->eligibility_notification_has_been_deferred = false;
 }
 
-void pas_segregated_page_note_emptiness(pas_segregated_page* page)
+void pas_segregated_page_note_emptiness(pas_segregated_page* page, pas_note_emptiness_action action)
 {
     static const bool verbose = false;
     if (page->lock_ptr)
@@ -306,7 +307,19 @@ void pas_segregated_page_note_emptiness(pas_segregated_page* page)
                 pas_segregated_page_boundary(
                     page, *pas_segregated_view_get_page_config(page->owner)));
     }
-    page->use_epoch = pas_get_epoch();
+    switch (action) {
+    case pas_note_emptiness_clear_num_non_empty_words: {
+        pas_segregated_page_emptiness emptiness = {
+            .use_epoch = pas_get_epoch(),
+            .num_non_empty_words = 0,
+        };
+        pas_atomic_store_pair_relaxed(&page->emptiness, *(pas_pair*)&emptiness);
+        break;
+    }
+    case pas_note_emptiness_keep_num_non_empty_words:
+        page->emptiness.use_epoch = pas_get_epoch();
+        break;
+    }
     pas_segregated_view_note_emptiness(page->owner, page);
 }
 
@@ -402,14 +415,15 @@ bool pas_segregated_page_take_physically(
         return result;
     }
 
-    PAS_ASSERT(!page->num_non_empty_words);
+    PAS_ASSERT(!page->emptiness.num_non_empty_words);
     
     base = (uintptr_t)pas_segregated_page_boundary(page, page_config);
 
     range = pas_virtual_range_create(
         base,
         base + page_config.base.page_size,
-        commit_lock_for(page));
+        commit_lock_for(page),
+        page_config.base.heap_config_ptr->mmap_capability);
     
     return pas_deferred_decommit_log_add_maybe_locked(
         decommit_log, range, range_locked_mode, heap_lock_hold_mode);
@@ -489,7 +503,7 @@ void pas_segregated_page_commit_fully(
             pas_lock_lock(commit_lock);
         pas_compiler_fence();
 
-        pas_commit_span_construct(&commit_span);
+        pas_commit_span_construct(&commit_span, page_config.base.heap_config_ptr->mmap_capability);
 
         for (granule_index = 0; granule_index < num_granules; ++granule_index) {
             if (use_counts[granule_index] != PAS_PAGE_GRANULE_DECOMMITTED) {

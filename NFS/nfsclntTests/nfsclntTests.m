@@ -59,6 +59,7 @@
 #import <XCTest/XCTest.h>
 #include <sys/mount.h>
 #include <sysexits.h>
+#include <TargetConditionals.h>
 
 #include "nfsclntTests_utils.h"
 

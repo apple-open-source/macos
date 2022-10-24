@@ -35,9 +35,9 @@ class ConditionEventListener;
 class SMILTimeContainer;
 class SVGSMILElement;
 
-template<typename T> class EventSender;
+template<typename T, typename Counter> class EventSender;
 
-using SMILEventSender = EventSender<SVGSMILElement>;
+using SMILEventSender = EventSender<SVGSMILElement, WeakPtrImplWithEventTargetData>;
 
 // This class implements SMIL interval timing model as needed for SVG animation.
 class SVGSMILElement : public SVGElement {
@@ -87,8 +87,8 @@ public:
 
     void reset();
 
-    static SMILTime parseClockValue(const String&);
-    static SMILTime parseOffsetValue(const String&);
+    static SMILTime parseClockValue(StringView);
+    static SMILTime parseOffsetValue(StringView);
 
     bool isContributing(SMILTime elapsed) const;
     bool isInactive() const;
@@ -150,18 +150,18 @@ private:
     // for example <animate begin="otherElement.begin + 8s; button.click" ... />
     struct Condition {
         enum Type { EventBase, Syncbase, AccessKey };
-        Condition(Type, BeginOrEnd, const String& baseID, const String& name, SMILTime offset, int repeats = -1);
+        Condition(Type, BeginOrEnd, const String& baseID, const AtomString& name, SMILTime offset, int repeats = -1);
         Type m_type;
         BeginOrEnd m_beginOrEnd;
         String m_baseID;
-        String m_name;
+        AtomString m_name;
         SMILTime m_offset;
         int m_repeats { -1 };
         RefPtr<Element> m_syncbase;
         RefPtr<ConditionEventListener> m_eventListener;
     };
-    bool parseCondition(const String&, BeginOrEnd beginOrEnd);
-    void parseBeginOrEnd(const String&, BeginOrEnd beginOrEnd);
+    bool parseCondition(StringView, BeginOrEnd);
+    void parseBeginOrEnd(StringView, BeginOrEnd);
     Element* eventBaseFor(const Condition&);
 
     void disconnectConditions();

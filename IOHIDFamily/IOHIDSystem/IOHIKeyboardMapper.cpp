@@ -146,7 +146,7 @@ IOHIKeyboardMapper * IOHIKeyboardMapper::keyboardMapper(
 	IOHIKeyboardMapper * me = new IOHIKeyboardMapper;
 
 	if (!me && mappingShouldBeFreed && mapping) {
-		IOFreeData( (void*)mapping, mappingLength );
+		(IOFreeData)( (void*)mapping, mappingLength );
 		mapping = NULL;
 	}
 
@@ -278,7 +278,7 @@ void IOHIKeyboardMapper::free()
     }
 
     if (_mappingShouldBeFreed) {
-        IOFreeData((void *)_parsedMapping.mapping, _parsedMapping.mappingLen);
+        (IOFreeData)((void *)_parsedMapping.mapping, _parsedMapping.mappingLen);
         _parsedMapping.mapping = NULL;
     }
 

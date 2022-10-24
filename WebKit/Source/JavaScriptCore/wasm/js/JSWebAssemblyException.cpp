@@ -33,10 +33,11 @@
 #include "JSCJSValueInlines.h"
 #include "JSCellInlines.h"
 #include "JSWebAssemblyHelpers.h"
+#include "StructureInlines.h"
 
 namespace JSC {
 
-const ClassInfo JSWebAssemblyException::s_info = { "WebAssembly.Exception", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyException) };
+const ClassInfo JSWebAssemblyException::s_info = { "WebAssembly.Exception"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWebAssemblyException) };
 
 JSWebAssemblyException::JSWebAssemblyException(VM& vm, Structure* structure, const Wasm::Tag& tag, FixedVector<uint64_t>&& payload)
     : Base(vm, structure)
@@ -48,7 +49,7 @@ JSWebAssemblyException::JSWebAssemblyException(VM& vm, Structure* structure, con
 void JSWebAssemblyException::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 }
 
 template<typename Visitor>
@@ -57,9 +58,9 @@ void JSWebAssemblyException::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     Base::visitChildren(cell, visitor);
 
     auto* exception = jsCast<JSWebAssemblyException*>(cell);
-    const Wasm::Signature& signature = exception->tag().signature();
-    for (unsigned i = 0; i < signature.argumentCount(); ++i) {
-        if (isRefType(signature.argument(i)))
+    const auto& tagType = exception->tag().type();
+    for (unsigned i = 0; i < tagType.argumentCount(); ++i) {
+        if (isRefType(tagType.argumentType(i)))
             visitor.append(bitwise_cast<WriteBarrier<Unknown>>(exception->payload()[i]));
     }
 }
@@ -73,9 +74,8 @@ void JSWebAssemblyException::destroy(JSCell* cell)
 
 JSValue JSWebAssemblyException::getArg(JSGlobalObject* globalObject, unsigned i) const
 {
-    const Wasm::Signature& signature = tag().signature();
-    ASSERT(i < signature.argumentCount());
-    return toJSValue(globalObject, signature.argument(i), payload()[i]);
+    ASSERT(i < tag().type().argumentCount());
+    return toJSValue(globalObject, tag().type().argumentType(i), payload()[i]);
 }
 
 } // namespace JSC

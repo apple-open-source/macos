@@ -30,6 +30,7 @@
 
 #import "APIUIClient.h"
 #import "DrawingAreaProxy.h"
+#import "GPUProcessProxy.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "VideoFullscreenManagerMessages.h"
 #import "VideoFullscreenManagerProxyMessages.h"
@@ -254,6 +255,12 @@ void VideoFullscreenModelContext::didSetupFullscreen()
         m_manager->didSetupFullscreen(m_contextId);
 }
 
+void VideoFullscreenModelContext::failedToEnterFullscreen()
+{
+    if (m_manager)
+        m_manager->failedToEnterFullscreen(m_contextId);
+}
+
 void VideoFullscreenModelContext::didEnterFullscreen(const WebCore::FloatSize& size)
 {
     if (m_manager)
@@ -391,7 +398,7 @@ bool VideoFullscreenManagerProxy::isPlayingVideoInEnhancedFullscreen() const
         if (interface->isPlayingVideoInEnhancedFullscreen())
             return true;
     }
-    
+
     return false;
 }
 #endif
@@ -446,7 +453,7 @@ PlatformVideoFullscreenInterface& VideoFullscreenManagerProxy::ensureInterface(P
     return *std::get<1>(ensureModelAndInterface(contextId));
 }
 
-PlatformVideoFullscreenInterface* VideoFullscreenManagerProxy::findInterface(PlaybackSessionContextIdentifier contextId)
+PlatformVideoFullscreenInterface* VideoFullscreenManagerProxy::findInterface(PlaybackSessionContextIdentifier contextId) const
 {
     auto it = m_contextMap.find(contextId);
     if (it == m_contextMap.end())
@@ -492,12 +499,7 @@ void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenMo
     if (m_contextMap.isEmpty())
         return;
 
-    Vector<ModelInterfaceTuple> values;
-    values.reserveInitialCapacity(m_contextMap.size());
-    for (auto& value : m_contextMap.values())
-        values.uncheckedAppend(value);
-
-    for (auto& value : values) {
+    for (auto& value : copyToVector(m_contextMap.values())) {
         RefPtr<VideoFullscreenModelContext> model;
         RefPtr<PlatformVideoFullscreenInterface> interface;
         std::tie(model, interface) = value;
@@ -509,6 +511,29 @@ void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenMo
 
         callback(*model, *interface);
     }
+}
+
+void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&& completionHandler)
+{
+    auto* gpuProcess = GPUProcessProxy::singletonIfCreated();
+    if (!gpuProcess) {
+        completionHandler({ });
+        return;
+    }
+
+    auto* interface = findInterface(identifier);
+    if (!interface) {
+        completionHandler({ });
+        return;
+    }
+
+    auto playerIdentifier = valueOrDefault(interface->playerIdentifier());
+    if (!playerIdentifier) {
+        completionHandler({ });
+        return;
+    }
+
+    gpuProcess->requestBitmapImageForCurrentTime(m_page->process().coreProcessIdentifier(), playerIdentifier, WTFMove(completionHandler));
 }
 
 void VideoFullscreenManagerProxy::addVideoInPictureInPictureDidChangeObserver(const VideoInPictureInPictureDidChangeObserver& observer)
@@ -821,7 +846,7 @@ void VideoFullscreenManagerProxy::didExitFullscreen(PlaybackSessionContextIdenti
         return;
     }
 #endif
-    m_page->didExitFullscreen();
+    m_page->didExitFullscreen(contextId);
     callCloseCompletionHandlers();
 }
 
@@ -837,7 +862,12 @@ void VideoFullscreenManagerProxy::didEnterFullscreen(PlaybackSessionContextIdent
     if (ensureInterface(contextId).changingStandbyOnly())
         return;
 #endif
-    m_page->didEnterFullscreen();
+    m_page->didEnterFullscreen(contextId);
+}
+
+void VideoFullscreenManagerProxy::failedToEnterFullscreen(PlaybackSessionContextIdentifier contextId)
+{
+    m_page->send(Messages::VideoFullscreenManager::FailedToEnterFullscreen(contextId));
 }
 
 void VideoFullscreenManagerProxy::didCleanupFullscreen(PlaybackSessionContextIdentifier contextId)
@@ -882,6 +912,20 @@ void VideoFullscreenManagerProxy::fullscreenMayReturnToInline(PlaybackSessionCon
 }
 
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+
+AVPlayerViewController *VideoFullscreenManagerProxy::playerViewController(PlaybackSessionContextIdentifier identifier) const
+{
+#if HAVE(PIP_CONTROLLER)
+    return nil;
+#else
+    auto* interface = findInterface(identifier);
+    return interface ? interface->avPlayerViewController() : nil;
+#endif
+}
+
+#endif // PLATFORM(IOS_FAMILY)
 
 } // namespace WebKit
 

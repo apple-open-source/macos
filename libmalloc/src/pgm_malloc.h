@@ -36,4 +36,8 @@ MALLOC_NOEXPORT
 malloc_zone_t *
 pgm_create_zone(malloc_zone_t *wrapped_zone);
 
+MALLOC_NOEXPORT
+void
+pgm_thread_set_disabled(bool disabled);
+
 #endif // _PGM_MALLOC_H_

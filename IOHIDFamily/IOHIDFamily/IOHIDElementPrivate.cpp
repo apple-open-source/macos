@@ -79,7 +79,7 @@ OSMetaClassDefineReservedUsed(IOHIDElement,  5);
 OSMetaClassDefineReservedUsed(IOHIDElement,  6);
 OSMetaClassDefineReservedUsed(IOHIDElement,  7);
 OSMetaClassDefineReservedUsed(IOHIDElement,  8);
-OSMetaClassDefineReservedUnused(IOHIDElement,  9);
+OSMetaClassDefineReservedUsed(IOHIDElement,  9);
 OSMetaClassDefineReservedUnused(IOHIDElement, 10);
 OSMetaClassDefineReservedUnused(IOHIDElement, 11);
 OSMetaClassDefineReservedUnused(IOHIDElement, 12);
@@ -814,19 +814,17 @@ bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
         
     if ( IsDuplicateElement(this) )
     {
-        if ( !IsDuplicateReportHandler(this) )
+        if (!IsDuplicateReportHandler(this)) {
             return false;
+        }
         
         IOHIDElementPrivate * dupElement;
-        if (element && _duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
+        if (_duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
         {
             element->duplicateValueSize = dupElement->getElementValueSize();
             element->duplicateIndex = 0xffffffff;
         }
     }
-    
-    if ( !element )
-        return true;
 
     element->cookieMin      = (UInt32)_cookie;
     element->cookieMax      = element->cookieMin + getRangeCount() - getStartingRangeIndex();
@@ -857,68 +855,26 @@ bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
 //---------------------------------------------------------------------------
 // 
 
-static inline bool CompareProperty( OSDictionary * properties, OSDictionary * matching, const char * key)
-{
-    // We return success if we match the key in the dictionary with the key in
-    // the property table, or if the prop isn't present
-    //
-    OSObject 	* value;
-    
-    value = matching->getObject( key );
-
-    return ( value ) ? value->isEqualTo( properties->getObject( key )) : true;
-}
-
-//---------------------------------------------------------------------------
-// 
-
 bool IOHIDElementPrivate::matchProperties(OSDictionary * matching)
 {
-    bool            ret         = true;
-    
-    // Compare properties.
-    do {
-        if ( !matching )
-            break;
-        OSDictionary *properties = createProperties();
-        
-        if ( !( properties ) )
-        {
+    bool                ret        = true;
+    OSDictionary      * properties = NULL;
+    OSObject          * value      = NULL;
+    static const char * keys[]     = {kIOHIDElementCookieKey, kIOHIDElementTypeKey, kIOHIDElementCollectionTypeKey, kIOHIDElementUsageKey, kIOHIDElementUsagePageKey, kIOHIDElementMinKey, kIOHIDElementMaxKey, kIOHIDElementScaledMaxKey, kIOHIDElementSizeKey, kIOHIDElementReportSizeKey, kIOHIDElementReportCountKey, kIOHIDElementIsArrayKey, kIOHIDElementIsRelativeKey, kIOHIDElementIsWrappingKey, kIOHIDElementIsNonLinearKey, kIOHIDElementHasPreferredStateKey, kIOHIDElementHasNullStateKey, kIOHIDElementVendorSpecificKey, kIOHIDElementUnitKey, kIOHIDElementUnitExponentKey, kIOHIDElementNameKey, kIOHIDElementValueLocationKey, kIOHIDElementDuplicateIndexKey, kIOHIDElementParentCollectionKey};
+
+    require(matching, exit);
+    require_action((properties = createProperties()), exit, ret = false);
+
+    for (const char * key : keys) {
+        value = matching->getObject(key);
+        if (value && !value->isEqualTo(properties->getObject(key))) {
             ret = false;
             break;
-        }           
-        
-        if (   !CompareProperty(properties, matching, kIOHIDElementCookieKey)
-            || !CompareProperty(properties, matching, kIOHIDElementTypeKey)
-            || !CompareProperty(properties, matching, kIOHIDElementCollectionTypeKey)
-            || !CompareProperty(properties, matching, kIOHIDElementUsageKey)
-            || !CompareProperty(properties, matching, kIOHIDElementUsagePageKey)
-            || !CompareProperty(properties, matching, kIOHIDElementMinKey)
-            || !CompareProperty(properties, matching, kIOHIDElementMaxKey)
-            || !CompareProperty(properties, matching, kIOHIDElementScaledMaxKey)
-            || !CompareProperty(properties, matching, kIOHIDElementSizeKey)
-            || !CompareProperty(properties, matching, kIOHIDElementReportSizeKey)
-            || !CompareProperty(properties, matching, kIOHIDElementReportCountKey)
-            || !CompareProperty(properties, matching, kIOHIDElementIsArrayKey)
-            || !CompareProperty(properties, matching, kIOHIDElementIsRelativeKey)
-            || !CompareProperty(properties, matching, kIOHIDElementIsWrappingKey)
-            || !CompareProperty(properties, matching, kIOHIDElementIsNonLinearKey)
-            || !CompareProperty(properties, matching, kIOHIDElementHasPreferredStateKey)
-            || !CompareProperty(properties, matching, kIOHIDElementHasNullStateKey)
-            || !CompareProperty(properties, matching, kIOHIDElementVendorSpecificKey)
-            || !CompareProperty(properties, matching, kIOHIDElementUnitKey)
-            || !CompareProperty(properties, matching, kIOHIDElementUnitExponentKey)
-            || !CompareProperty(properties, matching, kIOHIDElementNameKey)
-            || !CompareProperty(properties, matching, kIOHIDElementValueLocationKey)
-            || !CompareProperty(properties, matching, kIOHIDElementDuplicateIndexKey)
-            || !CompareProperty(properties, matching, kIOHIDElementParentCollectionKey))
-        {
-            ret = false;
         }
-        properties->release();
-        
-    } while ( false );
-    
+    }
+
+exit:
+    OSSafeReleaseNULL(properties);
     return ret;
 }
 
@@ -969,6 +925,19 @@ static void readReportBits( const UInt8 * src,
     UInt8  bitsProcessed;
 	UInt32 totalBitsProcessed = 0;
 
+    UpdateByteOffsetAndShift( srcStartBit, srcOffset, srcShift );
+
+    if (srcStartBit % 8 == 0 && bitsToCopy % 8 == 0 && !shouldSignExtend) {
+        bool changed = memcmp((dst + dstOffset), (src + srcOffset), bitsToCopy / 8) != 0;
+        if (changed) {
+            memcpy((dst + dstOffset), (src + srcOffset), bitsToCopy / 8);
+        }
+        if (valueChanged) {
+            *valueChanged = changed;
+        }
+        return;
+    }
+
     while ( bitsToCopy )
     {
         UInt32 tmp;
@@ -1012,7 +981,9 @@ static void readReportBits( const UInt8 * src,
 			if ( dst[lastDstOffset] != word )
             {
                 dst[lastDstOffset] = word;
-				if (valueChanged) *valueChanged = true;
+				if (valueChanged) {
+                    *valueChanged = true;
+                }
             }
             word = 0;
             lastDstOffset = dstOffset;
@@ -1033,9 +1004,21 @@ static void writeReportBits( const UInt32 * src,
     UInt8  bitsProcessed;
     UInt32 tmp;
 
+    UpdateByteOffsetAndShift( dstStartBit, dstOffset, dstShift );
+
+    if (dstStartBit % 8 == 0 && bitsToCopy % 8 == 0) {
+        memcpy((dst + dstOffset), (src + srcOffset), bitsToCopy / 8);
+        return;
+    }
+
     while ( bitsToCopy )
     {
         UpdateByteOffsetAndShift( dstStartBit, dstOffset, dstShift );
+
+        if (dstStartBit % 8 == 0 && bitsToCopy % 8 == 0) {
+            memcpy((dst + dstOffset), (src + srcOffset), bitsToCopy / 8);
+            break;
+        }
 
         bitsProcessed = min( bitsToCopy,
                              min( 8 - dstShift, 32 - srcShift ) );
@@ -1216,9 +1199,10 @@ bool IOHIDElementPrivate::processReport(
             if ( !_queueArray )
                 break;
                 
-            for ( UInt32 i = 0; (queue = (IOHIDEventQueue *) _queueArray->getObject(i)); i++ )
+            for ( UInt32 i = 0; _queueArray && (queue = (IOHIDEventQueue *) _queueArray->getObject(i)); i++ )
             {
-                
+                // Enqueue may block for some clients, retain the queue here to prevent it from disappearing before we finish the enqueue.
+                queue->retain();
                 //Pass actual element size. (different fotr variable lenght reports)
                 _elementValue->totalSize = (_currentReportSizeBits + 7) / 8 + ELEMENT_VALUE_HEADER_SIZE(_elementValue);
                 //enqueueSize dword aligned
@@ -1235,6 +1219,7 @@ bool IOHIDElementPrivate::processReport(
                         IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), 0, 0, 0);
                     }
                 }
+                queue->release();
             }
         } while ( 0 );
 

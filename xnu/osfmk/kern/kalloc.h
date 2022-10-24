@@ -94,7 +94,7 @@ __BEGIN_DECLS __ASSUME_PTR_ABI_SINGLE_BEGIN
 typedef struct kalloc_heap {
 	struct kheap_zones *kh_zones;
 	zone_stats_t        kh_stats;
-	const char         *kh_name __unsafe_indexable;
+	const char         *__unsafe_indexable kh_name;
 	struct kalloc_heap *kh_next;
 	zone_kheap_id_t     kh_heap_id;
 	vm_tag_t            kh_tag;
@@ -362,13 +362,13 @@ typedef struct kalloc_type_view *kalloc_type_view_t;
 #define kalloc_log2down(mask)   (31 - __builtin_clz(mask))
 #define KHEAP_START_SIZE        32
 #if !defined(__LP64__)
-#define KHEAP_MAX_SIZE          8 * 1024
+#define KHEAP_MAX_SIZE          (8 * 1024)
 #define KHEAP_EXTRA_ZONES       3
 #elif  __x86_64__
-#define KHEAP_MAX_SIZE          16 * 1024
+#define KHEAP_MAX_SIZE          (16 * 1024)
 #define KHEAP_EXTRA_ZONES       2
 #else
-#define KHEAP_MAX_SIZE          32 * 1024
+#define KHEAP_MAX_SIZE          (32 * 1024)
 #define KHEAP_EXTRA_ZONES       2
 #endif
 #define KHEAP_STEP_WIDTH        2
@@ -420,12 +420,12 @@ struct kalloc_type_var_view {
 	 */
 	uint32_t                kt_size_type;
 	zone_stats_t            kt_stats;
-	const char             *kt_name __unsafe_indexable;
+	const char             *__unsafe_indexable kt_name;
 	zone_view_t             kt_next;
 	zone_id_t               kt_heap_start;
 	uint8_t                 kt_zones[KHEAP_NUM_ZONES];
-	const char             *kt_sig_hdr __unsafe_indexable;
-	const char             *kt_sig_type __unsafe_indexable;
+	const char             * __unsafe_indexable kt_sig_hdr;
+	const char             * __unsafe_indexable kt_sig_type;
 	kalloc_type_flags_t     kt_flags;
 };
 
@@ -553,17 +553,50 @@ extern void *__sized_by(size)
 kalloc(
 	vm_size_t           size) __attribute__((malloc, alloc_size(1)));
 
-extern void *__sized_by(size)
+extern void *__unsafe_indexable
 kalloc_data(
 	vm_size_t           size,
-	zalloc_flags_t      flags) __attribute__((malloc, alloc_size(1)));
+	zalloc_flags_t      flags);
 
-extern void *__sized_by(new_size)
+__attribute__((malloc, alloc_size(1)))
+static inline void *
+__sized_by(size)
+__kalloc_data(vm_size_t size, zalloc_flags_t flags)
+{
+	void *addr = (kalloc_data)(size, flags);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
+
+#define kalloc_data(size, fl) __kalloc_data(size, fl)
+
+extern void *__unsafe_indexable
 krealloc_data(
 	void               *ptr __unsafe_indexable,
 	vm_size_t           old_size,
 	vm_size_t           new_size,
-	zalloc_flags_t      flags) __attribute__((malloc, alloc_size(3)));
+	zalloc_flags_t      flags);
+
+__attribute__((malloc, alloc_size(3)))
+static inline void *
+__sized_by(new_size)
+__krealloc_data(
+	void               *ptr __sized_by(old_size),
+	vm_size_t           old_size,
+	vm_size_t           new_size,
+	zalloc_flags_t      flags)
+{
+	void *addr = (krealloc_data)(ptr, old_size, new_size, flags);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
+
+#define krealloc_data(ptr, old_size, new_size, fl) \
+	__krealloc_data(ptr, old_size, new_size, fl)
 
 extern void
 kfree(
@@ -651,7 +684,7 @@ kfree_data_addr(
  */
 #define kalloc_type_require(type, value) ({                                    \
 	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
-	zone_require(kt_view_var->kt_zv, value);                               \
+	zone_require(kt_view_var->kt_zv.zv_zone, value);                       \
 })
 
 #endif
@@ -742,18 +775,7 @@ __options_decl(kt_granule_t, uint32_t, {
  * @param type          The type to analyze
  */
 #define KT_SUMMARY_GRANULES(type) \
-    (__builtin_xnu_type_summary(type) & KT_SUMMARY_MASK_TYPE_BITS)
-
-/*!
- * @macro KALLOC_TYPE_IS_DATA_ONLY
- *
- * @abstract
- * Return whether a given type is considered a data-only type.
- *
- * @param type          The type to analyze
- */
-#define KALLOC_TYPE_IS_DATA_ONLY(type) \
-    ((KT_SUMMARY_GRANULES(type) & ~KT_SUMMARY_MASK_DATA) == 0)
+	(__builtin_xnu_type_summary(type) & KT_SUMMARY_MASK_TYPE_BITS)
 
 /*!
  * @macro KALLOC_TYPE_SIG_CHECK
@@ -765,7 +787,18 @@ __options_decl(kt_granule_t, uint32_t, {
  * @param type          The type to analyze
  */
 #define KALLOC_TYPE_SIG_CHECK(mask, type) \
-    ((KT_SUMMARY_GRANULES(type) & ~(mask)) == 0)
+	((KT_SUMMARY_GRANULES(type) & ~(mask)) == 0)
+
+/*!
+ * @macro KALLOC_TYPE_IS_DATA_ONLY
+ *
+ * @abstract
+ * Return whether a given type is considered a data-only type.
+ *
+ * @param type          The type to analyze
+ */
+#define KALLOC_TYPE_IS_DATA_ONLY(type) \
+	KALLOC_TYPE_SIG_CHECK(KT_SUMMARY_MASK_DATA, type)
 
 /*!
  * @macro KALLOC_TYPE_HAS_OVERLAPS
@@ -810,23 +843,419 @@ __options_decl(kt_granule_t, uint32_t, {
 	    __builtin_xnu_types_compatible(__typeof__(*ptr), void))    \
 	_Pragma("clang diagnostic pop")
 
-#define KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type)                  \
-	_Static_assert(KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type),           \
+#define KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type) \
+	_Static_assert(KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type), \
 	    "Pointer type is not compatible with specified type")
 
+
+/*!
+ * @const KALLOC_ARRAY_SIZE_MAX
+ *
+ * @brief
+ * The maximum size that can be allocated with the @c KALLOC_ARRAY interface.
+ *
+ * @discussion
+ * This size is:
+ * - ~256M on 4k or PAC systems with 16k pages
+ * - ~1G on other 16k systems.
+ */
+#if __arm64e__
+#define KALLOC_ARRAY_SIZE_MAX   (PAGE_MASK << PAGE_SHIFT)
+#else
+#define KALLOC_ARRAY_SIZE_MAX   (UINT16_MAX << PAGE_SHIFT)
+#endif
+
+/*!
+ * @macro KALLOC_ARRAY_TYPE_DECL
+ *
+ * @brief
+ * Declares a type used as a packed kalloc array type.
+ *
+ * @discussion
+ * This macro comes in two variants
+ *
+ * - KALLOC_ARRAY_TYPE_DECL(name, e_ty)
+ * - KALLOC_ARRAY_TYPE_DECL(name, h_ty, e_ty)
+ *
+ * The first one defines an array of elements of type @c e_ty,
+ * and the second a header of type @c h_ty followed by
+ * an array of elements of type @c e_ty.
+ *
+ * Those macros will then define the type @c ${name}_t as a typedef
+ * to a non existent structure type, in order to avoid accidental
+ * dereference of those pointers.
+ *
+ * kalloc array pointers are actually pointers that in addition to encoding
+ * the array base pointer, also encode the allocation size (only sizes
+ * up to @c KALLOC_ARRAY_SIZE_MAX bytes).
+ *
+ * Such pointers can be signed with data PAC properly, which will provide
+ * integrity of both the base pointer, and its size.
+ *
+ * kalloc arrays are useful to use instead of embedding the length
+ * of the allocation inside of itself, which tends to be driven by:
+ *
+ * - a desire to not grow the outer structure holding the pointer
+ *   to this array with an extra "length" field for optional arrays,
+ *   in order to save memory (see the @c ip_requests field in ports),
+ *
+ * - a need to be able to atomically consult the size of an allocation
+ *   with respect to loading its pointer (where address dependencies
+ *   traditionally gives this property) for lockless algorithms
+ *   (see the IPC space table).
+ *
+ * Using a kalloc array is preferable for two reasons:
+ *
+ * - embedding lengths inside the allocation is self-referential
+ *   and an appetizing target for post-exploitation strategies,
+ *
+ * - having a dependent load to get to the length loses out-of-order
+ *   opportunities for the CPU and prone to back-to-back cache misses.
+ *
+ * Holding information such as a level of usage of this array
+ * within itself is fine provided those quantities are validated
+ * against the "count" (number of elements) or "size" (allocation
+ * size in bytes) of the array before use.
+ *
+ *
+ * This macro will define a series of functions:
+ *
+ * - ${name}_count_to_size() and ${name}_size_to_count()
+ *   to convert between memory sizes and array element counts
+ *   (taking the header size into account when it exists);
+ *
+ *   Note that those functions assume the count/size are corresponding
+ *   to a valid allocation size within [0, KALLOC_ARRAY_SIZE_MAX].
+ *
+ * - ${name}_next_size() to build good allocation growth policies;
+ *
+ * - ${name}_base() returning a (bound-checked indexable) pointer
+ *   to the header of the array (or its first element when there is
+ *   no header);
+ *
+ * - ${name}_begin() returning a (bound-checked indexable)
+ *   pointer to the first element of the the array;
+ *
+ * - ${name}_contains() to check if an element index is within
+ *   the valid range of this allocation;
+ *
+ * - ${name}_next_elem() to get the next element of an array.
+ *
+ * - ${name}_get() and ${name}_get_nocheck() to return a pointer
+ *   to a given cell of the array with (resp. without) a bound
+ *   check against the array size. The bound-checked variant
+ *   returns NULL for invalid indexes.
+ *
+ * - ${name}_alloc_by_count() and ${name}_alloc_by_size()
+ *   to allocate a new array able to hold at least that many elements
+ *   (resp. bytes).
+ *
+ * - ${name}_realloc_by_count() and ${name}_realloc_by_size()
+ *   to re-allocate a new array able to hold at least that many elements
+ *   (resp. bytes).
+ *
+ * - ${name}_free() and ${name}_free_noclear() to free such an array
+ *   (resp. without nil-ing the pointer). The non-clearing variant
+ *   is to be used only when nil-ing out the pointer is otherwise
+ *   not allowed by C (const value, unable to take address of, ...),
+ *   otherwise the normal ${name}_free() must be used.
+ */
+#define KALLOC_ARRAY_TYPE_DECL(...) \
+	KALLOC_DISPATCH(KALLOC_ARRAY_TYPE_DECL, ##__VA_ARGS__)
+
+#if XNU_KERNEL_PRIVATE
+
+#define KALLOC_ARRAY_TYPE_DECL_(name, h_type_t, h_sz, e_type_t, e_sz) \
+	static_assert(!KALLOC_TYPE_CHECK(KT_SUMMARY_MASK_DATA,                  \
+	    h_type_t, e_type_t), "data only not supported yet");                \
+	KALLOC_TYPE_VAR_DECLARE(name ## _kt_view);                              \
+	typedef struct name * __unsafe_indexable name ## _t;                    \
+                                                                                \
+	__pure2                                                                 \
+	static inline uint32_t                                                  \
+	name ## _count_to_size(uint32_t count)                                  \
+	{                                                                       \
+	        return (uint32_t)((h_sz) + (e_sz) * count);                     \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline uint32_t                                                  \
+	name ## _size_to_count(vm_size_t size)                                  \
+	{                                                                       \
+	        return (uint32_t)((size - (h_sz)) / (e_sz));                    \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline uint32_t                                                  \
+	name ## _size(name ## _t array)                                         \
+	{                                                                       \
+	        return __kalloc_array_size((vm_address_t)array);                \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline uint32_t                                                  \
+	name ## _next_size(                                                     \
+	        uint32_t                min_count,                              \
+	        vm_size_t               cur_size,                               \
+	        uint32_t                vm_period)                              \
+	{                                                                       \
+	        vm_size_t size;                                                 \
+                                                                                \
+	        if (cur_size) {                                                 \
+	                size = cur_size + (e_sz);                               \
+	        } else {                                                        \
+	                size = kt_size(h_sz, e_sz, min_count) - 1;              \
+	        }                                                               \
+	        size = kalloc_next_good_size(size, vm_period);                  \
+	        if (size <= KALLOC_ARRAY_SIZE_MAX) {                            \
+	               return (uint32_t)size;                                   \
+	        }                                                               \
+	        return 2 * KALLOC_ARRAY_SIZE_MAX; /* will fail */               \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline uint32_t                                                  \
+	name ## _count(name ## _t array)                                        \
+	{                                                                       \
+	        return name ## _size_to_count(name ## _size(array));            \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline h_type_t *__header_bidi_indexable                         \
+	name ## _base(name ## _t array)                                         \
+	{                                                                       \
+	        vm_address_t base = __kalloc_array_base((vm_address_t)array);   \
+	        uint32_t     size = __kalloc_array_size((vm_address_t)array);   \
+                                                                                \
+	        (void)size;                                                     \
+	        return __unsafe_forge_bidi_indexable(h_type_t *, base, size);   \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline e_type_t *__header_bidi_indexable                         \
+	name ## _begin(name ## _t array)                                        \
+	{                                                                       \
+	        vm_address_t base = __kalloc_array_base((vm_address_t)array);   \
+	        uint32_t     size = __kalloc_array_size((vm_address_t)array);   \
+                                                                                \
+	        (void)size;                                                     \
+	        return __unsafe_forge_bidi_indexable(e_type_t *, base, size);   \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline e_type_t *                                                \
+	name ## _next_elem(name ## _t array, e_type_t *e)                       \
+	{                                                                       \
+	        vm_address_t end = __kalloc_array_end((vm_address_t)array);     \
+	        vm_address_t ptr = (vm_address_t)e + sizeof(e_type_t);          \
+                                                                                \
+	        if (ptr + sizeof(e_type_t) <= end) {                            \
+	                return __unsafe_forge_single(e_type_t *, ptr);          \
+	        }                                                               \
+	        return NULL;                                                    \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline bool                                                      \
+	name ## _contains(name ## _t array, vm_size_t i)                        \
+	{                                                                       \
+	        vm_size_t offs = (e_sz) + (h_sz);                               \
+	        vm_size_t s;                                                    \
+                                                                                \
+	        if (__improbable(os_mul_and_add_overflow(i, e_sz, offs, &s))) { \
+	                return false;                                           \
+	        }                                                               \
+	        if (__improbable(s > name ## _size(array))) {                   \
+	                return false;                                           \
+	        }                                                               \
+	        return true;                                                    \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline e_type_t * __single                                       \
+	name ## _get_nocheck(name ## _t array, vm_size_t i)                     \
+	{                                                                       \
+	        return name ## _begin(array) + i;                               \
+	}                                                                       \
+                                                                                \
+	__pure2                                                                 \
+	static inline e_type_t * __single                                       \
+	name ## _get(name ## _t array, vm_size_t i)                             \
+	{                                                                       \
+	        if (__probable(name ## _contains(array, i))) {                  \
+	            return name ## _get_nocheck(array, i);                      \
+	        }                                                               \
+	        return NULL;                                                    \
+	}                                                                       \
+                                                                                \
+	static inline name ## _t                                                \
+	name ## _alloc_by_size(vm_size_t size, zalloc_flags_t fl)               \
+	{                                                                       \
+	        fl |= Z_KALLOC_ARRAY;                                           \
+	        fl = __zone_flags_mix_tag(fl, VM_ALLOC_SITE_TAG());             \
+	        return (name ## _t)kalloc_type_var_impl(name ## _kt_view,       \
+	                        size, fl, NULL);                                \
+	}                                                                       \
+                                                                                \
+	static inline name ## _t                                                \
+	name ## _alloc_by_count(uint32_t count, zalloc_flags_t fl)              \
+	{                                                                       \
+	        return name ## _alloc_by_size(kt_size(h_sz, e_sz, count), fl);  \
+	}                                                                       \
+                                                                                \
+	static inline name ## _t                                                \
+	name ## _realloc_by_size(                                               \
+	        name ## _t              array,                                  \
+	        vm_size_t               new_size,                               \
+	        zalloc_flags_t          fl)                                     \
+	{                                                                       \
+	        vm_address_t base = __kalloc_array_base((vm_address_t)array);   \
+	        vm_size_t    size = __kalloc_array_size((vm_address_t)array);   \
+                                                                                \
+	        fl |= Z_KALLOC_ARRAY;                                           \
+	        fl = __zone_flags_mix_tag(fl, VM_ALLOC_SITE_TAG());             \
+	        return (name ## _t)(krealloc_ext)(name ## _kt_view,             \
+	                        (void *)base, size, new_size, fl, NULL).addr;   \
+	}                                                                       \
+                                                                                \
+	static inline name ## _t                                                \
+	name ## _realloc_by_count(                                              \
+	        name ## _t              array,                                  \
+	        uint32_t                new_count,                              \
+	        zalloc_flags_t          fl)                                     \
+	{                                                                       \
+	        vm_size_t new_size = kt_size(h_sz, e_sz, new_count);            \
+                                                                                \
+	        return name ## _realloc_by_size(array, new_size, fl);           \
+	}                                                                       \
+                                                                                \
+	static inline void                                                      \
+	name ## _free_noclear(name ## _t array)                                 \
+	{                                                                       \
+	        kfree_type_var_impl(name ## _kt_view,                           \
+	            name ## _base(array), name ## _size(array));                \
+	}                                                                       \
+                                                                                \
+	static inline void                                                      \
+	name ## _free(name ## _t *arrayp)                                       \
+	{                                                                       \
+	        name ## _t array = *arrayp;                                     \
+                                                                                \
+	        *arrayp = NULL;                                                 \
+	        kfree_type_var_impl(name ## _kt_view,                           \
+	            name ## _base(array), name ## _size(array));                \
+	}
+
+
+/*!
+ * @macro KALLOC_ARRAY_TYPE_DEFINE()
+ *
+ * @description
+ * Defines the data structures required to pair with a KALLOC_ARRAY_TYPE_DECL()
+ * kalloc array declaration.
+ *
+ * @discussion
+ * This macro comes in two variants
+ *
+ * - KALLOC_ARRAY_TYPE_DEFINE(name, e_ty, flags)
+ * - KALLOC_ARRAY_TYPE_DEFINE(name, h_ty, e_ty, flags)
+ *
+ * Those must pair with the KALLOC_ARRAY_TYPE_DECL() form being used.
+ * The flags must be valid @c kalloc_type_flags_t flags.
+ */
+#define KALLOC_ARRAY_TYPE_DEFINE(...) \
+	KALLOC_DISPATCH(KALLOC_ARRAY_TYPE_DEFINE, ##__VA_ARGS__)
+
+/*!
+ * @function kalloc_next_good_size()
+ *
+ * @brief
+ * Allows to implement "allocation growth policies" that work well
+ * with the allocator.
+ *
+ * @discussion
+ * Note that if the caller tracks a number of elements for an array,
+ * where the elements are of size S, and the current count is C,
+ * then it is possible for kalloc_next_good_size(C * S, ..) to hit
+ * a fixed point, clients must call with a size at least of ((C + 1) * S).
+ *
+ * @param size         the current "size" of the allocation (in bytes).
+ * @param period       the "period" (power of 2) for the allocation growth
+ *                     policy once hitting the VM sized allocations.
+ */
+extern vm_size_t kalloc_next_good_size(
+	vm_size_t               size,
+	uint32_t                period);
+
+#pragma mark kalloc_array implementation details
+
+#define KALLOC_ARRAY_TYPE_DECL_2(name, e_type_t) \
+	KALLOC_ARRAY_TYPE_DECL_(name, e_type_t, 0, e_type_t, sizeof(e_type_t))
+
+#define KALLOC_ARRAY_TYPE_DECL_3(name, h_type_t, e_type_t) \
+	KALLOC_ARRAY_TYPE_DECL_(name, e_type_t, 0, e_type_t, sizeof(e_type_t))
+
+#define KALLOC_ARRAY_TYPE_DEFINE_3(name, e_type_t, flags) \
+	KALLOC_TYPE_VAR_DEFINE_3(name ## _kt_view, e_type_t, flags)
+
+#define KALLOC_ARRAY_TYPE_DEFINE_4(name, h_type_t, e_type_t, flags) \
+	KALLOC_TYPE_VAR_DEFINE_4(name ## _kt_view, h_type_t, e_type_t, flags)
+
+extern struct kalloc_result __kalloc_array_decode(
+	vm_address_t            array) __pure2;
+
+__pure2
+static inline uint32_t
+__kalloc_array_size(vm_address_t array)
+{
+	vm_address_t size = __kalloc_array_decode(array).size;
+
+	__builtin_assume(size <= KALLOC_ARRAY_SIZE_MAX);
+	return (uint32_t)size;
+}
+
+__pure2
+static inline vm_address_t
+__kalloc_array_base(vm_address_t array)
+{
+	return (vm_address_t)__kalloc_array_decode(array).addr;
+}
+
+__pure2
+static inline vm_address_t
+__kalloc_array_begin(vm_address_t array, vm_size_t hdr_size)
+{
+	return (vm_address_t)__kalloc_array_decode(array).addr + hdr_size;
+}
+
+__pure2
+static inline vm_address_t
+__kalloc_array_end(vm_address_t array)
+{
+	struct kalloc_result kr = __kalloc_array_decode(array);
+
+	return (vm_address_t)kr.addr + kr.size;
+}
+
+#else /* !XNU_KERNEL_PRIVATE */
+
+#define KALLOC_ARRAY_TYPE_DECL_(name, h_type_t, h_sz, e_type_t, e_sz) \
+	typedef struct name * __unsafe_indexable name ## _t
+
+#endif /* !XNU_KERNEL_PRIVATE */
 #pragma mark implementation details
 
 
-static inline void *
+static inline void *__unsafe_indexable
 kt_mangle_var_view(kalloc_type_var_view_t kt_view)
 {
-	return (void *)((uintptr_t)kt_view | 1ul);
+	return (void *__unsafe_indexable)((uintptr_t)kt_view | 1ul);
 }
 
-static inline kalloc_type_var_view_t
+static inline kalloc_type_var_view_t __unsafe_indexable
 kt_demangle_var_view(void *ptr)
 {
-	return (kalloc_type_var_view_t)((uintptr_t)ptr & ~1ul);
+	return (kalloc_type_var_view_t __unsafe_indexable)((uintptr_t)ptr & ~1ul);
 }
 
 #define kt_is_var_view(ptr)  ((uintptr_t)(ptr) & 1)
@@ -843,7 +1272,12 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 	return s1;
 }
 
+#ifndef __ZONE_DECLARE_TYPE
+#define __ZONE_DECLARE_TYPE(var, type_t)  ((void)0)
+#endif
+
 #define kalloc_type_2(type, flags) ({                                          \
+	__ZONE_DECLARE_TYPE(kt_view_var, type);                                \
 	static KALLOC_TYPE_DEFINE(kt_view_var, type, KT_SHARED_ACCT);          \
 	__unsafe_forge_single(type *, kalloc_type_impl(kt_view_var, flags));   \
 })
@@ -1047,6 +1481,12 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 #define KALLOC_TYPE_VM_SIZE_CHECK(...) \
 	KALLOC_DISPATCH_R(KALLOC_TYPE_VM_SIZE_CHECK, ##__VA_ARGS__)
 
+#define KALLOC_TYPE_TRAILING_DATA_CHECK(hdr_ty, elem_ty)     \
+	_Static_assert((KALLOC_TYPE_IS_DATA_ONLY(hdr_ty) ||  \
+	    !KALLOC_TYPE_IS_DATA_ONLY(elem_ty)),             \
+	"cannot allocate data-only array of " #elem_ty       \
+	" contiguously to " #hdr_ty)
+
 #ifdef __cplusplus
 #define KALLOC_TYPE_CAST_FLAGS(flags) static_cast<kalloc_type_flags_t>(flags)
 #else
@@ -1078,7 +1518,8 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 
 #define _KALLOC_TYPE_DEFINE(var, type, flags)                       \
 	__kalloc_no_kasan                                               \
-	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_type")       \
+	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_type, "      \
+	    "regular, live_support")                                    \
 	struct kalloc_type_view var[1] = { {                            \
 	    .kt_zv.zv_name = "site." #type,                             \
 	    .kt_flags = KALLOC_TYPE_ADJUST_FLAGS(flags, type),          \
@@ -1089,7 +1530,8 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 
 #define KALLOC_TYPE_VAR_DEFINE_3(var, type, flags)                  \
 	__kalloc_no_kasan                                               \
-	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_var")        \
+	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_var, "       \
+	    "regular, live_support")                                    \
 	struct kalloc_type_var_view var[1] = { {                        \
 	    .kt_version = KT_V1,                                        \
 	    .kt_name = "site." #type,                                   \
@@ -1101,7 +1543,8 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 
 #define KALLOC_TYPE_VAR_DEFINE_4(var, hdr, type, flags)             \
 	__kalloc_no_kasan                                               \
-	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_var")        \
+	__PLACE_IN_SECTION(KALLOC_TYPE_SEGMENT ", __kalloc_var, "       \
+	    "regular, live_support")                                    \
 	struct kalloc_type_var_view var[1] = { {                        \
 	    .kt_version = KT_V1,                                        \
 	    .kt_name = "site." #hdr "." #type,                          \
@@ -1112,7 +1555,8 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 	    .kt_sig_type = KALLOC_TYPE_EMIT_SIG(type, hdr),             \
 	} };                                                            \
 	KALLOC_TYPE_SIZE_CHECK(sizeof(hdr));                            \
-	KALLOC_TYPE_SIZE_CHECK(sizeof(type));
+	KALLOC_TYPE_SIZE_CHECK(sizeof(type));                           \
+	KALLOC_TYPE_TRAILING_DATA_CHECK(hdr, type);
 
 #ifndef XNU_KERNEL_PRIVATE
 /*
@@ -1137,8 +1581,11 @@ kfree_type_impl(kalloc_type_view_t kt_view, void *__unsafe_indexable ptr)
 	zfree(kt_view, ptr);
 }
 
-#define kalloc_type_var_impl(kt_view, size, flags, site) \
-	kalloc_ext(kt_mangle_var_view(kt_view), size, flags, site).addr
+// rdar://87559422
+#define kalloc_type_var_impl(kt_view, size, flags, site) ({ \
+	struct kalloc_result kalloc_type_var_tmp__ = kalloc_ext(kt_mangle_var_view(kt_view), size, flags, site); \
+	kalloc_type_var_tmp__.addr; \
+})
 
 #define kfree_type_var_impl(kt_view, ptr, size) \
 	kfree_ext(kt_mangle_var_view(kt_view), ptr, size)
@@ -1150,18 +1597,50 @@ kalloc_type_impl(
 	kalloc_type_view_t  kt_view,
 	zalloc_flags_t      flags);
 
+static inline void *__unsafe_indexable
+__kalloc_type_impl(
+	kalloc_type_view_t  kt_view,
+	zalloc_flags_t      flags)
+{
+	void *addr = (kalloc_type_impl)(kt_view, flags);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
+
+#define kalloc_type_impl(ktv, fl) __kalloc_type_impl(ktv, fl)
+
 extern void
 kfree_type_impl(
 	kalloc_type_view_t  kt_view,
 	void                *ptr __unsafe_indexable);
 
-__attribute__((malloc, alloc_size(2)))
-extern void *__sized_by(size)
+extern void *__unsafe_indexable
 kalloc_type_var_impl(
 	kalloc_type_var_view_t  kt_view,
 	vm_size_t               size,
 	zalloc_flags_t          flags,
 	void                   *site);
+
+__attribute__((malloc, alloc_size(2)))
+static inline void *
+__sized_by(size)
+__kalloc_type_var_impl(
+	kalloc_type_var_view_t  kt_view,
+	vm_size_t               size,
+	zalloc_flags_t          flags,
+	void                   *site)
+{
+	void *addr = (kalloc_type_var_impl)(kt_view, size, flags, site);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
+
+#define kalloc_type_var_impl(ktv, size, fl, site) \
+	__kalloc_type_var_impl(ktv, size, fl, site)
 
 extern void
 kfree_type_var_impl(
@@ -1218,10 +1697,26 @@ kheap_startup_init(
 
 extern struct kalloc_result
 kalloc_ext(
-	void                   *kheap_or_kt_view,
+	void                   *kheap_or_kt_view __unsafe_indexable,
 	vm_size_t               size,
 	zalloc_flags_t          flags,
 	void                   *site);
+
+static inline struct kalloc_result
+__kalloc_ext(
+	void                   *kheap_or_kt_view __unsafe_indexable,
+	vm_size_t               size,
+	zalloc_flags_t          flags,
+	void                   *site)
+{
+	struct kalloc_result kr = (kalloc_ext)(kheap_or_kt_view, size, flags, site);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(kr.addr != NULL);
+	}
+	return kr;
+}
+
+#define kalloc_ext(hov, size, fl, site) __kalloc_ext(hov, size, fl, site)
 
 __attribute__((malloc, alloc_size(2)))
 static inline void *
@@ -1240,19 +1735,39 @@ __kheap_alloc(
 
 extern struct kalloc_result
 krealloc_ext(
-	void                   *kheap_or_kt_view,
+	void                   *kheap_or_kt_view __unsafe_indexable,
 	void                   *addr __unsafe_indexable,
 	vm_size_t               old_size,
 	vm_size_t               new_size,
 	zalloc_flags_t          flags,
 	void                   *site);
 
+static inline struct kalloc_result
+__krealloc_ext(
+	void                   *kheap_or_kt_view __unsafe_indexable,
+	void                   *addr __sized_by(old_size),
+	vm_size_t               old_size,
+	vm_size_t               new_size,
+	zalloc_flags_t          flags,
+	void                   *site)
+{
+	struct kalloc_result kr = (krealloc_ext)(kheap_or_kt_view, addr, old_size,
+	    new_size, flags, site);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(kr.addr != NULL);
+	}
+	return kr;
+}
+
+#define krealloc_ext(hov, addr, old_size, new_size, fl, site) \
+	__krealloc_ext(hov, addr, old_size, new_size, fl, site)
+
 __attribute__((malloc, alloc_size(4)))
 static inline void *
 __sized_by(new_size)
 __kheap_realloc(
 	kalloc_heap_t           kheap,
-	void                   *addr __unsafe_indexable,
+	void                   *addr __sized_by(old_size),
 	vm_size_t               old_size,
 	vm_size_t               new_size,
 	zalloc_flags_t          flags,
@@ -1269,7 +1784,7 @@ static inline void *
 __sized_by(new_size)
 __krealloc_type(
 	kalloc_type_var_view_t  kt_view,
-	void                   *addr __unsafe_indexable,
+	void                   *addr __sized_by(old_size),
 	vm_size_t               old_size,
 	vm_size_t               new_size,
 	zalloc_flags_t          flags,
@@ -1288,7 +1803,7 @@ kfree_addr_ext(
 
 extern void
 kfree_ext(
-	void                   *kheap_or_kt_view,
+	void                   *kheap_or_kt_view __unsafe_indexable,
 	void                   *addr __unsafe_indexable,
 	vm_size_t               size);
 

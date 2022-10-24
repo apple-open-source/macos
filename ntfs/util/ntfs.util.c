@@ -742,10 +742,34 @@ static int get_volume_mft_record(char *rdev, ntfs_volume *vol,
 		sector_size = 32768;
 	if (sector_size < NTFS_BLOCK_SIZE)
 		sector_size = NTFS_BLOCK_SIZE;
-	f = open(rdev, O_RDONLY);
-	if (f == -1) {
-		return FSUR_IO_FAIL;
+
+	if (!strncmp(rdev, "/dev/rdisk", 10)) {
+		f = open(rdev, O_RDONLY);
+		if (f == -1) {
+			return FSUR_IO_FAIL;
+		}
+	} else if (!strncmp(rdev, "/dev/fd/", 8)) {
+		char *end_ptr;
+		int error;
+
+		f = (int)strtol(rdev + 8, &end_ptr, 10);
+		if (*end_ptr) {
+			return FSUR_IO_FAIL;
+		}
+
+		struct stat info;
+		error = fstat(f, &info);
+		if (error) {
+			return FSUR_IO_FAIL;
+		}
+
+		if (lseek(f, 0, SEEK_SET) == (off_t)-1) {
+			return FSUR_IO_FAIL;
+		}
+	} else {
+			return FSUR_IO_FAIL;
 	}
+
 	/*
 	 * Get the native block size of the device.  If it is bigger than
 	 * @sector_size we need to do i/o in multiples of the native block
@@ -1203,7 +1227,8 @@ static int do_unmount(const char *progname, char *mp)
 /**
  * main - Main function, parse arguments and cause required action to be taken.
  */
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	char *progname, *dev, *mp = NULL;
 	int err;
@@ -1286,29 +1311,42 @@ int main(int argc, char **argv)
 		usage(progname);
 		break;
 	}
-	/* Check the raw and block device special files exist. */
-	err = snprintf(rawdev, sizeof(rawdev), "/dev/r%s", dev);
-	if (err >= (int)sizeof(rawdev)) {
-		fprintf(stderr, "%s: Specified device name is too long.\n",
-				progname);
+
+	if (!strncmp(dev, "disk", 4)) {
+		/* Check the raw and block device special files exist. */
+		err = snprintf(rawdev, sizeof(rawdev), "/dev/r%s", dev);
+		if (err >= (int)sizeof(rawdev)) {
+			fprintf(stderr, "%s: Specified device name is too long.\n",
+					progname);
+			exit(FSUR_INVAL);
+		}
+		if (stat(rawdev, &sb)) {
+			fprintf(stderr, "%s: stat %s failed, %s\n", progname, rawdev,
+					strerror(errno));
+			exit(FSUR_INVAL);
+		}
+		err = snprintf(blockdev, sizeof(blockdev), "/dev/%s", dev);
+		if (err >= (int)sizeof(blockdev)) {
+			fprintf(stderr, "%s: Specified device name is too long.\n",
+					progname);
+			exit(FSUR_INVAL);
+		}
+		if (stat(blockdev, &sb)) {
+			fprintf(stderr, "%s: stat %s failed, %s\n", progname, blockdev,
+					strerror(errno));
+			exit(FSUR_INVAL);
+		}
+	} else if (!strncmp(dev, "/dev/fd/", 8)) {
+		if (opt != FSUC_PROBE && opt != FSUC_GETUUID) {
+				fprintf(stderr, "%s: only support fd during probing or getting voolume uuid", progname);
+				exit(FSUR_INVAL);
+		}
+		/* fs_probe() bellow will handle fdesc file path */
+		strlcpy(rawdev, dev, MAXPATHLEN);
+	} else {
 		exit(FSUR_INVAL);
 	}
-	if (stat(rawdev, &sb)) {
-		fprintf(stderr, "%s: stat %s failed, %s\n", progname, rawdev,
-				strerror(errno));
-		exit(FSUR_INVAL);
-	}
-	err = snprintf(blockdev, sizeof(blockdev), "/dev/%s", dev);
-	if (err >= (int)sizeof(blockdev)) {
-		fprintf(stderr, "%s: Specified device name is too long.\n",
-				progname);
-		exit(FSUR_INVAL);
-	}
-	if (stat(blockdev, &sb)) {
-		fprintf(stderr, "%s: stat %s failed, %s\n", progname, blockdev,
-				strerror(errno));
-		exit(FSUR_INVAL);
-	}
+
 	/* Get the mount point for the mount and unmount cases. */
 	if (opt == FSUC_MOUNT || opt == FSUC_UNMOUNT) {
 		mp = argv[0];
@@ -1341,6 +1379,7 @@ int main(int argc, char **argv)
 				usage(progname);
 		}
 	}
+
 	/* Finally execute the required command. */
 	switch (opt) {
 	case FSUC_GETUUID:

@@ -164,7 +164,14 @@ main(int argc, char *argv[])
 	if ((dotfd = open(".", O_RDONLY | O_CLOEXEC, 0)) < 0)
 		ftsoptions |= FTS_NOCHDIR;
 
+#ifdef __APPLE__
+	ch = find_execute(find_formplan(argv), start);
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+	return (ch);
+#else
 	exit(find_execute(find_formplan(argv), start));
+#endif
 }
 
 static void

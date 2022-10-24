@@ -79,6 +79,16 @@ SVGResources* SVGResourcesCache::cachedResourcesForRenderer(const RenderElement&
     return resourcesCacheFromRenderer(renderer).m_cache.get(&renderer);
 }
 
+static bool hasPaintResourceRequiringRemovalOnClientLayoutChange(RenderSVGResource* resource)
+{
+    return resource && resource->resourceType() == PatternResourceType;
+}
+
+static bool hasResourcesRequiringRemovalOnClientLayoutChange(SVGResources& resources)
+{
+    return resources.masker() || resources.filter() || hasPaintResourceRequiringRemovalOnClientLayoutChange(resources.fill()) || hasPaintResourceRequiringRemovalOnClientLayoutChange(resources.stroke());
+}
+
 void SVGResourcesCache::clientLayoutChanged(RenderElement& renderer)
 {
     auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer);
@@ -87,8 +97,8 @@ void SVGResourcesCache::clientLayoutChanged(RenderElement& renderer)
 
     // Invalidate the resources if either the RenderElement itself changed,
     // or we have filter resources, which could depend on the layout of children.
-    if (renderer.selfNeedsLayout())
-        resources->removeClientFromCache(renderer);
+    if (renderer.selfNeedsLayout() && hasResourcesRequiringRemovalOnClientLayoutChange(*resources))
+        resources->removeClientFromCache(renderer, false);
 }
 
 static inline bool rendererCanHaveResources(RenderObject& renderer)
@@ -102,7 +112,7 @@ void SVGResourcesCache::clientStyleChanged(RenderElement& renderer, StyleDiffere
         return;
 
     // In this case the proper SVGFE*Element will decide whether the modified CSS properties require a relayout or repaint.
-    if (renderer.isSVGResourceFilterPrimitive() && (diff == StyleDifference::Repaint || diff == StyleDifference::RepaintIfTextOrBorderOrOutline))
+    if (renderer.isSVGResourceFilterPrimitive() && (diff == StyleDifference::Repaint || diff == StyleDifference::RepaintIfText))
         return;
 
     // Dynamic changes of CSS properties like 'clip-path' may require us to recompute the associated resources for a renderer.

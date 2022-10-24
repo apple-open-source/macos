@@ -19,6 +19,7 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 @interface OTDeviceInformationActualAdapter ()
 @property CKKSListenerCollection<id<OTDeviceInformationNameUpdateListener>>* deviceNameUpdateListeners;
 @property (assign) SCDynamicStoreRef store;
+@property (retain, nullable) NSString* overriddenMachineID;
 @end
 
 @implementation OTDeviceInformationActualAdapter
@@ -28,6 +29,26 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
         CFRelease(self.store);
         self.store = NULL;
     }
+}
+
+- (void)setOverrideMachineID:(NSString*)machineID
+{
+    self.overriddenMachineID = machineID;
+}
+
+- (BOOL)isMachineIDOverridden
+{
+    return self.overriddenMachineID ? YES : NO;
+}
+
+- (NSString*)getOverriddenMachineID
+{
+    return self.overriddenMachineID;
+}
+
+-(void)clearOverride
+{
+    self.overriddenMachineID = nil;
 }
 
 - (NSString*)modelID
@@ -109,7 +130,7 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 
 - (NSString* _Nullable)serialNumber
 {
-    io_service_t platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
+    io_service_t platformExpert = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
     if (platformExpert == MACH_PORT_NULL) {
         secnotice("octagon", "failed getting serial number (platform IOPlatformExpertDevice)");
         return nil;

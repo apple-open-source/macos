@@ -64,19 +64,19 @@ extern int errno;
       putchar (c); \
   } while (0)
 
-#define PF(f, func) \
+#define PF(f, func, id) \
   do { \
     char *b = 0; \
     int nw; \
     clearerr (stdout); \
     if (have_fieldwidth && have_precision) \
-      nw = asprintf(&b, f, fieldwidth, precision, func); \
+      nw = asprintf(&b, fmtcheck(f, "%*.*"id), fieldwidth, precision, func); \
     else if (have_fieldwidth) \
-      nw = asprintf(&b, f, fieldwidth, func); \
+      nw = asprintf(&b, fmtcheck(f, "%*"id), fieldwidth, func); \
     else if (have_precision) \
-      nw = asprintf(&b, f, precision, func); \
+      nw = asprintf(&b, fmtcheck(f, "%.*"id), precision, func); \
     else \
-      nw = asprintf(&b, f, func); \
+      nw = asprintf(&b, fmtcheck(f, "%"id), func); \
     tw += nw; \
     if (b) \
       { \
@@ -332,9 +332,20 @@ printf_builtin (list)
 	    case 'c':
 	      {
 		char p;
+		char str[2];
 
+		//rdar://84571510: At least on Apple systems, printing %c with
+		// precision and/or field width set is undefined behavior
+		// and the compiler won't let us build.
+		// So, we wrap the char into a string to get it printed correctly
+		// and make fmtcheck() happy, setting *fmt accordingly, then reset
+		// *fmt back to its original value.
 		p = getchr ();
-		PF(start, p);
+		str[0] = p;
+		str[1] = '\0';
+		*fmt = 's';
+		PF(start, str, "s");
+		*fmt = convch;
 		break;
 	      }
 
@@ -343,7 +354,7 @@ printf_builtin (list)
 		char *p;
 
 		p = getstr ();
-		PF(start, p);
+		PF(start, p, "s");
 		break;
 	      }
 
@@ -434,7 +445,7 @@ printf_builtin (list)
 		if (p != pp)
 		  {
 		    f = mklong (start, PRIdMAX, sizeof (PRIdMAX) - 2);
-		    PF (f, pp);
+		    PF (f, pp, "jd");
 		  }
 		else
 		  {
@@ -443,7 +454,7 @@ printf_builtin (list)
 		       long and/or intmax_t library bugs in the common
 		       case, e.g. glibc 2.2 x86.  */
 		    f = mklong (start, "l", 1);
-		    PF (f, p);
+		    PF (f, p, "ld");
 		  }
 		break;
 	      }
@@ -461,12 +472,12 @@ printf_builtin (list)
 		if (p != pp)
 		  {
 		    f = mklong (start, PRIdMAX, sizeof (PRIdMAX) - 2);
-		    PF (f, pp);
+		    PF (f, pp, "ju");
 		  }
 		else
 		  {
 		    f = mklong (start, "l", 1);
-		    PF (f, p);
+		    PF (f, p, "lu");
 		  }
 		break;
 	      }
@@ -487,7 +498,7 @@ printf_builtin (list)
 
 		p = getfloatmax ();
 		f = mklong (start, FLOATMAX_CONV, sizeof(FLOATMAX_CONV) - 1);
-		PF (f, p);
+		PF (f, p, "f");
 		break;
 	      }
 

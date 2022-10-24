@@ -392,6 +392,15 @@ apnoacl:
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			continue;
+#ifdef __APPLE__
+		case FTS_SLNONE:
+			if (!hflag) {
+				rval = 1;
+				warnx("%s: %s", p->fts_path, strerror(ENOENT));
+				continue;
+			}
+			/* FALLTHROUGH */
+#endif
 		default:
 			break;
 		}

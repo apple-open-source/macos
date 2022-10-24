@@ -42,7 +42,6 @@ ignored_files = {
   "testThreads.c": "test tool",
   "testC14N.c": "test tool",
   "testRelax.c": "test tool",
-  "testThreadsWin32.c": "test tool",
   "testSAX.c": "test tool",
   "testURI.c": "test tool",
   "testapi.c": "generated regression tests",
@@ -75,13 +74,14 @@ ignored_words = {
   "__declspec": (3, "Windows keyword"),
   "__stdcall": (0, "Windows keyword"),
   "ATTRIBUTE_UNUSED": (0, "macro keyword"),
+  "ATTRIBUTE_DESTRUCTOR": (0, "macro keyword"),
   "LIBEXSLT_PUBLIC": (0, "macro keyword"),
   "X_IN_Y": (5, "macro function builder"),
   "ATTRIBUTE_ALLOC_SIZE": (3, "macro for gcc checking extension"),
   "ATTRIBUTE_PRINTF": (5, "macro for gcc printf args checking extension"),
   "LIBXML_ATTR_FORMAT": (5, "macro for gcc printf args checking extension"),
   "LIBXML_ATTR_ALLOC_SIZE": (3, "macro for gcc checking extension"),
-  "__XML_EXTERNC": (0, "Special macro added for os400"),
+  "ATTRIBUTE_NO_SANITIZE": (3, "macro keyword"),
 }
 
 def escape(raw):
@@ -808,7 +808,7 @@ class CParser:
         return((args, desc))
 
      #
-     # Parse a comment block and merge the informations found in the
+     # Parse a comment block and merge the information found in the
      # parameters descriptions, finally returns a block as complete
      # as possible
      #
@@ -2114,11 +2114,11 @@ def rebuild():
     if glob.glob("parser.c") != [] :
         print("Rebuilding API description for libxml2")
         builder = docBuilder("libxml2", [".", "."],
-                             ["xmlwin32version.h", "tst.c"])
+                             ["tst.c"])
     elif glob.glob("../parser.c") != [] :
         print("Rebuilding API description for libxml2")
         builder = docBuilder("libxml2", ["..", "../include/libxml"],
-                             ["xmlwin32version.h", "tst.c"])
+                             ["tst.c"])
     elif glob.glob("../libxslt/transform.c") != [] :
         print("Rebuilding API description for libxslt")
         builder = docBuilder("libxslt", ["../libxslt"],

@@ -116,7 +116,7 @@ typedef struct my_per_task_info {
 #define IKOT_HOST_NOTIFY          16
 #define IKOT_HOST_SECURITY        17
 #define IKOT_LEDGER               18
-#define IKOT_MASTER_DEVICE        19
+#define IKOT_MAIN_DEVICE          19
 #define IKOT_TASK_NAME            20
 #define IKOT_SUBSYSTEM            21
 #define IKOT_IO_DONE_QUEUE        22

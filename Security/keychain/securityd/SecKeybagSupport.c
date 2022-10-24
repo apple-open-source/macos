@@ -52,14 +52,12 @@
 /* g_keychain_handle is the keybag handle used for encrypting item in the keychain.
  For testing purposes, it can be set to something other than the default, with SecItemServerSetKeychainKeybag */
 #if USE_KEYSTORE
-#if TARGET_OS_OSX
-keybag_handle_t g_keychain_keybag = session_keybag_handle;
-#else
-keybag_handle_t g_keychain_keybag = device_keybag_handle;
-#endif
+static const keybag_handle_t kDefault_keychain_keybag = user_only_keybag_handle;
 #else /* !USE_KEYSTORE */
-keybag_handle_t g_keychain_keybag = 0; /* 0 == device_keybag_handle, constant dictated by AKS */
+static const keybag_handle_t kDefault_keychain_keybag = 0; /* 0 == device_keybag_handle, constant dictated by AKS */
 #endif /* USE_KEYSTORE */
+
+keybag_handle_t g_keychain_keybag = kDefault_keychain_keybag;
 
 const CFStringRef kSecKSKeyData1 = CFSTR("d1");
 const CFStringRef kSecKSKeyData2 = CFSTR("d2");
@@ -74,15 +72,7 @@ void SecItemServerSetKeychainKeybag(int32_t keybag)
 
 void SecItemServerResetKeychainKeybag(void)
 {
-#if USE_KEYSTORE
-#if TARGET_OS_OSX
-    g_keychain_keybag = session_keybag_handle;
-#else
-    g_keychain_keybag = device_keybag_handle;
-#endif
-#else /* !USE_KEYSTORE */
-    g_keychain_keybag = 0; /* 0 == device_keybag_handle, constant dictated by AKS */
-#endif /* USE_KEYSTORE */
+    g_keychain_keybag = kDefault_keychain_keybag;
 }
 
 static bool merge_der_in_to_data(const void *ed_blob, size_t ed_blob_len, const void *key_blob, size_t key_blob_len, CFMutableDataRef mergedData)
@@ -212,6 +202,12 @@ out:
     }
     if (aks_params) {
         aks_params_free(&aks_params);
+    }
+    if (outDer) {
+        aks_dealloc(outDer, outDerLen);
+    }
+    if (refKey) {
+        aks_ref_key_free(&refKey);
     }
     CFReleaseSafe(ed_data);
     if (aksResult != kAKSReturnSuccess) {

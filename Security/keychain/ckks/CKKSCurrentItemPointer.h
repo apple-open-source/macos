@@ -38,28 +38,49 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSString* currentItemUUID;
 
 - (instancetype)initForIdentifier:(NSString*)identifier
+                        contextID:(NSString*)contextID
                   currentItemUUID:(NSString*)currentItemUUID
                             state:(CKKSProcessedState*)state
                            zoneID:(CKRecordZoneID*)zoneID
                   encodedCKRecord:(NSData* _Nullable)encodedrecord;
 
 + (instancetype)fromDatabase:(NSString*)identifier
+                   contextID:(NSString*)contextID
                        state:(CKKSProcessedState*)state
                       zoneID:(CKRecordZoneID*)zoneID
                        error:(NSError* __autoreleasing*)error;
 + (instancetype)tryFromDatabase:(NSString*)identifier
+                      contextID:(NSString*)contextID
                           state:(CKKSProcessedState*)state
                          zoneID:(CKRecordZoneID*)zoneID
                           error:(NSError* __autoreleasing*)error;
 
-+ (NSArray<CKKSCurrentItemPointer*>*)remoteItemPointers:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (NSArray<CKKSCurrentItemPointer*>*)remoteItemPointers:(CKRecordZoneID*)zoneID
+                                              contextID:(NSString*)contextID
+                                                  error:(NSError* __autoreleasing*)error;
 
-+ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error;
++ (bool)deleteAll:(CKRecordZoneID*)zoneID
+        contextID:(NSString*)contextID
+            error:(NSError* __autoreleasing*)error;
 
-+ (BOOL)intransactionRecordChanged:(CKRecord*)record resync:(BOOL)resync error:(NSError**)error;
-+ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID resync:(BOOL)resync error:(NSError**)error;
++ (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID
+                                     contextID:(NSString*)contextID
+                                         error:(NSError* __autoreleasing*)error;
+
++ (NSInteger)countByState:(CKKSItemState *)state
+                contextID:(NSString*)contextID
+                     zone:(CKRecordZoneID*)zoneID
+                    error:(NSError * __autoreleasing *)error;
+
++ (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
+
++ (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
+                            resync:(BOOL)resync
+                             error:(NSError**)error;
 
 @end
 

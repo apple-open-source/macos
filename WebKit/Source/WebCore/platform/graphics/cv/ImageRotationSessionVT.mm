@@ -27,8 +27,9 @@
 #import "ImageRotationSessionVT.h"
 
 #import "AffineTransform.h"
+#import "CVUtilities.h"
 #import "Logging.h"
-#import "MediaSample.h"
+#import "VideoFrame.h"
 
 #import "CoreVideoSoftLink.h"
 #import "VideoToolboxSoftLink.h"
@@ -59,13 +60,14 @@ static ImageRotationSessionVT::RotationProperties transformToRotationProperties(
     return rotation;
 }
 
-ImageRotationSessionVT::ImageRotationSessionVT(AffineTransform&& transform, FloatSize size, IsCGImageCompatible isCGImageCompatible)
-    : ImageRotationSessionVT(transformToRotationProperties(transform), size, isCGImageCompatible)
+ImageRotationSessionVT::ImageRotationSessionVT(AffineTransform&& transform, FloatSize size, IsCGImageCompatible isCGImageCompatible, ShouldUseIOSurface shouldUseIOSurface)
+    : ImageRotationSessionVT(transformToRotationProperties(transform), size, isCGImageCompatible, shouldUseIOSurface)
 {
     m_transform = WTFMove(transform);
 }
 
-ImageRotationSessionVT::ImageRotationSessionVT(const RotationProperties& rotation, FloatSize size, IsCGImageCompatible isCGImageCompatible)
+ImageRotationSessionVT::ImageRotationSessionVT(const RotationProperties& rotation, FloatSize size, IsCGImageCompatible isCGImageCompatible, ShouldUseIOSurface shouldUseIOSurface)
+    : m_shouldUseIOSurface(shouldUseIOSurface == ShouldUseIOSurface::Yes)
 {
     initialize(rotation, size, isCGImageCompatible);
 }
@@ -80,6 +82,7 @@ void ImageRotationSessionVT::initialize(const RotationProperties& rotation, Floa
         size = size.transposedSize();
 
     m_rotatedSize = expandedIntSize(size);
+    m_rotationPool = nullptr;
 
     VTImageRotationSessionRef rawRotationSession = nullptr;
     VTImageRotationSessionCreate(kCFAllocatorDefault, m_rotationProperties.angle, &rawRotationSession);
@@ -97,21 +100,14 @@ RetainPtr<CVPixelBufferRef> ImageRotationSessionVT::rotate(CVPixelBufferRef pixe
     auto pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer);
     if (pixelFormat != m_pixelFormat || !m_rotationPool) {
         m_pixelFormat = pixelFormat;
-        auto pixelAttributes = @{
-            (__bridge NSString *)kCVPixelBufferWidthKey: @(m_rotatedSize.width()),
-            (__bridge NSString *)kCVPixelBufferHeightKey: @(m_rotatedSize.height()),
-            (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(m_pixelFormat),
-            (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey: (m_isCGImageCompatible == IsCGImageCompatible::Yes ? @YES : @NO),
-            (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ }
-        };
+        auto bufferPool = createCVPixelBufferPool(m_rotatedSize.width(), m_rotatedSize.height(), m_pixelFormat, 0u, m_isCGImageCompatible == IsCGImageCompatible::Yes, m_shouldUseIOSurface);
 
-        CVPixelBufferPoolRef rawPool = nullptr;
-        if (auto err = CVPixelBufferPoolCreate(kCFAllocatorDefault, nullptr, (__bridge CFDictionaryRef)pixelAttributes, &rawPool); err != noErr) {
-            RELEASE_LOG_ERROR(WebRTC, "ImageRotationSessionVT failed creating buffer pool with error %d", err);
+        if (!bufferPool) {
+            RELEASE_LOG_ERROR(WebRTC, "ImageRotationSessionVT failed creating buffer pool with error %d", (int)bufferPool.error());
             return nullptr;
         }
 
-        m_rotationPool = adoptCF(rawPool);
+        m_rotationPool = WTFMove(*bufferPool);
     }
 
     RetainPtr<CVPixelBufferRef> result;
@@ -132,9 +128,9 @@ RetainPtr<CVPixelBufferRef> ImageRotationSessionVT::rotate(CVPixelBufferRef pixe
     return result;
 }
 
-RetainPtr<CVPixelBufferRef> ImageRotationSessionVT::rotate(MediaSample& sample, const RotationProperties& rotation, IsCGImageCompatible cgImageCompatible)
+RetainPtr<CVPixelBufferRef> ImageRotationSessionVT::rotate(VideoFrame& videoFrame, const RotationProperties& rotation, IsCGImageCompatible cgImageCompatible)
 {
-    auto pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(sample.platformSample().sample.cmSampleBuffer));
+    auto pixelBuffer = videoFrame.pixelBuffer();
     ASSERT(pixelBuffer);
     if (!pixelBuffer)
         return nullptr;

@@ -29,6 +29,18 @@ INSTALLHDRS_SCRIPT_PHASE = YES
 
 GCC_OPTIMIZATION_LEVEL = s
 
+GCC_STRICT_ALIASING = YES
+GCC_WARN_SHADOW = YES
+GCC_WARN_ABOUT_RETURN_TYPE = YES
+GCC_WARN_ABOUT_MISSING_NEWLINE = YES
+GCC_WARN_UNUSED_PARAMETER = NO
+GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES
+GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES
+GCC_WARN_UNINITIALIZED_AUTOS = YES
+CLANG_WARN_EMPTY_BODY = YES
+GCC_TREAT_WARNINGS_AS_ERRORS = YES
+WARNING_CFLAGS = -Wall -Waggregate-return -Wfloat-equal -Wpacked -Wmissing-declarations -Wstrict-aliasing=2 -Wno-unknown-warning-option -Wno-atomic-implicit-seq-cst -Wformat=2
+
 // TODO: Remove -fno-stack-protector once it has been moved down (after libproc is moved down)
 OTHER_CFLAGS = -fno-stack-protector -fdollars-in-identifiers -fno-common -fverbose-asm $(COMPILER_CFLAGS) $(PLATFORM_CFLAGS)
 OTHER_CFLAGS_normal = -momit-leaf-frame-pointer

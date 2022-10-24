@@ -92,6 +92,7 @@ providers/tst.twoprof.d
 stack/tst.default.d
 stackdepth/tst.default.d
 ## syscall/tst.openret.ksh						/* RADAR 4487709: Awaits "dtrace -c". */
+syscall/tst.machtrap.d
 tick-n/tst.tickarg0.d
 tick-n/tst.tickms.d
 tick-n/tst.tickmsec.d

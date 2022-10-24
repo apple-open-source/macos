@@ -76,7 +76,7 @@ __private_extern__ CFRunLoopSourceRef _io_SCDynamicStoreCreateRunLoopSource(
 
 __private_extern__ CFStringRef _io_SCDynamicStoreKeyCreate(
     CFAllocatorRef              allocator,
-    CFStringRef                 fmt, ...);
+    CFStringRef                 fmt, ...) CF_FORMAT_FUNCTION(2,3);
 #define SCDynamicStoreKeyCreate             _io_SCDynamicStoreKeyCreate    
 
 __private_extern__ CFStringRef _io_SCDynamicStoreKeyCreatePreferences(

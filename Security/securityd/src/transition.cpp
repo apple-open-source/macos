@@ -30,7 +30,6 @@
 // conspiracy that is securityd, anchored in the Server object.
 //
 #include <securityd_client/ss_types.h>
-#include <securityd_client/ucsp.h>
 #include "server.h"
 #include "session.h"
 #include "agentquery.h"
@@ -58,6 +57,10 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPropertyList.h>
+
+#define mig_external extern "C"
+#include "ucspServer.h"
+#undef mig_external
 
 //
 // Bracket Macros

@@ -69,7 +69,7 @@ extern struct one_test_s testlist[];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-function"
 // Call this function to stop the analyzer on a test failure. No-op.
-static void test_failed_noreturn() __attribute((analyzer_noreturn)) {
+static void test_failed_noreturn(void) __attribute((analyzer_noreturn)) {
     // No-op.
 }
 #define TEST_CHECK(result) ((result) ? 1 : ({ test_failed_noreturn(); 0; }))

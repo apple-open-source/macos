@@ -5531,7 +5531,7 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 	struct filefork *fp;
 	struct buf *bp = NULL;
 	char *datap;
-	int started_tr = 0;
+	int started_tr = 0, locked_cp = 0;
 	u_int32_t len;
 	int error;
 
@@ -5559,6 +5559,7 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 	if ((error = hfs_lock(VTOC(vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
 		goto out;
 	}
+	locked_cp = 1;
 	cp = VTOC(vp);
 	fp = VTOF(vp);
 
@@ -5602,11 +5603,12 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 
 		if (hfs_start_transaction(hfsmp) != 0) {
 			started_tr = 0;
-			hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
-			goto out;
+		} else {
+			(void) hfs_removefile(dvp, vp, ap->a_cnp, 0, 0, 0, NULL, 0);
 		}
-		
-		(void) hfs_removefile(dvp, vp, ap->a_cnp, 0, 0, 0, NULL, 0);
+
+		hfs_unlock(cp);
+		locked_cp = 0;
 		hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
 		goto out;	
 	}
@@ -5629,7 +5631,7 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 out:
 	if (started_tr)
 	    hfs_end_transaction(hfsmp);
-	if ((cp != NULL) && (vp != NULL)) {
+	if (locked_cp != 0) {
 		hfs_unlock(cp);
 	}
 	if (error) {

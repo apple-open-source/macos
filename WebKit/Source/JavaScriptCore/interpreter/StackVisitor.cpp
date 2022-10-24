@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -267,7 +267,7 @@ std::optional<RegisterAtOffsetList> StackVisitor::Frame::calleeSaveRegistersForU
     }
 
     if (callee().isCell()) {
-        if (auto* jsToWasmICCallee = jsDynamicCast<JSToWasmICCallee*>(callee().asCell()->vm(), callee().asCell()))
+        if (auto* jsToWasmICCallee = jsDynamicCast<JSToWasmICCallee*>(callee().asCell()))
             return jsToWasmICCallee->function()->usedCalleeSaveRegisters();
     }
 #endif // ENABLE(WEBASSEMBLY)
@@ -462,7 +462,7 @@ void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, WTF::Function<
         out.print(indent, "callerFrame: ", RawPointer(callerFrame), "\n");
         uintptr_t locationRawBits = callFrame->callSiteAsRawBits();
         out.print(indent, "rawLocationBits: ", locationRawBits,
-            " ", RawPointer(reinterpret_cast<void*>(locationRawBits)), "\n");
+            " ", RawHex(locationRawBits), "\n");
         out.print(indent, "codeBlock: ", RawPointer(codeBlock));
         if (codeBlock)
             out.print(" ", *codeBlock);

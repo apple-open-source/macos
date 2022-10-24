@@ -270,7 +270,8 @@ public:
      *          "result".
      * @stable ICU 3.8
      */
-    UBool getStartInYear(int32_t year, int32_t prevRawOffset, int32_t prevDSTSavings, UDate& result) const;
+    // FIXME: unimplemented
+    //UBool getStartInYear(int32_t year, int32_t prevRawOffset, int32_t prevDSTSavings, UDate& result) const;
 
     /**
      * Returns if this rule represents the same rule and offsets as another.

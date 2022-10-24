@@ -51,7 +51,7 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleLoad) (const CSSM_GUID *CssmGuid,
     plugin().moduleLoad(Guid::required(CssmGuid),
         Guid::required(ModuleGuid),
         ModuleCallback(CssmNotifyCallback, CssmNotifyCallbackCtx));
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleUnload) (const CSSM_GUID *CssmGuid,
@@ -68,7 +68,7 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleUnload) (const CSSM_GUID *CssmGuid,
     plugin().moduleUnload(Guid::required(CssmGuid),
         Guid::required(ModuleGuid),
         ModuleCallback(CssmNotifyCallback, CssmNotifyCallbackCtx));
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleAttach) (const CSSM_GUID *ModuleGuid,
@@ -110,7 +110,7 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleAttach) (const CSSM_GUID *ModuleGui
         KeyHierarchy,
         Required(Upcalls),
         Required(FuncTbl));
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleDetach) (CSSM_MODULE_HANDLE ModuleHandle);
@@ -119,5 +119,5 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleDetach) (CSSM_MODULE_HANDLE ModuleH
 {
     BEGIN_API_NO_METRICS
     plugin().moduleDetach(ModuleHandle);
-    END_API(CSSM)
+    END_API_NO_METRICS(CSSM)
 }

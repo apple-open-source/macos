@@ -114,7 +114,7 @@ bool DYLDCache::validate(UnixPlusPlus::FileDesc &fd)
 DYLDCache::Mapping DYLDCache::mapping(unsigned ix) const
 {
 	assert(ix < this->mappingCount());
-	return Mapping(*this, flip(mHeader->mappingOffset) + ix * sizeof(shared_file_mapping_np));
+	return Mapping(*this, flip(mHeader->mappingOffset) + ix * sizeof(dyld_cache_mapping_info));
 }
 
 

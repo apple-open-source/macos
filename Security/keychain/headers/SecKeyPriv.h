@@ -38,7 +38,7 @@
 #include <Security/SecAsn1Types.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#if TARGET_OS_OSX
+#if SEC_OS_OSX_INCLUDES
 #include <Security/x509defs.h>
 #endif
 
@@ -514,11 +514,13 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
     @discussion Warning: this function is NOT intended for use outside the Security stack in its current state. <rdar://3201885>
 */
 OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef)
-SPI_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14));
+SPI_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
+#if TARGET_OS_OSX
 // Alias macOS versions of this deprecated SPI to unique macOS names. Undecorated names are used for macCatalyst.
 #define SecKeyRawSign SecKeyRawSign_macOS
 #define SecKeyRawVerify SecKeyRawVerify_macOS
+#endif
 
 CF_IMPLICIT_BRIDGING_ENABLED
 

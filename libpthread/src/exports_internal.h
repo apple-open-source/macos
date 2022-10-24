@@ -126,6 +126,12 @@ OS_EXPORT void _pthread_fork_parent(void);
 OS_EXPORT void _pthread_fork_child(void);
 OS_EXPORT void _pthread_fork_child_postinit(void);
 
+#pragma mark - symbols exported for the shared cache builder
+
+/* Static pthread key range that the shared cache builder can use for __thread support */
+extern const uint32_t _pthread_tsd_shared_cache_first;
+extern const uint32_t _pthread_tsd_shared_cache_last;
+
 #pragma mark - TAPI
 #ifdef __clang_tapi__
 

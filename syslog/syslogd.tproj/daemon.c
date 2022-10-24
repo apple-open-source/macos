@@ -45,7 +45,6 @@
 
 #include "daemon.h"
 
-
 #define LIST_SIZE_DELTA 256
 #define STATS_TABLE_SIZE 256
 
@@ -916,7 +915,6 @@ control_message(asl_msg_t *msg)
 	return 0;
 }
 
-
 void
 process_message(asl_msg_t *msg, uint32_t source)
 {
@@ -974,7 +972,6 @@ process_message(asl_msg_t *msg, uint32_t source)
 		status = aslmsg_verify(msg, source, &kplevel, &uid);
 		if (status == VERIFY_STATUS_OK)
 		{
-
 			if ((source == SOURCE_KERN) && (kplevel >= 0))
 			{
 				if (kplevel > 7) kplevel = 7;

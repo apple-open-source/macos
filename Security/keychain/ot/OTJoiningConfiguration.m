@@ -37,8 +37,6 @@ NS_ASSUME_NONNULL_BEGIN
                       uniqueDeviceID:(NSString*)uniqueDeviceID
                       uniqueClientID:(NSString*)uniqueClientID
                          pairingUUID:(NSString* _Nullable)pairingUUID
-                       containerName:(NSString* _Nullable)containerName
-                           contextID:(NSString*)contextID
                                epoch:(uint64_t)epoch
                          isInitiator:(BOOL)isInitiator
 {
@@ -46,8 +44,6 @@ NS_ASSUME_NONNULL_BEGIN
         self.protocolType = protocolType;
         self.uniqueDeviceID = uniqueDeviceID;
         self.uniqueClientID = uniqueClientID;
-        self.contextID = contextID;
-        self.containerName = containerName;
         self.isInitiator = isInitiator;
         self.pairingUUID = pairingUUID;
         self.epoch = epoch;
@@ -61,8 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
     [coder encodeObject:_protocolType forKey:@"protocolType"];
     [coder encodeObject:_uniqueClientID forKey:@"uniqueClientID"];
     [coder encodeObject:_uniqueDeviceID forKey:@"uniqueDeviceID"];
-    [coder encodeObject:_contextID forKey:@"contextID"];
-    [coder encodeObject:_containerName forKey:@"containerName"];
     [coder encodeBool:_isInitiator forKey:@"isInitiator"];
     [coder encodeObject:_pairingUUID forKey:@"pairingUUID"];
     [coder encodeInt64:_epoch forKey:@"epoch"];
@@ -74,8 +68,6 @@ NS_ASSUME_NONNULL_BEGIN
         _protocolType = [decoder decodeObjectOfClass:[NSString class] forKey:@"protocolType"];
         _uniqueClientID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueClientID"];
         _uniqueDeviceID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueDeviceID"];
-        _contextID = [decoder decodeObjectOfClass:[NSString class] forKey:@"contextID"];
-        _containerName = [decoder decodeObjectOfClass:[NSString class] forKey:@"containerName"];
         _isInitiator = [decoder decodeBoolForKey:@"isInitiator"];
         _pairingUUID = [decoder decodeObjectOfClass:[NSString class] forKey:@"pairingUUID"];
         _epoch = [decoder decodeInt64ForKey:@"epoch"];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,6 @@
 #include "trust/trustd/trustdVariants.h"
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCMS.h>
-#include <Security/CMSDecoder.h>
 #include <Security/SecFramework.h>
 #include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
@@ -59,6 +58,7 @@
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecDbInternal.h>
 #include <sqlite3.h>
 #include <zlib.h>
 #include <malloc/malloc.h>
@@ -233,8 +233,11 @@ static CFStringRef kUpdateServerKey         = CFSTR("ValidUpdateServer");
 static CFStringRef kUpdateEnabledKey        = CFSTR("ValidUpdateEnabled");
 static CFStringRef kVerifyEnabledKey        = CFSTR("ValidVerifyEnabled");
 static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
+static CFStringRef kUpdateGenerationKey     = CFSTR("ValidUpdateGeneration");
 static CFStringRef kBoolTrueKey             = CFSTR("1");
 static CFStringRef kBoolFalseKey            = CFSTR("0");
+CFIndex kValidUpdateCurrentGeneration = 4;
+CFIndex kValidUpdateOldGeneration = 3;
 
 /* constant length of boolean string keys */
 #define BOOL_STRING_KEY_LENGTH          1
@@ -324,8 +327,9 @@ struct __SecRevocationDbConnection {
 };
 
 bool SecRevocationDbVerifyUpdate(void *update, CFIndex length);
-bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex chunkVersion, CFIndex *outVersion, CFErrorRef *error);
-bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex version, CFErrorRef *error);
+bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex chunkVersion, CFIndex *outVersion, CFIndex generation, CFErrorRef *error);
+bool SecRevocationDbCheckGeneration(CFDictionaryRef update, CFIndex *generation, CFErrorRef *error);
+bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex version, CFIndex generation, CFErrorRef *error);
 CFAbsoluteTime SecRevocationDbComputeNextUpdateTime(CFIndex updateInterval);
 bool SecRevocationDbUpdateSchema(SecRevocationDbRef rdb);
 CFIndex SecRevocationDbGetUpdateFormat(void);
@@ -608,7 +612,8 @@ static bool copyFilterComponents(CFDataRef xmlData, CFDataRef * CF_RETURNS_RETAI
 CFAbsoluteTime gUpdateStarted = 0.0;
 CFAbsoluteTime gNextUpdate = 0.0;
 static CFIndex gUpdateInterval = 0;
-static CFIndex gLastVersion = 0;
+static _Atomic CFIndex gLastVersion = ATOMIC_VAR_INIT(0);
+static _Atomic int64_t gSchemaVersion = ATOMIC_VAR_INIT(-1);
 
 /* Update Format:
     1. The length of the signed data, as a 4-byte integer in network byte order.
@@ -631,6 +636,7 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
     }
     CFIndex version = 0;
     CFIndex interval = 0;
+    CFIndex generation = 0;
     const UInt8* p = CFDataGetBytePtr(updateData);
     size_t bytesRemaining = (p) ? (size_t)CFDataGetLength(updateData) : 0;
     /* make sure there is enough data to contain length and count */
@@ -682,8 +688,13 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
         if (isDictionary(propertyList)) {
             secdebug("validupdate", "Ingesting plist chunk %u of %u, length: %u",
                     plistProcessed, plistTotal, plistLength);
+            if ((plistProcessed == 1) && (!SecRevocationDbCheckGeneration(propertyList, &generation, &localError))) {
+                // skip remaining plists, we received wrong generation
+                CFReleaseSafe(propertyList);
+                return true;
+            }
             CFIndex curVersion = -1;
-            ok = ok && SecRevocationDbIngestUpdate(dbc, (CFDictionaryRef)propertyList, version, &curVersion, &localError);
+            ok = ok && SecRevocationDbIngestUpdate(dbc, (CFDictionaryRef)propertyList, version, &curVersion, generation, &localError);
             if (plistProcessed == 1) {
                 dbc->precommitVersion = version = curVersion;
                 // get server-provided interval
@@ -718,7 +729,7 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
 
     if (ok && version > 0) {
         secdebug("validupdate", "Update received: v%ld", (long)version);
-        gLastVersion = version;
+        atomic_store(&gLastVersion, version);
         gNextUpdate = SecRevocationDbComputeNextUpdateTime(interval);
         secdebug("validupdate", "Next update time: %f", gNextUpdate);
         result = true;
@@ -835,7 +846,7 @@ static bool SecValidUpdateForceReplaceDatabase(void) {
     return result;
 }
 
-static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, bool safeToReplace) {
+static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, CFIndex generation, bool safeToReplace) {
     __block bool result = false;
     SecOTAPKIRef otapkiRef = NULL;
     bool relaunching = false;
@@ -863,10 +874,11 @@ static bool SecValidUpdateSatisfiedLocally(CFStringRef server, CFIndex version, 
     }
     CFIndex assetVersion = SecOTAPKIGetValidSnapshotVersion(otapkiRef);
     CFIndex assetFormat = SecOTAPKIGetValidSnapshotFormat(otapkiRef);
-    // version <= 0 means the database is invalid or empty.
+    CFIndex assetGeneration = SecOTAPKIGetValidSnapshotGeneration(otapkiRef);
+    // generation/version <= 0 means the database is invalid or empty.
     // version > 0 means we have some version, but we need to see if a
     // newer version is available as a local asset.
-    if (assetVersion <= version || assetFormat < kSecValidUpdateFormatG3) {
+    if (assetGeneration <= generation || assetVersion <= version || assetFormat < kSecValidUpdateFormatG3) {
         // asset is not newer than ours, or its version is unknown
         goto updateExit;
     }
@@ -902,7 +914,7 @@ updateExit:
     CFReleaseNull(otapkiRef);
     if (result) {
         sNumLocalUpdates++;
-        gLastVersion = SecRevocationDbGetVersion();
+        atomic_store(&gLastVersion, SecRevocationDbGetVersion());
         // note: snapshot should already have latest schema and production source,
         // but set it here anyway so we don't keep trying to replace the db.
         SecRevocationDbWith(^(SecRevocationDbRef db) {
@@ -911,7 +923,7 @@ updateExit:
         });
         gUpdateStarted = 0;
         secdebug("validupdate", "local update to g%ld/v%ld complete at %f",
-                 (long)SecRevocationDbGetUpdateFormat(), (long)gLastVersion,
+                 (long)SecRevocationDbGetUpdateFormat(), (long)atomic_load(&gLastVersion),
                  (double)CFAbsoluteTimeGetCurrent());
     } else {
         sNumLocalUpdates = 0; // reset counter
@@ -925,7 +937,8 @@ updateExit:
 
 static bool SecValidUpdateSchedule(bool updateEnabled, CFStringRef server, CFIndex version) {
     /* Check if we have a later version available locally */
-    if (SecValidUpdateSatisfiedLocally(server, version, false)) {
+    CFIndex localGeneration = SecRevocationDbGetLocalGeneration();
+    if (SecValidUpdateSatisfiedLocally(server, version, localGeneration, false)) {
         return true;
     }
 
@@ -978,10 +991,37 @@ static CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyServer(void) {
     return server;
 }
 
-void SecRevocationDbInitialize() {
-    if (!isDbOwner() || !TrustdVariantAllowsFileWrite()) { return; }
+CFIndex SecRevocationDbGetGeneration(void) {
+    CFTypeRef value = CFPreferencesCopyAppValue(kUpdateGenerationKey, kSecPrefsDomain);
+    if (!value) {
+        value = CFPreferencesCopyValue(kUpdateGenerationKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    }
+    CFIndex generation;
+    if (!isNumber(value) || !CFNumberGetValue(value, kCFNumberCFIndexType, &generation)) {
+        generation = kValidUpdateCurrentGeneration;
+    }
+    CFReleaseNull(value);
+    return generation;
+}
+
+void SecRevocationDbSetGeneration(CFIndex generation)
+{
+    kValidUpdateCurrentGeneration = generation;
+}
+
+static void SecRevocationDbLogVersions(void) {
+    secinfo("validupdate", "starting service with g%ld, v%ld, schema v%ld",
+            (long)SecRevocationDbGetLocalGeneration(), (long)SecRevocationDbGetVersion(), (long)SecRevocationDbGetSchemaVersion());
+}
+
+void SecRevocationDbInitialize(void) {
     os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.initialize");
     __block bool initializeDb = false;
+    if (!isDbOwner() || !TrustdVariantAllowsFileWrite()) {
+        SecRevocationDbLogVersions();
+        os_release(transaction);
+        return; /* database might not exist, but nothing we can do about it */
+    }
 
     /* create base path if it doesn't exist */
     WithPathInRevocationInfoDirectory(NULL, ^(const char *utf8String) {
@@ -1018,6 +1058,7 @@ void SecRevocationDbInitialize() {
     });
 
     if (!initializeDb) {
+        SecRevocationDbLogVersions();
         os_release(transaction);
         return; /* database exists and doesn't need replacing */
     }
@@ -1025,12 +1066,14 @@ void SecRevocationDbInitialize() {
     /* initialize database from local asset */
     CFStringRef server = SecRevocationDbCopyServer();
     CFIndex version = 0;
+    CFIndex generation = 0;
     secnotice("validupdate", "initializing database");
-    if (!SecValidUpdateSatisfiedLocally(server, version, true) && TrustdVariantAllowsNetwork()) {
+    if (!SecValidUpdateSatisfiedLocally(server, version, generation, true) && TrustdVariantAllowsNetwork()) {
         /* Schedule full update as a maintenance task */
         (void)SecValidUpdateRequest(SecRevocationDbGetUpdateQueue(), server, version);
     }
     CFReleaseSafe(server);
+    SecRevocationDbLogVersions();
     os_release(transaction);
 }
 
@@ -1156,12 +1199,13 @@ static CFStringRef SecValidInfoCopyFormatDescription(CFTypeRef cf, CFDictionaryR
 static CFIndex _SecRevocationDbGetUpdateVersion(CFStringRef server) {
     // determine version of our current database
     CFIndex version = SecRevocationDbGetVersion();
-    secdebug("validupdate", "got version %ld from db", (long)version);
+    CFIndex generation = SecRevocationDbGetLocalGeneration();
+    secdebug("validupdate", "got version %ld generation %ld from db", (long)version, (long)generation);
     if (version <= 0) {
-        if (gLastVersion > 0) {
-            secdebug("validupdate", "error getting version; using last good version: %ld", (long)gLastVersion);
+        if (atomic_load(&gLastVersion) > 0) {
+            secdebug("validupdate", "error getting version; using last good version: %ld", (long)atomic_load(&gLastVersion));
         }
-        version = gLastVersion;
+        version = atomic_load(&gLastVersion);
     }
 
     // determine source of our current database
@@ -1174,11 +1218,15 @@ static CFIndex _SecRevocationDbGetUpdateVersion(CFStringRef server) {
     // determine whether we need to recreate the database
     CFIndex db_version = SecRevocationDbGetSchemaVersion();
     CFIndex db_format = SecRevocationDbGetUpdateFormat();
+    CFIndex newGen = SecRevocationDbGetGeneration();
     if (db_version < kSecRevocationDbSchemaVersion ||
         db_format < kSecRevocationDbUpdateFormat ||
-        kCFCompareEqualTo != CFStringCompare(server, db_source, kCFCompareCaseInsensitive)) {
+        kCFCompareEqualTo != CFStringCompare(server, db_source, kCFCompareCaseInsensitive) ||
+        generation != newGen) {
         // we need to fully rebuild the db contents, so we set our version to 0.
-        version = gLastVersion = 0;
+        version = 0;
+        atomic_store(&gLastVersion, version);
+        secnotice("validupdate", "Recreate VALID db generation %ld from previous %ld", (long)newGen, (long)generation);
     }
     CFReleaseNull(db_source);
     return version;
@@ -1332,33 +1380,21 @@ bool SecRevocationDbVerifyUpdate(void *update, CFIndex length) {
         return false;
     }
 
-    OSStatus status = 0;
-    CMSSignerStatus signerStatus;
-    CMSDecoderRef cms = NULL;
+    OSStatus status = errSecInternalError;
     SecPolicyRef policy = NULL;
     SecTrustRef trust = NULL;
     CFDataRef content = NULL;
+    CFDataRef signature = NULL;
+
+    if ((signature = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        (const UInt8 *)sigData, (CFIndex)sigLength, kCFAllocatorNull)) == NULL) {
+        secdebug("validupdate", "CFDataCreateWithBytesNoCopy failed (%ld bytes)\n", (long)sigLength);
+        goto verifyExit;
+    }
 
     if ((content = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
         (const UInt8 *)plistData, (CFIndex)plistLength, kCFAllocatorNull)) == NULL) {
         secdebug("validupdate", "CFDataCreateWithBytesNoCopy failed (%ld bytes)\n", (long)plistLength);
-        return false;
-    }
-
-    if ((status = CMSDecoderCreate(&cms)) != errSecSuccess) {
-        secdebug("validupdate", "CMSDecoderCreate failed with error %d\n", (int)status);
-        goto verifyExit;
-    }
-    if ((status = CMSDecoderUpdateMessage(cms, sigData, sigLength)) != errSecSuccess) {
-        secdebug("validupdate", "CMSDecoderUpdateMessage failed with error %d\n", (int)status);
-        goto verifyExit;
-    }
-    if ((status = CMSDecoderSetDetachedContent(cms, content)) != errSecSuccess) {
-        secdebug("validupdate", "CMSDecoderSetDetachedContent failed with error %d\n", (int)status);
-        goto verifyExit;
-    }
-    if ((status = CMSDecoderFinalizeMessage(cms)) != errSecSuccess) {
-        secdebug("validupdate", "CMSDecoderFinalizeMessage failed with error %d\n", (int)status);
         goto verifyExit;
     }
 
@@ -1366,34 +1402,27 @@ bool SecRevocationDbVerifyUpdate(void *update, CFIndex length) {
                 CFSTR("1.2.840.113635.100.6.2.10"), // System Integration 2 Intermediate Certificate
                 CFSTR("1.2.840.113635.100.6.51"));  // Valid update signing OID
 
-    // Check that the first signer actually signed this message.
-    if ((status = CMSDecoderCopySignerStatus(cms, 0, policy,
-            false, &signerStatus, &trust, NULL)) != errSecSuccess) {
-        secdebug("validupdate", "CMSDecoderCopySignerStatus failed with error %d\n", (int)status);
+    if ((status = SecCMSVerify(signature, content, policy, &trust, NULL)) != errSecSuccess) {
+        secerror("failed to verify Valid Update: %d", (int)status);
         goto verifyExit;
     }
-    // Make sure the signature verifies against the detached content
-    if (signerStatus != kCMSSignerValid) {
-        secdebug("validupdate", "ERROR: signature did not verify (signer status %d)\n", (int)signerStatus);
-        status = errSecInvalidSignature;
-        goto verifyExit;
-    }
+
     // Make sure the signing certificate is valid for the specified policy
     SecTrustResultType trustResult = kSecTrustResultInvalid;
-    status = SecTrustEvaluate(trust, &trustResult);
+    status = SecTrustGetTrustResult(trust, &trustResult);
     if (status != errSecSuccess) {
         secdebug("validupdate", "SecTrustEvaluate failed with error %d (trust=%p)\n", (int)status, (void *)trust);
     } else if (!(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed)) {
-        secdebug("validupdate", "SecTrustEvaluate failed with trust result %d\n", (int)trustResult);
+        secerror("Valid Update SecTrustEvaluate failed with trust result %d\n", (int)trustResult);
         status = errSecVerificationFailure;
         goto verifyExit;
     }
 
 verifyExit:
     CFReleaseSafe(content);
+    CFReleaseSafe(signature);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);
-    CFReleaseSafe(cms);
 
     return (status == errSecSuccess);
 }
@@ -1411,7 +1440,6 @@ CFAbsoluteTime SecRevocationDbComputeNextUpdateTime(CFIndex updateInterval) {
         interval = kSecStdUpdateInterval;
     }
 
-    // sanity check
     if (interval < kSecMinUpdateInterval) {
         interval = kSecMinUpdateInterval;
     } else if (interval > kSecMaxUpdateInterval) {
@@ -1431,7 +1459,33 @@ void SecRevocationDbComputeAndSetNextUpdateTime(void) {
     gUpdateStarted = 0; /* no update is currently in progress */
 }
 
-bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex chunkVersion, CFIndex *outVersion, CFErrorRef *error) {
+bool SecRevocationDbCheckGeneration(CFDictionaryRef update, CFIndex *generation, CFErrorRef *error) {
+    bool ok = false;
+    CFErrorRef localError = NULL;
+    CFIndex recvGeneration = 0;
+    if (!update) {
+        SecError(errSecParam, &localError, CFSTR("SecRevocationDbCheckGeneration: invalid update parameter"));
+        return ok;
+    }
+    CFTypeRef value = (CFNumberRef)CFDictionaryGetValue(update, CFSTR("generation"));
+    CFIndex expectedGeneration = SecRevocationDbGetGeneration();
+    if (isNumber(value)) {
+        if (CFNumberGetValue((CFNumberRef)value, kCFNumberCFIndexType, &recvGeneration)) {
+            if (expectedGeneration == recvGeneration) {
+                secdebug("validupdate", "SecRevocationDbCheckGeneration: update has generation %ld", (long)recvGeneration);
+                ok = true;
+                *generation = recvGeneration;
+            }
+        }
+    }
+    if (!ok) {
+        secnotice("validupdate", "valid generation received %ld is different from requested %ld",
+                 (long)recvGeneration, (long)expectedGeneration);
+    }
+    return ok;
+}
+
+bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex chunkVersion, CFIndex *outVersion, CFIndex generation, CFErrorRef *error) {
     bool ok = false;
     CFIndex version = 0;
     CFErrorRef localError = NULL;
@@ -1453,7 +1507,7 @@ bool SecRevocationDbIngestUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryR
     // check precommitted version since update hasn't been committed yet
     CFIndex curVersion = dbc->precommitVersion;
     if (version > curVersion || chunkVersion > 0) {
-        ok = _SecRevocationDbApplyUpdate(dbc, update, version, &localError);
+        ok = _SecRevocationDbApplyUpdate(dbc, update, version, generation, &localError);
         secdebug("validupdate", "_SecRevocationDbApplyUpdate=%s, v%ld, precommit=%ld, full=%s",
                  (ok) ? "1" : "0", (long)version, (long)dbc->precommitVersion,
                  (dbc->fullUpdate) ? "1" : "0");
@@ -1572,6 +1626,8 @@ setVersionAndExit:
     "FROM issuers WHERE issuer_hash=?")
 #define selectVersionSQL CFSTR("SELECT ival FROM admin " \
     "WHERE key='version'")
+#define selectGenerationSQL CFSTR("SELECT ival FROM admin " \
+    "WHERE key='generation'")
 #define selectDbVersionSQL CFSTR("SELECT ival FROM admin " \
     "WHERE key='db_version'")
 #define selectDbFormatSQL CFSTR("SELECT ival FROM admin " \
@@ -1647,7 +1703,7 @@ static SecDbRef SecRevocationDbCreate(CFStringRef path) {
     __block bool readWrite = isDbOwner();
     mode_t mode = 0644;
 
-    SecDbRef result = SecDbCreate(path, mode, readWrite, false, true, true, 1, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
+    SecDbRef result = SecDbCreate(path, mode, readWrite, false, true, true, kSecDbTrustdMaxIdleHandles, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
         __block bool ok = true;
         if (readWrite) {
             ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
@@ -1791,7 +1847,7 @@ static SecRevocationDbConnectionRef SecRevocationDbConnectionInit(SecRevocationD
         dbc->db = db;
         dbc->dbconn = dbconn;
         dbc->precommitVersion = (CFIndex)_SecRevocationDbGetVersion(dbc, &localError);
-        dbc->precommitDbVersion = (CFIndex)_SecRevocationDbGetSchemaVersion(db, dbc, &localError);
+        dbc->precommitDbVersion = (CFIndex)atomic_load(&gSchemaVersion); /* avoids potential recursion */
         dbc->precommitInterval = 0; /* set only if we are explicitly given a new value */
         dbc->fullUpdate = false;
     }
@@ -2046,6 +2102,51 @@ static bool _SecRevocationDbSetVersion(SecRevocationDbConnectionRef dbc, CFIndex
     return ok;
 }
 
+static int64_t _SecRevocationDbGetLocalGeneration(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    /* look up version entry in admin table; returns default value on error */
+    __block int64_t generation = kValidUpdateOldGeneration;
+    __block bool ok = (dbc != NULL);
+    __block CFErrorRef localError = NULL;
+
+    ok = ok && SecDbWithSQL(dbc->dbconn, selectGenerationSQL, &localError, ^bool(sqlite3_stmt *selectGeneration) {
+        ok = ok && SecDbStep(dbc->dbconn, selectGeneration, &localError, ^void(bool *stop) {
+            generation = sqlite3_column_int64(selectGeneration, 0);
+            *stop = true;
+        });
+        return ok;
+    });
+    if (!ok || localError) {
+        secerror("_SecRevocationDbGetLocalGeneration failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationRead, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return generation;
+}
+
+static bool _SecRevocationDbSetGeneration(SecRevocationDbConnectionRef dbc, CFIndex generation, CFErrorRef *error) {
+    secdebug("validupdate", "setting generation to %ld", (long)generation);
+
+    __block CFErrorRef localError = NULL;
+    __block bool ok = (dbc != NULL);
+    ok = ok && SecDbWithSQL(dbc->dbconn, insertAdminRecordSQL, &localError, ^bool(sqlite3_stmt *insertGeneration) {
+        const char *generationKey = "generation";
+        ok = ok && SecDbBindText(insertGeneration, 1, generationKey, strlen(generationKey),
+                            SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbBindInt64(insertGeneration, 2,
+                             (sqlite3_int64)generation, &localError);
+        ok = ok && SecDbStep(dbc->dbconn, insertGeneration, &localError, NULL);
+        return ok;
+    });
+    if (!ok || localError) {
+        secerror("_SecRevocationDbSetGeneration failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
 static int64_t _SecRevocationDbReadSchemaVersionFromDb(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
     /* look up db_version entry in admin table; returns -1 on error */
     __block int64_t db_version = -1;
@@ -2068,21 +2169,9 @@ static int64_t _SecRevocationDbReadSchemaVersionFromDb(SecRevocationDbConnection
     return db_version;
 }
 
-static _Atomic int64_t gSchemaVersion = -1;
 static int64_t _SecRevocationDbGetSchemaVersion(SecRevocationDbRef rdb, SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        if (dbc) {
-            atomic_init(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, error));
-        } else {
-            (void) SecRevocationDbPerformRead(rdb, error, ^bool(SecRevocationDbConnectionRef blockDbc, CFErrorRef *blockError) {
-                atomic_init(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(blockDbc, blockError));
-                return true;
-            });
-        }
-    });
+    /* schema version only needs to be read from database if gSchemaVersion is not set */
     if (atomic_load(&gSchemaVersion) == -1) {
-        /* Initial read(s) failed. Try to read the schema version again. */
         if (dbc) {
             atomic_store(&gSchemaVersion, _SecRevocationDbReadSchemaVersionFromDb(dbc, error));
         } else {
@@ -2411,6 +2500,19 @@ bool _SecRevocationDbRemoveAllEntries(SecRevocationDbConnectionRef dbc, CFErrorR
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
                                                      localError ? CFErrorGetCode(localError) : errSecInternalComponent);
     }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
+bool SecRevocationDbRemoveAllEntries(CFErrorRef *error)
+{
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    SecRevocationDbWith(^(SecRevocationDbRef rdb) {
+        ok &= SecRevocationDbPerformWrite(rdb, &localError, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
+            return _SecRevocationDbRemoveAllEntries(dbc, blockError);
+        });
+    });
     (void) CFErrorPropagate(localError, error);
     return ok;
 }
@@ -3274,7 +3376,7 @@ static bool _SecRevocationDbApplyGroupUpdate(SecRevocationDbConnectionRef dbc, C
     return ok;
 }
 
-bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex version, CFErrorRef *error) {
+bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryRef update, CFIndex version, CFIndex generation, CFErrorRef *error) {
     /* process entire update dictionary */
     if (!dbc || !dbc->db || !update) {
         secerror("_SecRevocationDbApplyUpdate failed: invalid args");
@@ -3332,8 +3434,9 @@ bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryR
     }
     CFReleaseSafe(localUpdate);
 
-    /* set version */
+    /* set version and generation */
     ok = ok && _SecRevocationDbSetVersion(dbc, version, &localError);
+    ok = ok && _SecRevocationDbSetGeneration(dbc, generation, &localError);
 
     /* set interval if not already set, or changed */
     int64_t interval = _SecRevocationDbGetUpdateInterval(dbc, NULL);
@@ -3555,7 +3658,9 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
                                 notBeforeDate, notAfterDate,
                                 names, policies);
 
-    if (result && SecIsAppleTrustAnchor(certificate, 0)) {
+    if (result && (SecIsAppleTrustAnchor(certificate, 0) ||
+                   SecIsAppleCodeSigningAnchor(certificate) ||
+                   SecIsAppleCodeSigningIssuer(issuerHash))) {
         /* Prevent a catch-22. */
         secdebug("validupdate", "Valid db match for Apple trust anchor: %@, format=%d, flags=0x%lx",
                  certHash, format, flags);
@@ -3716,6 +3821,20 @@ CFIndex SecRevocationDbGetVersion(void) {
     SecRevocationDbWith(^(SecRevocationDbRef db) {
         (void) SecRevocationDbPerformRead(db, NULL, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
             result = (CFIndex)_SecRevocationDbGetVersion(dbc, blockError);
+            return (result >= 0);
+        });
+    });
+    return result;
+}
+
+/* Return the current generation of the revocation database.
+   If the generation cannot be obtained, -1 is returned.
+*/
+CFIndex SecRevocationDbGetLocalGeneration(void) {
+    __block CFIndex result = -1;
+    SecRevocationDbWith(^(SecRevocationDbRef db) {
+        (void) SecRevocationDbPerformRead(db, NULL, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
+            result = (CFIndex)_SecRevocationDbGetLocalGeneration(dbc, blockError);
             return (result >= 0);
         });
     });

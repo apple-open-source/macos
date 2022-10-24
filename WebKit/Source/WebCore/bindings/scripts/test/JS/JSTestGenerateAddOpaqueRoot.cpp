@@ -22,7 +22,8 @@
 #include "JSTestGenerateAddOpaqueRoot.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -32,6 +33,7 @@
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
 #include "WebCoreJSClientData.h"
+#include "WebCoreOpaqueRoot.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
@@ -63,7 +65,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestGenerateAddOpaqueRootPrototype, Base);
         return &vm.plainObjectSpace();
@@ -85,7 +87,7 @@ STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestGenerateAddOpaqueRootPrototype, JSTest
 
 using JSTestGenerateAddOpaqueRootDOMConstructor = JSDOMConstructorNotConstructable<JSTestGenerateAddOpaqueRoot>;
 
-template<> const ClassInfo JSTestGenerateAddOpaqueRootDOMConstructor::s_info = { "TestGenerateAddOpaqueRoot", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRootDOMConstructor) };
+template<> const ClassInfo JSTestGenerateAddOpaqueRootDOMConstructor::s_info = { "TestGenerateAddOpaqueRoot"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRootDOMConstructor) };
 
 template<> JSValue JSTestGenerateAddOpaqueRootDOMConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
@@ -106,11 +108,11 @@ template<> void JSTestGenerateAddOpaqueRootDOMConstructor::initializeProperties(
 
 static const HashTableValue JSTestGenerateAddOpaqueRootPrototypeTableValues[] =
 {
-    { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestGenerateAddOpaqueRootConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
-    { "someAttribute", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestGenerateAddOpaqueRoot_someAttribute), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
+    { "constructor"_s, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestGenerateAddOpaqueRootConstructor, 0 } },
+    { "someAttribute"_s, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { HashTableValue::GetterSetterType, jsTestGenerateAddOpaqueRoot_someAttribute, 0 } },
 };
 
-const ClassInfo JSTestGenerateAddOpaqueRootPrototype::s_info = { "TestGenerateAddOpaqueRoot", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRootPrototype) };
+const ClassInfo JSTestGenerateAddOpaqueRootPrototype::s_info = { "TestGenerateAddOpaqueRoot"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRootPrototype) };
 
 void JSTestGenerateAddOpaqueRootPrototype::finishCreation(VM& vm)
 {
@@ -119,7 +121,7 @@ void JSTestGenerateAddOpaqueRootPrototype::finishCreation(VM& vm)
     JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
-const ClassInfo JSTestGenerateAddOpaqueRoot::s_info = { "TestGenerateAddOpaqueRoot", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRoot) };
+const ClassInfo JSTestGenerateAddOpaqueRoot::s_info = { "TestGenerateAddOpaqueRoot"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestGenerateAddOpaqueRoot) };
 
 JSTestGenerateAddOpaqueRoot::JSTestGenerateAddOpaqueRoot(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
     : JSDOMWrapper<TestGenerateAddOpaqueRoot>(structure, globalObject, WTFMove(impl))
@@ -129,7 +131,7 @@ JSTestGenerateAddOpaqueRoot::JSTestGenerateAddOpaqueRoot(Structure* structure, J
 void JSTestGenerateAddOpaqueRoot::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 
     static_assert(!std::is_base_of<ActiveDOMObject, TestGenerateAddOpaqueRoot>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
 
@@ -160,7 +162,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateAddOpaqueRootConstructor, (JSGlobalObject
 {
     VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    auto* prototype = jsDynamicCast<JSTestGenerateAddOpaqueRootPrototype*>(vm, JSValue::decode(thisValue));
+    auto* prototype = jsDynamicCast<JSTestGenerateAddOpaqueRootPrototype*>(JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestGenerateAddOpaqueRoot::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
@@ -179,27 +181,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateAddOpaqueRoot_someAttribute, (JSGlobalObj
     return IDLAttribute<JSTestGenerateAddOpaqueRoot>::get<jsTestGenerateAddOpaqueRoot_someAttributeGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSTestGenerateAddOpaqueRoot::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestGenerateAddOpaqueRoot::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestGenerateAddOpaqueRoot.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestGenerateAddOpaqueRoot> || !JSTestGenerateAddOpaqueRoot::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestGenerateAddOpaqueRoot>)
-        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestGenerateAddOpaqueRoot);
-    else
-        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestGenerateAddOpaqueRoot);
-    auto* space = spaces.m_subspaceForTestGenerateAddOpaqueRoot.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestGenerateAddOpaqueRoot::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestGenerateAddOpaqueRoot, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestGenerateAddOpaqueRoot.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestGenerateAddOpaqueRoot = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestGenerateAddOpaqueRoot.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestGenerateAddOpaqueRoot = WTFMove(space); }
+    );
 }
 
 template<typename Visitor>
@@ -208,7 +197,7 @@ void JSTestGenerateAddOpaqueRoot::visitChildrenImpl(JSCell* cell, Visitor& visit
     auto* thisObject = jsCast<JSTestGenerateAddOpaqueRoot*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-    visitor.addOpaqueRoot(WTF::getPtr(thisObject->wrapped().ownerObjectConcurrently()));
+    addWebCoreOpaqueRoot(visitor, thisObject->wrapped().ownerObjectConcurrently());
 }
 
 DEFINE_VISIT_CHILDREN(JSTestGenerateAddOpaqueRoot);
@@ -249,24 +238,22 @@ extern "C" { extern void* _ZTVN7WebCore25TestGenerateAddOpaqueRootE[]; }
 JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestGenerateAddOpaqueRoot>&& impl)
 {
 
+    if constexpr (std::is_polymorphic_v<TestGenerateAddOpaqueRoot>) {
 #if ENABLE(BINDING_INTEGRITY)
-    const void* actualVTablePointer = getVTablePointer(impl.ptr());
+        const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = __identifier("??_7TestGenerateAddOpaqueRoot@WebCore@@6B@");
+        void* expectedVTablePointer = __identifier("??_7TestGenerateAddOpaqueRoot@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = &_ZTVN7WebCore25TestGenerateAddOpaqueRootE[2];
+        void* expectedVTablePointer = &_ZTVN7WebCore25TestGenerateAddOpaqueRootE[2];
 #endif
 
-    // If this fails TestGenerateAddOpaqueRoot does not have a vtable, so you need to add the
-    // ImplementationLacksVTable attribute to the interface definition
-    static_assert(std::is_polymorphic<TestGenerateAddOpaqueRoot>::value, "TestGenerateAddOpaqueRoot is not polymorphic");
-
-    // If you hit this assertion you either have a use after free bug, or
-    // TestGenerateAddOpaqueRoot has subclasses. If TestGenerateAddOpaqueRoot has subclasses that get passed
-    // to toJS() we currently require TestGenerateAddOpaqueRoot you to opt out of binding hardening
-    // by adding the SkipVTableValidation attribute to the interface IDL definition
-    RELEASE_ASSERT(actualVTablePointer == expectedVTablePointer);
+        // If you hit this assertion you either have a use after free bug, or
+        // TestGenerateAddOpaqueRoot has subclasses. If TestGenerateAddOpaqueRoot has subclasses that get passed
+        // to toJS() we currently require TestGenerateAddOpaqueRoot you to opt out of binding hardening
+        // by adding the SkipVTableValidation attribute to the interface IDL definition
+        RELEASE_ASSERT(actualVTablePointer == expectedVTablePointer);
 #endif
+    }
     return createWrapper<TestGenerateAddOpaqueRoot>(globalObject, WTFMove(impl));
 }
 
@@ -275,9 +262,9 @@ JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* g
     return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
-TestGenerateAddOpaqueRoot* JSTestGenerateAddOpaqueRoot::toWrapped(JSC::VM& vm, JSC::JSValue value)
+TestGenerateAddOpaqueRoot* JSTestGenerateAddOpaqueRoot::toWrapped(JSC::VM&, JSC::JSValue value)
 {
-    if (auto* wrapper = jsDynamicCast<JSTestGenerateAddOpaqueRoot*>(vm, value))
+    if (auto* wrapper = jsDynamicCast<JSTestGenerateAddOpaqueRoot*>(value))
         return &wrapper->wrapped();
     return nullptr;
 }

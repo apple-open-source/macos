@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,6 +78,7 @@
 #include "arp_session.h"
 #include "ioregpath.h"
 #include "ipconfigd_threads.h"
+#include "ifutil.h"
 #include "symbol_scope.h"
 
 struct firewire_arp {
@@ -792,6 +793,9 @@ arp_client_open_fd(arp_client_t * client)
     /* don't wait for packets to be buffered */
     bpf_set_immediate(bpf_fd, 1);
 
+    /* we fill in the header completely */
+    bpf_set_hdrcmplt(bpf_fd, 1);
+
     /* set the filter to return only ARP packets */
     switch (if_link_type(if_session->if_p)) {
     default:
@@ -877,6 +881,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
 	    eh_p = (struct ether_header *)(void *)txbuf;
 	    eh_p->ether_type = htons(ETHERTYPE_ARP);
+	    bcopy(if_link_address(if_session->if_p), eh_p->ether_shost,
+		  sizeof(eh_p->ether_shost));
 	    if (info_p != NULL) {
 		bcopy(info_p->target_hardware, eh_p->ether_dhost,
 		      sizeof(eh_p->ether_dhost));
@@ -922,6 +928,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
 	    fh_p = (struct firewire_header *)(void *)txbuf;
 	    fh_p->firewire_type = htons(ETHERTYPE_ARP);
+	    bcopy(if_link_address(if_session->if_p), fh_p->firewire_shost,
+		  sizeof(fh_p->firewire_shost));
 	    if (info_p != NULL) {
 		bcopy(info_p->target_hardware, fh_p->firewire_dhost,
 		      sizeof(fh_p->firewire_dhost));

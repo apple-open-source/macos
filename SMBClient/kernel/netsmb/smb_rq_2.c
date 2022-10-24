@@ -75,7 +75,7 @@ smb2_rq_alloc(struct smb_connobj *obj, u_char cmd, uint32_t *rq_len,
     /* 
      * This function allocates smb_rq and creates the SMB 2/3 header
      */
-	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
+    SMB_MALLOC_TYPE(rqp, struct smb_rq, Z_WAITOK);
 	if (rqp == NULL)
 		return ENOMEM;
     
@@ -1121,15 +1121,6 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
                 (rqp->sr_command != SMB2_TREE_CONNECT) &&
                 (rqp->sr_share->ss_share_flags & SMB2_SHAREFLAG_ENCRYPT_DATA) ){
                 encryption_on = 1;
-            }
-        }
-        if ((rqp->sr_iod) && (rqp->sr_iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL)) {
-            // Check if it is time to switch to Channel.SigningKey
-            // For alternate channel, all messages prior to "session-setup-response with status SUCCESS"
-            // are signed by the main-channel keys, while the "session-setup-response with status SUCCESS"
-            // message and onward are signed with the alternate-channel key
-            if ((command == SMB2_SESSION_SETUP) && (rqp->sr_ntstatus == STATUS_SUCCESS)) {
-                rqp->sr_iod->iod_flags |= SMBIOD_USE_CHANNEL_KEYS;
             }
         }
     }

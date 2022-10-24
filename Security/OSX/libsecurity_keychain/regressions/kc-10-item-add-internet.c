@@ -6,7 +6,7 @@
 #include "keychain_regressions.h"
 #include "kc-helpers.h"
 
-static void tests()
+static void tests(void)
 {
     SecKeychainRef keychain = createNewKeychain("test", "test");
 	SecKeychainItemRef item = NULL;

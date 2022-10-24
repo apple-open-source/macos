@@ -35,39 +35,39 @@
   #include <winsock2.h>
   #include <ws2tcpip.h>
 
-#ifdef INET6
-/*
- * To quote the MSDN page for getaddrinfo() at
- *
- *    https://msdn.microsoft.com/en-us/library/windows/desktop/ms738520(v=vs.85).aspx
- *
- * "Support for getaddrinfo on Windows 2000 and older versions
- * The getaddrinfo function was added to the Ws2_32.dll on Windows XP and
- * later. To execute an application that uses this function on earlier
- * versions of Windows, then you need to include the Ws2tcpip.h and
- * Wspiapi.h files. When the Wspiapi.h include file is added, the
- * getaddrinfo function is defined to the WspiapiGetAddrInfo inline
- * function in the Wspiapi.h file. At runtime, the WspiapiGetAddrInfo
- * function is implemented in such a way that if the Ws2_32.dll or the
- * Wship6.dll (the file containing getaddrinfo in the IPv6 Technology
- * Preview for Windows 2000) does not include getaddrinfo, then a
- * version of getaddrinfo is implemented inline based on code in the
- * Wspiapi.h header file. This inline code will be used on older Windows
- * platforms that do not natively support the getaddrinfo function."
- *
+  #ifdef INET6
+    /*
+     * To quote the MSDN page for getaddrinfo() at
+     *
+     *    https://msdn.microsoft.com/en-us/library/windows/desktop/ms738520(v=vs.85).aspx
+     *
+     * "Support for getaddrinfo on Windows 2000 and older versions
+     * The getaddrinfo function was added to the Ws2_32.dll on Windows XP and
+     * later. To execute an application that uses this function on earlier
+     * versions of Windows, then you need to include the Ws2tcpip.h and
+     * Wspiapi.h files. When the Wspiapi.h include file is added, the
+     * getaddrinfo function is defined to the WspiapiGetAddrInfo inline
+     * function in the Wspiapi.h file. At runtime, the WspiapiGetAddrInfo
+     * function is implemented in such a way that if the Ws2_32.dll or the
+     * Wship6.dll (the file containing getaddrinfo in the IPv6 Technology
+     * Preview for Windows 2000) does not include getaddrinfo, then a
+     * version of getaddrinfo is implemented inline based on code in the
+     * Wspiapi.h header file. This inline code will be used on older Windows
+     * platforms that do not natively support the getaddrinfo function."
+     *
      * We use getaddrinfo(), so we include Wspiapi.h here.
- */
+     */
     #include <wspiapi.h>
   #endif /* INET6 */
 #else /* _WIN32 */
-#include <sys/param.h>
+  #include <sys/param.h>
   #include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/time.h>
+  #include <sys/socket.h>
+  #include <sys/time.h>
 
-#include <netinet/in.h>
+  #include <netinet/in.h>
 
-#ifdef HAVE_ETHER_HOSTTON
+  #ifdef HAVE_ETHER_HOSTTON
     #if defined(NET_ETHERNET_H_DECLARES_ETHER_HOSTTON)
       /*
        * OK, just include <net/ethernet.h>.
@@ -112,7 +112,7 @@
     #ifdef NEED_NETINET_IF_ETHER_H
       #include <net/if.h>	/* Needed on some platforms */
       #include <netinet/in.h>	/* Needed on some platforms */
-#include <netinet/if_ether.h>
+      #include <netinet/if_ether.h>
     #endif /* NEED_NETINET_IF_ETHER_H */
 
     #ifndef HAVE_DECL_ETHER_HOSTTON
@@ -121,19 +121,20 @@
        */
       extern int ether_hostton(const char *, struct ether_addr *);
     #endif /* !defined(HAVE_DECL_ETHER_HOSTTON) */
-#endif /* HAVE_ETHER_HOSTTON */
+  #endif /* HAVE_ETHER_HOSTTON */
 
-#include <arpa/inet.h>
-#include <netdb.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
 #endif /* _WIN32 */
 
-#include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
 #include "pcap-int.h"
+
+#include "diag-control.h"
 
 #include "gencode.h"
 #include <pcap/namedb.h>
@@ -162,7 +163,23 @@ pcap_nametoaddr(const char *name)
 	bpf_u_int32 **p;
 	struct hostent *hp;
 
+	/*
+	 * gethostbyname() is deprecated on Windows, perhaps because
+	 * it's not thread-safe, or because it doesn't support IPv6,
+	 * or both.
+	 *
+	 * We deprecate pcap_nametoaddr() on all platforms because
+	 * it's not thread-safe; we supply it for backwards compatibility,
+	 * so suppress the deprecation warning.  We could, I guess,
+	 * use getaddrinfo() and construct the array ourselves, but
+	 * that's probably not worth the effort, as that wouldn't make
+	 * this thread-safe - we can't change the API to require that
+	 * our caller free the address array, so we still have to reuse
+	 * a local array.
+	 */
+DIAG_OFF_DEPRECATION
 	if ((hp = gethostbyname(name)) != NULL) {
+DIAG_ON_DEPRECATION
 #ifndef h_addr
 		hlist[0] = (bpf_u_int32 *)hp->h_addr;
 		NTOHL(hp->h_addr);
@@ -200,10 +217,10 @@ pcap_nametoaddrinfo(const char *name)
  *  XXX - not guaranteed to be thread-safe!  See below for platforms
  *  on which it is thread-safe and on which it isn't.
  */
+#if defined(_WIN32) || defined(__CYGWIN__)
 bpf_u_int32
-pcap_nametonetaddr(const char *name)
+pcap_nametonetaddr(const char *name _U_)
 {
-#ifdef _WIN32
 	/*
 	 * There's no "getnetbyname()" on Windows.
 	 *
@@ -217,7 +234,11 @@ pcap_nametonetaddr(const char *name)
 	 * of *UN*X* machines.)
 	 */
 	return 0;
-#else
+}
+#else /* _WIN32 */
+bpf_u_int32
+pcap_nametonetaddr(const char *name)
+{
 	/*
 	 * UN*X.
 	 */
@@ -286,13 +307,13 @@ pcap_nametonetaddr(const char *name)
  	 * thread-safe.
  	 */
 	np = getnetbyname(name);
-#endif
+  #endif
 	if (np != NULL)
 		return np->n_net;
 	else
 		return 0;
-#endif /* _WIN32 */
 }
+#endif /* _WIN32 */
 
 /*
  * Convert a port name to its port and protocol numbers.
@@ -569,28 +590,20 @@ struct eproto {
  */
 PCAP_API struct eproto eproto_db[];
 PCAP_API_DEF struct eproto eproto_db[] = {
-	{ "pup", ETHERTYPE_PUP },
-	{ "xns", ETHERTYPE_NS },
+	{ "aarp", ETHERTYPE_AARP },
+	{ "arp", ETHERTYPE_ARP },
+	{ "atalk", ETHERTYPE_ATALK },
+	{ "decnet", ETHERTYPE_DN },
 	{ "ip", ETHERTYPE_IP },
 #ifdef INET6
 	{ "ip6", ETHERTYPE_IPV6 },
 #endif
-	{ "arp", ETHERTYPE_ARP },
-	{ "rarp", ETHERTYPE_REVARP },
-	{ "sprite", ETHERTYPE_SPRITE },
+	{ "lat", ETHERTYPE_LAT },
+	{ "loopback", ETHERTYPE_LOOPBACK },
 	{ "mopdl", ETHERTYPE_MOPDL },
 	{ "moprc", ETHERTYPE_MOPRC },
-	{ "decnet", ETHERTYPE_DN },
-	{ "lat", ETHERTYPE_LAT },
+	{ "rarp", ETHERTYPE_REVARP },
 	{ "sca", ETHERTYPE_SCA },
-	{ "lanbridge", ETHERTYPE_LANBRIDGE },
-	{ "vexp", ETHERTYPE_VEXP },
-	{ "vprod", ETHERTYPE_VPROD },
-	{ "atalk", ETHERTYPE_ATALK },
-	{ "atalkarp", ETHERTYPE_AARP },
-	{ "loopback", ETHERTYPE_LOOPBACK },
-	{ "decdts", ETHERTYPE_DECDTS },
-	{ "decdns", ETHERTYPE_DECDNS },
 	{ (char *)0, 0 }
 };
 
@@ -635,9 +648,9 @@ pcap_nametollc(const char *s)
 static inline u_char
 xdtoi(u_char c)
 {
-	if (isdigit(c))
+	if (c >= '0' && c <= '9')
 		return (u_char)(c - '0');
-	else if (islower(c))
+	else if (c >= 'a' && c <= 'f')
 		return (u_char)(c - 'a' + 10);
 	else
 		return (u_char)(c - 'A' + 10);
@@ -653,8 +666,15 @@ __pcap_atoin(const char *s, bpf_u_int32 *addr)
 	len = 0;
 	for (;;) {
 		n = 0;
-		while (*s && *s != '.')
+		while (*s && *s != '.') {
+			if (n > 25) {
+				/* The result will be > 255 */
+				return -1;
+			}
 			n = n * 10 + *s++ - '0';
+		}
+		if (n > 255)
+			return -1;
 		*addr <<= 8;
 		*addr |= n & 0xff;
 		len += 8;
@@ -709,7 +729,7 @@ pcap_ether_aton(const char *s)
 		if (*s == ':' || *s == '.' || *s == '-')
 			s += 1;
 		d = xdtoi(*s++);
-		if (isxdigit((unsigned char)*s)) {
+		if (PCAP_ISXDIGIT(*s)) {
 			d <<= 4;
 			d |= xdtoi(*s++);
 		}

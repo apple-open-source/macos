@@ -54,22 +54,14 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     int ret = 0;
 	CFDataRef labeldata = NULL;
 	CFDataRef labeldata2 = NULL;
-	CFDataRef bootXdata = NULL;
     io_object_t devMediaObj;
 	
-    BLPreBootEnvType	preboot;
+    BLPreBootEnvType	preboot = getPrebootType();
 	    
     if(!(geteuid() == 0)) {
 		blesscontextprintf(context, kBLLogLevelError,  "Not run as root\n" );
 		return 1;
     }
-
-	ret = BLGetPreBootEnvironmentType(context, &preboot);
-	if(ret) {
-		blesscontextprintf(context, kBLLogLevelError,  "Could not determine preboot environment\n");
-		return 1;
-	}
-	    
 
 
     /* try to grovel the HFS+ catalog and update a label if present */
@@ -94,21 +86,6 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 			return 3;
 		}
 	}
-    
-	if(actargs[kbootinfo].present) {
-		if(!actargs[kbootinfo].hasArg) {
-            blesscontextprintf(context, kBLLogLevelError,
-							   "BootX file must be specified in Device Mode\n");
-			return 4;
-        }
-		
-		ret = BLLoadFile(context, actargs[kbootinfo].argument, 0, &bootXdata);
-		if(ret) {
-			blesscontextprintf(context, kBLLogLevelError,  "Could not load BootX data from %s\n",
-							   actargs[kbootinfo].argument);
-		}
-	}
-    
     
     devMediaObj = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0,
                                                                                       actargs[kdevice].argument + strlen(_PATH_DEV)));
@@ -138,7 +115,7 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
                                  actargs[koptions].present ? actargs[koptions].argument : NULL,
                                  actargs[kshortform].present ? true : false);
         } else {        
-            ret = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
+            ret = setboot(context, actargs[kdevice].argument, NULL, labeldata);
         }
         
 		if(ret) {
@@ -161,7 +138,6 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 
 	if (labeldata) CFRelease(labeldata);
 	if (labeldata2) CFRelease(labeldata2);
-	if (bootXdata) CFRelease(bootXdata);
 
     return 0;
 }

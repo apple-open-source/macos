@@ -767,7 +767,7 @@ int test_mod_mul(BIO *bp, BN_CTX *ctx)
 
 			while ((l=ERR_get_error()))
 				fprintf(stderr,"ERROR:%s\n",
-					ERR_error_string(l,NULL));
+					ERR_error_string(l,NULL,0));
 			exit(1);
 			}
 		if (bp != NULL)

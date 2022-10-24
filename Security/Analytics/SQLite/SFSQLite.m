@@ -44,7 +44,7 @@ static NSString *const kSFSQLiteCreatePropertiesTableSQL =
     @");\n";
 
 
-NSArray *SFSQLiteJournalSuffixes() {
+NSArray *SFSQLiteJournalSuffixes(void) {
     return @[@"-journal", @"-wal", @"-shm"];
 }
 

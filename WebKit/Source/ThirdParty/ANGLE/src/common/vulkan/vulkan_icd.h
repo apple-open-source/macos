@@ -33,7 +33,7 @@ struct SimpleDisplayWindow
     uint16_t height;
 };
 
-class ScopedVkLoaderEnvironment : angle::NonCopyable
+class [[nodiscard]] ScopedVkLoaderEnvironment : angle::NonCopyable
 {
   public:
     ScopedVkLoaderEnvironment(bool enableValidationLayers, vk::ICD icd);

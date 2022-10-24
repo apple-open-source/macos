@@ -1,0 +1,402 @@
+@@ -15,7 +15,6 @@
+ 			dependencies = (
+ 				BE3E0A830AD9A3EE0054ACA0 /* PBXTargetDependency */,
+ 				BE3E0B7D0AD9B90A0054ACA0 /* PBXTargetDependency */,
+-				06DB36012579E2D800EB14D0 /* PBXTargetDependency */,
+ 				BE4A17BB0AEBBAD9001371C6 /* PBXTargetDependency */,
+ 				4DDA8CDB150E763B00631F4D /* PBXTargetDependency */,
+ 				4DF955161BF12AA9004AE1B4 /* PBXTargetDependency */,
+@@ -23,79 +22,9 @@
+ 			name = ntfs;
+ 			productName = ntfs;
+ 		};
+-		F9BD399D23DF99940061BF91 /* ntfs-ios */ = {
+-			isa = PBXAggregateTarget;
+-			buildConfigurationList = F9BD399E23DF99940061BF91 /* Build configuration list for PBXAggregateTarget "ntfs-ios" */;
+-			buildPhases = (
+-			);
+-			dependencies = (
+-				F9BD39A223DF999C0061BF91 /* PBXTargetDependency */,
+-			);
+-			name = "ntfs-ios";
+-			productName = "ntfs-uvfs-ios";
+-		};
+ /* End PBXAggregateTarget section */
+ 
+ /* Begin PBXBuildFile section */
+-		069952C5266041A200DB6F15 /* ntfs_sfm.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876E246B8980006E31FE /* ntfs_sfm.h */; };
+-		069952C6266041A200DB6F15 /* ntfs_mst.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8766246B897F006E31FE /* ntfs_mst.h */; };
+-		069952C7266041A200DB6F15 /* ntfs_xpl.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8756246B8878006E31FE /* ntfs_xpl.h */; };
+-		069952C8266041A200DB6F15 /* ntfs_compress.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B877A246B8981006E31FE /* ntfs_compress.h */; };
+-		069952C9266041A200DB6F15 /* ntfs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8765246B897F006E31FE /* ntfs_types.h */; };
+-		069952CA266041A200DB6F15 /* ntfs_usnjrnl.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8764246B897F006E31FE /* ntfs_usnjrnl.h */; };
+-		069952CB266041A200DB6F15 /* ntfs_collate.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8762246B897F006E31FE /* ntfs_collate.h */; };
+-		069952CC266041A200DB6F15 /* ntfs_layout.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8767246B897F006E31FE /* ntfs_layout.h */; };
+-		069952CD266041A200DB6F15 /* ntfs_endian.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8763246B897F006E31FE /* ntfs_endian.h */; };
+-		069952CE266041A200DB6F15 /* ntfs_debug.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8780246B8981006E31FE /* ntfs_debug.h */; };
+-		069952CF266041A200DB6F15 /* ntfs_unistr.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8774246B8980006E31FE /* ntfs_unistr.h */; };
+-		069952D0266041A200DB6F15 /* ntfs_volume.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8777246B8981006E31FE /* ntfs_volume.h */; };
+-		069952D1266041A200DB6F15 /* ntfs_attr_list.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8789246B8982006E31FE /* ntfs_attr_list.h */; };
+-		069952D2266041A200DB6F15 /* ntfs_secure.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8785246B8982006E31FE /* ntfs_secure.h */; };
+-		069952D3266041A200DB6F15 /* ntfs_quota.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8770246B8980006E31FE /* ntfs_quota.h */; };
+-		069952D4266041A200DB6F15 /* ntfs.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8769246B897F006E31FE /* ntfs.h */; };
+-		069952D5266041A200DB6F15 /* ntfs_runlist.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B875C246B897E006E31FE /* ntfs_runlist.h */; };
+-		069952D6266041A200DB6F15 /* ntfs_dir.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876A246B897F006E31FE /* ntfs_dir.h */; };
+-		069952D7266041A200DB6F15 /* ntfs_inode.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876F246B8980006E31FE /* ntfs_inode.h */; };
+-		069952D8266041A200DB6F15 /* ntfs_time.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8760246B897E006E31FE /* ntfs_time.h */; };
+-		069952D9266041A200DB6F15 /* ntfs_logfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878B246B8982006E31FE /* ntfs_logfile.h */; };
+-		069952DA266041A200DB6F15 /* ntfs_attr.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8768246B897F006E31FE /* ntfs_attr.h */; };
+-		069952DB266041A200DB6F15 /* ntfs_bitmap.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878A246B8982006E31FE /* ntfs_bitmap.h */; };
+-		069952DC266041A200DB6F15 /* ntfs_index.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B877F246B8981006E31FE /* ntfs_index.h */; };
+-		069952DD266041A200DB6F15 /* ntfs_vnops.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876C246B8980006E31FE /* ntfs_vnops.h */; };
+-		069952DE266041A200DB6F15 /* ntfs_mft.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B875E246B897E006E31FE /* ntfs_mft.h */; };
+-		069952DF266041A200DB6F15 /* ntfs_hash.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8782246B8982006E31FE /* ntfs_hash.h */; };
+-		069952E0266041A200DB6F15 /* ntfs_page.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8788246B8982006E31FE /* ntfs_page.h */; };
+-		069952E1266041A200DB6F15 /* ntfs_lcnalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878C246B8983006E31FE /* ntfs_lcnalloc.h */; };
+-		069952E3266041A200DB6F15 /* ntfs_compress.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877D246B8981006E31FE /* ntfs_compress.c */; };
+-		069952E4266041A200DB6F15 /* ntfs_runlist.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B878D246B8983006E31FE /* ntfs_runlist.c */; };
+-		069952E5266041A200DB6F15 /* ntfs_attr.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8787246B8982006E31FE /* ntfs_attr.c */; };
+-		069952E6266041A200DB6F15 /* ntfs_bitmap.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8781246B8981006E31FE /* ntfs_bitmap.c */; };
+-		069952E7266041A200DB6F15 /* ntfs_page.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877E246B8981006E31FE /* ntfs_page.c */; };
+-		069952E8266041A200DB6F15 /* ntfs_dir.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8775246B8980006E31FE /* ntfs_dir.c */; };
+-		069952E9266041A200DB6F15 /* ntfs_quota.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B876B246B897F006E31FE /* ntfs_quota.c */; };
+-		069952EA266041A200DB6F15 /* ntfs_lcnalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877B246B8981006E31FE /* ntfs_lcnalloc.c */; };
+-		069952EB266041A200DB6F15 /* plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F9BD399823DF98500061BF91 /* plugin.c */; };
+-		069952EC266041A200DB6F15 /* ntfs_collate.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875D246B897E006E31FE /* ntfs_collate.c */; };
+-		069952ED266041A200DB6F15 /* ntfs_mft.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8784246B8982006E31FE /* ntfs_mft.c */; };
+-		069952EE266041A200DB6F15 /* ntfs_mst.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8783246B8982006E31FE /* ntfs_mst.c */; };
+-		069952EF266041A200DB6F15 /* ntfs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8776246B8980006E31FE /* ntfs_vfsops.c */; };
+-		069952F0266041A200DB6F15 /* ntfs_sfm.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8779246B8981006E31FE /* ntfs_sfm.c */; };
+-		069952F1266041A200DB6F15 /* ntfs_logfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875F246B897E006E31FE /* ntfs_logfile.c */; };
+-		069952F2266041A200DB6F15 /* ntfs_index.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877C246B8981006E31FE /* ntfs_index.c */; };
+-		069952F3266041A200DB6F15 /* ntfs_xpl.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8757246B8878006E31FE /* ntfs_xpl.c */; };
+-		069952F4266041A200DB6F15 /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875A246B8950006E31FE /* ntfs_attr_list.c */; };
+-		069952F5266041A200DB6F15 /* ntfs_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8773246B8980006E31FE /* ntfs_debug.c */; };
+-		069952F6266041A200DB6F15 /* ntfs_inode.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B876D246B8980006E31FE /* ntfs_inode.c */; };
+-		069952F7266041A200DB6F15 /* ntfs_unistr.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8761246B897F006E31FE /* ntfs_unistr.c */; };
+-		069952F8266041A200DB6F15 /* ntfs_secure.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8786246B8982006E31FE /* ntfs_secure.c */; };
+-		069952F9266041A200DB6F15 /* ntfs_usnjrnl.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8771246B8980006E31FE /* ntfs_usnjrnl.c */; };
+-		069952FA266041A200DB6F15 /* ntfs_hash.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8778246B8981006E31FE /* ntfs_hash.c */; };
+-		069952FB266041A200DB6F15 /* ntfs_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8772246B8980006E31FE /* ntfs_vnops.c */; };
+-		069952FD266041A200DB6F15 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F99B87C0246B932F006E31FE /* CoreFoundation.framework */; platformFilter = ios; };
+-		069952FE266041A200DB6F15 /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BD39A323DF9ADB0061BF91 /* UserFS.framework */; platformFilter = ios; };
+-		069952FF266041A200DB6F15 /* LiveFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BD399B23DF99500061BF91 /* LiveFS.framework */; platformFilter = ios; };
+-		0699530B2660432D00DB6F15 /* uvfsPluginUnitTestsmacOS.m in Sources */ = {isa = PBXBuildFile; fileRef = 0699530A2660432D00DB6F15 /* uvfsPluginUnitTestsmacOS.m */; };
+-		0699530C2660432D00DB6F15 /* uvfs-plugin-macos.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 06995303266041A200DB6F15 /* uvfs-plugin-macos.dylib */; };
+ 		4DF954FC1BF129CF004AE1B4 /* attrdef.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF954C41BF12956004AE1B4 /* attrdef.c */; };
+ 		4DF954FD1BF129CF004AE1B4 /* attrib.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF954C61BF12956004AE1B4 /* attrib.c */; };
+ 		4DF954FE1BF129CF004AE1B4 /* attrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF954C81BF12956004AE1B4 /* attrlist.c */; };
+@@ -133,12 +62,6 @@
+ 		72E75FC50986C87D0050048E /* ntfs_mst.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FC30986C87D0050048E /* ntfs_mst.c */; };
+ 		72E75FDA0986D74A0050048E /* ntfs_attr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FD80986D74A0050048E /* ntfs_attr.c */; };
+ 		72E75FEF098714850050048E /* ntfs_unistr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FED098714850050048E /* ntfs_unistr.c */; };
+-		A00AB6C32632487C0003441E /* test_ntfs in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BA263241DB0003441E /* test_ntfs */; };
+-		A00AB6C6263248B90003441E /* general.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BF263242500003441E /* general.py */; };
+-		A00AB6C7263248C10003441E /* file_system.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BE263242380003441E /* file_system.py */; };
+-		A00AB6C8263248CA0003441E /* constants.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BD263242230003441E /* constants.py */; };
+-		A00AB6CB2632495D0003441E /* ntfs.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6C0263244FD0003441E /* ntfs.plist */; };
+-		A00AB6D0263A52210003441E /* ntfs_dmg.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6CF263A51FB0003441E /* ntfs_dmg.py */; };
+ 		BE2956360B7B373B00E0CE44 /* ntfs_collate.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956350B7B373B00E0CE44 /* ntfs_collate.c */; };
+ 		BE2956490B7BE58100E0CE44 /* ntfs_index.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956480B7BE58100E0CE44 /* ntfs_index.c */; };
+ 		BE361A630B38920100E5885A /* ntfs_quota.c in Sources */ = {isa = PBXBuildFile; fileRef = BE361A610B38920100E5885A /* ntfs_quota.c */; };
+@@ -157,82 +80,9 @@
+ 		BE91B1C70C9B35E300F0BE50 /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */; };
+ 		BE92B9840CBBA333004DBCFB /* ntfs_sfm.c in Sources */ = {isa = PBXBuildFile; fileRef = BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */; };
+ 		BED5DA050AA78E2C000AD756 /* ntfs_page.c in Sources */ = {isa = PBXBuildFile; fileRef = BED5DA030AA78E2C000AD756 /* ntfs_page.c */; };
+-		F99B8758246B8878006E31FE /* ntfs_xpl.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8756246B8878006E31FE /* ntfs_xpl.h */; };
+-		F99B8759246B8878006E31FE /* ntfs_xpl.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8757246B8878006E31FE /* ntfs_xpl.c */; };
+-		F99B875B246B8950006E31FE /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875A246B8950006E31FE /* ntfs_attr_list.c */; };
+-		F99B878E246B8983006E31FE /* ntfs_runlist.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B875C246B897E006E31FE /* ntfs_runlist.h */; };
+-		F99B878F246B8983006E31FE /* ntfs_collate.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875D246B897E006E31FE /* ntfs_collate.c */; };
+-		F99B8790246B8983006E31FE /* ntfs_mft.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B875E246B897E006E31FE /* ntfs_mft.h */; };
+-		F99B8791246B8983006E31FE /* ntfs_logfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875F246B897E006E31FE /* ntfs_logfile.c */; };
+-		F99B8792246B8983006E31FE /* ntfs_time.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8760246B897E006E31FE /* ntfs_time.h */; };
+-		F99B8793246B8983006E31FE /* ntfs_unistr.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8761246B897F006E31FE /* ntfs_unistr.c */; };
+-		F99B8794246B8983006E31FE /* ntfs_collate.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8762246B897F006E31FE /* ntfs_collate.h */; };
+-		F99B8795246B8983006E31FE /* ntfs_endian.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8763246B897F006E31FE /* ntfs_endian.h */; };
+-		F99B8796246B8983006E31FE /* ntfs_usnjrnl.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8764246B897F006E31FE /* ntfs_usnjrnl.h */; };
+-		F99B8797246B8983006E31FE /* ntfs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8765246B897F006E31FE /* ntfs_types.h */; };
+-		F99B8798246B8983006E31FE /* ntfs_mst.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8766246B897F006E31FE /* ntfs_mst.h */; };
+-		F99B8799246B8983006E31FE /* ntfs_layout.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8767246B897F006E31FE /* ntfs_layout.h */; };
+-		F99B879A246B8983006E31FE /* ntfs_attr.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8768246B897F006E31FE /* ntfs_attr.h */; };
+-		F99B879B246B8983006E31FE /* ntfs.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8769246B897F006E31FE /* ntfs.h */; };
+-		F99B879C246B8983006E31FE /* ntfs_dir.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876A246B897F006E31FE /* ntfs_dir.h */; };
+-		F99B879D246B8983006E31FE /* ntfs_quota.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B876B246B897F006E31FE /* ntfs_quota.c */; };
+-		F99B879E246B8983006E31FE /* ntfs_vnops.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876C246B8980006E31FE /* ntfs_vnops.h */; };
+-		F99B879F246B8983006E31FE /* ntfs_inode.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B876D246B8980006E31FE /* ntfs_inode.c */; };
+-		F99B87A0246B8983006E31FE /* ntfs_sfm.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876E246B8980006E31FE /* ntfs_sfm.h */; };
+-		F99B87A1246B8983006E31FE /* ntfs_inode.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B876F246B8980006E31FE /* ntfs_inode.h */; };
+-		F99B87A2246B8983006E31FE /* ntfs_quota.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8770246B8980006E31FE /* ntfs_quota.h */; };
+-		F99B87A3246B8983006E31FE /* ntfs_usnjrnl.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8771246B8980006E31FE /* ntfs_usnjrnl.c */; };
+-		F99B87A4246B8983006E31FE /* ntfs_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8772246B8980006E31FE /* ntfs_vnops.c */; };
+-		F99B87A5246B8983006E31FE /* ntfs_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8773246B8980006E31FE /* ntfs_debug.c */; };
+-		F99B87A6246B8983006E31FE /* ntfs_unistr.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8774246B8980006E31FE /* ntfs_unistr.h */; };
+-		F99B87A7246B8983006E31FE /* ntfs_dir.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8775246B8980006E31FE /* ntfs_dir.c */; };
+-		F99B87A8246B8983006E31FE /* ntfs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8776246B8980006E31FE /* ntfs_vfsops.c */; };
+-		F99B87A9246B8983006E31FE /* ntfs_volume.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8777246B8981006E31FE /* ntfs_volume.h */; };
+-		F99B87AA246B8983006E31FE /* ntfs_hash.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8778246B8981006E31FE /* ntfs_hash.c */; };
+-		F99B87AB246B8983006E31FE /* ntfs_sfm.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8779246B8981006E31FE /* ntfs_sfm.c */; };
+-		F99B87AC246B8983006E31FE /* ntfs_compress.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B877A246B8981006E31FE /* ntfs_compress.h */; };
+-		F99B87AD246B8983006E31FE /* ntfs_lcnalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877B246B8981006E31FE /* ntfs_lcnalloc.c */; };
+-		F99B87AE246B8983006E31FE /* ntfs_index.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877C246B8981006E31FE /* ntfs_index.c */; };
+-		F99B87AF246B8983006E31FE /* ntfs_compress.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877D246B8981006E31FE /* ntfs_compress.c */; };
+-		F99B87B0246B8983006E31FE /* ntfs_page.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B877E246B8981006E31FE /* ntfs_page.c */; };
+-		F99B87B1246B8983006E31FE /* ntfs_index.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B877F246B8981006E31FE /* ntfs_index.h */; };
+-		F99B87B2246B8983006E31FE /* ntfs_debug.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8780246B8981006E31FE /* ntfs_debug.h */; };
+-		F99B87B3246B8983006E31FE /* ntfs_bitmap.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8781246B8981006E31FE /* ntfs_bitmap.c */; };
+-		F99B87B4246B8983006E31FE /* ntfs_hash.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8782246B8982006E31FE /* ntfs_hash.h */; };
+-		F99B87B5246B8983006E31FE /* ntfs_mst.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8783246B8982006E31FE /* ntfs_mst.c */; };
+-		F99B87B6246B8983006E31FE /* ntfs_mft.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8784246B8982006E31FE /* ntfs_mft.c */; };
+-		F99B87B7246B8983006E31FE /* ntfs_secure.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8785246B8982006E31FE /* ntfs_secure.h */; };
+-		F99B87B8246B8983006E31FE /* ntfs_secure.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8786246B8982006E31FE /* ntfs_secure.c */; };
+-		F99B87B9246B8983006E31FE /* ntfs_attr.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8787246B8982006E31FE /* ntfs_attr.c */; };
+-		F99B87BA246B8983006E31FE /* ntfs_page.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8788246B8982006E31FE /* ntfs_page.h */; };
+-		F99B87BB246B8983006E31FE /* ntfs_attr_list.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8789246B8982006E31FE /* ntfs_attr_list.h */; };
+-		F99B87BC246B8983006E31FE /* ntfs_bitmap.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878A246B8982006E31FE /* ntfs_bitmap.h */; };
+-		F99B87BD246B8983006E31FE /* ntfs_logfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878B246B8982006E31FE /* ntfs_logfile.h */; };
+-		F99B87BE246B8983006E31FE /* ntfs_lcnalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B878C246B8983006E31FE /* ntfs_lcnalloc.h */; };
+-		F99B87BF246B8983006E31FE /* ntfs_runlist.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B878D246B8983006E31FE /* ntfs_runlist.c */; };
+-		F99B87C1246B932F006E31FE /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F99B87C0246B932F006E31FE /* CoreFoundation.framework */; platformFilter = ios; };
+-		F99B87CA246F35D3006E31FE /* UVFSPlugInUnitTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F99B87C9246F35D3006E31FE /* UVFSPlugInUnitTests.m */; };
+-		F99B87CC246F35D3006E31FE /* livefiles_ntfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F936272423DF34C3009CF89B /* livefiles_ntfs.dylib */; platformFilter = ios; };
+-		F9BD399923DF98500061BF91 /* plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F9BD399823DF98500061BF91 /* plugin.c */; };
+-		F9BD399C23DF99500061BF91 /* LiveFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BD399B23DF99500061BF91 /* LiveFS.framework */; platformFilter = ios; };
+-		F9BD39A423DF9ADB0061BF91 /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BD39A323DF9ADB0061BF91 /* UserFS.framework */; platformFilter = ios; };
+ /* End PBXBuildFile section */
+ 
+ /* Begin PBXContainerItemProxy section */
+-		0699530D2660432D00DB6F15 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = 069952C3266041A200DB6F15;
+-			remoteInfo = "uvfs-plugin-macos";
+-		};
+-		06DB36002579E2D800EB14D0 /* PBXContainerItemProxy */ = {
+-			isa = PBXContainerItemProxy;
+-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+-			proxyType = 1;
+-			remoteGlobalIDString = F936272323DF34C3009CF89B;
+-			remoteInfo = "uvfs-plugin";
+-		};
+ 		4DDA8CDA150E763B00631F4D /* PBXContainerItemProxy */ = {
+ 			isa = PBXContainerItemProxy;
+ 			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+@@ -308,7 +144,6 @@
+ 			dstPath = /AppleInternal/CoreOS/tests/ntfs;
+ 			dstSubfolderSpec = 0;
+ 			files = (
+-				A00AB6C32632487C0003441E /* test_ntfs in CopyFiles */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 1;
+ 		};
+@@ -318,10 +153,6 @@
+ 			dstPath = /AppleInternal/CoreOS/tests/ntfs/lib;
+ 			dstSubfolderSpec = 0;
+ 			files = (
+-				A00AB6D0263A52210003441E /* ntfs_dmg.py in CopyFiles */,
+-				A00AB6C8263248CA0003441E /* constants.py in CopyFiles */,
+-				A00AB6C7263248C10003441E /* file_system.py in CopyFiles */,
+-				A00AB6C6263248B90003441E /* general.py in CopyFiles */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 1;
+ 		};
+@@ -331,7 +162,6 @@
+ 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+ 			dstSubfolderSpec = 0;
+ 			files = (
+-				A00AB6CB2632495D0003441E /* ntfs.plist in CopyFiles */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 1;
+ 		};
+@@ -452,12 +279,6 @@
+ 		72E75FEE098714850050048E /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_unistr.h; sourceTree = "<group>"; };
+ 		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; usesTabs = 1; };
+ 		72FE849709313B5100752581 /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_volume.h; sourceTree = "<group>"; };
+-		A00AB6BA263241DB0003441E /* test_ntfs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = test_ntfs; path = tests/test_ntfs; sourceTree = "<group>"; };
+-		A00AB6BD263242230003441E /* constants.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = constants.py; path = tests/lib/constants.py; sourceTree = "<group>"; };
+-		A00AB6BE263242380003441E /* file_system.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = file_system.py; path = tests/lib/file_system.py; sourceTree = "<group>"; };
+-		A00AB6BF263242500003441E /* general.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = general.py; path = tests/lib/general.py; sourceTree = "<group>"; };
+-		A00AB6C0263244FD0003441E /* ntfs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = ntfs.plist; path = tests/ntfs.plist; sourceTree = "<group>"; };
+-		A00AB6CF263A51FB0003441E /* ntfs_dmg.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = ntfs_dmg.py; path = tests/lib/ntfs_dmg.py; sourceTree = "<group>"; };
+ 		BE2956350B7B373B00E0CE44 /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_collate.c; sourceTree = "<group>"; };
+ 		BE2956370B7B375F00E0CE44 /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_collate.h; sourceTree = "<group>"; };
+ 		BE2956470B7BE55D00E0CE44 /* ntfs_index.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_index.h; sourceTree = "<group>"; };
+@@ -492,89 +313,12 @@
+ 		BE92B9830CBBA333004DBCFB /* ntfs_sfm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_sfm.h; sourceTree = "<group>"; };
+ 		BED5DA030AA78E2C000AD756 /* ntfs_page.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_page.c; sourceTree = "<group>"; };
+ 		BED5DA040AA78E2C000AD756 /* ntfs_page.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_page.h; sourceTree = "<group>"; };
+-		F936272423DF34C3009CF89B /* livefiles_ntfs.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = livefiles_ntfs.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+-		F99B8756246B8878006E31FE /* ntfs_xpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_xpl.h; sourceTree = "<group>"; };
+-		F99B8757246B8878006E31FE /* ntfs_xpl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_xpl.c; sourceTree = "<group>"; };
+-		F99B875A246B8950006E31FE /* ntfs_attr_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_attr_list.c; path = kext/ntfs_attr_list.c; sourceTree = "<group>"; };
+-		F99B875C246B897E006E31FE /* ntfs_runlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_runlist.h; path = kext/ntfs_runlist.h; sourceTree = "<group>"; };
+-		F99B875D246B897E006E31FE /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_collate.c; path = kext/ntfs_collate.c; sourceTree = "<group>"; };
+-		F99B875E246B897E006E31FE /* ntfs_mft.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_mft.h; path = kext/ntfs_mft.h; sourceTree = "<group>"; };
+-		F99B875F246B897E006E31FE /* ntfs_logfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_logfile.c; path = kext/ntfs_logfile.c; sourceTree = "<group>"; };
+-		F99B8760246B897E006E31FE /* ntfs_time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_time.h; path = kext/ntfs_time.h; sourceTree = "<group>"; };
+-		F99B8761246B897F006E31FE /* ntfs_unistr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_unistr.c; path = kext/ntfs_unistr.c; sourceTree = "<group>"; };
+-		F99B8762246B897F006E31FE /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_collate.h; path = kext/ntfs_collate.h; sourceTree = "<group>"; };
+-		F99B8763246B897F006E31FE /* ntfs_endian.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_endian.h; path = kext/ntfs_endian.h; sourceTree = "<group>"; };
+-		F99B8764246B897F006E31FE /* ntfs_usnjrnl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_usnjrnl.h; path = kext/ntfs_usnjrnl.h; sourceTree = "<group>"; };
+-		F99B8765246B897F006E31FE /* ntfs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_types.h; path = kext/ntfs_types.h; sourceTree = "<group>"; };
+-		F99B8766246B897F006E31FE /* ntfs_mst.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_mst.h; path = kext/ntfs_mst.h; sourceTree = "<group>"; };
+-		F99B8767246B897F006E31FE /* ntfs_layout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_layout.h; path = kext/ntfs_layout.h; sourceTree = "<group>"; };
+-		F99B8768246B897F006E31FE /* ntfs_attr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_attr.h; path = kext/ntfs_attr.h; sourceTree = "<group>"; };
+-		F99B8769246B897F006E31FE /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs.h; path = kext/ntfs.h; sourceTree = "<group>"; };
+-		F99B876A246B897F006E31FE /* ntfs_dir.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_dir.h; path = kext/ntfs_dir.h; sourceTree = "<group>"; };
+-		F99B876B246B897F006E31FE /* ntfs_quota.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_quota.c; path = kext/ntfs_quota.c; sourceTree = "<group>"; };
+-		F99B876C246B8980006E31FE /* ntfs_vnops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_vnops.h; path = kext/ntfs_vnops.h; sourceTree = "<group>"; };
+-		F99B876D246B8980006E31FE /* ntfs_inode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_inode.c; path = kext/ntfs_inode.c; sourceTree = "<group>"; };
+-		F99B876E246B8980006E31FE /* ntfs_sfm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_sfm.h; path = kext/ntfs_sfm.h; sourceTree = "<group>"; };
+-		F99B876F246B8980006E31FE /* ntfs_inode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_inode.h; path = kext/ntfs_inode.h; sourceTree = "<group>"; };
+-		F99B8770246B8980006E31FE /* ntfs_quota.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_quota.h; path = kext/ntfs_quota.h; sourceTree = "<group>"; };
+-		F99B8771246B8980006E31FE /* ntfs_usnjrnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_usnjrnl.c; path = kext/ntfs_usnjrnl.c; sourceTree = "<group>"; };
+-		F99B8772246B8980006E31FE /* ntfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_vnops.c; path = kext/ntfs_vnops.c; sourceTree = "<group>"; usesTabs = 1; };
+-		F99B8773246B8980006E31FE /* ntfs_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_debug.c; path = kext/ntfs_debug.c; sourceTree = "<group>"; };
+-		F99B8774246B8980006E31FE /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_unistr.h; path = kext/ntfs_unistr.h; sourceTree = "<group>"; };
+-		F99B8775246B8980006E31FE /* ntfs_dir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_dir.c; path = kext/ntfs_dir.c; sourceTree = "<group>"; };
+-		F99B8776246B8980006E31FE /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_vfsops.c; path = kext/ntfs_vfsops.c; sourceTree = "<group>"; };
+-		F99B8777246B8981006E31FE /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_volume.h; path = kext/ntfs_volume.h; sourceTree = "<group>"; };
+-		F99B8778246B8981006E31FE /* ntfs_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_hash.c; path = kext/ntfs_hash.c; sourceTree = "<group>"; };
+-		F99B8779246B8981006E31FE /* ntfs_sfm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_sfm.c; path = kext/ntfs_sfm.c; sourceTree = "<group>"; };
+-		F99B877A246B8981006E31FE /* ntfs_compress.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_compress.h; path = kext/ntfs_compress.h; sourceTree = "<group>"; };
+-		F99B877B246B8981006E31FE /* ntfs_lcnalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_lcnalloc.c; path = kext/ntfs_lcnalloc.c; sourceTree = "<group>"; };
+-		F99B877C246B8981006E31FE /* ntfs_index.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_index.c; path = kext/ntfs_index.c; sourceTree = "<group>"; };
+-		F99B877D246B8981006E31FE /* ntfs_compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_compress.c; path = kext/ntfs_compress.c; sourceTree = "<group>"; };
+-		F99B877E246B8981006E31FE /* ntfs_page.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_page.c; path = kext/ntfs_page.c; sourceTree = "<group>"; };
+-		F99B877F246B8981006E31FE /* ntfs_index.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_index.h; path = kext/ntfs_index.h; sourceTree = "<group>"; };
+-		F99B8780246B8981006E31FE /* ntfs_debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_debug.h; path = kext/ntfs_debug.h; sourceTree = "<group>"; };
+-		F99B8781246B8981006E31FE /* ntfs_bitmap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_bitmap.c; path = kext/ntfs_bitmap.c; sourceTree = "<group>"; };
+-		F99B8782246B8982006E31FE /* ntfs_hash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_hash.h; path = kext/ntfs_hash.h; sourceTree = "<group>"; };
+-		F99B8783246B8982006E31FE /* ntfs_mst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_mst.c; path = kext/ntfs_mst.c; sourceTree = "<group>"; };
+-		F99B8784246B8982006E31FE /* ntfs_mft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_mft.c; path = kext/ntfs_mft.c; sourceTree = "<group>"; };
+-		F99B8785246B8982006E31FE /* ntfs_secure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_secure.h; path = kext/ntfs_secure.h; sourceTree = "<group>"; };
+-		F99B8786246B8982006E31FE /* ntfs_secure.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_secure.c; path = kext/ntfs_secure.c; sourceTree = "<group>"; };
+-		F99B8787246B8982006E31FE /* ntfs_attr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_attr.c; path = kext/ntfs_attr.c; sourceTree = "<group>"; };
+-		F99B8788246B8982006E31FE /* ntfs_page.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_page.h; path = kext/ntfs_page.h; sourceTree = "<group>"; };
+-		F99B8789246B8982006E31FE /* ntfs_attr_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_attr_list.h; path = kext/ntfs_attr_list.h; sourceTree = "<group>"; };
+-		F99B878A246B8982006E31FE /* ntfs_bitmap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_bitmap.h; path = kext/ntfs_bitmap.h; sourceTree = "<group>"; };
+-		F99B878B246B8982006E31FE /* ntfs_logfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_logfile.h; path = kext/ntfs_logfile.h; sourceTree = "<group>"; };
+-		F99B878C246B8983006E31FE /* ntfs_lcnalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_lcnalloc.h; path = kext/ntfs_lcnalloc.h; sourceTree = "<group>"; };
+-		F99B878D246B8983006E31FE /* ntfs_runlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_runlist.c; path = kext/ntfs_runlist.c; sourceTree = "<group>"; };
+ 		F99B87C0246B932F006E31FE /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+-		F99B87C7246F35D2006E31FE /* UVFSPlugInUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UVFSPlugInUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+-		F99B87C9246F35D3006E31FE /* UVFSPlugInUnitTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = UVFSPlugInUnitTests.m; sourceTree = "<group>"; };
+-		F99B87CB246F35D3006E31FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+-		F99B87D2246F3704006E31FE /* Data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Data.h; sourceTree = "<group>"; };
+-		F9BD399823DF98500061BF91 /* plugin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = plugin.c; sourceTree = "<group>"; usesTabs = 1; };
+ 		F9BD399B23DF99500061BF91 /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
+ 		F9BD39A323DF9ADB0061BF91 /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
+ /* End PBXFileReference section */
+ 
+ /* Begin PBXFrameworksBuildPhase section */
+-		069952FC266041A200DB6F15 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				069952FD266041A200DB6F15 /* CoreFoundation.framework in Frameworks */,
+-				069952FE266041A200DB6F15 /* UserFS.framework in Frameworks */,
+-				069952FF266041A200DB6F15 /* LiveFS.framework in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		069953052660432D00DB6F15 /* Frameworks */ = {
+-			isa = PBXFrameworksBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				0699530C2660432D00DB6F15 /* uvfs-plugin-macos.dylib in Frameworks */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ 		4DF954BA1BF12917004AE1B4 /* Frameworks */ = {
+ 			isa = PBXFrameworksBuildPhase;
+ 			buildActionMask = 2147483647;
+@@ -787,27 +497,6 @@
+ 			path = kext;
+ 			sourceTree = "<group>";
+ 		};
+-		A00AB6B72632413E0003441E /* tests */ = {
+-			isa = PBXGroup;
+-			children = (
+-				A00AB6C0263244FD0003441E /* ntfs.plist */,
+-				A00AB6BB263241E80003441E /* lib */,
+-				A00AB6BA263241DB0003441E /* test_ntfs */,
+-			);
+-			name = tests;
+-			sourceTree = "<group>";
+-		};
+-		A00AB6BB263241E80003441E /* lib */ = {
+-			isa = PBXGroup;
+-			children = (
+-				A00AB6CF263A51FB0003441E /* ntfs_dmg.py */,
+-				A00AB6BF263242500003441E /* general.py */,
+-				A00AB6BE263242380003441E /* file_system.py */,
+-				A00AB6BD263242230003441E /* constants.py */,
+-			);
+-			name = lib;
+-			sourceTree = "<group>";
+-		};
+ 		BE3E0A1D0AD9A0E40054ACA0 /* util */ = {
+ 			isa = PBXGroup;
+ 			children = (
+@@ -1399,59 +803,9 @@
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		F936272123DF34C3009CF89B /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				F99B87AF246B8983006E31FE /* ntfs_compress.c in Sources */,
+-				F99B87BF246B8983006E31FE /* ntfs_runlist.c in Sources */,
+-				F99B87B9246B8983006E31FE /* ntfs_attr.c in Sources */,
+-				F99B87B3246B8983006E31FE /* ntfs_bitmap.c in Sources */,
+-				F99B87B0246B8983006E31FE /* ntfs_page.c in Sources */,
+-				F99B87A7246B8983006E31FE /* ntfs_dir.c in Sources */,
+-				F99B879D246B8983006E31FE /* ntfs_quota.c in Sources */,
+-				F99B87AD246B8983006E31FE /* ntfs_lcnalloc.c in Sources */,
+-				F9BD399923DF98500061BF91 /* plugin.c in Sources */,
+-				F99B878F246B8983006E31FE /* ntfs_collate.c in Sources */,
+-				F99B87B6246B8983006E31FE /* ntfs_mft.c in Sources */,
+-				F99B87B5246B8983006E31FE /* ntfs_mst.c in Sources */,
+-				F99B87A8246B8983006E31FE /* ntfs_vfsops.c in Sources */,
+-				F99B87AB246B8983006E31FE /* ntfs_sfm.c in Sources */,
+-				F99B8791246B8983006E31FE /* ntfs_logfile.c in Sources */,
+-				F99B87AE246B8983006E31FE /* ntfs_index.c in Sources */,
+-				F99B8759246B8878006E31FE /* ntfs_xpl.c in Sources */,
+-				F99B875B246B8950006E31FE /* ntfs_attr_list.c in Sources */,
+-				F99B87A5246B8983006E31FE /* ntfs_debug.c in Sources */,
+-				F99B879F246B8983006E31FE /* ntfs_inode.c in Sources */,
+-				F99B8793246B8983006E31FE /* ntfs_unistr.c in Sources */,
+-				F99B87B8246B8983006E31FE /* ntfs_secure.c in Sources */,
+-				F99B87A3246B8983006E31FE /* ntfs_usnjrnl.c in Sources */,
+-				F99B87AA246B8983006E31FE /* ntfs_hash.c in Sources */,
+-				F99B87A4246B8983006E31FE /* ntfs_vnops.c in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+-		F99B87C3246F35D2006E31FE /* Sources */ = {
+-			isa = PBXSourcesBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-				F99B87CA246F35D3006E31FE /* UVFSPlugInUnitTests.m in Sources */,
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-		};
+ /* End PBXSourcesBuildPhase section */
+ 
+ /* Begin PBXTargetDependency section */
+-		0699530E2660432D00DB6F15 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = 069952C3266041A200DB6F15 /* uvfs-plugin-macos */;
+-			targetProxy = 0699530D2660432D00DB6F15 /* PBXContainerItemProxy */;
+-		};
+-		06DB36012579E2D800EB14D0 /* PBXTargetDependency */ = {
+-			isa = PBXTargetDependency;
+-			target = F936272323DF34C3009CF89B /* uvfs-plugin */;
+-			targetProxy = 06DB36002579E2D800EB14D0 /* PBXContainerItemProxy */;
+-		};
+ 		4DDA8CDB150E763B00631F4D /* PBXTargetDependency */ = {
+ 			isa = PBXTargetDependency;
+ 			target = BE3E0A230AD9A1700054ACA0 /* ntfs.util */;

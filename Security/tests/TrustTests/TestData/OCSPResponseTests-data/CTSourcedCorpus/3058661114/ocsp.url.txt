@@ -1,0 +1,1 @@
+http://ocsp2.globalsign.com/solutiovsha256g3

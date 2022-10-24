@@ -74,7 +74,7 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                                struct smb2_create_rq *createp);
 static int
 smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
-                          uint32_t is_path, char **ret_str);
+                          uint32_t is_path, char **ret_str, size_t* ret_str_allocsize);
 static int
 smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int smb1_req);
 
@@ -174,7 +174,7 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
                                 kAAPL_SUPPORTS_READ_DIR_ATTR_V2 |
                                 kAAPL_SUPPORTS_HIFI;
     struct smb2_create_ctx_resolve_id *resolve_idp = NULL;
-    struct smb2_durable_handle *dur_handlep = NULL;
+    struct smb2_dur_hndl_and_lease *dur_hndl_leasep = NULL;
     SMB2FID smb2_fid;
     uint32_t lease_state;
 	struct smb_session *sessionp = SS_TO_SESSION(share);
@@ -188,8 +188,10 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 							SMB2_CREATE_AAPL_RESOLVE_ID |
                             SMB2_CREATE_DUR_HANDLE |
                             SMB2_CREATE_DUR_HANDLE_RECONNECT |
-							SMB2_CREATE_DIR_LEASE |
-                            SMB2_CREATE_ADD_TIME_WARP))) {
+                            SMB2_CREATE_DIR_LEASE |
+                            SMB2_CREATE_FILE_LEASE |
+                            SMB2_CREATE_ADD_TIME_WARP |
+                            SMB2_CREATE_QUERY_DISK_ID))) {
         /* No contexts to add */
         context_len = 0;
         *context_len_ptr = htolel(context_len);
@@ -269,6 +271,7 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
             /* Set default return values */
             *resolve_idp->ret_errorp = ENOENT;
             *resolve_idp->ret_pathp = NULL;
+            resolve_idp->ret_pathp_allocsize = 0;
             
             /* AAPL Resolve ID */
             if (next_context_ptr != NULL) {
@@ -323,6 +326,28 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
             mb_put_uint64le(mbp, tm);       /* Time Warp timestamp */
         }
 
+        if (createp->flags & SMB2_CREATE_QUERY_DISK_ID) {
+            /* Get on disk IDs */
+            if (next_context_ptr != NULL) {
+                /* Set prev context next ptr */
+                *next_context_ptr = htolel(prev_content_size);
+            }
+            
+            context_len += 24;
+            prev_content_size = 24;
+            
+            next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
+            *next_context_ptr = htolel(0);  /* Assume we are last context */
+            mb_put_uint16le(mbp, 16);       /* Name Offset */
+            mb_put_uint16le(mbp, 4);        /* Name Length */
+            mb_put_uint16le(mbp, 0);        /* Reserved */
+            mb_put_uint16le(mbp, 0);        /* Data Offset */
+            mb_put_uint32le(mbp, 0);        /* Data Length */
+            /* Name is a string constant and thus its not byte swapped uint32 */
+            mb_put_uint32be(mbp, SMB2_CREATE_QUERY_ON_DISK_ID);
+            mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
+        }
+
         if (createp->flags & SMB2_CREATE_GET_MAX_ACCESS) {
             /* Get max access */
             if (next_context_ptr != NULL) {
@@ -359,14 +384,20 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
                 *next_context_ptr = htolel(prev_content_size);
             }
 			
-			dur_handlep = createp->create_contextp;
-			if (dur_handlep == NULL) {
-				SMBERROR("dur_handlep is NULL \n");
+            dur_hndl_leasep = createp->create_contextp;
+			if (dur_hndl_leasep == NULL) {
+				SMBERROR("dur_hndl_leasep is NULL \n");
 				error = EBADRPC;
 				goto bad;
 			}
 
-			/*
+            if (dur_hndl_leasep->dur_handlep == NULL) {
+                SMBERROR("dur_handlep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
+
+            /*
 			 * Since a lot of third party servers do not support
 			 * Durable Handle V2, only use them with servers that pass the
 			 * check for supporting them. Currently only Time Machine mounts
@@ -375,7 +406,7 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 			 * Also allow the check for Durable Handle V2
 			 */
 			if ((sessionp->session_misc_flags & SMBV_HAS_DUR_HNDL_V2) ||
-				(dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK)) {
+				(dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK)) {
 				/*
 				 * SMB 3.x SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2
 				 */
@@ -387,10 +418,10 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				}
 				
 				/* Save the requested dur handle timeout */
-				lck_mtx_lock(&dur_handlep->lock);
-				dur_handlep->timeout = dur_handle_timeout;
-				lck_mtx_unlock(&dur_handlep->lock);
-				
+                smbnode_dur_handle_lock(dur_hndl_leasep->dur_handlep, smb2_smb_add_create_contexts);
+                
+                dur_hndl_leasep->dur_handlep->timeout = dur_handle_timeout;
+
 				context_len += 56;
 				prev_content_size = 56;
 				
@@ -406,9 +437,8 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
 				mb_put_uint32le(mbp, dur_handle_timeout);	/* Timeout */
 				
-				lck_mtx_lock(&dur_handlep->lock);
 
-				if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_REQUEST) {
+				if (dur_hndl_leasep->dur_handlep->flags & SMB2_PERSISTENT_HANDLE_REQUEST) {
 					/* Request persistent handle */
 					mb_put_uint32le(mbp, SMB2_DHANDLE_FLAG_PERSISTENT);
 				}
@@ -419,13 +449,13 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				
 				mb_put_uint64le(mbp, 0);        /* Reserved */
 				/* Add the CreateGuid */
-				mb_put_mem(mbp, (char *) dur_handlep->create_guid,
+				mb_put_mem(mbp, (char *) dur_hndl_leasep->dur_handlep->create_guid,
 						   16, MB_MSYSTEM);
 				
 				/* Remember that we requested Dur Handle V2 */
-				dur_handlep->flags |= SMB2_DURABLE_HANDLE_V2;
+                dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_V2;
 				
-				lck_mtx_unlock(&dur_handlep->lock);
+                smbnode_dur_handle_unlock(dur_hndl_leasep->dur_handlep);
 			}
 			else {
 				/*
@@ -453,15 +483,21 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 			/*
 			 * Durable Handle Reconnect
 			 */
-			dur_handlep = createp->create_contextp;
-			if (dur_handlep == NULL) {
-				SMBERROR("dur_handlep is NULL \n");
-				error = EBADRPC;
-				goto bad;
-			}
-			
+            dur_hndl_leasep = createp->create_contextp;
+            if (dur_hndl_leasep == NULL) {
+                SMBERROR("dur_hndl_leasep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
+
+            if (dur_hndl_leasep->dur_handlep == NULL) {
+                SMBERROR("dur_handlep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
+
 			/* map fid to SMB 2 fid */
-			error = smb_fid_get_kernel_fid(share, dur_handlep->fid, 0, &smb2_fid);
+			error = smb_fid_get_kernel_fid(share, dur_hndl_leasep->dur_handlep->fid, 0, &smb2_fid);
 			if (error) {
 				goto bad;
 			}
@@ -497,9 +533,9 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				mb_put_uint64le(mbp, smb2_fid.fid_persistent); /* FID */
 				mb_put_uint64le(mbp, smb2_fid.fid_volatile);   /* FID */
 				/* Add the CreateGuid */
-				mb_put_mem(mbp, (char *) dur_handlep->create_guid,
+				mb_put_mem(mbp, (char *) dur_hndl_leasep->dur_handlep->create_guid,
 						   16, MB_MSYSTEM);
-				if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
+				if (dur_hndl_leasep->dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
 					/* Request persistent handle reconnect */
 					SMBERROR("Requesting reconnect with persistent handle \n");
 					mb_put_uint32le(mbp, SMB2_DHANDLE_FLAG_PERSISTENT);
@@ -540,19 +576,27 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 		 */
 		if ((createp->flags & SMB2_CREATE_DUR_HANDLE) ||
 			(createp->flags & SMB2_CREATE_DUR_HANDLE_RECONNECT) ||
-			(createp->flags & SMB2_CREATE_DIR_LEASE)) {
-			dur_handlep = createp->create_contextp;
-			if (dur_handlep == NULL) {
-				SMBERROR("dur_handlep is NULL \n");
-				error = EBADRPC;
-				goto bad;
-			}
+			(createp->flags & SMB2_CREATE_DIR_LEASE) ||
+            (createp->flags & SMB2_CREATE_FILE_LEASE)) {
+            dur_hndl_leasep = createp->create_contextp;
+            if (dur_hndl_leasep == NULL) {
+                SMBERROR("dur_hndl_leasep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
 
-			/* Lock the dur handle */
-			lck_mtx_lock(&dur_handlep->lock);
+            if (dur_hndl_leasep->leasep == NULL) {
+                SMBERROR("leasep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
+
+			/* Lock the lease */
+            smbnode_lease_lock(dur_hndl_leasep->leasep, smb2_smb_add_create_contexts);
 
 			if (SMBV_SMB3_OR_LATER(sessionp) &&
-				(dur_handlep->flags & (SMB2_PERSISTENT_HANDLE_REQUEST | SMB2_PERSISTENT_HANDLE_RECONNECT))) {
+                (dur_hndl_leasep->dur_handlep != NULL) &&
+				(dur_hndl_leasep->dur_handlep->flags & (SMB2_PERSISTENT_HANDLE_REQUEST | SMB2_PERSISTENT_HANDLE_RECONNECT))) {
 				/*
 				 * SMB 3.x with persistent handles do not need a lease.
 				 */
@@ -569,11 +613,11 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				/* Lease State */
 				if (createp->flags & SMB2_CREATE_DUR_HANDLE_RECONNECT) {
 					/* Reconnect, have to request exact same lease */
-					lease_state = dur_handlep->lease_state;
+					lease_state = dur_hndl_leasep->leasep->lease_state;
 				}
 				else {
 					/* New lease */
-					lease_state = dur_handlep->req_lease_state;
+					lease_state = dur_hndl_leasep->leasep->req_lease_state;
 				}
 				
 				if (next_context_ptr != NULL) {
@@ -590,7 +634,7 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 				 * Dir Leases are always V2
 				 */
 				if ((sessionp->session_misc_flags & SMBV_HAS_DUR_HNDL_V2) ||
-					(dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK) ||
+					((dur_hndl_leasep->dur_handlep != NULL) && (dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK)) ||
 					(createp->flags & SMB2_CREATE_DIR_LEASE)) {
 					/*
 					 * SMB 3.x has a new lease format
@@ -608,18 +652,18 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 					/* Name is a string constant and thus its not byte swapped uint32 */
 					mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE_V2);
 					mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
-					mb_put_uint64le(mbp, dur_handlep->lease_key_hi);  /* Lease Key High */
-					mb_put_uint64le(mbp, dur_handlep->lease_key_low); /* Lease Key Low */
+					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
+					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
 					mb_put_uint32le(mbp, lease_state);  /* Lease State */
 					
-					if ((dur_handlep->par_lease_key_hi != 0) &&
-						(dur_handlep->par_lease_key_low != 0)) {
+					if ((dur_hndl_leasep->leasep->par_lease_key_hi != 0) &&
+						(dur_hndl_leasep->leasep->par_lease_key_low != 0)) {
 						/* Parent Lease Key passed in */
 						mb_put_uint32le(mbp, SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET);
 						mb_put_uint64le(mbp, 0);        /* Lease Duration */
 						/* Add the ParentLeaseKey */
-						mb_put_uint64le(mbp, dur_handlep->par_lease_key_hi);
-						mb_put_uint64le(mbp, dur_handlep->par_lease_key_low);
+						mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_hi);
+						mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_low);
 					}
 					else {
 						/* ParentLeaseKey not being used */
@@ -629,17 +673,15 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 						mb_put_uint64le(mbp, 0);	/* ParentLeaseKey Lower */
 					}
 					
-					/* A new Lease resets the epoch back to 0 */
-					dur_handlep->epoch = 0;
-					
-					mb_put_uint16le(mbp, dur_handlep->epoch); /* Epoch */
+                    /* [MS-SMB2] 3.2.4.3.8 Epoch should be set to 0 */
+					mb_put_uint16le(mbp, 0);        /* Epoch */
 					mb_put_uint16le(mbp, 0);        /* Reserved */
 					
 					/* 4 bytes of pad to end on 8 byte boundary */
 					mb_put_uint32le(mbp, 0);
 					
 					/* Remember that we requested Lease V2 */
-					dur_handlep->flags |= SMB2_LEASE_V2;
+                    dur_hndl_leasep->leasep->flags |= SMB2_LEASE_V2;
 				}
 				else {
 					/*
@@ -658,16 +700,16 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 					/* Name is a string constant and thus its not byte swapped uint32 */
 					mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE);
 					mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
-					mb_put_uint64le(mbp, dur_handlep->lease_key_hi);  /* Lease Key High */
-					mb_put_uint64le(mbp, dur_handlep->lease_key_low); /* Lease Key Low */
+					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
+					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
 					mb_put_uint32le(mbp, lease_state);  /* Lease State */
 					mb_put_uint32le(mbp, 0);        /* Lease Flags */
 					mb_put_uint64le(mbp, 0);        /* Lease Duration */
 				}
 			}
 			
-			/* Unlock the dur handle */
-			lck_mtx_unlock(&dur_handlep->lock);
+			/* Unlock the lease */
+            smbnode_lease_unlock(dur_hndl_leasep->leasep);
 		}
 
 		/* Set the Context Length */
@@ -1344,13 +1386,9 @@ smb2_smb_close_fid(struct smb_share *share,
 	int error;
     struct smb2_close_rq *closep = NULL;
     
-    SMB_MALLOC(closep, 
-               struct smb2_close_rq *, 
-               sizeof(struct smb2_close_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(closep, struct smb2_close_rq, Z_WAITOK_ZERO);
     if (closep == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -1375,7 +1413,7 @@ smb2_smb_close_fid(struct smb_share *share,
 
 bad:
     if (closep != NULL) {
-        SMB_FREE(closep, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_close_rq, closep);
     }
     
 	return error;
@@ -1629,121 +1667,6 @@ bad:
     return error;
 }
 
-int
-smb2_smb_dur_handle_init(struct smb_share *share, struct smbnode *np,
-						 uint64_t flags, struct smb2_durable_handle *dur_handlep)
-{
-    int error = ENOTSUP;
-    struct smb_session *sessionp = NULL;
-	vnode_t par_vp = NULL;
-	UInt8 uuid[16] = {0};
-	uint64_t *lease_keyp = NULL;
-	
-	if (dur_handlep == NULL) {
-		/* Should never happen */
-		SMBERROR("dur_handle is null \n");
-		return EINVAL;
-	}
-
-	memset(dur_handlep, 0, sizeof(*dur_handlep));
-	
-	/* Always init lock so that we can always call dur handle free function */
-	lck_mtx_init(&dur_handlep->lock, smbfs_mutex_group, smbfs_lock_attr);
-
-	if ((share == NULL) || (np == NULL)) {
-		/* Should never happen */
-		SMBERROR("share or np is null \n");
-		return EINVAL;
-	}
-	
-	sessionp = SS_TO_SESSION(share);
-	if (sessionp == NULL) {
-		/* Should never happen */
-		SMBERROR("sessionp is null \n");
-		return EINVAL;
-	}
-
-	/*
-     * Only SMB 2/3 and servers that support leasing can do
-     * reconnect.
-     */
-    if (SMBV_SMB21_OR_LATER(sessionp) &&
-        (sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING)) {
-        
-		if (SMBV_SMB3_OR_LATER(sessionp)) {
-			/* CreateGuid */
-			uuid_generate((uint8_t *) &dur_handlep->create_guid);
-			
-			/* ParentLeaseKey */
-			par_vp = smbfs_smb_get_parent(np, kShareLock);
-			if (par_vp != NULL) {
-				dur_handlep->par_lease_key_hi = VTOSMB(par_vp)->n_lease_key_hi;
-				dur_handlep->par_lease_key_low = VTOSMB(par_vp)->n_lease_key_low;
-				
-				vnode_put(par_vp);
-			}
-			else {
-				/* Could not get the parent so leave ParentLeaseKey at 0 */
-			}
-			
-			dur_handlep->epoch = np->n_epoch;
-		}
-
-        if (flags & SMB2_DURABLE_HANDLE_REQUEST) {
-            dur_handlep->flags |= SMB2_DURABLE_HANDLE_REQUEST;
-
-            /*
-             * If server and share supports persistent handles, then request
-             * that instead of just a plain durable V2 handle
-             */
-            if ((sessionp->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) && (share->ss_share_caps & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY)) {
-                if (flags & SMB2_DURABLE_HANDLE_REQUEST) {
-                    dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_REQUEST;
-                }
-            }
-        }
-
-		/* Do we need to generate a new lease key? */
-		if (flags & SMB2_NEW_LEASE_KEY) {
-			uuid_generate(uuid);
-			
-			lease_keyp = (uint64_t *) &uuid[15];
-			dur_handlep->lease_key_hi = *lease_keyp;
-			
-			lease_keyp = (uint64_t *) &uuid[7];
-			dur_handlep->lease_key_low = *lease_keyp;
-		}
-		else {
-			/* Must be a dir lease or common shared fid lease */
-			dur_handlep->lease_key_hi = np->n_lease_key_hi;
-			dur_handlep->lease_key_low = np->n_lease_key_low;
-		}
-		
-        error = 0;
-    }
-    
-    return error;
-}
-
-void
-smb2_smb_dur_handle_free(struct smb2_durable_handle *dur_handlep)
-{
-	if (dur_handlep == NULL) {
-		/* Should never happen */
-		SMBERROR("dur_handlep is null \n");
-		return;
-	}
-	
-	lck_mtx_lock(&dur_handlep->lock);
-	
-	if (dur_handlep->flags != 0) {
-		SMBERROR("Dur handle flags not zero <0x%llx> \n", dur_handlep->flags);
-	}
-	
-	lck_mtx_unlock(&dur_handlep->lock);
-
-	lck_mtx_destroy(&dur_handlep->lock, smbfs_mutex_group);
-}
 
 static int
 smb2_smb_echo(struct smbiod *iod, int timeout, vfs_context_t context)
@@ -1826,21 +1749,23 @@ smb_smb_echo(struct smbiod *iod, int timeout, uint32_t EchoCount,
 }
 
 int
-smb2_smb_flush(struct smb_share *share, SMBFID fid, uint32_t full_sync,
-			   vfs_context_t context)
+smb2_smb_flush(struct smb_share *share, struct smb2_flush_rq *flushp,
+               struct smb_rq **compound_rqp, struct smbiod *iod,
+               vfs_context_t context)
 {
     struct smb_rq *rqp;
     struct mbchain *mbp;
     struct mdchain *mdp;
     int error;
-    uint16_t reserved_uint16;
-    uint16_t length;
     SMB2FID smb2_fid;
-    struct smbiod *iod = NULL;
-    bool   replay = false;
 
 resend:
-    error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    if (iod) {
+        error = smb_iod_ref(iod, __FUNCTION__);
+    }
+    else {
+        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+    }
     if (error) {
         return error;
     }
@@ -1863,7 +1788,7 @@ resend:
      */
     mb_put_uint16le(mbp, 24);                   /* Struct size */
 	
-	if (full_sync == 1) {
+	if (flushp->full_sync == 1) {
 		mb_put_uint16le(mbp, 0xffff);           /* Do F_FULLSYNC */
 	}
 	else {
@@ -1872,25 +1797,38 @@ resend:
     mb_put_uint32le(mbp, 0);                    /* Reserved2 */
 
     /* map fid to SMB 2/3 fid */
-    error = smb_fid_get_kernel_fid(share, fid, 0, &smb2_fid);
+    error = smb_fid_get_kernel_fid(share, flushp->fid, 0, &smb2_fid);
     if (error) {
         goto bad;
     }
     mb_put_uint64le(mbp, smb2_fid.fid_persistent);   /* FID */
     mb_put_uint64le(mbp, smb2_fid.fid_volatile);     /* FID */
 
-    if (replay) {
+    if (flushp->mc_flags & SMB2_MC_REPLAY_FLAG) {
         /* This message is replayed - sent after a channel has been disconnected */
         *rqp->sr_flagsp |= SMB2_FLAGS_REPLAY_OPERATIONS;
     }
 
+    if (compound_rqp != NULL) {
+        /*
+         * building a compound request, add padding to 8 bytes and just
+         * return this built request.
+         */
+        smb2_rq_align8(rqp);
+        rqp->sr_flags |= SMBR_COMPOUND_RQ;
+        *compound_rqp = rqp;
+        return (0);
+    }
+
     error = smb_rq_simple(rqp);
+    flushp->ret_ntstatus = rqp->sr_ntstatus;
     if (error) {
         if (rqp->sr_flags & SMBR_RECONNECTED) {
-            SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n", rqp->sr_messageid, rqp->sr_command, rqp->sr_flags);
+            SMB_LOG_MC("resending messageid %llu cmd %u (sr_flags: 0x%x).\n",
+                       rqp->sr_messageid, rqp->sr_command, rqp->sr_flags);
             if (rqp->sr_flags & SMBR_ALT_CH_DISCON) {
                 /* An alternate channel got disconnected. Resend with the REPLAY flag set */
-                replay = true;
+                flushp->mc_flags |= SMB2_MC_REPLAY_FLAG;
             }
 
             /* Rebuild and try sending again */
@@ -1906,28 +1844,11 @@ resend:
     /* Now get pointer to response data */
     smb_rq_getreply(rqp, &mdp);
     
-    /* 
-     * Parse SMB 2/3 Flush Response 
-     * We are already pointing to begining of Response data
-     */
-    
-    /* Check structure size is 4 */
-    error = md_get_uint16le(mdp, &length);
+    error = smb2_smb_parse_flush(mdp, flushp);
     if (error) {
         goto bad;
     }
-    if (length != 4) {
-        SMBERROR("Bad struct size: %u\n", (uint32_t)length);
-        error = EBADRPC;
-        goto bad;
-    }
-    
-    /* Get Reserved */
-    error = md_get_uint16le(mdp, &reserved_uint16);
-    if (error) {
-        goto bad;
-    }
-    
+
 bad:    
     smb_rq_done(rqp);
     return error;
@@ -2231,8 +2152,7 @@ smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
     } while (gp->gss_tokenlen && (error == EAGAIN));
     
 	/* Free the gss spnego token that we sent */
-	SMB_FREE(gp->gss_token, M_SMBTEMP);
-    gp->gss_token = NULL;
+    SMB_FREE_DATA(gp->gss_token, gp->gss_token_allocsize);
 	gp->gss_tokenlen = 0;
 	gp->gss_smb_error = error;	/* Hold on to the last smb error returned */
 	/* EAGAIN is not really an error, reset it to no error */
@@ -2313,8 +2233,9 @@ smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
      * Set the gss token from the server
      */
     gp->gss_tokenlen = sec_buf_len;
+    gp->gss_token_allocsize = sec_buf_len;
     if (sec_buf_len) {
-        SMB_MALLOC(gp->gss_token, uint8_t *, gp->gss_tokenlen, M_SMBTEMP, M_WAITOK);
+        SMB_MALLOC_DATA(gp->gss_token, gp->gss_token_allocsize, Z_WAITOK);
         if (gp->gss_token == NULL) {
             error = ENOMEM;
             goto bad;
@@ -2499,6 +2420,7 @@ resend:
             break;
             
         case FSCTL_PIPE_TRANSCEIVE:
+        case FSCTL_PIPE_WAIT:
             /* For Pipe Transceive, the pipe data is in input fields */
             if (ioctlp->snd_input_len == 0) {
                 SMBERROR("Pipe transceive needs > 0 data\n");
@@ -3664,7 +3586,7 @@ int
 smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep)
 {
 	int error, tmp_error;
-    uint16_t flags, ret_flags;
+    uint16_t flags;
     uint32_t reservedInt;
     uint16_t length;
     SMB2FID smb2_fid; 
@@ -3688,21 +3610,22 @@ smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep)
     }
     
     /* Get Flags */
-    error = md_get_uint16le(mdp, &ret_flags);
+    error = md_get_uint16le(mdp, &closep->ret_flags);
     if (error) {
         goto bad;
     }
     
     /* We asked for attributes, did the server give them to us? */
-    if ((flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB) && 
-        !(ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
+    if ((flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB) &&
+        !(closep->ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
+        /* Log an error, but dont fail the close */
         SMBERROR("Bad SMB 2/3 Server, did not return close attributes\n");
-        error = EBADRPC;
-        goto bad;
+        //error = EBADRPC;
+        //goto bad;
     }
     
     /* Get the attributes */
-    if (ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB) {
+    if (closep->ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB) {
         /* Get Reserved byte */
         error = md_get_uint32le(mdp, &reservedInt);
         if (error) {
@@ -3714,25 +3637,49 @@ smb2_smb_parse_close(struct mdchain *mdp, struct smb2_close_rq *closep)
         if (error) {
             goto bad;
         }
+        /* Check for a bad server returning invalid values */
+        if (closep->ret_create_time == 0) {
+            SMBWARNING("Bad SMB 2/3 Server, close attr of CreationTime is 0 \n");
+            /* Assume all the close attrs are invalid */
+            closep->ret_flags &= ~SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        }
         
         /* Get Last Access Time */
         error = md_get_uint64le(mdp, &closep->ret_access_time);
         if (error) {
             goto bad;
         }
-        
+        /* Check for a bad server returning invalid values */
+        if (closep->ret_access_time == 0) {
+            SMBERROR("Bad SMB 2/3 Server, close attr of LastAccessTime is 0 \n");
+            /* Assume all the close attrs are invalid */
+            closep->ret_flags &= ~SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        }
+
         /* Get Last Write Time */
         error = md_get_uint64le(mdp, &closep->ret_write_time);
         if (error) {
             goto bad;
         }
-        
+        /* Check for a bad server returning invalid values */
+        if (closep->ret_write_time == 0) {
+            SMBERROR("Bad SMB 2/3 Server, close attr of LastWriteTime is 0 \n");
+            /* Assume all the close attrs are invalid */
+            closep->ret_flags &= ~SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        }
+
         /* Get Change Time */
         error = md_get_uint64le(mdp, &closep->ret_change_time);
         if (error) {
             goto bad;
         }
-        
+        /* Check for a bad server returning invalid values */
+        if (closep->ret_create_time == 0) {
+            SMBERROR("Bad SMB 2/3 Server, close attr of ChangeTime is 0 \n");
+            /* Assume all the close attrs are invalid */
+            closep->ret_flags &= ~SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        }
+
         /* Get Allocation Size */
         error = md_get_uint64le(mdp, &closep->ret_alloc_size);
         if (error) {
@@ -3767,25 +3714,28 @@ bad:
 }
 
 static int
-smb2_smb_parse_copychunk_response(struct mdchain *mdp,
-                                  struct smb2_ioctl_rq *ioctlp)
+smb2_smb_parse_ioctl_get_data(struct mdchain *mdp, struct smb2_ioctl_rq *ioctlp)
 {
-	int     error = 0;
-    char    *copychunk_resp = NULL;
+    int     error = 0;
+    char    *data = NULL;
     
-    SMB_MALLOC(copychunk_resp, char *, (size_t) ioctlp->ret_output_len, M_TEMP,
-               M_WAITOK | M_ZERO);
-    if (copychunk_resp == NULL) {
+    SMB_MALLOC_DATA(data, ioctlp->ret_output_len, Z_WAITOK_ZERO);
+    if (data == NULL) {
         error = ENOMEM;
         goto bad;
     }
     
-    error = md_get_mem(mdp, (void *) copychunk_resp,
+    error = md_get_mem(mdp, (void *) data,
                        (size_t) ioctlp->ret_output_len, MB_MSYSTEM);
-    if (!error) {
-		ioctlp->rcv_output_buffer = (uint8_t *) copychunk_resp;
-        ioctlp->rcv_output_len = (uint32_t) ioctlp->ret_output_len;
+    if (error) {
+        SMB_FREE_DATA(data, ioctlp->ret_output_len);
+        goto bad;
     }
+
+    ioctlp->rcv_output_buffer = (uint8_t *) data;
+    ioctlp->rcv_output_len = (uint32_t) ioctlp->ret_output_len;
+    ioctlp->rcv_output_allocsize = ioctlp->rcv_output_len;
+
 bad:
     return (error);
 }
@@ -3802,7 +3752,7 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
 	uint32_t ret_context_length;
     SMB2FID smb2_fid;
     struct smb_session *sessionp = NULL;
-    struct smb2_durable_handle *dur_handlep = NULL;
+    struct smb2_dur_hndl_and_lease *dur_hndl_leasep = NULL;
 
 	if (share == NULL) {
 		SMBERROR("share is null \n");
@@ -3956,21 +3906,27 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
         }
         else {
             /* Update user fid with new kernel fid */
-            dur_handlep = createp->create_contextp;
-            if (dur_handlep == NULL) {
+            dur_hndl_leasep = createp->create_contextp;
+            if (dur_hndl_leasep == NULL) {
+                SMBERROR("dur_hndl_leasep is NULL \n");
+                error = EBADRPC;
+                goto bad;
+            }
+
+            if (dur_hndl_leasep->dur_handlep == NULL) {
                 SMBERROR("dur_handlep is NULL \n");
                 error = EBADRPC;
                 goto bad;
             }
 
-            error = smb_fid_update_kernel_fid(share, dur_handlep->fid,
+            error = smb_fid_update_kernel_fid(share, dur_hndl_leasep->dur_handlep->fid,
                                               smb2_fid);
             if (!error) {
                 /* 
                  * The user fid remains the same, but the kernel fid has been
                  * successfully updated.
                  */
-                createp->ret_fid = dur_handlep->fid;
+                createp->ret_fid = dur_hndl_leasep->dur_handlep->fid;
             }
         }
     }
@@ -3994,9 +3950,10 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
     uint32_t sub_command, min_context_len;
     uint64_t server_bitmap = 0;
 	char *local_str = NULL;
+    size_t local_str_allocsize = 0;
     struct smb_session *sessionp = SS_TO_SESSION(share);
     struct smb2_create_ctx_resolve_id *resolve_idp = NULL;
-    struct smb2_durable_handle *dur_handlep = NULL;
+    struct smb2_dur_hndl_and_lease *dur_hndl_leasep = NULL;
     uint32_t ntstatus = 0;
     struct mdchain md_context_shadow;
     uint64_t lease_key_hi;
@@ -4005,7 +3962,6 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 	uint16_t server_epoch = 0;
 	uint32_t timeout = 0;
 	uint32_t new_lease_state = 0;
-	int16_t delta_epoch = 0;
 
     /* Read in any pad bytes */
     if (*ret_context_offset > 0) {
@@ -4093,6 +4049,41 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
         }
 
         switch (rsp_context_name) {
+            case SMB2_CREATE_QUERY_ON_DISK_ID:
+                if (rsp_context_data_len != 32) {
+                    SMBERROR("Illegal QFid data len: %u\n",
+                             rsp_context_data_len);
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+                /* Get DiskFileId */
+                error = md_get_uint64le(&md_context_shadow,
+                                        &createp->ret_disk_file_id);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get VolumeId */
+                error = md_get_uint64le(&md_context_shadow,
+                                        &createp->ret_volume_id);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Reserved1 and ignore */
+                error = md_get_uint64le(&md_context_shadow, NULL);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Reserved2 and ignore */
+                error = md_get_uint64le(&md_context_shadow, NULL);
+                if (error) {
+                    goto bad;
+                }
+                break;
+
             case SMB2_CREATE_QUERY_MAXIMAL_ACCESS:
                 if (rsp_context_data_len != 8) {
                     SMBERROR("Illegal MxAc data len: %u\n",
@@ -4131,9 +4122,15 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 				 * This is also the response to 
 				 * SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2 
 				 */
-                dur_handlep = createp->create_contextp;
-                if (dur_handlep == NULL) {
-                    SMBERROR("dur_handlep is NULL \n");
+                dur_hndl_leasep = createp->create_contextp;
+                if (dur_hndl_leasep == NULL) {
+                    SMBERROR("dur_hndl_leasep is NULL \n");
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+                if (dur_hndl_leasep->leasep == NULL) {
+                    SMBERROR("leasep is NULL \n");
                     error = EBADRPC;
                     goto bad;
                 }
@@ -4157,41 +4154,42 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                     goto bad;
                 }
                 
-				/* Lock the dur handle */
-				lck_mtx_lock(&dur_handlep->lock);
-				
-                if ((lease_key_hi != dur_handlep->lease_key_hi) ||
-                    (lease_key_low != dur_handlep->lease_key_low)) {
+				/* Lock the lease */
+                smbnode_lease_lock(dur_hndl_leasep->leasep, smb2_smb_parse_create_contexts);
+
+                if ((lease_key_hi != dur_hndl_leasep->leasep->lease_key_hi) ||
+                    (lease_key_low != dur_hndl_leasep->leasep->lease_key_low)) {
                     SMBERROR("Lease key mismatch: 0x%llx:0x%llx != 0x%llx:0x%llx\n",
-                             dur_handlep->lease_key_hi, dur_handlep->lease_key_low,
+                             dur_hndl_leasep->leasep->lease_key_hi,
+                             dur_hndl_leasep->leasep->lease_key_low,
                              lease_key_hi, lease_key_low);
                     error = EBADRPC;
-					lck_mtx_unlock(&dur_handlep->lock);
+                    smbnode_lease_unlock(dur_hndl_leasep->leasep);
                     goto bad;
                 }
 
                 /* Get Lease State */
                 error = md_get_uint32le(&md_context_shadow, &new_lease_state);
                 if (error) {
-					lck_mtx_unlock(&dur_handlep->lock);
+                    smbnode_lease_unlock(dur_hndl_leasep->leasep);
                     goto bad;
                 }
 
                 /* Get Lease Flags */
                 error = md_get_uint32le(&md_context_shadow, &flags);
                 if (error) {
-					lck_mtx_unlock(&dur_handlep->lock);
+                    smbnode_lease_unlock(dur_hndl_leasep->leasep);
                     goto bad;
                 }
 				
 				if (flags & SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET) {
-					dur_handlep->flags |= SMB2_LEASE_PARENT_LEASE_KEY_SET;
+                    dur_hndl_leasep->leasep->flags |= SMB2_LEASE_PARENT_LEASE_KEY_SET;
 				}
 				
                 /* Get Lease Duration - always 0 */
                 error = md_get_uint64le(&md_context_shadow, NULL);
                 if (error) {
-					lck_mtx_unlock(&dur_handlep->lock);
+                    smbnode_lease_unlock(dur_hndl_leasep->leasep);
                     goto bad;
                 }
 				
@@ -4203,27 +4201,27 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 					/* Get Parent Lease Key */
 					error = md_get_uint64le(&md_context_shadow, &lease_key_hi);
 					if (error) {
-						lck_mtx_unlock(&dur_handlep->lock);
+                        smbnode_lease_unlock(dur_hndl_leasep->leasep);
 						goto bad;
 					}
 					
 					error = md_get_uint64le(&md_context_shadow, &lease_key_low);
 					if (error) {
-						lck_mtx_unlock(&dur_handlep->lock);
+                        smbnode_lease_unlock(dur_hndl_leasep->leasep);
 						goto bad;
 					}
 					
-					if (dur_handlep->flags & SMB2_LEASE_PARENT_LEASE_KEY_SET) {
+					if (dur_hndl_leasep->leasep->flags & SMB2_LEASE_PARENT_LEASE_KEY_SET) {
 						/* 
 						 * Only check returned lease key values if the parent
 						 * lease key bit is set. If they are different, just
 						 * log an error and then ignore it.
 						 */
-						if ((lease_key_hi != dur_handlep->par_lease_key_hi) ||
-							(lease_key_low != dur_handlep->par_lease_key_low)) {
+						if ((lease_key_hi != dur_hndl_leasep->leasep->par_lease_key_hi) ||
+							(lease_key_low != dur_hndl_leasep->leasep->par_lease_key_low)) {
 							SMBERROR("Parent Lease key mismatch: 0x%llx:0x%llx != 0x%llx:0x%llx\n",
-									 dur_handlep->par_lease_key_hi,
-									 dur_handlep->par_lease_key_low,
+                                     dur_hndl_leasep->leasep->par_lease_key_hi,
+                                     dur_hndl_leasep->leasep->par_lease_key_low,
 									 lease_key_hi, lease_key_low);
 						}
 					}
@@ -4231,52 +4229,37 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 					/* Get Epoch */
 					error = md_get_uint16le(&md_context_shadow, &server_epoch);
 					if (error) {
-						lck_mtx_unlock(&dur_handlep->lock);
+                        smbnode_lease_unlock(dur_hndl_leasep->leasep);
 						goto bad;
 					}
 					
-					/*
-					 * [MS-SMB2] 3.2.5.7.5 Calculate delta epoch for
-					 * Create Response
-					 */
-					delta_epoch = smbfs_get_epoch_delta(server_epoch,
-														dur_handlep->epoch);
-					if (delta_epoch > 0) {
-						/*
-						 * Purge any cache data and save new lease state and epoch
-						 */
-						dur_handlep->epoch = server_epoch;
-						dur_handlep->lease_state = new_lease_state;
-					}
-					else {
-						SMBERROR("Lease V2 response ignored. Epoch %d, %d Lease state 0x%x, 0x%x \n",
-								 dur_handlep->epoch, server_epoch,
-								 dur_handlep->lease_state, new_lease_state);
-					}
+					/* Check delta_epoch later */
+                    dur_hndl_leasep->leasep->epoch = server_epoch;
+                    dur_hndl_leasep->leasep->lease_state = new_lease_state;
 					
 					/* Get Reserved */
 					error = md_get_uint16le(&md_context_shadow, NULL);
 					if (error) {
-						lck_mtx_unlock(&dur_handlep->lock);
+                        smbnode_lease_unlock(dur_hndl_leasep->leasep);
 						goto bad;
 					}
 					
                     /* Did we request a Lease V2? */
-                    if (!(dur_handlep->flags & SMB2_LEASE_V2)) {
+                    if (!(dur_hndl_leasep->leasep->flags & SMB2_LEASE_V2)) {
                         /* We got a V2 response, but we sent a V1 request? */
                         SMBERROR("Received lease V2 response for a lease V1 request \n");
-                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                        dur_hndl_leasep->leasep->flags |= SMB2_LEASE_FAIL;
                     }
                 }
                 else {
                     /* Must be Lease V1 response */
-                    dur_handlep->lease_state = new_lease_state;
+                    dur_hndl_leasep->leasep->lease_state = new_lease_state;
                     
                     /* Did we request a Lease V1? */
-                    if (dur_handlep->flags & SMB2_LEASE_V2) {
+                    if (dur_hndl_leasep->leasep->flags & SMB2_LEASE_V2) {
                         /* We got a V1 response, but we sent a V2 request? */
                         SMBERROR("Received lease V1 response for a lease V2 request \n");
-                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                        dur_hndl_leasep->leasep->flags |= SMB2_LEASE_FAIL;
                     }
                 }
                 
@@ -4290,31 +4273,39 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                  * For both durable handle reconnect types, need to set that
                  * we got the durable handle
                  */
-                if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
-                    /* We asked for a persistent handle */
-                    dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
-                    dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_RECONNECT;
-                }
-                else {
-                    if (dur_handlep->flags & SMB2_DURABLE_HANDLE_RECONNECT) {
-                        /* We asked for a durable handle */
-                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
-                        dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_RECONNECT;
+                if (dur_hndl_leasep->dur_handlep != NULL) {
+                    if (dur_hndl_leasep->dur_handlep->flags & SMB2_PERSISTENT_HANDLE_RECONNECT) {
+                        /* We asked for a persistent handle */
+                        dur_hndl_leasep->dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
+                        dur_hndl_leasep->dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_RECONNECT;
                     }
-                    
-                    /* Could just be a dir lease response */
-                }
+                    else {
+                        if (dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_RECONNECT) {
+                            /* We asked for a durable handle */
+                            dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
+                            dur_hndl_leasep->dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_RECONNECT;
+                        }
+                        
+                        /* Could just be a dir lease response */
+                    }
+                 }
 
-                dur_handlep->flags |= SMB2_LEASE_GRANTED;
+                dur_hndl_leasep->leasep->flags |= SMB2_LEASE_GRANTED;
                 
-                /* Unlock the dur handle */
-                lck_mtx_unlock(&dur_handlep->lock);
-                
+                /* Unlock the lease */
+                smbnode_lease_unlock(dur_hndl_leasep->leasep);
+
                 break;
 
             case SMB2_CREATE_DURABLE_HANDLE_REQUEST:    /* DHnQ */
-                dur_handlep = createp->create_contextp;
-                if (dur_handlep == NULL) {
+                dur_hndl_leasep = createp->create_contextp;
+                if (dur_hndl_leasep == NULL) {
+                    SMBERROR("dur_hndl_leasep is NULL \n");
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+                if (dur_hndl_leasep->dur_handlep == NULL) {
                     SMBERROR("dur_handlep is NULL \n");
                     error = EBADRPC;
                     goto bad;
@@ -4334,31 +4325,37 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                 }
 
 				/* Lock the dur handle */
-				lck_mtx_lock(&dur_handlep->lock);
+                smbnode_dur_handle_lock(dur_hndl_leasep->dur_handlep, smb2_smb_parse_create_contexts);
 
 				/* Did we request a Durable Handle V1? */
-				if (dur_handlep->flags & SMB2_DURABLE_HANDLE_V2) {
+				if (dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2) {
 					/* We got a V1 response, but we sent a V2 request? */
 					SMBERROR("Received Durable Handle V1 response for a Durable Handle V2 request \n");
-					dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                    dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
 				}
 
-				dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
-                dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
+                dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
+                dur_hndl_leasep->dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
 
 				/* Unlock the dur handle */
-				lck_mtx_unlock(&dur_handlep->lock);
+                smbnode_dur_handle_unlock(dur_hndl_leasep->dur_handlep);
 
 				break;
 
 			case SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2:    /* DH2Q */
-				dur_handlep = createp->create_contextp;
-				if (dur_handlep == NULL) {
-					SMBERROR("dur_handlep is NULL \n");
-					error = EBADRPC;
-					goto bad;
-				}
-				
+                dur_hndl_leasep = createp->create_contextp;
+                if (dur_hndl_leasep == NULL) {
+                    SMBERROR("dur_hndl_leasep is NULL \n");
+                    error = EBADRPC;
+                    goto bad;
+                }
+
+                if (dur_hndl_leasep->dur_handlep == NULL) {
+                    SMBERROR("dur_handlep is NULL \n");
+                    error = EBADRPC;
+                    goto bad;
+                }
+
 				if (rsp_context_data_len != 8) {
 					SMBERROR("Illegal DH2Q data len: %u\n",
 							 rsp_context_data_len);
@@ -4373,37 +4370,37 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 				}
 				
 				/* Lock the dur handle */
-				lck_mtx_lock(&dur_handlep->lock);
+                smbnode_dur_handle_lock(dur_hndl_leasep->dur_handlep, smb2_smb_parse_create_contexts);
 
 				/* If we requested a specific timeout, see if we got it */
-				if ((dur_handlep->timeout != 0) &&
-					(dur_handlep->timeout != timeout)) {
+				if ((dur_hndl_leasep->dur_handlep->timeout != 0) &&
+					(dur_hndl_leasep->dur_handlep->timeout != timeout)) {
 					SMBERROR("Granted Dur Handle V2 timeout %d does not match requested %d \n",
-							 timeout, dur_handlep->timeout);
+							 timeout, dur_hndl_leasep->dur_handlep->timeout);
 				}
 				
-				dur_handlep->timeout = timeout;
+                dur_hndl_leasep->dur_handlep->timeout = timeout;
 				
 				/* Get Flags */
 				error = md_get_uint32le(&md_context_shadow, &flags);
 				if (error) {
-					lck_mtx_unlock(&dur_handlep->lock);
+                    smbnode_dur_handle_unlock(dur_hndl_leasep->dur_handlep);
 					goto bad;
 				}
 
 				/* Did we request a Durable Handle V2? */
-				if (!(dur_handlep->flags & SMB2_DURABLE_HANDLE_V2)) {
+				if (!(dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2)) {
 					/* We got a V2 response, but we sent a V1 request? */
 					SMBERROR("Received Durable Handle V2 response for a Durable Handle V1 request \n");
-					dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
+                    dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_FAIL;
 				}
 
-				if (dur_handlep->flags & SMB2_PERSISTENT_HANDLE_REQUEST) {
+				if (dur_hndl_leasep->dur_handlep->flags & SMB2_PERSISTENT_HANDLE_REQUEST) {
 					/* We asked for a persistent handle */
 					if (flags & SMB2_DHANDLE_FLAG_PERSISTENT) {
                         /* And we got a persistent handle as expected */
-						dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
-						dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_REQUEST;
+                        dur_hndl_leasep->dur_handlep->flags |= SMB2_PERSISTENT_HANDLE_GRANTED;
+                        dur_hndl_leasep->dur_handlep->flags &= ~SMB2_PERSISTENT_HANDLE_REQUEST;
 					}
 					else {
 						/* Can this ever happen??? */
@@ -4413,8 +4410,8 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                          * Weird, we got a durable V2 handle instead of a
                          * persistent handle.
                          */
-                        dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
-                        dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
+                        dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
+                        dur_hndl_leasep->dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
 					}
 				}
 				else {
@@ -4425,13 +4422,13 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 					}
 					else {
                         /* And we got a durable V2 handle as expected */
-						dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
-						dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
+                        dur_hndl_leasep->dur_handlep->flags |= SMB2_DURABLE_HANDLE_GRANTED;
+                        dur_hndl_leasep->dur_handlep->flags &= ~SMB2_DURABLE_HANDLE_REQUEST;
 					}
 				}
 				
 				/* Unlock the dur handle */
-				lck_mtx_unlock(&dur_handlep->lock);
+                smbnode_dur_handle_unlock(dur_hndl_leasep->dur_handlep);
 
 				break;
 
@@ -4561,7 +4558,7 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
 
                             local_str = NULL;
                             smb2_smb_parse_create_str(share, &md_context_shadow,
-                                                      0, &local_str);
+                                                      0, &local_str, &local_str_allocsize);
                             if (error) {
                                 goto bad;
                             }
@@ -4587,8 +4584,7 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                                         sizeof(sessionp->session_model_info));
                                 lck_mtx_unlock(&sessionp->session_model_info_lock);
 
-                                SMB_FREE(local_str, M_TEMP);
-                                local_str = NULL;
+                                SMB_FREE_DATA(local_str, local_str_allocsize);
                             }
                         }
                         
@@ -4632,7 +4628,7 @@ smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
                         *resolve_idp->ret_errorp = smb_ntstatus_to_errno(ntstatus);
 
                         smb2_smb_parse_create_str(share, &md_context_shadow,
-                                                  1, resolve_idp->ret_pathp);
+                                                  1, resolve_idp->ret_pathp, &resolve_idp->ret_pathp_allocsize);
                         if (error) {
                             goto bad;
                         }
@@ -4670,7 +4666,7 @@ bad:
 
 static int
 smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
-                          uint32_t is_path, char **ret_str)
+                          uint32_t is_path, char **ret_str, size_t* ret_str_allocsize)
 {
 	int error;
     uint32_t str_len = 0;
@@ -4713,7 +4709,7 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
         }
     }
     
-    SMB_MALLOC(network_str, char *, str_len, M_SMBFSDATA, M_WAITOK);
+    SMB_MALLOC_DATA(network_str, str_len, Z_WAITOK);
     if (network_str == NULL) {
         SMBERROR("Malloc failed for model string %d\n", str_len);
         error = ENOMEM;
@@ -4737,7 +4733,10 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
          * make sure to malloc len * 9 number of bytes.
          */
         local_str_len = name_size * 9 + 1;
-        SMB_MALLOC(local_str, char *, local_str_len, M_TEMP, M_WAITOK | M_ZERO);
+        SMB_MALLOC_DATA(local_str, local_str_len, Z_WAITOK_ZERO);
+        if(ret_str_allocsize) {
+            *ret_str_allocsize = local_str_len;
+        }
         
         if (local_str != NULL) {
             error = smb_convert_network_to_path(network_str, name_size,
@@ -4746,8 +4745,7 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
                                                 SMB_UNICODE_STRINGS(SS_TO_SESSION(share)));
             if (error) {
                 SMBERROR("smb_convert_network_to_path failed %d\n", error);
-                SMB_FREE(local_str, M_TEMP);
-                local_str = NULL;
+                SMB_FREE_DATA(local_str, *ret_str_allocsize);
             }
         }
         else {
@@ -4756,8 +4754,11 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
         }
     }
     else {
-        local_str = smbfs_ntwrkname_tolocal((const char *)network_str, &name_size,
+        local_str = smbfs_ntwrkname_tolocal((const char *)network_str, &name_size, &local_str_len,
                                             TRUE);
+        if(ret_str_allocsize) {
+            *ret_str_allocsize = local_str_len;
+        }
         if (local_str == NULL) {
             SMBERROR("smbfs_ntwrkname_tolocal return NULL\n");
             error = EBADRPC;
@@ -4766,12 +4767,10 @@ smb2_smb_parse_create_str(struct smb_share *share, struct mdchain *mdp,
 
     /* Return the local string */
     *ret_str = local_str;
-    
 bad:
     if (network_str != NULL) {
         /* Free network_name buffer */
-        SMB_FREE(network_str, M_SMBFSDATA);
-        network_str = NULL;
+        SMB_FREE_DATA(network_str, str_len);
     }
     
     return error;
@@ -4785,7 +4784,7 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
     struct smbfattr *fap = all_infop->fap;
 	uint64_t llint;
 	uint32_t size, ea_size, access_flags;
- 	size_t nmlen;
+ 	size_t nmlen, filename_allocsize = 0, ntwrkname_allocsize = 0, name_allocsize = 0;
 	char *ntwrkname = NULL;
 	char *filename = NULL;
     
@@ -5009,7 +5008,8 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
      * after we get just the filename. We just allocate what we need
      * need here. 
      */
-    SMB_MALLOC(ntwrkname, char *, nmlen, M_SMBFSDATA, M_WAITOK);
+    SMB_MALLOC_DATA(ntwrkname, nmlen, Z_WAITOK);
+    ntwrkname_allocsize = nmlen;
     if (ntwrkname == NULL) {
         error = ENOMEM;
     }
@@ -5073,7 +5073,7 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
     
     /* Convert the name to a UTF-8 string  */
     filename = smbfs_ntwrkname_tolocal((const char *)filename, 
-                                       &nmlen, 
+                                       &nmlen, &filename_allocsize,
                                        TRUE);
     
     if (filename == NULL) {
@@ -5088,10 +5088,13 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
         goto bad;
     }
     
-    *all_infop->namep = smb_strndup(filename, nmlen);			
+    *all_infop->namep = smb_strndup(filename, nmlen, &name_allocsize);
     if (all_infop->name_lenp) {
         /* Return the name length */       
         *all_infop->name_lenp = nmlen;
+    }
+    if (all_infop->name_allocsize) {
+        *all_infop->name_allocsize = name_allocsize;
     }
     
     if (!(SS_TO_SESSION(all_infop->share)->session_misc_flags & SMBV_HAS_FILEIDS)) {
@@ -5109,12 +5112,12 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
 bad:  
     if (ntwrkname != NULL) {
         /* Free the buffer that holds the name from the network */
-        SMB_FREE(ntwrkname, M_SMBFSDATA);
+        SMB_FREE_DATA(ntwrkname, ntwrkname_allocsize);
     }
     
     if (filename != NULL) {
         /* Free the buffer that holds the name from the network */
-        SMB_FREE(filename, M_TEMP);
+        SMB_FREE_DATA(filename, filename_allocsize);
     }
     
     return error;
@@ -5135,7 +5138,7 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
 	uint32_t translate_names;
     uint64_t stream_size, alloc_size;
     char *network_name, *full_stream_name;
-    size_t full_stream_name_len;
+    size_t full_stream_name_len, full_stream_alloc_size;
     const char *stream_name;
     const char *fname;
 	struct smbmount *smp = stream_infop->share->ss_mount;
@@ -5143,6 +5146,7 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
     uint32_t found_data_stream = 0;
     uint32_t stream_count = 0;
     int n_name_locked = 0;
+    size_t network_name_allocsize = 0;
     
     translate_names = ((*stream_infop->stream_flagsp) & SMB_NO_TRANSLATE_NAMES) ? 0 : 1;
     *stream_infop->stream_flagsp = 0;
@@ -5162,6 +5166,7 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
         network_name_len = 0;
         full_stream_name = NULL;
         full_stream_name_len = 0;
+        full_stream_alloc_size = 0;
         stream_name = NULL;
         next_entry_offset = 0;
         stream_size = 0;
@@ -5211,8 +5216,8 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
         }
         
         /* Get Stream Name */
-        SMB_MALLOC(network_name, char *, network_name_len, M_SMBFSDATA, 
-                   M_WAITOK | M_ZERO);
+        network_name_allocsize = network_name_len;
+        SMB_MALLOC_DATA(network_name, network_name_allocsize, Z_WAITOK);
         if (network_name == NULL) {
             error = ENOMEM;
             goto done;
@@ -5220,7 +5225,7 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
         
         error = md_get_mem(mdp, network_name, network_name_len, MB_MSYSTEM);
         if (error) {
-            SMB_FREE(network_name, M_SMBFSDATA);
+            SMB_FREE_DATA(network_name, network_name_allocsize);
             goto done;
         }
         parsed += network_name_len;
@@ -5239,11 +5244,10 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
         /* Convert network name to local name */
         full_stream_name_len = network_name_len;
         full_stream_name = smbfs_ntwrkname_tolocal(network_name,
-                                                   &full_stream_name_len,
+                                                   &full_stream_name_len, &full_stream_alloc_size,
                                                    SMB_UNICODE_STRINGS(SS_TO_SESSION(stream_infop->share)));
         if (network_name != NULL) {
-            SMB_FREE(network_name, M_SMBFSDATA);
-            network_name = NULL;
+            SMB_FREE_DATA(network_name, network_name_allocsize);
         }
 
         /* 
@@ -5481,8 +5485,7 @@ smb2_smb_parse_file_stream_info(struct mdchain *mdp, void *args,
         
 skipentry:
         if (full_stream_name != NULL) {
-            SMB_FREE(full_stream_name, M_SMBFSDATA);
-            full_stream_name = NULL;
+            SMB_FREE_DATA(full_stream_name, full_stream_alloc_size);
         }
         
         /* 
@@ -5504,7 +5507,7 @@ skipentry:
     
 out:
     if (full_stream_name != NULL) {
-        SMB_FREE(full_stream_name, M_SMBFSDATA);
+        SMB_FREE_DATA(full_stream_name, full_stream_alloc_size);
     }
    
 done:
@@ -5561,6 +5564,40 @@ done:
 	return (error);
 }
 
+int
+smb2_smb_parse_flush(struct mdchain *mdp, struct smb2_flush_rq *flushp)
+{
+#pragma unused(flushp)
+    int error;
+    uint16_t reserved_uint16;
+    uint16_t length;
+
+    /*
+     * Parse SMB 2/3 Flush Response
+     * We are already pointing to begining of Response data
+     */
+    
+    /* Check structure size is 4 */
+    error = md_get_uint16le(mdp, &length);
+    if (error) {
+        goto bad;
+    }
+    if (length != 4) {
+        SMBERROR("Bad struct size: %u\n", (uint32_t)length);
+        error = EBADRPC;
+        goto bad;
+    }
+    
+    /* Get Reserved */
+    error = md_get_uint16le(mdp, &reserved_uint16);
+    if (error) {
+        goto bad;
+    }
+
+bad:
+    return error;
+}
+
 static int
 smb2_smb_parse_fs_attr(struct mdchain *mdp, void *args)
 {
@@ -5592,11 +5629,7 @@ smb2_smb_parse_fs_attr(struct mdchain *mdp, void *args)
     /* return the file system name if it will fit */
     if ((fs_attrs->file_system_name_len > 0) &&
         (fs_attrs->file_system_name_len < PATH_MAX)) {        
-        SMB_MALLOC(fs_attrs->file_system_namep, 
-                   char *, 
-                   fs_attrs->file_system_name_len, 
-                   M_SMBFSDATA, 
-                   M_WAITOK | M_ZERO);
+        SMB_MALLOC_DATA(fs_attrs->file_system_namep, fs_attrs->file_system_name_len, Z_WAITOK_ZERO);
         
         if (fs_attrs->file_system_namep != NULL) {
             error = md_get_mem(mdp, 
@@ -5649,11 +5682,11 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
 {
 	int error;
     uint32_t tag, flags;
-    uint16_t data_length, reserved, substitute_name_offset, substitute_name_len;
+    uint16_t data_length, reserved, substitute_name_offset, substitute_name_len = 0;
     uint16_t print_name_offset, print_name_len;
 	char *network_name = NULL;
 	char *path = NULL;
-	size_t path_len;
+	size_t path_len = 0, path_allocsize = 0;
     
     /*
      * Parse SMB 2/3 IOCTL Response for FSCTL_GET_REPARSE_POINT
@@ -5756,8 +5789,7 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
 	}
 	
     /* Get the Substitute Name */
-	SMB_MALLOC(network_name, char *, (size_t) substitute_name_len, M_TEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(network_name, substitute_name_len, Z_WAITOK_ZERO);
 	if (network_name == NULL) {
 		error = ENOMEM;
         goto bad;
@@ -5775,7 +5807,8 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
      * make sure to malloc len * 9 number of bytes.
      */
 	path_len = substitute_name_len * 9 + 1;
-	SMB_MALLOC(path, char *, path_len, M_TEMP, M_WAITOK | M_ZERO);
+    path_allocsize = path_len;
+    SMB_MALLOC_DATA(path, path_allocsize, Z_WAITOK_ZERO);
 	if (path == NULL) {
 		error = ENOMEM;
         goto bad;
@@ -5790,44 +5823,20 @@ smb2_smb_parse_get_reparse_point(struct mdchain *mdp,
         /* Return the path */
 		ioctlp->rcv_output_buffer = (uint8_t *) path;
 		ioctlp->rcv_output_len = (uint32_t) path_len;
+        ioctlp->rcv_output_allocsize = path_allocsize;
 		path = NULL;    /* so we dont free it later */
 	}
 	
 bad:
     if (network_name != NULL) {
-        SMB_FREE(network_name, M_TEMP);
+        SMB_FREE_DATA(network_name, substitute_name_len);
     }
         
     if (path != NULL) {
-        SMB_FREE(path, M_TEMP);
+        SMB_FREE_DATA(path, path_allocsize);
     }
 
 	return error;
-}
-
-static int
-smb2_smb_parse_get_resume_key(struct mdchain *mdp,
-                              struct smb2_ioctl_rq *ioctlp)
-{
-	int     error = 0;
-    char    *resume_key = NULL;
-    
-    SMB_MALLOC(resume_key, char *, (size_t) ioctlp->ret_output_len, M_TEMP,
-               M_WAITOK | M_ZERO);
-    if (resume_key == NULL) {
-        error = ENOMEM;
-        goto bad;
-    }
-    
-    error = md_get_mem(mdp, (void *) resume_key,
-                       (size_t) ioctlp->ret_output_len, MB_MSYSTEM);
-    if (!error) {
-		ioctlp->rcv_output_buffer = (uint8_t *) resume_key;
-        ioctlp->rcv_output_len = (uint32_t) ioctlp->ret_output_len;
-    }
-    
-bad:
-    return (error);
 }
 
 int
@@ -5928,6 +5937,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             
         case FSCTL_DFS_GET_REFERRALS:
         case FSCTL_PIPE_TRANSCEIVE:
+        case FSCTL_PIPE_WAIT:
         case FSCTL_SRV_ENUMERATE_SNAPSHOTS:
             /* validate some return values */
             if (ioctlp->ret_input_len != 0) {
@@ -5996,7 +6006,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             }
             
             /* Now fetch the resume key */
-            error = smb2_smb_parse_get_resume_key(mdp, ioctlp);
+            error = smb2_smb_parse_ioctl_get_data(mdp, ioctlp);
             
             break;
             
@@ -6013,7 +6023,7 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             }
             
             /* Now fetch the copychunk_response */
-            error = smb2_smb_parse_copychunk_response(mdp, ioctlp);
+            error = smb2_smb_parse_ioctl_get_data(mdp, ioctlp);
             
             if (error) {
                 SMBDEBUG("smb2_smb_parse_copychunk_response failed, error: %d\n", error);
@@ -6065,6 +6075,12 @@ smb2_smb_parse_ioctl(struct mdchain *mdp,
             break;
             
         case FSCTL_QUERY_NETWORK_INTERFACE_INFO:
+            if (ioctlp->ret_output_len > ioctlp->rcv_output_len) {
+                SMBERROR("FSCTL_QUERY_NETWORK_INTERFACE_INFO data too long. ret_output_len=%u\n",
+                         ioctlp->ret_output_len);
+                error = EINVAL;
+                goto bad;
+            }
             error = md_get_mem(mdp, (caddr_t)ioctlp->rcv_output_buffer, ioctlp->ret_output_len, MB_MSYSTEM);
             if (error) {
                 SMBERROR("FSCTL_QUERY_NETWORK_INTERFACE_INFO error pulling data\n");
@@ -6377,6 +6393,13 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
         goto bad;
     }
     
+    /* Paranoid check */
+    if (!(temp32 & SMB2_GLOBAL_CAP_LEASING)) {
+        /* How can you not support leasing, but support dir leasing??? */
+        SMBWARNING("Server does not support leasing but supports dir leases? Disabling dir leases. \n");
+        temp32 &= ~SMB2_GLOBAL_CAP_DIRECTORY_LEASING;
+    }
+
     if (iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) {
         /* Alt Channel: validate */
         if (temp32 != sp->sv_capabilities) {
@@ -6419,6 +6442,19 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
         }
         else {
             sessionp->session_flags &= ~SMBV_MULTICHANNEL_ON;
+        }
+        
+        if ((SMBV_SMB21_OR_LATER(sessionp)) &&
+            (sp->sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
+            (sessionp->session_resp_wait_timeout < SMB_RESP_TIMO_W_LEASING)) {
+                /* <93379514>:
+                 * Lease breaks may take up to 35 sec to timeout.
+                 * During that time the server does not reply to keepAlives (echos).
+                 * We want to make sure we don't close the connection just because of a lease-break.
+                 * See [MS-SMB2] section 3.3.2.5 Lease Break Acknowledgment Timer
+                 */
+                sessionp->session_resp_wait_timeout = SMB_RESP_TIMO_W_LEASING;
+                SMBWARNING("session_resp_wait_timeout changed to %d\n", sessionp->session_resp_wait_timeout);
         }
     }
 
@@ -6530,7 +6566,7 @@ smb2_smb_parse_negotiate(struct smb_session *sessionp, struct smb_rq *rqp, int s
     
     /* Its ok if the sec_buf_len is 0 */
     if (sec_buf_len > 0) {
-        SMB_MALLOC(iod->negotiate_token, uint8_t *, sec_buf_len, M_SMBTEMP, M_WAITOK);
+        SMB_MALLOC_DATA(iod->negotiate_token, sec_buf_len, Z_WAITOK_ZERO);
         if (iod->negotiate_token) {
             iod->negotiate_tokenlen = sec_buf_len;
             error = md_get_mem(mdp,
@@ -7563,8 +7599,7 @@ smb2_smb_parse_security(struct mdchain *mdp,
      * have received at least sizeof(struct ntsecdesc) amount of data
      */
     if (queryp->ret_buffer_len >= sizeof(struct ntsecdesc)) {
-        SMB_MALLOC(*resp, struct ntsecdesc *, queryp->ret_buffer_len,
-                   M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(*resp, queryp->ret_buffer_len, Z_WAITOK);
         if (*resp == NULL) {
             error = ENOMEM;
         }
@@ -7597,6 +7632,7 @@ smb2_smb_parse_svrmsg_notify(struct smb_rq *rqp,
     struct mdchain *mdp;
     uint32_t next_entry_offset, action, delay_val;
     char *filename = NULL;
+    size_t filename_allocsize = 0;
     
     /*
      * SvrMsg Notify is an Async request, get reply and parse it now.
@@ -7679,7 +7715,7 @@ smb2_smb_parse_svrmsg_notify(struct smb_rq *rqp,
     }
     
     /* Get filename */
-    error = smb2_smb_parse_create_str(rqp->sr_share, mdp, 0, &filename);
+    error = smb2_smb_parse_create_str(rqp->sr_share, mdp, 0, &filename, &filename_allocsize);
     
     if (error || (filename == NULL)) {
         SMBDEBUG("Parse error getting file name: %d\n", error);
@@ -7725,7 +7761,7 @@ smb2_smb_parse_svrmsg_notify(struct smb_rq *rqp,
     
 done:
     if (filename != NULL) {
-        SMB_FREE(filename, M_TEMP);
+        SMB_FREE_DATA(filename, filename_allocsize);
     }
     return error;
 }
@@ -8385,13 +8421,9 @@ smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
 	int error;
  	struct smb2_rw_rq *readp = NULL;
     
-    SMB_MALLOC(readp,
-               struct smb2_rw_rq *,
-               sizeof(struct smb2_rw_rq),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(readp, struct smb2_rw_rq, Z_WAITOK_ZERO);
     if (readp == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         return error;
     }
@@ -8406,7 +8438,7 @@ smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
     error = smb2_smb_read(share, readp, context);
     
     if (readp != NULL) {
-        SMB_FREE(readp, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_rw_rq, readp);
     }
     
 	return error;
@@ -8596,13 +8628,9 @@ resend:
     /* Fill in initial requests */
     for (i = 0; i < quantumNbr; i++) {
         /* Malloc the read_writep */
-        SMB_MALLOC(rw_pb[i].read_writep,
-                   struct smb2_rw_rq *,
-                   sizeof(struct smb2_rw_rq),
-                   M_SMBTEMP,
-                   M_WAITOK | M_ZERO);
+        SMB_MALLOC_TYPE(rw_pb[i].read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
         if (rw_pb[i].read_writep == NULL) {
-            SMBERROR("SMB_MALLOC failed\n");
+            SMBERROR("SMB_MALLOC_TYPE failed\n");
             error = ENOMEM;
             goto bad;
         }
@@ -8906,8 +8934,7 @@ bad:
                 rw_pb[i].read_writep->auio = NULL;
             }
 
-            SMB_FREE(rw_pb[i].read_writep, M_SMBTEMP);
-            rw_pb[i].read_writep = NULL;
+            SMB_FREE_TYPE(struct smb2_rw_rq, rw_pb[i].read_writep);
         }
 
         rw_pb[i].resid = 0;
@@ -9976,13 +10003,9 @@ smb2_smb_write_uio(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
     
     write_count = uio_resid(uio);
     
-    SMB_MALLOC(writep,
-               struct smb2_rw_rq *,
-               sizeof(struct smb2_rw_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
     if (writep == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto done;
     }
@@ -10033,8 +10056,7 @@ again:
     
 done:
     if (writep != NULL) {
-        SMB_FREE(writep, M_SMBTEMP);
-        writep = NULL;
+        SMB_FREE_TYPE(struct smb2_rw_rq, writep);
     }
     
     if (temp_uio != NULL) {

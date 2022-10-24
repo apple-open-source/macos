@@ -34,6 +34,15 @@ OPTIONS
 	     This is necessary if any of the filenames being read might con-
 	     tain newlines.
 
+     -6, --pwb
+	     When reading a binary format archive, assume it's the earlier
+	     one, from the PWB variant of 6th Edition UNIX.  When writing a
+	     cpio archive, use the PWB format.
+
+     -7, --binary
+	     (o mode only) When writing a cpio archive, use the (newer, non-
+	     PWB) binary format.
+
      -A      (o mode only) Append to the specified archive.  (Not yet imple-
 	     mented.)
 

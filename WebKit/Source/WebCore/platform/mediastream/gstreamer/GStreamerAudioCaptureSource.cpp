@@ -56,7 +56,7 @@ static void initializeDebugCategory()
 
 class GStreamerAudioCaptureSourceFactory : public AudioCaptureFactory {
 public:
-    CaptureSourceOrError createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints) final
+    CaptureSourceOrError createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier) final
     {
         return GStreamerAudioCaptureSource::create(String { device.persistentId() }, WTFMove(hashSalt), constraints);
     }
@@ -96,15 +96,8 @@ AudioCaptureFactory& GStreamerAudioCaptureSource::factory()
 }
 
 GStreamerAudioCaptureSource::GStreamerAudioCaptureSource(GStreamerCaptureDevice device, String&& hashSalt)
-    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, String { device.persistentId() }, String { device.label() }, WTFMove(hashSalt))
+    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, AtomString { device.persistentId() }, String { device.label() }, WTFMove(hashSalt))
     , m_capturer(makeUnique<GStreamerAudioCapturer>(device))
-{
-    initializeDebugCategory();
-}
-
-GStreamerAudioCaptureSource::GStreamerAudioCaptureSource(String&& deviceID, String&& name, String&& hashSalt)
-    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
-    , m_capturer(makeUnique<GStreamerAudioCapturer>())
 {
     initializeDebugCategory();
 }
@@ -210,7 +203,10 @@ const RealtimeMediaSourceSettings& GStreamerAudioCaptureSource::settings()
 
 bool GStreamerAudioCaptureSource::interrupted() const
 {
-    return m_capturer->isInterrupted() || RealtimeMediaSource::interrupted();
+    if (m_capturer->pipeline())
+        return m_capturer->isInterrupted() || RealtimeMediaSource::interrupted();
+
+    return RealtimeMediaSource::interrupted();
 }
 
 void GStreamerAudioCaptureSource::setInterruptedForTesting(bool isInterrupted)

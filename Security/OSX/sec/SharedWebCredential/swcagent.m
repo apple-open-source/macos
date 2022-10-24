@@ -312,7 +312,7 @@ static bool SWCAIsAutofillEnabled(void)
 #endif
 }
 
-static NSBundle* swca_get_security_bundle()
+static NSBundle* swca_get_security_bundle(void)
 {
     static NSBundle *security_bundle;
     static dispatch_once_t onceToken;
@@ -792,7 +792,7 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
 
 static xpc_connection_t swclistener = NULL;
 
-static void swca_xpc_init()
+static void swca_xpc_init(void)
 {
     secdebug("swcagent_xpc", "start");
 

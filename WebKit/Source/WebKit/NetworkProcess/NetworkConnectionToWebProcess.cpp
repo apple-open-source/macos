@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,13 +52,14 @@
 #include "NetworkSocketChannelMessages.h"
 #include "NetworkSocketStream.h"
 #include "NetworkSocketStreamMessages.h"
+#include "NetworkStorageManager.h"
 #include "PingLoad.h"
 #include "PreconnectTask.h"
 #include "RTCDataChannelRemoteManagerProxy.h"
+#include "RemoteWorkerType.h"
 #include "ServiceWorkerFetchTaskMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
-#include "WebIDBServer.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPoolMessages.h"
 #include "WebResourceLoadStatisticsStore.h"
@@ -66,6 +67,11 @@
 #include "WebSWServerConnectionMessages.h"
 #include "WebSWServerToContextConnection.h"
 #include "WebSWServerToContextConnectionMessages.h"
+#include "WebSharedWorkerServer.h"
+#include "WebSharedWorkerServerConnection.h"
+#include "WebSharedWorkerServerConnectionMessages.h"
+#include "WebSharedWorkerServerToContextConnection.h"
+#include "WebSharedWorkerServerToContextConnectionMessages.h"
 #include "WebsiteDataStoreParameters.h"
 #include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
@@ -132,6 +138,7 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
 #if ENABLE(SERVICE_WORKER)
     establishSWServerConnection();
 #endif
+    establishSharedWorkerServerConnection();
 }
 
 NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
@@ -166,6 +173,7 @@ NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
 #if ENABLE(SERVICE_WORKER)
     unregisterSWConnection();
 #endif
+    unregisterSharedWorkerConnection();
 }
 
 void NetworkConnectionToWebProcess::hasUploadStateChanged(bool hasUpload)
@@ -274,6 +282,17 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
         return;
     }
 #endif
+
+    if (decoder.messageReceiverName() == Messages::WebSharedWorkerServerConnection::messageReceiverName()) {
+        if (m_sharedWorkerConnection)
+            m_sharedWorkerConnection->didReceiveMessage(connection, decoder);
+        return;
+    }
+    if (decoder.messageReceiverName() == Messages::WebSharedWorkerServerToContextConnection::messageReceiverName()) {
+        if (m_sharedWorkerContextConnection)
+            m_sharedWorkerContextConnection->didReceiveMessage(connection, decoder);
+        return;
+    }
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinatorProxy::messageReceiverName())
@@ -388,19 +407,18 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
     return false;
 }
 
-void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(const ClientOrigin& origin)
+void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(ClientOrigin&& origin)
 {
-    auto storageQuotaManager = m_networkProcess->storageQuotaManager(sessionID(), origin);
-    storageQuotaManager->resetQuotaUpdatedBasedOnUsageForTesting();
+    if (auto* session = m_networkProcess->networkSession(sessionID()))
+        session->storageManager().resetQuotaUpdatedBasedOnUsageForTesting(WTFMove(origin));
 }
 
 void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
 {
 #if ENABLE(SERVICE_WORKER)
     m_swContextConnection = nullptr;
-#else
-    UNUSED_PARAM(connection);
 #endif
+    m_sharedWorkerContextConnection = nullptr;
 
     // Protect ourself as we might be otherwise be deleted during this function.
     Ref<NetworkConnectionToWebProcess> protector(*this);
@@ -443,6 +461,7 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
 #if ENABLE(SERVICE_WORKER)
     unregisterSWConnection();
 #endif
+    unregisterSharedWorkerConnection();
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     m_paymentCoordinator = nullptr;
@@ -729,10 +748,7 @@ void NetworkConnectionToWebProcess::didFinishPreconnection(WebCore::ResourceLoad
 
 NetworkStorageSession* NetworkConnectionToWebProcess::storageSession()
 {
-    auto* session = networkProcess().storageSession(m_sessionID);
-    if (!session)
-        LOG_ERROR("Non-default storage session was requested, but there was no session for it. Please file a bug unless you just disabled private browsing, in which case it's an expected race.");
-    return session;
+    return networkProcess().storageSession(m_sessionID);
 }
 
 void NetworkConnectionToWebProcess::startDownload(DownloadID downloadID, const ResourceRequest& request, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, const String& suggestedName)
@@ -773,7 +789,7 @@ void NetworkConnectionToWebProcess::cookiesForDOM(const URL& firstParty, const S
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     if (auto* session = networkSession()) {
         if (session->shouldLogCookieInformation())
-            NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::cookiesForDOM", reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
+            NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::cookiesForDOM"_s, reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
     }
 #endif
     completionHandler(WTFMove(result.first), result.second);
@@ -788,7 +804,7 @@ void NetworkConnectionToWebProcess::setCookiesFromDOM(const URL& firstParty, con
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     if (auto* session = networkSession()) {
         if (session->shouldLogCookieInformation())
-            NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::setCookiesFromDOM", reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
+            NetworkResourceLoader::logCookieInformation(*this, "NetworkConnectionToWebProcess::setCookiesFromDOM"_s, reinterpret_cast<const void*>(this), *networkStorageSession, firstParty, sameSiteInfo, url, emptyString(), frameID, pageID, std::nullopt);
     }
 #endif
 }
@@ -821,12 +837,12 @@ void NetworkConnectionToWebProcess::setRawCookie(const WebCore::Cookie& cookie)
     networkStorageSession->setCookie(cookie);
 }
 
-void NetworkConnectionToWebProcess::deleteCookie(const URL& url, const String& cookieName)
+void NetworkConnectionToWebProcess::deleteCookie(const URL& url, const String& cookieName, CompletionHandler<void()>&& completionHandler)
 {
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
-        return;
-    networkStorageSession->deleteCookie(url, cookieName);
+        return completionHandler();
+    networkStorageSession->deleteCookie(url, cookieName, WTFMove(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::domCookiesForHost(const String& host, bool subscribeToCookieChangeNotifications, CompletionHandler<void(const Vector<WebCore::Cookie>&)>&& completionHandler)
@@ -986,7 +1002,8 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
             file->revokeFileAccess();
 
         if (auto* session = networkSession())
-            session->ensureWebIDBServer().registerTemporaryBlobFilePaths(m_connection, filePaths);
+            session->storageManager().registerTemporaryBlobFilePaths(m_connection, filePaths);
+
         completionHandler(WTFMove(filePaths));
     });
 }
@@ -1020,11 +1037,11 @@ void NetworkConnectionToWebProcess::removeStorageAccessForFrame(FrameIdentifier 
         storageSession->removeStorageAccessForFrame(frameID, pageID);
 }
 
-void NetworkConnectionToWebProcess::logUserInteraction(const RegistrableDomain& domain)
+void NetworkConnectionToWebProcess::logUserInteraction(RegistrableDomain&& domain)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->logUserInteraction(domain, [] { });
+            resourceLoadStatistics->logUserInteraction(WTFMove(domain), [] { });
     }
 }
 
@@ -1043,11 +1060,11 @@ void NetworkConnectionToWebProcess::resourceLoadStatisticsUpdated(Vector<Resourc
     completionHandler();
 }
 
-void NetworkConnectionToWebProcess::hasStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
+void NetworkConnectionToWebProcess::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->hasStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID, WTFMove(completionHandler));
+            resourceLoadStatistics->hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, WTFMove(completionHandler));
             return;
         } else {
             storageSession()->hasCookies(subFrameDomain, WTFMove(completionHandler));
@@ -1058,11 +1075,11 @@ void NetworkConnectionToWebProcess::hasStorageAccess(const RegistrableDomain& su
     completionHandler(false);
 }
 
-void NetworkConnectionToWebProcess::requestStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(WebCore::RequestStorageAccessResult result)>&& completionHandler)
+void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(WebCore::RequestStorageAccessResult result)>&& completionHandler)
 {
     if (auto* networkSession = this->networkSession()) {
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
-            resourceLoadStatistics->requestStorageAccess(subFrameDomain, topFrameDomain, frameID, webPageID, webPageProxyID, scope, WTFMove(completionHandler));
+            resourceLoadStatistics->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, webPageID, webPageProxyID, scope, WTFMove(completionHandler));
             return;
         }
     }
@@ -1177,16 +1194,71 @@ void NetworkConnectionToWebProcess::stopAllNetworkActivityTrackingForPage(PageId
 
 size_t NetworkConnectionToWebProcess::findRootNetworkActivity(PageIdentifier pageID)
 {
-    return m_networkActivityTrackers.findMatching([&](const auto& item) {
+    return m_networkActivityTrackers.findIf([&](const auto& item) {
         return item.isRootActivity && item.pageID == pageID;
     });
 }
 
 size_t NetworkConnectionToWebProcess::findNetworkActivityTracker(WebCore::ResourceLoaderIdentifier resourceID)
 {
-    return m_networkActivityTrackers.findMatching([&](const auto& item) {
+    return m_networkActivityTrackers.findIf([&](const auto& item) {
         return item.resourceID == resourceID;
     });
+}
+
+void NetworkConnectionToWebProcess::establishSharedWorkerContextConnection(WebPageProxyIdentifier, WebCore::RegistrableDomain&& registrableDomain, CompletionHandler<void()>&& completionHandler)
+{
+    CONNECTION_RELEASE_LOG(SharedWorker, "establishSharedWorkerContextConnection:");
+    auto* session = networkSession();
+    if (auto* swServer = session ? session->sharedWorkerServer() : nullptr)
+        m_sharedWorkerContextConnection = makeUnique<WebSharedWorkerServerToContextConnection>(*this, WTFMove(registrableDomain), *swServer);
+    completionHandler();
+}
+
+void NetworkConnectionToWebProcess::establishSharedWorkerServerConnection()
+{
+    if (m_sharedWorkerConnection)
+        return;
+
+    auto* session = networkSession();
+    if (!session)
+        return;
+
+    CONNECTION_RELEASE_LOG(SharedWorker, "establishSharedWorkerServerConnection:");
+
+    auto& server = session->ensureSharedWorkerServer();
+    auto connection = makeUnique<WebSharedWorkerServerConnection>(m_networkProcess, server, m_connection.get(), m_webProcessIdentifier);
+
+    m_sharedWorkerConnection = *connection;
+    server.addConnection(WTFMove(connection));
+}
+
+void NetworkConnectionToWebProcess::closeSharedWorkerContextConnection()
+{
+    CONNECTION_RELEASE_LOG(SharedWorker, "closeSharedWorkerContextConnection:");
+    m_sharedWorkerContextConnection = nullptr;
+}
+
+void NetworkConnectionToWebProcess::unregisterSharedWorkerConnection()
+{
+    CONNECTION_RELEASE_LOG(SharedWorker, "unregisterSharedWorkerConnection:");
+    if (m_sharedWorkerConnection)
+        m_sharedWorkerConnection->server().removeConnection(m_sharedWorkerConnection->webProcessIdentifier());
+}
+
+void NetworkConnectionToWebProcess::sharedWorkerServerToContextConnectionIsNoLongerNeeded()
+{
+    CONNECTION_RELEASE_LOG(SharedWorker, "sharedWorkerServerToContextConnectionIsNoLongerNeeded:");
+    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::RemoteWorkerContextConnectionNoLongerNeeded { RemoteWorkerType::SharedWorker, webProcessIdentifier() }, 0);
+
+    m_sharedWorkerContextConnection = nullptr;
+}
+
+WebSharedWorkerServerConnection* NetworkConnectionToWebProcess::sharedWorkerConnection()
+{
+    if (!m_sharedWorkerConnection)
+        establishSharedWorkerServerConnection();
+    return m_sharedWorkerConnection.get();
 }
     
 #if ENABLE(SERVICE_WORKER)
@@ -1225,10 +1297,10 @@ void NetworkConnectionToWebProcess::closeSWContextConnection()
     m_swContextConnection = nullptr;
 }
 
-void NetworkConnectionToWebProcess::serverToContextConnectionNoLongerNeeded()
+void NetworkConnectionToWebProcess::serviceWorkerServerToContextConnectionNoLongerNeeded()
 {
-    CONNECTION_RELEASE_LOG(ServiceWorker, "serverToContextConnectionNoLongerNeeded: WebProcess no longer useful for running service workers");
-    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::WorkerContextConnectionNoLongerNeeded { webProcessIdentifier() }, 0);
+    CONNECTION_RELEASE_LOG(ServiceWorker, "serviceWorkerServerToContextConnectionNoLongerNeeded: WebProcess no longer useful for running service workers");
+    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::RemoteWorkerContextConnectionNoLongerNeeded { RemoteWorkerType::ServiceWorker, webProcessIdentifier() }, 0);
 
     m_swContextConnection = nullptr;
 }
@@ -1361,6 +1433,13 @@ RefPtr<NetworkResourceLoader> NetworkConnectionToWebProcess::takeNetworkResource
         return nullptr;
     return m_networkResourceLoaders.take(resourceLoadIdentifier);
 }
+
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+void NetworkConnectionToWebProcess::installMockContentFilter(WebCore::MockContentFilterSettings&& settings)
+{
+    MockContentFilterSettings::singleton() = WTFMove(settings);
+}
+#endif
 
 } // namespace WebKit
 

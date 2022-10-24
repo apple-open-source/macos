@@ -302,21 +302,20 @@ String contextMenuItemTagLookUpImage()
     return WEB_UI_STRING("Look Up", "Title for Look Up action button");
 }
 
-String contextMenuItemTagQuickLookImage()
+#endif
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+String contextMenuItemTagCopySubject()
 {
-    return WEB_UI_STRING("Quick Look", "Title for Quick Look action button");
+    return WEB_UI_STRING("Copy Subject", "Title for Copy Subject");
 }
 
-String contextMenuItemTagQuickLookImageForTextSelection()
+String contextMenuItemTitleRemoveBackground()
 {
-    return WEB_UI_STRING("Select Text in Quick Look", "Title for Quick Look action button for images with text");
+    return WEB_UI_STRING("Remove Background", "Remove Background menu item");
 }
 
-String contextMenuItemTagQuickLookImageForVisualSearch()
-{
-    return WEB_UI_STRING("Look Up in Quick Look", "Title for Quick Look action button for images with visual search results");
-}
-
-#endif // ENABLE(IMAGE_ANALYSIS)
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 } // namespace WebCore

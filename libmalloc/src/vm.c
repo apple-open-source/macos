@@ -24,12 +24,14 @@
 #include "internal.h"
 
 static volatile uintptr_t entropic_address = 0;
+static volatile uintptr_t entropic_base = 0;
 static volatile uintptr_t entropic_limit = 0;
 
 MALLOC_NOEXPORT
 uint64_t malloc_entropy[2] = {0, 0};
 
 #define ENTROPIC_KABILLION 0x10000000 /* 256Mb */
+#define ENTROPIC_USER_RANGE_SIZE 0x200000000ULL /* 8Gb */
 
 // <rdar://problem/22277891> align 64bit ARM shift to 32MB PTE entries
 #if MALLOC_TARGET_IOS && MALLOC_TARGET_64BIT
@@ -65,7 +67,32 @@ mvm_aslr_init(void)
 
 	if (mvm_aslr_enabled()) {
 		if (0 == entropic_address) {
-			uintptr_t t = stackbase - MAXSSIZ - ((uintptr_t)(malloc_entropy[1] & ((1 << entropic_bits) - 1)) << ENTROPIC_SHIFT);
+			uintptr_t t = stackbase - MAXSSIZ - ((uintptr_t)(malloc_entropy[1] &
+				((1 << entropic_bits) - 1)) << ENTROPIC_SHIFT);
+#if MALLOC_TARGET_IOS && MALLOC_TARGET_64BIT
+			uintptr_t addr = 0;
+
+			/* If kernel VM user ranges are enabled mach_vm_allocate/map will provide memory
+			 * in the upper VM address range. This range is randomized per process. For now
+			 * we do not have this metadata plumbed through so we make a single allocation
+			 * with the appropriate tag to determine where our heap is. If we are given an
+			 * allocation above where we expect then we can safely assume VM ranges are enabled.
+			 *
+			 * If so we do not need to apply further entropy but do need to ensure
+			 * we mask off the address to a PTE boundary.
+			 */ 
+			if (KERN_SUCCESS == mach_vm_allocate(mach_task_self(), (mach_vm_address_t *)&addr,
+					vm_page_quanta_size, VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_MALLOC))) {
+				// Fall through and use existing base if addr < stackbase
+				if (addr > stackbase) {
+					t = (addr + ENTROPIC_USER_RANGE_SIZE) & ~((1 << ENTROPIC_SHIFT) - 1);
+					OSAtomicCompareAndSwapLong(0, addr, (volatile long *)&entropic_base);
+				}
+
+				mach_vm_deallocate(mach_task_self(), addr, vm_page_quanta_size);
+			}
+#endif // MALLOC_TARGET_IOS && MALLOC_TARGET_64BIT
+
 			OSAtomicCompareAndSwapLong(0, t, (volatile long *)&entropic_limit);
 			OSAtomicCompareAndSwapLong(0, t - ENTROPIC_KABILLION, (volatile long *)&entropic_address);
 		}
@@ -142,7 +169,7 @@ retry:
 
 			// provided we don't wrap, deallocate and retry, in theexpanded
 			// entropic range
-			if (u < t) {
+			if (u < t && u >= entropic_base) {
 				mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
 				OSAtomicCompareAndSwapLong(t, u,
 						(volatile long *)&entropic_address);  // Just one reduction please
@@ -154,7 +181,7 @@ retry:
 		if (addr < entropic_address) { // we wrapped to find this allocation, expand the entropic range
 			uintptr_t t = entropic_address;
 			uintptr_t u = t - ENTROPIC_KABILLION;
-			if (u < t) {
+			if (u < t && u >= entropic_base) {
 				OSAtomicCompareAndSwapLong(t, u, (volatile long *)&entropic_address);  // Just one reduction please
 			}
 			// fall through to use what we got
@@ -251,11 +278,11 @@ mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t 
 	if (pgHi > pgLo) {
 		size_t len = pgHi - pgLo;
 
-		if (scribble) {
+		if (scribble && !malloc_zero_on_free) {
 			memset((void *)pgLo, SCRUBBLE_BYTE, len); // Scribble on MADV_FREEd memory
 		}
 
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if MALLOC_TARGET_IOS
 		if (last) {
 			if (*last == pgLo) {
 				return 0;
@@ -263,7 +290,7 @@ mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t 
 
 			*last = pgLo;
 		}
-#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#endif // MALLOC_TARGET_IOS
 
 		MAGMALLOC_MADVFREEREGION(rack, r, (void *)pgLo, (int)len); // DTrace USDT Probe
 		if (-1 == madvise((void *)pgLo, len, CONFIG_MADVISE_STYLE)) {
@@ -280,3 +307,57 @@ mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t 
 	}
 	return 0;
 }
+
+#if CONFIG_DEFERRED_RECLAIM
+static struct mach_vm_reclaim_ringbuffer_v1_s reclaim_buffer;
+static _malloc_lock_s reclaim_buffer_lock = _MALLOC_LOCK_INIT;
+
+kern_return_t
+mvm_deferred_reclaim_init(void)
+{
+	return mach_vm_reclaim_ringbuffer_init(&reclaim_buffer);
+}
+
+
+bool
+mvm_reclaim_mark_used(uint64_t id, mach_vm_address_t ptr, uint32_t size, unsigned int debug_flags)
+{
+	bool used;
+	if (debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
+		if (os_add_overflow(size, 2 * large_vm_page_quanta_size, &size)) {
+			return false;
+		}
+		ptr -= large_vm_page_quanta_size;
+	}
+	_malloc_lock_lock(&reclaim_buffer_lock);
+	used = mach_vm_reclaim_mark_used(&reclaim_buffer, id, ptr, size);
+	_malloc_lock_unlock(&reclaim_buffer_lock);
+	return used;
+}
+
+uint64_t
+mvm_reclaim_mark_free(vm_address_t ptr, uint32_t size, unsigned int debug_flags)
+{
+	uint64_t id;
+	bool should_update_kernel_accounting = false;
+	if (debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
+		if (os_add_overflow(size, 2 * large_vm_page_quanta_size, &size)) {
+			return VM_RECLAIM_INDEX_NULL;
+		}
+		ptr -= large_vm_page_quanta_size;
+	}
+	_malloc_lock_lock(&reclaim_buffer_lock);
+	id = mach_vm_reclaim_mark_free(&reclaim_buffer, ptr, size, &should_update_kernel_accounting);
+	_malloc_lock_unlock(&reclaim_buffer_lock);
+	if (should_update_kernel_accounting) {
+		mach_vm_reclaim_update_kernel_accounting(&reclaim_buffer);
+	}
+	return id;
+}
+
+bool
+mvm_reclaim_is_available(uint64_t id)
+{
+	return mach_vm_reclaim_is_available(&reclaim_buffer, id);
+}
+#endif // CONFIG_DEFERRED_RECLAIM

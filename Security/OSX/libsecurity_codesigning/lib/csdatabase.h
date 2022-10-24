@@ -44,7 +44,7 @@ namespace SQLite = SQLite3;
 class SignatureDatabase : public SQLite::Database {
 public:
 	SignatureDatabase(const char *path = defaultPath,
-		int flags = SQLITE_OPEN_READONLY);
+		int flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_NOFOLLOW);
 	virtual ~SignatureDatabase();
 	
 	FilterRep *findCode(DiskRep *rep);
@@ -57,7 +57,7 @@ public:
 class SignatureDatabaseWriter : public SignatureDatabase {
 public:
 	SignatureDatabaseWriter(const char *path = defaultPath,
-		int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
+		int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOFOLLOW)
 		: SignatureDatabase(path, flags) { }
 
 	void storeCode(const BlobCore *sig, const char *location);

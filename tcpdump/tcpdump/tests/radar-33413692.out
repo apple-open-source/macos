@@ -1,0 +1,35 @@
+    1  20:34:35.601074 IP (tos 0x0, ttl 255, id 13835, offset 0, flags [none], proto UDP (17), length 328)
+    0.0.0.0.68 > 255.255.255.255.67: [udp sum ok] BOOTP/DHCP, Request from 38:c9:86:4a:8a:be, length 300, xid 0x7c2a6363, Flags [none] (0x0000)
+	  Client-Ethernet-Address 38:c9:86:4a:8a:be
+	  Vendor-rfc1048 Extensions
+	    Magic Cookie 0x63825363
+	    DHCP-Message (53), length 1: Request
+	    Parameter-Request (55), length 10: 
+	      Subnet-Mask (1), Classless-Static-Route (121), Default-Gateway (3), Domain-Name-Server (6)
+	      Domain-Name (15), Unknown (119), Unknown (252), LDAP (95)
+	      Netbios-Name-Server (44), Netbios-Node (46)
+	    MSZ (57), length 2: 1500
+	    Client-ID (61), length 7: ether 38:c9:86:4a:8a:be
+	    Requested-IP (50), length 4: 17.226.21.12
+	    Lease-Time (51), length 4: 7776000
+	    Hostname (12), length 7: "siegdi6"
+	    END (255), length 0
+	    PAD (0), length 0, occurs 10
+    2  20:34:35.711702 IP (tos 0x0, ttl 255, id 46633, offset 0, flags [none], proto UDP (17), length 342)
+    17.226.20.1.67 > 17.226.21.12.68: [udp sum ok] BOOTP/DHCP, Reply, length 314, hops 2, xid 0x7c2a6363, Flags [none] (0x0000)
+	  Your-IP 17.226.21.12
+	  Server-IP 17.203.58.93
+	  Gateway-IP 17.226.20.1
+	  Client-Ethernet-Address 38:c9:86:4a:8a:be
+	  sname "siegdi6.apple.com"
+	  Vendor-rfc1048 Extensions
+	    Magic Cookie 0x63825363
+	    DHCP-Message (53), length 1: ACK
+	    Server-ID (54), length 4: 17.203.58.93
+	    Lease-Time (51), length 4: 86400
+	    Subnet-Mask (1), length 4: 255.255.252.0
+	    Default-Gateway (3), length 4: 17.226.20.1
+	    Domain-Name-Server (6), length 20: 17.128.100.9,17.128.100.10,17.128.100.12,17.206.12.12,17.201.4.12
+	    Domain-Name (15), length 9: "apple.com"
+	    Unknown (119), length 11: 5.97.112.112.108.101.3.99.111.109.0
+	    END (255), length 0

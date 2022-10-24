@@ -98,6 +98,7 @@ snapshot_share(char *mount_path, enum OutputFormat output_format)
     time_t local_time;
     void *ptr;
     char buf[64];
+    int error = 0;
 
     if (mount_path == NULL) {
         snapshot_usage();
@@ -109,7 +110,7 @@ snapshot_share(char *mount_path, enum OutputFormat output_format)
                                                   &kCFTypeDictionaryValueCallBacks);
         if (snapshot_dict == NULL) {
             fprintf(stderr, "CFDictionaryCreateMutable failed\n");
-            status = STATUS_NO_MEMORY;
+            //status = STATUS_NO_MEMORY;
             return EINVAL;
         }
     }
@@ -126,7 +127,12 @@ snapshot_share(char *mount_path, enum OutputFormat output_format)
     
     /* If root user, change to the owner who mounted the share */
     if (getuid() == 0) {
-        setuid(statbuf.f_owner);
+        error = setuid(statbuf.f_owner);
+        if (error) {
+            fprintf(stderr, "%s : setuid failed %d (%s)\n\n",
+                     __FUNCTION__, errno, strerror (errno));
+            return(errno);
+        }
     }
 
     /*

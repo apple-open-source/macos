@@ -30,6 +30,7 @@
 #include <Security/Security.h>
 #include <Security/SecKeychainPriv.h>
 #include "utilities/SecCFRelease.h"
+#include "utilities/SecCFWrappers.h"
 
 #include "kc-keychain-file-helpers.h"
 
@@ -38,15 +39,6 @@ extern char keychainDbFile[1000];
 extern char keychainTempFile[1000];
 extern char keychainName[1000];
 extern char testName[1000];
-
-/* redefine this since the headers are mixed up */
-static inline bool CFEqualSafe(CFTypeRef left, CFTypeRef right)
-{
-    if (left == NULL || right == NULL)
-        return left == right;
-    else
-        return CFEqual(left, right);
-}
 
 void startTest(const char* thisTestName);
 

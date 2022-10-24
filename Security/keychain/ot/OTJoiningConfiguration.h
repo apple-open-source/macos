@@ -35,8 +35,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSString* protocolType;
 @property (nonatomic, strong) NSString* uniqueDeviceID;
 @property (nonatomic, strong) NSString* uniqueClientID;
-@property (nonatomic, strong) NSString* containerName;
-@property (nonatomic, strong) NSString* contextID;
 @property (nonatomic, strong) NSString* pairingUUID;
 @property (nonatomic) uint64_t epoch;
 @property (nonatomic) BOOL isInitiator;
@@ -48,8 +46,6 @@ NS_ASSUME_NONNULL_BEGIN
                       uniqueDeviceID:(NSString*)uniqueDeviceID
                       uniqueClientID:(NSString*)uniqueClientID
                          pairingUUID:(NSString* _Nullable)pairingUUID
-                       containerName:(NSString* _Nullable)containerName
-                           contextID:(NSString*)contextID
                                epoch:(uint64_t)epoch
                          isInitiator:(BOOL)isInitiator;
 -(instancetype)init NS_UNAVAILABLE;

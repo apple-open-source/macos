@@ -53,21 +53,20 @@
     [self dependOnBeforeGroupFinished:self.finishOp];
     
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper removeCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                    context:self.deps.contextID
-                                                                       uuid:self.uuid
-                                                                      reply:^(NSError * _Nullable error) {
-            STRONGIFY(self);
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
-            if(error){
-                secerror("octagon: Error removing custodian recovery key: %@", error);
-                self.error = error;
-                [self runBeforeGroupFinished:self.finishOp];
-            } else {
-                secnotice("octagon", "successfully removed custodian recovery key");
-                [self runBeforeGroupFinished:self.finishOp];
-            }
-        }];
+    [self.deps.cuttlefishXPCWrapper removeCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                          uuid:self.uuid
+                                                                         reply:^(NSError * _Nullable error) {
+        STRONGIFY(self);
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventCustodianRecoveryKey hardFailure:true result:error];
+        if(error){
+            secerror("octagon: Error removing custodian recovery key: %@", error);
+            self.error = error;
+            [self runBeforeGroupFinished:self.finishOp];
+        } else {
+            secnotice("octagon", "successfully removed custodian recovery key");
+            [self runBeforeGroupFinished:self.finishOp];
+        }
+    }];
 }
 
 @end

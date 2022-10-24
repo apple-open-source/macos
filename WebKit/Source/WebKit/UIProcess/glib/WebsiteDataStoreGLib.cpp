@@ -30,9 +30,9 @@
 #include <wtf/glib/GUniquePtr.h>
 
 #if PLATFORM(GTK)
-#define BASE_DIRECTORY "webkitgtk"
+#define BASE_DIRECTORY "webkitgtk"_s
 #elif PLATFORM(WPE)
-#define BASE_DIRECTORY "wpe"
+#define BASE_DIRECTORY "wpe"_s
 #endif
 
 namespace WebKit {
@@ -46,12 +46,12 @@ WTF::String WebsiteDataStore::defaultApplicationCacheDirectory()
 // Why is only this directory namespaced to a particular application?
 WTF::String WebsiteDataStore::defaultNetworkCacheDirectory()
 {
-    return cacheDirectoryFileSystemRepresentation(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_prgname()), "WebKitCache"));
+    return cacheDirectoryFileSystemRepresentation(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_prgname()), "WebKitCache"_s));
 }
 
 WTF::String WebsiteDataStore::defaultCacheStorageDirectory()
 {
-    return cacheDirectoryFileSystemRepresentation(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_prgname()), "CacheStorage"));
+    return cacheDirectoryFileSystemRepresentation(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_prgname()), "CacheStorage"_s));
 }
 
 WTF::String WebsiteDataStore::defaultGeneralStorageDirectory()
@@ -89,7 +89,7 @@ WTF::String WebsiteDataStore::defaultWebSQLDatabaseDirectory()
     return websiteDataDirectoryFileSystemRepresentation(BASE_DIRECTORY G_DIR_SEPARATOR_S "databases");
 }
 
-WTF::String WebsiteDataStore::defaultHSTSDirectory()
+WTF::String WebsiteDataStore::defaultHSTSStorageDirectory()
 {
     return websiteDataDirectoryFileSystemRepresentation(BASE_DIRECTORY G_DIR_SEPARATOR_S);
 }
@@ -101,12 +101,12 @@ WTF::String WebsiteDataStore::defaultResourceLoadStatisticsDirectory()
 
 WTF::String WebsiteDataStore::cacheDirectoryFileSystemRepresentation(const WTF::String& directoryName, ShouldCreateDirectory)
 {
-    return FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_user_cache_dir()), directoryName);
+    return FileSystem::pathByAppendingComponent(FileSystem::userCacheDirectory(), directoryName);
 }
 
-WTF::String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const WTF::String& directoryName)
+WTF::String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const WTF::String& directoryName, ShouldCreateDirectory)
 {
-    return FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(g_get_user_data_dir()), directoryName);
+    return FileSystem::pathByAppendingComponent(FileSystem::userDataDirectory(), directoryName);
 }
 
 void WebsiteDataStore::platformRemoveRecentSearches(WallTime)

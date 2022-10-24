@@ -44,7 +44,7 @@ ModuleNexus<SignatureDatabaseWriter> signatureDatabaseWriter;
 //
 // Default path to the signature database.
 //
-const char SignatureDatabase::defaultPath[] = "/var/db/DetachedSignatures";
+const char SignatureDatabase::defaultPath[] = "/private/var/db/DetachedSignatures";
 
 
 //

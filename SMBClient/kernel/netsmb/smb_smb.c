@@ -486,7 +486,7 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 	/* The server does extend security, find out what mech type they support. */
 	if (sessionp->session_hflags2 & SMB_FLAGS2_EXT_SEC) {
         if (iod->negotiate_token != NULL) {
-            SMB_FREE(iod->negotiate_token, M_SMBTEMP);
+            SMB_FREE_DATA(iod->negotiate_token, iod->negotiate_tokenlen);
         }
 		
 		/* 
@@ -498,7 +498,7 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 		toklen = (toklen >= SMB_GUIDLEN) ? toklen - SMB_GUIDLEN : 0;
 		
         if (toklen) {
-            SMB_MALLOC(iod->negotiate_token, uint8_t *, toklen, M_SMBTEMP, M_WAITOK);
+            SMB_MALLOC_DATA(iod->negotiate_token, toklen, Z_WAITOK);
         }
         else {
             iod->negotiate_token = NULL;
@@ -509,7 +509,7 @@ smb1_smb_negotiate(struct smb_session *sessionp, vfs_context_t user_context,
 			/* If we get an error pretend we have no blob and force NTLMSSP */
 			if (error) {
                 if (iod->negotiate_token != NULL) {
-                    SMB_FREE(iod->negotiate_token, M_SMBTEMP);
+                    SMB_FREE_DATA(iod->negotiate_token, iod->negotiate_tokenlen);
                 }
 			}
 		}
@@ -599,6 +599,7 @@ parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, uint1
 	struct mdchain *mdp = (struct mdchain *)refptr;
 	uint8_t *tmpbuf= NULL;
 	size_t oslen = 0, lanmanlen = 0, lanmanoffset = 0;
+    uint16_t tmpbuflen = 0;
 	int error;
 #ifdef SMB_DEBUG
 	size_t domainoffset = 0;
@@ -611,7 +612,8 @@ parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, uint1
 	 */
 	if ((bc == 0) || (bc > sessionp->session_txmax) || sessionp->NativeOS || sessionp->NativeLANManager)
 		goto done;
-    SMB_MALLOC(tmpbuf, uint8_t *, bc, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(tmpbuf, bc, Z_WAITOK);
+    tmpbuflen = bc;
 	if (!tmpbuf)
 		goto done;
 	
@@ -664,7 +666,7 @@ parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, uint1
 	
 	sessionp->session_flags &= ~(SMBV_WIN2K_XP | SMBV_DARWIN);
 	if (oslen) {
-		sessionp->NativeOS = smbfs_ntwrkname_tolocal((const char *)tmpbuf, &oslen, 
+		sessionp->NativeOS = smbfs_ntwrkname_tolocal((const char *)tmpbuf, &oslen, &sessionp->NativeOSAllocSize,
 												SMB_UNICODE_STRINGS(sessionp));
 		if (sessionp->NativeOS) {
 			/*
@@ -688,7 +690,7 @@ parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, uint1
 		}
 	}
 	if (lanmanlen) {
-		sessionp->NativeLANManager= smbfs_ntwrkname_tolocal((const char *)&tmpbuf[lanmanoffset], &lanmanlen, SMB_UNICODE_STRINGS(sessionp));
+		sessionp->NativeLANManager = smbfs_ntwrkname_tolocal((const char *)&tmpbuf[lanmanoffset], &lanmanlen, &sessionp->NativeLANManagerAllocSize, SMB_UNICODE_STRINGS(sessionp));
 	}
 	SMB_LOG_AUTH("NativeOS = %s NativeLANManager = %s server type 0x%x\n", 
 			   (sessionp->NativeOS) ? sessionp->NativeOS : "NULL",
@@ -697,19 +699,20 @@ parse_server_os_lanman_strings(struct smb_session *sessionp, void *refptr, uint1
 	
 done:
     if (tmpbuf != NULL) {
-        SMB_FREE(tmpbuf, M_SMBTEMP);
+        SMB_FREE_DATA(tmpbuf, tmpbuflen);
     }
 }
 
 static char *
-upper_casify_string(const char *string)
+upper_casify_string(const char *string, size_t *alloc_size)
 {
     size_t string_len, i;
     char *ucstrbuf;
 
     string_len = strlen(string);
-    SMB_MALLOC(ucstrbuf, char *, string_len + 1, M_SMBTEMP, M_WAITOK | M_ZERO);
-    
+    *alloc_size = string_len + 1;
+    SMB_MALLOC_DATA(ucstrbuf, *alloc_size, Z_WAITOK_ZERO);
+
     for (i = 0; i < string_len; i++) {
         if ((string[i] >= 'a') && (string[i] <= 'z')) {
             ucstrbuf[i] = string[i] - 32;
@@ -729,16 +732,19 @@ add_name_to_blob(u_char *blobnames, const u_char *name, size_t namelen,
     struct ntlmv2_namehdr namehdr;
     char *namebuf;
     u_int16_t *uninamebuf;
+    size_t uniname_alloclen = 0;
     size_t uninamelen;
 
     if (name != NULL) {
-        SMB_MALLOC(uninamebuf, u_int16_t *, 2 * namelen, M_SMBTEMP, M_WAITOK | M_ZERO);
+        uniname_alloclen = 2 * namelen;
+        SMB_MALLOC_DATA(uninamebuf, uniname_alloclen, Z_WAITOK_ZERO);
         if (uppercase) {
-            namebuf = upper_casify_string((char *) name);
+            size_t namebuf_allocsize = 0;
+            namebuf = upper_casify_string((char *) name, &namebuf_allocsize);
             uninamelen = smb_strtouni(uninamebuf, namebuf, namelen,
                                       UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
             if (namebuf) {
-                SMB_FREE(namebuf, M_SMBTEMP);
+                SMB_FREE_DATA(namebuf, namebuf_allocsize);
             }
         } else {
             uninamelen = smb_strtouni(uninamebuf, (char *)name, namelen,
@@ -756,14 +762,14 @@ add_name_to_blob(u_char *blobnames, const u_char *name, size_t namelen,
         bcopy(uninamebuf, blobnames, uninamelen);
         blobnames += uninamelen;
         if (uninamebuf) {
-            SMB_FREE(uninamebuf, M_SMBTEMP);
+            SMB_FREE_DATA(uninamebuf, uniname_alloclen);
         }
     }
     return blobnames;
 }
 
 static u_char *
-make_ntlmv2_blob(struct smb_session *sessionp, char *dom, u_int64_t client_nonce, size_t *bloblen)
+make_ntlmv2_blob(struct smb_session *sessionp, char *dom, u_int64_t client_nonce, size_t *bloblen, size_t *blob_allocsize)
 {
     u_char *blob;
     size_t blobsize;
@@ -794,7 +800,8 @@ make_ntlmv2_blob(struct smb_session *sessionp, char *dom, u_int64_t client_nonce
     blobsize = sizeof(struct ntlmv2_blobhdr) +
                (3 * sizeof (struct ntlmv2_namehdr))
                + 4 + (2 * domainlen) + (2 * srvlen);
-    SMB_MALLOC(blob, u_char *, blobsize, M_SMBTEMP, M_WAITOK | M_ZERO);
+    *blob_allocsize = blobsize;
+    SMB_MALLOC_DATA(blob, *blob_allocsize, Z_WAITOK_ZERO);
     blobhdr = (struct ntlmv2_blobhdr *)blob;
     blobhdr->header = htolel(0x00000101);
     nanotime(&now);
@@ -862,8 +869,9 @@ smb_smb_ssnsetup(struct smbiod *iod, int inReconnect, vfs_context_t context)
 	char *upper_case_domainp = NULL;
 	char *encrypted_password = NULL;
     u_char *v2_blob = NULL;
-	size_t v2_bloblen;
+	size_t v2_bloblen, v2_blob_allocsize;
 	smb_uniptr unipp = NULL, nt_encrypt_password = NULL;
+    size_t nt_encrypt_password_allocsize = 0;
     
 	if (smb_smb_nomux(sessionp, __FUNCTION__, context) != 0) {
 		error = EINVAL;
@@ -916,7 +924,7 @@ again:
 	 * in to the mbuf.
 	 */
 	string_len = strlen(sessionp->session_domain) + 1 /* strlen doesn't count null */;
-    SMB_MALLOC(upper_case_domainp, char *, string_len, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC_DATA(upper_case_domainp, string_len, Z_WAITOK);
 	memcpy(upper_case_domainp, sessionp->session_domain, string_len);
 
 	if (!(sessionp->session_flags & SMBV_USER_SECURITY)) {
@@ -989,13 +997,14 @@ again:
              * that's what's used when computing LMv2
              * and NTLMv2 responses.
              */
-            upper_case_userp = (u_char *)upper_casify_string(sessionp->session_username);
+            size_t upper_case_userp_allocsize = 0;
+            upper_case_userp = (u_char *)upper_casify_string(sessionp->session_username, &upper_case_userp_allocsize);
             
             smb_ntlmv2hash((u_char *)smb_session_getpass(sessionp), upper_case_userp,
                            (u_char *)upper_case_domainp, &v2hash[0]);
             
             if (upper_case_userp) {
-                SMB_FREE(upper_case_userp, M_SMBTEMP);
+                SMB_FREE_DATA(upper_case_userp, upper_case_userp_allocsize);
             }
             
             /*
@@ -1012,7 +1021,7 @@ again:
              * Construct the blob.
              */
             v2_blob = make_ntlmv2_blob(sessionp, upper_case_domainp, client_nonce,
-                                       &v2_bloblen);
+                                       &v2_bloblen, &v2_blob_allocsize);
             
             /*
              * Compute the NTLMv2 response, derived
@@ -1023,8 +1032,9 @@ again:
              */
             smb_ntlmv2response(v2hash, sessionp->session_ch, v2_blob, v2_bloblen,
                                (u_char**)&nt_encrypt_password, &uniplen);
+            nt_encrypt_password_allocsize = uniplen;
             if (v2_blob) {
-                SMB_FREE(v2_blob, M_SMBTEMP);
+                SMB_FREE_DATA(v2_blob, v2_blob_allocsize);
             }
             unipp = nt_encrypt_password;
         }
@@ -1073,7 +1083,7 @@ again:
 	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(sessionp), sessionp->session_username,
                     SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
 	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(sessionp), sessionp->session_domain,
-                    SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
+                    SMB_MAX_DOMAIN_NAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
 
 	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(sessionp), SMBFS_NATIVEOS,
                     sizeof(SMBFS_NATIVEOS), NO_SFM_CONVERSIONS);	/* Native OS */
@@ -1083,13 +1093,11 @@ again:
 	smb_rq_bend(rqp);
 
     if (nt_encrypt_password) {
-		SMB_FREE(nt_encrypt_password, M_SMBTEMP);
-		nt_encrypt_password = NULL;
+        SMB_FREE_DATA(nt_encrypt_password, nt_encrypt_password_allocsize);
 	}
     
     if (upper_case_domainp) {
-        SMB_FREE(upper_case_domainp, M_SMBTEMP);
-        upper_case_domainp = NULL;
+        SMB_FREE_DATA(upper_case_domainp, string_len);
     }
     
 	error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
@@ -1235,7 +1243,7 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 	char *tmpbuf = NULL;
 	char *fsname = NULL;
 	uint16_t bc;
-	size_t fs_nmlen, fs_offset;
+	size_t fs_nmlen, fs_offset, fs_allocsize, tmpbuf_allocsize;
 	int error;
 	
 	/* We always default to saying its a fat file system type */
@@ -1248,7 +1256,8 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 		return;
 	}
 	
-	SMB_MALLOC(tmpbuf, char *, bc+1, M_SMBFSDATA, M_WAITOK | M_ZERO);
+    tmpbuf_allocsize = bc + 1;
+    SMB_MALLOC_DATA(tmpbuf, tmpbuf_allocsize, Z_WAITOK_ZERO);
 	if (! tmpbuf) {
 		/* Couldn't allocate the buffer just get out */
 		return;
@@ -1256,7 +1265,7 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 	error = md_get_mem(mdp, (void *)tmpbuf, bc, MB_MSYSTEM);
 	if (error) {
         if (tmpbuf) {
-            SMB_FREE(tmpbuf, M_SMBFSDATA);
+            SMB_FREE_DATA(tmpbuf, tmpbuf_allocsize);
         }
 		return;
 	}
@@ -1275,7 +1284,7 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 	fs_offset = strnlen(tmpbuf, bc) + 1;
 	if (fs_offset >= bc) {
         if (tmpbuf) {
-            SMB_FREE(tmpbuf, M_SMBFSDATA);
+            SMB_FREE_DATA(tmpbuf, tmpbuf_allocsize);
         }
 		return;
 	}
@@ -1311,7 +1320,7 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 		fs_nmlen = bc - fs_offset;
 	}
 	SMBDEBUG("fs_offset = %d fs_nmlen = %d\n", (int)fs_offset, (int)fs_nmlen);
-	fsname = smbfs_ntwrkname_tolocal(&tmpbuf[fs_offset], &fs_nmlen, SMB_UNICODE_STRINGS(sessionp));
+	fsname = smbfs_ntwrkname_tolocal(&tmpbuf[fs_offset], &fs_nmlen, &fs_allocsize, SMB_UNICODE_STRINGS(sessionp));
 	/*
 	 * Since we default to FAT the following can be ignored:
 	 *		"FAT", "FAT12", "FAT16", "FAT32"
@@ -1327,10 +1336,10 @@ smb_get_share_fstype(struct smb_session *sessionp, struct smb_share *share,
 			 (int)fs_nmlen, share->ss_fstype);
 
     if (tmpbuf != NULL) {
-        SMB_FREE(tmpbuf, M_SMBFSDATA);
+        SMB_FREE_DATA(tmpbuf, tmpbuf_allocsize);
     }
     if (fsname != NULL) {
-        SMB_FREE(fsname, M_SMBFSDATA);
+        SMB_FREE_DATA(fsname, fs_allocsize);
     }
 	return;
 }
@@ -1352,6 +1361,7 @@ smb1_treeconnect_internal(struct smb_session *sessionp, struct smb_share *share,
 	uint8_t wc = 0;
 	const char *pp;
 	char *pbuf, *encpass;
+    size_t pbuf_allocsize = 0, encpass_allocsize = 0;
 	int error;
 	uint16_t plen;
 
@@ -1365,8 +1375,10 @@ smb1_treeconnect_internal(struct smb_session *sessionp, struct smb_share *share,
 		pbuf = NULL;
 		encpass = NULL;
 	} else {
-        SMB_MALLOC(pbuf, char *, SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
-        SMB_MALLOC(encpass, char *, 24, M_SMBTEMP,  M_WAITOK);
+        pbuf_allocsize = SMB_MAXPASSWORDLEN+1;
+        SMB_MALLOC_DATA(pbuf, pbuf_allocsize, Z_WAITOK);
+        encpass_allocsize = 24;
+        SMB_MALLOC_DATA(encpass, encpass_allocsize, Z_WAITOK);
 		strlcpy(pbuf, smb_share_getpass(share), SMB_MAXPASSWORDLEN+1);
 		pbuf[SMB_MAXPASSWORDLEN] = '\0';
 
@@ -1472,11 +1484,11 @@ smb1_treeconnect_internal(struct smb_session *sessionp, struct smb_share *share,
 	lck_mtx_unlock(&share->ss_stlock);
 bad:
     if (encpass) {
-        SMB_FREE(encpass, M_SMBTEMP);
+        SMB_FREE_DATA(encpass, encpass_allocsize);
     }
     
     if (pbuf) {
-        SMB_FREE(pbuf, M_SMBTEMP);
+        SMB_FREE_DATA(pbuf, pbuf_allocsize);
     }
     
     smb_rq_done(rqp);

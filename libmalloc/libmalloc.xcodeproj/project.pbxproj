@@ -91,10 +91,12 @@
 		4DD5E17726F4CDF200C14B08 /* has_section.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DD5E17226F4CDCA00C14B08 /* has_section.c */; };
 		4DF3190123D796550064A673 /* pgm_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pgm_malloc.c */; };
 		4DF3190223D796550064A673 /* pgm_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DF3190023D796550064A673 /* pgm_malloc.h */; };
+		84637F8125C928B500D36067 /* malloc_private.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 84637F8025C9289100D36067 /* malloc_private.modulemap */; settings = {ATTRIBUTES = (Private, ); }; };
 		8C1C9DF5268127AC00B7B3E4 /* quarantine_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C1C9DF4268127AC00B7B3E4 /* quarantine_tests.m */; };
 		8C1C9DF62681280600B7B3E4 /* quarantine_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C32D36A255F4FD1006152A4 /* quarantine_malloc.c */; };
 		8C32D36B255F4FD1006152A4 /* quarantine_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C32D36A255F4FD1006152A4 /* quarantine_malloc.c */; };
 		925383DA1BD03D5100F745DB /* stress_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 925383D11BD03B4A00F745DB /* stress_test.c */; };
+		96C6DA2027DAC25C008D0061 /* magazine_large_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */; };
 		B61341DE20114B660038D163 /* ktrace.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B61341DD20114B070038D163 /* ktrace.framework */; };
 		B629CF28202BA149007719B9 /* nanov2_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = B68B7FA41FCDD9A500BAD1AA /* nanov2_malloc.c */; };
 		B629CF2E202BB337007719B9 /* bitarray.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD116A90A8D00D1238A /* bitarray.c */; };
@@ -227,6 +229,7 @@
 		C99E320B1D6F7366005655A8 /* magazine_rack.c in Sources */ = {isa = PBXBuildFile; fileRef = C99E32091D6F7366005655A8 /* magazine_rack.c */; };
 		C99E320C1D6F7366005655A8 /* magazine_rack.h in Headers */ = {isa = PBXBuildFile; fileRef = C99E320A1D6F7366005655A8 /* magazine_rack.h */; };
 		C9ABCA051CB6FC6800ECB399 /* empty.s in Sources */ = {isa = PBXBuildFile; fileRef = C9ABCA041CB6FC6800ECB399 /* empty.s */; };
+		F7099C97275346A900C9F66F /* magazine_tiny_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = F7099C96275346A900C9F66F /* magazine_tiny_tests.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -363,6 +366,7 @@
 		4DF3190023D796550064A673 /* pgm_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pgm_malloc.h; sourceTree = "<group>"; };
 		4DFC7B2F25CBBE1300625B17 /* stack_trace_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stack_trace_test.c; sourceTree = "<group>"; };
 		4DFC7B3125CBBE9800625B17 /* zone_names.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zone_names.c; sourceTree = "<group>"; };
+		84637F8025C9289100D36067 /* malloc_private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = malloc_private.modulemap; sourceTree = "<group>"; };
 		875E02E32125B62300A7FE8A /* aligned_alloc_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = aligned_alloc_test.c; sourceTree = "<group>"; };
 		875E02E42125C1D100A7FE8A /* posix_memalign_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = posix_memalign_test.c; sourceTree = "<group>"; };
 		8C1C9DF4268127AC00B7B3E4 /* quarantine_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = quarantine_tests.m; sourceTree = "<group>"; };
@@ -373,6 +377,7 @@
 		925383D01BD03B4A00F745DB /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		925383D11BD03B4A00F745DB /* stress_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stress_test.c; sourceTree = "<group>"; };
 		925383D31BD03B8F00F745DB /* manpages.lst */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = manpages.lst; sourceTree = "<group>"; };
+		96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = magazine_large_tests.m; sourceTree = "<group>"; };
 		96E1C8ED2653373700B23906 /* magazine_medium_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_medium_test.c; sourceTree = "<group>"; };
 		B61341DD20114B070038D163 /* ktrace.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ktrace.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/ktrace.framework; sourceTree = DEVELOPER_DIR; };
 		B629CF29202BA3C2007719B9 /* libmalloc_resolver.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_resolver.xcconfig; sourceTree = "<group>"; };
@@ -453,6 +458,7 @@
 		C9F77BBA1BF2B84800812E13 /* platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = platform.h; sourceTree = "<group>"; };
 		C9F8C2681D70B521008C4044 /* magazine_small_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_small_test.c; sourceTree = "<group>"; };
 		C9F8C2691D74C93A008C4044 /* magazine_rack.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_rack.c; sourceTree = "<group>"; };
+		F7099C96275346A900C9F66F /* magazine_tiny_tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = magazine_tiny_tests.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -729,11 +735,13 @@
 		C0ACD6C92510274B000C20CB /* xctests */ = {
 			isa = PBXGroup;
 			children = (
+				F7099C96275346A900C9F66F /* magazine_tiny_tests.m */,
 				C002C5B2251A7A2400D00D15 /* BATS.plist */,
 				C0ACD6CC2510274B000C20CB /* Info.plist */,
 				C0ACD6D325102A16000C20CB /* magazine_small_tests.m */,
 				C0545CBE251A753D000273D3 /* malloc_mocks.c */,
 				8C1C9DF4268127AC00B7B3E4 /* quarantine_tests.m */,
+				96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */,
 			);
 			path = xctests;
 			sourceTree = "<group>";
@@ -749,6 +757,7 @@
 		C9571C381C18AA0A00A67EE3 /* private */ = {
 			isa = PBXGroup;
 			children = (
+				84637F8025C9289100D36067 /* malloc_private.modulemap */,
 				C9571C391C18AA1D00A67EE3 /* stack_logging.h */,
 				C0352EC61C3F3C3600DB5126 /* malloc_private.h */,
 				08315121215ED9C700D97E04 /* malloc_implementation.h */,
@@ -766,6 +775,7 @@
 			files = (
 				C957428A1BF3FD290027269A /* base.h in Headers */,
 				C0352EC71C3F3C4400DB5126 /* malloc_private.h in Headers */,
+				84637F8125C928B500D36067 /* malloc_private.modulemap in Headers */,
 				C95742731BF2C2880027269A /* internal.h in Headers */,
 				B6CA644E1FCE2C1900DEBA12 /* nanov2_zone.h in Headers */,
 				C99E320C1D6F7366005655A8 /* magazine_rack.h in Headers */,
@@ -1077,7 +1087,7 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
+			shellPath = /bin/bash;
 			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"\n";
 		};
 		B629CF2A202BB226007719B9 /* Symlink normal variant */ = {
@@ -1140,7 +1150,7 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
+			shellPath = /bin/bash;
 			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1275,9 +1285,11 @@
 				C002C5AD251A761600D00D15 /* magazine_large.c in Sources */,
 				C002C5AA251A75C100D00D15 /* magazine_malloc.c in Sources */,
 				8C1C9DF5268127AC00B7B3E4 /* quarantine_tests.m in Sources */,
+				96C6DA2027DAC25C008D0061 /* magazine_large_tests.m in Sources */,
 				C0545CBC251A7502000273D3 /* vm.c in Sources */,
 				C0ACD6DE251038A1000C20CB /* magmallocProvider.d in Sources */,
 				C0545CBF251A753D000273D3 /* malloc_mocks.c in Sources */,
+				F7099C97275346A900C9F66F /* magazine_tiny_tests.m in Sources */,
 				C0ACD6D425102A16000C20CB /* magazine_small_tests.m in Sources */,
 				8C1C9DF62681280600B7B3E4 /* quarantine_malloc.c in Sources */,
 				C002C5AC251A760D00D00D15 /* magazine_medium.c in Sources */,

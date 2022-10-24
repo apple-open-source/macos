@@ -144,29 +144,25 @@ printf_active_users(struct nfs_user_stat_user_rec *rec, const char *addr, struct
 }
 
 void
-printf_intpr(const char *title_format, const char *t1, uint64_t e1, const char *t2, uint64_t e2, const char *t3, uint64_t e3,
-    const char *t4, uint64_t e4, const char *t5, uint64_t e5, const char *t6, uint64_t e6)
+printf_intpr(int numargs, ...)
 {
-	printf(title_format, t1 ? t1 : "", t2 ? t2 : "", t3 ? t3 : "", t4 ? t4 : "", t5 ? t5 : "", t6 ? t6 : "");
-	if (t1) {
-		printf("%12llu ", e1);
-	}
-	if (t2) {
-		printf("%12llu ", e2);
-	}
-	if (t3) {
-		printf("%12llu ", e3);
-	}
-	if (t4) {
-		printf("%12llu ", e4);
-	}
-	if (t5) {
-		printf("%12llu ", e5);
-	}
-	if (t6) {
-		printf("%12llu ", e6);
+	va_list ap;
+
+	va_start(ap, numargs);
+	for (int i = 0; i < numargs; i++) {
+		printf("%12.12s ", va_arg(ap, const char *));
+		va_arg(ap, uint64_t); // skip value
 	}
 	printf("\n");
+	va_end(ap);
+
+	va_start(ap, numargs);
+	for (int i = 0; i < numargs; i++) {
+		va_arg(ap, const char *); // skip type
+		printf("%12llu ", va_arg(ap, uint64_t));
+	}
+	printf("\n");
+	va_end(ap);
 }
 
 /* Printf Printer */
@@ -230,7 +226,7 @@ json_open_array(const char *prefix, const char *title, int *flags)
 	if (flags) {
 		json_open_dictionary(PRINTER_NO_PREFIX, title);
 		char bitmaskbuf[128];
-		sprintf(bitmaskbuf, "0x%x", *flags);
+		snprintf(bitmaskbuf, sizeof(bitmaskbuf), "0x%x", *flags);
 		json_dict_add_str(JSON_CURRENT_DICT, "Bitmask", bitmaskbuf);
 		json_dict_add_array(JSON_CURRENT_DICT, "Flags", arr);
 	} else {
@@ -244,7 +240,7 @@ void
 json_add_array_str(char sep, const char *flag, const char* value)
 {
 	char valbuf[128];
-	sprintf(valbuf, "%s%s", flag, value);
+	snprintf(valbuf, sizeof(valbuf), "%s%s", flag, value);
 	json_arr_add_str(JSON_CURRENT_ARR, valbuf);
 }
 
@@ -252,7 +248,7 @@ void
 json_add_array_num(char sep, const char *flag, long value)
 {
 	char valbuf[128];
-	sprintf(valbuf, "%s%ld", flag, value);
+	snprintf(valbuf, sizeof(valbuf), "%s%ld", flag, value);
 	json_arr_add_str(JSON_CURRENT_ARR, valbuf);
 }
 
@@ -302,11 +298,11 @@ void
 json_mount_fh(uint32_t fh_len, unsigned char *fh_data)
 {
 	uint32_t i, n = 0;
-	char handlebuf[NFS_MAX_FH_SIZE];
+	char handlebuf[(NFS_MAX_FH_SIZE * 2) + 1];
 	json_open_dictionary(PRINTER_NO_PREFIX, "filehandle");
 	json_dict_add_num(JSON_CURRENT_DICT, "Length", &fh_len, sizeof(fh_len));
 	for (i = 0; i < fh_len; i++) {
-		n += sprintf(handlebuf + n, "%02x", fh_data[i] & 0xff);
+		n += snprintf(handlebuf + n, sizeof(handlebuf) - n, "%02x", fh_data[i] & 0xff);
 	}
 	json_dict_add_str(JSON_CURRENT_DICT, "Handle", handlebuf);
 	json_close_dictionary();
@@ -327,44 +323,34 @@ json_active_users(struct nfs_user_stat_user_rec *rec, const char *addr, struct p
 {
 	char timebuf[128], dictbuf[128];
 	if (printuuid) {
-		sprintf(dictbuf, "%u@%s", rec->uid, addr);
+		snprintf(dictbuf, sizeof(dictbuf), "%u@%s", rec->uid, addr);
 		json_open_dictionary(PRINTER_NO_PREFIX, dictbuf);
 		json_dict_add_num(JSON_CURRENT_DICT, "Uuid", &rec->uid, sizeof(rec->uid));
 	} else {
-		sprintf(dictbuf, "%s@%s", pw->pw_name, addr);
+		snprintf(dictbuf, sizeof(dictbuf), "%s@%s", pw->pw_name, addr);
 		json_open_dictionary(PRINTER_NO_PREFIX, dictbuf);
 		json_dict_add_str(JSON_CURRENT_DICT, "User", pw->pw_name);
 	}
 	json_dict_add_num(JSON_CURRENT_DICT, "Requests", &rec->ops, sizeof(rec->ops));
 	json_dict_add_num(JSON_CURRENT_DICT, "Read Bytes", &rec->bytes_read, sizeof(rec->bytes_read));
 	json_dict_add_num(JSON_CURRENT_DICT, "Write Bytes", &rec->bytes_written, sizeof(rec->bytes_written));
-	sprintf(timebuf, "%1ld:%02ld:%02ld", hr, min, sec);
+	snprintf(timebuf, sizeof(timebuf), "%1ld:%02ld:%02ld", hr, min, sec);
 	json_dict_add_str(JSON_CURRENT_DICT, "Idle", timebuf);
 	json_close_dictionary();
 }
 
 void
-json_intpr(const char *title_format, const char *t1, uint64_t e1, const char *t2, uint64_t e2, const char *t3, uint64_t e3,
-    const char *t4, uint64_t e4, const char *t5, uint64_t e5, const char *t6, uint64_t e6)
+json_intpr(int numargs, ...)
 {
-	if (t1) {
-		json_dict_add_num(JSON_CURRENT_DICT, t1, &e1, sizeof(e1));
+	va_list ap;
+
+	va_start(ap, numargs);
+	for (int i = 0; i < numargs; i++) {
+		const char * type = va_arg(ap, const char *);
+		uint64_t value = va_arg(ap, uint64_t);
+		json_dict_add_num(JSON_CURRENT_DICT, type, &value, sizeof(value));
 	}
-	if (t2) {
-		json_dict_add_num(JSON_CURRENT_DICT, t2, &e2, sizeof(e2));
-	}
-	if (t3) {
-		json_dict_add_num(JSON_CURRENT_DICT, t3, &e3, sizeof(e3));
-	}
-	if (t4) {
-		json_dict_add_num(JSON_CURRENT_DICT, t4, &e4, sizeof(e4));
-	}
-	if (t5) {
-		json_dict_add_num(JSON_CURRENT_DICT, t5, &e5, sizeof(e5));
-	}
-	if (t6) {
-		json_dict_add_num(JSON_CURRENT_DICT, t6, &e6, sizeof(e6));
-	}
+	va_end(ap);
 }
 
 /* Json Printer */

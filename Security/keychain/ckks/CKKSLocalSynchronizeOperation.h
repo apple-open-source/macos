@@ -31,9 +31,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSLocalSynchronizeOperation : CKKSGroupOperation
 @property (weak) CKKSKeychainView* ckks;
+@property CKKSOperationDependencies* deps;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks
+                   operationDependencies:(CKKSOperationDependencies*)operationDependencies;
 @end
 
 // Reload everything from the mirror table into the incoming queue

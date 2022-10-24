@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,7 @@ static int 	S_command_index;
 static void	command_usage();
 static void	usage();
 
+__printflike(2, 3)
 void
 timestamp_fprintf(FILE * f, const char * message, ...)
 {
@@ -636,7 +637,7 @@ done:
 }
 
 static CFDictionaryRef
-read_dictionary(const char * filename)
+copy_dictionary_from_file(const char * filename)
 {
     CFDictionaryRef dict;
 
@@ -685,7 +686,7 @@ S_verify_server(int argc, char * argv[])
 	fprintf(stderr, "failed to load cert file\n");
 	return (-1);
     }
-    properties = read_dictionary(argv[1]);
+    properties = copy_dictionary_from_file(argv[1]);
     if (properties == NULL) {
 	fprintf(stderr, "failed to load properties\n");
 	return (-1);
@@ -697,7 +698,7 @@ S_verify_server(int argc, char * argv[])
 						array,
 						&sec_status);
     printf("status is %d, sec status is %d\n", status, sec_status);
-
+    CFRelease(properties);
     return (status == kEAPClientStatusOK ? 0 : -1);
 }
 
@@ -711,7 +712,7 @@ S_export_shareable(int argc, char * argv[])
 	return (-1);
     }
 
-    eapConfig = read_dictionary(argv[0]);
+    eapConfig = copy_dictionary_from_file(argv[0]);
     if (eapConfig == NULL) {
 	fprintf(stderr, "failed to load properties\n");
 	return (-1);
@@ -725,6 +726,7 @@ S_export_shareable(int argc, char * argv[])
 	    CFRelease(newEAPConfig);
 	}
     }
+    CFRelease(eapConfig);
     return 0;
 }
 
@@ -738,7 +740,7 @@ S_import_shareable(int argc, char * argv[])
 	return (-1);
     }
 
-    eapShareableConfig = read_dictionary(argv[0]);
+    eapShareableConfig = copy_dictionary_from_file(argv[0]);
     if (eapShareableConfig == NULL) {
 	fprintf(stderr, "failed to load properties\n");
 	return (-1);

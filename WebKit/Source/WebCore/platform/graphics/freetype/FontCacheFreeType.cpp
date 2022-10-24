@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Igalia S.L.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,6 +31,8 @@
 #include "Font.h"
 #include "FontDescription.h"
 #include "FontCacheFreeType.h"
+#include FT_SFNT_NAMES_H
+#include FT_TRUETYPE_IDS_H
 #include "RefPtrCairo.h"
 #include "RefPtrFontconfig.h"
 #include "UTF16UChar32Iterator.h"
@@ -225,8 +228,13 @@ struct FallbackFontDescriptionKey {
 
 };
 
+inline void add(Hasher& hasher, const FallbackFontDescriptionKey& key)
+{
+    add(hasher, key.descriptionKey, key.coloredFont);
+}
+
 struct FallbackFontDescriptionKeyHash {
-    static unsigned hash(const FallbackFontDescriptionKey& key) { return computeHash(key.descriptionKey, key.coloredFont); }
+    static unsigned hash(const FallbackFontDescriptionKey& key) { return computeHash(key); }
     static bool equal(const FallbackFontDescriptionKey& a, const FallbackFontDescriptionKey& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
@@ -238,7 +246,7 @@ static SystemFallbackCache& systemFallbackCache()
     return cache.get();
 }
 
-RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font*, IsForPlatformFont, PreferColoredFont preferColoredFont, const UChar* characters, unsigned length)
+RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font&, IsForPlatformFont, PreferColoredFont preferColoredFont, const UChar* characters, unsigned length)
 {
     auto addResult = systemFallbackCache().ensure(FallbackFontDescriptionKey(description, preferColoredFont), [&description, preferColoredFont]() -> std::unique_ptr<CachedFontSet> {
         RefPtr<FcPattern> pattern = adoptRef(FcPatternCreate());
@@ -333,26 +341,26 @@ static String getFamilyNameStringFromFamily(const String& family)
 {
     // If we're creating a fallback font (e.g. "-webkit-monospace"), convert the name into
     // the fallback name (like "monospace") that fontconfig understands.
-    if (family.length() && !family.startsWith("-webkit-"))
+    if (family.length() && !family.startsWith("-webkit-"_s))
         return family;
 
     if (family == familyNamesData->at(FamilyNamesIndex::StandardFamily) || family == familyNamesData->at(FamilyNamesIndex::SerifFamily))
-        return "serif";
+        return "serif"_s;
     if (family == familyNamesData->at(FamilyNamesIndex::SansSerifFamily))
-        return "sans-serif";
+        return "sans-serif"_s;
     if (family == familyNamesData->at(FamilyNamesIndex::MonospaceFamily))
-        return "monospace";
+        return "monospace"_s;
     if (family == familyNamesData->at(FamilyNamesIndex::CursiveFamily))
-        return "cursive";
+        return "cursive"_s;
     if (family == familyNamesData->at(FamilyNamesIndex::FantasyFamily))
-        return "fantasy";
+        return "fantasy"_s;
 
 #if PLATFORM(GTK)
-    if (family == familyNamesData->at(FamilyNamesIndex::SystemUiFamily) || family == "-webkit-system-font")
+    if (family == familyNamesData->at(FamilyNamesIndex::SystemUiFamily) || family == "-webkit-system-font"_s)
         return defaultGtkSystemFont();
 #endif
 
-    return "";
+    return emptyString();
 }
 
 #if FC_VERSION < 21395
@@ -486,16 +494,16 @@ static bool areStronglyAliased(const String& familyA, const String& familyB)
 
 static inline bool isCommonlyUsedGenericFamily(const String& familyNameString)
 {
-    return equalLettersIgnoringASCIICase(familyNameString, "sans")
-        || equalLettersIgnoringASCIICase(familyNameString, "sans-serif")
-        || equalLettersIgnoringASCIICase(familyNameString, "serif")
-        || equalLettersIgnoringASCIICase(familyNameString, "monospace")
-        || equalLettersIgnoringASCIICase(familyNameString, "fantasy")
+    return equalLettersIgnoringASCIICase(familyNameString, "sans"_s)
+        || equalLettersIgnoringASCIICase(familyNameString, "sans-serif"_s)
+        || equalLettersIgnoringASCIICase(familyNameString, "serif"_s)
+        || equalLettersIgnoringASCIICase(familyNameString, "monospace"_s)
+        || equalLettersIgnoringASCIICase(familyNameString, "fantasy"_s)
 #if PLATFORM(GTK)
-        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-font")
-        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-ui")
+        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-font"_s)
+        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-ui"_s)
 #endif
-        || equalLettersIgnoringASCIICase(familyNameString, "cursive");
+        || equalLettersIgnoringASCIICase(familyNameString, "cursive"_s);
 }
 
 std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontCreationContext& fontCreationContext)
@@ -614,16 +622,44 @@ std::optional<ASCIILiteral> FontCache::platformAlternateFamilyName(const String&
 }
 
 #if ENABLE(VARIATION_FONTS)
-struct VariationDefaults {
-    float defaultValue;
-    float minimumValue;
-    float maximumValue;
-};
+static String fontNameMapName(FT_Face face, unsigned id)
+{
+    auto nameCount = FT_Get_Sfnt_Name_Count(face);
+    if (!nameCount)
+        return { };
 
-typedef HashMap<FontTag, VariationDefaults, FourCharacterTagHash, FourCharacterTagHashTraits> VariationDefaultsMap;
-typedef HashMap<FontTag, float, FourCharacterTagHash, FourCharacterTagHashTraits> VariationsMap;
+    auto decodeName = [](FT_SfntName name) -> String {
+        switch (name.platform_id) {
+        case TT_PLATFORM_MACINTOSH:
+            if (name.encoding_id == TT_MAC_ID_ROMAN)
+                return String(name.string, name.string_len);
+            // FIXME: implement other macintosh encodings.
+            break;
+        case TT_PLATFORM_APPLE_UNICODE:
+        case TT_PLATFORM_ISO:
+        case TT_PLATFORM_MICROSOFT:
+        case TT_PLATFORM_CUSTOM:
+        case TT_PLATFORM_ADOBE:
+            // FIXME: implement these platforms.
+            break;
+        }
 
-static VariationDefaultsMap defaultVariationValues(FT_Face face)
+        return { };
+    };
+
+    for (unsigned i = 0; i < nameCount; ++i) {
+        FT_SfntName name;
+        if (FT_Get_Sfnt_Name(face, i, &name))
+            continue;
+
+        if (name.name_id == id)
+            return decodeName(name);
+    }
+
+    return { };
+}
+
+VariationDefaultsMap defaultVariationValues(FT_Face face, ShouldLocalizeAxisNames shouldLocalizeAxisNames)
 {
     VariationDefaultsMap result;
     FT_MM_Var* ftMMVar;
@@ -637,7 +673,14 @@ static VariationDefaultsMap defaultVariationValues(FT_Face face)
         auto b3 = 0xFF & (tag >> 8);
         auto b4 = 0xFF & (tag >> 0);
         FontTag resultKey = {{ static_cast<char>(b1), static_cast<char>(b2), static_cast<char>(b3), static_cast<char>(b4) }};
-        VariationDefaults resultValues = { narrowPrecisionToFloat(ftMMVar->axis[i].def / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].minimum / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].maximum / 65536.) };
+
+        String axisName;
+        if (shouldLocalizeAxisNames == ShouldLocalizeAxisNames::Yes)
+            axisName = fontNameMapName(face, ftMMVar->axis[i].strid);
+        if (axisName.isEmpty())
+            axisName = String::fromUTF8(ftMMVar->axis[i].name);
+
+        VariationDefaults resultValues = { WTFMove(axisName), narrowPrecisionToFloat(ftMMVar->axis[i].def / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].minimum / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].maximum / 65536.) };
         result.set(resultKey, resultValues);
     }
     FT_Done_MM_Var(face->glyph->library, ftMMVar);
@@ -646,7 +689,7 @@ static VariationDefaultsMap defaultVariationValues(FT_Face face)
 
 String buildVariationSettings(FT_Face face, const FontDescription& fontDescription)
 {
-    auto defaultValues = defaultVariationValues(face);
+    auto defaultValues = defaultVariationValues(face, ShouldLocalizeAxisNames::No);
     const auto& variations = fontDescription.variationSettings();
 
     VariationsMap variationsToBeApplied;
@@ -675,5 +718,9 @@ String buildVariationSettings(FT_Face face, const FontDescription& fontDescripti
     return builder.toString();
 }
 #endif // ENABLE(VARIATION_FONTS)
+
+void FontCache::platformInvalidate()
+{
+}
 
 }

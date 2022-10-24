@@ -1322,7 +1322,7 @@ print_proc()
 #if	defined(HASPRINTSZ)
 		cp = HASPRINTSZ(Lf);
 #else	/* !defined(HASPRINTSZ) */
-		(void) snpf(buf, sizeof(buf), SzOffFmt_d, Lf->sz);
+		(void) snpf(buf, sizeof(buf), SzOffFmt_d_const, Lf->sz);
 		cp = buf;
 #endif	/* defined(HASPRINTSZ) */
 
@@ -1336,7 +1336,7 @@ print_proc()
 #if	defined(HASPRINTOFF)
 		cp = HASPRINTOFF(Lf, 0);
 #else	/* !defined(HASPRINTOFF) */
-		(void) snpf(buf, sizeof(buf), SzOffFmt_0t, Lf->off);
+		(void) snpf(buf, sizeof(buf), SzOffFmt_0t_const, Lf->off);
 		cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1346,7 +1346,7 @@ print_proc()
 #if	defined(HASPRINTOFF)
 		    cp = HASPRINTOFF(Lf, 1);
 #else	/* !defined(HASPRINTOFF) */
-		    (void) snpf(buf, sizeof(buf), SzOffFmt_x, Lf->off);
+		    (void) snpf(buf, sizeof(buf), SzOffFmt_x_const, Lf->off);
 		    cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1357,7 +1357,7 @@ print_proc()
 	    }
 	    if (FieldSel[LSOF_FIX_INODE].st && Lf->inp_ty == 1) {
 		putchar(LSOF_FID_INODE);
-		(void) printf(InodeFmt_d, Lf->inode);
+		(void) printf(InodeFmt_d_const, Lf->inode);
 		putchar(Terminator);
 		lc++;
 	    }

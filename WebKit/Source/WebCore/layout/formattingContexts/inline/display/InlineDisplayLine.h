@@ -27,6 +27,7 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "FontBaseline.h"
 #include "InlineRect.h"
 
 namespace WebCore {
@@ -40,7 +41,7 @@ public:
         float top { 0 };
         float bottom { 0 };
     };
-    Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom, float aligmentBaseline, float contentLeft, float contentWidth);
+    Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalOffset, float contentLogicalWidth, bool isHorizontal);
 
     float left() const { return m_lineBoxRect.x(); }
     float right() const { return m_lineBoxRect.maxX(); }
@@ -55,9 +56,12 @@ public:
     EnclosingTopAndBottom enclosingTopAndBottom() const { return m_enclosingTopAndBottom; }
 
     float baseline() const { return m_aligmentBaseline; }
+    FontBaseline baselineType() const { return m_baselineType; }
 
-    float contentLeft() const { return m_contentLeft; }
-    float contentWidth() const { return m_contentWidth; }
+    bool isHorizontal() const { return m_isHorizontal; }
+
+    float contentLogicalOffset() const { return m_contentLogicalOffset; }
+    float contentLogicalWidth() const { return m_contentLogicalWidth; }
 
     void moveVertically(float offset) { m_lineBoxRect.move({ { }, offset }); }
 
@@ -70,17 +74,21 @@ private:
     // the layout bounds of the inline level boxes which may be different when line-height is present.
     EnclosingTopAndBottom m_enclosingTopAndBottom;
     float m_aligmentBaseline { 0 };
-    float m_contentLeft { 0 };
-    float m_contentWidth { 0 };
+    float m_contentLogicalOffset { 0 };
+    float m_contentLogicalWidth { 0 };
+    FontBaseline m_baselineType { AlphabeticBaseline };
+    bool m_isHorizontal { true };
 };
 
-inline Line::Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom enclosingTopAndBottom, float aligmentBaseline, float contentLeft, float contentWidth)
+inline Line::Line(const FloatRect& lineBoxRect, const FloatRect& scrollableOverflow, EnclosingTopAndBottom enclosingTopAndBottom, float aligmentBaseline, FontBaseline baselineType, float contentLogicalOffset, float contentLogicalWidth, bool isHorizontal)
     : m_lineBoxRect(lineBoxRect)
     , m_scrollableOverflow(scrollableOverflow)
     , m_enclosingTopAndBottom(enclosingTopAndBottom)
     , m_aligmentBaseline(aligmentBaseline)
-    , m_contentLeft(contentLeft)
-    , m_contentWidth(contentWidth)
+    , m_contentLogicalOffset(contentLogicalOffset)
+    , m_contentLogicalWidth(contentLogicalWidth)
+    , m_baselineType(baselineType)
+    , m_isHorizontal(isHorizontal)
 {
 }
 

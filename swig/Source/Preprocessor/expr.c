@@ -326,7 +326,7 @@ int Preprocessor_expr(DOH *s, int *error) {
 	  } else
 	    goto syntax_error;
 	}
-	return stack[sp].value;
+	return (int) stack[sp].value;
       }
       /* Token must be an operator */
       switch (token) {
@@ -359,7 +359,7 @@ int Preprocessor_expr(DOH *s, int *error) {
 	} else {
 	  if (stack[sp - 1].op != EXPR_OP)
 	    goto syntax_error_expected_operator;
-	  op = stack[sp - 1].value;	/* Previous operator */
+	  op = (int) stack[sp - 1].value;	/* Previous operator */
 
 	  /* Now, depending on the precedence relationship between the last operator and the current
 	     we will reduce or push */

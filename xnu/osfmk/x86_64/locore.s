@@ -455,7 +455,6 @@ L_copyout_atomic64_fail:
 	popq	%rbp			/* Restore registers */
 	retq				/* Return */
 
-
 /*
  * hw_lck_ticket_t
  * hw_lck_ticket_reserve_orig_allow_invalid(hw_lck_ticket_t *lck)
@@ -473,7 +472,7 @@ Entry(hw_lck_ticket_reserve_orig_allow_invalid)
 	btl	$HW_LCK_TICKET_LOCK_VALID_BIT, %eax
 	jae	3f			/* is the lock valid ? */
 
-	leal	HW_LCK_TICKET_LOCK_INCREMENT(%rax), %edx
+	leal	HW_LCK_TICKET_LOCK_INC_WORD(%rax), %edx
 	RECOVERY_SECTION
 	RECOVER(3f)			/* Set up recovery handler for next instruction*/
 	lock	cmpxchgl %edx, (%rdi)

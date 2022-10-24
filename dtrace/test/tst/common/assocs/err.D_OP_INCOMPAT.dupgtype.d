@@ -37,6 +37,6 @@
 
 BEGIN
 {
-	x[123] = `proc0;
+	x[123] = *`kernproc;
 	x[456] = *`rootvp;
 }

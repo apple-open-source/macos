@@ -394,7 +394,8 @@ OSStatus
 SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issuer,
 	const CSSM_DATA *serialNumber, SecCertificateRef *certificate)
 {
-    if (issuer && serialNumber) {
+    if (issuer && issuer->Data && issuer->Length > 0 &&
+        serialNumber && serialNumber->Data && serialNumber->Length > 0) {
         CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
         CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
@@ -578,7 +579,6 @@ CSSM_RETURN
 SecDigestGetData (CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_DATA* data)
 {
 	BEGIN_SECAPI
-	// sanity checking
 	if (!digest || !digest->Data || !digest->Length || !data || !data->Data || !data->Length)
 		return errSecParam;
 
@@ -778,7 +778,7 @@ OSStatus SecCertificateSetPreference(
         MacOSError::throwMe(errSecDataTooLarge); // data is "in a format which cannot be displayed"
 	}
 	CFIndex accountUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(labelStr), kCFStringEncodingUTF8) + 1;
-	const char *templateStr = "%s [key usage 0x%X]";
+	const char *const templateStr = "%s [key usage 0x%X]";
 	const int keyUsageMaxStrLen = 8;
 	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
 	char *accountUTF8 = (char *)malloc(accountUTF8Len);

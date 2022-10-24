@@ -34,8 +34,8 @@ def ShowInterrupts(cmd_args=None):
     """ Prints IRQ, IPI and TMR counts for each CPU
     """
 
-    if not kern.arch.startswith('arm'):
-        print("showinterrupts is only supported on arm/arm64")
+    if not kern.arch.startswith('arm64'):
+        print("showinterrupts is only supported on arm64")
         return
 
     base_address = kern.GetLoadAddressForSymbol('CpuDataEntries')
@@ -403,9 +403,10 @@ def ShowThreadSchedHistory(thread, most_recent_dispatch):
         thread_name = str(kern.GetValueFromAddress(unsigned(uthread.pth_name), 'char*'))
 
     task = thread.t_tro.tro_task
+
     task_name = "unknown"
-    if task and unsigned(task.bsd_info):
-        p = Cast(task.bsd_info, 'proc *')
+    p = GetProcFromTask(task)
+    if task and p:
         task_name = GetProcName(p)
 
     sched_mode = ""
@@ -1124,6 +1125,10 @@ def ShowThreadCall(prefix, call, recent_timestamp, pqueue, is_pending=False):
     if (func_name == "") :
         func_name = FindKmodNameForAddr(func)
 
+    # e.g. func may be 0 if there is a bug
+    if func_name is None :
+        func_name = "No func_name!"
+
     if (call.tc_flags & GetEnumValue('thread_call_flags_t::THREAD_CALL_FLAG_CONTINUOUS')) :
         timer_fire = call.tc_pqlink.deadline - (recent_timestamp + kern.globals.mach_absolutetime_asleep)
         soft_timer_fire = call.tc_soft_deadline - (recent_timestamp + kern.globals.mach_absolutetime_asleep)
@@ -1155,11 +1160,11 @@ def ShowThreadCall(prefix, call, recent_timestamp, pqueue, is_pending=False):
     flags = int(call.tc_flags)
     # TODO: extract this out of the thread_call_flags_t enum
     thread_call_flags = {0x0:'', 0x1:'A', 0x2:'W', 0x4:'D', 0x8:'R', 0x10:'S', 0x20:'O',
-            0x40:'P', 0x80:'L', 0x100:'C'}
+            0x40:'P', 0x80:'L', 0x100:'C', 0x200:'V'}
 
     flags_str = ''
     mask = 0x1
-    while mask <= 0x100 :
+    while mask <= 0x200 :
         flags_str += thread_call_flags[int(flags & mask)]
         mask = mask << 1
 
@@ -1319,10 +1324,11 @@ def ShowAllCallouts(cmd_args=None):
         L - Rate-limited - (App Nap)
         C - Continuous time - Timeout is in mach_continuous_time
         I - Callout is an IOTimerEventSource
+        V - Callout is validly initialized
     """
     index_max = GetEnumValue('thread_call_index_t::THREAD_CALL_INDEX_MAX')
 
-    for i in range (0, index_max) :
+    for i in range (1, index_max) :
         group = addressof(kern.globals.thread_call_groups[i])
         PrintThreadGroup(group)
 

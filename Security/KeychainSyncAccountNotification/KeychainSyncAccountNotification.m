@@ -40,16 +40,18 @@
 
     if((changeType == kACAccountChangeTypeAdded || changeType == kACAccountChangeTypeModified || changeType == kACAccountChangeTypeWarmingUp) &&
        [account.accountType.identifier isEqualToString: ACAccountTypeIdentifierAppleAccount] &&
-       [self accountIsPrimary:account]) {
+       (OctagonSupportsPersonaMultiuser() || [self accountIsPrimary:account])) {
 
         SOSCCLoggedIntoAccount(NULL);
 
 #if OCTAGON
-        NSString* altDSID =  [account aa_altDSID];
+        NSString* altDSID = [account aa_altDSID];
 
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
         UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
-        secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@, persona %@(%d))", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
+        
+        bool isPrimary = [self accountIsPrimary:account];
+        secnotice("octagon-account", "Received an %@ Apple account modification (altDSID %@, persona %@(%d))", isPrimary ? @"primary" : @"guest", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
 #else
         secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@)", altDSID);
 #endif  // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
@@ -62,7 +64,9 @@
         if (nil == otcontrol) {
             secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
         } else {
-            [otcontrol signIn:altDSID container:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
+            OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
+
+            [otcontrol appleAccountSignedIn:arguments reply:^(NSError * _Nullable signedInError) {
                 // take a retain on otcontrol so it won't invalidate the connection
                 (void)otcontrol;
 
@@ -103,15 +107,16 @@
             if(!otcontrol || error) {
                 secerror("octagon-account: Failed to get OTControl: %@", error);
             } else {
-                 [otcontrol notifyIDMSTrustLevelChangeForContainer:nil context:OTDefaultContext reply:^(NSError * _Nullable idmsError) {
-                     // take a retain on otcontrol so it won't invalidate the connection
-                     (void)otcontrol;
+                OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
+                [otcontrol notifyIDMSTrustLevelChangeForAltDSID:arguments reply:^(NSError * _Nullable idmsError) {
+                    // take a retain on otcontrol so it won't invalidate the connection
+                    (void)otcontrol;
 
-                     if(idmsError) {
-                         secerror("octagon-account: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
-                     } else {
-                         secnotice("octagon-account", "informed octagon of IDMS trust level change");
-                     }
+                    if(idmsError) {
+                        secerror("octagon-account: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
+                    } else {
+                        secnotice("octagon-account", "informed octagon of IDMS trust level change");
+                    }
                 }];
             }
 
@@ -122,7 +127,7 @@
 #endif
 
     if ((changeType == kACAccountChangeTypeDeleted) && [oldAccount.accountType.identifier isEqualToString:ACAccountTypeIdentifierAppleAccount]) {
-        NSString* altDSID =  [oldAccount aa_altDSID];
+        NSString* altDSID = [oldAccount aa_altDSID];
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
         UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
         secnotice("octagon-account", "Received an Apple account deletion (altDSID: %@, persona %@(%d))", altDSID, persona.userPersonaUniqueString, (int)persona.userPersonaType);
@@ -134,7 +139,7 @@
         NSString *username = oldAccount.username;
 
         if(accountIdentifier != NULL && username !=NULL) {
-            if ([self accountIsPrimary:oldAccount]) {
+            if (OctagonSupportsPersonaMultiuser() || [self accountIsPrimary:oldAccount]) {
                 CFErrorRef removalError = NULL;
 
                 secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", accountIdentifier, username);
@@ -152,7 +157,9 @@
                 if (nil == otcontrol) {
                     secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
                 } else {
-                    [otcontrol signOut:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
+                    OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
+
+                    [otcontrol appleAccountSignedOut:arguments reply:^(NSError * _Nullable signedInError) {
                         // take a retain on otcontrol so it won't invalidate the connection
                         (void)otcontrol;
 

@@ -1,0 +1,1 @@
+http://GlobalTrust.ocsp.sectigo.com

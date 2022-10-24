@@ -58,7 +58,7 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
     int status;
     
     OFSettings[0] = NVRAM;
-    err = BLGetOpenFirmwareBootDevice(context, mntfrm, ofString);
+    err = BLGetOpenFirmwareBootDevice(context, mntfrm, ofString, sizeof(ofString));
     if(err) {
         contextprintf(context, kBLLogLevelError,  "Can't get Open Firmware information\n" );
         return 1;
@@ -66,7 +66,7 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
         contextprintf(context, kBLLogLevelVerbose,  "Got OF string %s\n", ofString );
     }
     
-    sprintf(bootargs, "boot-args=");
+    strlcpy(bootargs, "boot-args=", sizeof(bootargs));
     
     char oldbootargs[1024];
     char *restargs;
@@ -86,14 +86,14 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
         if(NULL != strsep(&restargs, "\t")) { // nvram must separate the name from the value with a tab
             restargs[strlen(restargs)-1] = '\0'; // remove \n
             
-            err = BLPreserveBootArgs(context, restargs, bootargs+strlen(bootargs), sizeof bootargs - strlen(bootargs));
+            err = BLPreserveBootArgs(context, restargs, bootargs+strlen(bootargs), (int)(sizeof bootargs - strlen(bootargs)));
         }
     }
     
     // set them up
-    sprintf(bootdevice, "boot-device=%s", ofString);
-    sprintf(bootfile, "boot-file=");
-    sprintf(bootcommand, "boot-command=mac-boot");
+    snprintf(bootdevice, sizeof(bootdevice), "boot-device=%s", ofString);
+    snprintf(bootfile, sizeof(bootfile), "boot-file=");
+    snprintf(bootcommand, sizeof(bootcommand), "boot-command=mac-boot");
 	// bootargs initialized above, and append-to later
     
     OFSettings[1] = bootdevice;

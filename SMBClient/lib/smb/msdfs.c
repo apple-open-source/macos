@@ -404,13 +404,13 @@ static size_t smb_get_utf16_strlen(mdchain_t mdp, void **curr_ptr,
 {
 	u_char *s = *curr_ptr; /* Points to start of the utf16 string in buffer */
 	size_t size = 0;
-	size_t max_count, count, ii;
+	size_t max_count, ii;
     uint16_t *ustr;
 
     if (mdp == NULL) {
         /* SMB 2/3 */
 		/* Max amount of data we can scan in this mbuf */
-		max_count = count = *bytes_unparsed;
+		max_count = *bytes_unparsed;
 
 		/* Scan the buffer counting the bytes */
 		ustr = (uint16_t *)((void *) s);

@@ -52,6 +52,15 @@ _malloc_read_uint16_via_rsp(void *ptr)
         :                       // clobbers, empty
     );
     return (uint16_t)(uintptr_t)ptr;
+#elif TARGET_CPU_ARM64
+	__asm__ (
+		"sub  %0, %0, fp    \n"
+		"ldrh %w0, [fp, %0] \n"
+		: "+r" (ptr)            // outputs, ptr = %0 read-write
+		:                       // inputs, empty
+		:                       // clobbers, empty
+	);
+	return (uint16_t)(uintptr_t)ptr;
 #else
     return *(uint16_t *)ptr;
 #endif
@@ -69,6 +78,15 @@ _malloc_read_uint64_via_rsp(void *ptr)
         :                       // clobbers, empty
     );
     return (uint64_t)ptr;
+#elif TARGET_CPU_ARM64
+	__asm__ (
+		"sub %0, %0, fp  \n"
+		"ldr %0, [fp, %0]\n"
+		: "+r" (ptr)            // outputs, ptr = %0 read-write
+		:                       // inputs, empty
+		:                       // clobbers, empty
+	);
+	return (uint64_t)ptr;
 #else
     return *(uint64_t *)ptr;
 #endif
@@ -85,6 +103,14 @@ _malloc_write_uint64_via_rsp(void *ptr, uint64_t value)
         : "r" (ptr), "r" (value)  // inputs, ptr = %0, value = %1
         :                         // clobbers, empty
     );
+#elif TARGET_CPU_ARM64
+	__asm__ volatile (
+		"sub %0, %0, fp   \n"
+		"str %1, [fp, %0] \n"
+		: "+r" (ptr)              // outputs, ptr = %0 (not a real output but gets clobbered)
+		: "r" (value)             // inputs, value = %1
+		:                         // clobbers, empty
+	);
 #else
     *(uint64_t *)ptr = value;
 #endif

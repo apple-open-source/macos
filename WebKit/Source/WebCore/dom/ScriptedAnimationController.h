@@ -50,7 +50,6 @@ public:
     }
     ~ScriptedAnimationController();
     void clearDocumentPointer() { m_document = nullptr; }
-    bool requestAnimationFrameEnabled() const;
 
     WEBCORE_EXPORT Seconds interval() const;
     WEBCORE_EXPORT OptionSet<ThrottlingReason> throttlingReasons() const;
@@ -81,7 +80,7 @@ private:
     };
     Vector<CallbackData> m_callbackDataList;
 
-    WeakPtr<Document> m_document;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
     CallbackId m_nextCallbackId { 0 };
     int m_suspendCount { 0 };
 

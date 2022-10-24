@@ -467,7 +467,7 @@ static int RemoveFolder(UVFSFileNode ParentNode,char* DirNameToRemove)
 {
     int error =0;
 
-    error = HFS_fsOps.fsops_rmdir(ParentNode, DirNameToRemove);;
+    error = HFS_fsOps.fsops_rmdir(ParentNode, DirNameToRemove, NULL);
 
     return error;
 }
@@ -1242,7 +1242,8 @@ int HFSTest_RunFsck(void) {
     int iErr = 0;
     char pcFsckCmd[512] = {0};
     
-    strcat( pcFsckCmd, "/System/Library/Filesystems/hfs.fs/Contents/Resources/fsck_hfs -fd -D 0x22 /dev/disk");
+    strcat( pcFsckCmd, PATH_TO_FSCK);
+    strcat( pcFsckCmd, " -fd -D 0x22 /dev/disk");
     strcat( pcFsckCmd, pcLastDevPathName );
     
     if (pcDevNum[0] != '\0') {
@@ -1613,7 +1614,7 @@ HFSTest_ScanID( UVFSFileNode RootNode )
     iErr = HFS_fsOps.fsops_getattr( TestFile1, &FileAttr);
     if (iErr) goto exit;
 
-    HFS_fsOps.fsops_reclaim(TestFile1);
+    HFS_fsOps.fsops_reclaim(TestFile1, 0);
     
     memset(pcScanIDPath, 0, MAX_UTF8_NAME_LENGTH);
     uScanIDFileIDArray = FileAttr.fa_fileid;
@@ -1725,9 +1726,9 @@ HFSTest_ScanID( UVFSFileNode RootNode )
     uScanIDFileIDArray = FileAttr.fa_fileid;
     memset(pcScanIDPath, 0, MAX_UTF8_NAME_LENGTH);
 
-    HFS_fsOps.fsops_reclaim( psFile );
-    HFS_fsOps.fsops_reclaim( psFirstLink );
-    HFS_fsOps.fsops_reclaim( psDirectory );
+    HFS_fsOps.fsops_reclaim( psFile, 0 );
+    HFS_fsOps.fsops_reclaim( psFirstLink, 0 );
+    HFS_fsOps.fsops_reclaim( psDirectory, 0 );
 
     // Now run SanID on hardlinks:
     do {
@@ -1764,23 +1765,23 @@ exit:
         RemoveFile(TestFolder5,"file.txt");
     }
     if (TestFolder5) {
-        HFS_fsOps.fsops_reclaim(TestFolder5);
+        HFS_fsOps.fsops_reclaim(TestFolder5, 0);
         RemoveFolder(TestFolder4,"TestFolder5");
     }
     if (TestFolder4) {
-        HFS_fsOps.fsops_reclaim(TestFolder4);
+        HFS_fsOps.fsops_reclaim(TestFolder4, 0);
         RemoveFolder(TestFolder3,"TestFolder4");
     }
     if (TestFolder3) {
-        HFS_fsOps.fsops_reclaim(TestFolder3);
+        HFS_fsOps.fsops_reclaim(TestFolder3, 0);
         RemoveFolder(TestFolder2,"TestFolder3");
     }
     if (TestFolder2) {
-        HFS_fsOps.fsops_reclaim(TestFolder2);
+        HFS_fsOps.fsops_reclaim(TestFolder2, 0);
         RemoveFolder(TestFolder,"TestFolder2");
     }
     if (TestFolder) {
-        HFS_fsOps.fsops_reclaim(TestFolder);
+        HFS_fsOps.fsops_reclaim(TestFolder, 0);
         RemoveFolder(RootNode,"TestFolder");
     }
 
@@ -1855,9 +1856,9 @@ HFSTest_Create( UVFSFileNode RootNode )
         goto exit;
 
 exit:
-    HFS_fsOps.fsops_reclaim(TestFolder);
-    HFS_fsOps.fsops_reclaim(TestFile1);
-    HFS_fsOps.fsops_reclaim(TestFile2);
+    HFS_fsOps.fsops_reclaim(TestFolder, 0);
+    HFS_fsOps.fsops_reclaim(TestFile1, 0);
+    HFS_fsOps.fsops_reclaim(TestFile2, 0);
     return iErr;
 }
 
@@ -1881,7 +1882,7 @@ static int HFSTest_DeleteAHugeDefragmentedFile_wJournal(UVFSFileNode RootNode) {
             printf("Failed to create file [%s]\n", pcName);
             goto exit;
         }
-        HFS_fsOps.fsops_reclaim(psNode);
+        HFS_fsOps.fsops_reclaim(psNode, 0);
     }
     
     // delete every other file
@@ -1901,7 +1902,7 @@ static int HFSTest_DeleteAHugeDefragmentedFile_wJournal(UVFSFileNode RootNode) {
         printf("Failed to create file [%s]\n", pcName);
         goto exit;
     }
-    HFS_fsOps.fsops_reclaim(psNode);
+    HFS_fsOps.fsops_reclaim(psNode, 0);
     
     // Delete the huge defragmented file
     sprintf(pcName, "%s.txt", DHF_HUGE_FILENAME);;
@@ -1938,7 +1939,7 @@ static void *ReadWriteThread(void *pvArgs) {
                 printf("Failed creating file %s with iErr %d.\n", pcName,iErr);
                 goto exit;
             }
-            HFS_fsOps.fsops_reclaim(psNode);
+            HFS_fsOps.fsops_reclaim(psNode, 0);
         }
 
         // Create SymLinks
@@ -2020,7 +2021,7 @@ static void *ReadWriteThread(void *pvArgs) {
                 goto exit;
             }
             
-            HFS_fsOps.fsops_reclaim( pOutNode[uNumOfSymLinks] );
+            HFS_fsOps.fsops_reclaim( pOutNode[uNumOfSymLinks], 0 );
             free(pcSymLinkContent);
             free(pcSymLinkReadContent);
         }
@@ -2175,7 +2176,7 @@ HFSTest_Create1000Files( UVFSFileNode RootNode )
             printf("Failed to create file [%s]\n", pcName);
             goto exit;
         }
-        HFS_fsOps.fsops_reclaim(psNode);
+        HFS_fsOps.fsops_reclaim(psNode, 0);
     }
 
     for ( int i=0; i<CREATE_NUM_OF_FILES; i++ )
@@ -2274,9 +2275,9 @@ HFSTest_Rename( UVFSFileNode RootNode )
         goto exit;
 
 exit:
-    HFS_fsOps.fsops_reclaim(TestFolder);
-    HFS_fsOps.fsops_reclaim(TestFile1);
-    HFS_fsOps.fsops_reclaim(TestFile2);
+    HFS_fsOps.fsops_reclaim(TestFolder, 0);
+    HFS_fsOps.fsops_reclaim(TestFile1, 0);
+    HFS_fsOps.fsops_reclaim(TestFile2, 0);
     return iErr;
 }
 
@@ -2338,7 +2339,7 @@ static int HFSTest_Corrupted2ndDiskImage(__unused UVFSFileNode RootNode )
     printf("CreateNewFolder err [%d]\n", iErr);
     if (iErr) goto exit;
     
-    HFS_fsOps.fsops_reclaim(TestFolder1);
+    HFS_fsOps.fsops_reclaim(TestFolder1, 0);
 
 exit:
     return iErr;
@@ -2393,9 +2394,9 @@ static int HFSTest_ScanDir(UVFSFileNode RootNode )
     printf("ScanDir err [%d]\n",iErr);
 
     
-    HFS_fsOps.fsops_reclaim(TestFolder1);
-    HFS_fsOps.fsops_reclaim(TestFolder2);
-    HFS_fsOps.fsops_reclaim(TestFile1);
+    HFS_fsOps.fsops_reclaim(TestFolder1, 0);
+    HFS_fsOps.fsops_reclaim(TestFolder2, 0);
+    HFS_fsOps.fsops_reclaim(TestFile1, 0);
 
     // Remove File
     iErr =  RemoveFile(RootNode,"F🤪2");
@@ -2461,7 +2462,7 @@ static int HFSTest_RootFillUp( UVFSFileNode RootNode ) {
       char pcFolderName[256] = {0};
       sprintf(pcFolderName, "TestFolder_%d", u);
 
-      HFS_fsOps.fsops_reclaim(pTestFolder[u]);
+      HFS_fsOps.fsops_reclaim(pTestFolder[u], 0);
       iErr =  RemoveFolder(RootNode, pcFolderName);
       printf("Remove Folder %s from Root err [%d]\n", pcFolderName, iErr);
       if (iErr) {
@@ -2554,7 +2555,7 @@ static int HFSTest_RootFillUp( UVFSFileNode RootNode ) {
             return(iErr);
         }
         
-        HFS_fsOps.fsops_reclaim( pOutNode[u] );
+        HFS_fsOps.fsops_reclaim( pOutNode[u], 0 );
         //HFS_fsOps.fsops_reclaim( SymLinkNode );
     }
         
@@ -2617,7 +2618,7 @@ static int HFSTest_ValidateUnmount_wJournal( UVFSFileNode psRootNode ) {
     if (iErr)
         return iErr;
     
-    HFS_fsOps.fsops_reclaim( psTestFolder );
+    HFS_fsOps.fsops_reclaim( psTestFolder, 0 );
     
     // Read volume header & validate unmount is set (journaled data is still in cache)
     uint32_t uUnMountBit;
@@ -2660,7 +2661,7 @@ static int HFSTest_ValidateUnmount( UVFSFileNode psRootNode ) {
     if (iErr)
         return iErr;
     
-    HFS_fsOps.fsops_reclaim( psTestFolder );
+    HFS_fsOps.fsops_reclaim( psTestFolder, 0 );
     
     // Read volume header & validate unmount is cleared
     if (ReadUnMountBit(psRootNode, &uUnMountBit)) {
@@ -2691,7 +2692,7 @@ static int HFSTest_ValidateUnmount( UVFSFileNode psRootNode ) {
     if (iErr)
         return iErr;
     
-    HFS_fsOps.fsops_reclaim( psTestFolder );
+    HFS_fsOps.fsops_reclaim( psTestFolder, 0 );
     
     // Read volume header & validate unmount is cleared
     if (ReadUnMountBit(psRootNode, &uUnMountBit)) {
@@ -2735,7 +2736,7 @@ static int HFSTest_OneSync( UVFSFileNode RootNode ) {
         printf("CreateNewFolder err [%d]\n", iErr);
         if (iErr)
             return iErr;
-        HFS_fsOps.fsops_reclaim( TestFolder );
+        HFS_fsOps.fsops_reclaim( TestFolder, 0 );
     }
     
     for(unsigned u=0; u<5; u++) {
@@ -2798,7 +2799,7 @@ HFSTest_MakeDir( UVFSFileNode RootNode )
         return -1;
     }
 
-    HFS_fsOps.fsops_reclaim( TestFolder );
+    HFS_fsOps.fsops_reclaim( TestFolder, 0 );
 
     return iErr;
 }
@@ -2820,7 +2821,7 @@ HFSTest_MakeDirAndKeep( UVFSFileNode psRootNode )
             return iErr;
         usleep(guSyncerPeriod * 10); // Allow the syncer to run (at 1/100th rate)
         
-        HFS_fsOps.fsops_reclaim( TestFolder );
+        HFS_fsOps.fsops_reclaim( TestFolder, 0 );
     }
     
     for(unsigned u=0; u<100; u++) {
@@ -2875,7 +2876,7 @@ HFSTest_ReadDefragmentFile( UVFSFileNode RootNode )
     size_t iActuallyRead;
     iErr = HFS_fsOps.fsops_read( DeFragmentFile, 0, FILE_SIZE, pvReadBuf, &iActuallyRead );
 
-    HFS_fsOps.fsops_reclaim( DeFragmentFile );
+    HFS_fsOps.fsops_reclaim( DeFragmentFile, 0 );
     
     if ( iErr != 0 )
     {
@@ -2924,7 +2925,7 @@ HFSTest_RemoveDir( UVFSFileNode RootNode )
     }
 
     // Try to delete non empty directoy.
-    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir" );
+    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir", MainDir );
     if ( iErr != ENOTEMPTY )
     {
         printf( "Return status is [%d], expected [%d]\n", iErr, ENOTEMPTY );
@@ -2939,7 +2940,7 @@ HFSTest_RemoveDir( UVFSFileNode RootNode )
         sprintf( pcDirName, "Dir%d", iDirIdx);
 
         // Try to delete empty directoy.
-        iErr = HFS_fsOps.fsops_rmdir( MainDir, pcDirName );
+        iErr = HFS_fsOps.fsops_rmdir( MainDir, pcDirName, NULL );
         printf( "remove dir ended with err [%d]\n", iErr );
         if ( iErr != 0 )
         {
@@ -2948,10 +2949,10 @@ HFSTest_RemoveDir( UVFSFileNode RootNode )
     }
 
     // Reclaim main dir.
-    HFS_fsOps.fsops_reclaim( MainDir );
+    HFS_fsOps.fsops_reclaim( MainDir, 0 );
 
     // Now, try to delete empty main directoy.
-    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir" );
+    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir", NULL );
     if ( iErr != 0 )
     {
         printf( "Failed to remove main dir [%d]\n", iErr );
@@ -2967,7 +2968,7 @@ HFSTest_RemoveDir( UVFSFileNode RootNode )
     }
 
     // Try to remove unexisting directory
-    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir" );
+    iErr = HFS_fsOps.fsops_rmdir( RootNode, "MainDir", NULL );
     if ( iErr != ENOENT )
     {
         printf( "Expected [%d], detected [%d]\n", ENOENT, iErr );
@@ -3071,7 +3072,7 @@ HFSTest_ReadDir( UVFSFileNode RootNode )
     iErr = read_directory_and_search_for_name( MainDir, "D1", &bFound, psReadDirTestsData, 6);
     free(psReadDirTestsData);
     // Reclaim main dir.
-    HFS_fsOps.fsops_reclaim(MainDir);
+    HFS_fsOps.fsops_reclaim(MainDir, 0);
 
     return iErr;
 }
@@ -3123,11 +3124,11 @@ HFSTest_ReadDirAttr( UVFSFileNode RootNode )
     iErr = ReadDirAttr(MainDir, psReadDirTestsData, 4);
     free(psReadDirTestsData);
     // Reclaim main dir.
-    HFS_fsOps.fsops_reclaim(MainDir);
-    HFS_fsOps.fsops_reclaim(psVnode);
-    HFS_fsOps.fsops_reclaim(psVnode1);
-    HFS_fsOps.fsops_reclaim(psVnode2);
-    HFS_fsOps.fsops_reclaim(psVnode3);
+    HFS_fsOps.fsops_reclaim(MainDir, 0);
+    HFS_fsOps.fsops_reclaim(psVnode, 0);
+    HFS_fsOps.fsops_reclaim(psVnode1, 0);
+    HFS_fsOps.fsops_reclaim(psVnode2, 0);
+    HFS_fsOps.fsops_reclaim(psVnode3, 0);
 
     return iErr;
 }
@@ -3163,7 +3164,7 @@ HFSTest_ReadSymlink( UVFSFileNode RootNode )
         goto exit;
     }
 
-    HFS_fsOps.fsops_reclaim( outNode );
+    HFS_fsOps.fsops_reclaim( outNode, 0 );
 
 exit:
     if (pvBuf)
@@ -3234,7 +3235,7 @@ HFSTest_Symlink( UVFSFileNode RootNode )
      }
 
 
-    HFS_fsOps.fsops_reclaim( outNode );
+    HFS_fsOps.fsops_reclaim( outNode, 0 );
 
     // Remove link.
     iErr = HFS_fsOps.fsops_remove( RootNode, pcSymlinkFileName, NULL);
@@ -3338,10 +3339,10 @@ static int HFSTest_SymlinkOnFile( UVFSFileNode pRootNode ) {
 
     // cleanup
     assert(pSymLinkOnFileNode == NULL);
-    HFS_fsOps.fsops_reclaim( pFileNode );
-    HFS_fsOps.fsops_reclaim( pFolderNode );
-    HFS_fsOps.fsops_reclaim( pSymLinkOnFolderNode );
-    HFS_fsOps.fsops_reclaim( pSymLinkOnRootNode );
+    HFS_fsOps.fsops_reclaim( pFileNode, 0 );
+    HFS_fsOps.fsops_reclaim( pFolderNode, 0 );
+    HFS_fsOps.fsops_reclaim( pSymLinkOnFolderNode, 0 );
+    HFS_fsOps.fsops_reclaim( pSymLinkOnRootNode, 0 );
 
     return 0;
 }
@@ -3417,9 +3418,9 @@ HFSTest_SetAttr( UVFSFileNode RootNode )
         return iErr;
     }
 
-    HFS_fsOps.fsops_reclaim(File1);
+    HFS_fsOps.fsops_reclaim(File1, 0);
 
-    HFS_fsOps.fsops_reclaim(Dir1);
+    HFS_fsOps.fsops_reclaim(Dir1, 0);
 
     iErr = HFS_fsOps.fsops_lookup(RootNode, "D2", &Dir1);
     if (iErr)
@@ -3439,9 +3440,9 @@ HFSTest_SetAttr( UVFSFileNode RootNode )
         return iErr;
     }
 
-    HFS_fsOps.fsops_reclaim(File1);
+    HFS_fsOps.fsops_reclaim(File1, 0);
 
-    HFS_fsOps.fsops_reclaim(Dir1);
+    HFS_fsOps.fsops_reclaim(Dir1, 0);
 
     return iErr;
 }
@@ -3582,7 +3583,7 @@ HFSTest_WriteRead( UVFSFileNode RootNode )
         assert( puInBuf[uIdx] == puOutBuf[uIdx] );
     }
 
-    HFS_fsOps.fsops_reclaim( psFile );
+    HFS_fsOps.fsops_reclaim( psFile, 0 );
 
     goto exit;
 
@@ -3648,7 +3649,7 @@ HFSTest_RandomIO( UVFSFileNode RootNode )
     free(pvReadBuf);
     free(pvWriteBuf);
 
-    HFS_fsOps.fsops_reclaim(psFile);
+    HFS_fsOps.fsops_reclaim(psFile, 0);
 
     return 0;
 }
@@ -3784,10 +3785,10 @@ HFSTest_HardLink( UVFSFileNode RootNode )
     free(pvFirstLinkeBuf);
     free(pvSecondLinkeBuf);
     free(pvNewContentBuf);
-    HFS_fsOps.fsops_reclaim(psOriginalFile);
-    HFS_fsOps.fsops_reclaim(psFirstLink);
-    HFS_fsOps.fsops_reclaim(psSecondLink);
-    HFS_fsOps.fsops_reclaim(psDirectory);
+    HFS_fsOps.fsops_reclaim(psOriginalFile, 0);
+    HFS_fsOps.fsops_reclaim(psFirstLink, 0);
+    HFS_fsOps.fsops_reclaim(psSecondLink, 0);
+    HFS_fsOps.fsops_reclaim(psDirectory, 0);
 
     return iErr;
 }
@@ -3831,8 +3832,8 @@ HFSTest_CreateHardLink( UVFSFileNode RootNode )
     assert (CreateHardLink(psFile,RootNode,"first_link.txt") == 0);
     assert (CreateHardLink(psFile,psDirectory,"second_link.txt") == 0);
 
-    HFS_fsOps.fsops_reclaim( psFile );
-    HFS_fsOps.fsops_reclaim( psDirectory );
+    HFS_fsOps.fsops_reclaim( psFile, 0 );
+    HFS_fsOps.fsops_reclaim( psDirectory, 0 );
 
     assert (HFSTest_HardLink( RootNode ) == 0);
 
@@ -3859,9 +3860,9 @@ HFSTest_RenameToHardlink( UVFSFileNode RootNode )
 
     assert( HFS_fsOps.fsops_getattr(psFile1, &sOutAttrs) == 0 );
 
-    assert( HFS_fsOps.fsops_reclaim(psFile0) == 0 );
+    assert( HFS_fsOps.fsops_reclaim(psFile0, 0) == 0 );
     for ( uint32_t uIdx=0; uIdx<sOutAttrs.fa_nlink; uIdx++ )
-        assert( HFS_fsOps.fsops_reclaim(psFile1) == 0 );
+        assert( HFS_fsOps.fsops_reclaim(psFile1, 0) == 0 );
 
     return 0;
 }
@@ -3950,9 +3951,9 @@ static int HFSTest_WriteToJournal(UVFSFileNode RootNode ) {
     }
     
 exit:
-    HFS_fsOps.fsops_reclaim(TestFolder);
-    HFS_fsOps.fsops_reclaim(TestFile1);
-    HFS_fsOps.fsops_reclaim(TestFile2);
+    HFS_fsOps.fsops_reclaim(TestFolder, 0);
+    HFS_fsOps.fsops_reclaim(TestFile1, 0);
+    HFS_fsOps.fsops_reclaim(TestFile2, 0);
     return iErr;
 }
 
@@ -4096,7 +4097,7 @@ out_mem:
 
 out:
     // Reclaim test file
-    HFS_fsOps.fsops_reclaim(TestFile);
+    HFS_fsOps.fsops_reclaim(TestFile, 0);
 
     return iErr;
 }
@@ -4192,7 +4193,7 @@ mem_err:
 
 out:
     // Reclaim test file
-    HFS_fsOps.fsops_reclaim(TestFile);
+    HFS_fsOps.fsops_reclaim(TestFile, 0);
 
     return iErr;
 }
@@ -4507,7 +4508,8 @@ static int HFSTest_RunTest(TestData_S *psTestData) {
             
             // Run fsck
             char pcFsckCmd[512] = {0};
-            strcat( pcFsckCmd, "/System/Library/Filesystems/hfs.fs/Contents/Resources/fsck_hfs -fd /dev/disk");
+            strcat( pcFsckCmd, PATH_TO_FSCK);
+            strcat( pcFsckCmd, " -fd /dev/disk");
 
             strcat( pcFsckCmd, pcLastDevPathName );
             if (pcDevNum[0] != '\0') {
@@ -4763,7 +4765,7 @@ int main( int argc, const char * argv[] ) {
             break;
         }
 
-        HFS_fsOps.fsops_reclaim(D1_Node);
+        HFS_fsOps.fsops_reclaim(D1_Node, 0);
         
         // Remove D1
         err =  RemoveFolder(RootNode,"D1");

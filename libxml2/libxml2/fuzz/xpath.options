@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = xpath.dict
+timeout = 20

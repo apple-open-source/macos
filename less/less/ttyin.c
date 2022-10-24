@@ -13,6 +13,12 @@
  */
 
 #include "less.h"
+#ifdef __APPLE__
+#include <assert.h>
+#include <errno.h>
+#include <poll.h>
+#include <stdbool.h>
+#endif
 #if OS2
 #include "cmd.h"
 #include "pckeys.h"
@@ -37,6 +43,10 @@ extern int utf_mode;
 extern char *active_dashp_command;
 extern int add_newline;
 extern int wheel_lines;
+
+#ifdef __APPLE__
+extern int is_tty;
+#endif
 
 /*
  * Get name of tty device.
@@ -176,6 +186,9 @@ rstat(st)
 	public int
 getchr(VOID_PARAM)
 {
+#ifdef __APPLE__
+	static bool use_stderr = true;	/* Maybe */
+#endif
 	char c;
 	int result;
 
@@ -193,6 +206,53 @@ getchr(VOID_PARAM)
 			return (c & 0377);
 	}
 
+#ifdef __APPLE__
+	if (use_stderr && is_tty && less_is_more)
+	{
+		/* rdar://problem/86529734 - if stdout is a
+		 * terminal, then use stderr to read commands.
+		 */
+		static char errbuf[512] = {0};
+		static ssize_t errpos = 0, errbuf_sz = 0;
+
+		/* Read more if we ran out. */
+		if (errpos == errbuf_sz)
+		{
+			struct pollfd pfd = {0};
+
+			pfd.fd = STDERR_FILENO;
+			pfd.events = POLLRDNORM;
+			result = poll(&pfd, 1, 0);
+
+			if (result <= 0 ||
+			    (pfd.revents & POLLRDNORM) == 0) {
+				/* Not readable, don't try to
+				 * use stderr anymore. */
+				use_stderr = false;
+				goto no_stderr;
+			}
+
+			errbuf_sz = read(STDERR_FILENO, errbuf, sizeof(errbuf));
+			if (errbuf_sz > 0)
+				errpos = 0;
+		}
+		if (errbuf_sz <= 0)
+		{
+			if (errpos == 0 || errbuf_sz < 0)
+			{
+				/* Not readable, don't try to
+				 * use stderr anymore. */
+				use_stderr = false;
+				goto no_stderr;
+			}
+			return (EOF);
+		}
+
+		c = errbuf[errpos++];
+		goto out;
+	}
+no_stderr:
+#endif
 	do
 	{
 		flush();
@@ -274,5 +334,8 @@ getchr(VOID_PARAM)
 			c = '\340';
 	} while (result != 1);
 
+#ifdef __APPLE__
+out:
+#endif
 	return (c & 0xFF);
 }

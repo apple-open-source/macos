@@ -498,7 +498,6 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
     }
     
     for (HIDLibElement *element in elements) {
-        
         // we shouldn't query multiple times if given element is const feature element.
         if (element.isConstant && element.isUpdated) {
             continue;
@@ -535,13 +534,16 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
         }
         
         ret = (*_transaction)->getValue(_transaction, element.elementRef, &value, 0);
-        
         if (ret == kIOReturnSuccess && value) {
             element.valueRef = value;
             element.isUpdated = YES;
             if (element.isConstant) {
                 UPSLog("Constant feature element UP : %x , U : %x updated", element.usagePage, element.usage);
             }
+        } else if (ret != kIOReturnSuccess) {
+            UPSLogError("Unable to update element UP: %x, U : %x failed(%#x)", element.usagePage, element.usage, ret);
+        } else {
+            UPSLogError("Unable to update element UP: %x, U : %x no value", element.usagePage, element.usage);
         }
     }
     

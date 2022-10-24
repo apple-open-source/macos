@@ -523,9 +523,9 @@ int secd_81_item_acl(int argc, char *const *argv)
         SecItemServerSetKeychainKeybag(test_keybag);
     });
 #if TARGET_OS_IPHONE
-    plan_tests(75);
+    plan_tests(78);
 #else
-    plan_tests(34);
+    plan_tests(37);
 #endif
     item_with_skip_auth_ui(&item_num);
     item_with_invalid_acl(&item_num);
@@ -541,7 +541,17 @@ int secd_81_item_acl(int argc, char *const *argv)
 #if LA_CONTEXT_IMPLEMENTED
     SecItemServerResetKeychainKeybag();
 #endif
+
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);
+
+#if LA_CONTEXT_IMPLEMENTED
+    void* buf = NULL;
+    int bufLen = 0;
+    ok(kAKSReturnSuccess == aks_save_bag(test_keybag, &buf, &bufLen), "failed to save keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_unload_bag(test_keybag), "failed to unload keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_invalidate_bag(buf, bufLen), "failed to invalidate keybag");
+    free(buf);
+#endif
 
     return 0;
 }

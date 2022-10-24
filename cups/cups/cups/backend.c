@@ -55,7 +55,7 @@ cupsBackendDeviceURI(char **argv)	/* I - Command-line arguments */
 
   options = _HTTP_RESOLVE_STDERR;
   if ((auth_info_required = getenv("AUTH_INFO_REQUIRED")) != NULL &&
-      !strcmp(auth_info_required, "negotiate"))
+      (!strcmp(auth_info_required, "negotiate") || !strcmp(auth_info_required, "oauth")))
     options |= _HTTP_RESOLVE_FQDN;
 
   if ((ppd = ppdOpenFile(getenv("PPD"))) != NULL)

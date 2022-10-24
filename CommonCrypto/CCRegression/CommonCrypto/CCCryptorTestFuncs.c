@@ -139,7 +139,8 @@ CCMultiCryptWithMode(CCOperation op, CCMode mode, CCAlgorithm alg, CCPadding pad
     size_t p1, p2;
     size_t newmoved;
     
-   	if((retval = CCCryptorCreateWithMode(op, mode, alg, padding, iv, key, keyLength, tweak, tweakLength, numRounds, options, &cref)) != kCCSuccess) {
+    retval = CCCryptorCreateWithMode(op, mode, alg, padding, iv, key, keyLength, tweak, tweakLength, numRounds, options, &cref);
+   	if(retval != kCCSuccess) {
     	return retval;
     }
     p1 = ( dataInLength / 16 ) * 16 - 1;
@@ -231,8 +232,9 @@ CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, c
         if (retval!=kCCKeySizeError)
             goto errOut;
     }
-        
-    if((retval = CCCrypt(kCCEncrypt, alg, options, key->bytes, key->len, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    
+    retval = CCCrypt(kCCEncrypt, alg, options, key->bytes, key->len, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved);
+    if(retval != kCCSuccess) {
     	log(log, "Encrypt Failed %d\n", retval);
         goto errOut;
     }
@@ -249,8 +251,8 @@ CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, c
         }
     }
 
-    
-    if((retval = CCCrypt(kCCDecrypt, alg, options, key->bytes, key->len, iv->bytes, cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCCrypt(kCCDecrypt, alg, options, key->bytes, key->len, iv->bytes, cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved);
+    if(retval != kCCSuccess) {
     	log(log, "Decrypt Failed\n");
         goto errOut;
     }
@@ -263,9 +265,6 @@ CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, c
     }
 
     rc=0;
-
-    // if(ct->bytes && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
-    // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
 
 errOut:
     free(bb2);
@@ -295,8 +294,8 @@ CCMultiCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions optio
     ct = ccConditionalTextBuffer(cipherText);
     iv = ccConditionalTextBuffer(ivStr);
     
-        
-    if((retval = CCMultiCrypt(kCCEncrypt, alg, options, key->bytes, key->len, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCMultiCrypt(kCCEncrypt, alg, options, key->bytes, key->len, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved);
+    if(retval != kCCSuccess) {
     	diag("Encrypt Failed\n");
         return 1;
     }
@@ -315,7 +314,8 @@ CCMultiCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions optio
     
     free(bb);
     
-    if((retval = CCMultiCrypt(kCCDecrypt, alg, options, key->bytes, key->len, iv->bytes, cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCMultiCrypt(kCCDecrypt, alg, options, key->bytes, key->len, iv->bytes, cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved);
+    if(retval != kCCSuccess) {
     	diag("Decrypt Failed\n");
         return 1;
     }
@@ -328,10 +328,6 @@ CCMultiCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions optio
     }
 
     free(bb);
-
-    // if(ct && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
-    // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
-
     free(pt);
     free(ct);
     free(key);
@@ -360,8 +356,9 @@ CCModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCPaddin
     ct = ccConditionalTextBuffer(cipherText);
     iv = ccConditionalTextBuffer(ivStr);
     
-   	if((retval = CCCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0,  pt->bytes, pt->len, 
-            cipherDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0,  pt->bytes, pt->len,
+                             cipherDataOut, 4096, &dataOutMoved);
+   	if(retval != kCCSuccess) {
     	diag("Encrypt Failed\n");
         return 1;
     }
@@ -380,8 +377,9 @@ CCModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCPaddin
     
     free(bb);
     
-   	if((retval = CCCryptWithMode(kCCDecrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0,  cipherDataOut, dataOutMoved, 
-        plainDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCCryptWithMode(kCCDecrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0,  cipherDataOut, dataOutMoved,
+                             plainDataOut, 4096, &dataOutMoved);
+   	if(retval != kCCSuccess) {
     	diag("Decrypt Failed\n");
         return 1;
     }
@@ -394,10 +392,6 @@ CCModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCPaddin
     }
 
     free(bb);
-
-    // if(ct->bytes && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
-    // if(ct->bytes && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
-
     free(pt);
     free(ct);
     free(key);
@@ -430,8 +424,9 @@ CCMultiModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCP
     ct = ccConditionalTextBuffer(cipherText);
     iv = ccConditionalTextBuffer(ivStr);
     
-   	if((retval = CCMultiCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes,key->bytes, key->len, NULL, 0,0, 0, pt->bytes, pt->len, 
-            cipherDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCMultiCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes,key->bytes, key->len, NULL, 0,0, 0, pt->bytes, pt->len,
+                                  cipherDataOut, 4096, &dataOutMoved);
+   	if(retval != kCCSuccess) {
     	diag("Encrypt Failed\n");
         return 1;
     }
@@ -450,8 +445,9 @@ CCMultiModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCP
     
     free(bb);
     
-   	if((retval = CCMultiCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0, 
-        cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
+    retval = CCMultiCryptWithMode(kCCEncrypt, mode, alg, padding, iv->bytes, key->bytes, key->len, NULL, 0, 0, 0,
+                                  cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved);
+   	if(retval != kCCSuccess) {
     	diag("Decrypt Failed\n");
         return 1;
     }
@@ -464,10 +460,6 @@ CCMultiModeTestCase(char *keyStr, char *ivStr, CCMode mode, CCAlgorithm alg, CCP
     }
 
     free(bb);
-    
-    // if(ct && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
-    // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
-
     free(pt);
     free(ct);
     free(key);

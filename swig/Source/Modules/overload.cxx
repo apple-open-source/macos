@@ -295,7 +295,7 @@ static List *Swig_overload_rank(Node *n, bool script_lang_wrapping) {
 
 static bool print_typecheck(String *f, int j, Parm *pj) {
   char tmp[256];
-  sprintf(tmp, Char(argv_template_string), j);
+  snprintf(tmp, sizeof(tmp), Char(argv_template_string), j);
   String *tm = Getattr(pj, "tmap:typecheck");
   if (tm) {
     Replaceid(tm, Getattr(pj, "lname"), "_v");
@@ -319,7 +319,7 @@ static bool print_typecheck(String *f, int j, Parm *pj) {
 static String *ReplaceFormat(const_String_or_char_ptr fmt, int j) {
   String *lfmt = NewString(fmt);
   char buf[50];
-  sprintf(buf, "%d", j);
+  snprintf(buf, sizeof(buf), "%d", j);
   Replaceall(lfmt, "$numargs", buf);
   int i;
   String *commaargs = NewString("");

@@ -9,9 +9,9 @@
 #include "libxml.h"
 #ifdef LIBXML_SCHEMAS_ENABLED
 
+#include <libxml/xmlversion.h>
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
-#include <libxml/xmlversion.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -49,10 +49,10 @@
 #ifdef LIBXML_DEBUG_ENABLED
 static int debug = 0;
 #endif
+static int noout = 0;
 #ifdef HAVE_MMAP
 static int memory = 0;
 #endif
-static int noout = 0;
 #ifdef LIBXML_READER_ENABLED
 static int stream = 0;
 #endif
@@ -68,17 +68,21 @@ int main(int argc, char **argv) {
 #ifdef LIBXML_DEBUG_ENABLED
 	if ((!strcmp(argv[i], "-debug")) || (!strcmp(argv[i], "--debug")))
 	    debug++;
+	else
 #endif
 #ifdef HAVE_MMAP
-	else if ((!strcmp(argv[i], "-memory")) || (!strcmp(argv[i], "--memory")))
+	if ((!strcmp(argv[i], "-memory")) || (!strcmp(argv[i], "--memory"))) {
 	    memory++;
+        } else
 #endif
-	else if ((!strcmp(argv[i], "-noout")) || (!strcmp(argv[i], "--noout")))
-	    noout++;
 #ifdef LIBXML_READER_ENABLED
-	else if ((!strcmp(argv[i], "-stream")) || (!strcmp(argv[i], "--stream")))
+	if ((!strcmp(argv[i], "-stream")) || (!strcmp(argv[i], "--stream"))) {
 	    stream++;
+	} else
 #endif
+	if ((!strcmp(argv[i], "-noout")) || (!strcmp(argv[i], "--noout"))) {
+	    noout++;
+        }
     }
     xmlLineNumbersDefault(1);
     for (i = 1; i < argc ; i++) {
@@ -107,9 +111,7 @@ int main(int argc, char **argv) {
 		    ctxt = xmlSchemaNewMemParserCtxt((char *)base,info.st_size);
 
 		    xmlSchemaSetParserErrors(ctxt,
-			    (xmlSchemaValidityErrorFunc) fprintf,
-			    (xmlSchemaValidityWarningFunc) fprintf,
-			    stderr);
+                            xmlGenericError, xmlGenericError, NULL);
 		    schema = xmlSchemaParse(ctxt);
 		    xmlSchemaFreeParserCtxt(ctxt);
 		    munmap((char *) base, info.st_size);
@@ -118,9 +120,7 @@ int main(int argc, char **argv) {
 		{
 		    ctxt = xmlSchemaNewParserCtxt(argv[i]);
 		    xmlSchemaSetParserErrors(ctxt,
-			    (xmlSchemaValidityErrorFunc) fprintf,
-			    (xmlSchemaValidityWarningFunc) fprintf,
-			    stderr);
+                            xmlGenericError, xmlGenericError, NULL);
 		    schema = xmlSchemaParse(ctxt);
 		    xmlSchemaFreeParserCtxt(ctxt);
 		}
@@ -200,9 +200,7 @@ int main(int argc, char **argv) {
 
 		    ctxt = xmlSchemaNewValidCtxt(schema);
 		    xmlSchemaSetValidErrors(ctxt,
-			    (xmlSchemaValidityErrorFunc) fprintf,
-			    (xmlSchemaValidityWarningFunc) fprintf,
-			    stderr);
+                            xmlGenericError, xmlGenericError, NULL);
 		    ret = xmlSchemaValidateDoc(ctxt, doc);
 		    if (ret == 0) {
 			fprintf(stdout, "%s validates\n", argv[i]);

@@ -39,31 +39,45 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSString* currentKeyUUID;
 
 - (instancetype)initForClass:(CKKSKeyClass*)keyclass
+                   contextID:(NSString*)contextID
               currentKeyUUID:(NSString* _Nullable)currentKeyUUID
                       zoneID:(CKRecordZoneID*)zoneID
              encodedCKRecord:(NSData* _Nullable)encodedrecord;
 
-+ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(CKKSKeyClass*)keyclass
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error;
+
++ (instancetype _Nullable)tryFromDatabase:(CKKSKeyClass*)keyclass
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error;
 
 + (instancetype _Nullable)forKeyClass:(CKKSKeyClass*)keyclass
+                            contextID:(NSString*)contextID
                           withKeyUUID:(NSString*)keyUUID
                                zoneID:(CKRecordZoneID*)zoneID
                                 error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSCurrentKeyPointer*>*)all:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
+
 + (bool)deleteAll:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
                             resync:(BOOL)resync
                        flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error;
+
 + (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
                              error:(NSError**)error;
 @end
 
 @interface CKKSCurrentKeySet : NSObject
 @property CKRecordZoneID* zoneID;
+@property (readonly) NSString* contextID;
 @property (nullable) NSError* error;
 @property (nullable) CKKSKey* tlk;
 @property (nullable) CKKSKey* classA;
@@ -73,7 +87,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKKSCurrentKeyPointer* currentClassCPointer;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID;
+- (instancetype)initWithZoneID:(CKRecordZoneID*)zoneID
+                     contextID:(NSString*)contextID;
 
 // Set to true if this is a 'proposed' key set, i.e., not yet uploaded to CloudKit
 @property BOOL proposed;
@@ -81,7 +96,8 @@ NS_ASSUME_NONNULL_BEGIN
 // This array (if present) holds any new TLKShares that should be uploaded
 @property (nullable) NSArray<CKKSTLKShareRecord*>* pendingTLKShares;
 
-+ (CKKSCurrentKeySet*)loadForZone:(CKRecordZoneID*)zoneID;
++ (CKKSCurrentKeySet*)loadForZone:(CKRecordZoneID*)zoneID
+                        contextID:(NSString*)contextID;
 
 - (CKKSKeychainBackedKeySet* _Nullable)asKeychainBackedSet:(NSError**)error;
 @end

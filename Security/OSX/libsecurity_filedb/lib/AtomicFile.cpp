@@ -80,7 +80,7 @@ AtomicFile::AtomicFile(const std::string &inPath) :
 			u_int32_t hash = (digest[0] << 24) | (digest[1] << 16) | (digest[2] << 8) | digest[3];
 			
 			char buffer[256];
-			sprintf(buffer, "%08X", hash);
+			snprintf(buffer, sizeof(buffer), "%08X", hash);
 			mLockFilePath = mDir + ".fl" + buffer;
 		}
 	}

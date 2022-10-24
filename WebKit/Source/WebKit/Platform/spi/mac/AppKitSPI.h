@@ -27,6 +27,8 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#define CGCOLORTAGGEDPOINTER_H_
+
 #import <AppKit/NSInspectorBar.h>
 #import <AppKit/NSTextInputClient_Private.h>
 #import <AppKit/NSWindow_Private.h>

@@ -11,8 +11,7 @@
 #define TEMPFILE_TEMPLATE "/tmp/keychain_parser_fuzzer.XXXXXX"
 
 int SecKeychainFuzzer(const uint8_t *Data, size_t Size) {
-    char* temppath = (char*)malloc(strlen(TEMPFILE_TEMPLATE));
-    strcpy(temppath, TEMPFILE_TEMPLATE);
+    char* temppath = strdup(TEMPFILE_TEMPLATE);
 
     int fd = mkstemp(temppath);
     if (fd < 0) {

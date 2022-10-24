@@ -32,6 +32,7 @@
 #include <arpa/inet.h>
 #include <dns.h>
 #include <stdio.h>
+#import <os/availability.h>
 
 /*
  * Status returned in a dns_reply_t
@@ -262,6 +263,8 @@ typedef struct
 
 __BEGIN_DECLS
 
+API_DEPRECATED_BEGIN("dns_util is deprecated.", macos(10.0, 13.0), ios(1.0, 16.0), watchos(1.0, 9.0), tvos(1.0, 16.0))
+
 /*
  * High-level lookup performs a search (using dns_search), parses the 
  * reply and returns a dns_reply_t structure.
@@ -347,6 +350,8 @@ extern void dns_print_resource_record(const dns_resource_record_t *r, FILE *f);
  * Print the contents of a reply structure.
  */
 extern void dns_print_reply(const dns_reply_t *r, FILE *f, uint16_t mask);
+
+API_DEPRECATED_END
 
 __END_DECLS
 

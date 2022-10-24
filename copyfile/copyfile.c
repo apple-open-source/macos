@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2020 Apple, Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -125,6 +125,7 @@ struct _copyfile_state
 	char *xattr_name;
 	xattr_operation_intent_t copyIntent;
 	bool was_cloned;
+	bool set_dst_perms;
 	uint32_t src_bsize;
 	uint32_t dst_bsize;
 };
@@ -585,8 +586,6 @@ reset_security(copyfile_state_t s)
 	 * only copy what was requested, and that we don't stomp
 	 * on what wasn't requested.
 	 */
-
-#ifdef COPYFILE_RECURSIVE
 	if (s->dst_fd > -1) {
 		struct stat sbuf;
 
@@ -598,40 +597,6 @@ reset_security(copyfile_state_t s)
 		if (!(s->internal_flags & cfDelayAce))
 			remove_uberace(s->dst_fd, &sbuf);
 	}
-#else
-	if (s->permissive_fsec && (s->flags & COPYFILE_SECURITY) != COPYFILE_SECURITY) {
-		if (s->flags & COPYFILE_ACL) {
-			/* Just need to reset the BSD information -- mode, owner, group */
-			(void)fchown(s->dst_fd, s->dst_sb.st_uid, s->dst_sb.st_gid);
-			(void)fchmod(s->dst_fd, s->dst_sb.st_mode);
-		} else {
-			/*
-			 * flags is either COPYFILE_STAT, or neither; if it's
-			 * neither, then we restore both ACL and POSIX permissions;
-			 * if it's STAT, however, then we only want to restore the
-			 * ACL (which may be empty).  We do that by removing the
-			 * POSIX information from the filesec object.
-			 */
-			if (s->flags & COPYFILE_STAT) {
-				copyfile_unset_posix_fsec(s->original_fsec);
-			}
-			if (fchmodx_np(s->dst_fd, s->original_fsec) < 0 && errno != ENOTSUP)
-				copyfile_warn("restoring security information");
-		}
-	}
-
-	if (s->permissive_fsec) {
-		filesec_free(s->permissive_fsec);
-		s->permissive_fsec = NULL;
-	}
-
-	if (s->original_fsec) {
-		filesec_free(s->original_fsec);
-		s->original_fsec = NULL;
-	}
-#endif
-
-	return;
 }
 
 /*
@@ -669,9 +634,6 @@ copytree(copyfile_state_t s)
 	struct stat sbuf;
 	char *src, *dst;
 	const char *dstpathsep = "";
-#ifdef NOTYET
-	char srcpath[PATH_MAX * 2 + 1], dstpath[PATH_MAX * 2 + 1];
-#endif
 	char *srcroot;
 	FTS *fts = NULL;
 	FTSENT *ftsent;
@@ -725,26 +687,6 @@ copytree(copyfile_state_t s)
 		}
 	}
 
-#ifdef NOTYET
-	// This doesn't handle filesystem crossing and case sensitivity
-	// So there's got to be a better way
-
-	if (realpath(src, srcpath) == NULL) {
-		retval = -1;
-		goto done;
-	}
-
-	if (realpath(dst, dstpath) == NULL &&
-		(errno == ENOENT && realpath(dirname(dst), dstpath) == NULL)) {
-		retval = -1;
-		goto done;
-	}
-	if (strstr(srcpath, dstpath) != NULL) {
-		errno = EINVAL;
-		retval = -1;
-		goto done;
-	}
-#endif
 	srcroot = basename((char*)src);
 	if (srcroot == NULL) {
 		retval = -1;
@@ -972,6 +914,7 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 	int ret = 0;
 	copyfile_state_t s = state;
 	struct stat dst_sb;
+	bool dst_stat_ok = true;
 
 	if (src_fd < 0 || dst_fd < 0)
 	{
@@ -1014,16 +957,21 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 	if (s->dst_fd == -2 && dst_fd > -1)
 		s->dst_fd = dst_fd;
 
-	(void)fstat(s->dst_fd, &dst_sb);
+	if (fstat(s->dst_fd, &dst_sb) < 0)
+		 dst_stat_ok = false;
+
 	(void)fchmod(s->dst_fd, (dst_sb.st_mode & ~S_IFMT) | (S_IRUSR | S_IWUSR));
 
 	(void)copyfile_quarantine(s);
 
 	ret = copyfile_internal(s, flags);
 
-	if (ret >= 0 && !(s->flags & COPYFILE_STAT))
+	if (dst_stat_ok && !(s->flags & COPYFILE_STAT))
 	{
+		// Our work here can reset errno, so save its result in advance.
+		errno_t _errsv = errno;
 		(void)fchmod(s->dst_fd, dst_sb.st_mode & ~S_IFMT);
+		errno = _errsv;
 	}
 
 	if (s->err) {
@@ -1291,6 +1239,17 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	}
 
 	/*
+	 * If COPYFILE_CHECK is set in flags, then all we are going to do
+	 * is see what kinds of things WOULD have been copied (see
+	 * copyfile_check() below).  We return that value.
+	 */
+	if (COPYFILE_CHECK & flags)
+	{
+		ret = copyfile_check(s);
+		goto exit;
+	}
+
+	/*
 	 * Get a copy of the source file's security settings
 	 */
 	if (s->original_fsec) {
@@ -1319,12 +1278,17 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 			 * Set the permissions for the destination to our copy.
 			 * We should get ENOTSUP from any filesystem that simply
 			 * doesn't support it.
+			 * If we fail later, we need to reset these.
 			 */
-			if (chmodx_np(s->dst, s->permissive_fsec) < 0 && errno != ENOTSUP)
+			if (chmodx_np(s->dst, s->permissive_fsec) < 0)
 			{
-				copyfile_warn("setting security information");
-				filesec_free(s->permissive_fsec);
-				s->permissive_fsec = NULL;
+				if (errno != ENOTSUP) {
+					copyfile_warn("setting security information");
+					filesec_free(s->permissive_fsec);
+					s->permissive_fsec = NULL;
+				}
+			} else {
+				s->set_dst_perms = true;
 			}
 		}
 	} else if (errno == ENOENT) {
@@ -1332,15 +1296,9 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	}
 
 	/*
-	 * If COPYFILE_CHECK is set in flags, then all we are going to do
-	 * is see what kinds of things WOULD have been copied (see
-	 * copyfile_check() below).  We return that value.
+	 * Open src and dst, creating dst if necessary.
 	 */
-	if (COPYFILE_CHECK & flags)
-	{
-		ret = copyfile_check(s);
-		goto exit;
-	} else if ((ret = copyfile_open(s)) < 0)
+	if ((ret = copyfile_open(s)) < 0)
 		goto error_exit;
 
 	(void)fcntl(s->src_fd, F_NOCACHE, 1);
@@ -1353,16 +1311,11 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	if (ret == -1)
 		goto error_exit;
 
-#ifdef COPYFILE_RECURSIVE
-	if (!(flags & COPYFILE_STAT)) {
-		if (!createdst)
-		{
-			/* Just need to reset the BSD information -- mode, owner, group */
-			(void)fchown(s->dst_fd, dst_sb.st_uid, dst_sb.st_gid);
-			(void)fchmod(s->dst_fd, dst_sb.st_mode);
-		}
+	if (!(flags & COPYFILE_STAT) && !createdst) {
+		/* Just need to reset the BSD information -- mode, owner, group */
+		(void)fchown(s->dst_fd, dst_sb.st_uid, dst_sb.st_gid);
+		(void)fchmod(s->dst_fd, dst_sb.st_mode);
 	}
-#endif
 
 	reset_security(s);
 
@@ -1383,6 +1336,20 @@ exit:
 	return ret;
 
 error_exit:
+	// Since we failed, we attempt to reset dst's permissions
+	// to what they were before we were called, using paths
+	// since that's all that's guaranteed to exist.
+	if (s && s->set_dst_perms && !createdst) {
+		// Our work here can reset errno, so save its result in advance.
+		errno_t _errsv = errno;
+
+		/* Just need to reset the BSD information -- mode, owner, group */
+		(void)chown(s->dst, dst_sb.st_uid, dst_sb.st_gid);
+		(void)chmod(s->dst, dst_sb.st_mode);
+
+		errno = _errsv;
+	}
+
 	ret = -1;
 	if (s && s->err) {
 		errno = s->err;
@@ -1517,6 +1484,9 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 
 		qr = qtn_file_apply_to_fd(s->qinfo, s->dst_fd);
 		if (qr != 0) {
+			// Allow a callback to terminate the copy,
+			// but ignore the failure otherwise - the kernel knows
+			// how to mark these files as appropriate.
 			if (s->statuscb) {
 				int rv;
 
@@ -1527,9 +1497,6 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 					s->err = errno = (qr < 0 ? ENOTSUP : qr);
 					goto error_exit;
 				}
-			} else {
-				s->err = errno = (qr < 0 ? ENOTSUP : qr);
-				goto error_exit;
 			}
 		}
 	}
@@ -1692,45 +1659,8 @@ static filesec_t copyfile_fix_perms(copyfile_state_t s __unused, filesec_t *fsec
 
 	if (filesec_get_property(ret_fsec, FILESEC_ACL, &acl) == 0)
 	{
-#ifdef COPYFILE_RECURSIVE
 		if (add_uberace(&acl))
 			goto error_exit;
-#else
-		acl_entry_t entry;
-		acl_permset_t permset;
-		uuid_t qual;
-
-		if (mbr_uid_to_uuid(getuid(), qual) != 0)
-			goto error_exit;
-
-		/*
-		 * First, we create an entry, and give it the special name
-		 * of ACL_FIRST_ENTRY, thus guaranteeing it will be first.
-		 * After that, we clear out all the permissions in it, and
-		 * add three permissions:  WRITE_DATA, WRITE_ATTRIBUTES, and
-		 * WRITE_EXTATTRIBUTES.  We put these into an ACE that allows
-		 * the functionality, and put this into the ACL.
-		 */
-		if (acl_create_entry_np(&acl, &entry, ACL_FIRST_ENTRY) == -1)
-			goto error_exit;
-		if (acl_get_permset(entry, &permset) == -1)
-			goto error_exit;
-		if (acl_clear_perms(permset) == -1)
-			goto error_exit;
-		if (acl_add_perm(permset, ACL_WRITE_DATA) == -1)
-			goto error_exit;
-		if (acl_add_perm(permset, ACL_WRITE_ATTRIBUTES) == -1)
-			goto error_exit;
-		if (acl_add_perm(permset, ACL_WRITE_EXTATTRIBUTES) == -1)
-			goto error_exit;
-		if (acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == -1)
-			goto error_exit;
-
-		if(acl_set_permset(entry, permset) == -1)
-			goto error_exit;
-		if(acl_set_qualifier(entry, qual) == -1)
-			goto error_exit;
-#endif
 
 		if (filesec_set_property(ret_fsec, FILESEC_ACL, &acl) != 0)
 			goto error_exit;
@@ -2021,8 +1951,10 @@ static int copyfile_open(copyfile_state_t s)
 					}
 					continue;
 				case EACCES:
-					if(chmod(s->dst, (s->sb.st_mode | S_IWUSR) & ~S_IFMT) == 0)
+					if (chmod(s->dst, (s->sb.st_mode | S_IWUSR) & ~S_IFMT) == 0) {
+						s->set_dst_perms = true;
 						continue;
+					}
 					else {
 						/*
 						 * If we're trying to write to a directory to which we don't
@@ -2993,6 +2925,14 @@ static int copyfile_stat(copyfile_state_t s)
 	 */
 	bool used_cas_bsdflags = copyfile_set_bsdflags(s, dst_flags);
 	copyfile_debug(6, "set bsdflags using FSIOC_CAS_BSDFLAGS: %d\n", used_cas_bsdflags);
+
+	if ((dst_flags & UF_COMPRESSED) && !(dst_flags & UF_IMMUTABLE)) {
+		/*
+		 * FSIOC_CAS_BSDFLAGS(UF_COMPRESSED) resets file times,
+		 * so let's set them again if we didn't already set UF_IMMUTABLE.
+		 */
+		(void)fsetattrlist(s->dst_fd, &attrlist, &ma_times, sizeof(ma_times), 0);
+	}
 
 	return 0;
 }
@@ -4218,19 +4158,21 @@ static int copyfile_unpack(copyfile_state_t s)
 					else {
 						while (fchmodx_np(s->dst_fd, fsec_tmp) < 0)
 						{
-			    if (errno == ENOTSUP)
-				{
-					if (retry && !copyfile_unset_acl(s))
-					{
-						retry = 0;
-						continue;
-					}
-				}
-			    copyfile_warn("setting security information");
-			    error = -1;
-			    break;
+							if (errno == ENOTSUP)
+							{
+								if (retry && !copyfile_unset_acl(s))
+								{
+									retry = 0;
+									continue;
+								}
+							}
+							copyfile_warn("setting security information");
+							error = -1;
+							break;
 						}
 					}
+					if (!error)
+						s->set_dst_perms = true;
 					acl_free(acl);
 					filesec_free(fsec_tmp);
 

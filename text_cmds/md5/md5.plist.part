@@ -1,0 +1,18 @@
+<dict>
+	<key>OpenSourceCVS</key>
+	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co md5</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-09-16</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>XXX NOT MERGED YET XXX</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>md5</string>
+	<key>OpenSourceVersion</key>
+	<string>2005-09-16</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/sbin/md5/</string>
+</dict>

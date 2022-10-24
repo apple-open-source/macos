@@ -111,7 +111,7 @@ public:
      *                 Objects of different subclasses are considered unequal.
      * @stable ICU 2.0
      */
-    virtual bool operator==(const Format& other) const = 0;
+    virtual bool operator==(const Format& other) const;
 
     /**
      * Return true if the given Format objects are not semantically

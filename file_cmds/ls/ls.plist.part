@@ -15,6 +15,7 @@
 			<string>ls.1: improve descriptions (3856723, 6591295)</string>
 			<string>ls.c: improve UNIX conformance (3666135, 6591295)</string>
 			<string>ls.c: remove -Z support</string>
+			<string>ls.c: don't ignore errors on stdout (89147045)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

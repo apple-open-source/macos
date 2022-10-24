@@ -493,7 +493,7 @@ static void logSKID(const char *msg, const CssmData &subjectKeyID)
 		strcpy(buffer, msg);
 		for (unsigned int ix=0; ix<20; ix++)
 		{
-			sprintf(bytes, "%02X", px[ix]);
+			snprintf(bytes, sizeof(bytes), "%02X", px[ix]);
 			strcat(buffer, bytes);
 		}
 		secinfo("trusteval", " SKID: %s",buffer);
@@ -1195,7 +1195,7 @@ static CFStringRef CF_RETURNS_RETAINED _oidStringForCertificatePolicies(const CE
 	}
 
 	CFStringRef foundOidStr = NULL;
-    uint32 policyIndex, maxIndex = 10; // sanity check; EV certs normally have EV OID as first policy
+    uint32 policyIndex, maxIndex = 10; // EV certs normally have EV OID as first policy
     for (policyIndex = 0; policyIndex < certPolicies->numPolicies && policyIndex < maxIndex; policyIndex++) {
         CE_PolicyInformation *certPolicyInfo = &certPolicies->policies[policyIndex];
         CSSM_OID_PTR oid = &certPolicyInfo->certPolicyId;

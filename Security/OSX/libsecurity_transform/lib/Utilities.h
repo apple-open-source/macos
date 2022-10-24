@@ -12,8 +12,8 @@ extern "C" {
 void MyDispatchAsync(dispatch_queue_t queue, void(^block)(void));
 dispatch_queue_t MyDispatchQueueCreate(const char* name, dispatch_queue_attr_t attr);
 
-CFErrorRef CreateGenericErrorRef(CFStringRef domain, int errorCode, const char* format, ...);
-CFErrorRef CreateSecTransformErrorRef(int errorCode, const char* format, ...);
+CFErrorRef CreateGenericErrorRef(CFStringRef domain, int errorCode, CFStringRef format, ...) __attribute__((format(__CFString__, 3, 4)));
+CFErrorRef CreateSecTransformErrorRef(int errorCode, CFStringRef format, ...) __attribute__((format(__CFString__, 2, 3)));
 CFErrorRef CreateSecTransformErrorRefWithCFType(int errorCode, CFTypeRef errorMsg);
 
 CFTypeRef DebugRetain(const void* owner, CFTypeRef type);

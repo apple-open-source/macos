@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,28 @@
 
 #import "SCTest.h"
 #import "SCTestUtils.h"
+#import "scdtest.h"
+
+/*
+ * SCDTEST_READ_UNRESTRICTED_KEY
+ * - key will be present and readable
+ *
+ * SCDTEST_READ_UNRESTRICTED_NOT_PRESENT_KEY
+ * - key will not be present
+ */
+#define SCDTEST_READ_UNRESTRICTED_KEY				\
+	CFSTR(SCDTEST_PREFIX "read-unrestricted-present.key")
+#define SCDTEST_READ_UNRESTRICTED_NOT_PRESENT_KEY		\
+	CFSTR(SCDTEST_PREFIX "read-unrestricted-not-present.key")
+
+static void
+add_to_dict_and_array(CFMutableDictionaryRef dict,
+		      CFMutableArrayRef array,
+		      CFStringRef key)
+{
+	CFDictionarySetValue(dict, key, kCFBooleanTrue);
+	CFArrayAppendValue(array, key);
+}
 
 @interface SCTestDynamicStore : SCTest
 @property SCDynamicStoreRef store;
@@ -253,7 +275,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 {
 	SCTestDynamicStore *test;
 	int iterations = 100;
-	NSString *testKey = @"State:/myTestKey";
+	NSString *testKey = @"SCTest:/myTestKey";
 	BOOL ok;
 	dispatch_queue_t callbackQ;
 
@@ -331,7 +353,7 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 
 	for (int i = 0; i < iterations; i++) {
 		NSUUID *uuid = [NSUUID UUID];
-		NSString *str = [NSString stringWithFormat:@"State:/%@", uuid];
+		NSString *str = [NSString stringWithFormat:@"SCTest:/%@", uuid];
 		[testKeyArray addObject:str];
 	}
 
@@ -404,5 +426,188 @@ myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 
 }
 
+- (BOOL)unitTestSCDynamicStoreAccessControls
+{
+	CFStringRef		key;
+	CFMutableArrayRef	keysToCleanup;
+	CFMutableArrayRef	keysToRemove;
+	CFMutableDictionaryRef	keysToSet;
+	BOOL			ok;
+	SCTestDynamicStore	*test;
+	CFTypeRef		val;
+
+	test = [[SCTestDynamicStore alloc] initWithOptions:self.options];
+
+	/* read-deny */
+	key = SCDTEST_READ_DENY1_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	if (ok) {
+		val = SCDynamicStoreCopyValue(test.store, key);
+		if (val != NULL) {
+			/* have deny entitlement, should have failed */
+			CFRelease(val);
+			ok = NO;
+		}
+	}
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (!ok) {
+		SCTestLog("read-deny 1: access to %@ wasn't blocked",
+			  key);
+		return NO;
+	}
+
+	key = SCDTEST_READ_DENY2_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	if (ok) {
+		val = SCDynamicStoreCopyValue(test.store, key);
+		if (val != NULL) {
+			CFRelease(val);
+		} else {
+			/* don't have deny entitlement, should have worked */
+			ok = NO;
+		}
+	}
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (!ok) {
+		SCTestLog("read-deny 2: access to %@ should have been allowed",
+			  key);
+		return NO;
+	}
+
+	/* read-allow */
+	key = SCDTEST_READ_ALLOW1_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	if (ok) {
+		val = SCDynamicStoreCopyValue(test.store, key);
+		if (val != NULL) {
+			/* we don't have entitlement, should have failed */
+			CFRelease(val);
+			ok = NO;
+		}
+	}
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (!ok) {
+		SCTestLog("read-allow 1: access to %@ wasn't blocked",
+			  key);
+		return NO;
+	}
+
+	key = SCDTEST_READ_ALLOW2_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	if (ok) {
+		val = SCDynamicStoreCopyValue(test.store, key);
+		if (val != NULL) {
+			CFRelease(val);
+		} else {
+			/* we have entitlement, should have worked */
+			ok = NO;
+		}
+	}
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (!ok) {
+		SCTestLog("read-allow 2: access to %@ should have been allowed",
+			  key);
+		return NO;
+	}
+
+	/* write-protect */
+	key = SCDTEST_WRITE_PROTECT1_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (ok) {
+		SCTestLog("write-protect 1: access to %@ wasn't blocked",
+			  key);
+		return NO;
+	}
+
+	key = SCDTEST_WRITE_PROTECT2_KEY;
+	ok = SCDynamicStoreSetValue(test.store, key, kCFBooleanTrue);
+	(void) SCDynamicStoreRemoveValue(test.store, key);
+	if (!ok) {
+		SCTestLog("write-protect 2: access to %@ was blocked",
+			  key);
+		return NO;
+	}
+
+	/* Verify CopyMultiple */
+	keysToSet = CFDictionaryCreateMutable(NULL, 0,
+					      &kCFTypeDictionaryKeyCallBacks,
+					      &kCFTypeDictionaryValueCallBacks);
+	keysToCleanup = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	add_to_dict_and_array(keysToSet, keysToCleanup,
+			      SCDTEST_READ_UNRESTRICTED_KEY);
+	add_to_dict_and_array(keysToSet, keysToCleanup, SCDTEST_READ_DENY1_KEY);
+	add_to_dict_and_array(keysToSet, keysToCleanup, SCDTEST_READ_DENY2_KEY);
+	add_to_dict_and_array(keysToSet, keysToCleanup, SCDTEST_READ_ALLOW1_KEY);
+	add_to_dict_and_array(keysToSet, keysToCleanup, SCDTEST_READ_ALLOW2_KEY);
+	keysToRemove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(keysToRemove, SCDTEST_READ_UNRESTRICTED_NOT_PRESENT_KEY);
+	ok = SCDynamicStoreSetMultiple(test.store, keysToSet, keysToRemove,
+				       NULL);
+	if (!ok) {
+		SCTestLog("SCDynamicStoreSetMultiple set %@ remove %@ "
+			  " failed, %s",
+			  keysToSet, keysToRemove,
+			  SCErrorString(SCError()));
+	}
+	else {
+		CFIndex			count;
+		CFDictionaryRef		dict;
+		CFMutableArrayRef	keys;
+		CFMutableArrayRef	patterns;
+
+		keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFArrayAppendValue(keys, SCDTEST_READ_UNRESTRICTED_NOT_PRESENT_KEY);
+		patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFArrayAppendValue(patterns, SCDTEST_READ_PATTERN);
+		dict = SCDynamicStoreCopyMultiple(test.store, keys, patterns);
+		CFRelease(keys);
+		CFRelease(patterns);
+		if (dict != NULL) {
+			count = CFDictionaryGetCount(dict);
+		}
+		else {
+			SCTestLog("CopyMultiple returned NULL, %s",
+				  SCErrorString(SCError()));
+			count = 0;
+		}
+#define N_KEYS	3
+		if (count != N_KEYS) {
+			SCTestLog("Count is %ld, should be %d", (long)count,
+				  N_KEYS);
+			ok = NO;
+		}
+		else {
+			/* verify expected keys */
+			CFStringRef	keys[N_KEYS] = {
+				 SCDTEST_READ_UNRESTRICTED_KEY,
+				 SCDTEST_READ_DENY2_KEY,
+				 SCDTEST_READ_ALLOW2_KEY,
+			};
+
+			for (CFIndex i = 0; i < count; i++) {
+				if (!CFDictionaryContainsKey(dict, keys[i])) {
+					SCTestLog("Missing %@", keys[i]);
+					ok = FALSE;
+				}
+			}
+		}
+		if (dict != NULL) {
+			CFRelease(dict);
+		}
+	}
+	(void) SCDynamicStoreSetMultiple(test.store, NULL, keysToCleanup, NULL);
+	CFRelease(keysToSet);
+	CFRelease(keysToRemove);
+	CFRelease(keysToCleanup);
+	if (!ok) {
+		SCTestLog("CopyMultiple: failed");
+		return NO;
+	}
+
+	SCTestLog("Successfully completed SCDynamicStore access control test");
+	return YES;
+
+}
 
 @end

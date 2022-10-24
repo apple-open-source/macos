@@ -138,14 +138,13 @@ errOut:
 /* this used to be in libgDH */
 /*
  * Support for encoding and decoding DH parameter blocks.
- * Apple form encodes the reciprocal of the prime p.
  */
 /* PKCS3, Openssl compatible */
 typedef struct {
 	DERItem				p;
 	DERItem				g;
 	DERItem				l;
-	DERItem				recip; /* Only used in Apple Custom blocks. */
+	DERItem				recip; /* LEGACY: Only used in Apple Custom blocks. */
 } DER_DHParams;
 
 static const DERItemSpec DER_DHParamsItemSpecs[] =
@@ -159,10 +158,8 @@ static const DERItemSpec DER_DHParamsItemSpecs[] =
 	{ DER_OFFSET(DER_DHParams, l),
         ASN1_INTEGER,
         DER_DEC_OPTIONAL | DER_ENC_SIGNED_INT },
-    /* Not part of PKCS3 per-se, but we add it on just for kicks.  Since
-     it's optional we will automatically decode any apple specific
-     params, but we won't add this section unless the caller asks
-     us to.  */
+    /* Legacy, not part of PKCS3, used in the past. We'll need to keep
+       it to decode older PKCS3 blobs that may still provide it. */
 	{ DER_OFFSET(DER_DHParams, recip),
         ASN1_PRIVATE | ASN1_PRIMITIVE | 0,
         DER_DEC_OPTIONAL | DER_ENC_SIGNED_INT },
@@ -273,21 +270,34 @@ OSStatus SecDHComputeKey(SecDHContext dh,
     ccdh_gp_t gp = SecDH_gp(dh);
     ccdh_full_ctx_t priv = SecDH_priv(dh);
     ccdh_pub_ctx_decl_gp(gp, pub);
-    cc_size n = ccdh_gp_n(gp);
-    cc_unit r[n];
 
-    if(ccdh_import_pub(gp, pub_key_len, pub_key, pub))
+    if(ccdh_import_pub(gp, pub_key_len, pub_key, pub)) {
         return errSecInvalidKey;
+    }
 
-    //ccdh_compute_shared_secret() cannot be used directly, because it doesn't allow truncated output. Buffering is needed.
-    if(ccdh_compute_key(priv, pub, r))
+    size_t rlen = ccdh_gp_prime_size(gp);
+    uint8_t *r = (uint8_t *)calloc(1, rlen);
+    if (r == NULL) {
+        return errSecAllocate;
+    }
+
+    // ccdh_compute_shared_secret() computes a shared secret of `rlen` bytes.
+    // `rlen` will be updated to reflect the actual length of the shared
+    // secret without any leading zero bytes.
+    if(ccdh_compute_shared_secret(priv, pub, &rlen, r, &dhrng)) {
+        free(r);
         return errSecInvalidKey;
+    }
 
-    ccn_write_uint(n, r, *computed_key_len, computed_key);
-    size_t out_size = ccn_write_uint_size(n, r);
-    if(out_size < *computed_key_len)
-        *computed_key_len=out_size;
+    // Adjust `computed_key_len` if the shared secret is shorter
+    // than the number of bytes requested by the caller.
+    if(rlen < *computed_key_len) {
+        *computed_key_len=rlen;
+    }
 
+    memcpy(computed_key, r, *computed_key_len);
+
+    free(r);
     return errSecSuccess;
 }
 
@@ -299,82 +309,4 @@ void SecDHDestroy(SecDHContext dh) {
 
     cc_clear(context_size, dh);
     free(dh);
-}
-
-/* Max encoded size for standard (PKCS3) parameters */
-#define DH_ENCODED_PARAM_SIZE(primeSizeInBytes)					\
-DER_MAX_ENCODED_SIZE(										\
-DER_MAX_ENCODED_SIZE(primeSizeInBytes) +		/* g */		\
-DER_MAX_ENCODED_SIZE(primeSizeInBytes) +		/* p */     \
-DER_MAX_ENCODED_SIZE(4))                        /* l */
-
-
-OSStatus SecDHEncodeParams(CFDataRef g, CFDataRef p,
-                           CFDataRef l, CFDataRef recip,
-                           CFDataRef *params)
-{
-    OSStatus ortn;
-    DER_DHParams derParams =
-    {
-        .p = {
-            .length = CFDataGetLength(p),
-            .data = (DERByte *)CFDataGetBytePtr(p),
-        },
-        .g = {
-            .length = CFDataGetLength(g),
-            .data = (DERByte *)CFDataGetBytePtr(g),
-        },
-        .l = {
-            .length = l?CFDataGetLength(l):0,
-            .data = (DERByte *)(l?CFDataGetBytePtr(l):NULL),
-        },
-        .recip = {
-            .length = recip?CFDataGetLength(recip):0,
-            .data = (DERByte *)(recip?CFDataGetBytePtr(recip):NULL),
-        },
-    };
-
-    DERSize ioLen = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE,
-                                               &derParams,
-                                               DER_NumDHParamsItemSpecs, DER_DHParamsItemSpecs);
-
-    DERByte *der = malloc(ioLen);
-    // FIXME: What if this fails - we should probably not have a malloc here ?
-    assert(der);
-    ortn = (int)DEREncodeSequence(ASN1_CONSTR_SEQUENCE,
-                                  &derParams,
-                                  DER_NumDHParamsItemSpecs, DER_DHParamsItemSpecs,
-                                  der,
-                                  &ioLen);
-
-    if(!ortn && params)
-        *params=CFDataCreate(kCFAllocatorDefault, der, ioLen);
-
-    // FIXME: we should just allocate the CFDataRef
-
-    free(der);
-    return ortn;
-}
-
-
-OSStatus SecDHDecodeParams(CFDataRef *g, CFDataRef *p,
-                           CFDataRef *l, CFDataRef *r,
-                           CFDataRef params)
-{
-    DERReturn drtn;
-	DERItem paramItem = {(DERByte *)CFDataGetBytePtr(params), CFDataGetLength(params)};
-	DER_DHParams decodedParams;
-
-    drtn = DERParseSequence(&paramItem,
-                            DER_NumDHParamsItemSpecs, DER_DHParamsItemSpecs,
-                            &decodedParams, sizeof(decodedParams));
-    if(drtn)
-        return drtn;
-
-    if(g) *g=CFDataCreate(kCFAllocatorDefault, decodedParams.g.data, decodedParams.g.length);
-    if(p) *p=CFDataCreate(kCFAllocatorDefault, decodedParams.p.data, decodedParams.p.length);
-    if(l) *l=CFDataCreate(kCFAllocatorDefault, decodedParams.l.data, decodedParams.l.length);
-    if(r) *r=CFDataCreate(kCFAllocatorDefault, decodedParams.recip.data, decodedParams.recip.length);
-
-    return errSecSuccess;
 }

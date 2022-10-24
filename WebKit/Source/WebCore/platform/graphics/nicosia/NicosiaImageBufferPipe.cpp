@@ -25,14 +25,13 @@
  */
 
 #include "config.h"
-#include "ImageBuffer.h"
+#include "NicosiaImageBufferPipe.h"
 
-#include "ImageBufferPipe.h"
+#include "ImageBuffer.h"
 #include "NativeImage.h"
-#include "NicosiaContentLayerTextureMapperImpl.h"
 #include "NicosiaPlatformLayer.h"
 #include "TextureMapperPlatformLayerBuffer.h"
-#include "TextureMapperPlatformLayerProxy.h"
+#include "TextureMapperPlatformLayerProxyGL.h"
 
 #if USE(CAIRO)
 #include <cairo.h>
@@ -43,60 +42,6 @@
 namespace Nicosia {
 
 using namespace WebCore;
-
-namespace {
-class NicosiaImageBufferPipeSource final : public ImageBufferPipe::Source, public ContentLayerTextureMapperImpl::Client {
-public:
-    NicosiaImageBufferPipeSource();
-    virtual ~NicosiaImageBufferPipeSource();
-
-    // ImageBufferPipe::Source overrides.
-    void handle(RefPtr<ImageBuffer>&&) final;
-
-    ContentLayer* platformLayer() const { return m_nicosiaLayer.get(); }
-private:
-    // ContentLayerTextureMapperImpl::Client overrides.
-    void swapBuffersIfNeeded() override;
-
-    RefPtr<ContentLayer> m_nicosiaLayer;
-
-    mutable Lock m_imageBufferLock;
-    RefPtr<ImageBuffer> m_imageBuffer;
-};
-
-class PipeSourceDisplayDelegate final : public GraphicsLayerContentsDisplayDelegate {
-public:
-    static Ref<PipeSourceDisplayDelegate> create(RefPtr<ContentLayer>&& nicosiaLayer)
-    {
-        return adoptRef(*new PipeSourceDisplayDelegate(WTFMove(nicosiaLayer)));
-    }
-
-    // GraphicsLayerContentsDisplayDelegate overrides.
-    PlatformLayer* platformLayer() const final { return m_nicosiaLayer.get(); }
-private:
-    PipeSourceDisplayDelegate(RefPtr<ContentLayer>&& nicosiaLayer)
-        : m_nicosiaLayer(WTFMove(nicosiaLayer))
-    {
-    }
-
-    RefPtr<ContentLayer> m_nicosiaLayer;
-};
-
-class NicosiaImageBufferPipe final : public ImageBufferPipe {
-public:
-    NicosiaImageBufferPipe()
-        : m_source(adoptRef(*new NicosiaImageBufferPipeSource))
-        , m_layerContentsDisplayDelegate(PipeSourceDisplayDelegate::create(m_source->platformLayer()))
-    {
-    }
-
-    // ImageBufferPipe overrides.
-    RefPtr<ImageBufferPipe::Source> source() const final { return m_source.ptr(); }
-    RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() final { return m_layerContentsDisplayDelegate.ptr(); }
-private:
-    Ref<NicosiaImageBufferPipeSource> m_source;
-    Ref<PipeSourceDisplayDelegate> m_layerContentsDisplayDelegate;
-};
 
 NicosiaImageBufferPipeSource::NicosiaImageBufferPipeSource()
 {
@@ -117,7 +62,7 @@ void NicosiaImageBufferPipeSource::handle(RefPtr<ImageBuffer>&& buffer)
 
     if (!m_imageBuffer) {
         auto proxyOperation = [this] (TextureMapperPlatformLayerProxy& proxy) mutable {
-            return proxy.scheduleUpdateOnCompositorThread([this] () mutable {
+            return downcast<TextureMapperPlatformLayerProxyGL>(proxy).scheduleUpdateOnCompositorThread([this] () mutable {
                 auto& proxy = downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy();
                 Locker locker { proxy.lock() };
 
@@ -150,7 +95,7 @@ void NicosiaImageBufferPipeSource::handle(RefPtr<ImageBuffer>&& buffer)
 
                 auto layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(WTFMove(texture));
                 layerBuffer->setExtraFlags(TextureMapperGL::ShouldBlend);
-                proxy.pushNextBuffer(WTFMove(layerBuffer));
+                downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(WTFMove(layerBuffer));
             });
         };
         proxyOperation(downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy());
@@ -163,6 +108,20 @@ void NicosiaImageBufferPipeSource::swapBuffersIfNeeded()
 {
 }
 
+NicosiaImageBufferPipe::NicosiaImageBufferPipe()
+    : m_source(adoptRef(*new NicosiaImageBufferPipeSource))
+    , m_layerContentsDisplayDelegate(NicosiaImageBufferPipeSourceDisplayDelegate::create(m_source->platformLayer()))
+{
+}
+
+RefPtr<ImageBufferPipe::Source> NicosiaImageBufferPipe::source() const
+{
+    return m_source.ptr();
+}
+
+RefPtr<GraphicsLayerContentsDisplayDelegate> NicosiaImageBufferPipe::layerContentsDisplayDelegate()
+{
+    return m_layerContentsDisplayDelegate.ptr();
 }
 
 } // namespace Nicosia

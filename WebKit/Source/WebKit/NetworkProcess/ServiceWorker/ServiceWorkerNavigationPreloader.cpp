@@ -45,10 +45,10 @@ ServiceWorkerNavigationPreloader::ServiceWorkerNavigationPreloader(NetworkSessio
     , m_parameters(WTFMove(parameters))
     , m_state(state)
     , m_shouldCaptureExtraNetworkLoadMetrics(shouldCaptureExtraNetworkLoadMetrics())
+    , m_startTime(MonotonicTime::now())
 {
     RELEASE_LOG(ServiceWorker, "ServiceWorkerNavigationPreloader::ServiceWorkerNavigationPreloader %p", this);
-    if (!m_state.enabled || parameters.isMainFrameNavigation)
-        start();
+    start();
 }
 
 void ServiceWorkerNavigationPreloader::start()
@@ -154,13 +154,18 @@ void ServiceWorkerNavigationPreloader::loadFromNetwork()
 
 void ServiceWorkerNavigationPreloader::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&&, ResourceResponse&& response)
 {
-    didReceiveResponse(WTFMove(response), PrivateRelayed::No, [](auto) { });
-    didComplete();
+    didReceiveResponse(WTFMove(response), PrivateRelayed::No, [weakThis = WeakPtr { *this }](auto) {
+        if (weakThis)
+            weakThis->didComplete();
+    });
 }
 
 void ServiceWorkerNavigationPreloader::didReceiveResponse(ResourceResponse&& response, PrivateRelayed, ResponseCompletionHandler&& completionHandler)
 {
     RELEASE_LOG(ServiceWorker, "ServiceWorkerNavigationPreloader::didReceiveResponse %p", this);
+
+    if (response.isRedirection())
+        response.setTainting(ResourceResponse::Tainting::Opaqueredirect);
 
     if (response.httpStatusCode() == 304 && m_cacheEntry) {
         auto cacheEntry = WTFMove(m_cacheEntry);
@@ -215,8 +220,6 @@ void ServiceWorkerNavigationPreloader::didComplete()
 
 void ServiceWorkerNavigationPreloader::waitForResponse(ResponseCallback&& callback)
 {
-    start();
-
     if (!m_error.isNull()) {
         callback();
         return;

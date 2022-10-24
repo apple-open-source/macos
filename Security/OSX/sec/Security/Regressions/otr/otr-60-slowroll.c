@@ -281,7 +281,7 @@ static void negotiate(SecOTRSessionRef* aliceSession, SecOTRSessionRef* bobSessi
 
 #define kTestTestCount (11 + kNegotiateTestCount * 6)
 
-static void tests()
+static void tests(void)
 {
     CFErrorRef testError = NULL;
     SecOTRFullIdentityRef aliceID = SecOTRFullIdentityCreate(kCFAllocatorDefault, &testError);

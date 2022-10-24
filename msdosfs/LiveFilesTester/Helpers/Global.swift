@@ -323,9 +323,6 @@ final class Global {
     // A random seed that can be used later on:
     var randomSeed : Int32!
     
-    // Global counters:
-    var lookupCounter : Int = 0
-    
     // critical Section mutes to protect multithreads global resources access
     let lock = CriticalSection("Global")
 
@@ -363,14 +360,6 @@ final class Global {
         // The next is the root folder for all the tester outputs.
         appBaseDocPath = documentsDirectory.appendingPathComponent(appName)
         appSrcPath = URL(string: (CommandLine.arguments[0] as NSString).deletingLastPathComponent)!
-    }
-    
-    
-    func lookupCounterIncrement( _ val : Int)
-    {
-        lock.enter()
-        self.lookupCounter += val
-        lock.exit()
     }
     
     // Return the test type of the test:

@@ -544,6 +544,10 @@ static inline CFStringRef CFStringCreateTruncatedCopy(CFStringRef s, CFIndex len
     return CFStringCreateWithSubstring(kCFAllocatorDefault, s, CFRangeMake(0, len));
 }
 
+// Returns a new string with any characters in the set removed from both ends
+// of the string. Like `-[NSString stringByTrimmingCharactersInSet:]`.
+CFStringRef CFStringCreateByTrimmingCharactersInSet(CFStringRef string, CFCharacterSetRef set);
+
 //
 // MARK: CFCollectionHelpers
 //

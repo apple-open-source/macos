@@ -21,6 +21,8 @@ add    : -0001 + -PT59S
 result : -0002-12-31T23:59:01Z
 add    : -0001 + P1Y
 result : 0001
+add    : -0001-01-01 + P2Y
+result : 0002-01-01
 add    : 2000-01 + -PT86400S
 result : 1999-12-31
 add    : 2000-01 + -P1D

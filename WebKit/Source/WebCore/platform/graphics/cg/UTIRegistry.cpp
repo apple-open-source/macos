@@ -58,6 +58,9 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& defaultSupportedImageType
             "com.google.webp"_s,
             "org.webmproject.webp"_s,
 #endif
+#if HAVE(AVIF)
+            "public.avif"_s,
+#endif
         };
 
         auto systemSupportedCFImageTypes = adoptCF(CGImageSourceCopyTypeIdentifiers());
@@ -80,9 +83,9 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& defaultSupportedImageType
     return defaultSupportedImageTypes;
 }
 
-HashSet<String>& additionalSupportedImageTypes()
+MemoryCompactRobinHoodHashSet<String>& additionalSupportedImageTypes()
 {
-    static NeverDestroyed<HashSet<String>> additionalSupportedImageTypes;
+    static NeverDestroyed<MemoryCompactRobinHoodHashSet<String>> additionalSupportedImageTypes;
     return additionalSupportedImageTypes;
 }
 
@@ -111,7 +114,7 @@ bool isSupportedImageType(const String& imageType)
 
 bool isGIFImageType(StringView imageType)
 {
-    return imageType == "com.compuserve.gif";
+    return imageType == "com.compuserve.gif"_s;
 }
 
 }

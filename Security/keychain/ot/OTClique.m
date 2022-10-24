@@ -54,6 +54,8 @@ const NSString* kSecEntitlementPrivateOctagonSecureElement = @"com.apple.private
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"
 
+#import <Foundation/NSDistributedNotificationCenter.h>
+
 SOFT_LINK_FRAMEWORK(PrivateFrameworks, KeychainCircle);
 SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 
@@ -213,17 +215,19 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     return (OctagonPlatformSupportsSOS() && OctagonIsSOSFeatureEnabled());
 }
 
-- (instancetype)initWithContextData:(OTConfigurationContext *)ctx
+- (instancetype)initWithContextData:(OTConfigurationContext*)ctx
 {
 #if OCTAGON
     if ((self = [super init])) {
         _ctx = [[OTConfigurationContext alloc]init];
         _ctx.context = ctx.context ?: OTDefaultContext;
+        _ctx.containerName = ctx.containerName;
         _ctx.dsid = [ctx.dsid copy];
         _ctx.altDSID = [ctx.altDSID copy];
         _ctx.otControl = ctx.otControl;
         _ctx.ckksControl = ctx.ckksControl;
         _ctx.overrideEscrowCache = ctx.overrideEscrowCache;
+        _ctx.overrideForSetupAccountScript = ctx.overrideForSetupAccountScript;
     }
     return self;
 #else
@@ -234,6 +238,11 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
     return self;
 #endif // OCTAGON
+}
+
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<OTClique: altDSID:%@ contextID:%@ memberID:%@>", self.ctx.altDSID, self.ctx.context, self.cliqueMemberIdentifier];
 }
 
 - (NSString* _Nullable)cliqueMemberIdentifier
@@ -251,8 +260,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return nil;
     }
 
-    [control fetchEgoPeerID:nil
-                    context:self.ctx.context
+    [control fetchEgoPeerID:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                       reply:^(NSString* peerID, NSError* error) {
                           if(error) {
                               secerror("octagon: Failed to fetch octagon peer ID: %@", error);
@@ -299,7 +307,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     __block NSError* localError = nil;
 
     //only establish
-    [control establish:nil context:self.ctx.context altDSID:self.ctx.altDSID reply:^(NSError * _Nullable operationError) {
+    [control establish:[[OTControlArguments alloc] initWithConfiguration:self.ctx] reply:^(NSError * _Nullable operationError) {
         if(operationError) {
             secnotice("clique-establish", "establish returned an error: %@", operationError);
         }
@@ -332,8 +340,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     __block BOOL success = NO;
     __block NSError* localError = nil;
-    [control resetAndEstablish:nil context:self.ctx.context altDSID:self.ctx.altDSID resetReason:resetReason reply:^(NSError * _Nullable operationError) {
-
+    [control resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:self.ctx] resetReason:resetReason reply:^(NSError * _Nullable operationError) {
         if(operationError) {
             secnotice("clique-resetandestablish", "resetAndEstablish returned an error: %@", operationError);
         }
@@ -486,8 +493,19 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     } else {
         if(OctagonPlatformSupportsSOS()) { // Join if the legacy restore is complete now.
             secnotice("clique-recovery", "attempting joinAfterRestore");
-            [clique joinAfterRestore:&localError];
+            BOOL joinAfterRestoreSuccess = [clique joinAfterRestore:&localError];
             secnotice("clique-recovery", "joinAfterRestore: %@", localError);
+            if (!joinAfterRestoreSuccess) {
+                secnotice("clique-recovery", "attempting reset to offering");
+                CFErrorRef resetToOfferingError = NULL;
+                bool successfulReset = SOSCCResetToOffering(&resetToOfferingError);
+                if(!successfulReset || resetToOfferingError) {
+                    secerror("clique-recovery: failed to reset to offering:%@", resetToOfferingError);
+                } else {
+                    secnotice("clique-recovery", "resetting SOS circle successful");
+                }
+                CFReleaseNull(resetToOfferingError);
+            }
         }
     }
 
@@ -528,19 +546,17 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
         OctagonSignpost bottleRecoverySignPost = OctagonSignpostBegin(OctagonSignpostNamePerformOctagonJoin);
         //restore bottle!
-        [control restore:data.containerName
-               contextID:data.context
-              bottleSalt:data.altDSID
-                 entropy:bottledPeerEntropy
-                bottleID:bottleID
-                   reply:^(NSError * _Nullable restoreError) {
-                if(restoreError) {
-                    secnotice("clique-recovery", "restore bottle errored: %@", restoreError);
-                } else {
-                    secnotice("clique-recovery", "restoring bottle succeeded");
-                }
-                restoreBottleError = restoreError;
-            }];
+        [control restoreFromBottle:[[OTControlArguments alloc] initWithConfiguration:data]
+                           entropy:bottledPeerEntropy
+                          bottleID:bottleID
+                             reply:^(NSError * _Nullable restoreError) {
+            if(restoreError) {
+                secnotice("clique-recovery", "restore bottle errored: %@", restoreError);
+            } else {
+                secnotice("clique-recovery", "restoring bottle succeeded");
+            }
+            restoreBottleError = restoreError;
+        }];
 
         subTaskSuccess = (restoreBottleError == nil) ? true : false;
         OctagonSignpostEnd(bottleRecoverySignPost, OctagonSignpostNamePerformOctagonJoin, OctagonSignpostNumber1(OctagonSignpostNamePerformOctagonJoin), (int)subTaskSuccess);
@@ -596,6 +612,17 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 - (KCPairingChannel *)setupPairingChannelAsInitiator:(KCPairingChannelContext *)ctx
 {
 #if OCTAGON
+    if(ctx.altDSID == nil && self.ctx.altDSID != nil) {
+        secnotice("octagon-account", "Configuring pairing channel with configured altDSID: %@", self.ctx.altDSID);
+        ctx.altDSID = self.ctx.altDSID;
+    } else if(ctx.altDSID != nil) {
+        if([ctx.altDSID isEqualToString:self.ctx.altDSID]) {
+            secnotice("octagon-account", "Pairing channel context already configured with altDSID: %@", ctx.altDSID);
+        } else {
+            secnotice("octagon-account", "Pairing channel context configured with altDSID (%@) which does not match Clique altDSID (%@), possible issues ahead", ctx.altDSID, self.ctx.altDSID);
+        }
+    }
+
     return [getKCPairingChannelClass() pairingChannelInitiator:ctx];
 #else
     return NULL;
@@ -613,6 +640,17 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 - (KCPairingChannel *)setupPairingChannelAsAcceptor:(KCPairingChannelContext *)ctx
 {
 #if OCTAGON
+    if(ctx.altDSID == nil && self.ctx.altDSID != nil) {
+        secnotice("octagon-account", "Configuring pairing channel with configured altDSID: %@", self.ctx.altDSID);
+        ctx.altDSID = self.ctx.altDSID;
+    } else if(ctx.altDSID != nil) {
+        if([ctx.altDSID isEqualToString:self.ctx.altDSID]) {
+            secnotice("octagon-account", "Pairing channel context already configured with altDSID: %@", ctx.altDSID);
+        } else {
+            secnotice("octagon-account", "Pairing channel context configured with altDSID (%@) which does not match Clique altDSID (%@), possible issues ahead", ctx.altDSID, self.ctx.altDSID);
+        }
+    }
+
     return [getKCPairingChannelClass() pairingChannelAcceptor:ctx];
 #else
     return NULL;
@@ -648,7 +686,9 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
 
     __block NSError* localError = nil;
-    [control fetchCliqueStatus:nil context:self.ctx.context configuration:configuration reply:^(CliqueStatus cliqueStatus, NSError * _Nullable fetchError) {
+    [control fetchCliqueStatus:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
+                 configuration:configuration
+                         reply:^(CliqueStatus cliqueStatus, NSError * _Nullable fetchError) {
         if(fetchError){
             octagonStatus = CliqueStatusError;
             localError = fetchError;
@@ -752,8 +792,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         }
 
         secnotice("clique-removefriends", "octagon: removing octagon friends: %@", octagonIdentifiers);
-        [control removeFriendsInClique:nil
-                               context:self.ctx.context
+        [control removeFriendsInClique:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                                peerIDs:octagonIdentifiers
                                  reply:^(NSError* replyError) {
             if(replyError) {
@@ -827,7 +866,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         OctagonSignpostEnd(leaveCliqueSignPost, OctagonSignpostNameLeaveClique, OctagonSignpostNumber1(OctagonSignpostNameLeaveClique), (int)subTaskSuccess);
         return YES;
     }
-    [control leaveClique:nil context:self.ctx.context reply:^(NSError * _Nullable leaveError) {
+    [control leaveClique:[[OTControlArguments alloc] initWithConfiguration:self.ctx] reply:^(NSError * _Nullable leaveError) {
         if(leaveError) {
             secnotice("clique-leaveClique", "leaveClique errored: %@", leaveError);
             localError = leaveError;
@@ -877,7 +916,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     __block NSError* localError = nil;
     __block NSDictionary<NSString*, NSString*>* localPeers = nil;
 
-    [control peerDeviceNamesByPeerID:nil context:OTDefaultContext reply:^(NSDictionary<NSString*,NSString*>* peers, NSError* controlError) {
+    [control peerDeviceNamesByPeerID:[[OTControlArguments alloc] initWithConfiguration:self.ctx] reply:^(NSDictionary<NSString*,NSString*>* peers, NSError* controlError) {
         if(controlError) {
             secnotice("clique", "peerDeviceNamesByPeerID errored: %@", controlError);
         } else {
@@ -1047,8 +1086,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     secnotice("clique-user-sync", "setting user-controllable-sync status to %@", enabled ? @"enabled" : @"paused");
 
-    [control setUserControllableViewsSyncStatus:self.ctx.containerName
-                                      contextID:self.ctx.context
+    [control setUserControllableViewsSyncStatus:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                                         enabled:enabled
                                           reply:^(BOOL nowSyncing, NSError* _Nullable fetchError) {
         if(fetchError) {
@@ -1092,8 +1130,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return NO;
     }
 
-    [control fetchUserControllableViewsSyncStatus:self.ctx.containerName
-                                        contextID:self.ctx.context
+    [control fetchUserControllableViewsSyncStatus:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                                             reply:^(BOOL nowSyncing, NSError* _Nullable fetchError) {
         if(fetchError) {
             secnotice("clique-user-sync", "fetching user-controllable-sync status errored: %@", fetchError);
@@ -1500,8 +1537,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         }
         return nil;
     }
-    [control fetchEscrowRecords:configurationContext.containerName
-                      contextID:configurationContext.context
+    [control fetchEscrowRecords:[[OTControlArguments alloc] initWithConfiguration:configurationContext]
                      forceFetch:configurationContext.overrideEscrowCache
                           reply:^(NSArray<NSData *> * _Nullable records,
                                   NSError * _Nullable fetchError) {
@@ -1551,8 +1587,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         OctagonSignpostEnd(signPost, OctagonSignpostNameFindOptimalBottleIDsWithContextData, OctagonSignpostNumber1(OctagonSignpostNameFindOptimalBottleIDsWithContextData), (int)subTaskSuccess);
         return nil;
     }
-    [control fetchAllViableBottles:data.containerName
-                           context:data.context
+    [control fetchAllViableBottles:[[OTControlArguments alloc] initWithConfiguration:data]
                              reply:^(NSArray<NSString *> * _Nullable sortedBottleIDs,
                                      NSArray<NSString*> * _Nullable sortedPartialBottleIDs,
                                      NSError * _Nullable fetchError) {
@@ -1620,8 +1655,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(nil, nil, nil, controlError);
         return;
     }
-    [control fetchEscrowContents:self.ctx.containerName
-                       contextID:self.ctx.context
+    [control fetchEscrowContents:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
                            reply:^(NSData * _Nullable entropy,
                                    NSString * _Nullable bottleID,
                                    NSData * _Nullable signingPublicKey,
@@ -1640,7 +1674,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)setNewRecoveryKeyWithData:(OTConfigurationContext *)ctx
++ (void)setNewRecoveryKeyWithData:(OTConfigurationContext*)ctx
                       recoveryKey:(NSString*)recoveryKey reply:(nonnull void (^)(SecRecoveryKey *rk, NSError *error))reply
 {
 #if OCTAGON
@@ -1695,7 +1729,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(nil, controlError);
         return;
     }
-    [control createRecoveryKey:ctx.containerName contextID:ctx.context recoveryKey:recoveryKey reply:^(NSError * createError) {
+    [control createRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(NSError * createError) {
         if(createError){
             secerror("octagon-setrecoverykey, failed to create octagon recovery key");
             OctagonSignpostEnd(signPost, OctagonSignpostNameSetNewRecoveryKeyWithData, OctagonSignpostNumber1(OctagonSignpostNameSetNewRecoveryKeyWithData), (int)subTaskSuccess);
@@ -1714,7 +1748,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)recoverOctagonUsingData:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply
 {
@@ -1733,7 +1767,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control joinWithRecoveryKey:ctx.containerName contextID:ctx.context recoveryKey:recoveryKey reply:^(NSError *joinError) {
+    [control joinWithRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] recoveryKey:recoveryKey reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-recoverykey", "failed to join using recovery key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingData, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingData), (int)subTaskSuccess);
@@ -1750,7 +1784,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)createCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)createCustodianRecoveryKey:(OTConfigurationContext*)ctx
                               uuid:(NSUUID *_Nullable)uuid
                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply
 {
@@ -1768,7 +1802,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(nil, controlError);
         return;
     }
-    [control createCustodianRecoveryKey:ctx.containerName contextID:ctx.context uuid:uuid reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
+    [control createCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-createcustodianrecoverykey, failed to create octagon custodian recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameCreateCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameCreateCustodianRecoveryKey), (int)subTaskSuccess);
@@ -1787,7 +1821,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)recoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext*)ctx
                            custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                           reply:(void(^)(NSError* _Nullable error)) reply
 {
@@ -1806,7 +1840,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control joinWithCustodianRecoveryKey:ctx.containerName contextID:ctx.context custodianRecoveryKey:crk reply:^(NSError *joinError) {
+    [control joinWithCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] custodianRecoveryKey:crk reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-custodianrecoverykey", "failed to join using custodian recovery key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingCustodianRecoveryKey), (int)subTaskSuccess);
@@ -1824,7 +1858,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)preflightRecoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)preflightRecoverOctagonUsingCustodianRecoveryKey:(OTConfigurationContext*)ctx
                                     custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                                    reply:(void(^)(NSError* _Nullable error)) reply
 {
@@ -1843,7 +1877,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control preflightJoinWithCustodianRecoveryKey:ctx.containerName contextID:ctx.context custodianRecoveryKey:crk reply:^(NSError *joinError) {
+    [control preflightJoinWithCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] custodianRecoveryKey:crk reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-custodianrecoverykey", "failed to preflight join using custodian recovery key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNamePreflightRecoverOctagonUsingCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNamePreflightRecoverOctagonUsingCustodianRecoveryKey), (int)subTaskSuccess);
@@ -1862,7 +1896,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 }
 
 // Remove a custodian recovery key.
-+ (void)removeCustodianRecoveryKey:(OTConfigurationContext *)ctx
++ (void)removeCustodianRecoveryKey:(OTConfigurationContext*)ctx
           custodianRecoveryKeyUUID:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply
 {
@@ -1879,7 +1913,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control removeCustodianRecoveryKey:OTCKContainerName contextID:ctx.context uuid:uuid reply:^(NSError *_Nullable error) {
+    [control removeCustodianRecoveryKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-removecustodianrecoverykey, failed to create remove custodian recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameRemoveCustodianRecoveryKey, OctagonSignpostNumber1(OctagonSignpostNameRemoveCustodianRecoveryKey), (int)subTaskSuccess);
@@ -1899,7 +1933,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)createInheritanceKey:(OTConfigurationContext *)ctx
++ (void)createInheritanceKey:(OTConfigurationContext*)ctx
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply
 {
@@ -1916,7 +1950,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(nil, controlError);
         return;
     }
-    [control createInheritanceKey:OTCKContainerName contextID:ctx.context uuid:uuid reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+    [control createInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-createinheritancekey, failed to create octagon inheritance recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameCreateInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameCreateInheritanceKey), (int)subTaskSuccess);
@@ -1935,7 +1969,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)generateInheritanceKey:(OTConfigurationContext *)ctx
++ (void)generateInheritanceKey:(OTConfigurationContext*)ctx
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply
 {
@@ -1952,7 +1986,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(nil, controlError);
         return;
     }
-    [control generateInheritanceKey:OTCKContainerName contextID:ctx.context uuid:uuid reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+    [control generateInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-generateinheritancekey, failed to generate octagon inheritance recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameGenerateInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameGenerateInheritanceKey), (int)subTaskSuccess);
@@ -1971,7 +2005,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
-+ (void)storeInheritanceKey:(OTConfigurationContext *)ctx
++ (void)storeInheritanceKey:(OTConfigurationContext*)ctx
                          ik:(OTInheritanceKey*)ik
                       reply:(void (^)(NSError *_Nullable error)) reply
 {
@@ -1988,7 +2022,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control storeInheritanceKey:OTCKContainerName contextID:ctx.context ik:ik reply:^(NSError *_Nullable error) {
+    [control storeInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] ik:ik reply:^(NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-storeinheritancekey, failed to store octagon inheritance recovery key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameStoreInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameStoreInheritanceKey), (int)subTaskSuccess);
@@ -2008,7 +2042,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 }
 
 // Join using an inheritance key.
-+ (void)recoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingInheritanceKey:(OTConfigurationContext*)ctx
                            inheritanceKey:(OTInheritanceKey *)ik
                                     reply:(void(^)(NSError* _Nullable error)) reply
 {
@@ -2027,7 +2061,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control joinWithInheritanceKey:ctx.containerName contextID:ctx.context inheritanceKey:ik reply:^(NSError *joinError) {
+    [control joinWithInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] inheritanceKey:ik reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-inheritancekey", "failed to join using inheritance key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNameRecoverOctagonUsingInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRecoverOctagonUsingInheritanceKey), (int)subTaskSuccess);
@@ -2046,7 +2080,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 }
 
 // Preflight join using an inheritance key.
-+ (void)preflightRecoverOctagonUsingInheritanceKey:(OTConfigurationContext *)ctx
++ (void)preflightRecoverOctagonUsingInheritanceKey:(OTConfigurationContext*)ctx
                                     inheritanceKey:(OTInheritanceKey *)ik
                                              reply:(void(^)(NSError* _Nullable error)) reply
 {
@@ -2065,7 +2099,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control preflightJoinWithInheritanceKey:ctx.containerName contextID:ctx.context inheritanceKey:ik reply:^(NSError *joinError) {
+    [control preflightJoinWithInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] inheritanceKey:ik reply:^(NSError *joinError) {
         if(joinError){
             secnotice("clique-inheritancekey", "failed to preflight join using inheritance key: %@", joinError);
             OctagonSignpostEnd(signpost, OctagonSignpostNamePreflightRecoverOctagonUsingInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNamePreflightRecoverOctagonUsingInheritanceKey), (int)subTaskSuccess);
@@ -2084,7 +2118,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 }
 
 // Remove an inheritance key.
-+ (void)removeInheritanceKey:(OTConfigurationContext *)ctx
++ (void)removeInheritanceKey:(OTConfigurationContext*)ctx
           inheritanceKeyUUID:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply
 {
@@ -2101,7 +2135,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         reply(controlError);
         return;
     }
-    [control removeInheritanceKey:OTCKContainerName contextID:ctx.context uuid:uuid reply:^(NSError *_Nullable error) {
+    [control removeInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx] uuid:uuid reply:^(NSError *_Nullable error) {
             if(error) {
                 secerror("octagon-removeinheritancekey, failed to create remove inheritance key");
                 OctagonSignpostEnd(signPost, OctagonSignpostNameRemoveInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRemoveInheritanceKey), (int)subTaskSuccess);
@@ -2140,7 +2174,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return;
     }
 
-    [control postCDPFollowupResult:success type:type error:error containerName:OTCKContainerName contextName:OTDefaultContext reply:^(NSError *postError) {
+    [control postCDPFollowupResult:[[OTControlArguments alloc] initWithConfiguration:self.ctx] success:success type:type error:error reply:^(NSError *postError) {
         if(postError){
             secnotice("clique-cdp-sm", "failed to post %@ result: %@ ", type, postError);
             OctagonSignpostEnd(signPost, OctagonSignpostNamePerformedCDPStateMachineRun, OctagonSignpostNumber1(OctagonSignpostNamePerformedCDPStateMachineRun), (int)subTaskSuccess);
@@ -2182,7 +2216,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     __block BOOL ret = NO;
     __block NSError* blockError = nil;
 
-    [control waitForOctagonUpgrade:OTCKContainerName context:OTDefaultContext reply:^(NSError *postError) {
+    [control waitForOctagonUpgrade:[[OTControlArguments alloc] initWithConfiguration:self.ctx] reply:^(NSError *postError) {
         if(postError){
             secnotice("clique-waitforoctagonupgrade", "error from control: %@", postError);
             blockError = postError;
@@ -2236,8 +2270,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     __block NSError* reterror = nil;
 
-    [control setCDPEnabled:nil
-                 contextID:arguments.context
+    [control setCDPEnabled:[[OTControlArguments alloc] initWithConfiguration:arguments]
                      reply:^(NSError * _Nullable resultError) {
         if(resultError) {
             secnotice("octagon-setcdpenabled", "failed to set CDP bit: %@", resultError);
@@ -2277,8 +2310,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     __block NSError* reterror = nil;
     __block OTCDPStatus retcdpstatus = OTCDPStatusUnknown;
 
-    [control getCDPStatus:nil
-                contextID:arguments.context
+    [control getCDPStatus:[[OTControlArguments alloc] initWithConfiguration:arguments]
                     reply:^(OTCDPStatus status, NSError * _Nullable resultError) {
         if(resultError) {
             secnotice("octagon-cdp-status", "failed to fetch CDP status: %@", resultError);
@@ -2383,6 +2415,11 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return nil;
     } else {
         secnotice("clique-reset-protected-data", "Octagon account reset succeeded");
+        // sending a notification so transparencyd can fix up opted-in accounts
+        [[NSDistributedNotificationCenter defaultCenter] postNotificationName:@"com.apple.security.resetprotecteddata.complete"
+                                                                       object:nil
+                                                                     userInfo:nil
+                                                           deliverImmediately:YES];
     }
     
     return clique;

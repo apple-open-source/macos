@@ -882,7 +882,7 @@ bool SOSPeerInfoUpdateDigestWithDescription(SOSPeerInfoRef peer, const struct cc
 }
 
 
-static CFDataRef sosCreateDate() {
+static CFDataRef sosCreateDate(void) {
     CFDateRef now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
     size_t bufsiz = der_sizeof_date(now, NULL);
     uint8_t buf[bufsiz];

@@ -36,6 +36,7 @@ POLICYMACRO(ProfileSigner,                          25, E, AppleProfileSigner,  
 POLICYMACRO(QAProfileSigner,                        26, E, AppleQAProfileSigner,                  , Y, QAConfigurationProfileSigner)
 POLICYMACRO(TestMobileStore,                        27, E, AppleTestMobileStore,                  , Y, TestMobileStoreSigner)
 POLICYMACRO(IDValidationRecordSigning,              30, E, AppleIDValidationRecordSigningPolicy,  , Y, AppleIDValidationRecordSigningPolicy)
+POLICYMACRO(IDValidationShortcutSigning,            30, E, AppleIDValidationShortcutSigningPolicy,, Y, AppleIDValidationShortcutSigningPolicy)
 POLICYMACRO(SMPEncryption,                          31, E, AppleSMPEncryption,                    , Y, AppleSMPEncryption)
 POLICYMACRO(TestSMPEncryption,                      32, E, AppleTestSMPEncryption,                , Y, TestAppleSMPEncryption)
 POLICYMACRO(ServerAuthentication,                   33, E, AppleSSLService,                      N, Y, AppleSSLService)
@@ -111,3 +112,5 @@ POLICYMACRO(AggregateMetricEncryption,             106, E, AggregateMetricEncryp
 POLICYMACRO(PayModelSigning,                       107, E, ApplePayModelSigning,                  ,  , ApplePayModelSigning)
 POLICYMACRO(MDLTerminalAuth,                       108, E, MDLTerminalAuth,                       ,  , MDLTerminalAuth)
 POLICYMACRO(CHIPUpdateSigning,                     109, E, CHIPUpdateSigning,                     , Y, AppleCHIPUpdateSigning)
+POLICYMACRO(OrderBundleSigner,                     110, E, OrderBundleSigner,                    N, Y, OrderBundleSigner)
+POLICYMACRO(QiSigning,                             111, E, QiSigning,                             , Y, QiSigning)

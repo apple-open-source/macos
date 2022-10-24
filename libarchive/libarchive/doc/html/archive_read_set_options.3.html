@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.4 -->
-<!-- CreationDate: Sat Dec 26 01:33:23 2020 -->
+<!-- CreationDate: Tue Feb  8 08:46:40 2022 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -165,11 +165,25 @@ character set name that will be used when translating file
 names.</p>
 
 <p>Format cpio <b><br>
-hdrcharset</b></p>
+compat-2x</b></p>
+
+<p style="margin-left:27%;">Libarchive 2.x incorrectly
+encoded Unicode filenames on some platforms. This option
+mimics the libarchive 2.x filename handling so that such
+archives can be read correctly.</p>
+
+<p><b>hdrcharset</b></p>
 
 <p style="margin-left:27%;">The value is used as a
 character set name that will be used when translating file
 names.</p>
+
+<p><b>pwb</b></p>
+
+<p style="margin-left:27%; margin-top: 1em">When reading a
+binary CPIO archive, assume that it is in the original PWB
+cpio format, and handle file mode bits accordingly. The
+default is to assume v7 format.</p>
 
 <p>Format iso9660 <b><br>
 joliet</b></p>

@@ -31,6 +31,7 @@
 #include "DARequest.h"
 #include "DASession.h"
 #include "DAStage.h"
+#include "DAServer.h"
 
 struct __DAResponseContext
 {
@@ -41,8 +42,8 @@ struct __DAResponseContext
 
 typedef struct __DAResponseContext __DAResponseContext;
 
-const CFTimeInterval __kDAResponseTimerGrace = 1;
-const CFTimeInterval __kDAResponseTimerLimit = 10;
+const int32_t __kDAResponseTimerGrace = 1;
+const int32_t __kDAResponseTimerLimit = 10;
 
 static void __DAResponseTimerRefresh( void );
 
@@ -148,7 +149,7 @@ static void __DAResponsePrepare( DADiskRef disk, DAResponseCallback callback, vo
     }
 }
 
-static void __DAResponseTimerCallback( CFRunLoopTimerRef timer, void * info )
+static void __DAResponseTimerCallback( void )
 {
     CFAbsoluteTime clock;
     CFIndex        count;
@@ -207,7 +208,7 @@ static void __DAResponseTimerCallback( CFRunLoopTimerRef timer, void * info )
 
 static void __DAResponseTimerRefresh( void )
 {
-    static CFRunLoopTimerRef timer = NULL;
+    dispatch_time_t timer;
 
     CFAbsoluteTime clock;
     CFIndex        count;
@@ -243,19 +244,13 @@ static void __DAResponseTimerRefresh( void )
         }
     }
 
-    if ( timer )
+    if ( clock < kCFAbsoluteTimeIntervalSince1904 && clock > CFAbsoluteTimeGetCurrent( ) )
     {
-        CFRunLoopTimerSetNextFireDate( timer, clock );
+        int64_t timeout = clock - CFAbsoluteTimeGetCurrent();
+        timer = dispatch_time( DISPATCH_TIME_NOW, (int64_t) ( timeout * NSEC_PER_SEC )  );
+        dispatch_after( timer, DAServerWorkLoop(), ^{ __DAResponseTimerCallback();} );
     }
-    else
-    {
-        timer = CFRunLoopTimerCreate( kCFAllocatorDefault, clock, kCFAbsoluteTimeIntervalSince1904, 0, 0, __DAResponseTimerCallback, NULL );
-
-        if ( timer )
-        {
-            CFRunLoopAddTimer( CFRunLoopGetCurrent( ), timer, kCFRunLoopDefaultMode );
-        }
-    }
+   
 }
 
 Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID )
@@ -907,36 +902,40 @@ void DAQueueRequest( DARequestRef request )
             options = DARequestGetArgument1( request );
 
             assert( kDADiskMountOptionWhole == kDADiskUnmountOptionWhole );
+            
+            DADiskRef disk;
+
+            disk = DARequestGetDisk( request );
 
             if ( DARequestGetKind( request ) == _kDADiskEject )
             {
                 options |= kDADiskMountOptionWhole;
             }
-
-            if ( ( options & kDADiskMountOptionWhole ) )
+            
+            if ( ( options & kDADiskMountOptionWhole ) ||
+                ( ( DADiskGetState( disk, _kDADiskStateMultiVolume ) == TRUE ) && ( DARequestGetKind( request ) == _kDADiskUnmount ) ) )
             {
-                DADiskRef disk;
-
-                disk = DARequestGetDisk( request );
-
-                if ( DARequestGetArgument2( request ) )
+                if ( ( options & kDADiskMountOptionWhole ) )
                 {
-                    status = kDAReturnBadArgument;
-                }
+                    if ( DARequestGetArgument2( request ) )
+                    {
+                        status = kDAReturnBadArgument;
+                    }
 
-                if ( DARequestGetArgument3( request ) )
-                {
-                    status = kDAReturnBadArgument;
-                }
+                    if ( DARequestGetArgument3( request ) )
+                    {
+                        status = kDAReturnBadArgument;
+                    }
 
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == NULL )
-                {
-                    status = kDAReturnUnsupported;
-                }
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == NULL )
+                    {
+                        status = kDAReturnUnsupported;
+                    }
                 
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanFalse )
-                {
-                    status = kDAReturnUnsupported;
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanFalse )
+                    {
+                        status = kDAReturnUnsupported;
+                    }
                 }
 
                 if ( status )
@@ -961,10 +960,24 @@ void DAQueueRequest( DARequestRef request )
                             DADiskRef subdisk;
 
                             subdisk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+                            
 
                             if ( disk != subdisk )
                             {
-                                if ( DADiskGetBSDUnit( disk ) == DADiskGetBSDUnit( subdisk ) )
+                                const char *devicePathSubDisk =  DADiskGetBSDPath( subdisk , FALSE);
+                                const char *devicePath = DADiskGetBSDPath( disk , FALSE);
+                                Boolean createRequest = FALSE;
+                                if ( options & kDADiskMountOptionWhole )
+                                {
+                                    createRequest = DADiskGetBSDUnit( disk ) == DADiskGetBSDUnit( subdisk ) ? TRUE : FALSE;
+                                }
+#if TARGET_OS_IOS
+                                else if ( devicePath && devicePathSubDisk )
+                                {
+                                    createRequest =  ( strcmp ( devicePath, devicePathSubDisk ) == 0 ) ? TRUE : FALSE;
+                                }
+#endif
+                                if ( TRUE == createRequest )
                                 {
                                     DARequestRef subrequest;
 

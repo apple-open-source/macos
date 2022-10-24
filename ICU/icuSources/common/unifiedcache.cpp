@@ -16,7 +16,6 @@
 #include <mutex>
 
 #include "uassert.h"
-#include "uhash.h"
 #include "ucln_cmn.h"
 
 static icu::UnifiedCache *gCache = NULL;
@@ -45,21 +44,18 @@ U_CDECL_END
 
 U_NAMESPACE_BEGIN
 
-U_CAPI int32_t U_EXPORT2
-ucache_hashKeys(const UHashTok key) {
+int32_t U_EXPORT2 ucache_hashKeys(const UHashTok key) {
     const CacheKeyBase *ckey = (const CacheKeyBase *) key.pointer;
     return ckey->hashCode();
 }
 
-U_CAPI UBool U_EXPORT2
-ucache_compareKeys(const UHashTok key1, const UHashTok key2) {
+UBool U_EXPORT2 ucache_compareKeys(const UHashTok key1, const UHashTok key2) {
     const CacheKeyBase *p1 = (const CacheKeyBase *) key1.pointer;
     const CacheKeyBase *p2 = (const CacheKeyBase *) key2.pointer;
     return *p1 == *p2;
 }
 
-U_CAPI void U_EXPORT2
-ucache_deleteKey(void *obj) {
+void U_EXPORT2 ucache_deleteKey(void *obj) {
     CacheKeyBase *p = (CacheKeyBase *) obj;
     delete p;
 }

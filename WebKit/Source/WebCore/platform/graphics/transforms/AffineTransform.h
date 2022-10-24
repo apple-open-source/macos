@@ -27,6 +27,8 @@
 #pragma once
 
 #include "CompositeOperation.h"
+#include "FloatPoint.h"
+#include "FloatSize.h"
 #include <array>
 #include <optional>
 #include <wtf/FastMalloc.h>
@@ -55,8 +57,8 @@ class TransformationMatrix;
 class AffineTransform {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT AffineTransform();
-    WEBCORE_EXPORT AffineTransform(double a, double b, double c, double d, double e, double f);
+    constexpr AffineTransform();
+    constexpr AffineTransform(double a, double b, double c, double d, double e, double f);
 
 #if USE(CG)
     WEBCORE_EXPORT AffineTransform(const CGAffineTransform&);
@@ -180,9 +182,22 @@ public:
     WEBCORE_EXPORT operator CGAffineTransform() const;
 #endif
 
-    static AffineTransform translation(double x, double y)
+    static AffineTransform makeTranslation(FloatSize delta)
     {
-        return AffineTransform(1, 0, 0, 1, x, y);
+        return AffineTransform(1, 0, 0, 1, delta.width(), delta.height());
+    }
+
+    static AffineTransform makeScale(FloatSize scale)
+    {
+        return AffineTransform(scale.width(), 0, 0, scale.height(), 0, 0);
+    }
+
+    static AffineTransform makeRotation(double angleInDegrees, FloatPoint center = { })
+    {
+        auto matrix = makeTranslation(toFloatSize(center));
+        matrix.rotate(angleInDegrees);
+        matrix.translate(-toFloatSize(center));
+        return matrix;
     }
 
     // decompose the matrix into its component parts
@@ -203,5 +218,17 @@ private:
 WEBCORE_EXPORT AffineTransform makeMapBetweenRects(const FloatRect& source, const FloatRect& dest);
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const AffineTransform&);
+
+constexpr AffineTransform::AffineTransform()
+    : m_transform { { 1, 0, 0, 1, 0, 0 } }
+{
+}
+
+constexpr AffineTransform::AffineTransform(double a, double b, double c, double d, double e, double f)
+    : m_transform { { a, b, c, d, e, f } }
+{
+}
+
+static constexpr inline AffineTransform identity;
 
 }

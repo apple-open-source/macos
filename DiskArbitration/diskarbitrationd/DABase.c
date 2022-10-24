@@ -30,6 +30,7 @@
 #include <CoreFoundation/CFBundlePriv.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 #include <os/transaction_private.h>
+#include <os/log.h>
 
 static os_transaction_t __os_transaction       = NULL;
 static size_t              __os_transaction_count = 0;
@@ -117,13 +118,13 @@ __private_extern__ int ___mkdir( const char * path, mode_t mode )
     return status;
 }
 
+
 __private_extern__ void ___os_transaction_begin( void )
 {
     if ( __os_transaction_count == 0 )
     {
         __os_transaction = os_transaction_create( "com.apple.daemon.diskarbitrationd" );
     }
-
     __os_transaction_count++;
 }
 
@@ -136,7 +137,13 @@ __private_extern__ void ___os_transaction_end( void )
          os_release(__os_transaction );
 
         __os_transaction = NULL;
+        
     }
+}
+
+__private_extern__ os_transaction_t ___os_transaction_get( void )
+{
+    return __os_transaction;
 }
 
 __private_extern__ const void * ___CFArrayGetValue( CFArrayRef array, const void * value )
@@ -672,7 +679,7 @@ __private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t 
 
     return status;
 }
-
+#if TARGET_OS_OSX
 __private_extern__ CFArrayRef ___SCDynamicStoreCopyConsoleInformation( SCDynamicStoreRef store )
 {
     CFMutableArrayRef userList;
@@ -790,3 +797,4 @@ __private_extern__ CFStringRef ___SCDynamicStoreCopyConsoleUser( SCDynamicStoreR
 
     return user;
 }
+#endif

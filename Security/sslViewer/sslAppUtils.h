@@ -147,10 +147,6 @@ OSStatus sslIdentityPicker(
 //	const CSSM_OID		*vfyPolicy,		// optional - if NULL, use SSL
 	CFArrayRef			*outArray);		// created and RETURNED
 
-void sslKeychainPath(
-	const char *kcName,
-	char *kcPath);			// allocd by caller, MAXPATHLEN
-
 /* Verify presence of required file. Returns nonzero if not found. */
 int sslCheckFile(const char *path);
 

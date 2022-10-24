@@ -16,7 +16,10 @@ xmkdir ${system} ${internal}
 
 cp $(src com.openssh.sshd.plist) ${sshplist}
 pb ${sshplist} \
-  'Delete :Disabled'
+  'Delete :Disabled' \
+  'Add :_PanicOnCrash dict' \
+  'Add :_PanicOnCrash:InternalOnly bool true' \
+  'Add :_PanicOnCrash:PanicOnConsecutiveCrash bool true'
 
 # On macOS, we install the (disabled) customer ssh launchd plist
 # as well as an Apple-internal enabled copy

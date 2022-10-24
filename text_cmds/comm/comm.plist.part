@@ -1,0 +1,17 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-09-20</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>comm.c: Don't ignore errors when flushing stdout (89040553)</string>
+		<string>comm.c: fix race when reading from stdin (89062040)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>comm</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-07-27</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/comm?id=bdfea496cf9f32b9fcfa8be83ee37931138e6ea1</string>
+</dict>

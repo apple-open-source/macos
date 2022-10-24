@@ -44,7 +44,7 @@
 
 #define ROOT_ACCOUNT 0
 
-bool SecOTAPKIIsSystemTrustd() {
+bool SecOTAPKIIsSystemTrustd(void) {
     static bool result = false;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -293,7 +293,7 @@ static BOOL needToFixFilePermissions(void) {
     return result;
 }
 
-static NSXPCConnection* getConnection()
+static NSXPCConnection* getConnection(void)
 {
 #if TARGET_OS_OSX
     NSString *xpcServiceName = @TrustdFileHelperXPCServiceName;

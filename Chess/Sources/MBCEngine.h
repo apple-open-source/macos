@@ -1,7 +1,7 @@
 /*
 	File:		MBCEngine.h
 	Contains:	An agent representing the chess playing engine
-	Copyright:	© 2002-2010 by Apple Inc., all rights reserved.
+	Copyright:	ï¿½ 2002-2010 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following

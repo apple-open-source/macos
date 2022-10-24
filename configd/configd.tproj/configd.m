@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -57,15 +57,22 @@
 #include "plugin_support.h"
 #include "SCDynamicStoreInternal.h"
 
-#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
+#if 	!TARGET_OS_SIMULATOR
+#include <WatchdogClient/WatchdogService.h>
+
+/* "weak_import" to ensure that the compiler doesn't optimize out NULL check */
+void wd_endpoint_register(const char *service_name)
+	__attribute__((weak_import));
+#define CONFIGD_WATCHDOG 	"com.apple.SystemConfiguration.configd.watchdog"
+
+#if	TARGET_OS_IPHONE && !defined(DO_NOT_INFORM)
 #include <CoreFoundation/CFUserNotification.h>
-#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_IPHONE && !defined(DO_NOT_INFORM)
+
+#endif 	// !TARGET_OS_SIMULATOR
 
 __private_extern__
 Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
-
-__private_extern__
-CFMutableSetRef	_plugins_allowed	= NULL;		/* bundle identifiers to allow when loading */
 
 __private_extern__
 CFMutableSetRef	_plugins_exclude	= NULL;		/* bundle identifiers to exclude from loading */
@@ -77,7 +84,6 @@ static CFMachPortRef termRequested	= NULL;		/* Mach port used to notify runloop 
 
 
 static const struct option longopts[] = {
-//	{ "include-plugin",	required_argument,	0,	'A' },
 //	{ "no-bundles",		no_argument,		0,	'b' },
 //	{ "exclude-plugin",	required_argument,	0,	'B' },
 //	{ "no-fork",		no_argument,		0,	'd' },
@@ -92,15 +98,13 @@ static const struct option longopts[] = {
 static void __attribute__((noreturn))
 usage(const char *prog)
 {
-	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-A bundleID] [-t bundle-path]\n"), prog);
+	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-t bundle-path]\n"), prog);
 	SCPrint(TRUE, stderr, CFSTR("options:\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-d\tdisable daemon/run in foreground\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-v\tenable verbose logging\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-V\tenable verbose logging for the specified plug-in\n"));
-	SCPrint(TRUE, stderr, CFSTR("\t-f\tload ALL plug-ins in a separate process\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-b\tdisable loading of ALL plug-ins\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-B\tdisable loading of the specified plug-in\n"));
-	SCPrint(TRUE, stderr, CFSTR("\t-A\tenable loading of the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-t\tload/test the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\t  (Note: only the plug-in will be started)\n"));
 	exit (EX_USAGE);
@@ -267,6 +271,62 @@ termMPCopyDescription(const void *info)
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGTERM MP>"));
 }
 
+static void
+read_debug_settings(void)
+{
+	SCPreferencesRef	prefs;
+
+#define kSCDynamicStoreServerDebugPrefsID	\
+	CFSTR("com.apple.configd.SCDynamicStoreServerDebug.plist")
+	prefs = SCPreferencesCreate(NULL, CFSTR("configd"),
+				    kSCDynamicStoreServerDebugPrefsID);
+	if (prefs != NULL) {
+		CFBooleanRef	val;
+
+		val = SCPreferencesGetValue(prefs, CFSTR("ShouldLogPath"));
+		if (isA_CFBoolean(val) != NULL) {
+			_should_log_path = CFBooleanGetValue(val);
+		}
+		CFRelease(prefs);
+	}
+	return;
+}
+
+#if _HAVE_PRIVACY_ACCOUNTING
+#import <PrivacyAccounting/PrivacyAccounting.h>
+
+/* "weak_import" to ensure that the compiler doesn't optimize out NULL check */
+BOOL
+PAEntitlementDictionaryBelongsToSystemProcess(NSDictionary<NSString *, id>
+					      *entitlements)
+	__attribute__((weak_import));
+
+__private_extern__ Boolean
+havePrivacyAccounting(void)
+{
+	return (PAEntitlementDictionaryBelongsToSystemProcess != NULL);
+}
+
+__private_extern__ Boolean
+isSystemProcess(CFDictionaryRef entitlements)
+{
+	Boolean 	isSystem;
+
+	if (!havePrivacyAccounting()) {
+		return (FALSE);
+	}
+	@autoreleasepool {
+		NSDictionary *	dict = (__bridge NSDictionary *)entitlements;
+		BOOL		ret;
+
+		ret = PAEntitlementDictionaryBelongsToSystemProcess(dict);
+		isSystem = (ret == YES);
+	}
+	return (isSystem);
+}
+
+#endif /* _HAVE_PRIVACY_ACCOUNTING */
+
 
 int
 main(int argc, char * const argv[])
@@ -291,19 +351,13 @@ main(int argc, char * const argv[])
 	CFStringRef		str;
 	const char		*testBundle	= NULL;
 
-	_plugins_allowed = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 	_plugins_exclude = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 	_plugins_verbose = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "A:bB:dt:vV:", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "bB:dt:vV:", longopts, NULL)) != -1) {
 		switch(opt) {
-			case 'A':
-				str = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingMacRoman);
-				CFSetSetValue(_plugins_allowed, str);
-				CFRelease(str);
-				break;
 			case 'b':
 				loadBundles = FALSE;
 				break;
@@ -470,11 +524,25 @@ main(int argc, char * const argv[])
 	CFRelease(rls);
 
 	if (testBundle == NULL) {
-		/* don't complain about having  lots of SCDynamicStore sessions */
+		/* don't complain about having lots of SCDynamicStore sessions */
 		_SCDynamicStoreSetSessionWatchLimit(0);
+
+		if (_SC_isAppleInternal()) {
+			read_debug_settings();
+		}
 
 		/* initialize primary (store management) thread */
 		server_init();
+
+#if 	!TARGET_OS_SIMULATOR
+		/* register for watchdog monitoring */
+		if (wd_endpoint_register != NULL) { /* "weak_import" */
+			wd_endpoint_register(CONFIGD_WATCHDOG);
+			wd_endpoint_add_queue(dispatch_get_main_queue());
+			wd_endpoint_add_queue(server_queue());
+			wd_endpoint_activate();
+		}
+#endif 	// !TARGET_OS_SIMULATOR
 
 		if (!forceForeground && !is_launchd_job) {
 			/* synchronize with parent process */

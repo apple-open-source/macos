@@ -60,7 +60,6 @@
 #include "uassert.h"
 #include "olsontz.h"
 #include "sharedcalendar.h"
-#include "unifiedcache.h"
 #include "ulocimp.h"
 
 #if !UCONFIG_NO_SERVICE

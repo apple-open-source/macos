@@ -603,7 +603,7 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IOPCIFamily;
 			productReference = A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 /* End PBXNativeTarget section */
 

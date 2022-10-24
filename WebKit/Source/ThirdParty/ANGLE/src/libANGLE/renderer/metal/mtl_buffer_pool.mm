@@ -371,5 +371,5 @@ void BufferPool::reset()
     mAlwaysAllocateNewBuffer = false;
     mBuffersAllocated        = 0;
 }
-}
-}
+}  // namespace mtl
+}  // namespace rx

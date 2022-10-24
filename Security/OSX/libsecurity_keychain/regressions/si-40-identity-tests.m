@@ -48,7 +48,7 @@
 /* entry point prototype */
 int si_40_identity_tests(int argc, char *const *argv);
 
-static void tests() {
+static void tests(void) {
     OSStatus status = 0;
     CFDataRef p12Blob = NULL;
     isnt(p12Blob = (__bridge CFDataRef)[NSData dataWithBytes:test_p12 length:sizeof(test_p12)], NULL, "copy test_p12");

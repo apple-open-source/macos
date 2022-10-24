@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -209,6 +209,7 @@ const static uint8_t hexval[128] = {
 	0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0		/* 112 - 127 */
 };
 
+__printflike(1, 2)
 static void
 _mdns_debug_message(const char *str, ...)
 {
@@ -967,6 +968,7 @@ _mdns_init(void)
 	pthread_atfork(_mdns_atfork_prepare, _mdns_atfork_parent, _mdns_atfork_child);
 
 	if (getenv("RES_DEBUG") != NULL) _mdns_debug |= MDNS_DEBUG_STDOUT;
+#if DEBUG
 	int fd = open(MDNS_DEBUG_FILE, O_RDONLY, 0);
 	errno = 0;
 
@@ -985,6 +987,7 @@ _mdns_init(void)
 		}
 		close(fd);
 	}
+#endif
 }
 
 si_mod_t *
@@ -1318,7 +1321,7 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 	_mdns_debug_message(";; mdns query %s type %d class %d ifindex %d [ctx %p]\n", qname, type, class, (int)iface, ctx);
 
 #if _DNS_SD_H >= 15030000
-	status = DNSServiceQueryRecordEx(&ctx->sd, flags, iface, qname, type, class, &kDNSServiceQueryAttrAllowFailover, _mdns_query_callback, ctx);
+	status = DNSServiceQueryRecordEx(&ctx->sd, flags, iface, qname, type, class, &kDNSServiceAttrAllowFailover, _mdns_query_callback, ctx);
 #else
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 #endif
@@ -1381,7 +1384,7 @@ _mdns_query_is_complete(mdns_query_context_t *ctx, bool *more)
 		case ns_t_srv:
 			if (ctx->reply != NULL && ctx->reply->srv != NULL)
 			{
-				_mdns_debug_message(";; mdns is_complete type %d ctx %p srv %s complete -> true\n", ctx->type, ctx, ctx->reply->srv);
+				_mdns_debug_message(";; mdns is_complete type %d ctx %p srv %p complete -> true\n", ctx->type, ctx, ctx->reply->srv);
 				complete = true;
 			}
 			break;
@@ -1940,9 +1943,9 @@ _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServ
 		}
 		else if (m > 0 && ev.filter == EVFILT_READ)
 		{
-			_mdns_debug_message(";; _mdns_search calling DNSServiceProcessResult\n", err);
+			_mdns_debug_message(";; _mdns_search calling DNSServiceProcessResult\n");
 			err = DNSServiceProcessResult(_mdns_sdref);
-			_mdns_debug_message(";; DNSServiceProcessResult -> %s\n", err);
+			_mdns_debug_message(";; DNSServiceProcessResult -> %d\n", err);
 			if ((err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference) || (err == kDNSServiceErr_DefunctConnection))
 			{
 				_mdns_debug_message(";; DNSServiceProcessResult status %d [ctx %p %p]\n", err, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
@@ -1957,7 +1960,7 @@ _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServ
 		}
 		else if (m == 0 && ev.filter == EVFILT_USER)
 		{
-			_mdns_debug_message(";; kevent wakeup\n", m, (int)ev.filter);
+			_mdns_debug_message(";; kevent wakeup\n");
 		}
 		else
 		{

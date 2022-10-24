@@ -209,9 +209,7 @@ udp6_append(struct inpcb *last, struct ip6_hdr *ip6,
 
 	if ((last->in6p_flags & INP_CONTROLOPTS) != 0 ||
 	    SOFLOW_ENABLED(last->in6p_socket) ||
-	    (last->in6p_socket->so_options & SO_TIMESTAMP) != 0 ||
-	    (last->in6p_socket->so_options & SO_TIMESTAMP_MONOTONIC) != 0 ||
-	    (last->in6p_socket->so_options & SO_TIMESTAMP_CONTINUOUS) != 0) {
+	    SO_RECV_CONTROL_OPTS(last->in6p_socket)) {
 		ret = ip6_savecontrol(last, n, &opts);
 		if (ret != 0) {
 			m_freem(n);
@@ -251,6 +249,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	struct inpcbinfo *pcbinfo = &udbinfo;
 	struct sockaddr_in6 fromsa;
 	u_int16_t pf_tag = 0;
+	boolean_t is_wake_pkt = false;
 
 	IP6_EXTHDR_CHECK(m, off, sizeof(struct udphdr), return IPPROTO_DONE);
 
@@ -265,6 +264,9 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 
 	if (m->m_flags & M_PKTHDR) {
 		pf_tag = m_pftag(m)->pftag_tag;
+		if (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) {
+			is_wake_pkt = true;
+		}
 	}
 
 	udpstat.udps_ipackets++;
@@ -446,6 +448,10 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 				mcast_delivered++;
 				m = n;
 			}
+			if (is_wake_pkt) {
+				soevent(in6p->in6p_socket,
+				    SO_FILT_HINT_LOCKED | SO_FILT_HINT_WAKE_PKT);
+			}
 			udp_unlock(in6p->in6p_socket, 1, 0);
 
 			/*
@@ -613,9 +619,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	udp_in6.sin6_port = uh->uh_sport;
 	if ((in6p->in6p_flags & INP_CONTROLOPTS) != 0 ||
 	    SOFLOW_ENABLED(in6p->in6p_socket) ||
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP) != 0 ||
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP_MONOTONIC) != 0 ||
-	    (in6p->in6p_socket->so_options & SO_TIMESTAMP_CONTINUOUS) != 0) {
+	    SO_RECV_CONTROL_OPTS(in6p->in6p_socket)) {
 		ret = ip6_savecontrol(in6p, m, &opts);
 		if (ret != 0) {
 			udp_unlock(in6p->in6p_socket, 1, 0);
@@ -636,6 +640,9 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 		udpstat.udps_fullsock++;
 		udp_unlock(in6p->in6p_socket, 1, 0);
 		goto bad;
+	}
+	if (is_wake_pkt) {
+		soevent(in6p->in6p_socket, SO_FILT_HINT_LOCKED | SO_FILT_HINT_WAKE_PKT);
 	}
 	sorwakeup(in6p->in6p_socket);
 	udp_unlock(in6p->in6p_socket, 1, 0);
@@ -725,11 +732,19 @@ udp6_ctlinput(int cmd, struct sockaddr *sa, void *d, __unused struct ifnet *ifp)
 			uuid_clear(null_uuid);
 			necp_update_flow_protoctl_event(null_uuid, in6p->necp_client_uuid,
 			    PRC_MSGSIZE, ntohl(icmp6->icmp6_mtu), 0);
+			/*
+			 * Avoid setting so_error when using Network.framework
+			 * since the notification of PRC_MSGSIZE has been delivered
+			 * through NECP.
+			 */
+			in6_pcbnotify(&udbinfo, sa, uh.uh_dport,
+			    (struct sockaddr*)ip6cp->ip6c_src, uh.uh_sport,
+			    cmd, cmdarg, NULL);
+		} else {
+			in6_pcbnotify(&udbinfo, sa, uh.uh_dport,
+			    (struct sockaddr*)ip6cp->ip6c_src, uh.uh_sport,
+			    cmd, cmdarg, notify);
 		}
-
-		(void) in6_pcbnotify(&udbinfo, sa, uh.uh_dport,
-		    (struct sockaddr*)ip6cp->ip6c_src, uh.uh_sport,
-		    cmd, cmdarg, notify);
 #if SKYWALK
 		bzero(&prctl_ev_val, sizeof(prctl_ev_val));
 		bzero(&sock_laddr, sizeof(sock_laddr));
@@ -836,6 +851,7 @@ udp6_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 
 		if (IN6_IS_ADDR_UNSPECIFIED(&sin6_p->sin6_addr)) {
 			inp->inp_vflag |= INP_IPV4;
+			inp->inp_vflag &= ~INP_V4MAPPEDV6;
 		} else if (IN6_IS_ADDR_V4MAPPED(&sin6_p->sin6_addr)) {
 			struct sockaddr_in sin;
 
@@ -891,6 +907,7 @@ udp6_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 	if ((inp->inp_flags & IN6P_IPV6_V6ONLY) == 0) {
 		if (IN6_IS_ADDR_V4MAPPED(&sin6_p->sin6_addr)) {
 			struct sockaddr_in sin;
+			const uint8_t old_flags = inp->inp_vflag;
 
 			if (inp->inp_faddr.s_addr != INADDR_ANY) {
 				return EISCONN;
@@ -907,6 +924,10 @@ udp6_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 				goto do_flow_divert;
 			}
 #endif /* defined(NECP) && defined(FLOW_DIVERT) */
+			inp->inp_vflag |= INP_IPV4;
+			inp->inp_vflag &= ~INP_IPV6;
+			inp->inp_vflag |= INP_V4MAPPEDV6;
+
 			error = in_pcbconnect(inp, (struct sockaddr *)&sin,
 			    p, IFSCOPE_NONE, NULL);
 			if (error == 0) {
@@ -918,10 +939,9 @@ udp6_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 					socket_lock(so, 0);
 				}
 #endif /* NECP */
-				inp->inp_vflag |= INP_IPV4;
-				inp->inp_vflag &= ~INP_IPV6;
-				inp->inp_vflag |= INP_V4MAPPEDV6;
 				soisconnected(so);
+			} else {
+				inp->inp_vflag = old_flags;
 			}
 			return error;
 		}
@@ -965,7 +985,8 @@ do_flow_divert:
 #endif /* NECP */
 		soisconnected(so);
 		if (inp->inp_flowhash == 0) {
-			inp->inp_flowhash = inp_calc_flowhash(inp);
+			inp_calc_flowhash(inp);
+			ASSERT(inp->inp_flowhash != 0);
 		}
 		/* update flowinfo - RFC 6437 */
 		if (inp->inp_flow == 0 &&

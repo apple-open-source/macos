@@ -1,22 +1,15 @@
 #define IN_LIBEXSLT
 #include "libexslt.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
-#include <win32config.h>
-#else
-#include "config.h"
-#endif
-
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 #include <libxml/parser.h>
 #include <libxml/hash.h>
 
-#include <libxslt/xsltconfig.h>
-#include <libxslt/xsltutils.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/extensions.h>
+#include "xsltutils.h"
+#include "xsltInternals.h"
+#include "extensions.h"
 
 #include "exslt.h"
 
@@ -29,10 +22,16 @@
  *
  * Returns the data for this transformation
  */
-static xmlHashTablePtr
+static void *
 exsltSaxonInit (xsltTransformContextPtr ctxt ATTRIBUTE_UNUSED,
 		const xmlChar *URI ATTRIBUTE_UNUSED) {
     return xmlHashCreate(1);
+}
+
+static void
+exsltSaxonFreeCompExprEntry(void *payload,
+                            const xmlChar *name ATTRIBUTE_UNUSED) {
+    xmlXPathFreeCompExpr((xmlXPathCompExprPtr) payload);
 }
 
 /**
@@ -46,8 +45,9 @@ exsltSaxonInit (xsltTransformContextPtr ctxt ATTRIBUTE_UNUSED,
 static void
 exsltSaxonShutdown (xsltTransformContextPtr ctxt ATTRIBUTE_UNUSED,
 		    const xmlChar *URI ATTRIBUTE_UNUSED,
-		    xmlHashTablePtr data) {
-    xmlHashFree(data, (xmlHashDeallocator) xmlXPathFreeCompExpr);
+		    void *vdata) {
+    xmlHashTablePtr data = (xmlHashTablePtr) vdata;
+    xmlHashFree(data, exsltSaxonFreeCompExprEntry);
 }
 
 
@@ -98,7 +98,7 @@ exsltSaxonExpressionFunction (xmlXPathParserContextPtr ctxt, int nargs) {
     ret = xmlHashLookup(hash, arg);
 
     if (ret == NULL) {
-	 ret = xmlXPathCompile(arg);
+	 ret = xmlXPathCtxtCompile(tctxt->xpathCtxt, arg);
 	 if (ret == NULL) {
 	      xmlFree(arg);
               xmlXPathSetError(ctxt, XPATH_EXPR_ERROR);
@@ -293,8 +293,8 @@ exsltSaxonLineNumberFunction(xmlXPathParserContextPtr ctxt, int nargs) {
 void
 exsltSaxonRegister (void) {
      xsltRegisterExtModule (SAXON_NAMESPACE,
-			    (xsltExtInitFunction) exsltSaxonInit,
-			    (xsltExtShutdownFunction) exsltSaxonShutdown);
+			    exsltSaxonInit,
+			    exsltSaxonShutdown);
      xsltRegisterExtModuleFunction((const xmlChar *) "expression",
 				   SAXON_NAMESPACE,
 				   exsltSaxonExpressionFunction);

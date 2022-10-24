@@ -368,7 +368,7 @@ int secd_81_item_acl_stress(int argc, char *const *argv)
     bool isPasscodeSet = false;
 #endif
     
-    plan_tests(isPasscodeSet?776:140);
+    plan_tests(isPasscodeSet?779:140);
 
     tests(isPasscodeSet);
 
@@ -376,6 +376,15 @@ int secd_81_item_acl_stress(int argc, char *const *argv)
     SecItemServerResetKeychainKeybag();
 #endif
     secd_test_teardown_delete_temp_keychain(__FUNCTION__);
+
+#if LA_CONTEXT_IMPLEMENTED
+    void* buf = NULL;
+    int bufLen = 0;
+    ok(kAKSReturnSuccess == aks_save_bag(keybag, &buf, &bufLen), "failed to save keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_unload_bag(keybag), "failed to unload keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_invalidate_bag(buf, bufLen), "failed to invalidate keybag");
+    free(buf);
+#endif
 
     return 0;
 #endif

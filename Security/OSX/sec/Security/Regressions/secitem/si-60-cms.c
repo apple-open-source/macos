@@ -1666,10 +1666,15 @@ static void tests(void)
         openssl_generated_cms, sizeof(openssl_generated_cms), kCFAllocatorNull);
     CFDataRef attached = NULL;
     ok_status(SecCMSVerify(message, NULL, NULL, NULL, &attached), "just get contents");
+    isnt(attached, NULL, "got attached content");
     static const char msg[] = "whatever man";
     ok((size_t)CFDataGetLength(attached) == strlen(msg), "same length");
     ok(!memcmp(msg, CFDataGetBytePtr(attached), strlen(msg)), "same data");
+    CFReleaseNull(attached);
+    ok_status(SecCMSDecodeSignedData(message, &attached, NULL), "decode");
     isnt(attached, NULL, "got attached content");
+    ok((size_t)CFDataGetLength(attached) == strlen(msg), "same length");
+    ok(!memcmp(msg, CFDataGetBytePtr(attached), strlen(msg)), "same data");
     CFReleaseNull(attached);
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     is_status(SecCMSVerify(message, NULL, policy, NULL, &attached), errSecAuthFailed, "let library verify");
@@ -1690,8 +1695,12 @@ static void tests(void)
     /* iOS only returns a trust ref on signature verification success */
     is(trust, NULL, "no trustref: digest was wrong");
 #else
-    /* macOS ALWAYS returns a trust ref */
-    isnt(trust, NULL, "always return trustref");
+    if (useMessageSecurityEnabled()) {
+        is(trust, NULL, "no trustref: digest was wrong");
+    } else {
+        /* legacy macOS ALWAYS returns a trust ref */
+        isnt(trust, NULL, "always return trustref");
+    }
 #endif
     CFReleaseNull(trust);
     CFReleaseNull(message);
@@ -1745,7 +1754,7 @@ static void tests(void)
     ok_status(SecCMSVerifyCopyDataAndAttributes(message_data, NULL, policy, &trust, &message, &attrs), "decode message again");
     CFReleaseNull(trust);
     is(CFDictionaryGetCount(attrs), 6, "5 signed attributes + cooked date");
-    isnt(CFDictionaryGetValue(attrs, kSecCMSSignDate), NULL, "failed to get cooked data from attributes");
+    isnt(CFDictionaryGetValue(attrs, kSecCMSSignDate), NULL, "failed to get cooked date from attributes");
     isnt(CFDictionaryGetValue(attrs, kSecCMSAllCerts), NULL, "failed to get cert(s) from attributes");
     isnt(CFDictionaryGetValue(attrs, oid_data), NULL, "failed to get user-defined attribute");
     CFReleaseNull(attrs);
@@ -1785,7 +1794,7 @@ static void tests(void)
     message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
         mobileconfig_with_long_issuer, sizeof(mobileconfig_with_long_issuer),
         kCFAllocatorNull);
-    ok_status(SecCMSVerify(message, false, policy, &trust, NULL), "verify profile");
+    ok_status(SecCMSVerify(message, NULL, policy, &trust, NULL), "verify profile");
     CFReleaseNull(message);
     SecTrustResultType result;
     ok_status(SecTrustEvaluate(trust, &result), "evaluate trust");
@@ -2030,17 +2039,38 @@ static void test_decode_signing_time_leap_seconds(void) {
     CFReleaseNull(message_data);
 }
 
+static void test_muliple_policies(void) {
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy1 = SecPolicyCreateBasicX509();
+    SecPolicyRef policy2 = SecPolicyCreateSSL(true, CFSTR("www.example.com"));
+    CFMutableArrayRef policies = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(policies, policy1);
+    CFArrayAppendValue(policies, policy2);
+    CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        openssl_generated_cms, sizeof(openssl_generated_cms), kCFAllocatorNull);
+
+    ok_status(SecCMSVerify(message, NULL, policies, &trust, NULL), "verify self");
+    isnt(NULL, trust, "got trustref");
+
+    CFReleaseNull(trust);
+    CFReleaseNull(policy1);
+    CFReleaseNull(policy2);
+    CFReleaseNull(policies);
+    CFReleaseNull(message);
+}
+
 int si_60_cms(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-	plan_tests(48);
+	plan_tests(50);
 #else
-    plan_tests(47);
+    plan_tests(49);
 #endif
 
 	tests();
     test_key_usage_enveloped_data();
     test_decode_signing_time_leap_seconds();
+    test_muliple_policies();
 
 	return 0;
 }

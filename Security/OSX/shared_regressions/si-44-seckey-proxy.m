@@ -29,7 +29,7 @@
 
 #import "shared_regressions.h"
 
-static void test_key_proxy_connect() {
+static void test_key_proxy_connect(void) {
     NSError *error;
     id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
     ok(serverKey != NULL, "generated local ec256 keypair");
@@ -72,7 +72,7 @@ static void test_key_proxy_connect() {
 }
 static const int TestKeyProxyConnectCount = 10;
 
-static void test_key_proxy_simple_ops() {
+static void test_key_proxy_simple_ops(void) {
     NSError *error;
     id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
     SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
@@ -82,7 +82,7 @@ static void test_key_proxy_simple_ops() {
     isnt(localAttributes, nil, "attributes for local remote key failed");
     ok([serverAttributes isEqual:localAttributes], "local and remote attributes should be identical");
     
-    // Just call description, there is no sane way to test the contents, not crashing is enough.
+    // Just call description, there is no reasonable way to test the contents, not crashing is enough.
     CFBridgingRelease(CFCopyDescription((SecKeyRef)localKey));
     
     is(SecKeyGetAlgorithmId((__bridge SecKeyRef)serverKey), SecKeyGetAlgorithmId((__bridge SecKeyRef)localKey), "GetAlgorithmId failed for remote");
@@ -146,7 +146,7 @@ static void test_crypto_kxchg(id key1, id key2, SecKeyAlgorithm algorithm) {
 }
 static const int TestKeyCryptoKeyExchange = 5;
 
-static void test_key_proxy_crypto_ops_RSA() {
+static void test_key_proxy_crypto_ops_RSA(void) {
     NSError *error;
     id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @(2048)}, (void *)&error));
     ok(serverKey != NULL, "generated local rsa2048 keypair: %@", error);
@@ -162,7 +162,7 @@ static void test_key_proxy_crypto_ops_RSA() {
 }
 static const int TestKeyCryptoOpsRSACount = 2 + TestKeyCryptoSignCount * 2 + TestKeyCryptoEncryptCount * 2;
 
-static void test_key_proxy_crypto_ops_EC() {
+static void test_key_proxy_crypto_ops_EC(void) {
     NSError *error;
     id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256)}, (void *)&error));
     ok(serverKey != NULL, "generated local ec256 keypair: %@", error);
@@ -484,7 +484,7 @@ static const uint8_t _k1[] = {
     0x34, 0x7c, 0xd4, 0x9d, 0xff, 0xad, 0xee, 0x69
 };
 
-static void test_key_proxy_identity() {
+static void test_key_proxy_identity(void) {
     id certificate = CFBridgingRelease(SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)[NSData dataWithBytes:_c1 length:sizeof(_c1)]));
     isnt(certificate, nil, "created certificate");
     NSError *error;

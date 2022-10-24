@@ -116,17 +116,18 @@ void SQLiteIDBCursor::currentData(IDBGetResult& result, const std::optional<IDBK
     }
 
     Vector<IDBCursorRecord> prefetchedRecords;
-    prefetchedRecords.reserveCapacity(m_fetchedRecords.size());
+    prefetchedRecords.reserveInitialCapacity(m_fetchedRecords.size() - 1);
+    bool isFirst = true;
     for (auto& record : m_fetchedRecords) {
         if (record.isTerminalRecord())
             break;
-
-        prefetchedRecords.append(record.record);
+        if (isFirst) {
+            isFirst = false;
+            continue;
+        }
+        prefetchedRecords.uncheckedAppend(record.record);
     }
-
-    // First record will be returned as current record.
-    if (!prefetchedRecords.isEmpty())
-        prefetchedRecords.remove(0);
+    prefetchedRecords.shrinkToFit();
 
     result = { currentRecord.record.key, currentRecord.record.primaryKey, IDBValue(currentRecord.record.value), keyPath, WTFMove(prefetchedRecords) };
 }
@@ -180,7 +181,7 @@ bool SQLiteIDBCursor::establishStatement()
     return createSQLiteStatement(sql);
 }
 
-bool SQLiteIDBCursor::createSQLiteStatement(const String& sql)
+bool SQLiteIDBCursor::createSQLiteStatement(StringView sql)
 {
     LOG(IndexedDB, "Creating cursor with SQL query: \"%s\"", sql.utf8().data());
 

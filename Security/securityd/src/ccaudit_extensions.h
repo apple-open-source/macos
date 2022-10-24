@@ -90,7 +90,7 @@ public:
     // standard set.  
 
 protected:
-    void logInternalError(const char *fmt, ...);
+    void logInternalError(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     
 private:
     int mAuditFd;

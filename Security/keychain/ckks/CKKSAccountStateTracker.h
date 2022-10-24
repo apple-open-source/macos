@@ -100,6 +100,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @property (readonly) CKKSNearFutureScheduler* fetchCKAccountStatusScheduler;
 
 // If you use these, please be aware they could change out from under you at any time
+@property (readonly) CKContainer* container;
 @property (nullable) CKAccountInfo* currentCKAccountInfo;
 @property CKKSCondition* ckAccountInfoInitialized;
 

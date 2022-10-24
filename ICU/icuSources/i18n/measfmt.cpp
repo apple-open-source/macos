@@ -242,7 +242,8 @@ static NumericDateFormatters *loadNumericDateFormatters(
     return result;
 }
 
-template<> U_I18N_API
+// FIXME: exported function with internal class specialization
+template<>
 const MeasureFormatCacheData *LocaleCacheKey<MeasureFormatCacheData>::createObject(
         const void * /*unused*/, UErrorCode &status) const {
     const char *localeId = fLoc.getName();
@@ -919,7 +920,7 @@ UnicodeString &MeasureFormat::formatMeasure(
         UnicodeString narrowPattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
                 amtUnit, UNUM_UNIT_WIDTH_NARROW, StandardPlural::Form::OTHER, status); 
         if (U_SUCCESS(status)) {
-            if (narrowPattern.indexOf((UChar)0x0020) == -1 && narrowPattern.indexOf((UChar)0x00A0) == -1) {
+            if (narrowPattern.indexOf((UChar)0x0020) == -1 && narrowPattern.indexOf((UChar)0x00A0) == -1 && narrowPattern.indexOf((UChar)0x202F) == -1) {
                 int32_t end = appendTo.length();
                 for (; cur < end; cur++) {
                     if (appendTo.charAt(cur) == 0x0020) {

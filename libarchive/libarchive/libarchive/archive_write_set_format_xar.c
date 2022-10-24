@@ -885,6 +885,7 @@ xmlwrite_string(struct archive_write *a, xmlTextWriterPtr writer,
 	return (ARCHIVE_OK);
 }
 
+__attribute__((format(printf, 4, 5)))
 static int
 xmlwrite_fstring(struct archive_write *a, xmlTextWriterPtr writer,
 	const char *key, const char *fmt, ...)

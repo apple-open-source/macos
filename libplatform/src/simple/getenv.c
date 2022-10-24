@@ -33,7 +33,7 @@
 // This file is built with -fno-builtin to prevent the compiler from turning
 // _simple_memcmp into a memcmp() call.
 
-int
+static int
 _simple_memcmp(const void *s1, const void *s2, size_t n)
 {
 	if (n != 0) {

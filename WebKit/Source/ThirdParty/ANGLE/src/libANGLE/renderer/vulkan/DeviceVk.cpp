@@ -24,7 +24,7 @@ namespace
 
 DeviceVk *gDevice = nullptr;
 
-class ScopedEnv : public angle::vk::ScopedVkLoaderEnvironment
+class [[nodiscard]] ScopedEnv : public angle::vk::ScopedVkLoaderEnvironment
 {
   public:
     ScopedEnv()

@@ -495,7 +495,7 @@ static unsigned long get_error_values(int inc, const char **file, int *line,
 	}
 
 /* BAD for multi-threaded, uses a local buffer if ret == NULL */
-char *ERR_error_string(unsigned long e, char *ret)
+char *ERR_error_string(unsigned long e, char *ret, size_t ret_sz)
 	{
 	#ifdef	NO_ERR
 	if(ret != NULL) {
@@ -516,21 +516,25 @@ char *ERR_error_string(unsigned long e, char *ret)
 	fs=ERR_func_error_string(e);
 	rs=ERR_reason_error_string(e);
 
-	if (ret == NULL) ret=buf;
+	if (ret == NULL)
+                {
+                ret=buf;
+                ret_sz=sizeof(buf);
+                }
 
-	sprintf(&(ret[0]),"error:%08lX:",e);
+	snprintf(&(ret[0]),ret_sz,"error:%08lX:",e);
 	i=strlen(ret);
 	if (ls == NULL)
-		sprintf(&(ret[i]),":lib(%lu) ",l);
-	else	sprintf(&(ret[i]),"%s",ls);
+		snprintf(&(ret[i]),ret_sz-i,":lib(%lu) ",l);
+	else	snprintf(&(ret[i]),ret_sz-i,"%s",ls);
 	i=strlen(ret);
 	if (fs == NULL)
-		sprintf(&(ret[i]),":func(%lu) ",f);
-	else	sprintf(&(ret[i]),":%s",fs);
+		snprintf(&(ret[i]),ret_sz-i,":func(%lu) ",f);
+	else	snprintf(&(ret[i]),ret_sz-i,":%s",fs);
 	i=strlen(ret);
 	if (rs == NULL)
-		sprintf(&(ret[i]),":reason(%lu)",r);
-	else	sprintf(&(ret[i]),":%s",rs);
+		snprintf(&(ret[i]),ret_sz-i,":reason(%lu)",r);
+	else	snprintf(&(ret[i]),ret_sz-i,":%s",rs);
 
 	return(ret);
 	#endif

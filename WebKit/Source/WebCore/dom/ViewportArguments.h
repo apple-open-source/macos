@@ -74,13 +74,11 @@ struct ViewportArguments {
         CSSDeviceAdaptation
     } type;
 
-    enum {
-        ValueAuto = -1,
-        ValueDeviceWidth = -2,
-        ValueDeviceHeight = -3,
-        ValuePortrait = -4,
-        ValueLandscape = -5
-    };
+    static constexpr int ValueAuto = -1;
+    static constexpr int ValueDeviceWidth = -2;
+    static constexpr int ValueDeviceHeight = -3;
+    static constexpr int ValuePortrait = -4;
+    static constexpr int ValueLandscape = -5;
 
     explicit ViewportArguments(Type type = Implicit)
         : type(type)
@@ -145,7 +143,7 @@ WEBCORE_EXPORT float computeMinimumScaleFactorForContentContained(const Viewport
 
 typedef Function<void(ViewportErrorCode, const String&)> ViewportErrorHandler;
 void setViewportFeature(ViewportArguments&, Document&, StringView key, StringView value);
-WEBCORE_EXPORT void setViewportFeature(ViewportArguments&, StringView key, StringView value, bool viewportFitEnabled, const ViewportErrorHandler&);
+WEBCORE_EXPORT void setViewportFeature(ViewportArguments&, StringView key, StringView value, const ViewportErrorHandler&);
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const ViewportArguments&);
 

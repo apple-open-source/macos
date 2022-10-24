@@ -401,9 +401,6 @@ feeFEED feeFEEDNewWithPubKey(feePubKey myPrivKey,
 		finst->cipherBlockSize);
 	}
 
-	/*
-	 * Sanity check...
-	 */
 	#if	FEED_DEBUG
 	{
 	    unsigned fexpBlockSize = feeFEEDExpCipherBlockSize(finst->feedExp);

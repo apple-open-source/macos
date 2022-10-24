@@ -1,9 +1,18 @@
-set -e -x
+#!/bin/sh
+# Generate and install open source plist
+
+set -e
 
 OSV="$DSTROOT"/usr/local/OpenSourceVersions
-OSL="$DSTROOT"/usr/local/OpenSourceLicenses
-
 install -d -o root -g wheel -m 0755 "$OSV"
-install -c -o root -g wheel -m 0644 \
-	"$SRCROOT"/text_cmds.plist \
-	"$OSV"
+
+PLIST="$OSV"/text_cmds.plist
+echo '<plist version="1.0">' > "$PLIST"
+echo '<array>' >> "$PLIST"
+
+for plistpart in "$SRCROOT"/*/*.plist.part; do
+    cat "$plistpart" >> "$PLIST"
+done
+
+echo '</array>' >> "$PLIST"
+echo '</plist>' >> "$PLIST"

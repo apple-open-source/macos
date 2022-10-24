@@ -1,0 +1,20 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2020-03-22</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Handle tr -s '[a*]' (3673947).</string>
+		<string>Support multibyte character equivalence. (57168782)</string>
+		<string>tr.c: Don't ignore errors when flushing stdout (89040553)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>tr</string>
+	<key>OpenSourceSCM</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/tr?id=7672a0148f79063eac8f8e0beb0db5350d02d5d4</string>
+	<key>OpenSourceVersion</key>
+	<string>2018-06-19</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/tr</string>
+</dict>

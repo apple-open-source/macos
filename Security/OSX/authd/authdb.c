@@ -517,7 +517,7 @@ AUTH_TYPE_INSTANCE(authdb,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID authdb_get_type_id() {
+static CFTypeID authdb_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -529,7 +529,7 @@ static CFTypeID authdb_get_type_id() {
 }
 
 authdb_t
-authdb_create()
+authdb_create(void)
 {
     authdb_t db = NULL;
     
@@ -1232,7 +1232,7 @@ AUTH_TYPE_INSTANCE(authdb_connection,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID authdb_connection_get_type_id() {
+static CFTypeID authdb_connection_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     

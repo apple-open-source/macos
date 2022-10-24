@@ -76,7 +76,7 @@ public:
     GraphicsContextGLCV* asCV() final;
 #endif
 #if ENABLE(MEDIA_STREAM)
-    RefPtr<MediaSample> paintCompositedResultsToMediaSample() final;
+    RefPtr<VideoFrame> paintCompositedResultsToVideoFrame() final;
 #endif
     void setContextVisibility(bool) final;
     void prepareForDisplay() override;
@@ -105,6 +105,7 @@ protected:
 #endif
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<ImageRotationSessionVT> m_mediaSampleRotationSession;
+    IntSize m_mediaSampleRotationSessionSize;
 #endif
 
     friend class GraphicsContextGLCVCocoa;

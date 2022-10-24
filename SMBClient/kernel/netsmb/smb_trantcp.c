@@ -448,7 +448,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 	size_t resid, recvdlen;
 	struct msghdr msg;
 	int flags = MSG_WAITALL;
-
 	resid = sizeof(len);
 	bytep = (uint8_t *)&len;
 	while (resid != 0) {
@@ -457,7 +456,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 		bzero(&msg, sizeof(msg));
 		msg.msg_iov = &aio;
 		msg.msg_iovlen = 1;
-
 		/*
 		 * We are trying to read the NetBIOS header which is 4 bytes long.
 		 * Call sock_receive() with flag to be MSG_WAITALL.
@@ -480,7 +478,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
                 error = EPIPE;
                 return error;
             }
-
             /* This should never happen, someday should we make it just a debug assert. */
             if ((recvdlen > resid)) {
                 SMBERROR("Got more data than we asked for!\n");
@@ -502,7 +499,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
                 flags = MSG_WAITALL; /* Wait for all four bytes */
                 continue;
             }
-
             /*
              * Check if the connect got closed.
              * <78410582> sock_isconnected must not be called if the socket was closed
@@ -518,11 +514,9 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
                 error = EPIPE;
             }
             lck_mtx_unlock(&nbp->nbp_iod->iod_tdata_lock);
-
             if ((error == EWOULDBLOCK) && resid && (resid < sizeof(len))) {
                 SMBERROR("Timed out reading the nbt header: missing %ld bytes\n", resid);
             }
-
             return error;
         }
 
@@ -530,7 +524,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 		 * At this point we have received some data, reset the flag to wait. We got
 		 * part of the 4 byte length field only wait 5 seconds to get the rest.
 		 */
-		flags = MSG_WAITALL;
+        flags = MSG_WAITALL;
 		resid -= recvdlen;
 		bytep += recvdlen;
 	}
@@ -557,7 +551,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
 		/* "NetBIOS-less", we can only use the frist 24 bits for the length */
 		len &= SMB_LARGE_MAXPKTLEN;
 	}
-
 	switch (*rpcodep) {
 	    case NB_SSN_MESSAGE:
 	    case NB_SSN_KEEPALIVE:	/* Can "NetBIOS-less" have a keep alive, does hurt anything */
@@ -573,7 +566,6 @@ static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep,
             SMBERROR("bad nb header received 0x%x (bogus type)\n", len);
             return (EPIPE);
 	}
-
 	*lenp = len;
 	return (0);
 }
@@ -587,22 +579,19 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 	uint32_t len;
 	int32_t error;
 	size_t recvdlen, resid;
-
     if (!(nbp->nbp_flags & NBF_CONNECTED)) {
         SMBERROR("nbp_flags 0x%x \n", nbp->nbp_flags);
 		return (ENOTCONN);
     }
-
     if (mpp) {
 		*mpp = NULL;
     }
 	m = NULL;
-
-	for(;;) {
+    for(;;) {
 		/*
 		 * Read the response header.
 		 */
-		error = nbssn_recvhdr(nbp, &len, &rpcode, wait_time);
+        error = nbssn_recvhdr(nbp, &len, &rpcode, wait_time);
         if (error) {
             if (error != EWOULDBLOCK){
                 SMBERROR("nbssn_recvhdr error %d \n", error);
@@ -624,7 +613,7 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 		 * the TCP code at the completion of each call.
 		 */
 		resid = len;
-		while (resid != 0) {
+        while (resid != 0) {
 			struct timespec tstart, tend;
 			tm = NULL;
 			/*
@@ -661,7 +650,6 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 					}
 				}
 			} while ((error == EAGAIN) || (error == EINTR) || (error == ERESTART));
-
             if (error == 0) {
                 /*
                  * If we didn't get an error and recvdlen is zero then we have reached
@@ -691,8 +679,7 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
                 SMBERROR("sock_receivembuf error %d \n", error);
                 goto out;
             }
-
-			resid -= recvdlen;
+            resid -= recvdlen;
 			/*
 			 * Append received chunk to previous chunk. Just glue 
 			 * the new chain on the end. Consumer will pullup as required.
@@ -725,7 +712,6 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 			 */
 			break;
 		}
-
 		/*
 		 * A session is established; the only packets
 		 * we should see are session message and
@@ -748,7 +734,6 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 			 */
 			break;
 		}
-
 		/*
 		 * Ignore other types of packets - drop packet
 		 * and try for another.
@@ -773,7 +758,6 @@ out:
     else {
 		mbuf_freem(m);
     }
-    
 	*lenp = len;
 	*rpcodep = rpcode;
 	return (0);
@@ -787,7 +771,7 @@ smb_nbst_create(struct smbiod *iod)
 {
 	struct nbpcb *nbp;
 
-	SMB_MALLOC(nbp, struct nbpcb *, sizeof *nbp, M_NBDATA, M_WAITOK);
+    SMB_MALLOC_TYPE(nbp, struct nbpcb, Z_WAITOK);
 	bzero(nbp, sizeof *nbp);
 	nbp->nbp_timo.tv_sec = SMB_NBTIMO;
 	nbp->nbp_state = NBST_CLOSED;
@@ -809,14 +793,16 @@ smb_nbst_done(struct smbiod *iod)
 		return (ENOTCONN);
 	smb_nbst_disconnect(iod);
     lck_mtx_lock(&iod->iod_tdata_lock);
-	if (nbp->nbp_laddr)
-		SMB_FREE(nbp->nbp_laddr, M_SONAME);
-	if (nbp->nbp_paddr)
-		SMB_FREE(nbp->nbp_paddr, M_SONAME);
+    if (nbp->nbp_laddr) {
+        SMB_FREE_TYPE(struct sockaddr_nb, nbp->nbp_laddr);
+    }
+    if (nbp->nbp_paddr) {
+        SMB_FREE_TYPE(struct sockaddr_nb, nbp->nbp_paddr);
+    }
 	/* The session_tdata is no longer valid */
     iod->iod_tdata = NULL;
     lck_mtx_unlock(&iod->iod_tdata_lock);
-	SMB_FREE(nbp, M_NBDATA);
+    SMB_FREE_TYPE(struct nbpcb, nbp);
 	return (0);
 }
 
@@ -879,8 +865,7 @@ smb_nbst_connect(struct smbiod *iod, struct sockaddr *sap)
 		if (slen < (int)NB_MINSALEN)
 			return (EINVAL);
 		if (nbp->nbp_paddr) {
-			SMB_FREE(nbp->nbp_paddr, M_SONAME);
-			nbp->nbp_paddr = NULL;
+            SMB_FREE_TYPE(struct sockaddr_nb, nbp->nbp_paddr);
 		}
 		nbp->nbp_paddr = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
 		if (nbp->nbp_paddr == NULL)
@@ -996,18 +981,14 @@ smb_nbst_recv(struct smbiod *iod, mbuf_t *mpp)
 	struct nbpcb *nbp = iod->iod_tdata;
 	uint8_t rpcode, *hp;
 	int error, rplen;
-
 	/* Should never happen, but just in case */
 	if (nbp == NULL)
 		return (ENOTCONN);
-
     error = nbssn_recv(nbp, mpp, &rplen, &rpcode, NULL);
-    
     if (!error) {
         /* Handle case when first mbuf is zero-length */
         error = mbuf_pullup(mpp, 1);
     }
-    
     // Check for a transform header (encrypted msg)
     if (!error) {
         hp = mbuf_data(*mpp);
@@ -1015,11 +996,9 @@ smb_nbst_recv(struct smbiod *iod, mbuf_t *mpp)
             error = smb3_msg_decrypt(iod->iod_session, mpp);
         }
     }
-    
     if (error) {
         *mpp = NULL;
     }
-    
     return (error);
 }
 

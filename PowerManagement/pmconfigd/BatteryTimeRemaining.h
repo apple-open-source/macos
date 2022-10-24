@@ -110,6 +110,8 @@ struct nominalCapacityParams {
     int cycleCount;
     uint64_t ts;
 };
+
+__private_extern__ int batteryTimeRemaining_getComputedNominalChargeCapacity(void);
 #endif
 
 __private_extern__ IOPMBattery **_batteries(void);
@@ -212,4 +214,10 @@ void setBHUpdateTimeDelta(xpc_object_t remoteConnection, xpc_object_t msg);
 void xctSetPowerSource(PowerSources src);
 void xctSetCapacity(uint32_t capacity);
 #endif
+
+/**
+ * Don't do anything for non-iOS systems, the UI doesn't support a long lived recalibrating state on such systems.
+ */
+static inline void updateBatteryServiceStateInCalibration(CFMutableDictionaryRef bhData, IOPSBatteryHealthServiceState *svcState) { return; }
+
 #endif //_BatteryTimeRemaining_h_

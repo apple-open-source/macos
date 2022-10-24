@@ -59,6 +59,7 @@
 }
 
 - (instancetype) initSelfWrappedWithAESKey: (CKKSAESSIVKey*) aeskey
+                                 contextID: (NSString*) contextID
                                       uuid: (NSString*) uuid
                                   keyclass: (CKKSKeyClass*)keyclass
                                      state: (CKKSProcessedState*) state
@@ -68,6 +69,7 @@
 {
     if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
                            encodedCKRecord:encodedrecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
 
         _uuid = uuid;
@@ -94,6 +96,7 @@
 }
 
 - (instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData
+                             contextID:(NSString*)contextID
                                   uuid:(NSString*)uuid
                          parentKeyUUID:(NSString*)parentKeyUUID
                               keyclass:(CKKSKeyClass*)keyclass
@@ -104,6 +107,7 @@
 {
     if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
                            encodedCKRecord:encodedrecord
+                                 contextID:contextID
                                     zoneID:zoneID])) {
 
         _wrappedKeyDataBackingStore = wrappedKeyData;
@@ -118,11 +122,13 @@
 }
 
 - (instancetype)initWithKeyCore:(CKKSKeychainBackedKey*)core
+                      contextID:(NSString*)contextID
                           state:(CKKSProcessedState*)state
                      currentkey:(bool)currentkey
 {
     if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
                            encodedCKRecord:nil
+                                 contextID:contextID
                                     zoneID:core.zoneID])) {
         _keycore = core;
         _wrappedKeyDataBackingStore = _keycore.wrappedkey.wrappedData;
@@ -220,11 +226,18 @@
     return true;
 }
 
-+ (instancetype) loadKeyWithUUID: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    CKKSKey* key = [CKKSKey fromDatabase: uuid zoneID:zoneID error:error];
++ (instancetype) loadKeyWithUUID: (NSString*) uuid
+                       contextID: (NSString*) contextID
+                          zoneID: (CKRecordZoneID*) zoneID
+                           error: (NSError * __autoreleasing *) error {
+    CKKSKey* key = [CKKSKey fromDatabase:uuid
+                               contextID:contextID
+                                  zoneID:zoneID
+                                   error:error];
 
     // failed unwrapping means we can't return a key.
-    if(![key ensureKeyLoaded:error]) {
+    if(![key ensureKeyLoadedForContextID:contextID
+                                   error:error]) {
         return nil;
     }
     return key;
@@ -247,17 +260,22 @@
     }
 
     return [[CKKSKey alloc] initWithKeyCore:randomKey
+                                  contextID:parentKey.contextID
                                       state:SecCKKSProcessedStateLocal
                                  currentkey:false];
 }
 
-+ (instancetype)randomKeyWrappedBySelf: (CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error {
-    CKKSKeychainBackedKey* randomKey = [CKKSKeychainBackedKey randomKeyWrappedBySelf:zoneID error:error];
++ (instancetype)randomKeyWrappedBySelf: (CKRecordZoneID*) zoneID
+                             contextID:(NSString*)contextID
+                                 error: (NSError * __autoreleasing *) error {
+
+    CKKSKeychainBackedKey* randomKey = [CKKSKeychainBackedKey randomKeyWrappedBySelf: zoneID    error:error];
     if(randomKey == nil) {
         return nil;
     }
 
     return [[CKKSKey alloc] initWithKeyCore:randomKey
+                                  contextID:contextID
                                       state:SecCKKSProcessedStateLocal
                                  currentkey:false];
 }
@@ -299,7 +317,8 @@
     return nil;
 }
 
-- (CKKSKeychainBackedKey* _Nullable)ensureKeyLoaded:(NSError * __autoreleasing *)error
+- (CKKSKeychainBackedKey* _Nullable)ensureKeyLoadedForContextID:(NSString*)contextID
+                                                          error:(NSError * __autoreleasing *)error
 {
     /* Ensure that self.keycore is filled in */
     if(nil == [self getKeychainBackedKey:error]) {
@@ -333,7 +352,8 @@
     return nil;
 }
 
-- (CKKSAESSIVKey*)unwrapViaKeyHierarchy: (NSError * __autoreleasing *) error {
+- (CKKSAESSIVKey*)unwrapViaKeyHierarchy:(NSError * __autoreleasing *) error
+{
     /* Ensure that self.keycore is filled in */
     if(nil == [self getKeychainBackedKey:error]) {
         return nil;
@@ -363,7 +383,10 @@
     }
 
     // Recursively unwrap our parent.
-    CKKSKey* parent = [CKKSKey fromDatabaseAnyState:self.parentKeyUUID zoneID:self.zoneID error:error];
+    CKKSKey* parent = [CKKSKey fromDatabaseAnyState:self.parentKeyUUID
+                                          contextID:self.contextID
+                                             zoneID:self.zoneID
+                                              error:error];
 
     // TODO: do we need loop detection here?
     if(![parent unwrapViaKeyHierarchy: error]) {
@@ -375,6 +398,7 @@
 }
 
 - (BOOL)unwrapViaTLKSharesTrustedBy:(NSArray<CKKSPeerProviderState*>*)trustStates
+                          contextID:(NSString*)contextID
                               error:(NSError**)error
 {
     NSError* localerror = nil;
@@ -389,6 +413,7 @@
     }
 
     NSArray<CKKSTLKShareRecord*>* possibleShares = [CKKSTLKShareRecord allForUUID:self.uuid
+                                                                        contextID:contextID
                                                                            zoneID:self.zoneID
                                                                             error:&localerror];
 
@@ -443,8 +468,9 @@
     return YES;
 }
 
-- (BOOL)tlkMaterialPresentOrRecoverableViaTLKShare:(NSArray<CKKSPeerProviderState*>*)trustStates
-                                             error:(NSError**)error
+- (BOOL)tlkMaterialPresentOrRecoverableViaTLKShareForContextID:(NSString*)contextID
+                                                forTrustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
+                                                         error:(NSError**)error
 {
     /* Ensure that self.keycore is filled in */
     if(nil == [self getKeychainBackedKey:error]) {
@@ -454,7 +480,8 @@
     // If we have the key material, then this TLK is considered valid.
     NSError* loadError = nil;
     CKKSAESSIVKey* loadedKey = nil;
-    if([self ensureKeyLoaded:&loadError]) {
+    if([self ensureKeyLoadedForContextID:contextID
+                                   error:&loadError]) {
         // Should just return what was loaded in ensureKeyLoaded
         loadedKey = [self.keycore ensureKeyLoadedFromKeychain:&loadError];
     }
@@ -484,6 +511,7 @@
 
     NSError* localerror = nil;
     BOOL success = [self unwrapViaTLKSharesTrustedBy:trustStates
+                                           contextID:contextID
                                                error:&localerror];
 
     if(!success || localerror) {
@@ -619,66 +647,143 @@
 
 /* Database functions only return keys marked 'local', unless otherwise specified. */
 
-+ (instancetype) fromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"UUID": uuid, @"state":  SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype) fromDatabase: (NSString*) uuid
+                    contextID:(NSString*)contextID
+                       zoneID:(CKRecordZoneID*)zoneID
+                        error: (NSError * __autoreleasing *) error
+{
+    return [self fromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": uuid,
+        @"state":  SecCKKSProcessedStateLocal,
+        @"ckzone":zoneID.zoneName
+    } error: error];
 }
 
-+ (instancetype) fromDatabaseAnyState: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"UUID": uuid, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype) fromDatabaseAnyState: (NSString*) uuid
+                            contextID:(NSString*)contextID
+                               zoneID:(CKRecordZoneID*)zoneID
+                                error: (NSError * __autoreleasing *) error
+{
+    return [self fromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": uuid,
+        @"ckzone":zoneID.zoneName
+    } error: error];
 }
 
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"UUID": uuid, @"state":  SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype) tryFromDatabase: (NSString*) uuid
+                       contextID:(NSString*)contextID
+                          zoneID:(CKRecordZoneID*)zoneID
+                           error: (NSError * __autoreleasing *) error
+{
+    return [self tryFromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": uuid,
+        @"state":  SecCKKSProcessedStateLocal,
+        @"ckzone":zoneID.zoneName
+    } error: error];
 }
 
-+ (instancetype) tryFromDatabaseAnyState: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"UUID": uuid, @"ckzone":zoneID.zoneName} error: error];
++ (instancetype) tryFromDatabaseAnyState: (NSString*) uuid
+                               contextID:(NSString*)contextID
+                                  zoneID:(CKRecordZoneID*)zoneID
+                                   error: (NSError * __autoreleasing *) error
+{
+    return [self tryFromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": uuid,
+        @"ckzone":zoneID.zoneName
+    } error: error];
 }
 
-+ (NSArray<CKKSKey*>*)selfWrappedKeys:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSArray<CKKSKey*>*)selfWrappedKeysForContextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error: (NSError * __autoreleasing *) error
+{
     return [self allWhere: @{@"UUID": [CKKSSQLWhereColumn op:CKKSSQLWhereComparatorEquals
                                                       column:CKKSSQLWhereColumnNameParentKeyUUID],
+                             @"contextID": CKKSNilToNSNull(contextID),
                              @"state":  SecCKKSProcessedStateLocal,
-                             @"ckzone":zoneID.zoneName}
-                    error:error];
+                             @"ckzone":zoneID.zoneName
+                           } error:error];
 }
 
 + (instancetype _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass
+                                   contextID:(NSString*)contextID
                                       zoneID:(CKRecordZoneID*)zoneID
                                        error:(NSError *__autoreleasing*)error
 {
     // Load the CurrentKey record, and find the key for it
-    CKKSCurrentKeyPointer* ckp = [CKKSCurrentKeyPointer fromDatabase:keyclass zoneID:zoneID error:error];
+    CKKSCurrentKeyPointer* ckp = [CKKSCurrentKeyPointer fromDatabase:keyclass
+                                                           contextID:contextID
+                                                              zoneID:zoneID
+                                                               error:error];
     if(!ckp) {
         return nil;
     }
-    return [self fromDatabase:ckp.currentKeyUUID zoneID:zoneID error:error];
+    return [self fromDatabase:ckp.currentKeyUUID contextID:contextID zoneID:zoneID error:error];
 }
 
-+ (NSArray<CKKSKey*>*) currentKeysForClass: (CKKSKeyClass*) keyclass state:(NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"keyclass": keyclass, @"currentkey": @"1", @"state":  state ? state : SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error:error];
++ (NSArray<CKKSKey*>*) currentKeysForClass:(CKKSKeyClass*)keyclass
+                                 contextID:(NSString*)contextID
+                                     state:(NSString*) state
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *) error
+{
+    return [self allWhere: @{
+        @"keyclass": keyclass,
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"currentkey": @"1",
+        @"state":  state ? state : SecCKKSProcessedStateLocal,
+        @"ckzone":zoneID.zoneName
+    } error:error];
 }
 
 /* Returns all keys for a zone */
-+ (NSArray<CKKSKey*>*)allKeys: (CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"ckzone":zoneID.zoneName} error:error];
++ (NSArray<CKKSKey*>*)allKeysForContextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError * __autoreleasing *) error
+{
+    return [self allWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone":zoneID.zoneName
+    } error:error];
 }
 
 /* Returns all keys marked 'remote', i.e., downloaded from CloudKit */
-+ (NSArray<CKKSKey*>*)remoteKeys: (CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"state":  SecCKKSProcessedStateRemote, @"ckzone":zoneID.zoneName} error:error];
++ (NSArray<CKKSKey*>*)remoteKeysForContextID:(NSString*)contextID
+                                      zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError * __autoreleasing *) error
+{
+    return [self allWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"state":  SecCKKSProcessedStateRemote,
+        @"ckzone":zoneID.zoneName
+    } error:error];
 }
 
 /* Returns all keys marked 'local', i.e., processed in the past */
-+ (NSArray<CKKSKey*>*)localKeys:  (CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"state":  SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error:error];
++ (NSArray<CKKSKey*>*)localKeysForContextID:(NSString*)contextID
+                                     zoneID:(CKRecordZoneID*)zoneID
+                                      error:(NSError * __autoreleasing *) error
+{
+    return [self allWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"state":  SecCKKSProcessedStateLocal,
+        @"ckzone":zoneID.zoneName
+    } error:error];
 }
 
 - (bool)saveToDatabaseAsOnlyCurrentKeyForClassAndState: (NSError * __autoreleasing *) error {
     self.currentkey = true;
 
     // Find other keys for our key class
-    NSArray<CKKSKey*>* keys = [CKKSKey currentKeysForClass: self.keyclass state: self.state zoneID:self.zoneID error:error];
+    NSArray<CKKSKey*>* keys = [CKKSKey currentKeysForClass:self.keyclass
+                                                 contextID:self.contextID
+                                                     state:self.state
+                                                    zoneID:self.zoneID
+                                                     error:error];
     if(!keys) {
         return false;
     }
@@ -796,8 +901,9 @@
 #pragma mark - Utility
 
 - (NSString*)description {
-    return [NSString stringWithFormat: @"<%@(%@): %@ (%@,%@:%d)>",
+    return [NSString stringWithFormat: @"<%@[%@](%@): %@ (%@,%@:%d)>",
             NSStringFromClass([self class]),
+            self.contextID,
             self.zoneID.zoneName,
             self.uuid,
             self.keyclass,
@@ -806,32 +912,40 @@
 }
 
 #pragma mark - CKKSSQLDatabaseObject methods
-
 + (NSString*) sqlTable {
     return @"synckeys";
 }
 
 + (NSArray<NSString*>*) sqlColumns {
-    return @[@"UUID", @"parentKeyUUID", @"ckzone", @"ckrecord", @"keyclass", @"state", @"currentkey", @"wrappedkey"];
+    return @[@"contextID", @"UUID", @"parentKeyUUID", @"ckzone", @"ckrecord", @"keyclass", @"state", @"currentkey", @"wrappedkey"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
-    return @{@"UUID": self.uuid, @"state": self.state, @"ckzone":self.zoneID.zoneName};
+    return @{
+        @"contextID": self.contextID,
+        @"UUID": self.uuid,
+        @"state": self.state,
+        @"ckzone":self.zoneID.zoneName,
+    };
 }
 
 - (NSDictionary<NSString*,NSString*>*) sqlValues {
-    return @{@"UUID": self.uuid,
-             @"parentKeyUUID": self.parentKeyUUID ? self.parentKeyUUID : self.uuid, // if we don't have a parent, we wrap ourself.
-             @"ckzone": CKKSNilToNSNull(self.zoneID.zoneName),
-             @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
-             @"keyclass": CKKSNilToNSNull(self.keyclass),
-             @"state": CKKSNilToNSNull(self.state),
-             @"wrappedkey": CKKSNilToNSNull([self.wrappedKeyData base64EncodedDataWithOptions:0]),
-             @"currentkey": self.currentkey ? @"1" : @"0"};
+    return @{
+        @"contextID": self.contextID,
+        @"UUID": self.uuid,
+        @"parentKeyUUID": self.parentKeyUUID ? self.parentKeyUUID : self.uuid, // if we don't have a parent, we wrap ourself.
+        @"ckzone": CKKSNilToNSNull(self.zoneID.zoneName),
+        @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
+        @"keyclass": CKKSNilToNSNull(self.keyclass),
+        @"state": CKKSNilToNSNull(self.state),
+        @"wrappedkey": CKKSNilToNSNull([self.wrappedKeyData base64EncodedDataWithOptions:0]),
+        @"currentkey": self.currentkey ? @"1" : @"0"
+    };
 }
 
 + (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
     return [[CKKSKey alloc] initWithWrappedKeyData:row[@"wrappedkey"].asBase64DecodedData
+                                         contextID:row[@"contextID"].asString
                                               uuid:row[@"UUID"].asString
                                      parentKeyUUID:row[@"parentKeyUUID"].asString
                                           keyclass:(CKKSKeyClass*)row[@"keyclass"].asString
@@ -841,12 +955,17 @@
                                         currentkey:row[@"currentkey"].asNSInteger];
 }
 
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error
 {
     __block NSNumber *result = nil;
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where:@{
+        @"contextID": contextID,
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+    }
                                       columns:@[@"count(rowid)"]
                                       groupBy:nil
                                       orderBy:nil
@@ -858,11 +977,18 @@
     return result;
 }
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByClass:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
+
++ (NSDictionary<NSString*,NSNumber*>*)countsByClassWithContextID:(NSString*)contextID
+                                                          zoneID:(CKRecordZoneID*)zoneID
+                                                           error:(NSError * __autoreleasing *)error
+{
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
-                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where: @{
+        @"contextID": contextID,
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+    }
                                       columns: @[@"keyclass", @"state", @"count(rowid)"]
                                       groupBy: @[@"keyclass", @"state"]
                                       orderBy:nil
@@ -885,7 +1011,8 @@
 }
 
 - (NSData*)serializeAsProtobuf: (NSError * __autoreleasing *) error {
-    if(![self ensureKeyLoaded:error]) {
+    if(![self ensureKeyLoadedForContextID:self.contextID
+                                    error:error]) {
         return nil;
     }
     CKKSSerializedKey* proto = [[CKKSSerializedKey alloc] init];
@@ -898,10 +1025,14 @@
     return proto.data;
 }
 
-+ (CKKSKey*)loadFromProtobuf:(NSData*)data error:(NSError* __autoreleasing *)error {
++ (CKKSKey* _Nullable)loadFromProtobuf:(NSData*)data
+                             contextID:(NSString*)contextID
+                                 error:(NSError* __autoreleasing *)error
+{
     CKKSSerializedKey* key = [[CKKSSerializedKey alloc] initWithData: data];
     if(key && key.uuid && key.zoneName && key.keyclass && key.key) {
         return [[CKKSKey alloc] initSelfWrappedWithAESKey:[[CKKSAESSIVKey alloc] initWithBytes:(uint8_t*)key.key.bytes len:key.key.length]
+                                                contextID:contextID
                                                      uuid:key.uuid
                                                  keyclass:(CKKSKeyClass*)key.keyclass // TODO sanitize
                                                     state:SecCKKSProcessedStateRemote
@@ -919,6 +1050,7 @@
 
 
 + (BOOL)intransactionRecordChanged:(CKRecord*)record
+                         contextID:(NSString*)contextID
                             resync:(BOOL)resync
                        flagHandler:(id<OctagonStateFlagHandler> _Nullable)flagHandler
                              error:(NSError**)error
@@ -928,7 +1060,10 @@
     if(resync) {
         NSError* resyncerror = nil;
 
-        CKKSKey* key = [CKKSKey tryFromDatabaseAnyState:record.recordID.recordName zoneID:record.recordID.zoneID error:&resyncerror];
+        CKKSKey* key = [CKKSKey tryFromDatabaseAnyState:record.recordID.recordName
+                                              contextID:contextID
+                                                 zoneID:record.recordID.zoneID
+                                                  error:&resyncerror];
         if(resyncerror) {
             ckkserror("ckksresync", record.recordID.zoneID, "error loading key: %@", resyncerror);
         }
@@ -942,10 +1077,11 @@
         }
     }
 
-    CKKSKey* remotekey = [[CKKSKey alloc] initWithCKRecord:record];
+    CKKSKey* remotekey = [[CKKSKey alloc] initWithCKRecord:record contextID:contextID];
 
     // Do we already know about this key?
     CKKSKey* possibleLocalKey = [CKKSKey tryFromDatabase:remotekey.uuid
+                                               contextID:contextID
                                                   zoneID:record.recordID.zoneID
                                                    error:&localerror];
     if(localerror) {
@@ -991,11 +1127,13 @@
 }
 
 + (BOOL)intransactionRecordDeleted:(CKRecordID*)recordID
+                         contextID:(NSString*)contextID
                              error:(NSError**)error
 {
     do {
         NSError* localError = nil;
         CKKSKey* key = [CKKSKey tryFromDatabaseAnyState:recordID.recordName
+                                              contextID:contextID
                                                  zoneID:recordID.zoneID
                                                   error:&localError];
 

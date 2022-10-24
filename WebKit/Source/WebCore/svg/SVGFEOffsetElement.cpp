@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,8 +23,6 @@
 #include "SVGFEOffsetElement.h"
 
 #include "FEOffset.h"
-#include "FilterEffect.h"
-#include "SVGFilterBuilder.h"
 #include "SVGNames.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -72,24 +70,43 @@ void SVGFEOffsetElement::parseAttribute(const QualifiedName& name, const AtomStr
 
 void SVGFEOffsetElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (PropertyRegistry::isKnownAttribute(attrName)) {
+    if (attrName == SVGNames::inAttr) {
         InstanceInvalidationGuard guard(*this);
-        setSVGResourcesInAncestorChainAreDirty();
+        updateSVGRendererForElementChange();
+        return;
+    }
+
+    if (attrName == SVGNames::dxAttr || attrName == SVGNames::dyAttr) {
+        InstanceInvalidationGuard guard(*this);
+        primitiveAttributeChanged(attrName);
         return;
     }
 
     SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
 }
 
-RefPtr<FilterEffect> SVGFEOffsetElement::build(SVGFilterBuilder& filterBuilder) const
+bool SVGFEOffsetElement::setFilterEffectAttribute(FilterEffect& effect, const QualifiedName& attrName)
 {
-    auto input1 = filterBuilder.getEffectById(in1());
-    if (!input1)
-        return nullptr;
+    auto& offset = downcast<FEOffset>(effect);
 
-    auto effect = FEOffset::create(dx(), dy());
-    effect->inputEffects() = { input1.releaseNonNull() };
-    return effect;
+    if (attrName == SVGNames::dxAttr)
+        return offset.setDx(dx());
+    if (attrName == SVGNames::dyAttr)
+        return offset.setDy(dy());
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
+IntOutsets SVGFEOffsetElement::outsets(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits) const
+{
+    auto offset = SVGFilter::calculateResolvedSize({ dx(), dy() }, targetBoundingBox, primitiveUnits);
+    return FEOffset::calculateOutsets(offset);
 }
+
+RefPtr<FilterEffect> SVGFEOffsetElement::createFilterEffect(const FilterEffectVector&, const GraphicsContext&) const
+{
+    return FEOffset::create(dx(), dy());
+}
+
+} // namespace WebCore

@@ -1010,7 +1010,7 @@ print_file()
 #if	defined(HASPRINTSZ)
 		cp = HASPRINTSZ(Lf);
 #else	/* !defined(HASPRINTSZ) */
-		(void) snpf(buf, sizeof(buf), SzOffFmt_d, Lf->sz);
+		(void) snpf(buf, sizeof(buf), SzOffFmt_d_const, Lf->sz);
 		cp = buf;
 #endif	/* defined(HASPRINTSZ) */
 
@@ -1020,7 +1020,7 @@ print_file()
 #if	defined(HASPRINTOFF)
 		cp = HASPRINTOFF(Lf, 0);
 #else	/* !defined(HASPRINTOFF) */
-		(void) snpf(buf, sizeof(buf), SzOffFmt_0t, Lf->off);
+		(void) snpf(buf, sizeof(buf), SzOffFmt_0t_const, Lf->off);
 		cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1030,7 +1030,7 @@ print_file()
 #if	defined(HASPRINTOFF)
 		    cp = HASPRINTOFF(Lf, 1);
 #else	/* !defined(HASPRINTOFF) */
-		    (void) snpf(buf, sizeof(buf), SzOffFmt_x, Lf->off);
+		    (void) snpf(buf, sizeof(buf), SzOffFmt_x_const, Lf->off);
 		    cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1047,7 +1047,7 @@ print_file()
 #if	defined(HASPRINTSZ)
 		(void) printf("%*.*s", SzOffColW, SzOffColW, HASPRINTSZ(Lf));
 #else	/* !defined(HASPRINTSZ) */
-		(void) printf(SzOffFmt_dv, SzOffColW, Lf->sz);
+		(void) printf(SzOffFmt_dv_const, SzOffColW, Lf->sz);
 #endif	/* defined(HASPRINTSZ) */
 
 	    else if (Lf->off_def) {
@@ -1055,7 +1055,7 @@ print_file()
 #if	defined(HASPRINTOFF)
 		cp = HASPRINTOFF(Lf, 0);
 #else	/* !defined(HASPRINTOFF) */
-		(void) snpf(buf, sizeof(buf), SzOffFmt_0t, Lf->off);
+		(void) snpf(buf, sizeof(buf), SzOffFmt_0t_const, Lf->off);
 		cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1064,7 +1064,7 @@ print_file()
 #if	defined(HASPRINTOFF)
 		    cp = HASPRINTOFF(Lf, 1);
 #else	/* !defined(HASPRINTOFF) */
-		    (void) snpf(buf, sizeof(buf), SzOffFmt_x, Lf->off);
+		    (void) snpf(buf, sizeof(buf), SzOffFmt_x_const, Lf->off);
 		    cp = buf;
 #endif	/* defined(HASPRINTOFF) */
 
@@ -1097,7 +1097,7 @@ print_file()
 #if	defined(HASPRINTINO)
 	    cp = HASPRINTINO(Lf);
 #else	/* !defined(HASPRINTINO) */
-	    (void) snpf(buf, sizeof(buf), InodeFmt_d, Lf->inode);
+	    (void) snpf(buf, sizeof(buf), InodeFmt_d_const, Lf->inode);
 	    cp = buf;
 #endif	/* defined(HASPRINTINO) */
 
@@ -1109,7 +1109,7 @@ print_file()
 		cp = "";
 	    break;
 	case 3:
-	    (void) snpf(buf, sizeof(buf), InodeFmt_x, Lf->inode);
+	    (void) snpf(buf, sizeof(buf), InodeFmt_x_const, Lf->inode);
 	    cp = buf;
 	    break;
 	default:

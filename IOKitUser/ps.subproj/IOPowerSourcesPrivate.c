@@ -235,14 +235,11 @@ IOPSGetActiveBattery(CFTypeRef ps_blob)
  */
 CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
 {
-
-    if(!isA_CFString(ps_type)) 
-    {
+    if(!isA_CFString(ps_type)) {
         return kCFBooleanFalse;
     }
 
-    if(CFEqual(ps_type, CFSTR(kIOPMACPowerKey))) 
-    {
+    if(CFEqual(ps_type, CFSTR(kIOPMACPowerKey))) {
         return kCFBooleanTrue;
     }
 
@@ -259,7 +256,9 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
 
                 CFRelease(data);
 
-                return battery ? kCFBooleanTrue : kCFBooleanFalse;
+                if (battery) {
+                    return kCFBooleanTrue;
+                }
             }
         }
     }

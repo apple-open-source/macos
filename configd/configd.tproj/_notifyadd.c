@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011, 2014-2016, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010, 2015, 2016, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -123,7 +123,7 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 		 * We are watching a specific key. As such, update the
 		 * store to mark our interest in any changes.
 		 */
-		_addWatcher(sessionNum, key);
+		_storeAddWatcher(sessionNum, key);
 
 		/* add key to this sessions notifier list */
 		addKey(&storePrivate->keys, key);
@@ -241,7 +241,7 @@ int
 __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRef patterns)
 {
 	updateKeysContext		myContext;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
 	SC_trace("watch   : %5d : %ld keys, %ld patterns",
 		 storePrivate->server,

@@ -322,7 +322,7 @@ errOut:
     require_action_quiet(prospectiveRing, errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("No Ring to work with"), NULL, error));
     require_action_quiet(SOSRingIsStable(prospectiveRing), errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("You give rings a bad name"), NULL, error));
     
-    // We should at least have a sane ring system in the account object
+    // We should at least have a stable ring system in the account object
     require_quiet([self checkForRings:error], errOut);
 
     if(ringIsBackup) {

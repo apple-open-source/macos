@@ -486,6 +486,27 @@ static char *
 trim_rhs(char *str)
 {
 	char *rhs = &str[strlen(str)];
+#ifdef __APPLE__
+	/*
+	 * rdar://problem/98066956 - Scan for an inline comment and trim from
+	 * that instead.
+	 */
+	char *comment = rhs;
+
+	while (--comment > str) {
+		if (*comment == '"' && *(comment - 1) == '\\') {
+			/*
+			 * The expectation in the below block is that we're at
+			 * *rhs == '\0' upon entry, so we set rhs to the begin
+			 * comment indicator and zap it without any further
+			 * movement.
+			 */
+			rhs = comment - 1;
+			*rhs = '\0';
+			break;
+		}
+	}
+#endif
 	while (--rhs > str && isspace(*rhs))
 		;
 	*++rhs = '\0';

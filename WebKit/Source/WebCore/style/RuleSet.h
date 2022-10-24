@@ -86,6 +86,7 @@ public:
 
     const RuleDataVector* idRules(const AtomString& key) const { return m_idRules.get(key); }
     const RuleDataVector* classRules(const AtomString& key) const { return m_classRules.get(key); }
+    const RuleDataVector* attributeRules(const AtomString& key, bool isHTMLName) const;
     const RuleDataVector* tagRules(const AtomString& key, bool isHTMLName) const;
     const RuleDataVector* shadowPseudoElementRules(const AtomString& key) const { return m_shadowPseudoElementRules.get(key); }
     const RuleDataVector* linkPseudoClassRules() const { return &m_linkPseudoClassRules; }
@@ -102,12 +103,17 @@ public:
 
     unsigned ruleCount() const { return m_ruleCount; }
 
+    bool hasAttributeRules() const { return !m_attributeLocalNameRules.isEmpty(); }
     bool hasShadowPseudoElementRules() const { return !m_shadowPseudoElementRules.isEmpty(); }
     bool hasHostPseudoClassRulesMatchingInShadowTree() const { return m_hasHostPseudoClassRulesMatchingInShadowTree; }
 
+    static constexpr auto cascadeLayerPriorityForPresentationalHints = std::numeric_limits<CascadeLayerPriority>::min();
     static constexpr auto cascadeLayerPriorityForUnlayered = std::numeric_limits<CascadeLayerPriority>::max();
 
     CascadeLayerPriority cascadeLayerPriorityFor(const RuleData&) const;
+
+    bool hasContainerQueries() const { return !m_containerQueries.isEmpty(); }
+    Vector<const CQ::ContainerQuery*> containerQueriesFor(const RuleData&) const;
 
 private:
     friend class RuleSetBuilder;
@@ -115,8 +121,9 @@ private:
     RuleSet();
 
     using CascadeLayerIdentifier = unsigned;
+    using ContainerQueryIdentifier = unsigned;
 
-    void addRule(RuleData&&, CascadeLayerIdentifier);
+    void addRule(RuleData&&, CascadeLayerIdentifier, ContainerQueryIdentifier);
 
     struct ResolverMutatingRule {
         Ref<StyleRuleBase> rule;
@@ -141,6 +148,11 @@ private:
     const CascadeLayer& cascadeLayerForIdentifier(CascadeLayerIdentifier identifier) const { return m_cascadeLayers[identifier - 1]; }
     CascadeLayerPriority cascadeLayerPriorityForIdentifier(CascadeLayerIdentifier) const;
 
+    struct ContainerQueryAndParent {
+        Ref<StyleRuleContainer> containerRule;
+        ContainerQueryIdentifier parent;
+    };
+
     struct DynamicMediaQueryRules {
         Vector<Ref<const MediaQuerySet>> mediaQuerySets;
         Vector<size_t> affectedRulePositions;
@@ -158,6 +170,8 @@ private:
 
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
+    AtomRuleMap m_attributeLocalNameRules;
+    AtomRuleMap m_attributeCanonicalLocalNameRules;
     AtomRuleMap m_tagLocalNameRules;
     AtomRuleMap m_tagLowercaseLocalNameRules;
     AtomRuleMap m_shadowPseudoElementRules;
@@ -182,18 +196,23 @@ private:
 
     Vector<ResolverMutatingRule> m_resolverMutatingRulesInLayers;
 
+    Vector<ContainerQueryAndParent> m_containerQueries;
+    Vector<ContainerQueryIdentifier> m_containerQueryIdentifierForRulePosition;
+
     bool m_hasHostPseudoClassRulesMatchingInShadowTree { false };
     bool m_hasViewportDependentMediaQueries { false };
 };
 
+inline const RuleSet::RuleDataVector* RuleSet::attributeRules(const AtomString& key, bool isHTMLName) const
+{
+    auto& rules = isHTMLName ? m_attributeCanonicalLocalNameRules : m_attributeLocalNameRules;
+    return rules.get(key);
+}
+
 inline const RuleSet::RuleDataVector* RuleSet::tagRules(const AtomString& key, bool isHTMLName) const
 {
-    const AtomRuleMap* tagRules;
-    if (isHTMLName)
-        tagRules = &m_tagLowercaseLocalNameRules;
-    else
-        tagRules = &m_tagLocalNameRules;
-    return tagRules->get(key);
+    auto& rules = isHTMLName ? m_tagLowercaseLocalNameRules : m_tagLocalNameRules;
+    return rules.get(key);
 }
 
 inline CascadeLayerPriority RuleSet::cascadeLayerPriorityForIdentifier(CascadeLayerIdentifier identifier) const
@@ -209,6 +228,23 @@ inline CascadeLayerPriority RuleSet::cascadeLayerPriorityFor(const RuleData& rul
         return cascadeLayerPriorityForUnlayered;
     auto identifier = m_cascadeLayerIdentifierForRulePosition[ruleData.position()];
     return cascadeLayerPriorityForIdentifier(identifier);
+}
+
+inline Vector<const CQ::ContainerQuery*> RuleSet::containerQueriesFor(const RuleData& ruleData) const
+{
+    if (m_containerQueryIdentifierForRulePosition.size() <= ruleData.position())
+        return { };
+
+    Vector<const CQ::ContainerQuery*> queries;
+
+    auto identifier = m_containerQueryIdentifierForRulePosition[ruleData.position()];
+    while (identifier) {
+        auto& query = m_containerQueries[identifier - 1];
+        queries.append(&query.containerRule->containerQuery());
+        identifier = query.parent;
+    };
+
+    return queries;
 }
 
 } // namespace Style

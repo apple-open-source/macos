@@ -1730,13 +1730,28 @@ static int process_head_file(struct archive_read* a, struct rar5* rar,
 		}
 	}
 
-	/* If we're currently switching volumes, ignore the new definition of
-	 * window_size. */
-	if(rar->cstate.switch_multivolume == 0) {
-		/* Values up to 64M should fit into ssize_t on every
-		 * architecture. */
-		rar->cstate.window_size = (ssize_t) window_size;
+	if(rar->cstate.window_size < (ssize_t) window_size &&
+	    rar->cstate.window_buf)
+	{
+		/* If window_buf has been allocated before, reallocate it, so
+		 * that its size will match new window_size. */
+
+		uint8_t* new_window_buf =
+			realloc(rar->cstate.window_buf, window_size);
+
+		if(!new_window_buf) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_PROGRAMMER,
+				"Not enough memory when trying to realloc the window "
+				"buffer.");
+			return ARCHIVE_FATAL;
+		}
+
+		rar->cstate.window_buf = new_window_buf;
 	}
+
+	/* Values up to 64M should fit into ssize_t on every
+	 * architecture. */
+	rar->cstate.window_size = (ssize_t) window_size;
 
 	if(rar->file.solid > 0 && rar->file.solid_window_size == 0) {
 		/* Solid files have to have the same window_size across
@@ -3616,6 +3631,16 @@ static int do_uncompress_file(struct archive_read* a) {
 		rar->cstate.initialized = 1;
 	}
 
+	/* Don't allow extraction if window_size is invalid. */
+	if(rar->cstate.window_size == 0) {
+		archive_set_error(&a->archive,
+			ARCHIVE_ERRNO_FILE_FORMAT,
+			"Invalid window size declaration in this file");
+
+		/* This should never happen in valid files. */
+		return ARCHIVE_FATAL;
+	}
+
 	if(rar->cstate.all_filters_applied == 1) {
 		/* We use while(1) here, but standard case allows for just 1
 		 * iteration. The loop will iterate if process_block() didn't
@@ -4092,6 +4117,7 @@ int archive_read_support_format_rar5(struct archive *_a) {
 	if(ARCHIVE_OK != rar5_init(rar)) {
 		archive_set_error(&ar->archive, ENOMEM,
 		    "Can't allocate rar5 filter buffer");
+		free(rar);
 		return ARCHIVE_FATAL;
 	}
 

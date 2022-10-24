@@ -70,5 +70,5 @@ T_DECL(ftell_ungetc, "Test interactions of ftell and ungetc")
 	 */
 	T_ASSERT_EQ(fgetc(fp), '+', "read another character");
 	T_ASSERT_EQ(ungetc('A', fp), 'A', "push back a different character");
-	T_EXPECTFAIL; T_ASSERT_EQ(ftell(fp), 3L, "ftell after pushback - EXPECTED FAIL rdar://66131999");
+	T_ASSERT_EQ(ftell(fp), 3L, "ftell after pushback");
 }

@@ -137,6 +137,13 @@ retry:
 		wc = *p;
 		clen = 1;
 	}
+
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	if (!converr && iswprint(wc)) {
 		if (!odmode) {
 			*pr->cchar = 'c';
@@ -158,6 +165,7 @@ retry:
 strpr:		*pr->cchar = 's';
 		(void)printf(pr->fmt, str);
 	}
+#pragma clang diagnostic pop
 }
 
 void
@@ -169,6 +177,12 @@ conv_u(PR *pr, u_char *p)
 		"dle", "dc1", "dc2", "dc3", "dc4", "nak", "syn", "etb",
 		"can",  "em", "sub", "esc",  "fs",  "gs",  "rs",  "us",
 	};
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 
 						/* od used nl, not lf */
 	if (*p <= 0x1f) {
@@ -190,4 +204,5 @@ conv_u(PR *pr, u_char *p)
 		*pr->cchar = 'x';
 		(void)printf(pr->fmt, (int)*p);
 	}
+#pragma clang diagnostic pop
 }

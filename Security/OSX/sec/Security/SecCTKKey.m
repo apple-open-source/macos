@@ -51,6 +51,7 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
 @property (nonatomic) TKClientTokenObject *tokenObject;
 @property (nonatomic, readonly) NSDictionary *keychainAttributes;
 @property (nonatomic) NSDictionary *sessionParameters;
+@property (nonatomic, readonly) CFIndex algorithmID;
 @end
 
 @implementation SecCTKKey
@@ -182,6 +183,17 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
     return [self.tokenObject.session.token.tokenID isEqualToString:other.tokenObject.session.token.tokenID] && [self.tokenObject.objectID isEqualToData:other.tokenObject.objectID];
 }
 
+- (CFIndex)algorithmID {
+    NSString *keyType = self.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
+    if ([keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandom] ||
+        [keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] ||
+        [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAttestation] ||
+        [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAnonymousAttestation]) {
+        return kSecECDSAAlgorithmID;
+    }
+    return kSecRSAAlgorithmID;
+}
+
 @end
 
 static void SecCTKKeyDestroy(SecKeyRef keyRef) {
@@ -191,14 +203,7 @@ static void SecCTKKeyDestroy(SecKeyRef keyRef) {
 }
 
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef keyRef) {
-    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
-    NSString *keyType = key.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
-    if ([keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandom] ||
-        [keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] ||
-        [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
-        return kSecECDSAAlgorithmID;
-    }
-    return kSecRSAAlgorithmID;
+    return [SecCTKKey fromKeyRef:keyRef].algorithmID;
 }
 
 static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
@@ -447,8 +452,7 @@ OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey,
 
     // Create non-token public key.
     NSData *publicKeyData = key.tokenObject.publicKey;
-    id keyType = key.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
-    if ([keyType isEqual:(id)kSecAttrKeyTypeECSECPrimeRandom] || [keyType isEqual:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] || [keyType isEqual:(id)kSecAttrKeyTypeSecureEnclaveAttestation]) {
+    if (key.algorithmID == kSecECDSAAlgorithmID) {
         *publicKey = SecKeyCreateECPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);
     } else {
         *publicKey = SecKeyCreateRSAPublicKey(SecCFAllocatorZeroize(), publicKeyData.bytes, publicKeyData.length, kSecKeyEncodingBytes);

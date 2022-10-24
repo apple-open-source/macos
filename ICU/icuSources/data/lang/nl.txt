@@ -45,6 +45,7 @@ nl{
         an{"Aragonees"}
         ang{"Oudengels"}
         anp{"Angika"}
+        apw{"Apache, West-"}
         ar{"Arabisch"}
         ar_001{"modern standaard Arabisch"}
         arc{"Aramees"}

@@ -26,21 +26,19 @@
 #pragma once
 
 #include "Filter.h"
-#include "IntRectExtent.h"
+#include "LengthBox.h"
 
 namespace WebCore {
 
-class FilterEffect;
 class FilterOperations;
 class GraphicsContext;
-class ReferenceFilterOperation;
 class RenderElement;
 class SourceGraphic;
 
 class CSSFilter final : public Filter {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static RefPtr<CSSFilter> create(RenderElement&, const FilterOperations&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& targetBoundingBox);
+    static RefPtr<CSSFilter> create(RenderElement&, const FilterOperations&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& targetBoundingBox, const GraphicsContext& destinationContext);
     WEBCORE_EXPORT static RefPtr<CSSFilter> create(Vector<Ref<FilterFunction>>&&);
 
     const Vector<Ref<FilterFunction>>& functions() const { return m_functions; }
@@ -50,22 +48,19 @@ public:
     bool hasFilterThatMovesPixels() const { return m_hasFilterThatMovesPixels; }
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const { return m_hasFilterThatShouldBeRestrictedBySecurityOrigin; }
 
-    RefPtr<FilterEffect> lastEffect() const final;
     FilterEffectVector effectsOfType(FilterFunction::Type) const final;
 
-    IntOutsets outsets() const final;
-
     RefPtr<FilterImage> apply(FilterImage* sourceImage, FilterResults&) final;
+
+    static IntOutsets calculateOutsets(RenderElement&, const FilterOperations&, const FloatRect& targetBoundingBox);
 
 private:
     CSSFilter(RenderingMode, const FloatSize& filterScale, ClipOperation, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin);
     CSSFilter(Vector<Ref<FilterFunction>>&&);
-    
-    bool buildFilterFunctions(RenderElement&, const FilterOperations&, const FloatRect& targetBoundingBox);
 
-#if USE(CORE_IMAGE)
-    bool supportsCoreImageRendering() const final;
-#endif
+    bool buildFilterFunctions(RenderElement&, const FilterOperations&, const FloatRect& targetBoundingBox, const GraphicsContext& destinationContext);
+
+    bool supportsAcceleratedRendering() const final;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const final;
 
@@ -73,8 +68,6 @@ private:
     bool m_hasFilterThatShouldBeRestrictedBySecurityOrigin { false };
 
     Vector<Ref<FilterFunction>> m_functions;
-
-    mutable IntOutsets m_outsets;
 };
 
 } // namespace WebCore

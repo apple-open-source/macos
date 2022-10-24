@@ -383,7 +383,7 @@ class Allocate:public Dispatcher {
 
     Node *c = firstChild(cls);
     String *kind = Getattr(cls, "kind");
-    int mode = PUBLIC;
+    __unused int mode = PUBLIC;
     if (kind && (Strcmp(kind, "class") == 0))
       mode = PRIVATE;
 

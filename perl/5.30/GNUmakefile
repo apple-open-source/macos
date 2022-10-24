@@ -227,7 +227,8 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm < fix/ExtUtils_MM_Unix.pm.ed && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-extutils-makemaker-tbd-support.patch) && \
 	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-bzip2-use-sdk.patch | patch -p1) && \
-	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-zlib-use-sdk.patch | patch -p1)
+	(cd $(PROJECT) ; sed -e 's#@SDKROOT@#$(SDKROOT)#g' $(SRCROOT)/fix/perl-compress-raw-zlib-use-sdk.patch | patch -p1) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-regexec-fix-underflow.patch)
 
 
 ifneq "$(RC_XBS)" "YES"

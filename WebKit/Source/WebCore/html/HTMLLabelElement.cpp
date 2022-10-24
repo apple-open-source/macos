@@ -99,13 +99,13 @@ void HTMLLabelElement::setActive(bool down, bool pause, Style::InvalidationScope
         element->setActive(down, pause);
 }
 
-void HTMLLabelElement::setHovered(bool over, Style::InvalidationScope invalidationScope)
+void HTMLLabelElement::setHovered(bool over, Style::InvalidationScope invalidationScope, HitTestRequest request)
 {
     if (over == hovered())
         return;
         
     // Update our status first.
-    HTMLElement::setHovered(over, invalidationScope);
+    HTMLElement::setHovered(over, invalidationScope, request);
 
     // Also update our corresponding control.
     if (auto element = control())
@@ -157,7 +157,7 @@ void HTMLLabelElement::defaultEventHandler(Event& event)
 
         document().updateLayoutIgnorePendingStylesheets();
         if (control->isMouseFocusable())
-            control->focus();
+            control->focus({ { }, { }, { }, FocusTrigger::Click, { } });
 
         processingClick = false;
 
@@ -167,10 +167,10 @@ void HTMLLabelElement::defaultEventHandler(Event& event)
     HTMLElement::defaultEventHandler(event);
 }
 
-bool HTMLLabelElement::willRespondToMouseClickEvents()
+bool HTMLLabelElement::willRespondToMouseClickEventsWithEditability(Editability editability) const
 {
     auto element = control();
-    return (element && element->willRespondToMouseClickEvents()) || HTMLElement::willRespondToMouseClickEvents();
+    return (element && element->willRespondToMouseClickEventsWithEditability(editability)) || HTMLElement::willRespondToMouseClickEventsWithEditability(editability);
 }
 
 void HTMLLabelElement::focus(const FocusOptions& options)
@@ -196,6 +196,30 @@ bool HTMLLabelElement::accessKeyAction(bool sendMouseEvents)
         return element->accessKeyAction(sendMouseEvents);
 
     return HTMLElement::accessKeyAction(sendMouseEvents);
+}
+
+auto HTMLLabelElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree) -> InsertedIntoAncestorResult
+{
+    auto result = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+
+    if (parentOfInsertedTree.isInTreeScope() && insertionType.treeScopeChanged) {
+        auto& newScope = parentOfInsertedTree.treeScope();
+        if (newScope.shouldCacheLabelsByForAttribute())
+            updateLabel(newScope, nullAtom(), attributeWithoutSynchronization(forAttr));
+    }
+
+    return result;
+}
+
+void HTMLLabelElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+{
+    if (oldParentOfRemovedTree.isInTreeScope() && removalType.treeScopeChanged) {
+        auto& oldScope = oldParentOfRemovedTree.treeScope();
+        if (oldScope.shouldCacheLabelsByForAttribute())
+            updateLabel(oldScope, attributeWithoutSynchronization(forAttr), nullAtom());
+    }
+
+    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
 }
 
 } // namespace

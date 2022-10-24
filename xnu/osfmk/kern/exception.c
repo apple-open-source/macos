@@ -95,15 +95,20 @@
 #include <pexpert/pexpert.h>
 
 #include <os/log.h>
+#include <os/system_event_log.h>
 
 #include <libkern/coreanalytics/coreanalytics.h>
 
+#include <sys/code_signing.h> /* for developer mode state */
+
 bool panic_on_exception_triage = false;
 
+/* Not used in coded, only for inspection during debugging */
 unsigned long c_thr_exc_raise = 0;
 unsigned long c_thr_exc_raise_identity_token = 0;
 unsigned long c_thr_exc_raise_state = 0;
 unsigned long c_thr_exc_raise_state_id = 0;
+unsigned long c_thr_exc_raise_backtrace = 0;
 
 /* forward declarations */
 kern_return_t exception_deliver(
@@ -162,7 +167,21 @@ exception_init(void)
 #endif /* (DEVELOPMENT || DEBUG) */
 }
 
-static TUNABLE(bool, pac_replace_ptrs_user, "-pac_replace_ptrs_user", false);
+static TUNABLE(bool, pac_replace_ptrs_user, "pac_replace_ptrs_user", true);
+
+ipc_port_t
+exception_port_copy_send(ipc_port_t port)
+{
+	if (IP_VALID(port)) {
+		if (is_ux_handler_port(port)) {
+			/* is_ux_handler_port() compares against __DATA_CONST */
+			port = ipc_port_copy_send_any(port);
+		} else {
+			port = ipc_port_copy_send_mqueue(port);
+		}
+	}
+	return port;
+}
 
 /*
  *	Routine:	exception_deliver
@@ -183,7 +202,7 @@ exception_deliver(
 	mach_exception_data_t   code,
 	mach_msg_type_number_t  codeCnt,
 	struct exception_action *excp,
-	lck_mtx_t                       *mutex)
+	lck_mtx_t               *mutex)
 {
 	ipc_port_t              exc_port = IPC_PORT_NULL;
 	exception_data_type_t   small_code[EXCEPTION_CODE_MAX];
@@ -229,20 +248,11 @@ exception_deliver(
 	 * ipc_object_copyin_from_kernel is finally called.
 	 */
 	lck_mtx_lock(mutex);
-	exc_port = excp->port;
+	exc_port = exception_port_copy_send(excp->port);
 	if (!IP_VALID(exc_port)) {
 		lck_mtx_unlock(mutex);
 		return KERN_FAILURE;
 	}
-	ip_mq_lock(exc_port);
-	if (!ip_active(exc_port)) {
-		ip_mq_unlock(exc_port);
-		lck_mtx_unlock(mutex);
-		return KERN_FAILURE;
-	}
-	ip_reference(exc_port);
-	exc_port->ip_srights++;
-	ip_mq_unlock(exc_port);
 
 	flavor = excp->flavor;
 	behavior = excp->behavior;
@@ -273,23 +283,6 @@ exception_deliver(
 		goto out_release_right;
 	}
 #endif
-
-	if ((behavior != EXCEPTION_STATE) && (behavior != EXCEPTION_IDENTITY_PROTECTED)) {
-		task_reference(task);
-		task_port = convert_task_to_port(task);
-		/* task ref consumed */
-		thread_reference(thread);
-		thread_port = convert_thread_to_port(thread);
-		/* thread ref consumed */
-	}
-
-	if (behavior == EXCEPTION_IDENTITY_PROTECTED) {
-		kr = task_create_identity_token(task, &task_token);
-		/* task_token now represents a task, or corpse */
-		assert(kr == KERN_SUCCESS);
-		task_token_port = convert_task_id_token_to_port(task_token);
-		/* task token ref consumed */
-	}
 
 	switch (behavior) {
 	case EXCEPTION_STATE: {
@@ -348,6 +341,24 @@ exception_deliver(
 
 	case EXCEPTION_DEFAULT: {
 		c_thr_exc_raise++;
+
+		task_reference(task);
+		thread_reference(thread);
+		/*
+		 * Only deliver control port if Developer Mode enabled,
+		 * or task is a corpse. Otherwise we only deliver the
+		 * (immovable) read port in exception handler (both in
+		 * or out of process). (94669540)
+		 */
+		if (developer_mode_state() || task_is_a_corpse(task)) {
+			task_port = convert_task_to_port(task);
+			thread_port = convert_thread_to_port(thread);
+		} else {
+			task_port = convert_task_read_to_port(task);
+			thread_port = convert_thread_read_to_port(thread);
+		}
+		/* task and thread ref consumed */
+
 		if (code64) {
 			kr = mach_exception_raise(exc_port,
 			    thread_port,
@@ -369,6 +380,13 @@ exception_deliver(
 
 	case EXCEPTION_IDENTITY_PROTECTED: {
 		c_thr_exc_raise_identity_token++;
+
+		kr = task_create_identity_token(task, &task_token);
+		/* task_token now represents a task, or corpse */
+		assert(kr == KERN_SUCCESS);
+		task_token_port = convert_task_id_token_to_port(task_token);
+		/* task token ref consumed */
+
 		if (code64) {
 			kr = mach_exception_raise_identity_protected(exc_port,
 			    thread->thread_id,
@@ -396,6 +414,24 @@ exception_deliver(
 		}
 
 		c_thr_exc_raise_state_id++;
+
+		task_reference(task);
+		thread_reference(thread);
+		/*
+		 * Only deliver control port if Developer Mode enabled,
+		 * or task is a corpse. Otherwise we only deliver the
+		 * (immovable) read port in exception handler (both in
+		 * or out of process). (94669540)
+		 */
+		if (developer_mode_state() || task_is_a_corpse(task)) {
+			task_port = convert_task_to_port(task);
+			thread_port = convert_thread_to_port(thread);
+		} else {
+			task_port = convert_task_read_to_port(task);
+			thread_port = convert_thread_read_to_port(thread);
+		}
+		/* task and thread ref consumed */
+
 		old_state_cnt = _MachineStateCount[flavor];
 		kr = thread_getstatus_to_user(thread, flavor,
 		    (thread_state_t)old_state,
@@ -471,6 +507,78 @@ out_release_right:
 	}
 
 	return kr;
+}
+
+/*
+ * Attempt exception delivery with backtrace info to exception ports
+ * in exc_ports in order.
+ */
+/*
+ *	Routine:	exception_deliver_backtrace
+ *	Purpose:
+ *      Attempt exception delivery with backtrace info to exception ports
+ *      in exc_ports in order.
+ *	Conditions:
+ *		Caller has a reference on bt_object, and send rights on exc_ports.
+ *		Does not consume any passed references or rights
+ */
+void
+exception_deliver_backtrace(
+	kcdata_object_t  bt_object,
+	ipc_port_t       exc_ports[static BT_EXC_PORTS_COUNT],
+	exception_type_t exception)
+{
+	kern_return_t kr;
+	mach_exception_data_type_t code[EXCEPTION_CODE_MAX];
+	ipc_port_t target_port, bt_obj_port;
+
+	assert(exception == EXC_GUARD);
+
+	code[0] = exception;
+	code[1] = 0;
+
+	kcdata_object_reference(bt_object);
+	bt_obj_port = convert_kcdata_object_to_port(bt_object);
+	/* backtrace object ref consumed, no-senders is armed */
+
+	if (!IP_VALID(bt_obj_port)) {
+		return;
+	}
+
+	/*
+	 * We are guaranteed at task_enqueue_exception_with_corpse() time
+	 * that the exception port prefers backtrace delivery.
+	 */
+	for (unsigned int i = 0; i < BT_EXC_PORTS_COUNT; i++) {
+		target_port = exc_ports[i];
+
+		if (!IP_VALID(target_port)) {
+			continue;
+		}
+
+		ip_mq_lock(target_port);
+		if (!ip_active(target_port)) {
+			ip_mq_unlock(target_port);
+			continue;
+		}
+		ip_mq_unlock(target_port);
+
+		kr = mach_exception_raise_backtrace(target_port,
+		    bt_obj_port,
+		    EXC_CORPSE_NOTIFY,
+		    code,
+		    EXCEPTION_CODE_MAX);
+
+		if (kr == KERN_SUCCESS || kr == MACH_RCV_PORT_DIED) {
+			/* Exception is handled at this level */
+			break;
+		}
+	}
+
+	/* May trigger no-senders notification for backtrace object */
+	ipc_port_release_send(bt_obj_port);
+
+	return;
 }
 
 /*
@@ -614,7 +722,7 @@ pac_exception_triage(
 {
 	boolean_t traced_flag = FALSE;
 	task_t task = current_task();
-	void *proc = task->bsd_info;
+	void *proc = get_bsdtask_info(task);
 	char *proc_name = (char *) "unknown";
 	int pid = 0;
 
@@ -627,7 +735,7 @@ pac_exception_triage(
 
 		/*
 		 * For a ptrauth violation, check if process isn't being ptraced and
-		 * the task has the TF_PAC_EXC_FATAL flag set. If both conditions are true,
+		 * the task has the TFRO_PAC_EXC_FATAL flag set. If both conditions are true,
 		 * terminate the task via exit_with_reason
 		 */
 		if (!traced_flag) {
@@ -688,9 +796,10 @@ exception_triage(
 
 #if (DEVELOPMENT || DEBUG)
 #ifdef MACH_BSD
-	if (proc_pid(task->bsd_info) <= exception_log_max_pid) {
-		printf("exception_log_max_pid: pid %d (%s): sending exception %d (0x%llx 0x%llx)\n",
-		    proc_pid(task->bsd_info), proc_name_address(task->bsd_info),
+	if (proc_pid(get_bsdtask_info(task)) <= exception_log_max_pid) {
+		record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_PROCESS, "process exit",
+		    "exception_log_max_pid: pid %d (%s): sending exception %d (0x%llx 0x%llx)",
+		    proc_pid(get_bsdtask_info(task)), proc_name_address(get_bsdtask_info(task)),
 		    exception, code[0], codeCnt > 1 ? code[1] : 0);
 	}
 #endif /* MACH_BSD */

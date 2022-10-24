@@ -41,7 +41,7 @@ static int	smb2_mc_add_new_interface_info_to_list(
             uint32_t* list_counter,
             struct network_nic_info* new_info,
             uint32_t rss_val,
-            bool in_black_list);
+            bool in_ignore_list);
 static void smb2_mc_reset_con_status(struct session_network_interface_info *session_table,
             struct complete_nic_info_entry *nic,
             bool is_client);
@@ -488,16 +488,14 @@ smb2_mc_parse_client_interface_array(
 {
 	struct network_nic_info *client_info_array = NULL;
 	int error = 0;
-    bool in_blacklist = false;
+    bool in_ignorelist = false;
     uint64_t current_offset;
 
 	uint32_t array_size = client_info->total_buffer_size;
     
     lck_mtx_lock(&session_table->interface_table_lck);
 
-    SMB_MALLOC(client_info_array,
-		   struct network_nic_info *, array_size,
-		   M_SMBTEMP, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(client_info_array, array_size, Z_WAITOK_ZERO);
 	if (!client_info_array) {
 		SMBERROR("failed to allocate struct client_info_array!");
 		error = ENOMEM;
@@ -510,7 +508,7 @@ smb2_mc_parse_client_interface_array(
 		goto exit;
 	}
 
-	struct network_nic_info * client_info_entry = (struct network_nic_info *) client_info_array;
+	struct network_nic_info * client_info_entry = NULL;
     current_offset = 0;
 
 	for (uint32_t counter = 0; counter < client_info->interface_instance_count; counter++) {
@@ -533,20 +531,20 @@ smb2_mc_parse_client_interface_array(
             goto exit;
         }
 
-        in_blacklist = false;
+        in_ignorelist = false;
 
-        for (uint32_t i = 0; i < session_table->client_if_blacklist_len; i++)
+        for (uint32_t i = 0; i < session_table->client_if_ignorelist_len; i++)
         {
-            if (session_table->client_if_blacklist[i] == client_info_entry->nic_index)
+            if (session_table->client_if_ignorelist[i] == client_info_entry->nic_index)
             {
-                in_blacklist = true;
+                in_ignorelist = true;
                 break;
             }
         }
 
         error = smb2_mc_add_new_interface_info_to_list(&session_table->client_nic_info_list,
                                                        &session_table->client_nic_count,
-                                                       client_info_entry, 0, in_blacklist);
+                                                       client_info_entry, 0, in_ignorelist);
         if (error) {
             SMBERROR("Adding new interface info ended with error %d!", error);
             smb2_mc_release_interface_list(&session_table->client_nic_info_list);
@@ -563,7 +561,7 @@ smb2_mc_parse_client_interface_array(
 
 exit:
 	if (client_info_array != NULL) {
-		SMB_FREE(client_info_array, M_SMBTEMP);
+        SMB_FREE_DATA(client_info_array, array_size);
 	}
 
     lck_mtx_unlock(&session_table->interface_table_lck);
@@ -595,7 +593,7 @@ smb2_mc_query_info_response_event(
 	uint8_t* buf_end = server_info_buffer + buf_len;
 
 	struct network_nic_info* new_info = NULL;
-	SMB_MALLOC(new_info, struct network_nic_info *, sizeof(struct network_nic_info), M_NSMBDEV, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(new_info, struct network_nic_info, Z_WAITOK_ZERO);
 	if (new_info == NULL) {
 		error = ENOMEM;
 		goto done;
@@ -659,9 +657,7 @@ smb2_mc_query_info_response_event(
                  * connections to each RSS-NIC
                  */
                 struct network_nic_info* rss_nic = NULL;
-                SMB_MALLOC(rss_nic, struct network_nic_info *,
-                           sizeof(struct network_nic_info),
-                           M_NSMBDEV, M_WAITOK | M_ZERO);
+                SMB_MALLOC_TYPE(rss_nic, struct network_nic_info, Z_WAITOK_ZERO);
 
                 if (rss_nic == NULL) {
                     error = ENOMEM;
@@ -732,9 +728,9 @@ smb2_mc_remove_nic_if_unused(
             
             num_of_cons++;
 
-            // Keep NICs that are black-listed (so we'll remember not to use them),
+            // Keep NICs that are ignore-listed (so we'll remember not to use them),
             //   or NICs that are in use (!=FAILED and != NO_POT)
-            if ( (nic->nic_flags & SMB2_MC_NIC_IN_BLACKLIST) ||
+            if ( (nic->nic_flags & SMB2_MC_NIC_IN_IGNORELIST) ||
                 ((con->state != SMB2_MC_STATE_FAILED_TO_CONNECT) && (con->state != SMB2_MC_STATE_NO_POTENTIAL)) ) {
                 can_remove = false;
                 break;
@@ -768,7 +764,7 @@ smb2_mc_remove_nic_if_unused(
                 /* remove it from the main list */
                 TAILQ_REMOVE(&session_table->session_con_list, con, next);
             
-                SMB_FREE(con, M_NSMBDEV);
+                SMB_FREE_TYPE(struct session_con_entry, con);
             }
         }
         // Release the nic
@@ -954,9 +950,9 @@ smb2_mc_destroy(
     smb2_mc_release_interface_list(&session_table->server_nic_info_list);
     smb2_mc_release_interface_list(&session_table->client_nic_info_list);
 
-    if (session_table->client_if_blacklist != NULL)
+    if (session_table->client_if_ignorelist != NULL)
     {
-        SMB_FREE(session_table->client_if_blacklist, M_NSMBDEV);
+        SMB_FREE_DATA(session_table->client_if_ignorelist, session_table->client_if_ignorelist_allocsize);
     }
 
     lck_mtx_unlock(&session_table->interface_table_lck);
@@ -969,8 +965,8 @@ smb2_mc_init(
     struct session_network_interface_info* session_table,
     int32_t max_channels,
     int32_t max_rss_channels,
-    uint32_t* client_if_blacklist,
-    uint32_t client_if_blacklist_len,
+    uint32_t* client_if_ignorelist,
+    uint32_t client_if_ignorelist_len,
     int32_t prefer_wired)
 {
     size_t array_size;
@@ -982,31 +978,30 @@ smb2_mc_init(
     session_table->max_rss_channels = max_rss_channels ? max_rss_channels : 4;
     session_table->prefer_wired = prefer_wired;
     session_table->pause_trials = 0;
-    session_table->client_if_blacklist = NULL;
-    session_table->client_if_blacklist_len = 0;
+    session_table->client_if_ignorelist = NULL;
+    session_table->client_if_ignorelist_len = 0;
 
-    if (client_if_blacklist_len && client_if_blacklist) {
+    if (client_if_ignorelist_len && client_if_ignorelist) {
 
         /*
-         * <79577111> check the value of client_if_blacklist_len with the limit of
-         * client_if_blacklist (kClientIfBlacklistMaxLen) to prevent OOB read
+         * <79577111> check the value of client_if_ignorelist_len with the limit of
+         * client_if_ignorelist (kClientIfIgnorelistMaxLen) to prevent OOB read
          * by later memcpy.
          */
-        if (client_if_blacklist_len > kClientIfBlacklistMaxLen) {
+        if (client_if_ignorelist_len > kClientIfIgnorelistMaxLen) {
             SMBERROR("invalid client if ignore list length %u)!",
-                     client_if_blacklist_len);
+                     client_if_ignorelist_len);
         } else {
-            array_size = sizeof(uint32_t) * client_if_blacklist_len;
-            SMB_MALLOC(session_table->client_if_blacklist, uint32_t*,
-                       array_size, M_NSMBDEV, M_WAITOK | M_ZERO);
-
-            if (session_table->client_if_blacklist == NULL) {
-                SMBERROR("failed to allocate session_table->client_if_ignore_list (size %u)!", client_if_blacklist_len);
-                session_table->client_if_blacklist_len = 0;
+            array_size = sizeof(uint32_t) * client_if_ignorelist_len;
+            session_table->client_if_ignorelist_allocsize = array_size;
+            SMB_MALLOC_DATA(session_table->client_if_ignorelist, session_table->client_if_ignorelist_allocsize, Z_WAITOK_ZERO);
+            if (session_table->client_if_ignorelist == NULL) {
+                SMBERROR("failed to allocate session_table->client_if_ignore_list (size %u)!", client_if_ignorelist_len);
+                session_table->client_if_ignorelist_len = 0;
             } else {
-                memcpy(session_table->client_if_blacklist,
-                       client_if_blacklist, array_size);
-                session_table->client_if_blacklist_len = client_if_blacklist_len;
+                memcpy(session_table->client_if_ignorelist,
+                       client_if_ignorelist, array_size);
+                session_table->client_if_ignorelist_len = client_if_ignorelist_len;
             }
         }
     }
@@ -1212,7 +1207,7 @@ smb2_mc_add_new_interface_info_to_list(
     uint32_t* list_counter,
     struct network_nic_info* new_info,
     uint32_t rss_val,
-    bool in_black_list)
+    bool in_ignore_list)
 {
     int error = 0;
     uint64_t nic_index = ((uint64_t)rss_val << SMB2_IF_RSS_INDEX_SHIFT) | new_info->nic_index;
@@ -1220,7 +1215,7 @@ smb2_mc_add_new_interface_info_to_list(
     bool new_nic = false;
     if (nic_info == NULL) { // Need to create a new nic element in the list
         new_nic = true;
-        SMB_MALLOC(nic_info, struct complete_nic_info_entry*, sizeof(struct complete_nic_info_entry), M_NSMBDEV, M_WAITOK | M_ZERO);
+        SMB_MALLOC_TYPE(nic_info, struct complete_nic_info_entry, Z_WAITOK_ZERO);
         if (nic_info == NULL) {
             SMBERROR("failed to allocate struct complete_interface_entry!");
             return ENOMEM;
@@ -1237,8 +1232,8 @@ smb2_mc_add_new_interface_info_to_list(
     nic_info->nic_link_speed = new_info->nic_link_speed;
     nic_info->nic_type = new_info->nic_type;
 
-    if (in_black_list) {
-        nic_info->nic_flags |= SMB2_MC_NIC_IN_BLACKLIST;
+    if (in_ignore_list) {
+        nic_info->nic_flags |= SMB2_MC_NIC_IN_IGNORELIST;
     }
 
     error = smb2_mc_update_info_with_ip(nic_info, &new_info->addr, NULL);
@@ -1289,7 +1284,7 @@ smb2_mc_reset_con_status(struct session_network_interface_info *session_table,
         if ((( is_client) && (con->con_client_nic == nic)) ||
             ((!is_client) && (con->con_server_nic == nic))) {
             
-            if ( (nic->nic_flags & SMB2_MC_NIC_IN_BLACKLIST) == 0) {
+            if ( (nic->nic_flags & SMB2_MC_NIC_IN_IGNORELIST) == 0) {
                 if ((con->state == SMB2_MC_STATE_FAILED_TO_CONNECT) ||
                     (con->state == SMB2_MC_STATE_NO_POTENTIAL) ) {
                     con->state = SMB2_MC_STATE_POTENTIAL;
@@ -1385,7 +1380,7 @@ smb2_mc_update_con_list(struct session_network_interface_info *session_table)
             con = find_con_by_nics(session_table, client_nic, server_nic);
             if (con == NULL) {
                 /* in con does not exist, create one */
-                SMB_MALLOC(con, struct session_con_entry*, sizeof(struct session_con_entry), M_NSMBDEV, M_WAITOK | M_ZERO);
+                SMB_MALLOC_TYPE(con, struct session_con_entry, Z_WAITOK_ZERO);
                 if (con == NULL) {
                     SMBERROR("failed to allocate struct session_con_entry!");
                     return ENOMEM;
@@ -1394,10 +1389,10 @@ smb2_mc_update_con_list(struct session_network_interface_info *session_table)
                 con->con_client_nic = client_nic;
                 con->con_server_nic = server_nic;
 
-                // If there is no common ip-version or if black-listed,
+                // If there is no common ip-version or if ignore-listed,
                 // mark as no_potential
                 if (((client_nic->nic_ip_types & server_nic->nic_ip_types) == 0) ||
-                    (client_nic->nic_flags & SMB2_MC_NIC_IN_BLACKLIST))
+                    (client_nic->nic_flags & SMB2_MC_NIC_IN_IGNORELIST))
                     con->state = SMB2_MC_STATE_NO_POTENTIAL;
                 else if (server_nic->nic_state == SMB2_MC_STATE_USED)
                     con->state = SMB2_MC_STATE_SURPLUS;
@@ -1522,7 +1517,7 @@ smb2_mc_release_connection_list(struct session_network_interface_info* session_t
     while ((con = TAILQ_FIRST(&session_table->session_con_list)) != NULL) {
         /* remove it from the main list */
         TAILQ_REMOVE(&session_table->session_con_list, con, next);
-        SMB_FREE(con, M_NSMBDEV);
+        SMB_FREE_TYPE(struct session_con_entry, con);
     }
 }
 
@@ -1535,8 +1530,8 @@ smb2_mc_release_interface(
     struct sock_addr_entry* addr;
     while ((addr = TAILQ_FIRST(&interface->addr_list)) != NULL) {
         TAILQ_REMOVE(&interface->addr_list, addr, next);
-        SMB_FREE(addr->addr, M_NSMBDEV);
-        SMB_FREE(addr, M_NSMBDEV);
+        SMB_FREE_DATA(addr->addr, addr->addr->sa_len);
+        SMB_FREE_TYPE(struct sock_addr_entry, addr);
     }
 
     if (list != NULL)
@@ -1549,7 +1544,7 @@ smb2_mc_release_interface(
              interface->nic_index  & SMB2_IF_INDEX_MASK,
              interface->nic_index >> SMB2_IF_RSS_INDEX_SHIFT);
     
-    SMB_FREE(interface, M_NSMBDEV);
+    SMB_FREE_TYPE(struct complete_nic_info_entry, interface);
 }
 
 static void
@@ -1587,7 +1582,7 @@ smb2_mc_reset_nic_list(struct session_network_interface_info *session_table)
     
     TAILQ_FOREACH_SAFE(nic, &session_table->client_nic_info_list, next, nic_t) {
         /*
-         * smb2_mc_reset_con_status handles() handles black listed NICs
+         * smb2_mc_reset_con_status handles() handles ignore listed NICs
          * and will change any failed/no potential connections to potential
          */
         smb2_mc_reset_con_status(session_table, nic, true);
@@ -1692,15 +1687,15 @@ smb2_mc_update_info_with_ip(
 
     /* Make sure the params are the same */
     struct sock_addr_entry* new_addr;
-    SMB_MALLOC(new_addr, struct sock_addr_entry*, sizeof(struct sock_addr_entry), M_NSMBDEV, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(new_addr, struct sock_addr_entry, Z_WAITOK_ZERO);
     if (new_addr == NULL) {
         SMBERROR("failed to allocate struct sock_addr_entry!");
         return ENOMEM;
     }
 
-    SMB_MALLOC(new_addr->addr, struct sockaddr *, addr->sa_len, M_NSMBDEV, M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(new_addr->addr, addr->sa_len, Z_WAITOK_ZERO);
     if (new_addr->addr == NULL) {
-        SMB_FREE(new_addr, M_NSMBDEV);
+        SMB_FREE_TYPE(struct sock_addr_entry, new_addr);
         SMBERROR("failed to allocate struct sockaddr!");
         return ENOMEM;
     }

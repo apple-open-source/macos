@@ -30,6 +30,7 @@
 #ifndef _SECURITY_SECITEMPRIV_H_
 #define _SECURITY_SECITEMPRIV_H_
 
+#include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFError.h>
@@ -334,13 +335,15 @@ __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AV
 
 
 extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandomPKA
-     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+SPI_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 extern const CFStringRef kSecAttrKeyTypeSecureEnclaveAttestation
-     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+SPI_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
+extern const CFStringRef kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
+SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
 
 // Should not be used, use kSecAttrTokenOID instead.
 extern const CFStringRef kSecAttrSecureEnclaveKeyBlob
-     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+SPI_DEPRECATED_WITH_REPLACEMENT("kSecAttrTokenOID", macos(10.13, 13.0), ios(11.0, 16.0), tvos(11.0, 16.0), watchos(4.0, 9.0));
 
 /*!
     @enum kSecAttrAccessible Value Constants (Private)
@@ -388,7 +391,19 @@ extern const CFStringRef kSecAttrViewHintApplePay;
 extern const CFStringRef kSecAttrViewHintHome;
 extern const CFStringRef kSecAttrViewHintLimitedPeersAllowed;
 extern const CFStringRef kSecAttrViewHintMFi;
+extern const CFStringRef kSecAttrViewHintMail;
 
+/*!
+    @enum kSecUseSystemKeychain Constants (Private)
+    @constant kSecUseSystemKeychainAlways Use the system keychain on iOS, regardless
+        of whether the device is a shared iPad (edu mode).
+        Currently gated behind a feature flag.
+     @constant kSecUseSystemKeychain Use the system keychain on shared iPad (edu mode).
+        Silently ignored when not on shared iPad (edu mode).
+        In the future, this will be deprecated in favor of the Always version above.
+ */
+extern const CFStringRef kSecUseSystemKeychainAlways
+    SPI_AVAILABLE(ios(16.0)) API_UNAVAILABLE(macos, tvos, watchos, bridgeos, macCatalyst);
 
 extern const CFStringRef kSecUseSystemKeychain
     __TVOS_AVAILABLE(9.2)
@@ -470,6 +485,13 @@ extern const CFStringRef kSecAttrTokenIDAppleKeyStore
 extern const CFStringRef kSecNetworkExtensionAccessGroupSuffix;
 
 /*!
+    @function _SecKeychainForceUpgradeCheck
+    @abstract Forces the daemon to do an upgrade if needed.
+    @result A result code.
+*/
+OSStatus _SecKeychainForceUpgradeIfNeeded(void);
+
+/*!
     @function SecItemDeleteAll
     @abstract Removes all items from the keychain.
     @result A result code. See "Security Error Codes" (SecBase.h).
@@ -535,20 +557,9 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
                                              void (^complete)(CFDataRef persistentRef, CFErrorRef error));
 
 #if __OBJC__
-/*!
-    @function SecItemVerifyBackupIntegrity
-    @abstract Verifies the presence and integrity of all key material required
-        to restore a backup of the keychain.
-    @discussion This function performs a synchronous call to securityd, be prepared to wait for it to scan the keychain.
-    @param lightweight Only verify the item keys wrapped by backup keys instead
-        of the default rigorous pass. This mode can be run in any
-        security class.
-    @param completion Called to indicate results: a dictionary containing information about the the infrastructure
-        and of the backup state of keychain items. Error is set when at least one failure occurred.
- */
-void SecItemVerifyBackupIntegrity(BOOL lightweight,
-                                  void(^completion)(NSDictionary* resultsPerKeyclass, NSError* error));
 void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray *, NSError *));
+
+// On not-macos, this function will call out to the foreground user session.
 void _SecKeychainDeleteMultiUser(NSString *musrUUID, void (^complete)(bool, NSError *));
 #endif
 
@@ -609,8 +620,9 @@ XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyCKKSEndpoint(CFErrorRef *er
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopySFKeychainEndpoint(CFErrorRef* error);
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error);
 
+// These three functions are only effective in edu mode (Shared iPad).
+// They will call out to the foreground user session.
 bool _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error);
-
 bool _SecSystemKeychainTransfer(CFErrorRef *error);
 bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
 
@@ -708,6 +720,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 extern const CFStringRef kSecAttrTokenIDSecureElement
 SPI_AVAILABLE(ios(10.13));
 
+
 /*!
  @function SecItemDeleteKeychainItemsForAppClip
  @abstract Remove all keychain items of specified App Clip's application identifier
@@ -729,6 +742,19 @@ SPI_AVAILABLE(ios(14.0));
  */
 OSStatus SecItemPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID)
 SPI_AVAILABLE(ios(15.0));
+
+
+/*!
+ * @function SecDeleteItemsOnSignOut
+ * @abstract Removes affected items from the Keychain when the current user
+ *           signs out of their Apple Account.
+ * @param error An optional error reference.
+ * @result A Boolean indicating whether the operation succeeded.
+ * @discussion Currently, the set of affected items to remove includes
+ *             synchronizable saved passwords, credit cards, and form autofill
+ *             passwords. This set may change in the future (rdar://78624586).
+*/
+bool SecDeleteItemsOnSignOut(CFErrorRef *error) SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
 
 __END_DECLS
 

@@ -885,7 +885,7 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
 enum { kLangScriptRegMaxLen = ULOC_LANG_CAPACITY + ULOC_SCRIPT_CAPACITY + ULOC_COUNTRY_CAPACITY }; // currently 22
 
 const int32_t kMaxLocaleIDLength = 58;  // ULOC_FULLNAME_CAPACITY - ULOC_KEYWORD_AND_VALUES_CAPACITY: locales without variants should never be more than 24 chars, the excess is just to cover variant codes (+1 for null termination)
-const int32_t kMaxParentChainLength = 8;
+const int32_t kMaxParentChainLength = 10;
 const int32_t kCharStorageBlockSize = 650; // very few of the unit tests used more than 650 bytes of character storage
 
 struct LocIDCharStorage {
@@ -985,7 +985,8 @@ void LocaleIDInfo::initBaseNames(const char *originalID, LocIDCharStorage& charS
         static const char* likeLanguages[] = {
             "ars", "ar",
             "hi",  "en",    // Hindi and English obviously aren't in the same group; we do this because hi_Latn falls back to en_IN
-            "no",  "nb",
+            "nb",  "no",
+            "nn",  "no",
             "wuu", "zh",
             "yue", "zh"
         };
@@ -1043,11 +1044,10 @@ void LocaleIDInfo::calcParentChain(LocIDCharStorage& charStorage, UBool penalize
     
     // Walk the locale ID's parent chain using ualoc_getParent().  That function will return "" or "root" when it
     // gets to the end of the chain, but internall we use NULL to mark the end of the chain.
-    while (index < kMaxParentChainLength && parentChain[index] != NULL) {
+    while (++index < kMaxParentChainLength && parentChain[index - 1] != NULL) {
         char* textPtr = charStorage.nextPtr();
-        ualoc_getParent(parentChain[index], textPtr, kMaxLocaleIDLength, err);
-        ++index;
-        if (textPtr[0] == '\0' || uprv_strcmp(textPtr, "root") == 0) {
+        ualoc_getParent(parentChain[index - 1], textPtr, kMaxLocaleIDLength, err);
+        if (index + 1 == kMaxParentChainLength || textPtr[0] == '\0' || uprv_strcmp(textPtr, "root") == 0) {
             parentChain[index] = NULL;
         } else {
             parentChain[index] = textPtr;

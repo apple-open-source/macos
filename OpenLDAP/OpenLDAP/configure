@@ -19347,7 +19347,7 @@ if test $ol_with_tls = secure-transport || test $ol_with_tls = auto ; then
 
 
 
-for ac_header in Security/SecureTransport.h CoreDaemon/XSCipher.h
+for ac_header in Security/SecureTransport.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -19492,8 +19492,7 @@ fi
 done
 
 	CPPFLAGS="$save_CPPFLAGS"
-	if test $ac_cv_header_Security_SecureTransport_h = yes &&
-	   test $ac_cv_header_CoreDaemon_XSCipher_h = yes ; then
+	if test $ac_cv_header_Security_SecureTransport_h = yes ; then
 		ol_with_tls=secure-transport
 		ol_link_tls=yes
 
@@ -19501,7 +19500,7 @@ cat >>confdefs.h <<\_ACEOF
 #define HAVE_SECURE_TRANSPORT 1
 _ACEOF
 
-		TLS_LIBS="-framework Security -framework CoreDaemon"
+		TLS_LIBS="-framework Security"
 	elif test $ol_with_tls = secure-transport ; then
 		{ { echo "$as_me:$LINENO: error: Can't build with SecureTransport: required header not found" >&5
 echo "$as_me: error: Can't build with SecureTransport: required header not found" >&2;}

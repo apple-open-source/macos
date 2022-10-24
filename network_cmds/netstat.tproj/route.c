@@ -134,9 +134,18 @@ typedef union {
 
 static void np_rtentry __P((struct rt_msghdr2 *));
 static void p_sockaddr __P((struct sockaddr *, struct sockaddr *, int, int));
-static void p_flags __P((int, char *));
 static uint32_t forgemask __P((uint32_t));
 static void domask __P((char *, uint32_t, uint32_t));
+
+#define p_flags(f, format) do { \
+	char name[33], *flags; \
+	struct bits *p = bits; \
+	for (flags = name; p->b_mask; p++) \
+		if (p->b_mask & f) \
+			*flags++ = p->b_val; \
+	*flags = '\0'; \
+	printf(format, name); \
+} while (0)
 
 /*
  * Print address family header before a section of the routing table.
@@ -499,19 +508,6 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 		else
 			printf("%-*.*s ", width, width, cp);
 	}
-}
-
-static void
-p_flags(int f, char *format)
-{
-	char name[33], *flags;
-	struct bits *p = bits;
-
-	for (flags = name; p->b_mask; p++)
-		if (p->b_mask & f)
-			*flags++ = p->b_val;
-	*flags = '\0';
-	printf(format, name);
 }
 
 char *

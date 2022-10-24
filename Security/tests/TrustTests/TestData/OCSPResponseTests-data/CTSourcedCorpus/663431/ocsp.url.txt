@@ -1,0 +1,1 @@
+http://ocsp.swissdigicert.ch/sdcs-smaragd2

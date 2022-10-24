@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include <sys/queue.h>
@@ -116,14 +116,16 @@ struct write_segment_data;
 typedef walk_return_t walk_region_cbfn_t(struct region *, void *);
 
 struct regionop {
-    void (*rop_print)(const struct region *);
-    walk_return_t (*rop_write)(const struct region *, struct write_segment_data *);
+    walk_return_t (*rop_header)(const struct region *, struct write_segment_data *);
+    walk_return_t (*rop_stream)(const struct region *, struct write_segment_data *);
+    walk_return_t (*rop_pwrite)(const struct region *, struct write_segment_data *);
     void (*rop_delete)(struct region *);
 };
 
-#define ROP_PRINT(r)    (((r)->r_op->rop_print)(r))
-#define ROP_WRITE(r, w) (((r)->r_op->rop_write)(r, w))
-#define ROP_DELETE(r)   (((r)->r_op->rop_delete)(r))
+#define ROP_HEADER(r, w)    (((r)->r_op->rop_header)(r, w))
+#define ROP_STREAM(r, w)    (((r)->r_op->rop_stream)(r, w))
+#define ROP_PWRITE(r, w)    (((r)->r_op->rop_pwrite)(r, w))
+#define ROP_DELETE(r)       (((r)->r_op->rop_delete)(r))
 
 extern const struct regionop vanilla_ops, sparse_ops, zfod_ops;
 extern const struct regionop fileref_ops;

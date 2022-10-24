@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>reboot</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/sbin/reboot?id=c6a311678d667cb1e7b5417edb6567b7f07d148d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>reboot.c: add -u for UPS shutdown (4576409)</string>
+			<string>reboot.c: use __COPYRIGHT macro (83864709)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

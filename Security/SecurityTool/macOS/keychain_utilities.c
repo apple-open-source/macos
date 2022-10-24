@@ -590,7 +590,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 
 	if (info->count != attrList->count)
 	{
-		sec_error("info count: %ld != attribute count: %ld", info->count, attrList->count);
+		sec_error("info count: %" PRIu32 " != attribute count: %" PRIu32, info->count, attrList->count);
 		result = 1;
 		goto loser;
 	}
@@ -602,7 +602,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		SecKeychainAttribute *attribute = &attrList->attr[ix];
 		if (tag != attribute->tag)
 		{
-			sec_error("attribute %d of %ld info tag: %ld != attribute tag: %ld", ix, info->count, tag, attribute->tag);
+            sec_error("attribute %d of %" PRIu32 " info tag: %" PRIu32 " != attribute tag: %u", ix, info->count, tag, (unsigned int)attribute->tag);
 			result = 1;
 			goto loser;
 		}
@@ -1191,10 +1191,10 @@ print_buffer_pem(FILE *stream, const char *headerString, size_t length, const vo
 
 char*
 prompt_password(const char* keychainName) {
-    const char *fmt = "password to unlock %s: ";
+    const char *const fmt = "password to unlock %s: ";
     const char *name = keychainName ? keychainName : "default";
-    char *prompt = malloc(strlen(fmt) + strlen(name));
-    sprintf(prompt, fmt, name);
+    char *prompt = NULL;
+    asprintf(&prompt, fmt, name);
     char *password = getpass(prompt);
     free(prompt);
     return password;

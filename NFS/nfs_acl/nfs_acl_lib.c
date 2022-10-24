@@ -924,18 +924,18 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 			}
 		}
 	} else if (optflags & ACL_REWRITE_FLAG) {
-		acl_entry_t rentry;
+		acl_entry_t entry;
 
 		if (-1 == position) {
 			usage();
 		}
 		if (0 == flag_new_acl) {
 			if (0 != acl_get_entry(oacl, position,
-			    &rentry)) {
+			    &entry)) {
 				err(1, "Invalid entry number '%s'", path);
 			}
 
-			if (0 != acl_delete_entry(oacl, rentry)) {
+			if (0 != acl_delete_entry(oacl, entry)) {
 				err(1, "Unable to delete entry '%s'", path);
 			}
 		}

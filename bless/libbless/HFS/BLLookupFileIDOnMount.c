@@ -116,7 +116,7 @@ int BLLookupFileIDOnMount64(BLContextPtr context, const char *mountpoint, uint64
     }
     
 	if (__builtin_available(macOS 10.13, *)) {
-		err = fsgetpath(out, bufsize, &sfs.f_fsid, fileID);
+		err = (int)fsgetpath(out, bufsize, &sfs.f_fsid, fileID);
 		if (err < 0) return errno;
 	} else {
 		err = ENOTSUP;
@@ -161,7 +161,7 @@ static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char *out) {
     while(dirID != kHFSRootFolderID) {
         char *nameptr;
         size_t namelen;
-        sprintf(volpath, "/.vol/%u/%u", volid, dirID);
+        snprintf(volpath, sizeof(volpath), "/.vol/%u/%u", volid, dirID);
         alist.bitmapcount = 5;
         alist.commonattr = ATTR_CMN_NAME | ATTR_CMN_FSID | ATTR_CMN_OBJID | ATTR_CMN_PAROBJID;
         alist.volattr = 0;

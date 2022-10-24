@@ -1,0 +1,1 @@
+http://igc-g3.certinomis.com/INSTANCE_SHA2/ocsp/OCSP_STANDARD

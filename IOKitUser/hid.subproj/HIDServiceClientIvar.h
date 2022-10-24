@@ -11,10 +11,12 @@
 #import <IOKit/hidobjc/hidobjcbase.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <objc/objc.h> // for objc_object
+#include <os/lock_private.h>
 
 #define HIDServiceClientIvar \
 IOHIDEventSystemClientRef   system; \
 CFTypeRef                   serviceID; \
+os_unfair_recursive_lock    callbackLock; \
 struct { \
     IOHIDServiceClientCallback  callback; \
     IOHIDServiceClientBlock     block; \
@@ -26,6 +28,7 @@ struct { \
     void                                  *target; \
     void                                  *refcon; \
 } virtualService; \
+os_unfair_recursive_lock        serviceLock; \
 CFMutableDictionaryRef          cachedProperties; \
 IOHIDServiceFastPathInterface   **fastPathInterface; \
 IOCFPlugInInterface             **plugInInterface; \

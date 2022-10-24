@@ -186,6 +186,7 @@ void PageState::encode(IPC::Encoder& encoder) const
         encoder << sessionStateObject->wireBytes();
 
     encoder << shouldOpenExternalURLsPolicy;
+    encoder << wasCreatedByJSWithoutUserInteraction;
 }
 
 bool PageState::decode(IPC::Decoder& decoder, PageState& result)
@@ -216,6 +217,10 @@ bool PageState::decode(IPC::Decoder& decoder, PageState& result)
         return false;
 
     result.shouldOpenExternalURLsPolicy = *shouldOpenExternalURLsPolicy;
+
+    if (!decoder.decode(result.wasCreatedByJSWithoutUserInteraction))
+        return false;
+
     return true;
 }
 
@@ -282,7 +287,7 @@ void FrameState::validateDocumentState() const
     }
 }
 
-void FrameState::setDocumentState(const Vector<String>& documentState, ShouldValidate shouldValidate)
+void FrameState::setDocumentState(const Vector<AtomString>& documentState, ShouldValidate shouldValidate)
 {
     m_documentState = documentState;
 

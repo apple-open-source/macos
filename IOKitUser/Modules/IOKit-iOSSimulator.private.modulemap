@@ -1,0 +1,224 @@
+// The IOKit headers are all private in embedded OSes, hence
+// they're all listed in the private module map. There are
+// still separate IOKit and IOKit_Private modules for a few
+// reasons though.
+// 1. <IOKit/hidsystem/IOHIDEventSystemClient.h> declares
+//    IOHIDEventSystemClientRef which follows the normal Swift
+//    importer rules and becomes IOHIDEventSystemClient in
+//    Swift. However, <IOKit/hid/IOHIDEventSystemClient.h>
+//    declares the IOHIDEventSystemClient function, and if
+//    Swift sees that function while building the module for
+//    <IOKit/hidsystem/IOHIDEventSystemClient.h>, then it
+//    won't drop the Ref from the type. This "just works"
+//    on macOS since the hidsystem header is public and the
+//    hid header is private and thus are in different top
+//    level modules. To avoid chaos on embedded, they need
+//    to be kept in different top level modules there too,
+//    and the only allowed top level framework modules are
+//    Framework and Framework_Private. So we might as well
+//    mirror the macOS setup.
+// 2. It's probably nicer for Swift clients to not have to
+//    conditionalize their imports, e.g. don't make them do
+//    #if os(macOS)
+//    import IOKit
+//    #else
+//    import IOKit_Private
+//    #endif
+// It might seem like maybe embedded should have module.modulemap
+// instead of putting both of these in module.private.modulemap.
+// However, that would break the clang rule that PrivateHeaders
+// need to be covered by module.private.modulemap and not by
+// module.modulemap.
+framework module IOKit [extern_c] [system] {
+  header "IOReturn.h"
+  header "IOMapTypes.h"
+  header "IOTypes.h"
+  header "IOKitKeys.h"
+  header "OSMessageNotification.h"
+  header "IOKitLib.h"
+  header "IOBSD.h"
+  header "IODataQueueClient.h"
+  header "IOCFBundle.h"
+  header "IODataQueueShared.h"
+  header "IOSharedLock.h"
+  header "IOCFPlugIn.h"
+  header "IOCFSerialize.h"
+  header "IOCFURLAccess.h"
+  header "IOKitServer.h"
+  header "IOCFUnserialize.h"
+  header "IOMessage.h"
+  header "IORPC.h"
+  header "IOUserServer.h"
+
+  export *
+
+  explicit module graphics {
+    header "graphics/IOGraphicsTypes.h"
+    export *
+  }
+
+  explicit module hid {
+    header "hid/IOHIDBase.h"
+    header "hid/IOHIDKeys.h"
+    header "hid/IOHIDQueue.h"
+    header "hid/IOHIDDevice.h"
+    header "hid/IOHIDLib.h"
+    header "hid/IOHIDTransaction.h"
+    header "hid/IOHIDDevicePlugIn.h"
+    header "hid/IOHIDLibObsolete.h"
+    header "hid/IOHIDUsageTables.h"
+    header "hid/IOHIDElement.h"
+    header "hid/IOHIDManager.h"
+    header "hid/IOHIDValue.h"
+    header "hid/IOHIDDeviceKeys.h"
+    header "hid/IOHIDDeviceTypes.h"
+    header "hid/IOHIDEventServiceKeys.h"
+    header "hid/IOHIDEventServiceTypes.h"
+    header "hid/IOHIDProperties.h"
+    header "hid/IOHIDUserDevice.h"
+    export *
+  }
+
+  explicit module hidsystem {
+    header "hidsystem/IOHIDLib.h"
+    header "hidsystem/IOHIDTypes.h"
+    header "hidsystem/event_status_driver.h"
+    header "hidsystem/IOHIDParameter.h"
+    header "hidsystem/IOLLEvent.h"
+    header "hidsystem/IOHIDShared.h"
+    header "hidsystem/ev_keymap.h"
+    header "hidsystem/IOHIDEventSystemClient.h"
+    header "hidsystem/IOHIDServiceClient.h"
+    header "hidsystem/IOHIDUserDevice.h"
+    export *
+  }
+
+  explicit module kext {
+    header "kext/KextManager.h"
+    export *
+  }
+
+  explicit module network {
+    header "network/IOEthernetController.h"
+    header "network/IONetworkData.h"
+    header "network/IONetworkStack.h"
+    header "network/IOEthernetInterface.h"
+    header "network/IONetworkInterface.h"
+    header "network/IONetworkStats.h"
+    header "network/IOEthernetStats.h"
+    header "network/IONetworkLib.h"
+    header "network/IONetworkUserClient.h"
+    header "network/IONetworkController.h"
+    header "network/IONetworkMedium.h"
+    header "network/IOUserEthernetController.h"
+    export *
+  }
+
+  explicit module ps {
+    header "ps/IOPSKeys.h"
+    header "ps/IOPowerSources.h"
+    header "ps/IOUPSPlugIn.h"
+    export *
+  }
+
+  explicit module pwr_mgt {
+    header "pwr_mgt/IOPM.h"
+    header "pwr_mgt/IOPMKeys.h"
+    header "pwr_mgt/IOPMLib.h"
+    header "pwr_mgt/IOPMLibDefs.h"
+    export *
+  }
+
+  explicit module serial {
+    header "serial/IOSerialKeys.h"
+    header "serial/ioss.h"
+    export *
+  }
+
+  explicit module storage {
+    header "storage/IOApplePartitionScheme.h"
+    header "storage/IOFDiskPartitionScheme.h"
+    header "storage/IOFilterScheme.h"
+    header "storage/IOGUIDPartitionScheme.h"
+    header "storage/IOBlockStorageDevice.h"
+    header "storage/IOMedia.h"
+    header "storage/IOBlockStorageDriver.h"
+    header "storage/IOMediaBSDClient.h"
+    header "storage/IOPartitionScheme.h"
+    header "storage/IOStorage.h"
+    header "storage/IOStorageCardCharacteristics.h"
+    header "storage/IOStorageDeviceCharacteristics.h"
+    header "storage/IOStorageControllerCharacteristics.h"
+    header "storage/IOStorageProtocolCharacteristics.h"
+    export *
+  }
+
+  explicit module video {
+    // rdar://problem/19486850
+    requires cplusplus, unavailable
+    header "video/IOVideoControlDictionary.h"
+    header "video/IOVideoDeviceUserClient.h"
+    header "video/IOVideoDevice.h"
+    header "video/IOVideoStream.h"
+    header "video/IOVideoDeviceClientInit.h"
+    header "video/IOVideoStreamDictionary.h"
+    header "video/IOVideoDeviceLib.h"
+    header "video/IOVideoStreamFormatDictionary.h"
+    header "video/IOVideoDeviceShared.h"
+    header "video/IOVideoTypes.h"
+    export *
+  }
+}
+
+framework module IOKit_Private [extern_c] [system] {
+  header "IOReportTypes.h"
+  export *
+
+  explicit module graphics {
+    header "graphics/IOMobileFramebufferTypes.h"
+    header "graphics/IOSurfacePrivate.h"
+    export *
+  }
+  explicit module hid {
+    header "hid/IOHIDEvent.h"
+    header "hid/IOHIDServiceClient.h"
+    header "hid/IOHIDEventData.h"
+    header "hid/IOHIDEventTypes.h"
+    header "hid/IOHIDService.h"	
+    header "hid/IOHIDEventSystem.h"
+    header "hid/IOHIDEventSystemClient.h"
+    header "hid/IOHIDEventSystemKeys.h"	
+    header "hid/IOHIDServicePlugIn.h"	
+    header "hid/IOHIDTypes.h"	
+    header "hid/IOHIDEventSystemConnection.h"
+    header "hid/IOHIDEventPrivateKeys.h"
+    header "hid/IOHIDServiceKeys.h"
+    header "hid/AppleHIDUsageTables.h"
+    header "hid/AppleHIDMultitouchKeys.h"
+    header "hid/IOHIDPrivateKeys.h"
+    header "hid/IOHIDEventQueue.h"
+    header "hid/IOHIDEventMacroDefs.h"
+    header "hid/IOHIDEventStructDefs.h"
+    header "hid/IOHIDEventFieldDefs.h"
+    header "hid/IOHIDEventServiceKeys_Private.h"
+    export *
+  }
+  explicit module hidobjc {
+    header "hidobjc/hidobjcbase.h"
+    header "hidobjc/HIDDeviceBase.h"
+    header "hidobjc/HIDDeviceIvar.h"
+    header "hidobjc/HIDElementBase.h"
+    header "hidobjc/HIDElementIvar.h"
+    header "hidobjc/HIDEventBase.h"
+    header "hidobjc/HIDEventIvar.h"
+    header "hidobjc/HIDServiceClientBase.h"
+    header "hidobjc/HIDServiceClientIvar.h"
+    header "hidobjc/HIDServiceBase.h"
+    header "hidobjc/HIDServiceIvar.h"
+    header "hidobjc/HIDConnectionBase.h"
+    header "hidobjc/HIDConnectionIvar.h"
+    header "hidobjc/HIDSessionBase.h"
+    header "hidobjc/HIDSessionIvar.h"
+    export *
+  }
+}

@@ -23,6 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)triggerAutoBugCaptureWithType:(NSString *)type
                               subType:(NSString *)subType
                        subtypeContext:(NSString * _Nullable)subtypeContext
+                               domain:(NSString *)domain
                                events:(NSArray * _Nullable)events
                               payload:(NSDictionary * _Nullable)payload
                       detectedProcess:(NSString * _Nullable)process;

@@ -26,7 +26,8 @@ import Foundation_Private.NSXPCConnection
 import os.log
 
 let containerMap = ContainerMap(ckCodeOperationRunnerCreator: CuttlefishCKOperationRunnerCreator(),
-                                darwinNotifier: CKKSNotifyPostNotifier.self)
+                                darwinNotifier: CKKSNotifyPostNotifier.self,
+                                personaAdapter: OTPersonaActualAdapter())
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "main")
 
@@ -34,23 +35,23 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         let tphEntitlement = "com.apple.private.trustedpeershelper.client"
 
-        logger.debug("Received a new client: \(newConnection, privacy: .public)")
+        logger.info("Received a new client: \(newConnection, privacy: .public)")
         switch newConnection.value(forEntitlement: tphEntitlement) {
         case 1 as Int:
-            logger.debug("client has entitlement '\(tphEntitlement, privacy: .public)'")
+            logger.info("client has entitlement '\(tphEntitlement, privacy: .public)'")
         case true as Bool:
-            logger.debug("client has entitlement '\(tphEntitlement, privacy: .public)'")
+            logger.info("client has entitlement '\(tphEntitlement, privacy: .public)'")
 
         case let someInt as Int:
-            logger.debug("client(\(newConnection, privacy: .public) has wrong integer value for '\(tphEntitlement, privacy: .public)' (\(someInt)), rejecting")
+            logger.info("client(\(newConnection, privacy: .public) has wrong integer value for '\(tphEntitlement, privacy: .public)' (\(someInt)), rejecting")
             return false
 
         case let someBool as Bool:
-            logger.debug("client(\(newConnection, privacy: .public) has wrong boolean value for '\(tphEntitlement, privacy: .public)' (\(someBool)), rejecting")
+            logger.info("client(\(newConnection, privacy: .public) has wrong boolean value for '\(tphEntitlement, privacy: .public)' (\(someBool)), rejecting")
             return false
 
         default:
-            logger.debug("client(\(newConnection, privacy: .public) is missing entitlement '\(tphEntitlement, privacy: .public)'")
+            logger.info("client(\(newConnection, privacy: .public) is missing entitlement '\(tphEntitlement, privacy: .public)'")
             return false
         }
 
@@ -85,15 +86,15 @@ withArrayOfCStrings(["HOME", NSHomeDirectory()]) { parameters in
     let rc = sandbox_init_with_parameters("com.apple.TrustedPeersHelper", UInt64(SANDBOX_NAMED), parameters, &sandboxErrors)
     guard rc == 0 else {
         let printableMessage = sandboxErrors.map { String(cString: $0 ) }
-        logger.debug("Unable to enter sandbox. Error code:\(rc) message: \(String(describing: printableMessage), privacy: .public)")
+        logger.info("Unable to enter sandbox. Error code:\(rc) message: \(String(describing: printableMessage), privacy: .public)")
         sandbox_free_error(sandboxErrors)
         abort()
     }
-    logger.debug("Sandbox entered")
+    logger.info("Sandbox entered")
 }
 #endif
 
-logger.debug("Starting up")
+logger.info("Starting up")
 
 ValueTransformer.setValueTransformer(SetValueTransformer(), forName: SetValueTransformer.name)
 

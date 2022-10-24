@@ -62,9 +62,10 @@
 #include "powermanagementServer.h"
 #include "SystemLoad.h"
 #include "Platform.h"
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
+#if TARGET_OS_OSX
 #include "PMDisplay.h"
 #endif
+
 
 #if __has_include (<CoreAnalytics/CoreAnalytics.h>)
 #include <CoreAnalytics/CoreAnalytics.h>
@@ -115,6 +116,7 @@ CFDictionaryRef copyRepeatPowerEvents(void);
 static void                         sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static void                         sendUserAssertionsToKernel(uint32_t user_assertions);
 static void                         evaluateForPSChange(void);
+static void                         evaluateProcTimerOnDisplayStateChange(bool displayAsleepOnTrigger);
 static void                         HandleProcessExit(pid_t deadPID);
 
 static bool                         callerIsEntitledToAssertion(audit_token_t token,
@@ -187,6 +189,7 @@ CFDictionaryRef                     gProcAssertionLimits = NULL;
 dispatch_source_t                   gProcAggregateMonitor = NULL;
 uint64_t                            gProcMonitorFrequency = (2 *3600LL * NSEC_PER_SEC);  // Once every two hours
 CFDictionaryRef                     gProcAggregateBasis = NULL;
+uint64_t                            gProcTimerDisplayOnThreshold = (15 * NSEC_PER_SEC); // dis-arm procTimer after display stays on
 
 dispatch_source_t                   gAggCleanupDispatch = NULL;  // Dispatch to release statsbuf of dead procs
 uint64_t                            gAggCleanupFrequency = (15 * NSEC_PER_SEC);  // Once every 4 hours
@@ -216,6 +219,7 @@ bool                                gSystemAssertionTimerActive = false;
 dispatch_source_t                   gSystemAssertionTimer = NULL;
 uint32_t                            kPMSystemAssertionTimeoutValue = 600; // in seconds
 CFDictionaryRef                     gSystemAssertionTimeoutList = NULL;
+CFDictionaryRef                     gAssertionCategoriesDict = NULL;
 
 bool                                gAssertionOptimizationEnabled = false;
 
@@ -342,18 +346,21 @@ exit:
 void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg)
 {
     pid_t               callerPID = -1;
-    IOPMAssertionID assertionId;
-    IOReturn rc;
-    int retainCnt;
-    CFArrayRef assertionActivityLog = NULL;
+    IOPMAssertionID     assertionId;
+    IOReturn            rc;
+    int                 retainCnt;
+    CFArrayRef          assertionActivityLog = NULL;
+    bool                releasedAssertionWasCoalesced = false;
+    assertion_t *       assertion = NULL;
 
     assertionId = (IOPMAssertionID)xpc_dictionary_get_uint64(msg, kAssertionReleaseMsg);
     assertionActivityLog = _CFXPCCreateCFObjectFromXPCObject(xpc_dictionary_get_value(msg, kAssertionActivityLogKey));
+    releasedAssertionWasCoalesced = (bool)xpc_dictionary_get_bool(msg, kAssertionWasCoalesced);
 
 #ifndef XCTEST
     callerPID = xpc_connection_get_pid(remoteConnection);
 #else
-    callerPID=(pid_t) XCTEST_PID;
+    callerPID = (pid_t) XCTEST_PID;
 #endif
     if (assertionActivityLog) {
         ProcessInfo *pinfo = processInfoGet(callerPID);
@@ -365,6 +372,18 @@ void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg)
             CFRelease(assertionActivityLog);
         }
 
+    }
+    
+    rc = lookupAssertion(callerPID, assertionId, &assertion);
+    if (rc != kIOReturnSuccess) {
+        ERROR_LOG("Failed to lookup assertion id: 0x%x (rc:0x%x)\n", assertionId, rc);
+    }
+    else {
+        if (releasedAssertionWasCoalesced) {
+            CFDictionarySetValue(assertion->props, kIOPMAssertionIsCoalescedKey, kCFBooleanTrue);
+        } else  {
+            CFDictionarySetValue(assertion->props, kIOPMAssertionIsCoalescedKey, kCFBooleanFalse);
+        }
     }
     
     rc = doRelease(callerPID, assertionId, &retainCnt);
@@ -1061,6 +1080,7 @@ kern_return_t _io_pm_assertion_create (
     }
 
     if (!newAssertionProperties) {
+        ERROR_LOG("_io_pm_assertion_create: Could not create properties dictionary for PID %d", callerPID);
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -1068,6 +1088,7 @@ kern_return_t _io_pm_assertion_create (
 
     if (!callerIsEntitledToAssertion(token, newAssertionProperties))
     {
+        ERROR_LOG("_io_pm_assertion_create: PID %d is not entitled", callerPID);
         *return_code = kIOReturnNotPrivileged;
         goto exit;
     }
@@ -1076,6 +1097,7 @@ kern_return_t _io_pm_assertion_create (
     if (propertiesDictRequiresRoot(newAssertionProperties)
         && ( !(callerIsRoot(callerUID) || callerIsAdmin(callerUID, callerGID))))
     {
+        ERROR_LOG("_io_pm_assertion_create: Assertion requires root but PID %d isn't", callerPID);
         *return_code = kIOReturnNotPrivileged;
         goto exit;
     }
@@ -1337,10 +1359,6 @@ __private_extern__ void setClamshellSleepState(void)
     __block int         lidSleepCount = 0;
     bool                desktop_mode = false;
     bool                update = false;
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
-    int                 pwr_src;
-
-#endif
 
     // Check lid sleep preventers on kDeclareUserActivityType and kTicklessDisplayWakeType
     applyToAssertionsSync(&gAssertionTypes[kDeclareUserActivityType], kSelectActive,
@@ -1356,7 +1374,11 @@ __private_extern__ void setClamshellSleepState(void)
                               }
                           });
 
-
+    // check desktopmode for both
+    desktop_mode = isDesktopMode();
+    if (desktop_mode) {
+        newState |= kClamshellDisableDesktopMode;
+    }
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
     // Check assertion from WindowServer while processing hot plug
     applyToAssertionsSync(&gAssertionTypes[kPreventSleepType], kSelectActive,
@@ -1366,14 +1388,7 @@ __private_extern__ void setClamshellSleepState(void)
                               }
                           });
 
-    // check DesktopMode and ac connected
-    pwr_src = _getPowerSource();
-    if (pwr_src == kACPowered) {
-        desktop_mode = isDesktopMode();
-        if (desktop_mode) {
-            newState |= kClamshellDisableDesktopMode;
-        }
-    }
+
 #endif //(TARGET_OS_OSX && TARGET_CPU_ARM64)
     if (lidSleepCount) {
         newState |= kClamshellDisableAssertions;
@@ -1881,6 +1896,21 @@ __private_extern__ void InternalEvaluateAssertions(void)
     dispatch_async(_getPMMainQueue(), ^{
         evaluateForPSChange();
     });
+}
+
+__private_extern__ void InternalEvaluateProcTimerOnDisplayStateChange(bool displayIsOff)
+{
+    
+    if (displayIsOff){
+        dispatch_async(_getPMMainQueue(), ^{
+            evaluateProcTimerOnDisplayStateChange(displayIsOff);
+        });
+    }
+    else {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, gProcTimerDisplayOnThreshold), _getPMMainQueue(), ^{
+            evaluateProcTimerOnDisplayStateChange(displayIsOff);
+        });
+    }
 }
 
 __private_extern__ IOReturn 
@@ -2742,6 +2772,12 @@ void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
 {
     int audioExists = (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
     int newAudioExists;
+    
+    int perfUnrestrictedExists = (gSysQualifier.perfUnrestricted) ? 1 : 0;
+    int newPerfUnrestrictedExists;
+
+    int cameraExists = (gSysQualifier.camera) ? 1 : 0;
+    int newCameraExists;
 
     void (^create)(void) = ^{
         CFBooleanRef value;
@@ -2776,6 +2812,14 @@ void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
                     else if (CFEqual(name, kIOPMAssertionResourceBluetooth)) {
                         assertion->bluetooth = 1;
                         gSysQualifier.bluetooth++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourcePerfUnrestricted)) {
+                        assertion->perfUnrestricted = 1;
+                        gSysQualifier.perfUnrestricted++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourceCamera)) {
+                        assertion->camera = 1;
+                        gSysQualifier.camera++;
                     }
                 }
             }
@@ -2821,6 +2865,18 @@ void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
                 gSysQualifier.bluetooth--;
             }
         }
+        if (assertion->perfUnrestricted) {
+            assertion->perfUnrestricted = 0;
+            if (gSysQualifier.perfUnrestricted) {
+                gSysQualifier.perfUnrestricted--;
+            }
+        }
+        if (assertion->camera) {
+            assertion->camera = 0;
+            if (gSysQualifier.camera) {
+                gSysQualifier.camera--;
+            }
+        }
         if (assertion->allowsDeviceRestart) {
             assertion->allowsDeviceRestart = 0;
         }
@@ -2844,8 +2900,17 @@ void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
     }
 
     newAudioExists = (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
-    if (audioExists ^ newAudioExists) {
+    newCameraExists = (gSysQualifier.camera) ? 1 : 0;
+
+    bool resourcesChanged = (audioExists ^ newAudioExists) || (cameraExists ^ newCameraExists);
+    if (resourcesChanged) {
         dispatch_async(_getPMMainQueue(), ^{ userActiveHandlePowerAssertionsChanged();});
+    }
+
+    newPerfUnrestrictedExists = (gSysQualifier.perfUnrestricted) ? 1 : 0;
+    if (perfUnrestrictedExists ^ newPerfUnrestrictedExists) {
+        INFO_LOG("Evaluating new PerfMode on gSysQualifier change.\n");
+        evaluatePerfMode();
     }
 }
 
@@ -2882,8 +2947,8 @@ void startProcTimer(pid_t pid, IOPMAssertionID id)
         return;
     }
 
-    if (_getPowerSource() != kBatteryPowered) {
-        // Time based assertion validation is done only on battery power
+    if (_getPowerSource() != kBatteryPowered || !isDisplayAsleep()) {
+        // Time based assertion validation is done only on battery power and when the display is asleep
         return;
     }
 
@@ -4599,6 +4664,10 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
              CFEqual(key, kIOPMAssertionAllowsDeviceRestart))  {
         assertion->mods |= kAssertionModResources;
     }
+    else if (CFEqual(key, kIOPMAssertionFrameworkIDKey)) {
+        assertion->mods |= kAssertionModFrameworkID;
+    }
+    
 
     CFDictionarySetValue(assertion->props, key, value);
 
@@ -4892,6 +4961,22 @@ __private_extern__ bool checkForEntriesByType(kerAssertionType type)
 __private_extern__ bool checkForAudioType(void)
 {
     return (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
+}
+
+/*
+ * Returns true if there are assertions using camera resources
+ */
+__private_extern__ bool checkForCameraType(void)
+{
+    return (gSysQualifier.camera) ? 1 : 0;
+}
+
+/*
+ * Returns true if there are any assertions with unrestricted-perf qualifier
+ */
+__private_extern__ bool checkForUnrestrictedPerfType(void)
+{
+    return (gSysQualifier.perfUnrestricted) ? 1 : 0;
 }
 
 /* Disable the specified assertion type */
@@ -5432,6 +5517,7 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     uint64_t            assertion_id_64;
     CFBooleanRef        val = NULL;
     CFNumberRef         pidCF = NULL;
+    CFNumberRef         uniqueAID;
 
 
     assertionTypeRef = CFDictionaryGetValue(assertion->props, kIOPMAssertionTypeKey);
@@ -5445,18 +5531,28 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     assertType = &gAssertionTypes[idx];
     assertion->kassert = idx;
 
-    assertion_id_64 = MAKE_UNIQAID(currTime, idx, assertion->assertionId);
-    CFNumberRef uniqueAID = CFNumberCreate(0, kCFNumberSInt64Type, &assertion_id_64);
-
-    if (uniqueAID) {
-        CFDictionarySetValue(assertion->props, kIOPMAssertionGlobalUniqueIDKey, uniqueAID);
-        CFRelease(uniqueAID);
-
-        if (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL) {
-            // Async assertion. Let's store the global unique id
+    // Async assertions have their own `kIOPMAssertionGlobalUniqueIDKey` generated client-side
+    if (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL) {
+        // Async assertion. Let's store the global unique id
+        uniqueAID = CFDictionaryGetValue(assertion->props, kIOPMAssertionGlobalUniqueIDKey);
+        if (uniqueAID) {
+            CFNumberGetValue(uniqueAID, kCFNumberSInt64Type, &assertion_id_64);
             assertion->pinfo->activeAsyncAssertion = assertion_id_64;
         }
+        else {
+            ERROR_LOG("Async assertion with no kIOPMAssertionGlobalUniqueIDKey present.");
+            return kIOReturnBadArgument;
+        }
     }
+    else {
+        assertion_id_64 = MAKE_UNIQAID(currTime, idx, assertion->assertionId);
+        uniqueAID = CFNumberCreate(0, kCFNumberSInt64Type, &assertion_id_64);
+        if (uniqueAID) {
+            CFDictionarySetValue(assertion->props, kIOPMAssertionGlobalUniqueIDKey, uniqueAID);
+            CFRelease(uniqueAID);
+        }
+    }
+
     numRef = CFNumberCreate(0, kCFNumberSInt32Type, &assertion->assertionId);
     if (numRef) {
         CFDictionarySetValue(assertion->props, kIOPMAssertionIdKey, numRef);
@@ -5619,6 +5715,7 @@ STATIC IOReturn doCreate(
 
     // Suspended pids are not allowed to manipulate assertions
     if (pinfo->isSuspended) {
+        ERROR_LOG("doCreate: PID %d is suspended", pid);
         return kIOReturnInternalError;
     }
 
@@ -5664,13 +5761,19 @@ STATIC IOReturn doCreate(
         CFDictionaryRemoveValue(gAssertionsArray, (const void *)(uintptr_t)i);
         CFRelease(assertion->props);
         free(assertion);
-
+        ERROR_LOG("doCreate: raiseAssertion failed for PID %d", pid);
         return result;
     }
 
     assertType = &gAssertionTypes[assertion->kassert];
-    if (!(assertion->state & kAssertionStateInactive))
-        logAssertionEvent(kACreateLog, assertion);
+    if (!(assertion->state & kAssertionStateInactive)) {
+        if (CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey) != NULL) {
+            logAssertionEvent(kAOffloadedLog, assertion);
+        }
+        else {
+            logAssertionEvent(kACreateLog, assertion);
+        }
+    }
     if (gAnyChange) notify_post( kIOPMAssertionsAnyChangedNotifyString );
 
     *assertion_id = assertion->assertionId;
@@ -6128,6 +6231,44 @@ static void   evaluateForPSChange(void)
         DEBUG_LOG("System Assertion Timeout: Power source change to AC: Cancelling System Assertion Timer");
         cancelSystemAssertionTimer();
     }
+}
+
+static void evaluateProcTimerOnDisplayStateChange(bool displayAsleepOnTrigger) {
+    int         i;
+    bool displayAsleepCurrent;
+    static bool  displayAsleepPrevious = false;
+    assertionType_t    *assertType;
+
+    displayAsleepCurrent = isDisplayAsleep();
+    if (displayAsleepCurrent == displayAsleepPrevious)
+        return; // If display state hasn't changed, there is nothing to do
+    
+    displayAsleepPrevious = displayAsleepCurrent;
+
+    if (displayAsleepCurrent) {
+        DEBUG_LOG("Starting ProcTimer on display off.");
+        for (i=0; i < kIOPMNumAssertionTypes; i++)
+        {
+            assertType = &gAssertionTypes[i];
+            applyToAssertionsSync(assertType, kSelectActive, ^(assertion_t *assertion)
+            {
+                startProcTimer(assertion->pinfo->pid, assertion->assertionId);
+            });
+        }
+    }
+
+    else if (!displayAsleepCurrent && !displayAsleepOnTrigger) {
+        DEBUG_LOG("Stopping ProcTimer on sustained display activity.");
+        for (i=0; i < kIOPMNumAssertionTypes; i++)
+        {
+            assertType = &gAssertionTypes[i];
+            applyToAssertionsSync(assertType, kSelectActive, ^(assertion_t *assertion)
+            {
+                stopProcTimer(assertion);
+            });
+        }
+    }
+    
 }
 
 __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS)
@@ -6886,13 +7027,20 @@ __private_extern__ void systemAssertionTimerFired(void)
         bool allow = false;
         CFStringRef name = CFDictionaryGetValue(assertion->props, kIOPMAssertionNameKey);
         CFStringRef process_name = assertion->pinfo->name;
+        CFStringRef framwork_bundle_id = CFDictionaryGetValue(assertion->props, kIOPMAssertionFrameworkIDKey);
+        CFNumberRef assertion_category = NULL;
+        CFStringRef assertion_category_str = NULL;
+        CFStringRef category = NULL;
+        CFNumberRef timeout;
+
         CFStringRef causing_process_name = NULL;
         if (assertion->causingPinfo) {
             causing_process_name = assertion->causingPinfo->name;
         }
-        CFNumberRef timeout;
+        
         if (CFDictionaryGetValueIfPresent(gSystemAssertionTimeoutList, process_name, (const void **)&timeout) || \
-            (causing_process_name && CFDictionaryGetValueIfPresent(gSystemAssertionTimeoutList, causing_process_name, (const void **)&timeout))) {
+            (causing_process_name && CFDictionaryGetValueIfPresent(gSystemAssertionTimeoutList, causing_process_name, (const void **)&timeout)) || \
+            (framwork_bundle_id && CFDictionaryGetValueIfPresent(gSystemAssertionTimeoutList, framwork_bundle_id, (const void **)&timeout)) ) {
             if (isA_CFNumber(timeout)) {
                 int value = -1;
                 CFNumberGetValue(timeout, kCFNumberSInt32Type, &value);
@@ -6901,9 +7049,15 @@ __private_extern__ void systemAssertionTimerFired(void)
                 }
             }
         }
+        else if (CFDictionaryGetValueIfPresent(assertion->props, kIOPMAssertionCategoryKey, (const void **)&assertion_category)) {
+            assertion_category_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@"), assertion_category);
+            if(CFDictionaryGetValueIfPresent(gAssertionCategoriesDict, assertion_category_str, (const void **)&category)) {
+                allow = true;
+            }
+        }
 
         if (allow) {
-            INFO_LOG("System Assertion Timeout: Allowing assertion %u:%@ for pid %d:%@(%@)", assertion->assertionId, name, assertion->pinfo->pid, assertion->pinfo->name, causing_process_name);
+            INFO_LOG("System Assertion Timeout: Allowing assertion %u:%@ for pid %d:%@(%@)(%@)(%@)", assertion->assertionId, name, assertion->pinfo->pid, assertion->pinfo->name, causing_process_name, framwork_bundle_id, category);
         } else {
             // calculate age
             uint64_t curr_time = getMonotonicTime();
@@ -6919,6 +7073,18 @@ __private_extern__ void systemAssertionTimerFired(void)
                                          (((uint64_t)assertion->kassert) << 32) | assertion->assertionId, \
                                          name, pid, process_name, age];
                 ERROR_LOG("%@", description);
+
+                //Notify of exception
+                uint32_t status;
+                int token;
+                
+                status = notify_register_check(kIOPMAssertionExceptionNotifyName, &token);
+                if (status == NOTIFY_STATUS_OK) {
+                    notify_set_state(token, (((uint64_t)kIOPMAssertionSystemTimeoutException << 32)) | pid);
+                    notify_post(kIOPMAssertionExceptionNotifyName);
+                    notify_cancel(token);
+                }
+                
                 // log to CA
                 char proc_name_buf[kProcNameBufLen] = "\0";
                 char causing_proc_name_buf[kProcNameBufLen] = "\0";
@@ -7024,6 +7190,32 @@ void initSystemAssertionTimeoutList(void)
         }
         if (timeout_file) {
             CFRelease(timeout_file);
+        }
+        if (file_path) {
+            CFRelease(file_path);
+        }
+    }
+}
+
+void initAssertionCategories(void) {
+    if (!gAssertionCategoriesDict) {
+        // read com.apple.powerd.assertioncategories.plist
+        CFStringRef file_path = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("%@/%@"), kPowerManagementBundlePathString, CFSTR("com.apple.powerd.assertioncategories.plist"));
+        CFURLRef categories_file = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, file_path, kCFURLPOSIXPathStyle, false);
+
+        CFReadStreamRef stream = NULL;
+        stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, categories_file);
+        if (stream) {
+            CFReadStreamOpen(stream);
+            gAssertionCategoriesDict = CFPropertyListCreateWithStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);;
+            if (gAssertionCategoriesDict) {
+                INFO_LOG("InitAssertionCategories: Categories Data: %@", gAssertionCategoriesDict);
+            }
+            CFReadStreamClose(stream);
+            CFRelease(stream);
+        }
+        if (categories_file) {
+            CFRelease(categories_file);
         }
         if (file_path) {
             CFRelease(file_path);

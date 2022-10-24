@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2010, 2011, 2013, 2016, 2018, 2020-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -94,6 +94,8 @@ SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 
 	/* clean up */
 	CFRelease(utfKey);
+
+	sc_status = __SCDynamicStoreMapInternalStatus(sc_status, TRUE);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

@@ -168,25 +168,20 @@ void CssmUniformDate::convertTo(char *dst, size_t length) const
     memcpy(dst, str, length == 14 ? 14 : 15);	// null terminate if there's room
 }
 
-
 //
 // Generalized parse-from-string setup
 //
 void CssmUniformDate::setFromString(const char *src, const char *format, size_t fieldWidth)
 {
-    // use a stack buffer
     char str[20];
-    assert(fieldWidth < sizeof(str));
-    
-    // make a copy with proper null terminator
-    memcpy(str, src, fieldWidth);
-    str[fieldWidth] = '\0';
+    snprintf(str, sizeof(str), "%.*s", (int)fieldWidth, src);
 
     // parse (with limited checks for bad field formats)
     long year;
     int month, day, hour, minute;
     double second;
-    if (6 != sscanf(str, format,
+    const char *const fmt = fmtcheck(format, "%ld%d%d%d%d%lf");
+    if (6 != sscanf(str, fmt,
         &year, &month, &day, &hour, &minute, &second))
         CssmError::throwMe(CSSM_ERRCODE_UNKNOWN_FORMAT);
 

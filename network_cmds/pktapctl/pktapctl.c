@@ -43,7 +43,7 @@ int do_get = 0;
 int num_filter_entries = 0;
 struct pktap_filter set_filter[PKTAP_MAX_FILTERS];
 
-static const char *parameters_format = "     %-24s %s\n";
+#define PARAMETERS_FORMAT "     %-24s %s\n"
 
 static void
 usage(const char *s)
@@ -51,15 +51,15 @@ usage(const char *s)
     printf("# usage: %s -i <ifname> -g -p <filter_rule> -s <filter_rule> -h\n", s);
     printf(" Get or set filtering rules on a pktap interface\n");
     printf(" Options:\n");
-    printf(parameters_format, "-h", "display this help");
-    printf(parameters_format, "-i <ifname>", "name pktap interface");
-    printf(parameters_format, "-g", "get filter rules");
-    printf(parameters_format, "-p <filter_rule> param", "add a pass rule");
-    printf(parameters_format, "-s <filter_rule> param", "add a skip rule");
+    printf(PARAMETERS_FORMAT, "-h", "display this help");
+    printf(PARAMETERS_FORMAT, "-i <ifname>", "name pktap interface");
+    printf(PARAMETERS_FORMAT, "-g", "get filter rules");
+    printf(PARAMETERS_FORMAT, "-p <filter_rule> param", "add a pass rule");
+    printf(PARAMETERS_FORMAT, "-s <filter_rule> param", "add a skip rule");
     printf(" Format of <filter_rule> parameter:\n");
-    printf(parameters_format, "type <iftype>", "interfaces of given type");
-    printf(parameters_format, "", "use 0 for any interface type");
-    printf(parameters_format, "name <ifname>", "interface of given name");
+    printf(PARAMETERS_FORMAT, "type <iftype>", "interfaces of given type");
+    printf(PARAMETERS_FORMAT, "", "use 0 for any interface type");
+    printf(PARAMETERS_FORMAT, "name <ifname>", "interface of given name");
 }
 
 static void

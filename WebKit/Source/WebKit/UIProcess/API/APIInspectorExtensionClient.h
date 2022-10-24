@@ -26,6 +26,7 @@
 #pragma once
 
 #include "InspectorExtensionTypes.h"
+#include <WebCore/FrameIdentifier.h>
 #include <wtf/Forward.h>
 
 namespace API {
@@ -35,7 +36,7 @@ class InspectorExtensionClient {
 public:
     virtual ~InspectorExtensionClient() = default;
 
-    virtual void didShowExtensionTab(const Inspector::ExtensionTabID&) { }
+    virtual void didShowExtensionTab(const Inspector::ExtensionTabID&, WebCore::FrameIdentifier) { }
     virtual void didHideExtensionTab(const Inspector::ExtensionTabID&) { }
     virtual void didNavigateExtensionTab(const Inspector::ExtensionTabID&, const WTF::URL&) { }
     virtual void inspectedPageDidNavigate(const WTF::URL&) { }

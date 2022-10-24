@@ -90,27 +90,30 @@ int recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;
 /*
  * Mark these MALLOC_NOINLINE to avoid bloating the purgeable zone call backs
  */
-void
-szone_free(szone_t *szone, void *ptr)
+static void
+_szone_free(szone_t *szone, void *ptr, bool try)
 {
 	region_t tiny_region;
 	region_t small_region;
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
-		malloc_report(ASL_LEVEL_INFO, "in szone_free with %p\n", ptr);
+		malloc_report(ASL_LEVEL_INFO, "in _szone_free with %p\n", ptr);
 	}
 #endif
 	if (!ptr) {
 		return;
 	}
+	if ((uintptr_t)ptr & (TINY_QUANTUM - 1)) {
+		if (!try) {
+			malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed\n", ptr);
+			return;
+		}
+		goto not_claimed;
+	}
 	/*
 	 * Try to free to a tiny region.
 	 */
-	if ((uintptr_t)ptr & (TINY_QUANTUM - 1)) {
-		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed\n", ptr);
-		return;
-	}
 	if ((tiny_region = tiny_region_for_ptr_no_lock(&szone->tiny_rack, ptr)) != NULL) {
 		if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
 			malloc_zone_error(szone->debug_flags, true, "Pointer %p to metadata being freed\n", ptr);
@@ -124,8 +127,11 @@ szone_free(szone_t *szone, void *ptr)
 	 * Try to free to a small region.
 	 */
 	if ((uintptr_t)ptr & (SMALL_QUANTUM - 1)) {
-		malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed (2)\n", ptr);
-		return;
+		if (!try) {
+			malloc_zone_error(szone->debug_flags, true, "Non-aligned pointer %p being freed (2)\n", ptr);
+			return;
+		}
+		goto not_claimed;
 	}
 	if ((small_region = small_region_for_ptr_no_lock(&szone->small_rack, ptr)) != NULL) {
 		if (SMALL_META_INDEX_FOR_PTR(ptr) >= NUM_SMALL_BLOCKS) {
@@ -152,10 +158,31 @@ szone_free(szone_t *szone, void *ptr)
 
 	/* check that it's a legal large allocation */
 	if ((uintptr_t)ptr & (vm_page_quanta_size - 1)) {
-		malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
+		if (!try) {
+			malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
+			return;
+		}
+		goto not_claimed;
+	}
+	bool claimed = free_large(szone, ptr, try);
+	if (!try || claimed) {
 		return;
 	}
-	free_large(szone, ptr);
+
+not_claimed:
+	find_zone_and_free(ptr, true);
+}
+
+void
+szone_free(szone_t *szone, void *ptr)
+{
+	_szone_free(szone, ptr, false);
+}
+
+static void
+szone_try_free_default(szone_t *szone, void *ptr)
+{
+	_szone_free(szone, ptr, true);
 }
 
 void
@@ -227,7 +254,7 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 		malloc_zone_error(szone->debug_flags, true, "non-page-aligned, non-allocated pointer %p being freed\n", ptr);
 		return;
 	}
-	free_large(szone, ptr);
+	free_large(szone, ptr, false);
 }
 
 MALLOC_NOINLINE void *
@@ -274,6 +301,10 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 	 */
 	if ((szone->debug_flags & MALLOC_DO_SCRIBBLE) && ptr && !cleared_requested && size) {
 		memset(ptr, SCRIBBLE_BYTE, szone_size(szone, ptr));
+	}
+
+	if (os_unlikely(!ptr)) {
+		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 	}
 
 	return ptr;
@@ -618,8 +649,10 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 	if (num_kernel_pages == 0) { /* Overflowed */
 		return NULL;
 	} else {
+		MALLOC_STATIC_ASSERT(sizeof(size_t) == sizeof(long), "builtin_ctzl should be the right intrinsic for size_t");
+
 		return large_malloc(szone, num_kernel_pages,
-				MAX(vm_page_quanta_shift, __builtin_ctz((unsigned)alignment)), 0);
+				MAX(vm_page_quanta_shift, __builtin_ctzl(alignment)), 0);
 	}
 	/* NOTREACHED */
 	__builtin_unreachable();
@@ -675,37 +708,9 @@ szone_destroy(szone_t *szone)
 
 #if CONFIG_LARGE_CACHE
 	if (large_cache_enabled) {
-		SZONE_LOCK(szone);
-
-		/* disable any memory pressure responder */
-		szone->flotsam_enabled = FALSE;
-
-		// stack allocated copy of the death-row cache
-		int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
-		large_entry_t local_entry_cache[LARGE_ENTRY_CACHE_SIZE_HIGH];
-
-		memcpy((void *)local_entry_cache, (void *)szone->large_entry_cache, sizeof(local_entry_cache));
-
-		szone->large_entry_cache_oldest = szone->large_entry_cache_newest = 0;
-		szone->large_entry_cache[0].address = 0x0;
-		szone->large_entry_cache[0].size = 0;
-		szone->large_entry_cache_bytes = 0;
-		szone->large_entry_cache_reserve_bytes = 0;
-
-		SZONE_UNLOCK(szone);
-
-		// deallocate the death-row cache outside the zone lock
-		while (idx != idx_max) {
-			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
-			if (++idx == szone->large_cache_depth) {
-				idx = 0;
-			}
-		}
-		if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
-			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
-		}
+		large_destroy_cache(szone);
 	}
-#endif
+#endif // CONFIG_LARGE_CACHE
 
 	/* destroy large entries */
 	index = szone->num_large_entries;
@@ -810,33 +815,10 @@ szone_check_all(szone_t *szone, const char *function)
 {
 	size_t index;
 
-	/* check tiny regions - chould check region count */
-	for (index = 0; index < szone->tiny_rack.region_generation->num_regions_allocated; ++index) {
-		region_t tiny = szone->tiny_rack.region_generation->hashed_regions[index];
-
-		if (HASHRING_REGION_DEALLOCATED == tiny) {
-			continue;
-		}
-
-		if (tiny) {
-			magazine_t *tiny_mag_ptr = mag_lock_zine_for_region_trailer(szone->tiny_rack.magazines,
-					REGION_TRAILER_FOR_TINY_REGION(tiny),
-					MAGAZINE_INDEX_FOR_TINY_REGION(tiny));
-
-			if (!tiny_check_region(&szone->tiny_rack, tiny, index, szone_check_counter)) {
-				SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-				szone->debug_flags &= ~CHECK_REGIONS;
-				return 0;
-			}
-			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-		}
-	}
-	/* check tiny free lists */
-	for (index = 0; index < NUM_TINY_SLOTS; ++index) {
-		if (!tiny_free_list_check(&szone->tiny_rack, (grain_t)index, szone_check_counter)) {
-			szone->debug_flags &= ~CHECK_REGIONS;
-			return 0;
-		}
+	boolean_t tiny_result = tiny_check(&szone->tiny_rack, szone_check_counter);
+	if (!tiny_result) {
+		szone->debug_flags &= ~CHECK_REGIONS;
+		return 0;
 	}
 
 	/* check small regions - could check region count */
@@ -1451,7 +1433,7 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 #endif // CONFIG_MEDIUM_ALLOCATOR
 #endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
-#if CONFIG_LARGE_CACHE
+#if CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM
 	if (large_cache_enabled && szone->flotsam_enabled) {
 		SZONE_LOCK(szone);
 
@@ -1485,7 +1467,7 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 			total += local_entry_cache[idx].size;
 		}
 	}
-#endif
+#endif // CONFIG_LARGE_CACHE && !CONFIG_DEFERRED_RECLAIM
 
 	MAGMALLOC_PRESSURERELIEFEND((void *)szone, szone->basic_zone.zone_name, (int)goal, (int)total); // DTrace USDT Probe
 	MALLOC_TRACE(TRACE_malloc_memory_pressure | DBG_FUNC_END, (uint64_t)szone, goal, total, 0);
@@ -1747,7 +1729,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	// Initialize the security token.
 	szone->cookie = (uintptr_t)malloc_entropy[0];
 
-	szone->basic_zone.version = 12;
+	szone->basic_zone.version = 13;
 	szone->basic_zone.size = (void *)szone_size;
 	szone->basic_zone.malloc = (void *)szone_malloc;
 	szone->basic_zone.calloc = (void *)szone_calloc;
@@ -1762,6 +1744,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	szone->basic_zone.free_definite_size = (void *)szone_free_definite_size;
 	szone->basic_zone.pressure_relief = (void *)szone_pressure_relief;
 	szone->basic_zone.claimed_address = (void *)szone_claimed_address;
+	szone->basic_zone.try_free_default = (void *)szone_try_free_default;
 
 	/* Set to zero once and for all as required by CFAllocator. */
 	szone->basic_zone.reserved1 = 0;

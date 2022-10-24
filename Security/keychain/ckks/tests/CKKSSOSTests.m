@@ -278,7 +278,9 @@
         
         NSError* error = nil;
         
-        NSArray<CKKSKey*>* keys = [CKKSKey localKeys:strongSelf.manateeZoneID error:&error];
+        NSArray<CKKSKey*>* keys = [CKKSKey localKeysForContextID:self.defaultCKKS.operationDependencies.contextID
+                                                          zoneID:strongSelf.manateeZoneID
+                                                           error:&error];
         XCTAssertNil(error, "no error fetching keys");
         XCTAssertEqual(keys.count, 3u, "Three keys in local database");
         

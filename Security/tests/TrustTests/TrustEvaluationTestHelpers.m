@@ -19,6 +19,8 @@
 #include <Network/Network.h>
 #include <Network/Network_Private.h>
 
+#include "SecPolicyInternal.h"
+
 #include "TrustEvaluationTestHelpers.h"
 
 // Want a class for running trust evaluations
@@ -317,7 +319,7 @@ errOut:
             CFReleaseNull(spkiSHA256Data);
         }
 
-        SecPolicySetOptionsValue(policy, spkiSHA256Options[i], spkiSHA256DataArray);
+        SecPolicySetOptionsValue_internal(policy, spkiSHA256Options[i], spkiSHA256DataArray);
         CFReleaseNull(spkiSHA256DataArray);
     }
 

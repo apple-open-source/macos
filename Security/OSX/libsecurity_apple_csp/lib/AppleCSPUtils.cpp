@@ -89,7 +89,7 @@ void cspValidateKeyAttr(
 }
 
 /*
- * Perform sanity check of incoming key attribute bits for a given
+ * Perform check of incoming key attribute bits for a given
  * key type, and return a cspKeyStorage value.
  *
  * Called from any routine which generates a new key. This specifically

@@ -4,11 +4,13 @@
 <dict>
 	<key>com.apple.keystore.console</key>
 	<true/>
+	<key>com.apple.keystore.filevault</key>
+	<true/>
 	<key>com.apple.private.LocalAuthentication.ExtractCredential</key>
 	<true/>
 	<key>com.apple.private.security.clear-library-validation</key>
 	<true/>
-	<key>com.apple.keystore.filevault</key>
+	<key>com.apple.private.security.storage.authdb</key>
 	<true/>
 	<key>com.apple.rootless.volume.Preboot</key>
 	<true/>

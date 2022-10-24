@@ -197,9 +197,11 @@ static std::string hashString(CFDataRef hash)
 		return std::string();
 	} else {
 		const UInt8 *bytes = CFDataGetBytePtr(hash);
-		char s[2 * SHA1::digestLength + 1];
-		for (unsigned n = 0; n < SHA1::digestLength; n++)
-			sprintf(&s[2*n], "%2.2x", bytes[n]);
+                size_t cap = 2 * SHA1::digestLength + 1;
+		char s[cap];
+		for (unsigned n = 0; n < SHA1::digestLength; n++) {
+                        snprintf(&s[2*n], cap - 2*n, "%2.2x", bytes[n]);
+                }
 		return std::string(s);
 	}
 }

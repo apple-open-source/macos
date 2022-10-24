@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>leave</string>
+		<key>OpenSourceVersion</key>
+		<string>2002-09-04</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/leave?id=f4ac32def255b5968bdd8150057b9c0d14595689</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-09</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>misc_cmds.txt</string>
+	</dict>

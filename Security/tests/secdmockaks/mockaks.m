@@ -212,25 +212,30 @@ static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, 
 }
 
 + (void)failNextDecryptRefKey: (NSError* _Nonnull) decryptRefKeyError {
-    if (_decryptRefKeyErrors == NULL) {
-        _decryptRefKeyErrors = [NSMutableArray array];
-    }
-    @synchronized(_decryptRefKeyErrors) {
+    @synchronized (self) {
+        if (_decryptRefKeyErrors == NULL) {
+            _decryptRefKeyErrors = [NSMutableArray array];
+        }
         [_decryptRefKeyErrors addObject: decryptRefKeyError];
+    }
+}
+
++ (void)resetDecryptRefKeyFailures {
+    @synchronized(self) {
+        _decryptRefKeyErrors = NULL;
     }
 }
 
 + (NSError * _Nullable)popDecryptRefKeyFailure {
     NSError* error = nil;
-    if (_decryptRefKeyErrors == NULL) {
-        return nil;
-    }
-    @synchronized(_decryptRefKeyErrors) {
-        if(_decryptRefKeyErrors.count > 0) {
+
+    @synchronized(self) {
+        if (_decryptRefKeyErrors != NULL && _decryptRefKeyErrors.count > 0) {
             error = _decryptRefKeyErrors[0];
             [_decryptRefKeyErrors removeObjectAtIndex:0];
         }
     }
+
     return error;
 }
 
@@ -273,6 +278,14 @@ aks_create_bag(const void * passcode, int length, keybag_type_t type, keybag_han
 kern_return_t
 aks_unload_bag(keybag_handle_t handle)
 {
+    return kAKSReturnSuccess;
+}
+
+kern_return_t
+aks_invalidate_bag(const void *data, int length)
+{
+    assert(data);
+    assert(length);
     return kAKSReturnSuccess;
 }
 
@@ -967,6 +980,13 @@ aks_ref_key_enable_test_keys(keybag_handle_t handle, const uint8_t *passcode, si
 {
     abort();
     return kAKSReturnError;
+}
+
+void
+aks_dealloc(void *ptr, size_t size)
+{
+    memset_s(ptr, size, 0, size);
+    free(ptr);
 }
 
 CFStringRef kMKBDeviceModeMultiUser = CFSTR("kMKBDeviceModeMultiUser");

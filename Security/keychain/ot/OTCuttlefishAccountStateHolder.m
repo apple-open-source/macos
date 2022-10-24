@@ -14,6 +14,9 @@
 @property NSString* containerName;
 @property NSString* contextID;
 
+@property id<OTPersonaAdapter> personaAdapter;
+@property (nullable) TPSpecificUser* activeAccount;
+
 @property NSMutableSet<id<OTCuttlefishAccountStateHolderNotifier>>* monitors;
 @end
 
@@ -22,6 +25,8 @@
 - (instancetype)initWithQueue:(dispatch_queue_t)queue
                     container:(NSString*)containerName
                       context:(NSString*)contextID
+               personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                activeAccount:(TPSpecificUser* _Nullable)activeAccount
 {
     if((self = [super init])) {
         _queue = queue;
@@ -29,8 +34,17 @@
         _containerName = containerName;
         _contextID = contextID;
         _monitors = [NSMutableSet set];
+
+        _personaAdapter = personaAdapter;
+        _activeAccount = activeAccount;
     }
     return self;
+}
+
+
+- (void)changeActiveAccount:(TPSpecificUser*)newActiveAccount
+{
+    self.activeAccount = newActiveAccount;
 }
 
 - (void)registerNotification:(id<OTCuttlefishAccountStateHolderNotifier>)notifier
@@ -57,7 +71,12 @@
     dispatch_assert_queue(self.queue);
 
     NSError* localError = nil;
-    OTAccountMetadataClassC* current = [OTAccountMetadataClassC loadFromKeychainForContainer:self.containerName contextID:self.contextID error:&localError];
+
+    OTAccountMetadataClassC* current = [OTAccountMetadataClassC loadFromKeychainForContainer:self.containerName
+                                                                                   contextID:self.contextID
+                                                                              personaAdapter:self.personaAdapter
+                                                                         personaUniqueString:self.activeAccount.personaUniqueString
+                                                                                       error:&localError];
 
     if(!current || localError) {
         if([localError.domain isEqualToString:NSOSStatusErrorDomain] && localError.code == errSecItemNotFound) {
@@ -155,7 +174,11 @@
             return;
         }
 
-        if([newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
+        if([newState saveToKeychainForContainer:self.containerName
+                                      contextID:self.contextID
+                                personaAdapter:self.personaAdapter
+                            personaUniqueString:self.activeAccount.personaUniqueString
+                                          error:&localError]) {
             success = YES;
         } else {
             success = NO;
@@ -208,7 +231,11 @@
     if(oldState) {
         newState = makeChanges([oldState copy]);
 
-        if(![newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
+        if(![newState saveToKeychainForContainer:self.containerName
+                                       contextID:self.contextID
+                                 personaAdapter:self.personaAdapter
+                             personaUniqueString:self.activeAccount.personaUniqueString
+                                           error:&localError]) {
             newState = nil;
         }
     }

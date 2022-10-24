@@ -108,13 +108,12 @@
         
         secnotice("octagon-ckks", "Determining peers' user-controllable views policy");
 
-        [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.deps.containerName
-                                                                context:self.deps.contextID
-                                                        modelIDOverride:nil
-                                                     isInheritedAccount:isInheritedAccount
-                                                                  reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                          TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
-                                                                          NSError* _Nullable error) {
+        [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithSpecificUser:self.deps.activeAccount
+                                                           modelIDOverride:nil
+                                                        isInheritedAccount:isInheritedAccount
+                                                                     reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                             TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
+                                                                             NSError* _Nullable error) {
             STRONGIFY(self);
 
             if(error) {
@@ -142,17 +141,16 @@
 
     secnotice("octagon-ckks", "Setting user-controllable views to %@", TPPBPeerStableInfoUserControllableViewStatusAsString(self.intendedViewStatus));
 
-    [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
-                                                context:self.deps.contextID
-                                           forceRefetch:NO
-                                             deviceName:nil
-                                           serialNumber:nil
-                                              osVersion:nil
-                                          policyVersion:nil
-                                          policySecrets:nil
-                              syncUserControllableViews:[NSNumber numberWithInt:intendedViewStatus]
-                                  secureElementIdentity:nil
-                                                  reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
+    [self.deps.cuttlefishXPCWrapper updateWithSpecificUser:self.deps.activeAccount
+                                              forceRefetch:NO
+                                                deviceName:nil
+                                              serialNumber:nil
+                                                 osVersion:nil
+                                             policyVersion:nil
+                                             policySecrets:nil
+                                 syncUserControllableViews:[NSNumber numberWithInt:intendedViewStatus]
+                                     secureElementIdentity:nil
+                                                     reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
         STRONGIFY(self);
         if(error || !syncingPolicy) {
             secerror("octagon-ckks: setting user-controllable views status errored: %@", error);

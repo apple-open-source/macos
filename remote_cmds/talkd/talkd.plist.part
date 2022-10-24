@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>talkd</string>
+		<key>OpenSourceVersion</key>
+		<string>2005-05-06</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/libexec/talkd?id=b49407ee4376dfbc36a71583f4d5bb54d82ad9f3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>process.c: Use utmpx for tty look up</string>
+			<string>talkd.c: Don't check for super user so talkd can run in sandbox</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>remote_cmds.txt</string>
+	</dict>

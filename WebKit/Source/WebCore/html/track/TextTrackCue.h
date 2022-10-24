@@ -60,10 +60,10 @@ protected:
 
 private:
 
-    WeakPtr<TextTrackCue> m_cue;
+    WeakPtr<TextTrackCue, WeakPtrImplWithEventTargetData> m_cue;
 };
 
-class TextTrackCue : public RefCounted<TextTrackCue>, public EventTargetWithInlineData, public ActiveDOMObject {
+class TextTrackCue : public RefCounted<TextTrackCue>, public EventTarget, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(TextTrackCue);
 public:
     static ExceptionOr<Ref<TextTrackCue>> create(Document&, double start, double end, DocumentFragment&);
@@ -71,8 +71,8 @@ public:
     TextTrack* track() const;
     void setTrack(TextTrack*);
 
-    const String& id() const { return m_id; }
-    void setId(const String&);
+    const AtomString& id() const { return m_id; }
+    void setId(const AtomString&);
 
     double startTime() const { return startMediaTime().toDouble(); }
     void setStartTime(double);
@@ -147,7 +147,7 @@ private:
 
     void rebuildDisplayTree();
 
-    String m_id;
+    AtomString m_id;
     MediaTime m_startTime;
     MediaTime m_endTime;
     int m_processingCueChanges { 0 };

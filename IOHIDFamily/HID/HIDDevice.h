@@ -37,6 +37,10 @@ typedef void (^HIDDeviceElementHandler)(HIDElement *element);
 
 typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
 
+typedef void (^HIDDeviceReportCallback)(IOReturn status, const void * report, NSInteger reportLength, NSInteger reportID);
+
+typedef void (^HIDDeviceCommitCallback)(IOReturn status);
+
 @interface HIDDevice (HIDFramework)
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -116,12 +120,12 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
  * dictionary.
  *
  * @discussion Matching keys are prefixed by kIOHIDElement and declared in
- * <IOKit/hid/IOHIDKeys.h>. Passing a nil dictionary will result in all device
+ * <IOKit/hid/IOHIDKeys.h>. Passing an empty dictionary will result in all device
  * elements being returned. Note that in order to get/set the element values,
  * the device must be opened.
  *
  * @param matching
- * The dictionary containg element matching criteria.
+ * The dictionary containing element matching criteria.
  *
  * @result
  * Returns an array of matching HIDElement objects.
@@ -132,10 +136,11 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
  * @method setReport
  *
  * @abstract
- * Sends a report to the device.
+ * Sends a report synchronously to the device.
  *
  * @discussion
- * The HIDDevice must be open before calling this method.
+ * The HIDDevice must be open before calling this method. This will block
+ * until the device has processed the call or the call fails.
  *
  * @param report
  * The report bytes.
@@ -162,13 +167,61 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
             error:(out NSError * _Nullable * _Nullable)outError;
 
 /*!
+ * @method setReport
+ *
+ * @abstract
+ * Sends a report asynchronously to the device.
+ *
+ * @discussion
+ * The HIDDevice must be open before calling this method. If a callback is provided,
+ * this will return once the call has been sent to the device or the call fails.
+ * If successful, the callback will be triggered after the device has processed
+ * the call or the timeout is hit. If an error is returned, the callback will not be called.
+ *
+ * @param report
+ * A buffer to fill with the report bytes. If a callback is provided and the original call
+ * to setReport does not fail, this buffer must not be freed until the callback is called.
+ *
+ * @param reportLength
+ * The length of the report being passed in.
+ *
+ * @param reportID
+ * The report ID.
+ *
+ * @param reportType
+ * The report type.
+ *
+ * @param outError
+ * An error returned on failure, only valid if result is NO.
+ *
+ * @param timeout
+ * The maximum amount of time in milliseconds to wait for a device response before
+ * the callback is triggered with an error.
+ *
+ * @param callback
+ * Function called to indicate result. If this is null the call will run synchronously.
+ * Will only be triggered if result is YES.
+ *
+ * @result
+ * Returns YES on success.
+ */
+- (BOOL)setReport:(const void *)report
+     reportLength:(NSInteger)reportLength
+   withIdentifier:(NSInteger)reportID
+          forType:(HIDReportType)reportType
+            error:(out NSError * _Nullable * _Nullable)outError
+          timeout:(NSInteger)timeout
+         callback:(HIDDeviceReportCallback _Nullable)callback;
+
+/*!
  * @method getReport
  *
  * @abstract
- * Retrieves a report from the device.
+ * Retrieves a report synchronously from the device.
  *
  * @discussion
- * The HIDDevice must be open before calling this method.
+ * The HIDDevice must be open before calling this method. This will block
+ * until the device has processed the call or the call fails.
  *
  * @param report
  * A buffer to fill with the report bytes.
@@ -194,6 +247,55 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
    withIdentifier:(NSInteger)reportID
           forType:(HIDReportType)reportType
             error:(out NSError * _Nullable * _Nullable)outError;
+
+/*!
+ * @method getReport
+ *
+ * @abstract
+ * Retrieves a report asynchronously from the device.
+ *
+ * @discussion
+ * The HIDDevice must be open before calling this method. If a callback is provided,
+ * this will return once the call has been sent to the device or the call fails.
+ * If successful, the callback will be triggered after the device has processed
+ * the call or the timeout is hit. If an error is returned, the callback will not be called.
+ *
+ * @param report
+ * A buffer to fill with the report bytes. If a callback is provided and the original call
+ * to getReport does not fail, this buffer must not be freed until the callback is called.
+ *
+ * @param reportLength
+ * The length of the report buffer. If a callback is not provided, the value will be updated
+ * to reflect the length of the report. The pointer memory does not need to be maintained,
+ * the original value will be copied.
+ *
+ * @param reportID
+ * The report ID.
+ *
+ * @param reportType
+ * The report type.
+ *
+ * @param outError
+ * An error returned on failure, only valid if result is NO.
+ *
+ * @param timeout
+ * The maximum amount of time in milliseconds to wait for a device response before
+ * the callback is triggered with an error.
+ *
+ * @param callback
+ * Function called to provide the queried report. If this is null the call will run synchronously.
+ * Will only be triggered if result is YES.
+ *
+ * @result
+ * Returns YES on success.
+ */
+- (BOOL)getReport:(void *)report
+     reportLength:(NSInteger *)reportLength
+   withIdentifier:(NSInteger)reportID
+          forType:(HIDReportType)reportType
+            error:(out NSError * _Nullable * _Nullable)outError
+          timeout:(NSInteger)timeout
+         callback:(HIDDeviceReportCallback _Nullable)callback;
 
 /*!
  * @method commitElements
@@ -232,6 +334,57 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
 - (BOOL)commitElements:(NSArray<HIDElement *> *)elements
              direction:(HIDDeviceCommitDirection)direction
                  error:(out NSError * _Nullable * _Nullable)outError;
+
+/*!
+ * @method commitElements
+ *
+ * @abstract
+ * Asynchronously sets/gets the array of elements on the device.
+ *
+ * @discussion
+ * The HIDDevice must be open before calling this method. If a callback
+ * is provided and success is returned, the callback will be invoked upon
+ * completion of all set/get reports. If a callback is not provided the function
+ * will execute synchronously.
+ *
+ * @param elements
+ * An array of elements to commit to the device.
+ *
+ * @param direction
+ * The direction of the commit.
+ *
+ * Passing in HIDDeviceCommitDirectionIn will issue a getReport call to the
+ * device, and the elements in the array will be updated with the value
+ * retrieved by the device. The value can be accessed via the integerValue or
+ * dataValue property on the HIDElement.
+ *
+ * Passing in HIDDeviceCommitDirectionOut will issue a setReport call to the
+ * device. Before issuing this call, the desired value should be set on the
+ * element by calling:
+ *     element.integerValue = (value) or
+ *     element.dataValue = (value)
+ *
+ * Input elements should not be used with HIDDeviceCommitDirectionOutput.
+ *
+ * @param outError
+ * An error returned on failure.
+ *
+ * @param timeout
+ * If asynchronous, the time in milliseconds before the call will fail and the
+ * callback invoked with a timeout error code.
+ *
+ * @param callback
+ * The callback to invoke upon completion of an asynchronous call. If the
+ * initial call to commit returns an error status, the callback will not be invoked.
+ *
+ * @result
+ * Returns YES on success.
+ */
+- (BOOL)commitElements:(NSArray<HIDElement *> *)elements
+             direction:(HIDDeviceCommitDirection)direction
+                 error:(out NSError * _Nullable * _Nullable)outError
+               timeout:(NSInteger)timeout
+              callback:(HIDDeviceCommitCallback _Nullable)callback;
 
 /*!
  * @method setInputElementMatching
@@ -319,7 +472,7 @@ typedef void (^HIDDeviceBatchElementHandler)(NSArray<HIDElement *> *elements);
  * @method setInputReportHandler
  *
  * @abstract
- * Registers a handler to be recieve input reports from the device.
+ * Registers a handler to be receive input reports from the device.
  *
  * @discussion
  * This call must occur before the device is activated. The device must be open

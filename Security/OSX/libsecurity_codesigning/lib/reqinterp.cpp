@@ -370,7 +370,7 @@ CFArrayRef Requirement::Interpreter::getAdditionalTrustedAnchors()
     __block CFRef<CFMutableArrayRef> keys = makeCFMutableArray(0);
 
     try {
-        io_registry_entry_t entry = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+        io_registry_entry_t entry = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/options");
         if (entry == IO_OBJECT_NULL)
             return NULL;
 

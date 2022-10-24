@@ -86,7 +86,7 @@ public:
     @discussion Prime the IOHIDUserDevice object and prepare it to support
     a probe() or a start() call.
     @param properties Dictionary containing preflighted properties corresponding to device keys from IOHIDKeys.h.
-    @result True on sucess, or false otherwise. */
+    @result True on success, or false otherwise. */
     virtual bool initWithProperties(OSDictionary * properties);
 
 /*! @function newReportDescriptor
@@ -173,28 +173,64 @@ public:
     virtual OSNumber *newLocationIDNumber(void) const APPLE_KEXT_OVERRIDE;
 
 /*! @function getReport
-    @abstract Get a report from the HID device.
+    @abstract Get a report synchronously from the HID device.
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
     @param options The lower 8 bits will represent the Report ID.  The
     other 24 bits are options to specify the request.
     @result kIOReturnSuccess on success, or an error return otherwise. */
-	IOReturn getReport(IOMemoryDescriptor	*report,
-					   IOHIDReportType		reportType,
-					   IOOptionBits			options ) APPLE_KEXT_OVERRIDE;
+    IOReturn getReport(IOMemoryDescriptor * report,
+                       IOHIDReportType      reportType,
+                       IOOptionBits         options) APPLE_KEXT_OVERRIDE;
+
+/*! @function getReport
+    @abstract Get a report asynchronously from the HID device.
+    @param report A memory descriptor that describes the memory to store
+    the report read from the HID device.
+    @param reportType The report type.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
+    @param completionTimeout Maximum amount of time to wait for a
+    response before the completion is triggered with an error.
+    @param completion Callback info for completing the asynchronous call.
+    Will execute synchronously if the completion or callback is null.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+    IOReturn getReport(IOMemoryDescriptor * report,
+                       IOHIDReportType      reportType,
+                       IOOptionBits         options,
+                       UInt32               completionTimeout,
+                       IOHIDCompletion    * completion = 0) APPLE_KEXT_OVERRIDE;
 
 /*! @function setReport
-    @abstract Send a report to the HID device.
+    @abstract Send a report synchronously to the HID device.
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.
     @param options The lower 8 bits will represent the Report ID.  The
     other 24 bits are options to specify the request.
     @result kIOReturnSuccess on success, or an error return otherwise. */
-	IOReturn setReport(IOMemoryDescriptor	*report,
-					   IOHIDReportType		reportType,
-					   IOOptionBits			options) APPLE_KEXT_OVERRIDE;
+    IOReturn setReport(IOMemoryDescriptor * report,
+                       IOHIDReportType      reportType,
+                       IOOptionBits         options) APPLE_KEXT_OVERRIDE;
+
+/*! @function setReport
+    @abstract Send a report asynchronously to the HID device.
+    @param report A memory descriptor that describes the report to send
+    to the HID device.
+    @param reportType The report type.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
+    @param completionTimeout Maximum amount of time to wait for a
+    response before the completion is triggered with an error.
+    @param completion Callback info for completing the asynchronous call.
+    Will execute synchronously if the completion or callback is null.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+    IOReturn setReport(IOMemoryDescriptor * report,
+                       IOHIDReportType      reportType,
+                       IOOptionBits         options,
+                       UInt32               completionTimeout,
+                       IOHIDCompletion    * completion = 0) APPLE_KEXT_OVERRIDE;
 
 };
 

@@ -14,7 +14,7 @@ using namespace angle;
 namespace
 {
 
-class GLSLTest : public ANGLETest
+class GLSLTest : public ANGLETest<>
 {
   protected:
     GLSLTest()
@@ -33,11 +33,11 @@ class GLSLTest : public ANGLETest
 
         if (vectorSize == 1)
         {
-            sprintf(varyingType, "float");
+            snprintf(varyingType, sizeof(varyingType), "float");
         }
         else
         {
-            sprintf(varyingType, "vec%d", vectorSize);
+            snprintf(varyingType, sizeof(varyingType), "vec%d", vectorSize);
         }
 
         return std::string(varyingType);
@@ -49,12 +49,13 @@ class GLSLTest : public ANGLETest
 
         if (arraySize == 1)
         {
-            sprintf(buff, "varying %s v%d;\n", GenerateVaryingType(vectorSize).c_str(), id);
+            snprintf(buff, sizeof(buff), "varying %s v%d;\n",
+                     GenerateVaryingType(vectorSize).c_str(), id);
         }
         else
         {
-            sprintf(buff, "varying %s v%d[%d];\n", GenerateVaryingType(vectorSize).c_str(), id,
-                    arraySize);
+            snprintf(buff, sizeof(buff), "varying %s v%d[%d];\n",
+                     GenerateVaryingType(vectorSize).c_str(), id, arraySize);
         }
 
         return std::string(buff);
@@ -67,15 +68,16 @@ class GLSLTest : public ANGLETest
 
         if (arraySize == 1)
         {
-            sprintf(buff, "\t v%d = %s(1.0);\n", id, GenerateVaryingType(vectorSize).c_str());
+            snprintf(buff, sizeof(buff), "\t v%d = %s(1.0);\n", id,
+                     GenerateVaryingType(vectorSize).c_str());
             returnString += buff;
         }
         else
         {
             for (int i = 0; i < arraySize; i++)
             {
-                sprintf(buff, "\t v%d[%d] = %s(1.0);\n", id, i,
-                        GenerateVaryingType(vectorSize).c_str());
+                snprintf(buff, sizeof(buff), "\t v%d[%d] = %s(1.0);\n", id, i,
+                         GenerateVaryingType(vectorSize).c_str());
                 returnString += buff;
             }
         }
@@ -88,7 +90,7 @@ class GLSLTest : public ANGLETest
         if (arraySize == 1)
         {
             char buff[100];
-            sprintf(buff, "v%d + ", id);
+            snprintf(buff, sizeof(buff), "v%d + ", id);
             return std::string(buff);
         }
         else
@@ -97,7 +99,7 @@ class GLSLTest : public ANGLETest
             for (int i = 0; i < arraySize; i++)
             {
                 char buff[100];
-                sprintf(buff, "v%d[%d] + ", id, i);
+                snprintf(buff, sizeof(buff), "v%d[%d] + ", id, i);
                 returnString += buff;
             }
             return returnString;
@@ -1014,6 +1016,30 @@ void main()
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
 }
 
+// Test that struct with same name can be declared in inner scope.
+TEST_P(GLSLTest, SameNameStructInInnerScope)
+{
+    constexpr char kVS[] = R"(
+void main() {
+    gl_Position = vec4(0);
+})";
+
+    constexpr char kFS[] = R"(
+struct S
+{
+    mediump float f;
+};
+void main()
+{
+    struct S
+    {
+        S n;
+    };
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
 // Regression test based on WebGL's conformance/glsl/misc/empty-declaration.html
 TEST_P(GLSLTest, StructEmptyDeclaratorBug)
 {
@@ -1027,7 +1053,6 @@ void main() {
 })";
 
     constexpr char kFS[] = R"(precision mediump float;
-precision mediump float;
 void main()
 {
     gl_FragColor = vec4(1.0,0.0,0.0,1.0);
@@ -1163,8 +1188,6 @@ void main()
 // Draw an array of points with the first vertex offset at 0 using gl_VertexID
 TEST_P(GLSLTest_ES3, GLVertexIDOffsetZeroDrawArray)
 {
-    // http://anglebug.com/4092
-    ANGLE_SKIP_TEST_IF(isSwiftshader());
     constexpr int kStartIndex  = 0;
     constexpr int kArrayLength = 5;
     constexpr char kVS[]       = R"(#version 300 es
@@ -1554,8 +1577,6 @@ void main() {
 // Draw an array of points with the first vertex offset at 5 using gl_VertexID
 TEST_P(GLSLTest_ES3, GLVertexIDOffsetFiveDrawArray)
 {
-    // http://anglebug.com/4092
-    ANGLE_SKIP_TEST_IF(isSwiftshader());
     // Bug in Nexus drivers, offset does not work. (anglebug.com/3264)
     ANGLE_SKIP_TEST_IF(IsNexus5X() && IsOpenGLES());
 
@@ -5050,6 +5071,137 @@ void main(void)
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 }
 
+// Check that imageLoad gives the correct color after clearing the texture -- anglebug.com/7355
+TEST_P(GLSLTest_ES31, ImageLoadAfterClear)
+{
+    ANGLE_GL_PROGRAM(program,
+                     R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})",
+
+                     R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) readonly highp uniform image2D img;
+out vec4 fragColor;
+void main()
+{
+    ivec2 imgcoord = ivec2(floor(gl_FragCoord.xy));
+    fragColor = vec4(1, 0, 0, 0) + imageLoad(img, imgcoord);
+})");
+    ASSERT_TRUE(program.valid());
+    glUseProgram(program.get());
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+
+    // Clear the texture to green.
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    glClearColor(0, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+
+    // Draw the texture via imageLoad, plus red, into the main framebuffer. Make sure the texture
+    // was still green. (green + red == yellow.)
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::yellow);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Check that the volatile keyword combined with memoryBarrierImage() allow load/store from
+// different aliases of the same image -- anglebug.com/7343
+//
+// ES 3.1 requires most image formats to be either readonly or writeonly. (It appears that this
+// limitation exists due to atomics, since we still have the volatile keyword and the built-in
+// memoryBarrierImage(), which ought to allow us to load and store different aliases of the same
+// image.) To test this, we create two aliases of the same image -- one for reading and one for
+// writing.
+TEST_P(GLSLTest_ES31, AliasedLoadStore)
+{
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    ANGLE_GL_PROGRAM(program,
+
+                     R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})",
+
+                     R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) volatile readonly highp uniform image2D img_r;
+layout(binding=0, rgba8) volatile writeonly highp uniform image2D img_w;
+uniform vec4 drawColor;
+void main()
+{
+    ivec2 coord = ivec2(floor(gl_FragCoord.xy));
+    vec4 oldval = imageLoad(img_r, coord);
+    memoryBarrierImage();
+    imageStore(img_w, coord, oldval + drawColor);
+})");
+
+    ASSERT_TRUE(program.valid());
+    glUseProgram(program.get());
+    GLint drawColorLocation = glGetUniformLocation(program, "drawColor");
+
+    // Tell the driver the binding is GL_READ_WRITE, since it will be referenced by two image2Ds:
+    // one readeonly and one writeonly.
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUniform4f(drawColorLocation, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Ensure the cleared color was loaded before we stored.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::yellow);
+
+    ASSERT_GL_NO_ERROR();
+
+    // Now make two draws to ensure the imageStore is coherent.
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUniform4f(drawColorLocation, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glUniform4f(drawColorLocation, 0, 0, 1, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Ensure the first imageStore was loaded by the second imageLoad.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::white);
+
+    ASSERT_GL_NO_ERROR();
+}
+
 // Test that structs containing arrays of samplers work as expected.
 TEST_P(GLSLTest_ES31, StructArraySampler)
 {
@@ -6624,6 +6776,85 @@ TEST_P(GLSLTest_ES31, VaryingIOBlockDeclaredAsInAndOut)
         // Output solid green
         color = vec4(0, 1.0, 0, 1.0);
     })";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(program, kVS, kTCS, kTES, kFS);
+    drawPatches(program.get(), "inputAttribute", 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that texture buffers can be accessed in a tessellation stage
+// Triggers a bug in the Vulkan backend: http://anglebug.com/7135
+TEST_P(GLSLTest_ES31, TessellationTextureBufferAccess)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_buffer"));
+
+    constexpr char kVS[] = R"(#version 310 es
+    precision highp float;
+    in vec4 inputAttribute;
+
+    void main()
+    {
+        gl_Position = inputAttribute;
+    })";
+
+    constexpr char kTCS[] = R"(#version 310 es
+    #extension GL_EXT_tessellation_shader : require
+    precision mediump float;
+    layout(vertices = 2) out;
+
+    void main()
+    {
+        gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+        gl_TessLevelInner[0] = 1.0;
+        gl_TessLevelInner[1] = 1.0;
+        gl_TessLevelOuter[0] = 1.0;
+        gl_TessLevelOuter[1] = 1.0;
+        gl_TessLevelOuter[2] = 1.0;
+        gl_TessLevelOuter[3] = 1.0;
+    })";
+
+    constexpr char kTES[] = R"(#version 310 es
+    #extension GL_EXT_tessellation_shader : require
+    #extension GL_OES_texture_buffer : require
+    precision mediump float;
+    layout (isolines, point_mode) in;
+
+    uniform highp samplerBuffer tex;
+
+    out vec4 tex_color;
+
+    void main()
+    {
+        tex_color = texelFetch(tex, 0);
+        gl_Position = gl_in[0].gl_Position;
+    })";
+
+    constexpr char kFS[] = R"(#version 310 es
+    precision mediump float;
+    layout(location = 0) out mediump vec4 color;
+
+    in vec4 tex_color;
+
+    void main()
+    {
+        color = tex_color;
+    })";
+
+    constexpr GLint kBufferSize = 32;
+    GLubyte texData[]           = {0u, 255u, 0u, 255u};
+
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_BUFFER, texture);
+
+    GLBuffer buffer;
+    glBindBuffer(GL_TEXTURE_BUFFER, buffer);
+    glBufferData(GL_TEXTURE_BUFFER, kBufferSize, texData, GL_STATIC_DRAW);
+    glTexBufferEXT(GL_TEXTURE_BUFFER, GL_RGBA8, buffer);
+    ASSERT_GL_NO_ERROR();
+
+    glClearColor(1.0, 0, 0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     ANGLE_GL_PROGRAM_WITH_TESS(program, kVS, kTCS, kTES, kFS);
     drawPatches(program.get(), "inputAttribute", 0.5f, 1.0f, GL_FALSE);
@@ -8952,9 +9183,6 @@ void main()
 // Tests that PointCoord behaves the same betweeen a user FBO and the back buffer.
 TEST_P(GLSLTest, PointCoordConsistency)
 {
-    // http://anglebug.com/4092
-    ANGLE_SKIP_TEST_IF(isSwiftshader());
-
     constexpr char kPointCoordVS[] = R"(attribute vec2 position;
 uniform vec2 viewportSize;
 void main()
@@ -9587,12 +9815,16 @@ void InitBuffer(GLuint program,
 template <typename T>
 bool VerifyBuffer(GLuint buffer, const T data[], uint32_t dataSize)
 {
+    uint32_t sizeInBytes = dataSize * sizeof(*data);
+
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
 
     const T *ptr = reinterpret_cast<const T *>(
-        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, dataSize, GL_MAP_READ_BIT));
+        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeInBytes, GL_MAP_READ_BIT));
 
-    bool isCorrect = memcmp(ptr, data, dataSize * sizeof(*data)) == 0;
+    bool isCorrect = memcmp(ptr, data, sizeInBytes) == 0;
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     return isCorrect;
@@ -10071,45 +10303,45 @@ void main() {
 
     constexpr size_t kMatrixCount = 6;
     mat4 data[]                   = {
-        {
-            {0, 1, 2, 3},      //
-            {4, 5, 6, 7},      //
-            {8, 9, 10, 11},    //
-            {12, 13, 14, 15},  //
+                          {
+                              {0, 1, 2, 3},      //
+                              {4, 5, 6, 7},      //
+                              {8, 9, 10, 11},    //
+                              {12, 13, 14, 15},  //
         },
-        {
-            //     +-- we should be looking up this column
+                          {
+                              //     +-- we should be looking up this column
             //     V
             {0, 4, 8, 12},   //
             {1, 5, 9, 13},   //
             {2, 6, 10, 14},  //
             {3, 7, 11, 15},  //
         },
-        {
-            {0, 2, 4, 6},      //
-            {8, 10, 12, 14},   //
-            {16, 18, 20, 22},  //
-            {24, 26, 28, 30},  //
+                          {
+                              {0, 2, 4, 6},      //
+                              {8, 10, 12, 14},   //
+                              {16, 18, 20, 22},  //
+                              {24, 26, 28, 30},  //
         },
-        {
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
+                          {
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
         },
-        {
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 2},  //
-            {0, 0, 0, 0},  //
-            {0, 1, 0, 0},
-            //  ^
-            //  +-- we should be using this element
+                          {
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 2},  //
+                              {0, 0, 0, 0},  //
+                              {0, 1, 0, 0},
+                              //  ^
+                              //  +-- we should be using this element
         },
-        {
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
-            {0, 0, 0, 0},  //
+                          {
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
+                              {0, 0, 0, 0},  //
         },
     };
 
@@ -12238,6 +12470,64 @@ void main(){
                              static_cast<uint32_t>(ssbo430Expect.size())));
 }
 
+// Verify that uint in interface block cast to bool works.
+TEST_P(GLSLTest_ES3, UintCastToBoolFromInterfaceBlocks)
+{
+    constexpr char kFS[] = R"(#version 300 es
+precision mediump float;
+
+uniform uvec4 uv4;
+uniform uvec2 uv2;
+uniform uint u1;
+uniform uint u2;
+
+out vec4 colorOut;
+
+void main()
+{
+    bvec4 bv4 = bvec4(uv4);
+    bvec2 bv2 = bvec2(uv2);
+    bool b1 = bool(u1);
+    bool b2 = bool(u2);
+
+    vec4 vv4 = mix(vec4(0), vec4(0.4), bv4);
+    vec2 vv2 = mix(vec2(0), vec2(0.7), bv2);
+    float v1 = b1 ? 1.0 : 0.0;
+    float v2 = b2 ? 0.0 : 1.0;
+
+    colorOut = vec4(vv4.x - vv4.y + vv4.z + vv4.w,
+                        (vv2.y - vv2.x) * 1.5,
+                        v1,
+                        v2);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(program);
+    GLint uv4 = glGetUniformLocation(program, "uv4");
+    GLint uv2 = glGetUniformLocation(program, "uv2");
+    GLint u1  = glGetUniformLocation(program, "u1");
+    GLint u2  = glGetUniformLocation(program, "u2");
+    ASSERT_NE(uv4, -1);
+    ASSERT_NE(uv2, -1);
+    ASSERT_NE(u1, -1);
+    ASSERT_NE(u2, -1);
+
+    glUniform4ui(uv4, 123, 0, 9, 8297312);
+    glUniform2ui(uv2, 0, 90812);
+    glUniform1ui(u1, 8979421);
+    glUniform1ui(u2, 0);
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+}
+
 // Test that the precise keyword is not reserved before ES3.1.
 TEST_P(GLSLTest_ES3, PreciseNotReserved)
 {
@@ -12290,10 +12580,6 @@ void main() { v_varying = a_position.x; gl_Position = a_position; })";
 // not get confused by them.
 TEST_P(GLSLTest_ES31, VariableNameReuseAcrossStages)
 {
-    // Fails to compile the fragment shader with error "undeclared identifier '_g'"
-    // http://anglebug.com/4404
-    ANGLE_SKIP_TEST_IF(IsD3D11());
-
     constexpr char kVS[] = R"(#version 310 es
 precision mediump float;
 uniform highp vec4 a;
@@ -15101,25 +15387,348 @@ TEST_P(GLSLTest, LoopBodyEndingInBranch6)
     EXPECT_NE(compileResult, 0);
 }
 
+// Test that aliasing function out parameters work.  The GLSL spec says:
+//
+// > Because the function works with local copies of parameters, there are no issues regarding
+// > aliasing of variables within a function.
+//
+// In the test below, while the value of x is unknown after the function call, the result of the
+// function must deterministically be true.
+TEST_P(GLSLTest, AliasingFunctionOutParams)
+{
+    constexpr char kFS[] = R"(precision highp float;
+
+const vec4 colorGreen = vec4(0.,1.,0.,1.);
+const vec4 colorRed   = vec4(1.,0.,0.,1.);
+
+bool outParametersAreDistinct(out float x, out float y) {
+    x = 1.0;
+    y = 2.0;
+    return x == 1.0 && y == 2.0;
+}
+void main() {
+    float x = 0.0;
+    gl_FragColor = outParametersAreDistinct(x, x) ? colorGreen : colorRed;
+}
+)";
+
+    ANGLE_GL_PROGRAM(testProgram, essl1_shaders::vs::Simple(), kFS);
+    drawQuad(testProgram, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that aliasing function inout parameters work.
+TEST_P(GLSLTest, AliasingFunctionInOutParams)
+{
+    constexpr char kFS[] = R"(precision highp float;
+
+const vec4 colorGreen = vec4(0.,1.,0.,1.);
+const vec4 colorRed   = vec4(1.,0.,0.,1.);
+
+bool inoutParametersAreDistinct(inout float x, inout float y) {
+    x = 1.0;
+    y = 2.0;
+    return x == 1.0 && y == 2.0;
+}
+void main() {
+    float x = 0.0;
+    gl_FragColor = inoutParametersAreDistinct(x, x) ? colorGreen : colorRed;
+}
+)";
+
+    ANGLE_GL_PROGRAM(testProgram, essl1_shaders::vs::Simple(), kFS);
+    drawQuad(testProgram, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that aliasing function out parameter with a global works.
+TEST_P(GLSLTest, AliasingFunctionOutParamAndGlobal)
+{
+    constexpr char kFS[] = R"(precision highp float;
+
+const vec4 colorGreen = vec4(0.,1.,0.,1.);
+const vec4 colorRed   = vec4(1.,0.,0.,1.);
+
+float x = 1.0;
+bool outParametersAreDistinctFromGlobal(out float y) {
+    y = 2.0;
+    return x == 1.0 && y == 2.0;
+}
+void main() {
+    gl_FragColor = outParametersAreDistinctFromGlobal(x) ? colorGreen : colorRed;
+}
+)";
+
+    ANGLE_GL_PROGRAM(testProgram, essl1_shaders::vs::Simple(), kFS);
+    drawQuad(testProgram, essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Make sure const sampler parameters work.
+TEST_P(GLSLTest, ConstSamplerParameter)
+{
+    constexpr char kFS[] = R"(precision mediump float;
+uniform sampler2D samp;
+
+vec4 sampleConstSampler(const sampler2D s) {
+    return texture2D(s, vec2(0));
+}
+
+void main() {
+    gl_FragColor = sampleConstSampler(samp);
+}
+)";
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Make sure passing const sampler parameters to another function work.
+TEST_P(GLSLTest, ConstSamplerParameterAsArgument)
+{
+    constexpr char kFS[] = R"(precision mediump float;
+
+uniform sampler2D samp;
+
+vec4 sampleSampler(sampler2D s) {
+    return texture2D(s, vec2(0));
+}
+
+vec4 sampleConstSampler(const sampler2D s) {
+    return sampleSampler(s);
+}
+
+void main() {
+    gl_FragColor = sampleConstSampler(samp);
+}
+)";
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test for a driver bug with matrix multiplication in the tessellation control shader.
+TEST_P(GLSLTest_ES31, TessellationControlShaderMatrixMultiplicationBug)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(vertices = 1) out;
+precision highp float;
+
+patch out mat4 x;
+
+void main()
+{
+    x = mat4(
+        0.53455, 0.47307, 0.34935, 0.28717,
+        0.67195, 0.59992, 0.48213, 0.43678,
+        0.76376, 0.6772, 0.55361, 0.5165,
+        0.77996, 0.68862, 0.56187, 0.52611
+    );
+
+    const mat4 m = mat4(
+        vec4( -1.0, 3.0,-3.0, 1.0),
+        vec4(  3.0,-6.0, 3.0, 0.0),
+        vec4( -3.0, 3.0, 0.0, 0.0),
+        vec4(  1.0, 0.0, 0.0, 0.0)
+    );
+
+    x = m * x;
+
+    gl_TessLevelInner[0u] = 1.;
+    gl_TessLevelInner[1u] = 1.;
+    gl_TessLevelOuter[0u] = 1.;
+    gl_TessLevelOuter[1u] = 1.;
+    gl_TessLevelOuter[2u] = 1.;
+    gl_TessLevelOuter[3u] = 1.;
+})";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(quads, cw, fractional_odd_spacing) in;
+precision highp float;
+
+patch in mat4 x;
+
+out mat4 x_fs;
+
+void main()
+{
+    x_fs = x;
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision highp float;
+
+in mat4 x_fs;
+out vec4 color;
+
+void main()
+{
+    // Note: on the failing driver, .w of every column has the same value as .x of the same column.
+
+    const mat4 expect = mat4(
+        0.12378, -0.18672, -0.18444, 0.53455,
+        0.1182, -0.13728, -0.21609, 0.67195,
+        0.12351, -0.11109, -0.25968, 0.76376,
+        0.1264, -0.10623, -0.27402, 0.77996
+    );
+
+    color = vec4(all(lessThan(abs(x_fs[0] - expect[0]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[1] - expect[1]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[2] - expect[2]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[3] - expect[3]), vec4(0.01))));
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    drawPatches(program.get(), essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test for a driver bug with matrix copy in the tessellation control shader.
+TEST_P(GLSLTest_ES31, TessellationControlShaderMatrixCopyBug)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(vertices = 1) out;
+precision highp float;
+
+patch out mat4 x;
+patch out vec4 col0;
+
+void main()
+{
+    // Note: if |x| is not an |out| varying, the test passes.
+    x = mat4(
+        0.53455, 0.47307, 0.34935, 0.28717,
+        0.67195, 0.59992, 0.48213, 0.43678,
+        0.76376, 0.6772, 0.55361, 0.5165,
+        0.77996, 0.68862, 0.56187, 0.52611
+    );
+
+    const mat4 m = mat4(
+        vec4( -1.0, 3.0,-3.0, 1.0),
+        vec4(  3.0,-6.0, 3.0, 0.0),
+        vec4( -3.0, 3.0, 0.0, 0.0),
+        vec4(  1.0, 0.0, 0.0, 0.0)
+    );
+
+    mat4 temp = x;
+
+    // Note: On the failing driver, commenting this line makes the test pass.
+    // However, the output being tested is |temp|, assigned above, not |x|.
+    x = m * x;
+
+    col0 = temp[0];
+
+    gl_TessLevelInner[0u] = 1.;
+    gl_TessLevelInner[1u] = 1.;
+    gl_TessLevelOuter[0u] = 1.;
+    gl_TessLevelOuter[1u] = 1.;
+    gl_TessLevelOuter[2u] = 1.;
+    gl_TessLevelOuter[3u] = 1.;
+})";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(quads, cw, fractional_odd_spacing) in;
+precision highp float;
+
+patch in vec4 col0;
+
+out vec4 col0_fs;
+
+void main()
+{
+    col0_fs = col0;
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision highp float;
+
+in vec4 col0_fs;
+out vec4 color;
+
+void main()
+{
+    // Note: on the failing driver, |col0| has the value of |m * x|, not |temp|.
+    color = vec4(abs(col0_fs.x - 0.53455) < 0.01,
+                abs(col0_fs.y - 0.47307) < 0.01,
+                abs(col0_fs.z - 0.34935) < 0.01,
+                abs(col0_fs.w - 0.28717) < 0.01);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    drawPatches(program.get(), essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests the generation of HLSL functions with uint/int parameters that may be ambiguous.
+TEST_P(GLSLTest_ES3, AmbiguousHLSLIntegerFunctionParameters)
+{
+    const char kVS[] = R"(#version 300 es
+precision highp float;
+void main()
+{
+    gl_Position = vec4(0, 0, 0, 0);
+})";
+
+    const char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 color;
+void main()
+{
+    // Ensure that both uint and int to float constructors are generated before the ambiguous usage.
+    int i = int(gl_FragCoord.x);
+    float f1 = float(i);
+    color.r = f1;
+
+    uint ui = uint(gl_FragCoord.x);
+    float f2 = float(i);
+    color.g = f2;
+
+    // Ambiguous call
+    float f3 = float(1u << (2u * ui));
+    color.b = f3;
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
+}
 }  // anonymous namespace
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest, WithGlslang(ES2_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest,
+                                       ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTestNoValidation);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES3);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTestLoops);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
-ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest, WithGlslang(ES2_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest,
+                               ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGL2GLSLTest);
-ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest, WithGlslang(ES3_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest,
+                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31);
-ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31, WithGlslang(ES31_VULKAN()));
+ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31,
+                                ES31_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31_InitShaderVariables);
-ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables, WithInitShaderVariables(ES31_VULKAN()));
+ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables,
+                       ES31_VULKAN().enable(Feature::ForceInitShaderVariables));

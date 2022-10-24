@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple, Inc. All rights reserved.
+ * Copyright (c) 2013-22 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,12 +27,13 @@
 #include <unistd.h>
 #include <err.h>
 #include <errno.h>
+
+#include "xattr_flags.h"
+
 #include <sys/types.h>
 #include <sys/xattr.h>
 #include <dispatch/dispatch.h>
 #include <xpc/private.h>
-
-#include <xattr_flags.h>
 
 #define FLAG_DELIM_CHAR	'#'
 #define FLAG_DELIM_STR "#"
@@ -91,6 +92,7 @@ PropertyListMapTable[] = {
 	{ 'P', 'p', XATTR_FLAG_NO_EXPORT },
 	{ 'N', 'n', XATTR_FLAG_NEVER_PRESERVE },
 	{ 'S', 's', XATTR_FLAG_SYNCABLE },
+	{ 'B', 'b', XATTR_FLAG_ONLY_BACKUP },
 	{ 0, 0, 0 },
 };
 	
@@ -109,22 +111,28 @@ static const struct divineIntent {
 	int (^checker)(xattr_flags_t);
 } intentTable[] = {
 	{ XATTR_OPERATION_INTENT_COPY, ^(xattr_flags_t flags) {
-			if (flags & XATTR_FLAG_NEVER_PRESERVE)
+			if (flags & (XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
 				return 0;
 			return 1;
 		} },
 	{ XATTR_OPERATION_INTENT_SAVE, ^(xattr_flags_t flags) {
-			if (flags & (XATTR_FLAG_CONTENT_DEPENDENT | XATTR_FLAG_NEVER_PRESERVE))
+			if (flags & (XATTR_FLAG_CONTENT_DEPENDENT | XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
 				return 0;
 			return 1;
 		} },
 	{ XATTR_OPERATION_INTENT_SHARE, ^(xattr_flags_t flags) {
-			if ((flags & (XATTR_FLAG_NO_EXPORT | XATTR_FLAG_NEVER_PRESERVE)) != 0)
+			if (flags & (XATTR_FLAG_NO_EXPORT | XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
 				return 0;
 			return 1;
 		} },
 	{ XATTR_OPERATION_INTENT_SYNC, ^(xattr_flags_t flags) {
-			return (flags & (XATTR_FLAG_SYNCABLE | XATTR_FLAG_NEVER_PRESERVE)) == XATTR_FLAG_SYNCABLE;
+			return ((flags & (XATTR_FLAG_SYNCABLE | XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
+				== XATTR_FLAG_SYNCABLE);
+		} },
+	{ XATTR_OPERATION_INTENT_BACKUP, ^(xattr_flags_t flags) {
+			if (flags & XATTR_FLAG_NEVER_PRESERVE)
+				return 0;
+			return 1;
 		} },
 	{ 0, 0 },
 };

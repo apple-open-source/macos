@@ -347,6 +347,13 @@
         m_context->getIntegerv(pname, value);
         completionHandler(IPC::ArrayReference<int32_t>(reinterpret_cast<int32_t*>(value.data()), value.size()));
     }
+    void getIntegeri_v(uint32_t pname, uint32_t index, CompletionHandler<void(IPC::ArrayReference<int32_t, 4>)>&& completionHandler) // NOLINT
+    {
+        std::array<GCGLint, 4> value { };
+        assertIsCurrent(workQueue());
+        m_context->getIntegeri_v(pname, index, value);
+        completionHandler(IPC::ArrayReference<int32_t, 4>(reinterpret_cast<int32_t*>(value.data()), value.size()));
+    }
     void getInteger64(uint32_t pname, CompletionHandler<void(int64_t)>&& completionHandler)
     {
         GCGLint64 returnValue = { };
@@ -777,18 +784,6 @@
     {
         assertIsCurrent(workQueue());
         m_context->bufferSubData(target, static_cast<GCGLintptr>(offset), makeGCGLSpan(reinterpret_cast<const GCGLvoid*>(data.data()), data.size()));
-    }
-    void readnPixels0(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, uint64_t dataSize, CompletionHandler<void(IPC::ArrayReference<uint8_t>)>&& completionHandler)
-    {
-        Vector<GCGLchar, 4> data(static_cast<size_t>(dataSize), 0);
-        assertIsCurrent(workQueue());
-        m_context->readnPixels(x, y, width, height, format, type, data);
-        completionHandler(IPC::ArrayReference<uint8_t>(reinterpret_cast<uint8_t*>(data.data()), data.size()));
-    }
-    void readnPixels1(int32_t x, int32_t y, int32_t width, int32_t height, uint32_t format, uint32_t type, uint64_t offset)
-    {
-        assertIsCurrent(workQueue());
-        m_context->readnPixels(x, y, width, height, format, type, static_cast<GCGLintptr>(offset));
     }
     void texImage2D0(uint32_t target, int32_t level, uint32_t internalformat, int32_t width, int32_t height, int32_t border, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t>&& pixels)
     {
@@ -1333,13 +1328,6 @@
         m_context->getActiveUniformBlockiv(program, uniformBlockIndex, pname, params);
         completionHandler(IPC::ArrayReference<int32_t>(reinterpret_cast<int32_t*>(params.data()), params.size()));
     }
-    void getGraphicsResetStatusARB(CompletionHandler<void(int32_t)>&& completionHandler)
-    {
-        GCGLint returnValue = { };
-        assertIsCurrent(workQueue());
-        returnValue = m_context->getGraphicsResetStatusARB();
-        completionHandler(returnValue);
-    }
     void getTranslatedShaderSourceANGLE(uint32_t arg0, CompletionHandler<void(String&&)>&& completionHandler)
     {
         String returnValue = { };
@@ -1352,38 +1340,56 @@
         assertIsCurrent(workQueue());
         m_context->drawBuffersEXT(makeGCGLSpan(reinterpret_cast<const GCGLenum*>(bufs.data()), bufs.size()));
     }
+    void enableiOES(uint32_t target, uint32_t index)
+    {
+        assertIsCurrent(workQueue());
+        m_context->enableiOES(target, index);
+    }
+    void disableiOES(uint32_t target, uint32_t index)
+    {
+        assertIsCurrent(workQueue());
+        m_context->disableiOES(target, index);
+    }
+    void blendEquationiOES(uint32_t buf, uint32_t mode)
+    {
+        assertIsCurrent(workQueue());
+        m_context->blendEquationiOES(buf, mode);
+    }
+    void blendEquationSeparateiOES(uint32_t buf, uint32_t modeRGB, uint32_t modeAlpha)
+    {
+        assertIsCurrent(workQueue());
+        m_context->blendEquationSeparateiOES(buf, modeRGB, modeAlpha);
+    }
+    void blendFunciOES(uint32_t buf, uint32_t src, uint32_t dst)
+    {
+        assertIsCurrent(workQueue());
+        m_context->blendFunciOES(buf, src, dst);
+    }
+    void blendFuncSeparateiOES(uint32_t buf, uint32_t srcRGB, uint32_t dstRGB, uint32_t srcAlpha, uint32_t dstAlpha)
+    {
+        assertIsCurrent(workQueue());
+        m_context->blendFuncSeparateiOES(buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+    }
+    void colorMaskiOES(uint32_t buf, bool red, bool green, bool blue, bool alpha)
+    {
+        assertIsCurrent(workQueue());
+        m_context->colorMaskiOES(buf, static_cast<GCGLboolean>(red), static_cast<GCGLboolean>(green), static_cast<GCGLboolean>(blue), static_cast<GCGLboolean>(alpha));
+    }
+    void drawArraysInstancedBaseInstanceANGLE(uint32_t mode, int32_t first, int32_t count, int32_t instanceCount, uint32_t baseInstance)
+    {
+        assertIsCurrent(workQueue());
+        m_context->drawArraysInstancedBaseInstanceANGLE(mode, first, count, instanceCount, baseInstance);
+    }
+    void drawElementsInstancedBaseVertexBaseInstanceANGLE(uint32_t mode, int32_t count, uint32_t type, uint64_t offset, int32_t instanceCount, int32_t baseVertex, uint32_t baseInstance)
+    {
+        assertIsCurrent(workQueue());
+        m_context->drawElementsInstancedBaseVertexBaseInstanceANGLE(mode, count, type, static_cast<GCGLintptr>(offset), instanceCount, baseVertex, baseInstance);
+    }
     void getInternalformativ(uint32_t target, uint32_t internalformat, uint32_t pname, uint64_t paramsSize, CompletionHandler<void(IPC::ArrayReference<int32_t>)>&& completionHandler)
     {
         Vector<GCGLint, 4> params(static_cast<size_t>(paramsSize), 0);
         assertIsCurrent(workQueue());
         m_context->getInternalformativ(target, internalformat, pname, params);
         completionHandler(IPC::ArrayReference<int32_t>(reinterpret_cast<int32_t*>(params.data()), params.size()));
-    }
-    void multiDrawArraysANGLE(uint32_t mode, IPC::ArrayReference<int32_t>&& firsts, IPC::ArrayReference<int32_t>&& counts, int32_t drawcount)
-    {
-        assertIsCurrent(workQueue());
-        m_context->multiDrawArraysANGLE(mode, makeGCGLSpan(reinterpret_cast<const GCGLint*>(firsts.data()), firsts.size()), makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(counts.data()), counts.size()), drawcount);
-    }
-    void multiDrawArraysInstancedANGLE(uint32_t mode, IPC::ArrayReference<int32_t>&& firsts, IPC::ArrayReference<int32_t>&& counts, IPC::ArrayReference<int32_t>&& instanceCounts, int32_t drawcount)
-    {
-        assertIsCurrent(workQueue());
-        m_context->multiDrawArraysInstancedANGLE(mode, makeGCGLSpan(reinterpret_cast<const GCGLint*>(firsts.data()), firsts.size()), makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(counts.data()), counts.size()), makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(instanceCounts.data()), instanceCounts.size()), drawcount);
-    }
-    void multiDrawElementsANGLE(uint32_t mode, IPC::ArrayReference<int32_t>&& counts, uint32_t type, IPC::ArrayReference<int32_t>&& offsets, int32_t drawcount)
-    {
-        assertIsCurrent(workQueue());
-        m_context->multiDrawElementsANGLE(mode, makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(counts.data()), counts.size()), type, makeGCGLSpan(reinterpret_cast<const GCGLint*>(offsets.data()), offsets.size()), drawcount);
-    }
-    void multiDrawElementsInstancedANGLE(uint32_t mode, IPC::ArrayReference<int32_t>&& counts, uint32_t type, IPC::ArrayReference<int32_t>&& offsets, IPC::ArrayReference<int32_t>&& instanceCounts, int32_t drawcount)
-    {
-        assertIsCurrent(workQueue());
-        m_context->multiDrawElementsInstancedANGLE(mode, makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(counts.data()), counts.size()), type, makeGCGLSpan(reinterpret_cast<const GCGLint*>(offsets.data()), offsets.size()), makeGCGLSpan(reinterpret_cast<const GCGLsizei*>(instanceCounts.data()), instanceCounts.size()), drawcount);
-    }
-    void paintRenderingResultsToPixelBuffer(CompletionHandler<void(std::optional<WebCore::PixelBuffer>&&)>&& completionHandler)
-    {
-        std::optional<WebCore::PixelBuffer> returnValue = { };
-        assertIsCurrent(workQueue());
-        returnValue = m_context->paintRenderingResultsToPixelBuffer();
-        completionHandler(WTFMove(returnValue));
     }
 

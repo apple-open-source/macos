@@ -186,7 +186,7 @@ struct FuchsiaTraits
 
 }  // namespace
 
-class VulkanExternalImageTest : public ANGLETest
+class VulkanExternalImageTest : public ANGLETest<>
 {
   protected:
     VulkanExternalImageTest()
@@ -227,7 +227,7 @@ void RunShouldImportMemoryTest(VkImageCreateFlags createFlags,
 
     VkExtent3D extent = {1, 1, 1};
     VkResult result   = Traits::CreateImage2D(&helper, format, createFlags, usageFlags, nullptr,
-                                            extent, &image, &deviceMemory, &deviceMemorySize);
+                                              extent, &image, &deviceMemory, &deviceMemorySize);
     EXPECT_EQ(result, VK_SUCCESS);
 
     typename Traits::Handle memoryHandle = Traits::InvalidHandle();
@@ -337,7 +337,7 @@ void RunShouldClearTest(bool useMemoryObjectFlags,
 
     VkExtent3D extent = {1, 1, 1};
     VkResult result   = Traits::CreateImage2D(&helper, format, createFlags, usageFlags, nullptr,
-                                            extent, &image, &deviceMemory, &deviceMemorySize);
+                                              extent, &image, &deviceMemory, &deviceMemorySize);
     EXPECT_EQ(result, VK_SUCCESS);
 
     typename Traits::Handle memoryHandle = Traits::InvalidHandle();
@@ -706,7 +706,7 @@ void RunShouldClearWithSemaphoresTest(bool useMemoryObjectFlags,
         };
         constexpr uint32_t textureBarriersCount = std::extent<decltype(barrierTextures)>();
         const GLenum textureSrcLayouts[]        = {
-            GL_LAYOUT_GENERAL_EXT,
+                   GL_LAYOUT_GENERAL_EXT,
         };
         constexpr uint32_t textureSrcLayoutsCount = std::extent<decltype(textureSrcLayouts)>();
         static_assert(textureBarriersCount == textureSrcLayoutsCount,
@@ -763,7 +763,8 @@ TEST_P(VulkanExternalImageTest, ShouldClearOpaqueFdWithSemaphores)
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_semaphore_fd"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
     // http://anglebug.com/5383
     ANGLE_SKIP_TEST_IF(IsLinux() && IsAMD() && IsDesktopOpenGL());
 
@@ -781,7 +782,8 @@ TEST_P(VulkanExternalImageTest, ShouldClearOpaqueFdWithSemaphoresWithFlags)
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_ANGLE_memory_object_flags"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
 
     RunShouldClearWithSemaphoresTest<OpaqueFdTraits>(true, kDefaultImageCreateFlags,
                                                      kDefaultImageUsageFlags, isSwiftshader(),
@@ -796,7 +798,8 @@ TEST_P(VulkanExternalImageTest, ShouldClearOpaqueFdWithSemaphoresNoStorage)
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_ANGLE_memory_object_flags"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
 
     RunShouldClearWithSemaphoresTest<OpaqueFdTraits>(true, kDefaultImageCreateFlags,
                                                      kNoStorageImageUsageFlags, isSwiftshader(),
@@ -812,7 +815,8 @@ TEST_P(VulkanExternalImageTest, ShouldClearOpaqueFdWithSemaphoresMutableNoStorag
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_ANGLE_memory_object_flags"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
 
     RunShouldClearWithSemaphoresTest<OpaqueFdTraits>(true, kMutableImageCreateFlags,
                                                      kNoStorageImageUsageFlags, isSwiftshader(),
@@ -938,7 +942,7 @@ void VulkanExternalImageTest::runShouldDrawTest(bool isSwiftshader, bool enableD
         };
         constexpr uint32_t textureBarriersCount = std::extent<decltype(barrierTextures)>();
         const GLenum textureSrcLayouts[]        = {
-            GL_LAYOUT_GENERAL_EXT,
+                   GL_LAYOUT_GENERAL_EXT,
         };
         constexpr uint32_t textureSrcLayoutsCount = std::extent<decltype(textureSrcLayouts)>();
         static_assert(textureBarriersCount == textureSrcLayoutsCount,
@@ -1000,7 +1004,8 @@ TEST_P(VulkanExternalImageTest, ShouldDrawOpaqueFdWithSemaphores)
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_semaphore_fd"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
     // http://anglebug.com/5383
     ANGLE_SKIP_TEST_IF(IsLinux() && IsAMD() && IsDesktopOpenGL());
 
@@ -1089,7 +1094,7 @@ void VulkanExternalImageTest::runWaitSemaphoresRetainsContentTest(bool isSwiftsh
         };
         constexpr uint32_t textureBarriersCount = std::extent<decltype(barrierTextures)>();
         const GLenum textureSrcLayouts[]        = {
-            GL_LAYOUT_GENERAL_EXT,
+                   GL_LAYOUT_GENERAL_EXT,
         };
         constexpr uint32_t textureSrcLayoutsCount = std::extent<decltype(textureSrcLayouts)>();
         static_assert(textureBarriersCount == textureSrcLayoutsCount,
@@ -1170,7 +1175,8 @@ TEST_P(VulkanExternalImageTest, WaitSemaphoresRetainsContentOpaqueFd)
     ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_EXT_semaphore_fd"));
 
     // http://issuetracker.google.com/173004081
-    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() && isAsyncCommandQueueFeatureEnabled());
+    ANGLE_SKIP_TEST_IF(IsVulkan() && IsIntel() && IsLinux() &&
+                       GetParam().isEnabled(Feature::AsyncCommandQueue));
     // http://anglebug.com/5383
     ANGLE_SKIP_TEST_IF(IsLinux() && IsAMD() && IsDesktopOpenGL());
 

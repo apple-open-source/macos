@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import "utilities/debugging.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 #import <Security/SecKey.h>
 #import <Security/SecKeyPriv.h>
 
@@ -71,33 +72,18 @@
 
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];
-    
-    NSString* bottleSalt = nil;
 
-    NSError *authKitError = nil;
-    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
-
-    if (altDSID) {
-        bottleSalt = altDSID;
-    } else {
-        secnotice("octagon-sos", "AuthKit doesn't know about the altDSID: %@", authKitError);
-
-        NSError* accountError = nil;
-        OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
-
-        if(account && !accountError) {
-            secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
-            bottleSalt = account.altDSID;
-        } else {
-            if (accountError == nil) {
-                accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
-            }
-            secerror("failed to retrieve account object: %@", accountError);
-            self.error = accountError;
-            [self runBeforeGroupFinished:self.finishedOp];
-            return;
-        }
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
     }
+
+    NSString* bottleSalt = altDSID;
     WEAKIFY(self);
 
     // But, if this device is SOS-enabled and SOS is present, use the SOS octagon keys (if present)
@@ -163,68 +149,67 @@
     // Note: we pass syncUserControllableViews as FOLLOWING here, with the intention that
     // it will be set later, when this peer decides who it trusts and accepts their value.
 
-    [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
-                                                 context:self.deps.contextID
-                                                   epoch:self.epoch
-                                               machineID:self.deviceInfo.machineID
-                                              bottleSalt:bottleSalt
-                                                bottleID:[NSUUID UUID].UUIDString
-                                                 modelID:self.deviceInfo.modelID
-                                              deviceName:self.deviceInfo.deviceName
-                                            serialNumber:self.deviceInfo.serialNumber
-                                               osVersion:self.deviceInfo.osVersion
-                                           policyVersion:self.policyOverride
-                                           policySecrets:nil
-                               syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_FOLLOWING
-                                   secureElementIdentity:existingSecureElementIdentity
-                                                 setting:settings
-                             signingPrivKeyPersistentRef:signingKeyPersistRef
-                                 encPrivKeyPersistentRef:encryptionKeyPersistRef
-                                                   reply:^(NSString * _Nullable peerID,
-                                                           NSData * _Nullable permanentInfo,
-                                                           NSData * _Nullable permanentInfoSig,
-                                                           NSData * _Nullable stableInfo,
-                                                           NSData * _Nullable stableInfoSig,
-                                                           TPSyncingPolicy* _Nullable syncingPolicy,
-                                                           NSError * _Nullable error) {
-            STRONGIFY(self);
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
-            if(error) {
-                secerror("octagon: Error preparing identity: %@", error);
-                self.error = error;
+    [self.deps.cuttlefishXPCWrapper prepareWithSpecificUser:self.deps.activeAccount
+                                                      epoch:self.epoch
+                                                  machineID:self.deviceInfo.machineID
+                                                 bottleSalt:bottleSalt
+                                                   bottleID:[NSUUID UUID].UUIDString
+                                                    modelID:self.deviceInfo.modelID
+                                                 deviceName:self.deviceInfo.deviceName
+                                               serialNumber:self.deviceInfo.serialNumber
+                                                  osVersion:self.deviceInfo.osVersion
+                                              policyVersion:self.policyOverride
+                                              policySecrets:nil
+                                  syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_FOLLOWING
+                                      secureElementIdentity:existingSecureElementIdentity
+                                                    setting:settings
+                                signingPrivKeyPersistentRef:signingKeyPersistRef
+                                    encPrivKeyPersistentRef:encryptionKeyPersistRef
+                                                      reply:^(NSString * _Nullable peerID,
+                                                              NSData * _Nullable permanentInfo,
+                                                              NSData * _Nullable permanentInfoSig,
+                                                              NSData * _Nullable stableInfo,
+                                                              NSData * _Nullable stableInfoSig,
+                                                              TPSyncingPolicy* _Nullable syncingPolicy,
+                                                              NSError * _Nullable error) {
+        STRONGIFY(self);
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
+        if(error) {
+            secerror("octagon: Error preparing identity: %@", error);
+            self.error = error;
+            [self runBeforeGroupFinished:self.finishedOp];
+        } else {
+            secnotice("octagon", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
+            self.peerID = peerID;
+            self.permanentInfo = permanentInfo;
+            self.permanentInfoSig = permanentInfoSig;
+            self.stableInfo = stableInfo;
+            self.stableInfoSig = stableInfoSig;
+
+            NSError* localError = nil;
+
+            secnotice("octagon-ckks", "New syncing policy: %@ views: %@", syncingPolicy, syncingPolicy.viewList);
+
+            BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                metadata.peerID = peerID;
+                [metadata setTPSyncingPolicy:syncingPolicy];
+                return metadata;
+            } error:&localError];
+
+            if(!persisted || localError) {
+                secnotice("octagon", "Couldn't persist metadata: %@", localError);
+                self.error = localError;
                 [self runBeforeGroupFinished:self.finishedOp];
-            } else {
-                secnotice("octagon", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
-                self.peerID = peerID;
-                self.permanentInfo = permanentInfo;
-                self.permanentInfoSig = permanentInfoSig;
-                self.stableInfo = stableInfo;
-                self.stableInfoSig = stableInfoSig;
-
-                NSError* localError = nil;
-
-                secnotice("octagon-ckks", "New syncing policy: %@ views: %@", syncingPolicy, syncingPolicy.viewList);
-
-                BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
-                    metadata.peerID = peerID;
-                    [metadata setTPSyncingPolicy:syncingPolicy];
-                    return metadata;
-                } error:&localError];
-
-                if(!persisted || localError) {
-                    secnotice("octagon", "Couldn't persist metadata: %@", localError);
-                    self.error = localError;
-                    [self runBeforeGroupFinished:self.finishedOp];
-                    return;
-                }
-
-                // Let CKKS know of the new policy, so it can spin up
-                [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
-
-                self.nextState = self.intendedState;
-                [self runBeforeGroupFinished:self.finishedOp];
+                return;
             }
-        }];
+
+            // Let CKKS know of the new policy, so it can spin up
+            [self.deps.ckks setCurrentSyncingPolicy:syncingPolicy];
+
+            self.nextState = self.intendedState;
+            [self runBeforeGroupFinished:self.finishedOp];
+        }
+    }];
 }
 
 @end

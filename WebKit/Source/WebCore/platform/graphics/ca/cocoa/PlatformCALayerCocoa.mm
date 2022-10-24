@@ -242,16 +242,8 @@ PlatformCALayerCocoa::PlatformCALayerCocoa(LayerType layerType, PlatformCALayerC
     case LayerTypeBackdropLayer:
         layerClass = [CABackdropLayer class];
         break;
-    case LayerTypeLightSystemBackdropLayer:
-        layerClass = [WebLightSystemBackdropLayer class];
-        break;
-    case LayerTypeDarkSystemBackdropLayer:
-        layerClass = [WebDarkSystemBackdropLayer class];
-        break;
 #else
     case LayerTypeBackdropLayer:
-    case LayerTypeLightSystemBackdropLayer:
-    case LayerTypeDarkSystemBackdropLayer:
         ASSERT_NOT_REACHED();
         layerClass = [CALayer class];
         break;
@@ -1054,8 +1046,6 @@ void PlatformCALayerCocoa::updateCustomAppearance(GraphicsLayer::CustomAppearanc
 #if HAVE(RUBBER_BANDING)
     switch (appearance) {
     case GraphicsLayer::CustomAppearance::None:
-    case GraphicsLayer::CustomAppearance::LightBackdrop:
-    case GraphicsLayer::CustomAppearance::DarkBackdrop:
         ScrollbarThemeMac::removeOverhangAreaBackground(platformLayer());
         ScrollbarThemeMac::removeOverhangAreaShadow(platformLayer());
         break;
@@ -1259,12 +1249,14 @@ void PlatformCALayer::drawLayerContents(GraphicsContext& graphicsContext, WebCor
             // smaller than the layer bounds (e.g. tiled layers)
             ThemeMac::setFocusRingClipRect(graphicsContext.clipBounds());
 #endif
-
-            for (const auto& rect : dirtyRects) {
-                GraphicsContextStateSaver stateSaver(graphicsContext);
-                graphicsContext.clip(rect);
-
-                layerContents->platformCALayerPaintContents(platformCALayer, graphicsContext, rect, layerPaintBehavior);
+            if (dirtyRects.size() == 1)
+                layerContents->platformCALayerPaintContents(platformCALayer, graphicsContext, dirtyRects[0], layerPaintBehavior);
+            else {
+                for (const auto& rect : dirtyRects) {
+                    GraphicsContextStateSaver stateSaver(graphicsContext);
+                    graphicsContext.clip(rect);
+                    layerContents->platformCALayerPaintContents(platformCALayer, graphicsContext, rect, layerPaintBehavior);
+                }
             }
 
 #if PLATFORM(MAC)

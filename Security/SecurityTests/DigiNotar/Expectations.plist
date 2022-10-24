@@ -4,5 +4,7 @@
 <dict>
 	<key>Invalid-CertiID_Enterprise_Certificate_Authority.crt</key>
 	<true/>
+	<key>Invalid-www.maestre.com-diginotal.extended.validation.crt</key>
+	<true/>
 </dict>
 </plist>

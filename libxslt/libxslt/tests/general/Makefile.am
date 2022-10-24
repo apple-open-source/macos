@@ -195,6 +195,41 @@ EXTRA_DIST = \
     bug-185.out bug-185.xsl bug-185.err \
     bug-186.out bug-186.xsl \
     bug-187.out bug-187.xsl bug-187.err \
+    bug-188.out bug-188.xsl bug-188-imp.out bug-188-imp.xsl \
+    bug-189.out bug-189.xsl \
+    bug-190.out bug-190.xsl bug-190-imp.out bug-190-imp.xsl \
+    bug-191.out bug-191.xsl bug-191.err bug-191-imp.out bug-191-imp.xsl \
+    bug-192.out bug-192.xsl \
+    bug-193.out bug-193.xsl \
+    bug-194.out bug-194.xsl bug-194.err \
+    bug-195.out bug-195.xsl \
+    bug-196.out bug-196.xsl \
+    bug-197.out bug-197.xsl \
+    bug-198.out bug-198.xsl \
+    bug-199.out bug-199.xsl \
+    bug-200.out bug-200.xsl \
+    bug-201.out bug-201.xsl bug-201.err \
+    bug-202.out bug-202.xsl bug-202.err \
+    bug-203.out bug-203.xsl bug-203.err \
+    bug-204.out bug-204.xsl bug-204.err \
+    bug-205.out bug-205.xsl \
+    bug-206.out bug-206.xsl \
+    bug-207.out bug-207.xsl \
+    bug-208.out bug-208.xsl bug-208.err \
+    bug-209.out bug-209.xsl \
+    bug-210.out bug-210.xsl \
+    bug-211.out bug-211.xsl \
+    bug-212.out bug-212.xsl \
+    bug-213.out bug-213.xsl \
+    bug-214.out bug-214.xsl \
+    bug-215.out bug-215.xsl bug-215.err \
+    bug-216.out bug-216.xsl \
+    bug-217.out bug-217.xsl \
+    bug-218.out bug-218.xsl \
+    bug-219.out bug-219.xsl \
+    bug-220.out bug-220.xsl \
+    bug-221.out bug-221.xsl \
+    bug-222.out bug-222.xsl \
     character.out character.xsl \
     character2.out character2.xsl \
     itemschoose.out itemschoose.xsl \
@@ -219,7 +254,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  name=`basename $$j .xsl`; \
 	  out=$(srcdir)/"$$name".out; \
 	  err=$(srcdir)/"$$name".err; \
-	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc $$j $$i \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --maxdepth 200 $$j $$i \
 	  	> result.$$name 2>err.$$name; \
 	  if [ ! -f $$out ] ; then \
 	  	cp result.$$name $$out ; \
@@ -251,7 +286,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  name=`basename $$j .xsl`; \
 	  out=$(srcdir)/"$$name".out; \
 	  err=$(srcdir)/"$$name".err; \
-	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nodict $$j $$i \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nodict --maxdepth 200 $$j $$i \
 	  	> result.$$name 2>err.$$name; \
 	  if [ ! -f $$out ] ; then \
 	  	cp result.$$name $$out ; \

@@ -181,12 +181,12 @@ SOSTestDeviceRef SOSTestDeviceCreateWithTestDataSource(CFAllocatorRef allocator,
 }
 
 
-CFSetRef SOSViewsCopyTestV0Default() {
+CFSetRef SOSViewsCopyTestV0Default(void) {
     const void *values[] = { kSOSViewKeychainV0 };
     return CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
 }
 
-CFSetRef SOSViewsCopyTestV2Default() { // this was originally listing all the views - not just the defaults - but those used to be the default.  So we'll programatically get all - the actual test depends on that.
+CFSetRef SOSViewsCopyTestV2Default(void) { // this was originally listing all the views - not just the defaults - but those used to be the default.  So we'll programatically get all - the actual test depends on that.
     return SOSViewCopyViewSet(kViewSetAll);
 }
 

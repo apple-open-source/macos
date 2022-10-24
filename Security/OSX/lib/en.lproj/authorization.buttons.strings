@@ -32,7 +32,7 @@
 
 "system.csfde.requestpassword" = "Unlock";
 
-"system.sharepoints." = "Modify Preferences";
+"system.sharepoints." = "Modify Settings";
 
 "system.preferences.energysaver" = "Unlock";
 
@@ -88,7 +88,7 @@
 
 "system.install.apple-software.standard-user" = "Install Software";
 
-"system.preferences.version-cue" = "Modify Preferences";
+"system.preferences.version-cue" = "Modify Settings";
 
 "system.preferences" = "Modify Settings";
 

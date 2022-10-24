@@ -342,7 +342,7 @@ public:
 	Delete(lstr);
       } else {
 	/* Look for an input typemap */
-	sprintf(source, "Pike_sp[%d-args]", i - start + offset);
+	snprintf(source, sizeof(source), "Pike_sp[%d-args]", i - start + offset);
 	if ((tm = Getattr(p, "tmap:in"))) {
 	  Replaceall(tm, "$source", source);
 	  Replaceall(tm, "$target", ln);

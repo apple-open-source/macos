@@ -120,6 +120,15 @@ getproclline(KINFO *k, char **command_name, int *argvlen, int *argv0len,
 	char		*procargs, *sp, *np, *cp;
 	extern int	eflg;
 
+	/*
+	 * If we're dealing with a zombie, we don't record its arguments or
+	 * anything else; it's simply marked defunct.
+	 */
+	if (KI_PROC(k)->p_stat == SZOMB) {
+		*argv0len = *argvlen = asprintf(command_name, "<defunct>");
+		return;
+	}
+
 	/* Get the maximum process arguments size. */
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_ARGMAX;
@@ -487,12 +496,14 @@ state(k, ve)
 		*cp++ = '+';
 	*cp = '\0';
 	(void)printf("%-*s", v->width, buf);
+#if !PS_ENTITLEMENT_ENFORCED
 	} else if (print_all_thread) {
 		j =  mach_state_order(k->thval[print_thread_num].tb.run_state,
 			k->thval[print_thread_num].tb.sleep_time);
 		*cp++ = mach_state_table[j];
 		*cp++='\0'; 
 		(void)printf("%-*s", v->width, buf);
+#endif
 	} else {
 		(void)printf("%-*s", v->width, " ");
 	}
@@ -1098,34 +1109,34 @@ printval(void *bp, VAR *v)
 
 	switch (v->type) {
 	case CHAR:
-		(void)printf(ofmt, v->width, *(char *)bp);
+		(void)printf(fmtcheck(ofmt, "%*hhd"), v->width, *(char *)bp);
 		break;
 	case UCHAR:
-		(void)printf(ofmt, v->width, *(u_char *)bp);
+		(void)printf(fmtcheck(ofmt, "%*hhu"), v->width, *(u_char *)bp);
 		break;
 	case SHORT:
-		(void)printf(ofmt, v->width, *(short *)bp);
+		(void)printf(fmtcheck(ofmt, "%*hd"), v->width, *(short *)bp);
 		break;
 	case USHORT:
-		(void)printf(ofmt, v->width, *(u_short *)bp);
+		(void)printf(fmtcheck(ofmt, "%*hu"), v->width, *(u_short *)bp);
 		break;
 	case INT:
-		(void)printf(ofmt, v->width, *(int *)bp);
+		(void)printf(fmtcheck(ofmt, "%*d"), v->width, *(int *)bp);
 		break;
 	case UINT:
-		(void)printf(ofmt, v->width, *(u_int *)bp);
+		(void)printf(fmtcheck(ofmt, "%*u"), v->width, *(u_int *)bp);
 		break;
 	case LONG:
-		(void)printf(ofmt, v->width, *(long *)bp);
+		(void)printf(fmtcheck(ofmt, "%*ld"), v->width, *(long *)bp);
 		break;
 	case ULONG:
-		(void)printf(ofmt, v->width, *(u_long *)bp);
+		(void)printf(fmtcheck(ofmt, "%*lu"), v->width, *(u_long *)bp);
 		break;
 	case KPTR:
 #if FIXME
 		(void)printf(ofmt, v->width, *(u_long *)bp &~ KERNBASE);
 #else /* FIXME */
-		(void)printf(ofmt, v->width, *(u_long *)bp);
+		(void)printf(fmtcheck(ofmt, "%*lx"), v->width, *(u_long *)bp);
 #endif /* FIXME */
 		break;
 	default:

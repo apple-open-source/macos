@@ -1,0 +1,1 @@
+http://pro-ocsp1.wosign.com/class4p/server/ca1

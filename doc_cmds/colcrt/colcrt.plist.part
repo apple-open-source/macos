@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>colcrt</string>
+		<key>OpenSourceVersion</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/colcrt/</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co colcrt</string>
+		<key>OpenSourceImportDate</key>
+		<string>2004-09-18</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>doc_cmds.txt</string>
+	</dict>

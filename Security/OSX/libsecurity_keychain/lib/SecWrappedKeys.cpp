@@ -470,7 +470,7 @@ OSStatus impExpWrappedKeyOpenSslExport(
 	strcpy(dekStr, "DEK-Info: DES-EDE3-CBC,");
 	/* next goes the IV */
 	for(unsigned dex=0; dex<8; dex++) {
-		sprintf(ivStr, "%02X", saltIv[dex]);
+		snprintf(ivStr, sizeof(ivStr), "%02X", saltIv[dex]);
 		strcat(dekStr, ivStr);
 	}
 	cfStr = CFStringCreateWithCString(NULL, dekStr, kCFStringEncodingASCII);

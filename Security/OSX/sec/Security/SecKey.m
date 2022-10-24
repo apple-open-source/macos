@@ -59,7 +59,7 @@
 #include <Security/SecRandom.h>
 #include <Security/SecureTransport.h> /* For error codes. */
 
-#include <corecrypto/ccrng_system.h>
+#include <corecrypto/ccrng.h>
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccsha2.h>
 
@@ -71,7 +71,7 @@
 #include <libDER/DER_Keys.h>
 #include <libDER/DER_Encode.h>
 
-static os_log_t _SECKEY_LOG() {
+static os_log_t _SECKEY_LOG(void) {
     static dispatch_once_t once;
     static os_log_t log;
     dispatch_once(&once, ^{ log = os_log_create("com.apple.security", "seckey"); });
@@ -257,13 +257,12 @@ static Boolean SecKeyEqual(CFTypeRef cf1, CFTypeRef cf2)
     return result;
 }
 
-struct ccrng_state *ccrng_seckey;
+struct ccrng_state *ccrng_seckey(void)
+{
+    return ccrng(NULL);
+}
 
-CFGiblisWithFunctions(SecKey, NULL, NULL, SecKeyDestroy, SecKeyEqual, NULL, NULL, SecKeyCopyDescription, NULL, NULL, ^{
-    static struct ccrng_system_state ccrng_system_state_seckey;
-    ccrng_seckey = (struct ccrng_state *)&ccrng_system_state_seckey;
-    ccrng_system_init(&ccrng_system_state_seckey);
-})
+CFGiblisWithFunctions(SecKey, NULL, NULL, SecKeyDestroy, SecKeyEqual, NULL, NULL, SecKeyCopyDescription, NULL, NULL, NULL)
 
 static bool getBoolForKey(CFDictionaryRef dict, CFStringRef key, bool default_value) {
 	CFTypeRef value = CFDictionaryGetValue(dict, key);
@@ -1330,31 +1329,17 @@ _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, C
 
 static CFIndex SecKeyParamsGetCFIndex(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
     CFIndex result = -1;
-    CFNumberRef localValue = NULL;
-    
-    if (isString(value)) {
-        CFNumberFormatterRef formatter = CFNumberFormatterCreate(kCFAllocatorDefault, CFLocaleGetSystem(), kCFNumberFormatterDecimalStyle);
-        localValue = CFNumberFormatterCreateNumberFromString(kCFAllocatorDefault, formatter, value, NULL, kCFNumberFormatterParseIntegersOnly);
-        CFReleaseSafe(formatter);
-    
-        if (localValue) {
-            CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%@"), localValue);
-            if (CFEqual(t, value)) {
-                value = localValue;
-            }
-            CFReleaseSafe(t);
-        }
-    }
-
-    if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
-        if (!CFNumberGetValue(value, kCFNumberCFIndexType, &result) || result < 0) {
+    if ([(__bridge id)value isKindOfClass:NSString.class]) {
+        result = [(__bridge NSString *)value integerValue];
+        if (![[NSString stringWithFormat:@"%ld", (long)result] isEqualToString:(__bridge NSString *)value]) {
             SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
+            result = -1;
         }
+    } else if ([(__bridge id)value isKindOfClass:NSNumber.class]) {
+        result = [(__bridge NSNumber *)value integerValue];
     } else {
         SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
     }
-    
-    CFReleaseSafe(localValue);
     return result;
 }
 

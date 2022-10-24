@@ -207,6 +207,7 @@ extern void _serv_cache_close();
 
 int	Aflag;		/* show addresses of protocol control block */
 int	aflag;		/* show all sockets (including servers) */
+int	Bflag;		/* show information about BPF */
 int	bflag;		/* show i/f total bytes in/out */
 int	cflag;		/* show specific classq */
 int	dflag;		/* show i/f dropped packets */
@@ -251,13 +252,16 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1)
+	while ((ch = getopt(argc, argv, "AaBbc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
 			break;
 		case 'a':
 			aflag = 1;
+			break;
+		case 'B':
+			Bflag = 1;
 			break;
 		case 'b':
 			bflag = 1;
@@ -289,6 +293,10 @@ main(argc, argv)
 				af = AF_UNIX;
 			else if (strcmp(optarg, "systm") == 0)
 				af = AF_SYSTEM;
+#ifdef AF_VSOCK
+			else if (strcmp(optarg, "vsock") == 0)
+				af = AF_VSOCK;
+#endif /*AF_VSOCK*/
 			else {
 				errx(1, "%s: unknown address family", optarg);
 			}
@@ -398,6 +406,10 @@ main(argc, argv)
 		mbpr();
 		exit(0);
 	}
+	if (Bflag) {
+		bpf_stats(interface);
+		exit(0);
+	}
 	if (iflag && !sflag && !Sflag && !gflag && !qflag && !Qflag) {
 		if (Rflag)
 			intpr_ri(NULL);
@@ -464,11 +476,10 @@ main(argc, argv)
 	if ((af == AF_SYSTEM || af == AF_UNSPEC) && !Lflag)
 		for (tp = systmprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
-#if TARGET_OS_IPHONE
+
 	if (af == AF_UNSPEC && !Lflag)
 		for (tp = nstatprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
-#endif /* TARGET_OS_IPHONE */
 
 	if (af == AF_UNSPEC && !Lflag)
 		for (tp = ipcprotox; tp->pr_name; tp++)

@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>newgrp</string>
+		<key>OpenSourceVersion</key>
+		<string>2017-11-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/newgrp?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-12-12</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>newgrp.c: comment capabilities build fixes, use membership functions</string>
+			<string>newgrp.1: remove suid comment</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

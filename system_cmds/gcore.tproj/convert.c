@@ -684,7 +684,7 @@ cleanup:
 static char *
 get_symbol_rich_executable_path_via_dsymForUUID(const uuid_t uuid)
 {
-	char *response;
+	char *response = NULL;
 	ssize_t size;
 	uuid_string_t uuid_str;
 	xpc_object_t plist = NULL;

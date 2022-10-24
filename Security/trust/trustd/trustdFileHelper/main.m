@@ -102,12 +102,6 @@ main(int argc, const char *argv[])
     listener = [[NSXPCListener alloc] initWithMachServiceName:@TrustdFileHelperXPCServiceName];
     listener.delegate = delegate;
 
-    // We're always launched in response to client activity and don't want to sit around idle.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5ull * NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        secnotice("lifecycle", "will exit when clean");
-        xpc_transaction_exit_clean();
-    });
-
     [listener resume];
     secdebug("ipc", "trustdFileHelper accepting work");
 

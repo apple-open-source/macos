@@ -1765,9 +1765,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			dt_irlist_append(dlp,
 			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 #if defined(DIF_OP_STRIP)
-			if (ctf_type_kind(ctfp, dnp->dn_type) == CTF_K_PTRAUTH) {
+			type = ctf_type_resolve(ctfp, dnp->dn_type);
+			if (ctf_type_kind(ctfp, type) == CTF_K_PTRAUTH) {
 				ctf_ptrauth_t pta;
-				if (ctf_type_ptrauth(ctfp, dnp->dn_type, &pta) != 0) {
+				if (ctf_type_ptrauth(ctfp, type, &pta) != 0) {
 					yypcb->pcb_hdl->dt_ctferr = ctf_errno(octfp);
 					longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 				}
@@ -1893,11 +1894,16 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 		ctfp = dnp->dn_left->dn_ctfp;
 		type = dnp->dn_left->dn_type;
+
+		/* Resolve base type of a pointer. */
+		type = ctf_type_resolve(ctfp, type);
 		kind = ctf_type_kind(ctfp, type);
+
+		/* Repeat resolving for PTRAUTH nodes to get real base type. */
 		if (kind == CTF_K_PTRAUTH) {
 			type = ctf_type_reference(ctfp, type);
+			type = ctf_type_resolve(ctfp, type);
 		}
-		type = ctf_type_resolve(ctfp, type);
 
 		if (dnp->dn_op == DT_TOK_PTR) {
 			type = ctf_type_reference(ctfp, type);
@@ -1948,9 +1954,10 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 #if defined(DIF_OP_STRIP)
-			if (ctf_type_kind(ctfp, m.ctm_type) == CTF_K_PTRAUTH) {
+			type = ctf_type_resolve(ctfp, m.ctm_type);
+			if (ctf_type_kind(ctfp, type) == CTF_K_PTRAUTH) {
 				ctf_ptrauth_t pta;
-				if (ctf_type_ptrauth(ctfp, m.ctm_type, &pta) != 0) {
+				if (ctf_type_ptrauth(ctfp, type, &pta) != 0) {
 					yypcb->pcb_hdl->dt_ctferr = ctf_errno(octfp);
 					longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 				}

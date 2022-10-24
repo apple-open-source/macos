@@ -75,7 +75,7 @@ struct LiveFilesTester {
             }
             
             log("Calling fsck (\(dylib.getFsckCommand())) for plugin \(dylib.getAssumedFsType())")
-            error = brdg_fsops_check( &(fsTree.testerFsOps), fd!, CHECK)
+            error = brdg_fsops_check( &(fsTree.testerFsOps), fd!, CHECK_AND_REPAIR)
             log("brdg_fsops_check return status - \(error) - \( error == SUCCESS ? "SUCCESS" : Utils.strerror(error)) ")
             if error != SUCCESS {
                 throw TestError.testFlowError(msg: "Error! fsck returned with error: \(error)", errCode: error)
@@ -867,10 +867,6 @@ struct LiveFilesTester {
         for mountPoint in mountPoints {
             mountPoint.fsTree?.reclaimAll()
         }
-        if TestResult.shared.skipFsCompare == false {
-            log("Lookup nodes minus Reclaim nodes = \(Global.shared.lookupCounter)")
-            try testFlowAssert(Global.shared.lookupCounter == 0, msg: "Error! Number of lookups and reclaim should be equal!")
-        }
     }
     
     func compareStartFSTreesAndEndFSTrees() throws {
@@ -883,7 +879,6 @@ struct LiveFilesTester {
                 log("Building final FSTree")
                 try fsTree.buildFSTreeArrByPlugin()
                 fsTree.reclaimAll()
-                log("Lookup nodes minus Reclaim nodes = \(Global.shared.lookupCounter)")
                 try testFlowAssert(fsTree.areFSEqual(fsTreeStartArr, fsTree.nodesArr) == true, msg: "Error! FSTreeArr different than FSTreeArr which built at the end of the test.", errCode: EINVAL)
             }
         }

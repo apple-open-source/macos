@@ -29,6 +29,7 @@
 #import "SFAnalyticsSampler+Internal.h"
 #import "SFAnalyticsMultiSampler+Internal.h"
 #import "SFAnalyticsSQLiteStore.h"
+#import "SFAnalyticsCollection.h"
 #import "NSDate+SFAnalytics.h"
 #import "utilities/debugging.h"
 #import <utilities/SecFileLocations.h>
@@ -142,6 +143,11 @@ NSString* const SFAnalyticsEventProduct = @"product";
 NSString* const SFAnalyticsEventModelID = @"modelid";
 NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
+
+@interface SFAnalytics ()
+@property (readwrite) NSMutableSet<SFAnalyticsMetricsHook>* metricsHooks;
+@property (readwrite) SFAnalyticsCollection *collection;
+@end
 
 @implementation SFAnalytics {
     SFAnalyticsSQLiteStore* _database;
@@ -316,6 +322,39 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return [NSNumber numberWithInteger:[self fuzzyInteger:[num integerValue]]];
 }
 
+- (void)addMetricsHook:(SFAnalyticsMetricsHook)hook
+{
+    dispatch_sync(_queue, ^{
+        [self.metricsHooks addObject:hook];
+    });
+}
+
+- (void)removeMetricsHook:(SFAnalyticsMetricsHook)hook
+{
+    dispatch_sync(_queue, ^{
+        [self.metricsHooks removeObject:hook];
+    });
+}
+
+- (void)loadCollectionConfiguration {
+    @synchronized (self) {
+        SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] init];
+        if (collection) {
+            [collection loadCollection:self];
+            self.collection = collection;
+        }
+    }
+}
+
+- (void)updateCollectionConfigurationWithData:(NSData * _Nullable)data {
+    @synchronized (self) {
+        if (self.collection == nil) {
+            self.collection = [[SFAnalyticsCollection alloc] init];
+        }
+        [self.collection storeCollection:data logger:self];
+    }
+}
+
 // Instantiate lazily so unit tests can have clean databases each
 - (SFAnalyticsSQLiteStore*)database
 {
@@ -340,6 +379,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
             [strongSelf.database close];
             [strongSelf.database remove];
             strongSelf->_database = nil;
+            [strongSelf->_metricsHooks removeAllObjects];
         }
     });
 }
@@ -409,6 +449,60 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return result;
 }
 
+- (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key
+{
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            [strongSelf.database setProperty:[data base64EncodedStringWithOptions:0] forKey:key];
+        }
+    });
+}
+
+- (NSData*)dataPropertyForKey:(NSString*)key
+{
+    NSData* result = nil;
+    __block NSString *string = nil;
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            string = [strongSelf.database propertyForKey:key];
+        }
+    });
+    if (string) {
+        result = [[NSData alloc] initWithBase64EncodedString:string options:0];
+    }
+    return result;
+}
+
+
+- (NSString* _Nullable)metricsAccountID
+{
+    __block NSString* result = nil;
+
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            result = [strongSelf.database metricsAccountID];
+        }
+    });
+    return result;
+}
+
+- (void)setMetricsAccountID:(NSString* _Nullable)accountID
+{
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            [strongSelf.database setMetricsAccountID:accountID];
+        }
+    });
+}
+
 + (NSString*)hwModelID
 {
     static NSString *hwModel = nil;
@@ -471,26 +565,14 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         _queue = dispatch_queue_create("SFAnalytics data access queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _samplers = [NSMutableDictionary<NSString*, SFAnalyticsSampler*> new];
         _multisamplers = [NSMutableDictionary<NSString*, SFAnalyticsMultiSampler*> new];
+        _metricsHooks = [NSMutableSet set];
         [self database];    // for side effect of instantiating DB object. Used for testing.
     }
 
     return self;
 }
 
-- (NSDictionary *)coreAnalyticsKeyFilter:(NSDictionary<NSString *, id> *)info
-{
-    NSMutableDictionary *filtered = [NSMutableDictionary dictionary];
-    [info enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
-        filtered[[key stringByReplacingOccurrencesOfString:@"-" withString:@"_"]] = obj;
-    }];
-    return filtered;
-}
-
-// Daily CoreAnalytics metrics
-// Call this once per say if you want to have the once per day sampler collect their data and submit it
-
-- (void)dailyCoreAnalyticsMetrics:(NSString *)eventName
-{
+- (NSDictionary<NSString*, NSNumber*>*)dailyMetrics {
     NSMutableDictionary<NSString*, NSNumber*> *dailyMetrics = [NSMutableDictionary dictionary];
     __block NSDictionary<NSString*, SFAnalyticsMultiSampler*>* multisamplers;
     __block NSDictionary<NSString*, SFAnalyticsSampler*>* samplers;
@@ -518,6 +600,25 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         dailyMetrics[key] = [obj sampleNow];
     }];
 
+    return dailyMetrics;
+}
+
+- (NSDictionary<NSString *,NSNumber *> *)coreAnalyticsKeyFilter:(NSDictionary<NSString *,NSNumber *> *)info
+{
+    NSMutableDictionary<NSString *,NSNumber *> *filtered = [NSMutableDictionary dictionary];
+    [info enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, NSNumber *_Nonnull obj, BOOL * _Nonnull stop) {
+        filtered[[key stringByReplacingOccurrencesOfString:@"-" withString:@"_"]] = obj;
+    }];
+    return filtered;
+}
+
+// Daily CoreAnalytics metrics
+// Call this once per say if you want to have the once per day sampler collect their data and submit it
+
+- (void)dailyCoreAnalyticsMetrics:(NSString *)eventName
+{
+    NSDictionary<NSString*, NSNumber*> *dailyMetrics;
+    dailyMetrics = [self dailyMetrics];
     [SecCoreAnalytics sendEvent:eventName event:[self coreAnalyticsKeyFilter:dailyMetrics]];
 }
 
@@ -622,6 +723,15 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         return;
     }
 
+    __block NSSet<SFAnalyticsMetricsHook>* hooks;
+    dispatch_sync(_queue, ^{
+        hooks = [self.metricsHooks copy];
+    });
+    SFAnalyticsMetricsHookActions actions = 0;
+    for (SFAnalyticsMetricsHook metricHook in hooks) {
+        actions |= metricHook(eventName, class, attributes, timestampBucket);
+    }
+
     __weak __typeof(self) weakSelf = self;
     dispatch_sync(_queue, ^{
         __strong __typeof(self) strongSelf = weakSelf;
@@ -634,19 +744,33 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         NSDictionary* eventDict = [self eventDictForEventName:eventName withAttributes:attributes eventClass:class timestampBucket:timestampBucket];
 
         if (class == SFAnalyticsEventClassHardFailure) {
-            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableHardFailures timestampBucket:timestampBucket];
-            [strongSelf.database incrementHardFailureCountForEventType:eventName];
+            if (!(actions & SFAnalyticsMetricsHookExcludeEvent)) {
+                [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableHardFailures timestampBucket:timestampBucket];
+            }
+            if (!(actions & SFAnalyticsMetricsHookExcludeCount)) {
+                [strongSelf.database incrementHardFailureCountForEventType:eventName];
+            }
         }
         else if (class == SFAnalyticsEventClassSoftFailure) {
-            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableSoftFailures timestampBucket:timestampBucket];
-            [strongSelf.database incrementSoftFailureCountForEventType:eventName];
+            if (!(actions & SFAnalyticsMetricsHookExcludeEvent)) {
+                [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableSoftFailures timestampBucket:timestampBucket];
+            }
+            if (!(actions & SFAnalyticsMetricsHookExcludeCount)) {
+                [strongSelf.database incrementSoftFailureCountForEventType:eventName];
+            }
         }
         else if (class == SFAnalyticsEventClassNote) {
-            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableNotes timestampBucket:timestampBucket];
-            [strongSelf.database incrementSuccessCountForEventType:eventName];
+            if (!(actions & SFAnalyticsMetricsHookExcludeEvent)) {
+                [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableNotes timestampBucket:timestampBucket];
+            }
+            if (!(actions & SFAnalyticsMetricsHookExcludeCount)) {
+                [strongSelf.database incrementSuccessCountForEventType:eventName];
+            }
         }
         else if (class == SFAnalyticsEventClassSuccess) {
-            [strongSelf.database incrementSuccessCountForEventType:eventName];
+            if (!(actions & SFAnalyticsMetricsHookExcludeCount)) {
+                [strongSelf.database incrementSuccessCountForEventType:eventName];
+            }
         }
 
         [strongSelf.database end];

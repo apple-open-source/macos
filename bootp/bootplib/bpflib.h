@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@ int bpf_new(void);
 int bpf_dispose(int fd);
 int bpf_setif(int fd, const char * en_name);
 int bpf_set_immediate(int fd, u_int value);
+int bpf_set_hdrcmplt(int fd, u_int value);
 int bpf_filter_receive_none(int fd);
 int bpf_arp_filter(int fd, int type_offset, int type, int packet_size);
 int bpf_set_timeout(int fd, struct timeval * tv_p);

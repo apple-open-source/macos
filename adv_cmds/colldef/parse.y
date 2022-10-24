@@ -623,7 +623,7 @@ order_line2 :
 				for (w = prev_elem->u.wc + 1; w < s->u.wc; w++) {
 					struct __collate_st_char_pri *p = getpri(w);
 					if (p->pri[i] != PRI_UNDEFINED)
-						yyerror("Char 0x02x previously defined", w);
+						yyerror("Char 0x%02x previously defined", w);
 					p->pri[i] = prev_weight_table[i]->val;
 				}
 				break;
@@ -645,7 +645,7 @@ order_line2 :
 				for (w = prev_elem->u.wc + 1; w < s->u.wc; w++) {
 					struct __collate_st_char_pri *p = getpri(w);
 					if (p->pri[i] != PRI_UNDEFINED)
-						yyerror("Char 0x02x previously defined", w);
+						yyerror("Char 0x%02x previously defined", w);
 					p->pri[i] = x++;
 				}
 				break;
@@ -653,7 +653,7 @@ order_line2 :
 				for (w = prev_elem->u.wc + 1; w < s->u.wc; w++) {
 					struct __collate_st_char_pri *p = getpri(w);
 					if (p->pri[i] != PRI_UNDEFINED)
-						yyerror("Char 0x02x previously defined", w);
+						yyerror("Char 0x%02x previously defined", w);
 					putsubst(w, i, prev_weight_table[i]->u.str);
 					p->pri[i] = prev_weight_table[i]->val;
 				}
@@ -671,12 +671,12 @@ order_line2 :
 			case SYMBOL_IGNORE:
 			case SYMBOL_SYMBOL:
 				if (p->pri[i] != PRI_UNDEFINED)
-					yyerror("Char 0x02x previously defined", s->u.wc);
+					yyerror("Char 0x%02x previously defined", s->u.wc);
 				p->pri[i] = weight_table[i]->val;
 				break;
 			case SYMBOL_STRING:
 				if (p->pri[i] != PRI_UNDEFINED)
-					yyerror("Char 0x02x previously defined", s->u.wc);
+					yyerror("Char 0x%02x previously defined", s->u.wc);
 				putsubst(s->u.wc, i, weight_table[i]->u.str);
 				p->pri[i] = weight_table[i]->val;
 				break;
@@ -848,7 +848,7 @@ chain : CHAR CHAR {
 	if (tb[0] == '\0')
 		yyerror("\\0 can't be chained");
 	if (wcslen(curr_chain) + 1 > STR_LEN)
-		yyerror("Chain '%s' grows too long", curr_chain);
+		yyerror("Chain '%ls' grows too long", curr_chain);
 	(void)wcscat(curr_chain, tb);
 }
 ;

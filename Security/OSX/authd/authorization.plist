@@ -955,10 +955,11 @@ See remaining rules for examples.
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
 				<string>CryptoTokenKit:login</string>
+				<string>PSSOAuthPlugin:login-auth</string>
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>9</integer>
+			<integer>10</integer>
 		</dict>
 		<key>system.login.filevault</key>
 		<dict>
@@ -1049,6 +1050,27 @@ See remaining rules for examples.
 			</array>
 			<key>version</key>
 			<integer>1</integer>
+		</dict>
+		<key>system.platformsso.auth</key>
+		<dict>
+            <key>class</key>
+            <string>user</string>
+            <key>comment</key>
+            <string>Do not modify. Authenticates current user for platform sso.</string>
+            <key>allow-root</key>
+            <false/>
+            <key>authenticate-user</key>
+            <true/>
+            <key>extract-password</key>
+            <true/>
+            <key>password-only</key>
+            <true/>
+            <key>session-owner</key>
+            <true/>
+            <key>tries</key>
+            <integer>10000</integer>
+            <key>version</key>
+            <integer>2</integer>
 		</dict>
 		<key>system.preferences</key>
 		<dict>
@@ -2486,6 +2508,25 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>36000</integer>
 		</dict>
+        <key>psso-screensaver</key>
+        <dict>
+            <key>class</key>
+            <string>evaluate-mechanisms</string>
+            <key>comment</key>
+            <string>Do not modify. Performs unlock operations for screensaver.</string>
+            <key>mechanisms</key>
+            <array>
+                <string>PSSOAuthPlugin:login-idp</string>
+                <string>builtin:authenticate,privileged</string>
+                <string>CryptoTokenKit:login</string>
+                <string>builtin:kcunlock</string>
+                <string>PSSOAuthPlugin:login-auth</string>
+            </array>
+            <key>tries</key>
+            <integer>1</integer>
+            <key>version</key>
+            <integer>2</integer>
+        </dict>
 	</dict>
 </dict>
 </plist>

@@ -327,6 +327,9 @@ exit:
 	return len - resid;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type"
+
 int
 kdp_machine_ioport_read(kdp_readioport_req_t *rq, caddr_t data, uint16_t lcpu)
 {
@@ -409,6 +412,8 @@ kdp_machine_msr64_write(kdp_writemsr64_req_t *rq, caddr_t data, uint16_t lcpu)
 	return KDPERR_NO_ERROR;
 }
 
+#pragma clang diagnostic pop
+
 pt_entry_t *debugger_ptep;
 vm_offset_t debugger_window_kva;
 
@@ -457,7 +462,9 @@ kdp_machine_init(void)
 	 * If the kernel is running on top of a hypervisor that supports AH#1, it will inform
 	 * the hypervisor of its debugging info.
 	 */
-	hvg_hcall_set_coredump_data();
+	if (hvg_is_hcall_available(HVG_HCALL_SET_COREDUMP_DATA)) {
+		hvg_hcall_set_coredump_data();
+	}
 
 	if (debug_boot_arg == 0) {
 		return;

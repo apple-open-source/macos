@@ -63,7 +63,7 @@
 #include "SOSAccountTesting.h"
 #if SOS_ENABLED
 
-static void tests() {
+static void tests(void) {
     CFErrorRef error = NULL;
     int keySizeInBits = 256;
     CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberIntType, &keySizeInBits);

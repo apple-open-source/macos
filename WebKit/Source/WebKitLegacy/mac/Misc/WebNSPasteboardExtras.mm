@@ -175,9 +175,7 @@ static NSArray *writableTypesForImageWithArchive()
 
 + (int)_web_setFindPasteboardString:(NSString *)string withOwner:(id)owner
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSPasteboard *findPasteboard = [NSPasteboard pasteboardWithName:NSFindPboard];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    NSPasteboard *findPasteboard = [NSPasteboard pasteboardWithName:NSPasteboardNameFind];
     [findPasteboard declareTypes:@[legacyStringPasteboardType()] owner:owner];
     [findPasteboard setString:string forType:legacyStringPasteboardType()];
     return [findPasteboard changeCount];
@@ -267,16 +265,14 @@ static CachedImage* imageFromElement(DOMElement *domElement)
                                    archive:(WebArchive *)archive
                                     source:(WebHTMLView *)source
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    ASSERT(self == [NSPasteboard pasteboardWithName:NSDragPboard]);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    ASSERT(self == [NSPasteboard pasteboardWithName:NSPasteboardNameDrag]);
 
     NSString *extension = @"";
     RetainPtr<NSMutableArray> types = adoptNS([[NSMutableArray alloc] initWithObjects:legacyFilesPromisePasteboardType(), nil]);
     NSString *originIdentifier = core(element)->document().originIdentifierForPasteboard();
     RetainPtr<NSData> customDataBuffer;
     if (originIdentifier.length) {
-        [types addObject:@(PasteboardCustomData::cocoaType())];
+        [types addObject:@(PasteboardCustomData::cocoaType().characters())];
         PasteboardCustomData customData;
         customData.setOrigin(originIdentifier);
         customDataBuffer = customData.createSharedBuffer()->createNSData();
@@ -305,7 +301,7 @@ static CachedImage* imageFromElement(DOMElement *domElement)
 
     [self _web_writeImage:nil element:element URL:URL title:title archive:archive types:types.get() source:source];
     if (customDataBuffer)
-        [self setData:customDataBuffer.get() forType:@(PasteboardCustomData::cocoaType())];
+        [self setData:customDataBuffer.get() forType:@(PasteboardCustomData::cocoaType().characters())];
 
     [self setPropertyList:@[extension] forType:legacyFilesPromisePasteboardType()];
 

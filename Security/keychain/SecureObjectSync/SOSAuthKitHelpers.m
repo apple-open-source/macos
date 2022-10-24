@@ -63,7 +63,7 @@ static ACAccount *GetPrimaryAccount(void) {
 
     ACAccount *primaryAccount;
     
-    ACAccountStore *store = [ACAccountStore new];
+    ACAccountStore *store = [ACAccountStore defaultStore];
 
     if(!store) {
         secnotice("sosauthkit", "can't get store");

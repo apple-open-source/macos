@@ -114,7 +114,7 @@ static void create_random_key_worker(id keyType, int keySize, bool permPub, bool
     ok_status(SecItemDelete((CFDictionaryRef)params), "clear generated pair from keychain");
 }
 
-static void test_create_random_key() {
+static void test_create_random_key(void) {
     create_random_key_worker((id)kSecAttrKeyTypeRSA, 1024, false, false);
     create_random_key_worker((id)kSecAttrKeyTypeRSA, 1024, false, true);
     create_random_key_worker((id)kSecAttrKeyTypeRSA, 1024, true, true);
@@ -165,7 +165,7 @@ static void test_create_key_with_attrs_run(NSDictionary *attrs) {
 }
 static const int TestCountCreateKeyWithAttrsRun = 8;
 
-static void test_create_key_with_attrs() {
+static void test_create_key_with_attrs(void) {
     test_create_key_with_attrs_run(@{(id)kSecAttrLabel:@"Label"});
     test_create_key_with_attrs_run(@{(id)kSecAttrApplicationTag:[@"AppTag" dataUsingEncoding:NSUTF8StringEncoding]});
     test_create_key_with_attrs_run(@{(id)kSecAttrLabel:@"Label",

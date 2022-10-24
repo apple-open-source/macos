@@ -237,10 +237,10 @@ class OctagonInheritanceTests: OctagonTestsBase {
         return self.manager.context(forContainerName: OTCKContainerName,
                                     contextID: contextID,
                                     sosAdapter: self.mockSOSAdapter,
+                                    accountsAdapter: self.mockAuthKit2,
                                     authKitAdapter: self.mockAuthKit2,
                                     tooManyPeersAdapter: self.mockTooManyPeers,
                                     lockStateTracker: self.lockStateTracker,
-                                    accountStateTracker: self.accountStateTracker,
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-IK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
 
@@ -249,7 +249,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
 
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: context.contextID, uuid: nil) { irk, error in
+        self.manager.createInheritanceKey(self.otcontrolArgumentsFor(context: context), uuid: nil) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -262,7 +262,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         self.assertEnters(context: context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        let container = try self.tphClient.getContainer(withContainer: context.containerName, context: context.contextID)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
         let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: otirk.uuid))
 
         let irkWithKeys = try InheritanceKey(tpInheritance: custodian,
@@ -307,7 +307,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -385,7 +385,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // let's ensure the inheritance bit is set.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertTrue(accountState.isInheritedAccount, "isInheritedAccount should be YES")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -400,13 +400,13 @@ class OctagonInheritanceTests: OctagonTestsBase {
         }
         self.wait(for: [resetAndEstablishExpectation], timeout: 10)
 
-        _ = try self.cuttlefishContext.accountAvailable("13453464")
+        _ = try self.cuttlefishContext.accountAvailable(try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         // now let's ensure the inheritance bit is gone.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertFalse(accountState.isInheritedAccount, "isInheritedAccount should be NO")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -431,7 +431,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -509,7 +509,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // let's ensure the inheritance bit is set.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertTrue(accountState.isInheritedAccount, "isInheritedAccount should be YES")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -523,7 +523,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // now let's ensure the inheritance bit is gone.
         do {
-            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
+            let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName, personaAdapter: self.mockPersonaAdapter, personaUniqueString: nil)
             XCTAssertFalse(accountState.isInheritedAccount, "isInheritedAccount should be NO")
         } catch {
             XCTFail("error loading account state: \(error)")
@@ -743,7 +743,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: UUID()) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: UUID()) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -789,7 +789,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         // And a inheritance key is set
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: nil) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: nil) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -809,7 +809,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: self.otcliqueContext.context)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
         let inheritor = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: retirk!.uuid), "Should be able to find the irk we just created")
         let cuttlefishContextPeerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
         self.assertTLKSharesInCloudKit(receiverPeerID: inheritor.peerID, senderPeerID: cuttlefishContextPeerID)
@@ -852,7 +852,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let uuid = UUID()
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: uuid) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -892,7 +892,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let uuid = UUID()
 
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: uuid) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: self.otcliqueContext), uuid: uuid) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -900,7 +900,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         }
         self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
 
-        self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 0)
+        try self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 0)
         XCTAssertEqual(self.cuttlefishContext.currentMemoizedTrustState(), .TRUSTED, "Trust state should be trusted")
         self.verifyDatabaseMocks()
     }
@@ -920,7 +920,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1019,7 +1019,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1055,7 +1055,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.wait(for: [preflightJoinWithInheritanceKeyExpectation], timeout: 20)
 
         // Now, join from a new device
-        self.mockAuthKit.altDSID = UUID().uuidString
+        let account = CloudKitAccount(altDSID: UUID().uuidString, persona: nil, hsa2: true, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
@@ -1119,7 +1120,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1151,7 +1152,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let newCliqueContext = OTConfigurationContext()
         newCliqueContext.context = OTDefaultContext
         newCliqueContext.dsid = self.otcliqueContext.dsid
-        newCliqueContext.altDSID = self.mockAuthKit.altDSID!
+        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
         newCliqueContext.otControl = self.otControl
 
         let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -1215,7 +1216,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1239,7 +1240,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
         let uuid = UUID()
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: bottlerotcliqueContext.context, uuid: uuid) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: uuid) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -1249,7 +1250,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
         let recoveryKeyData = retirk!.recoveryKeyData
 
-        let container = try self.tphClient.getContainer(withContainer: OTCKContainerName, context: bottlerotcliqueContext.context)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(establishContext.activeAccount))
         let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: retirk!.uuid))
 
         let ikWithKeys = try InheritanceKey(tpInheritance: custodian, recoveryKeyData: recoveryKeyData, recoverySalt: "")
@@ -1310,7 +1311,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1334,7 +1335,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKeyExpectation returns")
         let uuid = UUID()
-        self.manager.createInheritanceKey(OTCKContainerName, contextID: bottlerotcliqueContext.context, uuid: uuid) { irk, error in
+        self.manager.createInheritanceKey(OTControlArguments(configuration: bottlerotcliqueContext), uuid: uuid) { irk, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(irk, "irk should be non-nil")
             XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
@@ -1344,7 +1345,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
         let recoveryKeyData = retirk!.recoveryKeyData
 
-        let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName, context: bottlerotcliqueContext.context)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(establishContext.activeAccount))
         let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: retirk!.uuid))
 
         let crkWithKeys = try InheritanceKey(tpInheritance: custodian, recoveryKeyData: recoveryKeyData, recoverySalt: "")
@@ -1407,7 +1408,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1476,8 +1477,8 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-        self.restartCKKSViews()
         self.cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        self.defaultCKKS = try XCTUnwrap(self.cuttlefishContext.ckks)
 
         XCTAssertNil(self.defaultCKKS.syncingPolicy, "CKKS should not have a policy after 'restart'")
 
@@ -1523,7 +1524,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1617,7 +1618,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1710,7 +1711,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let bottlerotcliqueContext = OTConfigurationContext()
         bottlerotcliqueContext.context = establishContextID
         bottlerotcliqueContext.dsid = "1234"
-        bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
+        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
         bottlerotcliqueContext.otControl = self.otControl
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
@@ -1771,7 +1772,11 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.cuttlefishContext.rpcSetUserControllableViewsSyncingStatus(false) { syncing, error in
             XCTAssertNotNil(error, "error should not be nil")
             let nsError: NSError = error! as NSError
+#if os(tvOS)
+            XCTAssertEqual(nsError.code, OctagonError.notSupported.rawValue, "error should be equal to OctagonErrorNotSupported")
+#else
             XCTAssertEqual(nsError.code, OctagonError.userControllableViewsUnavailable.rawValue, "error should be equal to OctagonErrorUserControllableViewsUnavailable")
+#endif
             XCTAssertFalse(syncing, "syncing should be false")
             fetchExpectation.fulfill()
         }

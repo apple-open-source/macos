@@ -117,7 +117,7 @@ extern "C" {
    text).  */
 #ifdef _INTL_REDIRECT_INLINE
 extern char *libintl_gettext (const char *__msgid);
-static inline char *gettext (const char *__msgid)
+static inline char * __attribute__((format_arg(1))) gettext (const char *__msgid)
 {
   return libintl_gettext (__msgid);
 }
@@ -125,7 +125,7 @@ static inline char *gettext (const char *__msgid)
 #ifdef _INTL_REDIRECT_MACROS
 # define gettext libintl_gettext
 #endif
-extern char *gettext _INTL_PARAMS ((const char *__msgid))
+extern char * __attribute__((format_arg(1))) gettext _INTL_PARAMS ((const char *__msgid))
        _INTL_ASM (libintl_gettext);
 #endif
 

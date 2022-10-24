@@ -1,9 +1,0 @@
-The author of this package disclaims all copyrights and releases it
-into the public domain.
-
-CRC algorithm code taken from "A PAINLESS GUIDE TO CRC ERROR DETECTION
-ALGORITHMS" Copyright (C) Ross Williams, 1993,1994,1995,1996.
-However, permission is granted to make and distribute verbatim
-copies of this document provided that this information block and
-copyright notice is included. Also, the C code modules included in
-this document are fully PUBLIC DOMAIN (PD).

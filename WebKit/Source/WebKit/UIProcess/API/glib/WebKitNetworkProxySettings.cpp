@@ -22,15 +22,17 @@
 
 #include "WebKitNetworkProxySettingsPrivate.h"
 #include <WebCore/SoupNetworkProxySettings.h>
+#include <wtf/URL.h>
 #include <wtf/glib/WTFGType.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
 /**
- * SECTION: WebKitNetworkProxySettings
- * @Short_description: Network Proxy Settings
- * @Title: WebKitNetworkProxySettings
+ * WebKitNetworkProxySettings:
  * @See_also: #WebKitWebContext
+ *
+ * Configures network proxies.
  *
  * WebKitNetworkProxySettings can be used to provide a custom proxy configuration
  * to a #WebKitWebContext. You need to call webkit_web_context_set_network_proxy_settings()
@@ -105,8 +107,10 @@ WebKitNetworkProxySettings* webkit_network_proxy_settings_new(const char* defaul
 {
     WebKitNetworkProxySettings* proxySettings = static_cast<WebKitNetworkProxySettings*>(fastMalloc(sizeof(WebKitNetworkProxySettings)));
     new (proxySettings) WebKitNetworkProxySettings;
-    if (defaultProxyURI)
+    if (defaultProxyURI) {
+        g_return_val_if_fail(URL(String::fromUTF8(defaultProxyURI)).isValid(), nullptr);
         proxySettings->settings.defaultProxyURL = defaultProxyURI;
+    }
     if (ignoreHosts)
         proxySettings->settings.ignoreHosts.reset(g_strdupv(const_cast<char**>(ignoreHosts)));
     return proxySettings;
@@ -164,6 +168,7 @@ void webkit_network_proxy_settings_add_proxy_for_scheme(WebKitNetworkProxySettin
     g_return_if_fail(proxySettings);
     g_return_if_fail(scheme);
     g_return_if_fail(proxyURI);
+    g_return_if_fail(URL(String::fromUTF8(proxyURI)).isValid());
 
     proxySettings->settings.proxyMap.add(scheme, proxyURI);
 }

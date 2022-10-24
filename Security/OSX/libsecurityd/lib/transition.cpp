@@ -48,6 +48,7 @@
 // are clipped and expanded in this layer (high bits always zero).
 //
 #include "sstransit.h"
+#include "ucsp.h"
 #include <security_cdsa_client/cspclient.h>
 
 #include <CommonCrypto/CommonRandom.h>

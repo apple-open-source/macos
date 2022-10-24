@@ -8,7 +8,7 @@
 #include <AssertMacros.h>
 
 static xpc_connection_t
-_service_get_connection()
+_service_get_connection(void)
 {
     static dispatch_once_t onceToken;
     static xpc_connection_t connection = NULL;

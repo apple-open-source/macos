@@ -40,7 +40,7 @@
 
 int secd_01_items(int argc, char *const *argv)
 {
-    plan_tests(24 + kSecdTestSetupTestCount);
+    plan_tests(27 + kSecdTestSetupTestCount);
 
     secd_test_setup_testviews(); // if running all tests get the test views setup first
     /* custom keychain dir */
@@ -141,7 +141,13 @@ int secd_01_items(int argc, char *const *argv)
     /* Reset keybag and custom $HOME */
     SecItemServerResetKeychainKeybag();
     secd_test_teardown_delete_temp_keychain("secd_01_items");
-    
+    void* buf = NULL;
+    int bufLen = 0;
+    ok(kAKSReturnSuccess == aks_save_bag(keybag, &buf, &bufLen), "failed to save keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_unload_bag(keybag), "failed to unload keybag for invalidation");
+    ok(kAKSReturnSuccess == aks_invalidate_bag(buf, bufLen), "failed to invalidate keybag");
+    free(buf);
+
     CFReleaseNull(pwdata);
     CFReleaseNull(eighty);
     CFReleaseSafe(item);

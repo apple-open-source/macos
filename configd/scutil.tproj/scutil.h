@@ -43,7 +43,6 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 
-
 typedef struct {
 	FILE		*fp;
 	EditLine	*el;

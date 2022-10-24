@@ -52,7 +52,6 @@
 
 #include <System/sys/csr.h>
 
-
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
 	dtrace_probespec_t dc_spec;		/* probe specifier context */
@@ -168,6 +167,7 @@ usage(FILE *fp)
 	return (E_USAGE);
 }
 
+__printflike(1, 0)
 static void
 verror(const char *fmt, va_list ap)
 {
@@ -181,6 +181,7 @@ verror(const char *fmt, va_list ap)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 fatal(const char *fmt, ...)
 {
@@ -194,6 +195,7 @@ fatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 dfatal(const char *fmt, ...)
 {
@@ -233,6 +235,7 @@ dfatal(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 error(const char *fmt, ...)
 {
@@ -244,6 +247,7 @@ error(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 notice(const char *fmt, ...)
 {
@@ -258,6 +262,7 @@ notice(const char *fmt, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 static void
 oprintf(const char *fmt, ...)
 {

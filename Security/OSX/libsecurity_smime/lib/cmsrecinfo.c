@@ -472,7 +472,7 @@ OSStatus SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricK
         certalgtag = SECOID_GetAlgorithmTag(algid);
     } else if (usesSubjKeyID) {
         extra = &ri->ri.keyTransRecipientInfoEx;
-        /* sanity check */
+        /* presence check */
         PORT_Assert(extra->pubKey);
         if (!extra->pubKey) {
             PORT_SetError(SEC_ERROR_INVALID_ARGS);

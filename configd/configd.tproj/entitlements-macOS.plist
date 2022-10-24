@@ -18,5 +18,12 @@
 	<true/>
 	<key>com.apple.networkd.modify_settings</key>
 	<true/>
+	<key>com.apple.security.temporary-exception.iokit-user-client-class</key>
+	<array>
+		<string>IO80211APIUserClient</string>
+		<string>IOUserUserClient</string>
+	</array>
+	<key>com.apple.wlan.authentication</key>
+	<true/>
 </dict>
 </plist>

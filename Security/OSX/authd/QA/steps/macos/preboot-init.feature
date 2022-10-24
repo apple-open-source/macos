@@ -1,7 +1,22 @@
 @macOS @FVUnlock @Recovery
 Feature: Authorization daemon read data about users and preferences from Preboot partition for any further Authorization or Authentication in Recovery (AIR) operation
+  
+  @Recovery @smoke @regression @aqs
+  Scenario: Authorize during Install Assistant in RecoveryOS
+    Given I boot to Recovery
+    And I open the terminal
+    # Best approach seems to be to have external drive with Install macOS <Release Name>.app
+    # Then start the installation from terminal: 
+    #  $ /Volumes/<external>/Install\ macOS \Monterey.app/Contents/MacOS/InstallAssistant
+    And I start the Install Asisstant
+    And I go through assistant to step where you choose partition
+    And I select the partition
+    # AIR - Authentication in Recovery 
+    And I'm prompted for credentials by AIR UI 
+    When I enter admin credentials
+    Then the installation continues
 
-  @Recovery @AS @T2 @smoke
+  @Recovery @AS @T2 @aqs
   Scenario: Authenticate in Recovery - Disable SIP
     Given I boot to Recovery
     And I open terminal
@@ -11,7 +26,7 @@ Feature: Authorization daemon read data about users and preferences from Preboot
     # Verify SIP status by calling 'csrutil status'   
     Then SIP is disabled
 
-  @Recovery @AS @T2 @smoke
+  @Recovery @AS @T2 @aqs
   Scenario: Change security settings in Startup Security Utility
     Given I boot to Recovery
     And I start Startup Security Utillity from upper panel
@@ -19,14 +34,14 @@ Feature: Authorization daemon read data about users and preferences from Preboot
     When I provide correct admin credentials
     Then security settings are changed
 
-  @FVUnlock @AS @Smoke
+  @FVUnlock @AS @aqs
   Scenario: Authenticate in FVUnlock - Login
     Given I enable FileVault
     And I boot to FVUnlock
     When I provide correct user credentials
     Then I get logged in to the system
 
-  @FVUnlock @AS
+  @FVUnlock @AS @aqs
   Scenario: Only relevant Preboot partitions are processed during initialization in FVUnlock
     Given I enable FileVault
     When I reboot to FVUnlock
@@ -34,7 +49,7 @@ Feature: Authorization daemon read data about users and preferences from Preboot
     # $ log show --info --debug --predicate "subsystem='com.apple.Authorization'" | grep 'Mount Preboot Volume'
     Then only relevant Preboot partitions are processed
 
-  @Recovery @AS @T2
+  @Recovery @AS @T2 @aqs
   Scenario: Authentication in Recovery unmounts all Preboot volumes but keeps the one relevant to the Recovery session mounted
     # Relevant Preboot partition is the one in the same volume group as the System/Data partitions of the MacOS which I booted to the Recovery
     # Easiest way to achieve multiple Preboots is to have extended drive with MacOS installed on it plugged to the device
@@ -46,7 +61,7 @@ Feature: Authorization daemon read data about users and preferences from Preboot
     When I disable SIP
     Then only relevant Preboot partition is mounted after the operation is done
 
-  @Recovery @AS @external_bootable
+  @Recovery @AS @external_bootable 
   Scenario: Disabling SIP must work when two systems share the same container
     Given I have two MacOS installations on external drive
     And I boot to Recovery

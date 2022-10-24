@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>cp</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-01-26</string>
+		<string>2022-04-05</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/cp?id=45b252fc9182b96342b8a598f271e49c20cbfe40</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/cp?id=f00f8b4fbd268a212687984e44daa3e0d0a16b87</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-06-06</string>
+		<string>2022-04-06</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>cp.c: support extended attributes (3753267)</string>

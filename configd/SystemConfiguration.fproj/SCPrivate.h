@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -776,11 +776,6 @@ _SC_getApplicationBundleID					(void);
 CFBundleRef
 _SC_CFBundleGet					(void);
 
-CFStringRef
-_SC_CFBundleCopyNonLocalizedString		(CFBundleRef		bundle,
-						 CFStringRef		key,
-						 CFStringRef		value,
-						 CFStringRef		tableName);
 
 #pragma mark -
 #pragma mark Misc

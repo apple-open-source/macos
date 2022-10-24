@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "ContextDestructionObserver.h"
 #include "Cookie.h"
 #include "EpochTimeStamp.h"
+#include "EventTrackingRegions.h"
 #include "ExceptionOr.h"
 #include "HEVCUtilities.h"
 #include "IDLTypes.h"
@@ -50,6 +51,9 @@
 #if USE(AUDIO_SESSION)
 #include "AudioSession.h"
 #endif
+
+OBJC_CLASS DDScannerResult;
+OBJC_CLASS VKCImageAnalysis;
 
 namespace WebCore {
 
@@ -79,6 +83,7 @@ class Frame;
 class GCObservation;
 class HTMLAnchorElement;
 class HTMLAttachmentElement;
+class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLInputElement;
 class HTMLLinkElement;
@@ -108,6 +113,7 @@ class RenderedDocumentMarker;
 class SVGSVGElement;
 class ScrollableArea;
 class SerializedScriptValue;
+class SharedBuffer;
 class SourceBuffer;
 class StringCallback;
 class StyleSheet;
@@ -153,6 +159,10 @@ class MockMediaSessionCoordinator;
 #endif
 #endif
 
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+class HTMLModelElement;
+#endif
+
 template<typename IDLType> class DOMPromiseDeferred;
 
 struct MockWebAuthenticationConfiguration;
@@ -161,7 +171,7 @@ class Internals final : public RefCounted<Internals>, private ContextDestruction
 #if ENABLE(MEDIA_STREAM)
     , public RealtimeMediaSource::Observer
     , private RealtimeMediaSource::AudioSampleObserver
-    , private RealtimeMediaSource::VideoSampleObserver
+    , private RealtimeMediaSource::VideoFrameObserver
 #endif
     {
 public:
@@ -232,13 +242,8 @@ public:
     Node* ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
     ExceptionOr<String> shadowRootType(const Node&) const;
-    String shadowPseudoId(Element&);
-    void setShadowPseudoId(Element&, const String&);
-
-    // CSS Deferred Parsing Testing
-    unsigned deferredStyleRulesCount(StyleSheet&);
-    unsigned deferredGroupRulesCount(StyleSheet&);
-    unsigned deferredKeyframesRulesCount(StyleSheet&);
+    const AtomString& shadowPseudoId(Element&);
+    void setShadowPseudoId(Element&, const AtomString&);
 
     // DOMTimers throttling testing.
     ExceptionOr<bool> isTimerThrottled(int timeoutId);
@@ -284,8 +289,8 @@ public:
     void removeTextPlaceholder(Element&);
 
     void selectColorInColorChooser(HTMLInputElement&, const String& colorValue);
-    ExceptionOr<Vector<String>> formControlStateOfPreviousHistoryItem();
-    ExceptionOr<void> setFormControlStateOfPreviousHistoryItem(const Vector<String>&);
+    ExceptionOr<Vector<AtomString>> formControlStateOfPreviousHistoryItem();
+    ExceptionOr<void> setFormControlStateOfPreviousHistoryItem(const Vector<AtomString>&);
 
     ExceptionOr<Ref<DOMRect>> absoluteLineRectFromPoint(int x, int y);
 
@@ -296,6 +301,7 @@ public:
 
     ExceptionOr<Ref<DOMRectList>> inspectorHighlightRects();
     ExceptionOr<unsigned> inspectorGridOverlayCount();
+    ExceptionOr<unsigned> inspectorFlexOverlayCount();
     ExceptionOr<unsigned> inspectorPaintRectCount();
 
     ExceptionOr<unsigned> markerCountForNode(Node&, const String&);
@@ -324,6 +330,7 @@ public:
 
     ExceptionOr<void> setPagination(const String& mode, int gap, int pageLength);
     ExceptionOr<void> setPaginationLineGridEnabled(bool);
+    ExceptionOr<uint64_t> lineIndexAfterPageBreak(Element&);
     ExceptionOr<String> configurationForViewport(float devicePixelRatio, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight);
 
     ExceptionOr<bool> wasLastChangeUserEdit(Element& textField);
@@ -331,7 +338,7 @@ public:
     void setAutofilled(HTMLInputElement&, bool enabled);
     void setAutoFilledAndViewable(HTMLInputElement&, bool enabled);
     void setAutoFilledAndObscured(HTMLInputElement&, bool enabled);
-    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard };
+    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard, Loading };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
     AutoFillButtonType autoFillButtonType(const HTMLInputElement&);
     AutoFillButtonType lastAutoFillButtonType(const HTMLInputElement&);
@@ -342,13 +349,19 @@ public:
     ExceptionOr<void> invalidateControlTints();
 
     RefPtr<Range> rangeFromLocationAndLength(Element& scope, unsigned rangeLocation, unsigned rangeLength);
-    unsigned locationFromRange(Element& scope, const Range&);
-    unsigned lengthFromRange(Element& scope, const Range&);
+    unsigned locationFromRange(Element& scope, const Range&, const Vector<String>& behaviors = { });
+    unsigned lengthFromRange(Element& scope, const Range&, const Vector<String>& behaviors = { });
     String rangeAsText(const Range&);
     String rangeAsTextUsingBackwardsTextIterator(const Range&);
     Ref<Range> subrange(Range&, unsigned rangeLocation, unsigned rangeLength);
     ExceptionOr<RefPtr<Range>> rangeForDictionaryLookupAtLocation(int x, int y);
     RefPtr<Range> rangeOfStringNearLocation(const Range&, const String&, unsigned);
+
+    struct TextIteratorState {
+        String text;
+        RefPtr<Range> range;
+    };
+    Vector<TextIteratorState> statesOfTextIterator(const Range&, const Vector<String>& behaviors = { });
 
     ExceptionOr<void> setDelegatesScrolling(bool enabled);
 
@@ -415,7 +428,7 @@ public:
 
     ExceptionOr<bool> isPageBoxVisible(int pageNumber);
 
-    static const char* internalsId;
+    static constexpr ASCIILiteral internalsId = "internals"_s;
 
     InternalSettings* settings() const;
     unsigned workerThreadCount() const;
@@ -435,6 +448,7 @@ public:
         LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES = 256,
         LAYER_TREE_INCLUDES_EVENT_REGION = 512,
         LAYER_TREE_INCLUDES_DEEP_COLOR = 1024,
+        LAYER_TREE_INCLUDES_DEVICE_SCALE = 2048,
     };
     ExceptionOr<String> layerTreeAsText(Document&, unsigned short flags) const;
     ExceptionOr<uint64_t> layerIDForElement(Element&);
@@ -464,10 +478,15 @@ public:
 
     enum {
         // Values need to be kept in sync with Internals.idl.
-        DISPLAY_LIST_INCLUDES_PLATFORM_OPERATIONS = 1,
+        DISPLAY_LIST_INCLUDE_PLATFORM_OPERATIONS = 1,
+        DISPLAY_LIST_INCLUDE_RESOURCE_IDENTIFIERS = 2,
     };
     ExceptionOr<String> displayListForElement(Element&, unsigned short flags);
     ExceptionOr<String> replayDisplayListForElement(Element&, unsigned short flags);
+
+    void setForceUseGlyphDisplayListForTesting(bool enabled);
+    ExceptionOr<String> cachedGlyphDisplayListsForTextNode(Node&, unsigned short flags);
+    void clearGlyphDisplayListCacheForTesting();
 
     ExceptionOr<void> garbageCollectDocumentResources() const;
 
@@ -494,20 +513,20 @@ public:
 
     unsigned numberOfResizeObservers(const Document&) const;
 
-    uint64_t documentIdentifier(const Document&) const;
-    bool isDocumentAlive(uint64_t documentIdentifier) const;
+    String documentIdentifier(const Document&) const;
+    bool isDocumentAlive(const String& documentIdentifier) const;
 
     uint64_t storageAreaMapCount() const;
 
     uint64_t elementIdentifier(Element&) const;
-    bool isElementAlive(Document&, uint64_t documentIdentifier) const;
+    bool isElementAlive(uint64_t elementIdentifier) const;
 
     uint64_t frameIdentifier(const Document&) const;
     uint64_t pageIdentifier(const Document&) const;
 
     bool isAnyWorkletGlobalScopeAlive() const;
 
-    String serviceWorkerClientIdentifier(const Document&) const;
+    String serviceWorkerClientInternalIdentifier(const Document&) const;
 
     RefPtr<WindowProxy> openDummyInspectorFrontend(const String& url);
     void closeDummyInspectorFrontend();
@@ -637,6 +656,8 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     void setShouldInterruptAudioOnPageVisibilityChange(bool);
+#endif
+#if ENABLE(MEDIA_RECORDER)
     void setCustomPrivateRecorderCreator();
 #endif
 
@@ -707,7 +728,6 @@ public:
     ExceptionOr<bool> isPluginUnavailabilityIndicatorObscured(Element&);
     ExceptionOr<String> unavailablePluginReplacementText(Element&);
     bool isPluginSnapshotted(Element&);
-    bool pluginIsBelowSizeThreshold(Element&);
 
 #if ENABLE(MEDIA_SOURCE)
     WEBCORE_TESTSUPPORT_EXPORT void initializeMockMediaSource();
@@ -734,6 +754,8 @@ public:
     bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
     bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
+    void beginAudioSessionInterruption();
+    void endAudioSessionInterruption();
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -763,6 +785,8 @@ public:
     ExceptionOr<bool> pageDefersLoading();
 
     RefPtr<File> createFile(const String&);
+    String createTemporaryFile(const String& name, const String& contents);
+
     void queueMicroTask(int);
     bool testPreloaderSettingViewport();
 
@@ -803,6 +827,8 @@ public:
 
     bool userIsInteracting();
 
+    bool hasTransientActivation();
+
     RefPtr<GCObservation> observeGC(JSC::JSValue);
 
     enum class UserInterfaceLayoutDirection : uint8_t { LTR, RTL };
@@ -826,9 +852,6 @@ public:
     void setQuickLookPassword(const String&);
 
     void setAsRunningUserScripts(Document&);
-#if ENABLE(APPLE_PAY)
-    void setApplePayIsActive(Document&);
-#endif
 
 #if ENABLE(WEBGL)
     enum class SimulatedWebGLContextEvent {
@@ -869,6 +892,7 @@ public:
     void observeMediaStreamTrack(MediaStreamTrack&);
     using TrackFramePromise = DOMPromiseDeferred<IDLInterface<ImageData>>;
     void grabNextMediaStreamTrackFrame(TrackFramePromise&&);
+    void mediaStreamTrackVideoFrameRotation(DOMPromiseDeferred<IDLShort>&&);
     void delayMediaStreamTrackSamples(MediaStreamTrack&, float);
     void setMediaStreamTrackMuted(MediaStreamTrack&, bool);
     void removeMediaStreamTrack(MediaStream&, MediaStreamTrack&);
@@ -921,6 +945,7 @@ public:
     void cacheStorageEngineRepresentation(DOMPromiseDeferred<IDLDOMString>&&);
     void setResponseSizeWithPadding(FetchResponse&, uint64_t size);
     uint64_t responseSizeWithPadding(FetchResponse&) const;
+    const String& responseNetworkLoadMetricsProtocol(const FetchResponse&);
 
     void updateQuotaBasedOnSpaceUsage();
 
@@ -954,6 +979,7 @@ public:
         RefPtr<DOMPointReadOnly> bottomRight;
         RefPtr<DOMPointReadOnly> bottomLeft;
         Vector<ImageOverlayText> children;
+        bool hasTrailingNewline { true };
 
         ~ImageOverlayLine();
     };
@@ -968,7 +994,17 @@ public:
         ~ImageOverlayBlock();
     };
 
-    void installImageOverlay(Element&, Vector<ImageOverlayLine>&&, Vector<ImageOverlayBlock>&& = { });
+    struct ImageOverlayDataDetector {
+        RefPtr<DOMPointReadOnly> topLeft;
+        RefPtr<DOMPointReadOnly> topRight;
+        RefPtr<DOMPointReadOnly> bottomRight;
+        RefPtr<DOMPointReadOnly> bottomLeft;
+
+        ~ImageOverlayDataDetector();
+    };
+
+    void installImageOverlay(Element&, Vector<ImageOverlayLine>&&, Vector<ImageOverlayBlock>&& = { }, Vector<ImageOverlayDataDetector>&& = { });
+    bool hasActiveDataDetectorHighlight() const;
 
 #if ENABLE(IMAGE_ANALYSIS)
     void requestTextRecognition(Element&, RefPtr<VoidCallback>&&);
@@ -1040,7 +1076,15 @@ public:
     using PlaybackControlsPurpose = MediaElementSession::PlaybackControlsPurpose;
     RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlaybackControlsPurpose);
 
-    using MediaSessionState = PlatformMediaSession::State;
+    // Same values as PlatformMediaSession::State, but re-declared to avoid redefinitions when linking
+    // directly with libWebCore (e.g. with non-unified builds)
+    enum MediaSessionState {
+        Idle,
+        Autoplaying,
+        Playing,
+        Paused,
+        Interrupted,
+    };
     MediaSessionState mediaSessionState(HTMLMediaElement&);
 
     size_t mediaElementCount() const;
@@ -1170,7 +1214,7 @@ public:
     bool hasSandboxMachLookupAccessToXPCServiceName(const String& process, const String& service);
     bool hasSandboxIOKitOpenAccessToClass(const String& process, const String& ioKitClass);
 
-    String highlightPseudoElementColor(const String& highlightName, Element&);
+    String highlightPseudoElementColor(const AtomString& highlightName, Element&);
 
     String windowLocationHost(DOMWindow&);
 
@@ -1269,7 +1313,15 @@ public:
     RefPtr<PushSubscription> createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth);
 #endif
 
-    void overrideModalContainerSearchTermForTesting(const String& term);
+    void overrideModalContainerSearchTermForTesting(AtomString&& term);
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+    using ModelInlinePreviewUUIDsPromise = DOMPromiseDeferred<IDLSequence<IDLDOMString>>;
+    void modelInlinePreviewUUIDs(ModelInlinePreviewUUIDsPromise&&) const;
+    String modelInlinePreviewUUIDForModelElement(const HTMLModelElement&) const;
+#endif
+
+    void avoidIOSurfaceSizeCheckInWebProcess(HTMLCanvasElement&);
 
 private:
     explicit Internals(Document&);
@@ -1281,9 +1333,19 @@ private:
     ExceptionOr<RenderedDocumentMarker*> markerAt(Node&, const String& markerType, unsigned index);
     ExceptionOr<ScrollableArea*> scrollableAreaForNode(Node*) const;
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    static RetainPtr<VKCImageAnalysis> fakeImageAnalysisResultForTesting(const Vector<ImageOverlayLine>&);
+#endif
+
+#if ENABLE(DATA_DETECTION)
+    static DDScannerResult *fakeDataDetectorResultForTesting();
+#endif
+
+    static RefPtr<SharedBuffer> pngDataForTesting();
+
 #if ENABLE(MEDIA_STREAM)
     // RealtimeMediaSource::Observer API
-    void videoSampleAvailable(MediaSample&, VideoSampleMetadata) final;
+    void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) final;
     // RealtimeMediaSource::AudioSampleObserver API
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) final { m_trackAudioSampleCount++; }
 
@@ -1292,6 +1354,7 @@ private:
     unsigned long m_trackAudioSampleCount { 0 };
     RefPtr<RealtimeMediaSource> m_trackSource;
     std::unique_ptr<TrackFramePromise> m_nextTrackFramePromise;
+    int m_trackVideoRotation { 0 };
 #endif
 #if ENABLE(MEDIA_SESSION)
     std::unique_ptr<ArtworkImageLoader> m_artworkLoader;

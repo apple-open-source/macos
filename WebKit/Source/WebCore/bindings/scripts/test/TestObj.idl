@@ -31,6 +31,7 @@
 // changes in its output.
 
 enum TestEnumType { "", "enumValue1", "EnumValue2", "EnumValue3" };
+enum TestEnumTrailingComma { "enumValue1", "enumValue2", };
 
 // Leading underscore on an enum should be removed.
 enum _optional { "", "OptionalValue1", "OptionalValue2", "OptionalValue3" };
@@ -49,7 +50,7 @@ enum TestConfidence { "high", "kinda-low" };
     InterfaceName=TestObject,
     Exposed=(Window,Worker)
 ] interface TestObj {
-    [CallWith=Document] constructor(TestCallbackInterface testCallback, TestCallbackFunction testCallbackFunction);
+    [CallWith=CurrentDocument] constructor(TestCallbackInterface testCallback, TestCallbackFunction testCallbackFunction);
 
     // Attributes
     readonly attribute long            readOnlyLongAttr;
@@ -58,7 +59,7 @@ enum TestConfidence { "high", "kinda-low" };
     static readonly attribute long     staticReadOnlyLongAttr;
     static attribute DOMString         staticStringAttr;
     static readonly attribute TestSubObjConstructor TestSubObj;
-    [CallWith=Document] static readonly attribute TestObj testStaticReadonlyObj;
+    [CallWith=CurrentDocument] static readonly attribute TestObj testStaticReadonlyObj;
     attribute TestEnumType enumAttr;
     attribute byte byteAttr;
     attribute octet octetAttr;
@@ -103,6 +104,8 @@ enum TestConfidence { "high", "kinda-low" };
     [Reflect] attribute long reflectedIntegralAttr;
     [Reflect] attribute unsigned long reflectedUnsignedIntegralAttr;
     [Reflect] attribute boolean reflectedBooleanAttr;
+    [Reflect] attribute Element reflectedElementAttr;
+    [Reflect] attribute FrozenArray<Element> reflectedElementsArrayAttr;
     [Reflect, URL] attribute DOMString reflectedURLAttr;
     [Reflect, URL] attribute USVString reflectedUSVURLAttr;
     [Reflect=customContentStringAttr] attribute DOMString reflectedStringAttr;
@@ -110,21 +113,21 @@ enum TestConfidence { "high", "kinda-low" };
     [Reflect=customContentBooleanAttr] attribute boolean reflectedCustomBooleanAttr;
     [Reflect=customContentURLAttr, URL] attribute DOMString reflectedCustomURLAttr;
 
-    // [EnabledAtRuntime] attributes and operations.
-    [Conditional=TEST_FEATURE, EnabledAtRuntime=TestFeatureEnabled&TestFeature1Enabled] attribute DOMString enabledAtRuntimeAttribute;
-    [Conditional=TEST_FEATURE, EnabledAtRuntime=TestFeatureEnabled] undefined enabledAtRuntimeOperation(DOMString testParam);
-    [Conditional=TEST_FEATURE, EnabledAtRuntime=TestFeatureEnabled] undefined enabledAtRuntimeOperation(long testParam);
-    [Conditional=TEST_FEATURE, EnabledAtRuntime=TestFeatureEnabled] static undefined enabledAtRuntimeOperationStatic(long testParam);
-    [Conditional=TEST_FEATURE, EnabledAtRuntime=TestFeatureEnabled] static attribute DOMString enabledAtRuntimeAttributeStatic;
+    // [EnabledByDeprecatedGlobalSetting] attributes and operations.
+    [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled&TestFeature1Enabled] attribute DOMString enabledAtRuntimeAttribute;
+    [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] undefined enabledAtRuntimeOperation(DOMString testParam);
+    [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] undefined enabledAtRuntimeOperation(long testParam);
+    [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] static undefined enabledAtRuntimeOperationStatic(long testParam);
+    [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] static attribute DOMString enabledAtRuntimeAttributeStatic;
 
-    [EnabledForWorld=someWorld, EnabledAtRuntime=TestFeatureEnabled] undefined enabledInSpecificWorldWhenRuntimeFeatureEnabled(long testParam);
+    [EnabledForWorld=someWorld, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] undefined enabledInSpecificWorldWhenRuntimeFeatureEnabled(long testParam);
     [EnabledForWorld=someWorld] undefined worldSpecificMethod(long testParam);
 
     // [SecureContext] attributes and operations; will not be exposed to a non-secure context.
     // From <https://w3c.github.io/webappsec-secure-contexts/#integration-idl> (Editor's Draft, 17 November 2016)
     [SecureContext] Promise<double> calculateSecretResult();
     [SecureContext] boolean getSecretBoolean();
-    [Conditional=TEST_FEATURE, SecureContext, EnabledAtRuntime=TestFeatureEnabled] boolean testFeatureGetSecretBoolean();
+    [Conditional=TEST_FEATURE, SecureContext, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] boolean testFeatureGetSecretBoolean();
 
     // TypedArray attribute
     attribute Float32Array typedArrayAttr;
@@ -189,20 +192,20 @@ enum TestConfidence { "high", "kinda-low" };
     [ImplementedAs=onfoo] attribute EventHandler onwebkitfoo;
 
     // 'CallWith' extended attribute
-    [CallWith=GlobalObject] undefined withGlobalObjectVoid();
+    [CallWith=CurrentGlobalObject] undefined withCurrentGlobalObjectVoid();
     [CallWith=RelevantGlobalObject] undefined withRelevantGlobalObjectVoid();
-    [CallWith=GlobalObject] TestObj withGlobalObjectObj();
-    [CallWith=ScriptExecutionContext] undefined withScriptExecutionContext();
+    [CallWith=CurrentGlobalObject] TestObj withCurrentGlobalObjectObj();
+    [CallWith=CurrentScriptExecutionContext] undefined withCurrentScriptExecutionContext();
     [CallWith=RelevantScriptExecutionContext] undefined withRelevantScriptExecutionContext();
-    [CallWith=ScriptExecutionContext&GlobalObject] undefined withScriptExecutionContextAndGlobalObject();
-    [CallWith=  ScriptExecutionContext  &  GlobalObject  ] TestObj withScriptExecutionContextAndGlobalObjectWithSpaces();
-    [CallWith=Document] undefined withDocumentArgument();
+    [CallWith=CurrentScriptExecutionContext&CurrentGlobalObject] undefined withCurrentScriptExecutionContextAndGlobalObject();
+    [CallWith=  CurrentScriptExecutionContext  &  CurrentGlobalObject  ] TestObj withCurrentScriptExecutionContextAndGlobalObjectWithSpaces();
+    [CallWith=CurrentDocument] undefined withCurrentDocumentArgument();
     [CallWith=RelevantDocument] undefined withRelevantDocumentArgument();
     [CallWith=IncumbentDocument] undefined withCallerDocumentArgument();
     [CallWith=IncumbentWindow] undefined withCallerWindowArgument();
 
-    [CallWith=GlobalObject] attribute long withGlobalObjectAttribute;
-    [CallWith=GlobalObject, SetterCallWith=ActiveWindow&FirstWindow] attribute long withCallWithAndSetterCallWithAttribute;
+    [CallWith=CurrentGlobalObject] attribute long withCurrentGlobalObjectAttribute;
+    [CallWith=CurrentGlobalObject, SetterCallWith=ActiveWindow&FirstWindow] attribute long withCallWithAndSetterCallWithAttribute;
     [SetterCallWith=IncumbentWindow&FirstWindow] attribute DOMString withSetterCallWithAttribute;
 
     // Optional parameters.
@@ -381,6 +384,7 @@ enum TestConfidence { "high", "kinda-low" };
     undefined variadicDoubleMethod(unrestricted double head, unrestricted double... tail);
     undefined variadicNodeMethod(Node head, Node... tail);
     undefined variadicUnionMethod(DOMString head, (Node or DOMString)... tail);
+    undefined variadicUnionElementOrTextMethod((Element or Text)... nodes);
 
     // Nullable attributes.
     readonly attribute unrestricted double? nullableDoubleAttribute;

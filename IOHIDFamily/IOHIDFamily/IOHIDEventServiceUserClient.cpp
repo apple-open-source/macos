@@ -28,6 +28,7 @@
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include <sys/proc.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include "IOHIDFamilyTrace.h"
 #include <pexpert/pexpert.h>
@@ -35,44 +36,50 @@
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
 #define kQueueSizeMax   16384
+#define kEventSizeMax   131072 // 128KB
 
 #define kIOHIDSystemUserAccessServiceEntitlement "com.apple.hid.system.user-access-service"
 
 //===========================================================================
 // IOHIDEventServiceUserClient class
 
-#define super IOUserClient
+#define super IOUserClient2022
 
-OSDefineMetaClassAndStructors( IOHIDEventServiceUserClient, IOUserClient )
+OSDefineMetaClassAndStructors(IOHIDEventServiceUserClient, IOUserClient2022)
 
 //==============================================================================
 // IOHIDEventServiceUserClient::sMethods
 //==============================================================================
-const IOExternalMethodDispatch IOHIDEventServiceUserClient::sMethods[kIOHIDEventServiceUserClientNumCommands] = {
+const IOExternalMethodDispatch2022 IOHIDEventServiceUserClient::sMethods[kIOHIDEventServiceUserClientNumCommands] = {
     { //    kIOHIDEventServiceUserClientOpen
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_open,
 	1, 0,
-    0, 0
+    0, 0,
+    false
     },
     { //    kIOHIDEventServiceUserClientClose
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_close,
 	1, 0,
-    0, 0
+    0, 0,
+    false
     },
     { //    kIOHIDEventServiceUserClientCopyEvent
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_copyEvent,
     2, kIOUCVariableStructureSize,
-    0, kIOUCVariableStructureSize
+    0, kIOUCVariableStructureSize,
+    false
     },
     { //    kIOHIDEventServiceUserClientSetElementValue
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_setElementValue,
 	3, 0,
-    0, 0
+    0, 0,
+    false
     },
     { //    kIOHIDEventServiceUserClientCopyMatchingEvent
     (IOExternalMethodAction) &IOHIDEventServiceUserClient::_copyMatchingEvent,
     0, kIOUCVariableStructureSize,
-    0, kIOUCVariableStructureSize
+    0, kIOUCVariableStructureSize,
+    false
     },
 };
 
@@ -188,44 +195,29 @@ IOReturn IOHIDEventServiceUserClient::clientMemoryForTypeGated(
 //==============================================================================
 // IOHIDEventServiceUserClient::externalMethod
 //==============================================================================
-IOReturn IOHIDEventServiceUserClient::externalMethod(
-                                                       uint32_t                    selector,
-                                                       IOExternalMethodArguments * arguments,
-                                                       IOExternalMethodDispatch *  dispatch,
-                                                       OSObject *                  target,
-                                                       void *                      reference)
+IOReturn IOHIDEventServiceUserClient::externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * args)
 {
-  ExternalMethodGatedArguments gatedArguments = {selector, arguments, dispatch, target, reference};
-  IOReturn result;
-  
-  require_action(!isInactive(), exit, result=kIOReturnOffline);
-  
-  result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::externalMethodGated), &gatedArguments);
-  
-exit:
+    ExternalMethodGatedArguments gatedArguments = {selector, args};
+    IOReturn result;
 
-  return result;
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::externalMethodGated), &gatedArguments);
+
+    return result;
 }
 
 //==============================================================================
 // IOHIDEventServiceUserClient::externalMethodGated
 //==============================================================================
-IOReturn IOHIDEventServiceUserClient::externalMethodGated(ExternalMethodGatedArguments *arguments)
+IOReturn IOHIDEventServiceUserClient::externalMethodGated(ExternalMethodGatedArguments * arguments)
 {
-  IOReturn result;
+    IOReturn result = kIOReturnOffline;
   
-  require_action(!isInactive(), exit, result=kIOReturnOffline);
-  
-  require_action(arguments->selector < (uint32_t) kIOHIDEventServiceUserClientNumCommands, exit, result=kIOReturnBadArgument);
-  
-  arguments->dispatch = (IOExternalMethodDispatch *) &sMethods[arguments->selector];
-  if (!arguments->target)
-    arguments->target = this;
-  
-  result = super::externalMethod(arguments->selector, arguments->arguments, arguments->dispatch, arguments->target, arguments->reference);
+    require(!isInactive(), exit);
+
+    result = dispatchExternalMethod(arguments->selector, arguments->arguments, sMethods, sizeof(sMethods) / sizeof(sMethods[0]), this, NULL);
   
 exit:
-  return result;
+    return result;
 }
 
 
@@ -327,6 +319,11 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
         setProperty("DebugState", debugStateSerializer);
         debugStateSerializer->release();
     }
+
+    setProperty(kIOUserClientDefaultLockingKey,                           kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSetPropertiesKey,              kOSBooleanTrue);
+    setProperty(kIOUserClientDefaultLockingSingleThreadExternalMethodKey, kOSBooleanFalse);
+    setProperty(kIOUserClientEntitlementsKey,                             kOSBooleanFalse);
  
     result = true;
 
@@ -429,6 +426,8 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
     IOReturn        ret         = kIOReturnError;
     IOByteCount     length      = 0;
     
+    require_action(arguments->structureInputSize < kEventSizeMax, exit, ret = kIOReturnNoMemory);
+
     if ( arguments->structureInput && arguments->structureInputSize) {
         inEvent = IOHIDEvent::withBytes(arguments->structureInput, arguments->structureInputSize);
     }
@@ -453,7 +452,7 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
 
     } while ( 0 );
 
-    
+exit:
     if ( inEvent )
         inEvent->release();
     
@@ -636,7 +635,7 @@ void IOHIDEventServiceUserClient::enqueueEventGated( IOHIDEvent * event)
         if (result == false) {
             _lastDroppedEventTime = _lastEventTime;
             ++_droppedEventCount;
-            IOHID_DEBUG(kIOHIDDebugCode_HIDEventServiceEnqueueFail, event->getTimeStamp(), 0, 0, 0);
+            IOHID_DEBUG(kIOHIDDebugCode_HIDEventServiceEnqueueFail, event->getTimeStampOfType(kIOHIDEventTimestampTypeDefault), event->getOptions() & kIOHIDEventOptionContinuousTime, 0, 0);
         }
     }
 }

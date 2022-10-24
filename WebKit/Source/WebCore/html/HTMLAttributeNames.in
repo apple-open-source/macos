@@ -5,7 +5,7 @@ attrsNullNamespace
 
 abbr
 accept
-accept_charset
+accept-charset
 accesskey
 action
 align
@@ -27,6 +27,7 @@ aria-colspan
 aria-controls
 aria-current
 aria-describedby
+aria-description
 aria-details
 aria-disabled
 aria-dropeffect
@@ -152,7 +153,7 @@ high
 href
 hreflang
 hspace
-http_equiv
+http-equiv
 id
 imagesizes
 imagesrcset
@@ -161,6 +162,7 @@ indeterminate
 inert
 inputmode
 integrity
+interactive
 is
 ismap
 itemid
@@ -248,6 +250,8 @@ onfocus
 onfocusin
 onfocusout
 onformdata
+ongamepadconnected
+ongamepaddisconnected
 ongesturechange
 ongestureend
 ongesturestart

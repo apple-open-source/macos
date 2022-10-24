@@ -50,7 +50,7 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
         
         _persistentReferenceUpgrader = [[CKKSNearFutureScheduler alloc] initWithName:@"persistent-ref-upgrader"
                                                                         initialDelay:SecCKKSTestsEnabled() ? 100*NSEC_PER_MSEC : 5*NSEC_PER_SEC
-                                                                    expontialBackoff:2
+                                                                  exponentialBackoff:2
                                                                         maximumDelay:SecCKKSTestsEnabled() ? 5*NSEC_PER_SEC : 300*NSEC_PER_SEC
                                                                     keepProcessAlive:false
                                                            dependencyDescriptionCode:CKKSResultDescriptionNone

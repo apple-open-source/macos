@@ -53,8 +53,6 @@ MODULE_ID("$Id: alloc_entry.c,v 1.48 2008/08/16 16:25:31 tom Exp $")
 #define ABSENT_OFFSET    -1
 #define CANCELLED_OFFSET -2
 
-#define MAX_STRTAB	4096	/* documented maximum entry size */
-
 static char *stringbuf;		/* buffer for string capabilities */
 static size_t next_free;	/* next free character in stringbuf */
 
@@ -72,7 +70,7 @@ _nc_init_entry(TERMTYPE *const tp)
 #endif
 
     if (stringbuf == 0)
-	stringbuf = (char *) malloc(MAX_STRTAB);
+	stringbuf = (char *) malloc(MAX_ENTRY_SIZE);
 
 #if NCURSES_XNAMES
     tp->num_Booleans = BOOLCOUNT;
@@ -126,10 +124,10 @@ _nc_save_str(const char *const string)
 	 * Cheat a little by making an empty string point to the end of the
 	 * previous string.
 	 */
-	if (next_free < MAX_STRTAB) {
+	if (next_free < MAX_ENTRY_SIZE) {
 	    result = (stringbuf + next_free - 1);
 	}
-    } else if (next_free + len < MAX_STRTAB) {
+    } else if (next_free + len < MAX_ENTRY_SIZE) {
 	strcpy(&stringbuf[next_free], string);
 	DEBUG(7, ("Saved string %s", _nc_visbuf(string)));
 	DEBUG(7, ("at location %d", (int) next_free));

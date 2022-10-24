@@ -48,8 +48,9 @@ static unsigned _malloc_default_debug_sleep_time()
 }
 
 #define WRITE_TO_DEBUG_FILE(flags) \
+		(((flags) & MALLOC_REPORT_NOWRITE) == 0 && \
 		((debug_mode == DEBUG_WRITE_ALWAYS) || \
-		(debug_mode == DEBUG_WRITE_ON_CRASH && (flags & MALLOC_REPORT_CRASH)))
+		(debug_mode == DEBUG_WRITE_ON_CRASH && ((flags) & MALLOC_REPORT_CRASH))))
 #define	MALLOC_REPORT_LEVEL_MASK	0x0f
 
 #pragma mark -
@@ -123,6 +124,37 @@ _malloc_put(uint32_t flags, const char *msg)
 #pragma mark -
 #pragma mark High-Level Reporting Functions
 
+#define MALLOC_BT_DEPTH 50
+
+static void
+_malloc_append_backtrace(_SIMPLE_STRING b)
+{
+	void *btarray[MALLOC_BT_DEPTH];
+
+	int count = backtrace(btarray, MALLOC_BT_DEPTH);
+	if (!count) {
+		return;
+	}
+
+	struct image_offset bt_image_offsets[MALLOC_BT_DEPTH];
+	backtrace_image_offsets(btarray, bt_image_offsets, count);
+
+	uuid_t last_uuid;
+	for (int i = 0; i < count; i++) {
+		// simple de-duping for runs of UUIDs common in backtraces
+		if (i == 0 || uuid_compare(last_uuid, bt_image_offsets[i].uuid) != 0) {
+			uuid_copy(last_uuid, bt_image_offsets[i].uuid);
+
+			uuid_string_t uus;
+			uuid_unparse(bt_image_offsets[i].uuid, uus);
+			_simple_sappend(b, uus);
+		} else {
+			_simple_sappend(b, "last");
+		}
+		_simple_sprintf(b, "+%u,", bt_image_offsets[i].offset);
+	}
+}
+
 MALLOC_NOINLINE void
 malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
 		const void *prefix_arg, const char *fmt, va_list ap)
@@ -152,6 +184,11 @@ malloc_vreport(uint32_t flags, unsigned sleep_time, const char *prefix_msg,
 			_simple_sprintf(b, prefix_msg, prefix_arg);
 		}
 		_simple_vsprintf(b, fmt, ap);
+
+		if (flags & MALLOC_REPORT_BACKTRACE) {
+			_malloc_append_backtrace(b);
+		}
+
 		if (WRITE_TO_DEBUG_FILE(flags)) {
 			_simple_put(b, malloc_debug_file);
 		}
@@ -206,6 +243,8 @@ malloc_report_simple(const char *fmt, ...)
 #pragma mark -
 #pragma mark Zone Error Reporing
 
+#ifndef MALLOC_BUILDING_XCTESTS
+
 void
 malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
 {
@@ -220,6 +259,8 @@ malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
 			NULL, NULL, fmt, ap);
 	va_end(ap);
 }
+
+#endif // MALLOC_BUILDING_XCTESTS
 
 #pragma mark -
 #pragma mark Malloc Output API.

@@ -45,19 +45,37 @@ NS_ASSUME_NONNULL_BEGIN
 @property uint64_t wasCurrent;
 
 - (instancetype)initWithCKKSItem:(CKKSItem*)item;
-- (instancetype)initWithCKRecord:(CKRecord*)record;
+- (instancetype)initWithCKRecord:(CKRecord*)record
+                       contextID:(NSString*)contextID;
 - (void)setFromCKRecord:(CKRecord*)record;
 - (bool)matchesCKRecord:(CKRecord*)record;
 
-+ (instancetype)fromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError * __autoreleasing *)error;
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError * __autoreleasing *)error;
 
-+ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid error:(NSError**)error;
++ (NSArray<CKKSMirrorEntry*>*)allWithUUID:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                    error:(NSError**)error;
 
-+ (NSDictionary<NSString*, NSNumber*>*)countsByParentKey:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
-+ (NSNumber* _Nullable)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;
++ (NSDictionary<NSString*,NSNumber*>*)countsByParentKeyWithContextID:(NSString*)contextID
+                                                              zoneID:(CKRecordZoneID*)zoneID
+                                                               error:(NSError * __autoreleasing *)error;
++ (NSNumber* _Nullable)countsWithContextID:(NSString*)contextID
+                                    zoneID:(CKRecordZoneID*)zoneID
+                                     error:(NSError * __autoreleasing *)error;
 
-+ (NSArray<NSData*>*)pcsMirrorKeysForService:(NSNumber*)service matchingKeys:(NSArray<NSData*>*)matchingKeys error:(NSError * __autoreleasing *)error;
++ (NSDictionary<NSString*,NSNumber*>*)countsByZoneNameWithContextID:(NSString*)contextID
+                                                              error:(NSError * __autoreleasing *)error;
+
++ (NSArray<NSData*>*)pcsMirrorKeysForService:(NSNumber*)service
+                                matchingKeys:(NSArray<NSData*>*)matchingKeys
+                                       error:(NSError * __autoreleasing *)error;
 
 @end
 

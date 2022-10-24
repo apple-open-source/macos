@@ -27,6 +27,7 @@
 #include "ClassChangeInvalidation.h"
 
 #include "ElementChildIterator.h"
+#include "ElementRareData.h"
 #include "SpaceSplitString.h"
 #include "StyleInvalidationFunctions.h"
 #include <wtf/BitVector.h>
@@ -46,7 +47,7 @@ using ClassChangeVector = Vector<ClassChange, 4>;
 static ClassChangeVector collectClasses(const SpaceSplitString& classes, ClassChangeType changeType)
 {
     ClassChangeVector result;
-    result.reserveCapacity(classes.size());
+    result.reserveInitialCapacity(classes.size());
     for (unsigned i = 0; i < classes.size(); ++i)
         result.uncheckedAppend({ classes[i].impl(), changeType });
     return result;

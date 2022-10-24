@@ -462,6 +462,12 @@ set(char *t, NODE *ip)
 					RECORD_FAILURE(58, EINVAL);
 					errx(1, "line %d: invalid sibling id %s", lineno, val);
 				}
+			case F_NXATTR:
+				ip->nxattr = (quad_t)strtoull(val, &ep, 10);
+				if (*ep) {
+					RECORD_FAILURE(604804, EINVAL);
+					errx(1, "line %d: invalid xattr count %s", lineno, val);
+				}
 		}
 	}
 }

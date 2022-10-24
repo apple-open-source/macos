@@ -62,6 +62,7 @@ class BorderEdge;
 class ImageBuffer;
 class RenderTextFragment;
 class StickyPositionViewportConstraints;
+class TransformationMatrix;
 
 namespace InlineIterator {
 class InlineBoxIterator;
@@ -176,6 +177,11 @@ public:
     LayoutUnit borderAndPaddingBefore() const { return borderBefore() + paddingBefore(); }
     LayoutUnit borderAndPaddingAfter() const { return borderAfter() + paddingAfter(); }
 
+    LayoutUnit marginAndBorderAndPaddingStart() const { return marginStart() + borderStart() + paddingStart(); }
+    LayoutUnit marginAndBorderAndPaddingEnd() const { return marginEnd() + borderEnd() + paddingEnd(); }
+    LayoutUnit marginAndBorderAndPaddingBefore() const { return marginBefore() + borderBefore() + paddingBefore(); }
+    LayoutUnit marginAndBorderAndPaddingAfter() const { return marginAfter() + borderAfter() + paddingAfter(); }
+
     LayoutUnit verticalBorderAndPaddingExtent() const { return borderTop() + borderBottom() + paddingTop() + paddingBottom(); }
     LayoutUnit horizontalBorderAndPaddingExtent() const { return borderLeft() + borderRight() + paddingLeft() + paddingRight(); }
     LayoutUnit borderAndPaddingLogicalHeight() const { return borderAndPaddingBefore() + borderAndPaddingAfter(); }
@@ -225,7 +231,7 @@ public:
 
     void setSelectionState(HighlightState) override;
 
-    bool canHaveBoxInfoInFragment() const { return !isFloating() && !isReplaced() && !isInline() && !isTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
+    bool canHaveBoxInfoInFragment() const { return !isFloating() && !isReplacedOrInlineBlock() && !isInline() && !isTableCell() && isRenderBlock() && !isRenderSVGBlock(); }
 
     void getGeometryForBackgroundImage(const RenderLayerModelObject* paintContainer, const LayoutPoint& paintOffset, FloatRect& destRect, FloatSize& phase, FloatSize& tileSize) const;
     void contentChanged(ContentChangeType);
@@ -247,6 +253,8 @@ public:
     virtual std::optional<LayoutUnit> overridingContainingBlockContentHeight() const { ASSERT_NOT_REACHED(); return -1_lu; }
     virtual bool hasOverridingContainingBlockContentWidth() const { return false; }
     virtual bool hasOverridingContainingBlockContentHeight() const { return false; }
+
+    void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const override;
 
 protected:
     RenderBoxModelObject(Element&, RenderStyle&&, BaseTypeFlags);

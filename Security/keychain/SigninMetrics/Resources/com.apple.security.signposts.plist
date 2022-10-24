@@ -22,6 +22,8 @@
 			<key>Persist</key>
 			<string>Default</string>
 		</dict>
+		<key>Signpost-Persisted</key>
+		<true/>
 	</dict>
 </dict>
 </plist>

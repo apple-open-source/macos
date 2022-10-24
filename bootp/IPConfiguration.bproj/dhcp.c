@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1373,8 +1373,6 @@ dhcp_failed(ServiceRef service_p, ipconfig_status_t status)
     dhcp_set_state(service_p, dhcp_cstate_inactive_e);
     dhcp->allow_wake_with_short_lease = FALSE;
     ServiceSetBusy(service_p, FALSE);
-    ServiceSetDHCPWaiting(service_p,
-			  status == ipconfig_status_dhcp_waiting_e);
     return;
 }
 
@@ -1395,7 +1393,6 @@ dhcp_inactive(ServiceRef service_p)
     dhcp_set_state(service_p, dhcp_cstate_inactive_e);
     dhcp->allow_wake_with_short_lease = FALSE;
     ServiceSetBusy(service_p, FALSE);
-    ServiceSetDHCPWaiting(service_p, FALSE);
     dhcp->trying_since_secs = 0;
     return;
 }
@@ -1689,6 +1686,14 @@ recover_lease(ServiceRef service_p)
     return;
 }
 
+static void
+dhcp_invalidate_lease(Service_dhcp_t * dhcp)
+{
+    dhcp->lease.valid = FALSE;
+    dhcp_lease_set_ssid(dhcp, NULL);
+    dhcp_lease_set_networkID(dhcp, NULL);
+}
+
 static boolean_t
 dhcp_check_lease(ServiceRef service_p, absolute_time_t current_time)
 {
@@ -1697,7 +1702,7 @@ dhcp_check_lease(ServiceRef service_p, absolute_time_t current_time)
     if (dhcp->lease.valid) {
 	if (dhcp->lease.length != DHCP_INFINITE_LEASE
 	    && (current_time >= dhcp->lease.expiration)) {
-	    dhcp->lease.valid = FALSE;
+	    dhcp_invalidate_lease(dhcp);
 	    service_router_clear(service_p);
 	    (void)service_remove_address(service_p);
 	    service_publish_failure(service_p,
@@ -1762,7 +1767,7 @@ dhcp_check_link(ServiceRef service_p, IFEventID_t event_id)
 	    else {
 		/* go back to INIT state */
 		my_log(LOG_NOTICE, "%s: No lease for %@", if_name(if_p), ssid);
-		dhcp->lease.valid = FALSE;
+		dhcp_invalidate_lease(dhcp);
 	    }
 	    /* we switched networks, start over */
 	    dhcp->try = 0;
@@ -2050,7 +2055,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcpol_init(&dhcp->saved.options);
 	  ServiceSetPrivate(service_p, dhcp);
 
-	  dhcp->lease.valid = FALSE;
+	  dhcp_invalidate_lease(dhcp);
 	  service_router_clear(service_p);
 	  dhcp->state = dhcp_cstate_inactive_e;
 	  snprintf(timer_name, sizeof(timer_name), "dhcp-%s",
@@ -2382,7 +2387,6 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp_lease_set_ssid(dhcp, NULL);
 	      dhcp_lease_set_networkID(dhcp, NULL);
 	      ServiceSetBusy(service_p, FALSE);
-	      ServiceSetDHCPWaiting(service_p, FALSE);
 
 	      /* try again in 0.5 seconds */
 	      tv.tv_sec = 0;
@@ -2551,10 +2555,6 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  dhcp_inactive(service_p);
 		  break;
 	      }
-	      if (dhcp->try > 2) {
-		  /* don't hang onto DHCPWaiting for too long */
-		  ServiceSetDHCPWaiting(service_p, FALSE);
-	      }
 	  }
 	  if (dhcp->try >= (G_dhcp_router_arp_at_retry_count + 1)
 	      && service_router_all_valid(service_p) == FALSE) {
@@ -2636,7 +2636,6 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp_wait(service_p, IFEventID_start_e, &ipv6_wait);
 	      break;
 	  }
-	  ServiceSetDHCPWaiting(service_p, FALSE);
 	  if (ip_valid(pkt->data->dp_yiaddr)) {
 	      int dhcp_packet_ideal_rating = n_dhcp_params 
 		  + DHCP_ADDRESS_RATING_GOOD;
@@ -2822,10 +2821,6 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		  dhcp_inactive(service_p);
 		  break;
 	      }
-	      if (dhcp->try > 2) {
-		  /* don't hang onto DHCPWaiting for too long */
-		  ServiceSetDHCPWaiting(service_p, FALSE);
-	      }
 	  }
 	  /* try to confirm the router's address */
 	  dhcp_arp_router(service_p, IFEventID_start_e, &current_time);
@@ -2922,7 +2917,6 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      dhcp_wait(service_p, IFEventID_start_e, &ipv6_wait);
 	      break;
 	  }
-	  ServiceSetDHCPWaiting(service_p, FALSE);
 	  if (pkt->data->dp_yiaddr.s_addr == dhcp->saved.our_ip.s_addr) {
 	      int rating = 0;
 	      
@@ -3645,7 +3639,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      dhcp->conflicting_address = dhcp->saved.our_ip;
 	      my_log(LOG_NOTICE, "DHCP %s: %s", if_name(if_p), msg);
 	      _dhcp_lease_clear(service_p, FALSE);
-	      dhcp->lease.valid = FALSE;
+	      dhcp_invalidate_lease(dhcp);
 	      service_router_clear(service_p);
 	      service_publish_failure(service_p, 
 				      ipconfig_status_address_in_use_e);
@@ -3844,7 +3838,7 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  (void)service_remove_address(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
-	  dhcp->lease.valid = FALSE;
+	  dhcp_invalidate_lease(dhcp);
 	  service_router_clear(service_p);
 	  service_disable_autoaddr(service_p);
 	  ServiceSetBusy(service_p, FALSE);
@@ -3900,7 +3894,7 @@ dhcp_unbound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  _dhcp_lease_clear(service_p, nak);
 	  (void)service_remove_address(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
-	  dhcp->lease.valid = FALSE;
+	  dhcp_invalidate_lease(dhcp);
 	  dhcp->got_nak = FALSE;
 	  service_router_clear(service_p);
 	  ServiceSetBusy(service_p, FALSE);
@@ -4227,7 +4221,7 @@ dhcp_release(ServiceRef service_p)
 
     my_log(LOG_NOTICE, "DHCP %s: RELEASE", if_name(if_p));
     _dhcp_lease_clear(service_p, FALSE);
-    dhcp->lease.valid = FALSE;
+    dhcp_invalidate_lease(dhcp);
     service_router_clear(service_p);
 
     /* clean-up anything that might have come before */

@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-10-08</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>vis.c: fail on i/o errors (6555390)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>vis</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-06-21</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/contrib/vis?id=15fccd86b9dd17ca2cc1a70b060a2b1a1bf8470b</string>
+</dict>

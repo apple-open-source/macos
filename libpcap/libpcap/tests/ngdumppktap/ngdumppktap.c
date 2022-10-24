@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -137,6 +137,7 @@ print_pktap_v2_hdr(const struct pktap_v2_hdr *pktp_hdr)
 		pktp_hdr->pth_uuid_offset == 0 ? "" : uuidstr,
 		pktp_hdr->pth_e_uuid_offset == 0 ? "" : euuidstr);
 }
+
 static size_t
 convert_pktap_header_to_v2(const struct pktap_header *pktp_hdr, struct pktap_v2_hdr_space *pktap_v2_hdr_space)
 {
@@ -428,7 +429,6 @@ save_pktap_v2(struct dump_info *dump_info, const struct pcap_pkthdr *h, const u_
 
 	return (true);
 }
-
 
 static void
 readcallback(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes)

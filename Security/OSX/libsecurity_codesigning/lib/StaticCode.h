@@ -192,6 +192,9 @@ public:
 	const Requirement *internalRequirement(SecRequirementType type);
 	const Requirement *designatedRequirement();
 	const Requirement *defaultDesignatedRequirement();		// newly allocated (caller owns)
+
+	unsigned int validationCategory();
+	CFDictionaryRef defaultDesignatedLightWeightCodeRequirement();
 	
 	void validateRequirements(SecRequirementType type, SecStaticCode *target,
 		OSStatus nullError = errSecSuccess);										// target against my [type], throws
@@ -315,6 +318,9 @@ private:
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;
     bool mTrustedSigningCertChain;
+
+	unsigned int mValidationCategory;
+	CFRef<CFDictionaryRef> mDefaultDesignatedLWCR;
 };
 
 

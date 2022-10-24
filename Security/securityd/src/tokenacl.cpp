@@ -159,7 +159,7 @@ SecurityAgent::Reason QueryNewPin::accept(CssmManagedData &passphrase, CssmData 
 			new(alloc) ListElement(passphrase)
 			));
 		proto.authorization() = AuthorizationGroup(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), alloc);
-		char pintag[20]; sprintf(pintag, "PIN%d", pin);
+		char pintag[20]; snprintf(pintag, sizeof(pintag), "PIN%d", pin);
 		proto.tag(pintag);
 		AclEntryInput input(proto);
 		AclEdit edit(CSSM_ACL_EDIT_MODE_REPLACE, handle, &input);

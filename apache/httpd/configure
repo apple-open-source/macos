@@ -8767,10 +8767,10 @@ $as_echo "$ac_cv_gcc__Wunused" >&6; }
     elif test "$AIX_XLC" = "yes"; then
 
   if test "x$NOTEST_CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro\""
-    NOTEST_CFLAGS="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
+    test "x$silent" != "xyes" && echo "  setting NOTEST_CFLAGS to \"-qfullpath -qcheck=all -qinfo=pro\""
+    NOTEST_CFLAGS="-qfullpath -qcheck=all -qinfo=pro"
   else
-    apr_addto_bugger="-qfullpath -qinitauto=FE -qcheck=all -qinfo=pro"
+    apr_addto_bugger="-qfullpath -qcheck=all -qinfo=pro"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $NOTEST_CFLAGS; do
@@ -32275,7 +32275,7 @@ EOF
   > $modpath_current/modules.mk
 
 
-md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_event.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_event.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_tailscale.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
 
 # Ensure that other modules can pick up mod_md.h
 

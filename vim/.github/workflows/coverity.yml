@@ -6,14 +6,15 @@ on:
 
 jobs:
   scan:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     env:
       CC: gcc
       DEBIAN_FRONTEND: noninteractive
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository from github
+        uses: actions/checkout@v3
 
       - name: Download Coverity
         run: |

@@ -31,6 +31,8 @@
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
+
 #import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSCondition.h"
@@ -41,6 +43,7 @@
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTFollowup.h"
 #import "keychain/ot/OTSOSAdapter.h"
+#import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTTooManyPeersAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
@@ -77,6 +80,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) NSString                               *containerName;
 @property (readonly) NSString                               *contextID;
+
+@property (readonly, nullable) TPSpecificUser               *activeAccount;
+
 @property (nonatomic,strong) NSString                       *_Nullable pairingUUID;
 @property (nonatomic, readonly) CKKSLockStateTracker        *lockStateTracker;
 @property (nonatomic, readonly) OTCuttlefishAccountStateHolder* accountMetadataStore;
@@ -89,7 +95,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Dependencies (for injection)
 @property (readonly) id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer> accountStateTracker;
 @property (readonly) id<OTDeviceInformationAdapter> deviceAdapter;
+@property (readonly) id<OTAccountsAdapter> accountsAdapter;
 @property (readonly) id<OTAuthKitAdapter> authKitAdapter;
+@property (readonly) id<OTPersonaAdapter> personaAdapter;
 @property (readonly) id<OTSOSAdapter> sosAdapter;
 @property (readonly) id<OTTooManyPeersAdapter> tooManyPeersAdapter;
 
@@ -100,10 +108,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithContainerName:(NSString*)containerName
                             contextID:(NSString*)contextID
+                        activeAccount:(TPSpecificUser* _Nullable)activeAccount
                            cuttlefish:(id<NSXPCProxyCreating>)cuttlefish
                       ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                            sosAdapter:(id<OTSOSAdapter>)sosAdapter
+                      accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                        authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+                       personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                   tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
                      lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                   reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
@@ -153,9 +164,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 - (void)joinWithBottle:(NSString*)bottleID
-              entropy:(NSData *)entropy
-           bottleSalt:(NSString *)bottleSalt
-                reply:(void (^)(NSError * _Nullable error))reply;
+               entropy:(NSData *)entropy
+            bottleSalt:(NSString *)bottleSalt
+                 reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)joinWithRecoveryKey:(NSString*)recoveryKey
                      reply:(void (^)(NSError * _Nullable error))reply;
@@ -252,6 +263,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcResetAccountCDPContents:(void (^)(NSError* _Nullable error))reply;
 - (BOOL)checkAllStateCleared;
 - (void)clearCKKS;
+- (void)setMachineIDOverride:(NSString*)machineID;
 
 @property (nullable) TPPolicyVersion* policyOverride;
 

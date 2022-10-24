@@ -288,5 +288,10 @@
 			<string>fsck_msdos</string>
 		</dict>
 	</dict>
+	<key>FSImplementation</key>
+    <array>
+        <string>UserFS</string>
+        <string>kext</string>
+    </array>
 </dict>
 </plist>

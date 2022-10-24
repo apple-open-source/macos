@@ -24,7 +24,11 @@
 /* Flags for print_alias */
 #define AL_REUSABLE	0x01
 
+#ifdef __APPLE__
+static int print_alias __P((alias_t *, int));
+#else
 static void print_alias __P((alias_t *, int));
+#endif
 
 extern int posixly_correct;
 
@@ -66,8 +70,15 @@ alias_builtin (list)
       if (alias_list == 0)
 	return (EXECUTION_SUCCESS);
 
+#ifdef __APPLE__
+      for (offset = 0; alias_list[offset]; offset++) {
+	if (print_alias (alias_list[offset], dflags) != EXECUTION_SUCCESS)
+		return (EXECUTION_FAILURE);
+      }
+#else
       for (offset = 0; alias_list[offset]; offset++)
 	print_alias (alias_list[offset], dflags);
+#endif
 
       free (alias_list);	/* XXX - Do not free the strings. */
 
@@ -100,7 +111,14 @@ alias_builtin (list)
 	{
 	  t = find_alias (name);
 	  if (t)
+#ifdef __APPLE__
+	    {
+	     if (print_alias (t, dflags) != EXECUTION_SUCCESS)
+	       any_failed++;
+	    }
+#else
 	    print_alias (t, dflags);
+#endif
 	  else
 	    {
 	      sh_notfound (name);
@@ -174,7 +192,11 @@ unalias_builtin (list)
 }
 
 /* Output ALIAS in such a way as to allow it to be read back in. */
+#ifdef __APPLE__
+static int
+#else
 static void
+#endif
 print_alias (alias, flags)
      alias_t *alias;
      int flags;
@@ -187,6 +209,15 @@ print_alias (alias, flags)
   printf ("%s=%s\n", alias->name, value);
   free (value);
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+
+  return (EXECUTION_SUCCESS);
+#else
   fflush (stdout);
+#endif
 }
 #endif /* ALIAS */

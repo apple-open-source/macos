@@ -1,0 +1,1 @@
+http://tiTrust.ocsp.sectigo.com

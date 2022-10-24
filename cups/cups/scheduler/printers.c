@@ -856,6 +856,10 @@ cupsdDeletePrinter(
 
   cupsFreeOptions(p->num_options, p->options);
 
+  cupsdClearString(&p->oauth_uri);
+  cupsdClearString(&p->oauth_scope);
+  cupsdClearString(&p->source_app);
+
   free(p);
 
  /*
@@ -1069,6 +1073,21 @@ cupsdLoadAllPrinters(void)
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 			"Bad AuthInfoRequired on line %d of printers.conf.",
 			linenum);
+    }
+    else if (!_cups_strcasecmp(line, "AuthInfo_oauth_uri"))
+    {
+      if (value)
+        cupsdSetString(&p->oauth_uri, value);
+    }
+    else if (!_cups_strcasecmp(line, "AuthInfo_oauth_scope"))
+    {
+      if (value)
+        cupsdSetString(&p->oauth_scope, value);
+    }
+    else if (!_cups_strcasecmp(line, "AuthInfo_extension_ident"))
+    {
+      if (value)
+        cupsdSetString(&p->source_app, value);
     }
     else if (!_cups_strcasecmp(line, "Info"))
     {
@@ -1563,6 +1582,16 @@ cupsdSaveAllPrinters(void)
       cupsFilePutConf(fp, "AuthInfoRequired", value);
     }
 
+    // HEY, is this the same code as in classes.c?  Yes, of course it is.
+    if (printer->oauth_uri)
+      cupsFilePutConf(fp, "AuthInfo_oauth_uri", printer->oauth_uri);
+
+    if (printer->oauth_scope)
+      cupsFilePutConf(fp, "AuthInfo_oauth_scope", printer->oauth_scope);
+
+    if (printer->source_app)
+      cupsFilePutConf(fp, "AuthInfo_extension_ident", printer->source_app);
+
     if (printer->info)
       cupsFilePutConf(fp, "Info", printer->info);
 
@@ -1830,7 +1859,12 @@ cupsdSetAuthInfoRequired(
       else if ((end - values) == 8 && !strncmp(values, "username", 8))
       {
         p->auth_info_required[p->num_auth_info_required] = "username";
-	p->num_auth_info_required ++;
+        p->num_auth_info_required ++;
+      }
+      else if ((end - values) == 5 && !strncmp(values, "oauth", 5))
+      {
+        p->auth_info_required[p->num_auth_info_required] = "oauth";
+        p->num_auth_info_required ++;
       }
       else
         return (0);
@@ -1909,6 +1943,11 @@ cupsdSetAuthInfoRequired(
     else if (!strcmp(attr->values[i].string.text, "username"))
     {
       p->auth_info_required[p->num_auth_info_required] = "username";
+      p->num_auth_info_required ++;
+    }
+    else if (!strcmp(attr->values[i].string.text, "oauth"))
+    {
+      p->auth_info_required[p->num_auth_info_required] = "oauth";
       p->num_auth_info_required ++;
     }
     else
@@ -2361,6 +2400,16 @@ cupsdSetPrinterAttrs(cupsd_printer_t *p)/* I - Printer to setup */
     ippAddStrings(p->attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		  "auth-info-required", p->num_auth_info_required, NULL,
 		  p->auth_info_required);
+
+  if (p->oauth_scope) {
+    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NAME, "oauth-authorization-scope", NULL, p->oauth_scope);
+  }
+  if (p->oauth_uri) {
+    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_URI, "oauth-authorization-server-uri", NULL, p->oauth_uri);
+  }
+  if (p->source_app) {
+    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NAME, "x-apple-extension-identifier", NULL, p->source_app);
+  }
 
   if (cupsArrayCount(Banners) > 0)
   {

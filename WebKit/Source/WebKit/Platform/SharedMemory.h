@@ -44,8 +44,9 @@ class Encoder;
 }
 
 namespace WebCore {
-class SharedBuffer;
 class FragmentedSharedBuffer;
+class ProcessIdentity;
+class SharedBuffer;
 }
 
 #if OS(DARWIN)
@@ -79,8 +80,9 @@ public:
         size_t size() const { return m_size; }
 #endif
 
-        // Take ownership of the memory for jetsam purposes.
+        // Take/Set ownership of the memory for jetsam purposes.
         void takeOwnershipOfMemory(MemoryLedger) const;
+        void setOwnershipOfMemory(const WebCore::ProcessIdentity&, MemoryLedger) const;
 
         void clear();
 
@@ -150,9 +152,6 @@ public:
 #if PLATFORM(COCOA)
     Protection protection() const { return m_protection; }
 #endif
-
-    // Return the system page size in bytes.
-    static unsigned systemPageSize();
 
     Ref<WebCore::SharedBuffer> createSharedBuffer(size_t) const;
 

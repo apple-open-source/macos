@@ -82,16 +82,10 @@
         _scrollingTreeNodeDelegate->clearActiveTouchActions();
         
         if (touchActions && !touchActions.containsAny({ WebCore::TouchAction::Auto, WebCore::TouchAction::Manipulation })) {
-            bool canPanX = true;
-            bool canPanY = true;
-            if (!touchActions.contains(WebCore::TouchAction::PanX)) {
-                canPanX = false;
+            if (!touchActions.contains(WebCore::TouchAction::PanX))
                 targetContentOffset->x = scrollView.contentOffset.x;
-            }
-            if (!touchActions.contains(WebCore::TouchAction::PanY)) {
-                canPanY = false;
+            if (!touchActions.contains(WebCore::TouchAction::PanY))
                 targetContentOffset->y = scrollView.contentOffset.y;
-            }
         }
     }
 
@@ -136,6 +130,11 @@
         _scrollingTreeNodeDelegate->scrollViewDidScroll(scrollView.contentOffset, _inUserInteraction);
         _scrollingTreeNodeDelegate->scrollDidEnd();
     }
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView
+{
+    _scrollingTreeNodeDelegate->scrollDidEnd();
 }
 
 - (CGPoint)_scrollView:(UIScrollView *)scrollView adjustedOffsetForOffset:(CGPoint)offset translation:(CGPoint)translation startPoint:(CGPoint)start locationInView:(CGPoint)locationInView horizontalVelocity:(inout double *)hv verticalVelocity:(inout double *)vv
@@ -222,15 +221,28 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateBeforeChildren(const Scro
         m_scrollLayer = static_cast<CALayer*>(scrollingStateNode.scrollContainerLayer());
 }
 
+void ScrollingTreeScrollingNodeDelegateIOS::updateScrollViewForOverscrollBehavior(UIScrollView *scrollView, const WebCore::OverscrollBehavior horizontalOverscrollBehavior, WebCore::OverscrollBehavior verticalOverscrollBehavior, AllowOverscrollToPreventScrollPropagation allowPropogation)
+{
+    scrollView.bouncesHorizontally = horizontalOverscrollBehavior != OverscrollBehavior::None;
+    scrollView.bouncesVertically = verticalOverscrollBehavior != OverscrollBehavior::None;
+    if (allowPropogation == AllowOverscrollToPreventScrollPropagation::Yes) {
+#if HAVE(UIKIT_OVERSCROLL_BEHAVIOR_SUPPORT)
+        scrollView._allowsParentToBeginHorizontally = horizontalOverscrollBehavior == OverscrollBehavior::Auto;
+        scrollView._allowsParentToBeginVertically = verticalOverscrollBehavior == OverscrollBehavior::Auto;
+#endif
+    }
+}
+
 void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const ScrollingStateScrollingNode& scrollingStateNode)
 {
-    SetForScope<bool> updatingChange(m_updatingFromStateNode, true);
+    SetForScope updatingChange(m_updatingFromStateNode, true);
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)
         || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::TotalContentsSize)
         || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ReachableContentsSize)
         || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollPosition)
-        || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollOrigin)) {
+        || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollOrigin)
+        || scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollableAreaParams)) {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         UIScrollView *scrollView = this->scrollView();
         if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer)) {
@@ -251,7 +263,10 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const Scrol
             scrollView.contentSize = scrollingStateNode.reachableContentsSize();
             recomputeInsets = true;
         }
-
+        if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollableAreaParams)) {
+            auto params = scrollingStateNode.scrollableAreaParameters();
+            updateScrollViewForOverscrollBehavior(scrollView, params.horizontalOverscrollBehavior, params.verticalOverscrollBehavior, AllowOverscrollToPreventScrollPropagation::Yes);
+        }
         if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollOrigin))
             recomputeInsets = true;
 
@@ -321,6 +336,10 @@ void ScrollingTreeScrollingNodeDelegateIOS::handleAsynchronousCancelableScrollEv
 void ScrollingTreeScrollingNodeDelegateIOS::repositionScrollingLayers()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
+
+    if ([scrollView() _isAnimatingScroll])
+        return;
+
     [scrollView() setContentOffset:scrollingNode().currentScrollOffset()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
@@ -369,7 +388,11 @@ UIScrollView *ScrollingTreeScrollingNodeDelegateIOS::findActingScrollParent(UISc
     ASSERT(scrollView == this->scrollView());
 
     auto& scrollingCoordinatorProxy = downcast<RemoteScrollingTree>(scrollingTree()).scrollingCoordinatorProxy();
-    return WebKit::findActingScrollParent(scrollView, *scrollingCoordinatorProxy.layerTreeHost());
+    auto host = scrollingCoordinatorProxy.layerTreeHost();
+    if (!host)
+        return nullptr;
+    
+    return WebKit::findActingScrollParent(scrollView, *host);
 }
 
 void ScrollingTreeScrollingNodeDelegateIOS::computeActiveTouchActionsForGestureRecognizer(UIGestureRecognizer* gestureRecognizer)

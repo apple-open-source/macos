@@ -51,10 +51,9 @@
         },
         "CallWith": {
             "contextsAllowed": ["attribute", "operation"],
-            "values": ["Document", "RelevantDocument", "ScriptExecutionContext", "RelevantScriptExecutionContext", "GlobalObject", "RelevantGlobalObject", "ActiveWindow", "FirstWindow", "EntryDocument", "World", "PropertyName"],
+            "values": ["CurrentDocument", "RelevantDocument", "CurrentScriptExecutionContext", "RelevantScriptExecutionContext", "CurrentGlobalObject", "RelevantGlobalObject", "ActiveWindow", "FirstWindow", "EntryDocument", "World", "PropertyName"],
             "standard": {
-                "url": "https://html.spec.whatwg.org/multipage/webappapis.html#concept-current-everything",
-                "note": "Currently, Document / ScriptExecutionContext / GlobalObject values denote current realm, which is a [[Realm]] of the currently-running function object."
+                "url": "https://html.spec.whatwg.org/multipage/webappapis.html#concept-current-everything"
             },
             "supportsConjunction": true
         },
@@ -144,9 +143,6 @@
         "CustomToJSObject": {
             "contextsAllowed": ["interface"]
         },
-        "CustomEnabled": {
-            "contextsAllowed": ["interface", "dictionary", "enum", "attribute", "operation", "constant", "iterable"]
-        },
         "DOMJIT": {
             "contextsAllowed": ["interface", "attribute", "operation"],
             "values": ["", "ReadDOM", "Getter"],
@@ -180,7 +176,7 @@
             "values": ["*"],
             "supportsConjunction": true
         },
-        "EnabledAtRuntime": {
+        "EnabledByDeprecatedGlobalSetting": {
             "contextsAllowed": ["interface", "namespace", "dictionary", "enum", "attribute", "operation", "constant", "iterable", "includes"],
             "values": ["*"],
             "supportsConjunction": true
@@ -262,9 +258,6 @@
             "contextsAllowed": ["interface", "namespace", "dictionary", "dictionary-member", "attribute", "operation", "constant"],
             "values": ["*"]
         },
-        "ImplementationLacksVTable": {
-            "contextsAllowed": ["interface"]
-        },
         "InterfaceName": {
             "contextsAllowed": ["interface", "namespace"],
             "values": ["*"]
@@ -312,7 +305,7 @@
         },
         "LegacyFactoryFunctionCallWith": {
             "contextsAllowed": ["interface"],
-            "values": ["Document", "RuntimeFlags", "ScriptExecutionContext"],
+            "values": ["CurrentDocument", "CurrentScriptExecutionContext", "RuntimeFlags"],
             "supportsConjunction": true
         },
         "LegacyFactoryFunctionEnabledBySetting": {
@@ -455,7 +448,7 @@
         "ReturnValue": {
             "contextsAllowed": ["argument"]
         },
-        "RuntimeConditionallyReadWrite": {
+        "EnabledConditionallyReadWriteByDeprecatedGlobalSetting": {
             "contextsAllowed": ["attribute"],
             "values": ["*"],
             "supportsConjunction": true
@@ -468,7 +461,7 @@
             "unsupported": true
         },
         "SecureContext": {
-            "contextsAllowed": ["interface", "dictionary", "enum", "attribute", "operation", "constant"],
+            "contextsAllowed": ["interface", "namespace", "dictionary", "enum", "attribute", "operation", "constant"],
             "standard": {
                 "url": "https://webidl.spec.whatwg.org/#SecureContext"
             }
@@ -482,10 +475,10 @@
         },
         "SetterCallWith": {
             "contextsAllowed": ["attribute"],
-            "values": ["ScriptExecutionContext", "GlobalObject", "ActiveWindow", "FirstWindow", "PropertyName"],
+            "values": ["CurrentScriptExecutionContext", "CurrentGlobalObject", "ActiveWindow", "FirstWindow", "PropertyName"],
             "supportsConjunction": true
         },
-        "SettingsConditionallyReadWrite": {
+        "EnabledConditionallyReadWriteBySetting": {
             "contextsAllowed": ["attribute"],
             "values": ["*"],
             "supportsConjunction": true

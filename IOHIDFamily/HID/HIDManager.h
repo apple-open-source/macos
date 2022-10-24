@@ -35,6 +35,29 @@ typedef NS_OPTIONS(NSInteger, HIDManagerOptions) {
     HIDManagerIndependentDevices = 1 << 3
 };
 
+
+/*!
+ * @typedef HIDManagerDeviceOptions
+ *
+ * @abstract
+ * Enumerator of options to be passed in to the openWithOptions method.
+ *
+ * @field HIDManagerDeviceOptionsNone
+ * No special options, same as calling open directly.
+ *
+ * @field HIDManagerDeviceOptionsNoDroppedReports
+ * Used to prevent reports from getting dropped when the report queue is full.
+ *
+ * @field HIDManagerDeviceOptionsIgnoreTaskSuspend
+ * Used with the HIDManagerDeviceOptionsNoDroppedReports option, event when
+ * suspended the device will wait to send any report if the queue is full.
+ */
+typedef NS_OPTIONS(NSInteger, HIDManagerDeviceOptions) {
+    HIDManagerDeviceOptionsNone = 0,
+    HIDManagerDeviceOptionsNoDroppedReports = 0x1 << 16,
+    HIDManagerDeviceOptionsIgnoreTaskSuspend = 0x2 << 16,
+};
+
 @class HIDDevice;
 
 /*!
@@ -187,7 +210,7 @@ typedef void (^HIDManagerElementHandler)(HIDDevice *sender,
  * @method setInputReportHandler
  *
  * @abstract
- * Registers a handler to be recieve input reports from enumerated devices.
+ * Registers a handler to be receive input reports from enumerated devices.
  *
  * @discussion
  * This call must occur before the manager is activated. The manager must be
@@ -267,6 +290,18 @@ typedef void (^HIDManagerElementHandler)(HIDDevice *sender,
 - (void)open;
 
 /*!
+ * @method openWithOptions
+ *
+ * @abstract
+ * Opens the HIDManager for communication with the devices using some option passed
+ * to the devices when opened.
+ *
+ * @discussion
+ * See open for more details.
+ */
+- (void)openWithOptions:(HIDManagerDeviceOptions)options;
+
+/*!
  * @method close
  *
  * @abstract
@@ -335,7 +370,7 @@ typedef void (^HIDManagerElementHandler)(HIDDevice *sender,
  * Returns an array of enumerated HID devices.
  *
  * @discussion
- * The manager should set matching device critera in the setDeviceMatching
+ * The manager should set matching device criteria in the setDeviceMatching
  * method. If no matching criteria is provided, all currently enumerated devices
  * will be returned.
  */

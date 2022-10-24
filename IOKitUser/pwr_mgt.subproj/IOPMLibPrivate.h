@@ -30,6 +30,7 @@
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPMAssertionCategories.h>
 #include <IOKit/ps/IOPowerSources.h>
 #include <sys/cdefs.h>
 
@@ -553,6 +554,17 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMASLAssertionActionSuspend            "Suspended"
 #define kPMASLAssertionActionResume             "Resumed"
 #define kPMASLAssertionActionSystemTimeout      "SystemTimeOutExpired"
+#define kPMASLAssertionActionOffloaded          "Offloaded"
+
+// Async Assertion Actions
+#define kPMAsyncAssertionActionCreate             "Created"
+#define kPMAsyncAssertionActionRelease            "Released"
+#define kPMAsyncAssertionActionTimeOut            "TimedOut"
+#define kPMAsyncAssertionActionTurnOff            "TurnedOff"
+#define kPMAsyncAssertionActionTurnOn             "TurnedOn"
+#define kPMAsyncAssertionActionNameChange         "NameChange"
+#define kPMAsyncAssertionActionOffloaded          "Offloaded"
+
 
 #pragma mark Private Assertion Dictionary Keys
 /*
@@ -698,6 +710,25 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kIOPMAssertionExitSilentRunning                     CFSTR("ExitSilentRunning")
 
 /*!
+ * @define          kIOPMAssertionInstanceMetadataKey
+ *
+ * @abstract        This CFDictionary key in assertion info dictionary specifies metadata specific to this instance of
+ *                  the assertion. This may be any information or identifiers that are useful for debug and help
+ *                  correlate this assertion activity with other logs.
+ *
+ * @discussion      The value for this key will be a CFStringRef. For logging purposes, the value may be truncated
+ *                  past 32 characters so clients are encouraged to keep the value concise, and drop any repeating
+ *                  or non-useful characters.
+ *
+ *                  Common use-cases for this field would be IDs and hashes that would uniquely identify the
+ *                  assertion and help trace it across logs.
+ *
+ *                  This optional property can be set at the time of assertion creation and cannot be changed
+ *                  later.
+*/
+#define kIOPMAssertionInstanceMetadataKey                           CFSTR("InstanceMetadata")
+
+/*!
  * @define          kIOPMAssertionResourcesUsed
  *
  * @abstract        This CFDictionary key in assertion info dictionary lists the resources used
@@ -734,7 +765,10 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kIOPMAssertionResourceGPS                           CFSTR("GPS")
 #define kIOPMAssertionResourceBaseband                      CFSTR("baseband")
 #define kIOPMAssertionResourceBluetooth                     CFSTR("bluetooth")
+#define kIOPMAssertionResourcePerfUnrestricted              CFSTR("perf-unrestricted")
 #define kIOPMAssertionResourceActuator                      CFSTR("Actuator")
+#define kIOPMAssertionResourceCamera                        CFSTR("Camera")
+
 
 /*!
  * @define          kIOPMAssertionResourcesName
@@ -749,6 +783,24 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *                  This optional property can be changed after the property is created.
  */
 #define kIOPMAssertionResourcesName                         CFSTR("ResourcesName")
+
+/*!
+ * @define          kIOPMAssertionCategoryKey
+ *
+ * @abstract        This CFDictionary key in assertion info dictionary specifies the category for the assertion.
+ *                  This desribes the high-level purpose for holding the assertion.
+ * *
+ * @discussion      The value for this key will be a CFNumberRef and should come from the
+ *                  <code>IOPMAssertionCategory</code> enumerated type. This key may be specified in
+ *                  the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  The category will be used to associate additional power management policies that aid in
+ *                  system performance and user experience.
+ *
+ *                  This optional property can be set at the time of assertion creation and cannot be changed
+ *                  later.
+*/
+#define kIOPMAssertionCategoryKey                           CFSTR("Category")
 
 /*!
  * @define          kIOPMAssertionActivityBudgeted
@@ -847,6 +899,13 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  * @abstract Holds the assertionId returned to client by powerd
  */
 #define kIOPMAsyncRemoteAssertionIdKey          CFSTR("AsyncRemoteAssertionId")
+
+/*!
+ * @constant kIOPMAssertionIsCoalescedKey
+ * @abstract Specifies if the assertion served as a coalesced assertion within the client context. Only meant
+ *           to be used for logging purposes. This key is filled out only on release.
+ */
+#define kIOPMAssertionIsCoalescedKey                           CFSTR("IsCoalesced")
 
 /*!
  * @constant kIOPMAsyncAssertionTimeoutTimestamp
@@ -1407,6 +1466,7 @@ typedef enum  {
     kIOPMAssertionDurationException = 1,
     kIOPMAssertionAggregateException,
     kIOPMFrequentSleepWakeException,
+    kIOPMAssertionSystemTimeoutException,
 } IOPMAssertionException;
 
 typedef uintptr_t IOPMNotificationHandle;
@@ -3065,7 +3125,7 @@ IOPMNotificationHandle IOPMRegisterForRemoteSystemPower(
  *
  *  @param message  The message client is acknowledging.
  *
- * @result          kIOReturnSuccess on sucess. Otherwise, appropriate error is returned.
+ * @result          kIOReturnSuccess on success. Otherwise, appropriate error is returned.
  */
 IOReturn IOPMAllowRemotePowerChange(IOPMNotificationHandle ref, IOMessage message);
 
@@ -3579,7 +3639,7 @@ IOReturn IOPMGetPerformanceWarningLevel(uint32_t *perfLevel);
  * @abstract        Returns a dictionary describing the state_id obtained from 
  *                  IOReporting channels kPMCurrStateChID and kPMPowerStatesChID. 
  *
- * @discussion      On sucess, caller is responsible for releasing the dictionary.
+ * @discussion      On success, caller is responsible for releasing the dictionary.
  *
  * @param state_id  Caller passes the state_id value obtained from kPMCurrStateChID 
  *                  and kPMPowerStatesChID channels of IOServicePM.
@@ -3632,8 +3692,21 @@ void IOPMAssertionSetBTCollection(bool enable);
 IOReturn IOPMEnableAsyncAssertions();
 IOReturn IOPMDisableAsyncAssertions();
 
+/* Async Assertion logging actions */
+typedef enum {
+    kAsyncAssertionCreateLog,
+    kAsyncAssertionReleaseLog,
+    kAsyncAssertionTimeoutLog,
+    kAsyncAssertionTurnOffLog,
+    kAsyncAssertionTurnOnLog,
+    kAsyncAssertionNameChangeLog,
+    kAsyncAssertionOffloadedLog,
+} kIOPMAsyncAssertionLogAction;
+
+
 // Async assertions default offload delay
 #define kAsyncAssertionsDefaultOffloadDelay 1 // Delay (in secs) after which assertions are offloaded to powerd
+#define kAsyncAssertionDisable "com.apple.powerd.assertionoffloadtimer"
 
 // Functions to return internal state of async assertions
 // TO BE USED FOR TESTING AND DEBUGGING ONLY

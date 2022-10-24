@@ -104,7 +104,7 @@ else
 	h
 	s/^.*${ALL}:\([^ 	*]*\).*/P_POUNDCif_USE_\1_SUPPORT/p
 	g
-	s/^extern \([^;]*\);.*/\1/p
+	s/^extern \([^;\/]*\)[;\/].*/\1/p
 	g
 	s/^.*${ALL}:\([^ 	*]*\).*/P_POUNDCendif/p
 }

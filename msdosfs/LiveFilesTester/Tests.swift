@@ -238,12 +238,13 @@ class T_defragmentCluster : BaseTest {
             else{
                 inAttrs.fa_size = UInt64(mountPoint.sectorSize!)
             }
-            (_, error) = fsTree.createNode(.File, fileName, dirNode: defragmentedDirNode, attrs: inAttrs  )
+            var tempNode : Node_t? = nil
+            (tempNode, error) = fsTree.createNode(.File, fileName, dirNode: defragmentedDirNode, attrs: inAttrs  )
             if error == ENOSPC {
                 //delete two files and create one sylink with 1000 byte size
                 let fileNameArr = ["file_\(i-1)_","file_\(i-2)_","file_\(i-3)_"]
                 for fname in fileNameArr {
-                    error = fsTree.deleteNode(.File, fname, dirNode: defragmentedDirNode)
+                    error = fsTree.deleteNode(victimNode: tempNode!, dirNode: defragmentedDirNode)
                     try pluginApiAssert(error, msg: "There was an error removing the file \(fname) . error - (\(error))")
                 }
                
@@ -534,30 +535,35 @@ class T_MillionFilesTest : T_changeAttributes {
                 }
                 criticalSection_exit(threadID)
                 log("Deleting file name \(fileName)")
+                var (victimHandler, error) = fsTree.lookUpNode(fileName, dirNode: millionDirNode)
+                try pluginApiAssert(error, msg: "Failed lookup for \(fileName)")
                 switch(Int32(fileType)!){
                 case UVFS_FA_TYPE_FILE,UVFS_FA_TYPE_SYMLINK:
-                    let error = fsTree.deleteNode(.File, fileName, dirNode: millionDirNode)
+                    let error = fsTree.deleteNode(victimNode: victimHandler, dirNode: millionDirNode)
                     try pluginApiAssert(error, msg: "There was an error removing the file \(fileName) . error - (\(error))")
                     break;
                 case UVFS_FA_TYPE_DIR:
                     log("Deleting dir name \(fileName)")
-                    var (fileHandler, error) = fsTree.lookUpNode(fileName, dirNode: millionDirNode)
-                    try pluginApiAssert(error, msg: "Failed lookup for \(fileName)")
                     // remove all the inner files if exist
-                    let dirFiles = try Utils.read_dir_entries(fsTree: fsTree, node : fileHandler.node!)
+                    let dirFiles = try Utils.read_dir_entries(fsTree: fsTree, node : victimHandler.node!)
                     for file in dirFiles{
                         let innerFileName  = file["name"]!
                         if innerFileName == "." || innerFileName == ".." {
                             continue
                         }
+                        var (fileHandler, error) = fsTree.lookUpNode(innerFileName, dirNode: victimHandler)
+                        if error != SUCCESS {
+                            log("Failed to lookup \(innerFileName)");
+                            break;
+                        }
                         log("removing file \(innerFileName) before deleting dir \(fileName)")
-                        let error = fsTree.deleteNode(.File, innerFileName, dirNode: fileHandler)
+                        error = fsTree.deleteNode(victimNode: fileHandler, dirNode: victimHandler)
                         try pluginApiAssert(error, msg: "There was an error removing the file \(innerFileName) . error - (\(error))")
                     }
                     // now remove the directory
-                    error = fsTree.deleteNode(.Dir, fileName, dirNode: millionDirNode)
+                    error = fsTree.deleteNode(victimNode: victimHandler, dirNode: millionDirNode)
                     try pluginApiAssert(error, msg: "There was an error removing the directory \(fileName) . error - (\(error))")
-                    error = fsTree.reclaimNode(fileHandler)
+                    error = fsTree.reclaimNode(victimHandler)
                     try pluginApiAssert(error, msg: "There was an error reclaiming the directory \(fileName) . error - (\(error))")
 
                     break
@@ -933,6 +939,7 @@ class T_hardLinkTesting : BaseTest {
         let old_attrs = nodeResult.attrs!
         let old_attrs_hl = nodeHL2Result.attrs!
         let new_attrs = UVFSFileAttributes(__fa_rsvd0: 0,  fa_validmask: (UVFS_FA_VALID_MODE | UVFS_FA_VALID_SIZE | UVFS_FA_VALID_ATIME | UVFS_FA_VALID_MTIME),
+                                           fa_seqno: 0,
                                            fa_type: 0,
                                            fa_mode: old_attrs.fa_mode ^ brdg_convertModeToUserBits(UInt32(UVFS_FA_MODE_W)),
                                            fa_nlink: 0,
@@ -948,7 +955,8 @@ class T_hardLinkTesting : BaseTest {
                                            fa_ctime: timespec(),
                                            fa_birthtime: timespec(),
                                            fa_backuptime: timespec(),
-                                           fa_addedtime: timespec())
+                                           fa_addedtime: timespec(),
+                                           fa_int_flags: 0, _pad0: 0)
         
         error = fsTree.setAttributes(node: nodeHLResult, _attrs: new_attrs)
         try pluginApiAssert(error, msg: "Error setting attributes of hardlink to original file (\(error))")
@@ -1332,7 +1340,6 @@ class T_GetFSATT_Test : BaseTest {
         // special handling
         case UVFS_FSATTR_VOLNAME:
                 try  testFlowAssert(error == SUCCESS, msg: "FS ATTR \(attrType) got ENOTSUP \(error)")
-                //try  testFlowAssert(len == size_t(fsAttrObj.get_fsa_string().count+1), msg: "FS ATTR \(attrType) got wrong size \(len) != \(size_t(fsAttrObj.get_fsa_string().count+1)) volname= '\(fsAttrObj.get_fsa_string())'")
                 log("\(attrType)\t= '\(fsAttrObj.get_fsa_string())' [len=\(len)]")
                 try testFlowAssert(fsAttrObj.fsa_compare(attrType: attrType, valType: valType.FSA_TYPE_STRING), msg: "Attr value is wrong expect \(fsAttrObj.get_fsa_expected_val_str(attrType: attrType, valType: valType.FSA_TYPE_STRING))")
             break
@@ -1462,7 +1469,7 @@ class T_CheckFileMaxSize : BaseTest {
         }
 
         // delete the file to create a space for another big size file
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, newFileName), msg: "Failed erasing file \(newFileName) of type \(NodeType.File)")
+        try pluginApiAssert(fsTree.deleteNode(victimNode: fileHandler, dirNode: nil, false), msg: "Failed erasing file \(newFileName) of type \(NodeType.File)")
 
         log("Create another new file with max size \(attrs.fa_size)")
 
@@ -1517,8 +1524,9 @@ class T_createDirectoryAndFile : BaseTest {
         try pluginApiAssert(fsTree.createNode(NodeType.Dir, dirName).error, msg: "There was an error creating the first directory")
         let (dirNode, error) = fsTree.createNode(NodeType.Dir, dirName2)
         try pluginApiAssert(error, msg: "There was an error creating the second directory")
-        try pluginApiAssert(fsTree.createNode(NodeType.File, fileName, dirNode: dirNode).error, msg: "There was an error creating the file")
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, fileName, dirNode: dirNode), msg: "There was an error creating the file")
+        let (fileNode, error1) = fsTree.createNode(NodeType.File, fileName, dirNode: dirNode)
+        try (pluginApiAssert(error1, msg:"There was an error creating the file"))
+        try pluginApiAssert(fsTree.deleteNode(victimNode: fileNode, dirNode: dirNode), msg: "There was an error creating the file")
         
         return SUCCESS;
     }
@@ -1535,19 +1543,36 @@ class T_deleteDirectoryAndFile : BaseTest {
         let dirName : String = "Folder1"
         let fileName : String = "emptyFile2.bin"
         let longFileName : String = "averyveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryverylongname.bin"
+        var fileHandle: Node_t?
+        var dirHandle: Node_t?
+        var error: Int32 = 0
         let sizeOfPatternedFile : size_t
         sizeOfPatternedFile = (mountPoint.fsType == FSTypes.FAT12) ? K.SIZE.MBi : ( 20 * K.SIZE.MBi )
-        let fullPath = Node_t.combinePathAndName(path: dirName, name: fileName)
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, fullPath), msg: "There was an error removing the file \(fileName)")
-        try pluginApiAssert(fsTree.deleteNode(NodeType.Dir, dirName), msg: "There was an error removing the dir \(dirName)")
-        var (node, error) = fsTree.createNode(NodeType.File, longFileName)
+        (dirHandle, error) = fsTree.lookUpNode(dirName)
+        if error != SUCCESS {
+            log("Failed to lookup \(dirName)")
+            return error
+        }
+        (fileHandle, error) = fsTree.lookUpNode(fileName, dirNode:dirHandle)
+        if error != SUCCESS {
+            log("Failed to lookup \(fileName)")
+            return error
+        }
+        try pluginApiAssert(fsTree.deleteNode(victimNode: fileHandle!, dirNode: dirHandle!, false), msg: "There was an error removing the file \(fileName)")
+        try pluginApiAssert(fsTree.reclaim_node(fileHandle!), msg: "There was an error reclaiming the node for \(fileName)")
+        try pluginApiAssert(fsTree.deleteNode(victimNode: dirHandle!, dirNode: nil, false), msg: "There was an error removing the dir \(dirName)")
+        try pluginApiAssert(fsTree.reclaim_node(dirHandle!), msg: "There was an error reclaiming the node for \(dirName)")
+        var node: Node_t
+        (node, error) = fsTree.createNode(NodeType.File, longFileName)
         try pluginApiAssert(error, msg: "Can't create file \(longFileName)")
-        
+
         (error, _) = try Utils.pattern_write(fsTree: fsTree, node: node, pattern: nil, offset: 0, writeSize: sizeOfPatternedFile, test: true)
         let match = try Utils.pattern_validate(fsTree: fsTree, node: node.node!, pattern: nil, offset: 0, readSize: sizeOfPatternedFile, expectedDigest: nil)
         try testFlowAssert(match == true, msg: "Pattern validating of file data is mismatched!")
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, longFileName, dirNode: fsTree.rootFileNode), msg: "There was an error removing the file \(longFileName)")
-        
+        try pluginApiAssert(fsTree.deleteNode(victimNode: node, dirNode: fsTree.rootFileNode, false), msg: "There was an error removing the file \(longFileName)")
+        try pluginApiAssert(fsTree.reclaim_node(node), msg: "There was an error reclaiming the node for \(longFileName)")
+        fsTree.sync(fsTree.rootFileNode)
+
         return SUCCESS;
     }
 }
@@ -1779,7 +1804,7 @@ class T_changeAttributes : BaseTest {
 
         log("Play with the root attributes (expect error)")
         error = getAndSetAttrs(node: fsTree.rootFileNode, fileType: .Dir)
-        try testFlowAssert( mountPoint.fsType == .EXFAT ? error == EINVAL :  error == SUCCESS , msg: "Error in changing the root")
+        try testFlowAssert(error == SUCCESS , msg: "Error in changing the root")
         
         
         //Basic timestamp test
@@ -1878,12 +1903,15 @@ class T_illegalDirFileSymlink : BaseTest {
         let fileName = "\(type1.rawValue)_\(type2.rawValue)"
         let originalNode = fsTree.lookUpNode(originalFileName).node
         var attrs = UVFSFileAttributes()
+        var fileNode: Node_t
+        var error: Int32 = 0
         attrs.fa_validmask = UVFS_FA_VALID_MODE
         attrs.fa_mode = brdg_convertModeToUserBits(UInt32(UVFS_FA_MODE_RWX))
-        try pluginApiAssert(fsTree.createNode(type1, fileName, attrs: attrs, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, msg: "Failed creating node of type \(type1)")
+        (fileNode, error) = fsTree.createNode(type1, fileName, attrs: attrs, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil)
+        try(pluginApiAssert(error, msg: "Failed creating node of type \(type1)"))
         try pluginApiAssert(fsTree.createNode(type2, fileName, attrs: attrs, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, expected: EEXIST, msg: "After \(type1), expected EEXIST, got error for second node of type \(type2)")
         // Now erase file of type 1
-        try pluginApiAssert(fsTree.deleteNode(type1, fileName), msg: "Failed erasing file \(fileName) of type \(type1)")
+        try pluginApiAssert(fsTree.deleteNode(victimNode: fileNode, dirNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil), msg: "Failed erasing file \(fileName) of type \(type1)")
     }
     
     // Go over all File/Dir/SymLink combination and create twice different node types
@@ -1899,10 +1927,13 @@ class T_illegalDirFileSymlink : BaseTest {
     func testCreateAndEraseAllTypes() throws {
         let fileName = "testCreateAndEreseAllTypes.file"
         let originalNode = fsTree.lookUpNode(originalFileName).node
+        var fileNode: Node_t
+        var error: Int32
         for i in 1...10 {
             for type in NodeType.allValues(mountPoint.fsType!) {
-                try pluginApiAssert(fsTree.createNode(type, fileName, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, msg: "testCreateAndEraseAllTypes iteration \(i): Failed creating node of type \(type)")
-                try pluginApiAssert(fsTree.deleteNode(type, fileName), msg: "testCreateAndEraseAllTypes iteration \(i): Failed creating node of type \(type)")
+                (fileNode, error) = fsTree.createNode(type, fileName, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil)
+                try(pluginApiAssert(error, msg: "testCreateAndEraseAllTypes iteration \(i): Failed creating node of type \(type)"))
+                try pluginApiAssert(fsTree.deleteNode(victimNode: fileNode, dirNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil), msg: "testCreateAndEraseAllTypes iteration \(i): Failed creating node of type \(type)")
             }
         }
     }
@@ -1919,9 +1950,13 @@ class T_illegalDirFileSymlink : BaseTest {
     func testPrettyLongNames() throws {
         let originalNode = fsTree.lookUpNode(originalFileName).node
         for type in NodeType.allValues(mountPoint.fsType!) {
+            var dirNode: Node_t? = (mountPoint.fsType!.isHFS()) ? originalNode : nil
             let fileName = String(repeating: "n", count: 255)
-            try pluginApiAssert(fsTree.createNode(type, fileName, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, msg: "Create pretty long name for node type \(type.rawValue)")
-            try pluginApiAssert(fsTree.deleteNode(type, fileName), msg: "Failed to erase pretty long file name after creating node type \(type.rawValue)")
+            var fileNode: Node_t
+            var error: Int32
+            (fileNode, error) = fsTree.createNode(type, fileName, fromNode: dirNode)
+            try pluginApiAssert(error, msg: "Create pretty long name for node type \(type.rawValue)")
+            try pluginApiAssert(fsTree.deleteNode(victimNode: fileNode, dirNode: dirNode, false), msg: "Failed to erase pretty long file name after creating node type \(type.rawValue)")
         }
     }
     
@@ -2327,8 +2362,10 @@ class T_readDirTest : BaseTest {
 
         log("Validate verifier by changing the directory content , add file and then remove it.")
         let newFile = "newFile"
-        try pluginApiAssert(fsTree.createNode(NodeType.File, newFile, dirNode: fsTree.rootFileNode).error, msg: "There was an error creating the file \(newFile)")
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, newFile), msg: "Failed erasing file \(newFile) of type \(NodeType.File)")
+        var tempNode: Node_t
+        (tempNode, error) = fsTree.createNode(NodeType.File, newFile, dirNode: fsTree.rootFileNode)
+        try pluginApiAssert(error, msg: "There was an error creating the file \(newFile)")
+        try pluginApiAssert(fsTree.deleteNode(victimNode: tempNode, dirNode: fsTree.rootFileNode, false), msg: "Failed erasing file \(newFile) of type \(NodeType.File)")
 
 
         cookie   = cookieStored
@@ -2432,7 +2469,7 @@ class T_readDirAttrsTest : BaseTest {
     func check_dirattrs_stream_contents(_ dirNode: Node_t? ) throws {
         let currentDir = dirNode == nil ? fsTree.rootFileNode : dirNode!
         let outDirFilesAttrs = try Utils.read_dir_attr_entries(fsTree: fsTree, node: currentDir.node! )
-        for  (entryName,entryAtrrs) in outDirFilesAttrs {
+        for  (entryName,entryAttrs) in outDirFilesAttrs {
             if dirNode == fsTree.rootFileNode , entryName.hasPrefix(".") {
                 continue
             }
@@ -2440,14 +2477,14 @@ class T_readDirAttrsTest : BaseTest {
             try pluginApiAssert(error, msg: "Cannot find  \(entryName)")
             _ = try fsTree.checkNodeAttributes(&fileHandler)
             
-            if !isEqual(fileHandler.attrs!, entryAtrrs) {
+            if !isEqual(fileHandler.attrs!, entryAttrs) {
                 log("File attributes mismatch while comparing attributes from readdirattr and getatt results for file name \(entryName)")
                 log("File Attributes from readdirattr: ")
-                var fileAttrs = entryAtrrs
+                var fileAttrs = entryAttrs
                 print_attrs(&fileAttrs)
                 log("File Attributes from getattr: ")
                 print_attrs(&fileHandler.attrs!)
-                try testFlowAssert( isEqual(fileHandler.attrs!, entryAtrrs) , msg: "The acquired file attributes is different from expected for file Name \(entryName) ")
+                try testFlowAssert( isEqual(fileHandler.attrs!, entryAttrs) , msg: "The acquired file attributes is different from expected for file Name \(entryName) ")
             }
         }
     }
@@ -2592,9 +2629,10 @@ class T_readDirAttrsTest : BaseTest {
         
         log("Validate verifier by changing the directory content , add file and then remove it.")
         let newFile = "newFile"
-        try pluginApiAssert(fsTree.createNode(NodeType.File, newFile, dirNode: fsTree.rootFileNode).error, msg: "There was an error creating the file \(newFile)")
-        try pluginApiAssert(fsTree.deleteNode(NodeType.File, newFile), msg: "Failed erasing file \(newFile) of type \(NodeType.File)")
-        
+        var tempNode: Node_t
+        (tempNode, error) = fsTree.createNode(NodeType.File, newFile, dirNode: fsTree.rootFileNode)
+        try pluginApiAssert(error, msg: "There was an error creating the file \(newFile)")
+        try pluginApiAssert(fsTree.deleteNode(victimNode: tempNode, dirNode: fsTree.rootFileNode, false), msg: "Failed erasing file \(newFile) of type \(NodeType.File)")
         
         cookie   = cookieStored
         verifier = storedVerifier
@@ -2858,28 +2896,32 @@ class T_removeAndRmdir : BaseTest {
         let fileNameShort : String = "short"
         let symName : String = "SymFile"
         var readonlyAttr = UVFSFileAttributes()
-        
+        var tmpNode: Node_t
         
         // The test has some non-swift-bridge functions:
-       // TestResult.shared.skipFsCompare = true
-        
+        // TestResult.shared.skipFsCompare = true
         log("Remove an empty directory with fsops_remove function:")
-        error = fsTree.deleteNode(.File, dirNameEmpty)
+
+        (tmpNode, error) = fsTree.lookUpNode(dirNameEmpty)
+        try pluginApiAssert(error, msg: "Failed to lookup \(dirNameEmpty)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, expected: EISDIR, msg: "Error in brdg_fsops_remove of empty dir. error \(error) is different than expected error \(EEXIST)")
         
         log("rmdir file and symfile:")
-        error = fsTree.deleteNode(.Dir, fileNameExist)
+        (tmpNode, error) = fsTree.lookUpNode(fileNameExist)
+        try pluginApiAssert(error, msg:"Failed to lookup \(fileNameExist)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, expected: ENOTDIR, msg: "Error in brdg_fsops_rmdir of exist filename. error \(error) is different than expected error \(EEXIST)")
-        error = fsTree.deleteNode(.Dir, symName)
+        (tmpNode, error) = fsTree.lookUpNode(symName)
+        try pluginApiAssert(error, msg:"Failed to lookup \(symName)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, expected: ENOTDIR, msg: "Error in brdg_fsops_rmdir of symfile. error \(error) is different than expected error \(EEXIST)")
         
         log("rmdir a non empty folder:")
-        error = fsTree.deleteNode(.Dir, dirNameNotEmpty)
+        (tmpNode, error) = fsTree.lookUpNode(dirNameNotEmpty)
+        try pluginApiAssert(error, msg:"Failed to lookup \(dirNameNotEmpty)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, expected: ENOTEMPTY, msg: "Error in brdg_fsops_rmdir of non empty directory. error \(error) is different than expected error \(EEXIST)")
-        
-        log("rmdir a non exist folder:")
-        error = fsTree.deleteNode(.Dir, dirNameNotExist)
-        try pluginApiAssert(error, expected: ENOENT, msg: "Error in brdg_fsops_rmdir of non exist directory. error \(error) is different than expected error \(EEXIST)")
         
         log("remove an empty file (with read-only attributes):")
         let dirNode : Node_t
@@ -2897,31 +2939,21 @@ class T_removeAndRmdir : BaseTest {
         try pluginApiAssert(error, msg: "There was an error changing attributes to readonly (\(error))")
         
         log("Remove the read-only file:")
-        error = fsTree.deleteNode(NodeType.File, fileNameEmpty , dirNode: dirNode)
+        error = fsTree.deleteNode(victimNode: fileResult, dirNode: nil, false)
         if mountPoint.fsType!.isHFS() {
             try pluginApiAssert(error, msg: "There was an error in removing the file \(fileNameEmpty) (\(error))")
         } else {
             try pluginApiAssert(error, expected: EPERM, msg: "There was an error in removing the file \(fileNameEmpty) (\(error))")
         }
         
-        log("Remove file and symfile:")
-        error = fsTree.deleteNode(NodeType.File, fileNameExist)
-        try pluginApiAssert(error, msg: "There was an error in removing the file \(fileNameExist) (\(error))")
-        log("Try to remove it again:")
-        error = fsTree.deleteNode(NodeType.File, fileNameExist)
-        try pluginApiAssert(error, expected: ENOENT, msg: "Error in brdg_fsops_remove of an empty file. error \(error) is different than expected error \(ENOENT)")
-        
-        error = fsTree.deleteNode(NodeType.SymLink, symName)
-        try pluginApiAssert(error, msg: "There was an error in removing the symfile \(symName) (\(error))")
-        
-        log("Remove Non-exist file:")
-        error = fsTree.deleteNode(NodeType.File, fileNameNotExist)
-        try pluginApiAssert(error, expected: ENOENT, msg: "Error in removing non-exist file. error \(error) is different than expected error \(EEXIST)")
-        
         log("Remove short and long file names:")
-        error = fsTree.deleteNode(NodeType.File, fileNameLong)
+        (tmpNode, error) = fsTree.lookUpNode(fileNameLong)
+        try pluginApiAssert(error, msg:"Failed to lookup \(fileNameLong)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, msg: "There was an error in removing the long name file \(fileNameLong) (\(error))")
-        error = fsTree.deleteNode(NodeType.File, fileNameShort)
+        (tmpNode, error) = fsTree.lookUpNode(fileNameShort)
+        try pluginApiAssert(error, msg:"Failed to lookup \(fileNameShort)")
+        error = fsTree.deleteNode(victimNode: tmpNode, dirNode: nil, false)
         try pluginApiAssert(error, msg: "There was an error in removing the short name file \(fileNameShort) (\(error))")
         
         return SUCCESS
@@ -2983,7 +3015,9 @@ class T_fillRootDir : BaseTest {
 
                 // Erase those files/dirs/symlinks
                 for counter in 1...lastCounter {
-                    try pluginApiAssert(fsTree.deleteNode(type, "file_\(counter)"), msg: "Failed deleting file #\(counter) in node type \(type)")
+                    let (tempNode, error) = fsTree.lookUpNode("file_\(counter)")
+                    try pluginApiAssert(error, msg: "Failed to lookup file file_\(counter)")
+                    try pluginApiAssert(fsTree.deleteNode(victimNode: tempNode, dirNode: nil, false), msg: "Failed deleting file #\(counter) in node type \(type)")
                 }
             }
         }
@@ -3016,8 +3050,8 @@ class T_filesNamesTest : BaseTest {
             let randomDstName = Utils.randomCaseStr(lowercaseFilename)
             
             log("Going to create \(randomSrcName) and lookup \(randomDstName)")
-            try pluginApiAssert(fsTree.createNode(type, randomSrcName, dirNode: dirNode, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error,
-                                msg: "Error creating \(randomSrcName)")
+            let (tempNode, error) = fsTree.createNode(type, randomSrcName, dirNode: dirNode, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil)
+            try pluginApiAssert(error, msg: "Error creating \(randomSrcName)")
             // Cannot pass pointer
             if mountPoint.caseSensitiveFS && randomSrcName != randomDstName {
                 let error = fsTree.lookUpNode(randomDstName, dirNode: dirNode).error
@@ -3026,7 +3060,7 @@ class T_filesNamesTest : BaseTest {
                 try pluginApiAssert(fsTree.lookUpNode(randomDstName, dirNode: dirNode).error, msg: "Failed lookup of \(randomDstName)")
             }
             
-            try pluginApiAssert(fsTree.deleteNode(type, randomSrcName, dirNode: dirNode), msg: "Failed deleting \(randomSrcName)")
+            try pluginApiAssert(fsTree.deleteNode(victimNode: tempNode, dirNode: dirNode, false), msg: "Failed deleting \(randomSrcName)")
         }
     }
     
@@ -3042,9 +3076,9 @@ class T_filesNamesTest : BaseTest {
             try pluginApiAssert(fsTree.createNode(type, randomName, dirNode: dirNode, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, msg:
                 "Error creating \(randomName)")
 
-            try pluginApiAssert(fsTree.lookUpNode(randomName, dirNode: dirNode).error, msg:
-                "Failed lookup of \(randomName)")
-            try pluginApiAssert(fsTree.deleteNode(type, randomName, dirNode: dirNode), msg:
+            let (tempNode, error) = fsTree.lookUpNode(randomName, dirNode: dirNode)
+            try pluginApiAssert(error, msg: "Failed lookup of \(randomName)")
+            try pluginApiAssert(fsTree.deleteNode(victimNode: tempNode, dirNode: dirNode, false), msg:
                 "Failed deleting \(randomName)")
             
         }
@@ -3071,11 +3105,14 @@ class T_filesNamesTest : BaseTest {
                 
                 log("Trying to lookup non-existing file named \(specialName)")
                 let fileHandler = fsTree.lookUpNode(specialName, dirNode: dirNode)
+                let victimNode: Node_t
+                let err: Int32
                 try testFlowAssert(fileHandler.error == ENOENT, msg: "Unexpected error code \(fileHandler.error) while looking up non existing file named \(specialName)")
                 
                 log("Trying to create \(specialName)")
-                try pluginApiAssert(fsTree.createNode(NodeType.File, specialName, dirNode: dirNode, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil).error, msg:
-                    "Got unexpected error during create of a file with a special name")
+                (victimNode, err) = fsTree.createNode(NodeType.File, specialName, dirNode: dirNode, fromNode: (mountPoint.fsType!.isHFS()) ? originalNode : nil)
+
+                try pluginApiAssert(err, msg: "Got unexpected error during create of a file with a special name")
                 log("Looking up \(specialName)")
                 try pluginApiAssert(fsTree.lookUpNode(specialName, dirNode: dirNode).error, msg: "Failed loopkup of special name \(specialName)")
             }
@@ -3084,12 +3121,17 @@ class T_filesNamesTest : BaseTest {
             // This is created in different way because the Tester doesn't support "/" in the FSTree yet.
             // This cannot be created on APFS because '/' is an illegal character in a filename.
             let specialName = "fileWith/"
+            let victimNode: Node_t
+            var err: Int32
+
             log("Trying to create \(specialName)")
-            try pluginApiAssert( fsTree.createNode(NodeType.File, specialName, dirNode: dirNode).error,
-                                 msg: "Got unexpected error during create of a file with a special name")
+            (victimNode, err) = fsTree.createNode(NodeType.File, specialName, dirNode: dirNode)
+            try pluginApiAssert( err, msg: "Got unexpected error during create of a file with a special name")
+            //log("Looking up \(specialName)")
+            //try pluginApiAssert(fsTree.lookUpNode(specialName, dirNode: dirNode).error, msg: "Failed loopkup of special name \(specialName)")
             log("Removing \(specialName)")
-            try pluginApiAssert( brdg_fsops_remove(&(mountPoint.fsTree.testerFsOps), &(dirNode!.node), specialName)  ,
-                                 msg: "Got unexpected error during create of a file with a special name")
+            err = fsTree.deleteNode(victimNode: victimNode, dirNode: dirNode, false)
+            try pluginApiAssert( err, msg: "Got unexpected error during create of a file with a special name")
             fsTree.signNodeNotExist(path: Node_t.combinePathAndName(path: dirNode!.path!, name: specialName))
         }
     }
@@ -3602,7 +3644,6 @@ class T_renameTest : BaseTest {
             
             error = fsTree.reclaimNode(tmpNode)
             try pluginApiAssert(error, msg: "Error reclaiming the fileNode (\(error))")
-            Global.shared.lookupCounterIncrement(-1)
             
             // Testing directories
             log("Creating \(dirNameA)")
@@ -3621,7 +3662,6 @@ class T_renameTest : BaseTest {
             
             error = fsTree.reclaimNode(tmpNode)
             try pluginApiAssert(error, msg: "Error reclaiming the fileNode (\(error))")
-            Global.shared.lookupCounterIncrement(-1)
             
             // Lookup the new file
             error = fsTree.lookUpNode(fileNameB).error
@@ -3645,8 +3685,7 @@ class T_renameTest : BaseTest {
             
             error = fsTree.reclaimNode(tmpNode)
             try pluginApiAssert(error, msg: "Error reclaiming the fileNode (\(error))")
-            Global.shared.lookupCounterIncrement(-1)
-            
+
             // On HFS - create 2 hardlinks, rename symlink to the first hardlink and verify that the second hardlink is still valid.
             if mountPoint.fsType!.isHFS() {
                 // Testing hardlinks:
@@ -3840,7 +3879,7 @@ class T_writeReadRemoveNonContiguousFile : BaseTest {
         }
         
         log("Removing the non-contiguous file")
-        error = fsTree.deleteNode(NodeType.File, fileName)
+        error = fsTree.deleteNode(victimNode: nodeResult1, dirNode: nil, false)
         try pluginApiAssert(error, msg: "There was an error removing the file \(fileName) . error - (\(error))")
         return SUCCESS;
     }
@@ -4027,7 +4066,6 @@ class T_killSyncTesting : BaseTest {
     override func runTest () throws -> Int32 {
         
         let numberOfFiles = 100
-        var actuallyRead : size_t = 0
         let outContent = UnsafeMutablePointer<Int8>.allocate(capacity: 204800)
         
         defer {
@@ -4093,9 +4131,12 @@ class T_killSyncTesting : BaseTest {
         for i in 0..<numberOfFiles/10 {
             var error : Int32 = 0
             let fileName : String = "File" + String(i)
+            var tempNode: Node_t?
             
+            (tempNode, error) = fsTree.lookUpNode(fileName, dirNode: fsTree.rootFileNode)
+            try(pluginApiAssert(error, msg: "Error looking up \(fileName)"))
             log("Deleting \(fileName)")
-            error = fsTree.deleteNode(.File, fileName)
+            error = fsTree.deleteNode(victimNode: tempNode!, dirNode: fsTree.rootFileNode, false)
             try pluginApiAssert(error, msg: "There was an error removing the file \(fileName) . error - (\(error))")
         }
         
@@ -4616,13 +4657,17 @@ class T_performanceTest : BaseTest {
         calculateAvgTime(funcID: "fsops_lookup")
         
         for it in 0..<iterations {
-            _ = fsTree.deleteNode(NodeType.File, ("evennewfile" + String(it)))
+            var tempNode: Node_t?
+            (tempNode, _) = fsTree.lookUpNode(("evennewfile" + String(it)), dirNode: nil)
+            _ = fsTree.deleteNode(victimNode: tempNode!, dirNode: nil, false)
             updateTimeStat(funcID: "fsops_remove", elapsedTime: elapsed_time)
         }
         calculateAvgTime(funcID: "fsops_remove")
         
         for it in 0..<iterations {
-            _ = fsTree.deleteNode(NodeType.Dir, ("newdir" + String(it)))
+            var tempNode: Node_t?
+            (tempNode, _) = fsTree.lookUpNode(("newdir" + String(it)), dirNode: nil)
+            _ = fsTree.deleteNode(victimNode: tempNode!, dirNode: nil, false)
             updateTimeStat(funcID: "fsops_rmdir", elapsedTime: elapsed_time)
         }
         calculateAvgTime(funcID: "fsops_rmdir")
@@ -4666,7 +4711,7 @@ class T_dirtyBitLockTest : BaseTest {
             newAttrs.fa_validmask |= UVFS_FA_VALID_MODE
             newAttrs.fa_mode = brdg_convertModeToUserBits(UInt32(UVFS_FA_MODE_RWX))
             newAttrs.fa_validmask |= UVFS_FA_VALID_SIZE
-            newAttrs.fa_size = UInt64(self.mountPoint.totalDiskSize!)
+            newAttrs.fa_size = UInt64(self.mountPoint.totalDiskSize!) / 2
             
             log("Calling to dirtyBlockTest_Write")
             _ = dirtyBlockTest_Create(&self.fsTree.testerFsOps, &(dirNode.node), "newFile", &newAttrs, &pOutNode)
@@ -4677,7 +4722,12 @@ class T_dirtyBitLockTest : BaseTest {
         error = dirtyBlockTest_Sync(&fsTree.testerFsOps, &(fsTree.rootFileNode.node))
         log("Sync ended")
         
-        _ = fsTree.deleteNode(.File, "newFile")
+        var tempNode: Node_t?
+        (tempNode, error) = fsTree.lookUpNode("newFile", dirNode: self.fsTree.nodesArr[0])
+        if error != SUCCESS {
+            log("Failed to lookup node \"newFile\"")
+        }
+        _ = fsTree.deleteNode(victimNode: tempNode!, dirNode: self.fsTree.nodesArr[0], false)
         var msg : String = ""
         if error != SUCCESS {
             if error == EWOULDBLOCK { msg = "Error, create operation is not blocking the sync operation" }
@@ -4963,14 +5013,14 @@ class T_CloneDirectoryTest : BaseTest {
         // Clean everything
         for index in 0...100 {
             let fileName : String = "Iamjustasimplefile_" + String(index)
-            _ = self.fsTree.deleteNode(NodeType.File, fileName , dirNode: fromDirHandler)
-            _ = self.fsTree.deleteNode(NodeType.File, fileName , dirNode: toDirHandler)
+            var (tempNode, _) = fsTree.lookUpNode(fileName, dirNode:fromDirHandler)
+            _ = self.fsTree.deleteNode(victimNode: tempNode , dirNode: fromDirHandler, false)
+            (tempNode, _) = fsTree.lookUpNode(fileName, dirNode:toDirHandler)
+            _ = self.fsTree.deleteNode(victimNode: tempNode, dirNode: toDirHandler, false)
         }
 
-//        _ = fsTree.reclaimNode(fromDirHandler)
-//        _ = fsTree.reclaimNode(toDirHandler)
-        _ = fsTree.deleteNode(NodeType.Dir, "toDir" , dirNode: fsTree.rootFileNode)
-        _ = fsTree.deleteNode(NodeType.Dir, "fromDir" , dirNode: fsTree.rootFileNode)
+        _ = fsTree.deleteNode(victimNode: toDirHandler, dirNode: fsTree.rootFileNode, false)
+        _ = fsTree.deleteNode(victimNode: fromDirHandler, dirNode: fsTree.rootFileNode, false)
 
         var msg : String = ""
         if error != SUCCESS {

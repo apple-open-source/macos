@@ -120,7 +120,7 @@
                                             XCTAssertEqual(strongSelf.testZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
                                         }];
 
-    CKKSCondition* registered = [apsr registerCKKSReceiver:anr];
+    CKKSCondition* registered = [apsr registerCKKSReceiver:anr contextID:@"contextID"];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
     APSIncomingMessage* message = [OctagonAPSReceiverTests messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
@@ -146,7 +146,7 @@
                                             XCTAssertNotNil(notification, "Should have received a (stored) notification");
                                         }];
 
-    CKKSCondition* registered = [apsr registerCKKSReceiver:anr];
+    CKKSCondition* registered = [apsr registerCKKSReceiver:anr contextID:@"contextID"];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];

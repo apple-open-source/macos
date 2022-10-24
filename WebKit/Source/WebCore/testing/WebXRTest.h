@@ -46,6 +46,7 @@ public:
         Vector<FakeXRViewInit> views;
 
         std::optional<Vector<JSC::JSValue>> supportedFeatures;
+        std::optional<Vector<JSC::JSValue>> enabledFeatures;
 
         std::optional<Vector<FakeXRBoundsPoint>> boundsCoordinates;
 
@@ -53,7 +54,7 @@ public:
         std::optional<FakeXRRigidTransformInit> viewerOrigin;
     };
 
-    static Ref<WebXRTest> create(WeakPtr<WebXRSystem>&& system) { return adoptRef(*new WebXRTest(WTFMove(system))); }
+    static Ref<WebXRTest> create(WeakPtr<WebXRSystem, WeakPtrImplWithEventTargetData>&& system) { return adoptRef(*new WebXRTest(WTFMove(system))); }
     virtual ~WebXRTest();
 
     using WebFakeXRDevicePromise = DOMPromiseDeferred<IDLInterface<WebFakeXRDevice>>;
@@ -68,10 +69,10 @@ public:
     void disconnectAllDevices(DOMPromiseDeferred<void>&&);
 
 private:
-    WebXRTest(WeakPtr<WebXRSystem>&& system)
+    WebXRTest(WeakPtr<WebXRSystem, WeakPtrImplWithEventTargetData>&& system)
         : m_context(WTFMove(system)) { }
 
-    WeakPtr<WebXRSystem> m_context;
+    WeakPtr<WebXRSystem, WeakPtrImplWithEventTargetData> m_context;
     Vector<Ref<WebFakeXRDevice>> m_devices;
 };
 

@@ -669,6 +669,18 @@ int32_t xar_prop_get(xar_file_t f, const char *key, const char **value) {
 	return 0;
 }
 
+int32_t xar_prop_get_expect_notnull(xar_file_t f, const char *key, const char **value)
+{
+	int result = xar_prop_get(f, key, value);
+	
+	// If we succeeded and the value is being returned and it's NULL. FAIL
+	if (result == 0 && value && (*value == NULL)) {
+		return -1;
+	}
+
+	return result;
+}
+
 xar_prop_t xar_prop_pget(xar_prop_t p, const char *key) {
 	char *tmp;
 	const char *k;
@@ -979,13 +991,14 @@ int xar_file_name_cmp(xar_file_t f, const char *name) {
 	if (lower_name) {
 		const char *cur_name = NULL;
 		xar_prop_get(f, "name", &cur_name);
-		
-		char *lower_cur_name = xar_lowercase_string(cur_name);
-		if (lower_cur_name) {
-			result = strcmp(lower_name, lower_cur_name);
-			free(lower_cur_name);
+		if (cur_name) {
+			char *lower_cur_name = xar_lowercase_string(cur_name);
+			if (lower_cur_name) {
+				result = strcmp(lower_name, lower_cur_name);
+				free(lower_cur_name);
+			}
+			free(lower_name);
 		}
-		free(lower_name);
 	}
 	return result;
 }

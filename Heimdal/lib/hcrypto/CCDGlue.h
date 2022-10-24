@@ -65,8 +65,6 @@ typedef struct CCDigestCtx_s *CCDigestRef;
 typedef const struct CCDigest_s *CCDigestAlg;
 
 
-#define kCCDigestMD2 (&hc_kCCDigestMD2_s)
-extern const struct CCDigest_s hc_kCCDigestMD2_s;
 #define kCCDigestMD4 (&hc_kCCDigestMD4_s)
 extern const struct CCDigest_s hc_kCCDigestMD4_s;
 #define kCCDigestMD5 (&hc_kCCDigestMD5_s)

@@ -509,7 +509,7 @@ DumpUniqueRecord(const CSSM_DB_UNIQUE_RECORD &record)
 	unsigned i;
 	for (i = 0; i < record.RecordIdentifier.Length; ++i)
 	{
-		sprintf(hexBuffer, "%02X", record.RecordIdentifier.Data[i]);
+		snprintf(hexBuffer, sizeof(hexBuffer), "%02X", record.RecordIdentifier.Data[i]);
 		output += hexBuffer;
 	}
 	

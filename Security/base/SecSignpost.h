@@ -60,6 +60,8 @@ typedef CF_ENUM(unsigned int, SecSignpostType) {
     SecSignpostSecItemCopyMatching          = 24,
     SecSignpostUpgradePhase3                = 26,
 
+    SecSignpostSecSyncBubbleTransfer        = 28,
+
     SecSignpostImpulse                         = 0x1000,
     SecSignpostImpulseBackupClassCount         = 0x1001,
     SecSignpostImpulseRestoreClassCount        = 0x1002,

@@ -258,11 +258,12 @@ CFAbsoluteTime genTimeToCFAbsTime(
 
 /*
  * Convert CFAbsoluteTime to generalized time string, GMT format (4 digit year,
- * trailing 'Z'). Caller allocated the output which is GENERAL_TIME_STRLEN+1 bytes.
+ * trailing 'Z').
  */
-void cfAbsTimeToGgenTime(
+void cfAbsTimeToGgenTime2(
 	CFAbsoluteTime		absTime,
-	char				*genTime)
+	char				*genTime,
+	size_t			genTimeSz)
 {
 	/* time zone = GMT */
 	CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0.0);
@@ -270,7 +271,7 @@ void cfAbsTimeToGgenTime(
     CFRelease(tz);
 
 	int seconds = (int)greg.second;
-	sprintf(genTime, "%04d%02d%02d%02d%02d%02dZ",
+	snprintf(genTime, genTimeSz, "%04d%02d%02d%02d%02d%02dZ",
 				(int)greg.year, greg.month, greg.day, greg.hour,
 				greg.minute, seconds);
 }

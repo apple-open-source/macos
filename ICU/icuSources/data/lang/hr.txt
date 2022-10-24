@@ -42,6 +42,7 @@ hr{
         an{"aragonski"}
         ang{"staroengleski"}
         anp{"angika"}
+        apw{"apache, zapadno"}
         ar{"arapski"}
         ar_001{"moderni standardni arapski"}
         arc{"aramejski"}
@@ -201,6 +202,7 @@ hr{
         grc{"starogrčki"}
         gsw{"švicarski njemački"}
         gu{"gudžaratski"}
+        guc{"wayuu"}
         guz{"gusii"}
         gv{"manski"}
         gwi{"gwich’in"}
@@ -276,6 +278,7 @@ hr{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karachay-balkar"}
+        kri{"krio"}
         krl{"karelijski"}
         kru{"kuruški"}
         ks{"kašmirski"}
@@ -529,6 +532,7 @@ hr{
         vai{"vai"}
         ve{"venda"}
         vi{"vijetnamski"}
+        vls{"zapadnoflamanski"}
         vo{"volapük"}
         vot{"votski"}
         vun{"vunjo"}

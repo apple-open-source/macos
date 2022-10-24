@@ -1011,7 +1011,7 @@ int Swig_ConstructorToFunction(Node *n, String *classname, String *none_comparis
   Parm *p;
   ParmList *directorparms;
   SwigType *type;
-  Node *classNode;
+  __unused Node *classNode;
   int use_director;
 
   classNode = Swig_methodclass(n);

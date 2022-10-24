@@ -65,6 +65,7 @@
 #include <netsmb/smb2_mc_support.h>
 
 #include <smbfs/smbfs.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -262,7 +263,7 @@ smbfs_lock_uninit()
 
 	/* Free global lease hash table */
 	if (g_lease_hash) {
-		SMB_FREE(g_lease_hash, M_SMBFSHASH);
+        hashdestroy(g_lease_hash, M_SMBFSHASH, g_lease_hash_len);
 		g_lease_hash = (void *)0xDEAD5AB0;
 	}
 	lck_mtx_destroy(&global_Lease_hash_lock, smbfs_mutex_group);
@@ -391,7 +392,7 @@ isServerInSameDomain(struct smb_share *share, struct smbmount *smp)
 {
 	/* Just to be safe */
     if (smp->ntwrk_sids) {
-        SMB_FREE(smp->ntwrk_sids, M_TEMP);
+        SMB_FREE_DATA(smp->ntwrk_sids, smp->ntwrk_sids_allocsize);
     }
 
 	smp->ntwrk_sids_cnt = 0;
@@ -407,9 +408,10 @@ isServerInSameDomain(struct smb_share *share, struct smbmount *smp)
 		/* See if the session network SID is known by Directory Service */
 		if ((smp->sm_args.altflags & SMBFS_MNT_DEBUG_ACL_ON) ||
 			(smbfs_is_sid_known(&SS_TO_SESSION(share)->session_ntwrk_sid))) {
-			SMB_MALLOC(smp->ntwrk_sids, ntsid_t *, sizeof(ntsid_t), M_TEMP, M_WAITOK);
+            SMB_MALLOC_DATA(smp->ntwrk_sids, sizeof(ntsid_t), Z_WAITOK);
 			memcpy(smp->ntwrk_sids, &SS_TO_SESSION(share)->session_ntwrk_sid, sizeof(ntsid_t));
 			smp->ntwrk_sids_cnt = 1;
+            smp->ntwrk_sids_allocsize = sizeof(ntsid_t);
 			return;
 		}
 	}
@@ -787,8 +789,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		goto bad;
 	}
 
-	SMB_MALLOC(args, struct smb_mount_args *, sizeof(*args), M_SMBFSDATA, 
-		   M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(args, struct smb_mount_args, Z_WAITOK_ZERO);
 	if (!args) {
 		SMBDEBUG("Couldn't malloc the mount arguments!");
 		error = ENOMEM;
@@ -834,7 +835,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		goto bad;
 	}
 	
-	SMB_MALLOC(smp, struct smbmount*, sizeof(*smp), M_SMBFSDATA, M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(smp, struct smbmount, Z_WAITOK_ZERO);
 	if (smp == NULL) {
 		SMBDEBUG("Couldn't malloc the smb mount structure!");
 		error = ENOMEM;
@@ -901,7 +902,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	smp->sm_args.dir_mode  = args->dir_mode & ACCESSPERMS;
 	if (args->volume_name[0]) {
 		smp->sm_args.volume_name = smb_strndup(args->volume_name, 
-											   sizeof(args->volume_name));
+											   sizeof(args->volume_name), &smp->sm_args.volume_name_allocsize);
 	} else {
 		smp->sm_args.volume_name = NULL;
 	}
@@ -1045,15 +1046,14 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     }
 
     smp->sm_args.unique_id_len = args->unique_id_len;
-	SMB_MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
-		   M_SMBFSDATA, M_WAITOK);
+    SMB_MALLOC_DATA(smp->sm_args.unique_id, smp->sm_args.unique_id_len, Z_WAITOK);
 	if (smp->sm_args.unique_id) {
 		bcopy(args->unique_id, smp->sm_args.unique_id, smp->sm_args.unique_id_len);
 	} else {
 		smp->sm_args.unique_id_len = 0;
 	}
 
-	SMB_FREE(args, M_SMBFSDATA);	/* Done with the args free them */
+    SMB_FREE_TYPE(struct smb_mount_args, args);
     args = NULL;
 
     if (smp->sm_args.altflags & SMBFS_MNT_TIME_MACHINE) {
@@ -1356,7 +1356,9 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         if ((SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_LEASING) &&
             !(SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) &&
             (SS_TO_SESSION(share)->session_misc_flags & SMBV_OSX_SERVER) &&
-            (SS_TO_SESSION(share)->session_server_caps & (kAAPL_SUPPORTS_READ_DIR_ATTR | kAAPL_SUPPORTS_OSX_COPYFILE | kAAPL_UNIX_BASED))) {
+            (SS_TO_SESSION(share)->session_server_caps & kAAPL_SUPPORTS_READ_DIR_ATTR) &&
+            (SS_TO_SESSION(share)->session_server_caps & kAAPL_SUPPORTS_OSX_COPYFILE) &&
+            (SS_TO_SESSION(share)->session_server_caps & kAAPL_UNIX_BASED)) {
             SMBWARNING("Found older macOS server, disabling File Deferred Close for %s volume\n",
                        (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
             share->ss_max_def_close_cnt = 0;
@@ -1552,6 +1554,29 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         smbfs_start_svrmsg_notify(smp);
     }
 	
+    /*
+     * Are we assuming SMB 3.x always has durable handle V2 and lease V2?
+     * [MS-SMB2] 3.2.4.3.5 says that SMB 3.x must use durable handle V2
+     * [MS-SMB2] 3.2.4.3.8 says that SMB 3.x must use lease V2
+     *
+     * nsmb.conf provides a way to override this assumption.
+     */
+    if (!(smp->sm_args.altflags & SMBFS_MNT_ASSUME_DUR_LEASE_V2_OFF)) {
+        /* If SMB version 3.x, then durable handle and leases must be V2 */
+        if (SMBV_SMB3_OR_LATER(SS_TO_SESSION(share))) {
+            SS_TO_SESSION(share)->session_misc_flags |= SMBV_HAS_DUR_HNDL_V2;
+        }
+    }
+    else {
+        SMBWARNING("Do not assume durable handle V2 for %s volume \n",
+                   vfs_statfs(mp)->f_mntfromname);
+    }
+
+    if (smp->sm_args.altflags & SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY) {
+        SMBWARNING("Durable handle/leases only for O_EXLOCK/O_SHLOCK files for %s volume \n",
+                   vfs_statfs(mp)->f_mntfromname);
+    }
+
     if (SS_TO_SESSION(share)->session_sopt.sv_capabilities & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) {
         /*
          * If the server supports persistent handles, then it must
@@ -1560,6 +1585,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         SS_TO_SESSION(share)->session_misc_flags |= SMBV_HAS_DUR_HNDL_V2;
     }
 
+    /* For TM/SMB, leave in the check for durable handle V2 to be paranoid */
     if (smp->sm_args.altflags & SMBFS_MNT_TIME_MACHINE) {
 		/*
 		 * Check if Durable Handle V2 supported for this Time Machine mount
@@ -1578,7 +1604,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 			}
 		}
 	}
-
+    
     /* Set the IP QoS if provided */
     if (smp->sm_args.ip_QoS != 0) {
         SMBWARNING("Setting custom IP Qos to <%d> for %s volume\n",
@@ -1615,7 +1641,7 @@ bad:
         
 		/* Was malloced by hashinit */
 		if (smp->sm_hash) {
-			SMB_FREE(smp->sm_hash, M_SMBFSHASH);
+            hashdestroy(smp->sm_hash, M_SMBFSHASH, smp->sm_hashlen);
 		}
 		
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
@@ -1624,29 +1650,29 @@ bad:
         lck_mtx_destroy(&smp->sm_svrmsg_lock, smbfs_mutex_group);
 		
 		if (smp->sm_args.volume_name) {
-			SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);
+            SMB_FREE_DATA(smp->sm_args.volume_name, smp->sm_args.volume_name_allocsize);
 		}
 		if (smp->sm_args.local_path != NULL) {
-			SMB_FREE(smp->sm_args.local_path, M_TEMP);
+            SMB_FREE_DATA(smp->sm_args.local_path, smp->sm_args.local_path_len + 1);
 		}
 		if (smp->sm_args.network_path != NULL) {
-			SMB_FREE(smp->sm_args.network_path, M_TEMP);
+            SMB_FREE_DATA(smp->sm_args.network_path, smp->sm_args.network_path_len);
 		}
 		if (smp->sm_args.unique_id) {
-			SMB_FREE(smp->sm_args.unique_id, M_SMBFSDATA);
+            SMB_FREE_DATA(smp->sm_args.unique_id, smp->sm_args.unique_id_len);
 		}
 		if (smp->ntwrk_gids) {
-			SMB_FREE(smp->ntwrk_gids, M_TEMP);
+            SMB_FREE_DATA(smp->ntwrk_gids, smp->ntwrk_gids_allocsize);
 		}
 		if (smp->ntwrk_sids) {
-			SMB_FREE(smp->ntwrk_sids, M_TEMP);
+            SMB_FREE_DATA(smp->ntwrk_sids, smp->ntwrk_sids_allocsize);
 		}
 
-        SMB_FREE(smp, M_SMBFSDATA);
+        SMB_FREE_TYPE(struct smbmount, smp);
 	}
 
     if (args != NULL) {
-        SMB_FREE(args, M_SMBFSDATA); /* Done with the args free them */
+        SMB_FREE_TYPE(struct smb_mount_args, args);
     }
 
     SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -1748,8 +1774,8 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 		goto done;
 	}
 
-	SMB_LOG_UNIT_TEST("FileLeaseUnitTest - total def close count <%lld> on <%s> \n",
-					  share->ss_total_def_close_cnt, share->ss_name);
+	SMB_LOG_LEASING("total def close count <%lld> on <%s> \n",
+                    share->ss_total_def_close_cnt, share->ss_name);
 
 	smp->sm_rvp = NULL;	/* We no longer have a reference so clear it out */
 	vnode_rele(vp);	/* to drop ref taken by smbfs_mount */
@@ -1789,7 +1815,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	vfs_setfsprivate(mp, (void *)0);
 
 	if (smp->sm_hash) {
-		SMB_FREE(smp->sm_hash, M_SMBFSHASH);
+        hashdestroy(smp->sm_hash, M_SMBFSHASH, smp->sm_hashlen);
 		smp->sm_hash = (void *)0xDEAD5AB0;
 	}
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
@@ -1799,25 +1825,25 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
     
     if (smp->sm_args.volume_name) {
-        SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
+        SMB_FREE_DATA(smp->sm_args.volume_name, smp->sm_args.volume_name_allocsize);
     }
-	if (smp->sm_args.local_path) {
-		SMB_FREE(smp->sm_args.local_path, M_SMBSTR);
-	}
-    if (smp->sm_args.network_path) {
-        SMB_FREE(smp->sm_args.network_path, M_SMBSTR);
+    if (smp->sm_args.local_path != NULL) {
+        SMB_FREE_DATA(smp->sm_args.local_path, smp->sm_args.local_path_len + 1);
+    }
+    if (smp->sm_args.network_path != NULL) {
+        SMB_FREE_DATA(smp->sm_args.network_path, smp->sm_args.network_path_len);
     }
     if (smp->sm_args.unique_id) {
-        SMB_FREE(smp->sm_args.unique_id, M_SMBSTR);	
+        SMB_FREE_DATA(smp->sm_args.unique_id, smp->sm_args.unique_id_len);
     }
     if (smp->ntwrk_gids) {
-        SMB_FREE(smp->ntwrk_gids, M_SMBSTR);	
+        SMB_FREE_DATA(smp->ntwrk_gids, smp->ntwrk_gids_allocsize);
     }
     if (smp->ntwrk_sids) {
-        SMB_FREE(smp->ntwrk_sids, M_SMBSTR);	
+        SMB_FREE_DATA(smp->ntwrk_sids, smp->ntwrk_sids_allocsize);
     }
     if (smp) {
-        SMB_FREE(smp, M_SMBSTR);	
+        SMB_FREE_TYPE(struct smbmount, smp);
     }
     
 	vfs_clearflags(mp, MNT_LOCAL);
@@ -2023,11 +2049,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
         goto done;
     }
 
-    SMB_MALLOC(cachedstatfs,
-               struct vfsstatfs *,
-               sizeof(struct vfsstatfs),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(cachedstatfs, struct vfsstatfs, Z_WAITOK_ZERO);
 
     if (cachedstatfs == NULL) {
         SMBERROR("cachedstatfs failed malloc\n");
@@ -2527,11 +2549,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 		if (smp->sm_args.volume_name) {
             if ((sessionp->session_misc_flags & SMBV_MNT_SNAPSHOT) &&
                 (strnlen(sessionp->snapshot_time, sizeof(sessionp->snapshot_time)) > 0)) {
-                SMB_MALLOC(tmp_str,
-                           char *,
-                           MAXPATHLEN,
-                           M_SMBTEMP,
-                           M_WAITOK | M_ZERO);
+                SMB_MALLOC_DATA(tmp_str, MAXPATHLEN, Z_WAITOK_ZERO);
 
                 if (tmp_str == NULL) {
                     SMBERROR("tmp_str failed malloc\n");
@@ -2567,11 +2585,11 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 
 done:
     if (cachedstatfs) {
-        SMB_FREE(cachedstatfs, M_TEMP);
+        SMB_FREE_TYPE(struct vfsstatfs, cachedstatfs);
     }
 
     if (tmp_str) {
-        SMB_FREE(tmp_str, M_TEMP);
+        SMB_FREE_DATA(tmp_str, MAXPATHLEN);
     }
 
     SMB_LOG_KTRACE(SMB_DBG_VFS_GETATTR | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -2621,8 +2639,8 @@ smbfs_sync_callback(vnode_t vp, void *args)
 
 	if (vnode_isreg(vp)) {
 		/* 
-		 * See if the file needs to be reopened. Ignore the error if being 
-		 * revoke it will get caught below 
+		 * See if the file needs to be reopened or revoked. Ignore the error if
+		 * being revoked it will get caught below
 		 */
 		(void)smbfs_smb_reopen_file(share, np, cargs->context);
 
@@ -2640,17 +2658,19 @@ smbfs_sync_callback(vnode_t vp, void *args)
 		lck_mtx_unlock(&np->f_openStateLock);
 		
 		/* 
-		 * If we have reached the low water mark of deferred closes, see if 
-		 * this file can closw any deferred closes now.
+		 * See if this file can close any deferred closes now.
+         * Especially since all files now have leases and potentially
+         * have pending deferred closes and we dont want to keep too many
+         * open files on the server.
 		 */
-		if (OSAddAtomic(0, &share->ss_curr_def_close_cnt) > k_def_close_lo_water) {
-			CloseDeferredFileRefs(vp, "smbfs_sync_callback",
-								  1, cargs->context);
-		}
+        CloseDeferredFileRefs(vp, "smbfs_sync_callback", 1, cargs->context);
+        
+        /* Can we upgrade the lease? */
+        smb2fs_smb_lease_upgrade(share, vp, "SyncLeaseUpgrade", cargs->context);
 	}
     else if (vnode_isdir(vp)) {
         /* See if dir enumeration cache has expired and can be freed */
-        smb_dir_cache_check(vp, &np->d_main_cache, 0);
+        smb_dir_cache_check(vp, &np->d_main_cache, 0, cargs->context);
     }
     
 	/*
@@ -2815,6 +2835,7 @@ smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
     struct smbfattr *fap = NULL;
     uint32_t resolve_error = 0;
     char *server_path = NULL;
+    size_t server_path_allocsize = 0;
     vnode_t root_vp = NULL;
     struct smbnode *root_np = NULL;
 
@@ -2826,24 +2847,16 @@ smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
         goto done;
     }
 
-    SMB_MALLOC(path,
-               char *,
-               MAXPATHLEN,
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(path, MAXPATHLEN, Z_WAITOK_ZERO);
     if (path == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_DATA failed\n");
         error = ENOMEM;
         goto done;
     }
 
-    SMB_MALLOC(fap,
-               struct smbfattr *,
-               sizeof(struct smbfattr),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
     if (fap == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto done;
     }
@@ -2908,7 +2921,7 @@ smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
         root_np = VTOSMB(root_vp);
 
         error = smb2fs_smb_cmpd_resolve_id(share, root_np,
-                                           ino, &resolve_error, &server_path,
+                                           ino, &resolve_error, &server_path, &server_path_allocsize,
                                            context);
         if (error) {
             goto done;
@@ -3005,15 +3018,15 @@ done:
     }
 
     if (server_path) {
-        SMB_FREE(server_path, M_SMBTEMP);
+        SMB_FREE_DATA(server_path, server_path_allocsize);
     }
 
     if (fap) {
-        SMB_FREE(fap, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smbfattr, fap);
     }
     
     if (path) {
-        SMB_FREE(path, M_SMBTEMP);
+        SMB_FREE_DATA(path, MAXPATHLEN);
     }
 
     /* We only have a share if we took a reference, release it */
@@ -3142,13 +3155,13 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 			len += 1; /* Slash */
 			len += strnlen(share->ss_name, SMB_MAXSHARENAMELEN);
 			len += 1; /* null byte */
-			SMB_MALLOC(serverShareStr, char *, len, M_TEMP, M_WAITOK | M_ZERO);
+            SMB_MALLOC_DATA(serverShareStr, len, Z_WAITOK_ZERO);
 			strlcpy(serverShareStr, SS_TO_SESSION(share)->session_srvname, len);
 			strlcat(serverShareStr, "/", len);
 			strlcat(serverShareStr, share->ss_name, len);
 			smb_share_rele(share, context);
 			error = SYSCTL_OUT(req, serverShareStr, len);
-			SMB_FREE(serverShareStr, M_TEMP);
+            SMB_FREE_DATA(serverShareStr, len);
 			break;
 		}
 		case SMBFS_SYSCTL_REMOUNT_INFO:
@@ -3336,7 +3349,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
                 return SYSCTL_OUT(req, NULL, totlen);
             }
             
-            MALLOC(nsp, struct netfs_status *, totlen, M_TEMP, M_WAITOK|M_ZERO);
+            SMB_MALLOC_DATA(nsp, totlen, Z_WAITOK_ZERO);
             if (nsp == NULL) {
                 smb_share_rele(share, context);
                 return ENOMEM;

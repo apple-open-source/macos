@@ -12,13 +12,16 @@
 			<key>Command</key>
 			<array>
 				<string>/usr/local/libexec/openssh/regression-tests/runtests.sh</string>
+				<string>-b</string>
 			</array>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>/private/tmp/ssh_regression_tests_.*/.*log</string>
 			</array>
-            <key>Timeout</key>
-            <integer>3600</integer>
+			<key>Timeout</key>
+			<integer>3600</integer>
+			<key>ShowSubtestResults</key>
+			<true/>
 		</dict>
 	</array>
 </dict>

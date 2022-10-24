@@ -30,6 +30,7 @@
 
 #include "Connection.h"
 #include "RemoteCaptureSampleManagerMessages.h"
+#include "RemoteVideoFrameObjectHeap.h"
 #include "SharedRingBufferStorage.h"
 #include "UserMediaCaptureManagerMessages.h"
 #include "UserMediaCaptureManagerProxyMessages.h"
@@ -42,7 +43,7 @@
 #include <WebCore/MediaConstraints.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/RealtimeVideoSource.h>
-#include <WebCore/RemoteVideoSample.h>
+#include <WebCore/VideoFrameCV.h>
 #include <WebCore/WebAudioBufferList.h>
 #include <wtf/UniqueRef.h>
 
@@ -54,14 +55,15 @@ using namespace WebCore;
 class UserMediaCaptureManagerProxy::SourceProxy
     : private RealtimeMediaSource::Observer
     , private RealtimeMediaSource::AudioSampleObserver
-    , private RealtimeMediaSource::VideoSampleObserver {
+    , private RealtimeMediaSource::VideoFrameObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    SourceProxy(RealtimeMediaSourceIdentifier id, Ref<IPC::Connection>&& connection, ProcessIdentity&& resourceOwner, Ref<RealtimeMediaSource>&& source)
+    SourceProxy(RealtimeMediaSourceIdentifier id, Ref<IPC::Connection>&& connection, ProcessIdentity&& resourceOwner, Ref<RealtimeMediaSource>&& source, RefPtr<RemoteVideoFrameObjectHeap>&& videoFrameObjectHeap)
         : m_id(id)
         , m_connection(WTFMove(connection))
         , m_resourceOwner(WTFMove(resourceOwner))
         , m_source(WTFMove(source))
+        , m_videoFrameObjectHeap(WTFMove(videoFrameObjectHeap))
     {
         m_source->addObserver(*this);
         switch (m_source->type()) {
@@ -69,27 +71,20 @@ public:
             m_source->addAudioSampleObserver(*this);
             break;
         case RealtimeMediaSource::Type::Video:
-            m_source->addVideoSampleObserver(*this);
+            m_source->addVideoFrameObserver(*this);
             break;
-        case RealtimeMediaSource::Type::None:
-            ASSERT_NOT_REACHED();
         }
     }
 
     ~SourceProxy()
     {
-        // Make sure the rendering thread is stopped before we proceed with the destruction.
-        stop();
-
         switch (m_source->type()) {
         case RealtimeMediaSource::Type::Audio:
             m_source->removeAudioSampleObserver(*this);
             break;
         case RealtimeMediaSource::Type::Video:
-            m_source->removeVideoSampleObserver(*this);
+            m_source->removeVideoFrameObserver(*this);
             break;
-        case RealtimeMediaSource::Type::None:
-            ASSERT_NOT_REACHED();
         }
         m_source->removeObserver(*this);
 
@@ -104,24 +99,25 @@ public:
     void audioUnitWillStart() final
     {
         AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, RouteSharingPolicy::Default);
+        AudioSession::sharedSession().tryToSetActive(true);
     }
 
     void start()
     {
         m_shouldReset = true;
-        m_isEnded = false;
+        m_isStopped = false;
         m_source->start();
     }
 
     void stop()
     {
-        m_isEnded = true;
+        m_isStopped = true;
         m_source->stop();
     }
 
-    void requestToEnd()
+    void end()
     {
-        m_isEnded = true;
+        m_isStopped = true;
         m_source->requestToEnd(*this);
     }
 
@@ -129,11 +125,7 @@ public:
 
 private:
     void sourceStopped() final {
-        if (m_source->captureDidFail()) {
-            m_connection->send(Messages::UserMediaCaptureManager::CaptureFailed(m_id), 0);
-            return;
-        }
-        m_connection->send(Messages::UserMediaCaptureManager::SourceStopped(m_id), 0);
+        m_connection->send(Messages::UserMediaCaptureManager::SourceStopped(m_id, m_source->captureDidFail()), 0);
     }
 
     void sourceMutedChanged() final {
@@ -177,43 +169,52 @@ private:
             m_captureSemaphore->signal();
     }
 
-    void videoSampleAvailable(MediaSample& sample, VideoSampleMetadata metadata) final
+    RefPtr<VideoFrame> rotateVideoFrameIfNeeded(VideoFrame& frame)
     {
-        std::unique_ptr<RemoteVideoSample> remoteSample;
-        if (m_shouldApplyRotation && sample.videoRotation() != MediaSample::VideoRotation::None) {
-            auto pixelBuffer = rotatePixelBuffer(sample);
-            remoteSample = RemoteVideoSample::create(pixelBuffer.get(), sample.presentationTime());
-        } else
-            remoteSample = RemoteVideoSample::create(sample);
-        if (remoteSample) {
-            if (m_resourceOwner)
-                remoteSample->setOwnershipIdentity(m_resourceOwner);
-            m_connection->send(Messages::RemoteCaptureSampleManager::VideoSampleAvailable(m_id, WTFMove(*remoteSample), metadata), 0);
+        if (m_shouldApplyRotation && frame.rotation() != VideoFrame::Rotation::None) {
+            auto pixelBuffer = rotatePixelBuffer(frame);
+            return VideoFrameCV::create(frame.presentationTime(), frame.isMirrored(), VideoFrame::Rotation::None, WTFMove(pixelBuffer));
         }
+        return &frame;
     }
 
-    RetainPtr<CVPixelBufferRef> rotatePixelBuffer(MediaSample& sample)
+    void videoFrameAvailable(VideoFrame& frame, VideoFrameTimeMetadata metadata) final
+    {
+        auto videoFrame = rotateVideoFrameIfNeeded(frame);
+        if (!videoFrame)
+            return;
+        if (m_resourceOwner)
+            videoFrame->setOwnershipIdentity(m_resourceOwner);
+        if (!m_videoFrameObjectHeap) {
+            m_connection->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailableCV(m_id, videoFrame->pixelBuffer(), videoFrame->rotation(), videoFrame->isMirrored(), videoFrame->presentationTime(), metadata), 0);
+            return;
+        }
+        auto properties = m_videoFrameObjectHeap->add(*videoFrame);
+        m_connection->send(Messages::RemoteCaptureSampleManager::VideoFrameAvailable(m_id, properties, metadata), 0);
+    }
+
+    RetainPtr<CVPixelBufferRef> rotatePixelBuffer(VideoFrame& videoFrame)
     {
         if (!m_rotationSession)
             m_rotationSession = makeUnique<ImageRotationSessionVT>();
 
         ImageRotationSessionVT::RotationProperties rotation;
-        switch (sample.videoRotation()) {
-        case MediaSample::VideoRotation::None:
+        switch (videoFrame.rotation()) {
+        case VideoFrame::Rotation::None:
             ASSERT_NOT_REACHED();
             rotation.angle = 0;
             break;
-        case MediaSample::VideoRotation::UpsideDown:
+        case VideoFrame::Rotation::UpsideDown:
             rotation.angle = 180;
             break;
-        case MediaSample::VideoRotation::Right:
+        case VideoFrame::Rotation::Right:
             rotation.angle = 90;
             break;
-        case MediaSample::VideoRotation::Left:
+        case VideoFrame::Rotation::Left:
             rotation.angle = 270;
             break;
         }
-        return m_rotationSession->rotate(sample, rotation, ImageRotationSessionVT::IsCGImageCompatible::No);
+        return m_rotationSession->rotate(videoFrame, rotation, ImageRotationSessionVT::IsCGImageCompatible::No);
     }
 
     void storageChanged(SharedMemory* storage, const WebCore::CAAudioStreamDescription& format, size_t frameCount)
@@ -234,7 +235,7 @@ private:
     bool preventSourceFromStopping()
     {
         // Do not allow the source to stop if we are still using it.
-        return !m_isEnded;
+        return !m_isStopped;
     }
 
     RealtimeMediaSourceIdentifier m_id;
@@ -245,7 +246,7 @@ private:
     std::unique_ptr<CARingBuffer> m_ringBuffer;
     CAAudioStreamDescription m_description { };
     int64_t m_numberOfFrames { 0 };
-    bool m_isEnded { false };
+    bool m_isStopped { false };
     std::unique_ptr<ImageRotationSessionVT> m_rotationSession;
     bool m_shouldApplyRotation { false };
     std::unique_ptr<IPC::Semaphore> m_captureSemaphore;
@@ -254,6 +255,7 @@ private:
     size_t m_frameChunkSize { 0 };
     MediaTime m_startTime;
     bool m_shouldReset { false };
+    RefPtr<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
 };
 
 UserMediaCaptureManagerProxy::UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&& connectionProxy)
@@ -267,7 +269,74 @@ UserMediaCaptureManagerProxy::~UserMediaCaptureManagerProxy()
     m_connectionProxy->removeMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName());
 }
 
-void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(RealtimeMediaSourceIdentifier id, const CaptureDevice& device, String&& hashSalt, const MediaConstraints& mediaConstraints, CreateSourceCallback&& completionHandler)
+CaptureSourceOrError UserMediaCaptureManagerProxy::createMicrophoneSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
+{
+    auto sourceOrError = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().createAudioCaptureSource(device, WTFMove(hashSalt), mediaConstraints, pageIdentifier);
+    if (!sourceOrError)
+        return sourceOrError;
+
+    auto& perPageSources = m_pageSources.ensure(pageIdentifier, [] { return PageSources { }; }).iterator->value;
+
+    // FIXME: Support multiple microphones simultaneously.
+    if (auto* microphoneSource = perPageSources.microphoneSource.get()) {
+        if (microphoneSource->persistentID() != device.persistentId() && !microphoneSource->isEnded()) {
+            RELEASE_LOG_ERROR(WebRTC, "Ending microphone source as new source is using a different device.");
+            // FIXME: We should probably fail the capture in a way that shows a specific console log message.
+            microphoneSource->endImmediatly();
+        }
+    }
+
+    auto source = sourceOrError.source();
+    perPageSources.microphoneSource = WeakPtr { source.get() };
+    return source;
+}
+
+static bool canCaptureFromMultipleCameras()
+{
+#if PLATFORM(IOS_FAMILY)
+    return false;
+#else
+    return true;
+#endif
+}
+
+CaptureSourceOrError UserMediaCaptureManagerProxy::createCameraSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* mediaConstraints, PageIdentifier pageIdentifier)
+{
+    auto& perPageSources = m_pageSources.ensure(pageIdentifier, [] { return PageSources { }; }).iterator->value;
+    for (auto& cameraSource : perPageSources.cameraSources) {
+        // FIXME: Optimize multiple concurrent cameras.
+        if (cameraSource.persistentID() == device.persistentId() && !cameraSource.isEnded()) {
+            // We can reuse the source, let's do it.
+            auto source = cameraSource.clone();
+            if (mediaConstraints) {
+                auto error = source->applyConstraints(*mediaConstraints);
+                if (error)
+                    return WTFMove(error->message);
+            }
+            perPageSources.cameraSources.add(source.get());
+            return source;
+        }
+    }
+
+    auto sourceOrError = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().createVideoCaptureSource(device, WTFMove(hashSalt), mediaConstraints, pageIdentifier);
+    if (!sourceOrError)
+        return sourceOrError;
+
+    if (!canCaptureFromMultipleCameras()) {
+        perPageSources.cameraSources.forEach([](auto& source) {
+            RELEASE_LOG_ERROR(WebRTC, "Ending camera source as new source is using a different device.");
+            // FIXME: We should probably fail the capture in a way that shows a specific console log message.
+            source.endImmediatly();
+        });
+    }
+
+    auto source = sourceOrError.source();
+    source->monitorOrientation(m_orientationNotifier);
+    perPageSources.cameraSources.add(source.get());
+    return source;
+}
+
+void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(RealtimeMediaSourceIdentifier id, const CaptureDevice& device, String&& hashSalt, const MediaConstraints& mediaConstraints, bool shouldUseGPUProcessRemoteFrames, PageIdentifier pageIdentifier, CreateSourceCallback&& completionHandler)
 {
     if (!m_connectionProxy->willStartCapture(device.type()))
         return completionHandler(false, "Request is not allowed"_s, RealtimeMediaSourceSettings { }, { }, { }, { }, 0);
@@ -277,17 +346,16 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     CaptureSourceOrError sourceOrError;
     switch (device.type()) {
     case WebCore::CaptureDevice::DeviceType::Microphone:
-        sourceOrError = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().createAudioCaptureSource(device, WTFMove(hashSalt), constraints);
+        sourceOrError = createMicrophoneSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
         break;
     case WebCore::CaptureDevice::DeviceType::Camera:
-        sourceOrError = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().createVideoCaptureSource(device, WTFMove(hashSalt), constraints);
-        if (sourceOrError)
-            sourceOrError.captureSource->monitorOrientation(m_orientationNotifier);
+        sourceOrError = createCameraSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
         break;
     case WebCore::CaptureDevice::DeviceType::Screen:
     case WebCore::CaptureDevice::DeviceType::Window:
-        sourceOrError = RealtimeMediaSourceCenter::singleton().displayCaptureFactory().createDisplayCaptureSource(device, WTFMove(hashSalt), constraints);
+        sourceOrError = RealtimeMediaSourceCenter::singleton().displayCaptureFactory().createDisplayCaptureSource(device, WTFMove(hashSalt), constraints, pageIdentifier);
         break;
+    case WebCore::CaptureDevice::DeviceType::SystemAudio:
     case WebCore::CaptureDevice::DeviceType::Speaker:
     case WebCore::CaptureDevice::DeviceType::Unknown:
         ASSERT_NOT_REACHED();
@@ -317,7 +385,7 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
         }
 
         ASSERT(!m_proxies.contains(id));
-        auto proxy = makeUnique<SourceProxy>(id, m_connectionProxy->connection(), ProcessIdentity { m_connectionProxy->resourceOwner() }, WTFMove(source));
+        auto proxy = makeUnique<SourceProxy>(id, m_connectionProxy->connection(), ProcessIdentity { m_connectionProxy->resourceOwner() }, WTFMove(source), shouldUseGPUProcessRemoteFrames ? m_connectionProxy->remoteVideoFrameObjectHeap() : nullptr);
         m_proxies.add(id, WTFMove(proxy));
     } else
         invalidConstraints = WTFMove(sourceOrError.errorMessage);
@@ -349,7 +417,7 @@ void UserMediaCaptureManagerProxy::stopProducingData(RealtimeMediaSourceIdentifi
         proxy->stop();
 }
 
-void UserMediaCaptureManagerProxy::end(RealtimeMediaSourceIdentifier id)
+void UserMediaCaptureManagerProxy::removeSource(RealtimeMediaSourceIdentifier id)
 {
     m_proxies.remove(id);
 }
@@ -378,18 +446,23 @@ void UserMediaCaptureManagerProxy::applyConstraints(RealtimeMediaSourceIdentifie
         m_connectionProxy->connection().send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, result->badConstraint, result->message), 0);
 }
 
-void UserMediaCaptureManagerProxy::clone(RealtimeMediaSourceIdentifier clonedID, RealtimeMediaSourceIdentifier newSourceID)
+void UserMediaCaptureManagerProxy::clone(RealtimeMediaSourceIdentifier clonedID, RealtimeMediaSourceIdentifier newSourceID, WebCore::PageIdentifier pageIdentifier)
 {
     MESSAGE_CHECK(m_proxies.contains(clonedID));
     MESSAGE_CHECK(!m_proxies.contains(newSourceID));
-    if (auto* proxy = m_proxies.get(clonedID))
-        m_proxies.add(newSourceID, makeUnique<SourceProxy>(newSourceID, m_connectionProxy->connection(), ProcessIdentity { m_connectionProxy->resourceOwner() }, proxy->source().clone()));
+    if (auto* proxy = m_proxies.get(clonedID)) {
+        auto sourceClone = proxy->source().clone();
+        if (sourceClone->deviceType() == WebCore::CaptureDevice::DeviceType::Camera)
+            m_pageSources.ensure(pageIdentifier, [] { return PageSources { }; }).iterator->value.cameraSources.add(sourceClone.get());
+
+        m_proxies.add(newSourceID, makeUnique<SourceProxy>(newSourceID, m_connectionProxy->connection(), ProcessIdentity { m_connectionProxy->resourceOwner() }, WTFMove(sourceClone), m_connectionProxy->remoteVideoFrameObjectHeap()));
+    }
 }
 
-void UserMediaCaptureManagerProxy::requestToEnd(RealtimeMediaSourceIdentifier sourceID)
+void UserMediaCaptureManagerProxy::endProducingData(RealtimeMediaSourceIdentifier sourceID)
 {
     if (auto* proxy = m_proxies.get(sourceID))
-        proxy->requestToEnd();
+        proxy->end();
 }
 
 void UserMediaCaptureManagerProxy::setShouldApplyRotation(RealtimeMediaSourceIdentifier sourceID, bool shouldApplyRotation)

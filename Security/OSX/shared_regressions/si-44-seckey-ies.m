@@ -98,7 +98,7 @@ static void test_ies_run(id privateKey, SecKeyAlgorithm algorithm) {
 }
 static const int TestCountIESRun = 14;
 
-static void test_ecies() {
+static void test_ecies(void) {
     NSError *error;
     id privateKey;
 
@@ -164,7 +164,7 @@ static void test_ecies() {
 }
 static const int TestCountECIES = 4 * (TestCountIESRun * 9 + 1);
 
-static void test_rsawrap() {
+static void test_rsawrap(void) {
     NSError *error;
     id privateKey;
 
@@ -266,7 +266,7 @@ static void test_ies_against_corecrypto(id privKey, ccec_const_cp_t cp, const st
 }
 static const int TestCountIESAgainstCoreCryptoRun = 16;
 
-static void test_against_corecrypto() {
+static void test_against_corecrypto(void) {
     id privKey;
     NSDictionary *params;
     NSError *error;
@@ -367,7 +367,7 @@ static void test_ies_known_ciphertext(CFStringRef keyType, id keySize, SecKeyAlg
 }
 static const int TestCountTestIESKnownCipherText = 3;
 
-static void test_known_ciphertext() {
+static void test_known_ciphertext(void) {
     test_ies_known_ciphertext(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM, @"BJID1fgBoH7L1eHwBcJmZcP4oeuV0xDkeEEO3RdodExpqy5UQWf64FIfRRRbZKSA9cATBLVT0HIl2HXcDMYoX0kE9l8fA/G18w==", @"BMUM+ykbSAfK3zVjoqMpruH00UJWvtC05GITlPuqByGu7loVSl3LdOw8bmkHQB+yx6CdBuq2LGao1BqGP7rNYQRiVDrdA/klICsCm/HADu6a");
     test_ies_known_ciphertext(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM, @"BGvXnhpVlguy834KfbQUn/HHJVz1mE2q1TOI/c5VdryxFdTSIHzO1OntV7rHVqoKhMXvgmtE88aKr0E6dDESlTmGUXlXvD7AoQ==", @"BL8xaAaQBe3+4GR8e6BO+wupb4dNAr6NgjdqH7C1p55LKhJyEP2QQJo1YHXadXpqdSvh9wWBWiz4NDgMeQx8F5Vst6FWKDuzgQKY1QS8Zp0z");
     test_ies_known_ciphertext(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM, @"BPyRwvWxZr+tJsxRigfSQflyr1sq+CqUsh68E2JqNK33ud5J34OdI0dGSWe7/i4JF7l0a8piYVr4pkH2pTIPtYmwFAOGGtrzyA==", @"BAPIogml3kN6qJ7Lqdmah+C9LtxnGQ+npz1dj1wqf8UmCRScyjvB3Ir87vGLpOJTWNb7fWth+9FieyAyn9AtK9uRE+JH9x2mu2dmfVq+q48z");

@@ -126,6 +126,7 @@ onint(void)
 }
 
 
+__attribute__((format(printf, 1, 0)))
 static void
 vwarning(const char *msg, va_list ap)
 {

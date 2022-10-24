@@ -2,17 +2,42 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.private.nehelper.privileged</key>
+	<key>com.apple.SCDynamicStore.test.read-allow2.entitlement</key>
 	<true/>
-	<key>com.apple.private.necp.policies</key>
+	<key>com.apple.SCDynamicStore.test.read-deny1.entitlement</key>
 	<true/>
-	<key>com.apple.security.network.client</key>
+	<key>com.apple.SCDynamicStore.test.write-protect2.entitlement</key>
+	<true/>
+	<key>com.apple.SystemConfiguration.SCDynamicStore-write-access</key>
+	<dict>
+		<key>keys</key>
+		<array>
+			<string>com.apple.SCDynamicStore.test.read-deny1.key</string>
+			<string>com.apple.SCDynamicStore.test.read-deny2.key</string>
+			<string>com.apple.SCDynamicStore.test.read-allow1.key</string>
+			<string>com.apple.SCDynamicStore.test.read-allow2.key</string>
+			<string>com.apple.SCDynamicStore.test.read-unrestricted-present.key</string>
+			<string>com.apple.SCDynamicStore.test.read-unrestricted-not-present.key</string>
+			<string>com.apple.SCDynamicStore.test.write-protect2.key</string>
+		</array>
+		<key>patterns</key>
+		<array>
+			<string>SCTest:.*</string>
+		</array>
+	</dict>
+	<key>com.apple.SystemConfiguration.SCDynamicStore-read-no-fault</key>
+	<true/>
+	<key>com.apple.SystemConfiguration.SCDynamicStore-write-no-fault</key>
 	<true/>
 	<key>com.apple.SystemConfiguration.SCPreferences-write-access</key>
 	<array>
 		<string>SCTestPreferences.plist</string>
 	</array>
-	<key>com.apple.SystemConfiguration.SCDynamicStore-write-access</key>
+	<key>com.apple.private.necp.policies</key>
+	<true/>
+	<key>com.apple.private.nehelper.privileged</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>
 </plist>

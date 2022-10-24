@@ -6,7 +6,7 @@ Feature: AEWP - Authorization Execute With Privileges
   Background: 
 	  Given there is at least one administrator user account
 
-  @smoke
+  @smoke @regression @aqs
   Scenario: AEWP - AppleScript 
     Given I open Terminal
     # osascript -e 'do shell script "whoami" with administrator privileges'
@@ -16,6 +16,7 @@ Feature: AEWP - Authorization Execute With Privileges
     # You should see output of "whoami" command if the command from above was used 
     Then I get correct output from the command
   
+  @regression @aqs
   Scenario Outline: AEWP - third-party Apps
   # Run 'apendix' (AppleInternal) - download 'Maya' & 'Reason' installer
   # Maya asks for AEWP during it's installation

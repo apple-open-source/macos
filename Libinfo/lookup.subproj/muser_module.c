@@ -38,6 +38,9 @@ static int _si_muser_disabled = 0;
 static xpc_pipe_t __muser_pipe;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+#define kHasSecondaryUsers      0x40000000      // this device has Secondary Users
+
+
 XPC_RETURNS_RETAINED
 static xpc_pipe_t _muser_xpc_pipe(bool reset);
 
@@ -98,30 +101,29 @@ _muser_call(const char *procname, xpc_object_t payload)
 static int
 _muser_xpc_pipe_disabled(xpc_pipe_t pipe)
 {
-	xpc_object_t dict, reply = NULL;
-	int disabled = 0;
+	if (pipe != NULL) {
+		xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+		xpc_dictionary_set_string(dict, kLIMMessageReqtype, kLIMMessageReplyAvailable);
+		xpc_dictionary_set_int64(dict, kLIMMessageVersion, 1);
 
-	if (pipe == NULL) { return 1; }
+		xpc_object_t reply = NULL;
+		int rv = xpc_pipe_routine(pipe, dict, &reply);
 
-	dict = xpc_dictionary_create(NULL, NULL, 0);
-	xpc_dictionary_set_string(dict, kLIMMessageReqtype, kLIMMessageReplyAvailable);
-	xpc_dictionary_set_int64(dict, kLIMMessageVersion, 1);
+		xpc_release(dict);
+		dict = NULL;
 
-	int rv = xpc_pipe_routine(pipe, dict, &reply);
-	switch (rv) {
-	case 0:
-		disabled = !xpc_dictionary_get_bool(reply, kLIMMessageReplyAvailable);
-		xpc_release(reply);
-		break;
-	case EPIPE:
-	case EAGAIN:
-	default:
-		disabled = 1;
-		break;
+		if (rv == 0) {
+			int disabled = !xpc_dictionary_get_bool(reply, kLIMMessageReplyAvailable);
+			xpc_release(reply);
+			return disabled;
+		}
 	}
 
-	xpc_release(dict);
-	return disabled;
+	if (xpc_user_sessions_enabled()) {
+		/* retry re-connecting after a user switch */
+		return 0;
+	}
+	return 1;
 }
 
 static void
@@ -150,6 +152,25 @@ _muser_fork_parent(void)
 
 XPC_RETURNS_RETAINED
 static xpc_pipe_t
+_muser_xpc_pipe_create(void)
+{
+	uint64_t pipe_create_flags = XPC_PIPE_USE_SYNC_IPC_OVERRIDE | XPC_PIPE_PROPAGATE_QOS;
+
+	if (xpc_user_sessions_enabled()) {
+		errno_t error = 0;
+		uid_t foreground_uid = xpc_user_sessions_get_foreground_uid(&error);
+		if (error != 0) {
+			os_log_error(OS_LOG_DEFAULT, "xpc_user_sessions_get_foreground_uid() failed with error %d - %s", error, xpc_strerror(error));
+			return NULL;
+		}
+		return xpc_pipe_create_with_user_session_uid(kLibinfoMultiuserPortName, foreground_uid, pipe_create_flags);
+	}
+
+	return xpc_pipe_create(kLibinfoMultiuserPortName, pipe_create_flags);
+}
+
+XPC_RETURNS_RETAINED
+static xpc_pipe_t
 _muser_xpc_pipe(bool reset)
 {
 	static dispatch_once_t once;
@@ -169,7 +190,9 @@ _muser_xpc_pipe(bool reset)
 
 		/* check the xnu commpage bit to see if we're multiuser */
 		rv = host_get_multiuser_config_flags(mach_host_self(), &multiuser_flags);
-		if (rv == KERN_SUCCESS && (multiuser_flags & kIsMultiUserDevice) == 0) {
+		if (rv == KERN_SUCCESS &&
+			(((multiuser_flags & kIsMultiUserDevice) == 0) && ((multiuser_flags & kHasSecondaryUsers) == 0))
+			) {
 			_si_muser_disabled = 1;
 			return;
 		}
@@ -188,7 +211,7 @@ _muser_xpc_pipe(bool reset)
 	}
 
 	if (__muser_pipe == NULL) {
-		__muser_pipe = xpc_pipe_create(kLibinfoMultiuserPortName, XPC_PIPE_USE_SYNC_IPC_OVERRIDE | XPC_PIPE_PROPAGATE_QOS);
+		__muser_pipe = _muser_xpc_pipe_create();
 		if (!_si_muser_disabled) { _si_muser_disabled = _muser_xpc_pipe_disabled(__muser_pipe); }
 	}
 
@@ -208,15 +231,11 @@ _muser_available(void)
 		xpc_release(pipe);
 	}
 
-	if (_si_muser_disabled) {
-		return 0;
-	}
-
-	return (pipe != NULL);
+	return !_si_muser_disabled;
 }
 
 static si_item_t *
-_muser_extract_user(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat) {
+_muser_extract_user(si_mod_t *si, xpc_object_t reply) {
 	__block struct passwd p;
 	__block int reqs = 3;
 	p.pw_name = (char *)"";
@@ -269,11 +288,11 @@ _muser_extract_user(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uin
 
 	if (reqs != 0) { return NULL; }
 
-	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, valid_global, valid_cat, p.pw_name, p.pw_passwd, p.pw_uid, p.pw_gid, p.pw_change, p.pw_class, p.pw_gecos, p.pw_dir, p.pw_shell, p.pw_expire);
+	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, 0, 0, p.pw_name, p.pw_passwd, p.pw_uid, p.pw_gid, p.pw_change, p.pw_class, p.pw_gecos, p.pw_dir, p.pw_shell, p.pw_expire);
 }
 
 static si_item_t *
-_muser_extract_group(si_mod_t *si, xpc_object_t reply, uint64_t vg, uint64_t vc)
+_muser_extract_group(si_mod_t *si, xpc_object_t reply)
 {
 	__block struct group g;
 	__block int reqs = 2;
@@ -314,15 +333,14 @@ _muser_extract_group(si_mod_t *si, xpc_object_t reply, uint64_t vg, uint64_t vc)
 	if (reqs != 0) { return NULL; }
 
 	si_item_t *item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1,
-			vg, vc, g.gr_name, g.gr_passwd, g.gr_gid, g.gr_mem);
+			0, 0, g.gr_name, g.gr_passwd, g.gr_gid, g.gr_mem);
 
 	free(g.gr_mem);
 	return item;
 }
 
 static si_item_t *
-_muser_extract_grouplist(si_mod_t *si, xpc_object_t reply, const char *user,
-		uint64_t vg, uint64_t vc)
+_muser_extract_grouplist(si_mod_t *si, xpc_object_t reply, const char *user)
 {
 	gid_t __block *gidlist = NULL;
 	size_t gidcount = 0;
@@ -351,7 +369,7 @@ _muser_extract_grouplist(si_mod_t *si, xpc_object_t reply, const char *user,
 
 	if (gidlist) {
 		item = (si_item_t *)LI_ils_create("L4488s4@", (unsigned long)si, CATEGORY_GROUPLIST,
-				1, vg, vc, user, gidcount, gidcount * sizeof(gid_t), gidlist);
+				1, 0, 0, user, gidcount, gidcount * sizeof(gid_t), gidlist);
 	}
 
 	free(gidlist);
@@ -360,11 +378,34 @@ _muser_extract_grouplist(si_mod_t *si, xpc_object_t reply, const char *user,
 
 #pragma mark -
 
+static int
+muser_is_valid(si_mod_t *si, si_item_t *item)
+{
+	si_mod_t *src;
+
+	if (si == NULL) return 0;
+	if (item == NULL) return 0;
+	if (si->name == NULL) return 0;
+	if (item->src == NULL) return 0;
+
+	src = (si_mod_t *)item->src;
+
+	if (src->name == NULL) return 0;
+	if (string_not_equal(si->name, src->name)) return 0;
+
+	return 1;
+}
+
 static si_item_t *
 muser_user_byname(si_mod_t *si, const char *name)
 {
 	xpc_object_t payload;
 	si_item_t *item = NULL;
+
+	// Bypass muser for system role account users. This allows processes like
+	// logd to be able to get off the ground before usermanagerd starts, which
+	// in turn can avoid deadlock scenarios.
+	if (name[0] == '_') { return NULL; }
 
 	if (!_muser_available()) { return NULL; }
 
@@ -376,7 +417,7 @@ muser_user_byname(si_mod_t *si, const char *name)
 
 	xpc_object_t reply = _muser_call("getpwnam", payload);
 	if (reply) {
-		item = _muser_extract_user(si, reply, 0, 0);
+		item = _muser_extract_user(si, reply);
 		xpc_release(reply);
 	}
 
@@ -390,6 +431,11 @@ muser_user_byuid(si_mod_t *si, uid_t uid)
 	xpc_object_t payload;
 	si_item_t *item = NULL;
 
+	// Bypass muser for system role account users. This allows processes like
+	// logd to be able to get off the ground before usermanagerd starts, which
+	// in turn can avoid deadlock scenarios.
+	if (uid < 501) { return NULL; }
+
 	if (!_muser_available()) { return NULL; }
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
@@ -400,7 +446,7 @@ muser_user_byuid(si_mod_t *si, uid_t uid)
 
 	xpc_object_t reply = _muser_call("getpwuid", payload);
 	if (reply) {
-		item = _muser_extract_user(si, reply, 0, 0);
+		item = _muser_extract_user(si, reply);
 		xpc_release(reply);
 	}
 
@@ -414,6 +460,15 @@ muser_group_byname(struct si_mod_s *si, const char *name)
 	xpc_object_t payload;
 	si_item_t *item = NULL;
 
+	// Bypass muser for system role account groups. This allows processes like
+	// logd to be able to get off the ground before usermanagerd starts, which
+	// in turn can avoid deadlock scenarios.
+	if (name[0] == '_' &&
+			strcmp(name, "_analyticsusers") != 0 &&
+			strcmp(name, "_accessory_mobile_share") != 0) {
+		return NULL;
+	}
+
 	if (!_muser_available()) { return NULL; }
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
@@ -424,7 +479,7 @@ muser_group_byname(struct si_mod_s *si, const char *name)
 
 	xpc_object_t reply = _muser_call("getgrnam", payload);
 	if (reply) {
-		item = _muser_extract_group(si, reply, 0, 0);
+		item = _muser_extract_group(si, reply);
 		xpc_release(reply);
 	}
 
@@ -438,6 +493,16 @@ muser_group_bygid(struct si_mod_s *si, gid_t gid)
 	xpc_object_t payload;
 	si_item_t *item = NULL;
 
+	// Bypass muser for system role account groups. This allows processes like
+	// logd to be able to get off the ground before usermanagerd starts, which
+	// in turn can avoid deadlock scenarios.
+	if (gid < 501 &&
+			gid != 250 && // _analyticsusers
+			gid != 286 && // _accessory_mobile_share
+			gid != 299) { // systemusers
+		return NULL;
+	}
+
 	if (!_muser_available()) { return NULL; }
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
@@ -448,7 +513,7 @@ muser_group_bygid(struct si_mod_s *si, gid_t gid)
 
 	xpc_object_t reply = _muser_call("getgrgid", payload);
 	if (reply) {
-		item = _muser_extract_group(si, reply, 0, 0);
+		item = _muser_extract_group(si, reply);
 		xpc_release(reply);
 	}
 
@@ -462,6 +527,11 @@ muser_grouplist(struct si_mod_s *si, const char *name, uint32_t count)
 	xpc_object_t payload;
 	si_item_t *item = NULL;
 
+	// Bypass muser for system role account users. This allows processes like
+	// logd to be able to get off the ground before usermanagerd starts, which
+	// in turn can avoid deadlock scenarios.
+	if (name[0] == '_') { return NULL; }
+
 	if (!_muser_available()) { return NULL; }
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
@@ -472,7 +542,7 @@ muser_grouplist(struct si_mod_s *si, const char *name, uint32_t count)
 
 	xpc_object_t reply = _muser_call("getgrouplist", payload);
 	if (reply) {
-		item = _muser_extract_grouplist(si, reply, name, 0, 0);
+		item = _muser_extract_grouplist(si, reply, name);
 		xpc_release(reply);
 	}
 
@@ -485,7 +555,7 @@ muser_grouplist(struct si_mod_s *si, const char *name, uint32_t count)
 si_mod_t *
 si_module_static_muser(void)
 {
-	static const struct si_mod_vtable_s muser_vtable =
+	static struct si_mod_vtable_s muser_vtable =
 	{
 		.sim_user_byname = &muser_user_byname,
 		.sim_user_byuid = &muser_user_byuid,
@@ -508,6 +578,12 @@ si_module_static_muser(void)
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
 		si.name = strdup("muser");
+
+		/* cache results everywhere except for the System session */
+		bool system_session = xpc_user_sessions_enabled() && xpc_user_sessions_get_session_uid() == 0;
+		if (!system_session) {
+			muser_vtable.sim_is_valid = &muser_is_valid;
+		}
 	});
 
 	return &si;

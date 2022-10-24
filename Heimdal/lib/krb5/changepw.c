@@ -567,7 +567,7 @@ krb5_change_password (krb5_context	context,
 /**
  * Change password using creds.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param creds The initial kadmin/passwd for the principal or an admin principal
  * @param newpw The new password to set
  * @param targprinc For most callers should pass NULL in this
@@ -631,7 +631,7 @@ krb5_set_password(krb5_context context,
  * Change password using a credential cache that contains an initial
  * credential or an admin credential.
  * 
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param ccache the credential cache to use to find the
  *        kadmin/changepw principal.
  * @param newpw The new password to set

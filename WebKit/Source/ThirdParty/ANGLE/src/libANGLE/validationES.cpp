@@ -76,7 +76,7 @@ bool CompressedSubTextureFormatRequiresExactSize(GLenum internalFormat)
     // Compressed sub textures have additional formats that requires exact size.
     // ES 3.1, Section 8.7, Page 171
     return CompressedTextureFormatRequiresExactSize(internalFormat) ||
-           IsETC2EACFormat(internalFormat);
+           IsETC2EACFormat(internalFormat) || IsASTC2DFormat(internalFormat);
 }
 
 bool DifferenceCanOverflow(GLint a, GLint b)
@@ -105,7 +105,6 @@ bool ValidReadPixelsTypeEnum(const Context *context, GLenum type)
         case GL_SHORT:
         case GL_UNSIGNED_INT:
         case GL_UNSIGNED_INT_10F_11F_11F_REV:
-        case GL_UNSIGNED_INT_24_8:
         case GL_UNSIGNED_INT_2_10_10_10_REV:
         case GL_UNSIGNED_INT_5_9_9_9_REV:
         case GL_UNSIGNED_SHORT:
@@ -463,11 +462,13 @@ bool ValidateTextureMaxAnisotropyValue(const Context *context,
 
 bool ValidateFragmentShaderColorBufferMaskMatch(const Context *context)
 {
+    const auto &glState            = context->getState();
     const Program *program         = context->getActiveLinkedProgram();
-    const Framebuffer *framebuffer = context->getState().getDrawFramebuffer();
+    const Framebuffer *framebuffer = glState.getDrawFramebuffer();
 
-    auto drawBufferMask     = framebuffer->getDrawBufferMask().to_ulong();
-    auto fragmentOutputMask = program->getExecutable().getActiveOutputVariablesMask().to_ulong();
+    auto drawBufferMask =
+        framebuffer->getDrawBufferMask() & glState.getBlendStateExt().compareColorMask(0);
+    auto fragmentOutputMask = program->getExecutable().getActiveOutputVariablesMask();
 
     return drawBufferMask == (drawBufferMask & fragmentOutputMask);
 }
@@ -563,8 +564,8 @@ const char *ValidateProgramDrawAdvancedBlendState(const Context *context, Progra
 {
     const State &state = context->getState();
     const BlendEquationBitSet &supportedBlendEquations =
-        program->getState().getAdvancedBlendEquations();
-    const DrawBufferMask &enabledDrawBufferMask = state.getBlendStateExt().mEnabledMask;
+        program->getExecutable().getAdvancedBlendEquations();
+    const DrawBufferMask &enabledDrawBufferMask = state.getBlendStateExt().getEnabledMask();
 
     for (size_t blendEnabledBufferIndex : enabledDrawBufferMask)
     {
@@ -919,7 +920,7 @@ bool ValidateDrawInstancedANGLE(const Context *context, angle::EntryPoint entryP
 
     const auto &attribs  = state.getVertexArray()->getVertexAttributes();
     const auto &bindings = state.getVertexArray()->getVertexBindings();
-    for (size_t attributeIndex = 0; attributeIndex < MAX_VERTEX_ATTRIBS; attributeIndex++)
+    for (size_t attributeIndex = 0; attributeIndex < attribs.size(); attributeIndex++)
     {
         const VertexAttribute &attrib = attribs[attributeIndex];
         const VertexBinding &binding  = bindings[attrib.bindingIndex];
@@ -1160,9 +1161,12 @@ bool ValidCompressedSubImageSize(const Context *context,
         return false;
     }
 
-    bool fillsEntireMip =
-        xoffset == 0 && yoffset == 0 && static_cast<size_t>(width) == textureWidth &&
-        static_cast<size_t>(height) == textureHeight && static_cast<size_t>(depth) == textureDepth;
+    // ANGLE does not support compressed 3D blocks (provided exclusively by ASTC 3D formats), so
+    // there is no need to check the depth here. Only width and height determine whether a 2D array
+    // element or a 2D slice of a sliced 3D texture fill the entire level.
+    bool fillsEntireMip = xoffset == 0 && yoffset == 0 &&
+                          static_cast<size_t>(width) == textureWidth &&
+                          static_cast<size_t>(height) == textureHeight;
 
     if (CompressedFormatRequiresWholeImage(internalFormat))
     {
@@ -2047,7 +2051,7 @@ bool ValidateGenerateMipmapBase(const Context *context,
     TextureTarget baseTarget = (target == TextureType::CubeMap)
                                    ? TextureTarget::CubeMapPositiveX
                                    : NonCubeTextureTypeToTarget(target);
-    const auto &format = *(texture->getFormat(baseTarget, effectiveBaseLevel).info);
+    const auto &format       = *(texture->getFormat(baseTarget, effectiveBaseLevel).info);
     if (format.sizedInternalFormat == GL_NONE || format.compressed || format.depthBits > 0 ||
         format.stencilBits > 0)
     {
@@ -3013,6 +3017,14 @@ bool ValidateStateQuery(const Context *context,
             }
             break;
 
+        case GL_SHADING_RATE_QCOM:
+            if (!context->getExtensions().shadingRateQCOM)
+            {
+                context->validationError(entryPoint, GL_INVALID_ENUM, kExtensionNotEnabled);
+                return false;
+            }
+            break;
+
         default:
             break;
     }
@@ -3599,8 +3611,8 @@ bool ValidateCopyFormatCompatible(const InternalFormat &srcFormatInfo,
     {
         GLenum uncompressedFormat = (!srcFormatInfo.compressed) ? srcFormatInfo.internalFormat
                                                                 : dstFormatInfo.internalFormat;
-        GLenum compressedFormat = (srcFormatInfo.compressed) ? srcFormatInfo.internalFormat
-                                                             : dstFormatInfo.internalFormat;
+        GLenum compressedFormat   = (srcFormatInfo.compressed) ? srcFormatInfo.internalFormat
+                                                               : dstFormatInfo.internalFormat;
 
         return ValidateCopyMixedFormatCompatible(uncompressedFormat, compressedFormat);
     }
@@ -3783,6 +3795,13 @@ bool ValidateCopyTexImageParametersBase(const Context *context,
         std::numeric_limits<GLsizei>::max() - yoffset < height)
     {
         context->validationError(entryPoint, GL_INVALID_VALUE, kOffsetOverflow);
+        return false;
+    }
+
+    if (std::numeric_limits<GLint>::max() - width < x ||
+        std::numeric_limits<GLint>::max() - height < y)
+    {
+        context->validationError(entryPoint, GL_INVALID_VALUE, kIntegerOverflow);
         return false;
     }
 
@@ -4136,17 +4155,17 @@ const char *ValidateDrawStates(const Context *context)
 
     // Advanced blend equation can only be enabled for a single render target.
     const BlendStateExt &blendStateExt = state.getBlendStateExt();
-    if (blendStateExt.mUsesAdvancedBlendEquationMask.any())
+    if (blendStateExt.getUsesAdvancedBlendEquationMask().any())
     {
         const size_t drawBufferCount            = framebuffer->getDrawbufferStateCount();
         uint32_t advancedBlendRenderTargetCount = 0;
 
-        for (size_t drawBufferIndex : blendStateExt.mUsesAdvancedBlendEquationMask)
+        for (size_t drawBufferIndex : blendStateExt.getUsesAdvancedBlendEquationMask())
         {
             if (drawBufferIndex < drawBufferCount &&
                 framebuffer->getDrawBufferState(drawBufferIndex) != GL_NONE &&
-                blendStateExt.mEnabledMask.test(drawBufferIndex) &&
-                blendStateExt.mUsesAdvancedBlendEquationMask.test(drawBufferIndex))
+                blendStateExt.getEnabledMask().test(drawBufferIndex) &&
+                blendStateExt.getUsesAdvancedBlendEquationMask().test(drawBufferIndex))
             {
                 ++advancedBlendRenderTargetCount;
             }
@@ -4874,6 +4893,80 @@ bool ValidatePushGroupMarkerEXT(const Context *context,
     return true;
 }
 
+bool ValidateEGLImageObject(const Context *context,
+                            angle::EntryPoint entryPoint,
+                            TextureType type,
+                            GLeglImageOES image)
+{
+    egl::Image *imageObject = static_cast<egl::Image *>(image);
+
+    ASSERT(context->getDisplay());
+    if (!context->getDisplay()->isValidImage(imageObject))
+    {
+        context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidEGLImage);
+        return false;
+    }
+
+    if (imageObject->getSamples() > 0)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                 kEGLImageCannotCreate2DMultisampled);
+        return false;
+    }
+
+    if (!imageObject->isTexturable(context))
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                 kEGLImageTextureFormatNotSupported);
+        return false;
+    }
+
+    // Validate source egl image and target texture are compatible
+    size_t depth = static_cast<size_t>(imageObject->getExtents().depth);
+    if (imageObject->isYUV() && type != TextureType::External)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                 "Image is YUV, target must be TEXTURE_EXTERNAL_OES");
+        return false;
+    }
+
+    if (depth > 1 && type != TextureType::_2DArray && type != TextureType::CubeMap &&
+        type != TextureType::CubeMapArray && type != TextureType::_3D)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kEGLImageTextureTargetMismatch);
+        return false;
+    }
+
+    if (imageObject->isCubeMap() && type != TextureType::CubeMapArray &&
+        (type != TextureType::CubeMap || depth > gl::kCubeFaceCount))
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kEGLImageTextureTargetMismatch);
+        return false;
+    }
+
+    if (imageObject->getLevelCount() > 1 && type == TextureType::External)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kEGLImageTextureTargetMismatch);
+        return false;
+    }
+
+    // 3d EGLImages are currently not supported
+    if (type == TextureType::_3D)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kEGLImageTextureTargetMismatch);
+        return false;
+    }
+
+    if (imageObject->hasProtectedContent() && !context->getState().hasProtectedContent())
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION,
+                                 "Mismatch between Image and Context Protected Content state");
+        return false;
+    }
+
+    return true;
+}
+
 bool ValidateEGLImageTargetTexture2DOES(const Context *context,
                                         angle::EntryPoint entryPoint,
                                         TextureType type,
@@ -4913,51 +5006,7 @@ bool ValidateEGLImageTargetTexture2DOES(const Context *context,
             return false;
     }
 
-    egl::Image *imageObject = static_cast<egl::Image *>(image);
-
-    ASSERT(context->getDisplay());
-    if (!context->getDisplay()->isValidImage(imageObject))
-    {
-        context->validationError(entryPoint, GL_INVALID_VALUE, kInvalidEGLImage);
-        return false;
-    }
-
-    if (imageObject->getSamples() > 0)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                 kEGLImageCannotCreate2DMultisampled);
-        return false;
-    }
-
-    if (!imageObject->isTexturable(context))
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                 kEGLImageTextureFormatNotSupported);
-        return false;
-    }
-
-    if (imageObject->isLayered() && type != TextureType::_2DArray)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                 "Image has more than 1 layer, target must be TEXTURE_2D_ARRAY");
-        return false;
-    }
-
-    if (imageObject->isYUV() && type != TextureType::External)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                 "Image is YUV, target must be TEXTURE_EXTERNAL_OES");
-        return false;
-    }
-
-    if (imageObject->hasProtectedContent() && !context->getState().hasProtectedContent())
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION,
-                                 "Mismatch between Image and Context Protected Content state");
-        return false;
-    }
-
-    return true;
+    return ValidateEGLImageObject(context, entryPoint, type, image);
 }
 
 bool ValidateEGLImageTargetRenderbufferStorageOES(const Context *context,
@@ -7313,16 +7362,6 @@ bool ValidateReadPixelsBase(const Context *context,
             break;
     }
 
-    // WebGL 1.0 [Section 6.26] Reading From a Missing Attachment
-    // In OpenGL ES it is undefined what happens when an operation tries to read from a missing
-    // attachment and WebGL defines it to be an error. We do the check unconditionally as the
-    // situation is an application error that would lead to a crash in ANGLE.
-    if (readBuffer == nullptr)
-    {
-        context->validationError(entryPoint, GL_INVALID_OPERATION, kMissingReadAttachment);
-        return false;
-    }
-
     // OVR_multiview2, Revision 1:
     // ReadPixels generates an INVALID_FRAMEBUFFER_OPERATION error if
     // the number of views in the current read framebuffer is more than one.
@@ -7353,6 +7392,16 @@ bool ValidateReadPixelsBase(const Context *context,
             context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidType);
             return false;
         }
+    }
+
+    // WebGL 1.0 [Section 6.26] Reading From a Missing Attachment
+    // In OpenGL ES it is undefined what happens when an operation tries to read from a missing
+    // attachment and WebGL defines it to be an error. We do the check unconditionally as the
+    // situation is an application error that would lead to a crash in ANGLE.
+    if (readBuffer == nullptr)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kMissingReadAttachment);
+        return false;
     }
 
     GLenum currentFormat = GL_NONE;

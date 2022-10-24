@@ -1193,7 +1193,7 @@ static SECStatus InitOIDHash(void)
     return (SECSuccess);
 }
 
-static void InitOIDHashOnce()
+static void InitOIDHashOnce(void)
 {
     if (SECSuccess != InitOIDHash())
         abort();

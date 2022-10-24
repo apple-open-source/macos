@@ -16,15 +16,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTAuthKitAdapter
 
-// Returns nil if there is no such primary account
-- (NSString* _Nullable)primaryiCloudAccountAltDSID:(NSError **)error;
-
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID;
-- (BOOL)accountIsDemoAccount:(NSError**)error NS_SWIFT_NOTHROW;
+- (BOOL)accountIsDemoAccountByAltDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
 
 - (NSString* _Nullable)machineID:(NSError**)error;
-- (void)fetchCurrentDeviceList:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete;
+- (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete;
 - (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier;
+
+- (void)deliverAKDeviceListDeltaMessagePayload:(NSDictionary* _Nullable)notificationDictionary;
 @end
 
 @interface OTAuthKitActualAdapter : NSObject <OTAuthKitAdapter>

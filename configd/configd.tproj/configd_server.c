@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2015-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2015-2017, 2019, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -150,6 +150,9 @@ server_init()
 			       bootstrap_strerror(status));
 			exit (EX_UNAVAILABLE);
 	}
+
+	/* initialize */
+	__SCDynamicStoreInit();
 
 	/* Create the primary / new connection port and backing session */
 	addServer(service_port);

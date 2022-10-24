@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -266,7 +266,7 @@ S_CFUserNotificationResponse(CFOptionFlags flags)
     return (flags & 0x3);
 }
 
-#define kEAPOLControllerPath	"/System/Library/SystemConfiguration/EAPOLController.bundle"
+#define	kSystemConfigurationResourcesPath 	"/System/Library/Frameworks/SystemConfiguration.framework"
 
 static CFURLRef
 copy_icon_url(CFStringRef icon)
@@ -276,7 +276,7 @@ copy_icon_url(CFStringRef icon)
     CFURLRef		url = NULL;
 
     eapurl = CFURLCreateWithFileSystemPath(NULL,
-					   CFSTR(kEAPOLControllerPath),
+					   CFSTR(kSystemConfigurationResourcesPath),
 					   kCFURLPOSIXPathStyle, FALSE);
     if (eapurl != NULL) {
 	bundle = CFBundleCreate(NULL, eapurl);

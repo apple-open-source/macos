@@ -51,4 +51,22 @@ MALLOC_NOEXPORT
 void
 mvm_protect(void *address, size_t size, unsigned protection, unsigned debug_flags);
 
+#if CONFIG_DEFERRED_RECLAIM
+MALLOC_NOEXPORT
+kern_return_t
+mvm_deferred_reclaim_init(void);
+
+MALLOC_NOEXPORT
+bool
+mvm_reclaim_mark_used(uint64_t id, mach_vm_address_t ptr, uint32_t size, unsigned int debug_flags);
+
+MALLOC_NOEXPORT
+uint64_t
+mvm_reclaim_mark_free(vm_address_t ptr, uint32_t size, unsigned int debug_flags);
+
+MALLOC_NOEXPORT
+bool
+mvm_reclaim_is_available(uint64_t id);
+#endif // CONFIG_DEFERRED_RECLAIM
+
 #endif // __VM_H

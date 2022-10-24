@@ -66,6 +66,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <limits.h>
 
 /*
  * CommonCrypto provides a more stable API than OpenSSL guarantees;
@@ -419,6 +420,7 @@ argv - array of arguments.
 Output -
 returns FSUR_IO_SUCCESS if OK else one of the other FSUR_xyz errors in loadable_fs.h.
 *************************************************************************************************** */
+#ifndef FUZZING
 
 int main (int argc, const char *argv[])
 {
@@ -443,8 +445,16 @@ int main (int argc, const char *argv[])
     --   "/dev/disk0s2"
     */
 
-    snprintf(rawDeviceName, sizeof(rawDeviceName), "/dev/r%s", argv[2]);
-    snprintf(blockDeviceName, sizeof(blockDeviceName), "/dev/%s", argv[2]);
+	if (!strncmp(argv[2], "disk", 4)) {
+		snprintf(rawDeviceName, sizeof(rawDeviceName), "/dev/r%s", argv[2]);
+		snprintf(blockDeviceName, sizeof(blockDeviceName), "/dev/%s", argv[2]);
+	} else if (!strncmp(argv[2], "/dev/fd/", 8)) {
+		if ((*actionPtr != FSUC_PROBE) && (*actionPtr != FSUC_GETUUID)) {
+			result = FSUR_INVAL;
+			goto AllDone;
+		}
+		strlcpy(rawDeviceName, argv[2], sizeof(rawDeviceName));
+	}
 
     /* call the appropriate routine to handle the given action argument after becoming root */
 
@@ -522,7 +532,7 @@ AllDone:
 
     return result;	/*...and make main fit the ANSI spec. */
 }
-
+#endif
 
 /* ***************************** DoMount ********************************
 Purpose -
@@ -747,6 +757,88 @@ Err_Exit:
 }
 
 
+/* ******************************************** GetFD *********************************************
+Purpose -
+    This routine will return a valid FD
+Input -
+    rawDeviceNamePtr - pointer to the device FD (/dev/fd/<x>) or to the raw device (/dev/rdisk0s2).
+    blockDeviceNamePtr - pointer to the device name (full path, like /dev/disk0s2). Not required
+                         when a FD is provided in rawDeviceNamePtr.
+Output -
+    returns a valid FD based on the given FD / full path.
+*************************************************************************************************** */
+
+#define MAX_FD_LEN 10
+
+static int
+GetFD(const char *rawDeviceNamePtr, const char *blockDeviceNamePtr)
+{
+    int result = 0;
+	char * bufPtr = NULL;
+    int fd = -1;
+
+	if ( !strncmp(rawDeviceNamePtr, "/dev/rdisk", 10) ) {
+		/*
+		 * Determine if there is a volume already mounted from this device.  If
+		 * there is, and it is HFS, then we need to get the volume name via
+		 * getattrlist.
+		 *
+		 * NOTE: We're using bufPtr to hold a pointer to a path.
+		 */
+		result = GetHFSMountPoint(blockDeviceNamePtr, &bufPtr);
+		if (result != FSUR_IO_SUCCESS) {
+			goto out;
+		}
+		if (bufPtr != NULL) {
+			/* There is an HFS volume mounted from the device. */
+			PrintVolumeNameAttr(bufPtr);
+			goto out;
+		}
+
+		/*
+		 * If we get here, there is no volume mounted from this device, so
+		 * go probe the raw device directly.
+		 */
+		fd = open( rawDeviceNamePtr, O_RDONLY, 0 );
+		if( fd <= 0 ) {
+			goto out;
+		}
+	} else if ( !strncmp(rawDeviceNamePtr, "/dev/fd/", 8) ) {
+
+        char safe_devname[11] = {};
+		char *end_ptr;
+		int error;
+
+        /*
+         * We want to make sure that our rawDeviceNamePtr has a terminating \0,
+         * otherwise strtol might misbehave.
+         * The number here is at most 10 digits, so copy it into a local string
+         * that definitely ends with \0.
+         */
+        strncpy(safe_devname, rawDeviceNamePtr + 8, MAX_FD_LEN);
+		fd = (int)strtol(safe_devname, &end_ptr, MAX_FD_LEN);
+		if (*end_ptr) {
+            fd = -1;
+			goto out;
+		}
+
+		struct stat info;
+		error = fstat(fd, &info);
+		if (error) {
+            fd = -1;
+            goto out;
+		}
+
+		if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+            fd = -1;
+            goto out;
+		}
+	}
+
+out:
+    return fd;
+}
+
 /* ******************************************* DoProbe **********************************************
 Purpose -
     This routine will open the given device and check to make sure there is media that looks
@@ -760,50 +852,28 @@ Output -
 static int
 DoProbe(char *rawDeviceNamePtr, char *blockDeviceNamePtr)
 {
-	int result = FSUR_UNRECOGNIZED;
-	int fd = 0;
-	char * bufPtr;
+	u_char volnameUTF8[kHFSPlusMaxFileNameBytes];
 	HFSMasterDirectoryBlock * mdbPtr;
 	HFSPlusVolumeHeader * volHdrPtr;
-	u_char volnameUTF8[kHFSPlusMaxFileNameBytes];
+	int result = FSUR_UNRECOGNIZED;
+	char * bufPtr;
+	int fd = 0;
 
-	/*
-	 * Determine if there is a volume already mounted from this device.  If
-	 * there is, and it is HFS, then we need to get the volume name via
-	 * getattrlist.
-	 *
-	 * NOTE: We're using bufPtr to hold a pointer to a path.
-	 */
-	bufPtr = NULL;
-	result = GetHFSMountPoint(blockDeviceNamePtr, &bufPtr);
-	if (result != FSUR_IO_SUCCESS) {
-		goto Err_Exit;
-	}
-	if (bufPtr != NULL) {
-		/* There is an HFS volume mounted from the device. */
-		result = PrintVolumeNameAttr(bufPtr);
-		goto Err_Exit;
-	}
-	
-	/*
-	 * If we get here, there is no volume mounted from this device, so
-	 * go probe the raw device directly.
-	 */
-	
-	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
-	if ( ! bufPtr ) {
-		result = FSUR_UNRECOGNIZED;
-		goto Return;
-	}
+    //get FD
+    fd = GetFD(rawDeviceNamePtr, blockDeviceNamePtr);
+    if (fd < 0) {
+        result = FSUR_IO_FAIL;
+        goto Err_Exit;
+    }
 
-	mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
-	volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
+    bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
+    if ( ! bufPtr ) {
+        result = FSUR_UNRECOGNIZED;
+        goto Return;
+    }
 
-	fd = open( rawDeviceNamePtr, O_RDONLY, 0 );
-	if( fd <= 0 ) {
-		result = FSUR_IO_FAIL;
-		goto Return;
-	}
+    mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
+    volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
 
 	/*
 	 * Read the HFS Master Directory Block from sector 2
@@ -1436,7 +1506,7 @@ GetVolumeUUIDRaw(const char *deviceNamePtr, const char *rawName, volUUID_t *volU
 		goto Err_Exit;
 	}
 
-	fd = open( deviceNamePtr, O_RDONLY, 0);
+    fd = GetFD(rawName, deviceNamePtr);
 	if (fd <= 0) {
 		error = errno;
 #if TRACE_HFS_UTIL

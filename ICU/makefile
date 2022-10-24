@@ -423,7 +423,7 @@ $(info # TOOLSEXTRAFLAGS=$(TOOLSEXTRAFLAGS))
 ifneq "$(RC_PLATFORM_NAME)" ""
  export SDK_PLATFORM_NORMALIZED := $(shell echo $(RC_PLATFORM_NAME) | tr '[:upper:]' '[:lower:]')
 else
- export SDK_PLATFORM_NORMALIZED := $(shell basename $(PLATFORMROOT) | tr '[:upper:]' '[:lower:]' | sed 's/\.platform$$//')
+ export SDK_PLATFORM_NORMALIZED := $(shell basename "$(PLATFORMROOT)" | tr '[:upper:]' '[:lower:]' | sed 's/\.platform$$//')
 endif
 $(info # SDK_PLATFORM_NORMALIZED=$(SDK_PLATFORM_NORMALIZED))
 
@@ -746,6 +746,68 @@ DYLIB_debug = DYLIB_DEBUG
 DYLIB_profile = DYLIB_PROFILE
 
 #################################
+# InstallAPI -> libicucore
+#################################
+
+# Allow B&I to override installAPI when necessarcy. 
+# InstallAPI is only supported when building for Darwin Platforms.
+
+ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
+ifeq ($(RC_ProjectName), $(filter $(RC_ProjectName),ICU ICU_Sim))
+  SUPPORTS_TEXT_BASED_API ?= YES
+  $(info SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
+endif # RC_ProjectName 
+endif # ICU_FOR_APPLE_PLATFORMS
+
+ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
+  # Create complete target triples for tapi and pass them all at once. 
+  ifeq "$(BUILD_TYPE)" "DEVICE"
+    TARGET_TRIPLES := $(patsubst %, -target ${ARCH}%-apple-${TARGET_TRIPLE_SYS}${SDKVERSION}, ${RC_ARCHS})
+  else ifeq "$(BUILD_TYPE)" "SIMULATOR"
+    TARGET_TRIPLES := $(patsubst %, -target ${ARCH}%-apple-${TARGET_TRIPLE_SYS}${SDKVERSION}-simulator, ${RC_ARCHS})
+  else # macOS case
+    TARGET_TRIPLES := $(patsubst %, -target ${ARCH}%-apple-${TARGET_TRIPLE_SYS}${SDKVERSION}, ${RC_ARCHS})
+  	TARGET_TRIPLES :=$(TARGET_TRIPLES) $(patsubst %, -target-variant ${ARCH}%-apple-ios-macabi, ${RC_ARCHS})
+  endif
+  
+  
+  ICU_TBD_PATH = $(OBJROOT_CURRENT)/usr/lib/lib$(LIB_NAME).tbd
+  TAPI_COMMON_OPTS := -dynamiclib \
+  	-xc++ -std=c++11 \
+  	$(TARGET_TRIPLES) \
+  	-fvisibility=hidden \
+  	-isysroot $(SDKROOT) \
+  	-iquote $(SRCROOT)/icuSources \
+  	-iquote $(SRCROOT)/icuSources/common \
+  	-iquote $(SRCROOT)/icuSources/i18n \
+  	-install_name $(libdir)$($(INSTALLED_DYLIB_icu)) \
+  	-current_version $(ICU_VERS).$(ICU_SUBVERS) \
+    -compatibility_version 1 \
+  	-DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" \
+  	-DU_SHOW_INTERNAL_API=1 \
+  	-DU_DISABLE_RENAMING=1 \
+  	-DU_SHOW_CPLUSPLUS_API=1 \
+  	-DU_DEFAULT_SHOW_DRAFT=0 \
+  	-DU_SHOW_DRAFT_API \
+  	-DU_HAVE_STRTOD_L=1 \
+  	-DU_HAVE_XLOCALE_H=1 \
+  	-DU_HAVE_STRING_VIEW=1 \
+  	-DU_COMBINED_IMPLEMENTATION=1 \
+  	-DU_LOCAL_SERVICE_HOOK=1 \
+  	-DU_TIMEZONE=timezone \
+  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dtitv_impl.h \
+  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dt_impl.h \
+  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dtptngen_impl.h \
+  	-exclude-project-header $(SRCROOT)/icuSources/i18n/selfmtimpl.h \
+    -o $(ICU_TBD_PATH) \
+  	-filelist $(OBJROOT_CURRENT)/tapi_headers.json
+  
+  TAPI_VERIFY_OPTS := $(TAPI_COMMON_OPTS) \
+              --verify-mode=Pedantic \
+              --verify-against=$(OBJROOT_CURRENT)/$(DYLIB)
+endif # SUPPORTS_TEXT_BASED_API
+
+#################################
 # Data files
 #################################
 
@@ -995,6 +1057,7 @@ else ifeq "$(LINUX)" "YES"
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	endif
+	LDFLAGS += -lpthread
 else
 	CPPOPTIONS =
 	ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
@@ -1011,8 +1074,8 @@ else
 	ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1021,8 +1084,8 @@ else
 	ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1031,8 +1094,8 @@ else
 	ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1083,8 +1146,8 @@ endif
 #################################
 #################################
 
-.PHONY : icu check installsrc installhdrs installhdrsint clean install debug debug-install \
-crossbuildhost icutztoolsforsdk
+.PHONY : icu check installsrc installhdrs installhdrsint installapi clean install installapi-verify debug \
+	debug-install crossbuildhost icutztoolsforsdk
 .DELETE_ON_ERROR :
 
 # Rule for adjusting sources for different train types.
@@ -1107,11 +1170,6 @@ crossbuildhost icutztoolsforsdk
 
 ADJUST_SOURCES = \
 		if test "$(WINDOWS)" = "YES"; then \
-			mv data/unidata/base_unidata/*.txt data/unidata/; \
-			mv data/unidata/norm2/base_norm2/*.txt data/unidata/norm2/; \
-			mv data/in/base_in/*.nrm data/in/; \
-			mv data/in/base_in/*.icu data/in/; \
-		elif test "$(LINUX)" = "YES"; then \
 			mv data/unidata/base_unidata/*.txt data/unidata/; \
 			mv data/unidata/norm2/base_norm2/*.txt data/unidata/norm2/; \
 			mv data/in/base_in/*.nrm data/in/; \
@@ -1350,7 +1408,8 @@ $(CROSSHOST_OBJROOT)/Makefile :
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
 	if test -d $(SRCROOT)/icuSources ; then rm -rf $(SRCROOT)/icuSources; fi;
-	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles ./emojiData ./modules $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
+	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles ./emojiData ./modules \
+		./toolsSources/scripts/generate_json_for_tapi.py $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
 	(cd $(SRCROOT)/icuSources; $(ADJUST_SOURCES) );
 
 # This works. Just not for ~ in the DSTROOT. We run configure first (in case it hasn't
@@ -1415,13 +1474,36 @@ endif
 			$(INSTALL_DATA) $(SRCROOT)/modules/empty.modulemap       $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.private.modulemap; \
 		fi; \
 	);
+installapi : installhdrsint 
+	@echo
+	@echo ++++++++++++++++++++++
+	@echo + Running InstallAPI +
+	@echo ++++++++++++++++++++++
+	@echo
+	 
+	@if [ "$(SUPPORTS_TEXT_BASED_API)" != "YES" ]; then \
+	  echo "installapi for target 'ICU' was requested, but SUPPORTS_TEXT_BASED_API has been disabled."; \
+	  exit 1; \
+	fi
+	 
+	$(SRCROOT)/toolsSources/scripts/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
+
+	xcrun --sdk $(SDKROOT) tapi installapi \
+	  $(TAPI_COMMON_OPTS)
+	 
+	$(INSTALL) -d -m 0755 $(DSTROOT)$(libdir)
+	$(INSTALL) -c -m 0755 $(ICU_TBD_PATH) $(DSTROOT)$(libdir)/lib$(LIB_NAME).tbd
 
 # We run configure and run make first. This generates the .o files. We then link them
 # all up together into libicucore. Then we put it into its install location, create
 # symbolic links, and then strip the main dylib. Then install the remaining libraries.
 # We cleanup the sources folder.
 
+ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
+install : installhdrsint icu installapi-verify
+else
 install : installhdrsint icu
+endif 
 	if test "$(WINDOWS)" = "YES"; then \
 		if test ! -d $(DSTROOT)/$(winprogdir)/; then \
 			$(INSTALL) -d -m 0755 $(DSTROOT)/$(winprogdir)/; \
@@ -1511,6 +1593,26 @@ install : installhdrsint icu
 			fi; \
 		fi; \
 	fi;
+
+installapi-verify: installhdrs icu
+	@echo
+	@echo +++++++++++++++++++++++++++++++++
+	@echo + Running InstallAPI and Verify +
+	@echo ++++++++++++++++++++++++++++++++
+	@echo
+
+	@if [ "$(SUPPORTS_TEXT_BASED_API)" != "YES" ]; then \
+	  echo "installapi for target 'ICU' was requested, but SUPPORTS_TEXT_BASED_API has been disabled."; \
+	  exit 1; \
+	fi
+	
+	$(SRCROOT)/toolsSources/scripts/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
+
+	xcrun --sdk $(SDKROOT) tapi installapi \
+	  $(TAPI_VERIFY_OPTS)
+
+	$(INSTALL) -d -m 0755 $(DSTROOT)$(libdir)
+	$(INSTALL) -c -m 0755 $(ICU_TBD_PATH) $(DSTROOT)$(libdir)/lib$(LIB_NAME).tbd
 
 DEPEND_install_debug = debug
 DEPEND_install_profile = profile

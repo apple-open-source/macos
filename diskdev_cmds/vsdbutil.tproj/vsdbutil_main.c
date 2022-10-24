@@ -72,7 +72,7 @@ extern mountopt_t optnames[];
 #include <CommonCrypto/CommonDigest.h>
 #include <libkern/OSByteOrder.h>
 
-static char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
+static const char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
 
 static char gHFSTypeName[] = "hfs";
 static char gAPFSTypeName[] = "apfs";

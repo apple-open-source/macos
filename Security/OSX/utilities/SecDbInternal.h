@@ -11,4 +11,9 @@ static const size_t kSecDbMaxWriters = 1;
 // maxreaders + maxwriters
 static const size_t kSecDbMaxIdleHandles = 6;
 
+// Trustd's databases pass in this constant instead in order
+// to reduce trustd's inactive memory footprint by having
+// fewer cached open sqlite connections.
+static const size_t kSecDbTrustdMaxIdleHandles = 2;
+
 #endif /* SecDbInternal_h */

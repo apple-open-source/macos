@@ -62,8 +62,10 @@ __private_extern__ CFUUIDRef       ___CFUUIDCreateFromName( CFAllocatorRef alloc
 __private_extern__ CFUUIDRef       ___CFUUIDCreateFromString( CFAllocatorRef allocator, CFStringRef string );
 __private_extern__ CFStringRef     ___CFURLCopyRawDeviceFileSystemPath( CFURLRef url, CFURLPathStyle pathStyle );
 __private_extern__ kern_return_t   ___IORegistryEntryGetPath( io_registry_entry_t entry, const io_name_t plane, ___io_path_t path );
+#if TARGET_OS_OSX
 __private_extern__ CFArrayRef      ___SCDynamicStoreCopyConsoleInformation( SCDynamicStoreRef store );
 __private_extern__ CFStringRef     ___SCDynamicStoreCopyConsoleUser( SCDynamicStoreRef store, uid_t * uid, gid_t * gid );
+#endif
 
 #ifdef __cplusplus
 }

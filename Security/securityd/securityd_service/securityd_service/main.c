@@ -33,6 +33,8 @@
 #include <IOKit/IOKitLib.h>
 #include <Kernel/IOKit/crypto/AppleFDEKeyStoreDefs.h>
 
+#include <os/bsd.h>
+
 #define LOG(...)    os_log_debug(OS_LOG_DEFAULT, ##__VA_ARGS__);
 
 static bool check_signature(xpc_connection_t connection);
@@ -75,7 +77,7 @@ openiodev(void)
     io_connect_t conn;
     kern_return_t kr;
 
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kAppleFDEKeyStoreServiceName));
+    service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kAppleFDEKeyStoreServiceName));
     if (service == IO_OBJECT_NULL)
         return IO_OBJECT_NULL;
 
@@ -103,7 +105,7 @@ closeiodev(io_connect_t conn)
 }
 
 static dispatch_queue_t
-_kb_service_get_dispatch_queue()
+_kb_service_get_dispatch_queue(void)
 {
     static dispatch_once_t onceToken = 0;
     static dispatch_queue_t connection_queue = NULL;
@@ -154,7 +156,7 @@ static void free_user_record(service_user_record_t * ur)
     }
 }
 
-static const char * get_host_uuid()
+static const char * get_host_uuid(void)
 {
     static uuid_string_t hostuuid = {};
     static dispatch_once_t onceToken;
@@ -253,7 +255,7 @@ _set_thread_credentials(service_user_record_t * ur)
 }
 
 static void
-_clear_thread_credentials()
+_clear_thread_credentials(void)
 {
     int rc = pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE);
     if (rc) { os_log(OS_LOG_DEFAULT, "failed to reset thread credential: %{darwin.errno}d", errno); }
@@ -458,27 +460,34 @@ done:
     return rc;
 }
 
-static void update_keybag_handle(keybag_handle_t handle)
+static void
+update_keybag_handle(keybag_handle_t handle)
 {
     dispatch_sync(_kb_service_get_dispatch_queue(), ^{
         uid_t uid = (handle == (-AKS_MACOS_ROOT_HANDLE)) ? 0 : abs(handle);
-        uint8_t * buf = NULL;
+        uint8_t *buf = NULL;
         size_t buf_size = 0;
-        service_user_record_t * ur = NULL;
-        char * bag_file = NULL;
+        service_user_record_t *ur = NULL;
+        char *bag_file = NULL;
         uint64_t kcv = 0;
 
-        require_noerr(aks_save_bag(handle, (void**)&buf, (int*)&buf_size), done);
+        require_noerr(aks_save_bag(handle, (void **)&buf, (int *)&buf_size), done);
         require(ur = get_user_record(uid), done);
         require(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done);
         require(_kb_save_bag_to_disk(ur, bag_file, buf, buf_size, &kcv), done);
 
         os_log(OS_LOG_DEFAULT, "successfully updated handle %d, save keybag kcv: 0x%0llx", handle, kcv);
 
-    done:
-        if (buf) free(buf);
-        if (ur) free_user_record(ur);
-        if (bag_file) free(bag_file);
+        done:
+        if (buf) {
+            free(buf);
+        }
+        if (ur) {
+            free_user_record(ur);
+        }
+        if (bag_file) {
+            free(bag_file);
+        }
     });
 }
 
@@ -1438,12 +1447,14 @@ bool check_signature(xpc_connection_t connection)
 #endif
 }
 
-static void register_for_notifications()
+static void
+register_for_notifications(void)
 {
     __block kern_return_t kr;
     static mach_port_t mp = MACH_PORT_NULL;
 
     static dispatch_once_t onceToken = 0;
+
     dispatch_once(&onceToken, ^{
         kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
         if (kr == KERN_SUCCESS) {
@@ -1451,8 +1462,8 @@ static void register_for_notifications()
             dispatch_source_set_event_handler(mach_src, ^{
                 mach_msg_return_t mr;
                 uint8_t buf[sizeof(aks_notification_msg_t) + MAX_TRAILER_SIZE] = {};
-                aks_notification_msg_t * msg = (aks_notification_msg_t*)buf;
-                mr = mach_msg((mach_msg_header_t*)&buf, MACH_RCV_MSG, 0, sizeof(buf), mp, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+                aks_notification_msg_t *msg = (aks_notification_msg_t *)buf;
+                mr = mach_msg((mach_msg_header_t *)&buf, MACH_RCV_MSG, 0, sizeof(buf), mp, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
                 if (mr == MACH_MSG_SUCCESS && msg->hdr.msgh_id == AKS_NOTIFICATION_MSGID) {
                     // ignored for now
                 } else if (mr == MACH_MSG_SUCCESS && msg->hdr.msgh_id == AKS_NOTIFICATION_WRITE_SYSTEM_KEYBAG) {
@@ -1466,7 +1477,6 @@ static void register_for_notifications()
         } else {
             os_log(OS_LOG_DEFAULT, "failed to create notification port");
         }
-
     });
 
     kr = aks_register_for_notifications(mp, AKS_NOTIFICATION_WRITE_SYSTEM_KEYBAG);
@@ -1476,6 +1486,7 @@ static void register_for_notifications()
         os_log(OS_LOG_DEFAULT, "failed to register for notifications %d", kr);
     }
 }
+
 
 int main(int argc, const char * argv[])
 {

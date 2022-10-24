@@ -623,7 +623,7 @@ public:
 
   UpcallData *addUpcallMethod(String *imclass_method, String *class_method, String *decl, String *overloaded_name) {
     UpcallData *udata;
-    String *imclass_methodidx;
+    __unused String *imclass_methodidx;
     String *class_methodidx;
     Hash *new_udata;
     String *key = NewStringf("%s|%s", imclass_method, decl);
@@ -713,7 +713,7 @@ public:
     String *body = NewString("");
     String *im_outattributes = 0;
     int num_arguments = 0;
-    int num_required = 0;
+    __unused int num_required = 0;
     bool is_void_return;
     String *overloaded_name = getOverloadedName(n);
 
@@ -2525,7 +2525,7 @@ public:
     String *return_type = NewString("");
     String *function_code = NewString("");
     int num_arguments = 0;
-    int num_required = 0;
+    __unused int num_required = 0;
     String *overloaded_name = getOverloadedName(n);
     String *func_name = NULL;
     bool setter_flag = false;
@@ -3819,9 +3819,9 @@ public:
     /* Ensure that correct directordisconnect typemap's method name is called
      * here: */
 
-    const String *disconn_tm = NULL;
+    __unused const String *disconn_tm = NULL;
     Node *disconn_attr = NewHash();
-    String *disconn_methodname = NULL;
+    __unused String *disconn_methodname = NULL;
 
     disconn_tm = typemapLookup(n, "directordisconnect", full_classname, WARN_NONE, disconn_attr);
     disconn_methodname = Getattr(disconn_attr, "tmap:directordisconnect:methodname");

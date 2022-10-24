@@ -1107,8 +1107,7 @@ static void parser_lock_add(void *ctx, const xmlChar *localname, int length)
 
 static void parser_stat_add(void *ctx, const xmlChar *localname, int length)
 {
-	UInt8 *text_ptr = (UInt8*) malloc(length);
-	bzero(text_ptr,length);
+	UInt8 *text_ptr = (UInt8*) calloc(1, length + 1);
 	memcpy(text_ptr,localname,length);
 	struct webdav_stat_attr *statbuf = (struct webdav_stat_attr *)ctx;
 	struct webdav_stat_attr*parent = (struct webdav_stat_attr*)ctx;

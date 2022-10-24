@@ -36,4 +36,4 @@
  *
  */
 
-inline task_t *invalid = xlate<psinfo_t>(((struct uthread *)curthread->uthread)->uu_proc);
+inline task_t *invalid = xlate<psinfo_t>(curproc);

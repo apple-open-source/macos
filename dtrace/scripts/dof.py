@@ -4,6 +4,12 @@
 # See bsd/sys/dtrace.h for details on the DOF format
 
 
+from __future__ import division, print_function
+
+from builtins import hex
+from builtins import range
+from builtins import object
+
 import lldb
 import shlex
 
@@ -246,7 +252,7 @@ def GetMemberAsSigned(source, field):
 def GetMemberAsUnsigned(source, field):
     return source.GetChildMemberWithName(field, True).GetValueAsUnsigned()
 
-class DIFODisassembler:
+class DIFODisassembler(object):
     """
         Disassembler for DIFO given a DIF section, a strtab section, a inttab
         section and a vartab section
@@ -341,117 +347,117 @@ class DIFODisassembler:
         ]
     def Disassemble(self):
         dif = self.dif
-        print '\t%-3s %-8s    %s' % ('OFF', 'OPCODE', 'INSTRUCTION')
+        print('\t%-3s %-8s    %s' % ('OFF', 'OPCODE', 'INSTRUCTION'))
         for i in range(dif.dif_len):
             instr = dif.GetInstr(i)
             op = DIF_INSTR_OP(instr)
-            print '\t%02lu: %08x    ' % (i, instr),
+            print('\t%02lu: %08x    ' % (i, instr), end=' ')
             if op < len(self.ops):
                 self.ops[op][1](self.ops[op][0], instr)
             else:
-                print ''
+                print('')
     def DisStr(self, name, ins):
-        print name
+        print(name)
 
     def DisLog(self, name, ins):
-        print "%-4s %%r%u, %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins),
-                DIF_INSTR_R2(ins), DIF_INSTR_RD(ins))
+        print("%-4s %%r%u, %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins),
+                DIF_INSTR_R2(ins), DIF_INSTR_RD(ins)))
 
     def DisR1Rd(self, name, ins):
-        print "%-4s %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins))
+        print("%-4s %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins)))
 
     def DisCmp(self, name, ins):
-        print "%-4s %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_R2(ins))
+        print("%-4s %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_R2(ins)))
 
     def DisTst(self, name, ins):
-        print "%-4s %%r%u" % (name, DIF_INSTR_R1(ins))
+        print("%-4s %%r%u" % (name, DIF_INSTR_R1(ins)))
 
     def DisBranch(self, name, ins):
-        print "%-4s %u" % (name, DIF_INSTR_LABEL(ins))
+        print("%-4s %u" % (name, DIF_INSTR_LABEL(ins)))
 
     def DisLoad(self, name, ins):
-        print "%-4s [%%r%u], %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins))
+        print("%-4s [%%r%u], %%r%u" % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins)))
 
     def DisRet(self, name, ins):
-        print "%-4s %%r%u" % (name, DIF_INSTR_RD(ins))
+        print("%-4s %%r%u" % (name, DIF_INSTR_RD(ins)))
 
     def DisSetX(self, name, ins):
         intptr = DIF_INSTR_INTEGER(ins)
-        print "%-4s DT_INTEGER[%u], %%r%u" % (name, intptr, DIF_INSTR_RD(ins)),
+        print("%-4s DT_INTEGER[%u], %%r%u" % (name, intptr, DIF_INSTR_RD(ins)), end=' ')
         if intptr < self.inttab.int_len:
-            print "\t\t! 0x%dx" % (self.inttab.GetInt(intptr))
+            print("\t\t! 0x%dx" % (self.inttab.GetInt(intptr)))
         else:
-            print ''
+            print('')
 
     def DisSetS(self, name, ins):
         strptr = DIF_INSTR_STRING(ins)
-        print "%-4s DT_STRING[%u], %%r%u" % (name, strptr, DIF_INSTR_RD(ins)),
+        print("%-4s DT_STRING[%u], %%r%u" % (name, strptr, DIF_INSTR_RD(ins)), end=' ')
 
         if strptr < self.strtab.data_size:
-            print "\t\t! \"%s\"" % self.strtab.GetString(strptr)
+            print("\t\t! \"%s\"" % self.strtab.GetString(strptr))
         else:
-            print ''
+            print('')
     def DisLda(self, name, ins):
         var = DIF_INSTR_R1(ins)
-        print '%-4s DT_VAR(%u), %%r%u, %%r%u' % (name, var, DIF_INSTR_R2(ins),
-                DIF_INSTR_RD(ins)),
+        print('%-4s DT_VAR(%u), %%r%u, %%r%u' % (name, var, DIF_INSTR_R2(ins),
+                DIF_INSTR_RD(ins)), end=' ')
 
         vname = self.VarName(var, self.Scope(name))
         if vname is not(None):
-            print "\t\t! DT_VAR(%u) = \"%s\"" % (var, vname)
+            print("\t\t! DT_VAR(%u) = \"%s\"" % (var, vname))
         else:
-            print ''
+            print('')
 
     def DisLdv(self, name, ins):
         var = DIF_INSTR_VAR(ins)
-        print '%-4s DT_VAR(%u), %%r%u' % (name, var, DIF_INSTR_RD(ins)),
+        print('%-4s DT_VAR(%u), %%r%u' % (name, var, DIF_INSTR_RD(ins)), end=' ')
 
         vname = self.VarName(var, self.Scope(name))
         if vname is not(None):
-            print "\t\t! DT_VAR(%u) = \"%s\"" % (var, vname)
+            print("\t\t! DT_VAR(%u) = \"%s\"" % (var, vname))
         else:
-            print ''
+            print('')
 
     def DisStv(self, name, ins):
         var = DIF_INSTR_VAR(ins)
-        print '%-4s %%r%u, DT_VAR(%u)' % (name, DIF_INSTR_RS(ins), var),
+        print('%-4s %%r%u, DT_VAR(%u)' % (name, DIF_INSTR_RS(ins), var), end=' ')
 
         vname = self.VarName(var, self.Scope(name))
         if vname is not(None):
-            print "\t\t! DT_VAR(%u) = \"%s\"" % (var, vname)
+            print("\t\t! DT_VAR(%u) = \"%s\"" % (var, vname))
         else:
-            print ''
+            print('')
 
     def DisLog(self, name, ins):
-        print "%-4s %%r%u, %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins),
-                DIF_INSTR_R2(ins), DIF_INSTR_RD(ins))
+        print("%-4s %%r%u, %%r%u, %%r%u" % (name, DIF_INSTR_R1(ins),
+                DIF_INSTR_R2(ins), DIF_INSTR_RD(ins)))
 
     def DisCall(self, name, ins):
         subr = DIF_INSTR_SUBR(ins)
         subr_string = subroutine_strings[subr] if subr in subroutine_strings else ''
-        print '%-4s DIF_SUBR(%u), %%r%u\t\t! %s' % (name, subr,
-                DIF_INSTR_RD(ins), subr_string)
+        print('%-4s DIF_SUBR(%u), %%r%u\t\t! %s' % (name, subr,
+                DIF_INSTR_RD(ins), subr_string))
 
     def DisPushTs(self, name, ins):
         tnames = ["D type", "string"]
         itype = DIF_INSTR_TYPE(ins)
-        print "%-4s DT_TYPE(%u), %%r%u, %%r%u" % (name, itype, DIF_INSTR_R2(ins),
-                DIF_INSTR_RS(ins)),
+        print("%-4s DT_TYPE(%u), %%r%u, %%r%u" % (name, itype, DIF_INSTR_R2(ins),
+                DIF_INSTR_RS(ins)), end=' ')
 
         if itype <= 1:
-            print "\t! DT_TYPE(%u) = %s" % (itype, tnames[itype])
+            print("\t! DT_TYPE(%u) = %s" % (itype, tnames[itype]))
         else:
-            print ''
+            print('')
 
     def DisStore(self, name, ins):
-        print '%-4s %%r%u, [%%r%u]' % (DIF_INSTR_R1(ins), DIF_INSTR_RD(ins))
+        print('%-4s %%r%u, [%%r%u]' % (DIF_INSTR_R1(ins), DIF_INSTR_RD(ins)))
 
     def DisLoad(self, name, ins):
-        print '%-4s [%%r%u], %%r%u' % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins))
+        print('%-4s [%%r%u], %%r%u' % (name, DIF_INSTR_R1(ins), DIF_INSTR_RD(ins)))
 
     def DisXlate(self, name, ins):
         xlr = DIF_INSTR_XLREF(ins);
-        print "%-4s DT_XLREF[%u], %%r%u" % (name, xlr, DIF_INSTR_RD(ins))
+        print("%-4s DT_XLREF[%u], %%r%u" % (name, xlr, DIF_INSTR_RD(ins)))
 
     def VarName(self, vid, scope):
         for i in range(self.vartab.var_len):
@@ -475,7 +481,7 @@ class DIFODisassembler:
             return -1
 
 
-class AddrData:
+class AddrData(object):
     """DOF data coming from a specific address"""
     def __init__(self, target, addr):
         self.target = target
@@ -489,7 +495,7 @@ class AddrData:
         return self.target.CreateValueFromAddress(name, address, vtype)
 
 
-class SectionData:
+class SectionData(object):
     """
         DOF data coming from a section. We can't use addresses directly here
         because lldb won't let us inspect DOF sections in libraries not loaded
@@ -511,13 +517,13 @@ class SectionData:
                 vtype)
 
 
-class DOFHeader:
+class DOFHeader(object):
     def __init__(self, dof, target, data):
         self.dof = dof
         # Find the required DOF types
         dof_hdr_type = target.FindFirstType("dof_hdr_t")
         if not(dof_hdr_type.IsValid()):
-            print 'could not find dof_hdr_t type'
+            print('could not find dof_hdr_t type')
             return
         header = data.GetValue("$dof_hdr", 0, dof_hdr_type)
         self.secoff = GetMemberAsUnsigned(header, "dofh_secoff")
@@ -537,12 +543,12 @@ class DOFHeader:
         self.diftreg = GetChildAtIndexAsUnsigned(dofh_ident, DOF_ID_DIFTREG)
 
     def Show(self):
-        print 'DOF data model: {}'.format(self.model)
-        print 'DOF encoding: {}'.format(self.encoding)
-        print 'DOF format version: {}'.format(self.format_version)
-        print 'DOF instruction set version: {}'.format(self.difvers)
-        print 'DOF integer register count: {}'.format(self.difireg)
-        print 'DOF tuple register count: {}'.format(self.diftreg)
+        print('DOF data model: {}'.format(self.model))
+        print('DOF encoding: {}'.format(self.encoding))
+        print('DOF format version: {}'.format(self.format_version))
+        print('DOF instruction set version: {}'.format(self.difvers))
+        print('DOF integer register count: {}'.format(self.difireg))
+        print('DOF tuple register count: {}'.format(self.diftreg))
 
 
 class DOFSection(object):
@@ -558,12 +564,12 @@ class DOFSection(object):
         self.data_size = GetMemberAsUnsigned(sec, "dofs_size")
 
     def Show(self):
-        print 'Section {} type {} data size {} ent size {} {} header {} data {}'.format(
+        print('Section {} type {} data size {} ent size {} {} header {} data {}'.format(
                 self.i,
                 self.stype,
                 self.data_size, self.ent_size, self.flags,
                 hex(self.dof.addr + self.hdr_offset),
-                hex(self.dof.addr + self.offset))
+                hex(self.dof.addr + self.offset)))
 
 
 class DOFDIFSection(DOFSection):
@@ -573,7 +579,7 @@ class DOFDIFSection(DOFSection):
         dif_instr_type = target.FindFirstType("dif_instr_t")
         if not(dif_instr_type):
             raise TypeError('Could not find dif_instr_t. Do you have a kernel binary loaded ?)')
-        self.dif_len = self.data_size / dif_instr_type.GetByteSize()
+        self.dif_len = self.data_size // dif_instr_type.GetByteSize()
         # Ridiculous hack here : We don't have SBType::GetArrayType because
         # our lldb is too old, so we declare a variable of type
         # pointer to dif_instr_t[number_of_elements] and we grab its Pointee type
@@ -608,7 +614,7 @@ class DOFVarTabSection(DOFSection):
         dtrace_difv_type = target.FindFirstType("dtrace_difv_t")
         if not(dtrace_difv_type):
             raise TypeError('Could not find dtrace_difv_t. Do you have a kernel binary loaded ?)')
-        self.var_len = self.data_size / dtrace_difv_type.GetByteSize()
+        self.var_len = self.data_size // dtrace_difv_type.GetByteSize()
         # See note in DOFDIFSection.__init__
         target.EvaluateExpression("dtrace_difv_t (*$difva{})[{}]".format(self.var_len, self.var_len))
         difva_type = target.EvaluateExpression("$difva{}".format(self.var_len)).GetType().GetPointeeType()
@@ -625,7 +631,7 @@ class DOFIntTabSection(DOFSection):
         uint64_type = target.FindFirstType("uint64_t")
         if not(uint64_type):
             raise TypeError('Could not find uint64_t. Do you have a kernel binary loaded ?)')
-        self.int_len = self.data_size / uint64_type.GetByteSize()
+        self.int_len = self.data_size // uint64_type.GetByteSize()
         # Ridiculous hack here : We don't have SBType::GetArrayType because
         # our lldb is too old, so we declare a variable of type
         # pointer to char[size_of_strtab] and we grab its Pointee type
@@ -648,10 +654,10 @@ class DOFProbe(object):
 
     def Show(self):
         if self.nargv != self.xargv:
-            print '\t{}::{}({} | {})'.format(self.func, self.name, self.nargv,
-                    self.xargv)
+            print('\t{}::{}({} | {})'.format(self.func, self.name, self.nargv,
+                    self.xargv))
         else:
-            print '\t{}::{}({})'.format(self.func, self.name, self.nargv)
+            print('\t{}::{}({})'.format(self.func, self.name, self.nargv))
 
 
 class DOFProviderSection(DOFSection):
@@ -687,7 +693,7 @@ class DOFProviderSection(DOFSection):
         arg_sec = dof.GetSection(self.prargs_secid)
         off_sec = dof.GetSection(self.proffs_secid)
 
-        self.nprobes = prb_sec.data_size / prb_sec.ent_size
+        self.nprobes = prb_sec.data_size // prb_sec.ent_size
         self.probes = []
         for i in range(self.nprobes):
             probe = data.GetValue("$probe", prb_sec.offset + i *
@@ -708,8 +714,8 @@ class DOFProviderSection(DOFSection):
 
     def Show(self):
         super(DOFProviderSection, self).Show()
-        print 'Provider name: {} ({} probes)'.format(self.provider_name,
-                self.nprobes)
+        print('Provider name: {} ({} probes)'.format(self.provider_name,
+                self.nprobes))
         for i in range(self.nprobes):
             self.probes[i].Show()
 
@@ -768,11 +774,11 @@ class DOFProbeDescSection(DOFSection):
 
     def Show(self):
         super(DOFProbeDescSection, self).Show()
-        print '\tProbe desc {}:{}:{}:{}'.format(self.provider,
-                self.mod, self.func, self.name)
+        print('\tProbe desc {}:{}:{}:{}'.format(self.provider,
+                self.mod, self.func, self.name))
 
 
-class DOFAction:
+class DOFAction(object):
     def __init__(self, i, kind, difo, arg, arg_string):
         self.i = i
         self.kind = kind
@@ -793,7 +799,7 @@ class DOFActDescSection(DOFSection):
             raise TypeError('Could not find dof_actdesc_t type. Do you have a kenrel binary loaded ?')
 
         # Retrieve the number of actions
-        nactions = self.data_size / self.ent_size
+        nactions = self.data_size // self.ent_size
         self.actions = []
         for i in range(nactions):
             act = data.GetValue("$act", self.ent_size * i + self.offset, dof_actdesc_type)
@@ -813,15 +819,15 @@ class DOFActDescSection(DOFSection):
     def Show(self):
         super(DOFActDescSection, self).Show()
         for a in self.actions:
-            print '\tAction {} type {} difo in {}'.format(
+            print('\tAction {} type {} difo in {}'.format(
                 a.i,
                 ActionString(a.kind),
                 a.difo,
-            ),
+            ), end=' ')
             if a.arg_string is not(None):
-                print 'arg "{}"'.format(a.arg_string)
+                print('arg "{}"'.format(a.arg_string))
             else:
-                print 'arg {}'.format(a.arg)
+                print('arg {}'.format(a.arg))
 
 
 class DOFDifoHdrSection(DOFSection):
@@ -839,7 +845,7 @@ class DOFDifoHdrSection(DOFSection):
         if not(dof_secidx_type.IsValid()):
             raise TypeError('Could not find dof_secidx_t type. Do you have a kernel binary loaded ?')
 
-        self.nsections = (self.data_size - dof_difohdr_type.GetByteSize()) / dof_secidx_type.GetByteSize() + 1
+        self.nsections = (self.data_size - dof_difohdr_type.GetByteSize()) // dof_secidx_type.GetByteSize() + 1
 
         self.secs = []
         (self.dif_idx, self.dif) = (0, None)
@@ -871,12 +877,12 @@ class DOFDifoHdrSection(DOFSection):
 
     def Show(self):
         super(DOFDifoHdrSection, self).Show()
-        print 'DIF {} STRTAB {} INTTAB {} VARTAB {}'.format(
+        print('DIF {} STRTAB {} INTTAB {} VARTAB {}'.format(
             DOFSecIdxString(self.dif_idx),
             DOFSecIdxString(self.strtab_idx),
             DOFSecIdxString(self.inttab_idx),
             DOFSecIdxString(self.vartab_idx)
-        )
+        ))
         self.disassembler.Disassemble()
 
 
@@ -893,7 +899,7 @@ section_classes = {
     'INTTAB': DOFIntTabSection,
 }
 
-class DOF:
+class DOF(object):
     def __init__(self, target, data):
         self.target = target
         self.data = data
@@ -928,7 +934,7 @@ class DOF:
 
     def Show(self):
         self.header.Show()
-        print 'Sections:'
+        print('Sections:')
         for i in range(len(self.sections)):
             self.sections[i].Show()
 
@@ -942,7 +948,7 @@ def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand('command script add -f dof.dof_command dof')
 
 def show_dof_module(target, module):
-    print 'Printing DOFs for module {}'.format(module.GetFileSpec().GetFilename())
+    print('Printing DOFs for module {}'.format(module.GetFileSpec().GetFilename()))
     text_section = module.FindSection("__TEXT")
     # Iterate over the sections of TEXT to find the dof ones
     for i in range(text_section.GetNumSubSections()):
@@ -950,7 +956,7 @@ def show_dof_module(target, module):
         if section.GetName().find("dof_") != -1:
             section_data = SectionData(target, section)
             dof = DOF(target, section_data)
-            print 'Section {}'.format(section.GetName())
+            print('Section {}'.format(section.GetName()))
             dof.Show()
 
 

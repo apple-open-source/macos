@@ -24,8 +24,11 @@
 #import <Security/Security.h>
 #import <Security/SecCertificatePriv.h>
 
+#include <CommonCrypto/CommonCryptor.h>
+
 #include "keychain_regressions.h"
 #include "kc-helpers.h"
+#include "kc-key-helpers.h"
 #define nullptr NULL
 
 #import <Foundation/Foundation.h>
@@ -187,15 +190,9 @@ static SecKeyRef encryptionKey(SecKeychainRef kc)
 
 static NSData *encryptData(SecKeychainRef kc, NSData *plainTextData)
 {
-    SecTransformRef transform = SecEncryptTransformCreate(encryptionKey(kc), nullptr);
-    SecTransformSetAttribute(transform, kSecPaddingKey, kSecPaddingPKCS7Key, nullptr);
-    SecTransformSetAttribute(transform, kSecEncryptionMode, kSecModeCBCKey, nullptr);
-    SecTransformSetAttribute(transform, kSecTransformInputAttributeName, (__bridge CFDataRef)plainTextData, nullptr);
-
     CFErrorRef error = 0;
-    NSData *result = CFBridgingRelease(SecTransformExecute(transform, &error));
-    CFRelease(transform);
-    is(error, NULL, "%s: SecTransformExecute (encrypt)", testName);
+    NSData *result = CFBridgingRelease(encryptOrDecryptAESCBC(kCCEncrypt, encryptionKey(kc), (__bridge CFDataRef)plainTextData, &error));
+    is(error, NULL, "%s: encryptOrDecryptAESCBC (encrypt)", testName);
 
     if (!result) {
         NSLog(@"Encrypting data failed: %@", error);
@@ -208,16 +205,10 @@ static NSData *encryptData(SecKeychainRef kc, NSData *plainTextData)
 
 static NSData *decryptData(SecKeychainRef kc, NSData *cipherTextData)
 {
-    SecTransformRef transform = SecDecryptTransformCreate(encryptionKey(kc), nullptr);
-    SecTransformSetAttribute(transform, kSecPaddingKey, kSecPaddingPKCS7Key, nullptr);
-    SecTransformSetAttribute(transform, kSecEncryptionMode, kSecModeCBCKey, nullptr);
-    SecTransformSetAttribute(transform, kSecTransformInputAttributeName, (__bridge CFDataRef)cipherTextData, nullptr);
-
     CFErrorRef error = 0;
-    NSData *result = CFBridgingRelease(SecTransformExecute(transform, &error));
-    is(error, NULL, "%s: SecTransformExecute (decrypt)", testName);
+    NSData *result = CFBridgingRelease(encryptOrDecryptAESCBC(kCCDecrypt, encryptionKey(kc), (__bridge CFDataRef)cipherTextData, &error));
+    is(error, NULL, "%s: encryptOrDecryptAESCBC (decrypt)", testName);
 
-    CFRelease(transform);
     if (!result) {
         NSLog(@"Decrypting data failed: %@", error);
         CFRelease(error);

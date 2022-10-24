@@ -134,7 +134,7 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 			SMBERROR("Too many minor devices, %d >= %d !", avail_minor, SMBMINORS);
 			return (ENOMEM);
 		}
-        SMB_MALLOC(sdp, struct smb_dev *, sizeof(*sdp), M_NSMBDEV, M_WAITOK);
+        SMB_MALLOC_TYPE(sdp, struct smb_dev, Z_WAITOK);
 		bzero(sdp, sizeof(*sdp));
 		dev = makedev(smb_major, avail_minor);
 		sdp->sd_devfs = devfs_make_node(dev, DEVFS_CHAR,
@@ -143,7 +143,7 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 						0700, "nsmb%x", avail_minor);
 		if (!sdp->sd_devfs) {
 			SMBERROR("devfs_make_node failed %d\n", avail_minor);
-			SMB_FREE(sdp, M_NSMBDEV);
+            SMB_FREE_TYPE(struct smb_dev, sdp);
 			return (ENOMEM);
 		}
 		if (avail_minor > smb_minor_hiwat)
@@ -224,7 +224,7 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 
 	SMB_GETDEV(dev) = NULL;
 	lck_rw_destroy(&sdp->sd_rwlock, dev_lck_grp);
-	SMB_FREE(sdp, M_NSMBDEV);
+    SMB_FREE_TYPE(struct smb_dev, sdp);
 	dev_open_cnt--;
 
 	lck_rw_unlock_exclusive(dev_rw_lck);
@@ -272,7 +272,9 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		{
 			int searchOnly = (cmd == SMBIOC_FIND_SESSION) ? TRUE : FALSE;
 			struct smbioc_negotiate * vspec = (struct smbioc_negotiate *)data;
-			
+            struct sockaddr *saddr = NULL, *laddr = NULL;
+            int32_t saddr_allocsize = 0, laddr_allocsize = 0;
+
 			/* protect against anyone else playing with the smb dev structure */
 			lck_rw_lock_exclusive(&sdp->sd_rwlock);
 
@@ -285,11 +287,81 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else if (sdp->sd_session || sdp->sd_share) {
 				error = EISCONN;
 			} else {
-				error = smb_usr_negotiate(vspec, context, sdp, searchOnly);				
+                /* Convert any pointers over to using user_addr_t */
+                if (! vfs_context_is64bit (context)) {
+                    vspec->ioc_kern_saddr = CAST_USER_ADDR_T(vspec->ioc_saddr);
+                    vspec->ioc_kern_laddr = CAST_USER_ADDR_T(vspec->ioc_laddr);
+                }
+
+                if (vspec->ioc_saddr_len < 3) {
+                    /* Paranoid check - Have to have at least sa_len and sa_family */
+                    SMBERROR("invalid ioc_saddr_len (%d) \n", vspec->ioc_saddr_len);
+                    error = EINVAL;
+                    goto ioc_negotiate_error;
+                }
+
+                saddr = smb_memdupin(vspec->ioc_kern_saddr, vspec->ioc_saddr_len);
+                saddr_allocsize = vspec->ioc_saddr_len;
+                if (saddr == NULL) {
+                    error = ENOMEM;
+                    goto ioc_negotiate_error;
+                }
+
+                if (saddr->sa_len != vspec->ioc_saddr_len) {
+                    SMBERROR("invalid parameter ioc_saddr->sa_len (%u) != sizeof(ioc_saddr_len) (%lu)",
+                             saddr->sa_len, sizeof(*saddr));
+                    error = EINVAL;
+                    goto ioc_negotiate_error;
+                }
+
+                if (vspec->ioc_laddr_len) {
+                    if (vspec->ioc_laddr_len < 3) {
+                        /* Paranoid check - Have to have at least sa_len and sa_family */
+                        SMBERROR("invalid ioc_laddr_len (%d) \n", vspec->ioc_laddr_len);
+                        error = EINVAL;
+                        goto ioc_negotiate_error;
+                    }
+
+                    laddr = smb_memdupin(vspec->ioc_kern_laddr, vspec->ioc_laddr_len);
+                    laddr_allocsize = vspec->ioc_laddr_len;
+                    if (laddr == NULL) {
+                        error = ENOMEM;
+                        goto ioc_negotiate_error;
+                    }
+
+                    if (laddr->sa_len != vspec->ioc_laddr_len) {
+                        SMBERROR("invalid parameter ioc_laddr->sa_len (%u) != sizeof(ioc_laddr_len) (%lu)",
+                                 saddr->sa_len, sizeof(*saddr));
+                        error = EINVAL;
+                        goto ioc_negotiate_error;
+                    }
+                }
+
+                /*
+                 * <84091372> All user mode memory should get copyin before we call the
+                 * smb_usr_negotiate. To make sure usrptrs will not be used by it in
+                 * the future, we temporary set this pointers to NULL.
+                 */
+                struct sockaddr * tmp_ioc_saddr = vspec->ioc_saddr;
+                struct sockaddr * tmp_ioc_laddr = vspec->ioc_laddr;
+
+                vspec->ioc_saddr = NULL;
+                vspec->ioc_laddr = NULL;
+
+                error = smb_usr_negotiate(vspec, context, sdp, searchOnly, saddr, laddr);
+
+                vspec->ioc_saddr = tmp_ioc_saddr;
+                vspec->ioc_laddr = tmp_ioc_laddr;
 			}
-            
-			lck_rw_unlock_exclusive(&sdp->sd_rwlock);
-			break;
+ioc_negotiate_error:
+            if (saddr) {
+                SMB_FREE_DATA(saddr, saddr_allocsize);
+            }
+            if (laddr) {
+                SMB_FREE_DATA(laddr, laddr_allocsize);
+            }
+            lck_rw_unlock_exclusive(&sdp->sd_rwlock);
+            break;
 		}
         case SMBIOC_UPDATE_CLIENT_INTERFACES:
         {
@@ -379,7 +451,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                     error = smb_iod_get_non_main_iod(sessionp, &iod, __FUNCTION__, 1);
 
                     if ((error == 0) && iod) {
-                        (void)smb_smb_echo(iod, SMBNOREPLYWAIT, 1, iod->iod_context);
+                        (void)smb_iod_request(iod, SMBIOD_EV_ECHO | SMBIOD_EV_SYNC, NULL);
                         smb_iod_rel(iod, NULL, __FUNCTION__);
                     }
 
@@ -497,13 +569,62 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 					((dp->ioc_direction & LOCAL_TO_NETWORK) && (dp->ioc_direction & NETWORK_TO_LOCAL))) {
 					/* Need to have one set and you can't have both set */
 					error = EINVAL;
-				} else if (dp->ioc_direction & LOCAL_TO_NETWORK) {
-					error = smb_usr_convert_path_to_network(sdp->sd_session, dp);
-				} else {
-					error = smb_usr_convert_network_to_path(sdp->sd_session, dp);
-				}
+                } else {
+                    char *srcp = NULL;
+                    char *dstp = NULL;
+                    uint64_t dst_len;
+                    uint64_t dst_alloclen = 0, src_alloclen = dp->ioc_src_len;
+                    srcp = smb_memdupin(dp->ioc_kern_src, (uint32_t)src_alloclen);
+                    if (srcp == NULL) {
+                        SMBERROR("failed to dupin ioc_kern_src\n");
+                        error = ENOMEM;
+                        goto ioc_convert_path_error;
+                    }
+
+                    dst_alloclen = dp->ioc_dest_len;
+                    SMB_MALLOC_DATA(dstp, dst_alloclen, Z_WAITOK_ZERO);
+
+                    /*
+                     * <82309348> All user mode memory should get copyin before we call
+                     * smb_usr_convert_path_to_network or smb_usr_convert_network_to_path.
+                     * To make sure usrptrs will not be used by it in the future, we
+                     * temporary set this pointers to NULL.
+                     */
+                    const char* tmp_ioc_src = dp->ioc_src;
+                    const char* tmp_ioc_dst = dp->ioc_dest;
+
+                    dp->ioc_src = NULL;
+                    dp->ioc_dest = NULL;
+                    dst_len = dp->ioc_dest_len;
+                    if (dp->ioc_direction & LOCAL_TO_NETWORK) {
+                        error = smb_usr_convert_path_to_network(sdp->sd_session, srcp, dp->ioc_src_len, dstp,
+                                                                &dst_len, dp->ioc_flags);
+                    } else {
+                        error = smb_usr_convert_network_to_path(sdp->sd_session, srcp, dp->ioc_src_len, dstp,
+                                                                &dst_len, dp->ioc_flags);
+                    }
+
+                    dp->ioc_src = tmp_ioc_src;
+                    dp->ioc_dest = tmp_ioc_dst;
+
+                    if (!error) {
+                        error = copyout(dstp, dp->ioc_kern_dest, dst_len);
+                        if (error) {
+                            SMBERROR("copyout failed : %d\n", error);
+                            smb_hexdump(__FUNCTION__, "dest buffer: ", (u_char *)dstp, dp->ioc_dest_len);
+                        } else {
+                            dp->ioc_dest_len = dst_len;
+                        }
+                    }
+                    if (srcp) {
+                        SMB_FREE_DATA(srcp, src_alloclen);
+                    }
+                    if (dstp) {
+                        SMB_FREE_DATA(dstp, dst_alloclen);
+                    }
+                }
 			}
-            
+ioc_convert_path_error:
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
@@ -750,14 +871,22 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                         error = EINVAL;
                         break;
                 }
-                nic_count = min(nic_count,MAX_NUM_OF_NICS);
 
                 nic_info->num_of_nics = 0;
 
                 uint32_t i;
+                uint32_t size = 0;
+                void * nic_info_buffer;
+                SMB_MALLOC_DATA(nic_info_buffer, nic_info->nic_props_buffer_len, Z_WAITOK_ZERO);
+                if (nic_info_buffer == NULL) {
+                    SMBERROR("malloc failed.\n");
+                    error = ENOMEM;
+                    nic_count = 0;
+                }
+                void * npp = nic_info_buffer;
                 for (i = 0; i < nic_count; )
                 {
-                    struct nic_properties *p = &nic_info->nic_props[i];
+                    struct nic_properties *p = (struct nic_properties *)npp;
 
                     if (nic == NULL) {
                         break;
@@ -766,6 +895,12 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                         nic = TAILQ_NEXT(nic,next);
                         continue;
                     }
+                    size += sizeof(struct nic_properties);
+                    if (size > nic_info->nic_props_buffer_len) {
+                        error = EMSGSIZE;
+                        break;
+                    }
+
                     p->if_index = nic->nic_index;
                     p->capabilities = nic->nic_caps;
                     p->speed = nic->nic_link_speed;
@@ -774,13 +909,15 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                     p->state = nic->nic_state;
 
                     struct sock_addr_entry *sock_addr = TAILQ_FIRST(&nic->addr_list);
-                    uint32_t j;
-                    for (j = 0; j < MAX_ADDRS_FOR_NIC; j++)
+                    uint32_t j = 0;
+                    while (sock_addr)
                     {
-                        if (!sock_addr) {
-                            break;
-                        }
                         if (sock_addr->addr) {
+                            size += sizeof(struct address_properties);
+                            if (size > nic_info->nic_props_buffer_len) {
+                                error = EMSGSIZE;
+                                break;
+                            }
                             p->addr_list[j].addr_family = sock_addr->addr->sa_family;
 
                             switch (p->addr_list[j].addr_family) {
@@ -797,19 +934,38 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                                 }
                                 break;
                                 default:
-                                    SMBERROR("Unknown family.\n");
+                                    SMBERROR("Unknown address family.\n");
                             }
+
+                            j++;
 
                         }
 
                         sock_addr = TAILQ_NEXT(sock_addr,next);
                     }
 
+                    if (error) {
+                        break;
+                    }
+
                     p->num_of_addrs = j;
+                    p->size = sizeof(struct nic_properties) + (j * sizeof(struct address_properties));
+
+
                     nic = TAILQ_NEXT(nic,next);
+                    npp = (uint8_t *)npp + p->size;
                     i++;
                 }
-                nic_info->num_of_nics = i;
+                if (!error) {
+                    error = copyout(nic_info_buffer, nic_info->ioc_kern_nic_props_buffer, size);
+                }
+                if (nic_info_buffer) {
+                    SMB_FREE_DATA(nic_info_buffer, nic_info->nic_props_buffer_len);
+                }
+                if (!error) {
+                    nic_info->num_of_nics = i;
+                    nic_info->nic_props_buffer_len = size;
+                }
 
                 lck_mtx_unlock(&sessionp->session_interface_table.interface_table_lck);
             }
@@ -1086,9 +1242,73 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			else if (sdp->sd_share == NULL) {
 				error = ENOTCONN;
 			} else {
-				error = smb_usr_simplerequest(sdp->sd_share, dp, context);
+                char *twordsp = NULL;
+                char *tbytesp = NULL;
+                char *responsep = NULL;
+                size_t twordsp_allocsize = 0, tbytesp_allocsize = 0, responsep_allocsize = 0;
+
+                /* Take the 32 bit world pointers and convert them to user_addr_t. */
+                if (! vfs_context_is64bit (context)) {
+                    dp->ioc_kern_twords = CAST_USER_ADDR_T(dp->ioc_twords);
+                    dp->ioc_kern_tbytes = CAST_USER_ADDR_T(dp->ioc_tbytes);
+                }
+
+                if ((dp->ioc_twc) && (dp->ioc_kern_twords)) {
+                    twordsp = smb_memdupin(dp->ioc_kern_twords, dp->ioc_twc * 2);
+                    twordsp_allocsize = dp->ioc_twc * 2;
+                    if (twordsp == NULL) {
+                        SMBERROR("failed to dupin ioc_kern_twords\n");
+                        error = ENOMEM;
+                        goto ioc_rq_error;
+                    }
+                }
+
+                if ((dp->ioc_tbc) && (dp->ioc_kern_tbytes)) {
+                    tbytesp = smb_memdupin(dp->ioc_kern_tbytes, dp->ioc_tbc);
+                    tbytesp_allocsize = dp->ioc_tbc;
+                    if (tbytesp == NULL) {
+                        SMBERROR("failed to dupin ioc_kern_tbytes\n");
+                        error = ENOMEM;
+                        SMB_FREE_DATA(twordsp, twordsp_allocsize);
+                        goto ioc_rq_error;
+                    }
+                }
+
+                /*
+                 * <84091372> All user mode memory should get copyin before we call the
+                 * smb_usr_simplerequest. To make sure usrptrs will not be used by it in
+                 * the future, we temporary set this pointers to NULL.
+                 */
+                void *tmp_ioc_twords = dp->ioc_twords;
+                void *tmp_ioc_tbytes = dp->ioc_tbytes;
+                char *tmp_ioc_rpbuf  = dp->ioc_rpbuf;
+
+                dp->ioc_twords = NULL;
+                dp->ioc_tbytes = NULL;
+                dp->ioc_rpbuf = NULL;
+
+                responsep_allocsize = dp->ioc_rpbufsz;
+                SMB_MALLOC_DATA(responsep, responsep_allocsize, Z_WAITOK_ZERO);
+				error = smb_usr_simplerequest(sdp->sd_share, dp, context, twordsp, tbytesp, responsep);
+                dp->ioc_twords = tmp_ioc_twords;
+                dp->ioc_tbytes = tmp_ioc_tbytes;
+                dp->ioc_rpbuf = tmp_ioc_rpbuf;
+
+                if (error == 0) {
+                    if (! vfs_context_is64bit (context)) {
+                        dp->ioc_kern_rpbuf = CAST_USER_ADDR_T(dp->ioc_rpbuf);
+                    }
+                    dp->ioc_errno = copyout(responsep, dp->ioc_kern_rpbuf, dp->ioc_rpbufsz);
+                }
+                if (twordsp) {
+                    SMB_FREE_DATA(twordsp, twordsp_allocsize);
+                }
+                if (tbytesp) {
+                    SMB_FREE_DATA(tbytesp, tbytesp_allocsize);
+                }
+                SMB_FREE_DATA(responsep, responsep_allocsize);
 			}
-            
+ioc_rq_error:
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
@@ -1130,40 +1350,62 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 				error = ENOTCONN;
 			} else {
 				uio_t auio = NULL;
+                char *basep = NULL;
+                smbfh fh;
+                SMBFID fid = 0;
+                auio =  uio_create(1, rwrq->ioc_offset, UIO_SYSSPACE,
+                                   (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
 
-				/* Take the 32 bit world pointers and convert them to user_addr_t. */
-				if (vfs_context_is64bit(context))
-					auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE64, 
-									  (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
-				else {
-					rwrq->ioc_kern_base = CAST_USER_ADDR_T(rwrq->ioc_base);
-					auio = uio_create(1, rwrq->ioc_offset, UIO_USERSPACE32, 
-									  (cmd == SMBIOC_READ) ? UIO_READ : UIO_WRITE);
-				}
-				if (auio) {
-                    smbfh fh;
-                    SMBFID fid = 0;
-
-                    uio_addiov(auio, rwrq->ioc_kern_base, rwrq->ioc_cnt);
-                    fh = htoles(rwrq->ioc_fh);
-                    fid = fh;
-                    /* All calls from user maintain a reference on the share */
-                    if (cmd == SMBIOC_READ) {
-                        error = smb_smb_read(sdp->sd_share, fid, auio, context);
-                    }
-                    else {
-                        int ioFlags = (rwrq->ioc_writeMode & WritethroughMode) ? IO_SYNC : 0;
-
-                        error = smb_smb_write(sdp->sd_share, fid, auio, ioFlags, context);
-                    }
-                    rwrq->ioc_cnt -= (int32_t)uio_resid(auio);
-                    uio_free(auio);
-				} 
-                else {
-					error = ENOMEM;
+                if (!auio) {
+                    error = ENOMEM;
+                    goto ioc_rw_error;
                 }
+
+                if (cmd == SMBIOC_READ) {
+                    SMB_MALLOC_DATA(basep, rwrq->ioc_cnt, Z_WAITOK_ZERO);
+                } else {
+                    /* Take the 32 bit world pointers and convert them to user_addr_t. */
+                    if (!vfs_context_is64bit(context)) {
+                        rwrq->ioc_kern_base = CAST_USER_ADDR_T(rwrq->ioc_base);
+                    }
+                    basep = smb_memdupin(rwrq->ioc_kern_base, rwrq->ioc_cnt);
+                    if (basep == NULL) {
+                        SMBERROR("failed to dupin ioc_kern_base\n");
+                        error = ENOMEM;
+                        uio_free(auio);
+                        goto ioc_rw_error;
+                    }
+                }
+
+                uio_addiov(auio, CAST_USER_ADDR_T(basep), rwrq->ioc_cnt);
+                fh = htoles(rwrq->ioc_fh);
+                fid = fh;
+
+                /* All calls from user maintain a reference on the share */
+                if (cmd == SMBIOC_READ) {
+                    error = smb_smb_read(sdp->sd_share, fid, auio, context);
+                }
+                else {
+                    int ioFlags = (rwrq->ioc_writeMode & WritethroughMode) ? IO_SYNC : 0;
+                    error = smb_smb_write(sdp->sd_share, fid, auio, ioFlags, context);
+                }
+
+                if ((error == 0) && (cmd == SMBIOC_READ)) {
+                    /* Take the 32 bit world pointers and convert them to user_addr_t. */
+                    if (!vfs_context_is64bit(context)) {
+                        rwrq->ioc_kern_base = CAST_USER_ADDR_T(rwrq->ioc_base);
+                    }
+                    error = copyout(basep, rwrq->ioc_kern_base, rwrq->ioc_cnt);
+                }
+
+                if (error == 0) {
+                    rwrq->ioc_cnt -= (int32_t)uio_resid(auio);
+                }
+
+                uio_free(auio);
+                SMB_FREE_DATA(basep, rwrq->ioc_cnt);
 			}
-            
+ioc_rw_error:
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
@@ -1182,9 +1424,57 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else if (sdp->sd_share == NULL) {
 				error = ENOTCONN;
 			} else {
-				error = smb_usr_fsctl(sdp->sd_share, fsctl, context);
+                
+                char *tdatap = NULL;
+                char *rdatap = NULL;
+                size_t tdatap_allocsize = 0, rdatap_allocsize = 0;
+
+                /* Take the 32 bit world pointers and convert them to user_addr_t. */
+                if (! vfs_context_is64bit (context)) {
+                    fsctl->ioc_kern_tdata = CAST_USER_ADDR_T(fsctl->ioc_tdata);
+                }
+
+                if ((fsctl->ioc_tdatacnt) && (fsctl->ioc_kern_tdata)) {
+                    tdatap = smb_memdupin(fsctl->ioc_kern_tdata, fsctl->ioc_tdatacnt);
+                    tdatap_allocsize = fsctl->ioc_tdatacnt;
+                    if (tdatap == NULL) {
+                        SMBERROR("failed to dupin ioc_kern_tdata\n");
+                        error = ENOMEM;
+                        goto ioc_fsctl_error;
+                    }
+                }
+
+                /*
+                 * <84091372> All user mode memory should get copyin before we call the
+                 * smb_usr_fsctl. To make sure usrptrs will not be used by it in
+                 * the future, we temporary set this pointers to NULL.
+                 */
+                void *tmp_ioc_tdata = fsctl->ioc_tdata;
+                void *tmp_ioc_rdata = fsctl->ioc_rdata;
+
+                fsctl->ioc_tdata = NULL;
+                fsctl->ioc_rdata = NULL;
+
+                rdatap_allocsize = fsctl->ioc_rdatacnt;
+                SMB_MALLOC_DATA(rdatap, rdatap_allocsize, Z_WAITOK_ZERO);
+                error = smb_usr_fsctl(sdp->sd_share, fsctl, context, tdatap, rdatap);
+                
+                fsctl->ioc_tdata = tmp_ioc_tdata;
+                fsctl->ioc_rdata = tmp_ioc_rdata;
+
+                if ((error == 0) && (fsctl->ioc_errno == 0) && (fsctl->ioc_rdatacnt)) {
+                    if (! vfs_context_is64bit (context)) {
+                        fsctl->ioc_kern_rdata = CAST_USER_ADDR_T(fsctl->ioc_rdata);
+                    }
+                    fsctl->ioc_errno = copyout(rdatap, fsctl->ioc_kern_rdata, fsctl->ioc_rdatacnt);
+                }
+
+                if (tdatap) {
+                    SMB_FREE_DATA(tdatap, tdatap_allocsize);
+                }
+                SMB_FREE_DATA(rdatap, rdatap_allocsize);
 			}
-            
+ioc_fsctl_error:
 			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
@@ -1488,7 +1778,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 					(void)smb_iod_done();
 					(void)smb_sm_done();
 				}
-                SMB_MALLOC(sdp, struct smb_dev *, sizeof(*sdp), M_NSMBDEV, M_WAITOK);
+                SMB_MALLOC_TYPE(sdp, struct smb_dev, Z_WAITOK);
 				bzero(sdp, sizeof(*sdp));
 				dev = makedev(smb_major, 0);
 				sdp->sd_devfs = devfs_make_node(dev, DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, "nsmb0");
@@ -1496,7 +1786,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 					error = ENOMEM;
 					SMBERROR("smb: devfs_make_node 0666");
 					(void)cdevsw_remove(smb_major, &nsmb_cdevsw);
-					SMB_FREE(sdp, M_NSMBDEV);
+                    SMB_FREE_TYPE(struct smb_dev, sdp);
 					(void)smb_iod_done();
 					(void)smb_sm_done();	
 				}
@@ -1519,7 +1809,6 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 						SMB_GETDEV(m) = 0;
 						if (sdp->sd_devfs)
 							devfs_remove(sdp->sd_devfs);
-						SMB_FREE(sdp, M_NSMBDEV);
 					}
 				smb_minor_hiwat = -1;
 				smb_major = cdevsw_remove(smb_major, &nsmb_cdevsw);

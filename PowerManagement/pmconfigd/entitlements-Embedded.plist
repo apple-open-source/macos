@@ -31,12 +31,37 @@
 	<key>com.apple.trial.client</key>
 	<array>
 		<string>253</string>
+		<string>1200</string>
 	</array>
 	<key>com.apple.private.btm.client</key>
 	<true/>
 	<key>com.apple.coreduetd.allow</key>
 	<true/>
 	<key>com.apple.coreduetd.context</key>
+	<true/>
+	<key>com.apple.private.biome.client-identifier</key>
+	<string>com.apple.powerd</string>
+	<key>com.apple.private.biome.read-only</key>
+	<array>
+		<string>ContextSync.LOI</string>
+		<string>SemanticLocation</string>
+		<string>Alarm</string>
+	</array>
+	<key>com.apple.private.biome.read-write</key>
+	<array>
+		<string>Device.Power.EnergyMode</string>
+	</array>
+	<key>com.apple.powerui.bdcdata</key>
+	<true/>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.powerui.bdcdata</string>
+	</array>
+	<key>com.apple.backlight.backlightaccess</key>
+	<true/>
+	<key>com.apple.locationd.motion_alarms</key>
+	<true/>
+	<key>com.apple.locationd.motion_alarms-system-client</key>
 	<true/>
 </dict>
 </plist>

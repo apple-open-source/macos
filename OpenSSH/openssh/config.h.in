@@ -19,6 +19,9 @@
 /* The system has incomplete BSM API */
 #undef BROKEN_BSM_API
 
+/* broken in chroots on older kernels */
+#undef BROKEN_CLOSEFROM
+
 /* Define if cmsg_type is not passed correctly */
 #undef BROKEN_CMSG_TYPE
 
@@ -27,6 +30,9 @@
 
 /* getgroups(0,NULL) will return -1 */
 #undef BROKEN_GETGROUPS
+
+/* getline is not what we expect */
+#undef BROKEN_GETLINE
 
 /* FreeBSD glob does not do what we need */
 #undef BROKEN_GLOB
@@ -37,6 +43,9 @@
 /* Define if your struct dirent expects you to allocate extra space for d_name
    */
 #undef BROKEN_ONE_BYTE_DIRENT_D_NAME
+
+/* System poll(2) implementation is broken */
+#undef BROKEN_POLL
 
 /* Can't do comparisons on readv */
 #undef BROKEN_READV_COMPARISON
@@ -282,6 +291,9 @@
 /* Define to 1 if you have the `closefrom' function. */
 #undef HAVE_CLOSEFROM
 
+/* Define to 1 if you have the `close_range' function. */
+#undef HAVE_CLOSE_RANGE
+
 /* Define if gai_strerror() returns const char * */
 #undef HAVE_CONST_GAI_STRERROR_PROTO
 
@@ -314,6 +326,10 @@
 /* Define to 1 if you have the declaration of `bzero', and to 0 if you don't.
    */
 #undef HAVE_DECL_BZERO
+
+/* Define to 1 if you have the declaration of `ftruncate', and to 0 if you
+   don't. */
+#undef HAVE_DECL_FTRUNCATE
 
 /* Define to 1 if you have the declaration of `getpeereid', and to 0 if you
    don't. */
@@ -579,8 +595,14 @@
 /* Define to 1 if you have the <features.h> header file. */
 #undef HAVE_FEATURES_H
 
+/* Define to 1 if you have the `fido_assert_set_clientdata' function. */
+#undef HAVE_FIDO_ASSERT_SET_CLIENTDATA
+
 /* Define to 1 if you have the `fido_cred_prot' function. */
 #undef HAVE_FIDO_CRED_PROT
+
+/* Define to 1 if you have the `fido_cred_set_clientdata' function. */
+#undef HAVE_FIDO_CRED_SET_CLIENTDATA
 
 /* Define to 1 if you have the `fido_cred_set_prot' function. */
 #undef HAVE_FIDO_CRED_SET_PROT
@@ -822,6 +844,9 @@
 /* Define if you have isblank(3C). */
 #undef HAVE_ISBLANK
 
+/* Define to 1 if you have the `killpg' function. */
+#undef HAVE_KILLPG
+
 /* Define to 1 if you have the `krb5_cc_new_unique' function. */
 #undef HAVE_KRB5_CC_NEW_UNIQUE
 
@@ -943,12 +968,6 @@
 /* Define to 1 if you have the `mbtowc' function. */
 #undef HAVE_MBTOWC
 
-/* Define to 1 if you have the `md5_crypt' function. */
-#undef HAVE_MD5_CRYPT
-
-/* Define if you want to allow MD5 passwords */
-#undef HAVE_MD5_PASSWORDS
-
 /* Define to 1 if you have the `memmem' function. */
 #undef HAVE_MEMMEM
 
@@ -987,6 +1006,9 @@
 
 /* Define if you are on NeXT */
 #undef HAVE_NEXT
+
+/* Define to 1 if the system has the type `nfds_t'. */
+#undef HAVE_NFDS_T
 
 /* Define to 1 if you have the `ngetaddrinfo' function. */
 #undef HAVE_NGETADDRINFO
@@ -1052,6 +1074,9 @@
 /* Define to 1 if you have the <poll.h> header file. */
 #undef HAVE_POLL_H
 
+/* Define to 1 if you have the `ppoll' function. */
+#undef HAVE_PPOLL
+
 /* Define to 1 if you have the `prctl' function. */
 #undef HAVE_PRCTL
 
@@ -1061,11 +1086,17 @@
 /* Define to 1 if you have the <priv.h> header file. */
 #undef HAVE_PRIV_H
 
+/* Define to 1 if you have the `procctl' function. */
+#undef HAVE_PROCCTL
+
 /* Define if you have /proc/$pid/fd */
 #undef HAVE_PROC_PID
 
 /* Define to 1 if you have the `proc_pidinfo' function. */
 #undef HAVE_PROC_PIDINFO
+
+/* Define to 1 if you have the `pselect' function. */
+#undef HAVE_PSELECT
 
 /* Define to 1 if you have the `pstat' function. */
 #undef HAVE_PSTAT
@@ -1275,6 +1306,9 @@
 /* Define to 1 if you have the `sigaction' function. */
 #undef HAVE_SIGACTION
 
+/* Define to 1 if the system has the type `sighandler_t'. */
+#undef HAVE_SIGHANDLER_T
+
 /* Define to 1 if you have the `sigvec' function. */
 #undef HAVE_SIGVEC
 
@@ -1392,6 +1426,9 @@
 /* Define to 1 if `pw_gecos' is a member of `struct passwd'. */
 #undef HAVE_STRUCT_PASSWD_PW_GECOS
 
+/* Define to 1 if `fd' is a member of `struct pollfd'. */
+#undef HAVE_STRUCT_POLLFD_FD
+
 /* define if you have struct sockaddr_in6 data type */
 #undef HAVE_STRUCT_SOCKADDR_IN6
 
@@ -1473,11 +1510,17 @@
 /* Define if your system defines sys_nerr */
 #undef HAVE_SYS_NERR
 
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
 /* Define to 1 if you have the <sys/poll.h> header file. */
 #undef HAVE_SYS_POLL_H
 
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 #undef HAVE_SYS_PRCTL_H
+
+/* Define to 1 if you have the <sys/procctl.h> header file. */
+#undef HAVE_SYS_PROCCTL_H
 
 /* Define to 1 if you have the <sys/pstat.h> header file. */
 #undef HAVE_SYS_PSTAT_H
@@ -1880,6 +1923,9 @@
 /* The size of `short int', as computed by sizeof. */
 #undef SIZEOF_SHORT_INT
 
+/* The size of `time_t', as computed by sizeof. */
+#undef SIZEOF_TIME_T
+
 /* Define as const if snprintf() can declare const char *fmt */
 #undef SNPRINTF_CONST
 
@@ -1973,6 +2019,9 @@
 
 /* Define if you have Solaris projects */
 #undef USE_SOLARIS_PROJECTS
+
+/* compiler variable declarations after code */
+#undef VARIABLE_DECLARATION_AFTER_CODE
 
 /* compiler supports variable length arrays */
 #undef VARIABLE_LENGTH_ARRAYS

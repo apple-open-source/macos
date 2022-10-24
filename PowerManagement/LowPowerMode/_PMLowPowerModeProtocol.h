@@ -16,8 +16,15 @@ typedef void (^PMSetPowerModeCompletionHandler)(BOOL success, NSError *error);
 
 @protocol _PMLowPowerModeProtocol
 
+@optional
 - (void)setPowerMode:(PMPowerMode)mode
           fromSource:(NSString *)source
+      withCompletion:(PMSetPowerModeCompletionHandler)handler;
+
+@required
+- (void)setPowerMode:(PMPowerMode)mode
+          fromSource:(NSString *)source
+          withParams:(NSDictionary *)params // Session params applicable only while LPM is ON
       withCompletion:(PMSetPowerModeCompletionHandler)handler;
 
 @end

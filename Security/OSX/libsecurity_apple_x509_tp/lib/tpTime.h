@@ -74,7 +74,8 @@ typedef enum {
 
 void timeAtNowPlus(unsigned secFromNow,
 	TpTimeSpec timeSpec,
-	char *outStr);
+	char *outStr,
+	size_t outStrSize);
 
 /*
  * Convert a time string, which can be in any of three forms (UTC,

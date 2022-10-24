@@ -1,6 +1,5 @@
 //
 //  secd-39-sosdictionaryupdate.m
-//  protobuf_source_generation
 //
 //
 

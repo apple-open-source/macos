@@ -203,7 +203,7 @@ _os_strdup_known(const char *str)
 	(ptr); \
 })
 #else
-#define os_calloc(__size) __os_requires_experimental_libtrace
+#define os_calloc(__cnt, __size) __os_requires_experimental_libtrace
 #endif
 
 /*!
@@ -239,7 +239,7 @@ _os_strdup_known(const char *str)
 	(ptr); \
 })
 #else
-#define os_strdup(__size) __os_requires_experimental_libtrace
+#define os_strdup(__str) __os_requires_experimental_libtrace
 #endif
 
 /*!

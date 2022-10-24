@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,9 @@
 /*
  * Modification History
  *
+ * May 21, 2021			Allan Nathanson <ajn@apple.com>
+ * - add access controls
+ *
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
@@ -36,7 +39,14 @@
 #define _S_SCD_H
 
 #include <sys/cdefs.h>
+#include <CoreFoundation/CoreFoundation.h>
 
+#define APP_CLIP_ENTITLEMENT				\
+	"com.apple.security.on-demand-install-capable"
+#define DEVICE_NAME_PRIVATE_ENTITLEMENT			\
+	"com.apple.private.user-assigned-device-name"
+#define DEVICE_NAME_PUBLIC_ENTITLEMENT			\
+	"com.apple.developer.device-information.user-assigned-device-name"
 
 /*
  * keys in the "storeData" dictionary
@@ -45,18 +55,71 @@
 /*
  * data associated with a key
  */
-#define	kSCDData	CFSTR("data")
+#define	kSCDData		CFSTR("data")
+
+/*
+ * access controls associated with the key
+ */
+#define kSCDAccessControls	CFSTR("access-controls")
+
+/*
+ * The kSCDAccessControls dictionary can include any of the
+ * following keys :
+ *
+ *   read-deny			<array of entitlements>
+ *     A process is denied read access if it has one of the specified
+ *     entitlements.
+ *
+ *   read-deny-background
+ *     A process is denied read access if it is a BackgroundAssets Extension.
+ *
+ *   read-allow			<array of entitlements>
+ *     A process is allowed read access if it has one of the specified
+ *     entitlements. A process without any of these entitlements is denied
+ *     read access except if read-allow-platform or read-allow-system
+ *     is applicable.
+ *
+ *   read-allow-platform
+ *     If read-allow is specified, but the process is a platform binary,
+ *     read is allowed but will generate a once-per-launch fault on the
+ *     client side.
+ *
+ *   read-allow-system
+ *     If read-allow is specified, but the process is a system process,
+ *     read is allowed.
+ *
+ *   write-protect
+ *     A process is only allowed write access if it has the SCDynamicStore
+ *     write entitlement for the specific key. For example, to allow
+ *     loginwindow to write the console users key, it must have this
+ *     entitlement:
+ *
+ *	<key>com.apple.SystemConfiguration.SCDynamicStore-write-access</key>
+ *	<dict>
+ *		<key>keys</key>
+ *		<array>
+ *			<string>State:/Users/ConsoleUser</string>
+ *		</array>
+ *	</dict>
+ */
+#define kSCDAccessControls_readDeny		CFSTR("read-deny")
+#define kSCDAccessControls_readDenyBackground	CFSTR("read-deny-background")
+#define kSCDAccessControls_readAllow		CFSTR("read-allow")
+#define kSCDAccessControls_readAllowPlatform	CFSTR("read-allow-platform")
+#define kSCDAccessControls_readAllowSystem	CFSTR("read-allow-system")
+#define kSCDAccessControls_writeProtect		CFSTR("write-protect")
 /*
  * client session ids watching a key and, since we can possibly have
  * multiple regex keys which reference the key, a count of active
  * references
  */
-#define	kSCDWatchers	CFSTR("watchers")
-#define	kSCDWatcherRefs	CFSTR("watcherRefs")
+#define	kSCDWatchers		CFSTR("watchers")
+#define	kSCDWatcherRefs		CFSTR("watcherRefs")
+
 /*
  * client session id for per-session keys.
  */
-#define	kSCDSession	CFSTR("session")
+#define	kSCDSession		CFSTR("session")
 
 
 extern CFMutableDictionaryRef	storeData;
@@ -68,6 +131,9 @@ extern CFMutableSetRef		needsNotification;
 
 
 __BEGIN_DECLS
+
+void
+__SCDynamicStoreInit			(void);
 
 int
 __SCDynamicStoreOpen			(SCDynamicStoreRef	*store,
@@ -92,14 +158,9 @@ __SCDynamicStoreAddValue		(SCDynamicStoreRef	store,
 int
 __SCDynamicStoreCopyValue		(SCDynamicStoreRef	store,
 					 CFStringRef		key,
+					 CFDictionaryRef	*key_controls,
 					 CFDataRef		*value,
 					 Boolean		internal);
-
-int
-__SCDynamicStoreCopyMultiple		(SCDynamicStoreRef	store,
-					 CFArrayRef		keys,
-					 CFArrayRef		patterns,
-					 CFDictionaryRef	*values);
 
 int
 __SCDynamicStoreSetValue		(SCDynamicStoreRef	store,
@@ -159,12 +220,19 @@ int
 __SCDynamicStoreNotifyCancel		(SCDynamicStoreRef	store);
 
 void
-_addWatcher				(CFNumberRef		sessionNum,
+_storeAddWatcher			(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
 
 void
-_removeWatcher				(CFNumberRef		sessionNum,
+_storeRemoveWatcher			(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
+
+CFDictionaryRef
+_storeKeyGetAccessControls		(CFStringRef		key);
+
+void
+_storeKeySetAccessControls		(CFStringRef		key,
+					 CFDictionaryRef	controls);
 
 void
 pushNotifications			(void);

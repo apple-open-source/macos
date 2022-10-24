@@ -27,7 +27,11 @@
 /* Here be dragons (SPIs) */
 
 #include <mach/boolean.h>
+#include <mach/kern_return.h>
+#include <mach/mach_types.h>
 #include <sys/cdefs.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <Availability.h>
 #include <os/availability.h>
 #include <malloc/malloc.h>
@@ -76,6 +80,33 @@ boolean_t malloc_zone_claimed_address(malloc_zone_t *zone, void *ptr) __result_u
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 int malloc_engaged_nano(void) __result_use_check;
 
+/*
+ * Disables zero-on-free in a process.  This has security implications and is
+ * intended to be used only as part of binary compatibility workarounds for
+ * external code.  It should be called as early as possible in the process
+ * lifetime, ideally before the process has gone multithreaded.  It is not
+ * guaranteed to have any effect.
+ */
+SPI_AVAILABLE(macos(13.0), ios(16.1), tvos(16.1), watchos(9.1))
+void malloc_zero_on_free_disable(void);
+
+/****** Thread-specific libmalloc options ******/
+
+/**
+ * Options struct: zero means "default options".
+ */
+typedef struct {
+	uintptr_t DisableExpensiveDebuggingOptions : 1;
+	uintptr_t DisableProbabilisticGuardMalloc : 1;
+	uintptr_t DisableMallocStackLogging : 1;
+} malloc_thread_options_t;
+
+API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
+malloc_thread_options_t malloc_get_thread_options(void) __result_use_check;
+
+API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
+void malloc_set_thread_options(malloc_thread_options_t opts);
+
 /****** Crash Reporter integration ******/
 
 typedef struct {
@@ -91,6 +122,13 @@ typedef struct {
 typedef void *(*crash_reporter_memory_reader_t)(task_t task, vm_address_t address, size_t size);
 
 /****** Probabilistic Guard Malloc ******/
+
+/**
+ * Never sample any allocations made by the current thread.
+ *
+ * DEPRECATED!  Use malloc_set_thread_options() instead.  Will be removed soon.
+ */
+void pgm_disable_for_current_thread(void);
 
 typedef struct {
 	// diagnose_page_fault

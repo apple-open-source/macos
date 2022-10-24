@@ -1,0 +1,4 @@
+[libfuzzer]
+dict = xml.dict
+timeout = 20
+rss_limit_mb = 8192

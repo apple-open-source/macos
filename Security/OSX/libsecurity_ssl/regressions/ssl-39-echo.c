@@ -379,7 +379,7 @@ static CFArrayRef SecIdentityCopySSLClientAuthenticationChain(SecIdentityRef ide
 }
 #endif // currently unused
 
-static CFArrayRef server_chain()
+static CFArrayRef server_chain(void)
 {
     SecKeyRef pkey = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault,
         pkey_der, pkey_der_len, kSecKeyEncodingPkcs1);

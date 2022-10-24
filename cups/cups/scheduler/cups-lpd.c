@@ -1317,10 +1317,10 @@ send_state(const char *queue,		/* I - Destination */
 		*jobname;		/* Pointer to job-name */
   ipp_jstate_t	jobstate;		/* job-state */
   int		jobid,			/* job-id */
-		jobsize,		/* job-k-octets */
 		jobcount,		/* Number of jobs */
 		jobcopies,		/* Number of copies */
-		rank;			/* Rank of job */
+		rank,			/* Rank of job */
+                jobsize;                /* job-k-octets */
   char		rankstr[255];		/* Rank string */
   char		namestr[1024];		/* Job name string */
   char		uri[HTTP_MAX_URI];	/* Printer URI */

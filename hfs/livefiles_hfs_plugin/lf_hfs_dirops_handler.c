@@ -90,7 +90,7 @@ int DIROPS_RemoveInternal( UVFSFileNode psDirNode, const char *pcUTF8Name )
 
     iErr = hfs_vnop_remove(psParentVnode,psVnode, &sCompName, VNODE_REMOVE_NODELETEBUSY | VNODE_REMOVE_SKIP_NAMESPACE_EVENT );
 
-    LFHFS_Reclaim(psFileNode);
+    LFHFS_Reclaim(psFileNode, 0);
 
 exit:
     return iErr;
@@ -158,7 +158,7 @@ exit:
 }
 
 int
-LFHFS_RmDir ( UVFSFileNode psDirNode, const char *pcUTF8Name )
+LFHFS_RmDir ( UVFSFileNode psDirNode, const char *pcUTF8Name , __unused UVFSFileNode victimNode )
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_RmDir\n");
     VERIFY_NODE_IS_VALID(psDirNode);
@@ -295,7 +295,6 @@ LFHFS_ReadDirAttr( UVFSFileNode psDirNode, void *pvBuf, size_t iBufLen, uint64_t
     VERIFY_NODE_IS_VALID(psDirNode);
     
     int iError = 0;
-    *iReadBytes = 0;
     struct vnode* psParentVnode = (struct vnode*) psDirNode;
 
     if (iReadBytes == NULL || puVerifier == NULL)

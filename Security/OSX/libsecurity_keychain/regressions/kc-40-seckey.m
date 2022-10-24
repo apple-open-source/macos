@@ -542,7 +542,7 @@ PBKDF2Test(KDFVector *kdfvec)
 }
 
 
-static void testkeyderivation() {
+static void testkeyderivation(void) {
     for(size_t testcase = 0; testcase < kdfvLen; testcase++) {
         // diag("Test %lu\n", testcase + 1);
         ok(PBKDF2Test(&kdfv[testcase]), "Successful full test of KDF Vector");
@@ -1150,7 +1150,7 @@ OtWCzY8EmJe+MteEH1+NNT9qUEb8MU6K7USJpMYzeAwaaxtt3ufVFtiAcWLKlAOtY4QNMlcvIMWKQhmu
 GxAbJYa55AKEr/mZcpO7thsjtdwAtXX0cQIDAQAB";
 
 static const int kTestCountCopyPubKFromCert = 2;
-static void testcopypubkfromcert() {
+static void testcopypubkfromcert(void) {
     NSData *certData = [[NSData alloc] initWithBase64EncodedString:[NSString stringWithUTF8String:kCertWithPubK]
                                                            options:NSDataBase64DecodingIgnoreUnknownCharacters];
     NSData *pubKData = [[NSData alloc] initWithBase64EncodedString:[NSString stringWithUTF8String:kPubK]

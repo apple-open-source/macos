@@ -4465,7 +4465,7 @@ notify_dump_status(const char *filepath)
 	}
 
 
-	file_descriptor = creat(filepath,  S_IWUSR);
+	file_descriptor = creat(filepath,  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if(file_descriptor < 0)
 	{
 		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (errno: %d)", __func__, NOTIFY_STATUS_FAILED, __LINE__, errno);

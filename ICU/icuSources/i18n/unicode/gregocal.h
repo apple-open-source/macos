@@ -421,7 +421,8 @@ public:
      * @return         the maximum value that this field could have, given the current date.
      * @deprecated ICU 2.6. Use getActualMaximum(UCalendarDateFields field) instead.
      */
-    int32_t getActualMaximum(EDateFields field) const;
+    //FIXME: unimplemented
+    //int32_t getActualMaximum(EDateFields field) const;
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -487,7 +488,7 @@ public:
     virtual const char * getType() const override;
 
  private:
-    GregorianCalendar(); // default constructor not implemented
+    GregorianCalendar() = delete; // default constructor not implemented
 
  protected:
     /**

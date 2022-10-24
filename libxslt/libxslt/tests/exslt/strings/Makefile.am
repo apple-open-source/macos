@@ -10,7 +10,8 @@ EXTRA_DIST = 						\
 	split.1.xml split.1.xsl split.1.out		\
 	tokenize.1.xml tokenize.1.xsl tokenize.1.out	\
 	tokenize.2.xml tokenize.2.xsl tokenize.2.out	\
-	tokenize.3.xml tokenize.3.xsl tokenize.3.out
+	tokenize.3.xml tokenize.3.xsl tokenize.3.out	\
+	uri.xml uri.xsl uri.out
 
 CLEANFILES = .memdump
 

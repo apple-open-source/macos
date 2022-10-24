@@ -29,6 +29,7 @@
 #include "ClientOrigin.h"
 #include "Document.h"
 #include "EventNames.h"
+#include "FrameDestructionObserverInlines.h"
 #include "Page.h"
 #include "SpeechRecognitionError.h"
 #include "SpeechRecognitionErrorEvent.h"
@@ -169,7 +170,7 @@ void SpeechRecognition::didFindNoMatch()
 void SpeechRecognition::didReceiveResult(Vector<SpeechRecognitionResultData>&& resultDatas)
 {
     Vector<Ref<SpeechRecognitionResult>> allResults;
-    allResults.reserveCapacity(m_finalResults.size() + resultDatas.size());
+    allResults.reserveInitialCapacity(m_finalResults.size() + resultDatas.size());
     allResults.appendVector(m_finalResults);
 
     auto firstChangedIndex = allResults.size();

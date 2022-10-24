@@ -53,6 +53,9 @@ public:
     const GRefPtr<GDBusNodeInfo>& mprisInterface() const { return m_mprisInterface; }
     PlatformMediaSession* nowPlayingEligibleSession();
 
+    void setDBusNotificationsEnabled(bool dbusNotificationsEnabled) { m_dbusNotificationsEnabled = dbusNotificationsEnabled; }
+    bool areDBusNotificationsEnabled() const { return m_dbusNotificationsEnabled; }
+
 protected:
     void scheduleSessionStatusUpdate() final;
     void updateNowPlayingInfo();
@@ -65,7 +68,7 @@ protected:
     void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) override;
     void sessionStateChanged(PlatformMediaSession&) override;
     void sessionDidEndRemoteScrubbing(PlatformMediaSession&) final;
-    void clientCharacteristicsChanged(PlatformMediaSession&) final;
+    void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
     virtual void providePresentingApplicationPIDIfNecessary() { }
@@ -99,6 +102,8 @@ private:
 
     const std::unique_ptr<NowPlayingManager> m_nowPlayingManager;
     HashMap<MediaSessionIdentifier, std::unique_ptr<MediaSessionGLib>> m_sessions;
+
+    bool m_dbusNotificationsEnabled { true };
 };
 
 } // namespace WebCore

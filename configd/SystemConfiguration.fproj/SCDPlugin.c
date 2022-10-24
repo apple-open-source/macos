@@ -78,7 +78,7 @@ static CFMachPortRef	childReaped	= NULL;
  *            has been blocked).
  */
 static childInfoRef	activeChildren	= NULL;
-static pthread_mutex_t	lock		= PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	lock;
 
 
 static __inline__ void
@@ -128,6 +128,16 @@ reaper(int sigraised)
 	return;
 }
 
+static void
+initializeLock(void)
+{
+	static dispatch_once_t  initialized;
+	dispatch_once(&initialized, ^{
+		pthread_mutex_init(&lock, NULL);
+	});
+
+	return;
+}
 
 static void
 childrenReaped(CFMachPortRef port, void *msg, CFIndex size, void *info)
@@ -138,6 +148,7 @@ childrenReaped(CFMachPortRef port, void *msg, CFIndex size, void *info)
 #pragma unused(info)
 	pid_t		pid		= 0;
 	childInfoRef	reapedChildren	= NULL;
+	initializeLock();
 
 	do {
 		struct rusage	rusage;
@@ -289,6 +300,8 @@ _SCDPluginSpawnCommand(SCDPluginSpawnCallBack	callout,
 	pid_t				pid	= 0;
 	int				status;
 
+	initializeLock();
+
 	// grab the activeChildren mutex
 	pthread_mutex_lock(&lock);
 
@@ -372,6 +385,8 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		pid = _SCDPluginSpawnCommand(callout, context, path, argv, NULL, NULL);
 		return pid;
 	}
+
+	initializeLock();
 
 	// grab the activeChildren mutex
 	pthread_mutex_lock(&lock);

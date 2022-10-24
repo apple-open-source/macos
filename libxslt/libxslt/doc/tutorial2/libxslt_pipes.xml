@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="iso-8859-2"?>
-<!DOCTYPE article 
-SYSTEM "file:///usr/share/docbook/docbook-xml-4.3/docbookx.dtd">
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd">
 
 <article id="libxslt">
+<title>libxslt: An Extended Tutorial</title>
+
 <articleinfo>
   <author><firstname>Panos</firstname><surname>Louridas</surname></author>
   <copyright>
@@ -34,8 +36,6 @@ SYSTEM "file:///usr/share/docbook/docbook-xml-4.3/docbookx.dtd">
   </legalnotice>
 </articleinfo>
 
-<title>libxslt: An Extended Tutorial</title>
-
 <sect1><title>Introduction</title>
 
 <para>The Extensible Stylesheet Language Transformations (XSLT)
@@ -61,7 +61,7 @@ anything to do with libxml or libxslt per se, but rather with the
 different compilation and linking procedures of each system.</para>
 
 <para>The presented solution is an extension of <ulink
-url="http://xmlsoft.org/XSLT/tutorial/libxslttutorial.html">John
+url="https://gnome.pages.gitlab.gnome.org/libxslt/tutorial/libxslttutorial.html">John
 Fleck's libxslt tutorial</ulink>, but the present tutorial tries to be
 self-contained. It develops a minimal libxslt application
 (libxslt_pipes) that can perform a series of transformations to a

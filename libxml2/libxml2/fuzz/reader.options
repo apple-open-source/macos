@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = reader.dict
+timeout = 20

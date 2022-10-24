@@ -270,7 +270,7 @@ int UFFI::functionWrapper(Node *n) {
   String *funcname = Getattr(n, "sym:name");
   ParmList *pl = Getattr(n, "parms");
   Parm *p;
-  int argnum = 0, first = 1, varargs = 0;
+  int argnum = 0, first = 1, __unused varargs = 0;
 
   //Language::functionWrapper(n);
 

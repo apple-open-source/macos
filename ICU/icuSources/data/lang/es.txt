@@ -42,6 +42,7 @@ es{
         an{"aragonés"}
         ang{"inglés antiguo"}
         anp{"angika"}
+        apw{"apache occidental"}
         ar{"árabe"}
         ar_001{"árabe estándar moderno"}
         arc{"arameo"}
@@ -200,6 +201,7 @@ es{
         grc{"griego antiguo"}
         gsw{"alemán suizo"}
         gu{"guyaratí"}
+        guc{"wayuunaiki"}
         guz{"gusii"}
         gv{"manés"}
         gwi{"kutchin"}
@@ -275,6 +277,7 @@ es{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karachay-balkar"}
+        kri{"krio"}
         krl{"carelio"}
         kru{"kurukh"}
         ks{"cachemir"}
@@ -528,6 +531,7 @@ es{
         vai{"vai"}
         ve{"venda"}
         vi{"vietnamita"}
+        vls{"flamenco occidental"}
         vo{"volapük"}
         vot{"vótico"}
         vun{"vunjo"}

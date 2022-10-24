@@ -131,16 +131,18 @@ xmlCharStrdup(const char *cur) {
 
 int
 xmlStrcmp(const xmlChar *str1, const xmlChar *str2) {
-    register int tmp;
-
     if (str1 == str2) return(0);
     if (str1 == NULL) return(-1);
     if (str2 == NULL) return(1);
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    return(strcmp((const char *)str1, (const char *)str2));
+#else
     do {
-        tmp = *str1++ - *str2;
+        int tmp = *str1++ - *str2;
         if (tmp != 0) return(tmp);
     } while (*str2++ != 0);
     return 0;
+#endif
 }
 
 /**
@@ -159,10 +161,14 @@ xmlStrEqual(const xmlChar *str1, const xmlChar *str2) {
     if (str1 == str2) return(1);
     if (str1 == NULL) return(0);
     if (str2 == NULL) return(0);
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    return(strcmp((const char *)str1, (const char *)str2) == 0);
+#else
     do {
         if (*str1++ != *str2) return(0);
     } while (*str2++);
     return(1);
+#endif
 }
 
 /**
@@ -205,18 +211,15 @@ xmlStrQEqual(const xmlChar *pref, const xmlChar *name, const xmlChar *str) {
 
 int
 xmlStrncmp(const xmlChar *str1, const xmlChar *str2, int len) {
-    register int tmp;
-
     if (len <= 0) return(0);
     if (str1 == str2) return(0);
     if (str1 == NULL) return(-1);
     if (str2 == NULL) return(1);
-#ifdef __GNUC__
-    tmp = strncmp((const char *)str1, (const char *)str2, len);
-    return tmp;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    return(strncmp((const char *)str1, (const char *)str2, len));
 #else
     do {
-        tmp = *str1++ - *str2;
+        int tmp = *str1++ - *str2;
         if (tmp != 0 || --len == 0) return(tmp);
     } while (*str2++ != 0);
     return 0;
@@ -441,8 +444,8 @@ xmlStrlen(const xmlChar *str) {
  * first bytes of @add. Note that if @len < 0 then this is an API error
  * and NULL will be returned.
  *
- * Returns a new xmlChar *, the original @cur is reallocated if needed
- * and should not be freed
+ * Returns a new xmlChar *, the original @cur is reallocated and should
+ * not be freed.
  */
 
 xmlChar *
@@ -520,7 +523,8 @@ xmlStrncatNew(const xmlChar *str1, const xmlChar *str2, int len) {
  * encoded in UTF-8 or an encoding with 8bit based chars, we assume
  * a termination mark of '0'.
  *
- * Returns a new xmlChar * containing the concatenated string.
+ * Returns a new xmlChar * containing the concatenated string. The original
+ * @cur is reallocated and should not be freed.
  */
 xmlChar *
 xmlStrcat(xmlChar *cur, const xmlChar *add) {
@@ -833,8 +837,8 @@ xmlCheckUTF8(const unsigned char *utf)
 
 int
 xmlUTF8Strsize(const xmlChar *utf, int len) {
-    const xmlChar   *ptr=utf;
-    xmlChar         ch;
+    const xmlChar *ptr=utf;
+    int ch;
     size_t ret;
 
     if (utf == NULL)
@@ -894,7 +898,7 @@ xmlUTF8Strndup(const xmlChar *utf, int len) {
  */
 const xmlChar *
 xmlUTF8Strpos(const xmlChar *utf, int pos) {
-    xmlChar ch;
+    int ch;
 
     if (utf == NULL) return(NULL);
     if (pos < 0)
@@ -928,7 +932,7 @@ int
 xmlUTF8Strloc(const xmlChar *utf, const xmlChar *utfchar) {
     size_t i;
     int size;
-    xmlChar ch;
+    int ch;
 
     if (utf==NULL || utfchar==NULL) return -1;
     size = xmlUTF8Strsize(utfchar, 1);
@@ -964,8 +968,8 @@ xmlUTF8Strloc(const xmlChar *utf, const xmlChar *utfchar) {
 
 xmlChar *
 xmlUTF8Strsub(const xmlChar *utf, int start, int len) {
-    int            i;
-    xmlChar ch;
+    int i;
+    int ch;
 
     if (utf == NULL) return(NULL);
     if (start < 0) return(NULL);

@@ -302,9 +302,7 @@
 		1520A3DF0846B2DD0010B584 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		1522FCFB0FA7FE4B00B24128 /* dnsinfo_flatfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */; };
 		152439E518038E5B00D91708 /* ev_extra.h in Headers */ = {isa = PBXBuildFile; fileRef = 152439E318038E5B00D91708 /* ev_extra.h */; };
-		152439E618038E5B00D91708 /* ev_extra.m in Sources */ = {isa = PBXBuildFile; fileRef = 152439E418038E5B00D91708 /* ev_extra.m */; };
 		152439E91805CC6C00D91708 /* ev_extra.h in Headers */ = {isa = PBXBuildFile; fileRef = 152439E318038E5B00D91708 /* ev_extra.h */; };
-		152439EA1805CC8400D91708 /* ev_extra.m in Sources */ = {isa = PBXBuildFile; fileRef = 152439E418038E5B00D91708 /* ev_extra.m */; };
 		15260A452272529F00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
 		15260A462272533D00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
 		15260A472272535F00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1559C4440D349A4E0098FD59 /* SystemConfiguration.framework */; };
@@ -929,6 +927,12 @@
 		15D92BA31FFC647800DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
 		15D92BA41FFC648900DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */; };
 		15D92BA51FFC64DB00DF2632 /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D92BA01FFC641500DF2632 /* libnetwork.tbd */; };
+		15DA6E6F267551530077A9BF /* SCControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15DA6E6E267551460077A9BF /* SCControlPrefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		15DA6E70267551530077A9BF /* SCControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DA6E6D267551460077A9BF /* SCControlPrefs.c */; };
+		15DA6E71267551590077A9BF /* SCControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15DA6E6E267551460077A9BF /* SCControlPrefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		15DA6E72267551590077A9BF /* SCControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DA6E6D267551460077A9BF /* SCControlPrefs.c */; };
+		15DA6E73267551650077A9BF /* SCControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15DA6E6E267551460077A9BF /* SCControlPrefs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		15DA6E74267551650077A9BF /* SCControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DA6E6D267551460077A9BF /* SCControlPrefs.c */; };
 		15DAD5E1075913CE0084A6ED /* dnsinfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 15B73F0905FD1B670096477F /* dnsinfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		15DAD5E2075913CE0084A6ED /* dnsinfo_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 15B73F0C05FD1B670096477F /* dnsinfo_private.h */; };
 		15DAD5E6075913CE0084A6ED /* dnsinfo_copy.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0805FD1B670096477F /* dnsinfo_copy.c */; };
@@ -1177,12 +1181,26 @@
 		F90E43572012AD6000EF27C4 /* SCNetworkInterfaceProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F90E43582012AD6900EF27C4 /* SCNetworkInterfaceProvider.c in Sources */ = {isa = PBXBuildFile; fileRef = F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */; };
 		F90E43592012AD6B00EF27C4 /* SCNetworkInterfaceProvider.c in Sources */ = {isa = PBXBuildFile; fileRef = F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */; };
+		F9103036283D75D70001D434 /* PrivateStrings.plist in PrivateStrings.plist */ = {isa = PBXBuildFile; fileRef = F9103032283D71480001D434 /* PrivateStrings.plist */; };
+		F9121F872805FDDD00D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
+		F9121F882805FDDD00D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
+		F9121F892805FDDD00D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
+		F9121F8D28065B1900D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
+		F9121F8E28065B2000D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
+		F9121F8F28065B2500D05246 /* scdtest.h in Headers */ = {isa = PBXBuildFile; fileRef = F9121F852805FDDD00D05246 /* scdtest.h */; };
 		F9262E78265311DB008D8991 /* DiskManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9262E77265311DB008D8991 /* DiskManagement.framework */; };
 		F9262E7A26531A81008D8991 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9262E7926531A81008D8991 /* DiskArbitration.framework */; };
 		F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */; };
 		F9347FF8187C7993003D4178 /* IPMonitorControl.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */; };
 		F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
 		F9347FFA187C7993003D4178 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
+		F9389E0B2805E6D00080BFDB /* SCInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9389E0A2805E6D00080BFDB /* SCInternal.h */; };
+		F9389E0C2805E6D00080BFDB /* SCInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9389E0A2805E6D00080BFDB /* SCInternal.h */; };
+		F9389E0D2805E6D00080BFDB /* SCInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9389E0A2805E6D00080BFDB /* SCInternal.h */; };
+		F94D0B0E27B21DE900252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
+		F94D0B0F27B21DEE00252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
+		F94D0B1027B21DF300252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
+		F94D0B1127B21DF600252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
 		F955668D2652EBC8002EAD01 /* prefsmon_log.c in Sources */ = {isa = PBXBuildFile; fileRef = F955668B2652EBC8002EAD01 /* prefsmon_log.c */; };
 		F955668E2652EBC8002EAD01 /* preboot.m in Sources */ = {isa = PBXBuildFile; fileRef = F955668C2652EBC8002EAD01 /* preboot.m */; };
 		F95566912652EBF0002EAD01 /* preboot.h in Headers */ = {isa = PBXBuildFile; fileRef = F955668F2652EBF0002EAD01 /* preboot.h */; };
@@ -1190,9 +1208,14 @@
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		F963401020FE8E6000F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin in CopyFiles */ = {isa = PBXBuildFile; fileRef = F963400E20FE8E1D00F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin */; };
 		F9939D8F2656F3BE002998DE /* prefsmon_log.c in Sources */ = {isa = PBXBuildFile; fileRef = F955668B2652EBC8002EAD01 /* prefsmon_log.c */; };
 		F9939D912656F3D6002998DE /* prefsmon_log.h in Headers */ = {isa = PBXBuildFile; fileRef = F95566902652EBF0002EAD01 /* prefsmon_log.h */; };
+		F9960DCC2819D65C00C2BC51 /* libBASupport.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F9960DCB2819D65C00C2BC51 /* libBASupport.tbd */; settings = {ATTRIBUTES = (Weak, ); }; };
+		F99A33B427B21D1800BD5FDA /* ev_extra.c in Sources */ = {isa = PBXBuildFile; fileRef = F99A33B327B21D0E00BD5FDA /* ev_extra.c */; };
+		F99A33B527B21D3900BD5FDA /* ev_extra.c in Sources */ = {isa = PBXBuildFile; fileRef = F99A33B327B21D0E00BD5FDA /* ev_extra.c */; };
+		F99A33B627B21D4B00BD5FDA /* WiFiUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = F99A33B227B21CA500BD5FDA /* WiFiUtil.m */; };
+		F99A33B727B21D6300BD5FDA /* WiFiUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = F99A33B227B21CA500BD5FDA /* WiFiUtil.m */; };
+		F99A33B827B21D7200BD5FDA /* WiFiUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = F99A33B227B21CA500BD5FDA /* WiFiUtil.m */; };
 		F9A3781016A4847700C57CDC /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9A3781116A4849100C57CDC /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9B50FF316A4CBB200CA274E /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
@@ -1211,15 +1234,15 @@
 		F9B7AE6D186211EA00C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
 		F9B7AE6E186211F000C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
 		F9B7AE6F186211F600C78D18 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE631862116500C78D18 /* symbol_scope.h */; };
-		F9D7304B20DDBE9900521181 /* AWDIPMonitorInterfaceAdvisoryReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9D7304920DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
-		F9D7304C20DDBEAB00521181 /* IPMonitorAWDReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9D7303D20DD894C00521181 /* IPMonitorAWDReport.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		F9D7304F20E41D9C00521181 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		F9D7305120E41DD500521181 /* WirelessDiagnostics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		F9D7305220E4211900521181 /* AWDIPMonitorInterfaceAdvisoryReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9D7304920DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
-		F9D7305320E4211900521181 /* IPMonitorAWDReport.m in Sources */ = {isa = PBXBuildFile; fileRef = F9D7303D20DD894C00521181 /* IPMonitorAWDReport.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		F9D7305420E4387A00521181 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */; };
 		F9D7305520E4389700521181 /* WirelessDiagnostics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		F9DA267227023FFF00B31870 /* WatchdogClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9DA267127023FFF00B31870 /* WatchdogClient.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		F9DA26742702404D00B31870 /* WatchdogClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9DA26732702404D00B31870 /* WatchdogClient.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		F9DAB81F273D854700E0F229 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
+		F9E8B87428132B9500523749 /* Network.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87228132B9500523749 /* Network.tiff */; };
+		F9E8B87628132B9500523749 /* WiFi.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87328132B9500523749 /* WiFi.tiff */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1943,14 +1966,15 @@
 			name = npt_configd.plist;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		F963400F20FE8E4100F1E1F1 /* CopyFiles */ = {
+		F9102E95283D70BE0001D434 /* PrivateStrings.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /System/Library/AWD/Metadata;
+			dstPath = /AppleInternal/Library/SystemConfiguration;
 			dstSubfolderSpec = 0;
 			files = (
-				F963401020FE8E6000F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin in CopyFiles */,
+				F9103036283D75D70001D434 /* PrivateStrings.plist in PrivateStrings.plist */,
 			);
+			name = PrivateStrings.plist;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		F9B686CE273D839C00918A9C /* CopyFiles */ = {
@@ -1982,7 +2006,6 @@
 		1521FC5C060F296A003B28F5 /* dnsinfo_create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dnsinfo_create.c; path = dnsinfo/dnsinfo_create.c; sourceTree = SOURCE_ROOT; };
 		1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dnsinfo_flatfile.c; path = dnsinfo/dnsinfo_flatfile.c; sourceTree = "<group>"; };
 		152439E318038E5B00D91708 /* ev_extra.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ev_extra.h; sourceTree = "<group>"; };
-		152439E418038E5B00D91708 /* ev_extra.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ev_extra.m; sourceTree = "<group>"; };
 		152439E7180399D800D91708 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = System/Library/Frameworks/CoreWLAN.framework; sourceTree = SDKROOT; };
 		152439EB180716ED00D91708 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = SDKROOT; };
 		1524FE1920619BAF0010091E /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "Plugins/QoSMarking/Info-Embedded.plist"; sourceTree = "<group>"; };
@@ -2248,6 +2271,8 @@
 		15D92B9A1FFC5FA500DF2632 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
 		15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
 		15D92BA01FFC641500DF2632 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
+		15DA6E6D267551460077A9BF /* SCControlPrefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCControlPrefs.c; sourceTree = "<group>"; };
+		15DA6E6E267551460077A9BF /* SCControlPrefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCControlPrefs.h; sourceTree = "<group>"; };
 		15DAD5EE075913CE0084A6ED /* libsystem_configuration.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_configuration.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		15DAF2D808466D4900D1B2BD /* SCHelper_client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SCHelper_client.c; path = helper/SCHelper_client.c; sourceTree = "<group>"; };
 		15DAF2D908466D4900D1B2BD /* SCHelper_server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SCHelper_server.c; path = helper/SCHelper_server.c; sourceTree = "<group>"; };
@@ -2366,11 +2391,16 @@
 		D6986A77136891300091C931 /* network_information.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = network_information.c; path = nwi/network_information.c; sourceTree = "<group>"; };
 		D6986A781368913C0091C931 /* network_information.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_information.h; path = nwi/network_information.h; sourceTree = "<group>"; };
 		D6AEB89815AE4446009F2FAF /* ip_plugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ip_plugin.h; sourceTree = "<group>"; };
+		F9022F20280A415E00F91B50 /* PrivacyAccounting.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PrivacyAccounting.framework; path = System/Library/PrivateFrameworks/PrivacyAccounting.framework; sourceTree = DEVELOPER_DIR; };
 		F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkInterfaceProvider.h; sourceTree = "<group>"; };
 		F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkInterfaceProvider.c; sourceTree = "<group>"; };
+		F9103032283D71480001D434 /* PrivateStrings.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = PrivateStrings.plist; sourceTree = "<group>"; };
+		F9121F852805FDDD00D05246 /* scdtest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = scdtest.h; sourceTree = "<group>"; };
+		F9121F862805FDDD00D05246 /* reference_output.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = reference_output.sh; sourceTree = "<group>"; };
 		F9262E77265311DB008D8991 /* DiskManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskManagement.framework; path = System/Library/PrivateFrameworks/DiskManagement.framework; sourceTree = SDKROOT; };
 		F9262E7926531A81008D8991 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
 		F9292ACB24AEAB1C0039975D /* entitlements-macOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-macOS.plist"; sourceTree = "<group>"; };
+		F9389E0A2805E6D00080BFDB /* SCInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCInternal.h; sourceTree = "<group>"; };
 		F955668B2652EBC8002EAD01 /* prefsmon_log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = prefsmon_log.c; sourceTree = "<group>"; };
 		F955668C2652EBC8002EAD01 /* preboot.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = preboot.m; sourceTree = "<group>"; };
 		F955668F2652EBF0002EAD01 /* preboot.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preboot.h; sourceTree = "<group>"; };
@@ -2378,9 +2408,14 @@
 		F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkSignature.c; sourceTree = "<group>"; };
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
-		F963400E20FE8E1D00F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "AwdMetadata-0x81-IPMonitor.bin"; sourceTree = "<group>"; };
+		F9960DC92819D3FE00C2BC51 /* libBASupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libBASupport.tbd; path = usr/lib/libBASupport.tbd; sourceTree = DEVELOPER_DIR; };
+		F9960DCB2819D65C00C2BC51 /* libBASupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libBASupport.tbd; path = usr/lib/libBASupport.tbd; sourceTree = SDKROOT; };
+		F99A33B127B21CA400BD5FDA /* WiFiUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WiFiUtil.h; sourceTree = "<group>"; };
+		F99A33B227B21CA500BD5FDA /* WiFiUtil.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = WiFiUtil.m; sourceTree = "<group>"; };
+		F99A33B327B21D0E00BD5FDA /* ev_extra.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ev_extra.c; sourceTree = "<group>"; };
 		F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControlPrefs.c; sourceTree = "<group>"; };
 		F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControlPrefs.h; sourceTree = "<group>"; };
+		F9B1825F282CA3A00086116B /* PrivacyAccounting.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PrivacyAccounting.framework; path = System/Library/PrivateFrameworks/PrivacyAccounting.framework; sourceTree = DEVELOPER_DIR; };
 		F9B686D0273D839C00918A9C /* netconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9B686D7273D83C400918A9C /* netconfig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = netconfig.c; sourceTree = "<group>"; };
 		F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControl.c; sourceTree = "<group>"; };
@@ -2391,15 +2426,12 @@
 		F9B7AE611862116500C78D18 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		F9B7AE621862116500C78D18 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		F9B7AE631862116500C78D18 /* symbol_scope.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = symbol_scope.h; sourceTree = "<group>"; };
-		F9D7303C20DD894C00521181 /* IPMonitorAWDReport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorAWDReport.h; sourceTree = "<group>"; };
-		F9D7303D20DD894C00521181 /* IPMonitorAWDReport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IPMonitorAWDReport.m; sourceTree = "<group>"; };
-		F9D7304620DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AWDIPMonitorInterfaceAdvisoryReport.h; sourceTree = "<group>"; };
-		F9D7304720DD89C600521181 /* AWDIPMonitorGlobalEnums.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AWDIPMonitorGlobalEnums.h; sourceTree = "<group>"; };
-		F9D7304820DD89C600521181 /* AWDMetricIds_IPMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AWDMetricIds_IPMonitor.h; sourceTree = "<group>"; };
-		F9D7304920DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AWDIPMonitorInterfaceAdvisoryReport.m; sourceTree = "<group>"; };
-		F9D7304A20DDA59600521181 /* awdgen.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = awdgen.yaml; sourceTree = "<group>"; };
 		F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = SDKROOT; };
 		F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = SDKROOT; };
+		F9DA267127023FFF00B31870 /* WatchdogClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchdogClient.framework; path = System/Library/PrivateFrameworks/WatchdogClient.framework; sourceTree = SDKROOT; };
+		F9DA26732702404D00B31870 /* WatchdogClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchdogClient.framework; path = System/Library/PrivateFrameworks/WatchdogClient.framework; sourceTree = SDKROOT; };
+		F9E8B87228132B9500523749 /* Network.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tiff; sourceTree = "<group>"; };
+		F9E8B87328132B9500523749 /* WiFi.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = WiFi.tiff; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2550,6 +2582,7 @@
 				154707350D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
 				159C32B60F583724008A72EE /* Security.framework in Frameworks */,
 				F9D7305120E41DD500521181 /* WirelessDiagnostics.framework in Frameworks */,
+				F9DA26742702404D00B31870 /* WatchdogClient.framework in Frameworks */,
 				158317500CFB80A1006F62B9 /* libbsm.dylib in Frameworks */,
 				1562569120856CCC00FCD61E /* liblockdown.dylib in Frameworks */,
 				15D92BA51FFC64DB00DF2632 /* libnetwork.tbd in Frameworks */,
@@ -2584,8 +2617,10 @@
 				D6623873120B2AA7007F8E95 /* Security.framework in Frameworks */,
 				1559C44A0D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
 				F9D7305520E4389700521181 /* WirelessDiagnostics.framework in Frameworks */,
+				F9DA267227023FFF00B31870 /* WatchdogClient.framework in Frameworks */,
 				15BAA32307F0699A00D9EC95 /* libbsm.dylib in Frameworks */,
 				78C951FE1F797B44000EA36B /* libnetwork.tbd in Frameworks */,
+				F9960DCC2819D65C00C2BC51 /* libBASupport.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2954,7 +2989,6 @@
 		159D53A607528B36004F8947 /* IPMonitor */ = {
 			isa = PBXGroup;
 			children = (
-				728015741BE1681B009F4F60 /* AgentMonitor */,
 				D6AEB89815AE4446009F2FAF /* ip_plugin.h */,
 				159D53A707528B36004F8947 /* ip_plugin.c */,
 				155D22380AF13A7300D52ED0 /* dns-configuration.h */,
@@ -2967,6 +3001,8 @@
 				159D53AB07528B36004F8947 /* set-hostname.c */,
 				155D223A0AF13A7300D52ED0 /* smb-configuration.h */,
 				1572EB7A0A506D3B00D02459 /* smb-configuration.c */,
+				728015741BE1681B009F4F60 /* AgentMonitor */,
+				15DA6E69267550160077A9BF /* Control */,
 				15FD743E0754DE7A001CC321 /* Info.plist */,
 				15FBB54E17D7899C0035D752 /* Info-EmbeddedSimulator.plist */,
 			);
@@ -2978,6 +3014,7 @@
 			isa = PBXGroup;
 			children = (
 				159D53AE07528B36004F8947 /* ifnamer.c */,
+				15DA6E68267550060077A9BF /* Control */,
 				15FD73EE0754DE62001CC321 /* Info.plist */,
 			);
 			name = InterfaceNamer;
@@ -2987,6 +3024,7 @@
 		159D53AF07528B36004F8947 /* KernelEventMonitor */ = {
 			isa = PBXGroup;
 			children = (
+				F99A33B327B21D0E00BD5FDA /* ev_extra.c */,
 				159D53B707528B36004F8947 /* eventmon.h */,
 				159D53B207528B36004F8947 /* ev_dlil.h */,
 				159D53B807528B36004F8947 /* ev_ipv4.h */,
@@ -2996,7 +3034,6 @@
 				159D53B107528B36004F8947 /* ev_dlil.c */,
 				159D53B307528B36004F8947 /* ev_ipv4.c */,
 				159D53B407528B36004F8947 /* ev_ipv6.c */,
-				152439E418038E5B00D91708 /* ev_extra.m */,
 				158AD8700754E3D400124717 /* Info.plist */,
 			);
 			name = KernelEventMonitor;
@@ -3030,10 +3067,8 @@
 		159D53C907528B36004F8947 /* common */ = {
 			isa = PBXGroup;
 			children = (
-				15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */,
-				15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */,
-				F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */,
-				F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */,
+				F99A33B127B21CA400BD5FDA /* WiFiUtil.h */,
+				F99A33B227B21CA500BD5FDA /* WiFiUtil.m */,
 				1572AA8B1D8234500021E093 /* plugin_shared.h */,
 			);
 			name = common;
@@ -3058,6 +3093,9 @@
 		15B6861D0678B61900FF4023 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				F9103032283D71480001D434 /* PrivateStrings.plist */,
+				F9E8B87228132B9500523749 /* Network.tiff */,
+				F9E8B87328132B9500523749 /* WiFi.tiff */,
 				15A6F7C20A4B266D00B907EA /* Localizable.strings */,
 				15B686220678B65C00FF4023 /* NetworkConfiguration.plist */,
 				1577253606EFBF3100D7B52B /* NetworkInterface.strings */,
@@ -3291,6 +3329,7 @@
 		15CB68FC05C072220099E85F /* configd */ = {
 			isa = PBXGroup;
 			children = (
+				F9121F842805FDDD00D05246 /* common */,
 				1513C3541F1849920022398F /* Build Support */,
 				15CB6A8605C072500099E85F /* MiG */,
 				15CB6A8305C072410099E85F /* Schema */,
@@ -3329,6 +3368,7 @@
 				15C330DE134B9C290028E36B /* SCNetworkConnection */,
 				F90E43512012ACF900EF27C4 /* SCNetworkInterfaceProvider */,
 				15C330B4134B91930028E36B /* SCNetworkReachability */,
+				15DA6E6C267551280077A9BF /* SCControlPrefs */,
 				15C330E1134B9C8E0028E36B /* VPN */,
 				15CB691205C0722B0099E85F /* Other Headers */,
 				15CB694F05C0722B0099E85F /* Other Sources */,
@@ -3376,6 +3416,7 @@
 		15CB691205C0722B0099E85F /* Other Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F9389E0A2805E6D00080BFDB /* SCInternal.h */,
 				1510A3EA251BF03B005524C1 /* strict.h */,
 				158FC77E1FDAE27900B2493C /* SystemConfigurationInternal.h */,
 				15D8B2291450D8450090CECF /* SCD.h */,
@@ -3619,6 +3660,33 @@
 			name = SimulatorSupport;
 			sourceTree = "<group>";
 		};
+		15DA6E68267550060077A9BF /* Control */ = {
+			isa = PBXGroup;
+			children = (
+				15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */,
+				15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */,
+			);
+			path = Control;
+			sourceTree = "<group>";
+		};
+		15DA6E69267550160077A9BF /* Control */ = {
+			isa = PBXGroup;
+			children = (
+				F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */,
+				F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */,
+			);
+			path = Control;
+			sourceTree = "<group>";
+		};
+		15DA6E6C267551280077A9BF /* SCControlPrefs */ = {
+			isa = PBXGroup;
+			children = (
+				15DA6E6E267551460077A9BF /* SCControlPrefs.h */,
+				15DA6E6D267551460077A9BF /* SCControlPrefs.c */,
+			);
+			name = SCControlPrefs;
+			sourceTree = "<group>";
+		};
 		15FF5C390CDF9C4000EEC8AA /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
@@ -3697,6 +3765,12 @@
 		90507AAE1CE2F55B0067D16B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F9B1825F282CA3A00086116B /* PrivacyAccounting.framework */,
+				F9960DC92819D3FE00C2BC51 /* libBASupport.tbd */,
+				F9960DCB2819D65C00C2BC51 /* libBASupport.tbd */,
+				F9022F20280A415E00F91B50 /* PrivacyAccounting.framework */,
+				F9DA267127023FFF00B31870 /* WatchdogClient.framework */,
+				F9DA26732702404D00B31870 /* WatchdogClient.framework */,
 				F9262E7926531A81008D8991 /* DiskArbitration.framework */,
 				F9262E77265311DB008D8991 /* DiskManagement.framework */,
 				15019A53256582F900210676 /* AppleSystemInfo.framework */,
@@ -3808,6 +3882,15 @@
 			name = Source;
 			sourceTree = "<group>";
 		};
+		F9121F842805FDDD00D05246 /* common */ = {
+			isa = PBXGroup;
+			children = (
+				F9121F852805FDDD00D05246 /* scdtest.h */,
+				F9121F862805FDDD00D05246 /* reference_output.sh */,
+			);
+			path = common;
+			sourceTree = "<group>";
+		};
 		F9B686D1273D839C00918A9C /* netconfig */ = {
 			isa = PBXGroup;
 			children = (
@@ -3819,10 +3902,6 @@
 		F9B7AE5B1862116500C78D18 /* IPMonitorControl */ = {
 			isa = PBXGroup;
 			children = (
-				F9D7304A20DDA59600521181 /* awdgen.yaml */,
-				F9D7304420DD89C600521181 /* AWD */,
-				F9D7303C20DD894C00521181 /* IPMonitorAWDReport.h */,
-				F9D7303D20DD894C00521181 /* IPMonitorAWDReport.m */,
 				F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */,
 				F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */,
 				F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */,
@@ -3833,18 +3912,6 @@
 				F9B7AE631862116500C78D18 /* symbol_scope.h */,
 			);
 			path = IPMonitorControl;
-			sourceTree = "<group>";
-		};
-		F9D7304420DD89C600521181 /* AWD */ = {
-			isa = PBXGroup;
-			children = (
-				F963400E20FE8E1D00F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin */,
-				F9D7304620DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.h */,
-				F9D7304720DD89C600521181 /* AWDIPMonitorGlobalEnums.h */,
-				F9D7304820DD89C600521181 /* AWDMetricIds_IPMonitor.h */,
-				F9D7304920DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.m */,
-			);
-			path = AWD;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -3924,6 +3991,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1572C4CB0CFB55B400E2776E /* pppcontroller.h in Headers */,
+				15DA6E71267551590077A9BF /* SCControlPrefs.h in Headers */,
 				1572C4CA0CFB55B400E2776E /* pppcontroller_types.h in Headers */,
 				1572C581171CD00E00870549 /* pppcontroller_mach_defines.h in Headers */,
 				1572C4A90CFB55B400E2776E /* SCSchemaDefinitions.h in Headers */,
@@ -3955,6 +4023,7 @@
 				1572C4C70CFB55B400E2776E /* SCPreferencesPathKey.h in Headers */,
 				158FC7801FDAE32A00B2493C /* SystemConfigurationInternal.h in Headers */,
 				1572C4CE0CFB55B400E2776E /* SCPreferencesSetSpecificPrivate.h in Headers */,
+				F9121F882805FDDD00D05246 /* scdtest.h in Headers */,
 				1572C4CF0CFB55B400E2776E /* SCPreferencesGetSpecificPrivate.h in Headers */,
 				1572C4D00CFB55B400E2776E /* SCNetworkConfigurationPrivate.h in Headers */,
 				1572C4D20CFB55B400E2776E /* SCHelper_client.h in Headers */,
@@ -3963,6 +4032,7 @@
 				1572C4D50CFB55B400E2776E /* SCPreferencesKeychainPrivate.h in Headers */,
 				F9347FF8187C7993003D4178 /* IPMonitorControl.h in Headers */,
 				1572AA901D8237810021E093 /* plugin_shared.h in Headers */,
+				F9389E0C2805E6D00080BFDB /* SCInternal.h in Headers */,
 				F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */,
 				F9347FFA187C7993003D4178 /* symbol_scope.h in Headers */,
 				1572C4D60CFB55B400E2776E /* SCSchemaDefinitionsPrivate.h in Headers */,
@@ -3988,6 +4058,7 @@
 				15732A7A16EA503200F3AC4C /* configd_server.h in Headers */,
 				15732A7C16EA503200F3AC4C /* plugin_support.h in Headers */,
 				15732A7D16EA503200F3AC4C /* session.h in Headers */,
+				F9121F8F28065B2500D05246 /* scdtest.h in Headers */,
 				15732A7E16EA503200F3AC4C /* pattern.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4124,6 +4195,7 @@
 				157A85150D56C8E000B6F1A0 /* ev_ipv4.h in Headers */,
 				157A85160D56C8E000B6F1A0 /* ev_ipv6.h in Headers */,
 				152439E91805CC6C00D91708 /* ev_extra.h in Headers */,
+				F94D0B1027B21DF300252F6A /* WiFiUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4131,6 +4203,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F94D0B1127B21DF600252F6A /* WiFiUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4152,6 +4225,7 @@
 				158317270CFB80A1006F62B9 /* configd_server.h in Headers */,
 				158317290CFB80A1006F62B9 /* plugin_support.h in Headers */,
 				1583172A0CFB80A1006F62B9 /* session.h in Headers */,
+				F9121F8E28065B2000D05246 /* scdtest.h in Headers */,
 				1583172B0CFB80A1006F62B9 /* pattern.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4174,6 +4248,7 @@
 				159D541007528DB1004F8947 /* ev_ipv4.h in Headers */,
 				159D541207528DB3004F8947 /* ev_ipv6.h in Headers */,
 				152439E518038E5B00D91708 /* ev_extra.h in Headers */,
+				F94D0B0F27B21DEE00252F6A /* WiFiUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4219,6 +4294,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F94D0B0E27B21DE900252F6A /* WiFiUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4241,6 +4317,7 @@
 				159D54A607529FFF004F8947 /* configd_server.h in Headers */,
 				159D54A807529FFF004F8947 /* plugin_support.h in Headers */,
 				159D54A907529FFF004F8947 /* session.h in Headers */,
+				F9121F8D28065B1900D05246 /* scdtest.h in Headers */,
 				159D54AA07529FFF004F8947 /* pattern.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4250,6 +4327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15A5A2090D5B94190087BDA0 /* pppcontroller.h in Headers */,
+				15DA6E73267551650077A9BF /* SCControlPrefs.h in Headers */,
 				15EF899F21894452003B2C5C /* SCNetworkInterfaceProvider.h in Headers */,
 				15EF89CC21894B28003B2C5C /* IPMonitorControl.h in Headers */,
 				15A5A2080D5B94190087BDA0 /* pppcontroller_types.h in Headers */,
@@ -4281,6 +4359,7 @@
 				D61AAEB71522C9EF0066B003 /* scprefs_observer.h in Headers */,
 				15A5A1FE0D5B94190087BDA0 /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
 				158FC7811FDAE32E00B2493C /* SystemConfigurationInternal.h in Headers */,
+				F9121F892805FDDD00D05246 /* scdtest.h in Headers */,
 				727AF258191386E3009AB153 /* VPNTunnelPrivate.h in Headers */,
 				15A5A2050D5B94190087BDA0 /* SCPreferencesPathKey.h in Headers */,
 				15A5A2060D5B94190087BDA0 /* dnsinfo.h in Headers */,
@@ -4289,6 +4368,7 @@
 				15A5A20C0D5B94190087BDA0 /* SCPreferencesSetSpecificPrivate.h in Headers */,
 				15A5A20D0D5B94190087BDA0 /* SCPreferencesGetSpecificPrivate.h in Headers */,
 				15A5A20E0D5B94190087BDA0 /* SCNetworkConfigurationPrivate.h in Headers */,
+				F9389E0D2805E6D00080BFDB /* SCInternal.h in Headers */,
 				15A5A2100D5B94190087BDA0 /* SCHelper_client.h in Headers */,
 				15A5A2110D5B94190087BDA0 /* SCNetworkConnectionPrivate.h in Headers */,
 				15A5A2120D5B94190087BDA0 /* SCPreferencesKeychainPrivate.h in Headers */,
@@ -4332,6 +4412,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15DAD66507591A1A0084A6ED /* pppcontroller.h in Headers */,
+				15DA6E6F267551530077A9BF /* SCControlPrefs.h in Headers */,
 				1572C580171CCFF000870549 /* pppcontroller_mach_defines.h in Headers */,
 				15DAD66407591A1A0084A6ED /* pppcontroller_types.h in Headers */,
 				1506081A075A00A300B147BA /* SCSchemaDefinitions.h in Headers */,
@@ -4363,6 +4444,7 @@
 				F9B7AE6D186211EA00C78D18 /* symbol_scope.h in Headers */,
 				15DAD65707591A1A0084A6ED /* SCValidation.h in Headers */,
 				158FC77F1FDAE32600B2493C /* SystemConfigurationInternal.h in Headers */,
+				F9121F872805FDDD00D05246 /* scdtest.h in Headers */,
 				15DAD65807591A1A0084A6ED /* DHCPClientPreferences.h in Headers */,
 				15DAD65907591A1A0084A6ED /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
 				15DAD66107591A1A0084A6ED /* SCPreferencesPathKey.h in Headers */,
@@ -4371,6 +4453,7 @@
 				154CF3F407E1EA4D00D8302E /* SCPreferencesGetSpecificPrivate.h in Headers */,
 				155A1E6C081079CC00F70D98 /* SCNetworkConfigurationPrivate.h in Headers */,
 				1572AA8E1D8235A40021E093 /* plugin_shared.h in Headers */,
+				F9389E0B2805E6D00080BFDB /* SCInternal.h in Headers */,
 				155B7BF80847776D00F0E262 /* SCHelper_client.h in Headers */,
 				15D8B22A1450D8450090CECF /* SCD.h in Headers */,
 				15A297300A13C08C009879B3 /* SCNetworkConnectionPrivate.h in Headers */,
@@ -4629,6 +4712,7 @@
 				1510A7301B17E1AF00125A85 /* Add framework symlink (TEMPORARY) */,
 				1572C5270CFB55B400E2776E /* get-mobility-info */,
 				158D6D8A1C974EF700A08E78 /* Logging Preferences */,
+				F9102E95283D70BE0001D434 /* PrivateStrings.plist */,
 			);
 			buildRules = (
 			);
@@ -4756,7 +4840,6 @@
 			buildPhases = (
 				157A84F50D56C7E800B6F1A0 /* Headers */,
 				157A84F90D56C7E800B6F1A0 /* Sources */,
-				F963400F20FE8E4100F1E1F1 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5694,9 +5777,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F9E8B87628132B9500523749 /* WiFi.tiff in Resources */,
 				15A6F7C40A4B266D00B907EA /* Localizable.strings in Resources */,
 				15DAD66907591A1A0084A6ED /* NetworkConfiguration.plist in Resources */,
 				15DAD66B07591A1A0084A6ED /* NetworkInterface.strings in Resources */,
+				F9E8B87428132B9500523749 /* Network.tiff in Resources */,
 				15DAD66A07591A1A0084A6ED /* get-mobility-info in Resources */,
 				72499BA41AC9B7AB0090C49F /* get-network-info in Resources */,
 			);
@@ -6304,6 +6389,7 @@
 				D61AAEB01522C99C0066B003 /* scprefs_observer.c in Sources */,
 				C4F1848116237AFC00D97043 /* VPNService.c in Sources */,
 				B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */,
+				15DA6E72267551590077A9BF /* SCControlPrefs.c in Sources */,
 				F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6434,8 +6520,6 @@
 				1596A7B214EDB73D00798C39 /* libSystemConfiguration_server.c in Sources */,
 				D61AAEB11522C99C0066B003 /* scprefs_observer.c in Sources */,
 				F9A3781116A4849100C57CDC /* IPMonitorControlPrefs.c in Sources */,
-				F9D7304C20DDBEAB00521181 /* IPMonitorAWDReport.m in Sources */,
-				F9D7304B20DDBE9900521181 /* AWDIPMonitorInterfaceAdvisoryReport.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6455,7 +6539,7 @@
 				157A851B0D56C8E000B6F1A0 /* ev_dlil.c in Sources */,
 				157A851C0D56C8E000B6F1A0 /* ev_ipv4.c in Sources */,
 				157A851D0D56C8E000B6F1A0 /* ev_ipv6.c in Sources */,
-				152439EA1805CC8400D91708 /* ev_extra.m in Sources */,
+				F99A33B427B21D1800BD5FDA /* ev_extra.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6464,6 +6548,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				157A85290D56C91100B6F1A0 /* linkconfig.c in Sources */,
+				F99A33B827B21D7200BD5FDA /* WiFiUtil.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6523,7 +6608,8 @@
 				159D540D07528DAE004F8947 /* ev_dlil.c in Sources */,
 				159D540F07528DB0004F8947 /* ev_ipv4.c in Sources */,
 				159D541107528DB2004F8947 /* ev_ipv6.c in Sources */,
-				152439E618038E5B00D91708 /* ev_extra.m in Sources */,
+				F99A33B527B21D3900BD5FDA /* ev_extra.c in Sources */,
+				F99A33B627B21D4B00BD5FDA /* WiFiUtil.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6560,8 +6646,6 @@
 				D61AAEAF1522C99C0066B003 /* scprefs_observer.c in Sources */,
 				F9A3781016A4847700C57CDC /* IPMonitorControlPrefs.c in Sources */,
 				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
-				F9D7305320E4211900521181 /* IPMonitorAWDReport.m in Sources */,
-				F9D7305220E4211900521181 /* AWDIPMonitorInterfaceAdvisoryReport.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6570,6 +6654,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				159D541B07528E4A004F8947 /* linkconfig.c in Sources */,
+				F99A33B727B21D6300BD5FDA /* WiFiUtil.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6682,6 +6767,7 @@
 				C4F1848316237B1400D97043 /* VPNService.c in Sources */,
 				B0FEF41B1644089200174B99 /* VPNAppLayer.c in Sources */,
 				15EF89CD21894B32003B2C5C /* IPMonitorControl.c in Sources */,
+				15DA6E74267551650077A9BF /* SCControlPrefs.c in Sources */,
 				727AF25919138E24009AB153 /* VPNTunnel.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6723,6 +6809,7 @@
 				15DAD67407591A1A0084A6ED /* SCDList.c in Sources */,
 				15DAD67507591A1A0084A6ED /* SCDAdd.c in Sources */,
 				15DAD67607591A1A0084A6ED /* SCDGet.c in Sources */,
+				15DA6E70267551530077A9BF /* SCControlPrefs.c in Sources */,
 				15DAD67707591A1A0084A6ED /* SCDSet.c in Sources */,
 				15DAD67807591A1A0084A6ED /* SCDRemove.c in Sources */,
 				15DAD67A07591A1A0084A6ED /* SCDNotify.c in Sources */,
@@ -7395,7 +7482,6 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
 				IS_ZIPPERED = YES;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				STRIP_INSTALLED_PRODUCT_asan = NO;
@@ -7417,7 +7503,6 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
 				IS_ZIPPERED = YES;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				STRIP_INSTALLED_PRODUCT_asan = NO;
@@ -7667,7 +7752,6 @@
 				INSTALL_PATH = /usr/lib/system;
 				IS_ZIPPERED = YES;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-umbrella,System",
@@ -7700,7 +7784,6 @@
 				INSTALL_PATH = /usr/lib/system;
 				IS_ZIPPERED = YES;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-Wl,-umbrella,System",
@@ -7739,7 +7822,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -7763,7 +7845,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -7980,6 +8061,7 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = LinkConfiguration;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Debug;
 		};
@@ -7991,6 +8073,7 @@
 				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = LinkConfiguration;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Release;
 		};
@@ -8545,9 +8628,28 @@
 					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
+				"OTHER_LDFLAGS[sdk=appletvsimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
+					"-weak-lBASupport",
+				);
+				"OTHER_LDFLAGS[sdk=watchsimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Debug;
@@ -8567,9 +8669,28 @@
 					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
+				"OTHER_LDFLAGS[sdk=appletvsimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
+					"-weak-lBASupport",
+				);
+				"OTHER_LDFLAGS[sdk=watchsimulator*]" = (
+					"$(inherited)",
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Release;
@@ -8925,6 +9046,7 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Debug;
 		};
@@ -8938,6 +9060,7 @@
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 			};
 			name = Release;
 		};
@@ -9064,6 +9187,35 @@
 					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
+				"OTHER_LDFLAGS[sdk=appletvos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
+					"-weak-lBASupport",
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
+				);
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
@@ -9092,6 +9244,35 @@
 					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
 					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
+				"OTHER_LDFLAGS[sdk=appletvos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
+					"-weak-lBASupport",
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-weak_framework",
+					PrivacyAccounting,
 				);
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
@@ -9614,7 +9795,6 @@
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
@@ -9637,7 +9817,6 @@
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
@@ -9660,7 +9839,6 @@
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
@@ -9683,7 +9861,6 @@
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/log;
-				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) --extra-private-header=$(PROJECT_DIR)/logging/liblog_SystemConfiguration_internal.h";
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;

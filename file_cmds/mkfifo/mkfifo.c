@@ -1,6 +1,6 @@
-/*	$NetBSD: mkfifo.c,v 1.8 1997/10/19 05:11:54 lukem Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,7 +31,8 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1990, 1993\n\
+__COPYRIGHT(
+"@(#) Copyright (c) 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n");
 #endif /* not lint */
 
@@ -43,76 +40,96 @@ __COPYRIGHT("@(#) Copyright (c) 1990, 1993\n\
 #if 0
 static char sccsid[] = "@(#)mkfifo.c	8.2 (Berkeley) 1/5/94";
 #endif
-__RCSID("$NetBSD: mkfifo.c,v 1.8 1997/10/19 05:11:54 lukem Exp $");
 #endif /* not lint */
+__FBSDID("$FreeBSD$");
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
-#include <err.h>
+
 #ifdef __APPLE__
 #include <get_compat.h>
-#else 
-#define COMPAT_MODE(a,b) (1) 
-#endif /* __APPLE__ */ 
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 
-int	main __P((int, char **));
-static void usage __P((void));
+#define	BASEMODE	(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | \
+			S_IROTH | S_IWOTH)
+
+static void usage(void);
+
+static int f_mode;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
+	const char *modestr = NULL;
+	const void *modep;
+	mode_t fifomode;
 	int ch, exitval;
-	void * set;
-	mode_t mode = 0;
-	int m_used = 0;
-
-	setlocale (LC_ALL, "");
-
-	/* The default mode is the value of the bitwise inclusive or of
-	   S_IRUSR, S_IWUSR, S_IRGRP, S_IWGRP, S_IROTH, and S_IWOTH
-	   modified by the file creation mask */
-	if (!COMPAT_MODE("bin/mkfifo", "Unix2003")) {
-		mode = 0666 & ~umask(0);
-	}
+#ifdef __APPLE__
+	int unix2003compat;
+#endif
 
 	while ((ch = getopt(argc, argv, "m:")) != -1)
 		switch(ch) {
 		case 'm':
-			m_used = 1;
-			if (!(set = setmode(optarg))) {
-				errx(1, "invalid file mode.");
-				/* NOTREACHED */
-			}
-			/* In symbolic mode strings, the + and - operators are
-			   interpreted relative to an assumed initial mode of
-			   a=rw. */
-			mode = getmode (set, 0666);
+			f_mode = 1;
+			modestr = optarg;
 			break;
 		case '?':
 		default:
 			usage();
 		}
-//	argc -= optind;
+	argc -= optind;
 	argv += optind;
 	if (argv[0] == NULL)
 		usage();
 
-	if (COMPAT_MODE("bin/mkfifo", "Unix2003")) {
-		mode_t maskbits = umask(0);	/* now must disable umask so -m mode won't be masked again */
-		if (!m_used)
-			mode = 0666 & ~maskbits;
+#ifdef __APPLE__
+	unix2003compat = COMPAT_MODE("bin/mkfifo", "Unix2003");
+
+	fifomode = 0;
+	/* The default mode is the value of the bitwise inclusive or of
+	   S_IRUSR, S_IWUSR, S_IRGRP, S_IWGRP, S_IROTH, and S_IWOTH
+	   modified by the file creation mask */
+	if (!unix2003compat)
+		fifomode = BASEMODE & ~umask(0);
+#endif
+
+	if (f_mode) {
+#ifndef __APPLE__
+		umask(0);
+#endif
+		errno = 0;
+		if ((modep = setmode(modestr)) == NULL) {
+			if (errno)
+				err(1, "setmode");
+			errx(1, "invalid file mode: %s", modestr);
+		}
+		fifomode = getmode(modep, BASEMODE);
+#ifndef __APPLE__
+	} else {
+		fifomode = BASEMODE;
+#endif
 	}
 
-	for (exitval = 0; *argv; ++argv) {
-		if (mkfifo(*argv, mode) < 0) {
+#ifdef __APPLE__
+	if (unix2003compat) {
+		mode_t maskbits = umask(0);	/* now must disable umask so -m mode won't be masked again */
+		if (!f_mode)
+			fifomode = BASEMODE & ~maskbits;
+	}
+#endif
+
+	for (exitval = 0; *argv != NULL; ++argv) {
+		if (mkfifo(*argv, fifomode) < 0) {
 			warn("%s", *argv);
 			exitval = 1;
 		}
@@ -120,9 +137,9 @@ main(argc, argv)
 	exit(exitval);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	(void)fprintf(stderr, "usage: mkfifo [-m mode] fifoname ...\n");
+	(void)fprintf(stderr, "usage: mkfifo [-m mode] fifo_name ...\n");
 	exit(1);
 }

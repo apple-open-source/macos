@@ -151,7 +151,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDEvent (HIDProximityEvent)
 
-+ (instancetype)proximityEvent:(uint64_t)timestamp detectionMask:(uint32_t)detectionMask options:(uint32_t)options;
++ (instancetype)proximityEvent:(uint64_t)timestamp detectionMask:(uint16_t)detectionMask options:(uint32_t)options;
 
 @end
 

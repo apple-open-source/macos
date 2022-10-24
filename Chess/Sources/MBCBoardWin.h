@@ -45,6 +45,10 @@
 
 #import <Cocoa/Cocoa.h>
 #import <GameKit/GameKit.h>
+#include <UserNotifications/UserNotifications.h>
+
+#import "Chess-Swift.h"
+#import "MBCBoard.h"
 
 @class MBCBoard;
 @class MBCBoardView;
@@ -56,11 +60,12 @@
 
 @interface MBCBoardWin : NSWindowController <NSWindowDelegate,
     GKAchievementViewControllerDelegate,
-    GKTurnBasedMatchmakerViewControllerDelegate, GKGameCenterControllerDelegate>
+    GKTurnBasedMatchmakerViewControllerDelegate, GKGameCenterControllerDelegate, MBCSharePlayManagerBoardWindowDelegate, UNUserNotificationCenterDelegate>
 {
     NSMutableArray *                fObservers;
     GKAchievementViewController *   fAchievements;
     MBCAnimation *                  fCurAnimation;
+    int                             currentSharePlayMoveStringCount;
 }
 
 @property (nonatomic, assign) IBOutlet MBCBoardView *           gameView;
@@ -79,6 +84,7 @@
 @property (nonatomic, readonly) NSDictionary *                  primaryLocalization;
 @property (nonatomic, readonly) NSDictionary *                  alternateLocalization;
 @property (assign) IBOutlet NSMenu *playersPopupMenu;
+@property (nonatomic, assign) IBOutlet NSMenu * sharePlayMenu;
 
 - (void) removeChessObservers;
 - (IBAction)takeback:(id)sender;
@@ -110,5 +116,6 @@
 - (void)setAngle:(float)angle spin:(float)spin;
 - (void)handleRemoteResponse:(NSString *)response;
 - (void)endAnimation;
+- (BOOL)hideSharePlayProperties;
 
 @end

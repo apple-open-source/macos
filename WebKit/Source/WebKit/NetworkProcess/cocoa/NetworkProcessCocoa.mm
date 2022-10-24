@@ -32,6 +32,7 @@
 #import "NetworkProcessCreationParameters.h"
 #import "NetworkResourceLoader.h"
 #import "NetworkSessionCocoa.h"
+#import "NetworkStorageManager.h"
 #import "SandboxExtension.h"
 #import "WebCookieManager.h"
 #import <WebCore/NetworkStorageSession.h>
@@ -73,13 +74,6 @@ static void initializeNetworkSettings()
 
 void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessCreationParameters& parameters)
 {
-#if PLATFORM(IOS_FAMILY)
-    SandboxExtension::consumePermanently(parameters.cookieStorageDirectoryExtensionHandle);
-    SandboxExtension::consumePermanently(parameters.containerCachesDirectoryExtensionHandle);
-    SandboxExtension::consumePermanently(parameters.parentBundleDirectoryExtensionHandle);
-    SandboxExtension::consumePermanently(parameters.tempDirectoryExtensionHandle);
-#endif
-
     _CFNetworkSetATSContext(parameters.networkATSContext.get());
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
@@ -253,6 +247,25 @@ void NetworkProcess::notifyPreferencesChanged(const String& domain, const String
 {
     preferenceDidUpdate(domain, key, encodedValue);
 }
+#endif
+
+const String& NetworkProcess::uiProcessBundleIdentifier() const
+{
+    if (m_uiProcessBundleIdentifier.isNull())
+        m_uiProcessBundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+
+    return m_uiProcessBundleIdentifier;
+}
+
+#if PLATFORM(IOS_FAMILY)
+
+void NetworkProcess::setBackupExclusionPeriodForTesting(PAL::SessionID sessionID, Seconds period, CompletionHandler<void()>&& completionHandler)
+{
+    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    if (auto* session = networkSession(sessionID))
+        session->storageManager().setBackupExclusionPeriodForTesting(period, [callbackAggregator] { });
+}
+
 #endif
 
 } // namespace WebKit

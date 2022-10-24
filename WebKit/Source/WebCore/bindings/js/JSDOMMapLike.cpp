@@ -28,6 +28,7 @@
 
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/HashMapImplInlines.h>
 #include <JavaScriptCore/JSMap.h>
 #include <JavaScriptCore/VMTrapsInlines.h>
 
@@ -36,17 +37,12 @@ namespace WebCore {
 std::pair<bool, std::reference_wrapper<JSC::JSObject>> getBackingMap(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSObject& mapLike)
 {
     auto& vm = lexicalGlobalObject.vm();
-    auto backingMap = mapLike.getDirect(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().backingMapPrivateName());
+    auto backingMap = mapLike.getDirect(vm, builtinNames(vm).backingMapPrivateName());
     if (backingMap)
         return { false, *JSC::asObject(backingMap) };
 
-    JSC::DeferTerminationForAWhile deferScope(vm);
-    auto scope = DECLARE_CATCH_SCOPE(vm);
-
-    backingMap = JSC::JSMap::create(&lexicalGlobalObject, vm, lexicalGlobalObject.mapStructure());
-    scope.releaseAssertNoException();
-
-    mapLike.putDirect(vm, static_cast<JSVMClientData*>(vm.clientData)->builtinNames().backingMapPrivateName(), backingMap, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum));
+    backingMap = JSC::JSMap::create(vm, lexicalGlobalObject.mapStructure());
+    mapLike.putDirect(vm, builtinNames(vm).backingMapPrivateName(), backingMap, static_cast<unsigned>(JSC::PropertyAttribute::DontEnum));
     return { true, *JSC::asObject(backingMap) };
 }
 
@@ -56,7 +52,7 @@ void clearBackingMap(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSObject& ba
     auto function = lexicalGlobalObject.mapPrototype()->getDirect(vm, vm.propertyNames->builtinNames().clearPrivateName());
     ASSERT(function);
 
-    auto callData = JSC::getCallData(vm, function);
+    auto callData = JSC::getCallData(function);
     ASSERT(callData.type != JSC::CallData::Type::None);
 
     JSC::MarkedArgumentBuffer arguments;
@@ -69,7 +65,7 @@ void setToBackingMap(JSC::JSGlobalObject& lexicalGlobalObject, JSC::JSObject& ba
     auto function = lexicalGlobalObject.mapPrototype()->getDirect(vm, vm.propertyNames->builtinNames().setPrivateName());
     ASSERT(function);
 
-    auto callData = JSC::getCallData(vm, function);
+    auto callData = JSC::getCallData(function);
     ASSERT(callData.type != JSC::CallData::Type::None);
 
     JSC::MarkedArgumentBuffer arguments;
@@ -89,7 +85,7 @@ JSC::JSValue forwardFunctionCallToBackingMap(JSC::JSGlobalObject& lexicalGlobalO
     auto function = lexicalGlobalObject.mapPrototype()->getDirect(vm, functionName);
     ASSERT(function);
 
-    auto callData = JSC::getCallData(vm, function);
+    auto callData = JSC::getCallData(function);
     ASSERT(callData.type != JSC::CallData::Type::None);
 
     JSC::MarkedArgumentBuffer arguments;
@@ -107,7 +103,7 @@ JSC::JSValue forwardForEachCallToBackingMap(JSDOMGlobalObject& globalObject, JSC
     auto* function = globalObject.builtinInternalFunctions().jsDOMBindingInternals().m_forEachWrapperFunction.get();
     ASSERT(function);
 
-    auto callData = JSC::getCallData(globalObject.vm(), function);
+    auto callData = JSC::getCallData(function);
     ASSERT(callData.type != JSC::CallData::Type::None);
 
     JSC::MarkedArgumentBuffer arguments;

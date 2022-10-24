@@ -295,6 +295,7 @@ const CFStringRef kSecCodeInfoDigestAlgorithms = CFSTR("digest-algorithms");
 const CFStringRef kSecCodeInfoPlatformIdentifier = CFSTR("platform-identifier");
 const CFStringRef kSecCodeInfoIdentifier =		CFSTR("identifier");
 const CFStringRef kSecCodeInfoImplicitDesignatedRequirement = CFSTR("implicit-requirement");
+const CFStringRef kSecCodeInfoDefaultDesignatedLightweightCodeRequirement = CFSTR("default-designated-lwcr");
 const CFStringRef kSecCodeInfoMainExecutable =	CFSTR("main-executable");
 const CFStringRef kSecCodeInfoPList =			CFSTR("info-plist");
 const CFStringRef kSecCodeInfoRequirements =	CFSTR("requirements");
@@ -319,6 +320,9 @@ const CFStringRef kSecCodeInfoNotarizationDate = CFSTR("NotarizationDate");
 const CFStringRef kSecCodeInfoCMSDigestHashType = CFSTR("CMSDigestHashType");
 const CFStringRef kSecCodeInfoCMSDigest =        CFSTR("CMSDigest");
 const CFStringRef kSecCodeInfoSignatureVersion = CFSTR("SignatureVersion");
+const CFStringRef kSecCodeInfoLaunchConstraintsSelf = CFSTR("LaunchConstraints-self");
+const CFStringRef kSecCodeInfoLaunchConstraintsParent = CFSTR("LaunchConstraints-parent");
+const CFStringRef kSecCodeInfoLaunchConstraintsResponsible = CFSTR("LaunchConstraints-responsible");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");

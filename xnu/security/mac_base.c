@@ -837,7 +837,7 @@ mac_policy_unregister(mac_policy_handle_t handle)
 
 	if (mpc->mpc_data) {
 		struct mac_module_data *mmd = mpc->mpc_data;
-		kfree_data(mmd, mmd->size);
+		__typed_allocators_ignore(kfree_data(mmd, mmd->size)); // rdar://87952845
 		mpc->mpc_data = NULL;
 	}
 

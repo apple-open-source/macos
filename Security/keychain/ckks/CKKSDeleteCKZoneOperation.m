@@ -30,6 +30,9 @@
 
 - (void)groupStart
 {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     __block NSMutableArray<CKRecordZoneID*>* zonesNeedingDeletion = [NSMutableArray array];
 
     for(CKKSKeychainViewState* viewState in self.deps.views) {
@@ -105,7 +108,7 @@
                 ckksnotice("ckkszone", viewState.zoneID, "deletion of record zone %@ completed successfully", viewState.zoneID);
 
                 NSError* error = nil;
-                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneID.zoneName];
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:viewState.zoneID.zoneName];
                 ckse.ckzonecreated = NO;
                 ckse.ckzonesubscribed = NO;
 

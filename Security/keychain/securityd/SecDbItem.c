@@ -26,7 +26,7 @@
  * database items (certificates, keys, identities, and passwords.)
  */
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -331,11 +331,27 @@ static CFStringRef SecDbAttrGetHashName(const SecDbAttr *attr) {
 
 // MARK: SecDbItem
 
-CFTypeRef SecDbItemGetCachedValueWithName(SecDbItemRef item, CFStringRef name) {
+static CFTypeRef _SecDbItemGetCachedValueWithName(SecDbItemRef item, CFStringRef name) {
+    
+    if (!item || !item->attributes || !name) {
+        return NULL;
+    }
+   
     return CFDictionaryGetValue(item->attributes, name);
 }
 
 static CFTypeRef SecDbItemGetCachedValue(SecDbItemRef item, const SecDbAttr *desc) {
+    if (!item || !item->attributes || !desc) {
+        if (!item) {
+            secerror("secitem: item is nil!");
+        } else if (!item->attributes) {
+            secerror("secitem: item->attributes is nil!");
+        } else {
+            secerror("secitem: desc is nil!");
+        }
+        return NULL;
+    }
+    
     return CFDictionaryGetValue(item->attributes, desc->name);
 }
 
@@ -504,12 +520,14 @@ static CFTypeRef SecDbItemCopyValue(SecDbItemRef item, const SecDbAttr *attr, CF
 // it's value.
 CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef *error) {
     // Propagate chained errors
-    if (!desc)
+    if (!desc) {
         return NULL;
-
+    }
+    
     if (desc->flags & kSecDbInCryptoDataFlag || desc->flags & kSecDbInAuthenticatedDataFlag || desc->flags & kSecDbReturnDataFlag) {
-        if (!SecDbItemEnsureDecrypted(item, desc->flags & kSecDbReturnDataFlag, error))
+        if (!SecDbItemEnsureDecrypted(item, desc->flags & kSecDbReturnDataFlag, error)) {
             return NULL;
+        }
     }
 
     CFTypeRef value = SecDbItemGetCachedValue(item, desc);
@@ -529,6 +547,26 @@ CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef
     return value;
 }
 
+static CFTypeRef SecDbItemGetValueWithName(SecDbItemRef item, CFStringRef name, CFErrorRef *error)
+{
+    CFTypeRef value = _SecDbItemGetCachedValueWithName(item, name);
+    if (!value) {
+        SecDbForEachAttr(item->class, attr) {
+            if (CFEqual(attr->name, name)) {
+                value = SecDbItemGetValue(item, attr, error);
+                break;
+            }
+        }
+    }
+
+    return value;
+}
+
+CFTypeRef SecDbItemGetCachedValueWithName(SecDbItemRef item, CFStringRef name)
+{
+    return SecDbItemGetValueWithName(item, name, NULL);
+}
+
 CFTypeRef SecDbItemGetValueKind(SecDbItemRef item, SecDbAttrKind descKind, CFErrorRef *error) {
     CFTypeRef result = NULL;
 
@@ -539,6 +577,25 @@ CFTypeRef SecDbItemGetValueKind(SecDbItemRef item, SecDbAttrKind descKind, CFErr
         result = SecDbItemGetValue(item, desc, error);
     }
 
+    return result;
+}
+
+CFDictionaryRef SecDbItemCopyValuesWithNames(SecDbItemRef item, CFSetRef names, CFErrorRef *error) {
+    CFMutableDictionaryRef values = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    SecDbForEachAttr(item->class, attr) {
+        if (CFSetContainsValue(names, attr->name)) {
+            CFTypeRef value = SecDbItemGetValue(item, attr, error);
+            if (!value) {
+                CFReleaseNull(values);
+                return NULL;
+            }
+            if (!CFEqual(kCFNull, value)) {
+                CFDictionarySetValue(values, attr->name, value);
+            }
+        }
+    }
+    CFDictionaryRef result = CFDictionaryCreateCopy(kCFAllocatorDefault, values);
+    CFReleaseNull(values);
     return result;
 }
 
@@ -1034,6 +1091,31 @@ SecDbColumnCopyValueWithAttr(CFAllocatorRef allocator, sqlite3_stmt *stmt, const
     return value;
 }
 
+SecDbItemRef SecDbItemCreateWithColumnMapper(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, const SecDbAttr *_Nullable (^mapper)(int column, bool *stop)) {
+    SecDbItemRef item = SecDbItemCreate(allocator, class, keybag);
+    bool stop = false;
+    for (int col = 0; !stop; col++) {
+        const SecDbAttr *attr = mapper(col, &stop);
+        if (!attr) {
+            continue;
+        }
+
+        CFTypeRef value = SecDbColumnCopyValueWithAttr(allocator, stmt, attr, col, error);
+        require_action_quiet(value, errOut, CFReleaseNull(item));
+
+        CFDictionarySetValue(item->attributes, SecDbAttrGetHashName(attr), value);
+        CFRelease(value);
+    }
+
+    const SecDbAttr *data_attr = SecDbClassAttrWithKind(class, kSecDbEncryptedDataAttr, NULL);
+    if (data_attr != NULL && CFDictionaryGetValue(item->attributes, data_attr->name) != NULL) {
+        item->_edataState = kSecDbItemEncrypted;
+    }
+
+errOut:
+    return item;
+}
+
 SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, bool (^return_attr)(const SecDbAttr *attr)) {
     SecDbItemRef item = SecDbItemCreate(allocator, class, keybag);
     int col = 0;
@@ -1065,20 +1147,6 @@ SecDbItemRef SecDbItemCreateWithEncryptedData(CFAllocatorRef allocator, const Se
             CFReleaseNull(item);
     }
     return item;
-}
-
-// TODO: Hack -- Replace with real filtering
-
-// Return true iff an item for which SecDbItemIsSyncable() already returns true should be part of the v2 view.
-bool SecDbItemInV2(SecDbItemRef item) {
-    const SecDbClass *iclass = SecDbItemGetClass(item);
-    return  (SecDbItemGetCachedValueWithName(item, kSecAttrSyncViewHint) == NULL &&
-             (iclass == genp_class() || iclass == inet_class() || iclass == keys_class() || iclass == cert_class()));
-}
-
-// Return true iff an item for which SecDbItemIsSyncable() and SecDbItemInV2() already return true should be part of the v0 view.
-bool SecDbItemInV2AlsoInV0(SecDbItemRef item) {
-    return  (SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL && SecDbItemGetClass(item) != cert_class());
 }
 
 SecDbItemRef SecDbItemCopyWithUpdates(SecDbItemRef item, CFDictionaryRef updates, CFErrorRef *error) {
@@ -1446,9 +1514,9 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
 
             if (accc && CFEqualSafe(SecAccessControlGetProtection(accc), kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly)) {
                 akpu = true;
-                secwarning("cannot decrypt item %@, item is irrecoverably lost with older passcode (error %@)", item, localError);
+                secwarning("cannot decrypt item " SECDBITEM_FMT ", item is irrecoverably lost with older passcode (error %@)", item, localError);
             } else {
-                secerror("error %@ reading item %@ (corrupted)", localError, item);
+                secerror("error %@ reading item " SECDBITEM_FMT " (corrupted)", localError, item);
                 __security_simulatecrash(CFSTR("Corrupted item found in keychain"), __sec_exception_code_CorruptItem);
             }
             CFReleaseNull(localError);
@@ -1460,7 +1528,7 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
     CFDataRef computedSHA1 = SecDbItemCopyValue(item, sha1attr, &localError);
     if (storedSHA1 && computedSHA1 && !CFEqual(storedSHA1, computedSHA1)) {
         CFStringRef storedHex = CFDataCopyHexString(storedSHA1), computedHex = CFDataCopyHexString(computedSHA1);
-        secerror("error %@ %@ != %@ item %@ (corrupted)", sha1attr->name, storedHex, computedHex, item);
+        secerror("error %@ %@ != %@ item " SECDBITEM_FMT " (corrupted)", sha1attr->name, storedHex, computedHex, item);
         // Do not simulate crash for this condition.
         // The keychain hashes floating point numbers which causes many false positives, this is not fixable except by major surgery
         CFReleaseSafe(storedHex);
@@ -1468,13 +1536,13 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
         *is_corrupt = true;
     }
 
-    // Sanity check that all attributes that must not be NULL actually aren't
+    // Check that all attributes that must not be NULL actually aren't
     if (!localError) SecDbForEachAttr(item->class, attr) {
         if (attr->flags & (kSecDbInCryptoDataFlag | kSecDbInAuthenticatedDataFlag)) {
             CFTypeRef value = SecDbItemGetValue(item, attr, &localError);
             if (value) {
                 if (CFEqual(kCFNull, value) && attr->flags & kSecDbNotNullFlag) {
-                    secerror("error attribute %@ has NULL value in item %@ (corrupted)", attr->name, item);
+                    secerror("error attribute %@ has NULL value in item " SECDBITEM_FMT " (corrupted)", attr->name, item);
                     __security_simulatecrash(CFSTR("Corrupted item (attr NULL) found in keychain"), __sec_exception_code_CorruptItem);
                     *is_corrupt = true;
                     break;
@@ -1483,9 +1551,9 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
                 if (SecErrorGetOSStatus(localError) == errSecDecode) {
                     // We failed to decrypt the item
                     if (akpu) {
-                        secwarning("attribute %@: %@ item %@ (item lost with older passcode)", attr->name, localError, item);
+                        secwarning("attribute %@: %@ item " SECDBITEM_FMT " (item lost with older passcode)", attr->name, localError, item);
                     } else {
-                        secerror("error attribute %@: %@ item %@ (corrupted)", attr->name, localError, item);
+                        secerror("error attribute %@: %@ item " SECDBITEM_FMT " (corrupted)", attr->name, localError, item);
                         __security_simulatecrash(CFSTR("Corrupted item found in keychain"), __sec_exception_code_CorruptItem);
                     }
                     *is_corrupt = true;
@@ -1525,13 +1593,13 @@ static bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
         CFRelease(sql);
     }
     if (ok) {
-        secnotice("item", "inserted %@", item);
+        secnotice("item", "inserted " SECDBITEM_FMT, item);
         SecDbItemRecordUpdate(dbconn, NULL, item);
     } else {
         if (SecDbItemIsEngineInternalState(item)) {
-            secdebug ("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
+            secdebug ("item", "insert failed for item " SECDBITEM_FMT " with %@", item, error ? *error : NULL);
         } else {
-            secnotice("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
+            secnotice("item", "insert failed for item " SECDBITEM_FMT " with %@", item, error ? *error : NULL);
         }
     }
 
@@ -1688,14 +1756,14 @@ bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_u
                 *replace = CFRetainSafe(mergedItem);
             }
             if (CFEqualSafe(mergedItem, old_item)) {
-                secnotice("insert", "Conflict resolver chose my (local) item: %@", old_item);
+                secnotice("insert", "Conflict resolver chose my (local) item: " SECDBITEM_FMT, old_item);
             } else {
                 if (CFEqualSafe(mergedItem, item)) {
                     // Conflict resolver chose the backup's item
-                    secnotice("insert", "Conflict resolver chose item from the backup: %@", item);
+                    secnotice("insert", "Conflict resolver chose item from the backup: " SECDBITEM_FMT, item);
                 } else {
                     // Conflict resolver merged the items
-                    secnotice("insert", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                    secnotice("insert", "Conflict resolver created a new item; return it to our caller: " SECDBITEM_FMT, mergedItem);
                 }
             }
             CFReleaseSafe(mergedItem);
@@ -1749,6 +1817,23 @@ static bool SecDbItemUpdateBind(SecDbItemRef old_item, SecDbItemRef new_item, sq
 
 // Primary keys are the same -- do an update
 bool SecDbItemDoUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr)) {
+    
+    CFDataRef oldItemPersistentRef = SecDbItemGetCachedValueWithName(old_item, kSecAttrPersistentReference);
+    if (!oldItemPersistentRef || CFDataGetLength(oldItemPersistentRef) != PERSISTENT_REF_UUID_BYTES_LENGTH) {
+        // if the old item did not have a persistent reference, set it on the replacement item
+        CFUUIDRef prefUUID = CFUUIDCreate(kCFAllocatorDefault);
+        CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(prefUUID);
+        CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
+        CFErrorRef setError = NULL;
+        SecDbItemSetPersistentRef(new_item, uuidData, &setError);
+        if (setError) {
+            secdebug ("item", "failed to set persistent reference: %@", setError);
+        }
+        CFReleaseNull(prefUUID);
+        CFReleaseNull(uuidData);
+        CFReleaseNull(setError);
+    }
+    
     CFStringRef sql = SecDbItemCopyUpdateSQL(old_item, new_item, use_attr_in_where);
     __block bool ok = sql;
     if (sql) {
@@ -1759,11 +1844,11 @@ bool SecDbItemDoUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnec
     }
     if (ok) {
         if (SecDbItemIsEngineInternalState(old_item)) {
-            secdebug ("item", "replaced %@ in %@", old_item, dbconn);
-            secdebug ("item", "    with %@ in %@", new_item, dbconn);
+            secdebug ("item", "replaced " SECDBITEM_FMT " in %@", old_item, dbconn);
+            secdebug ("item", "    with " SECDBITEM_FMT " in %@", new_item, dbconn);
         } else {
-            secnotice("item", "replaced %@ in %@", old_item, dbconn);
-            secnotice("item", "    with %@ in %@", new_item, dbconn);
+            secnotice("item", "replaced " SECDBITEM_FMT " in %@", old_item, dbconn);
+            secnotice("item", "    with " SECDBITEM_FMT " in %@", new_item, dbconn);
         }
         SecDbItemRecordUpdate(dbconn, old_item, new_item);
     }
@@ -1820,7 +1905,7 @@ bool SecDbItemDoDeleteSilently(SecDbItemRef item, SecDbConnectionRef dbconn, CFE
 static bool SecDbItemDoDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr)) {
     bool ok = SecDbItemDoDeleteOnly(item, dbconn, error, use_attr_in_where);
     if (ok) {
-        secnotice("item", "deleted %@ from %@", item, dbconn);
+        secnotice("item", "deleted " SECDBITEM_FMT " from %@", item, dbconn);
         SecDbItemRecordUpdate(dbconn, item, NULL);
     }
     return ok;

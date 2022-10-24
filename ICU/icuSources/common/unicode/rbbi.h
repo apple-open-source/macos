@@ -681,7 +681,8 @@ private:
      * in text or iteration position.
      * @internal (private)
      */
-    void reset(void);
+    // FIXME: unimplemented
+    //void reset(void);
 
     /**
       * Common initialization function, used by constructors and bufferClone.

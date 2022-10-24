@@ -34,8 +34,6 @@
 #include <dispatch/dispatch.h>
 #include <os/object.h>
 
-#define SEC_PROTOCOL_CERT_COMPRESSION_DEFAULT 1
-
 /*!
  * The following diagram shows how clients interact with sec_protocol_options
  * and sec_protocol_metadata when configuring and using network security protocols.

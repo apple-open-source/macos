@@ -105,7 +105,7 @@ def handleServices(services, desiredService, ioreg, events, properties, prop, in
         traverseRegistry(ioreg)
     
     print("Services")
-    for service in sorted(services, key=lambda service: service['IOClass'].lower() if 'IOClass' in service else 0):
+    for service in sorted(services, key=lambda service: service['IOClass'].lower() if 'IOClass' in service else ''):
         sys.stdout.write("    %-25.25s id: %s  built-in: %-4s usagePage: %-7s usage: %-7s report interval: %-6s batch interval: %-6s transport: %s" % (
                                 service['IOClass'] if 'IOClass' in service else "n/a", 
                                 hex(service['IORegistryEntryID']),

@@ -40,16 +40,24 @@
 @synthesize encodedCKRecord = _encodedCKRecord;
 @synthesize storedCKRecord = _storedCKRecord;
 
-- (instancetype) initWithCKRecord: (CKRecord*) record {
+- (instancetype)initWithCKRecord:(CKRecord*)record
+                       contextID:(NSString*)contextID
+{
     if(self = [super init]) {
         _zoneID = record.recordID.zoneID;
+        _contextID = contextID;
         [self setFromCKRecord:record];
     }
     return self;
 }
 
-- (instancetype)initWithCKRecordType: (NSString*) recordType encodedCKRecord: (NSData*) encodedCKRecord zoneID:(CKRecordZoneID*)zoneID {
+- (instancetype)initWithCKRecordType:(NSString*)recordType
+                     encodedCKRecord:(NSData*)encodedCKRecord
+                           contextID:(NSString*)contextID
+                              zoneID:(CKRecordZoneID*)zoneID
+{
     if(self = [super init]) {
+        _contextID = contextID;
         _zoneID = zoneID;
         _ckRecordType = recordType;
         _encodedCKRecord = encodedCKRecord;
@@ -150,6 +158,7 @@
 
 - (instancetype)copyWithZone:(NSZone *)zone {
     CKKSCKRecordHolder *rhCopy = [super copyWithZone:zone];
+    rhCopy->_contextID = _contextID;
     rhCopy->_zoneID = _zoneID;
     rhCopy->_ckRecordType = _ckRecordType;
     rhCopy->_encodedCKRecord = [_encodedCKRecord copy];

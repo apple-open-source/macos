@@ -594,7 +594,7 @@ columnwrite(
 	char 	outstring[10];
 	short 	i;
 
-	sprintf(outstring,format,arg);
+	snprintf(outstring,sizeof(outstring),format,arg);
 	for (i=0; outstring[i]!=0; ++i)
 	{
 		if (newlines)

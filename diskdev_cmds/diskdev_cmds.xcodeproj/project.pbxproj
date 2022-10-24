@@ -26,7 +26,6 @@
 				4D559426153DC38F009F2584 /* PBXTargetDependency */,
 				4D55943A153DC4C0009F2584 /* PBXTargetDependency */,
 				4D55939C153CE83A009F2584 /* PBXTargetDependency */,
-				4D559415153DC282009F2584 /* PBXTargetDependency */,
 				071077D92488A09C003B97C7 /* PBXTargetDependency */,
 			);
 			name = Common;
@@ -124,7 +123,6 @@
 		4D5593F0153CEE74009F2584 /* quotaon.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D5593ED153CEE66009F2584 /* quotaon.8 */; };
 		4D559403153DC13D009F2584 /* repquota.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D559402153DC13D009F2584 /* repquota.c */; };
 		4D559404153DC150009F2584 /* repquota.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D559401153DC13D009F2584 /* repquota.8 */; };
-		4D559417153DC2AB009F2584 /* vndevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D559416153DC2AB009F2584 /* vndevice.c */; };
 		4D559428153DC3A6009F2584 /* mount_devfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D559427153DC3A6009F2584 /* mount_devfs.c */; };
 		4D55942B153DC427009F2584 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D55942A153DC420009F2584 /* libutil.dylib */; };
 		4D55943D153DC4DE009F2584 /* mount_fdesc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D55943C153DC4DE009F2584 /* mount_fdesc.c */; };
@@ -230,13 +228,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D07DD48153CA9A0002B57CB;
 			remoteInfo = libdisk;
-		};
-		4D559414153DC282009F2584 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4D55940A153DC27A009F2584;
-			remoteInfo = vndevice;
 		};
 		4D559425153DC38F009F2584 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -480,16 +471,6 @@
 			name = "Copy man8";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		4D559409153DC27A009F2584 /* Copy man1 */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			name = "Copy man1";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		4D55941A153DC383009F2584 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -682,8 +663,6 @@
 		4D5593F8153DC0DE009F2584 /* repquota */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = repquota; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D559401153DC13D009F2584 /* repquota.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = repquota.8; path = repquota.tproj/repquota.8; sourceTree = SOURCE_ROOT; };
 		4D559402153DC13D009F2584 /* repquota.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = repquota.c; path = repquota.tproj/repquota.c; sourceTree = SOURCE_ROOT; };
-		4D55940B153DC27A009F2584 /* vndevice */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vndevice; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D559416153DC2AB009F2584 /* vndevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vndevice.c; path = vndevice.tproj/vndevice.c; sourceTree = SOURCE_ROOT; };
 		4D55941C153DC383009F2584 /* mount_devfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_devfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D559427153DC3A6009F2584 /* mount_devfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mount_devfs.c; path = mount_devfs.tproj/mount_devfs.c; sourceTree = SOURCE_ROOT; };
 		4D55942A153DC420009F2584 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = usr/lib/libutil.dylib; sourceTree = SDKROOT; };
@@ -809,13 +788,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4D5593F5153DC0DE009F2584 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4D559408153DC27A009F2584 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -952,7 +924,6 @@
 				4D5593FA153DC0DE009F2584 /* repquota */,
 				4D5594C4153DCAFC009F2584 /* setclass */,
 				4D559390153CE7FD009F2584 /* umount */,
-				4D55940D153DC27A009F2584 /* vndevice */,
 				4D559450153DC634009F2584 /* vsdbutil */,
 				4D559429153DC3F3009F2584 /* Libraries */,
 				33DE5A4625D34CC800360074 /* dirs_cleaner */,
@@ -974,7 +945,6 @@
 				4D5593CD153CED29009F2584 /* quotacheck */,
 				4D5593E4153CEE4A009F2584 /* quotaon */,
 				4D5593F8153DC0DE009F2584 /* repquota */,
-				4D55940B153DC27A009F2584 /* vndevice */,
 				4D55941C153DC383009F2584 /* mount_devfs */,
 				4D559430153DC49A009F2584 /* mount_fdesc */,
 				4D55944E153DC634009F2584 /* vsdbutil */,
@@ -1112,14 +1082,6 @@
 				4D559401153DC13D009F2584 /* repquota.8 */,
 			);
 			path = repquota;
-			sourceTree = "<group>";
-		};
-		4D55940D153DC27A009F2584 /* vndevice */ = {
-			isa = PBXGroup;
-			children = (
-				4D559416153DC2AB009F2584 /* vndevice.c */,
-			);
-			path = vndevice;
 			sourceTree = "<group>";
 		};
 		4D55941E153DC384009F2584 /* mount_devfs */ = {
@@ -1435,23 +1397,6 @@
 			productReference = 4D5593F8153DC0DE009F2584 /* repquota */;
 			productType = "com.apple.product-type.tool";
 		};
-		4D55940A153DC27A009F2584 /* vndevice */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 4D559412153DC27A009F2584 /* Build configuration list for PBXNativeTarget "vndevice" */;
-			buildPhases = (
-				4D559407153DC27A009F2584 /* Sources */,
-				4D559408153DC27A009F2584 /* Frameworks */,
-				4D559409153DC27A009F2584 /* Copy man1 */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = vndevice;
-			productName = vndevice;
-			productReference = 4D55940B153DC27A009F2584 /* vndevice */;
-			productType = "com.apple.product-type.tool";
-		};
 		4D55941B153DC383009F2584 /* mount_devfs */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4D559423153DC384009F2584 /* Build configuration list for PBXNativeTarget "mount_devfs" */;
@@ -1675,7 +1620,6 @@
 				4D5593F7153DC0DE009F2584 /* repquota */,
 				4D5594C1153DCAFC009F2584 /* setclass */,
 				4D55938D153CE7FD009F2584 /* umount */,
-				4D55940A153DC27A009F2584 /* vndevice */,
 				4D55944D153DC634009F2584 /* vsdbutil */,
 				33DE5A4425D34CC800360074 /* dirs_cleaner */,
 			);
@@ -1829,14 +1773,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4D559407153DC27A009F2584 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4D559417153DC2AB009F2584 /* vndevice.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4D559418153DC383009F2584 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1970,11 +1906,6 @@
 			target = 4D07DD48153CA9A0002B57CB /* libdisk */;
 			targetProxy = 4D5593A0153CE8BC009F2584 /* PBXContainerItemProxy */;
 		};
-		4D559415153DC282009F2584 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4D55940A153DC27A009F2584 /* vndevice */;
-			targetProxy = 4D559414153DC282009F2584 /* PBXContainerItemProxy */;
-		};
 		4D559426153DC38F009F2584 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D55941B153DC383009F2584 /* mount_devfs */;
@@ -2095,6 +2026,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = dirs_cleaner/dirs_cleaner.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEVELOPMENT_TEAM = "";
@@ -2140,6 +2072,10 @@
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				PRODUCT_NAME = disk;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2149,6 +2085,10 @@
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2159,6 +2099,10 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2166,6 +2110,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall,",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2176,6 +2124,10 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2185,6 +2137,10 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2193,6 +2149,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2202,6 +2162,10 @@
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2210,6 +2174,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2218,6 +2186,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2226,14 +2198,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
-		4D559413153DC27A009F2584 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /usr/libexec;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2242,6 +2210,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2250,6 +2222,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2258,6 +2234,10 @@
 			buildSettings = {
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall,",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2265,6 +2245,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall,",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2273,6 +2257,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2281,6 +2269,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2289,6 +2281,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2297,6 +2293,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2305,6 +2305,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2313,6 +2317,10 @@
 			buildSettings = {
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2320,6 +2328,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2328,6 +2340,10 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2335,6 +2351,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wformat-nonliteral",
+				);
 			};
 			name = Release;
 		};
@@ -2441,14 +2461,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4D559400153DC0DE009F2584 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		4D559412153DC27A009F2584 /* Build configuration list for PBXNativeTarget "vndevice" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				4D559413153DC27A009F2584 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

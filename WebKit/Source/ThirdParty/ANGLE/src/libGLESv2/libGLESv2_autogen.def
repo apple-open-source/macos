@@ -599,6 +599,8 @@ EXPORTS
     glTexSubImage2DRobustANGLE
     glTexSubImage3DRobustANGLE
 
+    ; GL_ANGLE_robust_resource_initialization
+
     ; GL_ANGLE_semaphore_fuchsia
     glImportSemaphoreZirconHandleANGLE
 
@@ -651,6 +653,11 @@ EXPORTS
     glEGLImageTargetTextureStorageEXT
 
     ; GL_EXT_YUV_target
+
+    ; GL_EXT_base_instance
+    glDrawArraysInstancedBaseInstanceEXT
+    glDrawElementsInstancedBaseInstanceEXT
+    glDrawElementsInstancedBaseVertexBaseInstanceEXT
 
     ; GL_EXT_blend_func_extended
     glBindFragDataLocationEXT
@@ -964,6 +971,8 @@ EXPORTS
 
     ; GL_NV_read_depth
 
+    ; GL_NV_read_depth_stencil
+
     ; GL_NV_read_stencil
 
     ; GL_NV_robustness_video_memory_purge
@@ -1149,6 +1158,9 @@ EXPORTS
     glFramebufferTextureMultiviewOVR
 
     ; GL_OVR_multiview2
+
+    ; GL_QCOM_shading_rate
+    glShadingRateQCOM
 
     ; EGL 1.0
     EGL_ChooseConfig

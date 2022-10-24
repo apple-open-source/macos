@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,12 +33,11 @@ static char sccsid[] = "@(#)key.c	8.3 (Berkeley) 4/2/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/stty/key.c,v 1.17 2002/06/30 05:15:04 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
 #include <err.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -69,6 +64,19 @@ void	f_size(struct info *);
 void	f_speed(struct info *);
 void	f_tty(struct info *);
 __END_DECLS
+
+#ifdef __APPLE__
+/* Upstream defines a different version in libc/gen/termios.c */
+static void
+cfmakesane(struct termios *t)
+{
+
+	t->c_cflag = TTYDEF_CFLAG;
+	t->c_iflag = TTYDEF_IFLAG;
+	t->c_lflag = TTYDEF_LFLAG;
+	t->c_oflag = TTYDEF_OFLAG;
+}
+#endif
 
 static struct key {
 	const char *name;			/* name */
@@ -261,14 +269,15 @@ f_rows(struct info *ip)
 void
 f_sane(struct info *ip)
 {
+	struct termios def;
 
-	ip->t.c_cflag = TTYDEF_CFLAG | (ip->t.c_cflag & CLOCAL);
-	ip->t.c_iflag = TTYDEF_IFLAG;
-	ip->t.c_iflag |= ICRNL;
+	cfmakesane(&def);
+	ip->t.c_cflag = def.c_cflag | (ip->t.c_cflag & CLOCAL);
+	ip->t.c_iflag = def.c_iflag;
 	/* preserve user-preference flags in lflag */
 #define	LKEEP	(ECHOKE|ECHOE|ECHOK|ECHOPRT|ECHOCTL|ALTWERASE|TOSTOP|NOFLSH)
-	ip->t.c_lflag = TTYDEF_LFLAG | (ip->t.c_lflag & LKEEP);
-	ip->t.c_oflag = TTYDEF_OFLAG;
+	ip->t.c_lflag = def.c_lflag | (ip->t.c_lflag & LKEEP);
+	ip->t.c_oflag = def.c_oflag;
 	ip->set = 1;
 }
 

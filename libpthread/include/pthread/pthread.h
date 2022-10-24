@@ -196,6 +196,13 @@ __BEGIN_DECLS
 #define _PTHREAD_SWIFT_IMPORTER_NULLABILITY_COMPAT \
 	defined(SWIFT_CLASS_EXTRA) && (!defined(SWIFT_SDK_OVERLAY_PTHREAD_EPOCH) || (SWIFT_SDK_OVERLAY_PTHREAD_EPOCH < 1))
 
+#if __has_attribute(__swift_attr__)
+#define __PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC(msg) \
+	__attribute__((__swift_attr__("@_unavailableFromAsync(message: \"" msg "\")")))
+#else
+#define __PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC(msg)
+#endif
+
 /*
  * Condition variable attributes
  */
@@ -302,12 +309,14 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_cond_signal(pthread_cond_t *);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use an asynchronous wait instead of a synchronous wait")
 int pthread_cond_timedwait(
 		pthread_cond_t * __restrict, pthread_mutex_t * __restrict,
 		const struct timespec * _Nullable __restrict)
 		__DARWIN_ALIAS_C(pthread_cond_timedwait);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use an asynchronous wait instead of a synchronous wait")
 int pthread_cond_wait(pthread_cond_t * __restrict,
 		pthread_mutex_t * __restrict) __DARWIN_ALIAS_C(pthread_cond_wait);
 
@@ -343,6 +352,7 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_equal(pthread_t _Nullable, pthread_t _Nullable);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Thread lifecycle is owned by Swift Concurrency runtime")
 void pthread_exit(void * _Nullable) __dead2;
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
@@ -352,10 +362,12 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_getschedparam(pthread_t , int * _Nullable __restrict,
 		struct sched_param * _Nullable __restrict);
 
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task Local Values instead")
 __API_AVAILABLE(macos(10.4), ios(2.0))
 void* _Nullable pthread_getspecific(pthread_key_t);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use an asynchronous wait instead of a synchronous wait")
 int pthread_join(pthread_t , void * _Nullable * _Nullable)
 		__DARWIN_ALIAS_C(pthread_join);
 
@@ -377,6 +389,7 @@ int pthread_mutex_init(pthread_mutex_t * __restrict,
 		const pthread_mutexattr_t * _Nullable __restrict);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use OSAllocatedUnfairLock's withLock or NSLock for async-safe scoped locking")
 int pthread_mutex_lock(pthread_mutex_t *);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
@@ -384,9 +397,11 @@ int pthread_mutex_setprioceiling(pthread_mutex_t * __restrict, int,
 		int * __restrict);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use OSAllocatedUnfairLock's withLockIfAvailable or NSLock for async-safe scoped locking")
 int pthread_mutex_trylock(pthread_mutex_t *);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use OSAllocatedUnfairLock's withLock or NSLock for async-safe scoped locking")
 int pthread_mutex_unlock(pthread_mutex_t *);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
@@ -443,18 +458,23 @@ int pthread_rwlock_init(pthread_rwlock_t * __restrict,
 		__DARWIN_ALIAS(pthread_rwlock_init);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use async-safe scoped locking instead")
 int pthread_rwlock_rdlock(pthread_rwlock_t *) __DARWIN_ALIAS(pthread_rwlock_rdlock);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use async-safe scoped locking instead")
 int pthread_rwlock_tryrdlock(pthread_rwlock_t *) __DARWIN_ALIAS(pthread_rwlock_tryrdlock);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use async-safe scoped locking instead")
 int pthread_rwlock_trywrlock(pthread_rwlock_t *) __DARWIN_ALIAS(pthread_rwlock_trywrlock);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use async-safe scoped locking instead")
 int pthread_rwlock_wrlock(pthread_rwlock_t *) __DARWIN_ALIAS(pthread_rwlock_wrlock);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use async-safe scoped locking instead")
 int pthread_rwlock_unlock(pthread_rwlock_t *) __DARWIN_ALIAS(pthread_rwlock_unlock);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
@@ -474,10 +494,12 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 pthread_t pthread_self(void);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task cancellation instead")
 int pthread_setcancelstate(int , int * _Nullable)
 		__DARWIN_ALIAS(pthread_setcancelstate);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task cancellation instead")
 int pthread_setcanceltype(int , int * _Nullable)
 		__DARWIN_ALIAS(pthread_setcanceltype);
 
@@ -488,9 +510,11 @@ __API_AVAILABLE(macos(10.4), ios(2.0))
 int pthread_setschedparam(pthread_t, int, const struct sched_param *);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task Local Values instead")
 int pthread_setspecific(pthread_key_t , const void * _Nullable);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task cancellation instead")
 void pthread_testcancel(void) __DARWIN_ALIAS(pthread_testcancel);
 
 #if (!defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)) || defined(_DARWIN_C_SOURCE) || defined(__cplusplus)
@@ -507,6 +531,7 @@ __API_AVAILABLE(macos(10.6), ios(3.2))
 int	pthread_getname_np(pthread_t,char*,size_t);
 
 __API_AVAILABLE(macos(10.6), ios(3.2))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Thread lifecycle is owned by Swift Concurrency runtime")
 int	pthread_setname_np(const char*);
 
 /* returns non-zero if the current thread is the main thread */
@@ -529,6 +554,7 @@ int pthread_cond_signal_thread_np(pthread_cond_t *, pthread_t _Nullable);
 
 /* Like pthread_cond_timedwait, but use a relative timeout */
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use an asynchronous wait instead of a synchronous wait")
 int pthread_cond_timedwait_relative_np(pthread_cond_t *, pthread_mutex_t *,
 		const struct timespec * _Nullable);
 
@@ -554,6 +580,7 @@ int pthread_sigmask(int, const sigset_t * _Nullable, sigset_t * _Nullable)
 		__DARWIN_ALIAS(pthread_sigmask);
 
 __API_AVAILABLE(macos(10.4), ios(2.0))
+__PTHREAD_SWIFT_UNAVAILABLE_FROM_ASYNC("Use Task.yield(), or await a condition instead of spinning")
 void pthread_yield_np(void);
 
 __API_AVAILABLE(macos(10.16))

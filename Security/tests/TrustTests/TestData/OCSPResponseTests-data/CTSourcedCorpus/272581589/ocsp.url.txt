@@ -1,0 +1,1 @@
+http://ocsp1.comsign.co.il/ocsp

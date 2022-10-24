@@ -11,7 +11,7 @@
 #endif
 
 #if !NS_BLOCKS_AVAILABLE
-#error Blocks don't appear to be available, according to the Foundation.
+#error Blocks do not appear to be available, according to the Foundation.
 #endif
 
 NSInteger sortStuff(id a, id  b, void *inReverse) {

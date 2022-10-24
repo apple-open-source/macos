@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 174
+Submission	= 175.1
 
 
 #
@@ -167,7 +167,8 @@ AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			lmsensors.patch darwin-sensors.patch sanitize.patch\
 			34748495.patch 34782045.patch 34782700.patch \
 			34806284.patch warnings1.patch crTest.patch mandoc1.patch \
-			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch 
+			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch \
+			darwin-fix-overflow.patch 96091371.patch
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf

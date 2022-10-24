@@ -1,11 +1,50 @@
-framework module IOKit_Private [extern_c] {
+framework module IOKit_Private [extern_c] [system] {
+  header "IOReportTypes.h"
+  export *
 
- explicit module graphics {
+  explicit module graphics {
+    header "graphics/AppleGraphicsDeviceControlUserCommand.h"
+    header "graphics/IOAccel2DContextConnect.h"
+    header "graphics/IOAccelBufferHeader.h"
+    header "graphics/IOAccelCLContextConnect.h"
+    header "graphics/IOAccelCommandQueueConnect.h"
+    header "graphics/IOAccelContextConnect.h"
+    header "graphics/IOAccelDeviceConnect.h"
+    header "graphics/IOAccelDisplayPipeConnect.h"
+    header "graphics/IOAccelEventCommon.h"
+    header "graphics/IOAccelEventConfig.h"
+    header "graphics/IOAccelEventFast.h"
+    header "graphics/IOAccelGLContextConnect.h"
+    header "graphics/IOAccelGLDrawableConnect.h"
+    header "graphics/IOAccelPrivateConnect.h"
+    header "graphics/IOAccelSharedConnect.h"
+    header "graphics/IOAccelStats.h"
+    header "graphics/IOAccelSurfaceConnectPrivate.h"
     header "graphics/IOAccelSurfaceControl.h"
-    export *
- }
+    header "graphics/IOAccelTrace.h"
+    header "graphics/IOAccelVideoContextConnect.h"
+    header "graphics/IOBacklightPrivate.h"
+    header "graphics/IODisplayProductIDs.h"
+    header "graphics/IOGTrace.h"
+    header "graphics/IOGraphicsLibPrivate.h"
+    header "graphics/IOGraphicsTypes.h"
+    header "graphics/IOGraphicsTypesPrivate.h"
+    header "graphics/IOMobileFramebufferTypes.h"
+    header "graphics/IOSurfacePrivate.h"
 
- explicit module hid {
+    // Use the GPUWrangler.framework headers
+    // rdar://83756106 (AppleGPUWranglerUserCommand.h is installed in both GPUWrangler.framework and IOKit.framework)
+    exclude header "graphics/AppleGPUWranglerUserCommand.h"
+
+    export *
+
+    module GTraceTypes {
+      requires cplusplus
+      header "graphics/GTraceTypes.hpp"
+      export *
+    }
+  }
+  explicit module hid {
     header "hid/IOHIDEvent.h"
     header "hid/IOHIDServiceClient.h"
     header "hid/IOHIDEventData.h"
@@ -28,8 +67,8 @@ framework module IOKit_Private [extern_c] {
     header "hid/IOHIDEventFieldDefs.h"
     header "hid/IOHIDEventServiceKeys_Private.h"
     export *
- }
- explicit module hidobjc {
+  }
+  explicit module hidobjc {
     header "hidobjc/hidobjcbase.h"
     header "hidobjc/HIDDeviceBase.h"
     header "hidobjc/HIDDeviceIvar.h"
@@ -47,5 +86,4 @@ framework module IOKit_Private [extern_c] {
     header "hidobjc/HIDSessionIvar.h"
     export *
   }
-	 
 }

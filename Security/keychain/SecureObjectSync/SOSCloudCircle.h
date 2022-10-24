@@ -537,6 +537,7 @@ extern const CFStringRef kCKKSViewApplePay;
 extern const CFStringRef kCKKSViewHome;
 extern const CFStringRef kCKKSViewLimitedPeersAllowed;
 extern const CFStringRef kCKKSViewMFi;
+extern const CFStringRef kCKKSViewMail;
 
 
 /*!

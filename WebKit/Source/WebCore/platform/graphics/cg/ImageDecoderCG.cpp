@@ -28,19 +28,23 @@
 
 #if USE(CG)
 
+#include "FourCC.h"
 #include "ImageOrientation.h"
 #include "ImageResolution.h"
 #include "ImageSourceCG.h"
 #include "IntPoint.h"
 #include "IntSize.h"
 #include "Logging.h"
-#include "MediaAccessibilitySoftLink.h"
 #include "MIMETypeRegistry.h"
+#include "ProcessCapabilities.h"
 #include "SharedBuffer.h"
 #include "UTIRegistry.h"
 #include <pal/spi/cg/ImageIOSPI.h>
 #include <ImageIO/ImageIO.h>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
+#include <wtf/FlipBytes.h>
+
+#include "MediaAccessibilitySoftLink.h"
 
 namespace WebCore {
 
@@ -56,6 +60,13 @@ const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldP
 const CFStringRef kCGImageSourceSkipMetadata = CFSTR("kCGImageSourceSkipMetadata");
 const CFStringRef kCGImageSourceSubsampleFactor = CFSTR("kCGImageSourceSubsampleFactor");
 const CFStringRef kCGImageSourceShouldCacheImmediately = CFSTR("kCGImageSourceShouldCacheImmediately");
+const CFStringRef kCGImageSourceUseHardwareAcceleration = CFSTR("kCGImageSourceUseHardwareAcceleration");
+#endif
+
+const CFStringRef kCGImageSourceEnableRestrictedDecoding = CFSTR("kCGImageSourceEnableRestrictedDecoding");
+
+#if HAVE(IMAGEIO_CREATE_UNPREMULTIPLIED_PNG)
+const CFStringRef kCGImageSourceCreateUnpremultipliedPNG = CFSTR("kCGImageSourceCreateUnpremultipliedPNG");
 #endif
 
 static RetainPtr<CFMutableDictionaryRef> createImageSourceOptions()
@@ -64,6 +75,18 @@ static RetainPtr<CFMutableDictionaryRef> createImageSourceOptions()
     CFDictionarySetValue(options.get(), kCGImageSourceShouldCache, kCFBooleanTrue);
     CFDictionarySetValue(options.get(), kCGImageSourceShouldPreferRGB32, kCFBooleanTrue);
     CFDictionarySetValue(options.get(), kCGImageSourceSkipMetadata, kCFBooleanTrue);
+
+    if (ProcessCapabilities::isHardwareAcceleratedDecodingDisabled())
+        CFDictionarySetValue(options.get(), kCGImageSourceUseHardwareAcceleration, kCFBooleanFalse);
+
+#if HAVE(IMAGE_RESTRICTED_DECODING) && USE(APPLE_INTERNAL_SDK)
+    if (ProcessCapabilities::isHEICDecodingEnabled() || ProcessCapabilities::isAVIFDecodingEnabled())
+        CFDictionarySetValue(options.get(), kCGImageSourceEnableRestrictedDecoding, kCFBooleanTrue);
+#endif
+
+#if HAVE(IMAGEIO_CREATE_UNPREMULTIPLIED_PNG)
+    CFDictionarySetValue(options.get(), kCGImageSourceCreateUnpremultipliedPNG, kCFBooleanTrue);
+#endif
     return options;
 }
 
@@ -275,11 +298,6 @@ size_t ImageDecoderCG::bytesDecodedToDetermineProperties() const
     return 13088;
 }
     
-String ImageDecoderCG::uti() const
-{
-    return CGImageSourceGetType(m_nativeDecoder.get());
-}
-
 String ImageDecoderCG::filenameExtension() const
 {
     return WebCore::preferredExtensionForImageType(uti());
@@ -502,7 +520,7 @@ bool ImageDecoderCG::frameHasAlphaAtIndex(size_t index) const
     
     // Return false if there is no image type or the image type is JPEG, because
     // JPEG does not support alpha transparency.
-    if (uti.isEmpty() || uti == "public.jpeg")
+    if (uti.isEmpty() || uti == "public.jpeg"_s)
         return false;
     
     // FIXME: Could return false for other non-transparent image formats.
@@ -553,7 +571,7 @@ PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampli
 #endif // PLATFORM(IOS_FAMILY)
     
     String uti = this->uti();
-    if (uti.isEmpty() || uti != "public.xbitmap-image")
+    if (uti.isEmpty() || uti != "public.xbitmap-image"_s)
         return image;
     
     // If it is an xbm image, mask out all the white areas to render them transparent.
@@ -562,18 +580,96 @@ PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampli
     return maskedImage ? maskedImage : image;
 }
 
+String ImageDecoderCG::decodeUTI(const SharedBuffer& data) const
+{
+    auto uti = String(CGImageSourceGetType(m_nativeDecoder.get()));
+    if (uti != "public.heif"_s && uti != "public.heic"_s)
+        return uti;
+
+    if (data.size() < sizeof(unsigned)) {
+        ASSERT_NOT_REACHED();
+        return uti;
+    }
+
+    static constexpr auto ftypSignature = FourCC("ftyp");
+    static constexpr auto avifBrand = FourCC("avif");
+    static constexpr auto avisBrand = FourCC("avis");
+    
+    auto boxUnsigned = [&data](unsigned index) -> unsigned {
+        static constexpr bool isLittleEndian = false;
+        const unsigned* boxBytes = reinterpret_cast<const unsigned*>(data.data());
+        // Numbers in the file are BigEndian.
+        return flipBytesIfLittleEndian(boxBytes[index], isLittleEndian);
+    };
+
+    auto checkAVIFBrand = [](unsigned brand) -> std::optional<String> {
+        if (brand == avifBrand)
+            return "public.avif"_s;
+        if (brand == avisBrand)
+            return "public.avis"_s;
+        return std::nullopt;
+    };
+
+    // HEIF/AVIF files start with an ftyp box
+    //
+    //  aligned(8) class GeneralTypeBox(code) extends Box(code) {
+    //      unsigned int(32)    major_brand;
+    //      unsigned int(32)    minor_version;
+    //      unsigned int(32)    compatible_brands[];    // to end of the box
+    //  }
+    //
+    // A box starts with 4 bytes for the size (including the length bytes).
+    // An image is considered an AVIF if "avif" or "avis" is present in its
+    // major_brand or in one of the compatible_brands.
+
+    // Get the box size. This size includes the length bytes.
+    unsigned boxUnsignedIndex = 0;
+    unsigned boxByteSize = boxUnsigned(boxUnsignedIndex++);
+    if (boxByteSize % 4 || boxByteSize > data.size())
+        return uti;
+
+    unsigned boxUnsignedSize = boxByteSize / sizeof(unsigned);
+    if (boxUnsignedSize < 4)
+        return uti;
+
+    // Check the box type signature.
+    if (boxUnsigned(boxUnsignedIndex++) != ftypSignature)
+        return uti;
+
+    // Check major_brand.
+    if (auto avifUTI = checkAVIFBrand(boxUnsigned(boxUnsignedIndex++)))
+        return *avifUTI;
+
+    // Skip minor_version.
+    ++boxUnsignedIndex;
+
+    // 100 is reasonable limit for compatible_brands length.
+    static constexpr unsigned maxBoxBrandCount = 100;
+    auto boxBrandCount = std::min(maxBoxBrandCount, boxUnsignedSize - boxUnsignedIndex);
+
+    // Check compatible_brands.
+    while (boxBrandCount) {
+        if (auto avifUTI = checkAVIFBrand(boxUnsigned(boxUnsignedIndex++)))
+            return *avifUTI;
+        --boxBrandCount;
+    }
+
+    return uti;
+}
+
 void ImageDecoderCG::setData(const FragmentedSharedBuffer& data, bool allDataReceived)
 {
     m_isAllDataReceived = allDataReceived;
-
+    
+    auto contiguousData = data.makeContiguous();
+    
 #if PLATFORM(COCOA)
     // On Mac the NSData inside the FragmentedSharedBuffer can be secretly appended to without the FragmentedSharedBuffer's knowledge.
     // We use FragmentedSharedBuffer's ability to wrap itself inside CFData to get around this, ensuring that ImageIO is
     // really looking at the FragmentedSharedBuffer.
-    CGImageSourceUpdateData(m_nativeDecoder.get(), data.makeContiguous()->createCFData().get(), allDataReceived);
+    CGImageSourceUpdateData(m_nativeDecoder.get(), contiguousData->createCFData().get(), allDataReceived);
 #else
     // Create a CGDataProvider to wrap the FragmentedSharedBuffer.
-    auto contiguousData = data.makeContiguous();
     contiguousData.get().ref();
     // We use the GetBytesAtPosition callback rather than the GetBytePointer one because FragmentedSharedBuffer
     // does not provide a way to lock down the byte pointer and guarantee that it won't move, which
@@ -582,6 +678,8 @@ void ImageDecoderCG::setData(const FragmentedSharedBuffer& data, bool allDataRec
     RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateDirect(contiguousData.ptr(), data.size(), &providerCallbacks));
     CGImageSourceUpdateDataProvider(m_nativeDecoder.get(), dataProvider.get(), allDataReceived);
 #endif
+    
+    m_uti = decodeUTI(contiguousData.get());
 }
 
 bool ImageDecoderCG::canDecodeType(const String& mimeType)

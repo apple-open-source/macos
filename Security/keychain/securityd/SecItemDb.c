@@ -27,7 +27,7 @@
     passwords.)
  */
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -358,7 +358,7 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
             q->q_sync_changed = true;
     }
 
-    secdebug("dbitem", "inserting item %@%s%@", item, ok ? "" : "failed: ", ok || error == NULL ? (CFErrorRef)CFSTR("") : *error);
+    secdebug("dbitem", "inserting item " SECDBITEM_FMT "%s%@", item, ok ? "" : "failed: ", ok || error == NULL ? (CFErrorRef)CFSTR("") : *error);
 
     CFRelease(item);
 
@@ -874,6 +874,9 @@ static bool sqlBindMusr(sqlite3_stmt *stmt, const Query *q, int *pParam, CFError
 
     if (isQueryOverBothUserAndSystem(q->q_musrView, &uid)) {
         /* network extensions are special and get to query both user and system views */
+#if !KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#error EDU MODE must also support system keychain
+#endif
         CFDataRef systemUUID = SecMUSRGetSystemKeychainUUID();
         result = SecDbBindObject(stmt, param++, systemUUID, error);
         if (result) {
@@ -954,9 +957,10 @@ static bool sqlBindWhereClause(sqlite3_stmt *stmt, const Query *q,
 bool SecDbItemQuery(SecDbQueryRef query, CFArrayRef accessGroups, SecDbConnectionRef dbconn, CFErrorRef *error,
                     void (^handle_row)(SecDbItemRef item, bool *stop)) {
     __block bool ok = true;
-    /* Sanity check the query. */
-    if (query->q_ref)
+
+    if (query->q_ref) {
         return SecError(errSecValueRefUnsupported, error, CFSTR("value ref not supported by queries"));
+    }
 
     bool (^return_attr)(const SecDbAttr *attr) = ^bool (const SecDbAttr * attr) {
         // The attributes here must match field list hardcoded in s3dl_select_sql used below, which is
@@ -1010,9 +1014,9 @@ s3dl_query(s3dl_handle_row handle_row,
     Query *q = c->q;
     CFArrayRef accessGroups = c->accessGroups;
 
-    /* Sanity check the query. */
-    if (q->q_ref)
+    if (q->q_ref) {
         return SecError(errSecValueRefUnsupported, error, CFSTR("value ref not supported by queries"));
+    }
 
 	/* Actual work here. */
     if (q->q_limit == 1) {
@@ -1254,15 +1258,19 @@ bool
 s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                   CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef *error)
 {
-    /* Sanity check the query. */
-    if (query_match_count(q) != 0)
+    /* Validate the query. */
+    if (query_match_count(q) != 0) {
         return SecError(errSecItemMatchUnsupported, error, CFSTR("match not supported in attributes to update"));
-    if (q->q_ref)
+    }
+    if (q->q_ref) {
         return SecError(errSecValueRefUnsupported, error, CFSTR("value ref not supported in attributes to update"));
-    if (q->q_row_id && query_attr_count(q))
+    }
+    if (q->q_row_id && query_attr_count(q)) {
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both row_id and other attributes can't be updated at the same time"));
-    if (q->q_token_object_id && query_attr_count(q) != 1)
+    }
+    if (q->q_token_object_id && query_attr_count(q) != 1) {
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both token persistent ref and other attributes can't be updated at the same time"));
+    }
 
     __block bool result = true;
     Query *u = query_create(q->q_class, NULL, attributesToUpdate, NULL, error);
@@ -1292,7 +1300,11 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                 // We just ignore this, and treat as if item is not found.
                 secwarning("deleting corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, SecDbItemGetRowId(item, NULL), localError);
                 CFReleaseNull(localError);
+// radar:87784851
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbool-conversion"
                 if (!SecDbItemDelete(item, dbt, false, false, &localError)) {
+#pragma clang diagnostic pop
                     secerror("failed to delete corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, SecDbItemGetRowId(item, NULL), localError);
                     CFReleaseNull(localError);
                 }
@@ -1386,12 +1398,12 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
 }
 
 static bool
-matchAnyString(CFStringRef needle, CFStringRef *haystack)
+matchAnyString(CFStringRef needle, CFStringRef *haystack, unsigned int hayStackSize)
 {
-    while (*haystack) {
-        if (CFEqual(needle, *haystack))
+    for (unsigned int i=0; i < hayStackSize; i++) {
+        if (CFEqual(needle, haystack[i])) {
             return true;
-        haystack++;
+        }
     }
     return false;
 }
@@ -1399,7 +1411,7 @@ matchAnyString(CFStringRef needle, CFStringRef *haystack)
 /* Return true iff the item in question should not be backed up, nor restored,
  but when restoring a backup the original version of the item should be
  added back to the keychain again after the restore completes. */
-bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool multiUser) {
+bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool inEduMode) {
     CFNumberRef sysb =  CFDictionaryGetValue(item, kSecAttrSysBound);
     if (isNumber(sysb)) {
         int32_t num = 0;
@@ -1418,12 +1430,12 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
         return false;
 
     if (CFEqualSafe(agrp, kSOSInternalAccessGroup)) {
-        secdebug("backup", "found sysbound item: %@", item);
+        secdebug("backup", "found sysbound item: " SECDBITEM_FMT, item);
         return true;
     }
 
     if (CFEqual(agrp, CFSTR("lockdown-identities"))) {
-        secdebug("backup", "found sys_bound item: %@", item);
+        secdebug("backup", "found sys_bound item: " SECDBITEM_FMT, item);
         return true;
     }
 
@@ -1435,59 +1447,56 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
             static CFStringRef mcAccounts[] = {
                 CFSTR("Public"),
                 CFSTR("Private"),
-                NULL,
             };
 
             if (CFEqual(service, CFSTR("com.apple.managedconfiguration"))
-                && matchAnyString(account, mcAccounts))
+                && matchAnyString(account, mcAccounts, array_size(mcAccounts)))
             {
-                secdebug("backup", "found sys_bound item: %@", item);
+                secdebug("backup", "found sys_bound item: " SECDBITEM_FMT, item);
                 return true;
             }
         }
 
         if (isString(service) && CFEqual(service, CFSTR("com.apple.account.CloudKit.token"))) {
-            secdebug("backup", "found sys_bound item: %@", item);
+            secdebug("backup", "found sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
 
         if (isString(service) && CFEqual(service, CFSTR("com.apple.account.idms.continuation-key"))) {
-            secdebug("backup", "found sys_bound item: %@", item);
+            secdebug("backup", "found sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("com.apple.apsd")) && cls == genp_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("com.apple.apsd")) && cls == genp_class()) {
         static CFStringRef pushServices[] = {
             CFSTR("push.apple.com"),
             CFSTR("push.apple.com,PerAppToken.v0"),
-            NULL
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, pushServices)) {
-            secdebug("backup", "found sys_bound item: %@", item);
+        if (isString(service) && matchAnyString(service, pushServices, array_size(pushServices))) {
+            secdebug("backup", "found sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("appleaccount")) && cls == genp_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("appleaccount")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             CFSTR("com.apple.appleaccount.fmf.token"), /* temporary tokens while accout is being setup */
             CFSTR("com.apple.appleaccount.fmf.apptoken"),
             CFSTR("com.apple.appleaccount.fmip.siritoken"),
             CFSTR("com.apple.appleaccount.cloudkit.token"),
-            NULL
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, accountServices)) {
-            secdebug("backup", "found exact sys_bound item: %@", item);
+        if (isString(service) && matchAnyString(service, accountServices, array_size(accountServices))) {
+            secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("apple")) && cls == genp_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("apple")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             /* accounts, remove with rdar://37595482 */
             CFSTR("com.apple.account.AppleAccount.token"),
@@ -1505,69 +1514,68 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
             CFSTR("com.apple.ids"),
             CFSTR("ids"),
             CFSTR("IDS"),
-            NULL
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, accountServices)) {
-            secdebug("backup", "found exact sys_bound item: %@", item);
+        if (isString(service) && matchAnyString(service, accountServices, array_size(accountServices))) {
+            secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
         if (isString(service) && CFStringHasPrefix(service, CFSTR("com.apple.gs."))) {
-            secdebug("backup", "found exact sys_bound item: %@", item);
+            secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
         if (isString(service) && CFEqual(service, CFSTR("com.apple.facetime"))) {
             CFStringRef account = CFDictionaryGetValue(item, kSecAttrAccount);
             if (isString(account) && CFEqual(account, CFSTR("registrationV1"))) {
-                secdebug("backup", "found exact sys_bound item: %@", item);
+                secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
                 return true;
             }
         }
     }
 
     /* accounts, remove with rdar://37595482 */
-    if (multiUser && CFEqual(agrp, CFSTR("com.apple.ind")) && cls == genp_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("com.apple.ind")) && cls == genp_class()) {
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
         if (isString(service) && CFEqual(service, CFSTR("com.apple.ind.registration"))) {
-            secdebug("backup", "found exact sys_bound item: %@", item);
+            secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == genp_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("ichat")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             CFSTR("ids"),
-            NULL
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, accountServices)) {
-            secdebug("backup", "found exact sys_bound item: %@", item);
+        if (isString(service) && matchAnyString(service, accountServices, array_size(accountServices))) {
+            secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
             return true;
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == keys_class()) {
+    if (inEduMode && CFEqual(agrp, CFSTR("ichat")) && cls == keys_class()) {
         static CFStringRef exactMatchingLabel[] = {
             CFSTR("iMessage Encryption Key"),
             CFSTR("iMessage Signing Key"),
         };
         CFStringRef label = CFDictionaryGetValue(item, kSecAttrLabel);
         if (isString(label)) {
-            if (matchAnyString(label, exactMatchingLabel)) {
-                secdebug("backup", "found exact sys_bound item: %@", item);
+            if (matchAnyString(label, exactMatchingLabel, array_size(exactMatchingLabel))) {
+                secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
                 return true;
             }
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("com.apple.rapport")) && cls == genp_class()) {
-        secdebug("backup", "found exact sys_bound item: %@", item);
+    if (inEduMode && CFEqual(agrp, CFSTR("com.apple.rapport")) && cls == genp_class()) {
+        secdebug("backup", "found exact sys_bound item: " SECDBITEM_FMT, item);
         return true;
     }
 
-    secdebug("backup", "found non sys_bound item: %@", item);
+
+    secdebug("backup", "found non sys_bound item: " SECDBITEM_FMT, item);
     return false;
 }
 
@@ -1738,11 +1746,11 @@ OSStatus SecServerPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStr
                             switch (code) {
                                 case errSecDecode:      // item dead, oh well
                                 case errSecAuthNeeded:  // item has ACL, oh well
-                                    secnotice("item", "Unable (%i) to promote item: %@", (int)code, item);
+                                    secnotice("item", "Unable (%i) to promote item: " SECDBITEM_FMT, (int)code, item);
                                     break;
                                 case errSecInteractionNotAllowed:   // Keychain is locked, abandon ship
                                 default:
-                                    secnotice("item", "Encountered error %i during promotion: %@", (int)code, item);
+                                    secnotice("item", "Encountered error %i during promotion: " SECDBITEM_FMT, (int)code, item);
                                     ok = false;
                                     break;
                             }
@@ -1783,7 +1791,7 @@ struct s3dl_export_row_ctx {
     struct s3dl_query_ctx qc;
     keybag_handle_t dest_keybag;
     enum SecItemFilter filter;
-    bool multiUser;
+    bool inEduMode;
 };
 
 static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
@@ -1822,7 +1830,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
         /* Only export sysbound items if do_sys_bound is true, only export non sysbound items otherwise. */
         bool do_sys_bound = c->filter == kSecSysBoundItemFilter;
         if (c->filter == kSecNoItemFilter ||
-            SecItemIsSystemBound(allAttributes, q->q_class, c->multiUser) == do_sys_bound) {
+            SecItemIsSystemBound(allAttributes, q->q_class, c->inEduMode) == do_sys_bound) {
             /* Re-encode the item. */
             secdebug("item", "export rowid %llu item: %@", rowid, allAttributes);
             /* The code below could be moved into handle_row. */
@@ -1936,7 +1944,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     keychain = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     unsigned class_ix;
-    bool inMultiUser = false;
+    bool inEduMode = false;
     CFStringRef keybaguuid = NULL;
     Query q = { .q_keybag = src_keybag,
         .q_musrView = NULL
@@ -1957,9 +1965,9 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     q.q_skip_app_clip_items = true;
 
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-    if (client && client->inMultiUser) {
+    if (client && client->inEduMode) {
         q.q_musrView = SecMUSRCreateActiveUserUUID(client->uid);
-        inMultiUser = true;
+        inEduMode = true;
     } else
 #endif
     {
@@ -1986,7 +1994,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         struct s3dl_export_row_ctx ctx = {
             .qc = { .q = &q, .dbt = dbt },
             .dest_keybag = dest_keybag, .filter = filter,
-            .multiUser = inMultiUser,
+            .inEduMode = inEduMode,
         };
 
         secnotice("item", "exporting %ssysbound class '%@'", filter != kSecSysBoundItemFilter ? "non-" : "", q.q_class->name);
@@ -2045,10 +2053,10 @@ static void
 SecServerImportItem(const void *value, void *context)
 {
     struct SecServerImportItemState *state = (struct SecServerImportItemState *)context;
-    bool inMultiUser = false;
+    bool inEduMode = false;
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-    if (state->s->client->inMultiUser)
-        inMultiUser = true;
+    if (state->s->client->inEduMode)
+        inEduMode = true;
 #endif
 
     if (state->s->error)
@@ -2092,7 +2100,7 @@ SecServerImportItem(const void *value, void *context)
         /* We don't filter non sys_bound items during import since we know we
          * will never have any in this case.
          */
-        if (SecItemIsSystemBound(item->attributes, state->class, inMultiUser)) {
+        if (SecItemIsSystemBound(item->attributes, state->class, inEduMode)) {
             secdebug("item", "skipping backup of item: %@", dict);
             CFReleaseNull(item);
             return;
@@ -2103,7 +2111,7 @@ SecServerImportItem(const void *value, void *context)
          * don't keep track of items that blongs to the device (u) but rather just
          * merge them into one blob.
          */
-        if (inMultiUser && (pdmu = CFDictionaryGetValue(item->attributes, kSecAttrAccessible))) {
+        if (inEduMode && (pdmu = CFDictionaryGetValue(item->attributes, kSecAttrAccessible))) {
             if (CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
                 CFEqual(pdmu, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) ||
                 CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
@@ -2132,19 +2140,21 @@ SecServerImportItem(const void *value, void *context)
     if (item && item->attributes) {
         CFDataRef musr = NULL;
 
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         CFDataRef musrBackup = CFDictionaryGetValue(item->attributes, kSecAttrMultiUser);
 
         CFDataRef systemKeychainUUID = SecMUSRGetSystemKeychainUUID();
         bool systemKeychain = CFEqualSafe(musrBackup, systemKeychainUUID);
 
-        if (state->s->client && state->s->client->inMultiUser) {
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        if (state->s->client && state->s->client->inEduMode) {
             if (systemKeychain) {
-                secwarning("system keychain not allowed in multi user mode for item: %@", item);
+                secwarning("system keychain not allowed in multi user mode for item: " SECDBITEM_FMT, item);
             } else {
                 musr = SecMUSRCreateActiveUserUUID(state->s->client->uid);
             }
         } else
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         {
             if (systemKeychain) {
                 musr = SecMUSRCopySystemKeychainUUID();
@@ -2153,10 +2163,10 @@ SecServerImportItem(const void *value, void *context)
                 CFRetainSafe(musr);
             }
         }
-#else
+#else // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         musr = SecMUSRGetSingleUserKeychainUUID();
         CFRetainSafe(musr);
-#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         if (musr == NULL) {
             CFReleaseNull(item);
         } else {
@@ -2194,12 +2204,12 @@ SecServerImportItem(const void *value, void *context)
                 CFDataRef uuidData = CFDataCreate(kCFAllocatorDefault, (const void *)&uuidBytes, sizeof(uuidBytes));
                 CFErrorRef setError = NULL;
                 SecDbItemSetPersistentRef(item, uuidData, &setError);
-                secnotice("import", "SecServerImportItem: generated a new persistentref UUID for item %@: %@", item, setError);
+                secnotice("import", "SecServerImportItem: generated a new persistentref UUID for item " SECDBITEM_FMT ": %@", item, setError);
                 CFReleaseNull(prefUUID);
                 CFReleaseNull(uuidData);
                 CFReleaseNull(setError);
             } else {
-                secnotice("import", "Item already has a UUID persistent ref set: %@", item);
+                secnotice("import", "Item already has a UUID persistent ref set: " SECDBITEM_FMT, item);
             }
         }
 
@@ -2225,11 +2235,11 @@ SecServerImportItem(const void *value, void *context)
     /* Reset error if we had one, since we just skip the current item
      and continue importing what we can. */
     if (state->s->error) {
-        secwarning("Failed to import an item (%@) of class '%@': %@ - ignoring error.",
+        secwarning("Failed to import an item (" SECDBITEM_FMT ") of class '%@': %@ - ignoring error.",
                    item, state->class->name, state->s->error);
         CFReleaseNull(state->s->error);
     } else {
-        secnotice("import", "imported item: %@", item);
+        secnotice("import", "imported item: " SECDBITEM_FMT, item);
     }
 
     CFReleaseSafe(item);
@@ -2309,7 +2319,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
     /*
      * Shared iPad is very special, it always delete's the user keychain, and never merge content
      */
-    if (client->inMultiUser) {
+    if (client->inEduMode) {
         CFDataRef musrView = SecMUSRCreateActiveUserUUID(client->uid);
         require_action(musrView, errOut, ok = false);
         require_action(ok = SecServerDeleteAllForUser(dbt, musrView, true, error), errOut, CFReleaseNull(musrView));
@@ -2489,7 +2499,7 @@ bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, SecurityClient *client, CFErro
             (keystore_generation_status & generation_change_in_progress)) {
             
             /* take a lock assertion */
-            bool operated_while_unlocked = SecAKSDoWithUserBagLockAssertion(error, ^{
+            bool operated_while_unlocked = SecAKSDoWithKeybagLockAssertion(g_keychain_keybag, error, ^{
                 CFErrorRef localError = NULL;
                 CFDictionaryRef backup = SecServerCopyKeychainPlist(dbt, NULL,
                                                                     KEYBAG_DEVICE, KEYBAG_NONE, kSecNoItemFilter, &localError);

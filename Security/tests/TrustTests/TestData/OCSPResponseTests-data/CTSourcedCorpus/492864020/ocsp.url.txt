@@ -1,0 +1,1 @@
+http://ocsp.ica03.trust2408.com/responder

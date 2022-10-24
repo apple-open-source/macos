@@ -1,3 +1,0 @@
-*.gz	gzip -d -c
-*.Z	gzip -d -c
-

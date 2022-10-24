@@ -32,11 +32,11 @@ extension Container {
                 let (_, peerID, syncingPolicy) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
                 reply(peerID, syncingPolicy, false, nil)
             } catch {
-                logger.debug("preflightVouchWithBottle failed; forcing refetch and retrying: \(String(describing: error), privacy: .public)")
+                logger.info("preflightVouchWithBottle failed; forcing refetch and retrying: \(String(describing: error), privacy: .public)")
 
                 self.fetchAndPersistChanges { fetchError in
                     guard fetchError == nil else {
-                        logger.debug("preflightVouchWithBottle unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
+                        logger.info("preflightVouchWithBottle unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
                         reply(nil, nil, true, fetchError)
                         return
                     }
@@ -45,14 +45,14 @@ extension Container {
                     let allPolicyVersions = self.model.allPolicyVersions()
                     self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, fetchPolicyDocumentsError in
                         guard fetchPolicyDocumentsError == nil else {
-                            logger.debug("preflightVouchWithBottle unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                            logger.info("preflightVouchWithBottle unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                             reply(nil, nil, true, fetchPolicyDocumentsError)
                             return
                         }
 
                         self.fetchViableBottlesWithSemaphore { _, _, fetchBottlesError in
                             guard fetchBottlesError == nil else {
-                                logger.debug("preflightVouchWithBottle unable to fetch viable bottles: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                                logger.info("preflightVouchWithBottle unable to fetch viable bottles: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                                 reply(nil, nil, true, fetchBottlesError)
                                 return
                             }
@@ -63,7 +63,7 @@ extension Container {
                                     let (_, peerID, syncingPolicy) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
                                     reply(peerID, syncingPolicy, true, nil)
                                 } catch {
-                                    logger.debug("preflightVouchWithBottle failed after refetches: \(String(describing: error), privacy: .public)")
+                                    logger.info("preflightVouchWithBottle failed after refetches: \(String(describing: error), privacy: .public)")
                                     reply(nil, nil, true, error)
                                 }
                             }
@@ -91,12 +91,12 @@ extension Container {
         let bottleMO = try self.onMOCQueueFindBottle(bottleID: bottleID)
 
         guard let sponsorPeer = self.model.peer(withID: bottleMO.peerID ?? "") else {
-            logger.debug("preflightVouchWithBottle found no peer to match bottle")
+            logger.info("preflightVouchWithBottle found no peer to match bottle")
             throw ContainerError.sponsorNotRegistered(bottleMO.peerID ?? "no peer ID given")
         }
 
         guard let sponsorPeerStableInfo = sponsorPeer.stableInfo else {
-            logger.debug("preflightVouchWithBottle sponsor peer has no stable info")
+            logger.info("preflightVouchWithBottle sponsor peer has no stable info")
             throw ContainerError.sponsorNotRegistered(bottleMO.peerID ?? "no peer ID given")
         }
 

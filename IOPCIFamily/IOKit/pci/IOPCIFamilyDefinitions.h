@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -300,5 +300,57 @@ enum
     kIOPCICorrectableErrorBitHeaderLogOverflow  = 15,
 };
 
+typedef enum tIOPCILinkSpeed
+{
+    kIOPCILinkSpeed_2_5_GTs = 1, // Gen 1
+    kIOPCILinkSpeed_5_GTs,       // Gen 2
+    kIOPCILinkSpeed_8_GTs,       // Gen 3
+    kIOPCILinkSpeed_16_GTs,      // Gen 4
+    kIOPCILinkSpeed_32_GTs,      // Gen 5
+} tIOPCILinkSpeed;
+
+/*!  @enum       tIOPCIDeviceResetTypes
+ *   @constant   kIOPCIDeviceResetTypeHotReset Issues a hot reset to the device without power being removed from the device.
+ *               This will issue a hot reset from its upstream bridge by setting the secondary bus reset bit in the bridge's control
+ *               register.
+ *   @constant   kIOPCIDeviceResetTypeWarmReset Issues a warm reset to the device without power being removed from the device, if a platform
+ *               specific function exists.
+ *   @constant   kIOPCIDeviceResetTypeWarmResetDisable Performs the first half of a warm reset (e.g. assert PERST#), if a platform
+ *               specific function exists. Upon completion, the device is unusable until the caller requests reset with type
+ *               kIOPCIDeviceResetTypeWarmResetEnable.
+ *
+ *               This type facilitates the generation of a cold reset, i.e. by removing power before using kIOPCIDeviceResetTypeWarmResetDisable
+ *               and re-applying it before using kIOPCIDeviceResetTypeWarmResetEnable.
+ *   @constant   kIOPCIDeviceResetTypeWarmResetEnable Completes the warm reset operation initiated with type kIOPCIDeviceResetTypeWarmResetDisable
+ *               (e.g. deassert PERST#). See kIOPCIDeviceResetTypeWarmResetDisable for more details.
+ */
+typedef enum tIOPCIDeviceResetTypes
+{
+    kIOPCIDeviceResetTypeHotReset         = 0x00000001,
+    kIOPCIDeviceResetTypeWarmReset        = 0x00000002,
+    kIOPCIDeviceResetTypeWarmResetDisable = 0x00000004,
+    kIOPCIDeviceResetTypeWarmResetEnable  = 0x00000008,
+} tIOPCIDeviceResetTypes;
+
+/*!  @enum       tIOPCIDeviceResetOptions
+ *   @constant   kIOPCIDeviceResetOptionNone      No options selected
+ *   @constant   kIOPCIDeviceResetOptionTerminate Terminate the IOPCIDevice(s) that were reset and re-probe the bus. This will stop
+ *               any attached client drivers. Devices with reset-initiated personality changes should use this option.
+ *
+ *               This option causes the reset function to initiate the asynchronous termination process, but not block on its completion.
+ */
+typedef enum tIOPCIDeviceResetOptions
+{
+    kIOPCIDeviceResetOptionNone      = 0x00000000,
+    kIOPCIDeviceResetOptionTerminate = 0x00000001,
+} tIOPCIDeviceResetOptions;
+
+enum tIOPCILinkControlASPMBits
+{
+    kIOPCILinkControlASPMBitsDisabled = 0,
+    kIOPCILinkControlASPMBitsL0s      = (1 << 0),
+    kIOPCILinkControlASPMBitsL1       = (1 << 1),
+    kIOPCILinkControlASPMBitsL0sL1    = kIOPCILinkControlASPMBitsL0s | kIOPCILinkControlASPMBitsL1
+};
 
 #endif /* IOPCIDefinitions_h */

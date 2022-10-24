@@ -226,7 +226,6 @@ module ICU_Private [extern_c] [system] {
     }
 
     explicit module IDNA {
-        header "uidna.h"
         header "idna.h"
         header "usprep.h"
         export *

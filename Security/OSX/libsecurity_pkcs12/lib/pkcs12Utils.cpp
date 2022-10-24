@@ -501,10 +501,10 @@ void p12GenLabel(
 	uint32 i;
 	p12DataToInt(cd, i);
 	
-	/* sprintf that into a real string */
+	/* snprintf that into a real string */
 	coder.allocItem(label, 9);
 	memset(label.Data, 0, 9);
-	sprintf((char *)label.Data, "%08X", (unsigned)i);
+	snprintf((char *)label.Data, 9, "%08X", (unsigned)i);
 }
 
 /* NULL algorithm parameters */

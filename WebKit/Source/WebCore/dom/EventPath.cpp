@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +22,7 @@
 #include "EventPath.h"
 
 #include "DOMWindow.h"
+#include "ElementRareData.h"
 #include "Event.h"
 #include "EventContext.h"
 #include "EventNames.h"
@@ -241,7 +242,7 @@ Vector<EventTarget*> EventPath::computePathUnclosedToTarget(const EventTarget& t
     RELEASE_ASSERT(pathSize);
     path.reserveInitialCapacity(pathSize);
 
-    auto currentTargetIndex = m_path.findMatching([&target] (auto& context) {
+    auto currentTargetIndex = m_path.findIf([&target] (auto& context) {
         return context.currentTarget() == &target;
     });
     RELEASE_ASSERT(currentTargetIndex != notFound);
@@ -274,11 +275,11 @@ Vector<EventTarget*> EventPath::computePathUnclosedToTarget(const EventTarget& t
 
 EventPath::EventPath(const Vector<EventTarget*>& targets)
 {
-    for (auto* target : targets) {
+    m_path = targets.map([&](auto* target) {
         ASSERT(target);
         ASSERT(!is<Node>(target));
-        m_path.append(EventContext { EventContext::Type::Normal, nullptr, target, *targets.begin(), 0 });
-    }
+        return EventContext { EventContext::Type::Normal, nullptr, target, *targets.begin(), 0 };
+    });
 }
 
 static Node* moveOutOfAllShadowRoots(Node& startingNode)

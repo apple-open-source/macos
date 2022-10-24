@@ -168,6 +168,7 @@ print_errno_message (int errnum)
 }
 
 #ifdef VA_START
+__attribute__((format(printf, 3, 0)))
 static void
 error_tail (int status, int errnum, const char *message, va_list args)
 {

@@ -37,6 +37,9 @@ static void TestPressureUnits(void);
 
 static void Test21674_State(void);
 
+// Apple test for rdar://97323645
+static void TestNegativeDegrees(void);
+
 void addUNumberFormatterTest(TestNode** root);
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/unumberformatter/" #x)
@@ -51,6 +54,8 @@ void addUNumberFormatterTest(TestNode** root) {
     TESTCASE(TestPerUnitInArabic);
     TESTCASE(TestPressureUnits);  // rdar://79621279
     TESTCASE(Test21674_State);
+    TESTCASE(TestNegativeDegrees); // rdar://97323645
+
 }
 
 
@@ -458,6 +463,46 @@ cleanup:
     unumf_close(nf);
     unumf_closeResult(result);
 }
+
+// Apple test for rdar://97323645
+static void TestNegativeDegrees(void) {
+    typedef struct {
+        UChar* skeleton;
+        double value;
+        UChar* expectedResult;
+    } TestCase;
+    
+    TestCase testCases[] = {
+        { u"measure-unit/temperature-celsius unit-width-short",               0,  u"0°C" },
+        { u"measure-unit/temperature-celsius unit-width-short usage/default", 0,  u"32°F" },
+        { u"measure-unit/temperature-celsius unit-width-short usage/weather", 0,  u"32°F" },
+
+        { u"measure-unit/temperature-celsius unit-width-short",               -1, u"-1°C" },
+        { u"measure-unit/temperature-celsius unit-width-short usage/default", -1, u"30°F" },
+        { u"measure-unit/temperature-celsius unit-width-short usage/weather", -1, u"30°F" }
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormatter* nf = unumf_openForSkeletonAndLocale(testCases[i].skeleton, -1, "en_US", &err);
+        UFormattedNumber* fn = unumf_openResult(&err);
+        
+        if (assertSuccess("Failed to create formatter or result", &err)) {
+            UChar result[200];
+            unumf_formatDouble(nf, testCases[i].value, fn, &err);
+            unumf_resultToString(fn, result, 200, &err);
+            
+            if (assertSuccess("Formatting number failed", &err)) {
+                assertUEquals("Got wrong result", testCases[i].expectedResult, result);
+            }
+        }
+        
+        unumf_closeResult(fn);
+        unumf_close(nf);
+    }
+}
+
+
 
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

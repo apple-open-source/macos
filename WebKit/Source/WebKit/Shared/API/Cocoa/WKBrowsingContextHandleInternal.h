@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "WKBrowsingContextHandle.h"
+#import "WKBrowsingContextHandlePrivate.h"
 #import "WebPageProxyIdentifier.h"
 #import <WebCore/PageIdentifier.h>
 #import <wtf/NakedRef.h>
@@ -36,7 +36,7 @@ class WebPageProxy;
 @interface WKBrowsingContextHandle ()
 
 @property (nonatomic, readonly, getter=_pageProxyID) WebKit::WebPageProxyIdentifier pageProxyID;
-@property (nonatomic, readonly, getter=_webPageID) WebCore::PageIdentifier webPageID;
+@property (nonatomic, readonly, getter=_webPageID) uint64_t webPageID;
 
 - (id)_initWithPageProxy:(NakedRef<WebKit::WebPageProxy>)page;
 - (id)_initWithPage:(NakedRef<WebKit::WebPage>)page;

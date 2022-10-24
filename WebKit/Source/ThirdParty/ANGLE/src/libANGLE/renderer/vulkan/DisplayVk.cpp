@@ -28,6 +28,9 @@ namespace rx
 // Time interval in seconds that we should try to prune default buffer pools.
 constexpr double kTimeElapsedForPruneDefaultBufferPool = 0.25;
 
+// Set to true will log bufferpool stats into INFO stream
+#define ANGLE_ENABLE_BUFFER_POOL_STATS_LOGGING 0
+
 DisplayVk::DisplayVk(const egl::DisplayState &state)
     : DisplayImpl(state),
       vk::Context(new RendererVk()),
@@ -295,8 +298,8 @@ void DisplayVk::generateExtensions(egl::DisplayExtensions *outExtensions) const
     outExtensions->imagePixmap           = false;  // ANGLE does not support pixmaps
     outExtensions->glTexture2DImage      = true;
     outExtensions->glTextureCubemapImage = true;
-    outExtensions->glTexture3DImage      = false;
-    outExtensions->glRenderbufferImage   = true;
+    outExtensions->glTexture3DImage = getRenderer()->getFeatures().supportsImage2dViewOf3d.enabled;
+    outExtensions->glRenderbufferImage = true;
     outExtensions->imageNativeBuffer =
         getRenderer()->getFeatures().supportsAndroidHardwareBuffer.enabled;
     outExtensions->surfacelessContext = true;
@@ -404,14 +407,34 @@ egl::Error DisplayVk::getEGLError(EGLint errorCode)
     return egl::Error(errorCode, 0, std::move(errorString));
 }
 
+void DisplayVk::initializeFrontendFeatures(angle::FrontendFeatures *features) const
+{
+    mRenderer->initializeFrontendFeatures(features);
+}
+
 void DisplayVk::populateFeatureList(angle::FeatureList *features)
 {
     mRenderer->getFeatures().populateFeatureList(features);
 }
 
-ShareGroupVk::ShareGroupVk()
+ShareGroupVk::ShareGroupVk() : mOrphanNonEmptyBufferBlock(false)
 {
     mLastPruneTime = angle::GetCurrentSystemTime();
+}
+
+void ShareGroupVk::addContext(ContextVk *contextVk)
+{
+    mContexts.insert(contextVk);
+
+    if (contextVk->getState().hasDisplayTextureShareGroup())
+    {
+        mOrphanNonEmptyBufferBlock = true;
+    }
+}
+
+void ShareGroupVk::removeContext(ContextVk *contextVk)
+{
+    mContexts.erase(contextVk);
 }
 
 void ShareGroupVk::onDestroy(const egl::Display *display)
@@ -422,17 +445,26 @@ void ShareGroupVk::onDestroy(const egl::Display *display)
     {
         if (pool)
         {
-            pool->destroy(renderer);
+            pool->destroy(renderer, mOrphanNonEmptyBufferBlock);
         }
     }
 
     if (mSmallBufferPool)
     {
-        mSmallBufferPool->destroy(renderer);
+        mSmallBufferPool->destroy(renderer, mOrphanNonEmptyBufferBlock);
     }
 
     mPipelineLayoutCache.destroy(renderer);
     mDescriptorSetLayoutCache.destroy(renderer);
+
+    mMetaDescriptorPools[DescriptorSetIndex::UniformsAndXfb].destroy(
+        renderer, VulkanCacheType::UniformsAndXfbDescriptors);
+    mMetaDescriptorPools[DescriptorSetIndex::Texture].destroy(renderer,
+                                                              VulkanCacheType::TextureDescriptors);
+    mMetaDescriptorPools[DescriptorSetIndex::ShaderResource].destroy(
+        renderer, VulkanCacheType::ShaderResourcesDescriptors);
+
+    mFramebufferCache.destroy(renderer);
 
     ASSERT(mResourceUseLists.empty());
 }
@@ -493,6 +525,12 @@ void ShareGroupVk::pruneDefaultBufferPools(RendererVk *renderer)
 {
     mLastPruneTime = angle::GetCurrentSystemTime();
 
+    // Bail out if no suballocation have been destroyed since last prune.
+    if (renderer->getSuballocationDestroyedSize() == 0)
+    {
+        return;
+    }
+
     for (std::unique_ptr<vk::BufferPool> &pool : mDefaultBufferPools)
     {
         if (pool)
@@ -504,11 +542,74 @@ void ShareGroupVk::pruneDefaultBufferPools(RendererVk *renderer)
     {
         mSmallBufferPool->pruneEmptyBuffers(renderer);
     }
+
+    renderer->onBufferPoolPrune();
+
+#if ANGLE_ENABLE_BUFFER_POOL_STATS_LOGGING
+    logBufferPools();
+#endif
 }
 
-bool ShareGroupVk::isDueForBufferPoolPrune()
+bool ShareGroupVk::isDueForBufferPoolPrune(RendererVk *renderer)
 {
+    // Ensure we periodically prune to maintain the heuristic information
     double timeElapsed = angle::GetCurrentSystemTime() - mLastPruneTime;
-    return timeElapsed > kTimeElapsedForPruneDefaultBufferPool;
+    if (timeElapsed > kTimeElapsedForPruneDefaultBufferPool)
+    {
+        return true;
+    }
+
+    // If we have destroyed a lot of memory, also prune to ensure memory gets freed as soon as
+    // possible
+    if (renderer->getSuballocationDestroyedSize() >= kMaxTotalEmptyBufferBytes)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+void ShareGroupVk::calculateTotalBufferCount(size_t *bufferCount, VkDeviceSize *totalSize) const
+{
+    *bufferCount = 0;
+    *totalSize   = 0;
+    for (const std::unique_ptr<vk::BufferPool> &pool : mDefaultBufferPools)
+    {
+        if (pool)
+        {
+            *bufferCount += pool->getBufferCount();
+            *totalSize += pool->getMemorySize();
+        }
+    }
+    if (mSmallBufferPool)
+    {
+        *bufferCount += mSmallBufferPool->getBufferCount();
+        *totalSize += mSmallBufferPool->getMemorySize();
+    }
+}
+
+void ShareGroupVk::logBufferPools() const
+{
+    size_t totalBufferCount;
+    VkDeviceSize totalMemorySize;
+    calculateTotalBufferCount(&totalBufferCount, &totalMemorySize);
+
+    INFO() << "BufferBlocks count:" << totalBufferCount << " memorySize:" << totalMemorySize / 1024
+           << " UnusedBytes/memorySize (KBs):";
+    for (const std::unique_ptr<vk::BufferPool> &pool : mDefaultBufferPools)
+    {
+        if (pool && pool->getBufferCount() > 0)
+        {
+            std::ostringstream log;
+            pool->addStats(&log);
+            INFO() << "\t" << log.str();
+        }
+    }
+    if (mSmallBufferPool && mSmallBufferPool->getBufferCount() > 0)
+    {
+        std::ostringstream log;
+        mSmallBufferPool->addStats(&log);
+        INFO() << "\t" << log.str();
+    }
 }
 }  // namespace rx

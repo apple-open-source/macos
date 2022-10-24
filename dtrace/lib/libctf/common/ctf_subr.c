@@ -69,6 +69,7 @@ ctf_strerror(int err)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 ctf_dprintf(const char *format, ...)
 {

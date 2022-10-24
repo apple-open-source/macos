@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-12</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>look.c: Gracefully handle argv[0] == NULL (4384130)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>look</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-12-29</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/look?id=f3f16c31fea258b2b1ec51ddd1bceb6207b66198</string>
+</dict>

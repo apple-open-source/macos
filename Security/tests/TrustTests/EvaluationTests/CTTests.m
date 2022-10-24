@@ -32,6 +32,7 @@
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecFramework.h>
 #include "trust/trustd/OTATrustUtilities.h"
+#include "SecPolicyInternal.h"
 
 #if !TARGET_OS_BRIDGE
 #pragma clang diagnostic push
@@ -1820,39 +1821,6 @@ errOut:
     CFReleaseNull(trust);
 }
 
-// test google subCA after date without CT fails
-- (void) testGoogleSubCAException {
-    SecCertificateRef globalSignRoot = NULL, googleIAG3 = NULL, google = NULL;
-    SecTrustRef trust = NULL;
-    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("www.google.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
-    NSArray *certs = nil, *enforcement_anchors = nil;
-
-    require_action(globalSignRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"GlobalSignRootCAR2"],
-                   errOut, fail("failed to create geotrust root"));
-    require_action(googleIAG3 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"GoogleIAG3"],
-                   errOut, fail("failed to create apple IST CA"));
-    require_action(google = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"google"],
-                   errOut, fail("failed to create livability cert"));
-
-    certs = @[ (__bridge id)google, (__bridge id)googleIAG3 ];
-    enforcement_anchors = @[ (__bridge id)globalSignRoot ];
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
-#if !TARGET_OS_BRIDGE
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "google public post-flag-date non-CT cert passed");
-#endif
-
-errOut:
-    CFReleaseNull(globalSignRoot);
-    CFReleaseNull(googleIAG3);
-    CFReleaseNull(google);
-    CFReleaseNull(policy);
-    CFReleaseNull(trust);
-}
-
 // If pinning is disabled, pinned hostnames should continue to be exempt from CT
 - (void) testSystemwidePinningDisable {
     SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, pinnedNonCT = NULL;
@@ -1902,7 +1870,7 @@ errOut:
 
     // A policy with CTRequired set
     SecPolicyRef policy = SecPolicyCreateBasicX509();
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
 
     require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
@@ -2048,7 +2016,7 @@ errOut:
 - (SecPolicyRef)nonTlsCTRequiredPolicy
 {
     SecPolicyRef policy = SecPolicyCreateBasicX509();
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckNonTlsCTRequired, kCFBooleanTrue);
     return policy;
 }
 

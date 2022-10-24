@@ -56,6 +56,7 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFPreferences.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecDispatchRelease.h>
 
 #define trustSettingsDbg(args...)	secinfo("trustSettings", ## args)
 
@@ -908,7 +909,7 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 }
 
 /* get all certs listed in specified domain */
-OSStatus SecTrustSettingsCopyCertificates(
+static OSStatus SecTrustSettingsCopyCertificates_internal(
 	SecTrustSettingsDomain	domain,
 	CFArrayRef				*certArray)
 {
@@ -1014,6 +1015,46 @@ out:
     CFReleaseNull(trust);
     return status;
 	END_RCSAPI
+}
+
+/* get all certs listed in specified domain */
+OSStatus SecTrustSettingsCopyCertificates(
+    SecTrustSettingsDomain    domain,
+    CFArrayRef                *certArray)
+{
+    // To avoid a deadlock when reading the certificates unexpectedly requires
+    // trust evaluation, we dispatch this work and wait up to 5 seconds for it.
+    static dispatch_queue_t sCopyCertificatesQueue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sCopyCertificatesQueue = dispatch_queue_create("copy_certificates_from_keychain", DISPATCH_QUEUE_SERIAL);
+    });
+    __block OSStatus result = 0;
+    __block CFArrayRef localArray = NULL;
+    __block bool mustReleaseArray = false;
+    __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    dispatch_time_t interval = NSEC_PER_SEC * 5;
+    dispatch_async(sCopyCertificatesQueue, ^{
+        result = SecTrustSettingsCopyCertificates_internal(domain, &localArray);
+        if (mustReleaseArray) {
+            // we have timed out, so there is nobody to consume this array
+            CFReleaseNull(localArray);
+        } else {
+            // we haven't timed out and released the semaphore yet
+            dispatch_semaphore_signal(semaphore);
+        }
+    });
+    if (dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, interval)) != 0) {
+        secerror("SecTrustSettingsCopyCertificates: timed out!");
+        mustReleaseArray = true;
+        result = errSecIO;
+    } else if (certArray) {
+        *certArray = localArray;
+    } else {
+        CFReleaseNull(localArray);
+    }
+    dispatch_release_safe(semaphore);
+    return result;
 }
 
 static CFArrayRef gUserAdminCerts = NULL;

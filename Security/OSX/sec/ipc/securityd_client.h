@@ -29,6 +29,7 @@
 
 #include <Security/SecTrust.h>
 #include <Security/SecTask.h>
+#include <Security/SecTrustPriv.h>
 #ifndef MINIMIZE_INCLUDES
 
 #pragma clang diagnostic push
@@ -65,6 +66,7 @@ typedef struct __SecTrustStore *SecTrustStoreRef;
 #define kTrustdXPCServiceName "com.apple.trustd"
 #else
 #define kSecuritydXPCServiceName "com.apple.securityd"
+#define kSecuritydSystemXPCServiceName "com.apple.securityd.systemkeychain"
 #define kTrustdAgentXPCServiceName "com.apple.trustd"
 #define kTrustdXPCServiceName "com.apple.trustd"
 #endif // *** END TARGET_OS_OSX ***
@@ -108,6 +110,7 @@ extern const char *kSecXPCKeyNormalizedIssuer;
 extern const char *kSecXPCKeySerialNumber;
 extern const char *kSecXPCKeyBackupKeybagIdentifier;
 extern const char *kSecXPCKeyBackupKeybagPath;
+
 
 //
 // MARK: Dispatch macros
@@ -296,18 +299,26 @@ enum SecXPCOperation {
     sec_trust_settings_set_data_id,
     sec_trust_settings_copy_data_id,
     sec_truststore_remove_all_id,
+    sec_trust_reset_settings_id,
+    sec_delete_items_on_sign_out_id,
 };
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
 #define KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER (TARGET_OS_IOS)
+#define KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN (TARGET_OS_IOS || TARGET_OS_TV)
+#define KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN (TARGET_OS_IOS)
 
 #define KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER (KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER || KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER)
 
 typedef struct SecurityClient {
     SecTaskRef task;
     CFArrayRef accessGroups;
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
     bool allowSystemKeychain;
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     bool allowSyncBubbleKeychain;
+#endif
     bool isNetworkExtension;
     bool canAccessNetworkExtensionAccessGroups;
     uid_t uid;
@@ -316,19 +327,22 @@ typedef struct SecurityClient {
     keybag_handle_t keybag;
 #endif
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
-    bool inMultiUser;
+    bool inEduMode;
 #endif
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     int activeUser;
 #endif
     bool isAppClip;
     CFStringRef applicationIdentifier;
+    bool isMusrOverridden;
 } SecurityClient;
 
 
 extern SecurityClient * SecSecurityClientGet(void);
+void
+SecSecurityFixUpClientWithPersona(SecurityClient* src, SecurityClient* dest);
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
-void SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser);
+void SecSecuritySetMusrMode(bool inEduMode, uid_t uid, int activeUser);
 void SecSecuritySetPersonaMusr(CFStringRef uuid);
 #endif
 
@@ -346,6 +360,7 @@ struct securityd {
     bool (*sec_roll_keys)(bool force, CFErrorRef* error);
     bool (*sec_item_update_token_items_for_access_groups)(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItems, SecurityClient *client, CFErrorRef* error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
+    bool (*sec_delete_items_on_sign_out)(SecurityClient *client, CFErrorRef *error);
     /* SHAREDWEBCREDENTIALS */
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     /* SECUREOBJECTSYNC */
@@ -430,10 +445,9 @@ struct trustd {
     bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
     bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
-    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, uint64_t attribution, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
     uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
     uint64_t (*sec_ota_pki_asset_version)(CFErrorRef* error);
-    CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
     uint64_t (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
     uint64_t (*sec_ota_secexperiment_get_new_asset)(CFErrorRef* error);
     CFDictionaryRef (*sec_ota_secexperiment_get_asset)(CFErrorRef* error);
@@ -454,6 +468,7 @@ struct trustd {
     CFArrayRef (*sec_trust_store_copy_transparent_connection_pins)(CFStringRef appID, CFErrorRef *error);
     bool (*sec_trust_settings_set_data)(uid_t uid, CFStringRef domain, CFDataRef auth, CFDataRef trustSettings, CFErrorRef* error);
     bool (*sec_trust_settings_copy_data)(uid_t uid, CFStringRef domain, CFDataRef *trustSettings, CFErrorRef* error);
+    bool (*sec_trust_reset_settings)(SecTrustResetFlags flags, CFErrorRef *error);
 };
 
 extern struct trustd *gTrustd;
@@ -536,13 +551,6 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 - (void) secKeychainDeleteMultiuser:(NSData *)uuid
                            complete:(void (^)(bool status, NSError* error))complete;
 
-// Go through the keychain to verify the backup infrastructure is present and valid.
-// The completion handler's dictionary will contain a string with statistics about the class, error will be nil or
-// complain about what went wrong during verification.
-// Lightweight mode only checks consistency of the backup infrastructure without verifying all keychain items
-- (void)secItemVerifyBackupIntegrity:(BOOL)lightweight
-                          completion:(void (^)(NSDictionary<NSString*, NSString*>* resultsPerKeyclass, NSError* error))completion;
-
 // Delete all items from the keychain where agrp==identifier and clip==1. Requires App Clip deletion entitlement.
 - (void)secItemDeleteForAppClipApplicationIdentifier:(NSString*)identifier
                                           completion:(void (^)(OSStatus status))completion;
@@ -558,6 +566,10 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 // On Apple hardware with an APFS-formatted physical disk, this should succeed. On any sort of network home folder, no guarantee is provided.
 // This is an expensive operation.
 - (void)secItemPersistKeychainWritesAtHighPerformanceCost:(void (^)(OSStatus status, NSError* error))completion;
+
+// Force an upgrade if needed.
+- (void)secKeychainForceUpgradeIfNeeded:(void (^)(OSStatus status))completion;
+
 @end
 
 // Call this to receive a proxy object conforming to SecuritydXPCProtocol that you can call methods on.
@@ -575,13 +587,35 @@ id<SecuritydXPCProtocol> SecCreateLocalSecuritydXPCServer(void) NS_RETURNS_RETAI
 - (instancetype)initWithCallback: (SecBoolNSErrorCallback) callback;
 @end
 
-@interface SecuritydXPCClient : NSObject {
+@protocol SecuritydXPCClientInterface <NSObject>
+- (id<SecuritydXPCProtocol>)protocolWithSync:(bool)synchronous errorHandler:(void(^)(NSError *))errorHandler;
+@end
+
+typedef enum
+{
+    SecuritydXPCClient_TargetSession_FOREGROUND,
+    SecuritydXPCClient_TargetSession_CURRENT,
+} SecuritydXPCClient_TargetSession;
+
+@interface SecuritydXPCClient : NSObject <SecuritydXPCClientInterface> {
     NSXPCConnection* _connection;
 }
 @property NSXPCConnection* connection;
 
 +(void)configureSecuritydXPCProtocol: (NSXPCInterface*) interface;
+- (id<SecuritydXPCProtocol>)protocolWithSync:(bool)synchronous errorHandler:(void(^)(NSError *))errorHandler;
 @end
+
+@interface FakeSecuritydXPCClient : NSObject <SecuritydXPCClientInterface> {
+}
+
+- (id<SecuritydXPCProtocol>)protocolWithSync:(bool)synchronous errorHandler:(void(^)(NSError *))errorHandler;
+@end
+
+// Receive a proxy object conforming to SecuritydXPCClientInterface from which you can get a SecuritydXPCProtocol.
+// It's probably a remote object for securityd/secd, but it might be in-process if you've configured it that way.
+// Will call errorHandler if an object can't be allocated
+id<SecuritydXPCClientInterface> SecuritydXPCClientObject(SecuritydXPCClient_TargetSession target, void (^errorHandler)(NSError *));
 
 #endif // OBJC
 

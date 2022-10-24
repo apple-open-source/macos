@@ -1,0 +1,1 @@
+http://ocsp.pca.dfn.de/OCSP-Server/OCSP

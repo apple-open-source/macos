@@ -24,7 +24,7 @@ Feature: Authorization Database stores definitions of all user authentication ri
 # com.apple.installassistant.requestpassword
 # com.apple.system-migration.launch-password
 # com.apple.trust-settings.admin
-@smoke
+@smoke @regression @aqs
 Scenario: Authorization Database must be recreated if any of the mandatory right is missing
   # Can be simulated by calling eg. 'security authorizationdb remove com.apple.system-migration.launch-password'
   Given any of the mandatory rights is missing
@@ -72,7 +72,9 @@ Scenario: Authorization Database must be recreated if any of the mandatory right
   #      <key>version</key>                   
   #      <integer>0</integer>
   #  </dict>
-  #  </plist> 
+  #  </plist>
+
+  @regression @aqs
   Scenario: Authorization Database must be recreated if any of specified rights are obsolete  
     Given any of the specified right is obsolete
     When the machine reboots or authd restarts

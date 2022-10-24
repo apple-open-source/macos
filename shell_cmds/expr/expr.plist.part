@@ -10,6 +10,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>expr.1, expr.y: remove -e flag (8319378)</string>
+		    <string>expr.y: Don't ignore errors when flushing stdout (89090667)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

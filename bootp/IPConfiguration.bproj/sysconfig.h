@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,13 @@
 #include "dhcp_options.h"
 #include "DHCPv6Options.h"
 
+/*
+ * Define: kServiceEntity
+ * Purpose:
+ *   Placeholder entity key for the service dictionary.
+ */
+#define kServiceEntity		kCFNull
+
 CFDictionaryRef
 my_SCDynamicStoreCopyDictionary(SCDynamicStoreRef session, CFStringRef key);
 
@@ -59,7 +66,7 @@ my_SCDynamicStoreCopyDictionary(SCDynamicStoreRef session, CFStringRef key);
 void
 my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 			    CFStringRef serviceID,
-			    CFStringRef * entities,
+			    CFTypeRef * entities,
 			    CFDictionaryRef * values,
 			    int count,
 			    boolean_t alternate_location);

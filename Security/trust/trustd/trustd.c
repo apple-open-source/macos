@@ -289,6 +289,18 @@ static bool SecXPC_OCSPCacheFlush(SecurityClient * __unused client, xpc_object_t
     return false;
 }
 
+static bool SecXPCTrustResetSettings(SecurityClient * __unused client, xpc_object_t __unused event,
+                                  xpc_object_t __unused reply, CFErrorRef *error) {
+    bool result = false;
+    SecTrustResetFlags flags = (uint32_t)xpc_dictionary_get_uint64(event, kSecXPCKeyFlags);
+    if (flags) {
+        if (_SecTrustResetSettings(flags, error)) {
+            result = true;
+        }
+    }
+    return result;
+}
+
 static bool SecXPC_OTAPKI_GetCurrentTrustStoreVersion(SecurityClient * __unused client, xpc_object_t __unused event,
                                           xpc_object_t reply, CFErrorRef *error) {
     xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentTrustStoreVersion(error));
@@ -299,21 +311,6 @@ static bool SecXPC_OTAPKI_GetCurrentAssetVersion(SecurityClient * __unused clien
                                                  xpc_object_t reply, CFErrorRef *error) {
     xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentAssetVersion(error));
     return true;
-}
-
-static bool SecXPC_OTAPKI_GetEscrowCertificates(SecurityClient * __unused client, xpc_object_t event,
-                                                xpc_object_t reply, CFErrorRef *error) {
-    bool result = false;
-    uint32_t escrowRootType = (uint32_t)xpc_dictionary_get_uint64(event, "escrowType");
-    CFArrayRef array = SecOTAPKICopyCurrentEscrowCertificates(escrowRootType, error);
-    if (array) {
-        xpc_object_t xpc_array = _CFXPCCreateXPCObjectFromCFObject(array);
-        xpc_dictionary_set_value(reply, kSecXPCKeyResult, xpc_array);
-        xpc_release(xpc_array);
-        result = true;
-    }
-    CFReleaseNull(array);
-    return result;
 }
 
 static bool SecXPC_OTAPKI_GetNewAsset(SecurityClient * __unused client, xpc_object_t __unused event,
@@ -519,7 +516,6 @@ struct trustd_operations {
     SecXPCServerOperation ocsp_cache_flush;
     SecXPCServerOperation ota_pki_trust_store_version;
     SecXPCServerOperation ota_pki_asset_version;
-    SecXPCServerOperation ota_pki_get_escrow_certs;
     SecXPCServerOperation ota_pki_get_new_asset;
     SecXPCServerOperation ota_pki_copy_trusted_ct_logs;
     SecXPCServerOperation ota_pki_copy_ct_log_for_keyid;
@@ -538,6 +534,7 @@ struct trustd_operations {
     SecXPCServerOperation trust_settings_set_data;
     SecXPCServerOperation trust_settings_copy_data;
     SecXPCServerOperation trust_store_remove_all;
+    SecXPCServerOperation trust_reset_settings;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -549,7 +546,6 @@ static struct trustd_operations trustd_ops = {
     .ocsp_cache_flush = { NULL, SecXPC_OCSPCacheFlush },
     .ota_pki_trust_store_version = { NULL, SecXPC_OTAPKI_GetCurrentTrustStoreVersion },
     .ota_pki_asset_version = { NULL, SecXPC_OTAPKI_GetCurrentAssetVersion },
-    .ota_pki_get_escrow_certs = { NULL, SecXPC_OTAPKI_GetEscrowCertificates },
     .ota_pki_get_new_asset = { NULL, SecXPC_OTAPKI_GetNewAsset },
     .ota_secexperiment_get_new_asset = { NULL, SecXPC_OTASecExperiment_GetNewAsset },
     .ota_secexperiment_get_asset = { NULL, SecXPC_OTASecExperiment_GetAsset },
@@ -567,6 +563,7 @@ static struct trustd_operations trustd_ops = {
     .trust_store_copy_transparent_connection_pins = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyTransparentConnectionPins },
     .trust_settings_copy_data = { NULL, SecXPCTrustSettingsCopyData },
     .trust_store_remove_all = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreRemoveAll },
+    .trust_reset_settings = { NULL, SecXPCTrustResetSettings },
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -581,14 +578,16 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
         .accessGroups = NULL,
         .musr = NULL,
         .uid = xpc_connection_get_euid(connection),
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = true,
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSyncBubbleKeychain = false,
 #endif
         .isNetworkExtension = false,
         .canAccessNetworkExtensionAccessGroups = false,
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
-        .inMultiUser = false,
+        .inEduMode = false,
 #endif
     };
 
@@ -614,6 +613,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
             CFDataRef delegatedAuditToken = NULL;
             bool anchorsOnly = xpc_dictionary_get_bool(event, kSecTrustAnchorsOnlyKey);
             bool keychainsAllowed = xpc_dictionary_get_bool(event, kSecTrustKeychainsAllowedKey);
+            uint64_t attribution = xpc_dictionary_get_uint64(event, kSecTrustURLAttribution); // failure = 0 -> Developer attribution
             double verifyTime;
             if (SecXPCDictionaryCopyCertificates(event, kSecTrustCertificatesKey, &certificates, &error) &&
                 SecXPCDictionaryCopyCertificatesOptional(event, kSecTrustAnchorsKey, &anchors, &error) &&
@@ -642,7 +642,7 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 replyMessage = NULL;
 
                 SecTrustServerEvaluateBlock(SecTrustServerGetWorkloop(), localAuditToken, certificates, anchors, anchorsOnly, keychainsAllowed, policies,
-                                            responses, scts, trustedLogs, verifyTime, client.accessGroups, exceptions,
+                                            responses, scts, trustedLogs, verifyTime, client.accessGroups, exceptions, attribution,
                                             ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain,
                                               CFErrorRef replyError) {
                     // Send back reply now
@@ -754,9 +754,6 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                 case sec_ota_pki_asset_version_id:
                     server_op = &trustd_ops.ota_pki_asset_version;
                     break;
-                case kSecXPCOpOTAGetEscrowCertificates:
-                    server_op = &trustd_ops.ota_pki_get_escrow_certs;
-                    break;
                 case kSecXPCOpOTAPKIGetNewAsset:
                     server_op = &trustd_ops.ota_pki_get_new_asset;
                     break;
@@ -807,6 +804,9 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     break;
                 case sec_truststore_remove_all_id:
                     server_op = &trustd_ops.trust_store_remove_all;
+                    break;
+                case sec_trust_reset_settings_id:
+                    server_op = &trustd_ops.trust_reset_settings;
                     break;
                 default:
                     break;

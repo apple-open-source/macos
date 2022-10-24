@@ -5,6 +5,7 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation CKKSExternalKey (CKKSTranslation)
+
 - (instancetype)initWithViewName:(NSString*)viewName
                              tlk:(CKKSKey*)tlk
 {
@@ -14,9 +15,12 @@
                       keyData:tlk.wrappedKeyData];
 }
 
-- (CKKSKey* _Nullable)makeCKKSKey:(CKRecordZoneID*)zoneID error:(NSError**)error
+- (CKKSKey* _Nullable)makeCKKSKey:(CKRecordZoneID*)zoneID
+                        contextID:(NSString*)contextID
+                            error:(NSError**)error
 {
     CKKSKey* key = [[CKKSKey alloc] initWithWrappedKeyData:self.keyData
+                                                 contextID:contextID
                                                       uuid:self.uuid
                                              parentKeyUUID:self.parentKeyUUID ?: self.uuid
                                                   keyclass:SecCKKSKeyClassTLK
@@ -28,9 +32,13 @@
     return key;
 }
 
-- (CKKSKey* _Nullable)makeFakeCKKSClassKey:(CKKSKeyClass*)keyclass zoneiD:(CKRecordZoneID*)zoneID error:(NSError**)error
+- (CKKSKey* _Nullable)makeFakeCKKSClassKey:(CKKSKeyClass*)keyclass
+                                 contextID:(NSString*)contextID
+                                    zoneiD:(CKRecordZoneID*)zoneID
+                                     error:(NSError**)error
 {
     CKKSKey* key = [[CKKSKey alloc] initWithWrappedKeyData:self.keyData
+                                                 contextID:contextID
                                                       uuid:[NSString stringWithFormat:@"%@-fake-%@", self.uuid, keyclass]
                                              parentKeyUUID:self.parentKeyUUID
                                                   keyclass:keyclass
@@ -44,6 +52,7 @@
 @end
 
 @implementation CKKSExternalTLKShare (CKKSTranslation)
+
 - (instancetype)initWithViewName:(NSString*)viewName
                         tlkShare:(CKKSTLKShare*)tlkShareRecord
 {
@@ -57,6 +66,7 @@
 
 
 - (CKKSTLKShareRecord* _Nullable)makeTLKShareRecord:(CKRecordZoneID*)zoneID
+                                          contextID:(NSString*)contextID
 {
     CKKSTLKShare* tlkShare = [[CKKSTLKShare alloc] initForKey:self.tlkUUID
                                                  senderPeerID:[self stringifyPeerID:self.senderPeerID]
@@ -71,6 +81,7 @@
                                                        zoneID:zoneID];
 
     return [[CKKSTLKShareRecord alloc] initWithShare:tlkShare
+                                           contextID:contextID
                                               zoneID:zoneID
                                      encodedCKRecord:nil];
 }

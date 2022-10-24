@@ -1,7 +1,5 @@
-.\"	$NetBSD: uname.1,v 1.12 2005/03/27 18:41:22 peter Exp $
-.\"
-.\" Copyright (c) 1990 The Regents of the University of California.
-.\" All rights reserved.
+.\" Copyright (c) 1993
+.\"	The Regents of the University of California.  All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -27,61 +25,170 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     from: @(#)du.1	6.13 (Berkeley) 6/20/91
-.\"	$NetBSD: uname.1,v 1.12 2005/03/27 18:41:22 peter Exp $
+.\"	@(#)uname.1	8.3 (Berkeley) 4/8/94
+.\" $FreeBSD$
 .\"
-.Dd November 9, 1998
+.Dd November 13, 2020
 .Dt UNAME 1
 .Os
 .Sh NAME
 .Nm uname
-.Nd Print operating system name
+.Nd display information about the system
 .Sh SYNOPSIS
 .Nm
-.Op Fl amnprsv
+.\" .Op Fl abiKmnoprsUv
+.Op Fl amnoprsv
 .Sh DESCRIPTION
 The
 .Nm
-utility writes symbols representing one or more system characteristics
-to the standard output.
+command writes the name of the operating system implementation to
+standard output.
+When options are specified, strings representing one or more system
+characteristics are written to standard output.
 .Pp
-The following options are available:
+The options are as follows:
 .Bl -tag -width indent
 .It Fl a
-Behave as though all of the options
-.Fl mnrsv
+Behave as though the options
+.Fl m , n , r , s ,
+and
+.Fl v
 were specified.
+.\" .It Fl b
+.\" Write the kernel's linker-generated build-id to standard output.
+.\" .It Fl i
+.\" Write the kernel ident to standard output.
+.\" .It Fl K
+.\" Write the
+.\" .Fx
+.\" version of the kernel.
 .It Fl m
-print the machine hardware name.
+Write the type of the current hardware platform to standard output.
+.Po Xr make 1
+uses it to set the
+.Va MACHINE
+variable.
+.Pc
 .It Fl n
-print the nodename (the nodename may be a name
-that the system is known by to a communications
-network).
+Write the name of the system to standard output.
+.It Fl o
+This is a synonym for the
+.Fl s
+option, for compatibility with other systems.
 .It Fl p
-print the machine processor architecture name.
+Write the type of the machine processor architecture to standard output.
+.Po Xr make 1
+uses it to set the
+.Va MACHINE_ARCH
+variable.
+.Pc
 .It Fl r
-print the operating system release.
+Write the current release level of the operating system
+to standard output.
 .It Fl s
-print the operating system name.
+Write the name of the operating system implementation to standard output.
+.\" .It Fl U
+.\" Write the
+.\" .Fx
+.\" version of the user environment.
 .It Fl v
-print the operating system version.
+Write the version level of this release of the operating system
+to standard output.
 .El
 .Pp
-If no options are specified,
+If the
+.Fl a
+flag is specified, or multiple flags are specified, all
+output is written on a single line, separated by spaces.
+.\" .Pp
+.\" The
+.\" .Fl K
+.\" and
+.\" .Fl U
+.\" flags are intended to be used for fine grain differentiation of incremental
+.\" .Fx
+.\" development and user visible changes.
+.\" Note that when both of these two options are specified, regardless of their
+.\" order, the kernel version would be printed first, followed by the user
+.\" environment version.
+.Sh ENVIRONMENT
+An environment variable composed of the string
+.Ev UNAME_
+followed by any flag to the
 .Nm
-prints the operating system name as if the
-.Fl s
-option had been specified.
+utility (except for
+.Fl a )
+will allow the corresponding data to be set to the contents
+of the environment variable.
+.Pp
+The
+.Fl m ,
+.Fl n ,
+.Fl r ,
+.Fl s ,
+and
+.Fl v
+variables additionally have long aliases that have historically been honored on
+MacOS,
+.Dq UNAME_MACHINE ,
+.Dq UNAME_NODENAME ,
+.Dq UNAME_RELEASE ,
+.Dq UNAME_SYSNAME ,
+and
+.Dq UNAME_VERSION
+respectively.
+These names have a higher priority than their shorter counterparts described in
+the previous paragraph.
+.Pp
+See
+.Xr uname 3
+for more information.
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+The hardware platform
+.Pq Fl m
+can be different from the machine's processor architecture
+.Pq Fl p ,
+e.g., on 64-bit PowerPC,
+.Fl m
+would return
+.Va powerpc
+and
+.Fl p
+would return
+.Va powerpc64 .
 .Sh SEE ALSO
+.\" .Xr feature_present 3 ,
+.\" .Xr getosreldate 3 ,
 .Xr hostname 1 ,
 .Xr machine 1 ,
 .Xr sw_vers 1 ,
-.Xr uname 3
+.Xr sysctl 3 ,
+.Xr uname 3 ,
+.Xr sysctl 8
 .Sh STANDARDS
 The
 .Nm
-utility conforms to
-.St -p1003.2-92 .
+command is expected to conform to the
+.St -p1003.2
+specification.
+.Sh HISTORY
 The
-.Fl p
-option is an extension to the standard.
+.Nm
+command appeared in PWB UNIX 1.0, however
+.Bx 4.4
+was the first Berkeley release with the
+.Nm
+command.
+.Pp
+The
+.Fl K
+and
+.Fl U
+extension flags appeared in
+.Fx 10.0 .
+The
+.Fl b
+extension flag appeared in
+.Fx 13.0 .

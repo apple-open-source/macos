@@ -7,6 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <err.h>
+#import <os/variant_private.h>
 #import <unistd.h>
 #import <XCTest/XCTest.h>
 
@@ -116,7 +118,7 @@
 
 - (void)testSuite:(XCTestSuite *)testSuite didRecordIssue:(XCTIssue *)issue {
 	[self testLogWithFormat:@"(%@)%@:%lu: error: %@", testSuite.name, issue.sourceCodeContext.location.fileURL,
-													   issue.sourceCodeContext.location.lineNumber, issue.compactDescription];
+													   (unsigned long)issue.sourceCodeContext.location.lineNumber, issue.compactDescription];
 }
 
 - (void)testSuiteDidFinish:(XCTestSuite *)testSuite
@@ -139,7 +141,7 @@
 }
 
 - (void)testCase:(XCTestCase *)testCase didRecordIssue:(XCTIssue *)issue {
-	[self testLogWithFormat:@"(%@)%@:%lu error: %@\n%@", testCase.name, issue.sourceCodeContext.location.fileURL, issue.sourceCodeContext.location.lineNumber, issue.detailedDescription, issue.sourceCodeContext.callStack];
+	[self testLogWithFormat:@"(%@)%@:%lu error: %@\n%@", testCase.name, issue.sourceCodeContext.location.fileURL, (unsigned long)issue.sourceCodeContext.location.lineNumber, issue.detailedDescription, issue.sourceCodeContext.callStack];
 }
 
 - (void)testCaseDidFinish:(XCTestCase *)testCase
@@ -198,6 +200,10 @@ static void getOptions(int argc, char *const *argv) {
 int main (int argc, const char * argv[])
 {
     @autoreleasepool {
+        if (!os_variant_allows_internal_security_policies("com.apple.security")) {
+            errx(1, "runner unavailable");
+        }
+
         getOptions(argc, (char*const*)argv);
         NSString *testBundleDir = [NSString stringWithCString:gTestBundleDir encoding:NSUTF8StringEncoding];
         NSString *testBundleName = [NSString stringWithCString:gTestBundleName encoding:NSUTF8StringEncoding];

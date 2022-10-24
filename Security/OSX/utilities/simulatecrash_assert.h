@@ -27,7 +27,7 @@
 #if !defined(NDEBUG) || !defined(__OBJC__)
     #include <assert.h>
 #else // NDEBUG && __OBJC__
-    #include "debugging.h"
+    #include <security_utilities/debugging.h>
     #undef assert
     #define assert(expr) { \
         if (!(expr)) { \

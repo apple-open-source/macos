@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,6 +27,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1989, 1991, 1993, 1994\n\
@@ -38,19 +35,18 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)stty.c	8.3 (Berkeley) 4/2/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/stty/stty.c,v 1.20 2002/06/30 05:15:04 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,9 +61,11 @@ main(int argc, char *argv[])
 	struct info i;
 	enum FMT fmt;
 	int ch;
+	const char *file, *errstr = NULL;
 
 	fmt = NOTSET;
 	i.fd = STDIN_FILENO;
+	file = "stdin";
 
 	opterr = 0;
 	while (optind < argc &&
@@ -83,6 +81,7 @@ main(int argc, char *argv[])
 		case 'f':
 			if ((i.fd = open(optarg, O_RDONLY | O_NONBLOCK)) < 0)
 				err(1, "%s", optarg);
+			file = optarg;
 			break;
 		case 'g':
 			fmt = GFLAG;
@@ -96,7 +95,7 @@ args:	argc -= optind;
 	argv += optind;
 
 	if (tcgetattr(i.fd, &i.t) < 0)
-		errx(1, "stdin isn't a terminal");
+		errx(1, "%s isn't a terminal", file);
 	if (ioctl(i.fd, TIOCGETD, &i.ldisc) < 0)
 		err(1, "TIOCGETD");
 	if (ioctl(i.fd, TIOCGWINSZ, &i.win) < 0)
@@ -131,7 +130,9 @@ args:	argc -= optind;
 		if (isdigit(**argv)) {
 			speed_t speed;
 
-			speed = atoi(*argv);
+			speed = strtonum(*argv, 0, UINT_MAX, &errstr);
+			if (errstr)
+				err(1, "speed");
 			cfsetospeed(&i.t, speed);
 			cfsetispeed(&i.t, speed);
 			i.set = 1;
@@ -159,6 +160,7 @@ void
 usage(void)
 {
 
-	(void)fprintf(stderr, "usage: stty [-a|-e|-g] [-f file] [options]\n");
+	(void)fprintf(stderr,
+	    "usage: stty [-a | -e | -g] [-f file] [arguments]\n");
 	exit (1);
 }

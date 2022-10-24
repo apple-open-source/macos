@@ -29,11 +29,17 @@
 #import <Security/SecXPCHelper.h>
 
 #include <ipc/securityd_client.h>
+#include <xpc/private.h>
 
 @implementation SecuritydXPCClient
 @synthesize connection = _connection;
 
 - (instancetype) init
+{
+    return [self initTargetingSession:SecuritydXPCClient_TargetSession_CURRENT];
+}
+
+- (instancetype) initTargetingSession:(SecuritydXPCClient_TargetSession)target
 {
     if ((self = [super init])) {
         NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SecuritydXPCProtocol)];
@@ -46,10 +52,42 @@
         self.connection.remoteObjectInterface = interface;
         [SecuritydXPCClient configureSecuritydXPCProtocol: self.connection.remoteObjectInterface];
 
+        if (target == SecuritydXPCClient_TargetSession_FOREGROUND) {
+#if TARGET_OS_OSX
+            secinfo("SecuritydXPCClient", "Targeting foreground session not supported on this platform");
+#else
+            secinfo("SecuritydXPCClient", "Possibly targeting foreground session");
+            if (xpc_user_sessions_enabled()) {
+                errno_t error = 0;
+                uid_t foreground_uid = xpc_user_sessions_get_foreground_uid(&error);
+                if (error != 0) {
+                    secerror("SecuritydXPCClient: could not get foreground uid %d", error);
+                } else {
+                    secinfo("SecuritydXPCClient", "Targeting foreground session for uid %d", foreground_uid);
+                    xpc_connection_set_target_user_session_uid(self.connection._xpcConnection, foreground_uid);
+                }
+            }
+#endif
+        }
+
         [self.connection resume];
     }
 
     return self;
+}
+
+- (void)dealloc
+{
+    [self.connection invalidate];
+}
+
+- (id<SecuritydXPCProtocol>)protocolWithSync:(bool)synchronous errorHandler:(void(^)(NSError *))errorHandler
+{
+    if (synchronous) {
+        return [self.connection synchronousRemoteObjectProxyWithErrorHandler:errorHandler];
+    } else {
+        return [self.connection remoteObjectProxyWithErrorHandler:errorHandler];
+    }
 }
 
 +(void)configureSecuritydXPCProtocol: (NSXPCInterface*) interface {
@@ -85,7 +123,6 @@
                                                                accessGroup:
                                                                complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secKeychainDeleteMultiuser:complete:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(secItemVerifyBackupIntegrity:completion:) argumentIndex:1 ofReply:YES];
 
     }
     @catch(NSException* e) {
@@ -93,6 +130,23 @@
         @throw e;
     }
 #endif // OCTAGON
+}
+@end
+
+@implementation FakeSecuritydXPCClient
+- (instancetype) init
+{
+    self = [super init];
+    return self;
+}
+
+- (id<SecuritydXPCProtocol>)protocolWithSync:(bool)synchronous errorHandler:(void(^)(NSError *))errorHandler
+{
+    if (gSecurityd && gSecurityd->secd_xpc_server) {
+        return (__bridge id<SecuritydXPCProtocol>)gSecurityd->secd_xpc_server;
+    } else {
+        return NULL;
+    }
 }
 @end
 
@@ -128,11 +182,15 @@ id<SecuritydXPCProtocol> SecuritydXPCProxyObject(bool synchronous, void (^rpcErr
         rpcErrorHandler([NSError errorWithDomain:@"securityd" code:-1 userInfo:@{ NSLocalizedDescriptionKey : @"Could not create SecuritydXPCClient" }]);
         return NULL;
     } else {
-        if (synchronous) {
-            return [rpc.connection synchronousRemoteObjectProxyWithErrorHandler:rpcErrorHandler];
-        } else {
-            return [rpc.connection remoteObjectProxyWithErrorHandler:rpcErrorHandler];
-        }
+        return [rpc protocolWithSync:synchronous errorHandler:rpcErrorHandler];
     }
 }
 
+id<SecuritydXPCClientInterface> SecuritydXPCClientObject(SecuritydXPCClient_TargetSession target, void (^errorHandler)(NSError *))
+{
+    id<SecuritydXPCClientInterface> rpc = (gSecurityd && gSecurityd->secd_xpc_server) ? [[FakeSecuritydXPCClient alloc] init] : [[SecuritydXPCClient alloc] initTargetingSession:target];
+    if (rpc == NULL) {
+        errorHandler([NSError errorWithDomain:@"securityd" code:-1 userInfo:@{ NSLocalizedDescriptionKey : @"Could not create SecuritydXPCClientObject" }]);
+    }
+    return rpc;
+}

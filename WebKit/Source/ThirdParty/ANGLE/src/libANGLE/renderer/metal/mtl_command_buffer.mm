@@ -424,7 +424,7 @@ NSString *cppLabelToObjC(const std::string &marker)
     }
     return label;
 }
-}
+}  // namespace
 
 // CommandQueue implementation
 void CommandQueue::reset()
@@ -539,6 +539,8 @@ void CommandQueue::onCommandBufferCommitted(id<MTLCommandBuffer> buf, uint64_t s
     std::lock_guard<std::mutex> lg(mLock);
 
     ANGLE_MTL_LOG("Committed MTLCommandBuffer %llu:%p", serial, buf);
+    ++mLastCommittedSerial;
+    ASSERT(serial == mLastCommittedSerial && "Verify that CommandBuffers are submitted in order");
 
     mCommittedBufferSerial.store(
         std::max(mCommittedBufferSerial.load(std::memory_order_relaxed), serial),
@@ -1310,7 +1312,8 @@ void RenderCommandEncoder::encodeMetalEncoder()
     }
 }
 
-RenderCommandEncoder &RenderCommandEncoder::restart(const RenderPassDesc &desc)
+RenderCommandEncoder &RenderCommandEncoder::restart(const RenderPassDesc &desc,
+                                                    uint32_t deviceMaxRenderTargets)
 {
     if (valid())
     {
@@ -1348,7 +1351,7 @@ RenderCommandEncoder &RenderCommandEncoder::restart(const RenderPassDesc &desc)
     initAttachmentWriteDependencyAndScissorRect(mRenderPassDesc.stencilAttachment);
 
     // Convert to Objective-C descriptor
-    mRenderPassDesc.convertToMetalDesc(mCachedRenderPassDescObjC);
+    mRenderPassDesc.convertToMetalDesc(mCachedRenderPassDescObjC, deviceMaxRenderTargets);
 
     // The actual Objective-C encoder will be created later in endEncoding(), we do so in order
     // to be able to sort the commands or do the preprocessing before the actual encoding.
@@ -2335,5 +2338,5 @@ ComputeCommandEncoder &ComputeCommandEncoder::dispatchNonUniform(const MTLSize &
 #endif
     return *this;
 }
-}
-}
+}  // namespace mtl
+}  // namespace rx

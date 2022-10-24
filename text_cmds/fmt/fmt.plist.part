@@ -1,0 +1,12 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-02</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceProject</key>
+	<string>fmt</string>
+	<key>OpenSourceVersion</key>
+	<string>2021-08-02</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/fmt?id=5666643a95389e3ea7637b86cc556d411242f71e</string>
+</dict>

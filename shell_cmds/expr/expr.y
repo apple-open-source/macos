@@ -267,9 +267,7 @@ is_zero_or_null(struct val *vp)
 int
 main(int argc, char *argv[])
 {
-#ifndef __APPLE__
 	int c;
-#endif
 
 	setlocale(LC_ALL, "");
 #ifdef __APPLE__
@@ -307,7 +305,14 @@ main(int argc, char *argv[])
 	else
 		printf("%s\n", result->u.s);
 
+#ifdef __APPLE__
+	c = is_zero_or_null(result);
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+	return (c);
+#else
 	return (is_zero_or_null(result));
+#endif
 }
 
 int

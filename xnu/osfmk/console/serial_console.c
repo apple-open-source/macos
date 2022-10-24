@@ -47,7 +47,7 @@
 #include <kern/sched_prim.h>
 #include <libkern/section_keywords.h>
 
-#if __arm__ || __arm64__
+#if __arm64__
 #include <machine/machine_routines.h>
 #include <arm/cpu_data_internal.h>
 #endif
@@ -164,7 +164,7 @@ console_io_allowed(void)
 	    !console_suspended &&
 	    startup_phase >= STARTUP_SUB_EARLY_BOOT &&
 	    !ml_get_interrupts_enabled()) {
-#if defined(__arm__) || defined(__arm64__) || DEBUG || DEVELOPMENT
+#if defined(__arm64__) || DEBUG || DEVELOPMENT
 		panic("Console I/O from interrupt-disabled context");
 #else
 		return false;

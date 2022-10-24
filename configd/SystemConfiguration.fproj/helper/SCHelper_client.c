@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018, 2019, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 
 #include <fcntl.h>
 #include <paths.h>
+#include <sandbox.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,6 +76,32 @@ __SCHelperServerPort(kern_return_t *status)
 #else	// BOOTSTRAP_PRIVILEGED_SERVER
 	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
 #endif	// BOOTSTRAP_PRIVILEGED_SERVER
+
+	if (*status != BOOTSTRAP_SUCCESS) {
+		static dispatch_once_t		once;
+		int				sb_err;
+		static enum sandbox_filter_type	sb_type;
+
+		dispatch_once(&once, ^{
+			sb_type	= SANDBOX_FILTER_GLOBAL_NAME;
+			if (!_SC_isAppleInternal()) {
+				sb_type |= SANDBOX_CHECK_NO_REPORT;
+			}
+		});
+
+		sb_err = sandbox_check(getpid(), "mach-lookup", sb_type, server_name);
+		switch (sb_err) {
+			case 0 :
+				// if not blocked by a sandbox
+				break;
+			case 1 :
+				SC_log(LOG_NOTICE, "sandbox restricting SCHelper access");
+				return MACH_PORT_NULL;
+			default :
+				SC_log(LOG_NOTICE, "sandbox_check() failed: %s", strerror(errno));
+				break;
+		}
+	}
 
 	switch (*status) {
 		case BOOTSTRAP_SUCCESS :
@@ -281,6 +308,7 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 	}
 
 	if (status != NULL) {
+		__SCPreferencesHandleInternalStatus(&replyStatus);
 		*status = replyStatus;
 	}
 

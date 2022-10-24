@@ -50,6 +50,8 @@
 
 #include <pthread/pthread.h>
 
+#include "featureflags/featureflags.h"
+
 #if USE_KEYSTORE
 #include <LocalAuthentication/LAPublicDefines.h>
 #include <coreauthd_spi.h>
@@ -64,7 +66,7 @@
 #define QUERY_KEY_LIMIT  QUERY_KEY_LIMIT_BASE
 #endif
 
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 
 static const uint8_t systemKeychainUUID[] = "\xF6\x23\xAE\x5C\xCC\x81\x4C\xAC\x8A\xD4\xF0\x01\x3F\x31\x35\x11";
 
@@ -85,7 +87,7 @@ SecMUSRGetSystemKeychainUUID(void)
     return systemKeychainData;
 }
 
-#endif //KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#endif //KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 
 CFDataRef
 SecMUSRGetSingleUserKeychainUUID(void)
@@ -174,21 +176,43 @@ SecMUSRGetBothUserAndSystemUUID(CFDataRef musr, uid_t *uid)
     return true;
 }
 
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 bool
 SecMUSRIsMultiuserKeyDiversified(CFDataRef musr)
 {
-    if (CFDataGetLength(musr) != 16)
-        return false;
-    const uint8_t *uuid = CFDataGetBytePtr(musr);
-    if (memcmp(uuid, systemKeychainUUID, 16) == 0 ||
-        memcmp(uuid, activeUserUUIDPrefix, 12) == 0 ||
-        memcmp(uuid, syncBubbleUserUUIDPrefix, 12) == 0 ||
-        memcmp(uuid, bothUserAndSystemUUID, 12) == 0) {
+    if (!musr || CFDataGetLength(musr) != sizeof(uuid_t)) {
         return false;
     }
+
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN || KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    const uint8_t *uuid = CFDataGetBytePtr(musr);
+#endif
+
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+    if (memcmp(uuid, systemKeychainUUID, 16) == 0) {
+        return false;
+    }
+#endif
+
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+    if (memcmp(uuid, activeUserUUIDPrefix, 12) == 0) {
+        return false;
+    }
+
+    if (memcmp(uuid, syncBubbleUserUUIDPrefix, 12) == 0) {
+        return false;
+    }
+
+    if (memcmp(uuid, bothUserAndSystemUUID, 12) == 0) {
+        return false;
+    }
+#endif // KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+
     return true;
 }
-#endif
+#endif // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 
 /* Inline accessors to attr and match values in a query. */
 CFIndex query_attr_count(const Query *q)
@@ -623,7 +647,7 @@ static void query_add_use(const void *key, const void *value, Query *q)
 {
     // Gotta use a string literal because we just outlawed this symbol on iOS
     if (CFEqual(key, CFSTR("u_ItemList"))) {
-        /* TODO: Add sanity checking when we start using this. */
+        /* TODO: Add integrity checking when we start using this. */
         q->q_use_item_list = value;
     } else if (CFEqual(key, kSecUseTombstones)) {
         if (CFGetTypeID(value) == CFBooleanGetTypeID()) {
@@ -655,8 +679,33 @@ static void query_add_use(const void *key, const void *value, Query *q)
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         q->q_keybag = KEYBAG_DEVICE;
 #endif
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        q->q_system_keychain = true;
+        if (q->q_system_keychain == SystemKeychainFlag_ALWAYS) {
+            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychainAlways, kSecUseSystemKeychain);
+            return;
+        }
+        q->q_system_keychain = SystemKeychainFlag_EDUMODE;
+#endif
+#if TARGET_OS_TV
+    } else if (CFEqual(key, kSecUseUserIndependentKeychain) && (CFEqual(value, kCFBooleanTrue) || (CFGetTypeID(value) == CFNumberGetTypeID() && CFBooleanGetValue(value)) || (CFGetTypeID(value) == CFStringGetTypeID() && CFStringGetIntValue(value)))) {
+#if !TARGET_OS_SIMULATOR
+        q->q_keybag = KEYBAG_DEVICE;
+#endif
+        q->q_system_keychain = SystemKeychainFlag_ALWAYS;
+#else
+    } else if (_SecSystemKeychainAlwaysIsEnabled() && CFEqual(key, kSecUseSystemKeychainAlways)) {
+        if (q->q_system_keychain == SystemKeychainFlag_EDUMODE) {
+            SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: can't specify both %@ and %@"), kSecUseSystemKeychain, kSecUseSystemKeychainAlways);
+            return;
+        }
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+        q->q_keybag = KEYBAG_DEVICE;
+#endif
+        q->q_system_keychain = SystemKeychainFlag_ALWAYS;
+#endif
+#endif // KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     } else if (CFEqual(key, kSecUseSyncBubbleKeychain)) {
         if (isNumber(value) && CFNumberGetValue(value, kCFNumberSInt32Type, &q->q_sync_bubble) && q->q_sync_bubble > 0) {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -715,7 +764,7 @@ static void query_add_value(const void *key, const void *value, Query *q)
 #ifdef NO_SERVER
     } else if (CFEqual(key, kSecValueRef)) {
         q->q_ref = value;
-        /* TODO: Add value type sanity checking. */
+        /* TODO: Add value type checking. */
 #endif
     } else if (CFEqual(key, kSecValuePersistentRef)) {
         CFStringRef c_name = NULL;

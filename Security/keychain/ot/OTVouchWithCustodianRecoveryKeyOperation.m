@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <utilities/debugging.h>
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ot/OTVouchWithCustodianRecoveryKeyOperation.h"
 #import "keychain/ot/OTStates.h"
@@ -75,27 +76,17 @@
     self.finishOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishOp];
 
-    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:nil];
-    if(altDSID){
-        secnotice("octagon", "using auth kit adapter, altdsid is: %@", altDSID);
-        self.salt = altDSID;
-    } else {
-        NSError* accountError = nil;
-        OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
-
-        if(account && !accountError) {
-            secnotice("octagon", "retrieved account, altdsid is: %@", account.altDSID);
-            self.salt = account.altDSID;
-        } else {
-            if (accountError == nil) {
-                accountError = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain code:errSecInternalError userInfo:nil];
-            }
-            secerror("failed to retrieve account object: %@", accountError);
-            self.error = accountError;
-            [self runBeforeGroupFinished:self.finishOp];
-            return;
-        }
+    NSString* altDSID = self.deps.activeAccount.altDSID;
+    if(altDSID == nil) {
+        secnotice("authkit", "No configured altDSID: %@", self.deps.activeAccount);
+        self.error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoAppleAccount
+                                  description:@"No altDSID configured"];
+        [self runBeforeGroupFinished:self.finishOp];
+        return;
     }
+
+    self.salt = altDSID;
 
     self.tphcrk = [[TrustedPeersHelperCustodianRecoveryKey alloc] initWithUUID:self.crk.uuid.UUIDString
                                                                  encryptionKey:nil
@@ -106,12 +97,11 @@
 
     // First, let's preflight the vouch (to receive a policy and view set to use for TLK fetching
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper preflightVouchWithCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                                context:self.deps.contextID
-                                                                                    crk:self.tphcrk
-                                                                                  reply:^(NSString * _Nullable recoveryKeyID,
-                                                                                          TPSyncingPolicy* _Nullable peerSyncingPolicy,
-                                                                                          NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper preflightVouchWithCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                                       crk:self.tphcrk
+                                                                                     reply:^(NSString * _Nullable recoveryKeyID,
+                                                                                             TPSyncingPolicy* _Nullable peerSyncingPolicy,
+                                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithCustodianRecoveryKey hardFailure:true result:error];
 
@@ -136,10 +126,9 @@
 {
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithContainer:self.deps.containerName
-                                                                   context:self.deps.contextID
-                                                                    peerID:recoveryKeyID
-                                                                     reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithSpecificUser:self.deps.activeAccount
+                                                                       peerID:recoveryKeyID
+                                                                        reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
         STRONGIFY(self);
 
         if(error) {
@@ -150,7 +139,7 @@
         NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];
         for(CKRecord* record in keyHierarchyRecords) {
             if([record.recordType isEqual:SecCKRecordTLKShareType]) {
-                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
                 [filteredTLKShares addObject:tlkShare.share];
             }
         }
@@ -163,15 +152,14 @@
 {
     WEAKIFY(self);
 
-    [self.deps.cuttlefishXPCWrapper vouchWithCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                       context:self.deps.contextID
-                                                                           crk:self.tphcrk
-                                                                     tlkShares:tlkShares
-                                                                         reply:^(NSData * _Nullable voucher,
-                                                                                 NSData * _Nullable voucherSig,
-                                                                                 NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
-                                                                                 TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                                                 NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper vouchWithCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                              crk:self.tphcrk
+                                                                        tlkShares:tlkShares
+                                                                            reply:^(NSData * _Nullable voucher,
+                                                                                    NSData * _Nullable voucherSig,
+                                                                                    NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                                    NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithCustodianRecoveryKey hardFailure:true result:error];
         if(error){

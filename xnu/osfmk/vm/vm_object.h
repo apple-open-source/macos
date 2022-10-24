@@ -68,7 +68,6 @@
 
 #include <debug.h>
 #include <mach_assert.h>
-#include <mach_pagemap.h>
 
 #include <mach/kern_return.h>
 #include <mach/boolean.h>
@@ -633,10 +632,6 @@ MACRO_END
 __private_extern__ void         vm_object_deallocate(
 	vm_object_t     object);
 
-__private_extern__ kern_return_t vm_object_release_name(
-	vm_object_t     object,
-	int             flags);
-
 __private_extern__ void         vm_object_pmap_protect(
 	vm_object_t             object,
 	vm_object_offset_t      offset,
@@ -704,7 +699,8 @@ __private_extern__ boolean_t    vm_object_coalesce(
 __private_extern__ boolean_t    vm_object_shadow(
 	vm_object_t             *object,
 	vm_object_offset_t      *offset,
-	vm_object_size_t        length);
+	vm_object_size_t        length,
+	boolean_t               always_shadow);
 
 __private_extern__ void         vm_object_collapse(
 	vm_object_t             object,
@@ -1139,8 +1135,10 @@ extern void     vm_object_cache_remove(vm_object_t);
 extern int      vm_object_cache_evict(int, int);
 
 #define VM_OBJECT_OWNER_DISOWNED ((task_t) -1)
+#define VM_OBJECT_OWNER_UNCHANGED ((task_t) -2)
 #define VM_OBJECT_OWNER(object)                                         \
-	((((object)->purgable == VM_PURGABLE_DENY &&                    \
+	((object == VM_OBJECT_NULL ||                                   \
+	  ((object)->purgable == VM_PURGABLE_DENY &&                    \
 	   (object)->vo_ledger_tag == 0) ||                             \
 	  (object)->vo_owner == TASK_NULL)                              \
 	 ? TASK_NULL    /* not owned */                                 \

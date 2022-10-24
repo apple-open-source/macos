@@ -63,6 +63,9 @@ typedef NS_ENUM(NSInteger, WKErrorCode) {
     WKErrorJavaScriptInvalidFrameTarget WK_API_AVAILABLE(macos(11.0), ios(14.0)),
     WKErrorNavigationAppBoundDomain WK_API_AVAILABLE(macos(11.0), ios(14.0)),
     WKErrorJavaScriptAppBoundDomain WK_API_AVAILABLE(macos(11.0), ios(14.0)),
+    WKErrorDuplicateCredential WK_API_AVAILABLE(macos(13.0), ios(16.0)),
+    WKErrorMalformedCredential WK_API_AVAILABLE(macos(13.0), ios(16.0)),
+    WKErrorCredentialNotFound WK_API_AVAILABLE(macos(13.0), ios(16.0)),
 } WK_API_AVAILABLE(macos(10.10), ios(8.0));
 
 NS_ASSUME_NONNULL_END

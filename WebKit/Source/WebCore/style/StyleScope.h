@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include "LayoutSize.h"
 #include "MediaQueryEvaluator.h"
 #include "StyleScopeOrdinal.h"
 #include "Timer.h"
@@ -38,6 +39,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -45,6 +47,7 @@ namespace WebCore {
 class CSSStyleSheet;
 class Document;
 class Element;
+class WeakPtrImplWithEventTargetData;
 class HTMLSlotElement;
 class Node;
 class ProcessingInstruction;
@@ -105,6 +108,8 @@ public:
     // The change is assumed to potentially affect all author and user stylesheets including shadow roots.
     WEBCORE_EXPORT void didChangeStyleSheetEnvironment();
 
+    void didChangeViewportSize();
+
     void invalidateMatchedDeclarationsCache();
 
     bool hasPendingUpdate() const { return m_pendingUpdate || m_hasDescendantWithPendingUpdate; }
@@ -125,7 +130,13 @@ public:
     ShadowRoot* shadowRoot() { return m_shadowRoot; }
 
     static Scope& forNode(Node&);
+    static const Scope& forNode(const Node&);
     static Scope* forOrdinal(Element&, ScopeOrdinal);
+
+    struct QueryContainerUpdateContext {
+        HashSet<Element*> invalidatedContainers;
+    };
+    bool updateQueryContainerState(QueryContainerUpdateContext&);
 
 private:
     Scope& documentScope();
@@ -179,7 +190,7 @@ private:
 
     Timer m_pendingUpdateTimer;
 
-    mutable std::unique_ptr<HashSet<const CSSStyleSheet*>> m_weakCopyOfActiveStyleSheetListForFastLookup;
+    mutable HashSet<const CSSStyleSheet*> m_weakCopyOfActiveStyleSheetListForFastLookup;
 
     // Track the currently loading top-level stylesheets needed for rendering.
     // Sheets loaded using the @import directive are not included in this count.
@@ -201,6 +212,7 @@ private:
     bool m_isUpdatingStyleResolver { false };
 
     std::optional<MediaQueryViewportState> m_viewportStateOnPreviousMediaQueryEvaluation;
+    WeakHashMap<Element, LayoutSize, WeakPtrImplWithEventTargetData> m_queryContainerStates;
 
     // FIXME: These (and some things above) are only relevant for the root scope.
     HashMap<ResolverSharingKey, Ref<Resolver>> m_sharedShadowTreeResolvers;

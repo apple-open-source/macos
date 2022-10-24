@@ -9,6 +9,7 @@
 			<string>du.c: set NOCHDIR (4924219)</string>
 			<string>du.c: prevent materializing dataless directories upon traversal (44903941)</string>
 			<string>du.c: don't cd in /dev/fd/</string>
+			<string>du.c: don't ignore errors on stdout (89147045)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>du</string>

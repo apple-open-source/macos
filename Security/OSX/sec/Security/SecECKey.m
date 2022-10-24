@@ -365,7 +365,7 @@ static CFDataRef SecECKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataR
     err = ccec_rfc6637_wrap_key(pubkey, CFDataGetMutableBytePtr(data), flags,
                                 sym_alg, CFDataGetLength(unwrappedKey), CFDataGetBytePtr(unwrappedKey),
                                 curve, wrap, CFDataGetBytePtr(fingerprint),
-                                ccrng_seckey);
+                                ccrng_seckey());
     if (err) {
         SecError(errSecUnsupportedOperation, error, CFSTR("Failed to wrap key"));
         CFReleaseNull(data);
@@ -486,7 +486,7 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
             return errSecKeySizeNotAllowed;
         }
 
-        if (!ccec_generate_key_fips(cp, ccrng_seckey, fullkey))
+        if (!ccec_generate_key_fips(cp, ccrng_seckey(), fullkey))
             err = errSecSuccess;
         break;
     }
@@ -513,7 +513,7 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                     size_t size = ccec_sign_max_size(ccec_ctx_cp(fullkey));
                     result = CFDataCreateMutableWithScratch(NULL, size);
                     int err = ccec_sign(fullkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
-                                        &size, CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey);
+                                        &size, CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey());
                     require_action_quiet(err == 0, out, (CFReleaseNull(result),
                                                          SecError(errSecParam, error, CFSTR("%@: X962 signing failed (ccerr %d)"),
                                                                   key, err)));
@@ -540,7 +540,7 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                     size_t size = ccec_ccn_size(cp);
                     result = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), size);
                     err = ccecdh_compute_shared_secret(fullkey, pubkey, &size,
-                                                       CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey);
+                                                       CFDataGetMutableBytePtr((CFMutableDataRef)result), ccrng_seckey());
                     require_noerr_action_quiet(err, out, (CFReleaseNull(result),
                                                           SecError(errSecDecode, error,
                                                                    CFSTR("ECpriv failed to compute shared secret (err %d)"), err)));

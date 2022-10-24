@@ -1,7 +1,7 @@
 #if OCTAGON
 
 extension OctagonPairingTests {
-    func test2ClientsBothOctagonAndSOS() {
+    func test2ClientsBothOctagonAndSOS() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -12,10 +12,10 @@ extension OctagonPairingTests {
         let initiator2Context = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: initiator2ContextID,
                                                      sosAdapter: self.mockSOSAdapter,
+                                                     accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         initiator1Context.startOctagonStateMachine()
@@ -28,15 +28,13 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
-        let clientStateMachine2 = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: "initiator-2")
-
         let (acceptor2, initiator2) = self.setupPairingEndpoints(withPairNumber: "2", initiatorContextID: initiator2ContextID, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: "initiator-2", acceptorUniqueID: "acceptor-1")
 
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
         var signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -139,12 +137,10 @@ extension OctagonPairingTests {
         self.wait(for: [fourthInitiatorCallback], timeout: 10)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -159,7 +155,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -177,7 +173,7 @@ extension OctagonPairingTests {
          SECOND PAIRING
          */
         signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: initiator2ContextID) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -279,13 +275,13 @@ extension OctagonPairingTests {
 
         self.wait(for: [pair2FourthInitiatorCallback], timeout: 10)
 
-        clientStateMachine2.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         XCTAssertNil(initiator2Context.pairingUUID, "pairingUUID should be nil")
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -300,7 +296,7 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -319,7 +315,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
     }
 
-    func test2ClientsOctagonOnly() {
+    func test2ClientsOctagonOnly() throws {
         OctagonSetPlatformSupportsSOS(false)
         self.startCKAccountStatusMock()
 
@@ -330,10 +326,10 @@ extension OctagonPairingTests {
         let initiator2Context = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: initiator2ContextID,
                                                      sosAdapter: self.mockSOSAdapter,
+                                                     accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         initiator1Context.startOctagonStateMachine()
@@ -346,15 +342,13 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
-        let clientStateMachine2 = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: "initiator-2")
-
         let (acceptor2, initiator2) = self.setupPairingEndpoints(withPairNumber: "2", initiatorContextID: initiator2ContextID, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: "initiator-2", acceptorUniqueID: "acceptor-1")
 
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
         var signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -430,12 +424,10 @@ extension OctagonPairingTests {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -450,7 +442,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -468,7 +460,7 @@ extension OctagonPairingTests {
          SECOND PAIRING
          */
         signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: initiator2ContextID) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -545,10 +537,10 @@ extension OctagonPairingTests {
         XCTAssertNil(initiator2Context.pairingUUID, "pairingUUID should be nil")
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
-        clientStateMachine2.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -563,7 +555,7 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -582,7 +574,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
     }
 
-    func test2ClientsInterlacedOctagonAndSOS() {
+    func test2ClientsInterlacedOctagonAndSOS() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -593,10 +585,10 @@ extension OctagonPairingTests {
         let initiator2Context = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: initiator2ContextID,
                                                      sosAdapter: self.mockSOSAdapter,
+                                                     accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         initiator1Context.startOctagonStateMachine()
@@ -609,15 +601,13 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
-        let clientStateMachine2 = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: "initiator-2")
-
         let (acceptor2, initiator2) = self.setupPairingEndpoints(withPairNumber: "2", initiatorContextID: initiator2ContextID, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: "initiator-2", acceptorUniqueID: "acceptor-1")
 
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
         var signInCallback = self.expectation(description: "trigger sign in for initiator one")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -652,7 +642,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptorFirstPacket, "first packet should not be nil")
 
         signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: initiator2ContextID) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -746,12 +736,10 @@ extension OctagonPairingTests {
         self.wait(for: [pair2SecondInitiatorCallback], timeout: 10)
         XCTAssertNotNil(pair2InitiatorSecondPacket, "pair2InitiatorSecondPacket should not be nil")
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -766,7 +754,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -808,14 +796,13 @@ extension OctagonPairingTests {
         self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
         XCTAssertNotNil(pair2InitiatorThirdPacket, "acceptor second packet should not be nil")
 
-        clientStateMachine2.notifyContainerChange()
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         XCTAssertNil(initiator2Context.pairingUUID, "pairingUUID should be nil")
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -830,7 +817,7 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -845,7 +832,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 3, "should be 3 bottles")
 
         let initiatorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.trustStatus(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { egoStatus, error in
+        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { egoStatus, error in
             XCTAssertEqual(egoStatus.egoStatus.rawValue & TPPeerStatus.partiallyReciprocated.rawValue, TPPeerStatus.partiallyReciprocated.rawValue, "initiator should be partially accepted")
             XCTAssertNotNil(egoStatus.egoPeerID, "should have an identity")
             XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 2, "should have 2 peers")
@@ -857,7 +844,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorStatus], timeout: 10)
 
         let acceptorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.trustStatus(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {egoStatus, error in
+        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) {egoStatus, error in
             XCTAssertEqual(egoStatus.egoStatus.rawValue & TPPeerStatus.partiallyReciprocated.rawValue, TPPeerStatus.partiallyReciprocated.rawValue, "acceptor should be partially accepted")
             XCTAssertNotNil(egoStatus.egoPeerID, "should have an identity")
             XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 3, "should have 2 peers")
@@ -873,7 +860,7 @@ extension OctagonPairingTests {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func test2ClientsInterlacedOctagonOnly() {
+    func test2ClientsInterlacedOctagonOnly() throws {
         OctagonSetPlatformSupportsSOS(false)
         self.startCKAccountStatusMock()
 
@@ -884,10 +871,10 @@ extension OctagonPairingTests {
         let initiator2Context = self.manager.context(forContainerName: OTCKContainerName,
                                                      contextID: initiator2ContextID,
                                                      sosAdapter: self.mockSOSAdapter,
+                                                     accountsAdapter: self.mockAuthKit2,
                                                      authKitAdapter: self.mockAuthKit2,
                                                      tooManyPeersAdapter: self.mockTooManyPeers,
                                                      lockStateTracker: self.lockStateTracker,
-                                                     accountStateTracker: self.accountStateTracker,
                                                      deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-initiator-2", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         initiator1Context.startOctagonStateMachine()
@@ -900,15 +887,13 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor, "acceptor should not be nil")
         XCTAssertNotNil(initiator, "initiator should not be nil")
 
-        let clientStateMachine2 = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: "initiator-2")
-
         let (acceptor2, initiator2) = self.setupPairingEndpoints(withPairNumber: "2", initiatorContextID: initiator2ContextID, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: "initiator-2", acceptorUniqueID: "acceptor-1")
 
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
         var signInCallback = self.expectation(description: "trigger sign in for initiator one")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -943,7 +928,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptorFirstPacket, "first packet should not be nil")
 
         signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: initiator2ContextID) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1035,14 +1020,12 @@ extension OctagonPairingTests {
         self.wait(for: [pair2SecondInitiatorCallback], timeout: 10)
         XCTAssertNotNil(pair2InitiatorSecondPacket, "pair2InitiatorSecondPacket should not be nil")
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1057,7 +1040,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1099,12 +1082,10 @@ extension OctagonPairingTests {
         self.wait(for: [pair2ThirdInitiatorCallback], timeout: 10)
         XCTAssertNil(pair2InitiatorThirdPacket, "acceptor second packet should be nil")
 
-        clientStateMachine2.notifyContainerChange()
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1119,7 +1100,7 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1134,7 +1115,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 3, "should be 3 bottles")
 
         let initiatorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.trustStatus(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {egoStatus, error in
+        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) {egoStatus, error in
             XCTAssertEqual(egoStatus.egoStatus.rawValue & TPPeerStatus.partiallyReciprocated.rawValue, TPPeerStatus.partiallyReciprocated.rawValue, "initiator should be partially accepted")
             XCTAssertNotNil(egoStatus.egoPeerID, "should have an identity")
             XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 2, "should be 2 peers")
@@ -1146,7 +1127,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorStatus], timeout: 10)
 
         let acceptorStatus = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.trustStatus(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {egoStatus, error in
+        self.tphClient.trustStatus(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) {egoStatus, error in
             XCTAssertEqual(egoStatus.egoStatus.rawValue & TPPeerStatus.partiallyReciprocated.rawValue, TPPeerStatus.partiallyReciprocated.rawValue, "acceptor should be partially accepted")
             XCTAssertNotNil(egoStatus.egoPeerID, "should have an identity")
             XCTAssertEqual(egoStatus.numberOfPeersInOctagon, 3, "should be 3 peers")

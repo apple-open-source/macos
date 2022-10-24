@@ -1,8 +1,8 @@
-"system.preferences.accounts" = "__APPNAME__ is trying to unlock Users & Groups preferences.";
+"system.preferences.accounts" = "__APPNAME__ is trying to unlock Users & Groups settings.";
 
 "com.apple.SoftwareUpdate.scan" = "__APPNAME__ is trying to check for new Apple software.";
 
-"system.preferences.datetime" = "__APPNAME__ is trying to unlock the Date & Time preferences.";
+"system.preferences.datetime" = "__APPNAME__ is trying to unlock the Date & Time settings.";
 
 "system.identity.write.credential" = "__APPNAME__ is trying to update the authentication credentials.";
 
@@ -30,7 +30,7 @@
 
 "com.apple.library-repair" = "__APPNAME__ is trying to repair your photo library.";
 
-"com.apple.XType.fontmover.restore" = "__APPNAME__ is trying to restore the default system fonts.";
+"com.apple.XType.fontmover.restore" = "__APPNAME__ is trying to restore the standard system font configuration.";
 
 "system.csfde.requestpassword" = "__APPNAME__ needs to unlock your disk.";
 
@@ -44,15 +44,15 @@
 
 "com.apple.Safari.allow-javascript-in-smart-search-field" = "__APPNAME__ is trying to allow JavaScript to be used in the Smart Search Field.";
 
-"system.sharepoints." = "__APPNAME__ is trying to modify Sharing preferences.";
+"system.sharepoints." = "__APPNAME__ is trying to modify Sharing settings.";
 
-"system.preferences.energysaver" = "__APPNAME__ is trying to unlock the Energy Saver preferences.";
+"system.preferences.energysaver" = "__APPNAME__ is trying to unlock the Energy Saver settings.";
 
 "system.install.apple-software" = "__APPNAME__ is trying to install Apple software.";
 
 "system.install.apple-software.standard-user" = "__APPNAME__ is trying to install Apple software.";
 
-"com.apple.security.assessment.update" = "You are overriding your security preferences to install an app from an unidentified developer.";
+"com.apple.security.assessment.update" = "You are overriding your security settings to install an app from an unidentified developer.";
 
 "com.apple.docset.install" = "__APPNAME__ is trying to update the developer documentation.";
 
@@ -64,7 +64,7 @@
 
 "system.device.dvd.setregion.initial" = "__APPNAME__ is trying to set the DVD region code for the first time.";
 
-"system.preferences.network" = "__APPNAME__ is trying to unlock the Network preferences.";
+"system.preferences.network" = "__APPNAME__ is trying to unlock the Network settings.";
 
 "system.identity.write." = "__APPNAME__ is trying to update the set of local users.";
 
@@ -72,25 +72,25 @@
 
 "com.apple.trust-settings.user" = "You are making changes to your Certificate Trust Settings.";
 
-"system.preferences.printing" = "__APPNAME__ is trying to unlock the Printers & Scanners preferences.";
+"system.preferences.printing" = "__APPNAME__ is trying to unlock the Printers & Scanners settings.";
 
 "system.hdd.smart" = "__APPNAME__ is trying to modify the diagnostic settings for your hard drive.";
 
 "system.print.admin" = "__APPNAME__ is trying to modify the printer settings.";
 
-"system.preferences.accessibility" = "__APPNAME__ is trying to unlock Accessibility preferences.";
+"system.preferences.accessibility" = "__APPNAME__ is trying to unlock Accessibility settings.";
 
 "com.apple.activitymonitor.kill" = "__APPNAME__ is trying to quit the selected process.";
 
 "system.burn" = "__APPNAME__ is trying to burn a disc.";
 
-"system.preferences.sharing" = "__APPNAME__ is trying to unlock the Sharing preferences.";
+"system.preferences.sharing" = "__APPNAME__ is trying to unlock the Sharing settings.";
 
-"system.preferences.parental-controls" = "__APPNAME__ is trying to unlock Screen Time preferences.";
+"system.preferences.parental-controls" = "__APPNAME__ is trying to unlock Screen Time settings.";
 
-"system.preferences.security" = "__APPNAME__ is trying to unlock Security & Privacy preferences.";
+"system.preferences.security" = "__APPNAME__ is trying to unlock Privacy & Security settings.";
 
-"system.preferences.startupdisk" = "__APPNAME__ is trying to unlock the Startup Disk preferences.";
+"system.preferences.startupdisk" = "__APPNAME__ is trying to unlock the Startup Disk settings.";
 
 "com.apple.ServiceManagement.daemons.modify" = "__APPNAME__ is trying to add a new helper tool.";
 
@@ -104,11 +104,11 @@
 
 "system.install.app-store-software.standard-user" = "__APPNAME__ is trying to install software.";
 
-"system.preferences.version-cue" = "__APPNAME__ is trying to modify the Version Cue preferences.";
+"system.preferences.version-cue" = "__APPNAME__ is trying to modify the Version Cue settings.";
 
 "system.preferences" = "__APPNAME__ is trying to modify your system settings.";
 
-"com.apple.SoftwareUpdate.modify-settings" = "__APPNAME__ is trying to unlock the Software Update preferences.";
+"com.apple.SoftwareUpdate.modify-settings" = "__APPNAME__ is trying to unlock the Software Update settings.";
 
 "com.apple.uninstalld.uninstall" = "__APPNAME__ is trying to delete an application.";
 
@@ -118,21 +118,21 @@
 
 "system.preferences.security.remotepair" = "__APPNAME__ is trying to pair the remote.";
 
-"com.apple.XType.fontmover.remove" = "__APPNAME__ is trying to remove existing system fonts.";
+"com.apple.XType.fontmover.remove" = "__APPNAME__ is trying to remove existing fonts available to all users.";
 
 "system.global-login-items." = "__APPNAME__ is trying to add a login item.";
 
 "com.apple.server.admin.streaming" = "__APPNAME__ is trying to modify the QuickTime Streaming Server settings.";
 
-"system.preferences.softwareupdate" = "__APPNAME__ is trying to unlock the Software Update preferences.";
+"system.preferences.softwareupdate" = "__APPNAME__ is trying to unlock the Software Update settings.";
 
 "system.keychain.modify" = "__APPNAME__ is trying to modify the system keychain.";
 
-"com.apple.XType.fontmover.install" = "__APPNAME__ is trying to install new system fonts.";
+"com.apple.XType.fontmover.install" = "__APPNAME__ is trying to install fonts that will be available to all users.";
 
 "system.services.directory.configure" = "__APPNAME__ is trying to modify the Directory Services configuration.";
 
-"system.preferences.timemachine" = "__APPNAME__ is trying to unlock the Time Machine preferences.";
+"system.preferences.timemachine" = "__APPNAME__ is trying to unlock the Time Machine settings.";
 
 "com.apple.appserver.privilege.user" = "__APPNAME__ is trying to modify your Application Server settings.";
 
@@ -144,7 +144,7 @@
 
 "com.apple.AOSNotification.FindMyMac.remove" = "__APPNAME__ is trying to turn off Find My Mac.";
 
-"com.apple.iBooksX.ParentalControl" = "__APPNAME__ is trying to unlock Screen Time preferences.";
+"com.apple.iBooksX.ParentalControl" = "__APPNAME__ is trying to unlock Screen Time settings.";
 
 "system.services.networkextension.vpn" = "__APPNAME__ is trying to modify the VPN configuration.";
 
@@ -152,7 +152,7 @@
 
 "com.apple.iCloud.passwordReset" = "__APPNAME__ wants to reset your Apple ID password. This Mac can be used to reset your password because you are signed into iCloud on it.";
 
-"system.preferences.continuity" = "__APPNAME__ is trying to unlock the Touch ID preferences.";
+"system.preferences.continuity" = "__APPNAME__ is trying to unlock the Touch ID settings.";
 
 "com.apple.ctkbind.admin" = "__APPNAME__ is trying to pair the current user with the SmartCard identity.";
 
@@ -174,7 +174,7 @@
 
 "com.apple.system-extensions.admin" = "__APPNAME__ is trying to modify a System Extension.";
 
-"com.apple.tcc.util.admin" = "__APPNAME__ is trying to modify your Security & Privacy settings.";
+"com.apple.tcc.util.admin" = "__APPNAME__ is trying to modify your Privacy & Security settings.";
 
 "com.apple.configurationprofiles.deviceenrollment.install" = "__APPNAME__ is trying to enroll you in a remote management (MDM) service.";
 

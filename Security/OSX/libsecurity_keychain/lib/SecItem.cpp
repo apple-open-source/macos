@@ -85,6 +85,8 @@ bool _SecItemParsePersistentRef(CFDataRef persistent_ref, CFStringRef *return_cl
 static Boolean SecItemSynchronizable(CFDictionaryRef query);
 static CFArrayRef _CopyMatchingIssuers(CFArrayRef issuers);
 
+static void secitemlog(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));
+
 static void secitemlog(int priority, const char *format, ...)
 {
 #ifndef NDEBUG
@@ -517,7 +519,7 @@ static void* CloneDataByType(ItemRepresentation type, CFTypeRef value, UInt32& l
 				return NULL;
 			}
 			char* buffer = (char*) calloc(1, 32); // max length of a CSSM date string
-			CSSMDateTimeUtils::CFDateToCssmDate((CFDateRef) value, buffer);
+			CSSMDateTimeUtils::CFDateToCssmDate((CFDateRef) value, buffer, 32);
 			length = (UInt32)strlen(buffer);
 			return buffer;
 		}
@@ -2304,7 +2306,7 @@ _ReplaceKeychainItem(
 	SecKeychainItemRef newItem = NULL;
 
 	int priority = LOG_DEBUG;
-	const char *format = "ReplaceKeychainItem (%d) error %d";
+	const char *const format = "ReplaceKeychainItem (%d) error %d";
 
 	// get existing item's keychain
 	status = SecKeychainItemCopyKeychain(itemToUpdate, &keychain);
@@ -4080,6 +4082,7 @@ static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_i
 #pragma clang diagnostic pop
         }
     }
+
 
 	if (useDataProtection != NULL) {
         useDataProtectionKeychainFlag = readNumber(useDataProtection);

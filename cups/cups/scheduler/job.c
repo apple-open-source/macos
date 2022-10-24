@@ -514,7 +514,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 					/* Job title string */
 			copies[255],	/* # copies string */
 			*options,	/* Options string */
-			*envp[MAX_ENV + 21],
+			*envp[MAX_ENV + 25],
 					/* Environment variables */
 			charset[255],	/* CHARSET env variable */
 			class_name[255],/* CLASS env variable */
@@ -895,6 +895,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 
   sprintf(jobid, "%d", job->id);
 
+  // REMINDSMA: See my comment below, re: Anger
   argv[0] = job->printer->name;
   argv[1] = jobid;
   argv[2] = job->username;
@@ -1040,6 +1041,17 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
     strlcpy(auth_info_required, "AUTH_INFO_REQUIRED=none",
 	    sizeof(auth_info_required));
 
+  // You know, there's a place up above that carefully defines
+  // envp as being MAX_ENV (100) + (now) 25.
+  // And I bet cupsdLoadEnv doesn't know that.
+  // As a side effect of cupsdLoadEnv's implementation
+  // there may be no more than MAX_ENV, but this invocation
+  // is telling cupsdLoadEnv that there is MAX_ENV + 25 (today!)
+  // and I will bet you a color stylewriter that this is going
+  // to bite someone in the future.  SO I leave this comment here
+  // in the hopes that someone down the line, will search and find that
+  // 25 (was 22!  Up from 21!) is a magic constant that will make
+  // their lives just a little more miserable.
   envc = cupsdLoadEnv(envp, (int)(sizeof(envp) / sizeof(envp[0])));
 
   envp[envc ++] = charset;
@@ -1087,6 +1099,30 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 
   envp[envc ++] = auth_info_required;
 
+#define OAUTH_URI_EQUALS    "AUTH_OAUTH_URI="
+#define OAUTH_SCOPE_EQUALS  "AUTH_OAUTH_SCOPE="
+#define SOURCE_APP_EQUALS   "APPLE_SOURCE_APP="
+
+  char oauth_uri[IPP_MAX_URI            + strlen(OAUTH_URI_EQUALS)];
+  char oauth_scope[IPP_MAX_OCTETSTRING  + strlen(OAUTH_SCOPE_EQUALS)];
+  char source_app[IPP_MAX_URI           + strlen(SOURCE_APP_EQUALS)];
+
+  if (strstr(auth_info_required, "oauth") != NULL) {
+    if (job->printer->oauth_uri) {
+      snprintf(oauth_uri, sizeof(oauth_uri), "%s%s", OAUTH_URI_EQUALS, job->printer->oauth_uri);
+      envp[envc ++] = oauth_uri;
+    }
+    if (job->printer->oauth_scope) {
+      snprintf(oauth_scope, sizeof(oauth_scope), "%s%s", OAUTH_SCOPE_EQUALS, job->printer->oauth_scope);
+      envp[envc ++] = oauth_scope;
+    }
+  }
+
+  if (job->printer->source_app) {
+    snprintf(source_app, sizeof(source_app), "%s%s", SOURCE_APP_EQUALS, job->printer->source_app);
+    envp[envc ++] = source_app;
+  }
+
   for (i = 0;
        i < (int)(sizeof(job->auth_env) / sizeof(job->auth_env[0]));
        i ++)
@@ -1097,6 +1133,8 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 
   if (job->auth_uid)
     envp[envc ++] = job->auth_uid;
+  if (job->auth_bearer_uid)
+    envp[envc ++] = job->auth_bearer_uid;
 
   envp[envc] = NULL;
 
@@ -1304,6 +1342,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 
   cupsdClosePipe(filterfds[slot]);
 
+  // REMINDSMA: This makes me unreasonably angry
   for (i = 6; i < argc; i ++)
     free(argv[i]);
   free(argv);
@@ -1401,6 +1440,7 @@ cupsdDeleteJob(cupsd_job_t       *job,	/* I - Job */
        i ++)
     cupsdClearString(job->auth_env + i);
   cupsdClearString(&job->auth_uid);
+  cupsdClearString(&job->auth_bearer_uid);
 
   if (action == CUPSD_JOB_PURGE)
     remove_job_files(job);
@@ -1994,6 +2034,7 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
 	 i ++)
       cupsdClearString(job->auth_env + i);
     cupsdClearString(&job->auth_uid);
+    cupsdClearString(&job->auth_bearer_uid);
 
     if ((fp = cupsFileOpen(jobfile, "r")) != NULL)
     {
@@ -2014,7 +2055,7 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
           * Decode value...
           */
 
-          if (strcmp(line, "negotiate") && strcmp(line, "uid"))
+          if (strcmp(line, "negotiate") && strcmp(line, "uid") && strcmp(line, "bearer_uid"))
           {
 	    bytes = sizeof(data);
 	    httpDecode64_2(data, &bytes, value);
@@ -2029,6 +2070,11 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
             cupsdSetStringf(&job->auth_uid, "AUTH_UID=%s", value);
             continue;
           }
+          else if (!strcmp(line, "bearer_uid"))
+          {
+            cupsdSetStringf(&job->auth_bearer_uid, "AUTH_BEARER_UID=%s", value);
+            continue;
+          }
           else if (i >= (int)(sizeof(job->auth_env) / sizeof(job->auth_env[0])))
             break;
 
@@ -2040,6 +2086,8 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
 	    cupsdSetStringf(job->auth_env + i, "AUTH_PASSWORD=%s", data);
 	  else if (!strcmp(line, "negotiate"))
 	    cupsdSetStringf(job->auth_env + i, "AUTH_NEGOTIATE=%s", value);
+	  else if (!strcmp(line, "oauth"))
+	    cupsdSetStringf(job->auth_env + i, "AUTH_BEARER_TOKEN=%s", value);
 	  else
 	    continue;
 
@@ -2725,6 +2773,7 @@ cupsdSetJobState(
 	  cupsdClearString(job->auth_env + i);
 
 	cupsdClearString(&job->auth_uid);
+	cupsdClearString(&job->auth_bearer_uid);
 
        /*
 	* Remove the print file for good if we aren't preserving jobs or

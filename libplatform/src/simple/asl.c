@@ -54,6 +54,8 @@ OS_ENUM(os_log_type, uint8_t,
 
 #define ASL_LOG_PATH _PATH_LOG
 
+#include "os/internal.h"
+
 extern ssize_t __sendto(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 extern int __gettimeofday(struct timeval *, struct timezone *);
 
@@ -81,7 +83,6 @@ struct asl_context {
 static struct asl_context* _simple_asl_get_context(void);
 static void _simple_asl_init_context(void *ctx);
 static int _simple_asl_connect(const char *log_path);
-static void _simple_asl_connect_once(void * __unused arg);
 int _simple_asl_get_fd(void);
 
 /*
@@ -132,11 +133,39 @@ _simple_asl_connect(const char *log_path)
 	return fd;
 }
 
+#if !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 static void
 _simple_asl_connect_once(void * __unused once_arg)
 {
 	struct asl_context *ctx = _simple_asl_get_context();
+	// Need to check whether we're potentially arriving after
+	// _os_log_simple_reinit_4launchd
+	if (ctx->asl_fd == -1) {
+		ctx->asl_fd = _simple_asl_connect(ASL_LOG_PATH);
+	}
+}
+#endif
+
+void
+_os_log_simple_reinit_4launchd(void)
+{
+#if TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
+	// nothing to do; the regular setup flow should work because the connection
+	// attempt won't happen until IOS_SIMULATOR_SYSLOG_SOCKET is set in the
+	// environment, which launchd doesn't do until after the socket is ready to
+	// connect
+#else
+	struct asl_context *ctx = _simple_asl_get_context();
+	if (!ctx->asl_enabled) {
+		return;
+	}
+
+	if (ctx->asl_fd != -1) {
+		__LIBPLATFORM_CLIENT_CRASH__(ctx->asl_fd, "asl fd already initialized");
+	}
+
 	ctx->asl_fd = _simple_asl_connect(ASL_LOG_PATH);
+#endif
 }
 
 int

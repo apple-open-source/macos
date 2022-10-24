@@ -1,0 +1,4 @@
+//  Copyright © 2022 Apple Inc. All rights reserved.
+OTHER_LDFLAGS = $(inherited) -lCrashReporterClient
+INSTALL_PATH = /usr/local/libexec
+INSTALL_PATH[sdk=macosx*] = /usr/libexec

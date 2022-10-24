@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,9 @@
 #include <CoreTelephony/CTSimSupportStrings.h>
 #include <MobileWiFi/MobileWiFi.h>
 #include "SIMAccessPrivate.h"
+#include <notify.h>
+#include <MobileKeyBag/UserManager.h>
+#include <os/feature_private.h>
 #endif /* TARGET_OS_IPHONE */
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
@@ -156,7 +159,6 @@ is_console_user(uid_t check_uid)
     return (TRUE);
 }
 
-static CFTypeRef        S_SIMAccessConnection = NULL;
 static Boolean          S_wifi_power_state;
 
 #else /* TARGET_OS_IPHONE */
@@ -1805,17 +1807,16 @@ accept_types_valid_aka_or_sim(CFArrayRef accept)
 	return FALSE;
 }
 
-void
-sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
+static void
+sim_status_handle_change(CFStringRef status)
 {
-    if (status == NULL) {
-	return;
-    }
+    eapolClientRef	client;
+
+    EAPLOG(LOG_DEBUG, "SIM status %@", status);
     if (CFEqual(status, kCTSIMSupportSIMStatusNotInserted) == FALSE) {
 	return;
     }
-    EAPLOG_FL(LOG_INFO, "SIM card ejected");
-    eapolClientRef	client;
+    EAPLOG(LOG_INFO, "Handle SIM card eject");
     LIST_FOREACH(client, S_clientHead_p, link) {
 	if (client->state == kEAPOLControlStateStarting ||
 	    client->state == kEAPOLControlStateRunning) {
@@ -1843,13 +1844,31 @@ sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
     EAPOLSIMGenerationIncrement();
 }
 
+static CFRunLoopRef	eapolRunLoop;
+
 static void
-register_sim_removal(void)
+sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
 {
-    S_SIMAccessConnection = _SIMAccessConnectionCreate();
-    if (S_SIMAccessConnection) {
-	_SIMAccessConnectionRegisterForNotification(S_SIMAccessConnection, sim_status_changed, NULL,
-						    CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    if (status == NULL) {
+	return;
+    }
+    CFRetain(status);
+    CFRunLoopPerformBlock(eapolRunLoop, kCFRunLoopDefaultMode,
+			  ^{ sim_status_handle_change(status);
+			      CFRelease(status); });
+    CFRunLoopWakeUp(eapolRunLoop);
+}
+
+static void
+register_sim_status_change(void)
+{
+    CFTypeRef connection;
+
+    eapolRunLoop = CFRunLoopGetCurrent();
+    connection = _SIMAccessConnectionCreate(sim_status_changed, NULL);
+    if (connection == NULL) {
+	EAPLOG(LOG_NOTICE,
+	       "_SIMAccessConnectionCreate() failed");
     }
     return;
 }
@@ -1992,7 +2011,7 @@ initialize_wifi_power_notification(void)
 {
     CFRunLoopRef runloop;
 
-    /* schedule callbacks on the configd plugin thread */
+    /* schedule callbacks on the EAPOLController thread */
     runloop = CFRunLoopGetCurrent();
     CFRetain(runloop);
     dispatch_async(get_wifi_queue(), ^{
@@ -2015,12 +2034,55 @@ dynamic_store_create(void)
     return (store);
 }
 
-static void *
-ControllerThread(void * arg)
+static void
+handle_user_switch(void)
 {
-    server_start();
-    CFRunLoopRun();
-    return (arg);
+    eapolClientRef	scan;
+
+    EAPLOG(LOG_NOTICE, "%s", __func__);
+    LIST_FOREACH(scan, S_clientHead_p, link) {
+	EAPLOG(LOG_NOTICE, "Stopping %s", scan->if_name);
+	(void)eapolClientStop(scan);
+    }
+    return;
+}
+
+static void
+notify_user_switch(int t, CFRunLoopRef rl)
+{
+    CFRunLoopPerformBlock(rl, kCFRunLoopDefaultMode,
+			  ^{ handle_user_switch(); });
+    CFRunLoopWakeUp(rl);
+    return;
+}
+
+/* replace this once it is defined in a header file */
+#define kUserWillChangeNotification				\
+    "com.apple.mobile.usermanagerd.foregrounduser_willchange"
+
+static void
+register_user_switch(void)
+{
+    notify_handler_t	handler;
+    int			status;
+    int			token;
+    CFRunLoopRef	rl;
+
+    if (!os_feature_enabled(UserManagement, SystemSessionD1)) {
+	return;
+    }
+    EAPLOG(LOG_INFO, "Registering user-switch handler");
+    rl = CFRunLoopGetCurrent();
+    handler = ^(int t) { notify_user_switch(t, rl); };
+    status = notify_register_dispatch(kUserWillChangeNotification,
+				      &token,
+				      dispatch_get_main_queue(),
+				      handler);
+    if (status != NOTIFY_STATUS_OK) {
+	EAPLOG(LOG_NOTICE, "notify_register_dispatch(%s) failed %d",
+	       kUserWillChangeNotification, status);
+    }
+    return;
 }
 
 #else /* TARGET_OS_IPHONE */
@@ -2717,16 +2779,6 @@ dynamic_store_schedule(SCDynamicStoreRef store)
     return;
 }
 
-static void *
-ControllerThread(void * arg)
-{
-    server_start();
-    dynamic_store_schedule(S_store);
-    handle_config_changed(TRUE);
-    CFRunLoopRun();
-    return (arg);
-}
-
 STATIC void
 handle_system_ethernet_config_change(Boolean uninstalled)
 {
@@ -2835,6 +2887,24 @@ register_system_ethernet_prefs_change(void)
 #endif /* TARGET_OS_IPHONE */
 
 
+static void *
+ControllerThread(void * arg)
+{
+    EAPLOG(LOG_NOTICE, "%s", __func__);
+#if TARGET_OS_IPHONE
+    register_sim_status_change();
+    register_user_switch();
+    initialize_wifi_power_notification();
+#else /* TARGET_OS_IPHONE */
+    register_system_ethernet_prefs_change();
+    dynamic_store_schedule(S_store);
+    handle_config_changed(TRUE);
+#endif /* TARGET_OS_IPHONE */
+    server_start();
+    CFRunLoopRun();
+    return (arg);
+}
+
 static void
 ControllerBegin(void)
 {
@@ -2865,16 +2935,6 @@ ControllerBegin(void)
 }
 
 
-static void
-check_prefs(SCPreferencesRef prefs)
-{
-    uint32_t	log_flags;
-
-    log_flags = EAPOLControlPrefsGetLogFlags();
-    EAPOLControlPrefsSynchronize();
-    return;
-}
-
 /*
  * configd plugin-specific routines:
  */
@@ -2883,14 +2943,11 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 {
     Boolean		ok;
     uint8_t		path[MAXPATHLEN];
-    SCPreferencesRef	prefs;
     CFURLRef		url;
 
     /* Initialize logging category for EAPOL Controller */
     EAPLogInit(kEAPLogCategoryController);
 
-	prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
-    check_prefs(prefs);
     /* get a path to eapolclient */
     url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient"), NULL, NULL);
     if (url == NULL) {
@@ -2920,11 +2977,6 @@ start(const char *bundleName, const char *bundleDir)
     }
     LIST_INIT(S_clientHead_p);
     S_store = dynamic_store_create();
-#if TARGET_OS_IPHONE
-    register_sim_removal();
-#else /* TARGET_OS_IPHONE */
-    register_system_ethernet_prefs_change();
-#endif /* TARGET_OS_IPHONE */
     return;
 }
 
@@ -2935,8 +2987,5 @@ prime()
 	return;
     }
     ControllerBegin();
-#if TARGET_OS_IPHONE
-    initialize_wifi_power_notification();
-#endif /* TARGET_OS_IPHONE */
     return;
 }

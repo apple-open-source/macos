@@ -1853,8 +1853,6 @@ mget(struct magic_set *ms, struct magic *m, const struct buffer *b,
 		*bb = *b;
 		bb->fbuf = s + offset;
 		bb->flen = nbytes - offset;
-		rv = file_softmagic(ms, bb,
-		    indir_count, name_count, BINTEST, text);
 		for (mlp = ms->mlist[0]->next; mlp != ms->mlist[0];
 		    mlp = mlp->next)
 		{

@@ -185,7 +185,11 @@ extension TLKShare {
     }
 }
 
-class FakeCuttlefishServer: CuttlefishAPIAsync {
+class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
+    // FakeCuttlefishServer will handle all callers (TODO: split apart)
+    func configuredFor(user: TPSpecificUser) -> Bool {
+        return true
+    }
 
     struct State {
         var peersByID: [String: Peer] = [:]
@@ -237,7 +241,6 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     // @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
     var ckksZoneKeys: NSMutableDictionary
-
     var injectLegacyEscrowRecords: Bool = false
     var includeEscrowRecords: Bool = true
 
@@ -451,16 +454,16 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                     // Some tests don't link everything needed to make zonekeys
                     // Those tests don't get this nice behavior
                     #if OCTAGON_TEST_FILL_ZONEKEYS
-                    let zoneKeys = self.ckksZoneKeys[rzid] as? ZoneKeys ?? ZoneKeys(zoneID: rzid)
+                    let zoneKeys = self.ckksZoneKeys[rzid] as? ZoneKeys ?? ZoneKeys(zoneID: rzid, contextID: CKKSMockCloudKitContextID)
                     self.ckksZoneKeys[rzid] = zoneKeys
 
-                    zoneKeys.tlk = CKKSKey(ckRecord: tlkRecord)
-                    zoneKeys.classA = CKKSKey(ckRecord: classARecord)
-                    zoneKeys.classC = CKKSKey(ckRecord: classCRecord)
+                    zoneKeys.tlk = CKKSKey(ckRecord: tlkRecord, contextID: CKKSMockCloudKitContextID)
+                    zoneKeys.classA = CKKSKey(ckRecord: classARecord, contextID: CKKSMockCloudKitContextID)
+                    zoneKeys.classC = CKKSKey(ckRecord: classCRecord, contextID: CKKSMockCloudKitContextID)
 
-                    zoneKeys.currentTLKPointer = CKKSCurrentKeyPointer(ckRecord: tlkPointerRecord)
-                    zoneKeys.currentClassAPointer = CKKSCurrentKeyPointer(ckRecord: classAPointerRecord)
-                    zoneKeys.currentClassCPointer = CKKSCurrentKeyPointer(ckRecord: classCPointerRecord)
+                    zoneKeys.currentTLKPointer = CKKSCurrentKeyPointer(ckRecord: tlkPointerRecord, contextID: CKKSMockCloudKitContextID)
+                    zoneKeys.currentClassAPointer = CKKSCurrentKeyPointer(ckRecord: classAPointerRecord, contextID: CKKSMockCloudKitContextID)
+                    zoneKeys.currentClassCPointer = CKKSCurrentKeyPointer(ckRecord: classCPointerRecord, contextID: CKKSMockCloudKitContextID)
                     #endif
 
                     let zoneRecords = [tlkRecord,

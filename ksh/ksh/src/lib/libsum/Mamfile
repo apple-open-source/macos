@@ -48,7 +48,7 @@ exec - {
 exec - case "" in
 exec - *?) echo " " ;;
 exec - esac
-exec - for i in sum md ast
+exec - for i in sum ast
 exec - do case $i in
 exec - "sum"|sum)
 exec - ;;

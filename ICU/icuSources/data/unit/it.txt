@@ -24,16 +24,16 @@ it{
         }
         angle{
             arc-minute{
-                dnam{"primi d’arco"}
+                dnam{"primi d'arco"}
                 gender{"masculine"}
-                one{"{0} primo d’arco"}
-                other{"{0} primi d’arco"}
+                one{"{0} primo d'arco"}
+                other{"{0} primi d'arco"}
             }
             arc-second{
-                dnam{"secondi d’arco"}
+                dnam{"secondi d'arco"}
                 gender{"masculine"}
-                one{"{0} secondo d’arco"}
-                other{"{0} secondi d’arco"}
+                one{"{0} secondo d'arco"}
+                other{"{0} secondi d'arco"}
             }
             degree{
                 dnam{"gradi"}
@@ -357,7 +357,7 @@ it{
                 gender{"feminine"}
                 one{"{0} ora"}
                 other{"{0} ore"}
-                per{"{0} all’ora"}
+                per{"{0} all'ora"}
             }
             microsecond{
                 dnam{"microsecondi"}
@@ -407,7 +407,7 @@ it{
                 gender{"masculine"}
                 one{"{0} anno"}
                 other{"{0} anni"}
-                per{"{0} all’anno"}
+                per{"{0} all'anno"}
             }
         }
         electric{
@@ -921,10 +921,10 @@ it{
                 other{"{0} metri al secondo"}
             }
             mile-per-hour{
-                dnam{"miglia all’ora"}
+                dnam{"miglia all'ora"}
                 gender{"feminine"}
-                one{"{0} miglio all’ora"}
-                other{"{0} miglia all’ora"}
+                one{"{0} miglio all'ora"}
+                other{"{0} miglia all'ora"}
             }
         }
         temperature{

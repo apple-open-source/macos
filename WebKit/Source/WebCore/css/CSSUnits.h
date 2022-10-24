@@ -31,6 +31,7 @@ namespace WebCore {
 enum class CSSUnitType : uint8_t {
     CSS_UNKNOWN,
     CSS_NUMBER,
+    CSS_INTEGER,
     CSS_PERCENTAGE,
     CSS_EMS,
     CSS_EXS,
@@ -82,6 +83,13 @@ enum class CSSUnitType : uint8_t {
     CSS_DVI,
     FirstViewportCSSUnitType = CSS_VW,
     LastViewporCSSUnitType = CSS_DVI,
+
+    CSS_CQW,
+    CSS_CQH,
+    CSS_CQI,
+    CSS_CQB,
+    CSS_CQMIN,
+    CSS_CQMAX,
 
     CSS_DPPX,
     CSS_X,
@@ -138,7 +146,6 @@ enum class CSSUnitCategory : uint8_t {
 
 CSSUnitCategory unitCategory(CSSUnitType);
 CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory);
-CSSUnitType canonicalUnitType(CSSUnitType);
 
 WTF::TextStream& operator<<(WTF::TextStream&, CSSUnitCategory);
 WTF::TextStream& operator<<(WTF::TextStream&, CSSUnitType);

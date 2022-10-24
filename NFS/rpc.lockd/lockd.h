@@ -91,4 +91,3 @@ int statd_stop(void);
 
 /* XXX these should be in some system headers */
 typedef u_int32_t rpcvers_t;
-int nfsclnt(int, void *);

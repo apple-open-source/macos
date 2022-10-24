@@ -24,7 +24,7 @@
 MIGCC=`xcodebuild -sdk "${SDKROOT}" -find cc`
 MIG=`xcodebuild -sdk "${SDKROOT}" -find mig`
 
-if [ install == "$1" ]
+if [ install = "$1" ]
 then
     if [ $SCRIPT_INPUT_FILE_0 -nt $SCRIPT_OUTPUT_FILE_0 ]
     then
@@ -36,7 +36,7 @@ then
 
 			#endif /* !__LP64__ */
 		EOI_iokitmig
-    elif [ ! -f $SCRIPT_INPUT_FILE_0 ]
+    elif [ \( ! -f $SCRIPT_INPUT_FILE_0 \) -a \( installhdrs != "$ACTION" \) ]
     then
         echo "/* Deprecated, kept (for now) for compatibility */" > $SCRIPT_OUTPUT_FILE_0
     fi
@@ -50,7 +50,7 @@ runMig()
 	migargs=$@
 	set -- $ARCHS
 	MIGARCH=$1; shift
-	cmd="$MIG -cc $MIGCC -arch $MIGARCH ${migargs} -novouchers -server /dev/null -header $head -user $user $input";
+	cmd="$MIG -cc $MIGCC -arch $MIGARCH ${migargs} -novouchers -DKOBJECT_SERVER -server /dev/null -header $head -user $user $input";
     echo $cmd
     eval $cmd
 }

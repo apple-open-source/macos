@@ -5,16 +5,9 @@ set -e
 set -x
 
 MANDIR=/usr/share/man
-INFODIR=/usr/share/info
 
 install -d -o root -g wheel -m 0755 "$DSTROOT"/"$MANDIR"/man1
-install -c -o root -g wheel -m 0644 "$PROJECT_DIR"/diffutils/man/cmp.1 "$DSTROOT"/"$MANDIR"/man1
-install -c -o root -g wheel -m 0644 "$PROJECT_DIR"/diffutils/man/diff.1 "$DSTROOT"/"$MANDIR"/man1
 install -c -o root -g wheel -m 0644 "$PROJECT_DIR"/diffutils/man/diff3.1 "$DSTROOT"/"$MANDIR"/man1
-install -c -o root -g wheel -m 0644 "$PROJECT_DIR"/diffutils/man/sdiff.1 "$DSTROOT"/"$MANDIR"/man1
-
-install -d -o root -g wheel -m 0755 "$DSTROOT"/"$INFODIR"
-install -c -o root -g wheel -m 0644 "$PROJECT_DIR"/diffutils/doc/diff.info "$DSTROOT"/"$INFODIR"
 
 # Install open source information
 

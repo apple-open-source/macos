@@ -1006,8 +1006,13 @@ randomcoll(struct key_value *kv1, struct key_value *kv2,
     size_t offset __unused)
 {
 	struct bwstring *s1, *s2;
+#ifdef __APPLE__
+	SHA256_CTX ctx1, ctx2;
+	unsigned char hash1[SHA256_DIGEST_LENGTH], hash2[SHA256_DIGEST_LENGTH];
+#else
 	MD5_CTX ctx1, ctx2;
 	unsigned char hash1[MD5_DIGEST_LENGTH], hash2[MD5_DIGEST_LENGTH];
+#endif
 	int cmp;
 
 	s1 = kv1->k;
@@ -1029,6 +1034,16 @@ randomcoll(struct key_value *kv1, struct key_value *kv2,
 			return (cmp);
 	}
 
+#ifdef __APPLE__
+	memcpy(&ctx1, &sha256_ctx, sizeof(SHA256_CTX));
+	memcpy(&ctx2, &sha256_ctx, sizeof(SHA256_CTX));
+
+	SHA256_Update(&ctx1, bwsrawdata(s1), bwsrawlen(s1));
+	SHA256_Update(&ctx2, bwsrawdata(s2), bwsrawlen(s2));
+
+	SHA256_Final(hash1, &ctx1);
+	SHA256_Final(hash2, &ctx2);
+#else
 	memcpy(&ctx1, &md5_ctx, sizeof(MD5_CTX));
 	memcpy(&ctx2, &md5_ctx, sizeof(MD5_CTX));
 
@@ -1037,6 +1052,7 @@ randomcoll(struct key_value *kv1, struct key_value *kv2,
 
 	MD5Final(hash1, &ctx1);
 	MD5Final(hash2, &ctx2);
+#endif
 
 	if (kv1->hint->status == HS_UNINITIALIZED)
 		randomcoll_init_hint(kv1, hash1);

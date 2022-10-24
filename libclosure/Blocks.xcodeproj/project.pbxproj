@@ -34,6 +34,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		23F41968278B943A00ED9B55 /* generic_helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F41967278B943A00ED9B55 /* generic_helpers.c */; };
+		23F41969278B943A00ED9B55 /* generic_helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F41967278B943A00ED9B55 /* generic_helpers.c */; };
+		23F4196A278B943A00ED9B55 /* generic_helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F41967278B943A00ED9B55 /* generic_helpers.c */; };
 		6E354EBE233147F0007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
 		6E354EBF233147F5007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
 		6E354EC0233147F6007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
@@ -74,6 +77,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		238D6271279E527B005902BB /* Blocks-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Blocks-Release.xcconfig"; sourceTree = "<group>"; };
+		23F41967278B943A00ED9B55 /* generic_helpers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = generic_helpers.c; sourceTree = "<group>"; };
 		6E354EBD233147F0007E3A42 /* data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = data.c; sourceTree = "<group>"; };
 		6E8C74E42326F89300627AC0 /* Blocks.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Blocks.xcconfig; sourceTree = "<group>"; };
 		6E8C74E52326FB5200627AC0 /* Blocks.alias */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Blocks.alias; sourceTree = "<group>"; };
@@ -136,6 +141,7 @@
 		08FB77AEFE84172EC02AAC07 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				23F41967278B943A00ED9B55 /* generic_helpers.c */,
 				6E354EBD233147F0007E3A42 /* data.c */,
 				E86E1EC111543C0B0055083F /* data.m */,
 				E86E1EC211543C0B0055083F /* runtime.cpp */,
@@ -155,6 +161,7 @@
 		6E8C74E62326FB5A00627AC0 /* Build Configuration */ = {
 			isa = PBXGroup;
 			children = (
+				238D6271279E527B005902BB /* Blocks-Release.xcconfig */,
 				6E8C74E52326FB5200627AC0 /* Blocks.alias */,
 				6E8C74E72327094A00627AC0 /* Blocks.dirty */,
 				6E8C74E42326F89300627AC0 /* Blocks.xcconfig */,
@@ -324,6 +331,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				831D5AD9122788D500E4A1EC /* data.m in Sources */,
+				23F41969278B943A00ED9B55 /* generic_helpers.c in Sources */,
 				831D5ADA122788D500E4A1EC /* runtime.cpp in Sources */,
 				6E354EBF233147F5007E3A42 /* data.c in Sources */,
 			);
@@ -334,6 +342,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				96EF759B1507C27500581A2E /* data.m in Sources */,
+				23F4196A278B943A00ED9B55 /* generic_helpers.c in Sources */,
 				96EF759C1507C27500581A2E /* runtime.cpp in Sources */,
 				6E354EC0233147F6007E3A42 /* data.c in Sources */,
 			);
@@ -344,6 +353,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E86E1EC511543C0B0055083F /* data.m in Sources */,
+				23F41968278B943A00ED9B55 /* generic_helpers.c in Sources */,
 				E86E1EC611543C0B0055083F /* runtime.cpp in Sources */,
 				6E354EBE233147F0007E3A42 /* data.c in Sources */,
 			);
@@ -376,42 +386,38 @@
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
-					"$(DSTROOT)/usr/include/**",
-					"$(DSTROOT)/usr/local/include/**",
-					"$(CONFIGURATION_BUILD_DIR)/usr/include/**",
-					"$(CONFIGURATION_BUILD_DIR)/usr/local/include/**",
+					"$(SYSTEM_PREFIX)/usr/include/**",
+					"$(SYSTEM_PREFIX)/usr/local/include/**",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include/**",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include/**",
 				);
-				INSTALL_PATH = /usr/lib/system;
-				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
-				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
+				INSTALL_PATH = "$(SYSTEM_PREFIX)/usr/lib/system";
 				PRODUCT_NAME = system_blocks;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/include";
 				SUPPORTS_TEXT_BASED_API = YES;
-				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/local/include $(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/include";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
+				SYSTEM_LDFLAGS = "-L$(SDKROOT)$(SYSTEM_PREFIX)/usr/lib/system";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
 			name = Debug;
 		};
 		1DEB917F08733D990010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6E8C74E42326F89300627AC0 /* Blocks.xcconfig */;
+			baseConfigurationReference = 238D6271279E527B005902BB /* Blocks-Release.xcconfig */;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
-					"$(DSTROOT)/usr/include/**",
-					"$(DSTROOT)/usr/local/include/**",
-					"$(CONFIGURATION_BUILD_DIR)/usr/include/**",
-					"$(CONFIGURATION_BUILD_DIR)/usr/local/include/**",
+					"$(SYSTEM_PREFIX)/usr/include/**",
+					"$(SYSTEM_PREFIX)/usr/local/include/**",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/include/**",
+					"$(CONFIGURATION_BUILD_DIR)$(SYSTEM_PREFIX)/usr/local/include/**",
 				);
-				INSTALL_PATH = /usr/lib/system;
-				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
-				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
+				INSTALL_PATH = "$(SYSTEM_PREFIX)/usr/lib/system";
 				PRODUCT_NAME = system_blocks;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/include";
 				SUPPORTS_TEXT_BASED_API = YES;
-				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/local/include $(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/include";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(DSTROOT)$(SYSTEM_PREFIX)/usr/local/include $(DSTROOT)$(SYSTEM_PREFIX)/usr/include";
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/local/include $(SDKROOT)$(SYSTEM_PREFIX)/Runtime/usr/include";
+				SYSTEM_LDFLAGS = "-L$(SDKROOT)$(SYSTEM_PREFIX)/usr/lib/system";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
 			name = Release;

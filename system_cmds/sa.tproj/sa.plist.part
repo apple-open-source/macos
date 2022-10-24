@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sa</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-04</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.sbin/sa?id=d6dffbae96621a6fbc804c5f31dff6648e0a122c</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-12-08</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>db.c, main.c: remove use of acctv3 (3132307)</string>
+			<string>extern.h, main.c: use quad times (3132307)</string>
+			<string>main.c, pdb.c: use AHZ (3132307)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>publicdomain</string>
+	</dict>

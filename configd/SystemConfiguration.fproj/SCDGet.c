@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -123,8 +123,9 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 }
 
 
-CFPropertyListRef
-SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
+__private_extern__ CFPropertyListRef
+__SCDynamicStoreCopyValueCommon(SCDynamicStoreRef store, CFStringRef key,
+				Boolean handle_status)
 {
 	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
@@ -135,8 +136,10 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	mach_msg_type_number_t		xmlDataLen	= 0;
 	CFPropertyListRef		data;			/* data (un-serialized) */
 	int				newInstance;
+	int				save_status;
 	int				sc_status;
 
+	_SCErrorSet(kSCStatusOK);
 	if (!__SCDynamicStoreNormalize(&store, TRUE)) {
 		return NULL;
 	}
@@ -193,11 +196,15 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	/* clean up */
 	CFRelease(utfKey);
 
+	save_status = sc_status;
+	sc_status = __SCDynamicStoreMapInternalStatus(sc_status,
+						      handle_status);
 	if (sc_status != kSCStatusOK) {
 		if (xmlDataRef != NULL) {
 			(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 		}
-		_SCErrorSet(sc_status);
+		/* possibly preserve the kSCStatusAccessError_* status */
+		_SCErrorSet(handle_status ? sc_status : save_status);
 		return NULL;
 	}
 
@@ -217,5 +224,14 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 		CFDictionarySetValue(storePrivate->cached_keys, key, data);
 	}
 
+	/* possibly preserve the kSCStatusOK_* status */
+	_SCErrorSet(handle_status ? sc_status : save_status);
+
 	return data;
+}
+
+CFPropertyListRef
+SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
+{
+	return __SCDynamicStoreCopyValueCommon(store, key, TRUE);
 }

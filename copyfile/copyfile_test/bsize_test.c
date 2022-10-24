@@ -58,7 +58,7 @@ static bool verify_bsize_behavior(const char *src, const char *dst,
 	// one blocksize-sized copy of data).
 
 	// Set up the copyfile state, with the callback and blocksize.
-	assert_with_errno((state = copyfile_state_alloc()));;
+	assert_with_errno((state = copyfile_state_alloc()));
 	assert_no_err(copyfile_state_set(state, COPYFILE_STATE_STATUS_CB, &copyfile_cb));
 	assert_no_err(copyfile_state_set(state, COPYFILE_STATE_STATUS_CTX, &callback_ctx));
 	if (selection == bs_both) {
@@ -119,7 +119,7 @@ bool do_bsize_test(const char *apfs_test_directory, size_t block_size) {
 		(8 * ONE_MIB) / sfs.f_iosize, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, ONE_MIB, 8, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, 8 * ONE_MIB, 1, bs_both);
-	success = success && verify_bsize_behavior(test_src, test_dst, 2 * ONE_GIB, 1, bs_both);
+	success = success && verify_bsize_behavior(test_src, test_dst, SIZE_MAX, 1, bs_both);
 	success = success && verify_bsize_behavior(test_src, test_dst, 0,
 		(8 * ONE_MIB) / sfs.f_iosize, bs_both); // 0 means let copyfile() choose
 

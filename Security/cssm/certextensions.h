@@ -38,7 +38,11 @@
 #else /* SEC_OS_IPHONE */
 
 #include <stdbool.h>
+
+#define SEC_HAS_LIBDER __has_include(<libDER/libDER.h>)
+#if SEC_HAS_LIBDER
 #include <libDER/libDER.h>
+#endif /* SEC_HAS_LIBDER */
 
 #endif /* SEC_OS_IPHONE */
 
@@ -124,7 +128,7 @@ typedef struct __CE_GeneralNames {
 	CE_GeneralName			*generalName;
 } CE_GeneralNames DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-#elif SEC_OS_IPHONE
+#elif SEC_HAS_LIBDER
 
 typedef struct {
 	DERItem                 typeId;
@@ -142,7 +146,7 @@ typedef struct {
 	SecCEGeneralName			*generalName;
 } SecCEGeneralNames;
 
-#endif /* SEC_OS_IPHONE */
+#endif /* SEC_HAS_LIBDER */
 
 /*
  * id-ce-authorityKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 35 }
@@ -165,7 +169,7 @@ typedef struct __CE_AuthorityKeyID {
 	CSSM_BOOL			serialNumberPresent;
 	CSSM_DATA			serialNumber;
 } CE_AuthorityKeyID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-#elif SEC_OS_IPHONE
+#elif SEC_HAS_LIBDER
 typedef struct {
 	bool                keyIdentifierPresent;
 	DERItem             keyIdentifier;
@@ -174,7 +178,7 @@ typedef struct {
 	bool                serialNumberPresent;
 	DERItem             serialNumber;
 } SecCEAuthorityKeyID;
-#endif /* SEC_OS_IPHONE */
+#endif /* SEC_HAS_LIBDER */
 
 /*
  * id-ce-subjectKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 14 }
@@ -184,9 +188,9 @@ typedef struct {
  */
 #if SEC_OS_OSX
 typedef CSSM_DATA CE_SubjectKeyID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-#elif SEC_OS_IPHONE
+#elif SEC_HAS_LIBDER
 typedef DERItem SecCESubjectKeyID;
-#endif /* SEC_OS_IPHONE */
+#endif /* SEC_HAS_LIBDER */
 
 /*
  * id-ce-keyUsage OBJECT IDENTIFIER ::=  { id-ce 15 }
@@ -302,13 +306,13 @@ typedef struct __CE_ExtendedKeyUsage {
 	CSSM_OID_PTR	purposes;		// in Intel pre-encoded format
 } CE_ExtendedKeyUsage;
 
-#elif SEC_OS_IPHONE
+#elif SEC_HAS_LIBDER
 
 typedef struct {
 	uint32_t		numPurposes;
 	DERItem         *purposes;		// in Intel pre-encoded format
 } SecCEExtendedKeyUsage;
-#endif /* SEC_OS_IPHONE */
+#endif /* SEC_HAS_LIBDER */
 
 /*
  * id-ce-basicConstraints OBJECT IDENTIFIER ::=  { id-ce 19 }
@@ -402,7 +406,7 @@ typedef struct __CE_PolicyQualifierInfo {
 	CSSM_OID	policyQualifierId;			// CSSMOID_QT_CPS, CSSMOID_QT_UNOTICE
 	CSSM_DATA	qualifier;					// CSSMOID_QT_CPS: IA5String contents
 
-#elif SEC_OS_IPHONE
+#elif SEC_HAS_LIBDER
 #if 0
 typedef struct {
 	DERItem     policyQualifierId;			// CSSMOID_QT_CPS, CSSMOID_QT_UNOTICE
@@ -448,7 +452,7 @@ typedef struct {
     bool             critical;
     uint32_t         skipCerts;
 } SecCEInhibitAnyPolicy;
-#endif /* SEC_OS_IPHONE */
+#endif /* SEC_HAS_LIBDER */
 											// CSSMOID_QT_UNOTICE : Sequence contents
 #if SEC_OS_OSX
 } CE_PolicyQualifierInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;

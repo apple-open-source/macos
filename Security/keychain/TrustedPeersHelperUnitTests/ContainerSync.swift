@@ -413,11 +413,11 @@ extension Container {
         return (reta, reterr)
     }
 
-    func fetchCurrentPolicySync(test: XCTestCase) -> (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) {
+    func fetchCurrentPolicySync(test: XCTestCase, modelIDOverride: String? = nil) -> (TPSyncingPolicy?, TPPBPeerStableInfoUserControllableViewStatus, Error?) {
         let expectation = XCTestExpectation(description: "fetchCurrentPolicy replied")
         var reta: TPSyncingPolicy?, reterr: Error?
         var retOp: TPPBPeerStableInfoUserControllableViewStatus = .UNKNOWN
-        self.fetchCurrentPolicy(modelIDOverride: nil, isInheritedAccount: false) { a, peerOpinion, err in
+        self.fetchCurrentPolicy(modelIDOverride: modelIDOverride, isInheritedAccount: false) { a, peerOpinion, err in
             reta = a
             retOp = peerOpinion
             reterr = err

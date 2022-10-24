@@ -58,9 +58,8 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)dumpWithContainer:(NSString *)container
-                  context:(NSString *)context
-                    reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply
+- (void)dumpWithSpecificUser:(TPSpecificUser*)specificUser
+                       reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -75,13 +74,12 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] dumpWithContainer:container context:context reply:reply];
+                }] dumpWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)departByDistrustingSelfWithContainer:(NSString *)container
-                                     context:(NSString *)context
-                                       reply:(void (^)(NSError * _Nullable))reply
+- (void)departByDistrustingSelfWithSpecificUser:(TPSpecificUser*)specificUser
+                                          reply:(void (^)(NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -96,14 +94,13 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] departByDistrustingSelfWithContainer:container context:context reply:reply];
+                }] departByDistrustingSelfWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)distrustPeerIDsWithContainer:(NSString *)container
-                             context:(NSString *)context
-                             peerIDs:(NSSet<NSString*>*)peerIDs
-                               reply:(void (^)(NSError * _Nullable))reply
+- (void)distrustPeerIDsWithSpecificUser:(TPSpecificUser*)specificUser
+                                peerIDs:(NSSet<NSString*>*)peerIDs
+                                  reply:(void (^)(NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -118,14 +115,13 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] distrustPeerIDsWithContainer:container context:context peerIDs:peerIDs reply:reply];
+                }] distrustPeerIDsWithSpecificUser:specificUser peerIDs:peerIDs reply:reply];
     } while (retry);
 }
 
-- (void)trustStatusWithContainer:(NSString *)container
-                         context:(NSString *)context
-                           reply:(void (^)(TrustedPeersHelperEgoPeerStatus *status,
-                                           NSError* _Nullable error))reply
+- (void)trustStatusWithSpecificUser:(TPSpecificUser*)specificUser
+                              reply:(void (^)(TrustedPeersHelperEgoPeerStatus *status,
+                                              NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -140,14 +136,13 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] trustStatusWithContainer:container context:context reply:reply];
+                }] trustStatusWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)resetWithContainer:(NSString *)container
-                   context:(NSString *)context
-               resetReason:(CuttlefishResetReason)reason
-                     reply:(void (^)(NSError * _Nullable error))reply
+- (void)resetWithSpecificUser:(TPSpecificUser*)specificUser
+                  resetReason:(CuttlefishResetReason)reason
+                        reply:(void (^)(NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -162,13 +157,12 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] resetWithContainer:container context:context resetReason:reason reply:reply];
+                }] resetWithSpecificUser:specificUser resetReason:reason reply:reply];
     } while (retry);
 }
 
-- (void)localResetWithContainer:(NSString *)container
-                        context:(NSString *)context
-                          reply:(void (^)(NSError * _Nullable error))reply
+- (void)localResetWithSpecificUser:(TPSpecificUser*)specificUser
+                             reply:(void (^)(NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -183,15 +177,14 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] localResetWithContainer:container context:context reply:reply];
+                }] localResetWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)setAllowedMachineIDsWithContainer:(NSString *)container
-                                  context:(NSString *)context
-                        allowedMachineIDs:(NSSet<NSString*> *)allowedMachineIDs
-                            honorIDMSListChanges:(BOOL)accountIsDemo
-                                    reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply
+- (void)setAllowedMachineIDsWithSpecificUser:(TPSpecificUser*)specificUser
+                           allowedMachineIDs:(NSSet<NSString*> *)allowedMachineIDs
+                        honorIDMSListChanges:(BOOL)accountIsDemo
+                                       reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -206,37 +199,11 @@ enum {NUM_RETRIES = 5};
                         reply(NO, error);
                     }
                     ++i;
-        }] setAllowedMachineIDsWithContainer:container context:context allowedMachineIDs:allowedMachineIDs honorIDMSListChanges:accountIsDemo reply:reply];
+        }] setAllowedMachineIDsWithSpecificUser:specificUser allowedMachineIDs:allowedMachineIDs honorIDMSListChanges:accountIsDemo reply:reply];
     } while (retry);
 }
 
-- (void)addAllowedMachineIDsWithContainer:(NSString *)container
-                                  context:(NSString *)context
-                               machineIDs:(NSArray<NSString*> *)machineIDs
-                                    reply:(void (^)(NSError * _Nullable error))reply
-{
-    __block int i = 0;
-    __block bool retry;
-    do {
-        retry = false;
-        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
-                    if (i < NUM_RETRIES && [self.class retryable:error]) {
-                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
-                        retry = true;
-                    } else {
-                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(error);
-                    }
-                    ++i;
-                }] addAllowedMachineIDsWithContainer:container
-                                             context:context
-                                          machineIDs:machineIDs
-                                               reply:reply];
-    } while (retry);
-}
-
-- (void)removeAllowedMachineIDsWithContainer:(NSString *)container
-                                     context:(NSString *)context
+- (void)addAllowedMachineIDsWithSpecificUser:(TPSpecificUser*)specificUser
                                   machineIDs:(NSArray<NSString*> *)machineIDs
                                        reply:(void (^)(NSError * _Nullable error))reply
 {
@@ -253,14 +220,36 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] removeAllowedMachineIDsWithContainer:container context:context machineIDs:machineIDs reply:reply];
+                }] addAllowedMachineIDsWithSpecificUser:specificUser
+                                          machineIDs:machineIDs
+                                               reply:reply];
+    } while (retry);
+}
+
+- (void)removeAllowedMachineIDsWithSpecificUser:(TPSpecificUser*)specificUser
+                                     machineIDs:(NSArray<NSString*> *)machineIDs
+                                          reply:(void (^)(NSError * _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(error);
+                    }
+                    ++i;
+                }] removeAllowedMachineIDsWithSpecificUser:specificUser machineIDs:machineIDs reply:reply];
     } while (retry);
 }
 
 
-- (void)fetchAllowedMachineIDsWithContainer:(nonnull NSString *)container
-                                    context:(nonnull NSString *)context
-                                      reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))reply {
+- (void)fetchAllowedMachineIDsWithSpecificUser:(TPSpecificUser*)specificUser
+                                         reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
     do {
@@ -274,15 +263,14 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] fetchAllowedMachineIDsWithContainer:container context:context reply:reply];
+                }] fetchAllowedMachineIDsWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
 
-- (void)fetchEgoEpochWithContainer:(NSString *)container
-                           context:(NSString *)context
-                             reply:(void (^)(unsigned long long epoch,
-                                             NSError * _Nullable error))reply
+- (void)fetchEgoEpochWithSpecificUser:(TPSpecificUser*)specificUser
+                                reply:(void (^)(unsigned long long epoch,
+                                                NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -297,33 +285,32 @@ enum {NUM_RETRIES = 5};
                         reply(0, error);
                     }
                     ++i;
-                }] fetchEgoEpochWithContainer:container context:context reply:reply];
+                }] fetchEgoEpochWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)prepareWithContainer:(NSString *)container
-                     context:(NSString *)context
-                       epoch:(unsigned long long)epoch
-                   machineID:(NSString *)machineID
-                  bottleSalt:(NSString *)bottleSalt
-                    bottleID:(NSString *)bottleID
-                     modelID:(NSString *)modelID
-                  deviceName:(nullable NSString*)deviceName
-                serialNumber:(NSString *)serialNumber
-                   osVersion:(NSString *)osVersion
-               policyVersion:(nullable TPPolicyVersion *)policyVersion
-               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-   syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
-       secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
- signingPrivKeyPersistentRef:(nullable NSData *)spkPr
-     encPrivKeyPersistentRef:(nullable NSData*)epkPr
-                       reply:(void (^)(NSString * _Nullable peerID,
-                                       NSData * _Nullable permanentInfo,
-                                       NSData * _Nullable permanentInfoSig,
-                                       NSData * _Nullable stableInfo,
-                                       NSData * _Nullable stableInfoSig,
-                                       TPSyncingPolicy* _Nullable syncingPolicy,
-                                       NSError * _Nullable error))reply
+- (void)prepareWithSpecificUser:(TPSpecificUser*)specificUser
+                          epoch:(unsigned long long)epoch
+                      machineID:(NSString *)machineID
+                     bottleSalt:(NSString *)bottleSalt
+                       bottleID:(NSString *)bottleID
+                        modelID:(NSString *)modelID
+                     deviceName:(nullable NSString*)deviceName
+                   serialNumber:(NSString *)serialNumber
+                      osVersion:(NSString *)osVersion
+                  policyVersion:(nullable TPPolicyVersion *)policyVersion
+                  policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
+      syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+          secureElementIdentity:(nullable TPPBSecureElementIdentity*)secureElementIdentity
+    signingPrivKeyPersistentRef:(nullable NSData *)spkPr
+        encPrivKeyPersistentRef:(nullable NSData*)epkPr
+                          reply:(void (^)(NSString * _Nullable peerID,
+                                          NSData * _Nullable permanentInfo,
+                                          NSData * _Nullable permanentInfoSig,
+                                          NSData * _Nullable stableInfo,
+                                          NSData * _Nullable stableInfoSig,
+                                          TPSyncingPolicy* _Nullable syncingPolicy,
+                                          NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -338,8 +325,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, nil, nil, nil, error);
                     }
                     ++i;
-                }] prepareWithContainer:container
-         context:context
+                }] prepareWithSpecificUser:specificUser
          epoch:epoch
          machineID:machineID
          bottleSalt:bottleSalt
@@ -359,15 +345,14 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)establishWithContainer:(NSString *)container
-                       context:(NSString *)context
-                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
-                     tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-               preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
-                         reply:(void (^)(NSString * _Nullable peerID,
-                                         NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                         TPSyncingPolicy* _Nullable syncingPolicy,
-                                         NSError * _Nullable error))reply
+- (void)establishWithSpecificUser:(TPSpecificUser*)specificUser
+                         ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
+                        tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                  preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                            reply:(void (^)(NSString * _Nullable peerID,
+                                            NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                            TPSyncingPolicy* _Nullable syncingPolicy,
+                                            NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -382,20 +367,19 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-                }] establishWithContainer:container context:context ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
+                }] establishWithSpecificUser:specificUser ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
     } while (retry);
 }
 
-- (void)vouchWithContainer:(NSString *)container
-                   context:(NSString *)context
-                    peerID:(NSString *)peerID
-             permanentInfo:(NSData *)permanentInfo
-          permanentInfoSig:(NSData *)permanentInfoSig
-                stableInfo:(NSData *)stableInfo
-             stableInfoSig:(NSData *)stableInfoSig
-                  ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
-                     reply:(void (^)(NSData * _Nullable voucher,
-                                     NSData * _Nullable voucherSig,
+- (void)vouchWithSpecificUser:(TPSpecificUser*)specificUser
+                       peerID:(NSString *)peerID
+                permanentInfo:(NSData *)permanentInfo
+             permanentInfoSig:(NSData *)permanentInfoSig
+                   stableInfo:(NSData *)stableInfo
+                stableInfoSig:(NSData *)stableInfoSig
+                     ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
+                        reply:(void (^)(NSData * _Nullable voucher,
+                                        NSData * _Nullable voucherSig,
                                      NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -411,18 +395,17 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] vouchWithContainer:container context:context peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets reply:reply];
+                }] vouchWithSpecificUser:specificUser peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig ckksKeys:viewKeySets reply:reply];
     } while (retry);
 }
 
 
-- (void)preflightVouchWithBottleWithContainer:(nonnull NSString *)container
-                                      context:(nonnull NSString *)context
-                                     bottleID:(nonnull NSString *)bottleID
-                                        reply:(nonnull void (^)(NSString * _Nullable,
-                                                                TPSyncingPolicy* _Nullable peerSyncingPolicy,
-                                                                BOOL refetchWasNeeded,
-                                                                NSError * _Nullable))reply {
+- (void)preflightVouchWithBottleWithSpecificUser:(TPSpecificUser*)specificUser
+                                        bottleID:(nonnull NSString *)bottleID
+                                           reply:(nonnull void (^)(NSString * _Nullable,
+                                                                   TPSyncingPolicy* _Nullable peerSyncingPolicy,
+                                                                   BOOL refetchWasNeeded,
+                                                                   NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
     do {
@@ -436,24 +419,22 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, false, error);
                     }
                     ++i;
-                }] preflightVouchWithBottleWithContainer:container
-                                                 context:context
-                                                bottleID:bottleID
-                                                   reply:reply];
+                }] preflightVouchWithBottleWithSpecificUser:specificUser
+                                                   bottleID:bottleID
+                                                      reply:reply];
     } while (retry);
 }
 
-- (void)vouchWithBottleWithContainer:(NSString *)container
-                             context:(NSString *)context
-                            bottleID:(NSString*)bottleID
-                             entropy:(NSData*)entropy
-                          bottleSalt:(NSString*)bottleSalt
-                           tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                               reply:(void (^)(NSData * _Nullable voucher,
-                                               NSData * _Nullable voucherSig,
-                                               NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
-                                               TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                               NSError * _Nullable error))reply
+- (void)vouchWithBottleWithSpecificUser:(TPSpecificUser*)specificUser
+                               bottleID:(NSString*)bottleID
+                                entropy:(NSData*)entropy
+                             bottleSalt:(NSString*)bottleSalt
+                              tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                  reply:(void (^)(NSData * _Nullable voucher,
+                                                  NSData * _Nullable voucherSig,
+                                                  NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                  TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                  NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -468,17 +449,16 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, nil, error);
                     }
                     ++i;
-                }] vouchWithBottleWithContainer:container context:context bottleID:bottleID entropy:entropy bottleSalt:bottleSalt tlkShares:tlkShares reply:reply];
+                }] vouchWithBottleWithSpecificUser:specificUser bottleID:bottleID entropy:entropy bottleSalt:bottleSalt tlkShares:tlkShares reply:reply];
     } while (retry);
 }
 
-- (void)preflightVouchWithRecoveryKeyWithContainer:(nonnull NSString *)container
-                                           context:(nonnull NSString *)context
-                                       recoveryKey:(NSString*)recoveryKey
-                                              salt:(NSString*)salt
-                                             reply:(nonnull void (^)(NSString * _Nullable,
-                                                                     TPSyncingPolicy* _Nullable peerSyncingPolicy,
-                                                                     NSError * _Nullable))reply {
+- (void)preflightVouchWithRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                          recoveryKey:(NSString*)recoveryKey
+                                                 salt:(NSString*)salt
+                                                reply:(nonnull void (^)(NSString * _Nullable,
+                                                                        TPSyncingPolicy* _Nullable peerSyncingPolicy,
+                                                                        NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
     do {
@@ -492,20 +472,18 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] preflightVouchWithRecoveryKeyWithContainer:container
-                                                 context:context
-                                             recoveryKey:recoveryKey
-                                                    salt:salt
-                                                   reply:reply];
+                }] preflightVouchWithRecoveryKeyWithSpecificUser:specificUser
+                                                     recoveryKey:recoveryKey
+                                                            salt:salt
+                                                           reply:reply];
     } while (retry);
 }
 
-- (void)preflightVouchWithCustodianRecoveryKeyWithContainer:(NSString*)container
-                                                    context:(NSString*)context
-                                                        crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
-                                                      reply:(void (^)(NSString* _Nullable recoveryKeyID,
-                                                                      TPSyncingPolicy* _Nullable syncingPolicy,
-                                                                      NSError * _Nullable error))reply
+- (void)preflightVouchWithCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                                           crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                                         reply:(void (^)(NSString* _Nullable recoveryKeyID,
+                                                                         TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                         NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -520,23 +498,21 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] preflightVouchWithCustodianRecoveryKeyWithContainer:container
-                                                               context:context
-                                                                   crk:crk
-                                                                 reply:reply];
+                }] preflightVouchWithCustodianRecoveryKeyWithSpecificUser:specificUser
+                                                                      crk:crk
+                                                                    reply:reply];
     } while (retry);
 }
 
-- (void)vouchWithRecoveryKeyWithContainer:(NSString *)container
-                                  context:(NSString *)context
-                              recoveryKey:(NSString*)recoveryKey
-                                     salt:(NSString*)salt
-                                tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                                    reply:(void (^)(NSData * _Nullable voucher,
-                                                    NSData * _Nullable voucherSig,
-                                                    NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
-                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                    NSError * _Nullable error))reply
+- (void)vouchWithRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                 recoveryKey:(NSString*)recoveryKey
+                                        salt:(NSString*)salt
+                                   tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                       reply:(void (^)(NSData * _Nullable voucher,
+                                                       NSData * _Nullable voucherSig,
+                                                       NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                       TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                       NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -551,19 +527,18 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, nil, error);
                     }
                     ++i;
-                }] vouchWithRecoveryKeyWithContainer:container context:context recoveryKey:recoveryKey salt:salt tlkShares:tlkShares reply:reply];
+                }] vouchWithRecoveryKeyWithSpecificUser:specificUser recoveryKey:recoveryKey salt:salt tlkShares:tlkShares reply:reply];
     } while (retry);
 }
 
-- (void)vouchWithCustodianRecoveryKeyWithContainer:(NSString *)container
-                                           context:(NSString *)context
-                                               crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
-                                         tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                                             reply:(void (^)(NSData * _Nullable voucher,
-                                                             NSData * _Nullable voucherSig,
-                                                             NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
-                                                             TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                             NSError * _Nullable error))reply
+- (void)vouchWithCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                                  crk:(TrustedPeersHelperCustodianRecoveryKey*)crk
+                                            tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                                                reply:(void (^)(NSData * _Nullable voucher,
+                                                                NSData * _Nullable voucherSig,
+                                                                NSArray<CKKSTLKShare*>* _Nullable newTLKShares,
+                                                                TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -578,20 +553,19 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, nil, error);
                     }
                     ++i;
-                }] vouchWithCustodianRecoveryKeyWithContainer:container context:context crk:crk tlkShares:tlkShares reply:reply];
+                }] vouchWithCustodianRecoveryKeyWithSpecificUser:specificUser crk:crk tlkShares:tlkShares reply:reply];
     } while (retry);
 }
 
-- (void)joinWithContainer:(NSString *)container
-                  context:(NSString *)context
-              voucherData:(NSData *)voucherData
-               voucherSig:(NSData *)voucherSig
-                 ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
-                tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-          preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
-                    reply:(void (^)(NSString * _Nullable peerID,
-                                    NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                    TPSyncingPolicy* _Nullable syncingPolicy,
+- (void)joinWithSpecificUser:(TPSpecificUser*)specificUser
+                 voucherData:(NSData *)voucherData
+                  voucherSig:(NSData *)voucherSig
+                    ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
+                   tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+             preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                       reply:(void (^)(NSString * _Nullable peerID,
+                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                       TPSyncingPolicy* _Nullable syncingPolicy,
                                     NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -607,15 +581,14 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-                }] joinWithContainer:container context:context voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
+                }] joinWithSpecificUser:specificUser voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
     } while (retry);
 }
 
-- (void)preflightPreapprovedJoinWithContainer:(NSString *)container
-                                      context:(NSString *)context
-                              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
-                                        reply:(void (^)(BOOL launchOkay,
-                                                        NSError * _Nullable error))reply
+- (void)preflightPreapprovedJoinWithSpecificUser:(TPSpecificUser*)specificUser
+                                 preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                                           reply:(void (^)(BOOL launchOkay,
+                                                           NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -630,19 +603,18 @@ enum {NUM_RETRIES = 5};
                         reply(NO, error);
                     }
                     ++i;
-        }] preflightPreapprovedJoinWithContainer:container context:context preapprovedKeys:preapprovedKeys reply:reply];
+        }] preflightPreapprovedJoinWithSpecificUser:specificUser preapprovedKeys:preapprovedKeys reply:reply];
     } while (retry);
 }
 
-- (void)attemptPreapprovedJoinWithContainer:(NSString *)container
-                                    context:(NSString *)context
-                                   ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                                  tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                            preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
-                                      reply:(void (^)(NSString * _Nullable peerID,
-                                                      NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                      TPSyncingPolicy* _Nullable syncingPolicy,
-                                                      NSError * _Nullable error))reply
+- (void)attemptPreapprovedJoinWithSpecificUser:(TPSpecificUser*)specificUser
+                                      ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                                     tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                               preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
+                                         reply:(void (^)(NSString * _Nullable peerID,
+                                                         NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                         TPSyncingPolicy* _Nullable syncingPolicy,
+                                                         NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -657,8 +629,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-        }] attemptPreapprovedJoinWithContainer:container
-                                       context:context
+        }] attemptPreapprovedJoinWithSpecificUser:specificUser
                                       ckksKeys:ckksKeys
                                      tlkShares:tlkShares
                                preapprovedKeys:preapprovedKeys
@@ -666,17 +637,16 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)updateWithContainer:(NSString *)container
-                    context:(NSString *)context
-               forceRefetch:(BOOL)forceRefetch
-                 deviceName:(nullable NSString *)deviceName
-               serialNumber:(nullable NSString *)serialNumber
-                  osVersion:(nullable NSString *)osVersion
-              policyVersion:(nullable NSNumber *)policyVersion
-              policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-  syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
-      secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
-                      reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, TPSyncingPolicy* _Nullable policy, NSError * _Nullable error))reply
+- (void)updateWithSpecificUser:(TPSpecificUser*)specificUser
+                  forceRefetch:(BOOL)forceRefetch
+                    deviceName:(nullable NSString *)deviceName
+                  serialNumber:(nullable NSString *)serialNumber
+                     osVersion:(nullable NSString *)osVersion
+                 policyVersion:(nullable NSNumber *)policyVersion
+                 policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
+     syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
+         secureElementIdentity:(nullable TrustedPeersHelperIntendedTPPBSecureElementIdentity*)secureElementIdentity
+                         reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, TPSyncingPolicy* _Nullable policy, NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -691,8 +661,7 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] updateWithContainer:container
-                               context:context
+                }] updateWithSpecificUser:specificUser
                           forceRefetch:forceRefetch
                             deviceName:deviceName
                           serialNumber:serialNumber
@@ -705,10 +674,9 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)setPreapprovedKeysWithContainer:(NSString *)container
-                                context:(NSString *)context
-                        preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
-                                  reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, NSError * _Nullable error))reply
+- (void)setPreapprovedKeysWithSpecificUser:(TPSpecificUser*)specificUser
+                           preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
+                                     reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -723,15 +691,14 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] setPreapprovedKeysWithContainer:container context:context preapprovedKeys:preapprovedKeys reply:reply];
+                }] setPreapprovedKeysWithSpecificUser:specificUser preapprovedKeys:preapprovedKeys reply:reply];
     } while (retry);
 }
 
-- (void)updateTLKsWithContainer:(NSString *)container
-                        context:(NSString *)context
-                       ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                      tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                          reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error))reply
+- (void)updateTLKsWithSpecificUser:(TPSpecificUser*)specificUser
+                          ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                         tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
+                             reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -746,13 +713,12 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] updateTLKsWithContainer:container context:context ckksKeys:ckksKeys tlkShares:tlkShares reply:reply];
+                }] updateTLKsWithSpecificUser:specificUser ckksKeys:ckksKeys tlkShares:tlkShares reply:reply];
     } while (retry);
 }
-    
-- (void)fetchViableBottlesWithContainer:(NSString *)container
-                                context:(NSString *)context
-                                  reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
+
+- (void)fetchViableBottlesWithSpecificUser:(TPSpecificUser*)specificUser
+                                     reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -767,16 +733,15 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] fetchViableBottlesWithContainer:container context:context reply:reply];
+                }] fetchViableBottlesWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
    
-- (void)fetchEscrowContentsWithContainer:(NSString *)container
-                                 context:(NSString *)context
-                                   reply:(void (^)(NSData* _Nullable entropy,
-                                                   NSString* _Nullable bottleID,
-                                                   NSData* _Nullable signingPublicKey,
-                                                   NSError* _Nullable error))reply
+- (void)fetchEscrowContentsWithSpecificUser:(TPSpecificUser*)specificUser
+                                      reply:(void (^)(NSData* _Nullable entropy,
+                                                      NSString* _Nullable bottleID,
+                                                      NSData* _Nullable signingPublicKey,
+                                                      NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -791,15 +756,14 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, nil, error);
                     }
                     ++i;
-                }] fetchEscrowContentsWithContainer:container context:context reply:reply];
+                }] fetchEscrowContentsWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)fetchPolicyDocumentsWithContainer:(NSString*)container
-                                  context:(NSString*)context
-                                 versions:(NSSet<TPPolicyVersion*>*)versions
-                                    reply:(void (^)(NSDictionary<TPPolicyVersion*, NSData*>* _Nullable entries,
-                                                    NSError * _Nullable error))reply
+- (void)fetchPolicyDocumentsWithSpecificUser:(TPSpecificUser*)specificUser
+                                    versions:(NSSet<TPPolicyVersion*>*)versions
+                                       reply:(void (^)(NSDictionary<TPPolicyVersion*, NSData*>* _Nullable entries,
+                                                       NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -814,17 +778,16 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] fetchPolicyDocumentsWithContainer:container context:context versions:versions reply:reply];
+                }] fetchPolicyDocumentsWithSpecificUser:specificUser versions:versions reply:reply];
     } while (retry);
 }
 
-- (void)fetchCurrentPolicyWithContainer:(NSString*)container
-                                context:(NSString*)context
-                        modelIDOverride:(NSString* _Nullable)modelIDOverride
-                     isInheritedAccount:(BOOL)isInheritedAccount
-                                  reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
-                                                  TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
-                                                  NSError * _Nullable error))reply
+- (void)fetchCurrentPolicyWithSpecificUser:(TPSpecificUser*)specificUser
+                           modelIDOverride:(NSString* _Nullable)modelIDOverride
+                        isInheritedAccount:(BOOL)isInheritedAccount
+                                     reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                     TPPBPeerStableInfoUserControllableViewStatus userControllableViewStatusOfPeers,
+                                                     NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -841,14 +804,13 @@ enum {NUM_RETRIES = 5};
                               error);
                     }
                     ++i;
-        }] fetchCurrentPolicyWithContainer:container context:context modelIDOverride:modelIDOverride isInheritedAccount:isInheritedAccount reply:reply];
+        }] fetchCurrentPolicyWithSpecificUser:specificUser modelIDOverride:modelIDOverride isInheritedAccount:isInheritedAccount reply:reply];
     } while (retry);
 }
 
 
-- (void)validatePeersWithContainer:(NSString *)container
-                           context:(NSString *)context
-                             reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply
+- (void)validatePeersWithSpecificUser:(TPSpecificUser*)specificUser
+                                reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -863,15 +825,14 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] validatePeersWithContainer:container context:context reply:reply];
+                }] validatePeersWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)fetchTrustStateWithContainer:(NSString *)container
-                             context:(NSString *)context
-                               reply:(void (^)(TrustedPeersHelperPeerState* _Nullable selfPeerState,
-                                               NSArray<TrustedPeersHelperPeer*>* _Nullable trustedPeers,
-                                               NSError* _Nullable error))reply
+- (void)fetchTrustStateWithSpecificUser:(TPSpecificUser*)specificUser
+                                  reply:(void (^)(TrustedPeersHelperPeerState* _Nullable selfPeerState,
+                                                  NSArray<TrustedPeersHelperPeer*>* _Nullable trustedPeers,
+                                                  NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -886,17 +847,16 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] fetchTrustStateWithContainer:container context:context reply:reply];
+                }] fetchTrustStateWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)setRecoveryKeyWithContainer:(NSString *)container
-                            context:(NSString *)context
-                        recoveryKey:(NSString *)recoveryKey
-                               salt:(NSString *)salt
-                           ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                              reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                              NSError* _Nullable error))reply
+- (void)setRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                           recoveryKey:(NSString *)recoveryKey
+                                  salt:(NSString *)salt
+                              ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                                 reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                 NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -911,20 +871,19 @@ enum {NUM_RETRIES = 5};
                         reply(nil, error);
                     }
                     ++i;
-                }] setRecoveryKeyWithContainer:container context:context recoveryKey:recoveryKey salt:salt ckksKeys:ckksKeys reply:reply];
+                }] setRecoveryKeyWithSpecificUser:specificUser recoveryKey:recoveryKey salt:salt ckksKeys:ckksKeys reply:reply];
     } while (retry);
 }
 
-- (void)createCustodianRecoveryKeyWithContainer:(NSString *)container
-                                        context:(NSString *)context
-                                    recoveryKey:(NSString *)recoveryString
-                                           salt:(NSString *)salt
-                                       ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                                           uuid:(NSUUID *)uuid
-                                           kind:(TPPBCustodianRecoveryKey_Kind)kind
-                                          reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                          TrustedPeersHelperCustodianRecoveryKey* _Nullable crk,
-                                                          NSError* _Nullable error))reply
+- (void)createCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                       recoveryKey:(NSString *)recoveryString
+                                              salt:(NSString *)salt
+                                          ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
+                                              uuid:(NSUUID *)uuid
+                                              kind:(TPPBCustodianRecoveryKey_Kind)kind
+                                             reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                             TrustedPeersHelperCustodianRecoveryKey* _Nullable crk,
+                                                             NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -939,14 +898,13 @@ enum {NUM_RETRIES = 5};
                         reply(nil, nil, error);
                     }
                     ++i;
-                }] createCustodianRecoveryKeyWithContainer:container context:context recoveryKey:recoveryString salt:salt ckksKeys:ckksKeys uuid:uuid kind:kind reply:reply];
+                }] createCustodianRecoveryKeyWithSpecificUser:specificUser recoveryKey:recoveryString salt:salt ckksKeys:ckksKeys uuid:uuid kind:kind reply:reply];
     } while (retry);
 }
 
-- (void)removeCustodianRecoveryKeyWithContainer:(NSString *)container
-                                        context:(NSString *)context
-                                           uuid:(NSUUID *)uuid
-                                          reply:(void (^)(NSError* _Nullable error))reply
+- (void)removeCustodianRecoveryKeyWithSpecificUser:(TPSpecificUser*)specificUser
+                                              uuid:(NSUUID *)uuid
+                                             reply:(void (^)(NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -961,15 +919,14 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] removeCustodianRecoveryKeyWithContainer:container context:context uuid:uuid reply:reply];
+                }] removeCustodianRecoveryKeyWithSpecificUser:specificUser uuid:uuid reply:reply];
     } while (retry);
 }
 
-- (void)reportHealthWithContainer:(NSString *)container
-                          context:(NSString *)context
-                stateMachineState:(NSString *)state
-                       trustState:(NSString *)trustState
-                            reply:(void (^)(NSError* _Nullable error))reply
+- (void)reportHealthWithSpecificUser:(TPSpecificUser*)specificUser
+                   stateMachineState:(NSString *)state
+                          trustState:(NSString *)trustState
+                               reply:(void (^)(NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -984,13 +941,12 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] reportHealthWithContainer:container context:context stateMachineState:state trustState:trustState reply:reply];
+                }] reportHealthWithSpecificUser:specificUser stateMachineState:state trustState:trustState reply:reply];
     } while (retry);
 }
 
-- (void)pushHealthInquiryWithContainer:(NSString *)container
-                               context:(NSString *)context
-                                 reply:(void (^)(NSError* _Nullable error))reply
+- (void)pushHealthInquiryWithSpecificUser:(TPSpecificUser*)specificUser
+                                    reply:(void (^)(NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -1005,15 +961,14 @@ enum {NUM_RETRIES = 5};
                         reply(error);
                     }
                     ++i;
-                }] pushHealthInquiryWithContainer:container context:context reply:reply];
+                }] pushHealthInquiryWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)requestHealthCheckWithContainer:(NSString *)container
-                                context:(NSString *)context
-                    requiresEscrowCheck:(BOOL)requiresEscrowCheck
-                       knownFederations:(NSArray<NSString *> *)knownFederations
-                                  reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError* _Nullable))reply
+- (void)requestHealthCheckWithSpecificUser:(TPSpecificUser*)specificUser
+                       requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                          knownFederations:(NSArray<NSString *> *)knownFederations
+                                     reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, BOOL leaveTrust, OTEscrowMoveRequestContext *moveRequest, NSError* _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -1028,13 +983,12 @@ enum {NUM_RETRIES = 5};
                         reply(NO, NO, NO, NO, nil, error);
                     }
                     ++i;
-        }] requestHealthCheckWithContainer:container context:context requiresEscrowCheck:requiresEscrowCheck knownFederations:knownFederations reply:reply];
+        }] requestHealthCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck knownFederations:knownFederations reply:reply];
     } while (retry);
 }
 
-- (void)getSupportAppInfoWithContainer:(NSString *)container
-                               context:(NSString *)context
-                                 reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply
+- (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser*)specificUser
+                                    reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -1049,12 +1003,15 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] getSupportAppInfoWithContainer:container context:context reply:reply];
+        }] getSupportAppInfoWithSpecificUser:specificUser reply:reply];
     } while (retry);
 
 }
 
-- (void)fetchViableEscrowRecordsWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context forceFetch:(BOOL)forceFetch reply:(nonnull void (^)(NSArray<NSData *> * _Nullable, NSError * _Nullable))reply
+- (void)fetchViableEscrowRecordsWithSpecificUser:(TPSpecificUser*)specificUser
+                                      forceFetch:(BOOL)forceFetch
+                                           reply:(nonnull void (^)(NSArray<NSData *> * _Nullable,
+                                                                   NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -1069,11 +1026,13 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchViableEscrowRecordsWithContainer:container context:context forceFetch:forceFetch reply:reply];
+        }] fetchViableEscrowRecordsWithSpecificUser:specificUser forceFetch:forceFetch reply:reply];
     } while (retry);
 }
 
-- (void)removeEscrowCacheWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context reply:(nonnull void (^)(NSError * _Nullable))reply {
+- (void)removeEscrowCacheWithSpecificUser:(TPSpecificUser*)specificUser
+                                    reply:(nonnull void (^)(NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1087,11 +1046,13 @@ enum {NUM_RETRIES = 5};
                 reply(error);
             }
             ++i;
-        }] removeEscrowCacheWithContainer:container context:context reply:reply];
+        }] removeEscrowCacheWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)resetAccountCDPContentsWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context reply:(nonnull void (^)(NSError * _Nullable))reply {
+- (void)resetAccountCDPContentsWithSpecificUser:(TPSpecificUser*)specificUser
+                                          reply:(nonnull void (^)(NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1105,14 +1066,15 @@ enum {NUM_RETRIES = 5};
                 reply(error);
             }
             ++i;
-        }] resetAccountCDPContentsWithContainer:container context:context reply:reply];
+        }] resetAccountCDPContentsWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)fetchRecoverableTLKSharesWithContainer:(nonnull NSString *)container
-                                       context:(nonnull NSString *)context
-                                        peerID:(NSString * _Nullable)peerID
-                                         reply:(nonnull void (^)(NSArray<CKRecord *> * _Nullable, NSError * _Nullable))reply {
+- (void)fetchRecoverableTLKSharesWithSpecificUser:(TPSpecificUser*)specificUser
+                                           peerID:(NSString * _Nullable)peerID
+                                            reply:(nonnull void (^)(NSArray<CKRecord *> * _Nullable,
+                                                                    NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1126,13 +1088,14 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchRecoverableTLKSharesWithContainer:container context:context peerID:peerID reply:reply];
+        }] fetchRecoverableTLKSharesWithSpecificUser:specificUser peerID:peerID reply:reply];
     } while (retry);
 }
 
-- (void)fetchAccountSettingsWithContainer:(nonnull NSString *)container
-                                  context:(nonnull NSString *)context
-                                    reply:(nonnull void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable, NSError * _Nullable))reply {
+- (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser*)specificUser
+                                       reply:(nonnull void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable,
+                                                               NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1146,27 +1109,27 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchAccountSettingsWithContainer:container context:context reply:reply];
+        }] fetchAccountSettingsWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 
-- (void)prepareInheritancePeerWithContainer:(nonnull NSString *)container
-                                    context:(nonnull NSString *)context
-                                      epoch:(unsigned long long)epoch
-                                  machineID:(nonnull NSString *)machineID
-                                 bottleSalt:(nonnull NSString *)bottleSalt
-                                   bottleID:(nonnull NSString *)bottleID
-                                    modelID:(nonnull NSString *)modelID
-                                 deviceName:(nullable NSString *)deviceName
-                               serialNumber:(nullable NSString *)serialNumber
-                                  osVersion:(nonnull NSString *)osVersion
-                              policyVersion:(nullable TPPolicyVersion *)policyVersion
-                              policySecrets:(nullable NSDictionary<NSString *,NSData *> *)policySecrets syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
-                      secureElementIdentity:(nullable TPPBSecureElementIdentity *)secureElementIdentity
-                signingPrivKeyPersistentRef:(nullable NSData *)spkPr
-                    encPrivKeyPersistentRef:(nullable NSData *)epkPr
-                                        crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
-                                      reply:(nonnull void (^)(NSString * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, TPSyncingPolicy * _Nullable, NSString * _Nullable,                                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable))reply {
+- (void)prepareInheritancePeerWithSpecificUser:(TPSpecificUser*)specificUser
+                                         epoch:(unsigned long long)epoch
+                                     machineID:(nonnull NSString *)machineID
+                                    bottleSalt:(nonnull NSString *)bottleSalt
+                                      bottleID:(nonnull NSString *)bottleID
+                                       modelID:(nonnull NSString *)modelID
+                                    deviceName:(nullable NSString *)deviceName
+                                  serialNumber:(nullable NSString *)serialNumber
+                                     osVersion:(nonnull NSString *)osVersion
+                                 policyVersion:(nullable TPPolicyVersion *)policyVersion
+                                 policySecrets:(nullable NSDictionary<NSString *,NSData *> *)policySecrets syncUserControllableViews:(TPPBPeerStableInfoUserControllableViewStatus)syncUserControllableViews
+                         secureElementIdentity:(nullable TPPBSecureElementIdentity *)secureElementIdentity
+                   signingPrivKeyPersistentRef:(nullable NSData *)spkPr
+                       encPrivKeyPersistentRef:(nullable NSData *)epkPr
+                                           crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
+                                         reply:(nonnull void (^)(NSString * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, NSData * _Nullable, TPSyncingPolicy * _Nullable, NSString * _Nullable,                                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1180,8 +1143,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, error);
             }
             ++i;
-        }] prepareInheritancePeerWithContainer:container
-         context:context
+        }] prepareInheritancePeerWithSpecificUser:specificUser
          epoch:epoch
          machineID:machineID
          bottleSalt:bottleSalt
@@ -1201,13 +1163,13 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
-- (void)recoverTLKSharesForInheritorWithContainer:(nonnull NSString *)container
-                                          context:(nonnull NSString *)context
-                                              crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
-                                        tlkShares:(nonnull NSArray<CKKSTLKShare *> *)tlkShares
-                                            reply:(nonnull void (^)(NSArray<CKKSTLKShare *> * _Nullable,
-                                                                    TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
-                                                                    NSError * _Nullable))reply {
+- (void)recoverTLKSharesForInheritorWithSpecificUser:(TPSpecificUser*)specificUser
+                                                 crk:(nonnull TrustedPeersHelperCustodianRecoveryKey *)crk
+                                           tlkShares:(nonnull NSArray<CKKSTLKShare *> *)tlkShares
+                                               reply:(nonnull void (^)(NSArray<CKKSTLKShare *> * _Nullable,
+                                                                       TrustedPeersHelperTLKRecoveryResult* _Nullable tlkRecoveryResults,
+                                                                       NSError * _Nullable))reply
+{
     __block int i = 0;
     __block bool retry;
     do {
@@ -1221,7 +1183,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, nil, error);
             }
             ++i;
-        }] recoverTLKSharesForInheritorWithContainer:container context:context crk:crk tlkShares:tlkShares reply:reply];
+        }] recoverTLKSharesForInheritorWithSpecificUser:specificUser crk:crk tlkShares:tlkShares reply:reply];
     } while (retry);
 }
 

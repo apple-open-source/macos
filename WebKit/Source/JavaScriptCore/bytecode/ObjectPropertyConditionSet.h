@@ -54,14 +54,15 @@ public:
         ASSERT(!result.isValid());
         return result;
     }
-    
-    static ObjectPropertyConditionSet create(Vector<ObjectPropertyCondition>&& vector)
+
+    template<typename Vector>
+    static ObjectPropertyConditionSet create(Vector&& vector)
     {
         if (vector.isEmpty())
             return ObjectPropertyConditionSet();
         
         ObjectPropertyConditionSet result;
-        result.m_data = Conditions::createFromVector(WTFMove(vector));
+        result.m_data = Conditions::createFromVector(std::forward<Vector>(vector));
         ASSERT(result.isValid());
         return result;
     }
@@ -192,8 +193,8 @@ struct PrototypeChainCachingStatus {
     bool flattenedDictionary;
 };
 
-std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, JSCell* base, const PropertySlot&);
-std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, JSCell* base, JSObject* target);
-std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, Structure* base, JSObject* target);
+std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, JSCell* base, UniquedStringImpl*, const PropertySlot&);
+std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, JSCell* base, UniquedStringImpl*, JSObject* target);
+std::optional<PrototypeChainCachingStatus> prepareChainForCaching(JSGlobalObject*, Structure* base, UniquedStringImpl*, JSObject* target);
 
 } // namespace JSC

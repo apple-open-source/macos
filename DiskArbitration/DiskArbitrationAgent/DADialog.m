@@ -29,11 +29,10 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CFUserNotificationPriv.h>
 #include <Foundation/Foundation.h>
+#include <Foundation/NSBundle_Private.h>
 #include <Foundation/NSUserNotification_Private.h>
 #include <os/log.h>
 #include <os/transaction_private.h>
-
-#define __DALocalizedStringInBundle( key, bundle ) [ [ NSBundle bundleWithPath: [ ( bundle ) pathForResource: [ [ NSBundle preferredLocalizationsFromArray: [ ( bundle ) localizations ] forPreferences: [ [ NSUserDefaults standardUserDefaults ] objectForKey: @"AppleLanguages" ] ] objectAtIndex: 0 ] ofType: @"lproj" ] ] localizedStringForKey: ( key ) value: NULL table: NULL ]
 
 static NSString * __kDADialogLocalizedStringBundlePath = @"/System/Library/Frameworks/DiskArbitration.framework";
 
@@ -49,6 +48,12 @@ static const CFStringRef __kDADialogTextDeviceUnreadableInitialize = CFSTR( "Ini
 static const CFStringRef __kDADialogTextDeviceUnrepairable             = CFSTR( "You can still open or copy files on the disk, but you can't save changes to files on the disk. Back up the disk and reformat it as soon as you can." );
 static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "macOS can't repair the disk \"" );
 static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( "\"." );
+
+NSString *__DALocalizedStringInBundle(NSString *key, NSBundle *bundle ) {
+	NSArray <NSString *> *prefs = [[NSUserDefaults standardUserDefaults] objectForKey:@"AppleLanguages"];
+	NSString *localization = [[NSBundle preferredLocalizationsFromArray:[bundle localizations] forPreferences:prefs] objectAtIndex:0];
+	return [bundle localizedStringForKey:key value:key table:NULL localization:localization];
+}
 
 void DADialogShowDeviceRemoval( CFMutableArrayRef disklist )
 {

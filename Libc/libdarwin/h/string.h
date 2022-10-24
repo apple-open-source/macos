@@ -28,6 +28,7 @@
 #ifndef __DARWIN_STRING_H
 #define __DARWIN_STRING_H
 
+#include <mach/vm_param.h>
 #include <os/base.h>
 #include <os/api.h>
 #include <sys/cdefs.h>

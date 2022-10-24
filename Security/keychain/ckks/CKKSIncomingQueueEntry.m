@@ -41,8 +41,9 @@
 @implementation CKKSIncomingQueueEntry
 
 - (NSString*)description {
-    return [NSString stringWithFormat: @"<%@(%@): %@ %@ (%@)>",
+    return [NSString stringWithFormat: @"<%@[%@](%@): %@ %@ (%@)>",
             NSStringFromClass([self class]),
+            self.item.contextID,
             self.item.zoneID.zoneName,
             self.action,
             self.item.uuid,
@@ -63,6 +64,11 @@
 
 #pragma mark - Property access to underlying CKKSItem
 
+- (NSString*)contextID
+{
+    return self.item.contextID;
+}
+
 -(NSString*)uuid {
     return self.item.uuid;
 }
@@ -73,21 +79,41 @@
 
 #pragma mark - Database Operations
 
-+ (instancetype) fromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self fromDatabaseWhere: @{@"UUID": CKKSNilToNSNull(uuid), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error: error];
++ (instancetype _Nullable)fromDatabase:(NSString*)uuid
+                             contextID:(NSString*)contextID
+                                zoneID:(CKRecordZoneID*)zoneID
+                                 error:(NSError* __autoreleasing*)error{
+    return [self fromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": CKKSNilToNSNull(uuid),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } error: error];
 }
 
-+ (instancetype) tryFromDatabase: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self tryFromDatabaseWhere: @{@"UUID": CKKSNilToNSNull(uuid), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error: error];
++ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
+                                contextID:(NSString*)contextID
+                                   zoneID:(CKRecordZoneID*)zoneID
+                                    error:(NSError* __autoreleasing*)error
+{
+    return [self tryFromDatabaseWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"UUID": CKKSNilToNSNull(uuid),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } error: error];
 }
 
 + (NSArray<CKKSIncomingQueueEntry*>*)fetch:(ssize_t)n
                             startingAtUUID:(NSString*)uuid
                                      state:(NSString*)state
                                     action:(NSString* _Nullable)action
+                                 contextID:(NSString*)contextID
                                     zoneID:(CKRecordZoneID*)zoneID
                                      error: (NSError * __autoreleasing *) error {
-    NSMutableDictionary* whereDict = [@{@"state": CKKSNilToNSNull(state), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} mutableCopy];
+    NSMutableDictionary* whereDict = [@{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"state": CKKSNilToNSNull(state),
+        @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } mutableCopy];
     whereDict[@"action"] = action;
     if(uuid) {
         whereDict[@"UUID"] = [CKKSSQLWhereValue op:CKKSSQLWhereComparatorGreaterThan value:uuid];
@@ -106,11 +132,11 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    return [[CKKSItem sqlColumns] arrayByAddingObjectsFromArray: @[@"action", @"state"]];
+    return [[CKKSItem sqlColumns] arrayByAddingObjectsFromArray: @[@"contextID", @"action", @"state"]];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
-    return @{@"UUID": self.uuid, @"state": self.state, @"ckzone": self.item.zoneID.zoneName};
+    return @{@"contextID": self.contextID, @"UUID": self.uuid, @"state": self.state, @"ckzone": self.item.zoneID.zoneName};
 }
 
 - (NSDictionary<NSString*,NSString*>*)sqlValues {
@@ -127,11 +153,18 @@
                                                       state:row[@"state"].asString];
 }
 
-+ (NSDictionary<NSString*,NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSDictionary<NSString*, NSNumber*>*)countsByStateWithContextID:(NSString*)contextID
+                                                           zoneID:(CKRecordZoneID*)zoneID
+                                                            error:(NSError* __autoreleasing*)error
+{
+
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
-                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                        where: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+        @"ckzone": CKKSNilToNSNull(zoneID.zoneName)
+    }
                                       columns: @[@"state", @"count(rowid)"]
                                       groupBy: @[@"state"]
                                       orderBy:nil
@@ -143,44 +176,62 @@
     return results;
 }
 
-+ (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (NSInteger)countByState:(CKKSItemState *)state
+                contextID:(NSString*)contextID
+                     zone:(CKRecordZoneID*)zoneID
+                    error:(NSError * __autoreleasing *)error
+{
     __block NSInteger result = -1;
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
-                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": state }
-                                      columns: @[@"count(*)"]
-                                      groupBy: nil
-                                      orderBy: nil
+                                        where: @{
+                                            @"contextID": CKKSNilToNSNull(contextID),
+                                            @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+                                            @"state": state
+                                        }
+                                        columns: @[@"count(*)"]
+                                        groupBy: nil
+                                        orderBy: nil
                                         limit: -1
-                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
-                                       result = row[@"count(*)"].asNSInteger;
-                                   }
+                                        processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                            result = row[@"count(*)"].asNSInteger;
+                                        }
                                         error: error];
     return result;
 }
 
-+ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error
++ (NSDictionary<NSString*, NSNumber*>*)countNewEntriesByKeyWithContextID:(NSString*)contextID
+                                                                  zoneID:(CKRecordZoneID*)zoneID
+                                                                   error:(NSError* __autoreleasing*)error
 {
     NSMutableDictionary* results = [[NSMutableDictionary alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable:[[self class] sqlTable]
-                                        where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName), @"state": SecCKKSStateNew}
-                                      columns:@[@"parentKeyUUID", @"count(rowid)"]
-                                      groupBy:@[@"parentKeyUUID"]
-                                      orderBy:nil
+                                        where:@{
+                                            @"contextID": CKKSNilToNSNull(contextID),
+                                            @"ckzone": CKKSNilToNSNull(zoneID.zoneName),
+                                            @"state": SecCKKSStateNew
+                                        }
+                                        columns:@[@"parentKeyUUID", @"count(rowid)"]
+                                        groupBy:@[@"parentKeyUUID"]
+                                        orderBy:nil
                                         limit:-1
-                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
-                                       results[row[@"parentKeyUUID"].asString] = row[@"count(rowid)"].asNSNumberInteger;
-                                   }
+                                        processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                        results[row[@"parentKeyUUID"].asString] = row[@"count(rowid)"].asNSNumberInteger;
+                                        }
                                         error: error];
     return results;
 }
 
 
-+ (BOOL)allIQEsHaveValidUnwrappingKeys:(CKRecordZoneID*)zoneID error:(NSError**)error
++ (BOOL)allIQEsHaveValidUnwrappingKeysInContextID:(NSString*)contextID
+                                           zoneID:(CKRecordZoneID*)zoneID
+                                            error:(NSError**)error
 {
     NSError* parentKeyUUIDsError = nil;
-    NSSet<NSString*>* parentKeyUUIDs = [CKKSIncomingQueueEntry allParentKeyUUIDs:zoneID error:&parentKeyUUIDsError];
+    NSSet<NSString*>* parentKeyUUIDs = [CKKSIncomingQueueEntry allParentKeyUUIDsInContextID:contextID
+                                                                                     zoneID:zoneID
+                                                                           error:&parentKeyUUIDsError];
 
     if(parentKeyUUIDsError != nil) {
         ckkserror("ckkskey", zoneID, "Unable to find IQE parent keys: %@", parentKeyUUIDsError);
@@ -192,7 +243,7 @@
 
     for(NSString* parentKeyUUID in parentKeyUUIDs) {
         NSError* keyLoadError = nil;
-        CKKSKey* parentKey = [CKKSKey tryFromDatabase:parentKeyUUID zoneID:zoneID error:&keyLoadError];
+        CKKSKey* parentKey = [CKKSKey tryFromDatabase:parentKeyUUID contextID:contextID zoneID:zoneID error:&keyLoadError];
         if(keyLoadError != nil) {
             // An error here means a database issue. Let's bail.
             ckkserror("ckksheal", zoneID, "Unable to find key %@: %@", keyLoadError, parentKeyUUID);

@@ -31,4 +31,3 @@ $(targets):
 	        SRCROOT=$(SRCROOT)/$* OBJROOT=$(OBJROOT)/$* SYMROOT=$(SYMROOT)/$* DSTROOT=$(DSTROOT)
 
 .PHONY: $(Actions) $(Actions_nodeps) $(targets)
-.NOTPARALLEL:

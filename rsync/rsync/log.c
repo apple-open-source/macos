@@ -463,13 +463,13 @@ static void log_formatted(enum logcode code, char *format, char *op,
 			break;
 		case 'l':
 			strlcat(fmt, ".0f", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt,
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%f"),
 				 (double)file->length);
 			n = buf2;
 			break;
 		case 'U':
 			strlcat(fmt, "ld", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt,
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%ld"),
 				 (long)file->uid);
 			n = buf2;
 			break;
@@ -478,14 +478,14 @@ static void log_formatted(enum logcode code, char *format, char *op,
 				n = "DEFAULT";
 			else {
 				strlcat(fmt, "ld", sizeof fmt);
-				snprintf(buf2, sizeof buf2, fmt,
+				snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%ld"),
 					 (long)file->gid);
 				n = buf2;
 			}
 			break;
 		case 'p':
 			strlcat(fmt, "ld", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt,
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%ld"),
 				 (long)getpid());
 			n = buf2;
 			break;
@@ -546,7 +546,7 @@ static void log_formatted(enum logcode code, char *format, char *op,
 				strlcpy(buf2, "    ", sizeof buf2);
 			}
 			strlcat(fmt, "s", sizeof fmt);
-			snprintf(buf2 + 4, sizeof buf2 - 4, fmt, n);
+			snprintf(buf2 + 4, sizeof buf2 - 4, fmtcheck(fmt, "%s"), n);
 			n = buf2;
 			break;
 		case 'm':
@@ -570,7 +570,7 @@ static void log_formatted(enum logcode code, char *format, char *op,
 					initial_stats->total_read;
 			}
 			strlcat(fmt, ".0f", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt, (double)b);
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%f"), (double)b);
 			n = buf2;
 			break;
 		case 'c':
@@ -582,7 +582,7 @@ static void log_formatted(enum logcode code, char *format, char *op,
 					initial_stats->total_read;
 			}
 			strlcat(fmt, ".0f", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt, (double)b);
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%f"), (double)b);
 			n = buf2;
 			break;
 		case 'i':
@@ -634,7 +634,7 @@ static void log_formatted(enum logcode code, char *format, char *op,
 			continue;
 		if (n != buf2 && fmt[1]) {
 			strlcat(fmt, "s", sizeof fmt);
-			snprintf(buf2, sizeof buf2, fmt, n);
+			snprintf(buf2, sizeof buf2, fmtcheck(fmt, "%s"), n);
 			n = buf2;
 		}
 		len = strlen(n);

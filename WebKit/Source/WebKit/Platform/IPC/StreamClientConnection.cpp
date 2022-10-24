@@ -96,44 +96,29 @@ void StreamClientConnection::invalidate()
         m_connection->invalidate();
 }
 
-void StreamClientConnection::setWakeUpSemaphore(IPC::Semaphore&& semaphore)
+void StreamClientConnection::setSemaphores(IPC::Semaphore&& wakeUp, IPC::Semaphore&& clientWait)
 {
-    m_wakeUpSemaphore = WTFMove(semaphore);
-    wakeUpServer();
+    m_semaphores = { WTFMove(wakeUp), WTFMove(clientWait) };
+    wakeUpServer(WakeUpServer::Yes);
 }
 
-void StreamClientConnection::wakeUpServer()
+void StreamClientConnection::wakeUpServer(WakeUpServer wakeUpResult)
 {
-    if (!m_wakeUpSemaphore)
+    if (wakeUpResult == WakeUpServer::No && !m_batchSize)
         return;
-
-    m_wakeUpSemaphore->signal();
-    m_remainingMessageCountBeforeSendingWakeUp = 0;
-}
-
-void StreamClientConnection::deferredWakeUpServer()
-{
-    if (m_wakeUpMessageHysteresis)
-        m_remainingMessageCountBeforeSendingWakeUp = m_wakeUpMessageHysteresis;
-    else
-        wakeUpServer();
-}
-
-void StreamClientConnection::decrementRemainingMessageCountBeforeSendingWakeUp()
-{
-    if (!m_remainingMessageCountBeforeSendingWakeUp)
+    if (!m_semaphores)
         return;
-
-    if (!--m_remainingMessageCountBeforeSendingWakeUp)
-        wakeUpServer();
+    m_semaphores->wakeUp.signal();
+    m_batchSize = 0;
 }
 
-void StreamClientConnection::sendDeferredWakeUpMessageIfNeeded()
+void StreamClientConnection::wakeUpServerBatched(WakeUpServer wakeUpResult)
 {
-    if (!m_remainingMessageCountBeforeSendingWakeUp)
-        return;
-
-    wakeUpServer();
+    if (wakeUpResult == WakeUpServer::Yes || m_batchSize) {
+        m_batchSize++;
+        if (m_batchSize >= m_maxBatchSize)
+            wakeUpServer(WakeUpServer::Yes);
+    }
 }
 
 StreamConnectionBuffer& StreamClientConnection::bufferForTesting()

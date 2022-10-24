@@ -40,7 +40,7 @@
 int
 secd_21_transmogrify(int argc, char *const *argv)
 {
-    plan_tests(kSecdTestSetupTestCount + 14);
+    plan_tests(kSecdTestSetupTestCount + 16);
 
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     CFErrorRef error = NULL;
@@ -51,9 +51,6 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     NSMutableArray *newACL = [NSMutableArray arrayWithArray:(__bridge NSArray *)currentACL];
     [newACL addObjectsFromArray:@[
-                                  @"com.apple.private.system-keychain",
-                                  @"com.apple.private.syncbubble-keychain",
-                                  @"com.apple.private.migrate-musr-system-keychain",
                                   @"com.apple.ProtectedCloudStorage",
                                   ]];
     
@@ -69,7 +66,8 @@ secd_21_transmogrify(int argc, char *const *argv)
     res = SecItemAdd((CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
-        (id)kSecValueData : [NSData dataWithBytes:"password" length:8]
+        (id)kSecValueData : [NSData dataWithBytes:"password" length:8],
+        (id)kSecAttrAccessGroup : @"com.apple.ProtectedCloudStorage"
     }, NULL);
     is(res, 0, "SecItemAdd(user)");
 
@@ -78,10 +76,12 @@ secd_21_transmogrify(int argc, char *const *argv)
         .accessGroups = (__bridge CFArrayRef)@[
             @"com.apple.ProtectedCloudStorage"
         ],
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = true,
+#endif
         .allowSyncBubbleKeychain = true,
         .uid = 502,
-        .inMultiUser = false,
+        .inEduMode = false,
         .activeUser = 502,
     };
 
@@ -89,19 +89,17 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     CFDataRef musr = SecMUSRCreateActiveUserUUID(502);
 
-    client.inMultiUser = true;
+    client.inEduMode = true;
     client.musr = musr;
 
-    SecSecuritySetMusrMode(true, 502, 502);
-
-    res = SecItemCopyMatching((CFDictionaryRef)@{
+    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
         (id)kSecReturnData : @(YES)
-    }, (CFTypeRef *)&result);
-    is(res, 0, "SecItemCopyMatching(system)");
+    }, &client, (CFTypeRef *)&result, &error);
+    is(res, true, "_SecItemCopyMatching(system)");
 
     ok(isDictionary(result), "found item");
     if (isDictionary(result)) {
@@ -112,6 +110,7 @@ secd_21_transmogrify(int argc, char *const *argv)
         ok([passwordData isEqual:[NSData dataWithBytes:"password" length:8]], "no data found in transmogrified item");
     } else {
         ok(0, "returned item is: %@", result);
+        ok(0, "returned error is: %@", error);
     }
     CFReleaseNull(result);
 

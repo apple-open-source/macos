@@ -448,7 +448,7 @@ static void dumpUIView(TextStream& ts, UIView *view)
     [_contentView _simulateTextEntered:text];
 }
 
-- (void)_triggerSystemPreviewActionOnElement:(uint64_t)elementID document:(uint64_t)documentID page:(uint64_t)pageID
+- (void)_triggerSystemPreviewActionOnElement:(uint64_t)elementID document:(NSString*)documentID page:(uint64_t)pageID
 {
 #if USE(SYSTEM_PREVIEW)
     if (_page) {
@@ -479,6 +479,27 @@ static void dumpUIView(TextStream& ts, UIView *view)
         return nil;
 
     return serializationForCSS(WebCore::colorFromCocoaColor(backgroundColor));
+}
+
+- (BOOL)_hasResizeAssertion
+{
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+    if (!_resizeAssertions.isEmpty())
+        return YES;
+#endif
+    return NO;
+}
+
+- (void)_simulateSelectionStart
+{
+    [_contentView _simulateSelectionStart];
+}
+
++ (void)_resetPresentLockdownModeMessage
+{
+#if ENABLE(LOCKDOWN_MODE_API)
+    [self _clearLockdownModeWarningNeeded];
+#endif
 }
 
 @end

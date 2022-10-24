@@ -60,9 +60,8 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper localResetWithContainer:self.deps.containerName
-                                                    context:self.deps.contextID
-                                                      reply:^(NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper localResetWithSpecificUser:self.deps.activeAccount
+                                                         reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             if(error) {
                 secnotice("octagon", "Unable to reset local cuttlefish for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);

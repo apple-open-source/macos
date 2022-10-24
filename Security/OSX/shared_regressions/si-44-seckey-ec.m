@@ -66,7 +66,7 @@ static void test_export_import_run(int size) {
 }
 static const int TestExportImportRun = 10;
 
-static void test_export_import() {
+static void test_export_import(void) {
     test_export_import_run(192);
     test_export_import_run(256);
     test_export_import_run(521);
@@ -115,7 +115,7 @@ static void test_sign_digest_run(id privKey, ccec_const_cp_t cp, SecKeyAlgorithm
 }
 static const int TestSignDigestRun = 10;
 
-static void test_sign_digest() {
+static void test_sign_digest(void) {
 
     NSError *error = nil;
     id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @192}, (void *)&error));

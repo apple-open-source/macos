@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 723CE9C10FC36FEB00064057 /* Build configuration list for PBXAggregateTarget "Build All" */;
 			buildPhases = (
+				3247F2CD282D34F300230C0A /* Install OpenSource Plist */,
 			);
 			dependencies = (
 				723CE9BE0FC36FC600064057 /* PBXTargetDependency */,
@@ -625,6 +626,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 723CE8490FC342D200064057;
@@ -644,18 +646,36 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		3247F2CD282D34F300230C0A /* Install OpenSource Plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install OpenSource Plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-opensource.sh\n";
+		};
 		53D26425112DD84700FFBD9F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cp $DSTROOT/usr/share/man/man1/ncal.1 $DSTROOT/usr/share/man/man1/cal.1";
+			shellScript = "cp $DSTROOT/usr/share/man/man1/ncal.1 $DSTROOT/usr/share/man/man1/cal.1\n";
 		};
 		72FA601A0FC497B500E6462C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -668,7 +688,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/bash;
-			shellScript = "mkdir -p $DSTROOT/usr/share/calendar\ncp -R $SRCROOT/calendar/calendars/ $DSTROOT/usr/share/calendar/\nmkdir -p $DSTROOT/usr/share/calendar/de_DE.ISO8859-15\nmkdir -p $DSTROOT/usr/share/calendar/fr_FR.ISO8859-15";
+			shellScript = "mkdir -p $DSTROOT/usr/share/calendar\ncp -R $SRCROOT/calendar/calendars/ $DSTROOT/usr/share/calendar/\nmkdir -p $DSTROOT/usr/share/calendar/de_DE.ISO8859-15\nmkdir -p $DSTROOT/usr/share/calendar/fr_FR.ISO8859-15\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -786,7 +806,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;

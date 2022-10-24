@@ -161,6 +161,10 @@ main(int argc, char *argv[])
 			rval = 1;
 		}
 	} while (argc > 0);
+#ifdef __APPLE__
+	if (ferror(stdout) != 0 || fflush(stdout) != 0)
+		err(1, "stdout");
+#endif
 	exit(rval);
 }
 

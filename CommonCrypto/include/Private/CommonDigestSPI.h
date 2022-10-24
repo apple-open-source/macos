@@ -44,16 +44,20 @@ extern "C" {
     @enum       CCDigestAlgorithm
     @abstract   Algorithms implemented in this module.
 
-    @constant 	kCCDigestNone		Digest Selector for "no digest"
-    @constant 	kCCDigestMD2		MD2 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
-    @constant 	kCCDigestMD4		MD4 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
-    @constant 	kCCDigestMD5		MD5 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
-    @constant 	kCCDigestRMD160		RMD 160 bit digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
-    @constant 	kCCDigestSHA1		SHA-1 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
-    @constant 	kCCDigestSHA224		SHA-2 224 bit digest
-    @constant 	kCCDigestSHA256		SHA-2 256 bit digest
-    @constant 	kCCDigestSHA384		SHA-2 384 bit digest
-    @constant 	kCCDigestSHA512		SHA-2 512 bit digest
+    @constant     kCCDigestNone          Digest Selector for "no digest"
+    @constant     kCCDigestMD2           MD2 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
+    @constant     kCCDigestMD4           MD4 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
+    @constant     kCCDigestMD5           MD5 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
+    @constant     kCCDigestRMD160        RMD 160 bit digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
+    @constant     kCCDigestSHA1          SHA-1 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
+    @constant     kCCDigestSHA224        SHA-2 224 bit digest
+    @constant     kCCDigestSHA256        SHA-2 256 bit digest
+    @constant     kCCDigestSHA384        SHA-2 384 bit digest
+    @constant     kCCDigestSHA512        SHA-2 512 bit digest
+    @constant     kCCDigestSHA3_224      SHA-3 224 bit digest
+    @constant     kCCDigestSHA3_256      SHA-3 256 bit digest
+    @constant     kCCDigestSHA3_384      SHA-3 384 bit digest
+    @constant     kCCDigestSHA3_512      SHA-3 512 bit digest
  */
 
 enum {
@@ -63,10 +67,14 @@ enum {
 	kCCDigestMD5 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 3,
 	kCCDigestRMD160 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 5,
 	kCCDigestSHA1 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 8,
-	kCCDigestSHA224 = 9,
-	kCCDigestSHA256 = 10,
-	kCCDigestSHA384 = 11,
-	kCCDigestSHA512 = 12,
+    kCCDigestSHA224 = 9,
+    kCCDigestSHA256 = 10,
+    kCCDigestSHA384 = 11,
+    kCCDigestSHA512 = 12,
+    kCCDigestSHA3_224 = 13,
+    kCCDigestSHA3_256 = 14,
+    kCCDigestSHA3_384 = 15,
+    kCCDigestSHA3_512 = 16,
 
     kCCDigestMax
 };

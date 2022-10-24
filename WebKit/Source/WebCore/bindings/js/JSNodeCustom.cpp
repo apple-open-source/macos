@@ -32,6 +32,8 @@
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
+#include "FrameDestructionObserverInlines.h"
+#include "HTMLCanvasElement.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "JSAttr.h"
@@ -58,23 +60,18 @@
 #include "ShadowRoot.h"
 #include "GCReachableRef.h"
 #include "Text.h"
+#include "WebCoreOpaqueRoot.h"
 
 namespace WebCore {
 
 using namespace JSC;
 using namespace HTMLNames;
 
-static inline bool isReachableFromDOM(Node* node, AbstractSlotVisitor& visitor, const char** reason)
+bool JSNodeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, AbstractSlotVisitor& visitor, const char** reason)
 {
-    if (!node->isConnected()) {
-        // If a node is firing event listeners, its wrapper is observable because
-        // its wrapper is responsible for marking those event listeners.
-        if (node->isFiringEventListeners()) {
-            if (UNLIKELY(reason))
-                *reason = "Node which is firing event listeners";
-            return true;
-        }
-        if (GCReachableRefMap::contains(*node)) {
+    auto& node = jsCast<JSNode*>(handle.slot()->asCell())->wrapped();
+    if (!node.isConnected()) {
+        if (GCReachableRefMap::contains(node)) {
             if (UNLIKELY(reason))
                 *reason = "Node is scheduled to be used in an async script invocation)";
             return true;
@@ -84,18 +81,12 @@ static inline bool isReachableFromDOM(Node* node, AbstractSlotVisitor& visitor, 
     if (UNLIKELY(reason))
         *reason = "Connected node";
 
-    return visitor.containsOpaqueRoot(root(node));
-}
-
-bool JSNodeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, AbstractSlotVisitor& visitor, const char** reason)
-{
-    JSNode* jsNode = jsCast<JSNode*>(handle.slot()->asCell());
-    return isReachableFromDOM(&jsNode->wrapped(), visitor, reason);
+    return containsWebCoreOpaqueRoot(visitor, node);
 }
 
 JSScope* JSNode::pushEventHandlerScope(JSGlobalObject* lexicalGlobalObject, JSScope* node) const
 {
-    if (inherits<JSHTMLElement>(lexicalGlobalObject->vm()))
+    if (inherits<JSHTMLElement>())
         return jsCast<const JSHTMLElement*>(this)->pushEventHandlerScope(lexicalGlobalObject, node);
     return node;
 }
@@ -103,7 +94,7 @@ JSScope* JSNode::pushEventHandlerScope(JSGlobalObject* lexicalGlobalObject, JSSc
 template<typename Visitor>
 void JSNode::visitAdditionalChildren(Visitor& visitor)
 {
-    visitor.addOpaqueRoot(root(wrapped()));
+    addWebCoreOpaqueRoot(visitor, wrapped());
 }
 
 DEFINE_VISIT_ADDITIONAL_CHILDREN(JSNode);

@@ -45,7 +45,9 @@ typedef enum {
 @property (nonatomic) uint64_t piggy_version;
 #if OCTAGON
 @property (nonatomic, strong) OTControl *otControl;
+
 @property (nonatomic, strong) OTJoiningConfiguration* joiningConfiguration;
+@property (nonatomic, strong) OTControlArguments* controlArguments;
 #endif
 @end
 
@@ -55,9 +57,11 @@ typedef enum {
 - (void)setControlObject:(OTControl *)control{
     self.otControl = control;
 }
-- (void)setContextIDOnJoiningConfiguration:(NSString*)contextID
+- (void)setContextIDForSession:(NSString*)contextID
 {
-    self.joiningConfiguration.contextID = contextID;
+    self.controlArguments = [[OTControlArguments alloc] initWithContainerName:self.controlArguments.containerName
+                                                                    contextID:contextID
+                                                                      altDSID:self.controlArguments.altDSID];
 }
 - (KCAESGCMDuplexSession*)accessSession
 {
@@ -121,7 +125,8 @@ typedef enum {
 
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         //giving securityd the epoch, expecting identity message
-        [self.otControl rpcPrepareIdentityAsApplicantWithConfiguration:self.joiningConfiguration
+        [self.otControl rpcPrepareIdentityAsApplicantWithArguments:self.controlArguments
+                                                     configuration:self.joiningConfiguration
                                                                  reply:^(NSString *peerID,
                                                                          NSData *permanentInfo,
                                                                          NSData *permanentInfoSig,
@@ -193,7 +198,7 @@ typedef enum {
 - (void) waitForOctagonUpgrade
 {
 #if OCTAGON
-    [self.otControl waitForOctagonUpgrade:self.joiningConfiguration.containerName context:self.joiningConfiguration.contextID reply:^(NSError *error) {
+    [self.otControl waitForOctagonUpgrade:self.controlArguments reply:^(NSError *error) {
         if(error){
             secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
         }
@@ -241,7 +246,8 @@ typedef enum {
         OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
 
         //handle voucher message then join octagon
-        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration
+        [self.otControl rpcJoinWithArguments:self.controlArguments
+                               configuration:self.joiningConfiguration
                                        vouchData:voucher.voucher
                                         vouchSig:voucher.voucherSignature
                                            reply:^(NSError * _Nullable err) {
@@ -355,10 +361,9 @@ typedef enum {
                                                                            uniqueDeviceID:@"requester-id"
                                                                            uniqueClientID:@"requester-id"
                                                                               pairingUUID:session.pairingUUID
-                                                                            containerName:nil
-                                                                                contextID:OTDefaultContext
                                                                                     epoch:session.epoch
                                                                               isInitiator:true];
+        self->_controlArguments = [[OTControlArguments alloc] initWithAltDSID:session.altDSID];
 
         self->_piggy_version = session.piggybackingVersion;
 #else

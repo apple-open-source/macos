@@ -39,6 +39,9 @@
 
 #include <spawn.h>
 
+#define kPreDefinedBlockSize 512
+#define kPreDefinedBlockCount 4096
+
 static void hfs_locks_destroy(struct hfsmount *hfsmp);
 static int  hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args);
 
@@ -142,8 +145,6 @@ int fsck_mount_and_replay(int iFd) {
 
     return iErr;
 }
-
-#define PATH_TO_FSCK "/System/Library/Filesystems/hfs.fs/Contents/Resources/fsck_hfs"
 
 int
 fsck_hfs(int fd, check_flags_t how)
@@ -329,9 +330,14 @@ static int hfs_InitialMount(struct vnode *devvp, struct mount *mp, struct hfs_mo
     /* Get the logical block size (treated as physical block size everywhere) */
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETBLOCKSIZE, &log_blksize))
     {
-        LFHFS_LOG(LEVEL_DEBUG, "hfs_mountfs: DKIOCGETBLOCKSIZE failed\n");
-        retval = ENXIO;
-        goto error_exit;
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
+        {
+            LFHFS_LOG(LEVEL_DEBUG, "hfs_InitialMount: DKIOCGETBLOCKSIZE failed with (%d) errno\n", errno);
+            retval = ENXIO;
+            goto error_exit;
+        }
+        LFHFS_LOG(LEVEL_DEBUG, "hfs_InitialMount: ioctl DKIOCGETBLOCKSIZE failed with (%d), it is possible we aren't writing to actual device, use a default block size (%d)\n", errno, kPreDefinedBlockSize);
+        log_blksize = kPreDefinedBlockSize;
     }
     if (log_blksize == 0 || log_blksize > 1024*1024*1024)
     {
@@ -343,14 +349,14 @@ static int hfs_InitialMount(struct vnode *devvp, struct mount *mp, struct hfs_mo
     /* Get the physical block size. */
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETPHYSICALBLOCKSIZE, &phys_blksize))
     {
-        if ((retval != ENOTSUP) && (retval != ENOTTY))
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
         {
-            LFHFS_LOG(LEVEL_DEBUG, "hfs_mountfs: DKIOCGETPHYSICALBLOCKSIZE failed\n");
+            LFHFS_LOG(LEVEL_DEBUG, "hfs_InitialMount: DKIOCGETPHYSICALBLOCKSIZE failed with (%d) errno\n", errno);
             retval = ENXIO;
             goto error_exit;
         }
-        /* If device does not support this ioctl, assume that physical
-         * block size is same as logical block size
+        /* If device does not support this ioctl or if we aren't writing to an actual device
+         * assume that physical block size is same as logical block size
          */
         phys_blksize = log_blksize;
     }
@@ -362,22 +368,27 @@ static int hfs_InitialMount(struct vnode *devvp, struct mount *mp, struct hfs_mo
         goto error_exit;
     }
 
-	/* Don't let phys_blksize be smaller than the logical  */
-	if (phys_blksize < log_blksize) {
-		/*
-		 * In the off chance that the phys_blksize is SMALLER than the logical
-		 * then don't let that happen.  Pretend that the PHYSICALBLOCKSIZE
-		 * ioctl was not supported.
-		 */
-		 phys_blksize = log_blksize;
-	}
+    /* Don't let phys_blksize be smaller than the logical  */
+    if (phys_blksize < log_blksize) {
+        /*
+         * In the off chance that the phys_blksize is SMALLER than the logical
+         * then don't let that happen.  Pretend that the PHYSICALBLOCKSIZE
+         * ioctl was not supported.
+         */
+         phys_blksize = log_blksize;
+    }
 
     /* Get the number of physical blocks. */
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETBLOCKCOUNT, &log_blkcnt))
     {
-        LFHFS_LOG(LEVEL_DEBUG, "hfs_mountfs: DKIOCGETBLOCKCOUNT failed\n");
-        retval = ENXIO;
-        goto error_exit;
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
+        {
+            LFHFS_LOG(LEVEL_DEBUG, "hfs_InitialMount: DKIOCGETBLOCKCOUNT failed with (%d) errno\n", errno);
+            retval = ENXIO;
+            goto error_exit;
+        }
+        LFHFS_LOG(LEVEL_DEBUG, "hfs_InitialMount: ioctl DKIOCGETBLOCKCOUNT failed with (%d), it is possible we aren't writing to actual device, use a default block count (%d)\n", errno, kPreDefinedBlockCount);
+        log_blkcnt = kPreDefinedBlockCount;
     }
 
     /* Compute an accurate disk size (i.e. within 512 bytes) */

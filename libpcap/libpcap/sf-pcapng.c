@@ -208,15 +208,7 @@ typedef enum {
  * Per-interface information.
  */
 struct pcap_ng_if {
-#ifdef __APPLE__
-	/*
-	 * Note:
-	 * The code related to snaplen field is taken from master of tcpdump.org
-	 * so we will have to remove the __APPLE__ conditionals related to this field
-	 * the next time we sync-up with the next RELEASE version from tcpdump.org
-	 */
 	uint32_t snaplen;		/* snapshot length */
-#endif /* __APPLE__ */
 	uint64_t tsresol;		/* time stamp resolution */
 	tstamp_scale_type_t scale_type;	/* how to scale */
 	uint64_t scale_factor;		/* time stamp scale factor for power-of-10 tsresol */
@@ -294,8 +286,8 @@ read_bytes(FILE *fp, void *buf, size_t bytes_to_read, int fail_on_eof,
 		} else {
 			if (amt_read == 0 && !fail_on_eof)
 				return (0);	/* EOF */
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "truncated pcapng dump file; tried to read %" PRIsize " bytes, only got %" PRIsize,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "truncated pcapng dump file; tried to read %zu bytes, only got %zu",
 			    bytes_to_read, amt_read);
 		}
 		return (-1);
@@ -330,8 +322,8 @@ read_block(FILE *fp, pcap_t *p, struct block_cursor *cursor, char *errbuf)
 	 */
 	if (bhdr.total_length < sizeof(struct block_header) +
 	    sizeof(struct block_trailer)) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-		    "block in pcapng dump file has a length of %u < %" PRIsize,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		    "block in pcapng dump file has a length of %u < %zu",
 		    bhdr.total_length,
 		    sizeof(struct block_header) + sizeof(struct block_trailer));
 		return (-1);
@@ -344,8 +336,8 @@ read_block(FILE *fp, pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		/*
 		 * No.  Report that as an error.
 		 */
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-		    "block in pcapng dump file has a length of %u that is not a multiple of 4" PRIsize,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		    "block in pcapng dump file has a length of %u that is not a multiple of 4",
 		    bhdr.total_length);
 		return (-1);
 	}
@@ -361,13 +353,13 @@ read_block(FILE *fp, pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		void *bigger_buffer;
 
 		if (bhdr.total_length > ps->max_blocksize) {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "pcapng block size %u > maximum %u", bhdr.total_length,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE, "pcapng block size %u > maximum %u", bhdr.total_length,
 			    ps->max_blocksize);
 			return (-1);
 		}
 		bigger_buffer = realloc(p->buffer, bhdr.total_length);
 		if (bigger_buffer == NULL) {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");
+			snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");
 			return (-1);
 		}
 		p->buffer = bigger_buffer;
@@ -398,7 +390,7 @@ read_block(FILE *fp, pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		/*
 		 * No.
 		 */
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "block total length in header and trailer don't match");
 		return (-1);
 	}
@@ -427,7 +419,7 @@ get_from_block_data(struct block_cursor *cursor, size_t chunk_size,
 	 * the block data.
 	 */
 	if (cursor->data_remaining < chunk_size) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "block of type %u in pcapng dump file is too short",
 		    cursor->block_type);
 		return (NULL);
@@ -528,7 +520,7 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, uint64_t *tsresol,
 
 		case OPT_ENDOFOPT:
 			if (opthdr->option_length != 0) {
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "Interface Description Block has opt_endofopt option with length %u != 0",
 				    opthdr->option_length);
 				return (-1);
@@ -537,13 +529,13 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, uint64_t *tsresol,
 
 		case IF_TSRESOL:
 			if (opthdr->option_length != 1) {
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "Interface Description Block has if_tsresol option with length %u != 1",
 				    opthdr->option_length);
 				return (-1);
 			}
 			if (saw_tsresol) {
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "Interface Description Block has more than one if_tsresol option");
 				return (-1);
 			}
@@ -560,7 +552,7 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, uint64_t *tsresol,
 					 * Resolution is too high; 2^-{res}
 					 * won't fit in a 64-bit value.
 					 */
-					pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+					snprintf(errbuf, PCAP_ERRBUF_SIZE,
 					    "Interface Description Block if_tsresol option resolution 2^-%u is too high",
 					    tsresol_shift);
 					return (-1);
@@ -580,7 +572,7 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, uint64_t *tsresol,
 					 * the largest 64-bit unsigned
 					 * value is ~1.8*10^19).
 					 */
-					pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+					snprintf(errbuf, PCAP_ERRBUF_SIZE,
 					    "Interface Description Block if_tsresol option resolution 10^-%u is too high",
 					    tsresol_opt);
 					return (-1);
@@ -594,13 +586,13 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, uint64_t *tsresol,
 
 		case IF_TSOFFSET:
 			if (opthdr->option_length != 8) {
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "Interface Description Block has if_tsoffset option with length %u != 8",
 				    opthdr->option_length);
 				return (-1);
 			}
 			if (saw_tsoffset) {
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "Interface Description Block has more than one if_tsoffset option");
 				return (-1);
 			}
@@ -620,12 +612,8 @@ done:
 }
 
 static int
-#ifdef __APPLE__
 add_interface(pcap_t *p, struct interface_description_block *idbp,
     struct block_cursor *cursor, char *errbuf)
-#else
-add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
-#endif /* __APPLE__ */
 {
 	struct pcap_ng_sf *ps;
 	uint64_t tsresol;
@@ -682,7 +670,7 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 				 * possible 32-bit power of 2, as we do
 				 * size doubling.
 				 */
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "more than %u interfaces in the file",
 				    0x80000000U);
 				return (0);
@@ -713,7 +701,7 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 				 * (unsigned) value divided by
 				 * sizeof (struct pcap_ng_if).
 				 */
-				pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(errbuf, PCAP_ERRBUF_SIZE,
 				    "more than %u interfaces in the file",
 				    0xFFFFFFFFU / ((u_int)sizeof (struct pcap_ng_if)));
 				return (0);
@@ -725,7 +713,7 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 			 * We ran out of memory.
 			 * Give up.
 			 */
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
 			    "out of memory for per-interface information (%u interfaces)",
 			    ps->ifcount);
 			return (0);
@@ -734,9 +722,7 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		ps->ifaces = new_ifaces;
 	}
 
-#ifdef __APPLE__
 	ps->ifaces[ps->ifcount - 1].snaplen = idbp->snaplen;
-#endif /* __APPLE__*/
 
 	/*
 	 * Set the default time stamp resolution and offset.
@@ -910,8 +896,8 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 	 */
 	if (total_length < sizeof(*bhdrp) + sizeof(*shbp) + sizeof(struct block_trailer) ||
             (total_length > BT_SHB_INSANE_MAX)) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-		    "Section Header Block in pcapng dump file has invalid length %" PRIsize " < _%u_ < %u (BT_SHB_INSANE_MAX)",
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		    "Section Header Block in pcapng dump file has invalid length %zu < _%u_ < %u (BT_SHB_INSANE_MAX)",
 		    sizeof(*bhdrp) + sizeof(*shbp) + sizeof(struct block_trailer),
 		    total_length,
 		    BT_SHB_INSANE_MAX);
@@ -924,7 +910,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 	 * OK, this is a good pcapng file.
 	 * Allocate a pcap_t for it.
 	 */
-	p = pcap_open_offline_common(errbuf, sizeof (struct pcap_ng_sf));
+	p = PCAP_OPEN_OFFLINE_COMMON(errbuf, struct pcap_ng_sf);
 	if (p == NULL) {
 		/* Allocation failed. */
 		*err = 1;
@@ -947,7 +933,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 		break;
 
 	default:
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "unknown time stamp resolution %u", precision);
 		free(p);
 		*err = 1;
@@ -977,7 +963,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 		p->bufsize = total_length;
 	p->buffer = malloc(p->bufsize);
 	if (p->buffer == NULL) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");
+		snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");
 		free(p);
 		*err = 1;
 		return (NULL);
@@ -1027,7 +1013,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 	if (! (shbp->major_version == PCAP_NG_VERSION_MAJOR &&
 	       (shbp->minor_version == PCAP_NG_VERSION_MINOR ||
 	        shbp->minor_version == 2))) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "unsupported pcapng savefile version %u.%u",
 		    shbp->major_version, shbp->minor_version);
 		goto fail;
@@ -1050,7 +1036,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 		status = read_block(fp, p, &cursor, errbuf);
 		if (status == 0) {
 			/* EOF - no IDB in this file */
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
 			    "the capture file has no Interface Description Blocks");
 			goto fail;
 		}
@@ -1079,13 +1065,8 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 			/*
 			 * Try to add this interface.
 			 */
-#ifdef __APPLE__
 			if (!add_interface(p, idbp, &cursor, errbuf))
 				goto fail;
-#else
-			if (!add_interface(p, &cursor, errbuf))
-				goto fail;
-#endif /* __APPLE__ */
 			goto done;
 
 		case BT_EPB:
@@ -1096,7 +1077,7 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 			 * not valid, as we don't know what link-layer
 			 * encapsulation the packet has.
 			 */
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
 			    "the capture file has a packet block before any Interface Description Blocks");
 			goto fail;
 
@@ -1109,7 +1090,6 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 	}
 
 done:
-	p->tzoff = 0;	/* XXX - not used in pcap */
 	p->linktype = linktype_to_dlt(idbp->linktype);
 	p->snapshot = pcap_adjust_snapshot(p->linktype, idbp->snaplen);
 	p->linktype_ext = 0;
@@ -1211,7 +1191,7 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
      * that initialized user_tsresol to non-zero value
      */
     if (ps->user_tsresol == 0) {
-        pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+        snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
                       "internal error, check_header did not set user_tsresol");
         return (-1);
     }
@@ -1359,7 +1339,7 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 			}
 #endif /* __APPLE__ */
 			if (p->linktype != idbp->linktype) {
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "an interface has a type %u different from the type of the first interface",
 				    idbp->linktype);
 				return (-1);
@@ -1371,22 +1351,20 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 			 */
 			if ((bpf_u_int32)p->snapshot !=
 			    pcap_adjust_snapshot(p->linktype, idbp->snaplen)) {
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-					      "an interface has a snapshot length %u different from the type of the first interface",
+				snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				    "an interface has a snapshot length %u different from the snapshot length of the first interface",
 					      idbp->snaplen);
 				return (-1);
 			}
+
 			/*
 			 * Try to add this interface.
 			 */
 #ifdef __APPLE__
 skip_link_checks:
+#endif /* __APPLE__ */
 			if (!add_interface(p, idbp, &cursor, p->errbuf))
 				return (-1);
-#else
-			if (!add_interface(p, &cursor, p->errbuf))
-				return (-1);
-#endif /* __APPLE__ */
 			break;
 
 		case BT_SHB:
@@ -1428,7 +1406,7 @@ skip_link_checks:
 				/*
 				 * Byte order changes.
 				 */
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "the file has sections with different byte orders");
 				return (-1);
 
@@ -1436,7 +1414,7 @@ skip_link_checks:
 				/*
 				 * Not a valid SHB.
 				 */
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "the file has a section with a bad byte order magic field");
 				return (-1);
 			}
@@ -1446,7 +1424,7 @@ skip_link_checks:
 			 * we handle.
 			 */
 			if (shbp->major_version != PCAP_NG_VERSION_MAJOR) {
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "unknown pcapng savefile major version number %u",
 				    shbp->major_version);
 				return (-1);
@@ -1485,7 +1463,7 @@ found:
 		/*
 		 * Yes.  Fail.
 		 */
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 		    "a packet arrived on interface %u, but there's no Interface Description Block for that interface",
 		    interface_id);
 		return (-1);
@@ -1493,14 +1471,14 @@ found:
 
 #ifdef __APPLE__
 	if (hdr->caplen > (bpf_u_int32)ps->ifaces[interface_id].snaplen) {
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-		    "invalid packet capture length %u, bigger than "
-		    "snaplen of %d", hdr->caplen, p->snapshot);
+        snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+                 "invalid packet capture length %u, bigger than "
+                 "snaplen of %d", hdr->caplen, p->snapshot);
 		return (-1);
 	}
 #else /* __APPLE__ */
 	if (hdr->caplen > (bpf_u_int32)p->snapshot) {
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 		    "invalid packet capture length %u, bigger than "
 		    "snaplen of %d", hdr->caplen, p->snapshot);
 		return (-1);

@@ -54,29 +54,28 @@
 #include "sf-pcap.h"
 #include "sf-pcapng.h"
 #include "pcap-common.h"
+#include "charconv.h"
 
 #ifdef __APPLE__
 static pcap_t *
 pcap_fopen_offline_internal(FILE *fp, u_int precision,
 			    char *errbuf, int isng);
-
 #endif /* __APPLE__ */
 
 #ifdef _WIN32
 /*
- * These aren't exported on Windows, because they would only work if both
+ * This isn't exported on Windows, because it would only work if both
  * WinPcap/Npcap and the code using it were to use the Universal CRT; otherwise,
  * a FILE structure in WinPcap/Npcap and a FILE structure in the code using it
  * could be different if they're using different versions of the C runtime.
  *
- * Instead, pcap/pcap.h defines them as macros that wrap the hopen versions,
- * with the wrappers calling _fileno() and _get_osfhandle() themselves,
- * so that they convert the appropriate CRT version's FILE structure to
+ * Instead, pcap/pcap.h defines it as a macro that wraps the hopen version,
+ * with the wrapper calling _fileno() and _get_osfhandle() themselves,
+ * so that it convert the appropriate CRT version's FILE structure to
  * a HANDLE (which is OS-defined, not CRT-defined, and is part of the Win32
  * and Win64 ABIs).
  */
 static pcap_t *pcap_fopen_offline_with_tstamp_precision(FILE *, u_int, char *);
-static pcap_t *pcap_fopen_offline(FILE *, char *);
 #endif
 
 /*
@@ -113,7 +112,7 @@ sf_setnonblock(pcap_t *p, int nonblock _U_)
 	 * as it would have to handle reading partial packets and
 	 * keeping the state of the read.)
 	 */
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Savefiles cannot be put into non-blocking mode");
 	return (-1);
 }
@@ -121,40 +120,40 @@ sf_setnonblock(pcap_t *p, int nonblock _U_)
 static int
 sf_stats(pcap_t *p, struct pcap_stat *ps _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Statistics aren't available from savefiles");
 	return (-1);
 }
 
 #ifdef _WIN32
 static struct pcap_stat *
-sf_stats_ex(pcap_t *p, int *size)
+sf_stats_ex(pcap_t *p, int *size _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Statistics aren't available from savefiles");
 	return (NULL);
 }
 
 static int
-sf_setbuff(pcap_t *p, int dim)
+sf_setbuff(pcap_t *p, int dim _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "The kernel buffer size cannot be set while reading from a file");
 	return (-1);
 }
 
 static int
-sf_setmode(pcap_t *p, int mode)
+sf_setmode(pcap_t *p, int mode _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "impossible to set mode while reading from a file");
 	return (-1);
 }
 
 static int
-sf_setmintocopy(pcap_t *p, int size)
+sf_setmintocopy(pcap_t *p, int size _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "The mintocopy parameter cannot be set while reading from a file");
 	return (-1);
 }
@@ -162,7 +161,7 @@ sf_setmintocopy(pcap_t *p, int size)
 static HANDLE
 sf_getevent(pcap_t *pcap)
 {
-	(void)pcap_snprintf(pcap->errbuf, sizeof(pcap->errbuf),
+	(void)snprintf(pcap->errbuf, sizeof(pcap->errbuf),
 	    "The read event cannot be retrieved while reading from a file");
 	return (INVALID_HANDLE_VALUE);
 }
@@ -171,7 +170,7 @@ static int
 sf_oid_get_request(pcap_t *p, bpf_u_int32 oid _U_, void *data _U_,
     size_t *lenp _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "An OID get request cannot be performed on a file");
 	return (PCAP_ERROR);
 }
@@ -180,13 +179,13 @@ static int
 sf_oid_set_request(pcap_t *p, bpf_u_int32 oid _U_, const void *data _U_,
     size_t *lenp _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "An OID set request cannot be performed on a file");
 	return (PCAP_ERROR);
 }
 
 static u_int
-sf_sendqueue_transmit(pcap_t *p, pcap_send_queue *queue, int sync)
+sf_sendqueue_transmit(pcap_t *p, pcap_send_queue *queue _U_, int sync _U_)
 {
 	pcap_strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
 	    PCAP_ERRBUF_SIZE);
@@ -194,38 +193,38 @@ sf_sendqueue_transmit(pcap_t *p, pcap_send_queue *queue, int sync)
 }
 
 static int
-sf_setuserbuffer(pcap_t *p, int size)
+sf_setuserbuffer(pcap_t *p, int size _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "The user buffer cannot be set when reading from a file");
 	return (-1);
 }
 
 static int
-sf_live_dump(pcap_t *p, char *filename, int maxsize, int maxpacks)
+sf_live_dump(pcap_t *p, char *filename _U_, int maxsize _U_, int maxpacks _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Live packet dumping cannot be performed when reading from a file");
 	return (-1);
 }
 
 static int
-sf_live_dump_ended(pcap_t *p, int sync)
+sf_live_dump_ended(pcap_t *p, int sync _U_)
 {
-	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Live packet dumping cannot be performed on a pcap_open_dead pcap_t");
 	return (-1);
 }
 
 static PAirpcapHandle
-sf_get_airpcap_handle(pcap_t *pcap)
+sf_get_airpcap_handle(pcap_t *pcap _U_)
 {
 	return (NULL);
 }
 #endif
 
 static int
-sf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
+sf_inject(pcap_t *p, const void *buf _U_, int size _U_)
 {
 	pcap_strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
 	    PCAP_ERRBUF_SIZE);
@@ -239,7 +238,7 @@ sf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 static int
 sf_setdirection(pcap_t *p, pcap_direction_t d _U_)
 {
-	pcap_snprintf(p->errbuf, sizeof(p->errbuf),
+	snprintf(p->errbuf, sizeof(p->errbuf),
 	    "Setting direction is not supported on savefiles");
 	return (-1);
 }
@@ -249,10 +248,98 @@ sf_cleanup(pcap_t *p)
 {
 	if (p->rfile != stdin)
 		(void)fclose(p->rfile);
-	if (p->buffer != NULL)
-		free(p->buffer);
+    if (p->buffer != NULL)
+        free(p->buffer);
 	pcap_freecode(&p->fcode);
 }
+
+#ifdef _WIN32
+/*
+ * Wrapper for fopen() and _wfopen().
+ *
+ * If we're in UTF-8 mode, map the pathname from UTF-8 to UTF-16LE and
+ * call _wfopen().
+ *
+ * If we're not, just use fopen(); that'll treat it as being in the
+ * local code page.
+ */
+FILE *
+charset_fopen(const char *path, const char *mode)
+{
+	wchar_t *utf16_path;
+#define MAX_MODE_LEN	16
+	wchar_t utf16_mode[MAX_MODE_LEN+1];
+	int i;
+	char c;
+	FILE *fp;
+	int save_errno;
+
+	if (pcap_utf_8_mode) {
+		/*
+		 * Map from UTF-8 to UTF-16LE.
+		 * Fail if there are invalid characters in the input
+		 * string, rather than converting them to REPLACEMENT
+		 * CHARACTER; the latter is appropriate for strings
+		 * to be displayed to the user, but for file names
+		 * you just want the attempt to open the file to fail.
+		 */
+		utf16_path = cp_to_utf_16le(CP_UTF8, path,
+		    MB_ERR_INVALID_CHARS);
+		if (utf16_path == NULL) {
+			/*
+			 * Error.  Assume errno has been set.
+			 *
+			 * XXX - what about Windows errors?
+			 */
+			return (NULL);
+		}
+
+		/*
+		 * Now convert the mode to UTF-16LE as well.
+		 * We assume the mode is ASCII, and that
+		 * it's short, so that's easy.
+		 */
+		for (i = 0; (c = *mode) != '\0'; i++, mode++) {
+			if (c > 0x7F) {
+				/* Not an ASCII character; fail with EINVAL. */
+				free(utf16_path);
+				errno = EINVAL;
+				return (NULL);
+			}
+			if (i >= MAX_MODE_LEN) {
+				/* The mode string is longer than we allow. */
+				free(utf16_path);
+				errno = EINVAL;
+				return (NULL);
+			}
+			utf16_mode[i] = c;
+		}
+		utf16_mode[i] = '\0';
+
+		/*
+		 * OK, we have UTF-16LE strings; hand them to
+		 * _wfopen().
+		 */
+		fp = _wfopen(utf16_path, utf16_mode);
+
+		/*
+		 * Make sure freeing the UTF-16LE string doesn't
+		 * overwrite the error code we got from _wfopen().
+		 */
+		save_errno = errno;
+		free(utf16_path);
+		errno = save_errno;
+
+		return (fp);
+	} else {
+		/*
+		 * This takes strings in the local code page as an
+		 * argument.
+		 */
+		return (fopen(path, mode));
+	}
+}
+#endif
 
 pcap_t *
 pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
@@ -262,13 +349,18 @@ pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
 	pcap_t *p;
 
 	if (fname == NULL) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 		    "A null pointer was supplied as the file name");
 		return (NULL);
 	}
 	if (fname[0] == '-' && fname[1] == '\0')
 	{
 		fp = stdin;
+		if (stdin == NULL) {
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "The standard input is not open");
+			return (NULL);
+		}
 #if defined(_WIN32) || defined(MSDOS)
 		/*
 		 * We're reading from the standard input, so put it in binary
@@ -279,12 +371,16 @@ pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
 	}
 	else {
 		/*
+		 * Use charset_fopen(); on Windows, it tests whether we're
+		 * in "local code page" or "UTF-8" mode, and treats the
+		 * pathname appropriately, and on other platforms, it just
+		 * wraps fopen().
+		 *
 		 * "b" is supported as of C90, so *all* UN*Xes should
-		 * support it, even though it does nothing.  It's
-		 * required on Windows, as the file is a binary file
-		 * and must be read in binary mode.
+		 * support it, even though it does nothing.  For MS-DOS,
+		 * we again need it.
 		 */
-		fp = fopen(fname, "rb");
+		fp = charset_fopen(fname, "rb");
 		if (fp == NULL) {
 			pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
 			    errno, "%s", fname);
@@ -396,31 +492,18 @@ pcap_ng_open_offline(const char *fname, char *errbuf)
 	FILE *fp;
 	pcap_t *p;
 
-#ifdef __APPLE__
     if (fname == NULL) {
-        pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+        snprintf(errbuf, PCAP_ERRBUF_SIZE,
             "A null pointer was supplied as the file name");
         return (NULL);
     }
-#endif /* __APPLE__*/
 
     if (fname[0] == '-' && fname[1] == '\0')
 	{
 		fp = stdin;
-#if defined(_WIN32) || defined(MSDOS)
-		/*
-		 * We're reading from the standard input, so put it in binary
-		 * mode, as savefiles are binary files.
-		 */
-		SET_BINMODE(fp);
-#endif
 	}
 	else {
-#if !defined(_WIN32) && !defined(MSDOS)
 		fp = fopen(fname, "r");
-#else
-		fp = fopen(fname, "rb");
-#endif
 		if (fp == NULL) {
 			snprintf(errbuf, PCAP_ERRBUF_SIZE, "%s: %s", fname,
 				 pcap_strerror(errno));
@@ -445,7 +528,6 @@ pcap_ng_fopen_offline(FILE *fp, char *errbuf)
 					   errbuf, 1);
 }
 
-
 static pcap_t *
 pcap_fopen_offline_internal(FILE *fp, u_int precision,
     char *errbuf, int isng)
@@ -456,8 +538,6 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 	size_t amt_read;
 	u_int i;
 	int err;
-#ifdef __APPLE__
-	off_t offset;
 
 	/*
 	 * Fail if we were passed a NULL fp.
@@ -472,7 +552,8 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 		return (NULL);
 	}
 
-	offset = ftello(fp);
+#ifdef __APPLE__
+	off_t offset = ftello(fp);
 
 	p = NULL;
 #endif /* __APPLE__ */
@@ -490,8 +571,8 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 			pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
 			    errno, "error reading dump file");
 		} else {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "truncated dump file; tried to read %" PRIsize " file header bytes, only got %" PRIsize,
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "truncated dump file; tried to read %zu file header bytes, only got %zu",
 			    sizeof(magic), amt_read);
 		}
 #ifdef __APPLE__
@@ -547,7 +628,7 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 	/*
 	 * Well, who knows what this mess is....
 	 */
-	pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
+    snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
 #ifdef __APPLE__
     goto bad;
 #else
@@ -605,6 +686,11 @@ found:
 	p->oneshot_callback = pcap_oneshot;
 
 	/*
+	 * Default breakloop operation.
+	 */
+	p->breakloop_op = pcap_breakloop_common;
+
+	/*
 	 * Savefiles never require special BPF code generation.
 	 */
 	p->bpf_codegen_flags = 0;
@@ -622,15 +708,19 @@ found:
 #endif /* __APPLE__ */
 }
 
-#ifdef _WIN32
-static
-#endif
+/*
+ * This isn't needed on Windows; we #define pcap_fopen_offline() as
+ * a wrapper around pcap_hopen_offline(), and we don't call it from
+ * inside this file, so it's unused.
+ */
+#ifndef _WIN32
 pcap_t *
 pcap_fopen_offline(FILE *fp, char *errbuf)
 {
 	return (pcap_fopen_offline_with_tstamp_precision(fp,
 	    PCAP_TSTAMP_PRECISION_MICRO, errbuf));
 }
+#endif
 
 /*
  * Read packets from a capture file, and call the callback for each
@@ -673,7 +763,7 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 		}
 
 		if ((fcode = p->fcode.bf_insns) == NULL ||
-		    bpf_filter(fcode, data, h.len, h.caplen)) {
+		    pcap_filter(fcode, data, h.len, h.caplen)) {
 			(*callback)(user, &h, data);
 			if (++n >= cnt && cnt > 0)
 				break;

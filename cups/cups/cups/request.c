@@ -194,10 +194,6 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   {
     DEBUG_puts("2cupsDoIORequest: setup...");
 
-   /*
-    * Send the request...
-    */
-
     status = cupsSendRequest(http, request, resource, length);
 
     DEBUG_printf(("2cupsDoIORequest: status=%d", status));
@@ -677,7 +673,15 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     httpSetExpect(http, expect);
     httpSetField(http, HTTP_FIELD_CONTENT_TYPE, "application/ipp");
     httpSetField(http, HTTP_FIELD_DATE, httpGetDateString2(time(NULL), date, (int)sizeof(date)));
-    httpSetLength(http, length);
+
+    // The caller knows nothing about the http being rewritten
+    // at a lower level, if we've had to mangle the payload
+    // to set the user based on the bearer token.
+    if (http->rewriteRequestingUser) {
+      httpSetLength(http, CUPS_LENGTH_VARIABLE);
+    } else {
+      httpSetLength(http, length);
+    }
 
     digest = http->authstring && !strncmp(http->authstring, "Digest ", 7);
 

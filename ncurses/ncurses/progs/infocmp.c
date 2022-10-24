@@ -1044,7 +1044,7 @@ any_initializer(const char *fmt, const char *type)
 	    *s = '_';
     }
     *s = 0;
-    (void) sprintf(s, fmt, type);
+    (void) sprintf(s, fmtcheck(fmt, "%s"), type);
     return initializer;
 }
 

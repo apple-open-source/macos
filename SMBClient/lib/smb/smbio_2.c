@@ -655,7 +655,12 @@ smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt,
          * pipe data to send is in sndData
          * pipe data to receive is in rcvdData
          */
-        if ((setup[0] != TRANS_TRANSACT_NAMED_PIPE) || (setupCnt != 2)) {
+        if ((setup[0] != TRANS_TRANSACT_NAMED_PIPE) &&
+            (setup[0] != TRANS_WAIT_NAMED_PIPE)) {
+            return EINVAL;
+        }
+
+        if (setupCnt != 2) {
             return EINVAL;
         }
 
@@ -681,7 +686,18 @@ smb2io_transact(struct smb_ctx *smbctx, uint64_t *setup, int setupCnt,
         
         bzero(&ioctl_rq, sizeof(ioctl_rq));
         ioctl_rq.ioc_version = SMB_IOC_STRUCT_VERSION;
-        ioctl_rq.ioc_ctl_code = FSCTL_PIPE_TRANSCEIVE;
+        switch(setup[0]) {
+            case TRANS_TRANSACT_NAMED_PIPE:
+                ioctl_rq.ioc_ctl_code = FSCTL_PIPE_TRANSCEIVE;
+                break;
+
+            case TRANS_WAIT_NAMED_PIPE:
+                ioctl_rq.ioc_ctl_code = FSCTL_PIPE_WAIT;
+                break;
+
+            default:
+                return EINVAL;
+        }
 
         ioctl_rq.ioc_fid = setup[1];
         

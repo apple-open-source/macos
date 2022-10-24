@@ -34,6 +34,7 @@ DBG_FUNC_END                        = 0x2
 kIOHIDDebugCode_DispatchHIDEvent    = 0x5230048
 kIOHIDDebugCode_HandleReport        = 0x523003C
 kHIDDK_Dev_InputReport              = 0x523C008
+kHIDDK_Dev_AddReport                = 0x523C01C
 kHID_ES_Service_Callback            = 0x5238100
 kHID_ES_Client_QueueCallback        = 0x5238080
 kHID_ES_ClientsEnqueue              = 0x523804c
@@ -100,7 +101,7 @@ def  log (data):
         sys.stderr.write(data+"\n")
 
 def  extract_trace (trace):
-    log ("Exracting trace")
+    log ("Extracting trace")
     hidTrace = []
     for probe in trace:
         try:
@@ -112,9 +113,12 @@ def  extract_trace (trace):
             continue
         if entry["debugid"] in HIDTraceCodes:
             hidTrace.append(entry)
+
+    log ("Extracted trace: length(%d)" % len(hidTrace))
     return hidTrace
 
 def  process_trace (trace):
+    log ("Processing trace...")
     events = collections.OrderedDict()
     reports = collections.OrderedDict()
     for probe in trace:
@@ -123,20 +127,19 @@ def  process_trace (trace):
             reports[timestamp] = probe
         else:
             timestamp = int (probe["args"][0])
-            event = []
-            if timestamp in list(events.keys()):
-                event = events[timestamp]
+            event = events.setdefault(timestamp, [])
             event.append(probe)
-            events[timestamp] = event
-    for  timestamp in events.keys():
-        if timestamp in list(reports.keys()):
+    for  timestamp in events:
+        if timestamp in reports:
             events[timestamp].append(reports[timestamp])
 
+    log ("Extracted event count: %d" % len(events))
     return events   
 
 def  process_events (eventsDict):
+    log ("Processing Events")
     events = []
-    for  timestamp in eventsDict.keys():
+    for  timestamp in eventsDict:
         event = Event.createEvent(timestamp, eventsDict[timestamp])
         if event: 
             events.append(event)
@@ -155,13 +158,15 @@ def  process_events (eventsDict):
                 event = events[timestamp]
             event.append(probe)
             events[timestamp] = event
-    for  timestamp in events.keys():
+    for  timestamp in events:
         if reports[timestamp]:
             events[timestamp].append(reports[timestamp])
 
-    for  timestamp in events.keys():
+    for  timestamp in events:
         if reports[timestamp]:
             events[timestamp].append(reports[timestamp])
+
+    log ("Processed event count: %d" % len(events))
     return events   
 
 class Event(object):
@@ -196,7 +201,7 @@ class Event(object):
                 self.service = int(probe["args"][1])
             elif probe["debugid"] == kHID_ES_ClientsEnqueueEnd:
                 self.finalTime = int(probe["timestampns"]) 
-            elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in list(probe.keys()):
+            elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe:
                 self.clients.append(probe["execname"])
 
         if self.userTime:
@@ -232,7 +237,7 @@ class Event(object):
 
     def timeDeltaToClient(self, client):
         for probe in self.probes:
-            if probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in list(probe.keys()): 
+            if probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe: 
                 if client == probe['execname'] :
                    return (int(probe["timestampns"]) - self.startTime) / 1000 
 
@@ -277,12 +282,12 @@ def process_interval_stats (entervals):
             average += entervals[i]
         averageStr += "100%%: %0.1f " % (average / len (entervals))
     else:
-        for i in range (0,(len(entervals) * 95) / 100):
+        for i in range (0,(len(entervals) * 95) // 100):
             average += entervals[i]
         averageStr += "95%%: %0.1f " % (average / ((len(entervals) * 95) / 100))
 
         average = 0;
-        for i in range (0,(len(entervals) * 50) / 100):
+        for i in range (0,(len(entervals) * 50) // 100):
             average += entervals[i]
         averageStr += "50%%: %0.1f " % (average / ((len(entervals) * 50) / 100))
     print(averageStr)
@@ -302,7 +307,7 @@ def process_client_event_stats (events, filter, client):
             continue
         # determine all event type
         count = 1
-        if event.type in list(eventTypes.keys()):
+        if event.type in eventTypes:
             count = eventTypes[event.type] + 1;
         eventTypes[event.type] = count
 
@@ -311,7 +316,7 @@ def process_client_event_stats (events, filter, client):
  
     print_bold ("\nProcess: %s" % client)
     print ("Events:")
-    for key in eventTypes.keys():
+    for key in eventTypes:
         print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
     print("Time interval (Kernel to Client):")
     process_interval_stats(total)
@@ -332,7 +337,7 @@ def process_event_stats (events, filter):
 
         # determine all event type
         count = 1
-        if event.type in list(eventTypes.keys()):
+        if event.type in eventTypes:
             count = eventTypes[event.type] + 1;
         eventTypes[event.type] = count
 
@@ -345,7 +350,7 @@ def process_event_stats (events, filter):
 
     print_bold("Events System Host Process:")
     print("Events:")
-    for key in eventTypes.keys():
+    for key in eventTypes:
         print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
     
     print("Time interval (Kernel to User):")
@@ -413,16 +418,17 @@ def  main (argv):
     if args:
         log ("Loading trace (file:%s)" % (args[0]))
 
-        if "tailspin" in args[0] or "artrace" in args[0] :
+        if args[0].endswith("tailspin") or args[0].endswith("artrace") or args[0].endswith("ktrace") :
             traceData = subprocess.check_output("ktrace trace  --json-64 --ndjson -t -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()      
 
 
     if  not traceData :
+        log ("Reading trace from stdin")
         traceData = sys.stdin
 
     if extract:
         hidTrace = extract_trace (traceData);
-        log ("Print trace (lenght:%d)" % len(hidTrace))
+        log ("Print trace (length:%d)" % len(hidTrace))
         for probe in hidTrace:
             print(json.dumps(probe));
         return

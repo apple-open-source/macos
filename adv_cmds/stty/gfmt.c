@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,18 +33,19 @@ static char sccsid[] = "@(#)gfmt.c	8.6 (Berkeley) 4/2/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/stty/gfmt.c,v 1.18 2002/06/30 05:15:04 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
 #include <err.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "stty.h"
 #include "extern.h"
 
-static void gerr(const char *s);
+static void gerr(const char *s) __dead2;
 
 static void
 gerr(const char *s)
@@ -60,11 +57,7 @@ gerr(const char *s)
 }
 
 void
-#ifndef __APPLE__
 gprint(struct termios *tp, struct winsize *wp __unused, int ldisc __unused)
-#else
-gprint(struct termios *tp, struct winsize *wp, int ldisc)
-#endif
 {
 	struct cchar *cp;
 
@@ -93,7 +86,7 @@ gread(struct termios *tp, char *s)
 		if (!(ep = strchr(p, '=')))
 			gerr(p);
 		*ep++ = '\0';
-		(void)sscanf(ep, "%lx", &tmp);
+		tmp = strtoul(ep, NULL, 0x10);
 
 #define	CHK(s)	(*p == s[0] && !strcmp(p, s))
 		if (CHK("cflag")) {
@@ -105,7 +98,7 @@ gread(struct termios *tp, char *s)
 			continue;
 		}
 		if (CHK("ispeed")) {
-			(void)sscanf(ep, "%ld", &tmp);
+			tmp = strtoul(ep, NULL, 10);
 			tp->c_ispeed = tmp;
 			continue;
 		}
@@ -118,14 +111,14 @@ gread(struct termios *tp, char *s)
 			continue;
 		}
 		if (CHK("ospeed")) {
-			(void)sscanf(ep, "%ld", &tmp);
+			tmp = strtoul(ep, NULL, 10);
 			tp->c_ospeed = tmp;
 			continue;
 		}
 		for (cp = cchars1; cp->name != NULL; ++cp)
 			if (CHK(cp->name)) {
 				if (cp->sub == VMIN || cp->sub == VTIME)
-					(void)sscanf(ep, "%ld", &tmp);
+					tmp = strtoul(ep, NULL, 10);
 				tp->c_cc[cp->sub] = tmp;
 				break;
 			}

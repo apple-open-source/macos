@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 48;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -17,6 +17,7 @@
 				D6E7283E1FE3818F00E0B2FC /* PBXTargetDependency */,
 				D6E728401FE3818F00E0B2FC /* PBXTargetDependency */,
 				D6E728421FE3818F00E0B2FC /* PBXTargetDependency */,
+				C4B26E61270C577C00F021F8 /* PBXTargetDependency */,
 				D6E728441FE3818F00E0B2FC /* PBXTargetDependency */,
 				C48A588926369F6F002E36D2 /* PBXTargetDependency */,
 			);
@@ -55,6 +56,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C41A5818270DF10000015890 /* nfs_lock.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9B270C644500F021F8 /* nfs_lock.h */; };
+		C41A5819270DF10600015890 /* nfs_ioctl.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9F270C644600F021F8 /* nfs_ioctl.h */; };
 		C434112024ADCCA500C92762 /* printer.c in Sources */ = {isa = PBXBuildFile; fileRef = C434111F24ADCCA500C92762 /* printer.c */; };
 		C45987C32631B5060000FA32 /* NFS.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C45987C22631B3B10000FA32 /* NFS.plist */; };
 		C45F023325D15A430094CC10 /* mount_nfs.h in Headers */ = {isa = PBXBuildFile; fileRef = C45F023225D15A430094CC10 /* mount_nfs.h */; };
@@ -66,7 +69,34 @@
 		C47BB9C025C1C08400DB38E2 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
 		C48A588A2636A004002E36D2 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A471FB7FDF2002AF776 /* IOKit.framework */; };
 		C4A8EE0E2519EE1D00E2EB6F /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
+		C4B26E5A270C564600F021F8 /* kext.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26E59270C564600F021F8 /* kext.c */; };
+		C4B26EB1270C644700F021F8 /* nfs_lock.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9B270C644500F021F8 /* nfs_lock.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C4B26EB2270C644700F021F8 /* nfs_subs.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26E9C270C644500F021F8 /* nfs_subs.c */; };
+		C4B26EB3270C644700F021F8 /* nfs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26E9D270C644500F021F8 /* nfs_vfsops.c */; };
+		C4B26EB4270C644700F021F8 /* nfs_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26E9E270C644500F021F8 /* nfs_vnops.c */; };
+		C4B26EB5270C644700F021F8 /* nfs_ioctl.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9F270C644600F021F8 /* nfs_ioctl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C4B26EB6270C644700F021F8 /* nfs_syscalls.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EA0270C644600F021F8 /* nfs_syscalls.c */; };
+		C4B26EB7270C644700F021F8 /* nfs_bio.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EA1270C644600F021F8 /* nfs_bio.c */; };
+		C4B26EB8270C644700F021F8 /* nfsm_subs.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EA2270C644600F021F8 /* nfsm_subs.h */; };
+		C4B26EB9270C644700F021F8 /* nfsmount.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EA3270C644600F021F8 /* nfsmount.h */; };
+		C4B26EBA270C644700F021F8 /* nfs_socket.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EA4270C644600F021F8 /* nfs_socket.c */; };
+		C4B26EBB270C644700F021F8 /* gss_krb5_mech.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EA6270C644600F021F8 /* gss_krb5_mech.c */; };
+		C4B26EBD270C644700F021F8 /* gss_krb5_mech.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EA8270C644600F021F8 /* gss_krb5_mech.h */; };
+		C4B26EBE270C644700F021F8 /* nfs_lock.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EA9270C644600F021F8 /* nfs_lock.c */; };
+		C4B26EBF270C644700F021F8 /* nfs4_subs.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EAA270C644600F021F8 /* nfs4_subs.c */; };
+		C4B26EC0270C644700F021F8 /* nfsnode.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EAB270C644600F021F8 /* nfsnode.h */; };
+		C4B26EC1270C644700F021F8 /* nfs4_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EAC270C644700F021F8 /* nfs4_vnops.c */; };
+		C4B26EC2270C644700F021F8 /* nfs_client.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EAD270C644700F021F8 /* nfs_client.h */; };
+		C4B26EC3270C644700F021F8 /* nfs_gss.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B26EAE270C644700F021F8 /* nfs_gss.h */; };
+		C4B26EC4270C644700F021F8 /* nfs_gss.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EAF270C644700F021F8 /* nfs_gss.c */; };
+		C4B26EC5270C644700F021F8 /* nfs_node.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B26EB0270C644700F021F8 /* nfs_node.c */; };
+		C4B98FE22768D40D008CFD36 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B98FE12768D40D008CFD36 /* utils.c */; };
+		C4B98FE32768D40D008CFD36 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B98FE12768D40D008CFD36 /* utils.c */; };
+		C4B98FE42768D878008CFD36 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = C4B98FE12768D40D008CFD36 /* utils.c */; };
+		C4B98FE52768D894008CFD36 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = C4B98FE02768D40D008CFD36 /* utils.h */; };
 		C4C9E62424B36FE0006667D4 /* json_support.m in Sources */ = {isa = PBXBuildFile; fileRef = C4C9E62324B36FE0006667D4 /* json_support.m */; };
+		C4CD59EA270D9AA100066EDC /* iokit.hpp in Headers */ = {isa = PBXBuildFile; fileRef = C4CD59E8270D9AA100066EDC /* iokit.hpp */; };
+		C4CD59EB270D9AA100066EDC /* iokit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4CD59E9270D9AA100066EDC /* iokit.cpp */; };
 		D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AC81FA3D0F100AACC99 /* mount_nfs.c */; };
 		D6354AD21FA3D14C00AACC99 /* ncctl.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354ACF1FA3D14C00AACC99 /* ncctl.c */; };
 		D6354AD81FA3D15F00AACC99 /* nfs4mapid.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AD61FA3D15F00AACC99 /* nfs4mapid.c */; };
@@ -151,6 +181,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C47BB91225C1BE8A00DB38E2;
 			remoteInfo = nfsclntTests;
+		};
+		C4B26E60270C577C00F021F8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C4B26E56270C564600F021F8;
+			remoteInfo = kext;
 		};
 		D6E7283B1FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -253,6 +290,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		C41A5817270DF0EA00015890 /* Copy Kernel Headers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Versions/B/PrivateHeaders/nfs";
+			dstSubfolderSpec = 0;
+			files = (
+				C41A5819270DF10600015890 /* nfs_ioctl.h in Copy Kernel Headers */,
+				C41A5818270DF10000015890 /* nfs_lock.h in Copy Kernel Headers */,
+			);
+			name = "Copy Kernel Headers";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		C47ACD5E26319ED100D8F2A9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -448,6 +497,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C4111ABE270F385F00200211 /* nfs.exp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.exports; path = nfs.exp; sourceTree = "<group>"; };
 		C434111E24ADCCA500C92762 /* printer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = printer.h; sourceTree = "<group>"; };
 		C434111F24ADCCA500C92762 /* printer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = printer.c; sourceTree = "<group>"; };
 		C45987C22631B3B10000FA32 /* NFS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = NFS.plist; sourceTree = "<group>"; };
@@ -462,8 +512,36 @@
 		C47BB96625C1BFCC00DB38E2 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		C47BB97925C1BFD000DB38E2 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = SDKROOT; };
+		C4B26E57270C564600F021F8 /* nfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = nfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		C4B26E59270C564600F021F8 /* kext.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = kext.c; sourceTree = "<group>"; };
+		C4B26E5B270C564600F021F8 /* macosx-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "macosx-Info.plist"; sourceTree = "<group>"; };
+		C4B26E9B270C644500F021F8 /* nfs_lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_lock.h; sourceTree = "<group>"; };
+		C4B26E9C270C644500F021F8 /* nfs_subs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_subs.c; sourceTree = "<group>"; };
+		C4B26E9D270C644500F021F8 /* nfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_vfsops.c; sourceTree = "<group>"; };
+		C4B26E9E270C644500F021F8 /* nfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_vnops.c; sourceTree = "<group>"; usesTabs = 1; };
+		C4B26E9F270C644600F021F8 /* nfs_ioctl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_ioctl.h; sourceTree = "<group>"; };
+		C4B26EA0270C644600F021F8 /* nfs_syscalls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_syscalls.c; sourceTree = "<group>"; usesTabs = 1; };
+		C4B26EA1270C644600F021F8 /* nfs_bio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_bio.c; sourceTree = "<group>"; };
+		C4B26EA2270C644600F021F8 /* nfsm_subs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfsm_subs.h; sourceTree = "<group>"; };
+		C4B26EA3270C644600F021F8 /* nfsmount.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfsmount.h; sourceTree = "<group>"; };
+		C4B26EA4270C644600F021F8 /* nfs_socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_socket.c; sourceTree = "<group>"; };
+		C4B26EA6270C644600F021F8 /* gss_krb5_mech.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gss_krb5_mech.c; sourceTree = "<group>"; };
+		C4B26EA8270C644600F021F8 /* gss_krb5_mech.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gss_krb5_mech.h; sourceTree = "<group>"; };
+		C4B26EA9270C644600F021F8 /* nfs_lock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_lock.c; sourceTree = "<group>"; };
+		C4B26EAA270C644600F021F8 /* nfs4_subs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs4_subs.c; sourceTree = "<group>"; };
+		C4B26EAB270C644600F021F8 /* nfsnode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfsnode.h; sourceTree = "<group>"; };
+		C4B26EAC270C644700F021F8 /* nfs4_vnops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs4_vnops.c; sourceTree = "<group>"; };
+		C4B26EAD270C644700F021F8 /* nfs_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_client.h; sourceTree = "<group>"; };
+		C4B26EAE270C644700F021F8 /* nfs_gss.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_gss.h; sourceTree = "<group>"; };
+		C4B26EAF270C644700F021F8 /* nfs_gss.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_gss.c; sourceTree = "<group>"; };
+		C4B26EB0270C644700F021F8 /* nfs_node.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_node.c; sourceTree = "<group>"; };
+		C4B98FE02768D40D008CFD36 /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		C4B98FE12768D40D008CFD36 /* utils.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
 		C4C9E62324B36FE0006667D4 /* json_support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = json_support.m; sourceTree = "<group>"; };
 		C4C9E62524B36FFC006667D4 /* json_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = json_support.h; sourceTree = "<group>"; };
+		C4CD59E5270D968500066EDC /* iphoneos-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iphoneos-Info.plist"; sourceTree = "<group>"; };
+		C4CD59E8270D9AA100066EDC /* iokit.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = iokit.hpp; sourceTree = "<group>"; };
+		C4CD59E9270D9AA100066EDC /* iokit.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iokit.cpp; sourceTree = "<group>"; };
 		D6354A451FA3CDDB00AACC99 /* mount_nfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_nfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6354A501FA3CE5800AACC99 /* ncctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ncctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6354A5B1FA3CE7500AACC99 /* nfs4mapid */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfs4mapid; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -588,6 +666,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C4B26E54270C564600F021F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D6354A421FA3CDDB00AACC99 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -700,12 +785,71 @@
 			path = nfsclntTests;
 			sourceTree = "<group>";
 		};
+		C4B26E58270C564600F021F8 /* kext */ = {
+			isa = PBXGroup;
+			children = (
+				C4CD59E7270D9A7500066EDC /* iokit */,
+				C4B26EA5270C644600F021F8 /* gss */,
+				C4B26EA1270C644600F021F8 /* nfs_bio.c */,
+				C4B26EAD270C644700F021F8 /* nfs_client.h */,
+				C4B26EAF270C644700F021F8 /* nfs_gss.c */,
+				C4B26EAE270C644700F021F8 /* nfs_gss.h */,
+				C4B26E9F270C644600F021F8 /* nfs_ioctl.h */,
+				C4B26EA9270C644600F021F8 /* nfs_lock.c */,
+				C4B26E9B270C644500F021F8 /* nfs_lock.h */,
+				C4B26EB0270C644700F021F8 /* nfs_node.c */,
+				C4B26EA4270C644600F021F8 /* nfs_socket.c */,
+				C4B26E9C270C644500F021F8 /* nfs_subs.c */,
+				C4B26EA0270C644600F021F8 /* nfs_syscalls.c */,
+				C4B26E9D270C644500F021F8 /* nfs_vfsops.c */,
+				C4B26E9E270C644500F021F8 /* nfs_vnops.c */,
+				C4B26EAA270C644600F021F8 /* nfs4_subs.c */,
+				C4B26EAC270C644700F021F8 /* nfs4_vnops.c */,
+				C4B26EA2270C644600F021F8 /* nfsm_subs.h */,
+				C4B26EA3270C644600F021F8 /* nfsmount.h */,
+				C4B26EAB270C644600F021F8 /* nfsnode.h */,
+				C4B26E59270C564600F021F8 /* kext.c */,
+				C4111ABE270F385F00200211 /* nfs.exp */,
+				C4B26E5B270C564600F021F8 /* macosx-Info.plist */,
+				C4CD59E5270D968500066EDC /* iphoneos-Info.plist */,
+			);
+			path = kext;
+			sourceTree = "<group>";
+		};
+		C4B26EA5270C644600F021F8 /* gss */ = {
+			isa = PBXGroup;
+			children = (
+				C4B26EA6270C644600F021F8 /* gss_krb5_mech.c */,
+				C4B26EA8270C644600F021F8 /* gss_krb5_mech.h */,
+			);
+			path = gss;
+			sourceTree = "<group>";
+		};
+		C4B98FDF2768D3E0008CFD36 /* utils */ = {
+			isa = PBXGroup;
+			children = (
+				C4B98FE02768D40D008CFD36 /* utils.h */,
+				C4B98FE12768D40D008CFD36 /* utils.c */,
+			);
+			path = utils;
+			sourceTree = "<group>";
+		};
+		C4CD59E7270D9A7500066EDC /* iokit */ = {
+			isa = PBXGroup;
+			children = (
+				C4CD59E8270D9AA100066EDC /* iokit.hpp */,
+				C4CD59E9270D9AA100066EDC /* iokit.cpp */,
+			);
+			path = iokit;
+			sourceTree = "<group>";
+		};
 		D6354A231FA3CCBC00AACC99 = {
 			isa = PBXGroup;
 			children = (
 				C45987C22631B3B10000FA32 /* NFS.plist */,
 				D6EA4A781FB96539002AF776 /* files */,
 				D6C194071FA4022100FA298E /* nfs_fs */,
+				C4B98FDF2768D3E0008CFD36 /* utils */,
 				D6354A461FA3CDDB00AACC99 /* mount_nfs */,
 				D6354A511FA3CE5800AACC99 /* ncctl */,
 				D6354A5C1FA3CE7500AACC99 /* nfs4mapid */,
@@ -718,6 +862,7 @@
 				D6354AA91FA3CF0100AACC99 /* rpc.statd */,
 				D6354AB41FA3CF1200AACC99 /* showmount */,
 				C47BB91425C1BE8A00DB38E2 /* nfsclntTests */,
+				C4B26E58270C564600F021F8 /* kext */,
 				D6354A2D1FA3CCBC00AACC99 /* Products */,
 				D6354B391FA3D25900AACC99 /* Frameworks */,
 			);
@@ -740,6 +885,7 @@
 				D6C194011FA400A900FA298E /* nfs.fs */,
 				C47BB90A25C1BE3700DB38E2 /* libmountnfs.a */,
 				C47BB91325C1BE8A00DB38E2 /* nfsclntTests.xctest */,
+				C4B26E57270C564600F021F8 /* nfs.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -948,7 +1094,24 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4B98FE52768D894008CFD36 /* utils.h in Headers */,
 				C45F023325D15A430094CC10 /* mount_nfs.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4B26E52270C564600F021F8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4B26EB5270C644700F021F8 /* nfs_ioctl.h in Headers */,
+				C4B26EB1270C644700F021F8 /* nfs_lock.h in Headers */,
+				C4B26EC0270C644700F021F8 /* nfsnode.h in Headers */,
+				C4B26EC2270C644700F021F8 /* nfs_client.h in Headers */,
+				C4B26EC3270C644700F021F8 /* nfs_gss.h in Headers */,
+				C4B26EB8270C644700F021F8 /* nfsm_subs.h in Headers */,
+				C4B26EB9270C644700F021F8 /* nfsmount.h in Headers */,
+				C4B26EBD270C644700F021F8 /* gss_krb5_mech.h in Headers */,
+				C4CD59EA270D9AA100066EDC /* iokit.hpp in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -990,6 +1153,24 @@
 			productName = nfsclntTests_mount;
 			productReference = C47BB91325C1BE8A00DB38E2 /* nfsclntTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C4B26E56270C564600F021F8 /* kext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C4B26E5F270C564600F021F8 /* Build configuration list for PBXNativeTarget "kext" */;
+			buildPhases = (
+				C4B26E52270C564600F021F8 /* Headers */,
+				C4B26E53270C564600F021F8 /* Sources */,
+				C4B26E54270C564600F021F8 /* Frameworks */,
+				C41A5817270DF0EA00015890 /* Copy Kernel Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kext;
+			productName = kext;
+			productReference = C4B26E57270C564600F021F8 /* nfs.kext */;
+			productType = "com.apple.product-type.kernel-extension";
 		};
 		D6354A441FA3CDDB00AACC99 /* mount_nfs */ = {
 			isa = PBXNativeTarget;
@@ -1210,7 +1391,8 @@
 		D6354A241FA3CCBC00AACC99 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1300;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1320;
 				ORGANIZATIONNAME = "Apple, Inc.";
 				TargetAttributes = {
 					C47BB90925C1BE3700DB38E2 = {
@@ -1219,6 +1401,10 @@
 					};
 					C47BB91225C1BE8A00DB38E2 = {
 						CreatedOnToolsVersion = 12.4;
+						ProvisioningStyle = Automatic;
+					};
+					C4B26E56270C564600F021F8 = {
+						CreatedOnToolsVersion = 13.2;
 						ProvisioningStyle = Automatic;
 					};
 					D6354A441FA3CDDB00AACC99 = {
@@ -1311,6 +1497,7 @@
 				D6354AA71FA3CF0100AACC99 /* rpc.statd */,
 				D6354AB21FA3CF1200AACC99 /* showmount */,
 				D6C194001FA400A900FA298E /* nfs */,
+				C4B26E56270C564600F021F8 /* kext */,
 				C47BB90925C1BE3700DB38E2 /* libmountnfs */,
 				C47BB91225C1BE8A00DB38E2 /* nfsclntTests */,
 			);
@@ -1382,6 +1569,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4B98FE42768D878008CFD36 /* utils.c in Sources */,
 				C47BB9AE25C1C06A00DB38E2 /* mount_nfs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1395,11 +1583,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C4B26E53270C564600F021F8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4B26EC4270C644700F021F8 /* nfs_gss.c in Sources */,
+				C4B26EC1270C644700F021F8 /* nfs4_vnops.c in Sources */,
+				C4CD59EB270D9AA100066EDC /* iokit.cpp in Sources */,
+				C4B26EBF270C644700F021F8 /* nfs4_subs.c in Sources */,
+				C4B26EBA270C644700F021F8 /* nfs_socket.c in Sources */,
+				C4B26EC5270C644700F021F8 /* nfs_node.c in Sources */,
+				C4B26EB7270C644700F021F8 /* nfs_bio.c in Sources */,
+				C4B26EB4270C644700F021F8 /* nfs_vnops.c in Sources */,
+				C4B26EB6270C644700F021F8 /* nfs_syscalls.c in Sources */,
+				C4B26EBB270C644700F021F8 /* gss_krb5_mech.c in Sources */,
+				C4B26EB2270C644700F021F8 /* nfs_subs.c in Sources */,
+				C4B26E5A270C564600F021F8 /* kext.c in Sources */,
+				C4B26EBE270C644700F021F8 /* nfs_lock.c in Sources */,
+				C4B26EB3270C644700F021F8 /* nfs_vfsops.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D6354A411FA3CDDB00AACC99 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */,
+				C4B98FE22768D40D008CFD36 /* utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1416,6 +1626,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6354AD81FA3D15F00AACC99 /* nfs4mapid.c in Sources */,
+				C4B98FE32768D40D008CFD36 /* utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1521,6 +1732,11 @@
 			isa = PBXTargetDependency;
 			target = C47BB91225C1BE8A00DB38E2 /* nfsclntTests */;
 			targetProxy = C48A588826369F6F002E36D2 /* PBXContainerItemProxy */;
+		};
+		C4B26E61270C577C00F021F8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C4B26E56270C564600F021F8 /* kext */;
+			targetProxy = C4B26E60270C577C00F021F8 /* PBXContainerItemProxy */;
 		};
 		D6E7283C1FE3818F00E0B2FC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1672,14 +1888,21 @@
 				);
 				INFOPLIST_FILE = nfsclntTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Debug;
 		};
@@ -1692,13 +1915,20 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = nfsclntTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Coverage;
 		};
@@ -1711,13 +1941,142 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = nfsclntTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "Liran.nfsclntTests-mount";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Release;
+		};
+		C4B26E5C270C564600F021F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+				);
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = kext/nfs.exp;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_SIGN_COMPARE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_NAME = com.apple.filesystems.nfs;
+				MODULE_START = nfs_kext_start;
+				MODULE_STOP = nfs_kext_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.nfs;
+				PRODUCT_NAME = nfs;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		C4B26E5D270C564600F021F8 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+				);
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = kext/nfs.exp;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_NAME = com.apple.filesystems.nfs;
+				MODULE_START = nfs_kext_start;
+				MODULE_STOP = nfs_kext_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.nfs;
+				PRODUCT_NAME = nfs;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Coverage;
+		};
+		C4B26E5E270C564600F021F8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+				);
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = kext/nfs.exp;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_NAME = com.apple.filesystems.nfs;
+				MODULE_START = nfs_kext_start;
+				MODULE_STOP = nfs_kext_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.nfs;
+				PRODUCT_NAME = nfs;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Versions/Current/Headers/$(KEXT_FAMILY_NAME)";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
 		};
@@ -1772,6 +2131,7 @@
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_SHADOW = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -1782,11 +2142,19 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+				WARNING_CFLAGS = (
+					"-Wformat-nonliteral",
+					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=misleading-indentation",
+				);
 			};
 			name = Debug;
 		};
@@ -1835,6 +2203,7 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_SHADOW = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -1845,11 +2214,19 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				ONLY_ACTIVE_ARCH = NO;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+				);
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+				WARNING_CFLAGS = (
+					"-Wformat-nonliteral",
+					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=misleading-indentation",
+				);
 			};
 			name = Release;
 		};
@@ -1860,7 +2237,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Debug;
 		};
@@ -1871,7 +2251,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Release;
 		};
@@ -2250,6 +2633,7 @@
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_SHADOW = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -2264,12 +2648,19 @@
 					"-fprofile-instr-generate=$(CCOVERAGEDIR)/$(TARGETNAME).%p",
 					"-fcoverage-mapping",
 					"-DCCOVERAGE",
+					"-ftrivial-auto-var-init=zero",
+					"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+				WARNING_CFLAGS = (
+					"-Wformat-nonliteral",
+					"-Warray-bounds-pointer-arithmetic",
+					"-Werror=misleading-indentation",
+				);
 			};
 			name = Coverage;
 		};
@@ -2297,7 +2688,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 			};
 			name = Coverage;
 		};
@@ -2453,6 +2847,16 @@
 				C47BB91C25C1BE8A00DB38E2 /* Debug */,
 				C47BB91D25C1BE8A00DB38E2 /* Coverage */,
 				C47BB91E25C1BE8A00DB38E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C4B26E5F270C564600F021F8 /* Build configuration list for PBXNativeTarget "kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4B26E5C270C564600F021F8 /* Debug */,
+				C4B26E5D270C564600F021F8 /* Coverage */,
+				C4B26E5E270C564600F021F8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,27 +26,38 @@
 #import "config.h"
 #import "RenderBundle.h"
 
-#import "WebGPUExt.h"
+#import "APIConversions.h"
 
 namespace WebGPU {
 
-RenderBundle::RenderBundle() = default;
+RenderBundle::RenderBundle(id<MTLIndirectCommandBuffer> indirectCommandBuffer, Device& device)
+    : m_indirectCommandBuffer(indirectCommandBuffer)
+    , m_device(device)
+{
+}
+
+RenderBundle::RenderBundle(Device& device)
+    : m_device(device)
+{
+}
 
 RenderBundle::~RenderBundle() = default;
 
-void RenderBundle::setLabel(const char* label)
+void RenderBundle::setLabel(String&& label)
 {
-    UNUSED_PARAM(label);
+    m_indirectCommandBuffer.label = label;
 }
 
-}
+} // namespace WebGPU
+
+#pragma mark WGPU Stubs
 
 void wgpuRenderBundleRelease(WGPURenderBundle renderBundle)
 {
-    delete renderBundle;
+    WebGPU::fromAPI(renderBundle).deref();
 }
 
 void wgpuRenderBundleSetLabel(WGPURenderBundle renderBundle, const char* label)
 {
-    renderBundle->renderBundle->setLabel(label);
+    WebGPU::fromAPI(renderBundle).setLabel(WebGPU::fromAPI(label));
 }

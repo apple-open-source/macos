@@ -456,7 +456,8 @@ two entries are combined.
    owner: juser
    1: guest deny read
    2: admin allow write,delete
- # chmod +a "User 1:allow:read" file
+ .\"# chmod +a "User 1:allow:read" file
+ # chmod +a "User 1:allow:read" file1
  # ls -le
  -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
    owner: juser
@@ -544,7 +545,8 @@ entries will be removed regardless of their inherited state.
 If the user or group name contains spaces you can use ':' as the delimiter
 .Pp
 \fBExample\fR
- # chmod +a "User 1:allow:read" file
+.\" # chmod +a "User 1:allow:read" file
+ # chmod +a "User 1:allow:read" file1
 .It \fB=a#\fR
 Individual entries are rewritten using the =a# mode.
 .Pp
@@ -553,7 +555,8 @@ Individual entries are rewritten using the =a# mode.
  -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
    owner: juser
    1: admin allow delete
- # chmod =a# 1 "admin allow write,chown"
+.\" # chmod =a# 1 "admin allow write,chown"
+ # chmod =a# 1 "admin allow write,chown" file1
  # ls -le
  -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
    owner: juser
@@ -604,7 +607,7 @@ A
 .Nm
 command appeared in
 .At v1 .
-.Sh BUGS
-There is no
-.Ar perm
-option for the naughty bits of a horse.
+.\" .Sh BUGS
+.\" There is no
+.\" .Ar perm
+.\" option for the naughty bits of a horse.

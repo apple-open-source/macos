@@ -2925,7 +2925,7 @@ UInt32 IOHIDEventDriver::checkGameControllerElement(IOHIDElement * element)
             break;
             
         case kHIDPage_Button:
-            require(usage >= 1 && usage <= 10, exit);
+            require(usage >= 1 && usage <= 14, exit);
             
             base = kHIDUsage_Button_1;
             offset = 0;
@@ -3201,7 +3201,18 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
                     case 10:
                         gcIntVal = &_gameController.thumbstick.right;
                         break;
-
+                    case 11:
+                        gcFixedVal = &_gameController.extra.l4;
+                        break;
+                    case 12:
+                        gcFixedVal = &_gameController.extra.r4;
+                        break;
+                    case 13:
+                        gcFixedVal = &_gameController.extra.l5;
+                        break;
+                    case 14:
+                        gcFixedVal = &_gameController.extra.r5;
+                        break;
                 }
                 break;
         }
@@ -3222,7 +3233,7 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     require_quiet(reportID == _gameController.sendingReportID, exit);
     
     if ( _gameController.extended ) {
-        dispatchExtendedGameControllerEventWithThumbstickButtons(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz, _gameController.thumbstick.left, _gameController.thumbstick.right);
+        dispatchExtendedGameControllerEventWithOptionalButtons(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz, _gameController.thumbstick.left, _gameController.extra.l4, _gameController.extra.r4, _gameController.extra.l5, _gameController.extra.r5, 0);
     } else {
         dispatchStandardGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1);
     }

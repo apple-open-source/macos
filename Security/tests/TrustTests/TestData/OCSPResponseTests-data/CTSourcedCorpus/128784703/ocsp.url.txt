@@ -1,0 +1,1 @@
+http://www.pki.admin.ch/aia/ocsp

@@ -1,0 +1,1 @@
+http://ocsp.apple.com/ocsp04-asi03

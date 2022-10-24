@@ -38,8 +38,10 @@
 #include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
+#include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "HTMLFrameOwnerElement.h"
 #include "InspectorInstrumentation.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
@@ -61,6 +63,10 @@
 #if USE(QUICK_LOOK)
 #include "LegacyPreviewLoader.h"
 #include "PreviewConverter.h"
+#endif
+
+#if PLATFORM(COCOA)
+#include "BundleResourceLoader.h"
 #endif
 
 #undef RESOURCELOADER_RELEASE_LOG
@@ -234,8 +240,15 @@ void ResourceLoader::start()
         return;
     }
 
+#if PLATFORM(COCOA)
+    if (isPDFJSResourceLoad()) {
+        BundleResourceLoader::loadResourceFromBundle(*this, "pdfjs/"_s);
+        return;
+    }
+#endif
+
 #if USE(SOUP)
-    if (m_request.url().protocolIs("resource")) {
+    if (m_request.url().protocolIs("resource"_s) || isPDFJSResourceLoad()) {
         loadGResource();
         return;
     }
@@ -289,7 +302,7 @@ void ResourceLoader::loadDataURL()
             return;
         if (!decodeResult) {
             RESOURCELOADER_RELEASE_LOG("loadDataURL: decoding of data failed");
-            protectedThis->didFail(ResourceError(errorDomainWebKitInternal, 0, url, "Data URL decoding failed"));
+            protectedThis->didFail(ResourceError(errorDomainWebKitInternal, 0, url, "Data URL decoding failed"_s));
             return;
         }
         if (this->wasCancelled()) {
@@ -300,7 +313,7 @@ void ResourceLoader::loadDataURL()
         auto dataSize = decodeResult->data.size();
         ResourceResponse dataResponse = ResourceResponse::dataURLResponse(url, decodeResult.value());
         this->didReceiveResponse(dataResponse, [this, protectedThis = WTFMove(protectedThis), dataSize, data = SharedBuffer::create(WTFMove(decodeResult->data))]() {
-            if (!this->reachedTerminalState() && dataSize && m_request.httpMethod() != "HEAD")
+            if (!this->reachedTerminalState() && dataSize && m_request.httpMethod() != "HEAD"_s)
                 this->didReceiveBuffer(data, dataSize, DataPayloadWholeResource);
 
             if (!this->reachedTerminalState()) {
@@ -413,7 +426,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
         frameLoader()->notifier().willSendRequest(this, request, redirectResponse);
     }
     else
-        InspectorInstrumentation::willSendRequest(m_frame.get(), m_identifier, m_frame->loader().documentLoader(), request, redirectResponse, cachedResource());
+        InspectorInstrumentation::willSendRequest(m_frame.get(), m_identifier, m_frame->loader().documentLoader(), request, redirectResponse, cachedResource(), this);
 
 #if USE(QUICK_LOOK)
     if (m_documentLoader) {
@@ -854,6 +867,19 @@ bool ResourceLoader::isQuickLookResource() const
     return !!m_previewLoader;
 }
 #endif
+
+bool ResourceLoader::isPDFJSResourceLoad() const
+{
+#if ENABLE(PDFJS)
+    if (!m_request.url().protocolIs("webkit-pdfjs-viewer"_s))
+        return false;
+
+    auto* document = frame() && frame()->ownerElement() ? &frame()->ownerElement()->document() : nullptr;
+    return document ? document->isPDFDocument() : false;
+#else
+    return false;
+#endif
+}
 
 } // namespace WebCore
 

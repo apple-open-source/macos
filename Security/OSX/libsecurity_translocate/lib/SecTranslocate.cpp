@@ -59,34 +59,34 @@
  from realpath of the requested app.
 
  If a mount exists already for this user, then the path to the app in that mountpoint is
- calculated and sanity checked.
+ calculated and validity checked.
 
  The rules to create the app path inside the mountpoint are:
 
  original app path = /some/path/<app name>
  new app path = realpath(confstr(_CS_DARWIN_USER_TEMP_DIR))+/AppTranslocation/<UUID>/d/<app name>
 
- The sanity check for the new app path is that:
+ The validity check for the new app path is that:
  1. new app path exists
  2. new app path is in a nullfs mount
  3. new app path is already completely resolved.
 
- If the sanity checks pass for the new app path, then that path is returned to the caller.
+ If the validity checks pass for the new app path, then that path is returned to the caller.
 
  If no translocation mount point exists already per the mount table then an AppTranslocation
  directory is created within the temp dir if it doesn't already exist. After that a UUID is
  generated, that UUID is used as the name of a new directory in the AppTranslocation directory.
- Once the new directory has been created and sanity checked, mount is called to create the
+ Once the new directory has been created and validity checked, mount is called to create the
  translocation between the original path and the new directory. Then the new path to the app
- within the mountpoint is calculated and sanity checked.
+ within the mountpoint is calculated and validity checked.
 
- The sanity check rules for the mountpoint before the mount are:
+ The validity check rules for the mountpoint before the mount are:
  1. Something exists at the expected path
  2. That something is a directory
  3. That something is not already a mountpoint
  4. The expected path is fully resolved
 
- The sanity check for the new app path is listed above (for the mountpoint exists case).
+ The validity check for the new app path is listed above (for the mountpoint exists case).
 
  **** App Translocation strategy w/ a destination path ****
  (This functionality is implemented in SecTranslocateShared.hpp/cpp)
@@ -112,7 +112,7 @@
 
  If no mountpoint exists for the app, then we attempt to create the requested directory within
  the user's app translocation directory. This becomes the mount point, and the mount point
- sanity checks listed above are applied.
+ validity checks listed above are applied.
 
  If the requested destination mountpoint is successfully created, the flow continues as above
  to create the mount and verify the requested path within the mountpoint. The only extra step

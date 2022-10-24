@@ -57,6 +57,15 @@ WI.linkifyAccessibilityNodeReference = function(node)
     return link;
 };
 
+WI.linkifyStyleable = function(styleable)
+{
+    console.assert(styleable instanceof WI.DOMStyleable, styleable);
+    let displayName = styleable.displayName;
+    let link = document.createElement("span");
+    link.append(displayName);
+    return WI.linkifyNodeReferenceElement(styleable.node, link, {displayName});
+};
+
 WI.linkifyNodeReference = function(node, options = {})
 {
     let displayName = node.displayName;
@@ -74,7 +83,7 @@ WI.linkifyNodeReferenceElement = function(node, element, options = {})
     element.title = options.displayName || node.displayName;
 
     let nodeType = node.nodeType();
-    if ((nodeType !== Node.DOCUMENT_NODE || node.parentNode) && nodeType !== Node.TEXT_NODE)
+    if (!options.ignoreClick && (nodeType !== Node.DOCUMENT_NODE || node.parentNode) && nodeType !== Node.TEXT_NODE)
         element.classList.add("node-link");
 
     WI.bindInteractionsForNodeToElement(node, element, options);

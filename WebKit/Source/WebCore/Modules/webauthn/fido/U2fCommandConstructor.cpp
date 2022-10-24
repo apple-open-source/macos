@@ -1,5 +1,5 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
-// Copyright (C) 2019-2021 Apple Inc. All rights reserved.
+// Copyright (C) 2019-2022 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -87,7 +87,7 @@ bool isConvertibleToU2fRegisterCommand(const PublicKeyCredentialCreationOptions&
 {
     if (request.authenticatorSelection && (request.authenticatorSelection->userVerification == UserVerificationRequirement::Required || request.authenticatorSelection->requireResidentKey))
         return false;
-    if (request.pubKeyCredParams.findMatching([](auto& item) { return item.alg == COSE::ES256; }) == notFound)
+    if (request.pubKeyCredParams.findIf([](auto& item) { return item.alg == COSE::ES256; }) == notFound)
         return false;
     return true;
 }
@@ -103,7 +103,8 @@ std::optional<Vector<uint8_t>> convertToU2fRegisterCommand(const Vector<uint8_t>
         return std::nullopt;
 
     auto appId = processGoogleLegacyAppIdSupportExtension(request.extensions);
-    return constructU2fRegisterCommand(produceRpIdHash(!appId ? request.rp.id : appId), clientDataHash);
+    ASSERT(request.rp.id);
+    return constructU2fRegisterCommand(produceRpIdHash(!appId ? *request.rp.id : appId), clientDataHash);
 }
 
 std::optional<Vector<uint8_t>> convertToU2fCheckOnlySignCommand(const Vector<uint8_t>& clientDataHash, const PublicKeyCredentialCreationOptions& request, const PublicKeyCredentialDescriptor& keyHandle)
@@ -111,7 +112,8 @@ std::optional<Vector<uint8_t>> convertToU2fCheckOnlySignCommand(const Vector<uin
     if (keyHandle.type != PublicKeyCredentialType::PublicKey)
         return std::nullopt;
 
-    return constructU2fSignCommand(produceRpIdHash(request.rp.id), clientDataHash, keyHandle.id, true /* checkOnly */);
+    ASSERT(request.rp.id);
+    return constructU2fSignCommand(produceRpIdHash(*request.rp.id), clientDataHash, keyHandle.id, true /* checkOnly */);
 }
 
 std::optional<Vector<uint8_t>> convertToU2fSignCommand(const Vector<uint8_t>& clientDataHash, const PublicKeyCredentialRequestOptions& request, const WebCore::BufferSource& keyHandle, bool isAppId)

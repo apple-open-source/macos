@@ -1,7 +1,7 @@
 	<dict>
 		<key>OpenSourceProject</key>
 		<string>pathchk</string>
-		<key>OpenSourceqVersion</key>
+		<key>OpenSourceVersion</key>
 		<string>2017-11-27</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://cgit.freebsd.org/src/tree/usr.bin/pathchk?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>

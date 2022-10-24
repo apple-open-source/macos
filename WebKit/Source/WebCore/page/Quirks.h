@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ public:
     bool hasBrokenEncryptedMediaAPISupportQuirk() const;
     bool shouldStripQuotationMarkInFontFaceSetFamily() const;
 #if ENABLE(TOUCH_EVENTS)
-    bool shouldDispatchSimulatedMouseEvents(EventTarget*) const;
+    bool shouldDispatchSimulatedMouseEvents(const EventTarget*) const;
     bool shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTarget*) const;
     std::optional<Event::IsCancelable> simulatedMouseEventTypeForTarget(EventTarget*) const;
     bool shouldMakeTouchEventNonCancelableForTarget(EventTarget*) const;
@@ -81,6 +81,7 @@ public:
     bool shouldDisableContentChangeObserverTouchEventAdjustment() const;
     bool shouldTooltipPreventFromProceedingWithClick(const Element&) const;
     bool shouldHideSearchFieldResultsButton() const;
+    bool shouldDisableResolutionMediaQuery() const;
 
     bool needsMillisecondResolutionForHighResTimeStamp() const;
 
@@ -132,6 +133,7 @@ public:
     bool needsHDRPixelDepthQuirk() const;
     
     bool needsAkamaiMediaPlayerQuirk(const HTMLVideoElement&) const;
+    bool needsFlightAwareSerializationQuirk() const;
 
     bool needsBlackFullscreenBackgroundQuirk() const;
 
@@ -155,6 +157,16 @@ public:
     bool needsToForceUserSelectAndUserDragWhenInstallingImageOverlay() const;
 #endif
 
+    bool shouldDisableWebSharePolicy() const;
+    
+#if PLATFORM(IOS)
+    WEBCORE_EXPORT bool allowLayeredFullscreenVideos() const;
+#endif
+    bool shouldEnableApplicationCacheQuirk() const;
+    bool hasBrokenPermissionsAPISupportQuirk() const;
+    bool shouldEnableFontLoadingAPIQuirk() const;
+    bool needsVideoShouldMaintainAspectRatioQuirk() const;
+    
 private:
     bool needsQuirks() const;
 
@@ -163,7 +175,7 @@ private:
     bool isGoogleMaps() const;
 #endif
 
-    WeakPtr<Document> m_document;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
 
     mutable std::optional<bool> m_hasBrokenEncryptedMediaAPISupportQuirk;
     mutable std::optional<bool> m_needsFullWidthHeightFullscreenStyleQuirk;
@@ -191,6 +203,7 @@ private:
     mutable std::optional<bool> m_shouldBypassAsyncScriptDeferring;
     mutable std::optional<bool> m_needsVP9FullRangeFlagQuirk;
     mutable std::optional<bool> m_needsHDRPixelDepthQuirk;
+    mutable std::optional<bool> m_needsFlightAwareSerializationQuirk;
     mutable std::optional<bool> m_needsBlackFullscreenBackgroundQuirk;
     mutable std::optional<bool> m_requiresUserGestureToPauseInPictureInPicture;
     mutable std::optional<bool> m_requiresUserGestureToLoadInPictureInPicture;
@@ -199,6 +212,16 @@ private:
 #endif
     mutable std::optional<bool> m_blocksReturnToFullscreenFromPictureInPictureQuirk;
     mutable std::optional<bool> m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk;
+    mutable std::optional<bool> m_shouldDisableWebSharePolicy;
+#if PLATFORM(IOS)
+    mutable std::optional<bool> m_allowLayeredFullscreenVideos;
+#endif
+#if PLATFORM(IOS_FAMILY)
+    mutable std::optional<bool> m_shouldEnableApplicationCacheQuirk;
+#endif
+    mutable std::optional<bool> m_hasBrokenPermissionsAPISupportQuirk;
+    mutable std::optional<bool> m_shouldEnableFontLoadingAPIQuirk;
+    mutable std::optional<bool> m_needsVideoShouldMaintainAspectRatioQuirk;
 };
 
 } // namespace WebCore

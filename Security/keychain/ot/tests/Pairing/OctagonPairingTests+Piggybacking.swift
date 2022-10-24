@@ -77,21 +77,20 @@ let version0_txt: [UInt8] = [
 let version0_txt_len = 395
 
 extension OctagonPairingTests {
-    func testPiggybacking() {
+    func testPiggybacking() throws {
         self.startCKAccountStatusMock()
 
         self.getAcceptorInCircle()
 
         let rpcEpochCallbackOccurs = self.expectation(description: "rpcEpoch callback occurs")
 
-        self.manager.rpcEpoch(with: self.acceptorPiggybackingConfig) { epoch, error in
+        self.manager.rpcEpoch(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig) { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be nil")
             rpcEpochCallbackOccurs.fulfill()
         }
         self.wait(for: [rpcEpochCallbackOccurs], timeout: 10)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         self.cuttlefishContext.startOctagonStateMachine()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -104,7 +103,7 @@ extension OctagonPairingTests {
 
         /*begin message passing*/
         let rpcFirstInitiatorJoiningMessageCallBack = self.expectation(description: "Creating prepare message callback")
-        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorPiggybackingConfig) { pID, pI, pIS, sI, sIS, error in
+        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorArguments, configuration: self.initiatorPiggybackingConfig) { pID, pI, pIS, sI, sIS, error in
             XCTAssertNotNil(peerID, "peerID should not be nil")
             XCTAssertNotNil(permanentInfo, "permanentInfo should not be nil")
             XCTAssertNotNil(permanentInfoSig, "permanentInfoSig should not be nil")
@@ -126,7 +125,7 @@ extension OctagonPairingTests {
         var voucher = Data(count: 0)
         var voucherSig = Data(count: 0)
 
-        self.manager.rpcVoucher(with: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { v, vS, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { v, vS, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(v, "voucher should not be nil")
             XCTAssertNotNil(vS, "voucher signature should not be nil")
@@ -137,7 +136,7 @@ extension OctagonPairingTests {
         self.wait(for: [firstMessageAcceptorCallback], timeout: 10)
 
         let rpcJoinCallback = self.expectation(description: "joining callback")
-        self.manager.rpcJoin(with: self.initiatorPiggybackingConfig, vouchData: voucher, vouchSig: voucherSig) { error in
+        self.manager.rpcJoin(with: self.initiatorArguments, configuration: self.initiatorPiggybackingConfig, vouchData: voucher, vouchSig: voucherSig) { error in
             XCTAssertNil(error, "error should be nil")
             rpcJoinCallback.fulfill()
         }
@@ -146,17 +145,17 @@ extension OctagonPairingTests {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        let joiningContext = self.manager.context(forContainerName: OTCKContainerName, contextID: self.initiatorPiggybackingConfig.contextID)
+        let joiningContext = self.manager.context(forContainerName: OTCKContainerName, contextID: self.initiatorArguments.contextID)
         XCTAssertNil(joiningContext.pairingUUID, "pairingUUID should be nil")
 
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContextForAcceptor)
 
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -171,7 +170,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -198,7 +197,6 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
         self.assertEnters(context: acceptorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        var clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -263,7 +261,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -297,9 +295,7 @@ extension OctagonPairingTests {
         XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
         XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
 
-        clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
@@ -312,7 +308,7 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -327,7 +323,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -468,7 +464,7 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
         let rpcEpochCallbackOccurs = self.expectation(description: "rpcEpoch callback occurs")
 
-        self.manager.rpcEpoch(with: self.acceptorPiggybackingConfig) { epoch, error in
+        self.manager.rpcEpoch(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig) { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be nil")
             rpcEpochCallbackOccurs.fulfill()
@@ -493,7 +489,7 @@ extension OctagonPairingTests {
 
         /*begin message passing*/
         let rpcFirstInitiatorJoiningCallBack = self.expectation(description: "Creating prepare callback")
-        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorPiggybackingConfig) { pID, pI, pISig, sI, sISig, error in
+        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorArguments, configuration: self.initiatorPiggybackingConfig) { pID, pI, pISig, sI, sISig, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(pID, "peer id should not be nil")
             XCTAssertNotNil(pI, "permanentInfo should not be nil")
@@ -512,7 +508,7 @@ extension OctagonPairingTests {
 
         let firstAcceptorCallback = self.expectation(description: "creating vouch callback")
 
-        self.manager.rpcVoucher(with: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { voucher, voucherSig, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { voucher, voucherSig, error in
             XCTAssertNotNil(voucher, "voucher should not be nil")
             XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -525,7 +521,7 @@ extension OctagonPairingTests {
         initiator1Context.pairingUUID = "1234"
 
         let firstMessageWithNewJoiningConfigCallback = self.expectation(description: "first message with different configuration")
-        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorPiggybackingConfig) { pID, pI, pISig, sI, sISig, error in
+        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorArguments, configuration: self.initiatorPiggybackingConfig) { pID, pI, pISig, sI, sISig, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(pID, "peer id should not be nil")
@@ -545,8 +541,7 @@ extension OctagonPairingTests {
 
     func testPairingResetWithNoAccount() {
         // no account
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
 
         // no cloudkit account
         self.accountStatus = .noAccount
@@ -559,8 +554,6 @@ extension OctagonPairingTests {
                                              uniqueDeviceID: "requester",
                                              uniqueClientID: "client",
                                              pairingUUID: "3B99AE99-5FEB-4AF5-9992-DF042118B5FE",
-                                             containerName: self.cuttlefishContext.containerName,
-                                             contextID: self.cuttlefishContext.contextID,
                                              epoch: 1,
                                              isInitiator: true)
 
@@ -571,8 +564,6 @@ extension OctagonPairingTests {
                                               uniqueDeviceID: "requester",
                                               uniqueClientID: "client",
                                               pairingUUID: "3B99AE99-5FEB-4AF5-0000-DF042118B5FE",
-                                              containerName: self.cuttlefishContext.containerName,
-                                              contextID: self.cuttlefishContext.contextID,
                                               epoch: 1,
                                               isInitiator: true)
 
@@ -588,7 +579,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        var clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -643,7 +633,7 @@ extension OctagonPairingTests {
         }
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -660,7 +650,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -702,9 +692,7 @@ extension OctagonPairingTests {
         XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
         XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
 
-        clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -716,7 +704,7 @@ extension OctagonPairingTests {
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContextForAcceptor, sender: self.cuttlefishContext)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -731,7 +719,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -754,7 +742,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        var clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -813,7 +800,7 @@ extension OctagonPairingTests {
         }
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -830,7 +817,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -874,9 +861,7 @@ extension OctagonPairingTests {
         XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
         XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
 
-        clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -888,7 +873,7 @@ extension OctagonPairingTests {
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContextForAcceptor, sender: self.cuttlefishContext)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -903,7 +888,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -926,7 +911,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        var clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -985,7 +969,7 @@ extension OctagonPairingTests {
         }
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1002,7 +986,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -1047,9 +1031,7 @@ extension OctagonPairingTests {
         XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
         XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
 
-        clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.notifyContainerChange()
+        try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1061,7 +1043,7 @@ extension OctagonPairingTests {
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContextForAcceptor, sender: self.cuttlefishContext)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1076,7 +1058,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
@@ -1091,7 +1073,7 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
-    func testOctagonCapableButAcceptorHasNoIdentity() {
+    func testOctagonCapableButAcceptorHasNoIdentity() throws {
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -1151,7 +1133,7 @@ extension OctagonPairingTests {
         }
 
         let signInCallback = self.expectation(description: "trigger sign in")
-        self.otControl.sign(in: "348576349857", container: OTCKContainerName, context: OTDefaultContext) { error in
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
         }
@@ -1168,7 +1150,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
+        requestCircleSession.setContextIDFor(self.initiatorArguments.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?

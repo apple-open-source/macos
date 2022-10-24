@@ -144,12 +144,90 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 
 #if ! TARGET_OS_IPHONE
 
+static CFDictionaryRef
+copy_auth_info_from_item_id(EAPOLClientItemIDRef item_id)
+{
+    EAPOLClientConfigurationRef		cfg = NULL;
+    EAPOLClientProfileRef		profile = NULL;
+    CFDictionaryRef			auth_props = NULL;
+    CFDataRef 				ssid = NULL;
+    CFStringRef				ssid_str = NULL;
+
+    if (item_id == NULL) {
+	return NULL;
+    }
+    ssid = EAPOLClientItemIDGetWLANSSID(item_id);
+    if (ssid == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "%s: failed to get SSID from the Item ID", __func__);
+	return NULL;
+    }
+    ssid_str = my_CFStringCreateWithData(ssid);
+    EAPLOG_FL(LOG_NOTICE, "%s: EAPOLClientItemIDGetWLANSSID() returned [%@]",
+	      __func__, ssid_str != NULL ? ssid_str : NULL);
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "%s: couldn't create configuration", __func__);
+	my_CFRelease(&ssid_str);
+	return NULL;
+    }
+    profile = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
+    if (profile == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "%s: couldn't find profile for SSID [%@]", __func__, ssid_str);
+    } else {
+	auth_props = EAPOLClientProfileGetAuthenticationProperties(profile);
+	if (auth_props == NULL) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "%s: failed to find authentication properties for SSID [%@]", __func__, ssid_str);
+	} else {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "%s: authentication properties: %@", __func__, auth_props);
+	    CFRetain(auth_props);
+	}
+    }
+    my_CFRelease(&cfg);
+    my_CFRelease(&ssid_str);
+    return auth_props;
+}
+
+static Boolean
+is_ad_credential_source_present(CFDictionaryRef auth_info)
+{
+    Boolean 		ret = FALSE;
+    CFBooleanRef	use_od_cf = NULL;
+
+    if (auth_info == NULL) {
+	return (FALSE);
+    }
+    use_od_cf = CFDictionaryGetValue(auth_info,
+				     kEAPClientPropSystemModeUseOpenDirectoryCredentials);
+    if (isA_CFBoolean(use_od_cf) != NULL && CFBooleanGetValue(use_od_cf)) {
+	CFStringRef nodename = NULL;
+
+	nodename = CFDictionaryGetValue(auth_info,
+					kEAPClientPropSystemModeOpenDirectoryNodeName);
+	if (isA_CFString(nodename) != NULL) {
+	    ret = TRUE;
+	}
+    } else {
+	CFStringRef cred_source = NULL;
+
+	cred_source = CFDictionaryGetValue(auth_info,
+					   kEAPClientPropSystemModeCredentialsSource);
+	if (isA_CFString(cred_source) != NULL) {
+	    ret = CFEqual(cred_source,
+			  kEAPClientCredentialsSourceActiveDirectory);
+	}
+    }
+    return (ret);
+}
+
 static Boolean
 EAPOLControlCredentialsExist(EAPOLClientItemIDRef itemID, EAPOLClientDomain domain)
 {
     SecIdentityRef 	identity = NULL;
     CFDataRef		name_data = NULL;
     CFDataRef		password_data = NULL;
+    Boolean 		ret = FALSE;
 
     identity = EAPOLClientItemIDCopyIdentity(itemID, domain);
     if (identity != NULL) {
@@ -157,13 +235,24 @@ EAPOLControlCredentialsExist(EAPOLClientItemIDRef itemID, EAPOLClientDomain doma
 	my_CFRelease(&identity);
 	return (TRUE);
     }
-    if (EAPOLClientItemIDCopyPasswordItem(itemID, domain, &name_data, &password_data)) {
-	my_CFRelease(&password_data);
-	my_CFRelease(&name_data);
-	EAPLOG_FL(LOG_DEBUG, "%s: found username/password", __func__);
-	return (TRUE);
+    ret = EAPOLClientItemIDCopyPasswordItem(itemID, domain, &name_data, &password_data);
+    if (ret &&
+	name_data != NULL && CFDataGetLength(name_data) > 0 &&
+	password_data != NULL && CFDataGetLength(password_data) > 0) {
+	EAPLOG_FL(LOG_DEBUG, "%s: found username and password", __func__);
+	ret = TRUE;
+    } else {
+	ret = FALSE;
     }
-    return (FALSE);
+    my_CFRelease(&password_data);
+    my_CFRelease(&name_data);
+    if (ret == FALSE && domain == kEAPOLClientDomainSystem) {
+	CFDictionaryRef auth_info = copy_auth_info_from_item_id(itemID);
+	ret = is_ad_credential_source_present(auth_info);
+	my_CFRelease(&auth_info);
+	EAPLOG_FL(LOG_DEBUG, "%s: %s AD/OD credentials",__func__, ret ? "found" : "did not find");
+    }
+    return (ret);
 }
 
 static Boolean
@@ -606,16 +695,14 @@ EAPOLControlStartSystemWithClientItemID(const char * interface_name,
     CFStringRef		key;
     int			ret;
 
+    if (EAPOLControlCredentialsExist(itemID, kEAPOLClientDomainSystem) == FALSE) {
+	EAPLOG_FL(LOG_INFO, "%s: credentials not found", __func__);
+	return (EINVAL);
+    }
     item_dict = EAPOLClientItemIDCopyDictionary(itemID);
     if (item_dict == NULL) {
 	return (EINVAL);
     }
-    if (EAPOLControlCredentialsExist(itemID, kEAPOLClientDomainSystem) == FALSE) {
-	EAPLOG_FL(LOG_INFO, "%s: credentials not found", __func__);
-	CFRelease(item_dict);
-	return (EINVAL);
-    }
-
     key = kEAPOLControlClientItemID;
     config_dict = CFDictionaryCreate(NULL,
 				     (const void * *)&key,

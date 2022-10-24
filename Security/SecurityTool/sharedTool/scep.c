@@ -220,7 +220,7 @@ out:
 }
 
 
-static inline CF_RETURNS_RETAINED CFStringRef uuid_cfstring()
+static inline CF_RETURNS_RETAINED CFStringRef uuid_cfstring(void)
 {
     char uuid_string[40] = "CN=";
     uuid_t uuid;

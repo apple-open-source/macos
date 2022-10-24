@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2022 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,7 +62,7 @@ using std::numeric_limits;
 
 static const String& oldPreferencesPath()
 {
-    static String path = FileSystem::pathByAppendingComponent(FileSystem::roamingUserSpecificStorageDirectory(), "WebKitPreferences.plist");
+    static String path = FileSystem::pathByAppendingComponent(FileSystem::roamingUserSpecificStorageDirectory(), "WebKitPreferences.plist"_s);
     return path;
 }
 
@@ -147,13 +147,13 @@ WebPreferences* WebPreferences::sharedStandardPreferences()
 WebPreferences::WebPreferences()
 {
     gClassCount++;
-    gClassNameCount().add("WebPreferences");
+    gClassNameCount().add("WebPreferences"_s);
 }
 
 WebPreferences::~WebPreferences()
 {
     gClassCount--;
-    gClassNameCount().remove("WebPreferences");
+    gClassNameCount().remove("WebPreferences"_s);
 }
 
 WebPreferences* WebPreferences::createInstance()
@@ -248,7 +248,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitUserStyleSheetLocationPreferenceKey), CFSTR(""));
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitShouldPrintBackgroundsPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitTextAreasAreResizablePreferenceKey), kCFBooleanFalse);
-    CFDictionaryAddValue(defaults.get(), CFSTR(WebKitJavaEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitJavaScriptEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitJavaScriptRuntimeFlagsPreferenceKey), CFSTR("0"));
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitWebSecurityEnabledPreferenceKey), kCFBooleanTrue);
@@ -257,7 +256,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitAllowUniversalAccessFromFileURLsPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitAllowFileAccessFromFileURLsPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitJavaScriptCanAccessClipboardPreferenceKey), kCFBooleanFalse);
-    CFDictionaryAddValue(defaults.get(), CFSTR(WebKitXSSAuditorEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitFrameFlatteningEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitPluginsEnabledPreferenceKey), kCFBooleanTrue);
@@ -322,8 +320,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitMediaPlaybackRequiresUserGesturePreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitMediaPlaybackAllowsInlinePreferenceKey), kCFBooleanTrue);
 
-    CFDictionaryAddValue(defaults.get(), CFSTR(WebKitRequestAnimationFrameEnabledPreferenceKey), kCFBooleanTrue);
-
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitFullScreenEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitRequestAnimationFrameEnabledPreferenceKey), kCFBooleanFalse);
@@ -343,8 +339,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitMediaPreloadingEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitDataTransferItemsEnabledPreferenceKey), kCFBooleanFalse);
-
-    CFDictionaryAddValue(defaults.get(), CFSTR(WebKitInspectorAdditionsEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults.get(), CFSTR(WebKitVisualViewportAPIEnabledPreferenceKey), kCFBooleanFalse);
 
@@ -931,13 +925,12 @@ HRESULT WebPreferences::isJavaEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitJavaEnabledPreferenceKey);
+    *enabled = FALSE;
     return S_OK;
 }
 
-HRESULT WebPreferences::setJavaEnabled(BOOL enabled)
+HRESULT WebPreferences::setJavaEnabled(BOOL)
 {
-    setBoolValue(WebKitJavaEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
@@ -1029,13 +1022,13 @@ HRESULT WebPreferences::isXSSAuditorEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitXSSAuditorEnabledPreferenceKey);
+    *enabled = FALSE;
     return S_OK;
 }
 
 HRESULT WebPreferences::setXSSAuditorEnabled(BOOL enabled)
 {
-    setBoolValue(WebKitXSSAuditorEnabledPreferenceKey, enabled);
+    UNUSED_PARAM(enabled);
     return S_OK;
 }
 
@@ -2006,9 +1999,8 @@ HRESULT WebPreferences::setShouldDisplayTextDescriptions(BOOL enabled)
 #endif
 }
 
-HRESULT WebPreferences::setRequestAnimationFrameEnabled(BOOL enabled)
+HRESULT WebPreferences::setRequestAnimationFrameEnabled(BOOL)
 {
-    setBoolValue(WebKitRequestAnimationFrameEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
@@ -2016,7 +2008,7 @@ HRESULT WebPreferences::requestAnimationFrameEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitRequestAnimationFrameEnabledPreferenceKey);
+    *enabled = true;
     return S_OK;
 }
 
@@ -2119,13 +2111,12 @@ HRESULT WebPreferences::keygenElementEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitKeygenElementEnabledPreferenceKey);
+    *enabled = false;
     return S_OK;
 }
 
-HRESULT WebPreferences::setKeygenElementEnabled(BOOL enabled)
+HRESULT WebPreferences::setKeygenElementEnabled(BOOL)
 {
-    setBoolValue(WebKitKeygenElementEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
@@ -2186,7 +2177,7 @@ HRESULT WebPreferences::mediaPreloadingEnabled(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::clearNetworkLoaderSession()
 {
-    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies();
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies([] { });
     return S_OK;
 }
 
@@ -2220,20 +2211,6 @@ HRESULT WebPreferences::dataTransferItemsEnabled(_Out_ BOOL* enabled)
 HRESULT WebPreferences::setDataTransferItemsEnabled(BOOL enabled)
 {
     setBoolValue(WebKitDataTransferItemsEnabledPreferenceKey, enabled);
-    return S_OK;
-}
-
-HRESULT WebPreferences::inspectorAdditionsEnabled(_Out_ BOOL* enabled)
-{
-    if (!enabled)
-        return E_POINTER;
-    *enabled = boolValueForKey(WebKitInspectorAdditionsEnabledPreferenceKey);
-    return S_OK;
-}
-
-HRESULT WebPreferences::setInspectorAdditionsEnabled(BOOL enabled)
-{
-    setBoolValue(WebKitInspectorAdditionsEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
@@ -2637,6 +2614,11 @@ bool WebPreferences::canvasColorSpaceEnabled()
     return boolValueForKey("WebKitCanvasColorSpaceEnabled");
 }
 
+bool WebPreferences::cssGradientInterpolationColorSpacesEnabled()
+{
+    return boolValueForKey("WebKitCSSGradientInterpolationColorSpacesEnabled");
+}
+
 bool WebPreferences::cssGradientPremultipliedAlphaInterpolationEnabled()
 {
     return boolValueForKey("WebKitCSSGradientPremultipliedAlphaInterpolationEnabled");
@@ -2650,4 +2632,14 @@ bool WebPreferences::mockScrollbarsControllerEnabled()
 bool WebPreferences::cssInputSecurityEnabled()
 {
     return boolValueForKey("WebKitCSSInputSecurityEnabled");
+}
+
+bool WebPreferences::cssTextAlignLastEnabled()
+{
+    return boolValueForKey("WebKitCSSTextAlignLastEnabled");
+}
+
+bool WebPreferences::cssTextJustifyEnabled()
+{
+    return boolValueForKey("WebKitCSSTextJustifyEnabled");
 }

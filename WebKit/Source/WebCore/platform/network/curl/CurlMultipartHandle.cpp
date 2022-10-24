@@ -52,17 +52,17 @@ std::unique_ptr<CurlMultipartHandle> CurlMultipartHandle::createIfNeeded(CurlMul
 std::optional<String> CurlMultipartHandle::extractBoundary(const CurlResponse& response)
 {
     for (auto header : response.headers) {
-        auto splitPosistion = header.find(":");
-        if (splitPosistion == notFound)
+        auto splitPosition = header.find(':');
+        if (splitPosition == notFound)
             continue;
 
-        auto key = header.left(splitPosistion).stripWhiteSpace();
-        if (!equalIgnoringASCIICase(key, "Content-Type"))
+        auto key = header.left(splitPosition).stripWhiteSpace();
+        if (!equalIgnoringASCIICase(key, "Content-Type"_s))
             continue;
 
-        auto contentType = header.substring(splitPosistion + 1).stripWhiteSpace();
+        auto contentType = header.substring(splitPosition + 1).stripWhiteSpace();
         auto mimeType = extractMIMETypeFromMediaType(contentType);
-        if (!equalIgnoringASCIICase(mimeType, "multipart/x-mixed-replace"))
+        if (!equalLettersIgnoringASCIICase(mimeType, "multipart/x-mixed-replace"_s))
             continue;
 
         auto boundary = extractBoundaryFromContentType(contentType);
@@ -79,7 +79,7 @@ std::optional<String> CurlMultipartHandle::extractBoundaryFromContentType(const 
 {
     static const size_t length = strlen("boundary=");
 
-    auto boundaryStart = contentType.findIgnoringASCIICase("boundary=");
+    auto boundaryStart = contentType.findIgnoringASCIICase("boundary="_s);
     if (boundaryStart == notFound)
         return std::nullopt;
 

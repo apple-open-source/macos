@@ -310,11 +310,6 @@ ks_warn_non_device_keybag(void)
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
                      CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, bool useDefaultIV, CFErrorRef *error) {
-    return ks_encrypt_data_with_backupuuid(keybag, access_control, acm_context, secretData, attributes, authenticated_attributes, pBlob, NULL, useDefaultIV, error);
-}
-
-bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
-                     CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, CFDataRef _Nullable *bkUUID, bool useDefaultIV, CFErrorRef *error) {
     uint32_t encryption_version;
     if (ks_is_key_diversification_enabled()) {
         encryption_version = 8;
@@ -354,9 +349,6 @@ bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef
             *((uint32_t*)encryptedBlobWithVersion.mutableBytes) = encryption_version;
             memcpy((uint32_t*)encryptedBlobWithVersion.mutableBytes + 1, encryptedBlob.bytes, encryptedBlob.length);
             *pBlob = (__bridge_retained CFDataRef)encryptedBlobWithVersion;
-            if (bkUUID && item.backupUUID) {    // TODO: Failing this should turn into at least a stern warning at some point
-                *bkUUID = (__bridge_retained CFDataRef)[item.backupUUID copy];
-            }
             success = true;
         }
         else {
@@ -718,7 +710,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
 #endif
 
 out:
-    memset(CFDataGetMutableBytePtr(bulkKey), 0, CFDataGetLength(bulkKey));
+    memset_s(CFDataGetMutableBytePtr(bulkKey), CFDataGetLength(bulkKey), 0, CFDataGetLength(bulkKey));
     CFReleaseNull(bulkKey);
     CFReleaseNull(plainText);
     
@@ -1141,7 +1133,7 @@ bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error)
 
         if (isString(srvr) && isString(ptcl) && isString(atyp)) {
             /* This looks like a Mobile Safari Password,  make syncable */
-            secnotice("item", "Make this item syncable: %@", item);
+            secnotice("item", "Make this item syncable: " SECDBITEM_FMT, item);
             return SecDbItemSetSyncable(item, true, error);
         }
     }
@@ -1262,7 +1254,6 @@ CFTypeRef SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CF
 
 CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error) {
     CFDataRef edata = NULL;
-    CFDataRef bkuuid = NULL;
     CFMutableDictionaryRef secretStuff = SecDbItemCopyPListWithMask(item, kSecDbReturnDataFlag, error);
     CFMutableDictionaryRef attributes = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
     CFMutableDictionaryRef auth_attributes = SecDbItemCopyPListWithMask(item, kSecDbInAuthenticatedDataFlag, error);
@@ -1280,7 +1271,7 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
                 CFDictionaryRemoveValue(auth_attributes, key);
             });
 
-            if (ks_encrypt_data_with_backupuuid(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, &bkuuid, true, error)) {
+            if (ks_encrypt_data(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, true, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else if (!error || !*error || CFErrorGetCode(*error) != errSecAuthNeeded || !CFEqualSafe(CFErrorGetDomain(*error), kSecErrorDomain) ) {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));
@@ -1291,17 +1282,6 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
         CFReleaseNull(attributes);
         CFReleaseNull(auth_attributes);
         CFReleaseNull(sha1);
-        if (bkuuid) {
-            // "data" is defined first in the schema so called first. The UUID will therefore be in the cache when ForEach gets to it
-            CFErrorRef localError = NULL;
-            SecDbItemSetValueWithName(item, CFSTR("backupUUID"), bkuuid, &localError);
-            if (localError) {
-                // Don't want to propagate this. It's bad but should be handled in the manager and not interrupt production
-                secerror("Unable to wrap keychain item to backup: %@", localError);
-                CFReleaseNull(localError);
-                CFReleaseNull(bkuuid);
-            }
-        }
     }
     return edata;
 }

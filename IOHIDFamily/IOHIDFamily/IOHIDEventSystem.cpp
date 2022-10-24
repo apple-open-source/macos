@@ -25,6 +25,7 @@
 #include "IOHIDEventSystem.h"
 #include "IOHIDWorkLoop.h"
 #include "IOHIDDebug.h"
+#include <libkern/c++/OSBoundedArrayRef.h>
 
 
 typedef struct _EventServiceInfo 
@@ -288,23 +289,23 @@ void IOHIDEventSystem::handleHIDEventGated(void * args)
     }
     
     HIDLog("eventCount=%d timestamp=%lld", eventArgsRef->eventCount, *((UInt64 *)&(eventArgsRef->timeStamp)));
-    for ( UInt32 i=0; i<eventArgsRef->eventCount; i++)
-    {
-        IOHIDEvent * event = &(eventArgsRef->events[i]);
 
-        HIDLog("type=%d", event->type);
-        switch ( event->type )
+    OSBoundedArrayRef<IOHIDEvent> events(&(eventArgsRef->events[0]), eventArgsRef->eventCount);
+    for ( IOHIDEvent event : events )
+    {
+        HIDLog("type=%d", event.type);
+        switch ( event.type )
         {
             case kIOHIDKeyboardEvent:
-                HIDLog(" usagePage=%x usage=%x value=%d repeat=%d", event->data.keyboard.usagePage, event->data.keyboard.usage, event->data.keyboard.value, event->data.keyboard.repeat);
+                HIDLog(" usagePage=%x usage=%x value=%d repeat=%d", event.data.keyboard.usagePage, event.data.keyboard.usage, event.data.keyboard.value, event.data.keyboard.repeat);
                 break;
                 
             case kIOHIDMouseEvent:
-                HIDLog(" buttons=%x dx=%d dy=%d", event->data.mouse.buttons, event->data.mouse.dx, event->data.mouse.dy);
+                HIDLog(" buttons=%x dx=%d dy=%d", event.data.mouse.buttons, event.data.mouse.dx, event.data.mouse.dy);
                 break;
                 
             case kIOHIDScrollEvent:
-                HIDLog(" deltaAxis1=%d deltaAxis2=%d deltaAxis3=%d", event->data.scroll.lines.deltaAxis1, event->data.scroll.lines.deltaAxis2, event->data.scroll.lines.deltaAxis3);
+                HIDLog(" deltaAxis1=%d deltaAxis2=%d deltaAxis3=%d", event.data.scroll.lines.deltaAxis1, event.data.scroll.lines.deltaAxis2, event.data.scroll.lines.deltaAxis3);
                 break;
                 
             default:

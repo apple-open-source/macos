@@ -44,7 +44,6 @@ static nwi_state_t	G_nwi_state		= NULL;
 static pthread_mutex_t	nwi_store_lock		= PTHREAD_MUTEX_INITIALIZER;
 static boolean_t	nwi_store_token_valid	= FALSE;
 
-static pthread_once_t	initialized		= PTHREAD_ONCE_INIT;
 static int		nwi_store_token;
 
 static boolean_t	nwi_store_force_refresh	= FALSE;
@@ -317,7 +316,12 @@ nwi_state_copy(void)
 	nwi_state_t     nwi_state = NULL;
 	nwi_state_t	old_state = NULL;
 
-	pthread_once(&initialized, _nwi_state_initialize);
+	static dispatch_once_t  initialized;
+	
+	dispatch_once(&initialized, ^{
+		_nwi_state_initialize();
+	});
+
 	pthread_mutex_lock(&nwi_store_lock);
 
 	force_refresh = ATOMIC_CMPXCHG(&nwi_store_force_refresh, TRUE, FALSE);

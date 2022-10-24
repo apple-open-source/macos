@@ -790,23 +790,10 @@ thread_state_initialize(
 
 	if (thread->active) {
 		if (thread != current_thread()) {
-			thread_hold(thread);
-
-			thread_mtx_unlock(thread);
-
-			if (thread_stop(thread, TRUE)) {
-				thread_mtx_lock(thread);
-				machine_thread_state_initialize( thread );
-				thread_unstop(thread);
-			} else {
-				thread_mtx_lock(thread);
-				result = KERN_ABORTED;
-			}
-
-			thread_release(thread);
-		} else {
-			machine_thread_state_initialize( thread );
+			/* Thread created in exec should be blocked in UNINT wait */
+			assert(!(thread->state & TH_RUN));
 		}
+		machine_thread_state_initialize( thread );
 	} else {
 		result = KERN_TERMINATED;
 	}
@@ -1132,6 +1119,54 @@ thread_apc_ast(thread_t thread)
 	thread_mtx_unlock(thread);
 }
 
+#if CONFIG_ROSETTA
+extern kern_return_t
+exception_deliver(
+	thread_t                thread,
+	exception_type_t        exception,
+	mach_exception_data_t   code,
+	mach_msg_type_number_t  codeCnt,
+	struct exception_action *excp,
+	lck_mtx_t               *mutex);
+
+kern_return_t
+thread_raise_exception(
+	thread_t thread,
+	exception_type_t exception,
+	natural_t code_count,
+	int64_t code,
+	int64_t sub_code)
+{
+	task_t task;
+
+	if (thread == THREAD_NULL) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	task = get_threadtask(thread);
+
+	if (task != current_task()) {
+		return KERN_FAILURE;
+	}
+
+	if (!task_is_translated(task)) {
+		return KERN_FAILURE;
+	}
+
+	if (exception == EXC_CRASH) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	int64_t codes[] = { code, sub_code };
+	host_priv_t host_priv = host_priv_self();
+	kern_return_t kr = exception_deliver(thread, exception, codes, code_count, host_priv->exc_actions, &host_priv->lock);
+	if (kr != KERN_SUCCESS) {
+		return kr;
+	}
+
+	return thread_resume(thread);
+}
+#endif
 
 void
 thread_debug_return_to_user_ast(

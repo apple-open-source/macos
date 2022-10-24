@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2020-2021 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,7 @@ extern "C" {
 
 void countLegacyAPI(dispatch_once_t* token, const char* api);
 void setCountLegacyAPIEnabledForThread(bool value);
+bool countLegacyAPIEnabledForThread(void);
 
 void countLegacyMDSPlugin(const char* path, const char* guid);
 

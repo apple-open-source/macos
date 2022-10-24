@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,14 +33,14 @@
 #import "Logging.h"
 #import "SandboxUtilities.h"
 #import "UIGamepadProvider.h"
+#import "WKAPICast.h"
 #import "WKDownloadInternal.h"
 #import "WKObject.h"
 #import "WKWebViewInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
-#import "WebAuthnProcessProxy.h"
 #import "WebBackForwardCache.h"
 #import "WebCertificateInfo.h"
-#import "WebCookieManagerProxy.h"
+#import "WebNotificationManagerProxy.h"
 #import "WebProcessCache.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
@@ -194,15 +194,6 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
         url = [url URLByAppendingPathComponent:bundleIdentifier isDirectory:YES];
 
     return [url URLByAppendingPathComponent:@"WebsiteData" isDirectory:YES];
-}
-
-+ (pid_t)_webAuthnProcessIdentifier
-{
-#if ENABLE(WEB_AUTHN)
-    return WebKit::WebAuthnProcessProxy::singleton().processIdentifier();
-#else
-    return 0;
-#endif
 }
 
 - (void)_setAllowsSpecificHTTPSCertificate:(NSArray *)certificateChain forHost:(NSString *)host
@@ -400,6 +391,11 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 #endif
 }
 
+- (BOOL)_hasAudibleMediaActivity
+{
+    return _processPool->hasAudibleMediaActivity() ? YES : NO;
+}
+
 - (BOOL)_requestWebProcessTermination:(pid_t)pid
 {
     for (auto& process : _processPool->processes()) {
@@ -491,8 +487,7 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 + (void)_setLinkedOnOrBeforeEverythingForTesting
 {
-    setApplicationSDKVersion(0);
-    setLinkedOnOrAfterOverride(LinkedOnOrAfterOverride::BeforeEverything);
+    disableAllSDKAlignedBehaviors();
 }
 
 + (void)_setLinkedOnOrAfterEverythingForTesting
@@ -502,13 +497,17 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 
 + (void)_setLinkedOnOrAfterEverything
 {
-    setApplicationSDKVersion(std::numeric_limits<uint32_t>::max());
-    setLinkedOnOrAfterOverride(LinkedOnOrAfterOverride::AfterEverything);
+    enableAllSDKAlignedBehaviors();
 }
 
 + (void)_setCaptivePortalModeEnabledGloballyForTesting:(BOOL)isEnabled
 {
     WebKit::setCaptivePortalModeEnabledGloballyForTesting(!!isEnabled);
+}
+
++ (BOOL)_lockdownModeEnabledGloballyForTesting
+{
+    return WebKit::captivePortalModeEnabledBySystem();
 }
 
 + (void)_clearCaptivePortalModeEnabledGloballyForTesting
@@ -610,6 +609,11 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
 - (void)_terminateAllWebContentProcesses
 {
     _processPool->terminateAllWebContentProcesses();
+}
+
+- (WKNotificationManagerRef)_notificationManagerForTesting
+{
+    return WebKit::toAPI(_processPool->supplement<WebKit::WebNotificationManagerProxy>());
 }
 
 @end

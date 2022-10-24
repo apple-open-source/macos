@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.h,v 1.140 2021/02/15 20:43:15 markus Exp $ */
+/* $OpenBSD: readconf.h,v 1.146 2021/12/19 22:14:47 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -38,8 +38,6 @@ typedef struct {
 	struct ForwardOptions fwd_opts;	/* forwarding options */
 	int     pubkey_authentication;	/* Try ssh2 pubkey authentication. */
 	int     hostbased_authentication;	/* ssh2's rhosts_rsa */
-	int     challenge_response_authentication;
-					/* Try S/Key or TIS, authentication. */
 	int     gss_authentication;	/* Try GSS authentication */
 	int     gss_deleg_creds;	/* Delegate GSS credentials */
 	int     password_authentication;	/* Try password
@@ -51,6 +49,9 @@ typedef struct {
 	int     strict_host_key_checking;	/* Strict host key checking. */
 	int     compression;	/* Compress packets in both directions. */
 	int     tcp_keep_alive;	/* Set SO_KEEPALIVE. */
+#ifdef __APPLE_NW_CONNECTION__
+	int	multipath_service; /* NW-Connection Multipath Service Type */
+#endif
 	int	ip_qos_interactive;	/* IP ToS/DSCP/class for interactive */
 	int	ip_qos_bulk;		/* IP ToS/DSCP/class for bulk traffic */
 	SyslogFacility log_facility;	/* Facility for system logging. */
@@ -152,6 +153,9 @@ typedef struct {
 #endif
 
 	int	request_tty;
+	int	session_type;
+	int	stdin_null;
+	int	fork_after_authentication;
 
 	int	proxy_use_fdpass;
 
@@ -182,6 +186,11 @@ typedef struct {
 	char	*ignored_unknown; /* Pattern list of unknown tokens to ignore */
 }       Options;
 
+#define SSH_PUBKEY_AUTH_NO	0x00
+#define SSH_PUBKEY_AUTH_UNBOUND	0x01
+#define SSH_PUBKEY_AUTH_HBOUND	0x02
+#define SSH_PUBKEY_AUTH_ALL	0x03
+
 #define SSH_CANONICALISE_NO	0
 #define SSH_CANONICALISE_YES	1
 #define SSH_CANONICALISE_ALWAYS	2
@@ -196,6 +205,10 @@ typedef struct {
 #define REQUEST_TTY_NO		1
 #define REQUEST_TTY_YES		2
 #define REQUEST_TTY_FORCE	3
+
+#define SESSION_TYPE_NONE	0
+#define SESSION_TYPE_SUBSYSTEM	1
+#define SESSION_TYPE_DEFAULT	2
 
 #define SSHCONF_CHECKPERM	1  /* check permissions on config file */
 #define SSHCONF_USERCONF	2  /* user provided config file not system */
@@ -227,6 +240,7 @@ int	 parse_jump(const char *, Options *, int);
 int	 parse_ssh_uri(const char *, char **, char **, int *);
 int	 default_ssh_port(void);
 int	 option_clear_or_none(const char *);
+int	 config_has_permitted_cnames(Options *);
 void	 dump_client_config(Options *o, const char *host);
 
 void	 add_local_forward(Options *, const struct Forward *);

@@ -34,6 +34,8 @@
 #import <Foundation/Foundation.h>
 #import <Foundation/NSDistributedNotificationCenter.h>
 
+NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
+
 @implementation FakeCKOperation
 
 - (BOOL)isFinishingOnCallbackQueue

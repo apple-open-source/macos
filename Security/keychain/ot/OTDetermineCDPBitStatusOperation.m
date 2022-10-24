@@ -77,10 +77,9 @@
         __block OTAccountMetadataClassC_CDPState newState = OTAccountMetadataClassC_CDPState_UNKNOWN;
 
         WEAKIFY(self);
-        [self.deps.cuttlefishXPCWrapper trustStatusWithContainer:self.deps.containerName
-                                                         context:self.deps.contextID
-                                                           reply:^(TrustedPeersHelperEgoPeerStatus *egoStatus,
-                                                                   NSError *xpcError) {
+        [self.deps.cuttlefishXPCWrapper trustStatusWithSpecificUser:self.deps.activeAccount
+                                                              reply:^(TrustedPeersHelperEgoPeerStatus *egoStatus,
+                                                                      NSError *xpcError) {
             STRONGIFY(self);
             if(xpcError) {
                 secnotice("octagon-cdp-status", "Unable to talk with TPH; leaving CDP status as 'unknown': %@", xpcError);

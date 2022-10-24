@@ -317,6 +317,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_ExtendedValidation          SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_RevocationOnline            SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_RevocationIfTrusted         SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
+#define SEC_TRUST_ERROR_RevocationDbIgnored         SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_IssuerPolicyConstraints     SecStringWithDefaultValue("Certificate violates issuer policy constraints", "Trust", 0, "Certificate violates issuer policy constraints", "Error for certificates which violate policy constraints set on their issuer")
 #define SEC_TRUST_ERROR_IssuerNameConstraints       SecStringWithDefaultValue("Certificate violates issuer name constraints", "Trust", 0, "Certificate violates issuer name constraints", "Error for certificates which violate name constraints set on their issuer")
 #define SEC_TRUST_ERROR_ValidityPeriodMaximums      SecStringWithDefaultValue("Certificate exceeds maximum temporal validity period", "Trust", 0, "Certificate exceeds maximum temporal validity period", "Error for certificates that exceed the system's maximum temporal validity")

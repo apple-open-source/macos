@@ -825,6 +825,7 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	struct kev_request	kev_req;
 	int			so;
 	int			status;
+	int			rcvbuf;
 
 	if (bundleVerbose) {
 		_verbose = TRUE;
@@ -861,6 +862,16 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		status = ioctl(so, FIONBIO, &yes);
 		if (status) {
 			SC_log(LOG_ERR, "could not set non-blocking io, ioctl() failed: %s", strerror(errno));
+			(void) close(so);
+			so = -1;
+		}
+	}
+
+	if (so != -1) {
+		rcvbuf = 256 * 1024;
+		status = setsockopt(so, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+		if (status != 0) {
+			SC_log(LOG_ERR, "could not set socket receive buffer, setsockopt() failed: %s", strerror(errno));
 			(void) close(so);
 			so = -1;
 		}

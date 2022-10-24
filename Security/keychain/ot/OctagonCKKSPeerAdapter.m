@@ -82,16 +82,16 @@
 
 
 - (instancetype)initWithPeerID:(NSString*)peerID
-                 containerName:(NSString*)containerName
-                     contextID:(NSString*)contextID
+                  specificUser:(TPSpecificUser*)specificUser
+                personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                  cuttlefishXPC:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     if((self = [super init])) {
         _providerID = [NSString stringWithFormat:@"[OctagonCKKSPeerAdapter:%@]", peerID];
         _peerID = peerID;
 
-        _containerName = containerName;
-        _contextID = contextID;
+        _specificUser = specificUser;
+        _personaAdapter = personaAdapter;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
 
         _peerChangeListeners = [[CKKSListenerCollection alloc] initWithName:@"ckks-sos"];
@@ -109,93 +109,92 @@
 
 - (SFIdentity*)fetchIdentity:(NSString*)identifier error:(NSError *__autoreleasing  _Nullable * _Nullable)error
 {
-    // Async to sync again! No other option.
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    SFKeychainManager* keychainManager = [SFKeychainManager defaultOverCommitManager];
-
     __block SFIdentity* identity = nil;
-    __block NSError* localError = nil;
-
-    [keychainManager identityForIdentifier:identifier resultHandler:^(SFKeychainIdentityFetchResult * _Nonnull result) {
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        SFKeychainManager* keychainManager = [SFKeychainManager defaultOverCommitManager];
+        
+        NSError* localError = nil;
+        
+        SFKeychainIdentityFetchResult* result = [keychainManager identityForIdentifier:identifier];
+        
         switch(result.resultType) {
             case SFKeychainFetchResultTypeError:
             case SFKeychainFetchResultTypeNeedsAuthentication:
                 secnotice("octagon-ckks", "Unable to fetch identity '%@' from keychain: %@", identifier, result.error);
                 localError = result.error;
                 break;
-
+                
             case SFKeychainFetchResultTypeValueAvailable:
                 identity = result.value;
                 break;
         }
-        dispatch_semaphore_signal(sema);
+        
+        if(error && localError) {
+            *error = localError;
+        }
     }];
-
-    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-
-    if(error && localError) {
-        *error = localError;
-    }
     return identity;
 }
 
 - (CKKSSelves * _Nullable)fetchSelfPeers:(NSError *__autoreleasing  _Nullable * _Nullable)error
 {
-    if(self.peerID) {
-        // Shameless duplication of swift code in TPH. Thanks, perf team!
-        NSError* keychainError = nil;
+    __block CKKSSelves* selves = nil;
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        if(self.peerID) {
+            // Shameless duplication of swift code in TPH. Thanks, perf team!
+            NSError* keychainError = nil;
 
-        SFIdentity* signingIdentity = [self fetchIdentity:[NSString stringWithFormat:@"signing-key %@", self.peerID] error:&keychainError];
-        if(!signingIdentity || keychainError) {
-            if(error) {
-                // TODO: ensure error exists
-                *error = keychainError;
+            SFIdentity* signingIdentity = [self fetchIdentity:[NSString stringWithFormat:@"signing-key %@", self.peerID] error:&keychainError];
+            if(!signingIdentity || keychainError) {
+                if(error) {
+                    // TODO: ensure error exists
+                    *error = keychainError;
+                }
+                return;
             }
-            return nil;
+
+            SFIdentity* encryptionIdentity = [self fetchIdentity:[NSString stringWithFormat:@"encryption-key %@", self.peerID] error:&keychainError];
+            if(!encryptionIdentity || keychainError) {
+                if(error) {
+                    // TODO: ensure error exists
+                    *error = keychainError;
+                }
+                return;
+            }
+
+            OctagonSelfPeer* selfPeer = [[OctagonSelfPeer alloc] initWithPeerID:self.peerID
+                                                                signingIdentity:signingIdentity
+                                                             encryptionIdentity:encryptionIdentity];
+
+            selves = [[CKKSSelves alloc] initWithCurrent:selfPeer allSelves:[NSSet set]];
+            return;
         }
 
-        SFIdentity* encryptionIdentity = [self fetchIdentity:[NSString stringWithFormat:@"encryption-key %@", self.peerID] error:&keychainError];
-        if(!encryptionIdentity || keychainError) {
-            if(error) {
-                // TODO: ensure error exists
-                *error = keychainError;
-            }
-            return nil;
+        secnotice("octagon-ckks", "No peer ID; therefore no identity");
+        if(error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OctagonErrorNoIdentity
+                                  description:@"no peer ID present"];
         }
-
-        OctagonSelfPeer* selfPeer = [[OctagonSelfPeer alloc] initWithPeerID:self.peerID
-                                                            signingIdentity:signingIdentity
-                                                         encryptionIdentity:encryptionIdentity];
-
-        CKKSSelves* selves = [[CKKSSelves alloc] initWithCurrent:selfPeer allSelves:[NSSet set]];
-        return selves;
-    }
-
-    secnotice("octagon-ckks", "No peer ID; therefore no identity");
-    if(error) {
-        *error = [NSError errorWithDomain:OctagonErrorDomain
-                                     code:OctagonErrorNoIdentity
-                              description:@"no peer ID present"];
-    }
-    return nil;
+    }];
+    return selves;
 }
 
 - (NSSet<id<CKKSRemotePeerProtocol>> * _Nullable)fetchTrustedPeers:(NSError *__autoreleasing  _Nullable * _Nullable)error
 {
     // TODO: make this memoized somehow, somewhere
-
-    __block NSError* localerror;
     __block NSMutableSet<id<CKKSRemotePeerProtocol>> * peers = nil;
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        __block NSError* localerror;
 
-    WEAKIFY(self);
-    [self.cuttlefishXPCWrapper fetchTrustStateWithContainer:self.containerName
-                                                    context:self.contextID
-                                                      reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
-                                                              NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
-                                                              NSError * _Nullable operror) {
+        WEAKIFY(self);
+        [self.cuttlefishXPCWrapper fetchTrustStateWithSpecificUser:self.specificUser
+                                                             reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
+                                                                     NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
+                                                                     NSError * _Nullable operror) {
             STRONGIFY(self);
             if(operror) {
-                secnotice("octagon", "Unable to fetch trusted peers for (%@,%@): %@", self.containerName, self.contextID, operror);
+                secnotice("octagon", "Unable to fetch trusted peers for (%@): %@", self.specificUser, operror);
                 localerror = operror;
 
             } else {
@@ -215,31 +214,41 @@
             }
         }];
 
-    if(error && localerror) {
-        *error = localerror;
-    }
-
+        if(error && localerror) {
+            *error = localerror;
+        }
+    }];
     return peers;
 }
 
 - (void)registerForPeerChangeUpdates:(nonnull id<CKKSPeerUpdateListener>)listener {
-    [self.peerChangeListeners registerListener:listener];
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        [self.peerChangeListeners registerListener:listener];
+    }];
 }
 
 - (void)sendSelfPeerChangedUpdate {
-    [self.peerChangeListeners iterateListeners: ^(id<CKKSPeerUpdateListener> listener) {
-        [listener selfPeerChanged: self];
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        [self.peerChangeListeners iterateListeners: ^(id<CKKSPeerUpdateListener> listener) {
+            [listener selfPeerChanged: self];
+        }];
     }];
 }
 
 - (void)sendTrustedPeerSetChangedUpdate {
-    [self.peerChangeListeners iterateListeners: ^(id<CKKSPeerUpdateListener> listener) {
-        [listener trustedPeerSetChanged: self];
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        [self.peerChangeListeners iterateListeners: ^(id<CKKSPeerUpdateListener> listener) {
+            [listener trustedPeerSetChanged: self];
+        }];
     }];
 }
 
 - (nonnull CKKSPeerProviderState *)currentState {
-    return [CKKSPeerProviderState createFromProvider:self];
+    __block CKKSPeerProviderState *state =  nil;
+    [self.personaAdapter performBlockWithPersonaIdentifier:self.specificUser.personaUniqueString block:^{
+        state =  [CKKSPeerProviderState createFromProvider:self];
+    }];
+    return state;
 }
 
 

@@ -1415,8 +1415,6 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             // alias analysis.
             write(NamedProperties);
         }
-        if (node->multiDeleteByOffsetData().allVariantsStoreEmpty())
-            def(HeapLocation(NamedPropertyLoc, heap, node->child1()), LazyNode(graph.freezeStrong(JSValue())));
         return;
     }
         
@@ -1820,6 +1818,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             read(RegExpObject_lastIndex);
             write(RegExpState);
             write(RegExpObject_lastIndex);
+            return;
+        } else if (node->child1().useKind() == StringUse
+            && node->child2().useKind() == StringUse
+            && node->child3().useKind() == StringUse) {
             return;
         }
         clobberTop();

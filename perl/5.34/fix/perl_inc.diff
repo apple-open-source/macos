@@ -1,0 +1,27 @@
+--- a/lib/ExtUtils/Embed.pm	2014-01-06 14:46:45.000000000 -0800
++++ b/lib/ExtUtils/Embed.pm	2018-05-11 00:10:36.000000000 -0700
+@@ -266,7 +266,7 @@ sub ccdlflags {
+ sub perl_inc {
+     my $dir = File::Spec->catdir($Config{archlibexp}, 'CORE');
+     $dir = qq["$dir"] if $^O eq 'MSWin32';
+-    my_return(" -I$dir ");
++    my_return(" -iwithsysroot $dir ");
+ }
+ 
+ sub ccopts {
+--- a/dist/ExtUtils-CBuilder/lib/ExtUtils/CBuilder/Base.pm	2014-01-06 14:46:44.000000000 -0800
++++ b/dist/ExtUtils-CBuilder/lib/ExtUtils/CBuilder/Base.pm	2018-07-27 22:45:32.000000000 -0700
+@@ -111,7 +111,12 @@ sub object_file {
+ 
+ sub arg_include_dirs {
+   my $self = shift;
+-  return map {"-I$_"} @_;
++  my @args;
++  foreach (@_) {
++     push (@args, "-iwithsysroot");
++     push (@args, $_);
++  }
++  return @args;
+ }
+ 
+ sub arg_nolink { '-c' }

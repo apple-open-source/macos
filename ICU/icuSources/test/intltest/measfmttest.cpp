@@ -3914,7 +3914,7 @@ void MeasureFormatTest::TestManyLocaleDurations() {
     helperTestManyLocaleDurations("es", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("fi", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 t 37 min"); // Apple data change
     helperTestManyLocaleDurations("fi", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5.37");
-    helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5h 37mn");
+    helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5h 37min");
     helperTestManyLocaleDurations("fr", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("is", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 klst. og 37 m\\u00EDn.");
     helperTestManyLocaleDurations("is", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
@@ -4954,7 +4954,7 @@ void MeasureFormatTest::Test21223_FrenchDuration() {
     UnicodeString result;
     FieldPosition pos;
     mf.formatMeasures(H5M10, UPRV_LENGTHOF(H5M10), result, pos, status);
-    assertEquals("Should have consistent spacing", u"5h 10mn", result); // Apple data change
+    assertEquals("Should have consistent spacing", u"5h 10min", result);
 
     // Test additional locales:
     // int32_t localeCount;

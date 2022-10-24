@@ -69,6 +69,20 @@ Turn off using meta data caching for this volume.
 Force session encryption to be used
 .It shareencrypt
 Force share encryption to be used for that share and also for IPC$ traffic
+.It filemode
+Specify permissions that should be assigned to files. The value must be specified as an octal number. Default value is taken from mount point.
+.Pp
+ Note that these permissions can differ from the rights granted by SMB server.
+.It dirmode
+Specify permissions that should be assigned to directories. The value must be specified as an octal number. Default value adds execute permission where the file mode gives read permission.
+.Pp
+ Note that these permissions can differ from the rights granted by SMB server.
+.It snapshot
+Do a read only mount using the specific snapshot of the share.  A new session is created to allow multiple snapshots of the same share to be mounted.  Value must be in GMT format e.g. @GMT-YYYY.MM.DD-HH.MM.SS
+.It nopassprompt
+Do not ask for a password.  At run time, mount_smbfs reads the ~/Library/Preferences/nsmb.conf file for additional configuration parameters and a password.  If no password is found, mount_smbfs prompts for it.
+.It forcenewsession
+Force a new session to be created to the server.
 .El
 .It Fl f Ar mode , Fl d Ar mode
 Specify permissions that should be assigned to files and directories.

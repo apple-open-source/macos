@@ -56,10 +56,11 @@
  *	@(#)pw_util.h	8.2 (Berkeley) 4/1/94
  */
 
-void	pw_edit __P((int));
+int	pw_edit(int);
 void	pw_error __P((char *, int, int));
-void	pw_init __P((void));
+int	pw_init(const char *, const char *);
 int	pw_lock __P((void));
-int	pw_mkdb __P((void));
+int	pw_mkdb(const char *user);
 void	pw_prompt __P((void));
-int	pw_tmp __P((void));
+int	pw_tmp(int);
+void	pw_fini(void);

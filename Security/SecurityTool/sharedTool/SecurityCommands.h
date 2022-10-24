@@ -10,7 +10,10 @@
 
 
 SECURITY_COMMAND("add-internet-password", keychain_add_internet_password,
-                 "[-a accountName] [-d securityDomain] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [-w passwordData] [keychain]\n"
+                 "[-y | -Y passcode] [-a accountName] [-d securityDomain] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [-w passwordData] [keychain]\n"
+                 "    -y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "    -Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "       For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "    -a Use \"accountName\".\n"
                  "    -d Use \"securityDomain\".\n"
                  "    -p Use \"path\".\n"
@@ -23,7 +26,10 @@ SECURITY_COMMAND("add-internet-password", keychain_add_internet_password,
                  "Add an internet password item.")
 
 SECURITY_COMMAND("item", keychain_item,
-                 "[-v][-a|-D|-u attr=value,...|[-q][-j][-g] attr=value,...] [-d password | -f datafile] [attr=value,...]\n"
+                 "[-v] [-y | -Y passcode] [-a|-D|-u attr=value,...|[-q|-s groupKitGroup][-j][-g] attr=value,...] [-d password | -f datafile] [attr=value,...]\n"
+                 "-y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "-Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "   For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "-q Query for item matching (default). Note: as default query skips items with ACL, you have to define 'u_AuthUI=u_AuthUIA' if you want to query items with ACL\n"
                  "-g Get password data\n"
                  "-a Add item to keychain\n"
@@ -32,7 +38,8 @@ SECURITY_COMMAND("item", keychain_item,
                  "-j When printing results, print JSON\n"
                  "-p Get persistent reference\n"
                  "-P Find an item based on a persistent reference\n"
-                 "Add, query, update or delete items from the keychain.  Extra attr=value pairs after options always apply to the query\n"
+                 "-s Share matching items with the given GroupKit group\n"
+                 "Add, query, update, delete, or share items in the keychain.  Extra attr=value pairs after options always apply to the query\n"
                  "class=[genp|inet|cert|keys] is required for the query\n"
                  "To search the synchronizable items (not searched by default) use sync=1 as an attr=value pair.\n"
                  "Security Access Control object can be passed as attribute accc with following syntax:\n"
@@ -74,7 +81,10 @@ SECURITY_COMMAND_IOS("show-certificates", keychain_show_certificates,
                  "Display certificates in human readable form.")
 
 SECURITY_COMMAND("find-internet-password", keychain_find_internet_password,
-                 "[-a accountName] [-d securityDomain] [-g] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [keychain...]\n"
+                 "[-y|-Y passcode] [-a accountName] [-d securityDomain] [-g] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [keychain...]\n"
+                 "    -y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "    -Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "       For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "    -a Match on \"accountName\" when searching.\n"
                  "    -d Match on \"securityDomain\" when searching.\n"
                  "    -g Display the password for the item found.\n"
@@ -88,7 +98,10 @@ SECURITY_COMMAND("find-internet-password", keychain_find_internet_password,
                  "Find an internet password item.")
 
 SECURITY_COMMAND("find-generic-password", keychain_find_generic_password,
-                 "[-a accountName] [-s serviceName] [keychain...]\n"
+                 "[-y|-Y passcode] [-a accountName] [-s serviceName] [keychain...]\n"
+                 "    -y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "    -Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "       For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "    -a Match on \"accountName\" when searching.\n"
                  "    -g Display the password for the item found.\n"
                  "    -s Match on \"serviceName\" when searching.\n"
@@ -96,7 +109,10 @@ SECURITY_COMMAND("find-generic-password", keychain_find_generic_password,
                  "Find a generic password item.")
 
 SECURITY_COMMAND("delete-internet-password", keychain_delete_internet_password,
-                 "[-a accountName] [-d securityDomain] [-g] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [keychain...]\n"
+                 "[-y|-Y passcode] [-a accountName] [-d securityDomain] [-g] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [keychain...]\n"
+                 "    -y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "    -Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "       For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "    -a Match on \"accountName\" when searching.\n"
                  "    -d Match on \"securityDomain\" when searching.\n"
                  "    -g Display the password for the item found.\n"
@@ -110,7 +126,10 @@ SECURITY_COMMAND("delete-internet-password", keychain_delete_internet_password,
                  "Delete one or more internet password items.")
 
 SECURITY_COMMAND("delete-generic-password", keychain_delete_generic_password,
-                 "[-a accountName] [-s serviceName] [keychain...]\n"
+                 "[-y|-Y passcode] [-a accountName] [-s serviceName] [keychain...]\n"
+                 "    -y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "    -Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "       For devices w/o a passcode set, use the empty string: -Y ''\n"
                  "    -a Match on \"accountName\" when searching.\n"
                  "    -g Display the password for the item found.\n"
                  "    -s Match on \"serviceName\" when searching.\n"
@@ -283,3 +302,19 @@ SECURITY_COMMAND("show-trust-config", show_trust_config,
                  "   -c             Output certificate exceptions (as SPKI hash).\n"
                  "                      Default is both domains and certs.\n",
                  "Display trust evaluation configuration in json.")
+
+SECURITY_COMMAND("stuff-keychain", stuff_keychain,
+                 "[-y | -Y passcode] [-c count] [-a accountPrefix] [-e seed] [-s] [-D]\n"
+                 "-y Prompt for passcode to authenticate (not available on tvOS/bridge)\n"
+                 "-Y use specified passcode to authenticate (not available on tvOS/bridge)\n"
+                 "   For devices w/o a passcode set, use the empty string: -Y ''\n"
+                 "-c Number of items to create (default 25000)\n"
+                 "-a Prefix to use for kSecAttrAccount (default 'account-')\n"
+                 "-e Seed for PRNG for kSecAttrAccount suffix (by default seeded unpredictably)\n"
+                 "-s set kSecAttrSynchronizable on items\n"
+                 "-D delete ALL stuffed items\n",
+                 "Stuff the keychain with lots of items.")
+
+SECURITY_COMMAND("tickle", tickle,
+                 "",
+                 "Tickle DB to possibly upgrade.")

@@ -22,14 +22,6 @@
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccder.h>
 
-//
-// We assume that SecKey is set up for this to work.
-// Specifically ccrng_seckey needs to be initialized
-//
-// As it happens we work in terms of SecKeys at the
-// higher level, so we're good.
-//
-
 const uint32_t kBlobCipherKeySize = CCAES_KEY_SIZE_128;
 const uint32_t kBlobMacSize = 16;
 
@@ -37,7 +29,7 @@ static void InitServerECIES(ccecies_gcm_t ecies, const struct ccmode_gcm *gcm_mo
 {
     ccecies_encrypt_gcm_setup(ecies,
                               ccsha256_di(),
-                              ccrng_seckey,
+                              ccrng_seckey(),
                               gcm_mode,
                               kBlobCipherKeySize,
                               kBlobMacSize,

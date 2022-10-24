@@ -50,3 +50,5 @@ trailing_comma:
 excluded:
     - keychain/trust/cuttlefish/
     - keychain/Trieste/OctagonTriesteTests/.build
+    - keychain/postmodern/dependencies/
+    - keychain/postmodern/shared/protobuf/

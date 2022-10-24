@@ -124,6 +124,10 @@ struct cupsd_printer_s
   cupsd_srv_t	printer_srv;		/* LPD service */
 #  endif /* HAVE_DNSSD */
 #endif /* HAVE_DNSSD || HAVE_AVAHI */
+
+  char          *oauth_uri;             /* these may be needed for auth before get-printer-attributes */
+  char          *oauth_scope;
+  char          *source_app;            /* as an alternative, this is the identifier of an app extension that can provide auth */
 };
 
 

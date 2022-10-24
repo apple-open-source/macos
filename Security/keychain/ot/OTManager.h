@@ -31,6 +31,7 @@
 #import "keychain/ot/OTFollowup.h"
 #import <Security/OTControlProtocol.h>
 #import "keychain/ot/OTSOSAdapter.h"
+#import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTPersonaAdapter.h"
 #import "keychain/ot/OTTooManyPeersAdapter.h"
@@ -65,6 +66,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init;
 
 - (instancetype)initWithSOSAdapter:(id<OTSOSAdapter>)sosAdapter
+                   accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                     authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
@@ -81,8 +83,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Call this to start up the state machinery
 - (void)initializeOctagon;
-- (BOOL)waitForReady:(NSString* _Nullable)containerName context:(NSString*)context wait:(int64_t)wait;
-- (void)moveToCheckTrustedStateForContainer:(NSString* _Nullable)containerName context:(NSString*)context;
+- (BOOL)waitForReady:(OTControlArguments*)arguments
+                wait:(int64_t)wait;
 
 // Call this to ensure SFA is ready
 - (void)setupAnalytics;
@@ -94,14 +96,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (OTCuttlefishContext*)contextForContainerName:(NSString* _Nullable)containerName
                                       contextID:(NSString*)contextID
                                      sosAdapter:(id<OTSOSAdapter>)sosAdapter
+                                accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
                                  authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                             tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
                                lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
-                            accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider>)accountStateTracker
                        deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter;
 
 - (OTCuttlefishContext*)contextForContainerName:(NSString* _Nullable)containerName
                                       contextID:(NSString*)contextID;
+
+- (OTCuttlefishContext* _Nullable)contextForClientRPC:(OTControlArguments*)arguments
+                                      createIfMissing:(BOOL)createIfMissing
+                              allowNonPrimaryAccounts:(BOOL)allowNonPrimaryAccounts
+                                                error:(NSError**)error;
+
+- (CKKSKeychainView* _Nullable)ckksForClientRPC:(OTControlArguments*)arguments
+                                createIfMissing:(BOOL)createIfMissing
+                        allowNonPrimaryAccounts:(BOOL)allowNonPrimaryAccounts
+                                          error:(NSError**)error;
 
 - (void)removeContextForContainerName:(NSString*)containerName
                             contextID:(NSString*)contextID;
@@ -114,97 +126,92 @@ NS_ASSUME_NONNULL_BEGIN
 -(BOOL)ghostbustBySerialEnabled;
 -(BOOL)ghostbustByAgeEnabled;
 
--(void)restore:(NSString* _Nullable)containerName
-     contextID:(NSString *)contextID
-    bottleSalt:(NSString *)bottleSalt
-       entropy:(NSData *)entropy
-      bottleID:(NSString *)bottleID
-         reply:(void (^)(NSError * _Nullable))reply;
+- (void)restoreFromBottle:(OTControlArguments*)arguments
+                  entropy:(NSData *)entropy
+                 bottleID:(NSString *)bottleID
+                    reply:(void (^)(NSError * _Nullable))reply;
 
-- (void)createRecoveryKey:(NSString* _Nullable)containerName
-                contextID:(NSString *)contextID
+- (void)createRecoveryKey:(OTControlArguments*)arguments
               recoveryKey:(NSString *)recoveryKey
                     reply:(void (^)( NSError * _Nullable))reply;
 
-- (void)joinWithRecoveryKey:(NSString* _Nullable)containerName
-                  contextID:(NSString *)contextID
+- (void)joinWithRecoveryKey:(OTControlArguments*)arguments
                 recoveryKey:(NSString*)recoveryKey
                       reply:(void (^)(NSError * _Nullable))reply;
 
-- (void)createCustodianRecoveryKey:(NSString* _Nullable)containerName
-                         contextID:(NSString *)contextID
+- (void)createCustodianRecoveryKey:(OTControlArguments*)arguments
                               uuid:(NSUUID *_Nullable)uuid
                              reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply;
 
-- (void)joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                           contextID:(NSString *)contextID
+- (void)joinWithCustodianRecoveryKey:(OTControlArguments*)arguments
                 custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                reply:(void (^)(NSError *_Nullable))reply;
 
-- (void)preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                                    contextID:(NSString *)contextID
+- (void)preflightJoinWithCustodianRecoveryKey:(OTControlArguments*)arguments
                          custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                         reply:(void (^)(NSError *_Nullable))reply;
 
-- (void)removeCustodianRecoveryKey:(NSString* _Nullable)containerName
-                         contextID:(NSString *)contextID
+- (void)removeCustodianRecoveryKey:(OTControlArguments*)arguments
                               uuid:(NSUUID *)uuid
                              reply:(void (^)(NSError *_Nullable error))reply;
 
-- (void)createInheritanceKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void)createInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
 
-- (void)generateInheritanceKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void)generateInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *_Nullable)uuid
                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
 
-- (void)storeInheritanceKey:(NSString* _Nullable)containerName
-                  contextID:(NSString *)contextID
+- (void)storeInheritanceKey:(OTControlArguments*)arguments
                          ik:(OTInheritanceKey *)ik
                       reply:(void (^)(NSError *_Nullable error)) reply;
 
-- (void)joinWithInheritanceKey:(NSString* _Nullable)containerName
-                     contextID:(NSString *)contextID
+- (void)joinWithInheritanceKey:(OTControlArguments*)arguments
                 inheritanceKey:(OTInheritanceKey *)ik
                          reply:(void (^)(NSError *_Nullable))reply;
 
-- (void)preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
-                              contextID:(NSString *)contextID
+- (void)preflightJoinWithInheritanceKey:(OTControlArguments*)arguments
                          inheritanceKey:(OTInheritanceKey *)ik
                                   reply:(void (^)(NSError *_Nullable))reply;
 
-- (void)removeInheritanceKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void)removeInheritanceKey:(OTControlArguments*)arguments
                         uuid:(NSUUID *)uuid
                        reply:(void (^)(NSError *_Nullable error))reply;
 
-- (void)tlkRecoverabilityForEscrowRecordData:(NSString* _Nullable)containerName
-                                   contextID:(NSString*)contextID
+- (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
+- (void)setMachineIDOverride:(OTControlArguments*)arguments
+                   machineID:(NSString*)machineID
+                       reply:(void (^)(NSError* _Nullable replyError))reply;
+
+- (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*_Nullable)containerName
+                                                 contextID:(NSString*)contextID
+                                           possibleAccount:(TPSpecificUser* _Nullable)possibleAccount;
+
+- (OTCuttlefishContext* _Nullable)restartCKKSAccountSyncWithoutSettingPolicyForContext:(OTCuttlefishContext*)cuttlefishContext;
+- (CKKSKeychainView* _Nullable)restartCKKSAccountSyncWithoutSettingPolicy:(CKKSKeychainView*)view;
+
+- (void)haltAll;
+- (void)dropAllActors;
 
 - (void)allContextsHalt;
 - (void)allContextsDisablePendingFlags;
 - (bool)allContextsPause:(uint64_t)within;
 
-- (void)waitForOctagonUpgrade:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
 
 // Metrics and analytics
-- (void)postCDPFollowupResult:(BOOL)success
+- (void)postCDPFollowupResult:(OTControlArguments*)arguments
+                      success:(BOOL)success
                          type:(OTCliqueCDPContextType)type
                         error:(NSError * _Nullable)error
-                containerName:(NSString* _Nullable)containerName
-                  contextName:(NSString *)contextName
                         reply:(void (^)(NSError *error))reply;
 
-- (void)fetchAccountSettings:(NSString * _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void)fetchAccountSettings:(OTControlArguments*)arguments
                        reply:(void (^)(OTAccountSettings* _Nullable setting, NSError * _Nullable error))reply;
 
 // Helper function to make CK containers
@@ -224,8 +231,7 @@ NS_ASSUME_NONNULL_BEGIN
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
-- (void)invalidateEscrowCache:(NSString * _Nullable)containerName
-                    contextID:(NSString*)contextID
+- (void)invalidateEscrowCache:(OTControlArguments*)arguments
                         reply:(nonnull void (^)(NSError * _Nullable error))reply;
 @end
 

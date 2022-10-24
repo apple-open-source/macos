@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc16_dect_x = {
+const crcDescriptor CC_crc16_dect_x = {
     .name = "crc16-dect-x",
     .defType = model,
     .def.parms.width = 2,

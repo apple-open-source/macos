@@ -260,6 +260,10 @@ main (int argc, char *argv[])
 		err(1, "%s", ifn);
 	if (!Dflag)
 		show(ofp, prevline);
+#ifdef __APPLE__
+	if (ferror(ofp) != 0 || fflush(ofp) != 0)
+		err(1, "flush output");
+#endif
 	exit(0);
 }
 

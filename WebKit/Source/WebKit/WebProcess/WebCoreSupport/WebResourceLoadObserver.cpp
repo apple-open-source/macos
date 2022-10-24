@@ -36,6 +36,7 @@
 #include "WebProcess.h"
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoaderClient.h>
 #include <WebCore/HTMLFrameOwnerElement.h>
@@ -127,12 +128,9 @@ String WebResourceLoadObserver::statisticsForURL(const URL& url)
 
 Vector<ResourceLoadStatistics> WebResourceLoadObserver::takeStatistics()
 {
-    Vector<ResourceLoadStatistics> statistics;
-    statistics.reserveInitialCapacity(m_resourceStatisticsMap.size());
-    for (auto& statistic : m_resourceStatisticsMap.values())
-        statistics.uncheckedAppend(ResourceLoadStatistics(WTFMove(*statistic)));
-    m_resourceStatisticsMap.clear();
-    return statistics;
+    return WTF::map(std::exchange(m_resourceStatisticsMap, { }), [](auto&& entry) {
+        return ResourceLoadStatistics { WTFMove(*entry.value) };
+    });
 }
 
 void WebResourceLoadObserver::clearState()
@@ -386,9 +384,10 @@ void WebResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const 
 #define LOCAL_LOG(str, ...) \
         RELEASE_LOG(ResourceLoadStatistics, "ResourceLoadObserver::logUserInteraction: counter=%" PRIu64 ": " str, counter, ##__VA_ARGS__)
 
-        auto escapeForJSON = [](String s) {
-            s.replace('\\', "\\\\").replace('"', "\\\"");
-            return s;
+        auto escapeForJSON = [](const String& s) {
+            auto result = makeStringByReplacingAll(s, '\\', "\\\\"_s);
+            result = makeStringByReplacingAll(result, '"', "\\\""_s);
+            return result;
         };
         auto escapedURL = escapeForJSON(url.string());
         auto escapedDomain = escapeForJSON(topFrameDomain.string());

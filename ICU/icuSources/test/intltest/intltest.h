@@ -216,13 +216,21 @@ public:
     void errcheckln(UErrorCode status, const UnicodeString &message );
 
     // convenience functions: sprintf() + errln() etc.
+    __attribute__((format(printf, 2, 3)))
     void log(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void logln(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void info(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void infoln(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void err(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void errln(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void dataerr(const char *fmt, ...);
+    __attribute__((format(printf, 2, 3)))
     void dataerrln(const char *fmt, ...);
 
     /**
@@ -231,6 +239,7 @@ public:
      * Does not report the status code.
      * @param status parameter for selecting whether errln or dataerrln is called.
      */
+    __attribute__((format(printf, 3, 4)))
     void errcheckln(UErrorCode status, const char *fmt, ...);
 
     // Print ALL named errors encountered so far

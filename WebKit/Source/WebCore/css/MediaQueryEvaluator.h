@@ -34,6 +34,7 @@
 namespace WebCore {
 
 class Document;
+class WeakPtrImplWithEventTargetData;
 class MediaQuerySet;
 class RenderStyle;
 
@@ -77,7 +78,7 @@ public:
     WEBCORE_EXPORT MediaQueryEvaluator(const String& acceptedMediaType, const Document&, const RenderStyle*);
 
     bool mediaTypeMatch(const String& mediaTypeToMatch) const;
-    bool mediaTypeMatchSpecific(const char* mediaTypeToMatch) const;
+    bool mediaTypeMatchSpecific(ASCIILiteral mediaTypeToMatch) const;
 
     // Evaluates media query subexpression, ie "and (media-feature: value)" part.
     bool evaluate(const MediaQueryExpression&) const;
@@ -90,7 +91,7 @@ public:
 
 private:
     String m_mediaType;
-    WeakPtr<const Document> m_document;
+    WeakPtr<const Document, WeakPtrImplWithEventTargetData> m_document;
     const RenderStyle* m_style { nullptr };
     bool m_fallbackResult { false };
 };

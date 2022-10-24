@@ -173,12 +173,12 @@ static void printDataAsHex(const char* title, const CSSM_DATA* d, unsigned maxTo
     bufferSize = wrapwid + 3 * len;
     buffer = (char*)malloc(bufferSize);
 
-    offset = sprintf(buffer, "%s [len = %u]\n", title, len);
+    offset = snprintf(buffer, bufferSize, "%s [len = %u]\n", title, len);
     dtprintf("%s", buffer);
     offset = 0;
 
     for (i = 0; (i < len) && (offset + 3 < bufferSize); i++, offset += sz) {
-        sz = sprintf(buffer + offset, " %02x", (unsigned int)cp[i] & 0xff);
+        sz = snprintf(buffer + offset, bufferSize - (size_t)offset, " %02x", (unsigned int)cp[i] & 0xff);
         if ((i % wrapwid) == (wrapwid - 1)) {
             dtprintf("%s\n", buffer);
             offset = 0;
@@ -186,9 +186,8 @@ static void printDataAsHex(const char* title, const CSSM_DATA* d, unsigned maxTo
         }
     }
 
-    sz = sprintf(buffer + offset, more ? " ...\n" : "\n");
+    sz = snprintf(buffer + offset, bufferSize - (size_t)offset, more ? " ...\n" : "\n");
     offset += sz;
-    buffer[offset + 1] = 0;
 
     dtprintf("%s", buffer);
 
@@ -305,7 +304,7 @@ static void debugSaveCertificates(CSSM_DATA** outCerts)
         for (certp = outCerts; *certp; certp++, ++jx) {
             char numstr[32];
             strncpy(fname, certNameBase, strlen(certNameBase) + 1);
-            sprintf(numstr, "%u", jx);
+            snprintf(numstr, sizeof(numstr), "%u", jx);
             strcat(fname, numstr);
             tsaWriteFileX(fname, (*certp)->Data, (*certp)->Length);
             if (jx > 5) {
@@ -1365,7 +1364,7 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo,
                     int jx;
                     char buffer[128];
                     for (jx = 0; jx < digestAlgCount; jx++) {
-                        sprintf(buffer, " digest[%u]", jx);
+                        snprintf(buffer, sizeof(buffer), " digest[%u]", jx);
                         printDataAsHex(buffer, signedData->digests[jx], 0);
                     }
                 } else {

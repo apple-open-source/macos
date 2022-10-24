@@ -129,7 +129,7 @@ CF_ENUM(OSStatus) {
 	errSecCSBadFrameworkVersion = 		-67009, /* embedded framework contains modified or invalid version */
 	errSecCSUnsealedFrameworkRoot =		-67008, /* unsealed contents present in the root directory of an embedded framework */
 	errSecCSWeakResourceEnvelope =		-67007, /* resource envelope is obsolete (version 1 signature) */
-    errSecCSCancelled =					-67006, /* operation was terminated by explicit cancelation */
+	errSecCSCancelled =					-67006, /* operation was terminated by explicit cancelation */
 	errSecCSInvalidPlatform =			-67005,	/* invalid platform identifier or platform mismatch */
 	errSecCSTooBig =					-67004,	/* code is too big for current signing format */
 	errSecCSInvalidSymlink =			-67003,	/* invalid destination for symbolic link in bundle */
@@ -223,17 +223,23 @@ CF_ENUM(SecGuestRef) {
 	When passed to a call that performs code validation, requests that code signatures
 	made by expired certificates be rejected. By default, expiration of participating
 	certificates is not automatic grounds for rejection.
+	@constant kSecCSNoNetworkAccess
+	When passed to a call that performs code validation, configures the validation to
+	not perform any work that requires the network. Using this flag disables security features
+	like online certificate revocation and notarization checks by removing potentially
+	slow network requests that can delay evaluations. This flag has always been usable for
+	SecStaticCode objects and is usable with SecCode objects starting with macOS 11.3.
 */
 typedef CF_OPTIONS(uint32_t, SecCSFlags) {
-    kSecCSDefaultFlags = 0,					/* no particular flags (default behavior) */
+	kSecCSDefaultFlags = 0,					/* no particular flags (default behavior) */
 	
-    kSecCSConsiderExpiration = 1U << 31,		/* consider expired certificates invalid */
-    kSecCSEnforceRevocationChecks = 1 << 30,	/* force revocation checks regardless of preference settings */
-    kSecCSNoNetworkAccess = 1 << 29,            /* do not use the network, cancels "kSecCSEnforceRevocationChecks"  */
+	kSecCSConsiderExpiration = 1U << 31,		/* consider expired certificates invalid */
+	kSecCSEnforceRevocationChecks = 1 << 30,	/* force revocation checks regardless of preference settings */
+	kSecCSNoNetworkAccess = 1 << 29,            /* do not use the network, cancels "kSecCSEnforceRevocationChecks"  */
 	kSecCSReportProgress = 1 << 28,			/* make progress report call-backs when configured */
-    kSecCSCheckTrustedAnchors = 1 << 27, /* build certificate chain to system trust anchors, not to any self-signed certificate */
+	kSecCSCheckTrustedAnchors = 1 << 27, /* build certificate chain to system trust anchors, not to any self-signed certificate */
 	kSecCSQuickCheck = 1 << 26,		/* (internal) */
-    kSecCSApplyEmbeddedPolicy = 1 << 25, /* Apply Embedded (iPhone) policy regardless of the platform we're running on */
+	kSecCSApplyEmbeddedPolicy = 1 << 25, /* Apply Embedded (iPhone) policy regardless of the platform we're running on */
 };
 
 
@@ -376,7 +382,7 @@ typedef CF_ENUM(uint32_t, SecCSDigestAlgorithm) {
 	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
 	kSecCodeSignatureHashSHA256Truncated			=  3,	/* SHA-256 truncated to first 20 bytes */
 	kSecCodeSignatureHashSHA384						=  4,	/* SHA-384 */
-    kSecCodeSignatureHashSHA512                     =  5,   /* SHA-512 */
+	kSecCodeSignatureHashSHA512                     =  5,   /* SHA-512 */
 };
 
 CF_ASSUME_NONNULL_END

@@ -37,6 +37,7 @@
 #include "MaxFrameExtentForSlowPathCall.h"
 #include "SuperSampler.h"
 #include "ThunkGenerators.h"
+#include "UnlinkedCodeBlock.h"
 
 #if ENABLE(WEBASSEMBLY)
 #include "WasmMemoryInformation.h"
@@ -44,14 +45,6 @@
 #endif
 
 namespace JSC {
-
-ExecutableBase* AssemblyHelpers::executableFor(CodeBlock* codeBlock, const CodeOrigin& codeOrigin)
-{
-    auto* inlineCallFrame = codeOrigin.inlineCallFrame();
-    if (!inlineCallFrame)
-        return codeBlock->ownerExecutable();
-    return inlineCallFrame->baselineCodeBlock->ownerExecutable();
-}
 
 AssemblyHelpers::Jump AssemblyHelpers::branchIfFastTypedArray(GPRReg baseGPR)
 {
@@ -188,7 +181,7 @@ void AssemblyHelpers::jitAssertIsJSDouble(GPRReg gpr)
 
 void AssemblyHelpers::jitAssertIsCell(GPRReg gpr)
 {
-    Jump checkCell = branch32(Equal, gpr, TrustedImm32(JSValue::CellTag));
+    Jump checkCell = branchIfCell(gpr);
     abortWithReason(AHIsNotCell);
     checkCell.link(this);
 }
@@ -216,6 +209,47 @@ void AssemblyHelpers::jitAssertArgumentCountSane()
 {
     Jump ok = branch32(Below, payloadFor(CallFrameSlot::argumentCountIncludingThis), TrustedImm32(10000000));
     abortWithReason(AHInsaneArgumentCount);
+    ok.link(this);
+}
+
+void AssemblyHelpers::jitAssertCodeBlockOnCallFrameWithType(GPRReg scratchGPR, JITType type)
+{
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, scratchGPR);
+    loadPtr(Address(scratchGPR, CodeBlock::jitCodeOffset()), scratchGPR);
+    load8(Address(scratchGPR, JITCode::offsetOfJITType()), scratchGPR);
+    Jump ok = branch32(Equal, scratchGPR, TrustedImm32(static_cast<unsigned>(type)));
+    abortWithReason(AHInvalidCodeBlock);
+    ok.link(this);
+}
+
+void AssemblyHelpers::jitAssertCodeBlockMatchesCurrentCalleeCodeBlockOnCallFrame(GPRReg scratchGPR, GPRReg scratchGPR2, UnlinkedCodeBlock& block)
+{
+    if (block.codeType() != FunctionCode)
+        return;
+    auto kind = block.isConstructor() ? CodeForConstruct : CodeForCall;
+
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::callee, scratchGPR);
+    loadPtr(Address(scratchGPR, JSFunction::offsetOfExecutableOrRareData()), scratchGPR);
+    auto hasExecutable = branchTestPtr(Zero, scratchGPR, TrustedImm32(JSFunction::rareDataTag));
+    loadPtr(Address(scratchGPR, FunctionRareData::offsetOfExecutable() - JSFunction::rareDataTag), scratchGPR);
+    hasExecutable.link(this);
+    loadPtr(Address(scratchGPR, FunctionExecutable::offsetOfCodeBlockFor(kind)), scratchGPR);
+
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, scratchGPR2);
+    Jump ok = branch32(Equal, scratchGPR, scratchGPR2);
+    abortWithReason(AHInvalidCodeBlock);
+    ok.link(this);
+}
+
+void AssemblyHelpers::jitAssertCodeBlockOnCallFrameIsOptimizingJIT(GPRReg scratchGPR)
+{
+    emitGetFromCallFrameHeaderPtr(CallFrameSlot::codeBlock, scratchGPR);
+    loadPtr(Address(scratchGPR, CodeBlock::jitCodeOffset()), scratchGPR);
+    load8(Address(scratchGPR, JITCode::offsetOfJITType()), scratchGPR);
+    JumpList ok;
+    ok.append(branch32(Equal, scratchGPR, TrustedImm32(static_cast<unsigned>(JITType::DFGJIT))));
+    ok.append(branch32(Equal, scratchGPR, TrustedImm32(static_cast<unsigned>(JITType::FTLJIT))));
+    abortWithReason(AHInvalidCodeBlock);
     ok.link(this);
 }
 
@@ -318,9 +352,10 @@ void AssemblyHelpers::emitStoreStructureWithTypeInfo(AssemblyHelpers& jit, Trust
 {
     const Structure* structurePtr = reinterpret_cast<const Structure*>(structure.m_value);
 #if USE(JSVALUE64)
-    jit.store64(TrustedImm64(structurePtr->idBlob()), MacroAssembler::Address(dest, JSCell::structureIDOffset()));
+    jit.store32(TrustedImm32(structurePtr->id().bits()), MacroAssembler::Address(dest, JSCell::structureIDOffset()));
+    jit.store32(TrustedImm32(structurePtr->typeInfoBlob()), MacroAssembler::Address(dest, JSCell::indexingTypeAndMiscOffset()));
     if (ASSERT_ENABLED) {
-        Jump correctStructure = jit.branch32(Equal, MacroAssembler::Address(dest, JSCell::structureIDOffset()), TrustedImm32(structurePtr->id()));
+        Jump correctStructure = jit.branch32(Equal, MacroAssembler::Address(dest, JSCell::structureIDOffset()), TrustedImm32(structurePtr->id().bits()));
         jit.abortWithReason(AHStructureIDIsValid);
         correctStructure.link(&jit);
 
@@ -338,7 +373,7 @@ void AssemblyHelpers::emitStoreStructureWithTypeInfo(AssemblyHelpers& jit, Trust
     }
 #else
     // Do a 32-bit wide store to initialize the cell's fields.
-    jit.store32(TrustedImm32(structurePtr->objectInitializationBlob()), MacroAssembler::Address(dest, JSCell::indexingTypeAndMiscOffset()));
+    jit.store32(TrustedImm32(structurePtr->typeInfoBlob()), MacroAssembler::Address(dest, JSCell::indexingTypeAndMiscOffset()));
     jit.storePtr(structure, MacroAssembler::Address(dest, JSCell::structureIDOffset()));
 #endif
 }
@@ -389,44 +424,51 @@ void AssemblyHelpers::storeProperty(JSValueRegs value, GPRReg object, GPRReg off
         BaseIndex(scratch, offset, TimesEight, (firstOutOfLineOffset - 2) * sizeof(EncodedJSValue)));
 }
 
-void AssemblyHelpers::emitLoadStructure(VM& vm, RegisterID source, RegisterID dest, RegisterID scratch)
+void AssemblyHelpers::emitNonNullDecodeZeroExtendedStructureID(RegisterID source, RegisterID dest)
 {
-#if USE(JSVALUE64)
-#if CPU(ARM64) || CPU(RISCV64)
-    RegisterID scratch2 = dataTempRegister;
-#elif CPU(X86_64)
-    RegisterID scratch2 = scratchRegister();
-#else
-#error "Unsupported cpu"
+#if ENABLE(STRUCTURE_ID_WITH_SHIFT)
+    lshift64(source, TrustedImm32(StructureID::encodeShiftAmount), dest);
+#elif CPU(ADDRESS64)
+    // This could use BFI on arm64 but that only helps if the start of structure heap is encodable as a mov and not as an immediate in the add so it's probably not super important.
+    if constexpr (structureHeapAddressSize >= 4 * GB) {
+        ASSERT(structureHeapAddressSize == 4 * GB);
+        move(source, dest);
+        add64(TrustedImm64(g_jscConfig.startOfStructureHeap), dest);
+    } else {
+        and32(TrustedImm32(StructureID::structureIDMask), source, dest);
+        add64(TrustedImm64(g_jscConfig.startOfStructureHeap), dest);
+    }
+#else // not CPU(ADDRESS64)
+    move(source, dest);
 #endif
-
-    ASSERT(dest != scratch);
-    ASSERT(dest != scratch2);
-    ASSERT(scratch != scratch2);
-
-    load32(MacroAssembler::Address(source, JSCell::structureIDOffset()), scratch2);
-    loadPtr(vm.heap.structureIDTable().base(), scratch);
-    rshift32(scratch2, TrustedImm32(StructureIDTable::s_numberOfEntropyBits), dest);
-    loadPtr(MacroAssembler::BaseIndex(scratch, dest, MacroAssembler::ScalePtr), dest);
-    lshiftPtr(TrustedImm32(StructureIDTable::s_entropyBitsShiftForStructurePointer), scratch2);
-    xorPtr(scratch2, dest);
-#else // not USE(JSVALUE64)
-    UNUSED_PARAM(scratch);
-    UNUSED_PARAM(vm);
-    loadPtr(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
-#endif // not USE(JSVALUE64)
 }
 
-void AssemblyHelpers::emitLoadPrototype(VM& vm, GPRReg objectGPR, JSValueRegs resultRegs, GPRReg scratchGPR, JumpList& slowPath)
+void AssemblyHelpers::emitLoadStructure(VM&, RegisterID source, RegisterID dest)
+{
+    load32(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
+    emitNonNullDecodeZeroExtendedStructureID(dest, dest);
+}
+
+void AssemblyHelpers::emitEncodeStructureID(RegisterID source, RegisterID dest)
+{
+#if ENABLE(STRUCTURE_ID_WITH_SHIFT)
+    urshift64(source, TrustedImm32(StructureID::encodeShiftAmount), dest);
+#elif CPU(ADDRESS64)
+    move(source, dest);
+    static_assert(StructureID::structureIDMask <= UINT32_MAX);
+    and64(TrustedImm32(static_cast<uint32_t>(StructureID::structureIDMask)), dest);
+#else
+    move(source, dest);
+#endif
+}
+
+void AssemblyHelpers::emitLoadPrototype(VM& vm, GPRReg objectGPR, JSValueRegs resultRegs, JumpList& slowPath)
 {
     ASSERT(resultRegs.payloadGPR() != objectGPR);
-    ASSERT(resultRegs.payloadGPR() != scratchGPR);
-    ASSERT(objectGPR != scratchGPR);
 
-    emitLoadStructure(vm, objectGPR, resultRegs.payloadGPR(), scratchGPR);
+    emitLoadStructure(vm, objectGPR, resultRegs.payloadGPR());
 
-    load16(MacroAssembler::Address(resultRegs.payloadGPR(), Structure::outOfLineTypeFlagsOffset()), scratchGPR);
-    auto overridesGetPrototype = branchTest32(MacroAssembler::NonZero, scratchGPR, TrustedImm32(OverridesGetPrototypeOutOfLine));
+    auto overridesGetPrototype = branchTest32(MacroAssembler::NonZero, MacroAssembler::Address(resultRegs.payloadGPR(), Structure::outOfLineTypeFlagsOffset()), TrustedImm32(OverridesGetPrototypeOutOfLine));
     slowPath.append(overridesGetPrototype);
 
     loadValue(MacroAssembler::Address(resultRegs.payloadGPR(), Structure::prototypeOffset()), resultRegs);
@@ -525,7 +567,7 @@ void AssemblyHelpers::emitRandomThunk(JSGlobalObject* globalObject, GPRReg scrat
 void AssemblyHelpers::emitRandomThunk(VM& vm, GPRReg scratch0, GPRReg scratch1, GPRReg scratch2, GPRReg scratch3, FPRReg result)
 {
     emitGetFromCallFrameHeaderPtr(CallFrameSlot::callee, scratch3);
-    emitLoadStructure(vm, scratch3, scratch3, scratch0);
+    emitLoadStructure(vm, scratch3, scratch3);
     loadPtr(Address(scratch3, Structure::globalObjectOffset()), scratch3);
     // Now, scratch3 holds JSGlobalObject*.
 
@@ -625,7 +667,7 @@ void AssemblyHelpers::restoreCalleeSavesFromEntryFrameCalleeSavesBuffer(EntryFra
 #if NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
     RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
     RegisterSet dontRestoreRegisters = RegisterSet::stackRegisters();
-    unsigned registerCount = allCalleeSaves->size();
+    unsigned registerCount = allCalleeSaves->registerCount();
 
     GPRReg scratch = InvalidGPRReg;
     unsigned scratchGPREntryIndex = 0;
@@ -712,7 +754,7 @@ void AssemblyHelpers::restoreCalleeSavesFromVMEntryFrameCalleeSavesBufferImpl(GP
     addPtr(TrustedImm32(EntryFrame::calleeSaveRegistersBufferOffset()), entryFrameGPR);
 
     RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
-    unsigned registerCount = allCalleeSaves->size();
+    unsigned registerCount = allCalleeSaves->registerCount();
 
     LoadRegSpooler spooler(*this, entryFrameGPR);
 
@@ -838,7 +880,7 @@ void AssemblyHelpers::emitConvertValueToBoolean(VM& vm, JSValueRegs value, GPRRe
         ASSERT(scratchIfShouldCheckMasqueradesAsUndefined != InvalidGPRReg);
         JumpList isNotMasqueradesAsUndefined;
         isNotMasqueradesAsUndefined.append(branchTest8(Zero, Address(value.payloadGPR(), JSCell::typeInfoFlagsOffset()), TrustedImm32(MasqueradesAsUndefined)));
-        emitLoadStructure(vm, value.payloadGPR(), result, scratchIfShouldCheckMasqueradesAsUndefined);
+        emitLoadStructure(vm, value.payloadGPR(), result);
         move(TrustedImmPtr(globalObject), scratchIfShouldCheckMasqueradesAsUndefined);
         isNotMasqueradesAsUndefined.append(branchPtr(NotEqual, Address(result, Structure::globalObjectOffset()), scratchIfShouldCheckMasqueradesAsUndefined));
 
@@ -929,7 +971,7 @@ AssemblyHelpers::JumpList AssemblyHelpers::branchIfValue(VM& vm, JSValueRegs val
         ASSERT(scratchIfShouldCheckMasqueradesAsUndefined != InvalidGPRReg);
         JumpList isNotMasqueradesAsUndefined;
         isNotMasqueradesAsUndefined.append(branchTest8(Zero, Address(value.payloadGPR(), JSCell::typeInfoFlagsOffset()), TrustedImm32(MasqueradesAsUndefined)));
-        emitLoadStructure(vm, value.payloadGPR(), scratch, scratchIfShouldCheckMasqueradesAsUndefined);
+        emitLoadStructure(vm, value.payloadGPR(), scratch);
         if (std::holds_alternative<JSGlobalObject*>(globalObject))
             move(TrustedImmPtr(std::get<JSGlobalObject*>(globalObject)), scratchIfShouldCheckMasqueradesAsUndefined);
         else
@@ -1101,7 +1143,7 @@ void AssemblyHelpers::copyCalleeSavesToEntryFrameCalleeSavesBufferImpl(GPRReg ca
 
     RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
     RegisterSet dontCopyRegisters = RegisterSet::stackRegisters();
-    unsigned registerCount = allCalleeSaves->size();
+    unsigned registerCount = allCalleeSaves->registerCount();
 
     StoreRegSpooler spooler(*this, calleeSavesBuffer);
 
@@ -1211,9 +1253,9 @@ void AssemblyHelpers::emitSave(const RegisterAtOffsetList& list)
 {
     StoreRegSpooler spooler(*this, framePointerRegister);
 
-    size_t listSize = list.size();
+    size_t registerCount = list.registerCount();
     size_t i = 0;
-    for (; i < listSize; i++) {
+    for (; i < registerCount; i++) {
         auto entry = list.at(i);
         if (!entry.reg().isGPR())
             break;
@@ -1221,7 +1263,7 @@ void AssemblyHelpers::emitSave(const RegisterAtOffsetList& list)
     }
     spooler.finalizeGPR();
 
-    for (; i < listSize; i++)
+    for (; i < registerCount; i++)
         spooler.storeFPR(list.at(i));
     spooler.finalizeFPR();
 }
@@ -1230,9 +1272,9 @@ void AssemblyHelpers::emitRestore(const RegisterAtOffsetList& list)
 {
     LoadRegSpooler spooler(*this, framePointerRegister);
 
-    size_t listSize = list.size();
+    size_t registerCount = list.registerCount();
     size_t i = 0;
-    for (; i < listSize; i++) {
+    for (; i < registerCount; i++) {
         auto entry = list.at(i);
         if (!entry.reg().isGPR())
             break;
@@ -1240,7 +1282,7 @@ void AssemblyHelpers::emitRestore(const RegisterAtOffsetList& list)
     }
     spooler.finalizeGPR();
 
-    for (; i < listSize; i++)
+    for (; i < registerCount; i++)
         spooler.loadFPR(list.at(i));
     spooler.finalizeFPR();
 }
@@ -1248,7 +1290,7 @@ void AssemblyHelpers::emitRestore(const RegisterAtOffsetList& list)
 void AssemblyHelpers::emitSaveCalleeSavesFor(const RegisterAtOffsetList* calleeSaves)
 {
     RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters());
-    unsigned registerCount = calleeSaves->size();
+    unsigned registerCount = calleeSaves->registerCount();
 
     StoreRegSpooler spooler(*this, framePointerRegister);
 
@@ -1274,7 +1316,7 @@ void AssemblyHelpers::emitSaveCalleeSavesFor(const RegisterAtOffsetList* calleeS
 void AssemblyHelpers::emitRestoreCalleeSavesFor(const RegisterAtOffsetList* calleeSaves)
 {
     RegisterSet dontRestoreRegisters = RegisterSet(RegisterSet::stackRegisters());
-    unsigned registerCount = calleeSaves->size();
+    unsigned registerCount = calleeSaves->registerCount();
     
     LoadRegSpooler spooler(*this, framePointerRegister);
 
@@ -1297,15 +1339,17 @@ void AssemblyHelpers::emitRestoreCalleeSavesFor(const RegisterAtOffsetList* call
     spooler.finalizeFPR();
 }
 
-void AssemblyHelpers::copyLLIntBaselineCalleeSavesFromFrameOrRegisterToEntryFrameCalleeSavesBuffer(EntryFrame*& topEntryFrame, const TempRegisterSet& usedRegisters)
+void AssemblyHelpers::copyLLIntBaselineCalleeSavesFromFrameOrRegisterToEntryFrameCalleeSavesBuffer(EntryFrame*& topEntryFrame, const RegisterSet& usedRegisters)
 {
 #if NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
     // Copy saved calleeSaves on stack or unsaved calleeSaves in register to vm calleeSave buffer
-    GPRReg destBufferGPR = usedRegisters.getFreeGPR(0);
-    GPRReg temp1 = usedRegisters.getFreeGPR(1);
-    FPRReg fpTemp1 = usedRegisters.getFreeFPR(0);
-    GPRReg temp2 = isARM64() ? usedRegisters.getFreeGPR(2) : InvalidGPRReg;
-    FPRReg fpTemp2 = isARM64() ? usedRegisters.getFreeFPR(1) : InvalidFPRReg;
+    ScratchRegisterAllocator allocator(usedRegisters);
+    GPRReg destBufferGPR = allocator.allocateScratchGPR();
+    GPRReg temp1 = allocator.allocateScratchGPR();
+    FPRReg fpTemp1 = allocator.allocateScratchFPR();
+    GPRReg temp2 = allocator.allocateScratchGPR();
+    FPRReg fpTemp2 = allocator.allocateScratchFPR();
+    RELEASE_ASSERT(!allocator.didReuseRegisters());
 
     loadPtr(&topEntryFrame, destBufferGPR);
     addPtr(TrustedImm32(EntryFrame::calleeSaveRegistersBufferOffset()), destBufferGPR);
@@ -1315,7 +1359,7 @@ void AssemblyHelpers::copyLLIntBaselineCalleeSavesFromFrameOrRegisterToEntryFram
     RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
     const RegisterAtOffsetList* currentCalleeSaves = &RegisterAtOffsetList::llintBaselineCalleeSaveRegisters();
     RegisterSet dontCopyRegisters = RegisterSet::stackRegisters();
-    unsigned registerCount = allCalleeSaves->size();
+    unsigned registerCount = allCalleeSaves->registerCount();
 
     unsigned i = 0;
     for (; i < registerCount; i++) {
@@ -1363,7 +1407,7 @@ void AssemblyHelpers::emitSaveOrCopyLLIntBaselineCalleeSavesFor(CodeBlock* codeB
 
     const RegisterAtOffsetList* calleeSaves = &RegisterAtOffsetList::llintBaselineCalleeSaveRegisters();
     RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters());
-    unsigned registerCount = calleeSaves->size();
+    unsigned registerCount = calleeSaves->registerCount();
 
     GPRReg dstBufferGPR = temp1;
     addPtr(TrustedImm32(offsetVirtualRegister.offsetInBytes()), framePointerRegister, dstBufferGPR);
@@ -1387,6 +1431,35 @@ void AssemblyHelpers::emitSaveOrCopyLLIntBaselineCalleeSavesFor(CodeBlock* codeB
         spooler.storeGPR(entry.offset());
     }
     spooler.finalizeGPR();
+}
+
+void AssemblyHelpers::getArityPadding(VM& vm, unsigned numberOfParameters, GPRReg argumentCountIncludingThisGPR, GPRReg paddingOutputGPR, GPRReg scratchGPR0, GPRReg scratchGPR1, JumpList& stackOverflow)
+{
+    ASSERT(argumentCountIncludingThisGPR != paddingOutputGPR);
+    ASSERT(numberOfParameters >= 1);
+
+    // padding is `align2(numParameters + CallFrame::headerSizeInRegisters) - (argumentCountIncludingThis + CallFrame::headerSizeInRegisters)`
+    //
+    // 1. If `align2(numParameters + CallFrame::headerSizeInRegisters)` == argumentCountIncludingThis + CallFrame::headerSizeInRegisters, then
+    //    padding is `numParameters + CallFrame::headerSizeInRegisters - argumentCountIncludingThis - CallFrame::headerSizeInRegisters` == `numParameters - argumentCountIncludingThis`.
+    //    Since we already checked `numParameters > argumentCountIncludingThis`, it will be 1~.
+    // 2. If `align2(numParameters + CallFrame::headerSizeInRegisters)` == argumentCountIncludingThis + CallFrame::headerSizeInRegisters + 1, then
+    //    padding is `numParameters + CallFrame::headerSizeInRegisters + 1 - argumentCountIncludingThis - CallFrame::headerSizeInRegisters` == `numParameters + 1 - argumentCountIncludingThis`.
+    //    Since we already checked `numParameters > argumentCountIncludingThis`, it will be 2~.
+    //
+    //  Then, we return align2(padding).
+    static_assert(stackAlignmentRegisters() == 2);
+    if (WTF::roundUpToMultipleOf(stackAlignmentRegisters(), numberOfParameters + CallFrame::headerSizeInRegisters) == numberOfParameters + CallFrame::headerSizeInRegisters)
+        move(TrustedImm32(numberOfParameters), paddingOutputGPR);
+    else
+        move(TrustedImm32(numberOfParameters + 1), paddingOutputGPR);
+    sub32(paddingOutputGPR, argumentCountIncludingThisGPR, paddingOutputGPR);
+
+    add32(TrustedImm32(1), paddingOutputGPR, scratchGPR0);
+    and32(TrustedImm32(~1U), scratchGPR0);
+    lshiftPtr(TrustedImm32(3), scratchGPR0);
+    subPtr(GPRInfo::callFrameRegister, scratchGPR0, scratchGPR1);
+    stackOverflow.append(branchPtr(Above, AbsoluteAddress(vm.addressOfSoftStackLimit()), scratchGPR1));
 }
 
 } // namespace JSC

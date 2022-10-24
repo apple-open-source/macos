@@ -26,7 +26,9 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
+#if TARGET_OS_OSX
 #include <Security/Authorization.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +60,9 @@ typedef struct __DASession * DASessionRef;
 extern const char * _DASessionGetName( DASessionRef session );
 ///w:stop
 extern DASessionRef      DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_t _pid );
+#if TARGET_OS_OSX
 extern AuthorizationRef  DASessionGetAuthorization( DASessionRef session );
+#endif
 extern CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session );
 extern CFMutableArrayRef DASessionGetCallbackRegister( DASessionRef session );
 extern mach_port_t       DASessionGetID( DASessionRef session );
@@ -67,17 +71,21 @@ extern DASessionOptions  DASessionGetOptions( DASessionRef session );
 extern mach_port_t       DASessionGetServerPort( DASessionRef session );
 extern Boolean           DASessionGetState( DASessionRef session, DASessionState state );
 extern CFTypeID          DASessionGetTypeID( void );
+extern Boolean           DASessionGetKeepAlive( DASessionRef session );
 extern void              DASessionInitialize( void );
 extern void              DASessionQueueCallback( DASessionRef session, DACallbackRef callback );
 extern void              DASessionRegisterCallback( DASessionRef session, DACallbackRef callback );
-extern void              DASessionScheduleWithRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode );
+#if TARGET_OS_OSX
 extern void              DASessionSetAuthorization( DASessionRef session, AuthorizationRef authorization );
+#endif
 extern void              DASessionSetClientPort( DASessionRef session, mach_port_t client );
 extern void              DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value );
 extern void              DASessionSetOptions( DASessionRef session, DASessionOptions options, Boolean value );
 extern void              DASessionSetState( DASessionRef session, DASessionState state, Boolean value );
+extern void              DASessionSetKeepAlive( DASessionRef session , bool value);
 extern void              DASessionUnregisterCallback( DASessionRef session, DACallbackRef callback );
-extern void              DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode );
+extern void              DASessionCancelChannel( DASessionRef session );
+extern void              DASessionScheduleWithDispatch( DASessionRef session );
 
 #ifdef __cplusplus
 }

@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>Version</key>
-	<integer>203</integer>
+	<integer>4</integer>
+	<key>Generation</key>
+	<integer>4</integer>
 	<key>Format</key>
 	<integer>3</integer>
 </dict>

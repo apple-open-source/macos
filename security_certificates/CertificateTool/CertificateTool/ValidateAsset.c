@@ -172,7 +172,6 @@ int ValidateAsset(const char* asset_dir_path, unsigned long current_version)
 	{
 		"AssertVersion.plist",
 		"Blocked.plist",
-		"Allowed.plist",
 		"EVRoots.plist",
 		"certsIndex.data",
 		"certsTable.data",

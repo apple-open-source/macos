@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2022 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,9 +113,13 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
     
     TAILQ_FOREACH(pppoeif, &pppoe_if_head, next) {
         if (pppoeif->unit == unit) {
-            *ifpp = pppoeif->ifp;
-            pppoeif->refcnt++;
-            return 0;
+			if (pppoeif->refcnt < UINT16_MAX) {
+				*ifpp = pppoeif->ifp;
+				pppoeif->refcnt++;
+				return 0;
+            } else {
+                return EBUSY;
+            }
         }
     }
 
@@ -181,11 +185,11 @@ int pppoe_dlil_detach(ifnet_t ifp)
         if (pppoeif->ifp == ifp) {
             pppoeif->refcnt--;
             if (pppoeif->refcnt == 0) {
+				TAILQ_REMOVE(&pppoe_if_head, pppoeif, next);
 				lck_mtx_unlock(ppp_domain_mutex);
                 ifnet_detach_protocol(ifp, PF_PPP);
 				ifnet_release(ifp);
 				lck_mtx_lock(ppp_domain_mutex);
-                TAILQ_REMOVE(&pppoe_if_head, pppoeif, next);
                 kfree_type(struct pppoe_if, pppoeif);
             }
             break;

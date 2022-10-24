@@ -89,7 +89,10 @@ char *myname, *message, *arg;
   if (message && *message)
     {
       printf("\nError: ");
-      printf(message, arg);
+      if (arg)
+        printf(fmtcheck(message, "%s"), arg);
+      else
+        printf(message);
       printf("\n");
     }
   exit(1);

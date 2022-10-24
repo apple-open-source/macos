@@ -24,8 +24,11 @@
 #ifndef kc_key_helpers_h
 #define kc_key_helpers_h
 
+#include <CommonCrypto/CommonCryptor.h>
+
 #include "kc-helpers.h"
 #include "utilities/SecCFRelease.h"
+#include "utilities/SecCFWrappers.h"
 
 #if TARGET_OS_MAC
 
@@ -33,7 +36,7 @@
 #pragma clang diagnostic ignored "-Wunused-variable"
 #pragma clang diagnostic ignored "-Wunused-function"
 
-static CFMutableDictionaryRef makeBaseKeyDictionary() {
+static CFMutableDictionaryRef makeBaseKeyDictionary(void) {
     CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(query, kSecClass, kSecClassKey);
     return query;
@@ -218,25 +221,73 @@ static SecKeyRef makeDuplicateFreeKey(const char* name, SecKeychainRef kc) {
 }
 #define makeDuplicateFreeKeyTests makeCustomDuplicateFreeKeyTests
 
+static CFDataRef encryptOrDecryptAESCBC(CCOperation op, SecKeyRef key, CFDataRef input, CFErrorRef *error) {
+    CCCryptorStatus status = kCCUnspecifiedError;
+    CCCryptorRef cryptor = NULL;
+    CFMutableDataRef output = NULL;
+    CFDataRef outputCopy = NULL;
+
+    CFDataRef keyBytes = NULL;
+    OSStatus exportStatus = SecItemExport(key, kSecFormatRawKey, 0, NULL, &keyBytes);
+    if (exportStatus != errSecSuccess) {
+        if (error) {
+            CFStringRef description = SecCopyErrorMessageString(exportStatus, NULL) ?: CFSTR("");
+            CFAssignRetained(*error, CFErrorCreateWithUserInfoKeysAndValues(kCFAllocatorDefault, kCFErrorDomainOSStatus, exportStatus, (const void **)&kCFErrorLocalizedDescriptionKey, (const void **)&description, 1));
+            CFReleaseNull(description);
+        }
+        goto out;
+    }
+
+    status = CCCryptorCreate(op, kCCAlgorithmAES, kCCOptionPKCS7Padding, CFDataGetBytePtr(keyBytes), (size_t)CFDataGetLength(keyBytes), NULL, &cryptor);
+    if (status != kCCSuccess) {
+        CFAssignRetained(*error, CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, status, NULL));
+        goto out;
+    }
+    size_t outputLen = CCCryptorGetOutputLength(cryptor, (size_t)CFDataGetLength(input), true);
+    output = CFDataCreateMutableWithScratch(kCFAllocatorDefault, outputLen);
+    if (!output) {
+        goto out;
+    }
+    UInt8 *outputPtr = CFDataGetMutableBytePtr(output);
+    size_t chunkLen = 0;
+    status = CCCryptorUpdate(cryptor, CFDataGetBytePtr(input), (size_t)CFDataGetLength(input), outputPtr, outputLen, &chunkLen);
+    if (status != kCCSuccess) {
+        CFAssignRetained(*error, CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, status, NULL));
+        goto out;
+    }
+    size_t remainingLen = outputLen - chunkLen;
+    size_t finalChunkLen = 0;
+    status = CCCryptorFinal(cryptor, &outputPtr[chunkLen], remainingLen, &finalChunkLen);
+    if (status != kCCSuccess) {
+        CFAssignRetained(*error, CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, status, NULL));
+        goto out;
+    }
+    CFDataSetLength(output, (CFIndex)(chunkLen + finalChunkLen));
+
+out:
+    outputCopy = output ? CFDataCreateCopy(kCFAllocatorDefault, output) : NULL;
+    CFReleaseNull(output);
+    (void)CCCryptorRelease(cryptor);
+    CFReleaseNull(keyBytes);
+
+    return outputCopy;
+}
+
 #define checkKeyUseTests 4
 static void checkKeyUse(SecKeyRef key, OSStatus expectedStatus) {
     CFStringRef plaintext = CFSTR("A short story: the string goes into the encryptor, and returns unrecognizable. The decryptor reverses.");
     CFDataRef plaintextData = CFDataCreate(NULL, (uint8_t*) CFStringGetCStringPtr(plaintext, kCFStringEncodingUTF8), CFStringGetLength(plaintext));
 
     /* encrypt first */
-    SecTransformRef transform = SecEncryptTransformCreate(key, NULL);
-    SecTransformSetAttribute(transform, kSecPaddingKey, kSecPaddingPKCS7Key, NULL);
-    SecTransformSetAttribute(transform, kSecEncryptionMode, kSecModeCBCKey, NULL);
-    SecTransformSetAttribute(transform, kSecTransformInputAttributeName, plaintextData, NULL);
-
     CFErrorRef error = NULL;
-    CFDataRef ciphertextData = SecTransformExecute(transform, &error);
+    CFDataRef ciphertextData = encryptOrDecryptAESCBC(kCCEncrypt, key, plaintextData, &error);
     CFDataRef roundtripData = NULL;
 
     if(error) {
         CFStringRef errorStr = CFErrorCopyDescription(error);
         is(CFErrorGetCode(error), expectedStatus, "%s: Encrypting data failed: %d %s (and expected %d)", testName, (int) CFErrorGetCode(error), CFStringGetCStringPtr(errorStr, kCFStringEncodingUTF8), (int) expectedStatus);
         CFReleaseSafe(errorStr);
+        CFReleaseNull(error);
 
         if(expectedStatus != errSecSuccess) {
             // make test numbers match and quit
@@ -250,21 +301,15 @@ static void checkKeyUse(SecKeyRef key, OSStatus expectedStatus) {
         pass("%s: transform executed", testName);
     }
 
-    CFReleaseSafe(transform);
-
     /* and now decrypt */
-    transform = SecDecryptTransformCreate(key, NULL);
-    SecTransformSetAttribute(transform, kSecPaddingKey, kSecPaddingPKCS7Key, NULL);
-    SecTransformSetAttribute(transform, kSecEncryptionMode, kSecModeCBCKey, NULL);
-    SecTransformSetAttribute(transform, kSecTransformInputAttributeName, ciphertextData, NULL);
-
-    roundtripData = SecTransformExecute(transform, &error);
-    is(error, NULL, "%s: checkKeyUse: SecTransformExecute (decrypt)", testName);
+    roundtripData = encryptOrDecryptAESCBC(kCCDecrypt, key, ciphertextData, &error);
+    is(error, NULL, "%s: checkKeyUse: encryptOrDecryptAESCBC (decrypt)", testName);
 
     if(error) {
         CFStringRef errorStr = CFErrorCopyDescription(error);
         fail("%s: Decrypting data failed: %d %s", testName, (int) CFErrorGetCode(error), CFStringGetCStringPtr(errorStr, kCFStringEncodingUTF8));
         CFReleaseSafe(errorStr);
+        CFReleaseNull(error);
     } else {
         pass("%s: make test numbers match", testName);
     }
@@ -272,7 +317,6 @@ static void checkKeyUse(SecKeyRef key, OSStatus expectedStatus) {
     eq_cf(plaintextData, roundtripData, "%s: checkKeyUse: roundtripped data is input data", testName);
 
  cleanup:
-    CFReleaseSafe(transform);
     CFReleaseSafe(plaintext);
     CFReleaseSafe(plaintextData);
     CFReleaseSafe(ciphertextData);

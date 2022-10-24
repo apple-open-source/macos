@@ -70,6 +70,10 @@
 			<arg choice="plain"><option>--novalid</option></arg>
 			<arg choice="plain"><option>--noout</option></arg>
 			<arg choice="plain"><option>--maxdepth <replaceable class="option">VALUE</replaceable></option></arg>
+			<arg choice="plain"><option>--maxvars <replaceable class="option">VALUE</replaceable></option></arg>
+			<arg choice="plain"><option>--maxparserdepth <replaceable class="option">VALUE</replaceable></option></arg>
+			<arg choice="plain"><option>--huge</option></arg>
+			<arg choice="plain"><option>--seed-rand <replaceable class="option">VALUE</replaceable></option></arg>
 			<arg choice="plain"><option>--html</option></arg>
 			<arg choice="plain"><option>--encoding
 			 <replaceable class="option">ENCODING</replaceable>
@@ -87,6 +91,7 @@
 			<arg choice="plain"><option>--load-trace</option></arg>
 			<arg choice="plain"><option>--catalogs</option></arg>
 			<arg choice="plain"><option>--xinclude</option></arg>
+			<arg choice="plain"><option>--xincludestyle</option></arg>
 			<arg choice="plain">			
 				<group choice="opt">
 					<arg choice="plain"><option>--profile</option></arg>
@@ -206,6 +211,34 @@
 		</citerefentry> concludes it is in an infinite loop. The default is 3000.
 		</para>
 	</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term><option>--maxvars <replaceable>VALUE</replaceable></option></term>
+			<listitem>
+				<para>Maximum number of variables. The default is 15000.</para>
+			</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term><option>--maxparserdepth <replaceable>VALUE</replaceable></option></term>
+			<listitem>
+				<para>Maximum element nesting level of parsed XML documents. The default is 256.</para>
+			</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term><option>--huge</option></term>
+			<listitem>
+				<para>Relax hardcoded limits of the XML parser by setting the XML_PARSE_HUGE parser option.</para>
+			</listitem>
+		</varlistentry>
+
+		<varlistentry>
+			<term><option>--seed-rand <replaceable>VALUE</replaceable></option></term>
+			<listitem>
+				<para>Initialize pseudo random number generator with specific seed.</para>
+			</listitem>
 		</varlistentry>
 
 		<varlistentry>
@@ -413,6 +446,13 @@ the XPath expression must be UTF-8 encoded.
 	</listitem>
 		</varlistentry>
 
+		<varlistentry>
+			<term><option>--xincludestyle</option></term>
+			<listitem>
+				<para>Process the stylesheet with XInclude.</para>
+			</listitem>
+		</varlistentry>
+
 	</variablelist>
 </refsect1>
 
@@ -559,7 +599,7 @@ the XPath expression must be UTF-8 encoded.
 				<para><citerefentry>
 						<refentrytitle>libxml</refentrytitle>
 						<manvolnum>3</manvolnum>
-					</citerefentry> web page <ulink url="http://www.xmlsoft.org/"/>
+					</citerefentry> web page <ulink url="https://gitlab.gnome.org/GNOME/libxslt"/>
 				</para>
 			</listitem>
 			<listitem>

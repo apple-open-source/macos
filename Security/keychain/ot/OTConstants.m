@@ -49,9 +49,6 @@ NSString* OTEscrowRecordPrefix = @"com.apple.icdp.record.";
 static bool OctagonSOSFeatureIsEnabledOverrideSet = false;
 static bool OctagonSOSFeatureIsEnabledOverride = false;
 
-static bool SecKVSOnCloudKitIsEnabledOverrideSet = false;
-static bool SecKVSOnCloudKitIsEnabledOverride = false;
-
 static bool SecErrorNestedErrorCappingIsEnabledOverrideSet = false;
 static bool SecErrorNestedErrorCappingIsEnabledOverride = false;
 
@@ -70,28 +67,7 @@ bool OctagonPlatformSupportsSOS(void)
 #if TARGET_OS_OSX
     return true;
 #elif TARGET_OS_IOS
-    static bool isSOSCapable = false;
-
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        // Only iPhones, iPads, and iPods support SOS.
-        CFStringRef deviceClass = MGCopyAnswer(kMGQDeviceClass, NULL);
-
-        isSOSCapable = deviceClass && (CFEqual(deviceClass, kMGDeviceClassiPhone) ||
-                                       CFEqual(deviceClass, kMGDeviceClassiPad) ||
-                                       CFEqual(deviceClass, kMGDeviceClassiPod));
-
-        if(deviceClass) {
-            CFRelease(deviceClass);
-        } else {
-            secerror("octagon: Unable to determine device class. Guessing SOS status as Not Supported");
-            isSOSCapable = false;
-        }
-
-        secnotice("octagon", "SOS is %@ on this platform" , isSOSCapable ? @"supported" : @"not supported");
-    });
-
-    return isSOSCapable;
+    return true;
 #else
     return false;
 #endif
@@ -125,30 +101,6 @@ void OctagonSetSOSFeatureEnabled(bool value)
 {
     OctagonSOSFeatureIsEnabledOverrideSet = true;
     OctagonSOSFeatureIsEnabledOverride = value;
-}
-
-//feature flag for checking kvs on cloudkit enablement
-bool SecKVSOnCloudKitIsEnabled(void)
-{
-    if(SecKVSOnCloudKitIsEnabledOverrideSet) {
-        secnotice("octagon", "KVS on CloudKit is %@ (overridden)", SecKVSOnCloudKitIsEnabledOverride ? @"enabled" : @"disabled");
-        return SecKVSOnCloudKitIsEnabledOverride;
-    }
-
-    static bool kvsOnCloudKitEnabled = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        kvsOnCloudKitEnabled = os_feature_enabled(KVS, KVSOnCloudKitForAll);
-        secnotice("octagon", "KVS on CloudKit is %@ (via feature flags)", kvsOnCloudKitEnabled ? @"enabled" : @"disabled");
-    });
-
-    return kvsOnCloudKitEnabled;
-}
-
-void SecKVSOnCloudKitSetOverrideIsEnabled(bool value)
-{
-    SecKVSOnCloudKitIsEnabledOverrideSet = true;
-    SecKVSOnCloudKitIsEnabledOverride = value;
 }
 
 //feature flag for checking whether or not we should cap the number of nested errors
@@ -199,3 +151,43 @@ void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value)
     SecKeychainStaticPersistentRefsEnabledOverrideSet = true;
     SecKeychainStaticPersistentRefsEnabledOverride = value;
 }
+
+
+typedef enum {
+    OctagonSupportsPersonaMultiuser_DEFAULT,
+    OctagonSupportsPersonaMultiuser_OVERRIDE_TRUE,
+    OctagonSupportsPersonaMultiuser_OVERRIDE_FALSE,
+} OctagonSupportsPersonaMultiuserStatus;
+
+static OctagonSupportsPersonaMultiuserStatus gOctagonSupportsPersonaMultiuserStatus = OctagonSupportsPersonaMultiuser_DEFAULT;
+
+bool OctagonSupportsPersonaMultiuser(void)
+{
+    if (gOctagonSupportsPersonaMultiuserStatus != OctagonSupportsPersonaMultiuser_DEFAULT) {
+        return gOctagonSupportsPersonaMultiuserStatus == OctagonSupportsPersonaMultiuser_OVERRIDE_TRUE;
+    }
+
+    static bool ffOctagonSupportsPersonaMultiuserStatus = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // To enable, run this and reboot: $ ffctl Security/BecomeiProd=1
+        ffOctagonSupportsPersonaMultiuserStatus = os_feature_enabled(Security, OctagonSupportsPersonaMultiuser);
+        secnotice("octagon", "OctagonSupportsMultiuser is %s", ffOctagonSupportsPersonaMultiuserStatus == OctagonSupportsPersonaMultiuser_OVERRIDE_TRUE ? "enabled" : "disabled");
+    });
+
+    return ffOctagonSupportsPersonaMultiuserStatus;
+}
+
+void OctagonSetSupportsPersonaMultiuser(bool value)
+{
+    gOctagonSupportsPersonaMultiuserStatus = value ? OctagonSupportsPersonaMultiuser_OVERRIDE_TRUE : OctagonSupportsPersonaMultiuser_OVERRIDE_FALSE;
+    secnotice("octagon", "OctagonSupportsMultiuser overridden to %s", value ? "enabled" : "disabled");
+}
+
+void OctagonClearSupportsPersonaMultiuserOverride(void)
+{
+    gOctagonSupportsPersonaMultiuserStatus = OctagonSupportsPersonaMultiuser_DEFAULT;
+    secnotice("octagon", "OctagonSupportsMultiuser override removed");
+}
+
+

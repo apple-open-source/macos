@@ -833,9 +833,9 @@ IOHibernateSystemSleep(void)
 		IOHibernateDone(vars);
 		IOPolledFileClose(&fileVars,
 #if DISABLE_TRIM
-		    0, NULL, 0, 0, 0);
+		    0, NULL, 0, 0, 0, false);
 #else
-		    0, NULL, 0, sizeof(IOHibernateImageHeader), setFileSize);
+		    0, NULL, 0, sizeof(IOHibernateImageHeader), setFileSize, false);
 #endif
 		gFSState = kFSIdle;
 	}
@@ -1402,10 +1402,10 @@ IOHibernateSystemPostWakeTrim(void * p1, void * p2)
 		IOPolledFileIOVars * vars = &gFileVars;
 		IOPolledFileClose(&vars,
 #if DISABLE_TRIM
-		    0, NULL, 0, 0, 0);
+		    0, NULL, 0, 0, 0, false);
 #else
 		    0, (caddr_t)gIOHibernateCurrentHeader, sizeof(IOHibernateImageHeader),
-		    sizeof(IOHibernateImageHeader), gIOHibernateCurrentHeader->imageSize);
+		    sizeof(IOHibernateImageHeader), gIOHibernateCurrentHeader->imageSize, false);
 #endif
 		gFSState = kFSIdle;
 	}

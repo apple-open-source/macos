@@ -87,8 +87,9 @@
 #define A1_PARSE_TYPE_MASK	0xfff
 #define A1_PARSE_TYPE(x)	(A1_PARSE_TYPE_MASK & (x))
 
-#define A1_PF_INDEFINTE		0x1
+#define A1_PF_NESTED_INDEFINITE	0x1
 #define A1_PF_ALLOW_BER		0x2
+#define A1_PF_INDEFINITE	0x4
 
 #define A1_HF_PRESERVE		0x1
 #define A1_HF_ELLIPSIS		0x2

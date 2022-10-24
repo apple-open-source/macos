@@ -109,6 +109,47 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
 }
 
+- (void)testPolicyWithNewView {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+
+    CKRecordZoneID* newZoneZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"newZone" ownerName:CKCurrentUserDefaultName];
+    [self.defaultCKKS setSyncingViewsAllowList:[self.defaultCKKS.viewAllowList setByAddingObject:newZoneZoneID.zoneName]];
+
+    NSMutableArray<TPPBPolicyKeyViewMapping*>* newRules = [self.originalPolicy.keyViewMapping mutableCopy];
+    TPPBPolicyKeyViewMapping* newViewMapping = [[TPPBPolicyKeyViewMapping alloc] init];
+    newViewMapping.view = newZoneZoneID.zoneName;
+    newViewMapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"vwht"
+                                                            fieldRegex:[NSString stringWithFormat:@"^%@$", newZoneZoneID.zoneName]];
+    [newRules insertObject:newViewMapping atIndex:0];
+
+    TPSyncingPolicy* policyWithNewView = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
+                                                                        version:[[TPPolicyVersion alloc] initWithVersion:2 hash:@"fake-policy-for-new-view"]
+                                                                       viewList:[self.originalPolicy.viewList setByAddingObject:newZoneZoneID.zoneName]
+                                                                  priorityViews:self.originalPolicy.priorityViews
+                                                          userControllableViews:self.originalPolicy.userControllableViews
+                                                      syncUserControllableViews:self.originalPolicy.syncUserControllableViews
+                                                           viewsToPiggybackTLKs:self.originalPolicy.viewsToPiggybackTLKs
+                                                                 keyViewMapping:newRules
+                                                             isInheritedAccount:self.originalPolicy.isInheritedAccount];
+
+    [self.defaultCKKS setCurrentSyncingPolicy:policyWithNewView policyIsFresh:YES];
+    self.ckksViews = [self.defaultCKKS.operationDependencies.allCKKSManagedViews mutableCopy];
+    [self beginSOSTrustedOperationForAllViews];
+
+    CKKSKeychainViewState* newView = [self.defaultCKKS viewStateForName:newZoneZoneID.zoneName];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [newView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKUpload] wait:20*NSEC_PER_SEC], @"Key state should have arrived at waitfortlkupload");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+
+    FakeCKZone* newZone = self.zones[newZoneZoneID];
+    XCTAssertNotNil(newZone, "CKKS created new zone");
+}
+
 - (void)testReceiveItemForWrongView {
     self.requestPolicyCheck = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMExpect([self.requestPolicyCheck trigger]);
@@ -125,7 +166,7 @@
     CKRecord* ckr = [self newRecord:ckrid withNewItemData:item];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:wrongZoneAccount expecting:errSecItemNotFound];
@@ -133,7 +174,10 @@
     OCMVerifyAllWithDelay(self.requestPolicyCheck, 10);
 
     NSError* zoneError = nil;
-    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView zone:self.keychainView.zoneID error:&zoneError];
+    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView
+                                                 contextID:self.defaultCKKS.operationDependencies.contextID
+                                                      zone:self.keychainView.zoneID
+                                                     error:&zoneError];
     XCTAssertNil(zoneError, "should be no error counting all IQEs");
     XCTAssertEqual(count, 1, "Should be one mismatched IQE");
 }
@@ -167,12 +211,12 @@
     // Receive the passwords item first
     [self.zones[self.passwordsZoneID] addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self checkGenericPassword:@"data" account:@"account-delete-me"];
 
     [self.zones[self.keychainZoneID] addToZone:ckr2];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // THe view should ask for an update, and receive one
@@ -187,7 +231,7 @@
     // And the item is then deleted
     [self.zones[self.keychainZoneID] deleteCKRecordIDFromZone:ckr2id];
     OCMExpect([self.requestPolicyCheck trigger]);
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self setPolicyAndWaitForQuiescence:self.allItemsToPasswordsPolicy policyIsFresh:YES];
 
@@ -224,12 +268,12 @@
     // Receive the passwords item first
     [self.zones[self.passwordsZoneID] addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self checkGenericPassword:@"data" account:@"account-delete-me"];
 
     [self.zones[self.keychainZoneID] addToZone:ckr2];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // THe view should ask for an update, and receive one
@@ -242,7 +286,7 @@
     // And the item is then deleted
     [self.zones[self.keychainZoneID] deleteCKRecordIDFromZone:ckr2id];
     OCMExpect([self.requestPolicyCheck trigger]);
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self setPolicyAndWaitForQuiescence:self.allItemsToPasswordsPolicy policyIsFresh:YES];
 
@@ -279,12 +323,12 @@
     // Receive the passwords item first
     [self.zones[self.passwordsZoneID] addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self checkGenericPassword:@"data" account:@"account-delete-me"];
 
     [self.zones[self.keychainZoneID] addToZone:ckr2];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // THe view should ask for a policy update, and receive one
@@ -297,7 +341,7 @@
     // And the item is then deleted
     [self.zones[self.keychainZoneID] deleteCKRecordIDFromZone:ckr2id];
     OCMExpect([self.requestPolicyCheck trigger]);
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self setPolicyAndWaitForQuiescence:self.allItemsToPasswordsPolicy policyIsFresh:YES];
 
@@ -321,7 +365,7 @@
     CKRecord* ckr = [self newRecord:ckrid withNewItemData:item];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:wrongZoneAccount expecting:errSecItemNotFound];
@@ -357,7 +401,7 @@
     XCTAssertNotNil(itemCKRecord, "Should have some CKRecord for the added item");
 
     // Update etag as well
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Another device shows up, changes the item sync policy, and moves the item over into the passwords view.
@@ -374,7 +418,7 @@
 
     // In this test, we receive the deletion, and then the policy change adding the Passwords view
     [self.keychainZone deleteCKRecordIDFromZone:itemCKRecord.recordID];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self findGenericPassword:itemAccount expecting:errSecItemNotFound];
 
@@ -407,7 +451,7 @@
     XCTAssertNotNil(itemCKRecord, "Should have some CKRecord for the added item");
 
     // Update etag as well
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Another device shows up, changes the item sync policy, and moves the item over into the Passwords view.
@@ -433,7 +477,7 @@
 
     // And now we receive the delete in the keychain view. The item should still exist!
     [self.keychainZone deleteCKRecordIDFromZone:itemCKRecord.recordID];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self findGenericPassword:itemAccount expecting:errSecSuccess];
 
@@ -441,12 +485,15 @@
     OCMVerifyAllWithDelay(self.requestPolicyCheck, 10);
     [self.defaultCKKS setCurrentSyncingPolicy:self.allItemsToPasswordsPolicy policyIsFresh:YES];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self findGenericPassword:itemAccount expecting:errSecSuccess];
 
     NSError* zoneError = nil;
-    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView zone:self.keychainView.zoneID error:&zoneError];
+    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView
+                                                 contextID:self.defaultCKKS.operationDependencies.contextID
+                                                      zone:self.keychainView.zoneID
+                                                     error:&zoneError];
     XCTAssertNil(zoneError, "should be no error counting all IQEs");
     XCTAssertEqual(count, 0, "Should be no remaining mismatched IQEs");
 }
@@ -468,7 +515,7 @@
     CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"account0"];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // The keychain view should request a policy refetch
@@ -524,7 +571,7 @@
     CKRecord* ckr = [self newRecord:ckrid withNewItemData:item];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // We should not have updated the password yet
@@ -536,7 +583,10 @@
     // and also delete the record from 'keychain'.
 
     NSError* zoneError = nil;
-    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView zone:self.keychainView.zoneID error:&zoneError];
+    NSInteger count = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView
+                                                 contextID:self.defaultCKKS.operationDependencies.contextID
+                                                      zone:self.keychainView.zoneID
+                                                     error:&zoneError];
     XCTAssertNil(zoneError, "should be no error counting all IQEs");
     XCTAssertEqual(count, 1, "Should be one mismatched IQE");
 
@@ -549,7 +599,10 @@
     //[self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
     [self setPolicyAndWaitForQuiescence:self.allItemsToPasswordsPolicy policyIsFresh:YES];
 
-    NSInteger postFixCount = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView zone:self.keychainView.zoneID error:&zoneError];
+    NSInteger postFixCount = [CKKSIncomingQueueEntry countByState:SecCKKSStateMismatchedView
+                                                        contextID:self.defaultCKKS.operationDependencies.contextID
+                                                             zone:self.keychainView.zoneID
+                                                            error:&zoneError];
     XCTAssertNil(zoneError, "should be no error counting all IQEs");
     XCTAssertEqual(postFixCount, 0, "Should be zero mismatched IQEs");
 
@@ -568,7 +621,7 @@
     CKRecord* ckr2 = [self newRecord:ckr2id withNewItemData:item2];
     [self.zones[self.passwordsZoneID] addToZone:ckr2];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"account-delete-me-2" expecting:errSecSuccess];

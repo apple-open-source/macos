@@ -45,6 +45,7 @@ fi{
         an{"aragonia"}
         ang{"muinaisenglanti"}
         anp{"angika"}
+        apw{"apassi, läntinen"}
         ar{"arabia"}
         ar_001{"yleisarabia"}
         arc{"valtakunnanaramea"}

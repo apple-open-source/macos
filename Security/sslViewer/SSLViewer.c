@@ -1344,7 +1344,7 @@ int main(int argc, char **argv)
 		pargs.getMsg = getMsgSpec;
 	}
 	else {
-		sprintf(getMsg, "%s %s %s",
+                snprintf(getMsg, sizeof(getMsg), "%s %s %s",
 			DEFAULT_GETMSG, getPath, DEFAULT_GET_SUFFIX);
 		pargs.getMsg = getMsg;
 	}

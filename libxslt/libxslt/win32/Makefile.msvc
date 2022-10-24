@@ -59,7 +59,7 @@ CPPFLAGS = /nologo
 
 # The compiler and its options.
 CC = cl.exe
-CFLAGS = /nologo /D "WIN32" /D "_WINDOWS" /D "_MBCS" /W3 /GS $(CRUNTIME) /D "_REENTRANT"
+CFLAGS = /nologo /D "_WINDOWS" /D "_MBCS" /W3 /GS $(CRUNTIME) /D "_REENTRANT"
 CFLAGS = $(CFLAGS) /I$(BASEDIR) /I$(XSLT_SRCDIR) /I$(INCPREFIX)
 
 # The linker and its options.
@@ -70,7 +70,7 @@ LDFLAGS = $(LDFLAGS) /NXCOMPAT /DYNAMICBASE
 !if "$(ARCH)" == "32"
 LDFLAGS = $(LDFLAGS) /SAFESEH
 !endif
-LIBS = wsock32.lib
+LIBS =
 
 # The archiver and its options.
 AR = lib.exe
@@ -83,6 +83,11 @@ LDFLAGS = $(LDFLAGS) /DEBUG
 !else
 CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 
 !endif
+
+# append CFLAGS etc. passed on command line
+CPPFLAGS = $(CPPFLAGS) $(EXTRA_CPPFLAGS)
+CFLAGS = $(CFLAGS) $(EXTRA_CFLAGS)
+LDFLAGS = $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 # Libxslt object files.
 XSLT_OBJS = $(XSLT_INTDIR)\attributes.obj\

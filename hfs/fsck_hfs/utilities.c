@@ -303,10 +303,8 @@ static volatile int    keep_going = 1;
 #undef printf
 
 // prototype
-void print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list ap);
-
-#define  DO_VPRINT   1    // types for print_to_mem
-#define  DO_STR      2
+void print_to_mem(int mem_type, const char *fmt, ...) __printflike(2, 3);
+void vprint_to_mem(int mem_type, const char *fmt, va_list ap) __printflike(2, 0);
 
 /* Types for mem_type */
 #define IN_MEM_LOG   1  // in-memory log strings
@@ -470,8 +468,7 @@ shutdown_logging(void)
     /* Log fsck_hfs check completion time */
     t = time(NULL);
     if (in_mem_log) {
-	va_list empty_list = {0};
-	print_to_mem(DO_STR, IN_MEM_LOG, "fsck_hfs completed at %s\n", ctime(&t), empty_list);
+	print_to_mem(IN_MEM_LOG, "fsck_hfs completed at %s\n", ctime(&t));
     } else {
 	fprintf(log_file, "%s: fsck_hfs completed at %s\n", cdevname ? cdevname : "UNKNOWN-DEV", ctime(&t));
     }
@@ -661,8 +658,7 @@ setup_logging(void)
 		cur_in_mem_out = in_mem_out;
 
 		t = time(NULL);
-		va_list empty_list = {0};
-		print_to_mem(DO_STR, IN_MEM_LOG, "\nfsck_hfs started at %s", ctime(&t), empty_list);
+		print_to_mem(IN_MEM_LOG, "\nfsck_hfs started at %s", ctime(&t));
 
 		if (live_fsck && log_file) {
 		    pthread_cond_init(&mem_buf_cond, NULL);
@@ -691,7 +687,16 @@ setup_logging(void)
 
 
 void
-print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list ap)
+print_to_mem(int mem_type, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vprint_to_mem(mem_type, fmt, ap);
+    va_end(ap);
+}
+
+void
+vprint_to_mem(int mem_type, const char *fmt, va_list ap)
 {
     int ret;
     size_t size_remaining;
@@ -700,9 +705,7 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
     char *in_mem_data;
     size_t in_mem_data_size;
     
-    if (type == DO_VPRINT) {
 	va_copy(ap_copy, ap);
-    }
 	
 	/* Grab the lock only when adding output strings to the in-memory data */
 	if (live_fsck && (mem_type == IN_MEM_OUT)) {
@@ -720,11 +723,7 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
     }
 	
     size_remaining = in_mem_data_size - (ptrdiff_t)(cur_in_mem - in_mem_data);
-    if (type == DO_VPRINT) {
 	ret = vsnprintf(cur_in_mem, size_remaining, fmt, ap);
-    } else {
-	ret = snprintf(cur_in_mem, size_remaining, fmt, str);
-    }
     if (ret > size_remaining) {
 	char *new_log;
 	size_t amt;
@@ -743,11 +742,7 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
 	cur_in_mem = new_log + (cur_in_mem - in_mem_data);
 	in_mem_data = new_log;
 	size_remaining = in_mem_data_size - (ptrdiff_t)(cur_in_mem - new_log);
-	if (type == DO_VPRINT) {
-	    ret = vsnprintf(cur_in_mem, size_remaining, fmt, ap_copy);
-	} else {
-	    ret = snprintf(cur_in_mem, size_remaining, fmt, str);
-	}
+    ret = vsnprintf(cur_in_mem, size_remaining, fmt, ap_copy);
 	if (ret <= size_remaining) {
 	    cur_in_mem += ret;
 	}
@@ -772,9 +767,7 @@ done:
 		pthread_mutex_unlock(&mem_buf_lock);
 	}
 
-    if (type == DO_VPRINT) {
 	va_end(ap_copy);
-    }
 }
 
 
@@ -797,11 +790,8 @@ static int need_prefix=1;
     if (!live_fsck) { \
 	vfprintf(stream, fmt, ap);		\
     } else { \
-	print_to_mem(DO_VPRINT, IN_MEM_OUT, fmt, NULL, ap);	\
+	vprint_to_mem(IN_MEM_OUT, fmt, ap);	\
     }
-
-#define FOUT(fmt, str) \
-    print_to_mem(DO_STR, IN_MEM_OUT, fmt, str, NULL);	
 
 /* Store output string written to fsck_hfs.log into file or in-memory buffer */
 #define VLOG(fmt, ap) \
@@ -813,7 +803,7 @@ static int need_prefix=1;
 	LOG_PREFIX \
 	vfprintf(log_file, fmt, ap); \
     } else { \
-	print_to_mem(DO_VPRINT, IN_MEM_LOG, fmt, NULL, ap);	\
+	vprint_to_mem(IN_MEM_LOG, fmt, ap);	\
     }
 
 #define FLOG(fmt, str) \
@@ -821,8 +811,7 @@ static int need_prefix=1;
 	LOG_PREFIX;				\
 	fprintf(log_file, fmt, str);		\
     } else { \
-	va_list empty_list = {0}; \
-	print_to_mem(DO_STR, IN_MEM_LOG, fmt, str, empty_list);	\
+	print_to_mem(IN_MEM_LOG, fmt, str);	\
     }
 
 

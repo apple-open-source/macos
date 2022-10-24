@@ -342,7 +342,7 @@ char cvsroot_parser_y[] = "$Id: parser.y 11582 2009-08-15 10:40:19Z wsfulton $";
  *                               Externals
  * ----------------------------------------------------------------------------- */
 
-int  yyparse();
+int  yyparse(void);
 
 /* NEW Variables */
 
@@ -1154,7 +1154,7 @@ static String *remove_block(Node *kw, const String *inputcode) {
        /* we now remove the extra spaces */
        while (len && isspace((int)cstr[0])) { --len; ++cstr; }
        while (len && isspace((int)cstr[len - 1])) { --len; }
-       modified_code = NewStringWithSize(cstr, len);
+       modified_code = NewStringWithSize(cstr, (int) len);
        break;
      }
    }
@@ -5754,7 +5754,7 @@ yyreduce:
     {
                   Parm *p, *tp;
 		  Node *n;
-		  Node *tnode = 0;
+		  __unused Node *tnode = 0;
 		  Symtab *tscope = 0;
 		  int     specialized = 0;
 
@@ -10275,6 +10275,8 @@ yyerrlab:
 /*---------------------------------------------------.
 | yyerrorlab -- error raised explicitly by YYERROR.  |
 `---------------------------------------------------*/
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
 yyerrorlab:
 
   /* Pacify compilers like GCC when the user code never invokes
@@ -10282,6 +10284,7 @@ yyerrorlab:
      code.  */
   if (/*CONSTCOND*/ 0)
      goto yyerrorlab;
+#pragma clang diagnostic pop
 
   /* Do not reclaim the symbols of the rule which action triggered
      this YYERROR.  */

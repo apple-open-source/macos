@@ -40,12 +40,15 @@ ms{
         am{"Amharic"}
         an{"Aragon"}
         anp{"Angika"}
+        apw{"Apache, Barat"}
         ar{"Arab"}
         ar_001{"Arab Standard Moden"}
+        arc{"Aramia"}
         arn{"Mapuche"}
         arp{"Arapaho"}
         arq{"Arab Algeria"}
         ars{"Arab Najdi"}
+        arw{"Arawak"}
         ary{"Arab Maghribi"}
         arz{"Arab Mesir"}
         as{"Assam"}
@@ -90,6 +93,7 @@ ms{
         byn{"Blin"}
         byv{"Medumba"}
         ca{"Catalonia"}
+        car{"Carib"}
         cay{"Cayuga"}
         ccp{"Chakma"}
         ce{"Chechen"}
@@ -176,10 +180,12 @@ ms{
         grc{"Greek Purba"}
         gsw{"Jerman Switzerland"}
         gu{"Gujerat"}
+        guc{"Wayuu"}
         guz{"Gusii"}
         gv{"Manx"}
         gwi{"Gwichʼin"}
         ha{"Hausa"}
+        hai{"Haida"}
         hak{"Cina Hakka"}
         haw{"Hawaii"}
         he{"Ibrani"}
@@ -242,6 +248,7 @@ ms{
         kpe{"Kpelle"}
         kr{"Kanuri"}
         krc{"Karachay-Balkar"}
+        kri{"Krio"}
         krl{"Karelian"}
         kru{"Kurukh"}
         ks{"Kashmir"}
@@ -455,6 +462,7 @@ ms{
         vai{"Vai"}
         ve{"Venda"}
         vi{"Vietnam"}
+        vls{"Flemish Barat"}
         vo{"Volapük"}
         vun{"Vunjo"}
         wa{"Walloon"}

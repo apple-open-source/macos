@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <net/bpf.h>
 
 
 #define PAD32(x) (((x) + 3) & ~3)
@@ -82,6 +83,11 @@ main(int argc, const char * argv[])
 				  argv[i], errbuf);
 			continue;
 		}
+		printf("datalink %d\n", pcap_datalink(pcap));
+		struct bpf_program fcode = {};
+		if (pcap_compile(pcap, &fcode, "", 1, 0) < 0)
+			warnx("%s", pcap_geterr(pcap));
+
 		int result = pcap_loop(pcap, -1, read_callback, (u_char *)pcap);
 		if (result < 0) {
 			warnx("pcap_dispatch failed: %s\n",

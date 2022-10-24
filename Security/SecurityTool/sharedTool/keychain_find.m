@@ -42,6 +42,8 @@
 
 #import <SecurityFoundation/SFKeychain.h>
 
+#include "tool_auth_helpers.h"
+
 //
 // Craptastic hacks.
 #ifndef _SECURITY_SECKEYCHAIN_H_
@@ -364,8 +366,9 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
     SecAuthenticationType authenticationType = 0;
 	int ch, result = 0;
 	Boolean get_password = FALSE;
+	bool authSucceeded = false;
 
-	while ((ch = getopt(argc, argv, "a:d:hgp:P:r:s:t:")) != -1)
+	while ((ch = getopt(argc, argv, "a:d:hgp:P:r:s:t:yY:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -389,7 +392,7 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
         case 'r':
 			result = parse_fourcharcode(optarg, &protocol);
 			if (result)
-				goto loser;
+				return result;
 			break;
 		case 's':
 			serverName = optarg;
@@ -397,7 +400,19 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
         case 't':
 			result = parse_fourcharcode(optarg, &authenticationType);
 			if (result)
-				goto loser;
+				return result;
+			break;
+        case 'y':
+			if (!promptForAndCheckPassphrase()) {
+				return 1;
+			}
+			authSucceeded = true;
+			break;
+        case 'Y':
+			if (!checkPassphrase(optarg, 0) ) {
+				return 1;
+			}
+			authSucceeded = true;
 			break;
         case '?':
 		default:
@@ -405,11 +420,12 @@ keychain_find_or_delete_internet_password(Boolean do_delete, int argc, char * co
 		}
 	}
 
+	if (!authSucceeded && authRequired()) {
+		return 1;
+	}
+
 	result = do_keychain_find_or_delete_internet_password(do_delete, serverName, securityDomain,
 		accountName, path, port, protocol,authenticationType, get_password);
-
-
-loser:
 
 	return result;
 }
@@ -586,13 +602,14 @@ int keychain_item(int argc, char * const *argv) {
     bool verbose = false;
     bool json = false;
     int limit = 0;
+    bool authSucceeded = false;
 
     query = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 #if TARGET_OS_OSX
     CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 #endif
 
-	while ((ch = getopt(argc, argv, "ad:Df:jgpP:q:u:vl:")) != -1)
+	while ((ch = getopt(argc, argv, "ad:Df:jgpP:q:u:vl:s:yY:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -677,6 +694,29 @@ int keychain_item(int argc, char * const *argv) {
             case 'l':
                 limit = atoi(optarg);
                 break;
+            case 's':
+            {
+                result = 1;
+                goto out;
+            }
+            case 'y':
+            {
+                if (!promptForAndCheckPassphrase()) {
+                    result = 1;
+                    goto out;
+                }
+                authSucceeded = true;
+                break;
+            }
+            case 'Y':
+            {
+                if (!checkPassphrase(optarg, 0) ) {
+                    result = 1;
+                    goto out;
+                }
+                authSucceeded = true;
+                break;
+            }
             case '?':
             default:
                 /* Return 2 triggers usage message. */
@@ -684,6 +724,12 @@ int keychain_item(int argc, char * const *argv) {
                 goto out;
 		}
 	}
+
+    if (!authSucceeded && authRequired()) {
+        result = 1;
+        goto out;
+    }
+
 
     if (((do_add || do_delete) && (get_password || update)) || !query) {
         result = 2;
@@ -820,7 +866,8 @@ int keychain_item(int argc, char * const *argv) {
                 result = 1;
             }
         }
-    } else {
+    }
+    else {
         if (useCredentialStore) {
             NSString* username = (__bridge NSString*)CFDictionaryGetValue(query, CFSTR("username"));
             SFServiceIdentifier* serviceIdentifier = serviceIdentifierInQuery((__bridge NSDictionary*)query);
@@ -844,6 +891,9 @@ int keychain_item(int argc, char * const *argv) {
             OSStatus status = SecItemCopyMatching(query, &results);
             if (status) {
                 sec_perror("SecItemCopyMatching", status);
+                if (status != errSecItemNotFound) {
+                    result = 1;
+                }
             } else if(json) {
                 display_results_json(results);
             } else {
@@ -866,8 +916,9 @@ keychain_find_or_delete_generic_password(Boolean do_delete,
 	char *serviceName = NULL, *accountName = NULL;
 	int ch, result = 0;
 	Boolean get_password = FALSE;
+	bool authSucceeded = false;
 
-	while ((ch = getopt(argc, argv, "a:s:g")) != -1)
+	while ((ch = getopt(argc, argv, "a:s:gyY:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -882,10 +933,26 @@ keychain_find_or_delete_generic_password(Boolean do_delete,
 		case 's':
 			serviceName = optarg;
 			break;
+		case 'y':
+			if (!promptForAndCheckPassphrase()) {
+				return 1;
+			}
+			authSucceeded = true;
+			break;
+		case 'Y':
+			if (!checkPassphrase(optarg, 0) ) {
+				return 1;
+			}
+			authSucceeded = true;
+			break;
         case '?':
 		default:
 			return SHOW_USAGE_MESSAGE;
 		}
+	}
+
+	if (!authSucceeded && authRequired()) {
+		return 1;
 	}
 
 	result = do_keychain_find_or_delete_generic_password(do_delete,

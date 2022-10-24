@@ -170,6 +170,7 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 }
 
 /*PRINTFLIKE2*/
+__printflike(2, 3)
 void
 ctf_decl_sprintf(ctf_decl_t *cd, const char *format, ...)
 {

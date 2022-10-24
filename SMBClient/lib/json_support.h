@@ -76,10 +76,14 @@
 * Add object to an existing dictionary functions
 */
 
+int json_add_array(CFMutableDictionaryRef dict, const char *key,
+                   const char *comma_sep_string);
 int json_add_cfstr(CFMutableDictionaryRef dict, const char *key,
                     const CFMutableStringRef value);
 int json_add_dict(CFMutableDictionaryRef dict, const char *key,
                    const CFMutableDictionaryRef value);
+int json_add_bool(CFMutableDictionaryRef dict, const char *key,
+                  bool value);
 int json_add_num(CFMutableDictionaryRef dict, const char *key,
                   const void *value, size_t size);
 int json_add_str(CFMutableDictionaryRef dict, const char *key,

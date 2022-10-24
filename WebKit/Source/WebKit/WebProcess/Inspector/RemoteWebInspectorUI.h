@@ -27,6 +27,8 @@
 
 #include "DebuggableInfoData.h"
 #include "MessageReceiver.h"
+#include <WebCore/Color.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/InspectorFrontendAPIDispatcher.h>
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorFrontendHost.h>
@@ -62,8 +64,6 @@ public:
     // Called by RemoteWebInspectorUI messages
     void initialize(DebuggableInfoData&&, const String& backendCommandsURL);
     void updateFindString(const String&);
-    void didSave(const String& url);
-    void didAppend(const String& url);
     void sendMessageToFrontend(const String&);
     void showConsole();
     void showResources();
@@ -104,8 +104,10 @@ public:
     void resetState() override;
 
     void openURLExternally(const String& url) override;
-    void save(const String& url, const String& content, bool base64Encoded, bool forceSaveAs) override;
-    void append(const String& url, const String& content) override;
+    void revealFileExternally(const String& path) override;
+    void save(Vector<WebCore::InspectorFrontendClient::SaveData>&&, bool forceSaveAs) override;
+    void load(const String& path, CompletionHandler<void(const String&)>&&) override;
+    void pickColorFromScreen(CompletionHandler<void(const std::optional<WebCore::Color>&)>&&) override;
     void inspectedURLChanged(const String&) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
     void sendMessageToBackend(const String&) override;
@@ -120,13 +122,15 @@ public:
         
 #if ENABLE(INSPECTOR_EXTENSIONS)
     bool supportsWebExtensions() override;
-    void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
+    void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, WebCore::FrameIdentifier) override;
     void didHideExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
     void didNavigateExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, const URL&) override;
     void inspectedPageDidNavigate(const URL&) override;
 #endif
 
-    bool canSave() override { return true; }
+    bool canSave(WebCore::InspectorFrontendClient::SaveMode) override;
+    bool canLoad() override;
+    bool canPickColorFromScreen() override;
     bool isUnderTest() override { return false; }
     unsigned inspectionLevel() const override { return 1; }
     void requestSetDockSide(DockSide) override { }

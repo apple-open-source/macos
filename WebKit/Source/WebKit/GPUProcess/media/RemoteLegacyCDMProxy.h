@@ -35,10 +35,6 @@
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
 
-namespace WebCore {
-class FragmentedSharedBuffer;
-}
-
 namespace WebKit {
 
 class RemoteLegacyCDMProxy
@@ -62,7 +58,7 @@ private:
     using SupportsMIMETypeCallback = CompletionHandler<void(bool)>;
     void supportsMIMEType(const String&, SupportsMIMETypeCallback&&);
     using CreateSessionCallback = CompletionHandler<void(RemoteLegacyCDMSessionIdentifier&&)>;
-    void createSession(const String&, CreateSessionCallback&&);
+    void createSession(const String&, uint64_t, CreateSessionCallback&&);
     void setPlayerId(std::optional<WebCore::MediaPlayerIdentifier>&&);
 
     // LegacyCDMClient

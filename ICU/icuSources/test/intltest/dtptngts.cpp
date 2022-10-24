@@ -46,7 +46,8 @@ void IntlTestDateTimePatternGeneratorAPI::runIndexedTest( int32_t index, UBool e
         TESTCASE(10, testGetDefaultHourCycle_OnEmptyInstance);
         TESTCASE(11, test_jConsistencyOddLocales);
         TESTCASE(12, testBestPattern);
-        TESTCASE(13, testHorizontalInheritance);
+        TESTCASE(13, testDateTimePatterns);
+        TESTCASE(14, testHorizontalInheritance);
         default: name = ""; break;
     }
 }
@@ -114,7 +115,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("58:59"),                               // 11: mmss
         UnicodeString("January 1999"),                        // 12: yyyyMMMM
         UnicodeString("Wed, Jan 13"),                         // 13: MMMEd -> EEE, MMM d
-        UnicodeString("13 Wed"),                              // 14: Ed    -> d EEE
+        UnicodeString("Wed 13"),                              // 14: Ed    -> EEE d
         UnicodeString("11:58:59.123 PM"),                     // 15: jmmssSSS -> "h:mm:ss.SSS a"
         UnicodeString("11:58"),                               // 16: JJmm
     };
@@ -466,12 +467,12 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("O 14, 1999"),
         UnicodeString("T, O 14"),
         UnicodeString("Oct 14"),
-        UnicodeString("Oct 14, 6:58 AM"),
-        UnicodeString("Thu, Oct 14, 6:58:59 AM"),
+        UnicodeString("Oct 14 at 6:58 AM"),
+        UnicodeString("Thu, Oct 14 at 6:58:59 AM"),
         UnicodeString("10/14, 6:58 AM"),
-        UnicodeString("Thursday, Oct 14, 6:58:59 AM"),
-        UnicodeString("Oct 14, 1999, 6:58:59 AM"),
-        UnicodeString("Thu, Oct 14, 1999, 6:58:59 AM"),
+        UnicodeString("Thursday, Oct 14 at 6:58:59 AM"),
+        UnicodeString("Oct 14, 1999 at 6:58:59 AM"),
+        UnicodeString("Thu, Oct 14, 1999 at 6:58:59 AM"),
         UnicodeString("6:58 AM"),
         UnicodeString("6:58 AM"),
         UnicodeString("6:58 AM GMT"),
@@ -600,7 +601,7 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
     format->applyPattern(gen->getBestPattern(UnicodeString("MMMMdHmm"), status));
     dateReturned.remove();
     dateReturned = format->format(sampleDate, dateReturned, status);
-    expectedResult=UnicodeString("14. von Oktober, 08:58", -1, US_INV);
+    expectedResult=UnicodeString("14. von Oktober um 08:58", -1, US_INV);
     if ( dateReturned != expectedResult ) {
         errln(UnicodeString("ERROR: Simple test addPattern failed!: d\'. von\' MMMM   Got: ") + dateReturned + UnicodeString(" Expected: ") + expectedResult);
     }
@@ -1679,6 +1680,17 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
         { "zh_Hant_HK", "yMMMEd",      u"y\u5E74M\u6708d\u65E5 EEE"  },
         { "zh_Hant",    "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
         { "zh_Hant_HK", "full",        u"y\u5E74M\u6708d\u65E5 EEEE" },
+        // Apple rdar://90816171: Day format consistency for different calendars in vi
+        { "vi",                   "Ed", u"EEE, d" },
+        { "vi@calendar=buddhist", "Ed", u"EEE, d" },
+        { "vi@calendar=islamic",  "Ed", u"EEE, d" },
+        { "vi",                   "d",  u"d"      },
+        { "vi@calendar=buddhist", "d",  u"d"      },
+        { "vi@calendar=islamic",  "d",  u"d"      },
+        // Apple rdar://98584839: Weird en_US day+date pattern
+        { "en",         "EEEd",        u"EEE d" }, // the case that was failing
+        { "en_GB",      "EEEd",        u"EEE d" }, // the cases that were succeeding (and that we want to match)
+        { "en_CA",      "EEEd",        u"EEE d" },
     };
     
     for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
@@ -1706,6 +1718,152 @@ void IntlTestDateTimePatternGeneratorAPI::testBestPattern() {
             strcat(failureMessage, "/");
             strcat(failureMessage, testCases[i].skeleton);
             assertEquals(failureMessage, testCases[i].expectedPattern, actualPattern);
+        }
+    }
+}
+
+void IntlTestDateTimePatternGeneratorAPI::testDateTimePatterns() {
+    UnicodeString skeletons[kNumDateTimePatterns] = {
+        UnicodeString("yMMMMEEEEdjmm"), // full date, short time
+        UnicodeString("yMMMMdjmm"),     // long date, short time
+        UnicodeString("yMMMdjmm"),      // medium date, short time
+        UnicodeString("yMdjmm")         // short date, short time
+    };
+    // The following tests some locales in which there are differences between the
+    // DateTimePatterns of various length styles.
+    DTPLocaleAndResults localeAndResults[] = {
+        { "en", { UnicodeString(u"EEEE, MMMM d, y 'at' h:mm a"), // long != medium
+                  UnicodeString(u"MMMM d, y 'at' h:mm a"),
+                  UnicodeString(u"MMM d, y 'at' h:mm a"),
+                  UnicodeString(u"M/d/y, h:mm a") } },
+        { "fr", { UnicodeString(u"EEEE d MMMM y à HH:mm"), // medium != short
+                  UnicodeString(u"d MMMM y à HH:mm"),
+                  UnicodeString(u"d MMM y à HH:mm"),
+                  UnicodeString(u"dd/MM/y HH:mm") } },
+        { "ha", { UnicodeString(u"EEEE d MMMM, y HH:mm"), // full != long
+                  UnicodeString(u"d MMMM, y 'da' HH:mm"),
+                  UnicodeString(u"d MMM, y, HH:mm"),
+                  UnicodeString(u"y-MM-dd, HH:mm") } },
+        { nullptr, { UnicodeString(""), UnicodeString(""), // terminator
+                    UnicodeString(""), UnicodeString("") } },
+    };
+
+    UnicodeString enDTPatterns[kNumDateTimePatterns] = {
+        UnicodeString(u"{1} 'at' {0}"),
+        UnicodeString(u"{1} 'at' {0}"),
+        UnicodeString(u"{1} 'at' {0}"),
+        UnicodeString(u"{1}, {0}")
+    };
+    UnicodeString modDTPatterns[kNumDateTimePatterns] = {
+        UnicodeString(u"{1} _0_ {0}"),
+        UnicodeString(u"{1} _1_ {0}"),
+        UnicodeString(u"{1} _2_ {0}"),
+        UnicodeString(u"{1} _3_ {0}")
+    };
+    DTPLocaleAndResults enModResults = { "en", { UnicodeString(u"EEEE, MMMM d, y _0_ h:mm a"),
+                                                 UnicodeString(u"MMMM d, y _1_ h:mm a"),
+                                                 UnicodeString(u"MMM d, y _2_ h:mm a"),
+                                                 UnicodeString(u"M/d/y _3_ h:mm a") }
+    };
+
+    // Test various locales with standard data
+    UErrorCode status;
+    LocalPointer<DateTimePatternGenerator> dtpg;
+    DTPLocaleAndResults* localeAndResultsPtr = localeAndResults;
+    for (; localeAndResultsPtr->localeID != nullptr; localeAndResultsPtr++) {
+        status = U_ZERO_ERROR;
+        Locale locale(localeAndResultsPtr->localeID);
+        dtpg.adoptInstead(DateTimePatternGenerator::createInstance(locale, status));
+        if (U_FAILURE(status)) {
+            dataerrln("FAIL: DateTimePatternGenerator::createInstance for locale %s: %s",
+                        localeAndResultsPtr->localeID, u_errorName(status));
+        } else {
+            doDTPatternTest(dtpg.getAlias(), skeletons, localeAndResultsPtr);
+        }
+    }
+    // Test getting and modifying date-time combining patterns
+    status = U_ZERO_ERROR;
+    dtpg.adoptInstead(DateTimePatternGenerator::createInstance(Locale::getEnglish(), status));
+    if (U_FAILURE(status)) {
+        dataerrln("FAIL: DateTimePatternGenerator::createInstance #2 for locale en: %s", u_errorName(status));
+    } else {
+        char bExpect[64];
+        char bGet[64];
+        // Test style out of range
+        status = U_ZERO_ERROR;
+        const UnicodeString& dtFormat0 = dtpg->getDateTimeFormat(UDAT_NONE, status);
+        int32_t dtFormat0Len = dtFormat0.length();
+        if (status != U_ILLEGAL_ARGUMENT_ERROR || dtFormat0Len != 0) {
+            errln("ERROR: getDateTimeFormat with invalid style, expected U_ILLEGAL_ARGUMENT_ERROR and lero-length string, "
+                  "got %s with length %d", u_errorName(status), dtFormat0Len);
+        }
+        // Test normal getting and setting
+        for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+            status = U_ZERO_ERROR;
+            const UnicodeString& dtFormat1 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+            if (U_FAILURE(status)) {
+                errln("FAIL: getDateTimeFormat for en before mod, style %d, get %s", patStyle, u_errorName(status));
+            } else  if (dtFormat1 != enDTPatterns[patStyle]) {
+                enDTPatterns[patStyle].extract(0, enDTPatterns[patStyle].length(), bExpect, 64);
+                dtFormat1.extract(0, dtFormat1.length(), bGet, 64);
+                errln("ERROR: getDateTimeFormat for en before mod, style %d, expect \"%s\", get \"%s\"",
+                        patStyle, bExpect, bGet);
+            }
+            status = U_ZERO_ERROR;
+            dtpg->setDateTimeFormat((UDateFormatStyle)patStyle, modDTPatterns[patStyle], status);
+            if (U_FAILURE(status)) {
+                errln("FAIL: setDateTimeFormat for en, style %d, get %s", patStyle, u_errorName(status));
+            } else {
+                const UnicodeString& dtFormat2 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+                if (U_FAILURE(status)) {
+                    errln("FAIL: getDateTimeFormat for en after  mod, style %d, get %s", patStyle, u_errorName(status));
+                } else if (dtFormat2 != modDTPatterns[patStyle]) {
+                    modDTPatterns[patStyle].extract(0, modDTPatterns[patStyle].length(), bExpect, 64);
+                    dtFormat2.extract(0, dtFormat2.length(), bGet, 64);
+                    errln("ERROR: getDateTimeFormat for en after mod, style %d, expect \"%s\", get \"%s\"",
+                            patStyle, bExpect, bGet);
+                }
+            }
+        }
+        // Test result of setting
+        doDTPatternTest(dtpg.getAlias(), skeletons, &enModResults);
+        // Test old get/set functions
+        const UnicodeString& dtFormat3 = dtpg->getDateTimeFormat();
+        if (dtFormat3 != modDTPatterns[UDAT_MEDIUM]) {
+            modDTPatterns[UDAT_MEDIUM].extract(0, modDTPatterns[UDAT_MEDIUM].length(), bExpect, 64);
+            dtFormat3.extract(0, dtFormat3.length(), bGet, 64);
+            errln("ERROR: old getDateTimeFormat for en after mod, expect \"%s\", get \"%s\"", bExpect, bGet);
+        }
+        dtpg->setDateTimeFormat(modDTPatterns[UDAT_SHORT]); // set all dateTimePatterns to the short format
+        modDTPatterns[UDAT_SHORT].extract(0, modDTPatterns[UDAT_SHORT].length(), bExpect, 64);
+        for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+            status = U_ZERO_ERROR;
+            const UnicodeString& dtFormat4 = dtpg->getDateTimeFormat((UDateFormatStyle)patStyle, status);
+            if (U_FAILURE(status)) {
+                errln("FAIL: getDateTimeFormat for en after second mod, style %d, get %s", patStyle, u_errorName(status));
+            } else if (dtFormat4 != modDTPatterns[UDAT_SHORT]) {
+                dtFormat4.extract(0, dtFormat4.length(), bGet, 64);
+                errln("ERROR: getDateTimeFormat for en after second mod, style %d, expect \"%s\", get \"%s\"",
+                        patStyle, bExpect, bGet);
+            }
+        }
+    }
+}
+
+void IntlTestDateTimePatternGeneratorAPI::doDTPatternTest(DateTimePatternGenerator* dtpg, UnicodeString* skeletons, DTPLocaleAndResults* localeAndResultsPtr) {
+    for (int32_t patStyle = 0; patStyle < kNumDateTimePatterns; patStyle++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeString getPat = dtpg->getBestPattern(skeletons[patStyle], UDATPG_MATCH_NO_OPTIONS, status);
+        if (U_FAILURE(status)) {
+            errln("FAIL: DateTimePatternGenerator::getBestPattern locale %s, style %d: %s",
+                        localeAndResultsPtr->localeID, patStyle, u_errorName(status));
+        } else if (getPat != localeAndResultsPtr->expectPat[patStyle]) {
+            char bExpect[64];
+            char bGet[64];
+            localeAndResultsPtr->expectPat[patStyle].extract(0, localeAndResultsPtr->expectPat[patStyle].length(), bExpect, 64);
+            getPat.extract(0, getPat.length(), bGet, 64);
+            errln("ERROR: DateTimePatternGenerator::getBestPattern locale %s, style %d, expect \"%s\", get \"%s\"",
+                        localeAndResultsPtr->localeID, patStyle, bExpect, bGet);
         }
     }
 }

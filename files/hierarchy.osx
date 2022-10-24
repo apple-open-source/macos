@@ -22,6 +22,7 @@
 0755	root	wheel	Library/Filesystems/NetFSPlugins
 0755	root	admin	Library/Application Support
 0775	root	admin	Library/Application Support/CrashReporter
+0755	291	wheel	Library/Application Support/com.apple.backgroundassets.user
 0700	root	admin	Library/Application Support/com.apple.TCC
 1775	root	admin	Library/Application Support/ProApps
 0755	root	wheel	Library/Apple
@@ -81,6 +82,7 @@
 0755	root	wheel	private/var/db/ExtensibleSSO/Configuration
 0777	root	wheel	private/var/db/PanicReporter
 0777	root	wheel	private/var/db/DiagnosticsReporter
+0700	289	289	private/var/db/biome
 0750	268	268	private/var/db/nearbyd
 0700	root	wheel	private/var/install
 0750	84	84	private/var/jabberd

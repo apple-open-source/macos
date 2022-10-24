@@ -61,8 +61,10 @@ static void _removalCallback(void *target __unused,
 
 - (void)setRemovalHandler:(HIDBlock)handler
 {
+    os_unfair_recursive_lock_lock(&_client.callbackLock);
     os_assert(!_client.removalHandler, "Removal handler already set");
     _client.removalHandler = (void *)Block_copy((__bridge const void *)handler);
+    os_unfair_recursive_lock_unlock(&_client.callbackLock);
     IOHIDServiceClientRegisterRemovalCallback(
                                         (__bridge IOHIDServiceClientRef)self,
                                         _removalCallback,

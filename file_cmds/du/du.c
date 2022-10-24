@@ -425,6 +425,10 @@ main(int argc, char *argv[])
 	}
 
 	ignoreclean();
+#ifdef __APPLE__
+	if (rval == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	exit(rval);
 }
 

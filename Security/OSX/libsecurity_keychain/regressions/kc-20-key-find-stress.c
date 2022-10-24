@@ -35,7 +35,7 @@
 
 static long concurrentBlocks = 64;
 
-static void tests() {
+static void tests(void) {
 
     SecKeychainRef kc = getPopulatedTestKeychain();
 
@@ -49,7 +49,7 @@ static void tests() {
     __block int iteration = 0;
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(concurrentBlocks);
 
-    dispatch_block_t identityBlock = ^() {
+    dispatch_block_t identityBlock = ^{
         SecKeychainItemRef blockItem = NULL;
 
         CFMutableDictionaryRef query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);

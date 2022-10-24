@@ -7,17 +7,8 @@ framework module Security_Private [system] {
     explicit module * { export * }
   }
 
-  // Use SecAsn1Templates instead
+  // Use SecAsn1Templates.h instead
   exclude header "asn1Templates.h"
-
-  // Includes nonmodular <security_libDER/libDER/libDER.h>
-  exclude header "SecCertificatePriv.h"
-
-  // Includes SecCertificatePriv.h
-  exclude header "SecProtocolPriv.h"
-
-  // Includes SecProtocolPriv.h
-  exclude header "SecProtocolTypesPriv.h"
 
   explicit module * { export * }
 }

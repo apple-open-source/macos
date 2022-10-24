@@ -73,7 +73,7 @@ public:
     // ThreadableLoaderClient
     void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&) override;
     void didReceiveData(const SharedBuffer&) override;
-    void didFinishLoading(ResourceLoaderIdentifier) override;
+    void didFinishLoading(ResourceLoaderIdentifier, const NetworkLoadMetrics&) override;
     void didFail(const ResourceError&) override;
 
     String stringResult();
@@ -82,7 +82,7 @@ public:
     unsigned totalBytes() const { return m_totalBytes; }
     std::optional<ExceptionCode> errorCode() const { return m_errorCode; }
 
-    void setEncoding(const String&);
+    void setEncoding(StringView);
     void setDataType(const String& dataType) { m_dataType = dataType; }
 
     const URL& url() { return m_urlForReading; }

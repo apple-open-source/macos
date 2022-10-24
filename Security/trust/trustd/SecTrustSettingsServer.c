@@ -49,6 +49,9 @@
 #include "trustdFileLocations.h"
 #include "trustdVariants.h"
 #include <membership.h> /* for mbr_uid_to_uuid() */
+#include "trust/trustd/SecOCSPCache.h"
+#include "trust/trustd/SecRevocationDb.h"
+#include "trust/trustd/SecCAIssuerCache.h"
 
 // MARK: -
 // MARK: File utilities
@@ -486,4 +489,25 @@ bool SecTrustSettingsCopyData(uid_t uid,
         free(fileData);
     });
     return result;
+}
+
+bool _SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error)
+{
+    if (flags & kSecTrustResetOCSPCache) {
+        secnotice("trustsettings", "_SecTrustResetSettings: kSecTrustResetOCSPCache");
+        if (!SecOCSPCacheFlush(error)) {
+            return false;
+        }
+    }
+    if (flags & kSecTrustResetValidDB) {
+        secnotice("trustsettings", "_SecTrustResetSettings: kSecTrustResetValidDB");
+        if (!SecRevocationDbRemoveAllEntries(error)) {
+            return false;
+        }
+    }
+    if (flags & kSecTrustResetIssuersCache) {
+        secnotice("trustsettings", "_SecTrustResetSettings: kSecTrustResetIssuersCache");
+        SecCAIssuerCacheClear();
+    }
+    return true;
 }

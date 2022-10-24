@@ -1,8 +1,8 @@
-"system.preferences.accounts" = "Touch ID to Unlock Users & Groups Preferences.";
+"system.preferences.accounts" = "Touch ID to Unlock Users & Groups Settings.";
 
 "com.apple.SoftwareUpdate.scan" = "Touch ID to Check for New Apple Software.";
 
-"system.preferences.datetime" = "Touch ID to Unlock the Date & Time Preferences.";
+"system.preferences.datetime" = "Touch ID to Unlock the Date & Time Settings.";
 
 "system.identity.write.credential" = "Touch ID to Update the Authentication Credentials.";
 
@@ -30,7 +30,7 @@
 
 "com.apple.library-repair" = "Touch ID to Repair Your Photo Library.";
 
-"com.apple.XType.fontmover.restore" = "Touch ID to Restore the Default System Fonts.";
+"com.apple.XType.fontmover.restore" = "Touch ID to Restore the Standard System Font Configuration.";
 
 "system.csfde.requestpassword" = "Touch ID to Unlock Your Disk.";
 
@@ -44,9 +44,9 @@
 
 "com.apple.Safari.allow-javascript-in-smart-search-field" = "Touch ID to Allow JavaScript to be Used in the Smart Search Field.";
 
-"system.sharepoints." = "Touch ID to Modify Sharing Preferences.";
+"system.sharepoints." = "Touch ID to Modify Sharing Settings.";
 
-"system.preferences.energysaver" = "Touch ID to Unlock the Energy Saver Preferences.";
+"system.preferences.energysaver" = "Touch ID to Unlock the Energy Saver Settings.";
 
 "system.install.apple-software" = "Touch ID to Install Apple Software.";
 
@@ -64,7 +64,7 @@
 
 "system.device.dvd.setregion.initial" = "Touch ID to Set the DVD Region Code for the First Time.";
 
-"system.preferences.network" = "Touch ID to Unlock the Network Preferences.";
+"system.preferences.network" = "Touch ID to Unlock the Network Settings.";
 
 "system.identity.write." = "Touch ID to Update the Set of Local Users.";
 
@@ -72,25 +72,25 @@
 
 "com.apple.trust-settings.user" = "Touch ID to Change Your Certificate Trust Settings.";
 
-"system.preferences.printing" = "Touch ID to Unlock the Printers & Scanners Preferences.";
+"system.preferences.printing" = "Touch ID to Unlock the Printers & Scanners Settings.";
 
 "system.hdd.smart" = "Touch ID to Modify the Diagnostic Settings for Your Hard Drive.";
 
 "system.print.admin" = "Touch ID to Modify the Printer Settings.";
 
-"system.preferences.accessibility" = "Touch ID to Unlock Accessibility Preferences.";
+"system.preferences.accessibility" = "Touch ID to Unlock Accessibility Settings.";
 
 "com.apple.activitymonitor.kill" = "Touch ID to Quit the Selected Process.";
 
 "system.burn" = "Touch ID to Burn a Disc.";
 
-"system.preferences.sharing" = "Touch ID to Unlock the Sharing Preferences.";
+"system.preferences.sharing" = "Touch ID to Unlock the Sharing Settings.";
 
-"system.preferences.parental-controls" = "Touch ID to Unlock Screen Time Preferences.";
+"system.preferences.parental-controls" = "Touch ID to Unlock Screen Time Settings.";
 
-"system.preferences.security" = "Touch ID to Unlock Security & Privacy Preferences.";
+"system.preferences.security" = "Touch ID to Unlock Privacy & Security Settings.";
 
-"system.preferences.startupdisk" = "Touch ID to Unlock the Startup Disk Preferences.";
+"system.preferences.startupdisk" = "Touch ID to Unlock the Startup Disk Settings.";
 
 "com.apple.ServiceManagement.daemons.modify" = "Touch ID to Add a New Helper Tool.";
 
@@ -104,11 +104,11 @@
 
 "system.install.app-store-software.standard-user" = "Touch ID to Install Software.";
 
-"system.preferences.version-cue" = "Touch ID to Modify the Version Cue Preferences.";
+"system.preferences.version-cue" = "Touch ID to Modify the Version Cue Settings.";
 
 "system.preferences" = "Touch ID to Modify Your System Settings.";
 
-"com.apple.SoftwareUpdate.modify-settings" = "Touch ID to Unlock the Software Update preferences.";
+"com.apple.SoftwareUpdate.modify-settings" = "Touch ID to Unlock the Software Update Settings.";
 
 "com.apple.uninstalld.uninstall" = "Touch ID to Delete an Application.";
 
@@ -118,21 +118,21 @@
 
 "system.preferences.security.remotepair" = "Touch ID to Pair the Remote.";
 
-"com.apple.XType.fontmover.remove" = "Touch ID to Remove Existing System Fonts.";
+"com.apple.XType.fontmover.remove" = "Touch ID to Remove Existing Fonts Available to All Users.";
 
 "system.global-login-items." = "Touch ID to Add a Login Item.";
 
 "com.apple.server.admin.streaming" = "Touch ID to Modify the QuickTime Streaming Server Settings.";
 
-"system.preferences.softwareupdate" = "Touch ID to Unlock the Software Update preferences.";
+"system.preferences.softwareupdate" = "Touch ID to Unlock the Software Update Settings.";
 
 "system.keychain.modify" = "Touch ID to Modify the System Keychain.";
 
-"com.apple.XType.fontmover.install" = "Touch ID to Install New System Fonts.";
+"com.apple.XType.fontmover.install" = "Touch ID to Install Fonts That Will Be Available to All Users.";
 
 "system.services.directory.configure" = "Touch ID to Modify the Directory Services Configuration.";
 
-"system.preferences.timemachine" = "Touch ID to Unlock the Time Machine Preferences.";
+"system.preferences.timemachine" = "Touch ID to Unlock the Time Machine Settings.";
 
 "com.apple.appserver.privilege.user" = "Touch ID to Modify your Application Server Settings.";
 
@@ -144,7 +144,7 @@
 
 "com.apple.AOSNotification.FindMyMac.remove" = "Touch ID to Turn Off Find My Mac.";
 
-"com.apple.iBooksX.ParentalControl" = "Touch ID to Unlock Your Screen Time Preferences.";
+"com.apple.iBooksX.ParentalControl" = "Touch ID to Unlock Your Screen Time Settings.";
 
 "system.services.networkextension.vpn" = "Touch ID to Modify the VPN Configuration.";
 
@@ -152,7 +152,7 @@
 
 "com.apple.iCloud.passwordReset" = "Touch ID to Reset Your Apple ID Password.";
 
-"system.preferences.continuity" = "Touch ID to Unlock the Touch ID Preferences.";
+"system.preferences.continuity" = "Touch ID to Unlock the Touch ID Settings.";
 
 "com.apple.ctkbind.admin" = "Touch ID to Pair the Current User With the SmartCard Identity.";
 

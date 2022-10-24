@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 
 #include "DateInstance.h"
 #include "DirectArguments.h"
+#include "Integrity.h"
 #include "JSArray.h"
 #include "JSBigInt.h"
 #include "JSBoundFunction.h"
@@ -512,11 +513,12 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
     if (classInfo->isSubClassOf(JSArray::info()))
         return SpecArray | SpecDerivedArray;
 
-    if (classInfo->isSubClassOf(JSFunction::info())) {
-        if (classInfo == JSBoundFunction::info())
-            return SpecFunctionWithNonDefaultHasInstance;
+    static_assert(std::is_final_v<JSBoundFunction>);
+    if (classInfo == JSBoundFunction::info())
+        return SpecFunctionWithNonDefaultHasInstance;
+
+    if (classInfo->isSubClassOf(JSFunction::info()))
         return SpecFunctionWithDefaultHasInstance;
-    }
 
     if (classInfo->isSubClassOf(JSPromise::info()))
         return SpecPromiseObject;
@@ -533,7 +535,8 @@ SpeculatedType speculationFromClassInfoInheritance(const ClassInfo* classInfo)
 SpeculatedType speculationFromStructure(Structure* structure)
 {
     SpeculatedType filteredResult = SpecNone;
-    switch (structure->typeInfo().type()) {
+    JSType type = structure->typeInfo().type();
+    switch (type) {
     case StringType:
         filteredResult = SpecString;
         break;
@@ -542,6 +545,39 @@ SpeculatedType speculationFromStructure(Structure* structure)
         break;
     case HeapBigIntType:
         filteredResult = SpecHeapBigInt;
+        break;
+    case FinalObjectType:
+        filteredResult = SpecFinalObject;
+        break;
+    case DirectArgumentsType:
+        filteredResult = SpecDirectArguments;
+        break;
+    case ScopedArgumentsType:
+        filteredResult = SpecScopedArguments;
+        break;
+    case RegExpObjectType:
+        filteredResult = SpecRegExpObject;
+        break;
+    case JSDateType:
+        filteredResult = SpecDateObject;
+        break;
+    case JSMapType:
+        filteredResult = SpecMapObject;
+        break;
+    case JSSetType:
+        filteredResult = SpecSetObject;
+        break;
+    case JSWeakMapType:
+        filteredResult = SpecWeakMapObject;
+        break;
+    case JSWeakSetType:
+        filteredResult = SpecWeakSetObject;
+        break;
+    case ProxyObjectType:
+        filteredResult = SpecProxyObject;
+        break;
+    case DataViewType:
+        filteredResult = SpecDataViewObject;
         break;
     case DerivedArrayType:
         filteredResult = SpecDerivedArray;
@@ -556,38 +592,45 @@ SpeculatedType speculationFromStructure(Structure* structure)
     case DerivedStringObjectType:
         filteredResult = SpecObjectOther;
         break;
+    case JSPromiseType:
+        filteredResult = SpecPromiseObject;
+        break;
+    case JSFunctionType:
+        static_assert(std::is_final_v<JSBoundFunction>);
+        if (structure->classInfoForCells() == JSBoundFunction::info())
+            filteredResult = SpecFunctionWithNonDefaultHasInstance;
+        else
+            filteredResult = SpecFunctionWithDefaultHasInstance;
+        break;
+
+#define JSC_TYPED_ARRAY_CHECK(type) \
+    case type##ArrayType: \
+        filteredResult = Spec ## type ## Array; \
+        break;
+    FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(JSC_TYPED_ARRAY_CHECK)
+#undef JSC_TYPED_ARRAY_CHECK
+
     default:
-        return speculationFromClassInfoInheritance(structure->classInfo());
+        if (!isObjectType(type))
+            return SpecCellOther;
+        return speculationFromClassInfoInheritance(structure->classInfoForCells());
     }
     ASSERT(filteredResult);
-    ASSERT(isSubtypeSpeculation(filteredResult, speculationFromClassInfoInheritance(structure->classInfo())));
+    ASSERT(isSubtypeSpeculation(filteredResult, speculationFromClassInfoInheritance(structure->classInfoForCells())));
     return filteredResult;
-}
-
-ALWAYS_INLINE static bool isSanePointer(const void* pointer)
-{
-    // FIXME: rdar://69036888: remove this when no longer needed.
-#if CPU(ADDRESS64)
-    uintptr_t pointerAsInt = bitwise_cast<uintptr_t>(pointer);
-    uintptr_t canonicalPointerBits = pointerAsInt << (64 - OS_CONSTANT(EFFECTIVE_ADDRESS_WIDTH));
-    uintptr_t nonCanonicalPointerBits = pointerAsInt >> OS_CONSTANT(EFFECTIVE_ADDRESS_WIDTH);
-    return !nonCanonicalPointerBits && canonicalPointerBits;
-#else
-    UNUSED_PARAM(pointer);
-    return true;
-#endif
 }
 
 SpeculatedType speculationFromCell(JSCell* cell)
 {
-    if (UNLIKELY(!isSanePointer(cell))) {
+    // FIXME: rdar://69036888: remove isSanePointer checks when no longer needed.
+    if (UNLIKELY(!Integrity::isSanePointer(cell))) {
         ASSERT_NOT_REACHED();
         return SpecNone;
     }
     if (cell->isString()) {
         JSString* string = jsCast<JSString*>(cell);
         if (const StringImpl* impl = string->tryGetValueImpl()) {
-            if (UNLIKELY(!isSanePointer(impl))) {
+            if (UNLIKELY(!Integrity::isSanePointer(impl))) {
                 ASSERT_NOT_REACHED();
                 return SpecNone;
             }
@@ -597,8 +640,8 @@ SpeculatedType speculationFromCell(JSCell* cell)
         return SpecString;
     }
     // FIXME: rdar://69036888: undo this when no longer needed.
-    auto* structure = cell->vm().tryGetStructure(cell->structureID());
-    if (UNLIKELY(!isSanePointer(structure))) {
+    auto* structure = cell->structureID().tryDecode();
+    if (UNLIKELY(!Integrity::isSanePointer(structure))) {
         ASSERT_NOT_REACHED();
         return SpecNone;
     }

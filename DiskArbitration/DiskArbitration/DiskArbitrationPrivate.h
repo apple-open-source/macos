@@ -27,6 +27,7 @@
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
+#include <os/availability.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -286,17 +287,21 @@ extern int           DiskArbVSDBGetVolumeStatus_auto( char * disk );
 #endif /* !__LP64__ */
 #endif /* !__DISKARBITRATIOND__ */
 
-extern const CFStringRef kDAApprovalRunLoopMode;
+extern const CFStringRef kDAApprovalRunLoopMode API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
 
 extern const CFStringRef kDADiskDescriptionAppearanceTimeKey;
 
 extern const CFStringRef kDADiskDescriptionMediaMatchKey;
 
+extern const CFStringRef kDADiskDescriptionVolumeLifsURLKey;   /* ( CFString     ) */
+
 #ifndef __DISKARBITRATIOND__
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 extern int _DAmkdir( const char * path, mode_t mode );
 
 extern int _DArmdir( const char * path );
+#endif
 
 extern DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization );
 
@@ -324,6 +329,322 @@ typedef void ( *DADiskListCompleteCallback )( void * context );
  */
 
 extern void DARegisterDiskListCompleteCallback( DASessionRef session, DADiskListCompleteCallback  callback, void * context );
+
+extern DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue) API_UNAVAILABLE(macos);
+
+
+/*!
+ * @typedef    DADiskAppearedCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskAppearedCallbackBlock().
+ * @param      disk    A disk object.
+ */
+
+typedef void ( ^DADiskAppearedCallbackBlock )( DADiskRef disk );
+
+/*!
+ * @function   DARegisterDiskAppearedCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a disk has appeared.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      callback The callback block to call when a disk has appeared.
+ */
+
+extern void DARegisterDiskAppearedCallbackBlock( DASessionRef               session,
+                                                    CFDictionaryRef __nullable match,
+                                                    DADiskAppearedCallbackBlock     callback );
+                                         
+/*!
+ * @typedef    DADiskDescriptionChangedCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskDescriptionChangedCallbackBlock().
+ * @param      disk    A disk object.
+ * @param      keys    A list of changed keys.
+ */
+
+typedef void ( ^DADiskDescriptionChangedCallbackBlock )( DADiskRef disk, CFArrayRef keys );
+
+/*!
+ * @function   DARegisterDiskDescriptionChangedCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a disk description has changed.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      watch    The disk description keys to watch.  Pass NULL for all keys.
+ * @param      callback The callback block to call when a watched key changes.
+ */
+
+extern void DARegisterDiskDescriptionChangedCallbackBlock( DASessionRef                session,
+                                                            CFDictionaryRef __nullable       match,
+                                                            CFArrayRef __nullable            watch,
+                                                            DADiskDescriptionChangedCallbackBlock callback );
+
+/*!
+ * @typedef    DADiskDisappearedCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskDisappearedCallbackBlock().
+ * @param      disk    A disk object.
+ */
+
+typedef void ( ^DADiskDisappearedCallbackBlock )( DADiskRef disk );
+
+/*!
+ * @function   DARegisterDiskDisappearedCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a disk has disappeared.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      callback The callback block to call when a disk has disappeared.
+ */
+
+extern void DARegisterDiskDisappearedCallbackBlock( DASessionRef               session,
+                                                    CFDictionaryRef __nullable match,
+                                                    DADiskDisappearedCallbackBlock  callback );
+                                                     
+
+/*!
+ * @typedef    DADiskMountCallbackBlock
+ * @abstract   Type of the callback block used by DADiskMount().
+ * @param      disk      The disk object.
+ * @param      dissenter A dissenter object on failure or NULL on success.
+ * @discussion
+ * If the disk is already mounted, then status code in the dissenter object will be set to kDAReturnBusy
+ */
+
+typedef void ( ^DADiskMountCallbackBlock )( DADiskRef disk, DADissenterRef __nullable dissenter );
+
+/*!
+ * @function   DADiskMountWithBlock
+ * @abstract   Mounts the volume at the specified disk object.
+ * @param      disk     The disk object.
+ * @param      path     The mount path.  Pass NULL for a "standard" mount path.
+ * @param      options  The mount options.
+ * @param      callback The callback block to call once the mount completes.
+ */
+
+extern void DADiskMountWithBlock( DADiskRef                      disk,
+                                    CFURLRef __nullable            path,
+                                    DADiskMountOptions             options,
+                                    DADiskMountCallbackBlock __nullable callback );
+
+/*!
+ * @function   DADiskMountWithArgumentsAndBlock
+ * @abstract   Mounts the volume at the specified disk object, with the specified mount options.
+ * @param      disk      The disk object.
+ * @param      path      The mount path.  Pass NULL for a "standard" mount path.
+ * @param      options   The mount options.
+ * @param      callback  The callback block to call once the mount completes.
+ * @param      arguments The null-terminated list of mount options to pass to /sbin/mount -o.
+ */
+
+extern void DADiskMountWithArgumentsAndBlock( DADiskRef                      disk,
+                                                CFURLRef __nullable            path,
+                                                DADiskMountOptions             options,
+                                                DADiskMountCallbackBlock __nullable callback,
+                                                CFStringRef __nullable         arguments[_Nullable] );
+
+/*!
+ * @typedef    DADiskMountApprovalCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskMountApprovalCallbackBlock().
+ * @param      disk    A disk object.
+ * @result     A dissenter reference.  Pass NULL to approve.
+ * @discussion
+ * The caller of this callback receives a reference to the returned object.  The
+ * caller also implicitly retains the object and is responsible for releasing it
+ * with CFRelease().
+ */
+
+typedef DADissenterRef __nullable ( ^DADiskMountApprovalCallbackBlock )( DADiskRef disk ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+/*!
+ * @function   DARegisterDiskMountApprovalCallback
+ * @abstract   Registers a callback block to be called whenever a volume is to be mounted.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      callback The callback block to call when a volume is to be mounted.
+ */
+
+extern void DARegisterDiskMountApprovalCallbackBlock( DASessionRef                session,
+                                                        CFDictionaryRef __nullable  match,
+                                                        DADiskMountApprovalCallbackBlock callback ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                        
+
+/*!
+ * @typedef    DADiskRenameCallbackBlock
+ * @abstract   Type of the callback block used by DADiskRenameWithBlock().
+ * @param      disk      The disk object.
+ * @param      dissenter A dissenter object on failure or NULL on success.
+ */
+
+typedef void ( ^DADiskRenameCallbackBlock )( DADiskRef disk, DADissenterRef __nullable dissenter );
+
+/*!
+ * @function   DADiskRenameWithBlock
+ * @abstract   Renames the volume at the specified disk object.
+ * @param      disk     The disk object.
+ * @param      options  The rename options.
+ * @param      callback The callback block to call once the rename completes.
+ */
+
+extern void DADiskRenameWithBlock( DADiskRef                       disk,
+                                    CFStringRef                     name,
+                                    DADiskRenameOptions             options,
+                                  DADiskRenameCallbackBlock __nullable callback );
+
+/*!
+ * @typedef    DADiskUnmountCallbackBlock
+ * @abstract   Type of the callback block used by DADiskUnmountWithBlock().
+ * @param      disk      The disk object.
+ * @param      dissenter A dissenter object on failure or NULL on success.
+ */
+
+typedef void ( ^DADiskUnmountCallbackBlock )( DADiskRef disk, DADissenterRef __nullable dissenter );
+
+/*!
+ * @function   DADiskUnmountWithBlock
+ * @abstract   Unmounts the volume at the specified disk object.
+ * @param      disk     The disk object.
+ * @param      options  The unmount options.
+ * @param      callback The callback block to call once the unmount completes.
+ */
+
+extern void DADiskUnmountWithBlock( DADiskRef                        disk,
+                                    DADiskUnmountOptions             options,
+                                    DADiskUnmountCallbackBlock __nullable callback );
+
+/*!
+ * @typedef    DADiskUnmountApprovalCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskUnmountApprovalCallbackBlock().
+ * @param      disk    A disk object.
+ * @result     A dissenter reference.  Pass NULL to approve.
+ * @discussion
+ * The caller of this callback receives a reference to the returned object.  The
+ * caller also implicitly retains the object and is responsible for releasing it
+ * with CFRelease().
+ */
+
+typedef DADissenterRef __nullable ( ^DADiskUnmountApprovalCallbackBlock )( DADiskRef disk )  API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+
+/*!
+ * @function   DARegisterDiskUnmountApprovalCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a volume is to be unmounted.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      callback The callback block to call when a volume is to be unmounted.
+ */
+
+extern void DARegisterDiskUnmountApprovalCallbackBlock( DASessionRef                  session,
+                                                            CFDictionaryRef __nullable    match,
+                                                            DADiskUnmountApprovalCallbackBlock callback )  API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                            
+/*!
+ * @typedef    DADiskEjectCallbackBlock
+ * @abstract   Type of the callback block used by DADiskEjectWithBlock().
+ * @param      disk      The disk object.
+ * @param      dissenter A dissenter object on failure or NULL on success.
+ */
+
+typedef void ( ^DADiskEjectCallbackBlock )( DADiskRef disk, DADissenterRef __nullable dissenter );
+
+/*!
+ * @function   DADiskEjectWithBlock
+ * @abstract   Ejects the specified disk object.
+ * @param      disk     The disk object.
+ * @param      options  The eject options.
+ * @param      callback The callback block to call once the ejection completes.
+ */
+
+extern void DADiskEjectWithBlock( DADiskRef                      disk,
+                                    DADiskEjectOptions             options,
+                                    DADiskEjectCallbackBlock __nullable callback );
+
+/*!
+ * @typedef    DADiskEjectApprovalCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskEjectApprovalCallbackBlock().
+ * @param      disk    A disk object.
+ * @result     A dissenter reference.  Pass NULL to approve.
+ * @discussion
+ * The caller of this callback receives a reference to the returned object.  The
+ * caller also implicitly retains the object and is responsible for releasing it
+ * with CFRelease().
+ */
+
+typedef DADissenterRef __nullable ( ^DADiskEjectApprovalCallbackBlock )( DADiskRef disk ) API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+
+/*!
+ * @function   DARegisterDiskEjectApprovalCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a volume is to be ejected.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      callback The callback block to call when a volume is to be ejected.
+ */
+
+extern void DARegisterDiskEjectApprovalCallbackBlock( DASessionRef                session,
+                                                        CFDictionaryRef __nullable  match,
+                                                        DADiskEjectApprovalCallbackBlock callback )   API_AVAILABLE(macCatalyst(13.0)) API_UNAVAILABLE(ios, tvos, watchos);
+                                                         
+
+/*!
+ * @typedef    DADiskClaimCallbackBlock
+ * @abstract   Type of the callback block used by DADiskClaimWithBlock().
+ * @param      disk      The disk object.
+ * @param      dissenter A dissenter object on failure or NULL on success.
+ */
+
+typedef void ( ^DADiskClaimCallbackBlock )( DADiskRef disk, DADissenterRef __nullable dissenter );
+
+/*!
+ * @typedef    DADiskClaimReleaseCallbackBlock
+ * @abstract   Type of the callback block used by DADiskClaimWithBlock().
+ * @param      disk    The disk object.
+ * @result     A dissenter reference.  Pass NULL to release claim.
+ * @discussion
+ * The caller of this callback receives a reference to the returned object.  The
+ * caller also implicitly retains the object and is responsible for releasing it
+ * with CFRelease().
+ */
+
+typedef DADissenterRef __nullable ( ^DADiskClaimReleaseCallbackBlock )( DADiskRef disk );
+
+/*!
+ * @function   DADiskClaimWithBlock
+ * @abstract   Claims the specified disk object for exclusive use.
+ * @param      disk            The disk object.
+ * @param      options         The claim options.
+ * @param      release         The callback block to call when the claim is to be released.
+ * @param      callback        The callback block to call once the claim completes.
+ */
+
+extern void DADiskClaimWithBlock( DADiskRef                             disk,
+                                    DADiskClaimOptions                    options,
+                                    DADiskClaimReleaseCallbackBlock __nullable release,
+                                    DADiskClaimCallbackBlock __nullable        callback );
+
+/*!
+ * @typedef    DADiskPeekCallbackBlock
+ * @abstract   Type of the callback block used by DARegisterDiskPeekCallbackBlock().
+ * @param      disk    A disk object.
+ * @discussion
+ * The peek callback functions are called in a specific order, from lowest order to highest
+ * order.  DADiskClaim() could be used here to claim the disk object and DADiskSetOptions()
+ * could be used here to set up options on the disk object.
+ */
+
+typedef void ( ^DADiskPeekCallbackBlock )( DADiskRef disk );
+
+/*!
+ * @function   DARegisterDiskPeekCallbackBlock
+ * @abstract   Registers a callback block to be called whenever a disk has been probed.
+ * @param      session  The session object.
+ * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
+ * @param      order    The callback order, from lowest to highest.  Pass 0 for the default.
+ * @param      callback The callback block to call when a disk has been probed.
+ */
+
+extern void DARegisterDiskPeekCallbackBlock( DASessionRef               session,
+                                                CFDictionaryRef __nullable match,
+                                                CFIndex                    order,
+                                                DADiskPeekCallbackBlock         callback );
+
+
+typedef void ( ^DAIdleCallbackBlock )( void );
+
+extern void DARegisterIdleCallbackWithBlock( DASessionRef session, DAIdleCallbackBlock callback );
+
 
 #endif /* !__DISKARBITRATIOND__ */
 

@@ -192,7 +192,7 @@ typedef struct {
 } sparse_test_func;
 
 #define NUM_TEST_FUNCTIONS 11
-sparse_test_func test_functions[NUM_TEST_FUNCTIONS] = {
+sparse_test_func sparse_test_functions[NUM_TEST_FUNCTIONS] = {
 	{write_start_and_end_holes,		"start_and_end_holes"},
 	{write_middle_hole,				"middle_hole"},
 	{write_start_and_middle_holes,	"start_and_middle_holes"},
@@ -213,7 +213,7 @@ bool do_sparse_test(const char* apfs_test_directory, size_t block_size) {
 	off_t start_off;
 
 	for (size_t sub_test = 0; sub_test < NUM_TEST_FUNCTIONS; sub_test++) {
-		printf("START [%s]\n", test_functions[sub_test].name);
+		printf("START [%s]\n", sparse_test_functions[sub_test].name);
 		sub_test_success = false;
 
 		// Make new names for this file and its copies.
@@ -227,7 +227,7 @@ bool do_sparse_test(const char* apfs_test_directory, size_t block_size) {
 		assert_with_errno(fd >= 0);
 
 		// Write to the test file, making it sparse.
-		start_off = test_functions[sub_test].func(fd, (off_t) block_size);
+		start_off = sparse_test_functions[sub_test].func(fd, (off_t) block_size);
 		assert_no_err(fsync(fd));
 
 		// Make sure that a sparse copy is successful.
@@ -239,10 +239,10 @@ bool do_sparse_test(const char* apfs_test_directory, size_t block_size) {
 
 		// Report the result on stdout.
 		if (!sub_test_success) {
-			printf("FAIL  [%s]\n", test_functions[sub_test].name);
+			printf("FAIL  [%s]\n", sparse_test_functions[sub_test].name);
 			success = false;
 		} else {
-			printf("PASS  [%s]\n", test_functions[sub_test].name);
+			printf("PASS  [%s]\n", sparse_test_functions[sub_test].name);
 		}
 
 		// Cleanup for the next test.

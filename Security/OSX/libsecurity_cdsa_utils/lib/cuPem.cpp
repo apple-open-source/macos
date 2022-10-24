@@ -104,16 +104,9 @@ int pemEncode(
 		return -1;
 	}
 		
-	/* estimate outsize - just be sloppy, way conservative */
-	size_t outSize = encLen + (2 * strlen(headerString)) + 200;
-	*outData = (unsigned char *)malloc(outSize);
-	sprintf((char *)*outData, "-----BEGIN %s-----\n%s-----END %s-----\n",
+        asprintf((char **)outData, "-----BEGIN %s-----\n%s-----END %s-----\n",
 		headerString, (char *)enc, headerString);
-	*outDataLen = (unsigned int)strlen((char *)*outData);
-
-	if((*outData)[*outDataLen - 1] == '\0') {
-		(*outDataLen)--;
-	}
+        *outDataLen = (unsigned)strlen((const char *)*outData);
 	free(enc);
 	return 0;
 }

@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@ import re
 import sys
 
 from webkit import parser
-from webkit.model import BUILTIN_ATTRIBUTE, ASYNC_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, MAINTHREADCALLBACK_ATTRIBUTE, STREAM_ATTRIBUTE, WANTS_CONNECTION_ATTRIBUTE, MessageReceiver, Message
+from webkit.model import BUILTIN_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, MAINTHREADCALLBACK_ATTRIBUTE, STREAM_ATTRIBUTE, WANTS_CONNECTION_ATTRIBUTE, MessageReceiver, Message
 
 _license_header = """/*
  * Copyright (C) 2021 Apple Inc. All rights reserved.
@@ -59,6 +59,7 @@ LEGACY_RECEIVER_ATTRIBUTE = 'LegacyReceiver'
 NOT_REFCOUNTED_RECEIVER_ATTRIBUTE = 'NotRefCounted'
 NOT_STREAM_ENCODABLE_ATTRIBUTE = 'NotStreamEncodable'
 NOT_STREAM_ENCODABLE_REPLY_ATTRIBUTE = 'NotStreamEncodableReply'
+STREAM_BATCHED_ATTRIBUTE = 'StreamBatched'
 
 def receiver_enumerator_order_key(receiver_name):
     if receiver_name == 'IPC':
@@ -163,14 +164,14 @@ def reply_arguments_type(message):
 def message_to_reply_forward_declaration(message):
     result = []
 
-    if message.reply_parameters != None and (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)):
+    if message.reply_parameters is not None:
         send_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.reply_parameters]
         completion_handler_parameters = '%s' % ', '.join([' '.join(x) for x in send_parameters])
 
-        if message.has_attribute(ASYNC_ATTRIBUTE):
-            result.append('using %sAsyncReply' % message.name)
-        else:
+        if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
             result.append('using %sDelayedReply' % message.name)
+        else:
+            result.append('using %sAsyncReply' % message.name)
         result.append(' = CompletionHandler<void(%s)>;\n' % completion_handler_parameters)
 
     if not result:
@@ -188,33 +189,32 @@ def message_to_struct_declaration(receiver, message):
     result.append('    using Arguments = %s;\n' % arguments_type(message))
     result.append('\n')
     result.append('    static IPC::MessageName name() { return IPC::MessageName::%s_%s; }\n' % (receiver.name, message.name))
-    result.append('    static constexpr bool isSync = %s;\n' % ('false', 'true')[message.reply_parameters is not None and not message.has_attribute(ASYNC_ATTRIBUTE)])
+    result.append('    static constexpr bool isSync = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(SYNCHRONOUS_ATTRIBUTE)])
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('    static constexpr bool isStreamEncodable = %s;\n' % ('true', 'false')[message.has_attribute(NOT_STREAM_ENCODABLE_ATTRIBUTE)])
         if message.reply_parameters is not None:
             result.append('    static constexpr bool isReplyStreamEncodable = %s;\n' % ('true', 'false')[message.has_attribute(NOT_STREAM_ENCODABLE_REPLY_ATTRIBUTE)])
+            if message.has_attribute(STREAM_BATCHED_ATTRIBUTE):
+                sys.stderr.write("Error: %s::%s has a reply but is marked as batched. Messages with replies are intended to be sent without latency.\n" % (receiver.name, message.name))
+                sys.exit(1)
+        result.append('    static constexpr bool isStreamBatched = %s;\n' % ('false', 'true')[message.has_attribute(STREAM_BATCHED_ATTRIBUTE)])
 
     result.append('\n')
     if message.reply_parameters != None:
         send_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.reply_parameters]
         completion_handler_parameters = '%s' % ', '.join([' '.join(x) for x in send_parameters])
-        if message.has_attribute(ASYNC_ATTRIBUTE):
+        if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
+            result.append('    using DelayedReply = %sDelayedReply;\n' % message.name)
+        else:
             move_parameters = ', '.join([move_type(x.type) for x in message.reply_parameters])
             result.append('    static void callReply(IPC::Decoder&, CompletionHandler<void(%s)>&&);\n' % move_parameters)
             result.append('    static void cancelReply(CompletionHandler<void(%s)>&&);\n' % move_parameters)
             result.append('    static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::%s_%sReply; }\n' % (receiver.name, message.name))
             result.append('    using AsyncReply = %sAsyncReply;\n' % message.name)
-        elif message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
-            result.append('    using DelayedReply = %sDelayedReply;\n' % message.name)
         if message.has_attribute(MAINTHREADCALLBACK_ATTRIBUTE):
             result.append('    static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::MainThread;\n')
         else:
             result.append('    static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;\n')
-        if (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)) and not receiver.has_attribute(STREAM_ATTRIBUTE):
-            result.append('    static void send(UniqueRef<IPC::Encoder>&&, IPC::Connection&')
-            if len(send_parameters):
-                result.append(', %s' % completion_handler_parameters)
-            result.append(');\n')
         result.append('    using Reply = %s;\n' % reply_tuple(message))
         result.append('    using ReplyArguments = %s;\n' % reply_arguments_type(message))
 
@@ -260,11 +260,14 @@ def types_that_cannot_be_forward_declared():
         'IPC::DataReference',
         'IPC::FilterReference',
         'IPC::FontReference',
+        'IPC::PixelBufferReference',
         'IPC::Semaphore',
         'MachSendRight',
         'MediaTime',
         'PlatformXR::ReferenceSpaceType',
+        'PlatformXR::SessionFeature',
         'PlatformXR::SessionMode',
+        'PlatformXR::VisibilityState',
         'String',
         'WebCore::BroadcastChannelIdentifier',
         'WebCore::DestinationColorSpace',
@@ -287,11 +290,14 @@ def types_that_cannot_be_forward_declared():
         'WebCore::NativeImageReference',
         'WebCore::PageIdentifier',
         'WebCore::PlaybackTargetClientContextIdentifier',
+        'WebKit::QuotaIncreaseRequestIdentifier',
         'WebCore::PluginLoadClientPolicy',
         'WebCore::PointerID',
+        'WebCore::PushSubscriptionIdentifier',
         'WebCore::ProcessIdentifier',
         'WebCore::RealtimeMediaSourceIdentifier',
         'WebCore::RenderingMode',
+        'WebCore::RenderingPurpose',
         'WebCore::RenderingResourceIdentifier',
         'WebCore::ResourceLoaderIdentifier',
         'WebCore::SWServerConnectionIdentifier',
@@ -302,9 +308,13 @@ def types_that_cannot_be_forward_declared():
         'WebCore::ServiceWorkerOrClientIdentifier',
         'WebCore::ServiceWorkerRegistrationIdentifier',
         'WebCore::SharedStringHash',
+        'WebCore::SharedWorkerIdentifier',
+        'WebCore::SharedWorkerObjectIdentifier',
         'WebCore::SleepDisablerIdentifier',
         'WebCore::SourceBufferAppendMode',
         'WebCore::SpeechRecognitionConnectionClientIdentifier',
+        'WebCore::StorageType',
+        'WebCore::TransferredMessagePort',
         'WebCore::UserMediaRequestIdentifier',
         'WebCore::WebLockIdentifier',
         'WebCore::WebSocketIdentifier',
@@ -312,6 +322,7 @@ def types_that_cannot_be_forward_declared():
         'WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier',
         'WebKit::AuthenticationChallengeIdentifier',
         'WebKit::ContentWorldIdentifier',
+        'WebKit::DataTaskIdentifier',
         'WebKit::DisplayLinkObserverID',
         'WebKit::DownloadID',
         'WebKit::FileSystemStorageError',
@@ -319,11 +330,13 @@ def types_that_cannot_be_forward_declared():
         'WebKit::GeolocationIdentifier',
         'WebKit::GraphicsContextGLIdentifier',
         'WebKit::ImageBufferBackendHandle',
+        'WebKit::IPCConnectionTesterIdentifier',
         'WebKit::IPCStreamTesterIdentifier',
         'WebKit::LayerHostingContextID',
         'WebKit::LegacyCustomProtocolID',
         'WebKit::LibWebRTCResolverIdentifier',
         'WebKit::MDNSRegisterIdentifier',
+        'WebKit::MarkSurfacesAsVolatileRequestIdentifier',
         'WebKit::MediaRecorderIdentifier',
         'WebKit::NetworkResourceLoadIdentifier',
         'WebKit::PDFPluginIdentifier',
@@ -341,6 +354,9 @@ def types_that_cannot_be_forward_declared():
         'WebKit::RemoteLegacyCDMSessionIdentifier',
         'WebKit::RemoteMediaResourceIdentifier',
         'WebKit::RemoteMediaSourceIdentifier',
+        'WebKit::RemoteVideoFrameIdentifier',
+        'WebKit::RemoteVideoFrameWriteReference',
+        'WebKit::RemoteVideoFrameReadReference',
         'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RemoteSourceBufferIdentifier',
         'WebKit::RenderingBackendIdentifier',
@@ -348,6 +364,7 @@ def types_that_cannot_be_forward_declared():
         'WebKit::SampleBufferDisplayLayerIdentifier',
         'WebKit::StorageAreaIdentifier',
         'WebKit::StorageAreaImplIdentifier',
+        'WebKit::StorageAreaMapIdentifier',
         'WebKit::StorageNamespaceIdentifier',
         'WebKit::TapIdentifier',
         'WebKit::TextCheckerRequestID',
@@ -366,13 +383,13 @@ def types_that_cannot_be_forward_declared():
 def conditions_for_header(header):
     conditions = {
         '"InputMethodState.h"': ["PLATFORM(GTK)", "PLATFORM(WPE)"],
-        '"LayerHostingContext.h"': ["PLATFORM(COCOA)", ],
         '"GestureTypes.h"': ["PLATFORM(IOS_FAMILY)"],
         '"WCContentBufferIdentifier.h"': ["USE(GRAPHICS_LAYER_WC)"],
         '"WCLayerTreeHostIdentifier.h"': ["USE(GRAPHICS_LAYER_WC)"],
         '<WebCore/CVUtilities.h>': ["PLATFORM(COCOA)", ],
         '<WebCore/DataDetectorType.h>': ["ENABLE(DATA_DETECTION)"],
         '<WebCore/MediaPlaybackTargetContext.h>': ["ENABLE(WIRELESS_PLAYBACK_TARGET)"],
+        '<WebCore/VideoFrameCV.h>': ["PLATFORM(COCOA)", ],
     }
     if not header in conditions:
         return None
@@ -455,7 +472,7 @@ def forward_declarations_and_headers_for_replies(receiver):
 
     no_forward_declaration_types = types_that_cannot_be_forward_declared()
     for message in receiver.messages:
-        if message.reply_parameters == None or not (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)):
+        if message.reply_parameters is None:
             continue
 
         for parameter in message.reply_parameters:
@@ -575,7 +592,7 @@ def async_message_statement(receiver, message):
     dispatch_function_args = ['decoder', 'this', '&%s' % handler_function(receiver, message)]
 
     dispatch_function = 'handleMessage'
-    if message.has_attribute(ASYNC_ATTRIBUTE):
+    if message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function += 'Async'
 
     if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
@@ -595,7 +612,7 @@ def sync_message_statement(receiver, message):
     dispatch_function = 'handleMessage'
     if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function += 'Synchronous'
-    if message.has_attribute(ASYNC_ATTRIBUTE):
+    elif message.reply_parameters is not None:
         dispatch_function += 'Async'
     if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
         dispatch_function += 'WantsConnection'
@@ -603,7 +620,7 @@ def sync_message_statement(receiver, message):
     maybe_reply_encoder = ", *replyEncoder"
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         maybe_reply_encoder = ''
-    elif message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE):
+    elif message.reply_parameters is not None:
         maybe_reply_encoder = ', replyEncoder'
 
     result = []
@@ -625,6 +642,8 @@ def class_template_headers(template_string):
         'std::optional': {'headers': ['<optional>'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
         'std::pair': {'headers': ['<utility>'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
         'IPC::ArrayReference': {'headers': ['"ArrayReference.h"'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
+        'IPC::ArrayReferenceTuple': {'headers': ['"ArrayReferenceTuple.h"'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
+        'Ref': {'headers': ['<wtf/Ref.h>'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
         'RefPtr': {'headers': ['<wtf/RefCounted.h>'], 'argument_coder_headers': ['"ArgumentCoders.h"']},
         'RetainPtr': {'headers': ['<wtf/RetainPtr.h>'], 'argument_coder_headers': ['"ArgumentCodersCF.h"']},
     }
@@ -741,7 +760,9 @@ def headers_for_type(type):
         'PAL::WebGPU::VertexStepMode': ['<pal/graphics/WebGPU/WebGPUVertexStepMode.h>'],
         'PlatformXR::Device::FrameData': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::ReferenceSpaceType': ['<WebCore/PlatformXR.h>'],
+        'PlatformXR::SessionFeature': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::SessionMode': ['<WebCore/PlatformXR.h>'],
+        'PlatformXR::VisibilityState': ['<WebCore/PlatformXR.h>'],
         'Seconds': ['<wtf/Seconds.h>'],
         'String': ['<wtf/text/WTFString.h>'],
         'URL': ['<wtf/URLHash.h>'],
@@ -759,7 +780,7 @@ def headers_for_type(type):
         'WebCore::CreateNewGroupForHighlight': ['<WebCore/AppHighlight.h>'],
         'WebCore::DOMPasteAccessCategory': ['<WebCore/DOMPasteAccess.h>'],
         'WebCore::DOMPasteAccessResponse': ['<WebCore/DOMPasteAccess.h>'],
-        'WebCore::DestinationColorSpace': ['<WebCore/ColorSpace.h>'],
+        'WebCore::DictationContext': ['<WebCore/DictationContext.h>'],
         'WebCore::DisplayList::ItemBufferIdentifier': ['<WebCore/DisplayList.h>'],
         'WebCore::DocumentMarkerLineStyle': ['<WebCore/GraphicsTypes.h>'],
         'WebCore::DragApplicationFlags': ['<WebCore/DragData.h>'],
@@ -806,7 +827,6 @@ def headers_for_type(type):
         'WebCore::PasteboardImage': ['<WebCore/Pasteboard.h>'],
         'WebCore::PasteboardURL': ['<WebCore/Pasteboard.h>'],
         'WebCore::PasteboardWebContent': ['<WebCore/Pasteboard.h>'],
-        'WebCore::PaymentAuthorizationResult': ['<WebCore/ApplePaySessionPaymentRequest.h>'],
         'WebCore::PixelFormat': ['<WebCore/ImageBufferBackend.h>'],
         'WebCore::PlatformTextTrackData': ['<WebCore/PlatformTextTrack.h>'],
         'WebCore::PlaybackSessionModel::PlaybackState': ['<WebCore/PlaybackSessionModel.h>'],
@@ -816,8 +836,10 @@ def headers_for_type(type):
         'WebCore::PolicyCheckIdentifier': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::PreserveResolution': ['<WebCore/ImageBufferBackend.h>'],
         'WebCore::ProcessIdentifier': ['<WebCore/ProcessIdentifier.h>'],
+        'WebCore::PushSubscriptionIdentifier': ['<WebCore/PushSubscriptionIdentifier.h>'],
         'WebCore::QuadCurveData': ['<WebCore/InlinePathData.h>'],
         'WebCore::RecentSearch': ['<WebCore/SearchPopupMenu.h>'],
+        'WebCore::RenderingPurpose': ['<WebCore/RenderingMode.h>'],
         'WebCore::RequestStorageAccessResult': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::RouteSharingPolicy': ['<WebCore/AudioSession.h>'],
         'WebCore::SWServerConnectionIdentifier': ['<WebCore/ServiceWorkerTypes.h>'],
@@ -862,6 +884,7 @@ def headers_for_type(type):
         'WebKit::CallDownloadDidStart': ['"DownloadManager.h"'],
         'WebKit::ContentWorldIdentifier': ['"ContentWorldShared.h"'],
         'WebKit::DocumentEditingContextRequest': ['"DocumentEditingContext.h"'],
+        'WebKit::FindDecorationStyle': ['"WebFindOptions.h"'],
         'WebKit::FindOptions': ['"WebFindOptions.h"'],
         'WebKit::FormSubmitListenerIdentifier': ['"IdentifierTypes.h"'],
         'WebKit::GestureRecognizerState': ['"GestureTypes.h"'],
@@ -873,7 +896,11 @@ def headers_for_type(type):
         'WebKit::PageState': ['"SessionState.h"'],
         'WebKit::PaymentSetupConfiguration': ['"PaymentSetupConfigurationWebKit.h"'],
         'WebKit::PaymentSetupFeatures': ['"ApplePayPaymentSetupFeaturesWebKit.h"'],
+        'WebKit::PrepareBackingStoreBuffersInputData': ['"PrepareBackingStoreBuffersData.h"'],
+        'WebKit::PrepareBackingStoreBuffersOutputData': ['"PrepareBackingStoreBuffersData.h"'],
         'WebKit::RespectSelectionAnchor': ['"GestureTypes.h"'],
+        'WebKit::RemoteVideoFrameReadReference': ['"RemoteVideoFrameIdentifier.h"'],
+        'WebKit::RemoteVideoFrameWriteReference': ['"RemoteVideoFrameIdentifier.h"'],
         'WebKit::SelectionFlags': ['"GestureTypes.h"'],
         'WebKit::SelectionTouch': ['"GestureTypes.h"'],
         'WebKit::TapIdentifier': ['"IdentifierTypes.h"'],
@@ -1024,13 +1051,14 @@ def collect_header_conditions_for_receiver(receiver, header_conditions):
 
 def generate_header_includes_from_conditions(header_conditions):
     result = []
+    # FIXME(https://bugs.webkit.org/show_bug.cgi?id=241854): NOLINT due to order not as WebKit expects.
     for header in sorted(header_conditions):
         if header_conditions[header] and not None in header_conditions[header]:
             result.append('#if %s\n' % ' || '.join(sorted(set(header_conditions[header]))))
-            result += ['#include %s\n' % header]
+            result += ['#include %s // NOLINT\n' % header]
             result.append('#endif\n')
         else:
-            result += ['#include %s\n' % header]
+            result += ['#include %s // NOLINT\n' % header]
     return result
 
 
@@ -1055,9 +1083,13 @@ def generate_message_handler(receiver):
     result += generate_header_includes_from_conditions(header_conditions)
     result.append('\n')
 
+    result.append('#if ENABLE(IPC_TESTING_API)\n')
+    result.append('#include "JSIPCBinding.h"\n')
+    result.append("#endif\n\n")
+
     delayed_or_async_messages = []
     for message in receiver.messages:
-        if message.reply_parameters != None and (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)):
+        if message.reply_parameters is not None:
             delayed_or_async_messages.append(message)
 
     if delayed_or_async_messages and not receiver.has_attribute(STREAM_ATTRIBUTE):
@@ -1069,7 +1101,7 @@ def generate_message_handler(receiver):
             if message.condition:
                 result.append('#if %s\n\n' % message.condition)
 
-            if message.has_attribute(ASYNC_ATTRIBUTE):
+            if not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
                 move_parameters = message.name, ', '.join([move_type(x.type) for x in message.reply_parameters])
                 result.append('void %s::callReply(IPC::Decoder& decoder, CompletionHandler<void(%s)>&& completionHandler)\n{\n' % move_parameters)
                 for x in message.reply_parameters:
@@ -1084,15 +1116,6 @@ def generate_message_handler(receiver):
                 result.append(', '.join(['IPC::AsyncReplyError<' + x.type + '>::create()' for x in message.reply_parameters]))
                 result.append(');\n}\n\n')
 
-            result.append('void %s::send(UniqueRef<IPC::Encoder>&& encoder, IPC::Connection& connection' % (message.name))
-            if len(send_parameters):
-                result.append(', %s' % ', '.join([' '.join(x) for x in send_parameters]))
-            result.append(')\n{\n')
-            result += ['    encoder.get() << %s;\n' % x.name for x in message.reply_parameters]
-            result.append('    connection.sendSyncReply(WTFMove(encoder));\n')
-            result.append('}\n')
-            result.append('\n')
-
             if message.condition:
                 result.append('#endif\n\n')
 
@@ -1103,7 +1126,7 @@ def generate_message_handler(receiver):
     async_messages = []
     sync_messages = []
     for message in receiver.messages:
-        if message.reply_parameters is not None and not message.has_attribute(ASYNC_ATTRIBUTE):
+        if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
             sync_messages.append(message)
         else:
             async_messages.append(message)
@@ -1129,7 +1152,7 @@ def generate_message_handler(receiver):
             result.append('#endif // ENABLE(IPC_TESTING_API)\n')
             result.append('    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled stream message %s to %" PRIu64, IPC::description(decoder.messageName()), decoder.destinationID());\n')
         result.append('}\n')
-    elif async_messages or receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE) or receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE):
+    else:
         receive_variant = receiver.name if receiver.has_attribute(LEGACY_RECEIVER_ATTRIBUTE) else ''
         result.append('void %s::didReceive%sMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name, receive_variant))
         result.append('{\n')
@@ -1175,6 +1198,33 @@ def generate_message_handler(receiver):
         result.append('}\n')
 
     result.append('\n} // namespace WebKit\n')
+
+    result.append('\n')
+    result.append('#if ENABLE(IPC_TESTING_API)\n\n')
+    result.append('namespace IPC {\n\n')
+    previous_message_condition = None
+    for message in receiver.messages:
+        if previous_message_condition != message.condition:
+            if previous_message_condition:
+                result.append('#endif\n')
+            if message.condition:
+                result.append('#if %s\n' % message.condition)
+            previous_message_condition = message.condition
+        result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
+        result.append('{\n')
+        result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'Arguments'))
+        result.append('}\n')
+        has_reply = message.reply_parameters is not None
+        if not has_reply:
+            continue
+        result.append('template<> std::optional<JSC::JSValue> jsValueForDecodedMessageReply<MessageName::%s_%s>(JSC::JSGlobalObject* globalObject, Decoder& decoder)\n' % (receiver.name, message.name))
+        result.append('{\n')
+        result.append('    return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, 'ReplyArguments'))
+        result.append('}\n')
+    if previous_message_condition:
+        result.append('#endif\n')
+    result.append('\n}\n\n')
+    result.append('#endif\n\n')
 
     if receiver.condition:
         result.append('\n#endif // %s\n' % receiver.condition)
@@ -1293,7 +1343,7 @@ def generate_message_names_implementation(receivers):
     return ''.join(result)
 
 
-def generate_js_value_conversion_function(result, receivers, function_name, argument_type, predicate=lambda message: True):
+def generate_js_value_conversion_function(result, receivers, function_name, decoder_function_name, argument_type, predicate=lambda message: True):
     result.append('std::optional<JSC::JSValue> %s(JSC::JSGlobalObject* globalObject, MessageName name, Decoder& decoder)\n' % function_name)
     result.append('{\n')
     result.append('    switch (name) {\n')
@@ -1313,7 +1363,7 @@ def generate_js_value_conversion_function(result, receivers, function_name, argu
                     result.append('#if %s\n' % message.condition)
             previous_message_condition = message.condition
             result.append('    case MessageName::%s_%s:\n' % (receiver.name, message.name))
-            result.append('        return jsValueForDecodedArguments<Messages::%s::%s::%s>(globalObject, decoder);\n' % (receiver.name, message.name, argument_type))
+            result.append('        return %s<MessageName::%s_%s>(globalObject, decoder);\n' % (decoder_function_name, receiver.name, message.name))
         if previous_message_condition:
             result.append('#endif\n')
         if receiver.condition:
@@ -1365,7 +1415,7 @@ def generate_js_argument_descriptions(receivers, function_name, arguments_from_m
                 if argument_type.startswith('std::optional<') and argument_type.endswith('>'):
                     argument_type = argument_type[14:-1]
                     is_optional = True
-                result.append('            {"%s", "%s", %s, %s},\n' % (argument.name, argument_type, enum_type or 'nullptr', 'true' if is_optional else 'false'))
+                result.append('            { "%s", "%s", %s, %s },\n' % (argument.name, argument_type, enum_type or 'nullptr', 'true' if is_optional else 'false'))
             result.append('        };\n')
         if previous_message_condition:
             result.append('#endif\n')
@@ -1397,7 +1447,6 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
         header_conditions = {
             '"%s"' % messages_header_filename(receiver): [None]
         }
-        collect_header_conditions_for_receiver(receiver, header_conditions)
         result += generate_header_includes_from_conditions(header_conditions)
         if receiver.condition:
             result.append('#endif\n')
@@ -1409,11 +1458,11 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
     result.append('#if ENABLE(IPC_TESTING_API)\n')
     result.append('\n')
 
-    generate_js_value_conversion_function(result, receivers, 'jsValueForArguments', 'Arguments')
+    generate_js_value_conversion_function(result, receivers, 'jsValueForArguments', 'jsValueForDecodedMessage', 'Arguments')
 
     result.append('\n')
 
-    generate_js_value_conversion_function(result, receivers, 'jsValueForReplyArguments', 'ReplyArguments', lambda message: message.reply_parameters is not None and (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)))
+    generate_js_value_conversion_function(result, receivers, 'jsValueForReplyArguments', 'jsValueForDecodedMessageReply', 'ReplyArguments', lambda message: message.reply_parameters is not None)
 
     result.append('\n')
     result.append('#endif // ENABLE(IPC_TESTING_API)\n')
@@ -1423,7 +1472,7 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
 
     result.append('\n')
 
-    result += generate_js_argument_descriptions(receivers, 'messageReplyArgumentDescriptions', lambda message: message.reply_parameters if message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE) else None)
+    result += generate_js_argument_descriptions(receivers, 'messageReplyArgumentDescriptions', lambda message: message.reply_parameters)
 
     result.append('\n')
 

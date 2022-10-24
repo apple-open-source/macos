@@ -6,7 +6,6 @@
 0755	root	wheel	private/var/db/DumpPanic
 0755	root	wheel	private/var/db/systemstats
 0755	root	wheel	private/var/db/com.apple.dt.automationmode
-0755	root	wheel	System
 0755	root	wheel	System/Developer
 0755	root	wheel	System/Library
 0755	root	wheel	System/Library/CoreServices

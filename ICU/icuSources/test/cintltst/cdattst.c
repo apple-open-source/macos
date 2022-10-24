@@ -636,7 +636,7 @@ static void TestRelativeDateFormat()
 /*Testing udat_getSymbols() and udat_setSymbols() and udat_countSymbols()*/
 static void TestSymbols()
 {
-    UDateFormat *def, *fr, *zhChiCal, *esMX, *esUS;
+    UDateFormat *def, *fr, *zhChiCal, *esMX, *esUS, *msIslamic;
     UErrorCode status = U_ZERO_ERROR;
     UChar *value=NULL;
     UChar *result = NULL;
@@ -690,6 +690,15 @@ static void TestSymbols()
     if(U_FAILURE(status))
     {
         log_data_err("error in creating the dateformat using no date, short time, locale es_US -> %s (Are you missing data?)\n",
+            myErrorName(status) );
+        return;
+    }
+    /*creating a dateformat with ms_MY locale and Islamic calendar */
+    log_verbose("\ncreating a date format with ms_MY locale and Islamic calendar\n");
+    msIslamic = udat_open(UDAT_SHORT, UDAT_NONE, "ms_MY@calendar=islamic", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using no date, short time, locale ms_MY@calendar=islamic -> %s (Are you missing data?)\n",
             myErrorName(status) );
         return;
     }
@@ -774,7 +783,32 @@ static void TestSymbols()
 #else
     VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxrbB");
 #endif
-
+    
+    // Apple <rdar://90771208>
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 0, "Muharam");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 1, "Safar");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 2, "Rabiulawal");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 3, "Rabiulakhir");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 4, "Jamadilawal");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 5, "Jamadilakhir");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 6, "Rejab");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 7, "Syaaban");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 8, "Ramadan");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 9, "Syawal");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 10, "Zulkaedah");
+    VerifygetSymbols(msIslamic, UDAT_MONTHS, 11, "Zulhijah");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 0, "Muh.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 1, "Saf.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 2, "Rab. Awal");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 3, "Rab. Akhir");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 4, "Jum. Awal");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 5, "Jum. Akhir");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 6, "Rej.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 7, "Sya.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 8, "Ram.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 9, "Syaw.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 10, "Zulka.");
+    VerifygetSymbols(msIslamic, UDAT_SHORT_MONTHS, 11, "Zulhi.");
 
     if(result != NULL) {
         free(result);
@@ -2215,7 +2249,9 @@ static const StandardPatternItem stdPatternItems[] = {
     { "ff_Adlm", UDAT_LONG,   UDAT_NONE, u"𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
     { "ff_Adlm", UDAT_MEDIUM, UDAT_NONE, u"𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
     { "ff_Adlm", UDAT_SHORT,  UDAT_NONE, u"𞥒𞥕-𞥒-𞥒𞥐𞥑𞥕" },
-    // terminator
+    // Add tests for Apple <rdar://problem/83113992>
+    { "ca", UDAT_MEDIUM, UDAT_NONE, u"25 febr. 2015" },
+   // terminator
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
 
@@ -2774,7 +2810,7 @@ static const char * remapResults_root[] = {
     "hh:mm:ss a",     //   force12 | match hour field length
     "HH:mm",          // Jmm
     "HH:mm",          //   force24
-    "h:mm a",         //   force12 (before ICU 68 was "hh:mm" which seems wrong*)
+    "hh:mm",          //   force12
     "HH:mm:ss v",     // jmsv
     "HH:mm:ss v",     //   force24
     "h:mm:ss a v",    //   force12
@@ -2900,7 +2936,7 @@ static const char * remapResults_ja[] = {
     "aKK:mm:ss",     //   force12 | match hour field length
     "H:mm",          // Jmm
     "H:mm",          //   force24
-    "aK:mm",         //   force12 (before ICU 68 was "h:mm" which seems wrong*)
+    "K:mm",          //   force12
     "H:mm:ss v",     // jmsv
     "H:mm:ss v",     //   force24
     "aK:mm:ss v",    //   force12
@@ -3026,7 +3062,7 @@ static const char * remapResults_th[] = {
     "hh:mm:ss a",     //   force12 | match hour field length
     "HH:mm",          // Jmm
     "HH:mm",          //   force24
-    "h:mm a",         //   force12 (before ICU 68 was "hh:mm" which seems wrong*)
+    "hh:mm",          //   force12
     "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 v",     // jmsv
     "H \\u0E19\\u0E32\\u0E2C\\u0E34\\u0E01\\u0E32 mm \\u0E19\\u0E32\\u0E17\\u0E35 ss \\u0E27\\u0E34\\u0E19\\u0E32\\u0E17\\u0E35 v",     //   force24
     "h:mm:ss a v",                                                                                                                      //   force12
@@ -3215,7 +3251,7 @@ static const char * remapResults_en_IL[] = {
     "hh:mm:ss a",     //   force12 | match hour field length
     "H:mm",           // Jmm
     "H:mm",           //   force24
-    "h:mm a",          //   force12 (before ICU 68 was "h:mm" which seems wrong*)
+    "h:mm",           //   force12
     "H:mm:ss v",      // jmsv
     "H:mm:ss v",      //   force24
     "h:mm:ss a v",    //   force12
@@ -3467,7 +3503,7 @@ static const char * remapResults_en_BE[] = { // rdar://56309604
     "hh:mm:ss a",     //   force12 | match hour field length
     "HH:mm",          // Jmm
     "HH:mm",          //   force24
-    "h:mm a",         //   force12 (before ICU 68 was "hh:mm" which seems wrong*)
+    "hh:mm",          //   force12
     "HH:mm:ss v",     // jmsv
     "HH:mm:ss v",     //   force24
     "h:mm:ss a v",    //   force12
@@ -3530,7 +3566,7 @@ static const char * remapResults_en_BE_japanese[] = { // rdar://56309604
     "hh:mm:ss a",     //   force12 | match hour field length
     "HH:mm",          // Jmm
     "HH:mm",          //   force24
-    "h:mm a",         //   force12 (before ICU 68 was "hh:mm" which seems wrong*)
+    "hh:mm",          //   force12
     "HH:mm:ss v",     // jmsv
     "HH:mm:ss v",     //   force24
     "h:mm:ss a v",    //   force12

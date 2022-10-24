@@ -207,6 +207,7 @@ const int kNumFixedMenuItems = 2;
 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
 {
+    NSLog(@"MBCGameInfo sideToPlay:%d", sideToPlay);
     [self removeChessObservers];
     NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
 	[notificationCenter 
@@ -360,6 +361,7 @@ const int kNumFixedMenuItems = 2;
 
 - (IBAction) editInfo:(id)sender
 {
+    NSLog(@"MBCGameInfo editInfo:");
     [self editProperties:fEditSheet modalForWindow:[sender window]];
 }
 

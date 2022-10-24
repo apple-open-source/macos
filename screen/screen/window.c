@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #ifdef __APPLE__
 #include <unistd.h>
-#endif __APPLE__
+#endif /* __APPLE__ */
 #ifndef sun
 # include <sys/ioctl.h>
 #endif

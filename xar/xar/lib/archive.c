@@ -111,6 +111,7 @@ static xar_t xar_new() {
 		free((void *)ret);
 		return NULL;
 	}
+	XAR(ret)->fd = -1;
 	XAR(ret)->offset = 0;
 
 	XAR(ret)->zs.zalloc = Z_NULL;
@@ -396,9 +397,17 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 		uint64_t offset = 0;
 		uint64_t length = 0;
 		if( xar_prop_get( XAR_FILE(ret) , "checksum/offset", &value) == 0 ) {
-			errno = 0;
-			offset = strtoull( value, (char **)NULL, 10);
-			if( errno != 0 ) {
+			
+			if (value) {
+				errno = 0;
+				offset = strtoull( value, (char **)NULL, 10);
+				if( errno != 0 ) {
+					fprintf(stderr, "checksum/offset missing or invalid!\n");
+					xar_close(ret);
+					return NULL;
+				}
+			} else {
+				fprintf(stderr, "checksum/offset missing or invalid!\n");
 				xar_close(ret);
 				return NULL;
 			}
@@ -415,9 +424,17 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 			return NULL;
 		}
 		if( xar_prop_get( XAR_FILE(ret) , "checksum/size", &value) == 0 ) {
-			errno = 0;
-			length = strtoull( value, (char **)NULL, 10);
-			if( errno != 0 ) {
+			
+			if (value) {
+				errno = 0;
+				length = strtoull( value, (char **)NULL, 10);
+				if( errno != 0 ) {
+					fprintf(stderr, "checksum/size missing or invalid!\n");
+					xar_close(ret);
+					return NULL;
+				}
+			} else {
+				fprintf(stderr, "checksum/size missing or invalid!\n");
 				xar_close(ret);
 				return NULL;
 			}
@@ -1169,7 +1186,7 @@ static xar_file_t xar_add_r(xar_t x, xar_file_t f, const char *path, const char 
 	for( i = start; i; i = XAR_FILE(i)->next ) {
 		const char *n;
 		xar_prop_get(i, "name", &n);
-		if( strcmp(n, tmp3) == 0 ) {
+		if(n && strcmp(n, tmp3) == 0 ) {
 			if( !tmp2 ) {
 				/* Node already exists, and it is i */
 				free(tmp1);
@@ -1429,8 +1446,8 @@ int32_t xar_extract_tobuffersz(xar_t x, xar_file_t f, char **buffer, size_t *siz
 	const char *sizestring = NULL;
 	int32_t ret;
 	
-	if(0 != xar_prop_get(f,"data/size",&sizestring)){
-		if(0 != xar_prop_get(f, "type", &sizestring))
+	if(0 != xar_prop_get_expect_notnull(f,"data/size",&sizestring)){
+		if(0 != xar_prop_get_expect_notnull(f, "type", &sizestring))
 			return -1;
 		if(strcmp(sizestring, "file") == 0) {
 			*size = 0;
@@ -1764,4 +1781,9 @@ static int32_t xar_unserialize(xar_t x) {
 		
 	xmlFreeTextReader(reader);
 	return 0;
+}
+
+int xar_get_archive_fd(xar_t x)
+{
+	return XAR(x)->fd;
 }

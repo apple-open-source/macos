@@ -25,11 +25,46 @@
 #import "supdProtocol.h"
 #import "trust/trustd/trustdFileLocations.h"
 
+@class SFAnalyticsSQLiteStore;
+
 @interface SFAnalyticsClient: NSObject
-@property (nonatomic) NSString* storePath;
-@property (nonatomic) NSString* name;
-@property (atomic) BOOL requireDeviceAnalytics;
-@property (atomic) BOOL requireiCloudAnalytics;
+
+/// Returns an analytics client with the given name, if one already exists, or
+/// creates and returns a new client with the given path and analytics settings
+/// if not.
++ (SFAnalyticsClient *)getSharedClientNamed:(NSString *)name
+                      orCreateWithStorePath:(NSString *)storePath
+                     requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+                     requireiCloudAnalytics:(BOOL)requireiCloudAnalytics;
+
++ (instancetype)new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
+
+//// Creates a client with a new store, name, and analytics settings.
+- (instancetype)initWithStorePath:(NSString*)path
+                             name:(NSString*)name
+           requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+           requireiCloudAnalytics:(BOOL)requireiCloudAnalytics;
+
+/// Creates a client with the same underlying store and dispatch queue as an
+/// existing client, but with a new name and analytics settings.
+- (instancetype)initFromExistingClient:(SFAnalyticsClient *)client
+                                  name:(NSString*)name
+                requireDeviceAnalytics:(BOOL)requireDeviceAnalytics
+                requireiCloudAnalytics:(BOOL)requireiCloudAnalytics;
+
+/// Calls the given block with the underlying store.
+///
+/// Safety: The block must not re-entrantly call `-withStore:` on this client
+/// (this will deadlock), and must not retain the store after returning (this
+/// isn't thread-safe).
+- (void)withStore:(void (^ NS_NOESCAPE)(SFAnalyticsSQLiteStore *store))block;
+
+@property (readonly, nonatomic) NSString* storePath;
+@property (readonly, nonatomic) NSString* name;
+@property (readonly, nonatomic) BOOL requireDeviceAnalytics;
+@property (readonly, nonatomic) BOOL requireiCloudAnalytics;
+
 @end
 
 @interface SFAnalyticsTopic : NSObject <NSURLSessionDelegate>
@@ -55,6 +90,7 @@
 + (NSString*)databasePathForNetworking;
 + (NSString*)databasePathForSignIn;
 + (NSString*)databasePathForCloudServices;
++ (NSString*)databasePathForTransparency;
 
 #if TARGET_OS_OSX
 + (NSString*)databasePathForRootTrust;

@@ -160,7 +160,12 @@ tiny_free_list_check(rack_t *rack, grain_t slot, unsigned counter);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, msize_t msize, boolean_t partial_free);
+tiny_check(rack_t *rack, unsigned counter);
+
+MALLOC_NOEXPORT
+boolean_t
+tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
+		region_t region, void *ptr, msize_t msize, uint32_t flags);
 
 MALLOC_NOEXPORT
 size_t
@@ -394,8 +399,8 @@ medium_madvise_pressure_relief(rack_t *rack);
 // MARK: large region allocator functions
 
 MALLOC_NOEXPORT
-void
-free_large(szone_t *szone, void *ptr);
+bool
+free_large(szone_t *szone, void *ptr, bool try);
 
 MALLOC_NOEXPORT
 void
@@ -425,6 +430,13 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 MALLOC_NOEXPORT
 boolean_t
 large_claimed_address(szone_t *szone, void *ptr);
+
+#if CONFIG_LARGE_CACHE
+MALLOC_NOEXPORT
+void
+large_destroy_cache(szone_t *szone);
+#endif // CONFIG_LARGE_CACHE
+
 
 MALLOC_NOEXPORT
 void

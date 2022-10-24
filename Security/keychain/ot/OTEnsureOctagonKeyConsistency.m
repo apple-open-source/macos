@@ -95,8 +95,8 @@
     }
 
     OctagonCKKSPeerAdapter* octagonAdapter = [[OctagonCKKSPeerAdapter alloc] initWithPeerID:octagonPeerID
-                                                                              containerName:self.deps.containerName
-                                                                                  contextID:self.deps.contextID
+                                                                               specificUser:self.deps.activeAccount
+                                                                             personaAdapter:self.deps.personaAdapter
                                                                               cuttlefishXPC:self.deps.cuttlefishXPCWrapper];
 
     secnotice("octagon", "Fetched SOS Self! Fetching Octagon Adapter now: %@", octagonAdapter);

@@ -418,18 +418,18 @@ void ResourceHandle::willSendRequest(ResourceRequest&& request, ResourceResponse
             request.setHTTPMethod(lastHTTPMethod);
     
             FormData* body = d->m_firstRequest.httpBody();
-            if (!equalLettersIgnoringASCIICase(lastHTTPMethod, "get") && body && !body->isEmpty())
+            if (!equalLettersIgnoringASCIICase(lastHTTPMethod, "get"_s) && body && !body->isEmpty())
                 request.setHTTPBody(body);
 
             String originalContentType = d->m_firstRequest.httpContentType();
             if (!originalContentType.isEmpty())
                 request.setHTTPHeaderField(HTTPHeaderName::ContentType, originalContentType);
         }
-    } else if (redirectResponse.httpStatusCode() == 303 && equalLettersIgnoringASCIICase(d->m_firstRequest.httpMethod(), "head")) // FIXME: (rdar://problem/13706454).
+    } else if (redirectResponse.httpStatusCode() == 303 && equalLettersIgnoringASCIICase(d->m_firstRequest.httpMethod(), "head"_s)) // FIXME: (rdar://problem/13706454).
         request.setHTTPMethod("HEAD"_s);
 
     // Should not set Referer after a redirect from a secure resource to non-secure one.
-    if (!request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https") && d->m_context->shouldClearReferrerOnHTTPSToHTTPRedirect())
+    if (!request.url().protocolIs("https"_s) && protocolIs(request.httpReferrer(), "https"_s) && d->m_context->shouldClearReferrerOnHTTPSToHTTPRedirect())
         request.clearHTTPReferrer();
 
     const URL& url = request.url();
@@ -438,15 +438,16 @@ void ResourceHandle::willSendRequest(ResourceRequest&& request, ResourceResponse
     d->m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
 
+    if (auto authorization = d->m_firstRequest.httpHeaderField(HTTPHeaderName::Authorization); !authorization.isNull()
+        && protocolHostAndPortAreEqual(d->m_firstRequest.url(), request.url()))
+        request.setHTTPHeaderField(HTTPHeaderName::Authorization, authorization);
+
     if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url())) {
         // The network layer might carry over some headers from the original request that
         // we want to strip here because the redirect is cross-origin.
         request.clearHTTPAuthorization();
         request.clearHTTPOrigin();
     } else {
-        if (auto authorization = d->m_firstRequest.httpHeaderField(HTTPHeaderName::Authorization); !authorization.isNull())
-            request.setHTTPHeaderField(HTTPHeaderName::Authorization, authorization);
-
         // Only consider applying authentication credentials if this is actually a redirect and the redirect
         // URL didn't include credentials of its own.
         if (d->m_user.isEmpty() && d->m_password.isEmpty() && !redirectResponse.isNull()) {

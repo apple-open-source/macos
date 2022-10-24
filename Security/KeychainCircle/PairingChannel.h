@@ -30,6 +30,7 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 @property (strong) NSString *osVersion;
 @property (strong) NSString *uniqueDeviceID;
 @property (strong) NSString *uniqueClientID;
+@property (strong) NSString *altDSID;
 @property (strong) KCPairingIntent_Type intent;
 @end
 
@@ -56,6 +57,8 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 /* for tests cases only */
 - (void)setXPCConnectionObject:(NSXPCConnection *)connection;
 - (void)setControlObject:(id)control;
+
+- (void)setSessionControlArguments:(id)controlArguments;
 - (void)setConfiguration:(id)config;
 - (void)setSOSMessageFailForTesting:(BOOL)value;
 - (void)setOctagonMessageFailForTesting:(BOOL)value;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -52,7 +52,16 @@
 
 static void command_specific_help(void) __dead2;
 
+static void
+help_create_vlan(void) __dead2;
+
+static void
+help_create_bridge(void) __dead2;
+
 #define countof(array)	(sizeof(array) / sizeof(array[0]))
+
+#define kOptAutoConfigure	"auto-configure"
+#define OPT_AUTO_CONFIGURE	'a'
 
 #define kOptAddress		"address"
 #define OPT_ADDRESS		'A'
@@ -80,6 +89,9 @@ static void command_specific_help(void) __dead2;
 
 #define kOptInterface		"interface"
 #define OPT_INTERFACE		'i'
+
+#define kOptBridgeMember	"bridge-member"
+#define OPT_BRIDGE_MEMBER	'b'
 
 #define kOptInterfaceType	"interface-type"
 #define OPT_INTERFACE_TYPE	't'
@@ -135,6 +147,13 @@ static struct option longopts[] = {
 };
 
 static const char * 	G_argv0;
+
+static Boolean
+array_contains_value(CFArrayRef array, CFTypeRef val)
+{
+	CFRange	r = CFRangeMake(0, CFArrayGetCount(array));
+	return (CFArrayContainsValue(array, r, val));
+}
 
 static CFMutableArrayRef
 array_create(void)
@@ -271,6 +290,36 @@ file_exists(const char * filename)
 	return (TRUE);
 }
 
+static Boolean
+get_bool_from_string(const char * str, Boolean * ret_val_p,
+		     char opt, const char * opt_string)
+{
+	Boolean		success = FALSE;
+
+	if (str == NULL) {
+		return (FALSE);
+	}
+	if (strcasecmp(str, "true") == 0
+	    || strcasecmp(str, "yes") == 0
+	    || strcmp(str, "1") == 0) {
+		*ret_val_p = TRUE;
+		success = TRUE;
+	}
+	else if (strcasecmp(str, "false") == 0
+		 || strcasecmp(str, "no") == 0
+		 || strcmp(str, "0") == 0) {
+		*ret_val_p = FALSE;
+		success = TRUE;
+	}
+	else {
+		fprintf(stderr,
+			"invalid value for %-c/%s, must be "
+			"( true | yes | 1 ) or ( false | no | 0 )\n",
+			opt, opt_string);
+	}
+	return (success);
+}
+
 /*
  * StringMap
  * - map between C string and CFString
@@ -367,11 +416,64 @@ string_array_get_index_of_value(const char * * strlist, unsigned int count,
 	return (where);
 }
 
+static int
+string_array_get_index_of_prefix(const char * * strlist, unsigned int count,
+				 const char * str)
+{
+	int	where = -1;
+
+	for (unsigned int i = 0; i < count; i++) {
+		size_t	len = strlen(strlist[i]);
+
+		if (strncasecmp(str, strlist[i], len) == 0) {
+			where = (int)i;
+			break;
+		}
+	}
+	return (where);
+}
+
 #define STRING_ARRAY_GET_INDEX_OF_VALUE(array, str) \
 	string_array_get_index_of_value(array, countof(array), str)
 
+#define STRING_ARRAY_GET_INDEX_OF_PREFIX(array, str) \
+	string_array_get_index_of_prefix(array, countof(array), str)
+
 #define STRING_ARRAY_GET(array, index)			\
 	string_array_get(array, countof(array), index)
+
+typedef enum {
+      kInterfaceTypeNone = 0,
+      kInterfaceTypeVLAN = 1,
+      kInterfaceTypeBridge = 2,
+} InterfaceType;
+
+static const char * interface_type_strings[] = {
+	"vlan",
+	"bridge",
+};
+
+static InterfaceType
+InterfaceTypeFromString(const char * str)
+{
+	InterfaceType	type;
+
+	type = (InterfaceType)
+		(STRING_ARRAY_GET_INDEX_OF_VALUE(interface_type_strings, str)
+		 + 1);
+	return (type);
+}
+
+static InterfaceType
+InterfaceTypeFromPrefix(const char * str)
+{
+	InterfaceType	type;
+
+	type = (InterfaceType)
+		(STRING_ARRAY_GET_INDEX_OF_PREFIX(interface_type_strings, str)
+		 + 1);
+	return (type);
+}
 
 /*
  * Commands
@@ -387,6 +489,7 @@ typedef enum {
 	kCommandCreate		= 7,	/* create an interface */
 	kCommandDestroy 	= 8,	/* destroy an interface */
 	kCommandSetVLAN		= 9,	/* set VLAN params */
+	kCommandSetBridge	= 10,	/* set bridge params */
 } Command;
 
 static Command 		G_command;
@@ -401,6 +504,7 @@ static const char * command_strings[] = {
 	"create",
 	"destroy",
 	"setvlan",
+	"setbridge",
 };
 
 static const char *
@@ -1099,23 +1203,14 @@ create_service(SCPreferencesRef prefs, SCNetworkInterfaceRef netif)
 }
 
 static Boolean
-remove_service(SCPreferencesRef prefs, SCNetworkServiceRef service)
+remove_service(SCNetworkServiceRef service)
 {
-	SCNetworkSetRef		current_set;
 	Boolean			success = FALSE;
 
-	current_set = SCNetworkSetCopyCurrent(prefs);
-	if (current_set == NULL) {
-		fprintf(stderr, "No current set\n");
-		goto done;
-	}
-	success = SCNetworkSetRemoveService(current_set, service);
-	CFRelease(current_set);
+	success = SCNetworkServiceRemove(service);
 	if (!success) {
-		show_scerror("Failed to remove service from current set");
-		goto done;
+		show_scerror("Failed to remove service");
 	}
- done:
 	return (success);
 					    
 }
@@ -1195,6 +1290,135 @@ service_establish_default(SCNetworkServiceRef service)
 }
 
 static SCNetworkInterfaceRef
+array_copy_netif_with_name(CFArrayRef list, CFStringRef match_name,
+			   Boolean bsd_name_only)
+{
+	SCNetworkInterfaceRef	ret_netif = NULL;
+
+	for (CFIndex i = 0, count = CFArrayGetCount(list);
+	     i < count; i++) {
+		CFStringRef		name;
+		SCNetworkInterfaceRef	netif;
+
+		netif = (SCNetworkInterfaceRef)
+			CFArrayGetValueAtIndex(list, i);
+		name = SCNetworkInterfaceGetBSDName(netif);
+		if (name != NULL && CFEqual(match_name, name)) {
+			ret_netif = netif;
+			CFRetain(ret_netif);
+			break;
+		}
+		if (bsd_name_only) {
+			continue;
+		}
+		name = SCNetworkInterfaceGetLocalizedDisplayName(netif);
+		if (name != NULL && CFEqual(match_name, name)) {
+			ret_netif = netif;
+			CFRetain(ret_netif);
+			break;
+		}
+	}
+	return (ret_netif);
+}
+
+static SCNetworkInterfaceRef
+copy_bridge_interface(SCPreferencesRef prefs, CFStringRef bridge_name)
+{
+	CFArrayRef		list;
+	SCNetworkInterfaceRef	ret_netif = NULL;
+
+	list = SCBridgeInterfaceCopyAll(prefs);
+	if (list != NULL) {
+		ret_netif = array_copy_netif_with_name(list, bridge_name,
+						       FALSE);
+		CFRelease(list);
+	}
+	return (ret_netif);
+}
+
+static void
+report_unavailable_interface(CFStringRef name_cf, CFArrayRef available,
+			     const char * msg)
+{
+	unsigned int 	index;
+	char		name[IFNAMSIZ];
+
+	CFStringGetCString(name_cf, name, sizeof(name),
+			   kCFStringEncodingUTF8);
+	if (available == NULL) {
+		fprintf(stderr,	"'%s' is unavailable for %s\n", name, msg);
+		return;
+	}
+	index = if_nametoindex(name);
+	if (index == 0) {
+		fprintf(stderr, "'%s' does not exist", name);
+	}
+	else {
+		fprintf(stderr,	"'%s' is unavailable for %s", name, msg);
+	}
+	fprintf(stderr, ", available interfaces are: ");
+	for (CFIndex i = 0, count = CFArrayGetCount(available);
+	     i < count; i++) {
+		SCNetworkInterfaceRef	this;
+		this = (SCNetworkInterfaceRef)
+			CFArrayGetValueAtIndex(available, i);
+		SCPrint(TRUE, stderr,
+			CFSTR("%s%@"),
+			i == 0 ? "" : ", ",
+			SCNetworkInterfaceGetBSDName(this));
+	}
+	fprintf(stderr, "\n");
+}
+
+static CFArrayRef
+copy_bridge_member_interfaces(SCBridgeInterfaceRef bridge_netif,
+			      SCPreferencesRef prefs, CFArrayRef members)
+{
+	CFArrayRef		available;
+	CFArrayRef		current = NULL;
+	CFMutableArrayRef	netif_members = NULL;
+
+	available = SCBridgeInterfaceCopyAvailableMemberInterfaces(prefs);
+	if (available != NULL && CFArrayGetCount(available) == 0) {
+		my_CFRelease(&available);
+	}
+	if (bridge_netif != NULL) {
+		current = SCBridgeInterfaceGetMemberInterfaces(bridge_netif);
+	}
+	if (available == NULL && current == NULL) {
+		fprintf(stderr, "No available member interfaces for bridge\n");
+		goto done;
+	}
+	for (CFIndex i = 0, count = CFArrayGetCount(members); i < count; i++) {
+		CFStringRef		name;
+		SCNetworkInterfaceRef	netif = NULL;
+
+		name = (CFStringRef)CFArrayGetValueAtIndex(members, i);
+		if (current != NULL) {
+			netif = array_copy_netif_with_name(current,
+							   name, TRUE);
+		}
+		if (netif == NULL && available != NULL) {
+			netif = array_copy_netif_with_name(available,
+							   name, TRUE);
+		}
+		if (netif == NULL) {
+			report_unavailable_interface(name, available, "bridge");
+			my_CFRelease(&netif_members);
+			goto done;
+		}
+		if (netif_members == NULL) {
+			netif_members = array_create();
+		}
+		CFArrayAppendValue(netif_members, netif);
+		CFRelease(netif);
+	}
+ done:
+	my_CFRelease(&available);
+	return (netif_members);
+}
+
+static SCNetworkInterfaceRef
 copy_vlan_interface(SCPreferencesRef prefs, CFStringRef vlan_name)
 {
 	CFArrayRef		list;
@@ -1202,27 +1426,8 @@ copy_vlan_interface(SCPreferencesRef prefs, CFStringRef vlan_name)
 
 	list = SCVLANInterfaceCopyAll(prefs);
 	if (list != NULL) {
-		for (CFIndex i = 0, count = CFArrayGetCount(list);
-		     i < count; i++) {
-			CFStringRef		name;
-			SCNetworkInterfaceRef	netif;
-
-			netif = (SCNetworkInterfaceRef)
-				CFArrayGetValueAtIndex(list, i);
-			name = SCNetworkInterfaceGetBSDName(netif);
-			if (name != NULL && CFEqual(vlan_name, name)) {
-				ret_netif = netif;
-				break;
-			}
-			name = SCNetworkInterfaceGetLocalizedDisplayName(netif);
-			if (name != NULL && CFEqual(vlan_name, name)) {
-				ret_netif = netif;
-				break;
-			}
-		}
-		if (ret_netif != NULL) {
-			CFRetain(ret_netif);
-		}
+		ret_netif = array_copy_netif_with_name(list, vlan_name,
+						       FALSE);
 		CFRelease(list);
 	}
 	return (ret_netif);
@@ -1239,21 +1444,7 @@ copy_vlan_physical_interface(CFStringRef physical)
 		fprintf(stderr, "No available physical interfaces for VLAN\n");
 		goto done;
 	}
-	for (CFIndex i = 0, count = CFArrayGetCount(list); i < count; i++) {
-		SCNetworkInterfaceRef	this;
-		CFStringRef		name;
-
-		this = (SCNetworkInterfaceRef)CFArrayGetValueAtIndex(list, i);
-		name = SCNetworkInterfaceGetBSDName(this);
-		if (name == NULL) {
-			continue;
-		}
-		if (CFEqual(physical, name)) {
-			CFRetain(this);
-			netif = this;
-			break;
-		}
-	}
+	netif = array_copy_netif_with_name(list, physical, TRUE);
 	CFRelease(list);
  done:
 	return (netif);
@@ -1856,7 +2047,7 @@ static void
 print_invalid_interface_type(const char * arg)
 {
 	fprintf(stderr,
-		"Invalid %s '%s', must be vlan\n",
+		"Invalid %s '%s', must be 'vlan' or 'bridge'\n",
 		kOptInterfaceType, arg);
 }
 
@@ -2318,7 +2509,7 @@ do_remove_enable_disable(int argc, char * argv[])
 	if (!changed) {
 		success = FALSE;
 		if (G_command == kCommandRemove) {
-			success = remove_service(prefs, service);
+			success = remove_service(service);
 		}
 		else if (G_command == kCommandEnable) {
 			success = enable_service(service);
@@ -2336,6 +2527,7 @@ do_remove_enable_disable(int argc, char * argv[])
 	CFRelease(str);
 	commit_apply(prefs);
 	CFRelease(service);
+	CFRelease(prefs);
 }
 
 /**
@@ -2759,7 +2951,7 @@ do_show(int argc, char * argv[])
 
  done:
 	my_CFRelease(&set);
-	my_CFRelease(&prefs);
+	CFRelease(prefs);
 	return;
 }
 
@@ -2767,11 +2959,133 @@ do_show(int argc, char * argv[])
 /**
  ** Create
  **/
-#define CREATE_OPTSTRING	"hI:N:P:t:"
+#define CREATE_OPTSTRING	"a:b:hI:N:P:t:"
+
+static SCNetworkInterfaceRef
+create_bridge(SCPreferencesRef prefs, int argc, char * argv[])
+{
+	Boolean			auto_configure = FALSE;
+	SCBridgeInterfaceRef	bridge_netif;
+	int			ch;
+	CFStringRef		member_name;
+	CFMutableArrayRef	members = NULL;
+	CFStringRef		name = NULL;
+	CFArrayRef		netif_members;
+
+	while (TRUE) {
+		Boolean	success = FALSE;
+
+		ch = getopt_long(argc, argv, CREATE_OPTSTRING, longopts, NULL);
+		if (ch == -1) {
+			break;
+		}
+		switch (ch) {
+		case OPT_AUTO_CONFIGURE:
+			if (!get_bool_from_string(optarg, &auto_configure,
+						  OPT_AUTO_CONFIGURE,
+						  kOptAutoConfigure)) {
+				help_create_bridge();
+			}
+			success = TRUE;
+			break;
+		case OPT_NAME:
+			if (name != NULL) {
+				fprintf(stderr, "%s specified multiple times\n",
+					kOptName);
+				break;
+			}
+			name = my_CFStringCreate(optarg);
+			success = TRUE;
+			break;
+		case OPT_INTERFACE_TYPE:
+			fprintf(stderr,
+				"%s may only be specified once\n",
+				kOptInterfaceType);
+			break;
+		case OPT_BRIDGE_MEMBER:
+			member_name = my_CFStringCreate(optarg);
+			if (members == NULL) {
+				members = array_create();
+			}
+			else if (array_contains_value(members, member_name)) {
+				CFRelease(member_name);
+				fprintf(stderr,
+					"member '%s' already specified\n",
+					optarg);
+				break;
+			}
+			CFArrayAppendValue(members, member_name);
+			CFRelease(member_name);
+			success = TRUE;
+			break;
+		default:
+			break;
+		}
+		if (!success) {
+			command_specific_help();
+		}
+	}
+	if (optind < argc) {
+		fprintf(stderr, "Extra command-line arguments\n");
+		exit(EX_USAGE);
+	}
+	if (members == NULL) {
+		fprintf(stderr, "-%c/--%s must be specified at least once\n",
+			OPT_BRIDGE_MEMBER, kOptBridgeMember);
+		help_create_bridge();
+	}
+	netif_members = copy_bridge_member_interfaces(NULL, prefs, members);
+	my_CFRelease(&members);
+	if (netif_members == NULL) {
+		exit(EX_USAGE);
+	}
+	bridge_netif = SCBridgeInterfaceCreate(prefs);
+	if (bridge_netif == NULL) {
+		fprintf(stderr, "Failed to create bridge interface: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+
+	if (!auto_configure) {
+		/* don't auto-configure */
+		SCNetworkInterfaceSetAutoConfigure(bridge_netif, FALSE);
+
+		/* allow members to have configured services */
+		SCBridgeInterfaceSetAllowConfiguredMembers(bridge_netif, TRUE);
+		if (SCBridgeInterfaceGetAllowConfiguredMembers(bridge_netif) == FALSE) {
+			fprintf(stderr, "WTF?\n");
+		}
+	}
+
+	/* set members */
+	if (netif_members != NULL) {
+		if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
+							  netif_members)) {
+			fprintf(stderr, "Failed to set member list: %s\n",
+				SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		CFRelease(netif_members);
+	}
+
+	/* set display name if specified */
+	if (name != NULL) {
+		if (!SCBridgeInterfaceSetLocalizedDisplayName(bridge_netif,
+							      name)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to set bridge name to '%@', %s\n"),
+				name, SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		CFRelease(name);
+	}
+	return (bridge_netif);
+}
 
 static SCNetworkInterfaceRef
 create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 {
+	Boolean			auto_configure = TRUE;
 	int			ch;
 	CFStringRef		name = NULL;
 	SCNetworkInterfaceRef	netif;
@@ -2788,6 +3102,14 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 			break;
 		}
 		switch (ch) {
+		case OPT_AUTO_CONFIGURE:
+			if (!get_bool_from_string(optarg, &auto_configure,
+						  OPT_AUTO_CONFIGURE,
+						  kOptAutoConfigure)) {
+				break;
+			}
+			success = TRUE;
+			break;
 		case OPT_NAME:
 			if (name != NULL) {
 				fprintf(stderr, "%s specified multiple times\n",
@@ -2807,6 +3129,7 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 				fprintf(stderr,
 					"%s specified multiple times\n",
 					kOptVLANID);
+				break;
 			}
 			vlan_id = optarg;
 			success = TRUE;
@@ -2816,6 +3139,7 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 				fprintf(stderr,
 					"%s specified multiple times\n",
 					kOptVLANDevice);
+				break;
 			}
 			vlan_device = optarg;
 			success = TRUE;
@@ -2824,7 +3148,7 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 			break;
 		}
 		if (!success) {
-			command_specific_help();
+			help_create_vlan();
 		}
 	}
 	if (optind < argc) {
@@ -2834,7 +3158,7 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 	if (vlan_id == NULL || vlan_device == NULL) {
 		fprintf(stderr, "Both -%c and -%c must be specified\n",
 			OPT_VLAN_ID, OPT_VLAN_DEVICE);
-		command_specific_help();
+		help_create_vlan();
 	}
 	netif = copy_vlan_device_and_id(vlan_id, vlan_device, &vlan_id_cf);
 	if (netif == NULL) {
@@ -2845,6 +3169,10 @@ create_vlan(SCPreferencesRef prefs, int argc, char * argv[])
 		fprintf(stderr, "Failed to create VLAN interface: %s\n",
 			SCErrorString(SCError()));
 		exit(EX_SOFTWARE);
+	}
+	if (!auto_configure) {
+		/* don't auto-configure */
+		SCNetworkInterfaceSetAutoConfigure(vlan_netif, FALSE);
 	}
 	if (name != NULL
 	    && !SCVLANInterfaceSetLocalizedDisplayName(vlan_netif, name)) {
@@ -2870,6 +3198,7 @@ do_create(int argc, char * argv[])
 	int			ch;
 	SCNetworkInterfaceRef	netif;
 	SCPreferencesRef	prefs = prefs_create();
+	InterfaceType		type;
 
 	ch = getopt_long(argc, argv, CREATE_OPTSTRING, longopts, NULL);
 	switch (ch) {
@@ -2877,23 +3206,30 @@ do_create(int argc, char * argv[])
 		command_specific_help();
 
 	case OPT_INTERFACE_TYPE:
-		if (strcasecmp(optarg, "vlan") != 0) {
-			print_invalid_interface_type(optarg);
-			exit(EX_USAGE);
-		}
+		type = InterfaceTypeFromString(optarg);
 		break;
 	default:
 		fprintf(stderr, "-%c must first be specified\n",
 			OPT_INTERFACE_TYPE);
 		command_specific_help();
 	}
-	netif = create_vlan(prefs, argc, argv);
+	switch (type) {
+	case kInterfaceTypeVLAN:
+		netif = create_vlan(prefs, argc, argv);
+		break;
+	case kInterfaceTypeBridge:
+		netif = create_bridge(prefs, argc, argv);
+		break;
+	case kInterfaceTypeNone:
+		print_invalid_interface_type(optarg);
+		exit(EX_USAGE);
+	}
 	commit_apply(prefs);
 	SCPrint(TRUE, stdout,
 		CFSTR("Created %@\n"),
 		SCNetworkInterfaceGetBSDName(netif));
 	CFRelease(netif);
-	my_CFRelease(&prefs);
+	CFRelease(prefs);
 	return;
 }
 
@@ -2901,7 +3237,7 @@ do_create(int argc, char * argv[])
  ** Destroy
  **/
 
-#define DESTROY_OPTSTRING	"hi:"
+#define DESTROY_OPTSTRING	"hi:t:"
 
 /*
  * Function: do_destroy
@@ -2912,19 +3248,65 @@ static void
 do_destroy(int argc, char * argv[])
 {
 	int			ch;
-	CFStringRef		name;
-	SCNetworkInterfaceRef	netif;
+	CFStringRef		ifname = NULL;
+	SCNetworkInterfaceRef	netif = NULL;
 	SCPreferencesRef	prefs = prefs_create();
+	InterfaceType		type = kInterfaceTypeNone;
+	const char *		type_str = NULL;
 
-	ch = getopt_long(argc, argv, DESTROY_OPTSTRING, longopts, NULL);
-	switch (ch) {
-	case OPT_HELP:
-		command_specific_help();
+	while (TRUE) {
+		Boolean		success = FALSE;
 
-	case OPT_INTERFACE:
-		name = my_CFStringCreate(optarg);
-		break;
-	default:
+		ch = getopt_long(argc, argv, DESTROY_OPTSTRING, longopts, NULL);
+		if (ch == -1) {
+			break;
+		}
+		switch (ch) {
+		case OPT_HELP:
+			break;
+
+		case OPT_INTERFACE:
+			if (ifname != NULL) {
+				fprintf(stderr,
+					"-%c specified multiple times\n",
+					OPT_INTERFACE);
+				break;
+			}
+			if (type == kInterfaceTypeNone) {
+				type = InterfaceTypeFromPrefix(optarg);
+			}
+			if (type == kInterfaceTypeNone) {
+				fprintf(stderr,
+					"Specify -%c (vlan | bridge )\n",
+					OPT_INTERFACE_TYPE);
+				break;
+			}
+			ifname = my_CFStringCreate(optarg);
+			success = TRUE;
+			break;
+		case OPT_INTERFACE_TYPE:
+			if (type_str != NULL) {
+				fprintf(stderr,
+					"-%c specified multiple times\n",
+					OPT_INTERFACE_TYPE);
+				break;
+			}
+			type_str = optarg;
+			type = InterfaceTypeFromString(optarg);
+			if (type == kInterfaceTypeNone) {
+				print_invalid_interface_type(optarg);
+				exit(EX_USAGE);
+			}
+			success = TRUE;
+			break;
+		default:
+			break;
+		}
+		if (!success) {
+			command_specific_help();
+		}
+	}
+	if (ifname == NULL) {
 		fprintf(stderr, "-%c must be specified\n",
 			OPT_INTERFACE);
 		command_specific_help();
@@ -2933,20 +3315,44 @@ do_destroy(int argc, char * argv[])
 		fprintf(stderr, "Extra command-line arguments\n");
 		exit(EX_USAGE);
 	}
-	netif = copy_vlan_interface(prefs, name);
-	if (netif == NULL) {
-		SCPrint(TRUE, stderr, 
-			CFSTR("Can't find VLAN %@\n"),
-			name);
-		exit(EX_SOFTWARE);
-	}
-	if (!SCVLANInterfaceRemove(netif)) {
-		SCPrint(TRUE, stderr,
-			CFSTR("Failed to remove %@: %s\n"),
-			name, SCErrorString(SCError()));
-		exit(EX_USAGE);
+	switch (type) {
+	case kInterfaceTypeNone:
+		command_specific_help();
+
+	case kInterfaceTypeVLAN:
+		netif = copy_vlan_interface(prefs, ifname);
+		if (netif == NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find VLAN %@\n"),
+				ifname);
+			exit(EX_SOFTWARE);
+		}
+		if (!SCVLANInterfaceRemove(netif)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to remove %@: %s\n"),
+				ifname, SCErrorString(SCError()));
+			exit(EX_USAGE);
+		}
+		break;
+	case kInterfaceTypeBridge:
+		netif = copy_bridge_interface(prefs, ifname);
+		if (netif == NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find bridge %@\n"),
+				ifname);
+			exit(EX_SOFTWARE);
+		}
+		if (!SCBridgeInterfaceRemove(netif)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to remove %@: %s\n"),
+				ifname, SCErrorString(SCError()));
+			exit(EX_USAGE);
+		}
+		break;
 	}
 	commit_apply(prefs);
+	my_CFRelease(&ifname);
+	my_CFRelease(&netif);
 }
 
 /**
@@ -2958,21 +3364,21 @@ do_destroy(int argc, char * argv[])
 /*
  * Function: do_set_vlan
  * Purpose:
- *   Enables setting the VLAN ID and physical interface on a VLAN interface.
+ *   Enables setting the VLAN ID, physical interface, and name for
+ *   a VLAN interface,
  */
 
 static void
 do_set_vlan(int argc, char * argv[])
 {
 	int			ch;
+	Boolean			changed = FALSE;
 	CFStringRef		name = NULL;
-	SCNetworkInterfaceRef	netif;
 	SCPreferencesRef	prefs = prefs_create();
 	const char *		vlan_device = NULL;
-	CFStringRef		vlan_name = NULL;
+	CFStringRef		vlan_name;
 	const char *		vlan_id = NULL;
-	CFNumberRef		vlan_id_cf = NULL;
-	SCNetworkInterfaceRef	vlan_netif;
+	SCNetworkInterfaceRef	vlan_netif = NULL;
 
 	while (1) {
 		Boolean		success = FALSE;
@@ -2995,12 +3401,20 @@ do_set_vlan(int argc, char * argv[])
 			command_specific_help();
 
 		case OPT_INTERFACE:
-			if (vlan_name != NULL) {
+			if (vlan_netif != NULL) {
 				fprintf(stderr, "%s specified multiple times\n",
 					kOptInterface);
 				break;
 			}
 			vlan_name = my_CFStringCreate(optarg);
+			vlan_netif = copy_vlan_interface(prefs, vlan_name);
+			CFRelease(vlan_name);
+			if (vlan_netif == NULL) {
+				SCPrint(TRUE, stderr,
+					CFSTR("Can't find VLAN %@\n"),
+					name);
+				exit(EX_SOFTWARE);
+			}
 			success = TRUE;
 			break;
 		case OPT_VLAN_ID:
@@ -3028,41 +3442,188 @@ do_set_vlan(int argc, char * argv[])
 			command_specific_help();
 		}
 	}
-	
-	if (vlan_name == NULL || vlan_id == NULL || vlan_device == NULL) {
-		fprintf(stderr, "All of -%c, -%c, and -%c must be specified\n",
-			OPT_INTERFACE, OPT_VLAN_ID, OPT_VLAN_DEVICE);
+
+	if (vlan_netif == NULL) {
+		fprintf(stderr, "-%c must be specified\n", OPT_INTERFACE);
 		command_specific_help();
 	}
-	netif = copy_vlan_device_and_id(vlan_id, vlan_device, &vlan_id_cf);
-	if (netif == NULL) {
-		exit(EX_USAGE);
+	if (vlan_id != NULL || vlan_device != NULL) {
+		CFNumberRef		vlan_id_cf;
+		SCNetworkInterfaceRef	netif;
+
+		if (vlan_id == NULL || vlan_device == NULL) {
+			fprintf(stderr, "Both -%c and -%c must be specified\n",
+				OPT_VLAN_ID, OPT_VLAN_DEVICE);
+			command_specific_help();
+		}
+		netif = copy_vlan_device_and_id(vlan_id, vlan_device,
+						&vlan_id_cf);
+		if (netif == NULL) {
+			exit(EX_USAGE);
+		}
+		if (!SCVLANInterfaceSetPhysicalInterfaceAndTag(vlan_netif,
+							       netif,
+							       vlan_id_cf)) {
+			fprintf(stderr, "Failed to set vlan tag/device: %s\n",
+				SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		changed = TRUE;
+		CFRelease(netif);
+		CFRelease(vlan_id_cf);
 	}
-	vlan_netif = copy_vlan_interface(prefs, vlan_name);
-	if (vlan_netif == NULL) {
-		SCPrint(TRUE, stderr, 
-			CFSTR("Can't find VLAN %@\n"),
-			name);
-		exit(EX_SOFTWARE);
+	if (name != NULL) {
+		if (!SCVLANInterfaceSetLocalizedDisplayName(vlan_netif, name)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to set VLAN name to '%@', %s\n"),
+				name, SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		changed = TRUE;
+		CFRelease(name);
 	}
-	if (!SCVLANInterfaceSetPhysicalInterfaceAndTag(vlan_netif,
-						       netif, vlan_id_cf)) {
-		fprintf(stderr, "Failed to set vlan tag/device: %s\n",
-			SCErrorString(SCError()));
-		exit(EX_SOFTWARE);
-	}
-	if (name != NULL
-	    && !SCVLANInterfaceSetLocalizedDisplayName(vlan_netif, name)) {
-		SCPrint(TRUE, stderr,
-			CFSTR("Failed to set VLAN name to '%@', %s\n"),
-			name, SCErrorString(SCError()));
-		exit(EX_SOFTWARE);
+	if (!changed) {
+		fprintf(stderr, "Must specify both -%c and -%c, and/or -%c\n",
+			OPT_VLAN_ID, OPT_VLAN_DEVICE, OPT_NAME);
+		command_specific_help();
 	}
 	commit_apply(prefs);
-	my_CFRelease(&name);
+	CFRelease(prefs);
 	CFRelease(vlan_netif);
-	CFRelease(netif);
-	CFRelease(vlan_id_cf);
+}
+
+/**
+ ** SetBridge
+ **/
+
+#define SET_BRIDGE_OPTSTRING	"b:hi:N:"
+
+/*
+ * Function: do_set_bridge
+ * Purpose:
+ *   Enables setting the bridge members and/or the bridge name.
+ */
+
+static void
+do_set_bridge(int argc, char * argv[])
+{
+	CFStringRef		bridge_name = NULL;
+	SCNetworkInterfaceRef	bridge_netif = NULL;
+	int			ch;
+	CFStringRef		member_name;
+	CFMutableArrayRef	members = NULL;
+	CFStringRef		name = NULL;
+	SCPreferencesRef	prefs = prefs_create();
+
+	while (1) {
+		Boolean		success = FALSE;
+
+		ch = getopt_long(argc, argv,
+				 SET_BRIDGE_OPTSTRING, longopts, NULL);
+		if (ch == -1) {
+			break;
+		}
+		switch (ch) {
+		case OPT_NAME:
+			if (name != NULL) {
+				fprintf(stderr, "%s specified multiple times\n",
+					kOptName);
+				break;
+			}
+			name = my_CFStringCreate(optarg);
+			success = TRUE;
+			break;
+		case OPT_HELP:
+			command_specific_help();
+
+		case OPT_INTERFACE:
+			if (bridge_netif != NULL) {
+				fprintf(stderr, "%s specified multiple times\n",
+					kOptInterface);
+				break;
+			}
+			bridge_name = my_CFStringCreate(optarg);
+			bridge_netif = copy_bridge_interface(prefs, bridge_name);
+			if (bridge_netif == NULL) {
+				SCPrint(TRUE, stderr,
+					CFSTR("Can't find bridge %@\n"),
+					bridge_name);
+				exit(EX_SOFTWARE);
+			}
+			CFRelease(bridge_name);
+			bridge_name = NULL;
+			success = TRUE;
+			break;
+		case OPT_BRIDGE_MEMBER:
+			member_name = my_CFStringCreate(optarg);
+			if (members == NULL) {
+				members = array_create();
+			}
+			else if (array_contains_value(members, member_name)) {
+				CFRelease(member_name);
+				fprintf(stderr,
+					"member '%s' already specified\n",
+					optarg);
+				break;
+			}
+			CFArrayAppendValue(members, member_name);
+			CFRelease(member_name);
+			success = TRUE;
+			break;
+		default:
+			break;
+		}
+		if (!success) {
+			command_specific_help();
+		}
+	}
+	if (optind < argc) {
+		fprintf(stderr, "Extra command-line arguments\n");
+		exit(EX_USAGE);
+	}
+	if (bridge_netif == NULL ) {
+		fprintf(stderr, "-%c must be specified\n", OPT_INTERFACE);
+		command_specific_help();
+	}
+	if (members == NULL && name == NULL) {
+		fprintf(stderr, "Must specify -%c and/or -%c\n",
+			OPT_BRIDGE_MEMBER, OPT_NAME);
+		command_specific_help();
+	}
+
+	/* set members */
+	if (members != NULL) {
+		CFArrayRef	netif_members;
+
+		netif_members = copy_bridge_member_interfaces(bridge_netif,
+							      prefs, members);
+		CFRelease(members);
+		if (netif_members == NULL) {
+			exit(EX_USAGE);
+		}
+		if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
+							  netif_members)) {
+			fprintf(stderr, "Failed to set member list: %s\n",
+				SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		CFRelease(netif_members);
+	}
+
+	/* set display name if specified */
+	if (name != NULL) {
+		if (!SCBridgeInterfaceSetLocalizedDisplayName(bridge_netif,
+							      name)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to set bridge name to '%@', %s\n"),
+				name, SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		CFRelease(name);
+	}
+	commit_apply(prefs);
+	CFRelease(prefs);
+	CFRelease(bridge_netif);
 }
 
 /**
@@ -3087,6 +3648,9 @@ help_destroy(const char * command_str) __dead2;
 
 static void
 help_setvlan(const char * command_str) __dead2;
+
+static void
+help_setbridge(const char * command_str) __dead2;
 
 static void
 help_add_set(const char * command_str)
@@ -3137,13 +3701,50 @@ help_show(const char * command_str)
 	exit(EX_USAGE);
 }
 
+#define BOOL_OPT_STRING	"true | yes | 1 | false | no | 0"
+static void
+help_create_vlan_no_exit(const char * command_str)
+{
+	fprintf(stderr,
+		"%s %s -t vlan -%c <1..4095> -%c <interface> "
+		"[ -N <name> ] [ -a " BOOL_OPT_STRING " )]\n",
+		G_argv0, command_str,
+		OPT_VLAN_ID, OPT_VLAN_DEVICE);
+}
+
+static void
+help_create_vlan(void)
+{
+	const char *	str = CommandGetString(G_command);
+
+	help_create_vlan_no_exit(str);
+	exit(EX_USAGE);
+}
+
+static void
+help_create_bridge_no_exit(const char * command_str)
+{
+	fprintf(stderr,
+		"%s %s -t bridge -%c <member> [ -%c <member> ... ] "
+		"[ -N <name> ] [ -a " BOOL_OPT_STRING " )]\n",
+		G_argv0, command_str,
+		OPT_BRIDGE_MEMBER, OPT_BRIDGE_MEMBER);
+}
+
+static void
+help_create_bridge(void)
+{
+	const char *	str = CommandGetString(G_command);
+
+	help_create_bridge_no_exit(str);
+	exit(EX_USAGE);
+}
+
 static void
 help_create(const char * command_str)
 {
-	fprintf(stderr,
-		"%s %s -t vlan -%c <1..4095> -%c <interface> [ -N <name> ]\n",
-		G_argv0, command_str,
-		OPT_VLAN_ID, OPT_VLAN_DEVICE);
+	help_create_vlan_no_exit(command_str);
+	help_create_bridge_no_exit(command_str);
 	exit(EX_USAGE);
 }
 
@@ -3151,8 +3752,8 @@ static void
 help_destroy(const char * command_str)
 {
 	fprintf(stderr,
-		"%s %s -%c <interface>\n",
-		G_argv0, command_str, OPT_INTERFACE);
+		"%s %s [ -%c vlan' | bridge ] -%c <interface>\n",
+		G_argv0, command_str, OPT_INTERFACE_TYPE, OPT_INTERFACE);
 	exit(EX_USAGE);
 }
 
@@ -3160,8 +3761,21 @@ static void
 help_setvlan(const char * command_str)
 {
 	fprintf(stderr,
-		"%s %s -i <interface> -%c <1..4095> -%c <interface>\n",
-		G_argv0, command_str, OPT_VLAN_ID, OPT_VLAN_DEVICE);
+		"%s %s -%c <interface> -%c <1..4095> -%c <interface> "
+		"[ -%c <name> ]\n",
+		G_argv0, command_str,
+		OPT_INTERFACE, OPT_VLAN_ID, OPT_VLAN_DEVICE, OPT_NAME);
+	exit(EX_USAGE);
+}
+
+static void
+help_setbridge(const char * command_str)
+{
+	fprintf(stderr,
+		"%s %s -%c <interface> [ -%c <member> [ -%c <member> ... ] ] "
+		"[ -%c <name> ]\n",
+		G_argv0, command_str,
+		OPT_INTERFACE, OPT_BRIDGE_MEMBER, OPT_BRIDGE_MEMBER, OPT_NAME);
 	exit(EX_USAGE);
 }
 
@@ -3183,8 +3797,11 @@ usage(void)
 		"\tcreate\n"
 		"\tdestroy\n"
 		"\tsetvlan\n"
+		"\tsetbridge\n"
 		"\noptions:\n"
+		"\t--auto-config, -a         auto-configure\n"
 		"\t--address, -A             IP address\n"
+		"\t--bridge-member, -b       bridge member\n"
 		"\t--config-method, -c       configuration method\n"
 		"\t--dhcp-client-id, -C      DHCP client identifier\n"
 		"\t--default-config, -D      establish default configuration\n"
@@ -3232,6 +3849,9 @@ command_specific_help(void)
 	case kCommandSetVLAN:
 		help_setvlan(str);
 
+	case kCommandSetBridge:
+		help_setbridge(str);
+
 	case kCommandNone:
 		break;
 	}
@@ -3276,6 +3896,9 @@ main(int argc, char *argv[])
 		break;
 	case kCommandSetVLAN:
 		do_set_vlan(argc - 1, argv + 1);
+		break;
+	case kCommandSetBridge:
+		do_set_bridge(argc - 1, argv + 1);
 		break;
 	case kCommandNone:
 		break;

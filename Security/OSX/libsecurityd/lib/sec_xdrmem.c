@@ -124,11 +124,7 @@ static const struct     xdr_ops sec_xdrmem_ops_unaligned = {
  * memory buffer.
  */
 void
-sec_xdrmem_create(xdrs, addr, size, op)
-        XDR *xdrs;
-        char *addr;
-        u_int size;
-        enum xdr_op op;
+sec_xdrmem_create(XDR *xdrs, char *addr, u_int size, enum xdr_op op)
 {
     xdrs->x_op = op;
     xdrs->x_ops = ((unsigned long)addr & (sizeof(int32_t) - 1))
@@ -140,16 +136,13 @@ sec_xdrmem_create(xdrs, addr, size, op)
 
 /*ARGSUSED*/
 static void
-sec_xdrmem_destroy(xdrs)
-        XDR *xdrs;
+sec_xdrmem_destroy(XDR *xdrs)
 {
 
 }
 
 static bool_t
-sec_xdrmem_getlong_aligned(xdrs, lp)
-        XDR *xdrs;
-        long_callback_ptr_t lp;
+sec_xdrmem_getlong_aligned(XDR *xdrs, long_callback_ptr_t lp)
 {
     if (xdrs->x_handy < sizeof(int32_t))
         return (FALSE);
@@ -160,9 +153,7 @@ sec_xdrmem_getlong_aligned(xdrs, lp)
 }
 
 static bool_t
-sec_xdrmem_putlong_aligned(xdrs, lp)
-        XDR *xdrs;
-        const long_callback_ptr_t lp;
+sec_xdrmem_putlong_aligned(XDR *xdrs, const long_callback_ptr_t lp)
 {
     if (xdrs->x_handy < sizeof(int32_t))
         return (FALSE);
@@ -173,9 +164,7 @@ sec_xdrmem_putlong_aligned(xdrs, lp)
 }
 
 static bool_t
-sec_xdrmem_getlong_unaligned(xdrs, lp)
-        XDR *xdrs;
-        long_callback_ptr_t lp;
+sec_xdrmem_getlong_unaligned(XDR *xdrs, long_callback_ptr_t lp)
 {
     u_int32_t l;
 
@@ -189,9 +178,7 @@ sec_xdrmem_getlong_unaligned(xdrs, lp)
 }
 
 static bool_t
-sec_xdrmem_putlong_unaligned(xdrs, lp)
-        XDR *xdrs;
-        const long_callback_ptr_t lp;
+sec_xdrmem_putlong_unaligned(XDR *xdrs, const long_callback_ptr_t lp)
 {
     u_int32_t l = 0;
 
@@ -205,10 +192,7 @@ sec_xdrmem_putlong_unaligned(xdrs, lp)
 }
 
 static bool_t
-sec_xdrmem_getbytes(xdrs, addr, len)
-        XDR *xdrs;
-        char *addr;
-        u_int len;
+sec_xdrmem_getbytes(XDR *xdrs, char *addr, u_int len)
 {
     if (xdrs->x_handy < len)
         return (FALSE);
@@ -219,10 +203,7 @@ sec_xdrmem_getbytes(xdrs, addr, len)
 }
 
 static bool_t
-sec_xdrmem_putbytes(xdrs, addr, len)
-        XDR *xdrs;
-        const char *addr;
-        u_int len;
+sec_xdrmem_putbytes(XDR *xdrs, const char *addr, u_int len)
 {
     if (xdrs->x_handy < len)
         return (FALSE);
@@ -233,17 +214,14 @@ sec_xdrmem_putbytes(xdrs, addr, len)
 }
 
 static u_int
-sec_xdrmem_getpos(xdrs)
-        XDR *xdrs;
+sec_xdrmem_getpos(XDR *xdrs)
 {
     /* XXX w/64-bit pointers, u_int not enough! */
     return (u_int)((u_long)xdrs->x_private - (u_long)xdrs->x_base);
 }
 
 static bool_t
-sec_xdrmem_setpos(xdrs, pos)
-        XDR *xdrs;
-        u_int pos;
+sec_xdrmem_setpos(XDR *xdrs, u_int pos)
 {
     char *newaddr = xdrs->x_base + pos;
     char *lastaddr = (char *)xdrs->x_private + xdrs->x_handy;
@@ -256,9 +234,7 @@ sec_xdrmem_setpos(xdrs, pos)
 }
 
 static int32_t *
-sec_xdrmem_inline_aligned(xdrs, len)
-        XDR *xdrs;
-        u_int len;
+sec_xdrmem_inline_aligned(XDR *xdrs, u_int len)
 {
     int32_t *buf = 0;
 
@@ -272,9 +248,7 @@ sec_xdrmem_inline_aligned(xdrs, len)
 
 /* ARGSUSED */
 static int32_t *
-sec_xdrmem_inline_unaligned(xdrs, len)
-        XDR *xdrs;
-        u_int len;
+sec_xdrmem_inline_unaligned(XDR *xdrs, u_int len)
 {
     return (0);
 }

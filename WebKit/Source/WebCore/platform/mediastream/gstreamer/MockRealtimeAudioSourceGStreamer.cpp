@@ -39,7 +39,18 @@ static const double s_HumVolume = 0.1;
 static const double s_NoiseFrequency = 3000;
 static const double s_NoiseVolume = 0.05;
 
-CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, String&& name, String&& hashSalt, const MediaConstraints* constraints)
+static HashSet<MockRealtimeAudioSource*>& allMockRealtimeAudioSourcesStorage()
+{
+    static MainThreadNeverDestroyed<HashSet<MockRealtimeAudioSource*>> audioSources;
+    return audioSources;
+}
+
+const HashSet<MockRealtimeAudioSource*>& MockRealtimeAudioSourceGStreamer::allMockRealtimeAudioSources()
+{
+    return allMockRealtimeAudioSourcesStorage();
+}
+
+CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, AtomString&& name, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier)
 {
 #ifndef NDEBUG
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
@@ -57,15 +68,21 @@ CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, String&&
     return CaptureSourceOrError(WTFMove(source));
 }
 
-Ref<MockRealtimeAudioSource> MockRealtimeAudioSourceGStreamer::createForMockAudioCapturer(String&& deviceID, String&& name, String&& hashSalt)
+Ref<MockRealtimeAudioSource> MockRealtimeAudioSourceGStreamer::createForMockAudioCapturer(String&& deviceID, AtomString&& name, String&& hashSalt)
 {
     return adoptRef(*new MockRealtimeAudioSourceGStreamer(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)));
 }
 
-MockRealtimeAudioSourceGStreamer::MockRealtimeAudioSourceGStreamer(String&& deviceID, String&& name, String&& hashSalt)
-    : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
+MockRealtimeAudioSourceGStreamer::MockRealtimeAudioSourceGStreamer(String&& deviceID, AtomString&& name, String&& hashSalt)
+    : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt), { })
 {
     ensureGStreamerInitialized();
+    allMockRealtimeAudioSourcesStorage().add(this);
+}
+
+MockRealtimeAudioSourceGStreamer::~MockRealtimeAudioSourceGStreamer()
+{
+    allMockRealtimeAudioSourcesStorage().remove(this);
 }
 
 void MockRealtimeAudioSourceGStreamer::render(Seconds delta)

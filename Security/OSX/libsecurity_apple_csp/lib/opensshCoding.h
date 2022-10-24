@@ -39,10 +39,10 @@
 extern "C" {
 #endif
 
-void appendUint32(
+void appendUint32OpenSSH(
 	CFMutableDataRef cfOut,
 	uint32_t ui);
-uint32_t readUint32(
+uint32_t readUint32OpenSSH(
 	const unsigned char *&cp,		// IN/OUT
 	unsigned &len);					// IN/OUT 
 

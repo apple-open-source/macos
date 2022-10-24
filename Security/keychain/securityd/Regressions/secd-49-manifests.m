@@ -196,7 +196,7 @@ static SOSManifestRef createManifestWithString(CFStringRef string) {
     return mf;
 }
 
-static SOSManifestRef testCreateBadManifest() {
+static SOSManifestRef testCreateBadManifest(void) {
     SOSManifestRef mf = createManifestWithString(CFSTR("bab"));
     is(SOSManifestGetCount(mf), (size_t)2, "dupes eliminated?");
     return mf;

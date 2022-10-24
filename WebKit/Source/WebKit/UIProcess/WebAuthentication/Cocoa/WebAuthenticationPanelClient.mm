@@ -131,10 +131,12 @@ void WebAuthenticationPanelClient::requestPin(uint64_t retries, CompletionHandle
 
     auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(panel:requestPINWithRemainingRetries:completionHandler:));
     [delegate panel:m_panel requestPINWithRemainingRetries:retries completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)](NSString *pin) mutable {
-        if (checker->completionHandlerHasBeenCalled())
-            return;
-        checker->didCallCompletionHandler();
-        completionHandler(pin);
+        ensureOnMainThread([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), pin = retainPtr(pin)] () mutable {
+            if (checker->completionHandlerHasBeenCalled())
+                return;
+            checker->didCallCompletionHandler();
+            completionHandler(pin.get());
+        });
     }).get()];
 }
 
@@ -165,11 +167,9 @@ void WebAuthenticationPanelClient::selectAssertionResponse(Vector<Ref<WebCore::A
         return;
     }
 
-    Vector<RefPtr<API::Object>> apiResponses;
-    apiResponses.reserveInitialCapacity(responses.size());
-    for (auto& response : responses)
-        apiResponses.uncheckedAppend(API::WebAuthenticationAssertionResponse::create(response.copyRef()));
-
+    auto apiResponses = responses.map([](auto& response) -> RefPtr<API::Object> {
+        return API::WebAuthenticationAssertionResponse::create(response.copyRef());
+    });
     auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(panel:selectAssertionResponse:source:completionHandler:));
     [delegate panel:m_panel selectAssertionResponse:wrapper(API::Array::create(WTFMove(apiResponses))) source:wkWebAuthenticationSource(source) completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)](_WKWebAuthenticationAssertionResponse *response) mutable {
         if (checker->completionHandlerHasBeenCalled())

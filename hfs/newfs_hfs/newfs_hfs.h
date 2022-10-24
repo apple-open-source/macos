@@ -214,7 +214,7 @@ extern int make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults);
 
 
 #if __STDC__
-void	fatal(const char *fmt, ...);
+void	fatal(const char *fmt, ...) __printflike(1, 2);
 #else
 void	fatal();
 #endif

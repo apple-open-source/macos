@@ -265,6 +265,10 @@ main(int argc, char *argv[])
 			if (aflag || (mntbuf[i].f_flags & MNT_IGNORE) == 0)
 				prtstat(&mntbuf[i], &maxwidths);
 		}
+#ifdef __APPLE__
+		if (rv == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+			err(1, "stdout");
+#endif
 		exit(rv);
 	}
 
@@ -306,6 +310,10 @@ main(int argc, char *argv[])
 		}
 		prtstat(&statfsbuf, &maxwidths);
 	}
+#ifdef __APPLE__
+	if (rv == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	return (rv);
 }
 

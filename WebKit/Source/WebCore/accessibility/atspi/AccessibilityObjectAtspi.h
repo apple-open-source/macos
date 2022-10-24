@@ -19,13 +19,12 @@
 
 #pragma once
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 #include "AccessibilityAtspi.h"
 #include "AccessibilityObjectInterface.h"
 #include "IntRect.h"
-#include <wtf/Atomics.h>
 #include <wtf/OptionSet.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/RefCounted.h>
 #include <wtf/text/CString.h>
 
 typedef struct _GDBusInterfaceVTable GDBusInterfaceVTable;
@@ -36,12 +35,13 @@ namespace WebCore {
 class AXCoreObject;
 class AccessibilityRootAtspi;
 
-class AccessibilityObjectAtspi final : public ThreadSafeRefCounted<AccessibilityObjectAtspi, WTF::DestructionThread::Main> {
+class AccessibilityObjectAtspi final : public RefCounted<AccessibilityObjectAtspi> {
 public:
-    static Ref<AccessibilityObjectAtspi> create(AXCoreObject*, AccessibilityRootAtspi&);
+    static Ref<AccessibilityObjectAtspi> create(AXCoreObject*, AccessibilityRootAtspi*);
     ~AccessibilityObjectAtspi() = default;
 
     bool registerObject();
+    void didUnregisterObject();
 
     enum class Interface : uint16_t {
         Accessible = 1 << 0,
@@ -55,15 +55,16 @@ public:
         Image = 1 << 8,
         Selection = 1 << 9,
         Table = 1 << 10,
-        TableCell = 1 << 11
+        TableCell = 1 << 11,
+        Collection =  1 << 12
     };
     const OptionSet<Interface>& interfaces() const { return m_interfaces; }
 
-    const AccessibilityRootAtspi& root() const { return m_root; }
     void setParent(std::optional<AccessibilityObjectAtspi*>);
     WEBCORE_EXPORT std::optional<AccessibilityObjectAtspi*> parent() const;
     GVariant* parentReference() const;
     WEBCORE_EXPORT void updateBackingStore();
+    WEBCORE_EXPORT bool isIgnored() const;
 
     void attach(AXCoreObject*);
     void detach();
@@ -158,7 +159,7 @@ public:
     WEBCORE_EXPORT std::pair<std::optional<unsigned>, std::optional<unsigned>> cellPosition() const;
 
 private:
-    explicit AccessibilityObjectAtspi(AXCoreObject*, AccessibilityRootAtspi&);
+    AccessibilityObjectAtspi(AXCoreObject*, AccessibilityRootAtspi*);
 
     Vector<RefPtr<AccessibilityObjectAtspi>> wrapperVector(const Vector<RefPtr<AXCoreObject>>&) const;
     int indexInParent() const;
@@ -223,6 +224,38 @@ private:
     String rowDescription(unsigned) const;
     String columnDescription(unsigned) const;
 
+    struct CollectionMatchRule {
+        CollectionMatchRule(GVariant*);
+
+        bool match(AccessibilityObjectAtspi&);
+        bool matchInterfaces(AccessibilityObjectAtspi&);
+        bool matchStates(AccessibilityObjectAtspi&);
+        bool matchRoles(AccessibilityObjectAtspi&);
+        bool matchAttributes(AccessibilityObjectAtspi&);
+
+        struct {
+            uint64_t value { 0 };
+            uint16_t type { 0 };
+        } states;
+
+        struct {
+            HashMap<String, Vector<String>> value;
+            uint16_t type { 0 };
+        } attributes;
+
+        struct {
+            Vector<unsigned> value;
+            uint16_t type { 0 };
+        } roles;
+
+        struct {
+            Vector<String> value;
+            uint16_t type { 0 };
+        } interfaces;
+    };
+    Vector<RefPtr<AccessibilityObjectAtspi>> matches(CollectionMatchRule&, uint32_t sortOrder, uint32_t maxResultCount, bool traverse);
+    void addMatchesInCanonicalOrder(Vector<RefPtr<AccessibilityObjectAtspi>>&, CollectionMatchRule&, uint32_t maxResultCount, bool traverse);
+
     static OptionSet<Interface> interfacesForObject(AXCoreObject&);
 
     static GDBusInterfaceVTable s_accessibleFunctions;
@@ -237,21 +270,20 @@ private:
     static GDBusInterfaceVTable s_selectionFunctions;
     static GDBusInterfaceVTable s_tableFunctions;
     static GDBusInterfaceVTable s_tableCellFunctions;
+    static GDBusInterfaceVTable s_collectionFunctions;
 
-    AXCoreObject* m_axObject { nullptr };
     AXCoreObject* m_coreObject { nullptr };
     OptionSet<Interface> m_interfaces;
-    AccessibilityRootAtspi& m_root;
-    std::optional<AccessibilityObjectAtspi*> m_parent;
-    Atomic<bool> m_isRegistered { false };
+    AccessibilityRootAtspi* m_root { nullptr };
+    std::optional<RefPtr<AccessibilityObjectAtspi>> m_parent;
+    bool m_isRegistered { false };
     String m_path;
     String m_hyperlinkPath;
     int64_t m_lastSelectionChangedTime { -1 };
-    mutable std::atomic<bool> m_hasListMarkerAtStart;
+    mutable bool m_hasListMarkerAtStart;
     mutable int m_indexInParent { -1 };
-    mutable Lock m_rootLock;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

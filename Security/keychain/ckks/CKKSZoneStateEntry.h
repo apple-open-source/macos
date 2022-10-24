@@ -47,9 +47,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 
 @class CKKSRateLimiter;
-
 @interface CKKSZoneStateEntry : CKKSSQLDatabaseObject
 
+@property (readonly) NSString* contextID;
 @property NSString* ckzone;
 @property bool ckzonecreated;
 @property bool ckzonesubscribed;
@@ -65,20 +65,27 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKKSRateLimiter* rateLimiter;
 @property (nullable) NSData* encodedRateLimiter;
 
-+ (instancetype)state:(NSString*)ckzone;
++ (instancetype)contextID:(NSString*)contextID
+             zoneName:(NSString*)ckzone;
 
-+ (instancetype)fromDatabase:(NSString*)ckzone error:(NSError* __autoreleasing*)error;
-+ (instancetype)tryFromDatabase:(NSString*)ckzone error:(NSError* __autoreleasing*)error;
++ (instancetype)fromDatabase:(NSString*)contextID
+                    zoneName:(NSString*)ckzone
+                       error:(NSError* __autoreleasing*)error;
 
-- (instancetype)initWithCKZone:(NSString*)ckzone
-                   zoneCreated:(bool)ckzonecreated
-                zoneSubscribed:(bool)ckzonesubscribed
-                   changeToken:(NSData* _Nullable)changetoken
-         moreRecordsInCloudKit:(BOOL)moreRecords
-                     lastFetch:(NSDate* _Nullable)lastFetch
-                      lastScan:(NSDate* _Nullable)localKeychainScanned
-                     lastFixup:(CKKSFixup)lastFixup
-            encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter;
++ (instancetype)tryFromDatabase:(NSString*)contextID
+                       zoneName:(NSString*)ckzone
+                          error:(NSError* __autoreleasing*)error;
+
+- (instancetype)initWithContextID:(NSString*)contextID
+                         zoneName:(NSString*)ckzone
+                      zoneCreated:(bool)ckzonecreated
+                   zoneSubscribed:(bool)ckzonesubscribed
+                      changeToken:(NSData* _Nullable)changetoken
+            moreRecordsInCloudKit:(BOOL)moreRecords
+                        lastFetch:(NSDate* _Nullable)lastFetch
+                         lastScan:(NSDate* _Nullable)localKeychainScanned
+                        lastFixup:(CKKSFixup)lastFixup
+               encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter;
 
 - (CKServerChangeToken* _Nullable)getChangeToken;
 - (void)setChangeToken:(CKServerChangeToken* _Nullable)token;

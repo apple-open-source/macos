@@ -625,7 +625,7 @@ public:
       SwigType *pt = Getattr(p, "type");
 
       /* Produce string representation of source and target arguments */
-      sprintf(source, "ST(%d)", i);
+      snprintf(source, sizeof(source), "ST(%d)", i);
       String *target = Getattr(p, "lname");
 
       if (i >= num_required) {
@@ -656,7 +656,7 @@ public:
 
     if (varargs) {
       if (p && (tm = Getattr(p, "tmap:in"))) {
-	sprintf(source, "ST(%d)", i);
+	snprintf(source, sizeof(source), "ST(%d)", i);
 	Replaceall(tm, "$input", source);
 	Setattr(p, "emit:input", source);
 	Printf(f->code, "if (items >= %d) {\n", i);
@@ -705,7 +705,7 @@ public:
 
 	String *in = Getattr(p, "emit:input");
 	if (in) {
-	  sprintf(temp, "_saved[%d]", num_saved);
+	  snprintf(temp, sizeof(temp), "_saved[%d]", num_saved);
 	  Replaceall(tm, "$arg", temp);
 	  Replaceall(tm, "$input", temp);
 	  Printf(f->code, "_saved[%d] = %s;\n", num_saved, in);
@@ -720,7 +720,7 @@ public:
 
     /* If there were any saved arguments, emit a local variable for them */
     if (num_saved) {
-      sprintf(temp, "_saved[%d]", num_saved);
+      snprintf(temp, sizeof(temp), "_saved[%d]", num_saved);
       Wrapper_add_localv(f, "_saved", "SV *", temp, NIL);
     }
 

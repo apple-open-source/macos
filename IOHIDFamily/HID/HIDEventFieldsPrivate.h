@@ -193,6 +193,31 @@ static HIDSelectorTable OrientationHIDSelectorTable[] = {
 	{ 0, NULL }
 };
 
+static HIDEventFieldInfo ProximitykIOHIDEventFieldProximityProximityTypekIOHIDProximityProximityTypeProbabilityEventField[] = {
+	{ kIOHIDEventFieldProximityDetectionMask, kEventFieldDataType_Integer, 1, 0, "ProximityDetectionMask" },
+	{ kIOHIDEventFieldProximityProximityType, kEventFieldDataType_Integer, 1, 0, "ProximityProximityType" },
+	{ kIOHIDEventFieldProbabilityLevel, kEventFieldDataType_Integer, 1, 0,  "ProbabilityLevel" },
+	{ 0, kEventFieldDataType_None, 0, 0, NULL }
+};
+
+static HIDEventFieldInfo ProximitykIOHIDEventFieldProximityProximityTypekIOHIDProximityProximityTypeLevelEventField[] = {
+	{ kIOHIDEventFieldProximityDetectionMask, kEventFieldDataType_Integer, 1, 0, "ProximityDetectionMask" },
+	{ kIOHIDEventFieldProximityProximityType, kEventFieldDataType_Integer, 1, 0, "ProximityProximityType" },
+	{ kIOHIDEventFieldProximityLevel, kEventFieldDataType_Integer, 1, 0,  "ProximityLevel" },
+	{ 0, kEventFieldDataType_None, 0, 0, NULL }
+};
+
+static HIDEventFieldDescSelectorTable ProximitykIOHIDEventFieldProximityProximityTypeHIDEventFieldSelectorTable[] = {
+	{ kIOHIDProximityProximityTypeProbability, ProximitykIOHIDEventFieldProximityProximityTypekIOHIDProximityProximityTypeProbabilityEventField },
+	{ kIOHIDProximityProximityTypeLevel, ProximitykIOHIDEventFieldProximityProximityTypekIOHIDProximityProximityTypeLevelEventField },
+	{ 0, NULL }
+};
+
+static HIDSelectorTable ProximityHIDSelectorTable[] = {
+	{ kIOHIDEventFieldProximityProximityType, ProximitykIOHIDEventFieldProximityProximityTypeHIDEventFieldSelectorTable },
+	{ 0, NULL }
+};
+
 
 static HIDEventFieldInfo VendorDefinedEventFields[] = {
 	{ kIOHIDEventFieldVendorDefinedUsagePage, kEventFieldDataType_Integer, 1, 0, "VendorDefinedUsagePage" },
@@ -316,6 +341,10 @@ static HIDEventFieldInfo GameControllerEventFields[] = {
 	{ kIOHIDEventFieldGameControllerShoulderButtonR2, kEventFieldDataType_IOFixed, 1, 0, "GameControllerShoulderButtonR2" },
 	{ kIOHIDEventFieldGameControllerThumbstickButtonLeft, kEventFieldDataType_Integer, 0, 0, "GameControllerThumbstickButtonLeft" },
 	{ kIOHIDEventFieldGameControllerThumbstickButtonRight, kEventFieldDataType_Integer, 0, 0, "GameControllerThumbstickButtonRight" },
+	{ kIOHIDEventFieldGameControllerButtonL4, kEventFieldDataType_IOFixed, 0, 0, "GameControllerButtonL4" },
+	{ kIOHIDEventFieldGameControllerButtonL5, kEventFieldDataType_IOFixed, 0, 0, "GameControllerButtonL5" },
+	{ kIOHIDEventFieldGameControllerButtonR4, kEventFieldDataType_IOFixed, 0, 0, "GameControllerButtonR4" },
+	{ kIOHIDEventFieldGameControllerButtonR5, kEventFieldDataType_IOFixed, 0, 0, "GameControllerButtonR5" },
 	{ 0, kEventFieldDataType_None,  0, 0, NULL }
 };
 
@@ -467,13 +496,6 @@ static HIDEventFieldInfo LEDEventFields[] = {
 };
 
 
-static HIDEventFieldInfo ProximityEventFields[] = {
-	{ kIOHIDEventFieldProximityDetectionMask, kEventFieldDataType_Integer, 1, 0, "ProximityDetectionMask" },
-	{ kIOHIDEventFieldProximityLevel, kEventFieldDataType_Integer, 1, 0, "ProximityLevel" },
-	{ 0, kEventFieldDataType_None,  0, 0, NULL }
-};
-
-
 static HIDEventFieldInfo FluidTouchGestureEventFields[] = {
 	{ kIOHIDEventFieldFluidTouchGesturePositionX, kEventFieldDataType_IOFixed, 1, 0, "FluidTouchGesturePositionX" },
 	{ kIOHIDEventFieldFluidTouchGesturePositionY, kEventFieldDataType_IOFixed, 1, 0, "FluidTouchGesturePositionY" },
@@ -563,7 +585,7 @@ static HIDEventFieldDescTableCollection hidEventFieldDescTable[] = {
 	{ kIOHIDEventTypeBoundaryScroll, BoundaryScrollEventFields, NULL },
 	{ kIOHIDEventTypeLED, LEDEventFields, NULL },
 	{ kIOHIDEventTypeOrientation, NULL, OrientationHIDSelectorTable },
-	{ kIOHIDEventTypeProximity, ProximityEventFields, NULL },
+	{ kIOHIDEventTypeProximity, NULL, ProximityHIDSelectorTable },
 	{ kIOHIDEventTypeFluidTouchGesture, FluidTouchGestureEventFields, NULL },
 	{ kIOHIDEventTypeDockSwipe, DockSwipeEventFields, NULL },
 	{ kIOHIDEventTypeUnicode, UnicodeEventFields, NULL },

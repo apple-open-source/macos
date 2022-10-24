@@ -40,4 +40,26 @@ const char *
 malloc_common_value_for_key_copy(const char *src, const char *key,
 		 char *bufp, size_t maxlen);
 
+__options_decl(malloc_zone_options_t, unsigned, {
+	MZ_NONE  = 0x0,
+	MZ_POSIX = 0x1,
+	MZ_C11   = 0x2,
+});
+
+static MALLOC_INLINE void
+malloc_set_errno_fast(malloc_zone_options_t mzo, int err)
+{
+	if (mzo & MZ_POSIX) {
+#if TARGET_OS_SIMULATOR
+		errno = err;
+#else
+		(*_pthread_errno_address_direct()) = err;
+#endif
+	}
+}
+
+MALLOC_NOEXPORT
+void
+find_zone_and_free(void *ptr, bool known_non_default);
+
 #endif // __MALLOC_COMMON_H

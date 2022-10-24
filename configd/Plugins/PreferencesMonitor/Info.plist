@@ -22,9 +22,5 @@
 	<string>1.21</string>
 	<key>Builtin</key>
 	<true/>
-	<key>Requires</key>
-	<array>
-		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
-	</array>
 </dict>
 </plist>

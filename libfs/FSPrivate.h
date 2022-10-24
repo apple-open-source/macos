@@ -24,6 +24,7 @@
 #if !defined(__FILESYSTEM_PRIVATE__)
 #define __FILESYSTEM_PRIVATE__ 1
 
+#include <sys/mount.h>
 #include <stdbool.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
@@ -106,6 +107,92 @@ extern errno_t _FSGetMediaEncryptionStatus(CFStringRef devnode, bool *encryption
  * This function returns the encryption status for /dev/diskXsXX
  */
 extern errno_t _FSGetMediaEncryptionStatusAtPath(const char *devnode, bool *encryption_status, fs_media_encryption_details_t *encryption_details);
+
+/* Input:
+ *  1. const char *path: C string representation of a file system path
+ *  2. char *typenamebuf: Buffer where to store the file system type name.
+ *     It is recommended that this buffer is at least MFSTYPENAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t typenamebufsize: Size of typenamebuf.  Ignored if typenamebuf is NULL.
+ *  4. uint32_t *subtypep: Pointer to a uint32_t that will contain the file
+ *     system subtype, or 0 if no subtypes are defined for the file system.  May be NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetTypeInfoForPath(const char *path, char *typenamebuf,
+    size_t typenamebufsize, uint32_t *subtypep);
+
+/* Input:
+ *  1. int fd: A file descriptor representing an open file object.
+ *  2. char *typenamebuf: Buffer where to store the file system type name.
+ *     It is recommended that this buffer is at least MFSTYPENAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t typenamebufsize: Size of typenamebuf.  Ignored if typenamebuf is NULL.
+ *  4. uint32_t *subtypep: Pointer to a uint32_t that will contain the file
+ *     system subtype, or 0 if no subtypes are defined for the file system.  May be NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetTypeInfoForFileDescriptor(int fd, char *typenamebuf,
+    size_t typenamebufsize, uint32_t *subtypep);
+
+/* Input:
+ *  1. const struct statfs *sfs: A buffer to a statfs structure filled out by statfs(2)
+ *     or fstatfs(2).
+ *  2. char *typenamebuf: Buffer where to store the file system type name.
+ *     It is recommended that this buffer is at least MFSTYPENAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t typenamebufsize: Size of typenamebuf.  Ignored if typenamebuf is NULL.
+ *  4. uint32_t *subtypep: Pointer to a uint32_t that will contain the file
+ *     system subtype, or 0 if no subtypes are defined for the file system.  May be NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetTypeInfoFromStatfs(const struct statfs *sfs, char *typenamebuf,
+    size_t typenamebufsize, uint32_t *subtypep);
+
+/* Input:
+ *  1. const char *path: C string representation of a file system path.
+ *  2. char *locationbuf: Buffer where to store the file system location.
+ *     It is recommended that this buffer is at least MNAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t locationbufsize: Size of locationbuf.  Ignored if locationbuf is NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetLocationForPath(const char *path, char *locationbuf,
+    size_t locationbufsize);
+
+/* Input:
+ *  1. int fd: A file descriptor representing an open file object.
+ *  2. char *locationbuf: Buffer where to store the file system location.
+ *     It is recommended that this buffer is at least MNAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t locationbufsize: Size of locationbuf.  Ignored if locationbuf is NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetLocationForFileDescriptor(int fd, char *locationbuf,
+    size_t locationbufsize);
+
+/* Input:
+ *  1. const struct statfs *sfs: A buffer to a statfs structure filled out by statfs(2)
+ *     or fstatfs(2).
+ *  2. char *locationbuf: Buffer where to store the file system location.
+ *     It is recommended that this buffer is at least MNAMELEN bytes in size.
+ *     May be NULL.
+ *  3. size_t locationbufsize: Size of locationbuf.  Ignored if locationbuf is NULL.
+ *
+ * Output:
+ *  1. errno_t: 0 upon success, or an errno indicating the mode of failure.
+ */
+extern errno_t _FSGetLocationFromStatfs(const struct statfs *sfs, char *locationbuf,
+    size_t locationbufsize);
 
 #ifdef __cplusplus
 }

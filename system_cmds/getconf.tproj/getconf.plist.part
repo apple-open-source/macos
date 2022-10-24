@@ -12,6 +12,7 @@
 			<string>confstr.gperf: Darwin-specific configuration items (4867212)</string>
 			<string>limits.gperf, sysconf.gperf, pathconf.gperf: POSIX-conformant non-underscore equivalent names (3514547)</string>
 			<string>limits.gperf, posix.gperf: POSIX/XOPEN mismatches (3668584)</string>
+			<string>getconf.c: Don't ignore errors flushing stdout (89146999)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

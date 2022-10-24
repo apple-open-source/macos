@@ -1,0 +1,8 @@
+//  Copyright © 2022 Apple Inc. All rights reserved.
+#include "xcconfigs/defaults.xcconfig"
+ONLY_ACTIVE_ARCH = YES
+ENABLE_TESTABILITY = YES
+STRIP_INSTALLED_PRODUCT = NO
+GCC_OPTIMIZATION_LEVEL = 0
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1 $(AppleSshFeatures)
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = DEBUG=1 $(AppleSshFeatures) __APPLE_ENDPOINTSECURITY__

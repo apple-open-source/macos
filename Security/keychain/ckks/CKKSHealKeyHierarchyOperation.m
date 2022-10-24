@@ -82,6 +82,9 @@
     NSArray<CKKSPeerProviderState*>* currentTrustStates = nil;
 
     WEAKIFY(self);
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     self.setResultStateOperation = [CKKSResultOperation named:@"determine-next-state" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
         STRONGIFY(self);
 
@@ -124,7 +127,8 @@
 
         NSError* error = nil;
 
-        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID];
+        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID
+                                                         contextID:viewState.contextID ];
 
         bool changedCurrentTLK = false;
         bool changedCurrentClassA = false;
@@ -158,7 +162,9 @@
         }
 
         NSError* parentKeyUUIDsError = nil;
-        BOOL allIQEsHaveKeys = [CKKSIncomingQueueEntry allIQEsHaveValidUnwrappingKeys:viewState.zoneID error:&parentKeyUUIDsError];
+        BOOL allIQEsHaveKeys = [CKKSIncomingQueueEntry allIQEsHaveValidUnwrappingKeysInContextID:self.deps.contextID
+                                                                                          zoneID:viewState.zoneID
+                                                                                           error:&parentKeyUUIDsError];
 
         if(parentKeyUUIDsError != nil) {
             ckkserror("ckksheal", viewState.zoneID, "Unable to determine if all IQEs have parent keys: %@", parentKeyUUIDsError);
@@ -175,15 +181,27 @@
         // No current key records. That's... odd.
         if(!keyset.currentTLKPointer) {
             ckksnotice("ckksheal", viewState.zoneID, "No current TLK pointer?");
-            keyset.currentTLKPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassTLK currentKeyUUID:nil zoneID:viewState.zoneID encodedCKRecord:nil];
+            keyset.currentTLKPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassTLK
+                                                                         contextID:viewState.contextID
+                                                                    currentKeyUUID:nil
+                                                                            zoneID:viewState.zoneID
+                                                                   encodedCKRecord:nil];
         }
         if(!keyset.currentClassAPointer) {
             ckksnotice("ckksheal", viewState.zoneID, "No current ClassA pointer?");
-            keyset.currentClassAPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassA currentKeyUUID:nil zoneID:viewState.zoneID encodedCKRecord:nil];
+            keyset.currentClassAPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassA
+                                                                            contextID:viewState.contextID
+                                                                       currentKeyUUID:nil
+                                                                               zoneID:viewState.zoneID
+                                                                      encodedCKRecord:nil];
         }
         if(!keyset.currentClassCPointer) {
             ckksnotice("ckksheal", viewState.zoneID, "No current ClassC pointer?");
-            keyset.currentClassCPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassC currentKeyUUID:nil zoneID:viewState.zoneID encodedCKRecord:nil];
+            keyset.currentClassCPointer = [[CKKSCurrentKeyPointer alloc] initForClass: SecCKKSKeyClassC
+                                                                            contextID:viewState.contextID
+                                                                       currentKeyUUID:nil
+                                                                               zoneID:viewState.zoneID
+                                                                      encodedCKRecord:nil];
         }
 
 
@@ -192,7 +210,9 @@
            ![keyset.classA.parentKeyUUID isEqualToString: keyset.tlk.uuid] || ![keyset.classC.parentKeyUUID isEqualToString: keyset.tlk.uuid]) {
 
             // The records exist, but are broken. Point them at something reasonable.
-            NSArray<CKKSKey*>* keys = [CKKSKey allKeys:viewState.zoneID error:&error];
+            NSArray<CKKSKey*>* keys = [CKKSKey allKeysForContextID:viewState.contextID
+                                                            zoneID:viewState.zoneID
+                                                             error:&error];
 
             CKKSKey* newTLK = nil;
             CKKSKey* newClassAKey = nil;
@@ -232,8 +252,9 @@
             }
 
             // This key is our proposed TLK.
-            if(![newTLK tlkMaterialPresentOrRecoverableViaTLKShare:currentTrustStates
-                                                          error:&error]) {
+            if(![newTLK tlkMaterialPresentOrRecoverableViaTLKShareForContextID:viewState.contextID
+                                                                forTrustStates:currentTrustStates
+                                                                         error:&error]) {
                 // TLK is valid, but not present locally
                 if(error && [self.deps.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckkskey", viewState.zoneID, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", newTLK);
@@ -479,8 +500,9 @@
         }
 
         // This key is our proposed TLK.
-        if(![keyset.tlk tlkMaterialPresentOrRecoverableViaTLKShare:currentTrustStates
-                                                             error:&error]) {
+        if(![keyset.tlk tlkMaterialPresentOrRecoverableViaTLKShareForContextID:viewState.contextID
+                                                                forTrustStates:currentTrustStates
+                                                                         error:&error]) {
             // TLK is valid, but not present locally
             if(error && [self.deps.lockStateTracker isLockedError:error]) {
                 ckksnotice("ckkskey", viewState.zoneID, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", keyset.tlk);

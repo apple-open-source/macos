@@ -11,7 +11,7 @@ tcl_ext_compiled      = thread tclx tclvfs expect incrtcl xotcl \
                         tbcload memchan mk4tcl tls tdom tclxml ffidl \
                         tktable trf tclae $(tcl_ext_compiled_84)
 ifneq ($(Tcl84Ext),NO)
-tcl_ext_compiled_84   = tktreectrl quicktimetcl snack tclresource tclapplescript
+tcl_ext_compiled_84   = tktreectrl quicktimetcl tclresource tclapplescript
 endif
 tcl_ext_puretcl       = tcllib tklib bwidget tkcon tclsoap sdx
 

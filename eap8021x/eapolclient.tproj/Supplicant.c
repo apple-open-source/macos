@@ -82,6 +82,7 @@
 #include "myCFUtil.h"
 #include "ClientControlInterface.h"
 #include "AppSSOProviderAccess.h"
+#include "MIBConfigurationAccess.h"
 
 #define START_PERIOD_SECS		5
 #define START_ATTEMPTS_MAX		3
@@ -139,6 +140,8 @@ struct Supplicant_s {
     CFTypeRef 			appsso_provider;
     CFStringRef			config_id;
 
+    MIBEAPConfigurationRef 	mib_eap_configuration;
+
     int				previous_identifier;
     char *			outer_identity;
     int				outer_identity_length;
@@ -190,6 +193,7 @@ struct Supplicant_s {
     bool			no_ui;
     bool			sent_identity;
     bool 			appsso_auth_requested;
+    bool 			in_box_auth_requested;
 };
 
 typedef enum {
@@ -1622,7 +1626,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 		supp->last_status = kEAPClientStatusUserInputNotPossible;
 		Supplicant_held(supp, kSupplicantEventStart, NULL);
 	    }
-	    else if (supp->appsso_auth_requested) {
+	    else if (supp->appsso_auth_requested || supp->in_box_auth_requested) {
 		supp->last_status = kEAPClientStatusOtherInputRequired;
 		Supplicant_report_status(supp);
 	    }
@@ -1657,7 +1661,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 			       NULL);
 	    
 	}
-	else if (supp->appsso_auth_requested) {
+	else if (supp->appsso_auth_requested || supp->in_box_auth_requested) {
 	    supp->last_status = kEAPClientStatusOtherInputRequired;
 	    Supplicant_report_status(supp);
 	}
@@ -2141,9 +2145,9 @@ create_ui_config_dict(SupplicantRef supp)
 #pragma mark - AppSSO Provider
 
 static void
-appsso_provider_supplied_credentials(SupplicantRef supp)
+other_source_supplied_credentials(SupplicantRef supp)
 {
-    EAPLOG_FL(LOG_INFO, "appsso_provider_supplied_credentials");
+    EAPLOG_FL(LOG_INFO, "other_source_supplied_credentials");
     switch (supp->state) {
 	case kSupplicantStateAcquired:
 	    Supplicant_acquired(supp,
@@ -2243,7 +2247,7 @@ handle_appsso_provider_credentials(SupplicantRef supp, CredentialsAppSSOProvider
     remove_appsso_provider_url_from_config(config_dict);
     Supplicant_update_configuration(supp, config_dict, NULL);
     my_CFRelease(&config_dict);
-    appsso_provider_supplied_credentials(supp);
+    other_source_supplied_credentials(supp);
     return true;
 }
 
@@ -2308,6 +2312,85 @@ is_appsso_provider_auth_requested(const CFDictionaryRef eap_config)
 #pragma unused(eap_config)
     return false;
 #endif /* TARGET_OS_IOS */
+}
+
+#pragma mark - MobileInBoxUpdate Source
+
+static void
+free_mib_configuration(MIBEAPConfigurationRef *configuration_p)
+{
+    MIBEAPConfigurationRef configuration;
+
+    if (configuration_p == NULL) {
+	return;
+    }
+    configuration = *configuration_p;
+    if (configuration != NULL) {
+	CFRelease(configuration->tlsClientIdentity);
+	CFRelease(configuration->tlsClientCertificateChain);
+	free(configuration);
+    }
+    *configuration_p = NULL;
+    return;
+}
+
+static bool
+is_in_box_auth_auth_requested(void)
+{
+#if TARGET_OS_IOS
+    return MIBConfigurationAccessIsInBoxUpdateMode();
+#else /* #if TARGET_OS_IOS */
+    return false;
+#endif /* TARGET_OS_IOS */
+}
+
+bool
+handle_mib_configuration(SupplicantRef supp, MIBEAPConfigurationRef configuration)
+{
+    CFMutableDictionaryRef config_dict = NULL;
+
+    if (configuration == NULL) {
+	EAPLOG_FL(LOG_ERR, "received NULL EAP configuration from MIB");
+	return false;
+    }
+    config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+    supp->mib_eap_configuration = configuration;
+    Supplicant_update_configuration(supp, config_dict, NULL);
+    my_CFRelease(&config_dict);
+    other_source_supplied_credentials(supp);
+    return true;
+}
+
+static void
+mib_access_callback(void *context, MIBEAPConfigurationRef configuration)
+{
+    bool 		success = true;
+    SupplicantRef 	supp = (SupplicantRef)context;
+
+    EAPLOG_FL(LOG_INFO, "mib_access_callback");
+    if (supp->last_status != kEAPClientStatusOtherInputRequired) {
+	EAPLOG_FL(LOG_ERR, "supplicant's last status is not %s",
+		  EAPClientStatusGetString(kEAPClientStatusOtherInputRequired));
+	return;
+    }
+    success = handle_mib_configuration(supp, configuration);
+    if (!success) {
+	EAPLOG_FL(LOG_ERR, "failed to process EAP configuration from MIB");
+	CFMutableDictionaryRef config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+	supp->in_box_auth_requested = false;
+	Supplicant_update_configuration(supp, config_dict, NULL);
+	my_CFRelease(&config_dict);
+    }
+}
+
+static void
+fetch_mib_eap_configuration(SupplicantRef supp)
+{
+#if TARGET_OS_IOS
+    EAPLOG_FL(LOG_INFO, "fetching EAP configuration from MIB source");
+    MIBConfigurationAccessFetchEAPConfiguration(mib_access_callback, supp);
+#endif /* TARGET_OS_IOS */
+    return;
 }
 
 #if ! TARGET_OS_IPHONE
@@ -2645,14 +2728,13 @@ Supplicant_report_status(SupplicantRef supp)
 	dictInsertClientStatus(dict, supp->last_status,
 			       supp->last_error);
 	if (supp->last_status == kEAPClientStatusOtherInputRequired) {
-	    /* This is a workaround as WiFiManager stops EAP auth when client status
-	     * is other than kEAPClientStatusOK and kEAPClientStatusUserInputRequired.
-	     * This won't be necessary after rdar://problem/74290419 is fixed.
-	     */
-	    dictInsertClientStatus(dict, kEAPClientStatusOK, supp->last_error);
-	    CFStringRef	ssid = EAPOLSocketGetSSID(supp->sock);
-	    ssid = (ssid != NULL) ? ssid : CFSTR("network");
-	    fetch_credentials_from_appsso_provider(supp, supp->appsso_provider_url, ssid);
+	    if (supp->appsso_auth_requested) {
+		CFStringRef	ssid = EAPOLSocketGetSSID(supp->sock);
+		ssid = (ssid != NULL) ? ssid : CFSTR("network");
+		fetch_credentials_from_appsso_provider(supp, supp->appsso_provider_url, ssid);
+	    } else if (supp->in_box_auth_requested) {
+		fetch_mib_eap_configuration(supp);
+	    }
 	}
 	else if (supp->last_status == kEAPClientStatusUserInputRequired) {
 	    if (supp->username == NULL) {
@@ -2691,7 +2773,6 @@ Supplicant_report_status(SupplicantRef supp)
     CFRelease(timestamp);
     if (eapolclient_should_log(kLogFlagStatusDetails | kLogFlagBasic)) {
 	int		level;
-	boolean_t	logged = FALSE;
 	CFStringRef	str = NULL;
 
 	level = eapolclient_should_log(kLogFlagStatusDetails) ? LOG_DEBUG : LOG_INFO;
@@ -2714,7 +2795,6 @@ Supplicant_report_status(SupplicantRef supp)
 		   supp->last_error,
 		   (str != NULL) ? ":\n" : "",
 		   (str != NULL) ? str : CFSTR(""));
-	    logged = TRUE;
 	    break;
 	case kEAPClientStatusPluginSpecificError:
 	    EAPLOG(level,
@@ -2725,7 +2805,6 @@ Supplicant_report_status(SupplicantRef supp)
 		   supp->last_error,
 		   (str != NULL) ? ":\n" : "",
 		   (str != NULL) ? str : CFSTR(""));
-	    logged = TRUE;
 	    break;
 	default:
 	    EAPLOG(level,
@@ -3420,6 +3499,10 @@ S_set_credentials(SupplicantRef supp)
 	    sec_identity = EAPOLClientItemIDCopyIdentity(supp->itemID, domain);
 	}
 #endif /* ! TARGET_OS_IPHONE */
+	if (supp->in_box_auth_requested && supp->mib_eap_configuration != NULL &&
+	    supp->mib_eap_configuration->tlsClientIdentity) {
+	    sec_identity = CFRetain(supp->mib_eap_configuration->tlsClientIdentity);
+	}
 	my_CFRelease(&supp->sec_identity);
 	supp->sec_identity = sec_identity;
 
@@ -3634,6 +3717,13 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     my_CFRelease(&supp->orig_config_dict);
     supp->orig_config_dict = CFDictionaryCreateCopy(NULL, config_dict);
 
+    /* is this iOS device inside the box ? */
+    if (supp->mib_eap_configuration == NULL) {
+	supp->in_box_auth_requested = is_in_box_auth_auth_requested();
+	EAPLOG(LOG_INFO, "in-box auth %s requested", supp->in_box_auth_requested ? "is" : "is not");
+    }
+
+    /* AppSSO specific checks */
     supp->appsso_auth_requested = is_appsso_provider_auth_requested(eap_config);
     if (supp->appsso_auth_requested) {
 	EAPLOG(LOG_INFO, "appsso provider auth is requested");
@@ -3654,6 +3744,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     if (empty_user || empty_password
 	|| supp->ui_config_dict != NULL
 	|| supp->appsso_provider_creds != NULL
+	|| supp->mib_eap_configuration != NULL
 #if ! TARGET_OS_IPHONE
 	|| password_info != NULL
 	|| profile != NULL
@@ -3690,6 +3781,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	    CFDictionaryApplyFunction(supp->appsso_provider_creds, dict_set_key_value,
 				      new_eap_config);
 	}
+	if (supp->mib_eap_configuration != NULL && supp->mib_eap_configuration->tlsClientCertificateChain != NULL) {
+	    CFDictionarySetValue(new_eap_config, kEAPClientPropTLSClientIdentityTrustChainCertificates, supp->mib_eap_configuration->tlsClientCertificateChain);
+	}
 	supp->config_dict = new_eap_config;
     }
     else {
@@ -3699,8 +3793,10 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	CFStringRef	str;
 
 	str = copy_cleaned_config_dict(supp->config_dict);
-	EAPLOG(-LOG_DEBUG, "update_configuration\n%@", str);
-	CFRelease(str);
+	if (str != NULL) {
+	    EAPLOG(-LOG_DEBUG, "update_configuration\n%@", str);
+	    CFRelease(str);
+	}
     }
     else {
 	EAPLOG(LOG_INFO, "update_configuration");
@@ -3986,6 +4082,7 @@ Supplicant_free(SupplicantRef * supp_p)
 	    (void)notify_cancel(supp->config_change.token);
 	}
 #endif /* ! TARGET_OS_IPHONE */
+	free_mib_configuration(&supp->mib_eap_configuration);
 	my_CFRelease(&supp->sec_identity);
 	if (supp->outer_identity != NULL) {
 	    free(supp->outer_identity);
@@ -4020,6 +4117,24 @@ Supplicant_set_no_ui(SupplicantRef supp)
     return;
 }
 
+static CFArrayRef
+create_cert_data_array(CFArrayRef certs)
+{
+    CFIndex count = 0;
+    if (certs == NULL || CFArrayGetCount(certs) == 0) {
+	return NULL;
+    }
+    count = CFArrayGetCount(certs);
+    CFMutableArrayRef array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    for (CFIndex i = 0; i < count; i++) {
+	SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certs, i);
+	CFDataRef data = SecCertificateCopyData(cert);
+	CFArrayAppendValue(array, data);
+	CFRelease(data);
+    }
+    return array;
+}
+
 static CFStringRef
 copy_cleaned_config_dict(CFDictionaryRef d)
 {
@@ -4045,7 +4160,20 @@ copy_cleaned_config_dict(CFDictionaryRef d)
 	CFRelease(d_copy);
     }
     else {
-	str = my_CFPropertyListCopyAsXMLString(d);
+	CFArrayRef certs = CFDictionaryGetValue(d, kEAPClientPropTLSClientIdentityTrustChainCertificates);
+	CFArrayRef cert_data_array = NULL;
+	if (isA_CFArray(certs) != NULL) {
+	    cert_data_array = create_cert_data_array(certs);
+	}
+	if (cert_data_array != NULL) {
+	    CFMutableDictionaryRef d_copy = CFDictionaryCreateMutableCopy(NULL, 0, d);
+	    CFDictionarySetValue(d_copy, kEAPClientPropTLSClientIdentityTrustChainCertificates, cert_data_array);
+	    str = my_CFPropertyListCopyAsXMLString(d_copy);
+	    CFRelease(d_copy);
+	    CFRelease(cert_data_array);
+	} else {
+	    str = my_CFPropertyListCopyAsXMLString(d);
+	}
     }
     return (str);
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Igalia S.L.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,9 +30,13 @@
 
 #include "Element.h"
 #include "InspectorInstrumentation.h"
+#include "JSNodeCustom.h"
+#include "Logging.h"
 #include "ResizeObserverEntry.h"
 #include "ResizeObserverOptions.h"
+#include "WebCoreOpaqueRoot.h"
 #include <JavaScriptCore/AbstractSlotVisitorInlines.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -59,7 +64,7 @@ void ResizeObserver::observe(Element& target, const ResizeObserverOptions& optio
     if (!m_callback)
         return;
 
-    auto position = m_observations.findMatching([&](auto& observation) {
+    auto position = m_observations.findIf([&](auto& observation) {
         return observation->target() == &target;
     });
 
@@ -112,6 +117,9 @@ size_t ResizeObserver::gatherObservations(size_t deeperThan)
             size_t depth = observation->targetElementDepth();
             if (depth > deeperThan) {
                 observation->updateObservationSize(*currentSizes);
+
+                LOG_WITH_STREAM(ResizeObserver, stream << "ResizeObserver " << this << " gatherObservations - recording observation " << observation.get());
+
                 m_activeObservations.append(observation.get());
                 m_activeObservationTargets.append(*observation->target());
                 minObservedDepth = std::min(depth, minObservedDepth);
@@ -124,11 +132,12 @@ size_t ResizeObserver::gatherObservations(size_t deeperThan)
 
 void ResizeObserver::deliverObservations()
 {
-    Vector<Ref<ResizeObserverEntry>> entries;
-    for (const auto& observation : m_activeObservations) {
+    LOG_WITH_STREAM(ResizeObserver, stream << "ResizeObserver " << this << " deliverObservations");
+
+    auto entries = m_activeObservations.map([](auto& observation) {
         ASSERT(observation->target());
-        entries.append(ResizeObserverEntry::create(observation->target(), observation->computeContentRect(), observation->borderBoxSize(), observation->contentBoxSize()));
-    }
+        return ResizeObserverEntry::create(observation->target(), observation->computeContentRect(), observation->borderBoxSize(), observation->contentBoxSize());
+    });
     m_activeObservations.clear();
     auto activeObservationTargets = std::exchange(m_activeObservationTargets, { });
 
@@ -149,11 +158,11 @@ void ResizeObserver::deliverObservations()
 bool ResizeObserver::isReachableFromOpaqueRoots(JSC::AbstractSlotVisitor& visitor) const
 {
     for (auto& observation : m_observations) {
-        if (auto* target = observation->target(); target && visitor.containsOpaqueRoot(target->opaqueRoot()))
+        if (auto* target = observation->target(); target && containsWebCoreOpaqueRoot(visitor, target))
             return true;
     }
     for (auto& target : m_activeObservationTargets) {
-        if (visitor.containsOpaqueRoot(target->opaqueRoot()))
+        if (containsWebCoreOpaqueRoot(visitor, target.get()))
             return true;
     }
     return false;

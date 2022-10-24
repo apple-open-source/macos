@@ -52,6 +52,13 @@ public:
 
     void pageClosed() override;
 
+    void topContentInsetDidChange() final;
+
+#if ENABLE(GPU_PROCESS)
+    void gpuProcessDidFinishLaunching() override;
+    void gpuProcessDidExit() override;
+#endif
+
     void themeColorWillChange() final;
     void themeColorDidChange() final;
     void underPageBackgroundColorWillChange() final;
@@ -74,6 +81,7 @@ public:
 #endif
 
     WebCore::DictationContext addDictationAlternatives(NSTextAlternatives *) final;
+    void replaceDictationAlternatives(NSTextAlternatives *, WebCore::DictationContext) final;
     void removeDictationAlternatives(WebCore::DictationContext) final;
     Vector<String> dictationAlternatives(WebCore::DictationContext) final;
     NSTextAlternatives *platformDictationAlternatives(WebCore::DictationContext) final;
@@ -84,8 +92,15 @@ public:
 
     void microphoneCaptureWillChange() final;
     void cameraCaptureWillChange() final;
+    void displayCaptureWillChange() final;
+    void displayCaptureSurfacesWillChange() final;
+    void systemAudioCaptureWillChange() final;
+
     void microphoneCaptureChanged() final;
     void cameraCaptureChanged() final;
+    void displayCaptureChanged() final;
+    void displayCaptureSurfacesChanged() final;
+    void systemAudioCaptureChanged() final;
 
     WindowKind windowKind() final;
 

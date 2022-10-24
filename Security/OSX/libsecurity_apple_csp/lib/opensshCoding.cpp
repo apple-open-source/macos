@@ -45,7 +45,7 @@
 
 #pragma mark --- commmon code --- 
 
-uint32_t readUint32(
+uint32_t readUint32OpenSSH(
 	const unsigned char *&cp,		// IN/OUT
 	unsigned &len)					// IN/OUT 
 {
@@ -59,7 +59,7 @@ uint32_t readUint32(
 	return r;
 }
 
-void appendUint32(
+void appendUint32OpenSSH(
 	CFMutableDataRef cfOut,
 	uint32_t ui)
 {
@@ -103,7 +103,7 @@ static CSSM_RETURN appendBigNum2(
 		return CSSMERR_CSP_INTERNAL_ERROR;
 	}
 	if (BN_is_zero(bn)) {
-		appendUint32(cfOut, 0);
+		appendUint32OpenSSH(cfOut, 0);
 		return 0;
 	}
 	if(bn->neg) {
@@ -128,7 +128,7 @@ static CSSM_RETURN appendBigNum2(
 		appendZero = true;
 		numBytes++;		// to encode the correct 4-byte length 
 	}
-	appendUint32(cfOut, (uint32_t)numBytes);
+	appendUint32OpenSSH(cfOut, (uint32_t)numBytes);
 	if(appendZero) {
 		UInt8 z = 0;
 		CFDataAppendBytes(cfOut, &z, 1);
@@ -149,7 +149,7 @@ static BIGNUM *readBigNum2(
 		dprintf("readBigNum2: short record(1)\n");
 		return NULL;
 	}
-	uint32_t bytes = readUint32(cp, remLen);
+	uint32_t bytes = readUint32OpenSSH(cp, remLen);
 	if(remLen < bytes) {
 		dprintf("readBigNum2: short record(2)\n");
 		return NULL;
@@ -185,7 +185,7 @@ static void appendString(
 	const char *str,
 	unsigned strLen)
 {
-	appendUint32(cfOut, (uint32_t)strLen);
+	appendUint32OpenSSH(cfOut, (uint32_t)strLen);
 	CFDataAppendBytes(cfOut, (UInt8 *)str, strLen);
 }
 
@@ -508,7 +508,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH2(
 		ourRtn = -1;
 		goto errOut;
 	}
-	decLen = readUint32(key, keyLen);
+	decLen = readUint32OpenSSH(key, keyLen);
 	len = strlen(SSH2_RSA_HEADER);
 	if(decLen != len) {
 		dprintf("RSAPublicKeyDecodeOpenSSH2: bad header (2)\n");
@@ -645,7 +645,7 @@ CSSM_RETURN DSAPublicKeyDecodeOpenSSH2(
 		ourRtn = CSSMERR_CSP_INVALID_KEY;
 		goto errOut;
 	}
-	decLen = readUint32(key, keyLen);
+	decLen = readUint32OpenSSH(key, keyLen);
 	len = strlen(SSH2_DSA_HEADER);
 	if(decLen != len) {
 		dprintf("DSAPublicKeyDecodeOpenSSH2: bad header (2)\n");

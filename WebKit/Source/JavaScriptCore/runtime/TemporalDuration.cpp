@@ -37,7 +37,7 @@ namespace JSC {
 
 static constexpr double nanosecondsPerDay = 24.0 * 60 * 60 * 1000 * 1000 * 1000;
 
-const ClassInfo TemporalDuration::s_info = { "Object", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TemporalDuration) };
+const ClassInfo TemporalDuration::s_info = { "Object"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TemporalDuration) };
 
 TemporalDuration* TemporalDuration::create(VM& vm, Structure* structure, ISO8601::Duration&& duration)
 {
@@ -60,7 +60,7 @@ TemporalDuration::TemporalDuration(VM& vm, Structure* structure, ISO8601::Durati
 void TemporalDuration::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(vm, info()));
+    ASSERT(inherits(info()));
 }
 
 // CreateTemporalDuration ( years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds [ , newTarget ] )
@@ -85,7 +85,7 @@ ISO8601::Duration TemporalDuration::fromDurationLike(JSGlobalObject* globalObjec
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (durationLike->inherits<TemporalDuration>(vm))
+    if (durationLike->inherits<TemporalDuration>())
         return jsCast<TemporalDuration*>(durationLike)->m_duration;
 
     ISO8601::Duration result;
@@ -94,13 +94,11 @@ ISO8601::Duration TemporalDuration::fromDurationLike(JSGlobalObject* globalObjec
         JSValue value = durationLike->get(globalObject, temporalUnitPluralPropertyName(vm, unit));
         RETURN_IF_EXCEPTION(scope, { });
 
-        if (value.isUndefined()) {
-            result[unit] = 0;
+        if (value.isUndefined())
             continue;
-        }
 
         hasRelevantProperty = true;
-        result[unit] = value.toNumber(globalObject);
+        result[unit] = value.toIntegerWithoutRounding(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
 
         if (!isInteger(result[unit])) {
@@ -157,7 +155,7 @@ TemporalDuration* TemporalDuration::toTemporalDuration(JSGlobalObject* globalObj
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (itemValue.inherits<TemporalDuration>(vm))
+    if (itemValue.inherits<TemporalDuration>())
         return jsCast<TemporalDuration*>(itemValue);
 
     auto result = toISO8601Duration(globalObject, itemValue);
@@ -195,7 +193,7 @@ TemporalDuration* TemporalDuration::from(JSGlobalObject* globalObject, JSValue i
 {
     VM& vm = globalObject->vm();
 
-    if (itemValue.inherits<TemporalDuration>(vm)) {
+    if (itemValue.inherits<TemporalDuration>()) {
         ISO8601::Duration cloned = jsCast<TemporalDuration*>(itemValue)->m_duration;
         return TemporalDuration::create(vm, globalObject->durationStructure(), WTFMove(cloned));
     }
@@ -462,26 +460,39 @@ ISO8601::Duration TemporalDuration::round(JSGlobalObject* globalObject, JSValue 
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    JSObject* options = intlGetOptionsObject(globalObject, optionsValue);
-    RETURN_IF_EXCEPTION(scope, { });
-
-    auto smallest = temporalSmallestUnit(globalObject, options, { });
-    RETURN_IF_EXCEPTION(scope, { });
-
+    JSObject* options = nullptr;
+    std::optional<TemporalUnit> smallest;
+    std::optional<TemporalUnit> largest;
     TemporalUnit defaultLargestUnit = largestSubduration(m_duration);
-    auto largest = temporalLargestUnit(globalObject, options, { }, defaultLargestUnit);
-    RETURN_IF_EXCEPTION(scope, { });
+    if (optionsValue.isString()) {
+        auto string = optionsValue.toWTFString(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
 
-    if (!smallest && !largest) {
-        throwRangeError(globalObject, scope, "Cannot round without a smallestUnit or largestUnit option"_s);
-        return { };
+        smallest = temporalUnitType(string);
+        if (!smallest) {
+            throwRangeError(globalObject, scope, "smallestUnit is an invalid Temporal unit"_s);
+            return { };
+        }
+    } else {
+        options = intlGetOptionsObject(globalObject, optionsValue);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        smallest = temporalSmallestUnit(globalObject, options, { });
+        RETURN_IF_EXCEPTION(scope, { });
+
+        largest = temporalLargestUnit(globalObject, options, { }, defaultLargestUnit);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        if (!smallest && !largest) {
+            throwRangeError(globalObject, scope, "Cannot round without a smallestUnit or largestUnit option"_s);
+            return { };
+        }
+
+        if (smallest && largest && smallest.value() < largest.value()) {
+            throwRangeError(globalObject, scope, "smallestUnit must be smaller than largestUnit"_s);
+            return { };
+        }
     }
-
-    if (smallest && largest && smallest.value() < largest.value()) {
-        throwRangeError(globalObject, scope, "smallestUnit must be smaller than largestUnit"_s);
-        return { };
-    }
-
     TemporalUnit smallestUnit = smallest.value_or(TemporalUnit::Nanosecond);
     TemporalUnit largestUnit = largest.value_or(std::min(defaultLargestUnit, smallestUnit));
 
@@ -512,11 +523,17 @@ double TemporalDuration::total(JSGlobalObject* globalObject, JSValue optionsValu
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    JSObject* options = intlGetOptionsObject(globalObject, optionsValue);
-    RETURN_IF_EXCEPTION(scope, 0);
+    String unitString;
+    if (optionsValue.isString()) {
+        unitString = optionsValue.toWTFString(globalObject);
+        RETURN_IF_EXCEPTION(scope, 0);
+    } else {
+        JSObject* options = intlGetOptionsObject(globalObject, optionsValue);
+        RETURN_IF_EXCEPTION(scope, 0);
 
-    String unitString = intlStringOption(globalObject, options, vm.propertyNames->unit, { }, nullptr, nullptr);
-    RETURN_IF_EXCEPTION(scope, 0);
+        unitString = intlStringOption(globalObject, options, vm.propertyNames->unit, { }, { }, { });
+        RETURN_IF_EXCEPTION(scope, 0);
+    }
 
     auto unitType = temporalUnitType(unitString);
     if (!unitType) {
@@ -605,7 +622,7 @@ String TemporalDuration::toString(const ISO8601::Duration& duration, std::tuple<
         builder.append(formatInteger(duration.days()), 'D');
 
     // The zero value is displayed in seconds.
-    auto usesSeconds = balancedSeconds || balancedMilliseconds || balancedMicroseconds || balancedNanoseconds || !sign;
+    auto usesSeconds = balancedSeconds || balancedMilliseconds || balancedMicroseconds || balancedNanoseconds || !sign || std::get<0>(precision) != Precision::Auto;
     if (!duration.hours() && !duration.minutes() && !usesSeconds)
         return builder.toString();
 

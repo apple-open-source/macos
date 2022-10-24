@@ -26,9 +26,11 @@
 #include "config.h"
 #include "WebPasteboardOverrides.h"
 
+#include <WebCore/PasteboardItemInfo.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebKit {
+using namespace WebCore;
 
 WebPasteboardOverrides& WebPasteboardOverrides::sharedPasteboardOverrides()
 {
@@ -42,14 +44,8 @@ WebPasteboardOverrides::WebPasteboardOverrides()
 
 void WebPasteboardOverrides::addOverride(const String& pasteboardName, const String& type, const Vector<uint8_t>& data)
 {
-    auto addResult = m_overridesMap.add(pasteboardName, nullptr);
-
-    if (addResult.isNewEntry) {
-        std::unique_ptr<HashMap<String, Vector<uint8_t>>> typeMap = makeUnique<HashMap<String, Vector<uint8_t>>>();
-        addResult.iterator->value = WTFMove(typeMap);
-    }
-
-    addResult.iterator->value->set(type, data);
+    auto& overrides = m_overridesMap.add(pasteboardName, HashMap<String, Vector<uint8_t>>()).iterator->value;
+    overrides.set(type, data);
 }
 
 void WebPasteboardOverrides::removeOverride(const String& pasteboardName, const String& type)
@@ -58,29 +54,34 @@ void WebPasteboardOverrides::removeOverride(const String& pasteboardName, const 
     if (it == m_overridesMap.end())
         return;
 
-    ASSERT(it->value);
-
-    it->value->remove(type);
+    it->value.remove(type);
 
     // If this was the last override for this pasteboard, remove its record completely.
-    if (it->value->isEmpty())
+    if (it->value.isEmpty())
         m_overridesMap.remove(it);
 }
 
 Vector<String> WebPasteboardOverrides::overriddenTypes(const String& pasteboardName)
 {
-    Vector<String> result;
-
     auto it = m_overridesMap.find(pasteboardName);
     if (it == m_overridesMap.end())
-        return result;
+        return { };
 
-    ASSERT(it->value);
+    return copyToVector(it->value.keys());
+}
 
-    for (String& type : it->value->keys())
-        result.append(type);
+std::optional<WebCore::PasteboardItemInfo> WebPasteboardOverrides::overriddenInfo(const String& pasteboardName)
+{
+    auto types = this->overriddenTypes(pasteboardName);
+    if (types.isEmpty())
+        return std::nullopt;
 
-    return result;
+    PasteboardItemInfo item;
+    item.platformTypesByFidelity = types;
+    // FIXME: This is currently appropriate for all clients that rely on PasteboardItemInfo, but we may need to adjust
+    // this in the future so that we don't treat 'inline' types such as plain text as uploaded files.
+    item.platformTypesForFileUpload = types;
+    return { WTFMove(item) };
 }
 
 bool WebPasteboardOverrides::getDataForOverride(const String& pasteboardName, const String& type, Vector<uint8_t>& data) const
@@ -89,8 +90,8 @@ bool WebPasteboardOverrides::getDataForOverride(const String& pasteboardName, co
     if (pasteboardIterator == m_overridesMap.end())
         return false;
 
-    auto typeIterator = pasteboardIterator->value->find(type);
-    if (typeIterator == pasteboardIterator->value->end())
+    auto typeIterator = pasteboardIterator->value.find(type);
+    if (typeIterator == pasteboardIterator->value.end())
         return false;
 
     data = typeIterator->value;

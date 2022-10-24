@@ -263,12 +263,14 @@ __unused static void print_dir_entry_name( uint32_t uLen, char* pcName, char* pc
 static int GetFSAttr(UVFSFileNode Node);
 static void* MultiThreadSingleFile(void *arg);
 static void* MultiThreadMultiFiles(void *arg);
-static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove);
+static int MountDevice(int fd, UVFSFileNode *RootNode);
+static int UnmountDevice(UVFSFileNode psRootNode, int fd);
 static int SetAttrChangeSize(UVFSFileNode FileNode,uint64_t uNewSize);
-static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove);
 static int GetAttrAndCompare(UVFSFileNode FileNode,UVFSFileAttributes* sInAttrs);
 static int Lookup(UVFSFileNode ParentNode,UVFSFileNode *NewFileNode,char* FileName);
 static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,const char* NewDirName);
+static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove, UVFSFileNode victimNode);
+static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove, UVFSFileNode victimNode);
 static int CreateLink(UVFSFileNode ParentNode,UVFSFileNode* NewLinkNode,char* LinkName,char* LinkContent);
 static int CreateNewFile(UVFSFileNode ParentNode,UVFSFileNode* NewFileNode,const char* NewFileName,uint64_t size);
 static int Rename(UVFSFileNode fromDirNode, UVFSFileNode fromNode, const char *fromName, UVFSFileNode toDirNode, UVFSFileNode toNode, const char *toName);
@@ -290,7 +292,7 @@ static int CloseFile(UVFSFileNode UVFSFileNode)
         return iErr;
     }
 
-    iErr = MSDOS_fsOps.fsops_reclaim(UVFSFileNode);
+    iErr = MSDOS_fsOps.fsops_reclaim(UVFSFileNode, 0);
     if (iErr)
     {
         printf("Got Err: %d, while reclaiming\n",iErr);
@@ -591,11 +593,11 @@ static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,cons
     return error;
 }
 
-static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove)
+static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove, UVFSFileNode victimNode)
 {
     int error =0;
 
-    error = MSDOS_fsOps.fsops_rmdir(ParentNode, DirNameToRemove);;
+    error = MSDOS_fsOps.fsops_rmdir(ParentNode, DirNameToRemove, victimNode);
 
     return error;
 }
@@ -617,11 +619,11 @@ static int CreateNewFile(UVFSFileNode ParentNode, UVFSFileNode* NewFileNode, con
     return error;
 }
 
-static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove)
+static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove, UVFSFileNode victimNode)
 {
     int error =0;
 
-    error = MSDOS_fsOps.fsops_remove(ParentNode, FileNameToRemove, NULL);
+    error = MSDOS_fsOps.fsops_remove(ParentNode, FileNameToRemove, victimNode);
 
     return error;
 }
@@ -1032,7 +1034,7 @@ MultiThreadMultiFiles(void *arg)
     if (iError) goto exit;
 
     // Remove
-    iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName);
+    iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName, pvFileNode);
 
 exit:
     free(pvBuf);
@@ -1098,7 +1100,7 @@ MultiThreadMultiFilesMultiThread(void *arg)
     if (iError) goto exit;
 
     // Remove
-    iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName);
+    iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName, pvFileNode);
     
 exit:
     free(sTest3_pvBuf);
@@ -1113,6 +1115,8 @@ test4_CreateFiles(void *arg) {
     
     int iFirstFileName = psThreadInput->uThreadId*TEST_4_FILES_PER_THREAD;
     int iLastFileName = psThreadInput->uThreadId*TEST_4_FILES_PER_THREAD + TEST_4_FILES_PER_THREAD;
+    int size = iLastFileName - iFirstFileName;
+    UVFSFileNode node_array[size];
     
     for (int i= 0; i< 10; i++) {
         
@@ -1121,7 +1125,7 @@ test4_CreateFiles(void *arg) {
             char pcName[11] = {0};
             sprintf(pcName, "T4_file%d", idx);
             UVFSFileNode pvFileNode= NULL;
-            iError = CreateNewFile(*psThreadInput->ThreadInputNode.ppvParentFolder, &pvFileNode, pcName, 0);
+            iError = CreateNewFile(*psThreadInput->ThreadInputNode.ppvParentFolder, &node_array[idx], pcName, 0);
             if (iError)
                 goto exit;
             
@@ -1136,7 +1140,7 @@ test4_CreateFiles(void *arg) {
             WriteFromBuffer(pvFileNode, 0, &uActuallyWrriten, fileBuffer, 1024);
             free(fileBuffer);
 
-            iError = CloseFile(pvFileNode);
+            iError = CloseFile(node_array[idx]);
             if (iError)
                 goto exit;
         }
@@ -1147,7 +1151,7 @@ test4_CreateFiles(void *arg) {
             char pcName[11] = {0};
             sprintf(pcName, "T4_file%d", idx);
             // Remove
-            iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName);
+            iError =  RemoveFile(*psThreadInput->ThreadInputNode.ppvParentFolder, pcName, node_array[idx]);
             if (iError)
                 goto exit;
         }
@@ -1261,11 +1265,18 @@ test5_compareClonedFiles(UVFSFileNode fromFolder, char* name, UVFSFileNode toFol
     return iError;
 }
 
+typedef struct cloneFilesArg {
+    ThreadInput_s *threadInput;
+    UVFSFileNode *fileNodes;
+} *cloneFilesArg_t;
+
 static void*
 test5_cloneFilesInDir(void *arg)
 {
     int iError = 0;
-    ThreadInput_s* psThreadInput = (ThreadInput_s*) arg;
+    cloneFilesArg_t args = (cloneFilesArg_t)arg;
+    ThreadInput_s* psThreadInput = args->threadInput;
+    UVFSFileNode *nodeArray = args->fileNodes;
     
     uint64_t fileNum = atomic_fetch_add(&sTest5_FileToClone, 1);
     while (fileNum < TEST_5_NUM_OF_FILES) {
@@ -1292,19 +1303,19 @@ test5_cloneFilesInDir(void *arg)
         CloseFile(orgNode);
         if (iError) break;
 
-        iError = CreateNewFile(*psThreadInput->ThreadTargetNode.ppvToDirNode, &newNode, pcName, 0);
+        iError = CreateNewFile(*psThreadInput->ThreadTargetNode.ppvToDirNode, &nodeArray[fileNum], pcName, 0);
         if (iError) break;
 
         LIFilePreallocateArgs_t pre_alloc_req = {.flags = F_ALLOCATECONTIG | F_ALLOCATEALL, .length = sOrgAttrs.fa_size};
         fstore_t pre_alloc_res = {0};
 
-        iError = MSDOS_fsOps.fsops_setfsattr(newNode, LI_FSATTR_PREALLOCATE, (LIFSAttributeValue* )((void*) &pre_alloc_req), sizeof(LIFilePreallocateArgs_t), (LIFSAttributeValue* )((void*)&pre_alloc_res), sizeof(fstore_t));
+        iError = MSDOS_fsOps.fsops_setfsattr(nodeArray[fileNum], LI_FSATTR_PREALLOCATE, (LIFSAttributeValue* )((void*) &pre_alloc_req), sizeof(LIFilePreallocateArgs_t), (LIFSAttributeValue* )((void*)&pre_alloc_res), sizeof(fstore_t));
         if (iError) break;
 
         size_t uActuallyWritten;
         iError = WriteFromBuffer(newNode, 0, &uActuallyWritten, fileBuffer, sOrgAttrs.fa_size);
 
-        CloseFile(newNode);
+        CloseFile(nodeArray[fileNum]);
         if (iError) break;
 
         fileNum = atomic_fetch_add(&sTest5_FileToClone, 1);
@@ -1568,7 +1579,7 @@ static bool test8_mtFileIdAllocationIsUniqueAndConsecutive(UVFSFileNode parentDi
                 }
                 atomic_fetch_xor(&xoredResult, outAttrs.fa_fileid);
                 CloseFile(tempNode);
-                RemoveFile(parentDirNode, tempName);
+                RemoveFile(parentDirNode, tempName, tempNode);
             }
         });
     }
@@ -1647,7 +1658,7 @@ static bool test8_mtFileIdAllocationSurvivesWrapAround(UVFSFileNode parentDirNod
                     break;
                 }
                 CloseFile(tempNode);
-                RemoveFile(parentDirNode, tempName);
+                RemoveFile(parentDirNode, tempName, tempNode);
             }
         });
     }
@@ -1673,26 +1684,28 @@ TestNlink( UVFSFileNode RootNode )
 {
     UVFSFileAttributes sOutAttrs;
     UVFSFileNode psParentNode;
-    UVFSFileNode psChildNode;
+    UVFSFileNode psChildNode[3];
+    UVFSFileNode psLinkNode[3];
+    UVFSFileNode psDirNode[3];
 
     assert( CreateNewFolder(RootNode, &psParentNode, "TestNlinkParentDirectory") == 0 );
-    assert( CreateNewFile(psParentNode, &psChildNode, "TestNlinkFile0", 0) == 0 );
+    assert( CreateNewFile(psParentNode, &psChildNode[0], "TestNlinkFile0", 0) == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateNewFile(psParentNode, &psChildNode, "TestNlinkFile1", 0) == 0 );
+    assert( CreateNewFile(psParentNode, &psChildNode[1], "TestNlinkFile1", 0) == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateNewFile(psParentNode, &psChildNode, "TestNlinkFile2", 0) == 0 );
+    assert( CreateNewFile(psParentNode, &psChildNode[2], "TestNlinkFile2", 0) == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateLink(psParentNode, &psChildNode, "TestNlinkLink0", "/I/am/just/a/link") == 0 );
+    assert( CreateLink(psParentNode, &psLinkNode[0], "TestNlinkLink0", "/I/am/just/a/link") == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateLink(psParentNode, &psChildNode, "TestNlinkLink1", "/I/am/just/a/link") == 0 );
+    assert( CreateLink(psParentNode, &psLinkNode[1], "TestNlinkLink1", "/I/am/just/a/link") == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateLink(psParentNode, &psChildNode, "TestNlinkLink2", "/I/am/just/a/link") == 0 );
+    assert( CreateLink(psParentNode, &psLinkNode[2], "TestNlinkLink2", "/I/am/just/a/link") == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateNewFolder(psParentNode, &psChildNode, "TestNlinkDir0") == 0 );
+    assert( CreateNewFolder(psParentNode, &psDirNode[0], "TestNlinkDir0") == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateNewFolder(psParentNode, &psChildNode, "TestNlinkDir1") == 0 );
+    assert( CreateNewFolder(psParentNode, &psDirNode[1], "TestNlinkDir1") == 0 );
     assert( CloseFile(psChildNode) == 0 );
-    assert( CreateNewFolder(psParentNode, &psChildNode, "TestNlinkDir2") == 0 );
+    assert( CreateNewFolder(psParentNode, &psDirNode[2], "TestNlinkDir2") == 0 );
     assert( CloseFile(psChildNode) == 0 );
 
     assert( MSDOS_fsOps.fsops_getattr(psParentNode, &sOutAttrs) == 0 );
@@ -1702,9 +1715,9 @@ TestNlink( UVFSFileNode RootNode )
     assert( sOutAttrs.fa_nlink == 1 );
 #endif
 
-    assert( RemoveFile(psParentNode, "TestNlinkFile2") == 0 );
-    assert( RemoveFile(psParentNode, "TestNlinkLink2") == 0 );
-    assert( RemoveFolder(psParentNode, "TestNlinkDir2") == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkFile2", psChildNode[2]) == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkLink2", psLinkNode[2]) == 0 );
+    assert( RemoveFolder(psParentNode, "TestNlinkDir2", psDirNode[2]) == 0 );
 
     assert( MSDOS_fsOps.fsops_getattr(psParentNode, &sOutAttrs) == 0 );
 #ifdef MSDOS_NLINK_IS_CHILD_COUNT
@@ -1713,12 +1726,12 @@ TestNlink( UVFSFileNode RootNode )
     assert( sOutAttrs.fa_nlink == 1 );
 #endif
 
-    assert( RemoveFile(psParentNode, "TestNlinkFile0") == 0 );
-    assert( RemoveFile(psParentNode, "TestNlinkLink0") == 0 );
-    assert( RemoveFolder(psParentNode, "TestNlinkDir0") == 0 );
-    assert( RemoveFile(psParentNode, "TestNlinkFile1") == 0 );
-    assert( RemoveFile(psParentNode, "TestNlinkLink1") == 0 );
-    assert( RemoveFolder(psParentNode, "TestNlinkDir1") == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkFile0", psChildNode[0]) == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkLink0", psLinkNode[0]) == 0 );
+    assert( RemoveFolder(psParentNode, "TestNlinkDir0", psDirNode[0]) == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkFile1", psChildNode[1]) == 0 );
+    assert( RemoveFile(psParentNode, "TestNlinkLink1", psLinkNode[1]) == 0 );
+    assert( RemoveFolder(psParentNode, "TestNlinkDir1", psDirNode[1]) == 0 );
 
     assert( MSDOS_fsOps.fsops_getattr(psParentNode, &sOutAttrs) == 0 );
 #ifdef MSDOS_NLINK_IS_CHILD_COUNT
@@ -1727,7 +1740,7 @@ TestNlink( UVFSFileNode RootNode )
     assert( sOutAttrs.fa_nlink == 1 );
 #endif
 
-    assert( RemoveFolder(RootNode, "TestNlinkParentDirectory") == 0 );
+    assert( RemoveFolder(RootNode, "TestNlinkParentDirectory", psParentNode) == 0 );
     assert( CloseFile(psParentNode) == 0 );
 }
 
@@ -1736,7 +1749,439 @@ static int is_empty(char *buf, size_t size)
     return buf[0] == 0 && !memcmp(buf, buf + 1, size - 1);
 }
 
+static int advancedUnlinkTest(UVFSFileNode rootNode)
+{
+    char fileName1[32] = "file1_fsck_unlink";
+    char fileName2[32] = "file2_fsck_unlink";
+    void* unlinkWriteBuffer = NULL;
+    void* unlinkReadBuffer = NULL;
+    UVFSFileNode fileNode1 = NULL;
+    UVFSFileNode fileNode2 = NULL;
+    uint32_t newFileSizeBefore = 0;
+    uint32_t newFileSizeAfter = 0;
+    int bufferSize = 32768;
+    uint64_t offset1 = 0;
+    uint64_t offset2 = 0;
+    size_t ioCount = 0;
+    int error = 0;
+
+    /* Prepare buffer */
+    unlinkWriteBuffer = malloc(bufferSize);
+    if (unlinkWriteBuffer == NULL) {
+        error = ENOMEM;
+        goto out;
+    }
+    unlinkReadBuffer = malloc(bufferSize);
+    if (unlinkReadBuffer == NULL) {
+        error = ENOMEM;
+        goto out;
+    }
+
+    /* Create the file */
+    error = CreateNewFile(rootNode, &fileNode1, fileName1, bufferSize);
+    if (error) {
+        goto out;
+    }
+    offset1 = GET_RECORD(fileNode1)->sRecordData.sNDE.uFirstEntryOffset;
+
+    error = RemoveFile(rootNode, fileName1, fileNode1);
+    if (error) {
+        printf("Unlinking failed (%d)\n", error);
+        goto out;
+    }
+
+    /*
+     * Now we expect that if we create a new file, it will be in the same
+     * offset as the previous file.
+     */
+    error = CreateNewFile(rootNode, &fileNode2, fileName2, 0);
+    if (error) {
+        goto out;
+    }
+    newFileSizeBefore = GET_RECORD(fileNode2)->sRecordData.uClusterChainLength;
+    offset2 = GET_RECORD(fileNode2)->sRecordData.sNDE.uFirstEntryOffset;
+
+    if (offset1 != offset2) {
+        printf("Files' offsets differ\n");
+        error = 1;
+        goto out;
+    }
+
+    /* Write to the unlinked file */
+    memset(unlinkWriteBuffer, 'b', bufferSize);
+    error = WriteFromBuffer(fileNode1, 0, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+
+    /* Make sure that the second file's size hasn't changed */
+    newFileSizeAfter = GET_RECORD(fileNode2)->sRecordData.uClusterChainLength;
+    if (newFileSizeAfter != newFileSizeBefore) {
+        printf("File size is 0x%x, expected size 0x%x\n", newFileSizeAfter, newFileSizeBefore);
+        error = 1;
+        goto out;
+    }
+
+    /* Read from the unlinked file and see that we get the cached data */
+    error = ReadToBuffer(fileNode1, 0, &ioCount, unlinkReadBuffer, bufferSize);
+    if (strncmp(unlinkReadBuffer, unlinkWriteBuffer, bufferSize)) {
+        printf("Read & write buffers differ\n");
+        error = 1;
+        goto out;
+    }
+
+    error = RemoveFile(rootNode, fileName2, fileNode2);
+    if (error) {
+        goto out;
+    }
+
+    error = CloseFile(fileNode2);
+    if (error) {
+        goto out;
+    }
+
+    error = CloseFile(fileNode1);
+
+out:
+    if (unlinkReadBuffer) {
+        free(unlinkReadBuffer);
+    }
+    if (unlinkWriteBuffer) {
+        free(unlinkWriteBuffer);
+    }
+    return error;
+}
+
+static int createDirectoryAndFiles(UVFSFileNode rootNode, UVFSFileNode *dirNode, UVFSFileNode *fileNode1, UVFSFileNode *fileNode2, int fileSize,
+                                   const char *dirName, const char *fileName1, const char *fileName2)
+{
+    int error = 0;
+
+    error = CreateNewFolder(rootNode, dirNode, (char*)dirName);
+    if (error) {
+        printf("Failed to create a directory (%d)\n", error);
+        return 1;
+    }
+
+    error = CreateNewFile(*dirNode, fileNode1, (char*)fileName1, fileSize);
+    if (error) {
+        printf("Failed to create a file (%d)\n", error);
+        return 1;
+    }
+    error = CreateNewFile(*dirNode, fileNode2, (char*)fileName2, fileSize);
+    if (error) {
+        printf("Failed to create a file (%d)\n", error);
+        return 1;
+    }
+
+    return 0;
+}
+
+static int removeDirAndFile(UVFSFileNode psRootNode, UVFSFileNode dir, UVFSFileNode file, const char *dirName, const char *fileName)
+{
+    int error = 0;
+
+    error = RemoveFile(dir, (char*)fileName, file);
+    if (error) {
+        return 1;
+    }
+    error = CloseFile(file);
+    if (error) {
+        return 1;
+    }
+
+    error = RemoveFolder(psRootNode, (char*)dirName, dir);
+    if (error) {
+        return 1;
+    }
+
+    error = CloseFile(dir);
+    return error;
+}
+
+static int unlinkFsckTest(UVFSFileNode *psRootNode, int fd, const char *devname)
+{
+    char fileName1[32] = "file1_fsck_unlink";
+    char fileName2[32] = "file2_fsck_unlink";
+    char dirName[32] = "dir_fsck_unlink";
+    UVFSFileNode fileNode1 = NULL;
+    UVFSFileNode fileNode2 = NULL;
+    UVFSFileNode dirNode = NULL;
+    void* unlinkWriteBuffer = NULL;
+    void* unlinkReadBuffer = NULL;
+    int bufferSize = 32768;
+    uint32_t curOffset = 0;
+    uint32_t freeClusrersBefore = 0;
+    uint32_t freeClusrersAfter = 0;
+    size_t ioCount = 0;
+    int error = 0;
+
+    FileSystemRecord_s *psFSRecord = NULL;
+
+    /* prepare buffer */
+    unlinkWriteBuffer = malloc(bufferSize);
+    if (unlinkWriteBuffer == NULL) {
+        error = ENOMEM;
+        goto out;
+    }
+    unlinkReadBuffer = malloc(bufferSize);
+    if (unlinkReadBuffer == NULL) {
+        error = ENOMEM;
+        goto out;
+    }
+
+    psFSRecord = GET_FSRECORD(GET_RECORD(*psRootNode));
+    error = createDirectoryAndFiles(*psRootNode, &dirNode, &fileNode1, &fileNode2, bufferSize, dirName, fileName1, fileName2);
+    if (error) {
+        goto out;
+    }
+
+    /* Write to both files so that none is contiguous */
+    memset(unlinkWriteBuffer, 'a', bufferSize);
+    error = WriteFromBuffer(fileNode1, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    error = WriteFromBuffer(fileNode2, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    curOffset += bufferSize;
+    error = WriteFromBuffer(fileNode1, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    error = WriteFromBuffer(fileNode2, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    curOffset += bufferSize;
+    error = WriteFromBuffer(fileNode1, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    error = WriteFromBuffer(fileNode2, curOffset, &ioCount, unlinkWriteBuffer, bufferSize);
+    if (error) {
+        goto out;
+    }
+    freeClusrersBefore = psFSRecord->sFSInfo.uFreeClusters;
+
+    /* Unlink file1 */
+    error = RemoveFile(dirNode, fileName1, fileNode1);
+    if (error) {
+        goto out;
+    }
+
+    /* Close the device's fd without sync */
+    close(fd);
+
+    /* Re-open the device and run fsck */
+    fd = open(devname, O_RDWR);
+    error = MSDOS_fsOps.fsops_check(fd, 0, NULL, CHECK_AND_REPAIR );
+
+    /* Mount the device properly */
+    error = MountDevice(fd, psRootNode);
+
+    psFSRecord = GET_FSRECORD(GET_RECORD(*psRootNode));
+    freeClusrersAfter = psFSRecord->sFSInfo.uFreeClusters;
+
+    /* Make sure that the unlinked file's clusters are free now */
+    assert(freeClusrersAfter > freeClusrersBefore);
+
+    /* Read from the linked file */
+    error = ReadToBuffer(fileNode2, 0, &ioCount, unlinkReadBuffer, bufferSize);
+    if (error) {
+        printf("Failed to read from file\n");
+        goto out;
+    }
+
+    /* Verify that the linked file's content is what we expect it to be */
+    if (strncmp(unlinkReadBuffer, unlinkWriteBuffer, bufferSize)) {
+        printf("Read and write buffer differ\n");
+        char *tmp1 = (char*)unlinkReadBuffer;
+        char *tmp2 = (char*)unlinkWriteBuffer;
+        printf("\n%s \n %s\n", tmp1, tmp2);
+        error = 1;
+        goto out;
+    }
+
+    error = removeDirAndFile(*psRootNode, dirNode, fileNode2, dirName, fileName2);
+    if (error) {
+        goto out;
+    }
+
+    /* Properly unmount and mount the device so it's clean for the rest of the tests */
+    error = UnmountDevice(*psRootNode, fd);
+    if (error) {
+        goto out;
+    }
+    error = MountDevice(fd, psRootNode);
+
+out:
+    if (unlinkReadBuffer != NULL) {
+        free(unlinkReadBuffer);
+    }
+    if (unlinkWriteBuffer != NULL) {
+        free(unlinkWriteBuffer);
+    }
+    return error;
+}
+
+static int basicUnlink(UVFSFileNode psRootNode)
+{
+    char fileName[32] = "file_unlink.txt";
+    size_t uActuallyWrittenToUnlink = 0;
+    UVFSFileNode F_Node_unlink = NULL;
+    int bufferSize = 1024 * 1024;
+    void* pvUnlinkBuffer = NULL;
+    int error = 0;
+
+    error = CreateNewFile(psRootNode, &F_Node_unlink, fileName, 0);
+    if (error) {
+        goto out;
+    }
+    error = RemoveFile(psRootNode, fileName, F_Node_unlink);
+    if (error) {
+        goto out;
+    }
+    pvUnlinkBuffer = malloc(bufferSize);
+    if (pvUnlinkBuffer == NULL) {
+        error = ENOMEM;
+        goto out;
+    }
+    memset(pvUnlinkBuffer, 1, bufferSize);
+    error = WriteFromBuffer(F_Node_unlink, 0, &uActuallyWrittenToUnlink, pvUnlinkBuffer, bufferSize);
+    if (error) {
+        goto out_free;
+    }
+    error = CloseFile(F_Node_unlink);
+    if (error) {
+        goto out_free;
+    }
+
+    /* Make sure we can't lookup the file now */
+    error = Lookup(psRootNode, &F_Node_unlink, fileName);
+    if (error != ENOENT) {
+        error = 1;
+    } else {
+        error = 0;
+    }
+
+out_free:
+    free(pvUnlinkBuffer);
+out:
+    return error;
+}
+
+static int testUnlink(UVFSFileNode *psRootNode, int fd, const char *devname)
+{
+    int error = 0;
+
+    /*
+     * Basic functionality test:
+     * 1. Create a file.
+     * 2. Unlink it.
+     * 3. Write to it (expect to succeed even if the disk isn't updated).
+     * 4. Close the file descriptor.
+     * 5. Lookup the file and expect to fail.
+     * We repeat this test twice due to bugs during development that were
+     * only seen on the second run.
+     */
+    error = basicUnlink(*psRootNode);
+    if (error) {
+        return error;
+    }
+    error = basicUnlink(*psRootNode);
+    if (error) {
+        return error;
+    }
+
+    /*
+     * unlink_fsck_test:
+     * 1. Create two files.
+     * 2. Write to the files so they're not consecutive.
+     * 3. Close the dmg file descriptor.
+     * 4. Reopen the dmg and run fsck.
+     * 5. Make sure the unlinked file's clusters are free.
+     * 6. Make sure the second file's content wasn't damaged.
+     */
+    error = unlinkFsckTest(psRootNode, fd, devname);
+    if (error) {
+        return error;
+    }
+
+    /* Advanced functionality test:
+     * 1. Create a file.
+     * 2. Unlink it.
+     * 3. Create a new file, verify that it the first cluster of both
+     *    is identical.
+     * 4. Write to the old file, make sure that the data wasn't written
+     *    to disk (the new file shouldn't be changed).
+     * 5. Read from the fd, make sure we read the data in the cache and
+     *    not from the disk.
+     */
+    error = advancedUnlinkTest(*psRootNode);
+    return error;
+}
+
 /* --------------------------------------------------------------------------------------------- */
+
+static int MountDevice(int fd, UVFSFileNode *RootNode)
+{
+    UVFSScanVolsRequest sScanVolsReq = {0};
+    UVFSScanVolsReply sScanVolsReply = {0};
+    int error;
+
+    error = MSDOS_fsOps.fsops_init();
+    printf("Init returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+
+    error = MSDOS_fsOps.fsops_taste(fd);
+    printf("Taste returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+
+    error = MSDOS_fsOps.fsops_scanvols(fd, &sScanVolsReq, &sScanVolsReply);
+    printf("ScanVols returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+
+    error = MSDOS_fsOps.fsops_mount(fd, sScanVolsReply.sr_volid, 0, NULL, RootNode);
+    printf("Mount returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+    return 0;
+}
+
+static int UnmountDevice(UVFSFileNode psRootNode, int fd)
+{
+    int error = 0;
+
+    error = MSDOS_fsOps.fsops_sync(psRootNode);
+    printf("Sync returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+
+    error = MSDOS_fsOps.fsops_unmount(psRootNode, UVFSUnmountHintNone);
+    printf("Unmount returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+    error = MSDOS_fsOps.fsops_check(fd, 0, NULL, CHECK_AND_REPAIR );
+    printf("fsck returned %d\n", error);
+    if (error) {
+        return 1;
+    }
+
+    return 0;
+}
+
 
 /* --------------------------------------------------------------------------------------------- */
 int main( int argc, const char * argv[] )
@@ -1792,6 +2237,10 @@ int main( int argc, const char * argv[] )
         //Check nlink.
         TestNlink(RootNode);
 
+        // ----------------------Test Unlink file scenarios--------------------------
+        err = testUnlink(&RootNode, fd, argv[1]);
+        if (err) break;
+
         // --------------------------Create & mkdir----------------------------------
         // Create Dir:  D1 in Root
         UVFSFileNode D1_Node = NULL;
@@ -1822,7 +2271,7 @@ int main( int argc, const char * argv[] )
         if (err) break;
 
         //Remove validation-mirrorackcoloradobulldog - should remove Validation-MirrorAckColoradoBulldog
-        err = RemoveFile(D1_Node,"validation-mirrorackcoloradobulldog");
+        err = RemoveFile(D1_Node,"validation-mirrorackcoloradobulldog", F13_Node);
         printf("RemoveFile validation-mirrorackcoloradobulldog from Root err [%d]\n",err);
         if (err) break;
 
@@ -1889,7 +2338,7 @@ int main( int argc, const char * argv[] )
 
         free(fileBuffer);
         CloseFile(preAllocNode);
-        RemoveFile(RootNode, "pre-alloc file");
+        RemoveFile(RootNode, "pre-alloc file", preAllocNode);
 
         // -----------------------------Write/Read File-----------------------------------
         // Test1: 2 threads writing and reading to/from the same file
@@ -2008,7 +2457,7 @@ int main( int argc, const char * argv[] )
         for (int i = 0; i < TEST_1_1_FILES_COUNT; i++) {
             char pcName[100] = {0};
             sprintf(pcName, "F1_%d", i);
-            RemoveFile(D1_Node, pcName);
+            RemoveFile(D1_Node, pcName, F1_1_Nodes[i]);
             CloseFile(F1_1_Nodes[i]);
             pthread_barrier_destroy(&sTest1_1_barriers[i]);
         }
@@ -2126,21 +2575,22 @@ int main( int argc, const char * argv[] )
             break;
         }
         
+        UVFSFileNode fromFileNodes[TEST_5_NUM_OF_FILES] = {0};
+
         for(uint64_t k=0; k < TEST_5_NUM_OF_FILES; k++) {
             char pcName[100] = {0};
             sprintf(pcName, TEST_5_FILE_NAME, k);
 
-            UVFSFileNode fileNode= NULL;
             uint64_t size = 4096*10 + (rand() % (1024*1024 - 4096*10));
-            err = CreateNewFile(fromDirNode, &fileNode, pcName, size);
+            err = CreateNewFile(fromDirNode, &fromDirNode[k], pcName, size);
             if (err) break;
             
             size_t uActuallyWritten;
 
             memset(pvExternalBuffer, (int)k, size);
-            err = WriteFromBuffer(fileNode, 0, &uActuallyWritten, pvExternalBuffer, size);
+            err = WriteFromBuffer(fromFileNodes[k], 0, &uActuallyWritten, pvExternalBuffer, size);
             
-            CloseFile(fileNode);
+            CloseFile(fromFileNodes[k]);
             if (err) break;
         }
 
@@ -2158,6 +2608,13 @@ int main( int argc, const char * argv[] )
          * have to get the org file attrs, create a file in toDir, preallocte the space,
          * and write the needed data
          */
+        UVFSFileNode toFileNodes[TEST_5_NUM_OF_FILES];
+        memset(&toFileNodes, 0, sizeof(toFileNodes));
+        struct cloneFilesArg cloneArg[TEST_5_THREAD_COUNT] = {0};
+        for (int i = 0; i < TEST_5_THREAD_COUNT; i++) {
+            cloneArg[i].fileNodes = toFileNodes;
+        }
+
         for ( uint64_t uIdx=0; uIdx < TEST_5_THREAD_COUNT; uIdx++ )
         {
             memset(&g_sTest5_ThreadInput[uIdx],0,sizeof(ThreadInput_s));
@@ -2166,7 +2623,8 @@ int main( int argc, const char * argv[] )
             g_sTest5_ThreadInput[uIdx].ThreadInputNode.ppvParentFolder = &fromDirNode;
             g_sTest5_ThreadInput[uIdx].ThreadTargetNode.ppvToDirNode = &toDirNode;
             
-            pthread_create( &g_psTest5_Threads[uIdx], NULL, (void*)test5_cloneFilesInDir, (void*)&g_sTest5_ThreadInput[uIdx]);
+            cloneArg[uIdx].threadInput = &g_sTest5_ThreadInput[uIdx];
+            pthread_create( &g_psTest5_Threads[uIdx], NULL, (void*)test5_cloneFilesInDir, (void*)&cloneArg[uIdx]);
         }
 
         for ( uint32_t uIdx=0; uIdx<TEST_5_THREAD_COUNT; uIdx++ )
@@ -2193,14 +2651,14 @@ int main( int argc, const char * argv[] )
                 break;
             }
 
-            RemoveFile(toDirNode, pcName);
-            RemoveFile(fromDirNode, pcName);
+            RemoveFile(toDirNode, pcName, toFileNodes[k]);
+            RemoveFile(fromDirNode, pcName, fromFileNodes[k]);
         }
 
         CloseFile(toDirNode);
         CloseFile(fromDirNode);
-        RemoveFolder(RootNode, "toDir");
-        RemoveFolder(RootNode, "fromDir");
+        RemoveFolder(RootNode, "toDir", toDirNode);
+        RemoveFolder(RootNode, "fromDir", fromDirNode);
 
         // ----------------------------------------------------------------------------------
         // Test6: 1 thread reading a directory, 6 threads doing ops on files from this directory
@@ -2222,21 +2680,22 @@ int main( int argc, const char * argv[] )
             break;
         }
         
+        UVFSFileNode test6NodesArray[TEST_6_NUM_OF_FILES];
+
         for (int i = 0; i < TEST_6_NUM_OF_FILES; i++) {
             char pcName[100] = {0};
             sprintf(pcName, TEST_6_FILE_NAME, i);
             
-            UVFSFileNode fileNode= NULL;
             uint64_t size = 513 + rand() % 4096;
-            err = CreateNewFile(mainDirNode, &fileNode, pcName, size);
+            err = CreateNewFile(mainDirNode, &test6NodesArray[i], pcName, size);
             if (err) break;
             
             size_t uActuallyWritten;
             memset(pvExternalBufferTest6, i, size);
-            err = WriteFromBuffer(fileNode, 0, &uActuallyWritten, pvExternalBufferTest6, size);
+            err = WriteFromBuffer(test6NodesArray[i], 0, &uActuallyWritten, pvExternalBufferTest6, size);
             if (err) break;
             
-            CloseFile(fileNode);
+            CloseFile(test6NodesArray[i]);
         }
         free(pvExternalBufferTest6);
         
@@ -2273,13 +2732,13 @@ int main( int argc, const char * argv[] )
             char pcName[100] = {0};
             sprintf(pcName, TEST_6_FILE_NAME, k);
 
-            RemoveFile(mainDirNode, pcName);
+            RemoveFile(mainDirNode, pcName, test6NodesArray[k]);
         }
         CloseFile(dbFileNode);
         CloseFile(mainDirNode);
         
-        RemoveFile(RootNode, "dbFile");
-        RemoveFolder(RootNode, "mainDir");
+        RemoveFile(RootNode, "dbFile", dbFileNode);
+        RemoveFolder(RootNode, "mainDir", mainDirNode);
         pthread_mutex_destroy(&g_sTest6_mutex);
         
         // ----------------------------------------------------------------------------------
@@ -2338,8 +2797,8 @@ int main( int argc, const char * argv[] )
         // Clean everything
         CloseFile(dbFileNode);
         CloseFile(dbFileNode2);
-        RemoveFile(RootNode, "dbFile");
-        RemoveFile(RootNode, "dbFile2");
+        RemoveFile(RootNode, "dbFile", dbFileNode);
+        RemoveFile(RootNode, "dbFile2", dbFileNode2);
         
         // ----------------------------------------------------------------------------------
         // Test8: Use synthentic file ids for files with no allocated cluster (rdar://79436033)
@@ -2459,9 +2918,9 @@ int main( int argc, const char * argv[] )
         
         // Clean up file and directory used in test 8
         CloseFile(syntheticIdFileNode);
-        RemoveFile(syntheticIdDirNode, TEST_8_FILENAME);
+        RemoveFile(syntheticIdDirNode, TEST_8_FILENAME, syntheticIdFileNode);
         CloseFile(syntheticIdDirNode);
-        RemoveFolder(RootNode, TEST_8_DIRNAME);
+        RemoveFolder(RootNode, TEST_8_DIRNAME, syntheticIdDirNode);
         
         // --------------------------------Read Dir-----------------------------------
         
@@ -2568,21 +3027,21 @@ int main( int argc, const char * argv[] )
         // --------------------------------------------------------------------------------
 
         // Remove ÖÖ
-        err =  RemoveFolder(RootNode,"ÖÖ");
+        err =  RemoveFolder(RootNode,"ÖÖ", D11_Node);
         printf("Remove Folder ÖÖ from Root err [%d]\n",err);
         if (err) break;
 
         // Remove D2
-        err =  RemoveFolder(RootNode,"D2");
+        err =  RemoveFolder(RootNode,"D2", D1_Node);
         printf("Remove Folder D2 from Root err [%d]\n",err);
 
         // Remove L🤪2
-        err = RemoveFile(RootNode,"L🤪2");
+        err = RemoveFile(RootNode,"L🤪2", L1_Node);
         printf("Remove Link L🤪2 err [%d]\n",err);
         if (err) break;
 
         // Remove F2
-        err = RemoveFile(RootNode,"F2");
+        err = RemoveFile(RootNode,"F2", F1_Node);
         printf("RemoveFile F2 from Root err [%d]\n",err);
         if (err) break;
 

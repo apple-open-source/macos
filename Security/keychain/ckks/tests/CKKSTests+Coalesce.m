@@ -143,7 +143,7 @@
 
     // Ensure we wait for the whole fetch
     NSOperation* fetchOp = [self.defaultCKKS.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     [fetchOp waitUntilFinished];
 
@@ -183,7 +183,7 @@
     [self waitForCKModifications];
 
     // Ensure we fetch again, to prime the delete (due to insufficient mock CK)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
@@ -197,8 +197,8 @@
     [self updateGenericPassword:@"new-password" account:account];
 
     // Cause the fetch to happen before the OutgoingQueueOperation
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
-    [self.injectedManager.zoneChangeFetcher.inflightFetch waitUntilFinished];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher.inflightFetch waitUntilFinished];
 
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessOutgoingQueue] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'CKKSStateProcessOutgoingQueue'");
     [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateProcessOutgoingQueue];

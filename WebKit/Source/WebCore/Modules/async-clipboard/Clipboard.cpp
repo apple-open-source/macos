@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "ClipboardImageReader.h"
 #include "ClipboardItem.h"
+#include "CommonAtomStrings.h"
 #include "Document.h"
 #include "Editor.h"
 #include "Frame.h"
@@ -179,10 +180,9 @@ void Clipboard::read(Ref<DeferredPromise>&& promise)
             return;
         }
 
-        Vector<Ref<ClipboardItem>> clipboardItems;
-        clipboardItems.reserveInitialCapacity(allInfo->size());
-        for (auto& itemInfo : *allInfo)
-            clipboardItems.uncheckedAppend(ClipboardItem::create(*this, itemInfo));
+        auto clipboardItems = allInfo->map([this](auto& itemInfo) {
+            return ClipboardItem::create(*this, itemInfo);
+        });
         m_activeSession = {{ WTFMove(pasteboard), WTFMove(clipboardItems), changeCountAtStart }};
     }
 
@@ -203,7 +203,7 @@ void Clipboard::getType(ClipboardItem& item, const String& type, Ref<DeferredPro
         return;
     }
 
-    auto itemIndex = m_activeSession->items.findMatching([&] (auto& activeItem) {
+    auto itemIndex = m_activeSession->items.findIf([&] (auto& activeItem) {
         return activeItem.ptr() == &item;
     });
 
@@ -235,7 +235,7 @@ void Clipboard::getType(ClipboardItem& item, const String& type, Ref<DeferredPro
         resultAsString = activePasteboard().readURL(itemIndex, title).string();
     }
 
-    if (type == "text/plain"_s) {
+    if (type == textPlainContentTypeAtom()) {
         PasteboardPlainText plainTextReader;
         activePasteboard().read(plainTextReader, PlainTextURLReadingPolicy::IgnoreURL, itemIndex);
         resultAsString = WTFMove(plainTextReader.text);
@@ -368,7 +368,7 @@ void Clipboard::ItemWriter::didSetAllData()
             reject();
             return;
         }
-        customData.append(*data);
+        customData.uncheckedAppend(*data);
     }
 
     m_pasteboard->writeCustomData(WTFMove(customData));

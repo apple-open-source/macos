@@ -100,7 +100,7 @@ static BOOL isErrorFromXPC(CFErrorRef error)
 
 static void PSKeychainSyncIsUsingICDP(void)
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore = [ACAccountStore defaultStore];
     ACAccount *account = [accountStore aa_primaryAppleAccount];
     NSString *dsid = account.accountProperties[@"personID"];
     BOOL isICDPEnabled = NO;
@@ -115,12 +115,12 @@ static void PSKeychainSyncIsUsingICDP(void)
     secnotice("cjr", "account is icdp: %d", _isAccountICDP);
 }
 
-static void keybagDidLock()
+static void keybagDidLock(void)
 {
     secnotice("cjr", "keybagDidLock");
 }
 
-static void keybagDidUnlock()
+static void keybagDidUnlock(void)
 {
     secnotice("cjr", "keybagDidUnlock");
     
@@ -161,10 +161,11 @@ static void keybagDidUnlock()
     }
 }
 
-static bool updateIsLocked ()
+static bool updateIsLocked (void)
 {
     CFErrorRef aksError = NULL;
-    if (!SecAKSGetIsLocked(&_isLocked, &aksError)) {
+    // user_only_keybag_handle ok to use here, since we don't call CJR from the system session
+    if (!SecAKSGetIsLocked(user_only_keybag_handle, &_isLocked, &aksError)) {
         _isLocked = YES;
         secerror("Got error querying lock state: %@", aksError);
         CFReleaseSafe(aksError);
@@ -175,7 +176,7 @@ static bool updateIsLocked ()
     return YES;
 }
 
-static void keybagStateChange ()
+static void keybagStateChange (void)
 {
     secerror("osactivity initiated");
     os_activity_initiate("keybagStateChanged", OS_ACTIVITY_FLAG_DEFAULT, ^{
@@ -204,9 +205,9 @@ static void doOnceInMain(dispatch_block_t block)
 }
 
 
-static NSString *appleIDAccountName()
+static NSString *appleIDAccountName(void)
 {
-    ACAccountStore *accountStore   = [[ACAccountStore alloc] init];
+    ACAccountStore *accountStore   = [ACAccountStore defaultStore];
     ACAccount *primaryAppleAccount = [accountStore aa_primaryAppleAccount];
     return primaryAppleAccount.username;
 }
@@ -219,7 +220,7 @@ static CFOptionFlags flagsForAsk(Applicant *applicant)
 
 
 // NOTE: gives precedence to OnScreen
-static Applicant *firstApplicantWaitingOrOnScreen()
+static Applicant *firstApplicantWaitingOrOnScreen(void)
 {
     Applicant *waiting = nil;
     for (Applicant *applicant in [applicants objectEnumerator]) {
@@ -377,7 +378,7 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 }
 
 
-static void passwordFailurePrompt()
+static void passwordFailurePrompt(void)
 {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
@@ -533,7 +534,7 @@ static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags
 }
 
 
-static bool iCloudResetAvailable() {
+static bool iCloudResetAvailable(void) {
 	SecureBackup *backupd = [SecureBackup new];
 	NSDictionary *backupdResults;
 	NSError		 *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
@@ -542,7 +543,7 @@ static bool iCloudResetAvailable() {
 }
 
 
-static NSString *getLocalizedApplicationReminder() {
+static NSString *getLocalizedApplicationReminder(void) {
 	CFStringRef applicationReminder = NULL;
 	switch (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid)) {
 	case MGDeviceClassiPhone:
@@ -747,7 +748,7 @@ static void postKickedOutAlert(enum DepartureReason reason)
     debugState = @"pKOA Z";
 }
 
-static void askForCDPFollowup() {
+static void askForCDPFollowup(void) {
     doOnceInMain(^{
         NSError *localError = nil;
         CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
@@ -765,7 +766,7 @@ static void askForCDPFollowup() {
     });
 }
 
-static bool processEvents()
+static bool processEvents(void)
 {
 	debugState = @"processEvents A";
 

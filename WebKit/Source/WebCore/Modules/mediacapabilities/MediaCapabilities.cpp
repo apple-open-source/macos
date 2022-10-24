@@ -96,7 +96,7 @@ static bool isValidVideoMIMEType(const ContentType& contentType)
         return false;
 
     auto containerType = contentType.containerType();
-    if (!startsWithLettersIgnoringASCIICase(containerType, "video/") && !startsWithLettersIgnoringASCIICase(containerType, "application/"))
+    if (!startsWithLettersIgnoringASCIICase(containerType, "video/"_s) && !startsWithLettersIgnoringASCIICase(containerType, "application/"_s))
         return false;
 
     return true;
@@ -112,7 +112,7 @@ static bool isValidAudioMIMEType(const ContentType& contentType)
         return false;
 
     auto containerType = contentType.containerType();
-    if (!startsWithLettersIgnoringASCIICase(containerType, "audio/") && !startsWithLettersIgnoringASCIICase(containerType, "application/"))
+    if (!startsWithLettersIgnoringASCIICase(containerType, "audio/"_s) && !startsWithLettersIgnoringASCIICase(containerType, "application/"_s))
         return false;
 
     return true;
@@ -176,11 +176,14 @@ static void gatherDecodingInfo(Document& document, MediaDecodingConfiguration&& 
     if (!document.settings().mediaCapabilitiesExtensionsEnabled() && configuration.video)
         configuration.video.value().alphaChannel.reset();
 
+    configuration.allowedMediaContainerTypes = document.settings().allowedMediaContainerTypes();
+    configuration.allowedMediaCodecTypes = document.settings().allowedMediaCodecTypes();
+
 #if ENABLE(VP9)
     configuration.canExposeVP9 = document.settings().vp9DecoderEnabled();
 #endif
 
-#if ENABLE(WEB_RTC)
+#if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
     if (configuration.type == MediaDecodingType::WebRTC) {
         if (auto* page = document.page())
             page->libWebRTCProvider().createDecodingConfiguration(WTFMove(configuration), WTFMove(decodingCallback));
@@ -200,7 +203,7 @@ static void gatherEncodingInfo(Document& document, MediaEncodingConfiguration&& 
         callback(WTFMove(result));
     };
 
-#if ENABLE(WEB_RTC)
+#if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
     if (configuration.type == MediaEncodingType::WebRTC) {
         if (auto* page = document.page())
             page->libWebRTCProvider().createEncodingConfiguration(WTFMove(configuration), WTFMove(encodingCallback));

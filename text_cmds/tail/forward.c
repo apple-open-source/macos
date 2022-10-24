@@ -198,18 +198,22 @@ static void
 rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 {
 #ifdef __APPLE__
-	/* Using mmap on network filesystems can frequently lead
-	to distress, and even on local file systems other processes
-	truncating the file can also lead to upset. */
+	/*
+	 * Using mmap on network filesystems can frequently lead
+	 * to distress, and even on local file systems other processes
+	 * truncating the file can also lead to upset.
+	 *
+	 * Seek to sbp->st_blksize before the end of the file, find
+	 * all the newlines.  If there are enough, print the last off
+	 * lines.  Otherwise go back another sbp->st_blksize bytes,
+	 * and count newlines.  Avoid re-reading blocks when possible.
+	 */
 
-	/* Seek to sbp->st_blksize before the end of the file, find
-	all the newlines.   If there are enough, print the last off
-	lines.  Otherwise go back another sbp->st_blksize bytes,
-	and count newlines.  Avoid re-reading blocks when possible. */
-
-	// +1 because we capture line ends and we want off line _starts_,
-	// +1 because the first line might be partial when try_at != 0
-	off_t search_for = off +2;
+	 /*
+	  * +1 because we capture line ends and we want off line _starts_,
+	  * +1 because the first line might be partial when try_at != 0
+	  */
+	off_t search_for = off + 2;
 	off_t try_at = sbp->st_size;
 	off_t last_try = sbp->st_size;
 	off_t found_this_pass = 0;
@@ -227,44 +231,65 @@ rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 		goto done;
 	}
 
-	/* The last character is special.  Check to make sure that it is a \n,
+	/*
+	 * The last character is special.  Check to make sure that it is a \n,
 	 * and if not, subtract one from the number of \n we need to search for.
 	 */
-	if (0 != fseeko(fp, sbp->st_size - 1, SEEK_SET)) {
+	if (fseeko(fp, sbp->st_size - 1, SEEK_SET) != 0) {
 		ierr(fn);
 		goto done;
 	}
-	if ('\n' != getc_unlocked(fp)) {
+	if (getc_unlocked(fp) != '\n') {
 		search_for--;
 	}
 
-	while(try_at != 0) {
+	while (try_at != 0) {
 		found_this_pass = 0;
 
-		if (try_at < sbp->st_blksize) {
+		if (try_at <= sbp->st_blksize) {
+			/*
+			 * If we're within the first block, we need to properly
+			 * account for the beginning of the file and we'll start
+			 * checking from the top.
+			 */
 			found_at[found_this_pass++] = 0;
 			try_at = 0;
 		} else {
+			/* Otherwise, we'll simply rewind a block. */
 			last_try = try_at;
 			try_at -= sbp->st_blksize;
 		}
 
-		if (0 != fseeko(fp, try_at, SEEK_SET)) {
+		/*
+		 * We'll start from the block before the one we just scanned
+		 * and rescan all the way to the end of the file again.  It's
+		 * tempting to try and rewrite this to avoid reading tail blocks
+		 * repeatedly, but doing so is likely not worth the cognitive
+		 * effort.
+		 */
+		if (fseeko(fp, try_at, SEEK_SET) != 0) {
 			ierr(fn);
 			goto done;
 		}
 
 		char ch;
-		while(EOF != (ch = getc_unlocked(fp))) {
+		while ((ch = getc_unlocked(fp)) != EOF) {
 			if (ch == '\n') {
+				/*
+				 * We may be overscanning, in which case we can
+				 * and should overwrite earlier matches with
+				 * later, more relevant, matches.
+				 */
 				found_at[found_this_pass++ % search_for] = ftello(fp);
 				found_total++;
 			}
 			if (ftello(fp) == last_try && found_total < search_for) {
-				// We just reached the last block we scanned,
-				// and we know there arn't enough lines found
-				// so far to be happy, so we don't have to
-				// read it again.
+				/*
+				 * We just reached the last block we scanned,
+				 * and we know there aren't enough lines found
+				 * so far to be happy, so we don't have to
+				 * read it again.
+				 */
 				break;
 			}
 		}
@@ -274,7 +299,16 @@ rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 			int min_i = 0;
 			int i;
 			int lim = (found_this_pass < search_for) ? found_this_pass : search_for;
-			for(i = 1; i < lim; i++) {
+
+			/*
+			 * Note that i == 0 is already recorded in min/min_i, so
+			 * we skip it here.  The earlier entries may not
+			 * actually be the lowest in the file because of the
+			 * previously mentioned overscanning; we've effectively
+			 * treated found_at as a ring buffer, so we're scanning
+			 * it for the actual start before we proceed.
+			 */
+			for (i = 1; i < lim; i++) {
 				if (found_at[i] < min) {
 					min = found_at[i];
 					min_i = i;
@@ -284,22 +318,24 @@ rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 			off_t target = min;
 
 			if (found_this_pass >= search_for) {
-				// min_i might be a partial line (unless
-				// try_at is 0).   If we  found search_for
-				// lines, min_i+1 is the first known full line
-				// _and_ because we look for an extra line we
-				// don't need to show it.
+				/*
+				 * min_i might be a partial line (unless
+				 * try_at is 0).   If we found search_for
+				 * lines, min_i+1 is the first known full line
+				 * _and_ because we look for an extra line we
+				 * don't need to show it.
+				 */
 				target = found_at[(min_i + 1) % search_for];
 			}
 
-			if (0 != fseeko(fp, target, SEEK_SET)) {
+			if (fseeko(fp, target, SEEK_SET) != 0) {
 				ierr(fn);
 				goto done;
 			}
 
 			flockfile(stdout);
-			while(EOF != (ch = getc_unlocked(fp))) {
-				if (EOF == putchar_unlocked(ch)) {
+			while ((ch = getc_unlocked(fp)) != EOF) {
+				if (putchar_unlocked(ch) == EOF) {
 					funlockfile(stdout);
 					oerr();
 					goto done;

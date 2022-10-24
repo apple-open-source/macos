@@ -16,7 +16,7 @@ extension Container {
 
         self.fetchAndPersistChangesIfNeeded { fetchError in
             guard fetchError == nil else {
-                logger.debug("preflightRecoveryKey unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
+                logger.info("preflightRecoveryKey unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
                 reply(nil, nil, fetchError)
                 return
             }
@@ -24,7 +24,7 @@ extension Container {
             // Ensure we have all policy versions claimed by peers, including our sponsor
             self.fetchPolicyDocumentsWithSemaphore(versions: self.model.allPolicyVersions()) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
-                    logger.debug("preflightRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                    logger.info("preflightRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                     reply(nil, nil, fetchPolicyDocumentsError)
                     return
                 }
@@ -35,7 +35,7 @@ extension Container {
                         let egoPermSig = self.containerMO.egoPeerPermanentInfoSig,
                         let egoStableData = self.containerMO.egoPeerStableInfo,
                         let egoStableSig = self.containerMO.egoPeerStableInfoSig else {
-                            logger.debug("preflightRecoveryKey: no ego peer ID")
+                            logger.info("preflightRecoveryKey: no ego peer ID")
                             reply(nil, nil, ContainerError.noPreparedIdentity)
                             return
                     }
@@ -47,7 +47,7 @@ extension Container {
                     }
 
                     guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
-                        logger.debug("cannot create TPPeerStableInfo")
+                        logger.info("cannot create TPPeerStableInfo")
                         reply(nil, nil, ContainerError.invalidStableInfoOrSig)
                         return
                     }
@@ -56,14 +56,14 @@ extension Container {
                     do {
                         recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                     } catch {
-                        logger.debug("preflightRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                        logger.info("preflightRecoveryKey: failed to create recovery keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                         return
                     }
 
                     // Dear model: if i were to use this recovery key, what peers would I end up using?
                     guard self.model.isRecoveryKeyEnrolled() else {
-                        logger.debug("preflightRecoveryKey: recovery Key is not enrolled")
+                        logger.info("preflightRecoveryKey: recovery Key is not enrolled")
                         reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                         return
                     }
@@ -72,13 +72,13 @@ extension Container {
                                                                                                         encryptionKeyData: recoveryKeys.peerKeys.encryptionKey.publicKey.keyData),
                                                                                       canIntroducePeer: selfPermanentInfo,
                                                                                       stableInfo: selfStableInfo) else {
-                        logger.debug("preflightRecoveryKey Untrusted recovery key set")
+                        logger.info("preflightRecoveryKey Untrusted recovery key set")
                         reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return
                     }
 
                     guard let sponsor = self.model.peer(withID: sponsorPeerID) else {
-                        logger.debug("preflightRecoveryKey Failed to find peer with ID")
+                        logger.info("preflightRecoveryKey Failed to find peer with ID")
                         reply(nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
                         return
                     }
@@ -92,7 +92,7 @@ extension Container {
 
                         reply(recoveryKeys.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
-                        logger.debug("preflightRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
+                        logger.info("preflightRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }
@@ -112,7 +112,7 @@ extension Container {
 
         self.fetchAndPersistChangesIfNeeded { fetchError in
             guard fetchError == nil else {
-                logger.debug("preflightCustodianRecoveryKey unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
+                logger.info("preflightCustodianRecoveryKey unable to fetch current peers: \(String(describing: fetchError), privacy: .public)")
                 reply(nil, nil, fetchError)
                 return
             }
@@ -120,7 +120,7 @@ extension Container {
             // Ensure we have all policy versions claimed by peers, including our sponsor
             self.fetchPolicyDocumentsWithSemaphore(versions: self.model.allPolicyVersions()) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
-                    logger.debug("preflightCustodianRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
+                    logger.info("preflightCustodianRecoveryKey unable to fetch policy documents: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                     reply(nil, nil, fetchPolicyDocumentsError)
                     return
                 }
@@ -131,7 +131,7 @@ extension Container {
                         let egoPermSig = self.containerMO.egoPeerPermanentInfoSig,
                         let egoStableData = self.containerMO.egoPeerStableInfo,
                         let egoStableSig = self.containerMO.egoPeerStableInfoSig else {
-                            logger.debug("preflightCustodianRecoveryKey: no ego peer ID")
+                            logger.info("preflightCustodianRecoveryKey: no ego peer ID")
                             reply(nil, nil, ContainerError.noPreparedIdentity)
                             return
                     }
@@ -148,13 +148,13 @@ extension Container {
                     }
 
                     guard let uuid = UUID(uuidString: crk.uuid) else {
-                        logger.debug("Unable to parse uuid \(crk.uuid, privacy: .public)")
+                        logger.info("Unable to parse uuid \(crk.uuid, privacy: .public)")
                         reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                         return
                     }
 
                     guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
-                        logger.debug("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
+                        logger.info("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
                         reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                         return
                     }
@@ -163,14 +163,14 @@ extension Container {
                     do {
                         crkRecoveryKey = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
                     } catch {
-                        logger.debug("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                        logger.info("preflightCustodianRecoveryKey: failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                         return
                     }
 
                     // Dear model: if I were to use this custodian recovery key, what peers would I end up using?
                     guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                        logger.debug("preflightCustodianRecoveryKey: custodian recovery Key is not enrolled")
+                        logger.info("preflightCustodianRecoveryKey: custodian recovery Key is not enrolled")
                         reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                         return
                     }
@@ -178,13 +178,13 @@ extension Container {
                     guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
                                                                                                canIntroducePeer: selfPermanentInfo,
                                                                                                stableInfo: selfStableInfo) else {
-                        logger.debug("preflightCustodianRecoveryKey Untrusted custodian recovery key")
+                        logger.info("preflightCustodianRecoveryKey Untrusted custodian recovery key")
                         reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                         return
                     }
 
                     guard let sponsor = self.model.peer(withID: sponsorPeerID) else {
-                        logger.debug("preflightCustodianRecoveryKey Failed to find peer with ID")
+                        logger.info("preflightCustodianRecoveryKey Failed to find peer with ID")
                         reply(nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
                         return
                     }
@@ -198,7 +198,7 @@ extension Container {
 
                         reply(crkRecoveryKey.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
-                        logger.debug("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
+                        logger.info("preflightCustodianRecoveryKey: error fetching policy: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }

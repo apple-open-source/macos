@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -13,10 +13,8 @@
 			buildPhases = (
 			);
 			dependencies = (
-				BE3E0A830AD9A3EE0054ACA0 /* PBXTargetDependency */,
 				BE3E0B7D0AD9B90A0054ACA0 /* PBXTargetDependency */,
 				06DB36012579E2D800EB14D0 /* PBXTargetDependency */,
-				BE4A17BB0AEBBAD9001371C6 /* PBXTargetDependency */,
 				4DDA8CDB150E763B00631F4D /* PBXTargetDependency */,
 				4DF955161BF12AA9004AE1B4 /* PBXTargetDependency */,
 			);
@@ -29,6 +27,9 @@
 			buildPhases = (
 			);
 			dependencies = (
+				06182A15276C0E6200A4B4EB /* PBXTargetDependency */,
+				06182A17276C0E8800A4B4EB /* PBXTargetDependency */,
+				06182A13276C0E5600A4B4EB /* PBXTargetDependency */,
 				F9BD39A223DF999C0061BF91 /* PBXTargetDependency */,
 			);
 			name = "ntfs-ios";
@@ -133,12 +134,11 @@
 		72E75FC50986C87D0050048E /* ntfs_mst.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FC30986C87D0050048E /* ntfs_mst.c */; };
 		72E75FDA0986D74A0050048E /* ntfs_attr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FD80986D74A0050048E /* ntfs_attr.c */; };
 		72E75FEF098714850050048E /* ntfs_unistr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FED098714850050048E /* ntfs_unistr.c */; };
-		A00AB6C32632487C0003441E /* test_ntfs in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BA263241DB0003441E /* test_ntfs */; };
-		A00AB6C6263248B90003441E /* general.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BF263242500003441E /* general.py */; };
-		A00AB6C7263248C10003441E /* file_system.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BE263242380003441E /* file_system.py */; };
-		A00AB6C8263248CA0003441E /* constants.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6BD263242230003441E /* constants.py */; };
-		A00AB6CB2632495D0003441E /* ntfs.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6C0263244FD0003441E /* ntfs.plist */; };
-		A00AB6D0263A52210003441E /* ntfs_dmg.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6CF263A51FB0003441E /* ntfs_dmg.py */; };
+		A063217228663410002149EE /* test_userfs.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0632170286632E3002149EE /* test_userfs.py */; };
+		A0632174286634F7002149EE /* tests in CopyFiles */ = {isa = PBXBuildFile; fileRef = A06321712866331D002149EE /* tests */; };
+		A06321752866350B002149EE /* libs in CopyFiles */ = {isa = PBXBuildFile; fileRef = A063216F286632C6002149EE /* libs */; };
+		A07462A1286BEB4E001A7771 /* msdos.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A074629F286BEB0C001A7771 /* msdos.plist */; };
+		A07462A2286BEB55001A7771 /* exfat.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A07462A0286BEB1F001A7771 /* exfat.plist */; };
 		BE2956360B7B373B00E0CE44 /* ntfs_collate.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956350B7B373B00E0CE44 /* ntfs_collate.c */; };
 		BE2956490B7BE58100E0CE44 /* ntfs_index.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956480B7BE58100E0CE44 /* ntfs_index.c */; };
 		BE361A630B38920100E5885A /* ntfs_quota.c in Sources */ = {isa = PBXBuildFile; fileRef = BE361A610B38920100E5885A /* ntfs_quota.c */; };
@@ -157,6 +157,7 @@
 		BE91B1C70C9B35E300F0BE50 /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */; };
 		BE92B9840CBBA333004DBCFB /* ntfs_sfm.c in Sources */ = {isa = PBXBuildFile; fileRef = BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */; };
 		BED5DA050AA78E2C000AD756 /* ntfs_page.c in Sources */ = {isa = PBXBuildFile; fileRef = BED5DA030AA78E2C000AD756 /* ntfs_page.c */; };
+		F911439827E26A2F00EC8B84 /* ntfs.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A00AB6C0263244FD0003441E /* ntfs.plist */; };
 		F99B8758246B8878006E31FE /* ntfs_xpl.h in Headers */ = {isa = PBXBuildFile; fileRef = F99B8756246B8878006E31FE /* ntfs_xpl.h */; };
 		F99B8759246B8878006E31FE /* ntfs_xpl.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B8757246B8878006E31FE /* ntfs_xpl.c */; };
 		F99B875B246B8950006E31FE /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = F99B875A246B8950006E31FE /* ntfs_attr_list.c */; };
@@ -219,6 +220,27 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		06182A12276C0E5600A4B4EB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE3E0A230AD9A1700054ACA0;
+			remoteInfo = ntfs.util;
+		};
+		06182A14276C0E6200A4B4EB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE3E0B4F0AD9B62A0054ACA0;
+			remoteInfo = ntfs.fs;
+		};
+		06182A16276C0E8800A4B4EB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4DF954BC1BF12917004AE1B4;
+			remoteInfo = newfs_ntfs;
+		};
 		0699530D2660432D00DB6F15 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 72E40F83091CC03000674539 /* Project object */;
@@ -247,40 +269,12 @@
 			remoteGlobalIDString = 4DF954BC1BF12917004AE1B4;
 			remoteInfo = newfs_ntfs;
 		};
-		BE3E0A820AD9A3EE0054ACA0 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72E40FE6091CC3A900674539;
-			remoteInfo = ntfs.kext;
-		};
 		BE3E0B7C0AD9B90A0054ACA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 72E40F83091CC03000674539 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BE3E0B4F0AD9B62A0054ACA0;
 			remoteInfo = ntfs.fs;
-		};
-		BE4A17BA0AEBBAD9001371C6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = BE4A177E0AEBB809001371C6;
-			remoteInfo = mount_ntfs;
-		};
-		F99B87CD246F35D3006E31FE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F936272323DF34C3009CF89B;
-			remoteInfo = "uvfs-plugin";
-		};
-		F9BD39A123DF999C0061BF91 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F936272323DF34C3009CF89B;
-			remoteInfo = "uvfs-plugin";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -291,39 +285,6 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A00AB6C22632479C0003441E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/tests/ntfs;
-			dstSubfolderSpec = 0;
-			files = (
-				A00AB6C32632487C0003441E /* test_ntfs in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A00AB6C52632489D0003441E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/tests/ntfs/lib;
-			dstSubfolderSpec = 0;
-			files = (
-				A00AB6D0263A52210003441E /* ntfs_dmg.py in CopyFiles */,
-				A00AB6C8263248CA0003441E /* constants.py in CopyFiles */,
-				A00AB6C7263248C10003441E /* file_system.py in CopyFiles */,
-				A00AB6C6263248B90003441E /* general.py in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A00AB6CA263248E60003441E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				A00AB6CB2632495D0003441E /* ntfs.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -347,12 +308,42 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		F911439027E2699400EC8B84 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/tests/userfs;
+			dstSubfolderSpec = 0;
+			files = (
+				A063217228663410002149EE /* test_userfs.py in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F911439227E269E600EC8B84 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/tests/userfs;
+			dstSubfolderSpec = 0;
+			files = (
+				A06321752866350B002149EE /* libs in CopyFiles */,
+				A0632174286634F7002149EE /* tests in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F911439727E26A1E00EC8B84 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				A07462A2286BEB55001A7771 /* exfat.plist in CopyFiles */,
+				A07462A1286BEB4E001A7771 /* msdos.plist in CopyFiles */,
+				F911439827E26A2F00EC8B84 /* ntfs.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		06995303266041A200DB6F15 /* uvfs-plugin-macos.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "uvfs-plugin-macos.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
-		069953082660432D00DB6F15 /* uvfs-plugin-unit-tests-macos.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "uvfs-plugin-unit-tests-macos.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		0699530A2660432D00DB6F15 /* uvfsPluginUnitTestsmacOS.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = uvfsPluginUnitTestsmacOS.m; sourceTree = "<group>"; };
 		3840A0332062FF12008C2E45 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		38A3DC1F230396FD0064CA2A /* newfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = newfs.entitlements; path = newfs/newfs.entitlements; sourceTree = "<group>"; };
 		4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ntfs.xcconfig; sourceTree = "<group>"; };
@@ -444,12 +435,12 @@
 		72E75FEE098714850050048E /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_unistr.h; sourceTree = "<group>"; };
 		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; usesTabs = 1; };
 		72FE849709313B5100752581 /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_volume.h; sourceTree = "<group>"; };
-		A00AB6BA263241DB0003441E /* test_ntfs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = test_ntfs; path = tests/test_ntfs; sourceTree = "<group>"; };
-		A00AB6BD263242230003441E /* constants.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = constants.py; path = tests/lib/constants.py; sourceTree = "<group>"; };
-		A00AB6BE263242380003441E /* file_system.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = file_system.py; path = tests/lib/file_system.py; sourceTree = "<group>"; };
-		A00AB6BF263242500003441E /* general.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = general.py; path = tests/lib/general.py; sourceTree = "<group>"; };
 		A00AB6C0263244FD0003441E /* ntfs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = ntfs.plist; path = tests/ntfs.plist; sourceTree = "<group>"; };
-		A00AB6CF263A51FB0003441E /* ntfs_dmg.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = ntfs_dmg.py; path = tests/lib/ntfs_dmg.py; sourceTree = "<group>"; };
+		A063216F286632C6002149EE /* libs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = libs; path = tests/libs; sourceTree = "<group>"; };
+		A0632170286632E3002149EE /* test_userfs.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = test_userfs.py; path = tests/test_userfs.py; sourceTree = "<group>"; };
+		A06321712866331D002149EE /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tests; path = tests/tests; sourceTree = "<group>"; };
+		A074629F286BEB0C001A7771 /* msdos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = msdos.plist; path = tests/msdos.plist; sourceTree = "<group>"; };
+		A07462A0286BEB1F001A7771 /* exfat.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = exfat.plist; path = tests/exfat.plist; sourceTree = "<group>"; };
 		BE2956350B7B373B00E0CE44 /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_collate.c; sourceTree = "<group>"; };
 		BE2956370B7B375F00E0CE44 /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_collate.h; sourceTree = "<group>"; };
 		BE2956470B7BE55D00E0CE44 /* ntfs_index.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_index.h; sourceTree = "<group>"; };
@@ -458,7 +449,7 @@
 		BE361A620B38920100E5885A /* ntfs_quota.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_quota.h; sourceTree = "<group>"; };
 		BE3E0A240AD9A1700054ACA0 /* ntfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ntfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE3E0A8F0AD9A53C0054ACA0 /* ntfs.util.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = ntfs.util.8; sourceTree = "<group>"; };
-		BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; path = ntfs.util.c; sourceTree = "<group>"; };
+		BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; path = ntfs.util.c; sourceTree = "<group>"; usesTabs = 1; };
 		BE3E0A960AD9A5F80054ACA0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		BE3E0A9E0AD9A68F0054ACA0 /* English */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 10; name = English; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BE3E0B5C0AD9B62A0054ACA0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -543,6 +534,7 @@
 		F99B87C9246F35D3006E31FE /* UVFSPlugInUnitTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = UVFSPlugInUnitTests.m; sourceTree = "<group>"; };
 		F99B87CB246F35D3006E31FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F99B87D2246F3704006E31FE /* Data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Data.h; sourceTree = "<group>"; };
+		F99FC645276D457500468A5A /* util.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = util.entitlements; path = ntfs.fs/util.entitlements; sourceTree = SOURCE_ROOT; };
 		F9BD399823DF98500061BF91 /* plugin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = plugin.c; sourceTree = "<group>"; usesTabs = 1; };
 		F9BD399B23DF99500061BF91 /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
 		F9BD39A323DF9ADB0061BF91 /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
@@ -597,35 +589,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F936272223DF34C3009CF89B /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F99B87C1246B932F006E31FE /* CoreFoundation.framework in Frameworks */,
-				F9BD39A423DF9ADB0061BF91 /* UserFS.framework in Frameworks */,
-				F9BD399C23DF99500061BF91 /* LiveFS.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F99B87C4246F35D2006E31FE /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F99B87CC246F35D3006E31FE /* livefiles_ntfs.dylib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		069953092660432D00DB6F15 /* uvfs-plugin-unit-tests-macos */ = {
-			isa = PBXGroup;
-			children = (
-				0699530A2660432D00DB6F15 /* uvfsPluginUnitTestsmacOS.m */,
-			);
-			path = "uvfs-plugin-unit-tests-macos";
-			sourceTree = "<group>";
-		};
 		4DF954FB1BF12961004AE1B4 /* newfs */ = {
 			isa = PBXGroup;
 			children = (
@@ -693,18 +659,14 @@
 		72E40F81091CC03000674539 = {
 			isa = PBXGroup;
 			children = (
-				A00AB6B72632413E0003441E /* tests */,
 				4DF955181BF1368A004AE1B4 /* libutil.dylib */,
 				4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */,
 				72E410AE091CF9A100674539 /* kext */,
 				BE4A177B0AEBB7B0001371C6 /* mount */,
 				4DF954FB1BF12961004AE1B4 /* newfs */,
 				BE3E0A890AD9A4340054ACA0 /* ntfs.fs */,
-				F99B87C8246F35D2006E31FE /* UVFSPlugInUnitTests */,
-				069953092660432D00DB6F15 /* uvfs-plugin-unit-tests-macos */,
 				72E40FE8091CC3A900674539 /* Products */,
 				BE3E0A1D0AD9A0E40054ACA0 /* util */,
-				F9BD399723DF97FC0061BF91 /* uvfs-plugin */,
 				F9BD399A23DF99500061BF91 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -717,10 +679,6 @@
 				BE3E0B5F0AD9B7000054ACA0 /* ntfs.fs */,
 				BE4A177F0AEBB809001371C6 /* mount_ntfs */,
 				4DF954BD1BF12917004AE1B4 /* BootCampFormatter */,
-				F936272423DF34C3009CF89B /* livefiles_ntfs.dylib */,
-				F99B87C7246F35D2006E31FE /* UVFSPlugInUnitTests.xctest */,
-				06995303266041A200DB6F15 /* uvfs-plugin-macos.dylib */,
-				069953082660432D00DB6F15 /* uvfs-plugin-unit-tests-macos.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -789,27 +747,20 @@
 		A00AB6B72632413E0003441E /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				A07462A0286BEB1F001A7771 /* exfat.plist */,
+				A074629F286BEB0C001A7771 /* msdos.plist */,
+				A06321712866331D002149EE /* tests */,
+				A0632170286632E3002149EE /* test_userfs.py */,
+				A063216F286632C6002149EE /* libs */,
 				A00AB6C0263244FD0003441E /* ntfs.plist */,
-				A00AB6BB263241E80003441E /* lib */,
-				A00AB6BA263241DB0003441E /* test_ntfs */,
 			);
 			name = tests;
-			sourceTree = "<group>";
-		};
-		A00AB6BB263241E80003441E /* lib */ = {
-			isa = PBXGroup;
-			children = (
-				A00AB6CF263A51FB0003441E /* ntfs_dmg.py */,
-				A00AB6BF263242500003441E /* general.py */,
-				A00AB6BE263242380003441E /* file_system.py */,
-				A00AB6BD263242230003441E /* constants.py */,
-			);
-			name = lib;
 			sourceTree = "<group>";
 		};
 		BE3E0A1D0AD9A0E40054ACA0 /* util */ = {
 			isa = PBXGroup;
 			children = (
+				F99FC645276D457500468A5A /* util.entitlements */,
 				BE3E0A960AD9A5F80054ACA0 /* CoreFoundation.framework */,
 				BE3E0A8F0AD9A53C0054ACA0 /* ntfs.util.8 */,
 				BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */,
@@ -835,77 +786,6 @@
 			path = mount;
 			sourceTree = "<group>";
 		};
-		F99B87C8246F35D2006E31FE /* UVFSPlugInUnitTests */ = {
-			isa = PBXGroup;
-			children = (
-				F99B87D2246F3704006E31FE /* Data.h */,
-				F99B87C9246F35D3006E31FE /* UVFSPlugInUnitTests.m */,
-				F99B87CB246F35D3006E31FE /* Info.plist */,
-			);
-			path = UVFSPlugInUnitTests;
-			sourceTree = "<group>";
-		};
-		F9BD399723DF97FC0061BF91 /* uvfs-plugin */ = {
-			isa = PBXGroup;
-			children = (
-				F99B875A246B8950006E31FE /* ntfs_attr_list.c */,
-				F99B8789246B8982006E31FE /* ntfs_attr_list.h */,
-				F99B8787246B8982006E31FE /* ntfs_attr.c */,
-				F99B8768246B897F006E31FE /* ntfs_attr.h */,
-				F99B8781246B8981006E31FE /* ntfs_bitmap.c */,
-				F99B878A246B8982006E31FE /* ntfs_bitmap.h */,
-				F99B875D246B897E006E31FE /* ntfs_collate.c */,
-				F99B8762246B897F006E31FE /* ntfs_collate.h */,
-				F99B877D246B8981006E31FE /* ntfs_compress.c */,
-				F99B877A246B8981006E31FE /* ntfs_compress.h */,
-				F99B8773246B8980006E31FE /* ntfs_debug.c */,
-				F99B8780246B8981006E31FE /* ntfs_debug.h */,
-				F99B8775246B8980006E31FE /* ntfs_dir.c */,
-				F99B876A246B897F006E31FE /* ntfs_dir.h */,
-				F99B8763246B897F006E31FE /* ntfs_endian.h */,
-				F99B8778246B8981006E31FE /* ntfs_hash.c */,
-				F99B8782246B8982006E31FE /* ntfs_hash.h */,
-				F99B877C246B8981006E31FE /* ntfs_index.c */,
-				F99B877F246B8981006E31FE /* ntfs_index.h */,
-				F99B876D246B8980006E31FE /* ntfs_inode.c */,
-				F99B876F246B8980006E31FE /* ntfs_inode.h */,
-				F99B8767246B897F006E31FE /* ntfs_layout.h */,
-				F99B877B246B8981006E31FE /* ntfs_lcnalloc.c */,
-				F99B878C246B8983006E31FE /* ntfs_lcnalloc.h */,
-				F99B875F246B897E006E31FE /* ntfs_logfile.c */,
-				F99B878B246B8982006E31FE /* ntfs_logfile.h */,
-				F99B8784246B8982006E31FE /* ntfs_mft.c */,
-				F99B875E246B897E006E31FE /* ntfs_mft.h */,
-				F99B8783246B8982006E31FE /* ntfs_mst.c */,
-				F99B8766246B897F006E31FE /* ntfs_mst.h */,
-				F99B877E246B8981006E31FE /* ntfs_page.c */,
-				F99B8788246B8982006E31FE /* ntfs_page.h */,
-				F99B876B246B897F006E31FE /* ntfs_quota.c */,
-				F99B8770246B8980006E31FE /* ntfs_quota.h */,
-				F99B878D246B8983006E31FE /* ntfs_runlist.c */,
-				F99B875C246B897E006E31FE /* ntfs_runlist.h */,
-				F99B8786246B8982006E31FE /* ntfs_secure.c */,
-				F99B8785246B8982006E31FE /* ntfs_secure.h */,
-				F99B8779246B8981006E31FE /* ntfs_sfm.c */,
-				F99B876E246B8980006E31FE /* ntfs_sfm.h */,
-				F99B8760246B897E006E31FE /* ntfs_time.h */,
-				F99B8765246B897F006E31FE /* ntfs_types.h */,
-				F99B8761246B897F006E31FE /* ntfs_unistr.c */,
-				F99B8774246B8980006E31FE /* ntfs_unistr.h */,
-				F99B8771246B8980006E31FE /* ntfs_usnjrnl.c */,
-				F99B8764246B897F006E31FE /* ntfs_usnjrnl.h */,
-				F99B8776246B8980006E31FE /* ntfs_vfsops.c */,
-				F99B8772246B8980006E31FE /* ntfs_vnops.c */,
-				F99B876C246B8980006E31FE /* ntfs_vnops.h */,
-				F99B8777246B8981006E31FE /* ntfs_volume.h */,
-				F99B8769246B897F006E31FE /* ntfs.h */,
-				F99B8757246B8878006E31FE /* ntfs_xpl.c */,
-				F99B8756246B8878006E31FE /* ntfs_xpl.h */,
-				F9BD399823DF98500061BF91 /* plugin.c */,
-			);
-			path = "uvfs-plugin";
-			sourceTree = "<group>";
-		};
 		F9BD399A23DF99500061BF91 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -919,42 +799,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		069952C4266041A200DB6F15 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				069952C5266041A200DB6F15 /* ntfs_sfm.h in Headers */,
-				069952C6266041A200DB6F15 /* ntfs_mst.h in Headers */,
-				069952C7266041A200DB6F15 /* ntfs_xpl.h in Headers */,
-				069952C8266041A200DB6F15 /* ntfs_compress.h in Headers */,
-				069952C9266041A200DB6F15 /* ntfs_types.h in Headers */,
-				069952CA266041A200DB6F15 /* ntfs_usnjrnl.h in Headers */,
-				069952CB266041A200DB6F15 /* ntfs_collate.h in Headers */,
-				069952CC266041A200DB6F15 /* ntfs_layout.h in Headers */,
-				069952CD266041A200DB6F15 /* ntfs_endian.h in Headers */,
-				069952CE266041A200DB6F15 /* ntfs_debug.h in Headers */,
-				069952CF266041A200DB6F15 /* ntfs_unistr.h in Headers */,
-				069952D0266041A200DB6F15 /* ntfs_volume.h in Headers */,
-				069952D1266041A200DB6F15 /* ntfs_attr_list.h in Headers */,
-				069952D2266041A200DB6F15 /* ntfs_secure.h in Headers */,
-				069952D3266041A200DB6F15 /* ntfs_quota.h in Headers */,
-				069952D4266041A200DB6F15 /* ntfs.h in Headers */,
-				069952D5266041A200DB6F15 /* ntfs_runlist.h in Headers */,
-				069952D6266041A200DB6F15 /* ntfs_dir.h in Headers */,
-				069952D7266041A200DB6F15 /* ntfs_inode.h in Headers */,
-				069952D8266041A200DB6F15 /* ntfs_time.h in Headers */,
-				069952D9266041A200DB6F15 /* ntfs_logfile.h in Headers */,
-				069952DA266041A200DB6F15 /* ntfs_attr.h in Headers */,
-				069952DB266041A200DB6F15 /* ntfs_bitmap.h in Headers */,
-				069952DC266041A200DB6F15 /* ntfs_index.h in Headers */,
-				069952DD266041A200DB6F15 /* ntfs_vnops.h in Headers */,
-				069952DE266041A200DB6F15 /* ntfs_mft.h in Headers */,
-				069952DF266041A200DB6F15 /* ntfs_hash.h in Headers */,
-				069952E0266041A200DB6F15 /* ntfs_page.h in Headers */,
-				069952E1266041A200DB6F15 /* ntfs_lcnalloc.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BE3E0B520AD9B62A0054ACA0 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -962,80 +806,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F936272023DF34C3009CF89B /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F99B87A0246B8983006E31FE /* ntfs_sfm.h in Headers */,
-				F99B8798246B8983006E31FE /* ntfs_mst.h in Headers */,
-				F99B8758246B8878006E31FE /* ntfs_xpl.h in Headers */,
-				F99B87AC246B8983006E31FE /* ntfs_compress.h in Headers */,
-				F99B8797246B8983006E31FE /* ntfs_types.h in Headers */,
-				F99B8796246B8983006E31FE /* ntfs_usnjrnl.h in Headers */,
-				F99B8794246B8983006E31FE /* ntfs_collate.h in Headers */,
-				F99B8799246B8983006E31FE /* ntfs_layout.h in Headers */,
-				F99B8795246B8983006E31FE /* ntfs_endian.h in Headers */,
-				F99B87B2246B8983006E31FE /* ntfs_debug.h in Headers */,
-				F99B87A6246B8983006E31FE /* ntfs_unistr.h in Headers */,
-				F99B87A9246B8983006E31FE /* ntfs_volume.h in Headers */,
-				F99B87BB246B8983006E31FE /* ntfs_attr_list.h in Headers */,
-				F99B87B7246B8983006E31FE /* ntfs_secure.h in Headers */,
-				F99B87A2246B8983006E31FE /* ntfs_quota.h in Headers */,
-				F99B879B246B8983006E31FE /* ntfs.h in Headers */,
-				F99B878E246B8983006E31FE /* ntfs_runlist.h in Headers */,
-				F99B879C246B8983006E31FE /* ntfs_dir.h in Headers */,
-				F99B87A1246B8983006E31FE /* ntfs_inode.h in Headers */,
-				F99B8792246B8983006E31FE /* ntfs_time.h in Headers */,
-				F99B87BD246B8983006E31FE /* ntfs_logfile.h in Headers */,
-				F99B879A246B8983006E31FE /* ntfs_attr.h in Headers */,
-				F99B87BC246B8983006E31FE /* ntfs_bitmap.h in Headers */,
-				F99B87B1246B8983006E31FE /* ntfs_index.h in Headers */,
-				F99B879E246B8983006E31FE /* ntfs_vnops.h in Headers */,
-				F99B8790246B8983006E31FE /* ntfs_mft.h in Headers */,
-				F99B87B4246B8983006E31FE /* ntfs_hash.h in Headers */,
-				F99B87BA246B8983006E31FE /* ntfs_page.h in Headers */,
-				F99B87BE246B8983006E31FE /* ntfs_lcnalloc.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		069952C3266041A200DB6F15 /* uvfs-plugin-macos */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 06995300266041A200DB6F15 /* Build configuration list for PBXNativeTarget "uvfs-plugin-macos" */;
-			buildPhases = (
-				069952C4266041A200DB6F15 /* Headers */,
-				069952E2266041A200DB6F15 /* Sources */,
-				069952FC266041A200DB6F15 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "uvfs-plugin-macos";
-			productName = "uvfs-plugin";
-			productReference = 06995303266041A200DB6F15 /* uvfs-plugin-macos.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
-		069953072660432D00DB6F15 /* uvfs-plugin-unit-tests-macos */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 0699530F2660432D00DB6F15 /* Build configuration list for PBXNativeTarget "uvfs-plugin-unit-tests-macos" */;
-			buildPhases = (
-				069953042660432D00DB6F15 /* Sources */,
-				069953052660432D00DB6F15 /* Frameworks */,
-				069953062660432D00DB6F15 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				0699530E2660432D00DB6F15 /* PBXTargetDependency */,
-			);
-			name = "uvfs-plugin-unit-tests-macos";
-			productName = "uvfs-plugin-unit-tests";
-			productReference = 069953082660432D00DB6F15 /* uvfs-plugin-unit-tests-macos.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 		4DF954BC1BF12917004AE1B4 /* newfs_ntfs */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4DF954C31BF12917004AE1B4 /* Build configuration list for PBXNativeTarget "newfs_ntfs" */;
@@ -1075,6 +848,9 @@
 				BE3E0A210AD9A1700054ACA0 /* Sources */,
 				BE3E0A220AD9A1700054ACA0 /* Frameworks */,
 				BE3E0A7A0AD9A2EA0054ACA0 /* CopyFiles */,
+				F911439027E2699400EC8B84 /* CopyFiles */,
+				F911439227E269E600EC8B84 /* CopyFiles */,
+				F911439727E26A1E00EC8B84 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1113,9 +889,6 @@
 				BE4A177D0AEBB809001371C6 /* Frameworks */,
 				BE4A178B0AEBB8F6001371C6 /* CopyFiles */,
 				4DDA8CC4150E68D800631F4D /* ShellScript */,
-				A00AB6C22632479C0003441E /* CopyFiles */,
-				A00AB6C52632489D0003441E /* CopyFiles */,
-				A00AB6CA263248E60003441E /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1126,41 +899,6 @@
 			productReference = BE4A177F0AEBB809001371C6 /* mount_ntfs */;
 			productType = "com.apple.product-type.tool";
 		};
-		F936272323DF34C3009CF89B /* uvfs-plugin */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F936272723DF34C3009CF89B /* Build configuration list for PBXNativeTarget "uvfs-plugin" */;
-			buildPhases = (
-				F936272023DF34C3009CF89B /* Headers */,
-				F936272123DF34C3009CF89B /* Sources */,
-				F936272223DF34C3009CF89B /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "uvfs-plugin";
-			productName = "uvfs-plugin";
-			productReference = F936272423DF34C3009CF89B /* livefiles_ntfs.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
-		F99B87C6246F35D2006E31FE /* UVFSPlugInUnitTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F99B87D1246F35D3006E31FE /* Build configuration list for PBXNativeTarget "UVFSPlugInUnitTests" */;
-			buildPhases = (
-				F99B87C3246F35D2006E31FE /* Sources */,
-				F99B87C4246F35D2006E31FE /* Frameworks */,
-				F99B87C5246F35D2006E31FE /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				F99B87CE246F35D3006E31FE /* PBXTargetDependency */,
-			);
-			name = UVFSPlugInUnitTests;
-			productName = UVFSPlugInUnitTests;
-			productReference = F99B87C7246F35D2006E31FE /* UVFSPlugInUnitTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1169,21 +907,8 @@
 			attributes = {
 				LastUpgradeCheck = 1200;
 				TargetAttributes = {
-					069953072660432D00DB6F15 = {
-						CreatedOnToolsVersion = 13.0;
-					};
 					4DF954BC1BF12917004AE1B4 = {
 						CreatedOnToolsVersion = 7.1;
-					};
-					F936272323DF34C3009CF89B = {
-						CreatedOnToolsVersion = 12.0;
-						ProvisioningStyle = Automatic;
-					};
-					F99B87C6246F35D2006E31FE = {
-						CreatedOnToolsVersion = 12.0;
-					};
-					F9BD399D23DF99940061BF91 = {
-						CreatedOnToolsVersion = 12.0;
 					};
 				};
 			};
@@ -1204,40 +929,21 @@
 			projectRoot = "";
 			targets = (
 				BE3E0A810AD9A3C60054ACA0 /* ntfs */,
-				F9BD399D23DF99940061BF91 /* ntfs-ios */,
 				BE4A177E0AEBB809001371C6 /* mount_ntfs */,
 				4DF954BC1BF12917004AE1B4 /* newfs_ntfs */,
 				BE3E0B4F0AD9B62A0054ACA0 /* ntfs.fs */,
 				72E40FE6091CC3A900674539 /* ntfs.kext */,
 				BE3E0A230AD9A1700054ACA0 /* ntfs.util */,
-				F936272323DF34C3009CF89B /* uvfs-plugin */,
-				069952C3266041A200DB6F15 /* uvfs-plugin-macos */,
-				F99B87C6246F35D2006E31FE /* UVFSPlugInUnitTests */,
-				069953072660432D00DB6F15 /* uvfs-plugin-unit-tests-macos */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		069953062660432D00DB6F15 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BE3E0B530AD9B62A0054ACA0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				BE3E0B540AD9B62A0054ACA0 /* InfoPlist.strings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F99B87C5246F35D2006E31FE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1273,46 +979,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		069952E2266041A200DB6F15 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				069952E3266041A200DB6F15 /* ntfs_compress.c in Sources */,
-				069952E4266041A200DB6F15 /* ntfs_runlist.c in Sources */,
-				069952E5266041A200DB6F15 /* ntfs_attr.c in Sources */,
-				069952E6266041A200DB6F15 /* ntfs_bitmap.c in Sources */,
-				069952E7266041A200DB6F15 /* ntfs_page.c in Sources */,
-				069952E8266041A200DB6F15 /* ntfs_dir.c in Sources */,
-				069952E9266041A200DB6F15 /* ntfs_quota.c in Sources */,
-				069952EA266041A200DB6F15 /* ntfs_lcnalloc.c in Sources */,
-				069952EB266041A200DB6F15 /* plugin.c in Sources */,
-				069952EC266041A200DB6F15 /* ntfs_collate.c in Sources */,
-				069952ED266041A200DB6F15 /* ntfs_mft.c in Sources */,
-				069952EE266041A200DB6F15 /* ntfs_mst.c in Sources */,
-				069952EF266041A200DB6F15 /* ntfs_vfsops.c in Sources */,
-				069952F0266041A200DB6F15 /* ntfs_sfm.c in Sources */,
-				069952F1266041A200DB6F15 /* ntfs_logfile.c in Sources */,
-				069952F2266041A200DB6F15 /* ntfs_index.c in Sources */,
-				069952F3266041A200DB6F15 /* ntfs_xpl.c in Sources */,
-				069952F4266041A200DB6F15 /* ntfs_attr_list.c in Sources */,
-				069952F5266041A200DB6F15 /* ntfs_debug.c in Sources */,
-				069952F6266041A200DB6F15 /* ntfs_inode.c in Sources */,
-				069952F7266041A200DB6F15 /* ntfs_unistr.c in Sources */,
-				069952F8266041A200DB6F15 /* ntfs_secure.c in Sources */,
-				069952F9266041A200DB6F15 /* ntfs_usnjrnl.c in Sources */,
-				069952FA266041A200DB6F15 /* ntfs_hash.c in Sources */,
-				069952FB266041A200DB6F15 /* ntfs_vnops.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		069953042660432D00DB6F15 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0699530B2660432D00DB6F15 /* uvfsPluginUnitTestsmacOS.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4DF954B91BF12917004AE1B4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1441,6 +1107,24 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		06182A13276C0E5600A4B4EB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = BE3E0A230AD9A1700054ACA0 /* ntfs.util */;
+			targetProxy = 06182A12276C0E5600A4B4EB /* PBXContainerItemProxy */;
+		};
+		06182A15276C0E6200A4B4EB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = BE3E0B4F0AD9B62A0054ACA0 /* ntfs.fs */;
+			targetProxy = 06182A14276C0E6200A4B4EB /* PBXContainerItemProxy */;
+		};
+		06182A17276C0E8800A4B4EB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = 4DF954BC1BF12917004AE1B4 /* newfs_ntfs */;
+			targetProxy = 06182A16276C0E8800A4B4EB /* PBXContainerItemProxy */;
+		};
 		0699530E2660432D00DB6F15 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 069952C3266041A200DB6F15 /* uvfs-plugin-macos */;
@@ -1461,32 +1145,10 @@
 			target = 4DF954BC1BF12917004AE1B4 /* newfs_ntfs */;
 			targetProxy = 4DF955151BF12AA9004AE1B4 /* PBXContainerItemProxy */;
 		};
-		BE3E0A830AD9A3EE0054ACA0 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72E40FE6091CC3A900674539 /* ntfs.kext */;
-			targetProxy = BE3E0A820AD9A3EE0054ACA0 /* PBXContainerItemProxy */;
-		};
 		BE3E0B7D0AD9B90A0054ACA0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BE3E0B4F0AD9B62A0054ACA0 /* ntfs.fs */;
 			targetProxy = BE3E0B7C0AD9B90A0054ACA0 /* PBXContainerItemProxy */;
-		};
-		BE4A17BB0AEBBAD9001371C6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BE4A177E0AEBB809001371C6 /* mount_ntfs */;
-			targetProxy = BE4A17BA0AEBBAD9001371C6 /* PBXContainerItemProxy */;
-		};
-		F99B87CE246F35D3006E31FE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			platformFilter = ios;
-			target = F936272323DF34C3009CF89B /* uvfs-plugin */;
-			targetProxy = F99B87CD246F35D3006E31FE /* PBXContainerItemProxy */;
-		};
-		F9BD39A223DF999C0061BF91 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			platformFilter = ios;
-			target = F936272323DF34C3009CF89B /* uvfs-plugin */;
-			targetProxy = F9BD39A123DF999C0061BF91 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1502,280 +1164,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		06995301266041A200DB6F15 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				EXECUTABLE_PREFIX = "";
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					NAMEDSTREAMS,
-					"NTFS_VERSION_STRING=\\\"3.14.4\\\"",
-					"DEBUG=1",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTS_MACCATALYST = NO;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Development;
-		};
-		06995302266041A200DB6F15 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				EXECUTABLE_PREFIX = "";
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					NAMEDSTREAMS,
-					"NTFS_VERSION_STRING=\\\"3.14.4\\\"",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				"INSTALL_PATH[sdk=iphoneos*]" = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTS_MACCATALYST = NO;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Deployment;
-		};
-		069953102660432D00DB6F15 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.0;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.uvfs-plugin-unit-tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-			};
-			name = Development;
-		};
-		069953112660432D00DB6F15 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.0;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.uvfs-plugin-unit-tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-			};
-			name = Deployment;
-		};
 		4DF954C11BF12917004AE1B4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2043,6 +1431,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = "";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = $SRCROOT/ntfs.fs/util.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2065,6 +1455,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = "";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = $SRCROOT/ntfs.fs/util.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2201,321 +1593,9 @@
 			};
 			name = Deployment;
 		};
-		F936272523DF34C3009CF89B /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				EXECUTABLE_PREFIX = "";
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					NAMEDSTREAMS,
-					"NTFS_VERSION_STRING=\\\"3.14.4\\\"",
-					"DEBUG=1",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = livefiles_ntfs;
-				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTS_MACCATALYST = NO;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Development;
-		};
-		F936272623DF34C3009CF89B /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				EXECUTABLE_PREFIX = "";
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					NAMEDSTREAMS,
-					"NTFS_VERSION_STRING=\\\"3.14.4\\\"",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				"INSTALL_PATH[sdk=iphoneos*]" = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = livefiles_ntfs;
-				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTS_MACCATALYST = NO;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Deployment;
-		};
-		F99B87CF246F35D3006E31FE /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = UVFSPlugInUnitTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.UVFSPlugInUnitTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Development;
-		};
-		F99B87D0246F35D3006E31FE /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = UVFSPlugInUnitTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.UVFSPlugInUnitTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Deployment;
-		};
-		F9BD399F23DF99940061BF91 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
-			};
-			name = Development;
-		};
-		F9BD39A023DF99940061BF91 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				ONLY_ACTIVE_ARCH = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
-			};
-			name = Deployment;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		06995300266041A200DB6F15 /* Build configuration list for PBXNativeTarget "uvfs-plugin-macos" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				06995301266041A200DB6F15 /* Development */,
-				06995302266041A200DB6F15 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		0699530F2660432D00DB6F15 /* Build configuration list for PBXNativeTarget "uvfs-plugin-unit-tests-macos" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				069953102660432D00DB6F15 /* Development */,
-				069953112660432D00DB6F15 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
 		4DF954C31BF12917004AE1B4 /* Build configuration list for PBXNativeTarget "newfs_ntfs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2575,33 +1655,6 @@
 			buildConfigurations = (
 				BE4A17820AEBB831001371C6 /* Development */,
 				BE4A17830AEBB831001371C6 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		F936272723DF34C3009CF89B /* Build configuration list for PBXNativeTarget "uvfs-plugin" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F936272523DF34C3009CF89B /* Development */,
-				F936272623DF34C3009CF89B /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		F99B87D1246F35D3006E31FE /* Build configuration list for PBXNativeTarget "UVFSPlugInUnitTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F99B87CF246F35D3006E31FE /* Development */,
-				F99B87D0246F35D3006E31FE /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		F9BD399E23DF99940061BF91 /* Build configuration list for PBXAggregateTarget "ntfs-ios" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F9BD399F23DF99940061BF91 /* Development */,
-				F9BD39A023DF99940061BF91 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

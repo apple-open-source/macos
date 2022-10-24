@@ -98,12 +98,12 @@ void SVGMarkerElement::svgAttributeChanged(const QualifiedName& attrName)
         InstanceInvalidationGuard guard(*this);
         if (PropertyRegistry::isAnimatedLengthAttribute(attrName))
             updateRelativeLengthsInformation();
-        setSVGResourcesInAncestorChainAreDirty();
+        updateSVGRendererForElementChange();
         return;
     }
     
     if (SVGFitToViewBox::isKnownAttribute(attrName)) {
-        setSVGResourcesInAncestorChainAreDirty();
+        updateSVGRendererForElementChange();
         return;
     }
 
@@ -117,15 +117,15 @@ void SVGMarkerElement::childrenChanged(const ChildChange& change)
     if (change.source == ChildChange::Source::Parser)
         return;
 
-    setSVGResourcesInAncestorChainAreDirty();
+    updateSVGRendererForElementChange();
 }
 
-String SVGMarkerElement::orient() const
+AtomString SVGMarkerElement::orient() const
 {
     return getAttribute(SVGNames::orientAttr);
 }
 
-void SVGMarkerElement::setOrient(const String& orient)
+void SVGMarkerElement::setOrient(const AtomString& orient)
 {
     setAttribute(SVGNames::orientAttr, orient);
 }

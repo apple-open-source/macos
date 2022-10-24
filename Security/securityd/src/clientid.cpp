@@ -29,6 +29,7 @@
 #include <Security/oidsattr.h>
 #include <Security/SecCertificatePriv.h>
 #include <CrashReporterClient.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 
 //
@@ -161,7 +162,7 @@ static std::string hashString(CFDataRef data)
 	const unsigned char *hash = CFDataGetBytePtr(data);
 	char s[2 * length + 1];
 	for (CFIndex n = 0; n < length; n++)
-		sprintf(&s[2*n], "%2.2x", hash[n]);
+		snprintf(&s[2*n], 2 * length + 1 - (2 * n), "%2.2x", hash[n]);
 	return s;
 }
 
@@ -170,6 +171,22 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
 {
 	static CFStringRef const appleReq = CFSTR("anchor apple");
 	static CFStringRef const masReq = CFSTR("anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9]");
+    // TestFlight cert chain, which should be treated like MAS
+    static CFStringRef const tfReq = CFSTR("anchor apple generic"
+                                           " and "
+                                           "certificate 1[field.1.2.840.113635.100.6.2.1] exists"
+                                           " and "
+                                           "certificate leaf[field.1.2.840.113635.100.6.1.25.1] exists");
+    // On internal systems, we also allow the QA version of the TestFlight hierarchy to act like MAS
+    static CFStringRef const tfQaInternalReq = CFSTR("anchor apple generic"
+                                                     " and "
+                                                     "certificate 1[field.1.2.840.113635.100.6.2.1] exists"
+                                                     " and "
+                                                     "("
+                                                        "certificate leaf[field.1.2.840.113635.100.6.1.25.1] exists"
+                                                        " or "
+                                                        "certificate leaf[field.1.2.840.113635.100.6.1.25.2] exists"
+                                                     ")");
     static CFStringRef const developmentOrDevIDReq = CFSTR("anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] and certificate leaf[field.1.2.840.113635.100.6.1.13]" // Developer ID CA and Leaf
                                                            " or "
                                                            "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.1] and certificate leaf[field.1.2.840.113635.100.6.1.12]" // WWDR CA and Mac Development Leaf
@@ -177,6 +194,8 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
                                                            "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.1] and certificate leaf[field.1.2.840.113635.100.6.1.7]"); // WWDR CA and  Mac Distribution Leaf
 	static SecRequirementRef apple;
 	static SecRequirementRef mas;
+	static SecRequirementRef tf;
+	static SecRequirementRef tfQaInternal;
 	static SecRequirementRef developmentOrDevID;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -188,6 +207,16 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
         if(noErr != SecRequirementCreateWithString(masReq, kSecCSDefaultFlags, &mas)) {
             secerror("Unable to create SecRequirement for mac app store");
             CRSetCrashLogMessage("Unable to create SecRequirement for mac app store");
+            abort();
+        }
+        if(noErr != SecRequirementCreateWithString(tfReq, kSecCSDefaultFlags, &tf)) {
+            secerror("Unable to create SecRequirement for testflight");
+            CRSetCrashLogMessage("Unable to create SecRequirement for testflight");
+            abort();
+        }
+        if(noErr != SecRequirementCreateWithString(tfQaInternalReq, kSecCSDefaultFlags, &tfQaInternal)) {
+            secerror("Unable to create SecRequirement for internal testflight");
+            CRSetCrashLogMessage("Unable to create SecRequirement for internal testflight");
             abort();
         }
         if(noErr != SecRequirementCreateWithString(developmentOrDevIDReq, kSecCSDefaultFlags, &developmentOrDevID)) {
@@ -218,8 +247,10 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
         } else {
 			return "apple:";
         }
-	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, mas)) {
-		// for MAS-signed code, we take the embedded team identifier (verified by Apple)
+	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, mas) ||
+               noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, tf) ||
+               (SecIsInternalRelease() && noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, tfQaInternal))) {
+		// for MAS- or TestFlight-signed code, we take the embedded team identifier (verified by Apple)
 		return "teamid:" + cfString(CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoTeamIdentifier)));
 	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, developmentOrDevID)) {
 		// for developer-signed code, we take the team identifier from the signing certificate's OU field

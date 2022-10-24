@@ -31,7 +31,7 @@
 #include "utilities_regressions.h"
 #include <time.h>
 
-#define kTestCount 31
+#define kTestCount 32
 
 static int count_func(SecDbRef db, const char *name, CFIndex *max_conn_count, bool (*perform)(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn))) {
     __block int count = 0;
@@ -67,7 +67,7 @@ static int count_func(SecDbRef db, const char *name, CFIndex *max_conn_count, bo
     return max_count;
 }
 
-static void count_connections(SecDbRef db) {
+static void count_connections(SecDbRef db, size_t maxIdleHandles) {
     __block CFIndex max_conn_count = 0;
     dispatch_group_t group = dispatch_group_create();
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -79,7 +79,10 @@ static void count_connections(SecDbRef db) {
         }
     });
     dispatch_group_async(group, queue, ^{
+    TODO: {
+        todo("can't guarantee all threads idle");
         cmp_ok(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), <=, kSecDbMaxReaders, "max readers is %zu", kSecDbMaxReaders);
+        }
     TODO: {
         todo("can't guarantee all threads used");
         is(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), kSecDbMaxReaders, "max readers is %zu", kSecDbMaxReaders);
@@ -87,15 +90,15 @@ static void count_connections(SecDbRef db) {
     });
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     dispatch_release(group);
-    cmp_ok(max_conn_count, <=, kSecDbMaxIdleHandles, "max idle connection count is %zu", kSecDbMaxIdleHandles);
+    cmp_ok(max_conn_count, <=, maxIdleHandles, "max idle connection count is %zu", maxIdleHandles);
     TODO: {
-        todo("can't guarantee all threads idle");
-        is(max_conn_count, kSecDbMaxIdleHandles, "max idle connection count is %zu", kSecDbMaxIdleHandles);
+        todo("can't guarantee all threads used");
+        is(max_conn_count, maxIdleHandles, "max idle connection count is %zu", maxIdleHandles);
     }
 
 }
 
-static void tests(void)
+static void tests(size_t maxIdleHandles)
 {
     CFTypeID typeID = SecDbGetTypeID();
     CFStringRef tid = CFCopyTypeIDDescription(typeID);
@@ -108,19 +111,23 @@ static void tests(void)
     CFReleaseNull(tid);
 
     const char *home_var = getenv("HOME");
-    CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/Library/Keychains/su-40-sqldb.db"), home_var ? home_var : "");
+    CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/su-40-%zu-sqldb.db"), home_var ? home_var : "", maxIdleHandles);
 
-    SecDbRef db = SecDbCreate(dbName, 0600, true, true, true, true, kSecDbMaxIdleHandles, NULL);
+    SecDbRef db = SecDbCreate(dbName, 0600, true, true, true, true, maxIdleHandles, ^bool(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
+        ok(SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
+            ok(SecDbExec(dbconn, CFSTR("CREATE TABLE tablea(key TEXT,value BLOB);"), error),
+               "exec: %@", *error);
+            ok(SecDbExec(dbconn, CFSTR("INSERT INTO tablea(key,value)VALUES(1,2);"), error),
+               "exec: %@", *error);
+            *commit = true;
+        }), "transaction: %@", *error);
+        return true;
+    });
     CFReleaseNull(dbName);
     ok(db, "SecDbCreate");
 
     __block CFErrorRef error = NULL;
     ok(SecDbPerformWrite(db, &error, ^void (SecDbConnectionRef dbconn) {
-        ok(SecDbExec(dbconn, CFSTR("CREATE TABLE tablea(key TEXT,value BLOB);"), &error),
-           "exec: %@", error);
-        ok(SecDbExec(dbconn, CFSTR("INSERT INTO tablea(key,value)VALUES(1,2);"), &error),
-           "exec: %@", error);
-
         CFStringRef sql = CFSTR("INSERT INTO tablea(key,value)VALUES(?,?);");
         ok(SecDbPrepare(dbconn, sql, &error, ^void (sqlite3_stmt *stmt) {
             ok_status(sqlite3_bind_text(stmt, 1, "key1", 4, NULL), "bind_text[1]");
@@ -170,16 +177,18 @@ static void tests(void)
     }), "SecDbPerformWrite: %@", error);
     CFReleaseNull(error);
 
-    count_connections(db);
+    count_connections(db, maxIdleHandles);
 
     CFReleaseNull(db);
 }
 
 int su_40_secdb(int argc, char *const *argv)
 {
-    plan_tests(kTestCount);
-    tests();
-    
+    plan_tests(3*kTestCount);
+    tests(kSecDbMaxIdleHandles);
+    tests(kSecDbTrustdMaxIdleHandles);
+    tests(2);
+
     return 0;
 }
 

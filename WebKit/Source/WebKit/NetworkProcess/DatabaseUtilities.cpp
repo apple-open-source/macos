@@ -205,7 +205,7 @@ WebCore::PrivateClickMeasurement DatabaseUtilities::buildPrivateClickMeasurement
 
 String DatabaseUtilities::stripIndexQueryToMatchStoredValue(const char* originalQuery)
 {
-    return String(originalQuery).replace("CREATE UNIQUE INDEX IF NOT EXISTS", "CREATE UNIQUE INDEX");
+    return makeStringByReplacingAll(String::fromLatin1(originalQuery), "CREATE UNIQUE INDEX IF NOT EXISTS"_s, "CREATE UNIQUE INDEX"_s);
 }
 
 TableAndIndexPair DatabaseUtilities::currentTableAndIndexQueries(const String& tableName)
@@ -256,16 +256,16 @@ TableAndIndexPair DatabaseUtilities::currentTableAndIndexQueries(const String& t
 
 static Expected<WebCore::SQLiteStatement, int> insertDistinctValuesInTableStatement(WebCore::SQLiteDatabase& database, const String& table)
 {
-    if (table == "SubframeUnderTopFrameDomains")
+    if (table == "SubframeUnderTopFrameDomains"_s)
         return database.prepareStatement("INSERT INTO SubframeUnderTopFrameDomains SELECT subFrameDomainID, MAX(lastUpdated), topFrameDomainID FROM _SubframeUnderTopFrameDomains GROUP BY subFrameDomainID, topFrameDomainID"_s);
 
-    if (table == "SubresourceUnderTopFrameDomains")
+    if (table == "SubresourceUnderTopFrameDomains"_s)
         return database.prepareStatement("INSERT INTO SubresourceUnderTopFrameDomains SELECT subresourceDomainID, MAX(lastUpdated), topFrameDomainID FROM _SubresourceUnderTopFrameDomains GROUP BY subresourceDomainID, topFrameDomainID"_s);
 
-    if (table == "SubresourceUniqueRedirectsTo")
+    if (table == "SubresourceUniqueRedirectsTo"_s)
         return database.prepareStatement("INSERT INTO SubresourceUniqueRedirectsTo SELECT subresourceDomainID, MAX(lastUpdated), toDomainID FROM _SubresourceUniqueRedirectsTo GROUP BY subresourceDomainID, toDomainID"_s);
 
-    if (table == "TopFrameLinkDecorationsFrom")
+    if (table == "TopFrameLinkDecorationsFrom"_s)
         return database.prepareStatement("INSERT INTO TopFrameLinkDecorationsFrom SELECT toDomainID, MAX(lastUpdated), fromDomainID FROM _TopFrameLinkDecorationsFrom GROUP BY toDomainID, fromDomainID"_s);
 
     return database.prepareStatementSlow(makeString("INSERT INTO ", table, " SELECT DISTINCT * FROM _", table));
@@ -326,6 +326,41 @@ void DatabaseUtilities::migrateDataToNewTablesIfNecessary()
     }
 
     transaction.commit();
+}
+
+Vector<String> DatabaseUtilities::columnsForTable(ASCIILiteral tableName)
+{
+    auto statement = m_database.prepareStatementSlow(makeString("PRAGMA table_info(", tableName, ")"));
+
+    if (!statement) {
+        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::columnsForTable Unable to prepare statement to fetch schema for table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    Vector<String> columns;
+    while (statement->step() == SQLITE_ROW) {
+        auto name = statement->columnText(1);
+        columns.append(name);
+    }
+
+    return columns;
+}
+
+bool DatabaseUtilities::addMissingColumnToTable(ASCIILiteral tableName, ASCIILiteral columnName)
+{
+    auto statement = m_database.prepareStatementSlow(makeString("ALTER TABLE ", tableName, " ADD COLUMN ", columnName));
+    if (!statement) {
+        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::addMissingColumnToTable Unable to prepare statement to add missing columns to table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    if (statement->step() != SQLITE_DONE) {
+        RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - Database::addMissingColumnToTable error executing statement to add missing columns to table, error message: %" PRIVATE_LOG_STRING, this, m_database.lastErrorMsg());
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    return true;
 }
 
 } // namespace WebKit

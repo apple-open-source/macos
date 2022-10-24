@@ -116,9 +116,10 @@ void CurlRequest::start()
         [[fallthrough]];
     case StartState::StartSuspended:
         return;
+    case StartState::WaitingForStart:
+        m_startState = StartState::DidStart;
+        break;
     }
-
-    m_startState = StartState::DidStart;
 
     if (m_request.url().isLocalFile())
         invokeDidReceiveResponseForFile(m_request.url());
@@ -241,13 +242,13 @@ CURL* CurlRequest::setupTransfer()
     m_curlHandle->appendRequestHeaders(httpHeaderFields);
 
     const auto& method = m_request.httpMethod();
-    if (method == "GET")
+    if (method == "GET"_s)
         m_curlHandle->enableHttpGetRequest();
-    else if (method == "POST")
+    else if (method == "POST"_s)
         setupPOST();
-    else if (method == "PUT")
+    else if (method == "PUT"_s)
         setupPUT();
-    else if (method == "HEAD")
+    else if (method == "HEAD"_s)
         m_curlHandle->enableHttpHeadRequest();
     else {
         m_curlHandle->setHttpCustomRequest(method);
@@ -323,8 +324,8 @@ size_t CurlRequest::willSendData(char* buffer, size_t blockSize, size_t numberOf
 
 size_t CurlRequest::didReceiveHeader(String&& header)
 {
-    static const auto emptyLineCRLF = "\r\n";
-    static const auto emptyLineLF = "\n";
+    static constexpr auto emptyLineCRLF = "\r\n"_s;
+    static constexpr auto emptyLineLF = "\n"_s;
 
     if (isCompletedOrCancelled())
         return 0;
@@ -365,8 +366,8 @@ size_t CurlRequest::didReceiveHeader(String&& header)
     if (auto length = m_curlHandle->getContentLength())
         m_response.expectedContentLength = *length;
 
-    if (auto proxyUrl = m_curlHandle->getProxyUrl())
-        m_response.proxyUrl = URL(URL(), *proxyUrl);
+    if (auto proxyURL = m_curlHandle->getProxyUrl())
+        m_response.proxyUrl = URL { *proxyURL };
 
     if (auto auth = m_curlHandle->getHttpAuthAvail())
         m_response.availableHttpAuth = *auth;
@@ -530,13 +531,13 @@ int CurlRequest::didReceiveDebugInfo(curl_infotype type, char* data, size_t size
 
     if (type == CURLINFO_HEADER_OUT) {
         String requestHeader(data, size);
-        auto headerFields = requestHeader.split("\r\n");
+        auto headerFields = requestHeader.split("\r\n"_s);
         // Remove the request line
         if (headerFields.size())
             headerFields.remove(0);
 
         for (auto& header : headerFields) {
-            auto pos = header.find(":");
+            auto pos = header.find(':');
             if (pos != notFound) {
                 auto key = header.left(pos).stripWhiteSpace();
                 auto value = header.substring(pos + 1).stripWhiteSpace();
@@ -559,7 +560,7 @@ void CurlRequest::setupPUT()
     m_curlHandle->enableHttpPutRequest();
 
     // Disable the Expect: 100 continue header
-    m_curlHandle->removeRequestHeader("Expect");
+    m_curlHandle->removeRequestHeader("Expect"_s);
 
     auto elementSize = m_formDataStream.elementSize();
     if (!elementSize)
@@ -593,7 +594,7 @@ void CurlRequest::setupSendData(bool forPutMethod)
 {
     // curl guesses that we want chunked encoding as long as we specify the header
     if (m_formDataStream.shouldUseChunkTransfer())
-        m_curlHandle->appendRequestHeader("Transfer-Encoding: chunked");
+        m_curlHandle->appendRequestHeader("Transfer-Encoding: chunked"_s);
     else {
         if (forPutMethod)
             m_curlHandle->setInFileSizeLarge(static_cast<curl_off_t>(m_formDataStream.totalSize()));
@@ -786,7 +787,7 @@ void CurlRequest::writeDataToDownloadFileIfEnabled(const FragmentedSharedBuffer&
             return;
 
         if (m_downloadFilePath.isEmpty())
-            m_downloadFilePath = FileSystem::openTemporaryFile("download", m_downloadFileHandle);
+            m_downloadFilePath = FileSystem::openTemporaryFile("download"_s, m_downloadFileHandle);
     }
 
     if (m_downloadFileHandle != FileSystem::invalidPlatformFileHandle)

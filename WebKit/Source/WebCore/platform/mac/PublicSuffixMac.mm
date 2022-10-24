@@ -36,11 +36,16 @@
 
 namespace WebCore {
 
-bool isPublicSuffix(const String& domain)
+bool isPublicSuffix(StringView domain)
 {
-    // Explicitly cast the domain to a NSString before calling decodeHostName() so we get a NSString back instead of a String.
-    NSString *host = decodeHostName((NSString *)domain);
+    NSString *host = decodeHostName(domain.createNSString().get());
     return host && _CFHostIsDomainTopLevel((__bridge CFStringRef)host);
+}
+
+static HashMap<String, String, ASCIICaseInsensitiveHash>& cache()
+{
+    static NeverDestroyed<HashMap<String, String, ASCIICaseInsensitiveHash>> cache;
+    return cache.get();
 }
 
 String topPrivatelyControlledDomain(const String& domain)
@@ -53,17 +58,15 @@ String topPrivatelyControlledDomain(const String& domain)
     static Lock cacheLock;
     Locker locker { cacheLock };
 
-    static NeverDestroyed<HashMap<String, String, ASCIICaseInsensitiveHash>> cache;
-
     auto isolatedDomain = domain.isolatedCopy();
     
     constexpr auto maximumSizeToPreventUnlimitedGrowth = 128;
-    if (cache.get().size() == maximumSizeToPreventUnlimitedGrowth)
-        cache.get().remove(cache.get().random());
+    if (cache().size() == maximumSizeToPreventUnlimitedGrowth)
+        cache().remove(cache().random());
 
-    return cache.get().ensure(isolatedDomain, [&isolatedDomain] {
+    return cache().ensure(isolatedDomain, [&isolatedDomain] {
         const auto lowercaseDomain = isolatedDomain.convertToASCIILowercase();
-        if (lowercaseDomain == "localhost")
+        if (lowercaseDomain == "localhost"_s)
             return lowercaseDomain;
 
         if (URL::hostIsIPAddress(lowercaseDomain))
@@ -71,11 +74,18 @@ String topPrivatelyControlledDomain(const String& domain)
 
         size_t separatorPosition;
         for (unsigned labelStart = 0; (separatorPosition = lowercaseDomain.find('.', labelStart)) != notFound; labelStart = separatorPosition + 1) {
-            if (isPublicSuffix(lowercaseDomain.substring(separatorPosition + 1)))
+            if (isPublicSuffix(StringView(lowercaseDomain).substring(separatorPosition + 1)))
                 return lowercaseDomain.substring(labelStart);
         }
         return String();
     }).iterator->value.isolatedCopy();
+}
+
+void setTopPrivatelyControlledDomain(const String& domain, const String& topPrivatelyControlledDomain)
+{
+    if (domain.isEmpty())
+        return;
+    cache().set(domain, topPrivatelyControlledDomain);
 }
 
 String decodeHostName(const String& domain)

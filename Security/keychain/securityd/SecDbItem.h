@@ -90,6 +90,8 @@ enum {
 
 #define SECDB_ATTR(var, name, kind, flags, copyValue, setValue) const SecDbAttr var = { CFSTR(name), kSecDb ## kind ## Attr, flags, copyValue, setValue }
 
+#define SECDBITEM_FMT "%{private}@"
+
 typedef struct SecDbItem *SecDbItemRef;
 typedef struct SecDbAttr SecDbAttr;
 
@@ -172,6 +174,7 @@ void SecDbItemSetCallerAccessGroups(SecDbItemRef item, CFArrayRef caller_access_
 CFTypeRef SecDbItemGetCachedValueWithName(SecDbItemRef item, CFStringRef name);
 CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef *error);
 CFTypeRef SecDbItemGetValueKind(SecDbItemRef item, SecDbAttrKind desc, CFErrorRef *error);
+CFDictionaryRef SecDbItemCopyValuesWithNames(SecDbItemRef item, CFSetRef names, CFErrorRef *error);
 
 bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value, CFErrorRef *error);
 bool SecDbItemSetValues(SecDbItemRef item, CFDictionaryRef values, CFErrorRef *error);
@@ -212,6 +215,17 @@ CFDataRef SecDbItemGetPrimaryKey(SecDbItemRef item, CFErrorRef *error);
 CFDataRef SecDbItemGetSHA1(SecDbItemRef item, CFErrorRef *error);
 
 CFDataRef SecDbItemCopyEncryptedDataToBackup(SecDbItemRef item, uint64_t handle, CFErrorRef *error);
+
+/// Creates an item from an SQLite result row by calling a block to map the
+/// row's columns to the item's attributes.
+///
+/// The block is invoked for each successive column in the result row, and the
+/// returned attribute descriptor is used to decode the value in that column.
+///
+/// The block can return `NULL` to ignore a column, and should set the `stop`
+/// out parameter after processing the last column. This is useful for mapping
+/// multiple items from a single row.
+SecDbItemRef SecDbItemCreateWithColumnMapper(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, const SecDbAttr *(^mapper)(int column, bool *stop));
 
 SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbClass *class, sqlite3_stmt *stmt, keybag_handle_t keybag, CFErrorRef *error, bool (^return_attr)(const SecDbAttr *attr));
 
@@ -276,10 +290,6 @@ bool SecErrorPropagate(CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) 
         CFReleaseNull(*error);
     return CFErrorPropagate(possibleError, error);
 }
-
-// TODO: Hack
-bool SecDbItemInV2(SecDbItemRef item);
-bool SecDbItemInV2AlsoInV0(SecDbItemRef item);
 
 // For debug output filtering
 bool SecDbItemIsEngineInternalState(SecDbItemRef itemObject);

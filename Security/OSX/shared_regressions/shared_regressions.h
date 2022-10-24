@@ -32,6 +32,7 @@ ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)
 ONE_TEST(si_68_secmatchissuer)
 ONE_TEST(si_89_cms_hash_agility)
+ONE_TEST(si_96_csr_acme)
 ONE_TEST(rk_01_recoverykey)
 
 ONE_TEST(padding_00_mmcs)

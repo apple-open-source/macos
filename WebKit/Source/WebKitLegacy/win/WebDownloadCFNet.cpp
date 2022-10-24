@@ -192,8 +192,7 @@ HRESULT WebDownload::initToResumeWithBundle(_In_ BSTR bundlePath, _In_opt_ IWebD
     // Attempt to remove the ".download" extension from the bundle for the final file destination
     // Failing that, we clear m_destination and will ask the delegate later once the download starts
     if (m_bundlePath.endsWithIgnoringASCIICase(DownloadBundle::fileExtension())) {
-        m_destination = m_bundlePath.isolatedCopy();
-        m_destination.truncate(m_destination.length() - DownloadBundle::fileExtension().length());
+        m_destination = StringView(m_bundlePath).left(m_destination.length() - DownloadBundle::fileExtension().length()).toString().isolatedCopy();
     } else
         m_destination = String();
     
@@ -236,11 +235,11 @@ HRESULT WebDownload::cancelForResume()
     if (!m_download)
         return E_FAIL;
 
-    HRESULT hr = S_OK;
     RetainPtr<CFDataRef> resumeData;
     if (m_destination.isEmpty()) {
         CFURLDownloadCancel(m_download.get());
-        goto exit;
+        m_download = nullptr;
+        return S_OK;
     }
 
     CFURLDownloadSetDeletesUponFailure(m_download.get(), false);
@@ -249,16 +248,16 @@ HRESULT WebDownload::cancelForResume()
     resumeData = adoptCF(CFURLDownloadCopyResumeData(m_download.get()));
     if (!resumeData) {
         LOG(Download, "WebDownload - Unable to create resume data for download (%p)", this);
-        goto exit;
+        m_download = nullptr;
+        return S_OK;
     }
 
     auto* resumeBytes = reinterpret_cast<const uint8_t*>(CFDataGetBytePtr(resumeData.get()));
     uint32_t resumeLength = CFDataGetLength(resumeData.get());
     DownloadBundle::appendResumeData(resumeBytes, resumeLength, m_bundlePath);
 
-exit:
     m_download = nullptr;
-    return hr;
+    return S_OK;
 }
 
 HRESULT WebDownload::deletesFileUponFailure(_Out_ BOOL* result)
@@ -306,7 +305,7 @@ HRESULT WebDownload::cancelAuthenticationChallenge(_In_opt_ IWebURLAuthenticatio
     }
 
     // FIXME: Do we need a URL or description for this error code?
-    ResourceError error(String(WebURLErrorDomain), WebURLErrorUserCancelledAuthentication, URL(), "");
+    ResourceError error(String(WebURLErrorDomain), WebURLErrorUserCancelledAuthentication, URL(), emptyString());
     COMPtr<WebError> webError(AdoptCOM, WebError::createInstance(error));
     m_delegate->didFailWithError(this, webError.get());
 

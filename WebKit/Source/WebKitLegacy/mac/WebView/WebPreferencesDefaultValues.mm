@@ -30,7 +30,6 @@
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <mach-o/dyld.h>
 #import <pal/spi/cf/CFUtilitiesSPI.h>
-#import <pal/spi/cocoa/FeatureFlagsSPI.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/WTFString.h>
@@ -40,53 +39,6 @@
 #endif
 
 namespace WebKit {
-
-#if PLATFORM(COCOA)
-
-// Because of <rdar://problem/60608008>, WebKit has to parse the feature flags plist file
-bool isFeatureFlagEnabled(const char* featureName, bool defaultValue)
-{
-#if HAVE(SYSTEM_FEATURE_FLAGS)
-
-#if PLATFORM(MAC)
-    static bool isSystemWebKit = [] {
-        auto *bundle = [NSBundle bundleForClass:NSClassFromString(@"WebResource")];
-        return [bundle.bundlePath hasPrefix:@"/System/"];
-    }();
-
-    return isSystemWebKit ? _os_feature_enabled_impl("WebKit", featureName) : defaultValue;
-#else
-    UNUSED_PARAM(defaultValue);
-    return _os_feature_enabled_impl("WebKit", featureName);
-#endif // PLATFORM(MAC)
-
-#else
-
-    UNUSED_PARAM(featureName);
-    return defaultValue;
-
-#endif // HAVE(SYSTEM_FEATURE_FLAGS)
-}
-
-#endif
-
-#if HAVE(INCREMENTAL_PDF_APIS)
-
-bool defaultIncrementalPDFEnabled()
-{
-    return isFeatureFlagEnabled("incremental_pdf", false);
-}
-
-#endif
-
-#if ENABLE(WEBXR)
-
-bool defaultWebXREnabled()
-{
-    return isFeatureFlagEnabled("WebXR", false);
-}
-
-#endif // ENABLE(WEBXR)
 
 #if PLATFORM(IOS_FAMILY)
 
@@ -102,13 +54,13 @@ bool defaultAllowsInlineMediaPlaybackAfterFullscreen()
 
 bool defaultAllowsPictureInPictureMediaPlayback()
 {
-    static bool shouldAllowPictureInPictureMediaPlayback = linkedOnOrAfter(SDKVersion::FirstWithPictureInPictureMediaPlayback);
+    static bool shouldAllowPictureInPictureMediaPlayback = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::PictureInPictureMediaPlayback);
     return shouldAllowPictureInPictureMediaPlayback;
 }
 
 bool defaultJavaScriptCanOpenWindowsAutomatically()
 {
-    static bool shouldAllowWindowOpenWithoutUserGesture = WebCore::IOSApplication::isTheSecretSocietyHiddenMystery() && !linkedOnOrAfter(SDKVersion::FirstWithoutTheSecretSocietyHiddenMysteryWindowOpenQuirk);
+    static bool shouldAllowWindowOpenWithoutUserGesture = WebCore::IOSApplication::isTheSecretSocietyHiddenMystery() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoTheSecretSocietyHiddenMysteryWindowOpenQuirk);
     return shouldAllowWindowOpenWithoutUserGesture;
 }
 
@@ -119,20 +71,20 @@ bool defaultInlineMediaPlaybackRequiresPlaysInlineAttribute()
 
 bool defaultPassiveTouchListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveTouchListenersOnDocument);
+    static bool result = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DefaultsToPassiveTouchListenersOnDocument);
     return result;
 }
 
 bool defaultRequiresUserGestureToLoadVideo()
 {
-    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfter(SDKVersion::FirstThatRequiresUserGestureToLoadVideo);
+    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::RequiresUserGestureToLoadVideo);
     return shouldRequireUserGestureToLoadVideo;
 }
 
 bool defaultWebSQLEnabled()
 {
     // For backward compatibility, keep WebSQL working until apps are rebuilt with the iOS 14 SDK.
-    static bool webSQLEnabled = !linkedOnOrAfter(SDKVersion::FirstWithWebSQLDisabledByDefaultInLegacyWebKit);
+    static bool webSQLEnabled = !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::WebSQLDisabledByDefaultInLegacyWebKit);
     return webSQLEnabled;
 }
 
@@ -227,7 +179,7 @@ bool defaultAttachmentElementEnabled()
 
 bool defaultShouldRestrictBaseURLSchemes()
 {
-    static bool shouldRestrictBaseURLSchemes = linkedOnOrAfter(SDKVersion::FirstThatRestrictsBaseURLSchemes);
+    static bool shouldRestrictBaseURLSchemes = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::RestrictsBaseURLSchemes);
     return shouldRestrictBaseURLSchemes;
 }
 
@@ -256,7 +208,7 @@ bool defaultAllowRunningOfInsecureContent()
 
 bool defaultShouldConvertInvalidURLsToBlank()
 {
-    static bool shouldConvertInvalidURLsToBlank = linkedOnOrAfter(SDKVersion::FirstThatConvertsInvalidURLsToBlank);
+    static bool shouldConvertInvalidURLsToBlank = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ConvertsInvalidURLsToBlank);
     return shouldConvertInvalidURLsToBlank;
 }
 
@@ -264,13 +216,13 @@ bool defaultShouldConvertInvalidURLsToBlank()
 
 bool defaultPassiveWheelListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveWheelListenersOnDocument);
+    static bool result = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DefaultsToPassiveWheelListenersOnDocument);
     return result;
 }
 
 bool defaultWheelEventGesturesBecomeNonBlocking()
 {
-    static bool result = linkedOnOrAfter(SDKVersion::FirstThatAllowsWheelEventGesturesToBecomeNonBlocking);
+    static bool result = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::AllowsWheelEventGesturesToBecomeNonBlocking);
     return result;
 }
 
@@ -284,28 +236,5 @@ bool defaultMediaSourceEnabled()
 }
 
 #endif
-
-#if ENABLE(MEDIA_SOURCE)
-
-bool defaultWebMParserEnabled()
-{
-    return isFeatureFlagEnabled("webm_parser", true);
-}
-
-#endif
-
-#if ENABLE(VP9)
-
-bool defaultVP8DecoderEnabled()
-{
-    return isFeatureFlagEnabled("vp8_decoder", true);
-}
-
-bool defaultVP9DecoderEnabled()
-{
-    return isFeatureFlagEnabled("vp9_decoder", true);
-}
-
-#endif // ENABLE(VP9)
 
 } // namespace WebKit

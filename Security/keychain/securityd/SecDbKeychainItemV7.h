@@ -24,14 +24,12 @@
 #import "SecKeybagSupport.h"
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
-#import "CheckV12DevEnabled.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface SecDbKeychainItemV7 : NSObject
 
 @property (nonatomic, readonly) keyclass_t keyclass;
-@property (nonatomic, readonly) NSData* backupUUID;
 
 - (nullable instancetype)initWithData:(NSData*)data decryptionKeybag:(keybag_handle_t)decryptionKeybag error:(NSError**)error;
 - (instancetype)initWithSecretAttributes:(NSDictionary*)secretAttributes metadataAttributes:(NSDictionary*)metadataAttributes tamperCheck:(NSString*)tamperCheck keyclass:(keyclass_t)keyclass;

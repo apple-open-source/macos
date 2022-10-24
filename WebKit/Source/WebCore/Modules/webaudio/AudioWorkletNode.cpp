@@ -40,6 +40,7 @@
 #include "AudioParamMap.h"
 #include "AudioUtilities.h"
 #include "AudioWorklet.h"
+#include "AudioWorkletGlobalScope.h"
 #include "AudioWorkletMessagingProxy.h"
 #include "AudioWorkletNodeOptions.h"
 #include "AudioWorkletProcessor.h"
@@ -146,8 +147,11 @@ AudioWorkletNode::~AudioWorkletNode()
     {
         Locker locker { m_processLock };
         if (m_processor) {
-            if (auto* workletProxy = context().audioWorklet().proxy())
-                workletProxy->postTaskForModeToWorkletGlobalScope([m_processor = WTFMove(m_processor)](ScriptExecutionContext&) { }, WorkerRunLoop::defaultMode());
+            if (auto* workletProxy = context().audioWorklet().proxy()) {
+                workletProxy->postTaskForModeToWorkletGlobalScope([processor = WTFMove(m_processor)](ScriptExecutionContext& context) {
+                    downcast<AudioWorkletGlobalScope>(context).processorIsNoLongerNeeded(*processor);
+                }, WorkerRunLoop::defaultMode());
+            }
         }
     }
     uninitialize();

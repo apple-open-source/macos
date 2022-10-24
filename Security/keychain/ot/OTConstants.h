@@ -68,6 +68,11 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorICloudAccountStateUnknown                       = 56,
     OctagonErrorClassCLocked                                    = 57,
     OctagonErrorRecordNotViable                                 = 58,
+    OctagonErrorNoAppleAccount                                  = 59,
+    OctagonErrorInvalidPersona                                  = 60,
+    OctagonErrorNoSuchCKKS                                      = 61,
+    OctagonErrorUnsupportedInEDUMode                            = 62,
+    OctagonErrorAltDSIDPersonaMismatch                          = 63,
 };
 
 /* used for defaults writes */
@@ -88,8 +93,9 @@ void OctagonSetPlatformSupportsSOS(bool value);
 bool OctagonIsSOSFeatureEnabled(void);
 void OctagonSetSOSFeatureEnabled(bool value);
 
-bool SecKVSOnCloudKitIsEnabled(void);
-void SecKVSOnCloudKitSetOverrideIsEnabled(bool value);
+bool OctagonSupportsPersonaMultiuser(void);
+void OctagonSetSupportsPersonaMultiuser(bool value);
+void OctagonClearSupportsPersonaMultiuserOverride(void);
 
 void SecErrorSetOverrideNestedErrorCappingIsEnabled(bool value);
 

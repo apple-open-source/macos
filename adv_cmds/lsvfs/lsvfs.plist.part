@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>lsvfs</string>
+		<key>OpenSourceVersion</key>
+		<string>2022-02-10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/lsvfs?id=4bcc7a5f6b3f7b2d70476701e76657e77cf335d1</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-02-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>lsvfs.1: macOS-specific examples (87686864)</string>
+			<string>lsvfs.c: use MNT_* flags (87686864)</string>
+			<string>lsvfs.c: don't show legacy filesystem number (3104426)</string>
+			<string>lsvfs.c: use vfs.generic.maxtypenum and vfs.generic.conf.* for vfsconf (3104426)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>public domain</string>
+	</dict>

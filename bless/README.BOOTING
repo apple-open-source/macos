@@ -24,7 +24,7 @@ a few purposes.
 * File-format abstraction. The xnu kernel is in the Mach-O file format,
   which was not and is not considered "native" to OpenFirmware.
   Different versions of OpenFirmware support different file formats,
-  including XCOFF, ELF, and bootinfo.
+  including XCOFF, ELF.
 * Security measures. BootX for Mac OS X 10.2 implements restrictions
   on the owner and mode of files that it loads. For example, if
   mach_kernel was world writable, it's possible that someone
@@ -87,21 +87,15 @@ doesn't have commas itself):
 \System\Library\CoreServices\:tbxi
 \System\Library\CoreServices\BootX
 
-In the new world situation, BootX is in the bootinfo format, which is
-to say that it is an XCOFF with XML headers which specify additional
-Forth commands.
-
-You can create a new bootingo-format BootX in the CoreServices folder
+You can create a new bootinfo-format BootX in the CoreServices folder
 by running:
-bless -folder /Volumes/test/System/Library/CoreServices -bootinfo \
-	/usr/standalone/ppc/bootx.bootinfo
+bless -folder /Volumes/test/System/Library/CoreServices
 To set the OF boot-device variable to point at a volume, use
 bless -mount /Volumes/test -setOF
 or
 bless -device /dev/disk0s13 -setOF
 To simultaneously bless and set OF, use:
-bless -folder /Volumes/test/System/Library/CoreServices -bootinfo \
-        /usr/standalone/ppc/bootx.bootinfo -setOF
+bless -folder /Volumes/test/System/Library/CoreServices -setOF
 
 
 == Old World booting from HFS+ ==
@@ -201,9 +195,6 @@ typically used on hard drives.
 
 To set up the fake system file that will repatch OF:
 bless -folder /Volumes/test/System/Library/CoreServices \
-	-folder9 /Volumes/test/System/Library/CoreServices \
-	-bootinfo /usr/standalone/ppc/bootx.bootinfo \
-	-bootBlockFile /usr/share/misc/bootblockdata \
 	-systemfile /usr/share/misc/hdbootdata
 Then, to set up the XCOFF, unmount the partition, and run:
 bless -device /dev/disk3s9 -xcoff /usr/standalone/ppc/bootx.xcoff 
@@ -256,13 +247,6 @@ bless -device /dev/disk1s10 -format -label "Boot OSX" -fsargs \
 	"-c e=1024" -xcoff /usr/standalone/ppc/bootx.xcoff
 mkdir -p /mnt
 mount -t hfs /dev/disk1s10 /mnt
-bless -folder /mnt -folder9 /mnt -bootinfo \
-	/usr/standalone/ppc/bootx.bootinfo -systemfile \
-	/usr/share/misc/hdbootdata -bootBlockFile \
-	/usr/share/misc/bootblockdata
-umount /mnt
-New World machines will immediately load the bootinfo BootX. Old World
-machines will get repatched if necessary, and otherwise load the XCOFF
 
 == What version of Open Firmware do I have ==
 Run "ioreg -p IODeviceTree -n openprom" and look for the "model" key.

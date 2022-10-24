@@ -66,6 +66,7 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
     uint64_t create_flags = SMB2_CREATE_NAME_IS_PATH;
     struct smbfattr *fap = NULL;
 	size_t network_path_len = PATH_MAX + 1;
+    size_t network_allocsize = 0;
 	char *network_pathp = NULL;
     
     /* Assume no error */
@@ -112,7 +113,8 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
     /*
      * Need to convert from local path to a network path 
      */
-	SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
+    network_allocsize = network_path_len;
+    SMB_MALLOC_DATA(network_pathp, network_allocsize, Z_WAITOK_ZERO);
 	if (network_pathp == NULL) {
 		error = ENOMEM;
 		goto bad;		
@@ -130,13 +132,9 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
     /* 
      * Set up for Compound Create/Close call 
      */
-    SMB_MALLOC(fap,
-               struct smbfattr *, 
-               sizeof(struct smbfattr), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
     if (fap == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -149,6 +147,7 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
                                    share_access, FILE_OPEN,
                                    create_flags, &check_dir_ioc->ioc_ret_ntstatus,
                                    NULL, fap,
+                                   NULL, NULL,
                                    NULL, context);
 	if (error) {
 		goto bad;
@@ -162,15 +161,15 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
 
 bad:    
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBDATA);
+        SMB_FREE_DATA(local_pathp, local_path_len);
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_SMBTEMP);
+        SMB_FREE_DATA(network_pathp, network_allocsize);
     }
 
     if (fap) {
-        SMB_FREE(fap, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smbfattr, fap);
     }
 
 	return error;
@@ -185,13 +184,9 @@ smb_usr_close(struct smb_share *share, struct smb2ioc_close *close_ioc, vfs_cont
 	int error;
  	struct smb2_close_rq *closep = NULL;
     
-    SMB_MALLOC(closep,
-               struct smb2_close_rq *, 
-               sizeof(struct smb2_close_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(closep, struct smb2_close_rq, Z_WAITOK_ZERO);
     if (closep == NULL) {
-		SMBERROR("SMB_MALLOC failed\n");
+		SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -223,7 +218,7 @@ smb_usr_close(struct smb_share *share, struct smb2ioc_close *close_ioc, vfs_cont
     
 bad:    
     if (closep != NULL) {
-        SMB_FREE(closep, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_close_rq, closep);
     }
     
 	return error;
@@ -240,16 +235,13 @@ smb_usr_create(struct smb_share *share, struct smb2ioc_create *create_ioc,
     struct smb2_create_rq *createp = NULL;
     size_t local_path_len = 0;
     size_t network_path_len = PATH_MAX + 1;
+    size_t network_allocsize = 0;
     char *network_pathp = NULL;
     char *local_pathp = NULL;
 	
-    SMB_MALLOC(createp,
-               struct smb2_create_rq *,
-               sizeof(struct smb2_create_rq),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(createp, struct smb2_create_rq, Z_WAITOK_ZERO);
     if (createp == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -279,7 +271,8 @@ smb_usr_create(struct smb_share *share, struct smb2ioc_create *create_ioc,
         /*
          * Need to convert from local path to a network path
          */
-        SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
+        network_allocsize = network_path_len;
+        SMB_MALLOC_DATA(network_pathp, network_allocsize, Z_WAITOK_ZERO);
         if (network_pathp == NULL) {
             error = ENOMEM;
             goto bad;
@@ -343,15 +336,15 @@ smb_usr_create(struct smb_share *share, struct smb2ioc_create *create_ioc,
     
 bad:
     if (createp != NULL) {
-        SMB_FREE(createp, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_create_rq, createp);
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_SMBTEMP);
+        SMB_FREE_DATA(network_pathp, network_allocsize);
     }
     
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBDATA);
+        SMB_FREE_DATA(local_pathp, local_path_len);
     }
     
     return error;
@@ -368,15 +361,12 @@ smb_usr_get_dfs_referral(struct smb_share *share, struct smb_session *sessionp,
     char *local_pathp = NULL;
     uint32_t local_path_len = get_dfs_refer_ioc->ioc_file_name_len;
 	size_t network_path_len = PATH_MAX + 1;
+    size_t network_allocsize = 0;
 	char *network_pathp = NULL;
 
-    SMB_MALLOC(ioctlp,
-               struct smb2_ioctl_rq *, 
-               sizeof(struct smb2_ioctl_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(ioctlp, struct smb2_ioctl_rq, Z_WAITOK_ZERO);
     if (ioctlp == NULL) {
-		SMBERROR("SMB_MALLOC failed\n");
+		SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -419,7 +409,8 @@ again:
     /*
      * Need to convert from local path to a network path 
      */
-	SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
+    network_allocsize = network_path_len;
+    SMB_MALLOC_DATA(network_pathp, network_allocsize, Z_WAITOK_ZERO);
 	if (network_pathp == NULL) {
 		error = ENOMEM;
 		goto bad;		
@@ -535,15 +526,15 @@ bad:
         if (ioctlp->rcv_output_uio != NULL) {
             uio_free(ioctlp->rcv_output_uio);
         }
-        SMB_FREE(ioctlp, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_ioctl_rq, ioctlp);
     }
     
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBDATA);
+        SMB_FREE_DATA(local_pathp, local_path_len);
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_SMBTEMP);
+        SMB_FREE_DATA(network_pathp, network_allocsize);
     }
     return error;
 }
@@ -555,13 +546,9 @@ smb_usr_ioctl(struct smb_share *share, struct smb_session *sessionp,
 	int error;
  	struct smb2_ioctl_rq *ioctlp = NULL;
 
-    SMB_MALLOC(ioctlp,
-               struct smb2_ioctl_rq *, 
-               sizeof(struct smb2_ioctl_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(ioctlp, struct smb2_ioctl_rq, Z_WAITOK_ZERO);
     if (ioctlp == NULL) {
-		SMBERROR("SMB_MALLOC failed\n");
+		SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -734,7 +721,7 @@ bad:
         if (ioctlp->rcv_output_uio != NULL) {
             uio_free(ioctlp->rcv_output_uio);
         }
-        SMB_FREE(ioctlp, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_ioctl_rq, ioctlp);
     }
     return error;
 }
@@ -750,13 +737,9 @@ smb_usr_query_dir(struct smb_share *share,
 	int error;
  	struct smb2_query_dir_rq *queryp = NULL;
 
-    SMB_MALLOC(queryp,
-               struct smb2_query_dir_rq *,
-               sizeof(struct smb2_query_dir_rq),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(queryp, struct smb2_query_dir_rq, Z_WAITOK_ZERO);
     if (queryp == NULL) {
-		SMBERROR("SMB_MALLOC failed\n");
+		SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -801,6 +784,7 @@ smb_usr_query_dir(struct smb_share *share,
 		queryp->namep = smb_str_memdupin(query_dir_ioc->ioc_kern_name,
                                          queryp->name_len,
                                          &error);
+        queryp->name_allocsize = queryp->name_len;
 
 		if (error) {
 			goto bad;
@@ -856,11 +840,11 @@ bad:
             smb_rq_done(queryp->ret_rqp);
         }
         if (queryp->namep)
-            SMB_FREE(queryp->namep, M_SMBDATA);
+            SMB_FREE_DATA(queryp->namep, queryp->name_allocsize);
         if (queryp->rcv_output_uio != NULL) {
             uio_free(queryp->rcv_output_uio);
         }
-        SMB_FREE(queryp, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_query_dir_rq, queryp);
     }
     
 	return error;
@@ -875,13 +859,9 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
 	int error;
  	struct smb2_rw_rq *read_writep = NULL;
     
-    SMB_MALLOC(read_writep,
-               struct smb2_rw_rq *, 
-               sizeof(struct smb2_rw_rq), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
     if (read_writep == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto bad;
     }
@@ -938,7 +918,7 @@ bad:
         if (read_writep->auio != NULL) {
             uio_free(read_writep->auio);
         }
-        SMB_FREE(read_writep, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smb2_rw_rq, read_writep);
     }
     
 	return error;

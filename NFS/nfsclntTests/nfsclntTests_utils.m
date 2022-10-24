@@ -61,6 +61,7 @@
 #include <sys/mount.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <TargetConditionals.h>
 
 #include "nfsclntTests_utils.h"
 

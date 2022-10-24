@@ -26,11 +26,14 @@
 
 WI.InlineSwatch = class InlineSwatch extends WI.Object
 {
-    constructor(type, value, readOnly)
+    constructor(type, value, {readOnly, preventChangingColorFormats} = {})
     {
         super();
 
         this._type = type;
+
+        console.assert(!preventChangingColorFormats || type === WI.InlineSwatch.Type.Color);
+        this._preventChangingColorFormats = !!preventChangingColorFormats;
 
         switch (this._type) {
         case WI.InlineSwatch.Type.Bezier:
@@ -53,7 +56,7 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
 
         this._swatchElement.classList.add("inline-swatch", this._type.replace("inline-swatch-type-", ""));
 
-        if (readOnly)
+        if (!!readOnly)
             this._swatchElement.classList.add("read-only");
         else {
             switch (this._type) {
@@ -66,7 +69,6 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
                 break;
 
             case WI.InlineSwatch.Type.Color:
-                this._shiftClickColorEnabled = true;
                 // Handled later by _updateSwatch.
                 break;
 
@@ -96,15 +98,17 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
             }
 
             this._swatchElement.addEventListener("click", this._swatchElementClicked.bind(this));
-            if (this._type === WI.InlineSwatch.Type.Color)
-                this._swatchElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
         }
 
         this._swatchInnerElement = this._swatchElement.createChild("span");
 
         this._value = value || this._fallbackValue();
         this._valueEditor = null;
-        this._readOnly = readOnly;
+        this._readOnly = !!readOnly;
+        this._popover = null;
+
+        if (this._allowChangingColorFormats())
+            this._swatchElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
 
         this._updateSwatch();
     }
@@ -129,10 +133,9 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
         this._updateSwatch(true);
     }
 
-    set shiftClickColorEnabled(value)
+    dismissPopover()
     {
-        this._shiftClickColorEnabled = !!value;
-        this._updateSwatch(true);
+        this._popover?.dismiss();
     }
 
     // Popover delegate
@@ -189,10 +192,13 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
 
         switch (this._type) {
         case WI.InlineSwatch.Type.Color:
+            let title = WI.UIString("Click to select a color.");
             if (this._allowChangingColorFormats())
-                this._swatchElement.title = WI.UIString("Click to select a color\nShift-click to switch color formats");
-            else
-                this._swatchElement.title = WI.UIString("Click to select a color");
+                title += "\n" + WI.UIString("Shift-click to switch color formats.");
+            if (InspectorFrontendHost.canPickColorFromScreen())
+                title += "\n" + WI.UIString("Option-click to pick color from screen.");
+
+            this._swatchElement.title = title;
             // fallthrough
 
         case WI.InlineSwatch.Type.Gradient:
@@ -215,7 +221,7 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
 
     _allowChangingColorFormats()
     {
-        return this._shiftClickColorEnabled && !this._readOnly && !this.value.isOutsideSRGB();
+        return this._type === WI.InlineSwatch.Type.Color && !this._preventChangingColorFormats && !this._readOnly && !this.value.isOutsideSRGB();
     }
 
     _swatchElementClicked(event)
@@ -248,16 +254,33 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
             }
         }
 
+        if (event.altKey && value) {
+            if (this._type === WI.InlineSwatch.Type.Color) {
+                WI.ColorPicker.pickColorFromScreen({
+                    suggestedFormat: value.format,
+                    suggestedGamut: value.gamut,
+                    forceSuggestedFormatAndGamut: this._preventChangingColorFormats,
+                }).then((pickedColor) => {
+                    if (!pickedColor)
+                        return;
+
+                    this._value = pickedColor;
+                    this._updateSwatch();
+                });
+                return;
+            }
+        }
+
         if (this._valueEditor)
             return;
 
         if (!value)
             value = this._fallbackValue();
 
-        let popover = new WI.Popover(this);
+        this._popover = new WI.Popover(this);
 
-        popover.windowResizeHandler = () => {
-            this._presentPopover(popover);
+        this._popover.windowResizeHandler = () => {
+            this._presentPopover();
         };
 
         this._valueEditor = null;
@@ -273,7 +296,7 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
             break;
 
         case WI.InlineSwatch.Type.Color:
-            this._valueEditor = new WI.ColorPicker;
+            this._valueEditor = new WI.ColorPicker({preventChangingColorFormats: this._preventChangingColorFormats});
             this._valueEditor.addEventListener(WI.ColorPicker.Event.ColorChanged, this._valueEditorValueDidChange, this);
             break;
 
@@ -282,7 +305,7 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
             this._valueEditor.addEventListener(WI.GradientEditor.Event.GradientChanged, this._valueEditorValueDidChange, this);
             this._valueEditor.addEventListener(WI.GradientEditor.Event.ColorPickerToggled, function(event) {
                 this.update();
-            }, popover);
+            }, this._popover);
             break;
 
         case WI.InlineSwatch.Type.Image:
@@ -319,7 +342,8 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
                 readOnly: true,
             });
             this._valueEditor.codeMirror.on("update", () => {
-                popover.update();
+                const shouldAnimate = false;
+                this._popover.update(shouldAnimate);
             });
             break;
         }
@@ -327,8 +351,8 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
         if (!this._valueEditor)
             return;
 
-        popover.content = this._valueEditor.element;
-        this._presentPopover(popover);
+        this._popover.content = this._valueEditor.element;
+        this._presentPopover(this._popover);
 
         this.dispatchEventToListeners(WI.InlineSwatch.Event.Activated);
 
@@ -359,11 +383,13 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
             codeMirror.setValue(value);
 
             const range = null;
+            let preventChangingColorFormats = this._preventChangingColorFormats;
+
             function optionsForType(type) {
                 return {
                     allowedTokens: /\btag\b/,
                     callback(marker, valueObject, valueString) {
-                        let swatch = new WI.InlineSwatch(type, valueObject, true);
+                        let swatch = new WI.InlineSwatch(type, valueObject, {readOnly: true, preventChangingColorFormats});
                         codeMirror.setUniqueBookmark({line: 0, ch: 0}, swatch.element);
                     }
                 };
@@ -408,10 +434,10 @@ WI.InlineSwatch = class InlineSwatch extends WI.Object
         this._updateSwatch();
     }
 
-    _presentPopover(popover)
+    _presentPopover()
     {
         let bounds = WI.Rect.rectFromClientRect(this._swatchElement.getBoundingClientRect());
-        popover.present(bounds.pad(2), [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MIN_X]);
+        this._popover.present(bounds.pad(2), [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MIN_X]);
     }
 
     _handleContextMenuEvent(event)

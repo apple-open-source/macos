@@ -244,7 +244,7 @@ void AudioSessionIOS::setCategory(CategoryType newCategory, RouteSharingPolicy p
         m_lastSetPreferredAudioDeviceUID = emptyString();
 #endif
 
-    auto *session = [PAL::getAVAudioSessionClass() sharedInstance];
+    AVAudioSession *session = [PAL::getAVAudioSessionClass() sharedInstance];
     auto *currentCategory = [session category];
     auto currentOptions = [session categoryOptions];
     auto currentPolicy = [session routeSharingPolicy];

@@ -33,6 +33,7 @@
 #include <mach-o/loader.h>
 #include <sys/syslog.h>
 #include <os/overflow.h>
+#include <unistd.h>
 
 #if !TARGET_OS_DRIVERKIT
 

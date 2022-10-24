@@ -38,49 +38,57 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@abstract
 		Specifies an MD2 digest
 */
-extern const CFStringRef kSecDigestMD2;
+extern const CFStringRef kSecDigestMD2
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies an MD4 digest
  */
-extern const CFStringRef kSecDigestMD4;
+extern const CFStringRef kSecDigestMD4
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies an MD5 digest
  */
-extern const CFStringRef kSecDigestMD5;
+extern const CFStringRef kSecDigestMD5
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies a SHA1 digest
  */
-extern const CFStringRef kSecDigestSHA1;
+extern const CFStringRef kSecDigestSHA1
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies a SHA2 digest.
  */
-extern const CFStringRef kSecDigestSHA2;
+extern const CFStringRef kSecDigestSHA2
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies an HMAC using the MD5 digest algorithm.
  */
-extern const CFStringRef kSecDigestHMACMD5;
+extern const CFStringRef kSecDigestHMACMD5
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies an HMAC using the SHA1 digest algorithm.
  */
-extern const CFStringRef kSecDigestHMACSHA1;
+extern const CFStringRef kSecDigestHMACSHA1
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@abstract
 		Specifies an HMAC using one of the SHA2 digest algorithms.
  */
-extern const CFStringRef kSecDigestHMACSHA2;
+extern const CFStringRef kSecDigestHMACSHA2
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 
 /*!
@@ -88,14 +96,16 @@ extern const CFStringRef kSecDigestHMACSHA2;
 		Used with SecTransformGetAttribute to query the attribute type.
 		Returns one of the strings defined in the previous section.
  */
-extern const CFStringRef kSecDigestTypeAttribute;
+extern const CFStringRef kSecDigestTypeAttribute
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@constant kSecDigestLengthAttribute
 		Used with SecTransformGetAttribute to query the length attribute.
 		Returns a CFNumberRef that contains the length in bytes.
  */
-extern const CFStringRef kSecDigestLengthAttribute;
+extern const CFStringRef kSecDigestLengthAttribute
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@constant kSecDigestHMACKeyAttribute
@@ -104,7 +114,8 @@ extern const CFStringRef kSecDigestLengthAttribute;
 		a CFDataRef.  If this value is not set, the transform will assume
 		a zero length key.
 */
-extern const CFStringRef kSecDigestHMACKeyAttribute;
+extern const CFStringRef kSecDigestHMACKeyAttribute
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@function SecDigestTransformCreate
@@ -131,7 +142,7 @@ SecTransformRef SecDigestTransformCreate(CFTypeRef __nullable digestType,
 										 CFIndex digestLength,
 										 CFErrorRef* error
 										 )
-										 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 
 /*!
@@ -141,7 +152,7 @@ SecTransformRef SecDigestTransformCreate(CFTypeRef __nullable digestType,
 */
 
     CFTypeID SecDigestTransformGetTypeID(void)
-										 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+    API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

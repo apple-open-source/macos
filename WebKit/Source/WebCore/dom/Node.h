@@ -29,6 +29,7 @@
 #include "LayoutRect.h"
 #include "RenderStyleConstants.h"
 #include "StyleValidity.h"
+#include "TaskSource.h"
 #include "TreeScope.h"
 #include <wtf/CompactPointerTuple.h>
 #include <wtf/CompactUniquePtrTuple.h>
@@ -38,6 +39,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/MainThread.h>
 #include <wtf/OptionSet.h>
+#include <wtf/RobinHoodHashSet.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakPtr.h>
 
@@ -68,6 +70,7 @@ class RenderStyle;
 class SVGQualifiedName;
 class ShadowRoot;
 class TouchEvent;
+class WebCoreOpaqueRoot;
 
 enum class MutationObserverOptionType : uint8_t;
 using MutationObserverOptions = OptionSet<MutationObserverOptionType>;
@@ -122,7 +125,7 @@ public:
     inline bool hasTagName(const SVGQualifiedName&) const;
     virtual String nodeName() const = 0;
     virtual String nodeValue() const;
-    virtual ExceptionOr<void> setNodeValue(const String&);
+    virtual void setNodeValue(const String&);
     virtual NodeType nodeType() const = 0;
     virtual size_t approximateMemoryCost() const { return sizeof(*this); }
     ContainerNode* parentNode() const;
@@ -175,7 +178,7 @@ public:
     WEBCORE_EXPORT const AtomString& lookupNamespaceURI(const AtomString& prefix) const;
 
     WEBCORE_EXPORT String textContent(bool convertBRsToNewlines = false) const;
-    WEBCORE_EXPORT ExceptionOr<void> setTextContent(const String&);
+    WEBCORE_EXPORT void setTextContent(String&&);
     
     Node* lastDescendant() const;
     Node* firstDescendant() const;
@@ -232,10 +235,13 @@ public:
     bool hasShadowRootContainingSlots() const { return hasNodeFlag(NodeFlag::HasShadowRootContainingSlots); }
     void setHasShadowRootContainingSlots(bool flag) { setNodeFlag(NodeFlag::HasShadowRootContainingSlots, flag); }
 
+    bool needsSVGRendererUpdate() const { return hasNodeFlag(NodeFlag::NeedsSVGRendererUpdate); }
+    void setNeedsSVGRendererUpdate(bool flag) { setNodeFlag(NodeFlag::NeedsSVGRendererUpdate, flag); }
+
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* shadowHost() const;
     ShadowRoot* containingShadowRoot() const;
-    ShadowRoot* shadowRoot() const; // Defined in ShadowRoot.h
+    inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     bool isClosedShadowHidden(const Node&) const;
 
     HTMLSlotElement* assignedSlot() const;
@@ -264,7 +270,11 @@ public:
     };
     Node& getRootNode(const GetRootNodeOptions&) const;
     
-    void* opaqueRoot() const;
+    inline WebCoreOpaqueRoot opaqueRoot() const; // Defined in DocumentInlines.h.
+    WebCoreOpaqueRoot traverseToOpaqueRoot() const;
+
+    void queueTaskKeepingThisNodeAlive(TaskSource, Function<void ()>&&);
+    void queueTaskToDispatchEvent(TaskSource, Ref<Event>&&);
 
     // Use when it's guaranteed to that shadowHost is null.
     ContainerNode* parentNodeGuaranteedHostFree() const;
@@ -275,7 +285,7 @@ public:
     void setSelfOrAncestorHasDirAutoAttribute(bool flag) { setNodeFlag(NodeFlag::SelfOrAncestorHasDirAuto, flag); }
 
     // Returns the enclosing event parent Element (or self) that, when clicked, would trigger a navigation.
-    Element* enclosingLinkEventParentOrSelf();
+    WEBCORE_EXPORT Element* enclosingLinkEventParentOrSelf();
 
     // These low-level calls give the caller responsibility for maintaining the integrity of the tree.
     void setPreviousSibling(Node* previous) { m_previous = previous; }
@@ -320,8 +330,8 @@ public:
     bool isLink() const { return hasNodeFlag(NodeFlag::IsLink); }
     void setIsLink(bool flag) { setNodeFlag(NodeFlag::IsLink, flag); }
 
-    bool hasEventTargetData() const { return hasNodeFlag(NodeFlag::HasEventTargetData); }
-    void setHasEventTargetData(bool flag) { setNodeFlag(NodeFlag::HasEventTargetData, flag); }
+    bool isInGCReacheableRefMap() const { return hasNodeFlag(NodeFlag::IsInGCReachableRefMap); }
+    void setIsInGCReacheableRefMap(bool flag) { setNodeFlag(NodeFlag::IsInGCReachableRefMap, flag); }
 
     WEBCORE_EXPORT bool isContentEditable() const;
     bool isContentRichlyEditable() const;
@@ -346,6 +356,7 @@ public:
     enum class Editability { ReadOnly, CanEditPlainText, CanEditRichly };
     enum class ShouldUpdateStyle { Update, DoNotUpdate };
     WEBCORE_EXPORT Editability computeEditability(UserSelectAllTreatment, ShouldUpdateStyle) const;
+    Editability computeEditabilityWithStyle(const RenderStyle*, UserSelectAllTreatment, ShouldUpdateStyle) const;
 
     WEBCORE_EXPORT LayoutRect renderRect(bool* isReplaced);
     IntRect pixelSnappedRenderRect(bool* isReplaced) { return snappedIntRect(renderRect(isReplaced)); }
@@ -454,9 +465,12 @@ public:
     NodeListsNodeData* nodeLists();
     void clearNodeLists();
 
-    virtual bool willRespondToMouseMoveEvents();
-    virtual bool willRespondToMouseClickEvents();
-    virtual bool willRespondToMouseWheelEvents();
+    virtual bool willRespondToMouseMoveEvents() const;
+    bool willRespondToMouseClickEvents() const;
+    Editability computeEditabilityForMouseClickEvents(const RenderStyle* = nullptr) const;
+    virtual bool willRespondToMouseClickEventsWithEditability(Editability) const;
+    virtual bool willRespondToMouseWheelEvents() const;
+    virtual bool willRespondToTouchEvents() const;
 
     WEBCORE_EXPORT unsigned short compareDocumentPosition(Node&);
 
@@ -478,8 +492,6 @@ public:
     virtual bool allowsDoubleTapGesture() const { return true; }
 #endif
 
-    bool dispatchBeforeLoadEvent(const String& sourceURL);
-
     WEBCORE_EXPORT void dispatchInputEvent();
 
     // Perform the default action for an event.
@@ -496,12 +508,8 @@ public:
     bool m_adoptionIsRequired { true };
 #endif
 
-    EventTargetData* eventTargetData() final;
-    EventTargetData* eventTargetDataConcurrently() final;
-    EventTargetData& ensureEventTargetData() final;
-
     HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserverOptionType, const QualifiedName* attributeName);
-    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomString>& attributeFilter);
+    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration&);
     void registerTransientMutationObserver(MutationObserverRegistration&);
     void unregisterTransientMutationObserver(MutationObserverRegistration&);
@@ -545,7 +553,6 @@ protected:
         IsConnected = 1 << 10,
         IsInShadowTree = 1 << 11,
         IsUnknownElement = 1 << 12,
-        HasEventTargetData = 1 << 13,
 
         // These bits are used by derived classes, pulled up here so they can
         // be stored in the same memory word as the Node bits above.
@@ -560,15 +567,17 @@ protected:
         HasCustomStyleResolveCallbacks = 1 << 21,
 
         HasPendingResources = 1 << 22,
-        HasElementIdentifier = 1 << 23,
+        IsInGCReachableRefMap = 1 << 23,
 #if ENABLE(FULLSCREEN_API)
         ContainsFullScreenElement = 1 << 24,
 #endif
         IsComputedStyleInvalidFlag = 1 << 25,
         HasShadowRootContainingSlots = 1 << 26,
         IsInTopLayer = 1 << 27,
+        NeedsSVGRendererUpdate = 1 << 28,
+        NeedsUpdateQueryContainerDependentStyle = 1 << 29,
 
-        // Bits 28-31 are free.
+        // Bits 30-31 are free.
     };
 
     enum class TabIndexState : uint8_t {
@@ -680,14 +689,13 @@ protected:
     NodeRareData& ensureRareData();
     void clearRareData();
 
-    void clearEventTargetData();
-
     void setHasCustomStyleResolveCallbacks() { setNodeFlag(NodeFlag::HasCustomStyleResolveCallbacks); }
 
     void setTreeScope(TreeScope& scope) { m_treeScope = &scope; }
 
     void invalidateStyle(Style::Validity, Style::InvalidationMode = Style::InvalidationMode::Normal);
     void updateAncestorsForStyleRecalc();
+    void markAncestorsForInvalidatedStyle();
 
     ExceptionOr<RefPtr<Node>> convertNodesOrStringsIntoNode(FixedVector<NodeOrString>&&);
 
@@ -702,7 +710,6 @@ private:
 
     void refEventTarget() final;
     void derefEventTarget() final;
-    bool isNode() const final;
 
     void trackForDebugging();
     void materializeRareData();
@@ -711,8 +718,6 @@ private:
     HashSet<MutationObserverRegistration*>* transientMutationObserverRegistry();
 
     void adjustStyleValidity(Style::Validity, Style::InvalidationMode);
-
-    void* opaqueRootSlow() const;
 
     static void moveShadowTreeToNewDocument(ShadowRoot&, Document& oldDocument, Document& newDocument);
     static void moveTreeToNewScope(Node&, TreeScope& oldScope, TreeScope& newScope);
@@ -840,15 +845,6 @@ inline ContainerNode* Node::parentNode() const
 {
     ASSERT(isMainThreadOrGCThread());
     return m_parentNode;
-}
-
-inline void* Node::opaqueRoot() const
-{
-    // FIXME: Possible race?
-    // https://bugs.webkit.org/show_bug.cgi?id=165713
-    if (isConnected())
-        return &document();
-    return opaqueRootSlow();
 }
 
 inline ContainerNode* Node::parentNodeGuaranteedHostFree() const

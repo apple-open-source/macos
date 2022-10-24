@@ -7,8 +7,9 @@ outpath="$outdir/$outfile"
 
 mkdir -p "$outdir"
 
-xcrun clang -x c -P -E                  \
+xcrun clang -x c -C -P -E               \
         -imacros TargetConditionals.h   \
+	-Wno-invalid-pp-token		\
         "$inpath"                       \
         -o "$outpath"
 

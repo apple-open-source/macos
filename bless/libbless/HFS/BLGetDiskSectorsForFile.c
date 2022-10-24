@@ -113,7 +113,7 @@ int BLGetDiskSectorsForFile(BLContextPtr context, const char * path, off_t exten
     
     sectorsPerBlock = ainfo.allocationSize / 512;
 
-    sprintf(rawdev, "/dev/r%s", device+5);
+    snprintf(rawdev, sizeof(rawdev), "/dev/r%s", device+5);
 
     fd = open(rawdev, O_RDONLY, 0);
     if(fd == -1) {

@@ -77,7 +77,7 @@ struct context {
  * the writer wants with it, if it's an app-supplised function).
  * 
  */
-static void
+static void __printflike(2, 0)
 printv(fsck_ctx_t c, const char *fmt, va_list ap)
 {
 	struct context *ctx = (struct context *)c;
@@ -129,7 +129,7 @@ printv(fsck_ctx_t c, const char *fmt, va_list ap)
  * An argument-list verison of printv.  It simply wraps up
  * the argument list in a va_list, and then calls printv.
  */
-static void
+static void __printflike(2, 3)
 printargs(fsck_ctx_t c, const char *fmt, ...)
 {
 	va_list ap;
@@ -725,6 +725,8 @@ findmessage(struct context *ctx, int msgnum)
  * fsckPrintToString() is also used for message logging.
  *
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 static char *
 fsckPrintToString(fsck_message_t *m, va_list ap)
 {
@@ -761,6 +763,7 @@ fsckPrintToString(fsck_message_t *m, va_list ap)
 	}
 	return retval;
 }
+#pragma clang diagnostic pop
 
 static int
 fsckPrintString(struct context *ctx, fsck_message_t *m, va_list ap) 

@@ -47,7 +47,7 @@ typedef NS_ENUM(NSInteger, HIDElementType) {
  * @method scaleValue
  *
  * @abstract
- * Returns an scaled representaion of the element's value based on the scale
+ * Returns an scaled representation of the element's value based on the scale
  * type.
  *
  * @param type
@@ -78,7 +78,7 @@ typedef NS_ENUM(NSInteger, HIDElementType) {
  * @property integerValue
  *
  * @abstract
- * An integer representaion of the element value.
+ * An integer representation of the element value.
  */
 @property NSInteger integerValue;
 
@@ -86,7 +86,7 @@ typedef NS_ENUM(NSInteger, HIDElementType) {
  * @property dataValue
  *
  * @abstract
- * An NSData representaion of the element value.
+ * An NSData representation of the element value.
  */
 @property (nullable, assign) NSData *dataValue;
 

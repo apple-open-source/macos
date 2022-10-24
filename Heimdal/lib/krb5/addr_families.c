@@ -839,7 +839,7 @@ find_atype(krb5_address_type atype)
  * krb5_sockaddr2address stores a address a "struct sockaddr" sa in
  * the krb5_address addr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param sa a struct sockaddr to extract the address from
  * @param addr an Kerberos 5 address to store the address in.
  *
@@ -866,7 +866,7 @@ krb5_sockaddr2address (krb5_context context,
  * krb5_sockaddr2port extracts a port (if possible) from a "struct
  * sockaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param sa a struct sockaddr to extract the port from
  * @param port a pointer to an int16_t store the port in.
  *
@@ -898,7 +898,7 @@ krb5_sockaddr2port (krb5_context context,
  * the up to *sa_size will be stored, and then *sa_size will be set to
  * the required length.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr the address to copy the from
  * @param sa the struct sockaddr that will be filled in
  * @param sa_size pointer to length of sa, and after the call, it will
@@ -996,7 +996,7 @@ krb5_sockaddr_is_loopback(const struct sockaddr *sa)
  * of the sa, and after the call, it will contain the actual length of
  * the address.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af addresses
  * @param addr address
  * @param sa returned struct sockaddr
@@ -1029,7 +1029,7 @@ krb5_h_addr2sockaddr (krb5_context context,
  * krb5_h_addr2addr works like krb5_h_addr2sockaddr with the exception
  * that it operates on a krb5_address instead of a struct sockaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af address family
  * @param haddr host address from struct hostent.
  * @param addr returned krb5_address.
@@ -1059,7 +1059,7 @@ krb5_h_addr2addr (krb5_context context,
  * of the sa, and after the call, it will contain the actual length
  * of the address.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param af address family
  * @param sa sockaddr
  * @param sa_size lenght of sa.
@@ -1146,7 +1146,7 @@ krb5_print_address (const krb5_address *addr,
  * krb5_parse_address returns the resolved hostname in string to the
  * krb5_addresses addresses .
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param string string to parse as an address
  * @param addresses return address, free with krb5_free_addresses()
  *
@@ -1226,7 +1226,7 @@ krb5_parse_address(krb5_context context,
  * it can be used for sorting addresses. If the addresses are the same
  * address krb5_address_order will return 0. Behavies like memcmp(2).
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr1 krb5_address to compare
  * @param addr2 krb5_address to compare
  *
@@ -1276,7 +1276,7 @@ krb5_address_order(krb5_context context,
  * krb5_address_compare compares the addresses  addr1 and addr2.
  * Returns TRUE if the two addresses are the same.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addr1 address to compare
  * @param addr2 address to compare
  *
@@ -1297,7 +1297,7 @@ krb5_address_compare(krb5_context context,
  * krb5_address_search checks if the address addr is a member of the
  * address set list addrlist .
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param addr address to search for.
  * @param addrlist list of addresses to look in for addr.
  *
@@ -1323,7 +1323,7 @@ krb5_address_search(krb5_context context,
  * krb5_free_address frees the data stored in the address that is
  * alloced with any of the krb5_address functions.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param address addresss to be freed.
  *
  * @return Return an error code or 0.
@@ -1347,7 +1347,7 @@ krb5_free_address(krb5_context context,
  * krb5_free_addresses frees the data stored in the address that is
  * alloced with any of the krb5_address functions.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param addresses addressses to be freed.
  *
  * @return Return an error code or 0.
@@ -1372,7 +1372,7 @@ krb5_free_addresses(krb5_context context,
  * krb5_copy_address copies the content of address
  * inaddr to outaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr pointer to source address
  * @param outaddr pointer to destination address
  *
@@ -1396,7 +1396,7 @@ krb5_copy_address(krb5_context context,
  * krb5_copy_addresses copies the content of addresses
  * inaddr to outaddr.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr pointer to source addresses
  * @param outaddr pointer to destination addresses
  *
@@ -1423,7 +1423,7 @@ krb5_copy_addresses(krb5_context context,
  * krb5_append_addresses adds the set of addresses in source to
  * dest. While copying the addresses, duplicates are also sorted out.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param dest destination of copy operation
  * @param source adresses that are going to be added to dest
  *
@@ -1466,7 +1466,7 @@ krb5_append_addresses(krb5_context context,
 /**
  * Create an address of type KRB5_ADDRESS_ADDRPORT from (addr, port)
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param res built address from addr/port
  * @param addr address to use
  * @param port port to use
@@ -1532,7 +1532,7 @@ krb5_make_addrport (krb5_context context,
  * Calculate the boundary addresses of `inaddr'/`prefixlen' and store
  * them in `low' and `high'.
  *
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param inaddr address in prefixlen that the bondery searched
  * @param prefixlen width of boundery
  * @param low lowest address

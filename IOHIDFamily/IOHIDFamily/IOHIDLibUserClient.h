@@ -46,25 +46,26 @@ enum IOHIDLibUserClientPortTypes {
 };
 
 enum IOHIDLibUserClientCommandCodes {
-	kIOHIDLibUserClientDeviceIsValid,
+	kIOHIDLibUserClientDeviceIsValid, // 0
 	kIOHIDLibUserClientOpen,
 	kIOHIDLibUserClientClose,
 	kIOHIDLibUserClientCreateQueue,
 	kIOHIDLibUserClientDisposeQueue,
-	kIOHIDLibUserClientAddElementToQueue,
+	kIOHIDLibUserClientAddElementToQueue, // 5
 	kIOHIDLibUserClientRemoveElementFromQueue,
 	kIOHIDLibUserClientQueueHasElement,
 	kIOHIDLibUserClientStartQueue,
 	kIOHIDLibUserClientStopQueue,
-	kIOHIDLibUserClientUpdateElementValues,
+	kIOHIDLibUserClientUpdateElementValues, // 10
 	kIOHIDLibUserClientPostElementValues,
 	kIOHIDLibUserClientGetReport,
 	kIOHIDLibUserClientSetReport,
 	kIOHIDLibUserClientGetElementCount,
-	kIOHIDLibUserClientGetElements,
+	kIOHIDLibUserClientGetElements, //15
 	kIOHIDLibUserClientSetQueueAsyncPort,
     kIOHIDLibUserClientReleaseReport,
-	kIOHIDLibUserClientNumCommands
+    kIOHIDLibUserClientResumeReports,
+	kIOHIDLibUserClientNumCommands // 19
 };
 
 enum IOHIDElementValueFlags {
@@ -134,6 +135,15 @@ struct IOHIDElementStruct
     UInt32              rawReportCount;
 };
 
+typedef struct _IOHIDQueueHeader
+{
+	uint64_t _Atomic status;
+} IOHIDQueueHeader;
+
+enum IOHIDQueueStatus {
+	kIOHIDQueueStatusBlocked = 0x1
+};
+
 enum {
 	kHIDElementType			= 0,
 	kHIDReportHandlerType
@@ -166,9 +176,9 @@ enum {
 };
 
 #if defined(KERNEL) && !defined(KERNEL_PRIVATE)
-class __deprecated_msg("Use DriverKit") IOHIDLibUserClient : public IOUserClient
+class __deprecated_msg("Use DriverKit") IOHIDLibUserClient : public IOUserClient2022
 #else
-class IOHIDLibUserClient : public IOUserClient
+class IOHIDLibUserClient : public IOUserClient2022
 #endif
 {
 	OSDeclareDefaultStructors(IOHIDLibUserClient)
@@ -186,11 +196,10 @@ class IOHIDLibUserClient : public IOUserClient
 public:
 	bool attach(IOService * provider) APPLE_KEXT_OVERRIDE;
 
-    IOReturn processElement(IOHIDElementValue *element, IOHIDEventQueue *queue);
+    IOReturn processElement(IOHIDElementValue *element, IOHIDReportElementQueue *queue);
 	
 protected:
-	static const IOExternalMethodDispatch
-		sMethods[kIOHIDLibUserClientNumCommands];
+	static const IOExternalMethodDispatch2022 sMethods[kIOHIDLibUserClientNumCommands];
 
 	IOHIDDevice *fNub;
 	IOWorkLoop *fWL;
@@ -198,7 +207,8 @@ protected:
 	IOInterruptEventSource * fResourceES;
 	
 	OSArray *fQueueMap;
-    queue_head_t fOOBReports;
+    queue_head_t fReportList;
+    queue_head_t fBlockedReports;
 
 	UInt32 fPid;
 	task_t fClient;
@@ -206,16 +216,19 @@ protected:
 	mach_port_t fWakePort;
 	mach_port_t fValidPort;
     OSSet       *_pending;
+    bool fClientSuspended;
 	
 	void * fValidMessage;
 	
 	bool fClientOpened;
+    bool fClientSeized;
 	bool fNubIsKeyboard;
     
     // entitlements
     bool _customQueueSizeEntitlement;
     bool _privilegedClient;
     bool _protectedAccessClient;
+    bool _interfaceRematchEntitlement;
 	
 	IOOptionBits fCachedOptionBits;
 		
@@ -224,7 +237,9 @@ protected:
 	UInt64 fCachedConsoleUsersSeed;
 	
 	bool	fValid;
-    
+
+    IOLock * _queueLock;
+
 	// Methods
 	virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
 	
@@ -246,21 +261,10 @@ protected:
 	virtual IOReturn registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32 refCon );
 
 	// return the shared memory for type (called indirectly)
-	virtual IOReturn clientMemoryForType(
-						UInt32				type,
-						IOOptionBits *		options,
-						IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
-	IOReturn clientMemoryForTypeGated(
-						UInt32				type,
-						IOOptionBits *		options,
-						IOMemoryDescriptor ** memory );
+	virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory) APPLE_KEXT_OVERRIDE;
+	IOReturn         clientMemoryForTypeGated(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory);
 						
-	IOReturn externalMethod(	uint32_t					selector, 
-								IOExternalMethodArguments * arguments,
-								IOExternalMethodDispatch *  dispatch, 
-								OSObject *				target, 
-								void *					reference) APPLE_KEXT_OVERRIDE;
-
+    IOReturn externalMethod(uint32_t selector, IOExternalMethodArgumentsOpaque * arguments) APPLE_KEXT_OVERRIDE;
 	IOReturn externalMethodGated(void * args);
 
 
@@ -318,40 +322,32 @@ protected:
 	IOReturn		stopQueue (IOHIDEventQueue * queue);
 							
 	// Update Feature element value
-	static IOReturn	_updateElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-    IOReturn		updateElementValues (const IOHIDElementCookie * lCookies,
-                                         uint32_t cookieSize,
-                                         IOMemoryDescriptor *outputElementsDesc,
-                                         uint32_t outputElementsDescSize,
-                                         IOOptionBits options);
-    IOReturn        updateElementValues (const IOHIDElementCookie *lCookies,
-                                         uint32_t cookieSize,
-                                         void *outputElements,
-                                         uint32_t outputElementsSize,
-                                         IOOptionBits options);
-
+	static IOReturn	_updateElementValues(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn		updateElementValues(const IOHIDElementCookie * lCookies, uint32_t cookieSize, IOMemoryDescriptor * outputElementsDesc, uint32_t outputElementsDescSize, IOOptionBits options, uint32_t timeout = 0, IOHIDCompletion * completion = 0, IOBufferMemoryDescriptor * elementData = 0);
+    IOReturn        updateElementValues(const IOHIDElementCookie * lCookies, uint32_t cookieSize, void *outputElements, uint32_t outputElementsSize, IOOptionBits options, uint32_t timeout = 0, IOHIDCompletion * completion = 0, IOBufferMemoryDescriptor * elementData = 0);
 												
 	// Post element value
-	static IOReturn _postElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-    IOReturn        postElementValues  (IOMemoryDescriptor *desc);
-	IOReturn		postElementValues (const uint8_t * data, uint32_t dataSize);
+	static IOReturn _postElementValues(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        postElementValues(IOMemoryDescriptor * desc, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+	IOReturn		postElementValues(const uint8_t * data, uint32_t dataSize, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 												
 	// Get report
 	static IOReturn _getReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		getReport(void *reportBuffer, uint32_t *pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
-	IOReturn		getReport(IOMemoryDescriptor * mem, uint32_t * pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0); 
+	IOReturn		getReport(void * reportBuffer, uint32_t * pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+    IOReturn        getReport(IOMemoryDescriptor * mem, uint32_t * pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 
 	// Set report
 	static IOReturn _setReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		setReport(const void *reportBuffer, uint32_t reportBufferSize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+	IOReturn		setReport(const void * reportBuffer, uint32_t reportBufferSize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 	IOReturn		setReport(IOMemoryDescriptor * mem, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 
-    static void _releaseReport(IOHIDLibUserClient *target, void *reference,
-                                   IOExternalMethodArguments *arguments);
-    void releaseReport(mach_vm_address_t reportToken);
+    static void _releaseReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    void        releaseReport(mach_vm_address_t reportToken);
 
-	void ReqComplete(void *param, IOReturn status, UInt32 remaining);
-	IOReturn ReqCompleteGated(void *param, IOReturn status, UInt32 remaining);
+    void CommitComplete(void * param, IOReturn status, UInt32 remaining);
+    IOReturn CommitCompleteGated(void * param, IOReturn status, UInt32 remaining);
+	void ReqComplete(void * param, IOReturn status, UInt32 remaining);
+	IOReturn ReqCompleteGated(void * param, IOReturn status, UInt32 remaining);
 
 	u_int createTokenForQueue(IOHIDEventQueue *queue);
 	void removeQueueFromMap(IOHIDEventQueue *queue);
@@ -361,6 +357,15 @@ protected:
 	// and keep calling it with the return value till you get 0 
 	// (still not a valid token).  vtn3
 	u_int getNextTokenForToken(u_int token);
+
+	// Handle enqueuing 
+	Boolean handleEnqueue(void *queueData, UInt32 dataSize, IOHIDReportElementQueue *queue);
+	bool canDropReport();
+
+	static IOReturn _resumeReports(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+	void resumeReports();
+
+	OSArray * getElementsForType(uint32_t elementType);
 };
 
 
@@ -370,6 +375,7 @@ class IOHIDOOBReportDescriptor : public IOBufferMemoryDescriptor
 
 public:
     queue_chain_t qc;
+    IOMemoryMap * mapping;
 
     static IOHIDOOBReportDescriptor * inTaskWithBytes(
         task_t       task,

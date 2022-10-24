@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2021 Apple, Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,10 +45,10 @@ namespace WebCore {
 
 class VideoCaptureSourceFactoryMac final : public VideoCaptureFactory {
 public:
-    CaptureSourceOrError createVideoCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints) final
+    CaptureSourceOrError createVideoCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier) final
     {
         ASSERT(device.type() == CaptureDevice::DeviceType::Camera);
-        return AVVideoCaptureSource::create(device, WTFMove(hashSalt), constraints);
+        return AVVideoCaptureSource::create(device, WTFMove(hashSalt), constraints, pageIdentifier);
     }
 
 private:
@@ -57,12 +57,12 @@ private:
 
 class DisplayCaptureSourceFactoryMac final : public DisplayCaptureFactory {
 public:
-    CaptureSourceOrError createDisplayCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints) final
+    CaptureSourceOrError createDisplayCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints, PageIdentifier pageIdentifier) final
     {
-        return DisplayCaptureSourceCocoa::create(device, WTFMove(hashSalt), constraints);
+        return DisplayCaptureSourceCocoa::create(device, WTFMove(hashSalt), constraints, pageIdentifier);
     }
 private:
-    CaptureDeviceManager& displayCaptureDeviceManager() { return DisplayCaptureManagerCocoa::singleton(); }
+    DisplayCaptureManager& displayCaptureDeviceManager() { return DisplayCaptureManagerCocoa::singleton(); }
 };
 
 AudioCaptureFactory& RealtimeMediaSourceCenter::defaultAudioCaptureFactory()

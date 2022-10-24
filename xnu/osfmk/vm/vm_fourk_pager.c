@@ -47,6 +47,8 @@
 #include <kern/thread.h>
 #include <kern/ipc_kobject.h>
 
+#include <sys/kdebug_triage.h>
+
 #include <ipc/ipc_port.h>
 #include <ipc/ipc_space.h>
 
@@ -101,14 +103,6 @@ kern_return_t fourk_pager_data_return(memory_object_t mem_obj,
 kern_return_t fourk_pager_data_initialize(memory_object_t mem_obj,
     memory_object_offset_t offset,
     memory_object_cluster_size_t data_cnt);
-kern_return_t fourk_pager_data_unlock(memory_object_t mem_obj,
-    memory_object_offset_t offset,
-    memory_object_size_t size,
-    vm_prot_t desired_access);
-kern_return_t fourk_pager_synchronize(memory_object_t mem_obj,
-    memory_object_offset_t offset,
-    memory_object_size_t length,
-    vm_sync_t sync_flags);
 kern_return_t fourk_pager_map(memory_object_t mem_obj,
     vm_prot_t prot);
 kern_return_t fourk_pager_last_unmap(memory_object_t mem_obj);
@@ -125,11 +119,8 @@ const struct memory_object_pager_ops fourk_pager_ops = {
 	.memory_object_data_request = fourk_pager_data_request,
 	.memory_object_data_return = fourk_pager_data_return,
 	.memory_object_data_initialize = fourk_pager_data_initialize,
-	.memory_object_data_unlock = fourk_pager_data_unlock,
-	.memory_object_synchronize = fourk_pager_synchronize,
 	.memory_object_map = fourk_pager_map,
 	.memory_object_last_unmap = fourk_pager_last_unmap,
-	.memory_object_data_reclaim = NULL,
 	.memory_object_backing_object = NULL,
 	.memory_object_pager_name = "fourk_pager"
 };
@@ -297,16 +288,6 @@ fourk_pager_data_initialize(
 	__unused memory_object_cluster_size_t           data_cnt)
 {
 	panic("fourk_pager_data_initialize: should never get called");
-	return KERN_FAILURE;
-}
-
-kern_return_t
-fourk_pager_data_unlock(
-	__unused memory_object_t        mem_obj,
-	__unused memory_object_offset_t offset,
-	__unused memory_object_size_t           size,
-	__unused vm_prot_t              desired_access)
-{
 	return KERN_FAILURE;
 }
 
@@ -486,20 +467,6 @@ fourk_pager_terminate(
 	PAGER_DEBUG(PAGER_ALL, ("fourk_pager_terminate: %p\n", mem_obj));
 
 	return KERN_SUCCESS;
-}
-
-/*
- *
- */
-kern_return_t
-fourk_pager_synchronize(
-	__unused memory_object_t        mem_obj,
-	__unused memory_object_offset_t offset,
-	__unused memory_object_size_t   length,
-	__unused vm_sync_t              sync_flags)
-{
-	panic("fourk_pager_synchronize: memory_object_synchronize no longer supported");
-	return KERN_FAILURE;
 }
 
 /*
@@ -824,9 +791,9 @@ fourk_pager_data_request(
 	dst_object = memory_object_control_to_vm_object(mo_control);
 	assert(dst_object != VM_OBJECT_NULL);
 
-#if __x86_64__ || __arm__ || __arm64__
+#if __x86_64__ || __arm64__
 	/* use the 1-to-1 mapping of physical memory */
-#else /* __x86_64__ || __arm__ || __arm64__ */
+#else /* __x86_64__ || __arm64__ */
 	/*
 	 * Reserve 2 virtual pages in the kernel address space to map the
 	 * source and destination physical pages when it's their turn to
@@ -841,7 +808,7 @@ fourk_pager_data_request(
 	}
 	src_vaddr = kernel_mapping;
 	dst_vaddr = kernel_mapping + PAGE_SIZE;
-#endif /* __x86_64__ || __arm__ || __arm64__ */
+#endif /* __x86_64__ || __arm64__ */
 
 	/*
 	 * Fill in the contents of the pages requested by VM.
@@ -1008,6 +975,7 @@ retry_src_fault:
 				if (vm_page_wait(interruptible)) {
 					goto retry_src_fault;
 				}
+				ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_FOURK_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_FOURK_PAGER_MEMORY_SHORTAGE), 0 /* arg */);
 				OS_FALLTHROUGH;
 			case VM_FAULT_INTERRUPTED:
 				retval = MACH_SEND_INTERRUPTED;
@@ -1121,10 +1089,10 @@ retry_src_fault:
 				    !!(subpg_tainted & CS_VALIDATE_NX));
 			}
 
-#if __x86_64__ || __arm__ || __arm64__
+#if __x86_64__ || __arm64__
 			/* we used the 1-to-1 mapping of physical memory */
 			src_vaddr = 0;
-#else /* __x86_64__ || __arm__ || __arm64__ */
+#else /* __x86_64__ || __arm64__ */
 			/*
 			 * Remove the pmap mapping of the source page
 			 * in the kernel.
@@ -1132,7 +1100,7 @@ retry_src_fault:
 			pmap_remove(kernel_pmap,
 			    (addr64_t) src_vaddr,
 			    (addr64_t) src_vaddr + PAGE_SIZE_64);
-#endif /* __x86_64__ || __arm__ || __arm64__ */
+#endif /* __x86_64__ || __arm64__ */
 
 src_fault_done:
 			/*

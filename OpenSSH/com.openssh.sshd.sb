@@ -21,3 +21,8 @@
 	(global-name "com.apple.system.opendirectoryd.libinfo")
 	(global-name "com.apple.system.opendirectoryd.libinfo") ;; duplicate name as a work-around for 19978803
 	(global-name "com.apple.system.logger"))
+
+(with-filter (mac-policy-name "EndpointSecurity")
+    (allow system-mac-syscall
+        (mac-syscall-number  16       ; ES_SYSCALL_OPENSSH_LOGIN
+                             17)))    ; ES_SYSCALL_OPENSSH_LOGOUT

@@ -303,7 +303,7 @@ crfprintf_np(FILE *f, const char *fmt, ...);
  * The argument list corresponding to the format string.
  */
 DARWIN_API_AVAILABLE_20181020
-OS_EXPORT OS_NONNULL1 OS_NONNULL2 OS_NONNULL3
+OS_EXPORT OS_NONNULL1 OS_NONNULL2 OS_NONNULL3 OS_FORMAT_PRINTF(2, 0)
 void
 vcrfprintf_np(FILE *f, const char *fmt, va_list ap);
 
@@ -343,7 +343,7 @@ vcrfprintf_np(FILE *f, const char *fmt, va_list ap);
  * there was a failure to allocate heap memory.
  */
 DARWIN_API_AVAILABLE_20181020
-OS_EXPORT OS_NONNULL1 OS_NONNULL5 OS_NONNULL6
+OS_EXPORT OS_NONNULL1 OS_NONNULL5 OS_NONNULL6 OS_FORMAT_PRINTF(5, 6)
 void
 wfprintf_np(FILE *f, ssize_t initpad, size_t pad, size_t width,
 		const char *fmt, ...);
@@ -384,7 +384,7 @@ wfprintf_np(FILE *f, ssize_t initpad, size_t pad, size_t width,
  * there was a failure to allocate heap memory.
  */
 DARWIN_API_AVAILABLE_20181020
-OS_EXPORT OS_NONNULL1 OS_NONNULL5 OS_NONNULL6
+OS_EXPORT OS_NONNULL1 OS_NONNULL5 OS_NONNULL6 OS_FORMAT_PRINTF(5, 0)
 void
 vwfprintf_np(FILE *f, ssize_t initpad, size_t pad, size_t width,
 		const char *fmt, va_list ap);

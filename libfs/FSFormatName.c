@@ -32,7 +32,9 @@
 #include <fsproperties.h>
 
 #include <IOKit/storage/IOMedia.h>
+#if TARGET_OS_OSX
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
+#endif
 #include <IOKit/IOKitLib.h>
 
 #include "FSFormatName.h"
@@ -251,82 +253,51 @@ done:
     return CFRetain(formatName);
 }
 
-#define LIFS_FSTYPENAME "lifs"
-
-static CFStringRef _FSGetRealFsType(const struct statfs* fsInfo)
-{
-	CFStringRef fsType = NULL;
-
-	// Lifs mounts store fstype in f_mntfromname
-	if (strncmp(fsInfo->f_fstypename, LIFS_FSTYPENAME, MFSNAMELEN) == 0) {
-		CFURLRef url = CFURLCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)fsInfo->f_mntfromname, strlen(fsInfo->f_mntfromname), kCFStringEncodingUTF8, NULL);
-		if (url) {
-			if (CFURLCanBeDecomposed(url)) {
-				fsType = CFURLCopyScheme(url);
-			}
-
-			CFRelease(url);
-		}
-	}
-
-	if (fsType == NULL) {
-		fsType = CFStringCreateWithCString(NULL, fsInfo->f_fstypename, kCFStringEncodingASCII);
-	}
-
-	return fsType;
-}
-
-CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url) 
+static CFStringRef
+_FSCopyNameForVolumeFormatAtURL_internal(CFURLRef url, bool localized)
 {
     CFStringRef formatName = NULL;
     uint8_t buffer[MAXPATHLEN + 1];
 
     if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
-		struct statfs fsInfo;
+		struct statfs sfs;
+		char fstype[MFSTYPENAMELEN];
+		uint32_t subtype;
 		bool encrypted = false;
 
-        if (statfs((char *)buffer, &fsInfo) == 0) {
-            CFStringRef fsType = _FSGetRealFsType(&fsInfo);
-
-			encrypted = IsEncrypted(fsInfo.f_mntfromname);
-#ifdef _DARWIN_FEATURE_64_BIT_INODE
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, true, encrypted);
-#else
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, true, encrypted);
-#endif
-
-            CFRelease(fsType);
+		if (statfs((char *)buffer, &sfs) == 0) {
+			if (_FSGetTypeInfoFromStatfs(&sfs, fstype, sizeof(fstype),
+										 &subtype) == 0) {
+				CFStringRef fsType = CFStringCreateWithCString(kCFAllocatorDefault,
+															   fstype,
+															   kCFStringEncodingASCII);
+				/*
+				 * Re-use the storage in the statfs structure for
+				 * the file system location.  This is OK to do since
+				 * we won't be using the statfs structure after this.
+				 */
+				if (_FSGetLocationFromStatfs(&sfs, sfs.f_mntfromname,
+											 sizeof(sfs.f_mntfromname)) == 0) {
+					encrypted = IsEncrypted(sfs.f_mntfromname);
+					formatName = FSCopyFormatNameForFSType(fsType, subtype, localized,
+														   encrypted);
+				}
+				CFRelease(fsType);
+			}
 		}
     }
 
     return formatName;
 }
 
-CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url) 
+CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
 {
-    CFStringRef formatName = NULL;
-    uint8_t buffer[MAXPATHLEN + 1];
+	return _FSCopyNameForVolumeFormatAtURL_internal(url, true);
+}
 
-    if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
-	struct statfs fsInfo;
-
-        if (statfs((char *)buffer, &fsInfo) == 0) {
-			CFStringRef fsType = _FSGetRealFsType(&fsInfo);
-			bool encrypted = false;
-			
-			encrypted = IsEncrypted(fsInfo.f_mntfromname);
-
-#ifdef _DARWIN_FEATURE_64_BIT_INODE
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, false, encrypted);
-#else
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, false, encrypted);
-#endif
-
-            CFRelease(fsType);
-        }
-    }
-
-    return formatName;
+CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
+{
+	return _FSCopyNameForVolumeFormatAtURL_internal(url, false);
 }
 
 CFStringRef _FSCopyLocalizedNameForVolumeFormatAtNode(CFStringRef devnode) 
@@ -698,10 +669,10 @@ out:
 }
 
 /* read raw block from disk */
-static int getblk(int fd, unsigned long blknum, int blksize, char* buf)
+static size_t getblk(int fd, unsigned long blknum, size_t blksize, char* buf)
 {
 	off_t offset;
-	int bytes_read;
+	size_t bytes_read;
 	
 	offset = (off_t)blknum * (off_t)blksize;
 	
@@ -906,10 +877,12 @@ GetFSEncryptionStatus(const char *bsdname, bool *encryption_status, bool require
 			}
 		}
 	} else {
+#if TARGET_OS_OSX
 		lvfIsEncr = IORegistryEntryCreateCFProperty(lookup_obj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
 		if (lvfIsEncr != NULL) {
 			fs_encrypted = CFBooleanGetValue(lvfIsEncr);
 		}
+#endif
 	}
 
 	*encryption_status = fs_encrypted;

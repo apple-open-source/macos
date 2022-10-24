@@ -10,7 +10,7 @@
 const CFStringRef kTKSmartCardPreferencesDomain = CFSTR("com.apple.security.smartcard");
 const CFStringRef kTKDisabledTokensPreferencesKey  = CFSTR("DisabledTokens");
 
-static void listDisabledTokens() {
+static void listDisabledTokens(void) {
     id value = (__bridge_transfer id)CFPreferencesCopyValue(kTKDisabledTokensPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
     if (value && ![value isKindOfClass:NSArray.class])
         return;

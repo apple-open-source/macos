@@ -3038,7 +3038,7 @@ u_undo_end(
 	FOR_ALL_WINDOWS(wp)
 	{
 	    if (wp->w_buffer == curbuf && wp->w_p_cole > 0)
-		redraw_win_later(wp, NOT_VALID);
+		redraw_win_later(wp, UPD_NOT_VALID);
 	}
     }
 #endif
@@ -3578,7 +3578,7 @@ u_blockfree(buf_T *buf)
 bufIsChanged(buf_T *buf)
 {
 #ifdef FEAT_TERMINAL
-    if (term_job_running(buf->b_term))
+    if (term_job_running_not_none(buf->b_term))
 	return TRUE;
 #endif
     return bufIsChangedNotTerm(buf);

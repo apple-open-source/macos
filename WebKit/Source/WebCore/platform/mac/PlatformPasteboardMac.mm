@@ -41,8 +41,15 @@
 
 namespace WebCore {
 
+static bool isFilePasteboardType(const String& type)
+{
+    return [legacyFilenamesPasteboardType() isEqualToString:type] || [legacyFilesPromisePasteboardType() isEqualToString:type];
+}
+
 static bool canWritePasteboardType(const String& type)
 {
+    if (isFilePasteboardType(type))
+        return false;
     auto cfString = type.createCFString();
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (UTTypeIsDeclared(cfString.get()) || UTTypeIsDynamic(cfString.get()))
@@ -50,6 +57,13 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
 
     return [(__bridge NSString *)cfString.get() lengthOfBytesUsingEncoding:NSString.defaultCStringEncoding];
+}
+
+static bool canWriteAllPasteboardTypes(const Vector<String>& types)
+{
+    return !types.containsIf([](auto& type) {
+        return !canWritePasteboardType(type);
+    });
 }
 
 void PlatformPasteboard::performAsDataOwner(DataOwnerType, Function<void()>&& actions)
@@ -100,6 +114,8 @@ int PlatformPasteboard::numberOfFiles() const
 
 void PlatformPasteboard::getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType) const
 {
+    if (!isFilePasteboardType(pasteboardType))
+        return;
     id paths = [m_pasteboard propertyListForType:pasteboardType];
     if ([paths isKindOfClass:[NSString class]]) {
         pathnames.append((NSString *)paths);
@@ -217,7 +233,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 Vector<String> PlatformPasteboard::typesSafeForDOMToReadAndWrite(const String& origin) const
 {
     ListHashSet<String> domPasteboardTypes;
-    if (NSData *serializedCustomData = [m_pasteboard dataForType:@(PasteboardCustomData::cocoaType())]) {
+    if (NSData *serializedCustomData = [m_pasteboard dataForType:@(PasteboardCustomData::cocoaType().characters())]) {
         auto data = PasteboardCustomData::fromSharedBuffer(SharedBuffer::create(serializedCustomData).get());
         if (data.origin() == origin) {
             for (auto& type : data.orderedTypes())
@@ -227,14 +243,14 @@ Vector<String> PlatformPasteboard::typesSafeForDOMToReadAndWrite(const String& o
 
     NSArray<NSString *> *allTypes = [m_pasteboard types];
     for (NSString *type in allTypes) {
-        if ([type isEqualToString:@(PasteboardCustomData::cocoaType())])
+        if ([type isEqualToString:@(PasteboardCustomData::cocoaType().characters())])
             continue;
 
         if (Pasteboard::isSafeTypeForDOMToReadAndWrite(type))
             domPasteboardTypes.add(type);
         else if (auto* domType = safeTypeForDOMToReadAndWriteForPlatformType(type)) {
             auto domTypeAsString = String::fromUTF8(domType);
-            if (domTypeAsString == "text/uri-list" && stringForType(legacyURLPasteboardType()).isEmpty())
+            if (domTypeAsString == "text/uri-list"_s && stringForType(legacyURLPasteboardType()).isEmpty())
                 continue;
             domPasteboardTypes.add(WTFMove(domTypeAsString));
         }
@@ -254,7 +270,7 @@ int64_t PlatformPasteboard::write(const PasteboardCustomData& data)
 
     bool shouldWriteCustomData = data.hasSameOriginCustomData() || !data.origin().isEmpty();
     if (shouldWriteCustomData)
-        [types addObject:@(PasteboardCustomData::cocoaType())];
+        [types addObject:@(PasteboardCustomData::cocoaType().characters())];
 
     [m_pasteboard declareTypes:types owner:nil];
 
@@ -275,7 +291,7 @@ int64_t PlatformPasteboard::write(const PasteboardCustomData& data)
 
     if (shouldWriteCustomData) {
         if (auto serializedCustomData = data.createSharedBuffer()->createNSData())
-            [m_pasteboard setData:serializedCustomData.get() forType:@(PasteboardCustomData::cocoaType())];
+            [m_pasteboard setData:serializedCustomData.get() forType:@(PasteboardCustomData::cocoaType().characters())];
     }
 
     return changeCount();
@@ -288,16 +304,16 @@ int64_t PlatformPasteboard::changeCount() const
 
 String PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(const String& domType, IncludeImageTypes includeImageTypes)
 {
-    if (domType == "text/plain")
+    if (domType == "text/plain"_s)
         return legacyStringPasteboardType();
 
-    if (domType == "text/html")
+    if (domType == "text/html"_s)
         return legacyHTMLPasteboardType();
 
-    if (domType == "text/uri-list")
+    if (domType == "text/uri-list"_s)
         return legacyURLPasteboardType();
 
-    if (includeImageTypes == IncludeImageTypes::Yes && domType == "image/png")
+    if (includeImageTypes == IncludeImageTypes::Yes && domType == "image/png"_s)
         return legacyPNGPasteboardType();
 
     return { };
@@ -329,15 +345,15 @@ int64_t PlatformPasteboard::copy(const String& fromPasteboard)
 
 int64_t PlatformPasteboard::addTypes(const Vector<String>& pasteboardTypes)
 {
+    if (!canWriteAllPasteboardTypes(pasteboardTypes))
+        return 0;
     return [m_pasteboard addTypes:createNSArray(pasteboardTypes).get() owner:nil];
 }
 
 int64_t PlatformPasteboard::setTypes(const Vector<String>& pasteboardTypes)
 {
-    for (auto& pasteboardType : pasteboardTypes) {
-        if (!canWritePasteboardType(pasteboardType))
-            return [m_pasteboard declareTypes:@[] owner:nil];
-    }
+    if (!canWriteAllPasteboardTypes(pasteboardTypes))
+        return [m_pasteboard declareTypes:@[] owner:nil];
     return [m_pasteboard declareTypes:createNSArray(pasteboardTypes).get() owner:nil];
 }
 
@@ -499,7 +515,7 @@ static RetainPtr<NSPasteboardItem> createPasteboardItem(const PasteboardCustomDa
 
     if (data.hasSameOriginCustomData() || !data.origin().isEmpty()) {
         if (auto serializedCustomData = data.createSharedBuffer()->createNSData())
-            [item setData:serializedCustomData.get() forType:@(PasteboardCustomData::cocoaType())];
+            [item setData:serializedCustomData.get() forType:@(PasteboardCustomData::cocoaType().characters())];
     }
 
     data.forEachPlatformStringOrBuffer([&] (auto& type, auto& stringOrBuffer) {

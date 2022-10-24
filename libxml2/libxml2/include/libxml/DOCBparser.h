@@ -27,15 +27,13 @@
 extern "C" {
 #endif
 
-#if defined(_WIN32)
-#define LIBXML2_DOCB_DEPRECATED
-#else
-#include <Availability.h>
-#include <TargetConditionals.h>
+#ifdef __APPLE__
 #define LIBXML2_DOCB_DEPRECATED __OSX_DEPRECATED(10.4, 10.4, "Deprecated in libxml2 v2.6.0") \
                                 __IOS_DEPRECATED(2.0, 2.0, "Deprecated in libxml2 v2.6.0") \
                                 __TVOS_DEPRECATED(9.0, 9.0, "Deprecated in libxml2 v2.6.0") \
                                 __WATCHOS_DEPRECATED(1.0, 1.0, "Deprecated in libxml2 v2.6.0")
+#else
+#define LIBXML2_DOCB_DEPRECATED
 #endif
 
 /*

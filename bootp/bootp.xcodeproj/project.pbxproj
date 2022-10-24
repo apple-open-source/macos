@@ -214,7 +214,6 @@
 		F918987D17010F0D005DD2A7 /* IPConfigurationLog.c in Sources */ = {isa = PBXBuildFile; fileRef = F918987B17010F0D005DD2A7 /* IPConfigurationLog.c */; };
 		F918987F17010F1E005DD2A7 /* IPConfigurationLog.h in Headers */ = {isa = PBXBuildFile; fileRef = F918987E17010F1E005DD2A7 /* IPConfigurationLog.h */; };
 		F918988017010F1E005DD2A7 /* IPConfigurationLog.h in Headers */ = {isa = PBXBuildFile; fileRef = F918987E17010F1E005DD2A7 /* IPConfigurationLog.h */; };
-		F91EBCB2216C29B700C806E3 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9953AEC18BD346900C828A7 /* libio80211.a */; };
 		F92520F51ED3A965006EBFE4 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		F92520F61ED3A96D006EBFE4 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		F92660111ABCBD01001F39AE /* IPConfigurationService.h in Headers */ = {isa = PBXBuildFile; fileRef = F9BD5235136A370600548F93 /* IPConfigurationService.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -430,7 +429,6 @@
 		F9908CD61CAD7EA90063D0D0 /* udp_transmit.c in Sources */ = {isa = PBXBuildFile; fileRef = F9908CD31CAD7E950063D0D0 /* udp_transmit.c */; };
 		F9908CD71CAD7EBC0063D0D0 /* udp_transmit.h in Headers */ = {isa = PBXBuildFile; fileRef = F9908CD11CAD7E7E0063D0D0 /* udp_transmit.h */; };
 		F9908CD81CAD7EC10063D0D0 /* udp_transmit.h in Headers */ = {isa = PBXBuildFile; fileRef = F9908CD11CAD7E7E0063D0D0 /* udp_transmit.h */; };
-		F9953AED18BD346900C828A7 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9953AEC18BD346900C828A7 /* libio80211.a */; };
 		F99DF9210D340EA10045E43B /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F005640AC578BD00C5C101 /* client.c */; };
 		F99DF9230D340EA10045E43B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
 		F99DF9240D340EA10045E43B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
@@ -477,6 +475,8 @@
 		F9BBE03717557C190000FDF9 /* ICMPv6Socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F9BBE03517557C190000FDF9 /* ICMPv6Socket.c */; };
 		F9BBE03917557C310000FDF9 /* ICMPv6Socket.h in Headers */ = {isa = PBXBuildFile; fileRef = F9BBE03817557C310000FDF9 /* ICMPv6Socket.h */; };
 		F9BBE03A17557C310000FDF9 /* ICMPv6Socket.h in Headers */ = {isa = PBXBuildFile; fileRef = F9BBE03817557C310000FDF9 /* ICMPv6Socket.h */; };
+		F9BC1B9A27E16B5C003F78CE /* IO80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BC1B9927E16B5C003F78CE /* IO80211.framework */; };
+		F9BC1B9C27E16B91003F78CE /* IO80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9BC1B9B27E16B91003F78CE /* IO80211.framework */; };
 		F9C8ECC30D3306F50047CE42 /* arp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14A0AC4FD8800CF228A /* arp_session.h */; };
 		F9C8ECC40D3306F50047CE42 /* bootp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14D0AC4FD8900CF228A /* bootp_session.h */; };
 		F9C8ECC50D3306F50047CE42 /* FDSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1540AC4FD8900CF228A /* FDSet.h */; };
@@ -975,7 +975,7 @@
 		F913AB76104C95FB00334C02 /* stf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stf.c; path = IPConfiguration.bproj/stf.c; sourceTree = "<group>"; };
 		F918987B17010F0D005DD2A7 /* IPConfigurationLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IPConfigurationLog.c; path = bootplib/IPConfigurationLog.c; sourceTree = "<group>"; };
 		F918987E17010F1E005DD2A7 /* IPConfigurationLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPConfigurationLog.h; path = bootplib/IPConfigurationLog.h; sourceTree = "<group>"; };
-		F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = DEVELOPER_DIR; };
+		F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = /System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = "<absolute>"; };
 		F926601D1ABCBD01001F39AE /* libipconfig.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipconfig.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		F93AB5C92450C10500451B4E /* RouterAdvertisement.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RouterAdvertisement.c; path = bootplib/RouterAdvertisement.c; sourceTree = "<group>"; };
 		F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = RouterAdvertisement.h; path = bootplib/RouterAdvertisement.h; sourceTree = "<group>"; };
@@ -1004,7 +1004,6 @@
 		F95CF81B0FE1906B0009CF9D /* DHCPLease.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPLease.c; path = IPConfiguration.bproj/DHCPLease.c; sourceTree = "<group>"; };
 		F95CF81E0FE190830009CF9D /* DHCPLease.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPLease.h; path = IPConfiguration.bproj/DHCPLease.h; sourceTree = "<group>"; };
 		F9657D2E1368939A0000ED6B /* IPConfigurationService.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IPConfigurationService.c; sourceTree = "<group>"; };
-		F9694B4E0D3409EF00FA3943 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = /usr/local/lib/libio80211.a; sourceTree = "<absolute>"; };
 		F9694B9C0D340C0000FA3943 /* libbootplib.a */ = {isa = PBXFileReference; comments = embedded; explicitFileType = archive.ar; includeInIndex = 0; path = libbootplib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		F96BC2551ED3A3FB00C68C9B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		F9731B3D0FE6CFFD003744DD /* mylog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mylog.h; path = IPConfiguration.bproj/mylog.h; sourceTree = "<group>"; };
@@ -1037,14 +1036,13 @@
 		F990257E11BEA4070066DA8F /* RTADVSocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RTADVSocket.h; path = IPConfiguration.bproj/RTADVSocket.h; sourceTree = "<group>"; };
 		F9908CD11CAD7E7E0063D0D0 /* udp_transmit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udp_transmit.h; path = bootplib/udp_transmit.h; sourceTree = "<group>"; };
 		F9908CD31CAD7E950063D0D0 /* udp_transmit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = udp_transmit.c; path = bootplib/udp_transmit.c; sourceTree = "<group>"; };
-		F9953AEC18BD346900C828A7 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = /usr/local/lib/libio80211.a; sourceTree = "<group>"; };
 		F99DF92C0D340EA10045E43B /* ipconfig */ = {isa = PBXFileReference; comments = embedded; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9A24D72171C65D6003F7EE2 /* CGA.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = CGA.c; path = IPConfiguration.bproj/CGA.c; sourceTree = "<group>"; };
 		F9A24D73171C65D6003F7EE2 /* HostUUID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = HostUUID.c; path = IPConfiguration.bproj/HostUUID.c; sourceTree = "<group>"; };
 		F9A24D74171C65D6003F7EE2 /* RSAKey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RSAKey.c; path = IPConfiguration.bproj/RSAKey.c; sourceTree = "<group>"; };
 		F9A24D7D171C6629003F7EE2 /* CGA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CGA.h; path = IPConfiguration.bproj/CGA.h; sourceTree = "<group>"; };
 		F9A24D7F171C6629003F7EE2 /* RSAKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RSAKey.h; path = IPConfiguration.bproj/RSAKey.h; sourceTree = "<group>"; };
-		F9AE55C71ED3A6BD00746927 /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = DEVELOPER_DIR; };
+		F9AE55C71ED3A6BD00746927 /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = /System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = DEVELOPER_DIR; };
 		F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = linklocal_v6.c; path = IPConfiguration.bproj/linklocal_v6.c; sourceTree = "<group>"; };
 		F9B0DC15136F158200D7DF6C /* libipconfig.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipconfig.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9B822EA214340920034F1A6 /* DHCPv6Server.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DHCPv6Server.c; sourceTree = "<group>"; };
@@ -1060,6 +1058,8 @@
 		F9B8231121482C950034F1A6 /* com.apple.dhcp6d.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.dhcp6d.plist; sourceTree = "<group>"; };
 		F9BBE03517557C190000FDF9 /* ICMPv6Socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ICMPv6Socket.c; path = IPConfiguration.bproj/ICMPv6Socket.c; sourceTree = "<group>"; };
 		F9BBE03817557C310000FDF9 /* ICMPv6Socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ICMPv6Socket.h; path = IPConfiguration.bproj/ICMPv6Socket.h; sourceTree = "<group>"; };
+		F9BC1B9927E16B5C003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = /System/Library/PrivateFrameworks/IO80211.framework; sourceTree = "<absolute>"; };
+		F9BC1B9B27E16B91003F78CE /* IO80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IO80211.framework; path = /System/Library/PrivateFrameworks/IO80211.framework; sourceTree = "<absolute>"; };
 		F9BD5235136A370600548F93 /* IPConfigurationService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPConfigurationService.h; sourceTree = "<group>"; };
 		F9BD5236136A370600548F93 /* IPConfigurationServiceInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPConfigurationServiceInternal.h; sourceTree = "<group>"; };
 		F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */ = {isa = PBXFileReference; comments = "embedded\n"; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1095,13 +1095,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F91EBCB2216C29B700C806E3 /* libio80211.a in Frameworks */,
 				F92520F51ED3A965006EBFE4 /* ProtocolBuffer.framework in Frameworks */,
 				F9AE55C81ED3A6BD00746927 /* WirelessDiagnostics.framework in Frameworks */,
 				F9AE55C51ED3A66100746927 /* Foundation.framework in Frameworks */,
 				1562E1CD0AC5058F00CF228A /* CoreFoundation.framework in Frameworks */,
 				1562E1D00AC5059800CF228A /* SystemConfiguration.framework in Frameworks */,
 				1562E1D40AC505F700CF228A /* IOKit.framework in Frameworks */,
+				F9BC1B9A27E16B5C003F78CE /* IO80211.framework in Frameworks */,
 				1562E1D10AC505D300CF228A /* libbootplib.a in Frameworks */,
 				F9CD0085136F12E40049FFDC /* libbsm.dylib in Frameworks */,
 			);
@@ -1245,9 +1245,9 @@
 				F9C8ECDE0D3306F50047CE42 /* CoreFoundation.framework in Frameworks */,
 				F9C8ECDF0D3306F50047CE42 /* SystemConfiguration.framework in Frameworks */,
 				F9C8ECE00D3306F50047CE42 /* IOKit.framework in Frameworks */,
+				F9BC1B9C27E16B91003F78CE /* IO80211.framework in Frameworks */,
 				F9DCDCB50D340E3B00A504B0 /* libbootplib.a in Frameworks */,
 				F961A0D0136F150000F807CD /* libbsm.dylib in Frameworks */,
-				F9953AED18BD346900C828A7 /* libio80211.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1292,7 +1292,6 @@
 				1562E0BF0AC4FC5800CF228A /* External Frameworks and Libraries */,
 				1562DF9B0AC4F47B00CF228A /* Products */,
 				F9CD0084136F12E40049FFDC /* libbsm.dylib */,
-				F9953AEC18BD346900C828A7 /* libio80211.a */,
 				F9AE55C61ED3A6BD00746927 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -1406,7 +1405,6 @@
 			isa = PBXGroup;
 			children = (
 				1562DF9A0AC4F47B00CF228A /* libbootplib.a */,
-				F9694B4E0D3409EF00FA3943 /* libio80211.a */,
 				1562E0480AC4F8A100CF228A /* bootpd */,
 				1562E1480AC4FD1F00CF228A /* IPConfiguration.bundle */,
 				15F005600AC5789A00C5C101 /* ipconfig */,
@@ -1815,6 +1813,8 @@
 		F9AE55C61ED3A6BD00746927 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F9BC1B9927E16B5C003F78CE /* IO80211.framework */,
+				F9BC1B9B27E16B91003F78CE /* IO80211.framework */,
 				F9B822FC214341450034F1A6 /* CoreFoundation.framework */,
 				F9B822FD214341450034F1A6 /* SystemConfiguration.framework */,
 				F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */,
@@ -3139,7 +3139,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS_asan = "-fsanitize=address";
 				OTHER_LDFLAGS_asan = "-fsanitize=address";
-				STRIPFLAGS = "-S";
+				STRIPFLAGS = "-S -x";
 				TAPI_VERIFY_MODE = Pedantic;
 				"WARNING_CFLAGS[arch=*]" = "-Wall";
 			};
@@ -3161,7 +3161,6 @@
 		1562DF9E0AC4F47D00CF228A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = All;
@@ -3242,6 +3241,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPConfiguration;
 				PRODUCT_NAME = IPConfiguration;
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -3269,6 +3269,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPConfiguration;
 				PRODUCT_NAME = IPConfiguration;
 				SDKROOT = macosx.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -3294,7 +3295,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
@@ -3325,7 +3325,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
 				IS_ZIPPERED = YES;
@@ -3349,7 +3348,6 @@
 		15F005690AC578BE00C5C101 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
 				SDKROOT = macosx.internal;
@@ -3371,7 +3369,6 @@
 		15F007190AC580D000C5C101 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = bsdpc;
 				SDKROOT = macosx.internal;
@@ -3433,7 +3430,6 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -3498,7 +3494,6 @@
 		F95272F61EB29FC300C99E70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -3598,7 +3593,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3661,7 +3655,6 @@
 		F99DF92B0D340EA10045E43B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
@@ -3697,7 +3690,6 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -3803,7 +3795,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3840,7 +3831,6 @@
 		F9C8ECA90D3306BA0047CE42 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = embedded;
 				SDKROOT = iphoneos.internal;
@@ -3874,6 +3864,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPConfiguration;
 				PRODUCT_NAME = IPConfiguration;
 				SDKROOT = iphoneos.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -3904,6 +3895,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPConfiguration;
 				PRODUCT_NAME = IPConfiguration;
 				SDKROOT = iphoneos.internal;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -3998,7 +3990,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -4039,7 +4030,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/lib;

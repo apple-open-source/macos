@@ -11,6 +11,7 @@
 #import "HIDDevicePrivate.h"
 #import "HIDElementPrivate.h"
 #import <os/assumes.h>
+#import <os/lock_private.h>
 
 @implementation HIDManager {
     IOHIDManagerRef             _manager;
@@ -18,6 +19,8 @@
     HIDDeviceHandler            _deviceNotificationHandler;
     HIDReportHandler            _inputReportHandler;
     HIDBlock                    _cancelHandler;
+    bool                        _activated;
+    os_unfair_recursive_lock    _handlerLock;
 }
 
 - (instancetype)init
@@ -29,6 +32,7 @@
     }
     
     _manager = IOHIDManagerCreate(kCFAllocatorDefault, 0);
+    _handlerLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
 
     if (!_manager) {
         return nil;
@@ -46,6 +50,7 @@
     }
     
     _manager = IOHIDManagerCreate(kCFAllocatorDefault, (IOOptionBits)options);
+    _handlerLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
 
     if (!_manager) {
         return nil;
@@ -121,8 +126,11 @@ static void inputValueCallback(void *context, IOReturn result __unused,
 
 - (void)setInputElementHandler:(HIDManagerElementHandler)handler
 {
-    os_assert(!_elementHandler, "Input element handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_elementHandler == NULL, "Input element handler already set");
     _elementHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDManagerRegisterInputValueCallback(_manager,
                                            inputValueCallback,
                                            (__bridge void *)self);
@@ -174,8 +182,10 @@ static void deviceRemovedCallback(void *context,
 
 - (void)setDeviceNotificationHandler:(HIDDeviceHandler)handler
 {
-    os_assert(!_deviceNotificationHandler, "Device notification handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_deviceNotificationHandler == NULL, "Device notification handler already set");
     _deviceNotificationHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
     
     IOHIDManagerRegisterDeviceMatchingCallback(_manager,
                                                deviceAddedCallback,
@@ -209,8 +219,10 @@ static void inputReportCallback(void *context,
 
 - (void)setInputReportHandler:(HIDReportHandler)handler
 {
-    os_assert(!_inputReportHandler, "Input report handler already set");
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(_inputReportHandler == NULL, "Input report handler already set");
     _inputReportHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
     
     IOHIDManagerRegisterInputReportWithTimeStampCallback(_manager,
                                                          inputReportCallback,
@@ -219,7 +231,10 @@ static void inputReportCallback(void *context,
 
 - (void)setCancelHandler:(HIDBlock)handler
 {
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    os_assert(!_activated, "Cancel Handler cannot be set after HIDManager is activated");
     _cancelHandler = handler;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
 }
 
 - (void)setDispatchQueue:(dispatch_queue_t)queue
@@ -232,6 +247,11 @@ static void inputReportCallback(void *context,
     IOHIDManagerOpen(_manager, 0);
 }
 
+- (void)openWithOptions:(HIDManagerDeviceOptions)options
+{
+    IOHIDManagerOpen(_manager, (IOOptionBits)options);
+}
+
 - (void)close
 {
     IOHIDManagerClose(_manager, 0);
@@ -239,6 +259,10 @@ static void inputReportCallback(void *context,
 
 - (void)activate
 {
+    os_unfair_recursive_lock_lock(&_handlerLock);
+    _activated = true;
+    os_unfair_recursive_lock_unlock(&_handlerLock);
+
     IOHIDManagerSetCancelHandler(_manager, ^{
         // Block captures reference to self while cancellation hasn't completed.
         if (self->_cancelHandler) {

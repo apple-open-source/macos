@@ -27,9 +27,17 @@
  * $FreeBSD$
  */
 
+#ifdef __APPLE__
+char		*fetchname(const char *, bool *, int, const char **);
+#else
 char		*fetchname(const char *, bool *, int);
+#endif
 int		backup_file(const char *);
+#ifdef __APPLE__
+int		move_file(const char *, const char *, bool);
+#else
 int		move_file(const char *, const char *);
+#endif
 int		copy_file(const char *, const char *);
 void		say(const char *, ...)
 		    __attribute__((__format__(__printf__, 1, 2)));
@@ -46,6 +54,10 @@ void		ignore_signals(void);
 void		makedirs(const char *, bool);
 void		version(void);
 void		my_exit(int) __attribute__((noreturn));
+
+#ifdef __APPLE__
+const char	*quoted_name(const char *filename);
+#endif
 
 /* in mkpath.c */
 extern int mkpath(char *);

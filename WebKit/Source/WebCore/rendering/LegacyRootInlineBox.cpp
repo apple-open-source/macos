@@ -51,9 +51,9 @@ struct SameSizeAsLegacyRootInlineBox : public LegacyInlineFlowBox, public CanMak
     void* pointers[2];
 };
 
-COMPILE_ASSERT(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineBox), LegacyRootInlineBox_should_stay_small);
+static_assert(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineBox), "LegacyRootInlineBox should stay small");
 #if !ASSERT_ENABLED
-COMPILE_ASSERT(sizeof(WeakPtr<RenderObject>) == sizeof(void*), WeakPtr_should_be_same_size_as_raw_pointer);
+static_assert(sizeof(WeakPtr<RenderObject>) == sizeof(void*), "WeakPtr should be same size as raw pointer");
 #endif
 
 typedef HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
@@ -363,14 +363,14 @@ LayoutUnit LegacyRootInlineBox::lineSnapAdjustment(LayoutUnit delta) const
     if (!roundToInt(gridLineHeight))
         return 0;
 
-    LayoutUnit lineGridFontAscent = lineGrid->style().fontMetrics().ascent(baselineType());
+    LayoutUnit lineGridFontAscent = lineGrid->style().metricsOfPrimaryFont().ascent(baselineType());
     LayoutUnit lineGridFontHeight { lineGridBox->logicalHeight() };
     LayoutUnit firstTextTop { lineGridBlockOffset + lineGridBox->logicalTop() };
     LayoutUnit firstLineTopWithLeading = lineGridBlockOffset + lineGridBox->lineBoxTop();
     LayoutUnit firstBaselinePosition = firstTextTop + lineGridFontAscent;
 
     LayoutUnit currentTextTop { blockOffset + logicalTop() + delta };
-    LayoutUnit currentFontAscent = blockFlow().style().fontMetrics().ascent(baselineType());
+    LayoutUnit currentFontAscent = blockFlow().style().metricsOfPrimaryFont().ascent(baselineType());
     LayoutUnit currentBaselinePosition = currentTextTop + currentFontAscent;
 
     LayoutUnit lineGridPaginationOrigin = isHorizontal() ? layoutState->lineGridPaginationOrigin().height() : layoutState->lineGridPaginationOrigin().width();
@@ -469,7 +469,7 @@ const LegacyInlineBox* LegacyRootInlineBox::lastSelectedBox() const
     return nullptr;
 }
 
-LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
+LayoutUnit LegacyRootInlineBox::selectionTop() const
 {
     LayoutUnit selectionTop = m_lineTop;
     
@@ -514,7 +514,7 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
     if (auto* previousBox = prevRootBox())
         prevBottom = previousBox->selectionBottom();
     else
-        prevBottom = forHitTesting == ForHitTesting::Yes ? blockFlow().borderAndPaddingBefore() : selectionTop;
+        prevBottom = selectionTop;
 
     if (prevBottom < selectionTop && blockFlow().containsFloats()) {
         // This line has actually been moved further down, probably from a large line-height, but possibly because the
@@ -533,7 +533,7 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
 
 LayoutUnit LegacyRootInlineBox::selectionTopAdjustedForPrecedingBlock() const
 {
-    return blockFlow().adjustSelectionTopForPrecedingBlock(selectionTop());
+    return blockFlow().adjustEnclosingTopForPrecedingBlock(selectionTop());
 }
 
 LayoutUnit LegacyRootInlineBox::selectionBottom() const
@@ -677,7 +677,7 @@ void LegacyRootInlineBox::ascentAndDescentForBox(LegacyInlineBox& box, GlyphOver
 
     // Replaced boxes will return 0 for the line-height if line-box-contain says they are
     // not to be included.
-    if (box.renderer().isReplaced()) {
+    if (box.renderer().isReplacedOrInlineBlock()) {
         if (lineStyle().lineBoxContain().contains(LineBoxContain::Replaced)) {
             ascent = box.baselinePosition(baselineType());
             descent = roundToInt(box.lineHeight()) - ascent;
@@ -743,8 +743,8 @@ void LegacyRootInlineBox::ascentAndDescentForBox(LegacyInlineBox& box, GlyphOver
     }
     
     if (includeFontForBox(box) && !setUsedFont) {
-        LayoutUnit fontAscent { boxLineStyle.fontMetrics().ascent(baselineType()) };
-        LayoutUnit fontDescent { boxLineStyle.fontMetrics().descent(baselineType()) };
+        LayoutUnit fontAscent { boxLineStyle.metricsOfPrimaryFont().ascent(baselineType()) };
+        LayoutUnit fontDescent { boxLineStyle.metricsOfPrimaryFont().descent(baselineType()) };
         setAscentAndDescent(ascent, descent, fontAscent, fontDescent, ascentDescentSet);
         affectsAscent = fontAscent - box.logicalTop() > 0;
         affectsDescent = fontDescent + box.logicalTop() > 0;
@@ -754,26 +754,26 @@ void LegacyRootInlineBox::ascentAndDescentForBox(LegacyInlineBox& box, GlyphOver
         setAscentAndDescent(ascent, descent, glyphOverflow->top, glyphOverflow->bottom, ascentDescentSet);
         affectsAscent = glyphOverflow->top - box.logicalTop() > 0;
         affectsDescent = glyphOverflow->bottom + box.logicalTop() > 0;
-        glyphOverflow->top = std::min(glyphOverflow->top, std::max(0_lu, glyphOverflow->top - boxLineStyle.fontMetrics().ascent(baselineType())));
-        glyphOverflow->bottom = std::min(glyphOverflow->bottom, std::max(0_lu, glyphOverflow->bottom - boxLineStyle.fontMetrics().descent(baselineType())));
+        glyphOverflow->top = std::min(glyphOverflow->top, std::max(0_lu, glyphOverflow->top - boxLineStyle.metricsOfPrimaryFont().ascent(baselineType())));
+        glyphOverflow->bottom = std::min(glyphOverflow->bottom, std::max(0_lu, glyphOverflow->bottom - boxLineStyle.metricsOfPrimaryFont().descent(baselineType())));
     }
     
     if (includeInitialLetterForBox(box)) {
         bool canUseGlyphs = glyphOverflow && glyphOverflow->computeBounds;
-        auto letterAscent { baselineType() == AlphabeticBaseline ? LayoutUnit(boxLineStyle.fontMetrics().capHeight()) : (canUseGlyphs ? glyphOverflow->top : LayoutUnit(boxLineStyle.fontMetrics().ascent(baselineType()))) };
-        auto letterDescent { canUseGlyphs ? glyphOverflow->bottom : (box.isRootInlineBox() ? 0_lu : LayoutUnit(boxLineStyle.fontMetrics().descent(baselineType()))) };
+        auto letterAscent { baselineType() == AlphabeticBaseline ? LayoutUnit(boxLineStyle.metricsOfPrimaryFont().capHeight()) : (canUseGlyphs ? glyphOverflow->top : LayoutUnit(boxLineStyle.metricsOfPrimaryFont().ascent(baselineType()))) };
+        auto letterDescent { canUseGlyphs ? glyphOverflow->bottom : (box.isRootInlineBox() ? 0_lu : LayoutUnit(boxLineStyle.metricsOfPrimaryFont().descent(baselineType()))) };
         setAscentAndDescent(ascent, descent, letterAscent, letterDescent, ascentDescentSet);
         affectsAscent = letterAscent - box.logicalTop() > 0;
         affectsDescent = letterDescent + box.logicalTop() > 0;
         if (canUseGlyphs) {
-            glyphOverflow->top = std::min(glyphOverflow->top, std::max(0_lu, glyphOverflow->top - boxLineStyle.fontMetrics().ascent(baselineType())));
-            glyphOverflow->bottom = std::min(glyphOverflow->bottom, std::max(0_lu, glyphOverflow->bottom - boxLineStyle.fontMetrics().descent(baselineType())));
+            glyphOverflow->top = std::min(glyphOverflow->top, std::max(0_lu, glyphOverflow->top - boxLineStyle.metricsOfPrimaryFont().ascent(baselineType())));
+            glyphOverflow->bottom = std::min(glyphOverflow->bottom, std::max(0_lu, glyphOverflow->bottom - boxLineStyle.metricsOfPrimaryFont().descent(baselineType())));
         }
     }
 
     if (includeMarginForBox(box)) {
-        LayoutUnit ascentWithMargin = boxLineStyle.fontMetrics().ascent(baselineType());
-        LayoutUnit descentWithMargin = boxLineStyle.fontMetrics().descent(baselineType());
+        LayoutUnit ascentWithMargin = boxLineStyle.metricsOfPrimaryFont().ascent(baselineType());
+        LayoutUnit descentWithMargin = boxLineStyle.metricsOfPrimaryFont().descent(baselineType());
         if (box.parent() && !box.renderer().isTextOrLineBreak()) {
             ascentWithMargin += box.boxModelObject()->borderAndPaddingBefore() + box.boxModelObject()->marginBefore();
             descentWithMargin += box.boxModelObject()->borderAndPaddingAfter() + box.boxModelObject()->marginAfter();
@@ -798,8 +798,6 @@ LayoutUnit LegacyRootInlineBox::verticalPositionForBox(LegacyInlineBox* box, Ver
 
     // This method determines the vertical position for inline elements.
     bool firstLine = isFirstLine();
-    if (firstLine && !blockFlow().view().usesFirstLineRules())
-        firstLine = false;
 
     // Check the cache.
     bool isRenderInline = renderer->isRenderInline();
@@ -821,7 +819,7 @@ LayoutUnit LegacyRootInlineBox::verticalPositionForBox(LegacyInlineBox* box, Ver
     if (verticalAlign != VerticalAlign::Baseline) {
         const RenderStyle& parentLineStyle = firstLine ? parent->firstLineStyle() : parent->style();
         const FontCascade& font = parentLineStyle.fontCascade();
-        const FontMetrics& fontMetrics = font.fontMetrics();
+        const FontMetrics& fontMetrics = font.metricsOfPrimaryFont();
         int fontSize = font.pixelSize();
 
         LineDirectionMode lineDirection = parent->isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
@@ -837,7 +835,7 @@ LayoutUnit LegacyRootInlineBox::verticalPositionForBox(LegacyInlineBox* box, Ver
         else if (verticalAlign == VerticalAlign::TextBottom) {
             verticalPosition += fontMetrics.descent(baselineType());
             // lineHeight - baselinePosition is always 0 for replaced elements (except inline blocks), so don't bother wasting time in that case.
-            if (!renderer->isReplaced() || renderer->isInlineBlockOrInlineTable())
+            if (!renderer->isReplacedOrInlineBlock() || renderer->isInlineBlockOrInlineTable())
                 verticalPosition -= (renderer->lineHeight(firstLine, lineDirection) - renderer->baselinePosition(baselineType(), firstLine, lineDirection));
         } else if (verticalAlign == VerticalAlign::BaselineMiddle)
             verticalPosition += -renderer->lineHeight(firstLine, lineDirection) / 2 + renderer->baselinePosition(baselineType(), firstLine, lineDirection);
@@ -861,7 +859,7 @@ LayoutUnit LegacyRootInlineBox::verticalPositionForBox(LegacyInlineBox* box, Ver
 
 bool LegacyRootInlineBox::includeLeadingForBox(LegacyInlineBox& box) const
 {
-    if (box.renderer().isReplaced() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
+    if (box.renderer().isReplacedOrInlineBlock() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
         return false;
 
     auto lineBoxContain = renderer().style().lineBoxContain();
@@ -870,7 +868,7 @@ bool LegacyRootInlineBox::includeLeadingForBox(LegacyInlineBox& box) const
 
 bool LegacyRootInlineBox::includeFontForBox(LegacyInlineBox& box) const
 {
-    if (box.renderer().isReplaced() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
+    if (box.renderer().isReplacedOrInlineBlock() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
         return false;
     
     if (!box.behavesLikeText() && is<LegacyInlineFlowBox>(box) && !downcast<LegacyInlineFlowBox>(box).hasTextChildren())
@@ -881,7 +879,7 @@ bool LegacyRootInlineBox::includeFontForBox(LegacyInlineBox& box) const
 
 bool LegacyRootInlineBox::includeGlyphsForBox(LegacyInlineBox& box) const
 {
-    if (box.renderer().isReplaced() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
+    if (box.renderer().isReplacedOrInlineBlock() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
         return false;
     
     if (!box.behavesLikeText() && is<LegacyInlineFlowBox>(box) && !downcast<LegacyInlineFlowBox>(box).hasTextChildren())
@@ -892,7 +890,7 @@ bool LegacyRootInlineBox::includeGlyphsForBox(LegacyInlineBox& box) const
 
 bool LegacyRootInlineBox::includeInitialLetterForBox(LegacyInlineBox& box) const
 {
-    if (box.renderer().isReplaced() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
+    if (box.renderer().isReplacedOrInlineBlock() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
         return false;
     
     if (!box.behavesLikeText() && is<LegacyInlineFlowBox>(box) && !downcast<LegacyInlineFlowBox>(box).hasTextChildren())
@@ -903,7 +901,7 @@ bool LegacyRootInlineBox::includeInitialLetterForBox(LegacyInlineBox& box) const
 
 bool LegacyRootInlineBox::includeMarginForBox(LegacyInlineBox& box) const
 {
-    if (box.renderer().isReplaced() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
+    if (box.renderer().isReplacedOrInlineBlock() || (box.renderer().isTextOrLineBreak() && !box.behavesLikeText()))
         return false;
 
     return renderer().style().lineBoxContain().contains(LineBoxContain::InlineBox);

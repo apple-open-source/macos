@@ -1,11 +1,7 @@
-/*
- * Must come before including darwintest.h
- */
-#ifdef T_NAMESPACE
-#undef T_NAMESPACE
-#endif /* defined(T_NAMESPACE) */
+// Copyright (c) 2021-2022 Apple Inc.  All rights reserved.
 
 #include <darwintest.h>
+#include "test_utils.h"
 #include <fcntl.h>
 #include <inttypes.h>
 #ifndef PRIVATE
@@ -109,6 +105,7 @@ uncore_counts(int fd, uint64_t ctr_mask, uint64_t *counts)
 
 T_DECL(uncore_max_counters,
     "ensure that the maximum number of uncore countes is sane",
+    XNU_T_META_SOC_SPECIFIC,
     T_META_ASROOT(true))
 {
 	int nctrs = 0;
@@ -262,6 +259,7 @@ uncore_add_all(int fd, uint64_t event, int *nmonitors)
 T_DECL(uncore_accuracy,
     "ensure that the uncore counters count accurately",
     T_META_ASROOT(true),
+    XNU_T_META_SOC_SPECIFIC,
     T_META_MAYFAIL("rdar://88973518, threads need to be forced onto clusters"))
 {
 	int fd;
@@ -377,6 +375,7 @@ T_DECL(uncore_root_required,
 
 T_DECL(perf_uncore,
     "measure the latency of accessing the counters",
+    XNU_T_META_SOC_SPECIFIC,
     T_META_TAG_PERF)
 {
 	int fd;

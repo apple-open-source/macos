@@ -38,6 +38,7 @@ T_DECL(notify_benchmark_post,
 	"notify benchmark post",
 	T_META_EASYPERF(true),
 	T_META_EASYPERF_ARGS("-p notifyd"),
+    T_META_TAG_PERF,
 	T_META("owner", "Core Darwin Daemons & Tools"),
 	T_META("as_root", "false"))
 {
@@ -110,6 +111,7 @@ T_DECL(notify_benchmark_state,
        "notify benchmark state",
        T_META_EASYPERF(true),
        T_META_EASYPERF_ARGS("-p notifyd"),
+       T_META_TAG_PERF,
        T_META("owner", "Core Darwin Daemons & Tools"),
        T_META("as_root", "false"))
 {
@@ -187,6 +189,7 @@ T_DECL(notify_benchmark_check,
        "notify benchmark check",
        T_META_EASYPERF(true),
        T_META_EASYPERF_ARGS("-p notifyd"),
+       T_META_TAG_PERF,
        T_META("owner", "Core Darwin Daemons & Tools"),
        T_META("as_root", "false"))
 {
@@ -284,6 +287,7 @@ T_DECL(notify_benchmark_dispatch,
        "notify benchmark dispatch",
        T_META_EASYPERF(true),
        T_META_EASYPERF_ARGS("-p notifyd"),
+       T_META_TAG_PERF,
        T_META("owner", "Core Darwin Daemons & Tools"),
        T_META("as_root", "false"))
 {

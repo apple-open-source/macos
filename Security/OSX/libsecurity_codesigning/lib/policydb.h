@@ -36,17 +36,17 @@ namespace CodeSigning {
 namespace SQLite = SQLite3;
 
 
-static const char defaultDatabase[] = "/var/db/SystemPolicy";
+static const char defaultDatabase[] = "/private/var/db/SystemPolicy";
 static const char visibleSecurityFlagFile[] = "/var/db/.sp_visible"; /* old duchess/emir style configration */
 static const char prefsFile[] = "/var/db/SystemPolicy-prefs.plist";
 static const char lastRejectFile[] = "/var/db/.LastGKReject";
 static const char lastApprovedFile[] = "/var/db/.LastGKApp";
 static const char rearmTimerFile[] = "/var/db/.GKRearmTimer";
 
-static const char gkeAuthFile_old[] = "/var/db/gke.auth";
-static const char gkeSigsFile_old[] = "/var/db/gke.sigs";
-static const char gkeAuthFile[] = "/var/db/gke.bundle/Contents/Resources/gke.auth";
-static const char gkeSigsFile[] = "/var/db/gke.bundle/Contents/Resources/gke.sigs";
+static const char gkeAuthFile_old[] = "/private/var/db/gke.auth";
+static const char gkeSigsFile_old[] = "/private/var/db/gke.sigs";
+static const char gkeAuthFile[] = "/private/var/db/gke.bundle/Contents/Resources/gke.auth";
+static const char gkeSigsFile[] = "/private/var/db/gke.bundle/Contents/Resources/gke.sigs";
 
 static const unsigned int gkeCheckInterval = 60;	// seconds
 
@@ -105,7 +105,7 @@ CFStringRef typeNameFor(AuthorityType type)
 //
 class PolicyDatabase : public SQLite::Database {
 public:
-	PolicyDatabase(const char *path = NULL,	int flags = SQLITE_OPEN_READONLY);
+	PolicyDatabase(const char *path = NULL,	int flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_NOFOLLOW);
 	virtual ~PolicyDatabase();
 	
 public:

@@ -462,7 +462,7 @@ int BLEnsureSpecialAPFSVolumeUUIDPath(BLContextPtr context, const char *volumeDe
     io_service_t    service = IO_OBJECT_NULL;
     CFStringRef     uuidKey = NULL;
     CFStringRef     uuidVal = NULL;
-    int             len;
+    size_t          len;
 
     strlcpy(specialDevPath, _PATH_DEV, sizeof specialDevPath);
 

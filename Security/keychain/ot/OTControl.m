@@ -45,6 +45,77 @@
 #import <SecurityFoundation/SFKey.h>
 #endif
 
+@implementation OTControlArguments
+- (instancetype)init
+{
+    return [self initWithContainerName:OTCKContainerName
+                             contextID:OTDefaultContext
+                               altDSID:nil];
+}
+
+- (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration
+{
+    return [self initWithContainerName:configuration.containerName ?: OTCKContainerName
+                             contextID:configuration.context ?: OTDefaultContext
+                               altDSID:configuration.altDSID];
+}
+
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
+{
+    return [self initWithContainerName:OTCKContainerName
+                             contextID:OTDefaultContext
+                               altDSID:altDSID];
+}
+
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID
+{
+    if((self = [super init])) {
+        _containerName = containerName ?: OTCKContainerName;
+        _contextID = contextID;
+        _altDSID = altDSID;
+    }
+    return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<OTControlArguments: container:%@, context:%@, altDSID:%@>",
+            self.containerName,
+            self.contextID,
+            self.altDSID];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.contextID forKey:@"contextID"];
+    [coder encodeObject:self.containerName forKey:@"containerName"];
+    [coder encodeObject:self.altDSID forKey:@"altDSID"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
+    if((self = [super init])) {
+        _contextID = [coder decodeObjectOfClass:[NSString class] forKey:@"contextID"];
+        _containerName = [coder decodeObjectOfClass:[NSString class] forKey:@"containerName"];
+        _altDSID = [coder decodeObjectOfClass:[NSString class] forKey:@"altDSID"];
+    }
+    return self;
+}
+
+- (OTConfigurationContext*)makeConfigurationContext
+{
+    OTConfigurationContext* context = [[OTConfigurationContext alloc] init];
+    context.containerName = self.containerName;
+    context.context = self.contextID;
+    context.altDSID = self.altDSID;
+    return context;
+}
+@end
+
+
 @interface OTControl ()
 @property NSXPCConnection *connection;
 @property bool sync;
@@ -74,22 +145,21 @@
 }
 
 - (void)restore:(NSString *)contextID dsid:(NSString *)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID
-         reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply
+          reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, nil, error);
-    }] restore:contextID dsid:dsid secret:secret escrowRecordID:escrowRecordID reply:^(NSData* signingKeyData, NSData* encryptionKeyData, NSError *error) {
-        reply(signingKeyData, encryptionKeyData, error);
-    }];
+    reply(nil,
+          nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 -(void)reset:(void (^)(BOOL result, NSError* _Nullable error))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(NO, error);
-    }] reset:^(BOOL result, NSError * _Nullable error) {
-        reply(result, error);
-    }];
+    reply(NO,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)signingKey:(void (^)(NSData* result, NSError* _Nullable error))reply
@@ -98,12 +168,10 @@
 }
 
 - (void)octagonSigningPublicKey:(nonnull void (^)(NSData * _Nullable, NSError * _Nullable))reply {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, error);
-    }] octagonSigningPublicKey:^(NSData *signingKey, NSError * _Nullable error) {
-        reply(signingKey, error);
-    }];
-
+    reply(nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)encryptionKey:(void (^)(NSData* result, NSError* _Nullable error))reply
@@ -113,11 +181,10 @@
 
 - (void)octagonEncryptionPublicKey:(nonnull void (^)(NSData * _Nullable, NSError * _Nullable))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, error);
-    }] octagonEncryptionPublicKey:^(NSData *encryptionKey, NSError * _Nullable error) {
-        reply(encryptionKey, error);
-    }];
+    reply(nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)listOfRecords:(void (^)(NSArray* list, NSError* _Nullable error))reply
@@ -127,50 +194,48 @@
 
 - (void)listOfEligibleBottledPeerRecords:(nonnull void (^)(NSArray * _Nullable, NSError * _Nullable))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, error);
-    }] listOfEligibleBottledPeerRecords:^(NSArray *list, NSError * _Nullable error) {
-        reply(list, error);
-    }];
-    
+    reply(@[],
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
-- (void)signIn:(NSString*)altDSID container:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply
+- (void)appleAccountSignedIn:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] signIn:altDSID container:container context:contextID reply:^(NSError * _Nullable error) {
+    }] appleAccountSignedIn:arguments reply:^(NSError * _Nullable error) {
         reply(error);
     }];
 }
 
-- (void)signOut:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply
+- (void)appleAccountSignedOut:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] signOut:container context:contextID reply:^(NSError * _Nullable error) {
+    }] appleAccountSignedOut:arguments reply:^(NSError * _Nullable error) {
         reply(error);
     }];
 }
 
-- (void)notifyIDMSTrustLevelChangeForContainer:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply
+- (void)notifyIDMSTrustLevelChangeForAltDSID:(OTControlArguments*)arguments reply:(void (^)(NSError * _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] notifyIDMSTrustLevelChangeForContainer:container context:contextID reply:^(NSError * _Nullable error) {
+    }] notifyIDMSTrustLevelChangeForAltDSID:arguments reply:^(NSError * _Nullable error) {
         reply(error);
     }];
 }
 
-- (void)rpcEpochWithConfiguration:(OTJoiningConfiguration*)config
+- (void)rpcEpochWithArguments:(OTControlArguments*)arguments
+                    configuration:(OTJoiningConfiguration*)config
                             reply:(void (^)(uint64_t epoch,
                                             NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(0, error);
-    }] rpcEpochWithConfiguration:config reply:^(uint64_t epoch,
-                                                NSError * _Nullable error) {
+    }] rpcEpochWithArguments:arguments configuration:config reply:^(uint64_t epoch, NSError * _Nullable error) {
         reply(epoch, error);
     }];
 #else
@@ -178,18 +243,19 @@
 #endif
 }
 
-- (void)rpcPrepareIdentityAsApplicantWithConfiguration:(OTJoiningConfiguration*)config
-                                              reply:(void (^)(NSString * _Nullable peerID,
-                                                              NSData * _Nullable permanentInfo,
-                                                              NSData * _Nullable permanentInfoSig,
-                                                              NSData * _Nullable stableInfo,
-                                                              NSData * _Nullable stableInfoSig,
-                                                              NSError * _Nullable error))reply
+- (void)rpcPrepareIdentityAsApplicantWithArguments:(OTControlArguments*)arguments
+                                     configuration:(OTJoiningConfiguration*)config
+                                             reply:(void (^)(NSString * _Nullable peerID,
+                                                             NSData * _Nullable permanentInfo,
+                                                             NSData * _Nullable permanentInfoSig,
+                                                             NSData * _Nullable stableInfo,
+                                                             NSData * _Nullable stableInfoSig,
+                                                             NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(nil, nil, nil, nil, nil, error);
-    }] rpcPrepareIdentityAsApplicantWithConfiguration:config reply:^(NSString* pID, NSData* pI, NSData* piSig, NSData* si, NSData* siSig, NSError* e) {
+    }] rpcPrepareIdentityAsApplicantWithArguments:arguments configuration:config reply:^(NSString* pID, NSData* pI, NSData* piSig, NSData* si, NSData* siSig, NSError* e) {
         reply(pID, pI, piSig, si, siSig, e);
     }];
 #else
@@ -197,18 +263,19 @@
 #endif
 }
 
-- (void)rpcVoucherWithConfiguration:(OTJoiningConfiguration*)config
-                             peerID:(NSString*)peerID
-                      permanentInfo:(NSData *)permanentInfo
-                   permanentInfoSig:(NSData *)permanentInfoSig
-                         stableInfo:(NSData *)stableInfo
-                      stableInfoSig:(NSData *)stableInfoSig
-                              reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+- (void)rpcVoucherWithArguments:(OTControlArguments*)arguments
+                  configuration:(OTJoiningConfiguration*)config
+                         peerID:(NSString*)peerID
+                  permanentInfo:(NSData *)permanentInfo
+               permanentInfoSig:(NSData *)permanentInfoSig
+                     stableInfo:(NSData *)stableInfo
+                  stableInfoSig:(NSData *)stableInfoSig
+                          reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(nil, nil, error);
-    }] rpcVoucherWithConfiguration:config peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig reply:^(NSData* voucher, NSData* voucherSig, NSError * _Nullable error) {
+    }] rpcVoucherWithArguments:arguments configuration:config peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig reply:^(NSData* voucher, NSData* voucherSig, NSError * _Nullable error) {
         reply(voucher, voucherSig, error);
     }];
 #else
@@ -216,15 +283,16 @@
 #endif
 }
 
-- (void)rpcJoinWithConfiguration:(OTJoiningConfiguration*)config
-                       vouchData:(NSData*)vouchData
-                        vouchSig:(NSData*)vouchSig
-                           reply:(void (^)(NSError * _Nullable error))reply
+- (void)rpcJoinWithArguments:(OTControlArguments*)arguments
+               configuration:(OTJoiningConfiguration*)config
+                   vouchData:(NSData*)vouchData
+                    vouchSig:(NSData*)vouchSig
+                       reply:(void (^)(NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] rpcJoinWithConfiguration:config vouchData:vouchData vouchSig:vouchSig reply:^(NSError* e) {
+    }] rpcJoinWithArguments:arguments configuration:config vouchData:vouchData vouchSig:vouchSig reply:^(NSError* e) {
         reply(e);
     }];
 #else
@@ -239,155 +307,145 @@
                                        NSData* _Nullable signingPublicKey,
                                        NSError* _Nullable error))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, nil, nil, error);
-    }] preflightBottledPeer:contextID dsid:dsid reply:^(NSData* _Nullable entropy,
-                                                        NSString* _Nullable bottleID,
-                                                        NSData* _Nullable signingPublicKey,
-                                                        NSError* _Nullable error) {
-        reply(entropy, bottleID, signingPublicKey, error);
-    }];
+    reply(nil,
+          nil,
+          nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)launchBottledPeer:(NSString*)contextID
                  bottleID:(NSString*)bottleID
                     reply:(void (^ _Nullable)(NSError* _Nullable))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(error);
-    }] launchBottledPeer:contextID bottleID:bottleID reply:^(NSError * _Nullable error) {
-        reply(error);
-    }];
+    secnotice("octagon", "launchBottledPeer");
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)scrubBottledPeer:(NSString*)contextID
                 bottleID:(NSString*)bottleID
                    reply:(void (^ _Nullable)(NSError* _Nullable))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(error);
-    }] scrubBottledPeer:contextID bottleID:bottleID reply:reply];
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)status:(NSString* _Nullable)container
        context:(NSString*)context
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
-    [[self getConnection: ^(NSError* error) {
-        reply(nil, error);
-    }] status:container context:context reply:reply];
+    OTControlArguments *oca = [[OTControlArguments alloc] initWithContainerName:container contextID:context altDSID:nil];
+    [self status:oca reply:reply];
 }
 
-- (void)fetchEgoPeerID:(NSString* _Nullable)container
-               context:(NSString*)context
+- (void)status:(OTControlArguments*)arguments
+         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(nil, error);
+    }] status:arguments reply:reply];
+}
+
+- (void)fetchEgoPeerID:(OTControlArguments*)arguments
                  reply:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
-    }] fetchEgoPeerID:container context:context reply:reply];
+    }] fetchEgoPeerID:arguments reply:reply];
 }
 
-- (void)fetchCliqueStatus:(NSString* _Nullable)container
-                  context:(NSString*)context
+- (void)fetchCliqueStatus:(OTControlArguments*)arguments
             configuration:(OTOperationConfiguration*)configuration
                     reply:(void (^)(CliqueStatus cliqueStatus, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(CliqueStatusError, error);
-    }] fetchCliqueStatus:container context:context configuration:configuration reply:reply];
+    }] fetchCliqueStatus:arguments configuration:configuration reply:reply];
 }
 
-- (void)fetchTrustStatus:(NSString* _Nullable)container
-                 context:(NSString*)context
+- (void)fetchTrustStatus:(OTControlArguments*)arguments
            configuration:(OTOperationConfiguration *)configuration
                    reply:(void (^)(CliqueStatus status, NSString* peerID, NSNumber * _Nullable numberOfOctagonPeers, BOOL isExcluded, NSError * _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
-        reply(CliqueStatusError, false, NULL, false, error);
-    }] fetchTrustStatus:container context:context configuration:configuration reply:reply];
+        reply(CliqueStatusError, nil, nil, false, error);
+    }] fetchTrustStatus:arguments configuration:configuration reply:reply];
 }
 
-- (void)startOctagonStateMachine:(NSString* _Nullable)container
-                         context:(NSString*)context
+- (void)startOctagonStateMachine:(OTControlArguments*)arguments
                            reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] startOctagonStateMachine:container context:context reply:reply];
+    }] startOctagonStateMachine:arguments reply:reply];
 }
 
-- (void)resetAndEstablish:(NSString* _Nullable)container
-                  context:(NSString*)context
-                  altDSID:(NSString*)altDSID
+
+- (void)resetAndEstablish:(OTControlArguments*)arguments
               resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] resetAndEstablish:container context:context altDSID:altDSID resetReason:resetReason reply:reply];
+    }] resetAndEstablish:arguments resetReason:resetReason reply:reply];
 }
 
-- (void)establish:(NSString* _Nullable)container
-          context:(NSString*)context
-          altDSID:(NSString*)altDSID
-            reply:(void (^)(NSError* _Nullable error))reply
+- (void)establish:(OTControlArguments*)arguments
+            reply:(void (^)(NSError * _Nullable))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] establish:container context:context altDSID:altDSID reply:reply];
+    }] establish:arguments reply:reply];
 }
 
-- (void)leaveClique:(NSString* _Nullable)container
-            context:(NSString*)context
+- (void)leaveClique:(OTControlArguments*)arguments
               reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] leaveClique:container context:context reply:reply];
+    }] leaveClique:arguments reply:reply];
 }
 
-- (void)removeFriendsInClique:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)removeFriendsInClique:(OTControlArguments*)arguments
                       peerIDs:(NSArray<NSString*>*)peerIDs
                         reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] removeFriendsInClique:container context:context peerIDs:peerIDs reply:reply];
+    }] removeFriendsInClique:arguments peerIDs:peerIDs reply:reply];
 }
 
-- (void)peerDeviceNamesByPeerID:(NSString* _Nullable)container
-                        context:(NSString*)context
+- (void)peerDeviceNamesByPeerID:(OTControlArguments*)arguments
                           reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
-    }] peerDeviceNamesByPeerID:container context:context reply:reply];
+    }] peerDeviceNamesByPeerID:arguments reply:reply];
 }
 
-- (void)fetchAllViableBottles:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)fetchAllViableBottles:(OTControlArguments*)arguments
                         reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*> * _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, nil, error);
-    }] fetchAllViableBottles:container context:context reply:reply];
+    }] fetchAllViableBottles:arguments reply:reply];
 }
 
--(void)restore:(NSString* _Nullable)containerName
-     contextID:(NSString *)contextID
-    bottleSalt:(NSString *)bottleSalt
-       entropy:(NSData *)entropy
-bottleID:(NSString *)bottleID
-         reply:(void (^)(NSError * _Nullable))reply
+- (void)restoreFromBottle:(OTControlArguments*)arguments
+                  entropy:(NSData *)entropy
+                 bottleID:(NSString *)bottleID
+                    reply:(void (^)(NSError * _Nullable))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] restore:containerName contextID:contextID bottleSalt:bottleSalt entropy:entropy bottleID:bottleID reply:reply];
+    }] restoreFromBottle:arguments entropy:entropy bottleID:bottleID reply:reply];
 }
 
-- (void)fetchEscrowContents:(NSString* _Nullable)containerName
-                  contextID:(NSString *)contextID
+- (void)fetchEscrowContents:(OTControlArguments*)arguments
                       reply:(void (^)(NSData* _Nullable entropy,
                                       NSString* _Nullable bottleID,
                                       NSData* _Nullable signingPublicKey,
@@ -395,158 +453,143 @@ bottleID:(NSString *)bottleID
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, nil, nil, error);
-    }] fetchEscrowContents:containerName contextID:contextID reply:reply];
+    }] fetchEscrowContents:arguments reply:reply];
 }
 
-- (void) createRecoveryKey:(NSString* _Nullable)containerName
-                 contextID:(NSString *)contextID
-               recoveryKey:(NSString *)recoveryKey
-                     reply:(void (^)( NSError * error))reply
+- (void)createRecoveryKey:(OTControlArguments*)arguments
+              recoveryKey:(NSString *)recoveryKey
+                    reply:(void (^)( NSError * error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] createRecoveryKey:containerName contextID:contextID recoveryKey:recoveryKey reply:reply];
+    }] createRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
 }
 
-- (void) joinWithRecoveryKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void) joinWithRecoveryKey:(OTControlArguments*)arguments
                  recoveryKey:(NSString*)recoveryKey
                        reply:(void (^)(NSError * _Nullable))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] joinWithRecoveryKey:containerName contextID:contextID recoveryKey:recoveryKey reply:reply];
+    }] joinWithRecoveryKey:arguments recoveryKey:recoveryKey reply:reply];
 }
 
-- (void) createCustodianRecoveryKey:(NSString* _Nullable)containerName
-                          contextID:(NSString *)contextID
+- (void) createCustodianRecoveryKey:(OTControlArguments*)arguments
                                uuid:(NSUUID *_Nullable)uuid
                               reply:(void (^)(OTCustodianRecoveryKey *_Nullable crk, NSError *_Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, error);
-    }] createCustodianRecoveryKey:containerName contextID:contextID uuid:uuid reply:reply];
+    }] createCustodianRecoveryKey:arguments uuid:uuid reply:reply];
 }
 
-- (void) joinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                            contextID:(NSString *)contextID
+- (void) joinWithCustodianRecoveryKey:(OTControlArguments*)arguments
                  custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                 reply:(void(^)(NSError* _Nullable error)) reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] joinWithCustodianRecoveryKey:containerName contextID:contextID custodianRecoveryKey:crk reply:reply];
+    }] joinWithCustodianRecoveryKey:arguments custodianRecoveryKey:crk reply:reply];
 }
 
-- (void) preflightJoinWithCustodianRecoveryKey:(NSString* _Nullable)containerName
-                                     contextID:(NSString *)contextID
+- (void) preflightJoinWithCustodianRecoveryKey:(OTControlArguments*)arguments
                           custodianRecoveryKey:(OTCustodianRecoveryKey *)crk
                                          reply:(void(^)(NSError* _Nullable error)) reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] preflightJoinWithCustodianRecoveryKey:containerName contextID:contextID custodianRecoveryKey:crk reply:reply];
+    }] preflightJoinWithCustodianRecoveryKey:arguments custodianRecoveryKey:crk reply:reply];
 }
 
-- (void) removeCustodianRecoveryKey:(NSString* _Nullable)containerName
-                          contextID:(NSString *)contextID
+- (void) removeCustodianRecoveryKey:(OTControlArguments*)arguments
                                uuid:(NSUUID *)uuid
                               reply:(void (^)(NSError *_Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] removeCustodianRecoveryKey:containerName contextID:contextID uuid:uuid reply:reply];
+    }] removeCustodianRecoveryKey:arguments uuid:uuid reply:reply];
 }
 
-- (void) createInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
+- (void) createInheritanceKey:(OTControlArguments*)arguments
                          uuid:(NSUUID *_Nullable)uuid
                         reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, error);
-    }] createInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+    }] createInheritanceKey:arguments uuid:uuid reply:reply];
 }
 
-- (void) generateInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
-                         uuid:(NSUUID *_Nullable)uuid
-                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
+- (void) generateInheritanceKey:(OTControlArguments*)arguments
+                           uuid:(NSUUID *_Nullable)uuid
+                          reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(nil, error);
-    }] generateInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+    }] generateInheritanceKey:arguments uuid:uuid reply:reply];
 }
 
-- (void) storeInheritanceKey:(NSString* _Nullable)containerName
-                   contextID:(NSString *)contextID
+- (void) storeInheritanceKey:(OTControlArguments*)arguments
                           ik:(OTInheritanceKey *)ik
                        reply:(void (^)(NSError *_Nullable error)) reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] storeInheritanceKey:containerName contextID:contextID ik:ik reply:reply];
+    }] storeInheritanceKey:arguments ik:ik reply:reply];
 }
 
-- (void) joinWithInheritanceKey:(NSString* _Nullable)containerName
-                      contextID:(NSString *)contextID
+- (void) joinWithInheritanceKey:(OTControlArguments*)arguments
                  inheritanceKey:(OTInheritanceKey *)ik
                           reply:(void(^)(NSError* _Nullable error)) reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] joinWithInheritanceKey:containerName contextID:contextID inheritanceKey:ik reply:reply];
+    }] joinWithInheritanceKey:arguments inheritanceKey:ik reply:reply];
 }
 
-- (void) preflightJoinWithInheritanceKey:(NSString* _Nullable)containerName
-                               contextID:(NSString *)contextID
+- (void) preflightJoinWithInheritanceKey:(OTControlArguments*)arguments
                           inheritanceKey:(OTInheritanceKey *)ik
                                    reply:(void(^)(NSError* _Nullable error)) reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] preflightJoinWithInheritanceKey:containerName contextID:contextID inheritanceKey:ik reply:reply];
+    }] preflightJoinWithInheritanceKey:arguments inheritanceKey:ik reply:reply];
 }
 
-- (void) removeInheritanceKey:(NSString* _Nullable)containerName
-                    contextID:(NSString *)contextID
+- (void) removeInheritanceKey:(OTControlArguments*)arguments
                          uuid:(NSUUID *)uuid
                         reply:(void (^)(NSError *_Nullable error))reply
 {
     [[self getConnection:^(NSError *error) {
         reply(error);
-    }] removeInheritanceKey:containerName contextID:contextID uuid:uuid reply:reply];
+    }] removeInheritanceKey:arguments uuid:uuid reply:reply];
 }
 
-- (void)healthCheck:(NSString *)container
-            context:(NSString *)context
+- (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
               reply:(void (^)(NSError *_Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] healthCheck:container context:context skipRateLimitingCheck:skipRateLimitingCheck reply:reply];
+    }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck reply:reply];
 }
 
-- (void)waitForOctagonUpgrade:(NSString* _Nullable)container
-                      context:(NSString*)context
+- (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] waitForOctagonUpgrade:container context:context reply:reply];
+    }] waitForOctagonUpgrade:arguments reply:reply];
 }
 
-- (void)postCDPFollowupResult:(BOOL)success
+- (void)postCDPFollowupResult:(OTControlArguments*)arguments
+                      success:(BOOL)success
                          type:(OTCliqueCDPContextType)type
                         error:(NSError * _Nullable)error
-                containerName:(NSString* _Nullable)containerName
-                  contextName:(NSString *)contextName
                         reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
-    }] postCDPFollowupResult:success type:type error:[SecXPCHelper cleanseErrorForXPC:error] containerName:containerName contextName:contextName reply:reply];
+    }] postCDPFollowupResult:arguments success:success type:type error:[SecXPCHelper cleanseErrorForXPC:error] reply:reply];
 }
 
 - (void)tapToRadar:(NSString *)action
@@ -559,133 +602,136 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] tapToRadar:action description:description radar:radar reply:reply];
 }
 
-- (void)refetchCKKSPolicy:(NSString* _Nullable)container
-                contextID:(NSString*)contextID
+- (void)refetchCKKSPolicy:(OTControlArguments*)arguments
                     reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] refetchCKKSPolicy:container contextID:contextID reply:reply];
+    }] refetchCKKSPolicy:arguments reply:reply];
 }
 
-- (void)setCDPEnabled:(NSString* _Nullable)containerName
-            contextID:(NSString*)contextID
+- (void)setCDPEnabled:(OTControlArguments*)arguments
                 reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
-    }] setCDPEnabled:containerName contextID:contextID reply:reply];
+    }] setCDPEnabled:arguments reply:reply];
 }
 
-- (void)getCDPStatus:(NSString* _Nullable)containerName
-           contextID:(NSString*)contextID
+- (void)getCDPStatus:(OTControlArguments*)arguments
                reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(OTCDPStatusUnknown, connectionError);
-    }] getCDPStatus:containerName contextID:contextID reply:reply];
+    }] getCDPStatus:arguments reply:reply];
 }
 
-- (void)fetchEscrowRecords:(NSString * _Nullable)container
-                 contextID:(NSString*)contextID
+- (void)fetchEscrowRecords:(OTControlArguments*)arguments
                 forceFetch:(BOOL)forceFetch
                      reply:(void (^)(NSArray<NSData*>* _Nullable records,
                                      NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(nil, connectionError);
-    }] fetchEscrowRecords:container contextID:contextID forceFetch:forceFetch reply:reply];
+    }] fetchEscrowRecords:arguments forceFetch:forceFetch reply:reply];
 }
 
-- (void)setUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
-                                 contextID:(NSString*)contextID
+- (void)setUserControllableViewsSyncStatus:(OTControlArguments*)arguments
                                    enabled:(BOOL)enabled
                                      reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(NO, connectionError);
-    }] setUserControllableViewsSyncStatus:containerName contextID:contextID enabled:enabled reply:reply];
+    }] setUserControllableViewsSyncStatus:arguments enabled:enabled reply:reply];
 
 }
 
-- (void)fetchUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
-                                   contextID:(NSString*)contextID
+- (void)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(NO, connectionError);
-    }] fetchUserControllableViewsSyncStatus:containerName contextID:contextID reply:reply];
+    }] fetchUserControllableViewsSyncStatus:arguments reply:reply];
 }
 
-- (void)invalidateEscrowCache:(NSString * _Nullable)containerName
-                    contextID:(NSString*)contextID
+- (void)invalidateEscrowCache:(OTControlArguments*)arguments
                         reply:(nonnull void (^)(NSError * _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
-    }] invalidateEscrowCache:containerName contextID:contextID reply:reply];
+    }] invalidateEscrowCache:arguments reply:reply];
 }
 
-- (void)resetAccountCDPContents:(NSString* _Nullable)containerName
-                      contextID:(NSString*)contextID
+- (void)resetAccountCDPContents:(OTControlArguments*)arguments
                           reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
-    }] resetAccountCDPContents:containerName contextID:contextID reply:reply];
+    }] resetAccountCDPContents:arguments reply:reply];
 }
 
-- (void)setLocalSecureElementIdentity:(NSString* _Nullable)containerName
-                            contextID:(NSString*)contextID
+- (void)setLocalSecureElementIdentity:(OTControlArguments*)arguments
                 secureElementIdentity:(OTSecureElementPeerIdentity*)secureElementIdentity
                                 reply:(void (^)(NSError* _Nullable))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(connectionError);
-    }] setLocalSecureElementIdentity:containerName contextID:contextID secureElementIdentity:secureElementIdentity reply:reply];
+    }] setLocalSecureElementIdentity:arguments secureElementIdentity:secureElementIdentity reply:reply];
 
 }
 
-- (void)removeLocalSecureElementIdentityPeerID:(NSString* _Nullable)containerName
-                                     contextID:(NSString*)contextID
+- (void)removeLocalSecureElementIdentityPeerID:(OTControlArguments*)arguments
                    secureElementIdentityPeerID:(NSData*)sePeerID
                                          reply:(void (^)(NSError* _Nullable))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(connectionError);
-    }] removeLocalSecureElementIdentityPeerID:containerName contextID:contextID secureElementIdentityPeerID:sePeerID reply:reply];
+    }] removeLocalSecureElementIdentityPeerID:arguments secureElementIdentityPeerID:sePeerID reply:reply];
 }
 
-- (void)fetchTrustedSecureElementIdentities:(NSString* _Nullable)containerName
-                                  contextID:(NSString*)contextID
+- (void)fetchTrustedSecureElementIdentities:(OTControlArguments*)arguments
                                       reply:(void (^)(OTCurrentSecureElementIdentities* currentSet,
                                                       NSError* replyError))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(nil, connectionError);
-    }] fetchTrustedSecureElementIdentities:containerName contextID:contextID reply:reply];
+    }] fetchTrustedSecureElementIdentities:arguments reply:reply];
 }
 
 
-- (void)waitForPriorityViewKeychainDataRecovery:(NSString* _Nullable)containerName
-                                      contextID:(NSString*)contextID
+- (void)waitForPriorityViewKeychainDataRecovery:(OTControlArguments*)arguments
                                           reply:(void (^)(NSError* _Nullable replyError))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(connectionError);
-    }] waitForPriorityViewKeychainDataRecovery:containerName contextID:contextID reply:reply];
+    }] waitForPriorityViewKeychainDataRecovery:arguments reply:reply];
 }
 
-- (void)tlkRecoverabilityForEscrowRecordData:(NSString* _Nullable)containerName
-                                   contextID:(NSString*)contextID
+- (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply
 {
     [[self getConnection:^(NSError *connectionError) {
         reply(nil, connectionError);
-    }] tlkRecoverabilityForEscrowRecordData:containerName contextID:contextID recordData:recordData reply:reply];
+    }] tlkRecoverabilityForEscrowRecordData:arguments recordData:recordData reply:reply];
 }
 
+- (void)deliverAKDeviceListDelta:(NSDictionary*)notificationDictionary
+                           reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] deliverAKDeviceListDelta:notificationDictionary reply:reply];
+}
+
+- (void)setMachineIDOverride:(OTControlArguments*)arguments
+                   machineID:(NSString*)machineID
+                       reply:(void (^)(NSError* _Nullable replyError))reply
+{
+    [[self getConnection:^(NSError *connectionError) {
+        reply(connectionError);
+    }] setMachineIDOverride:arguments machineID:machineID reply:reply];
+}
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {
     return [OTControl controlObject:false error:error];

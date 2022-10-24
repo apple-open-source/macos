@@ -364,6 +364,21 @@ cupsdLoadAllClasses(void)
 			"Bad AuthInfoRequired on line %d of classes.conf.",
 			linenum);
     }
+    else if (!_cups_strcasecmp(line, "AuthInfo_oauth_uri"))
+    {
+      if (value)
+        cupsdSetString(&p->oauth_uri, value);
+    }
+    else if (!_cups_strcasecmp(line, "AuthInfo_oauth_scope"))
+    {
+      if (value)
+        cupsdSetString(&p->oauth_scope, value);
+    }
+    else if (!_cups_strcasecmp(line, "AuthInfo_extension_ident"))
+    {
+      if (value)
+        cupsdSetString(&p->source_app, value);
+    }
     else if (!_cups_strcasecmp(line, "Info"))
     {
       if (value)
@@ -746,6 +761,16 @@ cupsdSaveAllClasses(void)
 
       cupsFilePutConf(fp, "AuthInfoRequired", value);
     }
+
+    // HEY, is this the same code as in printers.c?  Yes, of course it is.
+    if (pclass->oauth_uri)
+      cupsFilePutConf(fp, "AuthInfo_oauth_uri", pclass->oauth_uri);
+
+    if (pclass->oauth_scope)
+      cupsFilePutConf(fp, "AuthInfo_oauth_scope", pclass->oauth_scope);
+
+    if (pclass->source_app)
+      cupsFilePutConf(fp, "AuthInfo_extension_ident", pclass->source_app);
 
     if (pclass->info)
       cupsFilePutConf(fp, "Info", pclass->info);

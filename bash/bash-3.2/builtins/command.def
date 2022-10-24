@@ -106,6 +106,12 @@ command_builtin (list)
 
 	  any_found += found;
 	}
+#ifdef __APPLE__
+      if (any_found && (ferror (stdout) != 0 || fflush (stdout) != 0)) {
+          builtin_error ("failed to flush stdout");
+          return (EXECUTION_FAILURE);
+      }
+#endif
       return (any_found ? EXECUTION_SUCCESS : EXECUTION_FAILURE);
     }
 
@@ -142,18 +148,18 @@ command_builtin (list)
   command->value.Simple->redirects = (REDIRECT *)NULL;
   command->flags |= COMMAND_BUILTIN_FLAGS;
   command->value.Simple->flags |= COMMAND_BUILTIN_FLAGS;
-#if 0
   /* This breaks for things like ( cd /tmp ; command z ababa ; echo next )
      or $(command echo a ; command echo b;) or even
-     { command echo a; command echo b; } & */
+     { command echo a; command echo b; } & if we aren't careful.  Just avoid it
+     for backgrounded jobs and continue forking if we're a part of a pipe or any
+     of the other above-mentioned sub-shell scenarios. */
   /* If we're in a subshell, see if we can get away without forking
      again, since we've already forked to run this builtin. */
-  if (subshell_environment)
+  if ((subshell_environment & (SUBSHELL_ASYNC | SUBSHELL_PIPE)) == SUBSHELL_ASYNC)
     {
       command->flags |= CMD_NO_FORK;
       command->value.Simple->flags |= CMD_NO_FORK;
     }
-#endif
   add_unwind_protect ((char *)dispose_command, command);
   result = execute_command (command);
 

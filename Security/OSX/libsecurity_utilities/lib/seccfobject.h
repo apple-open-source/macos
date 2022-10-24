@@ -33,6 +33,8 @@
 
 #if( __cplusplus <= 201103L)
 #include <stdatomic.h>
+#else
+#include <atomic>
 #endif
 
 namespace Security {

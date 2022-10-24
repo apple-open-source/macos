@@ -953,27 +953,10 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     __block CFErrorRef error = NULL;
     __block bool ok = true;
     ok &= kc_with_dbt(true, &error, ^bool(SecDbConnectionRef dbt) {
-        if (checkV12DevEnabled()) { // item is in new format, turn it into an old format item
-            NSString* sql = [NSString stringWithFormat:@"SELECT metadatakeydata FROM metadatakeys WHERE keyclass = %d", key_class_ak];
-            __block NSData* key;
-            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
-                ok &= SecDbStep(dbt, stmt, &error, ^(bool *stop) {
-                    NSData* wrappedKey = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
-                    SecDbKeychainSerializedMetadataKey* mdkdata = [[SecDbKeychainSerializedMetadataKey alloc] initWithData:wrappedKey];
-                    key = mdkdata.akswrappedkey;
-                });
-            });
-            sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = 0, data = ?, metadatakeydata = ? WHERE keyclass = %d", key_class_ak];
-            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt *stmt) {
-                ok &= SecDbBindBlob(stmt, 1, key.bytes, key.length, SQLITE_TRANSIENT, &error);
-                ok &= SecDbStep(dbt, stmt, &error, NULL);
-            });
-        } else {
-            NSString* sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = %d WHERE keyclass = %d", 0, key_class_ak];
-            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
-                ok &= SecDbStep(dbt, stmt, &error, NULL);
-            });
-        }
+        NSString* sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = %d WHERE keyclass = %d", 0, key_class_ak];
+        ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
+            ok &= SecDbStep(dbt, stmt, &error, NULL);
+        });
         return ok;
     });
 

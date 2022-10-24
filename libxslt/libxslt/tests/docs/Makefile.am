@@ -187,6 +187,41 @@ EXTRA_DIST =	\
 	bug-185.xml \
 	bug-186.xml \
 	bug-187.xml \
+	bug-188.xml \
+	bug-189.xml \
+	bug-190.xml \
+	bug-191.xml \
+	bug-192.xml \
+	bug-193.xml \
+	bug-194.xml \
+	bug-195.xml \
+	bug-196.xml \
+	bug-197.xml \
+	bug-198.xml \
+	bug-199.xml \
+	bug-200.xml \
+	bug-201.xml \
+	bug-202.xml \
+	bug-203.xml \
+	bug-204.xml \
+	bug-205.xml \
+	bug-206.xml \
+	bug-207.xml \
+	bug-208.xml \
+	bug-209.xml \
+	bug-210.xml \
+	bug-211.xml \
+	bug-212.xml \
+	bug-213.xml \
+	bug-214.xml \
+	bug-215.xml \
+	bug-216.xml \
+	bug-217.xml \
+	bug-218.xml \
+	bug-219.xml \
+	bug-220.xml \
+	bug-221.xml \
+	bug-222.xml \
 	character.xml \
 	date_add.xml \
 	array.xml \

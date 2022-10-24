@@ -4,10 +4,16 @@
 
 #import <Foundation/Foundation.h>
 #import <AppleFeatures/AppleFeatures.h>
-#import "keychain/ot/OTClique.h"
 #import <TrustedPeers/TrustedPeers.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
+
+#import <AppleAccount/AppleAccount.h>
+#import <AppleAccount/AppleAccount_Private.h>
+#import <AppleAccount/ACAccount+AppleAccount.h>
+
 #include "keychain/ckks/CKKSPeer.h"
+#import "keychain/ot/OTClique.h"
+#import "keychain/ot/OTAccountsAdapter.h"
 
 @class OTSecureElementPeerIdentity;
 @class OTCurrentSecureElementIdentities;
@@ -17,12 +23,12 @@ NS_ASSUME_NONNULL_BEGIN
 // This file is for translation of C/Obj-C APIs into swift-friendly things
 
 @interface TestsObjectiveC : NSObject
-+ (void)setNewRecoveryKeyWithData:(OTConfigurationContext *)ctx
++ (void)setNewRecoveryKeyWithData:(OTConfigurationContext*)ctx
                       recoveryKey:(NSString*)recoveryKey
                             reply:(void(^)(void* rk,
                                            NSError* _Nullable error))reply;
 
-+ (void)recoverOctagonUsingData:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply;
 
@@ -45,6 +51,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)clearLastRowID;
 + (void)clearErrorInsertionDictionary;
 + (void)setErrorAtRowID:(int)errorCode;
++ (void)setACAccountStoreWithInvalidationError:(id<OTAccountsAdapter>)adapter;
++ (void)setACAccountStoreWithRandomError:(id<OTAccountsAdapter>)adapter;
++ (int)getInvocationCount;
++ (void)clearInvocationCount;
++ (BOOL)isPlatformHomepod;
 @end
 
 // The swift-based OctagonTests can't call OctagonTrust methods. Bridge them!
@@ -62,6 +73,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 - (BOOL)waitForPriorityViewKeychainDataRecovery:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

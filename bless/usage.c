@@ -41,114 +41,140 @@
 #include "protos.h"
 
 void usage(void) {
+    BLPreBootEnvType firmwareType = getPrebootType();
+
     fprintf(stderr, "Usage: %s [options]\n", getprogname());
-    fputs(
-"\t--help\t\tThis usage statement\n"
-"\n"
-"Info Mode:\n"
-"\t--info [dir]\tPrint blessing information for a specific volume, or the\n"
-"\t\t\tcurrently active boot volume if <dir> is not specified\n"
-"\t\t\t(For Apple Silicon, --info option is only supported for external devices)\n"
-"\t--getBoot\tSuppress normal output and print the active boot volume\n"
-"\t--version\tPrint bless version number\n"
-"\t--plist\t\tFor any output type, use a plist representation\n"
-"\t--verbose\tVerbose output\n"
-"\n"
-#if !TARGET_CPU_ARM64
-"File/Folder Mode:\n"
-"\t--file file\tSet <file> as the blessed boot file\n"
-"\t--folder dir\tSet <dir> as the blessed directory\n"
-"\t--bootinfo [file]\tUse <file> to create a \"BootX\" file in the\n"
-"\t\t\tblessed dir\n"
-"\t--bootefi [file]\tUse <file> to create a \"boot.efi\" file in the\n"
-"\t\t\tblessed dir\n"
-"\t--setBoot\tSet firmware to boot from this volume\n"
-"\t--openfolder dir\tSet <dir> to be the visible Finder directory\n"
-"\t--create-snapshot\t Create an APFS snapshot of this volume\n"
-"\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
-"\t--verbose\tVerbose output\n"
-"\n"
-#else
-"File/Folder Mode: available only for external storage devices\n"
-"\t--file file\tSet <file> as the blessed boot file\n"
-"\t--folder dir\tSet <dir> as the blessed directory\n"
-"\t--setBoot\tSet firmware to boot from this volume\n"
-"\t--create-snapshot\t Create an APFS snapshot of this volume\n"
-"\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
-"\t--verbose\tVerbose output\n"
-"\n"
-#endif  /* TARGET_CPU_ARM64 */
-"Mount Mode:\n"
-"\t--mount dir\tUse this mountpoint in conjunction with --setBoot\n"
-"\t--file file\tSet firmware to boot from <file>\n"
-"\t--setBoot\tSet firmware to boot from this volume\n"
-#if TARGET_CPU_ARM64
-"\t--user\t Specify a user other than the one who invoked the tool\n"
-"\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
-"\t--passpromt\t Explicitly ask to be prompted for the password.\n"
-#endif
-"\t--verbose\tVerbose output\n"
-"\n"
-"Device Mode:\n"
-"\t--device dev\tUse this block device in conjunction with --setBoot\n"
-"\t--setBoot\tSet firmware to boot from this volume\n"
-#if TARGET_CPU_ARM64
-"\t--user\t Specify a user other than the one who invoked the tool\n"
-"\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
-"\t--passpromt\t Explicitly ask to be prompted for the password.\n"
-#endif
-"\t--verbose\tVerbose output\n"
-"\n"
-#if TARGET_CPU_ARM64
-"Snapshot options:\n"
-"\t--create-snapshot\t Create an APFS snapshot of this volume\n"
-"\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
-"\t--user\t Specify a user other than the one who invoked the tool\n"
-"\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
-"\t--passpromt\t Explicitly ask to be prompted for the password.\n"
-"\n"
-#else  /* TARGET_CPU_ARM64 */
-"NetBoot Mode:\n"
-"\t--netboot\tSet firmware to boot from the network\n"
-"\t--server url\tUse BDSP to fetch boot parameters from <url>\n"
-"\t--verbose\tVerbose output\n"
-#endif  /* TARGET_CPU_ARM64 */
-          ,
-          stderr);
-    
+
+    if (firmwareType != kBLPreBootEnvType_iBoot) {
+        fputs(
+              "\t--help\t\tThis usage statement\n"
+              "\n"
+              "Info Mode:\n"
+              "\t--info [dir]\tPrint blessing information for a specific volume, or the\n"
+              "\t\t\tcurrently active boot volume if <dir> is not specified\n"
+              "\t\t\t(For Apple Silicon, --info option is only supported for external devices)\n"
+              "\t--getBoot\tSuppress normal output and print the active boot volume\n"
+              "\t--version\tPrint bless version number\n"
+              "\t--plist\t\tFor any output type, use a plist representation\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "File/Folder Mode:\n"
+              "\t--file file\tSet <file> as the blessed boot file\n"
+              "\t--folder dir\tSet <dir> as the blessed directory\n"
+              "\t--bootefi [file]\tUse <file> to create a \"boot.efi\" file in the\n"
+              "\t\t\tblessed dir\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--create-snapshot\t Create an APFS snapshot of this volume\n"
+              "\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "Mount Mode:\n"
+              "\t--mount dir\tUse this mountpoint in conjunction with --setBoot\n"
+              "\t--file file\tSet firmware to boot from <file>\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--user\t Specify a user other than the one who invoked the tool\n"
+              "\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
+              "\t--passpromt\t Explicitly ask to be prompted for the password.\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "Device Mode:\n"
+              "\t--device dev\tUse this block device in conjunction with --setBoot\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--user\t Specify a user other than the one who invoked the tool\n"
+              "\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
+              "\t--passpromt\t Explicitly ask to be prompted for the password.\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "NetBoot Mode:\n"
+              "\t--netboot\tSet firmware to boot from the network\n"
+              "\t--server url\tUse BDSP to fetch boot parameters from <url>\n"
+              "\t--verbose\tVerbose output\n",
+              stderr);
+    } else {
+        fputs(
+              "\t--help\t\tThis usage statement\n"
+              "\n"
+              "Info Mode:\n"
+              "\t--info [dir]\tPrint blessing information for a specific volume, or the\n"
+              "\t\t\tcurrently active boot volume if <dir> is not specified\n"
+              "\t\t\t(For Apple Silicon, --info option is only supported for external devices)\n"
+              "\t--getBoot\tSuppress normal output and print the active boot volume\n"
+              "\t--version\tPrint bless version number\n"
+              "\t--plist\t\tFor any output type, use a plist representation\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "File/Folder Mode: available only for external storage devices\n"
+              "\t--file file\tSet <file> as the blessed boot file\n"
+              "\t--folder dir\tSet <dir> as the blessed directory\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--create-snapshot\t Create an APFS snapshot of this volume\n"
+              "\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "Mount Mode:\n"
+              "\t--mount dir\tUse this mountpoint in conjunction with --setBoot\n"
+              "\t--file file\tSet firmware to boot from <file>\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "Device Mode:\n"
+              "\t--device dev\tUse this block device in conjunction with --setBoot\n"
+              "\t--setBoot\tSet firmware to boot from this volume\n"
+              "\t--verbose\tVerbose output\n"
+              "\n"
+              "Snapshot options:\n"
+              "\t--create-snapshot\t Create an APFS snapshot of this volume\n"
+              "\t--last-sealed-snapshot\t Revert back to the previously signed APFS snapshot\n"
+              "\t--user\t Specify a user other than the one who invoked the tool\n"
+              "\t--stdinpass\t Collect a local owner password from stdin without prompting.\n"
+              "\t--passpromt\t Explicitly ask to be prompted for the password.\n"
+              "\n",
+              stderr);
+    }
     exit(1);
 }
 
 /* Basically lifted from the man page */
 void usage_short(void) {
+    BLPreBootEnvType firmwareType = getPrebootType();
+
     fprintf(stderr, "Usage: %s [options]\n", getprogname());
-    fputs(
-"bless --help\n"
-"\n"
-"bless --folder directory [--file file]\n"
-"\t[--bootinfo [file]] [--bootefi [file]]\n"
-"\t[--setBoot] [--openfolder directory]\n"
-#if TARGET_CPU_ARM64
-"\t(--folder option is supported for external devices only on apple silicon)\n"
-"\t(--file option is supported for external devices only on apple silicon)\n"
-"\n"
-"bless --mount volume \n"
-#endif
-"\t[--create-snapshot] [--last-sealed-snapshot] [--user] [--stdinpass] [--verbose]\n"
-"\n"
-"bless --mount directory [--file file] [--setBoot] [--user] [--stdinpass] [--verbose]\n"
-"\n"
-"bless --device device [--setBoot] [--user] [--stdinpass] [--verbose]\n"
-"\n"
-#if !TARGET_CPU_ARM64
-"bless --netboot --server url [--verbose]\n"
-"\n"
-#endif
-"bless --info [directory] [--getBoot] [--plist] [--verbose] [--version]\n"
-#if TARGET_CPU_ARM64
-"\t(For Apple Silicon, --info option is only supported for external devices)\n"
-#endif
-,
-	  stderr);
+    if (firmwareType != kBLPreBootEnvType_iBoot) {
+        fputs(
+              "bless --help\n"
+              "\n"
+              "bless --folder directory [--file file]\n"
+"\t[--bootefi [file]]\n"
+"\t[--setBoot]\n"
+              "\t[--create-snapshot] [--last-sealed-snapshot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --mount directory [--file file] [--setBoot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --device device [--setBoot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --netboot --server url [--verbose]\n"
+              "\n"
+              "bless --info [directory] [--getBoot] [--plist] [--verbose] [--version]\n",
+              stderr);
+    } else {
+        fputs(
+              "bless --help\n"
+              "\n"
+              "\t(--folder option is supported for external devices only on apple silicon)\n"
+              "\t(--file option is supported for external devices only on apple silicon)\n"
+              "\n"
+              "bless --mount volume \n"
+              "\t[--create-snapshot] [--last-sealed-snapshot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --mount directory [--file file] [--setBoot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --device device [--setBoot] [--user] [--stdinpass] [--verbose]\n"
+              "\n"
+              "bless --info [directory] [--getBoot] [--plist] [--verbose] [--version]\n"
+              "\t(For Apple Silicon, --info option is only supported for external devices)\n"
+              "\n",
+              stderr);
+    }
+
     exit(1);
 }

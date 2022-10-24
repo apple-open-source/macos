@@ -114,11 +114,23 @@
 
 - (NSMenu *)_activeMenu
 {
-    if (NSMenu *contextMenu = _page->platformActiveContextMenu())
+    if (NSMenu *contextMenu = _page->activeContextMenu())
         return contextMenu;
     if (NSMenu *domPasteMenu = _impl->domPasteMenu())
         return domPasteMenu;
     return nil;
+}
+
+- (void)_retrieveAccessibilityTreeData:(void (^)(NSData *, NSError *))completionHandler
+{
+    _page->getAccessibilityTreeData([completionHandler = makeBlockPtr(completionHandler)] (API::Data* data) {
+        completionHandler(wrapper(data), nil);
+    });
+}
+
+- (BOOL)_secureEventInputEnabledForTesting
+{
+    return _impl->inSecureInputState();
 }
 
 @end

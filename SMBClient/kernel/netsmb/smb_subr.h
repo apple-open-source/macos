@@ -39,10 +39,6 @@
 #error "This file shouldn't be included from userland programs"
 #endif
 
-#ifdef MALLOC_DECLARE
-MALLOC_DECLARE(M_SMBTEMP);
-#endif
-
 
 #define SMB_NO_LOG_LEVEL		   0x0000
 #define SMB_LOW_LOG_LEVEL		   0x0001
@@ -54,7 +50,8 @@ MALLOC_DECLARE(M_SMBTEMP);
 #define SMB_DIR_CACHE_LOG_LEVEL2   0x0040
 #define SMB_MC_LOG_LEVEL           0x0080
 #define SMB_MC_REF_LOG_LEVEL       0x0100
-#define SMB_UNIT_TEST			   0x8000
+#define SMB_LEASING_LOG_LEVEL      0x0200
+#define SMB_FILE_OPS_LOG_LEVEL     0x0400
 
 extern int smbfs_loglevel;
 
@@ -186,18 +183,35 @@ extern int smbfs_loglevel;
         printf("%s: " format, __FUNCTION__ ,## args); \
     } while(0)
 
-#define SMB_LOG_UNIT_TEST(format, args...) do { \
-	if (smbfs_loglevel & SMB_UNIT_TEST) \
-		printf("%s: " format, __FUNCTION__ ,## args); \
-	} while(0)
+#define SMB_LOG_LEASING(format, args...) do { \
+    if (smbfs_loglevel & SMB_LEASING_LOG_LEVEL) \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
 
-#define SMB_LOG_UNIT_TEST_LOCK(np, format, args...) do { \
-	if (smbfs_loglevel & SMB_UNIT_TEST) { \
-		lck_rw_lock_shared(&(np)->n_name_rwlock); \
-		printf("%s: " format, __FUNCTION__ ,## args); \
-		lck_rw_unlock_shared(&(np)->n_name_rwlock); \
-	} \
-	} while(0)
+#define SMB_LOG_LEASING_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_LEASING_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
+#define SMB_LOG_FILE_OPS(format, args...) do { \
+    if (smbfs_loglevel & SMB_FILE_OPS_LOG_LEVEL) \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
+
+#define SMB_LOG_FILE_OPS_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_FILE_OPS_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        printf("%s: " format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
+
+
+
+
+
 
 #define SMB_ASSERT(a) { \
 	if (!(a)) { \
@@ -261,7 +275,7 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
 #else // SMB_DEBUG
 #define smb_hexdump(a,b,c,d)
 #endif // SMB_DEBUG
-char *smb_strndup(const char *s, size_t maxlen);
+char *smb_strndup(const char *s, size_t maxlen, size_t* alloc_size);
 void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);
 void *smb_str_memdupin(user_addr_t umem, int len, int *errp);

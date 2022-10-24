@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -146,6 +146,100 @@ count_ifaddrs(const struct ifaddrs * ifap)
     return (count);
 }
 
+#ifdef TEST_INTERFACE_CHANGES
+#include <sys/queue.h>
+
+typedef struct IFNameIndex IFNameIndex, *IFNameIndexRef;
+
+#define LIST_HEAD_IFNameIndex LIST_HEAD(IFNameIndexHead, IFNameIndex)
+#define LIST_ENTRY_IFNameIndex LIST_ENTRY(IFNameIndex)
+
+LIST_HEAD_IFNameIndex	S_IFNameIndexHead;
+#define IFNAME_INDEX_HEAD	&S_IFNameIndexHead
+
+struct IFNameIndex {
+    LIST_ENTRY_IFNameIndex	link;
+    char			name[IFNAMSIZ];
+    int				index;
+};
+
+static IFNameIndexRef
+IFNameIndexCreate(const char * name, int index)
+{
+    IFNameIndexRef	entry;
+
+    entry = malloc(sizeof(*entry));
+    bzero(entry, sizeof(*entry));
+    strlcpy(entry->name, name, sizeof(entry->name));
+    entry->index = index;
+    return (entry);
+}
+
+static IFNameIndexRef
+IFNameIndexLookupByName(const char * name)
+{
+    IFNameIndexRef	entry;
+
+    LIST_FOREACH(entry, IFNAME_INDEX_HEAD, link) {
+	if (strcmp(entry->name, name) == 0) {
+	    return (entry);
+	}
+    }
+    return (NULL);
+}
+
+static IFNameIndexRef
+IFNameIndexLookupByIndex(int index)
+{
+    IFNameIndexRef	entry;
+
+    LIST_FOREACH(entry, IFNAME_INDEX_HEAD, link) {
+	if (entry->index == index) {
+	    return (entry);
+	}
+    }
+    return (NULL);
+}
+
+static void
+IFNameIndexListDump(void)
+{
+    IFNameIndexRef	entry;
+
+    LIST_FOREACH(entry, IFNAME_INDEX_HEAD, link) {
+	printf("%s (%d)\n", entry->name, entry->index);
+    }
+}
+
+static void
+IFNameIndexListAddEntry(const char * name, int index)
+{
+    IFNameIndexRef entry;
+
+    entry = IFNameIndexLookupByName(name);
+    if (entry != NULL) {
+	if (entry->index != index) {
+	    fprintf(stderr, "%s (%d) has existing index %d\n",
+		    name, index, entry->index);
+	    IFNameIndexListDump();
+	}
+	return;
+    }
+    entry = IFNameIndexLookupByIndex(index);
+    if (entry != NULL) {
+	if (strcmp(entry->name, name) != 0) {
+	    fprintf(stderr, "%s (%d) used by existing %s (%d)\n",
+		    name, index, entry->name, entry->index);
+	    IFNameIndexListDump();
+	}
+	return;
+    }
+    entry = IFNameIndexCreate(name, index);
+    LIST_INSERT_HEAD(IFNAME_INDEX_HEAD, entry, link);
+}
+#endif /* TEST_INTERFACE_CHANGES */
+
+
 STATIC boolean_t
 S_build_interface_list(interface_list_t * interfaces)
 {
@@ -256,6 +350,9 @@ S_build_interface_list(interface_list_t * interfaces)
 		    entry->link_address.length);
 	      entry->link_address.type = dl_p->sdl_type;
 	      entry->link_address.index = dl_p->sdl_index;
+#ifdef TEST_INTERFACE_CHANGES
+	      IFNameIndexListAddEntry(name, dl_p->sdl_index);
+#endif /* TEST_INTERFACE_CHANGES */
 	      if_data = (struct if_data *)ifap->ifa_data;
 	      if (if_data != NULL) {
 		  entry->type = if_data->ifi_type;
@@ -1202,3 +1299,136 @@ main()
     exit(0);
 }
 #endif /* TEST_INTERFACES */
+
+#ifdef TEST_INTERFACE_CHANGES
+
+/*
+ * Function: timestamp_fprintf
+ *
+ * Purpose:
+ *   Print a timestamped message.
+ */
+static void
+timestamp_fprintf(FILE * f, const char * message, ...)
+{
+    struct timeval	tv;
+    struct tm       	tm;
+    time_t		t;
+    va_list		ap;
+
+    (void)gettimeofday(&tv, NULL);
+    t = tv.tv_sec;
+    (void)localtime_r(&t, &tm);
+
+    va_start(ap, message);
+    fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
+	    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+	    tm.tm_hour, tm.tm_min, tm.tm_sec,
+	    tv.tv_usec);
+    vfprintf(f, message, ap);
+    va_end(ap);
+}
+
+static void
+link_addr_print(const char * name, link_addr_t * link)
+{
+    int i;
+
+    timestamp_fprintf(stdout,
+		      "%s: index %d type 0x%x alen %d%s",
+		      name, link->index, link->type,
+		      link->length, link->length > 0 ? " addr" : "");
+    for (i = 0; i < link->length; i++) {
+	printf("%c%x", i ? ':' : ' ', link->addr[i]);
+    }
+    printf("\n");
+}
+
+static void
+ifl_compare(interface_list_t * old_p, interface_list_t * new_p)
+{
+    int i;
+
+    for (i = 0; i < ifl_count(new_p); i++) {
+	interface_t * 	new_if_p = new_p->list + i;
+	interface_t *	old_if_p = NULL;
+
+	if (old_p != NULL) {
+	    old_if_p = ifl_find_name(old_p, if_name(new_if_p));
+	}
+	if (old_if_p == NULL) {
+	    link_addr_print(if_name(new_if_p), &new_if_p->link_address);
+	    continue;
+	}
+	if (if_link_index(new_if_p) != if_link_index(old_if_p)) {
+	    printf("%s index changed %d => %d\n",
+		   if_name(new_if_p),
+		   if_link_index(old_if_p),
+		   if_link_index(new_if_p));
+	}
+    }
+    return;
+}
+
+static void
+interface_list_changed(void)
+{
+    interface_list_t * 		new_list_p = ifl_init();
+    static interface_list_t * 	S_list_p;
+
+    ifl_compare(S_list_p, new_list_p);
+    if (S_list_p != NULL) {
+	ifl_free(&S_list_p);
+    }
+    S_list_p = new_list_p;
+}
+
+static void
+notification_callback(SCDynamicStoreRef session, CFArrayRef changes,
+		      void * info)
+{
+#pragma unused(session)
+#pragma unused(changes)
+#pragma unused(info)
+    interface_list_changed();
+}
+
+static bool
+register_for_notifications(void)
+{
+    SCDynamicStoreRef 	session;
+    CFStringRef		key;
+    CFMutableArrayRef	keys;
+    CFRunLoopSourceRef	rls;
+
+    session = SCDynamicStoreCreate(NULL, CFSTR("interfaces.c"),
+				   notification_callback,
+                                   NULL);
+    if (session == NULL) {
+	fprintf(stderr, "SCDOpen failed: %s\n", SCErrorString(SCError()));
+	return (false);
+    }
+    /* watch State:/Network/Interface */
+    keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    key = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+						  kSCDynamicStoreDomainState);
+    CFArrayAppendValue(keys, key);
+    CFRelease(key);
+    SCDynamicStoreSetNotificationKeys(session, keys, NULL);
+    CFRelease(keys);
+    rls = SCDynamicStoreCreateRunLoopSource(NULL, session, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+    return (true);
+}
+
+int
+main(int argc, char * argv[])
+{
+    register_for_notifications();
+    interface_list_changed();
+    CFRunLoopRun();
+    exit(0);
+}
+
+#endif /* TEST_INTERFACE_CHANGES */

@@ -49,6 +49,9 @@ extern const CFStringRef kSecCodeInfoNotarizationDate;      /* Internal */
 extern const CFStringRef kSecCodeInfoCMSDigestHashType;     /* Internal */
 extern const CFStringRef kSecCodeInfoCMSDigest;             /* Internal */
 extern const CFStringRef kSecCodeInfoSignatureVersion;      /* Internal */
+extern const CFStringRef kSecCodeInfoLaunchConstraintsSelf;	/* Internal */
+extern const CFStringRef kSecCodeInfoLaunchConstraintsParent;/* Internal */
+extern const CFStringRef kSecCodeInfoLaunchConstraintsResponsible; /* Internal */ 
 
 extern const CFStringRef kSecCodeInfoDiskRepVersionPlatform;     /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepVersionMin;          /* Number */
@@ -238,6 +241,18 @@ OSStatus SecCodeValidateFileResource(SecStaticCodeRef code, CFStringRef relative
  is unnecessary on some platforms. Since the definition of what can be
  omitted is in flux, and since we would like to remove that notion
  entirely eventually, we makes this a private flag.
+
+ @constant kSecCSSkipRootVolumeExceptions
+ Resource validations are skipped for items on the root filesystem and therefore protected
+ by the authenticated root volume policy. Passing this flag to a validation causes full resource
+ validation even for items on the root volume to enable diagnosting issues with signatures
+ on the root volume.
+
+ @constant kSecCSSkipXattrFiles
+ NOTE: this flag is no longer used and has become the default behavior.
+ Indicates the validation should allow additional files caused on filesystems
+ that do not support native xattrs. Only changes validation results if the item lies
+ on a filesystem that uses xattr files and the file appears to be an actual xattr.
  */
 CF_ENUM(uint32_t) {
 	// NOTE: These values needs to align with the public definitions for static code validity too.

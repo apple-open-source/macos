@@ -47,13 +47,13 @@ class ImageTransferSessionVT;
 
 class MockRealtimeVideoSourceMac final : public MockRealtimeVideoSource {
 public:
-    static Ref<MockRealtimeVideoSource> createForMockDisplayCapturer(String&& deviceID, String&& name, String&& hashSalt);
+    static Ref<MockRealtimeVideoSource> createForMockDisplayCapturer(String&& deviceID, AtomString&& name, String&& hashSalt, PageIdentifier);
 
     ~MockRealtimeVideoSourceMac() = default;
 
 private:
     friend class MockRealtimeVideoSource;
-    MockRealtimeVideoSourceMac(String&& deviceID, String&& name, String&& hashSalt);
+    MockRealtimeVideoSourceMac(String&& deviceID, AtomString&& name, String&& hashSalt, PageIdentifier);
 
     PlatformLayer* platformLayer() const;
     void updateSampleBuffer() final;
@@ -62,6 +62,7 @@ private:
     std::unique_ptr<ImageTransferSessionVT> m_imageTransferSession;
     IntSize m_presetSize;
     Ref<WorkQueue> m_workQueue;
+    size_t m_pixelGenerationFailureCount { 0 };
 };
 
 } // namespace WebCore

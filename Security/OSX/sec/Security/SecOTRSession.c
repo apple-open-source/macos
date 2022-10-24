@@ -70,7 +70,7 @@
 
 CFGiblisFor(SecOTRSession);
 
-static uint64_t setup_defaults_settings(){
+static uint64_t setup_defaults_settings(void){
     
     Boolean keyExistsAndHasValue = false;
     uint64_t seconds;

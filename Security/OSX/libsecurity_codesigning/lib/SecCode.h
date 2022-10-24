@@ -468,6 +468,7 @@ extern const CFStringRef kSecCodeInfoDigestAlgorithms; /* generic */
 extern const CFStringRef kSecCodeInfoPlatformIdentifier; /* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
 extern const CFStringRef kSecCodeInfoImplicitDesignatedRequirement; /* Requirement */
+extern const CFStringRef kSecCodeInfoDefaultDesignatedLightweightCodeRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoMainExecutable; /* generic */
 extern const CFStringRef kSecCodeInfoPList;			/* generic */
 extern const CFStringRef kSecCodeInfoRequirements;	/* Requirement */

@@ -61,6 +61,9 @@ __FBSDID("$FreeBSD: src/bin/ps/ps.c,v 1.110 2005/02/09 17:37:38 ru Exp $");
 #include <sys/mount.h>
 #include <sys/resourcevar.h>
 
+#ifdef __APPLE__
+#include <assert.h>
+#endif
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
@@ -355,6 +358,7 @@ main(int argc, char *argv[])
 			lfmt[0] = '\0';
 			break;
 		case 'M':
+#if !PS_ENTITLEMENT_ENFORCED
 #ifndef __APPLE__
 			memf = optarg;
 #else
@@ -362,10 +366,17 @@ main(int argc, char *argv[])
 			_fmt = 1;
 			mfmt[0] = '\0';
 			mflg  = 1;
-#endif /* 0 */
+#endif /* !__APPLE__ */
+#else /* PS_ENTITLEMENT_ENFORCED */
+			errx(1, "-M requires entitlement");
+#endif /* !PS_ENTITLEMENT_ENFORCED */
 			break;
 		case 'm':
+#if !PS_ENTITLEMENT_ENFORCED
 			sortby = SORTMEM;
+#else
+			errx(1, "-m requires entitlement");
+#endif /* !PS_ENTITLEMENT_ENFORCED */
 			break;
 #ifndef __APPLE__
 		case 'N':
@@ -428,7 +439,14 @@ main(int argc, char *argv[])
 			break;
 		case 'v':
 			parsefmt(vfmt, 0);
+#if !PS_ENTITLEMENT_ENFORCED
+			/*
+			 * rdar://problem/84512155 - this isn't likely to be
+			 * used in unentitled builds, but if it is, we'll just
+			 * use the normal sort order.
+			 */
 			sortby = SORTMEM;
+#endif
 			_fmt = 1;
 			vfmt[0] = '\0';
 			break;
@@ -598,11 +616,24 @@ main(int argc, char *argv[])
     local_error = 0;
     bufSize = orig_bufSize;
     if ((local_error = sysctl(mib, 4, kp, &bufSize, NULL, 0)) < 0) {
-	if (retry_count < 1000) {
-		/* 1 sec back off */
-		sleep(1);
-		continue;
-	}
+        if (retry_count < 1000) {
+            /*
+             * The space required may have grown since the initial check and
+             * there is no guarantee it will drop back down even after 1000
+             * iterations, so realloc the buffer before trying again.
+             */
+            if (errno == ENOMEM) {
+                if (sysctl(mib, 4, NULL, &bufSize, NULL, 0) == 0) {
+                    kprocbuf = kp = (struct kinfo_proc *)realloc(kp, bufSize);
+                    orig_bufSize = bufSize;
+                    continue;
+                }
+            }
+
+            /* 1 sec back off */
+            sleep(1);
+            continue;
+        }
         perror("Failure calling sysctl");
         return 0;
     } else if (local_error == 0) {
@@ -651,6 +682,12 @@ main(int argc, char *argv[])
 				if ((kp->kp_eproc.e_tdev == NODEV ||
 				    (kp->kp_proc.p_flag & P_CONTROLT) == 0))
 					continue;
+#ifdef __APPLE__
+				/* rdar://problem/86332769 */
+				if (devname(kp->kp_eproc.e_tdev, S_IFCHR) ==
+				    NULL)
+					continue;
+#endif
 			}
 			if (all || nselectors == 0)
 				goto keepit;
@@ -697,13 +734,14 @@ main(int argc, char *argv[])
 		keepit:
 			next_KINFO = &kinfo[nkept];
 			next_KINFO->ki_p = kp;
+#if defined(__APPLE__) && !PS_ENTITLEMENT_ENFORCED
 			get_task_info(next_KINFO);
-#ifndef __APPLE__
+#elif !defined(__APPLE__)
 			next_KINFO->ki_pcpu = getpcpu(next_KINFO);
 			if (sortby == SORTMEM)
 				next_KINFO->ki_memsize = kp->ki_tsize +
 				    kp->ki_dsize + kp->ki_ssize;
-#endif /* !__APPLE__ */
+#endif /* __APPLE__ && !PS_ENTITLEMENT_ENFORCED */
 			if (needuser)
 				saveuser(next_KINFO);
 			dynsizevars(next_KINFO);
@@ -728,6 +766,7 @@ main(int argc, char *argv[])
 	 * For each process, call each variable output function.
 	 */
 	for (i = lineno = 0; i < nkept; i++) {
+#if !PS_ENTITLEMENT_ENFORCED
 		if(mflg) {
 			print_all_thread = 1;
 			for(j=0; j < kinfo[i].thread_count; j++) {
@@ -747,6 +786,9 @@ main(int argc, char *argv[])
 			}
 			print_all_thread = 0;
 		} else {
+#else
+		{
+#endif
 			STAILQ_FOREACH(vent, &varlist, next_ve) {
 				(vent->var->oproc)(&kinfo[i], vent);
 				if (STAILQ_NEXT(vent, next_ve) != NULL)
@@ -775,6 +817,10 @@ main(int argc, char *argv[])
 	free_list(&ttylist);
 	free_list(&uidlist);
 
+#ifdef __APPLE__
+	if (eval == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	exit(eval);
 }
 
@@ -1235,6 +1281,13 @@ pscomp(const void *a, const void *b)
 
 	if (sortby == SORTCPU)
 		return (getpcpu((KINFO *)b) - getpcpu((KINFO *)a));
+#if PS_ENTITLEMENT_ENFORCED
+	/*
+	 * rdar://problem/84512155 - tasks_info is not available in the
+	 * unentitled ps build.  It's forbidden elsewhere.
+	 */
+	assert(sortby != SORTMEM);
+#endif
 	if (sortby == SORTMEM)
 		return (VSIZE((KINFO *)b) - VSIZE((KINFO *)a));
 	i =  KI_EPROC((KINFO *)a)->e_tdev - KI_EPROC((KINFO *)b)->e_tdev;

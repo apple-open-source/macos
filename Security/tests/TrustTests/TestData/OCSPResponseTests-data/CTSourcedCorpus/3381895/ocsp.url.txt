@@ -1,0 +1,1 @@
+http://pca-g2-ocsp.geotrust.com

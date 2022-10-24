@@ -73,8 +73,8 @@
     minute-in-hour       : NaN
     second-in-minute     : NaN
   
-  Test Date : -0004-02
-    year                 : -4
+  Test Date : -0005-02
+    year                 : -5
     leap-year            : true
     month-in-year        : 2
     month-name           : February

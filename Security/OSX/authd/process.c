@@ -104,7 +104,7 @@ AUTH_TYPE_INSTANCE(process,
                    .copyDebugDesc = NULL
                    );
 
-static CFTypeID process_get_type_id() {
+static CFTypeID process_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     

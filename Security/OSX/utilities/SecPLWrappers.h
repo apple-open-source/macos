@@ -29,6 +29,7 @@
 
 #import <Foundation/Foundation.h>
 
+extern void SecPLDisable(void);
 extern bool SecPLShouldLogRegisteredEvent(NSString *event);
 
 extern void SecPLLogRegisteredEvent(NSString *eventName, NSDictionary *eventDictionary);
@@ -38,6 +39,7 @@ extern void SecPLLogTimeSensitiveRegisteredEvent(NSString *eventName, NSDictiona
 
 #include <CoreFoundation/CoreFoundation.h>
 
+extern void SecPLDisable(void);
 extern bool SecPLShouldLogRegisteredEvent(CFStringRef event);
 
 extern void SecPLLogRegisteredEvent(CFStringRef eventName, CFDictionaryRef eventDictionary);

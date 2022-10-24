@@ -88,7 +88,7 @@ AUTH_TYPE_INSTANCE(credential,
                    .copyDebugDesc = _credential_copy_description
                    );
 
-static CFTypeID credential_get_type_id() {
+static CFTypeID credential_get_type_id(void) {
     static CFTypeID type_id = _kCFRuntimeNotATypeID;
     static dispatch_once_t onceToken;
     
@@ -100,7 +100,7 @@ static CFTypeID credential_get_type_id() {
 }
 
 static credential_t
-_credential_create()
+_credential_create(void)
 {
     credential_t cred = NULL;
 

@@ -19,7 +19,7 @@
 #include "libANGLE/renderer/metal/mtl_render_utils.h"
 #include "libANGLE/renderer/metal/mtl_state_cache.h"
 #include "libANGLE/renderer/metal/mtl_utils.h"
-#include "platform/FeaturesMtl.h"
+#include "platform/FeaturesMtl_autogen.h"
 
 namespace egl
 {
@@ -138,6 +138,7 @@ class DisplayMtl : public DisplayImpl
     const mtl::FormatTable &getFormatTable() const { return mFormatTable; }
     mtl::RenderUtils &getUtils() { return mUtils; }
     mtl::StateCache &getStateCache() { return mStateCache; }
+    uint32_t getMaxColorTargetBits() { return mMaxColorTargetBits; }
 
     id<MTLLibrary> getDefaultShadersLib();
 
@@ -199,6 +200,7 @@ class DisplayMtl : public DisplayImpl
     mutable gl::Extensions mNativeExtensions;
     mutable gl::Caps mNativeCaps;
     mutable gl::Limitations mNativeLimitations;
+    mutable uint32_t mMaxColorTargetBits = 0;
 
     angle::FeaturesMtl mFeatures;
 };

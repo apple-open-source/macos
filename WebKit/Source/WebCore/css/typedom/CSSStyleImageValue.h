@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class Document;
+class WeakPtrImplWithEventTargetData;
 
 class CSSStyleImageValue final : public CSSStyleValue {
     WTF_MAKE_ISO_ALLOCATED(CSSStyleImageValue);
@@ -46,7 +47,7 @@ public:
         return adoptRef(*new CSSStyleImageValue(WTFMove(cssValue), document));
     }
 
-    String toString() const final { return m_cssValue->cssText(); }
+    void serialize(StringBuilder&, OptionSet<SerializationArguments>) const final;
 
     CachedImage* image() { return m_cssValue->cachedImage(); }
     Document* document() const;
@@ -57,7 +58,7 @@ private:
     CSSStyleImageValue(Ref<CSSImageValue>&&, Document*);
 
     Ref<CSSImageValue> m_cssValue;
-    WeakPtr<Document> m_document;
+    WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
 };
 
 } // namespace WebCore

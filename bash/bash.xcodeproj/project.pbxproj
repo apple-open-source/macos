@@ -228,7 +228,6 @@
 		59C496E00FE189FF00B4278B /* bashbug in bashbug */ = {isa = PBXBuildFile; fileRef = 59C496DE0FE189F800B4278B /* bashbug */; };
 		59C496F30FE18B0800B4278B /* profile in RC files */ = {isa = PBXBuildFile; fileRef = 59C496F10FE18B0000B4278B /* profile */; };
 		59C496F50FE18B2300B4278B /* bashrc in RC files */ = {isa = PBXBuildFile; fileRef = 59C496F40FE18B1900B4278B /* bashrc */; };
-		59C496FF0FE18D7300B4278B /* bash.info in Info file */ = {isa = PBXBuildFile; fileRef = 59C496FC0FE18D1B00B4278B /* bash.info */; };
 		723F1FBA0FE16B3500CA2753 /* bashbug.1 in man page */ = {isa = PBXBuildFile; fileRef = 723F1FB90FE16B2E00CA2753 /* bashbug.1 */; };
 		723F1FCA0FE16C9E00CA2753 /* article.pdf in HTML & PDFs */ = {isa = PBXBuildFile; fileRef = 723F1FC30FE16C8900CA2753 /* article.pdf */; };
 		723F1FCB0FE16C9E00CA2753 /* bash.pdf in HTML & PDFs */ = {isa = PBXBuildFile; fileRef = 723F1FC40FE16C8900CA2753 /* bash.pdf */; };
@@ -388,17 +387,6 @@
 				59C496F30FE18B0800B4278B /* profile in RC files */,
 			);
 			name = "RC files";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		59C496FD0FE18D1B00B4278B /* Info file */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/info;
-			dstSubfolderSpec = 0;
-			files = (
-				59C496FF0FE18D7300B4278B /* bash.info in Info file */,
-			);
-			name = "Info file";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		723F1FC20FE16C4E00CA2753 /* HTML & PDFs */ = {
@@ -626,7 +614,6 @@
 		59C496DE0FE189F800B4278B /* bashbug */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = bashbug; sourceTree = "<group>"; };
 		59C496F10FE18B0000B4278B /* profile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = profile; sourceTree = "<group>"; };
 		59C496F40FE18B1900B4278B /* bashrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bashrc; sourceTree = "<group>"; };
-		59C496FC0FE18D1B00B4278B /* bash.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bash.info; sourceTree = "<group>"; };
 		59EAF53C162CEA5200753814 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = ../../config.h; sourceTree = "<group>"; };
 		723F1FB90FE16B2E00CA2753 /* bashbug.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = bashbug.1; sourceTree = "<group>"; };
 		723F1FC30FE16C8900CA2753 /* article.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = article.pdf; path = doc/article.pdf; sourceTree = "<group>"; };
@@ -1116,7 +1103,6 @@
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
-				59C496FC0FE18D1B00B4278B /* bash.info */,
 				723F1FD60FE16D3900CA2753 /* bash.html */,
 				723F1FD70FE16D3900CA2753 /* bashref.html */,
 				723F1FC30FE16C8900CA2753 /* article.pdf */,
@@ -1252,7 +1238,6 @@
 			buildConfigurationList = 1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "bash" */;
 			buildPhases = (
 				723F1FC20FE16C4E00CA2753 /* HTML & PDFs */,
-				59C496FD0FE18D1B00B4278B /* Info file */,
 				59C496F20FE18B0100B4278B /* RC files */,
 				59C496DF0FE189F800B4278B /* bashbug */,
 				728BBCA90FE0CF0F00EC5E03 /* OS License */,
@@ -1282,7 +1267,6 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 0830;
 				TargetAttributes = {
 					4AB3FA3A2325F89C0000629D = {
@@ -1717,6 +1701,10 @@
 				HEADER_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "-Werror=format-security";
 				USER_HEADER_SEARCH_PATHS = "$(SYMROOT) $(SRCROOT)/**";
+				WARNING_CFLAGS = (
+					"-Werror=format-nonliteral",
+					"-Werror=format",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Release;

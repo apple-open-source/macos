@@ -1,4 +1,4 @@
-framework module IOKit [extern_c] {
+framework module IOKit [extern_c] [system] {
   header "IOReturn.h"
   header "IOMapTypes.h"
   header "IOTypes.h"

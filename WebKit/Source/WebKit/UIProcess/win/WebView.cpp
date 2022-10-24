@@ -240,7 +240,7 @@ WebView::WebView(RECT rect, const API::PageConfiguration& configuration, HWND pa
         m_page->drawingArea()->setSize(windowSize);
 
 #if ENABLE(REMOTE_INSPECTOR)
-    m_page->setURLSchemeHandlerForScheme(RemoteInspectorProtocolHandler::create(*m_page), "inspector");
+    m_page->setURLSchemeHandlerForScheme(RemoteInspectorProtocolHandler::create(*m_page), "inspector"_s);
 #endif
 
     // FIXME: Initializing the tooltip window here matches WebKit win, but seems like something
@@ -491,15 +491,6 @@ void WebView::paint(HDC hdc, const IntRect& dirtyRect)
     
             cairo_destroy(context);
             cairo_surface_destroy(surface);
-#else
-            COMPtr<ID3D11Texture2D> backBuffer; 
-            HRESULT hr = m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer)); 
-            if (SUCCEEDED(hr)) {
-                BackingStore::DXConnections context { m_immediateContext.get(), backBuffer.get() };
-                drawingArea->paint(context, dirtyRect, unpaintedRegion);
-            }
-    
-            m_swapChain->Present(0, 0); 
 #endif
     
             auto unpaintedRects = unpaintedRegion.rects();
@@ -944,6 +935,16 @@ void WebView::setToolTip(const String& toolTip)
     }
 
     ::SendMessage(m_toolTipWindow, TTM_ACTIVATE, !toolTip.isEmpty(), 0);
+}
+
+void WebView::setUsesOffscreenRendering(bool enabled)
+{
+    m_usesOffscreenRendering = enabled;
+}
+
+bool WebView::usesOffscreenRendering() const
+{
+    return m_usesOffscreenRendering;
 }
 
 } // namespace WebKit

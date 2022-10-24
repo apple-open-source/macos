@@ -1253,8 +1253,6 @@ get_bufinfo(kbufinfo_t *val)
 static void
 set_remove(void)
 {
-        extern int errno;
-
         errno = 0;
 
 	mib[0] = CTL_KERN;

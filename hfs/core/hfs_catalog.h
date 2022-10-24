@@ -223,11 +223,8 @@ struct cat_entrylist {
 	u_int32_t  maxentries;    /* number of entries requested */
 	u_int32_t  realentries;   /* number of valid entries returned */
 	u_int32_t  skipentries;   /* number of entries skipped (reserved HFS+ files) */
-	struct cat_entry  entry[1];   /* array of entries */
+	struct cat_entry  entry[0];   /* array of entries */
 };
-
-#define CE_LIST_SIZE(entries)	\
-	sizeof (*ce_list) + (((entries) - 1) * sizeof (struct cat_entry))
 
 struct hfsmount;
 

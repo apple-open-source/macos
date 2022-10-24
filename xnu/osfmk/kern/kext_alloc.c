@@ -104,7 +104,7 @@ kext_alloc_init(void)
 
 	/* Allocate the sub block of the kernel map */
 	vm_map_will_allocate_early_map(&g_kext_map);
-	g_kext_map = kmem_suballoc(kernel_map, (vm_offset_t *) &kext_alloc_base,
+	g_kext_map = kmem_suballoc(kernel_map, &kext_alloc_base,
 	    kext_alloc_size, VM_MAP_CREATE_PAGEABLE,
 	    VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
 	    KMS_PERMANENT | KMS_NOFAIL, VM_KERN_MEMORY_KEXT).kmr_submap;

@@ -21,7 +21,7 @@ class SetValueTransformer: ValueTransformer {
             }
             return try NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: true)
         } catch {
-            logger.debug("Failed to serialize a Set: \(String(describing: error), privacy: .public)")
+            logger.info("Failed to serialize a Set: \(String(describing: error), privacy: .public)")
             return nil
         }
     }
@@ -38,7 +38,7 @@ class SetValueTransformer: ValueTransformer {
             let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
             return unarchiver.decodeObject(of: [NSSet.self, NSString.self], forKey: NSKeyedArchiveRootObjectKey)
         } catch {
-            logger.debug("Failed to deserialize a purported Set: \(String(describing: error), privacy: .public)")
+            logger.info("Failed to deserialize a purported Set: \(String(describing: error), privacy: .public)")
             return nil
         }
     }

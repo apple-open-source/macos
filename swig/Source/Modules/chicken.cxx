@@ -291,7 +291,7 @@ int CHICKEN::top(Node *n) {
   Delete(f_scm);
 
   char buftmp[20];
-  sprintf(buftmp, "%d", num_methods);
+  snprintf(buftmp, sizeof(buftmp), "%d", num_methods);
   Replaceall(f_init, "$nummethods", buftmp);
   Replaceall(f_init, "$symsize", f_sym_size);
 
@@ -680,8 +680,8 @@ int CHICKEN::variableWrapper(Node *n) {
   String *overname = 0;
   String *scmname;
 
-  int num_required;
-  int num_arguments;
+  __unused int num_required;
+  __unused int num_arguments;
 
   scmname = NewString(iname);
   Replaceall(scmname, "_", "-");
@@ -841,8 +841,8 @@ int CHICKEN::constantWrapper(Node *n) {
   String *rvalue;
   SwigType *nctype;
 
-  int num_required;
-  int num_arguments;
+  __unused int num_required;
+  __unused int num_arguments;
 
   scmname = NewString(iname);
   Replaceall(scmname, "_", "-");
@@ -1378,7 +1378,7 @@ void CHICKEN::dispatchFunction(Node *n) {
       SortList(flist, compareTypeLists);
 
       String *clos_name;
-      int construct = 0;
+      __unused int construct = 0;
       if (have_constructor && !has_constructor_args) {
 	has_constructor_args = 1;
 	constructor_dispatch = NewStringf("%s@SWIG@new@dispatch", short_class_name);

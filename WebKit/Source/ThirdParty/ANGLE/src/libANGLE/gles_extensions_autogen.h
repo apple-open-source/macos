@@ -74,6 +74,9 @@ struct Extensions
     // GLES 2.0+ extensions
     // --------------------
 
+    // GL_EXT_base_instance
+    bool baseInstanceEXT = false;
+
     // GL_KHR_blend_equation_advanced
     bool blendEquationAdvancedKHR = false;
 
@@ -332,6 +335,9 @@ struct Extensions
     // GL_NV_read_depth
     bool readDepthNV = false;
 
+    // GL_NV_read_depth_stencil
+    bool readDepthStencilNV = false;
+
     // GL_EXT_read_format_bgra
     bool readFormatBgraEXT = false;
 
@@ -391,6 +397,9 @@ struct Extensions
 
     // GL_EXT_shader_texture_lod
     bool shaderTextureLodEXT = false;
+
+    // GL_QCOM_shading_rate
+    bool shadingRateQCOM = false;
 
     // GL_EXT_shadow_samplers
     bool shadowSamplersEXT = false;
@@ -622,6 +631,9 @@ struct Extensions
 
     // GL_ANGLE_provoking_vertex
     bool provokingVertexANGLE = false;
+
+    // GL_ANGLE_read_only_depth_stencil_feedback_loops
+    bool readOnlyDepthStencilFeedbackLoopsANGLE = false;
 
     // GL_ANGLE_relaxed_vertex_attribute_type
     bool relaxedVertexAttributeTypeANGLE = false;

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2017-02-01</string>
+	<string>2021-10-21</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -11,11 +11,11 @@
 	<key>OpenSourceProject</key>
 	<string>libpcap</string>
 	<key>OpenSourceSHA1</key>
-	<string>32d7526dde8f8a2f75baf40c01670602aeef7e39</string>
+	<string>4343528176e0402cce807a09a97191069a1e3dd9</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.tcpdump.org/release/libpcap-1.8.1.tar.gz</string>
+	<string>https://www.tcpdump.org/release/libpcap-1.10.1.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>1.8.1</string>
+	<string>1.10.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.tcpdump.org/</string>
 </dict>

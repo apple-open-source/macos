@@ -11,11 +11,9 @@
 .Nm bless
 .Fl -folder Ar directory
 .Op Fl -file Ar file
-.Op Fl -bootinfo Op Ar file
 .Op Fl -bootefi Op Ar file
 .Op Fl -label Ar name | Fl -labelfile Ar file
 .Op Fl -setBoot
-.Op Fl -openfolder Ar directory
 .Op Fl -nextonly
 .Op Fl -shortform
 .Op Fl -legacy
@@ -114,6 +112,10 @@ specified, the active boot device that the firmware is set to boot from.
 Unbless Mode complements Folder Mode, and clears the persistent blessed
 folder and file information on HFS+ volumes.
 .Pp
+NOTE:
+.Nm bless
+must be run as the root user.
+.Pp
 Additionally,
 .Fl -help
 can be used to display the command-line usage summary.
@@ -131,7 +133,6 @@ secondary loader for New World machines.
 Set this file to be the Mac OS X/Darwin blessed boot file, containing a booter
 for EFI-based systems. If this option is not provided, a default boot file
 is used based on the blessed directory.
-.It Fl -bootinfo Op Ar file
 Create a
 .Pa BootX
 file in the Mac OS X/Darwin system folder using
@@ -159,9 +160,6 @@ is also provided, the new file will be created at that path instead.
 Render a text label used in the firmware-based OS picker
 .It Fl -labelfile Ar file
 Use a pre-rendered label used for the firmware-based OS picker
-.It Fl -openfolder Ar directory
-Specify a folder to be opened in the Finder when the volume is mounted by
-the system.
 .It Fl -setBoot
 Set the system to boot off the specified partition. This is implemented in
 a platform-specific manner. On Open Firmware-based systems, the
@@ -478,13 +476,6 @@ Print verbose output
 Print bless version and exit immediately
 .El
 .Sh FILES
-.Bl -tag -width /usr/standalone/ppc/bootx.bootinfo -compact
-.It Pa /usr/standalone/ppc/bootx.bootinfo
-Secondary loader with XML headers, used with the
-.Fl -bootinfo
-flag. Used for booting New World PPC-based Macintoshes. If the argument to
-.Fl -bootinfo
-is ommitted, this file will be used as the default input.
 .It Pa /usr/standalone/i386/boot.efi
 Booter for EFI-based systems, used with the
 .Fl -bootefi
@@ -502,7 +493,6 @@ boot.efi files as needed:
 .Nm bless
 .Fl -folder
 .Qo /Volumes/Mac OS X/System/Library/CoreServices Qc
-.Fl -bootinfo
 .Fl -bootefi
 .Ed
 .Ss MOUNT MODE

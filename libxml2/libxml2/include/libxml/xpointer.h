@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#ifdef LIBXML_XPTR_LOCS_ENABLED
 /*
  * A Location Set
  */
@@ -43,51 +44,68 @@ struct _xmlLocationSet {
  * Handling of location sets.
  */
 
+XML_DEPRECATED
 XMLPUBFUN xmlLocationSetPtr XMLCALL
-		    xmlXPtrLocationSetCreate	(xmlXPathObjectPtr val);
+		    xmlXPtrLocationSetCreate	(xmlXPathObjectPtr val) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
-		    xmlXPtrFreeLocationSet	(xmlLocationSetPtr obj);
+		    xmlXPtrFreeLocationSet	(xmlLocationSetPtr obj) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlLocationSetPtr XMLCALL
 		    xmlXPtrLocationSetMerge	(xmlLocationSetPtr val1,
-						 xmlLocationSetPtr val2);
+						 xmlLocationSetPtr val2) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRange		(xmlNodePtr start,
 						 int startindex,
 						 xmlNodePtr end,
-						 int endindex);
+						 int endindex) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRangePoints	(xmlXPathObjectPtr start,
-						 xmlXPathObjectPtr end);
+						 xmlXPathObjectPtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRangeNodePoint	(xmlNodePtr start,
-						 xmlXPathObjectPtr end);
+						 xmlXPathObjectPtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRangePointNode	(xmlXPathObjectPtr start,
-						 xmlNodePtr end);
+						 xmlNodePtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRangeNodes	(xmlNodePtr start,
-						 xmlNodePtr end);
+						 xmlNodePtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewLocationSetNodes	(xmlNodePtr start,
-						 xmlNodePtr end);
+						 xmlNodePtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
-		    xmlXPtrNewLocationSetNodeSet(xmlNodeSetPtr set);
+		    xmlXPtrNewLocationSetNodeSet(xmlNodeSetPtr set) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrNewRangeNodeObject	(xmlNodePtr start,
-						 xmlXPathObjectPtr end);
+						 xmlXPathObjectPtr end) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
-		    xmlXPtrNewCollapsedRange	(xmlNodePtr start);
+		    xmlXPtrNewCollapsedRange	(xmlNodePtr start) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
 		    xmlXPtrLocationSetAdd	(xmlLocationSetPtr cur,
-						 xmlXPathObjectPtr val);
+						 xmlXPathObjectPtr val) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
-		    xmlXPtrWrapLocationSet	(xmlLocationSetPtr val);
+		    xmlXPtrWrapLocationSet	(xmlLocationSetPtr val) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
 		    xmlXPtrLocationSetDel	(xmlLocationSetPtr cur,
-						 xmlXPathObjectPtr val);
+						 xmlXPathObjectPtr val) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
 		    xmlXPtrLocationSetRemove	(xmlLocationSetPtr cur,
-						 int val);
+						 int val) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+#endif /* LIBXML_XPTR_LOCS_ENABLED */
 
 /*
  * Functions.
@@ -99,13 +117,18 @@ XMLPUBFUN xmlXPathContextPtr XMLCALL
 XMLPUBFUN xmlXPathObjectPtr XMLCALL
 		    xmlXPtrEval			(const xmlChar *str,
 						 xmlXPathContextPtr ctx);
+#ifdef LIBXML_XPTR_LOCS_ENABLED
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
 		    xmlXPtrRangeToFunction	(xmlXPathParserContextPtr ctxt,
-						 int nargs);
+						 int nargs) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN xmlNodePtr XMLCALL
-		    xmlXPtrBuildNodeList	(xmlXPathObjectPtr obj);
+		    xmlXPtrBuildNodeList	(xmlXPathObjectPtr obj) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+XML_DEPRECATED
 XMLPUBFUN void XMLCALL
-		    xmlXPtrEvalRangePredicate	(xmlXPathParserContextPtr ctxt);
+		    xmlXPtrEvalRangePredicate	(xmlXPathParserContextPtr ctxt) LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14);
+#endif /* LIBXML_XPTR_LOCS_ENABLED */
 #ifdef __cplusplus
 }
 #endif

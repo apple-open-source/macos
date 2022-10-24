@@ -70,7 +70,6 @@
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
-#include <smbfs/smbfs_lockf.h>
 #include <netsmb/smb_converter.h>
 #include <smbfs/smbfs_security.h>
 #include <smbfs/smbfs_attrlist.h>
@@ -97,17 +96,23 @@
 
 char smb_symmagic[SMB_SYMMAGICLEN] = {'X', 'S', 'y', 'm', '\n'};
 
+extern struct smb_reconnect_stats smb_reconn_stats;
+extern uint32_t g_max_dir_entries_cached;
+
 static int smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
-                         vfs_context_t context);
-static void smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp, 
-								 vfs_context_t context, int set_mode_now);
+                         SMBFID *fidp, vfs_context_t context);
+static void smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp,
+                                 SMBFID *fidp, int set_mode_now,
+                                 vfs_context_t context);
 static int smbfs_vnop_compound_open(struct vnop_compound_open_args *ap);
 static int smbfs_vnop_open(struct vnop_open_args *ap);
 int smbfs_hifi_set_perms(struct smb_share *share, vnode_t vp, vfs_context_t context);
 
-extern struct smb_reconnect_stats smb_reconn_stats;
-extern uint32_t g_max_dir_entries_cached;
 int smbfs_is_dataless_access_allowed(vnode_t vp, uint32_t open_check, vfs_context_t context);
+int smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cnp,
+                      struct vnode_attr *vap,  uint32_t open_disp, int fmode,
+                      SMBFID *fidp, struct smbfattr *fattrp, vnode_t *vpp,
+                      vfs_context_t context);
 
 
 int
@@ -193,40 +198,6 @@ smbfs_is_dataless_access_allowed(vnode_t vp, uint32_t open_check,
     return(error);
 }
 
-
-static uint32_t
-smbfs_get_req_lease_state(uint32_t access_rights)
-{
-#pragma unused(access_rights)
-	/*
-	 * Pre macOS 10.13.x SMB Servers only supported Read/Handle leases.
-	 * Since we only ask for leases on O_EXLOCK or O_SHLOCK files, we will
-	 * always have deny Write set on the opened file. Thus we do not need to
-	 * ask for a Write lease.
-	 *
-	 * [MS-SMB2] <50> Windows servers only support R, RW, RH, RWH leases
-	 * Since we always want a handle lease, that leaves us with just RH.
-	 *
-	 */
-	uint32_t req_lease_state = SMB2_LEASE_READ_CACHING | SMB2_LEASE_HANDLE_CACHING;
-
-#if 0
-	/* [MS-SMB2] <116> Code to determine lease based on file access */
-	uint32_t req_lease_state = SMB2_LEASE_HANDLE_CACHING;
-	
-	if (access_rights & SMB2_FILE_READ_DATA) {
-		req_lease_state |= SMB2_LEASE_READ_CACHING;
-	}
-
-	if (access_rights & SMB2_FILE_WRITE_DATA) {
-		req_lease_state |= SMB2_LEASE_WRITE_CACHING;
-	}
-#endif
-	
-	return(req_lease_state);
-}
-
-
 /*
  * We were doing an IO and received an error. Was the error caused because we were
  * reconnecting to the server. If yes then see if we can reopen the file. If everything
@@ -240,23 +211,40 @@ smbfs_io_reopen(struct smb_share *share, vnode_t vp, uio_t uio,
 				uint16_t accessMode, SMBFID *fid, int error, 
 				vfs_context_t context)
 {
+#pragma unused(uio)
 	struct smbnode *np = VTOSMB(vp);
 	
-	if (!(np->f_openState & kNeedReopen))
+    if (!(np->f_openState & kNeedReopen)) {
 		return(error);
+    }
 	
+    /* See if file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, context);
-	if (error)
+    if (error) {
 		return(error);
+    }
 	
-	if (FindFileRef(vp, vfs_context_proc(context), accessMode, kCheckDenyOrLocks, 
-                    uio_offset(uio), uio_resid(uio), NULL, fid)) {
-        *fid = np->f_fid;
+    /* Try to find a FID thats currently open with desired access */
+    if ((np->f_lockFID_refcnt > 0) &&
+        (np->f_lockFID_accessMode & accessMode)) {
+        *fid = np->f_lockFID_fid;
+    }
+    else {
+        if ((np->f_sharedFID_refcnt > 0) &&
+            (np->f_sharedFID_accessMode & accessMode)) {
+            *fid = np->f_sharedFID_fid;
+            /*
+             * Do not need to check the BRL FIDs as the sharedFID should
+             * always be a superset of the BRL FIDs.
+             */
+        }
+        else {
+            SMBERROR_LOCK(np, "No FID found for <%s>? \n", np->n_name);
+            error = EBADF;
+        }
     }
 
-    /* Should always have a fid at this point */
-    DBG_ASSERT(*fid != 0);	
-	return(0);
+	return(error);
 }
 
 /*
@@ -283,6 +271,10 @@ smbfs_update_cache(struct smb_share *share, vnode_t vp,
          use_cached_data = (share->ss_flags & SMBS_RECONNECTING);
      }
 
+#if 0
+    /* For better Finder copy performance, dont do this anymore */
+    
+    
      /*
       * <44386255> if its a file and its set for non cacheable, then follow
       * AFP Client behavior and also do not cache meta data.
@@ -294,6 +286,7 @@ smbfs_update_cache(struct smb_share *share, vnode_t vp,
          (vnode_isreg(vp)) && (!smbfsIsCacheable(vp))) {
          VTOSMB(vp)->attribute_cache_timer = 0;
      }
+#endif
 
      error = smbfs_attr_cachelookup(share, vp, vap, context, use_cached_data);
 
@@ -304,7 +297,7 @@ smbfs_update_cache(struct smb_share *share, vnode_t vp,
 		 goto done;
      }
 
-	 error = smbfs_lookup(share, VTOSMB(vp), NULL, NULL, &fattr, context);
+	 error = smbfs_lookup(share, VTOSMB(vp), NULL, NULL, NULL, &fattr, context);
      SMB_LOG_KTRACE(SMB_DBG_SMBFS_UPDATE_CACHE | DBG_FUNC_NONE,
                     0xabc001, error, 0, 0, 0);
 
@@ -335,6 +328,216 @@ done:
 	 return (error);
  }
  
+int
+smbfs_close_fid(struct smb_share *share, vnode_t vp, int openMode, int close_both,
+                int *get_mod_date, vfs_context_t context)
+{
+    struct smbnode *np = NULL;
+    int    error = 0, warning = 0;
+    struct smb2_close_rq close_parms = {0};
+    int closeLockFID = 0, closeSharedFID = 0;
+    struct ByteRangeLockEntry *currBRL = NULL, *nextBRL = NULL;
+    int i = 0;
+
+    if ((vp == NULL) || (share == NULL)) {
+        SMBERROR("vp or share is null \n");
+        return(EINVAL);
+    }
+    np = VTOSMB(vp);
+    
+    if (openMode & FWASLOCKED) {
+        closeLockFID = 1;
+    }
+    else {
+        closeSharedFID = 1;
+    }
+
+    if (close_both == 1) {
+        closeLockFID = 1;
+        closeSharedFID = 1;
+    }
+    
+    if (closeLockFID == 1) {
+        /* Last close on lockFID */
+        if (np->f_lockFID_fid != 0) {
+            /* Close the lockFID or sharedFID */
+            bzero(&close_parms, sizeof(close_parms));
+            
+#if 0
+            /*
+             * <99885765> Dont do Flush/Close as it can crash third party
+             * servers.
+             */
+            if (np->n_flag & NNEEDS_FLUSH) {
+                /* SMB2 and later and only on last close */
+                close_parms.add_flush = 1;
+            }
+#endif
+            warning = smbfs_smb_close_attr(vp, share,
+                                         np->f_lockFID_fid, &close_parms,
+                                         context);
+            if (warning) {
+                SMBERROR_LOCK(np, "smbfs_smb_close_attr failed <%d> on lockFID for <%s>\n",
+                              warning, np->n_name);
+                if (error == 0) {
+                    error = warning;
+                }
+            }
+            else {
+                /* Flush/Close worked */
+                if (np->n_flag & NNEEDS_FLUSH) {
+                    /* Clear the flush flag */
+                    np->n_flag &= ~NNEEDS_FLUSH;
+                }
+            }
+            
+            if (!(close_parms.ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
+                /*
+                 * Failed to get the close attributes, so need to try again to
+                 * get the last close mod date and current data size.
+                 */
+                *get_mod_date = 1;
+            }
+        }
+
+        /* Assume the close always worked */
+        np->f_lockFID_refcnt = 0;
+        np->f_lockFID_mmapped = 0;
+        np->f_lockFID_fid = 0;
+        np->f_lockFID_accessMode = 0;
+        np->f_lockFID_rights = 0;
+        np->f_lockFID_openRWCnt = 0;
+        np->f_lockFID_openRCnt = 0;
+        np->f_lockFID_openWCnt = 0;
+        np->f_lockFID_isEXLOCK = 0;
+        np->f_lockFID_isSHLOCK = 0;
+        
+        /*
+         * Closing the file releases the BRLs
+         * Wipe out the ByteRangeLockEntries
+         */
+        lck_mtx_lock(&np->f_lockFID_BRL_lock);
+
+        currBRL = np->f_lockFID_lockList;
+        while (currBRL != NULL) {
+            nextBRL = currBRL->next;        /* save next in list */
+            SMB_FREE_TYPE(struct ByteRangeLockEntry, currBRL);     /* free current entry */
+            currBRL = nextBRL;              /* and on to the next */
+        }
+        np->f_lockFID_lockList = NULL;
+        
+        lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+
+        /* clear the durable handle */
+        smbnode_dur_handle_lock(&np->f_lockFID_dur_handle, smbfs_close);
+        smb2_dur_handle_init(share, 0, &np->f_lockFID_dur_handle, 0);
+        smbnode_dur_handle_unlock(&np->f_lockFID_dur_handle);
+    }
+    
+    if (closeSharedFID == 1) {
+        /* Last close on sharedFID */
+        if (np->f_sharedFID_fid != 0) {
+            /* Close the lockFID or sharedFID */
+            bzero(&close_parms, sizeof(close_parms));
+            
+#if 0
+            /*
+             * <99885765> Dont do Flush/Close as it can crash third party
+             * servers.
+             */
+            if (np->n_flag & NNEEDS_FLUSH) {
+                /* SMB2 and later and only on last close */
+                close_parms.add_flush = 1;
+            }
+#endif
+            warning = smbfs_smb_close_attr(vp, share,
+                                         np->f_sharedFID_fid, &close_parms,
+                                         context);
+            if (warning) {
+                SMBERROR_LOCK(np, "smbfs_smb_close_attr failed <%d> on sharedFID for <%s> \n",
+                              warning, np->n_name);
+                if (error == 0) {
+                    error = warning;
+                }
+            }
+            else {
+                /* Flush/Close worked */
+                if (np->n_flag & NNEEDS_FLUSH) {
+                    /* Clear the flush flag */
+                    np->n_flag &= ~NNEEDS_FLUSH;
+                }
+            }
+
+            if (!(close_parms.ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
+                /*
+                 * Failed to get the close attributes, so need to try again to
+                 * get the last close mod date and current data size.
+                 */
+                *get_mod_date = 1;
+            }
+        }
+
+        /* Assume the close always worked */
+        np->f_sharedFID_refcnt = 0;
+        np->f_sharedFID_mmapped = 0;
+        np->f_sharedFID_fid = 0;
+        SMB_LOG_LEASING_LOCK(np, "clearing f_sharedFID_accessMode on <%s> \n",
+                             np->n_name);
+        np->f_sharedFID_accessMode = 0;
+        np->f_sharedFID_rights = 0;
+        np->f_sharedFID_openRWCnt = 0;
+        np->f_sharedFID_openRCnt = 0;
+        np->f_sharedFID_openWCnt = 0;
+        np->f_sharedFID_isEXLOCK = 0;
+        np->f_sharedFID_isSHLOCK = 0;
+
+        /* Clear the flock pid since its only used on sharedFID */
+        np->f_smbflock_pid = 0;
+
+        /* Make sure all lockEntries which are used for BRLs are closed */
+        lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+        for (i = 0; i < 3; i++) {
+            if ((np->f_sharedFID_lockEntries[i].refcnt != 0) &&
+                (np->f_sharedFID_lockEntries[i].fid != 0)) {
+                /* Try to close this lockEntry */
+                warning = smbfs_smb_close(share,
+                                          np->f_sharedFID_lockEntries[i].fid,
+                                          context);
+                if (warning) {
+                    SMBERROR_LOCK(np, "smbfs_smb_close failed <%d> on sharedFID lockEntry <%d> for <%s> \n",
+                                  warning, i, np->n_name);
+                    /* ignore any errors */
+                }
+            }
+        }
+        lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+        /*
+         * Closing the file releases the BRLs
+         * Wipe out the ByteRangeLockEntries
+         */
+        smbfs_clear_lockEntries(vp, NULL);
+
+        /* clear the durable handle */
+        smbnode_dur_handle_lock(&np->f_sharedFID_dur_handle, smbfs_close);
+        smb2_dur_handle_init(share, 0, &np->f_sharedFID_dur_handle, 0);
+        smbnode_dur_handle_unlock(&np->f_sharedFID_dur_handle);
+
+        /*
+         * They didn't unlock the file before closing. A SMB close will remove
+         * any locks so lets free the memory associated with that lock.
+         *
+         * This is from vnop_advlock() and can only be on the sharedFID
+         */
+        if (np->f_smbflock) {
+            SMB_FREE_TYPE(struct smbfs_flock, np->f_smbflock);
+            np->f_smbflock = NULL;
+        }
+    }
+
+    return (error);
+}
+
 /*
  * smbfs_close - The internal open routine, the vnode should be locked
  * before this is called. We only handle VREG in this routine.
@@ -347,10 +550,7 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
 			vfs_context_t context)
 {
 	struct smbnode *np = VTOSMB(vp);
-	proc_t p = vfs_context_proc(context);
-	struct fileRefEntry	*fndEntry = NULL;
-	struct fileRefEntry	*curr = NULL;
-	int	error = 0;
+	int	error = 0, warning = 0;
 	uint16_t accessMode = 0;
     SMBFID fid = 0;
 	int32_t	needOpenFile;
@@ -359,123 +559,555 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
     struct smbfattr *fap = NULL;
     vnode_t par_vp = NULL;
     int get_mod_date = 0;
-	
-	/* 
+    struct smb2_close_rq close_parms = {0};
+    struct timespec ts;
+    int last_close = 0, need_close = 0;
+    struct smb2_lease temp_lease = {0};
+    struct smb2_durable_handle temp_dur_hndl = {0};
+    int lease_need_free = 0;
+    int dur_need_free = 0;
+    struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
+
+    /*
+     * Note that fcntl(brl) open/close are done directly in the
+     * smbfs_vnop_ioctl(). Same goes for flock() in smbfs_vnop_advlock().
+     */
+    
+	/*
 	 * We have more than one open, so before closing see if the file needs to 
-	 * be reopened 
+	 * be reopened or revoked
 	 */
-	if ((np->f_refcnt > 1) && (smbfs_smb_reopen_file(share, np, context) == EIO)) {
+	if (((np->f_lockFID_refcnt > 1) || (np->f_sharedFID_refcnt > 1)) &&
+        (smbfs_smb_reopen_file(share, np, context) == EIO)) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
-		np->f_refcnt--;
+        
+        if (np->f_sharedFID_refcnt > 1) {
+            np->f_sharedFID_refcnt--;
+        }
+        
+        if (np->f_lockFID_refcnt > 1) {
+            np->f_lockFID_refcnt--;
+        }
+
 		return (0);
 	}
 		
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_START,
-                   openMode, np->f_refcnt, 0, 0, 0);
+                   openMode, np->f_sharedFID_refcnt, np->f_lockFID_refcnt, 0, 0);
 
-	if (openMode & FREAD)
+    SMB_LOG_FILE_OPS_LOCK(np, "Enter: openMode <0x%x> on <%s> \n",
+                          openMode, np->n_name);
+
+    if (openMode & IO_NDELAY) {
+        /*
+         * This must be from an unmount and close all handles for this file
+         * Our vnop_close() gets called once on each file vnode that is still
+         * open regardless of how many times vnop_open() was called. openMode
+         * will NOT have the open mode in it from the vnop_open(), it will
+         * only have IO_NDELAY set. When this happens, just close the lockFID
+         * and sharedFID.
+         */
+        
+        /* Close the lockFID AND sharedFID */
+        error = smbfs_close_fid(share, vp, openMode, 1, &get_mod_date, context);
+        if (error) {
+            SMBERROR_LOCK(np, "smbfs_close_fid failed <%d> on <%s> \n",
+                          error, np->n_name);
+        }
+        return(error);
+    }
+
+    /* Attempt to free any remaining locks */
+    warning = smbfs_free_locks_on_close(share, vp, openMode, context);
+    if (warning) {
+        SMBERROR_LOCK(np, "smbfs_free_locks_on_close failed <%d> on <%s> \n",
+                      warning, np->n_name);
+    }
+    
+    if (openMode & FREAD) {
 		accessMode |= kAccessRead;
+    }
 
-	if (openMode & FWRITE)
+    if (openMode & FWRITE) {
 		accessMode |= kAccessWrite;
+    }
 
-	/* Check the number of times Open() was called */
-	if (np->f_refcnt == 1) {
-		/*
-		 * This is the last Close() we will get, so close sharedForkRef 
-		 * and any other forks created by ByteRangeLocks
-		 */
-		if (np->f_fid != 0) {
-			SMBFID oldFID = np->f_fid;
-						
-			/* Close the shared file first. Clear out the refs to it 
-			 * first so that no one else trys to use it while I'm waiting 
-			 * for the close file reply to arrive.  There was a case 
-			 * where cluster i/o was firing off after I sent the close 
-			 * file req, but had not gotten the close file reply yet 
-			 * and tyring to still use the shared file 
-			 */
-			np->f_fid = 0;		/* clear the ref num */
-			np->f_accessMode = 0;
-			np->f_rights = 0;
-			np->f_openRWCnt = 0;
-			np->f_openRCnt = 0;
-			np->f_openWCnt = 0;
-			np->f_openTotalWCnt = 0;
-			np->f_needClose = 0;
-			np->f_clusterCloseError = 0;
-			/*
-			 * They didn't unlock the file before closing. A SMB close will remove
-			 * any locks so lets free the memory associated with that lock.
-			 */
-			if (np->f_smbflock) {
-				SMB_FREE(np->f_smbflock, M_LOCKF);
-				np->f_smbflock = NULL;				
-			}
-			error = smbfs_smb_close(share, oldFID, context);
-			if (error) {
-				SMBWARNING("close file failed %d on fid %llx\n", 
-                           error, oldFID);
+    /*
+     * One edge case that is NOT handled!
+     *
+     * 1. Proc A opens testfile with read and then does flock() (vnop_advlock)
+     *    to lock, then later flock() to unlock. Proc A leaves file open for
+     *    now. FID is in the sharedFID. Note that due to flock(), FWASLOCKED
+     *    is set on fd1
+     * 2. Proc B opens testfile with read/O_SHLOCK and FID is in lockFID.
+     *    FWASLOCKED is set on this fd2.
+     * 3. Proc A or B calls vnop_close(fd1/fd2).
+     *
+     * Both openModes will have FWASLOCKED and both are set for read, so which
+     * SMB FID are we supposed to close? The sharedFID that had the flock() on
+     * it earlier or the lockFID that has O_SHLOCK on it right now???
+     *
+     * Its due to SMB Client having O_EXLOCK/O_SHLOCK implemented as
+     * Create share/deny modes and flock() as byte range locks.
+     *
+     * Save the pid that did the flock() and HOPE that other process do not
+     * also do flock() or that the fd is not transferred to another process.
+     *
+     * If all checks fail, then assume the close is for lockFID. IF lockFID
+     * refcnt is 0, then it must be the sharedFID. Best we can do :-(
+     */
+    if (openMode & FWASLOCKED) {
+        if (np->f_lockFID_refcnt <= 0) {
+            /* Assume it must have been a previous flock() on sharedFID */
+            SMB_LOG_FILE_OPS_LOCK(np, "FWASLOCKED set, but lockFID refcnt <%d> is 0, assume its sharedFID on <%s> \n",
+                                  np->f_lockFID_refcnt, np->n_name);
+            openMode &= ~FWASLOCKED;
+            np->f_smbflock_pid = 0;
+        }
+        else {
+            /*
+             * If current pid matches last pid to do flock, then assume its
+             * that process now closing the file
+             */
+            if ((np->f_smbflock_pid != 0) &&
+                (np->f_smbflock_pid == vfs_context_pid(context))) {
+                SMB_LOG_FILE_OPS_LOCK(np, "FWASLOCKED set, but pid matches last flock pid, assume its sharedFID on <%s> \n",
+                                      np->n_name);
+                openMode &= ~FWASLOCKED;
+                np->f_smbflock_pid = 0;
             }
-		 }
+        }
+    }
+    
+    /* Is the close for the lockFID or sharedFID? */
+    if (openMode & FWASLOCKED) {
+        SMB_LOG_FILE_OPS_LOCK(np, "lockFID accessMode <0x%x> refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                              accessMode,
+                              np->f_lockFID_refcnt,
+                              np->f_lockFID_openRWCnt,
+                              np->f_lockFID_openRCnt,
+                              np->f_lockFID_openWCnt,
+                              np->f_openTotalWCnt,
+                              np->n_name);
 
-		/* Remove forks that were opened due to ByteRangeLocks or DenyModes */
-		lck_mtx_lock(&np->f_openDenyListLock);
-		curr = np->f_openDenyList;
-		while (curr != NULL) {
-			/* If we have a handle lease, skip the close */
-			lck_mtx_lock(&curr->dur_handlep->lock);
-			
-			if ((curr->dur_handlep->flags & SMB2_LEASE_GRANTED) &&
-				(curr->dur_handlep->lease_state & SMB2_LEASE_HANDLE_CACHING) &&
-				(curr->dur_handlep->req_lease_state == curr->dur_handlep->lease_state) &&
-				(OSAddAtomic(0, &share->ss_curr_def_close_cnt) < share->ss_max_def_close_cnt)) {
-				/* Mark it as a deferred close */
-				curr->dur_handlep->flags |= SMB2_DEFERRED_CLOSE;
-				OSAddAtomic(1, &share->ss_curr_def_close_cnt);
-				
-				/* Update cumulative count */
-				OSAddAtomic64(1, &share->ss_total_def_close_cnt);
+        
+        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                       0xabc001, np->f_lockFID_refcnt, np->f_lockFID_accessMode, 0, 0);
 
-				/* Set deferred close time */
-				nanouptime(&curr->dur_handlep->def_close_time);
+        /*
+         * O_EXLOCK or O_SHLOCK was used, thus lockFID was used
+         * Is lockFID refcnt <= 0?
+         */
+        if (np->f_lockFID_refcnt <= 0) {
+            /* Paranoid check */
+            SMBERROR_LOCK(np, "Invalid refcnt <%d> on <%s> for lockFID? \n",
+                          np->f_lockFID_refcnt, np->n_name);
+            error = EBADF;
+            goto exit;
+        }
 
-				lck_mtx_unlock(&curr->dur_handlep->lock);
-				
-				SMB_LOG_UNIT_TEST_LOCK(np, "FileLeaseUnitTest - Deferring last close on <%s> \n",
-									   np->n_name);
-				
-				lck_mtx_unlock(&np->f_openDenyListLock);
-				
-				np->f_refcnt = 0;
-				error = 0;
-
-                /* Get the last close mod date and data size */
-                get_mod_date = 1;
-
-				goto exit;
-			}
-			else {
-				lck_mtx_unlock(&curr->dur_handlep->lock);
-			}
-
-			error = smbfs_smb_close(share, curr->fid, context);
-			if (error) {
-				SMBWARNING("close file failed %d on fid %llx\n", 
-                           error, curr->fid);
+        /* mmapping a file increments the refcnt */
+        if (np->f_lockFID_mmapped == FALSE) {
+            /*
+             * Paranoid Check. If not mmaping, then only read/O_SHLOCK should
+             * have a refcnt > 1
+             */
+            if ((np->f_lockFID_accessMode != (kAccessRead | kDenyWrite)) &&
+                (np->f_lockFID_refcnt > 1)) {
+                SMBERROR_LOCK(np, "Expected refcnt <%d> to be 1 on <%s> for lockFID? accessMode <0x%x> \n",
+                              np->f_lockFID_refcnt, np->n_name,
+                              np->f_lockFID_accessMode);
+                error = EBADF;
+                goto exit;
             }
-			curr = curr->next;
-		}
-		lck_mtx_unlock(&np->f_openDenyListLock);
-		np->f_refcnt = 0;
-		RemoveFileRef (vp, NULL, 0);		/* remove all file refs */
+        }
 
-		/*
-		 * We did the last close on the file. This file is 
-		 * marked for deletion on close. So lets delete it
-		 * here. If we get an error then try again when the node
-		 * becomes inactive.
-		 */
+        /*
+         * Is the lockFID still in use?
+         * Could be mmapped or read/O_SHLOCK
+         */
+        if (np->f_lockFID_refcnt > 1) {
+            /* Yep, just decrement the refcnt and leave */
+            np->f_lockFID_refcnt -= 1;
+            error = 0;
+            
+            /* Update the RW counters */
+            switch (accessMode) {
+                case (kAccessRead | kAccessWrite):
+                    np->f_lockFID_openRWCnt -= 1;
+                    break;
+                case kAccessRead:
+                    np->f_lockFID_openRCnt -= 1;
+                    break;
+                case kAccessWrite:
+                    np->f_lockFID_openWCnt -= 1;
+                    break;
+            }
+
+            goto exit;
+        }
+
+        /*
+         * f_lockFID_refcnt must be 1 at this point
+         * Is this the last close of entire file?
+         */
+        if (np->f_sharedFID_refcnt == 0) {
+            /* Last close of entire file, see if we can defer it */
+            np->f_lockFID_refcnt -= 1;
+            last_close = 1;
+        }
+        else {
+            /* Not the last close of entire file, but last close for lockFID */
+            need_close = 1;
+        }
+        
+        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                       0xabc002, last_close, need_close, 0, 0);
+    }
+    else {
+        SMB_LOG_FILE_OPS_LOCK(np, "sharedFID accessMode <0x%x> refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                              accessMode,
+                              np->f_sharedFID_refcnt,
+                              np->f_sharedFID_openRWCnt,
+                              np->f_sharedFID_openRCnt,
+                              np->f_sharedFID_openWCnt,
+                              np->f_openTotalWCnt,
+                              np->n_name);
+
+        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                       0xabc003, np->f_sharedFID_refcnt, np->f_sharedFID_accessMode, 0, 0);
+
+        /*
+         * O_EXLOCK or O_SHLOCK was NOT used, thus sharedFID was used
+         * Is sharedFID refcnt <= 0?
+         */
+        if (np->f_sharedFID_refcnt <= 0) {
+            /* Paranoid check */
+            SMBERROR_LOCK(np, "Invalid refcnt <%d> on <%s> for sharedFID? \n",
+                          np->f_sharedFID_refcnt, np->n_name);
+            error = EBADF;
+            goto exit;
+        }
+
+        /* Is last close call on sharedFID? */
+        if (np->f_sharedFID_refcnt == 1) {
+            /* Is this last close of entire file? */
+            if (np->f_lockFID_refcnt == 0) {
+                np->f_sharedFID_refcnt -= 1;
+                /* Last close of entire file, see if we can defer it */
+                last_close = 1;
+            }
+            else {
+                /* Not the last close of entire file, but last close for sharedFID */
+                need_close = 1;
+            }
+
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                           0xabc004, last_close, need_close, 0, 0);
+        } /* (np->f_sharedFID_refcnt == 1) */
+        else {
+           /*
+             * sharedFID_refcnt > 1 at this point
+             * Check to downgrade access mode if possible
+             */
+            np->f_sharedFID_refcnt -= 1;
+
+            needOpenFile = 0;
+            openAccessMode = 0;
+            fid = 0;
+            rights = SMB2_READ_CONTROL;
+
+            switch (accessMode) {
+                case (kAccessRead | kAccessWrite):
+                    np->f_sharedFID_openRWCnt -= 1;
+                    if ((np->f_sharedFID_openRWCnt == 0) &&
+                        (np->f_sharedFID_openRCnt > 0) &&
+                        (np->f_sharedFID_openWCnt == 0)) {
+                        /* Drop from rw to read only */
+                        needOpenFile = 1;
+                        openAccessMode = kAccessRead;
+                        rights |= SMB2_FILE_READ_DATA;
+                    }
+                    /* Dont ever downgrade to write only since Unix expects read/write */
+                    break;
+                case kAccessRead:
+                    np->f_sharedFID_openRCnt -= 1;
+                    /* Dont ever downgrade to write only since Unix expects read/write */
+                    SMB_LOG_FILE_OPS_LOCK(np, "Decr read cnt for sharedFID f_sharedFID_accessMode <0x%x> refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                                          np->f_sharedFID_accessMode,
+                                          np->f_sharedFID_refcnt,
+                                          np->f_sharedFID_openRWCnt,
+                                          np->f_sharedFID_openRCnt,
+                                          np->f_sharedFID_openWCnt,
+                                          np->f_openTotalWCnt,
+                                          np->n_name);
+                    break;
+                case kAccessWrite:
+                    np->f_sharedFID_openWCnt -= 1;
+                    if ((np->f_sharedFID_openRCnt > 0) &&
+                        (np->f_sharedFID_openRWCnt == 0) &&
+                        (np->f_sharedFID_openWCnt == 0)) {
+                        /* drop from rw to read only */
+                        needOpenFile = 1;
+                        openAccessMode = kAccessRead;
+                        rights |= SMB2_FILE_READ_DATA;
+                    }
+                    break;
+            }
+
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                           0xabc007,
+                           np->f_sharedFID_openRCnt,
+                           np->f_sharedFID_openWCnt,
+                           np->f_sharedFID_openRWCnt,
+                           0);
+
+            /* Trying to downgrade? */
+            if (needOpenFile == 0) {
+                /* nope, all done then */
+                error = 0;
+                goto exit;
+            }
+            
+            /* Try to downgrade */
+            SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
+            if (fap == NULL) {
+                SMBERROR("SMB_MALLOC_TYPE failed\n");
+                error = ENOMEM;
+                goto exit;
+            }
+            
+            /* Always request a durable handle which includes a lease */
+            smb2_lease_init(share, NULL, np, 0, &temp_lease, 1);
+            temp_lease.req_lease_state = smbfs_get_req_lease_state(rights);
+            dur_hndl_lease.leasep = &temp_lease;
+            lease_need_free = 1;
+
+            smb2_dur_handle_init(share, SMB2_DURABLE_HANDLE_REQUEST, &temp_dur_hndl, 1);
+            dur_hndl_lease.dur_handlep = &temp_dur_hndl;
+            dur_need_free = 1;
+
+            /* Lease should already still be in tables so no need to add it */
+            
+            SMB_LOG_FILE_OPS_LOCK(np, "Downgrade sharedFID from accessMode <0x%x> to openAccessMode <0x%x> on <%s> \n",
+                                  accessMode, openAccessMode, np->n_name);
+
+            error = smbfs_smb_open_file(share, np,
+                                        rights, NTCREATEX_SHARE_ACCESS_ALL, &fid,
+                                        NULL, 0, FALSE,
+                                        fap, &dur_hndl_lease,
+                                        context);
+            
+            SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                           0xabc005, error, 0, 0, 0);
+            
+            if (error == 0) {
+                /* Successfully opened file with downgraded access */
+                SMBFID oldFID = np->f_sharedFID_fid;
+                
+                /*
+                 * Successfuly opened a file
+                 * Did we ask for and get a lease?
+                 */
+                smbnode_lease_lock(&temp_lease, smbfs_close);
+                
+                if (temp_lease.flags & SMB2_LEASE_GRANTED) {
+                    /* Update the vnode lease from the temp lease */
+                    warning = smbfs_add_update_lease(share, vp, &temp_lease, SMBFS_LEASE_UPDATE, 1,
+                                                     "DownGradeSharedFID");
+                    if (warning) {
+                        /* Shouldnt ever happen */
+                        SMBERROR("smbfs_add_update_lease update failed %d\n", warning);
+                    }
+                }
+                
+                smbnode_lease_unlock(&temp_lease);
+
+                /* Did we ask for and get a durable handle? */
+                smbnode_dur_handle_lock(&temp_dur_hndl, smbfs_close);
+
+                if (temp_dur_hndl.flags & (SMB2_DURABLE_HANDLE_GRANTED | SMB2_PERSISTENT_HANDLE_GRANTED)) {
+                    /* Copy the temp dur handle info into the vnode sharedFID */
+                    smbnode_dur_handle_lock(&np->f_sharedFID_dur_handle, smbfs_close);
+
+                    np->f_sharedFID_dur_handle.flags = temp_dur_hndl.flags;
+                    np->f_sharedFID_dur_handle.fid = fid;
+                    np->f_sharedFID_dur_handle.timeout = temp_dur_hndl.timeout;
+                    memcpy(np->f_sharedFID_dur_handle.create_guid, temp_dur_hndl.create_guid,
+                           sizeof(np->f_sharedFID_dur_handle.create_guid));
+                    
+                    smbnode_dur_handle_unlock(&np->f_sharedFID_dur_handle);
+                }
+
+                smbnode_dur_handle_unlock(&temp_dur_hndl);
+
+                /* We are downgrading the open, flush out any data */
+                ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
+                
+                /*
+                 * Close the shared file first and use this new one now
+                 * Switch the ref before closing the old shared file so the
+                 * old file wont get used while its being closed.
+                 */
+                np->f_sharedFID_fid = fid;    /* reset the ref num */
+                np->f_sharedFID_accessMode = openAccessMode;
+                np->f_sharedFID_rights = rights;
+                
+                bzero(&close_parms, sizeof(close_parms));
+                
+#if 0
+            /*
+             * <99885765> Dont do Flush/Close as it can crash third party
+             * servers.
+             */
+                if (np->n_flag & NNEEDS_FLUSH) {
+                    /* SMB2 and later and only on last close */
+                    close_parms.add_flush = 1;
+                }
+#endif
+                error = smbfs_smb_close_attr(vp, share,
+                                             oldFID, &close_parms,
+                                             context);
+                if (error) {
+                    SMBWARNING("close file failed <%d> on fid <0x%llx> for downgrade \n",
+                               error, oldFID);
+                    error = 0; /* Ignore errors on downgrade attempt */
+                }
+                else {
+                    /* Flush/Close worked */
+                    if (np->n_flag & NNEEDS_FLUSH) {
+                        /* Clear the flush flag */
+                        np->n_flag &= ~NNEEDS_FLUSH;
+                    }
+                }
+
+                if (!(close_parms.ret_flags & SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB)) {
+                    /*
+                     * Failed to get the close attributes, so need to try again to
+                     * get the last close mod date and current data size.
+                     */
+                    get_mod_date = 1;
+                }
+                
+                SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
+                               0xabc006, error, 0, 0, 0);
+                
+                goto exit;
+            }
+            else {
+                if (error) {
+                    SMBWARNING("open file failed <%d> for downgrade \n",
+                               error);
+                    error = 0; /* Ignore errors on downgrade attempt */
+                }
+            }
+        }
+    } /* else of (openMode & FWASLOCKED) */
+
+    /* If last close of entire file, can we defer the close? */
+    if (last_close) {
+        /*
+         * If we have a handle lease, try to defer the close
+         * But only if its not marked for delete on close and not a
+         * named stream (resource fork).
+         *
+         * Finder copies set the F_NOCACHE bit which becomes the FNOCACHE bit.
+         * To improve small file copy performance, do not do a deferred close
+         * for Finder copies.
+         */
+        smbnode_lease_lock(&np->n_lease, smbfs_close);
+        if (!(openMode & FNOCACHE) &&
+            !(np->n_flag & NDELETEONCLOSE) &&
+            !(np->n_flag & N_ISSTREAM) &&
+            (np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+            (np->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING) &&
+            (OSAddAtomic(0, &share->ss_curr_def_close_cnt) < share->ss_max_def_close_cnt)) {
+            /* Mark it as a deferred close */
+            np->n_lease.flags |= SMB2_DEFERRED_CLOSE;
+            OSAddAtomic(1, &share->ss_curr_def_close_cnt);
+
+            /* Update cumulative count */
+            OSAddAtomic64(1, &share->ss_total_def_close_cnt);
+
+            /* Set deferred close time */
+            nanouptime(&ts);
+            np->n_lease.def_close_timer = ts.tv_sec;
+
+            smbnode_lease_unlock(&np->n_lease);
+            
+            SMB_LOG_LEASING_LOCK(np, "Deferring last %s close on <%s> accessMode <0x%x>\n",
+                                   (openMode & FWASLOCKED) ? "lockFID" : "sharedFID",
+                                   np->n_name,
+                                   (openMode & FWASLOCKED) ? np->f_lockFID_accessMode : np->f_sharedFID_accessMode);
+            
+            error = 0;
+
+            /* Update the RW counters */
+            switch (accessMode) {
+                case (kAccessRead | kAccessWrite):
+                    if (openMode & FWASLOCKED) {
+                        np->f_lockFID_openRWCnt -= 1;
+                    }
+                    else {
+                        np->f_sharedFID_openRWCnt -= 1;
+                    }
+                    break;
+                case kAccessRead:
+                    if (openMode & FWASLOCKED) {
+                        np->f_lockFID_openRCnt -= 1;
+                    }
+                    else {
+                        np->f_sharedFID_openRCnt -= 1;
+                    }
+                    break;
+                case kAccessWrite:
+                    if (openMode & FWASLOCKED) {
+                        np->f_lockFID_openWCnt -= 1;
+                    }
+                    else {
+                        np->f_sharedFID_openWCnt -= 1;
+                    }
+                    break;
+            }
+
+            goto exit;
+        }
+        else {
+            /* Cant defer it, so close it instead */
+            
+            /* Try to remove the vnode lease */
+            if (np->n_lease.flags != 0) {
+                warning = smbfs_add_update_lease(share, np->n_vnode, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                                               "LastClose");
+                if (warning) {
+                    /* Shouldnt ever happen */
+                    SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
+                                  warning, np->n_name);
+                }
+            }
+            
+            smbnode_lease_unlock(&np->n_lease);
+            need_close = 1;
+        }
+    }
+
+    if (need_close == 1) {
+        /* Close the lockFID or sharedFID */
+        error = smbfs_close_fid(share, vp, openMode, 0, &get_mod_date, context);
+        if (error) {
+            SMBERROR_LOCK(np, "smbfs_close_fid failed <%d> on <%s> \n",
+                          error, np->n_name);
+        }
+    }
+    
+    /* More last close of entire file processing */
+    if (last_close) {
+        /*
+         * We did the last close on the file. This file is
+         * marked for deletion on close. So lets delete it
+         * here. If we get an error then try again when the node
+         * becomes inactive.
+         */
         if (np->n_flag & NDELETEONCLOSE) {
             if (smbfs_smb_delete(share, np, VREG,
                                  NULL, 0,
@@ -489,14 +1121,9 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
                 if (par_vp != NULL) {
                     smbfs_attr_touchdir(VTOSMB(par_vp), (share->ss_fstype == SMB_FS_FAT));
 
-					/* <33469405> if dir has active lease skip local change notify */
-					lck_mtx_lock(&VTOSMB(par_vp)->d_dur_handle.lock);
-					if (!(VTOSMB(par_vp)->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-						(VTOSMB(par_vp)->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-						VTOSMB(par_vp)->d_changecnt++;
-					}
-					lck_mtx_unlock(&VTOSMB(par_vp)->d_dur_handle.lock);
-					
+                    /* Dont skip local change notify */
+                    VTOSMB(par_vp)->d_changecnt++;
+                    
                     /* Remove any negative cache entries. */
                     if (VTOSMB(par_vp)->n_flag & NNEGNCENTRIES) {
                         VTOSMB(par_vp)->n_flag &= ~NNEGNCENTRIES;
@@ -514,251 +1141,58 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
                 }
             }
         }
-
+        
         /*
-         * It was not cacheable before, but now that all files are closed,
-         * make it cacheable again (if its a valid cacheable file). If
-         * we were caching should we remove attributes cache. Realy only
-         * matters when we turn on cluster io?
+         * Both lockFID and sharedFID are closed now
          */
-        if (vnode_isnocache(vp))
-            vnode_clearnocache(vp);
+        
+        if (need_close) {
+            /*
+             * It was not cacheable before, but now that all files are closed,
+             * make it cacheable again (if its a valid cacheable file). If
+             * we were caching should we remove attributes cache.
+             */
+            if (vnode_isnocache(vp)) {
+                vnode_clearnocache(vp);
+                np->f_hasBRLs = 0;
+            }
 
-        /* Did we change the file during the open (IE wrote to the file) */
-        if (np->n_flag & NATTRCHANGED) {
-            np->attribute_cache_timer = 0;
-            smb_dir_cache_invalidate(vp, 0);
-        }
-
-        lck_mtx_lock(&np->f_openStateLock);
-        if (np->f_openState & kNeedRevoke) {
-			error = 0;
+            /* Is file marked to be revoked? */
+            lck_mtx_lock(&np->f_openStateLock);
+            if (np->f_openState & kNeedRevoke) {
+                error = 0;
+                
+                /*
+                 * If we are going to clear out a pending revoke, then
+                 * clear the NNEEDS_FLUSH | NNEEDS_EOF_SET flags. The file
+                 * is no longer open so we can not do those operations.
+                 */
+                np->n_flag &= ~(NNEEDS_FLUSH | NNEEDS_EOF_SET);
+            }
             
             /*
-             * If we are going to clear out a pending revoke, then
-             * clear the NNEEDS_FLUSH | NNEEDS_EOF_SET flags. The file
-             * is no longer open so we can not do those operations.
+             * Clear all the f_openState flags, we are closed. If we have a pending
+             * revoke clear that out, the file is closed no need to revoke it now.
              */
-            np->n_flag &= ~(NNEEDS_FLUSH | NNEEDS_EOF_SET);
+            np->f_openState = 0;
+            lck_mtx_unlock(&np->f_openStateLock);
         }
-        
-		/*
-		 * Clear all the f_openState flags, we are closed. If we have a pending
-		 * revoke clear that out, the file is closed no need to revoke it now.
-		 */
-		np->f_openState = 0;
-		lck_mtx_unlock(&np->f_openStateLock);
-
-        /* Get the last close mod date and data size */
-        get_mod_date = 1;
-
-        goto exit;
-	}
-
-	/* More than one open */
-    
-	/* 
-	 * See if we can match this Close() to a matching file that has byte range 
-	 * locks or denyModes.
-	 *
-	 * NOTE: FHASLOCK can be set by open with O_EXCLUSIVE or O_SHARED which 
-	 *	 maps to my deny modes or FHASLOCK could also have been set/cleared 
-	 *	by calling flock directly.
-	 *
-	 * Cases that work are:
-	 *	1)  Carbon using deny modes and thus FHASLOCK maps to my deny modes. 
-	 *	    No flock being used.
-	 *	2)  Cocoa using open with O_EXCLUSIVE or O_SHARED and not calling flock.
-	 *	3)  Cocoa using open, then calling flock and later calling flock 
-	 *	    to unlock before close.
-	 *	4)  Cocoa open, then calling flock, but not calling flock to unlock 
-	 *	    before close.  I would fall through to the shared fork code correctly.
-	 *
-	 * Cases that may not work are:
-	 *	1)  Carbon using deny modes and then calling flock to unlock, thus 
-	 *	    clearing FHASLOCK flag.I would assume it was the shared file.
-	 *	2)  Cocoa open with O_EXCLUSIVE or O_SHARED and then calling flock 
-	 *	    to lock and then unlock, then calling close.
-	 *	3)  ??? 
-	 */
-	if (openMode & FHASLOCK) {
-		uint16_t tempAccessMode = accessMode;
-
-		/* Try with denyWrite, if not found, then try with denyRead/denyWrite */
-		tempAccessMode |= kDenyWrite;
-		error = FindFileRef(vp, p, tempAccessMode, kExactMatch, 0, 0, &fndEntry, 
-							&fid);
-		if (error != 0) {
-			tempAccessMode |= kDenyRead;
-			error = FindFileRef(vp, p, tempAccessMode, kExactMatch, 0, 0, 
-								&fndEntry, &fid);
-		}
-		if (error == 0)
-			accessMode = tempAccessMode;
-
-        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-                       0xabc001, error, 0, 0, 0);
-    } else {
-		/* No deny modes used, so look for any forks opened for byteRangeLocks */
-		error = FindFileRef(vp, p, accessMode, kExactMatch, 0, 0, &fndEntry, &fid);
-        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-                       0xabc002, error, 0, 0, 0);
-	}
-
-	/* always decrement the count, dont care if got an error or not */
-    if (np->f_refcnt > 0) {
-        np->f_refcnt--;
     }
-	
-	if ((error == 0) && fndEntry) {
-		if (fndEntry->refcnt > 0) {
-			/*
-			 * We have an Open Deny entry that is being used by more than 
-			 * one open call just decrement it and get out.
-			 */
-			fndEntry->refcnt--;
-			SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-						   0xabc003, error, 0, 0, 0);
-		}
-		else {
-			/* If we have a handle lease, skip the close */
-			lck_mtx_lock(&fndEntry->dur_handlep->lock);
-
-			if ((fndEntry->dur_handlep->flags & SMB2_LEASE_GRANTED) &&
-				(fndEntry->dur_handlep->lease_state & SMB2_LEASE_HANDLE_CACHING) &&
-				(fndEntry->dur_handlep->req_lease_state == fndEntry->dur_handlep->lease_state) &&
-				(OSAddAtomic(0, &share->ss_curr_def_close_cnt) < share->ss_max_def_close_cnt)) {
-				/* Mark it as a deferred close */
-				fndEntry->dur_handlep->flags |= SMB2_DEFERRED_CLOSE;
-				OSAddAtomic(1, &share->ss_curr_def_close_cnt);
-
-				/* Set deferred close time */
-				nanouptime(&fndEntry->dur_handlep->def_close_time);
-
-				lck_mtx_unlock(&fndEntry->dur_handlep->lock);
-				
-				error = 0;
-				SMB_LOG_UNIT_TEST_LOCK(np, "FileLeaseUnitTest - Deferring close on <%s> \n",
-									   np->n_name);
-			}
-			else {
-				lck_mtx_unlock(&fndEntry->dur_handlep->lock);
-				
-				/* 
-				 * We have an Open Deny entry that is all done. Time to close 
-				 * it. 
-				 */
-				error = smbfs_smb_close(share, fndEntry->fid, context);
-				/* We are not going to get another close, so always remove it from the list */
-				RemoveFileRef(vp, fndEntry, 0);
-				SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-							   0xabc004, error, 0, 0, 0);
-			}
-		}
-		
-		goto exit;
-	}
-	
-	/*
-     * Not an open deny mode open.
-     *
-     * An oddity. If first open was read/write/denyWrite and then a second
-     * open of just read, then the second open will open the shared fork.
-     * Now, get a close on the "read" fork, the np->f_refcnt will be 2, and we
-     * will end up here. The np->f_refcnt will be decremented to 1 so the next
-     * close call will close everything. In the meantime, we end up leaving 
-     * the shared fork open with "read" and thus we actually have two forks
-     * open, one for the read/write/denyWrite and the other is the shared fork.
-     * We have has this behavior for a long time and just have not noticed.
-     * Since its an edge case and no one has complained, we can leave it this
-     * way for now.
-     */
-	needOpenFile = 0;
-	openAccessMode = 0;
-	fid = 0;
-	rights = SMB2_READ_CONTROL;
-  
-	/* 
-	 * Just return 0 for no err, but dont close the file since another 
-	 * process is still using it 
-	 */
-	error = 0;
-    
-	/* Check to downgrade access mode if needed */
-	switch (accessMode) {
-	case (kAccessRead | kAccessWrite):
-		np->f_openRWCnt -= 1;
-		if ((np->f_openRWCnt == 0) && (np->f_openRCnt > 0) && (np->f_openWCnt == 0)) {
-			/* drop from rw to read only */
-			needOpenFile = 1;
-			openAccessMode = kAccessRead;
-			rights |= SMB2_FILE_READ_DATA;
-		}
-		/* Dont ever downgrade to write only since Unix expects read/write */
-		break;
-	case kAccessRead:
-		np->f_openRCnt -= 1;
-		/* Dont ever downgrade to write only since Unix expects read/write */
-		break;
-	case kAccessWrite:
-		np->f_openWCnt -= 1;
-		if ( (np->f_openRCnt > 0) && (np->f_openRWCnt == 0) && 
-			(np->f_openWCnt == 0) ) {
-			/* drop from rw to read only */
-			needOpenFile = 1;
-			openAccessMode = kAccessRead;
-			rights |= SMB2_FILE_READ_DATA;
-		}
-		break;
-	}
-	/* set up for the open fork */           
-	if (needOpenFile == 1) {
-        SMB_MALLOC(fap,
-                   struct smbfattr *,
-                   sizeof(struct smbfattr),
-                   M_SMBTEMP,
-                   M_WAITOK | M_ZERO);
-        if (fap == NULL) {
-            SMBERROR("SMB_MALLOC failed\n");
-            error = ENOMEM;
-            goto exit;
-        }
-        
-        error = smbfs_smb_open_file(share, np,
-                                    rights, NTCREATEX_SHARE_ACCESS_ALL, &fid,
-                                    NULL, 0, FALSE,
-                                    fap, context);
-        SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-                       0xabc005, error, 0, 0, 0);
-		if (error == 0) {
-			SMBFID oldFID = np->f_fid;
-			
-			/* We are downgrading the open flush it out any data */
-			ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
-			/* Close the shared file first and use this new one now 
-			 * Switch the ref before closing the old shared file so the 
-			 * old file wont get used while its being closed. 
-			 */
-			np->f_fid = fid;	/* reset the ref num */
-			np->f_accessMode = openAccessMode;
-			np->f_rights = rights;
-			error = smbfs_smb_close(share, oldFID, context);
-			if (error) {
-				SMBWARNING("close file failed %d on fid %llx\n", error, oldFID);
-            }
-            SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-                           0xabc006, error, 0, 0, 0);
-		}
-	}
-
-    SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_NONE,
-                   0xabc007,
-                   np->f_openRCnt,
-                   np->f_openWCnt,
-                   np->f_openRWCnt,
-                   0);
 
 exit:
+    /* Did we change the file during the open (IE wrote to the file) */
+    if (np->n_flag & NATTRCHANGED) {
+        if (get_mod_date == 0) {
+            /* Assume the close returned attributes will be sufficient */
+            np->n_flag &= ~NATTRCHANGED;
+        }
+        else {
+            np->attribute_cache_timer = 0;
+        }
+        
+        smb_dir_cache_invalidate(vp, 0);
+    }
+
     if (smbfsIsCacheable(vp) && (get_mod_date == 1)) {
         /*
          * Since we just closed the file, the mod time probably changed.  Hit
@@ -766,10 +1200,14 @@ exit:
          * open, we will check the mod date and data size and if either changed
          * then invalidate the UBC. Last close to next open logic from NFS
          * client.
+         *
+         * Since get_mod_date is set, then failed to get close attributes
+         * so have to hit up server for mod time and size
          */
         np->attribute_cache_timer = 0;
         (void) smbfs_update_cache(share, vp, NULL, context);
-
+        
+        /* Save last close time and size */
         np->n_last_close_mtime = np->n_mtime;
         np->n_last_close_size = np->n_size;
     }
@@ -779,7 +1217,19 @@ exit:
     }
 
     if (fap != NULL) {
-        SMB_FREE(fap, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smbfattr, fap);
+    }
+
+    /* Free the temp lease */
+    if (lease_need_free) {
+        smb2_lease_free(&temp_lease);
+        //lease_need_free = 0;
+    }
+
+    /* Free the temp durable handle */
+    if (dur_need_free) {
+        smb2_dur_handle_free(&temp_dur_hndl);
+        //dur_need_free = 0;
     }
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_CLOSE | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -799,13 +1249,20 @@ smbfs_vnop_close(struct vnop_close_args *ap)
 	vnode_t vp = ap->a_vp;
 	int error = 0;
 	struct smbnode *np;
+    int fmode = ap->a_fflag;
 
-    if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK) != 0)
+    if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK) != 0) {
         return (0);
+    }
     
     SMB_LOG_KTRACE(SMB_DBG_CLOSE | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
-	np = VTOSMB(vp);
+    if (fmode & O_EXEC) {
+        /* Add the read so it matches the open call */
+        fmode |= FREAD;
+    }
+
+    np = VTOSMB(vp);
 	np->n_lastvop = smbfs_vnop_close;
 	
 	if (vnode_isdir(vp)) {
@@ -813,16 +1270,17 @@ smbfs_vnop_close(struct vnop_close_args *ap)
 			error = 0;
 		}
         else {
-			lck_mtx_lock(&np->d_dur_handle.lock);
+			smbnode_lease_lock(&np->n_lease, smbfs_vnop_close);
 
-			if (!(np->d_dur_handle.flags & SMB2_LEASE_GRANTED)) {
-				lck_mtx_unlock(&np->d_dur_handle.lock);
-
-				/* We have a dir lease, defer last close until vnop_inactive */
+            if (!(np->n_lease.flags & SMB2_LEASE_GRANTED) ||
+                !(np->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING)) {
+                /* No dir lease, so close dir now */
+				smbnode_lease_unlock(&np->n_lease);
 				smbfs_closedirlookup(np, 0, "vnop_close", ap->a_context);
 			}
 			else {
-				lck_mtx_unlock(&np->d_dur_handle.lock);
+                /* We have a dir lease, defer last close until vnop_inactive */
+				smbnode_lease_unlock(&np->n_lease);
 			}
 
             /* Close readdir dir which never has a dir lease */
@@ -833,21 +1291,35 @@ smbfs_vnop_close(struct vnop_close_args *ap)
 		struct smb_share *share;
 		
 		/* if its readonly volume, then no sense in trying to write out dirty data */
-		if (!vnode_vfsisrdonly(vp) && smbfsIsCacheable(vp)) {
-			if (np->n_flag & NISMAPPED) {
-				/* More expensive, but handles mmapped files */
-				ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
-			} else {
-				/* Less expensive, but does not handle mmapped files */
-				cluster_push(vp, IO_CLOSE);
-			}
-		}		
-		share = smb_get_share_with_reference(VTOSMBFS(vp));
+		if (!vnode_vfsisrdonly(vp)) {
+            /*
+             * Cant just check for smbfsIsCacheable() because the file might
+             * have been cacheable before but is currently not cacheable now
+             */
+            if ((vnode_hasdirtyblks(vp)) || (np->n_flag & (NNEEDS_EOF_SET | NNEEDS_FLUSH))) {
+                /*
+                 * Use cluster_push to clear the dirty blocks since ubc_msync()
+                 * wont clear dirty blocks.
+                 */
+                cluster_push(vp, IO_CLOSE);
+            }
+		}
+
+        share = smb_get_share_with_reference(VTOSMBFS(vp));
         
         /* Do any pending set eof or flushes before closing the file */
-        smbfs_smb_fsync(share, np, 0, ap->a_context);
+        if (fmode & FNOCACHE) {
+            /*
+             * If this flag is set, then we are not going to do a deferred
+             * close, so we can combine the flush with the last close.
+             */
+            smbfs_smb_fsync(share, np, kCloseFile, ap->a_context);
+        }
+        else {
+            smbfs_smb_fsync(share, np, 0, ap->a_context);
+        }
         
-		error = smbfs_close(share, vp, ap->a_fflag, ap->a_context);
+        error = smbfs_close(share, vp, fmode, ap->a_context);
 		smb_share_rele(share, ap->a_context);
 		if (!error)
 			error = clusterCloseError;
@@ -900,25 +1372,23 @@ smbfs_get_rights_shareMode(int fmode, uint32_t *rights, uint32_t *shareMode, uin
 }
 
 static void 
-smbfs_update_RW_cnts(vnode_t vp, uint16_t accessMode)
+smbfs_update_RW_cnts(struct fileRefEntry *entry, uint16_t accessMode, int32_t count)
 {
 	/* count nbr of opens with rw, r, w so can downgrade access in close if needed */
-	struct smbnode *np = VTOSMB(vp);
-	
-	switch (accessMode) {
+	switch (accessMode & kOpenMask) {
 		case (kAccessWrite | kAccessRead):
-			np->f_openRWCnt += 1;
+			entry->openRWCnt += count;
 			break;
 		case kAccessRead:
-			np->f_openRCnt += 1;
+            entry->openRCnt += count;
 			break;
 		case kAccessWrite:
-			np->f_openWCnt += 1;
+            entry->openWCnt += count;
 			break;
 	}
 }
 
-static int 
+int
 smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cnp,
 				  struct vnode_attr *vap,  uint32_t open_disp, int fmode, 
 				  SMBFID *fidp, struct smbfattr *fattrp, vnode_t *vpp,
@@ -926,41 +1396,56 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 {
 	struct smbnode *dnp = VTOSMB(dvp);
 	struct smbmount *smp = VTOSMBFS(dvp);
-	vnode_t vp;
+    struct smb_session *sessionp = SS_TO_SESSION(share);
+	vnode_t vp = NULL;
 	const char *name = cnp->cn_nameptr;
 	size_t nmlen = cnp->cn_namelen;
-	int error = 0;
-	uint32_t rights, addedReadRights, saved_rights;
+	int error = 0, warning = 0;
+	uint32_t rights = 0, addedReadRights = 0;
 	uint16_t accessMode = 0;
-	struct smbnode *np;
+	struct smbnode *np = NULL;
 	uint32_t shareMode = 0;
 	char *target = NULL;
-	size_t targetlen = 0;
-    struct smb2_durable_handle *dur_handlep = NULL;
+    size_t targetlen = 0, target_allocsize = 0;
     int created_file = 0;
+    struct ntsecdesc *acl_cache_data = NULL;
+    size_t acl_cache_len = 0;
+    struct timespec ts = {0};
+    struct smb2_lease temp_lease = {0};
+    struct smb2_durable_handle temp_dur_hndl = {0};
+    int lease_need_free = 0, dur_need_free = 0, ask_for_acl = 0;
+    struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
 
 	/*
-	 * We have NO vnode for the target!
+	 * NOTE: vap can be NULL!
+     *
+     We have NO vnode for the target!
 	 * The target may or may not exist on the server.
-	 * The target could be a dir or a file. 
-	 * 
-	 * If its a dir, then it can not be a creation. Use vnop_mkdir instead.
-	 * It could be an open on a dir which SMB protocol allows.  Make sure
-	 * to close the dir afterwards.
+	 * The target MUST be a file.
 	 * 
 	 * If its a file, it cant be a symlink, use vnop_link instead.
 	 * It could be a create and open on a file.
 	 * Since a vnode was not found for the file, we know its not already open
-	 *	by this client. This means I know its the FIRST open call.
+	 * by this client. This means I know its the FIRST open call.
 	 * 
 	 * dnp should be locked when this function is called
 	 */
-	
-	*fidp = 0;
+    
+    *fidp = 0;
 	
 	smbfs_get_rights_shareMode(fmode, &rights, &shareMode, &accessMode);
-	
-	/* 
+        
+    /*
+     * Add Write ACL and read attrs rights to improve small file copy performance
+     * The ACL is for setting the initial Posix mode through NFS ACE
+     * The Read Attributes are so we can do a QueryInfo if needed on open FID.
+     */
+    if (sessionp && sessionp->session_flags & SMBV_SMB2) {
+        ask_for_acl = 1;
+        rights |= SMB2_WRITE_DAC | SMB2_FILE_READ_ATTRIBUTES;
+    }
+    
+	/*
 	 * If opening with write only, try opening it with read/write. Unix 
 	 * expects read/write access like open/map/close/PageIn. This also helps 
 	 * the cluster code since if write only, the reads will fail in the 
@@ -973,29 +1458,83 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 	 * NOTE: Since this call only creates items that are regular files we always
 	 * set the vtype to VREG. The smbfs_smb_ntcreatex only uses that on create.
 	 */	
-	addedReadRights = (accessMode == kAccessWrite) ? SMB2_FILE_READ_DATA : 0;
-    saved_rights = rights | addedReadRights;
+	addedReadRights = ((accessMode & kOpenMask) == kAccessWrite) ?
+                       SMB2_FILE_READ_DATA : 0;
     
+    /*
+     * Always request a durable handle which includes a lease
+     * Here we do need to request a new SMB2_NEW_LEASE_KEY since no vnode yet
+     */
+    smb2_lease_init(share, dnp, NULL, SMB2_NEW_LEASE_KEY, &temp_lease, 1);
+    temp_lease.req_lease_state = smbfs_get_req_lease_state(rights | addedReadRights);
+    dur_hndl_lease.leasep = &temp_lease;
+    lease_need_free = 1;
+
+    smb2_dur_handle_init(share, SMB2_DURABLE_HANDLE_REQUEST, &temp_dur_hndl, 1);
+    dur_hndl_lease.dur_handlep = &temp_dur_hndl;
+    dur_need_free = 1;
+
+    /*
+     * A lease break can arrive from the server BEFORE the
+     * Create response with the granted lease arrives.
+     *
+     * BUT at this time, we have not created the vnode, so can not
+     * add the lease in yet. Have to add the lease right after the vnode
+     * is created, but that leaves a small timing window.
+     */
     error = smbfs_smb_ntcreatex(share, dnp,
                                 rights | addedReadRights, shareMode, VREG,
                                 fidp, name, nmlen,
                                 open_disp, 0, fattrp,
-                                TRUE, NULL, context);
-	
-	if (error && addedReadRights) {
-		/* Failed to add read rights, so fall back to write only */
-		addedReadRights = 0;
-        saved_rights = rights;
+                                TRUE, &dur_hndl_lease,
+                                &acl_cache_len, &acl_cache_data,
+                                context);
 
-		error = smbfs_smb_ntcreatex(share, dnp,
-                                    rights, shareMode, VREG,
+    if (error && ask_for_acl) {
+        /* Could have failed due to added SMB2_WRITE_DAC, so try without it */
+        //ask_for_acl = 0;
+        
+        /* Leave lease alone */
+
+        /* Paranoid check */
+        if (acl_cache_data != NULL) {
+            SMB_FREE_DATA(acl_cache_data, acl_cache_len);
+        }
+        acl_cache_len = 0;
+                
+        /* Remove SMB2_WRITE_DAC and try again, but still with added read */
+        rights &= ~SMB2_WRITE_DAC;
+
+        error = smbfs_smb_ntcreatex(share, dnp,
+                                    rights | addedReadRights, shareMode, VREG,
                                     fidp, name, nmlen,
                                     open_disp, 0, fattrp,
-                                    TRUE, NULL, context);
-	}
+                                    TRUE, &dur_hndl_lease,
+                                    NULL, NULL,
+                                    context);
+
+        if (error && addedReadRights) {
+            /*
+             * Failed to add read rights, so fall back to write only
+             * Also, continue to remove the SMB2_WRITE_DAC
+             */
+            addedReadRights = 0;
+            
+            /* Ask for no lease since its Write Only */
+            temp_lease.req_lease_state = SMB2_LEASE_NONE;
+                    
+            error = smbfs_smb_ntcreatex(share, dnp,
+                                        rights, shareMode, VREG,
+                                        fidp, name, nmlen,
+                                        open_disp, 0, fattrp,
+                                        TRUE, &dur_hndl_lease,
+                                        NULL, NULL,
+                                        context);
+        }
+    }
     
  	if (error) {
-		return error;
+		goto out;
 	}
 
     /* Did we actually create a file on the server? */
@@ -1006,10 +1545,10 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
     /* Reparse point need to get the reparse tag */
 	if (fattrp->fa_attr & SMB_EFA_REPARSE_POINT) {
 		error = smbfs_smb_get_reparse_tag(share, *fidp, &fattrp->fa_reparse_tag, 
-										  &target, &targetlen, context);
+										  &target, &targetlen, &target_allocsize, context);
 		if (error) {
 			(void) smbfs_smb_close(share, *fidp, context);
-			return error;
+            goto out;
 		}
 	}
 	
@@ -1021,10 +1560,10 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
                        context);
 	if (error) {
         if (target) {
-            SMB_FREE(target, M_TEMP);
+            SMB_FREE_DATA(target, target_allocsize);
         }
 		(void) smbfs_smb_close(share, *fidp, context);
-		return error;
+        goto out;
 	}
 	
 	/* 
@@ -1038,85 +1577,178 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 	*vpp = vp;	
 	np = VTOSMB(vp);
 
-	/*
+    /* Did we ask for and get a lease? */
+    smbnode_lease_lock(&temp_lease, smbfs_create_open);
+
+    if (temp_lease.flags & SMB2_LEASE_GRANTED) {
+        /*
+         * Since we requested lease before creating vnode, have to copy
+         * lease key into the vnode lease
+         */
+        smbnode_lease_lock(&np->n_lease, smbfs_create_open);
+        
+        np->n_lease_key_hi = temp_lease.lease_key_hi;
+        np->n_lease_key_low = temp_lease.lease_key_low;
+
+        np->n_lease.lease_key_hi = temp_lease.lease_key_hi;
+        np->n_lease.lease_key_low = temp_lease.lease_key_low;
+        
+        smbnode_lease_unlock(&np->n_lease);
+
+        /* Add the vnode lease first into tables */
+        warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_ADD, 1,
+                                         "CreateOpen");
+        if (warning) {
+            /* Shouldnt ever happen */
+            SMBERROR("smbfs_add_update_lease add failed %d\n", warning);
+        }
+
+        /* Update the vnode lease from the temp lease */
+        warning = smbfs_add_update_lease(share, vp, &temp_lease, SMBFS_LEASE_UPDATE, 1,
+                                         "CreateOpen");
+        if (warning) {
+            /* Shouldnt ever happen */
+            SMBERROR("smbfs_add_update_lease update failed %d\n", warning);
+        }
+    }
+    
+    smbnode_lease_unlock(&temp_lease);
+
+    /* If we got back the initial ACL, save it now */
+    if (acl_cache_data != NULL) {
+        if (acl_cache_len != 0) {
+            /* Don't let anyone play with the acl cache until we are done */
+            lck_mtx_lock(&np->f_ACLCacheLock);
+            
+            /* Parnoid: Free the old data no longer needed */
+            if (np->acl_cache_data) {
+                SMB_FREE_DATA(np->acl_cache_data, np->acl_cache_len);
+            }
+            
+            np->acl_cache_data = acl_cache_data;
+            np->acl_cache_len = acl_cache_len;
+            np->acl_error = 0;
+            
+            /* We have new information reset our timer  */
+            nanotime(&ts);
+            np->acl_cache_timer = ts.tv_sec;
+            
+            lck_mtx_unlock(&np->f_ACLCacheLock);
+        }
+    }
+    
+    /*
 	 * We treat directories, files and symlinks different. Since currently we
 	 * only handle reparse points as dfs triggers or symlinks we can ignore
 	 * treating reparse points special.
+     *
+     * Hmm, I dont think we ever use this code for anything but a VREG file...
 	 */
 	if (vnode_isdir(vp)) {
 		/* We opened a directory, increment its ref count and close it */
+        SMBERROR("Unexpectedly opened a dir for <%s:%s>??? \n",
+                 dnp->n_name, np->n_name);
+
 		np->d_refcnt++;
 		(void)smbfs_smb_close(share, *fidp, context);
 	} else if (vnode_islnk(vp)) {
 		/* We opened a symlink, close it */
+        SMBERROR("Unexpectedly opened a symlink for <%s:%s>??? \n",
+                 dnp->n_name, np->n_name);
 		(void)smbfs_smb_close(share, *fidp, context);
 		if (target && targetlen) {
 			smbfs_update_symlink_cache(np, target, targetlen);
 		}
 	} else if (vnode_isreg(vp)) {
-		/* We opened the file so bump ref count */
-		np->f_refcnt++;
-		
-		np->f_rights = rights;
-		np->f_accessMode = accessMode;
-		if (addedReadRights) {
-			np->f_rights |= SMB2_FILE_READ_DATA;
-			np->f_accessMode |= kAccessRead;
-		}
+        SMB_LOG_FILE_OPS_LOCK(np, "Created file: mode <0x%x> accessMode <0x%x> on <%s> \n",
+                              fmode, accessMode, np->n_name);
 
-		/* if deny modes were used, save the file ref into file list */
-		if ((fmode & O_EXLOCK) || (fmode & O_SHLOCK)) {
-			SMB_MALLOC(dur_handlep, struct smb2_durable_handle *,
-					   sizeof (struct smb2_durable_handle),
-					   M_TEMP, M_WAITOK | M_ZERO);
-			
-            error = smb2_smb_dur_handle_init(share, np,
-											 (SMB2_DURABLE_HANDLE_REQUEST | SMB2_NEW_LEASE_KEY), dur_handlep);
-			dur_handlep->req_lease_state = smbfs_get_req_lease_state(saved_rights);
-			
-            if (error == 0) {
-                /*
-                 * %%% TO DO - can we improve the performance of this?
-                 * Want to get a durable handle, but the lease key consists
-                 * of the file ID, so have to wait until the first create 
-                 * succeeds which gets us the file ID, then close it and reopen 
-                 * it but this time requesting the durable handle.
-                 */
-                (void) smbfs_smb_close(share, *fidp, context);
-                
-                error = smbfs_smb_ntcreatex(share, dnp,
-                                            saved_rights, shareMode, VREG,
-                                            fidp, name, nmlen,
-                                            FILE_OPEN, 0, fattrp,
-                                            FALSE, dur_handlep, context);
-            }
-            else {
-                /* 
-                 * Durable handles must not be supported by this server, just 
-                 * use the earlier open which must have worked.
-                 * Clear the durable handle not supported error
-                 */
-				error = 0;
+        if ((fmode & O_EXLOCK) || (fmode & O_SHLOCK)) {
+            /* Copy into lockFID */
+            np->f_lockFID_refcnt += 1;
+            np->f_lockFID_mmapped = 0;
+            np->f_lockFID_fid = *fidp;
+            np->f_lockFID_accessMode = accessMode;
+            np->f_lockFID_rights = rights;
+            if (addedReadRights) {
+                np->f_lockFID_rights |= SMB2_FILE_READ_DATA;
+                /* Save access mode that was requested */
+                np->f_lockFID_accessMode |= kAccessRead;
             }
             
-            if (error == 0) {
-                /* 
-                 * Either durable handles not supported or reopening the file
-                 * with durable handle worked so save file ref
-				 *
-				 * Always pass in a dur handle pointer to be used
-                 */
-                AddFileRef (vp, vfs_context_proc(context), accessMode, rights,
-                            *fidp, dur_handlep, NULL);
-				
-				/* Do not free dur_handlep as its now being used by File Ref */
-				dur_handlep = NULL;
+            smbfs_update_RW_cnts(&np->f_lockFID, accessMode, 1);
+            
+            if (fmode & O_EXLOCK) {
+                np->f_lockFID_isEXLOCK = 1;
+                np->f_lockFID_isSHLOCK = 0;
             }
-		}
+            else {
+                np->f_lockFID_isEXLOCK = 0;
+                np->f_lockFID_isSHLOCK = 1;
+            }
+            
+            /* Newly create file, so BRL list must be empty */
+            lck_mtx_lock(&np->f_lockFID_BRL_lock);
+            np->f_lockFID_lockList = NULL;
+            lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+
+            /* Did we ask for and get a durable handle? */
+            smbnode_dur_handle_lock(&temp_dur_hndl, smbfs_create_open);
+            
+            if (temp_dur_hndl.flags & (SMB2_DURABLE_HANDLE_GRANTED | SMB2_PERSISTENT_HANDLE_GRANTED)) {
+                /* Copy the temp dur handle info into the vnode lockFID */
+                smbnode_dur_handle_lock(&np->f_lockFID_dur_handle, smbfs_create_open);
+
+                np->f_lockFID_dur_handle.flags = temp_dur_hndl.flags;
+                np->f_lockFID_dur_handle.fid = *fidp;
+                np->f_lockFID_dur_handle.timeout = temp_dur_hndl.timeout;
+                memcpy(np->f_lockFID_dur_handle.create_guid, temp_dur_hndl.create_guid,
+                       sizeof(np->f_lockFID_dur_handle.create_guid));
+                
+                smbnode_dur_handle_unlock(&np->f_lockFID_dur_handle);
+            }
+
+            smbnode_dur_handle_unlock(&temp_dur_hndl);
+        }
         else {
-            np->f_fid = *fidp;
-			smbfs_update_RW_cnts(vp, accessMode);
-		}
+            /* Copy into shareFID */
+            np->f_sharedFID_refcnt += 1;
+            np->f_sharedFID_mmapped = 0;
+            np->f_sharedFID_fid = *fidp;
+            np->f_sharedFID_accessMode = accessMode;
+            np->f_sharedFID_rights = rights;
+            if (addedReadRights) {
+                np->f_sharedFID_rights |= SMB2_FILE_READ_DATA;
+                /* Save access mode that was requested */
+                np->f_sharedFID_accessMode |= kAccessRead;
+            }
+            
+            smbfs_update_RW_cnts(&np->f_sharedFID, accessMode, 1);
+            
+            np->f_sharedFID_isEXLOCK = 0;
+            np->f_sharedFID_isSHLOCK = 0;
+            
+            /* Newly create file, so BRL list must be empty */
+            smbfs_clear_lockEntries(vp, NULL);
+            
+            /* Did we ask for and get a durable handle? */
+            smbnode_dur_handle_lock(&temp_dur_hndl, smbfs_create_open);
+
+            if (temp_dur_hndl.flags & (SMB2_DURABLE_HANDLE_GRANTED | SMB2_PERSISTENT_HANDLE_GRANTED)) {
+                /* Copy the temp dur handle info into the vnode lockFID */
+                smbnode_dur_handle_lock(&np->f_sharedFID_dur_handle, smbfs_create_open);
+
+                np->f_sharedFID_dur_handle.flags = temp_dur_hndl.flags;
+                np->f_sharedFID_dur_handle.fid = *fidp;
+                np->f_sharedFID_dur_handle.timeout = temp_dur_hndl.timeout;
+                memcpy(np->f_sharedFID_dur_handle.create_guid, temp_dur_hndl.create_guid,
+                       sizeof(np->f_sharedFID_dur_handle.create_guid));
+                
+                smbnode_dur_handle_unlock(&np->f_sharedFID_dur_handle);
+            }
+
+            smbnode_dur_handle_unlock(&temp_dur_hndl);
+        }
 		
 		if ((accessMode == kAccessWrite) &&
 			(addedReadRights == 0)) {
@@ -1127,7 +1759,7 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
     
 	/* If it was allocated then free, since we are done with it now */ 
     if (target) {
-        SMB_FREE(target, M_TEMP);
+        SMB_FREE_DATA(target, target_allocsize);
     }
 	
 	if (created_file == 1) {
@@ -1145,7 +1777,8 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 		 * If unix extensions are supported, then can set mode, owner, group.
 		 */
 		if (vap != NULL) {
-			smbfs_set_create_vap(share, vap, vp, context, TRUE);  /* Set the REAL create attributes NOW */
+            /* Set the REAL create attributes NOW */
+			smbfs_set_create_vap(share, vap, vp, fidp, TRUE, context);
 		}
 		
         /* If HiFi and Super Guest mode, attempt to set the uid/gid */
@@ -1153,13 +1786,8 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 
         smbfs_attr_touchdir(dnp, (share->ss_fstype == SMB_FS_FAT));
 
-		/* <33469405> if dir has active lease skip local change notify */
-		lck_mtx_lock(&dnp->d_dur_handle.lock);
-		if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-			(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-			dnp->d_changecnt++;
-		}
-		lck_mtx_unlock(&dnp->d_dur_handle.lock);
+		/* Dont skip local change notify */
+        dnp->d_changecnt++;
 
 		/* Remove any negative cache entries. */
 		if (dnp->n_flag & NNEGNCENTRIES) {
@@ -1172,17 +1800,21 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 	}
 	/* smbfs_nget returns a locked node, unlock it */
 	smbnode_unlock(VTOSMB(vp));		/* Release the smbnode lock */
-	
-	if (dur_handlep != NULL) {
-		lck_mtx_lock(&dur_handlep->lock);
-		dur_handlep->flags = 0;
-		lck_mtx_unlock(&dur_handlep->lock);
 
-		smb2_smb_dur_handle_free(dur_handlep);
-		SMB_FREE(dur_handlep, M_TEMP);
-	}
-	
-	return (error);
+out:
+    /* Free the temp lease */
+    if (lease_need_free) {
+        smb2_lease_free(&temp_lease);
+        //lease_need_free = 0;
+    }
+
+    /* Free the temp durable handle */
+    if (dur_need_free) {
+        smb2_dur_handle_free(&temp_dur_hndl);
+        //dur_need_free = 0;
+    }
+
+    return (error);
 }
 
 /*
@@ -1196,47 +1828,81 @@ int
 smbfs_open(struct smb_share *share, vnode_t vp, int mode, 
 		   vfs_context_t context)
 {
-	proc_t p = vfs_context_proc(context);
 	struct smbnode *np = VTOSMB(vp);
+    struct smb_session *sessionp = SS_TO_SESSION(share);
 	uint16_t accessMode = 0;
 	uint16_t savedAccessMode = 0;
 	uint32_t rights, addedReadRights = 0;
-	uint32_t shareMode;
+	uint32_t shareMode = 0;
     SMBFID fid = 0;
 	int error = 0;
-	int	warning = 0;
+	int warning = 0;
     struct smbfattr *fap = NULL;
-	struct smb2_durable_handle *create_dur_handlep = NULL;
-	struct smb2_durable_handle *dur_handlep = NULL;
-	int do_create;
-    uint32_t disp;
-    struct fileRefEntry *fndEntry = NULL;
-	int needUpgrade = 0;
+	int needUpgrade = 0, reusedOpen = 0;
+    struct smb2_lease temp_lease = {0};
+    struct smb2_durable_handle temp_dur_hndl = {0};
+    int lease_need_free = 0;
+    int dur_need_free = 0;
+    struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
+    struct timespec sleeptime;
+    int sleep_attempts = 0;
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_OPEN | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
-	/* It was already open so see if the file needs to be reopened */
-	if ((np->f_refcnt) && 
+	/* It was already open so see if the file needs to be reopened or revoked */
+	if ((np->f_lockFID_refcnt || np->f_sharedFID_refcnt) &&
 		((error = smbfs_smb_reopen_file(share, np, context)) != 0)) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
 		goto exit;
 	}
 	
-    SMB_MALLOC(fap,
-               struct smbfattr *,
-               sizeof(struct smbfattr),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
     if (fap == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto exit;
     }
     
 	smbfs_get_rights_shareMode(mode, &rights, &shareMode, &accessMode);
 	savedAccessMode = accessMode;	/* Save the original access requested */
+    
+    /*
+     * Add read attrs rights.
+     * The Read Attributes so we can do a QueryInfo if needed on open FID.
+     */
+    if (sessionp && sessionp->session_flags & SMBV_SMB2) {
+        rights |= SMB2_FILE_READ_ATTRIBUTES;
+    }
 
-	/*
+    SMB_LOG_FILE_OPS_LOCK(np, "Enter: mode <0x%x> accessMode <0x%x> on <%s> \n",
+                          mode, accessMode, np->n_name);
+
+    /* Make sure we're not in the middle of a lease break on this file */
+    if (vnode_vtype(vp) != VDIR) {
+        sleep_attempts = 0;
+        smbnode_lease_lock(&np->n_lease, smbfs_open);
+        while (np->n_lease.pending_break) {
+            sleeptime.tv_sec = 1;
+            sleeptime.tv_nsec = 0;
+
+            SMB_LOG_LEASING_LOCK(np, "Blocking open for pending lease break/close on <%s> \n",
+                                 np->n_name);
+
+            msleep(&np->n_lease.pending_break, &np->n_lease.lock, 0,
+                   "open wait lease break", &sleeptime);
+
+            /* Set a max amount of time to wait for the lease break */
+            sleep_attempts += 1;
+            if (sleep_attempts > 29) {
+                SMBERROR_LOCK(np, "Timed out waiting for lease break for <%s> after <%d> secs \n",
+                              np->n_name, sleep_attempts);
+                break;
+            }
+        }
+        smbnode_lease_unlock(&np->n_lease);
+    }
+
+    /*
 	 * If opening with write only, try opening it with read/write. Unix
 	 * expects read/write access like open/map/close/PageIn. This also helps
 	 * the cluster code since if write only, the reads will fail in the
@@ -1246,10 +1912,68 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
 	 * WriteOnly and the FileRef will save it as WriteOnly.
 	 * np->f_accessMode will show the true RW access.
 	 */
-	addedReadRights = (accessMode == kAccessWrite) ? SMB2_FILE_READ_DATA : 0;
+	addedReadRights = ((accessMode & kOpenMask) == kAccessWrite) ?
+                      SMB2_FILE_READ_DATA : 0;
 	
-	if ((mode & O_EXLOCK) || (mode & O_SHLOCK)) {
-		/* 
+    /* Check to see if current lockFID would deny access */
+    if (np->f_lockFID_refcnt > 0) {
+        SMB_LOG_FILE_OPS_LOCK(np, "lockFID_accessMode <0x%x> on <%s> \n",
+                              np->f_lockFID_accessMode, np->n_name);
+        /*
+         * If asking for O_EXLOCK and currently open, then deny
+         */
+        if (mode & O_EXLOCK) {
+            error = EBUSY;
+            goto exit;
+        }
+        
+        /*
+         * If asking for O_SHLOCK and currently open with Write, then deny
+         */
+        if ((mode & O_SHLOCK) && (np->f_lockFID_accessMode & kAccessWrite)) {
+            error = EBUSY;
+            goto exit;
+        }
+
+        /*
+         * File is currently open with O_EXLOCK or O_SHLOCK.
+         * If currently open with O_EXLOCK, then no other opens are allowed
+         * If currently open with O_SHLOCK, then no other writes are allowed
+         */
+        if (np->f_lockFID_isEXLOCK == 1) {
+            error = EBUSY;
+            goto exit;
+        }
+
+        if ((np->f_lockFID_isSHLOCK == 1) && (accessMode & kAccessWrite)) {
+            error = EBUSY;
+            goto exit;
+        }
+    }
+    
+    if ((mode & O_EXLOCK) || (mode & O_SHLOCK)) {
+        SMB_LOG_FILE_OPS_LOCK(np, "lockFID refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                              np->f_lockFID_refcnt,
+                              np->f_lockFID_openRWCnt,
+                              np->f_lockFID_openRCnt,
+                              np->f_lockFID_openWCnt,
+                              np->f_openTotalWCnt,
+                              np->n_name);
+
+        
+        /*
+         * If there is an existing flock, then do not allow any O_EXLOCK or
+         * O_SHLOCK open attempts as they will just get confused about each
+         * others.
+         */
+        if (np->f_smbflock) {
+            SMB_LOG_FILE_OPS_LOCK(np, "O_EXLOCK/O_SHLOCK not allowed on file that is currently flock'd on <%s> \n",
+                                  np->n_name);
+            error = EBUSY;
+            goto exit;
+        }
+
+		/*
 		 * if using deny modes and I had to open the file myself, then close 
 		 * the file now so it does not interfere with the deny mode open.
 		 * We only do this in read.
@@ -1262,290 +1986,496 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
            }
 		}
 
-		/* Using deny modes, see if already in open file list */
-		error = FindFileRef(vp, p, accessMode, kExactMatch, 0, 0, &fndEntry, &fid);
-		if (error == 0) {
-			DBG_ASSERT(fndEntry);
-
-			/* Can we reuse a file ref kept open by a handle lease? */
-			lck_mtx_lock(&fndEntry->dur_handlep->lock);
-			if ((fndEntry->dur_handlep->flags & SMB2_LEASE_GRANTED) &&
-				(fndEntry->dur_handlep->lease_state & SMB2_LEASE_HANDLE_CACHING) &&
-				(fndEntry->dur_handlep->flags & SMB2_DEFERRED_CLOSE)) {
-				/* 
-				 * File ref was no longer in use, mark that its back in use
-				 */
-				fndEntry->dur_handlep->flags &= ~SMB2_DEFERRED_CLOSE;
-				OSAddAtomic(-1, &share->ss_curr_def_close_cnt);
-
-				OSAddAtomic(1, &fndEntry->dur_handlep->handle_reuse_cnt);
-				
-				/* Clear deferred close time */
-				fndEntry->dur_handlep->def_close_time.tv_sec = 0;
-				fndEntry->dur_handlep->def_close_time.tv_nsec = 0;
-
-				lck_mtx_unlock(&fndEntry->dur_handlep->lock);
-				
-				SMB_LOG_UNIT_TEST_LOCK(np, "FileLeaseUnitTest - Reusing <%s> accessMode <0x%x> cnt <%d> \n",
-									   np->n_name,
-									   accessMode,
-									   OSAddAtomic(0, &fndEntry->dur_handlep->handle_reuse_cnt));
-			}
-			else {
-				lck_mtx_unlock(&fndEntry->dur_handlep->lock);
-				
-				/*
-				 * Already in list due to previous open with deny modes. Can't have
-				 * two exclusive or two write/denyWrite. Multiple read/denyWrites are
-				 * allowed.
-				 */
-				if ((accessMode & kDenyWrite) && (accessMode & kAccessWrite)) {
-					error = EBUSY;
-					goto exit;
-				}
-				
-				if (mode & O_EXLOCK) {
-					if ((accessMode & kAccessRead) && !(accessMode & kAccessWrite)) {
-						/*
-						 * Multiple r/dR/dW are allowed, see FindFileRef for
-						 * more details
-						 */
-					}
-					else {
-						error = EBUSY;
-						goto exit;
-					}
-				}
-				
-				/*
-				 * We are going to reuse this Open Deny entry. Up the counter so
-				 * we will know not to free it until the counter goes back to zero.
-				 */
-				fndEntry->refcnt++;
-			}
-		}
-        else {
-			/*
-			 * Close any deferred file handles now to save time waiting on
-			 * lease breaks.
-			 */
-			CloseDeferredFileRefs(vp, "smbfs_open deny", 0, context);
-
-			/*
-             * Check one more time looking for other pids that might already
-             * have the file open for exclusive or shared access that will
-             * cause this open to get denied. This is to reduce the number of 
-             * times a handle lease break will occur with SMB 2/3. If we lose
-             * the handle lease, then reopening a durable handle reconnect will 
-             * fail.
+        /* Using deny modes, see if lockFID already actively in use */
+        if (np->f_lockFID_refcnt > 0) {
+            /*
+             * File is currently open with O_EXLOCK or O_SHLOCK.
+             * If currently open with O_SHLOCK, then only another read/O_SHLOCK
+             * is allowed which would take a ref count. All other O_SHLOCK
+             * attempts are denied.
              */
-            error = FindFileRef(vp, NULL, accessMode, kPreflightOpen, 0, 0, &fndEntry, &fid);
-            if (error == 0) {
-                /* Some other process has it open already */
+            if (accessMode == (kAccessRead | kDenyWrite)) {
+                /*
+                 * Must be read/O_SHLOCK
+                 * We are going to reuse this O_SHLOCK fid. Up the counter so
+                 * we will know not to free it until the counter goes back to
+                 * zero.
+                 */
+                np->f_lockFID_refcnt += 1;
+
+                //reusedOpen = 1;
+                
+                /* Update read/write counters */
+                smbfs_update_RW_cnts(&np->f_lockFID, savedAccessMode, 1);
+            }
+            else {
+                /* Paranoid check */
+                SMBERROR_LOCK(np, "Not read/O_SHLOCK on %s??? exlock %d shlock %d accessMode 0x%x \n",
+                              np->n_name, np->f_lockFID_isEXLOCK,
+                              np->f_lockFID_isSHLOCK, accessMode);
+                error = EBUSY;
+            }
+            
+            /* Either reused or got an error, so all done now */
+            goto exit;
+        }
+        else {
+            /*
+             * lockFID not actively in use, but it could have a deferred close
+             * pending on it that we could reuse if its an exact match.
+             */
+            
+            /* Is there a pending deferred close? */
+            smbnode_lease_lock(&np->n_lease, smbfs_open);
+            
+            SMB_LOG_LEASING_LOCK(np, "Reuse lockFID? lease flags <0x%llx> f_lockFID_accessMode <0x%x> accessMode <0x%x> on <%s> \n",
+                                   np->n_lease.flags,
+                                   np->f_lockFID_accessMode,
+                                   accessMode,
+                                   np->n_name);
+
+            if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+                (np->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING) &&
+                (np->n_lease.flags & SMB2_DEFERRED_CLOSE)) {
+                /*
+                 * There is a pending deferred close, but we will only reuse
+                 * it if its an exact match (or write only with added read).
+                 * Could be lockFID or sharedFID with the deferred close.
+                 */
+                if ((np->f_lockFID_accessMode == accessMode) ||
+                    ((np->f_lockFID_accessMode & ~kAccessRead) == accessMode)) {
+                    /* Its a match that we can reuse */
+                    np->n_lease.flags &= ~SMB2_DEFERRED_CLOSE;
+                    np->n_lease.handle_reuse_cnt += 1;
+                    np->n_lease.def_close_timer = 0;
+
+                    OSAddAtomic(-1, &share->ss_curr_def_close_cnt);
+
+                    SMB_LOG_LEASING_LOCK(np, "Reusing lockFID on <%s> accessMode <0x%x> cnt <%d> \n",
+                                           np->n_name,
+                                           accessMode,
+                                           np->n_lease.handle_reuse_cnt);
+                    
+                    /*
+                     * We are going to reuse this deferred close. Up the counter so
+                     * we will know not to free it until the counter goes back to zero.
+                     */
+                    np->f_lockFID_refcnt += 1;
+                    //reusedOpen = 1;
+                    
+                    smbnode_lease_unlock(&np->n_lease);
+
+                    /* Update read/write counters */
+                    smbfs_update_RW_cnts(&np->f_lockFID, savedAccessMode, 1);
+
+                    goto exit;
+                }
+            }
+            
+            smbnode_lease_unlock(&np->n_lease);
+        }
+        
+        /* If reached here, then need to do a new open */
+        reusedOpen = 0;
+	}
+    else {
+        SMB_LOG_FILE_OPS_LOCK(np, "sharedFID refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                              np->f_sharedFID_refcnt,
+                              np->f_sharedFID_openRWCnt,
+                              np->f_sharedFID_openRCnt,
+                              np->f_sharedFID_openWCnt,
+                              np->f_openTotalWCnt,
+                              np->n_name);
+
+       /* Is sharedFID currently in use? */
+        if (np->f_sharedFID_refcnt > 0) {
+            /*
+             * sharedFID is currently in use.
+             * Is current access sufficient for us to use?
+             */
+            switch (np->f_sharedFID_accessMode) {
+                case (kAccessRead | kAccessWrite):
+                    /*
+                     * Currently RW, can't do any better than that so dont open
+                     * a new fork
+                     */
+                    break;
+                case kAccessRead:
+                    /*
+                     * Currently only have Read access, if they want Write too,
+                     * then open as RW
+                     */
+                    if (accessMode & kAccessWrite) {
+                        needUpgrade = 1;
+                        accessMode |= kAccessRead;
+                        rights |= SMB2_FILE_READ_DATA;
+                        
+                        /* Dont try to add read rights */
+                        addedReadRights = 0;
+                    }
+                    break;
+                case kAccessWrite:
+                    /*
+                     * Currently only have Write access, if they want Read too,
+                     * then open as RW
+                     */
+                    if (accessMode & kAccessRead) {
+                        needUpgrade = 1;
+                        accessMode |= kAccessWrite;
+                        rights |= SMB2_FILE_APPEND_DATA | SMB2_FILE_WRITE_DATA;
+                        
+                        /* Dont try to add read rights */
+                        addedReadRights = 0;
+                   }
+                    break;
+                }
+            
+            if (needUpgrade == 0) {
+                /*
+                 * The existing sharedFID open is good enough
+                 *
+                 * Up the counter so we will know not to free it until the
+                 * counter goes back to zero.
+                 */
+                np->f_sharedFID_refcnt += 1;
+                //reusedOpen = 1;
+                
+                /* Update read/write counters */
+                smbfs_update_RW_cnts(&np->f_sharedFID, savedAccessMode, 1);
+                
+                goto exit;
+            }
+            else {
+                SMB_LOG_FILE_OPS_LOCK(np, "Need upgrade sharedFID from accessMode <0x%x> to accessMode <0x%x> on <%s> \n",
+                                      np->f_sharedFID_accessMode, accessMode,
+                                      np->n_name);
+            }
+        }
+        else {
+            /*
+             * sharedFID not actively in use, but it could have a deferred close
+             * pending on it that we could reuse if its an exact match.
+             */
+            
+            /* Is there a pending deferred close? */
+            smbnode_lease_lock(&np->n_lease, smbfs_open);
+            
+            SMB_LOG_LEASING_LOCK(np, "Reuse sharedFID? lease flags <0x%llx> f_shareFID_accessMode <0x%x> accessMode <0x%x> on <%s> \n",
+                                   np->n_lease.flags,
+                                   np->f_sharedFID_accessMode,
+                                   accessMode,
+                                   np->n_name);
+
+            if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+                (np->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING) &&
+                (np->n_lease.flags & SMB2_DEFERRED_CLOSE)) {
+                /*
+                 * There is a pending deferred close, but we will only reuse
+                 * it if its an exact match. Could be lockFID or sharedFID
+                 * with the deferred close.
+                 */
+                if ((np->f_sharedFID_fid != 0) &&
+                    ((np->f_sharedFID_accessMode == accessMode) ||
+                     ((np->f_sharedFID_accessMode & ~kAccessRead) == accessMode))) {
+                    /* Its a match that we can reuse */
+                    np->n_lease.flags &= ~SMB2_DEFERRED_CLOSE;
+                    np->n_lease.handle_reuse_cnt += 1;
+                    np->n_lease.def_close_timer = 0;
+
+                    OSAddAtomic(-1, &share->ss_curr_def_close_cnt);
+
+                    SMB_LOG_LEASING_LOCK(np, "Reusing sharedFID on <%s> accessMode <0x%x> cnt <%d> \n",
+                                           np->n_name,
+                                           accessMode,
+                                           np->n_lease.handle_reuse_cnt);
+                    
+                    /*
+                     * We are going to reuse this deferred close. Up the counter so
+                     * we will know not to free it until the counter goes back to zero.
+                     */
+                    np->f_sharedFID_refcnt += 1;
+                    //reusedOpen = 1;
+
+                    smbnode_lease_unlock(&np->n_lease);
+
+                    /* Update read/write counters */
+                    smbfs_update_RW_cnts(&np->f_sharedFID, savedAccessMode, 1);
+
+                    goto exit;
+                }
+            }
+            
+            smbnode_lease_unlock(&np->n_lease);
+        }
+        
+        /* If reached here, then need to do a new open */
+        reusedOpen = 0;
+    }
+    
+    /*
+     * Do we need to open the file?
+     *
+     * (reusedOpen == 0) No current open FIDs to use
+     * (needUpgrade == 1) sharedFID already open, but upgrading access
+     */
+    if ((reusedOpen == 0) || (needUpgrade == 1)) {
+        /*
+         * Close any deferred file handes now to save time waiting on
+         * lease breaks. This will remove the lease from the tables too.
+         */
+        CloseDeferredFileRefs(vp, "smbfs_open", 0, context);
+        
+        /* Always request a durable handle which includes a lease */
+        smb2_lease_init(share, NULL, np, 0, &temp_lease, 1);
+        temp_lease.req_lease_state = smbfs_get_req_lease_state(rights | addedReadRights);
+        dur_hndl_lease.leasep = &temp_lease;
+        lease_need_free = 1;
+
+        smb2_dur_handle_init(share, SMB2_DURABLE_HANDLE_REQUEST, &temp_dur_hndl, 1);
+        dur_hndl_lease.dur_handlep = &temp_dur_hndl;
+        dur_need_free = 1;
+
+        /*
+         * A lease break can arrive from the server BEFORE the
+         * Create response with the granted lease arrives.
+         */
+        if (reusedOpen == 0) {
+            /* Doing a new open */
+            smbnode_lease_lock(&np->n_lease, smbfs_open);
+            
+            if (np->n_lease.flags == 0) {
+                /* Add the vnode lease first into tables */
+                warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_ADD, 1,
+                                                 "Open");
+                if (warning) {
+                    /* Shouldnt ever happen */
+                    SMBERROR("smbfs_add_update_lease add failed %d\n", warning);
+                }
+            }
+            
+            smbnode_lease_unlock(&np->n_lease);
+        }
+
+        /* Open the file */
+        SMB_LOG_FILE_OPS_LOCK(np, "Opening file accessMode 0x%x on <%s> \n",
+                              accessMode, np->n_name);
+
+        error = smbfs_smb_open_file(share, np,
+                                    rights | addedReadRights, shareMode, &fid,
+                                    NULL, 0, FALSE,
+                                    fap, &dur_hndl_lease,
+                                    context);
+
+        if (error && addedReadRights) {
+            /* Failed to add read rights, so fall back to write only */
+            addedReadRights = 0;
+
+            /* No lease needed for Write Only */
+            temp_lease.req_lease_state = SMB2_LEASE_NONE;
+
+            error = smbfs_smb_open_file(share, np,
+                                        rights, shareMode, &fid,
+                                        NULL, 0, FALSE,
+                                        fap, &dur_hndl_lease,
+                                        context);
+        }
+
+        if (error) {
+            /* Failed to open the file, so exit */
+            goto exit;
+        }
+
+        /*
+         * Successfuly opened a file
+         * Did we ask for and get a lease?
+         */
+        smbnode_lease_lock(&temp_lease, smbfs_open);
+
+        if (temp_lease.flags & SMB2_LEASE_GRANTED) {
+            /* Update the vnode lease from the temp lease */
+            warning = smbfs_add_update_lease(share, vp, &temp_lease, SMBFS_LEASE_UPDATE, 1,
+                                             "Open");
+            if (warning) {
+                /* Shouldnt ever happen */
+                SMBERROR("smbfs_add_update_lease update failed %d\n", warning);
+            }
+        }
+        else {
+            /* Did not get a lease, so remove it from the tables */
+            warning = smbfs_add_update_lease(share, vp, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                                           "Open");
+            if (warning) {
+                /* Shouldnt ever happen */
+                SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
+                              warning, np->n_name);
+            }
+        }
+        
+        smbnode_lease_unlock(&temp_lease);
+
+        /* Keep track of how many opens for this file had write access */
+        if (mode & FWRITE) {
+            np->f_openTotalWCnt++;
+        }
+
+        /*
+         * if (needUpgrade) then
+         *      We already had sharedFID open but it was open with
+         *      insufficient rights. So now close the old sharedFID and
+         *      replace it with new FID
+         *
+         * Else it could be a new open on the sharedFID
+         */
+        if ((needUpgrade) ||
+            ((reusedOpen == 0) && !(mode & O_EXLOCK) && !(mode & O_SHLOCK))) {
+            /*
+             * Must be upgrading sharedFID or new open on sharedFID
+             */
+            if (needUpgrade) {
+                SMB_LOG_FILE_OPS_LOCK(np, "Upgrading sharedFID from f_sharedFID_accessMode <0x%x> to <0x%x> on <%s> \n",
+                                      np->f_sharedFID_accessMode, accessMode, np->n_name);
+
+                /* Close the current sharedFID before replacing it */
+                warning = smbfs_smb_close(share, np->f_sharedFID_fid, context);
+                if (warning) {
+                    SMBERROR_LOCK(np, "Error %d on closing sharedFID %s during upgrade \n",
+                                    warning, np->n_name);
+                }
+            }
+            
+            np->f_sharedFID_refcnt += 1;
+            np->f_sharedFID_fid = fid;
+            
+            if (needUpgrade == 0) {
+                /* Must be a new open and not an upgrade to existing open */
+                np->f_sharedFID_mmapped = 0;
+ 
+                np->f_sharedFID_isEXLOCK = 0;
+                np->f_sharedFID_isSHLOCK = 0;
+                
+                /* Newly opened file, so BRL list must be empty */
+                smbfs_clear_lockEntries(vp, NULL);
+            }
+
+            np->f_sharedFID_accessMode = accessMode;
+            np->f_sharedFID_rights = rights;
+            if (addedReadRights) {
+                np->f_sharedFID_rights |= SMB2_FILE_READ_DATA;
+                /* Save access mode that was requested */
+                np->f_sharedFID_accessMode |= kAccessRead;
+            }
+
+            smbfs_update_RW_cnts(&np->f_sharedFID, savedAccessMode, 1);
+
+            /* Did we ask for and get a durable handle? */
+            smbnode_dur_handle_lock(&temp_dur_hndl, smbfs_open);
+
+            if (temp_dur_hndl.flags & (SMB2_DURABLE_HANDLE_GRANTED | SMB2_PERSISTENT_HANDLE_GRANTED)) {
+                /* Copy the temp dur handle info into the vnode sharedFID */
+                smbnode_dur_handle_lock(&np->f_sharedFID_dur_handle, smbfs_open);
+
+                np->f_sharedFID_dur_handle.flags = temp_dur_hndl.flags;
+                np->f_sharedFID_dur_handle.fid = fid;
+                np->f_sharedFID_dur_handle.timeout = temp_dur_hndl.timeout;
+                memcpy(np->f_sharedFID_dur_handle.create_guid, temp_dur_hndl.create_guid,
+                       sizeof(np->f_sharedFID_dur_handle.create_guid));
+                
+                smbnode_dur_handle_unlock(&np->f_sharedFID_dur_handle);
+            }
+
+            smbnode_dur_handle_unlock(&temp_dur_hndl);
+        }
+        else {
+            /*
+             * Must be a new open with O_EXLOCK/O_SHLOCK
+             */
+            if (!(mode & O_EXLOCK) && !(mode & O_SHLOCK)) {
+                /* Paranoid check */
+                SMBERROR_LOCK(np, "Unknown file state for <%s> reusedOpen <%d> needUpgrade <%d> mode <0x%x> \n",
+                              np->n_name, reusedOpen, needUpgrade, mode);
+                
+                smbfs_smb_close(share, fid, context);
                 error = EBUSY;
                 goto exit;
             }
             
-			/* not in list, so open new file */			
-           
-            /* Request a durable handle */
-			SMB_MALLOC(dur_handlep, struct smb2_durable_handle *,
-					   sizeof (struct smb2_durable_handle),
-					   M_TEMP, M_WAITOK | M_ZERO);
-
-			error = smb2_smb_dur_handle_init(share, np,
-											 (SMB2_DURABLE_HANDLE_REQUEST | SMB2_NEW_LEASE_KEY), dur_handlep);
-			dur_handlep->req_lease_state = smbfs_get_req_lease_state((rights | addedReadRights));
-
-			if (error == 0) {
-				/* Tell smbfs_smb_ntcreatex to try to get a durable handle */
-				create_dur_handlep = dur_handlep;
-			}
+            /* Copy into lockFID */
+            np->f_lockFID_refcnt += 1;
+            np->f_lockFID_mmapped = 0;
+            np->f_lockFID_fid = fid;
+            np->f_lockFID_accessMode = accessMode;
+            np->f_lockFID_rights = rights;
+            if (addedReadRights) {
+                np->f_lockFID_rights |= SMB2_FILE_READ_DATA;
+                /* Save access mode that was requested */
+                np->f_lockFID_accessMode |= kAccessRead;
+            }
             
-            if (np->n_flag & N_ISRSRCFRK) {
-                disp = FILE_OPEN_IF;
-                do_create = TRUE;
+            smbfs_update_RW_cnts(&np->f_lockFID, savedAccessMode, 1);
+            
+            if (mode & O_EXLOCK) {
+                np->f_lockFID_isEXLOCK = 1;
+                np->f_lockFID_isSHLOCK = 0;
             }
             else {
-                disp = FILE_OPEN;
-                do_create = FALSE;
+                np->f_lockFID_isEXLOCK = 0;
+                np->f_lockFID_isSHLOCK = 1;
+            }
+            
+            /* Newly opened file, so BRL list must be empty */
+            lck_mtx_lock(&np->f_lockFID_BRL_lock);
+            np->f_lockFID_lockList = NULL;
+            lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+
+            /* Did we ask for and get a durable handle? */
+            smbnode_dur_handle_lock(&temp_dur_hndl, smbfs_open);
+
+            if (temp_dur_hndl.flags & (SMB2_DURABLE_HANDLE_GRANTED | SMB2_PERSISTENT_HANDLE_GRANTED)) {
+                /* Copy the temp dur handle info into the vnode lockFID */
+                smbnode_dur_handle_lock(&np->f_lockFID_dur_handle, smbfs_open);
+
+                np->f_lockFID_dur_handle.flags = temp_dur_hndl.flags;
+                np->f_lockFID_dur_handle.fid = fid;
+                np->f_lockFID_dur_handle.timeout = temp_dur_hndl.timeout;
+                memcpy(np->f_lockFID_dur_handle.create_guid, temp_dur_hndl.create_guid,
+                       sizeof(np->f_lockFID_dur_handle.create_guid));
+                
+                smbnode_dur_handle_unlock(&np->f_lockFID_dur_handle);
             }
 
-            error = smbfs_smb_ntcreatex(share, np,
-                                        rights | addedReadRights, shareMode, VREG,
-                                        &fid, NULL, 0,
-                                        disp, FALSE, fap,
-                                        do_create, create_dur_handlep, context);
-
-			if (error && addedReadRights) {
-				/* Failed to add read rights, so fall back to write only */
-				addedReadRights = 0;
-				dur_handlep->lease_state &= ~SMB2_LEASE_READ_CACHING;
-				
-				error = smbfs_smb_ntcreatex(share, np,
-											rights, shareMode, VREG,
-											&fid, NULL, 0,
-											disp, FALSE, fap,
-											do_create, create_dur_handlep, context);
-			}
-			
-			if (error == 0) {
-				/* 
-				 * if open worked, save the file ref into file list
-				 *
-				 * Always pass in a dur handle pointer to be used
-				 */
-				AddFileRef (vp, p, accessMode, rights, fid, dur_handlep, NULL);
-				
-				/* Do not free dur_handlep as its now being used by File Ref */
-				dur_handlep = NULL;
-			}
-		}
-		
-		goto exit;
-	}
-
-	/*
-	 * If we get here, then deny modes are NOT being used. If the open call is 
-	 * coming in from Carbon, then Carbon will follow immediately with an FSCTL 
-	 * to turn off caching (I am assuming that denyNone means this file will 
-	 * be shared among multiple process and that ByteRangeLocking will be used).
-	 *
-	 * no deny modes, so use the shared file reference
-	 *
-	 */
-	
-	/* 
-	 * Close any deferred file handes now to save time waiting on
-	 * lease breaks.
-	 */
-	CloseDeferredFileRefs(vp, "smbfs_open", 0, context);
-	
-	/* We have open file descriptor for non deny mode opens */
-	if (np->f_fid != 0) { 
-		/* Already open check to make sure current access is sufficient */
-		switch (np->f_accessMode) {
-			case (kAccessRead | kAccessWrite):
-				/* Currently RW, can't do any better than that so dont open a new fork */
-				break;
-			case kAccessRead:
-				/* Currently only have Read access, if they want Write too, then open as RW */
-				if (accessMode & kAccessWrite) {
-					needUpgrade = 1;
-					accessMode |= kAccessRead; /* keep orginal mode */
-					rights |= SMB2_FILE_READ_DATA;
-				}
-				break;
-			case kAccessWrite:
-				/*  Currently only have Write access, if they want Read too, then open as RW */
-				if (accessMode & kAccessRead) {
-					needUpgrade = 1;
-					accessMode |= kAccessWrite;
-					rights |= SMB2_FILE_APPEND_DATA | SMB2_FILE_WRITE_DATA;
-				}
-				break;
-			}
-		
-		if (!needUpgrade) {
-			/* The existing open is good enough */
-			goto ShareOpen;
-		}
-	} else if (addedReadRights) {
-         /*
-		  * Try to open with added Read access
-		  *
-		  * Preflight for open deny to preserve handle lease. More details in
-		  * O_EXLOCK/O_SHLOCK code above.
-		  */
-        error = FindFileRef(vp, NULL, accessMode | kAccessRead, kPreflightOpen,
-                            0, 0, &fndEntry, &fid);
-        if (error != 0) {
-            /* Not already open locally, so try to open it */
-            error = smbfs_smb_open_file(share, np,
-                                        rights | addedReadRights, shareMode, &fid,
-                                        NULL, 0, FALSE,
-                                        fap, context);
-            if (error == 0) {
-                np->f_fid = fid;
-                np->f_rights = rights | SMB2_FILE_READ_DATA;
-                np->f_accessMode = accessMode | kAccessRead;
-                goto ShareOpen;
-            }
-			else {
-				/* Failed to open with added read */
-				addedReadRights = 0;
-			}
+            smbnode_dur_handle_unlock(&temp_dur_hndl);
         }
-	}
-
-    /*
-     * Preflight for open deny to preserve handle lease. More details in
-     * O_EXLOCK/O_SHLOCK code above.
-     */
-    error = FindFileRef(vp, NULL, accessMode, kPreflightOpen, 0, 0, &fndEntry,
-                        &fid);
-    if (error == 0) {
-        /* Some other process has it open already */
+    }
+    else {
+        /* Paranoid check */
+        SMBERROR_LOCK(np, "Unknown file state for <%s> reusedOpen <%d> needUpgrade <%d> \n",
+                      np->n_name, reusedOpen, needUpgrade);
         error = EBUSY;
         goto exit;
     }
 
-    error = smbfs_smb_open_file(share, np,
-                                rights, shareMode, &fid,
-                                NULL, 0, FALSE,
-                                fap, context);
-	if (error) {
-		goto exit;
-	}
-	
-	/*
-	 * We already had it open (presumably because it was open with insufficient 
-	 * rights.) So now close the old open, if we already had it open.
-	 */
-	if (np->f_refcnt && 
-        (np->f_fid != 0)) {
-		warning = smbfs_smb_close(share, np->f_fid, context);
-		if (warning) {
-			SMBWARNING_LOCK(np, "error %d closing %s\n", warning, np->n_name);
-        }
-	}
-	np->f_fid = fid;
-	np->f_rights = rights;
-	np->f_accessMode = accessMode;
-	
-ShareOpen:
-	smbfs_update_RW_cnts(vp, savedAccessMode);
-	
-exit:
-	if ((accessMode == kAccessWrite) &&
+exit:    
+	if (((accessMode & kOpenMask) == kAccessWrite) &&
 		(addedReadRights == 0)) {
 		/* if opened with just write, then turn off cluster code */
 		vnode_setnocache(vp);
 	}
 
-	/* If we reused a deferred close, then dont update counts */
-	if (error == 0) {
-        /* We opened the file or pretended too; either way bump the count */
-		np->f_refcnt++;
-        
-        /* keep track of how many opens for this file had write access */
-        if (mode & FWRITE) {
-            np->f_openTotalWCnt++;
-        }
-	}
-
-    if (fap != NULL) {
-        SMB_FREE(fap, M_SMBTEMP);
+    /* Free the temp lease */
+    if (lease_need_free) {
+        smb2_lease_free(&temp_lease);
+        //lease_need_free = 0;
     }
 
-	if (dur_handlep != NULL) {
-		lck_mtx_lock(&dur_handlep->lock);
-		dur_handlep->flags = 0;
-		lck_mtx_unlock(&dur_handlep->lock);
+    /* Free the temp durable handle */
+    if (dur_need_free) {
+        smb2_dur_handle_free(&temp_dur_hndl);
+        //dur_need_free = 0;
+    }
 
-		smb2_smb_dur_handle_free(dur_handlep);
-		SMB_FREE(dur_handlep, M_TEMP);
-	}
+    if (fap != NULL) {
+        SMB_FREE_TYPE(struct smbfattr, fap);
+    }
 
 	SMB_LOG_KTRACE(SMB_DBG_SMBFS_OPEN | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
@@ -1557,6 +2487,7 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 	struct smbnode *np;
 	int	error;
     int ubc_invalidate = 0;
+    int check_last_mod_time = 0;
     struct smb_share *share = NULL;
 
 	/* We only open files and directories and symlinks */
@@ -1601,59 +2532,77 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
          * ubc_msync(UBC_INVALIDATE). The assumption is that someone changed
          * the file while we had it closed so our UBC data is invalid now.
          */
-        if ((np->f_refcnt == 0) && smbfsIsCacheable(vp)) {
+        if (((np->f_lockFID_refcnt == 0) && (np->f_sharedFID_refcnt == 0)) &&
+            smbfsIsCacheable(vp)) {
             /*
-             * Make sure we hit the server to get the latest info so we can
-             * check the mod dates
+             * The Create response will contain the last mod time so just
+             * use that to save having to do another Create/QueryDir/Close
              */
-            np->attribute_cache_timer = 0;
-            (void) smbfs_update_cache(share, vp, NULL, context);
+            check_last_mod_time = 1;
+        }
+        
+        /* Open the file */
+        error = smbfs_open(share, vp, mode, context);
+        if (error == 0) {
+            /*
+             * We created the file with different posix modes than request in
+             * smbfs_vnop_create. We need to correct that here, so set the posix
+             * modes to those request on create. See smbfs_set_create_vap for more
+             * details on this issue.
+             */
+            if ((np->set_create_va_mode) && (mode & O_CREAT)) {
+                struct vnode_attr vap;
+                
+                np->set_create_va_mode = FALSE;    /* Only try once */
+                VATTR_INIT(&vap);
+                VATTR_SET_ACTIVE(&vap, va_mode);
+                vap.va_mode = np->create_va_mode;
 
-            /* Only check if the file has been closed at least once */
-            if (!((np->n_last_close_mtime.tv_sec == 0) && (np->n_last_close_mtime.tv_nsec == 0))) {
-                if (timespeccmp(&np->n_last_close_mtime, &np->n_mtime, !=)) {
-                    ubc_invalidate = 1;
+                error = smbfs_setattr(share, vp, &vap, NULL, context);
+                if (error) {
+                    /* Got an error close the file and return the error */
+                    (void)smbfs_close(share, vp, mode, context);
                 }
-                else {
-                    if (np->n_last_close_size != np->n_size) {
-                        ubc_invalidate = 1;
+            }
+            else {
+                /* Do we need to check last mod time? */
+                SMB_LOG_FILE_OPS_LOCK(np, "<%s> check_last_mod_time %d np->n_last_close_mtime %ld/%ld \n",
+                                      np->n_name, check_last_mod_time,
+                                      np->n_last_close_mtime.tv_sec,
+                                      np->n_last_close_mtime.tv_nsec
+                                      );
+                if (check_last_mod_time == 1) {
+                    /* Only check if the file has been closed at least once */
+                    if (!((np->n_last_close_mtime.tv_sec == 0) &&
+                          (np->n_last_close_mtime.tv_nsec == 0))) {
+                        if (timespeccmp(&np->n_last_close_mtime, &np->n_mtime, !=)) {
+                            ubc_invalidate = 1;
+                        }
+                        else {
+                            if (np->n_last_close_size != np->n_size) {
+                                ubc_invalidate = 1;
+                            }
+                        }
+                    }
+
+                    if (ubc_invalidate == 1) {
+                        SMB_LOG_FILE_OPS_LOCK(np, "File <%s> was modified while it was closed. Invalidating UBC. \n",
+                                              np->n_name);
+                        if (vnode_hasdirtyblks(vp)) {
+                            /*
+                             * This should be impossible as we pushed out any dirty
+                             * pages before the last close.
+                             */
+                            SMB_LOG_FILE_OPS_LOCK(np, "File <%s> was modified while it was closed but still has dirty pages. Dropping the dirty pages. \n",
+                                                  np->n_name);
+                        }
+
+                        ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
                     }
                 }
             }
-
-            if (ubc_invalidate == 1) {
-                if (vnode_hasdirtyblks(vp)) {
-                    /*
-                     * This should be impossible as we pushed out any dirty
-                     * pages before the last close.
-                     */
-                    SMBERROR_LOCK(np, "File <%s> was modified while it was closed but still has dirty pages. Dropping the dirty pages. \n", np->n_name);
-                }
-
-                ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
-            }
         }
 
-        /* Open the file */
-        error = smbfs_open(share, vp, mode, context);
-		/* 
-		 * We created the file with different posix modes than request in 
-		 * smbfs_vnop_create. We need to correct that here, so set the posix
-		 * modes to those request on create. See smbfs_set_create_vap for more 
-		 * details on this issue.
-		 */
-		if ((error == 0) && (np->set_create_va_mode) && (mode & O_CREAT)) {
-			struct vnode_attr vap;
-			
-			np->set_create_va_mode = FALSE;	/* Only try once */
-			VATTR_INIT(&vap);
-			VATTR_SET_ACTIVE(&vap, va_mode);
-			vap.va_mode = np->create_va_mode;
-			error = smbfs_setattr(share, vp, &vap, context);
-			if (error)	/* Got an error close the file and return the error */
-				(void)smbfs_close(share, vp, mode, context);
-		}
-        
         if (share != NULL) {
             smb_share_rele(share, context);
         }
@@ -1829,7 +2778,7 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
  * complexity of the spreadsheet of "which arguments can be NULL, and when" for 
  * VNOP_COMPOUND_OPEN().
 */
-static int 
+static int
 smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 {
 	vnode_t dvp = ap->a_dvp;
@@ -1849,12 +2798,18 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
     struct smbfattr *fap = NULL;
     const char *namep = cnp->cn_nameptr;
     size_t name_len = cnp->cn_namelen;
+    size_t name_allocsize = 0;
 	uint32_t flags = cnp->cn_flags;
 
 	if (vpp == NULL) {
 		SMBWARNING("Calling us without a vpp\n");
 		return ENOTSUP;
 	}
+
+    if (fmode & O_EXEC) {
+        /* Going to need read to go along with O_EXEC */
+        fmode |= FREAD;
+    }
 
     /*
      * Case 1:
@@ -1896,21 +2851,23 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 	
     SMB_LOG_KTRACE(SMB_DBG_CMPD_OPEN | DBG_FUNC_START, fmode, 0, 0, 0, 0);
 
-    SMB_MALLOC(fap,
-               struct smbfattr *, 
-               sizeof(struct smbfattr), 
-               M_SMBTEMP, 
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
     if (fap == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
         error = ENOMEM;
         goto done;
     }
 
 	share = smb_get_share_with_reference(VTOSMBFS(dvp));
 
-	/* They didn't pass us a vnode, see if we have one in our hash */
-	if (vp == NULLVP) {
+	/*
+     * They didn't pass us a vnode, see if we have one in our hash
+     *
+     * We already checked that if its a create, then it has to be for a file
+     * so it cant ever be DOTDOT. If O_CREAT is set, still have to check to
+     * see if vnode already exists.
+     */
+    if (vp == NULLVP) {
         SMB_LOG_KTRACE(SMB_DBG_CMPD_OPEN | DBG_FUNC_NONE, 0xabc001, 0, 0, 0, 0);
 
 		if (((cnp->cn_namelen == 1) && (cnp->cn_nameptr[0] == '.')) ||
@@ -1989,7 +2946,7 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 
 				error = smb2fs_smb_cmpd_query_dir_one(share, VTOSMB(dvp),
 													  namep, name_len,
-													  fap, (char **) &namep, &name_len,
+													  fap, (char **) &namep, &name_len, &name_allocsize,
 													  context);
 
 				SMB_LOG_KTRACE(SMB_DBG_CMPD_OPEN | DBG_FUNC_NONE,
@@ -2027,10 +2984,19 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 
                     /*  If smbfs_smb_qpathinfo returned a new name, free it */
                     if (namep != cnp->cn_nameptr) {
-                        SMB_FREE(namep, M_SMBNODENAME);
+                        SMB_FREE_DATA(namep, name_allocsize);
                     }
                 }
                 else {
+                    if (!(fmode & O_CREAT)) {
+                        /*
+                         * File is not found and not allowed to be created
+                         * so just return an error at this point. 
+                         */
+                        error = ENOENT;
+                        goto done;
+                    }
+                    
                     /* Probably not found, either way vp is left at NULL */
                     goto not_found;
                 }
@@ -2144,7 +3110,7 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 			memset(&va, 0, sizeof(va));
 			VATTR_INIT(&va);
 			VATTR_SET_ACTIVE(&va, va_data_size);
-			error = smbfs_setattr(share, vp, &va, context);
+			error = smbfs_setattr(share, vp, &va, NULL, context);
 			if (error)	{
 				/* Got an error close the file and return the error */
 				(void)smbfs_close(share, vp, fmode, context);
@@ -2286,7 +3252,7 @@ done:
 	}
 
     if (fap) {
-        SMB_FREE(fap, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smbfattr, fap);
     }
     
     SMB_LOG_KTRACE(SMB_DBG_CMPD_OPEN | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -2302,11 +3268,17 @@ done:
 static int 
 smbfs_vnop_open(struct vnop_open_args *ap)
 {
-    int error;
+    int error = 0;
+    int fmode = ap->a_mode;
     
     SMB_LOG_KTRACE(SMB_DBG_OPEN | DBG_FUNC_START, 0, 0, 0, 0, 0);
     
-	error = smbfs_vnop_open_common(ap->a_vp, ap->a_mode, ap->a_context, smbfs_vnop_open);
+    if (fmode & O_EXEC) {
+        /* Going to need read to go along with O_EXEC */
+        fmode |= FREAD;
+    }
+    
+	error = smbfs_vnop_open_common(ap->a_vp, fmode, ap->a_context, smbfs_vnop_open);
     
     SMB_LOG_KTRACE(SMB_DBG_OPEN | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
@@ -2358,29 +3330,28 @@ smbfs_vnop_mmap_check(struct vnop_mmap_check_args *ap)
  *	vfs_context_t a_context;
  *
  * The mmap routine is a hint that we need to keep the file open. We can get  
- * mutilple mmap before we get a mnomap. We only care about the first one. We 
+ * multiple mmap before we get a mnomap. We only care about the first one. We
  * need to take a reference count on the open file and hold it open until we get 
  * a mnomap call. The file should already be open when we get the mmap call and 
  * with the correct open mode access.  So we shouldn't have to worry about 
- * upgrading because the open should have  handled that for us. If the open was 
+ * upgrading because the open should have handled that for us. If the open was
  * done using an Open Deny mode then we need to mark the open deny entry as being 
- * mmaped so the pagein, pageout, and mnomap routines can find.
+ * mmaped so the pagein, pageout, and mnomap routines can find it.
  *
  * NOTE: On return all errors are ignored except EPERM. 
  */
 static int 
 smbfs_vnop_mmap(struct vnop_mmap_args *ap)
 {
-	vnode_t			vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	struct smbnode *np = NULL;
-	int				error = 0;
-	uint32_t		mode = (ap->a_fflags & PROT_WRITE) ? (FWRITE | FREAD) : FREAD;
-	int				accessMode = (ap->a_fflags & PROT_WRITE) ? kAccessWrite : kAccessRead;
-    SMBFID fid = 0;
-	struct fileRefEntry *entry = NULL;
+	int error = 0;
+	uint32_t mode = (ap->a_fflags & PROT_WRITE) ? (FWRITE | FREAD) : FREAD;
+	int accessMode = (ap->a_fflags & PROT_WRITE) ? kAccessWrite : kAccessRead;
 	
-	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
+    if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))) {
 		return (EPERM);
+    }
 
     SMB_LOG_KTRACE(SMB_DBG_MMAP | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
@@ -2388,38 +3359,79 @@ smbfs_vnop_mmap(struct vnop_mmap_args *ap)
 	np->n_lastvop = smbfs_vnop_mmap;	
 
 	/* We already have it mapped, just ignore this one */
-	if (np->n_flag & NISMAPPED)
+    if (np->n_flag & NISMAPPED) {
 	    goto out;
+    }
+    
 	/*
 	 * Since we should already be open with the correct modes then we should never
 	 * need to really open the file. For now we try these three cases. 
 	 *
 	 * First try the simple case, we have a posix open with the correct access.
 	 *
-	 * Second see if we have a match in the open deny mode list. Still not 100% sure this
-	 * will work ever time because they are passing the current context, which may not match
-	 * the one passed to open. From taking to Joe he believe we will always be in the open 
-	 * context when call. From my testing this seems to be true.
+	 * Second see if we have a match in the open deny mode list.
 	 *
 	 * Third just return EPERM.
+     *
+     * NOTE: Either the sharedFID OR the lockFID will be used for mmapping
+     *
+     * DO NOT update RW counts as you can get multiple mmaps and just
+     * one mnomap
 	 */
-	if ((np->f_fid != 0) && 
-        (np->f_accessMode & accessMode)) {
-		np->f_refcnt++;
-	} else if (FindFileRef(vp, vfs_context_proc(ap->a_context), accessMode, 
-							   kAnyMatch, 0, 0, &entry, &fid) == 0) {
-		entry->refcnt++;
-		entry->mmapped = TRUE;
-		np->f_refcnt++;
-	} else {
-		SMBERROR_LOCK(np, "%s We could not find an open file with mode = 0x%x? \n",
-                      np->n_name, mode);
-		error = EPERM;
-		goto out;
-	}
+    SMB_LOG_FILE_OPS_LOCK(np, "f_sharedFID_refcnt <%d> f_sharedFID_accessMode <0x%x> f_lockFID_refcnt <%d> f_lockFID_accessMode <0x%x> accessMode <0x%x> on %s  \n",
+                          np->f_sharedFID_refcnt, np->f_sharedFID_accessMode,
+                          np->f_lockFID_refcnt, np->f_lockFID_accessMode,
+                          accessMode, np->n_name);
+    
+    if ((np->f_sharedFID_refcnt > 0) &&
+        (np->f_sharedFID_accessMode & accessMode)) {
+        /* Using the sharedFID */
+        np->f_sharedFID_refcnt += 1;
+        np->f_sharedFID_mmapped = TRUE;
+        
+        /* Build the mode from f_sharedFID_accessMode, used in mnomap */
+        np->f_sharedFID_mmapMode = 0;
+        if (np->f_sharedFID_accessMode & kAccessRead) {
+            np->f_sharedFID_mmapMode |= FREAD;
+        }
+        if (np->f_sharedFID_accessMode & kAccessWrite) {
+            np->f_sharedFID_mmapMode |= FWRITE;
+        }
+        
+        /* Update the RW counters */
+        smbfs_update_RW_cnts(&np->f_sharedFID, np->f_sharedFID_accessMode, 1);
+    }
+    else {
+        if ((np->f_lockFID_refcnt > 0) &&
+            (np->f_lockFID_accessMode & accessMode)) {
+            /* Using the lockFID */
+            np->f_lockFID_refcnt += 1;
+            np->f_lockFID_mmapped = TRUE;
+            
+            /* Build the mode from f_lockFID_accessMode, used in mnomap */
+            np->f_lockFID_mmapMode = FWASLOCKED;
+            if (np->f_lockFID_accessMode & kAccessRead) {
+                np->f_lockFID_accessMode |= FREAD;
+            }
+            if (np->f_lockFID_accessMode & kAccessWrite) {
+                np->f_lockFID_accessMode |= FWRITE;
+            }
+            
+            /* Update the RW counters */
+            smbfs_update_RW_cnts(&np->f_lockFID, np->f_lockFID_accessMode, 1);
+       }
+        else {
+            SMBERROR_LOCK(np, "%s We could not find an open file with mode = 0x%x? \n",
+                          np->n_name, mode);
+            error = EPERM;
+            goto out;
+        }
+    }
+    
+    /* Mark that the file is mmapped now */
 	np->n_flag |= NISMAPPED;
-	np->f_mmapMode = mode;
-out:	
+
+out:
 	smbnode_unlock(np);
     
     SMB_LOG_KTRACE(SMB_DBG_MMAP | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -2437,65 +3449,116 @@ out:
  * up. Otherwise we have a little more work to do see below for more details.
  *
  * NOTE: All errors are ignored by the calling routine
+ * NOTE: Either the sharedFID OR the lockFID will be used for mmapping
  */
 static int 
 smbfs_vnop_mnomap(struct vnop_mnomap_args *ap)
 {
-	vnode_t				vp = ap->a_vp;
-	struct smbnode		*np;
-	struct fileRefEntry *entry;
-	int					error = 0;
+	vnode_t vp = ap->a_vp;
+	struct smbnode *np = NULL;
+	int error = 0;
+    struct smb_share *share = NULL;
+    uint32_t mode = 0;
+    int accessMode = 0;
 
-	if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))
+    if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)) {
 		return (EPERM);	/* Not sure what to do here, they ignore errors */
+    }
 
     SMB_LOG_KTRACE(SMB_DBG_MNOMAP | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     np = VTOSMB(vp);
 	np->n_lastvop = smbfs_vnop_mnomap;
 
-	/* Only one open reference just call close and let it clean every thing up. */
-	if (np->f_refcnt == 1) {
-		struct smb_share *share;
-		
-		share = smb_get_share_with_reference(VTOSMBFS(vp));
+    SMB_LOG_FILE_OPS_LOCK(np, "f_sharedFID_refcnt <%d> f_sharedFID_accessMode <0x%x> f_sharedFID_mmapped <%d> f_lockFID_refcnt <%d> f_lockFID_accessMode <0x%x> f_lockFID_mmapped <%d> on %s  \n",
+                          np->f_sharedFID_refcnt, np->f_sharedFID_accessMode, np->f_sharedFID_mmapped,
+                          np->f_lockFID_refcnt, np->f_lockFID_accessMode, np->f_lockFID_mmapped,
+                          np->n_name);
 
-        /*
-         * Copied behavior from AFP client (7945205) Push any dirty pages out
-         * now to reduce the possibility that a page out will occur after
-         * vnop_inactive was called
-         */
-        if (!vnode_vfsisrdonly(vp) && smbfsIsCacheable(vp)) {
-            ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
-        }
+    /*
+     * Weird. We can get multiple mmaps, but we will only get one mnomap.
+     */
+    if ((np->f_sharedFID_refcnt > 0) &&
+        (np->f_sharedFID_mmapped == TRUE)) {
+        /* Using the sharedFID */
+        mode = np->f_sharedFID_mmapMode;
+        np->f_sharedFID_mmapMode = 0;
+        np->f_sharedFID_mmapped = FALSE;
 
-		error = smbfs_close(share, vp, np->f_mmapMode, ap->a_context);
-		smb_share_rele(share, ap->a_context);
-		if (error) {
-			SMBWARNING_LOCK(np, "%s close failed with error = %d\n",
-                            np->n_name, error);
+        /* Update the RW counters */
+        if (mode & FREAD) {
+            accessMode |= kAccessRead;
         }
-		goto out;
-	} else {
-        if (np->f_refcnt > 0) {
-            np->f_refcnt--;
+        if (mode & FWRITE) {
+            accessMode |= kAccessWrite;
         }
-	}
-	/*
-	 * We get passed the current context which may or may not be the the same as the one used
-	 * in the open. So search the list and see if there are any mapped entries. Remember we only
-	 * have one item mapped at a time.
-	 */
-	if (FindMappedFileRef(vp, &entry, NULL) == TRUE) {
-		entry->mmapped = FALSE;
-		if (entry->refcnt > 0)	/* This entry is still in use don't remove it yet. */
-			entry->refcnt--;
-		else /* Done with it remove it from the list */
-		    RemoveFileRef(vp, entry, 0);
-	}
+        smbfs_update_RW_cnts(&np->f_sharedFID, accessMode, -1);
+
+        if (np->f_sharedFID_refcnt > 1) {
+            /* Just decrement the refcnt */
+            np->f_sharedFID_refcnt -= 1;
+            goto out;
+        }
+    }
+    else {
+        if ((np->f_lockFID_refcnt > 0) &&
+            (np->f_lockFID_mmapped == TRUE)) {
+            /* Using the lockFID */
+            mode = np->f_lockFID_mmapMode;
+            np->f_lockFID_mmapMode = 0;
+            np->f_lockFID_mmapped = FALSE;
+
+            /* Update the RW counters */
+            if (mode & FREAD) {
+                accessMode |= kAccessRead;
+            }
+            if (mode & FWRITE) {
+                accessMode |= kAccessWrite;
+            }
+            smbfs_update_RW_cnts(&np->f_lockFID, accessMode, -1);
+
+            if (np->f_lockFID_refcnt > 1) {
+                /* Just decrement the refcnt */
+                np->f_lockFID_refcnt -= 1;
+                goto out;
+            }
+        }
+        else {
+            /*
+             * Huh, its perfectly fine to get a mnomap and no previous mmap.
+             * The fsx test will do a mmap, then a ton of mnomaps.
+             * Just ignore it.
+             */
+            error = 0;
+            goto out;
+        }
+    }
+
+    /* Must be (refcnt == 1). Time to do the last close */
+    share = smb_get_share_with_reference(VTOSMBFS(vp));
+
+    /*
+     * Copied behavior from AFP client (7945205) Push any dirty pages out
+     * now to reduce the possibility that a page out will occur after
+     * vnop_inactive was called
+     */
+    if (!vnode_vfsisrdonly(vp) && smbfsIsCacheable(vp)) {
+        ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC | UBC_INVALIDATE);
+    }
+
+    /* Do the last close */
+    error = smbfs_close(share, vp, mode, ap->a_context);
+    if (error) {
+        SMBWARNING_LOCK(np, "%s close failed with error = %d\n",
+                        np->n_name, error);
+    }
+    
+    smb_share_rele(share, ap->a_context);
+
+    /* We only get one mnomap, so clear the flag */
+    np->n_flag &= ~NISMAPPED;
+
 out:
-	np->f_mmapMode = 0;
-	np->n_flag &= ~NISMAPPED;
 	smbnode_unlock(np);
 
     SMB_LOG_KTRACE(SMB_DBG_MNOMAP | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -2613,13 +3676,30 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		 */
 		share = smb_get_share_with_reference(VTOSMBFS(vp));
 		
-		if (np->f_refcnt > 0) {
-			np->f_refcnt = 1;
-			error = smbfs_close(share, vp, FREAD, ap->a_context);
-			if (error) {
-				SMBDEBUG_LOCK(np, "error %d closing fid %llx file %s\n",
-							  error, np->f_fid, np->n_name);
-			}
+		if ((np->f_sharedFID_refcnt > 1) || ((np->f_lockFID_refcnt > 1))) {
+            /* Dont allow a deferred close */
+            smbnode_lease_lock(&np->n_lease, smbfs_vnop_reclaim);
+            np->n_lease.flags |= SMB2_LEASE_BROKEN;
+            np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
+            smbnode_lease_unlock(&np->n_lease);
+
+            if (np->f_sharedFID_refcnt > 1) {
+                error = smbfs_close(share, vp, np->f_sharedFID_accessMode,
+                                    ap->a_context);
+                if (error) {
+                    SMBDEBUG_LOCK(np, "error %d closing shared fid %llx file %s\n",
+                                  error, np->f_sharedFID_fid, np->n_name);
+                }
+            }
+            
+            if (np->f_lockFID_refcnt > 1) {
+                error = smbfs_close(share, vp, np->f_lockFID_accessMode,
+                                    ap->a_context);
+                if (error) {
+                    SMBDEBUG_LOCK(np, "error %d closing lock fid %llx file %s\n",
+                                  error, np->f_lockFID_fid, np->n_name);
+                }
+            }
 		}
 
 		/*
@@ -2642,8 +3722,6 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 
 #ifdef SMB_DEBUG
 		/* If the file is not in use then it should be closed. */
-		DBG_ASSERT((np->f_refcnt == 0));
-		DBG_ASSERT((np->f_openDenyList == NULL));
 		DBG_ASSERT((np->f_smbflock == NULL));
 #endif // SMB_DEBUG
 	}
@@ -2694,9 +3772,11 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
              * So we only log an error if this is not a forced unmount, which 
              * we do care about.
              */
-            if (vnode_getname(vp) != NULL) {
+            const char *vname = vnode_getname(vp);
+            if (vname != NULL) {
                 SMBERROR("%s: node: %s, n_child_refcnt not zero like it should be: %ld\n",
-                         __FUNCTION__, vnode_getname(vp), (long) np->n_child_refcnt);
+                         __FUNCTION__, vname, (long) np->n_child_refcnt);
+                vnode_putname(vname);
             }
             else {
                 SMBERROR("%s: n_child_refcnt not zero like it should be: %ld\n",
@@ -2724,31 +3804,31 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		/* Mutexes in both regular and stream nodes */
 		lck_mtx_destroy(&np->f_openStateLock, smbfs_mutex_group);
 		lck_mtx_destroy(&np->f_clusterWriteLock, smbfs_mutex_group);
-		lck_mtx_destroy(&np->f_openDenyListLock, smbfs_mutex_group);
-
-		/* Mutexes ONLY in non stream nodes - rfrkMetaLock and dur handle */
-		if (!vnode_isnamedstream(vp)) {
-			lck_mtx_lock(&np->f_dur_handle.lock);
-			np->f_dur_handle.flags = 0;
-			lck_mtx_unlock(&np->f_dur_handle.lock);
-			
-			smb2_smb_dur_handle_free(&np->f_dur_handle);
-		}
+        lck_mtx_destroy(&np->f_sharedFID_BRL_lock, smbfs_mutex_group);
+        lck_mtx_destroy(&np->f_lockFID_BRL_lock, smbfs_mutex_group);
+        
+        /* Free lease */
+        smb2_lease_free(&np->n_lease);
+        /* Free durable handles */
+        smb2_dur_handle_free(&np->f_sharedFID_dur_handle);
+        smb2_dur_handle_free(&np->f_lockFID_dur_handle);
 	}
     else {
         lck_mtx_destroy(&np->d_enum_cache_list_lock, smbfs_mutex_group);
         lck_mtx_destroy(&np->d_cookie_lock, smbfs_mutex_group);
-
-		lck_mtx_lock(&np->d_dur_handle.lock);
-		np->d_dur_handle.flags = 0;
-		lck_mtx_unlock(&np->d_dur_handle.lock);
-
-		smb2_smb_dur_handle_free(&np->d_dur_handle);
+        /* Free lease */
+        smb2_lease_free(&np->n_lease);
+        /* free coockies */
+        for (size_t u=0; u < kSMBDirCookieMaxCnt; u++) {
+            if (np->d_cookies[u].resume_name_p) {
+                SMB_FREE_DATA(np->d_cookies[u].resume_name_p, PATH_MAX);
+            }
+        }
     }
 
-	/* Clear any symlink cache, always safe to do even on non symlinks */
+    /* Clear any symlink cache, always safe to do even on non symlinks */
     if (np->n_symlink_target != NULL) {
-        SMB_FREE(np->n_symlink_target, M_TEMP);
+        SMB_FREE_DATA(np->n_symlink_target, np->n_symlink_target_allocsize);
     }
 	np->n_symlink_target_len = 0;
 	np->n_symlink_cache_timer = 0;
@@ -2763,13 +3843,11 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	/* Free up both names before we unlock the node */
     lck_rw_lock_exclusive(&np->n_name_rwlock);
     if (np->n_name != NULL) {
-        SMB_FREE(np->n_name, M_SMBNODENAME);
-        np->n_name = NULL;
+        SMB_FREE_DATA(np->n_name, np->n_name_allocsize);
     }
 
     if (np->n_sname != NULL) {
-        SMB_FREE(np->n_sname, M_SMBNODENAME);
-        np->n_sname = NULL;
+        SMB_FREE_DATA(np->n_sname, np->n_sname_allocsize);
     }
     lck_rw_unlock_exclusive(&np->n_name_rwlock);
 
@@ -2787,7 +3865,7 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	lck_rw_destroy(&np->n_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_name_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_parent_rwlock, smbfs_rwlock_group);
-	SMB_FREE(np, M_SMBNODE);
+    SMB_FREE_TYPE(struct smbnode, np);
 
 	SMB_LOG_KTRACE(SMB_DBG_RECLAIM | DBG_FUNC_END, 0, 0, 0, 0, 0);
     return 0;
@@ -3348,8 +4426,7 @@ smbfs_getattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
              *
              * Need a buffer to read attr data into
              */
-            SMB_MALLOC(bufferp, uint8_t *, XATTR_HIGH_FIDELITY_LEN,
-                       M_SMBFSDATA, M_WAITOK | M_ZERO);
+            SMB_MALLOC_DATA(bufferp, XATTR_HIGH_FIDELITY_LEN, Z_WAITOK_ZERO);
             if (bufferp == NULL) {
                 SMBERROR("Malloc failed for hifi %d\n", XATTR_HIGH_FIDELITY_LEN);
                 error = ENOMEM;
@@ -3446,8 +4523,7 @@ smbfs_getattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 
 bad:
     if (bufferp != NULL) {
-        SMB_FREE(bufferp, M_TEMP);
-        bufferp = NULL;
+        SMB_FREE_DATA(bufferp, XATTR_HIGH_FIDELITY_LEN);
     }
 
     if (hifi_uio != NULL) {
@@ -3480,6 +4556,7 @@ smbfs_vnop_getattr(struct vnop_getattr_args *ap)
 	SMB_LOG_KTRACE(SMB_DBG_GET_ATTR | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     np = VTOSMB(vp);
+    np->n_write_unsafe = true;
 	np->n_lastvop = smbfs_vnop_getattr;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 
@@ -3502,6 +4579,7 @@ smbfs_vnop_getattr(struct vnop_getattr_args *ap)
 
         /* Get an exclusive lock */
         if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))) {
+            np->n_write_unsafe = false;
             return (error);
         }
 
@@ -3521,11 +4599,12 @@ smbfs_vnop_getattr(struct vnop_getattr_args *ap)
 
         /* And get the shared lock again */
         if ((error = smbnode_lock(VTOSMB(vp), SMBFS_SHARED_LOCK))) {
+            np->n_write_unsafe = false;
             return (error);
         }
     }
 
-    /* Before updating see if it needs to be reopened. */
+    /* Before updating see if it needs to be reopened or revoked. */
 	if ((!vnode_isdir(vp)) && (np->f_openState & kNeedReopen)) {
 		/* smbfs_smb_reopen_file should check to see if the share changed? */
 		(void)smbfs_smb_reopen_file(share, np, ap->a_context);
@@ -3539,6 +4618,7 @@ smbfs_vnop_getattr(struct vnop_getattr_args *ap)
 
 	error = smbfs_getattr(share, vp, ap->a_vap, ap->a_context);
 	smb_share_rele(share, ap->a_context);
+    np->n_write_unsafe = false;
 	smbnode_unlock(np);
     
     SMB_LOG_KTRACE(SMB_DBG_GET_ATTR | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -3602,7 +4682,7 @@ smbfs_hifi_set_perms(struct smb_share *share, vnode_t vp, vfs_context_t context)
         VATTR_SET_ACTIVE(&vap, va_gid);
         vap.va_gid = smp->sm_args.gid;
 
-        error = smbfs_setattr(share, vp, &vap, context);
+        error = smbfs_setattr(share, vp, &vap, NULL, context);
         if (error) {
             SMBERROR_LOCK(VTOSMB(vp), "smbfs_setattr failed <%d> on <%s> \n",
                           error, VTOSMB(vp)->n_name);
@@ -3999,8 +5079,9 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     uint32_t rights;
     SMBFID fid = 0;
     int error = 0;
-    u_quad_t tsize = 0;
+    uint64_t curr_size = np->n_size, new_size = vap->va_data_size;
     uint32_t trycnt = 0;
+    uint32_t setinfo_ntstatus = 0;
 
     ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
 
@@ -4008,70 +5089,95 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     rights = SMB2_FILE_WRITE_DATA | SMB2_FILE_APPEND_DATA;
 
     /*
-     * The connection could go down in the middle of setting the eof, in
-     * this case we will get a bad file descriptor error. Keep trying until
-     * the open fails or we get something besides EBADF.
-     *
-     * We now have a counter that keeps us from going into an infinite loop. Once
-     * we implement SMB 2/3 we should take a second look at how this should be done.
+     * Can we do a compound call? Has to be
+     * 1. SMB2
+     * 2. Unix server so that zero extend and flush can be skipped
+     * 3. No current open file refs (smbfs_tmpopen will try to reuse an
+     *    existing open file ref if it can)
      */
-    do {
-        error = smbfs_tmpopen(share, np, rights, &fid, context);
-        if (error) {
-            SMB_LOG_IO_LOCK(np, "%s seteof open failed %d\n",
-                            np->n_name, error);
-            /* The open failed, fail the seteof. */
-            break;
-        }
-
-        /* zero fill if needed, ignore any errors will catch them on the seteof call */
-        tsize = np->n_size;
-        if (tsize < vap->va_data_size) {
-            error = smbfs_0extend(share, fid, tsize, vap->va_data_size, 0, context);
-            SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
-                           0xabc002, error, 0, 0, 0);
-        }
-
-        /* Set the eof on the server */
-        if (!error) {
-            error = smbfs_seteof(share, np, fid, vap->va_data_size, context);
-            SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
-                           0xabc003, error, 0, 0, 0);
-        }
-
-        if (error == EBADF) {
-            trycnt++;
-            SMB_LOG_IO_LOCK(np, "%s seteof failed because of reconnect, trying again.\n",
-                            np->n_name);
-        }
-
+    if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+        UNIX_SERVER(SS_TO_SESSION(share)) &&
+        (np->f_sharedFID_refcnt == 0) &&
+        (np->f_lockFID_refcnt == 0)) {
         /*
-         * Windows FAT file systems require a flush, after a seteof. Until the
-         * flush, they will keep returning the old file size.
+         * Do the Compound Create/SetInfo/Close call
          */
-        if ((!error) && (share->ss_fstype == SMB_FS_FAT) &&
-            (!UNIX_SERVER(SS_TO_SESSION(share)))) {
-            error = smbfs_smb_flush(share, fid, 0, context);
-            if (!error) {
-                np->n_flag &= ~NNEEDS_FLUSH;
+        error = smb2fs_smb_cmpd_set_info(share, np, VREG,
+                                         NULL, 0,
+                                         0, rights,
+                                         SMB2_0_INFO_FILE, FileEndOfFileInformation,
+                                         0,
+                                         sizeof (new_size), (uint8_t *) &new_size,
+                                         &setinfo_ntstatus,
+                                         context);
+    }
+    else {
+        /*
+         * Old way of doing the set EOF
+         *
+         * The connection could go down in the middle of setting the eof, in
+         * this case we will get a bad file descriptor error. Keep trying until
+         * the open fails or we get something besides EBADF.
+         *
+         * We now have a counter that keeps us from going into an infinite loop.
+         */
+        do {
+            error = smbfs_tmpopen(share, np, rights, &fid, context);
+            if (error) {
+                SMB_LOG_IO_LOCK(np, "%s seteof open failed %d\n",
+                                np->n_name, error);
+                /* The open failed, fail the seteof. */
+                break;
             }
-        }
 
-        /* We ignore errors on close, not much we can do about it here */
-        (void)smbfs_tmpclose(share, np, fid, context);
-    } while ((error == EBADF) && (trycnt < SMB_MAX_REOPEN_CNT));
+            /* zero fill if needed, ignore any errors will catch them on the seteof call */
+            if (curr_size < new_size) {
+                error = smbfs_0extend(share, fid, curr_size, new_size, 0, context);
+                SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
+                               0xabc002, error, 0, 0, 0);
+            }
+
+            /* Set the eof on the server */
+            if (!error) {
+                error = smbfs_seteof(share, np, fid, new_size, context);
+                SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
+                               0xabc003, error, 0, 0, 0);
+            }
+
+            if (error == EBADF) {
+                trycnt++;
+                SMB_LOG_IO_LOCK(np, "%s seteof failed because of reconnect, trying again.\n",
+                                np->n_name);
+            }
+
+            /*
+             * Windows FAT file systems require a flush, after a seteof. Until the
+             * flush, they will keep returning the old file size.
+             */
+            if ((!error) && (share->ss_fstype == SMB_FS_FAT) &&
+                (!UNIX_SERVER(SS_TO_SESSION(share)))) {
+                error = smbfs_smb_flush(share, fid, 0, context);
+                if (!error) {
+                    np->n_flag &= ~NNEEDS_FLUSH;
+                }
+            }
+
+            /* We ignore errors on close, not much we can do about it here */
+            (void)smbfs_tmpclose(share, np, fid, context);
+        } while ((error == EBADF) && (trycnt < SMB_MAX_REOPEN_CNT));
+    }
 
     SMB_LOG_IO_LOCK(np, "%s: Calling smbfs_setsize, old eof = %lld  new eof = %lld\n",
-                    np->n_name, tsize, vap->va_data_size);
+                    np->n_name, curr_size, new_size);
 
     if (error) {
         /* If we failed, try to restore previous size in UBC and leave */
-        smbfs_setsize(vp, (off_t)tsize);
+        smbfs_setsize(vp, (off_t) curr_size);
         goto out;
     }
     else {
         /* Set new size in UBC */
-        smbfs_setsize(vp, (off_t)vap->va_data_size);
+        smbfs_setsize(vp, (off_t)new_size);
     }
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
                    0xabc004, error, 0, 0, 0);
@@ -4101,9 +5207,9 @@ out:
 /*
 * The calling routine must hold a reference on the share
 */
-static int 
+static int
 smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap, 
-			  vfs_context_t context)
+              SMBFID *fidp, vfs_context_t context)
 {
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = VTOSMBFS(vp);
@@ -4161,8 +5267,7 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
         }
 
         /* Need a buffer to write attr data into */
-        SMB_MALLOC(bufferp, uint8_t *, XATTR_HIGH_FIDELITY_LEN,
-                   M_SMBFSDATA, M_WAITOK | M_ZERO);
+        SMB_MALLOC_DATA(bufferp, XATTR_HIGH_FIDELITY_LEN, Z_WAITOK_ZERO);
         if (bufferp == NULL) {
             SMBERROR("Malloc failed for hifi %d\n", XATTR_HIGH_FIDELITY_LEN);
             error = ENOMEM;
@@ -4240,11 +5345,13 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	if (share->ss_attributes & FILE_PERSISTENT_ACLS &&
 	    (VATTR_IS_ACTIVE(vap, va_acl) || VATTR_IS_ACTIVE(vap, va_guuid) ||
 	     VATTR_IS_ACTIVE(vap, va_uuuid))) {
-		error = smbfs_setsecurity(share, vp, vap, context);
+		error = smbfs_setsecurity(share, vp, vap, fidp, context);
         SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
                        0xabc001, error, 0, 0, 0);
-		if (error)
+        if (error) {
 			goto out;
+        }
+        
 		/*
 		 * Failing to set VATTR_SET_SUPPORTED to something which was
 		 * requested causes fallback to EAs, which we never want. This
@@ -4257,7 +5364,14 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 			VATTR_SET_SUPPORTED(vap, va_guuid);
 		if (VATTR_IS_ACTIVE(vap, va_uuuid))
 			VATTR_SET_SUPPORTED(vap, va_uuuid);
-		modified = 1;
+        
+        /*
+         * "modified" flag is for the meta data cache saved for the smb node
+         * but the acl cache is separate and not retrieved as a normal meta
+         * data refresh.  smbfs_setsecurity() clears the ACL cache timer so
+         * the next time we need ACL data, we will go fetch it.
+         */
+		//modified = 1;
 
         /* Changing security does not generate a par dir lease break */
         forceInvalidate = 1;
@@ -4390,22 +5504,43 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		}
 		
 		if (vaflags_mask || (vamode != SMB_MODE_NO_CHANGE)) {
+            /*
+             * supportUnixInfo2/supportUnixBSDFlags are only for SMB v1
+             */
 			if (!supportUnixInfo2) {
-				/* Windows style server */
+				/* SMBv2 or later or Windows style server */
 				if (vaflags_mask) {
 					error = smbfs_smb_setpattr(share, np, vnode_type,
                                                NULL, 0,
                                                dosattr, context);
+                    if (error == 0) {
+                        /*
+                         * Assume it worked for performance and skip updating
+                         * meta data
+                         */
+                        np->n_dosattr = dosattr;
+                    }
+                    else {
+                        modified = 1;
+                    }
 				}
 				if (vamode != SMB_MODE_NO_CHANGE) {
 					/* Should we report the error? */
-					error = smbfs_set_ace_modes(share, np, vamode, context);
+					error = smbfs_set_ace_modes(share, np, vamode, fidp, context);
+                    if (error != 0) {
+                        /*
+                         * For performance, only get updated meta data if
+                         * failed to set the new mode bit
+                         */
+                        modified = 1;
+                    }
 				}
 			} else if (supportUnixBSDFlags) {
 				/* Samba server that does support the BSD flags (Mac OS) */
 				error = smbfs_set_unix_info2(share, np, NULL, NULL, NULL, 
 											 SMB_SIZE_NO_CHANGE,  vamode, vaflags, 
 											 vaflags_mask, context);
+                modified = 1;
 			} else {				
 				/* Samba server that doesn't support the BSD flags, Linux */
 				if (vamode != SMB_MODE_NO_CHANGE) {
@@ -4421,13 +5556,9 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
                                                NULL, 0,
                                                dosattr, context);
 				}
+                
+                modified = 1;
 			}
-
-			/* 
-			 * We attempted to set flags or mode bits, see what we ended up
-			 * with on the server whether it worked or failed.
-			 */
-			modified = 1;
 
             /* Changing security does not generate a par dir lease break */
             forceInvalidate = 1;
@@ -4588,7 +5719,7 @@ retrySettingTime:
          * has the correct open mode.
          *
          * We currently never do a NT style open with write attributes.
-         * So for all systems except NT4 that spport the NTCreateAndX 
+         * So for all systems except NT4 that support the NTCreateAndX
          * call we will fall through and just use the set path method.
          * In the future we may decide to add open deny support. So if
          * we decide to add write atributes access then this code will
@@ -4596,7 +5727,7 @@ retrySettingTime:
          */ 
         if ((SS_TO_SESSION(share)->session_flags & SMBV_NT4) || 
             (smp->sm_flags & MNT_REQUIRES_FILEID_FOR_TIME) ||
-            ((!vnode_isdir(vp)) && np->f_refcnt && (np->f_rights & rights))) {
+            ((!vnode_isdir(vp)) && (np->f_sharedFID_refcnt) && (np->f_sharedFID_rights & rights))) {
             
             /*
              * For NT systems we need the file open for write attributes. 
@@ -4626,6 +5757,7 @@ retrySettingTime:
             if (error == ENOTSUP) {
                 SMBWARNING("Server does not support setting time by path, fallback to old method\n"); 
                 smp->sm_flags |= MNT_REQUIRES_FILEID_FOR_TIME;	/* Never go down this path again */
+
                 error = smbfs_tmpopen(share, np, rights, &fid, context);
                 if (!error) {
                     error = smbfs_smb_setfattrNT(share, np->n_dosattr, fid, 
@@ -4689,10 +5821,18 @@ out:
 		np->attribute_cache_timer = 0;	/* invalidate cache */
         smb_dir_cache_invalidate(vp, forceInvalidate);
     }
+    else {
+        /*
+         * This is for when ACLs are changed. The "modified" flag is not set
+         * because the ACL cache is different from the meta data cache.
+         */
+        if (forceInvalidate) {
+            smb_dir_cache_invalidate(vp, forceInvalidate);
+        }
+    }
     
     if (bufferp != NULL) {
-        SMB_FREE(bufferp, M_TEMP);
-        bufferp = NULL;
+        SMB_FREE_DATA(bufferp, XATTR_HIGH_FIDELITY_LEN);
     }
 
     if (hifi_uio != NULL) {
@@ -4705,7 +5845,7 @@ out:
 }
 
 /*
- * smbfs_vnop_getattr
+ * smbfs_vnop_setattr
  *
  * vnode_t	a_vp;
  * struct vnode_attr *a_vap;    
@@ -4739,7 +5879,8 @@ smbfs_vnop_setattr(struct vnop_setattr_args *ap)
 	np = VTOSMB(ap->a_vp);
 	np->n_lastvop = smbfs_vnop_setattr;
 	share = smb_get_share_with_reference(VTOSMBFS(ap->a_vp));
-	error = smbfs_setattr (share, ap->a_vp, ap->a_vap, ap->a_context);
+
+    error = smbfs_setattr (share, ap->a_vp, ap->a_vap, NULL, ap->a_context);
 	smb_share_rele(share, ap->a_context);
 	smbnode_unlock(VTOSMB(ap->a_vp));
 	/* If this is a stream try to update the parents meta cache timer. */
@@ -4816,7 +5957,7 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
         goto exit;
     }
 	
-	if (np->f_refcnt == 0) {
+	if ((np->f_sharedFID_refcnt == 0) && (np->f_lockFID_refcnt == 0)) {
         /* 
          * This happens when a file is open and mmapped, then server goes down
          * and calls start soft timing out with ETIMEDOUT. The reads/writes 
@@ -4830,14 +5971,11 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
         goto exit;
     }
 
-    SMB_MALLOC(fap,
-               struct smbfattr *,
-               sizeof(struct smbfattr),
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
     if (fap == NULL) {
-        SMBERROR("SMB_MALLOC failed\n");
-        error = ENOMEM;
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
+        error = EIO;
+        buf_seterror(bp, error);
         goto exit;
     }
 
@@ -4849,6 +5987,10 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
         panic("smbfs_vnop_strategy: buf_map() failed with (%d)", error);
 	}
 	
+    /*
+     * NOTE: MUST call buf_unmap() to match the above buf_map()!!!
+     */
+
 	uio = uio_create(1, ((off_t)buf_blkno(bp)) * PAGE_SIZE, UIO_SYSSPACE, 
 					 (bflags & B_READ) ? UIO_READ : UIO_WRITE);
 	if (!uio) {
@@ -4856,6 +5998,7 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
 	}
 	
 	uio_addiov(uio, CAST_USER_ADDR_T(io_addr), buf_count(bp));
+    
 	/* 
 	 * Remember that buf_proc(bp) can return NULL, but in that case this is
 	 * coming from the kernel and is not associated with a particular proc.  
@@ -4864,12 +6007,21 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
 	 * read or write to use for read/write to work. This is handled in the
 	 * FindFileRef routine.
 	 */
-	if (FindFileRef(vp, buf_proc(bp), (bflags & B_READ) ? kAccessRead : kAccessWrite, 
-					kCheckDenyOrLocks, uio_offset(uio), uio_resid(uio), NULL, &fid)) {
-		/* No matches or no pid to match, so just use the generic shared fork */
-		fid = np->f_fid;	/* We should always have something at this point */
-	}
-	DBG_ASSERT(fid);	 
+    error = FindFileRef(vp, buf_proc(bp), (bflags & B_READ) ? kAccessRead : kAccessWrite,
+                        uio_offset(uio), uio_resid(uio), &fid);
+    if (error) {
+        /* This should never fail */
+        SMBERROR_LOCK(np, "FindFileRef for <%s> failed <%d> on %s \n",
+                      (bflags & B_READ) ? "READ" : "WRITE", error, np->n_name);
+        error = EIO;
+        buf_seterror(bp, error);
+        if ((error = buf_unmap(bp))) {
+            panic("smbfs_vnop_strategy: buf_unmap() failed with (%d)", error);
+        }
+        goto exit;
+    }
+    
+	DBG_ASSERT(fid);
 	
 	SMB_LOG_IO_LOCK(np, "%s: %s offset %lld, size %lld, bflags 0x%x\n",
                     (bflags & B_READ) ? "Read":"Write", np->n_name, uio_offset(uio),
@@ -4896,7 +6048,7 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
 	/*
 	 * We can't handle reopens in the normal fashion, because we have no lock. A 
 	 * bad file descriptor error, could mean a reconnect happen. Since
-	 * we revoke all opens with manatory locks or open deny mode, we can just
+	 * we revoke all opens with mandatory locks or open deny mode, we can just
 	 * do the open, read/write then close.
 	 *
 	 * We now have a counter that keeps us from going into an infinite loop. Once
@@ -4929,9 +6081,10 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
             uio_addiov(uio, CAST_USER_ADDR_T(io_addr), buf_count(bp));
 		
             error = smbfs_smb_open_file(share, np,
-                                        np->f_rights, NTCREATEX_SHARE_ACCESS_ALL, &fid,
+                                        (bflags & B_READ) ? kAccessRead : kAccessWrite, NTCREATEX_SHARE_ACCESS_ALL, &fid,
                                         NULL, 0, FALSE,
-                                        fap, NULL);
+                                        fap, NULL,
+                                        NULL);
         }
         
         lck_mtx_lock(&np->f_openStateLock);
@@ -4979,7 +6132,7 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
             SMB_LOG_IO_LOCK(np, "%s: TURNING OFF waitOnClusterWrite np->n_size = %lld\n",
                             np->n_name, np->n_size);
 		}
-		lck_mtx_unlock(&np->f_clusterWriteLock);		
+		lck_mtx_unlock(&np->f_clusterWriteLock);
     }
 	
 	if (error) {
@@ -5003,8 +6156,9 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
 	/* Should be zero when all done with reading/writing file */
     buf_setresid(bp, (uint32_t)uio_resid(uio));
 	
-    if ((error = buf_unmap(bp)))
+    if ((error = buf_unmap(bp))) {
         panic("smbfs_vnop_strategy: buf_unmap() failed with (%d)", error);
+    }
 	
     
 exit:
@@ -5019,7 +6173,7 @@ exit:
     buf_biodone(bp);
 
     if (fap != NULL) {
-        SMB_FREE(fap, M_SMBTEMP);
+        SMB_FREE_TYPE(struct smbfattr, fap);
     }
 
     SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -5076,8 +6230,10 @@ smbfs_vnop_read(struct vnop_read_args *ap)
                    uio_resid(uio), 0, 0, 0);
 
 	np = VTOSMB(vp);
+    np->n_write_unsafe = true;
 	np->n_lastvop = smbfs_vnop_read;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
+    
 	/*
 	 * History: FreeBSD vs Darwin VFS difference; we can get VNOP_READ without
  	 * preceeding open via the exec path, so do it implicitly.  VNOP_INACTIVE  
@@ -5086,12 +6242,14 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	 * If we are in reconnect mode calling smbfs_open will handle any reconnect
 	 * issues. So only if we have a f_refcnt do we call smbfs_smb_reopen_file.
  	 */
- 	if (!np->f_refcnt) {
+ 	if ((np->f_lockFID_refcnt == 0) && (np->f_sharedFID_refcnt == 0)) {
  		error = smbfs_open(share, vp, FREAD, ap->a_context);
  		if (error)
  			goto exit;
 		else np->f_needClose = 1;
- 	} else {
+ 	}
+    else {
+        /* See if file needs to be reopened or revoked */
 		error = smbfs_smb_reopen_file(share, np, ap->a_context);
 		if (error) {
 			SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
@@ -5099,7 +6257,16 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 		}
 	}
     
-    /* 
+    /*
+     * See if the current byte range locks will allow this IO
+     */
+    error = FindFileRef(vp, vfs_context_proc(ap->a_context), kAccessRead,
+                        uio_offset(uio), uio_resid(uio), &fid);
+    if (error) {
+        goto exit;
+    }
+
+    /*
 	 * Note: smbfs_isCacheable checks to see if the file is globally non 
 	 * cacheable, but we also need to support non cacheable on a per file
 	 * descriptor level for reads/writes. So also check the IO_NOCACHE flag.
@@ -5151,7 +6318,7 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	if (error)
 		goto exit;
     
-	/* 
+	/*
 	 * AFP COMMENTS (<rdar://problem/5977339>) Be careful of a cacheable write 
 	 * that extends the eof, but leaves a hole between the old eof and the new 
 	 * eof.  It that is followed by a non cacheable read that starts before the 
@@ -5178,13 +6345,7 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	ubc_msync (vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL, 
 			   UBC_INVALIDATE);
 	
-	if (FindFileRef(vp, vfs_context_proc(ap->a_context), kAccessRead, 
-					kCheckDenyOrLocks, uio_offset(uio), uio_resid(uio), 
-					NULL, &fid)) {
-		/* No matches or no pid to match, so just use the generic shared fork */
-		fid = np->f_fid;	/* We should always have something at this point */
-	}
-	DBG_ASSERT(fid);	
+	DBG_ASSERT(fid);
 
 	error = smbfs_doread(share, (off_t)np->n_size, uio, fid, ap->a_context);
     SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE, 0xabc002, error, 0, 0, 0);
@@ -5220,6 +6381,7 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	
 exit:
 	smb_share_rele(share, ap->a_context);
+    np->n_write_unsafe = false;
 	smbnode_unlock(np);
 
 	SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -5249,7 +6411,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	
 	/* Preflight checks */
 	if (!vnode_isreg(vp)) {
-		/* can only read regular files */
+		/* can only write regular files */
 		if (vnode_isdir(vp))
 			return (EISDIR);
 		else
@@ -5282,7 +6444,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	np->n_lastvop = smbfs_vnop_write;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 	
-	/* Before trying the write see if the file needs to be reopened */
+	/* Before trying the write see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
@@ -5294,7 +6456,32 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	
 	originalEOF = np->n_size;	/* Save off the orignial end of file */
 	
-    /* 
+    /*
+     * See if the current byte range locks will allow this IO
+     */
+    error = FindFileRef(vp, vfs_context_proc(ap->a_context), kAccessWrite,
+                        uio_offset(uio), uio_resid(uio), &fid);
+    if (error) {
+        goto exit;
+    }
+
+    /*
+     * [MS-SMB2] 3.2.1.5
+     * If Read only caching, then client MUST send all writes to server
+     */
+    smbnode_lease_lock(&np->n_lease, smbfs_vnop_write);
+
+    if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+        (np->n_lease.lease_state & SMB2_LEASE_READ_CACHING) &&
+        !(np->n_lease.lease_state & SMB2_LEASE_WRITE_CACHING)) {
+        /* Send this write out immediately */
+        //SMBERROR_LOCK(np, "Cached write sent immediately to server on <%s> \n", np->n_name);
+        ap->a_ioflag |= IO_NOCACHE;
+    }
+
+    smbnode_lease_unlock(&np->n_lease);
+
+    /*
 	 * Note: smbfs_isCacheable checks to see if the file is globally non 
 	 * cacheable, but we also need to support non cacheable on a per file
 	 * descriptor level for reads/writes. So also check the IO_NOCACHE flag.
@@ -5313,15 +6500,15 @@ smbfs_vnop_write(struct vnop_write_args *ap)
         u_quad_t newEOF;
         u_quad_t zero_head_off;
         u_quad_t zero_tail_off;
-        int32_t   lflag;
+        int32_t lflag;
 
-		lflag = ap->a_ioflag & ~(IO_TAILZEROFILL | IO_HEADZEROFILL |
+        lflag = ap->a_ioflag & ~(IO_TAILZEROFILL | IO_HEADZEROFILL |
 								 IO_NOZEROVALID | IO_NOZERODIRTY);
 		zero_head_off = 0;
 		zero_tail_off = 0;			
 		writelimit = uio_offset(uio) + uio_resid(uio);       
 		
-		/* 
+		/*
 		 * They are writing pass the eof, force a zero fill. What should we 
 		 * do for sparse files?
 		 */
@@ -5397,7 +6584,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
     
 	if (error)
 		goto exit;
-    
+        
     /*
 	 * If it is not cacheable, make sure to wipe out UBC since any of its
 	 * data would be no be invalid.  Make sure to push out any dirty data 
@@ -5408,14 +6595,6 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	ubc_msync(vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL, 
 			   UBC_INVALIDATE);
 	
-	
-	if (FindFileRef(vp, vfs_context_proc(ap->a_context), kAccessWrite, 
-					kCheckDenyOrLocks, uio_offset(uio), uio_resid(uio), NULL, &fid)) {
-		/* No matches or no pid to match, so just use the generic shared fork */
-		fid = np->f_fid;	/* We should always have something at this point */
-	}
-	DBG_ASSERT(fid);
-
 	/* Total amount that we need to write */
 	writeCount = uio_resid(ap->a_uio);
 	do {
@@ -5564,9 +6743,10 @@ exit:
  * The calling routine must hold a reference on the share
  *
  */
-static void 
-smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp, 
-					 vfs_context_t context, int set_mode_now)
+static void
+smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp,
+                     SMBFID *fidp, int set_mode_now,
+					 vfs_context_t context)
 {
 	struct smbnode *np = VTOSMB(vp);	
 	struct smbmount *smp = np->n_mount;
@@ -5709,7 +6889,7 @@ smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
 		VATTR_SET_SUPPORTED(vap, va_guuid);
-		/* We never let them set it if a  TEMP UUID */ 
+		/* We never let them set it if a TEMP UUID */
 		if (is_memberd_tempuuid(&vap->va_guuid))
 			VATTR_CLEAR_ACTIVE(vap, va_guuid);
 	}
@@ -5749,9 +6929,10 @@ smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp
 		goto out;
 	
 do_setattr:
-	error = smbfs_setattr(share, vp, vap, context);
-	if (error)
+    error = smbfs_setattr(share, vp, vap, fidp, context);
+    if (error) {
 		SMBERROR("smbfs_setattr, error %d\n", error);
+    }
 	if (savedacl) { 
 		kauth_acl_free(vap->va_acl);
 		vap->va_acl = savedacl;
@@ -5764,7 +6945,7 @@ out:
 
 /*
  * Create a regular file or a "symlink". In the symlink case we will have a target. Depending
- * on the sytle of symlink the target may be just what we set or we may need to encode it into
+ * on the style of symlink the target may be just what we set or we may need to encode it into
  * that wacky windows data 
  *
  * The calling routine must hold a reference on the share
@@ -5832,13 +7013,8 @@ smbfs_create(struct smb_share *share, struct vnop_create_args *ap, char *target,
 	
 	smbfs_attr_touchdir(dnp, (share->ss_fstype == SMB_FS_FAT));
 
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		dnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+    dnp->d_changecnt++;
 	
 	/* 
 	 * We have smbfs_nget returning a lock so we need to unlock it when we 
@@ -5867,7 +7043,7 @@ smbfs_create(struct smb_share *share, struct vnop_create_args *ap, char *target,
 	VTOSMB(vp)->finfo_cache_timer = ts.tv_sec;
 	VTOSMB(vp)->rfrk_cache_timer = ts.tv_sec;
 	
-	smbfs_set_create_vap(share, vap, vp, ap->a_context, FALSE);
+	smbfs_set_create_vap(share, vap, vp, NULL, FALSE, ap->a_context);
 
     /* If HiFi and Super Guest mode, attempt to set the uid/gid */
     smbfs_hifi_set_perms(share, vp, ap->a_context);
@@ -5881,13 +7057,8 @@ smbfs_create(struct smb_share *share, struct vnop_create_args *ap, char *target,
 	*vpp = vp;
 	smbnode_unlock(VTOSMB(vp));	/* Done with the smbnode unlock it. */
 	
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		dnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+    dnp->d_changecnt++;
 
 	/* Remove any negative cache entries. */
 	if (dnp->n_flag & NNEGNCENTRIES) {
@@ -6013,7 +7184,7 @@ smbfs_remove(struct smb_share *share, vnode_t dvp, vnode_t vp,
     /*
      * Did we open this in our read routine. Then we should close it.
      */
-    if ((np->f_refcnt == 1) && np->f_needClose) {
+    if (np->f_needClose) {
         error = smbfs_close(share, vp, FREAD, context);
         if (error) {
             SMBWARNING_LOCK(np, "error %d closing %s\n", error, np->n_name);
@@ -6026,7 +7197,7 @@ smbfs_remove(struct smb_share *share, vnode_t dvp, vnode_t vp,
      * So at this point if the file is open then do the silly rename delete
      * trick if the server supports it.
      */
-    if (np->f_refcnt) {
+    if ((np->f_lockFID_refcnt > 0) || (np->f_sharedFID_refcnt > 0)) {
         error = smbfs_delete_openfile(share, dnp, np, context);
         SMB_LOG_KTRACE(SMB_DBG_SMBFS_REMOVE | DBG_FUNC_NONE,
                        0xabc001, error, 0, 0, 0);
@@ -6076,13 +7247,8 @@ smbfs_remove(struct smb_share *share, vnode_t dvp, vnode_t vp,
     
     smbfs_attr_touchdir(dnp, (share->ss_fstype == SMB_FS_FAT));
 
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		dnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+    dnp->d_changecnt++;
 	
     /* Remove any negative cache entries. */
     if (dnp->n_flag & NNEGNCENTRIES) {
@@ -6256,13 +7422,8 @@ smbfs_rmdir(struct smb_share *share, vnode_t dvp, vnode_t vp,
 
 	smbfs_attr_touchdir(dnp, (share->ss_fstype == SMB_FS_FAT));
 
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		dnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+    dnp->d_changecnt++;
 	
 	/* Remove any negative cache entries. */
 	if (dnp->n_flag & NNEGNCENTRIES) {
@@ -6353,7 +7514,7 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 	struct rename_lock_list *rename_child_listp = NULL;
 	struct rename_lock_list *tptr = NULL;
 	struct rename_lock_list *free_ptr = NULL;
-	
+
     if (smp == NULL) {
         SMBERROR("smp is null \n");
         return (EINVAL);
@@ -6606,15 +7767,16 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 		(fnp->n_nmlen > 2) && (fnp->n_name[0] == '.') && (fnp->n_name[1] == '_')) {
 		const char *name = (const char *)fnp->n_name;
 		size_t nmlen = fnp->n_nmlen;
+        size_t name_allocsize = fnp->n_name_allocsize;
 		struct smbfattr fattr;
 		
-		error = smbfs_lookup(share, fdnp, &name, &nmlen, &fattr, ap->a_context);
+		error = smbfs_lookup(share, fdnp, &name, &nmlen, &name_allocsize, &fattr, ap->a_context);
 		/* Should we check for any error or just ENOENT */
 		if (error == ENOENT)
 			tvp = NULL;
 		/* smbfs_lookup could have replace the name, free it if did */
 		if (name != (char *)fnp->n_name) {
-			SMB_FREE(name, M_SMBNODENAME);
+            SMB_FREE_DATA(name, name_allocsize);
 		}
 	}
     lck_rw_unlock_shared(&fnp->n_name_rwlock);
@@ -6663,42 +7825,15 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 
 	/* Did we open this in our read routine. Then we should close it. */
 	if ((!vnode_isdir(fvp)) && (!vnode_isinuse(fvp, 0)) && 
-		(fnp->f_refcnt == 1) && fnp->f_needClose) {
+		fnp->f_needClose) {
 		error = smbfs_close(share, fvp, FREAD, ap->a_context);
 		if (error) {
 			SMBWARNING_LOCK(fnp, "error %d closing %s\n", error, fnp->n_name);
         }
 	}
 	
-    /* Are we renaming a file? */
-    if (!(vnode_isdir(fvp))) {
-		/* Close any deferred file handles */
-		CloseDeferredFileRefs(fvp, "vnop_rename", 0, ap->a_context);
-	}
-    
-    /*
-     * <80594196> If we are renaming a dir, just go ahead and try to rename it.
-     * Mac Servers and Samba servers should have no problems renaming a parent
-     * dir even if child dirs are still open. Only Windows OS servers have a
-     * problem with that.
-     *
-	 * Try to rename the file, this may fail if the file is open. Some 
-	 * SAMBA systems allow us to rename an open file, so try this case
-	 * first. 
-	 *
-	 * FYI: While working on Radar 4532498 I notice that you can move/rename
-	 * an open file if it is open for read-only. Only tested this on Windows 2003.
-	 */  
-	error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr, 
-							 tcnp->cn_namelen, ap->a_context);
-    
-    /*
-     * <80594196>
-     * If the rename attempt failed and its a dir, it could be a Windows server
-     * where a parent dir can not be renamed if a child dir is currently open.
-     * Try to close the child dirs at this point.
-     */
-    if ((error) && vnode_isdir(fvp)) {
+    /* Are we renaming a directory? */
+    if (vnode_isdir(fvp)) {
         /*
          * Do not allow Change Notifies to be restarted until after we attempt
          * the rename of a folder so we can close all the children's Change
@@ -6717,50 +7852,84 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
             fnp->d_needReopen = TRUE;
             fnp->d_fid = 0;
         }
-        
-        /*
-         * Enumerations also have the dir open, so halt them too. Since we
-         * have exclusive lock on this dir, enumerations wont start up again
-         * until we finish.
-         */
+		
+		/* 
+		 * Enumerations also have the dir open, so halt them too. Since we
+		 * have exclusive lock on this dir, enumerations wont start up again
+		 * until we finish.
+		 */
         smbfs_closedirlookup(fnp, 0, "vnop_rename from", ap->a_context);
         smbfs_closedirlookup(fnp, 1, "vnop_rename from", ap->a_context);
 
         /*
-         * Windows Servers will not let you rename a folder if any of its
+         * Windows Servers will not let you rename a folder if any of its 
          * children dir are open due to a Change Notify. Go find all of its
          * children dirs and close them which will cancel the Change Notify.
          */
         smbfs_CloseChildren(share, fnp, 1, &rename_child_listp, ap->a_context);
-        
-        /* Stop enumerations */
-        tptr = rename_child_listp;
-        while (tptr != NULL) {
-            if ((smbnode_lock(tptr->np, SMBFS_EXCLUSIVE_LOCK))) {
-                SMBERROR_LOCK(tptr->np, "failed to lock <%s> \n", tptr->np->n_name);
-                error = EBUSY;
-                goto out;
-            }
-            else {
-                tptr->is_locked = 1;
-                
-                /*
-                 * Enumerations also have the dir open, so halt them too. Since we
-                 * have exclusive lock on this dir, enumerations wont start up again
-                 * until we finish.
-                 */
+		
+		/* Stop enumerations */
+		tptr = rename_child_listp;
+		while (tptr != NULL) {
+			if ((smbnode_lock(tptr->np, SMBFS_EXCLUSIVE_LOCK))) {
+				SMBERROR_LOCK(tptr->np, "failed to lock <%s> \n", tptr->np->n_name);
+				error = EBUSY;
+				goto out;
+			}
+			else {
+				tptr->is_locked = 1;
+				
+				/*
+				 * Enumerations also have the dir open, so halt them too. Since we
+				 * have exclusive lock on this dir, enumerations wont start up again
+				 * until we finish.
+				 */
                 smbfs_closedirlookup(tptr->np, 0, "vnop_rename to", ap->a_context);
                 smbfs_closedirlookup(tptr->np, 1, "vnop_rename to", ap->a_context);
-            }
+			}
 
-            tptr = tptr->next;
-        }
-        
-        /* And try the rename again */
-        error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr,
-                                 tcnp->cn_namelen, ap->a_context);
-
+			tptr = tptr->next;
+		}
     }
+	else {
+		/* Close any deferred file handles */
+		CloseDeferredFileRefs(fvp, "vnop_rename", 0, ap->a_context);
+	}
+    
+    /*
+	 * Try to rename the file, this may fail if the file is open. Some 
+	 * SAMBA systems allow us to rename an open file, so try this case
+	 * first. 
+	 *
+	 * FYI: While working on Radar 4532498 I notice that you can move/rename
+	 * an open file if it is open for read-only. Only tested this on Windows 2003.
+	 */
+    
+    /*
+     * These log lines are mainly for debugging fstorture failures because
+     * that test tool constantly renames everything which makes it hard to
+     * track a single item.
+     */
+    SMB_LOG_FILE_OPS_LOCK(fnp, "Rename <%s> to <%s> \n", fnp->n_name, tcnp->cn_nameptr);
+    
+    SMB_LOG_FILE_OPS_LOCK(fnp, "lockFID refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                          fnp->f_lockFID_refcnt,
+                          fnp->f_lockFID_openRWCnt,
+                          fnp->f_lockFID_openRCnt,
+                          fnp->f_lockFID_openWCnt,
+                          fnp->f_openTotalWCnt,
+                          fnp->n_name);
+
+    SMB_LOG_FILE_OPS_LOCK(fnp, "sharedFID refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
+                          fnp->f_sharedFID_refcnt,
+                          fnp->f_sharedFID_openRWCnt,
+                          fnp->f_sharedFID_openRCnt,
+                          fnp->f_sharedFID_openWCnt,
+                          fnp->f_openTotalWCnt,
+                          fnp->n_name);
+
+	error = smbfs_smb_rename(share, fnp, tdnp, tcnp->cn_nameptr,
+							 tcnp->cn_namelen, ap->a_context);
     
 	/* 
 	 * The file could be open so lets try again. This call does not work on
@@ -6800,6 +7969,7 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 	 */
 	if (!error) {
 		char *new_name;
+        size_t new_name_allocsize;
 		uint64_t hashval;
 		uint32_t orig_flag = fnp->n_flag;
 		
@@ -6891,14 +8061,17 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 		 * Now reset the name so path lookups will work and add the node back 
 		 * into the hash table, so other lookups can this node. 
 		 */
-		new_name = smb_strndup(tcnp->cn_nameptr, tcnp->cn_namelen);
+		new_name = smb_strndup(tcnp->cn_nameptr, tcnp->cn_namelen, &new_name_allocsize);
 		if (new_name) {
 			char * old_name = NULL;
+            size_t old_name_allocsize = 0;
             
 			lck_rw_lock_exclusive(&fnp->n_name_rwlock);
 			old_name = fnp->n_name;
+            old_name_allocsize = fnp->n_name_allocsize;
 			fnp->n_name = new_name;
 			fnp->n_nmlen = tcnp->cn_namelen;
+            fnp->n_name_allocsize = new_name_allocsize;
 
             if (!(SS_TO_SESSION(share)->session_misc_flags & SMBV_HAS_FILEIDS)) {
                 /* Server does not support File IDs */
@@ -6909,7 +8082,7 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 			lck_rw_unlock_exclusive(&fnp->n_name_rwlock);
 
 			/* Now its safe to free the old name */
-			SMB_FREE(old_name, M_SMBNODENAME);
+            SMB_FREE_DATA(old_name, old_name_allocsize);
 		}
         
         if (!(SS_TO_SESSION(share)->session_misc_flags & SMBV_HAS_FILEIDS)) {
@@ -6975,24 +8148,14 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
     
 	smbfs_attr_touchdir(fdnp, (share->ss_fstype == SMB_FS_FAT));
 
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&fdnp->d_dur_handle.lock);
-	if (!(fdnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(fdnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		fdnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&fdnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+	fdnp->d_changecnt++;
 	
     if (tdvp != fdvp) {
 		smbfs_attr_touchdir(tdnp, (share->ss_fstype == SMB_FS_FAT));
 
-		/* <33469405> if dir has active lease skip local change notify */
-		lck_mtx_lock(&tdnp->d_dur_handle.lock);
-		if (!(tdnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-			(tdnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-			tdnp->d_changecnt++;
-		}
-		lck_mtx_unlock(&tdnp->d_dur_handle.lock);
+		/* Dont skip local change notify */
+		tdnp->d_changecnt++;
     }
     
 	/* if success, blow away statfs cache */
@@ -7033,7 +8196,7 @@ out:
 		/* Free list element */
 		free_ptr = tptr;
 		tptr = tptr->next;
-		SMB_FREE(free_ptr, M_SMBTEMP);
+        SMB_FREE_TYPE(struct rename_lock_list, free_ptr);
 	}
 
 	for (ii = 0; ii < lock_cnt; ii++)
@@ -7278,13 +8441,8 @@ smbfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 
 	smbfs_attr_touchdir(dnp, (share->ss_fstype == SMB_FS_FAT));
 	
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&dnp->d_dur_handle.lock);
-	if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(dnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		dnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&dnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+	dnp->d_changecnt++;
 
 	/* 
 	 * %%%
@@ -7307,7 +8465,7 @@ smbfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	VTOSMB(vp)->finfo_cache_timer = ts.tv_sec;
 
     /* Attempt to set the inital vnode_attrs */
-	smbfs_set_create_vap(share, vap, vp, ap->a_context, FALSE);
+	smbfs_set_create_vap(share, vap, vp, NULL, FALSE, ap->a_context);
 
     /* If HiFi and Super Guest mode, attempt to set the uid/gid */
     smbfs_hifi_set_perms(share, vp, ap->a_context);
@@ -7323,7 +8481,7 @@ smbfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	
 bad:
 	if (name != cnp->cn_nameptr) {
-		SMB_FREE(name, M_SMBNODENAME);
+        SMB_FREE_DATA(name, len);
 	}
 	/* if success, blow away statfs cache */
 	smp->sm_statfstime = 0;
@@ -7370,7 +8528,9 @@ smbfs_vnop_readdir(struct vnop_readdir_args *ap)
 		
 	SMB_LOG_KTRACE(SMB_DBG_READ_DIR | DBG_FUNC_START, VTOSMB(vp)->d_fid, 0, 0, 0, 0);
 
-	VTOSMB(vp)->n_lastvop = smbfs_vnop_readdir;
+    struct smbnode *np = VTOSMB(vp);
+	np->n_lastvop = smbfs_vnop_readdir;
+    np->n_write_unsafe = true;
 	
 	error = smbfs_readvdir(vp, uio, ap->a_flags, &numdirent, ap->a_context);
 	if (error == ENOENT) {
@@ -7384,6 +8544,7 @@ smbfs_vnop_readdir(struct vnop_readdir_args *ap)
 	if (ap->a_numdirent)
 		*ap->a_numdirent = numdirent;
     
+    np->n_write_unsafe = false;
 	smbnode_unlock(VTOSMB(vp));
     
     SMB_LOG_KTRACE(SMB_DBG_READ_DIR | DBG_FUNC_END, error, numdirent, 0, 0, 0);
@@ -7415,7 +8576,8 @@ smbfs_fsync(struct smb_share *share, vnode_t vp, int waitfor, int ubc_flags,
 			cluster_push(vp, IO_SYNC);
 		}
 	}
-	error = smbfs_smb_fsync(share, VTOSMB(vp), 0, context);
+
+    error = smbfs_smb_fsync(share, VTOSMB(vp), 0, context);
 	if (!error) {
 		VTOSMBFS(vp)->sm_statfstime = 0;
 	}
@@ -7613,7 +8775,6 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
     vnode_t vp = ap->a_vp;
     struct smbnode *np;
     int32_t error = 0;
-	proc_t p = vfs_context_proc(ap->a_context);
 	struct smb_share *share;
 	struct smbmount *smp;
     kauth_cred_t cred;
@@ -7621,8 +8782,9 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 	uint32_t timeout = 0;
 	
 	error = smbnode_lock(VTOSMB(ap->a_vp), SMBFS_EXCLUSIVE_LOCK);
-	if (error)
+    if (error) {
 		return (error);
+    }
 
     SMB_LOG_KTRACE(SMB_DBG_IOCTL | DBG_FUNC_START, ap->a_command, 0, 0, 0, 0);
 
@@ -7648,27 +8810,24 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 	switch (ap->a_command) {
         case smbfsByteRangeLock2FSCTL:
         case smbfsByteRangeLockFSCTL: {
+            int warning = 0, ret = 0;
             struct ByteRangeLockPB *pb = (struct ByteRangeLockPB *) ap->a_data;
             struct ByteRangeLockPB2 *pb2 = (struct ByteRangeLockPB2 *) ap->a_data;
-            uint32_t lck_pid;
-            uint32_t timo;
-            SMBFID fid = 0;
-            struct fileRefEntry *fndEntry = NULL;
+            uint32_t lck_pid = 0;
+            uint32_t timo = 0;
             uint16_t accessMode = 0;
-            int8_t flags;
-            struct smbfattr *fap = NULL;
-			struct smb2_durable_handle *create_dur_handlep = NULL;
-			struct smb2_durable_handle *dur_handlep = NULL;
-            int do_create;
-            uint32_t disp;
-            
+            int8_t flags = 0;
+            int32_t openMode = 0;
+            struct fileRefEntryBRL *fileBRLEntry = NULL;
+            pid_t curr_pid = -1, found_pid = -1;
+
             /* make sure its a file */
             if (vnode_isdir(vp)) {
                 error = EISDIR;
                 goto exit;
             }
 
-            /* Before trying the lock see if the file needs to be reopened */
+            /* Before trying the lock see if the file needs to be reopened or revoked */
             error = smbfs_smb_reopen_file(share, np, ap->a_context);
             if (error) {
                 SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
@@ -7676,11 +8835,17 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             }
             
             /*
-             * If adding/removing a ByteRangeLock, thus this vnode should NEVER 
-             * be cacheable since the page in/out may overlap a lock and get 
-             * an error.
+             * If adding/removing a ByteRangeLock, thus this vnode should NEVER
+             * be cacheable since the page in/out may overlap a lock and get
+             * an error. It will remain non cacheable until its closed as we
+             * assume that others (processes or computers) will also be using
+             * byte range locks on this file.
              */
             if (smbfsIsCacheable(vp)) {
+                if (np->f_hasBRLs == 0) {
+                    np->f_hasBRLs = 1;
+                }
+                
                 if (np->n_flag & NISMAPPED) {
                     /* More expensive, but handles mmapped files */
                     ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
@@ -7691,211 +8856,24 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
                 ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_INVALIDATE);
                 vnode_setnocache(vp);
             }
-            
-            accessMode = np->f_accessMode;
-            
-            /* 
-             * Since we never get a smbfsByteRangeLockFSCTL call we could skip this 
-             * check, but for now leave it. 
-             */
-            if (ap->a_command == smbfsByteRangeLock2FSCTL) {
-                int32_t openMode = 0;
-                    
-                /* 
-                 * Not just for classic any more, could get this from Carbon.
-                 * 
-                 * They will be using an extended BRL call that also passes in the 
-                 * open mode used that was used to open the file.  I will use the 
-                 * open access mode and pid to find the fork ref to do the lock on.
-                 * Scenarios:
-                 *	Open (R/W), BRL, Close (R/W)
-                 *	Open (R/W/dW), BRL, Close (R/W/dW)
-                 *	Open1 (R/W), Open2 (R), BRL1, BRL2, Close1 (R/W), Close2 (R)
-                 *	Open1 (R/W/dW), Open2 (R), BRL1, BRL2, Close1 (R/W/dW), Close2 (R)
-                 *	Open1 (R/dW), Open2 (R/dW), BRL1, BRL2, Close1 (R/dW), Close2 (R/dW) 
-                 */
-                if ( (error = file_flags(pb2->fd, &openMode)) ) {
-                    goto exit;
-                }
 
-                if (openMode & FREAD) {
-                    accessMode |= kAccessRead;
-                }
-                if (openMode & FWRITE) {
-                    accessMode |= kAccessWrite;
-                }
-                   
-                /* 
-                 * See if we can find a matching fork that has byte range locks or 
-                 * denyModes 
-                 */
-                if (openMode & FHASLOCK) {
-                    /* 
-                     * NOTE:  FHASLOCK can be set by open with O_EXCLUSIVE or  
-                     * O_SHARED which maps to my deny modes or FHASLOCK could also 
-                     * have been set/cleared by calling flock directly.  I assume 
-                     * that if they are using byte range locks, then they are Carbon 
-                     * and unlikely to be using flock.
-                     * 
-                     * Assume it was opened with denyRead/denyWrite or just denyWrite.
-                     * Try denyWrite first, if not found, try with denyRead and denyWrite 
-                     */
-                    accessMode |= kDenyWrite;
-                    error = FindFileRef(vp, p, accessMode, kExactMatch, 0, 0, 
-                                        &fndEntry, &fid);
-                    if (error != 0) {
-                        accessMode |= kDenyRead;
-                        error = FindFileRef(vp, p, accessMode, kExactMatch, 0, 0, 
-                                             &fndEntry, &fid);
-                    }
-                    if (error != 0) {
-                        /* deny modes were used, but the fork ref cant be found, return error */
-                        error = EBADF;
-                        goto exit;
-                    }
-                }
-                else {
-                    /* no deny modes used, look for any forks opened previously for BRL */
-                    error = FindFileRef(vp, p, accessMode, kExactMatch, 0, 0, 
-                                        &fndEntry, &fid);
-                }
-            } else {
-                error = FindFileRef(vp, p, kAccessRead | kAccessWrite, kAnyMatch, 
-                                     0, 0, &fndEntry, &fid);
+            curr_pid = vfs_context_pid(ap->a_context);
+            
+            /* Old fsctl not supported any more */
+            if (ap->a_command == smbfsByteRangeLockFSCTL) {
+                SMBERROR_LOCK(np, "smbfsByteRangeLockFSCTL not supported any more, use smbfsByteRangeLock2FSCTL instead \n");
+                error = ENOTSUP;
+                goto exit;
             }
             
-            if ((error == 0) && (fndEntry != NULL)) {
-                /* Are we reusing a file ref kept open by a handle lease? */
-                lck_mtx_lock(&fndEntry->dur_handlep->lock);
-                
-                if ((fndEntry->dur_handlep->flags & SMB2_LEASE_GRANTED) &&
-                    (fndEntry->dur_handlep->lease_state & SMB2_LEASE_HANDLE_CACHING) &&
-                    (fndEntry->dur_handlep->flags & SMB2_DEFERRED_CLOSE)) {
-                    /*
-                     * File ref was no longer in use, mark that its back in use
-                     */
-                    fndEntry->dur_handlep->flags &= ~SMB2_DEFERRED_CLOSE;
-                    OSAddAtomic(-1, &share->ss_curr_def_close_cnt);
+            /* Only smbfsByteRangeLock2FSCTL is supported now */
                     
-                    OSAddAtomic(1, &fndEntry->dur_handlep->handle_reuse_cnt);
-                    
-                    /* Clear deferred close time */
-                    fndEntry->dur_handlep->def_close_time.tv_sec = 0;
-                    fndEntry->dur_handlep->def_close_time.tv_nsec = 0;
-
-                    SMB_LOG_UNIT_TEST_LOCK(np, "FileLeaseUnitTest - Reusing <%s> accessMode <0x%x> cnt <%d> \n",
-                                           np->n_name,
-                                           accessMode,
-                                           OSAddAtomic(0, &fndEntry->dur_handlep->handle_reuse_cnt));
-                }
-                
-                lck_mtx_unlock(&fndEntry->dur_handlep->lock);
-            }
-            
-            /* 
-             * The process was not found or no list found
-             * Either case, we need to
-             *	1)  Open a new fork
-             *	2)  create a new OpenForkRefEntry entry and add it into the list 
-             */
-            if (error) {
-				uint32_t rights = 0;
-				uint32_t shareMode = NTCREATEX_SHARE_ACCESS_ALL;
-				proc_t p = vfs_context_proc(ap->a_context);
-				
-                /* This is wrong, someone has to call open() before doing a byterange lock */
-                if (np->f_refcnt <= 0) {
-                    error = EBADF;
-                    goto exit;
-                }
-
-                /* We must find a matching lock in order to succeed at unlock */
-                if (pb->unLockFlag == 1) {
-                    error = EINVAL;
-                    goto exit;
-                }
-                
-                /* Need to open the file here */
-                if (accessMode & kAccessRead)
-                    rights |= SMB2_FILE_READ_DATA;
-                if (accessMode & kAccessWrite)
-                    rights |= SMB2_FILE_APPEND_DATA | SMB2_FILE_WRITE_DATA;
-                    
-                if (accessMode & kDenyWrite)
-                    shareMode &= ~NTCREATEX_SHARE_ACCESS_WRITE; /* Remove the wr shared access */
-                if (accessMode & kDenyRead)
-                    shareMode &= ~NTCREATEX_SHARE_ACCESS_READ; /* Remove the wr shared access */
-            
-                SMB_MALLOC(fap,
-                           struct smbfattr *,
-                           sizeof(struct smbfattr),
-                           M_SMBTEMP,
-                           M_WAITOK | M_ZERO);
-                if (fap == NULL) {
-                    SMBERROR("SMB_MALLOC failed\n");
-                    error = ENOMEM;
-                    goto exit;
-                }
-                
-                /* Request a durable handle */
-				SMB_MALLOC(dur_handlep, struct smb2_durable_handle *,
-						   sizeof (struct smb2_durable_handle),
-						   M_TEMP, M_WAITOK | M_ZERO);
-
-				/*
-				 * Even though we request a Read/Handle lease, UBC caching is
-				 * always disabled for BRL files so that UBC read/writes dont
-				 * trip over a BRL from another client.
-				 */
-				error = smb2_smb_dur_handle_init(share, np,
-												 (SMB2_DURABLE_HANDLE_REQUEST | SMB2_NEW_LEASE_KEY), dur_handlep);
-				dur_handlep->req_lease_state = smbfs_get_req_lease_state(rights);
-
-				if (error == 0) {
-					/* Tell smbfs_smb_ntcreatex to try to get a durable handle */
-					create_dur_handlep = dur_handlep;
-                }
-                
-                if (np->n_flag & N_ISRSRCFRK) {
-                    disp = FILE_OPEN_IF;
-                    do_create = TRUE;
-                }
-                else {
-                    disp = FILE_OPEN;
-                    do_create = FALSE;
-                }
-                
-                error = smbfs_smb_ntcreatex(share, np,
-                                            rights, shareMode, VREG,
-                                            &fid, NULL, 0,
-                                            disp, FALSE, fap,
-                                            do_create, create_dur_handlep, ap->a_context);
-
-				if (error != 0) {
-					if (dur_handlep != NULL) {
-						lck_mtx_lock(&dur_handlep->lock);
-						dur_handlep->flags = 0;
-						lck_mtx_unlock(&dur_handlep->lock);
-
-						smb2_smb_dur_handle_free(dur_handlep);
-						SMB_FREE(dur_handlep, M_TEMP);
-					}
-                    goto exit;
-				}
-				
-				/* Always pass in a dur handle pointer to be used */
-                AddFileRef(vp, p, accessMode, rights, fid, dur_handlep, &fndEntry);
-				
-				/* Do not free dur_handlep as its now being used by File Ref */
-				dur_handlep = NULL;
-            }
-
-            /* Now I can do the ByteRangeLock */
+            /* Set up for the Byte Range Lock */
             if (pb->startEndFlag) {
-                /* 
+                /*
                  * SMB only allows you to lock relative to the begining of the
                  * file.  So, I need to convert offset base on the begining
-                 * of the file.  
+                 * of the file.
                  */
                 uint64_t fileSize = np->n_size;
 
@@ -7904,16 +8882,19 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             }
                 
             flags = 0;
-            if (pb->unLockFlag)
+            if (pb->unLockFlag) {
                 flags |= SMB_LOCK_RELEASE;
-            else
+            }
+            else {
                 flags |= SMB_LOCK_EXCL;
+            }
             
-            /* The problem here is that the lock pid must match the SMB Header PID. 
-             * Some day it would be nice to pass a better value here. But for now 
+            /* The problem here is that the lock pid must match the SMB Header PID.
+             * Some day it would be nice to pass a better value here. But for now
              * always use the same value.
              */
             lck_pid = 1;
+            
             /*
              * -1 infinite wait
              * 0  no wait
@@ -7921,21 +8902,223 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
              */
             timo = 0;
 
-            error = smbfs_smb_lock(share, flags, fid, lck_pid, pb->offset, 
-                                   pb->length, timo, ap->a_context);
-            if (error == 0) {
-                /* Save/remove lock info for use in read/write to determine what fork to use */
-                AddRemoveByteRangeLockEntry (fndEntry, pb->offset, pb->length,
-                                             pb->unLockFlag, lck_pid);
-                /* return the offset to the first byte of the lock */
-                pb->retRangeStart = pb->offset;
-            } else if ((!pb->unLockFlag) && (error == EACCES)) {
-                /* 
-                 * Need to see if we are locking against ourself, so we can return 
-                 * the correct error.
+            /* Get the open mode that was used on this passed in fd */
+            if ((error = file_flags(pb2->fd, &openMode))) {
+                goto exit;
+            }
+
+            SMB_LOG_FILE_OPS_LOCK(np, "%s offset <%lld> len <%lld> with openMode <0x%x> by pid <%d> flocked <%s> on <%s> \n",
+                                  pb->unLockFlag == 0 ? "Locking" : "Unlocking",
+                                  pb->offset, pb->length, openMode, curr_pid,
+                                  (np->f_smbflock == NULL) ? "no" : "yes",
+                                  np->n_name);
+            
+            if (openMode & FREAD) {
+                accessMode |= kAccessRead;
+            }
+            if (openMode & FWRITE) {
+                accessMode |= kAccessWrite;
+            }
+               
+            /*
+             * Check to see if the file is currently flock()'d
+             *
+             * If flock() was used, then np->f_smbflock will be non null.
+             * Doesnt make sense to allow a byte range lock on a file that
+             * is already flocked since flock is just an exclusive byte
+             * range lock on the entire file.
+             */
+            if (np->f_smbflock) {
+                SMBERROR_LOCK(np, "Byte range lock not allowed on currently flocked file <%s> \n",
+                              np->n_name);
+                error = EINVAL;
+                goto exit;
+            }
+
+            if (openMode & FWASLOCKED) {
+                /*
+                 * NOTE: FWASLOCKED can be set by open with O_EXLOCK or
+                 * O_SHLOCK which maps to my deny modes or FWASLOCKED could also
+                 * have been set/cleared by calling flock() directly.
+                 *
+                 * We already checked for flock() earlier, so must be O_EXLOCK
+                 * or O_SHLOCK now.
                  */
-                if (FindByteRangeLockEntry(fndEntry, pb->offset, pb->length, lck_pid))
-                    error = EAGAIN;
+
+                /*
+                 * This is wrong, someone has to call open() before doing a
+                 * byte range lock
+                 */
+                if (np->f_lockFID_refcnt <= 0) {
+                    SMBERROR_LOCK(np, "lockFID has no open files for <%s> <%d> \n",
+                                  np->n_name, np->f_lockFID_refcnt);
+                    error = EBADF;
+                    goto exit;
+                }
+
+                /* We must find a matching lock in order to succeed at unlock */
+                if (pb->unLockFlag == 1) {
+                    lck_mtx_lock(&np->f_lockFID_BRL_lock);
+                    
+                    ret = CheckByteRangeLockEntry(&np->f_lockFID, NULL,
+                                                  pb->offset, pb->length, 0, &found_pid);
+                    if (ret == TRUE) {
+                        /* Found a matching lock for this unlock */
+                        lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+                        
+                        if (found_pid != curr_pid) {
+                            /* Different process has it locked, so error */
+                            error = EAGAIN;
+                            goto exit;
+                        }
+                    }
+                    else {
+                        lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+                        
+                        SMBERROR_LOCK(np, "No matching lock found on lockFID to unlock for <%s> \n",
+                                      np->n_name);
+                        error = EAGAIN;
+                        goto exit;
+                    }
+                }
+
+                /*
+                 * Take out byte range lock on the lockFID. This is the easy
+                 * case as there can only be one open with O_EXLOCK or O_SHLOCK,
+                 * and no upgrading/downgrading of the FID. Thus we can just
+                 * add the BRL directly to the lockFID.
+                 */
+                error = smbfs_smb_lock(share, flags, np->f_lockFID_fid,
+                                       lck_pid, pb->offset, pb->length, timo,
+                                       ap->a_context);
+                if (error == 0) {
+                    lck_mtx_lock(&np->f_lockFID_BRL_lock);
+
+                    /* Add/remove lock to lockFID */
+                    AddRemoveByteRangeLockEntry (&np->f_lockFID, NULL,
+                                                 pb->offset, pb->length,
+                                                 pb->unLockFlag, lck_pid, ap->a_context);
+                    
+                    lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+
+                    /* return the offset to the first byte of the lock */
+                    pb->retRangeStart = pb->offset;
+                }
+                else {
+                    /* Got an error on locking, do we need to remap the error? */
+                    if ((!pb->unLockFlag) && (error == EACCES)) {
+                        /*
+                         * Need to see if we are locking against ourself, so we can return
+                         * the correct error.
+                         */
+                        
+                        lck_mtx_lock(&np->f_lockFID_BRL_lock);
+
+                        ret = FindByteRangeLockEntry(&np->f_lockFID, NULL,
+                                                     pb->offset, pb->length, ap->a_context);
+                        
+                        lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+
+                        if (ret == TRUE) {
+                            error = EAGAIN;
+                        }
+                    }
+                }
+            }
+            else {
+                /*
+                 * Use the sharedFID - actually the harder case to deal with.
+                 * For BRLs on sharedFID, have to open a separate FID to keep
+                 * them on to avoid the upgrade/downgrade from accidentally
+                 * freeing the BRLs.
+                 */
+                error = smbfs_get_lockEntry(share, vp, accessMode,
+                                            &fileBRLEntry, ap->a_context);
+                if (error) {
+                    SMBERROR_LOCK(np, "smbfs_get_lockEntry failed <%d> for <%s> \n",
+                                  error, np->n_name);
+                    goto exit;
+                }
+
+                /* We must find a matching lock in order to succeed at unlock */
+                if (pb->unLockFlag == 1) {
+                    lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+                    
+                    ret = CheckByteRangeLockEntry(NULL, fileBRLEntry,
+                                                  pb->offset, pb->length, 0, &found_pid);
+                    if (ret == TRUE) {
+                        /* Found a matching lock for this unlock */
+                        lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+                        
+                        if (found_pid != curr_pid) {
+                            /* Different process has it locked, so error */
+                            error = EAGAIN;
+                            goto exit;
+                        }
+                    }
+                    else {
+                        lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+                        
+                        SMBERROR_LOCK(np, "No matching lock found on sharedFID to unlock for <%s> \n",
+                                      np->n_name);
+                        error = EAGAIN;
+                        goto exit;
+                    }
+                }
+                
+                /* Take out byte range lock using the lockEntry FID */
+                error = smbfs_smb_lock(share, flags, fileBRLEntry->fid,
+                                       lck_pid, pb->offset, pb->length, timo,
+                                       ap->a_context);
+                if (error == 0) {
+                    lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+
+                    /* Add/remove this lock to shareFID's lockEntry  */
+                   AddRemoveByteRangeLockEntry (NULL, fileBRLEntry,
+                                                 pb->offset, pb->length,
+                                                 pb->unLockFlag, lck_pid, ap->a_context);
+                    
+                    lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+                    /* return the offset to the first byte of the lock */
+                    pb->retRangeStart = pb->offset;
+                }
+                else {
+                    /* Got an error on locking, do we need to remap the error? */
+                    if (!(pb->unLockFlag) && (error == EACCES)) {
+                        /*
+                         * Need to see if we are locking against ourself, so we can return
+                         * the correct error.
+                         */
+                        
+                        lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+                        
+                        ret = FindByteRangeLockEntry(NULL, fileBRLEntry,
+                                                     pb->offset, pb->length, ap->a_context);
+                        
+                        lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+                        if (ret == TRUE) {
+                            error = EAGAIN;
+                        }
+                    }
+                }
+                
+                /* Can we close and clear out this lockEntry? */
+                if ((fileBRLEntry != NULL) &&
+                    (fileBRLEntry->lockList == NULL) &&
+                    (fileBRLEntry->fid != 0)) {
+                    SMB_LOG_FILE_OPS_LOCK(np, "Closing lockEntry accessMode <0x%x> on <%s> \n",
+                                          fileBRLEntry->accessMode, np->n_name);
+                    warning = smbfs_smb_close(share, fileBRLEntry->fid, ap->a_context);
+                    if (warning) {
+                        SMBWARNING_LOCK(np, "Error %d on closing shared lockEntry %s during unlock \n",
+                                        warning, np->n_name);
+                    }
+                    
+                    /* Clear out this lockEnry */
+                    smbfs_clear_lockEntries(vp, fileBRLEntry);
+                }
             }
         }
             break;
@@ -8098,7 +9281,16 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 						pb->reconnectTimeOut = 0;
 					}
 					
-					/* Unused */
+                    if ((smp != NULL) &&
+                        (smp->sm_args.altflags & SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY)) {
+                        /*
+                         * <92052813> nsmb.conf preference set for durable
+                         * handles only for files opened with O_EXLOCK/O_SHLOCK
+                         */
+                        pb->attributes |= kSMBLockFIDOnly;
+                    }
+
+                    /* Unused */
 					pb->reconnectConnectTimeOut = 0;
 					
 					if (sessionp->reconnect_wait_time == 0) {
@@ -8242,7 +9434,7 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			
 			/* Now do F_FULLSYNC if we are not a Continuous Availability Server */
             if (!(share->ss_share_caps & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY)) {
-                error = smbfs_smb_fsync(share, np, 1, ap->a_context);
+                error = smbfs_smb_fsync(share, np, kFullSync, ap->a_context);
                 if (error) {
                     SMBERROR_LOCK(np, "smbfs_smb_fsync failed %d on <%s> \n", error, np->n_name);
                     break;
@@ -8250,6 +9442,238 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
             }
                 
 			break;
+
+        case smbfsStatFSCTL: {
+            struct smbStatPB *pb = (struct smbStatPB *) ap->a_data;
+            struct timespec ts;
+            int locks_ret = 0, i = 0, warning;
+            struct ByteRangeLockEntry *lock_entry = NULL;
+            SMB2FID smb2_fid = {0};
+
+            if (pb == NULL) {
+                error = EINVAL;
+                break;
+            }
+
+            bzero(pb, sizeof(struct smbStatPB));
+
+            pb->vnode_type = vnode_vtype(vp);
+            if (vnode_isdir(vp)) {
+                if (np->d_main_cache.count > 0) {
+                    pb->dir.flags |= SMB_DIR_ENUM_CACHING;
+                }
+                pb->dir.refcnt = np->d_refcnt;
+                
+                bzero(&smb2_fid, sizeof(smb2_fid));
+                if (np->d_fid != 0) {
+                    warning = smb_fid_get_kernel_fid(share, np->d_fid, 0, &smb2_fid);
+                    if (warning) {
+                        SMBERROR("np->d_fid not found <0x%llx>? \n", np->d_fid);
+                    }
+                }
+                pb->dir.fid = smb2_fid;
+                
+                pb->dir.enum_flags = np->d_main_cache.flags;
+                pb->dir.enum_count = np->d_main_cache.count;
+                pb->dir.enum_timer = np->d_main_cache.timer;
+            }
+            else {
+                if (smbfsIsCacheable(vp)) {
+                    pb->file.flags |= SMB_FILE_UBC_CACHING;
+                }
+                
+                /* Fill in sharedFID info */
+                pb->file.sharedFID_refcnt = np->f_sharedFID_refcnt;
+                pb->file.sharedFID_mmapped = np->f_sharedFID_mmapped;
+                
+                bzero(&smb2_fid, sizeof(smb2_fid));
+                if (np->f_sharedFID_fid != 0) {
+                    warning = smb_fid_get_kernel_fid(share, np->f_sharedFID_fid, 0, &smb2_fid);
+                    if (warning) {
+                        SMBERROR("np->f_sharedFID_fid not found <0x%llx>? \n", np->f_sharedFID_fid);
+                    }
+                }
+                pb->file.sharedFID_fid = smb2_fid;
+                
+                pb->file.sharedFID_access_mode = np->f_sharedFID_accessMode;
+                pb->file.sharedFID_mmap_mode = np->f_sharedFID_mmapMode;
+                pb->file.sharedFID_rights = np->f_sharedFID_rights;
+                pb->file.sharedFID_rw_refcnt = np->f_sharedFID_openRWCnt;
+                pb->file.sharedFID_r_refcnt = np->f_sharedFID_openRCnt;
+                pb->file.sharedFID_w_refcnt = np->f_sharedFID_openWCnt;
+                pb->file.sharedFID_is_EXLOCK = np->f_sharedFID_isEXLOCK;
+                pb->file.sharedFID_is_SHLOCK = np->f_sharedFID_isSHLOCK;
+
+                /* SharedFID durable handle */
+                pb->file.sharedFID_dur_handle.flags = np->f_sharedFID_dur_handle.flags;
+                
+                bzero(&smb2_fid, sizeof(smb2_fid));
+                if (np->f_sharedFID_dur_handle.fid != 0) {
+                    warning = smb_fid_get_kernel_fid(share, np->f_sharedFID_dur_handle.fid, 0, &smb2_fid);
+                    if (warning) {
+                        SMBERROR("np->f_sharedFID_dur_handle.fid not found <0x%llx>? \n", np->f_sharedFID_dur_handle.fid);
+                    }
+                }
+                pb->file.sharedFID_dur_handle.fid = smb2_fid;
+                
+                pb->file.sharedFID_dur_handle.timeout = np->f_sharedFID_dur_handle.timeout;
+                if (sizeof(pb->file.sharedFID_dur_handle.create_guid) < sizeof(np->f_sharedFID_dur_handle.create_guid)) {
+                    memcpy(pb->file.sharedFID_dur_handle.create_guid, np->f_sharedFID_dur_handle.create_guid,
+                           sizeof(pb->file.sharedFID_dur_handle.create_guid));
+                }
+                else {
+                    memcpy(pb->file.sharedFID_dur_handle.create_guid, np->f_sharedFID_dur_handle.create_guid,
+                           sizeof(np->f_sharedFID_dur_handle.create_guid));
+                }
+
+                /*
+                 * sharedFID Byte Range Lock entries
+                 */
+                lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+                
+                for (i = 0; i < 3; i++) {
+                    pb->file.sharedFID_lockEntries[i].refcnt = np->f_sharedFID_lockEntries[i].refcnt;
+                    
+                    bzero(&smb2_fid, sizeof(smb2_fid));
+                    if (np->f_sharedFID_lockEntries[i].fid != 0) {
+                        warning = smb_fid_get_kernel_fid(share, np->f_sharedFID_lockEntries[i].fid, 0, &smb2_fid);
+                        if (warning) {
+                            SMBERROR("np->f_sharedFID_lockEntries[i].fid not found <0x%llx>? \n", np->f_sharedFID_lockEntries[i].fid);
+                        }
+                    }
+                    pb->file.sharedFID_lockEntries[i].fid = smb2_fid;
+                    
+                    pb->file.sharedFID_lockEntries[i].accessMode = np->f_sharedFID_lockEntries[i].accessMode;
+                    pb->file.sharedFID_lockEntries[i].rights = np->f_sharedFID_lockEntries[i].rights;
+
+                    locks_ret = 0;
+                    for (lock_entry = np->f_sharedFID_lockEntries[i].lockList; lock_entry; lock_entry = lock_entry->next) {
+                        pb->file.sharedFID_lockEntries[i].brl_locks[locks_ret].offset = lock_entry->offset;
+                        pb->file.sharedFID_lockEntries[i].brl_locks[locks_ret].length = lock_entry->length;
+                        pb->file.sharedFID_lockEntries[i].brl_locks[locks_ret].lock_pid = lock_entry->lck_pid;
+                        pb->file.sharedFID_lockEntries[i].brl_locks[locks_ret].p_pid = lock_entry->p_pid;
+                        locks_ret += 1;
+                        if (locks_ret >= SMB_MAX_LOCKS_RETURNED) {
+                            break;
+                        }
+                    }
+                    
+                    pb->file.sharedFID_lockEntries[i].dur_handle.flags = np->f_sharedFID_lockEntries[i].dur_handle.flags;
+                    
+                    bzero(&smb2_fid, sizeof(smb2_fid));
+                    if (np->f_sharedFID_lockEntries[i].dur_handle.fid != 0) {
+                        warning = smb_fid_get_kernel_fid(share, np->f_sharedFID_lockEntries[i].dur_handle.fid, 0, &smb2_fid);
+                        if (warning) {
+                            SMBERROR("np->f_sharedFID_lockEntries[1].dur_handle.fid not found <0x%llx>? \n", np->f_sharedFID_lockEntries[i].dur_handle.fid);
+                        }
+                    }
+                    pb->file.sharedFID_lockEntries[i].dur_handle.fid = smb2_fid;
+                    
+                    pb->file.sharedFID_lockEntries[i].dur_handle.timeout = np->f_sharedFID_lockEntries[i].dur_handle.timeout;
+                    if (sizeof(pb->file.sharedFID_lockEntries[i].dur_handle.create_guid) < sizeof(np->f_sharedFID_lockEntries[i].dur_handle.create_guid)) {
+                        memcpy(pb->file.sharedFID_lockEntries[i].dur_handle.create_guid,
+                               np->f_sharedFID_lockEntries[i].dur_handle.create_guid,
+                               sizeof(pb->file.sharedFID_lockEntries[i].dur_handle.create_guid));
+                    }
+                    else {
+                        memcpy(pb->file.sharedFID_lockEntries[i].dur_handle.create_guid,
+                               np->f_sharedFID_lockEntries[i].dur_handle.create_guid,
+                               sizeof(np->f_sharedFID_lockEntries[i].dur_handle.create_guid));
+                    }
+                }
+
+                lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+                
+                /* Fill in lockFID info */
+                pb->file.lockFID_refcnt = np->f_lockFID_refcnt;
+                pb->file.lockFID_mmapped = np->f_lockFID_mmapped;
+                
+                bzero(&smb2_fid, sizeof(smb2_fid));
+                if (np->f_lockFID_fid != 0) {
+                    warning = smb_fid_get_kernel_fid(share, np->f_lockFID_fid, 0, &smb2_fid);
+                    if (warning) {
+                        SMBERROR("np->f_lockFID_fid not found <0x%llx>? \n", np->f_lockFID_fid);
+                    }
+                }
+                pb->file.lockFID_fid = smb2_fid;
+                
+                pb->file.lockFID_access_mode = np->f_lockFID_accessMode;
+                pb->file.lockFID_mmap_mode = np->f_lockFID_mmapMode;
+                pb->file.lockFID_rights = np->f_lockFID_rights;
+                pb->file.lockFID_rw_refcnt = np->f_lockFID_openRWCnt;
+                pb->file.lockFID_r_refcnt = np->f_lockFID_openRCnt;
+                pb->file.lockFID_w_refcnt = np->f_lockFID_openWCnt;
+                pb->file.lockFID_is_EXLOCK = np->f_lockFID_isEXLOCK;
+                pb->file.lockFID_is_SHLOCK = np->f_lockFID_isSHLOCK;
+
+                pb->file.lockFID_dur_handle.flags = np->f_lockFID_dur_handle.flags;
+                
+                bzero(&smb2_fid, sizeof(smb2_fid));
+                if (np->f_lockFID_dur_handle.fid != 0) {
+                    warning = smb_fid_get_kernel_fid(share, np->f_lockFID_dur_handle.fid, 0, &smb2_fid);
+                    if (warning) {
+                        SMBERROR("np->f_lockFID_dur_handle.fid not found <0x%llx>? \n", np->f_lockFID_dur_handle.fid);
+                    }
+                }
+                pb->file.lockFID_dur_handle.fid = smb2_fid;
+                
+                pb->file.lockFID_dur_handle.timeout = np->f_lockFID_dur_handle.timeout;
+                if (sizeof(pb->file.lockFID_dur_handle.create_guid) < sizeof(np->f_lockFID_dur_handle.create_guid)) {
+                    memcpy(pb->file.lockFID_dur_handle.create_guid, np->f_lockFID_dur_handle.create_guid,
+                           sizeof(pb->file.lockFID_dur_handle.create_guid));
+                }
+                else {
+                    memcpy(pb->file.lockFID_dur_handle.create_guid, np->f_lockFID_dur_handle.create_guid,
+                           sizeof(np->f_lockFID_dur_handle.create_guid));
+                }
+
+                lck_mtx_lock(&np->f_lockFID_BRL_lock);
+                locks_ret = 0;
+                for (lock_entry = np->f_lockFID_lockList; lock_entry; lock_entry = lock_entry->next) {
+                    pb->file.lockFID_brl_locks[locks_ret].offset = lock_entry->offset;
+                    pb->file.lockFID_brl_locks[locks_ret].length = lock_entry->length;
+                    pb->file.lockFID_brl_locks[locks_ret].lock_pid = lock_entry->lck_pid;
+                    pb->file.lockFID_brl_locks[locks_ret].p_pid = lock_entry->p_pid;
+                    locks_ret += 1;
+                    if (locks_ret >= SMB_MAX_LOCKS_RETURNED) {
+                        break;
+                    }
+                }
+                lck_mtx_unlock(&np->f_lockFID_BRL_lock);
+                
+                pb->file.rsrc_fork_timer = np->rfrk_cache_timer;
+                pb->file.symlink_timer = np->n_symlink_cache_timer;
+            }
+            
+            nanouptime(&ts);
+            pb->curr_time = ts.tv_sec;
+            pb->meta_data_timer = np->attribute_cache_timer;
+            pb->finfo_timer = np->attribute_cache_timer;
+            pb->acl_cache_timer = np->acl_cache_timer;
+
+            pb->lease_flags = np->n_lease.flags;
+            pb->lease_key_hi = np->n_lease.lease_key_hi;
+            pb->lease_key_low = np->n_lease.lease_key_low;
+            pb->lease_req_state = np->n_lease.req_lease_state;
+            pb->lease_curr_state = np->n_lease.lease_state;
+            pb->lease_par_key_hi = np->n_lease.par_lease_key_hi;
+            pb->lease_par_key_low = np->n_lease.par_lease_key_low;
+            pb->lease_epoch = np->n_lease.epoch;
+            pb->lease_def_close_reuse_cnt = np->n_lease.handle_reuse_cnt;
+            pb->lease_def_close_timer = np->n_lease.def_close_timer;
+
+            error = 0;
+        }
+            break;
+        
+        case smbfsUpdateLeaseFSCTL: {
+            //struct smb_update_lease *pb = (struct smb_update_lease *) ap->a_data;
+            /* Try to upgrade the lease */
+            error = smb2fs_smb_lease_upgrade(share, vp, "IoctlLeaseUpgrade",
+                                             ap->a_context);
+            break;
+        }
 
 		default:
 			error = ENOTSUP;
@@ -8275,7 +9699,7 @@ exit:
  * 3 - When unlocking a SMB locked region, the region to unlock must correspond
  *     exactly to an existing locked region. So, F_SETLK F_UNLCK operations
  *     cannot split an existing lock or unlock more than was locked (this is
- *     especially important because whne files are closed, we receive a request
+ *     especially important because when files are closed, we receive a request
  *     to unlock the entire file: l_whence and l_start point to the beginning
  *     of the file, and l_len is zero).
  *
@@ -8283,7 +9707,7 @@ exit:
  * support BSD flock() locks, so that's what this implementation will allow. 
  *
  * Since we now support open deny modes we will only support flocks on files that
- * have no files open w
+ * have no files open with deny modes
  *
  *		vnode_t a_vp;
  *		caddr_t  a_id;
@@ -8296,19 +9720,21 @@ static int32_t
 smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 {
 #define altMaxLen 0x0fffffffffffffff
-	int		flags = ap->a_flags;
+	int	flags = ap->a_flags;
 	vnode_t vp = ap->a_vp;
 	struct smb_share *share;
 	struct smbnode *np;
-	int error = 0;
+	int error = 0, warning = 0;
 	uint32_t timo;
 	off_t start = 0;
 	uint64_t len = -1;
 	uint32_t lck_pid;
+    uint16_t accessMode = 0;
+    struct fileRefEntryBRL *fileBRLEntry = NULL;
 
 	/* Preflight checks */
 	if (!vnode_isreg(vp)) {
-		/* can only read regular files */
+		/* can only lock regular files */
 		if (vnode_isdir(vp))
 			return (EISDIR);
 		else
@@ -8337,30 +9763,42 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 
 	SMB_LOG_KTRACE(SMB_DBG_ADVLOCK | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
-    /* If we got here it must be a flock. Remember flocks lock the whole file. */
 	np = VTOSMB(vp);
 	np->n_lastvop = smbfs_vnop_advlock;
 	
 	/* 
 	 * This vnode has a file open with open deny modes, so the file is really 
 	 * already locked. Remember that vn_open and vn_close will also call us here 
-	 * so to make them work for now, return no err. If the opened it for 
+	 * so to make them work for now, return no err. If they opened it for
 	 * Open Deny then no one else should be allowed to use it. We could check
 	 * the pid here, but the open call should have handled that for us.
+     *
+     * 1. After any Open(O_EXLOCK/O_SHLOCK), then flock() wont fail but will
+     *    do nothing and return no error. This matches previous SMB Client
+     *    behavior.
+     * 2. Open() and flock() should work fine
+     * 3. Open(read) and flock(), then Open(read/O_SHLOCK) will not be allowed.
+     * 4. Open(read) and flock(), then Open(read), the second open will be able
+     *    to read. This should be an error for SMB since flock() is an exclusive
+     *    SMB lock. flock() for SMB just protects against other SMB Clients,
+     *    but does not offer any protection against local process access.
 	 */
-	if (np->f_openDenyList) {
-		error = 0;
-		goto exit;
-	}
+    if (np->f_lockFID_refcnt > 0) {
+        error = 0;
+        goto exit;
+    }
 	
-	/* Before trying the lock see if the file needs to be reopened */
+    SMB_LOG_FILE_OPS_LOCK(np, "Assume flock() for <%s> \n",
+                          np->n_name);
+
+    /* Before trying the lock see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
 		goto exit;
 	}
 	
-	/* 
+	/*
 	 * So if we got to this point we have a normal flock happening. We can have
 	 * the following flags passed to us.
 	 *
@@ -8392,11 +9830,33 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 	 * use the same value.
 	 */
 	lck_pid = 1;
-	/* Remember that we are always using the share open file at this point */
+
+    /*
+     * This is wrong, someone has to call open() before doing a
+     * byte range lock
+     */
+    if (np->f_sharedFID_refcnt <= 0) {
+        SMBERROR_LOCK(np, "sharedFID has no open files for <%s> <%d> \n",
+                      np->n_name, np->f_sharedFID_refcnt);
+        error = EBADF;
+        goto exit;
+    }
+
+    /* Remember that we are ALWAYS using the sharedFID for flock()! */
+    accessMode = np->f_sharedFID_accessMode;
+    
+    error = smbfs_get_lockEntry(share, vp, accessMode,
+                                &fileBRLEntry, ap->a_context);
+    if (error) {
+        SMBERROR_LOCK(np, "smbfs_get_lockEntry failed <%d> for <%s> \n",
+                      error, np->n_name);
+        goto exit;
+    }
+    
 	switch(ap->a_op) {
 	case F_SETLK:
-		if (! np->f_smbflock) {
-			error = smbfs_smb_lock(share, SMB_LOCK_EXCL, np->f_fid, lck_pid, 
+		if (!np->f_smbflock) {
+			error = smbfs_smb_lock(share, SMB_LOCK_EXCL, fileBRLEntry->fid, lck_pid,
 								   start, len, timo, ap->a_context);
             if (error) {
                 /*
@@ -8404,7 +9864,7 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
                  * again with a smaller, yet still very large len.
                  */
                 len = altMaxLen;
-                error = smbfs_smb_lock(share, SMB_LOCK_EXCL, np->f_fid, lck_pid,
+                error = smbfs_smb_lock(share, SMB_LOCK_EXCL, fileBRLEntry->fid, lck_pid,
                                        start, len, timo, ap->a_context);
             }
             
@@ -8412,67 +9872,108 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
                 goto exit;
             }
             
-			SMB_MALLOC(np->f_smbflock, struct smbfs_flock *, sizeof *np->f_smbflock, 
-				   M_LOCKF, M_WAITOK);
-			np->f_smbflock->refcnt = 1;
+            SMB_LOG_FILE_OPS_LOCK(np, "flock by pid <%d> on <%s> \n",
+                                  vfs_context_pid(ap->a_context), np->n_name);
+
+            lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+
+            /* Add lock to shareFID's lockEntry */
+            AddRemoveByteRangeLockEntry (NULL, fileBRLEntry,
+                                         start, len,
+                                         0, lck_pid, ap->a_context);
+
+            lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+            SMB_MALLOC_TYPE(np->f_smbflock, struct smbfs_flock, Z_WAITOK);
+            np->f_smbflock->refcnt = 1;
 			np->f_smbflock->fl_type = ap->a_fl->l_type;	
 			np->f_smbflock->lck_pid = lck_pid;
 			np->f_smbflock->start = start;
 			np->f_smbflock->len = len;
-			np->f_smbflock->flck_pid = proc_pid(vfs_context_proc(ap->a_context));
-		} else if (np->f_smbflock->flck_pid == (uint32_t)proc_pid(vfs_context_proc(ap->a_context))) {
-			/* First see if this is a upgrade or downgrade */
-			if ((np->f_smbflock->refcnt == 1) && 
-				(np->f_smbflock->fl_type != ap->a_fl->l_type)) {
-					np->f_smbflock->fl_type = ap->a_fl->l_type;
-					goto exit;
-			}
-			/* Trying to mismatch two different style of locks with the same process id bad! */
-			if (np->f_smbflock->fl_type != ap->a_fl->l_type) {
-				error = ENOTSUP;
-				goto exit;
-			}
-			/* 
-			 * We know they have the same lock style from above, but they are 
-			 * asking for two exclusive. So from Terry comments it looks like
-			 * this is ok.  Here's the issue: because what they are doing is 
-			 * upgrading an exclusive lock to an exclusive lock in the process 
-			 * that holds the previous lock, there are _not_ multiple locks 
-			 * involved; there's only the first lock and the lock that replaces 
-			 * it.
-			 */
-			if (np->f_smbflock->fl_type != F_WRLCK) {
-				/* 
-				 * At no time are multiple exclusive locks allowed simultaneously
-				 * on a file. So we can have only one refcnt. This is an upgrade
-				 * not another lock.
-				 */
-			} else {
-				np->f_smbflock->refcnt++;
-			}
-		} else {
-			/*
-			 * Radar 5572840
-			 * F_WAIT is set we should sleep until the other flock
-			 * gets free then to an upgrade or down grade. Not support
-			 * with SMB yet.
-			 */
-			error = EWOULDBLOCK;
-			goto exit;
-		}
+			np->f_smbflock_pid = vfs_context_pid(ap->a_context);
+            np->f_smbflock->access_mode = accessMode;
+        }
+        else {
+            SMB_LOG_FILE_OPS_LOCK(np, "context pid <%d> flock pid <%d> flock refcnt <%d> on <%s> \n",
+                                  vfs_context_pid(ap->a_context),
+                                  np->f_smbflock_pid,
+                                  np->f_smbflock->refcnt,
+                                  np->n_name);
+
+            if (np->f_smbflock_pid == vfs_context_pid(ap->a_context)) {
+                /* First see if this is a upgrade or downgrade */
+                if ((np->f_smbflock->refcnt == 1) &&
+                    (np->f_smbflock->fl_type != ap->a_fl->l_type)) {
+                        np->f_smbflock->fl_type = ap->a_fl->l_type;
+                        goto exit;
+                }
+                
+                /* Trying to mismatch two different style of locks with the same process id bad! */
+                if (np->f_smbflock->fl_type != ap->a_fl->l_type) {
+                    error = ENOTSUP;
+                    goto exit;
+                }
+                
+                /*
+                 * We know they have the same lock style from above, but they are
+                 * asking for two exclusive. So from Terry comments it looks like
+                 * this is ok.  Here's the issue: because what they are doing is
+                 * upgrading an exclusive lock to an exclusive lock in the process
+                 * that holds the previous lock, there are _not_ multiple locks
+                 * involved; there's only the first lock and the lock that replaces
+                 * it.
+                 */
+                if (np->f_smbflock->fl_type != F_WRLCK) {
+                    /*
+                     * At no time are multiple exclusive locks allowed simultaneously
+                     * on a file. So we can have only one refcnt. This is an upgrade
+                     * not another lock.
+                     */
+                }
+                else {
+                    np->f_smbflock->refcnt++;
+                }
+            }
+            else {
+                /*
+                 * Radar 5572840
+                 * F_WAIT is set we should sleep until the other flock
+                 * gets free then to an upgrade or down grade. Not support
+                 * with SMB yet.
+                 */
+                error = EWOULDBLOCK;
+                goto exit;
+            }
+        }
 		break;
 	case F_UNLCK:
 		error = 0;
-		if (! np->f_smbflock)	/* Got an unlock and had no lock ignore */
-			break;
+        if (!np->f_smbflock) {
+            /* Got an unlock and had no lock ignore */
+            break;
+        }
+            
 		np->f_smbflock->refcnt--;
-		/* remove the lock on the network and from np */
+    
+        SMB_LOG_FILE_OPS_LOCK(np, "flock removed by pid <%d> refcnt <%d> on <%s> \n",
+                              vfs_context_pid(ap->a_context), np->f_smbflock->refcnt,
+                              np->n_name);
+
+        /* remove the lock on the network and from np */
 		if (np->f_smbflock->refcnt <= 0) {
-			error = smbfs_smb_lock(share, SMB_LOCK_RELEASE, np->f_fid, lck_pid, 
+			error = smbfs_smb_lock(share, SMB_LOCK_RELEASE, fileBRLEntry->fid, lck_pid,
 								   start, np->f_smbflock->len, timo, ap->a_context);
 			if (error == 0) {
-				SMB_FREE(np->f_smbflock, M_LOCKF);
-				np->f_smbflock = NULL;
+                lck_mtx_lock(&np->f_sharedFID_BRL_lock);
+
+                /* Remove lock from sharedFID's lockEntry */
+                AddRemoveByteRangeLockEntry (NULL, fileBRLEntry,
+                                             start, len,
+                                             1, lck_pid, ap->a_context);
+
+                lck_mtx_unlock(&np->f_sharedFID_BRL_lock);
+
+                SMB_FREE_TYPE(struct smbfs_flock, np->f_smbflock);
 			}
 		}
 		break;
@@ -8480,7 +9981,24 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 		error = EINVAL;
 		break;
 	}
+    
 exit:
+    /* Can we close and clear out this lockEntry? */
+    if ((fileBRLEntry != NULL) &&
+        (fileBRLEntry->lockList == NULL) &&
+        (fileBRLEntry->fid != 0)) {
+        SMB_LOG_FILE_OPS_LOCK(np, "Closing lockEntry accessMode <0x%x> on <%s> \n",
+                              fileBRLEntry->accessMode, np->n_name);
+        warning = smbfs_smb_close(share, fileBRLEntry->fid, ap->a_context);
+        if (warning) {
+            SMBWARNING_LOCK(np, "Error %d on closing shared lockEntry %s during advlock unlock \n",
+                            warning, np->n_name);
+        }
+        
+        /* Clear out this lockEnry */
+        smbfs_clear_lockEntries(vp, fileBRLEntry);
+    }
+
 	smb_share_rele(share, ap->a_context);
 	smbnode_unlock(np);
 
@@ -8515,7 +10033,7 @@ smbfs_pathcheck(struct smb_share *share, const char *name, size_t nmlen,
 			 * smb_strtouni needs an output buffer that is twice 
 			 * as large as the input buffer (name).
 			 */
-            SMB_MALLOC(convbuf, uint16_t *, nmlen * 2, M_SMBNODENAME, M_WAITOK);
+            SMB_MALLOC_DATA(convbuf, nmlen * 2, Z_WAITOK);
 			if (! convbuf)
 				return ENAMETOOLONG;
 			/* 
@@ -8524,7 +10042,7 @@ smbfs_pathcheck(struct smb_share *share, const char *name, size_t nmlen,
 			 */
 			ntwrk_len = smb_strtouni(convbuf, name,  nmlen, 
 						UTF_PRECOMPOSED | UTF_SFM_CONVERSIONS);
-			SMB_FREE(convbuf, M_SMBNODENAME);
+            SMB_FREE_DATA(convbuf, nmlen * 2);
 			if (ntwrk_len > (share->ss_maxfilenamelen * 2))
 				return ENAMETOOLONG;
 		} else {
@@ -8635,6 +10153,7 @@ smbfs_vnop_lookup(struct vnop_lookup_args *ap)
 	uint32_t flags = cnp->cn_flags;
 	uint32_t nameiop = cnp->cn_nameiop;
 	size_t nmlen = cnp->cn_namelen;
+    size_t name_allocsize = 0;
 	struct smbfattr fattr, *fap = NULL;
 	int wantparent, error, islastcn, isdot = FALSE;
 	int parent_locked = FALSE;
@@ -8759,7 +10278,7 @@ smbfs_vnop_lookup(struct vnop_lookup_args *ap)
 	if (flags & ISDOTDOT) {
         par_vp = smbfs_smb_get_parent(dnp, kShareLock);
         if (par_vp != NULL) {
-            error = smbfs_lookup(share, VTOSMB(par_vp), NULL, NULL, fap, context);
+            error = smbfs_lookup(share, VTOSMB(par_vp), NULL, NULL, NULL, fap, context);
 
             vnode_put(par_vp);
         }
@@ -8779,13 +10298,14 @@ smbfs_vnop_lookup(struct vnop_lookup_args *ap)
             (share->ss_attributes & FILE_NAMED_STREAMS)) {
             /* Just need basic attributes */
             error = smb_dir_cache_find_entry(dvp, &dnp->d_main_cache,
-                                             (char *) name, nmlen, fap, 0);
+                                             (char *) name, nmlen, fap, 0,
+                                             context);
             if (error) {
-                error = smbfs_lookup(share, dnp, &name, &nmlen, fap, context);
+                error = smbfs_lookup(share, dnp, &name, &nmlen, &name_allocsize, fap, context);
             }
         }
         else {
-            error = smbfs_lookup(share, dnp, &name, &nmlen, fap, context);
+            error = smbfs_lookup(share, dnp, &name, &nmlen, &name_allocsize, fap, context);
         }
 
 		if (error == 0) {
@@ -8920,7 +10440,7 @@ skipLookup:
 		}
 	}
 	if (name != cnp->cn_nameptr) {
-		SMB_FREE(name, M_SMBNODENAME);
+        SMB_FREE_DATA(name, name_allocsize);
 	}
 	/* If the parent node is still lock then unlock it here. */
 	if (parent_locked && dnp)
@@ -8984,28 +10504,32 @@ static int
 smbfs_vnop_pagein(struct vnop_pagein_args *ap)
 {       
 	vnode_t vp = ap->a_vp;
-	struct smb_share *share;
+	struct smb_share *share = NULL;
 	size_t size = ap->a_size;
 	off_t f_offset = ap->a_f_offset;
-	struct smbnode *np;
+	struct smbnode *np = NULL;
 	int error;
 	
     SMB_LOG_KTRACE(SMB_DBG_PAGE_IN | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
 	np = VTOSMB(vp);
-	
+
 	if ((size <= 0) || (f_offset < 0) || (f_offset >= (off_t)np->n_size) || 
 		(f_offset & PAGE_MASK_64) || (size & PAGE_MASK)) {
 		error = err_pagein(ap);	/* behave like the deadfs does */
         goto done;
 	}
-	share = smb_get_share_with_reference(VTOSMBFS(vp));
-	/* Before trying the read see if the file needs to be reopened */
+
+    np->n_write_unsafe = true;
+
+    share = smb_get_share_with_reference(VTOSMBFS(vp));
+	/* Before trying the read see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
 
 		/* Release the share reference before returning */
+        np->n_write_unsafe = false;
 		smb_share_rele(share, ap->a_context);
 		error = err_pagein(ap);	/* behave like the deadfs does */
 		goto done;
@@ -9029,6 +10553,7 @@ smbfs_vnop_pagein(struct vnop_pagein_args *ap)
 		SMB_LOG_IO_LOCK(np, "%s failed cluster_pagein with an error of %d\n",
                         np->n_name, error);
 	}
+    np->n_write_unsafe = false;
 	smb_share_rele(share, ap->a_context);
 
 done:
@@ -9077,7 +10602,7 @@ smbfs_vnop_pageout(struct vnop_pageout_args *ap)
         goto done;
 	}
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
-	/* Before trying the write see if the file needs to be reopened */
+	/* Before trying the write see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
 		SMBDEBUG_LOCK(np, " %s waiting to be revoked\n", np->n_name);
@@ -9204,13 +10729,8 @@ smbfs_vnop_copyfile(struct vnop_copyfile_args *ap)
     
 	smbfs_attr_touchdir(tdnp, (share->ss_fstype == SMB_FS_FAT));
 
-	/* <33469405> if dir has active lease skip local change notify */
-	lck_mtx_lock(&tdnp->d_dur_handle.lock);
-	if (!(tdnp->d_dur_handle.flags & SMB2_LEASE_GRANTED) ||
-		(tdnp->d_dur_handle.flags & SMB2_LEASE_BROKEN)) {
-		tdnp->d_changecnt++;
-	}
-	lck_mtx_unlock(&tdnp->d_dur_handle.lock);
+	/* Dont skip local change notify */
+	tdnp->d_changecnt++;
 	
 	/* blow away statfs cache */
     smp->sm_statfstime = 0;
@@ -9336,10 +10856,10 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	struct smbnode *np = NULL;
 	struct smb_share *share = NULL;
 	enum stream_types stype = kNoStream;
-	uint32_t open_disp = 0;
+	uint32_t open_disp = FILE_OPEN_IF;
 	uio_t afp_uio = NULL;
 	uint8_t	afpinfo[60];
-	struct smbfattr fattr;
+    struct smbfattr fattr = {0};
     u_int16_t newFinderFlags;
 	int old_dosattr = 0;
 	
@@ -9476,11 +10996,20 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		/* Now set the default afp info buffer */
 		DefaultFillAfpInfo(afpinfo);
         
-		/* Open and read the data in, if an empty file we will still get an fid */
-		error = smbfs_smb_openread(share, np,
-                                   &fid, rights,
-                                   afp_uio, &sizep, sfmname,
-                                   &ts, ap->a_context);
+        if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
+            /* Create/Read/Close to get current Finder Info */
+            error = smbfs_smb_openread(share, np,
+                                       NULL, rights,
+                                       afp_uio, &sizep, sfmname,
+                                       &ts, ap->a_context);
+        }
+        else {
+            /* Open and read the data in, if an empty file we will still get an fid */
+            error = smbfs_smb_openread(share, np,
+                                       &fid, rights,
+                                       afp_uio, &sizep, sfmname,
+                                       &ts, ap->a_context);
+        }
 
 		SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
                        0xabc001, error, stype, 0, 0);
@@ -9511,20 +11040,33 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 			(void)smbfs_smb_seteof(share, fid, 0, ap->a_context);
 		}
         
-		/* Now we can write the afp info back out with the new finder information */
-		if (!error) {
-			error = smb_smb_write(share, fid, afp_uio, 0, ap->a_context);
-            SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
-                           0xabc002, error, stype, 0, 0);
-		}
+        if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
+            error = smb2fs_smb_cmpd_create_write_xattr(share, np,
+                                                       sfmname, strnlen(sfmname, share->ss_maxfilenamelen+1),
+                                                       rights, open_disp,
+                                                       &fattr, afp_uio,
+                                                       stype,
+                                                       ap->a_context);
+        }
+        else {
+            /* SMB v1 only */
+            
+            /* Now we can write the afp info back out with the new finder information */
+            if (!error) {
+                error = smb_smb_write(share, fid, afp_uio, 0, ap->a_context);
+                SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
+                               0xabc002, error, stype, 0, 0);
+            }
+            
+            /*
+             * Try to set the modify time back to the original time, ignore any
+             * errors. Since we are using the open stream file descriptor to change
+             * the time remove the directory attribute bit if set.
+             */
+            (void)smbfs_smb_setfattrNT(share, (np->n_dosattr & ~SMB_EFA_DIRECTORY),
+                                       fid, NULL, &ts, NULL, ap->a_context);
+        }
         
-		/* 
-		 * Try to set the modify time back to the original time, ignore any 
-		 * errors. Since we are using the open stream file descriptor to change 
-		 * the time remove the directory attribute bit if set.
-		 */
-		(void)smbfs_smb_setfattrNT(share, (np->n_dosattr & ~SMB_EFA_DIRECTORY), 
-								   fid, NULL, &ts, NULL, ap->a_context);
 		/* Reset our cache timer and copy the new data into our cache */
 		if (!error) {
 			nanouptime(&ts);
@@ -9561,40 +11103,58 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
         open_disp = FILE_OPEN_IF;
     }
 
-	/* Open/create the stream */
-	error = smbfs_smb_create(share, np, sfmname, 
-							 strnlen(sfmname, share->ss_maxfilenamelen+1), 
-							 rights, &fid, open_disp, 1, &fattr, ap->a_context);
-    SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
-                   0xabc003, error, stype, 0, 0);
-	if (error) {
-		goto exit;
-	}
-    
-	/* Now write out the stream data */
-	error = smb_smb_write(share, fid, ap->a_uio, 0, ap->a_context);
-    SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
-                   0xabc004, error, stype, 0, 0);
-    
-    if (error == 0) {
-        smb_dir_cache_invalidate(vp, 0);
+    if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+        (uio_resid(ap->a_uio) <= (64 * 1024))) {
+        /* If the xattr len is less than 64KB, do it in a compound requeest */
+        error = smb2fs_smb_cmpd_create_write_xattr(share, np,
+                                                   sfmname, strnlen(sfmname, share->ss_maxfilenamelen+1),
+                                                   rights, open_disp,
+                                                   &fattr, ap->a_uio,
+                                                   stype,
+                                                   ap->a_context);
+        if (error) {
+            goto exit;
+        }
+        else {
+            smb_dir_cache_invalidate(vp, 0);
+        }
+    }
+    else {
+        /* Open/create the stream */
+        error = smbfs_smb_create(share, np, sfmname,
+                                 strnlen(sfmname, share->ss_maxfilenamelen+1),
+                                 rights, &fid, open_disp, 1, &fattr, ap->a_context);
+        SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
+                       0xabc003, error, stype, 0, 0);
+        if (error) {
+            goto exit;
+        }
+        
+        /* Now write out the stream data */
+        error = smb_smb_write(share, fid, ap->a_uio, 0, ap->a_context);
+        SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
+                       0xabc004, error, stype, 0, 0);
+        
+        if (error == 0) {
+            smb_dir_cache_invalidate(vp, 0);
+        }
+        
+        /*
+         * %%%
+         * Should we reset the modify time back to the original time? Never for the
+         * resource fork, but what about EAs? Could be a performance issue, really
+         * need a clearer message from the rest of the file system team.
+         *
+         * For now try to set the modify time back to the original time, ignore any
+         * errors. Since we are using the open stream file descriptor to change the
+         * time remove the directory attribute bit if set.
+         */
+        if ((stype & kResourceFrk) != kResourceFrk) {
+            (void)smbfs_smb_setfattrNT(share, (np->n_dosattr & ~SMB_EFA_DIRECTORY),
+                                       fid, NULL, &np->n_mtime, NULL, ap->a_context);
+        }
     }
     
-	/*
-	 * %%% 
-	 * Should we reset the modify time back to the original time? Never for the  
-	 * resource fork, but what about EAs? Could be a performance issue, really 
-	 * need a clearer message from the rest of the file system team.
-	 *
-	 * For now try to set the modify time back to the original time, ignore any
-	 * errors. Since we are using the open stream file descriptor to change the 
-	 * time remove the directory attribute bit if set.	 
-	 */
-	if ((stype & kResourceFrk) != kResourceFrk) {
-		(void)smbfs_smb_setfattrNT(share, (np->n_dosattr & ~SMB_EFA_DIRECTORY), 
-								   fid, NULL, &np->n_mtime, NULL, ap->a_context);
-	}
-	
 out:
 	if (fid != 0) {
 		(void)smbfs_smb_close(share, fid, ap->a_context);
@@ -9812,8 +11372,12 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
                            0xabc001, error, stype, 0, 0);
 		}
         
-		/* SFM server or the server doesn't support deleting named streams */
-		if (error) {
+		/*
+         * SFM server or the server doesn't support deleting named streams
+         * If the Finder Info does not already exist (ENOENT), then skip
+         * trying to create an empty zero filled one.
+         */
+        if ((error) && (error != ENOENT)) {
 			uio_t afp_uio = NULL;
 			uint8_t	afpinfo[60];
 			SMBFID fid = 0;
@@ -9964,6 +11528,7 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
     SMB_LOG_KTRACE(SMB_DBG_GET_XATTR | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     np = VTOSMB(vp);
+    np->n_write_unsafe = true;
 	np->n_lastvop = smbfs_vnop_getxattr;
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 
@@ -10011,7 +11576,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 				 * in thise case.
 				 */
 				strmsize = 0;
-			} else {
+			}
+            else {
 				error = smb_get_rsrcfrk_size(share, vp, ap->a_context);
 				lck_mtx_lock(&np->rfrkMetaLock);
 				/*
@@ -10040,13 +11606,9 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
                  * QueryInfo for named streams wont find it because its a
                  * hidden xattr
                  */
-                SMB_MALLOC(fap,
-                           struct smbfattr *,
-                           sizeof(struct smbfattr),
-                           M_SMBTEMP,
-                           M_WAITOK | M_ZERO);
+                SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
                 if (fap == NULL) {
-                    SMBERROR("SMB_MALLOC failed\n");
+                    SMBERROR("SMB_MALLOC_TYPE failed\n");
                     error = ENOMEM;
                     goto exit;
                 }
@@ -10058,10 +11620,10 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
                                                NTCREATEX_SHARE_ACCESS_ALL, FILE_OPEN,
                                                0, &ntstatus,
                                                NULL, fap,
+                                               NULL, NULL,
                                                NULL, ap->a_context);
                 strmsize = fap->fa_size;
-                SMB_FREE(fap, M_SMBTEMP);
-                fap = NULL;
+                SMB_FREE_TYPE(struct smbfattr, fap);
             }
             else {
                 error = smbfs_smb_qstreaminfo(share, np, vnode_type,
@@ -10108,7 +11670,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			if (afp_uio) {
 				error = uio_addiov(afp_uio, CAST_USER_ADDR_T(afpinfo),
 						   sizeof(afpinfo));
-			} else {
+			}
+            else {
 				error = ENOMEM;
 			}
 
@@ -10126,7 +11689,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 							   afp_uio, &afpsize, sfmname,
 							   NULL, ap->a_context);
 				fid = 0;
-			} else {
+			}
+            else {
 				/* SMB 1 will do create/read */
 				error = smbfs_smb_openread(share, np, &fid,
 							   SMB2_FILE_READ_DATA,
@@ -10151,7 +11715,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			/* If ENOENT, return zero'd Finder Info, else return the info */
 			if (error == ENOENT) {
 				bzero(np->finfo, sizeof(np->finfo));
-			} else {
+			}
+            else {
 				bcopy((void *)&afpinfo[AFP_INFO_FINDER_OFFSET], np->finfo, 
 				      sizeof(np->finfo));
 			}
@@ -10160,7 +11725,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			if (vnode_isreg(vp) && (bcmp(np->finfo, "brokMACS", 8) == 0)) {
 				np->finfo_cache_timer = 0;
 				SMBDEBUG("Don't cache finder info, we have a finder copy in progress\n");
-			} else {
+			}
+            else {
 				nanouptime(&ts);
 				np->finfo_cache_timer = ts.tv_sec;		
 			}
@@ -10179,25 +11745,42 @@ done:
 
 		if (sizep && !error) 
 			*sizep = FINDERINFOSIZE; 
-	} else {
+	}
+    else {
+        /* Some other xattr besides Finder Info */
 		if ((stype & kResourceFrk) && vnode_isdir(vp)) {
 			/* Directories never have a Resource Fork. */
 			error = ENOATTR;
-		} else {
-			error = smbfs_smb_openread(share, np, &fid,
-						   SMB2_FILE_READ_DATA,
-						   uio, sizep, sfmname,
-						   NULL, ap->a_context);
 		}
+        else {
+            /* open and read the data */
+            if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
+                /* SMB 2/3 will do create/read/close */
+                error = smbfs_smb_openread(share, np, NULL,
+                               SMB2_FILE_READ_DATA,
+                               uio, sizep, sfmname,
+                               NULL, ap->a_context);
+                fid = 0;
+            }
+            else {
+                /* SMB 1 will do create/read */
+                error = smbfs_smb_openread(share, np, &fid,
+                               SMB2_FILE_READ_DATA,
+                               uio, sizep, sfmname,
+                               NULL, ap->a_context);
+            }
+        }
 		SMB_LOG_KTRACE(SMB_DBG_GET_XATTR | DBG_FUNC_NONE,
 			       0xabc003, error, stype, 0, 0);
 	}
+    
 	/*
 	 * If ENOTSUP support is returned then do the open and read
 	 * in two transactions.
 	 */
-	if (error != ENOTSUP)
+    if (error != ENOTSUP) {
 		goto out;
+    }
 		
 	/* 
 	 * May need to add an oplock to this open call, if this is a finder info open.
@@ -10209,8 +11792,9 @@ done:
 
     SMB_LOG_KTRACE(SMB_DBG_GET_XATTR | DBG_FUNC_NONE,
 		       0xabc004, error, stype, 0, 0);
-	if (error)
+    if (error) {
 		goto exit;
+    }
 		
 	/*
 	 * When reading finder-info, munge the uio so we read at offset 16 where the  
@@ -10241,7 +11825,8 @@ done:
 		
 		uio_setoffset(uio, uio_offset(uio) - 4*4);
 		uio_setresid(uio, uio_resid(uio) + r);
-	} else {
+	}
+    else {
 		error = smb_smb_read(share, fid, uio, ap->a_context);
 	}
 
@@ -10253,19 +11838,23 @@ out:;
 			error = ERANGE;
 		
 	/* Even an error can leave the file open. */
-	if (fid != 0)	
+    if (fid != 0) {
 		(void)smbfs_smb_close(share, fid, ap->a_context);
+    }
+    
 exit:
 	/* 
 	 * So ENOENT just means ENOATTR. 
 	 * Note: SAMBA 4 will reutrn EISDIR for folders which is legit, but not 
 	 * expected by the finder 
 	 */
-	if ((error == ENOENT) || ((error == EISDIR) && (stype & kFinderInfo)))
+    if ((error == ENOENT) || ((error == EISDIR) && (stype & kFinderInfo))) {
 		error = ENOATTR;
+    }
 	
-	if (afp_uio)
+    if (afp_uio) {
 		uio_free(afp_uio);
+    }
 
 	/* Check to see if its a normal error */
 	if (error && (error != ENOTSUP) && (error != ENOATTR)) {
@@ -10278,6 +11867,7 @@ exit:
 			error = ENOATTR;		
 	}
 
+    np->n_write_unsafe = false;
     smb_share_rele(share, ap->a_context);
 	smbnode_unlock(np);
 
@@ -11083,12 +12673,13 @@ smbfs_vnop_allocate(struct vnop_allocate_args *ap)
         length += np->n_size;
     }
 	
-	if (FindFileRef(vp, vfs_context_proc(ap->a_context), kAccessWrite, 
-						  kAnyMatch, 0, 0, NULL, &fid)) {
-		/* No matches or no pid to match, so just use the generic shared fork */
-		fid = np->f_fid;
-	}
-    
+    /* Not really a write, but a SetInfo to set EOF */
+    error = FindFileRef(vp, NULL, kAccessWrite,
+                        0, 0, &fid);
+    if (error) {
+        goto done;
+    }
+
 	if (fid == 0) {
 		error = EBADF;
 		goto done;
@@ -11866,7 +13457,7 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
 
     dnp = VTOSMB(dvp);
 
-	SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Filling enum cache for <%s>\n", dnp->n_name);
+	SMB_LOG_LEASING_LOCK(dnp, "Filling enum cache for <%s>\n", dnp->n_name);
 
 	SMB_LOG_DIR_CACHE_LOCK(dnp, "fetch offset %lld d_offset %lld cachep->offset %lld for <%s>\n",
                            offset, dnp->d_offset, cachep->offset, dnp->n_name);
@@ -12044,17 +13635,19 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
                     cachep->flags |= kDirCacheComplete;
                 }
 				
-				lck_mtx_lock(&dnp->d_dur_handle.lock);
-				if (!(dnp->d_dur_handle.flags & SMB2_LEASE_GRANTED)) {
-					lck_mtx_unlock(&dnp->d_dur_handle.lock);
-					
-					/* We have a dir lease, so dont need to close the dir */
-					SMB_LOG_DIR_CACHE_LOCK(dnp, "Done enumerating dir for <%s> \n",
-										   dnp->n_name);
+                SMB_LOG_DIR_CACHE_LOCK(dnp, "Done enumerating dir for <%s> \n",
+                                       dnp->n_name);
+
+                smbnode_lease_lock(&dnp->n_lease, smbfs_fetch_new_entries);
+                if (!(dnp->n_lease.flags & SMB2_LEASE_GRANTED) ||
+                    !(dnp->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING)) {
+                    /* No dir lease, so close dir now */
+                    smbnode_lease_unlock(&dnp->n_lease);
 					smbfs_closedirlookup(dnp, 0, "fetch_new_entries EOF", context);
 				}
 				else {
-					lck_mtx_unlock(&dnp->d_dur_handle.lock);
+                    /* We have a dir lease, so dont need to close the dir */
+                    smbnode_lease_unlock(&dnp->n_lease);
 				}
             }
             break;
@@ -12248,8 +13841,10 @@ smbfs_update_cookie(struct vnode *dvp, uint64_t key, off_t resume_offset,
                                        key, resume_offset, dnp->n_name);
                 
                 dnp->d_cookies[i].resume_node_id = 0;
-                bzero(dnp->d_cookies[i].resume_name,
-                      sizeof(dnp->d_cookies[i].resume_name));
+                if (dnp->d_cookies[i].resume_name_p) {
+                    SMB_FREE_DATA(dnp->d_cookies[i].resume_name_p, PATH_MAX);
+                    dnp->d_cookies[i].resume_name_p = NULL;
+                }
             }
             else {
                 SMB_LOG_DIR_CACHE_LOCK(dnp, "Key %lld, offset %lld, nodeID 0x%llx name <%s> for <%s> \n",
@@ -12259,8 +13854,14 @@ smbfs_update_cookie(struct vnode *dvp, uint64_t key, off_t resume_offset,
                                        dnp->n_name);
 
                 dnp->d_cookies[i].resume_node_id = resume_cachep->fattr.fa_ino;
-                strncpy(dnp->d_cookies[i].resume_name, resume_cachep->name,
-                        sizeof(dnp->d_cookies[i].resume_name));
+                if (!dnp->d_cookies[i].resume_name_p) {
+                    SMB_MALLOC_DATA(dnp->d_cookies[i].resume_name_p, PATH_MAX, Z_WAITOK_ZERO);
+                    if (!dnp->d_cookies[i].resume_name_p) {
+                        error = ENOMEM;
+                        break;
+                    }
+                }
+                strlcpy(dnp->d_cookies[i].resume_name_p, resume_cachep->name, PATH_MAX);
             }
             
             nanotime(&dnp->d_cookies[i].last_used);
@@ -12305,7 +13906,7 @@ smbfs_find_cookie(struct vnode *dvp, uint64_t key,
             SMB_LOG_DIR_CACHE_LOCK(dnp, "Key %lld, offset %lld, nodeID 0x%llx name <%s> for <%s>\n",
                                    key, dnp->d_cookies[i].resume_offset,
                                    dnp->d_cookies[i].resume_node_id,
-                                   dnp->d_cookies[i].resume_name,
+                                   dnp->d_cookies[i].resume_name_p ? dnp->d_cookies[i].resume_name_p : "(null)",
                                    dnp->n_name);
             
             *resume_cookiepp = &dnp->d_cookies[i];
@@ -12360,8 +13961,12 @@ smbfs_entries_match(struct smb_session *sessionp, struct vnode *dvp,
     }
     else {
         /* Match using name */
-        resume_name_len = strnlen(resume_cookiep->resume_name,
-                                  sizeof(resume_cookiep->resume_name));
+        if (resume_cookiep->resume_name_p) {
+            resume_name_len = strnlen(resume_cookiep->resume_name_p,
+                                      PATH_MAX);
+        } else {
+            resume_name_len = 0;
+        }
         
         if (enum_cache_currp == NULL) {
             if (resume_name_len == 0) {
@@ -12370,8 +13975,9 @@ smbfs_entries_match(struct smb_session *sessionp, struct vnode *dvp,
             }
         }
         else {
-            if ((resume_name_len == enum_cache_currp->name_len) &&
-                strncmp(resume_cookiep->resume_name, enum_cache_currp->name, resume_name_len) == 0) {
+            if ((resume_cookiep->resume_name_p) &&
+                (resume_name_len == enum_cache_currp->name_len) &&
+                strncmp(resume_cookiep->resume_name_p, enum_cache_currp->name, resume_name_len) == 0) {
                 is_match = 1;
             }
         }
@@ -12453,7 +14059,7 @@ smbfs_verify_resume(struct smb_session *sessionp, struct vnode *dvp,
                            enum_cache_currp != NULL ? enum_cache_currp->fattr.fa_ino : 0,
                            enum_cache_currp != NULL ? enum_cache_currp->name : "Null",
                            resume_cookiep->resume_node_id,
-                           resume_cookiep->resume_name,
+                           resume_cookiep->resume_name_p ? resume_cookiep->resume_name_p : "(null)",
                            dnp->n_name);
     
     /* Search main cache for item to resume with */
@@ -12565,11 +14171,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
         return (error);
     }
 
-    SMB_MALLOC(last_entry_namep,
-               char *,
-               PATH_MAX,
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(last_entry_namep, PATH_MAX, Z_WAITOK_ZERO);
 
     nanotime(&start);
 
@@ -12658,7 +14260,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     lck_mtx_lock(&dnp->d_enum_cache_list_lock);
 
     /* Setup the dir cache */
-    smb_dir_cache_check(dvp, &dnp->d_main_cache, 1);
+    smb_dir_cache_check(dvp, &dnp->d_main_cache, 1, context);
 
     while (1) {
         /*
@@ -12669,7 +14271,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
             /*
              * Start filling from dir cache
              */
-			SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Using enum cache for <%s> \n",
+			SMB_LOG_LEASING_LOCK(dnp, "Using enum cache for <%s> \n",
 								   dnp->n_name);
 
 			SMB_LOG_DIR_CACHE_LOCK(dnp, "Using enum cache offset %lld cache_offset %lld for <%s> \n",
@@ -12858,7 +14460,7 @@ fetch_new_entries:
             /*
              * Start filling from overflow cache
              */
-            SMB_LOG_UNIT_TEST_LOCK(dnp, "LeaseUnitTest - Using saved for <%s> \n",
+            SMB_LOG_LEASING_LOCK(dnp, "Using saved for <%s> \n",
                                    dnp->n_name);
 
             SMB_LOG_DIR_CACHE_LOCK(dnp, "Using saved offset %lld cache_offset %lld for <%s>\n",
@@ -13193,7 +14795,7 @@ err_exit:
                    error, *ap->a_actualcount, 0, 0, 0);
     
     if (last_entry_namep != NULL) {
-        SMB_FREE(last_entry_namep, M_SMBTEMP);
+        SMB_FREE_DATA(last_entry_namep, PATH_MAX);
     }
 
     return (error);

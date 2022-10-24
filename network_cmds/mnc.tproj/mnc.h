@@ -85,8 +85,9 @@ struct mnc_configuration * 	parse_arguments(int argc, char **argv);
 int multicast_setup_listen(int, struct addrinfo *, struct addrinfo *, char *);
 int multicast_setup_send(int, struct addrinfo *, struct addrinfo *);
 
-/* Functions in mnc_error.c */
-void mnc_warning(char * string, ...);
-void mnc_error(char * string, ...);
+#include <err.h>
+
+#define mnc_warning(fmt, ...) warnx(fmt, ##__VA_ARGS__)
+#define mnc_error(fmt, ...) errx(1, fmt, ##__VA_ARGS__)
 
 #endif /* _MNC_H_ */

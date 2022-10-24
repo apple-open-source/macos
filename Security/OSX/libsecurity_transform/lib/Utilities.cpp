@@ -44,12 +44,11 @@ dispatch_queue_t MyDispatchQueueCreate(const char* name, dispatch_queue_attr_t a
 
 
 
-static CFErrorRef CreateErrorRefCore(CFStringRef domain, int errorCode, const char* format, va_list ap)
+static CFErrorRef CreateErrorRefCore(CFStringRef domain, int errorCode, CFStringRef format, va_list ap) __attribute__((format(__CFString__, 3, 0)));
+
+static CFErrorRef CreateErrorRefCore(CFStringRef domain, int errorCode, CFStringRef format, va_list ap)
 {
-	CFStringRef fmt = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
-	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
-	va_end(ap);
-	CFReleaseNull(fmt);
+	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, format, ap);
 	
 	CFStringRef keys[] = {kCFErrorDescriptionKey};
 	CFStringRef values[] = {str};
@@ -62,22 +61,25 @@ static CFErrorRef CreateErrorRefCore(CFStringRef domain, int errorCode, const ch
 
 
 
-CFErrorRef CreateGenericErrorRef(CFStringRef domain, int errorCode, const char* format, ...)
+CFErrorRef CreateGenericErrorRef(CFStringRef domain, int errorCode, CFStringRef format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	return CreateErrorRefCore(domain, errorCode, format, ap);
+	CFErrorRef ret = CreateErrorRefCore(domain, errorCode, format, ap);
+	va_end(ap);
+	return ret;
 }
 
 
 
-CFErrorRef CreateSecTransformErrorRef(int errorCode, const char* format, ...)
+CFErrorRef CreateSecTransformErrorRef(int errorCode, CFStringRef format, ...)
 {
 	// create a CFError in the SecTransform error domain.  You can add an explanation, which is cool.
 	va_list ap;
 	va_start(ap, format);
-	
-	return CreateErrorRefCore(kSecTransformErrorDomain, errorCode, format, ap);
+	CFErrorRef ret = CreateErrorRefCore(kSecTransformErrorDomain, errorCode, format, ap);
+	va_end(ap);
+	return ret;
 }
 
 

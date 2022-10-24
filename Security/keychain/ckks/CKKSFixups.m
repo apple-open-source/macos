@@ -91,6 +91,9 @@
     return [NSString stringWithFormat:@"<CKKSFixup:RefetchAllCurrentItemPointers (%@)>", self.deps.views];
 }
 - (void)groupStart {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
@@ -98,7 +101,9 @@
 
             NSError* error = nil;
 
-            NSArray<CKKSCurrentItemPointer*>* cips = [CKKSCurrentItemPointer allInZone:viewState.zoneID error:&error];
+            NSArray<CKKSCurrentItemPointer*>* cips = [CKKSCurrentItemPointer allInZone:viewState.zoneID
+                                                                             contextID:viewState.contextID
+                                                                                 error:&error];
             if(error) {
                 ckkserror("ckksfixup", viewState.zoneID, "Couldn't fetch current item pointers: %@", error);
                 return CKKSDatabaseTransactionRollback;
@@ -158,7 +163,7 @@
                     if(!self.error) {
                         // Now, update the zone state entry to be at this level
                         NSError* localerror = nil;
-                        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.deps.contextID zoneName:viewState.zoneID.zoneName error:&localerror];
                         ckse.lastFixup = CKKSFixupRefetchCurrentItemPointers;
                         [ckse saveToDatabase:&localerror];
                         if(localerror) {
@@ -213,6 +218,9 @@
     return [NSString stringWithFormat:@"<CKKSFixup:FetchAllTLKShares (%@)>", self.deps.views];
 }
 - (void)groupStart {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
@@ -250,7 +258,7 @@
                     ckksnotice("ckksfixup", viewState.zoneID, "Successfully fetched TLKShare records (%@)", cursor);
 
                     NSError* localerror = nil;
-                    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                    CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.deps.contextID zoneName:viewState.zoneID.zoneName error:&localerror];
                     ckse.lastFixup = CKKSFixupFetchTLKShares;
                     [ckse saveToDatabase:&localerror];
                     if(localerror) {
@@ -313,7 +321,9 @@
 }
 - (void)groupStart {
     WEAKIFY(self);
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     CKKSResultOperation* reload = [[CKKSReloadAllItemsOperation alloc] initWithOperationDependencies:self.deps];
     [self runBeforeGroupFinished:reload];
 
@@ -332,7 +342,7 @@
                            (int)self.fixupNumber);
 
                 NSError* localerror = nil;
-                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+                CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.deps.contextID zoneName:viewState.zoneID.zoneName error:&localerror];
                 ckse.lastFixup = self.fixupNumber;
                 [ckse saveToDatabase:&localerror];
                 if(localerror) {
@@ -373,7 +383,9 @@
 
 - (void)groupStart {
     // This operation simply loads all CDSEs, remakes them from their CKRecord, and resaves them
-
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     id<CKKSDatabaseProviderProtocol> databaseProvider = self.deps.databaseProvider;
 
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
@@ -407,7 +419,7 @@
             ckksnotice("ckksfixup", viewState.zoneID, "Successfully performed a ResaveDeviceState fixup");
 
             NSError* localerror = nil;
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:viewState.zoneID.zoneName error:&localerror];
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.deps.contextID zoneName:viewState.zoneID.zoneName error:&localerror];
             ckse.lastFixup = CKKSFixupResaveDeviceStateEntries;
             [ckse saveToDatabase:&localerror];
             if(localerror) {

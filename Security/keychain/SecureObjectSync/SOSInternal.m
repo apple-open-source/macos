@@ -467,7 +467,8 @@ bool SOSDoWithCredentialsWhileUnlocked(CFErrorRef *error, bool (^action)(CFError
     __block bool result = false;
     dispatch_sync(SOSCCCredentialQueue(), ^{
         __block bool retval = false;
-        SecAKSDoWithUserBagLockAssertion(error, ^{
+        // user_only_keybag_handle ok to use here, since we don't call SOS from securityd_system
+        SecAKSDoWithKeybagLockAssertion(user_only_keybag_handle, error, ^{
             retval = action(error);
         });
         result = retval;

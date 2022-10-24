@@ -17,6 +17,13 @@
 
 #include "stubs.m"
 
+ipp_state_t                /* O - Current state */
+ippWriteIO2(void           *dst,        /* I - Destination */
+			ipp_iocb_t cb,        /* I - Write callback function */
+			ipp_t          *parent,        /* I - Parent IPP message */
+			ipp_t          *ipp);        /* I - IPP data */
+
+
 struct Payload {
     size_t        pos;
     size_t        len;
@@ -93,7 +100,23 @@ static void fuzz0(ipp_uchar_t* p, size_t len, int first_pass, char* outbuf, size
     } else {
         ippSetState(job, IPP_STATE_IDLE);
 
-        if (ippWriteIO(&w, _ipp_write_cb, 1, NULL, job) < IPP_STATE_IDLE) {
+		ipp_state_t wstate = ippWriteIO(&w, _ipp_write_cb, 1, NULL, job);
+
+		if (wstate >= IPP_STATE_IDLE) {
+			struct Payload w2 = {
+				0,
+				0,
+				NULL
+			};
+			ippSetState(job, IPP_STATE_IDLE);
+
+			ipp_state_t w2state = ippWriteIO2(&w2, _ipp_write_cb, NULL, job);
+			assert(w2state = wstate);
+			assert(w2.len == w.len);
+			assert(memcmp(w2.buf, w.buf, w.len) == 0);
+		}
+
+        if (wstate < IPP_STATE_IDLE) {
             snprintf(outbuf, outbufLen, "ERR couldn't write from ipp");
         } else {
             int pos = snprintf(outbuf, outbufLen, "ERR read %ld(%llx) write %ld(%llx)", r.len, md5(r.buf, r.len), w.len, md5(w.buf, w.len));
@@ -140,3 +163,4 @@ int LLVMFuzzerTestOneInput(const uint8_t *buffer, size_t size)
 {
     return _ipp_fuzzing(gVerbose, buffer, size);
 }
+

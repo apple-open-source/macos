@@ -5,6 +5,8 @@
 //  Copyright © 2015,2020 Apple Inc. All rights reserved.
 //
 
+#import <TargetConditionals.h>
+#import <AppleFeatures/AppleFeatures.h>
 #import <Foundation/Foundation.h>
 #import <Foundation/NSPrivate.h>
 #import <Foundation/NSXPCConnection_Private.h>
@@ -25,6 +27,8 @@ NSString *const kPMLPMSourceSettings = @"Settings";
 NSString *const kPMLPMSourceSiri = @"Siri";
 NSString *const kPMLPMSourceLostMode = @"LostMode";
 NSString *const kPMLPMSourceSystemDisable = @"SystemDisable";
+
+// Keys for param dictionary
 
 @interface _PMLowPowerMode () {
     NSXPCConnection *_connection;
@@ -67,14 +71,28 @@ NSString *const kPMLPMSourceSystemDisable = @"SystemDisable";
           fromSource:(NSString *)source
       withCompletion:(PMSetPowerModeCompletionHandler)handler
 {
+    [self setPowerMode:mode fromSource:source withParams:nil withCompletion:handler];
+}
+
+- (void)setPowerMode:(PMPowerMode)mode
+          fromSource:(NSString *)source
+          withParams:(NSDictionary *)params
+      withCompletion:(PMSetPowerModeCompletionHandler)handler
+{
     [[_connection remoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
         handler(NO, error);
     }] setPowerMode:mode
             fromSource:source
+            withParams:params
         withCompletion:handler];
 }
 
 - (BOOL)setPowerMode:(PMPowerMode)mode fromSource:(NSString *)source
+{
+    return [self setPowerMode:mode fromSource:source withParams:nil];
+}
+
+- (BOOL)setPowerMode:(PMPowerMode)mode fromSource:(NSString *)source withParams:(NSDictionary *)params
 {
     __block BOOL ret = YES;
     [[_connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull __unused error) {
@@ -82,6 +100,7 @@ NSString *const kPMLPMSourceSystemDisable = @"SystemDisable";
         NSLog(@"synchronous connection failed: %@\n", error);
     }] setPowerMode:mode
             fromSource:source
+            withParams:params
         withCompletion:^(BOOL success, NSError *error) {
             if (!success || error) {
                 ret = NO;

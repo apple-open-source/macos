@@ -2,17 +2,29 @@
 #if OCTAGON
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTAccountMetadataClassC (KeychainSupport)
 
-- (BOOL)saveToKeychainForContainer:(NSString*)containerName contextID:(NSString*)contextID error:(NSError**)error;
+- (BOOL)saveToKeychainForContainer:(NSString*)containerName
+                         contextID:(NSString*)contextID
+                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+               personaUniqueString:(NSString* _Nullable)personaUniqueString
+                             error:(NSError**)error;
 
 + (BOOL)deleteFromKeychainForContainer:(NSString*)containerName
-                             contextID:(NSString*)contextID error:(NSError**)error  __attribute__((swift_error(nonnull_error)));
+                             contextID:(NSString*)contextID
+                       personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                   personaUniqueString:(NSString* _Nullable)personaUniqueString
+                                 error:(NSError**)error  __attribute__((swift_error(nonnull_error)));
 
-+ (OTAccountMetadataClassC* _Nullable)loadFromKeychainForContainer:(NSString*)containerName contextID:(NSString*)contextID error:(NSError**)error;
++ (OTAccountMetadataClassC* _Nullable)loadFromKeychainForContainer:(NSString*)containerName
+                                                         contextID:(NSString*)contextID
+                                                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                                               personaUniqueString:(NSString* _Nullable)personaUniqueString
+                                                             error:(NSError**)error;
 @end
 
 @class TPSyncingPolicy;

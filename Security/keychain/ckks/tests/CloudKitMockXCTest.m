@@ -65,6 +65,7 @@
 
 #include "keychain/ot/OT.h"
 #include "keychain/ot/OTManager.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #import "tests/secdmockaks/mockaks.h"
 #import "utilities/SecTapToRadar.h"
@@ -74,11 +75,455 @@
 #include "keychain/ckks/CKKSAnalytics.h"
 #include "Analytics/Clients/SOSAnalytics.h"
 
+#import "keychain/ot/OTAccountsAdapter.h"
+#import "keychain/ot/OTAuthKitAdapter.h"
+
 @interface BoolHolder : NSObject
 @property bool state;
 @end
 
 @implementation BoolHolder
+@end
+
+@implementation CloudKitAccount
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+{
+    return [self initWithAltDSID:altdsid
+                  appleAccountID:[NSString stringWithFormat:@"aaid-%@", altdsid]
+                         persona:persona
+                            hsa2:hsa2
+                            demo:demo
+                   accountStatus:accountStatus];
+}
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+                      isPrimary:(bool)isPrimary
+                isDataSeparated:(bool)isDataSeparated
+{
+    return [self initWithAltDSID:altdsid
+                  appleAccountID:[NSString stringWithFormat:@"aaid-%@", altdsid]
+                         persona:persona
+                            hsa2:hsa2
+                            demo:demo
+                   accountStatus:accountStatus
+                       isPrimary:isPrimary
+                 isDataSeparated:isDataSeparated];
+}
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                 appleAccountID:(NSString*)appleAccountID
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+{
+    return [self initWithAltDSID:altdsid
+                  appleAccountID:appleAccountID
+                         persona:persona
+                            hsa2:hsa2
+                            demo:demo
+                   accountStatus:accountStatus
+                       isPrimary:true
+                 isDataSeparated:false];
+}
+
+- (instancetype)initWithAltDSID:(NSString*)altdsid
+                 appleAccountID:(NSString*)appleAccountID
+                        persona:(NSString* _Nullable)persona
+                           hsa2:(bool)hsa2
+                           demo:(bool)demo
+                  accountStatus:(CKAccountStatus)accountStatus
+                      isPrimary:(bool)isPrimary
+                isDataSeparated:(bool)isDataSeparated
+{
+    if (!persona) {
+        persona = [OTMockPersonaAdapter defaultMockPersonaString];
+    }
+    if (self = [super init]) {
+        _altDSID = [[NSString alloc] initWithString:altdsid];
+        _persona = [[NSString alloc] initWithString:persona];
+        _appleAccountID = appleAccountID;
+        _hsa2 = hsa2;
+        _demo = demo;
+        _accountStatus = accountStatus;
+        _isPrimary = isPrimary;
+        _isDataSeparated = isDataSeparated;
+    }
+    return self;
+}
+@end
+
+@implementation CKKSTestsMockAccountsAuthKitAdapter
+
+-(instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
+                     machineID:(NSString*)machineID
+                  otherDevices:(NSSet<NSString*>*)otherDevices
+{
+    if (self = [super init]) {
+        if (!altDSID) {
+            altDSID = [NSUUID UUID].UUIDString;
+        }
+        
+        @synchronized (_accounts) {
+            _accounts = [NSMutableDictionary dictionary];
+            _accounts[altDSID] = [[CloudKitAccount alloc]initWithAltDSID:altDSID persona:nil hsa2:true demo:false accountStatus:CKAccountStatusAvailable];
+        }
+    
+        if (!machineID) {
+            machineID = @"fake-machineID";
+        }
+        _currentMachineID = machineID;
+   
+        if (!otherDevices) {
+            _otherDevices = [NSMutableSet set];
+        } else {
+           _otherDevices = otherDevices.mutableCopy;
+        }
+        _excludeDevices = [NSMutableSet set];
+        _listeners = [[CKKSListenerCollection<OTAuthKitAdapterNotifier> alloc] initWithName:@"test-authkit"];
+        
+        _machineIDFetchErrors = [NSMutableArray array];
+        
+        // By default, you can fetch a list you're not on
+        _injectAuthErrorsAtFetchTime = false;
+        
+    }
+    return self;
+}
+
+- (void)setAccountStore:(ACAccountStore *)store
+{
+    //no op
+}
+
++ (TPSpecificUser* _Nullable)userForAuthkit:(CKKSTestsMockAccountsAuthKitAdapter*)authkit
+                              containerName:(NSString*)containerName
+                                  contextID:(NSString*)contextID
+                                      error:(NSError**)error
+{
+    return [authkit findAccountForCurrentThread:[[OTMockPersonaAdapter alloc]init] optionalAltDSID:nil cloudkitContainerName:containerName octagonContextID:contextID error:error];
+}
+
+- (TPSpecificUser * _Nullable)findAccountForCurrentThread:(nonnull id<OTPersonaAdapter>)personaAdapter
+                                          optionalAltDSID:(NSString * _Nullable)altDSID
+                                    cloudkitContainerName:(nonnull NSString *)cloudkitContainerName
+                                         octagonContextID:(nonnull NSString *)octagonContextID
+                                                    error:(NSError *__autoreleasing  _Nullable * _Nullable)error
+{
+    NSString* currentPersonaString = [personaAdapter currentThreadPersonaUniqueString];
+    bool currentPersonaIsPrimary = [personaAdapter currentThreadIsForPrimaryiCloudAccount];
+    
+    if (altDSID) {
+        for (CloudKitAccount* account in [self.accounts allValues]) {
+            if ([account.altDSID isEqualToString: altDSID]) {
+                if ([account.persona isEqualToString:currentPersonaString] || currentPersonaIsPrimary) {
+                    NSString* personaUniqueString = nil;
+                    // data separated accounts have personas
+                    // primary accounts do not have personas
+                    if (!account.isPrimary && account.isDataSeparated) {
+                        personaUniqueString = account.persona;
+                    }
+                    return [[TPSpecificUser alloc] initWithCloudkitContainerName:cloudkitContainerName
+                                                                octagonContextID:octagonContextID
+                                                                  appleAccountID:account.appleAccountID
+                                                                         altDSID:altDSID
+                                                                isPrimaryPersona:account.isPrimary
+                                                             personaUniqueString:personaUniqueString];
+                } else {
+                    if (error) {
+                        *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoAppleAccount userInfo:@{ NSLocalizedDescriptionKey : @"given altDSID does not match configured altDSID"}];
+                    }
+                    return nil;
+                }
+            }
+        }
+    } else {
+        CloudKitAccount* currentPersonaAccount = nil;
+        for (CloudKitAccount* account in [self.accounts allValues]) {
+            if ([account.persona isEqualToString:currentPersonaString]) {
+                currentPersonaAccount = self.accounts[account.altDSID];
+            }
+        }
+        
+        if (currentPersonaAccount == nil) {
+            if (error) {
+                *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoAppleAccount userInfo:@{ NSLocalizedDescriptionKey : @"No current altDSID"}];
+            }
+            return nil;
+        }
+            
+        NSString* personaUniqueString = nil;
+        // data separated accounts have personas
+        // primary accounts do not have personas
+        if (!currentPersonaAccount.isPrimary && currentPersonaAccount.isDataSeparated) {
+            personaUniqueString = currentPersonaAccount.persona;
+        }
+        return [[TPSpecificUser alloc]initWithCloudkitContainerName:cloudkitContainerName
+                                                   octagonContextID:octagonContextID
+                                                     appleAccountID:currentPersonaAccount.appleAccountID
+                                                            altDSID:currentPersonaAccount.altDSID
+                                                   isPrimaryPersona:currentPersonaAccount.isPrimary
+                                                personaUniqueString:personaUniqueString];
+    }
+    return nil;
+}
+
+- (NSArray<TPSpecificUser *> * _Nullable)inflateAllTPSpecificUsers:(nonnull NSString *)cloudkitContainerName
+                                                  octagonContextID:(nonnull NSString *)octagonContextID
+{
+    NSMutableArray<TPSpecificUser*>* activeAccounts = [NSMutableArray array];
+   
+    for (CloudKitAccount* account in [self.accounts allValues]) {
+        NSString* personaUniqueString = nil;
+        // data separated accounts have personas
+        // primary accounts do not have personas
+        if (!account.isPrimary && account.isDataSeparated) {
+            personaUniqueString = account.persona;
+        }
+        TPSpecificUser* activeAccount = [[TPSpecificUser alloc] initWithCloudkitContainerName:cloudkitContainerName
+                                                                             octagonContextID:octagonContextID
+                                                                               appleAccountID:account.appleAccountID
+                                                                                      altDSID:account.altDSID
+                                                                             isPrimaryPersona:account.isPrimary
+                                                                          personaUniqueString:personaUniqueString];
+        
+        [activeAccounts addObject:activeAccount];
+    }
+    
+    return activeAccounts;
+}
+
+- (CloudKitAccount* _Nullable)accountForAltDSID:(NSString*)altDSID {
+    return self.accounts[altDSID];
+ }
+
+- (BOOL)accountIsDemoAccountByAltDSID:(nonnull NSString *)altDSID error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+    return [self accountForAltDSID:altDSID].demo ? YES : NO;
+}
+
+- (BOOL)accountIsHSA2ByAltDSID:(nonnull NSString *)altDSID {
+    return [self accountForAltDSID:altDSID].hsa2 ? YES : NO;
+}
+
+- (NSSet<NSString*>*)currentDeviceList {
+       // Always succeeds.
+    NSMutableSet<NSString*>* set = [[NSMutableSet alloc] initWithObjects:self.currentMachineID, nil];
+    [set unionSet:self.otherDevices];
+    
+    for (NSString* excluded in self.excludeDevices) {
+        [set removeObject:excluded];
+    }
+    
+    return set;
+}
+
+- (void)fetchCurrentDeviceListByAltDSID:(nonnull NSString *)altDSID
+                                  reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))complete
+{
+    self.fetchInvocations += 1;
+    if ([self.machineIDFetchErrors count] > 0) {
+        NSError* firstError = [self.machineIDFetchErrors objectAtIndex:0];
+        complete(nil, firstError);
+        [self.machineIDFetchErrors removeObjectAtIndex:0];
+        return;
+    }
+    
+    // If this device is actively on the excluded list, return an error
+    // But demo accounts can do what they want
+    BOOL demo = [self accountForAltDSID:altDSID].demo ? YES : NO;
+    if (demo == NO &&
+        self.injectAuthErrorsAtFetchTime &&
+        [self.excludeDevices containsObject:self.currentMachineID]) {
+        complete(nil, [NSError errorWithDomain:AKAppleIDAuthenticationErrorDomain code:-7026 userInfo:@{NSLocalizedDescriptionKey : @"Injected AKAuthenticationErrorNotPermitted error"}]);
+        return;
+    }
+    if (self.fetchCondition) {
+        [self.fetchCondition fulfill];
+    }
+    // TODO: fail if !accountPresent
+    complete([self currentDeviceList], nil);
+}
+
+- (NSString * _Nullable)machineID:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+    return self.currentMachineID;
+}
+
+- (void)registerNotification:(id<OTAuthKitAdapterNotifier>)notifier {
+    [self.listeners registerListener:notifier];
+}
+
+- (CloudKitAccount* _Nullable)primaryAccount {
+    
+    for (CloudKitAccount* account in [self.accounts allValues]) {
+        if ([account.persona isEqualToString:[OTMockPersonaAdapter defaultMockPersonaString]]) {
+            return account;
+        }
+    }
+    return nil;
+}
+
+- (NSString* _Nullable) primaryAltDSID {
+    return [self primaryAccount].altDSID;
+}
+
+- (void)add:(CloudKitAccount*) account {
+    @synchronized (self.accounts) {
+        self.accounts[account.altDSID] = account;
+    }
+}
+
+- (void)removeAccountForPersona:(NSString*)persona {
+    @synchronized (self.accounts) {
+        NSString* copyPersona = [[NSString alloc] initWithString:persona];
+        CloudKitAccount* found = nil;
+        for (CloudKitAccount* account in [self.accounts allValues]) {
+            if ([copyPersona isEqualToString:account.persona]) {
+                found = account;
+            }
+        }
+        if (found && found.altDSID) {
+            [self.accounts removeObjectForKey:found.altDSID];
+        }
+    }
+}
+
+- (void)removePrimaryAccount {
+    CloudKitAccount* primary = [self primaryAccount];
+    @synchronized (self.accounts) {
+        [self.accounts removeObjectForKey:primary.altDSID];
+    }
+}
+
+- (void)sendIncompleteNotification {
+    [self.listeners iterateListeners:^(id _Nonnull listener) {
+        [listener incompleteNotificationOfMachineIDListChange];
+    }];
+ }
+
+- (void)addAndSendNotification:(NSString*)machineID  {
+    [self.otherDevices addObject:machineID];
+    [self.excludeDevices removeObject:machineID];
+    
+    [self sendAddNotification:machineID altDSID:[self primaryAltDSID]];
+ }
+
+- (void)deliverAKDeviceListDeltaMessagePayload:(NSDictionary* _Nullable)notificationDictionary
+{
+    //no-op
+}
+
+- (void)sendAddNotification:(NSString*)machineID altDSID:(NSString*)altDSID {
+    NSArray<NSString*>* added = @[machineID];
+    [self.listeners iterateListeners:^(id _Nonnull listener) {
+        [listener machinesAdded:added altDSID:altDSID];
+    }];
+ }
+
+- (void)removeAndSendNotification:(NSString*)machineID {
+    [self.excludeDevices addObject:machineID];
+    [self sendRemoveNotification:machineID altDSID:[self primaryAltDSID]];
+}
+
+- (void)sendRemoveNotification:(NSString*)machineID altDSID:(NSString*)altDSID {
+    NSArray<NSString*>* removed = @[machineID];
+    [self.listeners iterateListeners:^(id _Nonnull listener) {
+        [listener machinesRemoved:removed altDSID:altDSID];
+    }];
+ }
+
+@end
+
+
+@interface MockCKContainerObject : NSObject
+
+// Needed from CKContainer
+@property (readonly) CKContainerID* containerID;
+@property (readonly) CKContainerOptions* options;
+
+// Internal.
+@property (readonly) id mockPrivateCloudDatabase;
+@property (nullable) id mockContainerExpectations;
+@property NSMutableArray<CKEventMetric*>* metrics;
+
+@property (weak) CloudKitMockXCTest* test;
+@property (strong) CKKSTestsMockAccountsAuthKitAdapter* accountsAuthkitAdapter;
+
+- (instancetype)initWithContainerID:(CKContainerID*)containerID
+                            options:(CKContainerOptions* _Nullable)options
+               privateCloudDatabase:(id)privateCloudDatabase
+              containerExpectations:(id)mockContainerExpectations
+                               test:(CloudKitMockXCTest*)test;
+@end
+
+@implementation MockCKContainerObject
+
+- (instancetype)initWithContainerID:(CKContainerID*)containerID
+                            options:(CKContainerOptions* _Nullable)options
+               privateCloudDatabase:(id)privateCloudDatabase
+              containerExpectations:(id)mockContainerExpectations
+                               test:(CloudKitMockXCTest*)test
+{
+    if((self = [super init])) {
+        _containerID = containerID;
+        _options = options;
+        _mockPrivateCloudDatabase = privateCloudDatabase;
+        _mockContainerExpectations = mockContainerExpectations;
+        _test = test;
+
+        _metrics = [NSMutableArray array];
+    }
+    return self;
+}
+
+- (NSString*)containerIdentifier
+{
+    return self.containerID.containerIdentifier;
+}
+
+- (void)serverPreferredPushEnvironmentWithCompletionHandler:(void (^)(NSString * _Nullable apsPushEnvString, NSError * _Nullable error))completionHandler
+{
+    completionHandler(@"fake APS push string", nil);
+}
+
+- (CKDatabase*)privateCloudDatabase
+{
+    return self.mockPrivateCloudDatabase;
+}
+
+- (void)accountInfoWithCompletionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
+{
+    [self.test ckcontainerAccountInfoWithCompletionHandler:self.options.accountOverrideInfo.altDSID completionHandler:completionHandler];
+}
+
+- (void)submitEventMetric:(CKEventMetric *)eventMetric
+{
+    [self.metrics addObject:eventMetric];
+    
+    @try {
+        [self.mockContainerExpectations submitEventMetric:eventMetric];
+    } @catch (NSException *exception) {
+        XCTFail("Received an container exception when trying to add a metric: %@", exception);
+    }
+}
+
+- (void)fetchCurrentDeviceIDWithCompletionHandler:(void (^)(NSString * _Nullable deviceID, NSError * _Nullable error))completionHandler
+{
+    completionHandler([NSString stringWithFormat:@"fake-cloudkit-device-id-%@", self.test.testName], nil);
+}
+
+- (void)reloadAccountWithCompletionHandler:(void (^)(NSError *_Nullable error))completionHandler
+{
+    completionHandler(nil);
+}
 @end
 
 // Inform OCMock about the internals of CKContainer
@@ -206,8 +651,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
     self.zones = self.zones ?: [[NSMutableDictionary alloc] init];
 
-    self.apsEnvironment = @"fake APS push string";
-
     // Static variables are a scourge. Let's reset this one...
     [OctagonAPSReceiver resetGlobalDelegatePortMap];
 
@@ -216,37 +659,27 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     self.mockContainerExpectations = OCMStrictClassMock([CKContainer class]);
     self.mockContainer = OCMClassMock([CKContainer class]);
     OCMStub([self.mockContainer containerWithIdentifier:[OCMArg isKindOfClass:[NSString class]]]).andReturn(self.mockContainer);
-    OCMStub([self.mockContainer defaultContainer]).andReturn(self.mockContainer);
     OCMStub([self.mockContainer alloc]).andReturn(self.mockContainer);
-    OCMStub([self.mockContainer containerIdentifier]).andReturn(SecCKKSContainerName);
-    OCMStub([self.mockContainer initWithContainerID: [OCMArg any] options: [OCMArg any]]).andReturn(self.mockContainer);
-    OCMStub([self.mockContainer privateCloudDatabase]).andReturn(self.mockDatabaseExceptionCatcher);
-    OCMStub([self.mockContainer serverPreferredPushEnvironmentWithCompletionHandler: ([OCMArg invokeBlockWithArgs:self.apsEnvironment, [NSNull null], nil])]);
-    OCMStub([self.mockContainer submitEventMetric:[OCMArg any]]).andCall(self, @selector(ckcontainerSubmitEventMetric:));
+    OCMStub([self.mockContainer initWithContainerID: [OCMArg any] options: [OCMArg any]]).andCall(self, @selector(ckinitWithContainerID:options:));
 
     // Use two layers of mockDatabase here, so we can both add Expectations and catch the exception (instead of crash) when one fails.
     OCMStub([self.mockDatabaseExceptionCatcher addOperation:[OCMArg any]]).andCall(self, @selector(ckdatabaseAddOperation:));
 
-    // If you want to change this, you'll need to update the mock
-    _ckDeviceID = [NSString stringWithFormat:@"fake-cloudkit-device-id-%@", self.testName];
-    OCMStub([self.mockContainer fetchCurrentDeviceIDWithCompletionHandler: ([OCMArg invokeBlockWithArgs:self.ckDeviceID, [NSNull null], nil])]);
-
     self.accountStatus = CKAccountStatusAvailable;
     self.ckAccountStatusFetchError = nil;
     self.iCloudHasValidCredentials = YES;
-
     self.fakeHSA2AccountStatus = CKKSAccountStatusAvailable;
-
+    
+    NSString* newAltDSID = [OTMockPersonaAdapter defaultMockPersonaString];
+    NSSet* otherDevices = [[NSSet alloc] initWithObjects:@"MACHINE2", @"MACHINE3", nil];
+    self.mockAccountsAuthKitAdapter = [[CKKSTestsMockAccountsAuthKitAdapter alloc]initWithAltDSID:newAltDSID machineID:@"MACHINE1" otherDevices:otherDevices];
+    
     // Inject a fake operation dependency so we won't respond with the CloudKit account status immediately
     // The CKKSAccountStateTracker won't send any login/logout calls without that information, so this blocks all CKKS setup
     self.ckaccountHoldOperation = [NSBlockOperation named:@"ckaccount-hold" withBlock:^{
         ckksnotice_global("ckks", "CKKS CK account status test hold released");
     }];
-
-    OCMStub([self.mockContainer accountStatusWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerAccountStatusWithCompletionHandler:));
-    OCMStub([self.mockContainer accountInfoWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerAccountInfoWithCompletionHandler:));
-    OCMStub([self.mockContainer reloadAccountWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerReloadAccountWithCompletionHandler:));
-
+    
     self.mockAccountStateTracker = OCMClassMock([CKKSAccountStateTracker class]);
     OCMStub([self.mockAccountStateTracker getCircleStatus]).andCall(self, @selector(circleStatus));
 
@@ -262,7 +695,10 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
                                                                  trustedPeers:[NSSet set]
                                                                     essential:YES];
 
-    self.mockPersonaAdapter = [[OTMockPersonaAdapter alloc] init];
+    if(self.mockPersonaAdapter == nil) {
+        // Other tests can set one of these up.
+        self.mockPersonaAdapter = [[OTMockPersonaAdapter alloc] init];
+    }
 
     OCMStub([self.mockAccountStateTracker fetchCirclePeerID:[OCMArg any]]).andCall(self, @selector(sosFetchCirclePeerID:));
 
@@ -376,9 +812,8 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
                                                                                                                          nsnotificationCenterClass:[FakeNSNotificationCenter class]
                                                                                                               nsdistributednotificationCenterClass:[FakeNSDistributedNotificationCenter class]
                                                                                                                                      notifierClass:[FakeCKKSNotifier class]];
-
-
     self.injectedOTManager = [self setUpOTManager:cloudKitClassDependencies];
+    self.cloudKitClassDependencies = cloudKitClassDependencies;
     [OTManager resetManager:false to:self.injectedOTManager];
 
     self.mockCKKSViewManager = OCMPartialMock(self.injectedOTManager.viewManager);
@@ -386,10 +821,20 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
     self.defaultCKKS = [self.injectedManager ckksAccountSyncForContainer:SecCKKSContainerName
                                                                contextID:OTDefaultContext];
-
+    XCTAssertNotNil(self.defaultCKKS, "Should have a default CKKS");
+    
+    __block NSString* ckID = nil;
+    [self.defaultCKKS.container fetchCurrentDeviceIDWithCompletionHandler:^(NSString * _Nullable deviceID, NSError * _Nullable error) {
+        XCTAssertNotNil(deviceID, "deviceID should not be nil");
+        XCTAssertNil(error, "error should be nil");
+        ckID = deviceID;
+    }];
+    
+    _ckDeviceID = ckID;
+    
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
     OCMStub([self.mockCKKSViewManager waitForTrustReady]).andReturn(YES);
-
+    
     // Lie and say network is available
     [self.reachabilityTracker setNetworkReachability:true];
 
@@ -405,13 +850,21 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     }
 }
 
+- (CKContainer*)ckinitWithContainerID:(CKContainerID*)containerID options:(CKContainerOptions*)options
+{
+    return (CKContainer*)[[MockCKContainerObject alloc] initWithContainerID:containerID
+                                                                    options:options
+                                                       privateCloudDatabase:self.mockDatabaseExceptionCatcher
+                                                      containerExpectations:self.mockContainerExpectations
+                                                                       test:self];
+}
+
 - (OTManager*)setUpOTManager:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
 {
     return [[OTManager alloc] initWithSOSAdapter:self.mockSOSAdapter
                                 lockStateTracker:[[CKKSLockStateTracker alloc] initWithProvider:self.lockStateProvider]
                                   personaAdapter:self.mockPersonaAdapter
                        cloudKitClassDependencies:cloudKitClassDependencies];
-
 }
 
 - (SOSAccountStatus*)circleStatus {
@@ -450,52 +903,52 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     }
 }
 
-- (void)ckcontainerSubmitEventMetric:(CKEventMetric*)metric {
-    @try {
-        [self.mockContainerExpectations submitEventMetric:metric];
-    } @catch (NSException *exception) {
-        XCTFail("Received an container exception when trying to add a metric: %@", exception);
+- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)altDSID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
+{
+    __weak __typeof(self) weakSelf = self;
+    
+    if (OctagonSupportsPersonaMultiuser()) {
+        NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-info-completion" withBlock: ^{
+            __strong __typeof(self) blockStrongSelf = weakSelf;
+            CloudKitAccount* ckAccount = blockStrongSelf.mockAccountsAuthKitAdapter.accounts[altDSID];
+            CKAccountInfo* account = nil;
+            NSError* ckAccountStatusFetchError = nil;
+            if (ckAccount == nil) {
+                account = [[CKAccountInfo alloc] init];
+                account.accountStatus = blockStrongSelf.accountStatus;
+                account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
+                account.accountPartition = CKAccountPartitionTypeProduction;
+                ckAccountStatusFetchError = blockStrongSelf.ckAccountStatusFetchError;
+            } else {
+                account = [[CKAccountInfo alloc] init];
+                account.accountStatus = ckAccount.accountStatus;
+                account.hasValidCredentials = ckAccount.iCloudHasValidCredentials;
+                account.accountPartition = CKAccountPartitionTypeProduction;
+                ckAccountStatusFetchError = ckAccount.ckAccountStatusFetchError;
+            }
+            if(completionHandler) {
+                completionHandler(account, ckAccountStatusFetchError);
+            }
+        }];
+        
+        [fulfillBlock addNullableDependency:self.ckaccountHoldOperation];
+        [self.operationQueue addOperation:fulfillBlock];
+    } else {
+        NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-info-completion" withBlock: ^{
+            __strong __typeof(self) blockStrongSelf = weakSelf;
+            CKAccountInfo* account = [[CKAccountInfo alloc] init];
+            account.accountStatus = blockStrongSelf.accountStatus;
+            account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
+            account.accountPartition = CKAccountPartitionTypeProduction;
+            
+            if(completionHandler) {
+                completionHandler(account, blockStrongSelf.ckAccountStatusFetchError);
+            }
+        }];
+        
+        [fulfillBlock addNullableDependency:self.ckaccountHoldOperation];
+        [self.operationQueue addOperation:fulfillBlock];
     }
-}
-
-- (void)ckcontainerAccountStatusWithCompletionHandler:(void (^)(CKAccountStatus accountStatus, NSError * _Nullable error))completionHandler
-{
-    __weak __typeof(self) weakSelf = self;
-
-    NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-status-completion" withBlock: ^{
-        __strong __typeof(self) strongOperationSelf = weakSelf;
-
-        if(completionHandler) {
-            completionHandler(strongOperationSelf.accountStatus, strongOperationSelf.ckAccountStatusFetchError);
-        }
-    }];
-    [fulfillBlock addNullableDependency:self.ckaccountHoldOperation];
-    [self.operationQueue addOperation:fulfillBlock];
-}
-
-- (void)ckcontainerAccountInfoWithCompletionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
-{
-    __weak __typeof(self) weakSelf = self;
-
-    NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-info-completion" withBlock: ^{
-        __strong __typeof(self) blockStrongSelf = weakSelf;
-        CKAccountInfo* account = [[CKAccountInfo alloc] init];
-        account.accountStatus = blockStrongSelf.accountStatus;
-        account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
-        account.accountPartition = CKAccountPartitionTypeProduction;
-
-        if(completionHandler) {
-            completionHandler(account, blockStrongSelf.ckAccountStatusFetchError);
-        }
-    }];
-
-    [fulfillBlock addNullableDependency:self.ckaccountHoldOperation];
-    [self.operationQueue addOperation:fulfillBlock];
-}
-
-- (void)ckcontainerReloadAccountWithCompletionHandler:(void (^)(NSError *_Nullable error))completionHandler
-{
-    completionHandler(nil);
 }
 
 - (void)ckdatabaseAddOperation:(NSOperation*)op {
@@ -1248,9 +1701,15 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 - (void)tearDown {
     secnotice("ckkstest", "Ending test %@", self.testName);
 
-    if(SecCKKSIsEnabled()) {
-        self.accountStatus = CKAccountStatusCouldNotDetermine;
+    [self.mockPersonaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier:nil];
 
+    if(SecCKKSIsEnabled()) {
+        if (OctagonSupportsPersonaMultiuser()) {
+            for (CloudKitAccount* account in [self.mockAccountsAuthKitAdapter.accounts allValues]) {
+                account.accountStatus = CKAccountStatusCouldNotDetermine;
+            }
+        }
+        
         // If the test never initialized the account state, don't call status later
         bool callStatus = [self.ckaccountHoldOperation isFinished];
         [self.ckaccountHoldOperation cancel];
@@ -1267,13 +1726,21 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
         if(callStatus) {
             // We can only fetch status from the default persona
             self.mockPersonaAdapter.isDefaultPersona = YES;
+            
+            NSArray<TPSpecificUser *> *activeAccounts = [self.mockAccountsAuthKitAdapter inflateAllTPSpecificUsers:OTCKContainerName octagonContextID:OTDefaultContext];
 
-            XCTestExpectation *statusReturned = [self expectationWithDescription:@"status returned"];
-            [self.injectedManager rpcStatus:nil fast:NO waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout reply:^(NSArray<NSDictionary *> *result, NSError *error) {
-                XCTAssertNil(error, "Should be no error fetching status");
-                [statusReturned fulfill];
-            }];
-            [self waitForExpectations: @[statusReturned] timeout:20];
+            for (TPSpecificUser* account in activeAccounts) {
+                
+                // when tests supports multiple ckks objects, this should go away so we can check on the status of each ckks
+                if ([account.altDSID isEqualToString:[OTMockPersonaAdapter defaultMockPersonaString]]) {
+                    XCTestExpectation *statusReturned = [self expectationWithDescription:@"status returned"];
+                    [self.injectedManager rpcStatus:nil fast:NO waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout reply:^(NSArray<NSDictionary *> *result, NSError *error) {
+                        XCTAssertNil(error, "Should be no error fetching status");
+                        [statusReturned fulfill];
+                    }];
+                    [self waitForExpectations: @[statusReturned] timeout:20];
+                }
+            }
 
             // Make sure this happens before teardown.
             XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:20*NSEC_PER_SEC], "Account state tracker initialized itself");
@@ -1284,7 +1751,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     }
 
     [self.injectedManager.accountTracker.fetchCKAccountStatusScheduler cancel];
-    [self.injectedManager.zoneChangeFetcher halt];
     [self.injectedManager haltAll];
     [self.injectedManager dropAllActors];
     [self.defaultCKKS halt];
@@ -1362,8 +1828,11 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     SecCKKSTestResetFlags();
 }
 
-- (CKKSKey*) fakeTLK: (CKRecordZoneID*)zoneID {
+- (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID
+          contextID:(NSString*)contextID
+{
     CKKSKey* key = [[CKKSKey alloc] initSelfWrappedWithAESKey:[[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
+                                                    contextID:contextID
                                                          uuid:[[NSUUID UUID] UUIDString]
                                                      keyclass:SecCKKSKeyClassTLK
                                                         state: SecCKKSProcessedStateLocal

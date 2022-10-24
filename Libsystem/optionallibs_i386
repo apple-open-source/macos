@@ -24,7 +24,6 @@ system_m
 system_malloc
 system_networkextension
 system_notify
-system_product_info_filter
 system_sandbox
 system_secinit
 system_symptoms

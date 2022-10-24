@@ -91,7 +91,7 @@ static inline void SOSAccountPeerGotInSync_wTxn(SOSAccount* acct, SOSPeerInfoRef
 }
 
 static inline CFArrayRef SOSAccountCopyViewUnawarePeers_wTxn(SOSAccount* acct, CFErrorRef* error) {
-    __block CFArrayRef result = false;
+    __block CFArrayRef result = NULL;
     [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
         result = SOSAccountCopyViewUnaware(txn.account, error);
     }];
@@ -1024,7 +1024,7 @@ retOut:
     return retval;
 }
 
-static inline void SOSTestCleanup() {
+static inline void SOSTestCleanup(void) {
     SOSUnregisterAllTransportMessages();
     SOSUnregisterAllTransportCircles();
     SOSUnregisterAllTransportKeyParameters();

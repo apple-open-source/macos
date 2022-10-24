@@ -28,6 +28,7 @@
 #import <pal/spi/cocoa/PassKitSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakPtr.h>
 
 OBJC_CLASS NSArray;
 OBJC_CLASS NSError;
@@ -59,6 +60,9 @@ using DidChangeCouponCodeCompletion = BlockPtr<void(PKPaymentRequestCouponCodeUp
 - (void)completeMerchantValidation:(PKPaymentMerchantSession *)session error:(NSError *)error;
 - (void)completePaymentMethodSelection:(PKPaymentRequestPaymentMethodUpdate *)paymentMethodUpdate;
 - (void)completePaymentSession:(PKPaymentAuthorizationStatus)status errors:(NSArray<NSError *> *)errors;
+#if HAVE(PASSKIT_PAYMENT_ORDER_DETAILS)
+- (void)completePaymentSession:(PKPaymentAuthorizationStatus)status errors:(NSArray<NSError *> *)errors orderDetails:(PKPaymentOrderDetails *)orderDetails;
+#endif
 - (void)completeShippingContactSelection:(PKPaymentRequestShippingContactUpdate *)shippingContactUpdate;
 - (void)completeShippingMethodSelection:(PKPaymentRequestShippingMethodUpdate *)shippingMethodUpdate;
 #if HAVE(PASSKIT_COUPON_CODE)

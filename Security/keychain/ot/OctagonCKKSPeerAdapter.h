@@ -4,7 +4,9 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CKKSPeerProvider.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 #import "keychain/ot/CuttlefishXPCWrapper.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -20,14 +22,14 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OctagonCKKSPeerAdapter : NSObject  <CKKSPeerProvider>
 
 @property (nullable) NSString* peerID;
+@property (readonly) TPSpecificUser* specificUser;
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
-@property (readonly) NSString* containerName;
-@property (readonly) NSString* contextID;
+@property id<OTPersonaAdapter> personaAdapter;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithPeerID:(NSString*)peerID
-                 containerName:(NSString*)containerName
-                     contextID:(NSString*)contextID
+                  specificUser:(TPSpecificUser*)specificUser
+                personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                  cuttlefishXPC:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 @end
 

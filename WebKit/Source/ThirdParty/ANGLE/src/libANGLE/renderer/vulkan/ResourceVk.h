@@ -10,6 +10,7 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_RESOURCEVK_H_
 #define LIBANGLE_RENDERER_VULKAN_RESOURCEVK_H_
 
+#include "libANGLE/HandleAllocator.h"
 #include "libANGLE/renderer/vulkan/vk_utils.h"
 
 #include <queue>
@@ -18,6 +19,25 @@ namespace rx
 {
 namespace vk
 {
+// Estimated maximum command buffers in a normal session. Beyond this we will lose performance.
+constexpr size_t kMaxFastCommandBuffers = 64;
+
+struct CommandBufferID
+{
+    GLuint value;
+};
+
+inline bool operator==(CommandBufferID lhs, CommandBufferID rhs)
+{
+    return lhs.value == rhs.value;
+}
+
+using CommandBufferHandleAllocator = gl::HandleAllocator;
+
+// Tracks open command buffers for a resource.
+// We could optimize this with a hybrid packed bitset/list for applications that use many contexts.
+using ResourceCommandBuffers = angle::FlatUnorderedSet<CommandBufferID, kMaxFastCommandBuffers>;
+
 // Tracks how a resource is used by ANGLE and by a VkQueue. The reference count indicates the number
 // of times a resource is retained by ANGLE. The serial indicates the most recent use of a resource
 // in the VkQueue. The reference count and serial together can determine if a resource is currently
@@ -26,8 +46,11 @@ struct ResourceUse
 {
     ResourceUse() = default;
 
-    // The number of times a resource is retained by ANGLE.
+    // The number of times a resource is retained by a Context/ShareGroup/Renderer.
     uint32_t counter = 0;
+
+    // Open command buffers using this resource.
+    ResourceCommandBuffers commandBuffers;
 
     // The most recent time of use in a VkQueue.
     Serial serial;
@@ -43,12 +66,6 @@ class SharedResourceUse final : angle::NonCopyable
     {
         std::swap(mUse, rhs.mUse);
         return *this;
-    }
-
-    void copy(SharedResourceUse &src)
-    {
-        mUse = src.mUse;
-        mUse->counter++;
     }
 
     ANGLE_INLINE bool valid() const { return mUse != nullptr; }
@@ -117,6 +134,27 @@ class SharedResourceUse final : angle::NonCopyable
         return mUse->serial;
     }
 
+    ANGLE_INLINE void setCommandBuffer(CommandBufferID commandBufferID)
+    {
+        if (!mUse->commandBuffers.contains(commandBufferID))
+        {
+            mUse->commandBuffers.insert(commandBufferID);
+        }
+    }
+
+    ANGLE_INLINE void clearCommandBuffer(CommandBufferID commandBufferID)
+    {
+        if (mUse->commandBuffers.contains(commandBufferID))
+        {
+            mUse->commandBuffers.remove(commandBufferID);
+        }
+    }
+
+    ANGLE_INLINE bool usedByCommandBuffer(CommandBufferID commandBufferID) const
+    {
+        return mUse->commandBuffers.contains(commandBufferID);
+    }
+
   private:
     ResourceUse *mUse;
 };
@@ -126,19 +164,28 @@ class SharedBufferSuballocationGarbage
   public:
     SharedBufferSuballocationGarbage() = default;
     SharedBufferSuballocationGarbage(SharedBufferSuballocationGarbage &&other)
-        : mLifetime(std::move(other.mLifetime)), mGarbage(std::move(other.mGarbage))
+        : mLifetime(std::move(other.mLifetime)),
+          mSuballocation(std::move(other.mSuballocation)),
+          mBuffer(std::move(other.mBuffer))
     {}
-    SharedBufferSuballocationGarbage(SharedResourceUse &&use, BufferSuballocation &&garbage)
-        : mLifetime(std::move(use)), mGarbage(std::move(garbage))
+    SharedBufferSuballocationGarbage(SharedResourceUse &&use,
+                                     BufferSuballocation &&suballocation,
+                                     Buffer &&buffer)
+        : mLifetime(std::move(use)),
+          mSuballocation(std::move(suballocation)),
+          mBuffer(std::move(buffer))
     {}
     ~SharedBufferSuballocationGarbage() = default;
 
     bool destroyIfComplete(RendererVk *renderer, Serial completedSerial);
     bool usedInRecordedCommands() const { return mLifetime.usedInRecordedCommands(); }
+    VkDeviceSize getSize() const { return mSuballocation.getSize(); }
+    bool isSuballocated() const { return mSuballocation.isSuballocated(); }
 
   private:
     SharedResourceUse mLifetime;
-    BufferSuballocation mGarbage;
+    BufferSuballocation mSuballocation;
+    Buffer mBuffer;
 };
 using SharedBufferSuballocationGarbageList = std::queue<SharedBufferSuballocationGarbage>;
 
@@ -171,10 +218,11 @@ class ResourceUseList final : angle::NonCopyable
     ResourceUseList &operator=(ResourceUseList &&rhs);
 
     void add(const SharedResourceUse &resourceUse);
-    void copy(ResourceUseList &srcResourceUse);
 
     void releaseResourceUses();
     void releaseResourceUsesAndUpdateSerials(Serial serial);
+
+    void clearCommandBuffer(CommandBufferID commandBufferID);
 
     bool empty() { return mResourceUses.empty(); }
 
@@ -220,7 +268,16 @@ class Resource : angle::NonCopyable
                               RenderPassClosureReason reason);
 
     // Adds the resource to a resource use list.
-    void retain(ResourceUseList *resourceUseList) const;
+    void retain(ResourceUseList *resourceUseList);
+
+    // Adds the resource to the list and also records command buffer use.
+    void retainCommands(CommandBufferID commandBufferID, ResourceUseList *resourceUseList);
+
+    // Check if this resource is used by a command buffer.
+    bool usedByCommandBuffer(CommandBufferID commandBufferID) const
+    {
+        return mUse.usedByCommandBuffer(commandBufferID);
+    }
 
   protected:
     Resource();
@@ -231,8 +288,17 @@ class Resource : angle::NonCopyable
     SharedResourceUse mUse;
 };
 
-ANGLE_INLINE void Resource::retain(ResourceUseList *resourceUseList) const
+ANGLE_INLINE void Resource::retain(ResourceUseList *resourceUseList)
 {
+    // Store reference in resource list.
+    resourceUseList->add(mUse);
+}
+
+ANGLE_INLINE void Resource::retainCommands(CommandBufferID commandBufferID,
+                                           ResourceUseList *resourceUseList)
+{
+    mUse.setCommandBuffer(commandBufferID);
+
     // Store reference in resource list.
     resourceUseList->add(mUse);
 }
@@ -275,8 +341,22 @@ class ReadWriteResource : public angle::NonCopyable
                               RenderPassClosureReason reason);
 
     // Adds the resource to a resource use list.
-    void retainReadOnly(ResourceUseList *resourceUseList) const;
-    void retainReadWrite(ResourceUseList *resourceUseList) const;
+    void retainReadOnly(CommandBufferID commandBufferID, ResourceUseList *resourceUseList);
+    void retainReadWrite(CommandBufferID commandBufferID, ResourceUseList *resourceUseList);
+
+    // Retain to a one-shot resource use list.
+    void retainReadOnlyOneOff(ResourceUseList *resourceUseList);
+
+    // Check if this resource is used by a command buffer.
+    bool usedByCommandBuffer(CommandBufferID commandBufferID) const
+    {
+        return mReadOnlyUse.usedByCommandBuffer(commandBufferID);
+    }
+
+    bool writtenByCommandBuffer(CommandBufferID commandBufferID) const
+    {
+        return mReadWriteUse.usedByCommandBuffer(commandBufferID);
+    }
 
   protected:
     ReadWriteResource();
@@ -289,17 +369,27 @@ class ReadWriteResource : public angle::NonCopyable
     SharedResourceUse mReadWriteUse;
 };
 
-ANGLE_INLINE void ReadWriteResource::retainReadOnly(ResourceUseList *resourceUseList) const
+ANGLE_INLINE void ReadWriteResource::retainReadOnly(CommandBufferID commandBufferID,
+                                                    ResourceUseList *resourceUseList)
 {
     // Store reference in resource list.
     resourceUseList->add(mReadOnlyUse);
+    mReadOnlyUse.setCommandBuffer(commandBufferID);
 }
 
-ANGLE_INLINE void ReadWriteResource::retainReadWrite(ResourceUseList *resourceUseList) const
+ANGLE_INLINE void ReadWriteResource::retainReadWrite(CommandBufferID commandBufferID,
+                                                     ResourceUseList *resourceUseList)
 {
     // Store reference in resource list.
     resourceUseList->add(mReadOnlyUse);
     resourceUseList->add(mReadWriteUse);
+    mReadOnlyUse.setCommandBuffer(commandBufferID);
+    mReadWriteUse.setCommandBuffer(commandBufferID);
+}
+
+ANGLE_INLINE void ReadWriteResource::retainReadOnlyOneOff(ResourceUseList *resourceUseList)
+{
+    resourceUseList->add(mReadOnlyUse);
 }
 
 }  // namespace vk

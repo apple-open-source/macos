@@ -2,17 +2,16 @@
 		<key>OpenSourceProject</key>
 		<string>test</string>
 		<key>OpenSourceVersion</key>
-		<string>2013-12-05</string>
+		<string>2020-12-02</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/bin/test/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/bin/test/</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/test?id=1cc908de3ab2e11fca648fc874df2f9d255fc087</string>
 		<key>OpenSourceImportDate</key>
-		<string>2015-07-31</string>
+		<string>2021-12-08</string>
 		<key>OpenSourceModifications</key>
 		<array>
-		    <string>4689479</string>
-		    <string>compatibility for eaccess, st_mtim</string>
+		    <string>test.c: error out if argv[0] == NULL (4689479)</string>
+		    <string>test.c: compatibility for eaccess (18613063)</string>
+		    <string>test.c: compatibility for st_mtim (4689479)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

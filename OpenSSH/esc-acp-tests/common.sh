@@ -25,6 +25,8 @@ sshcert="$tmpdir/id_ecdsa-cert.pub"
 ssh-keygen -q -t ecdsa -N '' -f "$sshca"
 ssh-keygen -q -t ecdsa -N '' -f "$sshkey"
 
+[[ -n "${TRACE}" ]] && { true > "${TRACE}" }
+
 function randomdigits {
   LC_ALL=C tr -dc '[:digit:]' </dev/urandom | head -c $1
 }
@@ -42,5 +44,5 @@ function certgen {
 function esc_acp {
   cert="$(awk '{ print $2 }' "$sshcert")"
   echo esc-acp $ESC_ACP_DEBUG "$cert" "$@" >>"${TRACE:-/dev/null}"
-  esc-acp $ESC_ACP_DEBUG "$cert" "$@" 2>&1
+  esc-acp $ESC_ACP_DEBUG "$cert" "$@" 2>>"${TRACE:-/dev/null}"
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -101,7 +101,7 @@ void ItemHandle::apply(GraphicsContext& context)
         get<ClipOut>().apply(context);
         return;
     case ItemType::ClipToImageBuffer:
-        get<ClipToImageBuffer>().apply(context);
+        ASSERT_NOT_REACHED();
         return;
     case ItemType::ClipOutToPath:
         get<ClipOutToPath>().apply(context);
@@ -109,26 +109,26 @@ void ItemHandle::apply(GraphicsContext& context)
     case ItemType::ClipPath:
         get<ClipPath>().apply(context);
         return;
-    case ItemType::BeginClipToDrawingCommands:
-        ASSERT_NOT_REACHED();
-        return;
-    case ItemType::EndClipToDrawingCommands:
-        ASSERT_NOT_REACHED();
-        return;
     case ItemType::DrawFilteredImageBuffer:
-        get<DrawFilteredImageBuffer>().apply(context);
+        ASSERT_NOT_REACHED();
         return;
     case ItemType::DrawGlyphs:
         ASSERT_NOT_REACHED();
         return;
+    case ItemType::DrawDecomposedGlyphs:
+        ASSERT_NOT_REACHED();
+        return;
     case ItemType::DrawImageBuffer:
-        get<DrawImageBuffer>().apply(context);
+        ASSERT_NOT_REACHED();
         return;
     case ItemType::DrawNativeImage:
-        get<DrawNativeImage>().apply(context);
+        ASSERT_NOT_REACHED();
+        return;
+    case ItemType::DrawSystemImage:
+        get<DrawSystemImage>().apply(context);
         return;
     case ItemType::DrawPattern:
-        get<DrawPattern>().apply(context);
+        ASSERT_NOT_REACHED();
         return;
     case ItemType::DrawRect:
         get<DrawRect>().apply(context);
@@ -192,12 +192,9 @@ void ItemHandle::apply(GraphicsContext& context)
     case ItemType::FillEllipse:
         get<FillEllipse>().apply(context);
         return;
-    case ItemType::FlushContext:
-        get<FlushContext>().apply(context);
-        return;
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
-        get<PaintFrameForMedia>().apply(context);
+        ASSERT_NOT_REACHED();
         return;
 #endif
     case ItemType::StrokeRect:
@@ -267,6 +264,9 @@ void ItemHandle::destroy()
     case ItemType::DrawGlyphs:
         get<DrawGlyphs>().~DrawGlyphs();
         return;
+    case ItemType::DrawDecomposedGlyphs:
+        get<DrawDecomposedGlyphs>().~DrawDecomposedGlyphs();
+        break;
     case ItemType::DrawLinesForText:
         get<DrawLinesForText>().~DrawLinesForText();
         return;
@@ -311,9 +311,6 @@ void ItemHandle::destroy()
         static_assert(std::is_trivially_destructible<ApplyStrokePattern>::value);
         return;
 #endif
-    case ItemType::BeginClipToDrawingCommands:
-        get<BeginClipToDrawingCommands>().~BeginClipToDrawingCommands();
-        return;
     case ItemType::BeginTransparencyLayer:
         static_assert(std::is_trivially_destructible<BeginTransparencyLayer>::value);
         return;
@@ -347,6 +344,9 @@ void ItemHandle::destroy()
     case ItemType::DrawNativeImage:
         static_assert(std::is_trivially_destructible<DrawNativeImage>::value);
         return;
+    case ItemType::DrawSystemImage:
+        get<DrawSystemImage>().~DrawSystemImage();
+        return;
     case ItemType::DrawPattern:
         static_assert(std::is_trivially_destructible<DrawPattern>::value);
         return;
@@ -355,9 +355,6 @@ void ItemHandle::destroy()
         return;
     case ItemType::DrawRect:
         static_assert(std::is_trivially_destructible<DrawRect>::value);
-        return;
-    case ItemType::EndClipToDrawingCommands:
-        static_assert(std::is_trivially_destructible<EndClipToDrawingCommands>::value);
         return;
     case ItemType::EndTransparencyLayer:
         static_assert(std::is_trivially_destructible<EndTransparencyLayer>::value);
@@ -381,9 +378,6 @@ void ItemHandle::destroy()
 #endif
     case ItemType::FillRect:
         static_assert(std::is_trivially_destructible<FillRect>::value);
-        return;
-    case ItemType::FlushContext:
-        static_assert(std::is_trivially_destructible<FlushContext>::value);
         return;
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
@@ -495,12 +489,16 @@ bool ItemHandle::safeCopy(ItemType itemType, ItemHandle destination) const
         return copyInto<DrawFocusRingRects>(itemOffset, *this);
     case ItemType::DrawGlyphs:
         return copyInto<DrawGlyphs>(itemOffset, *this);
+    case ItemType::DrawDecomposedGlyphs:
+        return copyInto<DrawDecomposedGlyphs>(itemOffset, *this);
     case ItemType::DrawImageBuffer:
         return copyInto<DrawImageBuffer>(itemOffset, *this);
     case ItemType::DrawLinesForText:
         return copyInto<DrawLinesForText>(itemOffset, *this);
     case ItemType::DrawNativeImage:
         return copyInto<DrawNativeImage>(itemOffset, *this);
+    case ItemType::DrawSystemImage:
+        return copyInto<DrawSystemImage>(itemOffset, *this);
     case ItemType::DrawPattern:
         return copyInto<DrawPattern>(itemOffset, *this);
     case ItemType::DrawPath:
@@ -531,8 +529,6 @@ bool ItemHandle::safeCopy(ItemType itemType, ItemHandle destination) const
     case ItemType::ApplyStrokePattern:
         return copyInto<ApplyStrokePattern>(itemOffset, *this);
 #endif
-    case ItemType::BeginClipToDrawingCommands:
-        return copyInto<BeginClipToDrawingCommands>(itemOffset, *this);
     case ItemType::BeginTransparencyLayer:
         return copyInto<BeginTransparencyLayer>(itemOffset, *this);
     case ItemType::ClearRect:
@@ -555,8 +551,6 @@ bool ItemHandle::safeCopy(ItemType itemType, ItemHandle destination) const
         return copyInto<DrawLine>(itemOffset, *this);
     case ItemType::DrawRect:
         return copyInto<DrawRect>(itemOffset, *this);
-    case ItemType::EndClipToDrawingCommands:
-        return copyInto<EndClipToDrawingCommands>(itemOffset, *this);
     case ItemType::EndTransparencyLayer:
         return copyInto<EndTransparencyLayer>(itemOffset, *this);
     case ItemType::FillEllipse:
@@ -573,8 +567,6 @@ bool ItemHandle::safeCopy(ItemType itemType, ItemHandle destination) const
 #endif
     case ItemType::FillRect:
         return copyInto<FillRect>(itemOffset, *this);
-    case ItemType::FlushContext:
-        return copyInto<FlushContext>(itemOffset, *this);
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
         return copyInto<PaintFrameForMedia>(itemOffset, *this);

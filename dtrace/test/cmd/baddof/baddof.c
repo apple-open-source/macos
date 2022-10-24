@@ -35,6 +35,7 @@
 #include <unistd.h>
 #include <strings.h>
 
+__printflike(1, 2)
 void
 fatal(char *fmt, ...)
 {

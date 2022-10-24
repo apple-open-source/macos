@@ -7,8 +7,7 @@ cd openssh
  --disable-security-key \
  --disable-libutil \
  --disable-pututline \
- --with-xauth="xauth" \
  --with-default-path="/usr/bin:/bin:/usr/sbin:/sbin" \
- --with-cppflags="-I`xcodebuild -version -sdk macosx.internal Path`/usr/local/include/sshcrypto" \
- --with-ldflags="-L`xcodebuild -version -sdk macosx.internal Path`/usr/local/lib/sshcrypto"
+ --with-cppflags="-I`xcodebuild -version -sdk macosx.internal Path`/usr/local/libressl/include" \
+ --with-ldflags="-L`xcodebuild -version -sdk macosx.internal Path`/usr/local/libressl/lib"
 mv config.h ../generated-config.h

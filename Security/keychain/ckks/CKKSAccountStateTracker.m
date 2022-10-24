@@ -32,6 +32,7 @@
 
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTControl.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
@@ -108,7 +109,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         WEAKIFY(self);
 
         // If this is a live server, register with notify
-        if(!SecCKKSTestsEnabled()) {
+        if([OTClique platformSupportsSOS] && !SecCKKSTestsEnabled()) {
             int token = 0;
             notify_register_dispatch(kSOSCCCircleChangedNotification, &token, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(int t) {
                 STRONGIFY(self);
@@ -130,7 +131,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
         _fetchCKAccountStatusScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"ckstatus-refetch"
                                                                           initialDelay:5 * NSEC_PER_SEC
-                                                                      expontialBackoff:1.1
+                                                                    exponentialBackoff:1.1
                                                                           maximumDelay:600 * NSEC_PER_SEC
                                                                       keepProcessAlive:false
                                                              dependencyDescriptionCode:0
@@ -237,7 +238,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         STRONGIFY(self);
 
         if(error) {
-            ckkserror_global("ckksaccount", "error getting account info: %@", error);
+            ckkserror_global("ckksaccount", "error getting account info(altDSID: %@): %@", self.container.options.accountOverrideInfo.altDSID, error);
             [self.fetchCKAccountStatusScheduler trigger];
             dispatch_semaphore_signal(finishedSema);
             return;
@@ -245,7 +246,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
         dispatch_sync(self.queue, ^{
             self.firstCKAccountFetch = true;
-            ckksnotice_global("ckksaccount", "received CK Account info: %@", ckAccountInfo);
+            ckksnotice_global("ckksaccount", "received CK Account info(altDSID: %@): %@", self.container.options.accountOverrideInfo.altDSID, ckAccountInfo);
             [self _onqueueUpdateAccountState:ckAccountInfo deliveredSemaphore:finishedSema];
         });
     };
@@ -255,7 +256,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
                 STRONGIFY(self);
 
                 if (error) {
-                    ckkserror_global("ckksaccount", "error reloading account info: %@", error);
+                    ckkserror_global("ckksaccount", "error reloading account info(altDSID: %@): %@", self.container.options.accountOverrideInfo.altDSID, error);
                     [self.fetchCKAccountStatusScheduler trigger];
                     dispatch_semaphore_signal(finishedSema);
                     return;
@@ -287,7 +288,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
             dispatch_async(self.queue, ^{
                 STRONGIFY(self);
                 if(self.currentCKAccountInfo.accountStatus == CKAccountStatusAvailable) {
-                    ckksnotice_global("ckksaccount", "CloudKit deviceID is: %@ %@", deviceID, ckerror);
+                    ckksnotice_global("ckksaccount", "CloudKit deviceID is(altDSID: %@): %@ %@", self.container.options.accountOverrideInfo.altDSID, deviceID, ckerror);
 
                     self.ckdeviceID = deviceID;
                     self.ckdeviceIDError = ckerror;
@@ -410,13 +411,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     if([self.currentCKAccountInfo isEqual: ckAccountInfo]) {
         // no-op.
-        ckksinfo_global("ckksaccount", "received another notification of CK Account State %@", ckAccountInfo);
+        ckksinfo_global("ckksaccount", "received another notification of CK Account State(altDSID: %@) %@", self.container.options.accountOverrideInfo.altDSID, ckAccountInfo);
         return;
     }
 
     if((self.currentCKAccountInfo == nil && ckAccountInfo != nil) ||
        !(self.currentCKAccountInfo == ckAccountInfo || [self.currentCKAccountInfo isEqual: ckAccountInfo])) {
-        ckksnotice_global("ckksaccount", "moving to CK Account info: %@", ckAccountInfo);
+        ckksnotice_global("ckksaccount", "moving to CK Account info(altDSID: %@): %@", self.container.options.accountOverrideInfo.altDSID, ckAccountInfo);
         CKAccountInfo* oldAccountInfo = self.currentCKAccountInfo;
         self.currentCKAccountInfo = ckAccountInfo;
         [self.ckAccountInfoInitialized fulfill];
@@ -544,8 +545,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     // Explicitly do not use the OTClique API, as that might include SOS status as well
     OTOperationConfiguration* config = [[OTOperationConfiguration alloc] init];
     config.timeoutWaitForCKAccount = 100*NSEC_PER_MSEC;
-    [[OTManager manager] fetchTrustStatus:nil
-                                  context:OTDefaultContext
+    [[OTManager manager] fetchTrustStatus:[[OTControlArguments alloc] init]
                             configuration:config
                                     reply:^(CliqueStatus status, NSString * _Nullable peerID, NSNumber * _Nullable numberOfPeersInOctagon, BOOL isExcluded, NSError * _Nullable error) {
                                         STRONGIFY(self);

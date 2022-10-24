@@ -41,9 +41,12 @@
 #include <security_asn1/plarenas.h>
 #include <security_asn1/seccomon.h>
 
-#include <security_smime/secoidt.h>
+#include "libsecurity_smime/lib/secoidt.h"
 
 SEC_BEGIN_PROTOS
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 extern const SecAsn1Template SECOID_AlgorithmIDTemplate[];
 
@@ -113,6 +116,7 @@ extern const char* SECOID_FindOIDTagDescription(SECOidTag tagnum);
 extern SECStatus SECOID_Shutdown(void);
 #endif
 
+#pragma clang diagnostic pop
 
 SEC_END_PROTOS
 

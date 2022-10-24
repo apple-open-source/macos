@@ -46,6 +46,7 @@
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTAccountsAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -58,8 +59,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSLockStateTracker* lockStateTracker;
 @property CKKSReachabilityTracker *reachabilityTracker;
 @property id<OTPersonaAdapter> personaAdapter;
-@property CKKSZoneChangeFetcher* zoneChangeFetcher;
-@property CKKSZoneModifier* zoneModifier;
 
 // Signaled when SecCKKSInitialize is complete, as it's async and likes to fire after tests are complete
 @property CKKSCondition* completedSecCKKSInitialize;
@@ -68,13 +67,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property id<OTSOSAdapter> sosPeerAdapter;
 
+@property id<OTAccountsAdapter> accountsAdapter;
+
 - (instancetype)initWithContainer:(CKContainer*)container
                        sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
               accountStateTracker:(CKKSAccountStateTracker*)accountTracker
                  lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
-        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
+        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
+                  accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter;
 
 - (CKKSKeychainView* _Nullable)ckksAccountSyncForContainer:(NSString*)container
                                                  contextID:(NSString*)contextID;

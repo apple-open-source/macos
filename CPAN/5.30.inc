@@ -3,7 +3,6 @@ CPAN_PROJECTS := \
     Module-Build-0.4231 \
     File-Remove-1.58 \
     YAML-Tiny-1.73 \
-    Test-Simple-1.302183 \
     Test-Requires-0.10 \
     Module-ScanDeps-1.27 \
     Module-Install-1.19 \
@@ -98,7 +97,6 @@ CPAN_PROJECTS := \
     Regexp-Common-2017060201 \
     CPAN-Changes-0.400002 \
     Class-Method-Modifiers-2.13 \
-    XSLoader-0.24 \
     List-MoreUtils-XS-0.428 \
     Exporter-Tiny-1.002002 \
     List-MoreUtils-0.428 \

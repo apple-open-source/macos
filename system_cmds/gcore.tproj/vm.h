@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2021 Apple Inc.  All rights reserved.
  */
 
 #include <mach/mach.h>
@@ -21,10 +21,10 @@ extern int pageshift_app;
 struct region;
 struct regionhead;
 
-extern void del_fileref_region(struct region *);
-extern void del_zfod_region(struct region *);
-extern void del_sparse_region(struct region *);
-extern void del_vanilla_region(struct region *);
+extern void rop_fileref_delete(struct region *);
+extern void rop_zfod_delete(struct region *);
+extern void rop_sparse_delete(struct region *);
+extern void rop_vanilla_delete(struct region *);
 
 extern struct regionhead *build_region_list(task_t);
 extern int walk_region_list(struct regionhead *, walk_region_cbfn_t, void *);
@@ -35,8 +35,10 @@ extern void print_memory_region(const struct region *);
 extern void print_one_memory_region(const struct region *);
 
 extern walk_region_cbfn_t region_print_memory;
-extern walk_region_cbfn_t region_write_memory;
-extern walk_region_cbfn_t region_size_memory;
+extern walk_region_cbfn_t makeheader_memory_region;
+extern walk_region_cbfn_t stream_memory_region;
+extern walk_region_cbfn_t pwrite_memory_region;
+extern walk_region_cbfn_t size_memory_region;
 
 extern int is_tagged(task_t, mach_vm_offset_t, mach_vm_offset_t, unsigned);
 

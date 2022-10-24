@@ -302,6 +302,27 @@ struct _http_s				/**** HTTP connection structure ****/
 					/* Allocated field values */
   			*default_fields[HTTP_FIELD_MAX];
 					/* Default field values, if any */
+#if __BLOCKS__
+  CFMutableDictionaryRef	_telemetryCallbacks;
+#endif
+
+  cups_array_t*			extra_headers; /* Other headers not seen above; captured for future auth use */
+  
+  /****Added for bearer token ****/
+  bearer_token_callback_t 	bearer_callback;   /* Bearer token callback */
+  void                  	*bearer_data;      /* Bearer authentication user data */
+
+  /* How many times did this http connection try bearer - used to invalidate PrintUITool cache */
+  int                       bearer_tries;
+
+  /* The Bearer token may specify a different requesting-user-name and we must adopt it */
+  char*                     rewriteRequestingUser;
+
+  /* token for telemetry daemon for debugging all the http streams (if present when building, debug only) */
+  const char*		telemetryConnection;
+
+  /* when setting up the tls context, if this is set we disable dh */
+  bool                      disableDH;
 };
 #  endif /* !_HTTP_NO_PRIVATE */
 
@@ -345,6 +366,21 @@ extern int		_httpTLSWrite(http_t *http, const char *buf, int len) _CUPS_PRIVATE;
 extern int		_httpUpdate(http_t *http, http_status_t *status) _CUPS_PRIVATE;
 extern int		_httpWait(http_t *http, int msec, int usessl) _CUPS_PRIVATE;
 
+#if __BLOCKS__
+// CFSTR("SSLHandshakeSuccess") -> SSLContextRef
+// CFSTR("SSLHandshakeFailure") -> SSLContextRef
+// CFSTR("HTTPWrite") 		-> CFDataRef
+// CFSTR("HTTPRead") 		-> CFDataRef
+
+typedef void			(^_http_telemetry_block_t)(http_t* http, CFStringRef key, CFTypeRef msg);
+extern void			_httpSetTelemetryBlockForKey(http_t* http, CFStringRef key, _http_telemetry_block_t telemetry) _CUPS_PRIVATE;
+extern _http_telemetry_block_t 	_httpGetTelemetryBlock(http_t* http, CFStringRef key) _CUPS_PRIVATE;
+
+/* Registers for SSLHandshake, used in ios PrintKit today, but should be phased out */
+extern void			_httpSetTelemetryBlock(http_t* http, _http_telemetry_block_t telemetry) _CUPS_PRIVATE;
+#endif
+
+extern char*            httpCopyFieldValue(http_t* http, const char *name) _CUPS_PRIVATE;
 
 /*
  * C++ magic...

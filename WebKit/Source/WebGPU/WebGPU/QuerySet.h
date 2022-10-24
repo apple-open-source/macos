@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,32 +25,48 @@
 
 #pragma once
 
-#import "WebGPU.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 
+struct WGPUQuerySetImpl {
+};
+
 namespace WebGPU {
 
-class QuerySet : public RefCounted<QuerySet> {
+class Device;
+
+// https://gpuweb.github.io/gpuweb/#gpuqueryset
+class QuerySet : public WGPUQuerySetImpl, public RefCounted<QuerySet> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<QuerySet> create()
+    static Ref<QuerySet> create(id<MTLCounterSampleBuffer> counterSampleBuffer, Device& device)
     {
-        return adoptRef(*new QuerySet());
+        return adoptRef(*new QuerySet(counterSampleBuffer, device));
+    }
+    static Ref<QuerySet> createInvalid(Device& device)
+    {
+        return adoptRef(*new QuerySet(device));
     }
 
     ~QuerySet();
 
     void destroy();
-    void setLabel(const char*);
+    void setLabel(String&&);
+
+    bool isValid() const { return m_counterSampleBuffer; }
+
+    id<MTLCounterSampleBuffer> counterSampleBuffer() const { return m_counterSampleBuffer; }
+
+    Device& device() const { return m_device; }
 
 private:
-    QuerySet();
+    QuerySet(id<MTLCounterSampleBuffer>, Device&);
+    QuerySet(Device&);
+
+    id<MTLCounterSampleBuffer> m_counterSampleBuffer { nil };
+
+    const Ref<Device> m_device;
 };
 
 } // namespace WebGPU
-
-struct WGPUQuerySetImpl {
-    Ref<WebGPU::QuerySet> querySet;
-};

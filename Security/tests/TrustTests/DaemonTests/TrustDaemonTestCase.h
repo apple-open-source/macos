@@ -28,6 +28,7 @@
 
 /* Use this one to "be" the daemon, after intialization */
 @interface TrustDaemonTestCase : XCTestCase
+- (id) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name subdirectory:(NSString *)dir;
 @end
 
 /* Use this one to test the initialization of the daemon */

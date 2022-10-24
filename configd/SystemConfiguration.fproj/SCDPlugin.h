@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2017, 2020 Apple, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2017, 2020, 2021 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,12 +35,6 @@
 /*!
 	@header SCDPlugin
  */
-
-
-/*
-	@defined kSCBundleRequiresKey
- */
-#define kSCBundleRequiresKey		CFSTR("Requires")
 
 
 /*

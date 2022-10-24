@@ -16,11 +16,13 @@ class OctagonCKKSTests: OctagonTestsBase {
         if self.mockDeviceInfo.mockModelID.contains("AppleTV") || self.mockDeviceInfo.mockModelID.contains("AudioAccessory") {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
+                CKRecordZone.ID(zoneName: "ProtectedCloudStorage"),
             ])
         } else {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
                 CKRecordZone.ID(zoneName: "Manatee"),
+                CKRecordZone.ID(zoneName: "Mail"),
                 CKRecordZone.ID(zoneName: "MFi"),
                 CKRecordZone.ID(zoneName: "Passwords"),
                 CKRecordZone.ID(zoneName: "SecureObjectSync"),
@@ -68,6 +70,22 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.addGenericPassword("asdf",
                                 account: "MFi-test",
                                 viewHint: kSecAttrViewHintMFi as String)
+
+        self.verifyDatabaseMocks()
+#endif // tvos test skip
+    }
+
+    func testHandleMailItemAdd() throws {
+#if os(tvOS)
+        throw XCTSkip("aTV does not participate in Mail view")
+#else
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: CKRecordZone.ID(zoneName: "Mail"))
+        self.addGenericPassword("asdf",
+                                account: "Mail-test",
+                                viewHint: kSecAttrViewHintMail as String)
 
         self.verifyDatabaseMocks()
 #endif // tvos test skip
@@ -356,8 +374,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Now, fake that the peer no longer has this opinion:
         do {
-            let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName,
-                                                            context: self.cuttlefishContext.contextID)
+            let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
 
             let (_, newSyncingPolicy, updateError) = container.updateSync(test: self,
                                                                           syncUserControllableViews: .UNKNOWN)
@@ -409,8 +426,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Now, fake that the peer no longer has this opinion:
         do {
-            let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName,
-                                                            context: self.cuttlefishContext.contextID)
+            let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
 
             let (_, newSyncingPolicy, updateError) = container.updateSync(test: self,
                                                                           syncUserControllableViews: .UNKNOWN)
@@ -462,8 +478,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Now, fake that the peer no longer has this opinion:
         do {
-            let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName,
-                                                            context: self.cuttlefishContext.contextID)
+            let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
 
             let (_, newSyncingPolicy, updateError) = container.updateSync(test: self,
                                                                           syncUserControllableViews: .UNKNOWN)
@@ -528,8 +543,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Now, fake that the peer no longer has this opinion:
         do {
-            let container = try self.tphClient.getContainer(withContainer: self.cuttlefishContext.containerName,
-                                                            context: self.cuttlefishContext.contextID)
+            let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
 
             let (_, newSyncingPolicy, updateError) = container.updateSync(test: self,
                                                                           syncUserControllableViews: .UNKNOWN)
@@ -569,7 +583,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
-        self.wait(for: [fastUpdateTrustExpectation], timeout: 10)
+        self.wait(for: [fastUpdateTrustExpectation], timeout: 20)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
@@ -614,6 +628,22 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
     }
 
+    func testFetchUserControllableViewsSyncingStatusOctagonStateUntrusted() throws {
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
+        self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertFalse(isSyncing, "should not be syncing untrusted")
+            fetchExpectation.fulfill()
+        }
+        self.wait(for: [fetchExpectation], timeout: 10)
+    }
+
     func testFetchUserControllableViewsSyncingStatusError() throws {
         self.startCKAccountStatusMock()
 
@@ -641,14 +671,13 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testSignInWithDelayedHSA2StatusAndAttemptFetchUserControllableViewsSyncingStatus() throws {
-        self.startCKAccountStatusMock()
-
         // Tell SOS that it is absent, so we don't enable CDP on bringup
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
 
         // Device is signed out
-        self.mockAuthKit.altDSID = nil
-        self.mockAuthKit.hsa2 = false
+        self.mockAuthKit.removePrimaryAccount()
+
+        self.startCKAccountStatusMock()
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
@@ -656,7 +685,10 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Sign in occurs, but HSA2 status isn't here yet
         let newAltDSID = UUID().uuidString
-        self.mockAuthKit.altDSID = newAltDSID
+
+        let account = CloudKitAccount(altDSID: newAltDSID, persona: nil, hsa2: false, demo: false, accountStatus: .available)
+        self.mockAuthKit.add(account)
+
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'waitforhsa2'

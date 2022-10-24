@@ -514,9 +514,7 @@ readfile(
 		    // Create a swap file now, so that other Vims are warned
 		    // that we are editing this file.  Don't do this for a
 		    // "nofile" or "nowrite" buffer type.
-#ifdef FEAT_QUICKFIX
 		    if (!bt_dontwrite(curbuf))
-#endif
 		    {
 			check_need_swap(newfile);
 			// SwapExists autocommand may mess things up
@@ -595,9 +593,7 @@ readfile(
     // Create a swap file now, so that other Vims are warned that we are
     // editing this file.
     // Don't do this for a "nofile" or "nowrite" buffer type.
-#ifdef FEAT_QUICKFIX
     if (!bt_dontwrite(curbuf))
-#endif
     {
 	check_need_swap(newfile);
 	if (!read_stdin && (curbuf != old_curbuf
@@ -1631,7 +1627,6 @@ retry:
 		 * Do the conversion.
 		 */
 		dst = ptr;
-		size = size;
 		while (size > 0)
 		{
 		    found_bad = FALSE;
@@ -2387,7 +2382,7 @@ failed:
 	    linecnt = 0;
 	if (newfile || read_buffer)
 	{
-	    redraw_curbuf_later(NOT_VALID);
+	    redraw_curbuf_later(UPD_NOT_VALID);
 #ifdef FEAT_DIFF
 	    // After reading the text into the buffer the diff info needs to
 	    // be updated.
@@ -3419,9 +3414,7 @@ shorten_buf_fname(buf_T *buf, char_u *dirname, int force)
     char_u	*p;
 
     if (buf->b_fname != NULL
-#ifdef FEAT_QUICKFIX
 	    && !bt_nofilename(buf)
-#endif
 	    && !path_with_url(buf->b_fname)
 	    && (force
 		|| buf->b_sfname == NULL
@@ -4758,8 +4751,8 @@ compare_readdirex_item(const void *p1, const void *p2)
 {
     char_u  *name1, *name2;
 
-    name1 = dict_get_string(*(dict_T**)p1, (char_u*)"name", FALSE);
-    name2 = dict_get_string(*(dict_T**)p2, (char_u*)"name", FALSE);
+    name1 = dict_get_string(*(dict_T**)p1, "name", FALSE);
+    name2 = dict_get_string(*(dict_T**)p2, "name", FALSE);
     if (readdirex_sort == READDIR_SORT_BYTE)
 	return STRCMP(name1, name2);
     else if (readdirex_sort == READDIR_SORT_IC)

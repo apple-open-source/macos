@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = regexp.dict
+timeout = 5

@@ -37,7 +37,8 @@ using namespace apdu;
 using namespace fido;
 
 CtapNfcDriver::CtapNfcDriver(Ref<NfcConnection>&& connection)
-    : m_connection(WTFMove(connection))
+    : CtapDriver(WebCore::AuthenticatorTransport::Nfc)
+    , m_connection(WTFMove(connection))
 {
 }
 

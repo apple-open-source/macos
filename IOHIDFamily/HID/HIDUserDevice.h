@@ -125,7 +125,7 @@ typedef IOReturn (^HIDUserDeviceGetReportHandler)(HIDReportType type,
  * @method setGetReportHandler
  *
  * @abstract
- * Registers a handler to recieve getReport calls.
+ * Registers a handler to receive getReport calls.
  *
  * @discussion
  * This call must occur before the device is activated. The device must be
@@ -140,7 +140,7 @@ typedef IOReturn (^HIDUserDeviceGetReportHandler)(HIDReportType type,
  * @method setSetReportHandler
  *
  * @abstract
- * Registers a handler to recieve setReport calls.
+ * Registers a handler to receive setReport calls.
  *
  * @discussion
  * This call must occur before the device is activated. The device must be

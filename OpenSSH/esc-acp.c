@@ -1,6 +1,6 @@
 //
 //  esc-acp.c
-//  Copyright © 2021 Apple Inc. All rights reserved.
+//  Copyright © 2021-2022 Apple Inc. All rights reserved.
 //
 // AuthorizedPrincipalsCommand for ESC
 
@@ -53,8 +53,6 @@ const char *groups_extnames[] = {
 	"groups@corp.apple.com",
 	NULL
 };
-
-static int debug_flag = 0;
 
 struct extensions {
 	char  *connection_id;
@@ -210,34 +208,42 @@ display(const char *string) {
 	return buf;
 }
 
+static char *
+xdigits(char *s) {
+	char *p, *q;
+
+	for (p = q = s; *p != '\0'; p++) {
+		if (isxdigit(*p)) {
+			*q++ = *p;
+		}
+	}
+	*q = '\0';
+	return s;
+}
+
 static int
 authorize(struct sshkey *key, const char **principal_patterns,
     const char **group_patterns) {
 	const char *default_principals[] = { appleconnect_pattern, NULL };
-	char *udid = getudid();
 	struct sshkey_cert *cert = key->cert;
 	struct extensions exts = { NULL };
 	int authorized = 0;
 
 	extract_extensions(cert->extensions, &exts);
 
-	debug3("our udid=%s", udid);
 	if (exts.device_udid != NULL) {
-		const char *p = udid, *q = exts.device_udid;
-		while (*p && *q) {
-			while (!isxdigit(*p)) {
-				p++;
-			}
-			while (!isxdigit(*q)) {
-				q++;
-			}
-			if (tolower(*p) != tolower(*q)) {
-				break;
-			}
-			p++;
-			q++;
-		}
-		if (*q != '\0') {
+		size_t n = strlen(exts.device_udid)+1;
+		char udid_cert[n];
+		char *udid_dev = getudid();
+
+		strlcpy(udid_cert, exts.device_udid, n);
+		debug3("our udid=%s, cert udid=%s", udid_dev, udid_cert);
+
+		bool match = (0 == strcasecmp(xdigits(udid_dev),
+		    xdigits(udid_cert)));
+		free(udid_dev);
+
+		if (!match) {
 			debug3("certificate udid mismatch %s",
 			    exts.device_udid);
 			goto fin;
@@ -303,7 +309,6 @@ fin:    /* report the result */;
 	    __progname, authorized ? "true" : "false",
 	    cert->serial, key_id,
 	    e.connection_id, e.dsid, e.groups, e.device_udid);
-	free(udid);
 	free(key_id);
 	free_extensions(&e);
 	return authorized;
@@ -318,10 +323,27 @@ disable_autoerase()
 		"disable",
 		NULL
 	};
-	int rc = posix_spawn(NULL, tool, NULL, NULL, args, environ);
-	if (rc != 0) {
+	posix_spawnattr_t attr;
+	int rc = -1;
+	const char *mock = getenv("ESC_ACP_MOCK_UDID");
+
+	if (NULL != mock)
+		return;
+	if (0 != (rc = posix_spawnattr_init(&attr))) {
+		verbose("posix_spawnattr_init failed: %s", strerror(rc));
+		return;
+	}
+	if (0 != (rc = posix_spawnattr_setflags(&attr,
+	    POSIX_SPAWN_CLOEXEC_DEFAULT))) {
+		verbose("posix_spawnattr_setflags POSIX_SPAWN_CLOEXEC_DEFAULT "
+			"failed: %s", strerror(rc));
+		goto fin;
+	}
+	if (0 != (rc = posix_spawn(NULL, tool, NULL, &attr, args, environ))) {
 		verbose("exec \"%s disable\" failed: %s", tool, strerror(rc));
 	}
+fin:
+	posix_spawnattr_destroy(&attr);
 }
 
 int

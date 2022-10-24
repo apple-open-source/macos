@@ -47,6 +47,7 @@ ignored_words = {
   "X_IN_Y": (5, "macro function builder"),
   "XSLT_ITEM_COMMON_FIELDS": (0, "Special macro"),
   "CALLBACK": (0, "macro keyword"),
+  "LIBXSLT_ATTR_FORMAT": (5, "macro for gcc printf args checking extension"),
 }
 
 def escape(raw):
@@ -674,7 +675,7 @@ class CParser:
 	return((args, desc))
 
      #
-     # Parse a comment block and merge the informations found in the
+     # Parse a comment block and merge the information found in the
      # parameters descriptions, finally returns a block as complete
      # as possible
      #

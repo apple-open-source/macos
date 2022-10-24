@@ -300,12 +300,13 @@ uint32_t updateUserActivityLevels(void)
         gUserActive.sessionActivityLevels |= levels;
         if (gUserActive.postedLevels == 0) {
             DEBUG_LOG("UserActivity level : inactive. Starting System Assertion Timer");
-
             startSystemAssertionTimer();
         } else {
             DEBUG_LOG("UserActivity level : active. Cancelling System Assertion Timer");
             cancelSystemAssertionTimer();
         }
+        INFO_LOG("Evaluating new PerfMode on UserActivity level change.\n");
+        evaluatePerfMode();
     }
 
 
@@ -342,6 +343,12 @@ uint32_t updateUserActivityLevels(void)
                 else if (audioAssertionsExist) {
                     levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithoutDisplay);
                 }
+            }
+            else if (checkForCameraType() && !isA_DarkWakeState()) {
+                // Use `kIOPMUserPresentWithDisplay` as a proxy to indicate `Camera` in use.
+                // `PresentPassiveWithDisplay` should really be `PresentPassiveWithIntensiveResource`
+                // but that's beyond the scope at this moment. See rdar://99056620 and the wombat use-case.
+                levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithDisplay);
             }
             else if (checkForAudioType() && !isA_DarkWakeState()) {
                 levels |= (kIOPMUserPresentPassive|kIOPMUserPresentPassiveWithoutDisplay);
@@ -843,6 +850,7 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
 
     shareTheSystemLoad(kYesNotify);
     evaluateHidIdleNotification();
+    InternalEvaluateProcTimerOnDisplayStateChange(_displayIsOff);
     logAssertionCount(displayIsOff);
 }
 

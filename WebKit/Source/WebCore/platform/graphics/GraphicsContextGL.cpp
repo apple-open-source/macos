@@ -570,13 +570,13 @@ bool GraphicsContextGL::extractPixelBuffer(const PixelBuffer& pixelBuffer, DataF
         return false;
     data.resize(packedSize);
 
-    if (!packPixels(pixelBuffer.data().data(), sourceDataFormat, width, height, sourceImageSubRectangle, depth, 0, unpackImageHeight, format, type, premultiplyAlpha ? AlphaOp::DoPremultiply : AlphaOp::DoNothing, data.data(), flipY))
+    if (!packPixels(pixelBuffer.bytes(), sourceDataFormat, width, height, sourceImageSubRectangle, depth, 0, unpackImageHeight, format, type, premultiplyAlpha ? AlphaOp::DoPremultiply : AlphaOp::DoNothing, data.data(), flipY))
         return false;
 
     return true;
 }
 
-bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGLenum format, GCGLenum type, const PixelStoreParams& unpackParams, bool flipY, bool premultiplyAlpha, const void* pixels, Vector<uint8_t>& data)
+bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGLenum format, GCGLenum type, const PixelStoreParams& unpackParams, bool flipY, bool premultiplyAlpha, GCGLSpan<const GCGLvoid> pixels, Vector<uint8_t>& data)
 {
     // Assumes format, type, etc. have already been validated.
     DataFormat sourceDataFormat = getDataFormat(format, type);
@@ -591,7 +591,7 @@ bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGL
 
     unsigned imageSizeInBytes, skipSizeInBytes;
     computeImageSizeInBytes(format, type, width, height, 1, unpackParams, &imageSizeInBytes, nullptr, &skipSizeInBytes);
-    const uint8_t* srcData = static_cast<const uint8_t*>(pixels);
+    const uint8_t* srcData = static_cast<const uint8_t*>(pixels.data);
     if (skipSizeInBytes)
         srcData += skipSizeInBytes;
 
@@ -633,8 +633,21 @@ void GraphicsContextGL::markLayerComposited()
         if (attrs.stencil)
             m_buffersToAutoClear |= GraphicsContextGL::STENCIL_BUFFER_BIT;
     }
-    for (auto* client : copyToVector(m_clients))
-        client->didComposite();
+    if (m_client)
+        m_client->didComposite();
+}
+
+
+void GraphicsContextGL::forceContextLost()
+{
+    if (m_client)
+        m_client->forceContextLost();
+}
+
+void GraphicsContextGL::dispatchContextChangedNotification()
+{
+    if (m_client)
+        m_client->dispatchContextChangedNotification();
 }
 
 } // namespace WebCore

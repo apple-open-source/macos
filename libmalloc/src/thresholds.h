@@ -51,6 +51,11 @@
  * Tiny region size definitions; these are split into quanta of 16 bytes,
  * 64504 blocks is the magical value of how many quanta we can fit in a 1mb
  * region including the region trailer and metadata.
+ *
+ * XXX Although much of the tiny implementation handles (msize == 0) values as
+ * 65536, this configuration of NUM_TINY_BLOCKS makes that value impossible to
+ * reach.  That should be cleaned up, as it would greatly simplify msize
+ * handling.
  */
 #define SHIFT_TINY_QUANTUM 4ull
 #define SHIFT_TINY_CEIL_BLOCKS 16 // ceil(log2(NUM_TINY_BLOCKS))

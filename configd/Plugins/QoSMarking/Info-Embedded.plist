@@ -28,10 +28,5 @@
 		<string>com.apple.facetime</string>
 		<string>com.apple.siri</string>
 	</array>
-	<key>Requires</key>
-	<array>
-		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
-		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
-	</array>
 </dict>
 </plist>

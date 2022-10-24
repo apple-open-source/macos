@@ -1,0 +1,38 @@
+(version 1)
+
+(deny default)
+(deny file-map-executable iokit-get-properties process-info* nvram*)
+(deny dynamic-code-generation)
+
+(import "system.sb")
+(import "com.apple.corefoundation.sb")
+(corefoundation)
+
+(define (home-subpath home-relative-subpath)
+    (subpath (string-append (param "_HOME") home-relative-subpath)))
+
+(allow process-info* (target self))
+
+;; For resolving symlinks, realpath(3), and equivalents.
+(allow file-read-metadata)
+
+;; Read/write access to a temporary directory.
+(allow file-read* file-write*
+    (subpath (param "_TMPDIR"))
+    (subpath (param "_DARWIN_CACHE_DIR")))
+
+;; Read/write access for networking file locations
+(allow file-read* file-write*
+    (home-subpath "/Library/HTTPStorages/com.apple.security.XPCAcmeService/")
+	(home-subpath "/Library/Caches/com.apple.nsurlsessiond/"))
+
+(allow mach-lookup
+    (global-name "com.apple.cfnetwork.cfnetworkagent")
+    (global-name "com.apple.nsurlsessiond")
+    (global-name "com.apple.dnssd.service"))
+
+(allow ipc-posix-shm
+	(ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow network-outbound)
+(allow system-socket)

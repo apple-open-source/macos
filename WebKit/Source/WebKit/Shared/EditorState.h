@@ -28,6 +28,7 @@
 #include "ArgumentCoders.h"
 #include "IdentifierTypes.h"
 #include <WebCore/Color.h>
+#include <WebCore/ElementContext.h>
 #include <WebCore/FontAttributes.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/WritingDirection.h>
@@ -76,6 +77,7 @@ struct EditorState {
     bool selectionIsNone { true }; // This will be false when there is a caret selection.
     bool selectionIsRange { false };
     bool selectionIsRangeInsideImageOverlay { false };
+    bool selectionIsRangeInAutoFilledAndViewableField { false };
     bool isContentEditable { false };
     bool isContentRichlyEditable { false };
     bool isInPasswordField { false };
@@ -124,6 +126,7 @@ struct EditorState {
         bool atStartOfSentence { false };
         bool selectionStartIsAtParagraphBoundary { false };
         bool selectionEndIsAtParagraphBoundary { false };
+        std::optional<WebCore::ElementContext> selectedEditableImage;
 #endif
 #if PLATFORM(MAC)
         WebCore::IntRect selectionBoundingRect;

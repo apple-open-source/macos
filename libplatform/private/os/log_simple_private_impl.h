@@ -75,6 +75,7 @@ os_log_simple_type_from_asl(int level);
 	_os_log_simple(__sender_mh, __sender_uuid, __dsc_uuid, __dsc_load_addr, (type), (subsystem), (fmt), ##__VA_ARGS__);\
 })
 
+__printflike(7, 8)
 LOG_SIMPLE_AVAILABILITY
 void
 _os_log_simple(const struct mach_header *sender_mh, uuid_t sender_uuid,
@@ -125,6 +126,11 @@ _os_log_simple_send(os_log_simple_payload_t *payload);
 LOG_SIMPLE_AVAILABILITY
 int
 _os_log_simple_parse(const char *buffer, size_t length, os_log_simple_payload_t *payload_out);
+
+// SPI for launchd to retry connection to the socket after it sets it up
+__API_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0))
+void
+_os_log_simple_reinit_4launchd(void);
 
 __END_DECLS
 

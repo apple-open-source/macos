@@ -89,7 +89,7 @@
 #define kIOPMDebugLogAssertionNameChange    0x80
 
 
-#define PM_LOG_SYSTEM       "powerd"
+#define PM_LOG_SYSTEM       "com.apple.powerd"
 #define SYSLOAD_LOG         "systemLoad"
 #define AGGD_REPORTS_LOG    "aggdReport"
 #define BATTERY_LOG         "battery"
@@ -103,6 +103,7 @@
 #define LOW_POWER_MODE_LOG  "lowPowerMode"
 #define PREFS_LOG           "prefs"
 #define BDC_LOG             "BDC"
+#define SMART_POWER_NAP_LOG "smartPowerNap"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT
@@ -120,6 +121,11 @@
 #define ERROR_LOG(fmt, args...) \
 {  \
     os_log_error(LOG_STREAM, fmt, ##args); \
+}
+
+#define FAULT_LOG(fmt, args...) \
+{  \
+    os_log_fault(LOG_STREAM, fmt, ##args); \
 }
 
 #define CFDictionaryGetIntValue(dict, key, val) { \
@@ -239,7 +245,6 @@ struct IOPMBattery {
     uint32_t                     markedDeclining:1;
     uint32_t                     isTimeRemainingUnknown:1;
     uint32_t                     isCritical:1;
-    uint32_t                     isRestricted:1;
     uint32_t                pfStatus;
     int                     currentCap;
     int                     maxCap;
@@ -546,6 +551,7 @@ __private_extern__ void                 incrementSleepCnt(void);
 __private_extern__ const char *sleepType2String(int sleepType);
 __private_extern__ int getLastSleepType(void);
 __private_extern__ IOReturn _smcWriteKey( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
+__private_extern__ IOReturn _smcWriteKeyLarge( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
 __private_extern__ IOReturn _smcReadKey( uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, bool byteSwap);
 __private_extern__ IOReturn _smcReadKeySwizzle(uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, unsigned int byteSwap);
 __private_extern__ bool isSenderEntitled(xpc_object_t remoteConnection, CFStringRef entitlementString, bool requireRoot);

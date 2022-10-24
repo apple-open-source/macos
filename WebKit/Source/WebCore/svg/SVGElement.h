@@ -27,6 +27,7 @@
 #include "SVGNames.h"
 #include "SVGParsingError.h"
 #include "SVGPropertyOwnerRegistry.h"
+#include "SVGRenderStyleDefs.h"
 #include "StyledElement.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -82,13 +83,12 @@ public:
 
     virtual AffineTransform* supplementalTransform() { return nullptr; }
 
-    inline void invalidateSVGAttributes();
-    inline void invalidateSVGPresentationalHintStyle();
-    void setSVGResourcesInAncestorChainAreDirty();
-    void invalidateSVGResourcesInAncestorChainIfNeeded();
+    inline void setAnimatedSVGAttributesAreDirty();
+    inline void setPresentationalHintStyleIsDirty();
+    void updateSVGRendererForElementChange();
 
     // The instances of an element are clones made in shadow trees to implement <use>.
-    const WeakHashSet<SVGElement>& instances() const;
+    const WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>& instances() const;
 
     std::optional<FloatRect> getBoundingBox() const;
 
@@ -150,9 +150,11 @@ public:
     void animatorWillBeDeleted(const QualifiedName&);
 
     const RenderStyle* computedStyle(PseudoId = PseudoId::None) final;
+    
+    ColorInterpolation colorInterpolation() const;
 
     // These are needed for the RenderTree, animation and DOM.
-    String className() const { return m_className->currentValue(); }
+    AtomString className() const { return AtomString { m_className->currentValue() }; }
     SVGAnimatedString& classNameAnimated() { return m_className; }
 
 protected:
@@ -197,7 +199,7 @@ private:
 
     std::unique_ptr<SVGElementRareData> m_svgRareData;
 
-    WeakHashSet<SVGElement> m_elementsWithRelativeLengths;
+    WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_elementsWithRelativeLengths;
 
     std::unique_ptr<SVGPropertyAnimatorFactory> m_propertyAnimatorFactory;
 
@@ -247,6 +249,7 @@ inline SVGElement::InstanceUpdateBlocker::~InstanceUpdateBlocker()
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SVGElement)
+    static bool isType(const WebCore::EventTarget& eventTarget) { return eventTarget.isNode() && static_cast<const WebCore::Node&>(eventTarget).isSVGElement(); }
     static bool isType(const WebCore::Node& node) { return node.isSVGElement(); }
 SPECIALIZE_TYPE_TRAITS_END()
 

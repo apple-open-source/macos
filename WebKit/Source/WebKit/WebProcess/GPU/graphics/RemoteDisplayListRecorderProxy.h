@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,14 +39,12 @@ class RemoteRenderingBackendProxy;
 
 class RemoteDisplayListRecorderProxy : public WebCore::DisplayList::Recorder {
 public:
-    RemoteDisplayListRecorderProxy(WebCore::ImageBuffer&, RemoteRenderingBackendProxy&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&, WebCore::DrawGlyphsRecorder::DeconstructDrawGlyphs = WebCore::DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes);
-    RemoteDisplayListRecorderProxy(RemoteDisplayListRecorderProxy& parent, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform& initialCTM);
-
+    RemoteDisplayListRecorderProxy(WebCore::ImageBuffer&, RemoteRenderingBackendProxy&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&);
     ~RemoteDisplayListRecorderProxy() = default;
 
     void convertToLuminanceMask() final;
     void transformToColorSpace(const WebCore::DestinationColorSpace&) final;
-    void flushContext(WebCore::GraphicsContextFlushIdentifier) final;
+    void flushContext(WebCore::GraphicsContextFlushIdentifier);
 
 private:
     template<typename T>
@@ -55,13 +53,12 @@ private:
         if (UNLIKELY(!(m_renderingBackend && m_imageBuffer)))
             return;
 
-        m_imageBuffer->setNeedsFlush(true);
+        m_imageBuffer->backingStoreWillChange();
         m_renderingBackend->sendToStream(WTFMove(message), m_destinationBufferIdentifier);
     }
 
     friend class WebCore::DrawGlyphsRecorder;
 
-    bool canDrawImageBuffer(const WebCore::ImageBuffer&) const final;
     WebCore::RenderingMode renderingMode() const final;
 
     void recordSave() final;
@@ -74,7 +71,7 @@ private:
     void recordSetInlineFillColor(WebCore::SRGBA<uint8_t>) final;
     void recordSetInlineStrokeColor(WebCore::SRGBA<uint8_t>) final;
     void recordSetStrokeThickness(float) final;
-    void recordSetState(const WebCore::GraphicsContextState&, WebCore::GraphicsContextState::StateChangeFlags) final;
+    void recordSetState(const WebCore::GraphicsContextState&) final;
     void recordSetLineCap(WebCore::LineCap) final;
     void recordSetLineDash(const WebCore::DashArray&, float dashOffset) final;
     void recordSetLineJoin(WebCore::LineJoin) final;
@@ -82,21 +79,21 @@ private:
     void recordClearShadow() final;
     void recordClip(const WebCore::FloatRect&) final;
     void recordClipOut(const WebCore::FloatRect&) final;
-    void recordClipToImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect) final;
+    void recordClipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
     void recordClipOutToPath(const WebCore::Path&) final;
     void recordClipPath(const WebCore::Path&, WebCore::WindRule) final;
-    void recordBeginClipToDrawingCommands(const WebCore::FloatRect& destination, WebCore::DestinationColorSpace) final;
-    void recordEndClipToDrawingCommands(const WebCore::FloatRect& destination) final;
-    void recordDrawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
+    void recordDrawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
     void recordDrawGlyphs(const WebCore::Font&, const WebCore::GlyphBufferGlyph*, const WebCore::GlyphBufferAdvance*, unsigned count, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
-    void recordDrawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
+    void recordDrawDecomposedGlyphs(const WebCore::Font&, const WebCore::DecomposedGlyphs&) final;
+    void recordDrawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
     void recordDrawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
-    void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions& = { }) final;
+    void recordDrawSystemImage(WebCore::SystemImage&, const WebCore::FloatRect&);
+    void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions& = { }) final;
     void recordBeginTransparencyLayer(float) final;
     void recordEndTransparencyLayer() final;
     void recordDrawRect(const WebCore::FloatRect&, float) final;
     void recordDrawLine(const WebCore::FloatPoint& point1, const WebCore::FloatPoint& point2) final;
-    void recordDrawLinesForText(const WebCore::FloatPoint& blockLocation, const WebCore::FloatSize& localAnchor, float thickness, const WebCore::DashArray& widths, bool printing, bool doubleLines) final;
+    void recordDrawLinesForText(const WebCore::FloatPoint& blockLocation, const WebCore::FloatSize& localAnchor, float thickness, const WebCore::DashArray& widths, bool printing, bool doubleLines, WebCore::StrokeStyle) final;
     void recordDrawDotsForDocumentMarker(const WebCore::FloatRect&, const WebCore::DocumentMarkerLineStyle&) final;
     void recordDrawEllipse(const WebCore::FloatRect&) final;
     void recordDrawPath(const WebCore::Path&) final;
@@ -120,6 +117,7 @@ private:
     void recordStrokeRect(const WebCore::FloatRect&, float) final;
 #if ENABLE(INLINE_PATH_DATA)
     void recordStrokeLine(const WebCore::LineData&) final;
+    void recordStrokeLineWithColorAndThickness(WebCore::SRGBA<uint8_t>, float, const WebCore::LineData&) final;
     void recordStrokeArc(const WebCore::ArcData&) final;
     void recordStrokeQuadCurve(const WebCore::QuadCurveData&) final;
     void recordStrokeBezierCurve(const WebCore::BezierCurveData&) final;
@@ -133,11 +131,15 @@ private:
 #endif
     void recordApplyDeviceScaleFactor(float) final;
 
-    void recordResourceUse(WebCore::NativeImage&) final;
-    void recordResourceUse(WebCore::Font&) final;
-    void recordResourceUse(WebCore::ImageBuffer&) final;
+    bool recordResourceUse(WebCore::NativeImage&) final;
+    bool recordResourceUse(WebCore::ImageBuffer&) final;
+    bool recordResourceUse(const WebCore::SourceImage&) final;
+    bool recordResourceUse(WebCore::Font&) final;
+    bool recordResourceUse(WebCore::DecomposedGlyphs&) final;
 
-    std::unique_ptr<WebCore::GraphicsContext> createNestedContext(const WebCore::FloatRect& initialClip, const WebCore::AffineTransform& initialCTM) final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>) const final;
+    RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
+    RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
 
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     WeakPtr<WebCore::ImageBuffer> m_imageBuffer;

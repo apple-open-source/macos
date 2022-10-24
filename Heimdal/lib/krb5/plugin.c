@@ -656,7 +656,7 @@ struct iter_ctx {
 
 /**
  * Register a plugin symbol name of specific type.
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param modulename name of the plugin module
  * @param type type of plugin symbol
  * @param name name of plugin symbol
@@ -766,7 +766,7 @@ krb5_plugin_register_module(krb5_context context,
 
 /**
  * Register a plugin symbol name of specific type.
- * @param context a Keberos context
+ * @param context a Kerberos context
  * @param type type of plugin symbol
  * @param name name of plugin symbol
  * @param symbol a pointer to the named symbol

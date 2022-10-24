@@ -392,13 +392,15 @@ OSStatus impExpImportKeyCommon(
 	if((hdr.KeyClass != CSSM_KEYCLASS_SESSION_KEY) && (dlDbPtr != NULL)) {
 		/* Generate random 16-char label to facilitate DL lookup */
 		char *randAscii = (char *)randLabel;
+        size_t randAsciiSz = SEC_RANDOM_LABEL_LEN + 1;
 		uint8 randBinary[SEC_RANDOM_LABEL_LEN / 2];
 		unsigned randBinaryLen = SEC_RANDOM_LABEL_LEN / 2;
         MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, randBinaryLen, randBinary));
         
 		for(unsigned i=0; i<randBinaryLen; i++) {
-			sprintf(randAscii, "%02X", randBinary[i]);
+            snprintf(randAscii, randAsciiSz, "%02X", randBinary[i]);
 			randAscii += 2;
+			randAsciiSz -= 2;
 		}
 		labelData.Data = randLabel;
 		labelData.Length = SEC_RANDOM_LABEL_LEN;

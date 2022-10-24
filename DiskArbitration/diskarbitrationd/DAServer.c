@@ -48,13 +48,27 @@
 #include <os/log.h>
 ///w:start
 #include <dlfcn.h>
+#if TARGET_OS_OSX
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
+#endif
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_BRIDGE
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+#endif
+
+#if TARGET_OS_IOS
+#include <MobileKeyBag/MobileKeyBag.h>
+#include <CoreFoundation/CFNotificationCenter.h>
+#endif
 
 void ___os_transaction_begin( void );
 void ___os_transaction_end( void );
+void ___os_transaction_get( void );
 ///w:end
 
+#if TARGET_OS_OSX
 ///w:start
 // Dynamic load libCoreStorage.dylib
 static CFMutableDictionaryRef (*__CoreStorageCopyVolumeProperties)( CoreStorageLogicalRef volRef ) = NULL;
@@ -82,8 +96,9 @@ void __CoreStorage_exit()
     }
 }
 ///w:end
+#endif
 
-static CFMachPortRef       __gDAServer      = NULL;
+static dispatch_mach_t     __gDAServerListener      = NULL;
 static mach_port_t         __gDAServerPort  = MACH_PORT_NULL;
 static mach_msg_header_t * __gDAServerReply = NULL;
 
@@ -198,6 +213,7 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
 
             if ( properties )
             {
+#if TARGET_OS_OSX
                 if ( DADiskGetState( disk, kDADiskStateCommandActive ) == FALSE )
                 {
                     CFURLRef path;
@@ -223,23 +239,27 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
 
                     if ( path && (mountListIndex != mountListCount) )
                     {
-                        name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
-                        if ( name )
+                        uuid_t volUUID;
+                        name = _DAFileSystemCopyNameAndUUID( DADiskGetFileSystem( disk ), path, &volUUID );
+                        CFUUIDRef UUID = NULL;
+                        UUID = CFUUIDCreateWithBytes(kCFAllocatorDefault, volUUID[0], volUUID[1], volUUID[2],
+                                                     volUUID[3], volUUID[4], volUUID[5], volUUID[6],
+                                                     volUUID[7], volUUID[8], volUUID[9], volUUID[10],
+                                                     volUUID[11], volUUID[12], volUUID[13], volUUID[14], volUUID[15]);
+                        if ( name && UUID )
                         {
-                            struct statfs fs     = { 0 };
-                            int sts = ___statfs( mountList[mountListIndex].f_mntonname, &fs, MNT_NOWAIT );
-                            
-                            if ( ( sts == 0 ) &&
-                                ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) ) &&
-                                ( strcmp( _DAVolumeGetID( &fs ), DADiskGetID( disk ) ) == 0 ) )
+
+                            if ( ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeUUIDKey, UUID ) == kCFCompareEqualTo ) &&
+                            ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) ) )
                             {
                                 DALogInfo( "mounted volume name changed for %@ to name %@.", disk, name);
                                 DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
                                 CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
-                                CFRelease( name );
                                 volumeNameChanged = true;
                             }
                         }
+                        if ( name ) CFRelease( name );
+                        if ( UUID ) CFRelease( UUID );
                     }
 ///w:start
                     else if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
@@ -258,9 +278,9 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                                     DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
                                     CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
                                     DADiskSetDescription( disk, kDADiskDescriptionMediaNameKey, name );
-                                    CFRelease( name );
                                     volumeNameChanged = true;
                                 }
+                                CFRelease( name );
                             }
                         }
                     }
@@ -297,6 +317,7 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                         }
                     }
                 }
+#endif
 
                 CFTypeRef object;
 
@@ -354,6 +375,23 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                     CFArrayAppendValue( keys, kDADiskDescriptionMediaSizeKey );
                 }
 
+                object = CFDictionaryGetValue( properties, CFSTR( kIOMediaUUIDKey ) );
+                if ( object )
+                {
+                    object = ___CFUUIDCreateFromString( kCFAllocatorDefault, object );
+
+                    if ( object )
+                    {
+                        if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaUUIDKey, object ) )
+                        {
+                            DADiskSetDescription( disk, kDADiskDescriptionMediaUUIDKey, object );
+
+                            CFArrayAppendValue( keys, kDADiskDescriptionMediaUUIDKey );
+                        }
+                        CFRelease ( object );
+                    }
+                }
+                
                 object = CFDictionaryGetValue( properties, CFSTR( kIOMediaWholeKey ) );
 
                 if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaWholeKey, object ) )
@@ -385,12 +423,14 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                         CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptedKey );
                     }
 
+#if TARGET_OS_OSX
                     if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail ) )
                     {
                         DADiskSetDescription( disk, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
 
                         CFArrayAppendValue( keys, kDADiskDescriptionMediaEncryptionDetailKey );
                     }
+#endif
 
                     if ( encryptionDetail )
                     {
@@ -456,7 +496,72 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
     return NULL;
 }
 
+#if TARGET_OS_IOS
+static void __DAFirstUnlockNotificationCallback( CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo )
+{
+    DALogInfo( "First unlock notification received" );
+    Boolean prevUnlockedState = gDAUnlockedState;
+    gDAUnlockedState = TRUE;
+    
+    if ( prevUnlockedState == FALSE )
+    {
+        CFIndex count;
+        CFIndex index;
 
+        /*
+         * Device is unlocked now
+         */
+
+        count = CFArrayGetCount( gDADiskList );
+
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk;
+
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            /*
+            * Mount this volume.
+            */
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+            {
+                if ( DAMountGetPreference( disk, kDAMountPreferenceDisableAutoMount ) == false )
+                {
+                    if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+                    {
+                        DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+                    }
+                }
+            }
+        }
+     }
+}
+
+
+void DARegisterForFirstUnlockNotification( void )
+{
+    CFNotificationCenterAddObserver( CFNotificationCenterGetDarwinNotifyCenter(),
+                                    (void *)nil,
+                                    __DAFirstUnlockNotificationCallback,
+                                    CFSTR("com.apple.mobile.keybagd.first_unlock"),
+                                    NULL,
+                                    CFNotificationSuspensionBehaviorDeliverImmediately );
+
+    int lockState = MKBGetDeviceLockState( NULL );
+    if ( ( lockState != kMobileKeyBagDisabled ) && ( MKBDeviceUnlockedSinceBoot( ) == false ) )
+    {
+        DALogInfo(" Device is locked" );
+    }
+    else
+    {
+        DALogInfo(" Device is unlocked" );
+        gDAUnlockedState = TRUE;
+    }
+}
+
+#endif
+
+#if TARGET_OS_OSX
 void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void * info )
 {
     /*
@@ -473,7 +578,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
     CFArrayRef  userList;
 
     DALogInfo( "configd [0] -> %s", gDAProcessNameID );
-
+    
     previousUser     = gDAConsoleUser;
     previousUserGID  = gDAConsoleUserGID;
     previousUserUID  = gDAConsoleUserUID;
@@ -546,7 +651,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
          * A console user has logged in.
          */
 
-        DALogInfo( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
+        DALogInfo( " console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
     }
     else
     {
@@ -557,7 +662,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
          * A console user has logged out.
          */
 
-        DALogInfo( "  console user = none." );
+        DALogInfo( " console user = none." );
 
         count = 0;
 
@@ -639,7 +744,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                     if ( eject )
                     {
-                        DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                        DADiskEject( disk, kDADiskUnmountOptionForce, NULL );
                     }
                 }
             }
@@ -811,7 +916,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                 if ( unmount )
                 {
-                    DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
+                    DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
 
 ///w:start
                     if ( lvfUUID )
@@ -842,6 +947,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
     DAStageSignal( );
 }
 
+#endif
 void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
 {
     /*
@@ -936,6 +1042,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                     DADiskSetPropertyNotification( disk, propertyNotification );
                 }
 
+#if TARGET_OS_OSX
                 /*
                  * Set the BSD permissions for this media object.
                  */
@@ -996,7 +1103,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                         chown( DADiskGetBSDPath( disk, FALSE ), DADiskGetUserUID( disk ), -1 );
                     }
                 }
-
+#endif
                 /*
                  * Set the BSD link for this media object.
                  */
@@ -1045,7 +1152,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                 {
                     DAUnitSetState( disk, _kDAUnitStateHasAPFS, TRUE );
                 }
-
+                
                 if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
                 {
 ///w:23678897:stop
@@ -1061,11 +1168,20 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                  * Add the disk object to our tables.
                  */
 
+
                 DALogInfo( "created disk, id = %@.", disk );
 
                 DAUnitSetState( disk, kDAUnitStateStagedUnreadable, FALSE );
 
                 CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
+                
+#if !TARGET_OS_OSX
+                if ( ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse)  ||
+                    ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) )
+                {
+                    ___os_transaction_begin();
+                }
+#endif
 
                 CFRelease( disk );
             }
@@ -1165,7 +1281,7 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
             {
                 DADiskDisappearedCallback( disk );
             }
-
+            
             if ( DADiskGetState( disk, kDADiskStateStagedMount ) )
             {
                 DADiskSetState( disk, kDADiskStateStagedAppear, TRUE );
@@ -1249,6 +1365,15 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
             }
 
             DADiskSetState( disk, kDADiskStateZombie, TRUE );
+            
+#if !TARGET_OS_OSX
+            if ( ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse)  ||
+                ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) )
+            {
+                ___os_transaction_end();
+                __DASetIdleTimer();
+            }
+#endif
 
             ___CFArrayRemoveValue( gDADiskList, disk );
         }
@@ -1269,58 +1394,39 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
     DAStageSignal( );
 }
 
-void _DAServerCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
+void DAServerMachHandler( void *context, dispatch_mach_reason_t reason, dispatch_mach_msg_t msg, mach_error_t error )
 {
-    mach_msg_header_t * message = parameter;
+    static const struct mig_subsystem * const subsystems[] = {
+                    (mig_subsystem_t)&DAServer_subsystem,
+            };
+  
+    mach_port_t serverPort = context;
+    mach_msg_header_t *hdr;
 
-    if ( message->msgh_id == MACH_NOTIFY_NO_SENDERS )
-    {
-        _DAServerSessionRelease( message->msgh_local_port );
-    }
-    else if ( DAServer_server( message, __gDAServerReply ) )
-    {
-        kern_return_t status;
-
-        status = ( __gDAServerReply->msgh_bits & MACH_MSGH_BITS_COMPLEX )
-                 ? KERN_SUCCESS
-                 : ( ( mig_reply_error_t * ) __gDAServerReply )->RetCode;
-
-        /*
-         * Any resources present in the request message are the responsibility of the service
-         * function, if it is successful in responding to the request.  Success is defined in
-         * two ways:
-         *
-         * o KERN_SUCCESS:  This says that the userÕs request was processed, and all incoming
-         *                  resources have been recorded or deallocated by the server routine.
-         * o MIG_NO_REPLY:  This says that the userÕs request was accepted,  and all incoming
-         *                  resources have been recorded or deallocated by the server routine.
-         *
-         * A reply should always be returned for any message received, unless the return code
-         * from the server was MIG_NO_REPLY or the request message does not have a reply port.
-         */
-
-        if ( status != MIG_NO_REPLY )
-        {
-            if ( status != KERN_SUCCESS )
-            {
-                message->msgh_remote_port = MACH_PORT_NULL;
-
-                mach_msg_destroy( message );
-            }
-
-            if ( __gDAServerReply->msgh_remote_port )
-            {
-                status = mach_msg_send( __gDAServerReply );
-
-                if ( status == MACH_SEND_INVALID_DEST )
+    switch (reason) {
+            case DISPATCH_MACH_MESSAGE_RECEIVED:
+                hdr = dispatch_mach_msg_get_msg(msg, NULL);
+            
+                if ( !dispatch_mach_mig_demux( NULL, subsystems, 1, msg ))
                 {
-                    mach_msg_destroy( __gDAServerReply );
+                    if (MACH_NOTIFY_NO_SENDERS == hdr->msgh_id)
+                    {
+                        _DAServerSessionCancel( serverPort );
+                    }
+                    mach_msg_destroy(dispatch_mach_msg_get_msg( msg, NULL ));
                 }
-            }
-        }
+            break;
+            
+            case DISPATCH_MACH_CANCELED:
+                _DAServerSessionRelease( serverPort );
+            break;
+
+            default:
+            break;
     }
 }
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, audit_token_t _token )
 {
     kern_return_t status;
@@ -1497,6 +1603,7 @@ kern_return_t _DAServerrmdir( mach_port_t _session, ___path_t _path, audit_token
 exit:
     return status;
 }
+#endif
 
 kern_return_t _DAServerDiskCopyDescription( mach_port_t _session, caddr_t _disk, vm_address_t * _description, mach_msg_type_number_t * _descriptionSize )
 {
@@ -1929,7 +2036,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
     if ( _session )
     {
         DASessionRef session;
-
+      
         /*
          * Create the session.
          */
@@ -1956,7 +2063,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
              * Add the session to our run loop.
              */
 
-            DASessionScheduleWithRunLoop( session, CFRunLoopGetCurrent( ), kCFRunLoopDefaultMode ); 
+            DASessionScheduleWithDispatch( session ); 
 
             CFRelease( session );
 
@@ -1964,6 +2071,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
         }
     }
 
+exit:
     if ( status )
     {
         DALogDebug( "unable to create session, id = %s [%d].", _name, audit_token_to_pid( _token ) );
@@ -2033,7 +2141,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                     {
                         case _kDADiskEject:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightUnmount );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ),  _kDAAuthorizeRightUnmount );
 
                             break;
                         }
@@ -2075,6 +2183,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                     char * path;
 
                                     path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+#if TARGET_OS_OSX
 
                                     if ( path )
                                     {
@@ -2087,7 +2196,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                         free( path );
                                     }
-
+#endif
                                     if ( audit_token_to_euid( _token ) )
                                     {
                                         if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )
@@ -2110,7 +2219,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                         }
                         case _kDADiskUnmount:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightUnmount );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ),  _kDAAuthorizeRightUnmount );
 
                             break;
                         }
@@ -2317,6 +2426,7 @@ kern_return_t _DAServerSessionRegisterCallback( mach_port_t            _session,
                     }
                 }
 ///w:start
+#if TARGET_OS_OSX
                 else if ( DACallbackGetKind( callback ) == _kDADiskEjectApprovalCallback )
                 {
                     if ( strcmp( _DASessionGetName( session ), "SystemUIServer" ) == 0 )
@@ -2345,6 +2455,7 @@ kern_return_t _DAServerSessionRegisterCallback( mach_port_t            _session,
                     }
                 }
 ///w:stop
+#endif
 
                 CFRelease( callback );
 
@@ -2411,21 +2522,24 @@ kern_return_t _DAServerSessionRelease( mach_port_t _session )
             DAQueueReleaseSession( session );
 
             /*
-             * Remove the session from our run loop.
-             */
-
-            DASessionUnscheduleFromRunLoop( session, CFRunLoopGetCurrent( ), kCFRunLoopDefaultMode ); 
-
-            /*
              * Remove the session object from our tables.
              */
 
             DASessionSetState( session, kDASessionStateZombie, TRUE );
 
-            ___CFArrayRemoveValue( gDASessionList, session );
+#if !TARGET_OS_OSX
+            if ( DASessionGetKeepAlive( session ) == false )
+            {
+                ___os_transaction_end( );
 
+                __DASetIdleTimer();
+            }
+#else
             ___os_transaction_end( );
+#endif
 
+            ___CFArrayRemoveValue( gDASessionList, session );
+            
             status = kDAReturnSuccess;
         }
     }
@@ -2438,6 +2552,31 @@ kern_return_t _DAServerSessionRelease( mach_port_t _session )
     return status;
 }
 
+
+kern_return_t _DAServerSessionCancel( mach_port_t _session )
+
+{
+    kern_return_t status;
+
+    status = kDAReturnBadArgument;
+
+    DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
+
+    if ( _session )
+    {
+        DASessionRef session;
+
+        session = __DASessionListGetSession( _session );
+
+        if ( session )
+        {
+            DASessionCancelChannel( session );
+            status = kDAReturnSuccess;
+        }
+    }
+}
+
+#if TARGET_OS_OSX
 kern_return_t _DAServerSessionSetAuthorization( mach_port_t _session, AuthorizationExternalForm _authorization )
 {
     kern_return_t status;
@@ -2474,6 +2613,40 @@ kern_return_t _DAServerSessionSetAuthorization( mach_port_t _session, Authorizat
     if ( status )
     {
         DALogDebug( "unable to set authorization, id = ? [?]:%d.", _session );
+    }
+
+    return status;
+}
+#endif
+
+kern_return_t _DAServerSessionSetKeepAlive(  mach_port_t _session )
+{
+    kern_return_t status;
+
+    status = kDAReturnBadArgument;
+
+    DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
+
+    if ( _session )
+    {
+        DASessionRef session;
+
+        session = __DASessionListGetSession( _session );
+
+        if ( session )
+        {
+            DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
+            DALogDebug( "  set keepalive, id = %@.", session );
+            DASessionSetKeepAlive( session, true );
+            ___os_transaction_end( );
+            __DASetIdleTimer();
+            status = kDAReturnSuccess;
+        }
+    }
+
+    if ( status )
+    {
+        DALogDebug( "unable to set keep alive,  (status code 0x%08X).", status );
     }
 
     return status;
@@ -2558,166 +2731,206 @@ kern_return_t _DAServerSessionUnregisterCallback( mach_port_t _session, mach_vm_
     return status;
 }
 
-void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
+#if TARGET_OS_OSX
+
+void _DAVolumeMountedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                     dispatch_mach_msg_t msg, mach_error_t err )
 {
-    struct statfs * mountList;
-    int             mountListCount;
-    int             mountListIndex;
-
-    mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
-
-    for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED)
     {
-        DADiskRef disk;
+        mach_msg_header_t   *header = dispatch_mach_msg_get_msg(msg, NULL);
+        _DAVolumeMountedCallback();
+        mach_msg_destroy( header );
+    }
+}
 
-        disk = __DADiskListGetDisk( _DAVolumeGetID( mountList + mountListIndex ) );
+void _DAVolumeUnmountedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                     dispatch_mach_msg_t msg, mach_error_t err )
+{
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED)
+    {
+        mach_msg_header_t   *header = dispatch_mach_msg_get_msg(msg, NULL);
+        _DAVolumeUnmountedCallback();
+        mach_msg_destroy( header );
+    }
+}
 
-        if ( disk )
+void _DAVolumeUpdatedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                     dispatch_mach_msg_t msg, mach_error_t err )
+{
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED)
+    {
+        mach_msg_header_t   *header = dispatch_mach_msg_get_msg(msg, NULL);
+        _DAVolumeUpdatedCallback();
+        mach_msg_destroy( header );
+    }
+}
+#endif
+
+void _DAVolumeMountedCallback(  )
+{
+  
+        struct statfs * mountList;
+        int             mountListCount;
+        int             mountListIndex;
+
+        mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
+
+        for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
         {
-            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+            DADiskRef disk;
+            
+            disk = __DADiskListGetDisk( _DAVolumeGetID( mountList + mountListIndex ) );
+
+            if ( disk )
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+                {
+///w:start
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
+                    {
+                        DADiskProbe( disk, NULL );
+                    }
+///w:stop
+                    DADiskRefresh( disk, NULL );
+                }
+            }
+            else
             {
 ///w:start
-                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
-                {
-                    DADiskProbe( disk, NULL );
-                }
+                if ( strncmp( mountList[mountListIndex].f_mntfromname, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) )
 ///w:stop
+                    if ( ( mountList[mountListIndex].f_flags & MNT_UNION ) == 0 )
+                    {
+                        if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )
+                        {
+                            disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
+
+                            if ( disk )
+                            {
+
+                                DALogInfo( "created disk, id = %@.", disk );
+
+                                /*
+                                 * If this is a snapshot mount, set the NoDefer flag based on its live volume.
+                                 */
+                                if ( ( mountList[mountListIndex].f_flags & MNT_SNAPSHOT ) )
+                                {
+                                    char *endStr = strrchr( mountList[mountListIndex].f_mntfromname, '@' ) + 1;
+                                    if ( endStr && ( strncmp( endStr, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 ) )
+                                    {
+                                        DADiskRef liveDisk = __DADiskListGetDisk( endStr );
+                                        
+                                        if ( liveDisk && ( DADiskGetState( liveDisk, _kDADiskStateMountAutomaticNoDefer ) == FALSE ) )
+                                        {
+                                            DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
+                                        }
+                                    }
+                                }
+
+                                CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
+
+                                DAStageSignal( );
+
+                                CFRelease( disk );
+                            }
+                        }
+                    }
+            }
+        }
+      
+}
+
+void _DAVolumeUnmountedCallback(  )
+{
+    CFIndex count;
+    CFIndex index;
+
+
+
+        count = CFArrayGetCount( gDADiskList );
+
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk;
+
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+            {
                 DADiskRefresh( disk, NULL );
             }
         }
-        else
+        
+}
+
+void _DAVolumeUpdatedCallback(  )
+{
+    CFIndex count;
+    CFIndex index;
+
+ 
+        
+        count = CFArrayGetCount( gDADiskList );
+
+        for ( index = 0; index < count; index++ )
         {
-///w:start
-            if ( strncmp( mountList[mountListIndex].f_mntfromname, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) )
-///w:stop
-            if ( ( mountList[mountListIndex].f_flags & MNT_UNION ) == 0 )
+            DADiskRef disk;
+
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
             {
-                if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )
-                {
-                    disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
-
-                    if ( disk )
-                    {
-
-                        DALogInfo( "created disk, id = %@.", disk );
-                        
-                        /*
-                         * If this is a snapshot mount, set the NoDefer flag based on its live volume.
-                         */
-                        if ( ( mountList[mountListIndex].f_flags & MNT_SNAPSHOT ) )
-                        {
-                            char *endStr = strrchr( mountList[mountListIndex].f_mntfromname, '@' ) + 1;
-                            if ( endStr && ( strncmp( endStr, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 ) )
-                            {
-                                DADiskRef liveDisk = __DADiskListGetDisk( endStr );
-                                
-                                if ( liveDisk && ( DADiskGetState( liveDisk, _kDADiskStateMountAutomaticNoDefer ) == FALSE ) )
-                                {
-                                    DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
-                                }
-                            }
-                        }
-
-                        CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
-
-                        DAStageSignal( );
-
-                        CFRelease( disk );
-                    }
-                }
+                DADiskRefresh( disk, NULL );
             }
         }
-    }
 }
 
-void _DAVolumeUnmountedCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
-{
-    CFIndex count;
-    CFIndex index;
-
-    count = CFArrayGetCount( gDADiskList );
-
-    for ( index = 0; index < count; index++ )
-    {
-        DADiskRef disk;
-
-        disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
-        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
-        {
-            DADiskRefresh( disk, NULL );
-        }
-    }
-}
-
-void _DAVolumeUpdatedCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
-{
-    CFIndex count;
-    CFIndex index;
-
-    count = CFArrayGetCount( gDADiskList );
-
-    for ( index = 0; index < count; index++ )
-    {
-        DADiskRef disk;
-
-        disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
-        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
-        {
-            DADiskRefresh( disk, NULL );
-        }
-    }
-}
-
-CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order )
+dispatch_workloop_t DAServerWorkLoop( void )
 {
     /*
-     * Create a CFRunLoopSource for DAServer remote procedure calls.
+     * Create a dispatch work loop for DAServer remote procedure calls.
      */
 
-    CFRunLoopSourceRef source = NULL;
+    static dispatch_once_t          once;
+    static dispatch_workloop_t      workloop;
+
+    dispatch_once(&once, ^{
+                   workloop = dispatch_workloop_create_inactive( "DAServer" );
+                   dispatch_set_qos_class_fallback( workloop, QOS_CLASS_USER_INITIATED );
+                   dispatch_activate( workloop );
+    });
+
+    return workloop;
+}
+
+void DAServerInit ( void )
+{
+   /*
+    * Initialize our minimal state.
+    */
 
     /*
-     * Initialize our minimal state.
-     */
+    * Register the Disk Arbitration master port.
+    */
 
-    if ( __gDAServer == NULL )
+    if ( __gDAServerPort == MACH_PORT_NULL )
+    {
+        ( void ) bootstrap_check_in( bootstrap_port, _kDADaemonName, &__gDAServerPort );
+    }
+
+    if ( __gDAServerPort )
     {
         /*
-         * Register the Disk Arbitration master port.
-         */
+        * Create the Disk Arbitration master port.
+        */
 
-        if ( __gDAServerPort == MACH_PORT_NULL )
-        {
-            ( void ) bootstrap_check_in( bootstrap_port, _kDADaemonName, &__gDAServerPort );
-        }
+        __gDAServerListener = dispatch_mach_create_f("diskarbitrationd",
+                                                                    DAServerWorkLoop(),
+                                                                    NULL,
+                                                                    DAServerMachHandler);
+        dispatch_mach_connect(__gDAServerListener, __gDAServerPort, MACH_PORT_NULL, NULL);
 
-        if ( __gDAServerPort )
-        {
-            /*
-             * Create the Disk Arbitration master port.
-             */
-
-            __gDAServer = CFMachPortCreateWithPort( allocator, __gDAServerPort, _DAServerCallback, NULL, NULL );
-
-            if ( __gDAServer )
-            {
-                __gDAServerReply = malloc( DAServer_subsystem.maxsize );
-
-                assert( __gDAServerReply );
-            }
-        }
     }
-
-    /*
-     * Obtain the CFRunLoopSource for our CFMachPort.
-     */
-
-    if ( __gDAServer )
-    {
-        source = CFMachPortCreateRunLoopSource( allocator, __gDAServer, order );
-    }
-
-    return source;
 }
+

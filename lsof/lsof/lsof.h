@@ -746,8 +746,19 @@ extern int Hdr;
 
 enum IDType {PGID, PID};
 extern int  IgnTasks;
-extern char *InodeFmt_d;
-extern char *InodeFmt_x;
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define _LSOF_FMTCHECK(str, fmt) 	((const char * const)fmtcheck(str, fmt))
+#else
+#define _LSOF_FMTCHECK(str, fmt) 	(str)
+#endif
+
+#define InodeFmt_d_const	_LSOF_FMTCHECK(InodeFmt_d, "%llu")
+extern char * InodeFmt_d;
+
+#define InodeFmt_x_const	_LSOF_FMTCHECK(InodeFmt_x, "%#llx")
+extern char * InodeFmt_x;
+
 extern int LastPid;
 
 struct lfile {
@@ -1038,10 +1049,19 @@ extern struct sfile *Sfile;
 extern struct int_lst *Spgid;
 extern struct int_lst *Spid;
 extern struct seluid *Suid;
+
+#define SzOffFmt_0t_const	_LSOF_FMTCHECK(SzOffFmt_0t, "0t%llu")
 extern char *SzOffFmt_0t;
+
+#define SzOffFmt_d_const	_LSOF_FMTCHECK(SzOffFmt_d, "%llu")
 extern char *SzOffFmt_d;
+
+#define SzOffFmt_dv_const	_LSOF_FMTCHECK(SzOffFmt_dv, "%*llu")
 extern char *SzOffFmt_dv;
+
+#define SzOffFmt_x_const	_LSOF_FMTCHECK(SzOffFmt_x, "%#llx")
 extern char *SzOffFmt_x;
+
 extern int TaskCmdLim;
 extern int TaskPrtCmd;
 extern int TaskPrtTid;

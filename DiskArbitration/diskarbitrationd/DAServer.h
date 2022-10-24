@@ -27,20 +27,37 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <dispatch/private.h>
+#include <dispatch/dispatch.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
+#if TARGET_OS_OSX
 extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, void * info );
+#endif
+#if TARGET_OS_IOS
+extern void DARegisterForFirstUnlockNotification( void );
+#endif
 extern void _DAMediaAppearedCallback( void * context, io_iterator_t notification );
 extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notification );
 extern void _DAServerCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
-extern void _DAVolumeMountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
-extern void _DAVolumeUnmountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
-extern void _DAVolumeUpdatedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+extern kern_return_t _DAServerSessionCancel( mach_port_t _session );
+extern void _DAVolumeMountedCallback( void );
+extern void _DAVolumeUnmountedCallback( void );
+extern void _DAVolumeUpdatedCallback( void );
+#if TARGET_OS_OSX
+extern void _DAVolumeMountedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                     dispatch_mach_msg_t msg, mach_error_t err );
+extern void _DAVolumeUnmountedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                       dispatch_mach_msg_t msg, mach_error_t err );
+extern void _DAVolumeUpdatedMachHandler( void *context, dispatch_mach_reason_t reason,
+                                     dispatch_mach_msg_t msg, mach_error_t err );
 
-extern CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
+#endif
+extern dispatch_workloop_t DAServerWorkLoop( void );
+void DAServerMachHandler( void *context, dispatch_mach_reason_t reason, dispatch_mach_msg_t msg, mach_error_t error );
+void DAServerInit ( void );
 
 #ifdef __cplusplus
 }

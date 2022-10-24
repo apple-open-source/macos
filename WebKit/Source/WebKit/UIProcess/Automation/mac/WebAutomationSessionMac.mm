@@ -32,12 +32,14 @@
 #import "WebAutomationSessionMacros.h"
 #import "WebInspectorUIProxy.h"
 #import "WebPageProxy.h"
+#import "WKWebViewPrivate.h"
 #import "_WKAutomationSession.h"
 #import <Carbon/Carbon.h>
 #import <WebCore/IntPoint.h>
 #import <WebCore/IntSize.h>
 #import <WebCore/PlatformMouseEvent.h>
 #import <objc/runtime.h>
+#import <pal/spi/mac/NSEventSPI.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -73,8 +75,7 @@ static const void *synthesizedAutomationEventAssociatedObjectKey = &synthesizedA
 void WebAutomationSession::sendSynthesizedEventsToPage(WebPageProxy& page, NSArray *eventsToSend)
 {
     NSWindow *window = page.platformWindow();
-    [window makeKeyAndOrderFront:nil];
-    page.makeFirstResponder();
+    auto webView = page.cocoaView();
 
     for (NSEvent *event in eventsToSend) {
         LOG(Automation, "Sending event[%p] to window[%p]: %@", event, window, event);
@@ -86,6 +87,16 @@ void WebAutomationSession::sendSynthesizedEventsToPage(WebPageProxy& page, NSArr
 
         markEventAsSynthesizedForAutomation(event);
         [window sendEvent:event];
+
+        // NSEventTypeMouseMoved events are not forwarded from the WKWebView to the underlying view implementation,
+        // which prevents these synthetic events from being dispatched as events in JavaScript. We still dispatch the
+        // event to the window as well to avoid any side effects of providing incomplete events to other parts of the
+        // window. NSEventTypeMouseEntered and NSEventTypeMouseExited events are also affected, but we do not currently
+        // dispatch events with those types.
+        if (event.type == NSEventTypeMouseMoved) {
+            LOG(Automation, "Simulating event[%p] of type NSEventTypeMouseMoved for web view[%p]: %@", event, webView.get(), event);
+            [webView _simulateMouseMove:event];
+        }
     }
 }
 
@@ -123,6 +134,19 @@ bool WebAutomationSession::wasEventSynthesizedForAutomation(NSEvent *event)
 
 #pragma mark Platform-dependent Implementations
 
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS) || ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+
+static WebCore::IntPoint viewportLocationToWindowLocation(WebCore::IntPoint locationInViewport, WebPageProxy& page)
+{
+    IntRect windowRect;
+
+    IntPoint locationInView = locationInViewport + IntPoint(0, page.topContentInset());
+    page.rootViewToWindow(IntRect(locationInView, IntSize()), windowRect);
+    return windowRect.location();
+}
+
+#endif // ENABLE(WEBDRIVER_MOUSE_INTERACTIONS) || ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 
 static WebMouseEvent::Button automationMouseButtonToPlatformMouseButton(MouseButton button)
@@ -140,11 +164,7 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
 {
     UNUSED_PARAM(pointerType);
 
-    IntRect windowRect;
-
-    IntPoint locationInView = locationInViewport + IntPoint(0, page.topContentInset());
-    page.rootViewToWindow(IntRect(locationInView, IntSize()), windowRect);
-    IntPoint locationInWindow = windowRect.location();
+    auto locationInWindow = viewportLocationToWindowLocation(locationInViewport, page);
 
     NSEventModifierFlags modifiers = 0;
     if (keyModifiers.contains(WebEvent::Modifier::MetaKey))
@@ -778,6 +798,29 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
     sendSynthesizedEventsToPage(page, eventsToBeSent.get());
 }
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
+
+#if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+
+void WebAutomationSession::platformSimulateWheelInteraction(WebPageProxy& page, const WebCore::IntPoint& locationInViewport, const WebCore::IntSize& delta)
+{
+    static constexpr auto scrollWheelCount = 2;
+    auto cgScrollEvent = adoptCF(CGEventCreateScrollWheelEvent(nullptr, kCGScrollEventUnitPixel, scrollWheelCount, -delta.height(), -delta.width()));
+
+    auto locationInWindow = viewportLocationToWindowLocation(locationInViewport, page);
+    NSWindow *window = page.platformWindow();
+
+    // Set the CGEvent location in flipped coords relative to the first screen, which compensates for the behavior of
+    // +[NSEvent eventWithCGEvent:] when the event has no associated window. See <rdar://problem/17180591>.
+    auto locationOnScreen = [window convertPointToScreen:locationInWindow];
+    locationOnScreen = CGPointMake(locationOnScreen.x, NSScreen.screens.firstObject.frame.size.height - locationOnScreen.y);
+    CGEventSetLocation(cgScrollEvent.get(), locationOnScreen);
+
+    NSEvent *scrollEvent = [[NSEvent eventWithCGEvent:cgScrollEvent.get()] _eventRelativeToWindow:window];
+
+    sendSynthesizedEventsToPage(page, @[scrollEvent]);
+}
+
+#endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 
 } // namespace WebKit
 

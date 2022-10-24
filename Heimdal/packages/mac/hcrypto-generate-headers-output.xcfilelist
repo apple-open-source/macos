@@ -8,7 +8,6 @@ ${HEIMDAL_TMPDIR}/hcrypto/evp-cc.h
 ${HEIMDAL_TMPDIR}/hcrypto/evp-hcrypto.h
 ${HEIMDAL_TMPDIR}/hcrypto/rsa.h
 ${HEIMDAL_TMPDIR}/hcrypto/dsa.h
-${HEIMDAL_TMPDIR}/hcrypto/md2.h
 ${HEIMDAL_TMPDIR}/hcrypto/md4.h
 ${HEIMDAL_TMPDIR}/hcrypto/md5.h
 ${HEIMDAL_TMPDIR}/hcrypto/sha.h

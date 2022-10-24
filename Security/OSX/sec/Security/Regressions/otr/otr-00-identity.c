@@ -58,7 +58,7 @@ static void RegressionsLogError(CFErrorRef error) {
 
 static int kTestTestCount = 27;
 
-static void otr_00_identity_MessageProtectionKeys()
+static void otr_00_identity_MessageProtectionKeys(void)
 {
     // We create a MessageProtection-style key.
     int32_t keysz32 = 256;

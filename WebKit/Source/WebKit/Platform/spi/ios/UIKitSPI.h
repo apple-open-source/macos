@@ -75,6 +75,7 @@
 #import <UIKit/UITextInput_Private.h>
 #import <UIKit/UITextInteractionAssistant_Private.h>
 #import <UIKit/UITextInteraction_Private.h>
+#import <UIKit/UITouch_Private.h>
 #import <UIKit/UIViewControllerTransitioning_Private.h>
 #import <UIKit/UIViewController_Private.h>
 #import <UIKit/UIViewController_ViewService.h>
@@ -88,6 +89,7 @@
 #import <UIKit/UIWebScrollView.h>
 #import <UIKit/UIWebTiledView.h>
 #import <UIKit/UIWebTouchEventsGestureRecognizer.h>
+#import <UIKit/UIWindowScene_Private.h>
 #import <UIKit/UIWindow_Private.h>
 #import <UIKit/_UIApplicationRotationFollowing.h>
 #import <UIKit/_UIBackdropViewSettings.h>
@@ -144,6 +146,15 @@
 #import <UIKit/UIPointerStyle_Private.h>
 #endif
 
+#if HAVE(UIKIT_HOVER_EVENT_PROTOCOL)
+#import <UIKit/UIHoverEvent_RequiresApproval.h>
+#endif
+
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
+#import <UIKit/UIWindowScene_RequiresApproval.h>
+#import <UIKit/_UIInvalidatable.h>
+#endif
+
 // FIXME: STAGING for rdar://75546704 Remove later.
 #define UIWKSelectionFlipped 2
 
@@ -161,6 +172,13 @@ typedef NS_ENUM(NSInteger, UIPreviewItemType) {
     UIPreviewItemTypeImage,
     UIPreviewItemTypeText,
     UIPreviewItemTypeAttachment,
+};
+
+typedef NS_ENUM(NSInteger, _UIDataOwner) {
+    _UIDataOwnerUndefined,
+    _UIDataOwnerUser,
+    _UIDataOwnerEnterprise,
+    _UIDataOwnerShared,
 };
 
 @class UIPreviewItemController;
@@ -321,6 +339,8 @@ typedef id<NSCoding, NSCopying> _UITextSearchDocumentIdentifier;
 
 - (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document;
 
+- (NSComparisonResult)compareFoundRange:(UITextRange *)fromRange toRange:(UITextRange *)toRange inDocument:(_UITextSearchDocumentIdentifier)document;
+
 - (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator;
 
 - (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style;
@@ -331,6 +351,10 @@ typedef id<NSCoding, NSCopying> _UITextSearchDocumentIdentifier;
 
 @interface _UIFindInteraction : NSObject <UIInteraction>
 @property (nonatomic, strong) id<_UITextSearching> searchableObject;
+@end
+
+@interface UIFindInteraction ()
+@property (class, nonatomic, copy, getter=_globalFindBuffer, setter=_setGlobalFindBuffer:) NSString *_globalFindBuffer;
 @end
 
 #endif // HAVE(UIFINDINTERACTION)
@@ -352,6 +376,17 @@ typedef enum {
     UIAllCorners = 0xFF,
 } UIRectCorners;
 
+#if HAVE(UIKIT_HOVER_EVENT_PROTOCOL)
+
+@protocol _UIHoverEventRespondable <NSObject>
+- (void)_hoverEntered:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)_hoverMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)_hoverExited:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+- (void)_hoverCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event;
+@end
+
+#endif // HAVE(UIKIT_HOVER_EVENT_PROTOCOL)
+
 @interface UIImagePickerController ()
 @property (nonatomic, setter=_setAllowsMultipleSelection:) BOOL _allowsMultipleSelection;
 @property (nonatomic, setter=_setRequiresPickingConfirmation:) BOOL _requiresPickingConfirmation;
@@ -361,6 +396,7 @@ typedef enum {
 @interface UIImage ()
 - (id)initWithCGImage:(CGImageRef)CGImage imageOrientation:(UIImageOrientation)imageOrientation;
 - (UIImage *)_flatImageWithColor:(UIColor *)color;
++ (UIImage *)_systemImageNamed:(NSString *)name;
 @end
 
 @interface UIKeyCommand ()
@@ -471,7 +507,10 @@ typedef enum {
 - (void)_wheelChangedWithEvent:(UIEvent *)event;
 - (void)_beginPinningInputViews;
 - (void)_endPinningInputViews;
-
+#if HAVE(PASTEBOARD_DATA_OWNER)
+@property (nonatomic, setter=_setDataOwnerForCopy:) _UIDataOwner _dataOwnerForCopy;
+@property (nonatomic, setter=_setDataOwnerForPaste:) _UIDataOwner _dataOwnerForPaste;
+#endif
 @end
 
 @class FBSDisplayConfiguration;
@@ -516,6 +555,10 @@ typedef enum {
 @property (nonatomic, readonly) UIEdgeInsets _effectiveContentInset;
 @property (nonatomic, getter=_allowsAsyncScrollEvent, setter=_setAllowsAsyncScrollEvent:) BOOL _allowsAsyncScrollEvent;
 @property (nonatomic, getter=_isFirstResponderKeyboardAvoidanceEnabled, setter=_setFirstResponderKeyboardAvoidanceEnabled:) BOOL firstResponderKeyboardAvoidanceEnabled;
+@property (nonatomic) BOOL bouncesHorizontally;
+@property (nonatomic) BOOL bouncesVertically;
+@property (nonatomic, setter=_setAllowsParentToBeginHorizontally:) BOOL _allowsParentToBeginHorizontally;
+@property (nonatomic, setter=_setAllowsParentToBeginVertically:) BOOL _allowsParentToBeginVertically;
 @end
 
 typedef NS_ENUM(NSUInteger, UIScrollPhase) {
@@ -593,6 +636,10 @@ typedef enum {
 - (BOOL)hasContent;
 - (BOOL)hasSelection;
 - (void)selectAll;
+@end
+
+@protocol _UITextInputTranslationSupport <UITextInput>
+@property (nonatomic, readonly, getter=isImageBacked) BOOL imageBacked;
 @end
 
 @interface UITextInputTraits : NSObject <UITextInputTraits, UITextInputTraits_Private, NSCopying>
@@ -762,8 +809,12 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 @interface UITextSelectionView : UIView
 @end
 
+@class UIContextMenuInteraction;
+@protocol UIContextMenuInteractionDelegate;
 @interface UITextInteractionAssistant (SPI)
 @property (nonatomic, readonly) UITextSelectionView *selectionView;
+@property (nonatomic, strong, readonly) UIContextMenuInteraction *contextMenuInteraction;
+@property (nonatomic, weak, readwrite) id<UIContextMenuInteractionDelegate> externalContextMenuInteractionDelegate;
 @end
 
 @interface UIWKTextInteractionAssistant : UITextInteractionAssistant <UIResponderStandardEditActions>
@@ -946,7 +997,6 @@ struct _UIWebTouchEvent {
 
 typedef NS_ENUM(NSInteger, _UIBackdropViewStylePrivate) {
     _UIBackdropViewStyle_Light = 2020,
-    _UIBackdropViewStyle_Dark = 2030
 };
 
 @interface _UIBackdropViewSettings : NSObject
@@ -963,7 +1013,6 @@ typedef NS_ENUM(NSInteger, _UIBackdropViewStylePrivate) {
 @interface _UIBackdropView ()
 - (instancetype)initWithPrivateStyle:(_UIBackdropViewStylePrivate)style;
 - (instancetype)initWithSettings:(_UIBackdropViewSettings *)settings;
-- (instancetype)initWithFrame:(CGRect)frame privateStyle:(_UIBackdropViewStylePrivate)style;
 @property (nonatomic, strong, readonly) UIView *contentView;
 @end
 
@@ -1179,9 +1228,11 @@ WTF_EXTERN_C_END
 @property (nonatomic, readonly) UIKeyboardPreferencesController<TIPreferencesControllerActions> *preferencesActions;
 @end
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 @interface UIMenuItem (UIMenuController_SPI)
 @property (nonatomic) BOOL dontDismiss;
 @end
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 @interface UICalloutBar : UIView
 + (UICalloutBar *)activeCalloutBar;
@@ -1259,6 +1310,8 @@ typedef NS_OPTIONS(NSInteger, UIWKDocumentRequestFlags) {
     UIWKDocumentRequestRects = 1 << 2,
     UIWKDocumentRequestSpatial = 1 << 3,
     UIWKDocumentRequestAnnotation = 1 << 4,
+    UIWKDocumentRequestMarkedTextRects =  1 << 5,
+    UIWKDocumentRequestSpatialAndCurrentSelection =  1 << 6,
 };
 
 @interface UIWKDocumentRequest : NSObject
@@ -1339,19 +1392,26 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @property (nonatomic, readonly) NSString *_sceneIdentifier;
 @end
 
-#endif // USE(APPLE_INTERNAL_SDK)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+@interface UITouch ()
+@property (nonatomic, readonly) BOOL _isPointerTouch;
+@end
+#endif
 
-#define UIWKDocumentRequestMarkedTextRects (1 << 5)
-#define UIWKDocumentRequestSpatialAndCurrentSelection (1 << 6)
+#if HAVE(UIKIT_RESIZABLE_WINDOWS)
 
-#if HAVE(PASTEBOARD_DATA_OWNER)
-
-@interface UIResponder (Staging_73852335)
-@property (nonatomic, setter=_setDataOwnerForCopy:) _UIDataOwner _dataOwnerForCopy;
-@property (nonatomic, setter=_setDataOwnerForPaste:) _UIDataOwner _dataOwnerForPaste;
+@protocol _UIInvalidatable <NSObject>
+- (void)_invalidate;
 @end
 
-#endif
+@interface UIWindowScene ()
+- (id<_UIInvalidatable>)_holdLiveResizeSnapshotForReason:(NSString *)reason;
+@property (nonatomic, readonly) BOOL _enhancedWindowingEnabled;
+@end
+
+#endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
+
+#endif // USE(APPLE_INTERNAL_SDK)
 
 @interface UITextInteractionAssistant (IPI)
 @property (nonatomic, readonly) BOOL inGesture;
@@ -1494,6 +1554,13 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @interface UITextAutofillSuggestion : UITextSuggestion
 @property (nonatomic, assign) NSString *username;
 @property (nonatomic, assign) NSString *password;
+@end
+#endif
+
+#if ENABLE(POST_EDITING_GRAMMAR_CHECKING)
+@interface UITextChecker ()
++ (BOOL)grammarCheckingEnabled;
+- (NSArray<NSTextCheckingResult *> *)checkString:(NSString *)stringToCheck range:(NSRange)range types:(NSTextCheckingTypes)checkingTypes languages:(NSArray<NSString *> *)languagesArray options:(NSDictionary<NSString *, id> *)options;
 @end
 #endif
 

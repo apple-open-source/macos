@@ -27,7 +27,9 @@
 
 #include "Decoder.h"
 #include "Encoder.h"
+#include <WebCore/NotificationData.h>
 #include <wtf/EnumTraits.h>
+#include <wtf/Span.h>
 
 namespace IPC {
 namespace Detail {
@@ -46,6 +48,12 @@ template<typename T, typename = void> struct ArgumentCoder {
     static void encode(Encoder& encoder, const T& t)
     {
         t.encode(encoder);
+    }
+
+    template<typename Encoder>
+    static void encode(Encoder& encoder, T&& t)
+    {
+        WTFMove(t).encode(encoder);
     }
 
     template<typename Decoder>

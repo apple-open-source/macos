@@ -41,7 +41,6 @@ OBJC_CLASS AVAsset;
 OBJC_CLASS AVSampleBufferAudioRenderer;
 OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS AVSampleBufferRenderSynchronizer;
-OBJC_CLASS AVSampleBufferVideoOutput;
 OBJC_CLASS AVStreamSession;
 
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
@@ -50,11 +49,14 @@ typedef struct __CVBuffer *CVOpenGLTextureRef;
 
 namespace WebCore {
 
+class AudioTrackPrivate;
 class CDMSessionMediaSourceAVFObjC;
 class EffectiveRateChangedListener;
+class InbandTextTrackPrivate;
 class MediaSourcePrivateAVFObjC;
 class PixelBufferConformerCV;
 class VideoLayerManagerObjC;
+class VideoTrackPrivate;
 class WebCoreDecompressionSession;
 
 
@@ -78,6 +80,10 @@ public:
     void addAudioRenderer(AVSampleBufferAudioRenderer*);
     void removeAudioRenderer(AVSampleBufferAudioRenderer*);
     ALLOW_NEW_API_WITHOUT_GUARDS_END
+    
+    void removeAudioTrack(AudioTrackPrivate&);
+    void removeVideoTrack(VideoTrackPrivate&);
+    void removeTextTrack(InbandTextTrackPrivate&);
 
     MediaPlayer::NetworkState networkState() const override;
     MediaPlayer::ReadyState readyState() const override;
@@ -137,7 +143,7 @@ public:
     void endSimulatedHDCPError() override { outputObscuredDueToInsufficientExternalProtectionChanged(false); }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
-    void keyNeeded(Uint8Array*);
+    void keyNeeded(const SharedBuffer&);
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -166,7 +172,7 @@ public:
 private:
     // MediaPlayerPrivateInterface
     void load(const String& url) override;
-    void load(const URL&, const ContentType&, MediaSourcePrivateClient*) override;
+    void load(const URL&, const ContentType&, MediaSourcePrivateClient&) override;
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) override;
 #endif
@@ -222,13 +228,20 @@ private:
     bool updateLastImage();
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
-    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime() final;
+#if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+    void willBeAskedToPaintGL() final;
+#endif
+    RefPtr<VideoFrame> videoFrameForCurrentTime() final;
     DestinationColorSpace colorSpace() final;
 
     bool supportsAcceleratedRendering() const override;
     // called when the rendering system flips the into or out of accelerated rendering mode.
     void acceleratedRenderingStateChanged() override;
     void notifyActiveSourceBuffersChanged() override;
+
+    void playerContentBoxRectChanged(const LayoutRect&) final;
+
+    void updateDisplayLayerAndDecompressionSession();
 
     // NOTE: Because the only way for MSE to recieve data is through an ArrayBuffer provided by
     // javascript running in the page, the video will, by necessity, always be CORS correct and
@@ -265,8 +278,6 @@ private:
 
     bool shouldBePlaying() const;
 
-    bool isVideoOutputAvailable() const;
-
     bool setCurrentTimeDidChangeCallback(MediaPlayer::CurrentTimeDidChangeCallback&&) final;
 
 #if HAVE(AVSAMPLEBUFFERRENDERSYNCHRONIZER_RATEATHOSTTIME)
@@ -279,8 +290,12 @@ private:
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
+    void setResourceOwner(const ProcessIdentity& resourceOwner) final { m_resourceOwner = resourceOwner; }
+
     void checkNewVideoFrameMetadata(CMTime);
     MediaTime clampTimeToLastSeekTime(const MediaTime&) const;
+
+    bool shouldEnsureLayer() const;
 
     friend class MediaSourcePrivateAVFObjC;
 
@@ -303,9 +318,6 @@ private:
     RefPtr<MediaSourcePrivateAVFObjC> m_mediaSourcePrivate;
     RetainPtr<AVAsset> m_asset;
     RetainPtr<AVSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
-#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-    RetainPtr<AVSampleBufferVideoOutput> m_videoOutput;
-#endif
 
     struct AudioRendererProperties {
         bool hasAudibleSample { false };
@@ -339,7 +351,9 @@ private:
     bool m_seeking;
     SeekState m_seekCompleted { SeekCompleted };
     mutable bool m_loadingProgressed;
+#if !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     bool m_hasBeenAskedToPaintGL { false };
+#endif
     bool m_hasAvailableVideoFrame { false };
     bool m_allRenderersHaveAvailableSamples { false };
     bool m_visible { false };
@@ -357,6 +371,7 @@ private:
     bool m_isGatheringVideoFrameMetadata { false };
     std::optional<VideoFrameMetadata> m_videoFrameMetadata;
     uint64_t m_lastConvertedSampleCount { 0 };
+    ProcessIdentity m_resourceOwner;
 };
 
 String convertEnumerationToString(MediaPlayerPrivateMediaSourceAVFObjC::SeekState);

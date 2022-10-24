@@ -56,6 +56,7 @@
 #include <WebCore/ApplicationCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CommonVM.h>
+#include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
@@ -71,7 +72,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/PrintContext.h>
-#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/SWContextManager.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
@@ -142,7 +142,7 @@ void InjectedBundle::postSynchronousMessage(const String& messageName, API::Obje
 
     auto& webProcess = WebProcess::singleton();
     if (!webProcess.parentProcessConnection()->sendSync(Messages::WebProcessPool::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))),
-        Messages::WebProcessPool::HandleSynchronousMessage::Reply(returnUserData), 0, IPC::Timeout::infinity(), IPC::SendSyncOption::InformPlatformProcessWillSuspend))
+        Messages::WebProcessPool::HandleSynchronousMessage::Reply(returnUserData), 0))
         returnData = nullptr;
     else
         returnData = webProcess.transformHandlesToObjects(returnUserData.object());
@@ -257,7 +257,7 @@ void InjectedBundle::reportException(JSContextRef context, JSValueRef exception)
     JSLockHolder lock(globalObject);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a Page.
-    if (!globalObject->inherits<JSDOMWindow>(globalObject->vm()))
+    if (!globalObject->inherits<JSDOMWindow>())
         return;
 
     WebCore::reportException(globalObject, toJS(globalObject, exception));
@@ -286,7 +286,7 @@ void InjectedBundle::didReceiveMessageToPage(WebPage* page, const String& messag
 void InjectedBundle::setUserStyleSheetLocation(const String& location)
 {
     Page::forEachPage([location](Page& page) {
-        page.settings().setUserStyleSheetLocation(URL(URL(), location));
+        page.settings().setUserStyleSheetLocation(URL { location });
     });
 }
 
@@ -338,14 +338,14 @@ InjectedBundle::DocumentIDToURLMap InjectedBundle::liveDocumentURLs(bool exclude
     DocumentIDToURLMap result;
 
     for (const auto* document : Document::allDocuments())
-        result.add(document->identifier().object().toUInt64(), document->url().string());
+        result.add(document->identifier().object(), document->url().string());
 
     if (excludeDocumentsInPageGroupPages) {
         Page::forEachPage([&](Page& page) {
             for (auto* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
                 if (!frame->document())
                     continue;
-                result.remove(frame->document()->identifier().object().toUInt64());
+                result.remove(frame->document()->identifier().object());
             }
         });
     }
@@ -361,7 +361,7 @@ void InjectedBundle::setTabKeyCyclesThroughElements(WebPage* page, bool enabled)
 void InjectedBundle::setAccessibilityIsolatedTreeEnabled(bool enabled)
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    RuntimeEnabledFeatures::sharedFeatures().setIsAccessibilityIsolatedTreeEnabled(enabled);
+    DeprecatedGlobalSettings::setIsAccessibilityIsolatedTreeEnabled(enabled);
 #endif
 }
 

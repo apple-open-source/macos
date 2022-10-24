@@ -49,6 +49,10 @@
 #include <usp10.h>
 #endif
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebCore {
 
 class FontCache;
@@ -118,7 +122,7 @@ public:
         return const_cast<Font*>(this);
     }
 
-    bool variantCapsSupportsCharacterForSynthesis(FontVariantCaps, UChar32) const;
+    bool variantCapsSupportedForSynthesis(FontVariantCaps) const;
 
     const Font& verticalRightOrientationFont() const;
     const Font& uprightOrientationFont() const;
@@ -138,22 +142,19 @@ public:
 
     FloatRect boundsForGlyph(Glyph) const;
 
-    // If you're calling this, you need to care about synthetic bold.
-    // This function returns the width before adding in the synthetic bold offset.
-    // This is because these widths are fed as an input to shaping, which needs to consume the true widths.
-    // Then, the synthetic bold offset is applied after shaping.
-    // If you're not going through WidthIterator or ComplexTextController (and thus potentially executing shaping yourself),
-    // then you need to decide whether or not you need to add syntheticBoldOffset() to the result of your widthForGlyph() call.
-    float widthForGlyph(Glyph) const;
+    // Should the result of this function include the results of synthetic bold?
+    enum class SyntheticBoldInclusion {
+        Incorporate,
+        Exclude
+    };
+    float widthForGlyph(Glyph, SyntheticBoldInclusion = SyntheticBoldInclusion::Incorporate) const;
 
     const Path& pathForGlyph(Glyph) const; // Don't store the result of this! The hash map is free to rehash at any point, leaving this reference dangling.
-    FloatRect platformBoundsForGlyph(Glyph) const;
-    float platformWidthForGlyph(Glyph) const;
-    Path platformPathForGlyph(Glyph) const;
 
-    // If you're calling this, you need to care about synthetic bold.
-    // See the comment just above widthForGlyph().
-    float spaceWidth() const { return m_spaceWidth; }
+    float spaceWidth(SyntheticBoldInclusion SyntheticBoldInclusion = SyntheticBoldInclusion::Incorporate) const
+    {
+        return m_spaceWidth + (SyntheticBoldInclusion == SyntheticBoldInclusion::Incorporate ? syntheticBoldOffset() : 0);
+    }
 
     float syntheticBoldOffset() const { return m_syntheticBoldOffset; }
 
@@ -188,10 +189,10 @@ public:
 #if PLATFORM(COCOA)
     CTFontRef getCTFont() const { return m_platformData.font(); }
     RetainPtr<CFDictionaryRef> getCFStringAttributes(bool enableKerning, FontOrientation, const AtomString& locale) const;
-    const BitVector& glyphsSupportedBySmallCaps() const;
-    const BitVector& glyphsSupportedByAllSmallCaps() const;
-    const BitVector& glyphsSupportedByPetiteCaps() const;
-    const BitVector& glyphsSupportedByAllPetiteCaps() const;
+    bool supportsSmallCaps() const;
+    bool supportsAllSmallCaps() const;
+    bool supportsPetiteCaps() const;
+    bool supportsAllPetiteCaps() const;
 #endif
 
     bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;
@@ -235,6 +236,10 @@ private:
     FloatRect boundsForGDIGlyph(Glyph) const;
     float widthForGDIGlyph(Glyph) const;
 #endif
+
+    FloatRect platformBoundsForGlyph(Glyph) const;
+    float platformWidthForGlyph(Glyph) const;
+    Path platformPathForGlyph(Glyph) const;
 
 #if PLATFORM(COCOA)
     class ComplexColorFormatGlyphs {
@@ -304,10 +309,15 @@ private:
     mutable std::unique_ptr<DerivedFonts> m_derivedFontData;
 
 #if PLATFORM(COCOA)
-    mutable std::optional<BitVector> m_glyphsSupportedBySmallCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByAllSmallCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByPetiteCaps;
-    mutable std::optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
+    enum class SupportsFeature {
+        No,
+        Yes,
+        Unknown
+    };
+    mutable SupportsFeature m_supportsSmallCaps { SupportsFeature::Unknown };
+    mutable SupportsFeature m_supportsAllSmallCaps { SupportsFeature::Unknown };
+    mutable SupportsFeature m_supportsPetiteCaps { SupportsFeature::Unknown };
+    mutable SupportsFeature m_supportsAllPetiteCaps { SupportsFeature::Unknown };
     mutable std::optional<PAL::OTSVGTable> m_otSVGTable;
     mutable std::optional<ComplexColorFormatGlyphs> m_glyphsWithComplexColorFormat; // SVG and sbix
 #endif
@@ -324,7 +334,6 @@ private:
     Visibility m_visibility; // @font-face's internal timer can cause us to show fonts even when a font is being downloaded.
 
     float m_spaceWidth { 0 };
-    float m_adjustedSpaceWidth { 0 };
 
     float m_syntheticBoldOffset { 0 };
 
@@ -369,7 +378,7 @@ ALWAYS_INLINE FloatRect Font::boundsForGlyph(Glyph glyph) const
     return bounds;
 }
 
-ALWAYS_INLINE float Font::widthForGlyph(Glyph glyph) const
+ALWAYS_INLINE float Font::widthForGlyph(Glyph glyph, SyntheticBoldInclusion SyntheticBoldInclusion) const
 {
     // The optimization of returning 0 for the zero-width-space glyph is incorrect for the LastResort font,
     // used in place of the actual font when isLoading() is true on both macOS and iOS.
@@ -380,7 +389,7 @@ ALWAYS_INLINE float Font::widthForGlyph(Glyph glyph) const
 
     float width = m_glyphToWidthMap.metricsForGlyph(glyph);
     if (width != cGlyphSizeUnknown)
-        return width;
+        return width + (SyntheticBoldInclusion == SyntheticBoldInclusion::Incorporate ? syntheticBoldOffset() : 0);
 
 #if ENABLE(OPENTYPE_VERTICAL)
     if (m_verticalData)
@@ -390,8 +399,12 @@ ALWAYS_INLINE float Font::widthForGlyph(Glyph glyph) const
         width = platformWidthForGlyph(glyph);
 
     m_glyphToWidthMap.setMetricsForGlyph(glyph, width);
-    return width;
+    return width + (SyntheticBoldInclusion == SyntheticBoldInclusion::Incorporate ? syntheticBoldOffset() : 0);
 }
+
+#if !LOG_DISABLED
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const Font&);
+#endif
 
 } // namespace WebCore
 

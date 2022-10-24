@@ -377,3 +377,34 @@ get_sibling_id(const char *path)
 
 	return attr_buf.sibling_id;
 }
+
+uint64_t
+get_xattr_count(const char *path)
+{
+	uint64_t xattrs_count = 0;
+	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
+
+	ssize_t xattr_size = listxattr(path, NULL, 0, options);
+	if (xattr_size > 0) {
+		char *xattr_buffer = calloc(1, xattr_size);
+		if (xattr_buffer == NULL) {
+			RECORD_FAILURE(611832, ENOMEM);
+			err(1, "get_xattr_count: failed to allocate xattr buffer size:(%zd)\n", xattr_size);
+		}
+		errno_t error = listxattr(path, xattr_buffer, xattr_size, options);
+		if (error == -1) {
+			RECORD_FAILURE(611833, errno);
+			err(1, "get_xattr_count: listxattr failed with %s(%d) for <%s>\n", strerror(errno), errno, path);
+		}
+		for (char *xattrname = xattr_buffer; xattrname < (xattr_buffer + xattr_size);) {
+			xattrs_count++;
+			xattrname += strlen(xattrname)+1;
+		}
+		free(xattr_buffer);
+	} else if (xattr_size == -1) {
+		RECORD_FAILURE(621936, errno);
+		err(1, "get_xattr_count: listxattr failed with %s(%d) while calculating xattr buffer size for path<%s>\n", strerror(errno), errno, path);
+	}
+
+	return xattrs_count;
+}

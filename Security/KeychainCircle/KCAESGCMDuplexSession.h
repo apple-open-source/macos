@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Due to design constraints, this session object is the only thing serialized during piggybacking sessions.
 // Therefore, we must add some extra data here, which is not strictly part of a AES GCM session.
 @property (retain, nullable) NSString* pairingUUID;
+@property (retain, nullable) NSString* altDSID;
 @property uint64_t piggybackingVersion;
 @property uint64_t epoch;
 
@@ -35,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable instancetype)initWithSecret:(NSData*)sharedSecret
                                 context:(uint64_t)context
                                      as:(bool) sender
+                                altDSID:(NSString* _Nullable)altDSID
                             pairingUUID:(NSString* _Nullable)pairingUUID
                     piggybackingVersion:(uint64_t)piggybackingVersion
                                   epoch:(uint64_t)epoch

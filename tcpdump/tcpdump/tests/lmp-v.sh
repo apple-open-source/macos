@@ -1,4 +1,4 @@
-#!/bin/sh
+ #!/bin/sh
 
 # The "verbose" Link Management Protocol test involves a float calculation that
 # may produce a slightly different result depending on the architecture and the
@@ -18,7 +18,7 @@ then
 	printf '    %-35s: TEST SKIPPED (no Makefile)\n' 'lmp-v'
 elif grep '^CC = .*gcc' ../Makefile >/dev/null
 then
-	if ./TESTonce.sh lmp-v lmp.pcap lmp-v.out '-T lmp -v'
+	if ./TESTonce.sh lmp-v lmp.pcap lmp-v-fptype1.out '-T lmp -v'
 	then
 		passed=`expr $passed + 1`
 		echo $passed >.passed

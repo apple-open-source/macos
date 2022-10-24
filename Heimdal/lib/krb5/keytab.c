@@ -131,7 +131,7 @@ main (int argc, char **argv)
 /**
  * Register a new keytab backend.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param ops a backend to register.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -197,7 +197,7 @@ keytab_name(const char *name, const char **type, size_t *type_len)
  * Resolve the keytab name (of the form `type:residual') in `name'
  * into a keytab in `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name name to resolve
  * @param id resulting keytab, free with krb5_kt_close().
  *
@@ -250,7 +250,7 @@ krb5_kt_resolve(krb5_context context,
 /**
  * copy the name of the default keytab into `name'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name buffer where the name will be written
  * @param namesize length of name
  *
@@ -272,7 +272,7 @@ krb5_kt_default_name(krb5_context context, char *name, size_t namesize)
 /**
  * Copy the name of the default modify keytab into `name'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param name buffer where the name will be written
  * @param namesize length of name
  *
@@ -310,7 +310,7 @@ krb5_kt_default_modify_name(krb5_context context, char *name, size_t namesize)
 /**
  * Set `id' to the default keytab.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id the new default keytab.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -328,7 +328,7 @@ krb5_kt_default(krb5_context context, krb5_keytab *id)
  * Read the key identified by `(principal, vno, enctype)' from the
  * keytab in `keyprocarg' (the default if == NULL) into `*key'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keyprocarg key proc argument
  * @param principal principal to find
  * @param vno its kvno to search for
@@ -373,7 +373,7 @@ krb5_kt_read_service_key(krb5_context context,
  * Return the type of the `keytab' in the string `prefix of length
  * `prefixsize'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab the keytab to get the prefix for
  * @param prefix prefix buffer
  * @param prefixsize length of prefix buffer
@@ -396,7 +396,7 @@ krb5_kt_get_type(krb5_context context,
 /**
  * Retrieve the name of the keytab `keytab' into `name', `namesize'
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab the keytab to get the name for.
  * @param name name buffer.
  * @param namesize size of name buffer.
@@ -419,7 +419,7 @@ krb5_kt_get_name(krb5_context context,
  * Retrieve the full name of the keytab `keytab' and store the name in
  * `str'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param keytab keytab to get name for.
  * @param str the name of the keytab name, usee krb5_xfree() to free
  *        the string.  On error, *str is set to NULL.
@@ -461,7 +461,7 @@ krb5_kt_get_full_name(krb5_context context,
  * Finish using the keytab in `id'.  All resources will be released,
  * even on errors.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id keytab to close.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -485,7 +485,7 @@ krb5_kt_close(krb5_context context,
  * Destroy (remove) the keytab in `id'.  All resources will be released,
  * even on errors, does the equvalment of krb5_kt_close() on the resources.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id keytab to destroy.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -528,7 +528,7 @@ compare_aliseses(krb5_context context,
  * Any of `principal, vno, enctype' might be 0 which acts as a wildcard.
  * Return TRUE if they compare the same, FALSE otherwise.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param entry an entry to match with.
  * @param principal principal to match, NULL matches all principals.
  * @param vno key version to match, 0 matches all key version numbers.
@@ -603,7 +603,7 @@ _krb5_kt_principal_not_found(krb5_context context,
  * Retrieve the keytab entry for `principal, kvno, enctype' into `entry'
  * from the keytab `id'. Matching is done like krb5_kt_compare().
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param principal principal to match, NULL matches all principals.
  * @param kvno key version to match, 0 matches all key version numbers.
@@ -668,7 +668,7 @@ krb5_kt_get_entry(krb5_context context,
 /**
  * Copy the contents of `in' into `out'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param in the keytab entry to copy.
  * @param out the copy of the keytab entry, free with krb5_kt_free_entry().
  *
@@ -705,7 +705,7 @@ fail:
 /**
  * Free the contents of `entry'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param entry the entry to free
  *
  * @return Return an error code or 0, see krb5_get_error_message().
@@ -726,7 +726,7 @@ krb5_kt_free_entry(krb5_context context,
 /**
  * Set `cursor' to point at the beginning of `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param cursor a newly allocated cursor, free with krb5_kt_end_seq_get().
  *
@@ -754,7 +754,7 @@ krb5_kt_start_seq_get(krb5_context context,
  * Get the next entry from keytab, advance the cursor.  On last entry
  * the function will return KRB5_KT_END.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the returned entry, free with krb5_kt_free_entry().
  * @param cursor the cursor of the iteration.
@@ -784,7 +784,7 @@ krb5_kt_next_entry(krb5_context context,
 /**
  * Release all resources associated with `cursor'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param cursor the cursor to free.
  *
@@ -810,7 +810,7 @@ krb5_kt_end_seq_get(krb5_context context,
 /**
  * Add the entry in `entry' to the keytab `id'.
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the entry to add
  *
@@ -838,7 +838,7 @@ krb5_kt_add_entry(krb5_context context,
  * Remove an entry from the keytab, matching is done using
  * krb5_kt_compare().
 
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  * @param entry the entry to remove
  *
@@ -864,7 +864,7 @@ krb5_kt_remove_entry(krb5_context context,
 /**
  * Return true if the keytab exists and have entries
  *
- * @param context a Keberos context.
+ * @param context a Kerberos context.
  * @param id a keytab.
  *
  * @return Return an error code or 0, see krb5_get_error_message().

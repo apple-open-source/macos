@@ -45,6 +45,7 @@ JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject
 
     JSGlobalObject* lexicalGlobalObject = &globalObject;
     VM& vm = lexicalGlobalObject->vm();
+
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
     JSValue function;
@@ -52,7 +53,7 @@ JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject
 
     if (method != CallbackType::Object) {
         function = callback;
-        callData = getCallData(vm, callback);
+        callData = JSC::getCallData(callback);
     }
     if (callData.type == CallData::Type::None) {
         if (method == CallbackType::Function) {
@@ -68,7 +69,7 @@ JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject
             return JSValue();
         }
 
-        callData = getCallData(vm, function);
+        callData = JSC::getCallData(function);
         if (callData.type == CallData::Type::None) {
             returnedException = JSC::Exception::create(vm, createTypeError(lexicalGlobalObject, makeString("'", String(functionName.uid()), "' property of callback interface should be callable")));
             return JSValue();

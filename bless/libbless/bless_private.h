@@ -150,7 +150,7 @@ int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) __pr
 /*
  * stringify the OSType into the caller-provided buffer
  */
-char * blostype2string(uint32_t type, char buf[5]);
+char * blostype2string(uint32_t type, char* buf, uint32_t bufSize);
 
 // statfs wrapper that works in single user mode,
 // where the mount table hasn't been updated with the

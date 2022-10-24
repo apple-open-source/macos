@@ -129,7 +129,7 @@ for a in test_scram test_ntlm ; do
 done
 
 # asn1
-for a in check-der check-gen ; do
+for a in check-der check-gen check-ber; do
     run_test $a /usr/local/libexec/heimdal/bin/$a
 done
 

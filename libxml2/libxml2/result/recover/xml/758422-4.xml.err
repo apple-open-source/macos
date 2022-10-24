@@ -1,3 +1,16 @@
 ./test/recover/xml/758422-4.xml:2: parser error : xmlParseElementChildrenContentDecl : '|' expected
 <!ELEMENT doc ((a | b+, c) >
                       ^
+./test/recover/xml/758422-4.xml:2: parser error : expected '>'
+<!ELEMENT doc ((a | b+, c) >
+                      ^
+./test/recover/xml/758422-4.xml:2: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+<!ELEMENT doc ((a | b+, c) >
+                      ^
+./test/recover/xml/758422-4.xml:2: parser error : DOCTYPE improperly terminated
+<!ELEMENT doc ((a | b+, c) >
+                      ^
+./test/recover/xml/758422-4.xml:2: parser error : Start tag expected, '<' not found
+<!ELEMENT doc ((a | b+, c) >
+                      ^

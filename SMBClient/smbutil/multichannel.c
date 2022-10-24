@@ -45,7 +45,7 @@
 #include <netsmb/smb2_mc.h>
 
 #include <net/if_media.h>
-
+#include <net/if.h>
 #include "common.h"
 
 #include <json_support.h>
@@ -120,7 +120,7 @@ speed_to_str(uint64_t speed, char * buf)
 
 
 static void
-address_to_str(struct adress_propreties addr, char * buf)
+address_to_str(struct address_properties addr, char * buf)
 {
     switch(addr.addr_family) {
         case AF_INET:
@@ -206,6 +206,7 @@ format_nic_info(struct nic_properties *props, bool is_server)
         address_to_str(props->addr_list[i], buf);
         CFStringRef cf_addr = CFStringCreateWithCString(kCFAllocatorDefault, buf, kCFStringEncodingUTF8);
         CFArrayAppendValue(ip_addrs, cf_addr);
+        CFRelease(cf_addr);
     }
     CFDictionaryAddValue(dict, CFSTR("addr_list"), ip_addrs);
 
@@ -241,6 +242,7 @@ format_mc_status(struct smbioc_iod_prop * props)
                                                        buf,
                                                        kCFStringEncodingUTF8);
         CFArrayAppendValue(flags, cf_rss);
+        CFRelease(cf_rss);
     }
 
     CFDictionarySetValue(dict, CFSTR("flags"), flags);
@@ -391,6 +393,7 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
     char tmp_name[MNAMELEN];
     char *share_name = NULL, *end = NULL;
     char *unescaped_share_name = NULL;
+    int error = 0;
 
     CFMutableDictionaryRef status_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (output_format == Json && status_dict == NULL) {
@@ -406,7 +409,12 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
 
     /* If root user, change to the owner who mounted the share */
     if (getuid() == 0) {
-        setuid(statbuf.f_owner);
+        error = setuid(statbuf.f_owner);
+        if (error) {
+            fprintf(stderr, "%s : setuid failed %d (%s)\n\n",
+                     __FUNCTION__, errno, strerror (errno));
+            return(errno);
+        }
     }
 
     /*
@@ -627,10 +635,15 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
     if (flags & S_NIC_INFO) {
 
         struct smbioc_nic_info server_nics;
+        memset(&server_nics, 0, sizeof(struct smbioc_nic_info));
+        server_nics.nic_props_buffer_len = SMB_MAX_IOC_SIZE - sizeof(struct smbioc_nic_info);
+        server_nics.ioc_nic_props_buffer = malloc(server_nics.nic_props_buffer_len);
+
         CFMutableDictionaryRef s_nics = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if (s_nics == NULL) {
             fprintf(stderr, "CFArrayCreateMutable failed\n");
             status = EINVAL;
+            free(server_nics.ioc_nic_props_buffer);
             goto exit;
         }
 
@@ -638,19 +651,17 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
         if (!NT_SUCCESS(status)) {
             fprintf(stderr, "%s : SMBGetNicInfoProperties() failed (server nics)\n",
                     __FUNCTION__);
-            return status;
-        }
-
-        if (server_nics.num_of_nics > MAX_NUM_OF_NICS) {
-            fprintf(stderr, "%s : incorrect number of server interfaces (%u))\n",
-                    __FUNCTION__, server_nics.num_of_nics);
-            status = EINVAL;
+            free(server_nics.ioc_nic_props_buffer);
             goto exit;
         }
 
+        void * npp = server_nics.ioc_nic_props_buffer;
+
         for(uint32_t u=0; u<server_nics.num_of_nics; u++) {
-            struct nic_properties *nic_info = &server_nics.nic_props[u];
+
+            struct nic_properties *nic_info = (struct nic_properties *)npp;
             if (nic_info->if_index & RSS_MASK) {
+                npp = (uint8_t *)npp + nic_info->size;
                 continue;
             }
             
@@ -664,21 +675,28 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
                 json_add_dict(s_nics, buf, format_nic_info(nic_info, true));
             }
 
+            npp = (uint8_t *)npp + nic_info->size;
         }
 
         if ((server_nics.num_of_nics) && (output_format == Json)) {
             json_add_dict(status_dict, "server_interfaces", s_nics);
             json_add_dict(smbMCShares, share_mp, status_dict);
         }
+        free(server_nics.ioc_nic_props_buffer);
     }
 
     if (flags & C_NIC_INFO) {
 
         struct smbioc_nic_info client_nics;
+        memset(&client_nics, 0, sizeof(struct smbioc_nic_info));
+        client_nics.nic_props_buffer_len = SMB_MAX_IOC_SIZE - sizeof(struct smbioc_nic_info);
+        client_nics.ioc_nic_props_buffer = malloc(client_nics.nic_props_buffer_len);
+
         CFMutableDictionaryRef c_nics = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if (c_nics == NULL) {
             fprintf(stderr, "CFArrayCreateMutable failed\n");
             status = EINVAL;
+            free(client_nics.ioc_nic_props_buffer);
             goto exit;
         }
 
@@ -686,19 +704,15 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
         if (!NT_SUCCESS(status)) {
             fprintf(stderr, "%s : SMBGetNicInfoProperties() failed (client nics)\n",
                     __FUNCTION__);
-            return status;
-        }
-
-        if (client_nics.num_of_nics > MAX_NUM_OF_NICS) {
-            fprintf(stderr, "%s : incorrect number of client interfaces (%u))\n",
-                    __FUNCTION__, client_nics.num_of_nics);
-            status = EINVAL;
+            free(client_nics.ioc_nic_props_buffer);
             goto exit;
         }
 
+        void * npp = client_nics.ioc_nic_props_buffer;
+
         for(uint32_t u=0; u<client_nics.num_of_nics; u++) {
 
-            struct nic_properties *nic_info = &client_nics.nic_props[u];
+            struct nic_properties *nic_info = (struct nic_properties *)npp;
 
             if (output_format == None) {
                 print_nic_info(0, nic_info);
@@ -708,12 +722,15 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
                 sprintf(buf,"%llu", nic_info->if_index);
                 json_add_dict(c_nics, buf, format_nic_info(nic_info, false));
             }
+
+            npp = (uint8_t *)npp + nic_info->size;
         }
 
         if ((client_nics.num_of_nics) && (output_format == Json)) {
             json_add_dict(status_dict, "client_interfaces", c_nics);
             json_add_dict(smbMCShares, share_mp, status_dict);
         }
+        free(client_nics.ioc_nic_props_buffer);
     }
 
     if (output_format == None) {

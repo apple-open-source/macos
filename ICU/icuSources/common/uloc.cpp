@@ -98,7 +98,7 @@ U_CFUNC const char *locale_get_default(void);
 static const char * const LANGUAGES[] = {
     "aa",  "ab",  "ace", "ach", "ada", "ady", "ae",  "aeb",
     "af",  "afh", "agq", "ain", "ak",  "akk", "akz", "ale",
-    "aln", "alt", "am",  "an",  "ang", "anp", "ar",  "arc",
+    "aln", "alt", "am",  "an",  "ang", "anp", "apw", "ar",  "arc",
     "arn", "aro", "arp", "arq", "ars", "arw", "ary", "arz", "as",
     "asa", "ase", "ast", "av",  "avk", "awa", "ay",  "az",
     "ba",  "bal", "ban", "bar", "bas", "bax", "bbc", "bbj",
@@ -215,7 +215,7 @@ static const char* const REPLACEMENT_LANGUAGES[]={
 static const char * const LANGUAGES_3[] = {
     "aar", "abk", "ace", "ach", "ada", "ady", "ave", "aeb",
     "afr", "afh", "agq", "ain", "aka", "akk", "akz", "ale",
-    "aln", "alt", "amh", "arg", "ang", "anp", "ara", "arc",
+    "aln", "alt", "amh", "arg", "ang", "anp", "apw", "ara", "arc",
     "arn", "aro", "arp", "arq", "ars", "arw", "ary", "arz", "asm",
     "asa", "ase", "ast", "ava", "avk", "awa", "aym", "aze",
     "bak", "bal", "ban", "bar", "bas", "bax", "bbc", "bbj",

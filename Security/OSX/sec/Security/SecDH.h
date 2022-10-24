@@ -157,23 +157,6 @@ OSStatus SecDHComputeKey(SecDHContext dh,
  */
 void SecDHDestroy(SecDHContext dh);
 
-
-/*!
-    @function SecDHEncodeParams
-    @abstract Encode parameters in a PKCS#3 blob
- */
-OSStatus SecDHEncodeParams(CFDataRef g, CFDataRef p,
-                           CFDataRef l, CFDataRef recip,
-                           CFDataRef *params);
-
-/*!
-     @function SecDHDecodeParams
-     @abstract Decode parameters in a PKCS#3 blob
- */
-OSStatus SecDHDecodeParams(CFDataRef *g, CFDataRef *p,
-                           CFDataRef *l, CFDataRef *r,
-                           CFDataRef params);
-
 #ifdef __cplusplus
 }
 #endif

@@ -36,6 +36,7 @@
 
 #define BSD_NAME_SIZE 128
 
+BLPreBootEnvType getPrebootType(void);
 int modeInfo(BLContextPtr context, struct clarg actargs[klast]);
 int modeDevice(BLContextPtr context, struct clarg actargs[klast]);
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]);

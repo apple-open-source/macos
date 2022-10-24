@@ -128,6 +128,34 @@ MALLOC_STATIC_ASSERT(sizeof(pgm_zone_t) < (2 * PAGE_MAX_SIZE),
 
 
 #pragma mark -
+#pragma mark Thread Local Sample Counter
+
+MALLOC_STATIC_ASSERT(sizeof(void *) >= sizeof(uint32_t), "Pointer is used as 32bit counter");
+
+#define TSD_GET_COUNTER() ((uint32_t)_pthread_getspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER))
+#define TSD_SET_COUNTER(val) _pthread_setspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER, (void *)(uintptr_t)val)
+
+static const uint32_t k_no_sample = UINT32_MAX;
+
+void
+pgm_disable_for_current_thread(void)
+{
+	malloc_thread_options_t opts = {.DisableExpensiveDebuggingOptions = true};
+	malloc_set_thread_options(opts);
+}
+
+void
+pgm_thread_set_disabled(bool disabled)
+{
+	if (disabled) {
+		TSD_SET_COUNTER(k_no_sample);
+	} else {
+		TSD_SET_COUNTER(0);
+	}
+}
+
+
+#pragma mark -
 #pragma mark Decider Functions
 
 // The "decider" functions are performance critical.  They should be inlinable and must not lock.
@@ -146,15 +174,17 @@ MALLOC_ALWAYS_INLINE
 static inline boolean_t
 should_sample_counter(uint32_t counter_range)
 {
-	MALLOC_STATIC_ASSERT(sizeof(void *) >= sizeof(uint32_t), "Pointer is used as 32bit counter");
-	uint32_t counter = (uint32_t)_pthread_getspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER);
+	uint32_t counter = TSD_GET_COUNTER();
+	if (counter == k_no_sample) {
+		return false;
+	}
 	// 0 -> regenerate counter; 1 -> sample allocation
 	if (counter == 0) {
 		counter = rand_uniform(counter_range);
 	} else {
 		counter--;
 	}
-	_pthread_setspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER, (void *)(uintptr_t)counter);
+	TSD_SET_COUNTER(counter);
 	return counter == 0;
 }
 #endif
@@ -1155,15 +1185,10 @@ choose_memory_budget_in_kb(void)
 	return (TARGET_OS_OSX ? 8 : 2) * 1024;
 }
 
-// TODO(yln): uniform sampling is likely not optimal here, since we will tend to
-// sample around the average of our range, which is probably more frequent than
-// what we want.  We probably want the average to be less frequent, but still be
-// able to reach the "very frequent" end of our range occassionally.  Consider
-// using a geometric (or other weighted distribution) here.
 static uint32_t
 choose_sample_rate(void)
 {
-	uint32_t min = 500, max = 10000;
+	uint32_t min = 500, max = 5000;
 	return rand_uniform(max - min) + min;
 }
 

@@ -29,6 +29,10 @@
 #ifndef _MALLOC_IMPLEMENTATION_H_
 #define _MALLOC_IMPLEMENTATION_H_
 
+#include <mach/boolean.h>
+#include <stdbool.h>
+#include <stddef.h>
+
 
 /*********	Libsystem initializers ************/
 

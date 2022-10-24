@@ -212,7 +212,7 @@ static const xmlChSRange xmlCS[] = {{0x0, 0x1f}, {0x7f, 0x9f},
 static const xmlChLRange xmlCL[] = {{0x1d173, 0x1d17a}, {0xe0001, 0xe0001},
     {0xe0020, 0xe007f}, {0xf0000, 0xf0000}, {0xffffd, 0xffffd},
     {0x100000, 0x100000}, {0x10fffd, 0x10fffd} };
-static const xmlChRangeGroup xmlCG = {18,7,(xmlChSRangePtr)xmlCS,(xmlChLRangePtr)xmlCL};
+static const xmlChRangeGroup xmlCG = {18,7,xmlCS,xmlCL};
 
 static const xmlChSRange xmlCfS[] = {{0xad, 0xad}, {0x600, 0x603},
     {0x6dd, 0x6dd}, {0x70f, 0x70f}, {0x17b4, 0x17b5}, {0x200b, 0x200f},
@@ -220,7 +220,7 @@ static const xmlChSRange xmlCfS[] = {{0xad, 0xad}, {0x600, 0x603},
     {0xfff9, 0xfffb} };
 static const xmlChLRange xmlCfL[] = {{0x1d173, 0x1d17a}, {0xe0001, 0xe0001},
     {0xe0020, 0xe007f} };
-static const xmlChRangeGroup xmlCfG = {11,3,(xmlChSRangePtr)xmlCfS,(xmlChLRangePtr)xmlCfL};
+static const xmlChRangeGroup xmlCfG = {11,3,xmlCfS,xmlCfL};
 
 static const xmlChSRange xmlLS[] = {{0x41, 0x5a}, {0x61, 0x7a},
     {0xaa, 0xaa}, {0xb5, 0xb5}, {0xba, 0xba}, {0xc0, 0xd6}, {0xd8, 0xf6},
@@ -309,7 +309,7 @@ static const xmlChLRange xmlLL[] = {{0x10000, 0x1000b}, {0x1000d, 0x10026},
     {0x1d736, 0x1d74e}, {0x1d750, 0x1d76e}, {0x1d770, 0x1d788},
     {0x1d78a, 0x1d7a8}, {0x1d7aa, 0x1d7c2}, {0x1d7c4, 0x1d7c9},
     {0x20000, 0x20000}, {0x2a6d6, 0x2a6d6}, {0x2f800, 0x2fa1d} };
-static const xmlChRangeGroup xmlLG = {279,50,(xmlChSRangePtr)xmlLS,(xmlChLRangePtr)xmlLL};
+static const xmlChRangeGroup xmlLG = {279,50,xmlLS,xmlLL};
 
 static const xmlChSRange xmlLlS[] = {{0x61, 0x7a}, {0xaa, 0xaa},
     {0xb5, 0xb5}, {0xba, 0xba}, {0xdf, 0xf6}, {0xf8, 0xff}, {0x101, 0x101},
@@ -421,7 +421,7 @@ static const xmlChLRange xmlLlL[] = {{0x10428, 0x1044f}, {0x1d41a, 0x1d433},
     {0x1d6fc, 0x1d714}, {0x1d716, 0x1d71b}, {0x1d736, 0x1d74e},
     {0x1d750, 0x1d755}, {0x1d770, 0x1d788}, {0x1d78a, 0x1d78f},
     {0x1d7aa, 0x1d7c2}, {0x1d7c4, 0x1d7c9} };
-static const xmlChRangeGroup xmlLlG = {396,28,(xmlChSRangePtr)xmlLlS,(xmlChLRangePtr)xmlLlL};
+static const xmlChRangeGroup xmlLlG = {396,28,xmlLlS,xmlLlL};
 
 static const xmlChSRange xmlLmS[] = {{0x2b0, 0x2c1}, {0x2c6, 0x2d1},
     {0x2e0, 0x2e4}, {0x2ee, 0x2ee}, {0x37a, 0x37a}, {0x559, 0x559},
@@ -429,7 +429,7 @@ static const xmlChSRange xmlLmS[] = {{0x2b0, 0x2c1}, {0x2c6, 0x2d1},
     {0x17d7, 0x17d7}, {0x1843, 0x1843}, {0x1d2c, 0x1d61}, {0x3005, 0x3005},
     {0x3031, 0x3035}, {0x303b, 0x303b}, {0x309d, 0x309e}, {0x30fc, 0x30fe},
     {0xff70, 0xff70}, {0xff9e, 0xff9f} };
-static const xmlChRangeGroup xmlLmG = {20,0,(xmlChSRangePtr)xmlLmS,NULL};
+static const xmlChRangeGroup xmlLmG = {20,0,xmlLmS,NULL};
 
 static const xmlChSRange xmlLoS[] = {{0x1bb, 0x1bb}, {0x1c0, 0x1c3},
     {0x5d0, 0x5ea}, {0x5f0, 0x5f2}, {0x621, 0x63a}, {0x641, 0x64a},
@@ -492,12 +492,12 @@ static const xmlChLRange xmlLoL[] = {{0x10000, 0x1000b}, {0x1000d, 0x10026},
     {0x10800, 0x10805}, {0x10808, 0x10808}, {0x1080a, 0x10835},
     {0x10837, 0x10838}, {0x1083c, 0x1083c}, {0x1083f, 0x1083f},
     {0x20000, 0x20000}, {0x2a6d6, 0x2a6d6}, {0x2f800, 0x2fa1d} };
-static const xmlChRangeGroup xmlLoG = {211,20,(xmlChSRangePtr)xmlLoS,(xmlChLRangePtr)xmlLoL};
+static const xmlChRangeGroup xmlLoG = {211,20,xmlLoS,xmlLoL};
 
 static const xmlChSRange xmlLtS[] = {{0x1c5, 0x1c5}, {0x1c8, 0x1c8},
     {0x1cb, 0x1cb}, {0x1f2, 0x1f2}, {0x1f88, 0x1f8f}, {0x1f98, 0x1f9f},
     {0x1fa8, 0x1faf}, {0x1fbc, 0x1fbc}, {0x1fcc, 0x1fcc}, {0x1ffc, 0x1ffc} };
-static const xmlChRangeGroup xmlLtG = {10,0,(xmlChSRangePtr)xmlLtS,NULL};
+static const xmlChRangeGroup xmlLtG = {10,0,xmlLtS,NULL};
 
 static const xmlChSRange xmlLuS[] = {{0x41, 0x5a}, {0xc0, 0xd6},
     {0xd8, 0xde}, {0x100, 0x100}, {0x102, 0x102}, {0x104, 0x104},
@@ -608,7 +608,7 @@ static const xmlChLRange xmlLuL[] = {{0x10400, 0x10427}, {0x1d400, 0x1d419},
     {0x1d608, 0x1d621}, {0x1d63c, 0x1d655}, {0x1d670, 0x1d689},
     {0x1d6a8, 0x1d6c0}, {0x1d6e2, 0x1d6fa}, {0x1d71c, 0x1d734},
     {0x1d756, 0x1d76e}, {0x1d790, 0x1d7a8} };
-static const xmlChRangeGroup xmlLuG = {390,31,(xmlChSRangePtr)xmlLuS,(xmlChLRangePtr)xmlLuL};
+static const xmlChRangeGroup xmlLuG = {390,31,xmlLuS,xmlLuL};
 
 static const xmlChSRange xmlMS[] = {{0x300, 0x357}, {0x35d, 0x36f},
     {0x483, 0x486}, {0x488, 0x489}, {0x591, 0x5a1}, {0x5a3, 0x5b9},
@@ -642,7 +642,7 @@ static const xmlChSRange xmlMS[] = {{0x300, 0x357}, {0x35d, 0x36f},
 static const xmlChLRange xmlML[] = {{0x1d165, 0x1d169}, {0x1d16d, 0x1d172},
     {0x1d17b, 0x1d182}, {0x1d185, 0x1d18b}, {0x1d1aa, 0x1d1ad},
     {0xe0100, 0xe01ef} };
-static const xmlChRangeGroup xmlMG = {113,6,(xmlChSRangePtr)xmlMS,(xmlChLRangePtr)xmlML};
+static const xmlChRangeGroup xmlMG = {113,6,xmlMS,xmlML};
 
 static const xmlChSRange xmlMcS[] = {{0x903, 0x903}, {0x93e, 0x940},
     {0x949, 0x94c}, {0x982, 0x983}, {0x9be, 0x9c0}, {0x9c7, 0x9c8},
@@ -660,7 +660,7 @@ static const xmlChSRange xmlMcS[] = {{0x903, 0x903}, {0x93e, 0x940},
     {0x17c7, 0x17c8}, {0x1923, 0x1926}, {0x1929, 0x192b}, {0x1930, 0x1931},
     {0x1933, 0x1938} };
 static const xmlChLRange xmlMcL[] = {{0x1d165, 0x1d166}, {0x1d16d, 0x1d172} };
-static const xmlChRangeGroup xmlMcG = {55,2,(xmlChSRangePtr)xmlMcS,(xmlChLRangePtr)xmlMcL};
+static const xmlChRangeGroup xmlMcG = {55,2,xmlMcS,xmlMcL};
 
 static const xmlChSRange xmlMnS[] = {{0x300, 0x357}, {0x35d, 0x36f},
     {0x483, 0x486}, {0x591, 0x5a1}, {0x5a3, 0x5b9}, {0x5bb, 0x5bd},
@@ -692,7 +692,7 @@ static const xmlChSRange xmlMnS[] = {{0x300, 0x357}, {0x35d, 0x36f},
     {0xfe00, 0xfe0f}, {0xfe20, 0xfe23} };
 static const xmlChLRange xmlMnL[] = {{0x1d167, 0x1d169}, {0x1d17b, 0x1d182},
     {0x1d185, 0x1d18b}, {0x1d1aa, 0x1d1ad}, {0xe0100, 0xe01ef} };
-static const xmlChRangeGroup xmlMnG = {108,5,(xmlChSRangePtr)xmlMnS,(xmlChLRangePtr)xmlMnL};
+static const xmlChRangeGroup xmlMnG = {108,5,xmlMnS,xmlMnL};
 
 static const xmlChSRange xmlNS[] = {{0x30, 0x39}, {0xb2, 0xb3},
     {0xb9, 0xb9}, {0xbc, 0xbe}, {0x660, 0x669}, {0x6f0, 0x6f9},
@@ -707,7 +707,7 @@ static const xmlChSRange xmlNS[] = {{0x30, 0x39}, {0xb2, 0xb3},
     {0x3251, 0x325f}, {0x3280, 0x3289}, {0x32b1, 0x32bf}, {0xff10, 0xff19} };
 static const xmlChLRange xmlNL[] = {{0x10107, 0x10133}, {0x10320, 0x10323},
     {0x1034a, 0x1034a}, {0x104a0, 0x104a9}, {0x1d7ce, 0x1d7ff} };
-static const xmlChRangeGroup xmlNG = {42,5,(xmlChSRangePtr)xmlNS,(xmlChLRangePtr)xmlNL};
+static const xmlChRangeGroup xmlNG = {42,5,xmlNS,xmlNL};
 
 static const xmlChSRange xmlNdS[] = {{0x30, 0x39}, {0x660, 0x669},
     {0x6f0, 0x6f9}, {0x966, 0x96f}, {0x9e6, 0x9ef}, {0xa66, 0xa6f},
@@ -716,7 +716,7 @@ static const xmlChSRange xmlNdS[] = {{0x30, 0x39}, {0x660, 0x669},
     {0xf20, 0xf29}, {0x1040, 0x1049}, {0x1369, 0x1371}, {0x17e0, 0x17e9},
     {0x1810, 0x1819}, {0x1946, 0x194f}, {0xff10, 0xff19} };
 static const xmlChLRange xmlNdL[] = {{0x104a0, 0x104a9}, {0x1d7ce, 0x1d7ff} };
-static const xmlChRangeGroup xmlNdG = {21,2,(xmlChSRangePtr)xmlNdS,(xmlChLRangePtr)xmlNdL};
+static const xmlChRangeGroup xmlNdG = {21,2,xmlNdS,xmlNdL};
 
 static const xmlChSRange xmlNoS[] = {{0xb2, 0xb3}, {0xb9, 0xb9},
     {0xbc, 0xbe}, {0x9f4, 0x9f9}, {0xbf0, 0xbf2}, {0xf2a, 0xf33},
@@ -725,7 +725,7 @@ static const xmlChSRange xmlNoS[] = {{0xb2, 0xb3}, {0xb9, 0xb9},
     {0x2776, 0x2793}, {0x3192, 0x3195}, {0x3220, 0x3229}, {0x3251, 0x325f},
     {0x3280, 0x3289}, {0x32b1, 0x32bf} };
 static const xmlChLRange xmlNoL[] = {{0x10107, 0x10133}, {0x10320, 0x10323} };
-static const xmlChRangeGroup xmlNoG = {20,2,(xmlChSRangePtr)xmlNoS,(xmlChLRangePtr)xmlNoL};
+static const xmlChRangeGroup xmlNoG = {20,2,xmlNoS,xmlNoL};
 
 static const xmlChSRange xmlPS[] = {{0x21, 0x23}, {0x25, 0x2a},
     {0x2c, 0x2f}, {0x3a, 0x3b}, {0x3f, 0x40}, {0x5b, 0x5d}, {0x5f, 0x5f},
@@ -749,13 +749,13 @@ static const xmlChSRange xmlPS[] = {{0x21, 0x23}, {0x25, 0x2a},
     {0xff0c, 0xff0f}, {0xff1a, 0xff1b}, {0xff1f, 0xff20}, {0xff3b, 0xff3d},
     {0xff3f, 0xff3f}, {0xff5b, 0xff5b}, {0xff5d, 0xff5d}, {0xff5f, 0xff65} };
 static const xmlChLRange xmlPL[] = {{0x10100, 0x10101}, {0x1039f, 0x1039f} };
-static const xmlChRangeGroup xmlPG = {84,2,(xmlChSRangePtr)xmlPS,(xmlChLRangePtr)xmlPL};
+static const xmlChRangeGroup xmlPG = {84,2,xmlPS,xmlPL};
 
 static const xmlChSRange xmlPdS[] = {{0x2d, 0x2d}, {0x58a, 0x58a},
     {0x1806, 0x1806}, {0x2010, 0x2015}, {0x301c, 0x301c}, {0x3030, 0x3030},
     {0x30a0, 0x30a0}, {0xfe31, 0xfe32}, {0xfe58, 0xfe58}, {0xfe63, 0xfe63},
     {0xff0d, 0xff0d} };
-static const xmlChRangeGroup xmlPdG = {11,0,(xmlChSRangePtr)xmlPdS,NULL};
+static const xmlChRangeGroup xmlPdG = {11,0,xmlPdS,NULL};
 
 static const xmlChSRange xmlPeS[] = {{0x29, 0x29}, {0x5d, 0x5d},
     {0x7d, 0x7d}, {0xf3b, 0xf3b}, {0xf3d, 0xf3d}, {0x169c, 0x169c},
@@ -774,7 +774,7 @@ static const xmlChSRange xmlPeS[] = {{0x29, 0x29}, {0x5d, 0x5d},
     {0xfe48, 0xfe48}, {0xfe5a, 0xfe5a}, {0xfe5c, 0xfe5c}, {0xfe5e, 0xfe5e},
     {0xff09, 0xff09}, {0xff3d, 0xff3d}, {0xff5d, 0xff5d}, {0xff60, 0xff60},
     {0xff63, 0xff63} };
-static const xmlChRangeGroup xmlPeG = {63,0,(xmlChSRangePtr)xmlPeS,NULL};
+static const xmlChRangeGroup xmlPeG = {63,0,xmlPeS,NULL};
 
 static const xmlChSRange xmlPoS[] = {{0x21, 0x23}, {0x25, 0x27},
     {0x2a, 0x2a}, {0x2c, 0x2c}, {0x2e, 0x2f}, {0x3a, 0x3b}, {0x3f, 0x40},
@@ -795,7 +795,7 @@ static const xmlChSRange xmlPoS[] = {{0x21, 0x23}, {0x25, 0x27},
     {0xff0a, 0xff0a}, {0xff0c, 0xff0c}, {0xff0e, 0xff0f}, {0xff1a, 0xff1b},
     {0xff1f, 0xff20}, {0xff3c, 0xff3c}, {0xff61, 0xff61}, {0xff64, 0xff64} };
 static const xmlChLRange xmlPoL[] = {{0x10100, 0x10101}, {0x1039f, 0x1039f} };
-static const xmlChRangeGroup xmlPoG = {72,2,(xmlChSRangePtr)xmlPoS,(xmlChLRangePtr)xmlPoL};
+static const xmlChRangeGroup xmlPoG = {72,2,xmlPoS,xmlPoL};
 
 static const xmlChSRange xmlPsS[] = {{0x28, 0x28}, {0x5b, 0x5b},
     {0x7b, 0x7b}, {0xf3a, 0xf3a}, {0xf3c, 0xf3c}, {0x169b, 0x169b},
@@ -814,7 +814,7 @@ static const xmlChSRange xmlPsS[] = {{0x28, 0x28}, {0x5b, 0x5b},
     {0xfe41, 0xfe41}, {0xfe43, 0xfe43}, {0xfe47, 0xfe47}, {0xfe59, 0xfe59},
     {0xfe5b, 0xfe5b}, {0xfe5d, 0xfe5d}, {0xff08, 0xff08}, {0xff3b, 0xff3b},
     {0xff5b, 0xff5b}, {0xff5f, 0xff5f}, {0xff62, 0xff62} };
-static const xmlChRangeGroup xmlPsG = {65,0,(xmlChSRangePtr)xmlPsS,NULL};
+static const xmlChRangeGroup xmlPsG = {65,0,xmlPsS,NULL};
 
 static const xmlChSRange xmlSS[] = {{0x24, 0x24}, {0x2b, 0x2b},
     {0x3c, 0x3e}, {0x5e, 0x5e}, {0x60, 0x60}, {0x7c, 0x7c}, {0x7e, 0x7e},
@@ -857,13 +857,13 @@ static const xmlChLRange xmlSL[] = {{0x10102, 0x10102}, {0x10137, 0x1013f},
     {0x1d6db, 0x1d6db}, {0x1d6fb, 0x1d6fb}, {0x1d715, 0x1d715},
     {0x1d735, 0x1d735}, {0x1d74f, 0x1d74f}, {0x1d76f, 0x1d76f},
     {0x1d789, 0x1d789}, {0x1d7a9, 0x1d7a9}, {0x1d7c3, 0x1d7c3} };
-static const xmlChRangeGroup xmlSG = {133,20,(xmlChSRangePtr)xmlSS,(xmlChLRangePtr)xmlSL};
+static const xmlChRangeGroup xmlSG = {133,20,xmlSS,xmlSL};
 
 static const xmlChSRange xmlScS[] = {{0x24, 0x24}, {0xa2, 0xa5},
     {0x9f2, 0x9f3}, {0xaf1, 0xaf1}, {0xbf9, 0xbf9}, {0xe3f, 0xe3f},
     {0x17db, 0x17db}, {0x20a0, 0x20b1}, {0xfdfc, 0xfdfc}, {0xfe69, 0xfe69},
     {0xff04, 0xff04}, {0xffe0, 0xffe1}, {0xffe5, 0xffe6} };
-static const xmlChRangeGroup xmlScG = {13,0,(xmlChSRangePtr)xmlScS,NULL};
+static const xmlChRangeGroup xmlScG = {13,0,xmlScS,NULL};
 
 static const xmlChSRange xmlSkS[] = {{0x5e, 0x5e}, {0x60, 0x60},
     {0xa8, 0xa8}, {0xaf, 0xaf}, {0xb4, 0xb4}, {0xb8, 0xb8}, {0x2c2, 0x2c5},
@@ -871,7 +871,7 @@ static const xmlChSRange xmlSkS[] = {{0x5e, 0x5e}, {0x60, 0x60},
     {0x384, 0x385}, {0x1fbd, 0x1fbd}, {0x1fbf, 0x1fc1}, {0x1fcd, 0x1fcf},
     {0x1fdd, 0x1fdf}, {0x1fed, 0x1fef}, {0x1ffd, 0x1ffe}, {0x309b, 0x309c},
     {0xff3e, 0xff3e}, {0xff40, 0xff40}, {0xffe3, 0xffe3} };
-static const xmlChRangeGroup xmlSkG = {22,0,(xmlChSRangePtr)xmlSkS,NULL};
+static const xmlChRangeGroup xmlSkG = {22,0,xmlSkS,NULL};
 
 static const xmlChSRange xmlSmS[] = {{0x2b, 0x2b}, {0x3c, 0x3e},
     {0x7c, 0x7c}, {0x7e, 0x7e}, {0xac, 0xac}, {0xb1, 0xb1}, {0xd7, 0xd7},
@@ -890,7 +890,7 @@ static const xmlChLRange xmlSmL[] = {{0x1d6c1, 0x1d6c1}, {0x1d6db, 0x1d6db},
     {0x1d6fb, 0x1d6fb}, {0x1d715, 0x1d715}, {0x1d735, 0x1d735},
     {0x1d74f, 0x1d74f}, {0x1d76f, 0x1d76f}, {0x1d789, 0x1d789},
     {0x1d7a9, 0x1d7a9}, {0x1d7c3, 0x1d7c3} };
-static const xmlChRangeGroup xmlSmG = {48,10,(xmlChSRangePtr)xmlSmS,(xmlChLRangePtr)xmlSmL};
+static const xmlChRangeGroup xmlSmG = {48,10,xmlSmS,xmlSmL};
 
 static const xmlChSRange xmlSoS[] = {{0xa6, 0xa7}, {0xa9, 0xa9},
     {0xae, 0xae}, {0xb0, 0xb0}, {0xb6, 0xb6}, {0x482, 0x482},
@@ -923,12 +923,12 @@ static const xmlChLRange xmlSoL[] = {{0x10102, 0x10102}, {0x10137, 0x1013f},
     {0x1d000, 0x1d0f5}, {0x1d100, 0x1d126}, {0x1d12a, 0x1d164},
     {0x1d16a, 0x1d16c}, {0x1d183, 0x1d184}, {0x1d18c, 0x1d1a9},
     {0x1d1ae, 0x1d1dd}, {0x1d300, 0x1d356} };
-static const xmlChRangeGroup xmlSoG = {103,10,(xmlChSRangePtr)xmlSoS,(xmlChLRangePtr)xmlSoL};
+static const xmlChRangeGroup xmlSoG = {103,10,xmlSoS,xmlSoL};
 
 static const xmlChSRange xmlZS[] = {{0x20, 0x20}, {0xa0, 0xa0},
     {0x1680, 0x1680}, {0x180e, 0x180e}, {0x2000, 0x200a}, {0x2028, 0x2029},
     {0x202f, 0x202f}, {0x205f, 0x205f}, {0x3000, 0x3000} };
-static const xmlChRangeGroup xmlZG = {9,0,(xmlChSRangePtr)xmlZS,NULL};
+static const xmlChRangeGroup xmlZG = {9,0,xmlZS,NULL};
 
 static const xmlUnicodeNameTable xmlUnicodeBlockTbl = {xmlUnicodeBlocks, 128};
 static const xmlUnicodeNameTable xmlUnicodeCatTbl = {xmlUnicodeCats, 36};
@@ -945,7 +945,7 @@ static const xmlUnicodeNameTable xmlUnicodeCatTbl = {xmlUnicodeCats, 36};
 static xmlIntFunc
 *xmlUnicodeLookup(const xmlUnicodeNameTable *tptr, const char *tname) {
     int low, high, mid, cmp;
-    xmlUnicodeRange const * sptr;
+    const xmlUnicodeRange *sptr;
 
     if ((tptr == NULL) || (tname == NULL)) return(NULL);
 
@@ -2659,7 +2659,7 @@ xmlUCSIsBlock(int code, const char *block) {
  */
 int
 xmlUCSIsCatC(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlCG));
+    return(xmlCharInRange((unsigned int)code, &xmlCG));
 }
 
 /**
@@ -2686,7 +2686,7 @@ xmlUCSIsCatCc(int code) {
  */
 int
 xmlUCSIsCatCf(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlCfG));
+    return(xmlCharInRange((unsigned int)code, &xmlCfG));
 }
 
 /**
@@ -2733,7 +2733,7 @@ xmlUCSIsCatCs(int code) {
  */
 int
 xmlUCSIsCatL(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLG));
+    return(xmlCharInRange((unsigned int)code, &xmlLG));
 }
 
 /**
@@ -2746,7 +2746,7 @@ xmlUCSIsCatL(int code) {
  */
 int
 xmlUCSIsCatLl(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLlG));
+    return(xmlCharInRange((unsigned int)code, &xmlLlG));
 }
 
 /**
@@ -2759,7 +2759,7 @@ xmlUCSIsCatLl(int code) {
  */
 int
 xmlUCSIsCatLm(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLmG));
+    return(xmlCharInRange((unsigned int)code, &xmlLmG));
 }
 
 /**
@@ -2772,7 +2772,7 @@ xmlUCSIsCatLm(int code) {
  */
 int
 xmlUCSIsCatLo(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLoG));
+    return(xmlCharInRange((unsigned int)code, &xmlLoG));
 }
 
 /**
@@ -2785,7 +2785,7 @@ xmlUCSIsCatLo(int code) {
  */
 int
 xmlUCSIsCatLt(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLtG));
+    return(xmlCharInRange((unsigned int)code, &xmlLtG));
 }
 
 /**
@@ -2798,7 +2798,7 @@ xmlUCSIsCatLt(int code) {
  */
 int
 xmlUCSIsCatLu(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlLuG));
+    return(xmlCharInRange((unsigned int)code, &xmlLuG));
 }
 
 /**
@@ -2811,7 +2811,7 @@ xmlUCSIsCatLu(int code) {
  */
 int
 xmlUCSIsCatM(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlMG));
+    return(xmlCharInRange((unsigned int)code, &xmlMG));
 }
 
 /**
@@ -2824,7 +2824,7 @@ xmlUCSIsCatM(int code) {
  */
 int
 xmlUCSIsCatMc(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlMcG));
+    return(xmlCharInRange((unsigned int)code, &xmlMcG));
 }
 
 /**
@@ -2853,7 +2853,7 @@ xmlUCSIsCatMe(int code) {
  */
 int
 xmlUCSIsCatMn(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlMnG));
+    return(xmlCharInRange((unsigned int)code, &xmlMnG));
 }
 
 /**
@@ -2866,7 +2866,7 @@ xmlUCSIsCatMn(int code) {
  */
 int
 xmlUCSIsCatN(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlNG));
+    return(xmlCharInRange((unsigned int)code, &xmlNG));
 }
 
 /**
@@ -2879,7 +2879,7 @@ xmlUCSIsCatN(int code) {
  */
 int
 xmlUCSIsCatNd(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlNdG));
+    return(xmlCharInRange((unsigned int)code, &xmlNdG));
 }
 
 /**
@@ -2910,7 +2910,7 @@ xmlUCSIsCatNl(int code) {
  */
 int
 xmlUCSIsCatNo(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlNoG));
+    return(xmlCharInRange((unsigned int)code, &xmlNoG));
 }
 
 /**
@@ -2923,7 +2923,7 @@ xmlUCSIsCatNo(int code) {
  */
 int
 xmlUCSIsCatP(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlPG));
+    return(xmlCharInRange((unsigned int)code, &xmlPG));
 }
 
 /**
@@ -2956,7 +2956,7 @@ xmlUCSIsCatPc(int code) {
  */
 int
 xmlUCSIsCatPd(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlPdG));
+    return(xmlCharInRange((unsigned int)code, &xmlPdG));
 }
 
 /**
@@ -2969,7 +2969,7 @@ xmlUCSIsCatPd(int code) {
  */
 int
 xmlUCSIsCatPe(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlPeG));
+    return(xmlCharInRange((unsigned int)code, &xmlPeG));
 }
 
 /**
@@ -3015,7 +3015,7 @@ xmlUCSIsCatPi(int code) {
  */
 int
 xmlUCSIsCatPo(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlPoG));
+    return(xmlCharInRange((unsigned int)code, &xmlPoG));
 }
 
 /**
@@ -3028,7 +3028,7 @@ xmlUCSIsCatPo(int code) {
  */
 int
 xmlUCSIsCatPs(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlPsG));
+    return(xmlCharInRange((unsigned int)code, &xmlPsG));
 }
 
 /**
@@ -3041,7 +3041,7 @@ xmlUCSIsCatPs(int code) {
  */
 int
 xmlUCSIsCatS(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlSG));
+    return(xmlCharInRange((unsigned int)code, &xmlSG));
 }
 
 /**
@@ -3054,7 +3054,7 @@ xmlUCSIsCatS(int code) {
  */
 int
 xmlUCSIsCatSc(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlScG));
+    return(xmlCharInRange((unsigned int)code, &xmlScG));
 }
 
 /**
@@ -3067,7 +3067,7 @@ xmlUCSIsCatSc(int code) {
  */
 int
 xmlUCSIsCatSk(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlSkG));
+    return(xmlCharInRange((unsigned int)code, &xmlSkG));
 }
 
 /**
@@ -3080,7 +3080,7 @@ xmlUCSIsCatSk(int code) {
  */
 int
 xmlUCSIsCatSm(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlSmG));
+    return(xmlCharInRange((unsigned int)code, &xmlSmG));
 }
 
 /**
@@ -3093,7 +3093,7 @@ xmlUCSIsCatSm(int code) {
  */
 int
 xmlUCSIsCatSo(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlSoG));
+    return(xmlCharInRange((unsigned int)code, &xmlSoG));
 }
 
 /**
@@ -3106,7 +3106,7 @@ xmlUCSIsCatSo(int code) {
  */
 int
 xmlUCSIsCatZ(int code) {
-    return(xmlCharInRange((unsigned int)code, (xmlChRangeGroupPtr)&xmlZG));
+    return(xmlCharInRange((unsigned int)code, &xmlZG));
 }
 
 /**

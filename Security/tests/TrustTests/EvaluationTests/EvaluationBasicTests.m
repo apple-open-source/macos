@@ -32,6 +32,7 @@
 #include "OSX/utilities/array_size.h"
 #include "OSX/utilities/SecCFWrappers.h"
 
+#include "SecPolicyInternal.h"
 #import "TrustEvaluationTestCase.h"
 #include "../TestMacroConversions.h"
 #include "EvaluationBasicTests_data.h"
@@ -63,7 +64,7 @@
     require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
     
     require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
-    SecPolicySetOptionsValue(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, CFSTR("not-a-policy-check"), kCFBooleanTrue);
     
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
     require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,

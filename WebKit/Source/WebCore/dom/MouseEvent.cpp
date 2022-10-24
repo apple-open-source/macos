@@ -50,7 +50,8 @@ Ref<MouseEvent> MouseEvent::create(const AtomString& type, const MouseEventInit&
 
 Ref<MouseEvent> MouseEvent::create(const AtomString& eventType, RefPtr<WindowProxy>&& view, const PlatformMouseEvent& event, int detail, Node* relatedTarget)
 {
-    bool isMouseEnterOrLeave = eventType == eventNames().mouseenterEvent || eventType == eventNames().mouseleaveEvent;
+    auto& eventNames = WebCore::eventNames();
+    bool isMouseEnterOrLeave = eventType == eventNames.mouseenterEvent || eventType == eventNames.mouseleaveEvent;
     auto isCancelable = !isMouseEnterOrLeave ? IsCancelable::Yes : IsCancelable::No;
     auto canBubble = !isMouseEnterOrLeave ? CanBubble::Yes : CanBubble::No;
     auto isComposed = !isMouseEnterOrLeave ? IsComposed::Yes : IsComposed::No;
@@ -194,22 +195,24 @@ RefPtr<Node> MouseEvent::toElement() const
 {
     // MSIE extension - "the object toward which the user is moving the mouse pointer"
     EventTarget* target;
-    if (type() == eventNames().mouseoutEvent || type() == eventNames().mouseleaveEvent)
+    auto& eventNames = WebCore::eventNames();
+    if (type() == eventNames.mouseoutEvent || type() == eventNames.mouseleaveEvent)
         target = relatedTarget();
     else
         target = this->target();
-    return is<Node>(target) ? &downcast<Node>(*target) : nullptr;
+    return dynamicDowncast<Node>(target);
 }
 
 RefPtr<Node> MouseEvent::fromElement() const
 {
     // MSIE extension - "object from which activation or the mouse pointer is exiting during the event" (huh?)
     EventTarget* target;
-    if (type() == eventNames().mouseoutEvent || type() == eventNames().mouseleaveEvent)
+    auto& eventNames = WebCore::eventNames();
+    if (type() == eventNames.mouseoutEvent || type() == eventNames.mouseleaveEvent)
         target = this->target();
     else
         target = relatedTarget();
-    return is<Node>(target) ? &downcast<Node>(*target) : nullptr;
+    return dynamicDowncast<Node>(target);
 }
 
 } // namespace WebCore

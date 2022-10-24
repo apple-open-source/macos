@@ -63,7 +63,6 @@ public:
     ExceptionOr<void> updateTiming(std::optional<OptionalEffectTiming>);
 
     virtual void animationDidTick() { };
-    virtual void animationDidPlay() { };
     virtual void animationDidChangeTimingProperties() { };
     virtual void animationWasCanceled() { };
     virtual void animationSuspensionStateDidChange(bool) { };
@@ -115,7 +114,7 @@ private:
     FillMode m_fill { FillMode::Auto };
     PlaybackDirection m_direction { PlaybackDirection::Normal };
 
-    WeakPtr<WebAnimation> m_animation;
+    WeakPtr<WebAnimation, WeakPtrImplWithEventTargetData> m_animation;
     RefPtr<TimingFunction> m_timingFunction;
 
     double m_iterationStart { 0 };

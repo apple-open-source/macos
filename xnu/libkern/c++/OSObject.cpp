@@ -281,6 +281,11 @@ OSObject::serialize(OSSerialize *s) const
 }
 
 /*
+ * Ignore -Wxnu-typed-allocators for the operator new/delete implementations
+ */
+__typed_allocators_ignore_push
+
+/*
  * Given that all OSObjects have been transitioned to use
  * OSObject_typed_operator_new/OSObject_typed_operator_delete, this should
  * only be called from kexts that havent recompiled to use the new
@@ -376,6 +381,8 @@ OSObject_typed_operator_delete(kalloc_type_view_t ktv, void * mem,
 	}
 	OSIVAR_ACCUMSIZE(-size);
 }
+
+__typed_allocators_ignore_pop
 
 bool
 OSObject::init()

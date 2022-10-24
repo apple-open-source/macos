@@ -109,6 +109,8 @@ public enum ContainerError: Error {
     case unknownSyncUserControllableViewsValue(value: Int32)
     case noPeersPreapprovedBySelf
     case peerRegisteredButNotStored(String)
+    case configuredContainerDoesNotMatchSpecifiedUser(TPSpecificUser)
+    case noSpecifiedUser
 }
 
 extension ContainerError: LocalizedError {
@@ -206,6 +208,10 @@ extension ContainerError: LocalizedError {
             return "No peers preapproved by the local peer"
         case .peerRegisteredButNotStored(let s):
             return "Peer \(s) not found in database"
+        case .configuredContainerDoesNotMatchSpecifiedUser(let user):
+            return "Existing container configuration does not match user \(user)"
+        case .noSpecifiedUser:
+            return "No user specified"
         }
     }
 }
@@ -311,6 +317,10 @@ extension ContainerError: CustomNSError {
             return 47
         case .peerRegisteredButNotStored:
             return 48
+        case .configuredContainerDoesNotMatchSpecifiedUser:
+            return 49
+        case .noSpecifiedUser:
+            return 50
         }
     }
 
@@ -442,41 +452,46 @@ func saveEgoKeyPair(_ keyPair: _SFECKeyPair, identifier: String, resultHandler: 
     let accessPolicy = _SFAccessPolicy(accessibility: accessibility,
                                        sharingPolicy: SFSharingPolicy.thisDeviceOnly)
     accessPolicy.accessGroup = egoIdentitiesAccessGroup
-    keychainManager.setIdentity(signingIdentity,
-                                forIdentifier: identifier,
-                                accessPolicy: accessPolicy,
-                                resultHandler: resultHandler)
+    do {
+        try keychainManager.setIdentity(signingIdentity, forIdentifier: identifier, accessPolicy: accessPolicy)
+        resultHandler(true, nil)
+    } catch {
+        resultHandler(false, error)
+    }
 }
 
 func loadEgoKeyPair(identifier: String, resultHandler: @escaping (_SFECKeyPair?, Error?) -> Void) {
     let keychainManager = _SFKeychainManager.default()
 
     // FIXME constrain to egoIdentitiesAccessGroup, <rdar://problem/39597940>
-    keychainManager.identity(forIdentifier: identifier) { result in
-        switch result.resultType {
-        case .valueAvailable:
-            resultHandler(result.value?.keyPair as? _SFECKeyPair, nil)
-        case .needsAuthentication:
-            resultHandler(nil, ContainerError.needsAuthentication)
-        case .error:
-            resultHandler(nil, result.error)
-        @unknown default:
-            resultHandler(nil, ContainerError.unknownSecurityFoundationError)
+    let result = keychainManager.identity(forIdentifier: identifier)
+    switch result?.resultType {
+    case .valueAvailable:
+        if let retResult = result {
+            resultHandler(retResult.value?.keyPair as? _SFECKeyPair, nil)
         }
+    case .needsAuthentication:
+        resultHandler(nil, ContainerError.needsAuthentication)
+    case .error:
+        resultHandler(nil, result?.error)
+    case .none:
+        resultHandler(nil, result?.error)
+    @unknown default:
+        resultHandler(nil, ContainerError.unknownSecurityFoundationError)
     }
 }
 
 func loadEgoKeys(peerID: String, resultHandler: @escaping (OctagonSelfPeerKeys?, Error?) -> Void) {
     loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: peerID)) { signingKey, error in
         guard let signingKey = signingKey else {
-            logger.debug("Unable to load signing key: \(String(describing: error), privacy: .public)")
+            logger.info("Unable to load signing key: \(String(describing: error), privacy: .public)")
             resultHandler(nil, error)
             return
         }
 
         loadEgoKeyPair(identifier: encryptionKeyIdentifier(peerID: peerID)) { encryptionKey, error in
             guard let encryptionKey = encryptionKey else {
-                logger.debug("Unable to load encryption key: \(String(describing: error), privacy: .public)")
+                logger.info("Unable to load encryption key: \(String(describing: error), privacy: .public)")
                 resultHandler(nil, error)
                 return
             }
@@ -569,14 +584,14 @@ func encryptionKeyIdentifier(peerID: String) -> String {
 
 func makeCKKSTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toPeer: CKKSPeer, epoch: Int) throws -> [CKKSTLKShare] {
     return try (ckksTLKs ?? []).map { tlk in
-        logger.debug("Making TLKShare for \(String(describing: toPeer), privacy: .public) for key \(String(describing: tlk), privacy: .public)")
+        logger.info("Making TLKShare for \(String(describing: toPeer), privacy: .public) for key \(String(describing: tlk), privacy: .public)")
         // Not being able to convert a TLK to a TLKShare is a failure, but not having a TLK is only half bad
         do {
             return try CKKSTLKShare(tlk, as: asPeer, to: toPeer, epoch: epoch, poisoned: 0)
         } catch {
             let nserror = error as NSError
             if nserror.domain == "securityd" && nserror.code == errSecItemNotFound {
-                logger.debug("No TLK contents for \(String(describing: tlk), privacy: .public), no TLK share possible")
+                logger.info("No TLK contents for \(String(describing: tlk), privacy: .public), no TLK share possible")
                 return nil
             } else {
                 throw error
@@ -592,7 +607,7 @@ func makeTLKShares(ckksTLKs: [CKKSKeychainBackedKey]?, asPeer: CKKSSelfPeer, toP
 
 @discardableResult
 func extract(tlkShares: [CKKSTLKShare], peer: OctagonSelfPeerKeys, model: TPModel) -> ([CKKSKeychainBackedKey], TrustedPeersHelperTLKRecoveryResult) {
-    logger.debug("Attempting to recover \(tlkShares.count) shares for peer \(peer.peerID, privacy: .public)")
+    logger.info("Attempting to recover \(tlkShares.count) shares for peer \(peer.peerID, privacy: .public)")
 
     return extract(tlkShares: tlkShares, peer: peer, sponsorPeerID: nil, model: model)
 }
@@ -610,25 +625,39 @@ func extract(tlkShares: [CKKSTLKShare],
     var recoveryErrors: [String: [Error]] = [:]
 
     if let egoPeer = model.peer(withID: sponsorPeerID ?? peer.peerID) {
-        egoPeer.trustedPeerIDs.forEach { trustedPeerID in
-            if let peer = model.peer(withID: trustedPeerID) {
-                let peerObj = CKKSActualPeer(peerID: trustedPeerID,
-                                             encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
-                                             signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
-                                             viewList: [])
+        // We should accept TLKShares from any peer that this peer trusts, either via direct link or voucher.
+        // Calculate a new dynamic info from the model for that peer (possibly with the wrong signature, but we don't need it to validate)
+        do {
+            let computedSponsorDynamicInfo = try model.calculateDynamicInfoForPeer(withID: egoPeer.peerID,
+                                                                                   addingPeerIDs: nil,
+                                                                                   removingPeerIDs: nil,
+                                                                                   preapprovedKeys: nil,
+                                                                                   signing: peer.signingKey,
+                                                                                   currentMachineIDs: nil)
+            logger.info("Using computed dynamic info for share recovery: \(computedSponsorDynamicInfo, privacy: .public)")
 
-                trustedPeers.append(peerObj)
-            } else {
-                logger.debug("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+            computedSponsorDynamicInfo.includedPeerIDs.forEach { trustedPeerID in
+                if let peer = model.peer(withID: trustedPeerID) {
+                    let peerObj = CKKSActualPeer(peerID: trustedPeerID,
+                                                 encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
+                                                 signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
+                                                 viewList: [])
+
+                    trustedPeers.append(peerObj)
+                } else {
+                    logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                }
             }
+        } catch {
+            logger.info("Unable to create dynamic info for share recovery: \(String(describing: error), privacy: .public)")
         }
     } else {
-        logger.debug("No ego peer in model; no trusted peers")
+        logger.info("No ego peer in model; no trusted peers")
     }
 
     for share in tlkShares {
         guard share.receiverPeerID == peer.peerID else {
-            logger.debug("Skipping \(String(describing: share), privacy: .public) (wrong peerID)")
+            logger.info("Skipping \(String(describing: share), privacy: .public) (wrong peerID)")
             continue
         }
 
@@ -641,9 +670,9 @@ func extract(tlkShares: [CKKSTLKShare],
 
             tlksRecovered[key.uuid] = key
             sharesRecovered += 1
-            logger.debug("Recovered \(String(describing: key), privacy: .public) (from \(String(describing: share), privacy: .public)")
+            logger.info("Recovered \(String(describing: key), privacy: .public) (from \(String(describing: share), privacy: .public)")
         } catch {
-            logger.debug("Failed to recover share \(String(describing: share), privacy: .public): \(String(describing: error), privacy: .public)")
+            logger.info("Failed to recover share \(String(describing: share), privacy: .public): \(String(describing: error), privacy: .public)")
 
             if let list = recoveryErrors[share.tlkUUID] {
                 recoveryErrors[share.tlkUUID] = list + [error]
@@ -653,7 +682,7 @@ func extract(tlkShares: [CKKSTLKShare],
         }
     }
 
-    logger.debug("Recovered TLKs: \(String(describing: tlksRecovered), privacy: .public)")
+    logger.info("Recovered TLKs: \(String(describing: tlksRecovered), privacy: .public)")
 
     return (Array(tlksRecovered.values), TrustedPeersHelperTLKRecoveryResult(successfulKeyUUIDs: Set(tlksRecovered.keys),
                                                                              totalTLKSharesRecovered: sharesRecovered,
@@ -767,10 +796,10 @@ extension ContainerMO {
 /// and a corresponding local Core Data persistent container.
 ///
 /// Methods may be invoked concurrently.
-class Container: NSObject {
+class Container: NSObject, ConfiguredCloudKit {
     let name: ContainerName
 
-    private let cuttlefish: CuttlefishAPIAsync
+    private let cuttlefish: ConfiguredCuttlefishAPIAsync
 
     // Only one request (from Client) is permitted to be in progress at a time.
     // That includes while waiting for network, i.e. one request must complete
@@ -827,7 +856,7 @@ class Container: NSObject {
     init(name: ContainerName,
          persistentStoreDescription: NSPersistentStoreDescription,
          darwinNotifier: CKKSNotifier.Type,
-         cuttlefish: CuttlefishAPIAsync) throws {
+         cuttlefish: ConfiguredCuttlefishAPIAsync) throws {
         var initError: Error?
         var containerMO: ContainerMO?
         var model: TPModel?
@@ -925,6 +954,10 @@ class Container: NSObject {
         super.init()
     }
 
+    func configuredFor(user: TPSpecificUser) -> Bool {
+        return self.cuttlefish.configuredFor(user: user)
+    }
+
     func deletePersistentStore() throws {
         // Call this to entirely destroy the persistent store.
         // This container should not be used after this event.
@@ -957,26 +990,26 @@ class Container: NSObject {
                     do {
                         try model.update(stableInfo, forPeerWithID: permanentInfo.peerID)
                     } catch {
-                        logger.debug("loadModel unable to update stable info for peer(\(peer, privacy: .public)): \(String(describing: error), privacy: .public)")
+                        logger.info("loadModel unable to update stable info for peer(\(peer, privacy: .public)): \(String(describing: error), privacy: .public)")
                     }
                 } else {
-                    logger.debug("loadModel: peer \(permanentInfo.peerID, privacy: .public) has unparseable stable info")
+                    logger.info("loadModel: peer \(permanentInfo.peerID, privacy: .public) has unparseable stable info")
                 }
             } else {
-                logger.debug("loadModel: peer \(permanentInfo.peerID, privacy: .public) has no stable info")
+                logger.info("loadModel: peer \(permanentInfo.peerID, privacy: .public) has no stable info")
             }
             if let data = peer.dynamicInfo, let sig = peer.dynamicInfoSig {
                 if let dynamicInfo = TPPeerDynamicInfo(data: data as Data, sig: sig as Data) {
                     do {
                         try model.update(dynamicInfo, forPeerWithID: permanentInfo.peerID)
                     } catch {
-                        logger.debug("loadModel unable to update dynamic info for peer(\(peer, privacy: .public)): \(String(describing: error), privacy: .public)")
+                        logger.info("loadModel unable to update dynamic info for peer(\(peer, privacy: .public)): \(String(describing: error), privacy: .public)")
                     }
                 } else {
-                    logger.debug("loadModel: peer \(permanentInfo.peerID, privacy: .public) has unparseable dynamic info")
+                    logger.info("loadModel: peer \(permanentInfo.peerID, privacy: .public) has unparseable dynamic info")
                 }
             } else {
-                logger.debug("loadModel: peer \(permanentInfo.peerID, privacy: .public) has no dynamic info")
+                logger.info("loadModel: peer \(permanentInfo.peerID, privacy: .public) has no dynamic info")
             }
             peer.vouchers?.forEach {
                 let v = $0 as! VoucherMO
@@ -997,9 +1030,9 @@ class Container: NSObject {
             }
         }
 
-        logger.debug("loadModel: loaded \(model.allPeerIDs().count) peers")
-        logger.debug("loadModel: loaded \(model.allVouchers().count) vouchers")
-        logger.debug("loadModel: loaded \(model.allCustodianRecoveryKeys().count) CRKs")
+        logger.info("loadModel: loaded \(model.allPeerIDs().count) peers")
+        logger.info("loadModel: loaded \(model.allVouchers().count) vouchers")
+        logger.info("loadModel: loaded \(model.allCustodianRecoveryKeys().count) CRKs")
 
         // Note: the containerMO objects are misnamed; they are key data, and not SPKI.
         if let recoveryKeySigningKeyData = containerMO.recoveryKeySigningSPKI,
@@ -1013,7 +1046,7 @@ class Container: NSObject {
                let recoveryEncryptionPublicKey = egoStableInfo.recoveryEncryptionPublicKey,
                 !recoverySigningPublicKey.isEmpty,
                 !recoveryEncryptionPublicKey.isEmpty {
-                logger.debug("loadModel: recovery key not set in model, but is set on ego peer")
+                logger.info("loadModel: recovery key not set in model, but is set on ego peer")
                 model.setRecoveryKeys(TPRecoveryKeyPair(signingKeyData: recoverySigningPublicKey, encryptionKeyData: recoveryEncryptionPublicKey))
             }
         }
@@ -1038,11 +1071,11 @@ class Container: NSObject {
         let allowedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.allowed.rawValue }.compactMap { $0.machineID })
         let disallowedMachineIDs = Set(knownMachines.filter { $0.status == TPMachineIDStatus.disallowed.rawValue }.compactMap { $0.machineID })
 
-        logger.debug("loadModel: allowedMachineIDs: \(allowedMachineIDs, privacy: .public)")
-        logger.debug("loadModel: disallowedMachineIDs: \(disallowedMachineIDs, privacy: .public)")
+        logger.info("loadModel: allowedMachineIDs: \(allowedMachineIDs, privacy: .public)")
+        logger.info("loadModel: disallowedMachineIDs: \(disallowedMachineIDs, privacy: .public)")
 
         if allowedMachineIDs.isEmpty {
-            logger.debug("loadModel: no allowedMachineIDs?")
+            logger.info("loadModel: no allowedMachineIDs?")
         }
 
         return model
@@ -1119,9 +1152,9 @@ class Container: NSObject {
                 guard returnError == nil else {
                     var isLocked = false
                     if let error = (loadError as NSError?) {
-                        logger.debug("trust status: Unable to load ego keys: \(String(describing: error), privacy: .public)")
+                        logger.info("trust status: Unable to load ego keys: \(String(describing: error), privacy: .public)")
                         if error.code == errSecItemNotFound && error.domain == NSOSStatusErrorDomain {
-                            logger.debug("trust status: Lost the ego key pair, returning 'excluded' in hopes of fixing up the identity")
+                            logger.info("trust status: Lost the ego key pair, returning 'excluded' in hopes of fixing up the identity")
                             isExcluded = true
                             status = .excluded
                         } else if error.code == errSecInteractionNotAllowed && error.domain == NSOSStatusErrorDomain {
@@ -1144,7 +1177,7 @@ class Container: NSObject {
 
                 // ensure egoPeerKeys are populated
                 guard egoPeerKeys != nil else {
-                    logger.debug("trust status: No error but Ego Peer Keys are nil")
+                    logger.info("trust status: No error but Ego Peer Keys are nil")
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                     egoPeerMachineID: egoPermanentInfo?.machineID,
                                                                     status: .excluded,
@@ -1170,7 +1203,7 @@ class Container: NSObject {
         } else {
             // With no ego peer ID, either return 'excluded' if there are extant peers, or 'unknown' to signal no peers at all
             if self.model.allPeerIDs().isEmpty {
-                logger.debug("No existing peers in account")
+                logger.info("No existing peers in account")
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 egoPeerMachineID: nil,
                                                                 status: .unknown,
@@ -1181,7 +1214,7 @@ class Container: NSObject {
                 reply(egoStatus, nil)
                 return
             } else {
-                logger.debug("Existing peers in account, but we don't have a peer ID. We are excluded.")
+                logger.info("Existing peers in account, but we don't have a peer ID. We are excluded.")
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 egoPeerMachineID: nil,
                                                                 status: .excluded,
@@ -1210,7 +1243,7 @@ class Container: NSObject {
                 self.onqueueFetchAndPersistChanges { fetchError in
                     guard fetchError == nil else {
                         if let error = fetchError {
-                            logger.debug("Unable to fetch changes, trust status is unknown: \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to fetch changes, trust status is unknown: \(String(describing: error), privacy: .public)")
                         }
 
                         let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
@@ -1252,7 +1285,7 @@ class Container: NSObject {
                 }
 
                 let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(permanentInfo.signingPubKey.spki())
-                logger.debug("fetchTrustState: ego peer is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
+                logger.info("fetchTrustState: ego peer is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
 
                 let egoStableInfo = self.model.getStableInfoForPeer(withID: egoPeerID)
 
@@ -1284,10 +1317,10 @@ class Container: NSObject {
 
                                 tphPeers.append(try crk.asCustodianPeer(viewList: crkViews ?? Set()))
                             } catch {
-                                logger.debug("Unable to add CRK as a trusted peer: \(String(describing: error), privacy: .public)")
+                                logger.info("Unable to add CRK as a trusted peer: \(String(describing: error), privacy: .public)")
                             }
                         } else {
-                            logger.debug("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                            logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
                         }
                     }
 
@@ -1306,18 +1339,18 @@ class Container: NSObject {
                             tphPeers.append(try RecoveryKey.asPeer(recoveryKeys: recoveryKeyPair,
                                                                    viewList: rkViews))
                         } catch {
-                            logger.debug("Unable to add RK as a trusted peer: \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to add RK as a trusted peer: \(String(describing: error), privacy: .public)")
                         }
                     }
                 } else {
-                    logger.debug("No ego peer in model; no trusted peers")
+                    logger.info("No ego peer in model; no trusted peers")
                 }
 
-                logger.debug("Returning trust state: \(egoPeerStatus, privacy: .public) \(tphPeers, privacy: .public)")
+                logger.info("Returning trust state: \(egoPeerStatus, privacy: .public) \(tphPeers, privacy: .public)")
                 reply(egoPeerStatus, tphPeers, nil)
             } else {
                 // With no ego peer ID, there are no trusted peers
-                logger.debug("No peer ID => no trusted peers")
+                logger.info("No peer ID => no trusted peers")
                 reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: false, unknownMachineIDs: false, osVersion: nil), [], nil)
             }
         }
@@ -1405,7 +1438,7 @@ class Container: NSObject {
 
                 reply(info, nil)
             case .failure(let error):
-                logger.debug("validatePeers failed: \(String(describing: error), privacy: .public)")
+                logger.info("validatePeers failed: \(String(describing: error), privacy: .public)")
                 reply(nil, error)
                 return
             }
@@ -1437,15 +1470,15 @@ class Container: NSObject {
                         self.darwinNotifier.post(OTCliqueChanged)
                         do {
                             try self.onQueuePersist(changes: response.changes)
-                            logger.debug("reset succeded")
+                            logger.info("reset succeded")
                             reply(nil)
                         } catch {
-                            logger.debug("reset persist failed: \(String(describing: error), privacy: .public)")
+                            logger.info("reset persist failed: \(String(describing: error), privacy: .public)")
                             reply(error)
                         }
                     }
                 case .failure(let error):
-                    logger.debug("reset failed: \(String(describing: error), privacy: .public)")
+                    logger.info("reset failed: \(String(describing: error), privacy: .public)")
                     reply(error)
                     return
                 }
@@ -1545,20 +1578,20 @@ class Container: NSObject {
 
             _ = try saveSecret(bottle.secret, label: peerID)
         } catch {
-            logger.debug("bottle creation failed: \(String(describing: error), privacy: .public)")
+            logger.info("bottle creation failed: \(String(describing: error), privacy: .public)")
             reply(nil, nil, nil, nil, nil, nil, error)
             return
         }
 
         saveEgoKeyPair(signingKeyPair, identifier: signingKeyIdentifier(peerID: peerID)) { success, error in
             guard success else {
-                logger.debug("Unable to save signing key: \(String(describing: error), privacy: .public)")
+                logger.info("Unable to save signing key: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
                 return
             }
             saveEgoKeyPair(encryptionKeyPair, identifier: encryptionKeyIdentifier(peerID: peerID)) { success, error in
                 guard success else {
-                    logger.debug("Unable to save encryption key: \(String(describing: error), privacy: .public)")
+                    logger.info("Unable to save encryption key: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
                     return
                 }
@@ -1566,7 +1599,7 @@ class Container: NSObject {
                 let actualPolicyVersion = policyVersion ?? prevailingPolicyVersion
                 self.fetchPolicyDocumentWithSemaphore(version: actualPolicyVersion) { policyDoc, policyFetchError in
                     guard let policyDoc = policyDoc, policyFetchError == nil else {
-                        logger.debug("Unable to fetch policy: \(String(describing: policyFetchError), privacy: .public)")
+                        logger.info("Unable to fetch policy: \(String(describing: policyFetchError), privacy: .public)")
                         reply(nil, nil, nil, nil, nil, nil, error ?? ContainerError.unknownInternalError)
                         return
                     }
@@ -1619,7 +1652,7 @@ class Container: NSObject {
 
                             reply(permanentInfo.peerID, permanentInfo.data, permanentInfo.sig, stableInfo.data, stableInfo.sig, syncingPolicy, nil)
                         } catch {
-                            logger.debug("Unable to save identity: \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to save identity: \(String(describing: error), privacy: .public)")
                             reply(nil, nil, nil, nil, nil, nil, error)
                         }
                     }
@@ -1654,25 +1687,25 @@ class Container: NSObject {
 
         self.fetchAndPersistChangesIfNeeded { error in
             guard error == nil else {
-                logger.debug("prepareInheritancePeer unable to fetch changes: \(String(describing: error), privacy: .public)")
+                logger.info("prepareInheritancePeer unable to fetch changes: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
                 return
             }
 
             guard let uuid = UUID(uuidString: crk.uuid) else {
-                logger.debug("Unable to parse uuid: \(crk.uuid, privacy: .public)")
+                logger.info("Unable to parse uuid: \(crk.uuid, privacy: .public)")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                 return
             }
 
             guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
-                logger.debug("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
+                logger.info("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                 return
             }
 
             guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                logger.debug("Custodian Recovery Key is not enrolled")
+                logger.info("Custodian Recovery Key is not enrolled")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                 return
             }
@@ -1688,13 +1721,13 @@ class Container: NSObject {
                 signingKeyPair = recoveryCRK.peerKeys.signingKey
                 encryptionKeyPair = recoveryCRK.peerKeys.encryptionKey
             } catch {
-                logger.debug("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                logger.info("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
                 return
             }
 
-            logger.debug("prepareInheritancePeer signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
-            logger.debug("prepareInheritancePeer encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+            logger.info("prepareInheritancePeer signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+            logger.info("prepareInheritancePeer encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
 
             do {
                 permanentInfo = try TPPeerPermanentInfo(machineID: machineID,
@@ -1712,13 +1745,13 @@ class Container: NSObject {
 
             saveEgoKeyPair(signingKeyPair, identifier: signingKeyIdentifier(peerID: peerID)) { success, error in
                 guard success else {
-                    logger.debug("Unable to save signing key: \(String(describing: error), privacy: .public)")
+                    logger.info("Unable to save signing key: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
                     return
                 }
                 saveEgoKeyPair(encryptionKeyPair, identifier: encryptionKeyIdentifier(peerID: peerID)) { success, error in
                     guard success else {
-                        logger.debug("Unable to save encryption key: \(String(describing: error), privacy: .public)")
+                        logger.info("Unable to save encryption key: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.failedToStoreIdentity)
                         return
                     }
@@ -1726,7 +1759,7 @@ class Container: NSObject {
                     let actualPolicyVersion = policyVersion ?? prevailingPolicyVersion
                     self.fetchPolicyDocumentWithSemaphore(version: actualPolicyVersion) { policyDoc, policyFetchError in
                         guard let policyDoc = policyDoc, policyFetchError == nil else {
-                            logger.debug("Unable to fetch policy: \(String(describing: policyFetchError), privacy: .public)")
+                            logger.info("Unable to fetch policy: \(String(describing: policyFetchError), privacy: .public)")
                             reply(nil, nil, nil, nil, nil, nil, nil, nil, error ?? ContainerError.unknownInternalError)
                             return
                         }
@@ -1770,23 +1803,23 @@ class Container: NSObject {
                                     return
                                 }
                                 guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                                    logger.debug("permanentInfo does not exist")
+                                    logger.info("permanentInfo does not exist")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
                                     return
                                 }
                                 guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                                    logger.debug("permanentInfoSig does not exist")
+                                    logger.info("permanentInfoSig does not exist")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
                                     return
                                 }
 
                                 guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                                    logger.debug("stableInfo does not exist")
+                                    logger.info("stableInfo does not exist")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
                                     return
                                 }
                                 guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                                    logger.debug("stableInfoSig does not exist")
+                                    logger.info("stableInfoSig does not exist")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.nonMember)
                                     return
                                 }
@@ -1797,7 +1830,7 @@ class Container: NSObject {
                                     return
                                 }
                                 guard let selfStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                                    logger.debug("Invalid stableinfo or signature")
+                                    logger.info("Invalid stableinfo or signature")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                                     return
                                 }
@@ -1812,13 +1845,13 @@ class Container: NSObject {
                                     self.cuttlefish.fetchRecoverableTlkshares(request) { response in
                                         switch response {
                                         case .failure(let error):
-                                            logger.debug("fetchRecoverableTlkshares failed: \(String(describing: error), privacy: .public)")
+                                            logger.info("fetchRecoverableTlkshares failed: \(String(describing: error), privacy: .public)")
                                             reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
                                             return
 
                                         case .success(let response):
                                             let shareCount = response.views.map { $0.tlkShares.count }.reduce(0, +)
-                                            logger.debug("fetchRecoverableTlkshares succeeded: found \(response.views.count) views and \(shareCount) total TLKShares")
+                                            logger.info("fetchRecoverableTlkshares succeeded: found \(response.views.count) views and \(shareCount) total TLKShares")
                                             let records = response.views.flatMap { $0.ckrecords() }
 
                                             reply(selfPermanentInfo.peerID, selfPermanentInfo.data, selfPermanentInfo.sig, selfStableInfo.data, selfStableInfo.sig, syncingPolicy, recoveryCRK.peerID, records, nil)
@@ -1826,11 +1859,11 @@ class Container: NSObject {
                                         }
                                     }
                                 } catch {
-                                    logger.debug("failed to create syncing policy: \(String(describing: error), privacy: .public)")
+                                    logger.info("failed to create syncing policy: \(String(describing: error), privacy: .public)")
                                     reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
                                 }
                             } catch {
-                                logger.debug("Unable to save inheritance identity: \(String(describing: error), privacy: .public)")
+                                logger.info("Unable to save inheritance identity: \(String(describing: error), privacy: .public)")
                                 reply(nil, nil, nil, nil, nil, nil, nil, nil, error)
                             }
                         }
@@ -1893,13 +1926,13 @@ class Container: NSObject {
             do {
                 try self.deleteLocalCloudKitData()
             } catch {
-                logger.debug("fetchAfterEstablish failed to reset local data: \(String(describing: error), privacy: .public)")
+                logger.info("fetchAfterEstablish failed to reset local data: \(String(describing: error), privacy: .public)")
                 reply(nil, [], nil, error)
                 return
             }
             self.onqueueFetchAndPersistChanges { error in
                 guard error == nil else {
-                    logger.debug("fetchAfterEstablish failed to fetch changes: \(String(describing: error), privacy: .public)")
+                    logger.info("fetchAfterEstablish failed to fetch changes: \(String(describing: error), privacy: .public)")
                     reply(nil, [], nil, error)
                     return
                 }
@@ -1911,12 +1944,12 @@ class Container: NSObject {
                         let egoStableData = self.containerMO.egoPeerStableInfo,
                         let egoStableSig = self.containerMO.egoPeerStableInfoSig
                         else {
-                            logger.debug("fetchAfterEstablish: failed to fetch egoPeerID")
+                            logger.info("fetchAfterEstablish: failed to fetch egoPeerID")
                             reply(nil, [], nil, ContainerError.noPreparedIdentity)
                             return
                     }
                     guard self.model.hasPeer(withID: egoPeerID) else {
-                        logger.debug("fetchAfterEstablish: did not find peer \(egoPeerID, privacy: .public) in model")
+                        logger.info("fetchAfterEstablish: did not find peer \(egoPeerID, privacy: .public) in model")
                         reply(nil, [], nil, ContainerError.invalidPeerID)
                         return
                     }
@@ -1926,13 +1959,13 @@ class Container: NSObject {
                         return
                     }
                     guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
-                        logger.debug("cannot create TPPeerStableInfo")
+                        logger.info("cannot create TPPeerStableInfo")
                         reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                         return
                     }
                     self.onqueueUpdateTLKs(ckksKeys: ckksKeys, tlkShares: tlkShares) { ckrecords, error in
                         guard error == nil else {
-                            logger.debug("fetchAfterEstablish failed to update TLKs: \(String(describing: error), privacy: .public)")
+                            logger.info("fetchAfterEstablish failed to update TLKs: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                             return
                         }
@@ -1940,10 +1973,10 @@ class Container: NSObject {
                         do {
                             let syncingPolicy = try self.syncingPolicyFor(modelID: selfPermanentInfo.modelID,
                                                                           stableInfo: selfStableInfo)
-                            logger.debug("fetchAfterEstablish succeeded")
+                            logger.info("fetchAfterEstablish succeeded")
                             reply(egoPeerID, ckrecords ?? [], syncingPolicy, nil)
                         } catch {
-                            logger.debug("fetchAfterEstablish failed: \(String(describing: error), privacy: .public)")
+                            logger.info("fetchAfterEstablish failed: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                         }
                     }
@@ -1973,12 +2006,12 @@ class Container: NSObject {
             return
         }
         guard let selfStableInfo = TPPeerStableInfo(data: egoStableData, sig: egoStableSig) else {
-            logger.debug("cannot create TPPeerStableInfo")
+            logger.info("cannot create TPPeerStableInfo")
             reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
             return
         }
         guard self.onqueueMachineIDAllowedByIDMS(machineID: selfPermanentInfo.machineID) else {
-            logger.debug("establish: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
+            logger.info("establish: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
             self.onqueueTTRUntrusted()
             reply(nil, [], nil, ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
             return
@@ -1986,7 +2019,7 @@ class Container: NSObject {
 
         loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
             guard let egoPeerKeys = egoPeerKeys else {
-                logger.debug("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                logger.info("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
                 reply(nil, [], nil, error)
                 return
             }
@@ -1999,7 +2032,7 @@ class Container: NSObject {
 
                     allTLKShares = octagonShares + sosShares
                 } catch {
-                    logger.debug("Unable to make TLKShares for self: \(String(describing: error), privacy: .public)")
+                    logger.info("Unable to make TLKShares for self: \(String(describing: error), privacy: .public)")
                     reply(nil, [], nil, error)
                     return
                 }
@@ -2015,15 +2048,15 @@ class Container: NSObject {
                                                                                    vouchers: [],
                                                                                    egoPeerKeys: egoPeerKeys)
 
-                    logger.debug("dynamic info: \(newDynamicInfo, privacy: .public)")
+                    logger.info("dynamic info: \(newDynamicInfo, privacy: .public)")
                 } catch {
-                    logger.debug("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
+                    logger.info("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
                     reply(nil, [], nil, error)
                     return
                 }
 
                 guard let newPeerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
-                    logger.debug("Unable to create new peer stable info for joining")
+                    logger.info("Unable to create new peer stable info for joining")
                     reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                     return
                 }
@@ -2035,23 +2068,23 @@ class Container: NSObject {
                     reply(nil, [], nil, error)
                     return
                 }
-                logger.debug("Beginning establish for peer \(egoPeerID, privacy: .public)")
-                logger.debug("Establish permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
-                logger.debug("Establish permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
-                logger.debug("Establish stableInfo: \(egoStableData.base64EncodedString(), privacy: .public)")
-                logger.debug("Establish stableInfoSig: \(egoStableSig.base64EncodedString(), privacy: .public)")
-                logger.debug("Establish dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
-                logger.debug("Establish dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
+                logger.info("Beginning establish for peer \(egoPeerID, privacy: .public)")
+                logger.info("Establish permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
+                logger.info("Establish permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
+                logger.info("Establish stableInfo: \(egoStableData.base64EncodedString(), privacy: .public)")
+                logger.info("Establish stableInfoSig: \(egoStableSig.base64EncodedString(), privacy: .public)")
+                logger.info("Establish dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
+                logger.info("Establish dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
 
-                logger.debug("Establish introducing \(viewKeys.count) key sets, \(allTLKShares.count) tlk shares")
+                logger.info("Establish introducing \(viewKeys.count) key sets, \(allTLKShares.count) tlk shares")
 
                 do {
                     let bottleSerialized = try bottle.serializedData().base64EncodedString()
-                    logger.debug("Establish bottle: \(bottleSerialized, privacy: .public)")
+                    logger.info("Establish bottle: \(bottleSerialized, privacy: .public)")
                     let peerSerialized = try peer.serializedData().base64EncodedString()
-                    logger.debug("Establish peer: \(peerSerialized, privacy: .public)")
+                    logger.info("Establish peer: \(peerSerialized, privacy: .public)")
                 } catch {
-                    logger.debug("Establish unable to encode bottle/peer: \(String(describing: error), privacy: .public)")
+                    logger.info("Establish unable to encode bottle/peer: \(String(describing: error), privacy: .public)")
                 }
 
                 let request = EstablishRequest.with {
@@ -2061,15 +2094,15 @@ class Container: NSObject {
                     $0.tlkShares = allTLKShares
                 }
                 self.cuttlefish.establish(request) { response in
-                    logger.debug("Establish: viewKeys: \(String(describing: viewKeys), privacy: .public)")
+                    logger.info("Establish: viewKeys: \(String(describing: viewKeys), privacy: .public)")
 
                     switch response {
                     case .success(let response):
                         do {
                             let responseChangesJson = try response.changes.jsonString()
-                            logger.debug("Establish returned changes: \(responseChangesJson, privacy: .public)")
+                            logger.info("Establish returned changes: \(responseChangesJson, privacy: .public)")
                         } catch {
-                            logger.debug("Establish returned changes, but they can't be serialized")
+                            logger.info("Establish returned changes, but they can't be serialized")
                         }
 
                         let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
@@ -2081,36 +2114,36 @@ class Container: NSObject {
                             try self.persist(changes: response.changes)
 
                             guard response.changes.more == false else {
-                                logger.debug("establish succeeded, but more changes need fetching...")
+                                logger.info("establish succeeded, but more changes need fetching...")
 
                                 self.fetchAndPersistChanges { fetchError in
                                     guard fetchError == nil else {
                                         // This is an odd error condition: we might be able to fetch again and be in a good state...
-                                        logger.debug("fetch-after-establish failed: \(String(describing: fetchError), privacy: .public)")
+                                        logger.info("fetch-after-establish failed: \(String(describing: fetchError), privacy: .public)")
                                         reply(nil, keyHierarchyRecords, nil, fetchError)
                                         return
                                     }
 
-                                    logger.debug("fetch-after-establish succeeded")
+                                    logger.info("fetch-after-establish succeeded")
                                     reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                                 }
                                 return
                             }
 
-                            logger.debug("establish succeeded")
+                            logger.info("establish succeeded")
                             reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                         } catch {
-                            logger.debug("establish handling failed: \(String(describing: error), privacy: .public)")
+                            logger.info("establish handling failed: \(String(describing: error), privacy: .public)")
                             reply(nil, keyHierarchyRecords, nil, error)
                         }
                     case .failure(let error):
                         switch error {
                         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.establishFailed):
-                            logger.debug("establish returned failed, trying fetch")
+                            logger.info("establish returned failed, trying fetch")
                             self.fetchAfterEstablish(ckksKeys: ckksKeys, tlkShares: tlkShares, reply: reply)
                             return
                         default:
-                            logger.debug("establish failed: \(String(describing: error), privacy: .public)")
+                            logger.info("establish failed: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                             return
                         }
@@ -2128,11 +2161,11 @@ class Container: NSObject {
             reply($0, $1)
         }
 
-        logger.debug("beginning a setRecoveryKey")
+        logger.info("beginning a setRecoveryKey")
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("no prepared identity, cannot set recovery key")
+                logger.info("no prepared identity, cannot set recovery key")
                 reply(nil, ContainerError.noPreparedIdentity)
                 return
             }
@@ -2141,7 +2174,7 @@ class Container: NSObject {
             do {
                 recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
             } catch {
-                logger.debug("failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                logger.info("failed to create recovery keys: \(String(describing: error), privacy: .public)")
                 reply(nil, ContainerError.failedToCreateRecoveryKey)
                 return
             }
@@ -2149,44 +2182,44 @@ class Container: NSObject {
             let signingPublicKey: Data = recoveryKeys.peerKeys.signingVerificationKey.keyData
             let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionVerificationKey.keyData
 
-            logger.debug("setRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
-            logger.debug("setRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
+            logger.info("setRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
+            logger.info("setRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
 
             guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
-                logger.debug("stableInfo does not exist")
+                logger.info("stableInfo does not exist")
                 reply(nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                logger.debug("stableInfoSig does not exist")
+                logger.info("stableInfoSig does not exist")
                 reply(nil, ContainerError.nonMember)
                 return
             }
             guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
-                logger.debug("permanentInfo does not exist")
+                logger.info("permanentInfo does not exist")
                 reply(nil, ContainerError.nonMember)
                 return
             }
             guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.debug("permInfoSig does not exist")
+                logger.info("permInfoSig does not exist")
                 reply(nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
-                logger.debug("cannot create TPPeerStableInfo")
+                logger.info("cannot create TPPeerStableInfo")
                 reply(nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
             let keyFactory = TPECPublicKeyFactory()
             guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
-                logger.debug("cannot create TPPeerPermanentInfo")
+                logger.info("cannot create TPPeerPermanentInfo")
                 reply(nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
 
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
-                    logger.debug("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                    logger.info("handle: no signing key pair: \(String(describing: error), privacy: .public)")
                     reply(nil, error)
                     return
                 }
@@ -2233,17 +2266,17 @@ class Container: NSObject {
                                         self.containerMO.egoPeerStableInfoSig = updatedStableInfo.sig
                                         try self.onQueuePersist(changes: response.changes)
 
-                                        logger.debug("setRecoveryKey succeeded")
+                                        logger.info("setRecoveryKey succeeded")
 
                                         let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
                                         reply(keyHierarchyRecords, nil)
                                     } catch {
-                                        logger.debug("setRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
+                                        logger.info("setRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
                                         reply(nil, error)
                                     }
                                 }
                             case .failure(let error):
-                                logger.debug("setRecoveryKey failed: \(String(describing: error), privacy: .public)")
+                                logger.info("setRecoveryKey failed: \(String(describing: error), privacy: .public)")
                                 reply(nil, error)
                                 return
                             }
@@ -2269,11 +2302,11 @@ class Container: NSObject {
             reply($0, $1, $2)
         }
 
-        logger.debug("beginning a createCustodianRecoveryKey")
+        logger.info("beginning a createCustodianRecoveryKey")
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("no prepared identity, cannot create custodian recovery key")
+                logger.info("no prepared identity, cannot create custodian recovery key")
                 reply(nil, nil, ContainerError.noPreparedIdentity)
                 return
             }
@@ -2282,48 +2315,48 @@ class Container: NSObject {
             do {
                 crk = try CustodianRecoveryKey(uuid: uuid, recoveryKeyString: recoveryKey, recoverySalt: salt, kind: kind)
             } catch {
-                logger.debug("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                logger.info("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                 return
             }
 
-            logger.debug("createCustodianRecoveryKey signingPubKey: \(crk.tpCustodian.signingPublicKey.spki().base64EncodedString(), privacy: .public)")
-            logger.debug("createCustodianRecoveryKey encryptionPubKey: \(crk.tpCustodian.encryptionPublicKey.spki().base64EncodedString(), privacy: .public)")
+            logger.info("createCustodianRecoveryKey signingPubKey: \(crk.tpCustodian.signingPublicKey.spki().base64EncodedString(), privacy: .public)")
+            logger.info("createCustodianRecoveryKey encryptionPubKey: \(crk.tpCustodian.encryptionPublicKey.spki().base64EncodedString(), privacy: .public)")
 
             guard let permInfoData = self.containerMO.egoPeerPermanentInfo else {
-                logger.debug("permanentInfo does not exist")
+                logger.info("permanentInfo does not exist")
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.debug("permInfoSig does not exist")
+                logger.info("permInfoSig does not exist")
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
             let keyFactory = TPECPublicKeyFactory()
             guard let permanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permInfoData, sig: permInfoSig, keyFactory: keyFactory) else {
-                logger.debug("cannot create TPPeerPermanentInfo")
+                logger.info("cannot create TPPeerPermanentInfo")
                 reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
             guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
-                logger.debug("stableInfo does not exist")
+                logger.info("stableInfo does not exist")
                 reply(nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
             guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                logger.debug("stableInfoSig does not exist")
+                logger.info("stableInfoSig does not exist")
                 reply(nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
             guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
-                logger.debug("cannot create TPPeerStableInfo")
+                logger.info("cannot create TPPeerStableInfo")
                 reply(nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
-                    logger.debug("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                    logger.info("handle: no signing key pair: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
@@ -2348,7 +2381,7 @@ class Container: NSObject {
                                                                                      signing: signingKeyPair,
                                                                                      currentMachineIDs: self.onqueueCurrentMIDList())
                         } catch {
-                            logger.debug("Error preparing dynamic info: \(String(describing: error), privacy: .public)")
+                            logger.info("Error preparing dynamic info: \(String(describing: error), privacy: .public)")
                             reply(nil, nil, error)
                             return
                         }
@@ -2373,7 +2406,7 @@ class Container: NSObject {
                                     do {
                                         try self.onQueuePersist(changes: response.changes)
 
-                                        logger.debug("CreateCustodianRecoveryKey succeeded")
+                                        logger.info("CreateCustodianRecoveryKey succeeded")
 
                                         let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
                                         let replyCrk = TrustedPeersHelperCustodianRecoveryKey(uuid: uuid.uuidString,
@@ -2385,13 +2418,13 @@ class Container: NSObject {
                                         reply(keyHierarchyRecords, replyCrk, nil)
                                         return
                                     } catch {
-                                        logger.debug("CreateCustodianRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
+                                        logger.info("CreateCustodianRecoveryKey handling failed: \(String(describing: error), privacy: .public)")
                                         reply(nil, nil, error)
                                         return
                                     }
                                 }
                             case .failure(let error):
-                                logger.debug("CreateCustodianRecoveryKey failed: \(String(describing: error), privacy: .public)")
+                                logger.info("CreateCustodianRecoveryKey failed: \(String(describing: error), privacy: .public)")
                                 reply(nil, nil, error)
                                 return
                             }
@@ -2415,13 +2448,13 @@ class Container: NSObject {
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("No dynamic info for self?")
+                logger.info("No dynamic info for self?")
                 reply(ContainerError.noPreparedIdentity)
                 return
             }
 
             guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
-                logger.debug("Unable to find custodian recovery key \(uuid, privacy: .public) on model")
+                logger.info("Unable to find custodian recovery key \(uuid, privacy: .public) on model")
                 reply(ContainerError.recoveryKeysNotEnrolled)
                 return
             }
@@ -2430,7 +2463,7 @@ class Container: NSObject {
 
             // This would be a strange case (where we confuse the ego peerID with the CRK peerID), but it's clearly an error.
             guard crkPeerID != egoPeerID else {
-                logger.debug("Self-distrust via peerID not allowed")
+                logger.info("Self-distrust via peerID not allowed")
                 reply(ContainerError.invalidPeerID)
                 return
             }
@@ -2470,7 +2503,7 @@ class Container: NSObject {
             do {
                 (bmo, _, _) = try self.onMOCQueuePerformPreflight(bottleID: bottleID)
             } catch {
-                logger.debug("vouchWithBottle failed preflight: \(String(describing: error), privacy: .public)")
+                logger.info("vouchWithBottle failed preflight: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, error)
                 return
             }
@@ -2496,19 +2529,19 @@ class Container: NSObject {
             // verify bottle signature using peer
             do {
                 guard let sponsorPeer = self.model.peer(withID: sponsorPeerID) else {
-                    logger.debug("vouchWithBottle: Unable to find peer that created the bottle")
+                    logger.info("vouchWithBottle: Unable to find peer that created the bottle")
                     reply(nil, nil, nil, nil, ContainerError.bottleCreatingPeerNotFound)
                     return
                 }
                 guard let signingKey: _SFECPublicKey = sponsorPeer.permanentInfo.signingPubKey as? _SFECPublicKey else {
-                    logger.debug("vouchWithBottle: Unable to create a sponsor public key")
+                    logger.info("vouchWithBottle: Unable to create a sponsor public key")
                     reply(nil, nil, nil, nil, ContainerError.signatureVerificationFailed)
                     return
                 }
 
                 _ = try BottledPeer.verifyBottleSignature(data: bottledContents, signature: signatureUsingPeerKey, pubKey: signingKey)
             } catch {
-                logger.debug("vouchWithBottle: Verification of bottled signature failed: \(String(describing: error), privacy: .public)")
+                logger.info("vouchWithBottle: Verification of bottled signature failed: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                 return
             }
@@ -2522,7 +2555,7 @@ class Container: NSObject {
                                               signatureUsingEscrow: signatureUsingEscrowKey,
                                               signatureUsingPeerKey: signatureUsingPeerKey)
             } catch {
-                logger.debug("Creation of Bottled Peer failed with bottle salt: \(bottleSalt, privacy: .public)\nAttempting with empty bottle salt")
+                logger.info("Creation of Bottled Peer failed with bottle salt: \(bottleSalt, privacy: .public)\nAttempting with empty bottle salt")
 
                 do {
                     bottledPeer = try BottledPeer(contents: bottledContents,
@@ -2531,13 +2564,13 @@ class Container: NSObject {
                                                   signatureUsingEscrow: signatureUsingEscrowKey,
                                                   signatureUsingPeerKey: signatureUsingPeerKey)
                 } catch {
-                    logger.debug("Creation of Bottled Peer failed: \(String(describing: error), privacy: .public)")
+                    logger.info("Creation of Bottled Peer failed: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateBottledPeer)
                     return
                 }
             }
 
-            logger.debug("Have a bottle for peer \(bottledPeer.peerID, privacy: .public)")
+            logger.info("Have a bottle for peer \(bottledPeer.peerID, privacy: .public)")
 
             // Extract any TLKs we have been given
             let (recoveredTLKs, recoveryResult) = extract(tlkShares: tlkShares, peer: bottledPeer.peerKeys, model: self.model)
@@ -2545,44 +2578,44 @@ class Container: NSObject {
             self.moc.performAndWait {
                 // I must have an ego identity in order to vouch using bottle
                 guard let egoPeerID = self.containerMO.egoPeerID else {
-                    logger.debug("As a nonmember, can't vouch for someone else")
+                    logger.info("As a nonmember, can't vouch for someone else")
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                    logger.debug("permanentInfo does not exist")
+                    logger.info("permanentInfo does not exist")
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                    logger.debug("permanentInfoSig does not exist")
+                    logger.info("permanentInfoSig does not exist")
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                    logger.debug("stableInfo does not exist")
+                    logger.info("stableInfo does not exist")
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                    logger.debug("stableInfoSig does not exist")
+                    logger.info("stableInfoSig does not exist")
                     reply(nil, nil, nil, nil, ContainerError.nonMember)
                     return
                 }
                 let keyFactory = TPECPublicKeyFactory()
                 guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                    logger.debug("Invalid permenent info or signature; can't vouch for them")
+                    logger.info("Invalid permenent info or signature; can't vouch for them")
                     reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
                     return
                 }
                 guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                    logger.debug("Invalid stableinfo or signature; van't vouch for them")
+                    logger.info("Invalid stableinfo or signature; van't vouch for them")
                     reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                     return
                 }
                 loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                     guard let egoPeerKeys = egoPeerKeys else {
-                        logger.debug("Error loading ego peer keys: \(String(describing: error), privacy: .public)")
+                        logger.info("Error loading ego peer keys: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, nil, nil, error)
                         return
                     }
@@ -2599,7 +2632,7 @@ class Container: NSObject {
                         reply(voucher.data, voucher.sig, newSelfTLKShares, recoveryResult, nil)
                         return
                     } catch {
-                        logger.debug("Error creating voucher with bottle: \(String(describing: error), privacy: .public)")
+                        logger.info("Error creating voucher with bottle: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, nil, nil, error)
                         return
                     }
@@ -2620,49 +2653,49 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            logger.debug("beginning a vouchWithRecoveryKey")
+            logger.info("beginning a vouchWithRecoveryKey")
 
             // I must have an ego identity in order to vouch using bottle
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("As a nonmember, can't vouch for someone else")
+                logger.info("As a nonmember, can't vouch for someone else")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                logger.debug("permanentInfo does not exist")
+                logger.info("permanentInfo does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.debug("permanentInfoSig does not exist")
+                logger.info("permanentInfoSig does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                logger.debug("stableInfo does not exist")
+                logger.info("stableInfo does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                logger.debug("stableInfoSig does not exist")
+                logger.info("stableInfoSig does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             let keyFactory = TPECPublicKeyFactory()
             guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                logger.debug("Invalid permenent info or signature; can't vouch for them")
+                logger.info("Invalid permenent info or signature; can't vouch for them")
                 reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
             guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                logger.debug("Invalid stableinfo or signature; van't vouch for them")
+                logger.info("Invalid stableinfo or signature; van't vouch for them")
                 reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                 guard let egoPeerKeys = egoPeerKeys else {
-                    logger.debug("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                    logger.info("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, error)
                     return
                 }
@@ -2672,7 +2705,7 @@ class Container: NSObject {
                 do {
                     recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                 } catch {
-                    logger.debug("failed to create recovery keys: \(String(describing: error), privacy: .public)")
+                    logger.info("failed to create recovery keys: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
                     return
                 }
@@ -2680,11 +2713,11 @@ class Container: NSObject {
                 let signingPublicKey: Data = recoveryKeys.peerKeys.signingKey.publicKey.keyData
                 let encryptionPublicKey: Data = recoveryKeys.peerKeys.encryptionKey.publicKey.keyData
 
-                logger.debug("vouchWithRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
-                logger.debug("vouchWithRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
+                logger.info("vouchWithRecoveryKey signingPubKey: \(signingPublicKey.base64EncodedString(), privacy: .public)")
+                logger.info("vouchWithRecoveryKey encryptionPubKey: \(encryptionPublicKey.base64EncodedString(), privacy: .public)")
 
                 guard self.model.isRecoveryKeyEnrolled() else {
-                    logger.debug("Recovery Key is not enrolled")
+                    logger.info("Recovery Key is not enrolled")
                     reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
@@ -2694,7 +2727,7 @@ class Container: NSObject {
                                                                                                     encryptionKeyData: encryptionPublicKey),
                                                                                   canIntroducePeer: beneficiaryPermanentInfo,
                                                                                   stableInfo: beneficiaryStableInfo) else {
-                    logger.debug("Untrusted recovery key set")
+                    logger.info("Untrusted recovery key set")
                     reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
                 }
@@ -2714,7 +2747,7 @@ class Container: NSObject {
                     reply(voucher.data, voucher.sig, newSelfTLKShares, tlkRecoverResult, nil)
                     return
                 } catch {
-                    logger.debug("Error creating voucher using recovery key set: \(String(describing: error), privacy: .public)")
+                    logger.info("Error creating voucher using recovery key set: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, error)
                     return
                 }
@@ -2733,53 +2766,53 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            logger.debug("beginning a recoverTLKSharesForInheritor")
+            logger.info("beginning a recoverTLKSharesForInheritor")
 
                 // I must have an ego identity in order to vouch using bottle
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("As a nonmember, can't vouch for someone else")
+                logger.info("As a nonmember, can't vouch for someone else")
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                logger.debug("permanentInfo does not exist")
+                logger.info("permanentInfo does not exist")
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.debug("permanentInfoSig does not exist")
+                logger.info("permanentInfoSig does not exist")
                 reply(nil, nil, ContainerError.nonMember)
                 return
             }
 
             let keyFactory = TPECPublicKeyFactory()
             guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                logger.debug("Invalid permenent info or signature; can't vouch for them")
+                logger.info("Invalid permenent info or signature; can't vouch for them")
                 reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                 guard let egoPeerKeys = egoPeerKeys else {
-                    logger.debug("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                    logger.info("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
 
                 guard let uuid = UUID(uuidString: crk.uuid) else {
-                    logger.debug("Unable to parse uuid: \(crk.uuid, privacy: .public)")
+                    logger.info("Unable to parse uuid: \(crk.uuid, privacy: .public)")
                     reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
 
                 guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
-                    logger.debug("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
+                    logger.info("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
                     reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
 
                 guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                    logger.debug("Custodian Recovery Key is not enrolled")
+                    logger.info("Custodian Recovery Key is not enrolled")
                     reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
@@ -2789,19 +2822,19 @@ class Container: NSObject {
                 do {
                     recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
                 } catch {
-                    logger.debug("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                    logger.info("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                     return
                 }
 
-                logger.debug("recoverTLKSharesForInheritor signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
-                logger.debug("recoverTLKSharesForInheritor encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+                logger.info("recoverTLKSharesForInheritor signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+                logger.info("recoverTLKSharesForInheritor encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
 
                 // find matching peer trusting custodian recovery keys
                 guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
                                                                                            canIntroducePeer: beneficiaryPermanentInfo,
                                                                                            stableInfo: nil) else {
-                    logger.debug("Untrusted custodian recovery key set")
+                    logger.info("Untrusted custodian recovery key set")
                     reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
                 }
@@ -2813,7 +2846,7 @@ class Container: NSObject {
                     reply(newSelfTLKShares, tlkRecoveryResult, nil)
                     return
                 } catch {
-                    logger.debug("Error making CKKSTLKShares for inheritor: \(String(describing: error), privacy: .public)")
+                    logger.info("Error making CKKSTLKShares for inheritor: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
@@ -2832,67 +2865,67 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            logger.debug("beginning a vouchWithCustodianRecoveryKey")
+            logger.info("beginning a vouchWithCustodianRecoveryKey")
 
             // I must have an ego identity in order to vouch using bottle
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("As a nonmember, can't vouch for someone else")
+                logger.info("As a nonmember, can't vouch for someone else")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfo = self.containerMO.egoPeerPermanentInfo else {
-                logger.debug("permanentInfo does not exist")
+                logger.info("permanentInfo does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let permanentInfoSig = self.containerMO.egoPeerPermanentInfoSig else {
-                logger.debug("permanentInfoSig does not exist")
+                logger.info("permanentInfoSig does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfo = self.containerMO.egoPeerStableInfo else {
-                logger.debug("stableInfo does not exist")
+                logger.info("stableInfo does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                logger.debug("stableInfoSig does not exist")
+                logger.info("stableInfoSig does not exist")
                 reply(nil, nil, nil, nil, ContainerError.nonMember)
                 return
             }
             let keyFactory = TPECPublicKeyFactory()
             guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                logger.debug("Invalid permenent info or signature; can't vouch for them")
+                logger.info("Invalid permenent info or signature; can't vouch for them")
                 reply(nil, nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
             guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                logger.debug("Invalid stableinfo or signature; van't vouch for them")
+                logger.info("Invalid stableinfo or signature; van't vouch for them")
                 reply(nil, nil, nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                 guard let egoPeerKeys = egoPeerKeys else {
-                    logger.debug("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
+                    logger.info("Don't have my own peer keys; can't establish: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, error)
                     return
                 }
 
                 guard let uuid = UUID(uuidString: crk.uuid) else {
-                    logger.debug("Unable to parse uuid \(crk.uuid, privacy: .public)")
+                    logger.info("Unable to parse uuid \(crk.uuid, privacy: .public)")
                     reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
 
                 guard let tpcrk = self.model.findCustodianRecoveryKey(with: uuid) else {
-                    logger.debug("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
+                    logger.info("Unable to find custodian recovery key \(crk.uuid, privacy: .public) on model")
                     reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
 
                 guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
-                    logger.debug("Custodian Recovery Key is not enrolled")
+                    logger.info("Custodian Recovery Key is not enrolled")
                     reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
                 }
@@ -2902,19 +2935,19 @@ class Container: NSObject {
                 do {
                     recoveryCRK = try CustodianRecoveryKey(tpCustodian: tpcrk, recoveryKeyString: crk.recoveryString, recoverySalt: crk.salt)
                 } catch {
-                    logger.debug("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
+                    logger.info("failed to create custodian recovery keys: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
                     return
                 }
 
-                logger.debug("vouchWithCustodianRecoveryKey signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
-                logger.debug("vouchWithCustodianRecoveryKey encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+                logger.info("vouchWithCustodianRecoveryKey signingPubKey: \(recoveryCRK.peerKeys.signingKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
+                logger.info("vouchWithCustodianRecoveryKey encryptionPubKey: \(recoveryCRK.peerKeys.encryptionKey.publicKey.keyData.base64EncodedString(), privacy: .public)")
 
                 // find matching peer trusting custodian recovery keys
                 guard let sponsorPeerID = self.model.peerIDThatTrustsCustodianRecoveryKeys(tpcrk,
                                                                                            canIntroducePeer: beneficiaryPermanentInfo,
                                                                                            stableInfo: beneficiaryStableInfo) else {
-                    logger.debug("Untrusted custodian recovery key set")
+                    logger.info("Untrusted custodian recovery key set")
                     reply(nil, nil, nil, nil, ContainerError.untrustedRecoveryKeys)
                     return
                 }
@@ -2934,7 +2967,7 @@ class Container: NSObject {
                     reply(voucher.data, voucher.sig, newSelfTLKShares, tlkRecoveryResult, nil)
                     return
                 } catch {
-                    logger.debug("Error creating voucher using custodian recovery key set: \(String(describing: error), privacy: .public)")
+                    logger.info("Error creating voucher using custodian recovery key set: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, nil, nil, error)
                     return
                 }
@@ -2961,7 +2994,7 @@ class Container: NSObject {
             guard let egoPeerID = self.containerMO.egoPeerID,
                 let egoPermData = self.containerMO.egoPeerPermanentInfo,
                 let egoPermSig = self.containerMO.egoPeerPermanentInfoSig else {
-                    logger.debug("As a nonmember, can't vouch for someone else")
+                    logger.info("As a nonmember, can't vouch for someone else")
                     reply(nil, nil, ContainerError.nonMember)
                     return
             }
@@ -2974,27 +3007,27 @@ class Container: NSObject {
             }
 
             guard let beneficiaryPermanentInfo = TPPeerPermanentInfo(peerID: peerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: keyFactory) else {
-                logger.debug("Invalid permenent info or signature; can't vouch for them")
+                logger.info("Invalid permenent info or signature; can't vouch for them")
                 reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                 return
             }
 
             guard let beneficiaryStableInfo = TPPeerStableInfo(data: stableInfo, sig: stableInfoSig) else {
-                logger.debug("Invalid stableinfo or signature; van't vouch for them")
+                logger.info("Invalid stableinfo or signature; van't vouch for them")
                 reply(nil, nil, ContainerError.invalidStableInfoOrSig)
                 return
             }
 
             loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                 guard let egoPeerKeys = egoPeerKeys else {
-                    logger.debug("Don't have my own keys: can't vouch for \(peerID, privacy: .public)(\(beneficiaryPermanentInfo, privacy: .public)): \(String(describing: error), privacy: .public)")
+                    logger.info("Don't have my own keys: can't vouch for \(peerID, privacy: .public)(\(beneficiaryPermanentInfo, privacy: .public)): \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
 
                 self.fetchPolicyDocumentsWithSemaphore(versions: Set([beneficiaryStableInfo.bestPolicyVersion()])) { _, policyFetchError in
                     guard policyFetchError == nil else {
-                        logger.debug("Unknown policy for beneficiary: \(String(describing: error), privacy: .public)")
+                        logger.info("Unknown policy for beneficiary: \(String(describing: error), privacy: .public)")
                         reply(nil, nil, policyFetchError)
                         return
                     }
@@ -3008,7 +3041,7 @@ class Container: NSObject {
                                                                    reason: TPVoucherReason.secureChannel,
                                                                    signing: egoPeerKeys.signingKey)
                         } catch {
-                            logger.debug("Error creating voucher: \(String(describing: error), privacy: .public)")
+                            logger.info("Error creating voucher: \(String(describing: error), privacy: .public)")
                             reply(nil, nil, error)
                             return
                         }
@@ -3031,13 +3064,13 @@ class Container: NSObject {
                                                           toPeer: beneficiaryPermanentInfo,
                                                           epoch: Int(selfPermanentInfo.epoch))
                         } catch {
-                            logger.debug("Unable to make TLKShares for beneficiary \(peerID, privacy: .public)(\(beneficiaryPermanentInfo, privacy: .public)): \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to make TLKShares for beneficiary \(peerID, privacy: .public)(\(beneficiaryPermanentInfo, privacy: .public)): \(String(describing: error), privacy: .public)")
                             reply(nil, nil, error)
                             return
                         }
 
                         guard !tlkShares.isEmpty else {
-                            logger.debug("No TLKShares to upload for new peer, returning voucher")
+                            logger.info("No TLKShares to upload for new peer, returning voucher")
                             reply(voucher.data, voucher.sig, nil)
                             return
                         }
@@ -3051,12 +3084,12 @@ class Container: NSObject {
                             switch response {
                             case .success(let response):
                                 let newKeyRecords = response.zoneKeyHierarchyRecords.map(CKRecord.init)
-                                logger.debug("Uploaded new tlkshares: \(newKeyRecords, privacy: .public)")
+                                logger.info("Uploaded new tlkshares: \(newKeyRecords, privacy: .public)")
                                 // We don't need to save these; CKKS will refetch them as needed
 
                                 reply(voucher.data, voucher.sig, nil)
                             case .failure(let error):
-                                logger.debug("Unable to upload new tlkshares: \(String(describing: error), privacy: .public)")
+                                logger.info("Unable to upload new tlkshares: \(String(describing: error), privacy: .public)")
                                 reply(voucher.data, voucher.sig, error)
                                 return
                             }
@@ -3077,7 +3110,7 @@ class Container: NSObject {
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("No dynamic info for self?")
+                logger.info("No dynamic info for self?")
                 reply(ContainerError.noPreparedIdentity)
                 return
             }
@@ -3097,13 +3130,13 @@ class Container: NSObject {
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("No dynamic info for self?")
+                logger.info("No dynamic info for self?")
                 reply(ContainerError.noPreparedIdentity)
                 return
             }
 
             guard !peerIDs.contains(egoPeerID) else {
-                logger.debug("Self-distrust via peerID not allowed")
+                logger.info("Self-distrust via peerID not allowed")
                 reply(ContainerError.invalidPeerID)
                 return
             }
@@ -3115,14 +3148,14 @@ class Container: NSObject {
     func onqueueDistrust(peerIDs: Set<String>,
                          reply: @escaping (Error?) -> Void) {
         guard let egoPeerID = self.containerMO.egoPeerID else {
-            logger.debug("No dynamic info for self?")
+            logger.info("No dynamic info for self?")
             reply(ContainerError.noPreparedIdentity)
             return
         }
 
         loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
             guard let signingKeyPair = signingKeyPair else {
-                logger.debug("No longer have signing key pair; can't sign distrust: \(String(describing: error), privacy: .public)")
+                logger.info("No longer have signing key pair; can't sign distrust: \(String(describing: error), privacy: .public)")
                 reply(error)
                 return
             }
@@ -3137,13 +3170,13 @@ class Container: NSObject {
                                                                              signing: signingKeyPair,
                                                                              currentMachineIDs: self.onqueueCurrentMIDList())
                 } catch {
-                    logger.debug("Error preparing dynamic info: \(String(describing: error), privacy: .public)")
+                    logger.info("Error preparing dynamic info: \(String(describing: error), privacy: .public)")
                     reply(error)
                     return
                 }
 
                 let signedDynamicInfo = SignedPeerDynamicInfo(dynamicInfo)
-                logger.debug("attempting distrust for \(peerIDs, privacy: .public) with: \(dynamicInfo, privacy: .public)")
+                logger.info("attempting distrust for \(peerIDs, privacy: .public) with: \(dynamicInfo, privacy: .public)")
 
                 let request = UpdateTrustRequest.with {
                     $0.changeToken = self.containerMO.changeToken ?? ""
@@ -3155,14 +3188,14 @@ class Container: NSObject {
                     case .success(let response):
                         do {
                             try self.persist(changes: response.changes)
-                            logger.debug("distrust succeeded")
+                            logger.info("distrust succeeded")
                             reply(nil)
                         } catch {
-                            logger.debug("distrust handling failed: \(String(describing: error), privacy: .public)")
+                            logger.info("distrust handling failed: \(String(describing: error), privacy: .public)")
                             reply(error)
                         }
                     case .failure(let error):
-                        logger.debug("updateTrust failed: \(String(describing: error), privacy: .public)")
+                        logger.info("updateTrust failed: \(String(describing: error), privacy: .public)")
                         reply(error)
                         return
                     }
@@ -3178,23 +3211,23 @@ class Container: NSObject {
             self.semaphore.signal()
             reply($0, $1, $2, $3)
         }
-        logger.debug("beginning a fetchEscrowContents")
+        logger.info("beginning a fetchEscrowContents")
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.debug("fetchEscrowContents failed")
+                logger.info("fetchEscrowContents failed")
                 reply(nil, nil, nil, ContainerError.noPreparedIdentity)
                 return
             }
 
             guard let bottles = self.containerMO.bottles as? Set<BottleMO> else {
-                logger.debug("fetchEscrowContents failed")
+                logger.info("fetchEscrowContents failed")
                 reply(nil, nil, nil, ContainerError.noBottleForPeer)
                 return
             }
 
             guard let bmo = (bottles.first { $0.peerID == egoPeerID }) else {
-                logger.debug("fetchEscrowContents no bottle matches peerID")
+                logger.info("fetchEscrowContents no bottle matches peerID")
                 reply(nil, nil, nil, ContainerError.noBottleForPeer)
                 return
             }
@@ -3204,19 +3237,19 @@ class Container: NSObject {
 
             do {
                 guard let loaded = try loadSecret(label: egoPeerID) else {
-                    logger.debug("fetchEscrowContents failed to load entropy")
+                    logger.info("fetchEscrowContents failed to load entropy")
                     reply(nil, nil, nil, ContainerError.failedToFetchEscrowContents)
                     return
                 }
                 entropy = loaded
             } catch {
-                logger.debug("fetchEscrowContents failed to load entropy: \(String(describing: error), privacy: .public)")
+                logger.info("fetchEscrowContents failed to load entropy: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, nil, error)
                 return
             }
 
             guard let signingPublicKey = bmo.escrowedSigningSPKI else {
-                logger.debug("fetchEscrowContents no escrow signing spki")
+                logger.info("fetchEscrowContents no escrow signing spki")
                 reply(nil, nil, nil, ContainerError.bottleDoesNotContainerEscrowKeySPKI)
                 return
             }
@@ -3237,7 +3270,7 @@ class Container: NSObject {
 
     func handleFetchViableBottlesResponseWithSemaphore(response: FetchViableBottlesResponse?) {
         guard let escrowPairs = response?.viableBottles else {
-            logger.debug("fetchViableBottles returned no viable bottles")
+            logger.info("fetchViableBottles returned no viable bottles")
             return
         }
 
@@ -3245,14 +3278,14 @@ class Container: NSObject {
         if let partial = response?.partialBottles {
             partialPairs = partial
         } else {
-            logger.debug("fetchViableBottles returned no partially viable bottles, but that's ok")
+            logger.info("fetchViableBottles returned no partially viable bottles, but that's ok")
         }
 
         var legacyEscrowInformations: [EscrowInformation] = []
         if let legacy = response?.legacyRecords {
             legacyEscrowInformations = legacy
         } else {
-            logger.debug("fetchViableBottles returned no legacy escrow records")
+            logger.info("fetchViableBottles returned no legacy escrow records")
         }
 
         escrowPairs.forEach { pair in
@@ -3264,7 +3297,7 @@ class Container: NSObject {
                     let matchingRecords: Set<EscrowRecordMO> = existingRecords.filter { existing in existing.label == record.label
                         && existing.escrowMetadata?.bottleID == record.escrowInformationMetadata.bottleID }
                     if !matchingRecords.isEmpty {
-                        logger.debug("fetchViableBottles already knows about record, re-adding entry, label = \(record.label, privacy: .public)")
+                        logger.info("fetchViableBottles already knows about record, re-adding entry, label = \(record.label, privacy: .public)")
                         self.containerMO.removeFromFullyViableEscrowRecords(matchingRecords as NSSet)
                     }
                     self.setEscrowRecord(record: record, viability: .full)
@@ -3281,7 +3314,7 @@ class Container: NSObject {
                         existing.contents == bottle.contents
                 }
                 if !matchingBottles.isEmpty {
-                    logger.debug("fetchViableBottles already knows about bottle: \(bottle.bottleID, privacy: .public)")
+                    logger.info("fetchViableBottles already knows about bottle: \(bottle.bottleID, privacy: .public)")
                     return
                 }
             }
@@ -3294,7 +3327,7 @@ class Container: NSObject {
             bmo.signatureUsingPeerKey = bottle.signatureUsingPeerKey
             bmo.contents = bottle.contents
 
-            logger.debug("fetchViableBottles saving new bottle: \(bmo, privacy: .public)")
+            logger.info("fetchViableBottles saving new bottle: \(bmo, privacy: .public)")
             self.containerMO.addToBottles(bmo)
         }
 
@@ -3308,7 +3341,7 @@ class Container: NSObject {
                     let matchingRecords: Set<EscrowRecordMO> = existingRecords.filter { existing in existing.label == record.label
                         && existing.escrowMetadata?.bottleID == record.escrowInformationMetadata.bottleID }
                     if !matchingRecords.isEmpty {
-                        logger.debug("fetchViableBottles already knows about record, re-adding entry: \(record.label, privacy: .public)")
+                        logger.info("fetchViableBottles already knows about record, re-adding entry: \(record.label, privacy: .public)")
                         self.containerMO.removeFromPartiallyViableEscrowRecords(matchingRecords as NSSet)
                     }
                     self.setEscrowRecord(record: record, viability: Viability.partial)
@@ -3326,7 +3359,7 @@ class Container: NSObject {
                         existing.contents == bottle.contents
                 }
                 if !matchingBottles.isEmpty {
-                    logger.debug("fetchViableBottles already knows about bottle: \(bottle.bottleID, privacy: .public)")
+                    logger.info("fetchViableBottles already knows about bottle: \(bottle.bottleID, privacy: .public)")
                     return
                 }
             }
@@ -3339,7 +3372,7 @@ class Container: NSObject {
             bmo.signatureUsingPeerKey = bottle.signatureUsingPeerKey
             bmo.contents = bottle.contents
 
-            logger.debug("fetchViableBottles saving new bottle: \(bmo, privacy: .public)")
+            logger.info("fetchViableBottles saving new bottle: \(bmo, privacy: .public)")
             self.containerMO.addToBottles(bmo)
         }
         legacyEscrowInformations.forEach { record in
@@ -3347,11 +3380,11 @@ class Container: NSObject {
             if let existingRecords = self.containerMO.legacyEscrowRecords as? Set<EscrowRecordMO> {
                 let matchingRecords: Set<EscrowRecordMO> = existingRecords.filter { existing in existing.label == record.label }
                 if !matchingRecords.isEmpty {
-                    logger.debug("fetchViableBottles already knows about legacy record \(record.label, privacy: .public), re-adding entry")
+                    logger.info("fetchViableBottles already knows about legacy record \(record.label, privacy: .public), re-adding entry")
                     self.containerMO.removeFromLegacyEscrowRecords(matchingRecords as NSSet)
                 }
                 if record.label.hasSuffix(".double") {
-                    logger.debug("ignoring double enrollment record \(record.label, privacy: .public)")
+                    logger.info("ignoring double enrollment record \(record.label, privacy: .public)")
                 } else {
                     self.setEscrowRecord(record: record, viability: Viability.none)
                 }
@@ -3360,17 +3393,17 @@ class Container: NSObject {
     }
 
     func fetchViableBottlesWithSemaphore(reply: @escaping ([String]?, [String]?, Error?) -> Void) {
-        logger.debug("beginning a fetchViableBottles")
+        logger.info("beginning a fetchViableBottles")
 
         self.moc.performAndWait {
             var cachedBottles = TPCachedViableBottles(viableBottles: [], partialBottles: [])
 
             if let lastDate = self.containerMO.escrowFetchDate {
                 if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
-                    logger.debug("escrow cache still valid")
+                    logger.info("escrow cache still valid")
                     cachedBottles = onqueueCachedBottlesFromEscrowRecords()
                 } else {
-                    logger.debug("escrow cache no longer valid")
+                    logger.info("escrow cache no longer valid")
                     if let records = self.containerMO.fullyViableEscrowRecords {
                         self.containerMO.removeFromFullyViableEscrowRecords(records)
                     }
@@ -3382,7 +3415,7 @@ class Container: NSObject {
             }
 
             if !cachedBottles.viableBottles.isEmpty || !cachedBottles.partialBottles.isEmpty {
-                logger.debug("returning from fetchViableBottles, using cached bottles")
+                logger.info("returning from fetchViableBottles, using cached bottles")
                 reply(cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
                 return
             }
@@ -3391,7 +3424,7 @@ class Container: NSObject {
                 $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
             }
             if request.filterRequest == .byOctagonOnly {
-                logger.debug("Requesting Cuttlefish sort records by Octagon Only")
+                logger.info("Requesting Cuttlefish sort records by Octagon Only")
             }
 
             self.cuttlefish.fetchViableBottles(request) { response in
@@ -3402,25 +3435,25 @@ class Container: NSObject {
                         let  partialPairs = response.partialBottles
 
                         let viableBottleIDs = escrowPairs.compactMap { $0.bottle.bottleID }
-                        logger.debug("fetchViableBottles returned viable bottles: \(viableBottleIDs, privacy: .public)")
+                        logger.info("fetchViableBottles returned viable bottles: \(viableBottleIDs, privacy: .public)")
 
                         let partialBottleIDs = partialPairs.compactMap { $0.bottle.bottleID }
-                        logger.debug("fetchViableBottles returned partial bottles: \(partialBottleIDs, privacy: .public)")
+                        logger.info("fetchViableBottles returned partial bottles: \(partialBottleIDs, privacy: .public)")
 
                         self.handleFetchViableBottlesResponseWithSemaphore(response: response)
 
                         do {
                             try self.moc.save()
-                            logger.debug("fetchViableBottles saved bottles")
+                            logger.info("fetchViableBottles saved bottles")
                             self.containerMO.escrowFetchDate = Date()
                             reply(viableBottleIDs, partialBottleIDs, nil)
                         } catch {
-                            logger.debug("fetchViableBottles unable to save bottles: \(String(describing: error), privacy: .public)")
+                            logger.info("fetchViableBottles unable to save bottles: \(String(describing: error), privacy: .public)")
                             reply(nil, nil, error)
                         }
                     }
                 case .failure(let error):
-                    logger.debug("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
+                    logger.info("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
@@ -3429,7 +3462,7 @@ class Container: NSObject {
     }
 
     func removeEscrowCache(reply: @escaping (Error?) -> Void) {
-        logger.debug("beginning a removeEscrowCache")
+        logger.info("beginning a removeEscrowCache")
 
         self.semaphore.wait()
         let reply: (Error?) -> Void = {
@@ -3458,29 +3491,29 @@ class Container: NSObject {
     }
 
     func fetchEscrowRecordsWithSemaphore(forceFetch: Bool, reply: @escaping ([Data]?, Error?) -> Void) {
-        logger.debug("beginning a fetchEscrowRecords")
+        logger.info("beginning a fetchEscrowRecords")
 
         self.moc.performAndWait {
             var cachedRecords: [OTEscrowRecord] = []
 
             if forceFetch == false {
-                logger.debug("fetchEscrowRecords: force fetch flag is off")
+                logger.info("fetchEscrowRecords: force fetch flag is off")
                 if let lastDate = self.containerMO.escrowFetchDate {
                     if Date() < lastDate.addingTimeInterval(escrowCacheTimeout) {
-                        logger.debug("escrow cache still valid")
+                        logger.info("escrow cache still valid")
                         cachedRecords = onqueueCachedEscrowRecords()
                     } else {
-                        logger.debug("escrow cache no longer valid")
+                        logger.info("escrow cache no longer valid")
                         self.onQueueRemoveEscrowCache()
                     }
                 }
             } else {
-                logger.debug("fetchEscrowRecords: force fetch flag is on, removing escrow cache")
+                logger.info("fetchEscrowRecords: force fetch flag is on, removing escrow cache")
                 self.onQueueRemoveEscrowCache()
             }
 
             if !cachedRecords.isEmpty {
-                logger.debug("returning from fetchEscrowRecords, using cached escrow records")
+                logger.info("returning from fetchEscrowRecords, using cached escrow records")
                 let recordData: [Data] = cachedRecords.map { $0.data }
                 reply(recordData, nil)
                 return
@@ -3490,7 +3523,7 @@ class Container: NSObject {
                 $0.filterRequest = OctagonPlatformSupportsSOS() ? .unknown : .byOctagonOnly
             }
             if request.filterRequest == .byOctagonOnly {
-                logger.debug("Requesting Cuttlefish sort records by Octagon Only")
+                logger.info("Requesting Cuttlefish sort records by Octagon Only")
             }
 
             self.cuttlefish.fetchViableBottles(request) { response in
@@ -3501,7 +3534,7 @@ class Container: NSObject {
                             self.handleFetchViableBottlesResponseWithSemaphore(response: response)
 
                             try self.moc.save()
-                            logger.debug("fetchViableBottles saved bottles and records")
+                            logger.info("fetchViableBottles saved bottles and records")
                             self.containerMO.escrowFetchDate = Date()
 
                             var allEscrowRecordData: [Data] = []
@@ -3528,12 +3561,12 @@ class Container: NSObject {
                             }
                             reply(allEscrowRecordData, nil)
                         } catch {
-                            logger.debug("fetchViableBottles unable to save bottles and records: \(String(describing: error), privacy: .public)")
+                            logger.info("fetchViableBottles unable to save bottles and records: \(String(describing: error), privacy: .public)")
                             reply(nil, error)
                         }
                     }
                 case .failure(let error):
-                    logger.debug("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
+                    logger.info("fetchViableBottles failed: \(String(describing: error), privacy: .public)")
                     reply(nil, error)
                     return
                 }
@@ -3558,14 +3591,16 @@ class Container: NSObject {
                 logger.error("fetchCurrentPolicy failed to find ego peer information")
                 // This is technically an error, but we also need to know the prevailing syncing policy at CloudKit signin time, not just after we've started to join
 
-                guard let modelID = modelIDOverride else {
-                    logger.debug("no model ID override; returning error")
+                guard let modelIDOverride = modelIDOverride else {
+                    logger.info("no model ID override; returning error")
                     reply(nil, .UNKNOWN, ContainerError.noPreparedIdentity)
                     return
                 }
 
+                let modelID = TPPeerPermanentInfo.mungeModelID(modelIDOverride)
+
                 guard let policyDocument = self.model.policy(withVersion: prevailingPolicyVersion.versionNumber) else {
-                    logger.debug("prevailing policy is missing?")
+                    logger.info("prevailing policy is missing?")
                     reply(nil, .UNKNOWN, ContainerError.noPreparedIdentity)
                     return
                 }
@@ -3574,7 +3609,7 @@ class Container: NSObject {
                     let prevailingPolicy = try policyDocument.policy(withSecrets: [:], decrypter: Decrypter())
                     let syncingPolicy = try prevailingPolicy.syncingPolicy(forModel: modelID, syncUserControllableViews: .UNKNOWN, isInheritedAccount: isInheritedAccount)
 
-                    logger.debug("returning a policy for model ID \(modelID, privacy: .public)")
+                    logger.info("returning a policy for model ID \(modelID, privacy: .public)")
                     reply(syncingPolicy, .UNKNOWN, nil)
                     return
                 } catch {
@@ -3600,7 +3635,7 @@ class Container: NSObject {
             let allPolicyVersions = self.model.allPolicyVersions()
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
-                    logger.debug("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
+                    logger.info("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
                 }
 
                 do {
@@ -3617,7 +3652,7 @@ class Container: NSObject {
                     reply(syncingPolicy, peersUserViewSyncability, nil)
                     return
                 } catch {
-                    logger.debug("Fetching the syncing policy failed: \(String(describing: error), privacy: .public)")
+                    logger.info("Fetching the syncing policy failed: \(String(describing: error), privacy: .public)")
                     reply(nil, .UNKNOWN, error)
                     return
                 }
@@ -3632,13 +3667,13 @@ class Container: NSObject {
         if peerPolicyVersion.versionNumber < frozenPolicyVersion.versionNumber {
             // This peer was from before CKKS4All, and we shouldn't listen to them when it comes to Syncing Policies
             bestPolicyVersion = prevailingPolicyVersion
-            logger.debug("Ignoring policy version from pre-CKKS4All peer")
+            logger.info("Ignoring policy version from pre-CKKS4All peer")
         } else {
             bestPolicyVersion = peerPolicyVersion
         }
 
         guard let policyDocument = self.model.policy(withVersion: bestPolicyVersion.versionNumber) else {
-            logger.debug("best policy(\(bestPolicyVersion, privacy: .public)) is missing?")
+            logger.info("best policy(\(bestPolicyVersion, privacy: .public)) is missing?")
             throw ContainerError.unknownPolicyVersion(bestPolicyVersion.versionNumber)
         }
 
@@ -3671,7 +3706,7 @@ class Container: NSObject {
             }
 
             guard let doc = versions?[version] else {
-                logger.debug("fetchPolicyDocument: didn't return policy of version: \(String(describing: versions), privacy: .public)")
+                logger.info("fetchPolicyDocument: didn't return policy of version: \(String(describing: versions), privacy: .public)")
                 reply(nil, ContainerError.unknownPolicyVersion(version.versionNumber))
                 return
             }
@@ -3712,19 +3747,19 @@ class Container: NSObject {
                         // TODO: validate the policy's signature
 
                         guard let doc = TPPolicyDocument.policyDoc(withHash: mapEntry.key.hash, data: mapEntry.value) else {
-                            logger.debug("Can't make policy document with hash \(mapEntry.key.hash, privacy: .public) and data \(mapEntry.value.base64EncodedString(), privacy: .public)")
+                            logger.info("Can't make policy document with hash \(mapEntry.key.hash, privacy: .public) and data \(mapEntry.value.base64EncodedString(), privacy: .public)")
                             reply(nil, ContainerError.policyDocumentDoesNotValidate)
                             return
                         }
 
                         guard let expectedVersion = (remaining.first { $0.versionNumber == doc.version.versionNumber }) else {
-                            logger.debug("Received a policy version we didn't request: \(doc.version.versionNumber)")
+                            logger.info("Received a policy version we didn't request: \(doc.version.versionNumber)")
                             reply(nil, ContainerError.policyDocumentDoesNotValidate)
                             return
                         }
 
                         guard expectedVersion.policyHash == doc.version.policyHash else {
-                            logger.debug("Requested hash \(expectedVersion.policyHash, privacy: .public) does not match fetched hash \(doc.version.policyHash, privacy: .public)")
+                            logger.info("Requested hash \(expectedVersion.policyHash, privacy: .public) does not match fetched hash \(doc.version.policyHash, privacy: .public)")
                             reply(nil, ContainerError.policyDocumentDoesNotValidate)
                             return
                         }
@@ -3759,7 +3794,7 @@ class Container: NSObject {
                     reply(nil, ContainerError.unknownPolicyVersion(unfetchedVersion.versionNumber))
                 }
             case .failure(let error):
-                logger.debug("FetchPolicyDocuments failed: \(String(describing: error), privacy: .public)")
+                logger.info("FetchPolicyDocuments failed: \(String(describing: error), privacy: .public)")
                 reply(nil, error)
                 return
             }
@@ -3775,13 +3810,13 @@ class Container: NSObject {
         self.cuttlefish.fetchRecoverableTlkshares(request) { response in
             switch response {
             case .failure(let error):
-                logger.debug("fetchRecoverableTlkshares failed: \(String(describing: error), privacy: .public)")
+                logger.info("fetchRecoverableTlkshares failed: \(String(describing: error), privacy: .public)")
                 reply(nil, error)
                 return
 
             case .success(let response):
                 let shareCount = response.views.map { $0.tlkShares.count }.reduce(0, +)
-                logger.debug("fetchRecoverableTlkshares succeeded: found \(response.views.count) views and \(shareCount) total TLKShares")
+                logger.info("fetchRecoverableTlkshares succeeded: found \(response.views.count) views and \(shareCount) total TLKShares")
                 let records = response.views.flatMap { $0.ckrecords() }
                 reply(records, nil)
                 return
@@ -3851,7 +3886,7 @@ class Container: NSObject {
             do {
                 let peerIDsWithAccess = try self.model.getPeerIDsTrustedByPeer(with: egoPeerDynamicInfo,
                                                                                toAccessView: keyset.tlk.zoneID.zoneName)
-                logger.debug("Planning to share \(String(describing: keyset.tlk), privacy: .public) with peers \(peerIDsWithAccess, privacy: .public)")
+                logger.info("Planning to share \(String(describing: keyset.tlk), privacy: .public) with peers \(peerIDsWithAccess, privacy: .public)")
 
                 let peers = peerIDsWithAccess.compactMap { self.model.peer(withID: $0) }
                 let viewPeerShares = try peers.map { receivingPeer in
@@ -3864,7 +3899,7 @@ class Container: NSObject {
 
                 peerShares += viewPeerShares
             } catch {
-                logger.debug("Unable to create TLKShares for keyset \(keyset, privacy: .public): \(String(describing: error), privacy: .public)")
+                logger.info("Unable to create TLKShares for keyset \(keyset, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
 
@@ -3903,7 +3938,7 @@ class Container: NSObject {
                 newUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
             }
 
-            logger.debug("join: setting 'user view sync' control as: \(TPPBPeerStableInfoUserControllableViewStatusAsString(newUserViewSyncability), privacy: .public)")
+            logger.info("join: setting 'user view sync' control as: \(TPPBPeerStableInfoUserControllableViewStatusAsString(newUserViewSyncability), privacy: .public)")
             userViewSyncability = newUserViewSyncability
         }
 
@@ -3947,7 +3982,7 @@ class Container: NSObject {
             let allPolicyVersions = self.model.allPolicyVersions()
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
-                    logger.debug("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
+                    logger.info("join: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
                 }
 
                 self.moc.performAndWait {
@@ -3981,7 +4016,7 @@ class Container: NSObject {
                         return
                     }
                     guard self.onqueueMachineIDAllowedByIDMS(machineID: selfPermanentInfo.machineID) else {
-                        logger.debug("join: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
+                        logger.info("join: self machineID \(selfPermanentInfo.machineID, privacy: .public) not on list")
                         self.onqueueTTRUntrusted()
                         reply(nil, [], nil, ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
                         return
@@ -3989,7 +4024,7 @@ class Container: NSObject {
 
                     loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                         guard let egoPeerKeys = egoPeerKeys else {
-                            logger.debug("Don't have my own peer keys; can't join: \(String(describing: error), privacy: .public)")
+                            logger.info("Don't have my own peer keys; can't join: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                             return
                         }
@@ -4008,13 +4043,13 @@ class Container: NSObject {
                                                                                                 }, ],
                                                                                                egoPeerKeys: egoPeerKeys)
                             } catch {
-                                logger.debug("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
+                                logger.info("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
                                 reply(nil, [], nil, error)
                                 return
                             }
 
                             guard let peerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
-                                logger.debug("Unable to create new peer stable info for joining")
+                                logger.info("Unable to create new peer stable info for joining")
                                 reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                                 return
                             }
@@ -4028,7 +4063,7 @@ class Container: NSObject {
                                                                                             egoPeerDynamicInfo: newDynamicInfo,
                                                                                             epoch: Int(selfPermanentInfo.epoch))
                             } catch {
-                                logger.debug("Unable to process keys before joining: \(String(describing: error), privacy: .public)")
+                                logger.info("Unable to process keys before joining: \(String(describing: error), privacy: .public)")
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -4038,7 +4073,7 @@ class Container: NSObject {
                                                                  stableInfo: peer.stableInfoAndSig.toStableInfo(),
                                                                  withSponsorID: sponsor.peerID)
                             } catch {
-                                logger.debug("Error checking introduction: \(String(describing: error), privacy: .public)")
+                                logger.info("Error checking introduction: \(String(describing: error), privacy: .public)")
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -4051,24 +4086,24 @@ class Container: NSObject {
                                 return
                             }
 
-                            logger.debug("Beginning join for peer \(egoPeerID, privacy: .public)")
-                            logger.debug("Join permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
-                            logger.debug("Join permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
-                            logger.debug("Join stableInfo: \(peer.stableInfoAndSig.peerStableInfo.base64EncodedString(), privacy: .public)")
-                            logger.debug("Join stableInfoSig: \(peer.stableInfoAndSig.sig.base64EncodedString(), privacy: .public)")
-                            logger.debug("Join dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
-                            logger.debug("Join dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
+                            logger.info("Beginning join for peer \(egoPeerID, privacy: .public)")
+                            logger.info("Join permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
+                            logger.info("Join permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
+                            logger.info("Join stableInfo: \(peer.stableInfoAndSig.peerStableInfo.base64EncodedString(), privacy: .public)")
+                            logger.info("Join stableInfoSig: \(peer.stableInfoAndSig.sig.base64EncodedString(), privacy: .public)")
+                            logger.info("Join dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
+                            logger.info("Join dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
 
-                            logger.debug("Join vouchers: \(peer.vouchers.map { $0.voucher.base64EncodedString() }, privacy: .public)")
-                            logger.debug("Join voucher signatures: \(peer.vouchers.map { $0.sig.base64EncodedString() }, privacy: .public)")
+                            logger.info("Join vouchers: \(peer.vouchers.map { $0.voucher.base64EncodedString() }, privacy: .public)")
+                            logger.info("Join voucher signatures: \(peer.vouchers.map { $0.sig.base64EncodedString() }, privacy: .public)")
 
-                            logger.debug("Uploading \(allTLKShares.count) tlk shares")
+                            logger.info("Uploading \(allTLKShares.count) tlk shares")
 
                             do {
                                 let peerBase64 = try peer.serializedData().base64EncodedString()
-                                logger.debug("Join peer: \(peerBase64, privacy: .public)")
+                                logger.info("Join peer: \(peerBase64, privacy: .public)")
                             } catch {
-                                logger.debug("Join unable to encode peer: \(String(describing: error), privacy: .public)")
+                                logger.info("Join unable to encode peer: \(String(describing: error), privacy: .public)")
                             }
 
                             let changeToken = self.containerMO.changeToken ?? ""
@@ -4091,17 +4126,17 @@ class Container: NSObject {
                                                                                           stableInfo: peerStableInfo)
 
                                             try self.onQueuePersist(changes: response.changes)
-                                            logger.debug("JoinWithVoucher succeeded")
+                                            logger.info("JoinWithVoucher succeeded")
 
                                             let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
                                             reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                                         } catch {
-                                            logger.debug("JoinWithVoucher failed: \(String(describing: error), privacy: .public)")
+                                            logger.info("JoinWithVoucher failed: \(String(describing: error), privacy: .public)")
                                             reply(nil, [], nil, error)
                                         }
                                     }
                                 case .failure(let error):
-                                    logger.debug("joinWithVoucher failed: \(String(describing: error), privacy: .public)")
+                                    logger.info("joinWithVoucher failed: \(String(describing: error), privacy: .public)")
                                     reply(nil, [], nil, error)
                                     return
                                 }
@@ -4121,12 +4156,12 @@ class Container: NSObject {
             reply($0, $1, $2, $3, $4, $5)
         }
 
-        logger.debug("requestHealthCheck requiring escrow check: \(requiresEscrowCheck), knownFederations: \(knownFederations, privacy: .public)")
+        logger.info("requestHealthCheck requiring escrow check: \(requiresEscrowCheck), knownFederations: \(knownFederations, privacy: .public)")
 
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
-                logger.debug("requestHealthCheck: No identity.")
+                logger.info("requestHealthCheck: No identity.")
                 reply(false, false, false, false, nil, ContainerError.noPreparedIdentity)
                 return
             }
@@ -4198,7 +4233,7 @@ class Container: NSObject {
 
                 reply(data, nil)
             case .failure(let error):
-                logger.debug("getSupportAppInfo failed: \(String(describing: error), privacy: .public)")
+                logger.info("getSupportAppInfo failed: \(String(describing: error), privacy: .public)")
                 reply(nil, error)
                 return
             }
@@ -4224,7 +4259,7 @@ class Container: NSObject {
                 }
                 reply(nil)
             case .failure(let error):
-                logger.debug("resetCDPAccountData failed: \(String(describing: error), privacy: .public)")
+                logger.info("resetCDPAccountData failed: \(String(describing: error), privacy: .public)")
                 reply(error)
                 return
             }
@@ -4243,7 +4278,7 @@ class Container: NSObject {
 
         self.fetchAndPersistChanges { error in
             guard error == nil else {
-                logger.debug("preflightPreapprovedJoin unable to fetch changes: \(String(describing: error), privacy: .public)")
+                logger.info("preflightPreapprovedJoin unable to fetch changes: \(String(describing: error), privacy: .public)")
                 reply(false, error)
                 return
             }
@@ -4252,7 +4287,7 @@ class Container: NSObject {
             let allPolicyVersions = self.model.allPolicyVersions()
             self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                 if let error = policyFetchError {
-                    logger.debug("preflightPreapprovedJoin: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
+                    logger.info("preflightPreapprovedJoin: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
                 }
 
                 // We explicitly ignore the machine ID list here; we're only interested in the peer states: do they preapprove us?
@@ -4268,20 +4303,20 @@ class Container: NSObject {
                           let egoPermData = self.containerMO.egoPeerPermanentInfo,
                           let egoPermSig = self.containerMO.egoPeerPermanentInfoSig
                     else {
-                        logger.debug("preflightPreapprovedJoin: no prepared identity")
+                        logger.info("preflightPreapprovedJoin: no prepared identity")
                         reply(false, ContainerError.noPreparedIdentity)
                         return
                     }
 
                     let keyFactory = TPECPublicKeyFactory()
                     guard let egoPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
-                        logger.debug("preflightPreapprovedJoin: invalid permanent info")
+                        logger.info("preflightPreapprovedJoin: invalid permanent info")
                         reply(false, ContainerError.invalidPermanentInfoOrSig)
                         return
                     }
 
                     guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
-                        logger.debug("preflightPreapprovedJoin: no peers preapprove our key")
+                        logger.info("preflightPreapprovedJoin: no peers preapprove our key")
                         reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
                         return
                     }
@@ -4291,7 +4326,7 @@ class Container: NSObject {
                     }
 
                     guard (keysApprovingPeers?.count ?? 0) > 0 else {
-                        logger.debug("preflightPreapprovedJoin: no reciprocal trust for existing peers")
+                        logger.info("preflightPreapprovedJoin: no reciprocal trust for existing peers")
                         reply(false, ContainerError.noPeersPreapprovedBySelf)
                         return
                     }
@@ -4315,7 +4350,7 @@ class Container: NSObject {
 
         self.fetchAndPersistChangesIfNeeded { error in
             guard error == nil else {
-                logger.debug("preapprovedJoin unable to fetch changes: \(String(describing: error), privacy: .public)")
+                logger.info("preapprovedJoin unable to fetch changes: \(String(describing: error), privacy: .public)")
                 reply(nil, [], nil, error)
                 return
             }
@@ -4324,7 +4359,7 @@ class Container: NSObject {
                 // Note that if the establish fails, retrying this call might work.
                 // That's up to the caller.
                 if self.model.allPeerIDs().isEmpty {
-                    logger.debug("preapprovedJoin but no existing peers, attempting establish")
+                    logger.info("preapprovedJoin but no existing peers, attempting establish")
 
                     self.onqueueEstablish(ckksKeys: ckksKeys,
                                           tlkShares: tlkShares,
@@ -4340,7 +4375,7 @@ class Container: NSObject {
                     let egoStableData = self.containerMO.egoPeerStableInfo,
                     let egoStableSig = self.containerMO.egoPeerStableInfoSig
                     else {
-                        logger.debug("preapprovedJoin: no prepared identity")
+                        logger.info("preapprovedJoin: no prepared identity")
                         reply(nil, [], nil, ContainerError.noPreparedIdentity)
                         return
                 }
@@ -4356,20 +4391,20 @@ class Container: NSObject {
                 }
 
                 guard self.onqueueMachineIDAllowedByIDMS(machineID: selfPermanentInfo.machineID) else {
-                    logger.debug("preapprovedJoin: self machineID \(selfPermanentInfo.machineID, privacy: .public) (me) not on list")
+                    logger.info("preapprovedJoin: self machineID \(selfPermanentInfo.machineID, privacy: .public) (me) not on list")
                     self.onqueueTTRUntrusted()
                     reply(nil, [], nil, ContainerError.preparedIdentityNotOnAllowedList(selfPermanentInfo.machineID))
                     return
                 }
                 loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
                     guard let egoPeerKeys = egoPeerKeys else {
-                        logger.debug("preapprovedJoin: Don't have my own keys: can't join: \(String(describing: error), privacy: .public)")
+                        logger.info("preapprovedJoin: Don't have my own keys: can't join: \(String(describing: error), privacy: .public)")
                         reply(nil, [], nil, error)
                         return
                     }
 
                     guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPeerKeys.signingKey.publicKey().spki()) else {
-                        logger.debug("preapprovedJoin: no peers preapprove our key")
+                        logger.info("preapprovedJoin: no peers preapprove our key")
                         reply(nil, [], nil, ContainerError.noPeersPreapprovePreparedIdentity)
                         return
                     }
@@ -4386,13 +4421,13 @@ class Container: NSObject {
                                                                                            vouchers: [],
                                                                                            egoPeerKeys: egoPeerKeys)
                         } catch {
-                            logger.debug("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to create peer for joining: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                             return
                         }
 
                         guard let peerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
-                            logger.debug("Unable to create new peer stable info for joining")
+                            logger.info("Unable to create new peer stable info for joining")
                             reply(nil, [], nil, ContainerError.invalidStableInfoOrSig)
                             return
                         }
@@ -4406,7 +4441,7 @@ class Container: NSObject {
                                                                                         egoPeerDynamicInfo: newDynamicInfo,
                                                                                         epoch: Int(selfPermanentInfo.epoch))
                         } catch {
-                            logger.debug("Unable to process keys before joining: \(String(describing: error), privacy: .public)")
+                            logger.info("Unable to process keys before joining: \(String(describing: error), privacy: .public)")
                             reply(nil, [], nil, error)
                             return
                         }
@@ -4419,24 +4454,24 @@ class Container: NSObject {
                             return
                         }
 
-                        logger.debug("Beginning preapprovedJoin for peer \(egoPeerID, privacy: .public)")
-                        logger.debug("preapprovedJoin permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
-                        logger.debug("preapprovedJoin permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
-                        logger.debug("preapprovedJoin stableInfo: \(egoStableData.base64EncodedString(), privacy: .public)")
-                        logger.debug("preapprovedJoin stableInfoSig: \(egoStableSig.base64EncodedString(), privacy: .public)")
-                        logger.debug("preapprovedJoin dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
-                        logger.debug("preapprovedJoin dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
+                        logger.info("Beginning preapprovedJoin for peer \(egoPeerID, privacy: .public)")
+                        logger.info("preapprovedJoin permanentInfo: \(egoPermData.base64EncodedString(), privacy: .public)")
+                        logger.info("preapprovedJoin permanentInfoSig: \(egoPermSig.base64EncodedString(), privacy: .public)")
+                        logger.info("preapprovedJoin stableInfo: \(egoStableData.base64EncodedString(), privacy: .public)")
+                        logger.info("preapprovedJoin stableInfoSig: \(egoStableSig.base64EncodedString(), privacy: .public)")
+                        logger.info("preapprovedJoin dynamicInfo: \(peer.dynamicInfoAndSig.peerDynamicInfo.base64EncodedString(), privacy: .public)")
+                        logger.info("preapprovedJoin dynamicInfoSig: \(peer.dynamicInfoAndSig.sig.base64EncodedString(), privacy: .public)")
 
-                        logger.debug("preapprovedJoin vouchers: \(peer.vouchers.map { $0.voucher.base64EncodedString() }, privacy: .public)")
-                        logger.debug("preapprovedJoin voucher signatures: \(peer.vouchers.map { $0.sig.base64EncodedString() }, privacy: .public)")
+                        logger.info("preapprovedJoin vouchers: \(peer.vouchers.map { $0.voucher.base64EncodedString() }, privacy: .public)")
+                        logger.info("preapprovedJoin voucher signatures: \(peer.vouchers.map { $0.sig.base64EncodedString() }, privacy: .public)")
 
-                        logger.debug("preapprovedJoin: uploading \(allTLKShares.count) tlk shares")
+                        logger.info("preapprovedJoin: uploading \(allTLKShares.count) tlk shares")
 
                         do {
                             let peerBase64 = try peer.serializedData().base64EncodedString()
-                            logger.debug("preapprovedJoin peer: \(peerBase64, privacy: .public)")
+                            logger.info("preapprovedJoin peer: \(peerBase64, privacy: .public)")
                         } catch {
-                            logger.debug("preapprovedJoin unable to encode peer: \(String(describing: error), privacy: .public)")
+                            logger.info("preapprovedJoin unable to encode peer: \(String(describing: error), privacy: .public)")
                         }
 
                         let changeToken = self.containerMO.changeToken ?? ""
@@ -4459,17 +4494,17 @@ class Container: NSObject {
                                                                                       stableInfo: peerStableInfo)
 
                                         try self.onQueuePersist(changes: response.changes)
-                                        logger.debug("preapprovedJoin succeeded")
+                                        logger.info("preapprovedJoin succeeded")
 
                                         let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
                                         reply(egoPeerID, keyHierarchyRecords, syncingPolicy, nil)
                                     } catch {
-                                        logger.debug("preapprovedJoin failed: \(String(describing: error), privacy: .public)")
+                                        logger.info("preapprovedJoin failed: \(String(describing: error), privacy: .public)")
                                         reply(nil, [], nil, error)
                                     }
                                 }
                             case .failure(let error):
-                                logger.debug("preapprovedJoin failed: \(String(describing: error), privacy: .public)")
+                                logger.info("preapprovedJoin failed: \(String(describing: error), privacy: .public)")
                                 reply(nil, [], nil, error)
                                 return
                             }
@@ -4517,17 +4552,17 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            logger.debug("setPreapprovedKeys: \(preapprovedKeys, privacy: .public)")
+            logger.info("setPreapprovedKeys: \(preapprovedKeys, privacy: .public)")
 
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
-                logger.debug("setPreapprovedKeys: No identity.")
+                logger.info("setPreapprovedKeys: No identity.")
                 reply(nil, ContainerError.noPreparedIdentity)
                 return
             }
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
-                    logger.debug("setPreapprovedKeys: no signing key pair: \(String(describing: error), privacy: .public)")
+                    logger.info("setPreapprovedKeys: no signing key pair: \(String(describing: error), privacy: .public)")
                     reply(nil, error ?? ContainerError.unableToCreateKeyPair)
                     return
                 }
@@ -4542,15 +4577,15 @@ class Container: NSObject {
                                                                                  signing: signingKeyPair,
                                                                                  currentMachineIDs: self.onqueueCurrentMIDList())
                     } catch {
-                        logger.debug("setPreapprovedKeys: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
+                        logger.info("setPreapprovedKeys: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
                         reply(nil, error)
                         return
                     }
 
-                    logger.debug("setPreapprovedKeys: produced a dynamicInfo: \(dynamicInfo, privacy: .public)")
+                    logger.info("setPreapprovedKeys: produced a dynamicInfo: \(dynamicInfo, privacy: .public)")
 
                     if dynamicInfo == self.model.peer(withID: egoPeerID)?.dynamicInfo {
-                        logger.debug("setPreapprovedKeys: no change; nothing to do.")
+                        logger.info("setPreapprovedKeys: no change; nothing to do.")
 
                         // Calling this will fill in the peer status
                         self.updateTrustIfNeeded { status, _, error in
@@ -4559,7 +4594,7 @@ class Container: NSObject {
                         return
                     }
 
-                    logger.debug("setPreapprovedKeys: attempting updateTrust for \(egoPeerID, privacy: .public) with: \(dynamicInfo, privacy: .public)")
+                    logger.info("setPreapprovedKeys: attempting updateTrust for \(egoPeerID, privacy: .public) with: \(dynamicInfo, privacy: .public)")
                     let request = UpdateTrustRequest.with {
                         $0.changeToken = self.containerMO.changeToken ?? ""
                         $0.peerID = egoPeerID
@@ -4568,12 +4603,12 @@ class Container: NSObject {
 
                     self.perform(updateTrust: request) { state, _, error in
                         guard error == nil else {
-                            logger.debug("setPreapprovedKeys: failed: \(String(describing: error), privacy: .public)")
+                            logger.info("setPreapprovedKeys: failed: \(String(describing: error), privacy: .public)")
                             reply(state, error)
                             return
                         }
 
-                        logger.debug("setPreapprovedKeys: updateTrust succeeded")
+                        logger.info("setPreapprovedKeys: updateTrust succeeded")
                         reply(state, nil)
                     }
                 }
@@ -4591,7 +4626,7 @@ class Container: NSObject {
             reply($0, $1)
         }
 
-        logger.debug("Uploading some new TLKs: \(ckksKeys, privacy: .public)")
+        logger.info("Uploading some new TLKs: \(ckksKeys, privacy: .public)")
 
         self.moc.performAndWait {
             self.onqueueUpdateTLKs(ckksKeys: ckksKeys, tlkShares: tlkShares, reply: reply)
@@ -4605,26 +4640,26 @@ class Container: NSObject {
             let egoPermData = self.containerMO.egoPeerPermanentInfo,
             let egoPermSig = self.containerMO.egoPeerPermanentInfoSig
             else {
-                logger.debug("Have no self identity, can't make tlk shares")
+                logger.info("Have no self identity, can't make tlk shares")
                 reply(nil, ContainerError.noPreparedIdentity)
                 return
         }
 
         guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: TPECPublicKeyFactory()) else {
-            logger.debug("Couldn't parse self identity: \(String(describing: ckksKeys), privacy: .public)")
+            logger.info("Couldn't parse self identity: \(String(describing: ckksKeys), privacy: .public)")
             reply(nil, ContainerError.invalidPermanentInfoOrSig)
             return
         }
 
         loadEgoKeys(peerID: egoPeerID) { egoPeerKeys, error in
             guard let egoPeerKeys = egoPeerKeys else {
-                logger.debug("Don't have my own peer keys; can't upload new TLKs: \(String(describing: error), privacy: .public)")
+                logger.info("Don't have my own peer keys; can't upload new TLKs: \(String(describing: error), privacy: .public)")
                 reply(nil, error)
                 return
             }
             self.moc.performAndWait {
                 guard let egoPeerDynamicInfo = self.model.getDynamicInfoForPeer(withID: egoPeerID) else {
-                    logger.debug("Unable to fetch dynamic info for self")
+                    logger.info("Unable to fetch dynamic info for self")
                     reply(nil, ContainerError.missingDynamicInfo)
                     return
                 }
@@ -4638,7 +4673,7 @@ class Container: NSObject {
                                                                                 egoPeerDynamicInfo: egoPeerDynamicInfo,
                                                                                 epoch: Int(selfPermanentInfo.epoch))
                 } catch {
-                    logger.debug("Unable to process keys before uploading: \(String(describing: error), privacy: .public)")
+                    logger.info("Unable to process keys before uploading: \(String(describing: error), privacy: .public)")
                     reply(nil, error)
                     return
                 }
@@ -4654,7 +4689,7 @@ class Container: NSObject {
                     switch response {
                     case .success(let response):
                         let keyHierarchyRecords = response.zoneKeyHierarchyRecords.compactMap { CKRecord($0) }
-                        logger.debug("Received \(keyHierarchyRecords.count) CKRecords back")
+                        logger.info("Received \(keyHierarchyRecords.count) CKRecords back")
                         reply(keyHierarchyRecords, nil)
                     case .failure(let error):
                         reply(nil, error)
@@ -4719,16 +4754,16 @@ class Container: NSObject {
 
             let causeRefetch: Bool
             if forceRefetch {
-                logger.debug("Forcing a full refetch: by request")
+                logger.info("Forcing a full refetch: by request")
                 causeRefetch = true
             } else {
                 let modelRefetch = self.model.currentStatePossiblyMissingData()
 
                 if modelRefetch && (self.containerMO.refetchLevel < Container.currentRefetchLevel) {
-                    logger.debug("Forcing a full refetch due to model: last refetch level: \(self.containerMO.refetchLevel)")
+                    logger.info("Forcing a full refetch due to model: last refetch level: \(self.containerMO.refetchLevel)")
                     causeRefetch = true
                 } else if modelRefetch {
-                    logger.debug("Model would like a full refetch, but we've done one at this refetch level: \(self.containerMO.refetchLevel)")
+                    logger.info("Model would like a full refetch, but we've done one at this refetch level: \(self.containerMO.refetchLevel)")
                     causeRefetch = false
                 } else {
                     causeRefetch = false
@@ -4745,7 +4780,7 @@ class Container: NSObject {
                 $0.changeToken = self.containerMO.changeToken ?? ""
             }
         }
-        logger.debug("Fetching with change token: \(!request.changeToken.isEmpty ? request.changeToken : "empty", privacy: .public)")
+        logger.info("Fetching with change token: \(!request.changeToken.isEmpty ? request.changeToken : "empty", privacy: .public)")
 
         self.cuttlefish.fetchChanges(request) { response in
             switch response {
@@ -4753,29 +4788,29 @@ class Container: NSObject {
                 do {
                     try self.persist(changes: response.changes, refetchForced: forceRefetch)
                 } catch {
-                    logger.debug("Could not persist changes: \(String(describing: error), privacy: .public)")
+                    logger.info("Could not persist changes: \(String(describing: error), privacy: .public)")
                     reply(error)
                     return
                 }
 
                 if response.changes.more {
-                    logger.debug("persist: More changes indicated. Fetching...")
+                    logger.info("persist: More changes indicated. Fetching...")
                     self.fetchAndPersistChanges(reply: reply)
                     return
                 } else {
-                    logger.debug("persist: no more changes!")
+                    logger.info("persist: no more changes!")
                     reply(nil)
                 }
             case .failure(let error):
                 switch error {
                 case CuttlefishErrorMatcher(code: CuttlefishErrorCode.changeTokenExpired):
-                    logger.debug("change token is expired; resetting local CK storage")
+                    logger.info("change token is expired; resetting local CK storage")
 
                     self.moc.performAndWait {
                         do {
                             try self.deleteLocalCloudKitData()
                         } catch {
-                            logger.debug("Failed to reset local data: \(String(describing: error), privacy: .public)")
+                            logger.info("Failed to reset local data: \(String(describing: error), privacy: .public)")
                             reply(error)
                             return
                         }
@@ -4785,10 +4820,10 @@ class Container: NSObject {
 
                     return
                 default:
-                    logger.debug("Fetch error is an unknown error: \(String(describing: error), privacy: .public)")
+                    logger.info("Fetch error is an unknown error: \(String(describing: error), privacy: .public)")
                 }
 
-                logger.debug("Could not fetch changes: \(String(describing: error), privacy: .public)")
+                logger.info("Could not fetch changes: \(String(describing: error), privacy: .public)")
                 reply(error)
                 return
             }
@@ -4829,7 +4864,7 @@ class Container: NSObject {
                                                      reply: @escaping (TrustedPeersHelperPeerState?, TPSyncingPolicy?, Error?) -> Void) {
         self.fetchAndPersistChanges(forceRefetch: forceRefetch) { error in
             if let error = error {
-                logger.debug("fetchChangesAndUpdateTrustIfNeeded: fetching failed: \(String(describing: error), privacy: .public)")
+                logger.info("fetchChangesAndUpdateTrustIfNeeded: fetching failed: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, error)
                 return
             }
@@ -4853,7 +4888,7 @@ class Container: NSObject {
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
-                logger.debug("updateTrustIfNeeded: No identity.")
+                logger.info("updateTrustIfNeeded: No identity.")
                 reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil),
                       nil,
                       nil)
@@ -4861,7 +4896,7 @@ class Container: NSObject {
             }
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
-                    logger.debug("updateTrustIfNeeded: no signing key pair: \(String(describing: error), privacy: .public)")
+                    logger.info("updateTrustIfNeeded: no signing key pair: \(String(describing: error), privacy: .public)")
                     reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: peerChanges, unknownMachineIDs: false, osVersion: nil),
                           nil,
                           error)
@@ -4870,7 +4905,7 @@ class Container: NSObject {
                 guard let currentSelfInModel = self.model.peer(withID: egoPeerID) else {
                     // Not in circle, nothing to do
                     let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(signingKeyPair.publicKey().spki())
-                    logger.debug("updateTrustIfNeeded: ego peer is not in model, is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
+                    logger.info("updateTrustIfNeeded: ego peer is not in model, is \(isPreapproved ? "preapproved" : "not yet preapproved", privacy: .public)")
                     reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                       isPreapproved: isPreapproved,
                                                       status: .unknown,
@@ -4886,7 +4921,7 @@ class Container: NSObject {
                 let allPolicyVersions = self.model.allPolicyVersions()
                 self.fetchPolicyDocumentsWithSemaphore(versions: allPolicyVersions) { _, policyFetchError in
                     if let error = policyFetchError {
-                        logger.debug("updateTrustIfNeeded: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
+                        logger.info("updateTrustIfNeeded: error fetching all requested policies (continuing anyway): \(String(describing: error), privacy: .public)")
                     }
 
                     self.moc.performAndWait {
@@ -4909,7 +4944,7 @@ class Container: NSObject {
                                                                               dynamicInfo: dynamicInfo,
                                                                               signingKeyPair: signingKeyPair)
                         } catch {
-                            logger.debug("updateTrustIfNeeded: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
+                            logger.info("updateTrustIfNeeded: couldn't calculate dynamic info: \(String(describing: error), privacy: .public)")
                             reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                               isPreapproved: false,
                                                               status: self.model.statusOfPeer(withID: egoPeerID),
@@ -4921,19 +4956,19 @@ class Container: NSObject {
                             return
                         }
 
-                        logger.debug("updateTrustIfNeeded: produced a stableInfo: \(String(describing: stableInfo), privacy: .public)")
-                        logger.debug("updateTrustIfNeeded: produced a dynamicInfo: \(String(describing: dynamicInfo), privacy: .public)")
+                        logger.info("updateTrustIfNeeded: produced a stableInfo: \(String(describing: stableInfo), privacy: .public)")
+                        logger.info("updateTrustIfNeeded: produced a dynamicInfo: \(String(describing: dynamicInfo), privacy: .public)")
 
                         let peer = self.model.peer(withID: egoPeerID)
                         if (stableInfo == nil || stableInfo == peer?.stableInfo) &&
                             dynamicInfo == peer?.dynamicInfo {
-                            logger.debug("updateTrustIfNeeded: complete.")
+                            logger.info("updateTrustIfNeeded: complete.")
                             // No change to the dynamicInfo: update the MID list now that we've reached a steady state
                             do {
                                 self.onqueueUpdateMachineIDListFromModel(dynamicInfo: dynamicInfo)
                                 try self.moc.save()
                             } catch {
-                                logger.debug("updateTrustIfNeeded: unable to remove untrusted MachineIDs: \(String(describing: error), privacy: .public)")
+                                logger.info("updateTrustIfNeeded: unable to remove untrusted MachineIDs: \(String(describing: error), privacy: .public)")
                             }
 
                             let syncingPolicy: TPSyncingPolicy?
@@ -4944,7 +4979,7 @@ class Container: NSObject {
                                     syncingPolicy = nil
                                 }
                             } catch {
-                                logger.debug("updateTrustIfNeeded: unable to compute a new syncing policy: \(String(describing: error), privacy: .public)")
+                                logger.info("updateTrustIfNeeded: unable to compute a new syncing policy: \(String(describing: error), privacy: .public)")
                                 syncingPolicy = nil
                             }
 
@@ -4963,7 +4998,7 @@ class Container: NSObject {
                         let havePeerChanges = peerChanges || self.haveTrustMemberChanges(newDynamicInfo: dynamicInfo, oldDynamicInfo: peer?.dynamicInfo)
 
                         let signedDynamicInfo = SignedPeerDynamicInfo(dynamicInfo)
-                        logger.debug("updateTrustIfNeeded: attempting updateTrust for \(egoPeerID, privacy: .public) with: \(dynamicInfo, privacy: .public)")
+                        logger.info("updateTrustIfNeeded: attempting updateTrust for \(egoPeerID, privacy: .public) with: \(dynamicInfo, privacy: .public)")
                         var request = UpdateTrustRequest.with {
                             $0.changeToken = self.containerMO.changeToken ?? ""
                             $0.peerID = egoPeerID
@@ -4990,7 +5025,7 @@ class Container: NSObject {
                 do {
                     try self.persist(changes: response.changes)
                 } catch {
-                    logger.debug("UpdateTrust failed: \(String(describing: error), privacy: .public)")
+                    logger.info("UpdateTrust failed: \(String(describing: error), privacy: .public)")
                     reply(nil, nil, error)
                     return
                 }
@@ -5005,7 +5040,7 @@ class Container: NSObject {
                                              reply: reply)
                 }
             case .failure(let error):
-                logger.debug("UpdateTrust failed: \(String(describing: error), privacy: .public)")
+                logger.info("UpdateTrust failed: \(String(describing: error), privacy: .public)")
                 reply(nil, nil, error)
                 return
             }
@@ -5018,8 +5053,8 @@ class Container: NSObject {
         var outsideBlockError: Error?
 
         self.moc.performAndWait {
-            logger.debug("persist: Received \(changes.differences.count) peer differences, more: \(changes.more)")
-            logger.debug("persist: New change token: \(changes.changeToken, privacy: .public)")
+            logger.info("persist: Received \(changes.differences.count) peer differences, more: \(changes.more)")
+            logger.info("persist: New change token: \(changes.changeToken, privacy: .public)")
 
             do {
                 try self.onQueuePersist(changes: changes, refetchForced: refetchForced)
@@ -5044,7 +5079,7 @@ class Container: NSObject {
         }
 
         if !changes.differences.isEmpty {
-            logger.debug("escrow cache and viable bottles are no longer valid")
+            logger.info("escrow cache and viable bottles are no longer valid")
             self.onQueueRemoveEscrowCache()
 
             self.darwinNotifier.post(OTCliqueChanged)
@@ -5082,7 +5117,7 @@ class Container: NSObject {
 
         // Don't print this if there's more changes coming; the logs will be very confusing
         if !changes.more {
-            logger.debug("Currently know about \(self.model.allPeerIDs().count) peers")
+            logger.info("Currently know about \(self.model.allPeerIDs().count) peers")
         }
 
         try self.moc.save()
@@ -5091,7 +5126,7 @@ class Container: NSObject {
     // Must be on moc queue to call this
     // Deletes all things that should come back from CloudKit. Keeps the egoPeer data, though.
     private func deleteLocalCloudKitData() throws {
-        logger.debug("Deleting all CloudKit data")
+        logger.info("Deleting all CloudKit data")
 
         do {
             let peerRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
@@ -5123,11 +5158,11 @@ class Container: NSObject {
             self.model = Container.loadModel(from: self.containerMO)
             try self.moc.save()
         } catch {
-            logger.debug("Local delete failed: \(String(describing: error), privacy: .public)")
+            logger.info("Local delete failed: \(String(describing: error), privacy: .public)")
             throw error
         }
 
-        logger.debug("Saved model with \(self.model.allPeerIDs().count) peers")
+        logger.info("Saved model with \(self.model.allPeerIDs().count) peers")
     }
 
     // Must be on moc queue to call this.
@@ -5142,10 +5177,10 @@ class Container: NSObject {
     // Must be on moc queue to call this.
     private func addOrUpdateCRK(peer: Peer) throws {
         guard let crk = peer.custodianRecoveryKeyAndSig.toCustodianRecoveryKey() else {
-            logger.debug("failed to parse custodian recovery key")
+            logger.info("failed to parse custodian recovery key")
             return
         }
-        logger.debug("Register CRK with peerID \(peer.peerID, privacy: .public)")
+        logger.info("Register CRK with peerID \(peer.peerID, privacy: .public)")
         self.model.register(crk)
         let crkMO = CustodianRecoveryKeyMO(context: self.moc)
         crkMO.crkInfo = crk.data
@@ -5160,7 +5195,7 @@ class Container: NSObject {
             guard let permanentInfo = peer.permanentInfoAndSig.toPermanentInfo(peerID: peer.peerID) else {
                 if peer.hasCustodianRecoveryKeyAndSig {
                     if self.testIgnoreCustodianUpdates {
-                        logger.debug("Ignoring Custodian update due to test request: \(String(describing: peer), privacy: .public)")
+                        logger.info("Ignoring Custodian update due to test request: \(String(describing: peer), privacy: .public)")
                     } else {
                         try self.addOrUpdateCRK(peer: peer)
                     }
@@ -5294,7 +5329,7 @@ class Container: NSObject {
         let useFrozenPolicyVersion = optimalPolicyVersion.versionNumber >= frozenPolicyVersion.versionNumber
 
         if let intendedSyncUserControllableViews = intendedSyncUserControllableViews {
-            logger.debug("Intending to set user-controllable views to \(TPPBPeerStableInfoUserControllableViewStatusAsString(intendedSyncUserControllableViews), privacy: .public)")
+            logger.info("Intending to set user-controllable views to \(TPPBPeerStableInfoUserControllableViewStatusAsString(intendedSyncUserControllableViews), privacy: .public)")
         }
 
         return try self.model.createStableInfo(withFrozenPolicyVersion: useFrozenPolicyVersion ? frozenPolicyVersion : optimalPolicyVersion,

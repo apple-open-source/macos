@@ -407,7 +407,8 @@ CNEncoderGetOutputLengthFromEncoding(CNEncodings encoding, CNEncodingDirection d
     CNEncoderRef coder;
     CNStatus status;
     
-    if((status = CNEncoderCreate(encoding, direction, &coder))) return 0;
+    status = CNEncoderCreate(encoding, direction, &coder);
+    if(status) return 0;
     
     if(direction == kCNEncode) {
         retval = encodeLen(coder, inLen) + 1;

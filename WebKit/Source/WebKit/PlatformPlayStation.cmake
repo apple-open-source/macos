@@ -39,8 +39,6 @@ list(APPEND WebKit_SOURCES
 
     NetworkProcess/Cookies/curl/WebCookieManagerCurl.cpp
 
-    NetworkProcess/WebStorage/StorageManager.cpp
-
     NetworkProcess/cache/NetworkCacheDataCurl.cpp
     NetworkProcess/cache/NetworkCacheIOChannelCurl.cpp
 
@@ -48,7 +46,7 @@ list(APPEND WebKit_SOURCES
     NetworkProcess/curl/NetworkProcessCurl.cpp
     NetworkProcess/curl/NetworkProcessMainCurl.cpp
     NetworkProcess/curl/NetworkSessionCurl.cpp
-    NetworkProcess/curl/RemoteNetworkingContextCurl.cpp
+    NetworkProcess/curl/WebSocketTaskCurl.cpp
 
     Platform/IPC/unix/AttachmentUnix.cpp
     Platform/IPC/unix/ConnectionUnix.cpp

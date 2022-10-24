@@ -326,7 +326,7 @@ void	<a href="#xmlFreeNsList">xmlFreeNsList</a>			(<a href="libxml2-tree.html#xm
     struct _xmlDoc *	doc	: the containing document
     <a href="libxml2-tree.html#xmlNs">xmlNs</a> *	ns	: pointer to the associated namespace
     <a href="libxml2-tree.html#xmlAttributeType">xmlAttributeType</a>	atype	: the <a href="libxml2-SAX.html#attribute">attribute</a> type if validating
-    void *	psvi	: for type/PSVI informations
+    void *	psvi	: for type/PSVI information
 } xmlAttr;
 </pre><p/>
 </div>
@@ -452,9 +452,9 @@ The content of this structure is not made public by the API.
     void *	ids	: Hash table for ID attributes if any
     void *	refs	: Hash table for IDREFs attributes if any
     const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> *	URL	: The URI for that document
-    int	charset	: encoding of the in-memory content actually an <a href="libxml2-encoding.html#xmlCharEncoding">xmlCharEncoding</a>
+    int	charset	: Internal flag for charset handling, actually an <a href="libxml2-encoding.html#xmlCharEncoding">xmlCharEncoding</a>
     struct _xmlDict *	dict	: dict used to allocate names or NULL
-    void *	psvi	: for type/PSVI informations
+    void *	psvi	: for type/PSVI information
     int	parseFlags	: set of <a href="libxml2-parser.html#xmlParserOption">xmlParserOption</a> used to parse the document
     int	properties	: set of <a href="libxml2-tree.html#xmlDocProperties">xmlDocProperties</a> for this document set at the end of parsing
 } xmlDoc;
@@ -665,7 +665,7 @@ The content of this structure is not made public by the API.
     <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> *	content	: the content
     struct _xmlAttr *	properties	: properties list
     <a href="libxml2-tree.html#xmlNs">xmlNs</a> *	nsDef	: namespace definitions on this node
-    void *	psvi	: for type/PSVI informations
+    void *	psvi	: for type/PSVI information
     unsigned short	line	: line number
     unsigned short	extra	: extra data for XPath/XSLT
 } xmlNode;
@@ -758,7 +758,7 @@ The content of this structure is not made public by the API.
     int	nameNr	: Depth of the parsing stack
     int	nameMax	: Max depth of the parsing stack
     const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * *	nameTab	: array of nodes
-    long	nbChars	: number of <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> processed
+    long	nbChars	: unused
     long	checkIndex	: used by progressive parsing lookup
     int	keepBlanks	: ugly but ...
     int	disableSAX	: SAX callbacks are disabled
@@ -794,16 +794,16 @@ The content of this structure is not made public by the API.
     int	nsMax	: the size of the arrays
     const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * *	nsTab	: the array of prefix/namespace name
     int *	attallocs	: which <a href="libxml2-SAX.html#attribute">attribute</a> were allocated
-    void * *	pushTab	: array of data for push
+    <a href="libxml2-parser.html#xmlStartTag">xmlStartTag</a> *	pushTab	: array of data for push
     <a href="libxml2-hash.html#xmlHashTablePtr">xmlHashTablePtr</a>	attsDefault	: defaulted attributes if any
     <a href="libxml2-hash.html#xmlHashTablePtr">xmlHashTablePtr</a>	attsSpecial	: non-CDATA attributes if any
-    int	nsWellFormed	: is the document XML Nanespace okay
-    int	options	: * Those fields are needed only for treaming parsing so far *
+    int	nsWellFormed	: is the document XML Namespace okay
+    int	options	: * Those fields are needed only for streaming parsing so far *
     int	dictNames	: Use dictionary names for the tree
     int	freeElemsNr	: number of freed element nodes
     <a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a>	freeElems	: List of freed element nodes
     int	freeAttrsNr	: number of freed attributes nodes
-    <a href="libxml2-tree.html#xmlAttrPtr">xmlAttrPtr</a>	freeAttrs	: * the complete error informations for the last error. *
+    <a href="libxml2-tree.html#xmlAttrPtr">xmlAttrPtr</a>	freeAttrs	: * the complete error information for the last error. *
     <a href="libxml2-xmlerror.html#xmlError">xmlError</a>	lastError
     <a href="libxml2-parser.html#xmlParserMode">xmlParserMode</a>	parseMode	: the parser mode
     unsigned long	nbentities	: number of entities references
@@ -1317,7 +1317,7 @@ The content of this structure is not made public by the API.
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the target document</td></tr><tr><td><span class="term"><i><tt>name</tt></i>:</span></td><td>the processing instruction name</td></tr><tr><td><span class="term"><i><tt>content</tt></i>:</span></td><td>the PI content</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>a pointer to the new node object.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlNewDocProp"/>xmlNewDocProp ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlAttrPtr">xmlAttrPtr</a>	xmlNewDocProp		(<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * name, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * value)<br/>
-</pre><p>Create a new property carried by a document.</p>
+</pre><p>Create a new property carried by a document. NOTE: @value is supposed to be a piece of XML CDATA, so it allows entity references, but XML special chars need to be escaped first by using xmlEncodeEntitiesReentrant(). Use xmlNewProp() if you don't need entities support.</p>
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>name</tt></i>:</span></td><td>the name of the <a href="libxml2-SAX.html#attribute">attribute</a></td></tr><tr><td><span class="term"><i><tt>value</tt></i>:</span></td><td>the value of the <a href="libxml2-SAX.html#attribute">attribute</a></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>a pointer to the <a href="libxml2-SAX.html#attribute">attribute</a></td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlNewDocRawNode"/>xmlNewDocRawNode ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a>	xmlNewDocRawNode	(<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>					 <a href="libxml2-tree.html#xmlNsPtr">xmlNsPtr</a> ns, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * name, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * content)<br/>
@@ -1401,7 +1401,7 @@ The content of this structure is not made public by the API.
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buffer</tt></i>:</span></td><td>a buffer</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the node being read</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>0 in case of success and -1 in case of error.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlNodeDump"/>xmlNodeDump ()</h3><pre class="programlisting">int	xmlNodeDump			(<a href="libxml2-tree.html#xmlBufferPtr">xmlBufferPtr</a> buf, <br/>					 <a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>					 <a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a> cur, <br/>					 int level, <br/>					 int format)<br/>
-</pre><p>Dump an XML node, recursive behaviour,children are printed too. Note that @format = 1 provide node indenting only if <a href="libxml2-globals.html#xmlIndentTreeOutput">xmlIndentTreeOutput</a> = 1 or xmlKeepBlanksDefault(0) was called Since this is using <a href="libxml2-tree.html#xmlBuffer">xmlBuffer</a> structures it is limited to 2GB and somehow deprecated, use xmlBufNodeDump() instead.</p>
+</pre><p>Dump an XML node, recursive behaviour,children are printed too. Note that @format = 1 provide node indenting only if <a href="libxml2-globals.html#xmlIndentTreeOutput">xmlIndentTreeOutput</a> = 1 or xmlKeepBlanksDefault(0) was called. Since this is using <a href="libxml2-tree.html#xmlBuffer">xmlBuffer</a> structures it is limited to 2GB and somehow deprecated, use xmlNodeDumpOutput() instead.</p>
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buf</tt></i>:</span></td><td>the XML buffer output</td></tr><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the current node</td></tr><tr><td><span class="term"><i><tt>level</tt></i>:</span></td><td>the imbrication level for indenting</td></tr><tr><td><span class="term"><i><tt>format</tt></i>:</span></td><td>is formatting allowed</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of bytes written to the buffer or -1 in case of error</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlNodeDumpOutput"/>xmlNodeDumpOutput ()</h3><pre class="programlisting">void	xmlNodeDumpOutput		(<a href="libxml2-tree.html#xmlOutputBufferPtr">xmlOutputBufferPtr</a> buf, <br/>					 <a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>					 <a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a> cur, <br/>					 int level, <br/>					 int format, <br/>					 const char * encoding)<br/>
@@ -1486,7 +1486,7 @@ The content of this structure is not made public by the API.
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSaveFileTo"/>xmlSaveFileTo ()</h3><pre class="programlisting">int	xmlSaveFileTo			(<a href="libxml2-tree.html#xmlOutputBufferPtr">xmlOutputBufferPtr</a> buf, <br/>					 <a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> cur, <br/>					 const char * encoding)<br/>
 </pre><p>Dump an XML document to an I/O buffer. Warning ! This call xmlOutputBufferClose() on buf which is not available after this call.</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buf</tt></i>:</span></td><td>an output I/O buffer</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>encoding</tt></i>:</span></td><td>the encoding if any assuming the I/O layer handles the trancoding</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of bytes written or -1 in case of failure.</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buf</tt></i>:</span></td><td>an output I/O buffer</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>encoding</tt></i>:</span></td><td>the encoding if any assuming the I/O layer handles the transcoding</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of bytes written or -1 in case of failure.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSaveFormatFile"/>xmlSaveFormatFile ()</h3><pre class="programlisting">int	xmlSaveFormatFile		(const char * filename, <br/>					 <a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> cur, <br/>					 int format)<br/>
 </pre><p>Dump an XML document to a file. Will use compression if compiled in and enabled. If @filename is "-" the stdout file is used. If @format is set then the document will be indented on output. Note that @format = 1 provide node indenting only if <a href="libxml2-globals.html#xmlIndentTreeOutput">xmlIndentTreeOutput</a> = 1 or xmlKeepBlanksDefault(0) was called</p>
@@ -1498,7 +1498,7 @@ The content of this structure is not made public by the API.
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSaveFormatFileTo"/>xmlSaveFormatFileTo ()</h3><pre class="programlisting">int	xmlSaveFormatFileTo		(<a href="libxml2-tree.html#xmlOutputBufferPtr">xmlOutputBufferPtr</a> buf, <br/>					 <a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> cur, <br/>					 const char * encoding, <br/>					 int format)<br/>
 </pre><p>Dump an XML document to an I/O buffer. Warning ! This call xmlOutputBufferClose() on buf which is not available after this call.</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buf</tt></i>:</span></td><td>an output I/O buffer</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>encoding</tt></i>:</span></td><td>the encoding if any assuming the I/O layer handles the trancoding</td></tr><tr><td><span class="term"><i><tt>format</tt></i>:</span></td><td>should formatting spaces been added</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of bytes written or -1 in case of failure.</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buf</tt></i>:</span></td><td>an output I/O buffer</td></tr><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>encoding</tt></i>:</span></td><td>the encoding if any assuming the I/O layer handles the transcoding</td></tr><tr><td><span class="term"><i><tt>format</tt></i>:</span></td><td>should formatting spaces been added</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of bytes written or -1 in case of failure.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSearchNs"/>xmlSearchNs ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlNsPtr">xmlNsPtr</a>	xmlSearchNs		(<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>					 <a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a> node, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * nameSpace)<br/>
 </pre><p>Search a Ns registered under a given name space for a document. recurse on the parents until it finds the defined namespace or return NULL otherwise. @nameSpace can be NULL, this is a search for the default namespace. We don't allow to cross entities boundaries. If you don't declare the namespace within those you will be in troubles !!! A warning is generated to cover this case.</p>
@@ -1542,7 +1542,7 @@ The content of this structure is not made public by the API.
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSplitQName2"/>xmlSplitQName2 ()</h3><pre class="programlisting"><a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> *	xmlSplitQName2		(const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * name, <br/>					 <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> ** prefix)<br/>
 </pre><p>parse an XML qualified name string [NS 5] QName ::= (Prefix ':')? LocalPart [NS 6] Prefix ::= NCName [NS 7] LocalPart ::= NCName</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>name</tt></i>:</span></td><td>the full QName</td></tr><tr><td><span class="term"><i><tt>prefix</tt></i>:</span></td><td>a <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> **</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>NULL if not a QName, otherwise the local part, and prefix is updated to get the Prefix if any.</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>name</tt></i>:</span></td><td>the full QName</td></tr><tr><td><span class="term"><i><tt>prefix</tt></i>:</span></td><td>a <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> **</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>NULL if the name doesn't have a prefix. Otherwise, returns the local part, and prefix is updated to get the Prefix. Both the return value and the prefix must be freed by the caller.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSplitQName3"/>xmlSplitQName3 ()</h3><pre class="programlisting">const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> *	xmlSplitQName3		(const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * name, <br/>					 int * len)<br/>
 </pre><p>parse an XML qualified name string,i</p>

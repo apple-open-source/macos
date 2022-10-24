@@ -22,7 +22,7 @@ def f(ctx, str):
     except:
         pass
 
-    return string.upper(str)
+    return str.upper()
 
 libxslt.registerExtModuleFunction("foo", "http://example.com/foo", f)
 
@@ -46,13 +46,13 @@ doc.freeDoc()
 
 root = result.children
 if root.name != "article":
-    print "Unexpected root node name"
+    print("Unexpected root node name")
     sys.exit(1)
 if root.content != "SUCCESS":
-    print "Unexpected root node content, extension function failed"
+    print("Unexpected root node content, extension function failed")
     sys.exit(1)
 if nodeName != 'article':
-    print "The function callback failed to access its context"
+    print("The function callback failed to access its context")
     sys.exit(1)
 
 result.freeDoc()
@@ -60,7 +60,8 @@ result.freeDoc()
 # Memory debug specific
 libxslt.cleanup()
 if libxml2.debugMemory(1) == 0:
-    print "OK"
+    print("OK")
 else:
-    print "Memory leak %d bytes" % (libxml2.debugMemory(1))
+    print("Memory leak %d bytes" % (libxml2.debugMemory(1)))
     libxml2.dumpMemory()
+    sys.exit(255)

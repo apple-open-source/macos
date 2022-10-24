@@ -60,7 +60,7 @@ static CFStringRef SOSCopySerialNumberAsString(CFErrorRef *error) {
     CFStringRef serialNumber = NULL;
     CFStringRef retval = NULL;
 
-    io_service_t platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
+    io_service_t platformExpert = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
     require_action_quiet(platformExpert, errOut, SOSCreateError(kSOSErrorAllocationFailure,  CFSTR("No Memory"), NULL, error));
     serialNumber = IORegistryEntryCreateCFProperty(platformExpert, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0);
     if(serialNumber) retval = CFStringCreateCopy(kCFAllocatorDefault, serialNumber);
@@ -96,7 +96,7 @@ CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi) {
     return (retval ? retval : CFRetain(SOSSerialUnknown));
 }
 
-static bool SOSPeerInfoV2SanityCheck(SOSPeerInfoRef pi) {
+static bool SOSPeerInfoV2IntegrityCheck(SOSPeerInfoRef pi) {
     if(!pi) {
         return false;
     }
@@ -107,7 +107,7 @@ static bool SOSPeerInfoV2SanityCheck(SOSPeerInfoRef pi) {
 }
 
 static CFDataRef SOSPeerInfoGetV2Data(SOSPeerInfoRef pi) {
-    if(SOSPeerInfoV2SanityCheck(pi) == false) return NULL;
+    if(SOSPeerInfoV2IntegrityCheck(pi) == false) return NULL;
     return asData(CFDictionaryGetValue(pi->description, sV2DictionaryKey), NULL);
 }
 
@@ -194,7 +194,7 @@ out:
 }
 
 void SOSPeerInfoPackV2Data(SOSPeerInfoRef pi) {
-    require(SOSPeerInfoV2SanityCheck(pi), errOut);
+    require(SOSPeerInfoV2IntegrityCheck(pi), errOut);
     require_quiet(pi->v2Dictionary, errOut);
     CFDataRef v2der = SOSCreateDERFromDictionary(pi->v2Dictionary, NULL);
     CFDictionarySetValue(pi->description, sV2DictionaryKey, v2der);

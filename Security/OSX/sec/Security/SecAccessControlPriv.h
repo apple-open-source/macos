@@ -30,6 +30,7 @@
 #define _SECURITY_SECACCESSCONTROLPRIV_H_
 
 #include <Security/SecBase.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFError.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>

@@ -55,6 +55,7 @@
 #include <netsmb/smb_subr.h>
 
 #include <smbfs/smbfs.h>
+#include <smbfs/smbfs_lockf.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
@@ -172,9 +173,8 @@ smb_add_next_entry(struct smbnode *np, uio_t uio, int flags)
 	if (error)
 		goto done;
 	
-done:	
-	SMB_FREE(np->d_nextEntry, M_TEMP);
-	np->d_nextEntry = NULL;
+done:
+    SMB_FREE_DATA(np->d_nextEntry, np->d_nextEntryLen);
 	np->d_nextEntryLen = 0;
 	return error;
 }
@@ -237,7 +237,7 @@ static int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags,
     }
     else {
         /* Ran out of space, save for next enumeration */
-        SMB_MALLOC(dnp->d_nextEntry, void *, delen, M_TEMP, M_WAITOK);
+        SMB_MALLOC_DATA(dnp->d_nextEntry, delen, Z_WAITOK);
         if (dnp->d_nextEntry) {
             bcopy(&de, dnp->d_nextEntry, delen);
             dnp->d_nextEntryLen = delen;
@@ -279,11 +279,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
     int first = 0;
     char *last_entry_namep = NULL;
 
-    SMB_MALLOC(last_entry_namep,
-               char *,
-               PATH_MAX,
-               M_SMBTEMP,
-               M_WAITOK | M_ZERO);
+    SMB_MALLOC_DATA(last_entry_namep, PATH_MAX, Z_WAITOK_ZERO);
 
     /*
 	 * <31997944> Finder now has special mode where it will use vnop_readdir
@@ -382,8 +378,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
 
         /* If starting over, then free any saved entry from previous enum */
         if (dnp->d_nextEntry) {
-            SMB_FREE(dnp->d_nextEntry, M_TEMP);
-            dnp->d_nextEntry = NULL;
+            SMB_FREE_DATA(dnp->d_nextEntry, dnp->d_nextEntryLen);
             dnp->d_nextEntryLen = 0;
         }
    }
@@ -535,7 +530,7 @@ done:
     }
 	
     if (last_entry_namep != NULL) {
-        SMB_FREE(last_entry_namep, M_SMBTEMP);
+        SMB_FREE_DATA(last_entry_namep, PATH_MAX);
     }
 
     return error;

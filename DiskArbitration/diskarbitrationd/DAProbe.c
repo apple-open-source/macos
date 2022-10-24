@@ -48,6 +48,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
      */
 
     __DAProbeCallbackContext * context = parameter;
+    bool doFsck = true;
 
     if ( status )
     {
@@ -73,6 +74,13 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
             context->filesystem = NULL;
         }
 
+#if !TARGET_OS_OSX
+        if ( ( DADiskGetDescription( context->disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) &&
+            ( DADiskGetDescription( context->disk, kDADiskDescriptionDeviceInternalKey ) == NULL ) )
+        {
+            doFsck = false;
+        }
+#endif
         /*
          * Find a probe candidate for this media object.
          */
@@ -125,7 +133,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
                             DALogInfo( "probed disk, id = %@, with %@, ongoing.", context->disk, kind );
 
-                            DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), __DAProbeCallback, context );
+                            DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), __DAProbeCallback, context, doFsck );
 
                             return;
                         }

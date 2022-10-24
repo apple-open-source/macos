@@ -1025,7 +1025,7 @@ format1(const struct stat *st,
 				(void)strcat(lfmt, tmp);
 			}
 			(void)strcat(lfmt, "lld");
-			return (snprintf(buf, blen, lfmt,
+			return (snprintf(buf, blen, fmtcheck(lfmt, "%lld"),
 			    (long long)ts.tv_sec));
 		}
 
@@ -1078,7 +1078,7 @@ format1(const struct stat *st,
 		 * Use the format, and then tack on any zeroes that
 		 * might be required to make up the requested precision.
 		 */
-		l = snprintf(buf, blen, lfmt, (long long)ts.tv_sec, ts.tv_nsec);
+		l = snprintf(buf, blen, fmtcheck(lfmt, "%lld %ld"), (long long)ts.tv_sec, ts.tv_nsec);
 		for (; prec > 9 && l < (int)blen; prec--, l++)
 			(void)strcat(buf, "0");
 		return (l);
@@ -1103,7 +1103,7 @@ format1(const struct stat *st,
 		if (sdata == NULL)
 			errx(1, "%.*s: bad format", (int)flen, fmt);
 		(void)strcat(lfmt, "s");
-		return (snprintf(buf, blen, lfmt, sdata));
+		return (snprintf(buf, blen, fmtcheck(lfmt, "%s"), sdata));
 	}
 
 	/*
@@ -1124,7 +1124,7 @@ format1(const struct stat *st,
 	case FMTF_HEX:		(void)strcat(lfmt, "x");	break;
 	}
 
-	return (snprintf(buf, blen, lfmt, data));
+	return (snprintf(buf, blen, fmtcheck(lfmt, "%llu"), data));
 }
 
 

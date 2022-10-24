@@ -10,7 +10,7 @@
  *
  * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
- * MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS AND
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS AND
  * CONTRIBUTORS ACCEPT NO RESPONSIBILITY IN ANY CONCEIVABLE MANNER.
  *
  * Author: daniel@veillard.com
@@ -48,7 +48,8 @@
  *  list we will use the BigKey algo as soon as the hash size grows
  *  over MIN_DICT_SIZE so this actually works
  */
-#if defined(HAVE_RAND) && defined(HAVE_SRAND) && defined(HAVE_TIME)
+#if defined(HAVE_RAND) && defined(HAVE_SRAND) && defined(HAVE_TIME) && \
+    !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 #define DICT_RANDOMIZATION
 #endif
 
@@ -58,7 +59,7 @@
 #else
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
-#elif defined(WIN32)
+#elif defined(_WIN32)
 typedef unsigned __int32 uint32_t;
 #endif
 #endif
@@ -307,7 +308,7 @@ xmlDictAddString(xmlDictPtr dict, const xmlChar *name, unsigned int namelen) {
 #endif
     pool = dict->strings;
     while (pool != NULL) {
-	if (pool->end - pool->free > namelen)
+	if ((size_t)(pool->end - pool->free) > namelen)
 	    goto found_pool;
 	if (pool->size > size) size = pool->size;
         limit += pool->size;
@@ -375,7 +376,7 @@ xmlDictAddQString(xmlDictPtr dict, const xmlChar *prefix, unsigned int plen,
 #endif
     pool = dict->strings;
     while (pool != NULL) {
-	if (pool->end - pool->free > namelen + plen + 1)
+	if ((size_t)(pool->end - pool->free) > namelen + plen + 1)
 	    goto found_pool;
 	if (pool->size > size) size = pool->size;
         limit += pool->size;
@@ -429,6 +430,9 @@ found_pool:
  * http://burtleburtle.net/bob/hash/doobs.html
  */
 
+#ifdef __clang__
+ATTRIBUTE_NO_SANITIZE("unsigned-integer-overflow")
+#endif
 static uint32_t
 xmlDictComputeBigKey(const xmlChar* data, int namelen, int seed) {
     uint32_t hash;
@@ -461,6 +465,9 @@ xmlDictComputeBigKey(const xmlChar* data, int namelen, int seed) {
  *
  * Neither of the two strings must be NULL.
  */
+#ifdef __clang__
+ATTRIBUTE_NO_SANITIZE("unsigned-integer-overflow")
+#endif
 static unsigned long
 xmlDictComputeBigQKey(const xmlChar *prefix, int plen,
                       const xmlChar *name, int len, int seed)
@@ -503,7 +510,7 @@ xmlDictComputeFastKey(const xmlChar *name, int namelen, int seed) {
     unsigned long value = seed;
 
     if (name == NULL) return(0);
-    value = *name;
+    value += *name;
     value <<= 5;
     if (namelen > 10) {
         value += name[namelen - 1];
@@ -511,14 +518,23 @@ xmlDictComputeFastKey(const xmlChar *name, int namelen, int seed) {
     }
     switch (namelen) {
         case 10: value += name[9];
+        /* Falls through. */
         case 9: value += name[8];
+        /* Falls through. */
         case 8: value += name[7];
+        /* Falls through. */
         case 7: value += name[6];
+        /* Falls through. */
         case 6: value += name[5];
+        /* Falls through. */
         case 5: value += name[4];
+        /* Falls through. */
         case 4: value += name[3];
+        /* Falls through. */
         case 3: value += name[2];
+        /* Falls through. */
         case 2: value += name[1];
+        /* Falls through. */
         default: break;
     }
     return(value);
@@ -554,15 +570,25 @@ xmlDictComputeFastQKey(const xmlChar *prefix, int plen,
     }
     switch (plen) {
         case 10: value += prefix[9];
+        /* Falls through. */
         case 9: value += prefix[8];
+        /* Falls through. */
         case 8: value += prefix[7];
+        /* Falls through. */
         case 7: value += prefix[6];
+        /* Falls through. */
         case 6: value += prefix[5];
+        /* Falls through. */
         case 5: value += prefix[4];
+        /* Falls through. */
         case 4: value += prefix[3];
+        /* Falls through. */
         case 3: value += prefix[2];
+        /* Falls through. */
         case 2: value += prefix[1];
+        /* Falls through. */
         case 1: value += prefix[0];
+        /* Falls through. */
         default: break;
     }
     len -= plen;
@@ -572,15 +598,25 @@ xmlDictComputeFastQKey(const xmlChar *prefix, int plen,
     }
     switch (len) {
         case 10: value += name[9];
+        /* Falls through. */
         case 9: value += name[8];
+        /* Falls through. */
         case 8: value += name[7];
+        /* Falls through. */
         case 7: value += name[6];
+        /* Falls through. */
         case 6: value += name[5];
+        /* Falls through. */
         case 5: value += name[4];
+        /* Falls through. */
         case 4: value += name[3];
+        /* Falls through. */
         case 3: value += name[2];
+        /* Falls through. */
         case 2: value += name[1];
+        /* Falls through. */
         case 1: value += name[0];
+        /* Falls through. */
         default: break;
     }
     return(value);
@@ -756,7 +792,7 @@ xmlDictGrow(xmlDictPtr dict, size_t size) {
 		dict->dict[key].next = entry;
 	    } else {
 	        /*
-		 * we don't have much ways to alert from herei
+		 * we don't have much ways to alert from here
 		 * result is losing an entry and unicity guarantee
 		 */
 	        ret = -1;
@@ -1231,7 +1267,7 @@ xmlDictQLookup(xmlDictPtr dict, const xmlChar *prefix, const xmlChar *name) {
  * @dict: the dictionary
  * @str: the string
  *
- * check if a string is owned by the disctionary
+ * check if a string is owned by the dictionary
  *
  * Returns 1 if true, 0 if false and -1 in case of error
  * -1 in case of error

@@ -79,7 +79,7 @@ void WebBackForwardListProxy::removeItem(const BackForwardItemIdentifier& itemID
     RefPtr<HistoryItem> item = idToHistoryItemMap().take(itemID);
     if (!item)
         return;
-        
+    
     BackForwardCache::singleton().remove(*item);
     WebCore::Page::clearPreviousItemFromAllPages(item.get());
 }
@@ -137,6 +137,15 @@ unsigned WebBackForwardListProxy::backListCount() const
 unsigned WebBackForwardListProxy::forwardListCount() const
 {
     return cacheListCountsIfNecessary().forwardCount;
+}
+
+bool WebBackForwardListProxy::containsItem(const WebCore::HistoryItem& item) const
+{
+    // Items are removed asynchronously from idToHistoryItemMap() via IPC from the UIProcess so we need to ask
+    // the UIProcess to make sure this HistoryItem is still part of the back/forward list.
+    bool contains = false;
+    m_page->sendSync(Messages::WebPageProxy::BackForwardListContainsItem(item.identifier()), Messages::WebPageProxy::BackForwardListContainsItem::Reply(contains), m_page->identifier());
+    return contains;
 }
 
 const WebBackForwardListCounts& WebBackForwardListProxy::cacheListCountsIfNecessary() const

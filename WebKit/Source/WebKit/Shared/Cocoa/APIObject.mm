@@ -59,6 +59,7 @@
 #import "WKUserContentControllerInternal.h"
 #import "WKUserScriptInternal.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
+#import "WKWebProcessPlugInCSSStyleDeclarationHandleInternal.h"
 #import "WKWebProcessPlugInFrameInternal.h"
 #import "WKWebProcessPlugInHitTestResultInternal.h"
 #import "WKWebProcessPlugInInternal.h"
@@ -73,6 +74,7 @@
 #import "_WKAutomationSessionInternal.h"
 #import "_WKContentRuleListActionInternal.h"
 #import "_WKCustomHeaderFieldsInternal.h"
+#import "_WKDataTaskInternal.h"
 #import "_WKExperimentalFeatureInternal.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKFrameTreeNodeInternal.h"
@@ -218,6 +220,10 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKNSData alloc];
         break;
 
+    case Type::DataTask:
+        wrapper = [_WKDataTask alloc];
+        break;
+
     case Type::InternalDebugFeature:
         wrapper = [_WKInternalDebugFeature alloc];
         break;
@@ -259,7 +265,7 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKHTTPCookieStore alloc];
         break;
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     case Type::HitTestResult:
         wrapper = [_WKHitTestResult alloc];
         break;
@@ -420,6 +426,10 @@ void* Object::newObject(size_t size, Type type)
 
     case Type::BundleHitTestResult:
         wrapper = [WKWebProcessPlugInHitTestResult alloc];
+        break;
+
+    case Type::BundleCSSStyleDeclarationHandle:
+        wrapper = [WKWebProcessPlugInCSSStyleDeclarationHandle alloc];
         break;
 
     case Type::BundleNodeHandle:

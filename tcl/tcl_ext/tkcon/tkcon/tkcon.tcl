@@ -1624,7 +1624,7 @@ proc ::tkcon::InitMenus {w title} {
 		-command ::tkcon::About
 	$m add command -label "Retrieve Latest Version" -underline 0 \
 		-command ::tkcon::Retrieve
-	if {![catch {package require Tcl} ver]} {
+	if {![catch {package require ActiveTcl} ver]} {
 	    set cmd ""
 	    if {$tcl_platform(platform) == "windows"} {
 		package require registry
@@ -1635,12 +1635,8 @@ proc ::tkcon::InitMenus {w title} {
 		    set cmd [list exec $::env(COMSPEC) /c start {} $help]
 		}
 	    } elseif {$tcl_platform(os) == "Darwin"} {
-		set ver [join [lrange [split $ver .] 0 1] .]
-		set rsc "/System/Library/Frameworks/Tcl.framework/Versions/$ver/Resources"
-		set help "$rsc/Documentation/Reference/Tcl/TclTOC.html"
-		if {[file exists $help]} {
-		    set cmd [list exec open -b com.apple.Safari "file://$help"]
-		}
+		# rdar://86025543 -- we intentionally omit this menu item on macOS
+		# to avoid shipping HTML documentation in the OS image.
 	    } elseif {$tcl_platform(platform) == "unix"} {
 		set help [file dirname [info nameofexe]]
 		append help /../html/index.html
@@ -1650,7 +1646,7 @@ proc ::tkcon::InitMenus {w title} {
 	    }
 	    if {$cmd != ""} {
 		$m add separator
-		$m add command -label "Tcl Help" -underline 10 \
+		$m add command -label "ActiveTcl Help" -underline 10 \
 		    -command $cmd
 	    }
 	}

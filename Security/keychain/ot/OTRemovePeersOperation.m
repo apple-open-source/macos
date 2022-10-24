@@ -62,20 +62,19 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper distrustPeerIDsWithContainer:self.deps.containerName
-                                                         context:self.deps.contextID
-                                                         peerIDs:self.peerIDs
-                                                           reply:^(NSError * _Nullable error) {
-            STRONGIFY(self);
-            if(error) {
-                secnotice("octagon", "Unable to remove peers for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
-                self.error = error;
-            } else {
-                secnotice("octagon", "Successfully removed peers");
-            }
+    [self.deps.cuttlefishXPCWrapper distrustPeerIDsWithSpecificUser:self.deps.activeAccount
+                                                            peerIDs:self.peerIDs
+                                                              reply:^(NSError * _Nullable error) {
+        STRONGIFY(self);
+        if(error) {
+            secnotice("octagon", "Unable to remove peers for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
+            self.error = error;
+        } else {
+            secnotice("octagon", "Successfully removed peers");
+        }
 
-            [self runBeforeGroupFinished:self.finishedOp];
-        }];
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

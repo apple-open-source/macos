@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,6 +51,7 @@
 #include <syslog.h>
 #include <pthread.h>
 #include <os/activity.h>
+#include <os/log_private.h>
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecCFError.h>
@@ -149,6 +150,7 @@ struct __SecTrust {
     dispatch_queue_t        _trustQueue;
 
     CFDataRef               _auditToken;
+    uint64_t                _attribution;
 
     /* === IMPORTANT! ===
      * Any change to this structure definition
@@ -453,17 +455,7 @@ static bool to_bool_error_request(enum SecXPCOperation op, CFErrorRef *error) {
 }
 
 Boolean SecTrustFlushResponseCache(CFErrorRef *error) {
-    CFErrorRef localError = NULL;
-    os_activity_t activity = os_activity_create("SecTrustFlushResponseCache", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
-    bool result = TRUSTD_XPC(sec_ocsp_cache_flush, to_bool_error_request, &localError);
-    os_release(activity);
-    if (error) {
-        *error = localError;
-    } else if (localError) {
-        CFRelease(localError);
-    }
-    return result;
+    return SecTrustResetSettings(kSecTrustResetOCSPCache, error);
 }
 
 OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef responseData) {
@@ -1490,7 +1482,7 @@ static SecTrustResultType handle_trust_evaluate_xpc(enum SecXPCOperation op, CFA
                                                     bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses,
                                                     CFArrayRef SCTs, CFArrayRef trustedLogs,
                                                     CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions,
-                                                    CFDataRef auditToken,
+                                                    CFDataRef auditToken, uint64_t attribution,
                                                     CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error)
 {
     __block SecTrustResultType tr = kSecTrustResultInvalid;
@@ -1515,6 +1507,7 @@ static SecTrustResultType handle_trust_evaluate_xpc(enum SecXPCOperation op, CFA
             return false;
         if (auditToken && !SecXPCDictionarySetData(message, kSecTrustAuditTokenKey, auditToken, blockError))
             return false;
+        xpc_dictionary_set_uint64(message, kSecTrustURLAttribution, attribution);
         return true;
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         secdebug("trust", "response: %@", response);
@@ -1534,8 +1527,8 @@ static void handle_trust_evaluate_xpc_async(dispatch_queue_t replyq, trust_handl
 											bool keychainsAllowed, CFArrayRef policies,
 											CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs,
 											CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups,
-											CFArrayRef exceptions, CFDataRef auditToken, CFArrayRef *details,
-											CFDictionaryRef *info, CFArrayRef *chain)
+											CFArrayRef exceptions, CFDataRef auditToken, uint64_t attribution,
+                                            CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain)
 {
 	securityd_send_async_and_do(op, replyq, ^bool(xpc_object_t message, CFErrorRef *error) {
 		if (!SecXPCDictionarySetCertificates(message, kSecTrustCertificatesKey, certificates, error))
@@ -1558,6 +1551,7 @@ static void handle_trust_evaluate_xpc_async(dispatch_queue_t replyq, trust_handl
 			return false;
         if (auditToken && !SecXPCDictionarySetData(message, kSecTrustAuditTokenKey, auditToken, error))
             return false;
+        xpc_dictionary_set_uint64(message, kSecTrustURLAttribution, attribution);
 		return true;
 	}, ^(xpc_object_t response, CFErrorRef error) {
 		secdebug("trust", "response: %@", response);
@@ -1583,7 +1577,7 @@ static void handle_trust_evaluate_xpc_async(dispatch_queue_t replyq, trust_handl
 #include <dlfcn.h>
 
 typedef CFTypeID (*get_typeid_f)(void);
-static CFTypeID SecFrameworkCertificateGetTypeID() {
+static CFTypeID SecFrameworkCertificateGetTypeID(void) {
     static get_typeid_f FrameworkCertTypeIDFunctionPtr = NULL;
     static dispatch_once_t onceToken;
 
@@ -1601,7 +1595,7 @@ static CFTypeID SecFrameworkCertificateGetTypeID() {
     }
 }
 
-static CFTypeID SecFrameworkPolicyGetTypeID() {
+static CFTypeID SecFrameworkPolicyGetTypeID(void) {
     static get_typeid_f FrameworkPolicyTypeIDFunctionPtr = NULL;
     static dispatch_once_t onceToken;
 
@@ -1753,6 +1747,28 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     if (!trust)
         return errSecParam;
 
+    /* Create runtime issue if called on main thread of an app because trust evaluation calls to trustd can hang */
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    CFURLRef bundleUrl = mainBundle ? CFBundleCopyBundleURL(mainBundle) : NULL;
+    if (bundleUrl) {
+        CFBooleanRef is_app = NULL;
+        CFStringRef bundleID = CFBundleGetIdentifier(mainBundle);
+        if (CFURLCopyResourcePropertyForKey(bundleUrl, kCFURLIsApplicationKey, &is_app, NULL)) {
+            if ((1 == pthread_main_np()) && is_app == kCFBooleanTrue) {
+                // For non-apple apps. See rdar://96982460
+                if (bundleID && !CFStringHasPrefix(bundleID, CFSTR("com.apple."))) {
+                    static dispatch_once_t onceToken;
+                    static os_log_t runtimeLog = NULL;
+                    dispatch_once(&onceToken, ^{
+                        runtimeLog = os_log_create(OS_LOG_SUBSYSTEM_RUNTIME_ISSUES, "Security");
+                    });
+                    os_log_fault(runtimeLog, "This method should not be called on the main thread as it may lead to UI unresponsiveness.");
+                }
+            }
+        }
+        CFReleaseNull(bundleUrl);
+    }
+
     __block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
     SecTrustAddPolicyAnchors(trust);
     dispatch_sync(trust->_trustQueue, ^{
@@ -1785,7 +1801,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
                                                     trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
                                                     trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
                                                     verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions,
-                                                    trust->_auditToken,
+                                                    trust->_auditToken, trust->_attribution,
                                                     &trust->_details, &trust->_info, &trust->_chain, error);
                 if (trust->_trustResult == kSecTrustResultInvalid /* TODO check domain */ &&
                     SecErrorGetOSStatus(*error) == errSecNotAvailable &&
@@ -1897,7 +1913,7 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
 		 },
 						 trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
 						 trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
-						 verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken,
+						 verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken, trust->_attribution,
 						 &trust->_details, &trust->_info, &trust->_chain);
 	});
 	if (shouldReturnSuccess) {
@@ -2069,6 +2085,9 @@ CFArrayRef SecTrustGetTrustExceptionsArray(SecTrustRef trust) {
 }
 
 CFDataRef SecTrustCopyExceptions(SecTrustRef trust) {
+    if (!trust) {
+        return NULL;
+    }
     /* Stash the old exceptions and run an evaluation with no exceptions filtered.  */
     __block CFArrayRef oldExceptions = NULL;
     dispatch_sync(trust->_trustQueue, ^{
@@ -3166,11 +3185,51 @@ OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef auditToken) {
 
     SecTrustSetNeedsEvaluation(trust);
     dispatch_sync(trust->_trustQueue, ^{
-        trust->_auditToken = CFRetainSafe(auditToken);
+        CFRetainAssign(trust->_auditToken, auditToken);
     });
     return errSecSuccess;
 }
 
 CFArrayRef SecTrustGetAppleAnchors(void) {
     return SecGetAppleTrustAnchors(false);
+}
+
+OSStatus SecTrustSetURLRequestAttribution(SecTrustRef trust, uint64_t attribution) {
+    if (!trust) {
+        return errSecParam;
+    }
+
+    SecTrustSetNeedsEvaluation(trust);
+    dispatch_sync(trust->_trustQueue, ^{
+        trust->_attribution = attribution;
+    });
+    return errSecSuccess;
+}
+
+static bool int_to_bool_error_request(enum SecXPCOperation op, SecTrustResetFlags flags, CFErrorRef *error)
+{
+    __block bool result = false;
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetUInt64(message, kSecXPCKeyFlags, (uint64_t)flags, blockError);
+    }, ^bool(xpc_object_t response, __unused CFErrorRef *blockError) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return result;
+    });
+    return result;
+}
+
+bool SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error) {
+    // Send XPC message to trustd with the flags value
+    CFErrorRef localError = NULL;
+    os_activity_t activity = os_activity_create("SecTrustResetSettings", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+    bool result = TRUSTD_XPC(sec_trust_reset_settings, int_to_bool_error_request, flags, &localError);
+    os_release(activity);
+    if (error) {
+        *error = localError;
+    } else if (localError) {
+        CFRelease(localError);
+    }
+    return result;
+
 }

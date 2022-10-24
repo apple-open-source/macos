@@ -150,6 +150,7 @@
     NSDictionary* item = [self fakeRecordDictionary: @"account-delete-me" zoneID:self.keychainZoneID];
     CKKSItem* cipheritem = [[CKKSItem alloc] initWithUUID:recordID.recordName
                                             parentKeyUUID:self.keychainZoneKeys.classC.uuid
+                                                contextID:self.defaultCKKS.operationDependencies.contextID
                                                    zoneID:recordID.zoneID];
     CKKSKeychainBackedKey* itemkey = [CKKSKeychainBackedKey randomKeyWrappedByParent:[self.keychainZoneKeys.classC getKeychainBackedKey:&error] error:&error];
     XCTAssertNotNil(itemkey, "Got a key");
@@ -166,7 +167,7 @@
 
     [self.keychainZone addToZone:[cipheritem CKRecordWithZoneID: recordID.zoneID]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     NSDictionary* query = @{(id)kSecClass: (id)kSecClassGenericPassword,
@@ -477,7 +478,7 @@
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], @"Key state should enter 'waitfortlk'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
@@ -506,7 +507,7 @@
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], @"Key state should enter 'waitfortrust'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'waitfortrust'");
@@ -566,7 +567,7 @@
     // Now, another device comes along and creates the hierarchy; we download it; and it and sends us the TLK
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [[self.defaultCKKS.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting] waitUntilFinished];
 
     self.aksLockState = false;
@@ -924,7 +925,9 @@
 
         NSError* error = nil;
 
-        NSArray<CKKSKey*>* keys = [CKKSKey localKeys:strongSelf.keychainZoneID error:&error];
+        NSArray<CKKSKey*>* keys = [CKKSKey localKeysForContextID:strongSelf.defaultCKKS.operationDependencies.contextID
+                                                          zoneID:strongSelf.keychainZoneID
+                                                           error:&error];
         XCTAssertNil(error, "no error fetching keys");
         XCTAssertEqual(keys.count, 3u, "Three keys in local database");
 
@@ -1005,7 +1008,9 @@
 
         NSError* error = nil;
 
-        NSArray<CKKSKey*>* keys = [CKKSKey localKeys:strongSelf.keychainZoneID error:&error];
+        NSArray<CKKSKey*>* keys = [CKKSKey localKeysForContextID:strongSelf.defaultCKKS.operationDependencies.contextID
+                                                          zoneID:strongSelf.keychainZoneID
+                                                           error:&error];
         XCTAssertNil(error, "no error fetching keys");
         XCTAssertEqual(keys.count, 3u, "Three keys in local database");
 
@@ -1068,7 +1073,7 @@
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     // Make life easy on this test; testAcceptKeyConflictAndUploadReencryptedItem will check the case when we don't receive the notification
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
@@ -1088,7 +1093,9 @@
         XCTAssertNotNil(strongSelf, "self exists");
 
         NSError* error = nil;
-        NSArray<CKKSKey*>* keys = [CKKSKey localKeys:self.keychainZoneID error:&error];
+        NSArray<CKKSKey*>* keys = [CKKSKey localKeysForContextID:strongSelf.defaultCKKS.operationDependencies.contextID
+                                                          zoneID:strongSelf.keychainZoneID
+                                                           error:&error];
         XCTAssertNil(error, "no error fetching keys");
         XCTAssertEqual(keys.count, 6u, "Six keys in local database");
 
@@ -1113,7 +1120,7 @@
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
     // TODO: remove this by writing code for item reencrypt after key arrival
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self addGenericPassword: @"data" account: @"account-delete-me-rolled-key"];
@@ -1524,17 +1531,26 @@
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
-        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:delete.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:delete.recordID.recordName
+                                                       contextID:self.defaultCKKS.operationDependencies.contextID
+                                                          zoneID:strongSelf.keychainZoneID
+                                                           error:&error];
         if(ckme) {
             [ckme deleteFromDatabase: &error];
         }
         XCTAssertNil(error, "no error removing CKME");
-        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:delete.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:delete.recordID.recordName
+                                                                    contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                       zoneID:strongSelf.keychainZoneID
+                                                                        error:&error];
         if(oqe) {
             [oqe deleteFromDatabase: &error];
         }
         XCTAssertNil(error, "no error removing OQE");
-        CKKSIncomingQueueEntry* iqe = [CKKSIncomingQueueEntry tryFromDatabase:delete.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        CKKSIncomingQueueEntry* iqe = [CKKSIncomingQueueEntry tryFromDatabase:delete.recordID.recordName
+                                                                    contextID:self.defaultCKKS.operationDependencies.contextID
+                                                                       zoneID:strongSelf.keychainZoneID
+                                                                        error:&error];
         if(iqe) {
             [iqe deleteFromDatabase: &error];
         }
@@ -1660,27 +1676,45 @@
 
         CKKSMirrorEntry* ckme = nil;
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:delete.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:delete.recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNotNil(ckme);
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:remoteDelete.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:remoteDelete.recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNil(ckme); // deleted!
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:remoteDataChanged.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:remoteDataChanged.recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNotNil(ckme);
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:items[3].recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:items[3].recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNotNil(ckme);
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:items[4].recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:items[4].recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNotNil(ckme);
 
-        ckme = [CKKSMirrorEntry tryFromDatabase:ckr.recordID.recordName zoneID:strongSelf.keychainZoneID error:&error];
+        ckme = [CKKSMirrorEntry tryFromDatabase:ckr.recordID.recordName
+                                      contextID:self.defaultCKKS.operationDependencies.contextID
+                                         zoneID:strongSelf.keychainZoneID
+                                          error:&error];
         XCTAssertNil(error);
         XCTAssertNotNil(ckme);
     }];
@@ -1707,7 +1741,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Now, place an item in the outgoing queue
@@ -1751,7 +1785,7 @@
 
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"fourth"];
     [self.keychainZone addToZone:ckr];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     [self.defaultCKKS scanLocalItems];
     // This operation will wait for the CKKSOutgoingQueue operation (currently held writing to cloudkit) to finish before beginning
@@ -1789,7 +1823,7 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
@@ -1974,7 +2008,7 @@
 
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
 
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
@@ -2000,7 +2034,7 @@
     // Now restart again, but cause a scan to occur
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
 
@@ -2056,7 +2090,7 @@
 
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
 
@@ -2082,7 +2116,7 @@
     // And check that the fetch occurs as well
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainZoneID.zoneName error:&error];
         XCTAssertNil(error, "no error pulling ckse from database");
         XCTAssertNotNil(ckse, "received a ckse");
 
@@ -2492,7 +2526,7 @@
     [self waitForCKModifications];
     [self.defaultCKKS waitUntilAllOperationsAreFinished];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"account0"];
@@ -2508,7 +2542,7 @@
     SecCKKSTestSetDisableKeyNotifications(false);
 
     [self.keychainZone addToZone: ckr];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
@@ -2542,13 +2576,13 @@
     // Trigger a notification (with hilariously fake data)
     [self.keychainZone addToZone: ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:200*NSEC_PER_SEC], "Key state should return to 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should return to 'ready'");
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing]; // Do this again, to allow for non-atomic key state machinery switching
 
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
@@ -2586,7 +2620,7 @@
     XCTAssertNil(error, "Should be no error deleting old key material from keychain");
 
     [self.keychainZone addToZone:ckrAddedLater];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:accountShouldExist expecting:errSecSuccess];
@@ -2632,7 +2666,7 @@
     [self.lockStateTracker recheck];
 
     [self.keychainZone addToZone:ckrAddedLater];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Item should still not exist due to the lock state....
@@ -2748,7 +2782,8 @@
 
     // Now, delete most of the key records are from on-disk, but the change token is not changed
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.keychainZoneID];
+        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.keychainZoneID
+                                                         contextID:self.defaultCKKS.operationDependencies.contextID];
 
         XCTAssertNotNil(keyset.currentTLKPointer, @"should be a TLK pointer");
         XCTAssertNotNil(keyset.currentClassAPointer, @"should be a class A pointer");
@@ -2846,7 +2881,7 @@
     // Say network is available
     [self.reachabilityTracker setNetworkReachability:true];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
@@ -2988,7 +3023,7 @@
     [self expectCKFetch]; // and one to succeed
 
     // Trigger a fake change notification
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -3012,6 +3047,7 @@
     // Save a new device state record with some fake etag
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         CKKSDeviceStateEntry* cdse = [[CKKSDeviceStateEntry alloc] initForDevice:self.ckDeviceID
+                                                                       contextID:self.defaultCKKS.operationDependencies.contextID
                                                                        osVersion:@"fake-record"
                                                                   lastUnlockTime:[NSDate date]
                                                                    octagonPeerID:nil
@@ -3062,7 +3098,7 @@
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone:ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
@@ -3105,7 +3141,7 @@
     // We expect CKKS to recreate the zone, then have octagon reupload the keys, and then the class C item upload
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     [self performOctagonTLKUpload:self.ckksViews];
 
@@ -3152,7 +3188,7 @@
     // We expect CKKS to reset itself and recover, then have octagon upload the keys, and then the class C item upload
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     [self performOctagonTLKUpload:self.ckksViews];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -3609,7 +3645,7 @@
 
     // And fetching still works!
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D00" withAccount:@"account0"]];
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
     [self findGenericPassword: @"account0" expecting:errSecSuccess];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered 'ready'");
@@ -3743,7 +3779,9 @@
     [self addGenericPassword: @"data" account: @"account-delete-me-2"];
 
     NSError* error = nil;
-    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.keychainZoneID error:&error];
+    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                            zoneID:self.keychainZoneID
+                                                                             error:&error];
     XCTAssertNil(error, "Should be no error counting OQEs");
     XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
 
@@ -3772,6 +3810,35 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testFetchRequestedBeforePolicyLoaded {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    // Test setup sets the policy. Restart immediately to break that.
+    self.automaticallyBeginCKKSViewCloudKitOperation = false;
+    self.defaultCKKS = [self.injectedManager restartCKKSAccountSyncWithoutSettingPolicy:self.defaultCKKS];
+
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
+
+    [self startCKKSSubsystem];
+    [self.defaultCKKS beginCloudKitOperation];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'waitfortrust'");
+    XCTAssertNil(self.defaultCKKS.syncingPolicy, "Should have no syncing policy");
+
+    [self.defaultCKKS setCurrentSyncingPolicy:self.viewSortingPolicyForManagedViewList];
+    self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
+
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'waitfortrust'");
+
+    self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
+    [self beginSOSTrustedViewOperation:self.defaultCKKS];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Should have reached key state 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testSyncableItemAddedOnDaemonRestartBeforePolicyLoaded {
     [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
     [self startCKKSSubsystem];
@@ -3787,7 +3854,8 @@
     [self addGenericPassword:@"data" account:@"account-delete-me-2"];
 
     NSError* error = nil;
-    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.keychainZoneID error:&error];
+    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                            zoneID:self.keychainZoneID error:&error];
     XCTAssertNil(error, "Should be no error counting OQEs");
     XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
 
@@ -3983,6 +4051,7 @@
         for(CKKSSOSSelfPeer* peer2 in peers) {
             NSError* error = nil;
             CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:[self.keychainZoneKeys.tlk getKeychainBackedKey:&error]
+                                                        contextID:self.defaultCKKS.operationDependencies.contextID
                                                                as:peer1
                                                                to:peer2
                                                             epoch:-1
@@ -4018,7 +4087,7 @@
 
     [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     XCTAssertNotEqual(0, [fetcherCondition wait:(3 * NSEC_PER_SEC)], "not supposed to get a fetch data");
 
@@ -4068,6 +4137,49 @@
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
 }
 
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+- (void)testSecItemCallsWithPersonas {
+    
+    dispatch_group_t group1 = dispatch_group_create();
+    dispatch_group_t group2 = dispatch_group_create();
+
+    for ( int  i = 0; i < 10000; i++) {
+        dispatch_queue_t queue1 = dispatch_queue_create("secitemcopymatching1", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        dispatch_queue_t queue2 = dispatch_queue_create("secitemcopymatching2", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        
+        dispatch_group_async(group1, queue1, ^{
+            NSString* uuid = [NSUUID UUID].UUIDString;
+            SecSecuritySetPersonaMusr((__bridge CFStringRef)uuid);
+            CFTypeRef result = nil;
+            NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                     (id)kSecUseDataProtectionKeychain : @(YES),
+                                     (id)kSecReturnAttributes : @(YES),
+                                     (id)kSecReturnPersistentRef : @(YES),
+                                     (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+            };
+            SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+            SecSecuritySetPersonaMusr(NULL);
+        });
+        
+        dispatch_group_async(group2, queue2, ^{
+            NSString* uuid = [NSUUID UUID].UUIDString;
+            SecSecuritySetPersonaMusr((__bridge CFStringRef)uuid);
+            CFTypeRef result = nil;
+            NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                                     (id)kSecUseDataProtectionKeychain : @(YES),
+                                     (id)kSecReturnAttributes : @(YES),
+                                     (id)kSecReturnPersistentRef : @(YES),
+                                     (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+            };
+            SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+            SecSecuritySetPersonaMusr(NULL);
+        });
+    }
+    
+    dispatch_group_wait(group1, DISPATCH_TIME_FOREVER);
+    dispatch_group_wait(group2, DISPATCH_TIME_FOREVER);
+}
+#endif
 #pragma mark - Helpers
 
 /// Returns an operation with the given name and block that runs when the CKKS

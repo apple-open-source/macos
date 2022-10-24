@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,13 +26,10 @@
 #pragma once
 
 #include "WebGPUCanvasCompositingAlphaMode.h"
-#include "WebGPUExtent3D.h"
 #include "WebGPUPredefinedColorSpace.h"
 #include "WebGPUTextureFormat.h"
 #include "WebGPUTextureUsage.h"
-#include <cstdint>
-#include <optional>
-#include <wtf/Ref.h>
+#include <wtf/Vector.h>
 
 namespace PAL::WebGPU {
 
@@ -42,9 +39,9 @@ struct CanvasConfiguration {
     Device& device;
     TextureFormat format { TextureFormat::R8unorm };
     TextureUsageFlags usage { TextureUsage::RenderAttachment };
+    Vector<TextureFormat> viewFormats;
     PredefinedColorSpace colorSpace { PredefinedColorSpace::SRGB };
     CanvasCompositingAlphaMode compositingAlphaMode { CanvasCompositingAlphaMode::Opaque };
-    std::optional<Extent3D> size;
 };
 
 } // namespace PAL::WebGPU

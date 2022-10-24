@@ -625,7 +625,7 @@ V1.1//EN"[]>]]>
           the directory.
         </para>
         <para>
-          If you want to create PostScript ouput, you will need to create an
+          If you want to create PostScript output, you will need to create an
           EPS version of your image file to be displayed in the
           PostScript file. There is a simple script available which
           allows you to change a PNG image into an EPS file

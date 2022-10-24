@@ -1,0 +1,11 @@
+PRODUCT_NAME = $(TARGET_NAME);
+INSTALL_PATH = /usr/local/libexec/libxslt;
+
+DEAD_CODE_STRIPPING = NO;
+
+PRODUCTION_ROOT[sdk=iphone*] = $(SDKROOT);
+PRODUCTION_ROOT[sdk=macosx*] = $(NEXT_ROOT);
+
+LIBXSLT_FUZZER = YES;
+
+OTHER_LDFLAGS = $(inherited) -lxml2;

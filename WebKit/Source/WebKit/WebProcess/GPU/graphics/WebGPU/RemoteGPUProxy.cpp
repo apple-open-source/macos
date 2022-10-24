@@ -75,10 +75,10 @@ void RemoteGPUProxy::abandonGPUProcess()
     m_lost = true;
 }
 
-void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& semaphore)
+void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& wakeUpSemaphore, IPC::Semaphore&& clientWaitSemaphore)
 {
     ASSERT(!m_didInitialize);
-    m_streamConnection.setWakeUpSemaphore(WTFMove(semaphore));
+    m_streamConnection.setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
     m_didInitialize = true;
     m_lost = !didSucceed;
 }
@@ -92,7 +92,7 @@ void RemoteGPUProxy::waitUntilInitialized()
     m_lost = true;
 }
 
-void RemoteGPUProxy::requestAdapter(const PAL::WebGPU::RequestAdapterOptions& options, WTF::Function<void(RefPtr<PAL::WebGPU::Adapter>&&)>&& callback)
+void RemoteGPUProxy::requestAdapter(const PAL::WebGPU::RequestAdapterOptions& options, CompletionHandler<void(RefPtr<PAL::WebGPU::Adapter>&&)>&& callback)
 {
     if (m_lost) {
         callback(nullptr);

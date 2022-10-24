@@ -88,6 +88,58 @@ create_cfstr(const char *string)
  */
 
 int
+json_add_array(CFMutableDictionaryRef dict, const char *key,
+               const char *comma_sep_string)
+{
+    CFArrayRef cf_array = NULL;
+
+    if ((dict == NULL) || (key == NULL)) {
+        fprintf(stderr, "*** %s: dict or key is null \n", __FUNCTION__);
+        return(EINVAL);
+    }
+
+    CFMutableStringRef cf_key = create_cfstr(key);
+    if (cf_key == NULL) {
+        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+                __FUNCTION__, key);
+        return(ENOMEM);
+    }
+
+    if (comma_sep_string != NULL) {
+        /* Convert in string to CFMutableStringRef */
+        CFMutableStringRef cf_val = create_cfstr(comma_sep_string);
+        if (cf_val == NULL) {
+            fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+                    __FUNCTION__, comma_sep_string);
+            CFRelease(cf_key);
+            return(ENOMEM);
+        }
+
+        /* Convert comma separated CFMutableStringRef to a CFArray */
+        cf_array = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault,
+                                                          cf_val, CFSTR(","));
+        CFRelease(cf_val);
+    }
+    else {
+        /* Create just an empty CFArray */
+        cf_array = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
+    }
+    
+    if (cf_array == NULL) {
+        fprintf(stderr, "*** %s: CFStringCreateArrayBySeparatingStrings failed for NULL string \n",
+                __FUNCTION__);
+        CFRelease(cf_key);
+        return(ENOMEM);
+    }
+    
+    CFDictionarySetValue(dict, cf_key, cf_array);
+
+    CFRelease(cf_key);
+    CFRelease(cf_array);
+    return(0);
+}
+
+int
 json_add_cfstr(CFMutableDictionaryRef dict, const char *key,
                const CFMutableStringRef value)
 {
@@ -131,6 +183,32 @@ json_add_dict(CFMutableDictionaryRef dict, const char *key,
 
     CFDictionarySetValue(dict, cf_key, value);
 
+    CFRelease(cf_key);
+    return(0);
+}
+
+int
+json_add_bool(CFMutableDictionaryRef dict, const char *key, bool value)
+{
+    if ((dict == NULL) || (key == NULL)) {
+        fprintf(stderr, "*** %s: dict, key is null \n", __FUNCTION__);
+        return(EINVAL);
+    }
+    
+    CFMutableStringRef cf_key = create_cfstr(key);
+    if (cf_key == NULL) {
+        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+                __FUNCTION__, key);
+        return(ENOMEM);
+    }
+
+    if (value) {
+        CFDictionarySetValue(dict, cf_key, kCFBooleanTrue);
+    }
+    else {
+        CFDictionarySetValue(dict, cf_key, kCFBooleanFalse);
+    }
+    
     CFRelease(cf_key);
     return(0);
 }

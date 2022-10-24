@@ -30,17 +30,24 @@
 #include "ExtendableEvent.h"
 #include "ExtendableEventInit.h"
 #include "Notification.h"
+#include "NotificationEventType.h"
 
 namespace WebCore {
 
+struct NotificationEventInit : ExtendableEventInit {
+    RefPtr<Notification> notification;
+    String action;
+};
+
 class NotificationEvent final : public ExtendableEvent {
+    WTF_MAKE_ISO_ALLOCATED(NotificationEvent);
 public:
     ~NotificationEvent();
 
-    struct Init : ExtendableEventInit {
-        RefPtr<Notification> notification;
-        String action;
-    };
+    using Init = NotificationEventInit;
+
+    static Ref<NotificationEvent> create(const AtomString&, Init&&, IsTrusted = IsTrusted::No);
+    static Ref<NotificationEvent> create(const AtomString&, Notification*, const String& action, IsTrusted = IsTrusted::No);
 
     EventInterface eventInterface() const final { return NotificationEventInterfaceType; }
 
@@ -48,6 +55,8 @@ public:
     const String& action() { return m_action; }
 
 private:
+    NotificationEvent(const AtomString&, NotificationEventInit&&, Notification*, const String& action, IsTrusted = IsTrusted::No);
+
     RefPtr<Notification> m_notification;
     String m_action;
 };

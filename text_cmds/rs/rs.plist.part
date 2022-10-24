@@ -1,0 +1,17 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-16</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>rs.c: error on invalid input (6555390)</string>
+		<string>rs.c: fix crash with argv[0] == NULL (4384130)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>rs</string>
+	<key>OpenSourceVersion</key>
+	<string>2017-11-27</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/rs?id=013953eb5f868c0a7b9821ad1d196d2795203ac73</string>
+</dict>

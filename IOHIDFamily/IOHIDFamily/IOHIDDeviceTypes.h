@@ -253,7 +253,7 @@ typedef void (*IOHIDCompletionAction)(void *target,
  * @typedef IOHIDCompletion
  *
  * @abstract
- * Struct spefifying action to perform when set/get report completes.
+ * Struct specifying action to perform when set/get report completes.
  *
  * @var target
  * The target to pass to the action function.
@@ -294,5 +294,15 @@ typedef enum {
     kIOHIDReportCommandSetReport,
     kIOHIDReportCommandGetReport
 } HIDReportCommandType;
+
+/*!
+ * @typedef kIOHIDDeviceXXXAsyncRequestTimeout
+ *
+ * @abstract
+ * The default, minimum and maximum timeout values in ms for async device requests.
+ */
+#define kIOHIDDeviceDefaultAsyncRequestTimeout 1000ULL
+#define kIOHIDDeviceMinAsyncRequestTimeout     50ULL
+#define kIOHIDDeviceMaxAsyncRequestTimeout     1200000ULL
 
 #endif /* IOHIDDeviceTypes_h */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2016,2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -70,6 +70,68 @@ SecIsAppleTrustAnchor(SecCertificateRef cert,
 fail:
     CFReleaseNull(data);
     return res;
+}
+
+
+/* Subject: C = US, O = Apple Inc., CN = Apple Code Signing Certification Authority, */
+/*          OU = Apple Certification Authority */
+/* Issuer: C = US, O = Apple Inc., OU = Apple Certification Authority, CN = Apple Root CA */
+/* SKID: 8E:69:A6:C4:77:42:4E:04:A5:56:42:9C:51:1F:86:DA:D2:20:8F:09 */
+/* Not Before: Oct 24 17:39:41 2011 GMT, Not After : Oct 24 17:39:41 2026 GMT */
+static const unsigned char AppleCodeSigningCAHash[32] = {
+    0x5B, 0xDA, 0xB1, 0x28, 0x8F, 0xC1, 0x68, 0x92, 0xFE, 0xF5, 0x0C, 0x65, 0x8D, 0xB5, 0x4F, 0x1E,
+    0x2E, 0x19, 0xCF, 0x8F, 0x71, 0xCC, 0x55, 0xF7, 0x7D, 0xE2, 0xB9, 0x5E, 0x05, 0x1E, 0x25, 0x62
+};
+
+/* Subject: C = US, O = Apple Inc., CN = Apple Code Signing Certification Authority, */
+/*          OU = Certification Authority */
+/* Issuer: C = US, O = Apple Inc., OU = Apple Certification Authority, CN = Apple Root CA */
+/* SKID: 37:B3:61:24:14:B8:21:C2:D0:8A:9E:16:2F:77:05:46:1A:B2:E2:F9 */
+/* Not Before: Oct 18 17:41:25 2017 GMT, Not After : Oct 16 00:00:00 2030 GMT */
+static const unsigned char AppleCodeSigningCAG2Hash[32] = {
+    0x76, 0x84, 0x3E, 0x4C, 0x6E, 0x3A, 0xCB, 0x21, 0x61, 0x34, 0xA5, 0x7B, 0xA8, 0xAF, 0xF5, 0x12,
+    0xE3, 0x94, 0x67, 0x2B, 0x39, 0x66, 0xB9, 0x96, 0xDA, 0x80, 0xF0, 0x09, 0xEE, 0x7B, 0x46, 0x45
+};
+
+bool
+SecIsAppleCodeSigningIssuer(CFDataRef issuerHash)
+{
+    static dispatch_once_t onceToken;
+    static CFDictionaryRef csAnchors = NULL;
+    dispatch_once(&onceToken, ^{
+        CFMutableDictionaryRef temp = CFDictionaryCreateMutableForCFTypes(NULL);
+        CFDataRef value = NULL;
+        value = CFDataCreateWithBytesNoCopy(NULL, AppleCodeSigningCAHash, sizeof(AppleCodeSigningCAHash), kCFAllocatorNull);
+        CFDictionarySetValue(temp, value, kCFBooleanTrue);
+        CFReleaseNull(value);
+        value = CFDataCreateWithBytesNoCopy(NULL, AppleCodeSigningCAG2Hash, sizeof(AppleCodeSigningCAG2Hash), kCFAllocatorNull);
+        CFDictionarySetValue(temp, value, kCFBooleanTrue);
+        CFReleaseNull(value);
+
+        csAnchors = temp;
+    });
+
+    bool result = false;
+    CFTypeRef value = NULL;
+    require(issuerHash, fail);
+    require(csAnchors, fail);
+
+    value = CFDictionaryGetValue(csAnchors, issuerHash);
+    require_quiet(value, fail);
+    require(isBoolean(value), fail);
+
+    result = CFBooleanGetValue(value);
+fail:
+    return result;
+}
+
+bool
+SecIsAppleCodeSigningAnchor(SecCertificateRef cert)
+{
+    CFDataRef hash = SecCertificateCopySHA256Digest(cert);
+    bool result = SecIsAppleCodeSigningIssuer(hash);
+    CFReleaseNull(hash);
+    return result;
 }
 
 /* subject:/C=US/O=Apple Inc./OU=Apple Certification Authority/CN=Apple Root CA */

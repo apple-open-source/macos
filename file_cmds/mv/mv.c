@@ -535,7 +535,7 @@ copy(const char *from, const char *to)
 	}
 
 	/* Copy source to destination. */
-	if (!(pid = vfork())) {
+	if (!(pid = fork())) {
 		execl(_PATH_CP, "mv", vflg ? "-PRpv" : "-PRp", "--", from, to,
 		    (char *)NULL);
 		_exit(EXEC_FAILED);
@@ -562,7 +562,7 @@ copy(const char *from, const char *to)
 	}
 
 	/* Delete the source. */
-	if (!(pid = vfork())) {
+	if (!(pid = fork())) {
 		execl(_PATH_RM, "mv", "-rf", "--", from, (char *)NULL);
 		_exit(EXEC_FAILED);
 	}

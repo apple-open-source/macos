@@ -135,20 +135,20 @@ class BottledPeer: NSObject {
         self.escrowKeys = try EscrowKeys(secret: self.secret, bottleSalt: bottleSalt)
 
         guard let escrowSigningECKey: _SFECPublicKey = escrowKeys.signingKey.publicKey() as? _SFECPublicKey else {
-            logger.debug("escrow key not an SFECPublicKey?")
+            logger.info("escrow key not an SFECPublicKey?")
             throw Error.OTErrorBottleCreation
         }
         self.escrowSigningSPKI = escrowSigningECKey.encodeSubjectPublicKeyInfo()
 
         // Deserialize the whole thing
         guard let obj = OTBottle(data: contents) else {
-            logger.debug("Unable to deserialize bottle")
+            logger.info("Unable to deserialize bottle")
             throw Error.OTErrorDeserializationFailure
         }
 
         // First, the easy check: did the entropy create the keys that are supposed to be in the bottle?
         guard obj.escrowedSigningSPKI == self.escrowSigningSPKI else {
-            logger.debug("Bottled SPKI does not match re-created SPKI")
+            logger.info("Bottled SPKI does not match re-created SPKI")
             throw Error.OTErrorEntropyKeyMismatch
         }
 

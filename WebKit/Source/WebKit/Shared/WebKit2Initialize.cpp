@@ -28,8 +28,10 @@
 
 #include "LogInitialization.h"
 #include <JavaScriptCore/InitializeThreading.h>
+#include <WebCore/CommonAtomStrings.h>
 #include <WebCore/LogInitialization.h>
 #include <WebCore/WebCoreJITOperations.h>
+#include <wtf/GenerateProfiles.h>
 #include <wtf/LogInitialization.h>
 #include <wtf/MainThread.h>
 #include <wtf/RefCounted.h>
@@ -43,7 +45,7 @@ void InitializeWebKit2()
 {
     JSC::initialize();
     WTF::initializeMainThread();
-    AtomString::init();
+    WebCore::initializeCommonAtomStrings();
 
     WTF::RefCountedBase::enableThreadingChecksGlobally();
 

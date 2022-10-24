@@ -194,7 +194,7 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
 			if ([fmd copyItemAtPath:srcPathToUse toPath:newDestPath error:&nserr] == NO) {
 				blesscontextprintf(context, kBLLogLevelError, "Couldn't copy file \"%s\" - %s\n",
 								   [newDestPath UTF8String], [[nserr description] UTF8String]);
-				ret = [nserr code];
+				ret = (int)[nserr code];
 				break;
 			}
 		}

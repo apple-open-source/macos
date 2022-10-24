@@ -36,9 +36,11 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
+#if TARGET_OS_OSX
 #include <IOKit/storage/IOBDMedia.h>
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
+#endif
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 struct __DADisk
@@ -250,7 +252,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     CFMutableDictionaryRef properties = NULL;
     CFTypeRef              object;
     ___io_path_t           path;
-    io_iterator_t          services;
+    io_iterator_t          services   = IO_OBJECT_NULL;
     kern_return_t          status;
     CFDictionaryRef        sub;
     double                 time;
@@ -379,7 +381,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     /*
      * Create the disk description -- media kind.
      */
-
+#if TARGET_OS_OSX
     if ( IOObjectConformsTo( media, kIOBDMediaClass ) )
     {
         object = CFSTR( kIOBDMediaClass );
@@ -426,6 +428,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaTypeKey, object );
     }
     else
+#endif
     {
         object = CFSTR( kIOMediaClass );
 
@@ -533,14 +536,18 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
                                             kIORegistryIterateParents | kIORegistryIterateRecursively,
                                             &services );
 
-    while ( ( device = IOIteratorNext( services ) ) )
+    if ( status == KERN_SUCCESS )
     {
-        if ( IOObjectConformsTo( device, kIOBlockStorageDeviceClass ) )  break;
+        while ( ( device = IOIteratorNext( services ) ) )
+        {
+            if ( IOObjectConformsTo( device, kIOBlockStorageDeviceClass ) )  break;
 
-        IOObjectRelease( device );
+            IOObjectRelease( device );
+        }
+
+        IOObjectRelease( services );
+        services = IO_OBJECT_NULL;
     }
-
-    IOObjectRelease( services );
 
     if ( device == IO_OBJECT_NULL )  goto DADiskCreateFromIOMediaErr;
 
@@ -578,6 +585,9 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
                 object = kCFBooleanFalse;
 
                 CFDictionarySetValue( disk->_description, kDADiskDescriptionDeviceInternalKey, object );
+#if TARGET_OS_IOS
+                disk->_state |= _kDADiskStateMountAutomatic;
+#endif
             }
         }
 
@@ -718,14 +728,18 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
                                             kIORegistryIterateParents | kIORegistryIterateRecursively,
                                             &services );
 
-    while ( ( bus = IOIteratorNext( services ) ) )
+    if ( status == KERN_SUCCESS )
     {
-        if ( IORegistryEntryInPlane( bus, kIODeviceTreePlane ) )  break;
+        while ( ( bus = IOIteratorNext( services ) ) )
+        {
+            if ( IORegistryEntryInPlane( bus, kIODeviceTreePlane ) )  break;
 
-        IOObjectRelease( bus );
+            IOObjectRelease( bus );
+        }
+
+        IOObjectRelease( services );
+        services = IO_OBJECT_NULL;
     }
-
-    IOObjectRelease( services );
 
     if ( bus )
     {
@@ -784,6 +798,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         disk->_busy = CFAbsoluteTimeGetCurrent( );
     }
 
+#if TARGET_OS_OSX
     /*
      * Create the disk state -- mount automatic?
      */
@@ -804,6 +819,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     }
 
     if ( object )  CFRelease( object );
+#endif
 
     /*
      * Create the disk state -- mount quarantined?
@@ -938,7 +954,9 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         if ( 0 == _DADiskGetEncryptionStatus( allocator, disk, &encrypted, &encryptionDetail) )
         {
             CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptedKey, encrypted );
+#if TARGET_OS_OSX
             CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaEncryptionDetailKey, encryptionDetail );
+#endif
             CFRelease( encryptionDetail );
         }
     }
@@ -995,7 +1013,26 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                         struct passwd * user;
                         const int32_t bsd_major = major( fs->f_fsid.val[0] );
                         const int32_t bsd_minor = minor( fs->f_fsid.val[0] );
-
+#if TARGET_OS_IOS
+                        if ( strcmp( fs->f_fstypename, "lifs" ) == 0 &&
+                            strncmp( fs->f_mntfromname, "apfs", strlen( "apfs" ) ) == 0 )
+                        {
+                            char name[MAXPATHLEN];
+                            int sts = _DAVolumeGetDevicePathForLifsMount( fs , name, sizeof( name) );
+                            if ( sts == 0 )
+                            {
+                                disk->_devicePath[0] = strdup( name );
+                                DALogInfo("Setting device path %s for %s", name, id);
+                                CFStringRef volumeURL = CFStringCreateWithCString( kCFAllocatorDefault, fs->f_mntfromname, kCFStringEncodingUTF8 );
+                                if ( volumeURL )
+                                {
+                                    CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeLifsURLKey, volumeURL );
+                                    CFRelease( volumeURL );
+                                }
+                            }
+                        }
+                       
+#endif
                         disk->_bypath = CFRetain( path );
 
                         CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumePathKey, path );
@@ -1004,7 +1041,7 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
 
                         CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeKindKey, kind );
 
-                        object = _DAFileSystemCopyName( NULL, path );
+                        object = _DAFileSystemCopyNameAndUUID( NULL, path , NULL);
 
                         if ( object )
                         {

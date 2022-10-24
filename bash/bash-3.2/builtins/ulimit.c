@@ -300,6 +300,12 @@ ulimit_builtin (list)
         }
 #endif
       print_all_limits (mode == 0 ? LIMIT_SOFT : mode);
+#ifdef __APPLE__
+      if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+        builtin_error ("failed to flush output");
+        return (EXECUTION_FAILURE);
+      }
+#endif
       return (EXECUTION_SUCCESS);
     }
 
@@ -328,6 +334,12 @@ ulimit_builtin (list)
     if (ulimit_internal (cmdlist[c].cmd, cmdlist[c].arg, mode, ncmd > 1) == EXECUTION_FAILURE)
       return (EXECUTION_FAILURE);
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error ("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+#endif
   return (EXECUTION_SUCCESS);
 }
 

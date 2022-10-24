@@ -127,10 +127,7 @@ typedef void (^notify_handler_t)(int token);
  * @abstract   Request notification delivery to a dispatch queue.
  * @discussion When notifications are received by the process, the notify
  *             subsystem will deliver the registered Block to the target
- *             dispatch queue.  Notification blocks are not re-entrant,
- *             and subsequent notification Blocks will not be delivered
- *             for the same registration until the previous Block has
- *             returned.
+ *             dispatch queue.
  * @param name (input) The notification name.
  * @param out_token (output) The registration token.
  * @param queue (input) The dispatch queue to which the Block is submitted.

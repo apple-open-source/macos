@@ -27,6 +27,7 @@
 #include <security_utilities/debugging.h>
 #include <security_utilities/logging.h>
 #include "dirscanner.h"
+#include "csutilities.h"
 
 #include <sstream>
 
@@ -153,10 +154,23 @@ void DirValidator::validate(const string &root, OSStatus error)
 			secinfo("dirval", "type %d (errno %d): %s", ent->fts_info, ent->fts_errno, ent->fts_path);
 			MacOSError::throwMe(error);	 // not a file, symlink, or directory
 		}
-		if (!rule)
-			MacOSError::throwMe(error);	 // no match
-		else if (rule->flags & required)
+		if (!rule) {
+			bool skip = false;
+			if (ent->fts_info == FTS_F &&
+				pathFileSystemUsesXattrFiles(root.c_str()) &&
+				pathIsValidXattrFile(std::string(ent->fts_path))) {
+				// If the file is on a volume that uses xattr files, and this path is a valid xattr file
+				// then its ok to skip over it without matching anything expected.
+				secinfo("dirval", "skipping file due to xattr: %s", ent->fts_path);
+				skip = true;
+			}
+			if (!skip) {
+				MacOSError::throwMe(error);	 // no match
+			}
+		}
+		else if (rule->flags & required) {
 			reqMatched.insert(rule);
+		}
 	}
 	if (reqMatched.size() != (unsigned long) mRequireCount) {
 		ostringstream os;

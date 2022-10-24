@@ -25,12 +25,17 @@
 
 @implementation SecKeychainItemUpgradeRequestTests
 
+
 + (void)setUp {
     securityd_init_local_spi();
-    KeychainItemUpgradeRequestServerSetEnabled(true);
+    SecCKKSDisable();
+    
+    [super setUp];
 }
 
 - (void)setUp {
+    KeychainItemUpgradeRequestServerSetEnabled(true);
+
     NSString* testName = [self.name componentsSeparatedByString:@" "][1];
     testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
     secnotice("seckeychainitemupgrade", "Beginning test %@", testName);
@@ -42,8 +47,6 @@
     // Make a new fake keychain
     NSString* tmp_dir = [NSString stringWithFormat: @"/tmp/%@.%X", testName, arc4random()];
     [[NSFileManager defaultManager] createDirectoryAtPath:[NSString stringWithFormat: @"%@/Library/Keychains", tmp_dir] withIntermediateDirectories:YES attributes:nil error:NULL];
-
-    SecCKKSTestsEnable();
 
     self.lockStateProvider = [[CKKSMockLockStateProvider alloc] initWithCurrentLockStatus:NO];
     self.lockStateTracker = [[CKKSLockStateTracker alloc] initWithProvider:self.lockStateProvider];
@@ -168,9 +171,9 @@
     // first state
     XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateUpgradePersistentRef] wait:10*NSEC_PER_SEC], "State machine enters persistent ref");
         
-    XCTAssertEqual(0, [self.server.controller.stateMachine.paused wait:10*NSEC_PER_SEC], @"State machine should churn through");
+    XCTAssertEqual(0, [self.server.controller.stateMachine.paused wait:60*NSEC_PER_SEC], @"State machine should churn through");
     
-    XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateNothingToDo] wait:10*NSEC_PER_SEC], "State machine enters NothingToDo");
+    XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateNothingToDo] wait:60*NSEC_PER_SEC], "State machine enters NothingToDo");
     XCTAssertTrue([TestsObjectiveC checkAllPersistentRefBeenUpgraded], @"should all be upgraded");
 }
 
@@ -188,13 +191,16 @@
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
 
-    XCTestExpectation *callbackExpectation = [self expectationWithDescription:@"callback expectation"];
-    CKKSResultOperation *callback = [CKKSResultOperation named:@"callback" withBlock:^{
+    XCTestExpectation *callbackExpectation = [self expectationWithDescription:@"trigger upgrade expectation"];
+    CKKSResultOperation *callback = [CKKSResultOperation named:@"callback1" withBlock:^{
         [callbackExpectation fulfill];
     }];
-    [callback timeout:(10 * NSEC_PER_SEC)];
+    [callback timeout:30*NSEC_PER_SEC];
     [callback addDependency:self.server.controller.persistentReferenceUpgrader.operationDependency];
     [self.operationQueue addOperation:callback];
+
+    [self.server.controller.persistentReferenceUpgrader waitUntil:(20 * NSEC_PER_SEC)];
+    [self.server.controller.stateMachine testPauseStateMachineAfterEntering:KeychainItemUpgradeRequestStateWaitForTrigger];
 
     [self.server.controller triggerKeychainItemUpdateRPC:^(NSError * _Nullable triggerError) {
         XCTAssertNil(triggerError, @"Should be no error triggering a keychain item update");
@@ -202,32 +208,49 @@
 
     XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateWaitForTrigger] wait:10*NSEC_PER_SEC], "State machine enters wait for trigger");
 
-    [self waitForExpectations:@[callbackExpectation] timeout:10];
+    // should see 199 items upgraded
+    XCTAssertTrue([TestsObjectiveC expectXNumberOfItemsUpgraded:(rowID-1)], @"%d items should be upgraded", rowID-1);
     
+    [self.server.controller.stateMachine testReleaseStateMachinePause:KeychainItemUpgradeRequestStateWaitForTrigger];
+    [self.server.controller.stateMachine testPauseStateMachineAfterEntering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
+
+    [self waitForExpectations:@[callbackExpectation] timeout:120];
     //trigger occurred
+    
+    // make the CKKSNFS wait a bit before triggering again
+    [self.server.controller.persistentReferenceUpgrader waitUntil:(20 * NSEC_PER_SEC)];
+    
     XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateUpgradePersistentRef] wait:10*NSEC_PER_SEC], "State machine enters upgrade persistent ref");
+    [self.server.controller.stateMachine testReleaseStateMachinePause:KeychainItemUpgradeRequestStateUpgradePersistentRef];
+
+
+    [self.server.controller.stateMachine testPauseStateMachineAfterEntering:KeychainItemUpgradeRequestStateWaitForTrigger];
+    XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateWaitForTrigger] wait:10*NSEC_PER_SEC], "State machine enters wait for trigger");
 
     // should see 199 items upgraded
     XCTAssertTrue([TestsObjectiveC expectXNumberOfItemsUpgraded:(rowID-1)], @"%d items should be upgraded", rowID-1);
     XCTAssertNotNil(self.server.controller.persistentReferenceUpgrader.nextFireTime, @"next fire time should NOT be nil");
 
     // set up the next trigger expectation
-    callbackExpectation = [self expectationWithDescription:@"callback expectation"];
-    callback = [CKKSResultOperation named:@"callback" withBlock:^{
-        [callbackExpectation fulfill];
+    XCTestExpectation *secondCallbackExpectation = [self expectationWithDescription:@"second trigger upgrade expectation"];
+
+    callback = [CKKSResultOperation named:@"callback2" withBlock:^{
+        [secondCallbackExpectation fulfill];
     }];
-    [callback timeout:(10 * NSEC_PER_SEC)];
+    [callback timeout:30*NSEC_PER_SEC];
     [callback addDependency:self.server.controller.persistentReferenceUpgrader.operationDependency];
     [self.operationQueue addOperation:callback];
-    
-    XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateWaitForTrigger] wait:10*NSEC_PER_SEC], "State machine enters wait for trigger");
-
-    [self waitForExpectations:@[callbackExpectation] timeout:10];
 
     // now the error is gone! the next trigger should fire and upgrade all the items successfully
     clearRowIDAndErrorDictionary();
 
+    [self.server.controller.stateMachine testReleaseStateMachinePause:KeychainItemUpgradeRequestStateWaitForTrigger];
+    [self.server.controller.stateMachine testPauseStateMachineAfterEntering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
+
+    [self waitForExpectations:@[secondCallbackExpectation] timeout:120];
+
     XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateUpgradePersistentRef] wait:10*NSEC_PER_SEC], "State machine enters upgrade persistent ref");
+    [self.server.controller.stateMachine testReleaseStateMachinePause:KeychainItemUpgradeRequestStateUpgradePersistentRef];
 
     XCTAssertEqual(0, [self.server.controller.stateMachine.paused wait:10*NSEC_PER_SEC], @"State machine should churn through");
     

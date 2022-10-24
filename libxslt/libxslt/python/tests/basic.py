@@ -14,7 +14,7 @@ result = style.applyStylesheet(doc, None)
 style.saveResultToFilename("foo", result, 0)
 stringval = style.saveResultToString(result)
 if (len(stringval) != 68):
-  print "Error in saveResultToString"
+  print("Error in saveResultToString")
   sys.exit(255)
 style.freeStylesheet()
 doc.freeDoc()
@@ -23,7 +23,8 @@ result.freeDoc()
 # Memory debug specific
 libxslt.cleanup()
 if libxml2.debugMemory(1) == 0:
-    print "OK"
+    print("OK")
 else:
-    print "Memory leak %d bytes" % (libxml2.debugMemory(1))
+    print("Memory leak %d bytes" % (libxml2.debugMemory(1)))
     libxml2.dumpMemory()
+    sys.exit(255)

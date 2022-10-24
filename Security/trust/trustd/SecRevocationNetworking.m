@@ -57,7 +57,7 @@ static CFStringRef kUpdateBackgroundKey = CFSTR("ValidUpdateBackground");
 extern CFAbsoluteTime gUpdateStarted;
 extern CFAbsoluteTime gNextUpdate;
 
-static uint64_t systemUptimeInSeconds() {
+static uint64_t systemUptimeInSeconds(void) {
     struct timeval boottime;
     size_t tv_size = sizeof(boottime);
     time_t now, uptime = 0;
@@ -87,11 +87,7 @@ typedef void (^CompletionHandler)(void);
 @implementation ValidDelegate
 
 - (void)reschedule {
-    /* POWER LOG EVENT: operation canceled */
-    SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-        @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-        @"event" : (self->_finishedDownloading) ? @"updateCanceled" : @"downloadCanceled"
-    });
+    /* LOG EVENT: operation canceled */
     secnotice("validupdate", "%s canceled at %f",
         (self->_finishedDownloading) ? "update" : "download",
         (double)CFAbsoluteTimeGetCurrent());
@@ -115,11 +111,7 @@ typedef void (^CompletionHandler)(void);
     /* Hold a transaction until we finish the update */
     __block os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.updateDb");
     dispatch_async(_revDbUpdateQueue, ^{
-        /* POWER LOG EVENT: background update started */
-        SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-            @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-            @"event" : @"updateStarted"
-        });
+        /* LOG EVENT: background update started */
         secnotice("validupdate", "update started at %f", (double)CFAbsoluteTimeGetCurrent());
 
         CFDataRef updateData = NULL;
@@ -150,13 +142,7 @@ typedef void (^CompletionHandler)(void);
         self->_currentUpdateFileURL = nil;
         self->_currentUpdateServer = nil;
 
-        /* POWER LOG EVENT: background update finished */
-        SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-            @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-            @"event" : @"updateFinished"
-        });
-
-        /* Update is complete */
+        /* LOG EVENT: background update finished */
         secnotice("validupdate", "update finished at %f", (double)CFAbsoluteTimeGetCurrent());
         gUpdateStarted = 0;
 
@@ -175,10 +161,18 @@ didReceiveResponse:(NSURLResponse *)response
  completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
     /* nsurlsessiond started our download. Create a transaction since we're going to be working for a little bit */
     self->_transaction = os_transaction_create("com.apple.trustd.valid.download");
+    long status = [(NSHTTPURLResponse *)response statusCode];
     secinfo("validupdate", "Session %@ data task %@ returned response %ld (%@), expecting %lld bytes",
-            session, dataTask, (long)[(NSHTTPURLResponse *)response statusCode],
+            session, dataTask, status,
             [response MIMEType], [response expectedContentLength]);
-
+    /* In case of error accessing generation 4 data, fallback to previous generation */
+    if ((SecRevocationDbGetGeneration() == kValidUpdateCurrentGeneration) && (status == 403)){
+        secnotice("validupdate", "failed to connect to URL. canceling task %@", dataTask);
+        completionHandler(NSURLSessionResponseCancel);
+        SecRevocationDbSetGeneration(kValidUpdateOldGeneration);
+        [self reschedule];
+        return;
+    }
     CFURLRef updateFileURL = SecCopyURLForFileInRevocationInfoDirectory(CFSTR("update-current"));
     self->_currentUpdateFileURL = (updateFileURL) ? CFBridgingRelease(updateFileURL) : nil;
     const char *updateFilePath = [self->_currentUpdateFileURL fileSystemRepresentation];
@@ -201,11 +195,7 @@ didReceiveResponse:(NSURLResponse *)response
         close(fd);
     }
 
-    /* POWER LOG EVENT: background download actually started */
-    SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-        @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-        @"event" : @"downloadStarted"
-    });
+    /* LOG EVENT: background download actually started */
     secnotice("validupdate", "download started at %f", (double)CFAbsoluteTimeGetCurrent());
 
     NSError *error = nil;
@@ -259,11 +249,7 @@ didCompleteWithError:(NSError *)error {
         self->_currentUpdateServer = nil;
         self->_currentUpdateFileURL = nil;
     } else {
-        /* POWER LOG EVENT: background download finished */
-        SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-            @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-            @"event" : @"downloadFinished"
-        });
+        /* LOG EVENT: background download finished */
         secnotice("validupdate", "download finished at %f", (double)CFAbsoluteTimeGetCurrent());
         secdebug("validupdate", "Session %@ task %@ succeeded", session, task);
         self->_finishedDownloading = YES;
@@ -410,19 +396,14 @@ static ValidUpdateRequest *request = nil;
             delegate.currentUpdateServer = [server copy];
         }
 
-        /* POWER LOG EVENT: scheduling our background download session now */
-        SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-            @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-            @"event" : @"downloadScheduled",
-            @"version" : @(version)
-        });
-
-        NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
-                                                server, (long)version]];
+        CFIndex validGeneration = SecRevocationDbGetGeneration();
+        NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g%ld/v%ld",
+                                                server, validGeneration, (long)version]];
         NSURLSessionDataTask *dataTask = [self.backgroundSession dataTaskWithURL:validUrl];
         dataTask.taskDescription = [NSString stringWithFormat:@"%ld",(long)version];
         [dataTask resume];
-        secnotice("validupdate", "scheduled background data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
+        /* LOG EVENT: scheduling our background download session */
+        secnotice("validupdate", "scheduled background data task %@ at %f URL:%@", dataTask, CFAbsoluteTimeGetCurrent(), validUrl);
         (void) transaction; // dead store
         transaction = nil; // ARC releases the transaction
     });
@@ -449,25 +430,20 @@ static ValidUpdateRequest *request = nil;
         delegate.currentUpdateServer = [server copy];
     }
 
-    /* POWER LOG EVENT: scheduling our background download session now */
-    SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
-        @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
-        @"event" : @"downloadScheduled",
-        @"version" : @(version)
-    });
-
-    NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
-                                            server, (long)version]];
+    CFIndex validGeneration = SecRevocationDbGetGeneration();
+    NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g%ld/v%ld",
+                                            server, validGeneration, (long)version]];
     NSURLSessionDataTask *dataTask = [self.ephemeralSession dataTaskWithURL:validUrl];
     dataTask.taskDescription = [NSString stringWithFormat:@"%ld",(long)version];
     [dataTask resume];
-    secnotice("validupdate", "running foreground data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
+    /* LOG EVENT: scheduling our background download session now */
+    secnotice("validupdate", "running foreground data task %@ at %f URL:%@", dataTask, CFAbsoluteTimeGetCurrent(), validUrl);
     return YES;
 }
 
 @end
 
-static void SecValidUpdateCreateValidUpdateRequest()
+static void SecValidUpdateCreateValidUpdateRequest(void)
 {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -527,7 +503,7 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
     NSUUID *taskId = [task.originalRequest taskId];
     TrustURLSessionContext *urlContext = [self contextForTask:taskId];
     if (!urlContext) {
-        secerror("failed to find context for %@", taskId);
+        secnotice("http","failed to find context for %@", taskId);
         return;
     }
 
@@ -627,7 +603,7 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
     NSUUID *taskId = [task.originalRequest taskId];
     TrustURLSessionContext *urlContext = [self contextForTask:taskId];
     if (!urlContext) {
-        secerror("failed to find context for %@", taskId);
+        secnotice("http","failed to find context for %@", taskId);
         return;
     }
 
@@ -667,6 +643,7 @@ bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert) {
         NSData *auditToken = CFBridgingRelease(SecPathBuilderCopyClientAuditToken(orvc->builder));
         NSURLSession *session = [sessionCache sessionForAuditToken:auditToken];
         TrustURLSessionContext *context = [[TrustURLSessionContext alloc] initWithContext:orvc uris:nsResponders];
+        context.attribution = (NSURLRequestAttribution)SecPathBuilderGetAttribution(orvc->builder);
         return [delegate fetchNext:session context:context];
     }
 }

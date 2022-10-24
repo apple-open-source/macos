@@ -969,7 +969,8 @@ public:
      * @param value  The given first day of the week.
      * @deprecated ICU 2.6. Use setFirstDayOfWeek(UCalendarDaysOfWeek value) instead.
      */
-    void setFirstDayOfWeek(EDaysOfWeek value);
+    // FIXME: unimplemented
+    //void setFirstDayOfWeek(EDaysOfWeek value);
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -1160,7 +1161,8 @@ public:
      * @return         the maximum of the given field for the current date of this Calendar
      * @deprecated ICU 2.6. Use getActualMaximum(UCalendarDateFields field, UErrorCode& status) instead.
      */
-    int32_t getActualMaximum(EDateFields field, UErrorCode& status) const;
+    // FIXME: unimplemented
+    //int32_t getActualMaximum(EDateFields field, UErrorCode& status) const;
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -1195,7 +1197,8 @@ public:
      *               and set() has been called for any other field.
      * @deprecated ICU 2.6. Use get(UCalendarDateFields field, UErrorCode& status) instead.
      */
-    int32_t get(EDateFields field, UErrorCode& status) const;
+    // FIXME: unimplemented
+    //int32_t get(EDateFields field, UErrorCode& status) const;
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -1222,7 +1225,8 @@ public:
      * @return   True if the given time field has a value set; false otherwise.
      * @deprecated ICU 2.6. Use isSet(UCalendarDateFields field) instead.
      */
-    UBool isSet(EDateFields field) const;
+    // FIXME: unimplemented
+    //UBool isSet(EDateFields field) const;
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -1243,7 +1247,8 @@ public:
      * @param value  The value to be set for the given time field.
      * @deprecated ICU 2.6. Use set(UCalendarDateFields field, int32_t value) instead.
      */
-    void set(EDateFields field, int32_t value);
+    // FIXME: unimplemented
+    //void set(EDateFields field, int32_t value);
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**
@@ -1322,7 +1327,11 @@ public:
      * @param field  The time field to be cleared.
      * @deprecated ICU 2.6. Use clear(UCalendarDateFields field) instead.
      */
-    void clear(EDateFields field);
+    //FIXME: unimplemented. Can functions wrapped in `U_HIDE_DEPRECATED_API` be removed? Should
+    // EDateFields and EDaysOfWeek be removed as well?
+    // Alternative approach if its expected that these functions are unimplemented:
+    // pass -DU_HIDE_DEPRECATED_API to tapi.
+    // void clear(EDateFields field);
 #endif  /* U_HIDE_DEPRECATED_API */
 
     /**

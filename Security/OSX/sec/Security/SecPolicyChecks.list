@@ -111,3 +111,4 @@ POLICYCHECKMACRO(NoNetworkAccess,                ,  , L,  ,  ,           , 0, er
 POLICYCHECKMACRO(ExtendedValidation,             ,  ,  ,  ,  ,           , 0, errSecInternal)
 POLICYCHECKMACRO(RevocationOnline,               ,  , L,  ,  ,           , 0, errSecInternal)
 POLICYCHECKMACRO(RevocationIfTrusted,            ,  , L,  ,  ,           , 0, errSecInternal)
+POLICYCHECKMACRO(RevocationDbIgnored,            ,  , L,  ,  ,           , 0, errSecInternal)

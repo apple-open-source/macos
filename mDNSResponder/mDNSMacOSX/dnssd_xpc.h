@@ -27,6 +27,7 @@
 #define DNSSD_MACH_SERVICE_NAME	"com.apple.dnssd.service"
 
 #define DNSSD_COMMAND_GETADDRINFO	"getaddrinfo"
+#define DNSSD_COMMAND_KEEPALIVE		"keepalive"
 #define DNSSD_COMMAND_STOP			"stop"
 
 CU_ASSUME_NONNULL_BEGIN
@@ -396,6 +397,36 @@ dnssd_xpc_parameters_get_log_privacy_level(xpc_object_t params);
 
 /*!
  *	@brief
+ *		Gets the validation data from a command parameters dictionary
+ *
+ *	@param params
+ *		Command parameters dictionary.
+ *
+ *	@param out_length
+ *		Gets set to the length of the validation data.
+ *
+ *	@discussion
+ *		The returned pointer, if non-NULL, is valid until the getaddrinfo result is released.
+ */
+const uint8_t * _Nullable
+dnssd_xpc_parameters_get_validation_data(xpc_object_t params, size_t * _Nullable out_length);
+
+/*!
+ *	@brief
+ *		Determines whether a command parameters dictionary specifies that use of encrypted DNS protocols is
+ *		prohibited for the associated command.
+ *
+ *	@param params
+ *		The command parameters dictionary.
+ *
+ *	@result
+ *		True if use of encrypted DNS protocols is prohibited. Otherwise, false.
+ */
+bool
+dnssd_xpc_parameters_get_prohibit_encrypted_dns(xpc_object_t params);
+
+/*!
+ *	@brief
  *		Sets delegate ID as a PID in a command parameters dictionary.
  *
  *	@param params
@@ -584,6 +615,39 @@ dnssd_xpc_parameters_set_log_privacy_level(xpc_object_t params, dnssd_log_privac
 
 /*!
  *	@brief
+ *		Sets the validation data in a command parameters dictionary.
+ *
+ *	@param params
+ *		Command parameters dictionary.
+ *
+ *	@param data_ptr
+ *		Pointer to the validation data.
+ *
+ *	@param data_len
+ *		Length of the validation data.
+ */
+void
+dnssd_xpc_parameters_set_validation_data(xpc_object_t params, const uint8_t *data_ptr, size_t data_len);
+
+/*!
+ *	@brief
+ *		Specifies in a command parameters dictionary whether use of encrypted DNS protocols is prohibited for
+ *		the associated command.
+ *
+ *	@param params
+ *		The command parameters dictionary.
+ *
+ *	@param prohibit
+ *		If use of encrypted DNS protocols is prohibited, pass true. Otherwise, pass false.
+ *
+ *	@discussion
+ *		By default, use of encrypted DNS protocols is not prohibited.
+ */
+void
+dnssd_xpc_parameters_set_prohibit_encrypted_dns(xpc_object_t params, bool prohibit);
+
+/*!
+ *	@brief
  *		Gets authentication tag from a command result dictionary.
  *
  *	@param result
@@ -764,13 +828,13 @@ dnssd_xpc_result_get_cname_update(xpc_object_t result);
  *		The command result dictionary.
  *
  *	@result
- *		The tracker hostname, if present, as an XPC string object. Otherwise, NULL.
+ *		The tracker hostname, if present, as an XPC string. Otherwise, NULL.
  *
  * @discussion
  *		No tracker hostname means that the result is not associated with a known tracker.
  */
-xpc_object_t _Nullable
-dnssd_xpc_result_get_tracker_hostname_object(xpc_object_t result);
+mdns_xpc_string_t _Nullable
+dnssd_xpc_result_get_tracker_hostname(xpc_object_t result);
 
 /*!
  *	@brief
@@ -780,10 +844,10 @@ dnssd_xpc_result_get_tracker_hostname_object(xpc_object_t result);
  *		The command result dictionary.
  *
  *	@result
- *		The tracker owner, if present, as an XPC string object. Otherwise, NULL.
+ *		The tracker owner, if present, as an XPC string. Otherwise, NULL.
  */
-xpc_object_t _Nullable
-dnssd_xpc_result_get_tracker_owner_object(xpc_object_t result);
+mdns_xpc_string_t _Nullable
+dnssd_xpc_result_get_tracker_owner(xpc_object_t result);
 
 /*!
  *	@brief
@@ -810,6 +874,19 @@ dnssd_xpc_result_get_tracker_is_approved(xpc_object_t result);
  */
 dnssd_negative_reason_t
 dnssd_xpc_result_get_negative_reason(xpc_object_t result);
+
+/*!
+ *	@brief
+ *		Gets validation data from a command result dictionary.
+ *
+ *	@param result
+ *		The command result dictionary.
+ *
+ *	@result
+ *		Validation data, if present, as an XPC data object. Otherwise, NULL.
+ */
+xpc_object_t _Nullable
+dnssd_xpc_result_get_validation_data_object(xpc_object_t result);
 
 /*!
  *	@brief
@@ -984,7 +1061,7 @@ dnssd_xpc_result_set_cname_update(xpc_object_t result, xpc_object_t cname_update
  *		The hostname that was verified.
  */
 void
-dnssd_xpc_result_set_tracker_hostname(xpc_object_t result, xpc_object_t hostname);
+dnssd_xpc_result_set_tracker_hostname(xpc_object_t result, mdns_xpc_string_t hostname);
 
 /*!
  *	@brief
@@ -997,7 +1074,7 @@ dnssd_xpc_result_set_tracker_hostname(xpc_object_t result, xpc_object_t hostname
  *		The tracker owner.
  */
 void
-dnssd_xpc_result_set_tracker_owner(xpc_object_t result, xpc_object_t owner);
+dnssd_xpc_result_set_tracker_owner(xpc_object_t result, mdns_xpc_string_t owner);
 
 /*!
  *	@brief
@@ -1024,6 +1101,22 @@ dnssd_xpc_result_set_tracker_is_approved(xpc_object_t result, bool approved);
  */
 void
 dnssd_xpc_result_set_negative_reason(xpc_object_t result, dnssd_negative_reason_t reason);
+
+/*!
+ *	@brief
+ *		Sets the validation data in a command result dictionary.
+ *
+ *	@param result
+ *		The command result dictionary.
+ *
+ *	@param data_ptr
+ *		Pointer to the validation data.
+ *
+ *	@param data_len
+ *		Length of the validation data.
+ */
+void
+dnssd_xpc_result_set_validation_data(xpc_object_t result, const uint8_t *data_ptr, size_t data_len);
 
 __END_DECLS
 

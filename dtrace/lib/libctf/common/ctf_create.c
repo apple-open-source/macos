@@ -1298,6 +1298,55 @@ membadd(const char *name, ctf_id_t type, unsigned long offset, void *arg)
 }
 
 /*
+ * A CTF library assumes that intrinsic types appear before bitfields (and thus are in
+ * src_fp hash table). When adding an integer/float type to dst_fp ensures that we add
+ * the intrinsic type before it so dst_fp will keep the same ordering.
+ *
+ * For example:
+ *
+ *    struct {
+ *      unsigned int foo:4;
+ *    }
+ *
+ * foo's type will have the same name ('unsigned int') but use a different encoding which
+ * can cause conflicts later when 'unsigned int' is added to dst_fp.
+ */
+static long
+ctf_add_intrinsic(ctf_file_t *dst_fp, ctf_file_t *src_fp, ctf_id_t type_id, const char *name)
+{
+    ctf_encoding_t hash_en, type_en;
+    ctf_helem_t *hep;
+    ctf_id_t hash_id;
+
+    if (!name || name[0] == '\0')
+        return (0);
+
+    /* Lookup a type in source's hash table. */
+    hep = ctf_hash_lookup(&src_fp->ctf_names, src_fp, name, strlen(name));
+    if (hep == NULL)
+        return (0);
+
+    hash_id = (ctf_id_t)hep->h_type;
+    if (type_id == hash_id)
+        return (0);
+
+    /* If hashed type is different add it to dst_fp. */
+    if (ctf_type_encoding(src_fp, hash_id, &hash_en) != 0) {
+        return (ctf_set_errno(dst_fp, ctf_errno(src_fp)));
+    }
+
+    if (ctf_type_encoding(src_fp, type_id, &type_en) != 0) {
+        return (ctf_set_errno(dst_fp, ctf_errno(src_fp)));
+    }
+
+    if (bcmp(&type_en, &hash_en, sizeof (ctf_encoding_t)) &&
+        ctf_add_type(dst_fp, src_fp, hash_id) == CTF_ERR)
+        return (CTF_ERR); /* errno is set for us */
+
+    return (0);
+}
+
+/*
  * The ctf_add_type routine is used to copy a type from a source CTF container
  * to a dynamic destination container.  This routine operates recursively by
  * following the source type's links and embedded member types.  If the
@@ -1430,6 +1479,10 @@ ctf_add_type(ctf_file_t *dst_fp, ctf_file_t *src_fp, ctf_id_t src_type)
 	case CTF_K_FLOAT:
 		if (ctf_type_encoding(src_fp, src_type, &src_en) != 0)
 			return (ctf_set_errno(dst_fp, ctf_errno(src_fp)));
+
+        if (dst_type == CTF_ERR &&
+            ctf_add_intrinsic(dst_fp, src_fp, src_type, name) == CTF_ERR)
+            return (CTF_ERR); /* errno is set for us */
 
 		if (dst_type != CTF_ERR) {
 			if (ctf_type_encoding(dst_fp, dst_type, &dst_en) != 0)

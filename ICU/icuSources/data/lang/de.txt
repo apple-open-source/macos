@@ -45,6 +45,7 @@ de{
         an{"Aragonesisch"}
         ang{"Altenglisch"}
         anp{"Angika"}
+        apw{"Apachen, westliche"}
         ar{"Arabisch"}
         ar_001{"Modernes Hocharabisch"}
         arc{"Aramäisch"}

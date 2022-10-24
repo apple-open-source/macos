@@ -7,8 +7,6 @@ seconds : PT-10D
 result  : NaN
 seconds : --PT10H
 result  : NaN
-seconds : PT10H10M.5S
-result  : NaN
 seconds : PYT0.00001S
 result  : NaN
 seconds : PT49.00001

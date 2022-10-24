@@ -42,6 +42,7 @@ ro{
         an{"aragoneză"}
         ang{"engleză veche"}
         anp{"angika"}
+        apw{"apașă, occidentală"}
         ar{"arabă"}
         ar_001{"arabă standard modernă"}
         arc{"aramaică"}
@@ -191,6 +192,7 @@ ro{
         grc{"greacă veche"}
         gsw{"germană (Elveția)"}
         gu{"gujarati"}
+        guc{"wayuu"}
         guz{"gusii"}
         gv{"manx"}
         gwi{"gwichʼin"}
@@ -267,6 +269,7 @@ ro{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karaceai-balkar"}
+        kri{"krio"}
         krl{"kareliană"}
         kru{"kurukh"}
         ks{"cașmiră"}
@@ -519,6 +522,7 @@ ro{
         vai{"vai"}
         ve{"venda"}
         vi{"vietnameză"}
+        vls{"flamandă occidentală"}
         vo{"volapuk"}
         vot{"votică"}
         vun{"vunjo"}

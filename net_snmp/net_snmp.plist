@@ -16,6 +16,7 @@
 		<string>Mac OS X support for hrSWInstalledTable</string>
 		<string>Mac OS X support for hrSWRunPerfCPU</string>
 		<string>patches for CVE-2012-6151 &amp; CVE-2014-3565</string>
+		<string>Backport patch for buffer overflow (#85867082)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>net-snmp</string>

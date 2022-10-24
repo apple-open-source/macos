@@ -29,31 +29,29 @@
 #include "DrawingAreaProxyMessages.h"
 #include "GraphicsLayerWC.h"
 #include "PlatformImageBufferShareableBackend.h"
+#include "RemoteRenderingBackendProxy.h"
 #include "RemoteWCLayerTreeHostProxy.h"
 #include "UpdateInfo.h"
+#include "WebFrame.h"
 #include "WebPageCreationParameters.h"
 #include "WebProcess.h"
-#include <WebCore/ConcreteImageBuffer.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/ImageBuffer.h>
 
 namespace WebKit {
 using namespace WebCore;
 
 DrawingAreaWC::DrawingAreaWC(WebPage& webPage, const WebPageCreationParameters& parameters)
     : DrawingArea(DrawingAreaType::WC, parameters.drawingAreaIdentifier, webPage)
-    , m_rootLayerClient(webPage)
-    , m_remoteWCLayerTreeHostProxy(makeUnique<RemoteWCLayerTreeHostProxy>(webPage, *this))
+    , m_remoteWCLayerTreeHostProxy(makeUnique<RemoteWCLayerTreeHostProxy>(webPage, parameters.usesOffscreenRendering))
     , m_layerFactory(*this)
     , m_rootLayer(GraphicsLayer::create(graphicsLayerFactory(), this->m_rootLayerClient))
     , m_updateRenderingTimer(*this, &DrawingAreaWC::updateRendering)
     , m_commitQueue(WorkQueue::create("DrawingAreaWC CommitQueue"_s))
 {
     m_rootLayer->setName(MAKE_STATIC_STRING_IMPL("drawing area root"));
-    m_rootLayer->setDrawsContent(true);
-    m_rootLayer->setContentsOpaque(true);
     m_rootLayer->setSize(m_webPage.size());
-    m_rootLayer->setNeedsDisplay();
 }
 
 DrawingAreaWC::~DrawingAreaWC()
@@ -93,6 +91,17 @@ void DrawingAreaWC::attachViewOverlayGraphicsLayer(GraphicsLayer* layer)
     updateRootLayers();
 }
 
+void DrawingAreaWC::updatePreferences(const WebPreferencesStore&)
+{
+    Settings& settings = m_webPage.corePage()->settings();
+    settings.setAcceleratedCompositingForFixedPositionEnabled(settings.acceleratedCompositingEnabled());
+}
+
+bool DrawingAreaWC::shouldUseTiledBackingForFrameView(const WebCore::FrameView& frameView) const
+{
+    return frameView.frame().isMainFrame();
+}
+
 void DrawingAreaWC::setLayerTreeStateIsFrozen(bool isFrozen)
 {
     if (m_isRenderingSuspended == isFrozen)
@@ -113,6 +122,10 @@ void DrawingAreaWC::updateGeometry(uint64_t backingStoreStateID, IntSize viewSiz
 
 void DrawingAreaWC::setNeedsDisplay()
 {
+    if (isCompositingMode()) {
+        triggerRenderingUpdate();
+        return;
+    }
     m_dirtyRegion = { };
     m_scrollRect = { };
     m_scrollOffset = { };
@@ -122,41 +135,48 @@ void DrawingAreaWC::setNeedsDisplay()
 void DrawingAreaWC::setNeedsDisplayInRect(const IntRect& rect)
 {
     if (isCompositingMode())
-        m_rootLayer->setNeedsDisplayInRect(rect);
-    else
-        m_dirtyRegion.unite(rect);
+        return;
+    IntRect dirtyRect = rect;
+    dirtyRect.intersect(m_webPage.bounds());
+    m_dirtyRegion.unite(dirtyRect);
     triggerRenderingUpdate();
 }
 
 void DrawingAreaWC::scroll(const IntRect& scrollRect, const IntSize& scrollDelta)
 {
     if (isCompositingMode())
-        m_rootLayer->setNeedsDisplayInRect(scrollRect);
-    else {
-        if (scrollRect != m_scrollRect) {
-            // Just repaint the entire current scroll rect, we'll scroll the new rect instead.
-            setNeedsDisplayInRect(m_scrollRect);
-            m_scrollRect = { };
-            m_scrollOffset = { };
-        }
-        // Get the part of the dirty region that is in the scroll rect.
-        Region dirtyRegionInScrollRect = intersect(scrollRect, m_dirtyRegion);
-        if (!dirtyRegionInScrollRect.isEmpty()) {
-            // There are parts of the dirty region that are inside the scroll rect.
-            // We need to subtract them from the region, move them and re-add them.
-            m_dirtyRegion.subtract(scrollRect);
-            // Move the dirty parts.
-            Region movedDirtyRegionInScrollRect = intersect(translate(dirtyRegionInScrollRect, scrollDelta), scrollRect);
-            // And add them back.
-            m_dirtyRegion.unite(movedDirtyRegionInScrollRect);
-        }
-        // Compute the scroll repaint region.
-        Region scrollRepaintRegion = subtract(scrollRect, translate(scrollRect, scrollDelta));
-        m_dirtyRegion.unite(scrollRepaintRegion);
-        m_scrollRect = scrollRect;
-        m_scrollOffset += scrollDelta;
-        triggerRenderingUpdate();
+        return;
+
+    if (scrollRect != m_scrollRect) {
+        // Just repaint the entire current scroll rect, we'll scroll the new rect instead.
+        setNeedsDisplayInRect(m_scrollRect);
+        m_scrollRect = { };
+        m_scrollOffset = { };
     }
+    // Get the part of the dirty region that is in the scroll rect.
+    Region dirtyRegionInScrollRect = intersect(scrollRect, m_dirtyRegion);
+    if (!dirtyRegionInScrollRect.isEmpty()) {
+        // There are parts of the dirty region that are inside the scroll rect.
+        // We need to subtract them from the region, move them and re-add them.
+        m_dirtyRegion.subtract(scrollRect);
+        // Move the dirty parts.
+        Region movedDirtyRegionInScrollRect = intersect(translate(dirtyRegionInScrollRect, scrollDelta), scrollRect);
+        // And add them back.
+        m_dirtyRegion.unite(movedDirtyRegionInScrollRect);
+    }
+    // Compute the scroll repaint region.
+    Region scrollRepaintRegion = subtract(scrollRect, translate(scrollRect, scrollDelta));
+    m_dirtyRegion.unite(scrollRepaintRegion);
+    m_scrollRect = scrollRect;
+    m_scrollOffset += scrollDelta;
+    triggerRenderingUpdate();
+}
+
+void DrawingAreaWC::forceRepaintAsync(WebPage&, CompletionHandler<void()>&& completionHandler)
+{
+    m_forceRepaintCompletionHandler = WTFMove(completionHandler);
+    m_isForceRepaintCompletionHandlerDeferred = m_waitDidUpdate;
+    setNeedsDisplay();
 }
 
 void DrawingAreaWC::triggerRenderingUpdate()
@@ -173,10 +193,12 @@ void DrawingAreaWC::triggerRenderingUpdate()
 static void flushLayerImageBuffers(WCUpateInfo& info)
 {
     for (auto& layerInfo : info.changedLayers) {
-        if (layerInfo.changes & WCLayerChange::BackingStore) {
-            if (auto image = layerInfo.backingStore.imageBuffer()) {
-                if (auto flusher = image->createFlusher())
-                    flusher->flush();
+        if (layerInfo.changes & WCLayerChange::Background) {
+            for (auto& tileUpdate : layerInfo.tileUpdate) {
+                if (auto image = tileUpdate.backingStore.imageBuffer()) {
+                    if (auto flusher = image->createFlusher())
+                        flusher->flush();
+                }
             }
         }
     }
@@ -197,7 +219,7 @@ void DrawingAreaWC::updateRendering()
     // This function is not reentrant, e.g. a rAF callback may force repaint.
     if (m_inUpdateRendering)
         return;
-    SetForScope<bool> change(m_inUpdateRendering, true);
+    SetForScope change(m_inUpdateRendering, true);
 
     ASSERT(!m_waitDidUpdate);
     m_waitDidUpdate = true;
@@ -220,17 +242,27 @@ void DrawingAreaWC::sendUpdateAC()
     m_rootLayer->flushCompositingStateForThisLayerOnly();
 
     // Because our view-relative overlay root layer is not attached to the FrameView's GraphicsLayer tree, we need to flush it manually.
-    if (m_viewOverlayRootLayer)
-        m_viewOverlayRootLayer->flushCompositingState({ });
+    if (m_viewOverlayRootLayer) {
+        FloatRect visibleRect({ }, m_webPage.size());
+        m_viewOverlayRootLayer->flushCompositingState(visibleRect);
+    }
 
     m_updateInfo.rootLayer = m_rootLayer->primaryLayerID();
 
-    m_commitQueue->dispatch([this, weakThis = WeakPtr(*this), updateInfo = std::exchange(m_updateInfo, { })]() mutable {
+    m_commitQueue->dispatch([this, weakThis = WeakPtr(*this), stateID = m_backingStoreStateID, updateInfo = std::exchange(m_updateInfo, { })]() mutable {
         flushLayerImageBuffers(updateInfo);
-        RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), updateInfo = WTFMove(updateInfo)]() mutable {
+        RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), stateID, updateInfo = WTFMove(updateInfo)]() mutable {
             if (!weakThis)
                 return;
-            m_remoteWCLayerTreeHostProxy->update(WTFMove(updateInfo));
+            m_remoteWCLayerTreeHostProxy->update(WTFMove(updateInfo), [this, weakThis = WTFMove(weakThis), stateID](std::optional<UpdateInfo> updateInfo) {
+                if (!weakThis)
+                    return;
+                if (updateInfo && stateID == m_backingStoreStateID) {
+                    send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, WTFMove(*updateInfo)));
+                    return;
+                }
+                didUpdate();
+            });
         });
     });
 }
@@ -301,7 +333,13 @@ void DrawingAreaWC::sendUpdateNonAC()
                 didUpdate();
                 return;
             }
-            auto handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*image->ensureBackendCreated()).createImageBufferBackendHandle();
+
+            ImageBufferBackendHandle handle;
+            if (auto* backend = image->ensureBackendCreated()) {
+                auto* sharing = backend->toBackendSharing();
+                if (is<ImageBufferBackendHandleSharing>(sharing))
+                    handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
+            }
             updateInfo.bitmapHandle = std::get<ShareableBitmap::Handle>(WTFMove(handle));
             send(Messages::DrawingAreaProxy::Update(stateID, WTFMove(updateInfo)));
         });
@@ -328,35 +366,23 @@ void DrawingAreaWC::commitLayerUpateInfo(WCLayerUpateInfo&& info)
 RefPtr<ImageBuffer> DrawingAreaWC::createImageBuffer(FloatSize size)
 {
     if (WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM))
-        return m_webPage.ensureRemoteRenderingBackendProxy().createImageBuffer(size, RenderingMode::Unaccelerated, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
-    return ConcreteImageBuffer<UnacceleratedImageBufferShareableBackend>::create(size, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8, nullptr);
+        return m_webPage.ensureRemoteRenderingBackendProxy().createImageBuffer(size, RenderingMode::Unaccelerated, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    return ImageBuffer::create<UnacceleratedImageBufferShareableBackend>(size, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8, RenderingPurpose::DOM, nullptr);
 }
 
 void DrawingAreaWC::didUpdate()
 {
     m_waitDidUpdate = false;
+    if (m_forceRepaintCompletionHandler) {
+        if (m_isForceRepaintCompletionHandlerDeferred)
+            m_isForceRepaintCompletionHandlerDeferred = false;
+        else
+            m_forceRepaintCompletionHandler();
+    }
     if (m_hasDeferredRenderingUpdate) {
         m_hasDeferredRenderingUpdate = false;
         triggerRenderingUpdate();
     }
-}
-
-DrawingAreaWC::RootLayerClient::RootLayerClient(WebPage& webPage)
-    : m_webPage(webPage)
-{
-}
-
-void DrawingAreaWC::RootLayerClient::paintContents(const GraphicsLayer*, GraphicsContext& context, const FloatRect& rectToPaint, GraphicsLayerPaintBehavior)
-{
-    context.save();
-    context.clip(rectToPaint);
-    m_webPage.corePage()->mainFrame().view()->paint(context, enclosingIntRect(rectToPaint));
-    context.restore();
-}
-
-float DrawingAreaWC::RootLayerClient::deviceScaleFactor() const
-{
-    return m_webPage.corePage()->deviceScaleFactor();
 }
 
 } // namespace WebKit

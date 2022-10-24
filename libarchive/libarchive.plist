@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libarchive</string>
 	<key>OpenSourceVersion</key>
-	<string>3.5.1</string>
+	<string>3.5.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>https://www.libarchive.org</string>
 	<key>OpenSourceURL</key>
-	<string>https://github.com/libarchive/libarchive/releases/download/3.5.1/libarchive-3.5.1.tar.xz</string>
+	<string>https://github.com/libarchive/libarchive/releases/download/3.5.3/libarchive-3.5.3.tar.xz</string>
 	<key>OpenSourceSHA1</key>
-	<string>1607cb98ca2845f31399ef53edd1d8b5bd67c664</string>
+	<string>57c0608db646a969aeb05ae7f4a2c2e92612deb4</string>
 	<key>OpenSourceImportDate</key>
-	<string>2021-02-09</string>
+	<string>2022-05-03</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>tar/read.c: add support for quarantine</string>
@@ -25,7 +25,7 @@
 		<string>tar/bsdtar.c: always extract mac metadata (38797702)</string>
 		<string>libarchive/archive_ppmd7.c: fix out of bounds read (37829028)</string>
 		<string>libarchive/archive.h, libarchive/archive_entry.h: use API_DEPRECATED (41100558)</string>
-		<string>libarchive/archive_read_support_format_zip.c: support zlib compressed symlink entries (46466175)</string>
+		<string>libarchive/archive_read_support_format_rar.c: fix heap overflow (41473909)</string>
 		<string>test_utils/test_main.c: replace system() with posix_spawn() (48525575)</string>
 		<string>libarchive/archive_read_support_format_zip.c: look for slash-less resource forks for directory entries (51855785)</string>
 		<string>libarchive/archive_read_support_format_zip.c, libarchive/archive_write_disk_posix.c: apply data forks to directories (52273121)</string>
@@ -35,12 +35,13 @@
 		<string>libarchive/archive_read_support_format_tar.c: fix heap buffer overflow (70371174)</string>
 		<string>libarchive/archive_read_support_format_iso9660.c: fix heap buffer overflow (71589643)</string>
 		<string>libarchive/test/test_write_format_iso9660_filename.c: fix namespace collision (72127281)</string>
-		<string>libarchive/libarchive/archive_write_set_format_cpio.c: ditto enhancements (79685318)</string>
+		<string>libarchive/libarchive/archive_write_set_format_cpio_odc.c: ditto enhancements (79685318)</string>
 		<string>libarchive/archive_cryptor.c: fix CCCryptor leak (68720556)</string>
 		<string>libarchive/test/test_archive_string_conversion.c: fix memory leak (68720556)</string>
 		<string>libarchive/test/test_write_disk_appledouble.c: fix acl string leaks (68720556)</string>
 		<string>libarchive/test/test_write_disk_mac_metadata.c: fix acl string leaks (68720556)</string>
-		<string>libarchive/archive_read_support_format_rar5.c: fix heap buffer overflow (82437116)</string>
+		<string>libarchive/archive_read_support_format_tar.c: fix heap buffer overflow (82788199)</string>
+		<string>libarchive/archive_read_support_format_zip.c: fix out of bounds read (91342172)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

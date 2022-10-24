@@ -28,13 +28,20 @@
 
 #if ENABLE(SANDBOX_EXTENSIONS)
 
+#import "ArgumentCodersCocoa.h"
 #import "DataReference.h"
 #import "Decoder.h"
 #import "Encoder.h"
+#import "Logging.h"
+#import "WebCoreArgumentCoders.h"
 #import <string.h>
 #import <wtf/FileSystem.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/CString.h>
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+#include "SandboxStateVariables.h"
+#endif
 
 namespace WebKit {
 
@@ -183,27 +190,27 @@ RefPtr<SandboxExtension> SandboxExtension::create(Handle&& handle)
     return adoptRef(new SandboxExtension(handle));
 }
 
-String stringByResolvingSymlinksInPath(const String& path)
+String stringByResolvingSymlinksInPath(StringView path)
 {
     char resolvedPath[PATH_MAX] = { 0 };
     realpath(path.utf8().data(), resolvedPath);
     return String::fromUTF8(resolvedPath);
 }
 
-String resolveAndCreateReadWriteDirectoryForSandboxExtension(const String& path)
+String resolveAndCreateReadWriteDirectoryForSandboxExtension(StringView path)
 {
     NSError *error = nil;
-    NSString *nsPath = path;
+    auto nsPath = path.createNSStringWithoutCopying();
 
-    if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
-        NSLog(@"could not create directory \"%@\" for future sandbox extension, error %@", nsPath, error);
+    if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath.get() withIntermediateDirectories:YES attributes:nil error:&error]) {
+        NSLog(@"could not create directory \"%@\" for future sandbox extension, error %@", nsPath.get(), error);
         return { };
     }
 
     return resolvePathForSandboxExtension(path);
 }
 
-String resolvePathForSandboxExtension(const String& path)
+String resolvePathForSandboxExtension(StringView path)
 {
     String resolvedPath = stringByResolvingSymlinksInPath(path);
     if (resolvedPath.isNull()) {
@@ -214,7 +221,7 @@ String resolvePathForSandboxExtension(const String& path)
     return resolvedPath;
 }
 
-auto SandboxExtension::createHandleWithoutResolvingPath(const String& path, Type type) -> std::optional<Handle>
+auto SandboxExtension::createHandleWithoutResolvingPath(StringView path, Type type) -> std::optional<Handle>
 {
     Handle handle;
     ASSERT(!handle.m_sandboxExtension);
@@ -227,7 +234,7 @@ auto SandboxExtension::createHandleWithoutResolvingPath(const String& path, Type
     return WTFMove(handle);
 }
 
-auto SandboxExtension::createHandle(const String& path, Type type) -> std::optional<Handle>
+auto SandboxExtension::createHandle(StringView path, Type type) -> std::optional<Handle>
 {
     return createHandleWithoutResolvingPath(resolvePathForSandboxExtension(path), type);
 }
@@ -257,7 +264,7 @@ auto SandboxExtension::createReadOnlyHandlesForFiles(ASCIILiteral logLabel, cons
     });
 }
 
-auto SandboxExtension::createHandleForReadWriteDirectory(const String& path) -> std::optional<Handle>
+auto SandboxExtension::createHandleForReadWriteDirectory(StringView path) -> std::optional<Handle>
 {
     String resolvedPath = resolveAndCreateReadWriteDirectoryForSandboxExtension(path);
     if (resolvedPath.isNull())
@@ -265,7 +272,7 @@ auto SandboxExtension::createHandleForReadWriteDirectory(const String& path) -> 
     return createHandleWithoutResolvingPath(resolvedPath, Type::ReadWrite);
 }
 
-auto SandboxExtension::createHandleForTemporaryFile(const String& prefix, Type type) -> std::optional<std::pair<Handle, String>>
+auto SandboxExtension::createHandleForTemporaryFile(StringView prefix, Type type) -> std::optional<std::pair<Handle, String>>
 {
     Handle handle;
     ASSERT(!handle.m_sandboxExtension);
@@ -282,17 +289,22 @@ auto SandboxExtension::createHandleForTemporaryFile(const String& prefix, Type t
     if (path.last() != '/')
         path.append('/');
     
-    // Append the file name.    
-    path.append(prefix.utf8().data(), prefix.length());
+    // Append the file name.
+    auto prefixAsUTF8 = prefix.utf8();
+    path.append(prefixAsUTF8.data(), prefixAsUTF8.length());
     path.append('\0');
+
+    auto pathString = String::fromUTF8(path.data());
+    if (pathString.isNull())
+        return std::nullopt;
     
-    handle.m_sandboxExtension = SandboxExtensionImpl::create(FileSystem::fileSystemRepresentation(path.data()).data(), type);
+    handle.m_sandboxExtension = SandboxExtensionImpl::create(FileSystem::fileSystemRepresentation(pathString).data(), type);
 
     if (!handle.m_sandboxExtension) {
         WTFLogAlways("Could not create a sandbox extension for temporary file '%s'", path.data());
         return std::nullopt;
     }
-    return {{ WTFMove(handle), String(path.data()) }};
+    return { { WTFMove(handle), String::fromUTF8(path.data()) } };
 }
 
 auto SandboxExtension::createHandleForGenericExtension(ASCIILiteral extensionClass) -> std::optional<Handle>
@@ -309,8 +321,9 @@ auto SandboxExtension::createHandleForGenericExtension(ASCIILiteral extensionCla
     return WTFMove(handle);
 }
 
-auto SandboxExtension::createHandleForMachLookup(ASCIILiteral service, std::optional<audit_token_t> auditToken, OptionSet<Flags> flags) -> std::optional<Handle>
+auto SandboxExtension::createHandleForMachLookup(ASCIILiteral service, std::optional<audit_token_t> auditToken, MachBootstrapOptions machBootstrapOptions, OptionSet<Flags> flags) -> std::optional<Handle>
 {
+    UNUSED_PARAM(machBootstrapOptions);
     Handle handle;
     ASSERT(!handle.m_sandboxExtension);
     
@@ -320,24 +333,37 @@ auto SandboxExtension::createHandleForMachLookup(ASCIILiteral service, std::opti
         return std::nullopt;
     }
     
+#if HAVE(SANDBOX_STATE_FLAGS)
+    // When launchd is blocked in the sandbox, we need to manually enable bootstrapping of new XPC connectons.
+    // This is done by unblocking launchd, since launchd access is required when creating Mach connections.
+    // Unblocking launchd is done by enabling a sandbox state variable.
+    if (machBootstrapOptions == MachBootstrapOptions::EnableMachBootstrap) {
+        if (auditToken) {
+            if (!sandbox_enable_state_flag(ENABLE_MACH_BOOTSTRAP, *auditToken))
+                RELEASE_LOG_FAULT(Sandbox, "Could not enable Mach bootstrap, errno = %d.", errno);
+        } else
+            RELEASE_LOG_FAULT(Sandbox, "Could not enable Mach bootstrap, no audit token provided.");
+    }
+#endif
+
     return WTFMove(handle);
 }
 
-auto SandboxExtension::createHandlesForMachLookup(Span<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, OptionSet<Flags> flags) -> Vector<Handle>
+auto SandboxExtension::createHandlesForMachLookup(Span<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, MachBootstrapOptions machBootstrapOptions, OptionSet<Flags> flags) -> Vector<Handle>
 {
-    return createHandlesForResources(services, [auditToken, flags] (ASCIILiteral service) -> std::optional<Handle> {
-        auto handle = createHandleForMachLookup(service, auditToken, flags);
+    return createHandlesForResources(services, [auditToken, machBootstrapOptions, flags] (ASCIILiteral service) -> std::optional<Handle> {
+        auto handle = createHandleForMachLookup(service, auditToken, machBootstrapOptions, flags);
         ASSERT(handle);
         return handle;
     });
 }
 
-auto SandboxExtension::createHandlesForMachLookup(std::initializer_list<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, OptionSet<Flags> flags) -> Vector<Handle>
+auto SandboxExtension::createHandlesForMachLookup(std::initializer_list<const ASCIILiteral> services, std::optional<audit_token_t> auditToken, MachBootstrapOptions machBootstrapOptions, OptionSet<Flags> flags) -> Vector<Handle>
 {
-    return createHandlesForMachLookup(Span { services.begin(), services.size() }, auditToken, flags);
+    return createHandlesForMachLookup(Span { services.begin(), services.size() }, auditToken, machBootstrapOptions, flags);
 }
 
-auto SandboxExtension::createHandleForReadByAuditToken(const String& path, audit_token_t auditToken) -> std::optional<Handle>
+auto SandboxExtension::createHandleForReadByAuditToken(StringView path, audit_token_t auditToken) -> std::optional<Handle>
 {
     Handle handle;
     ASSERT(!handle.m_sandboxExtension);

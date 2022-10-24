@@ -249,7 +249,13 @@ journal *journal_open(struct vnode *jvp,
     
     /* Get the real physical block size. */
     if (ioctl(jvp->psFSRecord->iFD, DKIOCGETBLOCKSIZE, (caddr_t)&phys_blksz)) {
-        goto cleanup_jdev_name;
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
+        {
+            LFHFS_LOG(LEVEL_DEBUG, "%s: DKIOCGETBLOCKSIZE failed with (%d) errno\n", __FUNCTION__, errno);
+            goto cleanup_jdev_name;
+        }
+        LFHFS_LOG(LEVEL_DEBUG, "%s: ioctl DKIOCGETBLOCKSIZE failed with (%d), it is possible we aren't writing to actual device, use a default block size (%d)\n", __FUNCTION__, errno, kMDBSize);
+        phys_blksz = kMDBSize;
     }
     
     if (phys_blksz > min_fs_blksz) {
@@ -515,7 +521,13 @@ journal *journal_create(struct vnode *jvp,
     
     /* Get the real physical block size. */
     if (ioctl(jvp->psFSRecord->iFD, DKIOCGETBLOCKSIZE, (caddr_t)&phys_blksz)) {
-        goto cleanup_jdev_name;
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
+        {
+            LFHFS_LOG(LEVEL_DEBUG, "%s: DKIOCGETBLOCKSIZE failed with (%d) errno\n", __FUNCTION__, errno);
+            goto cleanup_jdev_name;
+        }
+        LFHFS_LOG(LEVEL_DEBUG, "%s: ioctl DKIOCGETBLOCKSIZE failed with (%d), it is possible we aren't writing to actual device, use a default block size (%d)\n", __FUNCTION__, errno, kMDBSize);
+        phys_blksz = kMDBSize;
     }
     
     if (journal_size < (256*1024) || journal_size > (MAX_JOURNAL_SIZE)) {
@@ -996,7 +1008,14 @@ int journal_modify_block_start(journal *jnl, GenericLFBuf *psGenBuf) {
         uint32_t phys_blksz;
 
         if (ioctl(jnl->jdev->psFSRecord->iFD, DKIOCGETBLOCKSIZE, (caddr_t)&phys_blksz)) {
-            bad = 1;
+            if ((errno != ENOTSUP) && (errno != ENOTTY))
+            {
+                LFHFS_LOG(LEVEL_DEBUG, "%s: DKIOCGETBLOCKSIZE failed with (%d) errno\n", __FUNCTION__, errno);
+                bad = 1;
+            } else {
+                LFHFS_LOG(LEVEL_DEBUG, "%s: ioctl DKIOCGETBLOCKSIZE failed with (%d), it is possible we aren't writing to actual device, use a default block size (%d)\n", __FUNCTION__, errno, kMDBSize);
+                phys_blksz = kMDBSize;
+            }
         } else if (phys_blksz != (uint32_t)jnl->jhdr->jhdr_size) {
             if (phys_blksz < 512) {
                 panic("jnl: mod block start: phys blksz %d is too small (%d, %d)\n",
@@ -2364,8 +2383,6 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
     
     for (blhdr = tr->blhdr; blhdr; blhdr = (block_list_header *)((long)blhdr->binfo[0].bnum)) {
         
-        amt = blhdr->bytes_used;
-        
         blhdr->binfo[0].u.bi.b.sequence_num = tr->sequence_num;
         
         blhdr->checksum = 0;
@@ -2373,6 +2390,7 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
         
         bparray = hfs_malloc(blhdr->num_blocks * sizeof(buf_t));
         tbuffer_offset = jnl->jhdr->blhdr_size;
+        size_t total_block_size = 0;
         
         // for each block in the block-header,
         for (i = 1; i < blhdr->num_blocks; i++) {
@@ -2400,6 +2418,7 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
                 blhdr->binfo[i].u.bi.b.cksum = 0;
             }
             tbuffer_offset += bsize;
+            total_block_size += bsize;
         }
 
         /*
@@ -2409,10 +2428,26 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
          */
         wait_condition(jnl, &jnl->writing_header, "finish_end_transaction");
         
-        if (jnl->write_header_failed == FALSE)
-            ret = write_journal_data(jnl, &end, blhdr, amt);
-        else
+        size_t used_blhdr_size_in_bytes = sizeof(blhdr) + (blhdr->num_blocks-1) * sizeof(blhdr->binfo); // blhdr includes binfo[0]
+        size_t phy_blk_size = jnl->fsmount->psHfsmount->hfs_physical_block_size;
+        size_t blhdr_write_size = ((used_blhdr_size_in_bytes+phy_blk_size-1)/phy_blk_size) * phy_blk_size; // Ceiling to block boundary
+        
+        if (blhdr_write_size > jnl->jhdr->blhdr_size) {
+            panic("blhdr_write_size should never be larger than jnl->jhdr->blhdr_size)");
+        }
+
+        if (jnl->write_header_failed == FALSE) {
+            ret  = write_journal_data(jnl, &end, blhdr, blhdr_write_size);
+
+            // Skip uninitialized (no need to write)
+            end += jnl->jhdr->blhdr_size - blhdr_write_size;
+            if (end >= jnl->jhdr->size) {
+                end -= (jnl->jhdr->size - jnl->jhdr->jhdr_size); // Wrap around to the begining of the buffer
+            }
+            ret += write_journal_data(jnl, &end, (void*)blhdr + jnl->jhdr->blhdr_size, total_block_size);
+        } else {
             ret_val = -1;
+        }
 
         #if HFS_CRASH_TEST
             CRASH_ABORT(CRASH_ABORT_JOURNAL_AFTER_JOURNAL_DATA, jnl->fsmount->psHfsmount, NULL);
@@ -2430,6 +2465,7 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
         if (ret_val == -1)
             goto bad_journal;
         
+        amt = blhdr_write_size + total_block_size;
         if (ret != amt) {
             LFHFS_LOG(LEVEL_ERROR, "jnl: end_transaction: only wrote %zu of %zu bytes to the journal!\n",
                    ret, amt);
@@ -2562,6 +2598,8 @@ static int finish_end_transaction(transaction *tr, errno_t (*callback)(void*), v
     
 bad_journal:
     if (ret_val == -1) {
+        
+        LFHFS_LOG(LEVEL_ERROR, "jnl: bad_journal %d.\n", ret_val);
         abort_transaction(jnl, tr);        // cleans up list of extents to be trimmed
         
         /*
@@ -3366,9 +3404,14 @@ int journal_is_clean(struct vnode *jvp,
     
     /* Get the real physical block size. */
     if (ioctl(jvp->psFSRecord->iFD, DKIOCGETBLOCKSIZE, (caddr_t)&phys_blksz)) {
-        LFHFS_LOG(LEVEL_ERROR, "jnl: journal_is_clean: failed to get device block size.\n");
-        ret = EINVAL;
-        goto cleanup_jdev_name;
+        if ((errno != ENOTSUP) && (errno != ENOTTY))
+        {
+            LFHFS_LOG(LEVEL_ERROR, "jnl: journal_is_clean: failed to get device block size.\n");
+            ret = EINVAL;
+            goto cleanup_jdev_name;
+        }
+        LFHFS_LOG(LEVEL_DEBUG, "%s: ioctl DKIOCGETBLOCKSIZE failed with (%d), it is possible we aren't writing to actual device, use a default block size (%d)\n", __FUNCTION__, errno, kMDBSize);
+        phys_blksz = kMDBSize;
     }
     
     if (phys_blksz > (uint32_t)min_fs_block_size) {

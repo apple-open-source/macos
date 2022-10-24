@@ -197,7 +197,7 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone: ckr];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     XCTAssert([self.defaultCKKS waitForFetchAndIncomingQueueProcessing], "Queue processing should have succeeded");
 
     NSDate* nowDate = [NSDate date];

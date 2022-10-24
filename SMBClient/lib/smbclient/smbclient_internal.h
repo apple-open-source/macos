@@ -84,7 +84,13 @@ extern "C" {
 #define SMBFS_MNT_MC_PREFER_WIRED   0x200000
 #define SMBFS_MNT_DISABLE_311       0x400000
 #define SMBFS_MNT_SESSION_ENCRYPT   0x800000
-#define SMBFS_MNT_SHARE_ENCRYPT    0x1000000
+#define SMBFS_MNT_SHARE_ENCRYPT             0x1000000
+#define SMBFS_MNT_ASSUME_DUR_LEASE_V2_OFF   0x2000000
+#define SMBFS_MNT_FILE_MODE                 0x4000000
+#define SMBFS_MNT_DIR_MODE                  0x8000000
+#define SMBFS_MNT_NO_PASSWORD_PROMPT        0x10000000
+#define SMBFS_MNT_FORCE_NEW_SESSION         0x20000000
+#define SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY   0x40000000
 
 /*
  * Async Read/Write defaults
@@ -124,7 +130,8 @@ enum {
 	kServerReplyCacheSupported = 0x02,		/* AFP only */
 	kSMBServer = 0x04,						/* SMB - Server is using SMB protocol */
 	kSMBDurableHandleV2Supported = 0x08,	/* SMB - Durable Handle V2 supported */
-	kSMBFullFSyncSupported = 0x10			/* SMB - F_FULLFSYNC supported */
+	kSMBFullFSyncSupported = 0x10,			/* SMB - F_FULLFSYNC supported */
+    kSMBLockFIDOnly = 0x20                  /* SMB - Durable handle only on O_EXLOCK/O_SHLOCK */
 };
 
 struct TimeMachinePB

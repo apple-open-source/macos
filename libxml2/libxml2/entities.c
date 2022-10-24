@@ -6,6 +6,11 @@
  * daniel@veillard.com
  */
 
+/* To avoid EBCDIC trouble when parsing on zOS */
+#if defined(__MVS__)
+#pragma convert("ISO8859-1")
+#endif
+
 #define IN_LIBXML
 #include "libxml.h"
 
@@ -66,7 +71,7 @@ static xmlEntity xmlEntityApos = {
 
 /**
  * xmlEntitiesErrMemory:
- * @extra:  extra informations
+ * @extra:  extra information
  *
  * Handle an out of memory condition
  */
@@ -143,7 +148,7 @@ xmlFreeEntity(xmlEntityPtr entity)
 /*
  * xmlCreateEntity:
  *
- * internal routine doing the entity node strutures allocations
+ * internal routine doing the entity node structures allocations
  */
 static xmlEntityPtr
 xmlCreateEntity(xmlDictPtr dict, const xmlChar *name, int type,
@@ -205,7 +210,7 @@ xmlAddEntity(xmlDtdPtr dtd, const xmlChar *name, int type,
 	  const xmlChar *content) {
     xmlDictPtr dict = NULL;
     xmlEntitiesTablePtr table = NULL;
-    xmlEntityPtr ret;
+    xmlEntityPtr ret, predef;
 
     if (name == NULL)
 	return(NULL);
@@ -218,6 +223,44 @@ xmlAddEntity(xmlDtdPtr dtd, const xmlChar *name, int type,
         case XML_INTERNAL_GENERAL_ENTITY:
         case XML_EXTERNAL_GENERAL_PARSED_ENTITY:
         case XML_EXTERNAL_GENERAL_UNPARSED_ENTITY:
+            predef = xmlGetPredefinedEntity(name);
+            if (predef != NULL) {
+                int valid = 0;
+
+                /* 4.6 Predefined Entities */
+                if ((type == XML_INTERNAL_GENERAL_ENTITY) &&
+                    (content != NULL)) {
+                    int c = predef->content[0];
+
+                    if (((content[0] == c) && (content[1] == 0)) &&
+                        ((c == '>') || (c == '\'') || (c == '"'))) {
+                        valid = 1;
+                    } else if ((content[0] == '&') && (content[1] == '#')) {
+                        if (content[2] == 'x') {
+                            xmlChar *hex = BAD_CAST "0123456789ABCDEF";
+                            xmlChar ref[] = "00;";
+
+                            ref[0] = hex[c / 16 % 16];
+                            ref[1] = hex[c % 16];
+                            if (xmlStrcasecmp(&content[3], ref) == 0)
+                                valid = 1;
+                        } else {
+                            xmlChar ref[] = "00;";
+
+                            ref[0] = '0' + c / 10 % 10;
+                            ref[1] = '0' + c % 10;
+                            if (xmlStrEqual(&content[2], ref))
+                                valid = 1;
+                        }
+                    }
+                }
+                if (!valid) {
+                    xmlEntitiesErr(XML_ERR_ENTITY_PROCESSING,
+                            "xmlAddEntity: invalid redeclaration of predefined"
+                            " entity");
+                    return(NULL);
+                }
+            }
 	    if (dtd->entities == NULL)
 		dtd->entities = xmlHashCreateDict(0, dict);
 	    table = dtd->entities;
@@ -393,7 +436,7 @@ xmlAddDocEntity(xmlDocPtr doc, const xmlChar *name, int type,
  *
  * Create a new entity, this differs from xmlAddDocEntity() that if
  * the document is NULL or has no internal subset defined, then an
- * unlinked entity structure will be returned, it is then the responsability
+ * unlinked entity structure will be returned, it is then the responsibility
  * of the caller to link it to the document later or free it when not needed
  * anymore.
  *
@@ -543,7 +586,7 @@ xmlGetDocEntity(const xmlDoc *doc, const xmlChar *name) {
  * xmlEncodeEntitiesInternal:
  * @doc:  the document containing the string
  * @input:  A string to convert to XML.
- * @attr: are we handling an atrbute value
+ * @attr: are we handling an attribute value
  *
  * Do a global encoding of a string, replacing the predefined entities
  * and non ASCII values with their entities and CharRef counterparts.
@@ -661,11 +704,25 @@ xmlEncodeEntitiesInternal(xmlDocPtr doc, const xmlChar *input, int attr) {
 	    } else {
 		/*
 		 * We assume we have UTF-8 input.
+		 * It must match either:
+		 *   110xxxxx 10xxxxxx
+		 *   1110xxxx 10xxxxxx 10xxxxxx
+		 *   11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+		 * That is:
+		 *   cur[0] is 11xxxxxx
+		 *   cur[1] is 10xxxxxx
+		 *   cur[2] is 10xxxxxx if cur[0] is 111xxxxx
+		 *   cur[3] is 10xxxxxx if cur[0] is 1111xxxx
+		 *   cur[0] is not 11111xxx
 		 */
 		char buf[11], *ptr;
 		int val = 0, l = 1;
 
-		if (*cur < 0xC0) {
+		if (((cur[0] & 0xC0) != 0xC0) ||
+		    ((cur[1] & 0xC0) != 0x80) ||
+		    (((cur[0] & 0xE0) == 0xE0) && ((cur[2] & 0xC0) != 0x80)) ||
+		    (((cur[0] & 0xF0) == 0xF0) && ((cur[3] & 0xC0) != 0x80)) ||
+		    (((cur[0] & 0xF8) == 0xF8))) {
 		    xmlEntitiesErr(XML_CHECK_NOT_UTF8,
 			    "xmlEncodeEntities: input not UTF-8");
 		    if (doc != NULL)
@@ -880,10 +937,9 @@ xmlCreateEntitiesTable(void) {
  * Deallocate the memory used by an entities in the hash table.
  */
 static void
-xmlFreeEntityWrapper(xmlEntityPtr entity,
-	               const xmlChar *name ATTRIBUTE_UNUSED) {
+xmlFreeEntityWrapper(void *entity, const xmlChar *name ATTRIBUTE_UNUSED) {
     if (entity != NULL)
-	xmlFreeEntity(entity);
+	xmlFreeEntity((xmlEntityPtr) entity);
 }
 
 /**
@@ -894,7 +950,7 @@ xmlFreeEntityWrapper(xmlEntityPtr entity,
  */
 void
 xmlFreeEntitiesTable(xmlEntitiesTablePtr table) {
-    xmlHashFree(table, (xmlHashDeallocator) xmlFreeEntityWrapper);
+    xmlHashFree(table, xmlFreeEntityWrapper);
 }
 
 #ifdef LIBXML_TREE_ENABLED
@@ -906,8 +962,9 @@ xmlFreeEntitiesTable(xmlEntitiesTablePtr table) {
  *
  * Returns the new xmlEntitiesPtr or NULL in case of error.
  */
-static xmlEntityPtr
-xmlCopyEntity(xmlEntityPtr ent) {
+static void *
+xmlCopyEntity(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    xmlEntityPtr ent = (xmlEntityPtr) payload;
     xmlEntityPtr cur;
 
     cur = (xmlEntityPtr) xmlMalloc(sizeof(xmlEntity));
@@ -944,7 +1001,7 @@ xmlCopyEntity(xmlEntityPtr ent) {
  */
 xmlEntitiesTablePtr
 xmlCopyEntitiesTable(xmlEntitiesTablePtr table) {
-    return(xmlHashCopy(table, (xmlHashCopier) xmlCopyEntity));
+    return(xmlHashCopy(table, xmlCopyEntity));
 }
 #endif /* LIBXML_TREE_ENABLED */
 
@@ -1085,8 +1142,9 @@ xmlDumpEntityDecl(xmlBufferPtr buf, xmlEntityPtr ent) {
  * When using the hash table scan function, arguments need to be reversed
  */
 static void
-xmlDumpEntityDeclScan(xmlEntityPtr ent, xmlBufferPtr buf) {
-    xmlDumpEntityDecl(buf, ent);
+xmlDumpEntityDeclScan(void *ent, void *buf,
+                      const xmlChar *name ATTRIBUTE_UNUSED) {
+    xmlDumpEntityDecl((xmlBufferPtr) buf, (xmlEntityPtr) ent);
 }
 
 /**
@@ -1098,7 +1156,7 @@ xmlDumpEntityDeclScan(xmlEntityPtr ent, xmlBufferPtr buf) {
  */
 void
 xmlDumpEntitiesTable(xmlBufferPtr buf, xmlEntitiesTablePtr table) {
-    xmlHashScan(table, (xmlHashScanner)xmlDumpEntityDeclScan, buf);
+    xmlHashScan(table, xmlDumpEntityDeclScan, buf);
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
 #define bottom_entities

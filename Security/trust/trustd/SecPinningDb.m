@@ -51,6 +51,7 @@
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecDbInternal.h>
 #include <utilities/SecFileLocations.h>
 #include "utilities/sec_action.h"
 
@@ -432,7 +433,7 @@ static inline bool isNSDictionary(id nsType) {
 #endif
 
     CFStringRef path = CFStringCreateWithCString(NULL, [_dbPath fileSystemRepresentation], kCFStringEncodingUTF8);
-    SecDbRef result = SecDbCreate(path, mode, readWrite, readWrite, false, false, 1,
+    SecDbRef result = SecDbCreate(path, mode, readWrite, readWrite, false, false, kSecDbTrustdMaxIdleHandles,
          ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
              if (!SecOTAPKIIsSystemTrustd()) {
                  /* Non-owner process can't update the db, but it should get a db connection.
@@ -502,6 +503,14 @@ static inline bool isNSDictionary(id nsType) {
     return CFBridgingRelease(SecCopyURLForFileInProtectedTrustdDirectory(CFSTR(kSecPinningDbFileName)));
 }
 
++ (BOOL)enableInMemoryCache {
+#if TARGET_OS_IPHONE
+    return NO;
+#else
+    return TrustdVariantLowMemoryDevice();
+#endif
+}
+
 - (void) initializedDb {
     dispatch_sync(_queue, ^{
         if (!self->_db) {
@@ -514,7 +523,7 @@ static inline bool isNSDictionary(id nsType) {
 - (instancetype) init {
     if (self = [super init]) {
         _queue = dispatch_queue_create("Pinning DB Queue", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-        if (!TrustdVariantLowMemoryDevice()) {
+        if ([SecPinningDb enableInMemoryCache]) {
             _regexCache = [NSMutableDictionary dictionary];
             _regexCacheList = [NSMutableArray array];
             _regexCacheLock = OS_UNFAIR_LOCK_INIT;
@@ -531,7 +540,7 @@ static inline bool isNSDictionary(id nsType) {
 /* MARK: DB Cache
  * The cache is represented a dictionary defined as { suffix : { regex : resultsDictionary } } */
 - (void) clearCache {
-    if (TrustdVariantLowMemoryDevice()) {
+    if ([SecPinningDb enableInMemoryCache]) {
         return;
     }
     os_unfair_lock_lock(&_regexCacheLock);
@@ -541,7 +550,7 @@ static inline bool isNSDictionary(id nsType) {
 }
 
 - (void) addSuffixToCache:(NSString *)suffix entry:(NSDictionary <NSRegularExpression *, NSDictionary *> *)entry {
-    if (TrustdVariantLowMemoryDevice()) {
+    if ([SecPinningDb enableInMemoryCache]) {
         return;
     }
     os_unfair_lock_lock(&_regexCacheLock);
@@ -560,7 +569,7 @@ static inline bool isNSDictionary(id nsType) {
 /* Because we iterate over all DB entries for a suffix, even if we find a match, we guarantee
  * that the cache, if the cache has an entry for a suffix, it has all the entries for that suffix */
 - (BOOL) queryCacheForSuffix:(NSString *)suffix firstLabel:(NSString *)firstLabel results:(NSDictionary * __autoreleasing *)results {
-    if (TrustdVariantLowMemoryDevice()) {
+    if ([SecPinningDb enableInMemoryCache]) {
         return NO;
     }
     __block BOOL foundSuffix = NO;
@@ -642,6 +651,11 @@ static inline bool isNSDictionary(id nsType) {
     __block NSString *firstLabel = [domain substringToIndex:firstDot.location];
     __block NSString *suffix = [domain substringFromIndex:(firstDot.location + 1)];
 
+    if ([suffix hasSuffix:@"."]) {
+        // Trim trailing dots
+        suffix = [suffix substringToIndex:(suffix.length - 1)];
+    }
+
     /* Search cache */
     NSDictionary *cacheResult = nil;
     if ([self queryCacheForSuffix:suffix firstLabel:firstLabel results:&cacheResult]) {
@@ -683,7 +697,7 @@ static inline bool isNSDictionary(id nsType) {
                     bool transparentConnection = (sqlite3_column_int(selectDomain, 3) > 0) ? true : false;
 
                     /* Add to cache entry */
-                    if (!TrustdVariantLowMemoryDevice()) {
+                    if ([SecPinningDb enableInMemoryCache]) {
                         [newCacheEntry setObject:@{(__bridge NSString*)kSecPinningDbKeyPolicyName:policyNameStr,
                                                    (__bridge NSString*)kSecPinningDbKeyRules:policies,
                                                    (__bridge NSString*)kSecPinningDbKeyTransparentConnection:@(transparentConnection)}

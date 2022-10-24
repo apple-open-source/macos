@@ -451,6 +451,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* zlib */;
@@ -587,7 +588,10 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = NO;
 				IS_ZIPPERED = YES;
 				STRIP_STYLE = "non-global";
-				WARNING_CFLAGS = "-Werror=declaration-after-statement";
+				WARNING_CFLAGS = (
+					"-Werror=declaration-after-statement",
+					$inherited,
+				);
 			};
 			name = Release;
 		};
@@ -599,6 +603,7 @@
 				STRIP_STYLE = "non-global";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Release;
 		};
@@ -673,7 +678,10 @@
 				SKIP_INSTALL = YES;
 				STRIP_STYLE = "non-global";
 				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = "-Werror=declaration-after-statement";
+				WARNING_CFLAGS = (
+					"-Werror=declaration-after-statement",
+					$inherited,
+				);
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -739,6 +747,7 @@
 				STRIP_STYLE = "non-global";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				WARNING_CFLAGS = "-Wformat-nonliteral";
 			};
 			name = Debug;
 		};
@@ -758,7 +767,10 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = NO;
 				IS_ZIPPERED = YES;
 				STRIP_STYLE = "non-global";
-				WARNING_CFLAGS = "-Werror=declaration-after-statement";
+				WARNING_CFLAGS = (
+					"-Werror=declaration-after-statement",
+					$inherited,
+				);
 			};
 			name = Debug;
 		};
@@ -825,7 +837,10 @@
 				SKIP_INSTALL = YES;
 				STRIP_STYLE = "non-global";
 				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = "-Werror=declaration-after-statement";
+				WARNING_CFLAGS = (
+					"-Werror=declaration-after-statement",
+					$inherited,
+				);
 				ZERO_LINK = NO;
 			};
 			name = Debug;

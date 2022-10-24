@@ -63,7 +63,7 @@ OSMetaClassDefineReservedUsed( IONetworkController,  2); // outputStart
 OSMetaClassDefineReservedUsed( IONetworkController,  3); // setInputPacketPollingEnable
 OSMetaClassDefineReservedUsed( IONetworkController,  4); // pollInputPackets
 OSMetaClassDefineReservedUsed( IONetworkController,  5); // networkInterfaceNotification
-OSMetaClassDefineReservedUnused( IONetworkController,  6);
+OSMetaClassDefineReservedUsed( IONetworkController,  6); // allocatePacketNoWait
 OSMetaClassDefineReservedUnused( IONetworkController,  7);
 OSMetaClassDefineReservedUnused( IONetworkController,  8);
 OSMetaClassDefineReservedUnused( IONetworkController,  9);
@@ -1069,6 +1069,11 @@ static mbuf_t getPacket( UInt32 size,
 mbuf_t IONetworkController::allocatePacket( UInt32 size )
 {
     return getPacket( size, MBUF_WAITOK, _alignStart, _alignLength );
+}
+
+mbuf_t IONetworkController::allocatePacketNoWait( UInt32 size )
+{
+    return getPacket( size, MBUF_DONTWAIT, _alignStart, _alignLength );
 }
 
 //---------------------------------------------------------------------------

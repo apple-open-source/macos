@@ -450,6 +450,38 @@
 
 @implementation HIDEvent (HIDGameControllerEventPrivate)
 
+- (double)gameControllerButtonL4 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL4);
+}
+
+- (void)setGameControllerButtonL4:(double)gameControllerButtonL4 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL4, (IOHIDFloat)gameControllerButtonL4);
+}
+
+- (double)gameControllerButtonL5 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL5);
+}
+
+- (void)setGameControllerButtonL5:(double)gameControllerButtonL5 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonL5, (IOHIDFloat)gameControllerButtonL5);
+}
+
+- (double)gameControllerButtonR4 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR4);
+}
+
+- (void)setGameControllerButtonR4:(double)gameControllerButtonR4 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR4, (IOHIDFloat)gameControllerButtonR4);
+}
+
+- (double)gameControllerButtonR5 {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR5);
+}
+
+- (void)setGameControllerButtonR5:(double)gameControllerButtonR5 {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerButtonR5, (IOHIDFloat)gameControllerButtonR5);
+}
+
 - (double)gameControllerDirectionPadDown {
     return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldGameControllerDirectionPadDown);
 }
@@ -1546,13 +1578,13 @@
 
 @implementation HIDEvent (HIDProximityEvent)
 
-+ (instancetype)proximityEvent:(uint64_t)timestamp detectionMask:(uint32_t)detectionMask options:(uint32_t)options
++ (instancetype)proximityEvent:(uint64_t)timestamp detectionMask:(uint16_t)detectionMask options:(uint32_t)options
 {
     CFIndex eventSize = sizeof(IOHIDProximityEventData);
     HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventTypeProximity, timestamp, options);
     IOHIDProximityEventData *eventData = (IOHIDProximityEventData *)event->_event.eventData;
 
-    eventData->detectionMask = (uint32_t)detectionMask;
+    eventData->detectionMask = (uint16_t)detectionMask;
 
     return event;
 }
@@ -1561,11 +1593,19 @@
 
 @implementation HIDEvent (HIDProximityEventPrivate)
 
-- (uint32_t)proximityDetectionMask {
-    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityDetectionMask);
+- (uint32_t)probabilityLevel {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProbabilityLevel);
 }
 
-- (void)setProximityDetectionMask:(uint32_t)proximityDetectionMask {
+- (void)setProbabilityLevel:(uint32_t)probabilityLevel {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProbabilityLevel, (CFIndex)probabilityLevel);
+}
+
+- (uint16_t)proximityDetectionMask {
+    return (uint16_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityDetectionMask);
+}
+
+- (void)setProximityDetectionMask:(uint16_t)proximityDetectionMask {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityDetectionMask, (CFIndex)proximityDetectionMask);
 }
 
@@ -1575,6 +1615,14 @@
 
 - (void)setProximityLevel:(uint32_t)proximityLevel {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityLevel, (CFIndex)proximityLevel);
+}
+
+- (uint16_t)proximityProximityType {
+    return (uint16_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityProximityType);
+}
+
+- (void)setProximityProximityType:(uint16_t)proximityProximityType {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldProximityProximityType, (CFIndex)proximityProximityType);
 }
 
 @end

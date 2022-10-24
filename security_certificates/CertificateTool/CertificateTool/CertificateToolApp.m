@@ -14,13 +14,6 @@
 #import <Security/Security.h>
 #import <CommonCrypto/CommonDigest.h>
 //%%% #import <Security/SecCertificatePriv.h>
-#import "AppleBaselineEscrowCertificates.h"
-
-//%%% <rdar://19696642>
-#define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
-SEC_CONST_DECL (CTA_kSecCertificateProductionEscrowKey, "ProductionEscrowKey");
-SEC_CONST_DECL (CTA_kSecCertificateProductionPCSEscrowKey, "ProductionPCSEscrowKey");
-SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 
 
 @interface CertificateToolApp (PrivateMethods)
@@ -236,8 +229,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 			_distrusted_directory = [self checkPath:@"certificates/distrusted" basePath:_top_level_directory isDirectory:YES];
 		 	if (nil == _distrusted_directory)
 			{
-				[self usage];
-				return nil;
+				// distrusted list is no longer required: rdar://92699800
         	}
 		}
 
@@ -247,8 +239,6 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 			if (nil == _allowlist_directory)
 			{
 				// allowlist is no longer required: rdar://29338872
-				//[self usage];
-				//return nil;
 			}
 		}
 		if (nil == _certs_directory)
@@ -670,7 +660,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 	NSError* error = nil;
 	NSString* path_str = nil;
 
-	if (nil != _EVRootsData)
+	if (nil != _EVRootsData && _EVRootsData.count > 0)
 	{
         if (![self ensureDirectoryPath:self.output_directory])
         {
@@ -695,7 +685,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		}
 	}
 
-    if (nil != _gray_listed_keys)
+    if (nil != _gray_listed_keys && _gray_listed_keys.count > 0)
     {
         NSData* graylist_roots_data = [NSPropertyListSerialization dataWithPropertyList:_gray_listed_keys
                                                                                   format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
@@ -715,7 +705,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 
     }
 
-	if (nil != _blocked_keys)
+	if (nil != _blocked_keys && _blocked_keys.count > 0)
 	{
 		NSData* blocked_roots_data = [NSPropertyListSerialization dataWithPropertyList:_blocked_keys
 	                            format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
@@ -734,7 +724,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		}
 	}
 
-	if (nil != _allow_list_data)
+	if (nil != _allow_list_data && _allow_list_data.count > 0)
 	{
 		NSData* allow_list_plist = [NSPropertyListSerialization dataWithPropertyList:_allow_list_data
 			format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
@@ -794,67 +784,6 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
         return result;
     }
 
-    // Create a Dictionary to hold the escrow certificates and write that to disk
-    int numProductionRoots = kNumberOfBaseLineEscrowRoots;
-    NSData* productionCerts[numProductionRoots];
-    struct RootRecord* pRootRecord = NULL;
-
-    int iCnt;
-    for (iCnt = 0; iCnt < numProductionRoots; iCnt++)
-    {
-        pRootRecord = kBaseLineEscrowRoots[iCnt];
-        if (NULL != pRootRecord && pRootRecord->_length > 0 && NULL != pRootRecord->_bytes)
-        {
-           productionCerts[iCnt] = [NSData dataWithBytes:pRootRecord->_bytes length:pRootRecord->_length] ;
-        }
-    }
-    NSArray* productionCertArray = [NSArray arrayWithObjects:productionCerts count:numProductionRoots];
-
-    NSArray* valueArray = [NSArray arrayWithObjects:productionCertArray, nil];
-    NSArray* keyArray = [NSArray arrayWithObjects:(__bridge NSString *)CTA_kSecCertificateProductionEscrowKey, nil];
-    NSDictionary* escrowCertificates = [NSDictionary dictionaryWithObjects:valueArray forKeys:keyArray];
-
-
-    int numProductionPCSRoots = kNumberOfBaseLinePCSEscrowRoots;
-    NSData* productionPCSCerts[numProductionPCSRoots];
-    struct RootRecord* pPCSRootRecord = NULL;
-
-    for (iCnt = 0; iCnt < numProductionPCSRoots; iCnt++)
-    {
-        pPCSRootRecord = kBaseLinePCSEscrowRoots[iCnt];
-        if (NULL != pPCSRootRecord && pPCSRootRecord->_length > 0 && NULL != pPCSRootRecord->_bytes)
-        {
-            productionPCSCerts[iCnt] = [NSData dataWithBytes:pPCSRootRecord->_bytes length:pPCSRootRecord->_length] ;
-        }
-    }
-    NSArray* productionPCSCertArray = [NSArray arrayWithObjects:productionPCSCerts count:numProductionPCSRoots];
-
-
-    NSArray* valuePCSArray = [NSArray arrayWithObjects:productionPCSCertArray, nil];
-    NSArray* keyPCSArray = [NSArray arrayWithObjects:(__bridge NSString *)CTA_kSecCertificateProductionPCSEscrowKey, nil];
-    NSDictionary* escrowPCSCertificates = [NSDictionary dictionaryWithObjects:valuePCSArray forKeys:keyPCSArray];
-
-    NSMutableDictionary *mergedEscrowCertificates = [NSMutableDictionary dictionaryWithDictionary:escrowCertificates];
-    [mergedEscrowCertificates addEntriesFromDictionary:escrowPCSCertificates];
-
-    NSData* escrowCertPList = [NSPropertyListSerialization dataWithPropertyList:mergedEscrowCertificates
-                                          format:NSPropertyListBinaryFormat_v1_0
-                                          options:0
-                                           error:&error];
-    if (nil != error)
-    {
-        NSLog(@"Error creating the Escrow certificate Plist: error %@", error);
-        return result;
-    }
-
-    NSString* outputEscrowFileName = [NSString stringWithFormat:@"%@.plist", (__bridge NSString *)CTA_kSecCertificateEscrowFileName];
-    path_str = [self.output_directory stringByAppendingPathComponent:outputEscrowFileName];
-    if (![escrowCertPList writeToFile:path_str options:0 error:&error])
-    {
-        NSLog(@"Error writing out the escrow certificate data: error %@", error);
-        return result;
-    }
-
     return YES;
 }
 
@@ -872,12 +801,9 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 
     NSString* evroots_str = @"EVRoots.plist";
     NSString* blocked_str = @"Blocked.plist";
-    NSString* graylistedkeys_str = @"GrayListedKeys.plist";
-    NSString* allowed_str = @"Allowed.plist";
     NSString* certsIndex_str = @"certsIndex.data";
     NSString* certsTable_str = @"certsTable.data";
     NSString* assetVersion_str = @"AssetVersion.plist";
-    NSString* escrowCertificate_str = [NSString stringWithFormat:@"%@.plist", (__bridge NSString *)CTA_kSecCertificateEscrowFileName];
     NSError* error = nil;
 
     NSInputStream* input_stream = [NSInputStream inputStreamWithFileAtPath:self.version_number_plist_path];
@@ -893,7 +819,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
     NSNumber* version_number = [version_number_dict objectForKey:@"VersionNumber"];
 
 
-    NSArray* file_list = [NSArray arrayWithObjects:evroots_str, blocked_str, graylistedkeys_str, allowed_str, certsIndex_str, certsTable_str, assetVersion_str, escrowCertificate_str, nil];
+    NSArray* file_list = [NSArray arrayWithObjects:evroots_str, blocked_str, certsIndex_str, certsTable_str, assetVersion_str, nil];
     NSMutableDictionary* manifest_dict = [NSMutableDictionary dictionary];
 
     for (NSString* file_path in file_list)

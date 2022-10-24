@@ -1383,7 +1383,8 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	(id)kHEIMAttrType,
 	(id)kHEIMAttrAltDSID,
 	(id)kHEIMAttrUserID,
-	(id)kHEIMAttrRetainStatus
+	(id)kHEIMAttrRetainStatus,
+	(id)kHEIMAttrUUID,
     ];
     for (NSString *attr in readonlyAttributes) {
 	if (CFDictionaryContainsKey(replacementAttrs, (__bridge const void *)(attr))) {

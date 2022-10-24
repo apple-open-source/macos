@@ -154,18 +154,28 @@ IOReturn IOHIDInterface::message(UInt32 type,
                                  void * argument)
 {
     IOReturn result = kIOReturnSuccess;
+    OSIterator * iter;
+    IOService  * service;
+    bool         terminating = false;
 
     if (type == kIOMessageServiceIsRequestingClose) {
         result = messageClients(type, argument);
-        if (result != kIOReturnSuccess) {
-            IOLog("IOHIDInterface unsuccessfully requested close of clients: 0x%08x", result);
-        } else {
-            provider->close(this);
-        }
     } else if  (type == kIOHIDMessageRelayServiceInterfaceActive && provider != _owner) {
         result = _owner->message(type, this, argument);
     } else if (type == kIOHIDDeviceWillTerminate && provider == _owner) {
         _terminated = true;
+    } else if (type == kIOHIDMessageInterfaceRematch && provider == _owner) {
+        iter = getClientIterator();
+        if (iter) {
+            while ((service = OSDynamicCast(IOService, iter->getNextObject()))) {
+                terminating = true;
+                service->terminate(kIOServiceTerminateWithRematch);
+            }
+            OSSafeReleaseNULL(iter);
+        }
+        if (!terminating) {
+            registerService();
+        }
     } else {
         result = super::message(type, provider, argument);
     }
@@ -663,7 +673,7 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
         }
 
         if (stats) {
-            if (stats->createdBuffers && (stats->createdBuffers - stats->releasedBuffers) % BUFFER_OUTSTANDING_WARNING == 0) {
+            if ((stats->createdBuffers - stats->releasedBuffers) && (stats->createdBuffers - stats->releasedBuffers) % BUFFER_OUTSTANDING_WARNING == 0) {
                 HIDServiceLogError("Large amount of outstanding buffers: %u %u", stats->reportAvailableCalls, stats->reportAvailableRuns);
             }
             stats->createdBuffers++;
@@ -857,8 +867,13 @@ IMPL(IOHIDInterface, GetElementValues)
     require(!os_mul_overflow(count, sizeof(IOHIDElementCookie), &allocSize), exit);
     
     values = (UInt8 *)md->getBytesNoCopy();
-    
+
+    // ignore -Wxnu-typed-allocators, as we're not storing pointers here,
+    // no matter what the underlying type definition is
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wxnu-typed-allocators"
     cookies = (IOHIDElementCookie *)IONewData(IOHIDElementCookie, count);
+    #pragma clang diagnostic pop
     require_action(cookies, exit, ret = kIOReturnNoMemory);
     
     memset(cookies, 0, count);
@@ -931,7 +946,10 @@ IMPL(IOHIDInterface, GetElementValues)
     
 exit:
     if (cookies) {
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wxnu-typed-allocators"
         IODeleteData(cookies, IOHIDElementCookie, count);
+        #pragma clang diagnostic pop
     }
     
     return ret;

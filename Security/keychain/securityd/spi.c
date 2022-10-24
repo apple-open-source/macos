@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -64,6 +64,7 @@ static struct securityd securityd_spi = {
     .sec_roll_keys                          = _SecServerRollKeysGlue,
     .sec_item_update_token_items_for_access_groups  = _SecItemUpdateTokenItemsForAccessGroups,
     .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
+    .sec_delete_items_on_sign_out           = _SecDeleteItemsOnSignOut,
 #if SHAREDWEBCREDENTIALS
     .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
 #endif

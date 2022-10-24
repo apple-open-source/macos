@@ -38,10 +38,13 @@ public:
 
     // Returns TRUE if isFailure().
     UBool errIfFailureAndReset();
+    __attribute__((format(printf, 2, 3)))
     UBool errIfFailureAndReset(const char *fmt, ...);
     UBool errDataIfFailureAndReset();
+    __attribute__((format(printf, 2, 3)))
     UBool errDataIfFailureAndReset(const char *fmt, ...);
     UBool expectErrorAndReset(UErrorCode expectedError);
+    __attribute__((format(printf, 3, 4)))
     UBool expectErrorAndReset(UErrorCode expectedError, const char *fmt, ...);
 
     /** Sets an additional message string to be appended to failure output. */

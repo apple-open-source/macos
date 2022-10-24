@@ -25,8 +25,6 @@
 			</address>
 		</affiliation>
 	</author>
-	<!-- date should be the date of the latest change or the release version -->
-	<date>$Date$</date>
 	<!-- still a bit buggy output, will talk to docbook-xsl upstream to fix this -->
 	<!-- <releaseinfo>This is release 0.3 of the xmlcatalog Manual.</releaseinfo> -->
 	<!-- <edition>0.3</edition> -->
@@ -230,6 +228,21 @@
 		</varlistentry>
 	
 	</variablelist>
+
+	<para>
+		Invoking &xmlcatalog; non-interactively without a designated action
+		(imposed with options like <option>--add</option>) will result in a lookup
+		of the catalog entry for <replaceable>ENTITIES</replaceable> in the
+		catalog denoted with <replaceable>CATALOGFILE</replaceable>. The
+		corresponding entries will be output to the command line. This mode of
+		operation, together with <option>--shell</option> mode and non-modifying
+		(i.e. without <option>--noout</option>) direct actions, allows for
+		a special shortcut of the void <replaceable>CATALOGFILE</replaceable>
+		specification (possibly expressed as &quot;&quot; in the shell
+		environment) appointing the default system catalog. That simplifies the
+		handling when its exact location is irrelevant but the respective built-in
+		still needs to be consulted.
+	</para>
 </refsect1>
 
 <refsect1 id="shell">
@@ -315,7 +328,7 @@
 	<term><option>public <replaceable>PUBLIC-ID</replaceable></option></term>
 	<listitem>
 		<para>
-			Execute a Formal Public Identifier look-up of the catalog entry
+			Execute a Formal Public Identifier lookup of the catalog entry
 			for <replaceable>PUBLIC-ID</replaceable>. The corresponding entry will be
 			output to the command line.
 		</para>
@@ -333,7 +346,7 @@
 	<term><option>system <replaceable>SYSTEM-ID</replaceable></option></term>
 	<listitem>
 		<para>
-			Execute a Formal Public Identifier look-up of the catalog entry
+			Execute a Formal Public Identifier lookup of the catalog entry
 			for <replaceable>SYSTEM-ID</replaceable>. The corresponding entry will be
 			output to the command line.
 		</para>
@@ -352,9 +365,9 @@
 	<listitem>
 		<para><acronym>XML</acronym> catalog behavior can be changed by redirecting
 			queries to the user's own set of catalogs. This can be done by setting
-			the <envar>XML_CATALOG_FILES</envar> environment variable to a list
-			of catalogs. An empty one should deactivate loading the
-			default <filename>/etc/xml/catalog</filename> catalog.
+			the <envar>XML_CATALOG_FILES</envar> environment variable to a space-separated
+			list of catalogs. Use percent-encoding to escape spaces or other characters.
+			An empty variable should deactivate loading the default <filename>/etc/xml/catalog</filename> catalog.
 		</para>
 	</listitem>
 		</varlistentry>
@@ -422,7 +435,7 @@
 				<para><citerefentry>
 						<refentrytitle>libxml</refentrytitle>
 						<manvolnum>3</manvolnum>
-					</citerefentry> web page <ulink url="http://www.xmlsoft.org/"/>
+					</citerefentry> web page <ulink url="https://gitlab.gnome.org/GNOME/libxml2"/>
 				</para>
 			</listitem>
 			<listitem>
@@ -430,7 +443,7 @@
 						<refentrytitle>libxml</refentrytitle>
 						<manvolnum>3</manvolnum>
 					</citerefentry> catalog support web page
-					at <ulink url="http://www.xmlsoft.org/catalog.html"/>
+					at <ulink url="https://gitlab.gnome.org/GNOME/libxml2/-/wikis/Catalog-support"/>
 				</para>
 			</listitem>
 			<listitem>

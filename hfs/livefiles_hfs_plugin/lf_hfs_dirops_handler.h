@@ -15,7 +15,7 @@
 #define MAX_UTF8_NAME_LENGTH (NAME_MAX*3+1)
 
 int LFHFS_MkDir         ( UVFSFileNode psDirNode, const char *pcName, const UVFSFileAttributes *psFileAttr, UVFSFileNode *ppsOutNode );
-int LFHFS_RmDir         ( UVFSFileNode psDirNode, const char *pcUTF8Name );
+int LFHFS_RmDir         ( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode victimNode );
 int LFHFS_Remove        ( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode victimNode);
 int LFHFS_Lookup        ( UVFSFileNode psDirNode, const char *pcUTF8Name, UVFSFileNode *ppsOutNode );
 int LFHFS_ReadDir       ( UVFSFileNode psDirNode, void* pvBuf, size_t iBufLen, uint64_t uCookie, size_t *iReadBytes, uint64_t *puVerifier );

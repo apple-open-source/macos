@@ -1,0 +1,1 @@
+http://ocsp.serverpass.telesec.de/ocspr

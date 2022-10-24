@@ -76,18 +76,18 @@ public:
 	//
 	// A contiguous mapping established by the cache builder
 	//
-	struct Mapping : public Item<shared_file_mapping_np> {
-		mach_vm_address_t address() const { return flip(mStruct->sfm_address); }
-		mach_vm_size_t size() const { return flip(mStruct->sfm_size); }
+	struct Mapping : public Item<dyld_cache_mapping_info> {
+		mach_vm_address_t address() const { return flip(mStruct->address); }
+		mach_vm_size_t size() const { return flip(mStruct->size); }
 		mach_vm_address_t limit() const { return address() + size(); }
-		mach_vm_offset_t offset() const { return flip(mStruct->sfm_file_offset); }
-		vm_prot_t maxProt() const { return flip(mStruct->sfm_max_prot); }
-		vm_prot_t initProt() const { return flip(mStruct->sfm_init_prot); }
+		mach_vm_offset_t offset() const { return flip(mStruct->fileOffset); }
+		vm_prot_t maxProt() const { return flip(mStruct->maxProt); }
+		vm_prot_t initProt() const { return flip(mStruct->initProt); }
 		
 		bool contains(uint64_t address) const
 			{ return address >= this->address() && address < this->limit(); }
 		
-		Mapping(const DYLDCache &c, uint32_t off) : Item<shared_file_mapping_np>(c, off) { }
+		Mapping(const DYLDCache &c, uint32_t off) : Item<dyld_cache_mapping_info>(c, off) { }
 	};
 
 	uint32_t mappingCount() const { return flip(mHeader->mappingCount); }

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -25,32 +25,59 @@
 				95122A76258447AE000A9480 /* ShellScript */,
 			);
 			dependencies = (
+				95B96D3626A899AF000A2594 /* PBXTargetDependency */,
 				957575DF25D36E74002758FF /* PBXTargetDependency */,
 			);
 			name = DiskArbitration_executables;
 			productName = DiskArbServer_exexcutables;
 		};
-		95378D7D262F80C800ABD5BA /* All_iOS */ = {
+		95A7EDD026D6D4C000DCFA83 /* All_embedded */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 95378D82262F80C800ABD5BA /* Build configuration list for PBXAggregateTarget "All_iOS" */;
+			buildConfigurationList = 95A7EDD126D6D4C000DCFA83 /* Build configuration list for PBXAggregateTarget "All_embedded" */;
 			buildPhases = (
-				95378D83262F80F400ABD5BA /* ShellScript */,
+				95A7EDDC26D6D4FC00DCFA83 /* ShellScript */,
 			);
 			dependencies = (
+				95E127272728B3ED002A43B7 /* PBXTargetDependency */,
+				95D52F6E26F3C565007A99E6 /* PBXTargetDependency */,
+				95D52F6C26F3C561007A99E6 /* PBXTargetDependency */,
+			);
+			name = All_embedded;
+			productName = All_embedded;
+		};
+		95A7EDD626D6D4EE00DCFA83 /* DiskArbitration_executables_embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 95A7EDD726D6D4EE00DCFA83 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_embedded" */;
+			buildPhases = (
+				95A7EDDD26D6D50800DCFA83 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = DiskArbitration_executables_embedded;
+			productName = DiskArbitration_executables_embedded;
+		};
+		95D52F5B26E97020007A99E6 /* All_iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 95D52F6026E97020007A99E6 /* Build configuration list for PBXAggregateTarget "All_iOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				95E127292728B3F3002A43B7 /* PBXTargetDependency */,
+				95D52F6A26E97064007A99E6 /* PBXTargetDependency */,
+				95D52F6826E97062007A99E6 /* PBXTargetDependency */,
 			);
 			name = All_iOS;
 			productName = All_iOS;
 		};
-		95378D84263221F500ABD5BA /* DiskArbitration_executables_iOS */ = {
+		95D52F6126E97054007A99E6 /* DiskArbitration_executables_iOS */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 95378D85263221F500ABD5BA /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */;
+			buildConfigurationList = 95D52F6226E97054007A99E6 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */;
 			buildPhases = (
-				95378D8A2632221400ABD5BA /* ShellScript */,
 			);
 			dependencies = (
 			);
 			name = DiskArbitration_executables_iOS;
-			productName = DiskArbitration_iOS_executables;
+			productName = DiskArbitration_executables_iOS;
 		};
 /* End PBXAggregateTarget section */
 
@@ -111,16 +138,14 @@
 		603C87EF08EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF5F0030ADDC203A87B01 /* CoreFoundation.framework */; };
 		603C87F008EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF319030ADD7603A87B01 /* IOKit.framework */; };
 		603C87F108EC8117004474CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B80438DCEF00A87B01 /* Security.framework */; };
-		603C87F208EC8117004474CD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF5CF030ADD9103A87B01 /* SystemConfiguration.framework */; };
-		603C87F408EC8117004474CD /* diskarbitrationd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12363823031AA75703A87B01 /* diskarbitrationd.8 */; };
-		603C87F608EC8117004474CD /* com.apple.diskarbitrationd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */; };
+		603C87F408EC8117004474CD /* diskarbitrationd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12363823031AA75703A87B01 /* diskarbitrationd.8 */; platformFilters = (macos, ); };
 		603C881108EC8117004474CD /* DiskArbitration.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DD021D50405174800A87B01 /* DiskArbitration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		603C881208EC8117004474CD /* DiskArbitrationPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D9EB482040530BF00A87B01 /* DiskArbitrationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		603C881308EC8117004474CD /* DADisk.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DE65E15041D2C2C00A87B01 /* DADisk.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		603C881408EC8117004474CD /* DADissenter.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D8DDAD90445BDEF00A87B01 /* DADissenter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		603C881508EC8117004474CD /* DAInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D950E320458B78800A87B01 /* DAInternal.h */; };
 		603C881608EC8117004474CD /* DASession.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DD021D704051DF000A87B01 /* DASession.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		603C881808EC8117004474CD /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6DF96182047A6C7100A87B01 /* Localizable.strings */; };
+		603C881808EC8117004474CD /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6DF96182047A6C7100A87B01 /* Localizable.strings */; platformFilters = (macos, ); };
 		603C881A08EC8117004474CD /* DiskArbitration.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DD021D30405171700A87B01 /* DiskArbitration.c */; };
 		603C881B08EC8117004474CD /* DiskArbitrationPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 6D9EB480040530AC00A87B01 /* DiskArbitrationPrivate.c */; };
 		603C881C08EC8117004474CD /* DADisk.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DE65E16041D2C2C00A87B01 /* DADisk.c */; };
@@ -131,17 +156,18 @@
 		603C882208EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D676E8604068D3200A87B01 /* CoreFoundation.framework */; };
 		603C882308EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B20438DC5D00A87B01 /* IOKit.framework */; };
 		603C882408EC8117004474CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B40438DCB300A87B01 /* Security.framework */; };
-		6054BAF01A76C970005039A0 /* libfs.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6054BAEF1A76C970005039A0 /* libfs.a */; };
 		605A422B169506A300959114 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 605A422A169506A300959114 /* DiskArbitration.framework */; };
 		605A422F1695070C00959114 /* DAAgent.c in Sources */ = {isa = PBXBuildFile; fileRef = 605A422D1695070C00959114 /* DAAgent.c */; };
 		605A42301695070C00959114 /* DAAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 605A422E1695070C00959114 /* DAAgent.h */; };
 		605A42351695074300959114 /* DAAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42311695074300959114 /* DAAgent.m */; };
 		605A42361695074300959114 /* DADialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42331695074300959114 /* DADialog.m */; };
-		60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C835DD1E96BC1F000438E6 /* libbsm.dylib */; };
+		95005613268D087800C60718 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 95005611268D085A00C60718 /* libbsm.tbd */; };
 		957575D925D36E56002758FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575D825D36E56002758FF /* Foundation.framework */; };
-		957575DB25D36E5F002758FF /* UserFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575DA25D36E5F002758FF /* UserFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		957575DD25D36E6A002758FF /* LiveFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 957575DC25D36E6A002758FF /* LiveFS.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		957575E125D36E9A002758FF /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
+		95AB0CE0267A784100682648 /* datest.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AB0CDF267A784100682648 /* datest.m */; };
+		95AB0D2A267A821F00682648 /* datest.m in Sources */ = {isa = PBXBuildFile; fileRef = 95AB0CDF267A784100682648 /* datest.m */; };
+		95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */; };
+		95C3007926851EB90016F757 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95AB0D2B2683D57C00682648 /* DiskArbitration.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -158,6 +184,55 @@
 			proxyType = 1;
 			remoteGlobalIDString = 603C87BF08EC8117004474CD;
 			remoteInfo = diskarbitrationd;
+		};
+		95B96D3526A899AF000A2594 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95AB0D20267A78FE00682648;
+			remoteInfo = datest;
+		};
+		95D52F6726E97062007A99E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 603C87BF08EC8117004474CD;
+			remoteInfo = diskarbitrationd;
+		};
+		95D52F6926E97064007A99E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 603C880E08EC8117004474CD;
+			remoteInfo = DiskArbitration;
+		};
+		95D52F6B26F3C561007A99E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 603C87BF08EC8117004474CD;
+			remoteInfo = diskarbitrationd;
+		};
+		95D52F6D26F3C565007A99E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 603C880E08EC8117004474CD;
+			remoteInfo = DiskArbitration;
+		};
+		95E127262728B3ED002A43B7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95AB0D20267A78FE00682648;
+			remoteInfo = datest;
+		};
+		95E127282728B3F3002A43B7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95AB0D20267A78FE00682648;
+			remoteInfo = datest;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -192,13 +267,12 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		603C87F508EC8117004474CD /* CopyFiles */ = {
+		95AB0D1F267A78FE00682648 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-				603C87F608EC8117004474CD /* com.apple.diskarbitrationd.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -300,10 +374,20 @@
 		6DF96180047A6C5700A87B01 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = DiskArbitration/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		6DFC226B04E2DCF700A87B01 /* DAThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAThread.h; path = diskarbitrationd/DAThread.h; sourceTree = "<group>"; };
 		6DFC226C04E2DCF700A87B01 /* DAThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DAThread.c; path = diskarbitrationd/DAThread.c; sourceTree = "<group>"; };
+		95005611268D085A00C60718 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
+		9505A5F0271E0F240003E6AA /* libfs.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfs.a; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.Internal.sdk/usr/local/lib/libfs.a; sourceTree = DEVELOPER_DIR; };
+		9505A5F2271E11490003E6AA /* libFSInfo.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libFSInfo.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/usr/local/lib/libFSInfo.a; sourceTree = DEVELOPER_DIR; };
+		9571AE3E265710790011E9F0 /* UserManagementUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagementUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/UserManagementUI.framework; sourceTree = DEVELOPER_DIR; };
+		9571AE40265710A80011E9F0 /* UserManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagement.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/UserManagement.framework; sourceTree = DEVELOPER_DIR; };
 		957575D825D36E56002758FF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		957575DA25D36E5F002758FF /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/UserFS.framework; sourceTree = DEVELOPER_DIR; };
 		957575DC25D36E6A002758FF /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
 		957575E025D36E9A002758FF /* DAUserFSMount.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = DAUserFSMount.m; path = diskarbitrationd/DAUserFSMount.m; sourceTree = "<group>"; };
+		95A7EDC926D587B400DCFA83 /* datest.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = datest.entitlements; path = datest/datest.entitlements; sourceTree = "<group>"; };
+		95AB0CDF267A784100682648 /* datest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = datest.m; sourceTree = "<group>"; };
+		95AB0D21267A78FE00682648 /* datest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = datest; sourceTree = BUILT_PRODUCTS_DIR; };
+		95AB0D2B2683D57C00682648 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/DiskArbitration.framework; sourceTree = DEVELOPER_DIR; };
+		95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -330,15 +414,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				957575DD25D36E6A002758FF /* LiveFS.framework in Frameworks */,
-				957575DB25D36E5F002758FF /* UserFS.framework in Frameworks */,
+				95005613268D087800C60718 /* libbsm.tbd in Frameworks */,
+				95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */,
 				957575D925D36E56002758FF /* Foundation.framework in Frameworks */,
-				60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */,
-				6054BAF01A76C970005039A0 /* libfs.a in Frameworks */,
 				603C87EF08EC8117004474CD /* CoreFoundation.framework in Frameworks */,
 				603C87F008EC8117004474CD /* IOKit.framework in Frameworks */,
 				603C87F108EC8117004474CD /* Security.framework in Frameworks */,
-				603C87F208EC8117004474CD /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -352,12 +433,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		95AB0D1E267A78FE00682648 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95C3007926851EB90016F757 /* DiskArbitration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		1236382A031ABD5003A87B01 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				95AB0CDE267A782B00682648 /* datest */,
 				6DC2CC110471E07100A87B01 /* autodiskmount */,
 				124AF904030AE17703A87B01 /* diskarbitrationd */,
 				12D2592E030A941C03A87B01 /* DiskArbitration */,
@@ -369,6 +459,13 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				9505A5F2271E11490003E6AA /* libFSInfo.a */,
+				9505A5F0271E0F240003E6AA /* libfs.a */,
+				95005611268D085A00C60718 /* libbsm.tbd */,
+				95AB0D2B2683D57C00682648 /* DiskArbitration.framework */,
+				95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */,
+				9571AE40265710A80011E9F0 /* UserManagement.framework */,
+				9571AE3E265710790011E9F0 /* UserManagementUI.framework */,
 				957575DC25D36E6A002758FF /* LiveFS.framework */,
 				957575DA25D36E5F002758FF /* UserFS.framework */,
 				957575D825D36E56002758FF /* Foundation.framework */,
@@ -400,6 +497,7 @@
 				603C87FB08EC8117004474CD /* diskarbitrationd */,
 				603C882A08EC8117004474CD /* DiskArbitration.framework */,
 				60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */,
+				95AB0D21267A78FE00682648 /* datest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -407,6 +505,7 @@
 		124AF904030AE17703A87B01 /* diskarbitrationd */ = {
 			isa = PBXGroup;
 			children = (
+				957575E025D36E9A002758FF /* DAUserFSMount.m */,
 				6D0B6E2903DC776600A87B01 /* fstab.c */,
 				6DA40B2303F8314600A87B01 /* vsdb.c */,
 				6DA40B2203F8314600A87B01 /* vsdb.h */,
@@ -471,8 +570,8 @@
 		12D25927030A908603A87B01 = {
 			isa = PBXGroup;
 			children = (
-				957575E025D36E9A002758FF /* DAUserFSMount.m */,
 				2AE465A11CAB0F230049D02E /* Modules */,
+				95AB0CE1267A78B900682648 /* Shared */,
 				1236382F031ABDC703A87B01 /* Frameworks */,
 				124AF309030AD93503A87B01 /* Products */,
 				12D2592F030A942703A87B01 /* Resources */,
@@ -502,6 +601,7 @@
 		12D2592F030A942703A87B01 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				95A7EDC826D587A600DCFA83 /* datest */,
 				604D7A7207528A79007E0745 /* autodiskmount */,
 				124AF905030AE18503A87B01 /* diskarbitrationd */,
 				6D950E310458B6F400A87B01 /* DiskArbitration */,
@@ -594,6 +694,29 @@
 				6D5FF0C80471E5EE00A87B01 /* IOKit.framework */,
 			);
 			name = autodiskmount;
+			sourceTree = "<group>";
+		};
+		95A7EDC826D587A600DCFA83 /* datest */ = {
+			isa = PBXGroup;
+			children = (
+				95A7EDC926D587B400DCFA83 /* datest.entitlements */,
+			);
+			name = datest;
+			sourceTree = "<group>";
+		};
+		95AB0CDE267A782B00682648 /* datest */ = {
+			isa = PBXGroup;
+			children = (
+				95AB0CDF267A784100682648 /* datest.m */,
+			);
+			path = datest;
+			sourceTree = "<group>";
+		};
+		95AB0CE1267A78B900682648 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -696,7 +819,7 @@
 				603C87D608EC8117004474CD /* Sources */,
 				603C87ED08EC8117004474CD /* Frameworks */,
 				603C87F308EC8117004474CD /* CopyFiles */,
-				603C87F508EC8117004474CD /* CopyFiles */,
+				9500560C268A876400C60718 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -728,25 +851,49 @@
 			productReference = 603C882A08EC8117004474CD /* DiskArbitration.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		95AB0D20267A78FE00682648 /* datest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95AB0D25267A78FE00682648 /* Build configuration list for PBXNativeTarget "datest" */;
+			buildPhases = (
+				95AB0D1D267A78FE00682648 /* Sources */,
+				95AB0D1E267A78FE00682648 /* Frameworks */,
+				95AB0D1F267A78FE00682648 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = datest;
+			productName = datest;
+			productReference = 95AB0D21267A78FE00682648 /* datest */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		12D2592B030A908603A87B01 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1300;
 				LastUpgradeCheck = 0700;
 				TargetAttributes = {
 					95122A6A25844795000A9480 = {
 						CreatedOnToolsVersion = 12.4;
 						ProvisioningStyle = Automatic;
 					};
-					95378D7D262F80C800ABD5BA = {
+					95A7EDD026D6D4C000DCFA83 = {
 						CreatedOnToolsVersion = 13.0;
 						ProvisioningStyle = Automatic;
 					};
-					95378D84263221F500ABD5BA = {
+					95A7EDD626D6D4EE00DCFA83 = {
 						CreatedOnToolsVersion = 13.0;
 						ProvisioningStyle = Automatic;
+					};
+					95D52F5B26E97020007A99E6 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+					95D52F6126E97054007A99E6 = {
+						CreatedOnToolsVersion = 13.0;
 					};
 				};
 			};
@@ -767,9 +914,12 @@
 				603C87BF08EC8117004474CD /* diskarbitrationd */,
 				603C880E08EC8117004474CD /* DiskArbitration */,
 				60077B8012E630AF00D4AE4F /* DiskArbitrationAgent */,
+				95AB0D20267A78FE00682648 /* datest */,
 				95122A6A25844795000A9480 /* DiskArbitration_executables */,
-				95378D7D262F80C800ABD5BA /* All_iOS */,
-				95378D84263221F500ABD5BA /* DiskArbitration_executables_iOS */,
+				95A7EDD026D6D4C000DCFA83 /* All_embedded */,
+				95A7EDD626D6D4EE00DCFA83 /* DiskArbitration_executables_embedded */,
+				95D52F5B26E97020007A99E6 /* All_iOS */,
+				95D52F6126E97054007A99E6 /* DiskArbitration_executables_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -797,7 +947,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -r /usr/local/lib/OrderFiles/DiskArbitration.order ] ; then\n\tcp /usr/local/lib/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi";
+			shellScript = "if [ -r /usr/local/lib/OrderFiles/DiskArbitration.order ] ; then\n\tcp /usr/local/lib/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi\n";
+		};
+		9500560C268A876400C60718 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/diskarbitrationd/com.apple.diskarbitrationd.plist",
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/System/Library/LaunchDaemons/com.apple.diskarbitrationd.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/sh ";
+			shellScript = "#!/bin/bash -e\n \nset -ex\n/bin/bash \"diskarbitrationd/install-plist.sh\" ${SCRIPT_INPUT_FILE_0} ${SCRIPT_OUTPUT_FILE_0}\n";
 		};
 		95122A76258447AE000A9480 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -816,7 +985,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
 		};
-		95378D83262F80F400ABD5BA /* ShellScript */ = {
+		95A7EDDC26D6D4FC00DCFA83 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -833,7 +1002,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
 		};
-		95378D8A2632221400ABD5BA /* ShellScript */ = {
+		95A7EDDD26D6D50800DCFA83 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -867,6 +1036,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				95AB0CE0267A784100682648 /* datest.m in Sources */,
 				603C87B208EC8117004474CD /* autodiskmount.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -917,6 +1087,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		95AB0D1D267A78FE00682648 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95AB0D2A267A821F00682648 /* datest.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -929,6 +1107,41 @@
 			isa = PBXTargetDependency;
 			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
 			targetProxy = 957575DE25D36E74002758FF /* PBXContainerItemProxy */;
+		};
+		95B96D3626A899AF000A2594 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95AB0D20267A78FE00682648 /* datest */;
+			targetProxy = 95B96D3526A899AF000A2594 /* PBXContainerItemProxy */;
+		};
+		95D52F6826E97062007A99E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
+			targetProxy = 95D52F6726E97062007A99E6 /* PBXContainerItemProxy */;
+		};
+		95D52F6A26E97064007A99E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 603C880E08EC8117004474CD /* DiskArbitration */;
+			targetProxy = 95D52F6926E97064007A99E6 /* PBXContainerItemProxy */;
+		};
+		95D52F6C26F3C561007A99E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
+			targetProxy = 95D52F6B26F3C561007A99E6 /* PBXContainerItemProxy */;
+		};
+		95D52F6E26F3C565007A99E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 603C880E08EC8117004474CD /* DiskArbitration */;
+			targetProxy = 95D52F6D26F3C565007A99E6 /* PBXContainerItemProxy */;
+		};
+		95E127272728B3ED002A43B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95AB0D20267A78FE00682648 /* datest */;
+			targetProxy = 95E127262728B3ED002A43B7 /* PBXContainerItemProxy */;
+		};
+		95E127292728B3F3002A43B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95AB0D20267A78FE00682648 /* datest */;
+			targetProxy = 95E127282728B3F3002A43B7 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -973,6 +1186,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = All;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = macosx;
 			};
 			name = Debug;
 		};
@@ -980,6 +1195,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = All;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = macosx;
 			};
 			name = Release;
 		};
@@ -1010,9 +1227,36 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
+				NEW_SETTING = "";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					LiveFS,
+					"-weak_framework",
+					UserManagement,
+					"-weak_framework",
+					MobileKeyBag,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					LiveFS,
+					"-weak_framework",
+					UserManagement,
+					"-lfs",
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = "";
 				PRODUCT_NAME = diskarbitrationd;
-				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Debug;
 		};
@@ -1023,9 +1267,34 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/libexec;
+				NEW_SETTING = "";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					LiveFS,
+					"-weak_framework",
+					UserManagement,
+					"-weak_framework",
+					MobileKeyBag,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					LiveFS,
+					"-lfs",
+				);
+				"OTHER_LDFLAGS[sdk=watchos*]" = "";
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Release;
 		};
@@ -1037,27 +1306,32 @@
 					debug,
 					profile,
 				);
-				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = NO;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=macosx*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
 				PRODUCT_NAME = DiskArbitration;
-				SDKROOT = macosx.internal;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -1070,14 +1344,17 @@
 					debug,
 					profile,
 				);
-				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = NO;
+				CODE_SIGN_IDENTITY = "-";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=macosx*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
@@ -1089,8 +1366,10 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -1117,6 +1396,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = All;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = macosx;
 			};
 			name = ReleaseCoverage;
 		};
@@ -1139,6 +1420,7 @@
 					__CODECOVERAGE__,
 				);
 				INSTALL_PATH = /usr/libexec;
+				NEW_SETTING = "";
 				OTHER_CFLAGS = (
 					"-fcoverage-mapping",
 					"-fprofile-instr-generate",
@@ -1146,7 +1428,12 @@
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = ReleaseCoverage;
 		};
@@ -1158,14 +1445,17 @@
 					debug,
 					profile,
 				);
-				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = NO;
+				CODE_SIGN_IDENTITY = "-";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=macosx*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
@@ -1177,8 +1467,10 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = ReleaseCoverage;
@@ -1205,6 +1497,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = All;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = macosx;
 			};
 			name = DebugCoverage;
 		};
@@ -1229,14 +1523,20 @@
 					__CODECOVERAGE__,
 				);
 				INSTALL_PATH = /usr/libexec;
+				NEW_SETTING = "";
 				OTHER_CFLAGS = (
 					"-fcoverage-mapping",
 					"-fprofile-instr-generate",
 				);
 				OTHER_LDFLAGS = "-fprofile-instr-generate";
 				PRODUCT_NAME = diskarbitrationd;
-				SDKROOT = macosx.internal;
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = DebugCoverage;
 		};
@@ -1248,27 +1548,32 @@
 					debug,
 					profile,
 				);
-				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = NO;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=macosx*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
 				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
 				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
 				PRODUCT_NAME = DiskArbitration;
-				SDKROOT = macosx.internal;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = DebugCoverage;
@@ -1318,47 +1623,43 @@
 			};
 			name = ReleaseCoverage;
 		};
-		95378D7E262F80C800ABD5BA /* Debug */ = {
+		95A7EDD226D6D4C000DCFA83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
 			};
 			name = Debug;
 		};
-		95378D7F262F80C800ABD5BA /* DebugCoverage */ = {
+		95A7EDD326D6D4C000DCFA83 /* DebugCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
 			};
 			name = DebugCoverage;
 		};
-		95378D80262F80C800ABD5BA /* Release */ = {
+		95A7EDD426D6D4C000DCFA83 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
 			};
 			name = Release;
 		};
-		95378D81262F80C800ABD5BA /* ReleaseCoverage */ = {
+		95A7EDD526D6D4C000DCFA83 /* ReleaseCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
 			};
 			name = ReleaseCoverage;
 		};
-		95378D86263221F500ABD5BA /* Debug */ = {
+		95A7EDD826D6D4EE00DCFA83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -1367,7 +1668,7 @@
 			};
 			name = Debug;
 		};
-		95378D87263221F500ABD5BA /* DebugCoverage */ = {
+		95A7EDD926D6D4EE00DCFA83 /* DebugCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -1376,7 +1677,7 @@
 			};
 			name = DebugCoverage;
 		};
-		95378D88263221F500ABD5BA /* Release */ = {
+		95A7EDDA26D6D4EE00DCFA83 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -1385,11 +1686,341 @@
 			};
 			name = Release;
 		};
-		95378D89263221F500ABD5BA /* ReleaseCoverage */ = {
+		95A7EDDB26D6D4EE00DCFA83 /* ReleaseCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = ReleaseCoverage;
+		};
+		95AB0D26267A78FE00682648 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = datest/datest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
+			};
+			name = Debug;
+		};
+		95AB0D27267A78FE00682648 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = datest/datest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
+			};
+			name = DebugCoverage;
+		};
+		95AB0D28267A78FE00682648 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = datest/datest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
+			};
+			name = Release;
+		};
+		95AB0D29267A78FE00682648 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = datest/datest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,6";
+			};
+			name = ReleaseCoverage;
+		};
+		95D52F5C26E97020007A99E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		95D52F5D26E97020007A99E6 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		95D52F5E26E97020007A99E6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		95D52F5F26E97020007A99E6 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = ReleaseCoverage;
+		};
+		95D52F6326E97054007A99E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		95D52F6426E97054007A99E6 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		95D52F6526E97054007A99E6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		95D52F6626E97054007A99E6 /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = ReleaseCoverage;
@@ -1474,24 +2105,57 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		95378D82262F80C800ABD5BA /* Build configuration list for PBXAggregateTarget "All_iOS" */ = {
+		95A7EDD126D6D4C000DCFA83 /* Build configuration list for PBXAggregateTarget "All_embedded" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				95378D7E262F80C800ABD5BA /* Debug */,
-				95378D7F262F80C800ABD5BA /* DebugCoverage */,
-				95378D80262F80C800ABD5BA /* Release */,
-				95378D81262F80C800ABD5BA /* ReleaseCoverage */,
+				95A7EDD226D6D4C000DCFA83 /* Debug */,
+				95A7EDD326D6D4C000DCFA83 /* DebugCoverage */,
+				95A7EDD426D6D4C000DCFA83 /* Release */,
+				95A7EDD526D6D4C000DCFA83 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		95378D85263221F500ABD5BA /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */ = {
+		95A7EDD726D6D4EE00DCFA83 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_embedded" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				95378D86263221F500ABD5BA /* Debug */,
-				95378D87263221F500ABD5BA /* DebugCoverage */,
-				95378D88263221F500ABD5BA /* Release */,
-				95378D89263221F500ABD5BA /* ReleaseCoverage */,
+				95A7EDD826D6D4EE00DCFA83 /* Debug */,
+				95A7EDD926D6D4EE00DCFA83 /* DebugCoverage */,
+				95A7EDDA26D6D4EE00DCFA83 /* Release */,
+				95A7EDDB26D6D4EE00DCFA83 /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95AB0D25267A78FE00682648 /* Build configuration list for PBXNativeTarget "datest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95AB0D26267A78FE00682648 /* Debug */,
+				95AB0D27267A78FE00682648 /* DebugCoverage */,
+				95AB0D28267A78FE00682648 /* Release */,
+				95AB0D29267A78FE00682648 /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95D52F6026E97020007A99E6 /* Build configuration list for PBXAggregateTarget "All_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95D52F5C26E97020007A99E6 /* Debug */,
+				95D52F5D26E97020007A99E6 /* DebugCoverage */,
+				95D52F5E26E97020007A99E6 /* Release */,
+				95D52F5F26E97020007A99E6 /* ReleaseCoverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		95D52F6226E97054007A99E6 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95D52F6326E97054007A99E6 /* Debug */,
+				95D52F6426E97054007A99E6 /* DebugCoverage */,
+				95D52F6526E97054007A99E6 /* Release */,
+				95D52F6626E97054007A99E6 /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

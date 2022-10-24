@@ -3,6 +3,7 @@
 
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
+#include "keychain/securityd/SecDbQuery.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSStates.h"
@@ -15,6 +16,7 @@
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSManifestLeafRecord.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
+
 
 @interface CKKSOperationDependencies ()
 @property (nullable) NSSet<CKKSKeychainViewState*>* viewsOverride;
@@ -31,17 +33,21 @@
 @implementation CKKSOperationDependencies
 
 - (instancetype)initWithViewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
+                         contextID:(NSString*)contextID
+                     activeAccount:(TPSpecificUser* _Nullable)activeAccount
                       zoneModifier:(CKKSZoneModifier*)zoneModifier
                         ckdatabase:(CKDatabase*)ckdatabase
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
                        flagHandler:(id<OctagonStateFlagHandler>)flagHandler
+                     overallLaunch:(CKKSLaunchSequence*)overallLaunch
                accountStateTracker:(CKKSAccountStateTracker*)accountStateTracker
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                      peerProviders:(NSArray<id<CKKSPeerProvider>>*)peerProviders
                   databaseProvider:(id<CKKSDatabaseProviderProtocol>)databaseProvider
                   savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
+                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
 {
     if((self = [super init])) {
         _allViews = viewStates;
@@ -51,12 +57,15 @@
         _cloudKitClassDependencies = cloudKitClassDependencies;
         _ckoperationGroup = operationGroup;
         _flagHandler = flagHandler;
+        _overallLaunch = overallLaunch;
         _accountStateTracker = accountStateTracker;
         _lockStateTracker = lockStateTracker;
         _reachabilityTracker = reachabilityTracker;
         _peerProviders = peerProviders;
         _databaseProvider = databaseProvider;
         _savedTLKNotifier = savedTLKNotifier;
+        _contextID = contextID;
+        _activeAccount = activeAccount;
 
         _currentOutgoingQueueOperationGroup = nil;
         _requestPolicyCheck = nil;
@@ -65,6 +74,7 @@
         _currentFetchReasons = [NSMutableSet set];
 
         _limitOperationToPriorityViewsSet = NO;
+        _personaAdapter = personaAdapter;
     }
     return self;
 }
@@ -310,25 +320,49 @@
 - (bool)intransactionCKRecordChanged:(CKRecord*)record resync:(bool)resync
 {
     @autoreleasepool {
-        ckksnotice("ckksfetch", record.recordID.zoneID, "Processing record modification(%@): %@", record.recordType, record);
+        CKReference* parentKeyRef = record[SecCKRecordParentKeyRefKey];
+        if(parentKeyRef == nil) {
+            ckksnotice("ckksfetch", record.recordID.zoneID, "Processing record modification(%@): %@ changeTag: %@",
+                       record.recordType,
+                       record.recordID,
+                       record.recordChangeTag);
+        } else {
+            ckksnotice("ckksfetch", record.recordID.zoneID, "Processing record modification(%@): %@ changeTag: %@ parentKeyRef: %@",
+                       record.recordType,
+                       record.recordID,
+                       record.recordChangeTag,
+                       parentKeyRef);
+        }
 
         NSError* localerror = nil;
 
         if([[record recordType] isEqual: SecCKRecordItemType]) {
-            [CKKSItem intransactionRecordChanged:record resync:resync error:&localerror];
+            [CKKSItem intransactionRecordChanged:record contextID:self.contextID resync:resync error:&localerror];
 
         } else if([[record recordType] isEqual: SecCKRecordCurrentItemType]) {
-            [CKKSCurrentItemPointer intransactionRecordChanged:record resync:resync error:&localerror];
+            [CKKSCurrentItemPointer intransactionRecordChanged:record
+                                                     contextID:self.contextID
+                                                        resync:resync
+                                                         error:&localerror];
 
         } else if([[record recordType] isEqual: SecCKRecordIntermediateKeyType]) {
-            [CKKSKey intransactionRecordChanged:record resync:resync flagHandler:self.flagHandler error:&localerror];
+            [CKKSKey intransactionRecordChanged:record
+                                      contextID:self.contextID
+                                         resync:resync flagHandler:self.flagHandler error:&localerror];
 
         } else if ([[record recordType] isEqual: SecCKRecordTLKShareType]) {
-            [CKKSTLKShareRecord intransactionRecordChanged:record resync:resync error:&localerror];
+            [CKKSTLKShareRecord intransactionRecordChanged:record
+                                                 contextID:self.contextID
+                                                    resync:resync
+                                                     error:&localerror];
             [self.flagHandler _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
 
         } else if([[record recordType] isEqualToString: SecCKRecordCurrentKeyType]) {
-            [CKKSCurrentKeyPointer intransactionRecordChanged:record resync:resync flagHandler:self.flagHandler error:&localerror];
+            [CKKSCurrentKeyPointer intransactionRecordChanged:record
+                                                    contextID:self.contextID
+                                                       resync:resync
+                                                  flagHandler:self.flagHandler
+                                                        error:&localerror];
 
         } else if ([[record recordType] isEqualToString:SecCKRecordManifestType]) {
             [CKKSPendingManifest intransactionRecordChanged:record resync:resync error:&localerror];
@@ -337,7 +371,10 @@
             [CKKSManifestPendingLeafRecord intransactionRecordChanged:record resync:resync error:&localerror];
 
         } else if ([[record recordType] isEqualToString:SecCKRecordDeviceStateType]) {
-            [CKKSDeviceStateEntry intransactionRecordChanged:record resync:resync error:&localerror];
+            [CKKSDeviceStateEntry intransactionRecordChanged:record
+                                                   contextID:self.contextID
+                                                      resync:resync
+                                                       error:&localerror];
 
         } else {
             ckkserror("ckksfetch", record.recordID.zoneID, "unknown record type: %@ %@", [record recordType], record);
@@ -360,24 +397,33 @@
     NSError* error = nil;
 
     if([recordType isEqual: SecCKRecordItemType]) {
-        [CKKSItem intransactionRecordDeleted:recordID resync:resync error:&error];
+        [CKKSItem intransactionRecordDeleted:recordID contextID:self.contextID resync:resync error:&error];
 
     } else if([recordType isEqual: SecCKRecordCurrentItemType]) {
-        [CKKSCurrentItemPointer intransactionRecordDeleted:recordID resync:resync error:&error];
+        [CKKSCurrentItemPointer intransactionRecordDeleted:recordID
+                                                 contextID:self.contextID
+                                                    resync:resync
+                                                     error:&error];
 
     } else if([recordType isEqual: SecCKRecordIntermediateKeyType]) {
         // TODO: handle in some interesting way
         return true;
 
     } else if([recordType isEqual: SecCKRecordTLKShareType]) {
-        [CKKSTLKShareRecord intransactionRecordDeleted:recordID resync:resync error:&error];
+        [CKKSTLKShareRecord intransactionRecordDeleted:recordID
+                                             contextID:self.contextID
+                                                resync:resync
+                                                 error:&error];
 
     } else if([recordType isEqualToString: SecCKRecordCurrentKeyType]) {
         // Ignore these as well
         return true;
 
     } else if([recordType isEqual: SecCKRecordDeviceStateType]) {
-        [CKKSDeviceStateEntry intransactionRecordDeleted:recordID resync:resync error:&error];
+        [CKKSDeviceStateEntry intransactionRecordDeleted:recordID
+                                               contextID:self.contextID
+                                                  resync:resync
+                                                   error:&error];
 
     } else if ([recordType isEqualToString:SecCKRecordManifestType]) {
         [CKKSManifest intransactionRecordDeleted:recordID resync:resync error:&error];
@@ -493,11 +539,28 @@
 
     NSString* view = [self.syncingPolicy mapDictionaryToView:dict];
     if (view == nil) {
-        ckkserror_global("ckks", "No view returned from policy (%@): %@", self.syncingPolicy, item);
+        ckkserror_global("ckks", "No view returned from policy (%@): " SECDBITEM_FMT, self.syncingPolicy, item);
         return nil;
     }
 
     return view;
+}
+
+- (NSData*)keychainMusrForCurrentAccount
+{
+    NSString* musrStr = self.activeAccount.personaUniqueString;
+    if(musrStr == nil) {
+        return (NSData*)CFBridgingRelease(CFRetain(SecMUSRGetSingleUserKeychainUUID()));
+    } else {
+        NSUUID* uuid = [[NSUUID alloc] initWithUUIDString:musrStr];
+        if(uuid) {
+            uuid_t uuidBytes;
+            [uuid getUUIDBytes:uuidBytes];
+            return [NSData dataWithBytes:uuidBytes length:sizeof(uuid_t)];
+        } else {
+            return [musrStr dataUsingEncoding:NSUTF8StringEncoding];
+        }
+    }
 }
 
 @end

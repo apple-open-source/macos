@@ -259,7 +259,7 @@
 
     CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
                                                                           initialDelay:500*NSEC_PER_MSEC
-                                                                      expontialBackoff:2
+                                                                    exponentialBackoff:2
                                                                           maximumDelay:30*NSEC_PER_SEC
                                                                       keepProcessAlive:false
                                                              dependencyDescriptionCode:CKKSResultDescriptionNone

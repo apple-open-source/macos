@@ -20,9 +20,10 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 
-#include "AccessibilityRootAtspi.h"
+#include "AccessibilityAtspi.h"
+#include "AccessibilityObject.h" // NOLINT: check-webkit-style has problems with files that do not have primary header
 #include "HTMLTableCaptionElement.h"
 #include "HTMLTableElement.h"
 #include "RenderElement.h"
@@ -34,7 +35,6 @@ namespace WebCore {
 GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
     // method_call
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* methodName, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer userData) {
-        RELEASE_ASSERT(!isMainThread());
         auto atspiObject = Ref { *static_cast<AccessibilityObjectAtspi*>(userData) };
         atspiObject->updateBackingStore();
 
@@ -42,7 +42,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
             int row, column;
             g_variant_get(parameters, "(ii)", &row, &column);
             auto* cell = row >= 0 && column >= 0 ? atspiObject->cell(row, column) : nullptr;
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", cell ? cell->reference() : atspiObject->m_root.atspi().nullReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", cell ? cell->reference() : AccessibilityAtspi::singleton().nullReference()));
         } else if (!g_strcmp0(methodName, "GetIndexAt")) {
             int row, column;
             g_variant_get(parameters, "(ii)", &row, &column);
@@ -75,12 +75,12 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
             int row;
             g_variant_get(parameters, "(i)", &row);
             auto* header = row >= 0 ? atspiObject->rowHeader(row) : nullptr;
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", header ? header->reference() : atspiObject->m_root.atspi().nullReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", header ? header->reference() : AccessibilityAtspi::singleton().nullReference()));
         } else if (!g_strcmp0(methodName, "GetColumnHeader")) {
             int column;
             g_variant_get(parameters, "(i)", &column);
             auto* header = column >= 0 ? atspiObject->columnHeader(column) : nullptr;
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", header ? header->reference() : atspiObject->m_root.atspi().nullReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", header ? header->reference() : AccessibilityAtspi::singleton().nullReference()));
         } else if (!g_strcmp0(methodName, "GetRowColumnExtentsAtIndex")) {
             int index;
             g_variant_get(parameters, "(i)", &index);
@@ -91,7 +91,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
 
             auto row = atspiObject->rowAtIndex(index);
             auto column = atspiObject->columnAtIndex(index);
-            auto* cell = atspiObject->m_axObject ? atspiObject->m_axObject->cellForColumnAndRow(*column, *row) : nullptr;
+            auto* cell = atspiObject->m_coreObject ? atspiObject->m_coreObject->cellForColumnAndRow(*column, *row) : nullptr;
             g_dbus_method_invocation_return_value(invocation, g_variant_new("(biiiib)", cell && cell->isTableCell() ? TRUE : FALSE,
                 row.value_or(-1), column.value_or(-1), row && column ? atspiObject->rowExtent(*row, *column) : -1,
                 row && column ? atspiObject->columnExtent(*row, *column) : -1, FALSE));
@@ -108,7 +108,6 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
     },
     // get_property
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* propertyName, GError** error, gpointer userData) -> GVariant* {
-        RELEASE_ASSERT(!isMainThread());
         auto atspiObject = Ref { *static_cast<AccessibilityObjectAtspi*>(userData) };
         atspiObject->updateBackingStore();
 
@@ -118,10 +117,10 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
             return g_variant_new_int32(atspiObject->columnCount());
         if (!g_strcmp0(propertyName, "Caption")) {
             auto* caption = atspiObject->tableCaption();
-            return caption ? caption->reference() : atspiObject->m_root.atspi().nullReference();
+            return caption ? caption->reference() : AccessibilityAtspi::singleton().nullReference();
         }
         if (!g_strcmp0(propertyName, "Summary"))
-            return atspiObject->m_root.atspi().nullReference();
+            return AccessibilityAtspi::singleton().nullReference();
         if (!g_strcmp0(propertyName, "NSelectedRows"))
             return g_variant_new_int32(0);
         if (!g_strcmp0(propertyName, "NSelectedColumns"))
@@ -133,34 +132,25 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_tableFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 unsigned AccessibilityObjectAtspi::rowCount() const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
-        return 0;
-
-    return m_axObject->rowCount();
+    return m_coreObject ? m_coreObject->rowCount() : 0;
 }
 
 unsigned AccessibilityObjectAtspi::columnCount() const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
-        return 0;
-
-    return m_axObject->columnCount();
+    return m_coreObject ? m_coreObject->columnCount() : 0;
 }
 
 AccessibilityObjectAtspi* AccessibilityObjectAtspi::cell(unsigned row, unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return nullptr;
 
-    if (auto* tableCell = m_axObject->cellForColumnAndRow(column, row))
+    if (auto* tableCell = m_coreObject->cellForColumnAndRow(column, row))
         return tableCell->wrapper();
 
     return nullptr;
@@ -168,40 +158,34 @@ AccessibilityObjectAtspi* AccessibilityObjectAtspi::cell(unsigned row, unsigned 
 
 AccessibilityObjectAtspi* AccessibilityObjectAtspi::tableCaption() const
 {
-    return Accessibility::retrieveValueFromMainThread<AccessibilityObjectAtspi*>([this]() -> AccessibilityObjectAtspi* {
-        if (m_coreObject)
-            m_coreObject->updateBackingStore();
+    if (!m_coreObject)
+        return nullptr;
 
-        if (!m_coreObject)
+    if (auto* node = m_coreObject->node()) {
+        if (!is<HTMLTableElement>(node))
             return nullptr;
 
-        if (auto* node = m_coreObject->node()) {
-            if (!is<HTMLTableElement>(node))
-                return nullptr;
-
-            if (auto caption = downcast<HTMLTableElement>(*node).caption()) {
-                if (auto* renderer = caption->renderer()) {
-                    if (auto* element = AccessibilityObject::firstAccessibleObjectFromNode(renderer->element()))
-                        return element->wrapper();
-                }
+        if (auto caption = downcast<HTMLTableElement>(*node).caption()) {
+            if (auto* renderer = caption->renderer()) {
+                if (auto* element = AccessibilityObject::firstAccessibleObjectFromNode(renderer->element()))
+                    return element->wrapper();
             }
         }
+    }
 
-        return nullptr;
-    });
+    return nullptr;
 }
 
 std::optional<unsigned> AccessibilityObjectAtspi::cellIndex(unsigned row, unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return std::nullopt;
 
-    auto* cell = m_axObject->cellForColumnAndRow(column, row);
+    auto* cell = m_coreObject->cellForColumnAndRow(column, row);
     if (!cell)
         return std::nullopt;
 
-    auto cells = m_axObject->cells();
+    auto cells = m_coreObject->cells();
     AXCoreObject::AccessibilityChildrenVector::iterator position;
     position = std::find(cells.begin(), cells.end(), cell);
     if (position == cells.end())
@@ -211,11 +195,10 @@ std::optional<unsigned> AccessibilityObjectAtspi::cellIndex(unsigned row, unsign
 
 std::optional<unsigned> AccessibilityObjectAtspi::rowAtIndex(unsigned index) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return std::nullopt;
 
-    auto cells = m_axObject->cells();
+    auto cells = m_coreObject->cells();
     if (index >= cells.size())
         return std::nullopt;
 
@@ -224,11 +207,10 @@ std::optional<unsigned> AccessibilityObjectAtspi::rowAtIndex(unsigned index) con
 
 std::optional<unsigned> AccessibilityObjectAtspi::columnAtIndex(unsigned index) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return std::nullopt;
 
-    auto cells = m_axObject->cells();
+    auto cells = m_coreObject->cells();
     if (index >= cells.size())
         return std::nullopt;
 
@@ -237,11 +219,10 @@ std::optional<unsigned> AccessibilityObjectAtspi::columnAtIndex(unsigned index) 
 
 AccessibilityObjectAtspi* AccessibilityObjectAtspi::rowHeader(unsigned row) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return nullptr;
 
-    auto headers = m_axObject->rowHeaders();
+    auto headers = m_coreObject->rowHeaders();
     for (const auto& header : headers) {
         auto range = header->rowIndexRange();
         if (range.first <= row && row < range.first + range.second) {
@@ -255,11 +236,10 @@ AccessibilityObjectAtspi* AccessibilityObjectAtspi::rowHeader(unsigned row) cons
 
 AccessibilityObjectAtspi* AccessibilityObjectAtspi::columnHeader(unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return nullptr;
 
-    auto headers = m_axObject->columnHeaders();
+    auto headers = m_coreObject->columnHeaders();
     for (const auto& header : headers) {
         auto range = header->columnIndexRange();
         if (range.first <= column && column < range.first + range.second) {
@@ -273,13 +253,12 @@ AccessibilityObjectAtspi* AccessibilityObjectAtspi::columnHeader(unsigned column
 
 String AccessibilityObjectAtspi::rowDescription(unsigned row) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return { };
 
     StringBuilder builder;
     bool isFirst = true;
-    auto headers = m_axObject->rowHeaders();
+    auto headers = m_coreObject->rowHeaders();
     for (const auto& header : headers) {
         auto* wrapper = header->wrapper();
         if (!wrapper)
@@ -304,13 +283,12 @@ String AccessibilityObjectAtspi::rowDescription(unsigned row) const
 
 String AccessibilityObjectAtspi::columnDescription(unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return { };
 
     StringBuilder builder;
     bool isFirst = true;
-    auto headers = m_axObject->columnHeaders();
+    auto headers = m_coreObject->columnHeaders();
     for (const auto& header : headers) {
         auto* wrapper = header->wrapper();
         if (!wrapper)
@@ -335,27 +313,24 @@ String AccessibilityObjectAtspi::columnDescription(unsigned column) const
 
 unsigned AccessibilityObjectAtspi::rowExtent(unsigned row, unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return 0;
 
-    auto* cell = m_axObject->cellForColumnAndRow(column, row);
+    auto* cell = m_coreObject->cellForColumnAndRow(column, row);
     return cell ? cell->rowIndexRange().second : 0;
 }
 
 unsigned AccessibilityObjectAtspi::columnExtent(unsigned row, unsigned column) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    if (!m_axObject)
+    if (!m_coreObject)
         return 0;
 
-    auto* cell = m_axObject->cellForColumnAndRow(column, row);
+    auto* cell = m_coreObject->cellForColumnAndRow(column, row);
     return cell ? cell->columnIndexRange().second : 0;
 }
 
 Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::cells() const
 {
-    RELEASE_ASSERT(isMainThread());
     if (!m_coreObject)
         return { };
 
@@ -364,7 +339,6 @@ Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::cells() const
 
 Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::rows() const
 {
-    RELEASE_ASSERT(isMainThread());
     if (!m_coreObject)
         return { };
 
@@ -373,7 +347,6 @@ Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::rows() const
 
 Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::rowHeaders() const
 {
-    RELEASE_ASSERT(isMainThread());
     if (!m_coreObject)
         return { };
 
@@ -382,7 +355,6 @@ Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::rowHeaders() 
 
 Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::columnHeaders() const
 {
-    RELEASE_ASSERT(isMainThread());
     if (!m_coreObject)
         return { };
 
@@ -391,4 +363,4 @@ Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::columnHeaders
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

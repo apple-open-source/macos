@@ -38,6 +38,7 @@ mandir = ${datarootdir}/man
 
 # VPATH
 srcdir = .
+top_srcdir = ..
 
 
 #
@@ -48,20 +49,20 @@ LD = /usr/bin/ld
 CC = gcc
 AR = ar
 LN_S = ln -s
-MKDEP = 
+MKDEP =
 CCOPT =  -fvisibility=hidden -fno-common
-INCLS = -I. -I.. -I. -I./..  -I/usr/local/include
-DEFS = -DHAVE_CONFIG_H 
-ADDLOBJS = 
-ADDLARCHIVEOBJS = 
-LIBS = 
-PTHREAD_LIBS = 
+INCLS = -I. -I.. -I. -I./..
+DEFS = -DHAVE_CONFIG_H
+ADDLOBJS =
+ADDLARCHIVEOBJS =
+LIBS =
+PTHREAD_LIBS =
 CROSSFLAGS=
 CFLAGS = -g -O2   ${CROSSFLAGS}
 LDFLAGS =  ${CROSSFLAGS}
 DYEXT = dylib
-V_RPATH_OPT = 
-DEPENDENCY_CFLAG = 
+V_RPATH_OPT =
+DEPENDENCY_CFLAG =
 EXTRA_NETWORK_LIBS=
 
 # Standard CFLAGS for building test programs
@@ -79,14 +80,16 @@ INSTALL_DATA = ${INSTALL} -m 644
 	$(CC) $(FULL_CFLAGS) -c $(srcdir)/$*.c
 
 SRC = valgrindtest.c \
-	capturetest.c \
 	can_set_rfmon_test.c \
+	capturetest.c \
 	filtertest.c \
+	findalldevstest-perf.c \
 	findalldevstest.c \
 	opentest.c \
 	reactivatetest.c \
 	selpolltest.c \
-	threadsignaltest.c
+	threadsignaltest.c \
+	writecaptest.c
 
 TESTS = $(SRC:.c=)
 
@@ -109,6 +112,9 @@ filtertest: $(srcdir)/filtertest.c ../libpcap.a
 findalldevstest: $(srcdir)/findalldevstest.c ../libpcap.a
 	$(CC) $(FULL_CFLAGS) -I. -L. -o findalldevstest $(srcdir)/findalldevstest.c ../libpcap.a $(EXTRA_NETWORK_LIBS) $(LIBS)
 
+findalldevstest-perf: $(srcdir)/findalldevstest-perf.c ../libpcap.a
+	$(CC) $(FULL_CFLAGS) -I. -L. -o findalldevstest-perf $(srcdir)/findalldevstest-perf.c ../libpcap.a $(EXTRA_NETWORK_LIBS) $(LIBS)
+
 opentest: $(srcdir)/opentest.c ../libpcap.a
 	$(CC) $(FULL_CFLAGS) -I. -L. -o opentest $(srcdir)/opentest.c ../libpcap.a $(LIBS)
 
@@ -123,6 +129,9 @@ threadsignaltest: $(srcdir)/threadsignaltest.c ../libpcap.a
 
 valgrindtest: $(srcdir)/valgrindtest.c ../libpcap.a
 	$(CC) $(FULL_CFLAGS) -I. -L. -o valgrindtest $(srcdir)/valgrindtest.c ../libpcap.a $(LIBS)
+
+writecaptest: $(srcdir)/writecaptest.c ../libpcap.a
+	$(CC) $(FULL_CFLAGS) -I. -L. -o writecaptest $(srcdir)/writecaptest.c ../libpcap.a $(LIBS)
 
 clean:
 	rm -f $(CLEANFILES)
@@ -141,4 +150,4 @@ tags: $(TAGFILES)
 	ctags -wtd $(TAGFILES)
 
 depend:
-	../$(MKDEP) -c "$(CC)" -m "$(DEPENDENCY_CFLAG)" $(CFLAGS) $(DEFS) $(INCLS) $(SRC)
+	$(MKDEP) -c "$(CC)" -m "$(DEPENDENCY_CFLAG)" -s "$(srcdir)" $(CFLAGS) $(DEFS) $(INCLS) $(SRC)

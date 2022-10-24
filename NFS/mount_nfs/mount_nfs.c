@@ -92,8 +92,11 @@
 #include <TargetConditionals.h>
 
 #include "mount_nfs.h"
+#include "utils.h"
 
+#define LOCALHOST_ADDR  "localhost"
 #define _PATH_NFS_CONF  "/etc/nfs.conf"
+#define READAHEAD_WARNING_RATIO 0.25
 
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
@@ -170,6 +173,8 @@ struct nfs_conf_client config =
 #define ALTF_QUOTA              0x00800000
 #define ALTF_PFH                0x01000000
 #define ALTF_NOOPAQUE_AUTH      0x02000000
+#define ALTF_CALLUMNT           0x08000000
+#define ALTF_LOCALHOST          0x10000000
 
 /* standard and value-setting options */
 struct mntopt mopts[] = {
@@ -178,6 +183,7 @@ struct mntopt mopts[] = {
 	MOPT_UPDATE,
 	MOPT_ASYNC,
 	MOPT_SYNC,
+	{ "multilabel", 0, MNT_MULTILABEL, 0 },
 	{ "acdirmax", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "acdirmin", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "acregmax", 0, ALTF_ATTRCACHE_VAL, 1 },
@@ -243,6 +249,8 @@ struct mntopt mopts_switches[] = {
 	{ "soft", 0, ALTF_SOFT, 1 },
 	{ "tcp", 0, ALTF_TCP, 1 },
 	{ "udp", 0, ALTF_UDP, 1 },
+	{ "callumnt", 0, ALTF_CALLUMNT, 1 },
+	{ "localhost", 0, ALTF_LOCALHOST, 1 },
 	{ NULL }
 };
 /* inverse of mopts_switches (set up at runtime) */
@@ -294,7 +302,7 @@ void            usage(void);
 int             nfsparsevers(const char *, uint32_t *, uint32_t *);
 char *          fh2hexstr(fhandle_t *);
 enum clnt_stat  ping_rpc_statd(struct sockaddr *);
-void            nfs_err(int, const char *, ...);
+void            nfs_err(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 
 /*
  * Max rwsize supported by kernel/kext is 2MB for Intel and 8MB for Apple Silicon (8 * 64 * PAGE_SIZE) but
@@ -317,6 +325,16 @@ strtouint32(const char *str, char **eptr, int base)
 	}
 
 	return (uint32_t)num;
+}
+
+static int
+is_ftp(const char *p)
+{
+	if (p) {
+		static const char *ftp = "ftp://";
+		return strncmp(p, ftp, strlen(ftp)) == 0;
+	}
+	return 0;
 }
 
 void
@@ -570,6 +588,7 @@ mount_nfs_imp(int argc, char *argv[])
 			nfs_err(1, "Must be superuser to configupdate");
 		}
 		config_sysctl();
+		unlink_kext_tmpfile();
 		exit(0);
 	}
 
@@ -610,6 +629,9 @@ mount_nfs_imp(int argc, char *argv[])
 		SETFLAG(NFS_MFLAG_MNTQUICK, 1);
 	}
 
+	/* Load nfs kext before mount is executed */
+	load_nfs_kext();
+
 	for (try = 1; try <= retrycnt + 1; try++) {
 		if (try > 1) {
 			if (opflags & BGRND) {
@@ -643,9 +665,24 @@ mount_nfs_imp(int argc, char *argv[])
 			dump_mount_options(nfsl, mntonname);
 		}
 
+		/* Check for expected readahead
+		 * Using wsize which is much greater than rsize could end up with a different amount
+		 * of readhead RPCs compared to the amount requested by the user.
+		 * For more info, please see Radars #84746580 and #85403223
+		 */
+		if ((!NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READAHEAD) || options.readahead)) {
+			if (options.wsize > options.rsize) {
+				double biosize_ratio = (double)options.wsize / options.rsize;
+				double readahead_ratio = options.readahead / biosize_ratio;
+				if (readahead_ratio < READAHEAD_WARNING_RATIO) {
+					warnx("wsize/rsize ratio is high: this could end up with unexpected readahead RPCs");
+				}
+			}
+		}
+
 		/* assemble mount arguments */
 		if ((error = assemble_mount_args(nfsl, &xdrbuf))) {
-			nfs_err(error, "error %d assembling mount args: %s", strerror(error));
+			nfs_err(error, "error assembling mount args: %s", strerror(error));
 		}
 
 		/* mount the file system */
@@ -776,7 +813,7 @@ fh2hexstr(fhandle_t *fh)
 	int len = fh->fh_len;
 	int i, j;
 
-	hstr = malloc(len * 2 + 3);
+	hstr = calloc(1, len * 2 + 3);
 	if (hstr == NULL) {
 		return NULL;
 	}
@@ -866,6 +903,10 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	/* we know these are set/being passed in */
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_FS_LOCATIONS);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_MNTFLAGS);
+
+	if (options.force_localhost && is_ftp(mntfromarg)) {
+		NFS_BITMAP_SET(mattrs, NFS_MATTR_MNTFROM);
+	}
 
 	/* any flags assigned? */
 	for (i = 0; i < NFS_MFLAG_BITMAP_LEN; i++) {
@@ -1052,6 +1093,10 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, 0); /* empty fsl info */
 	}
 	xb_add_32(error, &xb, options.mntflags);
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MNTFROM)) {
+		xb_add_string(error, &xb, mntfromarg, strlen(mntfromarg));
+	}
 
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_REALM)) {
 		xb_add_string(error, &xb, options.realm, strlen(options.realm));
@@ -1757,9 +1802,11 @@ handle_mntopts(char *opts)
 			if (hexstr2fh(p2, &options.fh) == 0) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_FH);
 				if (verbose > 1) {
-					char *hstr;
-					printf("Got fh %s\n", (hstr = fh2hexstr(&options.fh)));
-					free(hstr);
+					char *hstr = fh2hexstr(&options.fh);
+					if (hstr) {
+						printf("Got fh %s\n", hstr);
+						free(hstr);
+					}
 				}
 			} else {
 				nfs_err(1, "cound not set root file handle: %s", strerror(1));
@@ -1862,6 +1909,12 @@ handle_mntopts(char *opts)
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_FH);
 		options.fh.fh_len = 0;
 	}
+	if (altflags & ALTF_CALLUMNT) {
+		SETFLAG(NFS_MFLAG_CALLUMNT, 1);
+	}
+	if (altflags & ALTF_LOCALHOST) {
+		options.force_localhost = 1;
+	}
 	freemntopts(mop);
 
 	/* finally do negative form of switch options */
@@ -1961,6 +2014,9 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_UDP) { /* noudp = tcp */
 		options.socket_type = SOCK_STREAM;
+	}
+	if (altflags & ALTF_CALLUMNT) {
+		SETFLAG(NFS_MFLAG_CALLUMNT, 0);
 	}
 	freemntopts(mop);
 
@@ -2111,7 +2167,7 @@ config_read(const char *confpath, struct nfs_conf_client *conf)
 				conf->statfs_rate_limit = (int)val;
 			}
 		} else if (!strcmp(key, "nfs.client.is_mobile")) {
-				conf->is_mobile = (int)val;
+			conf->is_mobile = (int)val;
 		} else if (!strcmp(key, "nfs.client.squishy_flags")) {
 			if (value && val) {
 				conf->squishy_flags = (int)val;
@@ -2314,7 +2370,7 @@ config_sysctl(void)
  * then move on to the next location.
  */
 int
-parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
+parse_fs_locations(const char *mntfrom, struct nfs_fs_location **nfslp)
 {
 	struct nfs_fs_location *nfslhead = NULL;
 	struct nfs_fs_location *nfslprev = NULL;
@@ -2326,7 +2382,7 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 
 	*nfslp = NULL;
 
-	argcopy = strdup(mntfromarg);
+	argcopy = strdup(mntfrom);
 	if (!argcopy) {
 		return ENOMEM;
 	}
@@ -2349,6 +2405,10 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 				goto outfree;
 			}
 			bzero(nfss, sizeof(*nfss));
+			if (is_ftp(p)) {
+				host = LOCALHOST_ADDR;
+				goto addhost;
+			}
 			host = p;
 			if (*p == '[') {  /* Looks like an IPv6 literal address */
 				p++;
@@ -2420,9 +2480,13 @@ addhost:
 			nfsl->nl_servcnt++;
 			nfssprev = nfss;
 			nfss = NULL;
-			if (*p++ != ',') { /* move on to get the path */
+			if (*p != ',') { /* move on to get the path */
+				if (!is_ftp(p)) {
+					p++;
+				}
 				break;
 			}
+			p++;
 			/* forget about any previously-seen colon */
 			colon = colonslash = NULL;
 			/* get next host */
@@ -2603,8 +2667,9 @@ getaddresslist(struct nfs_fs_server *nfss)
 		bzero(&aihints, sizeof(aihints));
 		aihints.ai_flags = AI_ADDRCONFIG;
 		aihints.ai_socktype = options.socket_type;
-		if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
-			warnx("can't resolve host: %s", hostname);
+		char *socketaddr = options.force_localhost ? LOCALHOST_ADDR : hostname;
+		if (getaddrinfo(socketaddr, NULL, &aihints, &ailist)) {
+			warnx("can't resolve host: %s", socketaddr);
 			return ENOENT;
 		}
 	}

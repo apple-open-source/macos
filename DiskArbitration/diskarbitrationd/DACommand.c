@@ -25,6 +25,7 @@
 
 #include "DABase.h"
 #include "DAInternal.h"
+#include "DAServer.h"
 
 #include <fcntl.h>
 #include <paths.h>
@@ -35,18 +36,22 @@
 #include <sys/wait.h>
 #include <spawn.h>
 #include <crt_externs.h>
+#include <dispatch/private.h>
+#include <dispatch/dispatch.h>
+#include "DALog.h"
+#include <os/log.h>
 
 enum
 {
-    __kDACommandRunLoopSourceJobKindExecute = 0x00000001
+    __kDACommandMachChannelJobKindExecute = 0x00000001
 };
 
-typedef UInt32 __DACommandRunLoopSourceJobKind; 
+typedef UInt32 __DACommandMachChannelJobKind;
 
-struct __DACommandRunLoopSourceJob
+struct __DACommandMachChannelJob
 {
-    __DACommandRunLoopSourceJobKind      kind;
-    struct __DACommandRunLoopSourceJob * next;
+    __DACommandMachChannelJobKind      kind;
+    struct __DACommandMachChannelJob * next;
 
     union
     {
@@ -60,11 +65,12 @@ struct __DACommandRunLoopSourceJob
     };
 };
 
-typedef struct __DACommandRunLoopSourceJob __DACommandRunLoopSourceJob;
+typedef struct __DACommandMachChannelJob __DACommandMachChannelJob;
 
-static __DACommandRunLoopSourceJob * __gDACommandRunLoopSourceJobs = NULL;
-static pthread_mutex_t               __gDACommandRunLoopSourceLock = PTHREAD_MUTEX_INITIALIZER;
-static CFMachPortRef                 __gDACommandRunLoopSourcePort = NULL;
+static __DACommandMachChannelJob * __gDACommandMachChannelJobs = NULL;
+static pthread_mutex_t               __gDACommandMachChannelLock = PTHREAD_MUTEX_INITIALIZER;
+static mach_port_t                 __gDACommandMachChannelPort = 0;
+static  dispatch_mach_t            __gDACommandChannel = NULL;
 
 static void __DACommandExecute( char * const *           argv,
                                 UInt32                   options,
@@ -85,7 +91,7 @@ static void __DACommandExecute( char * const *           argv,
      * State our assumptions.
      */
 
-    assert( __gDACommandRunLoopSourcePort );
+    assert( __gDACommandMachChannelPort );
 
     /*
      * Create a pipe in order to capture the executable output.
@@ -101,7 +107,7 @@ static void __DACommandExecute( char * const *           argv,
      * Fork in order to run the executable.
      */
 
-    pthread_mutex_lock( &__gDACommandRunLoopSourceLock );
+    pthread_mutex_lock( &__gDACommandMachChannelLock );
 
     executablePID = fork( );
 
@@ -175,26 +181,26 @@ spawn_destroy:
 
         if ( callback )
         {
-            __DACommandRunLoopSourceJob * job;
+            __DACommandMachChannelJob * job;
 
-            job = malloc( sizeof( __DACommandRunLoopSourceJob ) );
+            job = malloc( sizeof( __DACommandMachChannelJob ) );
 
             if ( job )
             {
-                job->kind = __kDACommandRunLoopSourceJobKindExecute;
-                job->next = __gDACommandRunLoopSourceJobs;
+                job->kind = __kDACommandMachChannelJobKindExecute;
+                job->next = __gDACommandMachChannelJobs;
 
                 job->execute.pid             = executablePID;
                 job->execute.pipe            = ( outputPipe[0] != -1 ) ? dup( outputPipe[0] ) : -1;
                 job->execute.callback        = callback;
                 job->execute.callbackContext = callbackContext;
 
-                __gDACommandRunLoopSourceJobs = job;
+                __gDACommandMachChannelJobs = job;
             }
         }
     }
 
-    pthread_mutex_unlock( &__gDACommandRunLoopSourceLock );
+    pthread_mutex_unlock( &__gDACommandMachChannelLock );
 
     if ( executablePID == -1 )  { status = EX_OSERR; goto __DACommandExecuteErr; }
 
@@ -220,111 +226,118 @@ __DACommandExecuteErr:
     }
 }
 
-static void __DACommandRunLoopSourceCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info )
+static void __DACommandMachChannelHandler( void *context, dispatch_mach_reason_t reason,
+                                            dispatch_mach_msg_t msg, mach_error_t error )
 {
     /*
-     * Process a DACommand CFRunLoopSource fire.  __DACommandSignal() triggers the fire when
+     * Process a DACommand MachChannel fire.  __DACommandSignal() triggers the fire when
      * a child exits or stops.  We locate the appropriate callback candidate in our job list
      * and issue the callback.
      */
 
     pid_t pid;
     int   status;
-
-    /*
-     * Scan through exited or stopped children.
-     */
-
-    while ( ( pid = waitpid( -1, &status, WNOHANG ) ) > 0 )
+    
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED)
     {
-        __DACommandRunLoopSourceJob * job     = NULL;
-        __DACommandRunLoopSourceJob * jobLast = NULL;
-
-        pthread_mutex_lock( &__gDACommandRunLoopSourceLock );
-
+        mach_msg_header_t   *header = dispatch_mach_msg_get_msg(msg, NULL);
+        
         /*
-         * Scan through job list.
+         * Scan through exited or stopped children.
          */
-
-        for ( job = __gDACommandRunLoopSourceJobs; job; jobLast = job, job = job->next )
+    
+        while ( ( pid = waitpid( -1, &status, WNOHANG ) ) > 0 )
         {
-            assert( job->kind == __kDACommandRunLoopSourceJobKindExecute );
+            __DACommandMachChannelJob * job     = NULL;
+            __DACommandMachChannelJob * jobLast = NULL;
 
-            if ( job->execute.pid == pid )
+            pthread_mutex_lock( &__gDACommandMachChannelLock );
+
+            /*
+             * Scan through job list.
+             */
+
+            for ( job = __gDACommandMachChannelJobs; job; jobLast = job, job = job->next )
             {
-                /*
-                 * Process the job's callback.
-                 */
+                assert( job->kind == __kDACommandMachChannelJobKindExecute );
 
-                CFMutableDataRef output = NULL;
-
-                if ( jobLast )
+                if ( job->execute.pid == pid )
                 {
-                    jobLast->next = job->next;
-                }
-                else
-                {
-                    __gDACommandRunLoopSourceJobs = job->next;
-                }
+                    /*
+                     * Process the job's callback.
+                     */
 
-                pthread_mutex_unlock( &__gDACommandRunLoopSourceLock );
+                    CFMutableDataRef output = NULL;
 
-                /*
-                 * Capture the executable's output, or the last remains of it, from the pipe.
-                 */
+                    if ( jobLast )
+                    {
+                        jobLast->next = job->next;
+                    }
+                    else
+                    {
+                        __gDACommandMachChannelJobs = job->next;
+                    }
 
-                if ( job->execute.pipe != -1 )
-                {
-                    output = CFDataCreateMutable( kCFAllocatorDefault, 0 );
+                    pthread_mutex_unlock( &__gDACommandMachChannelLock );
+
+                    /*
+                     * Capture the executable's output, or the last remains of it, from the pipe.
+                     */
+
+                    if ( job->execute.pipe != -1 )
+                    {
+                        output = CFDataCreateMutable( kCFAllocatorDefault, 0 );
+
+                        if ( output )
+                        {
+                            UInt8 * buffer;
+                        
+                            buffer = malloc( PIPE_BUF );
+
+                            if ( buffer )
+                            {
+                                int count;
+
+                                while ( ( count = read( job->execute.pipe, buffer, PIPE_BUF ) ) > 0 )
+                                {
+                                    CFDataAppendBytes( output, buffer, count );
+                                }
+
+                                free( buffer );
+                            }
+                        }
+
+                        close( job->execute.pipe );
+                    }
+
+                    /*
+                     * Issue the callback.
+                     */
+
+                    status = WIFEXITED( status ) ? ( ( char ) WEXITSTATUS( status ) ) : status;
+
+                    ( job->execute.callback )( status, output, job->execute.callbackContext );
+
+                    /*
+                     * Release our resources.
+                     */
 
                     if ( output )
                     {
-                        UInt8 * buffer;
-                        
-                        buffer = malloc( PIPE_BUF );
-
-                        if ( buffer )
-                        {
-                            int count;
-
-                            while ( ( count = read( job->execute.pipe, buffer, PIPE_BUF ) ) > 0 )
-                            {
-                                CFDataAppendBytes( output, buffer, count );
-                            }
-
-                            free( buffer );
-                        }
+                        CFRelease( output );
                     }
 
-                    close( job->execute.pipe );
+                    free( job );
+
+                    pthread_mutex_lock( &__gDACommandMachChannelLock );
+
+                    break;
                 }
-
-                /*
-                 * Issue the callback.
-                 */
-
-                status = WIFEXITED( status ) ? ( ( char ) WEXITSTATUS( status ) ) : status;
-
-                ( job->execute.callback )( status, output, job->execute.callbackContext );
-
-                /*
-                 * Release our resources.
-                 */
-
-                if ( output )
-                {
-                    CFRelease( output );
-                }
-
-                free( job );
-
-                pthread_mutex_lock( &__gDACommandRunLoopSourceLock );
-
-                break;
             }
-        }
 
-        pthread_mutex_unlock( &__gDACommandRunLoopSourceLock );
+            pthread_mutex_unlock( &__gDACommandMachChannelLock );
+        }
+        mach_msg_destroy(header);
     }
 }
 
@@ -340,88 +353,105 @@ static void __DACommandSignal( int sig )
     message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
     message.msgh_id          = 0;
     message.msgh_local_port  = MACH_PORT_NULL;
-    message.msgh_remote_port = CFMachPortGetPort( __gDACommandRunLoopSourcePort );
+    message.msgh_remote_port = __gDACommandMachChannelPort;
     message.msgh_reserved    = 0;
     message.msgh_size        = sizeof( message );
-
-    status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
-
-    if ( status == MACH_SEND_TIMED_OUT )
-    {
-        mach_msg_destroy( &message );
-    }
+    
+    dispatch_mach_msg_t msg = dispatch_mach_msg_create( &message,
+                    message.msgh_size, DISPATCH_MACH_MSG_DESTRUCTOR_DEFAULT,
+                    NULL );
+    dispatch_mach_send( __gDACommandChannel, msg, 0 );
+    dispatch_release( msg );
 }
 
-CFRunLoopSourceRef DACommandCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order )
+dispatch_mach_t DACommandCreateMachChannel( void )
 {
     /*
-     * Create a CFRunLoopSource for DACommand callbacks.
+     * Create a dispatch mach channel for DACommand callbacks.
      */
 
-    CFRunLoopSourceRef source = NULL;
-
-    pthread_mutex_lock( &__gDACommandRunLoopSourceLock );
+    pthread_mutex_lock( &__gDACommandMachChannelLock );
 
     /*
      * Initialize our minimal state.
      */
 
-    if ( __gDACommandRunLoopSourcePort == NULL )
+    if ( __gDACommandMachChannelPort == 0 )
     {
         /*
          * Create the global CFMachPort.  It will be used to post jobs to the run loop.
          */
+        kern_return_t status;
 
-        __gDACommandRunLoopSourcePort = CFMachPortCreate( kCFAllocatorDefault, __DACommandRunLoopSourceCallback, NULL, NULL );
+        status = mach_port_allocate( mach_task_self( ), MACH_PORT_RIGHT_RECEIVE, &__gDACommandMachChannelPort );
 
-        if ( __gDACommandRunLoopSourcePort )
+        if ( status == KERN_SUCCESS )
         {
-            /*
-             * Set up the global CFMachPort.  It requires no more than one queue element.
-             */
+        
+            status = mach_port_insert_right(mach_task_self(), __gDACommandMachChannelPort, __gDACommandMachChannelPort, MACH_MSG_TYPE_MAKE_SEND);
+            
+            if ( status == KERN_SUCCESS )
+            {
+                
+                /*
+                 * Set up the global CFMachPort.  It requires no more than one queue element.
+                 */
 
-            mach_port_limits_t limits = { 0 };
+                mach_port_limits_t limits = { 0 };
 
-            limits.mpl_qlimit = 1;
+                limits.mpl_qlimit = 1;
 
-            mach_port_set_attributes( mach_task_self( ),
-                                      CFMachPortGetPort( __gDACommandRunLoopSourcePort ),
+                mach_port_set_attributes( mach_task_self( ),
+                                     __gDACommandMachChannelPort,
                                       MACH_PORT_LIMITS_INFO,
                                       ( mach_port_info_t ) &limits,
                                       MACH_PORT_LIMITS_INFO_COUNT );
+            }
         }
 
-        if ( __gDACommandRunLoopSourcePort )
+        if ( __gDACommandMachChannelPort )
         {
             /*
-             * Set up the global signal handler to catch child status changes from BSD.
+             * Set up the dispatch source to catch child status changes from BSD.
              */
 
-            sig_t sig;
+            dispatch_source_t sig_source;
 
-            sig = signal( SIGCHLD, __DACommandSignal );
+            sig_source = dispatch_source_create( DISPATCH_SOURCE_TYPE_SIGNAL, SIGCHLD, 0, DAServerWorkLoop() );
 
-            if ( sig == SIG_ERR )
+            if ( sig_source )
             {
-                CFRelease( __gDACommandRunLoopSourcePort );
 
-                __gDACommandRunLoopSourcePort = NULL;
+                dispatch_source_set_event_handler( sig_source, ^
+                {
+                    __DACommandSignal( SIGCHLD );
+                } );
+                dispatch_resume( sig_source );
+
+            }
+            else
+            {
+                mach_port_mod_refs( mach_task_self( ), __gDACommandMachChannelPort, MACH_PORT_RIGHT_RECEIVE, -1 );
+
+                __gDACommandMachChannelPort = 0;
             }
         }
     }
 
-    /*
-     * Obtain the CFRunLoopSource for our CFMachPort.
-     */
 
-    if ( __gDACommandRunLoopSourcePort )
+    if ( __gDACommandMachChannelPort )
     {
-        source = CFMachPortCreateRunLoopSource( allocator, __gDACommandRunLoopSourcePort, order );
+        __gDACommandChannel = dispatch_mach_create_f("diskarbitrationd/command",
+                                                DAServerWorkLoop(),
+                                                NULL,
+                                               __DACommandMachChannelHandler);
+        
+        dispatch_mach_connect( __gDACommandChannel, __gDACommandMachChannelPort, __gDACommandMachChannelPort, NULL);
     }
 
-    pthread_mutex_unlock( &__gDACommandRunLoopSourceLock );
+    pthread_mutex_unlock( &__gDACommandMachChannelLock );
 
-    return source;
+    return __gDACommandChannel;
 }
 
 void DACommandExecute( CFURLRef                 executable,

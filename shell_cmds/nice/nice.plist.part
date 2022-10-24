@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>nice</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/nice?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-11-17</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>set locale</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

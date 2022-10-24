@@ -47,8 +47,8 @@ private:
     bool isValid() const;
     void setCheckedButton(HTMLInputElement*);
 
-    WeakHashSet<HTMLInputElement> m_members;
-    WeakPtr<HTMLInputElement> m_checkedButton;
+    WeakHashSet<HTMLInputElement, WeakPtrImplWithEventTargetData> m_members;
+    WeakPtr<HTMLInputElement, WeakPtrImplWithEventTargetData> m_checkedButton;
     size_t m_requiredCount { 0 };
 };
 
@@ -59,9 +59,7 @@ inline bool RadioButtonGroup::isValid() const
 
 Vector<Ref<HTMLInputElement>> RadioButtonGroup::members() const
 {
-    Vector<Ref<HTMLInputElement>> sortedMembers;
-    for (auto& member : m_members)
-        sortedMembers.append(member);
+    auto sortedMembers = copyToVectorOf<Ref<HTMLInputElement>>(m_members);
     std::sort(sortedMembers.begin(), sortedMembers.end(), [](auto& a, auto& b) {
         return is_lt(treeOrder<ComposedTree>(a, b));
     });

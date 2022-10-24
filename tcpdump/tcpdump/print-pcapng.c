@@ -39,13 +39,11 @@
 
 #ifdef DLT_PCAPNG
 
-u_int
+void
 pcapng_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 			   const u_char *raw)
 {
 	fprintf(stderr, "Intenal error, %s should not be called\n", __func__);
-	
-	return (0);
 }
 
 #endif /* DLT_PCAPNG */

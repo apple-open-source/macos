@@ -81,26 +81,25 @@
 
     secnotice("octagon-sos", "Updating SOS preapproved keys to %@", publicSigningSPKIs);
 
-    [self.deps.cuttlefishXPCWrapper setPreapprovedKeysWithContainer:self.deps.containerName
-                                                            context:self.deps.contextID
-                                                    preapprovedKeys:publicSigningSPKIs
-                                                              reply:^(TrustedPeersHelperPeerState* _Nullable peerState, NSError* error) {
-            STRONGIFY(self);
-            if(error) {
-                secerror("octagon-sos: unable to update preapproved keys: %@", error);
-                self.error = error;
-            } else {
-                secnotice("octagon-sos", "Updated SOS preapproved keys");
+    [self.deps.cuttlefishXPCWrapper setPreapprovedKeysWithSpecificUser:self.deps.activeAccount
+                                                       preapprovedKeys:publicSigningSPKIs
+                                                                 reply:^(TrustedPeersHelperPeerState* _Nullable peerState, NSError* error) {
+        STRONGIFY(self);
+        if(error) {
+            secerror("octagon-sos: unable to update preapproved keys: %@", error);
+            self.error = error;
+        } else {
+            secnotice("octagon-sos", "Updated SOS preapproved keys");
 
-                if (peerState.memberChanges) {
-                    secnotice("octagon", "Member list changed");
-                    [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
-                }
-
-                self.nextState = self.intendedState;
+            if (peerState.memberChanges) {
+                secnotice("octagon", "Member list changed");
+                [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
             }
-            [self runBeforeGroupFinished:self.finishedOp];
-        }];
+
+            self.nextState = self.intendedState;
+        }
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

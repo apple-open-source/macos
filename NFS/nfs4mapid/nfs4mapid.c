@@ -31,11 +31,11 @@
 #include <sys/ucred.h>
 #include <sys/socket.h>
 #include <sys/kauth.h>
-#include <nfs/rpcv2.h>
 #include <nfs/nfs.h>
 #include <uuid/uuid.h>
 
-extern int nfsclnt(int, void *);
+#include "utils.h" // For load_nfs_kext()
+
 char guid_grp_prefix[12] = "\xab\xcd\xef\xab\xcd\xef\xab\xcd\xef\xab\xcd\xef";
 
 void
@@ -147,6 +147,7 @@ main(int argc, char *argv[])
 		warnx("Setting '-G' option for known group GUID or name");
 	}
 
+	load_nfs_kext(); // Make sure nfs kext is UP!
 	error = nfsclnt(NFSCLNT_TESTIDMAP, &map);
 	if (error) {
 		err(1, "nfsclnt failed");

@@ -1,0 +1,3 @@
+[libfuzzer]
+dict = html.dict
+timeout = 10

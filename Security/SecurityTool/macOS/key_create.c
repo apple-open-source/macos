@@ -97,14 +97,14 @@ do_key_create_pair(const char *keychainName, SecAccessRef access, CSSM_ALGORITHM
 
 		if (info.count != attrList->count)
 		{
-			sec_error("info count: %ld != attribute count: %ld", info.count, attrList->count);
+			sec_error("info count: %" PRIu32 " != attribute count: %" PRIu32, info.count, attrList->count);
 			result = 1;
 			goto loser;
 		}
 
 		if (tag != attrList->attr[0].tag)
 		{
-			sec_error("attribute info tag: %ld != attribute tag: %ld", tag, attrList->attr[0].tag);
+			sec_error("attribute info tag: %" PRIu32 " != attribute tag: %lu", tag, (unsigned long)attrList->attr[0].tag);
 			result = 1;
 			goto loser;
 		}

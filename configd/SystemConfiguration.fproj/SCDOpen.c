@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,16 +42,17 @@
 #include <bootstrap_priv.h>
 
 #include "SCDynamicStoreInternal.h"
+#include "SCInternal.h"
 #include "config.h"		/* MiG generated file */
 #include "SCD.h"
 
 #define	N_SESSIONS_WARN_DEFAULT	50	// complain if SCDynamicStore session count exceeds this [soft-]limit
 #define	N_SESSIONS_WARN_MAX	5000	// stop complaining when # sessions exceeds this [hard-]limit
 
-static mach_port_t	_sc_server		= MACH_PORT_NULL;		// sync w/storeQueue()
-static CFIndex		_sc_store_advise	= N_SESSIONS_WARN_DEFAULT / 2;	// when snapshots should log
-static CFIndex		_sc_store_max		= N_SESSIONS_WARN_DEFAULT;
-static CFMutableSetRef	_sc_store_sessions	= NULL;				// sync w/storeQueue()
+static mach_port_t	_sc_server;						// sync w/storeQueue()
+static CFIndex		_sc_store_advise;					// when snapshots should log
+static CFIndex		_sc_store_max;
+static CFMutableSetRef	_sc_store_sessions;					// sync w/storeQueue()
 
 static dispatch_queue_t
 storeQueue(void)
@@ -91,8 +92,7 @@ addSessionReference(const void *value, void *context)
 	CFMutableDictionaryRef		dict		= (CFMutableDictionaryRef)context;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)value;
 
-	if (!storePrivate->serverNullSession &&
-	    (storePrivate->name != NULL)) {
+	if (storePrivate->name != NULL) {
 		int			cnt;
 		CFMutableStringRef	key;
 		CFIndex			n;
@@ -132,6 +132,17 @@ addSessionReference(const void *value, void *context)
 	return;
 }
 
+static inline CFIndex
+get_sc_store_advise(void)
+{
+	return (_sc_store_advise != 0) ? _sc_store_advise : (N_SESSIONS_WARN_DEFAULT / 2);
+}
+
+static inline CFIndex
+get_sc_store_max(void)
+{
+	return (_sc_store_max != 0) ? _sc_store_max : N_SESSIONS_WARN_DEFAULT;
+}
 
 static void
 add_state_handler()
@@ -147,9 +158,11 @@ add_state_handler()
 		os_state_data_t		state_data;
 		size_t			state_data_size;
 		CFIndex			state_len;
+		CFIndex 		store_max 	= get_sc_store_max();
+		CFIndex 		store_advise 	= get_sc_store_advise();
 
 		n = CFSetGetCount(_sc_store_sessions);
-		if ((_sc_store_max <= 0) || (n == 0) || (n < _sc_store_advise)) {
+		if ((store_max < 0) || (n == 0) || (n < store_advise)) {
 			return NULL;
 		}
 
@@ -296,12 +309,10 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 		_SC_crash("SCDynamicStore OVER-RELEASED (notification still active)", NULL, NULL);
 	}
 
-	if (!storePrivate->serverNullSession) {
-		dispatch_sync(storeQueue(), ^{
+	dispatch_sync(storeQueue(), ^{
 			// remove session tracking
 			CFSetRemoveValue(_sc_store_sessions, storePrivate);
 		});
-	}
 
 	/* Remove/cancel any outstanding notification requests. */
 	(void) SCDynamicStoreNotifyCancel(store);
@@ -348,7 +359,7 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 }
 
 
-static CFTypeID __kSCDynamicStoreTypeID = _kCFRuntimeNotATypeID;
+static CFTypeID __kSCDynamicStoreTypeID;
 
 
 static const CFRuntimeClass __SCDynamicStoreClass = {
@@ -374,20 +385,59 @@ childForkHandler()
 }
 
 
-static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
-
 static void
 __SCDynamicStoreInitialize(void)
 {
-	/* register with CoreFoundation */
-	__kSCDynamicStoreTypeID = _CFRuntimeRegisterClass(&__SCDynamicStoreClass);
+	static dispatch_once_t  initialized;
 
-	/* add handler to cleanup after fork() */
-	(void) pthread_atfork(NULL, NULL, childForkHandler);
+	dispatch_once(&initialized, ^{
+		/* register with CoreFoundation */
+		__kSCDynamicStoreTypeID = _CFRuntimeRegisterClass(&__SCDynamicStoreClass);
 
-	add_state_handler();
+		/* add handler to cleanup after fork() */
+		(void) pthread_atfork(NULL, NULL, childForkHandler);
 
+		add_state_handler();	
+	});
+	
 	return;
+}
+
+
+static Boolean
+get_sysctl_val(const char * name, int * val_p)
+{
+        int     val;
+        size_t  val_size = sizeof(val);
+
+        if (sysctlbyname(name, &val, &val_size, NULL, 0) != 0) {
+                SC_log(LOG_NOTICE,
+                       "sysctl %s failed, %s",
+                       name, strerror(errno));
+                return (FALSE);
+        }
+        *val_p = val;
+        SC_log(LOG_INFO, "sysctl %s %d", name, val);
+        return (TRUE);
+}
+
+
+#define KERN_WILLSHUTDOWN               "kern.willshutdown"
+#define KERN_WILLUSERSPACEREBOOT        "kern.willuserspacereboot"
+
+
+static Boolean
+should_try_to_reconnect(void)
+{
+        int     val = 0;
+
+        if (get_sysctl_val(KERN_WILLSHUTDOWN, &val) && val != 0) {
+                return (FALSE);
+        }
+        if (get_sysctl_val(KERN_WILLUSERSPACEREBOOT, &val) && val != 0) {
+                return (FALSE);
+        }
+        return (TRUE);
 }
 
 
@@ -429,6 +479,13 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 				     &server,
 				     0,
 				     BOOTSTRAP_PRIVILEGED_SERVER);
+#ifdef	DEBUG
+	if ((*status != BOOTSTRAP_SUCCESS)
+	    && (strcmp(server_name, SCD_SERVER) != 0)
+	    ) {
+		*status = bootstrap_look_up(bootstrap_port, server_name, &server);
+	}
+#endif	/* DEBUG */
 #else	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
 	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
 #endif	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
@@ -448,6 +505,10 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 			break;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
 			/* service not currently registered, try again later */
+			if (!should_try_to_reconnect()) {
+				SC_log(LOG_INFO, "SCDynamicStore no longer available, skipping reconnect");
+				break;
+			}
 			if (retry) {
 				try++;
 				SC_log((try <= MAX_UNKNOWN_SERVICE_RETRY) ? LOG_INFO : LOG_ERR,
@@ -489,14 +550,13 @@ SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 			      const CFStringRef		name,
 			      SCDynamicStoreCallBack	callout,
-			      SCDynamicStoreContext	*context,
-			      Boolean			nullSession)
+			      SCDynamicStoreContext	*context)
 {
 	uint32_t			size;
 	SCDynamicStorePrivateRef	storePrivate;
 
 	/* initialize runtime */
-	pthread_once(&initialized, __SCDynamicStoreInitialize);
+	__SCDynamicStoreInitialize();
 
 	/* allocate session */
 	size  = sizeof(SCDynamicStorePrivate) - sizeof(CFRuntimeBase);
@@ -532,9 +592,7 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* "server" information associated with SCDynamicStoreNotifyFileDescriptor(); */
 	storePrivate->notifyFile			= -1;
 
-	if (nullSession) {
-		storePrivate->serverNullSession = TRUE;
-	} else {
+	{
 		__block Boolean		tooManySessions	= FALSE;
 
 		/* watch for excessive SCDynamicStore usage */
@@ -648,39 +706,13 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 
 	while (server != MACH_PORT_NULL) {
 		// if SCDynamicStore server available
-
-		if (!storePrivate->serverNullSession) {
-			// if SCDynamicStore session
-			kr = configopen(server,
-					myNameRef,
-					(mach_msg_type_number_t)myNameLen,
-					myOptionsRef,
-					(mach_msg_type_number_t)myOptionsLen,
-					&storePrivate->server,
-					(int *)&sc_status);
-		} else {
-			// if NULL session
-			if (storePrivate->server == MACH_PORT_NULL) {
-				// use the [main] SCDynamicStore server port
-				kr = mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_SEND, +1);
-				if (kr == KERN_SUCCESS) {
-					storePrivate->server = server;
-					sc_status = kSCStatusOK;
-				} else {
-					if (kr == KERN_INVALID_RIGHT) {
-						// We can get KERN_INVALID_RIGHT if the server dies and we try to
-						// add a send right to a stale (now dead) port name
-						kr = MACH_SEND_INVALID_DEST;
-					}
-					storePrivate->server = MACH_PORT_NULL;
-				}
-			} else {
-				// if the server port we used returned an error
-				storePrivate->server = MACH_PORT_NULL;
-				kr = MACH_SEND_INVALID_DEST;
-			}
-		}
-
+		kr = configopen(server,
+				myNameRef,
+				(mach_msg_type_number_t)myNameLen,
+				myOptionsRef,
+				(mach_msg_type_number_t)myOptionsLen,
+				&storePrivate->server,
+				(int *)&sc_status);
 		if (kr == KERN_SUCCESS) {
 			break;
 		}
@@ -721,33 +753,23 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 	return FALSE;
 }
 
+static SCDynamicStorePrivateRef	S_null_session;
 
 static SCDynamicStoreRef
 __SCDynamicStoreNullSession(void)
 {
-	SCDynamicStorePrivateRef	storePrivate;
-	__block Boolean			ok	= TRUE;
-	__SCThreadSpecificDataRef	tsd;
+	dispatch_block_t	once_block;
+	static dispatch_once_t  initialized;
 
-	tsd = __SCGetThreadSpecificData();
-	if (tsd->_sc_store == NULL) {
-		storePrivate = __SCDynamicStoreCreatePrivate(NULL,
-							     CFSTR("NULL session"),
-							     NULL,
-							     NULL,
-							     TRUE);
-		assert(storePrivate != NULL);
-		tsd->_sc_store = (SCDynamicStoreRef)storePrivate;
-	}
-
-	storePrivate = (SCDynamicStorePrivateRef)tsd->_sc_store;
-	dispatch_sync(storePrivate->queue, ^{
-		if (storePrivate->server == MACH_PORT_NULL) {
-			ok = __SCDynamicStoreAddSession(storePrivate);
-		}
-	});
-
-	return ok ? tsd->_sc_store : NULL;
+	once_block = ^{
+		S_null_session = (SCDynamicStorePrivateRef)
+			SCDynamicStoreCreate(NULL,
+					     CFSTR("null"),
+					     NULL,
+					     NULL);
+	};
+	dispatch_once(&initialized, once_block);
+	return (S_null_session);
 }
 
 
@@ -1087,7 +1109,7 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	SCDynamicStorePrivateRef	storePrivate;
 
 	// allocate and initialize a new session
-	storePrivate = __SCDynamicStoreCreatePrivate(allocator, NULL, callout, context, FALSE);
+	storePrivate = __SCDynamicStoreCreatePrivate(allocator, NULL, callout, context);
 	if (storePrivate == NULL) {
 		return NULL;
 	}
@@ -1124,7 +1146,7 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 
 CFTypeID
 SCDynamicStoreGetTypeID(void) {
-	pthread_once(&initialized, __SCDynamicStoreInitialize);	/* initialize runtime */
+	__SCDynamicStoreInitialize();	/* initialize runtime */
 	return __kSCDynamicStoreTypeID;
 }
 
@@ -1143,4 +1165,42 @@ SCDynamicStoreSetDisconnectCallBack(SCDynamicStoreRef			store,
 
 	storePrivate->disconnectFunction = callout;
 	return TRUE;
+}
+
+__private_extern__
+int
+__SCDynamicStoreMapInternalStatus(int sc_status, Boolean generate_fault)
+{
+	switch (sc_status) {
+	case kSCStatusAccessError_MissingReadEntitlement:
+		sc_status = kSCStatusAccessError;
+		if (!generate_fault) {
+			break;
+		}
+		_SC_crash_once("SCDynamicStore read denied: "
+			       "missing entitlement",
+			       NULL, NULL);
+		break;
+	case kSCStatusAccessError_MissingWriteEntitlement:
+		sc_status = kSCStatusAccessError;
+		if (!generate_fault) {
+			break;
+		}
+		_SC_crash_once("SCDynamicStore write denied : "
+			       "missing entitlement",
+			       NULL, NULL);
+		break;
+	case kSCStatusOK_MissingReadEntitlement:
+		sc_status = kSCStatusOK;
+		if (!generate_fault) {
+			break;
+		}
+		_SC_crash_once("SCDynamicStore read allowed: "
+			       "missing entitlement",
+			       NULL, NULL);
+		break;
+	default:
+		break;
+	}
+	return (sc_status);
 }

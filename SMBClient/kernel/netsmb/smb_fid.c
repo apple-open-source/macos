@@ -117,7 +117,7 @@ smb_fid_delete_all(struct smb_share *share)
         
         LIST_FOREACH_SAFE(node, &slotPtr->fid_list, link, temp_node) {
             LIST_REMOVE(node, link);
-            SMB_FREE(node, M_TEMP);
+            SMB_FREE_TYPE(SMB_FID_NODE, node);
         }
     }
     
@@ -176,7 +176,7 @@ smb_fid_get_kernel_fid(struct smb_share *share, SMBFID fid, int remove_fid,
                          node->smb2_fid.fid_volatile,
                          fid);*/
                 LIST_REMOVE(node, link);
-				SMB_FREE(node, M_TEMP);
+                SMB_FREE_TYPE(SMB_FID_NODE, node);
             }
             break;
         }
@@ -223,7 +223,7 @@ smb_fid_get_user_fid(struct smb_share *share, SMB2FID smb2_fid, SMBFID *ret_fid)
     
     fid = (val1 << 32) | val2;
     
-    SMB_MALLOC(node, SMB_FID_NODE *, sizeof(SMB_FID_NODE), M_TEMP, M_WAITOK);
+    SMB_MALLOC_TYPE(node, SMB_FID_NODE, Z_WAITOK);
     if (node != NULL) {
         node->fid = fid;
         node->smb2_fid = smb2_fid;

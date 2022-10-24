@@ -29,15 +29,16 @@
 
 #include "ContentType.h"
 #include "Cookie.h"
+#include "FourCC.h"
 #include "GraphicsTypesGL.h"
 #include "LayoutRect.h"
 #include "MediaPlayerEnums.h"
 #include "MediaPlayerIdentifier.h"
-#include "MediaSampleVideoFrame.h"
 #include "PlatformLayer.h"
 #include "PlatformTextTrack.h"
 #include "SecurityOriginData.h"
 #include "Timer.h"
+#include "VideoFrame.h"
 #include "VideoFrameMetadata.h"
 #include "VideoPlaybackQualityMetrics.h"
 #include <JavaScriptCore/Forward.h>
@@ -85,6 +86,7 @@ class MediaStreamPrivate;
 class NativeImage;
 class PlatformMediaResourceLoader;
 class PlatformTimeRanges;
+class SharedBuffer;
 class TextTrackRepresentation;
 class VideoTrackPrivate;
 
@@ -97,6 +99,11 @@ struct MediaEngineSupportParameters {
     bool isMediaSource { false };
     bool isMediaStream { false };
     Vector<ContentType> contentTypesRequiringHardwareSupport;
+    std::optional<Vector<String>> allowedMediaContainerTypes;
+    std::optional<Vector<String>> allowedMediaCodecTypes;
+    std::optional<Vector<FourCC>> allowedMediaVideoCodecIDs;
+    std::optional<Vector<FourCC>> allowedMediaAudioCodecIDs;
+    std::optional<Vector<FourCC>> allowedMediaCaptionFormatTypes;
 
     template<class Encoder>
     void encode(Encoder& encoder) const
@@ -106,37 +113,26 @@ struct MediaEngineSupportParameters {
         encoder << isMediaSource;
         encoder << isMediaStream;
         encoder << contentTypesRequiringHardwareSupport;
+        encoder << allowedMediaContainerTypes;
+        encoder << allowedMediaCodecTypes;
+        encoder << allowedMediaVideoCodecIDs;
+        encoder << allowedMediaAudioCodecIDs;
+        encoder << allowedMediaCaptionFormatTypes;
     }
 
     template <class Decoder>
-    static std::optional<MediaEngineSupportParameters> decode(Decoder& decoder)
+    static bool decode(Decoder& decoder, MediaEngineSupportParameters& parameters)
     {
-        std::optional<ContentType> type;
-        decoder >> type;
-        if (!type)
-            return std::nullopt;
-
-        std::optional<URL> url;
-        decoder >> url;
-        if (!url)
-            return std::nullopt;
-
-        std::optional<bool> isMediaSource;
-        decoder >> isMediaSource;
-        if (!isMediaSource)
-            return std::nullopt;
-
-        std::optional<bool> isMediaStream;
-        decoder >> isMediaStream;
-        if (!isMediaStream)
-            return std::nullopt;
-
-        std::optional<Vector<ContentType>> typesRequiringHardware;
-        decoder >> typesRequiringHardware;
-        if (!typesRequiringHardware)
-            return std::nullopt;
-
-        return {{ WTFMove(*type), WTFMove(*url), *isMediaSource, *isMediaStream, *typesRequiringHardware }};
+        return decoder.decode(parameters.type)
+            && decoder.decode(parameters.url)
+            && decoder.decode(parameters.isMediaSource)
+            && decoder.decode(parameters.isMediaStream)
+            && decoder.decode(parameters.contentTypesRequiringHardwareSupport)
+            && decoder.decode(parameters.allowedMediaContainerTypes)
+            && decoder.decode(parameters.allowedMediaCodecTypes)
+            && decoder.decode(parameters.allowedMediaVideoCodecIDs)
+            && decoder.decode(parameters.allowedMediaAudioCodecIDs)
+            && decoder.decode(parameters.allowedMediaCaptionFormatTypes);
     }
 };
 
@@ -205,7 +201,7 @@ public:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     virtual RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const = 0;
-    virtual void mediaPlayerKeyNeeded(Uint8Array*) { }
+    virtual void mediaPlayerKeyNeeded(const SharedBuffer&) { }
     virtual String mediaPlayerMediaKeysStorageDirectory() const { return emptyString(); }
 #endif
 
@@ -275,6 +271,12 @@ public:
     virtual const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const = 0;
     virtual bool mediaPlayerShouldCheckHardwareSupport() const { return false; }
 
+    virtual const std::optional<Vector<String>>& allowedMediaContainerTypes() const = 0;
+    virtual const std::optional<Vector<String>>& allowedMediaCodecTypes() const = 0;
+    virtual const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const = 0;
+    virtual const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const = 0;
+    virtual const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const = 0;
+
     virtual void mediaPlayerBufferedTimeRangesChanged() { }
     virtual void mediaPlayerSeekableTimeRangesChanged() { }
 
@@ -288,6 +290,8 @@ public:
 #if PLATFORM(COCOA)
     virtual void mediaPlayerOnNewVideoFrameMetadata(VideoFrameMetadata&&, RetainPtr<CVPixelBufferRef>&&) { }
 #endif
+
+    virtual bool mediaPlayerPrefersSandboxedParsing() const { return false; }
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
@@ -354,7 +358,7 @@ public:
 
     bool load(const URL&, const ContentType&, const String& keySystem);
 #if ENABLE(MEDIA_SOURCE)
-    bool load(const URL&, const ContentType&, MediaSourcePrivateClient*);
+    bool load(const URL&, const ContentType&, MediaSourcePrivateClient&);
 #endif
 #if ENABLE(MEDIA_STREAM)
     bool load(MediaStreamPrivate&);
@@ -363,6 +367,7 @@ public:
 
     void setPageIsVisible(bool);
     void setVisibleForCanvas(bool);
+    bool isVisibleForCanvas() const { return m_visibleForCanvas; }
 
     void setVisibleInViewport(bool);
     bool isVisibleInViewport() const { return m_visibleInViewport; }
@@ -379,7 +384,7 @@ public:
     // This is different from the asynchronous MediaKeyError.
     enum MediaKeyException { NoError, InvalidPlayerState, KeySystemNotSupported };
 
-    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient*);
+    std::unique_ptr<LegacyCDMSession> createSession(const String& keySystem, LegacyCDMSessionClient&);
     void setCDM(LegacyCDM*);
     void setCDMSession(LegacyCDMSession*);
     void keyAdded();
@@ -469,9 +474,15 @@ public:
 #if !USE(AVFOUNDATION)
     bool copyVideoTextureToPlatformTexture(GraphicsContextGL*, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY);
 #endif
-    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime();
+
+#if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+    void willBeAskedToPaintGL();
+#endif
+
+    RefPtr<VideoFrame> videoFrameForCurrentTime();
     RefPtr<NativeImage> nativeImageForCurrentTime();
     DestinationColorSpace colorSpace();
+    bool shouldGetNativeImageForCanvasDrawing() const;
 
     using MediaPlayerEnums::NetworkState;
     NetworkState networkState();
@@ -557,7 +568,7 @@ public:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<ArrayBuffer> cachedKeyForKeyId(const String& keyId) const;
-    void keyNeeded(Uint8Array* initData);
+    void keyNeeded(const SharedBuffer& initData);
     String mediaKeysStorageDirectory() const;
 #endif
 
@@ -634,6 +645,12 @@ public:
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const;
     bool shouldCheckHardwareSupport() const;
 
+    const std::optional<Vector<String>>& allowedMediaContainerTypes() const;
+    const std::optional<Vector<String>>& allowedMediaCodecTypes() const;
+    const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const;
+    const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const;
+    const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const;
+
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger();
     const void* mediaPlayerLogIdentifier() { return client().mediaPlayerLogIdentifier(); }
@@ -689,6 +706,12 @@ public:
 
     void playerContentBoxRectChanged(const LayoutRect&);
 
+    String lastErrorMessage() const;
+
+    bool prefersSandboxedParsing() const { return client().mediaPlayerPrefersSandboxedParsing(); }
+
+    void renderVideoWillBeDestroyed();
+
 private:
     MediaPlayer(MediaPlayerClient&);
     MediaPlayer(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
@@ -704,6 +727,7 @@ private:
     Timer m_reloadTimer;
     std::unique_ptr<MediaPlayerPrivateInterface> m_private;
     const MediaPlayerFactory* m_currentMediaEngine { nullptr };
+    HashSet<const MediaPlayerFactory*> m_attemptedEngines;
     URL m_url;
     ContentType m_contentType;
     String m_keySystem;
@@ -713,6 +737,7 @@ private:
     Preload m_preload { Preload::Auto };
     double m_volume { 1 };
     bool m_pageIsVisible { false };
+    bool m_visibleForCanvas { false };
     bool m_visibleInViewport { false };
     bool m_muted { false };
     bool m_preservesPitch { true };
@@ -724,7 +749,7 @@ private:
     PitchCorrectionAlgorithm m_pitchCorrectionAlgorithm { PitchCorrectionAlgorithm::BestAllAround };
 
 #if ENABLE(MEDIA_SOURCE)
-    RefPtr<MediaSourcePrivateClient> m_mediaSource;
+    WeakPtr<MediaSourcePrivateClient> m_mediaSource;
 #endif
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStreamPrivate> m_mediaStream;
@@ -733,6 +758,7 @@ private:
     bool m_shouldContinueAfterKeyNeeded { false };
 #endif
     bool m_isGatheringVideoFrameMetadata { false };
+    String m_lastErrorMessage;
 };
 
 class MediaPlayerFactory {

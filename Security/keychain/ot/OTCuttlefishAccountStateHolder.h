@@ -5,6 +5,8 @@
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassCAccountSettings.h"
+#import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 
 @class OTAccountSettings;
 
@@ -25,7 +27,11 @@ NS_ASSUME_NONNULL_BEGIN
 // If you already know you're on this queue, call the _onqueue versions below.
 - (instancetype)initWithQueue:(dispatch_queue_t)queue
                     container:(NSString*)containerName
-                      context:(NSString*)contextID;
+                      context:(NSString*)contextID
+               personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                activeAccount:(TPSpecificUser* _Nullable)activeAccount;
+
+- (void)changeActiveAccount:(TPSpecificUser*)newActiveAccount;
 
 - (OTAccountMetadataClassC* _Nullable)loadOrCreateAccountMetadata:(NSError**)error;
 - (OTAccountMetadataClassC* _Nullable)_onqueueLoadOrCreateAccountMetadata:(NSError**)error;

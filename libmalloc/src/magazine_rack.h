@@ -79,7 +79,6 @@ typedef struct rack_s {
 	uintptr_t last_madvise;
 } rack_t;
 
-
 MALLOC_NOEXPORT
 void
 rack_init(rack_t *rack, rack_type_t type, uint32_t num_magazines, uint32_t debug_flags);

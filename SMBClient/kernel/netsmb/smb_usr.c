@@ -42,7 +42,8 @@
 
 int 
 smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context, 
-					  struct smb_dev *sdp, int searchOnly)
+                  struct smb_dev *sdp, int searchOnly,
+                  struct sockaddr *saddr, struct sockaddr *laddr)
 {
 	struct smb_session *sessionp;
     struct smbiod      *iod;
@@ -51,14 +52,9 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
     struct sockaddr *session_saddr = NULL;
     uint32_t matched_dns = 0;
 
-	/* Convert any pointers over to using user_addr_t */
-	if (! vfs_context_is64bit (context)) {
-		vspec->ioc_kern_saddr = CAST_USER_ADDR_T(vspec->ioc_saddr);
-		vspec->ioc_kern_laddr = CAST_USER_ADDR_T(vspec->ioc_laddr);
-	}
 	/* Now do the real work */
 	error = smb_sm_negotiate(vspec, context, &sdp->sd_session, sdp,
-                             searchOnly, &matched_dns);
+                             searchOnly, &matched_dns, saddr, laddr);
 	if (error) {
 		/* We always return the error in the structure, we never fail the iocl from here */ 
 		vspec->ioc_errno = error;
@@ -124,7 +120,8 @@ smb_usr_negotiate(struct smbioc_negotiate *vspec, vfs_context_t context,
  */
 int
 smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp, 
-					  vfs_context_t context)
+					  vfs_context_t context, char *twordsp,
+                      char *tbytesp, char *responsep)
 {
 	struct smb_rq rq, *rqp = &rq;
 	struct mbchain *mbp;
@@ -136,6 +133,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	char *network_pathp = NULL;
 	char *local_pathp = NULL;
 	size_t local_path_len = 0;
+    size_t local_path_alloclen = 0;
 
 	switch (dp->ioc_cmd) {
 	    case SMB_COM_CLOSE_AND_TREE_DISC:
@@ -147,14 +145,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	    case SMB_COM_TREE_CONNECT_ANDX:
 			return EPERM;
 	}
-	
-	/* Take the 32 bit world pointers and convert them to user_addr_t. */
-	if (! vfs_context_is64bit (context)) {
-		dp->ioc_kern_twords = CAST_USER_ADDR_T(dp->ioc_twords);
-		dp->ioc_kern_tbytes = CAST_USER_ADDR_T(dp->ioc_tbytes);
-		dp->ioc_kern_rpbuf = CAST_USER_ADDR_T(dp->ioc_rpbuf);
-	}
-	
+
 	error = smb_rq_init(rqp, SSTOCP(share), dp->ioc_cmd, dp->ioc_flags2, context);
 	if (error) {
 		return error;
@@ -164,7 +155,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	
 	/* Get SMB words */
 	smb_rq_wstart(rqp);
-	error = mb_put_user_mem(mbp, dp->ioc_kern_twords, dp->ioc_twc * 2, 0, context);
+    error = mb_put_mem(mbp, twordsp, dp->ioc_twc * 2, MB_MSYSTEM);
 	if (error) {
 		goto bad;
 	}
@@ -172,13 +163,12 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	
 	/* Is it a named pipe being opened? */
 	if ((dp->ioc_cmd == SMB_COM_NT_CREATE_ANDX) &&
-		(dp->ioc_tbc > 0) && (dp->ioc_kern_tbytes)) {
+		(dp->ioc_tbc > 0)) {
 		/* Copy in the network formatted string from user space */
 		network_path_len = dp->ioc_tbc;
-		network_pathp = smb_memdupin(dp->ioc_kern_tbytes, network_path_len);
+        network_pathp = tbytesp;
 		if (network_pathp == NULL) {
-			SMBERROR("smb_memdupin failed\n");
-			error = ENOMEM;
+			error = EINVAL;
 			goto bad;
 		}
 		
@@ -190,7 +180,8 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 		 * make sure to malloc len * 9 number of bytes.
 		 */
 		local_path_len = network_path_len * 9 + 1;
-		SMB_MALLOC(local_pathp, char *, local_path_len, M_TEMP, M_WAITOK | M_ZERO);
+        local_path_alloclen = local_path_len;
+        SMB_MALLOC_DATA(local_pathp, local_path_alloclen, Z_WAITOK_ZERO);
 		if (local_pathp == NULL) {
 			SMBERROR("malloc for local_pathp failed\n");
 			error = ENOMEM;
@@ -233,7 +224,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	
 	/* Get SMB bytes */
 	smb_rq_bstart(rqp);
-	error = mb_put_user_mem(mbp, dp->ioc_kern_tbytes, dp->ioc_tbc, 0, context);
+    error = mb_put_mem(mbp, tbytesp, dp->ioc_tbc, MB_MSYSTEM);
 	if (error) {
 		goto bad;
 	}
@@ -261,8 +252,8 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 		goto bad;
 	}
 	
-	/* Copy the response into the users buffer */
-	error = md_get_user_mem(mdp, dp->ioc_kern_rpbuf, response_size, 0, context);
+	/* Copy the response */
+    error = md_get_mem(mdp, responsep, response_size, MB_MSYSTEM);
 	if (error) {
 		goto bad;
 	}
@@ -283,12 +274,8 @@ bad:
 	dp->ioc_flags2 = rqp->sr_rpflags2;
 	smb_rq_done(rqp);
 
-	if (network_pathp) {
-		SMB_FREE(network_pathp, M_SMBSTR);
-	}
-	
 	if (local_pathp) {
-		SMB_FREE(local_pathp, M_TEMP);
+        SMB_FREE_DATA(local_pathp, local_path_alloclen);
 	}
 
 	return 0;
@@ -404,7 +391,7 @@ smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *dp, vfs_context_t
 		dp->ioc_rdatacnt = 0;
 bad:
     if (t2p->t_name) {
-        SMB_FREE(t2p->t_name, M_SMBDATA);
+        SMB_FREE_DATA(t2p->t_name, ioc_name_len);
     }
 	smb_t2_done(t2p);
 	return error;
@@ -416,45 +403,30 @@ bad:
  * lower level routines will handle any byte swapping issue and will set the 
  * precomosed flag. The only flag support currently is UTF_SFM_CONVERSIONS. 
  */
-int smb_usr_convert_path_to_network(struct smb_session *sessionp, struct smbioc_path_convert * dp)
+int smb_usr_convert_path_to_network(struct smb_session *sessionp, char *src, uint32_t src_len,
+                                    char *dst, uint64_t *dst_len, uint32_t flags)
 {
-	size_t ntwrk_len = (size_t)dp->ioc_dest_len;
-	char *network = NULL;
-	char *utf8str = NULL;
+	size_t ntwrk_len = *dst_len;
+	char *network = dst;
+	char *utf8str = src;
 	int error;
-
-	utf8str = smb_memdupin(dp->ioc_kern_src, dp->ioc_src_len);
-	if (utf8str) {
-        SMB_MALLOC(network, char *, ntwrk_len, M_SMBSTR, M_WAITOK | M_ZERO);
-    }
 		
 	if ((utf8str == NULL) || (network == NULL)) {
 		error = ENOMEM;
 		goto done;
 	}
-	error = smb_convert_path_to_network(utf8str, dp->ioc_src_len, network, &ntwrk_len, 
-										'\\', (int)dp->ioc_flags, SMB_UNICODE_STRINGS(sessionp));
+	error = smb_convert_path_to_network(utf8str, src_len, network, &ntwrk_len,
+										'\\', (int)flags, SMB_UNICODE_STRINGS(sessionp));
 	if (error) {
 		SMBERROR("converter failed : %d\n", error);
 		SMBDEBUG("utf8str = %s src len = %d dest len = %d\n", utf8str,
-				 (int)dp->ioc_src_len, (int)dp->ioc_dest_len);
+				 (int)src_len, (int)dst_len);
 		goto done;
 	}
 	
-	error = copyout(network, dp->ioc_kern_dest, ntwrk_len);
-	if (error) {
-		SMBERROR("copyout failed : %d\n", error);
-		smb_hexdump(__FUNCTION__, "dest buffer: ", (u_char *)network, ntwrk_len);
-		goto done;
-	}
-	
-	dp->ioc_dest_len = (uint32_t)ntwrk_len;
-	
-done:	
-	if (utf8str)
-		SMB_FREE(utf8str, M_SMBSTR);
-	if (network)
-		SMB_FREE(network, M_SMBSTR);
+	*dst_len = ntwrk_len;
+
+done:
 	return error;
 }
 
@@ -464,46 +436,32 @@ done:
  * then this routine expects it to be decomosed. The only flag support currently 
  * is UTF_SFM_CONVERSIONS.
  */
-int smb_usr_convert_network_to_path(struct smb_session *sessionp, struct smbioc_path_convert * dp)
+int smb_usr_convert_network_to_path(struct smb_session *sessionp, char *src, uint32_t src_len,
+                                    char *dst, uint64_t* dst_len, uint32_t flags)
 {
-	size_t utf8str_len = (size_t)dp->ioc_dest_len;
-	char *network = NULL;
-	char *utf8str = NULL;
+	size_t utf8str_len = *dst_len;
+	char *network = src;
+	char *utf8str = dst;
 	int error;
 	
-	network = smb_memdupin(dp->ioc_kern_src, dp->ioc_src_len);
-	if (network) {
-        SMB_MALLOC(utf8str, char *, utf8str_len, M_SMBSTR, M_WAITOK | M_ZERO);
-	}
 	
 	if ((utf8str == NULL) || (network == NULL)) {
 		error = ENOMEM;
 		goto done;
 	}
 	
-	error = smb_convert_network_to_path(network, dp->ioc_src_len, utf8str, 
-										&utf8str_len, '\\', (int)dp->ioc_flags, 
+	error = smb_convert_network_to_path(network, src_len, utf8str,
+										&utf8str_len, '\\', (int)flags,
 										SMB_UNICODE_STRINGS(sessionp));
 	if (error) {
 		SMBERROR("converter failed : %d\n", error);
-		smb_hexdump(__FUNCTION__, "source buffer: ", (u_char *)network, dp->ioc_src_len);
+		smb_hexdump(__FUNCTION__, "source buffer: ", (u_char *)network, src_len);
 		goto done;
 	}
 	
-	error = copyout(utf8str, dp->ioc_kern_dest, utf8str_len);
-	if (error) {
-		SMBERROR("copyout failed : %d\n", error);
-		SMBDEBUG("utf8str = %s src len = %d dest len = %d\n", utf8str,
-				 (int)dp->ioc_src_len, (int)dp->ioc_dest_len);
-		goto done;
-	}
-	dp->ioc_dest_len = (uint32_t)utf8str_len;
+    *dst_len = utf8str_len;
 	
 done:
-	if (utf8str)
-		SMB_FREE(utf8str, M_SMBSTR);
-	if (network)
-		SMB_FREE(network, M_SMBSTR);
 	return error;
 }
 
@@ -532,24 +490,21 @@ int smb_usr_set_network_identity(struct smb_session *sessionp, struct smbioc_ntw
  * Called from user land so we always have a reference on the share.
  */
 int 
-smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl *fsctl, vfs_context_t context)
+smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl *fsctl,
+              vfs_context_t context, char *tdatap, char *rdatap)
 {
 	struct smb_ntrq * ntp = NULL;
 	int error = 0;
 
-	if (fsctl->ioc_tdatacnt > INT_MAX) {
+	if ((fsctl->ioc_tdatacnt > INT_MAX) ||
+        ((fsctl->ioc_tdatacnt) && (tdatap == NULL)) ||
+        ((fsctl->ioc_rdatacnt) && (rdatap == NULL))){
 		error = EINVAL;
 		goto done;
 	}
 
 	fsctl->ioc_errno = 0;
 	fsctl->ioc_ntstatus = 0;
-
-	/* Take the 32 bit world pointers and convert them to user_addr_t. */
-	if (! vfs_context_is64bit (context)) {
-		fsctl->ioc_kern_tdata = CAST_USER_ADDR_T(fsctl->ioc_tdata);
-		fsctl->ioc_kern_rdata = CAST_USER_ADDR_T(fsctl->ioc_rdata);
-	}
 
 	error = smb_nt_alloc(SSTOCP(share), NT_TRANSACT_IOCTL, context, &ntp);
 	if (error) {
@@ -571,8 +526,7 @@ smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl *fsctl, vfs_context_t
 	/* The fsctl arguments go in the transmit data. */
 	if (fsctl->ioc_tdatacnt) {
 		mb_init(&ntp->nt_tdata);
-		error = mb_put_user_mem(&ntp->nt_tdata, fsctl->ioc_kern_tdata,
-							fsctl->ioc_tdatacnt, 0, context);
+        error = mb_put_mem(&ntp->nt_tdata, tdatap, fsctl->ioc_tdatacnt, MB_MSYSTEM);
 		if (error) {
 			goto done;
 		}
@@ -607,8 +561,7 @@ smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl *fsctl, vfs_context_t
 		}
 
 		fsctl->ioc_rdatacnt = (uint32_t)datalen;
-		error = md_get_user_mem(&ntp->nt_rdata, fsctl->ioc_kern_rdata,
-								(uint32_t)datalen, 0, context);
+        error = md_get_mem(&ntp->nt_rdata, rdatap, fsctl->ioc_rdatacnt, MB_MSYSTEM);
 		if (error) {
 			SMBERROR("md_get_user_mem failed with %d", error);
 			goto done;
@@ -631,6 +584,7 @@ smb_check_named_pipe(struct smb_share *share, char *pathp, size_t path_len)
 {
 	struct smb_session *sessionp = NULL;
 	char *local_strp = NULL;
+    size_t local_strp_allocsize = 0;
 	char *strp = NULL;
 	int check_signing = 0;
 	int signing_on = 0;
@@ -644,7 +598,8 @@ smb_check_named_pipe(struct smb_share *share, char *pathp, size_t path_len)
 	}
 	
 	/* Allocate space to copy the path string into (ensure null terminated) */
-	SMB_MALLOC(local_strp, char *, path_len + 1, M_TEMP, M_WAITOK | M_ZERO);
+    local_strp_allocsize = path_len + 1;
+    SMB_MALLOC_DATA(local_strp, local_strp_allocsize, Z_WAITOK_ZERO);
 	if (local_strp == NULL) {
 		/* Should never happen */
 		SMBERROR("malloc failed for local_strp \n");
@@ -723,7 +678,7 @@ smb_check_named_pipe(struct smb_share *share, char *pathp, size_t path_len)
 
 bad:
 	if (local_strp) {
-		SMB_FREE(local_strp, M_TEMP);
+        SMB_FREE_DATA(local_strp, local_strp_allocsize);
 	}
 
 	return (error);

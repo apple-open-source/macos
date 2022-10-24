@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -116,6 +116,7 @@ typedef struct {
     boolean_t			has_autoconf_address;
     boolean_t			pref64_configured;
     boolean_t			router_lifetime_zero;
+    CFStringRef			nat64_prefix;
 } Service_rtadv_t;
 
 STATIC void
@@ -123,6 +124,16 @@ rtadv_address_changed(ServiceRef service_p);
 
 STATIC struct in_addr
 S_get_clat46_address(void)
+{
+    struct in_addr	clat46_address;
+
+    /* CLAT46 IPv4 address: 192.0.0.2 */
+    clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 2);
+    return (clat46_address);
+}
+
+STATIC struct in_addr
+S_get_clat46_router(void)
 {
     struct in_addr	clat46_address;
 
@@ -173,7 +184,7 @@ S_ipv4_clat46_dict_copy(CFStringRef ifname, bool include_subnet_mask)
     /* Router */
     my_CFDictionarySetIPAddressAsString(ipv4_dict,
 					kSCPropNetIPv4Router,
-					clat46_address);
+					S_get_clat46_router());
 
     /* InterfaceName */
     CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, ifname);
@@ -205,6 +216,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 	       strerror(errno), errno);
 	return;
     }
+    interface_set_noarp(if_name(if_p), TRUE);
     addr = S_get_clat46_address();
     ret = inet_aifaddr(s, if_name(if_p), addr, &G_ip_broadcast, &addr);
     if (ret == 0) {
@@ -216,7 +228,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 	    my_log(LOG_NOTICE,
 		   "RTADV %s: CLAT46 enabled using address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&addr));
-	    service_clat46_set_active(service_p, true);
+	    service_clat46_set_is_active(service_p, true);
 	}
 	else {
 	    my_log(LOG_ERR,
@@ -237,7 +249,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 }
 
 STATIC void
-rtadv_remove_clat46_address(ServiceRef service_p)
+rtadv_remove_clat46_address_only(ServiceRef service_p)
 {
     struct in_addr	addr;
     uint64_t		eflags = 0;
@@ -250,6 +262,7 @@ rtadv_remove_clat46_address(ServiceRef service_p)
 	       strerror(errno), errno);
 	return;
     }
+    interface_set_noarp(if_name(if_p), FALSE);
     addr = S_get_clat46_address();
     if (inet_difaddr(s, if_name(if_p), addr) == 0) {
 	my_log(LOG_NOTICE,
@@ -269,13 +282,19 @@ rtadv_remove_clat46_address(ServiceRef service_p)
 	inet6_clat46_stop(if_name(if_p));
     }
     close(s);
-    service_clat46_set_active(service_p, false);
     ServiceDetachIPv4(service_p);
     return;
 }
 
 STATIC void
-rtadv_set_nat64_prefixlist(ServiceRef service_p)
+rtadv_remove_clat46_address(ServiceRef service_p)
+{
+    rtadv_remove_clat46_address_only(service_p);
+    service_clat46_set_is_active(service_p, false);
+}
+
+STATIC void
+rtadv_set_nat64_prefixlist(ServiceRef service_p, CFStringRef nat64_prefix)
 {
     interface_t *	if_p = service_interface(service_p);
     struct in6_addr	prefix;
@@ -292,13 +311,29 @@ rtadv_set_nat64_prefixlist(ServiceRef service_p)
 					 &prefix_lifetime)
 	|| prefix_lifetime == 0) {
 	prefix_count = 0;
+	my_CFRelease(&rtadv->nat64_prefix);
 	if (!rtadv->pref64_configured) {
+	    /* we didn't configure pref64 prefix, nothing to remove */
 	    return;
 	}
     }
     else {
+	if (nat64_prefix == NULL) {
+	    /* should not happen */
+	}
+	else {
+	    if (rtadv->nat64_prefix != NULL
+		&& CFEqual(nat64_prefix, rtadv->nat64_prefix)) {
+		/* same prefix, nothing to do */
+		return;
+	    }
+	    CFRetain(nat64_prefix);
+	    my_CFRelease(&rtadv->nat64_prefix);
+	    rtadv->nat64_prefix = nat64_prefix;
+	}
 	prefix_count = 1;
     }
+    /* set or clear the nat64 prefixlist */
     success = inet6_set_nat64_prefixlist(if_name(if_p), &prefix, &prefix_length,
 					 prefix_count);
     rtadv->pref64_configured = (prefix_count != 0) && success;
@@ -311,7 +346,9 @@ rtadv_cancel_pending_events(ServiceRef service_p)
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
     timer_cancel(rtadv->timer);
-    RTADVSocketDisableReceive(rtadv->sock);
+    if (rtadv->sock != NULL) {
+	RTADVSocketDisableReceive(rtadv->sock);
+    }
     return;
 }
 
@@ -456,7 +493,7 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 	}
     }
     /* 464XLAT */
-    if (service_clat46_is_enabled(service_p)) {
+    if (service_clat46_is_configured(service_p)) {
 	IPv6AWDReportSetXLAT464Enabled(report);
     }
 
@@ -596,9 +633,11 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
     my_CFRelease(&rtadv->ra);
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
-    rtadv_set_nat64_prefixlist(service_p);
-    rtadv_remove_clat46_address(service_p);
+    rtadv_set_nat64_prefixlist(service_p, NULL);
+    rtadv_remove_clat46_address_only(service_p);
     service_publish_failure(service_p, status);
+    /* clear CLAT46 *after* unpublishing to ensure IPv4 gets cleared too */
+    service_clat46_set_is_active(service_p, false);
     rtadv->router_lifetime_zero = FALSE;
     ServiceSetBusy(service_p, FALSE);
     return;
@@ -1166,7 +1205,9 @@ rtadv_address_changed_common(ServiceRef service_p,
 
 	bzero(&info, sizeof(info));
 	if (rtadv->ra != NULL) {
-	    boolean_t	clat46_is_enabled;
+	    boolean_t	clat46_is_configured;
+	    boolean_t	remove_clat46 = TRUE;
+	    boolean_t	set_clat46 = FALSE;
 
 	    /* fill in information from DHCPv6 */
 	    if (rtadv->dhcp_client != NULL
@@ -1175,51 +1216,45 @@ rtadv_address_changed_common(ServiceRef service_p,
 		    rtadv->dhcpv6_complete = timer_get_current_time();
 		}
 	    }
-	    clat46_is_enabled = service_clat46_is_enabled(service_p);
+	    /* check whether to enable CLAT46 or not */
+	    clat46_is_configured = service_clat46_is_configured(service_p);
 	    info.ra = rtadv->ra;
 	    info.nat64_prefix = copy_nat64_prefix(rtadv->ra);
-	    if (info.nat64_prefix == NULL && !clat46_is_enabled) {
-		/* we don't have PREF64 and CLAT46 is not configured */
-		rtadv_set_nat64_prefixlist(service_p);
-		rtadv_remove_clat46_address(service_p);
-		if (if_ift_type(if_p) != IFT_CELLULAR) {
-		    info.perform_plat_discovery = TRUE;
+	    if (info.nat64_prefix != NULL
+		|| service_nat64_prefix_available(service_p)) {
+		service_clat46_set_is_available(service_p, TRUE);
+		if (info.nat64_prefix != NULL) {
+		    /* we have PREF64, set it now */
+		    rtadv_set_nat64_prefixlist(service_p, info.nat64_prefix);
+		}
+		if (!service_interface_ipv4_published(service_p)) {
+		    /* no IPv4 service published, OK to set CLAT46 */
+		    set_clat46 = TRUE;
+		    remove_clat46 = FALSE;
 		}
 	    }
 	    else {
-		boolean_t	dhcp_waiting;
+		service_clat46_set_is_available(service_p, FALSE);
+		if (clat46_is_configured || if_ift_type(if_p) != IFT_CELLULAR) {
+		    info.perform_plat_discovery
+			= !service_plat_discovery_complete(service_p);
+		}
+	    }
+	    if (remove_clat46) {
+		/* remove CLAT46 prefix and CLAT46 address */
+		rtadv_set_nat64_prefixlist(service_p, NULL);
+		rtadv_remove_clat46_address(service_p);
+	    }
+	    else if (set_clat46) {
+		CFStringRef	ifname;
+		boolean_t	is_point_to_point;
 
-		dhcp_waiting = ServiceGetDHCPWaiting(service_p);
-		if (info.nat64_prefix != NULL) {
-		    /* we have PREF64, set it now */
-		    rtadv_set_nat64_prefixlist(service_p);
-		}
-		else if (clat46_is_enabled
-			 || if_ift_type(if_p) != IFT_CELLULAR) {
-		    info.perform_plat_discovery = TRUE;
-		}
-		/*
-		 * If we have PREF64 and DHCP is waiting, or
-		 * PLAT discovery completed and there is no
-		 * IPv4 service, configure CLAT46 address
-		 */
-		if ((info.nat64_prefix != NULL && dhcp_waiting)
-		    || (service_nat64_prefix_available(service_p)
-			&& service_interface_no_ipv4(service_p))) {
-		    CFStringRef		ifname;
-		    bool		is_point_to_point;
-
-		    /* enable CLAT46 */
-		    ifname = ServiceGetInterfaceName(service_p);
-		    rtadv_set_clat46_address(service_p);
-		    is_point_to_point = (if_flags(if_p) & IFF_POINTOPOINT) != 0;
-		    info.ipv4_dict = S_ipv4_clat46_dict_copy(ifname,
-							     is_point_to_point);
-		}
-		else {
-		    /* disable CLAT46 */
-		    rtadv_remove_clat46_address(service_p);
-		}
+		/* enable CLAT46 */
+		ifname = ServiceGetInterfaceName(service_p);
+		rtadv_set_clat46_address(service_p);
+		is_point_to_point = (if_flags(if_p) & IFF_POINTOPOINT) != 0;
+		info.ipv4_dict = S_ipv4_clat46_dict_copy(ifname,
+							 is_point_to_point);
 	    }
 	    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
 	    router_count = 1;
@@ -1313,7 +1348,7 @@ rtadv_provide_summary(ServiceRef service_p, CFMutableDictionaryRef summary)
 	    CFRelease(str);
 	}
     }
-    if (service_clat46_is_enabled(service_p)) {
+    if (service_clat46_is_configured(service_p)) {
 	CFDictionarySetValue(dict, CFSTR("CLAT46Enabled"), kCFBooleanTrue);
     }
     if (service_clat46_is_active(service_p)) {
@@ -1383,7 +1418,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 						service_p);
 	}
 	/* clear out prefix (in case of crash) */
-	rtadv_set_nat64_prefixlist(service_p);
+	rtadv_set_nat64_prefixlist(service_p, NULL);
 	rtadv_init(service_p);
 	break;
 
@@ -1396,23 +1431,19 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	    rtadv_submit_awd_report(service_p, FALSE);
 	}
 
+	/* common clean-up */
+	rtadv_failed(service_p, ipconfig_status_resource_unavailable_e);
+
 	/* close/release the RTADV socket */
 	RTADVSocketRelease(&rtadv->sock);
 
 	/* stop DHCPv6 client */
 	DHCPv6ClientRelease(&rtadv->dhcp_client);
 
-	/* this flushes the addresses */
-	(void)inet6_rtadv_disable(if_name(if_p));
-
-	/* remove any CLAT46 address */
-	rtadv_remove_clat46_address(service_p);
-
 	/* clean-up resources */
 	if (rtadv->timer) {
 	    timer_callout_free(&rtadv->timer);
 	}
-	my_CFRelease(&rtadv->ra);
 	inet6_flush_prefixes(if_name(if_p));
 	inet6_flush_routes(if_name(if_p));
 	ServiceSetPrivate(service_p, NULL);
@@ -1487,7 +1518,8 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     case IFEventID_plat_discovery_complete_e: {
 	boolean_t	success;
 
-	if (!service_clat46_is_enabled(service_p)) {
+	if (!service_clat46_is_configured(service_p)) {
+	    rtadv_address_changed(service_p);
 	    break;
 	}
 	if (event_data != NULL) {
@@ -1507,7 +1539,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	break;
     }
-    case IFEventID_dhcp_waiting_changed_e:
+    case IFEventID_ipv4_publish_e:
 	rtadv_address_changed(service_p);
 	break;
     case IFEventID_provide_summary_e:

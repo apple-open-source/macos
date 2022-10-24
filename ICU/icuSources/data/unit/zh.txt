@@ -902,14 +902,10 @@ zh{
                 dnam{"%"}
                 other{"{0}%"}
             }
-            permyriad{
-                dnam{"‱"}
-                other{"{0}‱"}
-            }
         }
         consumption{
             liter-per-100-kilometer{
-                dnam{"升/100千米"}
+                dnam{"L/100km"}
                 other{"{0}L/100km"}
             }
             mile-per-gallon-imperial{
@@ -1115,14 +1111,6 @@ zh{
                 dnam{"格令"}
                 other{"{0}格令"}
             }
-            gram{
-                dnam{"克"}
-                other{"{0}克"}
-            }
-            kilogram{
-                dnam{"千克"}
-                other{"{0}千克"}
-            }
             ounce{
                 other{"{0}盎司"}
             }
@@ -1145,42 +1133,12 @@ zh{
                 other{"{0}W"}
             }
         }
-        pressure{
-            hectopascal{
-                other{"{0}hPa"}
-            }
-            inch-ofhg{
-                other{"{0}\u0022 Hg"}
-            }
-            millibar{
-                other{"{0}mb"}
-            }
-        }
-        speed{
-            kilometer-per-hour{
-                dnam{"公里/小时"}
-                other{"{0}公里/时"}
-            }
-            knot{
-                dnam{"节"}
-                other{"{0}节"}
-            }
-            meter-per-second{
-                dnam{"米/秒"}
-                other{"{0}m/s"}
-            }
-            mile-per-hour{
-                dnam{"英里/小时"}
-                other{"{0}mi/h"}
-            }
-        }
         temperature{
             celsius{
                 dnam{"°C"}
                 other{"{0}°C"}
             }
             fahrenheit{
-                dnam{"°F"}
                 other{"{0}°F"}
             }
         }
@@ -1416,10 +1374,6 @@ zh{
                 dnam{"ppm"}
                 other{"{0}ppm"}
             }
-            permyriad{
-                dnam{"‱"}
-                other{"{0}‱"}
-            }
         }
         consumption{
             liter-per-100-kilometer{
@@ -1448,48 +1402,16 @@ zh{
         }
         digital{
             bit{
-                dnam{"比特"}
-                other{"{0}比特"}
+                dnam{"b"}
+                other{"{0} b"}
             }
             byte{
-                dnam{"字节"}
-                other{"{0}字节"}
-            }
-            gigabit{
-                dnam{"吉比特"}
-                other{"{0}吉比特"}
-            }
-            gigabyte{
-                dnam{"吉字节"}
-                other{"{0}吉字节"}
-            }
-            kilobit{
-                dnam{"千比特"}
-                other{"{0}千比特"}
-            }
-            kilobyte{
-                dnam{"千字节"}
-                other{"{0}千字节"}
-            }
-            megabit{
-                dnam{"兆比特"}
-                other{"{0}兆比特"}
-            }
-            megabyte{
-                dnam{"兆字节"}
-                other{"{0}兆字节"}
+                dnam{"B"}
+                other{"{0} B"}
             }
             petabyte{
                 dnam{"PB"}
                 other{"{0} PB"}
-            }
-            terabit{
-                dnam{"太比特"}
-                other{"{0}太比特"}
-            }
-            terabyte{
-                dnam{"太字节"}
-                other{"{0}太字节"}
             }
         }
         duration{
@@ -1551,20 +1473,13 @@ zh{
         }
         electric{
             ampere{
-                dnam{"安培"}
-                other{"{0}安"}
-            }
-            milliampere{
-                dnam{"毫安"}
-                other{"{0}毫安"}
+                dnam{"A"}
             }
             ohm{
-                dnam{"欧姆"}
-                other{"{0}欧"}
+                dnam{"Ω"}
             }
             volt{
-                dnam{"伏特"}
-                other{"{0}伏"}
+                dnam{"V"}
             }
         }
         energy{
@@ -1613,24 +1528,6 @@ zh{
             pound-force{
                 dnam{"磅力"}
                 other{"{0}磅力"}
-            }
-        }
-        frequency{
-            gigahertz{
-                dnam{"吉赫"}
-                other{"{0}吉赫"}
-            }
-            hertz{
-                dnam{"赫兹"}
-                other{"{0}赫"}
-            }
-            kilohertz{
-                dnam{"千赫"}
-                other{"{0}千赫"}
-            }
-            megahertz{
-                dnam{"兆赫"}
-                other{"{0}兆赫"}
             }
         }
         graphics{
@@ -1764,12 +1661,11 @@ zh{
             gram{
                 dnam{"克"}
                 other{"{0}克"}
-                per{"{0}/克"}
             }
             kilogram{
                 dnam{"千克"}
                 other{"{0}千克"}
-                per{"{0}/千克"}
+                per{"每千克{0}"}
             }
             metric-ton{
                 dnam{"公吨"}
@@ -1786,7 +1682,7 @@ zh{
             ounce{
                 dnam{"盎司"}
                 other{"{0}盎司"}
-                per{"{0}/盎司"}
+                per{"每盎司{0}"}
             }
             ounce-troy{
                 dnam{"金衡盎司"}
@@ -1795,7 +1691,7 @@ zh{
             pound{
                 dnam{"磅"}
                 other{"{0}磅"}
-                per{"{0}/磅"}
+                per{"每磅{0}"}
             }
             solar-mass{
                 dnam{"太阳质量"}
@@ -1898,11 +1794,9 @@ zh{
         }
         temperature{
             celsius{
-                dnam{"摄氏度"}
                 other{"{0}°C"}
             }
             fahrenheit{
-                dnam{"华氏度"}
                 other{"{0}°F"}
             }
             generic{
@@ -1910,7 +1804,6 @@ zh{
                 other{"{0}°"}
             }
             kelvin{
-                dnam{"开"}
                 other{"{0}K"}
             }
         }

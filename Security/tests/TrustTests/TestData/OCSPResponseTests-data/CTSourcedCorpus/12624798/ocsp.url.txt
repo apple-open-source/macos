@@ -1,0 +1,1 @@
+http://ocsp.visa.com/ocsp

@@ -210,6 +210,7 @@
 		4C6159BC104F212400BF0A10 /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
 		4C6159CF1050614000BF0A10 /* libedit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libedit.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		8128AE7C185DABB600F61B90 /* libedit.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libedit.xcconfig; path = xcodescripts/libedit.xcconfig; sourceTree = "<group>"; };
+		84327CB8275EC9100041A759 /* editline.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = editline.modulemap; path = src/editline.modulemap; sourceTree = "<group>"; };
 		B1140F291188EEBE00188080 /* historyn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = historyn.c; path = local/historyn.c; sourceTree = "<group>"; };
 		B1140F2A1188EEBE00188080 /* tokenizern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tokenizern.c; path = local/tokenizern.c; sourceTree = "<group>"; };
 		B18111941188D65A00EC8250 /* chartype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chartype.c; path = src/chartype.c; sourceTree = "<group>"; };
@@ -261,6 +262,7 @@
 				B18111941188D65A00EC8250 /* chartype.c */,
 				B18111951188D65A00EC8250 /* chartype.h */,
 				4C615924104F157800BF0A10 /* common.c */,
+				84327CB8275EC9100041A759 /* editline.modulemap */,
 				4C615925104F157800BF0A10 /* editline */,
 				4C615927104F157800BF0A10 /* terminal.h */,
 				4C615928104F157800BF0A10 /* el.c */,
@@ -497,7 +499,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR\"/xcodescripts/make_lists.sh";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/make_lists.sh\n";
 		};
 		4C615A221050668A00BF0A10 /* install misc */ = {
 			isa = PBXShellScriptBuildPhase;

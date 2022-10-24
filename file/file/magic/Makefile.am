@@ -126,6 +126,7 @@ $(MAGIC_FRAGMENT_DIR)/gnu \
 $(MAGIC_FRAGMENT_DIR)/gnumeric \
 $(MAGIC_FRAGMENT_DIR)/gpt \
 $(MAGIC_FRAGMENT_DIR)/gpu \
+$(MAGIC_FRAGMENT_DIR)/gpu-fat \
 $(MAGIC_FRAGMENT_DIR)/grace \
 $(MAGIC_FRAGMENT_DIR)/graphviz \
 $(MAGIC_FRAGMENT_DIR)/gringotts \

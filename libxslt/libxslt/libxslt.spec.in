@@ -4,9 +4,9 @@ Version: @VERSION@
 Release: 1%{?dist}%{?extra_release}
 License: MIT
 Group: Development/Libraries
-Source: ftp://xmlsoft.org/XSLT/libxslt-%{version}.tar.gz
+Source: https://download.gnome.org/sources/libxslt/@LIBXSLT_MAJOR_VERSION@.@LIBXSLT_MINOR_VERSION@/libxslt-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-URL: http://xmlsoft.org/XSLT/
+URL: https://gitlab.gnome.org/GNOME/libxslt
 Requires: libxml2 >= @LIBXML_REQUIRED_VERSION@
 BuildRequires: libxml2-devel >= @LIBXML_REQUIRED_VERSION@
 BuildRequires: python python-devel
@@ -70,7 +70,7 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 rm -rf $RPM_BUILD_ROOT%{_datadir}/doc/%{name}{,-python}-%{version}
 
 %check
-make check
+make tests
 
 %clean
 rm -fr %{buildroot}
@@ -122,7 +122,6 @@ rm -fr %{buildroot}
 %doc AUTHORS ChangeLog.gz NEWS README Copyright FEATURES
 %{_libdir}/python*/site-packages/libxslt.py*
 %{_libdir}/python*/site-packages/libxsltmod*
-%doc python/TODO
 %doc python/libxsltclass.txt
 %doc python/tests/*.py
 %doc python/tests/*.xml
@@ -130,4 +129,4 @@ rm -fr %{buildroot}
 
 %changelog
 * @RELDATE@ Daniel Veillard <veillard@redhat.com>
-- upstream release @VERSION@ see http://xmlsoft.org/XSLT/news.html
+- upstream release @VERSION@

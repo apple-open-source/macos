@@ -45,6 +45,7 @@ no{
         an{"aragonsk"}
         ang{"gammelengelsk"}
         anp{"angika"}
+        apw{"apache, vestlig"}
         ar{"arabisk"}
         ar_001{"moderne standardarabisk"}
         arc{"arameisk"}

@@ -274,6 +274,7 @@
 		0284171D09E580260060E31A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_OBJC_GC = NO;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns/PPPSerial.ppp/Contents/PlugIns";
@@ -282,6 +283,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = CCLEngine;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -294,6 +296,7 @@
 		0284171F09E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
 				GCC_ENABLE_OBJC_GC = NO;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns/PPPSerial.ppp/Contents/PlugIns";
 				OTHER_CFLAGS = "";
@@ -301,6 +304,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = CCLEngine;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",

@@ -101,6 +101,7 @@ union sockunion {
 	struct sockaddr_dl	sdl;
 	struct sockaddr_in	sin;
 	struct sockaddr_in6	sin6;
+	char _padding[SOCK_MAXADDRLEN];
 };
 typedef union sockunion sockunion_t;
 
@@ -489,7 +490,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 #if defined(INET6)
 next_ifnet:
 #endif
-			lastifasa = *pifasa;
+			memcpy(&lastifasa, pifasa, pifasa->sa.sa_len);
 		}
 
 		/* Print this group address. */

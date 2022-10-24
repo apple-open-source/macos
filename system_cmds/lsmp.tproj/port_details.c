@@ -53,7 +53,7 @@ const char * kobject_name(natural_t kotype)
         case IKOT_HOST_NOTIFY:      return "message-queue";
         case IKOT_HOST_SECURITY:    return "HOST-SECURITY";
         case IKOT_LEDGER:           return "LEDGER";
-        case IKOT_MASTER_DEVICE:    return "MASTER-DEVICE";
+        case IKOT_MAIN_DEVICE:      return "MAIN-DEVICE";
         case IKOT_TASK_NAME:        return "TASK-NAME";
         case IKOT_SUBSYSTEM:        return "SUBSYSTEM";
         case IKOT_IO_DONE_QUEUE:    return "IO-QUEUE-DONE";
@@ -305,6 +305,35 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
     printf("DEAD_NAME = %d\n", counts.deadcount);
     printf("DNREQUEST = %d\n", counts.dncount);
     printf("VOUCHERS  = %d\n", counts.vouchercount);
+}
+
+static char *escape(char *desc) {
+    const int escaped_buffer_size = KOBJECT_DESCRIPTION_LENGTH * 2;
+    static char escaped[escaped_buffer_size];
+    int i, j;
+    // Handle only escaped buffer size input
+    int len = MIN((int)strlen(desc), escaped_buffer_size - 1);
+
+    for (i = 0, j = 0; i < len; i++, j++) {
+        if (desc[i] == '"' || desc[i] == '\\') {
+            if (j < escaped_buffer_size - 2) {
+                escaped[j] = '\\';
+            }
+            // avoid cropped escape sequence at the end
+            if (j == escaped_buffer_size - 2) {
+                escaped[j] = '\0';
+                return escaped;
+            }
+            j++;
+        }
+        if (j == escaped_buffer_size - 1) {
+            escaped[j] = '\0';
+            return escaped;
+        }
+        escaped[j] = desc[i];
+    }
+    escaped[j] = '\0';
+    return escaped;
 }
 
 static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *taskinfo, uint32_t taskCount, my_per_task_info_t *allTaskInfos, task_table_entry_counts_t counts, JSON_t json) {
@@ -627,7 +656,7 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
         JSON_OBJECT_SET(json, type, "%s", kobject_name(kotype));
         
         if (desc[0]) {
-            JSON_OBJECT_SET(json, description, "%s", desc);
+            JSON_OBJECT_SET(json, description, "%s", escape(desc));
             printf("                                             0x%08x  %s %s", (natural_t)kobject, kobject_name(kotype), desc);
         } else {
             printf("                                             0x%08x  %s", (natural_t)kobject, kobject_name(kotype));

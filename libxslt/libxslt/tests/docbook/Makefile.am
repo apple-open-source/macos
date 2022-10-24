@@ -1,9 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
 tests:
-	@echo '## Running docbook tests'
-	$(MAKE) single
-	$(MAKE) xtchunk
+	@$(MAKE) single
+	@$(MAKE) xtchunk
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
@@ -22,12 +21,12 @@ full: tests htmltests xhtmltests fotests
 # a single tests to check that stuff ain't broken
 #
 single:
+	@echo '## Running single docbook tests'
 	@$(MKDIR_P) result/html
 	@$(MKDIR_P) result/fo
 	@$(MKDIR_P) result/xhtml
 	@(echo > .memdump)
 	@(for i in $(srcdir)/test/gdp-handbook.xml ; do \
-	  echo -n "`basename $$i` : html " ; \
 	  out=result/html/`basename $$i .xml`.tst; \
 	  html=result/html/`basename $$i .xml`.html; \
 	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nonet \
@@ -42,12 +41,10 @@ single:
 	    fi ; \
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
-		echo ; \
 		echo result ; \
 		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$out ; \
-	  echo -n "fo " ; \
 	  out=result/fo/`basename $$i .xml`.tst; \
 	  fo=result/fo/`basename $$i .xml`.fo; \
 	  msg=result/fo/`basename $$i .xml`.msg; \
@@ -63,12 +60,10 @@ single:
 	  fi ; \
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
-		echo ; \
 		echo result ; \
 		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$out $$msg ; \
-	  echo -n "xhtml " ; \
 	  out=result/xhtml/`basename $$i .xml`.tst; \
 	  xhtml=result/xhtml/`basename $$i .xml`.xhtml; \
 	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nonet \
@@ -83,19 +78,17 @@ single:
 	  fi ; \
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
-		echo ; \
 		echo result ; \
 		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$out ; \
 	  done )
-	@echo
 
 xtchunk:
+	@echo '## Running xtchunk docbook tests'
 	@$(MKDIR_P) result/html
 	@$(MKDIR_P) result/xtchunk
 	@(echo > .memdump)
-	@echo -n html-chunking
 	@(for i in $(srcdir)/test/gdp-handbook.xml ; do \
 	  base=`basename $$i .xml` ; \
 	  html=result/html/$$base.html; \
@@ -121,13 +114,11 @@ xtchunk:
 	    done ; \
 	    grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
-		echo ; \
 		echo result ; \
 		echo "$$log" ; \
 	  fi ; \
 	  rm -f result/xtchunk/html/gdp-handbook ; \
 	  done )
-	@echo
 
 #
 # The full set of tests

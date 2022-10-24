@@ -705,23 +705,11 @@ in_shared_region(mach_vm_address_t addr, cpu_type_t type) {
 	mach_vm_address_t base = 0, size = 0;
 
 	switch(type) {
-#if !defined(__OPEN_SOURCE__) && defined(CPU_TYPE_ARM64_32)
-		case CPU_TYPE_ARM64_32:
-            base = SHARED_REGION_BASE_ARM64_32;
-            size = SHARED_REGION_SIZE_ARM64_32;
-            break;
-#endif
 		case CPU_TYPE_ARM:
 			base = SHARED_REGION_BASE_ARM;
 			size = SHARED_REGION_SIZE_ARM;
 		break;
 
-#if !defined(__OPEN_SOURCE__) && defined(CPU_TYPE_ARM64)
-		case CPU_TYPE_ARM64:
-			base = SHARED_REGION_BASE_ARM64;
-			size = SHARED_REGION_SIZE_ARM64;
-		break;
-#endif
 
 		case CPU_TYPE_X86_64:
 			base = SHARED_REGION_BASE_X86_64;
@@ -828,8 +816,6 @@ libtop_p_fw_sample(boolean_t fw)
 
 #if defined(__arm__)
 	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_ARM, SHARED_REGION_SIZE_ARM);
-#elif !defined(__OPEN_SOURCE__) && defined(__arm64__) && !defined(__LP64__)
-    libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_ARM64_32, SHARED_REGION_SIZE_ARM64_32);
 #elif defined(__arm64__)
 	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_ARM64, SHARED_REGION_SIZE_ARM64);
 #elif defined(__x86_64__) || defined(__i386__)
@@ -1358,12 +1344,6 @@ libtop_p_shreg_size(cpu_type_t type) {
 	switch(type)
 	{
 		case CPU_TYPE_ARM:			return SHARED_REGION_SIZE_ARM;
-#if !defined(__OPEN_SOURCE__) && defined(CPU_TYPE_ARM64)
-        case CPU_TYPE_ARM64:        return SHARED_REGION_SIZE_ARM64;
-#endif
-#if !defined(__OPEN_SOURCE__) && defined(CPU_TYPE_ARM64_32)
-        case CPU_TYPE_ARM64_32:     return SHARED_REGION_SIZE_ARM64_32;
-#endif
 		case CPU_TYPE_POWERPC:		return SHARED_REGION_SIZE_PPC;
 		case CPU_TYPE_POWERPC64:	return SHARED_REGION_SIZE_PPC64;
 		case CPU_TYPE_I386:			return SHARED_REGION_SIZE_I386;

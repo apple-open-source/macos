@@ -2,7 +2,6 @@
 //  SOSAccountTrustClassicRetirement.m
 //  Security
 //
-//  Created by Michelle Auricchio on 12/27/16.
 //
 //
 

@@ -58,8 +58,19 @@
 #include <utilities/SecDb.h> // TODO Fixme this gets us SecError().
 #include <utilities/SecAKSWrappers.h>
 #include <ipc/securityd_client.h>
+#include "featureflags/featureflags.h"
 
 #include "server_security_helpers.h"
+
+#import <SoftLinking/SoftLinking.h>
+
+#if TARGET_OS_IOS && TARGET_HAS_KEYSTORE
+#define HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT 1
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, MobileKeyBag)
+SOFT_LINK_FUNCTION(MobileKeyBag, MKBUserTypeDeviceMode, soft_MKBUserTypeDeviceMode, CFDictionaryRef, (CFDictionaryRef options, CFErrorRef * error), (options, error))
+SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeKey, CFStringRef)
+SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeSharedIPad, CFStringRef)
+#endif
 
 struct securityd *gSecurityd;
 struct trustd *gTrustd;
@@ -102,24 +113,45 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
 static __thread SecurityClient threadLocalClient;
 static SecurityClient gClient;
 
-#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
 void
-SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser)
+SecSecurityFixUpClientWithPersona(SecurityClient* src, SecurityClient* dest)
 {
-    gClient.inMultiUser = mode;
+    memcpy(dest, src, sizeof(struct SecurityClient));
+    
+    dest->musr = NULL;
+    
+    if (gSecurityd && gSecurityd->sec_fill_security_client_muser) {
+        gSecurityd->sec_fill_security_client_muser(dest);
+    }
+}
+
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+// Only for testing.
+void
+SecSecuritySetMusrMode(bool inEduMode, uid_t uid, int activeUser)
+{
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
+    gClient.inEduMode = inEduMode;
     gClient.uid = uid;
+    threadLocalClient.inEduMode = inEduMode;
+    threadLocalClient.uid = uid;
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
     gClient.activeUser = activeUser;
+    threadLocalClient.activeUser = activeUser;
 #endif
 }
 
 void
 SecSecuritySetPersonaMusr(CFStringRef uuid)
 {
-    if (gClient.inMultiUser) {
+    if (gClient.inEduMode) {
         abort();
     }
-    CFReleaseNull(gClient.musr);
+    SecurityClient* client = SecSecurityClientGet();
+    CFReleaseNull(client->musr);
+    
+    client->isMusrOverridden = uuid ? true : false;
+    
     if (uuid) {
         CFUUIDRef u = CFUUIDCreateFromString(NULL, uuid);
         if (u == NULL) {
@@ -127,7 +159,7 @@ SecSecuritySetPersonaMusr(CFStringRef uuid)
         }
         CFUUIDBytes ubytes = CFUUIDGetUUIDBytes(u);
         CFReleaseNull(u);
-        gClient.musr = CFDataCreate(NULL, (const void *)&ubytes, sizeof(ubytes));
+        client->musr = CFDataCreate(NULL, (const void *)&ubytes, sizeof(ubytes));
     }
 }
 #endif // KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
@@ -139,27 +171,42 @@ SecSecurityClientGet(void)
     dispatch_once(&onceToken, ^{
         gClient.task = NULL;
         gClient.accessGroups = SecServerCopyAccessGroups();
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         gClient.allowSystemKeychain = true;
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         gClient.allowSyncBubbleKeychain = true;
         gClient.activeUser = 501;
 #endif
         gClient.isNetworkExtension = false;
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
-        gClient.inMultiUser = false;
+        gClient.inEduMode = false;
         gClient.musr = NULL;
+        gClient.isMusrOverridden = false;
 #endif
         gClient.applicationIdentifier = NULL;
         gClient.isAppClip = false;
     });
-    //copy to thread local
-    memcpy(&threadLocalClient, &gClient, sizeof(struct SecurityClient));
-
+    
+    static __thread dispatch_once_t onceTokenThreadLocalClient;
+    dispatch_once(&onceTokenThreadLocalClient, ^{
+        memcpy(&threadLocalClient, &gClient, sizeof(struct SecurityClient));
+        // `memcpy`-ing CF objects doesn't adjust their reference counts, so do
+        // that manually to avoid overreleases in the testing functions.
+        CFRetainSafe(threadLocalClient.task);
+        CFRetainSafe(threadLocalClient.accessGroups);
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+        CFRetainSafe(threadLocalClient.musr);
+#endif
+        CFRetainSafe(threadLocalClient.applicationIdentifier);
+    });
+    
 #if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
     /* muser needs to be filled out in the context of the thread instead of a global value */
     if (gSecurityd && gSecurityd->sec_fill_security_client_muser) {
         gSecurityd->sec_fill_security_client_muser(&threadLocalClient);
     }
+
 #endif
     return &threadLocalClient;
 
@@ -174,30 +221,34 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 // Only for testing.
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
     // Not thread safe at all, but OK because it is meant to be used only by tests.
-    (void)SecSecurityClientGet();
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
     CFReleaseNull(gClient.accessGroups);
+    CFReleaseNull(threadLocalClient.accessGroups);
     gClient.accessGroups = CFRetainSafe(accessGroups);
+    threadLocalClient.accessGroups = CFRetainSafe(accessGroups);
 }
 
 // Testing
 void SecSecurityClientRegularToAppClip(void) {
-    (void)SecSecurityClientGet();
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
     gClient.isAppClip = true;
+    threadLocalClient.isAppClip = true;
 }
 
 // Testing
 void SecSecurityClientAppClipToRegular(void) {
-    (void)SecSecurityClientGet();
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
     gClient.isAppClip = false;
+    threadLocalClient.isAppClip = false;
 }
 
 // Testing
 void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier) {
-    (void)SecSecurityClientGet();
+    (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
     CFReleaseNull(gClient.applicationIdentifier);
-    if (identifier) {
-        gClient.applicationIdentifier = CFRetain(identifier);
-    }
+    CFReleaseNull(threadLocalClient.applicationIdentifier);
+    gClient.applicationIdentifier = CFRetainSafe(identifier);
+    threadLocalClient.applicationIdentifier = CFRetainSafe(identifier);
 }
 
 #if !TARGET_OS_IPHONE
@@ -245,7 +296,11 @@ static xpc_connection_t securityd_create_connection(const char *name, uid_t targ
         secnotice("xpc", "got event: %s", description);
     });
     if (target_uid != SECURITY_TARGET_UID_UNSET) {
+#if TARGET_OS_OSX
         xpc_connection_set_target_uid(connection, target_uid);
+#else
+        xpc_connection_set_target_user_session_uid(connection, target_uid);
+#endif
     }
     xpc_connection_resume(connection);
     return connection;
@@ -262,7 +317,6 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_ocsp_cache_flush_id:
         case sec_ota_pki_trust_store_version_id:
         case sec_ota_pki_asset_version_id:
-        case kSecXPCOpOTAGetEscrowCertificates:
         case kSecXPCOpOTAPKIGetNewAsset:
         case kSecXPCOpOTASecExperimentGetNewAsset:
         case kSecXPCOpOTASecExperimentGetAsset:
@@ -281,6 +335,7 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_trust_settings_set_data_id:
         case sec_trust_settings_copy_data_id:
         case sec_truststore_remove_all_id:
+        case sec_trust_reset_settings_id:
             return true;
         default:
             break;
@@ -316,11 +371,72 @@ static xpc_connection_t _securityd_connection(void) {
     return ret;
 }
 
-static xpc_connection_t securityd_connection(void) {
+// whether we need to target the foreground user session, see rdar://83785274
+static bool is_foreground_user_operation(enum SecXPCOperation op) {
+    switch (op) {
+        case kSecXPCOpTransmogrifyToSyncBubble:
+        case kSecXPCOpTransmogrifyToSystemKeychain:
+        case kSecXPCOpDeleteUserView:
+#if TARGET_OS_IPHONE
+        case sec_trust_evaluate_id:
+#endif
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Don't use the connection pool, because the foreground uid may change, and we want the current one each time.
+// This only affects edu mode SPIs.
+static xpc_connection_t _securityd_connection_to_foreground_user_session(void) {
+#if TARGET_OS_OSX
+    // This shoulnd't be called on macos, but in case it is, fall back to default behavior,
+    // but w/o using the pool.
+    return securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
+#else
+    if (!xpc_user_sessions_enabled()) {
+        return securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
+    }
+    errno_t error = 0;
+    uid_t foreground_uid = xpc_user_sessions_get_foreground_uid(&error);
+    if (error != 0) {
+        secerror("xpc: could not get foreground uid %d", error);
+        return securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
+    }
+
+    if (securityd_target_uid != SECURITY_TARGET_UID_UNSET && foreground_uid != securityd_target_uid) {
+        secerror("xpc: uid targets not equal. using foreground: %d not global: %d", foreground_uid, securityd_target_uid);
+    } else {
+        secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+    }
+    return securityd_create_connection(kSecuritydXPCServiceName, foreground_uid, 0);
+#endif
+}
+
+// Don't use the connection pool for now.
+// This only affects system keychain calls.
+static xpc_connection_t _securityd_connection_to_system_keychain(void) {
+#if KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+    secnotice("xpc", "using system keychain XPC");
+    return securityd_create_connection(kSecuritydSystemXPCServiceName, securityd_target_uid, 0);
+#else
+    // Shouldn't be called when system keychain is not available, but just in case it is,
+    // fallback to default behavior, but w/o using the pool.
+    return securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
+#endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+}
+
+static xpc_connection_t securityd_connection(bool isForegroundUserOp, bool useSystemKeychain) {
     unsigned tries = 0;
     xpc_connection_t ret = NULL;
     do {
-        ret = _securityd_connection();
+        if (isForegroundUserOp) {
+            ret = _securityd_connection_to_foreground_user_session();
+        } else if (useSystemKeychain) {
+            ret = _securityd_connection_to_system_keychain();
+        } else {
+            ret = _securityd_connection();
+        }
         if (!ret) {
             usleep(2500);
         }
@@ -332,8 +448,17 @@ static xpc_connection_t securityd_connection(void) {
     return ret;
 }
 
-static void return_securityd_connection_to_pool(enum SecXPCOperation op, xpc_connection_t conn) {
-    if (!is_trust_operation(op)) {
+static void return_securityd_connection_to_pool(enum SecXPCOperation op, bool useSystemKeychain, xpc_connection_t conn) {
+    if (is_trust_operation(op)) {
+        if (is_foreground_user_operation(op)) {
+            // clean up foreground connections, preserve the global one
+            secnotice("xpc", "cleaning up unpooled xpc conn to trustd %p", conn);
+            xpc_connection_cancel(conn);
+            xpc_release(conn);
+        }
+        return;
+    }
+    if (!is_foreground_user_operation(op) && !useSystemKeychain) {
         dispatch_sync(sSecuritydConnectionsQueue, ^{
             if (CFArrayGetCount(sSecuritydConnectionsPool) >= MAX_SECURITYD_CONNECTIONS) {
                 xpc_connection_cancel(conn);
@@ -345,6 +470,11 @@ static void return_securityd_connection_to_pool(enum SecXPCOperation op, xpc_con
             }
             CFArrayAppendValue(sSecuritydConnectionsPool, conn);
         });
+    } else {
+        // clean up foreground/system-keychain connection
+        secnotice("xpc", "cleaning up unpooled xpc conn %p", conn);
+        xpc_connection_cancel(conn);
+        xpc_release(conn);
     }
 }
 
@@ -368,7 +498,29 @@ static xpc_connection_t trustd_connection(void) {
 #endif
 }
 
-static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op) {
+static xpc_connection_t trustd_connection_to_foreground_user_session(void) {
+	// This is normally kTrustdXPCServiceName but can be changed with SecServerSetTrustdMachServiceName()
+	const char *serviceName = xpc_connection_get_name(trustd_connection());
+#if TARGET_OS_IPHONE
+    if (!xpc_user_sessions_enabled()) {
+        return securityd_create_connection(serviceName, SECURITY_TARGET_UID_UNSET, 0);
+    }
+    errno_t error = 0;
+    uid_t foreground_uid = xpc_user_sessions_get_foreground_uid(&error);
+    if (error != 0) {
+        secerror("xpc: could not get foreground uid %d", error);
+        return securityd_create_connection(serviceName, SECURITY_TARGET_UID_UNSET, 0);
+    }
+
+    secnotice("xpc", "user sessions enabled, targeting %d", foreground_uid);
+    return securityd_create_connection(serviceName, foreground_uid, 0);
+#else
+    secerror("xpc: unexpected foreground user operation on macOS, using default behavior");
+    return securityd_create_connection(serviceName, SECURITY_TARGET_UID_UNSET, 0);
+#endif
+}
+
+static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op, bool useSystemKeychain) {
 	bool isTrustOp = is_trust_operation(op);
 	#if SECTRUST_VERBOSE_DEBUG
     {
@@ -378,7 +530,16 @@ static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation 
                (isTrustOp) ? serviceName : kSecuritydXPCServiceName, (int)op);
     }
 	#endif
-	return (isTrustOp) ? trustd_connection() : securityd_connection();
+    if (isTrustOp) {
+        if (is_foreground_user_operation(op)) {
+            return trustd_connection_to_foreground_user_session();
+        } else {
+            return trustd_connection();
+        }
+    }
+
+    bool isForegroundUserOp = is_foreground_user_operation(op);
+    return securityd_connection(isForegroundUserOp, useSystemKeychain);
 }
 
 // NOTE: This is not thread safe, but this SPI is for testing only.
@@ -424,13 +585,99 @@ _securityd_process_message_reply(xpc_object_t *reply,
 
 	char *conn_desc = xpc_copy_description(connection);
 	const char *description = xpc_dictionary_get_string(*reply, XPC_ERROR_KEY_DESCRIPTION);
-	SecCFCreateErrorWithFormat(code, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("%s: %s"), conn_desc, description);
+	char *invalidation_reason = xpc_connection_copy_invalidation_reason(connection);
+	if (invalidation_reason != NULL) {
+		SecCFCreateErrorWithFormat(code, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("%s: %s - %s"), conn_desc, description, invalidation_reason);
+	} else {
+		SecCFCreateErrorWithFormat(code, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("%s: %s"), conn_desc, description);
+	}
 	free(conn_desc);
+	free(invalidation_reason);
 	xpc_release(*reply);
 	*reply = NULL;
 	return false;
 }
 
+#if KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+// only called when deciding whether to use the system keychain XPC name
+static bool device_is_in_edu_mode(void)
+{
+    static bool result = false;
+#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        CFDictionaryRef deviceMode = soft_MKBUserTypeDeviceMode(NULL, NULL);
+        if (deviceMode) {
+            CFTypeRef value = NULL;
+            bool valuePresent = CFDictionaryGetValueIfPresent(deviceMode, getkMKBDeviceModeKey(), &value);
+
+            if (valuePresent && CFEqual(value, getkMKBDeviceModeSharedIPad())) {
+                result = true;
+            }
+#ifndef __clang_analyzer__ // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
+            CFReleaseNull(deviceMode);
+#endif
+        } else {
+            secnotice("xpc", "deviceMode:NULL");
+        }
+    });
+#endif // HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+    return result;
+}
+#endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+
+static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
+#if !KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+    return false;
+#else
+    // Even in edumode, if the FF is not set, don't target the new XPC service.
+    // That is, to target the new XPC service in edumode, you must also set the FF,
+    // because otherwise, the new service will not be running.
+    if (!_SecSystemKeychainAlwaysIsEnabled()) {
+        secdebug("xpc", "feature flag not set for system keychain");
+        return false;
+    }
+
+#if DEBUG
+    char* envForce = getenv("FORCE_SYSTEM_KEYCHAIN_XPC");
+    if (envForce != NULL && strcmp(envForce, "1") == 0) {
+        secnotice("xpc", "forcibly using system keychain");
+        return true;
+    }
+#endif // DEBUG
+
+    CFErrorRef error = NULL;
+    CFDictionaryRef query = SecXPCDictionaryCopyDictionaryWithoutZeroingDataInMessage(message, kSecXPCKeyQuery, &error);
+    if (!query) {
+        secnotice("xpc", "no query dict to determine whether for system keychain: %@", error);
+        CFReleaseNull(error);
+        return false;
+    }
+
+    CFReleaseNull(error);
+
+    bool result = false;
+    bool flagAlways = CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychainAlways, NULL);
+    bool inEduMode = device_is_in_edu_mode();
+    bool flagOld = CFDictionaryGetValueIfPresent(query, kSecUseSystemKeychain, NULL);
+
+    secinfo("xpc", "flagAlways:%d inEduMode:%d flagOld:%d", flagAlways, inEduMode, flagOld);
+
+    if (flagAlways) {
+        secnotice("xpc", "kSecUseSystemKeychainAlways present, using system keychain");
+        result = true;
+    } else if (inEduMode && flagOld) {
+        secnotice("xpc", "kSecUseSystemKeychain present, using system keychain");
+        result = true;
+    } else {
+        secinfo("xpc", "not using system keychain");
+    }
+
+    CFReleaseNull(query);
+
+    return result;
+#endif // KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
+}
 
 XPC_RETURNS_RETAINED
 xpc_object_t
@@ -438,7 +685,8 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
 {
     xpc_object_t reply = NULL;
     uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
-    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation);
+    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
+    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain);
 
     const int max_tries = SECURITYD_MAX_XPC_TRIES;
 
@@ -450,7 +698,7 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
 
 	_securityd_process_message_reply(&reply, error, connection, operation);
 
-    return_securityd_connection_to_pool((enum SecXPCOperation)operation, connection);
+    return_securityd_connection_to_pool((enum SecXPCOperation)operation, useSystemKeychain, connection);
 
     return reply;
 }
@@ -462,7 +710,8 @@ _securityd_message_with_reply_async_inner(xpc_object_t message,
 										  uint32_t tries_left)
 {
 	uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
-	xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation);
+    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
+    xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain);
 
 	xpc_retain(message);
 	dispatch_retain(replyq);
@@ -479,8 +728,9 @@ _securityd_message_with_reply_async_inner(xpc_object_t message,
 		xpc_release(message);
 		dispatch_release(replyq);
 		Block_release(handlerCopy);
+
+		return_securityd_connection_to_pool((enum SecXPCOperation)operation, useSystemKeychain, connection);
 	});
-    return_securityd_connection_to_pool((enum SecXPCOperation)operation, connection);
 }
 
 void
@@ -612,6 +862,8 @@ _SecSecuritydCopyWhoAmI(CFErrorRef *error)
     return reply;
 }
 
+// This function is only effective in edu mode (Shared iPad).
+// This function will call out to the foreground user session.
 bool
 _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error)
 {
@@ -635,6 +887,8 @@ _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error)
     return reply;
 }
 
+// This function is only effective in edu mode (Shared iPad).
+// This function will call out to the foreground user session.
 bool
 _SecSystemKeychainTransfer(CFErrorRef *error)
 {
@@ -655,6 +909,8 @@ _SecSystemKeychainTransfer(CFErrorRef *error)
     return reply;
 }
 
+// This function is only effective in edu mode (Shared iPad).
+// This function will call out to the foreground user session.
 bool
 _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error)
 {

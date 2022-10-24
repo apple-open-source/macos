@@ -95,7 +95,9 @@
         STRONGIFY(self);
         [self.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
             NSError* tlkTranslationError = nil;
-            CKKSKey* newTLK = [proposedTLK makeCKKSKey:viewState.zoneID error:&tlkTranslationError];
+            CKKSKey* newTLK = [proposedTLK makeCKKSKey:viewState.zoneID
+                                             contextID:viewState.contextID
+                                                 error:&tlkTranslationError];
 
             if(!newTLK || tlkTranslationError) {
                 ckkserror("ckks-se", viewState.zoneID, "Unable to make TLK: %@", tlkTranslationError);
@@ -103,8 +105,15 @@
                 return;
             }
 
-            CKKSKey* classA = [proposedTLK makeFakeCKKSClassKey:SecCKKSKeyClassA zoneiD:viewState.zoneID error:&tlkTranslationError];
-            CKKSKey* classC = [proposedTLK makeFakeCKKSClassKey:SecCKKSKeyClassC zoneiD:viewState.zoneID error:&tlkTranslationError];
+            CKKSKey* classA = [proposedTLK makeFakeCKKSClassKey:SecCKKSKeyClassA
+                                                      contextID:viewState.contextID
+                                                         zoneiD:viewState.zoneID
+                                                          error:&tlkTranslationError];
+
+            CKKSKey* classC = [proposedTLK makeFakeCKKSClassKey:SecCKKSKeyClassC
+                                                      contextID:viewState.contextID
+                                                         zoneiD:viewState.zoneID
+                                                          error:&tlkTranslationError];
 
             if(!classA || !classC) {
                 ckkserror("ckks-se", viewState.zoneID, "Unable to make fake class keys: %@", tlkTranslationError);
@@ -117,6 +126,7 @@
             if(wrappedOldTLK) {
                 NSError* loadError = nil;
                 CKKSKey* existingOldTLK = [CKKSKey fromDatabase:wrappedOldTLK.uuid
+                                                      contextID:viewState.contextID
                                                          zoneID:viewState.zoneID
                                                           error:&loadError];
                 if(!existingOldTLK || loadError) {
@@ -126,7 +136,9 @@
                 }
 
                 NSError* oldTLKError = nil;
-                oldTLKToWrite = [wrappedOldTLK makeCKKSKey:viewState.zoneID error:&oldTLKError];
+                oldTLKToWrite = [wrappedOldTLK makeCKKSKey:viewState.zoneID
+                                                 contextID:viewState.contextID
+                                                     error:&oldTLKError];
 
                 if(!oldTLKToWrite || oldTLKError) {
                     ckkserror("ckks-se", viewState.zoneID, "Unable to convert old TLK: %@", oldTLKError);
@@ -139,7 +151,8 @@
 
             NSMutableArray<CKKSTLKShareRecord*>* tlkShares = [NSMutableArray array];
             for(CKKSExternalTLKShare* externalShare in shares) {
-                CKKSTLKShareRecord* share = [externalShare makeTLKShareRecord:viewState.zoneID];
+                CKKSTLKShareRecord* share = [externalShare makeTLKShareRecord:viewState.zoneID
+                                                                    contextID:viewState.contextID ];
                 [tlkShares addObject:share];
             }
 
@@ -149,6 +162,7 @@
 
             NSError* keyPointerError = nil;
             CKKSCurrentKeyPointer* currentTLKPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassTLK
+                                                                                contextID:viewState.contextID
                                                                               withKeyUUID:newTLK.uuid
                                                                                    zoneID:viewState.zoneID
                                                                                     error:&keyPointerError];
@@ -160,10 +174,12 @@
             }
 
             CKKSCurrentKeyPointer* currentClassAPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassA
+                                                                                   contextID:viewState.contextID
                                                                                  withKeyUUID:classA.uuid
                                                                                       zoneID:viewState.zoneID
                                                                                        error:&keyPointerError];
             CKKSCurrentKeyPointer* currentClassCPointer = [CKKSCurrentKeyPointer forKeyClass:SecCKKSKeyClassC
+                                                                                   contextID:viewState.contextID
                                                                                  withKeyUUID:classC.uuid
                                                                                       zoneID:viewState.zoneID
                                                                                        error:&keyPointerError];
@@ -319,7 +335,7 @@
     [self.databaseProvider dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
 
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewState.zoneName];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:viewState.contextID zoneName:viewState.zoneName];
         if(ckse.changeToken == nil) {
             error = [NSError errorWithDomain:CKKSErrorDomain
                                         code:CKKSErrorFetchNotCompleted
@@ -329,7 +345,10 @@
             return;
         }
 
-        CKKSCurrentKeyPointer* currentTLKPointer = [CKKSCurrentKeyPointer tryFromDatabase:SecCKKSKeyClassTLK zoneID:viewState.zoneID error:&error];
+        CKKSCurrentKeyPointer* currentTLKPointer = [CKKSCurrentKeyPointer tryFromDatabase:SecCKKSKeyClassTLK
+                                                                                contextID:viewState.contextID
+                                                                                   zoneID:viewState.zoneID
+                                                                                    error:&error];
 
         if(error != nil) {
             // No tlk pointer!
@@ -346,6 +365,7 @@
         }
 
         CKKSKey* tlk = [CKKSKey fromDatabaseAnyState:currentTLKPointer.currentKeyUUID
+                                           contextID:viewState.contextID
                                               zoneID:viewState.zoneID
                                                error:&error];
 
@@ -359,6 +379,7 @@
                                                                         tlk:tlk];
 
         NSArray<CKKSTLKShareRecord*>* tlkShares = [CKKSTLKShareRecord allForUUID:currentTLKPointer.currentKeyUUID
+                                                                       contextID:viewState.contextID
                                                                           zoneID:viewState.zoneID
                                                                            error:&error];
         if(!tlkShares || error) {
@@ -405,6 +426,7 @@
             // Are all the TLKShares for the current TLK?
             NSError* pointerLoadError = nil;
             CKKSCurrentKeyPointer* currentTLK = [CKKSCurrentKeyPointer tryFromDatabase:SecCKKSKeyClassTLK
+                                                                             contextID:viewState.contextID
                                                                                 zoneID:viewState.zoneID
                                                                                  error:&pointerLoadError];
 
@@ -416,7 +438,8 @@
 
             NSMutableArray<CKRecord*>* recordsToSave = [NSMutableArray array];
             for(CKKSExternalTLKShare* externalShare in sharesToAdd) {
-                CKKSTLKShareRecord* record = [externalShare makeTLKShareRecord:viewState.zoneID];
+                CKKSTLKShareRecord* record = [externalShare makeTLKShareRecord:viewState.zoneID
+                                                                     contextID:viewState.contextID ];
 
                 if(![record.tlkUUID isEqualToString:currentTLK.currentKeyUUID]) {
                     ckkserror("ckks-se", viewState.zoneID, "TLKShare is not for the current TLK(%@): %@", currentTLK.currentKeyUUID, externalShare);
@@ -431,10 +454,12 @@
 
             NSMutableArray<CKRecordID*>* recordIDsToDelete = [NSMutableArray array];
             for(CKKSExternalTLKShare* externalShare in sharesToDelete) {
-                CKKSTLKShareRecord* converted = [externalShare makeTLKShareRecord:viewState.zoneID];
+                CKKSTLKShareRecord* converted = [externalShare makeTLKShareRecord:viewState.zoneID
+                                                                        contextID:viewState.contextID ];
 
                 NSError* loadError = nil;
                 CKKSTLKShareRecord* loaded = [CKKSTLKShareRecord fromDatabase:converted.tlkUUID
+                                                                    contextID:viewState.contextID
                                                                receiverPeerID:converted.share.receiverPeerID
                                                                  senderPeerID:converted.share.senderPeerID
                                                                        zoneID:viewState.zoneID

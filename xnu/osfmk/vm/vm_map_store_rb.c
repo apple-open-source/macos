@@ -144,8 +144,6 @@ vm_map_store_copy_reset_rb( vm_map_copy_t copy, vm_map_entry_t entry, int nentri
 	}
 }
 
-extern zone_t   vm_map_holes_zone;      /* zone for vm map holes (vm_map_links) structures */
-
 void
 vm_map_combine_hole(vm_map_t map, vm_map_entry_t hole_entry);
 void
@@ -167,7 +165,7 @@ vm_map_combine_hole(__unused vm_map_t map, vm_map_entry_t hole_entry)
 	middle_hole_entry->vme_prev = NULL;
 	middle_hole_entry->vme_next = NULL;
 
-	zfree(vm_map_holes_zone, middle_hole_entry);
+	zfree_id(ZONE_ID_VM_MAP_HOLES, middle_hole_entry);
 
 	assert(hole_entry->vme_start < hole_entry->vme_end);
 	assert(last_hole_entry->vme_start < last_hole_entry->vme_end);
@@ -204,7 +202,7 @@ vm_map_delete_hole(vm_map_t map, vm_map_entry_t hole_entry)
 
 	hole_entry->vme_next = NULL;
 	hole_entry->vme_prev = NULL;
-	zfree(vm_map_holes_zone, hole_entry);
+	zfree_id(ZONE_ID_VM_MAP_HOLES, hole_entry);
 }
 
 
@@ -423,7 +421,7 @@ update_holes_on_entry_deletion(vm_map_t map, vm_map_entry_t old_entry)
 		struct vm_map_links     *new_hole_entry = NULL;
 		vm_map_entry_t          l_next, l_prev;
 
-		new_hole_entry = zalloc(vm_map_holes_zone);
+		new_hole_entry = zalloc_id(ZONE_ID_VM_MAP_HOLES, Z_WAITOK | Z_NOFAIL);
 
 		/*
 		 * First hole in the map?
@@ -549,7 +547,7 @@ update_holes_on_entry_creation(vm_map_t map, vm_map_entry_t new_entry)
 			/* Case B */
 			struct vm_map_links *new_hole_entry = NULL;
 
-			new_hole_entry = zalloc(vm_map_holes_zone);
+			new_hole_entry = zalloc_id(ZONE_ID_VM_MAP_HOLES, Z_WAITOK | Z_NOFAIL);
 
 #if DEBUG
 			copy_hole_info(hole_entry, &old_hole_entry);

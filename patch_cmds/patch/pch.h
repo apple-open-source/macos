@@ -33,6 +33,10 @@
 #define	MAX_FILE	3
 
 struct file_name {
+#ifdef __APPLE__
+	struct tm mtime;
+	bool mtime_set;
+#endif
 	char *path;
 	bool exists;
 };
@@ -53,6 +57,10 @@ LINENUM		pch_newfirst(void);
 LINENUM		pch_repl_lines(void);
 LINENUM		pch_end(void);
 LINENUM		pch_context(void);
+#ifdef __APPLE__
+LINENUM		pch_leading_context(void);
+LINENUM		pch_trailing_context(void);
+#endif
 LINENUM		pch_hunk_beg(void);
 char		pch_char(LINENUM);
 void		do_ed_script(void);

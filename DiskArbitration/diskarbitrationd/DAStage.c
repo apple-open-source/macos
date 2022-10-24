@@ -34,20 +34,23 @@
 #include "DAProbe.h"
 #include "DAQueue.h"
 #include "DASupport.h"
+#include "DAServer.h"
 #include "DALog.h"
 #include <unistd.h>
 #include <sys/mount.h>
 #include <sysexits.h>
+#include <os/transaction_private.h>
+#include <MediaKit/GPTTypes.h>
 
 ///w:start
 void ___os_transaction_begin( void );
 void ___os_transaction_end( void );
+os_transaction_t ___os_transaction_get( void );
 ///w:end
 
 const CFTimeInterval __kDABusyTimerGrace = 1;
 const CFTimeInterval __kDABusyTimerLimit = 10;
 
-static CFRunLoopSourceRef __gDAStageRunLoopSource = NULL;
 
 static void               __DAStageAppeared( DADiskRef disk );
 static void               __DAStageMount( DADiskRef disk );
@@ -64,28 +67,44 @@ static void __DAStageProbeCallback( int             status,
                                     CFUUIDRef       uuid,
                                     void *          context );
 
-static void __DABusyTimerCallback( CFRunLoopTimerRef timer, void * info )
+static void __DABusyTimerCallback( void )
 {
     DAStageSignal( );
 }
 
-static void __DABusyTimerRefresh( CFAbsoluteTime clock )
+static void __DAIdleTimerCallback( void )
 {
-    static CFRunLoopTimerRef timer = NULL;
-
-    if ( timer )
+    DALogInfo("Idle timer fired");
+    gDAIdleTimerRunning = FALSE;
+    if ( gDAIdle == true && NULL == ___os_transaction_get() )
     {
-        CFRunLoopTimerSetNextFireDate( timer, clock );
+        exit( EX_OK );
     }
-    else
-    {
-        timer = CFRunLoopTimerCreate( kCFAllocatorDefault, clock, kCFAbsoluteTimeIntervalSince1904, 0, 0, __DABusyTimerCallback, NULL );
+}
 
-        if ( timer )
+void __DASetIdleTimer( void )
+{
+    DALogInfo("Idle timer started %d %x", gDAIdle, ___os_transaction_get());
+    if ( NULL == ___os_transaction_get() &&  ( gDAIdle == true ) )
+    {
+        if ( gDAIdleTimerRunning == FALSE )
         {
-            CFRunLoopAddTimer( CFRunLoopGetCurrent( ), timer, kCFRunLoopDefaultMode );
+            gDAIdleTimerRunning = TRUE;
+            dispatch_time_t timer = dispatch_time( DISPATCH_TIME_NOW, (int64_t) ( 20 * NSEC_PER_SEC ) );
+            dispatch_after( timer, DAServerWorkLoop(), ^{ __DAIdleTimerCallback();} );
         }
     }
+}
+
+static void __DABusyTimerRefresh( CFAbsoluteTime clock )
+{
+    if ( clock < kCFAbsoluteTimeIntervalSince1904 && clock > CFAbsoluteTimeGetCurrent( ))
+    {
+        int64_t timeout = clock - CFAbsoluteTimeGetCurrent();
+        dispatch_time_t timer = dispatch_time( DISPATCH_TIME_NOW, (int64_t) ( timeout * NSEC_PER_SEC ) );
+        dispatch_after( timer, DAServerWorkLoop(), ^{ __DABusyTimerCallback();} );
+    }
+    
 }
 
 static void __DAStageAppeared( DADiskRef disk )
@@ -432,13 +451,19 @@ static void __DAStageDispatch( void * info )
     if ( quiet )
     {
         fresh = TRUE;
-
-        gDAIdle = TRUE;
+        
+        if ( gDAIdle == FALSE )
+        {
+            ___os_transaction_end( );
+            gDAIdle = TRUE;
+#if !TARGET_OS_OSX
+            __DASetIdleTimer();
+#endif
+        }
 
         DAIdleCallback( );
 
-        ___os_transaction_end( );
-
+        
         if ( gDAConsoleUser )
         {
             /*
@@ -682,6 +707,18 @@ static void __DAStageProbeCallback( int             status,
 
         kind = DAFileSystemGetKind( filesystem );
 
+#if TARGET_OS_IOS
+        /*
+         * Mark the disk as MultiVolume if it is an APFS container and external
+         */
+        CFStringRef content = DADiskGetDescription( disk, kDADiskDescriptionMediaContentKey );
+        if ( content && CFEqual( content, CFSTR( APPLE_APFS_UUID  ) )
+            && ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse ) )
+        {
+            DADiskSetState( disk, _kDADiskStateMultiVolume,       TRUE );
+        }
+#endif
+
         clean =  ( cleanStatus == 0 ) ? kCFBooleanTrue : kCFBooleanFalse ;
 ///w:start
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
@@ -697,7 +734,9 @@ static void __DAStageProbeCallback( int             status,
         if ( clean == kCFBooleanFalse )
         {
             DADiskSetState( disk, kDADiskStateRequireRepair,       TRUE );
+#if TARGET_OS_OSX
             DADiskSetState( disk, kDADiskStateRequireRepairQuotas, TRUE );
+#endif
         }
     }
 
@@ -769,7 +808,7 @@ static void __DAStageProbeCallback( int             status,
 
         for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
         {
-            if ( mountList[mountListIndex].f_fsid.val[0] == DADiskGetBSDNode( disk ) )
+            if ( strcmp( _DAVolumeGetID( mountList + mountListIndex ), DADiskGetID( disk ) ) == 0 )
             {
                 /*
                  * We have determined that the disk is mounted.
@@ -811,6 +850,34 @@ static void __DAStageProbeCallback( int             status,
 
                 break;
             }
+#if TARGET_OS_IOS
+            else if ( strcmp( mountList[mountListIndex].f_fstypename, "lifs" ) == 0 &&
+                           strncmp( mountList[mountListIndex].f_mntfromname, "apfs", strlen( "apfs" ) ) == 0 )
+            {
+               
+                char subdiskPath[MAXPATHLEN];
+                int sts = _DAVolumeGetDevicePathForLifsMount( &mountList[mountListIndex] , subdiskPath, sizeof( subdiskPath) );
+                const char *devicePath = DADiskGetBSDPath( disk , FALSE);
+                if ( sts == 0 && ( strcmp ( devicePath, subdiskPath ) == 0 ) )
+                {
+                    DADiskRef subdisk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
+
+                    if ( subdisk )
+                    {
+
+                        DALogInfo( "created disk, id = %@.", subdisk );
+
+                        CFArrayInsertValueAtIndex( gDADiskList, 0, subdisk );
+
+                        CFRelease( subdisk );
+                    }
+                    
+                    DADiskSetState( disk, kDADiskStateRequireRepair,       FALSE );
+                    DADiskSetState( disk, kDADiskStateRequireRepairQuotas, FALSE );
+                    DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
+                }
+            }
+#endif
         }
     }
 
@@ -823,28 +890,6 @@ static void __DAStageProbeCallback( int             status,
     CFRelease( disk );
 }
 
-CFRunLoopSourceRef DAStageCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order )
-{
-    /*
-     * Create a CFRunLoopSource for DAStage signals.
-     */
-
-    if ( __gDAStageRunLoopSource == NULL )
-    {
-        CFRunLoopSourceContext context = { 0 };
-
-        context.perform = __DAStageDispatch;
-
-        __gDAStageRunLoopSource = CFRunLoopSourceCreate( allocator, order, &context );
-    }
-
-    if ( __gDAStageRunLoopSource )
-    {
-        CFRetain( __gDAStageRunLoopSource );
-    }
-
-    return __gDAStageRunLoopSource;
-}
 
 void DAStageSignal( void )
 {
@@ -859,5 +904,5 @@ void DAStageSignal( void )
 
     gDAIdle = FALSE;
 
-    CFRunLoopSourceSignal( __gDAStageRunLoopSource );
+    dispatch_async_f(DAServerWorkLoop(), NULL, __DAStageDispatch);
 }

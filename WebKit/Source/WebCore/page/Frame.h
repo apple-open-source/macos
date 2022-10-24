@@ -57,6 +57,7 @@ typedef struct HBITMAP__* HBITMAP;
 #endif
 
 typedef const struct OpaqueJSContext* JSContextRef;
+typedef const struct OpaqueJSValue* JSValueRef;
 
 namespace JSC { namespace Yarr {
 class RegularExpression;
@@ -123,7 +124,7 @@ public:
     WEBCORE_EXPORT void init();
 #if PLATFORM(IOS_FAMILY)
     // Creates <html><body style="..."></body></html> doing minimal amount of work.
-    WEBCORE_EXPORT void initWithSimpleHTMLDocument(const String& style, const URL&);
+    WEBCORE_EXPORT void initWithSimpleHTMLDocument(const AtomString& style, const URL&);
 #endif
     WEBCORE_EXPORT void setView(RefPtr<FrameView>&&);
     WEBCORE_EXPORT void createView(const IntSize&, const std::optional<Color>& backgroundColor,
@@ -181,6 +182,7 @@ public:
     String debugDescription() const;
 
     WEBCORE_EXPORT static Frame* fromJSContext(JSContextRef);
+    WEBCORE_EXPORT static Frame* contentFrameFromWindowOrFrameElement(JSContextRef, JSValueRef);
 
 // ======== All public functions below this point are candidates to move out of Frame into another class. ========
 
@@ -291,9 +293,6 @@ public:
     void resumeActiveDOMObjectsAndAnimations();
     bool activeDOMObjectsAndAnimationsSuspended() const { return m_activeDOMObjectsAndAnimationsSuspendedCount > 0; }
 
-    void didPrewarmLocalStorage();
-    bool mayPrewarmLocalStorage() const;
-
     enum class InvalidateContentEventRegionsReason { Layout, EventHandlerChange };
     void invalidateContentEventRegionsIfNeeded(InvalidateContentEventRegionsReason);
 
@@ -328,7 +327,7 @@ private:
     UniqueRef<FrameLoader> m_loader;
     mutable UniqueRef<NavigationScheduler> m_navigationScheduler;
 
-    WeakPtr<HTMLFrameOwnerElement> m_ownerElement;
+    WeakPtr<HTMLFrameOwnerElement, WeakPtrImplWithEventTargetData> m_ownerElement;
     RefPtr<FrameView> m_view;
     RefPtr<Document> m_doc;
 
@@ -361,7 +360,6 @@ private:
     unsigned m_navigationDisableCount { 0 };
     unsigned m_selfOnlyRefCount { 0 };
     bool m_hasHadUserInteraction { false };
-    unsigned m_localStoragePrewarmingCount { 0 };
 
     FloatSize m_overrideScreenSize;
 

@@ -37,12 +37,17 @@
 #import "RenderVideo.h"
 #import "TimeRanges.h"
 #import "VideoFullscreenChangeObserver.h"
+#if HAVE(PIP_CONTROLLER)
+#import "VideoFullscreenInterfacePiP.h"
+#else
 #import "VideoFullscreenInterfaceAVKit.h"
+#endif
 #import "VideoFullscreenModelVideoElement.h"
 #import "WebCoreThreadRun.h"
 #import <QuartzCore/CoreAnimation.h>
 #import <UIKit/UIView.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/CrossThreadCopier.h>
 #import <wtf/WorkQueue.h>
 
 #import <pal/ios/UIKitSoftLink.h>
@@ -78,6 +83,12 @@ using namespace WebCore;
 @end
 
 #else
+
+#if HAVE(PIP_CONTROLLER)
+typedef WebCore::VideoFullscreenInterfacePiP PlatformVideoFullscreenInterface;
+#else
+typedef WebCore::VideoFullscreenInterfaceAVKit PlatformVideoFullscreenInterface;
+#endif
 
 static IntRect elementRectInWindow(HTMLVideoElement* videoElement)
 {
@@ -126,6 +137,7 @@ private:
     void requestVideoContentLayer() final;
     void returnVideoContentLayer() final;
     void didSetupFullscreen() final;
+    void failedToEnterFullscreen() final { }
     void didEnterFullscreen(const FloatSize&) final { }
     void willExitFullscreen() final;
     void didExitFullscreen() final;
@@ -215,7 +227,7 @@ private:
 
     HashSet<PlaybackSessionModelClient*> m_playbackClients;
     HashSet<VideoFullscreenModelClient*> m_fullscreenClients;
-    RefPtr<VideoFullscreenInterfaceAVKit> m_interface;
+    RefPtr<PlatformVideoFullscreenInterface> m_interface;
     RefPtr<VideoFullscreenModelVideoElement> m_fullscreenModel;
     RefPtr<PlaybackSessionModelMediaElement> m_playbackModel;
     RefPtr<HTMLVideoElement> m_videoElement;
@@ -482,19 +494,10 @@ void VideoFullscreenControllerContext::canPlayFastReverseChanged(bool canPlayFas
         client->canPlayFastReverseChanged(canPlayFastReverse);
 }
 
-static Vector<MediaSelectionOption> isolatedCopy(const Vector<MediaSelectionOption>& options)
-{
-    Vector<MediaSelectionOption> optionsCopy;
-    optionsCopy.reserveInitialCapacity(options.size());
-    for (auto& option : options)
-        optionsCopy.uncheckedAppend({ option.displayName.isolatedCopy(), option.type });
-    return optionsCopy;
-}
-
 void VideoFullscreenControllerContext::audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     if (WebThreadIsCurrent()) {
-        RunLoop::main().dispatch([protectedThis = Ref { *this }, options = isolatedCopy(options), selectedIndex] {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }, options = crossThreadCopy(options), selectedIndex] {
             protectedThis->audioMediaSelectionOptionsChanged(options, selectedIndex);
         });
         return;
@@ -507,7 +510,7 @@ void VideoFullscreenControllerContext::audioMediaSelectionOptionsChanged(const V
 void VideoFullscreenControllerContext::legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     if (WebThreadIsCurrent()) {
-        RunLoop::main().dispatch([protectedThis = Ref { *this }, options = isolatedCopy(options), selectedIndex] {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }, options = crossThreadCopy(options), selectedIndex] {
             protectedThis->legibleMediaSelectionOptionsChanged(options, selectedIndex);
         });
         return;
@@ -981,7 +984,7 @@ bool VideoFullscreenControllerContext::externalPlaybackEnabled() const
 PlaybackSessionModel::ExternalPlaybackTargetType VideoFullscreenControllerContext::externalPlaybackTargetType() const
 {
     ASSERT(isUIThread());
-    return m_playbackModel ? m_playbackModel->externalPlaybackTargetType() : TargetTypeNone;
+    return m_playbackModel ? m_playbackModel->externalPlaybackTargetType() : ExternalPlaybackTargetType::TargetTypeNone;
 }
 
 String VideoFullscreenControllerContext::externalPlaybackLocalizedDeviceName() const
@@ -1024,7 +1027,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
         WebThreadLock();
 
         Ref<PlaybackSessionInterfaceAVKit> sessionInterface = PlaybackSessionInterfaceAVKit::create(*this);
-        m_interface = VideoFullscreenInterfaceAVKit::create(sessionInterface.get());
+        m_interface = PlatformVideoFullscreenInterface::create(sessionInterface.get());
         m_interface->setVideoFullscreenChangeObserver(this);
         m_interface->setVideoFullscreenModel(this);
 
@@ -1059,7 +1062,7 @@ void VideoFullscreenControllerContext::requestHideAndExitFullscreen()
 {
     if (!(self = [super init]))
         return nil;
-    
+
     return self;
 }
 

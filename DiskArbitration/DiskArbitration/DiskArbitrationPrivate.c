@@ -27,7 +27,7 @@
 #include "DAServer.h"
 
 #include <sys/stat.h>
-
+#include <os/log.h>
 #ifndef __LP64__
 
 #include <paths.h>
@@ -37,9 +37,11 @@
 #include <sys/mount.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 #include <IOKit/storage/IOBDMedia.h>
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
+#endif
 
 ///w:start
 static kern_return_t          __gDiskArbStatus                      = KERN_SUCCESS;
@@ -66,21 +68,46 @@ __private_extern__ char *      _DADiskGetID( DADiskRef disk );
 __private_extern__ mach_port_t _DADiskGetSessionID( DADiskRef disk );
 
 __private_extern__ mach_port_t _DASessionGetID( DASessionRef session );
-
+__private_extern__ bool _DASessionIsKeepAlive( DASessionRef session );
+__private_extern__ DAReturn _DASessionRecreate( DASessionRef session );
 __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              void *          callback,
                                              void *          context,
                                              _DACallbackKind kind,
                                              CFIndex         order,
                                              CFDictionaryRef match,
-                                             CFArrayRef      watch );
+                                             CFArrayRef      watch,
+                                             bool block );
+__private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk,
+                               CFURLRef            path,
+                               DADiskMountOptions  options,
+                               DADiskMountCallback callback,
+                               void *              context,
+                               CFStringRef         arguments[],
+                               bool                block );
+__private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context, bool block );
+__private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context, bool block );
+__private_extern__ void DADiskClaimCommon ( DADiskRef                  disk,
+                        DADiskClaimOptions         options,
+                        DADiskClaimReleaseCallback release,
+                        void *                     releaseContext,
+                        DADiskClaimCallback        callback,
+                        void *                     callbackContext,
+                                           bool                       block );
+__private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block );
+
+
+
 
 #ifndef __LP64__
 
 __private_extern__ void             _DASessionCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session );
+#endif
 __private_extern__ mach_port_t      _DASessionGetClientPort( DASessionRef session );
 __private_extern__ void             _DASessionScheduleWithRunLoop( DASessionRef session );
+
 
 static unsigned __DiskArbCopyDiskDescriptionAppearanceTime( DADiskRef disk )
 {
@@ -198,6 +225,7 @@ static unsigned __DiskArbCopyDiskDescriptionFlags( DADiskRef disk )
 
                             if ( media )
                             {
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
                                 if ( IOObjectConformsTo( media, kIOBDMediaClass ) )
                                 {
                                     flags |= kDiskArbDiskAppearedBDROMMask;
@@ -212,6 +240,7 @@ static unsigned __DiskArbCopyDiskDescriptionFlags( DADiskRef disk )
                                 {
                                     flags |= kDiskArbDiskAppearedDVDROMMask;
                                 }
+#endif
 
                                 IOObjectRelease( media );
                             }
@@ -1286,6 +1315,7 @@ static void __DiskArbDiskPeekCallback( DADiskRef disk, void * context )
         size       = ___CFDictionaryGetIntegerValue( description, kDADiskDescriptionMediaSizeKey );
         whole      = ( flags & kDiskArbDiskAppearedWholeDiskMask ) ? TRUE : FALSE;
         writable   = ( flags & kDiskArbDiskAppearedLockedMask ) ? FALSE : TRUE;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 
         if ( CFEqual( kind, CFSTR( kIOBDMediaClass ) ) )
         {
@@ -1299,7 +1329,9 @@ static void __DiskArbDiskPeekCallback( DADiskRef disk, void * context )
         {
             type = size ? kDiskArbHandlesUnrecognizedDVDMedia : kDiskArbHandlesUninitializedDVDMedia;
         }
-        else if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaEjectableKey ) == kCFBooleanTrue )
+        else
+#endif
+        if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaEjectableKey ) == kCFBooleanTrue )
         {
             type = size ? kDiskArbHandlesUnrecognizedOtherRemovableMedia : kDiskArbHandlesUninitializedOtherRemovableMedia;
         }
@@ -2403,6 +2435,7 @@ void DiskArbUpdateClientFlags( void )
 
                             break;
                         }
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
                         case kDA_DISK_APPROVAL_NOTIFY:
                         {
                             DARegisterDiskMountApprovalCallback( ( void * ) __gDiskArbSession, NULL, __DiskArbDiskMountApprovalCallback, NULL );
@@ -2421,6 +2454,7 @@ void DiskArbUpdateClientFlags( void )
 
                             break;
                         }
+#endif
                         case kDA_NOTIFICATIONS_COMPLETE:
                         {
                             DARegisterIdleCallback( __gDiskArbSession, __DiskArbIdleCallback, NULL );
@@ -2493,6 +2527,7 @@ int DiskArbVSDBGetVolumeStatus_auto( char * disk )
 
 #endif /* !__LP64__ */
 
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 int _DAmkdir( const char * path, mode_t mode )
 {
     int status;
@@ -2586,6 +2621,8 @@ int _DArmdir( const char * path )
 
     return status;
 }
+#endif
+
 
 DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 {
@@ -2595,9 +2632,20 @@ DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 
     if ( status == kDAReturnSuccess )
     {
+#if TARGET_OS_IOS
+        DASessionRef session = _DADiskGetSession( disk);
+        if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                status = kDAReturnBadArgument;
+                goto exit;
+            }
+        }
+#endif
         status = _DAServerDiskSetAdoption( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), adoption );
     }
-
+exit:
     return status;
 }
 
@@ -2609,18 +2657,138 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
 
     if ( status == kDAReturnSuccess )
     {
+#if TARGET_OS_IOS
+        DASessionRef session = _DADiskGetSession( disk);
+        if ( _DADiskGetSessionID( disk ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                status = kDAReturnBadArgument;
+                goto exit;
+            }
+        }
+#endif
         status = _DAServerDiskSetEncoding( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), encoding );
     }
-
+exit:
     return status;
 }
 
 void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context )
 {
-    _DARegisterCallback( session, callback, context, _kDAIdleCallback, 0, NULL, NULL );
+    _DARegisterCallback( session, callback, context, _kDAIdleCallback, 0, NULL, NULL, false );
 }
 
 void DARegisterDiskListCompleteCallback( DASessionRef session, DADiskListCompleteCallback callback, void * context )
 {
-    _DARegisterCallback( session, callback, context, _kDADiskListCompleteCallback, 0, NULL, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskListCompleteCallback, 0, NULL, NULL, false );
+}
+
+void DARegisterIdleCallbackWithBlock( DASessionRef session, DAIdleCallbackBlock callback )
+{
+    _DARegisterCallback( session, Block_copy( callback ), NULL, _kDAIdleCallback, 0, NULL, NULL, true );
+}
+
+void DARegisterDiskAppearedCallbackBlock( DASessionRef           session,
+                                     CFDictionaryRef        match,
+                                         DADiskAppearedCallbackBlock callback )
+{
+    _DARegisterCallback( session, Block_copy( callback ), NULL, _kDADiskAppearedCallback, 0, match, NULL, true );
+}
+
+void DARegisterDiskDescriptionChangedCallbackBlock( DASessionRef                     session,
+                                               CFDictionaryRef                  match,
+                                               CFArrayRef                       watch,
+                                               DADiskDescriptionChangedCallbackBlock callback )
+{
+    _DARegisterCallback( session, Block_copy( callback ), NULL, _kDADiskDescriptionChangedCallback, 0, match, watch, true );
+}
+
+void DARegisterDiskDisappearedCallbackBlock( DASessionRef              session,
+                                        CFDictionaryRef           match,
+                                        DADiskDisappearedCallbackBlock callback )
+                                       
+{
+    _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskDisappearedCallback, 0, match, NULL, true );
+}
+
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+void DARegisterDiskEjectApprovalCallbackBlock( DASessionRef                session,
+                                          CFDictionaryRef             match,
+                                          DADiskEjectApprovalCallbackBlock callback )
+{
+
+    _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskEjectApprovalCallback, 0, match, NULL, true);
+}
+#endif
+
+void DARegisterDiskPeekCallbackBlock( DASessionRef        session,
+                                 CFDictionaryRef     match,
+                                 CFIndex             order,
+                                 DADiskPeekCallbackBlock  callback )
+{
+
+    _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskPeekCallback, order, match, NULL , true);
+}
+
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+void DARegisterDiskMountApprovalCallbackBlock( DASessionRef                session,
+                                          CFDictionaryRef             match,
+                                          DADiskMountApprovalCallbackBlock callback )
+{
+
+    _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskMountApprovalCallback, 0, match, NULL , true);
+}
+
+void DARegisterDiskUnmountApprovalCallbackBlock( DASessionRef                  session,
+                                            CFDictionaryRef               match,
+                                            DADiskUnmountApprovalCallbackBlock callback )
+{
+    
+    _DARegisterCallback( session, Block_copy ( callback ), NULL, _kDADiskUnmountApprovalCallback, 0, match, NULL , true);
+}
+#endif
+
+void DADiskMountWithBlock( DADiskRef disk, CFURLRef path, DADiskMountOptions options, DADiskMountCallbackBlock callback )
+{
+    DADiskMountWithArgumentsAndBlock( disk, path, options, callback, NULL );
+}
+
+void DADiskMountWithArgumentsAndBlock( DADiskRef           disk,
+                                        CFURLRef            path,
+                                        DADiskMountOptions  options,
+                                        DADiskMountCallbackBlock callback,
+                                        CFStringRef         arguments[] )
+{
+    DADiskMountWithArgumentsCommon ( disk, path, options,(void *) Block_copy ( callback ), NULL, arguments , true);
+}
+
+ void DADiskRenameWithBlock( DADiskRef                       disk,
+                                CFStringRef                     name,
+                                DADiskRenameOptions             options,
+                                DADiskRenameCallbackBlock __nullable callback )
+{
+    DADiskRenameCommon ( disk, name, options, (void *) Block_copy ( callback ), NULL, true);
+}
+
+void DADiskUnmountWithBlock( DADiskRef                        disk,
+                                DADiskUnmountOptions             options,
+                                DADiskUnmountCallbackBlock __nullable callback )
+{
+    DADiskUnmountCommon ( disk, options, (void *) Block_copy ( callback ), NULL , true);
+}
+
+void DADiskEjectWithBlock( DADiskRef                      disk,
+                                DADiskEjectOptions             options,
+                                DADiskEjectCallbackBlock __nullable callback )
+{
+     DADiskEjectCommon (disk, options, (void *) Block_copy ( callback ), NULL, true );
+}
+
+void DADiskClaimWithBlock( DADiskRef                             disk,
+                            DADiskClaimOptions                    options,
+                            DADiskClaimReleaseCallbackBlock __nullable release,
+                            DADiskClaimCallbackBlock __nullable        callback )
+{
+    DADiskClaimCommon( disk, options, (void *) Block_copy ( release ), NULL, (void *) Block_copy ( callback ), NULL, true );
 }

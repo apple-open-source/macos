@@ -108,7 +108,7 @@ const NSString *kSecTrustTestPinnningTest = @"PinningPolicyTrustTest";
     SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, pinnedNonCT = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("caldav.icloud.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:580000000.0]; // May 19, 2019 at 4:06:40 PM PDT
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:676000000.0]; // June 3, 2022 at 6:46:40 PM PDT
     NSArray *certs = nil, *enforcement_anchors = nil;
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
 
@@ -162,9 +162,9 @@ errOut:
 
     // kSecPolicyCheckPinningRequired should be unset after reconciliation.
     // Empty values for both SPKI policies signal a pinning exception.
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     CFDictionaryRef policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -175,9 +175,9 @@ errOut:
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckCAspkiSHA256), false);
 
     // kSecPolicyCheckPinningRequired overrules the other two policies.
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, nonemtpySPKISHA256);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, nonemtpySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -188,9 +188,9 @@ errOut:
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckCAspkiSHA256), false);
 
     // kSecPolicyCheckPinningRequired overrules the other two policies.
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, nonemtpySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, nonemtpySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), true);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -203,8 +203,8 @@ errOut:
     // In the absence of kSecPolicyCheckPinningRequired there is nothing to reconcile.
     CFReleaseNull(policy);
     policy = SecPolicyCreateSSL(true, CFSTR("www.example.org"));
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckLeafSPKISHA256, emptySPKISHA256);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckCAspkiSHA256, emptySPKISHA256);
     policyOptions = SecPolicyGetOptions(policy);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckPinningRequired), false);
     is(CFDictionaryContainsKey(policyOptions, kSecPolicyCheckLeafSPKISHA256), true);
@@ -219,7 +219,55 @@ errOut:
     CFReleaseNull(nonemtpySPKISHA256);
 }
 
-- (CFDictionaryRef)getNSPinnedDomainsFromDictionaryInfoFile:(NSString *)fileName
+- (void)testSecPolicyCreateSSLWithATSPinning
+{
+    // NSPinnedLeafIdentities
+    CFDictionaryRef nsAppTransportSecurityDict = [self getNSAppTransportSecurityFromDictionaryInfoFile:@"NSPinnedDomains_leaf"];
+    is(nsAppTransportSecurityDict != NULL, true);
+
+    SecPolicyRef policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.org"), nsAppTransportSecurityDict);
+    is(policy != NULL, true);
+    CFDictionaryRef policyOptions = SecPolicyGetOptions(policy);
+    XCTAssert([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckLeafSPKISHA256]);
+    CFReleaseNull(policy);
+
+    // NSPinnedCAIdentities
+    nsAppTransportSecurityDict = [self getNSAppTransportSecurityFromDictionaryInfoFile:@"NSPinnedDomains_ca"];
+    is(nsAppTransportSecurityDict != NULL, true);
+
+    policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.org"), nsAppTransportSecurityDict);
+    is(policy != NULL, true);
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssert([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+    CFReleaseNull(policy);
+
+    // Hostname mismatch
+    policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.net"), nsAppTransportSecurityDict);
+    XCTAssertNotEqual(policy, NULL);
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+    CFReleaseNull(policy);
+
+    // No hostname
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+    policy =  SecPolicyCreateSSLWithATSPinning(true, NULL, nsAppTransportSecurityDict);
+#pragma clang diagnostic pop
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+    CFReleaseNull(policy);
+
+    // No pinned domains in dictionary
+    NSDictionary *nonPinningATSDict = @{ @"NSAppTransportSecurity" : @{} };
+    policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.net"), (__bridge CFDictionaryRef)nonPinningATSDict);
+    XCTAssertNotEqual(policy, NULL);
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckLeafSPKISHA256]);
+    CFReleaseNull(policy);
+}
+
+- (CFDictionaryRef)getNSAppTransportSecurityFromDictionaryInfoFile:(NSString *)fileName
 {
     NSURL *infoPlist = [[NSBundle bundleForClass:[self class]] URLForResource:fileName withExtension:@"plist"
                                                                  subdirectory:(NSString *)kSecTrustTestPinningPolicyResources];
@@ -237,6 +285,16 @@ errOut:
     CFTypeRef nsAppTransportSecurityDict = CFDictionaryGetValue((__bridge CFDictionaryRef)infoDictionary, CFSTR("NSAppTransportSecurity"));
     if (!isDictionary(nsAppTransportSecurityDict)) {
         fail("NSAppTransportSecurity dictionary entry is missing from plist file \"%@\"", fileName);
+        return NULL;
+    }
+
+    return nsAppTransportSecurityDict;
+}
+
+- (CFDictionaryRef)getNSPinnedDomainsFromDictionaryInfoFile:(NSString *)fileName
+{
+    CFDictionaryRef nsAppTransportSecurityDict = [self getNSAppTransportSecurityFromDictionaryInfoFile:fileName];
+    if (!nsAppTransportSecurityDict) {
         return NULL;
     }
 
@@ -591,17 +649,17 @@ static SecTrustResultType test_with_policy(SecPolicyRef CF_CONSUMED policy) {
 
     // init domains are excluded from IDS pinning rules
     policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultRecoverableTrustFailure, "Unpinned connection succeeeded when pinning required");
 
     policy = SecPolicyCreateAppleIDSServiceContext(CFSTR("init.ess.apple.com"), NULL);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Policy pinned connection failed when pinning required");
 
 #if !TARGET_OS_BRIDGE
     /* BridgeOS doesn't have pinning DB */
     policy = SecPolicyCreateSSL(true, CFSTR("profile.ess.apple.com"));
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide hostname pinned connection failed when pinning required");
 #endif
 
@@ -610,11 +668,11 @@ static SecTrustResultType test_with_policy(SecPolicyRef CF_CONSUMED policy) {
                                         (__bridge NSString *)kSecPolicyPolicyName : @"IDS",
                                         };
     policy = SecPolicyCreateWithProperties(kSecPolicyAppleSSL, (__bridge CFDictionaryRef)policy_properties);
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide policy name pinned connection failed when pinning required");
 
     policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
-    SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy_exception(policy, true), kSecTrustResultUnspecified, "Unpinned connection failed when pinning exception set");
 }
 
@@ -898,14 +956,14 @@ errOut:
     XCTAssert([test evaluate:nil]);
 }
 
-static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, bool expectedResult)
+static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, bool useShortcutPolicy, bool expectedResult)
 {
     OSStatus err;
     CFIndex errcode = errSecSuccess;
     CFMutableArrayRef certs = NULL;
     SecCertificateRef leaf = NULL;
     SecCertificateRef ca = NULL;
-    SecPolicyRef appleIDValidationPolicy = NULL;
+    SecPolicyRef policy = NULL;
     SecTrustRef trust = NULL;
     CFErrorRef error = NULL;
     bool isTrusted = false;
@@ -917,12 +975,17 @@ static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, boo
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, ca);
 
-    appleIDValidationPolicy = SecPolicyCreateAppleIDValidationRecordSigningPolicy();
-    if (!appleIDValidationPolicy) { goto exit; }
-    if (disableTemporalCheck) {
-        SecPolicySetOptionsValue(appleIDValidationPolicy, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+    if (useShortcutPolicy) {
+        policy = SecPolicyCreateAppleIDValidationShortcutSigningPolicy();
+    } else {
+        policy = SecPolicyCreateAppleIDValidationRecordSigningPolicy();
     }
-    err = SecTrustCreateWithCertificates(certs, appleIDValidationPolicy, &trust);
+    if (!policy) { goto exit; }
+    if (disableTemporalCheck && !useShortcutPolicy) {
+        // this call would be redundant if using the shortcut policy
+        SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+    }
+    err = SecTrustCreateWithCertificates(certs, policy, &trust);
     is(err, errSecSuccess, "error creating trust reference");
     isnt(trust, NULL, "failed to obtain SecTrustRef");
     if (err != errSecSuccess || trust == NULL) { goto exit; }
@@ -943,7 +1006,7 @@ static void test_shortcut_signing(CFDateRef date, bool disableTemporalCheck, boo
 exit:
     CFReleaseSafe(error);
     CFReleaseSafe(trust);
-    CFReleaseSafe(appleIDValidationPolicy);
+    CFReleaseSafe(policy);
     CFReleaseSafe(certs);
     CFReleaseSafe(leaf);
     CFReleaseSafe(ca);
@@ -951,17 +1014,30 @@ exit:
 
 - (void)testShortcutSigning
 {
-    // test normal case: evaluation at time within validity period, with expiration check disabled
     CFDateRef dateWithinRange =  CFDateCreate(NULL, 655245000.0); /* Oct 6 2021 */
-    test_shortcut_signing(dateWithinRange, true, true);
-    CFReleaseNull(dateWithinRange);
-
-    // test normal case: evaluation at time outside validity period, with expiration check disabled
     CFDateRef dateOutsideRange = CFDateCreate(NULL, 781500000.0); /* Oct 6 2025 */
-    test_shortcut_signing(dateOutsideRange, true, true);
 
-    // test evaluation at time outside validity period, with expiration check enabled (should fail)
-    test_shortcut_signing(dateOutsideRange, false, false);
+    // expected success case using SecPolicyCreateAppleIDValidationRecordSigningPolicy
+    // evaluation at time within validity period, with expiration check disabled
+    test_shortcut_signing(dateWithinRange, true, false, true);
+
+    // expected success case using SecPolicyCreateAppleIDValidationRecordSigningPolicy
+    // evaluation at time outside validity period, with expiration check disabled
+    test_shortcut_signing(dateOutsideRange, true, false, true);
+
+    // expected failure case using SecPolicyCreateAppleIDValidationRecordSigningPolicy
+    // evaluation at time outside validity period, without disabling expiration check
+    test_shortcut_signing(dateOutsideRange, false, false, false);
+
+    // expected success case using SecPolicyCreateAppleIDValidationShortcutSigningPolicy
+    // evaluation at time within validity period
+    test_shortcut_signing(dateWithinRange, true, true, true);
+
+    // expected success case using SecPolicyCreateAppleIDValidationShortcutSigningPolicy
+    // evaluation at time outside validity period
+    test_shortcut_signing(dateOutsideRange, true, true, true);
+
+    CFReleaseNull(dateWithinRange);
     CFReleaseNull(dateOutsideRange);
 }
 

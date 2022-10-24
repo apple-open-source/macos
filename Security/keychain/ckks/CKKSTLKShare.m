@@ -397,21 +397,21 @@
 }
 
 + (CKKSTLKShare* _Nullable)share:(CKKSKeychainBackedKey*)key
-                                  as:(id<CKKSSelfPeer>)sender
-                                  to:(id<CKKSPeer>)receiver
-                               epoch:(NSInteger)epoch
-                            poisoned:(NSInteger)poisoned
-                               error:(NSError* __autoreleasing*)error
+                              as:(id<CKKSSelfPeer>)sender
+                              to:(id<CKKSPeer>)receiver
+                           epoch:(NSInteger)epoch
+                        poisoned:(NSInteger)poisoned
+                           error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
     CKKSTLKShare* share = [[CKKSTLKShare alloc] init:key
-                                                      sender:sender
-                                                    receiver:receiver
-                                                       curve:SFEllipticCurveNistp384
-                                                     version:SecCKKSTLKShareCurrentVersion
-                                                       epoch:epoch
-                                                    poisoned:poisoned
-                                                      zoneID:key.zoneID];
+                                              sender:sender
+                                            receiver:receiver
+                                               curve:SFEllipticCurveNistp384
+                                             version:SecCKKSTLKShareCurrentVersion
+                                               epoch:epoch
+                                            poisoned:poisoned
+                                              zoneID:key.zoneID];
 
     share.wrappedTLK =
         [share wrap:key publicKey:receiver.publicEncryptionKey error:&localerror];

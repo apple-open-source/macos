@@ -199,10 +199,12 @@ CF_ENUM(CFIndex)
 	kSecTransformErrorAborted = 20,
 	kSecTransformInvalidArgument = 21
 	
-};
+} API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
-typedef CFTypeRef SecTransformRef;
-typedef CFTypeRef SecGroupTransformRef;
+typedef CFTypeRef SecTransformRef
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
+typedef CFTypeRef SecGroupTransformRef
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 /*!
 	@function SecTransformGetTypeID

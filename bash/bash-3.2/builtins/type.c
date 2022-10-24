@@ -141,7 +141,14 @@ type_builtin (list)
       list = list->next;
     }
 
+#ifdef __APPLE__
+  if (ferror (stdout) != 0 || fflush (stdout) != 0) {
+    builtin_error("failed to flush output");
+    return (EXECUTION_FAILURE);
+  }
+#else
   fflush (stdout);
+#endif
 
   return ((successful_finds != 0) ? EXECUTION_SUCCESS : EXECUTION_FAILURE);
 }

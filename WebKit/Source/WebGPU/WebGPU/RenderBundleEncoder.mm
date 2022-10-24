@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,15 +26,31 @@
 #import "config.h"
 #import "RenderBundleEncoder.h"
 
+#import "APIConversions.h"
 #import "BindGroup.h"
 #import "Buffer.h"
+#import "Device.h"
 #import "RenderBundle.h"
 #import "RenderPipeline.h"
-#import "WebGPUExt.h"
 
 namespace WebGPU {
 
-RenderBundleEncoder::RenderBundleEncoder() = default;
+Ref<RenderBundleEncoder> Device::createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor& descriptor)
+{
+    UNUSED_PARAM(descriptor);
+    return RenderBundleEncoder::createInvalid(*this);
+}
+
+RenderBundleEncoder::RenderBundleEncoder(id<MTLIndirectCommandBuffer> indirectCommandBuffer, Device& device)
+    : m_indirectCommandBuffer(indirectCommandBuffer)
+    , m_device(device)
+{
+}
+
+RenderBundleEncoder::RenderBundleEncoder(Device& device)
+    : m_device(device)
+{
+}
 
 RenderBundleEncoder::~RenderBundleEncoder() = default;
 
@@ -67,25 +83,55 @@ void RenderBundleEncoder::drawIndirect(const Buffer& indirectBuffer, uint64_t in
     UNUSED_PARAM(indirectOffset);
 }
 
-Ref<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor* descriptor)
+Ref<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor& descriptor)
 {
     UNUSED_PARAM(descriptor);
-    return RenderBundle::create();
+    return RenderBundle::createInvalid(m_device);
 }
 
-void RenderBundleEncoder::insertDebugMarker(const char* markerLabel)
+void RenderBundleEncoder::insertDebugMarker(String&&)
 {
-    UNUSED_PARAM(markerLabel);
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-insertdebugmarker
+
+    if (!prepareTheEncoderState())
+        return;
+
+    // MTLIndirectCommandBuffers don't support debug commands.
+}
+
+bool RenderBundleEncoder::validatePopDebugGroup() const
+{
+    if (!m_debugGroupStackSize)
+        return false;
+
+    return true;
 }
 
 void RenderBundleEncoder::popDebugGroup()
 {
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-popdebuggroup
 
+    if (!prepareTheEncoderState())
+        return;
+
+    if (!validatePopDebugGroup()) {
+        makeInvalid();
+        return;
+    }
+
+    --m_debugGroupStackSize;
+    // MTLIndirectCommandBuffers don't support debug commands.
 }
 
-void RenderBundleEncoder::pushDebugGroup(const char* groupLabel)
+void RenderBundleEncoder::pushDebugGroup(String&&)
 {
-    UNUSED_PARAM(groupLabel);
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-pushdebuggroup
+
+    if (!prepareTheEncoderState())
+        return;
+
+    ++m_debugGroupStackSize;
+    // MTLIndirectCommandBuffers don't support debug commands.
 }
 
 void RenderBundleEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& group, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
@@ -117,79 +163,81 @@ void RenderBundleEncoder::setVertexBuffer(uint32_t slot, const Buffer& buffer, u
     UNUSED_PARAM(size);
 }
 
-void RenderBundleEncoder::setLabel(const char* label)
+void RenderBundleEncoder::setLabel(String&& label)
 {
-    UNUSED_PARAM(label);
+    m_indirectCommandBuffer.label = label;
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuRenderBundleEncoderRelease(WGPURenderBundleEncoder renderBundleEncoder)
 {
-    delete renderBundleEncoder;
+    WebGPU::fromAPI(renderBundleEncoder).deref();
 }
 
 void wgpuRenderBundleEncoderDraw(WGPURenderBundleEncoder renderBundleEncoder, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
-    renderBundleEncoder->renderBundleEncoder->draw(vertexCount, instanceCount, firstVertex, firstInstance);
+    WebGPU::fromAPI(renderBundleEncoder).draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
 void wgpuRenderBundleEncoderDrawIndexed(WGPURenderBundleEncoder renderBundleEncoder, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t baseVertex, uint32_t firstInstance)
 {
-    renderBundleEncoder->renderBundleEncoder->drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
+    WebGPU::fromAPI(renderBundleEncoder).drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
 }
 
 void wgpuRenderBundleEncoderDrawIndexedIndirect(WGPURenderBundleEncoder renderBundleEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset)
 {
-    renderBundleEncoder->renderBundleEncoder->drawIndexedIndirect(indirectBuffer->buffer, indirectOffset);
+    WebGPU::fromAPI(renderBundleEncoder).drawIndexedIndirect(WebGPU::fromAPI(indirectBuffer), indirectOffset);
 }
 
 void wgpuRenderBundleEncoderDrawIndirect(WGPURenderBundleEncoder renderBundleEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset)
 {
-    renderBundleEncoder->renderBundleEncoder->drawIndirect(indirectBuffer->buffer, indirectOffset);
+    WebGPU::fromAPI(renderBundleEncoder).drawIndirect(WebGPU::fromAPI(indirectBuffer), indirectOffset);
 }
 
 WGPURenderBundle wgpuRenderBundleEncoderFinish(WGPURenderBundleEncoder renderBundleEncoder, const WGPURenderBundleDescriptor* descriptor)
 {
-    return new WGPURenderBundleImpl { renderBundleEncoder->renderBundleEncoder->finish(descriptor) };
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(renderBundleEncoder).finish(*descriptor));
 }
 
 void wgpuRenderBundleEncoderInsertDebugMarker(WGPURenderBundleEncoder renderBundleEncoder, const char* markerLabel)
 {
-    renderBundleEncoder->renderBundleEncoder->insertDebugMarker(markerLabel);
+    WebGPU::fromAPI(renderBundleEncoder).insertDebugMarker(WebGPU::fromAPI(markerLabel));
 }
 
 void wgpuRenderBundleEncoderPopDebugGroup(WGPURenderBundleEncoder renderBundleEncoder)
 {
-    renderBundleEncoder->renderBundleEncoder->popDebugGroup();
+    WebGPU::fromAPI(renderBundleEncoder).popDebugGroup();
 }
 
 void wgpuRenderBundleEncoderPushDebugGroup(WGPURenderBundleEncoder renderBundleEncoder, const char* groupLabel)
 {
-    renderBundleEncoder->renderBundleEncoder->pushDebugGroup(groupLabel);
+    WebGPU::fromAPI(renderBundleEncoder).pushDebugGroup(WebGPU::fromAPI(groupLabel));
 }
 
 void wgpuRenderBundleEncoderSetBindGroup(WGPURenderBundleEncoder renderBundleEncoder, uint32_t groupIndex, WGPUBindGroup group, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
 {
-    renderBundleEncoder->renderBundleEncoder->setBindGroup(groupIndex, group->bindGroup, dynamicOffsetCount, dynamicOffsets);
+    WebGPU::fromAPI(renderBundleEncoder).setBindGroup(groupIndex, WebGPU::fromAPI(group), dynamicOffsetCount, dynamicOffsets);
 }
 
 void wgpuRenderBundleEncoderSetIndexBuffer(WGPURenderBundleEncoder renderBundleEncoder, WGPUBuffer buffer, WGPUIndexFormat format, uint64_t offset, uint64_t size)
 {
-    renderBundleEncoder->renderBundleEncoder->setIndexBuffer(buffer->buffer, format, offset, size);
+    WebGPU::fromAPI(renderBundleEncoder).setIndexBuffer(WebGPU::fromAPI(buffer), format, offset, size);
 }
 
 void wgpuRenderBundleEncoderSetPipeline(WGPURenderBundleEncoder renderBundleEncoder, WGPURenderPipeline pipeline)
 {
-    renderBundleEncoder->renderBundleEncoder->setPipeline(pipeline->renderPipeline);
+    WebGPU::fromAPI(renderBundleEncoder).setPipeline(WebGPU::fromAPI(pipeline));
 }
 
 void wgpuRenderBundleEncoderSetVertexBuffer(WGPURenderBundleEncoder renderBundleEncoder, uint32_t slot, WGPUBuffer buffer, uint64_t offset, uint64_t size)
 {
-    renderBundleEncoder->renderBundleEncoder->setVertexBuffer(slot, buffer->buffer, offset, size);
+    WebGPU::fromAPI(renderBundleEncoder).setVertexBuffer(slot, WebGPU::fromAPI(buffer), offset, size);
 }
 
 void wgpuRenderBundleEncoderSetLabel(WGPURenderBundleEncoder renderBundleEncoder, const char* label)
 {
-    renderBundleEncoder->renderBundleEncoder->setLabel(label);
+    WebGPU::fromAPI(renderBundleEncoder).setLabel(WebGPU::fromAPI(label));
 }

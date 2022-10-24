@@ -56,12 +56,15 @@ slurp(FILE *fp, size_t *final_len)
 	for (c = getc(fp); c != EOF; c = getc(fp)) {
 		if (s == l + len) {
 			l = xrealloc(l, len * 2);
+			s = l + len;
 			len *= 2;
 		}
 		*s++ = c;
 	}
-	if (s == l + len)
+	if (s == l + len) {
 		l = (char *)xrealloc(l, len + 1);
+		s = l + len;
+	}
 	*s++ = '\0';
 
 	*final_len = s - l;

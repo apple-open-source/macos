@@ -290,6 +290,7 @@ using std::max;
 
 - (void) executeMove:(MBCMove *) move;
 {
+    NSLog(@"MBCEngine executeMove");
 	[self flipSide];
 	[fLastPonder release];
 	fLastPonder = nil;
@@ -302,6 +303,7 @@ using std::max;
 
 - (void) handlePortMessage:(NSPortMessage *)message
 {
+    NSLog(@"MBCEngine handlePortMessage");
 	MBCMove	* move = [MBCMove moveFromCompactMove:[message msgid]];
 
 	if (fWaitForStart) { // Suppress all commands until next start
@@ -330,7 +332,7 @@ using std::max;
 			//
 			// Suspend processing until move performed on board
 			//
-			[self enableEngineMoves:NO]; 
+			[self enableEngineMoves:NO];
 			[[NSNotificationCenter defaultCenter] 
 				postNotificationName:[self notificationForSide]
              object:fDocument userInfo:(id)fLastMove];
@@ -362,7 +364,6 @@ using std::max;
 		// current move is executed on the board
 		//
 		[self enableEngineMoves:NO];
-		
 		NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
 		[self performSelector:@selector(executeMove:) withObject:move 
 			  afterDelay: fDontMoveBefore-now];
@@ -576,6 +577,7 @@ using std::max;
 
 - (void) opponentMoved:(NSNotification *)notification
 {
+    NSLog(@"MBCEngine opponentMoved");
 	//
 	// Got a human move, ask engine to verify it
 	//

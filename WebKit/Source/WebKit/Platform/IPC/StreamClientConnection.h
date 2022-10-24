@@ -83,15 +83,13 @@ public:
     ~StreamClientConnection();
 
     StreamConnectionBuffer& streamBuffer() { return m_buffer; }
-    void setWakeUpSemaphore(IPC::Semaphore&&);
-    bool hasWakeUpSemaphore() const { return m_wakeUpSemaphore.has_value(); }
-
-    void setWakeUpMessageHysteresis(unsigned hysteresis)
+    void setSemaphores(IPC::Semaphore&& wakeUp, IPC::Semaphore&& clientWait);
+    bool hasSemaphores() const { return m_semaphores.has_value(); }
+    void setMaxBatchSize(unsigned size)
     {
-        ASSERT(!m_remainingMessageCountBeforeSendingWakeUp);
-        m_wakeUpMessageHysteresis = hysteresis;
+        m_maxBatchSize = size;
+        wakeUpServer(WakeUpServer::Yes);
     }
-    void sendDeferredWakeUpMessageIfNeeded();
 
     void open();
     void invalidate();
@@ -133,9 +131,8 @@ private:
         Yes
     };
     WakeUpServer release(size_t writeSize);
-    void wakeUpServer();
-    void deferredWakeUpServer();
-    void decrementRemainingMessageCountBeforeSendingWakeUp();
+    void wakeUpServerBatched(WakeUpServer);
+    void wakeUpServer(WakeUpServer);
 
     Span alignedSpan(size_t offset, size_t limit);
     size_t size(size_t offset, size_t limit);
@@ -155,9 +152,13 @@ private:
     uint64_t m_currentDestinationID { 0 };
     size_t m_clientOffset { 0 };
     StreamConnectionBuffer m_buffer;
-    std::optional<Semaphore> m_wakeUpSemaphore;
-    unsigned m_remainingMessageCountBeforeSendingWakeUp { 0 };
-    unsigned m_wakeUpMessageHysteresis { 0 };
+    struct Semaphores {
+        Semaphore wakeUp;
+        Semaphore clientWait;
+    };
+    std::optional<Semaphores> m_semaphores;
+    unsigned m_maxBatchSize { 20 }; // Number of messages marked as StreamBatched to accumulate before notifying the server.
+    unsigned m_batchSize { 0 };
 
     friend class WebKit::IPCTestingAPI::JSIPCStreamClientConnection;
 };
@@ -186,11 +187,11 @@ bool StreamClientConnection::trySendStream(T& message, Span& span)
 {
     StreamConnectionEncoder messageEncoder { T::name(), span.data, span.size };
     if (messageEncoder << message.arguments()) {
-        auto wakeupResult = release(messageEncoder.size());
-        if (wakeupResult == StreamClientConnection::WakeUpServer::Yes)
-            deferredWakeUpServer();
+        auto wakeUpResult = release(messageEncoder.size());
+        if constexpr(T::isStreamBatched)
+            wakeUpServerBatched(wakeUpResult);
         else
-            decrementRemainingMessageCountBeforeSendingWakeUp();
+            wakeUpServer(wakeUpResult);
         return true;
     }
     return false;
@@ -233,12 +234,8 @@ std::optional<StreamClientConnection::SendSyncResult> StreamClientConnection::tr
         StreamConnectionEncoder messageEncoder { T::name(), span.data, span.size };
         if (!(messageEncoder << syncRequestID << message.arguments()))
             return std::nullopt;
-        auto wakeupResult = release(messageEncoder.size());
-
-        if (wakeupResult == StreamClientConnection::WakeUpServer::Yes)
-            wakeUpServer();
-        else
-            sendDeferredWakeUpMessageIfNeeded();
+        auto wakeUpResult = release(messageEncoder.size());
+        wakeUpServer(wakeUpResult);
         if constexpr(T::isReplyStreamEncodable) {
             auto replySpan = tryAcquireAll(timeout);
             if (!replySpan)
@@ -276,9 +273,8 @@ inline bool StreamClientConnection::trySendDestinationIDIfNeeded(uint64_t destin
         ASSERT_NOT_REACHED(); // Size of the minimum allocation is incorrect. Likely an alignment issue.
         return false;
     }
-    auto wakeupResult = release(encoder.size());
-    if (wakeupResult == StreamClientConnection::WakeUpServer::Yes)
-        wakeUpServer();
+    auto wakeUpResult = release(encoder.size());
+    wakeUpServer(wakeUpResult);
     m_currentDestinationID = destinationID;
     return true;
 }
@@ -289,7 +285,9 @@ inline void StreamClientConnection::sendProcessOutOfStreamMessage(Span&& span)
     // Not notifying on wake up since the out-of-stream message will do that.
     auto result = release(encoder.size());
     UNUSED_VARIABLE(result);
+    m_batchSize = 0;
 }
+
 inline std::optional<StreamClientConnection::Span> StreamClientConnection::tryAcquire(Timeout timeout)
 {
     ClientLimit clientLimit = sharedClientLimit().load(std::memory_order_acquire);
@@ -307,7 +305,8 @@ inline std::optional<StreamClientConnection::Span> StreamClientConnection::tryAc
             break;
         ClientLimit oldClientLimit = sharedClientLimit().compareExchangeStrong(clientLimit, ClientLimit::clientIsWaitingTag, std::memory_order_acq_rel, std::memory_order_acq_rel);
         if (clientLimit == oldClientLimit) {
-            m_buffer.clientWaitSemaphore().waitFor(timeout);
+            if (!m_semaphores || !m_semaphores->clientWait.waitFor(timeout))
+                return std::nullopt;
             clientLimit = sharedClientLimit().load(std::memory_order_acquire);
         } else
             clientLimit = oldClientLimit;
@@ -338,7 +337,8 @@ inline std::optional<StreamClientConnection::Span> StreamClientConnection::tryAc
         if (!clientLimit && (clientOffset == ClientOffset::serverIsSleepingTag || !clientOffset))
             break;
 
-        m_buffer.clientWaitSemaphore().waitFor(timeout);
+        if (!m_semaphores || !m_semaphores->clientWait.waitFor(timeout))
+            return std::nullopt;
         if (timeout.didTimeOut())
             return std::nullopt;
     }

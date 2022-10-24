@@ -25,4 +25,4 @@
 #define IOKITSIMD 1
 #define __LP64__ 1
 
-#include "device.defs"
+#include <device/device.defs>

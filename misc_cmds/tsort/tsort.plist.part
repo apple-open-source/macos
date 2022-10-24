@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tsort</string>
+		<key>OpenSourceVersion</key>
+		<string>1998-08-25</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/usr.bin/tsort</string>
+		<key>OpenSourceImportDate</key>
+		<string>1999-04-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>tsort.c: Flush stdout on exit (89146977)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>misc_cmds.txt</string>
+	</dict>

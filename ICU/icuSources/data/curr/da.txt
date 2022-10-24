@@ -219,6 +219,10 @@ da{
             "CHW",
             "WIR franc",
         }
+        CLF{
+            "CLF",
+            "chilensk regningsenhed (UF)",
+        }
         CLP{
             "CLP",
             "chilensk peso",
@@ -638,6 +642,10 @@ da{
         MXP{
             "MXP",
             "Mexicansk silver peso (1861–1992)",
+        }
+        MXV{
+            "MXV",
+            "mexicansk investeringsenhed",
         }
         MYR{
             "MYR",

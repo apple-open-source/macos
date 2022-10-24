@@ -124,6 +124,7 @@ struct vop_setlabel_args;
 #include <stdbool.h>
 #include <sys/kauth.h>
 #include <sys/kernel_types.h>
+#include <sys/reason.h>
 
 #if CONFIG_MACF
 
@@ -341,6 +342,7 @@ int     mac_proc_check_signal(proc_t proc1, proc_t proc2,
 int     mac_proc_check_syscall_unix(proc_t proc, int scnum) __result_use_check;
 int     mac_proc_check_wait(proc_t proc1, proc_t proc2) __result_use_check;
 void    mac_proc_notify_exit(proc_t proc);
+int     mac_proc_check_launch_constraints(proc_t curp, struct image_params *imgp, os_reason_t *reasonp) __result_use_check;
 int     mac_socket_check_accept(kauth_cred_t cred, struct socket *so) __result_use_check;
 int     mac_socket_check_accepted(kauth_cred_t cred, struct socket *so) __result_use_check;
 int     mac_socket_check_bind(kauth_cred_t cred, struct socket *so,
@@ -585,6 +587,8 @@ __END_DECLS
 int     mac_skywalk_flow_check_connect(proc_t p, void *flow, const struct sockaddr *addr, int type, int protocol) __result_use_check;
 int     mac_skywalk_flow_check_listen(proc_t p, void *flow, const struct sockaddr *addr, int type, int protocol) __result_use_check;
 void    mac_vnode_notify_reclaim(vnode_t vp);
+void    mac_vnode_notify_unlink(vfs_context_t ctx, struct vnode *dvp,
+    struct vnode *vp, struct componentname *cnp);
 
 void psem_label_associate(struct fileproc *fp, struct vnode *vp, struct vfs_context *ctx);
 void pshm_label_associate(struct fileproc *fp, struct vnode *vp, struct vfs_context *ctx);

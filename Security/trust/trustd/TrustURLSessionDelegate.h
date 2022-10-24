@@ -37,6 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSMutableData *response;
 @property NSTimeInterval maxAge;
 @property NSUInteger numTasks;
+@property NSURLRequestAttribution attribution;
 
 - (instancetype)initWithContext:(CFTypeRef)context uris:(NSArray <NSURL *>*)uris;
 @end
@@ -48,6 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
 /* This is our abstract NSURLSessionDelegate that handles the elements common to
  * fetching data over the network during a trust evaluation */
 @interface TrustURLSessionDelegate : NSObject <NSURLSessionDelegate, NSURLSessionTaskDelegate, NSURLSessionDataDelegate>
+@property dispatch_queue_t queue;
 
 /* The delegate superclass keeps track of all the tasks that have been kicked off (via fetchNext);
  * it is the responsibility of the subclass to remove tasks when it is done with them. */

@@ -99,8 +99,19 @@ static void get_zone_btrecords(const char *name, int topN)
 	strcpy(zname.mzn_name, name);
 	kr = mach_zone_get_btlog_records(mach_host_self(), zname, &recs_addr, &recs_count);
 	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "error: call to mach_zone_get_btlog_records() failed: %s\n", mach_error_string(kr));
-		exit(1);
+        /*
+         * With kalloc type it is possible to have no allocations for zones
+         * that are being logged. Using -z kalloc.size requires iterating
+         * through all kalloc zones for that size. Therefore return on
+         * detecting no logs for a specific zone instead of exiting.
+         */
+        if (kr == KERN_NOT_FOUND) {
+            printf("No logs present for zone %s\n", zname.mzn_name);
+            return;
+        } else {
+            fprintf(stderr, "error: call to mach_zone_get_btlog_records() failed: %s\n", mach_error_string(kr));
+            exit(1);
+        }
 	}
 
 	if (recs_count == 0) {

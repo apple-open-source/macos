@@ -116,7 +116,7 @@ bool getfstype(char *devnode, char *fsname, int *fssubtype);
 bool is_apfs(char *devnode, int *fssubtype);
 bool is_hfs(char *devnode, int *fssubtype);
 bool is_msdos(char *devnode, int *fssubtype);
-static int getblk(int fd, unsigned long blk, int blksize, char* buf);
+static size_t getblk(int fd, unsigned long blk, size_t blksize, char* buf);
 static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset);
 ssize_t readdisk(int fd, off_t startaddr, size_t length, size_t blocksize, char* buf);
 errno_t GetFSEncryptionStatus(const char *bsdname, bool *encryption_status, bool require_FDE,

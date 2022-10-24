@@ -3185,7 +3185,22 @@ ures_getFunctionalEquivalent(char *result, int32_t resultCapacity,
         if (uprv_strcmp(found, parent) != 0) {
             uprv_strcpy(parent, found);
         } else {
-            uloc_getParent(found, parent, sizeof(parent), &subStatus);
+            // Get parent.
+            // First check for a parent from %%Parent resource (Note that in resource trees
+            // such as collation, data may have different parents than in parentLocales).
+            parent[0] = 0;
+            if (res != NULL) {
+                ures_getByKey(res, "%%Parent", &bund1, &subStatus);
+                if (U_SUCCESS(subStatus)) {
+                    int32_t parentLen = sizeof(parent);
+                    ures_getUTF8String(&bund1, parent, &parentLen, true, &subStatus);
+                }
+            }
+            // If none there, use normal truncation parent
+            if (U_FAILURE(subStatus) || parent[0] == 0) {
+                subStatus = U_ZERO_ERROR;
+                uloc_getParent(found, parent, sizeof(parent), &subStatus);
+            }
         }
 
         ures_close(res);
@@ -3289,7 +3304,22 @@ ures_getFunctionalEquivalent(char *result, int32_t resultCapacity,
             uprv_strcpy(found, parent);
         }
 
-        uloc_getParent(found,parent,1023,&subStatus);
+        // Get parent.
+        // First check for a parent from %%Parent resource (Note that in resource trees
+        // such as collation, data may have different parents than in parentLocales).
+        parent[0] = 0;
+        if (res != NULL) {
+            ures_getByKey(res, "%%Parent", &bund1, &subStatus);
+            if (U_SUCCESS(subStatus)) {
+                int32_t parentLen = sizeof(parent);
+                ures_getUTF8String(&bund1, parent, &parentLen, true, &subStatus);
+            }
+        }
+        // If none there, use normal truncation parent
+        if (U_FAILURE(subStatus) || parent[0] == 0) {
+            subStatus = U_ZERO_ERROR;
+            uloc_getParent(found,parent,sizeof(parent)-1,&subStatus);
+        }
         ures_close(res);
     } while(!full[0] && *found && U_SUCCESS(*status));
     
@@ -3359,7 +3389,24 @@ ures_getFunctionalEquivalent(char *result, int32_t resultCapacity,
             subStatus = U_ZERO_ERROR;
             
             uprv_strcpy(found, parent);
-            uloc_getParent(found,parent,1023,&subStatus);
+
+            // Get parent.
+            // First check for a parent from %%Parent resource (Note that in resource trees
+            // such as collation, data may have different parents than in parentLocales).
+            parent[0] = 0;
+            if (res != NULL) {
+                ures_getByKey(res, "%%Parent", &bund1, &subStatus);
+                if (U_SUCCESS(subStatus)) {
+                    int32_t parentLen = sizeof(parent);
+                    ures_getUTF8String(&bund1, parent, &parentLen, true, &subStatus);
+                }
+           }
+            // If none there, use normal truncation parent
+            if (U_FAILURE(subStatus) || parent[0] == 0) {
+                subStatus = U_ZERO_ERROR;
+                uloc_getParent(found,parent,sizeof(parent)-1,&subStatus);
+            }
+
             ures_close(res);
         } while(!full[0] && *found && U_SUCCESS(*status));
     }

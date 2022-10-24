@@ -71,12 +71,11 @@
 
     // First, let's preflight the vouch (to receive a policy and view set to use for TLK fetching
     WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper preflightVouchWithCustodianRecoveryKeyWithContainer:self.deps.containerName
-                                                                                context:self.deps.contextID
-                                                                                    crk:self.tphcrk
-                                                                                  reply:^(NSString * _Nullable recoveryKeyID,
-                                                                                          TPSyncingPolicy* _Nullable peerSyncingPolicy,
-                                                                                          NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper preflightVouchWithCustodianRecoveryKeyWithSpecificUser:self.deps.activeAccount
+                                                                                       crk:self.tphcrk
+                                                                                     reply:^(NSString * _Nullable recoveryKeyID,
+                                                                                             TPSyncingPolicy* _Nullable peerSyncingPolicy,
+                                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithCustodianRecoveryKey hardFailure:true result:error];
 

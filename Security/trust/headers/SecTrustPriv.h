@@ -524,6 +524,32 @@ OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef _Nullable audi
  */
 CFArrayRef SecTrustGetAppleAnchors(void);
 
+/*!
+ @function SecTrustSetURLRequestAttribution
+ @abstract Set NSURLRequestAttribution state for any network request made for this trust evaluation
+ @param trust Trust object to modify
+ @param uint64_t NSURLRequestAttribution value
+ */
+OSStatus SecTrustSetURLRequestAttribution(SecTrustRef trust, uint64_t attribution);
+typedef CF_OPTIONS(uint32_t, SecTrustResetFlags) {
+    kSecTrustResetExceptions        = (1u << 0),
+    kSecTrustResetOCSPCache         = (1u << 1),
+    kSecTrustResetIssuersCache      = (1u << 2),
+    kSecTrustResetValidDB           = (1u << 3),
+    kSecTrustResetUserTrustSettings = (1u << 4),
+    kSecTrustResetAllCaches         = (kSecTrustResetOCSPCache |
+                                      kSecTrustResetIssuersCache |
+                                      kSecTrustResetValidDB),
+    kSecTrustResetAllSettings       = 0x7FFFFFFFu
+};
+
+/*!
+ @function SecTrustResetSettings
+ @abstract
+ @param
+ */
+bool SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef* error);
+
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 

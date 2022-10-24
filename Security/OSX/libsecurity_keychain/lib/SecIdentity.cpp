@@ -629,7 +629,7 @@ OSStatus SecIdentitySetPreference(
         MacOSError::throwMe(errSecDataTooLarge); // data is "in a format which cannot be displayed"
     }
     CFIndex accountUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(labelStr), kCFStringEncodingUTF8) + 1;
-    const char *templateStr = "%s [key usage 0x%X]";
+    const char *const templateStr = "%s [key usage 0x%X]";
     const int keyUsageMaxStrLen = 8;
     accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
     char *accountUTF8 = (char *)malloc(accountUTF8Len);

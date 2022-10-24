@@ -350,6 +350,12 @@ main(int argc, char **argv)
 static int
 putdata(double x, bool last)
 {
+/* rdar://84571853 (Enable -Wformat-nonliteral compiler flag in shell_cmds)
+ * Here, the whole point of this program is to allow the user to specify a custom
+ * format, so we just suppress the warning.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 
 	if (boring)
 		printf("%s", format);
@@ -376,6 +382,7 @@ putdata(double x, bool last)
 
 	} else
 		printf(format, x);
+#pragma clang diagnostic pop
 	if (!last)
 		fputs(sepstring, stdout);
 

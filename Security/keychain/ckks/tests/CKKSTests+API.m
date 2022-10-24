@@ -736,7 +736,7 @@
     [self.keychainZone addToZone: record];
 
     // Trigger a notification
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     CFTypeRef item = NULL;
@@ -771,6 +771,7 @@
     NSDictionary* item = [self fakeRecordDictionary: @"account-delete-me" zoneID:self.keychainZoneID];
     CKKSItem* cipheritem = [[CKKSItem alloc] initWithUUID:recordID.recordName
                                             parentKeyUUID:self.keychainZoneKeys.classC.uuid
+                                                contextID:self.defaultCKKS.operationDependencies.contextID
                                                    zoneID:recordID.zoneID];
     CKKSKeychainBackedKey* itemkey = [CKKSKeychainBackedKey randomKeyWrappedByParent:[self.keychainZoneKeys.classC getKeychainBackedKey:&error]
                                                                                       error:&error];
@@ -792,7 +793,7 @@
 
     [self.keychainZone addToZone:[cipheritem CKRecordWithZoneID: recordID.zoneID]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     NSDictionary* query = @{(id)kSecClass: (id)kSecClassGenericPassword,
@@ -829,6 +830,7 @@
     NSDictionary* item = [self fakeRecordDictionary: @"account-delete-me" zoneID:self.keychainZoneID];
     CKKSItem* cipheritem = [[CKKSItem alloc] initWithUUID:recordID.recordName
                                             parentKeyUUID:self.keychainZoneKeys.classC.uuid
+                                                contextID:self.defaultCKKS.operationDependencies.contextID
                                                    zoneID:recordID.zoneID];
     CKKSKeychainBackedKey* itemkey = [CKKSKeychainBackedKey randomKeyWrappedByParent:[self.keychainZoneKeys.classC getKeychainBackedKey:&error]
                                                                                       error:&error];
@@ -852,7 +854,7 @@
 
     [self.keychainZone addToZone:[cipheritem CKRecordWithZoneID: recordID.zoneID]];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     NSDictionary* query = @{(id)kSecClass: (id)kSecClassGenericPassword,
@@ -947,7 +949,7 @@
     NSData* changeTokenData = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
     CKServerChangeToken* changeToken = [[CKServerChangeToken alloc] initWithData:changeTokenData];
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.keychainView.zoneName];
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainView.zoneName];
         ckse.changeToken = changeToken;
 
         NSError* error = nil;
@@ -965,7 +967,7 @@
         ckksnotice_global("ckks", "Received a rpcResetLocal callback");
 
         [self.defaultCKKS dispatchSyncWithReadOnlySQLTransaction:^{
-            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.keychainView.zoneName];
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.defaultCKKS.operationDependencies.contextID zoneName:self.keychainView.zoneName];
             XCTAssertNotEqualObjects(changeToken, ckse.changeToken, "Change token is reset");
         }];
 
@@ -2069,18 +2071,26 @@
     XCTestExpectation* statusCallbackOccurs = [self expectationWithDescription:@"status-callback-occurs"];
     [self.ckksControl rpcStatus:@"keychain" reply:^(NSArray<NSDictionary*>* result, NSError* error) {
         XCTAssertNotNil(error, "Should have received an error attempting to fetch and process from a non-default persona");
+#if TARGET_OS_TV
+        XCTAssertEqualObjects(error.domain, OctagonErrorDomain, "Should have received an Octagon error");
+        XCTAssertEqual(error.code, OctagonErrorNoSuchContext, "Should have received a OctagonErrorNoSuchContext error");
+#else
         XCTAssertEqualObjects(error.domain, CKKSErrorDomain, "Should have received a CKKS result error");
         XCTAssertEqual(error.code, CKKSErrorNotSupported, "Should have received a CKKSErrorNotSupported error");
-
+#endif
         [statusCallbackOccurs fulfill];
     }];
 
     XCTestExpectation* rpcFetchCallbackOccurs = [self expectationWithDescription:@"rpcfetch-callback-occurs"];
     [self.ckksControl rpcFetchAndProcessChanges:nil reply:^(NSError * _Nullable error) {
         XCTAssertNotNil(error, "Should have received an error attempting to fetch and process from a non-default persona");
+#if TARGET_OS_TV
+        XCTAssertEqualObjects(error.domain, OctagonErrorDomain, "Should have received a Octagon error");
+        XCTAssertEqual(error.code, OctagonErrorNoSuchContext, "Should have received a OctagonErrorNoSuchContext error");
+#else
         XCTAssertEqualObjects(error.domain, CKKSErrorDomain, "Should have received a CKKS result error");
         XCTAssertEqual(error.code, CKKSErrorNotSupported, "Should have received a CKKSErrorNotSupported error");
-
+#endif
         [rpcFetchCallbackOccurs fulfill];
     }];
 

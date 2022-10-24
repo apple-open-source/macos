@@ -66,8 +66,13 @@ typedef struct block_list_header {
     int32_t     bytes_used;          // how many bytes of this tbuffer are used
     uint32_t     checksum;            // on-disk: checksum of this header and binfo[0]
     int32_t     flags;               // check-checksums, initial blhdr, etc
-    block_info  binfo[1];            // so we can reference them by name
+    block_info  binfo[];            // so we can reference them by name
 } block_list_header;
+
+typedef struct block_list_header_in_memory {
+	char*       buffers;            // pointer to the actual buffers
+	block_list_header blhdr;
+} block_list_header_in_memory;
 
 #define BLHDR_CHECK_CHECKSUMS   0x0001
 #define BLHDR_FIRST_HEADER      0x0002
@@ -197,6 +202,7 @@ typedef struct journal {
 #define JOURNAL_DO_FUA_WRITES     0x00100000   // do force-unit-access writes
 #define JOURNAL_USE_UNMAP         0x00200000   // device supports UNMAP (TRIM)
 #define JOURNAL_FEATURE_BARRIER   0x00400000   // device supports barrier-only flush
+#define JOURNAL_DEV_REVOKED       0x00800000   // journal device vnode has been revoked
 
 
 /* journal_open/create options are always in the low-16 bits */

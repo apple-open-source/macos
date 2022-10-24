@@ -63,7 +63,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	SecTransformRef SecDecodeTransformCreate(CFTypeRef DecodeType,
 											 CFErrorRef* error
 											 )
-	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+API_DEPRECATED("SecTransform is no longer supported", macos(10.7, 13.0), ios(NA, NA), tvos(NA, NA), watchos(NA, NA), macCatalyst(NA, NA));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

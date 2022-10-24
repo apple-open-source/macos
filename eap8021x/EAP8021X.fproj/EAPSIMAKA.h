@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019, 2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,7 +107,8 @@ enum {
     kAT_NEXT_PSEUDONYM = 132,
     kAT_NEXT_REAUTH_ID = 133,
     kAT_CHECKCODE = 134,
-    kAT_RESULT_IND = 135
+    kAT_RESULT_IND = 135,
+    kAT_MAX = 255,
 };
 
 const char *

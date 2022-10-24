@@ -10,7 +10,7 @@
 #define IN_LIBXML
 #include "libxml.h"
 
-#if defined(WIN32) && !defined (__CYGWIN__)
+#if defined(_WIN32) && !defined (__CYGWIN__)
 #define XML_DIR_SEP '\\'
 #else
 #define XML_DIR_SEP '/'
@@ -32,7 +32,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_ZLIB_H
+#ifdef LIBXML_ZLIB_ENABLED
 #include <zlib.h>
 #endif
 
@@ -105,7 +105,7 @@ xmlCheckVersion(int version) {
 /**
  * xmlErrMemory:
  * @ctxt:  an XML parser context
- * @extra:  extra informations
+ * @extra:  extra information
  *
  * Handle a redefinition of attribute error
  */
@@ -168,7 +168,7 @@ __xmlErrEncoding(xmlParserCtxtPtr ctxt, xmlParserErrors xmlerr,
  * xmlErrInternal:
  * @ctxt:  an XML parser context
  * @msg:  the error message
- * @str:  error informations
+ * @str:  error information
  *
  * Handle an internal error
  */
@@ -444,8 +444,6 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
 
     if ((*ctxt->input->cur == 0) &&
         (xmlParserInputGrow(ctxt->input, INPUT_CHUNK) <= 0)) {
-        if ((ctxt->instate != XML_PARSER_COMMENT))
-            xmlPopInput(ctxt);
         return;
     }
 
@@ -479,8 +477,8 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
 
         c = *cur;
         if (c & 0x80) {
-        if (c == 0xC0)
-	    goto encoding_error;
+            if (c == 0xC0)
+	        goto encoding_error;
             if (cur[1] == 0) {
                 xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
                 cur = ctxt->input->cur;
@@ -530,10 +528,6 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
         } else
             /* 1-byte code */
             ctxt->input->cur++;
-
-        ctxt->nbChars++;
-        if (*ctxt->input->cur == 0)
-            xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
     } else {
         /*
          * Assume it's a fixed length encoding (1) with
@@ -546,15 +540,9 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
         } else
             ctxt->input->col++;
         ctxt->input->cur++;
-        ctxt->nbChars++;
-        if (*ctxt->input->cur == 0)
-            xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
     }
-    if ((*ctxt->input->cur == '%') && (!ctxt->html))
-        xmlParserHandlePEReference(ctxt);
-    if ((*ctxt->input->cur == 0) &&
-        (xmlParserInputGrow(ctxt->input, INPUT_CHUNK) <= 0))
-        xmlPopInput(ctxt);
+    if (*ctxt->input->cur == 0)
+        xmlParserInputGrow(ctxt->input, INPUT_CHUNK);
     return;
 encoding_error:
     /*
@@ -699,7 +687,6 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
 	    }
 	    if (*ctxt->input->cur == 0xD) {
 		if (ctxt->input->cur[1] == 0xA) {
-		    ctxt->nbChars++;
 		    ctxt->input->cur++;
 		}
 		return(0xA);
@@ -715,7 +702,6 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
     *len = 1;
     if (*ctxt->input->cur == 0xD) {
 	if (ctxt->input->cur[1] == 0xA) {
-	    ctxt->nbChars++;
 	    ctxt->input->cur++;
 	}
 	return(0xA);
@@ -725,7 +711,7 @@ encoding_error:
     /*
      * An encoding problem may arise from a truncated input buffer
      * splitting a character in the middle. In that case do not raise
-     * an error but return 0 to endicate an end of stream problem
+     * an error but return 0 to indicate an end of stream problem
      */
     if (ctxt->input->end - ctxt->input->cur < 4) {
 	*len = 0;
@@ -838,7 +824,7 @@ encoding_error:
     /*
      * An encoding problem may arise from a truncated input buffer
      * splitting a character in the middle. In that case do not raise
-     * an error but return 0 to endicate an end of stream problem
+     * an error but return 0 to indicate an end of stream problem
      */
     if ((ctxt == NULL) || (ctxt->input == NULL) ||
         (ctxt->input->end - ctxt->input->cur < 4)) {
@@ -1114,6 +1100,11 @@ xmlSwitchEncoding(xmlParserCtxtPtr ctxt, xmlCharEncoding enc)
 	        break;
 	}
     }
+    /*
+     * TODO: We could recover from errors in external entities if we
+     * didn't stop the parser. But most callers of this function don't
+     * check the return value.
+     */
     if (handler == NULL) {
         xmlStopParser(ctxt);
 	return(-1);
@@ -1155,7 +1146,7 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
     if (input->buf != NULL) {
         if (input->buf->encoder != NULL) {
             /*
-             * Check in case the auto encoding detetection triggered
+             * Check in case the auto encoding detection triggered
              * in already.
              */
             if (input->buf->encoder == handler)
@@ -1175,6 +1166,11 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
              * Note: this is a bit dangerous, but that's what it
              * takes to use nearly compatible signature for different
              * encodings.
+             *
+             * FIXME: Encoders might buffer partial byte sequences, so
+             * this probably can't work. We should return an error and
+             * make sure that callers never try to switch the encoding
+             * twice.
              */
             xmlCharEncCloseFunc(input->buf->encoder);
             input->buf->encoder = handler;
@@ -1241,14 +1237,6 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
                  */
                 nbchars = xmlCharEncFirstLineInput(input->buf, len);
             }
-            if (nbchars < 0) {
-                xmlBufFree(input->buf->buffer);
-                input->buf->buffer = input->buf->raw;
-                input->buf->raw = NULL;
-                input->buf->rawconsumed = 0;
-            } else {
-                input->buf->rawconsumed += use - xmlBufUse(input->buf->raw);
-            }
             xmlBufResetInput(input->buf->buffer, input);
             if (nbchars < 0) {
                 if (!ctxt->html) {
@@ -1258,6 +1246,7 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
                 }
                 return (-1);
             }
+	    input->buf->rawconsumed += use - xmlBufUse(input->buf->raw);
         }
         return (0);
     } else if (input->length == 0) {
@@ -1266,8 +1255,18 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
 	 * size to be able to convert the buffer.
 	 */
 	xmlErrInternal(ctxt, "switching encoding : no input\n", NULL);
+        /*
+         * Callers assume that the input buffer takes ownership of the
+         * encoding handler. xmlCharEncCloseFunc frees unregistered
+         * handlers and avoids a memory leak.
+         */
+        xmlCharEncCloseFunc(handler);
 	return (-1);
     }
+    /*
+     * We should actually raise an error here, see issue #34.
+     */
+    xmlCharEncCloseFunc(handler);
     return (0);
 }
 
@@ -1562,8 +1561,10 @@ xmlNewInputFromFile(xmlParserCtxtPtr ctxt, const char *filename) {
     }
 
     inputStream = xmlNewInputStream(ctxt);
-    if (inputStream == NULL)
+    if (inputStream == NULL) {
+	xmlFreeParserInputBuffer(buf);
 	return(NULL);
+    }
 
     inputStream->buf = buf;
     inputStream = xmlCheckHTTPInput(ctxt, inputStream);
@@ -1764,7 +1765,6 @@ xmlInitParserCtxt(xmlParserCtxtPtr ctxt)
         ctxt->options |= XML_PARSE_NOENT;
     }
     ctxt->record_info = 0;
-    ctxt->nbChars = 0;
     ctxt->checkIndex = 0;
     ctxt->inSubset = 0;
     ctxt->errNo = XML_ERR_OK;
@@ -1821,7 +1821,7 @@ xmlFreeParserCtxt(xmlParserCtxtPtr ctxt)
     if (ctxt->pushTab != NULL) xmlFree(ctxt->pushTab);
     if (ctxt->attallocs != NULL) xmlFree(ctxt->attallocs);
     if (ctxt->attsDefault != NULL)
-        xmlHashFree(ctxt->attsDefault, (xmlHashDeallocator) xmlFree);
+        xmlHashFree(ctxt->attsDefault, xmlHashDefaultDeallocator);
     if (ctxt->attsSpecial != NULL)
         xmlHashFree(ctxt->attsSpecial, NULL);
     if (ctxt->freeElems != NULL) {
@@ -1893,7 +1893,7 @@ xmlNewParserCtxt(void)
 
 /************************************************************************
  *									*
- *		Handling of node informations				*
+ *		Handling of node information				*
  *									*
  ************************************************************************/
 

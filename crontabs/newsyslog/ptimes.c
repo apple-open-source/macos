@@ -145,7 +145,7 @@ parse8601(struct ptime_data *ptime, const char *s)
 	ptime->tmspec = TSPEC_HOUROFDAY;
 	switch (t - s) {
 	case 8:
-		tm.tm_year = ((l / 1000000) - 19) * 100;
+		tm.tm_year = (((int) l / 1000000) - 19) * 100;
 		l = l % 1000000;
 	case 6:
 		ptime->tmspec |= TSPEC_YEAR;
@@ -154,11 +154,11 @@ parse8601(struct ptime_data *ptime, const char *s)
 		l = l % 10000;
 	case 4:
 		ptime->tmspec |= TSPEC_MONTHOFYEAR;
-		tm.tm_mon = (l / 100) - 1;
+		tm.tm_mon = ((int) l / 100) - 1;
 		l = l % 100;
 	case 2:
 		ptime->tmspec |= TSPEC_DAYOFMONTH;
-		tm.tm_mday = l;
+		tm.tm_mday = (int) l;
 	case 0:
 		break;
 	default:
@@ -185,7 +185,7 @@ parse8601(struct ptime_data *ptime, const char *s)
 			l /= 100;
 		case 2:
 			ptime->tmspec |= TSPEC_HOUROFDAY;
-			tm.tm_hour = l;
+			tm.tm_hour = (int) l;
 		case 0:
 			break;
 		default:
@@ -244,7 +244,7 @@ parseDWM(struct ptime_data *ptime, const char *s)
 			if (l < 0 || l > 23)
 				return (-1);
 			endval = tmp;
-			tm.tm_hour = l;
+			tm.tm_hour = (int) l;
 			break;
 
 		case 'W':
@@ -264,7 +264,7 @@ parseDWM(struct ptime_data *ptime, const char *s)
 					save = 6 - tm.tm_wday;
 					save += (l + 1);
 				} else {
-					save = l - tm.tm_wday;
+					save = (int) l - tm.tm_wday;
 				}
 
 				tm.tm_mday += save;
@@ -295,7 +295,7 @@ parseDWM(struct ptime_data *ptime, const char *s)
 				if (l > daysmon)
 					return (-1);
 				endval = tmp;
-				tm.tm_mday = l;
+				tm.tm_mday = (int) l;
 			}
 			break;
 

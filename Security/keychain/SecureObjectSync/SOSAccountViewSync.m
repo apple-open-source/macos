@@ -233,7 +233,7 @@ static void SOSAccountHandleInitialSyncDone(SOSAccount* account) {
 //
 // MARK: Waiting for in-sync
 //
-static CFStringRef CreateUUIDString() {
+static CFStringRef CreateUUIDString(void) {
     CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
     CFStringRef result = CFUUIDCreateString(kCFAllocatorDefault, uuid);
     CFReleaseNull(uuid);

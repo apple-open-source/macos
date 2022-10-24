@@ -1,0 +1,127 @@
+./test/errors/crbug-602280.xml:1: parser error : xmlParsePI : no target name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+  ^
+./test/errors/crbug-602280.xml:1: namespace error : Failed to parse QName ':'
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+    ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+         ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+         ^
+./test/errors/crbug-602280.xml:1: parser error : StartTag: invalid element name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+          ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+            ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+            ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParsePI : no target name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+              ^
+./test/errors/crbug-602280.xml:1: namespace error : Failed to parse QName ':'
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                ^
+./test/errors/crbug-602280.xml:1: parser error : error parsing attribute name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                ^
+./test/errors/crbug-602280.xml:1: parser error : attributes construct error
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                ^
+./test/errors/crbug-602280.xml:1: parser error : Couldn't find end of Start Tag : line 1
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                  ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                  ^
+./test/errors/crbug-602280.xml:1: parser error : StartTag: invalid element name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	   ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	  ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	  ^
+./test/errors/crbug-602280.xml:1: parser error : Unescaped '<' not allowed in attributes values
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	            ^
+./test/errors/crbug-602280.xml:1: parser error : attributes construct error
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	            ^
+./test/errors/crbug-602280.xml:1: parser error : Couldn't find end of Start Tag g line 1
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	            ^
+./test/errors/crbug-602280.xml:1: namespace error : Failed to parse QName 'xml:'
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                   ^
+./test/errors/crbug-602280.xml:1: parser error : Specification mandates value for attribute xml:
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                   ^
+./test/errors/crbug-602280.xml:1: parser error : attributes construct error
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                   ^
+./test/errors/crbug-602280.xml:1: parser error : Couldn't find end of Start Tag v line 1
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                   ^
+./test/errors/crbug-602280.xml:1: namespace warning : xmlns: URI //-NMTOKEd= is not absolute
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                         ^
+./test/errors/crbug-602280.xml:1: parser error : attributes construct error
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                         ^
+./test/errors/crbug-602280.xml:1: parser error : Couldn't find end of Start Tag v line 1
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                         ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                             ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                             ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+                   	     	   	                                                 ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9
+                	     	   	                                                    ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9
+                	     	   	                                                    ^
+./test/errors/crbug-602280.xml:1: parser error : PCDATA invalid Char value 27
+>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9O
+               	     	   	                                                     ^
+./test/errors/crbug-602280.xml:1: parser error : EntityRef: expecting ';'
+<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--
+   	   	                                                                       ^
+./test/errors/crbug-602280.xml:1: parser error : CharRef: invalid decimal value
+	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--#14IS&#
+	                                                                              ^
+./test/errors/crbug-602280.xml:1: parser error : xmlParseCharRef: invalid xmlChar value 0
+	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--#14IS&#
+	                                                                              ^
+./test/errors/crbug-602280.xml:1: namespace error : xmlns: '//h;:719859285921!58' is not a valid URI
+/-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--#14IS&#<v xmlns='//h;:719859285921!58'
+                                                                               ^
+./test/errors/crbug-602280.xml:1: parser error : attributes construct error
+/-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--#14IS&#<v xmlns='//h;:719859285921!58'
+                                                                               ^
+./test/errors/crbug-602280.xml:1: parser error : Couldn't find end of Start Tag v line 1
+/-NMTOKEd='&#05*&#0;&#9OoUTFUTF-16-16&N--#14IS&#<v xmlns='//h;:719859285921!58'
+                                                                               ^
+./test/errors/crbug-602280.xml:1: parser error : internal error: detected an error in element content
+
+¤-
+^

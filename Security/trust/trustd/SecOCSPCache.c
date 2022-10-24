@@ -42,6 +42,7 @@
 #include <asl.h>
 #include "utilities/SecCFWrappers.h"
 #include "utilities/SecDb.h"
+#include "utilities/SecDbInternal.h"
 #include "utilities/iOSforOSX.h"
 #include <os/lock.h>
 
@@ -105,7 +106,7 @@ static bool SecOCSPCacheDbUpdateTables(SecDbRef db) {
 }
 
 static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
-    return SecDbCreate(path, 0600, true, true, true, true, 1,
+    return SecDbCreate(path, 0600, true, true, true, true, kSecDbTrustdMaxIdleHandles,
             ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
         __block bool ok = true;
 
@@ -335,35 +336,33 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
 
             /* Now add a link record for every singleResponse in the ocspResponse. */
             ok &= SecDbWithSQL(dbconn, insertLinkSQL, &localError, ^bool(sqlite3_stmt *insertLink) {
-                SecAsn1OCSPSingleResponse **responses;
-                for (responses = ocspResponse->responseData.responses;
-                     *responses; ++responses) {
-                    SecAsn1OCSPSingleResponse *resp = *responses;
-                    SecAsn1OCSPCertID *certId = &resp->certID;
-                    SecAsn1OCSPCertStatusTag certStatus = (SecAsn1OCSPCertStatusTag)(resp->certStatus.Data[0] & SEC_ASN1_TAGNUM_MASK);
+                ok &= SecOCSPResponseForSingleResponse(ocspResponse, ^DERReturn(SecOCSPSingleResponseRef singleResponse, DER_OCSPCertID *certId, DERAlgorithmId *hashAlgorithm, bool *stop) {
                     ok &= SecDbBindBlob(insertLink, 1,
-                                        certId->algId.algorithm.Data,
-                                        certId->algId.algorithm.Length,
+                                        hashAlgorithm->oid.data,
+                                        hashAlgorithm->oid.length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindBlob(insertLink, 2,
-                                        certId->issuerNameHash.Data,
-                                        certId->issuerNameHash.Length,
+                                        certId->issuerNameHash.data,
+                                        certId->issuerNameHash.length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindBlob(insertLink, 3,
-                                        certId->issuerPubKeyHash.Data,
-                                        certId->issuerPubKeyHash.Length,
+                                        certId->issuerKeyHash.data,
+                                        certId->issuerKeyHash.length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindBlob(insertLink, 4,
-                                        certId->serialNumber.Data,
-                                        certId->serialNumber.Length,
+                                        certId->serialNumber.data,
+                                        certId->serialNumber.length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindInt64(insertLink, 5, responseId, &localError);
-                    ok &= SecDbBindInt(insertLink, 6, (int)certStatus, &localError);
-
+                    ok &= SecDbBindInt(insertLink, 6, singleResponse->certStatus, &localError);
                     /* Execute the insert statement. */
                     ok &= SecDbStep(dbconn, insertLink, &localError, NULL);
                     ok &= SecDbReset(insertLink, &localError);
-                }
+                    if (!ok) {
+                        return DR_GenericErr;
+                    }
+                    return DR_Success;
+                });
                 return ok;
             });
 

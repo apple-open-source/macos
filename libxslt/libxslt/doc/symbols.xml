@@ -81,7 +81,7 @@
     <symbol file="pattern">xsltFreeCompMatchList</symbol>
     <symbol file="pattern">xsltFreeTemplateHashes</symbol>
     <symbol file="pattern">xsltGetTemplate</symbol>
-    <symbol file="pattern">xsltMatchPattern</symbol>
+    <symbol removed="1.0.12" file="pattern">xsltMatchPattern</symbol>
     <symbol file="pattern">xsltTestCompMatchList</symbol>
     <symbol file="preproc">xsltDocumentComp</symbol>
     <symbol file="preproc">xsltFreeStylePreComps</symbol>
@@ -221,6 +221,7 @@
     <symbol file="xslt">xsltLibxmlVersion</symbol>
     <symbol file="xslt">xsltLibxsltVersion</symbol>
     <symbol file="xslt">xsltMaxDepth</symbol>
+    <!-- xsltMaxVars was added in 1.1.27 with a wrong version. -->
     <symbol file="xslt">xsltMaxVars</symbol>
     <symbol file="xsltInternals">xsltParseStylesheetImportedDoc</symbol>
     <symbol file="xsltutils">xsltSetCtxtSortFunc</symbol>
@@ -269,25 +270,25 @@
     <symbol file="documents">xsltSetLoaderFunc</symbol>
   </release>
   <release version="1.1.18">
-    <symbol file="xsltInternals">xsltConstNamespaceNameXSLT</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltConstNamespaceNameXSLT</symbol>
     <symbol file="xsltInternals">xsltExtensionInstructionResultFinalize</symbol>
     <symbol file="xsltInternals">xsltExtensionInstructionResultRegister</symbol>
     <symbol file="xsltInternals">xsltInitCtxtKey</symbol>
     <symbol file="xslt">xsltInit</symbol>
-    <symbol file="xsltInternals">xsltParseAnyXSLTElem</symbol>
-    <symbol file="xsltInternals">xsltParseSequenceConstructor</symbol>
-    <symbol file="xsltInternals">xsltPointerListAddSize</symbol>
-    <symbol file="xsltInternals">xsltPointerListClear</symbol>
-    <symbol file="xsltInternals">xsltPointerListCreate</symbol>
-    <symbol file="xsltInternals">xsltPointerListFree</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltParseAnyXSLTElem</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltParseSequenceConstructor</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltPointerListAddSize</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltPointerListClear</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltPointerListCreate</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltPointerListFree</symbol>
     <symbol file="xsltInternals">xsltRegisterLocalRVT</symbol>
     <symbol file="xsltInternals">xsltReleaseRVT</symbol>
-    <symbol file="xsltInternals">xsltRestoreDocumentNamespaces</symbol>
-    <symbol file="extensions">xsltStyleStylesheetLevelGetExtData</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltRestoreDocumentNamespaces</symbol>
+    <symbol switch="REFACTORED" file="extensions">xsltStyleStylesheetLevelGetExtData</symbol>
     <symbol removed="1.1.28" file="xsltInternals">xsltTransStorageAdd</symbol>
     <symbol removed="1.1.28" file="xsltInternals">xsltTransStorageRemove</symbol>
     <symbol file="xsltInternals">xsltUninit</symbol>
-    <symbol file="xsltInternals">xsltXSLTAttrMarker</symbol>
+    <symbol switch="REFACTORED" file="xsltInternals">xsltXSLTAttrMarker</symbol>
   </release>
   <release version="1.1.20">
     <symbol file="transform">xsltLocalVariablePop</symbol>
@@ -313,5 +314,13 @@
   <release version="1.1.27">
     <symbol file="xsltlocale">xsltFreeLocales</symbol>
     <symbol file="xsltutils">xsltXPathCompileFlags</symbol>
+  </release>
+  <release version="1.1.30">
+    <symbol file="xsltInternals">xsltFlagRVTs</symbol>
+    <symbol file="xsltInternals">xsltDecimalFormatGetByQName</symbol>
+  </release>
+  <release version="1.1.34">
+    <symbol file="xsltInternals">xsltParseStylesheetUser</symbol>
+    <symbol file="pattern">xsltCompMatchClearCache</symbol>
   </release>
 </symbols>

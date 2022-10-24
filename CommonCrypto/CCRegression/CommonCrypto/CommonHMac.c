@@ -78,11 +78,9 @@ static HMacVector hmv[] = {
 
 static size_t hmvLen = sizeof(hmv) / sizeof(HMacVector);
 
-
-
-static char * testString(char *format, CCDigestAlgorithm alg) {
+static char * testString(const char *format, CCDigestAlgorithm alg) {
     static char thestring[80];
-    sprintf(thestring, format, digestName(alg));
+    snprintf(thestring, 80, format, digestName(alg));
     return thestring;
 }
 

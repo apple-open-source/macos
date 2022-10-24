@@ -42,7 +42,6 @@ extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
 #define WEBCONTENT_SERVICE_INITIALIZER WebContentServiceInitializer
 #define NETWORK_SERVICE_INITIALIZER NetworkServiceInitializer
 #define GPU_SERVICE_INITIALIZER GPUServiceInitializer
-#define WEBAUTHN_SERVICE_INITIALIZER WebAuthnServiceInitializer
 
 namespace WebKit {
 
@@ -62,13 +61,12 @@ public:
     virtual bool getProcessIdentifier(WebCore::ProcessIdentifier&);
     virtual bool getClientIdentifier(String& clientIdentifier);
     virtual bool getClientBundleIdentifier(String& clientBundleIdentifier);
-    virtual bool getClientSDKVersion(uint32_t& clientSDKVersion);
     virtual bool getClientProcessName(String& clientProcessName);
-    virtual bool getLinkedOnOrAfterOverride(std::optional<LinkedOnOrAfterOverride>&);
+    virtual bool getClientSDKAlignedBehaviors(SDKAlignedBehaviors&);
     virtual bool getExtraInitializationData(HashMap<String, String>& extraInitializationData);
 
 protected:
-    bool hasEntitlement(const char* entitlement);
+    bool hasEntitlement(ASCIILiteral entitlement);
     bool isClientSandboxed();
 
     OSObjectPtr<xpc_connection_t> m_connection;
@@ -82,7 +80,7 @@ void initializeAuxiliaryProcess(AuxiliaryProcessInitializationParameters&& param
 }
 
 #if PLATFORM(MAC)
-OSObjectPtr<os_transaction_t>& osTransaction();
+void setOSTransaction(OSObjectPtr<os_transaction_t>&&);
 #endif
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
@@ -97,6 +95,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
             JSC::Options::AllowUnfinalizedAccessScope scope;
             JSC::Options::useGenerationalGC() = false;
             JSC::Options::useConcurrentGC() = false;
+            JSC::Options::useLLIntICs() = false;
         }
         if (xpc_dictionary_get_bool(initializerMessage, "disable-jit"))
             JSC::ExecutableAllocator::setJITEnabled(false);
@@ -113,7 +112,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
     // so ensure that we have an outstanding transaction here. This is not needed on iOS because
     // the UIProcess takes process assertions on behalf of its child processes.
 #if PLATFORM(MAC)
-    osTransaction() = adoptOSObject(os_transaction_create("WebKit XPC Service"));
+    setOSTransaction(adoptOSObject(os_transaction_create("WebKit XPC Service")));
 #endif
 
     InitializeWebKit2();
@@ -134,10 +133,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
     // The host process may not have a bundle identifier (e.g. a command line app), so don't require one.
     delegate.getClientBundleIdentifier(parameters.clientBundleIdentifier);
     
-    delegate.getLinkedOnOrAfterOverride(parameters.clientLinkedOnOrAfterOverride);
-
-    if (!delegate.getClientSDKVersion(parameters.clientSDKVersion))
-        exit(EXIT_FAILURE);
+    delegate.getClientSDKAlignedBehaviors(parameters.clientSDKAlignedBehaviors);
 
     WebCore::ProcessIdentifier processIdentifier;
     if (!delegate.getProcessIdentifier(processIdentifier))

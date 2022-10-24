@@ -1,0 +1,1 @@
+http://ocsp.auc.cartaodecidadao.pt/publico/ocsp

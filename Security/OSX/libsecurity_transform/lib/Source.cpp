@@ -78,7 +78,7 @@ std::string Source::DebugDescription()
 	string result = CoreFoundationObject::DebugDescription() + ": Source ";
 	
 	char buffer[256];
-	sprintf(buffer, "(Destination = %p, name = %s)", mDestination, StringFromCFString(mDestinationName).c_str());
+	snprintf(buffer, sizeof(buffer), "(Destination = %p, name = %s)", mDestination, StringFromCFString(mDestinationName).c_str());
 	
 	result += buffer;
 	

@@ -30,7 +30,6 @@
 #include "SecItemSchema.h"
 #include "keychain/securityd/SecDbKeychainItem.h"
 #include <keychain/ckks/CKKS.h>
-#include "CheckV12DevEnabled.h"
 
 // MARK -
 // MARK Keychain version 6 schema
@@ -258,201 +257,183 @@ SECDB_ATTR(v11_8_bin_client3,  "bin3",          Data,     SecDbFlags( , , , , ,D
 SECDB_ATTR(v11_9_lastscan,     "lastscan",      String,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 SECDB_ATTR(v11_9_extra,        "extra",         Blob,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
-SECDB_ATTR(v12_backupUUIDPrimary, "backupUUID", UUID,     SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v12_backupUUID, "backupUUID", UUID,            SecDbFlags( ,L,I, , , , , , , , ,E, , ,  , ), NULL, NULL);
-SECDB_ATTR(v12_backupBag, "backupbag", Blob,              SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v12_defaultValue, "defaultvalue", Number,      SecDbFlags( ,L,I, , , , , , , ,Z, , , ,  , ), NULL, NULL);
-SECDB_ATTR(v12_keyClassSigningKey, "signingkey", Blob,    SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v12_recoveryType, "recoverytype", String,      SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v12_recoverySet, "recoveryset", Blob,          SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
-SECDB_ATTR(v12_metadatakeydata, "metadatakeydata", Blob,  SecDbFlags( ,L, , , , , , , , , ,E, , ,  , ), NULL, NULL);
+SECDB_ATTR(v12_ggrp, "ggrp", String, SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,  , ), NULL, NULL);
 
-const SecDbClass v12_backupbags_class = {
-    .name = CFSTR("backupbags"),
+
+SECDB_ATTR(v12_2contextID,    "contextID",     String,   SecDbFlags(P,L, , , , , , , , , ,E,N, ,  , ), NULL, NULL);
+
+
+const SecDbClass v12_2_outgoing_queue_class = {
+    .name = CFSTR("outgoingqueue"),
     .itemclass = false,
     .attrs = {
-        &v12_backupUUIDPrimary,     // primary
-        &v12_backupBag,
-        &v12_defaultValue,
+        &v10ckzone,
+        &v10syncuuid,
+        &v10parentKeyUUID,
+        &v10action,
+        &v10state,
+        &v10waituntiltime,
+        &v10accessgroup,
+        &v10gencount,
+        &v10wrappedkey,
+        &v10encrypteditem,
+        &v10encryptionver,
+        &v10_1optionalEncodedCKRecord,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v12_2contextID,
         0
     }
 };
 
-const SecDbClass v12_backupkeyclasssigningkeys_class = {
-    .name = CFSTR("backupkeyclasssigningkeys"),
+const SecDbClass v12_2_incoming_queue_class = {
+    .name = CFSTR("incomingqueue"),
     .itemclass = false,
     .attrs = {
-        &v10keyclass,               // primary
-        &v12_backupUUIDPrimary,     // primary
-        &v12_keyClassSigningKey,
+        &v10ckzone,
+        &v10syncuuid,
+        &v10parentKeyUUID,
+        &v10action,
+        &v10state,
+        &v10gencount,
+        &v10wrappedkey,
+        &v10encrypteditem,
+        &v10encryptionver,
+        &v10_1optionalEncodedCKRecord,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v12_2contextID,
         0
     }
 };
 
-const SecDbClass v12_backuprecoverysets_class = {
-    .name = CFSTR("backuprecoverysets"),
+const SecDbClass v12_2_ckmirror_class = {
+    .name = CFSTR("ckmirror"),
     .itemclass = false,
     .attrs = {
-        &v12_backupUUIDPrimary,     // primary
-        &v12_recoveryType,          // primary
-        &v12_recoverySet,
+        &v10ckzone,
+        &v10syncuuid,
+        &v10parentKeyUUID,
+        &v10gencount,
+        &v10wrappedkey,
+        &v10encrypteditem,
+        &v10encodedCKRecord,
+        &v10encryptionver,
+        &v10_1wasCurrent,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v12_2contextID,
         0
     }
 };
 
-const SecDbClass v12_metadatakeys_class = {
-    .name = CFSTR("metadatakeys"),
+const SecDbClass v12_2_sync_key_class = {
+    .name = CFSTR("synckeys"),
     .itemclass = false,
     .attrs = {
+        &v10ckzone,
+        &v10syncuuid,
         &v10keyclass,
-        &v11_2actualKeyclass,
-        &v6data,
-        &v12_metadatakeydata,
+        &v10currentkey,
+        &v10parentKeyUUID,
+        &v10state,
+        &v10wrappedkey,
+        &v10encodedCKRecord,
+        &v12_2contextID,
         0
     }
 };
 
-const SecDbClass v12_genp_class = {
-    .name = CFSTR("genp"),
-    .itemclass = true,
+const SecDbClass v12_2_current_key_class = {
+    .name = CFSTR("currentkeys"),
+    .itemclass = false,
     .attrs = {
-        &v6rowid,
-        &v6cdat,
-        &v6mdat,
-        &v6desc,
-        &v6icmt,
-        &v6crtr,
-        &v6type,
-        &v6scrp,
-        &v6labl,
-        &v6alis,
-        &v6invi,
-        &v6nega,
-        &v6cusi,
-        &v6prot,
-        &v6acct,
-        &v6svce,
-        &v6gena,
-        &v6data,
-        &v6agrp,
-        &v6pdmn,
-        &v6sync,
-        &v6tomb,
-        &v6sha1,
-        &v7vwht,
-        &v7tkid,
-        &v6v_Data,
-        &v6v_pk,
-        &v6accc,
-        &v7utomb,
-        &v8musr,
-        &v10itemuuid,
-        &v10sysbound,
-        &v10_1pcsservice,
-        &v10_1pcspublickey,
-        &v10_1pcspublicidentity,
-        &v10_1itempersistentref,
-        &v11_7appclip,
-        &v12_backupUUID,
+        &v12_2contextID,
+        &v10ckzone,
+        &v10keyclass,
+        &v10currentKeyUUID,
+        &v10encodedCKRecord,
         0
-    },
+    }
 };
 
-const SecDbClass v12_inet_class = {
-    .name = CFSTR("inet"),
-    .itemclass = true,
+const SecDbClass v12_2_ckstate_class = {
+    .name = CFSTR("ckstate"),
+    .itemclass = false,
     .attrs = {
-        &v6rowid,
-        &v6cdat,
-        &v6mdat,
-        &v6desc,
-        &v6icmt,
-        &v6crtr,
-        &v6type,
-        &v6scrp,
-        &v6labl,
-        &v6alis,
-        &v6invi,
-        &v6nega,
-        &v6cusi,
-        &v6prot,
-        &v6acct,
-        &v6sdmn,
-        &v6srvr,
-        &v6ptcl,
-        &v6atyp,
-        &v6port,
-        &v6path,
-        &v6data,
-        &v6agrp,
-        &v6pdmn,
-        &v6sync,
-        &v6tomb,
-        &v6sha1,
-        &v7vwht,
-        &v7tkid,
-        &v6v_Data,
-        &v6v_pk,
-        &v6accc,
-        &v7utomb,
-        &v8musr,
-        &v10itemuuid,
-        &v10sysbound,
-        &v10_1pcsservice,
-        &v10_1pcspublickey,
-        &v10_1pcspublicidentity,
-        &v10_1itempersistentref,
-        &v11_7appclip,
-        &v11_8_bin_notes,
-        &v11_8_bin_history,
-        &v11_8_bin_client0,
-        &v11_8_bin_client1,
-        &v11_8_bin_client2,
-        &v11_8_bin_client3,
-        &v12_backupUUID,
+        &v10ckzone,
+        &v10ckzonecreated,
+        &v10ckzonesubscribed,
+        &v10lastfetchtime,
+        &v10changetoken,
+        &v10ratelimiter,
+        &v10_4lastFixup,
+        &v11_6moreComing,
+        &v11_9_lastscan,
+        &v11_9_extra,
+        &v12_2contextID,
         0
-    },
+    }
 };
 
-const SecDbClass v12_cert_class = {
-    .name = CFSTR("cert"),
-    .itemclass = true,
+const SecDbClass v12_2_current_item_class = {
+    .name = CFSTR("currentitems"),
+    .itemclass = false,
     .attrs = {
-        &v6rowid,
-        &v6cdat,
-        &v6mdat,
-        &v6ctyp,
-        &v6cenc,
-        &v6labl,
-        &v6certalis,
-        &v6subj,
-        &v6issr,
-        &v6slnr,
-        &v6skid,
-        &v6pkhh,
-        &v6data,
-        &v6agrp,
-        &v6pdmn,
-        &v6sync,
-        &v6tomb,
-        &v6sha1,
-        &v7vwht,
-        &v7tkid,
-        &v6v_Data,
-        &v6v_pk,
-        &v6accc,
-        &v7utomb,
-        &v8musr,
-        &v10itemuuid,
-        &v10sysbound,
-        &v10_1pcsservice,
-        &v10_1pcspublickey,
-        &v10_1pcspublicidentity,
-        &v10_1itempersistentref,
-        &v11_7appclip,
-        &v12_backupUUID,
+        &v10ckzone,
+        &v10_1currentPtrIdentifier,
+        &v10_4currentItemUUID,
+        &v10state,
+        &v10encodedCKRecord,
+        &v12_2contextID,
         0
-    },
+    }
+};
+
+const SecDbClass v12_2_ckdevicestate_class = {
+    .name = CFSTR("ckdevicestate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10_2device,
+        &v11_1osversion,
+        &v11_1lastunlock,
+        &v10_2peerid,
+        &v10_2circleStatus,
+        &v11_5octagonpeerid,
+        &v11_5octagonStatus,
+        &v10_2keyState,
+        &v10_2currentTLK,
+        &v10_2currentClassA,
+        &v10_2currentClassC,
+        &v10_1encRecord,
+        &v12_2contextID,
+        0
+    }
+};
+
+const SecDbClass v12_2_tlkshare_class = {
+    .name = CFSTR("tlkshare"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10syncuuid,
+        &v10_5senderPeerID,
+        &v10_5recvPeerID,
+        &v10_5recvPubKey,
+        &v10_5curve,
+        &v10_5poisoned,
+        &v10_5epoch,
+        &v10wrappedkey,
+        &v10_5signature,
+        &v10_1encRecord,
+        &v10_5version,
+        &v12_2contextID,
+        0
+    }
 };
 
 const SecDbClass v12_keys_class = {
@@ -509,7 +490,7 @@ const SecDbClass v12_keys_class = {
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
         &v11_7appclip,
-        &v12_backupUUID,
+        &v12_ggrp,
         0
     }
 };
@@ -530,6 +511,62 @@ const SecDbClass v11_9_ckstate_class = {
         &v11_9_extra,
         0
     }
+};
+
+const SecDbClass v12_inet_class = {
+    .name = CFSTR("inet"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6sdmn,
+        &v6srvr,
+        &v6ptcl,
+        &v6atyp,
+        &v6port,
+        &v6path,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v11_8_bin_notes,
+        &v11_8_bin_history,
+        &v11_8_bin_client0,
+        &v11_8_bin_client1,
+        &v11_8_bin_client2,
+        &v11_8_bin_client3,
+        &v12_ggrp,
+        0
+    },
 };
 
 const SecDbClass v11_8_inet_class = {
@@ -583,6 +620,52 @@ const SecDbClass v11_8_inet_class = {
         &v11_8_bin_client1,
         &v11_8_bin_client2,
         &v11_8_bin_client3,
+        0
+    },
+};
+
+const SecDbClass v12_genp_class = {
+    .name = CFSTR("genp"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6svce,
+        &v6gena,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v12_ggrp,
         0
     },
 };
@@ -677,6 +760,47 @@ const SecDbClass v11_7_inet_class = {
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
         &v11_7appclip,
+        0
+    },
+};
+
+const SecDbClass v12_cert_class = {
+    .name = CFSTR("cert"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6ctyp,
+        &v6cenc,
+        &v6labl,
+        &v6certalis,
+        &v6subj,
+        &v6issr,
+        &v6slnr,
+        &v6skid,
+        &v6pkhh,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v12_ggrp,
         0
     },
 };
@@ -1518,11 +1642,111 @@ const SecDbClass v_identity_class = {
     },
 };
 
+
 /*
- * Version 12.0
- * Add backup/restore mechanism
+ * Version 12.4
  */
-const SecDbSchema v12_0_schema = {
+const SecDbSchema v12_4_schema = {
+    .majorVersion = 12,
+    .minorVersion = 4,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+const SecDbSchema v12_3_schema = {
+    .majorVersion = 12,
+    .minorVersion = 3,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 12.2
+ * Add columns so CKKS can operate more than one sync system with this database
+ */
+const SecDbSchema v12_2_schema = {
+    .majorVersion = 12,
+    .minorVersion = 2,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v12_2_outgoing_queue_class,
+        &v12_2_incoming_queue_class,
+        &v12_2_sync_key_class,
+        &v12_2_ckmirror_class,
+        &v12_2_current_key_class,
+        &v12_2_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v12_2_current_item_class,
+        &v12_2_ckdevicestate_class,
+        &v12_2_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+const SecDbSchema v12_schema = {
     .majorVersion = 12,
     .minorVersion = 0,
     .classes = {
@@ -1549,10 +1773,39 @@ const SecDbSchema v12_0_schema = {
         &v10_4_current_item_class,
         &v11_5_ckdevicestate_class,
         &v10_5_tlkshare_class,
-        &v12_metadatakeys_class,
-        &v12_backupbags_class,
-        &v12_backupkeyclasssigningkeys_class,
-        &v12_backuprecoverysets_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+const SecDbSchema v12_1_schema = {
+    .majorVersion = 12,
+    .minorVersion = 1,
+    .classes = {
+        &v12_genp_class,
+        &v12_inet_class,
+        &v12_cert_class,
+        &v12_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v11_9_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_5_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
         0
     }
 };
@@ -3314,34 +3567,12 @@ static const SecDbSchema v5_schema = {
 
 SecDbSchema const * const * kc_schemas = NULL;
 
-const SecDbSchema *v10_kc_schemas_dev[] = {
-    &v12_0_schema,
-    &v11_9_schema,
-    &v11_8_schema,
-    &v11_7_schema,
-    &v11_6_schema,
-    &v11_5_schema,
-    &v11_4_schema,
-    &v11_3_schema,
-    &v11_2_schema,
-    &v11_1_schema,
-    &v11_schema,
-    &v10_5_schema,
-    &v10_4_schema,
-    &v10_3_schema,
-    &v10_2_schema,
-    &v10_1_schema,
-    &v10_0_schema,
-    &v9_1_schema,
-    &v9_schema,
-    &v8_schema,
-    &v7_schema,
-    &v6_schema,
-    &v5_schema,
-    0
-};
-
 const SecDbSchema *v10_kc_schemas[] = {
+    &v12_4_schema,
+    &v12_3_schema,
+    &v12_2_schema,
+    &v12_1_schema,
+    &v12_schema,
     &v11_9_schema,
     &v11_8_schema,
     &v11_7_schema,
@@ -3367,20 +3598,8 @@ const SecDbSchema *v10_kc_schemas[] = {
     0
 };
 
-const SecDbSchema * const * all_schemas() {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        if (checkV12DevEnabled()) {
-            secwarning("SecItemSchema: v12 development enabled, returning experimental schema");
-        } else {
-            secnotice("SecItemSchema", "v12 development disabled, returning production schemas");
-        }
-    });
-    if (checkV12DevEnabled() != 0) {
-        return v10_kc_schemas_dev;
-    } else {
-        return v10_kc_schemas;
-    }
+const SecDbSchema * const * all_schemas(void) {
+    return v10_kc_schemas;
 }
 
 // For tests
@@ -3390,12 +3609,16 @@ void set_current_schema_index(int idx) {
     current_schema_index = idx;
 }
 
+bool current_schema_index_is_set_for_testing(void) {
+    return current_schema_index != 0;
+}
+
 void reset_current_schema_index(void) {
     current_schema_index = 0;
 }
 
 
-const SecDbSchema* current_schema() {
+const SecDbSchema* current_schema(void) {
     // For now, the current schema is the first in the list.
     return all_schemas()[current_schema_index];
 }
@@ -3410,52 +3633,47 @@ static const SecDbClass* find_class(const SecDbSchema* schema, CFStringRef class
     return NULL;
 }
 
-const SecDbClass* genp_class() {
+static const SecDbClass* find_class_helper(CFStringRef class_name, dispatch_once_t* oncePtr, const SecDbClass** ptr) {
+    if (current_schema_index_is_set_for_testing()) {
+        // for testing, recalculate every time
+        return find_class(current_schema(), class_name);
+    }
+    // otherwise, not testing, set it once and reuse the value
+    dispatch_once(oncePtr, ^{
+        *ptr = find_class(all_schemas()[0], class_name);
+    });
+    return *ptr;
+}
+const SecDbClass* genp_class(void) {
     static const SecDbClass* genp = NULL;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        genp = find_class(current_schema(), CFSTR("genp"));
-    });
-    return genp;
+    return find_class_helper(CFSTR("genp"), &onceToken, &genp);
 }
-const SecDbClass* inet_class() {
+const SecDbClass* inet_class(void) {
     static const SecDbClass* inet = NULL;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        inet = find_class(current_schema(), CFSTR("inet"));
-    });
-    return inet;
+    return find_class_helper(CFSTR("inet"), &onceToken, &inet);
 }
-const SecDbClass* cert_class() {
+const SecDbClass* cert_class(void) {
     static const SecDbClass* cert = NULL;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        cert = find_class(current_schema(), CFSTR("cert"));
-    });
-    return cert;
+    return find_class_helper(CFSTR("cert"), &onceToken, &cert);
 }
-const SecDbClass* keys_class() {
+const SecDbClass* keys_class(void) {
     static const SecDbClass* keys = NULL;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        keys = find_class(current_schema(), CFSTR("keys"));
-    });
-    return keys;
+    return find_class_helper(CFSTR("keys"), &onceToken, &keys);
 }
 
 // Not really a class per-se
-const SecDbClass* identity_class() {
+const SecDbClass* identity_class(void) {
     return &v_identity_class;
 }
 
 // Class with 1 element in it which is the database version->
-const SecDbClass* tversion_class() {
+const SecDbClass* tversion_class(void) {
     static const SecDbClass* tversion = NULL;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        tversion = find_class(current_schema(), CFSTR("tversion"));
-    });
-    return tversion;
+    return find_class_helper(CFSTR("tversion"), &onceToken, &tversion);
 }
-
 

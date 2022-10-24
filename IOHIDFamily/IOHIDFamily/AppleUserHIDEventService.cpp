@@ -400,7 +400,7 @@ IOHIDEvent * AppleUserHIDEventService::copyEvent(
         if (type == kIOHIDEventTypeKeyboard) {
             
             SET_DICT_NUM (matchingDict, kIOHIDUsagePageKey, matching->getIntegerValue(kIOHIDEventFieldKeyboardUsagePage));
-            SET_DICT_NUM (matchingDict, kIOHIDUsageKey, matching->getIntegerValue(kIOHIDEventFieldKeyboardUsagePage));
+            SET_DICT_NUM (matchingDict, kIOHIDUsageKey, matching->getIntegerValue(kIOHIDEventFieldKeyboardUsage));
         } else if (type == kIOHIDEventTypeBiometric) {
             
             SET_DICT_NUM (matchingDict, kIOHIDUsagePageKey, matching->getIntegerValue(kIOHIDEventFieldBiometricUsagePage));

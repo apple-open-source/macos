@@ -302,6 +302,10 @@ main(int argc, char **argv)
 		list();
 		break;
 	}
+#ifdef __APPLE__
+	if (exit_val == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	return(exit_val);
 }
 
@@ -397,6 +401,8 @@ gen_init(void)
 	 * deal with any file size limit through failed writes. Cpu time
 	 * limits are caught and a cleanup is forced.
 	 */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
 	if ((sigemptyset(&s_mask) < 0) || (sigaddset(&s_mask, SIGTERM) < 0) ||
 	    (sigaddset(&s_mask,SIGINT) < 0)||(sigaddset(&s_mask,SIGHUP) < 0) ||
 	    (sigaddset(&s_mask,SIGPIPE) < 0)||(sigaddset(&s_mask,SIGQUIT)<0) ||
@@ -404,6 +410,7 @@ gen_init(void)
 		paxwarn(1, "Unable to set up signal mask");
 		return(-1);
 	}
+#pragma clang diagnostic pop
 	memset(&n_hand, 0, sizeof n_hand);
 	n_hand.sa_mask = s_mask;
 	n_hand.sa_flags = 0;

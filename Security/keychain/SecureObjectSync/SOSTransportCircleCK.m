@@ -2,7 +2,6 @@
 //  SOSTransportCircleCK.m
 //  Security
 //
-//  Created by Michelle Auricchio on 12/23/16.
 //
 //
 

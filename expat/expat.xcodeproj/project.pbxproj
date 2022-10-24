@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		449F8B31285CEF5D0023BFE2 /* Fuzzers */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 449F8B32285CEF5D0023BFE2 /* Build configuration list for PBXAggregateTarget "Fuzzers" */;
+			buildPhases = (
+			);
+			dependencies = (
+				449F8B35285CEF650023BFE2 /* PBXTargetDependency */,
+				449F8B54285CF04F0023BFE2 /* PBXTargetDependency */,
+				449F8B56285CF0540023BFE2 /* PBXTargetDependency */,
+			);
+			name = Fuzzers;
+			productName = Fuzzers;
+		};
 		FD18B1BD1485AC5F00BBAEF9 /* expat_libs */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD18B1C01485AC5F00BBAEF9 /* Build configuration list for PBXAggregateTarget "expat_libs" */;
@@ -21,6 +34,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		449F8B40285CEF9F0023BFE2 /* xml_parse_fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 449F8B2F285CEF420023BFE2 /* xml_parse_fuzzer.c */; };
+		449F8B4B285CEFC60023BFE2 /* xml_parsebuffer_fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */; };
+		449F8B4F285CEFDC0023BFE2 /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
+		449F8B52285CEFE70023BFE2 /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
 		FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D01485AD7300BBAEF9 /* xmlparse.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D11485AD7300BBAEF9 /* xmlrole.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D21485AD7300BBAEF9 /* xmltok.c */; settings = {COMPILER_FLAGS = "-Wno-missing-field-initializers -Wno-unused-parameter"; }; };
@@ -41,6 +58,41 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		449F8B34285CEF650023BFE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD18B1C51485AC7200BBAEF9;
+			remoteInfo = expat;
+		};
+		449F8B4C285CEFD60023BFE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD18B1C51485AC7200BBAEF9;
+			remoteInfo = expat;
+		};
+		449F8B50285CEFE20023BFE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD18B1C51485AC7200BBAEF9;
+			remoteInfo = expat;
+		};
+		449F8B53285CF04F0023BFE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 449F8B39285CEF8A0023BFE2;
+			remoteInfo = xml_parse_fuzzer;
+		};
+		449F8B55285CF0540023BFE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 449F8B44285CEFB70023BFE2;
+			remoteInfo = xml_parsebuffer_fuzzer;
+		};
 		FD18B1D61485AD8C00BBAEF9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
@@ -76,6 +128,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		449F8B2F285CEF420023BFE2 /* xml_parse_fuzzer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xml_parse_fuzzer.c; sourceTree = "<group>"; };
+		449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xml_parsebuffer_fuzzer.c; sourceTree = "<group>"; };
+		449F8B3A285CEF8A0023BFE2 /* xml_parse_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xml_parse_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		449F8B45285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xml_parsebuffer_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3918430267417350089F3E1 /* siphash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = siphash.h; path = expat/lib/siphash.h; sourceTree = "<group>"; };
 		FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libexpat.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD18B1D01485AD7300BBAEF9 /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = expat/lib/xmlparse.c; sourceTree = "<group>"; };
@@ -101,6 +157,22 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		449F8B37285CEF8A0023BFE2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				449F8B4F285CEFDC0023BFE2 /* libexpat.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		449F8B42285CEFB70023BFE2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				449F8B52285CEFE70023BFE2 /* libexpat.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD18B1C31485AC7200BBAEF9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -111,6 +183,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		449F8B2E285CEED90023BFE2 /* fuzz */ = {
+			isa = PBXGroup;
+			children = (
+				449F8B2F285CEF420023BFE2 /* xml_parse_fuzzer.c */,
+				449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */,
+			);
+			name = fuzz;
+			path = expat/fuzz;
+			sourceTree = "<group>";
+		};
 		FD18B1B11485AC2600BBAEF9 = {
 			isa = PBXGroup;
 			children = (
@@ -126,6 +208,8 @@
 			isa = PBXGroup;
 			children = (
 				FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */,
+				449F8B3A285CEF8A0023BFE2 /* xml_parse_fuzzer */,
+				449F8B45285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -133,6 +217,7 @@
 		FD18B1D81485AD9E00BBAEF9 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				449F8B2E285CEED90023BFE2 /* fuzz */,
 				FD18B1D91485ADA500BBAEF9 /* lib */,
 			);
 			name = Source;
@@ -188,6 +273,40 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		449F8B39285CEF8A0023BFE2 /* xml_parse_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 449F8B3E285CEF8A0023BFE2 /* Build configuration list for PBXNativeTarget "xml_parse_fuzzer" */;
+			buildPhases = (
+				449F8B36285CEF8A0023BFE2 /* Sources */,
+				449F8B37285CEF8A0023BFE2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				449F8B4D285CEFD60023BFE2 /* PBXTargetDependency */,
+			);
+			name = xml_parse_fuzzer;
+			productName = xml_parse_fuzzer;
+			productReference = 449F8B3A285CEF8A0023BFE2 /* xml_parse_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		449F8B44285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 449F8B49285CEFB70023BFE2 /* Build configuration list for PBXNativeTarget "xml_parsebuffer_fuzzer" */;
+			buildPhases = (
+				449F8B41285CEFB70023BFE2 /* Sources */,
+				449F8B42285CEFB70023BFE2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				449F8B51285CEFE20023BFE2 /* PBXTargetDependency */,
+			);
+			name = xml_parsebuffer_fuzzer;
+			productName = xml_parsebuffer_fuzzer;
+			productReference = 449F8B45285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
 		FD18B1C51485AC7200BBAEF9 /* expat */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FD18B1C81485AC7200BBAEF9 /* Build configuration list for PBXNativeTarget "expat" */;
@@ -215,6 +334,20 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0440;
+				TargetAttributes = {
+					449F8B31285CEF5D0023BFE2 = {
+						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
+					};
+					449F8B39285CEF8A0023BFE2 = {
+						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
+					};
+					449F8B44285CEFB70023BFE2 = {
+						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FD18B1B61485AC2600BBAEF9 /* Build configuration list for PBXProject "expat" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -231,6 +364,9 @@
 			targets = (
 				FD18B1BD1485AC5F00BBAEF9 /* expat_libs */,
 				FD18B1C51485AC7200BBAEF9 /* expat */,
+				449F8B31285CEF5D0023BFE2 /* Fuzzers */,
+				449F8B39285CEF8A0023BFE2 /* xml_parse_fuzzer */,
+				449F8B44285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */,
 			);
 		};
 /* End PBXProject section */
@@ -253,6 +389,22 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		449F8B36285CEF8A0023BFE2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				449F8B40285CEF9F0023BFE2 /* xml_parse_fuzzer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		449F8B41285CEFB70023BFE2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				449F8B4B285CEFC60023BFE2 /* xml_parsebuffer_fuzzer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FD18B1C21485AC7200BBAEF9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -266,6 +418,31 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		449F8B35285CEF650023BFE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD18B1C51485AC7200BBAEF9 /* expat */;
+			targetProxy = 449F8B34285CEF650023BFE2 /* PBXContainerItemProxy */;
+		};
+		449F8B4D285CEFD60023BFE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD18B1C51485AC7200BBAEF9 /* expat */;
+			targetProxy = 449F8B4C285CEFD60023BFE2 /* PBXContainerItemProxy */;
+		};
+		449F8B51285CEFE20023BFE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD18B1C51485AC7200BBAEF9 /* expat */;
+			targetProxy = 449F8B50285CEFE20023BFE2 /* PBXContainerItemProxy */;
+		};
+		449F8B54285CF04F0023BFE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 449F8B39285CEF8A0023BFE2 /* xml_parse_fuzzer */;
+			targetProxy = 449F8B53285CF04F0023BFE2 /* PBXContainerItemProxy */;
+		};
+		449F8B56285CF0540023BFE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 449F8B44285CEFB70023BFE2 /* xml_parsebuffer_fuzzer */;
+			targetProxy = 449F8B55285CF0540023BFE2 /* PBXContainerItemProxy */;
+		};
 		FD18B1D71485AD8C00BBAEF9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD18B1C51485AC7200BBAEF9 /* expat */;
@@ -274,6 +451,119 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		449F8B33285CEF5D0023BFE2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_LIBFUZZER = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		449F8B3F285CEF8A0023BFE2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_LIBFUZZER = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		449F8B4A285CEFB70023BFE2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_LIBFUZZER = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 		FD18B1B91485AC2700BBAEF9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -320,6 +610,30 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		449F8B32285CEF5D0023BFE2 /* Build configuration list for PBXAggregateTarget "Fuzzers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				449F8B33285CEF5D0023BFE2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		449F8B3E285CEF8A0023BFE2 /* Build configuration list for PBXNativeTarget "xml_parse_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				449F8B3F285CEF8A0023BFE2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		449F8B49285CEFB70023BFE2 /* Build configuration list for PBXNativeTarget "xml_parsebuffer_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				449F8B4A285CEFB70023BFE2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FD18B1B61485AC2600BBAEF9 /* Build configuration list for PBXProject "expat" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

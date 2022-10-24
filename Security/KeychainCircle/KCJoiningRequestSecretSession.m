@@ -23,8 +23,6 @@
 
 #if OCTAGON
 #import <Security/OTConstants.h>
-#import "keychain/ot/OTControl.h"
-#import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OctagonControlServer.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
 #import "KeychainCircle/KCJoiningRequestSession+Internal.h"
@@ -58,13 +56,11 @@ typedef enum {
 @property (readwrite) NSData* salt;
 @property (readwrite) NSString* sessionUUID;
 
-#if OCTAGON
-@property (nonatomic, strong) OTControl *otControl;
-#endif
 @property (nonatomic, strong) NSMutableDictionary *defaults;
 @end
 
 @implementation KCJoiningRequestSecretSession : NSObject
+@synthesize altDSID = _altDSID;
 
 
 - (nullable NSData*) createUUID
@@ -133,9 +129,23 @@ typedef enum {
 
     self->_session = [KCAESGCMDuplexSession sessionAsSender:key context:self.dsid];
     self.session.pairingUUID = self.sessionUUID;
+    self.session.altDSID = self.altDSID;
     self.session.piggybackingVersion = self.piggy_version;
 
     return self.session != nil;
+}
+
+- (NSString*)altDSID
+{
+    return _altDSID;
+}
+
+- (void)setAltDSID:(NSString*)altDSID
+{
+    _altDSID = altDSID;
+
+    // The session may or may not exist at this point. If it doesn't, we'll inject the altDSID at creation time.
+    self.session.altDSID = altDSID;
 }
 
 - (nullable NSData*) copyResponseForChallenge:(NSData*) challenge
@@ -200,6 +210,7 @@ typedef enum {
 
     // The session may or may not exist at this point. If it doesn't, the version will be set at object creation time.
     self.session.piggybackingVersion = self.piggy_version;
+    self.session.altDSID = self.altDSID;
 
     if (self.piggy_version == kPiggyV2){
         OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData: [message secondData]];
@@ -328,7 +339,6 @@ typedef enum {
 
 #if OCTAGON
         self->_piggy_version = kPiggyV2;
-        self->_otControl = [OTControl controlObject:true error:error];
 
         _sessionUUID = [[NSUUID UUID] UUIDString];
 #else
@@ -359,12 +369,5 @@ typedef enum {
 - (NSString *)description {
     return [NSString stringWithFormat: @"<KCJoiningAcceptSession@%p %lld %@ %@>", self, self.dsid, [self stateString], self.context];
 }
-#if OCTAGON
-/* for test */
--(void)setControlObject:(OTControl*)control
-{
-    self.otControl = control;
-}
-#endif
 
 @end

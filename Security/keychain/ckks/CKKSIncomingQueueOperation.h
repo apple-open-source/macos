@@ -28,6 +28,7 @@
 #import "keychain/ckks/CKKSOperationDependencies.h"
 #import "keychain/ckks/CKKSMemoryKeyCache.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -55,6 +56,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Use this to turn a CKKS item into a keychain dictionary suitable for keychain insertion
 + (NSDictionary* _Nullable)decryptCKKSItemToAttributes:(CKKSItem*)item
                                               keyCache:(CKKSMemoryKeyCache* _Nullable)keyCache
+                           ckksOperationalDependencies:(CKKSOperationDependencies*)ckksOperationalDependencies
                                                  error:(NSError**)error;
 
 @end

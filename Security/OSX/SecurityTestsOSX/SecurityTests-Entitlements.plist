@@ -6,6 +6,8 @@
 	<true/>
 	<key>com.apple.security.attestation.access</key>
 	<true/>
+	<key>com.apple.private.playgrounds-local-signing-allowed</key>
+	<true/>
 	<key>keychain-cloud-circle</key>
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>

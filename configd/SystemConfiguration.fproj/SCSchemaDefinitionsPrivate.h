@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,7 @@
  *   kSCPropConfirmedInterfaceName                      "ConfirmedInterfaceName"       CFString
  *   kSCPropDisableUntilNeeded                          "DisableUntilNeeded"           CFNumber (0 or 1)
  *   kSCPropDisablePrivateRelay                         "DisablePrivateRelay"          CFNumber (0 or 1)
+ *   kSCPropEnableLowDataMode                           "EnableLowDataMode"            CFNumber (0 or 1)
  *
  * Preference Keys
  *
@@ -370,6 +371,13 @@ extern const CFStringRef kSCPropDisableUntilNeeded                          API_
  */
 extern const CFStringRef kSCPropDisablePrivateRelay                         API_AVAILABLE(macos(12.0)) SPI_AVAILABLE(ios(15.0), tvos(15.0), watchos(8.0), bridgeos(6.0));
 #define kSCPropDisablePrivateRelay kSCPropDisablePrivateRelay
+
+/*!
+  @const kSCPropEnableLowDataMode
+  @discussion Value is a CFNumber (0 or 1)
+ */
+extern const CFStringRef kSCPropEnableLowDataMode                           API_AVAILABLE(macos(13.0)) SPI_AVAILABLE(ios(16.0), tvos(16.0), watchos(9.0), bridgeos(7.0));
+#define kSCPropEnableLowDataMode kSCPropEnableLowDataMode
 
 /*!
   @group Preference Keys

@@ -1,9 +1,0 @@
-*~
-build/
-.DS_Store
-*.xcodeproj/*.mode*
-*.xcodeproj/*.pbxuser
-*.xcodeproj/*.perspectivev3
-*.xcodeproj/project.xcworkspace
-*.xcodeproj/xcuserdata
-*.xcodeproj/xcshareddata

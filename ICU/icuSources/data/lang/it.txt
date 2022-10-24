@@ -45,6 +45,7 @@ it{
         an{"aragonese"}
         ang{"inglese antico"}
         anp{"angika"}
+        apw{"apache occidentale"}
         ar{"arabo"}
         ar_001{"arabo moderno standard"}
         arc{"aramaico"}
@@ -310,6 +311,7 @@ it{
         kpe{"kpelle"}
         kr{"kanuri"}
         krc{"karachay-Balkar"}
+        kri{"krio"}
         krl{"careliano"}
         kru{"kurukh"}
         ks{"kashmiri"}
@@ -464,7 +466,7 @@ it{
         pt_PT{"portoghese europeo"}
         qu{"quechua"}
         quc{"k’iche’"}
-        qug{"quechua dell’altopiano del Chimborazo"}
+        qug{"quechua dell'altopiano del Chimborazo"}
         raj{"rajasthani"}
         rap{"rapanui"}
         rar{"rarotonga"}

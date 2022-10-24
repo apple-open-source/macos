@@ -6,7 +6,7 @@
 ** This file is in the public domain, so clarified as of
 ** 1996-06-05 by Arthur David Olson.
 **
-** $FreeBSD: head/contrib/tzcode/stdtime/tzfile.h 192625 2009-05-23 06:31:50Z edwin $
+** $FreeBSD$
 */
 
 /*
@@ -34,19 +34,11 @@ static char	tzfilehid[] = "@(#)tzfile.h	8.1";
 */
 
 #ifndef TZDIR
-#ifdef UNIFDEF_TZDIR_SYMLINK
-#define TZDIR	"/var/db/timezone/zoneinfo" /* Time zone object file directory */
-#else /* !UNIFDEF_TZDIR_SYMLINK */
 #define TZDIR	"/usr/share/zoneinfo" /* Time zone object file directory */
-#endif /* UNIFDEF_TZDIR_SYMLINK */
 #endif /* !defined TZDIR */
 
 #ifndef TZDEFAULT
-#ifdef UNIFDEF_MOVE_LOCALTIME
-#define TZDEFAULT	"/var/db/timezone/localtime"
-#else /* !UNIFDEF_MOVE_LOCALTIME */
 #define TZDEFAULT	"/etc/localtime"
-#endif /* UNIFDEF_MOVE_LOCALTIME */
 #endif /* !defined TZDEFAULT */
 
 #ifndef TZDEFRULES

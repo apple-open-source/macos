@@ -131,7 +131,11 @@ static void
 test_syntax_error (format, arg)
      char *format, *arg;
 {
-  builtin_error (format, arg);
+  if (arg)
+    builtin_error (fmtcheck(format, "%s"), arg);
+  else
+    builtin_error ("%s", format);
+
   test_exit (TEST_ERREXIT_STATUS);
 }
 

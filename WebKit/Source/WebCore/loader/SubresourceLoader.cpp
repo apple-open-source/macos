@@ -39,13 +39,13 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTTPParsers.h"
+#include "InspectorNetworkAgent.h"
 #include "LinkLoader.h"
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "Page.h"
 #include "ResourceLoadObserver.h"
 #include "ResourceTiming.h"
-#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
@@ -84,15 +84,29 @@ namespace WebCore {
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, subresourceLoaderCounter, ("SubresourceLoader"));
 
 SubresourceLoader::RequestCountTracker::RequestCountTracker(CachedResourceLoader& cachedResourceLoader, const CachedResource& resource)
-    : m_cachedResourceLoader(cachedResourceLoader)
-    , m_resource(resource)
+    : m_cachedResourceLoader(&cachedResourceLoader)
+    , m_resource(&resource)
 {
-    m_cachedResourceLoader.incrementRequestCount(m_resource);
+    cachedResourceLoader.incrementRequestCount(resource);
+}
+
+SubresourceLoader::RequestCountTracker::RequestCountTracker(RequestCountTracker&& other)
+    : m_cachedResourceLoader(std::exchange(other.m_cachedResourceLoader, nullptr))
+    , m_resource(std::exchange(other.m_resource, nullptr))
+{
+}
+
+auto SubresourceLoader::RequestCountTracker::operator=(RequestCountTracker&& other) -> RequestCountTracker&
+{
+    m_cachedResourceLoader = std::exchange(other.m_cachedResourceLoader, nullptr);
+    m_resource = std::exchange(other.m_resource, nullptr);
+    return *this;
 }
 
 SubresourceLoader::RequestCountTracker::~RequestCountTracker()
 {
-    m_cachedResourceLoader.decrementRequestCount(m_resource);
+    if (m_cachedResourceLoader && m_resource)
+        m_cachedResourceLoader->decrementRequestCount(*m_resource);
 }
 
 SubresourceLoader::SubresourceLoader(Frame& frame, CachedResource& resource, const ResourceLoaderOptions& options)
@@ -361,7 +375,7 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(policyCompletionHandler));
 
     if (response.containsInvalidHTTPHeaders()) {
-        didFail(ResourceError(errorDomainWebKitInternal, 0, request().url(), "Response contained invalid HTTP headers", ResourceError::Type::General));
+        didFail(ResourceError(errorDomainWebKitInternal, 0, request().url(), "Response contained invalid HTTP headers"_s, ResourceError::Type::General));
         return;
     }
 
@@ -766,7 +780,7 @@ void SubresourceLoader::didFail(const ResourceError& error)
     ASSERT(!reachedTerminalState());
     LOG(ResourceLoading, "Failed to load '%s'.\n", m_resource->url().string().latin1().data());
 
-    if (m_frame->document() && error.isAccessControl() && m_resource->type() != CachedResource::Type::Ping)
+    if (m_frame->document() && error.isAccessControl() && error.domain() != InspectorNetworkAgent::errorDomain() && m_resource->type() != CachedResource::Type::Ping)
         m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, error.localizedDescription());
 
     Ref<SubresourceLoader> protectedThis(*this);

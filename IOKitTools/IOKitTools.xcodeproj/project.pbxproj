@@ -24,6 +24,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		186EEFE12797464D0047061A /* perfdata.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 186EEFE02797464D0047061A /* perfdata.framework */; };
 		2D7D902408F4AF3C003CF2E8 /* ioalloccount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF609805585D4100A48F3A /* ioalloccount.8 */; };
 		2D7D902508F4AF3C003CF2E8 /* ioclasscount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF608505585D4100A48F3A /* ioclasscount.8 */; };
 		2D7D902608F4AF3C003CF2E8 /* ioreg.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF603805585D4100A48F3A /* ioreg.8 */; };
@@ -82,6 +83,8 @@
 
 /* Begin PBXFileReference section */
 		056F26F20AFBD911006CB74E /* libMallocDebug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libMallocDebug.a; path = /usr/lib/libMallocDebug.a; sourceTree = "<absolute>"; };
+		186EEFE02797464D0047061A /* perfdata.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = perfdata.framework; path = System/Library/PrivateFrameworks/perfdata.framework; sourceTree = SDKROOT; };
+		186EEFE2279746590047061A /* perfdata.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = perfdata.framework; path = System/Library/PrivateFrameworks/perfdata.framework; sourceTree = SDKROOT; };
 		2D7D902D08F4AFC7003CF2E8 /* ioreg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioreg; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D7D915008F4B017003CF2E8 /* ioclasscount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioclasscount; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D7D916108F4B07A003CF2E8 /* ioalloccount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioalloccount; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -113,6 +116,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				186EEFE12797464D0047061A /* perfdata.framework in Frameworks */,
 				52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */,
 				2D7D915608F4B076003CF2E8 /* CoreFoundation.framework in Frameworks */,
 				2D7D915708F4B076003CF2E8 /* IOKit.framework in Frameworks */,
@@ -132,6 +136,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		186EEFDF2797464D0047061A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				186EEFE02797464D0047061A /* perfdata.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		97CF601A05585D4100A48F3A /* IOKitTools */ = {
 			isa = PBXGroup;
 			children = (
@@ -140,6 +152,7 @@
 				97CF608605585D4100A48F3A /* ioalloccount */,
 				97CF609905585D4100A48F3A /* External Frameworks and Libraries */,
 				97CF602B05585D4100A48F3A /* Products */,
+				186EEFDF2797464D0047061A /* Frameworks */,
 			);
 			name = IOKitTools;
 			sourceTree = "<group>";
@@ -191,6 +204,7 @@
 				056F26F20AFBD911006CB74E /* libMallocDebug.a */,
 				97CF60D005585DC900A48F3A /* libncurses.dylib */,
 				97CF609C05585D4100A48F3A /* IOKit.framework */,
+				186EEFE2279746590047061A /* perfdata.framework */,
 				97CF60A305585D4100A48F3A /* CoreFoundation.framework */,
 				97CF60A805585D4100A48F3A /* System.framework */,
 			);
@@ -261,6 +275,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 97CF601A05585D4100A48F3A /* IOKitTools */;
@@ -335,6 +350,7 @@
 				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wshorten-64-to-32",
+					"-Wformat-nonliteral",
 					"-Wall",
 				);
 			};
@@ -350,6 +366,7 @@
 				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wshorten-64-to-32",
+					"-Wformat-nonliteral",
 					"-Wall",
 				);
 			};
@@ -399,6 +416,7 @@
 				);
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Development;
 		};
@@ -413,6 +431,7 @@
 				);
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Deployment;
 		};

@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #if __has_include(<UserManagement/UserManagement.h>)
 #import <UserManagement/UserManagement.h>
 #endif
@@ -36,6 +38,16 @@
     if((self = [super init])) {
     }
     return self;
+}
+
+- (NSString* _Nullable)currentThreadPersonaUniqueString
+{
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+    UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
+    return persona.userPersonaUniqueString;
+#else
+    return nil;
+#endif  // KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
 }
 
 - (BOOL)currentThreadIsForPrimaryiCloudAccount
@@ -60,18 +72,12 @@
         case UMUserPersonaTypePersonal:
         case UMUserPersonaTypeInvalid:
             return YES;
-            break;
-
             /*
              * Guests and enterprise accounts are not for the primary account.
              */
         case UMUserPersonaTypeGuest:
         case UMUserPersonaTypeEnterprise:
-            secnotice("persona", "Persona is guest/enterprise; rejecting: %@(%d)",
-                      persona.userPersonaUniqueString,
-                      (int)persona.userPersonaType);
             return NO;
-            break;
 
         case UMUserPersonaTypeUniversal:
         case UMUserPersonaTypeManaged:
@@ -80,11 +86,48 @@
                       persona.userPersonaUniqueString,
                       (int)persona.userPersonaType);
             return NO;
-            break;
     }
 
 #else
     return YES;
 #endif
 }
+
+
+- (void)prepareThreadForKeychainAPIUseForPersonaIdentifier:(NSString* _Nullable)personaUniqueString
+{
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+    NSError* error = [[UMUserPersona currentPersona] generateAndRestorePersonaContextWithPersonaUniqueString:personaUniqueString];
+
+    if(error != nil) {
+        secnotice("ckks-persona", "Unable to adopt persona %@: %@", personaUniqueString, error);
+    } else {
+        secnotice("ckks-persona", "Adopted persona for id '%@'", personaUniqueString);
+    }
+#endif
+}
+
+
+- (void)performBlockWithPersonaIdentifier:(NSString* _Nullable)personaUniqueString
+                                     block:(void (^) (void)) block
+{
+#if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
+    NSString* oldPersonaString = [self currentThreadPersonaUniqueString];
+    if([personaUniqueString isEqualToString: oldPersonaString]) {
+        block();
+        return;
+    }
+    
+    [self prepareThreadForKeychainAPIUseForPersonaIdentifier: personaUniqueString];
+    block();
+    [self prepareThreadForKeychainAPIUseForPersonaIdentifier: oldPersonaString];
+    
+#else
+    block();
+#endif
+}
+
+
 @end
+
+#endif // Octagon

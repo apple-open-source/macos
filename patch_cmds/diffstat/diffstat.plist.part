@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>diffstat</string>
+		<key>OpenSourceVersion</key>
+		<string>1.64</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://invisible-island.net/diffstat/</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://invisible-island.net/diffstat/diffstat.tgz</string>
+		<key>OpenSourceSHA1</key>
+		<string>15f36ede82c4d3e3a36de769011a8a2c240548b3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-01-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Added manually-generated config.h file.</string>
+			<string>Build with -D_DARWIN_C_SOURCE to fix a warning.</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>patch_cmds.txt</string>
+	</dict>

@@ -37,12 +37,12 @@
     readonly attribute MediaStreamTrack? track;
     readonly attribute RTCDtlsTransport? transport;
 
-    [CallWith=ScriptExecutionContext] static RTCRtpCapabilities? getCapabilities(DOMString kind);
+    [CallWith=CurrentScriptExecutionContext] static RTCRtpCapabilities? getCapabilities(DOMString kind);
     RTCRtpSendParameters getParameters();
     Promise<undefined> setParameters(RTCRtpSendParameters parameters);
     Promise<undefined> replaceTrack(MediaStreamTrack? withTrack);
     undefined setStreams(MediaStream... streams);
     Promise<RTCStatsReport> getStats();
 
-    [Conditional=WEB_RTC, EnabledAtRuntime=WebRTCDTMFEnabled] readonly attribute RTCDTMFSender? dtmf;
+    [Conditional=WEB_RTC, EnabledByDeprecatedGlobalSetting=WebRTCDTMFEnabled] readonly attribute RTCDTMFSender? dtmf;
 };

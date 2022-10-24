@@ -73,7 +73,6 @@ class CertTools
   attr_reader :build_dir
   attr_reader :project_dir
   attr_reader :certificate_dir
-  attr_reader :distrusted_certs_dir
   attr_reader :revoked_certs_dir
   attr_reader :root_certs_dir
   attr_reader :intermediate_certs_dir
@@ -88,13 +87,11 @@ class CertTools
     @build_dir = ENV["BUILT_PRODUCTS_DIR"]
     @project_dir = ENV["PROJECT_DIR"]
     @certificate_dir = File.join(@project_dir, "../certificates")
-      
-    @distrusted_certs_dir = File.join(certificate_dir, "distrusted")
+
     @revoked_certs_dir = File.join(certificate_dir, "revoked")
     @root_certs_dir = File.join(certificate_dir, "roots")
     @intermediate_certs_dir = File.join(certificate_dir, "removed/intermediates")
-   
-    Utilities.check_path(@distrusted_certs_dir)
+
     Utilities.check_path(@revoked_certs_dir)
     Utilities.check_path(@root_certs_dir)
     Utilities.check_path(@intermediate_certs_dir)
@@ -113,7 +110,6 @@ class CertTools
       puts "@build_dir = #{@build_dir}"
       puts "@project_dir = #{@project_dir}"
       puts "@certificate_dir = #{@certificate_dir}"
-      puts "@distrusted_certs_dir = #{@distrusted_certs_dir}"
       puts "@revoked_certs_dir = #{@revoked_certs_dir}"
       puts "@root_certs_dir = #{@root_certs_dir}"
       puts "@intermediate_certs_dir = #{@intermediate_certs_dir}"
@@ -137,11 +133,6 @@ class CertTools
   # Get the directory path to the project directory
   def self.project_dir
     CertTools.instance.project_dir
-  end
-
-  # Get the directory path to the distrusted certs directory
-  def self.distrusted_certs_dir
-     CertTools.instance.distrusted_certs_dir
   end
 
   # Get the directory path to the revoked directory
@@ -323,11 +314,6 @@ class BuildRootKeychains
     end
   end
 
-  # Process the distrusted certificates
-  def distrust_certs()
-    process_certs("Explicitly distrusting certs", CertTools.distrusted_certs_dir, false)
-  end
-
   # Process the revoked certificates
   def revoked_certs()
     process_certs("Explicitly revoking certs", CertTools.revoked_certs_dir, true)
@@ -382,7 +368,6 @@ class BuildRootKeychains
     Utilities.bail("create_setting_file failed") if result != 0
     add_roots()
     Utilities.bail("create_temp_keychain failed") if create_temp_keychain != 0
-    distrust_certs()
     revoked_certs()
     delete_temp_keychain()
     Utilities.bail("check_all_roots_added failed") if !check_all_roots_added

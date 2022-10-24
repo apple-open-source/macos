@@ -54,25 +54,25 @@ void dblog0(char *str)	{
 
 void dblog1(char *str, void *arg1)	{
 	Str255	outStr;
-	sprintf((char *)outStr, str, arg1);
+	snprintf(outStr, sizeof(outStr), str, arg1);
 	logCom(outStr);
 }
 
 void dblog2(char *str, void * arg1, void * arg2)	{
 	Str255	outStr;
-	sprintf((char *)outStr, str, arg1, arg2);
+	snprintf(outStr, sizeof(outStr), str, arg1, arg2);
 	logCom(outStr);
 }
 
 void dblog3(char *str, void * arg1, void * arg2, void * arg3)	{
 	Str255	outStr;
-	sprintf((char *)outStr, str, arg1, arg2, arg3);
+	snprintf(outStr, sizeof(outStr), str, arg1, arg2, arg3);
 	logCom(outStr);
 }
 
 void dblog4(char *str, void * arg1, void * arg2, void * arg3, void * arg4)	{
 	Str255	outStr;
-	sprintf((char *)outStr, str, arg1, arg2, arg3, arg4);
+	snprintf(outStr, sizeof(outStr), str, arg1, arg2, arg3, arg4);
 	logCom(outStr);
 }
 

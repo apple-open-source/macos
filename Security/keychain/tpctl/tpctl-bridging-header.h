@@ -4,6 +4,8 @@
 #import <Security/OTConstants.h>
 
 #import "keychain/ot/OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTAccountsAdapter.h"
+#import "keychain/ot/OTPersonaAdapter.h"
 
 // Needed to interface with IDMS
 #pragma clang diagnostic push

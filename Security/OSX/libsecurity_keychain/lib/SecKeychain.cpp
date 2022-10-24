@@ -437,6 +437,10 @@ OSStatus SecKeychainGetPreferenceDomain(SecPreferencesDomain *domain)
 	
 	*domain = globals().storageManager.domain();
 	
+#if !defined(NDEBUG)
+	secnotice("SecKeychainGetPreferenceDomain", "returning %d", *domain);
+#endif
+
 	END_SECAPI
 }
 
@@ -1705,9 +1709,11 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 			if (result == errAuthorizationSuccess) {
                 secnotice("SecKeychain", "Items count: %d", items->count);
 				if (items->count > 0) {
-					pwd = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)items->items[0].value, kCFStringEncodingUTF8);
+					pwd = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)items->items[0].value, items->items[0].valueLength, kCFStringEncodingUTF8, false);
                     if (pwd) {
                         secnotice("SecKeychain", "Got kcpass");
+                    } else {
+                        secerror("Failed to get kcpass");
                     }
 				}
 				AuthorizationFreeItemSet(items);

@@ -323,12 +323,9 @@ bool ValidateGetCompressedTexImageANGLE(const Context *context,
         return false;
     }
 
-    // Check if format is emulated
-    // TODO(anglebug.com/6177): Check here for all the formats that ANGLE will use to emulate a
-    // compressed texture
-    GLenum implFormat = texture->getImplementationColorReadFormat(context);
-    if (implFormat == GL_RGBA || implFormat == GL_RG || implFormat == GL_RED)
+    if (texture->isCompressedFormatEmulated(context, target, level))
     {
+        // TODO (anglebug.com/7464): We can't currently read back from an emulated format
         context->validationError(entryPoint, GL_INVALID_OPERATION, kInvalidEmulatedFormat);
         return false;
     }
@@ -534,6 +531,62 @@ bool ValidateMultiDrawElementsIndirectEXT(const Context *context,
     }
 
     return true;
+}
+
+bool ValidateDrawArraysInstancedBaseInstanceEXT(const Context *context,
+                                                angle::EntryPoint entryPoint,
+                                                PrimitiveMode mode,
+                                                GLint first,
+                                                GLsizei count,
+                                                GLsizei instanceCount,
+                                                GLuint baseInstance)
+{
+    if (!context->getExtensions().baseInstanceEXT)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateDrawArraysInstancedBase(context, entryPoint, mode, first, count, instanceCount);
+}
+
+bool ValidateDrawElementsInstancedBaseInstanceEXT(const Context *context,
+                                                  angle::EntryPoint entryPoint,
+                                                  PrimitiveMode mode,
+                                                  GLsizei count,
+                                                  DrawElementsType type,
+                                                  void const *indices,
+                                                  GLsizei instancecount,
+                                                  GLuint baseinstance)
+{
+    if (!context->getExtensions().baseInstanceEXT)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, type, indices,
+                                             instancecount);
+}
+
+bool ValidateDrawElementsInstancedBaseVertexBaseInstanceEXT(const Context *context,
+                                                            angle::EntryPoint entryPoint,
+                                                            PrimitiveMode mode,
+                                                            GLsizei count,
+                                                            DrawElementsType typePacked,
+                                                            const void *indices,
+                                                            GLsizei instancecount,
+                                                            GLint basevertex,
+                                                            GLuint baseinstance)
+{
+    if (!context->getExtensions().baseInstanceEXT)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateDrawElementsInstancedBase(context, entryPoint, mode, count, typePacked, indices,
+                                             instancecount);
 }
 
 bool ValidateDrawElementsBaseVertexOES(const Context *context,
@@ -2608,8 +2661,101 @@ bool ValidateEGLImageTargetTexStorageEXT(const Context *context,
                                          GLeglImageOES image,
                                          const GLint *attrib_list)
 {
-    UNREACHABLE();
-    return false;
+    if (!context->getExtensions().EGLImageStorageEXT)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    gl::TextureType targetType = FromGLenum<TextureType>(target);
+    switch (targetType)
+    {
+        case TextureType::External:
+            if (!context->getExtensions().EGLImageExternalOES)
+            {
+                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            }
+            break;
+        case TextureType::CubeMapArray:
+            if (!context->getExtensions().textureCubeMapArrayAny())
+            {
+                context->validationError(entryPoint, GL_INVALID_ENUM, kEnumNotSupported);
+            }
+            break;
+        case TextureType::_2D:
+        case TextureType::_2DArray:
+        case TextureType::_3D:
+        case TextureType::CubeMap:
+            break;
+        default:
+            context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidTextureTarget);
+            return false;
+    }
+
+    // Validate egl source image is valid
+    egl::Image *imageObject = static_cast<egl::Image *>(image);
+    if (!ValidateEGLImageObject(context, entryPoint, targetType, image))
+    {
+        return false;
+    }
+
+    // attrib list validation
+    if (attrib_list != nullptr && attrib_list[0] != GL_NONE)
+    {
+        context->validationError(entryPoint, GL_INVALID_VALUE, kAttributeListNotNull);
+        return false;
+    }
+
+    GLsizei levelCount    = imageObject->getLevelCount();
+    Extents size          = imageObject->getExtents();
+    GLsizei width         = static_cast<GLsizei>(size.width);
+    GLsizei height        = static_cast<GLsizei>(size.height);
+    GLsizei depth         = static_cast<GLsizei>(size.depth);
+    GLenum internalformat = imageObject->getFormat().info->sizedInternalFormat;
+
+    if (width < 1 || height < 1 || depth < 1 || levelCount < 1)
+    {
+        context->validationError(entryPoint, GL_INVALID_VALUE, kTextureSizeTooSmall);
+        return false;
+    }
+
+    if (!ValidateES3TexStorageParametersLevel(context, entryPoint, targetType, levelCount, width,
+                                              height, depth))
+    {
+        // Error already generated.
+        return false;
+    }
+
+    if (targetType == TextureType::External)
+    {
+        const Caps &caps = context->getCaps();
+        if (width > caps.max2DTextureSize || height > caps.max2DTextureSize)
+        {
+            context->validationError(entryPoint, GL_INVALID_VALUE, kResourceMaxTextureSize);
+            return false;
+        }
+    }
+    else if (!ValidateES3TexStorageParametersExtent(context, entryPoint, targetType, levelCount,
+                                                    width, height, depth))
+    {
+        // Error already generated.
+        return false;
+    }
+
+    if (!ValidateES3TexStorageParametersTexObject(context, entryPoint, targetType))
+    {
+        // Error already generated.
+        return false;
+    }
+
+    if (!ValidateES3TexStorageParametersFormat(context, entryPoint, targetType, levelCount,
+                                               internalformat, width, height, depth))
+    {
+        // Error already generated.
+        return false;
+    }
+
+    return true;
 }
 
 bool ValidateAcquireTexturesANGLE(const Context *context,
@@ -2936,5 +3082,23 @@ bool ValidateSelectPerfMonitorCountersAMD(const Context *context,
 
     UNIMPLEMENTED();
     return false;
+}
+
+bool ValidateShadingRateQCOM(const Context *context, angle::EntryPoint entryPoint, GLenum rate)
+{
+    if (!context->getExtensions().shadingRateQCOM)
+    {
+        context->validationError(entryPoint, GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    gl::ShadingRate shadingRate = gl::FromGLenum<gl::ShadingRate>(rate);
+    if (shadingRate == gl::ShadingRate::Undefined || shadingRate == gl::ShadingRate::InvalidEnum)
+    {
+        context->validationError(entryPoint, GL_INVALID_ENUM, kInvalidShadingRate);
+        return false;
+    }
+
+    return true;
 }
 }  // namespace gl

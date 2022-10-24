@@ -1,0 +1,1 @@
+http://ocsp.rcsc.lt/ocspresponder.rcsc

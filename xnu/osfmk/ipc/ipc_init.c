@@ -70,8 +70,6 @@
  *	Functions to initialize the IPC system.
  */
 
-#include <mach_debug.h>
-
 #include <mach/port.h>
 #include <mach/message.h>
 #include <mach/kern_return.h>
@@ -100,7 +98,6 @@
 #include <ipc/ipc_kmsg.h>
 #include <ipc/ipc_hash.h>
 #include <ipc/ipc_init.h>
-#include <ipc/ipc_table.h>
 #include <ipc/ipc_voucher.h>
 #include <ipc/ipc_importance.h>
 #include <ipc/ipc_eventlink.h>
@@ -116,13 +113,7 @@ const vm_size_t ipc_kmsg_max_vm_space = ((IPC_KERNEL_COPY_MAP_SIZE * 7) / 8);
 
 #define IPC_KERNEL_MAP_SIZE      (CONFIG_IPC_KERNEL_MAP_SIZE << 20)
 
-/*
- * values to limit inline message body handling
- * avoid copyin/out limits - even after accounting for maximum descriptor expansion.
- */
-#define IPC_KMSG_MAX_SPACE (64 * 1024 * 1024) /* keep in sync with COPYSIZELIMIT_PANIC */
-const vm_size_t ipc_kmsg_max_body_space = ((IPC_KMSG_MAX_SPACE * 3) / 4 - MAX_TRAILER_SIZE);
-
+/* Note: Consider Developer Mode when changing the default. */
 #if XNU_TARGET_OS_OSX
 #define IPC_CONTROL_PORT_OPTIONS_DEFAULT (ICP_OPTIONS_IMMOVABLE_1P_HARD | ICP_OPTIONS_PINNED_1P_HARD)
 #else
@@ -145,9 +136,9 @@ LCK_ATTR_DECLARE(ipc_lck_attr, 0, 0);
  */
 const vm_size_t msg_ool_size_small = KHEAP_MAX_SIZE;
 __startup_data
-static struct kmem_range ipc_kernel_range;
+static struct mach_vm_range ipc_kernel_range;
 __startup_data
-static struct kmem_range ipc_kernel_copy_range;
+static struct mach_vm_range ipc_kernel_copy_range;
 KMEM_RANGE_REGISTER_STATIC(ipc_kernel_map, &ipc_kernel_range,
     IPC_KERNEL_MAP_SIZE);
 KMEM_RANGE_REGISTER_STATIC(ipc_kernel_copy_map, &ipc_kernel_copy_range,

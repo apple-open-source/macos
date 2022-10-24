@@ -32,8 +32,6 @@
 #import "RemoteMediaPlayerProxyMessages.h"
 #import "WebCoreArgumentCoders.h"
 #import <WebCore/ColorSpaceCG.h>
-#import <WebCore/IOSurface.h>
-#import <WebCore/PixelBufferConformerCV.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/MachSendRight.h>
 
@@ -49,12 +47,13 @@ PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 }
 #endif
 
-void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RetainPtr<CVPixelBufferRef>&& buffer)
+void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RemoteVideoFrameProxy::Properties&& properties)
 {
+    auto videoFrame = RemoteVideoFrameProxy::create(connection(), videoFrameObjectHeapProxy(), WTFMove(properties));
     if (!m_isGatheringVideoFrameMetadata)
         return;
     m_videoFrameMetadata = WTFMove(videoFrameMetadata);
-    m_pixelBufferGatheredWithVideoFrameMetadata = WTFMove(buffer);
+    m_videoFrameGatheredWithVideoFrameMetadata = WTFMove(videoFrame);
 }
 
 RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
@@ -62,32 +61,11 @@ RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
     if (readyState() < MediaPlayer::ReadyState::HaveCurrentData)
         return { };
 
-    if (m_pixelBufferGatheredWithVideoFrameMetadata) {
-        if (!m_pixelBufferConformer)
-            m_pixelBufferConformer = makeUnique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
-        ASSERT(m_pixelBufferConformer);
-        if (!m_pixelBufferConformer)
-            return nullptr;
-        return NativeImage::create(m_pixelBufferConformer->createImageFromPixelBuffer(m_pixelBufferGatheredWithVideoFrameMetadata.get()));
-    }
-
-    std::optional<MachSendRight> sendRight;
-    auto colorSpace = DestinationColorSpace::SRGB();
-    if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime(), Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime::Reply(sendRight, colorSpace), m_id))
+    auto videoFrame = m_videoFrameGatheredWithVideoFrameMetadata ? RefPtr<WebCore::VideoFrame>(m_videoFrameGatheredWithVideoFrameMetadata) : videoFrameForCurrentTime();
+    if (!videoFrame)
         return nullptr;
 
-    if (!sendRight)
-        return nullptr;
-
-    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(*sendRight), colorSpace);
-    if (!surface)
-        return nullptr;
-
-    auto platformImage = WebCore::IOSurface::sinkIntoImage(WTFMove(surface));
-    if (!platformImage)
-        return nullptr;
-
-    return NativeImage::create(WTFMove(platformImage));
+    return WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy().getNativeImage(*videoFrame);
 }
 
 WebCore::DestinationColorSpace MediaPlayerPrivateRemote::colorSpace()

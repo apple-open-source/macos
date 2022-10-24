@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,12 @@ PRIVATE_EXTERN int
 bpf_set_immediate(int fd, u_int value)
 {
     return (ioctl(fd, BIOCIMMEDIATE, &value));
+}
+
+PRIVATE_EXTERN int
+bpf_set_hdrcmplt(int fd, u_int value)
+{
+    return (ioctl(fd, BIOCSHDRCMPLT, &value));
 }
 
 PRIVATE_EXTERN int

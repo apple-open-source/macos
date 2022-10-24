@@ -21,6 +21,7 @@
 #include "JSCContext.h"
 
 #include "APICast.h"
+#include "IntegrityInlines.h"
 #include "JSCClassPrivate.h"
 #include "JSCContextInternal.h"
 #include "JSCContextPrivate.h"
@@ -37,7 +38,7 @@
 #include <wtf/glib/WTFGType.h>
 
 /**
- * SECTION: JSCContext
+ * JSCContext:
  * @short_description: JavaScript execution context
  * @title: JSCContext
  *
@@ -971,7 +972,7 @@ JSCCheckSyntaxResult jsc_context_check_syntax(JSCContext* context, const char* c
     JSC::VM& vm = globalObject->vm();
     JSC::JSLockHolder locker(vm);
 
-    URL sourceURL = uri ? URL({ }, uri) : URL();
+    URL sourceURL = uri ? URL(String::fromLatin1(uri)) : URL();
     JSC::SourceCode source = JSC::makeSource(String::fromUTF8(code, length < 0 ? strlen(code) : length), JSC::SourceOrigin { sourceURL },
         sourceURL.string() , TextPosition(OrdinalNumber::fromOneBasedInt(lineNumber), OrdinalNumber()));
     bool success = false;

@@ -92,7 +92,12 @@ AEP_Patches    = \
 	getaddrinfo-test.diff \
 	empty_files_verifier.diff \
 	deprecate.diff \
-	ruby-gitignore-fix-build.patch
+	ruby-gitignore-fix-build.patch \
+	ruby-bigdecimal-fix-build.patch \
+	ruby-configure-remove-cflags-check.patch \
+	ruby-test-maybe-unused.patch \
+	ruby-socket-extconf.patch \
+	update-mkconfig.rb-host_fields.patch
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)

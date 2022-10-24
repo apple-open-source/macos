@@ -53,19 +53,17 @@ public:
 
 #if ENABLE(SERVICE_CONTROLS)
     void clearServicesMenu();
+    void removeBackgroundFromControlledImage();
 #endif
 
     NSWindow *window() const;
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    CGImageRef copySubjectResult() const final { return m_copySubjectResult.get(); }
+#endif
+
 private:
     WebContextMenuProxyMac(NSView *, WebPageProxy&, ContextMenuContextData&&, const UserData&);
-
-    QuickLookPreviewActivity quickLookPreviewActivity() const final { return m_quickLookPreviewActivity; }
-
-#if ENABLE(IMAGE_ANALYSIS)
-    void insertOrUpdateQuickLookImageItem(const URL& imageURL, Ref<ShareableBitmap>&& imageBitmap, std::optional<WebContextMenuItemData>&&, bool);
-    void updateQuickLookContextMenuItemTitle(const String&);
-#endif
 
     void show() override;
     void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) override;
@@ -78,6 +76,7 @@ private:
     void getShareMenuItem(CompletionHandler<void(NSMenuItem *)>&&);
     void showServicesMenu();
     void setupServicesMenu();
+    void appendRemoveBackgroundItemToControlledImageMenuIfNeeded();
 #endif
 
     NSMenu *platformMenu() const override;
@@ -86,7 +85,9 @@ private:
     RetainPtr<NSMenu> m_menu;
     RetainPtr<WKMenuDelegate> m_menuDelegate;
     WeakObjCPtr<NSView> m_webView;
-    QuickLookPreviewActivity m_quickLookPreviewActivity { QuickLookPreviewActivity::None };
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    RetainPtr<CGImageRef> m_copySubjectResult;
+#endif
 };
 
 } // namespace WebKit

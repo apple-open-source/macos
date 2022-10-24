@@ -1332,6 +1332,7 @@ int read_line(int f, char *buf, size_t maxlen)
 	return maxlen > 0;
 }
 
+__attribute__((format(printf, 2, 3)))
 void io_printf(int fd, const char *format, ...)
 {
 	va_list ap;

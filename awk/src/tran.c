@@ -478,7 +478,7 @@ static char *get_str_val(Cell *vp, char **fmt)        /* get string val of a Cel
 		if (modf(vp->fval, &dtemp) == 0)	/* it's integral */ \
 			snprintf(s, sizeof (s), "%.30g", vp->fval); \
 		else \
-			snprintf(s, sizeof (s), *fmt, vp->fval); \
+			snprintf(s, sizeof (s), fmtcheck(*fmt, "%g"), vp->fval); \
 		vp->sval = tostring(s); \
 		vp->tval &= ~DONTFREE; \
 		vp->tval |= STR; \

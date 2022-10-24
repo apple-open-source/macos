@@ -148,7 +148,7 @@ static void createKeysWithUsage(SecKeyRef *privateKey, SecKeyRef *publicKey, CFT
 
 
 
-static void test_transform_sign_verify() {
+static void test_transform_sign_verify(void) {
     SecKeyRef privateKey = NULL;
     SecKeyRef publicKey = NULL;
     // Create private key instance.

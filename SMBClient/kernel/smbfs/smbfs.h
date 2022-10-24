@@ -39,16 +39,17 @@
 #include <sys/kdebug.h>
 #include <netinet/in.h>
 #include <netsmb/netbios.h>
+#include <netsmb/smb_2.h>
 
-#define SMBFS_VERMAJ	4
+#define SMBFS_VERMAJ	5
 #define SMBFS_VERMIN	0000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 4.0"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 12"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 5.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 13"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
-#define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
+#define	SMBFS_MAXPATHCOMP	1024	/* maximum number of path components */
 
 #include <sys/mount.h>
 
@@ -63,20 +64,20 @@
 
 
 struct ByteRangeLockPB {
-	int64_t	offset;		/* offset to first byte to lock */
-	int64_t	length;		/* nbr of bytes to lock */
-	uint64_t	retRangeStart;	/* nbr of first byte locked if successful */
-	uint8_t	unLockFlag;	/* 1 = unlock, 0 = lock */
-	uint8_t	startEndFlag;	/* 1 = rel to end of fork, 0 = rel to start */
+	int64_t offset;		/* offset to first byte to lock */
+	int64_t length;		/* nbr of bytes to lock */
+	uint64_t retRangeStart;	/* nbr of first byte locked if successful */
+	uint8_t unLockFlag;	/* 1 = unlock, 0 = lock */
+	uint8_t startEndFlag;	/* 1 = rel to end of fork, 0 = rel to start */
 };
 
 struct ByteRangeLockPB2 {
-	int64_t	offset;		/* offset to first byte to lock */
-	int64_t	length;		/* nbr of bytes to lock */
-	uint64_t	retRangeStart;	/* nbr of first byte locked if successful */
-	uint8_t	unLockFlag;	/* 1 = unlock, 0 = lock */
-	uint8_t	startEndFlag;	/* 1 = rel to end of fork, 0 = rel to start */
-	int32_t		fd;
+	int64_t offset;		/* offset to first byte to lock */
+	int64_t length;		/* nbr of bytes to lock */
+	uint64_t retRangeStart;	/* nbr of first byte locked if successful */
+	uint8_t unLockFlag;	/* 1 = unlock, 0 = lock */
+	uint8_t startEndFlag;	/* 1 = rel to end of fork, 0 = rel to start */
+	int32_t fd;
 };
 
 struct gssdProxyPB
@@ -190,23 +191,178 @@ struct smbSockAddrPB {
 	struct sockaddr_storage addr;
 };
 
-/* Match AFP Client definition */
-#define smbfsByteRangeLock2FSCTL		_IOWR('z', 23, struct ByteRangeLockPB2)
+struct smb_byte_range_locks {
+	uint64_t offset;
+	uint64_t length;
+	uint32_t lock_pid;
+	pid_t p_pid;
+};
 
+/* smb_file flags */
+typedef enum _SMB_FILE_FLAGS
+{
+    SMB_FILE_UBC_CACHING = 0x0001
+} _SMB_FILE_FLAGS;
+
+#define SMB_MAX_LOCKS_RETURNED 25
+
+/* struct smb_lease flags */
+typedef enum _SMB_LEASE_FLAGS
+{
+    SMB2_NEW_LEASE_KEY =                0x0001,
+    SMB2_LEASE_PARENT_LEASE_KEY_SET =   0x0002,
+    SMB2_LEASE_REQUESTED =              0x0004,
+    SMB2_LEASE_GRANTED =                0x0008,
+    SMB2_LEASE_V2 =                     0x0010,
+    SMB2_LEASE_BROKEN =                 0x0020,
+    SMB2_DEFERRED_CLOSE =               0x0040,
+    SMB2_LEASE_FAIL =                   0x0080
+} _SMB_LEASE_FLAGS;
+
+/* struct smb_durable_handle flags */
+typedef enum _SMB_DURABLE_HANDLE_FLAGS
+{
+    SMB2_DURABLE_HANDLE_REQUEST =       0x0001,
+    SMB2_DURABLE_HANDLE_RECONNECT =     0x0002,
+    SMB2_DURABLE_HANDLE_GRANTED =       0x0004,
+    SMB2_PERSISTENT_HANDLE_REQUEST =    0x0008,
+    SMB2_PERSISTENT_HANDLE_RECONNECT =  0x0010,
+    SMB2_PERSISTENT_HANDLE_GRANTED =    0x0020,
+    SMB2_DURABLE_HANDLE_V2 =            0x0040,
+    SMB2_DURABLE_HANDLE_V2_CHECK =      0x0080,
+    SMB2_DURABLE_HANDLE_FAIL =          0x0100,
+    SMB2_NONDURABLE_HANDLE_RECONNECT =  0x0200
+} _SMB_DURABLE_HANDLE_FLAGS;
+
+/* smbStatPB durable handle flags are in _SMB2_DURABLE_HANDLE_FLAGS */
+struct smb_dur_handle {
+	uint64_t flags;
+	SMB2FID fid;
+	uint32_t timeout;
+	uint32_t pad;
+	uint8_t create_guid[16];
+};
+
+struct smb_fileRefEntryBRL {
+	int32_t refcnt;     /* set via vnop_ioctl(BRL) and vnop_advlock() */
+	SMB2FID fid;        /* file handle */
+	uint16_t accessMode; /* access mode for this open */
+	uint32_t rights;     /* nt granted rights */
+	struct smb_byte_range_locks brl_locks[SMB_MAX_LOCKS_RETURNED];
+	struct smb_dur_handle dur_handle;
+};
+
+struct smb_file {
+	uint64_t flags;
+
+	uint32_t sharedFID_refcnt;
+	uint32_t sharedFID_mmapped;
+	SMB2FID sharedFID_fid;
+	uint32_t sharedFID_access_mode;
+	uint32_t sharedFID_mmap_mode;
+	uint32_t sharedFID_rights;
+	uint32_t sharedFID_rw_refcnt;
+	uint32_t sharedFID_r_refcnt;
+	uint32_t sharedFID_w_refcnt;
+	uint32_t sharedFID_is_EXLOCK;
+	uint32_t sharedFID_is_SHLOCK;
+	struct smb_dur_handle sharedFID_dur_handle;
+	/*
+	 * Used ONLY by sharedFID for byte range locks
+	 * [0] - Used for Read/Write FIDs
+	 * [1] - Used for Read FIDs
+	 * [2] - Used for Write FIDs
+	 */
+	struct smb_fileRefEntryBRL sharedFID_lockEntries[3];
+
+	uint32_t lockFID_refcnt;
+	uint32_t lockFID_mmapped;
+	SMB2FID lockFID_fid;
+	uint32_t lockFID_access_mode;
+	uint32_t lockFID_mmap_mode;
+	uint32_t lockFID_rights;
+	uint32_t lockFID_rw_refcnt;
+	uint32_t lockFID_r_refcnt;
+	uint32_t lockFID_w_refcnt;
+	uint32_t lockFID_is_EXLOCK;
+	uint32_t lockFID_is_SHLOCK;
+	struct smb_dur_handle lockFID_dur_handle;
+	struct smb_byte_range_locks lockFID_brl_locks[SMB_MAX_LOCKS_RETURNED];
+
+	time_t rsrc_fork_timer;
+	time_t symlink_timer;
+};
+
+/* smb_file flags */
+typedef enum _SMB_DIR_FLAGS
+{
+    SMB_DIR_ENUM_CACHING = 0x0001
+} _SMB_DIR_FLAGS;
+
+/* smb_dir enum_flags */
+typedef enum _SMB_DIR_ENUM_FLAGS
+{
+	SMB_DIR_ENUM_CACHE_COMPLETE = 0x0001,
+	SMB_DIR_ENUM_CACHE_PARTIAL = 0x0002,
+	SMB_DIR_ENUM_CACHE_DIRTY = 0x0004
+} _SMB_DIR_ENUM_FLAGS;
+
+struct smb_dir {
+	uint64_t flags;
+	uint32_t refcnt;
+	uint32_t pad;
+
+	SMB2FID fid;
+	
+	uint64_t enum_flags;
+	uint64_t enum_count;
+	time_t enum_timer;
+};
+
+struct smbStatPB {
+	uint32_t vnode_type;
+	uint32_t pad;
+
+	union {
+		struct smb_dir dir;
+		struct smb_file file;
+	};
+	
+	time_t curr_time;
+	time_t meta_data_timer;
+	time_t finfo_timer;
+	time_t acl_cache_timer;
+	
+	/* smbStatPB lease flags are in _SMB_LEASE_FLAGS */
+	uint64_t lease_flags;
+	uint64_t lease_key_hi;
+	uint64_t lease_key_low;
+	uint32_t lease_req_state;
+	uint32_t lease_curr_state;
+	uint64_t lease_par_key_hi;
+	uint64_t lease_par_key_low;
+	uint32_t lease_epoch;
+	uint32_t lease_def_close_reuse_cnt;
+	time_t lease_def_close_timer;
+};
+
+struct smb_update_lease {
+	uint64_t flags; /* Unused at this time */
+};
+
+/* Match AFP Client definition */
 #define smbfsByteRangeLockFSCTL			_IOWR('z', 17, struct ByteRangeLockPB)
-
-#define smbfsUniqueShareIDFSCTL			_IOWR('z', 19, struct UniqueSMBShareID)
-
-#define smbfsGetSessionSockaddrFSCTL		_IOR('z', 20, struct sockaddr_storage)
-
-#define smbfsGetSessionSockaddrFSCTL2		_IOR('z', 30, struct smbSockAddrPB)
-
-/* Match AFP Client definition */
+#define smbfsByteRangeLock2FSCTL		_IOWR('z', 23, struct ByteRangeLockPB2)
 #define smbfsGetStatsFSCTL			_IOWR('z', 25, struct smb_reconnect_stats)
-
 #define smbfsDebugTestFSCTL			_IOWR('z', 28, struct smbDebugTestPB)
-
 #define smbfsTimeMachineFSCTL			_IOWR('z', 29, struct TimeMachinePB)
+
+
+#define smbfsUpdateLeaseFSCTL			_IOWR('z', 18, struct smb_update_lease)
+#define smbfsUniqueShareIDFSCTL			_IOWR('z', 19, struct UniqueSMBShareID)
+#define smbfsGetSessionSockaddrFSCTL		_IOR('z', 20, struct sockaddr_storage)
+#define smbfsGetSessionSockaddrFSCTL2		_IOR('z', 30, struct smbSockAddrPB)
+#define smbfsStatFSCTL				_IOR('z', 31, struct smbStatPB)
 
 /* Layout of the mount control block for an smb file system. */
 struct smb_mount_args {
@@ -273,6 +429,7 @@ struct smbfs_args {
 	int32_t		unique_id_len;
 	unsigned char	*unique_id;	/* A set of bytes that uniquely identifies this volume */
 	char		*volume_name;
+	size_t		volume_name_allocsize; /* volume_name alloc size, required when freeing volume_name */
 	int32_t         ip_QoS;
 	int32_t		dir_cache_async_cnt; /* Max nbr of async calls to fill dir cache */
 	int32_t		dir_cache_max; /* Max time to cache entries */
@@ -283,9 +440,6 @@ struct smbfs_args {
 	uint32_t	max_write_size; /* user defined max write size if not zero */
 };
 
-#ifdef MALLOC_DECLARE
-MALLOC_DECLARE(M_SMBFSMNT);
-#endif
 
 struct smbnode;
 struct smb_share;
@@ -333,8 +487,10 @@ struct smbmount {
 	uint64_t		ntwrk_gid;
 	uint32_t		ntwrk_cnt_gid;
 	uint64_t		*ntwrk_gids;
+	size_t			ntwrk_gids_allocsize;	/* ntwrk_gids alloc size, required when freeing ntwrk_gids */
 	ntsid_t			*ntwrk_sids;
 	uint32_t		ntwrk_sids_cnt;
+	size_t			ntwrk_sids_allocsize;	/* ntwrk_sids alloc size, required when freeing ntwrk_sids */
 	struct smbfs_args	sm_args;
 	struct mount * 		sm_mp;
 	vnode_t			sm_rvp;
@@ -375,7 +531,9 @@ extern char smb_symmagic[];
 /*
  * internal versions of VOPs
  */
-int smbfs_close(struct smb_share *share, vnode_t vp, int openMode, 
+int smbfs_close_fid(struct smb_share *share, vnode_t vp, int openMode, int close_both,
+		    int *get_mod_date, vfs_context_t context);
+int smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
 		vfs_context_t context);
 int smbfs_open(struct smb_share *share, vnode_t vp, int mode, 
 	       vfs_context_t context);
@@ -591,9 +749,9 @@ struct global_dir_cache_entry {
 };
 
 /* File Handle Leasing */
-#define k_def_close_timeout 120		/* default two min timeout */
-#define k_def_close_lo_water 1500	/* when to start closing def closes */
-#define k_def_close_hi_water 3000	/* dont allow any more def closes */
+#define k_def_close_timeout 30		/* default 30 secs timeout */
+#define k_def_close_lo_water 25		/* when to start closing def closes <unused> */
+#define k_def_close_hi_water 100	/* dont allow any more def closes */
 
 #endif	/* KERNEL */
 

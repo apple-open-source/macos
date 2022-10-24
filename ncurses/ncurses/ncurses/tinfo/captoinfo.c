@@ -207,8 +207,15 @@ cvtchar(register const char *sp)
 	}
 	break;
     case '^':
-	c = (*++sp & 0x1f);
 	len = 2;
+	c = UChar(*++sp);
+	if (c == '?') {
+	    c = 127;
+	} else if (c == '\0') {
+	    len = 1;
+	} else {
+	    c &= 0x1f;
+	}
 	break;
     default:
 	c = (unsigned char) (*sp);
@@ -564,8 +571,7 @@ _nc_captoinfo(const char *cap, const char *s, int const parameterized)
 static int
 bcd_expression(const char *str)
 {
-    /* leave this non-const for HPUX */
-    static char fmt[] = "%%p%c%%{10}%%/%%{16}%%*%%p%c%%{10}%%m%%+";
+    static const char fmt[] = "%%p%c%%{10}%%/%%{16}%%*%%p%c%%{10}%%m%%+";
     int len = 0;
     char ch1, ch2;
 

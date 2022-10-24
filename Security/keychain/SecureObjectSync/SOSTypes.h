@@ -159,7 +159,7 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void) sosIsEnabledCB: (void(^)(bool result)) complete;
 - (bool) sosIsEnabled;
 - (NSString *) sosIsEnabledString;
-
+- (void)setBypass:(BOOL)bypass reply:(void(^)(BOOL result, NSError *error))reply;
 
 @end
 #endif

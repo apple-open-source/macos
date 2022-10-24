@@ -17,7 +17,7 @@
 #define TLS_V1_PREFIX "TLSv1."
 
 static const char *
-get_running_process()
+get_running_process(void)
 {
     static const char *processName = NULL;
     static dispatch_once_t onceToken;
@@ -44,7 +44,7 @@ process_matches_target(const char *target_process)
 }
 
 static bool
-client_is_WebKit()
+client_is_WebKit(void)
 {
     static bool is_WebKit = false;
     static dispatch_once_t onceToken;
@@ -55,7 +55,7 @@ client_is_WebKit()
 }
 
 static bool
-client_is_mediaserverd()
+client_is_mediaserverd(void)
 {
     static bool is_mediaserverd = false;
     static dispatch_once_t onceToken;

@@ -7,11 +7,13 @@
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDDevice.h>
+#import <IOKit/hid/IOHIDLibPrivate.h>
 #import "HIDDevicePrivate.h"
 #import "HIDElementPrivate.h"
 #import "NSError+IOReturn.h"
 #import "HIDTransaction.h"
 #import <os/assumes.h>
+#import <stdatomic.h>
 
 @implementation HIDDevice (HIDFramework)
 
@@ -49,20 +51,52 @@
                                             0));
 }
 
+static void asyncReportCallback(void          * context,
+                                IOReturn        status,
+                                void          * sender __unused,
+                                IOHIDReportType type __unused,
+                                uint32_t        reportID,
+                                uint8_t       * report,
+                                CFIndex         reportLength)
+{
+    HIDDeviceReportCallback callback = (__bridge HIDDeviceReportCallback)context;
+
+    callback(status, report, reportLength, reportID);
+
+    Block_release(context);
+}
+
 - (BOOL)setReport:(const void *)report
      reportLength:(NSInteger)reportLength
    withIdentifier:(NSInteger)reportID
           forType:(HIDReportType)reportType
             error:(out NSError **)outError
 {
-    IOReturn ret = IOHIDDeviceSetReport((__bridge IOHIDDeviceRef)self,
-                                        (IOHIDReportType)reportType,
-                                        reportID,
-                                        (uint8_t *)report,
-                                        reportLength);
+    return [self setReport:report reportLength:reportLength withIdentifier:reportID forType:reportType error:outError timeout:0 callback:nil];
+}
+
+- (BOOL)setReport:(const void *)report
+     reportLength:(NSInteger)reportLength
+   withIdentifier:(NSInteger)reportID
+          forType:(HIDReportType)reportType
+            error:(out NSError **)outError
+          timeout:(NSInteger)timeout
+         callback:(HIDDeviceReportCallback)callback
+{
+    IOReturn ret;
+
+    if (callback) {
+        ret = IOHIDDeviceSetReportWithCallback((__bridge IOHIDDeviceRef)self, (IOHIDReportType)reportType, reportID, (uint8_t *)report, reportLength, timeout, asyncReportCallback, Block_copy((__bridge void *)callback));
+    } else {
+        ret = IOHIDDeviceSetReport((__bridge IOHIDDeviceRef)self, (IOHIDReportType)reportType, reportID, (uint8_t *)report, reportLength);
+    }
     
     if (ret != kIOReturnSuccess && outError) {
         *outError = [NSError errorWithIOReturn:ret];
+
+        if (callback) {
+            Block_release((__bridge void *)callback);
+        }
     }
     
     return (ret == kIOReturnSuccess);
@@ -74,20 +108,35 @@
           forType:(HIDReportType)reportType
             error:(out NSError **)outError
 {
+    return [self getReport:report reportLength:reportLength withIdentifier:reportID forType:reportType error:outError timeout:0 callback:nil];
+}
+
+- (BOOL)getReport:(void *)report
+     reportLength:(NSInteger *)reportLength
+   withIdentifier:(NSInteger)reportID
+          forType:(HIDReportType)reportType
+            error:(out NSError **)outError
+          timeout:(NSInteger)timeout
+         callback:(HIDDeviceReportCallback)callback
+{
     CFIndex length = (CFIndex)*reportLength;
-    
-    IOReturn ret = IOHIDDeviceGetReport((__bridge IOHIDDeviceRef)self,
-                                        (IOHIDReportType)reportType,
-                                        reportID,
-                                        (uint8_t *)report,
-                                        &length);
-    
+    IOReturn ret;
+
+    if (callback) {
+        ret = IOHIDDeviceGetReportWithCallback((__bridge IOHIDDeviceRef)self, (IOHIDReportType)reportType, reportID, (uint8_t *)report, &length, timeout, asyncReportCallback, Block_copy((__bridge void *)callback));
+    } else {
+        ret = IOHIDDeviceGetReport((__bridge IOHIDDeviceRef)self, (IOHIDReportType)reportType, reportID, (uint8_t *)report, &length);
+        *reportLength = (NSInteger)length;
+    }
+
     if (ret != kIOReturnSuccess && outError) {
         *outError = [NSError errorWithIOReturn:ret];
+
+        if (callback) {
+            Block_release((__bridge void *)callback);
+        }
     }
-    
-    *reportLength = (NSInteger)length;
-    
+
     return (ret == kIOReturnSuccess);
 }
 
@@ -95,13 +144,22 @@
              direction:(HIDDeviceCommitDirection)direction
                  error:(out NSError **)outError
 {
+    return [self commitElements:elements direction:direction error:outError timeout:0 callback:nil];
+}
+
+- (BOOL)commitElements:(NSArray<HIDElement *> *)elements
+             direction:(HIDDeviceCommitDirection)direction
+                 error:(out NSError **)outError
+               timeout:(NSInteger)timeout
+              callback:(HIDDeviceCommitCallback _Nullable)callback
+{
+    bool ret;
     HIDTransaction *transaction = nil;
-    
+
+    os_unfair_recursive_lock_lock(&_device.deviceLock);
     if (!_device.transaction) {
-        _device.transaction = (void *)CFBridgingRetain([[HIDTransaction alloc]
-                                                        initWithDevice:self]);
+        _device.transaction = (void *)CFBridgingRetain([[HIDTransaction alloc] initWithDevice:self]);
     }
-    
     transaction = (__bridge HIDTransaction *)_device.transaction;
     
     if (direction == HIDDeviceCommitDirectionIn) {
@@ -109,8 +167,15 @@
     } else {
         transaction.direction = HIDTransactionDirectionTypeOutput;
     }
-    
-    return [transaction commitElements:elements error:outError];
+
+    if (callback) {
+        ret = [transaction commitElements:elements error:outError timeout:timeout callback:callback];
+    } else {
+        ret = [transaction commitElements:elements error:outError];
+    }
+    os_unfair_recursive_lock_unlock(&_device.deviceLock);
+
+    return ret;
 }
 
 - (void)setInputElementMatching:(id)matching
@@ -150,7 +215,6 @@ static void inputValueCallback(void *context, IOReturn result __unused,
     HIDDevice *me = (__bridge HIDDevice *)context;
     HIDElement *element = (__bridge HIDElement *)IOHIDValueGetElement(value);
     element.valueRef = value;
-    
     if (me->_device.elementHandler) {
         ((__bridge HIDDeviceElementHandler)me->_device.elementHandler)(element);
     }
@@ -158,8 +222,9 @@ static void inputValueCallback(void *context, IOReturn result __unused,
 
 - (void)setInputElementHandler:(HIDDeviceElementHandler)handler
 {
-    os_assert(!_device.elementHandler, "Input element handler already set");
-    _device.elementHandler = (void *)Block_copy((__bridge const void *)handler);
+    os_assert(atomic_exchange(&_device.elementHandler,
+                              (void*)Block_copy((__bridge const void *)handler)) == NULL,
+              "Input element handler already set");
     IOHIDDeviceRegisterInputValueCallback((__bridge IOHIDDeviceRef)self,
                                           inputValueCallback,
                                           (__bridge void *)self);
@@ -171,6 +236,8 @@ static void batchInputValueCallback(void *context, IOReturn result __unused,
     HIDDevice *me = (__bridge HIDDevice *)context;
     HIDElement *element = (__bridge HIDElement *)IOHIDValueGetElement(value);
     element.valueRef = value;
+
+    os_unfair_recursive_lock_lock(&me->_device.callbackLock);
     NSMutableArray *array = (__bridge NSMutableArray *)me->_device.batchElements;
     
     if (element.type == kIOHIDElementTypeInput_NULL) {
@@ -181,12 +248,14 @@ static void batchInputValueCallback(void *context, IOReturn result __unused,
     } else {
         [array addObject:element];
     }
+    os_unfair_recursive_lock_unlock(&me->_device.callbackLock);
 }
 
 - (void)setBatchInputElementHandler:(HIDDeviceBatchElementHandler)handler
 {
-    os_assert(!_device.elementHandler, "Input element handler already set");
-    _device.elementHandler = (void *)Block_copy((__bridge const void *)handler);
+    os_assert(atomic_exchange(&_device.elementHandler,
+                              (void*)Block_copy((__bridge const void *)handler)) == NULL,
+              "Input element handler already set");
     _device.batchElements = CFArrayCreateMutable(kCFAllocatorDefault,
                                                  0,
                                                  &kCFTypeArrayCallBacks);
@@ -210,8 +279,9 @@ static void removalCallback(void *context, IOReturn result __unused,
 
 - (void)setRemovalHandler:(HIDBlock)handler
 {
-    os_assert(!_device.removalHandler, "Removal handler already set");
-    _device.removalHandler = (void *)Block_copy((__bridge const void *)handler);
+    os_assert(atomic_exchange(&_device.removalHandler,
+                              (void*)Block_copy((__bridge const void *)handler)) == NULL,
+              "Removal handler already set");
     IOHIDDeviceRegisterRemovalCallback((__bridge IOHIDDeviceRef)self,
                                        removalCallback,
                                        (__bridge void *)self);
@@ -230,7 +300,7 @@ static void inputReportCallback(void *context,
     NSData *data = [[NSData alloc] initWithBytesNoCopy:report
                                                 length:reportLength
                                           freeWhenDone:NO];
-    
+
     if (me->_device.inputReportHandler) {
         ((__bridge HIDReportHandler)me->_device.inputReportHandler)(
                                             (__bridge HIDDevice *)sender,
@@ -244,10 +314,9 @@ static void inputReportCallback(void *context,
 - (void)setInputReportHandler:(HIDReportHandler)handler
 {
     NSUInteger bufferSize = 1;
-    
-    os_assert(!_device.inputReportHandler, "Input report handler already set");
-    _device.inputReportHandler = (void *)Block_copy(
-                                                (__bridge const void *)handler);
+    os_assert(atomic_exchange(&_device.inputReportHandler,
+                              (void*)Block_copy((__bridge const void *)handler)) == NULL,
+              "Input report handler already set");
     
     NSNumber *reportSize = [self propertyForKey:@kIOHIDMaxInputReportSizeKey];
     if (reportSize != nil) {
@@ -300,6 +369,7 @@ static void inputReportCallback(void *context,
 
 - (void)activate
 {
+    os_unfair_recursive_lock_lock(&_device.callbackLock);
     if (_device.batchElements) {
         NSArray *oldMatch = (__bridge NSArray *)_device.inputMatchingMultiple;
         NSMutableArray *newMatch = nil;
@@ -317,8 +387,11 @@ static void inputReportCallback(void *context,
         
         [newMatch addObject:@{@kIOHIDElementTypeKey:
                                   @(kIOHIDElementTypeInput_NULL)}];
-        
+
+        os_unfair_recursive_lock_unlock(&_device.callbackLock);
         [self setInputElementMatching:newMatch];
+    } else {
+        os_unfair_recursive_lock_unlock(&_device.callbackLock);
     }
     
     IOHIDDeviceActivate((__bridge IOHIDDeviceRef)self);

@@ -141,7 +141,13 @@ void AudioMediaStreamTrackRendererUnit::stop()
 void AudioMediaStreamTrackRendererUnit::reset()
 {
     RELEASE_LOG(WebRTC, "AudioMediaStreamTrackRendererUnit::reset");
-    ASSERT(isMainThread());
+    if (!isMainThread()) {
+        callOnMainThread([weakThis = WeakPtr { this }] {
+            if (weakThis)
+                weakThis->reset();
+        });
+        return;
+    }
 
     m_resetObservers.forEach([](auto& observer) {
         observer();
@@ -163,6 +169,7 @@ void AudioMediaStreamTrackRendererUnit::updateRenderSourcesIfNecessary()
     if (!m_hasPendingRenderSources)
         return;
 
+    DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
     m_renderSources = WTFMove(m_pendingRenderSources);
     m_hasPendingRenderSources = false;
 }

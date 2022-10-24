@@ -1109,8 +1109,9 @@ user_trap(
 			prot |= VM_PROT_EXECUTE;
 		}
 #if DEVELOPMENT || DEBUG
+		bool do_simd_hash = thread_fpsimd_hash_enabled();
 		uint32_t fsig = 0;
-		fsig = thread_fpsimd_hash(thread);
+		fsig = do_simd_hash ? thread_fpsimd_hash(thread) : 0;
 #if DEBUG
 		fsigs[0] = fsig;
 #endif
@@ -1120,7 +1121,7 @@ user_trap(
 		    prot, FALSE, VM_KERN_MEMORY_NONE,
 		    THREAD_ABORTSAFE, NULL, 0);
 #if DEVELOPMENT || DEBUG
-		if (fsig) {
+		if (do_simd_hash && fsig) {
 			uint32_t fsig2 = thread_fpsimd_hash(thread);
 #if DEBUG
 			fsigcs++;
@@ -1387,8 +1388,8 @@ copy_instruction_stream(thread_t thread, uint64_t rip, int __unused trap_code
 				task_t task = get_threadtask(thread);
 				char procnamebuf[65] = {0};
 
-				if (task->bsd_info != NULL) {
-					procname = proc_name_address(task->bsd_info);
+				if (get_bsdtask_info(task) != NULL) {
+					procname = proc_name_address(get_bsdtask_info(task));
 					strlcpy(procnamebuf, procname, sizeof(procnamebuf));
 
 					if (strcasecmp(panic_on_trap_procname, procnamebuf) == 0 &&

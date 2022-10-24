@@ -27,6 +27,9 @@ CKKSKeyClass* const SecCKKSKeyClassC = (CKKSKeyClass*) @"classC";
 
 NSString* SecCKKSContainerName = @"com.apple.security.keychain";
 
+// This is the empty string because that's the default value of the column, so upgraded dbs will have this set on their existing data
+NSString* CKKSDefaultContextID = @"";
+
 NSString* const SecCKKSSubscriptionID = @"keychain-changes";
 NSString* const SecCKKSAPSNamedPort = @"com.apple.securityd.aps";
 
@@ -140,7 +143,7 @@ NSString* const SecCKKSAggdItemReencryption = @"com.apple.security.ckks.reencryp
 
 NSString* const SecCKKSUserDefaultsSuite = @"com.apple.security.ckks";
 
-NSString* SecCKKSHostOSVersion()
+NSString* SecCKKSHostOSVersion(void)
 {
 #ifdef PLATFORM
     // Use complicated macro magic to get the string value passed in as preprocessor define PLATFORM.

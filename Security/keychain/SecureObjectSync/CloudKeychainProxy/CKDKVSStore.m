@@ -130,16 +130,6 @@ struct CKDKVSCounters {
 {
     secnoticeq("pushWrites", "Push writes");
 
-    if (SecKVSOnCloudKitIsEnabled() == NO) {
-        secnoticeq("pushWrites", "KVS on CloudKit not enabled");
-
-        [[self cloudStore] synchronize];
-        dispatch_async(self.perfQueue, ^{
-            self.perfCounters->synchronize++;
-        });
-        return;
-    }
-
     if(requiresForceSync == YES) {
         secnoticeq("pushWrites", "requested to force synchronize");
         [self forceSynchronizeWithKVS];
@@ -275,10 +265,6 @@ struct CKDKVSCounters {
                 self.perfCounters->synchronize++;
             });
             secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
-            if(SecKVSOnCloudKitIsEnabled() == NO) {
-                [[self cloudStore] synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
-                secnotice("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
-            }
         }
         dispatch_semaphore_signal(freshSemaphore);
     }];

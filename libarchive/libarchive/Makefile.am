@@ -224,7 +224,9 @@ libarchive_la_SOURCES= \
 	libarchive/archive_write_set_format_ar.c \
 	libarchive/archive_write_set_format_by_name.c \
 	libarchive/archive_write_set_format_cpio.c \
+	libarchive/archive_write_set_format_cpio_binary.c \
 	libarchive/archive_write_set_format_cpio_newc.c \
+	libarchive/archive_write_set_format_cpio_odc.c \
 	libarchive/archive_write_set_format_filter_by_ext.c \
 	libarchive/archive_write_set_format_iso9660.c \
 	libarchive/archive_write_set_format_mtree.c \
@@ -548,6 +550,7 @@ libarchive_test_SOURCES= \
 	libarchive/test/test_read_too_many_filters.c \
 	libarchive/test/test_read_truncated.c \
 	libarchive/test/test_read_truncated_filter.c \
+	libarchive/test/test_short_writes.c \
 	libarchive/test/test_sparse_basic.c \
 	libarchive/test/test_tar_filenames.c \
 	libarchive/test/test_tar_large.c \
@@ -557,6 +560,7 @@ libarchive_test_SOURCES= \
 	libarchive/test/test_write_disk.c \
 	libarchive/test/test_write_disk_appledouble.c \
 	libarchive/test/test_write_disk_failures.c \
+	libarchive/test/test_write_disk_fixup.c \
 	libarchive/test/test_write_disk_hardlink.c \
 	libarchive/test/test_write_disk_hfs_compression.c \
 	libarchive/test/test_write_disk_lookup.c \
@@ -884,6 +888,8 @@ libarchive_test_EXTRA_DIST=\
 	libarchive/test/test_read_format_rar5_different_winsize_on_merge.rar.uu \
 	libarchive/test/test_read_format_rar5_block_size_is_too_small.rar.uu \
 	libarchive/test/test_read_format_rar5_decode_number_out_of_bounds_read.rar.uu \
+	libarchive/test/test_read_format_rar5_window_buf_and_size_desync.rar.uu \
+	libarchive/test/test_read_format_rar5_bad_window_sz_in_mltarc_file.rar.uu \
 	libarchive/test/test_read_format_raw.bufr.uu \
 	libarchive/test/test_read_format_raw.data.gz.uu \
 	libarchive/test/test_read_format_raw.data.Z.uu \

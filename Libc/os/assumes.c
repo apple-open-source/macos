@@ -271,6 +271,20 @@ _os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
 
 	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, pack, pack_size, composed, 0);
 }
+
+void
+_os_crash_msg(const char *fmt, char *msg)
+{
+	/*
+	 * We put just the format string into the CrashReporter buffer so that we
+	 * can get at least that on customer builds.
+	 */
+	if (fmt) {
+		_os_crash_impl(fmt);
+	}
+	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT,
+			NULL, 0, msg, 0);
+}
 #endif
 
 __attribute__((always_inline))

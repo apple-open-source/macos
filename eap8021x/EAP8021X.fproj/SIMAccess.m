@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -619,15 +619,13 @@ SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, A
 #pragma mark - SIMStatusIndicator Interface
 
 __attribute__((visibility("hidden")))
-@interface SIMStatusIndicator : NSObject <CoreTelephonyClientSubscriberDelegate> {
+@interface SIMStatusIndicator : NSObject <CoreTelephonyClientSubscriberDelegate>{
 
 }
 
 @property (nonatomic, strong, nullable) CoreTelephonyClient *coreTelephonyClient;
 @property (nonatomic, strong) dispatch_queue_t queue;
 @property SIMAccessConnectionCallback callback;
-@property CFRunLoopRef runloop;
-@property CFStringRef runloopMode;
 @property CFTypeRef applicationContext;
 
 - (void) createConnection;
@@ -647,7 +645,8 @@ __attribute__((visibility("hidden")))
 
 - (void) createConnection {
     self.queue = dispatch_queue_create("SIM status indicator queue", NULL);
-    self.coreTelephonyClient = [[CoreTelephonyClient alloc] initWithQueue:_queue];
+    self.coreTelephonyClient = [[CoreTelephonyClient alloc]
+				   initWithQueue:self.queue];
     self.coreTelephonyClient.delegate = self;
 }
 
@@ -661,36 +660,25 @@ __attribute__((visibility("hidden")))
 	    return;
 	}
 	lastStatus = status;
-	CFRunLoopPerformBlock(self.runloop, self.runloopMode,
-			  ^{
-			      self.callback((__bridge CFTypeRef)self, (__bridge CFStringRef)status, (void *)self.applicationContext);
-			  });
-	CFRunLoopWakeUp(self.runloop);
+	(*self.callback)((__bridge CFTypeRef)self, (__bridge CFStringRef)status,
+			 (void *)self.applicationContext);
     }
 }
 
 @end
 
 CFTypeRef
-_SIMAccessConnectionCreate(void)
+_SIMAccessConnectionCreate(SIMAccessConnectionCallback callback, void * info)
 {
+    CFTypeRef		connection;
     @autoreleasepool {
-    	SIMStatusIndicator *status_indicator = [[SIMStatusIndicator alloc] init];
-    	[status_indicator createConnection];
-    	return CFBridgingRetain(status_indicator);
-    }
-}
-
-void
-_SIMAccessConnectionRegisterForNotification(CFTypeRef connection, SIMAccessConnectionCallback callback, void *info, CFRunLoopRef runLoop,
-					    CFStringRef runloopMode) {
-    @autoreleasepool {
-    	SIMStatusIndicator *indicator = (__bridge SIMStatusIndicator *)connection;
+	SIMStatusIndicator * indicator = [[SIMStatusIndicator alloc] init];
     	indicator.callback = callback;
-    	indicator.runloop = runLoop;
-    	indicator.runloopMode = runloopMode;
     	indicator.applicationContext = (CFTypeRef)info;
+	[indicator createConnection];
+	connection = CFBridgingRetain(indicator);
     }
+    return (connection);
 }
 
 #endif /* TARGET_OS_IPHONE */
@@ -739,3 +727,27 @@ AKAAuthResultsRelease(AKAAuthResultsRef results)
     AKAAuthResultsSetAUTS(results, NULL);
     return;
 }
+
+#ifdef TEST_SIM_CHANGE
+
+#include <SystemConfiguration/SCPrivate.h>
+
+void
+test_sim_changed(CFTypeRef connection, CFStringRef status, void * info)
+{
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), status);
+}
+
+int
+main(int argc, char * argv[])
+{
+    CFTypeRef connection;
+
+    connection = _SIMAccessConnectionCreate(test_sim_changed, NULL);
+    if (connection == NULL) {
+	fprintf(stderr, "Failed to create connection\n");
+	exit(1);
+    }
+    dispatch_main();
+}
+#endif

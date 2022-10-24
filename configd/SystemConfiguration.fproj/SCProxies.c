@@ -47,6 +47,25 @@ SCDynamicStoreKeyCreateProxies(CFAllocatorRef allocator)
 							  kSCEntNetProxies);
 }
 
+static void
+filter_unsupported_proxies(CFMutableDictionaryRef proxies)
+{
+	const CFStringRef removeKeys[] = {
+					   kSCPropNetProxiesFTPEnable,
+					   kSCPropNetProxiesFTPProxy,
+					   kSCPropNetProxiesFTPPort,
+					   kSCPropNetProxiesGopherEnable,
+					   kSCPropNetProxiesGopherProxy,
+					   kSCPropNetProxiesGopherPort,
+					   kSCPropNetProxiesRTSPEnable,
+					   kSCPropNetProxiesRTSPProxy,
+					   kSCPropNetProxiesRTSPPort	
+					 };
+
+	for (size_t i = 0; i < (sizeof(removeKeys) / sizeof(removeKeys[0])); i++) {
+		CFDictionaryRemoveValue(proxies, removeKeys[i]);
+	}
+}
 
 static void
 validate_proxy_content(CFMutableDictionaryRef	proxies,
@@ -205,21 +224,9 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 	}
 
 	newProxy = CFDictionaryCreateMutableCopy(NULL, 0, proxy);
+	
+	filter_unsupported_proxies(newProxy);	
 
-	validate_proxy_content(newProxy,
-			       kSCPropNetProxiesFTPEnable,
-			       kSCPropNetProxiesFTPProxy,
-			       kSCPropNetProxiesFTPPort,
-			       "ftp",
-			       21,
-			       FALSE);
-	validate_proxy_content(newProxy,
-			       kSCPropNetProxiesGopherEnable,
-			       kSCPropNetProxiesGopherProxy,
-			       kSCPropNetProxiesGopherPort,
-			       "gopher",
-			       70,
-			       FALSE);
 	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesHTTPEnable,
 			       kSCPropNetProxiesHTTPProxy,
@@ -233,13 +240,6 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 			       kSCPropNetProxiesHTTPSPort,
 			       "https",
 			       443,
-			       FALSE);
-	validate_proxy_content(newProxy,
-			       kSCPropNetProxiesRTSPEnable,
-			       kSCPropNetProxiesRTSPProxy,
-			       kSCPropNetProxiesRTSPPort,
-			       "rtsp",
-			       554,
 			       FALSE);
 	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesSOCKSEnable,
@@ -494,7 +494,7 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 		CFDictionaryRemoveValue(newProxies, kSCPropNetProxiesBypassAllowed);
 		proxies = newProxies;
 	}
-
+	
 
 	if (proxies != NULL) {
 		CFDictionaryRef	base	= proxies;

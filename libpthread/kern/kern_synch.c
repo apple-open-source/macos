@@ -99,9 +99,6 @@ static unsigned long pth_hash_mask;
 
 static LIST_HEAD(, ksyn_wait_queue) pth_free_list;
 
-static zone_t kwq_zone; /* zone for allocation of ksyn_queue */
-static zone_t kwe_zone;	/* zone for allocation of ksyn_waitq_element */
-
 #define SEQFIT 0
 #define FIRSTFIT 1
 
@@ -132,12 +129,15 @@ struct ksyn_wait_queue {
 	thread_t kw_owner;		/* current owner or THREAD_NULL, has a +1 */
 	uint64_t kw_object;		/* object backing in shared mode */
 	uint64_t kw_offset;		/* offset inside the object in shared mode */
+	time_t  kw_stamp;               /* used for upkeep before free */
 	int	kw_pflags;		/* flags under listlock protection */
-	struct timeval kw_ts;		/* timeval need for upkeep before free */
 	int	kw_iocount;		/* inuse reference */
-	int 	kw_dropcount;		/* current users unlocking... */
-	
-	int	kw_type;		/* queue type like mutex, cvar, etc */
+	int	kw_dropcount;		/* current users unlocking... */
+
+	uint16_t kw_type;		/* queue type like mutex, cvar, etc */
+	uint16_t kw_kflags;
+	uint8_t  kw_qos_override;	/* QoS of max waiter during contention period */
+
 	uint32_t kw_inqueue;		/* num of waiters held */
 	uint32_t kw_fakecount;		/* number of error/prepost fakes */
 	uint32_t kw_highseq;		/* highest seq in the queue */
@@ -162,9 +162,7 @@ struct ksyn_wait_queue {
 		uint32_t seq; /* prepost of missed wakeup limit seq */
 		uint32_t returnbits; /* return bits value for missed wakeup threads */
 	} kw_intr;
-	
-	int 	kw_kflags;
-	int		kw_qos_override;	/* QoS of max waiter during contention period */
+
 	struct turnstile *kw_turnstile;
 	struct ksyn_queue kw_ksynqueues[KSYN_QUEUE_MAX];	/* queues to hold threads */
 	lck_spin_t kw_lock;		/* spinlock protecting this structure */
@@ -222,6 +220,9 @@ thread_call_t psynch_thcall;
 #define KSYN_WQTYPE_MASK	0xff
 
 #define KSYN_WQTYPE_MUTEXDROP	(KSYN_WQTYPE_INDROP | KSYN_WQTYPE_MTX)
+
+static KALLOC_TYPE_DEFINE(kwq_zone, struct ksyn_wait_queue, KT_DEFAULT);
+static KALLOC_TYPE_DEFINE(kwe_zone, struct ksyn_waitq_element, KT_DEFAULT);
 
 static inline int
 _kwq_type(ksyn_wait_queue_t kwq)
@@ -948,7 +949,7 @@ ksyn_cvsignal(ksyn_wait_queue_t ckwq, thread_t th, uint32_t uptoseq,
 			// reacquiring the lock after allocation in
 			// case anything new shows up.
 			ksyn_wqunlock(ckwq);
-			nkwe = (ksyn_waitq_element_t)zalloc(kwe_zone);
+			nkwe = zalloc_flags(kwe_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 			ksyn_wqlock(ckwq);
 		} else {
 			break;
@@ -1691,8 +1692,8 @@ ksyn_wqfind(user_addr_t uaddr, uint32_t mgen, uint32_t ugen, uint32_t sgen,
 			// Drop the lock to allocate a new kwq and retry.
 			pthread_list_unlock();
 
-			nkwq = (ksyn_wait_queue_t)zalloc(kwq_zone);
-			bzero(nkwq, sizeof(struct ksyn_wait_queue));
+			nkwq = zalloc_flags(kwq_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+
 			int i;
 			for (i = 0; i < KSYN_QUEUE_MAX; i++) {
 				ksyn_queue_init(&nkwq->kw_ksynqueues[i]);
@@ -1802,12 +1803,13 @@ ksyn_wqrelease(ksyn_wait_queue_t kwq, int qfreenow, int wqtype)
 					kwq->kw_addr, kwq->kw_lword, kwq->kw_uword, kwq->kw_sword);
 
 			if (qfreenow == 0) {
-				microuptime(&kwq->kw_ts);
+				struct timeval t;
+
+				microuptime(&t);
+				kwq->kw_stamp = t.tv_sec;
 				LIST_INSERT_HEAD(&pth_free_list, kwq, kw_list);
 				kwq->kw_pflags |= KSYN_WQ_FLIST;
 				if (psynch_cleanupset == 0) {
-					struct timeval t;
-					microuptime(&t);
 					t.tv_sec += KSYN_CLEANUP_DEADLINE;
 					deadline = tvtoabstime(&t);
 					thread_call_enter_delayed(psynch_thcall, deadline);
@@ -1846,7 +1848,7 @@ psynch_wq_cleanup(__unused void *param, __unused void * param1)
 			// still in use
 			continue;
 		}
-		__darwin_time_t diff = t.tv_sec - kwq->kw_ts.tv_sec;
+		__darwin_time_t diff = t.tv_sec - kwq->kw_stamp;
 		if (diff < 0)
 			diff *= -1;
 		if (diff >= KSYN_CLEANUP_DEADLINE) {
@@ -2715,15 +2717,6 @@ ksyn_cvupdate_fixup(ksyn_wait_queue_t ckwq, uint32_t *updatebits)
 		// only fake entries are present in the queue
 		*updatebits |= PTH_RWS_CV_PBIT;
 	}
-}
-
-void
-psynch_zoneinit(void)
-{
-	kwq_zone = zinit(sizeof(struct ksyn_wait_queue),
-			8192 * sizeof(struct ksyn_wait_queue), 4096, "ksyn_wait_queue");
-	kwe_zone = zinit(sizeof(struct ksyn_waitq_element),
-			8192 * sizeof(struct ksyn_waitq_element), 4096, "ksyn_waitq_element");
 }
 
 void *

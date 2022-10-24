@@ -167,19 +167,6 @@ function some(callback /* [, thisArg] */)
 }
 
 @globalPrivate
-function typedArrayElementCompare(array, a, b, comparator)
-{
-    "use strict";
-
-    var result = @toNumber(comparator(a, b));
-
-    if (@isDetached(array))
-        @throwTypeError("Underlying ArrayBuffer has been detached from the view");
-
-    return result;
-}
-
-@globalPrivate
 function typedArrayMerge(array, dst, src, srcIndex, srcEnd, width, comparator)
 {
     "use strict";
@@ -191,7 +178,7 @@ function typedArrayMerge(array, dst, src, srcIndex, srcEnd, width, comparator)
 
     for (var dstIndex = left; dstIndex < rightEnd; ++dstIndex) {
         if (right < rightEnd) {
-            if (left >= leftEnd || @typedArrayElementCompare(array, src[right], src[left], comparator) < 0) {
+            if (left >= leftEnd || @toNumber(comparator(src[right], src[left])) < 0) {
                 dst[dstIndex] = src[right++];
                 continue;
             }
@@ -226,6 +213,7 @@ function typedArrayMergeSort(array, valueCount, comparator)
     }
 }
 
+@globalPrivate
 function sort(comparator)
 {
     "use strict";
@@ -403,4 +391,87 @@ function at(index)
         k += length;
 
     return (k >= 0 && k < length) ? this[k] : @undefined;
+}
+
+function toReversed()
+{
+    "use strict";
+
+    // Step 2-3.
+    var length = @typedArrayLength(this);
+
+    // Step 4.
+    var constructor = @typedArrayGetOriginalConstructor(this);
+    var result = new constructor(length);
+
+    // Step 5-6.
+    for (var k = 0; k < length; k++) {
+        var fromValue = this[length - k - 1];
+        result[k] = fromValue;
+    }
+
+    return result;
+}
+
+function toSorted(comparefn)
+{
+    "use strict";
+
+    // Step 1.
+    if (comparefn !== @undefined && !@isCallable(comparefn))
+        @throwTypeError("TypedArray.prototype.toSorted requires the comparefn argument to be a function or undefined");
+
+    // Step 5.
+    var length = @typedArrayLength(this);
+
+    // Step 6.
+    var constructor = @typedArrayGetOriginalConstructor(this);
+    var result = new constructor(length);
+
+    // Step 11.
+    for (var k = 0; k < length; k++)
+        result[k] = this[k];
+
+    // Step 9.
+    @sort.@call(result, comparefn);
+
+    return result;
+}
+
+function with(index, value)
+{
+    "use strict";
+
+    // Step 2-3.
+    var length = @typedArrayLength(this);
+
+    // Step 4.
+    var relativeIndex = @toIntegerOrInfinity(index);
+    var actualIndex;
+
+    // Step 5-6.
+    if (relativeIndex >= 0)
+        actualIndex = relativeIndex;
+    else
+        actualIndex = length + relativeIndex;
+
+    // Step 7.
+    if (@isDetached(this))
+        @throwRangeError("TypedArray.prototype.with called on an detached array");
+    if (actualIndex < 0 || actualIndex >= length)
+        @throwRangeError("Array index out of range")
+
+    // Step 8.
+    var constructor = @typedArrayGetOriginalConstructor(this);
+    var result = new constructor(length);
+
+    // Step 9-10.
+    for (var k = 0; k < length; k++) {
+        if (k == actualIndex)
+            result[k] = value;
+        else
+            result[k] = this[k];
+    }
+
+    return result;
 }

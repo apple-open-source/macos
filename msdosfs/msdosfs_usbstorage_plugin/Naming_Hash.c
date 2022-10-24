@@ -10,11 +10,23 @@
 #include <assert.h>
 #include "Conv.h"
 #include "DirOPS_Handler.h"
+#include "Logger.h"
 
 #define MAX_HASH_KEY (HASH_TABLE_SIZE)
 
+/*
+ * On macOS, We want to perform fast lookups for directories which contain up to 20K files.
+ * 20K files was chosen because of the DCIM limitation of 10K files per dir.
+ * (we assume 10K files and an Apple-Double file for each one --> 20K total).
+ * on iOS, we have memory limitations, so we use a smaller HT.
+ */
+#if TARGET_OS_OSX
+#define MAX_HASH_VALUES (20480)
+#define LOW_BOUND_HASH_VALUES (20000)
+#else
 #define MAX_HASH_VALUES (4096)
 #define LOW_BOUND_HASH_VALUES (4000)
+#endif
 
 // -------------------------------------------------------------------------------------
 static uint32_t hash(struct unistr255* psName);
@@ -39,9 +51,19 @@ static void ht_remove_from_list(LF_HashTable_t* psHT, LF_TableEntry_t* psTEToRem
         psHT->psEntries[uKey] = psHT->psEntries[uKey]->psNextEntry;
     }
     else
+    {
         psPrevTE->psNextEntry = psTEToRemove->psNextEntry;
+    }
 
-    assert(psHT->uCounter != 0);
+    if (psHT->uCounter == 0)
+    {
+        // something wrong with our counting and we should never get here
+        // but still need to free psTEToRemove memory
+        MSDOS_LOG(LEVEL_FAULT, "ht_remove_from_list: hashtable is empty");
+        free(psTEToRemove);
+        return;
+    }
+
     psHT->uCounter--;
 
     free(psTEToRemove);
@@ -278,4 +300,12 @@ void ht_DeAllocateHashTable(LF_HashTable_t *psHT)
     ht_free_all(psHT);
     MultiReadSingleWrite_DeInit(&psHT->sHTLck);
     free(psHT);
+}
+
+void ht_set_incomplete(LF_HashTable_t* psHT, bool val)
+{
+    if (psHT == NULL) return;
+    MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
+    psHT->bIncomplete = val;
+    MultiReadSingleWrite_FreeWrite(&psHT->sHTLck);
 }

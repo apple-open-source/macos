@@ -1,0 +1,1 @@
+http://ocsp-root.gpki.go.jp

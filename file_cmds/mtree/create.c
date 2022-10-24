@@ -426,6 +426,10 @@ statf(int indent, FTSENT *p)
 		sibling_id = (sibling_id != p->fts_statp->st_ino) ? sibling_id : 0;
 		output(indent, &offset, "siblingid=%llu", sibling_id);
 	}
+	if (keys & F_NXATTR) {
+		uint64_t xattr_count = get_xattr_count(p->fts_accpath);
+		output(indent, &offset, "nxattr=%llu", xattr_count);
+	}
 	
 	(void)putchar('\n');
 }

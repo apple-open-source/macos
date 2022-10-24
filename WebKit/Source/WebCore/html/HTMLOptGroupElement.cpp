@@ -71,12 +71,21 @@ bool HTMLOptGroupElement::isFocusable() const
 
 const AtomString& HTMLOptGroupElement::formControlType() const
 {
-    static MainThreadNeverDestroyed<const AtomString> optgroup("optgroup", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> optgroup("optgroup"_s);
     return optgroup;
 }
 
 void HTMLOptGroupElement::childrenChanged(const ChildChange& change)
 {
+    bool isRelevant = change.affectsElements == ChildChange::AffectsElements::Yes;
+    RefPtr select = isRelevant ? ownerSelectElement() : nullptr;
+    if (!isRelevant || !select) {
+        HTMLElement::childrenChanged(change);
+        return;
+    }
+
+    auto selectOptionIfNecessaryScope = select->optionToSelectFromChildChangeScope(change, this);
+
     recalcSelectOptions();
     HTMLElement::childrenChanged(change);
 }
@@ -102,7 +111,7 @@ void HTMLOptGroupElement::parseAttribute(const QualifiedName& name, const AtomSt
 
 void HTMLOptGroupElement::recalcSelectOptions()
 {
-    if (RefPtr selectElement = ancestorsOfType<HTMLSelectElement>(*this).first()) {
+    if (RefPtr selectElement = ownerSelectElement()) {
         selectElement->setRecalcListItems();
         selectElement->updateValidity();
     }
@@ -122,12 +131,12 @@ String HTMLOptGroupElement::groupLabelText() const
     
 HTMLSelectElement* HTMLOptGroupElement::ownerSelectElement() const
 {
-    return const_cast<HTMLSelectElement*>(ancestorsOfType<HTMLSelectElement>(*this).first());
+    return dynamicDowncast<HTMLSelectElement>(parentNode());
 }
 
 bool HTMLOptGroupElement::accessKeyAction(bool)
 {
-    RefPtr<HTMLSelectElement> select = ownerSelectElement();
+    RefPtr select = ownerSelectElement();
     // send to the parent to bring focus to the list box
     if (select && !select->focused())
         return select->accessKeyAction(false);

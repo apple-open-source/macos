@@ -2,11 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.private.security.disk-device-access</key>
+	<true/>
+	<key>com.apple.private.xpc.launchd.ios-system-session</key>
+	<false/>
 	<key>com.apple.private.security.storage-exempt.heritable</key>
 	<true/>
 	<key>com.apple.rootless.datavault.metadata</key>
 	<true/>
 	<key>com.apple.private.LiveFS.connection</key>
+	<true/>
+	<key>com.apple.private.vfs.revoke-mounted-device</key>
 	<true/>
 </dict>
 </plist>

@@ -1,0 +1,12 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-06-29</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceProject</key>
+	<string>split</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-06-18</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/split?id=e48cafb55ddaa7ac3ed73ddf25b8019531c83d71</string>
+</dict>

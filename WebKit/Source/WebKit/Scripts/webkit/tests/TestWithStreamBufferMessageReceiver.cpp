@@ -25,10 +25,14 @@
 #include "config.h"
 #include "TestWithStreamBuffer.h"
 
-#include "Decoder.h"
-#include "HandleMessage.h"
-#include "StreamConnectionBuffer.h"
-#include "TestWithStreamBufferMessages.h"
+#include "Decoder.h" // NOLINT
+#include "HandleMessage.h" // NOLINT
+#include "StreamConnectionBuffer.h" // NOLINT
+#include "TestWithStreamBufferMessages.h" // NOLINT
+
+#if ENABLE(IPC_TESTING_API)
+#include "JSIPCBinding.h"
+#endif
 
 namespace WebKit {
 
@@ -47,3 +51,17 @@ void TestWithStreamBuffer::didReceiveMessage(IPC::Connection& connection, IPC::D
 }
 
 } // namespace WebKit
+
+#if ENABLE(IPC_TESTING_API)
+
+namespace IPC {
+
+template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::TestWithStreamBuffer_SendStreamBuffer>(JSC::JSGlobalObject* globalObject, Decoder& decoder)
+{
+    return jsValueForDecodedArguments<Messages::TestWithStreamBuffer::SendStreamBuffer::Arguments>(globalObject, decoder);
+}
+
+}
+
+#endif
+

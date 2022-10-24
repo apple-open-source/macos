@@ -539,7 +539,7 @@ void Swig_name_object_inherit(Hash *namehash, String *base, String *derived) {
   String *bprefix;
   String *dprefix;
   char *cbprefix;
-  int plen;
+  size_t plen;
 
   if (!namehash)
     return;
@@ -797,28 +797,28 @@ void Swig_feature_set(Hash *features, const_String_or_char_ptr name, SwigType *d
  * ----------------------------------------------------------------------------- */
 
 static Hash *namewarn_hash = 0;
-Hash *Swig_name_namewarn_hash() {
+Hash *Swig_name_namewarn_hash(void) {
   if (!namewarn_hash)
     namewarn_hash = NewHash();
   return namewarn_hash;
 }
 
 static Hash *rename_hash = 0;
-Hash *Swig_name_rename_hash() {
+Hash *Swig_name_rename_hash(void) {
   if (!rename_hash)
     rename_hash = NewHash();
   return rename_hash;
 }
 
 static List *namewarn_list = 0;
-List *Swig_name_namewarn_list() {
+List *Swig_name_namewarn_list(void) {
   if (!namewarn_list)
     namewarn_list = NewList();
   return namewarn_list;
 }
 
 static List *rename_list = 0;
-List *Swig_name_rename_list() {
+List *Swig_name_rename_list(void) {
   if (!rename_list)
     rename_list = NewList();
   return rename_list;
@@ -1007,7 +1007,7 @@ static List *Swig_make_attrlist(const char *ckey) {
     String *nattr;
     const char *rattr = strchr(++cattr, '$');
     while (rattr) {
-      nattr = NewStringWithSize(cattr, rattr - cattr);
+      nattr = NewStringWithSize(cattr, (int) (rattr - cattr));
       Append(list, nattr);
       Delete(nattr);
       cattr = rattr + 1;

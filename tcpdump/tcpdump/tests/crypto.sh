@@ -38,7 +38,7 @@ then
 		exitcode=1
 	fi
 	# Reading the secret(s) from a file does not work with Capsicum.
-	if grep '^#define HAVE_CAPSICUM 1$' ../config.h >/dev/null
+	if grep '^#define HAVE_CAPSICUM 1$' ../config.h &>/dev/null
 	then
 		FORMAT='    %-35s: TEST SKIPPED (compiled w/Capsicum)\n'
 		printf "$FORMAT" esp4

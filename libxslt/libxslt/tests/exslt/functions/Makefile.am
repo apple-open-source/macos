@@ -13,7 +13,8 @@ EXTRA_DIST = 						\
 	function.7.out  function.7.xml  function.7.xsl  \
 	function.8.out  function.8.xml  function.8.xsl  \
 	function.9.out  function.9.xml  function.9.xsl  \
-	function.10.out function.10.xml function.10.xsl
+	function.10.out function.10.xml function.10.xsl \
+	function.11.out function.11.xml function.11.xsl
 
 CLEANFILES = .memdump
 

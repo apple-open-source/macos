@@ -9,6 +9,7 @@
 #ifndef pmtool_h
 #define pmtool_h
 
+#include <AppleFeatures/AppleFeatures.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFXPCBridge.h>
 #include <CoreFoundation/CFPreferences_Private.h>

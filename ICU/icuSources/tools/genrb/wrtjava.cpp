@@ -447,7 +447,7 @@ int_write_java(const IntResource *res, UErrorCode * /*status*/) {
 static void
 bytes_write_java(const BinaryResource *res, UErrorCode * /*status*/) {
 	const char* type  = "new byte[] {";
-	const char* byteDecl = "%i, ";
+	const char *const byteDecl = "%i, ";
     char byteBuffer[100] = { 0 };
 	uint8_t*  byteArray = NULL;
     int byteIterator = 0;

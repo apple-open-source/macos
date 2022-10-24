@@ -71,6 +71,10 @@ typedef enum {
     XPATH_INVALID_CTXT,
     XPATH_STACK_ERROR,
     XPATH_FORBID_VARIABLE_ERROR
+#ifdef LIBXML_HAS_XPATH_RESOURCE_LIMITS
+    ,XPATH_OP_LIMIT_EXCEEDED
+    ,XPATH_RECURSION_LIMIT_EXCEEDED
+#endif
 } xmlXPathError;
 
 /*
@@ -82,7 +86,7 @@ struct _xmlNodeSet {
     int nodeNr;			/* number of nodes in the set */
     int nodeMax;		/* size of the array as allocated */
     xmlNodePtr *nodeTab;	/* array of nodes in no particular order */
-    /* @@ with_ns to check wether namespace nodes should be looked at @@ */
+    /* @@ with_ns to check whether namespace nodes should be looked at @@ */
 };
 
 /*
@@ -102,12 +106,22 @@ typedef enum {
     XPATH_BOOLEAN = 2,
     XPATH_NUMBER = 3,
     XPATH_STRING = 4,
-    XPATH_POINT = 5,
-    XPATH_RANGE = 6,
-    XPATH_LOCATIONSET = 7,
+#ifdef LIBXML_XPTR_LOCS_ENABLED
+    XPATH_POINT = 5, /* LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14) */
+    XPATH_RANGE = 6, /* LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14) */
+    XPATH_LOCATIONSET = 7, /* LIBXML_API_DEPRECATED_MACOS13_IOS16_WATCHOS9_TVOS16(v2.9.14) */
+#endif
     XPATH_USERS = 8,
     XPATH_XSLT_TREE = 9  /* An XSLT value tree, non modifiable */
 } xmlXPathObjectType;
+
+#ifndef LIBXML_XPTR_LOCS_ENABLED
+/** DOC_DISABLE */
+#define XPATH_POINT 5
+#define XPATH_RANGE 6
+#define XPATH_LOCATIONSET 7
+/** DOC_ENABLE */
+#endif
 
 typedef struct _xmlXPathObject xmlXPathObject;
 typedef xmlXPathObject *xmlXPathObjectPtr;
@@ -352,6 +366,13 @@ struct _xmlXPathContext {
 
     /* Cache for reusal of XPath objects */
     void *cache;
+
+#ifdef LIBXML_HAS_XPATH_RESOURCE_LIMITS
+    /* Resource limits */
+    unsigned long opLimit;
+    unsigned long opCount;
+    int depth;
+#endif
 };
 
 /*
@@ -364,7 +385,7 @@ typedef xmlXPathCompExpr *xmlXPathCompExprPtr;
 /**
  * xmlXPathParserContext:
  *
- * An XPath parser context. It contains pure parsing informations,
+ * An XPath parser context. It contains pure parsing information,
  * an xmlXPathContext, and the stack of objects.
  */
 struct _xmlXPathParserContext {

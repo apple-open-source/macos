@@ -38,6 +38,8 @@
 #import "WKSecurityOriginInternal.h"
 #import "WKWebViewInternal.h"
 #import "WKWebsiteDataRecordInternal.h"
+#import "WebNotification.h"
+#import "WebNotificationManagerProxy.h"
 #import "WebPageProxy.h"
 #import "WebPushMessage.h"
 #import "WebResourceLoadStatisticsStore.h"
@@ -47,6 +49,7 @@
 #import "_WKWebsiteDataStoreDelegate.h"
 #import <WebCore/Credential.h>
 #import <WebCore/RegistrationDatabase.h>
+#import <WebCore/ServiceWorkerClientData.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/URL.h>
@@ -55,10 +58,12 @@
 
 class WebsiteDataStoreClient final : public WebKit::WebsiteDataStoreClient {
 public:
-    explicit WebsiteDataStoreClient(id <_WKWebsiteDataStoreDelegate> delegate)
-        : m_delegate(delegate)
+    WebsiteDataStoreClient(WKWebsiteDataStore *dataStore, id<_WKWebsiteDataStoreDelegate> delegate)
+        : m_dataStore(dataStore)
+        , m_delegate(delegate)
         , m_hasRequestStorageSpaceSelector([m_delegate.get() respondsToSelector:@selector(requestStorageSpace: frameOrigin: quota: currentSize: spaceRequired: decisionHandler:)])
         , m_hasAuthenticationChallengeSelector([m_delegate.get() respondsToSelector:@selector(didReceiveAuthenticationChallenge: completionHandler:)])
+        , m_hasOpenWindowSelector([m_delegate.get() respondsToSelector:@selector(websiteDataStore:openWindow:fromServiceWorkerOrigin:completionHandler:)])
     {
     }
 
@@ -78,8 +83,8 @@ private:
             completionHandler(quota);
         });
 
-        URL mainFrameURL { URL(), topOrigin.toString() };
-        URL frameURL { URL(), frameOrigin.toString() };
+        URL mainFrameURL { topOrigin.toString() };
+        URL frameURL { frameOrigin.toString() };
 
         [m_delegate.getAutoreleased() requestStorageSpace:mainFrameURL frameOrigin:frameURL quota:quota currentSize:currentSize spaceRequired:spaceRequired decisionHandler:decisionHandler.get()];
     }
@@ -103,9 +108,32 @@ private:
         [m_delegate.getAutoreleased() didReceiveAuthenticationChallenge:nsURLChallenge completionHandler:completionHandler.get()];
     }
 
+    void openWindowFromServiceWorker(const String& url, const WebCore::SecurityOriginData& serviceWorkerOrigin, CompletionHandler<void(WebKit::WebPageProxy*)>&& callback)
+    {
+        if (!m_hasOpenWindowSelector || !m_delegate || !m_dataStore) {
+            callback({ });
+            return;
+        }
+
+        auto checker = WebKit::CompletionHandlerCallChecker::create(m_delegate.getAutoreleased(), @selector(websiteDataStore:openWindow:fromServiceWorkerOrigin:completionHandler:));
+        auto completionHandler = makeBlockPtr([callback = WTFMove(callback), checker = WTFMove(checker)](WKWebView *newWebView) mutable {
+            if (checker->completionHandlerHasBeenCalled())
+                return;
+            checker->didCallCompletionHandler();
+
+            callback(newWebView._page.get());
+        });
+
+        auto nsURL = (NSURL *)URL { url };
+        auto apiOrigin = API::SecurityOrigin::create(serviceWorkerOrigin);
+        [m_delegate.getAutoreleased() websiteDataStore:m_dataStore.getAutoreleased() openWindow:nsURL fromServiceWorkerOrigin:wrapper(apiOrigin.get()) completionHandler:completionHandler.get()];
+    }
+
+    WeakObjCPtr<WKWebsiteDataStore> m_dataStore;
     WeakObjCPtr<id <_WKWebsiteDataStoreDelegate> > m_delegate;
     bool m_hasRequestStorageSpaceSelector { false };
     bool m_hasAuthenticationChallengeSelector { false };
+    bool m_hasOpenWindowSelector { false };
 };
 
 @implementation WKWebsiteDataStore
@@ -122,7 +150,7 @@ private:
 
 - (instancetype)init
 {
-    if (linkedOnOrAfter(SDKVersion::FirstWithWKWebsiteDataStoreInitReturningNil))
+    if (linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::WKWebsiteDataStoreInitReturningNil))
         [NSException raise:NSGenericException format:@"Calling [WKWebsiteDataStore init] is not supported."];
     
     if (!(self = [super init]))
@@ -176,7 +204,7 @@ private:
     static dispatch_once_t onceToken;
     static NeverDestroyed<RetainPtr<NSSet>> allWebsiteDataTypes;
     dispatch_once(&onceToken, ^{
-        allWebsiteDataTypes.get() = adoptNS([[NSSet alloc] initWithArray:@[ WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeCookies, WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeIndexedDBDatabases, WKWebsiteDataTypeServiceWorkerRegistrations, WKWebsiteDataTypeWebSQLDatabases ]]);
+        allWebsiteDataTypes.get() = adoptNS([[NSSet alloc] initWithArray:@[ WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeCookies, WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeIndexedDBDatabases, WKWebsiteDataTypeServiceWorkerRegistrations, WKWebsiteDataTypeWebSQLDatabases, WKWebsiteDataTypeFileSystem ]]);
     });
 
     return allWebsiteDataTypes.get().get();
@@ -249,8 +277,7 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
             _WKWebsiteDataTypeCredentials,
             _WKWebsiteDataTypeAdClickAttributions,
             _WKWebsiteDataTypePrivateClickMeasurements,
-            _WKWebsiteDataTypeAlternativeServices,
-            _WKWebsiteDataTypeFileSystem
+            _WKWebsiteDataTypeAlternativeServices
 #if !TARGET_OS_IPHONE
             , _WKWebsiteDataTypePlugInData
 #endif
@@ -376,11 +403,6 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     return nil;
 }
 
-- (NSURL *)_indexedDBDatabaseDirectory
-{
-    return [NSURL fileURLWithPath:_websiteDataStore->configuration().indexedDBDatabaseDirectory() isDirectory:YES];
-}
-
 - (void)_setResourceLoadStatisticsTestingCallback:(void (^)(WKWebsiteDataStore *, NSString *))callback
 {
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
@@ -395,6 +417,13 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     }
 
     _websiteDataStore->setStatisticsTestingCallback(nullptr);
+#endif
+}
+
+- (void)_setResourceLoadStatisticsTimeAdvanceForTesting:(NSTimeInterval)time completionHandler:(void(^)(void))completionHandler
+{
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+    _websiteDataStore->setResourceLoadStatisticsTimeAdvanceForTesting(Seconds(time), makeBlockPtr(completionHandler));
 #endif
 }
 
@@ -651,12 +680,18 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 - (void)set_delegate:(id <_WKWebsiteDataStoreDelegate>)delegate
 {
     _delegate = delegate;
-    _websiteDataStore->setClient(makeUniqueRef<WebsiteDataStoreClient>(delegate));
+    _websiteDataStore->setClient(makeUniqueRef<WebsiteDataStoreClient>(self, delegate));
 }
 
 - (_WKWebsiteDataStoreConfiguration *)_configuration
 {
     return wrapper(_websiteDataStore->configuration().copy());
+}
+
++ (WKNotificationManagerRef)_sharedServiceWorkerNotificationManager
+{
+    LOG(Push, "Accessing _sharedServiceWorkerNotificationManager");
+    return WebKit::toAPI(&WebKit::WebNotificationManagerProxy::sharedServiceWorkerManager());
 }
 
 - (void)_allowTLSCertificateChain:(NSArray *)certificateChain forHost:(NSString *)host
@@ -771,12 +806,15 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 
 -(void)_getPendingPushMessages:(void(^)(NSArray<NSDictionary *> *))completionHandler
 {
+    RELEASE_LOG(Push, "Getting pending push messages");
+
 #if ENABLE(SERVICE_WORKER)
     _websiteDataStore->networkProcess().getPendingPushMessages(_websiteDataStore->sessionID(), [completionHandler = makeBlockPtr(completionHandler)] (const Vector<WebKit::WebPushMessage>& messages) {
         auto result = adoptNS([[NSMutableArray alloc] initWithCapacity:messages.size()]);
         for (auto& message : messages)
             [result addObject:message.toDictionary()];
 
+        RELEASE_LOG(Push, "Giving application %zu pending push messages", messages.size());
         completionHandler(result.get());
     });
 #endif
@@ -787,11 +825,53 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 #if ENABLE(SERVICE_WORKER)
     auto pushMessage = WebKit::WebPushMessage::fromDictionary(pushMessageDictionary);
     if (!pushMessage) {
+        RELEASE_LOG_ERROR(Push, "Asked to handle an invalid push message");
         completionHandler(false);
         return;
     }
 
+    RELEASE_LOG(Push, "Sending push message for scope %" PRIVATE_LOG_STRING " to network process to handle", pushMessage->registrationURL.string().utf8().data());
     _websiteDataStore->networkProcess().processPushMessage(_websiteDataStore->sessionID(), *pushMessage, [completionHandler = makeBlockPtr(completionHandler)] (bool wasProcessed) {
+        RELEASE_LOG(Push, "Push message processing complete. Callback result: %d", wasProcessed);
+        completionHandler(wasProcessed);
+    });
+#endif
+}
+
+-(void)_processPersistentNotificationClick:(NSDictionary *)notificationDictionaryRepresentation completionHandler:(void(^)(bool))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    auto notificationData = WebCore::NotificationData::fromDictionary(notificationDictionaryRepresentation);
+    if (!notificationData) {
+        RELEASE_LOG_ERROR(Push, "Asked to handle a persistent notification click with an invalid notification dictionary representation");
+        completionHandler(false);
+        return;
+    }
+
+    RELEASE_LOG(Push, "Sending persistent notification click from origin %" PRIVATE_LOG_STRING " to network process to handle", notificationData->originString.utf8().data());
+
+    notificationData->sourceSession = _websiteDataStore->sessionID();
+    _websiteDataStore->networkProcess().processNotificationEvent(*notificationData, WebCore::NotificationEventType::Click, [completionHandler = makeBlockPtr(completionHandler)] (bool wasProcessed) {
+        RELEASE_LOG(Push, "Notification click event processing complete. Callback result: %d", wasProcessed);
+        completionHandler(wasProcessed);
+    });
+#endif
+}
+
+-(void)_processPersistentNotificationClose:(NSDictionary *)notificationDictionaryRepresentation completionHandler:(void(^)(bool))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    auto notificationData = WebCore::NotificationData::fromDictionary(notificationDictionaryRepresentation);
+    if (!notificationData) {
+        RELEASE_LOG_ERROR(Push, "Asked to handle a persistent notification click with an invalid notification dictionary representation");
+        completionHandler(false);
+        return;
+    }
+
+    RELEASE_LOG(Push, "Sending persistent notification close from origin %" PRIVATE_LOG_STRING " to network process to handle", notificationData->originString.utf8().data());
+
+    _websiteDataStore->networkProcess().processNotificationEvent(*notificationData, WebCore::NotificationEventType::Close, [completionHandler = makeBlockPtr(completionHandler)] (bool wasProcessed) {
+        RELEASE_LOG(Push, "Notification close event processing complete. Callback result: %d", wasProcessed);
         completionHandler(wasProcessed);
     });
 #endif
@@ -821,5 +901,51 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         completionHandlerCopy(set.get());
     });
 }
+
+- (void)_getOriginsWithPushSubscriptions:(void(^)(NSSet<WKSecurityOrigin *> *))completionHandler {
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->networkProcess().getOriginsWithPushSubscriptions(_websiteDataStore->sessionID(), [completionHandlerCopy](const Vector<WebCore::SecurityOriginData>& origins) {
+        auto set = adoptNS([[NSMutableSet alloc] initWithCapacity:origins.size()]);
+        for (auto& origin : origins) {
+            auto apiOrigin = API::SecurityOrigin::create(origin);
+            [set addObject:wrapper(apiOrigin.get())];
+        }
+        completionHandlerCopy(set.get());
+    });
+}
+
+-(void)_scopeURL:(NSURL *)scopeURL hasPushSubscriptionForTesting:(void(^)(BOOL))completionHandler
+{
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->networkProcess()
+        .hasPushSubscriptionForTesting(_websiteDataStore->sessionID(), scopeURL, [completionHandlerCopy](bool result) {
+            completionHandlerCopy(result);
+        });
+}
+
+-(void)_originDirectoryForTesting:(NSURL *)origin topOrigin:(NSURL *)topOrigin type:(NSString *)dataType completionHandler:(void(^)(NSString *))completionHandler
+{
+    auto websiteDataType = WebKit::toWebsiteDataType(dataType);
+    if (!websiteDataType)
+        return completionHandler(nil);
+
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->originDirectoryForTesting(origin, topOrigin, *websiteDataType, [completionHandlerCopy = WTFMove(completionHandlerCopy)](auto result) {
+        completionHandlerCopy(result);
+    });
+}
+
+-(void)_setBackupExclusionPeriodForTesting:(double)seconds completionHandler:(void(^)(void))completionHandler
+{
+#if PLATFORM(IOS_FAMILY)
+    _websiteDataStore->setBackupExclusionPeriodForTesting(Seconds(seconds), [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+#else
+    UNUSED_PARAM(seconds);
+    completionHandler();
+#endif
+}
+
 
 @end

@@ -58,49 +58,18 @@
     return [self actionsForDeletingAccount:account forDataclass:dataclass];
 }
 
-- (void)deleteItemsInAccessGroup:(NSString*)agrp forItemClass:(CFStringRef)itemClass
-{
-    NSDictionary* query = @{
-        (id)kSecAttrSynchronizable : @(YES),
-        (id)kSecAttrAccessGroup : agrp,
-        (id)kSecUseDataProtectionKeychain : @(YES),
-        (id)kSecAttrTombstone : @(NO),
-        (id)kSecUseTombstones : @(NO),
-        (id)kSecClass : (__bridge NSString*)itemClass
-    };
-
-    OSStatus result = SecItemDelete((__bridge CFDictionaryRef)query);
-    if (result == errSecSuccess || result == errSecItemNotFound) {
-        secnotice("ItemDelete", "Deleted synchronizable items from table %@ for access group %@%@", itemClass, agrp, result == errSecItemNotFound ? @" (no items found)" : @"");
-    } else {
-        secwarning("ItemDelete: failed to delete synchronizable items from table %@ for access group %@: %d", itemClass, agrp, (int)result);
-    }
-}
-
 
 - (BOOL)performAction:(ACDataclassAction*)action forAccount:(ACAccount*)account withChildren:(NSArray*)childAccounts forDataclass:(NSString*)dataclass withError:(NSError**)error
 {
     // if the user asked us to delete their data, do that now
-    // we should rejigger this implementation to send a new custom message to security with an entitlement specifically for the signout case
-    // then we can do all the things we need to in securityd without having to entitlement the dataclass owners manager to read keychain items
-    // <rdar://problem/42436575> redo KeychainDataclassOwner to remove Safari items from DataclassOwnerManager's entitlements
     if (action.type == ACDataclassActionDeleteSyncData) {
-
-        NSString* const accessGroupCFNetwork = @"com.apple.cfnetwork";
-        NSString* const accessGroupCreditCards = @"com.apple.safari.credit-cards";
-        NSString* const accessGroupPasswordManager = @"com.apple.password-manager";
-
-        [self deleteItemsInAccessGroup:accessGroupCFNetwork forItemClass:kSecClassInternetPassword];
-        [self deleteItemsInAccessGroup:accessGroupCFNetwork forItemClass:kSecClassGenericPassword];
-        [self deleteItemsInAccessGroup:accessGroupCFNetwork forItemClass:kSecClassCertificate];
-        [self deleteItemsInAccessGroup:accessGroupCFNetwork forItemClass:kSecClassKey];
-
-        [self deleteItemsInAccessGroup:accessGroupCreditCards forItemClass:kSecClassGenericPassword];
-
-        [self deleteItemsInAccessGroup:accessGroupPasswordManager forItemClass:kSecClassInternetPassword];
-        [self deleteItemsInAccessGroup:accessGroupPasswordManager forItemClass:kSecClassGenericPassword];
-        [self deleteItemsInAccessGroup:accessGroupPasswordManager forItemClass:kSecClassCertificate];
-        [self deleteItemsInAccessGroup:accessGroupPasswordManager forItemClass:kSecClassKey];
+        CFErrorRef cfLocalError = NULL;
+        if (SecDeleteItemsOnSignOut(&cfLocalError)) {
+            secnotice("ItemDelete", "Deleted items on sign out");
+        } else {
+            NSError* localError = CFBridgingRelease(cfLocalError);
+            secwarning("ItemDelete: Failed to delete items on sign out: %@", localError);
+        }
     }
 
     return YES;

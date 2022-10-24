@@ -44,7 +44,6 @@
 #endif
 
 #import "SecDbKeychainMetadataKeyStore.h"
-#import "SecDbBackupManager.h"
 #if __has_include(<UserManagement/UserManagement.h>)
 #import <UserManagement/UserManagement.h>
 #endif
@@ -112,7 +111,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 @property (readonly) NSData* serializedRepresentation;
 
 - (instancetype)initWithData:(NSData*)data;
-- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck backupWrappedKey:(SecDbBackupWrappedKey*)backupWrappedKey error:(NSError**)error;
+- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck error:(NSError**)error;
 
 @end
 
@@ -252,7 +251,6 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 - (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext
                         wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey
                        tamperCheck:(NSString*)tamperCheck
-                  backupWrappedKey:(SecDbBackupWrappedKey*)backupWrappedKey
                              error:(NSError**)error
 {
     if (self = [super init]) {
@@ -260,7 +258,6 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         _serializedHolder.ciphertext = [NSKeyedArchiver archivedDataWithRootObject:ciphertext requiringSecureCoding:YES error:error];
         _serializedHolder.wrappedKey = wrappedKey.serializedRepresentation;
         _serializedHolder.tamperCheck = tamperCheck;
-        _serializedHolder.secDbBackupWrappedItemKey = backupWrappedKey ? [NSKeyedArchiver archivedDataWithRootObject:backupWrappedKey requiringSecureCoding:YES error:error] : nil;
         if (!_serializedHolder.ciphertext || !_serializedHolder.wrappedKey || !_serializedHolder.tamperCheck) {
             self = nil;
         }
@@ -308,10 +305,6 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 }
 
 @end
-
-@interface SecDbKeychainItemV7 ()
-@property (nonatomic) NSData* backupUUID;
-@end;
 
 @implementation SecDbKeychainItemV7 {
     SecDbKeychainSecretData* _encryptedSecretData;
@@ -617,23 +610,9 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:secretData withKey:key error:error];
     SecDbKeychainAKSWrappedKey* wrappedKey = [self wrapToAKS:key withKeybag:keybag accessControl:accessControl acmContext:acmContext error:error];
 
-    SecDbBackupWrappedKey* backupWrappedKey;
-    if (checkV12DevEnabled()) {
-        backupWrappedKey = [[SecDbBackupManager manager] wrapItemKey:key forKeyclass:_keyclass error:error];
-        if (backupWrappedKey) {
-            _backupUUID = backupWrappedKey.baguuid;
-        } else {
-            secwarning("SecDbKeychainItemV7: backup manager didn't return wrapped key: %@", error ? *error : nil);
-            if (error) {
-                *error = nil;
-            }
-        }
-    }
-
     _encryptedSecretData = [[SecDbKeychainSecretData alloc] initWithCiphertext:ciphertext
                                                                     wrappedKey:wrappedKey
                                                                    tamperCheck:_tamperCheck
-                                                              backupWrappedKey:backupWrappedKey
                                                                          error:error];
     return _encryptedSecretData != nil;
 }
@@ -660,20 +639,18 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
     if (ks_is_key_diversification_enabled()){
         NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
-        if (musr && (musr.length == sizeof(uuid_t))) {
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-            if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
-#endif
-                persona_uuid = (uint8_t*)musr.bytes;
-                persona_uuid_length = musr.length;
-                secinfo("KeyDiversify", "wrapToAKS: Key diversification feature persona(musr) %@ is data separated", musr);
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-            }
-#endif
+        if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+            persona_uuid = (uint8_t*)musr.bytes;
+            persona_uuid_length = musr.length;
+            secinfo("KeyDiversify", "wrapToAKS: Key diversification feature persona(musr) %@ is data separated", musr);
         }
     }
 #endif
-    if (constraints) {
+    bool forceNoConstraints = false;
+#if TARGET_OS_SIMULATOR
+    forceNoConstraints = true;
+#endif
+    if (constraints && !forceNoConstraints) {
         aks_ref_key_t refKey = NULL;
         CFErrorRef cfError = NULL;
         NSData* authData = (__bridge_transfer NSData*)CFPropertyListCreateDERData(NULL, (__bridge CFDictionaryRef)@{(id)kAKSKeyAcl : constraints}, &cfError);
@@ -767,16 +744,10 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
         if (ks_is_key_diversification_enabled()){
             NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
-            if (musr && (musr.length == sizeof(uuid_t))) {
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-                if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
-#endif
-                    persona_uuid = (uint8_t*)musr.bytes;
-                    persona_uuid_length = musr.length;
-                    secinfo("KeyDiversify", "unwrapFromAKS: Key diversification feature persona(musr) %@ is data separated", musr);
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-                }
-#endif
+            if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+                persona_uuid = (uint8_t*)musr.bytes;
+                persona_uuid_length = musr.length;
+                secinfo("KeyDiversify", "unwrapFromAKS: Key diversification feature persona(musr) %@ is data separated", musr);
             }
         }
 #endif
@@ -826,6 +797,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         aks_params_t aks_params = NULL;
         aks_params = aks_params_create(NULL, 0);
         if (!aks_params) {
+            aks_ref_key_free(&refKey);
             return nil;
         }
 
@@ -843,6 +815,10 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
             // If AKS needs authentication for this item, inform the caller that they should give us an acmContext
             if (aksResult == kAKSReturnPolicyError && acmContext == nil) {
                 ks_access_control_needed_error(&cfError, NULL, NULL);
+                aks_ref_key_free(&refKey);
+                free(aksParamsDERData);
+                aksParamsDERData = NULL;
+                aks_params_free(&aks_params);
                 BridgeCFErrorToNSErrorOut(error, cfError);
                 return nil;
             }

@@ -30,6 +30,7 @@
 #include <AssertMacros.h>
 #include <sys/resource.h>
 #import <HIDPreferences/HIDPreferencesHelperListener.h>
+#import <HIDPreferences/HIDPreferencesPrivate.h>
 
 
 static HIDPreferencesHelperListener *__xpcListener  = nil;
@@ -126,6 +127,7 @@ int main (int argc , const char * argv[]) {
     
     if (argc > 1 && strcmp(argv[1], "eventSystem") == 0) {
         supportEventSystem = true;
+        UseLocalHIDPreferences = true;
     }
     
     if (!setupXPCHelper()) {

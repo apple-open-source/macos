@@ -29,7 +29,7 @@ NSString* const OctagonEventAttributeZoneName = @"OTBottledPeer";
 NSString* const OctagonEventAttributeFailureReason = @"OTFailureReason";
 NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp = @"TimeSinceLastPostedFollowUp";
 
-NSString* OTCKContainerName = @"com.apple.security.keychain";
+NSString* const OTCKContainerName = @"com.apple.security.keychain";
 NSString* const CuttlefishTrustZone = @"CuttlefishTrustZone";
 NSString* const TrustedPeersHelperErrorDomain = @"com.apple.security.trustedpeers.container";
 

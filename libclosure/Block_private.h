@@ -18,7 +18,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <stddef.h>
 
 #include <Block.h>
 
@@ -62,6 +62,14 @@
 
 #endif
 
+#define BLOCK_HIDDEN __attribute__((__visibility__("hidden")))
+
+struct Block_byref {
+    void * __ptrauth_objc_isa_pointer isa;
+    struct Block_byref *forwarding;
+    volatile int32_t flags; // contains ref count
+    uint32_t size;
+};
 
 #if __has_feature(ptrauth_calls)  &&  __cplusplus >= 201103L
 
@@ -225,6 +233,7 @@ typedef uintptr_t BlockByrefDestroyFunction;
 enum {
     BLOCK_DEALLOCATING =      (0x0001),  // runtime
     BLOCK_REFCOUNT_MASK =     (0xfffe),  // runtime
+
     BLOCK_INLINE_LAYOUT_STRING = (1 << 21), // compiler
 
 #if BLOCK_SMALL_DESCRIPTOR_SUPPORTED
@@ -241,6 +250,44 @@ enum {
     BLOCK_HAS_SIGNATURE  =    (1 << 30), // compiler
     BLOCK_HAS_EXTENDED_LAYOUT=(1 << 31)  // compiler
 };
+
+/// Large and small block descriptors have the following layout:
+///
+/// struct Large_block_descriptor {
+///   // inline or out-of-line generic helper info.
+///   uintptr_t generic_helper_info;
+///   uintptr_t reserved; // Reserved or in-descriptor flag field.
+///   uintptr_t size;  // size of Block_layout including the captured variables.
+///   void *copy_helper_func;  // optional custom copy helper.
+///   void *destroy_helper_func;  // optional custom copy helper.
+///   void *signature; // pointer to the signature string.
+///   void *extended_block_layout; // inline or out-of-line layout string.
+/// };
+///
+/// struct Small_block_descriptor {
+///   // inline or out-of-line generic helper info.
+///   int32_t generic_helper_info;
+///   uint32_t in_descriptor_flags;
+///
+///   // size of Block_layout including the captured variables.
+///   uint32_t size : sizeof(uint32_t) * 8 - 1;
+///
+///   // A flag indicating the presence of in-descriptor flags.
+///   uint32_t has_in_descriptor_flags : 1;
+///
+///   // the following fields contain relative offsets to pointers.
+///   int32_t signature; // pointer to the signature string.
+///   int32_t extended_block_layout; //  inline or out-of-line layout string.
+///   int32_t copy_helper_func;  // optional custom copy helper.
+///   int32_t destroy_helper_func; // optional custom destroy helper.
+/// }
+///
+/// The in-descriptor flag field contains an exact copy of field `flags` of
+/// `Block_layout` except that bit 22 (BLOCK_SMALL_DESCRIPTOR) is cleared out.
+/// Bit 15_14 are used for generic block helper flags.
+///
+/// The address points of Large_block_descriptor and Small_block_descriptor are
+/// fields `reserved` and `size` respectively.
 
 #define BLOCK_DESCRIPTOR_1 1
 struct Block_descriptor_1 {
@@ -263,7 +310,8 @@ struct Block_descriptor_3 {
 };
 
 struct Block_descriptor_small {
-    uint32_t size;
+    uint32_t size : sizeof(uint32_t) * 8 - 1;
+    uint32_t has_in_descriptor_flags : 1;
 
     int32_t signature;
     int32_t layout;
@@ -301,13 +349,6 @@ enum {
 
     BLOCK_BYREF_HAS_COPY_DISPOSE =  (  1 << 25), // compiler
     BLOCK_BYREF_NEEDS_FREE =        (  1 << 24), // runtime
-};
-
-struct Block_byref {
-    void * __ptrauth_objc_isa_pointer isa;
-    struct Block_byref *forwarding;
-    volatile int32_t flags; // contains ref count
-    uint32_t size;
 };
 
 struct Block_byref_2 {
@@ -374,6 +415,142 @@ enum {
         BLOCK_FIELD_IS_WEAK | BLOCK_BYREF_CALLER
 };
 
+// These enumerators are used for bit 15-14 of the in-descriptor block flags.
+enum {
+    // Generic block helpers aren't used.
+    BLOCK_GENERIC_HELPER_NONE = 0,
+
+    // Generic block helpers use the extended layout string to copy/destroy
+    // blocks.
+    BLOCK_GENERIC_HELPER_FROM_LAYOUT = 1,
+
+    // Generic block helpers use inline generic helper info to copy/destroy
+    // blocks.
+    BLOCK_GENERIC_HELPER_INLINE = 2,
+
+    // Generic block helpers use out-of-line generic helper info to copy/destroy
+    // blocks.
+    BLOCK_GENERIC_HELPER_OUTOFLINE = 3
+};
+
+// Generic block helpers
+//
+// The idea of generic block helpers is to use the extended layout string or the
+// generic helper layout string in the descriptor to copy/destroy certain types
+// of captures instead of calling the custom copy/dispose helpers in
+// Block_descriptor_2.
+//
+// The generic helper code currenty handles the following non-trivial capture
+// types:
+//
+// 1. Non-block ARC/non-ARC strong ObjC pointers.
+// 2. ARC weak ObjC pointers.
+// 3. Block pointers.
+// 4. __block qualified types.
+//
+// Any types that are non-trivial to copy/destroy and can’t be handled by the
+// generic helpers (e.g., non-trivial C++ types) are handled by the custom
+// copy/dispose helpers.
+//
+// The generic helper layout string is either inline or out-of-line. The inline
+// string has the following format:
+//
+// b0-b7: reserved for future extension.
+// b8-b11: number of consecutive strong pointers.
+// b12-b15: number of consecutive block pointers.
+// b16-b19: number of consecutive byref pointers.
+// b20-b23: number of consecutive weak pointers.
+// b24-b63 (or b31 for small descriptors): reserved for future extension.
+//
+// The inline format is used only if the number of captures for each type is
+// smaller than 16 and all the captures are laid out consecutively.
+//
+// The out-of-line string has the following format:
+//
+// b0-b7:   reserved for future extension.
+// b8-b15:  (4-bit BlockCaptureKind opcode, 4-bit count) pair
+// b16-b23: (4-bit BlockCaptureKind opcode, 4-bit count) pair
+// ...
+// 8-bit terminator, which is just zero.
+//
+// The extended layout string, which clang currently emits when flag
+// BLOCK_HAS_EXTENDED_LAYOUT is set, can be used by the generic helpers instead
+// of the generic helper layout string to save space. It cannot be used if a
+// block type is captured and currently isn't used if the block captures types
+// that aren't 1, 2, or 4.
+
+// These enumerators are used to capture the context in which an exception was
+// thrown.
+enum {
+    // No exceptions were thrown.
+    EXCP_NONE,
+
+    // An exception was thrown when the generic copy helper was running.
+    EXCP_COPY_GENERIC,
+
+    // An exception was thrown when the custom copy helper was running.
+    EXCP_COPY_CUSTOM,
+
+    // An exception was thrown when the generic dispose helper was running.
+    EXCP_DESTROY_GENERIC,
+
+    // An exception was thrown when the custom dispose helper was running.
+    EXCP_DESTROY_CUSTOM,
+};
+
+// This is the base class of template class HelperBase.
+struct HelperBaseData {
+    // This field takes the value of one of the BLOCK_GENERIC_HELPER_*
+    // enumerators that aren't BLOCK_GENERIC_HELPER_NONE.
+    unsigned kind : 2;
+
+    // True if the generic helpers use out-of-line extended layout strings. Only
+    // meaningful if kind is BLOCK_GENERIC_HELPER_FROM_LAYOUT.
+    unsigned usesOutOfLineLayout : 1;
+
+    // Pointers to the captures in the destination and source block structure.
+    // srccapptr is valid only when copy helper functions are running.
+    unsigned char *capptr, *srccapptr;
+
+    // The number of captures of a particuler opcode that have been
+    // copied/destroyed so far.
+    unsigned capcounter;
+
+#ifdef __cplusplus
+    HelperBaseData(unsigned k, unsigned u) : kind(k), usesOutOfLineLayout(u) {}
+#endif
+};
+
+typedef struct HelperBaseData HelperBaseData;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct {
+    unsigned state;
+    struct Block_layout *dstbl;
+    HelperBaseData *helperClass;
+} ExcpCleanupInfo;
+
+BLOCK_HIDDEN void *getHelper(struct Block_layout *dstbl,
+                             struct Block_layout *srcbl);
+BLOCK_HIDDEN void _call_generic_copy_helper(struct Block_layout *dstbl,
+                                            struct Block_layout *srcbl,
+                                            HelperBaseData *helperClass);
+BLOCK_HIDDEN void _call_generic_destroy_helper(struct Block_layout *bl,
+                                               HelperBaseData *helperClass);
+BLOCK_HIDDEN void _call_custom_copy_helper(struct Block_layout *dstbl,
+                                           struct Block_layout *srcbl);
+BLOCK_HIDDEN void _call_custom_dispose_helper(struct Block_layout *bl);
+BLOCK_HIDDEN void _call_copy_helpers_excp(struct Block_layout *dstbl,
+                                          struct Block_layout *srcbl,
+                                          HelperBaseData *helper);
+BLOCK_HIDDEN void _call_dispose_helpers_excp(struct Block_layout *bl,
+                                             HelperBaseData *helper);
+BLOCK_HIDDEN void _cleanup_generic_captures(ExcpCleanupInfo *info);
+#ifdef __cplusplus
+}
+#endif
 
 // Function pointer accessors
 

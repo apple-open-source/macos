@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,13 +33,12 @@
 #if 0
 static char sccsid[] = "@(#)tty.c	8.2 (Berkeley) 6/6/93";
 #endif
-__attribute__((__used__))
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/tty.c,v 1.6 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
-
 #include <sys/cdefs.h>
+#ifdef __APPLE__
 #include <sys/ioctl.h>
+#endif
+__FBSDID("$FreeBSD$");
 
 /*
  * Mail -- a mail program
@@ -65,9 +62,7 @@ static	int	ttyset;			/* We must now do erase/kill */
  */
 
 int
-grabh(hp, gflags)
-	struct header *hp;
-	int gflags;
+grabh(struct header *hp, int gflags)
 {
 	struct termios ttybuf;
 	sig_t saveint;
@@ -112,12 +107,18 @@ grabh(hp, gflags)
 			warn("TIOCEXT: off");
 	}
 # endif	/* TIOCEXT */
+#ifdef __APPLE__
 	saveint = signal(SIGINT, ttyint);
 	if (setjmp(intjmp)) {
 		/* Interrupt from headers needs to be told to caller */
 		errs++;
 		goto out;
 	}
+#else
+	if (setjmp(intjmp))
+		goto out;
+	saveint = signal(SIGINT, ttyint);
+#endif
 #endif
 	if (gflags & GTO) {
 #ifndef TIOCSTI
@@ -181,9 +182,7 @@ out:
  */
 
 char *
-readtty(pr, src)
-	const char *pr;
-	char src[];
+readtty(const char *pr, char src[])
 {
 	char ch, canonb[BUFSIZ];
 	int c;
@@ -283,8 +282,7 @@ redo:
  * Receipt continuation.
  */
 void
-ttystop(s)
-	int s;
+ttystop(int s)
 {
 	sig_t old_action = signal(s, SIG_DFL);
 	sigset_t nset;
@@ -298,10 +296,8 @@ ttystop(s)
 	longjmp(rewrite, 1);
 }
 
-/*ARGSUSED*/
 void
-ttyint(s)
-	int s;
+ttyint(int s __unused)
 {
 	longjmp(intjmp, 1);
 }

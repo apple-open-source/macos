@@ -30,7 +30,7 @@
 #include "IOHIDManagerPersistentProperties.h"
 #include <os/assumes.h>
 #include <AssertMacros.h>
-#include <os/lock.h>
+#include <os/lock_private.h>
 #include <os/state_private.h>
 
 static IOHIDManagerRef  __IOHIDManagerCreate(
@@ -84,53 +84,95 @@ typedef struct __DeviceApplierArgs {
     IOReturn            retVal;
 }   DeviceApplierArgs;
 
+typedef struct __DeviceInitialEnumArgs {
+    IOHIDManagerRef manager;
+    CFSetRef devices;
+} DeviceInitialEnumArgs;
+
 typedef struct __IOHIDManager
 {
     IOHIDObjectBase                 hidBase;
     
+    // Lifetime: Object, persists as long as IOHIDManager. Used for synchronization of general manager data.
+    os_unfair_recursive_lock        managerLock;
+
+    // Lifetime: Created when device is first added. Must be accessed under the managerLock.
     CFMutableSetRef                 devices;
-    os_unfair_lock                  deviceLock;
     
+    // Lifetime: Created when device is first added. Must be accessed under the managerLock.
     CFMutableSetRef                 iterators;
+    // Lifetime: Created when device is first added. Must be accessed under the managerLock.
     CFMutableDictionaryRef          removalNotifiers;
     
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     CFMutableDictionaryRef          properties;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     CFMutableDictionaryRef          deviceInputBuffers;
 
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     IONotificationPortRef           notifyPort;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     CFRunLoopRef                    runLoop;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     CFStringRef                     runLoopMode;
     
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     dispatch_queue_t                dispatchQueue;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     dispatch_block_t                cancelHandler;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     uint32_t                        cancelCount;
     
+    // Lifetime: Object. Use the atomic functions for access.
     _Atomic uint32_t                dispatchStateMask;
     
-    CFRunLoopSourceRef              initEnumRunLoopSource;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
+    CFSetRef                        initDeviceSet;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
+    CFRunLoopSourceRef              initialEnumSource;
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     CFMutableDictionaryRef          initRetVals;
     
+    // Lifetime: Created when property is first added. Must be accessed under the managerLock.
     Boolean                         isOpen;
+    // Lifetime: Object, created when first opened. Once set it doesn't change, safe to access without lock.
     IOOptionBits                    openOptions;
+    // Lifetime: Object, created when manager is created. Once set it doesn't change, safe to access without lock.
     IOOptionBits                    createOptions;
-    
-    void *                          inputContext;
-    IOHIDValueCallback              inputCallback;
-    
-    void *                              reportContext;
-    IOHIDReportCallback                 reportCallback;
-    IOHIDReportWithTimeStampCallback    reportTimestampCallback;
-    
-    void *                          matchContext;
-    IOHIDDeviceCallback             matchCallback;
-    
-    void *                          removalContext;
-    IOHIDDeviceCallback             removalCallback;
-    
-    CFArrayRef                      inputMatchingMultiple;
+    // Lifetime: Object, created when manager is created. Once set it doesn't change, safe to access without lock.
     Boolean                         isDirty;
 
+    // Lifetime: Object, persists as long as IOHIDManager. Used for synchronization of callback data.
+    os_unfair_recursive_lock        callbackLock;
+    
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    void *                          inputContext;
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    IOHIDValueCallback              inputCallback;
+    
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    void *                              reportContext;
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    IOHIDReportCallback                 reportCallback;
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    IOHIDReportWithTimeStampCallback    reportTimestampCallback;
+    
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    void *                          matchContext;
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    IOHIDDeviceCallback             matchCallback;
+    
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    void *                          removalContext;
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    IOHIDDeviceCallback             removalCallback;
+    
+    // Lifetime: Set when input handler is added. Requires callbackLock for synchronization.
+    CFArrayRef                      inputMatchingMultiple;
+
+    // Lifetime: Object, persists as long as IOHIDManager. Does not require locking for synchronization
     os_state_handle_t               stateHandler;
+    // Lifetime: Object, persists as long as IOHIDManager. Does not require locking for synchronization
     dispatch_queue_t                stateQueue;
 
 } __IOHIDManager, *__IOHIDManagerRef;
@@ -187,6 +229,8 @@ void __IOHIDManagerExtRelease( CFTypeRef object )
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)object;
     
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+
     if (manager->dispatchQueue) {
         // enforce the call to activate/cancel
         os_assert(manager->dispatchStateMask == (kIOHIDDispatchStateActive | kIOHIDDispatchStateCancelled),
@@ -213,19 +257,11 @@ void __IOHIDManagerExtRelease( CFTypeRef object )
         CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
         if (source) {
             CFRunLoopSourceInvalidate(source);
-            if (manager->runLoop)
-                CFRunLoopRemoveSource(manager->runLoop,
-                                      source,
-                                      manager->runLoopMode);
         }
     }
-    
-    if (manager->initEnumRunLoopSource) {
-        CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
-        if (manager->runLoop)
-            CFRunLoopRemoveSource(manager->runLoop,
-                                  manager->initEnumRunLoopSource,
-                                  manager->runLoopMode);
+
+    if (manager->initialEnumSource) {
+        CFRunLoopSourceInvalidate(manager->initialEnumSource);
     }
     
     if (manager->stateHandler) {
@@ -239,6 +275,7 @@ void __IOHIDManagerExtRelease( CFTypeRef object )
         dispatch_release(manager->stateQueue);
     }
 
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -253,10 +290,10 @@ void __IOHIDManagerIntRelease( CFTypeRef object )
         IONotificationPortDestroy(manager->notifyPort);
         manager->notifyPort = NULL;
     }
-    
-    if ( manager->initEnumRunLoopSource ) {
-        CFRelease(manager->initEnumRunLoopSource);
-        manager->initEnumRunLoopSource = NULL;
+
+    if ( manager->initDeviceSet ) {
+        CFRelease(manager->initDeviceSet);
+        manager->initDeviceSet = NULL;
     }
     
     if ( manager->devices ) {
@@ -296,6 +333,11 @@ void __IOHIDManagerIntRelease( CFTypeRef object )
     if (manager->removalNotifiers) {
         CFRelease(manager->removalNotifiers);
     }
+
+    if (manager->initialEnumSource) {
+        CFRelease(manager->initialEnumSource);
+        manager->initialEnumSource = NULL;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -309,6 +351,7 @@ void __IOHIDManagerSetDeviceMatching(
     io_iterator_t           iterator;
     IOReturn                kr;
     
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (!manager->notifyPort) {
         manager->notifyPort = IONotificationPortCreate(kIOMainPortDefault);
         
@@ -322,6 +365,7 @@ void __IOHIDManagerSetDeviceMatching(
             }
         }
     }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 
     matchingDict = IOServiceMatching(kIOHIDDeviceKey);
     
@@ -346,6 +390,7 @@ void __IOHIDManagerSetDeviceMatching(
         return;
     }
                 
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     // Add iterator to set for later destruction
     if ( !manager->iterators ) {
         CFSetCallBacks callbacks;
@@ -359,15 +404,16 @@ void __IOHIDManagerSetDeviceMatching(
                                             CFGetAllocator(manager),
                                             0, 
                                             &callbacks);
-        if ( !manager->iterators )
+        if ( !manager->iterators ) {
+            os_unfair_recursive_lock_unlock(&manager->managerLock);
             return;
+        }
     }
     
     intptr_t temp = iterator;
-    os_unfair_lock_lock(&manager->deviceLock);
     CFSetAddValue(manager->iterators, (void *)temp);
-    os_unfair_lock_unlock(&manager->deviceLock);
     IOObjectRelease(iterator);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 
     __IOHIDManagerDeviceAdded(manager, iterator);
 }
@@ -390,6 +436,7 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
         device = IOHIDDeviceCreate(CFGetAllocator(manager), service);
         
         if ( device ) {
+            os_unfair_recursive_lock_lock(&manager->managerLock);
             if ( !manager->devices ) {                
                 manager->devices = CFSetCreateMutable(
                                                         CFGetAllocator(manager),
@@ -430,46 +477,53 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
             }
             
             if (retVal == kIOReturnSuccess) {
-                os_unfair_lock_lock(&manager->deviceLock);
                 CFDictionarySetValue(manager->removalNotifiers,
                                      device,
                                      (void *)(intptr_t)notification);
-                os_unfair_lock_unlock(&manager->deviceLock);
                 
                 IOObjectRelease(notification);
             } else {
                 IOHIDLogError("IOServiceAddInterestNotification: 0x%x", retVal);
                 CFRelease(device);
                 IOObjectRelease(service);
+                os_unfair_recursive_lock_unlock(&manager->managerLock);
                 continue;
             }
 
             if ( manager->devices ) {
-                os_unfair_lock_lock(&manager->deviceLock);
                 CFSetAddValue(manager->devices, device);
-                os_unfair_lock_unlock(&manager->deviceLock);
             }
-
-            CFRelease(device);
+            os_unfair_recursive_lock_unlock(&manager->managerLock);
             
             retVal = kIOReturnSuccess;
             
-            if ( manager->isOpen )
-                args.options |= kDeviceApplierOpen;
- 
-            if ( manager->inputMatchingMultiple )
+            os_unfair_recursive_lock_lock(&manager->callbackLock);
+            if ( manager->inputMatchingMultiple ) {
                 args.options |= kDeviceApplierSetInputMatching;
+            }
             
-            if ( manager->inputCallback )
+            if ( manager->inputCallback ) {
                 args.options |= kDeviceApplierSetInputCallback;
+            }
 
-            if ( manager->reportCallback )
+            if ( manager->reportCallback ) {
                 args.options |= kDeviceApplierSetInputReportCallback;
+            }
             
             if (manager->reportTimestampCallback) {
                 args.options |= kDeviceApplierSetInputTSReportCallback;
             }
-                                                       
+
+            if (manager->cancelHandler) {
+                args.options |= kDeviceApplierSetCancelHandler;
+            }
+            os_unfair_recursive_lock_unlock(&manager->callbackLock);
+
+            os_unfair_recursive_lock_lock(&manager->managerLock);
+            if ( manager->isOpen ) {
+                args.options |= kDeviceApplierOpen;
+            }
+
             if ( manager->runLoop ) {
                 args.options |= kDeviceApplierScheduleRunLoop;
 
@@ -488,13 +542,10 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                     args.options |= kDeviceApplierInitEnumCallback;
             }
             
-            if (manager->cancelHandler) {
-                args.options |= kDeviceApplierSetCancelHandler;
-            }
-            
             if (manager->dispatchStateMask & kIOHIDDispatchStateActive) {
                 args.options |= kDeviceApplierActivate;
             }
+            os_unfair_recursive_lock_unlock(&manager->managerLock);
 
             __IOHIDManagerDeviceApplier((const void *)device, &args);
 
@@ -502,11 +553,16 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                 !(manager->createOptions & kIOHIDManagerOptionDoNotLoadProperties)) {
                 __IOHIDDeviceLoadProperties(device);
             }
+
+            os_unfair_recursive_lock_lock(&manager->managerLock);
             if (manager->properties) {
                 CFDictionaryApplyFunction(manager->properties, 
                                           __IOHIDApplyPropertiesToDeviceFromDictionary, 
                                           device);
             }
+            os_unfair_recursive_lock_unlock(&manager->managerLock);
+
+            CFRelease(device);
         }
         
         IOObjectRelease(service);
@@ -514,28 +570,64 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
     
     // Dispatch initial enumeration callback on runLoop
     if ( initial ) {
-        
-        CFRunLoopSourceContext  context;
-        
-        bzero(&context, sizeof(CFRunLoopSourceContext));
-        
-        context.info    = manager;
+        CFRunLoopSourceContext context;
+
+        memset(&context, 0, sizeof(context));
+
+        os_unfair_recursive_lock_lock(&manager->managerLock);
+
+        context.info = manager;
         context.perform = __IOHIDManagerInitialEnumCallback;
-        
-        manager->initEnumRunLoopSource = CFRunLoopSourceCreate( 
-                                                        CFGetAllocator(manager),
-                                                        0, 
-                                                        &context);
-                                                        
-        if ( manager->runLoop && manager->initEnumRunLoopSource ) {
-            CFRunLoopAddSource(
-                        manager->runLoop, 
-                        manager->initEnumRunLoopSource, 
-                        manager->runLoopMode);
-                        
-            CFRunLoopSourceSignal(manager->initEnumRunLoopSource);
+
+        manager->initDeviceSet = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+
+        manager->initialEnumSource = CFRunLoopSourceCreate(CFGetAllocator(manager), 0, &context);
+
+        if ( manager->runLoop && manager->runLoopMode ) {
+            CFRunLoopAddSource(manager->runLoop, manager->initialEnumSource, manager->runLoopMode);
+            CFRunLoopSourceSignal(manager->initialEnumSource);
+            CFRunLoopWakeUp(manager->runLoop);
         }
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
     }
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDManagerInitialEnumCallback
+//------------------------------------------------------------------------------
+void __IOHIDManagerInitialEnumCallback(void * info)
+{
+    IOHIDManagerRef manager = (IOHIDManagerRef)info;
+    DeviceApplierArgs args = { manager, kDeviceApplierInitEnumCallback, kIOReturnSuccess };
+    
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
+    require_action(manager->matchCallback, exit, os_unfair_recursive_lock_unlock(&manager->callbackLock));
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
+
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    CFSetApplyFunction(manager->initDeviceSet, __IOHIDManagerDeviceApplier, &args);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
+    
+exit:
+    // After we have dispatched all of the enum callbacks, kill the source
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    
+    if (manager->initialEnumSource) {
+        CFRunLoopSourceInvalidate(manager->initialEnumSource);
+        CFRelease(manager->initialEnumSource);
+        manager->initialEnumSource = NULL;
+    }
+
+    if (manager->initDeviceSet) {
+        CFRelease(manager->initDeviceSet);
+        manager->initDeviceSet = NULL;
+    }
+    
+    if (manager->initRetVals) {
+        CFRelease(manager->initRetVals);
+        manager->initRetVals = NULL;
+    }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -556,7 +648,7 @@ void __IOHIDManagerDeviceRemoved(void *refcon,
         return;
     }
     
-    os_unfair_lock_lock(&manager->deviceLock);
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     _IOHIDCFSetApplyBlock(manager->devices, ^(CFTypeRef value) {
         IOHIDDeviceRef device = (IOHIDDeviceRef)value;
         
@@ -568,71 +660,50 @@ void __IOHIDManagerDeviceRemoved(void *refcon,
             }
         }
     });
-    os_unfair_lock_unlock(&manager->deviceLock);
     
     if (!sender) {
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
         return;
     }
     
-    os_unfair_lock_lock(&manager->deviceLock);
     CFDictionaryRemoveValue(manager->removalNotifiers, sender);
-    os_unfair_lock_unlock(&manager->deviceLock);
     
     if ( manager->deviceInputBuffers )
         CFDictionaryRemoveValue(manager->deviceInputBuffers, sender);
-        
+
+
     if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
         !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
         if (CFSetContainsValue(manager->devices, sender))
             __IOHIDDeviceSaveProperties((IOHIDDeviceRef)sender, NULL);
     }
+
+    dispatch_queue_t dispatchQueue = manager->dispatchQueue;
+    CFRunLoopRef runLoop = manager->runLoop;
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     if (!(manager->createOptions &kIOHIDManagerOptionIndependentDevices) &&
-        manager->dispatchQueue) {
+        dispatchQueue) {
         IOHIDDeviceCancel(sender);
         IOHIDDeviceActivate(sender);
     }
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     if (manager->removalCallback &&
-        (manager->runLoop || manager->dispatchStateMask & kIOHIDDispatchStateActive)) {
+        (runLoop|| manager->dispatchStateMask & kIOHIDDispatchStateActive)) {
         (*manager->removalCallback)(manager->removalContext,
                                     kIOReturnSuccess,
                                     manager,
                                     sender);
     }
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
     
-    os_unfair_lock_lock(&manager->deviceLock);
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     CFSetRemoveValue(manager->devices, sender);
-    os_unfair_lock_unlock(&manager->deviceLock);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
-//------------------------------------------------------------------------------
-// __IOHIDManagerInitialEnumCallback
-//------------------------------------------------------------------------------
-void __IOHIDManagerInitialEnumCallback(void * info)
-{
-    IOHIDManagerRef manager = (IOHIDManagerRef)info;
-    
-    require(manager->matchCallback && manager->devices, exit);
-    
-    __ApplyToDevices(manager, kDeviceApplierInitEnumCallback);
-    
-exit:
-    // After we have dispatched all of the enum callbacks, kill the source
-    if (manager->runLoop) {
-        CFRunLoopRemoveSource(manager->runLoop,
-                              manager->initEnumRunLoopSource, 
-                              manager->runLoopMode);
-    }
 
-    CFRelease(manager->initEnumRunLoopSource);
-    manager->initEnumRunLoopSource = NULL;
-    
-    if (manager->initRetVals) {
-        CFRelease(manager->initRetVals);
-        manager->initRetVals = NULL;
-    }
-}
 
 //------------------------------------------------------------------------------
 // __ApplyToDevices
@@ -643,11 +714,11 @@ IOReturn __ApplyToDevices(IOHIDManagerRef manager, IOOptionBits options)
     IOReturn ret = kIOReturnError;
     DeviceApplierArgs args = { manager, options, kIOReturnSuccess };
     
-    require_action(manager->devices, exit, ret = kIOReturnNoDevice);
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock); ret = kIOReturnNoDevice);
     
-    os_unfair_lock_lock(&manager->deviceLock);
     devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
-    os_unfair_lock_unlock(&manager->deviceLock);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     require(devices, exit);
     
@@ -699,6 +770,7 @@ void __IOHIDManagerDeviceApplier(
     if ( args->options & kDeviceApplierSetInputReportCallback ||
          args->options & kDeviceApplierSetInputTSReportCallback ) {
         CFMutableDataRef dataRef = NULL;
+        os_unfair_recursive_lock_lock(&args->manager->managerLock);
         if ( !args->manager->deviceInputBuffers ) {
             args->manager->deviceInputBuffers = CFDictionaryCreateMutable(CFGetAllocator(args->manager), 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         }
@@ -719,6 +791,7 @@ void __IOHIDManagerDeviceApplier(
                 CFRelease(dataRef);
             }
         }
+        os_unfair_recursive_lock_unlock(&args->manager->managerLock);
         
         if (args->options & kDeviceApplierSetInputReportCallback) {
             IOHIDDeviceRegisterInputReportCallback(device,
@@ -819,7 +892,8 @@ IOHIDManagerRef IOHIDManagerCreate(
     if (!manager)
         return (_Nonnull IOHIDManagerRef)NULL;
     
-    manager->deviceLock = OS_UNFAIR_LOCK_INIT;
+    manager->managerLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
+    manager->callbackLock = OS_UNFAIR_RECURSIVE_LOCK_INIT;
     manager->createOptions = options;
     
     if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
@@ -919,10 +993,16 @@ CFTypeRef IOHIDManagerGetProperty(
                                 IOHIDManagerRef                 manager,
                                 CFStringRef                     key)
 {
-    if ( !manager->properties )
+    CFTypeRef value;
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    if ( !manager->properties ) {
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
         return NULL;
-        
-    return CFDictionaryGetValue(manager->properties, key);
+    }
+    
+    value = CFDictionaryGetValue(manager->properties, key);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
+    return value;
 }
                                 
 //------------------------------------------------------------------------------
@@ -936,23 +1016,23 @@ Boolean IOHIDManagerSetProperty(
     CFSetRef devices = NULL;
     bool result = false;
     __IOHIDApplyPropertyToSetContext context = { key, value };
-    
+        
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (!manager->properties) {
         manager->properties = CFDictionaryCreateMutable(CFGetAllocator(manager),
                                                         0,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks);
-        require(manager->properties, exit);
+        require_action(manager->properties, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
     }
     
     manager->isDirty = TRUE;
     CFDictionarySetValue(manager->properties, key, value);
     
-    require_action(manager->devices, exit, result = true);
+    require_action(manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock); result = true);
     
-    os_unfair_lock_lock(&manager->deviceLock);
     devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
-    os_unfair_lock_unlock(&manager->deviceLock);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     require(devices, exit);
     
@@ -999,33 +1079,34 @@ void IOHIDManagerSetDeviceMatchingMultiple(
     CFTypeRef       value;
     
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
-    
+
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if ( manager->devices ) {
         if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
             !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
             __IOHIDManagerSaveProperties(manager, NULL);
         }
         
-        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->devices);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
     
     if (manager->removalNotifiers) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFDictionaryRemoveAllValues(manager->removalNotifiers);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
         
     if (manager->iterators) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->iterators);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
 
-    if ( manager->deviceInputBuffers )
+    if ( manager->deviceInputBuffers ) {
         CFDictionaryRemoveAllValues(manager->deviceInputBuffers);
-    
+    }
+
+    if ( manager->initDeviceSet ) {
+        CFRelease(manager->initDeviceSet);
+        manager->initDeviceSet = NULL;
+    }
+
     if ( multiple ) {
         count = CFArrayGetCount(multiple);
         for ( i=0; i<count; i++ ) {
@@ -1034,9 +1115,17 @@ void IOHIDManagerSetDeviceMatchingMultiple(
                 __IOHIDManagerSetDeviceMatching(manager, (CFDictionaryRef)value);
         }
     }
-    else 
+    else {
         __IOHIDManagerSetDeviceMatching(manager, NULL);
+    }
 
+    if ( manager->devices ) {
+        if (manager->initDeviceSet) {
+            CFRelease(manager->initDeviceSet);
+        }
+        manager->initDeviceSet = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+    }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1047,11 +1136,11 @@ CFSetRef IOHIDManagerCopyDevices(
 {
     CFSetRef devices = NULL;
     
-    require(manager->devices, exit);
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->devices, exit,     os_unfair_recursive_lock_unlock(&manager->managerLock));
     
-    os_unfair_lock_lock(&manager->deviceLock);
     devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
-    os_unfair_lock_unlock(&manager->deviceLock);
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
 exit:
     return devices;
@@ -1067,8 +1156,10 @@ void IOHIDManagerRegisterDeviceMatchingCallback(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     manager->matchCallback  = callback;
     manager->matchContext   = context;
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1081,8 +1172,10 @@ void IOHIDManagerRegisterDeviceRemovalCallback(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     manager->removalCallback    = callback;
     manager->removalContext     = context;
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
 
 }
                                         
@@ -1096,10 +1189,14 @@ void IOHIDManagerRegisterInputReportCallback(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     manager->reportCallback  = callback;
     manager->reportContext   = context;
-    
-    require(manager->isOpen && manager->devices, exit);
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
+
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->isOpen && manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     __ApplyToDevices(manager, kDeviceApplierSetInputReportCallback);
     
@@ -1117,10 +1214,15 @@ void IOHIDManagerRegisterInputReportWithTimeStampCallback(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     manager->reportTimestampCallback = callback;
     manager->reportContext = context;
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
     
-    require(manager->isOpen && manager->devices, exit);
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->isOpen && manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
+
     
     __ApplyToDevices(manager, kDeviceApplierSetInputTSReportCallback);
     
@@ -1138,11 +1240,15 @@ void IOHIDManagerRegisterInputValueCallback(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     manager->inputCallback  = callback;
     manager->inputContext   = context;
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
     
-    require(manager->isOpen && manager->devices, exit);
-    
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->isOpen && manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
+        
     __ApplyToDevices(manager, kDeviceApplierSetInputCallback);
     
 exit:
@@ -1178,6 +1284,7 @@ void IOHIDManagerSetInputValueMatchingMultiple(
 {
     os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
     
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     if ( manager->inputMatchingMultiple )
         CFRelease(manager->inputMatchingMultiple);
         
@@ -1185,8 +1292,11 @@ void IOHIDManagerSetInputValueMatchingMultiple(
         CFRetain(multiple);
         
     manager->inputMatchingMultiple = multiple;
-    
-    require(manager->isOpen && manager->devices, exit);
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
+
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    require_action(manager->isOpen && manager->devices, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     __ApplyToDevices(manager, kDeviceApplierSetInputMatching);
     
@@ -1202,6 +1312,7 @@ void IOHIDManagerScheduleWithRunLoop(
                                         CFRunLoopRef            runLoop, 
                                         CFStringRef             runLoopMode)
 {
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     os_assert(!manager->runLoop && !manager->dispatchQueue,
               "Schedule failed queue: %p runLoop: %p", manager->dispatchQueue, manager->runLoop);
     
@@ -1209,6 +1320,14 @@ void IOHIDManagerScheduleWithRunLoop(
     manager->runLoopMode    = runLoopMode;
 
     if ( manager->runLoop ) {
+
+        // schedule the initial enumeration routine
+        if ( manager->initDeviceSet && manager->initialEnumSource) {
+            CFRunLoopAddSource(manager->runLoop, manager->initialEnumSource, manager->runLoopMode);
+            CFRunLoopSourceSignal(manager->initialEnumSource);
+            CFRunLoopWakeUp(manager->runLoop);
+        }
+
         // Schedule the notifyPort
         if (manager->notifyPort) {
             CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
@@ -1219,19 +1338,12 @@ void IOHIDManagerScheduleWithRunLoop(
                             manager->runLoopMode);
             }
         }
-
-        // schedule the initial enumeration routine
-        if ( manager->initEnumRunLoopSource ) {
-            CFRunLoopAddSource(
-                        manager->runLoop, 
-                        manager->initEnumRunLoopSource, 
-                        manager->runLoopMode);
-
-            CFRunLoopSourceSignal(manager->initEnumRunLoopSource);
-        }
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
         
         // Schedule the devices
         __ApplyToDevices(manager, kDeviceApplierScheduleRunLoop);
+    } else {
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
     }
 }
 
@@ -1243,41 +1355,36 @@ void IOHIDManagerUnscheduleFromRunLoop(
                                         CFRunLoopRef            runLoop, 
                                         CFStringRef             runLoopMode)
 {
-    if (!manager->runLoop)
+    os_unfair_recursive_lock_lock(&manager->managerLock);
+    if (!manager->runLoop) {
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
         return;
+    }
     
     if (!CFEqual(manager->runLoop, runLoop) || 
-        !CFEqual(manager->runLoopMode, runLoopMode)) 
+        !CFEqual(manager->runLoopMode, runLoopMode)) {
+        os_unfair_recursive_lock_unlock(&manager->managerLock);
         return;
+    }
     
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     // Unschedule the devices
     __ApplyToDevices(manager, kDeviceApplierUnscheduleRunLoop);
     
     // Unschedule the initial enumeration routine
-    if (manager->initEnumRunLoopSource) {
-        CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
-        CFRunLoopRemoveSource(manager->runLoop,
-                              manager->initEnumRunLoopSource,
-                              manager->runLoopMode);
-        CFRelease(manager->initEnumRunLoopSource);
-        manager->initEnumRunLoopSource = NULL;
-    }
-    
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     // stop receiving device notifications
     if (manager->iterators) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->iterators);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
     
     if (manager->removalNotifiers) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFDictionaryRemoveAllValues(manager->removalNotifiers);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
-    
+
     manager->runLoop        = NULL;
     manager->runLoopMode    = NULL;
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1286,6 +1393,7 @@ void IOHIDManagerUnscheduleFromRunLoop(
 
 void IOHIDManagerSetDispatchQueue(IOHIDManagerRef manager, dispatch_queue_t queue)
 {
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     os_assert(!manager->runLoop && !manager->dispatchQueue);
     
     char label[256] = {0};
@@ -1293,10 +1401,11 @@ void IOHIDManagerSetDispatchQueue(IOHIDManagerRef manager, dispatch_queue_t queu
     snprintf(label, sizeof(label), "%s.IOHIDManagerRef", dispatch_queue_get_label (queue) ? dispatch_queue_get_label (queue) : "");
 
     manager->dispatchQueue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL, queue);
-    require(manager->dispatchQueue, exit);
+    require_action(manager->dispatchQueue, exit, os_unfair_recursive_lock_unlock(&manager->managerLock));
     
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     __ApplyToDevices(manager, kDeviceApplierSetDispatchQueue);
-    
+
 exit:
     return;
 }
@@ -1306,10 +1415,12 @@ exit:
 //------------------------------------------------------------------------------
 void IOHIDManagerSetCancelHandler(IOHIDManagerRef manager, dispatch_block_t handler)
 {
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     os_assert(!manager->cancelHandler && handler);
     
     _IOHIDObjectInternalRetain(manager);
     manager->cancelHandler = Block_copy(handler);
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
     
     __ApplyToDevices(manager, kDeviceApplierSetCancelHandler);
 }
@@ -1330,15 +1441,19 @@ void IOHIDManagerActivate(IOHIDManagerRef manager)
 
     deviceOptions = kDeviceApplierActivate;
 
+    os_unfair_recursive_lock_lock(&manager->callbackLock);
     if (manager->matchCallback) {
         deviceOptions |= kDeviceApplierInitEnumCallback;
     }
+    os_unfair_recursive_lock_unlock(&manager->callbackLock);
 
     __ApplyToDevices(manager, deviceOptions);
 
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (manager->notifyPort) {
         IONotificationPortSetDispatchQueue(manager->notifyPort, manager->dispatchQueue);
     }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1353,6 +1468,7 @@ void IOHIDManagerCancel(IOHIDManagerRef manager)
         return;
     }
     
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (manager->notifyPort) {
         IONotificationPortDestroy(manager->notifyPort);
         manager->notifyPort = NULL;
@@ -1360,15 +1476,11 @@ void IOHIDManagerCancel(IOHIDManagerRef manager)
     
     // stop receiving device notifications
     if (manager->iterators) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->iterators);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
     
     if (manager->removalNotifiers) {
-        os_unfair_lock_lock(&manager->deviceLock);
         CFDictionaryRemoveAllValues(manager->removalNotifiers);
-        os_unfair_lock_unlock(&manager->deviceLock);
     }
     
     if (manager->devices &&
@@ -1381,6 +1493,7 @@ void IOHIDManagerCancel(IOHIDManagerRef manager)
         manager->cancelHandler = NULL;
         _IOHIDObjectInternalRelease(manager);
     }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 }
 
 //------------------------------------------------------------------------------
@@ -1413,6 +1526,7 @@ CFStringRef __IOHIDManagerGetRootKey()
 //------------------------------------------------------------------------------
 void __IOHIDManagerSaveProperties(IOHIDManagerRef manager, __IOHIDPropertyContext *context)
 {
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (manager->isDirty && manager->properties) {
         __IOHIDPropertySaveToKeyWithSpecialKeys(manager->properties, 
                                                __IOHIDManagerGetRootKey(),
@@ -1424,9 +1538,7 @@ void __IOHIDManagerSaveProperties(IOHIDManagerRef manager, __IOHIDPropertyContex
     if (manager->devices) {
         CFSetRef devices = NULL;
         
-        os_unfair_lock_lock(&manager->deviceLock);
         devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
-        os_unfair_lock_unlock(&manager->deviceLock);
         
         require(devices, exit);
         
@@ -1435,6 +1547,7 @@ void __IOHIDManagerSaveProperties(IOHIDManagerRef manager, __IOHIDPropertyContex
     }
     
 exit:
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     return;
 }
 
@@ -1444,11 +1557,13 @@ void __IOHIDManagerLoadProperties(IOHIDManagerRef manager)
     // Convert to __IOHIDPropertyLoadFromKeyWithSpecialKeys if we identify special keys
     CFMutableDictionaryRef properties = __IOHIDPropertyLoadDictionaryFromKey(__IOHIDManagerGetRootKey());
     
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     if (properties) {
         CFRELEASE_IF_NOT_NULL(manager->properties);
         manager->properties = properties;
         manager->isDirty = FALSE;
     }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
     
     // We do not load device properties here, since the devices are not present when this is called.
 }
@@ -1680,18 +1795,16 @@ CFMutableDictionaryRef __IOHIDManagerSerializeState(IOHIDManagerRef manager)
                                       &kCFTypeDictionaryValueCallBacks);
     require(state, exit);
     
-    
+    os_unfair_recursive_lock_lock(&manager->managerLock);
     CFDictionarySetValue(state, CFSTR("DispatchQueue"), manager->dispatchQueue ? kCFBooleanTrue : kCFBooleanFalse);
     CFDictionarySetValue(state, CFSTR("RunLoop"), manager->runLoop ? kCFBooleanTrue : kCFBooleanFalse);
     _IOHIDDictionaryAddSInt32(state, CFSTR("openOptions"), manager->openOptions);
     _IOHIDDictionaryAddSInt32(state, CFSTR("createOptions"), manager->createOptions);
     CFDictionarySetValue(state, CFSTR("isOpen"), manager->isOpen ? kCFBooleanTrue : kCFBooleanFalse);
     
-    os_unfair_lock_lock(&manager->deviceLock);
     if (manager->devices) {
         devices = CFSetCreateCopy(CFGetAllocator(manager->devices), manager->devices);
     }
-    os_unfair_lock_unlock(&manager->deviceLock);
     
     if (devices) {
         CFMutableArrayRef deviceList = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -1710,6 +1823,7 @@ CFMutableDictionaryRef __IOHIDManagerSerializeState(IOHIDManagerRef manager)
         }
         CFRelease(devices);
     }
+    os_unfair_recursive_lock_unlock(&manager->managerLock);
 
 exit:
     

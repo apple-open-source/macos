@@ -44,6 +44,11 @@ PageClientImplCocoa::PageClientImplCocoa(WKWebView *webView)
 
 PageClientImplCocoa::~PageClientImplCocoa() = default;
 
+void PageClientImplCocoa::topContentInsetDidChange()
+{
+    [m_webView _recalculateViewportSizesWithMinimumViewportInset:[m_webView minimumViewportInset] maximumViewportInset:[m_webView maximumViewportInset] throwOnInvalidInput:NO];
+}
+
 void PageClientImplCocoa::themeColorWillChange()
 {
     [m_webView willChangeValueForKey:@"themeColor"];
@@ -153,9 +158,28 @@ void PageClientImplCocoa::pageClosed()
     m_alternativeTextUIController->clear();
 }
 
+#if ENABLE(GPU_PROCESS)
+void PageClientImplCocoa::gpuProcessDidFinishLaunching()
+{
+    [m_webView willChangeValueForKey:@"_gpuProcessIdentifier"];
+    [m_webView didChangeValueForKey:@"_gpuProcessIdentifier"];
+}
+
+void PageClientImplCocoa::gpuProcessDidExit()
+{
+    [m_webView willChangeValueForKey:@"_gpuProcessIdentifier"];
+    [m_webView didChangeValueForKey:@"_gpuProcessIdentifier"];
+}
+#endif
+
 WebCore::DictationContext PageClientImplCocoa::addDictationAlternatives(NSTextAlternatives *alternatives)
 {
     return m_alternativeTextUIController->addAlternatives(alternatives);
+}
+
+void PageClientImplCocoa::replaceDictationAlternatives(NSTextAlternatives *alternatives, WebCore::DictationContext context)
+{
+    m_alternativeTextUIController->replaceAlternatives(alternatives, context);
 }
 
 void PageClientImplCocoa::removeDictationAlternatives(WebCore::DictationContext dictationContext)
@@ -183,6 +207,21 @@ void PageClientImplCocoa::cameraCaptureWillChange()
     [m_webView willChangeValueForKey:@"cameraCaptureState"];
 }
 
+void PageClientImplCocoa::displayCaptureWillChange()
+{
+    [m_webView willChangeValueForKey:@"_displayCaptureState"];
+}
+
+void PageClientImplCocoa::displayCaptureSurfacesWillChange()
+{
+    [m_webView willChangeValueForKey:@"_displayCaptureSurfaces"];
+}
+
+void PageClientImplCocoa::systemAudioCaptureWillChange()
+{
+    [m_webView willChangeValueForKey:@"_systemAudioCaptureState"];
+}
+
 void PageClientImplCocoa::microphoneCaptureChanged()
 {
     [m_webView didChangeValueForKey:@"microphoneCaptureState"];
@@ -191,6 +230,21 @@ void PageClientImplCocoa::microphoneCaptureChanged()
 void PageClientImplCocoa::cameraCaptureChanged()
 {
     [m_webView didChangeValueForKey:@"cameraCaptureState"];
+}
+
+void PageClientImplCocoa::displayCaptureChanged()
+{
+    [m_webView didChangeValueForKey:@"_displayCaptureState"];
+}
+
+void PageClientImplCocoa::displayCaptureSurfacesChanged()
+{
+    [m_webView didChangeValueForKey:@"_displayCaptureSurfaces"];
+}
+
+void PageClientImplCocoa::systemAudioCaptureChanged()
+{
+    [m_webView didChangeValueForKey:@"_systemAudioCaptureState"];
 }
 
 WindowKind PageClientImplCocoa::windowKind()

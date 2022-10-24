@@ -111,10 +111,24 @@ extern void *
 IOMalloc_internal(
 	struct kalloc_heap * kalloc_heap_cfg,
 	vm_size_t            size,
-	zalloc_flags_t       flags)     __attribute__((alloc_size(2)));
+	zalloc_flags_t       flags);
 
-#define IOMalloc(size)     IOMalloc_internal(KHEAP_DEFAULT, size, Z_WAITOK)
-#define IOMallocZero(size) IOMalloc_internal(KHEAP_DEFAULT, size, Z_ZERO)
+__attribute__((alloc_size(2)))
+static inline void *
+__IOMalloc_internal(
+	struct kalloc_heap * kalloc_heap_cfg,
+	vm_size_t            size,
+	zalloc_flags_t       flags)
+{
+	void *addr = (IOMalloc_internal)(kalloc_heap_cfg, size, flags);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
+
+#define IOMalloc(size)     __IOMalloc_internal(KHEAP_DEFAULT, size, Z_WAITOK)
+#define IOMallocZero(size) __IOMalloc_internal(KHEAP_DEFAULT, size, Z_ZERO)
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -168,10 +182,25 @@ IOMallocAligned_internal(
 	struct kalloc_heap * kalloc_heap_cfg,
 	vm_size_t            size,
 	vm_size_t            alignment,
-	zalloc_flags_t       flags)        __attribute__((alloc_size(2)));
+	zalloc_flags_t       flags);
+
+__attribute__((alloc_size(2)))
+static inline void *
+__IOMallocAligned_internal(
+	struct kalloc_heap * kalloc_heap_cfg,
+	vm_size_t            size,
+	vm_size_t            alignment,
+	zalloc_flags_t       flags)
+{
+	void *addr = (IOMallocAligned_internal)(kalloc_heap_cfg, size, alignment, flags);
+	if (flags & Z_NOFAIL) {
+		__builtin_assume(addr != NULL);
+	}
+	return addr;
+}
 
 #define IOMallocAligned(size, alignment) \
-	IOMallocAligned_internal(KHEAP_DEFAULT, size, alignment, Z_WAITOK)
+	__IOMallocAligned_internal(KHEAP_DATA_BUFFERS, size, alignment, Z_WAITOK)
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -251,8 +280,8 @@ void IOFreePageable(void * address, vm_size_t size);
 
 #if XNU_KERNEL_PRIVATE
 
-#define IOMallocData(size)     IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_WAITOK)
-#define IOMallocZeroData(size) IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_ZERO)
+#define IOMallocData(size)     __IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_WAITOK)
+#define IOMallocZeroData(size) __IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_ZERO)
 
 #elif KERNEL_PRIVATE /* XNU_KERNEL_PRIVATE */
 
@@ -319,7 +348,7 @@ void IOFreeData(void * address, vm_size_t size);
 
 #define IODeleteData(ptr, type, count) ({                \
 	vm_size_t  __count = (vm_size_t)(count);             \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, type);       \
+	KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type);    \
 	IOFreeData(os_ptr_load_and_erase(ptr),               \
 	    IOMallocArraySize(0, sizeof(type), __count));    \
 })
@@ -357,7 +386,11 @@ void IOFreeData(void * address, vm_size_t size);
 #define IONew(...)             __IOKIT_DISPATCH(IONew, ##__VA_ARGS__)
 #define IONewZero(...)         __IOKIT_DISPATCH(IONewZero, ##__VA_ARGS__)
 #define IODelete(...)          __IOKIT_DISPATCH(IODelete, ##__VA_ARGS__)
+#if KERNEL_PRIVATE
+#define IOSafeDeleteNULL(...)  __IOKIT_DISPATCH(IODelete, ##__VA_ARGS__)
+#else
 #define IOSafeDeleteNULL(...)  __IOKIT_DISPATCH(IOSafeDeleteNULL, ##__VA_ARGS__)
+#endif
 
 #if KERNEL_PRIVATE
 #define IONew_2(e_ty, count) ({                                             \
@@ -395,52 +428,32 @@ void IOFreeData(void * address, vm_size_t size);
 #if KERNEL_PRIVATE
 #define IODelete_3(ptr, e_ty, count) ({                                     \
 	vm_size_t __s = IOMallocArraySize(0, sizeof(e_ty), count);              \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);                          \
-	static KALLOC_TYPE_VAR_DEFINE(kt_view_var, e_ty, KT_SHARED_ACCT);       \
-	IOFreeTypeVarImpl(kt_view_var, ptr, __s);                               \
-})
-
-#define IODelete_4(ptr, h_ty, e_ty, count) ({                               \
-	vm_size_t __s = IOMallocArraySize(sizeof(h_ty), sizeof(e_ty), count);   \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, h_ty);                          \
-	static KALLOC_TYPE_VAR_DEFINE(kt_view_var, h_ty, e_ty, KT_SHARED_ACCT); \
-	IOFreeTypeVarImpl(kt_view_var, ptr, __s);                               \
-})
-
-#define IOSafeDeleteNULL_3(ptr, e_ty, count) ({                             \
-	vm_size_t __s = IOMallocArraySize(0, sizeof(e_ty), count);              \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);                          \
+	KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);                       \
 	static KALLOC_TYPE_VAR_DEFINE(kt_view_var, e_ty, KT_SHARED_ACCT);       \
 	IOFreeTypeVarImpl(kt_view_var, os_ptr_load_and_erase(ptr), __s);        \
 })
 
-#define IOSafeDeleteNULL_4(ptr, h_ty, e_ty, count) ({                       \
+#define IODelete_4(ptr, h_ty, e_ty, count) ({                               \
 	vm_size_t __s = IOMallocArraySize(sizeof(h_ty), sizeof(e_ty), count);   \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, h_ty);                          \
+	KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, h_ty);                       \
 	static KALLOC_TYPE_VAR_DEFINE(kt_view_var, h_ty, e_ty, KT_SHARED_ACCT); \
 	IOFreeTypeVarImpl(kt_view_var, os_ptr_load_and_erase(ptr), __s);        \
 })
 
 #else /* KERNEL_PRIVATE */
-#define IODelete_3(ptr, e_ty, count) ({                      \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);           \
-	IOFree(ptr, IOMallocArraySize(0, sizeof(e_ty), count));  \
-})
+#define IODelete_3(ptr, e_ty, count) \
+	IOFree(ptr, IOMallocArraySize(0, sizeof(e_ty), count));
 
-#define IODelete_4(ptr, h_ty, e_ty, count) ({                           \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);                      \
-	IOFree(ptr, IOMallocArraySize(sizeof(h_ty), sizeof(e_ty), count));  \
-})
+#define IODelete_4(ptr, h_ty, e_ty, count) \
+	IOFree(ptr, IOMallocArraySize(sizeof(h_ty), sizeof(e_ty), count));
 
 #define IOSafeDeleteNULL_3(ptr, e_ty, count)  ({                           \
 	vm_size_t __s = IOMallocArraySize(0, sizeof(e_ty), count);             \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, e_ty);                         \
 	IOFree(os_ptr_load_and_erase(ptr), __s);                               \
 })
 
 #define IOSafeDeleteNULL_4(ptr, h_ty, e_ty, count)  ({                     \
 	vm_size_t __s = IOMallocArraySize(sizeof(h_ty), sizeof(e_ty), count);  \
-	IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, h_ty);                         \
 	IOFree(os_ptr_load_and_erase(ptr), __s);                               \
 })
 #endif /* !KERNEL_PRIVATE */
@@ -732,13 +745,9 @@ log2up(vm_size_t size);
 #define IOFREETYPE_ASSERT_COMPATIBLE_POINTER(ptr, type) \
     KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type)
 
-#define IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, type) \
-    KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type)
-
 #else  /* XNU_KERNEL_PRIVATE */
 
 #define IOFREETYPE_ASSERT_COMPATIBLE_POINTER(ptr, type) do {} while (0)
-#define IODELETE_ASSERT_COMPATIBLE_POINTER(ptr, type) do {} while (0)
 
 #endif /* XNU_KERNEL_PRIVATE */
 

@@ -52,6 +52,9 @@
 }
 
 - (void)groupStart {
+#if TARGET_OS_TV
+    [self.deps.personaAdapter prepareThreadForKeychainAPIUseForPersonaIdentifier: nil];
+#endif
     CKKSAccountStateTracker* accountTracker = self.deps.accountStateTracker;
     if(!accountTracker) {
         ckkserror_global("ckksdevice", "no AccountTracker object");
@@ -161,7 +164,7 @@
                     for(CKRecord* record in savedRecords) {
                         // Save the item records
                         if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
-                            CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record];
+                            CKKSDeviceStateEntry* newcdse = [[CKKSDeviceStateEntry alloc] initWithCKRecord:record contextID:self.deps.contextID];
                             [newcdse saveToDatabase:&error];
                             if(error) {
                                 ckkserror("ckksdevice", viewState.zoneID, "Couldn't save new device state(%@) to database: %@", newcdse, error);

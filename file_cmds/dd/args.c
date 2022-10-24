@@ -285,9 +285,7 @@ static const struct iflag {
 	const char *name;
 	uint64_t set, noset;
 } ilist[] = {
-#ifndef __APPLE__
 	{ "direct",	C_IDIRECT,	0 },
-#endif
 	{ "fullblock",	C_IFULLBLOCK,	C_SYNC },
 };
 
@@ -434,9 +432,7 @@ static const struct oflag {
 	const char *name;
 	uint64_t set;
 } olist[] = {
-#ifndef __APPLE__
 	{ "direct",	C_ODIRECT },
-#endif
 	{ "fsync",	C_OFSYNC },
 	{ "sync",	C_OFSYNC },
 };

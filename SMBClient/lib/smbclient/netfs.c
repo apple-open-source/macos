@@ -300,7 +300,7 @@ int32_t SMBNetFsGetMountInfo(CFStringRef in_Mountpath, CFDictionaryRef *out_Moun
 {
 	int error;
 	char *mountpath;
-	struct statfs statbuf;
+    struct statfs statbuf = {0};
 	char *sharepointname;
 	char *url;
 	size_t url_length;

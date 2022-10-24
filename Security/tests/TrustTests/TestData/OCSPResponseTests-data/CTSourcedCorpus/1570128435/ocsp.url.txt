@@ -1,0 +1,1 @@
+http://ssl-ocsp-pub.gpki.go.kr:8100

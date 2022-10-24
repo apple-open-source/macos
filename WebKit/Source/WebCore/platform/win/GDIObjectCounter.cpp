@@ -40,9 +40,9 @@
 
 namespace WebCore {
 
-GDIObjectCounter::GDIObjectCounter(const String& identifier)
+GDIObjectCounter::GDIObjectCounter(const char* identifier)
 {
-    init(identifier);
+    init(String::fromLatin1(identifier));
 }
 
 GDIObjectCounter::GDIObjectCounter(const String& className, void* instance)

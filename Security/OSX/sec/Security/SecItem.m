@@ -1673,6 +1673,7 @@ static bool dict_client_to_error_request(enum SecXPCOperation op, CFDictionaryRe
     return dict_to_error_request(op, query, error);
 }
 
+
 static bool SecTokenCreateAccessControlError(CFStringRef operation, CFDataRef access_control, CFErrorRef *error) {
     CFArrayRef ac_pair = CFArrayCreateForCFTypes(NULL, access_control, operation, NULL);
     const void *ac_pairs[] = { CFArrayCreateForCFTypes(NULL, ac_pair, NULL) };
@@ -1805,12 +1806,12 @@ out:
     return ok;
 }
 
-static void countReadOnlyAPICall() {
+static void countReadOnlyAPICall(void) {
     if (!isReadOnlyAPIRateWithinLimits()) {
     }
 }
 
-static void countModifyingAPICall() {
+static void countModifyingAPICall(void) {
     if (!isModifyingAPIRateWithinLimits()) {
     }
 }
@@ -1851,6 +1852,24 @@ OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
         secdebug("secitem", "SecItemAdd returned: %d", (int)status);
 
         return status;
+    }
+}
+
+bool SecDeleteItemsOnSignOut(CFErrorRef *error) {
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecDeleteItemsOnSignOut", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+
+        if (gSecurityd) {
+            return gSecurityd->sec_delete_items_on_sign_out(SecSecurityClientGet(), error);
+        }
+
+        __block bool result = false;
+        (void)securityd_send_sync_and_do(sec_delete_items_on_sign_out_id, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
+            result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+            return result;
+        });
+        return result;
     }
 }
 
@@ -2115,6 +2134,23 @@ OSStatus SecItemDelete(CFDictionaryRef inQuery) {
         return status;
     }
 }
+
+OSStatus
+_SecKeychainForceUpgradeIfNeeded(void)
+{
+    __block OSStatus status = errSecInternal;
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
+            secerror("xpc: failure to obtain XPC proxy object for upgradeIfNeeded, %@", error);
+        });
+        [rpc secKeychainForceUpgradeIfNeeded:^(OSStatus xpcStatus) {
+            secnotice("xpc", "upgradeIfNeeded result: %i", (int)xpcStatus);
+            status = xpcStatus;
+        }];
+    }
+    return status;
+}
+
 
 OSStatus
 SecItemDeleteAll(void)
@@ -2387,6 +2423,7 @@ void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^com
     [rpc secItemDigest:itemClass accessGroup:accessGroup complete:complete];
 }
 
+// On not-macos, this function will call out to the foreground user session.
 void _SecKeychainDeleteMultiUser(NSString *musr, void (^complete)(bool, NSError *))
 {
     os_activity_t activity = os_activity_create("_SecKeychainDeleteMultiUser", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
@@ -2394,30 +2431,35 @@ void _SecKeychainDeleteMultiUser(NSString *musr, void (^complete)(bool, NSError 
 
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:musr];
     if (uuid == NULL) {
-        complete(false, NULL);
+        CFErrorRef cferror = NULL;
+        SecError(errSecParam, &cferror, CFSTR("_SecKeychainDeleteMultiUser: invalid UUID %@"), musr);
+        complete(false, (__bridge NSError *)cferror);
+        CFReleaseNull(cferror);
         return;
     }
 
     uuid_t musrUUID;
     [uuid getUUIDBytes:musrUUID];
 
-    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
+    id<SecuritydXPCClientInterface> client = SecuritydXPCClientObject(SecuritydXPCClient_TargetSession_FOREGROUND, ^(NSError *error) {
         complete(false, error);
     });
+    if (!client) {
+        return; // completion handler already called by factory function above
+    }
+
+    id<SecuritydXPCProtocol> rpc = [client protocolWithSync:false errorHandler:^(NSError *error) {
+        complete(false, error);
+    }];
+    if (!rpc) {
+        return; // completion handler already called by factory method above
+    }
+
+    __block id<SecuritydXPCClientInterface> retainClient = client;
     [rpc secKeychainDeleteMultiuser:[NSData dataWithBytes:musrUUID length:sizeof(uuid_t)] complete:^(bool status, NSError *error) {
         complete(status, error);
+        retainClient = NULL;
     }];
-}
-
-void SecItemVerifyBackupIntegrity(BOOL lightweight,
-                                  void(^completion)(NSDictionary<NSString*, NSString*>* results, NSError* error))
-{
-    @autoreleasepool {
-        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
-            completion(@{@"summary" : @"XPC Error"}, error);
-        });
-        [rpc secItemVerifyBackupIntegrity:lightweight completion:completion];
-    }
 }
 
 OSStatus SecItemDeleteKeychainItemsForAppClip(CFStringRef applicationIdentifier)

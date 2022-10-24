@@ -29,6 +29,8 @@
 
 #import <Foundation/Foundation.h>
 #import <WebKit/_WKAuthenticatorAttachment.h>
+#import <WebKit/_WKResidentKeyRequirement.h>
+
 #import <WebKit/_WKUserVerificationRequirement.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -38,6 +40,9 @@ WK_CLASS_AVAILABLE(macos(12.0), ios(15.0))
 
 /*!@discussion The default value is _WKAuthenticatorAttachmentAll.*/
 @property (nonatomic) _WKAuthenticatorAttachment authenticatorAttachment;
+
+/* (@discussion The default value is _WKResidentKeyRequirementNotPresent */
+@property (nonatomic) _WKResidentKeyRequirement residentKey WK_API_AVAILABLE(macos(13.0), ios(16.0));
 
 /*!@discussion The default value is NO.*/
 @property (nonatomic) BOOL requireResidentKey;

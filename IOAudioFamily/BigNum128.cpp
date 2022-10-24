@@ -28,15 +28,6 @@ U128 UInt64mult(const uint64_t A, const uint64_t B)
 {
 	U128	result;
 	
-#ifndef __OPEN_SOURCE__							// <rdar://13613944>
-	// Karatsuba multiplication
-	// Suppose we want to multiply two 2 numbers A * B, where A = a1 << 32 + a0, B = b1 << 32 + b0:
-	// 1. compute a1 * b1, call the result X
-	// 2. compute a0 * b0, call the result Y
-	// 3. compute Z, this number is equal to a1 * b0 + a0 * b1.
-	// 4. compute X << 64 + Z << 32 + Y
-#endif
-
 	uint64_t a1, a0, b1, b0;
 	a1 = A >> 32;
 	a0 = A - (a1 << 32);

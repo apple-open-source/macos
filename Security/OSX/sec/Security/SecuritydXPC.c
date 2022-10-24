@@ -82,6 +82,8 @@ const char *kSecXPCKeyBackupKeybagIdentifier = "backupKeybagID";
 const char *kSecXPCKeyBackupKeybagPath = "backupKeybagPath";
 const char *kSecXPCVersion = "version";
 const char *kSecXPCKeySignInAnalytics = "signinanalytics";
+
+
 //
 // XPC Functions for both client and server.
 //
@@ -288,6 +290,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("trust_settings_copy_data");
         case sec_truststore_remove_all_id:
             return CFSTR("sec_truststore_remove_all");
+        case sec_trust_reset_settings_id:
+            return CFSTR("sec_trust_reset_settings");
         default:
             return CFSTR("Unknown xpc operation");
     }
@@ -374,6 +378,11 @@ bool SecXPCDictionarySetDataOptional(xpc_object_t message, const char *key, CFDa
 
 bool SecXPCDictionarySetInt64(xpc_object_t message, const char *key, int64_t value, CFErrorRef *error) {
     xpc_dictionary_set_int64(message, key, value);
+    return true;
+}
+
+bool SecXPCDictionarySetUInt64(xpc_object_t message, const char *key, uint64_t value, CFErrorRef *error) {
+    xpc_dictionary_set_uint64(message, key, value);
     return true;
 }
 
@@ -482,8 +491,11 @@ bool SecXPCDictionaryCopyURLOptional(xpc_object_t message, const char *key, CFUR
     return *purl;
 }
 
-CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char *key, CFErrorRef *error) {
-    CFTypeRef dict = SecXPCDictionaryCopyPList(message, key, error);
+// predeclaration
+static CFTypeRef SecXPCDictionaryCopyPListAndPossiblyMutateMessage(bool mutate, xpc_object_t message, const char *key, CFErrorRef *error);
+
+static CFDictionaryRef SecXPCDictionaryCopyDictionaryAndPossiblyMutateMessage(bool mutate, xpc_object_t message, const char *key, CFErrorRef *error) {
+    CFTypeRef dict = SecXPCDictionaryCopyPListAndPossiblyMutateMessage(mutate, message, key, error);
     if (dict) {
         CFTypeID type_id = CFGetTypeID(dict);
         if (type_id != CFDictionaryGetTypeID()) {
@@ -496,6 +508,15 @@ CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char 
     return (CFDictionaryRef)dict;
 }
 
+// This is more than a "copy", since it mutates data pointed to by the message parameter
+CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char *key, CFErrorRef *error) {
+    return SecXPCDictionaryCopyDictionaryAndPossiblyMutateMessage(true, message, key, error);
+}
+
+CFDictionaryRef SecXPCDictionaryCopyDictionaryWithoutZeroingDataInMessage(xpc_object_t message, const char *key, CFErrorRef *error) {
+    return SecXPCDictionaryCopyDictionaryAndPossiblyMutateMessage(false, message, key, error);
+}
+
 bool SecXPCDictionaryCopyDictionaryOptional(xpc_object_t message, const char *key, CFDictionaryRef *pdictionary, CFErrorRef *error) {
     if (!xpc_dictionary_get_value(message, key)) {
         *pdictionary = NULL;
@@ -505,7 +526,7 @@ bool SecXPCDictionaryCopyDictionaryOptional(xpc_object_t message, const char *ke
     return *pdictionary;
 }
 
-CFTypeRef SecXPCDictionaryCopyPList(xpc_object_t message, const char *key, CFErrorRef *error)
+static CFTypeRef SecXPCDictionaryCopyPListAndPossiblyMutateMessage(bool mutate, xpc_object_t message, const char *key, CFErrorRef *error)
 {
     CFTypeRef cfobject = NULL;
     size_t size = 0;
@@ -531,9 +552,19 @@ CFTypeRef SecXPCDictionaryCopyPList(xpc_object_t message, const char *key, CFErr
     }
 
     /* zeroize xpc value as it may have contained raw key material */
-    cc_clear(size, (void *)der);
+    /* WARNING: This may MUTATE the data pointed to by the message param. So you can't call this before sending that
+     * message across an XPC connection, as that data will have been zeroed! */
+    if (mutate) {
+        cc_clear(size, (void *)der);
+    }
 
     return cfobject;
+}
+
+// This is more than a "copy", since it mutates data pointed to by the message parameter
+CFTypeRef SecXPCDictionaryCopyPList(xpc_object_t message, const char *key, CFErrorRef *error)
+{
+    return SecXPCDictionaryCopyPListAndPossiblyMutateMessage(true, message, key, error);
 }
 
 bool SecXPCDictionaryCopyPListOptional(xpc_object_t message, const char *key, CFTypeRef *pobject, CFErrorRef *error) {

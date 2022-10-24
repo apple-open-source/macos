@@ -97,37 +97,36 @@
         self.nextState = self.intendedState;
         [self runBeforeGroupFinished:self.finishedOp];
         return;
-   }
+    }
 
     secnotice("octagon-ckks", "Beginning tlk upload with keys: %@", viewKeySets);
-    [self.deps.cuttlefishXPCWrapper updateTLKsWithContainer:self.deps.containerName
-                                                    context:self.deps.contextID
-                                                   ckksKeys:viewKeySets
-                                                  tlkShares:pendingTLKShares
-                                                      reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error) {
-            STRONGIFY(self);
+    [self.deps.cuttlefishXPCWrapper updateTLKsWithSpecificUser:self.deps.activeAccount
+                                                      ckksKeys:viewKeySets
+                                                     tlkShares:pendingTLKShares
+                                                         reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+        STRONGIFY(self);
 
-            if(error) {
-                if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
-                    secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; moving to '%@'", self.ckksConflictState);
-                    self.nextState = self.ckksConflictState;
-                } else if ([error isCuttlefishError:CuttlefishErrorUpdateTrustPeerNotFound]) {
-                    secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
-                    self.nextState = self.peerMissingState;
-                    self.error = error;
+        if(error) {
+            if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
+                secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; moving to '%@'", self.ckksConflictState);
+                self.nextState = self.ckksConflictState;
+            } else if ([error isCuttlefishError:CuttlefishErrorUpdateTrustPeerNotFound]) {
+                secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
+                self.nextState = self.peerMissingState;
+                self.error = error;
 
-                } else {
-                    secerror("octagon: Error calling tlk upload: %@", error);
-                    self.error = error;
-                }
             } else {
-                // Tell CKKS about our shiny new records!
-                [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
-
-                self.nextState = self.intendedState;
+                secerror("octagon: Error calling tlk upload: %@", error);
+                self.error = error;
             }
-            [self runBeforeGroupFinished:self.finishedOp];
-        }];
+        } else {
+            // Tell CKKS about our shiny new records!
+            [self.deps.ckks receiveTLKUploadRecords:keyHierarchyRecords];
+
+            self.nextState = self.intendedState;
+        }
+        [self runBeforeGroupFinished:self.finishedOp];
+    }];
 }
 
 @end

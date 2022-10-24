@@ -118,7 +118,7 @@ static void print_comma_separated(FILE* file, CFArrayRef array)
 }
 
 static void
-list_log_settings()
+list_log_settings(void)
 {
     CFErrorRef error = NULL;
 

@@ -113,6 +113,7 @@ elf_ptrsz(Elf *elf)
 }
 
 /*PRINTFLIKE2*/
+__printflike(2, 0)
 static void
 whine(char *type, const char *format, va_list ap)
 {
@@ -132,6 +133,7 @@ set_terminate_cleanup(void (*cleanup)())
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 terminate(const char *format, ...)
 {
@@ -159,6 +161,7 @@ terminate(const char *format, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 aborterr(char *format, ...)
 {
@@ -181,6 +184,7 @@ aborterr(char *format, ...)
 }
 
 /*PRINTFLIKE1*/
+__printflike(1, 2)
 void
 warning(char *format, ...)
 {
@@ -195,6 +199,7 @@ warning(char *format, ...)
 }
 
 /*PRINTFLIKE2*/
+__printflike(2, 0)
 void
 vadebug(int level, char *format, va_list ap)
 {
@@ -207,6 +212,7 @@ vadebug(int level, char *format, va_list ap)
 }
 
 /*PRINTFLIKE2*/
+__printflike(2, 3)
 void
 debug(int level, char *format, ...)
 {
@@ -232,6 +238,7 @@ mktmpname(const char *origname, const char *suffix)
 }
 
 /*PRINTFLIKE2*/
+__printflike(2, 3)
 void
 elfterminate(const char *file, const char *fmt, ...)
 {

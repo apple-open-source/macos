@@ -238,7 +238,7 @@ static void tests(void)
     CFReleaseNull(cert);
 }
 
-static void test_cert_decode_error() {
+static void test_cert_decode_error(void) {
     CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, _cert_decode_error_p12,
                                                     sizeof(_cert_decode_error_p12), kCFAllocatorNull);
     CFArrayRef items = NULL;

@@ -90,7 +90,7 @@ static bool clearAllKVS(CFErrorRef *error)
     return result;
 }
 
-static bool enableDefaultViews()
+static bool enableDefaultViews(void)
 {
     bool result = false;
     CFMutableSetRef viewsToEnable = SOSViewCopyViewSet(kViewSetV0);

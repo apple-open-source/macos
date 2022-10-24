@@ -55,6 +55,7 @@ typedef enum {
 @property (readwrite) NSData* octagon;
 #if OCTAGON
 @property (nonatomic, strong) OTJoiningConfiguration* joiningConfiguration;
+@property (nonatomic, strong) OTControlArguments* controlArguments;
 @property (nonatomic, strong) OTControl* otControl;
 #endif
 @property (nonatomic, strong) NSMutableDictionary *defaults;
@@ -94,6 +95,7 @@ typedef enum {
     self->_session = [KCAESGCMDuplexSession sessionAsReceiver:key context:self.dsid];
 #if OCTAGON
     self.session.pairingUUID = self.joiningConfiguration.pairingUUID;
+    self.session.altDSID = self.controlArguments.altDSID;
 #endif
     self.session.piggybackingVersion = self.piggy_version;
 
@@ -130,10 +132,9 @@ typedef enum {
                                                                            uniqueDeviceID:@"acceptor-deviceid"
                                                                            uniqueClientID:@"requester-deviceid"
                                                                               pairingUUID:[[NSUUID UUID] UUIDString]
-                                                                            containerName:nil
-                                                                                contextID:OTDefaultContext
                                                                                     epoch:0
                                                                               isInitiator:false];
+        self->_controlArguments = [[OTControlArguments alloc] init];
 #else
         self->_piggy_version = kPiggyV1;
 #endif
@@ -174,7 +175,7 @@ typedef enum {
     OTOperationConfiguration* configuration = [[OTOperationConfiguration alloc] init];
     configuration.discretionaryNetwork = TRUE;
 
-    [self.otControl fetchTrustStatus:self.joiningConfiguration.containerName context:self.joiningConfiguration.self.contextID
+    [self.otControl fetchTrustStatus:self.controlArguments
                        configuration:configuration
                                reply:^(CliqueStatus status,
                                        NSString* peerID,
@@ -239,7 +240,9 @@ typedef enum {
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
         //fetch epoch
-        [self.otControl rpcEpochWithConfiguration:self.joiningConfiguration reply:^(uint64_t epoch, NSError * _Nullable epochError) {
+        [self.otControl rpcEpochWithArguments:self.controlArguments
+                                configuration:self.joiningConfiguration
+                                        reply:^(uint64_t epoch, NSError * _Nullable epochError) {
             if(epochError){
                 secerror("error retrieving next message! :%@", epochError);
                 captureError = epochError;
@@ -490,14 +493,15 @@ typedef enum {
         OTApplicantToSponsorRound2M1 *prepareMessage = pairingMessage.prepare;
 
         //handle identity, fetch voucher
-        [self.otControl rpcVoucherWithConfiguration:self.joiningConfiguration
-                                             peerID:prepareMessage.peerID
-                                      permanentInfo:prepareMessage.permanentInfo
-                                   permanentInfoSig:prepareMessage.permanentInfoSig
-                                         stableInfo:prepareMessage.stableInfo
-                                      stableInfoSig:prepareMessage.stableInfoSig reply:^(NSData *voucher,
-                                                                                         NSData *voucherSig,
-                                                                                         NSError *err) {
+        [self.otControl rpcVoucherWithArguments:self.controlArguments
+                                  configuration:self.joiningConfiguration
+                                         peerID:prepareMessage.peerID
+                                  permanentInfo:prepareMessage.permanentInfo
+                               permanentInfoSig:prepareMessage.permanentInfoSig
+                                     stableInfo:prepareMessage.stableInfo
+                                  stableInfoSig:prepareMessage.stableInfoSig reply:^(NSData *voucher,
+                                                                                     NSData *voucherSig,
+                                                                                     NSError *err) {
             if(err){
                 secerror("error producing octagon voucher: %@", err);
                 localError = err;
@@ -594,6 +598,12 @@ typedef enum {
 - (void)setControlObject:(OTControl *)control
 {
     self.otControl = control;
+}
+
+
+- (void)setSessionControlArguments:(OTControlArguments*)controlArguments
+{
+    self.controlArguments = controlArguments;
 }
 
 - (void)setConfiguration:(OTJoiningConfiguration *)config

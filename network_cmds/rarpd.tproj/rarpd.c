@@ -109,13 +109,31 @@ void   usage         __P((void));
 void   rarp_process  __P((struct if_info *, u_char *));
 void   rarp_reply    __P((struct if_info *, struct ether_header *, in_addr_t));
 void   update_arptab __P((u_char *, in_addr_t));
-void   err           __P((int, const char *,...));
-void   debug         __P((const char *,...));
 in_addr_t ipaddrtonetmask __P((in_addr_t));
+
 
 int     aflag = 0;		/* listen on "all" interfaces  */
 int     dflag = 0;		/* print debugging messages */
 int     fflag = 0;		/* don't fork */
+
+#include <os/log.h>
+
+#define err(fatal, fmt, ...) do { \
+  if (dflag) { \
+    if (fatal) { \
+      fprintf(stderr, "rarpd: error: " fmt "\n", ##__VA_ARGS__); \
+    } else { \
+      fprintf(stderr, "rarpd: warning: " fmt "\n", ##__VA_ARGS__); \
+    } \
+  } \
+  os_log_error(OS_LOG_DEFAULT, fmt, ##__VA_ARGS__); \
+} while (0)
+
+#define debug(fmt, ...) do { \
+  if (dflag) { \
+	  fprintf(stderr, fmt "\n", ##__VA_ARGS__); \
+  } \
+} while (0)
 
 int
 main(argc, argv)
@@ -362,7 +380,7 @@ rarp_check(p, len)
 	struct ether_header *ep = (struct ether_header *) p;
 	struct ether_arp *ap = (struct ether_arp *) (p + sizeof(*ep));
 
-	(void) debug("got a packet");
+	debug("got a packet");
 
 	if (len < sizeof(*ep) + sizeof(*ap)) {
 		err(NONFATAL, "truncated request");
@@ -766,65 +784,4 @@ ipaddrtonetmask(addr)
 	err(FATAL, "unknown IP address class: %08X", addr);
 	/* NOTREACHED */
 	return 0;
-}
-
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-void
-#if __STDC__
-err(int fatal, const char *fmt,...)
-#else
-err(fmt, va_alist)
-	int     fatal;
-	char   *fmt;
-va_dcl
-#endif
-{
-	va_list ap;
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	if (dflag) {
-		if (fatal)
-			(void) fprintf(stderr, "rarpd: error: ");
-		else
-			(void) fprintf(stderr, "rarpd: warning: ");
-		(void) vfprintf(stderr, fmt, ap);
-		(void) fprintf(stderr, "\n");
-	}
-	vsyslog(LOG_ERR, fmt, ap);
-	va_end(ap);
-	if (fatal)
-		exit(1);
-	/* NOTREACHED */
-}
-
-void
-#if __STDC__
-debug(const char *fmt,...)
-#else
-debug(fmt, va_alist)
-	char   *fmt;
-va_dcl
-#endif
-{
-	va_list ap;
-
-	if (dflag) {
-#if __STDC__
-		va_start(ap, fmt);
-#else
-		va_start(ap);
-#endif
-		(void) fprintf(stderr, "rarpd: ");
-		(void) vfprintf(stderr, fmt, ap);
-		va_end(ap);
-		(void) fprintf(stderr, "\n");
-	}
 }

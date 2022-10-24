@@ -29,7 +29,6 @@
 @implementation HIDLibElement
 
 @synthesize elementRef = _element;
-@synthesize valueRef = _value;
 @synthesize psKey = _psKey;
 @synthesize elementStruct = _elementStruct;
 @synthesize defaultValueRef = _defaultValue;
@@ -89,10 +88,6 @@
 
 - (void)dealloc
 {
-    if (_value) {
-        CFRelease(_value);
-    }
-
     if (_defaultValue) {
         CFRelease(_defaultValue);
     }
@@ -156,29 +151,13 @@
 
 - (IOHIDValueRef)valueRef
 {
-    return _value;
+    return _element ? _IOHIDElementGetValue(_element) : NULL;
 }
 
 -(void)setValueRef:(IOHIDValueRef)valueRef
 {
-    
-    // what if valueRef == _value,
-    // in that case underline value is already
-    // released
-    
-    if (_value == valueRef) {
-        return;
-    }
-    
-    if (_value) {
-        CFRelease(_value);
-        _value = NULL;
-    }
-    
-    if (valueRef && _element) {
-        _value = _IOHIDValueCreateWithValue(kCFAllocatorDefault,
-                                            valueRef,
-                                            _element);
+    if (_element) {
+        _IOHIDElementSetValue(_element, valueRef);
     }
 }
 

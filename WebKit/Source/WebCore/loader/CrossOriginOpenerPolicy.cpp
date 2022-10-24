@@ -98,7 +98,7 @@ static std::tuple<Ref<SecurityOrigin>, CrossOriginOpenerPolicy> computeResponseO
     // if the initiator and its top level document are same-origin, or default (unsafe-none) otherwise.
     // https://github.com/whatwg/html/issues/6913
     if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(response.url()) && requester)
-        return std::make_tuple(requester->securityOrigin, requester->securityOrigin->isSameOriginAs(requester->topOrigin) ? requester->crossOriginOpenerPolicy : CrossOriginOpenerPolicy { });
+        return std::make_tuple(requester->securityOrigin, requester->securityOrigin->isSameOriginAs(requester->topOrigin) ? requester->policyContainer.crossOriginOpenerPolicy : CrossOriginOpenerPolicy { });
 
     // If the HTTP response contains a CSP header, it may set sandbox flags, which would cause the origin to become unique.
     auto responseOrigin = responseCSP && responseCSP->sandboxFlags() != SandboxNone ? SecurityOrigin::createUnique() : SecurityOrigin::create(response.url());
@@ -140,16 +140,16 @@ CrossOriginOpenerPolicy obtainCrossOriginOpenerPolicy(const ResourceResponse& re
         if (!coopParsingResult)
             return;
 
-        if (coopParsingResult->first == "same-origin") {
+        if (coopParsingResult->first == "same-origin"_s) {
             auto& coep = ensureCOEP();
             if (coep.value == CrossOriginEmbedderPolicyValue::RequireCORP || (headerName == HTTPHeaderName::CrossOriginOpenerPolicyReportOnly && coep.reportOnlyValue == CrossOriginEmbedderPolicyValue::RequireCORP))
                 value = CrossOriginOpenerPolicyValue::SameOriginPlusCOEP;
             else
                 value = CrossOriginOpenerPolicyValue::SameOrigin;
-        } else if (coopParsingResult->first == "same-origin-allow-popups")
+        } else if (coopParsingResult->first == "same-origin-allow-popups"_s)
             value = CrossOriginOpenerPolicyValue::SameOriginAllowPopups;
 
-        reportingEndpoint = coopParsingResult->second.get("report-to"_s);
+        reportingEndpoint = coopParsingResult->second.get<HashTranslatorASCIILiteral>("report-to"_s);
     };
 
     CrossOriginOpenerPolicy policy;
@@ -161,14 +161,14 @@ CrossOriginOpenerPolicy obtainCrossOriginOpenerPolicy(const ResourceResponse& re
     return policy;
 }
 
-CrossOriginOpenerPolicy CrossOriginOpenerPolicy::isolatedCopy() const
+CrossOriginOpenerPolicy CrossOriginOpenerPolicy::isolatedCopy() const &
 {
-    return {
-        value,
-        reportingEndpoint.isolatedCopy(),
-        reportOnlyValue,
-        reportOnlyReportingEndpoint.isolatedCopy()
-    };
+    return { value, reportingEndpoint.isolatedCopy(), reportOnlyValue, reportOnlyReportingEndpoint.isolatedCopy() };
+}
+
+CrossOriginOpenerPolicy CrossOriginOpenerPolicy::isolatedCopy() &&
+{
+    return { value, WTFMove(reportingEndpoint).isolatedCopy(), reportOnlyValue, WTFMove(reportOnlyReportingEndpoint).isolatedCopy() };
 }
 
 void addCrossOriginOpenerPolicyHeaders(ResourceResponse& response, const CrossOriginOpenerPolicy& coop)

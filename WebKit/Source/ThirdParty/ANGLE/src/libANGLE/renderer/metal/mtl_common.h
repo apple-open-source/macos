@@ -120,8 +120,17 @@ namespace mtl
 
 // NOTE(hqle): support variable max number of vertex attributes
 constexpr uint32_t kMaxVertexAttribs = gl::MAX_VERTEX_ATTRIBS;
-// NOTE(hqle): support variable max number of render targets
-constexpr uint32_t kMaxRenderTargets = 4;
+// Note: This is the max number of render targets the backend supports.
+// It is NOT how many the device supports which may be lower. If you
+// increase this number you will also need to edit the shaders in
+// metal/shaders/common.h.
+constexpr uint32_t kMaxRenderTargets = 8;
+// Metal Apple1 iOS devices only support 4 render targets
+constexpr uint32_t kMaxRenderTargetsOlderGPUFamilies = 4;
+
+constexpr uint32_t kMaxColorTargetBitsApple1To3      = 256;
+constexpr uint32_t kMaxColorTargetBitsApple4Plus     = 512;
+constexpr uint32_t kMaxColorTargetBitsMacAndCatalyst = std::numeric_limits<uint32_t>::max();
 
 constexpr uint32_t kMaxShaderUBOs = 12;
 constexpr uint32_t kMaxUBOSize    = 16384;
@@ -146,6 +155,11 @@ constexpr uint32_t kMaxViewports         = 1;
 // A render pass can use more than 400MB, but the command buffer
 // will be flushed next time
 constexpr const size_t kMaximumResidentMemorySizeInBytes = 400 * 1024 * 1024;
+
+// Restrict in-flight render passes per command buffer to 16.
+// The goal is to reduce the number of active render passes on the system at
+// any one time and this value was determined through experimentation.
+constexpr uint32_t kMaxRenderPassesPerCommandBuffer = 16;
 
 constexpr uint32_t kVertexAttribBufferStrideAlignment = 4;
 // Alignment requirement for offset passed to setVertex|FragmentBuffer
@@ -547,11 +561,13 @@ class ErrorHandler
     virtual ~ErrorHandler() {}
 
     virtual void handleError(GLenum error,
+                             const char *message,
                              const char *file,
                              const char *function,
                              unsigned int line) = 0;
 
     virtual void handleError(NSError *error,
+                             const char *message,
                              const char *file,
                              const char *function,
                              unsigned int line) = 0;
@@ -569,14 +585,21 @@ class Context : public ErrorHandler
     DisplayMtl *mDisplay;
 };
 
-#define ANGLE_MTL_CHECK(context, test, error)                                \
-    do                                                                       \
-    {                                                                        \
-        if (ANGLE_UNLIKELY(!(test)))                                         \
-        {                                                                    \
-            context->handleError(error, __FILE__, ANGLE_FUNCTION, __LINE__); \
-            return angle::Result::Stop;                                      \
-        }                                                                    \
+std::string FormatMetalErrorMessage(GLenum errorCode);
+std::string FormatMetalErrorMessage(NSError *error);
+
+#define ANGLE_MTL_HANDLE_ERROR(context, message, error) \
+    context->handleError(error, message, __FILE__, ANGLE_FUNCTION, __LINE__)
+
+#define ANGLE_MTL_CHECK(context, test, error)                                                  \
+    do                                                                                         \
+    {                                                                                          \
+        if (ANGLE_UNLIKELY(!(test)))                                                           \
+        {                                                                                      \
+            context->handleError(error, mtl::FormatMetalErrorMessage(error).c_str(), __FILE__, \
+                                 ANGLE_FUNCTION, __LINE__);                                    \
+            return angle::Result::Stop;                                                        \
+        }                                                                                      \
     } while (0)
 
 #define ANGLE_MTL_TRY(context, test) ANGLE_MTL_CHECK(context, test, GL_INVALID_OPERATION)

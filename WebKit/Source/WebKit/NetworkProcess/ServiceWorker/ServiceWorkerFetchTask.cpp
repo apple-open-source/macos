@@ -37,7 +37,7 @@
 #include "NetworkSession.h"
 #include "PrivateRelayed.h"
 #include "ServiceWorkerNavigationPreloader.h"
-#include "SharedBufferCopy.h"
+#include "SharedBufferReference.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebResourceLoaderMessages.h"
 #include "WebSWContextManagerConnectionMessages.h"
@@ -59,8 +59,10 @@ std::unique_ptr<ServiceWorkerFetchTask> ServiceWorkerFetchTask::fromNavigationPr
         return nullptr;
 
     auto task = session ? session->navigationPreloaderTaskFromFetchIdentifier(*loader.parameters().navigationPreloadIdentifier) : nullptr;
-    if (!task || !task->m_preloader || task->m_isLoadingFromPreloader)
+    if (!task || !task->m_preloader || task->m_isLoadingFromPreloader) {
+        RELEASE_LOG_ERROR(ServiceWorker, "Unable to retrieve preloader, load will go to the network");
         return nullptr;
+    }
 
     auto preload = std::exchange(task->m_preloader, { });
     return makeUnique<ServiceWorkerFetchTask>(swServerConnection, loader, WTFMove(preload));
@@ -72,7 +74,10 @@ ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerCo
     , m_fetchIdentifier(WebCore::FetchIdentifier::generate())
     , m_preloader(WTFMove(preloader))
 {
-    loadResponseFromPreloader();
+    callOnMainRunLoop([weakThis = WeakPtr { *this }] {
+        if (weakThis)
+            weakThis->loadResponseFromPreloader();
+    });
 }
 
 ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerConnection, NetworkResourceLoader& loader, ResourceRequest&& request, SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, SWServerRegistration& registration, NetworkSession* session, bool isWorkerReady)
@@ -82,21 +87,32 @@ ServiceWorkerFetchTask::ServiceWorkerFetchTask(WebSWServerConnection& swServerCo
     , m_serverConnectionIdentifier(serverConnectionIdentifier)
     , m_serviceWorkerIdentifier(serviceWorkerIdentifier)
     , m_currentRequest(WTFMove(request))
-    , m_timeoutTimer(makeUnique<Timer>(*this, &ServiceWorkerFetchTask::timeoutTimerFired))
     , m_serviceWorkerRegistrationIdentifier(registration.identifier())
     , m_shouldSoftUpdate(registration.shouldSoftUpdate(loader.parameters().options))
 {
     SWFETCH_RELEASE_LOG("ServiceWorkerFetchTask: (serverConnectionIdentifier=%" PRIu64 ", serviceWorkerRegistrationIdentifier=%" PRIu64 ", serviceWorkerIdentifier=%" PRIu64 ", %d)", m_serverConnectionIdentifier.toUInt64(), m_serviceWorkerRegistrationIdentifier.toUInt64(), m_serviceWorkerIdentifier.toUInt64(), isWorkerReady);
 
-    m_timeoutTimer->startOneShot(loader.connectionToWebProcess().networkProcess().serviceWorkerFetchTimeout());
+    // We only do the timeout logic for main document navigations because it is not Web-compatible to do so for subresources.
+    if (loader.parameters().request.requester() == WebCore::ResourceRequest::Requester::Main) {
+        m_timeoutTimer = makeUnique<Timer>(*this, &ServiceWorkerFetchTask::timeoutTimerFired);
+        m_timeoutTimer->startOneShot(loader.connectionToWebProcess().networkProcess().serviceWorkerFetchTimeout());
+    }
 
-    bool shouldDoNavigationPreload = session && isNavigationRequest(loader.parameters().options.destination) && loader.originalRequest().httpMethod() == "GET";
+    bool shouldDoNavigationPreload = session && isNavigationRequest(loader.parameters().options.destination) && m_currentRequest.httpMethod() == "GET"_s;
+
     if (shouldDoNavigationPreload && (!isWorkerReady || registration.navigationPreloadState().enabled)) {
         NetworkLoadParameters parameters = loader.parameters();
         parameters.request = m_currentRequest;
         m_preloader = makeUnique<ServiceWorkerNavigationPreloader>(*session, WTFMove(parameters), registration.navigationPreloadState(), loader.shouldCaptureExtraNetworkLoadMetrics());
         session->addNavigationPreloaderTask(*this);
+
+        m_preloader->waitForResponse([weakThis = WeakPtr { *this }] {
+            if (weakThis)
+                weakThis->preloadResponseIsReady();
+        });
     }
+
+    loader.setWorkerStart(MonotonicTime::now());
 }
 
 ServiceWorkerFetchTask::~ServiceWorkerFetchTask()
@@ -152,7 +168,13 @@ void ServiceWorkerFetchTask::startFetch()
     auto request = m_currentRequest;
     cleanHTTPRequestHeadersForAccessControl(request, m_loader.parameters().httpHeadersToKeep);
 
-    bool isSent = sendToServiceWorker(Messages::WebSWContextManagerConnection::StartFetch { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, request, options, IPC::FormDataReference { m_currentRequest.httpBody() }, referrer, m_preloader && m_preloader->isServiceWorkerNavigationPreloadEnabled() });
+    String clientIdentifier;
+    if (m_loader.parameters().options.mode != FetchOptions::Mode::Navigate && m_loader.parameters().options.destination != FetchOptions::Destination::Worker) {
+        if (auto identifier = m_loader.parameters().options.clientIdentifier)
+            clientIdentifier = identifier->toString();
+    }
+
+    bool isSent = sendToServiceWorker(Messages::WebSWContextManagerConnection::StartFetch { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, request, options, IPC::FormDataReference { m_currentRequest.httpBody() }, referrer, m_preloader && m_preloader->isServiceWorkerNavigationPreloadEnabled(), clientIdentifier, m_loader.resultingClientIdentifier() });
     ASSERT_UNUSED(isSent, isSent);
 }
 
@@ -178,12 +200,13 @@ void ServiceWorkerFetchTask::processRedirectResponse(ResourceResponse&& response
         response.setSource(ResourceResponse::Source::ServiceWorker);
     auto newRequest = m_currentRequest.redirectedRequest(response, m_loader.parameters().shouldClearReferrerOnHTTPSToHTTPRedirect);
 
-    sendToClient(Messages::WebResourceLoader::WillSendRequest { newRequest, IPC::FormDataReference { newRequest.httpBody() }, response });
+    m_loader.willSendServiceWorkerRedirectedRequest(ResourceRequest(m_currentRequest), WTFMove(newRequest), WTFMove(response));
 }
 
 void ServiceWorkerFetchTask::didReceiveResponse(WebCore::ResourceResponse&& response, bool needsContinueDidReceiveResponseMessage)
 {
-    cancelPreloadIfNecessary();
+    if (m_preloader && !m_preloader->isServiceWorkerNavigationPreloadEnabled())
+        cancelPreloadIfNecessary();
 
     processResponse(WTFMove(response), needsContinueDidReceiveResponseMessage, ShouldSetSource::Yes);
 }
@@ -193,7 +216,7 @@ void ServiceWorkerFetchTask::processResponse(ResourceResponse&& response, bool n
     if (m_isDone)
         return;
 
-    SWFETCH_RELEASE_LOG("processResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%" PRId64 ", needsContinueDidReceiveResponseMessage=%d, source=%u)", response.httpStatusCode(), response.mimeType().utf8().data(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage, static_cast<unsigned>(response.source()));
+    SWFETCH_RELEASE_LOG("processResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%" PRId64 ", needsContinueDidReceiveResponseMessage=%d, source=%u)", response.httpStatusCode(), response.mimeType().string().utf8().data(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage, static_cast<unsigned>(response.source()));
     m_wasHandled = true;
     if (m_timeoutTimer)
         m_timeoutTimer->stop();
@@ -226,7 +249,7 @@ void ServiceWorkerFetchTask::processResponse(ResourceResponse&& response, bool n
         m_loader.setResponse(WTFMove(response));
 }
 
-void ServiceWorkerFetchTask::didReceiveData(const IPC::SharedBufferCopy& data, int64_t encodedDataLength)
+void ServiceWorkerFetchTask::didReceiveData(const IPC::SharedBufferReference& data, int64_t encodedDataLength)
 {
     if (m_isDone)
         return;
@@ -244,20 +267,17 @@ void ServiceWorkerFetchTask::didReceiveFormData(const IPC::FormDataReference& fo
     // FIXME: Allow WebResourceLoader to receive form data.
 }
 
-void ServiceWorkerFetchTask::didFinish()
-{
-    didFinishWithMetrics({ });
-}
-
-void ServiceWorkerFetchTask::didFinishWithMetrics(const NetworkLoadMetrics& networkLoadMetrics)
+void ServiceWorkerFetchTask::didFinish(const NetworkLoadMetrics& networkLoadMetrics)
 {
     ASSERT(!m_timeoutTimer || !m_timeoutTimer->isActive());
-    SWFETCH_RELEASE_LOG("didFinishWithMetrics:");
+    SWFETCH_RELEASE_LOG("didFinish:");
 
     m_isDone = true;
     if (m_timeoutTimer)
         m_timeoutTimer->stop();
     sendToClient(Messages::WebResourceLoader::DidFinishResourceLoad { networkLoadMetrics });
+
+    cancelPreloadIfNecessary();
 }
 
 void ServiceWorkerFetchTask::didFail(const ResourceError& error)
@@ -284,6 +304,21 @@ void ServiceWorkerFetchTask::didNotHandle()
     softUpdateIfNeeded();
 
     if (m_preloader && !m_preloader->isServiceWorkerNavigationPreloadEnabled()) {
+        loadResponseFromPreloader();
+        return;
+    }
+
+    m_isDone = true;
+    m_loader.serviceWorkerDidNotHandle(this);
+}
+
+void ServiceWorkerFetchTask::usePreload()
+{
+    if (m_isDone)
+        return;
+
+    ASSERT(m_preloader);
+    if (m_preloader) {
         loadResponseFromPreloader();
         return;
     }
@@ -368,26 +403,38 @@ void ServiceWorkerFetchTask::loadResponseFromPreloader()
         return;
 
     m_isLoadingFromPreloader = true;
-
-    m_preloader->waitForResponse([weakThis = WeakPtr { *this }, this] {
-        if (!weakThis)
-            return;
-
-        if (!m_preloader->error().isNull()) {
-            // Let's copy the error as calling didFail might destroy m_preloader.
-            didFail(ResourceError { m_preloader->error() });
-            return;
-        }
-
-        auto response = m_preloader->response();
-        if (response.isRedirection() && response.httpHeaderFields().contains(HTTPHeaderName::Location)) {
-            processRedirectResponse(WTFMove(response), ShouldSetSource::No);
-            return;
-        }
-
-        bool needsContinueDidReceiveResponseMessage = true;
-        processResponse(WTFMove(response), needsContinueDidReceiveResponseMessage, ShouldSetSource::No);
+    m_preloader->waitForResponse([weakThis = WeakPtr { *this }] {
+        if (weakThis)
+            weakThis->preloadResponseIsReady();
     });
+}
+
+void ServiceWorkerFetchTask::preloadResponseIsReady()
+{
+    if (!m_isLoadingFromPreloader) {
+        if (m_preloader && m_preloader->isServiceWorkerNavigationPreloadEnabled()) {
+            if (!m_preloader->error().isNull())
+                sendToServiceWorker(Messages::WebSWContextManagerConnection::NavigationPreloadFailed { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, m_preloader->error() });
+            else
+                sendToServiceWorker(Messages::WebSWContextManagerConnection::NavigationPreloadIsReady { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, m_preloader->response() });
+        }
+        return;
+    }
+
+    if (!m_preloader->error().isNull()) {
+        // Let's copy the error as calling didFail might destroy m_preloader.
+        didFail(ResourceError { m_preloader->error() });
+        return;
+    }
+
+    auto response = m_preloader->response();
+    if (response.isRedirection() && response.httpHeaderFields().contains(HTTPHeaderName::Location)) {
+        processRedirectResponse(WTFMove(response), ShouldSetSource::No);
+        return;
+    }
+
+    bool needsContinueDidReceiveResponseMessage = true;
+    processResponse(WTFMove(response), needsContinueDidReceiveResponseMessage, ShouldSetSource::No);
 }
 
 void ServiceWorkerFetchTask::loadBodyFromPreloader()
@@ -397,7 +444,7 @@ void ServiceWorkerFetchTask::loadBodyFromPreloader()
     ASSERT(m_isLoadingFromPreloader);
     if (!m_preloader) {
         SWFETCH_RELEASE_LOG_ERROR("loadBodyFromPreloader preloader is null");
-        didFail(ResourceError(errorDomainWebKitInternal, 0, m_loader.originalRequest().url(), "Request canceled from preloader"_s, ResourceError::Type::Cancellation));
+        didFail(ResourceError(errorDomainWebKitInternal, 0, m_currentRequest.url(), "Request canceled from preloader"_s, ResourceError::Type::Cancellation));
         return;
     }
 
@@ -410,10 +457,10 @@ void ServiceWorkerFetchTask::loadBodyFromPreloader()
             return;
         }
         if (!chunk) {
-            didFinishWithMetrics(m_preloader->networkLoadMetrics());
+            didFinish(m_preloader->networkLoadMetrics());
             return;
         }
-        didReceiveData(IPC::SharedBufferCopy(const_cast<WebCore::FragmentedSharedBuffer&>(*chunk)), length);
+        didReceiveData(IPC::SharedBufferReference(const_cast<WebCore::FragmentedSharedBuffer&>(*chunk)), length);
     });
 }
 
@@ -462,6 +509,11 @@ bool ServiceWorkerFetchTask::convertToDownload(DownloadManager& manager, Downloa
 
     manager.convertNetworkLoadToDownload(downloadID, WTFMove(serviceWorkerDownloadLoad), WTFMove(completionHandler), { }, request, response);
     return true;
+}
+
+MonotonicTime ServiceWorkerFetchTask::startTime() const
+{
+    return m_preloader ? m_preloader->startTime() : MonotonicTime { };
 }
 
 } // namespace WebKit

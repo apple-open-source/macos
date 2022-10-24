@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -64,6 +64,7 @@
 #include <utilities/SecCoreAnalytics.h>
 #include <utilities/SecDb.h>
 #include <utilities/SecIOFormat.h>
+#include <utilities/SecPLWrappers.h>
 #include <utilities/SecXPCError.h>
 #include <utilities/debugging.h>
 #include <utilities/SecInternalReleasePriv.h>
@@ -72,6 +73,7 @@
 #include "trust/trustd/personalization.h"
 #include "trust/trustd/SecPinningDb.h"
 #include "keychain/securityd/SFKeychainControlManager.h"
+#include "featureflags/featureflags.h"
 
 
 #include <keychain/ckks/CKKS.h>
@@ -103,6 +105,9 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 
+#include <malloc/malloc.h>
+#include <unicode/uclean.h>
+
 #include <ipc/server_security_helpers.h>
 #include <ipc/server_entitlement_helpers.h>
 
@@ -120,6 +125,7 @@
 
 #include "util.h"
 
+#if !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 static void refresh_prng(void)
 {
     aks_ref_key_t ref = NULL;
@@ -164,6 +170,7 @@ static void refresh_prng(void)
         close(fd);
     }
 }
+#endif /* !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM) */
 
 #if SECUREOBJECTSYNC
 
@@ -384,8 +391,10 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         .accessGroups = NULL,
         .musr = NULL,
         .uid = xpc_connection_get_euid(connection),
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
         .allowSystemKeychain = false,
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
         .allowSyncBubbleKeychain = false,
 #endif
         .isNetworkExtension = false,
@@ -400,6 +409,28 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         replyMessage = xpc_dictionary_create_reply(event);
 
         uint64_t operation = xpc_dictionary_get_uint64(event, kSecXPCKeyOperation);
+
+#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
+        // deny all but the basic operations required for the system keychain
+        switch (operation)
+            {
+            case sec_item_add_id:
+            case sec_item_copy_matching_id:
+            case sec_item_update_id:
+            case sec_item_delete_id:
+                {
+                    break;
+                }
+            default:
+                {
+                    secerror("system keychain unsupported operation: %@ (%" PRIu64 "), returning errSecBadReq", SOSCCGetOperationDescription((enum SecXPCOperation)operation), operation);
+                    xpc_dictionary_set_int64(replyMessage, kSecXPCKeyError, errSecBadReq);
+                    xpc_connection_send_message(connection, replyMessage);
+                    xpc_release(replyMessage);
+                    return;
+                }
+            }
+#endif // defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
 
         audit_token_t auditToken = {};
         xpc_connection_get_audit_token(connection, &auditToken);
@@ -459,6 +490,18 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     }
                     break;
                 }
+            }
+            case sec_delete_items_on_sign_out_id:
+            {
+                if (!EntitlementAbsentOrFalse(sec_delete_items_on_sign_out_id, client.task, kSecEntitlementKeychainDeny, &error) || !EntitlementPresentAndTrue(sec_delete_items_on_sign_out_id, client.task, kSecEntitlementPrivateDeleteItemsOnSignOut, &error)) {
+                    break;
+                }
+                bool result = _SecDeleteItemsOnSignOut(&client, &error);
+                if (!result) {
+                    break;
+                }
+                (void)SecXPCDictionarySetBool(replyMessage, kSecXPCKeyResult, result, &error);
+                break;
             }
             case sec_item_copy_matching_id:
             {
@@ -1250,8 +1293,10 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (client.musr)
                         xpc_dictionary_set_data(replyMessage, "musr", CFDataGetBytePtr(client.musr), CFDataGetLength(client.musr));
-#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
                     xpc_dictionary_set_bool(replyMessage, "system-keychain", client.allowSystemKeychain);
+#endif
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                     xpc_dictionary_set_bool(replyMessage, "syncbubble-keychain", client.allowSyncBubbleKeychain);
 #endif
                     xpc_dictionary_set_bool(replyMessage, "network-extension", client.isNetworkExtension);
@@ -1501,9 +1546,9 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
     CFReleaseSafe(clientAuditToken);
 }
 
-static void securityd_xpc_init(const char *service_name)
+static void securityd_xpc_init_listener(const char *service_name)
 {
-    secdebug("serverxpc", "start");
+    secdebug("serverxpc", "start %s", service_name);
     xpc_connection_t listener = xpc_connection_create_mach_service(service_name, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
     if (!listener) {
         seccritical("security failed to register xpc listener for %s, exiting", service_name);
@@ -1522,7 +1567,12 @@ static void securityd_xpc_init(const char *service_name)
         }
     });
     xpc_connection_resume(listener);
+}
 
+
+#if !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
+static void securityd_xpc_init_activities(void)
+{
 #if OCTAGON
     xpc_activity_register("com.apple.securityd.daily", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t activityState = xpc_activity_get_state(activity);
@@ -1547,12 +1597,13 @@ static void securityd_xpc_init(const char *service_name)
         }
     });
 }
+#endif
 
 
 // <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
 
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE
-static void securityd_soscc_lock_hack() {
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
+static void securityd_soscc_lock_hack(void) {
 	dispatch_queue_t		soscc_lock_queue = dispatch_queue_create("soscc_lock_queue", DISPATCH_QUEUE_PRIORITY_DEFAULT);
 	int 					soscc_tok;
 
@@ -1571,13 +1622,13 @@ static void securityd_soscc_lock_hack() {
         CFErrorRef error = NULL;
 
         uint64_t one_minute = 60ull;
-        if(SecAKSUserKeybagHoldLockAssertion(one_minute, &error)){
+        if(SecAKSKeybagHoldLockAssertion(g_keychain_keybag, one_minute, &error)){
             // <rdar://problem/22500239> Prevent securityd from quitting while holding a keychain assertion
             os_transaction_t transaction = os_transaction_create("securityd-LockAssertedingHolder");
 
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, one_minute*NSEC_PER_SEC), soscc_lock_queue, ^{
                 CFErrorRef localError = NULL;
-                if(!SecAKSUserKeybagDropLockAssertion(&localError))
+                if(!SecAKSKeybagDropLockAssertion(g_keychain_keybag, &localError))
                     secerror("failed to unlock: %@", localError);
                 CFReleaseNull(localError);
                 os_release(transaction);
@@ -1611,9 +1662,22 @@ homedirPath(void)
 }
 #endif
 
+static void
+setupICUMallocZone(void)
+{
+    malloc_zone_t *icuZone = malloc_create_zone(0, 0);
+    malloc_set_zone_name(icuZone, "ICU");
+    UErrorCode status = U_ZERO_ERROR;
+    u_setMemoryFunctions(icuZone, (UMemAllocFn*)malloc_zone_malloc, (UMemReallocFn*)malloc_zone_realloc, (UMemFreeFn*)malloc_zone_free, &status);
+    if (status != U_ZERO_ERROR) {
+        secerror("Could not set up ICU malloc zone; err = %i", (int)status);
+    }
+}
 
 int main(int argc, char *argv[])
 {
+    setupICUMallocZone();
+
     DisableLocalization();
 
     char *wait4debugger = getenv("WAIT4DEBUGGER");
@@ -1623,6 +1687,26 @@ int main(int argc, char *argv[])
 		seccritical("Again, for good luck (or bad debuggers)");
 		kill(getpid(), SIGSTOP);
 	}
+
+    bool useSystemKeychainKeybag = false;
+#if defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM
+    SecPLDisable();
+    useSystemKeychainKeybag = true;
+#elif TARGET_OS_IOS
+    // temporary, see rdar://88833163
+    char bootargs[PATH_MAX];
+    size_t bsize=sizeof(bootargs)-1;
+    bzero(bootargs,sizeof(bootargs));
+    if (sysctlbyname("kern.bootargs", bootargs, &bsize, NULL, 0) == 0) {
+        if (strnstr(bootargs, "-apfs_shared_datavolume", bsize)) {
+            useSystemKeychainKeybag = true;
+        }
+    }
+#endif
+    if (useSystemKeychainKeybag) {
+        secnotice("keychain_handle", "using system keychain handle");
+        SecItemServerSetKeychainKeybag(system_keychain_handle);
+    }
 
 /* <rdar://problem/15792007> Users with network home folders are unable to use/save password for Mail/Cal/Contacts/websites
  Secd doesn't realize DB connections get invalidated when network home directory users logout
@@ -1666,8 +1750,6 @@ int main(int argc, char *argv[])
     }
 #endif /* TARGET_OS_OSX */
 
-    const char *serviceName = kSecuritydXPCServiceName;
-
 // Mark our interest in running some features (before we bring the DB layer up)
 #if OCTAGON
     EscrowRequestServerSetEnabled(true);
@@ -1679,8 +1761,15 @@ int main(int argc, char *argv[])
     _SecDbServerSetup();
 
     securityd_init_server();
-    securityd_xpc_init(serviceName);
+
+#if !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
+    securityd_xpc_init_listener(kSecuritydXPCServiceName);
+    securityd_xpc_init_activities();
     SecCreateSecuritydXPCServer();
+#else
+    securityd_xpc_init_listener(kSecuritydSystemXPCServiceName);
+#endif
+
 
 #if SECUREOBJECTSYNC
     SOSControlServerInitialize();
@@ -1694,7 +1783,7 @@ int main(int argc, char *argv[])
 #endif
 
 	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
 	securityd_soscc_lock_hack();
 #endif
 

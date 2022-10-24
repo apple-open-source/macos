@@ -192,9 +192,12 @@ convertDict(const void *key, const void *value, void *context)
 {
     @autoreleasepool {
 	os_log_info(GSSOSLog(), "Save credentials to disk");
-	NSData *data = [NSKeyedArchiver archivedDataWithRootObject:object];
-	if (data == nil)
+	NSError *error = nil;
+	NSData *data = [NSKeyedArchiver archivedDataWithRootObject:object requiringSecureCoding:YES error:&error];
+	if (data == nil) {
+	    os_log_error(GSSOSLog(), "Failed to archive credentials: %{public}@", error);
 	    return;
+	}
 	
 	NSData *encText = HeimCredGlobalCTX.encryptData(data);
 	if (encText == NULL) {

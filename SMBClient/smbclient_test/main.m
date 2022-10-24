@@ -32,8 +32,11 @@ extern char g_test_url2[1024];
 extern char g_test_url3[1024];
 
 CFMutableDictionaryRef json_dict = NULL;
+CFMutableDictionaryRef test_mdata_dict = NULL;
+
 int json = 0;
 int list_tests_only = 0;
+extern int list_tests_with_mdata;
 
 static void
 usage(void)
@@ -42,6 +45,7 @@ usage(void)
              -f%s Print info in the provided format. Supported formats: JSON \n\
              -l%s Limit run to only testName \n\
              -e%s List out all testNames (doesnt require -1, -2, -3 args) \n\
+             -a%s List out all testNames with more info in JSON format (doesnt require -1, -2, -3 args) \n\
              -o%s Filename to write JSON output to \n\
              -1%s Used for single user testing. Format of smb://domain;user:password@server/share \n\
              -2%s Has to be a different user to the same server/share used in URL1. Format of smb://domain;user2:password@server/share \n\
@@ -50,6 +54,7 @@ usage(void)
              ",--format  ",
              ",--limit   ",
              ",--list    ",
+             ",--all    ",
              ",--outfile ",
              ",--url1    ",
              ",--url2    ",
@@ -69,6 +74,7 @@ main(int argc, char **argv) {
         { "format",     required_argument,      NULL,           'f' },
         { "limit",      required_argument,      NULL,           'l' },
         { "list",       no_argument,            NULL,           'e' },
+        { "all",        no_argument,            NULL,           'a' },
         { "outfile",    required_argument,      NULL,           'o' },
         { "url1",       required_argument,      NULL,           '1' },
         { "url2",       required_argument,      NULL,           '2' },
@@ -78,8 +84,11 @@ main(int argc, char **argv) {
     };
 
     optind = 0;
-    while ((ch = getopt_long(argc, argv, "ef:l:o:1:2:3:h", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "aef:l:o:1:2:3:h", longopts, NULL)) != -1) {
         switch (ch) {
+            case 'a':
+                list_tests_with_mdata = 1;
+                break;
             case 'e':
                 list_tests_only = 1;
                 break;
@@ -113,7 +122,8 @@ main(int argc, char **argv) {
         }
     }
 
-    if (list_tests_only == 0) {
+    if ((list_tests_only == 0) &&
+        (list_tests_with_mdata == 0)) {
         /* Check for required arguments */
         if (strnlen(g_test_url1, sizeof(g_test_url1)) == 0) {
             fprintf(stderr, "URL1 is null \n");
@@ -140,7 +150,7 @@ main(int argc, char **argv) {
         return( ENOMEM );
     }
 
-    if ((json == 0) && (list_tests_only == 0)) {
+    if ((json == 0) && (list_tests_only == 0) && (list_tests_with_mdata == 0)) {
         /* Not using JSON */
         printf("URL1: <%s> \n", g_test_url1);
         printf("URL2: <%s> \n", g_test_url2);
@@ -156,7 +166,7 @@ main(int argc, char **argv) {
         fclose(fd);
     }
 
-    if (json == 1) {
+    if ((json == 1) || (list_tests_with_mdata == 1)) {
         printf("\nWriting JSON data to <%s> \n",
                output_file_path == NULL ? "stdout" : output_file_path);
         // Dont CFRelease the dictionary after JSON printing

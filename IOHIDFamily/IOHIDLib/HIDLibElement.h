@@ -32,7 +32,6 @@
 
 @interface HIDLibElement : NSObject {
     IOHIDElementRef     _element;
-    IOHIDValueRef       _value;
     IOHIDValueRef       _defaultValue;
     NSString            *_psKey;
     IOHIDElementStruct  _elementStruct;

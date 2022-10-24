@@ -66,7 +66,7 @@ static void testView(SOSAccount* account, SOSViewResultCode expected, CFStringRe
  see that ContinuityUnlock is automatically back on because it's "always on"
  */
 
-static void alwaysOnTest()
+static void alwaysOnTest(void)
 {
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFDataRef cfpasswordNew = CFDataCreate(NULL, (uint8_t *) "FooFooFo2", 10);

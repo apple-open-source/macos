@@ -646,7 +646,7 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IONetworkingFamily;
 			productReference = C17D354B0D3FD2D600F185DB /* IONetworkingFamily.kext */;
-			productType = "com.apple.product-type.kernel-extension.shallow";
+			productType = "com.apple.product-type.kernel-extension";
 		};
 		D87CC6C61451BAA800DC37BF /* InstallHeaders_embedded */ = {
 			isa = PBXNativeTarget;

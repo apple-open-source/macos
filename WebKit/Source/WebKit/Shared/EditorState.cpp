@@ -40,6 +40,7 @@ void EditorState::encode(IPC::Encoder& encoder) const
     encoder << selectionIsNone;
     encoder << selectionIsRange;
     encoder << selectionIsRangeInsideImageOverlay;
+    encoder << selectionIsRangeInAutoFilledAndViewableField;
     encoder << isContentEditable;
     encoder << isContentRichlyEditable;
     encoder << isInPasswordField;
@@ -72,6 +73,9 @@ bool EditorState::decode(IPC::Decoder& decoder, EditorState& result)
         return false;
 
     if (!decoder.decode(result.selectionIsRangeInsideImageOverlay))
+        return false;
+
+    if (!decoder.decode(result.selectionIsRangeInAutoFilledAndViewableField))
         return false;
 
     if (!decoder.decode(result.isContentEditable))
@@ -145,6 +149,7 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << caretColor;
     encoder << selectionStartIsAtParagraphBoundary;
     encoder << selectionEndIsAtParagraphBoundary;
+    encoder << selectedEditableImage;
 #endif
 #if PLATFORM(MAC)
     encoder << selectionBoundingRect;
@@ -227,6 +232,8 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
     if (!decoder.decode(result.selectionStartIsAtParagraphBoundary))
         return false;
     if (!decoder.decode(result.selectionEndIsAtParagraphBoundary))
+        return false;
+    if (!decoder.decode(result.selectedEditableImage))
         return false;
 #endif
 #if PLATFORM(MAC)

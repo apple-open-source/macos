@@ -64,7 +64,7 @@ SCDynamicStoreKeyCreate				(
 						CFAllocatorRef	__nullable	allocator,
 						CFStringRef			fmt,
 						...
-						)		API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+						)		CF_FORMAT_FUNCTION(2,3)	API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
 	@function SCDynamicStoreKeyCreateNetworkGlobalEntity

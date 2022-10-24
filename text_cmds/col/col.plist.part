@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2021-08-24</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>col.c: remove capsicum support</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>col</string>
+	<key>OpenSourceVersion</key>
+	<string>2020-10-21</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://cgit.freebsd.org/src/commit/usr.bin/col?id=8a27a63745f5a2000e243d7f2df76c57a5604be5</string>
+</dict>

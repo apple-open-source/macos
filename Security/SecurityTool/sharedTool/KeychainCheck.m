@@ -123,23 +123,3 @@ int command_keychain_cleanup(int argc, char* const* argv)
     [keychainCheck cleanKeychain];
     return 0;
 }
-
-int verify_backup_integrity(int argc, char * const *argv) {
-    int arg;
-    BOOL lightweight = NO;
-
-    while ((arg = getopt(argc, argv, "l")) != -1) {
-        switch(arg) {
-            case 'l':
-                lightweight = YES;
-                break;
-        }
-    }
-
-    NSLog(@"Running backup integrity validation in %@ mode", lightweight ? @"lightweight" : @"default");
-    SecItemVerifyBackupIntegrity(lightweight, ^(NSDictionary* results, NSError *error) {
-        NSLog(@"%@", results);
-    });
-
-    return 0;
-}

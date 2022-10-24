@@ -76,3 +76,6 @@ GSSTOOL_INSTALL_PATH[sdk=watchos*] = /AppleInternal/CoreOS/Heimdal/bin
 HEIMDAL_HEIMBASE_LIBS = -lheimbase
 HEIMDAL_HEIMBASE_LIBS[sdk=iphonesimulator*] =
 HEIMDAL_HEIMBASE_LIBS[sdk=appletvsimulator*] =
+
+// rdar://89371859
+FUSE_BUILD_PHASES = NO

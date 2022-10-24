@@ -57,7 +57,7 @@ class MediaSourcePrivateRemote final
 #endif
 {
 public:
-    static Ref<MediaSourcePrivateRemote> create(GPUProcessConnection&, RemoteMediaSourceIdentifier, RemoteMediaPlayerMIMETypeCache&, const MediaPlayerPrivateRemote&, WebCore::MediaSourcePrivateClient*);
+    static Ref<MediaSourcePrivateRemote> create(GPUProcessConnection&, RemoteMediaSourceIdentifier, RemoteMediaPlayerMIMETypeCache&, const MediaPlayerPrivateRemote&, WebCore::MediaSourcePrivateClient&);
     virtual ~MediaSourcePrivateRemote();
 
     // MediaSourcePrivate overrides
@@ -74,7 +74,7 @@ public:
     void seekCompleted() final;
     void setTimeFudgeFactor(const MediaTime&) final;
 
-    MediaTime duration() const { return m_client->duration(); }
+    MediaTime duration() const { return m_client ? m_client->duration() : MediaTime(); }
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
@@ -82,7 +82,7 @@ public:
 #endif
 
 private:
-    MediaSourcePrivateRemote(GPUProcessConnection&, RemoteMediaSourceIdentifier, RemoteMediaPlayerMIMETypeCache&, const MediaPlayerPrivateRemote&, WebCore::MediaSourcePrivateClient*);
+    MediaSourcePrivateRemote(GPUProcessConnection&, RemoteMediaSourceIdentifier, RemoteMediaPlayerMIMETypeCache&, const MediaPlayerPrivateRemote&, WebCore::MediaSourcePrivateClient&);
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     void seekToTime(const MediaTime&);
@@ -91,7 +91,7 @@ private:
     RemoteMediaSourceIdentifier m_identifier;
     RemoteMediaPlayerMIMETypeCache& m_mimeTypeCache;
     WeakPtr<MediaPlayerPrivateRemote> m_mediaPlayerPrivate;
-    RefPtr<WebCore::MediaSourcePrivateClient> m_client;
+    WeakPtr<WebCore::MediaSourcePrivateClient> m_client;
     Vector<RefPtr<SourceBufferPrivateRemote>> m_sourceBuffers;
 
 #if !RELEASE_LOG_DISABLED

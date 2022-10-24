@@ -163,8 +163,8 @@ T_DECL(os_status_cache, "Checks saving and restoring of state")
 	T_EXPECT_TRUE(os_variant_allows_internal_security_policies(NULL), NULL);
 
 	status = STATUS_INITIAL_BITS |
-			(S_NO << (SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) |
-			(S_NO << (SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH));
+			(OS_VARIANT_S_NO << (OS_VARIANT_SFP_CAN_HAS_DEBUGGER * STATUS_BIT_WIDTH)) |
+			(OS_VARIANT_S_NO << (OS_VARIANT_SFP_DEVELOPMENT_KERNEL * STATUS_BIT_WIDTH));
 	T_LOG("Restoring status without can_has_debugger and development_kernel: %llx", status);
 	_restore_cached_check_status(status);
 

@@ -66,6 +66,7 @@ boolean_t ShortCircuit = FALSE;
 boolean_t UseRPCTrap = FALSE;
 boolean_t TestRPCTrap= FALSE;
 boolean_t IsVoucherCodeAllowed = TRUE;
+boolean_t EmitCountAnnotations = FALSE;
 
 boolean_t IsKernelUser = FALSE;
 boolean_t IsKernelServer = FALSE;

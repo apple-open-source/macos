@@ -224,7 +224,7 @@ main(int  argc,				/* I - Number of command-line args */
  * 'add_ppd()' - Add a PPD file.
  */
 
-static ppd_info_t *			/* O - PPD */
+static ppd_info_t *			/* O - PPD, or NULL to avoid duplicates */
 add_ppd(const char *filename,		/* I - PPD filename */
         const char *name,		/* I - PPD name */
         const char *language,		/* I - LanguageVersion */
@@ -290,12 +290,24 @@ add_ppd(const char *filename,		/* I - PPD filename */
  /*
   * Add the PPD to the PPD arrays...
   */
+  {
+    ppd_info_t* foundByName = (ppd_info_t*) cupsArrayFind(PPDsByName, ppd);
+    ppd_info_t* foundByMakeModel = (ppd_info_t*) cupsArrayFind(PPDsByMakeModel, ppd);
+    if (foundByName || foundByMakeModel) {
+      fprintf(stderr, "DEBUG2: [cups-driverd] %s already added (%p, %p)\n", ppd->record.filename, foundByName, foundByMakeModel);
+      free(ppd);
+      ppd = NULL;
+    }
+  }
 
-  cupsArrayAdd(PPDsByName, ppd);
-  cupsArrayAdd(PPDsByMakeModel, ppd);
+  if (ppd != NULL) {
+    cupsArrayAdd(PPDsByName, ppd);
+    cupsArrayAdd(PPDsByMakeModel, ppd);
+  }
 
  /*
   * Return the new PPD pointer...
+  * or NULL if we didn't add another one
   */
 
   return (ppd);
@@ -1680,15 +1692,19 @@ load_drv(const char  *filename,		/* I - Actual filename */
 	 product = (ppdcAttr *)d->attrs->next())
       if (!strcmp(product->name->value, "Product"))
       {
-        if (!products_found)
-	  ppd = add_ppd(name, uri, "en", d->manufacturer->value, make_model, device_id ? device_id->value->value : "", product->value->value,
-		        ps_version ? ps_version->value->value : "(3010) 0", mtime, (size_t)size, d->model_number, type, "drv");
-	else if (products_found < PPD_MAX_PROD)
-	  strlcpy(ppd->record.products[products_found], product->value->value, sizeof(ppd->record.products[0]));
-	else
-	  break;
-
-	products_found ++;
+        if (products_found == 0) {
+          ppd = add_ppd(name, uri, "en", d->manufacturer->value, make_model, device_id ? device_id->value->value : "", product->value->value,
+            ps_version ? ps_version->value->value : "(3010) 0", mtime, (size_t)size, d->model_number, type, "drv");
+          if (ppd != NULL) {
+            products_found ++;
+          }
+        }
+        else if (products_found < PPD_MAX_PROD) {
+          strlcpy(ppd->record.products[products_found], product->value->value, sizeof(ppd->record.products[0]));
+          products_found ++;
+        } else {
+          break;
+        }
       }
 
     if (!products_found)

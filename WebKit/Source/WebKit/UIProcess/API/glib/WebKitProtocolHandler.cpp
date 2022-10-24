@@ -53,10 +53,17 @@
 
 #if PLATFORM(X11)
 #include <WebCore/PlatformDisplayX11.h>
+#if USE(GLX)
+#include <GL/glx.h>
+#endif
 #endif
 
 #if USE(LIBEPOXY)
 #include <epoxy/gl.h>
+#elif USE(OPENGL_ES)
+#include <GLES2/gl2.h>
+#else
+#include <WebCore/OpenGLShims.h>
 #endif
 
 #if USE(EGL)
@@ -65,11 +72,6 @@
 #else
 #include <EGL/egl.h>
 #endif
-#endif
-
-#if USE(GLX)
-#include <GL/glx.h>
-#include <WebCore/OpenGLShims.h>
 #endif
 
 #if USE(GSTREAMER)
@@ -92,8 +94,8 @@ WebKitProtocolHandler::WebKitProtocolHandler(WebKitWebContext* context)
 
 void WebKitProtocolHandler::handleRequest(WebKitURISchemeRequest* request)
 {
-    URL requestURL = URL({ }, webkit_uri_scheme_request_get_uri(request));
-    if (requestURL.host() == "gpu") {
+    URL requestURL = URL(String::fromLatin1(webkit_uri_scheme_request_get_uri(request)));
+    if (requestURL.host() == "gpu"_s) {
         handleGPU(request);
         return;
     }

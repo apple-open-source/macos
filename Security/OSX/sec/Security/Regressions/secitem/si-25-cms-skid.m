@@ -46,13 +46,15 @@ static void test_cms_verification(void)
 
     /* verify that CMS stack found the certs in the CMS (using the SKID) and stuck them in the trust ref */
     ok_status(SecTrustCopyInputCertificates(trust, &certificates), "copy input certificates");
-#if TARGET_OS_OSX
-    // macOS implementation of CMS puts the leaf first and then adds all certs (so the signer cert is included twice)
-    is(CFArrayGetCount(certificates), 4, "4 certs in the cms");
-#else
-    // embedded implementation of CMS just orders the certs so the signer cert is first
-    is(CFArrayGetCount(certificates), 3, "3 certs in the cms");
+    CFIndex expectedCertCount = 4;
+#if TARGET_OS_IPHONE
+    /* The legacy iOS implementation re-orders the 3 certs, whereas the legacy macOS and new implementations
+     * prepend the signer cert to all certificates in the CMS object */
+    if (!useMessageSecurityEnabled()) {
+        expectedCertCount = 3;
+    }
 #endif
+    is(CFArrayGetCount(certificates), expectedCertCount, "%d certs in the cms", (int)expectedCertCount);
 
     CFReleaseNull(policy);
     CFReleaseNull(trust);

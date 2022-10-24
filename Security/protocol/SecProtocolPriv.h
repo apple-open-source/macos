@@ -169,6 +169,25 @@ void
 sec_protocol_options_set_tls_early_data_enabled(sec_protocol_options_t options, bool early_data_enabled);
 
 /*!
+ * @function sec_protocol_options_set_quic_early_data_context
+ *
+ * @abstract
+ *      Set the context for early (0-RTT) QUIC data.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param context
+ *      Arbitrary sequence of octets to associate with 0-RTT tickets. Changing the context invalidates past tickets.
+ *
+ * @param context_len
+ *      Number of octets in the context.
+ */
+#define SEC_PROTOCOL_HAS_QUIC_EARLY_DATA_CONTEXT 1 /* rdar://problem/69776684 */
+void
+sec_protocol_options_set_quic_early_data_context(sec_protocol_options_t options, const uint8_t *context, size_t context_len);
+
+/*!
  * @function sec_protocol_options_set_tls_sni_disabled
  *
  * @abstract
@@ -692,7 +711,6 @@ sec_protocol_options_set_tls_grease_enabled(sec_protocol_options_t options, bool
  * @param allow_unknown_alpn_protos
  *      Flag to enable or disable the use of unknown ALPN values.
  */
-#define SEC_PROTOCOL_HAS_ALLOW_UNKNOWN_ALPN_PROTOS_SETTER 1 /* rdar://problem/64449512 */
 SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
 void
 sec_protocol_options_set_allow_unknown_alpn_protos(sec_protocol_options_t options, bool allow_unknown_alpn_protos);
@@ -1423,6 +1441,40 @@ SPI_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0))
 void
 sec_protocol_options_set_client_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates);
 
+/*!
+ * @function sec_protocol_options_set_new_session_ticket_request
+ *
+ * @abstract
+ *      Sets the number of new session tickets the client will request from the server.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param count
+ *      The number of tickets to be requested.
+ */
+#define SEC_PROTOCOL_HAS_NEW_SESSION_TICKET_REQUEST 1
+SPI_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0))
+void
+sec_protocol_options_set_new_session_ticket_request(sec_protocol_options_t options, uint8_t count);
+
+/*!
+ * @function sec_protocol_options_set_resumed_session_ticket_request
+ *
+ * @abstract
+ *      Sets the number of resumed session tickets the client will request from the server.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param count
+ *      The number of tickets to be requested.
+ */
+#define SEC_PROTOCOL_HAS_RESUMED_SESSION_TICKET_REQUEST 1
+SPI_AVAILABLE(macos(13.0), ios(16.0), watchos(9.0), tvos(16.0))
+void
+sec_protocol_options_set_resumed_session_ticket_request(sec_protocol_options_t options, uint8_t count);
+
 struct sec_protocol_options_content {
     tls_protocol_version_t min_version;
     tls_protocol_version_t max_version;
@@ -1464,6 +1516,8 @@ struct sec_protocol_options_content {
 #endif
     CFArrayRef _Nullable server_raw_public_key_certificates;
     CFArrayRef _Nullable client_raw_public_key_certificates;
+    uint8_t new_session_ticket_request;
+    uint8_t resumed_session_ticket_request;
 
     // ATS minimums
     size_t minimum_rsa_key_size;
@@ -1475,6 +1529,9 @@ struct sec_protocol_options_content {
 
     // QUIC-specific access block
     sec_protocol_output_handler_access_block_t output_handler_access_block;
+
+    uint8_t * _Nullable quic_early_data_context;
+    size_t quic_early_data_context_len;
 
     // Boolean flags
     unsigned ats_required : 1;

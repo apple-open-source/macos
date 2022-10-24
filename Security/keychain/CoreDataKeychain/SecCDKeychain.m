@@ -443,7 +443,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
         notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int t) {
             bool locked = true;
             CFErrorRef blockError = NULL;
-            if (!SecAKSGetIsLocked(&locked, &blockError)) {
+            if (!SecAKSGetIsLocked(g_keychain_keybag, &locked, &blockError)) {
                 secerror("SecDbKeychainMetadataKeyStore: error getting lock state: %@", blockError);
                 CFReleaseNull(blockError);
             }
@@ -671,13 +671,13 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
         __strong __typeof(self) strongSelf = weakSelf;
         if (!strongSelf) {
             secerror("SecCDKeychain: attempt to fetch item from deallocated keychain instance");
-            completionHandler(false, [NSError errorWithDomain:SecCDKeychainErrorDomain code:SecCDKeychainErrorInternal userInfo:@{NSLocalizedDescriptionKey : @"attempt to fetch item from deallocated keychain instance"}]);
+            completionHandler(nil, [NSError errorWithDomain:SecCDKeychainErrorDomain code:SecCDKeychainErrorInternal userInfo:@{NSLocalizedDescriptionKey : @"attempt to fetch item from deallocated keychain instance"}]);
             return;
         }
 
         if (!managedObjectContext) {
             secerror("SecCDKeychain: fetchItemForPersistentID: could not get managed object context");
-            completionHandler(false, [NSError errorWithDomain:SFKeychainErrorDomain code:SFKeychainErrorInternal userInfo:@{ NSLocalizedDescriptionKey : @"fetchItemForPersistentID: could not get managed object context", NSUnderlyingErrorKey : managedObjectError }]);
+            completionHandler(nil, [NSError errorWithDomain:SFKeychainErrorDomain code:SFKeychainErrorInternal userInfo:@{ NSLocalizedDescriptionKey : @"fetchItemForPersistentID: could not get managed object context", NSUnderlyingErrorKey : managedObjectError }]);
             return;
         }
         
@@ -717,13 +717,13 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
         __strong __typeof(self) strongSelf = weakSelf;
         if (!strongSelf) {
             secerror("SecCDKeychain: attempt to fetch items from deallocated keychain instance");
-            completionHandler(false, [NSError errorWithDomain:SecCDKeychainErrorDomain code:SecCDKeychainErrorInternal userInfo:@{NSLocalizedDescriptionKey : @"attempt to lookup items from deallocated keychain instance"}]);
+            completionHandler(nil, [NSError errorWithDomain:SecCDKeychainErrorDomain code:SecCDKeychainErrorInternal userInfo:@{NSLocalizedDescriptionKey : @"attempt to lookup items from deallocated keychain instance"}]);
             return;
         }
 
         if (!managedObjectContext) {
             secerror("SecCDKeychain: fetchItemsWithValue: could not get managed object context");
-            completionHandler(false, [NSError errorWithDomain:SFKeychainErrorDomain code:SFKeychainErrorInternal userInfo:@{ NSLocalizedDescriptionKey : @"fetchItemsWithValue: could not get managed object context", NSUnderlyingErrorKey : managedObjectError }]);
+            completionHandler(nil, [NSError errorWithDomain:SFKeychainErrorDomain code:SFKeychainErrorInternal userInfo:@{ NSLocalizedDescriptionKey : @"fetchItemsWithValue: could not get managed object context", NSUnderlyingErrorKey : managedObjectError }]);
             return;
         }
 

@@ -36,6 +36,7 @@
 #include <kern/kern_types.h>
 #include <kern/lock_group.h>
 #include <kern/mach_param.h>
+#include <kern/misc_protos.h>
 #include <kern/percpu.h>
 #include <kern/processor.h>
 #include <kern/thread.h>
@@ -46,7 +47,6 @@
 #include <vm/vm_map.h>
 #include <vm/vm_kern.h>
 
-#include <mach_debug.h>
 #include <san/kasan.h>
 
 /*
@@ -92,20 +92,15 @@ static struct stack_cache PERCPU_DATA(stack_cache);
 #define stack_next(stack)       \
 	(*((vm_offset_t *)((stack) + kernel_stack_size) - 1))
 
-static inline int
-log2(vm_offset_t size)
-{
-	int     result;
-	for (result = 0; size > 0; result++) {
-		size >>= 1;
-	}
-	return result;
-}
-
 static inline vm_offset_t
 roundup_pow2(vm_offset_t size)
 {
-	return 1UL << (log2(size - 1) + 1);
+	if ((size & (size - 1)) == 0) {
+		/* if size is a power of 2 we're good */
+		return size;
+	}
+
+	return 1ul << flsll(size);
 }
 
 static vm_offset_t stack_alloc_internal(void);
@@ -417,9 +412,7 @@ processor_set_stack_usage(
 	vm_size_t       *maxusagep,
 	vm_offset_t     *maxstackp)
 {
-#if !MACH_DEBUG
-	return KERN_NOT_SUPPORTED;
-#else
+#if DEVELOPMENT || DEBUG
 	unsigned int total = 0;
 	thread_t thread;
 
@@ -441,7 +434,10 @@ processor_set_stack_usage(
 	*maxstackp = 0;
 	return KERN_SUCCESS;
 
-#endif  /* MACH_DEBUG */
+#else
+#pragma unused(pset, totalp, spacep, residentp, maxusagep, maxstackp)
+	return KERN_NOT_SUPPORTED;
+#endif /* DEVELOPMENT || DEBUG */
 }
 
 vm_offset_t

@@ -50,7 +50,7 @@
 
 
 #if TARGET_OS_OSX
-static const char * get_host_uuid()
+static const char * get_host_uuid(void)
 {
     static uuid_string_t hostuuid = {};
     static dispatch_once_t onceToken;

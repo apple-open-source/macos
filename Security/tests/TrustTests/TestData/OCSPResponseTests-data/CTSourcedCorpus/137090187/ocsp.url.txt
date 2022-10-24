@@ -1,0 +1,1 @@
+http://ocsp.postsignum.cz/OCSP/VCA3/OCSP_public/

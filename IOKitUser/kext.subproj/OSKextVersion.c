@@ -30,10 +30,14 @@
 #include <libkern/OSKextLibPrivate.h>
 #else
 #include <libc.h>
+#if __has_include(<libkern/OSKextLibPrivate.h>)
+/* prefer <libkern/OSKextLibPrivate.h> if the SDK is new enough */
+#include <libkern/OSKextLibPrivate.h>
+#else
 #include <System/libkern/OSKextLibPrivate.h>
+#endif
 #include <CoreFoundation/CoreFoundation.h>
 #endif /* KERNEL */
-#include <System/libkern/OSKextLibPrivate.h>
 
 // xxx - This file is duplicated in IOKitUser; would like to have it shared.
 

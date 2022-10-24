@@ -33,6 +33,7 @@
 #import "WKMouseDeviceObserver.h"
 #import "WKStylusDeviceObserver.h"
 #import "WebProcessMessages.h"
+#import "WebProcessPool.h"
 
 namespace WebKit {
 
@@ -44,6 +45,8 @@ void WebProcessProxy::platformInitialize()
 #if HAVE(STYLUS_DEVICE_OBSERVATION)
     [[WKStylusDeviceObserver sharedInstance] start];
 #endif
+
+    m_throttler.setAllowsActivities(!m_processPool->processesShouldSuspend());
 }
 
 void WebProcessProxy::platformDestroy()

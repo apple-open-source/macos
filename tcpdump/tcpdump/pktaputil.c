@@ -75,7 +75,7 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 	const u_char *pkt_data;
 	int match = 0;
 	pcap_t *pcap = ndo->ndo_pcap;
-	
+
 	pktp_hdr = (struct pktap_header *)sp;
 
 	if (h->len < sizeof(struct pktap_header) ||
@@ -122,7 +122,7 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 	 * Filter on packet metadata
 	 */
 	if (match && pkt_meta_data_expression != NULL) {
-		struct pkt_meta_data pmd;
+		struct pkt_meta_data pmd = {};
 		
 		pmd.itf = &pktp_hdr->pth_ifname[0];
 		pmd.proc = &pktp_hdr->pth_comm[0];
@@ -142,6 +142,103 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 	
 	return (match);
 }
+
+/*
+ * Returns:
+ * -1: pktap header is truncated and cannot be parsed
+ *  0: pktap header doesn't match
+ *  other values: pktap header matches the filter
+ */
+int
+pktapv2_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
+					const struct pcap_pkthdr *h, const u_char *sp)
+{
+	struct pktap_v2_hdr *pktap_v2_hdr;
+	const u_char *pkt_data = NULL;
+	int match = 0;
+	pcap_t *pcap = ndo->ndo_pcap;
+	const char *ifname = NULL;
+	const char *comm = NULL;
+	const char *e_comm = NULL;
+
+	pktap_v2_hdr = (struct pktap_v2_hdr *)sp;
+
+	if (h->len < sizeof(struct pktap_v2_hdr) ||
+	    h->caplen < sizeof(struct pktap_v2_hdr) ||
+	    pktap_v2_hdr->pth_length > h->caplen) {
+		return (-1);
+	}
+
+	ifname = ((char *) pktap_v2_hdr) + pktap_v2_hdr->pth_ifname_offset;
+	if (pktap_v2_hdr->pth_ifname_offset == 0) {
+		fprintf(stderr, "%s: interface name missing\n",
+			__func__);
+		return (0);
+	}
+	if (pktap_v2_hdr->pth_comm_offset != 0)
+		comm = ((char *) pktap_v2_hdr) + pktap_v2_hdr->pth_comm_offset;
+	if (pktap_v2_hdr->pth_e_comm_offset != 0)
+		e_comm = ((char *) pktap_v2_hdr) + pktap_v2_hdr->pth_e_comm_offset;
+
+	if (if_info == NULL) {
+		if_info = pcap_find_if_info_by_name(pcap, ifname);
+		/*
+		 * New interface
+		 */
+		if (if_info == NULL) {
+			if_info = pcap_add_if_info(pcap, ifname, -1,
+						   pktap_v2_hdr->pth_dlt, ndo->ndo_snaplen);
+			if (if_info == NULL) {
+				fprintf(stderr, "%s: pcap_add_if_info(%s, %u) failed: %s\n",
+					__func__, ifname, pktap_v2_hdr->pth_dlt, pcap_geterr(pcap));
+				kill(getpid(), SIGTERM);
+				return 0;
+			}
+		}
+	}
+
+	if (if_info->if_filter_program.bf_insns == NULL) {
+		match = 1;
+	} else {
+		/*
+		 * The actual data packet is past the packet tap header
+		 */
+		struct pcap_pkthdr tmp_hdr;
+
+		bcopy(h, &tmp_hdr, sizeof(struct pcap_pkthdr));
+
+		tmp_hdr.caplen -= pktap_v2_hdr->pth_length;
+		tmp_hdr.len -= pktap_v2_hdr->pth_length;
+
+		pkt_data = sp + pktap_v2_hdr->pth_length;
+
+		match = pcap_offline_filter(&if_info->if_filter_program, &tmp_hdr, pkt_data);
+	}
+	/*
+	 * Filter on packet metadata
+	 */
+	if (match && pkt_meta_data_expression != NULL) {
+		struct pkt_meta_data pmd = {};
+
+		pmd.itf = ifname;
+		pmd.proc = comm;
+		pmd.eproc = e_comm;
+		pmd.pid = pktap_v2_hdr->pth_pid;
+		pmd.epid = pktap_v2_hdr->pth_e_pid;
+		pmd.svc = svc2str(pktap_v2_hdr->pth_svc);
+		pmd.dir = (pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
+			(pktap_v2_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
+		pmd.flowid = pktap_v2_hdr->pth_flowid;
+
+		match = evaluate_expression(pkt_meta_data_expression, &pmd);
+		if (match == 0) {
+			packets_mtdt_fltr_drop++;
+		}
+	}
+
+	return (match);
+}
+
 
 char *
 svc2str(uint32_t svc)

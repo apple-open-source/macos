@@ -27,11 +27,15 @@
 
 #import <UIKit/UIHoverGestureRecognizer.h>
 #import "NativeWebMouseEvent.h"
+#import "UIKitSPI.h"
 
 @interface WKMouseGestureRecognizer : UIHoverGestureRecognizer
+#if HAVE(UIKIT_HOVER_EVENT_PROTOCOL)
+<_UIHoverEventRespondable>
+#endif
 
 - (std::optional<CGPoint>)lastMouseLocation;
-- (WebKit::NativeWebMouseEvent *)lastMouseEvent;
+- (std::unique_ptr<WebKit::NativeWebMouseEvent>)takeLastMouseEvent;
 
 - (UITouch *)mouseTouch;
 

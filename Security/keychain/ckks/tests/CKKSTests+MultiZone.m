@@ -166,6 +166,13 @@
     [self.ckksViews addObject:self.mfiView];
     [self.ckksZones addObject:self.mfiZoneID];
 
+    self.mailZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Mail" ownerName:CKCurrentUserDefaultName];
+    self.mailZone = [[FakeCKZone alloc] initZone:self.mailZoneID];
+    self.mailView = [self.defaultCKKS.operationDependencies viewStateForName:@"Mail"];
+    XCTAssertNotNil(self.mailView, "CKKS created the Mail view");
+    [self.ckksViews addObject:self.mailView];
+    [self.ckksZones addObject:self.mailZoneID];
+
     self.limitedZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"LimitedPeersAllowed" ownerName:CKCurrentUserDefaultName];
     self.limitedZone = [[FakeCKZone alloc] initZone: self.limitedZoneID];
     self.limitedView = [self.defaultCKKS.operationDependencies viewStateForName:@"LimitedPeersAllowed"];
@@ -216,6 +223,7 @@
     self.applepayView = nil;
     self.homeView = nil;
     self.mfiView = nil;
+    self.mailView = nil;
     self.limitedView = nil;
     self.passwordsView = nil;
     self.ptaView = nil;
@@ -307,6 +315,18 @@
     self.zones[self.mfiZoneID] = zone;
 }
 
+- (ZoneKeys*)mailZoneKeys {
+    return self.keys[self.mailZoneID];
+}
+
+- (FakeCKZone*)mailZone {
+    return self.zones[self.mailZoneID];
+}
+
+- (void)setMailZone:(FakeCKZone*)zone {
+    self.zones[self.mailZoneID] = zone;
+}
+
 - (ZoneKeys*)limitedZoneKeys {
     return self.keys[self.limitedZoneID];
 }
@@ -356,6 +376,7 @@
     [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
     [self putFakeDeviceStatusInCloudKit: self.homeZoneID];
     [self putFakeDeviceStatusInCloudKit: self.mfiZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.mailZoneID];
     [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit: self.passwordsZoneID];
 }
@@ -368,6 +389,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.homeZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.mfiZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.mailZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.passwordsZoneID];
 }
@@ -380,6 +402,7 @@
     [self saveTLKMaterialToKeychain:self.applepayZoneID];
     [self saveTLKMaterialToKeychain:self.homeZoneID];
     [self saveTLKMaterialToKeychain:self.mfiZoneID];
+    [self saveTLKMaterialToKeychain:self.mailZoneID];
     [self saveTLKMaterialToKeychain:self.limitedZoneID];
     [self saveTLKMaterialToKeychain:self.passwordsZoneID];
 }
@@ -392,6 +415,7 @@
     [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
     [self deleteTLKMaterialFromKeychain: self.homeZoneID];
     [self deleteTLKMaterialFromKeychain:self.mfiZoneID];
+    [self deleteTLKMaterialFromKeychain:self.mailZoneID];
     [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
     [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
 }
@@ -404,6 +428,7 @@
     [self putFakeDeviceStatusInCloudKit:self.healthZoneID];
     [self putFakeDeviceStatusInCloudKit:self.applepayZoneID];
     [self putFakeDeviceStatusInCloudKit:self.homeZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.mailZoneID];
     [self putFakeDeviceStatusInCloudKit:self.mfiZoneID];
     [self putFakeDeviceStatusInCloudKit:self.limitedZoneID];
     [self putFakeDeviceStatusInCloudKit:self.passwordsZoneID];
@@ -423,6 +448,7 @@
     [self putTLKShareInCloudKit:self.applepayZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.applepayZoneID];
     [self putTLKShareInCloudKit:self.homeZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.homeZoneID];
     [self putTLKShareInCloudKit:self.mfiZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.mfiZoneID];
+    [self putTLKShareInCloudKit:self.mailZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.mailZoneID];
     [self putTLKShareInCloudKit:self.limitedZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.limitedZoneID];
     [self putTLKShareInCloudKit:self.passwordsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.passwordsZoneID];
 }
@@ -436,6 +462,7 @@
     XCTAssertEqual([self.homeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Home should enter key state ready");
     XCTAssertEqual([self.limitedView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "LimitedPeersAllowed should enter key state ready");
     XCTAssertEqual([self.mfiView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "MFi should enter key state ready");
+    XCTAssertEqual([self.mailView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Mail should enter key state ready");
     XCTAssertEqual([self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Passwords should enter key state ready");
 }
 
@@ -689,7 +716,7 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
 
     // Ensure that we catch up to the newest CK change token so our fake cloudkit will notice the delete at fetch time
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     // Now, the item is deleted. Do we properly remove it?
@@ -719,7 +746,7 @@
     XCTAssertNotNil(self.passwordsZone.currentDatabase[itemRecord.recordID], "Record should exist in fake CK");
     [self.passwordsZone deleteCKRecordIDFromZone:itemRecord.recordID];
 
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should no longer exist");
@@ -759,7 +786,9 @@
     [self addGenericPassword:@"data" account:@"account-delete-me-limited-peers" viewHint:(NSString*)kSecAttrViewHintLimitedPeersAllowed];
 
     NSError* error = nil;
-    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.passwordsZoneID error:&error];
+    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateWithContextID:self.defaultCKKS.operationDependencies.contextID
+                                                                            zoneID:self.passwordsZoneID
+                                                                             error:&error];
     XCTAssertNil(error, "Should be no error counting OQEs");
     XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
 
@@ -797,7 +826,7 @@
     [self expectCKFetch];
 
     // Trigger a notification (with hilariously fake data)
-    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];

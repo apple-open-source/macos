@@ -511,8 +511,8 @@ int njcl;                       /* # of clusters for jumbo sizes */
 int njclbytes;                  /* size of a jumbo cluster */
 unsigned char *mbutl;           /* first mapped cluster address */
 unsigned char *embutl;          /* ending virtual address of mclusters */
-int _max_linkhdr;               /* largest link-level header */
-int _max_protohdr;              /* largest protocol header */
+int max_linkhdr;                /* largest link-level header */
+int max_protohdr;              /* largest protocol header */
 int max_hdr;                    /* largest link+protocol header */
 int max_datalen;                /* MHLEN - max_hdr */
 
@@ -4208,6 +4208,8 @@ m_dup_pkthdr(struct mbuf *to, struct mbuf *from, int how)
 		to->m_data = to->m_pktdat;
 	}
 	to->m_pkthdr = from->m_pkthdr;
+	/* clear TX completion flag so the callback is not called in the copy */
+	to->m_pkthdr.pkt_flags &= ~PKTF_TX_COMPL_TS_REQ;
 	m_redzone_init(to);                     /* setup red zone on dst */
 	m_tag_init(to, 0);                      /* preserve dst static tags */
 	return m_tag_copy_chain(to, from, how);
@@ -6916,7 +6918,9 @@ mbuf_watchdog_defunct(thread_call_param_t arg0, thread_call_param_t arg1)
 				continue;
 			}
 			so = (struct socket *)fp_get_data(fp);
-			socket_lock(so, 0);
+			if (!socket_try_lock(so)) {
+				continue;
+			}
 			if (sosetdefunct(args.top_app, so,
 			    SHUTDOWN_SOCKET_LEVEL_DISCONNECT_ALL,
 			    TRUE) == 0) {

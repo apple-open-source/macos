@@ -25,31 +25,39 @@
 
 #import "config.h"
 #import "WebInspectorUI.h"
-#import "RemoteWebInspectorUI.h"
+
 #import "WKInspectorViewController.h"
 
 #if PLATFORM(MAC)
 
 namespace WebKit {
+using namespace WebCore;
 
-bool WebInspectorUI::canSave()
+bool WebInspectorUI::canSave(InspectorFrontendClient::SaveMode saveMode)
+{
+    switch (saveMode) {
+    case InspectorFrontendClient::SaveMode::SingleFile:
+    case InspectorFrontendClient::SaveMode::FileVariants:
+        return true;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool WebInspectorUI::canLoad()
 {
     return true;
 }
 
-static String webInspectorUILocalizedStringsURL()
+bool WebInspectorUI::canPickColorFromScreen()
 {
-    return [WKInspectorViewController URLForInspectorResource:@"localizedStrings.js"].absoluteString;
+    return true;
 }
 
 String WebInspectorUI::localizedStringsURL() const
 {
-    return webInspectorUILocalizedStringsURL();
-}
-
-String RemoteWebInspectorUI::localizedStringsURL() const
-{
-    return webInspectorUILocalizedStringsURL();
+    return [WKInspectorViewController URLForInspectorResource:@"localizedStrings.js"].absoluteString;
 }
 
 } // namespace WebKit

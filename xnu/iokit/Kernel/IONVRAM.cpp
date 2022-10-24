@@ -38,6 +38,7 @@
 #include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOBSD.h>
 #include <kern/debug.h>
+#include <os/system_event_log.h>
 #include <sys/csr.h>
 
 #define super IOService
@@ -51,6 +52,10 @@ class IONVRAMV3Handler;
 
 #define MAX_VAR_NAME_SIZE     63
 
+#define kNVRAMBankSizeKey    "nvram-bank-size"
+#define kNVRAMBankCountKey   "nvram-bank-count"
+#define kNVRAMCurrentBankKey "nvram-current-bank"
+
 #define kCurrentGenerationCountKey "Generation"
 #define kCurrentNVRAMVersionKey    "Version"
 
@@ -62,17 +67,24 @@ class IONVRAMV3Handler;
 #define MIN_SYNC_NOW_INTERVAL 15*60 /* Minimum 15 Minutes interval mandated */
 
 #if defined(DEBUG) || defined(DEVELOPMENT)
-#define DEBUG_INFO(fmt, args...)                                                  \
-({                                                                                \
-	if (gNVRAMLogging)                                                        \
+#define DEBUG_IFERROR(err, fmt, args...)                                     \
+({                                                                           \
+	if ((err != kIOReturnSuccess) || gNVRAMLogging)                          \
 	IOLog("%s:%s:%u - " fmt, __FILE_NAME__, __FUNCTION__, __LINE__, ##args); \
 })
 
-#define DEBUG_ALWAYS(fmt, args...)                                                \
-({                                                                                \
+#define DEBUG_INFO(fmt, args...)                                             \
+({                                                                           \
+	if (gNVRAMLogging)                                                       \
+	IOLog("%s:%s:%u - " fmt, __FILE_NAME__, __FUNCTION__, __LINE__, ##args); \
+})
+
+#define DEBUG_ALWAYS(fmt, args...)                                           \
+({                                                                           \
 	IOLog("%s:%s:%u - " fmt, __FILE_NAME__, __FUNCTION__, __LINE__, ##args); \
 })
 #else
+#define DEBUG_IFERROR(err, fmt, args...) (void)NULL
 #define DEBUG_INFO(fmt, args...) (void)NULL
 #define DEBUG_ALWAYS(fmt, args...) (void)NULL
 #endif
@@ -143,30 +155,7 @@ static TUNABLE(bool, gNVRAMLogging, "nvram-log", false);
 static bool gInternalBuild = false;
 
 // allowlist variables from macboot that need to be set/get from system region if present
-static const char * const gNVRAMSystemList[] = {
-	"allow-root-hash-mismatch",
-	"auto-boot",
-	"auto-boot-halt-stage",
-	"base-system-path",
-	"boot-args",
-	"boot-command",
-	"boot-image",
-	"bootdelay",
-	"com.apple.System.boot-nonce",
-	"darkboot",
-	"emu",
-	"one-time-boot-command", // Needed for diags customer install flows
-	"policy-nonce-digests",
-	"prevent-restores", // Keep for factory <rdar://problem/70476321>
-	"prev-lang:kbd",
-	"root-live-fs",
-	"sep-debug-args", // Needed to simplify debug flows for SEP
-	"StartupMute", // Set by customers via nvram tool
-	"SystemAudioVolume",
-	"SystemAudioVolumeExtension",
-	"SystemAudioVolumeSaved",
-	nullptr
-};
+static const char * const gNVRAMSystemList[] = { IONVRAMSystemVariableList, nullptr };
 
 typedef struct {
 	const char *name;
@@ -524,7 +513,9 @@ parseVariableName(const char *key, uuid_t *guidResult, const char **nameResult)
 static bool
 skipKey(const OSSymbol *aKey)
 {
-	return aKey->isEqualTo(kIOClassNameOverrideKey) ||
+	return aKey->isEqualTo(kIORegistryEntryAllowableSetPropertiesKey) ||
+	       aKey->isEqualTo(kIORegistryEntryDefaultLockingSetPropertiesKey) ||
+	       aKey->isEqualTo(kIOClassNameOverrideKey) ||
 	       aKey->isEqualTo(kIOBSDNameKey) ||
 	       aKey->isEqualTo(kIOBSDNamesKey) ||
 	       aKey->isEqualTo(kIOBSDMajorKey) ||
@@ -535,8 +526,83 @@ skipKey(const OSSymbol *aKey)
 }
 
 
-// ************************** IODTNVRAMDiags ****************************
+// ************************** IODTNVRAMPlatformNotifier ****************************
+// private IOService based class for passing notifications to IODTNVRAM
 
+class IODTNVRAMPlatformNotifier : public IOService
+{
+	OSDeclareDefaultStructors(IODTNVRAMPlatformNotifier)
+private:
+	IODTNVRAM *_provider;
+
+public:
+	bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
+
+	virtual IOReturn callPlatformFunction( const OSSymbol * functionName,
+	    bool waitForFunction,
+	    void *param1, void *param2,
+	    void *param3, void *param4 ) APPLE_KEXT_OVERRIDE;
+};
+
+OSDefineMetaClassAndStructors(IODTNVRAMPlatformNotifier, IOService)
+
+bool
+IODTNVRAMPlatformNotifier::start(IOService * provider)
+{
+	OSSharedPtr<OSSerializer> serializer;
+	OSSharedPtr<OSNumber> value = OSNumber::withNumber(1000, 32);
+
+	_provider = OSDynamicCast(IODTNVRAM, provider);
+	require(_provider != nullptr, error);
+
+	setProperty(gIOPlatformWakeActionKey, value.get());
+
+	require(super::start(provider), error);
+
+	registerService();
+
+	return true;
+
+error:
+	stop(provider);
+
+	return false;
+}
+
+#include <IOKit/IOHibernatePrivate.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+static const OSSharedPtr<const OSSymbol> gIOHibernateStateKey = OSSymbol::withCString(kIOHibernateStateKey);
+
+static uint32_t
+hibernateState(void)
+{
+	OSSharedPtr<OSData> data = OSDynamicPtrCast<OSData>(IOService::getPMRootDomain()->copyProperty(gIOHibernateStateKey.get()->getCStringNoCopy()));
+	uint32_t hibernateState = 0;
+	if ((data != NULL) && (data->getLength() == sizeof(hibernateState))) {
+		memcpy(&hibernateState, data->getBytesNoCopy(), sizeof(hibernateState));
+	}
+	return hibernateState;
+}
+
+IOReturn
+IODTNVRAMPlatformNotifier::callPlatformFunction( const OSSymbol * functionName,
+    bool waitForFunction,
+    void *param1, void *param2,
+    void *param3, void *param4 )
+{
+	if ((functionName == gIOPlatformWakeActionKey) &&
+	    (hibernateState() == kIOHibernateStateWakingFromHibernate)) {
+		DEBUG_INFO("waking from hibernate\n");
+		_provider->reload();
+		return kIOReturnSuccess;
+	}
+
+	return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
+}
+
+
+// ************************** IODTNVRAMDiags ****************************
+// private IOService based class for passing notifications to IODTNVRAM
 #define kIODTNVRAMDiagsStatsKey   "Stats"
 #define kIODTNVRAMDiagsInitKey    "Init"
 #define kIODTNVRAMDiagsReadKey    "Read"
@@ -877,9 +943,73 @@ IODTNVRAMVariables::removeProperty(const OSSymbol *aKey)
 }
 
 // ************************** Format Handlers ***************************
+class IODTNVRAMFormatHandler
+{
+protected:
+	uint32_t _bankSize;
+	uint32_t _bankCount;
+	uint32_t _currentBank;
+
+public:
+	virtual
+	~IODTNVRAMFormatHandler();
+	virtual bool     getNVRAMProperties(void);
+	virtual IOReturn setVariable(const uuid_t varGuid, const char *variableName, OSObject *object) = 0;
+	virtual bool     setController(IONVRAMController *_nvramController) = 0;
+	virtual bool     sync(void) = 0;
+	virtual IOReturn flush(const uuid_t guid, IONVRAMOperation op) = 0;
+	virtual void     reload(void) = 0;
+	virtual uint32_t getGeneration(void) const = 0;
+	virtual uint32_t getVersion(void) const = 0;
+	virtual uint32_t getSystemUsed(void) const = 0;
+	virtual uint32_t getCommonUsed(void) const = 0;
+};
 
 IODTNVRAMFormatHandler::~IODTNVRAMFormatHandler()
 {
+}
+
+bool
+IODTNVRAMFormatHandler::getNVRAMProperties()
+{
+	bool                         ok    = false;
+	OSSharedPtr<IORegistryEntry> entry;
+	OSSharedPtr<OSObject>        prop;
+	OSData *                     data;
+
+	entry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+	require_action(entry, exit, DEBUG_ERROR("Unable to find chosen node\n"));
+
+	prop = entry->copyProperty(kNVRAMBankSizeKey);
+	require_action(prop, exit, DEBUG_ERROR("Unable to find %s property\n", kNVRAMBankSizeKey));
+
+	data = OSDynamicCast(OSData, prop.get());
+	require(data, exit);
+
+	_bankSize = *((uint32_t *)data->getBytesNoCopy());
+
+	prop = entry->copyProperty(kNVRAMBankCountKey);
+	require_action(prop, exit, DEBUG_ERROR("Unable to find %s property\n", kNVRAMBankCountKey));
+
+	data = OSDynamicCast(OSData, prop.get());
+	require(data, exit);
+
+	_bankCount = *((uint32_t *)data->getBytesNoCopy());
+
+	prop = entry->copyProperty(kNVRAMCurrentBankKey);
+	require_action(prop, exit, DEBUG_ERROR("Unable to find %s property\n", kNVRAMCurrentBankKey));
+
+	data = OSDynamicCast(OSData, prop.get());
+	require(data, exit);
+
+	_currentBank = *((uint32_t *)data->getBytesNoCopy());
+
+	ok = true;
+
+	DEBUG_ALWAYS("_bankSize=%#X, _bankCount=%#X, _currentBank=%#X\n", _bankSize, _bankCount, _currentBank);
+
+exit:
+	return ok;
 }
 
 #include "IONVRAMCHRPHandler.cpp"
@@ -955,6 +1085,26 @@ IODTNVRAM::start(IOService *provider)
 		DEBUG_ERROR("Unable to start the diags service!\n");
 		_diags->detach(this);
 		OSSafeReleaseNULL(_diags);
+		goto fail;
+	}
+
+	_notifier = new IODTNVRAMPlatformNotifier;
+	if (!_notifier || !_notifier->init()) {
+		DEBUG_ERROR("Unable to create/init the notifier service\n");
+		OSSafeReleaseNULL(_notifier);
+		goto fail;
+	}
+
+	if (!_notifier->attach(this)) {
+		DEBUG_ERROR("Unable to attach the notifier service!\n");
+		OSSafeReleaseNULL(_notifier);
+		goto fail;
+	}
+
+	if (!_notifier->start(this)) {
+		DEBUG_ERROR("Unable to start the notifier service!\n");
+		_notifier->detach(this);
+		OSSafeReleaseNULL(_notifier);
 		goto fail;
 	}
 
@@ -1129,6 +1279,7 @@ IODTNVRAM::syncInternal(bool rateLimit)
 	}
 
 	DEBUG_INFO("Calling sync()\n");
+	record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "sync", "triggered");
 
 	NVRAMREADLOCK();
 	CONTROLLERLOCK();
@@ -1148,6 +1299,12 @@ void
 IODTNVRAM::sync(void)
 {
 	syncInternal(false);
+}
+
+void
+IODTNVRAM::reload(void)
+{
+	_format->reload();
 }
 
 bool
@@ -1467,15 +1624,23 @@ IODTNVRAM::setPropertyWithGUIDAndName(const uuid_t guid, const char *name, OSObj
 	switch (getVariableType(name)) {
 	case kOFVariableTypeBoolean:
 		propObject = OSDynamicPtrCast<OSBoolean>(sharedObject);
+		if (propObject) {
+			record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "write", "%s to %d", name, ((OSBoolean *)propObject.get())->getValue());
+		}
 		break;
 
 	case kOFVariableTypeNumber:
 		propObject = OSDynamicPtrCast<OSNumber>(sharedObject);
+		if (propObject) {
+			record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "write", "%s to %#llx", name, ((OSNumber *)propObject.get())->unsigned64BitValue());
+		}
 		break;
 
 	case kOFVariableTypeString:
 		propObject = OSDynamicPtrCast<OSString>(sharedObject);
 		if (propObject != nullptr) {
+			record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "write", "%s to %s", name, ((OSString *)propObject.get())->getCStringNoCopy());
+
 			propDataSize = (OSDynamicPtrCast<OSString>(propObject))->getLength();
 
 			if ((strncmp(name, kIONVRAMBootArgsKey, sizeof(kIONVRAMBootArgsKey)) == 0) && (propDataSize >= BOOT_LINE_LENGTH)) {
@@ -1498,6 +1663,7 @@ IODTNVRAM::setPropertyWithGUIDAndName(const uuid_t guid, const char *name, OSObj
 
 		if (propObject != nullptr) {
 			propDataSize = (OSDynamicPtrCast<OSData>(propObject))->getLength();
+			record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "write", "%s with data size %#x", name, ((OSData *)propObject.get())->getLength());
 		}
 
 #if defined(XNU_TARGET_OS_OSX)
@@ -1605,6 +1771,8 @@ IODTNVRAM::removePropertyWithGUIDAndName(const uuid_t guid, const char *name)
 	}
 
 	NVRAMUNLOCK();
+
+	record_system_event(SYSTEM_EVENT_TYPE_INFO, SYSTEM_EVENT_SUBSYSTEM_NVRAM, "delete", "%s", name);
 
 exit:
 	return ret;

@@ -168,6 +168,8 @@ static int _pthread_count = 1;
 static int pthread_concurrency;
 uintptr_t _pthread_ptr_munge_token;
 
+static bool pthread_yield_to_zero = true;
+
 static void (*exitf)(int) = __exit;
 
 // workgroup support
@@ -2131,6 +2133,11 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 	_pthread_debugstart = mach_absolute_time();
 #endif
 
+	const char *envvar = _simple_getenv(envp, "PTHREAD_YIELD_TO_ZERO");
+	if (envvar) {
+		pthread_yield_to_zero = (envvar[0] == '1');
+	}
+
 	return 0;
 }
 
@@ -2163,7 +2170,14 @@ _pthread_main_thread_init(pthread_t p, mach_port_name_t main_thread_port)
 		// Can't get thread port from kernel or we are forking, fallback to mach_thread_self
 		_pthread_tsd_slot(p, MACH_THREAD_SELF) = mach_thread_self();
 	}
-	_pthread_tsd_slot(p, MIG_REPLY) = mach_reply_port();
+
+	mach_port_t mig_reply_port = MACH_PORT_NULL;
+	mach_port_options_t opts = {
+		.flags = MPO_REPLY_PORT,
+	};
+	mach_port_construct(mach_task_self(), &opts, NULL, &mig_reply_port);
+	_pthread_tsd_slot(p, MIG_REPLY) = mig_reply_port;
+
 	_pthread_tsd_slot(p, MACH_SPECIAL_REPLY) = MACH_PORT_NULL;
 	_pthread_tsd_slot(p, SEMAPHORE_CACHE) = SEMAPHORE_NULL;
 
@@ -2181,10 +2195,15 @@ _pthread_main_thread_postfork_init(pthread_t p)
 	_pthread_set_self_internal(p);
 }
 
+__attribute__((disable_tail_calls))
 int
 sched_yield(void)
 {
-	swtch_pri(0);
+	if (os_likely(pthread_yield_to_zero)) {
+		swtch_pri(0);
+	} else {
+		thread_switch(THREAD_NULL, SWITCH_OPTION_NONE, 0);
+	}
 	return 0;
 }
 

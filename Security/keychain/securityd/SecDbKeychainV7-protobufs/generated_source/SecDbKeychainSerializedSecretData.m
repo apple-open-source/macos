@@ -16,11 +16,6 @@
 @synthesize ciphertext = _ciphertext;
 @synthesize wrappedKey = _wrappedKey;
 @synthesize tamperCheck = _tamperCheck;
-- (BOOL)hasSecDbBackupWrappedItemKey
-{
-    return _secDbBackupWrappedItemKey != nil;
-}
-@synthesize secDbBackupWrappedItemKey = _secDbBackupWrappedItemKey;
 
 - (NSString *)description
 {
@@ -41,10 +36,6 @@
     if (self->_tamperCheck)
     {
         [dict setObject:self->_tamperCheck forKey:@"tamperCheck"];
-    }
-    if (self->_secDbBackupWrappedItemKey)
-    {
-        [dict setObject:self->_secDbBackupWrappedItemKey forKey:@"SecDbBackupWrappedItemKey"];
     }
     return dict;
 }
@@ -83,12 +74,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
                 self->_tamperCheck = new_tamperCheck;
             }
             break;
-            case 4 /* secDbBackupWrappedItemKey */:
-            {
-                NSData *new_secDbBackupWrappedItemKey = PBReaderReadData(reader);
-                self->_secDbBackupWrappedItemKey = new_secDbBackupWrappedItemKey;
-            }
-            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -119,13 +104,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
         assert(nil != self->_tamperCheck);
         PBDataWriterWriteStringField(writer, self->_tamperCheck, 3);
     }
-    /* secDbBackupWrappedItemKey */
-    {
-        if (self->_secDbBackupWrappedItemKey)
-        {
-            PBDataWriterWriteDataField(writer, self->_secDbBackupWrappedItemKey, 4);
-        }
-    }
 }
 
 - (void)copyTo:(SecDbKeychainSerializedSecretData *)other
@@ -133,10 +111,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
     other.ciphertext = _ciphertext;
     other.wrappedKey = _wrappedKey;
     other.tamperCheck = _tamperCheck;
-    if (_secDbBackupWrappedItemKey)
-    {
-        other.secDbBackupWrappedItemKey = _secDbBackupWrappedItemKey;
-    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -145,7 +119,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
     copy->_ciphertext = [_ciphertext copyWithZone:zone];
     copy->_wrappedKey = [_wrappedKey copyWithZone:zone];
     copy->_tamperCheck = [_tamperCheck copyWithZone:zone];
-    copy->_secDbBackupWrappedItemKey = [_secDbBackupWrappedItemKey copyWithZone:zone];
     return copy;
 }
 
@@ -159,8 +132,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
     ((!self->_wrappedKey && !other->_wrappedKey) || [self->_wrappedKey isEqual:other->_wrappedKey])
     &&
     ((!self->_tamperCheck && !other->_tamperCheck) || [self->_tamperCheck isEqual:other->_tamperCheck])
-    &&
-    ((!self->_secDbBackupWrappedItemKey && !other->_secDbBackupWrappedItemKey) || [self->_secDbBackupWrappedItemKey isEqual:other->_secDbBackupWrappedItemKey])
     ;
 }
 
@@ -173,8 +144,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
     [self->_wrappedKey hash]
     ^
     [self->_tamperCheck hash]
-    ^
-    [self->_secDbBackupWrappedItemKey hash]
     ;
 }
 
@@ -191,10 +160,6 @@ BOOL SecDbKeychainSerializedSecretDataReadFrom(__unsafe_unretained SecDbKeychain
     if (other->_tamperCheck)
     {
         [self setTamperCheck:other->_tamperCheck];
-    }
-    if (other->_secDbBackupWrappedItemKey)
-    {
-        [self setSecDbBackupWrappedItemKey:other->_secDbBackupWrappedItemKey];
     }
 }
 

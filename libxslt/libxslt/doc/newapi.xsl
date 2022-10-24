@@ -471,7 +471,7 @@
       <xsl:with-param name="text" select="info"/>
     </xsl:call-template>
     </p>
-    <xsl:if test="arg | return">
+    <xsl:if test="arg | return/@info">
       <div class="variablelist"><table border="0"><col align="left"/><tbody>
       <xsl:for-each select="arg">
         <tr>

@@ -877,8 +877,7 @@ int msdosfs_vnop_write(struct vnop_write_args *ap)
 	case VDIR:
 		return EISDIR;
 	default:
-		panic("msdosfs_vnop_write: bad file type");
-		return EINVAL;
+		return EPERM;  // Can only write regular files
 	}
 	
 	lck_mtx_lock(dep->de_lock);

@@ -239,7 +239,7 @@
     CFErrorRef aksError = NULL;
     bool locked = true;
 
-    if(!SecAKSGetIsLocked(&locked, &aksError)) {
+    if(!SecAKSGetIsLocked(g_keychain_keybag, &locked, &aksError)) {
         ckkserror_global("ckks", "error querying lock state: %@", aksError);
         CFReleaseNull(aksError);
     }

@@ -402,7 +402,7 @@ printlong(const DISPLAY *dp)
 			(void)printf("%*ju ",
 			    dp->s_inode, (uintmax_t)sp->st_ino);
 		if (f_size)
-			(void)printf("%*jd ",
+			(void)printf("%*lld ",
 			    dp->s_block, howmany(sp->st_blocks, blocksize));
 		strmode(sp->st_mode, buf);
 #ifndef __APPLE__
@@ -613,7 +613,7 @@ printaname(const FTSENT *p, u_long inodefield, u_long sizefield)
 		chcnt += printf("%*ju ",
 		    (int)inodefield, (uintmax_t)sp->st_ino);
 	if (f_size)
-		chcnt += printf("%*jd ",
+		chcnt += printf("%*lld ",
 		    (int)sizefield, howmany(sp->st_blocks, blocksize));
 #ifdef COLORLS
 	if (f_color)
@@ -958,10 +958,10 @@ printsize(size_t width, off_t bytes)
 		(void)printf("%*s ", (u_int)width, buf);
 	} else if (f_thousands) {		/* with commas */
 		/* This format assignment needed to work round gcc bug. */
-		const char *format = "%*j'd ";
+		const char * const format = "%'*lld ";
 		(void)printf(format, (u_int)width, bytes);
 	} else
-		(void)printf("%*jd ", (u_int)width, bytes);
+		(void)printf("%*lld ", (u_int)width, bytes);
 }
 
 #ifndef __APPLE__

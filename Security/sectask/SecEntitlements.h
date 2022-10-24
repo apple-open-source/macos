@@ -181,6 +181,9 @@ __BEGIN_DECLS
 /* Entitlement to control access to login keychain master key stashing (loginwindow) */
 #define kSecEntitlementPrivateStash CFSTR("com.apple.private.securityd.stash")
 
+/* Entitlement to allow calling the `SecDeleteItemsOnSignOut` SPI. */
+#define kSecEntitlementPrivateDeleteItemsOnSignOut CFSTR("com.apple.private.keychain.allow-delete-on-sign-out")
+
 #if __OBJC__
 /* Entitlement to control use of OT */
 #define kSecEntitlementPrivateOctagon @"com.apple.private.octagon"

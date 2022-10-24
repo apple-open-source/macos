@@ -90,8 +90,10 @@ void RemoteAudioSessionProxy::setPreferredBufferSize(uint64_t size)
 
 void RemoteAudioSessionProxy::tryToSetActive(bool active, SetActiveCompletion&& completion)
 {
-    m_active = audioSessionManager().tryToSetActiveForProcess(*this, active);
-    completion(m_active);
+    auto success = audioSessionManager().tryToSetActiveForProcess(*this, active);
+    if (success)
+        m_active = active;
+    completion(success);
 
     audioSessionManager().updatePresentingProcesses();
 }
@@ -125,6 +127,16 @@ RemoteAudioSessionProxyManager& RemoteAudioSessionProxy::audioSessionManager()
 IPC::Connection& RemoteAudioSessionProxy::connection()
 {
     return m_gpuConnection.connection();
+}
+
+void RemoteAudioSessionProxy::triggerBeginInterruptionForTesting()
+{
+    AudioSession::sharedSession().beginInterruptionForTesting();
+}
+
+void RemoteAudioSessionProxy::triggerEndInterruptionForTesting()
+{
+    AudioSession::sharedSession().endInterruptionForTesting();
 }
 
 }

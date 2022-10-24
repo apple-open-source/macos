@@ -163,12 +163,14 @@ SEC_CONST_DECL (kSecUseCredentialReference, "u_CredRef");
 SEC_CONST_DECL (kSecUseOperationPrompt, "u_OpPrompt");
 SEC_CONST_DECL (kSecUseNoAuthenticationUI, "u_NoAuthUI");
 SEC_CONST_DECL (kSecUseAuthenticationUI, "u_AuthUI");
+SEC_CONST_DECL (kSecUseSystemKeychainAlways, "u_SystemKeychainAlways");
 SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
 SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");
 SEC_CONST_DECL (kSecUseTokenRawItems, "u_TokenRawItems");
 SEC_CONST_DECL (kSecUseCertificatesWithMatchIssuers, "u_CertWithIssuers");
 SEC_CONST_DECL (kSecUseDataProtectionKeychain, "nleg");     // API version replacing kSecAttrNoLegacy
+SEC_CONST_DECL (kSecUseUserIndependentKeychain, "u_UserIndependentKeychain");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");
@@ -242,6 +244,7 @@ SEC_CONST_DECL (kSecAttrKeyTypeEC, "73");  /* rdar://10755886 */
 SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandom, "73");
 SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandomPKA, "2147483678");  /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED */
 SEC_CONST_DECL (kSecAttrKeyTypeSecureEnclaveAttestation, "2147483679"); /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED + 1 */
+SEC_CONST_DECL (kSecAttrKeyTypeSecureEnclaveAnonymousAttestation, "2147483680");  /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED + 1 */
 
 /* kSecAttrSynchronizable Value Constants. */
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
@@ -276,6 +279,7 @@ SEC_CONST_DECL (kSecAttrTokenIDSecureElement, "com.apple.secelemtoken");
 
 /* Internal kSecAttrAccessGroup for syncing */
 SEC_CONST_DECL (kSOSInternalAccessGroup, "com.apple.security.sos");
+
 
 /*  View Hint Constants */
 

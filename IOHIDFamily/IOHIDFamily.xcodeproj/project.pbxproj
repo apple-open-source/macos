@@ -239,7 +239,6 @@
 				D83B3DE51FB2415A00DB1962 /* CopyFiles */,
 			);
 			dependencies = (
-				66D82E4C253129A300FBB5A6 /* PBXTargetDependency */,
 				D84FDBE11FBE8F0100796A00 /* PBXTargetDependency */,
 			);
 			name = "executables-tvos";
@@ -384,6 +383,7 @@
 				7E2FA2102624C85F0041FE83 /* CopyFiles */,
 			);
 			dependencies = (
+				F3D21EB1282B0E1B0083A0A3 /* PBXTargetDependency */,
 				7EB31CDD250FE50800B4EA6F /* PBXTargetDependency */,
 				7EB31CD7250FE4F600B4EA6F /* PBXTargetDependency */,
 				7EB31CD9250FE4F600B4EA6F /* PBXTargetDependency */,
@@ -394,7 +394,6 @@
 				7E57A7F8250F0D4900F1EE89 /* PBXTargetDependency */,
 				7264FF79234D1A93006F48BA /* PBXTargetDependency */,
 				7247DF4621C185820045F734 /* PBXTargetDependency */,
-				D8E95E36212657A3006BB875 /* PBXTargetDependency */,
 				D83B3DD91FB2400F00DB1962 /* PBXTargetDependency */,
 			);
 			name = "executables-macos";
@@ -409,7 +408,6 @@
 			dependencies = (
 				7279A76D2358E31800DB9F46 /* PBXTargetDependency */,
 				72518C5E220BC85B0003EB98 /* PBXTargetDependency */,
-				D87D264A204CF489000229C1 /* PBXTargetDependency */,
 				D84FDBDD1FBE8EF000796A00 /* PBXTargetDependency */,
 				663C47A723FF623100512F4C /* PBXTargetDependency */,
 			);
@@ -594,6 +592,7 @@
 		0FF51A8A21C4657C007C1D01 /* TestIndependentDevices.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FF51A8921C4657C007C1D01 /* TestIndependentDevices.m */; };
 		0FFEFDD922CBBF47006AC00A /* hidss in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FFEFDD722CBBEED006AC00A /* hidss */; };
 		0FFEFDDA22CBBF4C006AC00A /* hidutilparse in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FFEFDD822CBBEED006AC00A /* hidutilparse */; };
+		1C1368392715025A002F2010 /* TestAsyncOutputReports.m in Sources */ = {isa = PBXBuildFile; fileRef = 1C1368382715025A002F2010 /* TestAsyncOutputReports.m */; };
 		1C463603262A92CF00694BA3 /* IOHIDTransducerState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C463601262A918500694BA3 /* IOHIDTransducerState.cpp */; };
 		1C463605262AA02100694BA3 /* IOHIDTransducerState.iig in Sources */ = {isa = PBXBuildFile; fileRef = 1C463604262AA02100694BA3 /* IOHIDTransducerState.iig */; settings = {ATTRIBUTES = (Private, ); }; };
 		1C9EDD0F2670710100146A50 /* IOHIDDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C9EDD0D26706A0300146A50 /* IOHIDDebug.c */; };
@@ -933,6 +932,10 @@
 		7E534CFE245787730061B91F /* TestPhaseKeyboardEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E534CFD245787730061B91F /* TestPhaseKeyboardEvents.m */; };
 		7E594EC5260A94E200CF353D /* TestIOHIDKeyboardFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E594EC4260A94E100CF353D /* TestIOHIDKeyboardFilter.m */; };
 		7E5B348625E9B4DA00EF1CD2 /* TestUPSConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */; };
+		7E65D6E827BB263400742A23 /* HIDPreferencesLocal.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E65D6E627BB263400742A23 /* HIDPreferencesLocal.m */; };
+		7E65D6E927BB263400742A23 /* HIDPreferencesLocal.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E65D6E727BB263400742A23 /* HIDPreferencesLocal.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		7E67850A27163C96005C6C81 /* TestHIDDeviceMultiThreaded.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E67850927163C96005C6C81 /* TestHIDDeviceMultiThreaded.m */; };
+		7E67851A2718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m in Sources */ = {isa = PBXBuildFile; fileRef = 7E6785192718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m */; };
 		7E70831F242C4C4400DAA1F9 /* IOHIDEventDummyService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */; };
 		7E708320242C4C5300DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
 		7E708324242C4FBB00DAA1F9 /* IOHIDEventDummyService.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */; };
@@ -949,6 +952,7 @@
 		7EC2B09F2537D2250077FF40 /* AppleUserHIDEventService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2B09D2537D2250077FF40 /* AppleUserHIDEventService.cpp */; };
 		7EC2B21D253A5F6A0077FF40 /* TestHIDProximityEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */; };
 		7EC604B12592D0CD003E4FA3 /* TestIOHIDEventDriver_ConsumerButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 7EC604B02592D0CC003E4FA3 /* TestIOHIDEventDriver_ConsumerButton.m */; };
+		7ECFF6B2273E3886002377A4 /* TestGuaranteedReportDelivery.m in Sources */ = {isa = PBXBuildFile; fileRef = 7ECFF6B1273E3885002377A4 /* TestGuaranteedReportDelivery.m */; };
 		7EDA85A625D30ACF003D017C /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EDA85A525D30ACF003D017C /* CoreAnalytics.framework */; };
 		7EEA5687254B916D00497D3D /* IOHIDDeviceTypes.h in Copy DriverKit Headers */ = {isa = PBXBuildFile; fileRef = D85C66FD219AB77900233FEE /* IOHIDDeviceTypes.h */; };
 		7EF19CBF2552316500E00CB1 /* AppleUserHIDDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D8461274217ECCE70090999F /* AppleUserHIDDevice.cpp */; };
@@ -1346,8 +1350,6 @@
 		D8349BE91CBFF9EF007BAD11 /* dump.m in Sources */ = {isa = PBXBuildFile; fileRef = D8349BE81CBFF9EF007BAD11 /* dump.m */; };
 		D83538211C584FCA00A54F76 /* IOHIDPointingEventDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D835381F1C584FCA00A54F76 /* IOHIDPointingEventDevice.cpp */; };
 		D83538221C584FCA00A54F76 /* IOHIDPointingEventDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = D83538201C584FCA00A54F76 /* IOHIDPointingEventDevice.h */; };
-		D8377757204E47400055B5E7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8377756204E47400055B5E7 /* Foundation.framework */; };
-		D8377759204E47470055B5E7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8377758204E47470055B5E7 /* CoreFoundation.framework */; };
 		D8387073207336E200FF8D3E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D88C4DEC2033D304005DDCF8 /* IOKit.framework */; };
 		D83B088321B9F70300A15D2B /* IOHIDInterface.iig in Sources */ = {isa = PBXBuildFile; fileRef = D83B087E21B9F70300A15D2B /* IOHIDInterface.iig */; settings = {ATTRIBUTES = (Public, ); }; };
 		D83B088421B9F70300A15D2B /* IOUserHIDDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = D83B087F21B9F70300A15D2B /* IOUserHIDDevice.iig */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1370,11 +1372,8 @@
 		D842DC9A2182A6D500ED57D7 /* AppleUserHIDEventService.h in Headers */ = {isa = PBXBuildFile; fileRef = D842DC982182A6D400ED57D7 /* AppleUserHIDEventService.h */; };
 		D84478402141F3B10058352F /* TestIOHIDEventDriver_DigitizerFlags.m in Sources */ = {isa = PBXBuildFile; fileRef = D844783F2141F3B00058352F /* TestIOHIDEventDriver_DigitizerFlags.m */; };
 		D8461277217ECCE80090999F /* AppleUserHIDDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = D8461275217ECCE80090999F /* AppleUserHIDDevice.h */; };
-		D84CB8DA20B7D0380046D64F /* LogRemoteHID.m in Sources */ = {isa = PBXBuildFile; fileRef = D84CB8D920B7D0380046D64F /* LogRemoteHID.m */; };
 		D84F726F254D15F40062B713 /* copyevent.m in Sources */ = {isa = PBXBuildFile; fileRef = D84F726E254D15F40062B713 /* copyevent.m */; };
 		D84F72CE254D27FF0062B713 /* HID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C288FC71FB26BB800245AE7 /* HID.framework */; };
-		D850DC7A202D7D0200427731 /* com.apple.RemoteHID.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D850DC11202CBBF900427731 /* com.apple.RemoteHID.plist */; };
-		D850DC7B202D7F3700427731 /* HIDRemoteDeviceServer.h in Headers */ = {isa = PBXBuildFile; fileRef = D88E7F9F200C557E00D0CFFD /* HIDRemoteDeviceServer.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D85114171CC7D46F009B5B83 /* IOHIDUtility.h in Copy Kernel HIDEvent */ = {isa = PBXBuildFile; fileRef = D83914BB1CB3898800116F88 /* IOHIDUtility.h */; };
 		D85114181CC7D481009B5B83 /* IOHIDUtility.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D83914BB1CB3898800116F88 /* IOHIDUtility.h */; };
 		D851607C21B8738800560BDA /* HIDDriverKit.h in Headers */ = {isa = PBXBuildFile; fileRef = D851607A21B8738800560BDA /* HIDDriverKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1411,9 +1410,6 @@
 		D868E2DD1BD5DB7000CC07F9 /* IOHIDNXEventDescription.c in Sources */ = {isa = PBXBuildFile; fileRef = D868E2DB1BD5DB5F00CC07F9 /* IOHIDNXEventDescription.c */; };
 		D868E2E31BD70D4600CC07F9 /* IOHIDWorkLoop.h in Copy Kernel HIDSystem */ = {isa = PBXBuildFile; fileRef = B9768E89128A72D800155C03 /* IOHIDWorkLoop.h */; };
 		D868E2E41BD70D7E00CC07F9 /* IOHIDWorkLoop.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B9768E89128A72D800155C03 /* IOHIDWorkLoop.h */; };
-		D87025F3200DBCF8007C4D1F /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D87025F2200DBCF8007C4D1F /* main.m */; };
-		D87025FB200DBE87007C4D1F /* HIDRemoteDeviceAACPServer.h in Headers */ = {isa = PBXBuildFile; fileRef = D88E7F89200C52B100D0CFFD /* HIDRemoteDeviceAACPServer.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D87025FC200DBEB7007C4D1F /* HIDRemoteDeviceAACPServer.m in Sources */ = {isa = PBXBuildFile; fileRef = D88E7F8B200C52B200D0CFFD /* HIDRemoteDeviceAACPServer.m */; };
 		D87145F021C1C885000BF5EC /* TestHIDVirtualService.m in Sources */ = {isa = PBXBuildFile; fileRef = D87145EF21C1C884000BF5EC /* TestHIDVirtualService.m */; };
 		D87A375C1DC3AD9D0069E544 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D87A375A1DC3AD9D0069E544 /* main.m */; };
 		D87A38961FF6088D00884E21 /* IOHIDEventDriver.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 848E56950CC55C7800D5BE22 /* IOHIDEventDriver.kext */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -1436,25 +1432,18 @@
 		D87B3ECC1E60FE1A00B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EBA1E60F6DF00B77E93 /* IOHIDEventFieldDefs.h */; };
 		D87B3ECD1E60FE1A00B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EBB1E60F6DF00B77E93 /* IOHIDEventMacroDefs.h */; };
 		D87B3ECE1E60FE1A00B77E93 /* IOHIDEventStructDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EBC1E60F6DF00B77E93 /* IOHIDEventStructDefs.h */; };
-		D87D2645204CE845000229C1 /* IOHIDRemoteSensorSessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = D87D2643204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter.m */; };
-		D87D2648204CE8BE000229C1 /* RemoteHID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D88E7F70200C511A00D0CFFD /* RemoteHID.framework */; };
 		D8862B511DED385D0026B52C /* TestPerfEvents.m in Sources */ = {isa = PBXBuildFile; fileRef = D8862B501DED385D0026B52C /* TestPerfEvents.m */; };
 		D88C9D86212E785800439CFF /* TestIOHIDEventDriver_DeviceOrientationTilt.m in Sources */ = {isa = PBXBuildFile; fileRef = D88C9D85212E785700439CFF /* TestIOHIDEventDriver_DeviceOrientationTilt.m */; };
-		D88E155E20705E8C0000EEF7 /* com.apple.iohid.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D88E155920705DCE0000EEF7 /* com.apple.iohid.plist */; };
+		D88E155E20705E8C0000EEF7 /* com.apple.iohid.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = D88E155920705DCE0000EEF7 /* com.apple.iohid.plist */; };
 		D88E156020705EA30000EEF7 /* com.apple.iohid.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D88E155920705DCE0000EEF7 /* com.apple.iohid.plist */; };
-		D88E7F80200C511A00D0CFFD /* RemoteHID.h in Headers */ = {isa = PBXBuildFile; fileRef = D88E7F72200C511A00D0CFFD /* RemoteHID.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D88E7F8D200C52B300D0CFFD /* HIDRemoteSimpleProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = D88E7F8A200C52B200D0CFFD /* HIDRemoteSimpleProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D88E7FA0200C734800D0CFFD /* HIDRemoteDeviceServer.m in Sources */ = {isa = PBXBuildFile; fileRef = D88E7F9D200C552500D0CFFD /* HIDRemoteDeviceServer.m */; };
 		D890392D216DB733002F7D4E /* TestHIDDeviceVariants.m in Sources */ = {isa = PBXBuildFile; fileRef = D890392C216DB733002F7D4E /* TestHIDDeviceVariants.m */; };
 		D8911DF01DC8195300EF2CEF /* TestKeyboardServicePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = D8911DEF1DC8195300EF2CEF /* TestKeyboardServicePlugin.m */; };
 		D894CA772131024C005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA762131024B005248B2 /* TestIOHIDEventDriver_GCFormFittedCollection.m */; };
 		D894CA7A213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA79213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m */; };
 		D894CA7D21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m in Sources */ = {isa = PBXBuildFile; fileRef = D894CA7C21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m */; };
-		D8A2F3A4201705FA006C2F4C /* com.apple.hidrsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8A2F3A3201700F1006C2F4C /* com.apple.hidrsd.plist */; };
 		D8ACE9321DBA7A0900F34E42 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9301DBA709800F34E42 /* XCTest.framework */; };
 		D8ACE9341DBA7ADC00F34E42 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9331DBA7ADC00F34E42 /* Foundation.framework */; };
 		D8ACE9351DBA7C5C00F34E42 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9301DBA709800F34E42 /* XCTest.framework */; };
-		D8ADFC31203005F9002713D9 /* RemoteHID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ADFC30203005F9002713D9 /* RemoteHID.framework */; };
 		D8AEE6E12257F9EF00D2E584 /* hidartraceutil in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8AEE6DE2257F93C00D2E584 /* hidartraceutil */; };
 		D8AEE6E32257FB8D00D2E584 /* hidsignposts.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EB81E60E14E00B77E93 /* hidsignposts.plist */; };
 		D8B034151F14495F009A65FE /* HIDCheckReport.c in Sources */ = {isa = PBXBuildFile; fileRef = F5AB669702ADD67601FF6135 /* HIDCheckReport.c */; };
@@ -1506,7 +1495,6 @@
 		D8CE5AAB21E80A0400D2AFA9 /* HIDDriverKitDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = D8CE5AAA21E80A0400D2AFA9 /* HIDDriverKitDebug.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D8D2DBD620356DC400AD0C04 /* AppleHIDUsageTables.h in Copy RTKit HID */ = {isa = PBXBuildFile; fileRef = F7B621A306811D1B00F98773 /* AppleHIDUsageTables.h */; };
 		D8D2DBEB20356F9700AD0C04 /* IOHIDUsageTables.h in Copy RTKit HID */ = {isa = PBXBuildFile; fileRef = F72B60C0048FC76D00302827 /* IOHIDUsageTables.h */; };
-		D8D2DBEC20356FBA00AD0C04 /* HIDRemoteSimpleProtocol.h in Copy RTKit HID */ = {isa = PBXBuildFile; fileRef = D88E7F8A200C52B200D0CFFD /* HIDRemoteSimpleProtocol.h */; };
 		D8D6D8BB21C0DCC000571931 /* HIDVirtualEventService.h in Headers */ = {isa = PBXBuildFile; fileRef = D8D6D8B921C0DCBF00571931 /* HIDVirtualEventService.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D8D6D8BC21C0DCC000571931 /* HIDVirtualEventService.m in Sources */ = {isa = PBXBuildFile; fileRef = D8D6D8BA21C0DCC000571931 /* HIDVirtualEventService.m */; };
 		D8DBD6631BDA921F00E16D93 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B963F4B700BC660708CA29FD /* CoreFoundation.framework */; };
@@ -1561,11 +1549,6 @@
 		D8F1FF62212E1F0A00F5FA10 /* TestIOHIDEventDriver_MediaPlaybackRemote.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FF61212E1F0A00F5FA10 /* TestIOHIDEventDriver_MediaPlaybackRemote.m */; };
 		D8F1FF65212E23AF00F5FA10 /* TestIOHIDEventDriver_HeadsetRemoteTelephony.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FF64212E23AF00F5FA10 /* TestIOHIDEventDriver_HeadsetRemoteTelephony.m */; };
 		D8F1FF6B212E26AA00F5FA10 /* TestIOHIDEventDriver_HIDHeadsetRemoteTelephonyAndMediaPlayback.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FF67212E268F00F5FA10 /* TestIOHIDEventDriver_HIDHeadsetRemoteTelephonyAndMediaPlayback.m */; };
-		D8F1FF9821916E8C00EA10A5 /* HID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C288FC71FB26BB800245AE7 /* HID.framework */; };
-		D8F1FF9A21916F5E00EA10A5 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F36F60D2160554A00E8D0B0 /* IOKit.framework */; };
-		D8F1FF9C21917D7700EA10A5 /* RemoteHID.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FF9B21917D7700EA10A5 /* RemoteHID.m */; };
-		D8F1FF9D21917EB600EA10A5 /* RemoteHIDPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = D850DC14202CBC6900427731 /* RemoteHIDPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		D8F1FFA12191822D00EA10A5 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8F1FFA02191822C00EA10A5 /* System.framework */; };
 		D8F1FFA42193FD3800EA10A5 /* TestIOHIDEventDriver_CarPlay.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FFA32193FD3700EA10A5 /* TestIOHIDEventDriver_CarPlay.m */; };
 		D8F1FFA72194062D00EA10A5 /* TestIOHIDEventDriver_DeviceOrientationCoreMotion.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F1FFA62194062D00EA10A5 /* TestIOHIDEventDriver_DeviceOrientationCoreMotion.m */; };
 		D8F3855621250A1A0096957A /* IOHIDEventDriverTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = D8F3855521250A1A0096957A /* IOHIDEventDriverTestCase.m */; };
@@ -1574,6 +1557,7 @@
 		D8FABD631DC0FF8A00BE942D /* IOHIDFamily.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8FABD611DC0FF7A00BE942D /* IOHIDFamily.plist */; };
 		D8FABD661DC189E000BE942D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8FABD651DC189E000BE942D /* IOKit.framework */; };
 		D8FD9CB81F1FD4830018950C /* IOHIDDescriptorParser.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66CD02ADD67601FF6135 /* IOHIDDescriptorParser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F394236F279F368700B4D2CE /* TestKeyboardStandardType.m in Sources */ = {isa = PBXBuildFile; fileRef = F394236E279F368700B4D2CE /* TestKeyboardStandardType.m */; };
 		F5CD19B51BEACDFF00D0888A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D91BD5DAAF00CC07F9 /* IOKit.framework */; };
 		F5CD19B61BEACDFF00D0888A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D71BD5DAA800CC07F9 /* CoreFoundation.framework */; };
 		F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.mm in Sources */ = {isa = PBXBuildFile; fileRef = 98B9F05C1AB00DFA003B3C24 /* IOHIDKeyboardFilter.mm */; };
@@ -1859,27 +1843,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = F5CD19AC1BEACDFF00D0888A;
 			remoteInfo = IOHIDKeyboardFilter;
-		};
-		669ED37122D9469600B2E3ED /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D88E7F6F200C511A00D0CFFD;
-			remoteInfo = RemoteHID;
-		};
-		669ED37322D9469C00B2E3ED /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D84CB8D420B7D0380046D64F;
-			remoteInfo = log_RemoteHID;
-		};
-		66D82E4B253129A300FBB5A6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D87D2639204CE739000229C1;
-			remoteInfo = IOHIDRemoteSensorSessionFilter;
 		};
 		6C371C36205B491E00DFDE50 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2343,6 +2306,20 @@
 			remoteGlobalIDString = 8416F421174BDF35000D1277;
 			remoteInfo = IOHIDEventSystemStatistics;
 		};
+		D85B7F57271BF7D100DED5EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = D8D55E7E271293AB00B6EB01;
+			remoteInfo = IOHIDPowerSource;
+		};
+		D85B7F59271BF80C00DED5EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = D8D55E7D271293AB00B6EB01;
+			remoteInfo = IOHIDPowerSource;
+		};
 		D862CB711E244A63001AE29F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -2413,19 +2390,12 @@
 			remoteGlobalIDString = D862CB681E2449D1001AE29F;
 			remoteInfo = IOHIDEventFastPathTestDriver;
 		};
-		D87B1D06200F1E3C0024AF8D /* PBXContainerItemProxy */ = {
+		D88FB24C27698B6E005FE8FA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			containerPortal = D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */;
 			proxyType = 1;
-			remoteGlobalIDString = D88E7F6F200C511A00D0CFFD;
-			remoteInfo = RemoteHID;
-		};
-		D87D2649204CF489000229C1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D87D2639204CE739000229C1;
-			remoteInfo = IOHIDRemoteSensorSessionFilter;
+			remoteGlobalIDString = D8D55E7D271293AB00B6EB01;
+			remoteInfo = IOHIDPowerSource;
 		};
 		D8D2DBED20356FDB00AD0C04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2441,19 +2411,19 @@
 			remoteGlobalIDString = D8DBD65F1BDA921F00E16D93;
 			remoteInfo = hidScript;
 		};
-		D8E95E35212657A3006BB875 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D87D2639204CE739000229C1;
-			remoteInfo = IOHIDRemoteSensorSessionFilter;
-		};
 		D8FD9CB41F1EA9260018950C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D8B0340C1F144914009A65FE;
 			remoteInfo = HIDDescriptorParser;
+		};
+		F3D21EB0282B0E1B0083A0A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8416F421174BDF35000D1277;
+			remoteInfo = IOHIDEventSystemStatistics;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -3084,34 +3054,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D850DC79202D7CE400427731 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/Library/Preferences/Logging/Subsystems;
-			dstSubfolderSpec = 0;
-			files = (
-				D850DC7A202D7D0200427731 /* com.apple.RemoteHID.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		D87025EE200DBCF8007C4D1F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(HIDRCD_PLIST_INSTALL_PATH)";
-			dstSubfolderSpec = 0;
-			files = (
-				D8A2F3A4201705FA006C2F4C /* com.apple.hidrsd.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		D88E155D20705E7F0000EEF7 /* CopyFiles */ = {
+		D88E155D20705E7F0000EEF7 /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/Preferences/Logging/Subsystems;
 			dstSubfolderSpec = 0;
 			files = (
-				D88E155E20705E8C0000EEF7 /* com.apple.iohid.plist in CopyFiles */,
+				D88E155E20705E8C0000EEF7 /* com.apple.iohid.plist in Copy Files */,
 			);
+			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D88E155F20705E960000EEF7 /* CopyFiles */ = {
@@ -3161,7 +3112,6 @@
 			dstPath = /usr/include/hid;
 			dstSubfolderSpec = 0;
 			files = (
-				D8D2DBEC20356FBA00AD0C04 /* HIDRemoteSimpleProtocol.h in Copy RTKit HID */,
 				D8D2DBEB20356F9700AD0C04 /* IOHIDUsageTables.h in Copy RTKit HID */,
 				D8D2DBD620356DC400AD0C04 /* AppleHIDUsageTables.h in Copy RTKit HID */,
 			);
@@ -3267,6 +3217,7 @@
 		0FFCA069226FC571003C519B /* iigFramework.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = iigFramework.sh; sourceTree = "<group>"; };
 		0FFEFDD722CBBEED006AC00A /* hidss */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = hidss; path = tools/hidss; sourceTree = "<group>"; };
 		0FFEFDD822CBBEED006AC00A /* hidutilparse */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = hidutilparse; path = tools/hidutilparse; sourceTree = "<group>"; };
+		1C1368382715025A002F2010 /* TestAsyncOutputReports.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestAsyncOutputReports.m; sourceTree = "<group>"; };
 		1C463601262A918500694BA3 /* IOHIDTransducerState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDTransducerState.cpp; sourceTree = "<group>"; };
 		1C463604262AA02100694BA3 /* IOHIDTransducerState.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = IOHIDTransducerState.iig; sourceTree = "<group>"; };
 		1C9EDD0D26706A0300146A50 /* IOHIDDebug.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IOHIDDebug.c; sourceTree = "<group>"; };
@@ -3346,7 +3297,6 @@
 		66CDEB42229DEB3F009CA879 /* hidutil-external-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "hidutil-external-Entitlements.plist"; sourceTree = "<group>"; };
 		66E042F22138C2DB00250507 /* TestMultipleInterfaces.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestMultipleInterfaces.m; sourceTree = "<group>"; };
 		66E042F62138C4F600250507 /* IOHIDMultipleInterfaceDescriptors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDMultipleInterfaceDescriptors.h; sourceTree = "<group>"; };
-		66E1A26D23AC049E003DA8EB /* IOHIDRemoteSensorSessionFilter.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOHIDRemoteSensorSessionFilter.xcconfig; sourceTree = "<group>"; };
 		66EA070A2224CD5800C47F35 /* TestIOHIDEventDriver_Temperature.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_Temperature.m; sourceTree = "<group>"; };
 		66FB5173226905400013C7C2 /* TestProtectedAccessEntitlement.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestProtectedAccessEntitlement.m; sourceTree = "<group>"; };
 		6C00782A1FCE327700B9DAB9 /* TestUPSClass.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestUPSClass.m; sourceTree = "<group>"; };
@@ -3519,7 +3469,6 @@
 		7E12EAF82587622300BAEDBF /* IOHIDEventElementCollection.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = IOHIDEventElementCollection.iig; sourceTree = "<group>"; };
 		7E2FA20F2624C7B00041FE83 /* com.apple.hidd.darwinos.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.apple.hidd.darwinos.plist; path = hidd/com.apple.hidd.darwinos.plist; sourceTree = SOURCE_ROOT; };
 		7E40BD57268BB1BD00E0B308 /* IOHIDTestSessionFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDTestSessionFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
-		7E40BD58268BB1BD00E0B308 /* HIDServiceFilterExample copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "HIDServiceFilterExample copy-Info.plist"; path = "/Volumes/CodeBoi/code/iohidfamily/HIDServiceFilterExample copy-Info.plist"; sourceTree = "<absolute>"; };
 		7E40BD5A268BB2E300E0B308 /* IOHIDTestSessionFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDTestSessionFilter.h; sourceTree = "<group>"; };
 		7E40BD5B268BB2E300E0B308 /* IOHIDTestSessionFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IOHIDTestSessionFilter.m; sourceTree = "<group>"; };
 		7E40BD5C268BB2E300E0B308 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -3529,6 +3478,10 @@
 		7E583A40270290C500B257C0 /* MultitouchSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultitouchSupport.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/PrivateFrameworks/MultitouchSupport.framework; sourceTree = DEVELOPER_DIR; };
 		7E594EC4260A94E100CF353D /* TestIOHIDKeyboardFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDKeyboardFilter.m; sourceTree = "<group>"; };
 		7E5B348525E9B4DA00EF1CD2 /* TestUPSConstants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestUPSConstants.m; sourceTree = "<group>"; };
+		7E65D6E627BB263400742A23 /* HIDPreferencesLocal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HIDPreferencesLocal.m; sourceTree = "<group>"; };
+		7E65D6E727BB263400742A23 /* HIDPreferencesLocal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDPreferencesLocal.h; sourceTree = "<group>"; };
+		7E67850927163C96005C6C81 /* TestHIDDeviceMultiThreaded.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceMultiThreaded.m; sourceTree = "<group>"; };
+		7E6785192718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDEventSystemClientMultiThreaded.m; sourceTree = "<group>"; };
 		7E708312242C49B900DAA1F9 /* IOHIDEventDummyService.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDEventDummyService.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E708314242C49B900DAA1F9 /* IOHIDEventDummyService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventDummyService.h; sourceTree = "<group>"; };
 		7E708316242C49B900DAA1F9 /* IOHIDEventDummyService.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventDummyService.cpp; sourceTree = "<group>"; };
@@ -3544,6 +3497,7 @@
 		7EC2B09D2537D2250077FF40 /* AppleUserHIDEventService.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserHIDEventService.cpp; sourceTree = "<group>"; };
 		7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDProximityEvent.m; sourceTree = "<group>"; };
 		7EC604B02592D0CC003E4FA3 /* TestIOHIDEventDriver_ConsumerButton.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_ConsumerButton.m; sourceTree = "<group>"; };
+		7ECFF6B1273E3885002377A4 /* TestGuaranteedReportDelivery.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestGuaranteedReportDelivery.m; sourceTree = "<group>"; };
 		7EDA85A525D30ACF003D017C /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		7EE71E77233136E100520E8C /* HIDTalkDaemon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDTalkDaemon.h; sourceTree = "<group>"; };
 		7EE71E792331525100520E8C /* hidtalkd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = hidtalkd.xcconfig; sourceTree = "<group>"; };
@@ -3726,11 +3680,8 @@
 		D84478412141F4B50058352F /* IOHIDDigitizerFlagsDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDDigitizerFlagsDescriptor.h; sourceTree = "<group>"; };
 		D8461274217ECCE70090999F /* AppleUserHIDDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserHIDDevice.cpp; sourceTree = "<group>"; };
 		D8461275217ECCE80090999F /* AppleUserHIDDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUserHIDDevice.h; sourceTree = "<group>"; };
-		D84CB8D520B7D0380046D64F /* liblog_RemoteHID.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = liblog_RemoteHID.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		D84CB8D920B7D0380046D64F /* LogRemoteHID.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LogRemoteHID.m; sourceTree = "<group>"; };
 		D84F726E254D15F40062B713 /* copyevent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = copyevent.m; sourceTree = "<group>"; };
 		D850DC11202CBBF900427731 /* com.apple.RemoteHID.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.RemoteHID.plist; sourceTree = "<group>"; };
-		D850DC14202CBC6900427731 /* RemoteHIDPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteHIDPrivate.h; sourceTree = "<group>"; };
 		D851607821B8738800560BDA /* HIDDriverKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = HIDDriverKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D851607A21B8738800560BDA /* HIDDriverKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDriverKit.h; sourceTree = "<group>"; };
 		D851607B21B8738800560BDA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -3745,6 +3696,7 @@
 		D853B7B61C2B4BD200836568 /* IOHIDPointerEventTranslation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDPointerEventTranslation.h; sourceTree = "<group>"; };
 		D85443431E490795003BF2F7 /* TestHIDEventDriver.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDEventDriver.m; sourceTree = "<group>"; };
 		D85AF94B20865F2B00B30A9B /* TestSensorProperty.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSensorProperty.m; sourceTree = "<group>"; };
+		D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = IOHIDPowerSource.xcodeproj; path = IOHIDPowerSource/IOHIDPowerSource.xcodeproj; sourceTree = "<group>"; };
 		D85C66FD219AB77900233FEE /* IOHIDDeviceTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDDeviceTypes.h; sourceTree = "<group>"; };
 		D85DCFD71E370BD5006D9264 /* TestVirtualService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestVirtualService.m; sourceTree = "<group>"; };
 		D85DDE3F23B989D0002E7D89 /* IOHIDT8027USBSessionFilter-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "IOHIDT8027USBSessionFilter-Info.plist"; sourceTree = "<group>"; };
@@ -3773,37 +3725,23 @@
 		D868E2DC1BD5DB5F00CC07F9 /* IOHIDNXEventDescription.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDNXEventDescription.h; path = tools/IOHIDNXEventDescription.h; sourceTree = "<group>"; };
 		D86AABEA2000264900D5A52B /* IOHIDLIb.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOHIDLIb.xcconfig; sourceTree = "<group>"; };
 		D86BF08F1D46998100425D3B /* hidd-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "hidd-Entitlements.plist"; path = "hidd/hidd-Entitlements.plist"; sourceTree = SOURCE_ROOT; };
-		D87025F0200DBCF8007C4D1F /* hidrsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidrsd; sourceTree = BUILT_PRODUCTS_DIR; };
-		D87025F2200DBCF8007C4D1F /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		D87145EF21C1C884000BF5EC /* TestHIDVirtualService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDVirtualService.m; sourceTree = "<group>"; };
 		D87A36E321BCF36F0041F6A7 /* IOUserUSBHostHIDDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = IOUserUSBHostHIDDevice.iig; sourceTree = "<group>"; };
 		D87A375A1DC3AD9D0069E544 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = tools/hidxctest/main.m; sourceTree = SOURCE_ROOT; };
 		D87A375B1DC3AD9D0069E544 /* hidxctest-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "hidxctest-Entitlements.plist"; path = "tools/hidxctest/hidxctest-Entitlements.plist"; sourceTree = SOURCE_ROOT; usesTabs = 1; };
-		D87B1D11201106BB0024AF8D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		D87B3EB61E60E14E00B77E93 /* hideventdata.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = hideventdata.py; path = tools/hideventdata.py; sourceTree = "<group>"; };
 		D87B3EB81E60E14E00B77E93 /* hidsignposts.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = hidsignposts.plist; path = tools/hidsignposts.plist; sourceTree = "<group>"; };
 		D87B3EB91E60E14E00B77E93 /* hideventgen.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = hideventgen.sh; path = tools/hideventgen.sh; sourceTree = "<group>"; };
 		D87B3EBA1E60F6DF00B77E93 /* IOHIDEventFieldDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventFieldDefs.h; sourceTree = "<group>"; };
 		D87B3EBB1E60F6DF00B77E93 /* IOHIDEventMacroDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventMacroDefs.h; sourceTree = "<group>"; };
 		D87B3EBC1E60F6DF00B77E93 /* IOHIDEventStructDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventStructDefs.h; sourceTree = "<group>"; };
-		D87D263A204CE739000229C1 /* IOHIDRemoteSensorSessionFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDRemoteSensorSessionFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
-		D87D2642204CE7C8000229C1 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		D87D2643204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IOHIDRemoteSensorSessionFilter.m; sourceTree = "<group>"; };
 		D8862B501DED385D0026B52C /* TestPerfEvents.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestPerfEvents.m; sourceTree = "<group>"; };
 		D88881401E95CF6F0075EF66 /* com.apple.hidd.bridgeos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.hidd.bridgeos.plist; path = hidd/com.apple.hidd.bridgeos.plist; sourceTree = SOURCE_ROOT; };
 		D88C4DEC2033D304005DDCF8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		D88C9D85212E785700439CFF /* TestIOHIDEventDriver_DeviceOrientationTilt.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_DeviceOrientationTilt.m; sourceTree = "<group>"; };
 		D88C9D87212E786700439CFF /* IOHIDDeviceOrientationTiltDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDDeviceOrientationTiltDescriptor.h; sourceTree = "<group>"; };
 		D88E155920705DCE0000EEF7 /* com.apple.iohid.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.iohid.plist; sourceTree = "<group>"; };
-		D88E7F70200C511A00D0CFFD /* RemoteHID.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = RemoteHID.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		D88E7F72200C511A00D0CFFD /* RemoteHID.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteHID.h; sourceTree = "<group>"; };
-		D88E7F73200C511A00D0CFFD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		D88E7F89200C52B100D0CFFD /* HIDRemoteDeviceAACPServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDRemoteDeviceAACPServer.h; sourceTree = "<group>"; };
-		D88E7F8A200C52B200D0CFFD /* HIDRemoteSimpleProtocol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDRemoteSimpleProtocol.h; sourceTree = "<group>"; };
-		D88E7F8B200C52B200D0CFFD /* HIDRemoteDeviceAACPServer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HIDRemoteDeviceAACPServer.m; sourceTree = "<group>"; };
 		D88E7F8F200C537C00D0CFFD /* MobileBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileBluetooth.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/PrivateFrameworks/MobileBluetooth.framework; sourceTree = DEVELOPER_DIR; };
-		D88E7F9D200C552500D0CFFD /* HIDRemoteDeviceServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDRemoteDeviceServer.m; sourceTree = "<group>"; };
-		D88E7F9F200C557E00D0CFFD /* HIDRemoteDeviceServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDRemoteDeviceServer.h; sourceTree = "<group>"; };
 		D890392C216DB733002F7D4E /* TestHIDDeviceVariants.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDDeviceVariants.m; sourceTree = "<group>"; };
 		D8911DEF1DC8195300EF2CEF /* TestKeyboardServicePlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestKeyboardServicePlugin.m; sourceTree = "<group>"; };
 		D8929527206AC9BF004D7843 /* hideventdata.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = hideventdata.plist; path = tools/hideventdata.plist; sourceTree = "<group>"; };
@@ -3815,7 +3753,6 @@
 		D894CA7C21311753005248B2 /* TestIOHIDEventDriver_GCGamepad.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_GCGamepad.m; sourceTree = "<group>"; };
 		D8990FED1DDE30E900029D49 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		D89DDCBF2463634E001E149C /* hidd-bridgeos-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "hidd-bridgeos-Entitlements.plist"; path = "hidd/hidd-bridgeos-Entitlements.plist"; sourceTree = SOURCE_ROOT; };
-		D8A2F3A3201700F1006C2F4C /* com.apple.hidrsd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.hidrsd.plist; sourceTree = "<group>"; };
 		D8ACE9171DBA6D3C00F34E42 /* IOHIDFamilyUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDFamilyUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8ACE91B1DBA6D3C00F34E42 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D8ACE9251DBA6E6000F34E42 /* hidxctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidxctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3953,7 +3890,6 @@
 		D8DBD78C1BE4679E00E16D93 /* IOHIDPointerScrollFilter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDPointerScrollFilter.cpp; sourceTree = "<group>"; };
 		D8DBD78D1BE4679E00E16D93 /* IOHIDPointerScrollFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDPointerScrollFilter.h; sourceTree = "<group>"; };
 		D8DBD78E1BE4679E00E16D93 /* IOHIDPointerScrollFilter.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = IOHIDPointerScrollFilter.hpp; sourceTree = "<group>"; };
-		D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = RemoteHID.xcconfig; sourceTree = "<group>"; };
 		D8E95E31212655D8006BB875 /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/IOBluetooth.framework; sourceTree = DEVELOPER_DIR; };
 		D8EABF2B21D0AE0900356870 /* AppleUserTestHIDDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUserTestHIDDevice.h; sourceTree = "<group>"; };
 		D8EABF2C21D0AE1400356870 /* AppleUserTestHIDDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleUserTestHIDDevice.h; sourceTree = "<group>"; };
@@ -3970,7 +3906,6 @@
 		D8F1FF66212E23C400F5FA10 /* IOHIDHeadsetRemoteTelephonyDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDHeadsetRemoteTelephonyDescriptor.h; sourceTree = "<group>"; };
 		D8F1FF67212E268F00F5FA10 /* TestIOHIDEventDriver_HIDHeadsetRemoteTelephonyAndMediaPlayback.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventDriver_HIDHeadsetRemoteTelephonyAndMediaPlayback.m; sourceTree = "<group>"; };
 		D8F1FF69212E269B00F5FA10 /* IOHIDHeadsetRemoteTelephonyAndMediaPlaybackDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDHeadsetRemoteTelephonyAndMediaPlaybackDescriptor.h; sourceTree = "<group>"; };
-		D8F1FF9B21917D7700EA10A5 /* RemoteHID.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RemoteHID.m; sourceTree = "<group>"; };
 		D8F1FF9E219181DD00EA10A5 /* libsystem_trace.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsystem_trace.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/usr/lib/system/libsystem_trace.tbd; sourceTree = DEVELOPER_DIR; };
 		D8F1FFA02191822C00EA10A5 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/System.framework; sourceTree = DEVELOPER_DIR; };
 		D8F1FFA22193FD2100EA10A5 /* IOHIDCarPlayDescriptors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDCarPlayDescriptors.h; sourceTree = "<group>"; };
@@ -3986,6 +3921,7 @@
 		D8FABD611DC0FF7A00BE942D /* IOHIDFamily.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = IOHIDFamily.plist; sourceTree = "<group>"; };
 		D8FABD651DC189E000BE942D /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		D8FD9CAB1F1E8D830018950C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		F394236E279F368700B4D2CE /* TestKeyboardStandardType.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestKeyboardStandardType.m; sourceTree = "<group>"; };
 		F50AFCA502B4429701E77AAF /* IOHIDKeyboardDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDKeyboardDevice.cpp; sourceTree = "<group>"; };
 		F50AFCA602B4429701E77AAF /* IOHIDKeyboardDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboardDevice.h; sourceTree = "<group>"; };
 		F558801602AF4C8901000102 /* IOHIDPointingDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDPointingDevice.cpp; sourceTree = "<group>"; };
@@ -4403,13 +4339,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D84CB8D220B7D0380046D64F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D851607521B8738800560BDA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -4435,34 +4364,6 @@
 			files = (
 				D868E2DA1BD5DAAF00CC07F9 /* IOKit.framework in Frameworks */,
 				D868E2D81BD5DAA800CC07F9 /* CoreFoundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D87025ED200DBCF8007C4D1F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D8ADFC31203005F9002713D9 /* RemoteHID.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D87D2637204CE739000229C1 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D8377759204E47470055B5E7 /* CoreFoundation.framework in Frameworks */,
-				D8377757204E47400055B5E7 /* Foundation.framework in Frameworks */,
-				D87D2648204CE8BE000229C1 /* RemoteHID.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D88E7F6C200C511A00D0CFFD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D8F1FFA12191822D00EA10A5 /* System.framework in Frameworks */,
-				D8F1FF9A21916F5E00EA10A5 /* IOKit.framework in Frameworks */,
-				D8F1FF9821916E8C00EA10A5 /* HID.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4600,6 +4501,7 @@
 		089C166AFE841209C02AAC07 /* IOHIDFamily */ = {
 			isa = PBXGroup;
 			children = (
+				D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */,
 				7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */,
 				6654082C20572B7D00689D0B /* kext.xcconfig */,
 				D850DC0F202CBBF900427731 /* LoggingProfiles */,
@@ -4619,8 +4521,6 @@
 				7EEB35102330A7C200F7459E /* hidtalkd */,
 				D8ACE9261DBA6E6000F34E42 /* hidxctest */,
 				6C288FC81FB26BB800245AE7 /* HID */,
-				D88E7F71200C511A00D0CFFD /* RemoteHID */,
-				D87025F1200DBCF8007C4D1F /* hidrsd */,
 				843C23FB0C07972A0009057F /* External Frameworks */,
 				0F311B95215C441100C3FB77 /* HIDSessionFilterExample */,
 				0FD0F41E215ECCD800ABC716 /* HIDServiceFilterExample */,
@@ -4639,7 +4539,6 @@
 				98B9F0521AB00DBB003B3C24 /* Frameworks */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				D84FDBDB1FBE8EC900796A00 /* Recovered References */,
-				7E40BD58268BB1BD00E0B308 /* HIDServiceFilterExample copy-Info.plist */,
 			);
 			name = IOHIDFamily;
 			sourceTree = "<group>";
@@ -4733,13 +4632,9 @@
 				D8B0340D1F144914009A65FE /* libHIDDescriptorParser.a */,
 				6C288FC71FB26BB800245AE7 /* HID.framework */,
 				725078CE200FE1AD00D33BAA /* HIDFrameworkExamples */,
-				D88E7F70200C511A00D0CFFD /* RemoteHID.framework */,
-				D87025F0200DBCF8007C4D1F /* hidrsd */,
 				D8D2DBEA20356DC400AD0C04 /* InstallHeaders-rtkit */,
 				6C4A19BF205AE892000D0FE3 /* IOHIDActionQueueTestDriver.kext */,
-				D87D263A204CE739000229C1 /* IOHIDRemoteSensorSessionFilter.plugin */,
 				2000932320883BE0005920CD /* IOHIDTestConnectionFilter.plugin */,
-				D84CB8D520B7D0380046D64F /* liblog_RemoteHID.dylib */,
 				0F311B94215C441100C3FB77 /* HIDSessionFilterExample.plugin */,
 				0FD0F41D215ECCD800ABC716 /* HIDServiceFilterExample.plugin */,
 				0F7768682162ECB000AF26C2 /* HIDServicePluginExample.plugin */,
@@ -4970,6 +4865,8 @@
 		72F988F7234BD93D00899631 /* HIDPreferences */ = {
 			isa = PBXGroup;
 			children = (
+				7E65D6E727BB263400742A23 /* HIDPreferencesLocal.h */,
+				7E65D6E627BB263400742A23 /* HIDPreferencesLocal.m */,
 				72F988F8234BD93D00899631 /* HIDPreferences.h */,
 				725932FE235607CF0014DFC8 /* HIDPreferencesProtocol.h */,
 				72F98902234BDC0200899631 /* HIDPreferences.m */,
@@ -5045,7 +4942,6 @@
 				663C479C23FF60B700512F4C /* IOHIDMotionEventSessionFilter */,
 				2000932420883BE0005920CD /* IOHIDTestConnectionFilter */,
 				6604B02221B1EEF000904AB6 /* IOHIDT8027USBSessionFilter */,
-				D87D2641204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter */,
 				48516CBC1D637D3B001A629B /* IOHIDDFREventFilter */,
 				982748361C4F885F00582ECC /* IOHIDEventProcessorFilter */,
 				D80385501C16097100F06514 /* IOHIDNXEventTranslatorSessionFilter */,
@@ -5621,6 +5517,14 @@
 			path = IOKitUser;
 			sourceTree = "<group>";
 		};
+		D85B7F54271BF7D000DED5EA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D85B7F58271BF7D100DED5EA /* IOHIDPowerSource.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		D862CB671E24482F001AE29F /* IOHIDEventFastPathTestDriver */ = {
 			isa = PBXGroup;
 			children = (
@@ -5641,47 +5545,13 @@
 			name = IOHIDNXEventRouter;
 			sourceTree = "<group>";
 		};
-		D87025F1200DBCF8007C4D1F /* hidrsd */ = {
-			isa = PBXGroup;
-			children = (
-				D8A2F3A3201700F1006C2F4C /* com.apple.hidrsd.plist */,
-				D87B1D11201106BB0024AF8D /* entitlements.plist */,
-				D87025F2200DBCF8007C4D1F /* main.m */,
-			);
-			path = hidrsd;
-			sourceTree = "<group>";
-		};
-		D87D2641204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter */ = {
-			isa = PBXGroup;
-			children = (
-				66E1A26D23AC049E003DA8EB /* IOHIDRemoteSensorSessionFilter.xcconfig */,
-				D87D2642204CE7C8000229C1 /* Info.plist */,
-				D87D2643204CE7C8000229C1 /* IOHIDRemoteSensorSessionFilter.m */,
-			);
-			path = IOHIDRemoteSensorSessionFilter;
-			sourceTree = "<group>";
-		};
-		D88E7F71200C511A00D0CFFD /* RemoteHID */ = {
-			isa = PBXGroup;
-			children = (
-				D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */,
-				D88E7F8A200C52B200D0CFFD /* HIDRemoteSimpleProtocol.h */,
-				D88E7F89200C52B100D0CFFD /* HIDRemoteDeviceAACPServer.h */,
-				D88E7F8B200C52B200D0CFFD /* HIDRemoteDeviceAACPServer.m */,
-				D88E7F73200C511A00D0CFFD /* Info.plist */,
-				D88E7F9D200C552500D0CFFD /* HIDRemoteDeviceServer.m */,
-				D88E7F9F200C557E00D0CFFD /* HIDRemoteDeviceServer.h */,
-				D88E7F72200C511A00D0CFFD /* RemoteHID.h */,
-				D8F1FF9B21917D7700EA10A5 /* RemoteHID.m */,
-				D850DC14202CBC6900427731 /* RemoteHIDPrivate.h */,
-				D84CB8D920B7D0380046D64F /* LogRemoteHID.m */,
-			);
-			path = RemoteHID;
-			sourceTree = "<group>";
-		};
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				F394236E279F368700B4D2CE /* TestKeyboardStandardType.m */,
+				7ECFF6B1273E3885002377A4 /* TestGuaranteedReportDelivery.m */,
+				7E67850927163C96005C6C81 /* TestHIDDeviceMultiThreaded.m */,
+				7E6785192718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m */,
 				7E594EC4260A94E100CF353D /* TestIOHIDKeyboardFilter.m */,
 				7EC604B02592D0CC003E4FA3 /* TestIOHIDEventDriver_ConsumerButton.m */,
 				7EC2B21C253A5F6A0077FF40 /* TestHIDProximityEvent.m */,
@@ -5786,6 +5656,7 @@
 				72BC1C5F237B2C91006AB62E /* TestHIDSameUsageElementConsolidation.m */,
 				72CF07F423A99DBA0011CF24 /* TestDigitizerReportRate.m */,
 				72E7BBAA23BFBB1200B35B18 /* TestElementValueSet.m */,
+				1C1368382715025A002F2010 /* TestAsyncOutputReports.m */,
 			);
 			path = IOHIDFamilyUnitTests;
 			sourceTree = "<group>";
@@ -6239,6 +6110,7 @@
 				726771E0235FCDA5002AFC5E /* HIDPreferencesHelperListenerPrivate.h in Headers */,
 				726771DF235FCD94002AFC5E /* HIDPreferencesHelperListener.h in Headers */,
 				726771DC235FCD57002AFC5E /* HIDPreferencesHelperClient.h in Headers */,
+				7E65D6E927BB263400742A23 /* HIDPreferencesLocal.h in Headers */,
 				725F2A5F234EA42B00EAF102 /* HIDPreferencesPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6492,13 +6364,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D84CB8D320B7D0380046D64F /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D851607321B8738800560BDA /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -6529,18 +6394,6 @@
 			files = (
 				D868E2D61BD5DA7A00CC07F9 /* IOHIDIUnknown.h in Headers */,
 				D868E2D51BD5DA6C00CC07F9 /* IOHIDNXEventRouter.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D88E7F6D200C511A00D0CFFD /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D88E7F8D200C52B300D0CFFD /* HIDRemoteSimpleProtocol.h in Headers */,
-				D88E7F80200C511A00D0CFFD /* RemoteHID.h in Headers */,
-				D850DC7B202D7F3700427731 /* HIDRemoteDeviceServer.h in Headers */,
-				D87025FB200DBE87007C4D1F /* HIDRemoteDeviceAACPServer.h in Headers */,
-				D8F1FF9D21917EB600EA10A5 /* RemoteHIDPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7049,6 +6902,7 @@
 				848E574E0CC55C7800D5BE22 /* PBXTargetDependency */,
 				848E57520CC55C7800D5BE22 /* PBXTargetDependency */,
 				7E70831E242C4C2A00DAA1F9 /* PBXTargetDependency */,
+				D88FB24D27698B6E005FE8FA /* PBXTargetDependency */,
 				848E57540CC55C7800D5BE22 /* PBXTargetDependency */,
 			);
 			name = IOHIDFamily;
@@ -7217,7 +7071,7 @@
 				84D292570CC90C8E00698218 /* Rez */,
 				84D292580CC90C8E00698218 /* CopyFiles */,
 				84D2925E0CC90C8E00698218 /* ShellScript */,
-				D88E155D20705E7F0000EEF7 /* CopyFiles */,
+				D88E155D20705E7F0000EEF7 /* Copy Files */,
 				4860F0DC227113AE00BA4931 /* Install DriverKit Kernel Headers */,
 			);
 			buildRules = (
@@ -7226,6 +7080,7 @@
 				7E708323242C4FA800DAA1F9 /* PBXTargetDependency */,
 				D87A38891FF5F5D700884E21 /* PBXTargetDependency */,
 				D87A38871FF5F5CC00884E21 /* PBXTargetDependency */,
+				D85B7F5A271BF80C00DED5EA /* PBXTargetDependency */,
 				84D2933A0CC90CFB00698218 /* PBXTargetDependency */,
 				84D54FB4103CB4EF00F7EC85 /* PBXTargetDependency */,
 			);
@@ -7368,23 +7223,6 @@
 			productReference = D80DEA4A1C11F2170044375A /* IOHIDEventTranslation.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		D84CB8D420B7D0380046D64F /* log_RemoteHID */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D84CB8DE20B7D0380046D64F /* Build configuration list for PBXNativeTarget "log_RemoteHID" */;
-			buildPhases = (
-				D84CB8D120B7D0380046D64F /* Sources */,
-				D84CB8D220B7D0380046D64F /* Frameworks */,
-				D84CB8D320B7D0380046D64F /* Headers */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = log_RemoteHID;
-			productName = log_RemoteHID;
-			productReference = D84CB8D520B7D0380046D64F /* liblog_RemoteHID.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
 		D851607721B8738800560BDA /* HIDDriverKit */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D851608021B8738800560BDA /* Build configuration list for PBXNativeTarget "HIDDriverKit" */;
@@ -7460,62 +7298,6 @@
 			productName = IOHIDAccessibilityFilter;
 			productReference = D868E2C61BD5D92100CC07F9 /* IOHIDNXEventRouter.plugin */;
 			productType = "com.apple.product-type.bundle";
-		};
-		D87025EF200DBCF8007C4D1F /* hidrsd */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D87025F4200DBCF8007C4D1F /* Build configuration list for PBXNativeTarget "hidrsd" */;
-			buildPhases = (
-				D87025EC200DBCF8007C4D1F /* Sources */,
-				D87025ED200DBCF8007C4D1F /* Frameworks */,
-				D87025EE200DBCF8007C4D1F /* CopyFiles */,
-				D8ADFC2F202F8FC9002713D9 /* ShellScript */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				D87B1D07200F1E3C0024AF8D /* PBXTargetDependency */,
-			);
-			name = hidrsd;
-			productName = hidrsd;
-			productReference = D87025F0200DBCF8007C4D1F /* hidrsd */;
-			productType = "com.apple.product-type.tool";
-		};
-		D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D87D2640204CE73A000229C1 /* Build configuration list for PBXNativeTarget "IOHIDRemoteSensorSessionFilter" */;
-			buildPhases = (
-				D87D2636204CE739000229C1 /* Sources */,
-				D87D2637204CE739000229C1 /* Frameworks */,
-				D87D2638204CE739000229C1 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				669ED37222D9469600B2E3ED /* PBXTargetDependency */,
-				669ED37422D9469C00B2E3ED /* PBXTargetDependency */,
-			);
-			name = IOHIDRemoteSensorSessionFilter;
-			productName = IOHIDRemoteSensorSessionFilter;
-			productReference = D87D263A204CE739000229C1 /* IOHIDRemoteSensorSessionFilter.plugin */;
-			productType = "com.apple.product-type.bundle";
-		};
-		D88E7F6F200C511A00D0CFFD /* RemoteHID */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D88E7F87200C511A00D0CFFD /* Build configuration list for PBXNativeTarget "RemoteHID" */;
-			buildPhases = (
-				D88E7F6B200C511A00D0CFFD /* Sources */,
-				D88E7F6C200C511A00D0CFFD /* Frameworks */,
-				D88E7F6D200C511A00D0CFFD /* Headers */,
-				D850DC79202D7CE400427731 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = RemoteHID;
-			productName = RemoteHID;
-			productReference = D88E7F70200C511A00D0CFFD /* RemoteHID.framework */;
-			productType = "com.apple.product-type.framework";
 		};
 		D8ACE9161DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXNativeTarget;
@@ -7819,10 +7601,6 @@
 						CreatedOnToolsVersion = 11.0;
 						ProvisioningStyle = Automatic;
 					};
-					D84CB8D420B7D0380046D64F = {
-						CreatedOnToolsVersion = 10.0;
-						ProvisioningStyle = Automatic;
-					};
 					D851607721B8738800560BDA = {
 						CreatedOnToolsVersion = 10.1;
 						ProvisioningStyle = Automatic;
@@ -7849,18 +7627,6 @@
 					};
 					D85D080F1FA29DFC00418989 = {
 						CreatedOnToolsVersion = 9.1;
-						ProvisioningStyle = Automatic;
-					};
-					D87025EF200DBCF8007C4D1F = {
-						CreatedOnToolsVersion = 9.3;
-						ProvisioningStyle = Automatic;
-					};
-					D87D2639204CE739000229C1 = {
-						CreatedOnToolsVersion = 9.3;
-						ProvisioningStyle = Automatic;
-					};
-					D88E7F6F200C511A00D0CFFD = {
-						CreatedOnToolsVersion = 9.3;
 						ProvisioningStyle = Automatic;
 					};
 					D8ACE9161DBA6D3C00F34E42 = {
@@ -7901,6 +7667,10 @@
 				{
 					ProductGroup = 7E9E86BF233180D80000006B /* Products */;
 					ProjectRef = 7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */;
+				},
+				{
+					ProductGroup = D85B7F54271BF7D000DED5EA /* Products */;
+					ProjectRef = D85B7F53271BF7D000DED5EA /* IOHIDPowerSource.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -7977,12 +7747,8 @@
 				D80DEA491C11F2170044375A /* IOHIDEventTranslation */,
 				6C288FC61FB26BB800245AE7 /* HID */,
 				725078CD200FE1AD00D33BAA /* HIDFrameworkExamples */,
-				D88E7F6F200C511A00D0CFFD /* RemoteHID */,
-				D87025EF200DBCF8007C4D1F /* hidrsd */,
 				D8D2DB8F20356DC400AD0C04 /* InstallHeaders-rtkit */,
-				D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */,
 				2000932220883BE0005920CD /* IOHIDTestConnectionFilter */,
-				D84CB8D420B7D0380046D64F /* log_RemoteHID */,
 				0F311B93215C441100C3FB77 /* HIDSessionFilterExample */,
 				0FD0F41C215ECCD800ABC716 /* HIDServiceFilterExample */,
 				0F7768672162ECB000AF26C2 /* HIDServicePluginExample */,
@@ -8017,6 +7783,13 @@
 			fileType = "compiled.mach-o.executable";
 			path = hidtalkd;
 			remoteRef = 7E9E86C2233180D80000006B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		D85B7F58271BF7D100DED5EA /* IOHIDPowerSource.kext */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.cfbundle;
+			path = IOHIDPowerSource.kext;
+			remoteRef = D85B7F57271BF7D100DED5EA /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -8242,13 +8015,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D87D2638204CE739000229C1 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D8DBD77B1BE466C300E16D93 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -8331,7 +8097,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ \"${ACTION}\" == installapi ]]; then\n. ${SRCROOT}/HIDDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
+			shellScript = "if [[ \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi ]]; then\n. ${SRCROOT}/HIDDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
 		};
 		482A3C2422F38AAE0087E3DD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -8560,19 +8326,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "echo \"Config ${HID_CODE_COVERAGE}\"\necho \"Plist Path [${LAUNCHD_PLIST_PATH}]\"\necho \"Plist File [${LAUNCHD_PLIST_FILE}]\"\n\nif [ ! -d \"${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}\" ] ; then\n    mkdir -p ${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}\nfi\n\nif [ ${HID_CODE_COVERAGE} == \"YES\" ] ; then\n    plutil -insert EnvironmentVariables -xml '<dict><key>LLVM_PROFILE_FILE</key><string>/tmp/test.%p.profraw</string></dict>' ${SRCROOT}/hidd/${LAUNCHD_PLIST_FILE} -o ${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}/com.apple.hidd.plist\nelse\n    cp ${SRCROOT}/hidd/${LAUNCHD_PLIST_FILE}  ${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}/com.apple.hidd.plist\nfi\n\n\n\n";
-		};
-		D8ADFC2F202F8FC9002713D9 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "plutil -remove ProgramArguments ${SRCROOT}/hidrsd/com.apple.hidrsd.plist -o ${INSTALL_ROOT}/${HIDRCD_PLIST_INSTALL_PATH}/com.apple.hidrsd.plist\nplutil -insert ProgramArguments -xml \"<array><string>${HIDRCD_INSTALL_PATH}/hidrsd</string></array>\" ${INSTALL_ROOT}/${HIDRCD_PLIST_INSTALL_PATH}/com.apple.hidrsd.plist\n";
 		};
 		E4E929BC227BD5420083494C /* Install .iig Headers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -8851,6 +8604,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				726771D7235FCC55002AFC5E /* HIDPreferencesHelperClient.m in Sources */,
+				7E65D6E827BB263400742A23 /* HIDPreferencesLocal.m in Sources */,
 				72F98903234BDC0200899631 /* HIDPreferences.m in Sources */,
 				72F98901234BDBD300899631 /* HIDPreferencesCAPI.m in Sources */,
 				726771DA235FCC9A002AFC5E /* HIDPreferencesHelperListener.m in Sources */,
@@ -9152,14 +8906,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D84CB8D120B7D0380046D64F /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D84CB8DA20B7D0380046D64F /* LogRemoteHID.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D851607421B8738800560BDA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -9226,36 +8972,12 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D87025EC200DBCF8007C4D1F /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D87025F3200DBCF8007C4D1F /* main.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D87D2636204CE739000229C1 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D87D2645204CE845000229C1 /* IOHIDRemoteSensorSessionFilter.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D88E7F6B200C511A00D0CFFD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D87025FC200DBEB7007C4D1F /* HIDRemoteDeviceAACPServer.m in Sources */,
-				D88E7FA0200C734800D0CFFD /* HIDRemoteDeviceServer.m in Sources */,
-				D8F1FF9C21917D7700EA10A5 /* RemoteHID.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D8ACE9131DBA6D3C00F34E42 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7E67850A27163C96005C6C81 /* TestHIDDeviceMultiThreaded.m in Sources */,
+				1C1368392715025A002F2010 /* TestAsyncOutputReports.m in Sources */,
 				72518C60220BC8BC0003EB98 /* TestHIDDisplaySessionFilter.m in Sources */,
 				72F8F58D219A4E0B005F9DA7 /* TestConfigurableNXEventTranslation.m in Sources */,
 				D8CCD1C21DBE742300EB862E /* IOHIDEventSystemTestController.m in Sources */,
@@ -9321,10 +9043,12 @@
 				D8F3855A21250A260096957A /* TestIOHIDEventDriver_Gyro.m in Sources */,
 				66FB5174226905400013C7C2 /* TestProtectedAccessEntitlement.m in Sources */,
 				0F6CA3442238CEE000DCE1A1 /* TestEventServiceProperties.m in Sources */,
+				F394236F279F368700B4D2CE /* TestKeyboardStandardType.m in Sources */,
 				D867408D1ED897620099A4F9 /* TestHIDActivity.m in Sources */,
 				D8F1FFA42193FD3800EA10A5 /* TestIOHIDEventDriver_CarPlay.m in Sources */,
 				D85DCFD81E370BD5006D9264 /* TestVirtualService.m in Sources */,
 				72B7BEDE21E9273800786D6D /* TestHIDDisplayFramework.m in Sources */,
+				7E67851A2718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m in Sources */,
 				46E83C87204E59EE0091DF92 /* TestIOHIDPostEvent.m in Sources */,
 				D8862B511DED385D0026B52C /* TestPerfEvents.m in Sources */,
 				D8BAE7581E6908C900CA5A24 /* TestHIDManager.m in Sources */,
@@ -9340,6 +9064,7 @@
 				660D243F217560DC00DFCBFE /* TestNonStandardDescriptor.m in Sources */,
 				D8CCD1C51DBE754A00EB862E /* IOHIDDeviceTestController.m in Sources */,
 				487EB3E0206ECB8600C01D77 /* TestKeyboardStateRestore.m in Sources */,
+				7ECFF6B2273E3886002377A4 /* TestGuaranteedReportDelivery.m in Sources */,
 				6C2890091FB26D4600245AE7 /* TestHIDElementAndValue.m in Sources */,
 				0FF51A8A21C4657C007C1D01 /* TestIndependentDevices.m in Sources */,
 				D81A99131DC0278300B35A3A /* TestHIDEventSystemClient.m in Sources */,
@@ -9667,21 +9392,6 @@
 			target = F5CD19AC1BEACDFF00D0888A /* IOHIDKeyboardFilter */;
 			targetProxy = 6686E55D233056C800ACF515 /* PBXContainerItemProxy */;
 		};
-		669ED37222D9469600B2E3ED /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D88E7F6F200C511A00D0CFFD /* RemoteHID */;
-			targetProxy = 669ED37122D9469600B2E3ED /* PBXContainerItemProxy */;
-		};
-		669ED37422D9469C00B2E3ED /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D84CB8D420B7D0380046D64F /* log_RemoteHID */;
-			targetProxy = 669ED37322D9469C00B2E3ED /* PBXContainerItemProxy */;
-		};
-		66D82E4C253129A300FBB5A6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */;
-			targetProxy = 66D82E4B253129A300FBB5A6 /* PBXContainerItemProxy */;
-		};
 		6C371C37205B491E00DFDE50 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 6C4A19B7205AE892000D0FE3 /* IOHIDActionQueueTestDriver */;
@@ -10007,6 +9717,11 @@
 			target = 8416F421174BDF35000D1277 /* IOHIDEventSystemStatistics */;
 			targetProxy = D84FDBE21FBE8F0800796A00 /* PBXContainerItemProxy */;
 		};
+		D85B7F5A271BF80C00DED5EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = IOHIDPowerSource;
+			targetProxy = D85B7F59271BF80C00DED5EA /* PBXContainerItemProxy */;
+		};
 		D862CB721E244A63001AE29F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D862CB681E2449D1001AE29F /* IOHIDEventFastPathTestDriver */;
@@ -10057,15 +9772,10 @@
 			target = D862CB681E2449D1001AE29F /* IOHIDEventFastPathTestDriver */;
 			targetProxy = D87A38941FF5F70900884E21 /* PBXContainerItemProxy */;
 		};
-		D87B1D07200F1E3C0024AF8D /* PBXTargetDependency */ = {
+		D88FB24D27698B6E005FE8FA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = D88E7F6F200C511A00D0CFFD /* RemoteHID */;
-			targetProxy = D87B1D06200F1E3C0024AF8D /* PBXContainerItemProxy */;
-		};
-		D87D264A204CF489000229C1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */;
-			targetProxy = D87D2649204CF489000229C1 /* PBXContainerItemProxy */;
+			name = IOHIDPowerSource;
+			targetProxy = D88FB24C27698B6E005FE8FA /* PBXContainerItemProxy */;
 		};
 		D8D2DBEE20356FDB00AD0C04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -10077,15 +9787,15 @@
 			target = D8DBD65F1BDA921F00E16D93 /* hidScript */;
 			targetProxy = D8DBD66F1BDA929A00E16D93 /* PBXContainerItemProxy */;
 		};
-		D8E95E36212657A3006BB875 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D87D2639204CE739000229C1 /* IOHIDRemoteSensorSessionFilter */;
-			targetProxy = D8E95E35212657A3006BB875 /* PBXContainerItemProxy */;
-		};
 		D8FD9CB51F1EA9260018950C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D8B0340C1F144914009A65FE /* HIDDescriptorParser */;
 			targetProxy = D8FD9CB41F1EA9260018950C /* PBXContainerItemProxy */;
+		};
+		F3D21EB1282B0E1B0083A0A3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8416F421174BDF35000D1277 /* IOHIDEventSystemStatistics */;
+			targetProxy = F3D21EB0282B0E1B0083A0A3 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -10165,7 +9875,6 @@
 		};
 		0F0E7C53216EB05400CEA045 /* Development-CodeCoverage */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3583ADBE0DFDF00D0003AEE2 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
@@ -10238,7 +9947,6 @@
 		};
 		0F0E7C54216EB05400CEA045 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3583ADBE0DFDF00D0003AEE2 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
@@ -11246,6 +10954,7 @@
 		3FDA091612FCA57100C58197 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -11259,11 +10968,9 @@
 				PRODUCT_NAME = InstallHeaders;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				SUPPORTS_TEXT_BASED_API = NO;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -11271,6 +10978,7 @@
 		3FDA091812FCA57100C58197 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				"INSTALL_PATH[sdk=macosx*]" = "$(INSTALL_PATH_ACTUAL)";
@@ -11281,11 +10989,9 @@
 				PRODUCT_NAME = InstallHeaders;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				SUPPORTS_TEXT_BASED_API = NO;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -12012,7 +11718,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDMotionEventSessionFilter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -12080,7 +11785,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDMotionEventSessionFilter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -12141,7 +11845,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDMotionEventSessionFilter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos.internal;
-				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -12510,11 +12213,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -12544,11 +12243,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -12576,11 +12271,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -14930,6 +14621,7 @@
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -14949,11 +14641,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -14964,6 +14652,7 @@
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -14980,11 +14669,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15011,11 +14696,7 @@
 				PRODUCT_NAME = IOHIDEventDriver;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15040,11 +14721,7 @@
 				PRODUCT_NAME = IOHIDEventDriver;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15072,11 +14749,7 @@
 				PRODUCT_NAME = IOHIDEventDriverSafeBoot;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15101,11 +14774,7 @@
 				PRODUCT_NAME = IOHIDEventDriverSafeBoot;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15115,6 +14784,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -15136,11 +14806,7 @@
 				PRODUCT_NAME = IOHIDSystem;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15150,6 +14816,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -15168,11 +14835,7 @@
 				PRODUCT_NAME = IOHIDSystem;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15205,11 +14868,7 @@
 				PRODUCT_NAME = IOHIDLib;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = plugin;
 			};
 			name = Development;
@@ -15238,11 +14897,7 @@
 				PRODUCT_NAME = IOHIDLib;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = plugin;
 				ZERO_LINK = NO;
 			};
@@ -15269,11 +14924,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOHIDTestDriver;
 				PRODUCT_NAME = IOHIDTestDriver;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -15297,11 +14948,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOHIDTestDriver;
 				PRODUCT_NAME = IOHIDTestDriver;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15329,11 +14976,7 @@
 				PRODUCT_NAME = IOHIDUserClient;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15358,11 +15001,7 @@
 				PRODUCT_NAME = IOHIDUserClient;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15388,6 +15027,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = YES;
 			};
@@ -15410,6 +15050,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = NO;
 			};
@@ -15439,6 +15080,7 @@
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -15466,6 +15108,7 @@
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -15474,6 +15117,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -15497,11 +15141,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Development;
@@ -15510,6 +15150,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -15530,11 +15171,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -15560,6 +15197,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = YES;
 			};
@@ -15582,6 +15220,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = NO;
 			};
@@ -15785,6 +15424,7 @@
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				VALID_ARCHS = "i386 x86_64 arm64 arm64e arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = Development;
 		};
@@ -15820,6 +15460,7 @@
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				VALID_ARCHS = "i386 x86_64 arm64e arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = Deployment;
 		};
@@ -16543,192 +16184,6 @@
 			};
 			name = Deployment;
 		};
-		D84CB8DB20B7D0380046D64F /* Development */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-			};
-			name = Development;
-		};
-		D84CB8DC20B7D0380046D64F /* Development-CodeCoverage */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-			};
-			name = "Development-CodeCoverage";
-		};
-		D84CB8DD20B7D0380046D64F /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-			};
-			name = Deployment;
-		};
 		D851607D21B8738800560BDA /* Development */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D85160BF21B875F400560BDA /* HIDDriverKit.xcconfig */;
@@ -17273,11 +16728,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -17305,11 +16756,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -17409,189 +16856,6 @@
 			};
 			name = Deployment;
 		};
-		D87025F5200DBCF8007C4D1F /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = hidrsd/entitlements.plist;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = "$(HIDRCD_INSTALL_PATH)";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-			};
-			name = Development;
-		};
-		D87025F6200DBCF8007C4D1F /* Development-CodeCoverage */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = hidrsd/entitlements.plist;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = "$(HIDRCD_INSTALL_PATH)";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-			};
-			name = "Development-CodeCoverage";
-		};
-		D87025F7200DBCF8007C4D1F /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_ENTITLEMENTS = hidrsd/entitlements.plist;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = "$(HIDRCD_INSTALL_PATH)";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
-			};
-			name = Deployment;
-		};
 		D87A37561DC39A430069E544 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -17611,428 +16875,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		D87D263D204CE73A000229C1 /* Development */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 66E1A26D23AC049E003DA8EB /* IOHIDRemoteSensorSessionFilter.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDRemoteSensorSessionFilter/Info.plist;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDRemoteSensorSessionFilter;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = Development;
-		};
-		D87D263E204CE73A000229C1 /* Development-CodeCoverage */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 66E1A26D23AC049E003DA8EB /* IOHIDRemoteSensorSessionFilter.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDRemoteSensorSessionFilter/Info.plist;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDRemoteSensorSessionFilter;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = "Development-CodeCoverage";
-		};
-		D87D263F204CE73A000229C1 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 66E1A26D23AC049E003DA8EB /* IOHIDRemoteSensorSessionFilter.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDRemoteSensorSessionFilter/Info.plist;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDRemoteSensorSessionFilter;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
-				SKIP_INSTALL = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macos";
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = Deployment;
-		};
-		D88E7F81200C511A00D0CFFD /* Development */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				FRAMEWORK_VERSION = A;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = RemoteHID/Info.plist;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)/usr/lib/system",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.RemoteHID;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Development;
-		};
-		D88E7F82200C511A00D0CFFD /* Development-CodeCoverage */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				FRAMEWORK_VERSION = A;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = RemoteHID/Info.plist;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)/usr/lib/system",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.RemoteHID;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = "Development-CodeCoverage";
-		};
-		D88E7F83200C511A00D0CFFD /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D8E95E2E21265292006BB875 /* RemoteHID.xcconfig */;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				FRAMEWORK_VERSION = A;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_FILE = RemoteHID/Info.plist;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)/usr/lib/system",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apple.RemoteHID;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
 			};
 			name = Deployment;
 		};
@@ -18070,6 +16912,7 @@
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				VALID_ARCHS = "i386 x86_64 arm64 arm64e arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s x86_64h";
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = "Development-CodeCoverage";
 		};
@@ -18108,6 +16951,7 @@
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -18127,11 +16971,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -18141,6 +16981,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -18164,11 +17005,7 @@
 				PRODUCT_NAME = IOHIDFamily;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = "Development-CodeCoverage";
@@ -18194,11 +17031,7 @@
 				PRODUCT_NAME = IOHIDEventDriver;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -18226,11 +17059,7 @@
 				PRODUCT_NAME = IOHIDEventDriverSafeBoot;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -18240,6 +17069,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -18261,11 +17091,7 @@
 				PRODUCT_NAME = IOHIDSystem;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -18298,17 +17124,14 @@
 				PRODUCT_NAME = IOHIDLib;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = plugin;
 			};
 			name = "Development-CodeCoverage";
 		};
 		D89E79281E75203B00F4E2D6 /* Development-CodeCoverage */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -18327,11 +17150,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOHIDTestDriver;
 				PRODUCT_NAME = IOHIDTestDriver;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -18359,11 +17178,7 @@
 				PRODUCT_NAME = IOHIDUserClient;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -18371,7 +17186,6 @@
 		};
 		D89E792A1E75203B00F4E2D6 /* Development-CodeCoverage */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6654082C20572B7D00689D0B /* kext.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
@@ -18438,6 +17252,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = YES;
 			};
@@ -18463,6 +17278,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"$(inherited)",
 				);
 				ZERO_LINK = YES;
 			};
@@ -18492,6 +17308,7 @@
 					"$(inherited)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = YES;
 			};
 			name = "Development-CodeCoverage";
@@ -18568,6 +17385,7 @@
 		D89E79311E75203B00F4E2D6 /* Development-CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -18581,11 +17399,9 @@
 				PRODUCT_NAME = InstallHeaders;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				SUPPORTS_TEXT_BASED_API = NO;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				WARNING_CFLAGS = "$(inherited)";
 				ZERO_LINK = YES;
 			};
 			name = "Development-CodeCoverage";
@@ -18803,6 +17619,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = "";
 				ZERO_LINK = YES;
 			};
 			name = "Development-CodeCoverage";
@@ -19198,7 +18015,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -19226,7 +18043,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -19234,7 +18051,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -19266,6 +18083,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 4.2;
 				TVOS_DEPLOYMENT_TARGET = 10.2;
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = "Development-CodeCoverage";
 		};
@@ -19360,11 +18178,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				VALID_ARCHS = "x86_64 arm64 arm64_32 armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				WARNING_CFLAGS = "$(inherited)";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -19377,7 +18191,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -19405,7 +18219,7 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -19413,7 +18227,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -19445,6 +18259,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 4.2;
 				TVOS_DEPLOYMENT_TARGET = 10.2;
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = Development;
 		};
@@ -19455,7 +18270,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -19483,9 +18298,9 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -19515,6 +18330,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "IOHIDFamilyUnitTests/IOHIDFamilyUnitTests-Bridging-Header.h";
 				SWIFT_VERSION = 4.2;
 				TVOS_DEPLOYMENT_TARGET = 10.2;
+				WARNING_CFLAGS = "$(inherited)";
 			};
 			name = Deployment;
 		};
@@ -19833,6 +18649,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 				ZERO_LINK = YES;
 			};
@@ -19858,6 +18675,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 				ZERO_LINK = YES;
 			};
@@ -19880,6 +18698,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wformat-nonliteral",
 				);
 				ZERO_LINK = NO;
 			};
@@ -19911,6 +18730,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = "";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -19940,6 +18760,7 @@
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = "";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -20909,16 +19730,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
-		D84CB8DE20B7D0380046D64F /* Build configuration list for PBXNativeTarget "log_RemoteHID" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D84CB8DB20B7D0380046D64F /* Development */,
-				D84CB8DC20B7D0380046D64F /* Development-CodeCoverage */,
-				D84CB8DD20B7D0380046D64F /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
 		D851608021B8738800560BDA /* Build configuration list for PBXNativeTarget "HIDDriverKit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -21009,42 +19820,12 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
-		D87025F4200DBCF8007C4D1F /* Build configuration list for PBXNativeTarget "hidrsd" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D87025F5200DBCF8007C4D1F /* Development */,
-				D87025F6200DBCF8007C4D1F /* Development-CodeCoverage */,
-				D87025F7200DBCF8007C4D1F /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
 		D87A37551DC39A430069E544 /* Build configuration list for PBXAggregateTarget "Tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D87A37561DC39A430069E544 /* Development */,
 				D89E791E1E75203B00F4E2D6 /* Development-CodeCoverage */,
 				D87A37581DC39A430069E544 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		D87D2640204CE73A000229C1 /* Build configuration list for PBXNativeTarget "IOHIDRemoteSensorSessionFilter" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D87D263D204CE73A000229C1 /* Development */,
-				D87D263E204CE73A000229C1 /* Development-CodeCoverage */,
-				D87D263F204CE73A000229C1 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		D88E7F87200C511A00D0CFFD /* Build configuration list for PBXNativeTarget "RemoteHID" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D88E7F81200C511A00D0CFFD /* Development */,
-				D88E7F82200C511A00D0CFFD /* Development-CodeCoverage */,
-				D88E7F83200C511A00D0CFFD /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

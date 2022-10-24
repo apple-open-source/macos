@@ -57,14 +57,20 @@ int brdg_loadDylib(UVFSFSOps* testerFsOps, const char* dylibPath, const char* fs
         logf("Error on dlopen: %s\n", dlerror());
         return EINVAL;
     }
-    
-    
-    void* plugin_init = dlsym(plugin_handle[dylibs_loaded_counter], fsOps_Symbol);
-    
-    if (plugin_init == NULL)
+
+    livefiles_plugin_init_t pluginInitFunc = dlsym(plugin_handle[dylibs_loaded_counter], "livefiles_plugin_init");
+    if (pluginInitFunc == NULL) {
         assert(0);
-    
-    *testerFsOps = *(UVFSFSOps*)plugin_init;
+    }
+
+    UVFSFSOps *ops = NULL;
+    pluginInitFunc(&ops);
+    if (ops == NULL) {
+        assert(0);
+    }
+
+    *testerFsOps = *ops;
+
     dylibs_loaded_counter++;
     return SUCCESS;
 }
@@ -209,7 +215,7 @@ int brdg_fsops_lookup(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char 
 int brdg_fsops_reclaim(UVFSFSOps* testerFsOps, UVFSFileNode* Node){
     int error;
     clock_gettime(CLOCK_REALTIME, &tm1);
-    error =  (*testerFsOps).fsops_reclaim(*Node);
+    error =  (*testerFsOps).fsops_reclaim(*Node, 0);
     clock_gettime(CLOCK_REALTIME, &tm2);
     elapsed_time = timespec_diff_in_ns(&tm1, &tm2);
 
@@ -298,20 +304,20 @@ int brdg_fsops_hardlink(UVFSFSOps* testerFsOps, UVFSFileNode* fromNode, UVFSFile
     return errnum;
 }
 
-int brdg_fsops_remove(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name){
+int brdg_fsops_remove(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, UVFSFileNode victimNode){
     int errnum;
     clock_gettime(CLOCK_REALTIME, &tm1);
-    errnum = (*testerFsOps).fsops_remove(*dirNode, name, NULL);
+    errnum = (*testerFsOps).fsops_remove(*dirNode, name, victimNode);
     clock_gettime(CLOCK_REALTIME, &tm2);
     elapsed_time = timespec_diff_in_ns(&tm1, &tm2);
     
     return errnum;
 }
 
-int brdg_fsops_rmdir(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name){
+int brdg_fsops_rmdir(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, UVFSFileNode victimNode){
     int errnum;
     clock_gettime(CLOCK_REALTIME, &tm1);
-    errnum = (*testerFsOps).fsops_rmdir(*dirNode, name);
+    errnum = (*testerFsOps).fsops_rmdir(*dirNode, name, victimNode);
     clock_gettime(CLOCK_REALTIME, &tm2);
     elapsed_time = timespec_diff_in_ns(&tm1, &tm2);
     
@@ -504,25 +510,28 @@ char* getBuildTime(void) { return __TIME__;}
 
 char* getBuildDate(void) { return __DATE__;}
 
-// This function is used by the T_dirtyBitLockTest test in order to use semaphores as closed as possible to the
+// This function is used by the T_dirtyBitLockTest test in order to use semaphores as close as possible to the
 // plugin operations.
 //
 int rValue = -1;
 dispatch_semaphore_t    sem;
 
-int dirtyBlockTest_Create(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, const UVFSFileAttributes *attrs, UVFSFileNode *outNode){
+int dirtyBlockTest_Create(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, const UVFSFileAttributes *attrs, UVFSFileNode *outNode)
+{
     int errnum;
     while (sem == NULL) {sleep(1);}
     dispatch_semaphore_signal(sem);
     logf("changing the rValue to %d\n", EWOULDBLOCK);
     rValue = EWOULDBLOCK;
     errnum = (*testerFsOps).fsops_create(*dirNode, name, attrs, outNode);
-    logf("changing the rValue to %d\n", SUCCESS);
-    rValue = SUCCESS;
+    logf("changing the rValue to %d\n", errnum);
+    rValue = errnum;
+    dispatch_semaphore_signal(sem);
     return rValue;
 }
 
-int dirtyBlockTest_Sync(UVFSFSOps* testerFsOps, UVFSFileNode* node) {
+int dirtyBlockTest_Sync(UVFSFSOps* testerFsOps, UVFSFileNode* node)
+{
     sem = dispatch_semaphore_create(0);
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
     usleep(200);    // Just for letting the Create thread call the create fsop first.
@@ -533,8 +542,10 @@ int dirtyBlockTest_Sync(UVFSFSOps* testerFsOps, UVFSFileNode* node) {
     }
     logf("Calling fsops_sync\n");
     (*testerFsOps).fsops_sync(*node);
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
     return rValue;
 }
+
 int brdg_inject_error   (CrashAbort_E stepToFall) {
     int i;
     printf("ejecting crash abort\n");

@@ -1,36 +1,27 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.63])
-AC_INIT
+
+m4_define([MAJOR_VERSION], 2)
+m4_define([MINOR_VERSION], 9)
+m4_define([MICRO_VERSION], 13)
+
+AC_INIT([libxml2],[MAJOR_VERSION.MINOR_VERSION.MICRO_VERSION])
 AC_CONFIG_SRCDIR([entities.c])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE([enable])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 
-LIBXML_MAJOR_VERSION=2
-LIBXML_MINOR_VERSION=9
-LIBXML_MICRO_VERSION=4
+LIBXML_MAJOR_VERSION=MAJOR_VERSION
+LIBXML_MINOR_VERSION=MINOR_VERSION
+LIBXML_MICRO_VERSION=MICRO_VERSION
 LIBXML_MICRO_VERSION_SUFFIX=
 LIBXML_VERSION=$LIBXML_MAJOR_VERSION.$LIBXML_MINOR_VERSION.$LIBXML_MICRO_VERSION$LIBXML_MICRO_VERSION_SUFFIX
 LIBXML_VERSION_INFO=`expr $LIBXML_MAJOR_VERSION + $LIBXML_MINOR_VERSION`:$LIBXML_MICRO_VERSION:$LIBXML_MINOR_VERSION
 
 LIBXML_VERSION_NUMBER=`expr $LIBXML_MAJOR_VERSION \* 10000 + $LIBXML_MINOR_VERSION \* 100 + $LIBXML_MICRO_VERSION`
 
-if test -f CVS/Entries ; then
-  extra=`grep ChangeLog CVS/Entries | grep -v LIBXML | sed -e s\%/ChangeLog/1\.%% -e s\%/.*$%%`
-  echo extra=$extra
-  if test "$extra" != ""
-  then
-      LIBXML_VERSION_EXTRA="-CVS$extra"
-  fi
-else if test -d .svn ; then
-  extra=`svn info | grep Revision | sed 's+Revision: ++'`
-  echo extra=$extra
-  if test "$extra" != ""
-  then
-      LIBXML_VERSION_EXTRA="-SVN$extra"
-  fi
-else if test -d .git ; then
+if test -d .git ; then
   extra=`git describe 2>/dev/null | sed 's+LIBXML[[0-9.]]*-++'`
   echo extra=$extra
   if test "$extra" != ""
@@ -38,8 +29,7 @@ else if test -d .git ; then
       LIBXML_VERSION_EXTRA="-GIT$extra"
   fi
 fi
-fi
-fi
+
 AC_SUBST(LIBXML_MAJOR_VERSION)
 AC_SUBST(LIBXML_MINOR_VERSION)
 AC_SUBST(LIBXML_MICRO_VERSION)
@@ -50,7 +40,7 @@ AC_SUBST(LIBXML_VERSION_EXTRA)
 
 VERSION=${LIBXML_VERSION}
 
-AM_INIT_AUTOMAKE(libxml2, $VERSION)
+AM_INIT_AUTOMAKE([foreign])
 
 # Support silent build rules, requires at least automake-1.11. Disable
 # by either passing --disable-silent-rules to configure or passing V=1
@@ -128,13 +118,12 @@ AC_ARG_WITH(html,
 [  --with-html             add the HTML support (on)])
 dnl Specific dir for HTML output ?
 AC_ARG_WITH(html-dir, AS_HELP_STRING([--with-html-dir=path],
-            [path to base html directory, default $datadir/doc/html]),
-            [HTML_DIR=$withval], [HTML_DIR='$(datadir)/doc'])
+            [path to base html directory, default $docdir/html]),
+            [HTML_DIR=$withval], [HTML_DIR='$(docdir)/html'])
 
 AC_ARG_WITH(html-subdir, AS_HELP_STRING([--with-html-subdir=path],
-            [directory used under html-dir, default $PACKAGE-$VERSION/html]),
-            [test "x$withval" != "x" && HTML_DIR="$HTML_DIR/$withval"],
-            [HTML_DIR="$HTML_DIR/\$(PACKAGE)-\$(VERSION)/html"])
+            [directory used under html-dir, default '']),
+            [test "x$withval" != "x" && HTML_DIR="$HTML_DIR/$withval"])
 AC_SUBST(HTML_DIR)
 AC_ARG_WITH(http,
 [  --with-http             add the HTTP support (on)])
@@ -199,6 +188,8 @@ AC_ARG_WITH(xpath,
 [  --with-xpath            add the XPATH support (on)])
 AC_ARG_WITH(xptr,
 [  --with-xptr             add the XPointer support (on)])
+AC_ARG_WITH(xptr-locs,
+[  --with-xptr-locs        add support for XPointer locations (off)])
 AC_ARG_WITH(modules,
 [  --with-modules          add the dynamic modules support (on)])
 AC_ARG_WITH(zlib,
@@ -228,7 +219,7 @@ fi
 AM_CONDITIONAL([REBUILD_DOCS], [test "$enable_rebuild_docs" = "yes" -o "$USER" = "veillard"])
 
 dnl
-dnl hard dependancies on options
+dnl hard dependencies on options
 dnl
 if test "$with_schemas" = "yes"
 then
@@ -244,6 +235,10 @@ fi
 if test "$with_reader" = "yes"
 then
     with_push=yes
+fi
+if test "$with_xptr_locs" = "yes"
+then
+    with_xptr=yes
 fi
 if test "$with_xptr" = "yes"
 then
@@ -404,18 +399,20 @@ dnl Checks for zlib library.
 
 WITH_ZLIB=0
 if test "$with_zlib" = "no"; then
-    echo "Disabling compression support"
+    echo "Disabling zlib compression support"
 else
-    # Try pkg-config first so that static linking works.
-    # If this succeeeds, we ignore the WITH_ZLIB directory.
-    PKG_CHECK_MODULES([Z],[zlib],
-        [have_libz=yes],
-        [have_libz=no])
+    # Don't run pkg-config if with_zlib contains a path.
+    if test "x$Z_DIR" = "x"; then
+        # Try pkg-config first so that static linking works.
+        PKG_CHECK_MODULES([Z],[zlib],
+            [WITH_ZLIB=1],
+            [:])
+    fi
 
-     if test "x$have_libz" = "xno"; then
+    if test "$WITH_ZLIB" = "0"; then
         AC_CHECK_HEADERS(zlib.h,
             AC_CHECK_LIB(z, gzread,[
-                have_libz=yes
+                WITH_ZLIB=1
                 if test "x${Z_DIR}" != "x"; then
                     Z_CFLAGS="-I${Z_DIR}/include"
                     Z_LIBS="-L${Z_DIR}/lib -lz"
@@ -426,18 +423,8 @@ else
                     esac]
                 else
                     Z_LIBS="-lz"
-                fi],
-                [have_libz=no])
-             )
-    else
-	# we still need to check for zlib.h header
-	AC_CHECK_HEADERS([zlib.h])
-    fi
-
-    # Found the library via either method?
-    if test "x$have_libz" = "xyes"; then
-        AC_DEFINE([HAVE_LIBZ], [1], [Have compression library])
-        WITH_ZLIB=1
+                fi])
+            )
     fi
 fi
 
@@ -451,38 +438,30 @@ dnl Checks for lzma library.
 
 WITH_LZMA=0
 if test "$with_lzma" = "no"; then
-    echo "Disabling compression support"
+    echo "Disabling lzma compression support"
 else
-    # Try pkg-config first so that static linking works.
-    # If this succeeeds, we ignore the WITH_LZMA directory.
-    PKG_CHECK_MODULES([LZMA],[liblzma],
-        [have_liblzma=yes],
-        [have_liblzma=no])
+    # Don't run pkg-config if with_lzma contains a path.
+    if test "x$LZMA_DIR" = "x"; then
+        # Try pkg-config first so that static linking works.
+        PKG_CHECK_MODULES([LZMA],[liblzma],
+            [WITH_LZMA=1],
+            [:])
+    fi
 
-     # If pkg-config failed, fall back to AC_CHECK_LIB. This
-     # will not pick up the necessary LIBS flags for liblzma's
-     # private dependencies, though, so static linking may fail.
-     if test "x$have_liblzma" = "xno"; then
-         AC_CHECK_HEADERS(lzma.h,
+    # If pkg-config failed, fall back to AC_CHECK_LIB. This
+    # will not pick up the necessary LIBS flags for liblzma's
+    # private dependencies, though, so static linking may fail.
+    if test "$WITH_LZMA" = "0"; then
+        AC_CHECK_HEADERS(lzma.h,
             AC_CHECK_LIB(lzma, lzma_code,[
-                have_liblzma=yes
+                WITH_LZMA=1
                 if test "x${LZMA_DIR}" != "x"; then
                     LZMA_CFLAGS="-I${LZMA_DIR}/include"
                     LZMA_LIBS="-L${LZMA_DIR}/lib -llzma"
                 else
                     LZMA_LIBS="-llzma"
-                fi],
-                [have_liblzma=no])
-	     )
-    else
-	# we still need to check for lzma,h header
-	AC_CHECK_HEADERS([lzma.h])
-    fi
-
-    # Found the library via either method?
-    if test "x$have_liblzma" = "xyes"; then
-        AC_DEFINE([HAVE_LIBLZMA], [1], [Have compression library])
-        WITH_LZMA=1
+                fi])
+            )
     fi
 fi
 
@@ -501,7 +480,6 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h])
 AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_HEADERS([ctype.h])
-AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_HEADERS([errno.h])
 AC_CHECK_HEADERS([malloc.h])
 AC_CHECK_HEADERS([stdarg.h])
@@ -510,12 +488,8 @@ AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([stdint.h])
 AC_CHECK_HEADERS([inttypes.h])
 AC_CHECK_HEADERS([time.h])
-AC_CHECK_HEADERS([ansidecl.h])
-AC_CHECK_HEADERS([ieeefp.h])
-AC_CHECK_HEADERS([nan.h])
 AC_CHECK_HEADERS([math.h])
 AC_CHECK_HEADERS([limits.h])
-AC_CHECK_HEADERS([fp_class.h])
 AC_CHECK_HEADERS([float.h])
 AC_CHECK_HEADERS([stdlib.h])
 AC_CHECK_HEADERS([sys/socket.h], [], [],
@@ -572,10 +546,8 @@ echo Checking libraries
 
 dnl Checks for library functions.
 AC_FUNC_STRFTIME
-AC_CHECK_FUNCS(strdup strndup strerror)
-AC_CHECK_FUNCS(finite isnand fp_class class fpclass)
 AC_CHECK_FUNCS(strftime localtime gettimeofday ftime)
-AC_CHECK_FUNCS(stat _stat signal)
+AC_CHECK_FUNCS(stat signal)
 AC_CHECK_FUNCS(rand rand_r srand time)
 AC_CHECK_FUNCS(isascii mmap munmap putenv)
 
@@ -678,6 +650,17 @@ else
       [Type cast for the send() function 2nd arg])
 fi
 
+dnl Checking whether __attribute__((destructor)) is accepted by the compiler
+AC_MSG_CHECKING([whether __attribute__((destructor)) is accepted])
+AC_TRY_COMPILE2([
+void __attribute__((destructor))
+f(void) {}], [], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE([HAVE_ATTRIBUTE_DESTRUCTOR], [1],[Define if __attribute__((destructor)) is accepted])
+  AC_DEFINE([ATTRIBUTE_DESTRUCTOR], [__attribute__((destructor))],[A form that will not confuse apibuild.py])],[
+  AC_MSG_RESULT(no)])
+
+
 dnl ***********************Checking for availability of IPv6*******************
 
 AC_MSG_CHECKING([whether to enable IPv6])
@@ -762,13 +745,6 @@ fi
 
 dnl ******************************End IPv6 checks******************************
 
-dnl Checks for isnan in libm if not in libc
-AC_CHECK_FUNC(isnan, AC_DEFINE([HAVE_ISNAN],[], [Define if isnan is there]) , AC_CHECK_LIB(m, isnan,
-  [AC_DEFINE([HAVE_ISNAN],[], [Define if isnan is there])]))
-
-AC_CHECK_FUNC(isinf, AC_DEFINE([HAVE_ISINF], [], [Define if isinf is there]) , AC_CHECK_LIB(m, isinf,
-  [AC_DEFINE([HAVE_ISINF], [], [Define if isinf is there])]))
-
 XML_LIBDIR='-L${libdir}'
 XML_INCLUDEDIR='-I${includedir}/libxml2'
 
@@ -786,13 +762,13 @@ dnl
 if test "${GCC}" != "yes" ; then
     case "${host}" in
           hppa*-*-hpux* )
-	       CFLAGS="${CFLAGS} -Wp,-H30000"
+	       EXTRA_CFLAGS="${EXTRA_CFLAGS} -Wp,-H30000"
 	       ;;
           *-dec-osf* )
-               CFLAGS="${CFLAGS} -ieee"
+               EXTRA_CFLAGS="${EXTRA_CFLAGS} -ieee"
                ;;
 	  alpha*-*-linux* )
-	       CFLAGS="${CFLAGS} -ieee"
+	       EXTRA_CFLAGS="${EXTRA_CFLAGS} -ieee"
 	       ;;
     esac
 else
@@ -802,19 +778,19 @@ else
 	# Not activated by default because this inflates the code size
 	# Used to allow propagation of C++ exceptions through the library
 	#
-	CFLAGS="${CFLAGS} -fexceptions"
+	EXTRA_CFLAGS="${EXTRA_CFLAGS} -fexceptions"
     fi
 
     # warnings we'd like to see
-    CFLAGS="${CFLAGS} -pedantic -W -Wformat -Wno-format-extra-args -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline -Wredundant-decls"
-    # warnings we'd like to supress
-    CFLAGS="${CFLAGS} -Wno-long-long"
+    EXTRA_CFLAGS="${EXTRA_CFLAGS} -pedantic -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline -Wredundant-decls"
+    # warnings we'd like to suppress
+    EXTRA_CFLAGS="${EXTRA_CFLAGS} -Wno-long-long -Wno-format-extra-args"
     case "${host}" in
           alpha*-*-linux* )
-	       CFLAGS="${CFLAGS} -mieee"
+	       EXTRA_CFLAGS="${EXTRA_CFLAGS} -mieee"
 	       ;;
 	  alpha*-*-osf* )
-	       CFLAGS="${CFLAGS} -mieee"
+	       EXTRA_CFLAGS="${EXTRA_CFLAGS} -mieee"
 	       ;;
     esac
 fi
@@ -827,13 +803,13 @@ case ${host} in
 	;;
     *-*-mingw* | *-*-cygwin* | *-*-msvc* )
         # If the host is Windows, and shared libraries are disabled, we
-        # need to add -DLIBXML_STATIC to CFLAGS in order for linking to
+        # need to add -DLIBXML_STATIC to EXTRA_CFLAGS in order for linking to
         # work properly (without it, xmlexports.h would force the use of
         # DLL imports, which obviously aren't present in a static
         # library).
         if test "x$enable_shared" = "xno"; then
             XML_CFLAGS="$XML_CFLAGS -DLIBXML_STATIC"
-            CFLAGS="$CFLAGS -DLIBXML_STATIC"
+            EXTRA_CFLAGS="$EXTRA_CFLAGS -DLIBXML_STATIC"
         fi
         ;;
 esac
@@ -982,7 +958,7 @@ if test "$with_python" != "no" ; then
 	    then
 		PYTHON_SITE_PACKAGES=$with_python/lib/site-packages
 	    else
-		PYTHON_SITE_PACKAGES=`$PYTHON -c "from distutils import sysconfig; print(sysconfig.get_python_lib())"`
+		PYTHON_SITE_PACKAGES=$($PYTHON -c 'from distutils import sysconfig; print(sysconfig.get_python_lib(True,False,"${exec_prefix}"))')
 	    fi
 	fi
     fi
@@ -1086,7 +1062,7 @@ if [[ "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XML" ]] || \
 	fi
     fi
     if test "${GCC}" = "yes" ; then
-    CFLAGS="-g -O -pedantic -W -Wformat -Wno-format-extra-args -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline -Wredundant-decls -Wall"
+    EXTRA_CFLAGS="-g -O -pedantic -W -Wformat -Wno-format-extra-args -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline -Wredundant-decls -Wall"
     fi
     STATIC_BINARIES="-static"
 dnl -Wcast-qual -ansi
@@ -1129,9 +1105,9 @@ if test "$with_threads" = "no" ; then
 else
     echo Enabling multithreaded support
 
-    dnl Default to native threads on Win32
+    dnl Default to native threads on Windows
     case $host_os in
-       *mingw32*) if test "$with_threads" != "pthread" && test "$with_threads" != "no"; then
+       *mingw*) if test "$with_threads" != "pthread" && test "$with_threads" != "no"; then
                WITH_THREADS="1"
                THREADS_W32="1"
                THREAD_CFLAGS="$THREAD_CFLAGS -DHAVE_WIN32_THREADS"
@@ -1145,7 +1121,6 @@ else
             AC_CHECK_HEADER(pthread.h,
                 AC_CHECK_LIB(pthread, pthread_join,[
                 THREAD_LIBS="-lpthread"
-                AC_DEFINE([HAVE_LIBPTHREAD], [], [Define if pthread library is there (-lpthread)])
                 AC_DEFINE([HAVE_PTHREAD_H], [], [Define if <pthread.h> is there])
                 WITH_THREADS="1"]))
         fi
@@ -1396,6 +1371,7 @@ AC_SUBST(DOCB_OBJ)
 if test "$with_xptr" = "no" ; then
     echo Disabling XPointer support
     WITH_XPTR=0
+    WITH_XPTR_LOCS=0
     XPTR_OBJ=
     TEST_XPTR=
 else    
@@ -1406,8 +1382,14 @@ else
         echo XPointer requires XPath support - enabling it
 	with_xpath=yes
     fi
+    if test "$with_xptr_locs" = "yes" ; then
+        WITH_XPTR_LOCS=1
+    else
+        WITH_XPTR_LOCS=0
+    fi
 fi
 AC_SUBST(WITH_XPTR)
+AC_SUBST(WITH_XPTR_LOCS)
 AC_SUBST(XPTR_OBJ)
 AC_SUBST(TEST_XPTR)
 
@@ -1601,8 +1583,8 @@ else
 
             AC_CHECK_HEADER(unicode/ucnv.h,
             AC_MSG_CHECKING(for icu)
-            AC_TRY_LINK([#include <unicode/ucnv.h>],[
-        UConverter *utf = ucnv_open("UTF-8", NULL);],[
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <unicode/ucnv.h>]], [[
+        UConverter *utf = ucnv_open("UTF-8", NULL);]])],[
                 AC_MSG_RESULT(yes)
                 have_libicu=yes],[
                 AC_MSG_RESULT(no)
@@ -1613,8 +1595,8 @@ else
                 LDFLAGS="${LDFLAGS} ${ICU_LIBS}"
                 LIBS="${LIBS} -licucore"
 
-                AC_TRY_LINK([#include <unicode/ucnv.h>],[
-        UConverter *utf = ucnv_open("UTF-8", NULL);],[
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <unicode/ucnv.h>]], [[
+        UConverter *utf = ucnv_open("UTF-8", NULL);]])],[
                     AC_MSG_RESULT(yes)
                     have_libicu=yes
                     ICU_LIBS="${ICU_LIBS} -licucore"
@@ -1631,7 +1613,8 @@ else
         WITH_ICU=1
     fi
 fi
-XML_LIBS="-lxml2 $Z_LIBS $LZMA_LIBS $THREAD_LIBS $ICONV_LIBS $ICU_LIBS $M_LIBS $LIBS"
+XML_LIBS="-lxml2"
+XML_PRIVATE_LIBS="$Z_LIBS $LZMA_LIBS $THREAD_LIBS $ICONV_LIBS $ICU_LIBS $M_LIBS $LIBS"
 XML_LIBTOOLLIBS="libxml2.la"
 AC_SUBST(WITH_ICU)
 
@@ -1716,10 +1699,16 @@ case "$host" in
  CPPFLAGS="$CPPFLAGS -DWIN32"
  WIN32_EXTRA_LIBADD="-lws2_32"
  WIN32_EXTRA_LDFLAGS="-no-undefined"
- AC_DEFINE([_WINSOCKAPI_],1,[Using the Win32 Socket implementation])
  if test "${PYTHON}" != ""
  then
-   WIN32_EXTRA_PYTHON_LIBADD="-L${pythondir}/../../libs -lpython$(echo ${PYTHON_VERSION} | tr -d .)"
+   case "$host" in
+     *-w64-mingw*)
+       WIN32_EXTRA_PYTHON_LIBADD="-shrext .pyd -L${pythondir}/../../lib -lpython${PYTHON_VERSION}"
+       ;;
+     *)
+       WIN32_EXTRA_PYTHON_LIBADD="-L${pythondir}/../../libs -lpython$(echo ${PYTHON_VERSION} | tr -d .)"
+       ;;
+   esac
  fi
  ;;
  *-*-cygwin*)
@@ -1746,7 +1735,7 @@ dnl  http://sourceforge.net/project/shownotes.php?release_id=24832
 dnl
 dnl Also *win32*config.h files redefine them for various MSC compilers.
 dnl
-dnl So do not redefine {v}snprintf to _{v}snprintf like follwing:
+dnl So do not redefine {v}snprintf to _{v}snprintf like following:
 dnl  AC_DEFINE([snprintf],[_snprintf],[Win32 Std C name mangling work-around])
 dnl  AC_DEFINE([vsnprintf],[_vsnprintf],[Win32 Std C name mangling work-around])
 dnl and do not redefine those functions is C-source files.
@@ -1757,26 +1746,25 @@ AC_CHECK_FUNCS(printf sprintf fprintf snprintf vfprintf vsprintf vsnprintf sscan
 if test "$with_coverage" = "yes" -a "${GCC}" = "yes"
 then
     echo Enabling code coverage for GCC
-    CFLAGS="$CFLAGS -fprofile-arcs -ftest-coverage"
+    EXTRA_CFLAGS="$EXTRA_CFLAGS -fprofile-arcs -ftest-coverage"
     LDFLAGS="$LDFLAGS -fprofile-arcs -ftest-coverage"
 else
     echo Disabling code coverage for GCC
 fi
 
 AC_SUBST(CPPFLAGS)
-AC_SUBST(CFLAGS)
+AC_SUBST(EXTRA_CFLAGS)
 AC_SUBST(LDFLAGS)
 AC_SUBST(XML_CFLAGS)
 
 AC_SUBST(XML_LIBDIR)
 AC_SUBST(XML_LIBS)
+AC_SUBST(XML_PRIVATE_LIBS)
 AC_SUBST(XML_LIBTOOLLIBS)
 AC_SUBST(ICONV_LIBS)
 AC_SUBST(ICU_LIBS)
 AC_SUBST(XML_INCLUDEDIR)
 AC_SUBST(HTML_DIR)
-AC_SUBST(HAVE_ISNAN)
-AC_SUBST(HAVE_ISINF)
 AC_SUBST(PYTHON)
 AC_SUBST(PYTHON_VERSION)
 AC_SUBST(PYTHON_INCLUDES)

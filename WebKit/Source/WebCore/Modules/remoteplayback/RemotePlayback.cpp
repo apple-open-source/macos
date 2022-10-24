@@ -33,6 +33,7 @@
 #include "EventNames.h"
 #include "HTMLMediaElement.h"
 #include "JSDOMPromiseDeferred.h"
+#include "JSNodeCustom.h"
 #include "Logging.h"
 #include "MediaElementSession.h"
 #include "MediaPlaybackTarget.h"
@@ -60,11 +61,9 @@ RemotePlayback::~RemotePlayback()
 {
 }
 
-void* RemotePlayback::opaqueRootConcurrently() const
+WebCoreOpaqueRoot RemotePlayback::opaqueRootConcurrently() const
 {
-    if (auto* element = m_mediaElement.get())
-        return element->opaqueRoot();
-    return nullptr;
+    return root(m_mediaElement.get());
 }
 
 Node* RemotePlayback::ownerNode() const
@@ -409,13 +408,7 @@ void RemotePlayback::availabilityChanged(bool available)
             return;
 
         // Protect m_callbackMap against mutation while it's being iterated over.
-        Vector<Ref<RemotePlaybackAvailabilityCallback>> callbacks;
-        callbacks.reserveInitialCapacity(m_callbackMap.size());
-
-        // Can't use copyValuesToVector() here because Ref<> has a deleted assignment operator.
-        for (auto& callback : m_callbackMap.values())
-            callbacks.uncheckedAppend(callback.copyRef());
-        for (auto& callback : callbacks)
+        for (auto& callback : copyToVector(m_callbackMap.values()))
             callback->handleEvent(available);
     });
 }

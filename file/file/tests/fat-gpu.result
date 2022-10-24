@@ -1,0 +1,2 @@
+GPU Mach-O universal binary with 1 architecture: [applegpu_g10p:Mach-O GPU executable applegpu_g10p]
+../tests/fat-gpu.testfile (for architecture applegpu_g10p):	Mach-O GPU executable applegpu_g10p

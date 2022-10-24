@@ -282,9 +282,9 @@ bool PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint(
     }
     
     RELEASE_ASSERT_NOT_REACHED();
-    return false;
 }
 
+IGNORE_RETURN_TYPE_WARNINGS_BEGIN
 static ALWAYS_INLINE Concurrency watchabilityToConcurrency(PropertyCondition::WatchabilityEffort effort)
 {
     switch (effort) {
@@ -294,6 +294,7 @@ static ALWAYS_INLINE Concurrency watchabilityToConcurrency(PropertyCondition::Wa
         return Concurrency::ConcurrentThread;
     }
 }
+IGNORE_RETURN_TYPE_WARNINGS_END
 
 bool PropertyCondition::validityRequiresImpurePropertyWatchpoint(Structure* structure) const
 {
@@ -312,7 +313,6 @@ bool PropertyCondition::validityRequiresImpurePropertyWatchpoint(Structure* stru
     }
     
     RELEASE_ASSERT_NOT_REACHED();
-    return false;
 }
 
 bool PropertyCondition::isStillValid(Concurrency concurrency, Structure* structure, JSObject* base) const
@@ -418,26 +418,26 @@ void PropertyCondition::validateReferences(const TrackedReferences& tracked) con
         tracked.check(requiredValue());
 }
 
-bool PropertyCondition::isValidValueForAttributes(VM& vm, JSValue value, unsigned attributes)
+bool PropertyCondition::isValidValueForAttributes(JSValue value, unsigned attributes)
 {
     if (!value)
         return false;
     bool attributesClaimAccessor = !!(attributes & PropertyAttribute::Accessor);
-    bool valueClaimsAccessor = !!jsDynamicCast<GetterSetter*>(vm, value);
+    bool valueClaimsAccessor = !!jsDynamicCast<GetterSetter*>(value);
     return attributesClaimAccessor == valueClaimsAccessor;
 }
 
-bool PropertyCondition::isValidValueForPresence(VM& vm, JSValue value) const
+bool PropertyCondition::isValidValueForPresence(JSValue value) const
 {
-    return isValidValueForAttributes(vm, value, attributes());
+    return isValidValueForAttributes(value, attributes());
 }
 
-PropertyCondition PropertyCondition::attemptToMakeEquivalenceWithoutBarrier(VM& vm, JSObject* base) const
+PropertyCondition PropertyCondition::attemptToMakeEquivalenceWithoutBarrier(JSObject* base) const
 {
-    Structure* structure = base->structure(vm);
+    Structure* structure = base->structure();
 
     JSValue value = base->getDirectConcurrently(structure, offset());
-    if (!isValidValueForPresence(vm, value))
+    if (!isValidValueForPresence(value))
         return PropertyCondition();
     return equivalenceWithoutBarrier(uid(), value);
 }

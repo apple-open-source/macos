@@ -4,13 +4,15 @@
 test_file=""
 use_current_dir=0
 verbose=0
+bats=0
 
-while getopts "h?cvt:" opt; do
+while getopts "h?cvt:b" opt; do
 		case "$opt" in
 		h|\?)
 				echo "$0: [-c] [-t <testfile>]"
 				echo "   -c : run from current directory"
 				echo "   -t <file> : run the specified testfile (without the .sh)"
+				echo "   -b : post-process output for BATS"
 				exit 0
 				;;
 		c)
@@ -22,6 +24,9 @@ while getopts "h?cvt:" opt; do
 		t)
 				test_file=$OPTARG
 				;;
+		b)
+				bats=1
+				;;
 		esac
 done
 
@@ -30,7 +35,7 @@ shift $((OPTIND-1))
 [ "$1" = "--" ] && shift
 
 if [ ${verbose} -ne 0 ]; then
-		echo "verbose=$verbose, use_current_dir=$use_current_dir, test_file='$test_file', Leftovers: $@"
+		echo "verbose=$verbose, use_current_dir=$use_current_dir, test_file='$test_file', bats=$bats, Leftovers: $@"
 		exit 0
 fi
 
@@ -69,7 +74,21 @@ umask 022
 trap "${SUDO} chmod g+w /private/var/run" EXIT SIGQUIT SIGTERM
 ${SUDO} chmod g-w /private/var/run
 if [ "x${test_file}" == "x" ] ; then
-		make .CURDIR=${OBJ} .OBJDIR=${OBJ}
+		# reexec is flaky, with syspolicyd blocking the exec when
+		# it fails to inspect the unlinked executable image on disk.
+		export SKIP_LTESTS="reexec"
+		if [ -n "${SKIP_LTESTS}" ]; then
+			echo "Warning: Will skip tests: ${SKIP_LTESTS}"
+		fi
+
+		if [ ${bats} -eq 0 ] ; then
+			make .CURDIR=${OBJ} .OBJDIR=${OBJ}
+		else
+			# Convert output to CoreOS test tokens.
+			# Make will still abort after the first failed test though.
+			make .CURDIR=${OBJ} .OBJDIR=${OBJ} 2>&1 \
+			| awk '{body=body $0 "\n"} /^run / {script=$3; body=""; print "[TEST]", script} /^ok |^failed / {test=script substr($0,length($1)+1); if($1=="ok") {res="[PASS]"} else {res="[FAIL]"}; print "[BEGIN]", test "\n" body res, test ; body=""}'
+		fi
 else
 		export TEST_SSH_TRACE=yes
 		export TEST_SSH_QUIET=no

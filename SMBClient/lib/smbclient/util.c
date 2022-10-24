@@ -177,9 +177,8 @@ SMBConvertFromUTF16ToUTF8(const uint16_t *utf16str, size_t maxLen, uint64_t opti
 uint16_t *
 SMBConvertFromUTF8ToUTF16(const char *utf8str, size_t maxLen, uint64_t options)
 {
-#pragma unused(maxLen, options)
-	/* XXX - TBD Currently we ignore the length field and options */
-	return convert_utf8_to_leunicode(utf8str);
+#pragma unused(options)
+	return convert_utf8_to_leunicode(utf8str, maxLen);
 	
 }
 

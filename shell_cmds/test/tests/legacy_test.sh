@@ -2,7 +2,7 @@
 
 #-
 # Copyright (c) June 1996 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
-# All rights reserved. 
+# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,10 +30,12 @@
 #
 # $FreeBSD$
 
+#ifdef __APPLE__
 enable -n test
+#endif
 
 # force a specified test program, e.g. `env test=/bin/test sh regress.sh'
-: ${test=test}		
+: ${test=test}
 
 t ()
 {
@@ -41,33 +43,43 @@ t ()
 	# $2 -> $test expression
 
 	count=$((count+1))
+#ifdef __APPLE__
 	printf "[BEGIN] test $count\n"
+#endif
 	# check for syntax errors
 	syntax="`eval $test $2 2>&1`"
 	ret=$?
 	if test -n "$syntax"; then
 		printf "not ok %s - (syntax error)\n" "$count $2"
+#ifdef __APPLE__
 		printf "[FAIL] test $count\n"
+#endif
 	elif [ "$ret" != "$1" ]; then
 		printf "not ok %s - (got $ret, expected $1)\n" "$count $2"
+#ifdef __APPLE__
 		printf "[FAIL] test $count\n"
+#endif
 	else
 		printf "ok %s\n" "$count $2"
+#ifdef __APPLE__
 		printf "[PASS] test $count\n"
+#endif
 	fi
 }
 
 count=0
 echo "1..130"
+#ifdef __APPLE__
 printf "[TEST] shell_cmds: test\n"
+#endif
 
-t 0 'b = b' 
-t 0 'b == b' 
-t 1 'b != b' 
-t 0 '\( b = b \)' 
-t 0 '\( b == b \)' 
-t 1 '! \( b = b \)' 
-t 1 '! \( b == b \)' 
+t 0 'b = b'
+t 0 'b == b'
+t 1 'b != b'
+t 0 '\( b = b \)'
+t 0 '\( b == b \)'
+t 1 '! \( b = b \)'
+t 1 '! \( b == b \)'
 t 1 '! -f /etc/passwd'
 
 t 0 '-h = -h'

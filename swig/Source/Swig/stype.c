@@ -175,7 +175,7 @@ void SwigType_push(SwigType *t, String *cons) {
 
 int SwigType_ispointer_return(SwigType *t) {
   char *c;
-  int idx;
+  size_t idx;
   if (!t)
     return 0;
   c = Char(t);
@@ -188,7 +188,7 @@ int SwigType_ispointer_return(SwigType *t) {
 
 int SwigType_isreference_return(SwigType *t) {
   char *c;
-  int idx;
+  size_t idx;
   if (!t)
     return 0;
   c = Char(t);
@@ -505,7 +505,7 @@ String *SwigType_namestr(const SwigType *t) {
   if (!c || !strstr(c + 2, ")>"))
     return NewString(t);
 
-  r = NewStringWithSize(d, c - d);
+  r = NewStringWithSize(d, (int) (c - d));
   if (*(c - 1) == '<')
     Putc(' ', r);
   Putc('<', r);

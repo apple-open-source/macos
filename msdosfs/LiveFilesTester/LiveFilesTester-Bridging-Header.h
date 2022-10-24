@@ -9,12 +9,8 @@
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 
-#if TARGET_OS_IPHONE
 #include <UserFS/UserVFS.h>
-#else
-#include "UserVFS.h"
-#include "UserVFS_types.h"
-#endif
+#include <UserFS/UserVFS_types.h>
 #include <errno.h>
 
 #define SUCCESS 0
@@ -66,8 +62,8 @@ int brdg_fsops_create(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char 
 int brdg_fsops_mkdir(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, const UVFSFileAttributes *attrs, UVFSFileNode *outNode);
 int brdg_fsops_symlink(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, const char *contents, const UVFSFileAttributes *attrs, UVFSFileNode *outNode);
 int brdg_fsops_hardlink(UVFSFSOps* testerFsOps, UVFSFileNode* fromNode, UVFSFileNode* dirNode, const char *name, UVFSFileAttributes* outFileAttrs, UVFSFileAttributes* outDirAttrs);
-int brdg_fsops_remove(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name);
-int brdg_fsops_rmdir(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name);
+int brdg_fsops_remove(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, UVFSFileNode victimNode);
+int brdg_fsops_rmdir(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, UVFSFileNode victimNode);
 int brdg_fsops_rename(UVFSFSOps* testerFsOps, UVFSFileNode* fromDirNode, UVFSFileNode fromNode, const char *fromName, UVFSFileNode* toDirNode, UVFSFileNode toNode, const char *toName, uint32_t flags);
 int brdg_fsops_sync(UVFSFSOps* testerFsOps, UVFSFileNode* node);
 int brdg_fsops_readdir(UVFSFSOps* testerFsOps, UVFSFileNode *dirNode, void *buf, size_t buflen, uint64_t cookie, size_t *bytes_read,  uint64_t *verifier);

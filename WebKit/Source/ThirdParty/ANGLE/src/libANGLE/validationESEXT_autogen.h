@@ -836,6 +836,8 @@ bool ValidateGetQueryObjectui64vRobustANGLE(const Context *context,
                                             const GLsizei *length,
                                             const GLuint64 *params);
 
+// GL_ANGLE_robust_resource_initialization
+
 // GL_ANGLE_semaphore_fuchsia
 bool ValidateImportSemaphoreZirconHandleANGLE(const Context *context,
                                               angle::EntryPoint entryPoint,
@@ -976,6 +978,32 @@ bool ValidateEGLImageTargetTextureStorageEXT(const Context *context,
                                              const GLint *attrib_list);
 
 // GL_EXT_YUV_target
+
+// GL_EXT_base_instance
+bool ValidateDrawArraysInstancedBaseInstanceEXT(const Context *context,
+                                                angle::EntryPoint entryPoint,
+                                                PrimitiveMode modePacked,
+                                                GLint first,
+                                                GLsizei count,
+                                                GLsizei instancecount,
+                                                GLuint baseinstance);
+bool ValidateDrawElementsInstancedBaseInstanceEXT(const Context *context,
+                                                  angle::EntryPoint entryPoint,
+                                                  PrimitiveMode modePacked,
+                                                  GLsizei count,
+                                                  DrawElementsType typePacked,
+                                                  const void *indices,
+                                                  GLsizei instancecount,
+                                                  GLuint baseinstance);
+bool ValidateDrawElementsInstancedBaseVertexBaseInstanceEXT(const Context *context,
+                                                            angle::EntryPoint entryPoint,
+                                                            PrimitiveMode modePacked,
+                                                            GLsizei count,
+                                                            DrawElementsType typePacked,
+                                                            const void *indices,
+                                                            GLsizei instancecount,
+                                                            GLint basevertex,
+                                                            GLuint baseinstance);
 
 // GL_EXT_blend_func_extended
 bool ValidateBindFragDataLocationEXT(const Context *context,
@@ -2016,6 +2044,8 @@ bool ValidateBlitFramebufferNV(const Context *context,
 
 // GL_NV_read_depth
 
+// GL_NV_read_depth_stencil
+
 // GL_NV_read_stencil
 
 // GL_NV_robustness_video_memory_purge
@@ -2580,6 +2610,9 @@ bool ValidateFramebufferTextureMultiviewOVR(const Context *context,
                                             GLsizei numViews);
 
 // GL_OVR_multiview2
+
+// GL_QCOM_shading_rate
+bool ValidateShadingRateQCOM(const Context *context, angle::EntryPoint entryPoint, GLenum rate);
 }  // namespace gl
 
 #endif  // LIBANGLE_VALIDATION_ESEXT_AUTOGEN_H_

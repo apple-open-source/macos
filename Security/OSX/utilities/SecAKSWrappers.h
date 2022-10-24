@@ -81,23 +81,30 @@ bool hwaes_key_available(void);
 //
 
 enum {
-    user_keybag_handle = (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) ? device_keybag_handle : session_keybag_handle,
+    // WARNING: Do not use this from the system session. It will likely not do the right thing.
+    // Current uses are from SOS, CKP, CJR & LKA, none of which are used in the system session.
+    // For LKA, see also comment in SecItemServer.c
+#if TARGET_OS_OSX && TARGET_HAS_KEYSTORE
+    user_only_keybag_handle = session_keybag_handle,
+#else // either embedded os with keystore, or simulator
+    user_only_keybag_handle = device_keybag_handle,
+#endif
 };
 
 extern const char * const kUserKeybagStateChangeNotification;
 
-static inline bool SecAKSGetLockedState(keybag_state_t *state, CFErrorRef* error)
+static inline bool SecAKSGetLockedState(keybag_handle_t handle, keybag_state_t *state, CFErrorRef* error)
 {
-    kern_return_t status = aks_get_lock_state(user_keybag_handle, state);
+    kern_return_t status = aks_get_lock_state(handle, state);
 
     return SecKernError(status, error, CFSTR("aks_get_lock_state failed: %x"), status);
 }
 
 // returns true if any of the bits in bits is set in the current state of the user bag
-static inline bool SecAKSLockedAnyStateBitIsSet(bool* isSet, keybag_state_t bits, CFErrorRef* error)
+static inline bool SecAKSLockedAnyStateBitIsSet(keybag_handle_t handle, bool* isSet, keybag_state_t bits, CFErrorRef* error)
 {
     keybag_state_t state;
-    bool success = SecAKSGetLockedState(&state, error);
+    bool success = SecAKSGetLockedState(handle, &state, error);
     
     require_quiet(success, exit);
     
@@ -109,15 +116,15 @@ exit:
 
 }
 
-static inline bool SecAKSGetIsLocked(bool* isLocked, CFErrorRef* error)
+static inline bool SecAKSGetIsLocked(keybag_handle_t handle, bool* isLocked, CFErrorRef* error)
 {
-    return SecAKSLockedAnyStateBitIsSet(isLocked, keybag_state_locked, error);
+    return SecAKSLockedAnyStateBitIsSet(handle, isLocked, keybag_state_locked, error);
 }
 
-static inline bool SecAKSGetIsUnlocked(bool* isUnlocked, CFErrorRef* error)
+static inline bool SecAKSGetIsUnlocked(keybag_handle_t handle, bool* isUnlocked, CFErrorRef* error)
 {
     bool isLocked = false;
-    bool success = SecAKSGetIsLocked(&isLocked, error);
+    bool success = SecAKSGetIsLocked(handle, &isLocked, error);
 
     if (success && isUnlocked)
         *isUnlocked = !isLocked;
@@ -125,21 +132,21 @@ static inline bool SecAKSGetIsUnlocked(bool* isUnlocked, CFErrorRef* error)
     return success;
 }
 
-static inline bool SecAKSGetHasBeenUnlocked(bool* hasBeenUnlocked, CFErrorRef* error)
+static inline bool SecAKSGetHasBeenUnlocked(keybag_handle_t handle, bool* hasBeenUnlocked, CFErrorRef* error)
 {
-    return SecAKSLockedAnyStateBitIsSet(hasBeenUnlocked, keybag_state_been_unlocked, error);
+    return SecAKSLockedAnyStateBitIsSet(handle, hasBeenUnlocked, keybag_state_been_unlocked, error);
 }
 
-bool SecAKSDoWithUserBagLockAssertion(CFErrorRef *error, dispatch_block_t action);
+bool SecAKSDoWithKeybagLockAssertion(keybag_handle_t handle, CFErrorRef *error, dispatch_block_t action);
 
-//just like SecAKSDoWithUserBagLockAssertion, but always perform action regardless if we got the assertion or not
-bool SecAKSDoWithUserBagLockAssertionSoftly(dispatch_block_t action);
+//just like SecAKSDoWithKeybagLockAssertion, but always perform action regardless if we got the assertion or not
+bool SecAKSDoWithKeybagLockAssertionSoftly(keybag_handle_t handle, dispatch_block_t action);
 //
 // if you can't use the block version above, use these.
 // !!!!!Remember to balance them!!!!!!
 //
-bool SecAKSUserKeybagDropLockAssertion(CFErrorRef *error);
-bool SecAKSUserKeybagHoldLockAssertion(uint64_t timeout, CFErrorRef *error);
+bool SecAKSKeybagDropLockAssertion(keybag_handle_t handle, CFErrorRef *error);
+bool SecAKSKeybagHoldLockAssertion(keybag_handle_t handle, uint64_t timeout, CFErrorRef *error);
 
 
 CFDataRef SecAKSCopyBackupBagWithSecret(size_t size, uint8_t *secret, CFErrorRef *error);

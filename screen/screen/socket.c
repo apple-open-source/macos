@@ -358,7 +358,7 @@ char *match;
     }
   if (ndead && !quietflag)
     {
-      char *m = "Remove dead screens with 'screen -wipe'.";
+      const char * const m = "Remove dead screens with 'screen -wipe'.";
       if (wipeflag)
         Msg(0, "%d socket%s wiped out.", nwipe, nwipe > 1 ? "s" : "");
       else

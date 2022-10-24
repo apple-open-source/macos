@@ -44,6 +44,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/AtomStringHash.h>
+#include <wtf/text/TextStream.h>
 
 #if ENABLE(OPENTYPE_VERTICAL)
 #include "OpenTypeVerticalData.h"
@@ -151,7 +152,8 @@ void Font::platformGlyphInit()
     Glyph zeroGlyph = { 0 };
     if (auto* page = glyphPage(GlyphPage::pageNumberForCodePoint('0')))
         zeroGlyph = page->glyphDataForCharacter('0').glyph;
-    m_fontMetrics.setZeroWidth(widthForGlyph(zeroGlyph));
+    if (zeroGlyph)
+        m_fontMetrics.setZeroWidth(widthForGlyph(zeroGlyph));
 
     // Use the width of the CJK water ideogram (U+6C34) as the
     // approximated width of ideograms in the font, as mentioned in
@@ -164,15 +166,11 @@ void Font::platformGlyphInit()
     } else
         m_fontMetrics.setIdeogramWidth(platformData().size());
 
-    m_spaceWidth = widthForGlyph(m_spaceGlyph);
+    m_spaceWidth = widthForGlyph(m_spaceGlyph, SyntheticBoldInclusion::Exclude); // spaceWidth() handles adding in the synthetic bold.
     auto amountToAdjustLineGap = std::min(m_fontMetrics.floatLineGap(), 0.0f);
     m_fontMetrics.setLineGap(m_fontMetrics.floatLineGap() - amountToAdjustLineGap);
     m_fontMetrics.setLineSpacing(m_fontMetrics.floatLineSpacing() - amountToAdjustLineGap);
     determinePitch();
-    // Nasty hack to determine if we should round or ceil space widths.
-    // If the font is monospace or fake monospace we ceil to ensure that
-    // every character and the space are the same width. Otherwise we round.
-    m_adjustedSpaceWidth = m_treatAsFixedPitch ? ceilf(m_spaceWidth) : roundf(m_spaceWidth);
 }
 
 Font::~Font()
@@ -333,11 +331,11 @@ static void overrideControlCharacters(Vector<UChar>& buffer, unsigned start, uns
     };
 
     // Code points 0x0 - 0x20 and 0x7F - 0xA0 are control character and shouldn't render. Map them to ZERO WIDTH SPACE.
-    overwriteCodePoints(0x0, 0x20, zeroWidthSpace);
-    overwriteCodePoints(0x7F, 0xA0, zeroWidthSpace);
+    overwriteCodePoints(nullCharacter, space, zeroWidthSpace);
+    overwriteCodePoints(deleteCharacter, noBreakSpace, zeroWidthSpace);
     overwriteCodePoint(softHyphen, zeroWidthSpace);
-    overwriteCodePoint('\n', space);
-    overwriteCodePoint('\t', space);
+    overwriteCodePoint(newlineCharacter, space);
+    overwriteCodePoint(tabCharacter, space);
     overwriteCodePoint(noBreakSpace, space);
     overwriteCodePoint(leftToRightMark, zeroWidthSpace);
     overwriteCodePoint(rightToLeftMark, zeroWidthSpace);
@@ -526,7 +524,7 @@ bool Font::isProbablyOnlyUsedToRenderIcons() const
 String Font::description() const
 {
     if (origin() == Origin::Remote)
-        return "[custom font]";
+        return "[custom font]"_s;
 
     return platformData().description();
 }
@@ -562,13 +560,18 @@ struct CharacterFallbackMapKey {
     bool isForPlatformFont { false };
 };
 
+inline void add(Hasher& hasher, const CharacterFallbackMapKey& key)
+{
+    add(hasher, key.locale, key.character, key.isForPlatformFont);
+}
+
 inline bool operator==(const CharacterFallbackMapKey& a, const CharacterFallbackMapKey& b)
 {
     return a.locale == b.locale && a.character == b.character && a.isForPlatformFont == b.isForPlatformFont;
 }
 
 struct CharacterFallbackMapKeyHash {
-    static unsigned hash(const CharacterFallbackMapKey& key) { return computeHash(key.locale, key.character, key.isForPlatformFont); }
+    static unsigned hash(const CharacterFallbackMapKey& key) { return computeHash(key); }
     static bool equal(const CharacterFallbackMapKey& a, const CharacterFallbackMapKey& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
@@ -591,11 +594,12 @@ static SystemFallbackCache& systemFallbackCache()
 
 RefPtr<Font> Font::systemFallbackFontForCharacter(UChar32 character, const FontDescription& description, IsForPlatformFont isForPlatformFont) const
 {
+    // FIXME: https://github.com/w3c/csswg-drafts/issues/7449 This function should never return a web font.
     auto fontAddResult = systemFallbackCache().add(this, CharacterFallbackMap());
 
     if (!character) {
         UChar codeUnit = 0;
-        return FontCache::forCurrentThread().systemFallbackForCharacters(description, this, isForPlatformFont, FontCache::PreferColoredFont::No, &codeUnit, 1);
+        return FontCache::forCurrentThread().systemFallbackForCharacters(description, *this, isForPlatformFont, FontCache::PreferColoredFont::No, &codeUnit, 1);
     }
 
     auto key = CharacterFallbackMapKey { description.computedLocale(), character, isForPlatformFont != IsForPlatformFont::No };
@@ -610,7 +614,7 @@ RefPtr<Font> Font::systemFallbackFontForCharacter(UChar32 character, const FontD
             codeUnits[1] = U16_TRAIL(character);
             codeUnitsLength = 2;
         }
-        auto font = FontCache::forCurrentThread().systemFallbackForCharacters(description, this, isForPlatformFont, FontCache::PreferColoredFont::No, codeUnits, codeUnitsLength).get();
+        auto font = FontCache::forCurrentThread().systemFallbackForCharacters(description, *this, isForPlatformFont, FontCache::PreferColoredFont::No, codeUnits, codeUnitsLength).get();
         if (font)
             font->m_isUsedInSystemFallbackCache = true;
         return font;
@@ -636,7 +640,7 @@ void Font::removeFromSystemFallbackCache()
 }
 
 #if !PLATFORM(COCOA) && !USE(FREETYPE)
-bool Font::variantCapsSupportsCharacterForSynthesis(FontVariantCaps fontVariantCaps, UChar32) const
+bool Font::variantCapsSupportedForSynthesis(FontVariantCaps fontVariantCaps) const
 {
     switch (fontVariantCaps) {
     case FontVariantCaps::Small:
@@ -707,5 +711,13 @@ const Path& Font::pathForGlyph(Glyph glyph) const
     m_glyphPathMap.setMetricsForGlyph(glyph, path);
     return *m_glyphPathMap.existingMetricsForGlyph(glyph);
 }
+
+#if !LOG_DISABLED
+TextStream& operator<<(TextStream& ts, const Font& font)
+{
+    ts << font.description();
+    return ts;
+}
+#endif
 
 } // namespace WebCore

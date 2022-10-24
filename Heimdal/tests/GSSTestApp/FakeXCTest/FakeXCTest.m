@@ -23,6 +23,7 @@ FXCTPrintf(const char *fmt, ...)
     va_end(ap);
 }
 
+__attribute__((format(__NSString__, 6, 7)))
 void
 FakeXCFailureHandler(XCTestCase * __unused test, BOOL __unused expected, const char * filePath,
                      NSUInteger lineNumber, NSString * __unused condition, NSString * format, ...)

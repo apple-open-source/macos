@@ -2490,9 +2490,7 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 	space = 0;
     if ((kDeviceMapperActivate | kDeviceMapperUnpause) & options)
     {
-	//fSpace = space_create(kVPages, kBPagesLog2, kRPages);
-	//                      (1<<25)     18         1 << 20        
-		if (!mapper->fSpace) mapper->fSpace = space_create(kVPages, 0, 1);
+		if (!mapper->fSpace) mapper->fSpace = space_create(mapper->vsize, 0, 1);
 		space = mapper->fSpace;
 		if (!space) ret = kIOReturnNoMemory;
 	}
@@ -2565,7 +2563,17 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 							 || (0x92351b4b == vendorProduct)
 							 || (0x08300034 == vendorProduct));
 
+	// rdar://91139135: AppleVTD: limit non-AMD device mappers to 4GB DVA space
+	mapper->vsize = 1<<20;
+	if (0x1002 == (vendorProduct & 0xffff))
+	{
+		mapper->vsize = kVPages;
+	}
+
     mapper->initHardware(NULL);
+
+	//allocate the IO lock 
+	mapper->fAppleVTDforDeviceLock = IOLockAlloc();
 
     return (mapper);
 }
@@ -2600,13 +2608,19 @@ AppleVTDDeviceMapper::iovmMapMemory(
 			  uint64_t                    * mapAddress,
 			  uint64_t                    * mapLength)
 {
-    IOReturn ret;
+    IOReturn ret = kIOReturnSuccess;
 
+	IOLockLock(fAppleVTDforDeviceLock);
 	if (!fSpace)
 	{
-		ret = fVTD->deviceMapperActivate(this, kDeviceMapperActivate);
-		if (kIOReturnSuccess != ret) return (ret);
+        ret = fVTD->deviceMapperActivate(this, kDeviceMapperActivate);
 	}
+	IOLockUnlock(fAppleVTDforDeviceLock);
+	
+	if (kIOReturnSuccess != ret) {
+        return (ret);
+	}
+
     ret = fVTD->spaceMapMemory(fSpace, memory, descriptorOffset, length,
 				mapOptions, mapSpecification, dmaCommand, pageList, mapAddress, mapLength);
 

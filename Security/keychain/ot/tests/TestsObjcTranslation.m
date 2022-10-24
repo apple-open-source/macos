@@ -26,7 +26,7 @@ static const uint8_t signingKey_384[] = {
 };
 
 @implementation TestsObjectiveC : NSObject
-+ (void)setNewRecoveryKeyWithData:(OTConfigurationContext *)ctx
++ (void)setNewRecoveryKeyWithData:(OTConfigurationContext*)ctx
                       recoveryKey:(NSString*)recoveryKey
                             reply:(void(^)(void* rk,
                                            NSError* _Nullable error))reply
@@ -36,7 +36,7 @@ static const uint8_t signingKey_384[] = {
     }];
 }
 
-+ (void)recoverOctagonUsingData:(OTConfigurationContext *)ctx
++ (void)recoverOctagonUsingData:(OTConfigurationContext*)ctx
                     recoveryKey:(NSString*)recoveryKey
                           reply:(void(^)(NSError* _Nullable error))reply
 {
@@ -335,6 +335,55 @@ static const uint8_t signingKey_384[] = {
     setRowIDToErrorDictionary(rowIDToErrorDictionary);
 
     CFReleaseNull(rowID);
+}
+
+static int invocationCount = 0;
+
++ (int)getInvocationCount
+{
+    return invocationCount;
+}
+
++ (void)clearInvocationCount
+{
+    invocationCount = 0;
+}
+
++ (NSArray*)testAA_AppleAccountsWithInvalidationError:(NSError* __autoreleasing *)error
+{
+    invocationCount++;
+    if (error) {
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSXPCConnectionInterrupted description:@"test xpc connection interrupted error"];
+    }
+    return nil;
+}
+
++ (void)setACAccountStoreWithInvalidationError:(id<OTAccountsAdapter>)adapter
+{
+    id mockStore = OCMClassMock([ACAccountStore class]);
+    OCMStub([mockStore aa_appleAccountsWithError:[OCMArg anyObjectRef]]).andCall(self, @selector(testAA_AppleAccountsWithInvalidationError:));
+    [adapter setAccountStore:mockStore];
+}
+
++ (NSArray*)testAA_AppleAccountsWithRandomError:(NSError* __autoreleasing *)error
+{
+    invocationCount++;
+    if (error) {
+        *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoNetwork description:@"test random error"];
+    }
+    return nil;
+}
+
++ (void)setACAccountStoreWithRandomError:(id<OTAccountsAdapter>)adapter
+{
+    id mockStore = OCMClassMock([ACAccountStore class]);
+    OCMStub([mockStore aa_appleAccountsWithError:[OCMArg anyObjectRef]]).andCall(self, @selector(testAA_AppleAccountsWithRandomError:));
+    [adapter setAccountStore:mockStore];
+}
+
++ (BOOL)isPlatformHomepod
+{
+    return (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAudioAccessory);
 }
 
 @end

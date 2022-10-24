@@ -22,6 +22,8 @@
 #define    UnpackReportType(packedByte)    (((packedByte) & 0x0C) >> 2)
 #define    UnpackReportTag(packedByte)    (((packedByte) & 0xF0) >> 4)
 
+static void PrintAtIndentLevel(unsigned int level, const char * format, ...) __attribute__ ((format (printf, 2, 3)));
+
 enum
 {
     kReport_TypeMain            = 0,
@@ -86,7 +88,6 @@ enum
     kIO_NonVolatile_or_Volatile            = 0x0080,        // reserved for Input
     kIO_BitField_or_BufferedBytes        = 0x0100
 };
-
 
 static void PrintAtIndentLevel(unsigned int level, const char * format, ...)
 {

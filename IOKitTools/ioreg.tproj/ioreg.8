@@ -24,7 +24,7 @@
 .Nd show I/O Kit registry
 .Sh SYNOPSIS
 .Nm
-.Op Fl abfilrtx
+.Op Fl abfilrtxy
 .Op Fl c Ar class
 .Op Fl d Ar depth
 .Op Fl k Ar key
@@ -129,4 +129,7 @@ Clip the output to the specified line
 The default width value is the current screen size.  A value of 0 specifies an unlimited line width.
 .It Fl x
 Show data and numbers as hexadecimal.
+.El
+.It Fl y
+Do not consider DriverKit classes with -c.
 .El

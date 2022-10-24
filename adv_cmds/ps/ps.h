@@ -36,11 +36,21 @@
 
 #include <sys/queue.h>
 
+#ifdef __APPLE__
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach/policy.h>
 #include <mach/task_info.h>
 #include <mach/thread_info.h>
+
+#include <TargetConditionals.h>
+
+#if !defined(PS_ENTITLED) && TARGET_OS_OSX
+#define	PS_ENTITLEMENT_ENFORCED	1
+#else
+#define	PS_ENTITLEMENT_ENFORCED 0
+#endif /* !PS_ENTITLED && TARGET_OS_OSX */
+#endif /* __APPLE__ */
 
 #define	UNLIMITED	0	/* unlimited terminal width */
 enum type { CHAR, UCHAR, SHORT, USHORT, INT, UINT, LONG, ULONG, KPTR, PGTOK };
@@ -108,6 +118,9 @@ typedef struct var {
 #define	USER	0x04		/* needs user structure */
 #define	DSIZ	0x08		/* field size is dynamic*/
 #define	INF127	0x10		/* values >127 displayed as 127 */
+#ifdef __APPLE__
+#define	ENTITLED	0x80000000	/* Needs entitlements */
+#endif
 	u_int	flag;
 				/* output routine */
 	void	(*oproc)(struct kinfo *, struct varent *);

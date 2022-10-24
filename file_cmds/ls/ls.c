@@ -110,7 +110,7 @@ __FBSDID("$FreeBSD$");
 	} while(0)
 
 static void	 display(const FTSENT *, FTSENT *, int);
-static int	 mastercmp(const FTSENT * const *, const FTSENT * const *);
+static int	 mastercmp(const FTSENT **, const FTSENT **);
 static void	 traverse(int, char **, int);
 
 #define	COLOR_OPT	(CHAR_MAX + 1)
@@ -709,6 +709,10 @@ main(int argc, char *argv[])
 		traverse(argc, argv, fts_options);
 	else
 		traverse(1, dotav, fts_options);
+#ifdef __APPLE__
+	if (rval == 0 && (ferror(stdout) != 0 || fflush(stdout) != 0))
+		err(1, "stdout");
+#endif
 	exit(rval);
 }
 
@@ -753,7 +757,7 @@ traverse(int argc, char *argv[], int options)
 #endif
 	    options & FTS_NOSTAT ? FTS_NAMEONLY : 0;
 
-	while (errno = 0, (p = fts_read(ftsp)) != NULL)
+	while ((void)(errno = 0), (p = fts_read(ftsp)) != NULL)
 		switch (p->fts_info) {
 		case FTS_DC:
 			warnx("%s: directory causes a cycle", p->fts_name);
@@ -850,7 +854,10 @@ display(const FTSENT *p, FTSENT *list, int options)
 	off_t maxsize;
 	u_int64_t maxblock;
 	ino_t maxinode;
-	u_int64_t btotal, labelstrlen, maxlen, maxnlink, maxlattr;
+	u_int64_t btotal, labelstrlen, maxlen, maxnlink;
+#ifndef __APPLE__
+	u_int64_t maxlattr;
+#endif // ! __APPLE__
 	u_int64_t maxlabelstr;
 	u_int sizelen;
 	int maxflags;
@@ -861,7 +868,9 @@ display(const FTSENT *p, FTSENT *list, int options)
 	int entries, needstats;
 	const char *user, *group;
 	char *flags, *labelstr = NULL;
+#ifndef __APPLE__
 	char buf[STRBUF_SIZEOF(u_quad_t) + 1];
+#endif // ! __APPLE__
 	char ngroup[STRBUF_SIZEOF(uid_t) + 1];
 	char nuser[STRBUF_SIZEOF(gid_t) + 1];
 #ifdef __APPLE__
@@ -1166,16 +1175,16 @@ label_out:
 	d.maxlen = maxlen;
 	if (needstats) {
 		d.btotal = btotal;
-		d.s_block = snprintf(NULL, 0, "%lu", howmany(maxblock, blocksize));
+		d.s_block = snprintf(NULL, 0, "%llu", howmany(maxblock, blocksize));
 		d.s_flags = maxflags;
 #ifndef __APPLE__
 		d.s_label = maxlabelstr;
 #endif
 		d.s_group = maxgroup;
-		d.s_inode = snprintf(NULL, 0, "%ju", maxinode);
-		d.s_nlink = snprintf(NULL, 0, "%lu", maxnlink);
+		d.s_inode = snprintf(NULL, 0, "%llu", maxinode);
+		d.s_nlink = snprintf(NULL, 0, "%llu", maxnlink);
 		sizelen = f_humanval ? HUMANVALSTR_LEN :
-		    snprintf(NULL, 0, "%ju", maxsize);
+		snprintf(NULL, 0, "%lld", maxsize);
 		if (d.s_size < sizelen)
 			d.s_size = sizelen;
 		d.s_user = maxuser;
@@ -1208,7 +1217,7 @@ label_out:
  * All other levels use the sort function.  Error entries remain unsorted.
  */
 static int
-mastercmp(const FTSENT * const *a, const FTSENT * const *b)
+mastercmp(const FTSENT **a, const FTSENT **b)
 {
 	int a_info, b_info;
 

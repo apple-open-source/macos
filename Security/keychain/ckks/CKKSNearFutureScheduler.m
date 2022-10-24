@@ -80,7 +80,7 @@
     // We'll clamp the timer delay to continuing delay at use time.
     return [self initWithName:name
                  initialDelay:initialDelay
-             expontialBackoff:MAX(initialDelay > 0 ? (continuingDelay / initialDelay) : 1, 1)
+           exponentialBackoff:MAX(initialDelay > 0 ? (continuingDelay / initialDelay) : 1, 1)
                  maximumDelay:continuingDelay
              keepProcessAlive:keepProcessAlive
     dependencyDescriptionCode:code
@@ -88,12 +88,12 @@
 }
 
 - (instancetype)initWithName:(NSString*)name
-             initialDelay:(dispatch_time_t)initialDelay
-         expontialBackoff:(double)backoff
-             maximumDelay:(dispatch_time_t)maximumDelay
-         keepProcessAlive:(bool)keepProcessAlive
-dependencyDescriptionCode:(NSInteger)code
-                    block:(void (^_Nonnull)(void))futureBlock
+                initialDelay:(dispatch_time_t)initialDelay
+          exponentialBackoff:(double)backoff
+                maximumDelay:(dispatch_time_t)maximumDelay
+            keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
+                       block:(void (^_Nonnull)(void))futureBlock
 {
     if((self = [super init])) {
         _name = name;

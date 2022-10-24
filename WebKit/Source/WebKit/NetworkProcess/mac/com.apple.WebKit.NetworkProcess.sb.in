@@ -1,4 +1,4 @@
-; Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+; Copyright (C) 2013-2022 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -32,11 +32,19 @@
     (require-all
         (privilege-id PRIV_NET_PRIVILEGED_SOCKET_DELEGATE)
         (require-entitlement "com.apple.private.network.socket-delegate")))
- 
+
+;; We can remove the catch once we no longer need to support older macOS
+(catch (lambda)
+    (import "dyld-support.sb"))
+
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
 #include "Shared/Sandbox/preferences.sb"
+
+#if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
+#include <WebKitAdditions/SystemContentSandbox-macos.defs>
+#endif
 
 ;; Utility functions for home directory relative path filters
 (define (home-regex home-relative-regex)
@@ -49,7 +57,7 @@
     (literal (string-append (param "HOME_DIR") home-relative-literal)))
 
 #if PLATFORM(MAC)
-(deny mach-register (with telemetry) (local-name-prefix ""))
+(deny mach-register (local-name-prefix ""))
 
 (allow system-automount
        (process-attribute is-platform-binary))
@@ -58,7 +66,9 @@
 (allow file-map-executable
     (home-subpath "/Library/Caches")
     (home-subpath "/Library/Containers")
+    (home-subpath "/Library/WebKit")
     (subpath (param "DARWIN_USER_TEMP_DIR"))
+    (subpath "/Library/Frameworks")
     (subpath "/Library/KerberosPlugins")
     (subpath "/System/Library/Frameworks")
     (subpath "/System/Library/KerberosPlugins")
@@ -71,7 +81,7 @@
     (literal "/var")
     (literal "/private/etc/localtime"))
 
-(allow file-read-metadata (with telemetry) (path-ancestors "/System/Volumes/Data/private"))
+(allow file-read-metadata (path-ancestors "/System/Volumes/Data/private"))
 
 (allow file-read* (literal "/"))
 
@@ -114,20 +124,6 @@
 (allow mach-lookup (global-name "com.apple.coreservices.launchservicesd"))
 #endif
 
-#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
-(allow mach-lookup
-    (global-name
-        "com.apple.analyticsd.messagetracer"
-        "com.apple.appsleep"
-        "com.apple.bsd.dirhelper"
-        "com.apple.espd"
-        "com.apple.secinitd"
-        "com.apple.system.DirectoryService.libinfo_v1"
-        "com.apple.system.logger"
-        "com.apple.system.opendirectoryd.membership"
-        "com.apple.xpc.activity.unmanaged"))
-#endif
-
 #if !ENABLE(CFPREFS_DIRECT_MODE)
 (allow mach-lookup
     (global-name "com.apple.cfprefsd.agent")
@@ -144,7 +140,7 @@
     (allow file-read*
          (literal "/Library/Preferences/com.apple.networkd.plist")
          (literal "/private/var/db/nsurlstoraged/dafsaData.bin"))
-    (deny mach-lookup (with telemetry)
+    (deny mach-lookup 
          (global-name "com.apple.SystemConfiguration.PPPController")
          (global-name "com.apple.SystemConfiguration.SCNetworkReachability")
          (global-name "com.apple.networkd")
@@ -157,14 +153,14 @@
          (global-name "com.apple.usymptomsd"))
     (allow network-outbound
          (control-name "com.apple.netsrc"))
-    (deny system-socket (with telemetry)
+    (deny system-socket 
           (socket-domain AF_ROUTE))
     (allow system-socket
          (require-all (socket-domain AF_SYSTEM)
                       (socket-protocol 2))) ; SYSPROTO_CONTROL
     (allow mach-lookup
          (global-name "com.apple.AppSSO.service-xpc"))
-    (deny ipc-posix-shm-read-data (with telemetry)
+    (deny ipc-posix-shm-read-data 
          (ipc-posix-name "/com.apple.AppSSO.version")))
 #else
 (import "system.sb")
@@ -176,7 +172,7 @@
 (allow process-info-pidinfo)
 (allow process-info-setcontrol (target self))
 
-(deny sysctl* (with telemetry))
+(deny sysctl*) 
 (allow sysctl-read
     (sysctl-name
         "hw.cputype"
@@ -288,7 +284,7 @@
     (iokit-user-client-class "RootDomainUserClient") ; Used by PowerObserver
 )
 
-(deny mach-lookup (with telemetry)
+(deny mach-lookup 
     (global-name "com.apple.PowerManagement.control"))
 
 ;; Various services required by CFNetwork and other frameworks
@@ -314,19 +310,19 @@
         (global-name "com.apple.analyticsd")
         (global-name "com.apple.diagnosticd")))
 
-(allow mach-lookup (with telemetry) (global-name "com.apple.webkit.adattributiond.service"))
-(allow mach-lookup (with telemetry) (global-name "org.webkit.pcmtestdaemon.service"))
+(allow mach-lookup (global-name "com.apple.webkit.adattributiond.service"))
+(allow mach-lookup (global-name "org.webkit.pcmtestdaemon.service"))
 
-(allow mach-lookup (with telemetry) (global-name "com.apple.webkit.webpushd.service"))
-(allow mach-lookup (with telemetry) (global-name "org.webkit.webpushtestdaemon.service"))
+(allow mach-lookup (global-name "com.apple.webkit.webpushd.service"))
+(allow mach-lookup (global-name "org.webkit.webpushtestdaemon.service"))
 
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.DiskArbitration.diskarbitrationd"))
 (with-filter (uid 0)
-    (allow mach-lookup (with telemetry)
-        (global-name "com.apple.DiskArbitration.diskarbitrationd")
-    )
-)
+    (allow mach-lookup 
+        (global-name "com.apple.DiskArbitration.diskarbitrationd")))
 
-(deny mach-lookup (with telemetry)
+(deny mach-lookup 
    (global-name "com.apple.ctkd.token-client")
    (global-name "com.apple.securityd.xpc")
    (global-name "com.apple.CoreAuthentication.agent")
@@ -349,7 +345,7 @@
 
 (allow file-read* (subpath "/private/var/db/mds/system")) ;; FIXME: This should be removed when <rdar://problem/9538414> is fixed.
 (with-filter (uid 0)
-    (allow file-write* (with telemetry)
+    (allow file-write* 
         (subpath "/private/var/db/mds/system")) ;; FIXME: This should be removed when <rdar://problem/9538414> is fixed.
 )
 
@@ -393,7 +389,7 @@
     (global-name "org.h5l.kcm")
     (global-name "com.apple.GSSCred")
     (global-name "com.apple.ist.ds.appleconnect.service.kdctunnel")) ;; Remove after <rdar://problem/35542803> ships
-(allow network-outbound (with telemetry)
+(allow network-outbound 
     (remote udp))
 (shared-preferences-read
     "com.apple.GSS"
@@ -450,7 +446,7 @@
         (set! allow orig-allow))))
 
 ;; FIXME should be removed when <rdar://problem/30498072> is fixed.
-(allow network* (with telemetry)
+(allow network* 
     (local udp)
     (remote udp)
     (local tcp)
@@ -464,6 +460,15 @@
 (allow mach-lookup
     (global-name "com.apple.tccd"))
 
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.tccd.system")
+    (global-name "com.apple.CoreServices.coreservicesd")
+    (global-name-prefix "com.apple.distributed_notifications"))
+
+;; <rdar://89031731>
+(allow mach-lookup
+    (global-name "com.apple.networkserviceproxy.fetch-token"))
+
 (allow file-read* file-write*
     (home-subpath "/Library/HTTPStorages"))
 
@@ -471,31 +476,42 @@
     (prefix "/private/var/db/com.apple.networkextension."))
 
 (when (defined? 'syscall-unix)
-    (allow syscall-unix (with telemetry))
+    (deny syscall-unix)
     (allow syscall-unix (syscall-number
         SYS___channel_get_info
         SYS___channel_open
         SYS___channel_sync
         SYS___disable_threadsignal
         SYS___mac_syscall
+        SYS___pthread_kill
         SYS___pthread_sigmask
         SYS___semwait_signal
+        SYS___semwait_signal_nocancel
+        SYS_abort_with_payload
         SYS_access
         SYS_bsdthread_create
         SYS_bsdthread_ctl
         SYS_bsdthread_terminate
         SYS_change_fdguard_np
+        SYS_close
+        SYS_close_nocancel
+        SYS_csops_audittoken
         SYS_csrctl
         SYS_dup
         SYS_exit
         SYS_fcntl
         SYS_fcntl_nocancel
+        SYS_ffsctl
         SYS_fgetattrlist
+        SYS_fgetxattr
         SYS_fileport_makeport
+        SYS_flistxattr
         SYS_flock
+        SYS_fsetattrlist
         SYS_fsgetpath
         SYS_fstat
         SYS_fstat64
+        SYS_fstat64_extended
         SYS_fstatat
         SYS_fstatat64
         SYS_fstatfs
@@ -503,6 +519,7 @@
         SYS_fsync
         SYS_ftruncate
         SYS_getattrlist
+        SYS_getattrlistbulk
         SYS_getaudit_addr
         SYS_getdirentries
         SYS_getdirentries64
@@ -513,6 +530,7 @@
         SYS_getfsstat64
         SYS_getgid
         SYS_getgroups
+        SYS_gethostuuid
         SYS_getpeername
         SYS_getrlimit
         SYS_getsockname
@@ -527,6 +545,7 @@
         SYS_guarded_pwrite_np
         SYS_iopolicysys
         SYS_issetugid
+        SYS_kdebug_trace
         SYS_kdebug_trace64
         SYS_kdebug_trace_string
         SYS_kdebug_typefilter
@@ -549,11 +568,16 @@
         SYS_munmap
         SYS_necp_client_action
         SYS_necp_open
+        SYS_open
         SYS_open_dprotected_np
+        SYS_open_nocancel
+        SYS_openat
+        SYS_os_fault_with_payload
         SYS_pathconf
         SYS_pipe
         SYS_pread
         SYS_pread_nocancel
+        SYS_proc_info
         SYS_pselect
         SYS_psynch_cvbroad
         SYS_psynch_cvclrprepost
@@ -582,29 +606,39 @@
         SYS_setrlimit
         SYS_setsockopt
         SYS_shutdown
+#if !PLATFORM(MAC)
+        SYS_shared_region_map_and_slide_2_np
+#endif
+        SYS_sigaction
         SYS_sigaltstack
+        SYS_sigprocmask
+        SYS_sigreturn
         SYS_socketpair
         SYS_stat
         SYS_stat64
         SYS_stat64_extended
         SYS_statfs
         SYS_statfs64
+        SYS_sysctl
         SYS_thread_selfid
         SYS_ulock_wait
         SYS_ulock_wake
-        SYS_workq_kernreturn)))
+        SYS_unlink
+        SYS_workq_kernreturn
+        SYS_write
+        SYS_write_nocancel)))
 
-(when (defined? 'SYS__map_with_linking_np)
-    (allow syscall-unix (syscall-number SYS__map_with_linking_np)))
+(when (defined? 'SYS_map_with_linking_np)
+    (allow syscall-unix (syscall-number SYS_map_with_linking_np)))
 
 #if HAVE(SANDBOX_MESSAGE_FILTERING)
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'mach-kernel-endpoint))
     (allow mach-kernel-endpoint
         (apply-message-filter
-            (allow mach-message-send (with telemetry)))))
-            
+            (allow mach-message-send))))
+
 (when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'syscall-mach))
-    (allow syscall-mach (with report) (with telemetry))
+    (deny syscall-mach)
     (allow syscall-mach
         (machtrap-number
             MSC__kernelrpc_mach_port_allocate_trap
@@ -614,6 +648,7 @@
             MSC__kernelrpc_mach_port_extract_member_trap
             MSC__kernelrpc_mach_port_guard_trap
             MSC__kernelrpc_mach_port_insert_member_trap
+            MSC__kernelrpc_mach_port_insert_right_trap
             MSC__kernelrpc_mach_port_mod_refs_trap
             MSC__kernelrpc_mach_port_request_notification_trap
             MSC__kernelrpc_mach_port_type_trap
@@ -632,10 +667,21 @@
             MSC_mk_timer_arm
             MSC_mk_timer_cancel
             MSC_mk_timer_create
+            MSC_mk_timer_destroy
             MSC_semaphore_signal_trap
+            MSC_semaphore_timedwait_trap
             MSC_semaphore_wait_trap
             MSC_swtch_pri
             MSC_syscall_thread_switch
+            MSC_task_dyld_process_info_notify_get
             MSC_task_self_trap
-            MSC_thread_get_special_reply_port)))
+            MSC_thread_get_special_reply_port
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
+            MSC_thread_self_trap
+#endif
+    ))
+            
+    (when (defined? 'MSC_mach_msg2_trap)
+        (allow syscall-mach
+            (machtrap-number MSC_mach_msg2_trap))))
 #endif // HAVE(SANDBOX_MESSAGE_FILTERING)

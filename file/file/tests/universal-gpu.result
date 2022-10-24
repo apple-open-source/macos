@@ -1,0 +1,5 @@
+Mach-O universal binary with 4 architectures: [applegpu_g4p:Mach-O 64-bit executable applegpu_g4p] [amdgpu_gfx1010:Mach-O 64-bit executable amdgpu_gfx1010] [intelgpu_icl_1x6x8r7:Mach-O 64-bit executable intelgpu_icl_1x6x8r7] [air64_v18:MetalLib, version 1.2.2]
+../tests/universal-gpu.testfile (for architecture applegpu_g4p):	Mach-O 64-bit executable applegpu_g4p
+../tests/universal-gpu.testfile (for architecture amdgpu_gfx1010):	Mach-O 64-bit executable amdgpu_gfx1010
+../tests/universal-gpu.testfile (for architecture intelgpu_icl_1x6x8r7):	Mach-O 64-bit executable intelgpu_icl_1x6x8r7
+../tests/universal-gpu.testfile (for architecture air64_v18):	MetalLib, version 1.2.2

@@ -25,11 +25,11 @@
 	<true/>
 	<key>com.apple.multitasking.systemappassertions</key>
 	<true/>
+	<key>com.apple.multitasking.unlimitedassertions</key>
+	<true/>
 	<key>com.apple.networkd.modify_settings</key>
 	<true/>
 	<key>com.apple.networkd_privileged</key>
-	<true/>
-	<key>com.apple.multitasking.unlimitedassertions</key>
 	<true/>
 	<key>com.apple.private.SCNetworkConnection-proxy-user</key>
 	<true/>
@@ -66,6 +66,7 @@
 	<array>
 		<string>IO80211APIUserClient</string>
 		<string>IONetworkStackUserClient</string>
+		<string>IOUserUserClient</string>
 		<string>RootDomainUserClient</string>
 	</array>
 	<key>com.apple.security.network.client</key>
@@ -81,6 +82,10 @@
 		<string>apple</string>
 		<string>com.apple.certificates</string>
 		<string>com.apple.identities</string>
+	</array>
+	<key>com.apple.developer.driverkit.userclient-access</key>
+	<array>
+		<string>com.apple.DriverKit-AppleBCMWLAN</string>
 	</array>
 </dict>
 </plist>

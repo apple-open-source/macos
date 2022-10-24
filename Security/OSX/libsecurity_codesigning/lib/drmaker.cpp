@@ -107,7 +107,7 @@ void DRMaker::nonAppleAnchor()
 				break;
 			slot++;
 		}
-		if (slot == ctx.certCount() - 1)		// went all the way to the anchor...
+		if (slot == (int)ctx.certCount() - 1)		// went all the way to the anchor...
 			slot = Requirement::anchorCert;					// ... so say that
 	}
 	

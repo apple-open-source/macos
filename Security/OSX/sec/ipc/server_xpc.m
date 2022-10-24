@@ -28,7 +28,7 @@
 #include <ipc/server_endpoint.h>
 #include <os/transaction_private.h>
 
-#if defined(TARGET_DARWINOS) && TARGET_DARWINOS
+#if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 #undef OCTAGON
 #undef SECUREOBJECTSYNC
 #undef SHAREDWEBCREDENTIALS
@@ -53,7 +53,6 @@
 
 #include "keychain/ckks/CKKSViewManager.h"
 
-#import "keychain/securityd/SecDbBackupManager.h"
 #import "keychain/ot/OTConstants.h"
 
 @interface SecOSTransactionHolder : NSObject
@@ -133,7 +132,14 @@
         callbackTransaction.transaction = nil;
     };
 
-    _SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &_client, &cfresult, &cferror);
+    SecurityClient client = {};
+
+    if (OctagonSupportsPersonaMultiuser()) {
+        SecSecurityFixUpClientWithPersona(&self->_client, &client);
+    } else {
+        client = self->_client;
+    }
+    _SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &client, &cfresult, &cferror);
 
     // SecItemAdd returns Some CF Object, but NSXPC is pretty adamant that everything be a specific NS type. Split it up here:
     if(!cfresult) {
@@ -148,6 +154,9 @@
     }
     CFReleaseNull(cfresult);
     CFReleaseNull(cferror);
+    if (OctagonSupportsPersonaMultiuser()) {
+        CFReleaseNull(client.musr);
+    }
 }
 
 - (void)secItemSetCurrentItemAcrossAllDevices:(NSData* _Nonnull)newItemPersistentRef
@@ -260,6 +269,14 @@
         return;
     }
 
+    SecurityClient* client = nil;
+    if (OctagonSupportsPersonaMultiuser()) {
+        client = malloc(sizeof(struct SecurityClient));
+        SecSecurityFixUpClientWithPersona(&_client, client);
+    } else {
+        client = &self->_client;
+    }
+
     [[CKKSViewManager manager] getCurrentItemForAccessGroup:accessGroup
                                                  identifier:identifier
                                                    viewHint:viewHint
@@ -268,6 +285,10 @@
                                                        if(error || !uuid) {
                                                            secnotice("ckkscurrent", "CKKS didn't find a current item for (%@,%@): %@ %@", accessGroup, identifier, uuid, error);
                                                            complete(NULL, error);
+                                                           if (OctagonSupportsPersonaMultiuser()) {
+                                                               CFReleaseNull(client->musr);
+                                                               free(client);
+                                                           }
                                                            return;
                                                        }
 
@@ -275,7 +296,14 @@
                                                        secinfo("ckkscurrent", "CKKS believes current item UUID for (%@,%@) is %@. Looking up persistent ref...", accessGroup, identifier, uuid);
                                                        [self findItemPersistentRefByUUID:uuid
                                                                       extraLoggingString:[NSString stringWithFormat:@"%@,%@", accessGroup, identifier]
-                                                                                complete:complete];
+                                                                                  client:client
+                                                                                complete:^(NSData *persistentref, NSError *operror) {
+                                                           complete(persistentref, operror);
+                                                           if (OctagonSupportsPersonaMultiuser()) {
+                                                               CFReleaseNull(client->musr);
+                                                               free(client);
+                                                           }
+                                                       }];
                                                    }];
 #else // ! OCTAGON
     xpcComplete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemFetchCurrentItemAcrossAllDevices not implemented on this platform"}]);
@@ -284,6 +312,7 @@
 
 -(void)findItemPersistentRefByUUID:(NSString*)uuid
                 extraLoggingString:(NSString*)loggingStr
+                            client:(SecurityClient*)client
                           complete:(void (^) (NSData* persistentref, NSError* operror))xpcComplete
 {
     // The calling client might not handle CK types well. Sanitize!
@@ -313,7 +342,7 @@
                                                           (id)kSecAttrUUID: uuid,
                                                           (id)kSecReturnPersistentRef: @YES,
                                                           },
-                             &self->_client,
+                             client,
                              &result,
                              &cferror);
 
@@ -389,11 +418,21 @@
         };
     }
 
-    Query *q = query_create_with_limit((__bridge CFDictionaryRef)attributes, _client.musr, 0, &(_client), &cferror);
+    SecurityClient client = {};
+    if (OctagonSupportsPersonaMultiuser()) {
+        SecSecurityFixUpClientWithPersona(&self->_client, &client);
+    } else {
+        client = self->_client;
+    }
+    
+    Query *q = query_create_with_limit((__bridge CFDictionaryRef)attributes, client.musr, 0, &(client), &cferror);
     if (q == NULL) {
-        SecError(errSecParam, &cferror, CFSTR("failed to build query: %@"), _client.task);
+        SecError(errSecParam, &cferror, CFSTR("failed to build query: %@"), client.task);
         complete(NULL, (__bridge NSError*) cferror);
         CFReleaseNull(cferror);
+        if (OctagonSupportsPersonaMultiuser()) {
+            CFReleaseNull(client.musr);
+        }
         return;
     }
 
@@ -409,6 +448,9 @@
 
     CFReleaseNull(result);
     CFReleaseNull(cferror);
+    if (OctagonSupportsPersonaMultiuser()) {
+        CFReleaseNull(client.musr);
+    }
 }
 
 
@@ -443,12 +485,6 @@
 
     complete(status, (__bridge NSError *)cferror);
     CFReleaseNull(cferror);
-}
-
-- (void)secItemVerifyBackupIntegrity:(BOOL)lightweight
-                          completion:(void (^)(NSDictionary<NSString*, NSString*>* results, NSError* error))completion
-{
-    [[SecDbBackupManager manager] verifyBackupIntegrity:lightweight completion:completion];
 }
 
 
@@ -499,6 +535,24 @@
     }
 
     completion(SecServerPromoteAppClipItemsToParentApp((__bridge CFStringRef)appClipAppID, (__bridge CFStringRef)parentAppID));
+}
+
+- (void)secKeychainForceUpgradeIfNeeded:(void (^)(OSStatus))completion
+{
+    __block CFErrorRef error = NULL;
+    secnotice("secKeychainForceUpgradeIfNeeded", "Performing keychain database upgrade if needed");
+
+    bool status = kc_with_dbt(false, &error, ^bool(SecDbConnectionRef dbt) {
+        // no-op will do the needful
+        return true;
+    });
+
+    if (!status) {
+        secerror("secKeychainForceUpgradeIfNeeded: failed: %@", error);
+    } else {
+        secnotice("secKeychainForceUpgradeIfNeeded", "succeeded");
+    }
+    completion(status ? errSecSuccess : errSecInternal);
 }
 
 @end

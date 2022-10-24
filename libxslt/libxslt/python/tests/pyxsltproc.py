@@ -41,7 +41,7 @@ def endTimer(msg):
     global endtime
 
     endtime = time.time()
-    print "%s took %d ms" % (msg, (endtime - begin) * 1000)
+    print("%s took %d ms" % (msg, (endtime - begin) * 1000))
 
 def xsltProcess(doc, cur, filename):
     global timing
@@ -72,7 +72,7 @@ def xsltProcess(doc, cur, filename):
 #        if ctxt == None:
 #            return
         if profile:
-            print "TODO: Profiling not yet supported"
+            print("TODO: Profiling not yet supported")
         else:
             res = cur.applyStylesheet(doc, params)
         if timing:
@@ -82,7 +82,7 @@ def xsltProcess(doc, cur, filename):
                 endTimer("Applying stylesheet")
         doc.freeDoc()
         if res == None:
-            print "no result for %s" % (filename)
+            print("no result for %s" % (filename))
             return
         if noout != 0:
             res.freeDoc()
@@ -97,35 +97,34 @@ def xsltProcess(doc, cur, filename):
                 endTimer("Saving result")
         res.freeDoc()
     else:
-        print "TODO: xsltRunStylesheet not yet mapped"
+        print("TODO: xsltRunStylesheet not yet mapped")
 
 def usage(name = 'pyxsltproc'):
-    print "Usage: %s [options] stylesheet file [file ...]" % (name)
-    print "a reimplementation of xsltproc(1) on top of libxslt-python"
-    print "   Options:"
-    print "\t--version or -V: show the version of libxml and libxslt used"
-    print "\t--verbose or -v: show logs of what's happening"
-    print "\t--output file or -o file: save to a given file"
-    print "\t--timing: display the time used"
-    print "\t--repeat: run the transformation 20 times"
-    print "\t--debug: dump the tree of the result instead"
-    print "\t--novalid skip the Dtd loading phase"
-    print "\t--noout: do not dump the result"
-    print "\t--maxdepth val : increase the maximum depth"
-    print "\t--html: the input document is(are) an HTML file(s)"
-    print "\t--param name value : pass a (parameter,value) pair"
-    print "\t       value is an XPath expression."
-    print "\t       string values must be quoted like \"'string'\""
-    print "\t       or use stringparam to avoid it"
-    print "\t--stringparam name value : pass a (parameter,string value) pair"
-    print "\t--nonet refuse to fetch DTDs or entities over network"
-    print "\t--catalogs : use SGML catalogs from $SGML_CATALOG_FILES"
-    print "\t             otherwise XML Catalogs starting from "
-    print "\t         file:///etc/xml/catalog are activated by default"
-    print "\t--xinclude : do XInclude processing on document input"
-    print "\t--profile or --norman : dump profiling informations "
-    print "\nProject libxslt home page: http://xmlsoft.org/XSLT/"
-    print "To report bugs and get help: http://xmlsoft.org/XSLT/bugs.html"
+    print("Usage: %s [options] stylesheet file [file ...]" % (name))
+    print("a reimplementation of xsltproc(1) on top of libxslt-python")
+    print("   Options:")
+    print("\t--version or -V: show the version of libxml and libxslt used")
+    print("\t--verbose or -v: show logs of what's happening")
+    print("\t--output file or -o file: save to a given file")
+    print("\t--timing: display the time used")
+    print("\t--repeat: run the transformation 20 times")
+    print("\t--debug: dump the tree of the result instead")
+    print("\t--novalid skip the Dtd loading phase")
+    print("\t--noout: do not dump the result")
+    print("\t--maxdepth val : increase the maximum depth")
+    print("\t--html: the input document is(are) an HTML file(s)")
+    print("\t--param name value : pass a (parameter,value) pair")
+    print("\t       value is an XPath expression.")
+    print("\t       string values must be quoted like \"'string'\"")
+    print("\t       or use stringparam to avoid it")
+    print("\t--stringparam name value : pass a (parameter,string value) pair")
+    print("\t--nonet refuse to fetch DTDs or entities over network")
+    print("\t--catalogs : use SGML catalogs from $SGML_CATALOG_FILES")
+    print("\t             otherwise XML Catalogs starting from ")
+    print("\t         file:///etc/xml/catalog are activated by default")
+    print("\t--xinclude : do XInclude processing on document input")
+    print("\t--profile or --norman : dump profiling information ")
+    print("\nProject libxslt home page: https://gitlab.gnome.org/GNOME/libxslt")
 
 def main(args = None):
     global debug
@@ -163,10 +162,10 @@ def main(args = None):
             debug = 1
         elif args[i] == "-verbose" or args[i] == "--verbose" or \
              args[i] == "-v":
-            print "TODO: xsltSetGenericDebugFunc() mapping missing"
+            print("TODO: xsltSetGenericDebugFunc() mapping missing")
         elif args[i] == "-version" or args[i] == "--version" or \
              args[i] == "-V":
-            print "TODO: version informations mapping missing"
+            print("TODO: version information mapping missing")
         elif args[i] == "-verbose" or args[i] == "--verbose" or \
              args[i] == "-v":
             if repeat == 0:
@@ -174,14 +173,14 @@ def main(args = None):
             else:
                 repeat = 100
         elif args[i] == "-novalid" or args[i] == "--novalid":
-            print "TODO: xmlLoadExtDtdDefaultValue mapping missing"
+            print("TODO: xmlLoadExtDtdDefaultValue mapping missing")
             novalid = 1
         elif args[i] == "-noout" or args[i] == "--noout":
             noout = 1
         elif args[i] == "-html" or args[i] == "--html":
             html = 1
         elif args[i] == "-nonet" or args[i] == "--nonet":
-            print "TODO: xmlSetExternalEntityLoader mapping missing"
+            print("TODO: xmlSetExternalEntityLoader mapping missing")
             nonet = 1
         elif args[i] == "-catalogs" or args[i] == "--catalogs":
             try:
@@ -191,7 +190,7 @@ def main(args = None):
             if catalogs != none:
                 libxml2.xmlLoadCatalogs(catalogs)
             else:
-                print "Variable $SGML_CATALOG_FILES not set"
+                print("Variable $SGML_CATALOG_FILES not set")
         elif args[i] == "-xinclude" or args[i] == "--xinclude":
             xinclude = 1
             libxslt.setXIncludeDefault(1)
@@ -204,9 +203,9 @@ def main(args = None):
             params[args[i]] = "'%s'" % (args[i + 1])
             i = i + 1
         elif args[i] == "-maxdepth" or args[i] == "--maxdepth":
-            print "TODO: xsltMaxDepth mapping missing"
+            print("TODO: xsltMaxDepth mapping missing")
         else:
-            print "Unknown option %s" % (args[i])
+            print("Unknown option %s" % (args[i]))
             usage()
             return(3)
         
@@ -247,7 +246,7 @@ def main(args = None):
         if timing:
             endTimer("Parsing stylesheet %s" % (args[i]))
         if style == None:
-            print "cannot parse %s" % (args[i])
+            print("cannot parse %s" % (args[i]))
             cur = None
             errorno = 4
             done = 1
@@ -273,7 +272,7 @@ def main(args = None):
         else:
             doc = libxml2.parseFile(args[i])
         if doc == None:
-            print "unable to parse %s" % (args[i])
+            print("unable to parse %s" % (args[i]))
             errorno = 6
             i = i + 1
             continue
@@ -292,7 +291,7 @@ if __name__ == "__main__":
 # Memory debug specific
 libxslt.cleanup()
 if libxml2.debugMemory(1) != 0:
-    print "Memory leak %d bytes" % (libxml2.debugMemory(1))
+    print("Memory leak %d bytes" % (libxml2.debugMemory(1)))
     libxml2.dumpMemory()
 
 sys.exit(errorno)

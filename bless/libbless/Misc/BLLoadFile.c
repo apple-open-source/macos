@@ -39,6 +39,7 @@
 
 #include "bless.h"
 #include "bless_private.h"
+#include "sharedUtilities.h"
 
 
 int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
@@ -49,6 +50,7 @@ int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
     CFDataRef                output = NULL;
     CFURLRef                 loadSrc;
     char rsrcpath[MAXPATHLEN];
+    CFErrorRef               error = NULL;
 
 	if (data) *data = NULL;
     if(useRsrcFork) {
@@ -73,13 +75,9 @@ int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
     if(loadSrc == NULL) {
         return 1;
     }
-    
-    if(!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
-                                            loadSrc,
-                                            &output,
-                                            NULL,
-                                            NULL,
-                                            NULL)) {
+
+    output = CreateDataFromFileURL(kCFAllocatorDefault, loadSrc, &error);
+    if (error) {
         contextprintf(context, kBLLogLevelError,  "Can't load %s\n", rsrcpath );
         CFRelease(loadSrc);
         return 2;

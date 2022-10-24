@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -141,6 +141,7 @@ nexus_init(void)
 	 */
 	nxctl_init(&_kernnxctl, kernproc, NULL);
 	nxctl_retain_locked(&_kernnxctl);       /* one for us */
+	nxctl_traffic_rule_init();
 
 	__nx_inited = 1;
 
@@ -153,6 +154,7 @@ nexus_fini(void)
 	SK_LOCK_ASSERT_HELD();
 
 	if (__nx_inited) {
+		nxctl_traffic_rule_fini();
 		nxctl_release_locked(&_kernnxctl);
 
 		/* tell all domains they're going away */
@@ -255,6 +257,7 @@ repeat:
 
 	SK_UNLOCK();
 	lck_mtx_unlock(&nxctl->nxctl_lock);
+	nxctl_traffic_rule_clean(nxctl);
 }
 
 int
@@ -707,7 +710,8 @@ nxctl_nexus_bind(struct nxctl *nxctl, struct sockopt *sopt)
 
 	SK_LOCK();
 	nx = nx_find(nbr.nb_nx_uuid, TRUE);
-	if (nx == NULL || (nx->nx_prov->nxprov_ctl != nxctl &&
+	if (nx == NULL || (disable_nxctl_check == 0 &&
+	    nx->nx_prov->nxprov_ctl != nxctl &&
 	    nxctl != &_kernnxctl)) {    /* make exception for kernnxctl */
 		err = ENOENT;
 		goto done;
@@ -1338,9 +1342,9 @@ nxprov_create_common(struct nxctl *nxctl,
 {
 	struct skmem_region_params srp[SKMEM_REGIONS];
 	struct kern_nexus_provider *nxprov = NULL;
-	struct skmem_region_params *bsrp;
 	struct nxprov_params nxp;
 	uint32_t override = 0;
+	uint32_t pp_region_config_flags;
 	int i;
 
 	_CASSERT(sizeof(*init) == sizeof(nxprov->nxprov_ext));
@@ -1350,9 +1354,36 @@ nxprov_create_common(struct nxctl *nxctl,
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(nxctl != NULL && reg != NULL && nxdom_prov != NULL);
 
+	pp_region_config_flags = PP_REGION_CONFIG_MD_MAGAZINE_ENABLE |
+	    PP_REGION_CONFIG_BUF_IODIR_BIDIR;
+	/*
+	 * Special handling for external nexus providers; similar
+	 * logic to what's done in kern_pbufpool_create().
+	 */
+	if (init != NULL) {
+		if (init->nxpi_flags & NXPIF_MONOLITHIC) {
+			pp_region_config_flags |=
+			    PP_REGION_CONFIG_BUF_MONOLITHIC;
+		}
+
+		if (init->nxpi_flags & NXPIF_INHIBIT_CACHE) {
+			pp_region_config_flags |=
+			    PP_REGION_CONFIG_BUF_NOCACHE;
+		}
+	}
+
+	/*
+	 * For network devices, set the packet metadata memory as persistent
+	 * so that it is wired at segment creation.  This allows us to access
+	 * it with preemption disabled, as well as for rdar://problem/46511741.
+	 */
+	if (nxdom_prov->nxdom_prov_dom->nxdom_type == NEXUS_TYPE_NET_IF) {
+		pp_region_config_flags |= PP_REGION_CONFIG_MD_PERSISTENT;
+	}
+
 	/* process and validate provider parameters */
 	if ((*err = nxdom_prov_validate_params(nxdom_prov, reg,
-	    &nxp, srp, override)) != 0) {
+	    &nxp, srp, override, pp_region_config_flags)) != 0) {
 		goto done;
 	}
 
@@ -1385,31 +1416,8 @@ nxprov_create_common(struct nxctl *nxctl,
 		nxprov->nxprov_region_params[i] = srp[i];
 	}
 
-	bsrp = &nxprov->nxprov_region_params[SKMEM_REGION_BUF];
-	/*
-	 * Special handling for external nexus providers; similar
-	 * logic to what's done in kern_pbufpool_create().
-	 */
 	if (nxprov->nxprov_flags & NXPROVF_EXTERNAL) {
 		uint32_t nxpi_flags = nxprov->nxprov_ext.nxpi_flags;
-		/*
-		 * Set SKMEM_REGION_CR_MONOLITHIC if the provider does
-		 * not want more than a single segment for entire region.
-		 */
-		if (nxpi_flags & NXPIF_MONOLITHIC) {
-			bsrp->srp_cflags |= SKMEM_REGION_CR_MONOLITHIC;
-		} else {
-			bsrp->srp_cflags &= ~SKMEM_REGION_CR_MONOLITHIC;
-		}
-
-		if (nxpi_flags & NXPIF_INHIBIT_CACHE) {
-			bsrp->srp_cflags |= SKMEM_REGION_CR_NOCACHE;
-		} else {
-			bsrp->srp_cflags &= ~SKMEM_REGION_CR_NOCACHE;
-		}
-
-		/* recalculate what's done by nxprov_params_adjust() earlier */
-		skmem_region_params_config(bsrp);
 
 		if (nxpi_flags & NXPIF_VIRTUAL_DEVICE) {
 			nxprov->nxprov_flags |= NXPROVF_VIRTUAL_DEVICE;
@@ -1422,18 +1430,6 @@ nxprov_create_common(struct nxctl *nxctl,
 		 * is no actual networking hardware involved.
 		 */
 		nxprov->nxprov_flags |= NXPROVF_VIRTUAL_DEVICE;
-	}
-
-	if (nxdom_prov->nxdom_prov_dom->nxdom_type == NEXUS_TYPE_NET_IF) {
-		struct skmem_region_params *kmd_srp =
-		    &nxprov->nxprov_region_params[SKMEM_REGION_KMD];
-		struct skmem_region_params *umd_srp =
-		    &nxprov->nxprov_region_params[SKMEM_REGION_UMD];
-
-		kmd_srp->srp_cflags |= SKMEM_REGION_CR_PERSISTENT;
-		umd_srp->srp_cflags |= SKMEM_REGION_CR_PERSISTENT;
-		skmem_region_params_config(kmd_srp);
-		skmem_region_params_config(umd_srp);
 	}
 
 	nxprov_retain_locked(nxprov);   /* one for being in the list */
@@ -1807,7 +1803,7 @@ nx_check_pp(struct kern_nexus_provider *nxprov, struct kern_pbufpool *pp)
 	 * Both need to be lacking or present; if one of them
 	 * is set and the other isn't, then we bail.
 	 */
-	if (!!(pp->pp_buf_region->skr_mode & SKR_MODE_MONOLITHIC) ^
+	if (!!(PP_BUF_REGION_DEF(pp)->skr_mode & SKR_MODE_MONOLITHIC) ^
 	    !!(nxprov->nxprov_ext.nxpi_flags & NXPIF_MONOLITHIC)) {
 		SK_ERR("Memory config mismatch: monolithic mode");
 		return EINVAL;
@@ -2474,10 +2470,10 @@ nx_port_find(struct kern_nexus *nx, nexus_port_t first,
 		 */
 		*nx_port = first;
 	} else {
-		uint32_t fc = (first / NX_PORT_CHUNK);
-		uint32_t lc = (MIN(last, nx->nx_num_ports) / NX_PORT_CHUNK);
-		uint32_t lim = (nx->nx_num_ports / NX_PORT_CHUNK);
-		uint32_t i, j;
+		nexus_port_size_t fc = (first / NX_PORT_CHUNK);
+		nexus_port_size_t lc = (MIN(last, nx->nx_num_ports) / NX_PORT_CHUNK);
+		nexus_port_size_t lim = (nx->nx_num_ports / NX_PORT_CHUNK);
+		nexus_port_size_t i, j;
 		bitmap_t *bmap;
 
 		/*
@@ -2487,7 +2483,7 @@ nx_port_find(struct kern_nexus *nx, nexus_port_t first,
 		 */
 		for (i = fc; i <= lc; i++) {
 			bitmap_t mask;
-			uint32_t beg = 0, end = 63;
+			nexus_port_size_t beg = 0, end = 63;
 
 			if (i == fc) {
 				beg = (first % NX_PORT_CHUNK);
@@ -2500,7 +2496,7 @@ nx_port_find(struct kern_nexus *nx, nexus_port_t first,
 				bmap = &nx->nx_ports_bmap[i];
 				mask = BMASK64(beg, end);
 
-				j = ffsll((*bmap) & mask);
+				j = (nexus_port_size_t)ffsll((*bmap) & mask);
 				if (j == 0) {
 					continue;
 				}
@@ -2533,12 +2529,13 @@ nx_port_find(struct kern_nexus *nx, nexus_port_t first,
 }
 
 static int
-nx_port_grow(struct kern_nexus *nx, uint32_t grow)
+nx_port_grow(struct kern_nexus *nx, nexus_port_size_t grow)
 {
-	nexus_port_t dom_port_max = NXDOM_MAX(NX_DOM(nx), ports);
+	ASSERT(NXDOM_MAX(NX_DOM(nx), ports) <= NEXUS_PORT_MAX);
+	nexus_port_t dom_port_max = (nexus_port_size_t)NXDOM_MAX(NX_DOM(nx), ports);
 	struct nx_port_info *ports;
 	size_t limit;
-	uint32_t i, num_ports, old_num_ports;
+	nexus_port_size_t i, num_ports, old_num_ports;
 	bitmap_t *bmap;
 
 	ASSERT(grow > 0 && (grow % NX_PORT_CHUNK) == 0);
@@ -2565,8 +2562,8 @@ nx_port_grow(struct kern_nexus *nx, uint32_t grow)
 	}
 	nx->nx_ports_bmap = bmap;
 
-	if ((ports = sk_realloc_data(nx->nx_ports, old_num_ports * sizeof(*ports),
-	    num_ports * sizeof(*ports), Z_WAITOK, skmem_tag_nx_port)) == NULL) {
+	if ((ports = sk_realloc_type_array(struct nx_port_info, old_num_ports,
+	    num_ports, nx->nx_ports, Z_WAITOK, skmem_tag_nx_port)) == NULL) {
 		/* can't free bmap here, otherwise nexus won't work */
 		SK_ERR("nx_ports alloc failed, num_port %u", num_ports);
 		return ENOMEM;
@@ -2608,8 +2605,8 @@ nx_port_alloc(struct kern_nexus *nx, nexus_port_t nx_port, struct nxbind *nxb,
 	/* port is zero-based, so adjust here */
 	if ((nx_port + 1) > nx->nx_num_ports) {
 		g = P2ROUNDUP((nx_port + 1) - nx->nx_num_ports, NX_PORT_CHUNK);
-		VERIFY(g <= UINT32_MAX);
-		if ((err = nx_port_grow(nx, (uint32_t)g)) != 0) {
+		VERIFY(g <= NEXUS_PORT_MAX);
+		if ((err = nx_port_grow(nx, (nexus_port_size_t)g)) != 0) {
 			goto done;
 		}
 	}
@@ -2754,8 +2751,8 @@ nx_port_bind_info(struct kern_nexus *nx, nexus_port_t nx_port,
 
 	if ((nx_port) + 1 > nx->nx_num_ports) {
 		g = P2ROUNDUP((nx_port + 1) - nx->nx_num_ports, NX_PORT_CHUNK);
-		VERIFY(g <= UINT32_MAX);
-		if ((err = nx_port_grow(nx, (uint32_t)g)) != 0) {
+		VERIFY(g <= NEXUS_PORT_MAX);
+		if ((err = nx_port_grow(nx, (nexus_port_size_t)g)) != 0) {
 			goto done;
 		}
 	}
@@ -2943,8 +2940,7 @@ nx_port_free_all(struct kern_nexus *nx)
 	skn_free_data(ports_bmap,
 	    nx->nx_ports_bmap, (num_ports / NX_PORT_CHUNK) * sizeof(bitmap_t));
 	nx->nx_ports_bmap = NULL;
-	skn_free_data(ports,
-	    nx->nx_ports, num_ports * sizeof(struct nx_port_info));
+	sk_free_type_array(struct nx_port_info, num_ports, nx->nx_ports);
 	nx->nx_ports = NULL;
 }
 
@@ -2952,14 +2948,14 @@ void
 nx_port_foreach(struct kern_nexus *nx,
     void (^port_handle)(nexus_port_t nx_port))
 {
-	for (uint32_t i = 0; i < (nx->nx_num_ports / NX_PORT_CHUNK); i++) {
+	for (nexus_port_size_t i = 0; i < (nx->nx_num_ports / NX_PORT_CHUNK); i++) {
 		bitmap_t bmap = nx->nx_ports_bmap[i];
 
 		if (bmap == NX_PORT_CHUNK_FREE) {
 			continue;
 		}
 
-		for (uint32_t j = 0; j < NX_PORT_CHUNK; j++) {
+		for (nexus_port_size_t j = 0; j < NX_PORT_CHUNK; j++) {
 			if (bit_test(bmap, j)) {
 				continue;
 			}
@@ -3022,6 +3018,11 @@ SYSCTL_PROC(_kern_skywalk_stats, OID_AUTO, flow_adv,
     CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_LOCKED,
     0, NXMIB_FLOW_ADV, nexus_mib_get_sysctl, "S,sk_stats_flow_adv",
     "Nexus flow advisory dump");
+
+SYSCTL_PROC(_kern_skywalk_stats, OID_AUTO, netif_queue,
+    CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, NXMIB_NETIF_QUEUE_STATS, nexus_mib_get_sysctl, "S,netif_qstats_info",
+    "A list of netif queue stats entries");
 
 /*
  * Provider list sysctl

@@ -23,6 +23,13 @@
 
 #include <pthread/pthread.h>
 
+#include <TargetConditionals.h>
+#include "utilities/SecAKSWrappers.h"
+#if __has_include(<MobileKeyBag/MobileKeyBag.h>) && TARGET_HAS_KEYSTORE
+#include <MobileKeyBag/MobileKeyBag.h>
+#define HAVE_MOBILE_KEYBAG_SUPPORT 1
+#endif
+
 #include "server_security_helpers.h"
 #include "server_entitlement_helpers.h"
 
@@ -39,18 +46,12 @@
 #include "utilities/debugging.h"
 #include "keychain/securityd/SecDbQuery.h"
 
-#if __has_include(<MobileKeyBag/MobileKeyBag.h>) && TARGET_HAS_KEYSTORE
-#include <MobileKeyBag/MobileKeyBag.h>
-#define HAVE_MOBILE_KEYBAG_SUPPORT 1
-#endif
-
 #if __has_include(<UserManagement/UserManagement.h>)
 #include <UserManagement/UserManagement.h>
 #endif
 
 #if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
-static bool
-device_is_multiuser(void)
+bool device_is_multiuser(void)
 {
     static dispatch_once_t once;
     static bool result;
@@ -69,7 +70,7 @@ device_is_multiuser(void)
 }
 #endif /* HAVE_MOBILE_KEYBAG_SUPPORT && TARGET_OS_IOS */
 
-static bool sanityCheckClientAccessGroups(SecurityClient* client) {
+static bool securityCheckClientAccessGroups(SecurityClient* client) {
     if (!client->accessGroups) {
         return true;
     }
@@ -110,6 +111,11 @@ bool SecFillSecurityClientMuser(SecurityClient *client)
          * tvOS supports guest users.
          * Use the appropriate musr values for either.
          */
+        
+        if (!client->isMusrOverridden) {
+            CFReleaseNull(client->musr);
+        }
+        
         UMUserPersona *persona = [[UMUserManager sharedManager] currentPersona];
         if (persona &&
 #if TARGET_OS_IOS || TARGET_OS_OSX
@@ -125,11 +131,12 @@ bool SecFillSecurityClientMuser(SecurityClient *client)
             uuid_t uuid;
 
             if (uuid_parse([persona.userPersonaUniqueString UTF8String], uuid) != 0) {
+                secnotice("serverxpc", "securityd client(%p):  uuid %@ didn't parse setting to null", client, persona.userPersonaUniqueString);
                 client->musr = NULL;
                 return false;
             }
             client->musr = CFDataCreate(NULL, uuid, sizeof(uuid_t));
-        }
+        } 
 #endif /* KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER */
     }
     return true;
@@ -150,7 +157,7 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         if (device_is_multiuser()) {
             CFErrorRef error = NULL;
 
-            client->inMultiUser = true;
+            client->inEduMode = true;
             client->activeUser = MKBForegroundUserSessionID(&error);
             if (client->activeUser == -1 || client->activeUser == 0) {
                 assert(0);
@@ -191,17 +198,23 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
             secinfo("serverxpc", "securityd client: app clip (API restricted)");
         }
 
-#if TARGET_OS_IPHONE
+#if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+#if TARGET_OS_TV
+        client->allowSystemKeychain = true;
+#else
         client->allowSystemKeychain = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateSystemKeychain);
+#endif
+#endif
+#if TARGET_OS_IPHONE
         client->isNetworkExtension = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateNetworkExtension);
         client->canAccessNetworkExtensionAccessGroups = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementNetworkExtensionAccessGroups);
 #endif
 #if HAVE_MOBILE_KEYBAG_SUPPORT && KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-        if (client->inMultiUser) {
+        if (client->inEduMode) {
             client->allowSyncBubbleKeychain = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateKeychainSyncBubble);
         }
 #endif
-        if (!sanityCheckClientAccessGroups(client)) {
+        if (!securityCheckClientAccessGroups(client)) {
             CFReleaseNull(client->task);
             CFReleaseNull(client->accessGroups);
             CFReleaseNull(client->musr);

@@ -147,25 +147,25 @@ private:
     IOReturn switchToTrueCapacity(void);
     void    handleBatteryInserted(void);
     void    handleBatteryRemoved(void);
-
+    
     IOReturn smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *data);
     IOReturn requestExclusiveSMBusAccessGated(bool request);
 
     bool                        _started;
 #if TARGET_OS_OSX_X86
-    IOSMBusController           * fProvider;
-    SmbusHandler                * fSmbus;
+    IOSMBusController           *fProvider;
+    SmbusHandler                *fSmbus;
     ASBMgrTransactionCompletion fAsbmCompletion;
     OSObject                    *fAsbmTarget;
     void                        *fAsbmReference;
     IOReturn                    performSmbusTransactionGated(ASBMgrRequest *req, OSObject *target, void *ref);
 #endif
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
-    IOTimerEventSource          * fBatteryPollSMC;
-    AppleSMCFamily              * fProvider;
+    IOTimerEventSource          *fBatteryPollSMC;
+    AppleSMCFamily              *fProvider;
 #endif
-    IOCommandGate               * fManagerGate;
-    AppleSmartBattery           * fBattery;
+    IOCommandGate               *fManagerGate;
+    AppleSmartBattery           *fBattery;
     bool                        fExclusiveUserClient;
     bool                        fSystemSleeping;
     bool                        fInacessible;

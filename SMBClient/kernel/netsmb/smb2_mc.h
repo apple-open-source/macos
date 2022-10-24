@@ -28,7 +28,6 @@
 #include <sys/queue.h>
 #include <stdint.h>
 #include <net/if_media.h>
-#include <net/if.h>
 #include <netsmb/smb_dev.h>
 #include <netsmb/smb_2.h>
 #include <sys/lock.h>
@@ -120,7 +119,7 @@ typedef enum _SMB2_MC_NIC_STATE {
 
 }_SMB2_MC_NIC_STATE;
 
-#define SMB2_MC_NIC_IN_BLACKLIST 0x0001
+#define SMB2_MC_NIC_IN_IGNORELIST 0x0001
 
 /*
  * The complete nic's info. Contains all available IP addresses.
@@ -132,7 +131,7 @@ struct complete_nic_info_entry {
     uint32_t nic_caps;        /* the nic's capabilities */
     uint32_t nic_type;        /* indicates the type of the nic */
     uint8_t  nic_ip_types;    /* indicates the types of IPs this nic has */
-    uint32_t nic_flags;       /* Black-listed, etc */
+    uint32_t nic_flags;       /* Ignore-listed, etc */
     _SMB2_MC_NIC_STATE nic_state;
 
     struct sock_addr_list addr_list;

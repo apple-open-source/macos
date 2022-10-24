@@ -32,16 +32,14 @@ typedef struct au_asid {} au_asid_t;
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
-#define SMB_MALLOC(addr, cast, size, type, flags) do { (addr) = (cast)calloc((size), (type)); } while(0)
-#define SMB_FREE(addr, type) do { free(addr); } while(0)
+#define SMB_MALLOC_DATA(addr, cast, size, type, flags) do { (addr) = (cast)calloc((size), (type)); } while(0)
+#define SMB_FREE_DATA(addr, type) do { free(addr); } while(0)
 
 #define M_WAITOK  0x0000
 #define M_NOWAIT  0x0001
 #define M_ZERO    0x0004          /* bzero the allocation */
 #define M_NULL    0x0008          /* return NULL if space is unavailable*/
 #define M_TEMP        80          /* misc temporary data buffers */
-#define M_SMBTEMP M_TEMP
-#define M_NSMBDEV M_TEMP
 
 #include "smb_conn.h"
 #include "smb2_mc_support.h"

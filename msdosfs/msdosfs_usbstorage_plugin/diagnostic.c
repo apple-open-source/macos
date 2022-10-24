@@ -78,7 +78,7 @@ int DIAGNOSTIC_InsertNewRecord(NodeRecord_s* psFileRecord, uint64_t uParentClust
     if ( DIAGNOSTIC_IsRecordExist(psFSRecord, uParentCluster, &sTempName, NULL))
     {
         MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_InsertNewRecord: FileRecord with name %s in directory with uFileID %llu already exist.\n",pcName, uParentCluster);
-        assert(0);
+        //assert(0);
         iError = EEXIST;
         goto exit;
     }
@@ -152,7 +152,7 @@ int DIAGNOSTIC_RemoveRecord(FileSystemRecord_s* psFSRecord, uint64_t uParentClus
     if ( !DIAGNOSTIC_IsRecordExist(psFSRecord, uParentCluster , psName, &psFileHashElementToRemove))
     {
         MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_RemoveRecord: Failed to find FileRecord.\n");
-        assert(0);
+//        assert(0);
         iError = ENOENT;
         goto exit;
     }

@@ -7,11 +7,11 @@ extension Container {
 
     func onqueueCachedRecordsContainEgoPeerBottle(cachedRecords: [OTEscrowRecord]) -> Bool {
         guard let egoPeerID = self.containerMO.egoPeerID else {
-            logger.debug("onqueueCachedRecordsContainEgoPeerBottle: No identity.")
+            logger.info("onqueueCachedRecordsContainEgoPeerBottle: No identity.")
             return false
         }
         guard let bottles: Set<BottleMO> = self.containerMO.bottles as? Set<BottleMO>  else {
-            logger.debug("onqueueCachedRecordsContainEgoPeerBottle: No Bottles.")
+            logger.info("onqueueCachedRecordsContainEgoPeerBottle: No Bottles.")
             return false
         }
         var matchesCached: Bool = false
@@ -138,7 +138,7 @@ extension Container {
 
         escrowRecordMetadataMO.clientMetadata = escrowRecordClientMetadataMO
 
-        logger.debug("setEscrowRecord saving new escrow record: \(escrowRecordMO, privacy: .public)")
+        logger.info("setEscrowRecord saving new escrow record: \(escrowRecordMO, privacy: .public)")
         switch viability {
         case .full:
             self.containerMO.addToFullyViableEscrowRecords(escrowRecordMO)

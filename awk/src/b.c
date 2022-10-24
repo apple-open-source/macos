@@ -624,18 +624,20 @@ int match(fa *f, const char *p0)	/* shortest match ? */
 
 	if (f->out[s])
 		return(1);
-	int p_len;
+	int p_read = 0;
+	size_t p_len = strlen((const char*)p);
 	do {
-		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+		wchar_t p_wc = towc(&p_read, (const char*)p, p_len);
+		p_len -= p_read;
 
 		/* assert(*p < NCHARS); */
-		if (p_len == 1 && (ns = f->gototab[s][*p]) != 0)
+		if (p_read == 1 && (ns = f->gototab[s][*p]) != 0)
 			s = ns;
 		else
 			s = cgoto(f, s, p_wc, 0);
 		if (f->out[s])
 			return(1);
-	} while (p += p_len, *(p - p_len) != 0);
+	} while (p += p_read, *(p - p_read) != 0);
 	return(0);
 }
 
@@ -650,14 +652,18 @@ int pmatch(fa *f, const char *p0)	/* longest match, for sub */
 
 	patbeg = (const char *)p;
 	patlen = -1;
-	int p_len;
+	size_t p_len = strlen((const char*)p);
+	int p_read = 0;
 	do {
-		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+		wchar_t p_wc = towc(&p_read, (const char*)p, p_len);
+		size_t q_len = p_len;
+		p_len -= p_read;
 
 		q = p;
-		int q_len;
+		int q_read = 0;
 		do {
-			wchar_t q_wc = towc(&q_len, (const char*)q, strlen((const char*)q));
+			wchar_t q_wc = towc(&q_read, (const char*)q, q_len);
+			q_len -= q_read;
 
 			/* Lots of debug in here as this is the path awk.ex{69,639,640} take */
 			DPRINTF("pmatch: checking wc: %d\n", q_wc);
@@ -667,7 +673,7 @@ int pmatch(fa *f, const char *p0)	/* longest match, for sub */
 			}
 
 			/* assert(*q < NCHARS); */
-			if (q_len == 1 && (ns = f->gototab[s][*q]) != 0)
+			if (q_read == 1 && (ns = f->gototab[s][*q]) != 0)
 				s = ns;
 			else
 				s = cgoto(f, s, q_wc, 0);
@@ -684,8 +690,8 @@ int pmatch(fa *f, const char *p0)	/* longest match, for sub */
 				}
 			}
 
-			DPRINTF("pmatch: q: advanced %d: %c\n", q_len, *(q + q_len));
-		} while (q += q_len, *(q - q_len) != 0);;
+			DPRINTF("pmatch: q: advanced %d: %c\n", q_read, *(q + q_read));
+		} while (q += q_read, *(q - q_read) != 0);;
 
 		DPRINTF("pmatch: out of loop\n");
 		if (f->out[s]) {
@@ -699,7 +705,7 @@ int pmatch(fa *f, const char *p0)	/* longest match, for sub */
 		}
 	nextin:
 		s = 2;
-	} while (p += p_len, *(p - p_len) != 0);
+	} while (p += p_read, *(p - p_read) != 0);
 	return (0);
 }
 
@@ -714,18 +720,22 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 
 	patbeg = (const char *)p;
 	patlen = -1;
-	int p_len;
+	size_t p_len = strlen((const char *)p);
 	while (*p) {
-		wchar_t p_wc = towc(&p_len, (const char*)p, strlen((const char*)p));
+		int p_read = 0;
+		wchar_t p_wc = towc(&p_read, (const char*)p, p_len);
+		size_t q_len = p_len;
+		p_len -= p_read;
 
 		q = p;
-		int q_len;
+		int q_read = 0;
 		do {
-			wchar_t q_wc = towc(&q_len, (const char*)q, strlen((const char*)q));
+			wchar_t q_wc = towc(&q_read, (const char*)q, q_len);
+			q_len -= q_read;
 			if (f->out[s])		/* final state */
 				patlen = q-p;
 			/* assert(*q < NCHARS); */
-			if (q_len == 1 && (ns = f->gototab[s][*q]) != 0)
+			if (q_read == 1 && (ns = f->gototab[s][*q]) != 0)
 				s = ns;
 			else
 				s = cgoto(f, s, q_wc, 0);
@@ -736,7 +746,7 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 				} else
 					goto nnextin;	/* no nonempty match */
 			}
-		} while (q += q_len, *(q - q_len) != 0);;
+		} while (q += q_read, *(q - q_read) != 0);;
 		if (f->out[s])
 			patlen = q-p-1;	/* don't count $ */
 		if (patlen > 0 ) {
@@ -745,7 +755,7 @@ int nematch(fa *f, const char *p0)	/* non-empty match, for sub */
 		}
 	nnextin:
 		s = 2;
-		p += p_len;
+		p += p_read;
 	}
 	return (0);
 }

@@ -16,7 +16,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifndef _REENTRANT
 #define _REENTRANT
+#endif
 #include <libxml/xmlversion.h>
 
 #if defined(LIBXML_THREAD_ENABLED) && defined(HAVE_PTHREAD_H)

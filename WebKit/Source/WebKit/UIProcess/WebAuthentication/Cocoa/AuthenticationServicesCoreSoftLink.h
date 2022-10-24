@@ -50,6 +50,7 @@ SOFT_LINK_CLASS_FOR_HEADER(WebKit, ASCPublicKeyCredentialDescriptor);
 SOFT_LINK_CLASS_FOR_HEADER(WebKit, ASCSecurityKeyPublicKeyCredentialAssertion);
 SOFT_LINK_CLASS_FOR_HEADER(WebKit, ASCSecurityKeyPublicKeyCredentialLoginChoice);
 SOFT_LINK_CLASS_FOR_HEADER(WebKit, ASCSecurityKeyPublicKeyCredentialRegistration);
+SOFT_LINK_CLASS_FOR_HEADER(WebKit, ASGlobalFrameIdentifier);
 
 SOFT_LINK_CONSTANT_FOR_HEADER(WebKit, AuthenticationServicesCore, ASCAuthorizationErrorDomain, NSErrorDomain);
 #define ASCAuthorizationErrorDomain WebKit::get_AuthenticationServicesCore_ASCAuthorizationErrorDomain()

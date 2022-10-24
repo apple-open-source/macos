@@ -30,6 +30,8 @@
 
 extern const NSString *TrustdUserAgent;
 
+NSTimeInterval TrustURLSessionGetResourceTimeout(void);
+
 @interface TrustURLSessionCache : NSObject
 - (instancetype)initWithDelegate:(TrustURLSessionDelegate *)delegate;
 - (NSURLSession *)sessionForAuditToken:(NSData *)auditToken;

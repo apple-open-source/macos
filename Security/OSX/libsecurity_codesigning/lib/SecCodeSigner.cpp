@@ -63,6 +63,10 @@ const CFStringRef kSecCodeSignerRuntimeVersion = CFSTR("runtime-version");
 const CFStringRef kSecCodeSignerPreserveAFSC = 	CFSTR("preserve-afsc");
 const CFStringRef kSecCodeSignerOmitAdhocFlag =	CFSTR("omit-adhoc-flag");
 
+const CFStringRef kSecCodeSignerLaunchConstraintSelf = CFSTR("lwcr-self");
+const CFStringRef kSecCodeSignerLaunchConstraintParent = CFSTR("lwcr-parent");
+const CFStringRef kSecCodeSignerLaunchConstraintResponsible = CFSTR("lwcr-responsible");
+
 // Keys for signature editing
 const CFStringRef kSecCodeSignerEditCpuType = 	CFSTR("edit-cpu-type");
 const CFStringRef kSecCodeSignerEditCpuSubtype = CFSTR("edit-cpu-subtype");

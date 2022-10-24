@@ -10,7 +10,7 @@ Otherwise, only Bjorn Reese (breese@users.sourceforge.net),
 <igor@zlatkovic.com> and me (veillard@redhat.com)
 should commit there. John Fleck also have commit rights for the doc
 subdir. Send a mail and if it's a bug issue, provide a test case and
-register it at bugzilla.gnome.org in the libxslt module.
+register it at https://gitlab.gnome.org/GNOME/libxslt/issues .
 I check both my mail and the bug database on a very regular basis.
 if you don't get an answer within a week (which is highly unprobable)
 then commit your changes. This simply mean that I am on holliday or

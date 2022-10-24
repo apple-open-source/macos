@@ -25,6 +25,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		AA41234E2746F819003483FE /* ipp_refactor.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA41234D2746F819003483FE /* ipp_refactor.mm */; };
+		AA41234F2746F819003483FE /* ipp_refactor.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA41234D2746F819003483FE /* ipp_refactor.mm */; };
 		AAF3194C25F967A700E5BF09 /* libasn1_fuzz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */; };
 		AAF3194D25F967A700E5BF09 /* libipp_fuzz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */; };
 		AAF3194E25F967BC00E5BF09 /* asn1_fuzzing.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */; };
@@ -124,6 +126,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA41234D2746F819003483FE /* ipp_refactor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ipp_refactor.mm; sourceTree = "<group>"; };
 		AAF3192E25F965E500E5BF09 /* libipp_fuzz.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipp_fuzz.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAF3193625F965FA00E5BF09 /* libasn1_fuzz.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libasn1_fuzz.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAF3193E25F9661800E5BF09 /* testfuzzing */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testfuzzing; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -195,6 +198,7 @@
 				AAF3195625F97C8200E5BF09 /* fuzzer-target.xcconfig */,
 				AAF3194525F9665600E5BF09 /* asn1_fuzzing.m */,
 				AAF3194625F9665600E5BF09 /* ipp_fuzzing.m */,
+				AA41234D2746F819003483FE /* ipp_refactor.mm */,
 				AAF3195325F9691D00E5BF09 /* stubs.m */,
 				AAF3193F25F9661800E5BF09 /* testfuzzing */,
 				AAF3192625F9654E00E5BF09 /* Products */,
@@ -392,6 +396,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAF3194F25F967C000E5BF09 /* ipp_fuzzing.m in Sources */,
+				AA41234E2746F819003483FE /* ipp_refactor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +421,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AAF319AD25F98B5C00E5BF09 /* ipp_fuzzing.m in Sources */,
+				AA41234F2746F819003483FE /* ipp_refactor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -665,7 +671,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -728,7 +734,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

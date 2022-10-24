@@ -78,6 +78,7 @@ public:
 
     void updateForAccessControl(Document&);
 
+    void updateFetchMetadataHeaders();
     void updateReferrerPolicy(ReferrerPolicy);
     void updateReferrerAndOriginHeaders(FrameLoader&);
     void updateUserAgentHeader(FrameLoader&);
@@ -97,7 +98,8 @@ public:
 
     void setOrigin(Ref<SecurityOrigin>&& origin) { m_origin = WTFMove(origin); }
     RefPtr<SecurityOrigin> releaseOrigin() { return WTFMove(m_origin); }
-    SecurityOrigin* origin() const { return m_origin.get(); }
+    const SecurityOrigin* origin() const { return m_origin.get(); }
+    SecurityOrigin* origin() { return m_origin.get(); }
 
     String&& releaseFragmentIdentifier() { return WTFMove(m_fragmentIdentifier); }
     void clearFragmentIdentifier() { m_fragmentIdentifier = { }; }

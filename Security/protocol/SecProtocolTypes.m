@@ -487,7 +487,7 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
 @end
 
 sec_protocol_configuration_builder_t
-sec_protocol_configuration_builder_copy_default()
+sec_protocol_configuration_builder_copy_default(void)
 {
     return [[SEC_CONCRETE_CLASS_NAME(sec_protocol_configuration_builder) alloc] init];
 }

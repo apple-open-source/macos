@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebNotificationManagerMessageHandler.h"
 
+#include "ServiceWorkerNotificationHandler.h"
 #include "WebPageProxy.h"
 
 namespace WebKit {
@@ -40,23 +41,53 @@ void WebNotificationManagerMessageHandler::requestSystemNotificationPermission(c
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void WebNotificationManagerMessageHandler::showNotification(const WebCore::NotificationData& data)
+void WebNotificationManagerMessageHandler::showNotification(IPC::Connection& connection, const WebCore::NotificationData& data, CompletionHandler<void()>&& callback)
 {
-    m_webPageProxy.showNotification(data);
+    if (!data.serviceWorkerRegistrationURL.isEmpty()) {
+        ServiceWorkerNotificationHandler::singleton().showNotification(connection, data, WTFMove(callback));
+        return;
+    }
+    m_webPageProxy.showNotification(connection, data);
+    callback();
 }
 
 void WebNotificationManagerMessageHandler::cancelNotification(const UUID& notificationID)
 {
+    auto& serviceWorkerNotificationHandler = ServiceWorkerNotificationHandler::singleton();
+    if (serviceWorkerNotificationHandler.handlesNotification(notificationID)) {
+        serviceWorkerNotificationHandler.cancelNotification(notificationID);
+        return;
+    }
     m_webPageProxy.cancelNotification(notificationID);
 }
 
 void WebNotificationManagerMessageHandler::clearNotifications(const Vector<UUID>& notificationIDs)
 {
-    m_webPageProxy.clearNotifications(notificationIDs);
+    auto& serviceWorkerNotificationHandler = ServiceWorkerNotificationHandler::singleton();
+
+    Vector<UUID> persistentNotifications;
+    Vector<UUID> pageNotifications;
+    persistentNotifications.reserveInitialCapacity(notificationIDs.size());
+    pageNotifications.reserveInitialCapacity(notificationIDs.size());
+    for (auto& notificationID : notificationIDs) {
+        if (serviceWorkerNotificationHandler.handlesNotification(notificationID))
+            persistentNotifications.uncheckedAppend(notificationID);
+        else
+            pageNotifications.uncheckedAppend(notificationID);
+    }
+    if (!persistentNotifications.isEmpty())
+        serviceWorkerNotificationHandler.clearNotifications(persistentNotifications);
+    if (!pageNotifications.isEmpty())
+        m_webPageProxy.clearNotifications(pageNotifications);
 }
 
 void WebNotificationManagerMessageHandler::didDestroyNotification(const UUID& notificationID)
 {
+    auto& serviceWorkerNotificationHandler = ServiceWorkerNotificationHandler::singleton();
+    if (serviceWorkerNotificationHandler.handlesNotification(notificationID)) {
+        serviceWorkerNotificationHandler.didDestroyNotification(notificationID);
+        return;
+    }
     m_webPageProxy.didDestroyNotification(notificationID);
 }
 

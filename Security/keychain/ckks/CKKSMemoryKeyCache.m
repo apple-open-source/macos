@@ -43,7 +43,10 @@
     return self;
 }
 
-- (CKKSKey* _Nullable)loadKeyForUUID:(NSString*)keyUUID zoneID:(CKRecordZoneID*)zoneID error:(NSError**)error
+- (CKKSKey* _Nullable)loadKeyForUUID:(NSString*)keyUUID
+                           contextID:(NSString*)contextID
+                              zoneID:(CKRecordZoneID*)zoneID
+                               error:(NSError**)error
 {
     CKKSKey* key = self.keyCache[keyUUID];
     if(key) {
@@ -51,26 +54,39 @@
     }
 
     // Note: returns nil (and empties the cache) if there is an error
-    key = [CKKSKey loadKeyWithUUID:keyUUID zoneID:zoneID error:error];
+    key = [CKKSKey loadKeyWithUUID:keyUUID
+                         contextID:contextID
+                            zoneID:zoneID
+                             error:error];
     self.keyCache[keyUUID] = key;
     return key;
 }
 
 - (CKKSKey* _Nullable)loadKeyForItem:(CKKSItem*)item error:(NSError**)error
 {
-    return [self loadKeyForUUID:item.parentKeyUUID zoneID:item.zoneID error:error];
+    return [self loadKeyForUUID:item.parentKeyUUID
+                      contextID:item.contextID
+                         zoneID:item.zoneID
+                          error:error];
 }
 
 - (CKKSKey* _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass
+                               contextID:(NSString*)contextID
                                   zoneID:(CKRecordZoneID*)zoneID
                                    error:(NSError *__autoreleasing*)error
 {
     // Load the CurrentKey record, and find the key for it
-    CKKSCurrentKeyPointer* ckp = [CKKSCurrentKeyPointer fromDatabase:keyclass zoneID:zoneID error:error];
+    CKKSCurrentKeyPointer* ckp = [CKKSCurrentKeyPointer fromDatabase:keyclass
+                                                           contextID:contextID
+                                                              zoneID:zoneID
+                                                               error:error];
     if(!ckp) {
         return nil;
     }
-    return [self loadKeyForUUID:ckp.currentKeyUUID zoneID:zoneID error:error];
+    return [self loadKeyForUUID:ckp.currentKeyUUID
+                      contextID:contextID
+                         zoneID:zoneID
+                          error:error];
 }
 
 @end

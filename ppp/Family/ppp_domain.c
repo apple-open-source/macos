@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2022 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -216,6 +216,12 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
     switch (cmd) {
         case PPPIOCNEWUNIT:
             // this ioctl must be done before connecting the socket
+
+			// Do not create a new unit if the socket is already hosting a unit
+			if (ppp_if_host_has_unit(so)) {
+				return EALREADY;
+			}
+
             //IOLog("ppp_proto_control : PPPIOCNEWUNIT\n");
             memcpy(&data_aligned, data, sizeof(u_int32_t));         // Wcast-align fix - memcpy for unaligned move
             unit = data_aligned;
@@ -301,14 +307,16 @@ void ppp_proto_free(void *data)
     
     if (!so) 
         return;
-    
-    switch ((uintptr_t)so->so_tpcb) {
-        case TYPE_IF:
-            ppp_if_detachclient((ifnet_t)so->so_pcb, so);
-            break;
-        case TYPE_LINK:
-            ppp_link_detachclient((struct ppp_link *)so->so_pcb, so);
-            break;
+
+    if (so->so_pcb != NULL) {
+        switch ((uintptr_t)so->so_tpcb) {
+            case TYPE_IF:
+                ppp_if_detachclient((ifnet_t)so->so_pcb, so);
+                break;
+            case TYPE_LINK:
+                ppp_link_detachclient((struct ppp_link *)so->so_pcb, so);
+                break;
+        }
     }
     so->so_pcb = 0;
     so->so_tpcb = 0;

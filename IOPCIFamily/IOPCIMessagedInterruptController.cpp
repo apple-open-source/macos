@@ -439,12 +439,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
             {
                 msiFlags = ((uint32_t *)data->getBytesNoCopy())[0];
             }
-            // Ethernet controller
-            if ((0x0200 == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 16)))
-            {
-                msiFlags |= kIOPCIMSIFlagRespect;
-            }
-            if (!(kIOPCIMSIFlagRespect & msiFlags))
+            if (!(kIOPCIMSIFlagRespect & msiFlags) && !numRequired)
             {
                 // max per function is one
                 numVectors = 1;
@@ -452,11 +447,6 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
               && (data->getLength() >= sizeof(uint32_t)))
             {
                 numVectors = msiPhysVectors = min(msiPhysVectors, ((uint32_t *)data->getBytesNoCopy())[0]);
-            } else if ((0x0200 == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 16))) {
-                // Ethernet controller
-                uint32_t limit = 0;
-                if (!PE_parse_boot_argn("pci-msi-limit", &limit, sizeof(limit)) || !limit) limit = 8;
-                if (numVectors > limit) numVectors = msiPhysVectors = limit;
             }
         }
 #endif

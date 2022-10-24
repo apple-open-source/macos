@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2002 Tim J. Robbins.
  * All rights reserved.
  *
@@ -29,7 +31,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.5 2009/12/13 03:14:06 delphij Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -41,6 +43,7 @@ __FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.5 2009/12/13 03:14:06 delphi
 #ifndef __APPLE__
 #include <login_cap.h>
 #endif /* !__APPLE__ */
+#include <paths.h>
 #ifdef __APPLE__
 #include <membership.h>
 #endif /* __APPLE__ */
@@ -49,9 +52,7 @@ __FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.5 2009/12/13 03:14:06 delphi
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef __APPLE__
-#include <paths.h>
-#endif /* __APPLE__ */
+
 static void	 addgroup(const char *grpname);
 static void	 doshell(void);
 static int	 inarray(gid_t, const gid_t[], int);
@@ -79,7 +80,8 @@ main(int argc, char *argv[])
 {
 	int ch, login;
 
-	euid = geteuid();
+	if ((euid = geteuid()) != 0)
+		warnx("need root permissions to function properly, check setuid bit");
 	if (seteuid(getuid()) < 0)
 		err(1, "seteuid");
 
@@ -157,16 +159,15 @@ addgroup(const char *grpname)
 	int dbmember, i, ngrps;
 	gid_t egid;
 	struct group *grp;
-	char *ep, *pass;
+	char *ep, *pass, *cryptpw;
 #ifndef __APPLE__
 	char **p;
-#endif
-	char *grp_passwd;
+#endif /* __APPLE__ */
 #ifdef __APPLE__
 	uuid_t user_uuid;
 	uuid_t group_uuid;
 	int status;
-#endif
+#endif /* __APPLE__ */
 
 	egid = getegid();
 
@@ -190,7 +191,7 @@ addgroup(const char *grpname)
 	status = mbr_check_membership(user_uuid, group_uuid, &dbmember);
 	if (status)
 		errc(1, status, "mbr_check_membership");
-#else
+#else /* !__APPLE__ */
 	/*
 	 * If the user is not a member of the requested group and the group
 	 * has a password, prompt and check it.
@@ -203,15 +204,13 @@ addgroup(const char *grpname)
 			dbmember = 1;
 			break;
 		}
-#endif
-
-	grp_passwd = grp->gr_passwd;
-	if ((grp_passwd == NULL) || (grp_passwd[0] == '\0'))
-		grp_passwd = "*";
-	if (!dbmember && getuid() != 0) {
+#endif /* __APPLE__ */
+	if (!dbmember && *grp->gr_passwd != '\0' && getuid() != 0) {
 		pass = getpass("Password:");
-		if (pass == NULL ||
-		    strcmp(grp_passwd, crypt(pass, grp_passwd)) != 0) {
+		if (pass == NULL)
+			return;
+		cryptpw = crypt(pass, grp->gr_passwd);
+		if (cryptpw == NULL || strcmp(grp->gr_passwd, cryptpw) != 0) {
 			fprintf(stderr, "Sorry\n");
 			return;
 		}
@@ -220,7 +219,11 @@ addgroup(const char *grpname)
 	ngrps_max = sysconf(_SC_NGROUPS_MAX) + 1;
 	if ((grps = malloc(sizeof(gid_t) * ngrps_max)) == NULL)
 		err(1, "malloc");
+#ifdef __APPLE__
 	if ((ngrps = getgroups((int)ngrps_max, (gid_t *)grps)) < 0) {
+#else /* !__APPLE__ */
+	if ((ngrps = getgroups(ngrps_max, (gid_t *)grps)) < 0) {
+#endif /* __APPLE__ */
 		warn("getgroups");
 		goto end;
 	}
@@ -252,7 +255,7 @@ addgroup(const char *grpname)
 
 	/* Add old effective gid to supp. list if it does not exist. */
 	if (egid != grp->gr_gid && !inarray(egid, grps, ngrps)) {
-		if (ngrps + 1 >= ngrps_max)
+		if (ngrps == ngrps_max)
 			warnx("too many groups");
 		else {
 			grps[ngrps++] = egid;
@@ -265,7 +268,6 @@ addgroup(const char *grpname)
 			PRIV_END;
 		}
 	}
-
 end:
 	free(grps);
 }
@@ -290,10 +292,10 @@ loginshell(void)
 {
 	char *args[2], **cleanenv, *term, *ticket;
 	const char *shell;
-	char *prog, progbuf[PATH_MAX];
 #ifndef __APPLE__
 	login_cap_t *lc;
 #endif /* !__APPLE__ */
+
 	shell = pwd->pw_shell;
 	if (*shell == '\0')
 		shell = _PATH_BSHELL;
@@ -309,6 +311,7 @@ loginshell(void)
 		err(1, "calloc");
 	*cleanenv = NULL;
 	environ = cleanenv;
+
 #ifndef __APPLE__
 	lc = login_getpwclass(pwd);
 	setusercontext(lc, pwd, pwd->pw_uid,
@@ -323,10 +326,7 @@ loginshell(void)
 	if (ticket != NULL)
 		setenv("KRBTKFILE", ticket, 1);
 
-	strlcpy(progbuf, shell, sizeof(progbuf));
-	prog = basename(progbuf);
-
-	if (asprintf(args, "-%s", prog) < 0)
+	if (asprintf(args, "-%s", shell) < 0)
 		err(1, "asprintf");
 	args[1] = NULL;
 
@@ -338,15 +338,10 @@ static void
 doshell(void)
 {
 	const char *shell;
-	char *prog, progbuf[PATH_MAX];
 
 	shell = pwd->pw_shell;
 	if (*shell == '\0')
 		shell = _PATH_BSHELL;
-
-	strlcpy(progbuf, shell, sizeof(progbuf));
-	prog = basename(progbuf);
-
-	execl(shell, prog, (char *)NULL);
+	execl(shell, shell, (char *)NULL);
 	err(1, "%s", shell);
 }

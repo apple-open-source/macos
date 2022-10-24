@@ -89,6 +89,7 @@
     NSError* error = nil;
 
     CKKSKey* key = [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="]
+                                                    contextID:CKKSMockCloudKitContextID
                                                          uuid:@"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"
                                                      keyclass:SecCKKSKeyClassC
                                                         state: SecCKKSProcessedStateLocal
@@ -122,6 +123,7 @@
 
     // Do it all again
     CKKSKey* key2 =  [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
+                                                      contextID:CKKSMockCloudKitContextID
                                                            uuid:@"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6"
                                                        keyclass:SecCKKSKeyClassC
                                                           state: SecCKKSProcessedStateLocal
@@ -147,6 +149,7 @@
     NSError* error = nil;
 
     CKKSKey* key = [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="]
+                                                    contextID:CKKSMockCloudKitContextID
                                                          uuid:@"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"
                                                      keyclass:SecCKKSKeyClassC
                                                         state:SecCKKSProcessedStateLocal
@@ -256,7 +259,7 @@
 
 - (void)testKeyKeychainSaving {
     NSError* error = nil;
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
 
     XCTAssertTrue([tlk saveKeyMaterialToKeychain:false error:&error], "should be able to save key material to keychain (without stashing)");
     XCTAssertNil(error, "tlk should save to database without error");
@@ -307,7 +310,7 @@
 - (void)testKeyHierarchy {
     NSError* error = nil;
     NSData* testCKRecord = [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding];
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
 
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
         NSError* saveError = nil;
@@ -346,12 +349,16 @@
     NSString* level2UUID = level2.uuid;
 
     // Fetch the level2 key from the database.
-    CKKSKey* extractedkey = [CKKSKey fromDatabase:level2UUID zoneID:self.testZoneID error:&error];
+    CKKSKey* extractedkey = [CKKSKey fromDatabase:level2UUID
+                                        contextID:CKKSMockCloudKitContextID
+                                           zoneID:self.testZoneID
+                                            error:&error];
     [extractedkey unwrapViaKeyHierarchy: &error];
     XCTAssertNotNil(extractedkey, "could fetch key again");
     XCTAssertNil(error, "no error fetching key from database");
 
-    CKKSKeychainBackedKey* keycore = [extractedkey ensureKeyLoaded:&error];
+    CKKSKeychainBackedKey* keycore = [extractedkey ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                                         error:&error];
     XCTAssertNotNil(keycore, @"Should be able to ensure that a key is loaded");
     XCTAssertNil(error, "no error forcing unwrap on fetched key");
 
@@ -378,7 +385,10 @@
     [key saveKeyMaterialToKeychain:&error];
     XCTAssertNil(error, "no error saving to keychain");
 
-    CKKSKey* loadedKey = [CKKSKey fromDatabase:key.uuid zoneID:self.testZoneID error:&error];
+    CKKSKey* loadedKey = [CKKSKey fromDatabase:key.uuid
+                                     contextID:CKKSMockCloudKitContextID
+                                        zoneID:self.testZoneID
+                                         error:&error];
     XCTAssertNil(error, "no error loading from database");
     XCTAssertNotNil(loadedKey, "Received an item back from the database");
 
@@ -398,7 +408,7 @@
 - (void)testKeychainSave {
     NSError* error = nil;
     NSData* testCKRecord = [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding];
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
     [self ensureKeychainSaveLoad: tlk];
 
     // Ensure that Class A and Class C can do the same thing
@@ -414,13 +424,15 @@
 
 - (void)testCKKSKeyProtobuf {
     NSError* error = nil;
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
 
     NSData* tlkPersisted = [tlk serializeAsProtobuf:&error];
     XCTAssertNil(error, "Shouldn't have been an error serializing to protobuf");
     XCTAssertNotNil(tlkPersisted, "Should have gotten some protobuf data back");
 
-    CKKSKey* otherKey = [CKKSKey loadFromProtobuf:tlkPersisted error:&error];
+    CKKSKey* otherKey = [CKKSKey loadFromProtobuf:tlkPersisted
+                                        contextID:CKKSMockCloudKitContextID
+                                            error:&error];
     XCTAssertNil(error, "Shouldn't have been an error serializing from protobuf");
     XCTAssertNotNil(otherKey, "Should have gotten some protobuf data back");
 
@@ -466,7 +478,7 @@
     NSError* error = nil;
     NSString *uuid = @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7";
 
-    CKKSKey* key = [self fakeTLK:self.testZoneID];
+    CKKSKey* key = [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
         NSError* saveError = nil;
         [key saveToDatabase:&saveError];
@@ -478,6 +490,7 @@
 
     CKKSItem* ciphertext = [CKKSItemEncrypter encryptCKKSItem: [[CKKSItem alloc] initWithUUID:uuid
                                                                                 parentKeyUUID:key.uuid
+                                                                                    contextID:CKKSMockCloudKitContextID
                                                                                        zoneID:self.testZoneID]
                                                dataDictionary:plaintext
                                              updatingCKKSItem:nil
@@ -518,7 +531,7 @@
                                                              options:0
                                                                error:&error];
     XCTAssertNil(error);
-    CKKSKey* key = [self fakeTLK:self.testZoneID];
+    CKKSKey* key = [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
 
     [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
         NSError* saveError = nil;
@@ -535,6 +548,7 @@
     XCTAssertNotNil(wrappedKey, "wrapped key was returned");
     CKKSItem* baseitem = [[CKKSItem alloc] initWithUUID:@"abc"
                                           parentKeyUUID:key.uuid
+                                              contextID:CKKSMockCloudKitContextID
                                                  zoneID:self.testZoneID
                                                 encItem:data
                                              wrappedkey:wrappedKey
@@ -651,60 +665,65 @@
 
 - (void)testCKKSKeyTrialSelfWrapped {
     NSError* error = nil;
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
     XCTAssertTrue([tlk wrapsSelf], "TLKs should wrap themselves");
 
     CKRecord* record = [tlk CKRecordWithZoneID:self.testZoneID];
     XCTAssertNotNil(record, "TLKs should know how to turn themselves into CKRecords");
-    CKKSKey* receivedTLK = [[CKKSKey alloc] initWithCKRecord:record];
+    CKKSKey* receivedTLK = [[CKKSKey alloc] initWithCKRecord:record contextID:CKKSMockCloudKitContextID];
     XCTAssertNotNil(receivedTLK, "Keys should know how to recover themselves from CKRecords");
 
     XCTAssertTrue([receivedTLK wrapsSelf], "TLKs should wrap themselves, even when received from CloudKit");
 
-    XCTAssertFalse([receivedTLK ensureKeyLoaded:&error], "Received keys can't load themselves when there's no key data");
+    XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
 
     XCTAssertTrue([receivedTLK trySelfWrappedKeyCandidate:[tlk getKeychainBackedKey:&error].aessivkey error:&error], "Shouldn't be an error when we give a CKKSKey its key");
     XCTAssertNil(error, "Shouldn't be an error giving a CKKSKey its key material");
 
-    XCTAssertTrue([receivedTLK ensureKeyLoaded:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
+    XCTAssertTrue([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                     error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 }
 
 - (void)testCKKSKeyTrialSelfWrappedFailure {
     NSError* error = nil;
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
     XCTAssertTrue([tlk wrapsSelf], "TLKs should wrap themselves");
 
     CKRecord* record = [tlk CKRecordWithZoneID:self.testZoneID];
     XCTAssertNotNil(record, "TLKs should know how to turn themselves into CKRecords");
-    CKKSKey* receivedTLK = [[CKKSKey alloc] initWithCKRecord:record];
+    CKKSKey* receivedTLK = [[CKKSKey alloc] initWithCKRecord:record contextID:CKKSMockCloudKitContextID];
     XCTAssertNotNil(receivedTLK, "Keys should know how to recover themselves from CKRecords");
 
     XCTAssertTrue([receivedTLK wrapsSelf], "TLKs should wrap themselves, even when received from CloudKit");
 
-    XCTAssertFalse([receivedTLK ensureKeyLoaded:&error], "Received keys can't load themselves when there's no key data");
+    XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
 
     XCTAssertFalse([receivedTLK trySelfWrappedKeyCandidate:[[CKKSAESSIVKey alloc] initWithBase64: @"aaaaaZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="] error:&error], "Should be an error when we give a CKKSKey the wrong key");
     XCTAssertNotNil(error, "Should be an error giving a CKKSKey the wrong key material");
 
-    XCTAssertFalse([receivedTLK ensureKeyLoaded:&error], "Received keys can't load themselves when there's no key data");
+    XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
 }
 
 - (void)testCKKSKeyTrialNotSelfWrappedFailure {
     NSError* error = nil;
-    CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
+    CKKSKey* tlk =  [self fakeTLK:self.testZoneID contextID:CKKSMockCloudKitContextID];
     XCTAssertTrue([tlk wrapsSelf], "TLKs should wrap themselves");
 
     CKKSKey* classC = [CKKSKey randomKeyWrappedByParent: tlk keyclass:SecCKKSKeyClassC error:&error];
     XCTAssertFalse([classC wrapsSelf], "Wrapped keys should not wrap themselves");
 
-    XCTAssertTrue([classC ensureKeyLoaded:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
+    XCTAssertTrue([classC ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 
     XCTAssertFalse([classC trySelfWrappedKeyCandidate:[classC getKeychainBackedKey:&error].aessivkey error:&error], "Should be an error when we attempt to trial a key on a non-self-wrapped key");
@@ -713,7 +732,8 @@
     error = nil;
 
     // But, since we didn't throw away its key, it's still loaded
-    XCTAssertTrue([classC ensureKeyLoaded:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
+    XCTAssertTrue([classC ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 }
 
@@ -841,6 +861,7 @@
     NSDictionary<NSString*, NSData*>* aligned_80 = @{ @"test123456": [@"data" dataUsingEncoding: NSUTF8StringEncoding],
                                                       @"more": [@"testdata" dataUsingEncoding: NSUTF8StringEncoding] };
     CKKSKey* key =  [[CKKSKey alloc] initSelfWrappedWithAESKey: [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="]
+                                                     contextID:CKKSMockCloudKitContextID
                                                           uuid:@"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6"
                                                       keyclass:SecCKKSKeyClassC
                                                          state:SecCKKSProcessedStateLocal
@@ -855,7 +876,7 @@
 
 - (void)testCKKSKeychainBackedKeySerialization {
     NSError* error = nil;
-    CKKSKeychainBackedKey* tlk = [[self fakeTLK:self.testZoneID] getKeychainBackedKey:&error];
+    CKKSKeychainBackedKey* tlk = [[self fakeTLK:self.testZoneID contextID:@"not needed"] getKeychainBackedKey:&error];
     XCTAssertNil(error, "Should be no error creating TLK key");
     CKKSKeychainBackedKey* classC = [CKKSKeychainBackedKey randomKeyWrappedByParent:tlk keyclass:SecCKKSKeyClassC error:&error];
     XCTAssertNil(error, "Should be no error creating classC key");

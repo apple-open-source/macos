@@ -38,13 +38,8 @@ enum class CallMode;
 template<PtrTag> class MacroAssemblerCodeRef;
 class VM;
 
-#if ENABLE(EXTRA_CTI_THUNKS)
-
-MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionWithCallFrameRollbackGenerator(VM&);
-
-#endif // ENABLE(EXTRA_CTI_THUNKS)
-
 MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionGenerator(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionWithCallFrameRollbackGenerator(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> popThunkStackPreservesAndHandleExceptionGenerator(VM&);
 
 MacroAssemblerCodeRef<JITThunkPtrTag> throwExceptionFromCallSlowPathGenerator(VM&);
@@ -82,9 +77,9 @@ MacroAssemblerCodeRef<JITThunkPtrTag> truncThunkGenerator(VM&);
 
 MacroAssemblerCodeRef<JITThunkPtrTag> boundFunctionCallGenerator(VM&);
 
-#if ENABLE(EXTRA_CTI_THUNKS)
+MacroAssemblerCodeRef<JITThunkPtrTag> remoteFunctionCallGenerator(VM&);
+
 MacroAssemblerCodeRef<JITThunkPtrTag> checkExceptionGenerator(VM&);
-#endif
 
 } // namespace JSC
 #endif // ENABLE(JIT)

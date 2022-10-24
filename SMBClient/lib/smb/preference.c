@@ -48,7 +48,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
     char* str = NULL;
     char *token;
     uint32_t if_index;
-    uint32_t blacklist_len = 0;
+    uint32_t ignorelist_len = 0;
 
 	/* global only preferences */
 	if (level == 0) {
@@ -486,25 +486,25 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
      * Another hidden config option, to ignore client interfaces
      * expected list string format - "if_name_0,...,if_name_N"
      */
-    rc_getstringptr(rcfile, sname, "mc_client_if_black_list", &str);
+    rc_getstringptr(rcfile, sname, "mc_client_if_ignore_list", &str);
 
     if (str != NULL)
     {
         /* walk through tokens */
         token = strtok(str, ",");
 
-        while ((token != NULL) && (blacklist_len < kClientIfBlacklistMaxLen)) {
+        while ((token != NULL) && (ignorelist_len < kClientIfIgnorelistMaxLen)) {
             if_index = if_nametoindex(token);
 
             if (if_index) {
-                prefs->mc_client_if_blacklist[blacklist_len] = if_index;
-                blacklist_len++;
+                prefs->mc_client_if_ignorelist[ignorelist_len] = if_index;
+                ignorelist_len++;
             }
 
             token = strtok(NULL, ",");
         }
 
-        prefs->mc_client_if_blacklist_len = blacklist_len;
+        prefs->mc_client_if_ignorelist_len = ignorelist_len;
     }
     
     /*
@@ -517,6 +517,31 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
         else
             prefs->altflags &= ~SMBFS_MNT_DISABLE_311;
     }    
+
+    /*
+     * Another hidden config option, to not assume durable handle/lease V2
+     */
+    if (rc_getbool(rcfile, sname, "assume_dur_hndlV2_off", &altflags) == 0) {
+        if (altflags) {
+            prefs->altflags |= SMBFS_MNT_ASSUME_DUR_LEASE_V2_OFF;
+        }
+        else {
+            prefs->altflags &= ~SMBFS_MNT_ASSUME_DUR_LEASE_V2_OFF;
+        }
+    }
+    
+    /*
+     * Another hidden config option, to only use durable handles on O_EXLOCK
+     * and O_SHLOCK opened files, essentially the previous OS behaviour
+     */
+    if (rc_getbool(rcfile, sname, "dur_handle_lockFID_only", &altflags) == 0) {
+        if (altflags) {
+            prefs->altflags |= SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY;
+        }
+        else {
+            prefs->altflags &= ~SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY;
+        }
+    }
 }
 
 static CFStringRef getLocalNetBIOSNameUsingHostName()
@@ -659,7 +684,7 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* multichannel defaults */
     prefs->mc_max_channels = 9;
     prefs->mc_max_rss_channels = 4;
-    prefs->mc_client_if_blacklist_len = 0;
+    prefs->mc_client_if_ignorelist_len = 0;
 
     /* AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM enabled by default */
     prefs->encrypt_algorithm_map = 0xf;

@@ -304,7 +304,9 @@ am__libarchive_la_SOURCES_DIST = libarchive/archive_acl.c \
 	libarchive/archive_write_set_format_ar.c \
 	libarchive/archive_write_set_format_by_name.c \
 	libarchive/archive_write_set_format_cpio.c \
+	libarchive/archive_write_set_format_cpio_binary.c \
 	libarchive/archive_write_set_format_cpio_newc.c \
+	libarchive/archive_write_set_format_cpio_odc.c \
 	libarchive/archive_write_set_format_filter_by_ext.c \
 	libarchive/archive_write_set_format_iso9660.c \
 	libarchive/archive_write_set_format_mtree.c \
@@ -441,7 +443,9 @@ am_libarchive_la_OBJECTS = libarchive/archive_acl.lo \
 	libarchive/archive_write_set_format_ar.lo \
 	libarchive/archive_write_set_format_by_name.lo \
 	libarchive/archive_write_set_format_cpio.lo \
+	libarchive/archive_write_set_format_cpio_binary.lo \
 	libarchive/archive_write_set_format_cpio_newc.lo \
+	libarchive/archive_write_set_format_cpio_odc.lo \
 	libarchive/archive_write_set_format_filter_by_ext.lo \
 	libarchive/archive_write_set_format_iso9660.lo \
 	libarchive/archive_write_set_format_mtree.lo \
@@ -766,7 +770,9 @@ am__libarchive_test_SOURCES_DIST = libarchive/archive_acl.c \
 	libarchive/archive_write_set_format_ar.c \
 	libarchive/archive_write_set_format_by_name.c \
 	libarchive/archive_write_set_format_cpio.c \
+	libarchive/archive_write_set_format_cpio_binary.c \
 	libarchive/archive_write_set_format_cpio_newc.c \
+	libarchive/archive_write_set_format_cpio_odc.c \
 	libarchive/archive_write_set_format_filter_by_ext.c \
 	libarchive/archive_write_set_format_iso9660.c \
 	libarchive/archive_write_set_format_mtree.c \
@@ -988,6 +994,7 @@ am__libarchive_test_SOURCES_DIST = libarchive/archive_acl.c \
 	libarchive/test/test_read_too_many_filters.c \
 	libarchive/test/test_read_truncated.c \
 	libarchive/test/test_read_truncated_filter.c \
+	libarchive/test/test_short_writes.c \
 	libarchive/test/test_sparse_basic.c \
 	libarchive/test/test_tar_filenames.c \
 	libarchive/test/test_tar_large.c \
@@ -997,6 +1004,7 @@ am__libarchive_test_SOURCES_DIST = libarchive/archive_acl.c \
 	libarchive/test/test_write_disk.c \
 	libarchive/test/test_write_disk_appledouble.c \
 	libarchive/test/test_write_disk_failures.c \
+	libarchive/test/test_write_disk_fixup.c \
 	libarchive/test/test_write_disk_hardlink.c \
 	libarchive/test/test_write_disk_hfs_compression.c \
 	libarchive/test/test_write_disk_lookup.c \
@@ -1183,7 +1191,9 @@ am__objects_19 = libarchive/test-archive_acl.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_ar.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_by_name.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_cpio.$(OBJEXT) \
+	libarchive/test-archive_write_set_format_cpio_binary.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_cpio_newc.$(OBJEXT) \
+	libarchive/test-archive_write_set_format_cpio_odc.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_filter_by_ext.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_iso9660.$(OBJEXT) \
 	libarchive/test-archive_write_set_format_mtree.$(OBJEXT) \
@@ -1396,6 +1406,7 @@ am_libarchive_test_OBJECTS = $(am__objects_19) $(am__objects_20) \
 	libarchive/test/test-test_read_too_many_filters.$(OBJEXT) \
 	libarchive/test/test-test_read_truncated.$(OBJEXT) \
 	libarchive/test/test-test_read_truncated_filter.$(OBJEXT) \
+	libarchive/test/test-test_short_writes.$(OBJEXT) \
 	libarchive/test/test-test_sparse_basic.$(OBJEXT) \
 	libarchive/test/test-test_tar_filenames.$(OBJEXT) \
 	libarchive/test/test-test_tar_large.$(OBJEXT) \
@@ -1405,6 +1416,7 @@ am_libarchive_test_OBJECTS = $(am__objects_19) $(am__objects_20) \
 	libarchive/test/test-test_write_disk.$(OBJEXT) \
 	libarchive/test/test-test_write_disk_appledouble.$(OBJEXT) \
 	libarchive/test/test-test_write_disk_failures.$(OBJEXT) \
+	libarchive/test/test-test_write_disk_fixup.$(OBJEXT) \
 	libarchive/test/test-test_write_disk_hardlink.$(OBJEXT) \
 	libarchive/test/test-test_write_disk_hfs_compression.$(OBJEXT) \
 	libarchive/test/test-test_write_disk_lookup.$(OBJEXT) \
@@ -1679,7 +1691,9 @@ am__depfiles_remade = cat/$(DEPDIR)/bsdcat-bsdcat.Po \
 	libarchive/$(DEPDIR)/archive_write_set_format_ar.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_by_name.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_cpio.Plo \
+	libarchive/$(DEPDIR)/archive_write_set_format_cpio_binary.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_cpio_newc.Plo \
+	libarchive/$(DEPDIR)/archive_write_set_format_cpio_odc.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_filter_by_ext.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_gnutar.Plo \
 	libarchive/$(DEPDIR)/archive_write_set_format_iso9660.Plo \
@@ -1807,7 +1821,9 @@ am__depfiles_remade = cat/$(DEPDIR)/bsdcat-bsdcat.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_ar.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_by_name.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_cpio.Po \
+	libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Po \
+	libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_filter_by_ext.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_gnutar.Po \
 	libarchive/$(DEPDIR)/test-archive_write_set_format_iso9660.Po \
@@ -2017,6 +2033,7 @@ am__depfiles_remade = cat/$(DEPDIR)/bsdcat-bsdcat.Po \
 	libarchive/test/$(DEPDIR)/test-test_read_too_many_filters.Po \
 	libarchive/test/$(DEPDIR)/test-test_read_truncated.Po \
 	libarchive/test/$(DEPDIR)/test-test_read_truncated_filter.Po \
+	libarchive/test/$(DEPDIR)/test-test_short_writes.Po \
 	libarchive/test/$(DEPDIR)/test-test_sparse_basic.Po \
 	libarchive/test/$(DEPDIR)/test-test_tar_filenames.Po \
 	libarchive/test/$(DEPDIR)/test-test_tar_large.Po \
@@ -2026,6 +2043,7 @@ am__depfiles_remade = cat/$(DEPDIR)/bsdcat-bsdcat.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk_appledouble.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk_failures.Po \
+	libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk_hardlink.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk_hfs_compression.Po \
 	libarchive/test/$(DEPDIR)/test-test_write_disk_lookup.Po \
@@ -2758,7 +2776,9 @@ libarchive_la_SOURCES = libarchive/archive_acl.c \
 	libarchive/archive_write_set_format_ar.c \
 	libarchive/archive_write_set_format_by_name.c \
 	libarchive/archive_write_set_format_cpio.c \
+	libarchive/archive_write_set_format_cpio_binary.c \
 	libarchive/archive_write_set_format_cpio_newc.c \
+	libarchive/archive_write_set_format_cpio_odc.c \
 	libarchive/archive_write_set_format_filter_by_ext.c \
 	libarchive/archive_write_set_format_iso9660.c \
 	libarchive/archive_write_set_format_mtree.c \
@@ -3051,6 +3071,7 @@ libarchive_test_SOURCES = \
 	libarchive/test/test_read_too_many_filters.c \
 	libarchive/test/test_read_truncated.c \
 	libarchive/test/test_read_truncated_filter.c \
+	libarchive/test/test_short_writes.c \
 	libarchive/test/test_sparse_basic.c \
 	libarchive/test/test_tar_filenames.c \
 	libarchive/test/test_tar_large.c \
@@ -3060,6 +3081,7 @@ libarchive_test_SOURCES = \
 	libarchive/test/test_write_disk.c \
 	libarchive/test/test_write_disk_appledouble.c \
 	libarchive/test/test_write_disk_failures.c \
+	libarchive/test/test_write_disk_fixup.c \
 	libarchive/test/test_write_disk_hardlink.c \
 	libarchive/test/test_write_disk_hfs_compression.c \
 	libarchive/test/test_write_disk_lookup.c \
@@ -3377,6 +3399,9 @@ libarchive_test_EXTRA_DIST = \
 	libarchive/test/test_read_format_rar5_arm_filter_on_window_boundary.rar.uu \
 	libarchive/test/test_read_format_rar5_different_winsize_on_merge.rar.uu \
 	libarchive/test/test_read_format_rar5_block_size_is_too_small.rar.uu \
+	libarchive/test/test_read_format_rar5_decode_number_out_of_bounds_read.rar.uu \
+	libarchive/test/test_read_format_rar5_window_buf_and_size_desync.rar.uu \
+	libarchive/test/test_read_format_rar5_bad_window_sz_in_mltarc_file.rar.uu \
 	libarchive/test/test_read_format_raw.bufr.uu \
 	libarchive/test/test_read_format_raw.data.gz.uu \
 	libarchive/test/test_read_format_raw.data.Z.uu \
@@ -3392,6 +3417,7 @@ libarchive_test_EXTRA_DIST = \
 	libarchive/test/test_read_format_warc.warc.uu \
 	libarchive/test/test_read_format_zip.zip.uu \
 	libarchive/test/test_read_format_zip_7075_utf8_paths.zip.uu \
+	libarchive/test/test_read_format_zip_7z_deflate.zip.uu \
 	libarchive/test/test_read_format_zip_7z_lzma.zip.uu \
 	libarchive/test/test_read_format_zip_bz2_hang.zip.uu \
 	libarchive/test/test_read_format_zip_bzip2.zipx.uu \
@@ -4233,7 +4259,13 @@ libarchive/archive_write_set_format_by_name.lo:  \
 libarchive/archive_write_set_format_cpio.lo:  \
 	libarchive/$(am__dirstamp) \
 	libarchive/$(DEPDIR)/$(am__dirstamp)
+libarchive/archive_write_set_format_cpio_binary.lo:  \
+	libarchive/$(am__dirstamp) \
+	libarchive/$(DEPDIR)/$(am__dirstamp)
 libarchive/archive_write_set_format_cpio_newc.lo:  \
+	libarchive/$(am__dirstamp) \
+	libarchive/$(DEPDIR)/$(am__dirstamp)
+libarchive/archive_write_set_format_cpio_odc.lo:  \
 	libarchive/$(am__dirstamp) \
 	libarchive/$(DEPDIR)/$(am__dirstamp)
 libarchive/archive_write_set_format_filter_by_ext.lo:  \
@@ -4980,7 +5012,13 @@ libarchive/test-archive_write_set_format_by_name.$(OBJEXT):  \
 libarchive/test-archive_write_set_format_cpio.$(OBJEXT):  \
 	libarchive/$(am__dirstamp) \
 	libarchive/$(DEPDIR)/$(am__dirstamp)
+libarchive/test-archive_write_set_format_cpio_binary.$(OBJEXT):  \
+	libarchive/$(am__dirstamp) \
+	libarchive/$(DEPDIR)/$(am__dirstamp)
 libarchive/test-archive_write_set_format_cpio_newc.$(OBJEXT):  \
+	libarchive/$(am__dirstamp) \
+	libarchive/$(DEPDIR)/$(am__dirstamp)
+libarchive/test-archive_write_set_format_cpio_odc.$(OBJEXT):  \
 	libarchive/$(am__dirstamp) \
 	libarchive/$(DEPDIR)/$(am__dirstamp)
 libarchive/test-archive_write_set_format_filter_by_ext.$(OBJEXT):  \
@@ -5647,6 +5685,9 @@ libarchive/test/test-test_read_truncated.$(OBJEXT):  \
 libarchive/test/test-test_read_truncated_filter.$(OBJEXT):  \
 	libarchive/test/$(am__dirstamp) \
 	libarchive/test/$(DEPDIR)/$(am__dirstamp)
+libarchive/test/test-test_short_writes.$(OBJEXT):  \
+	libarchive/test/$(am__dirstamp) \
+	libarchive/test/$(DEPDIR)/$(am__dirstamp)
 libarchive/test/test-test_sparse_basic.$(OBJEXT):  \
 	libarchive/test/$(am__dirstamp) \
 	libarchive/test/$(DEPDIR)/$(am__dirstamp)
@@ -5672,6 +5713,9 @@ libarchive/test/test-test_write_disk_appledouble.$(OBJEXT):  \
 	libarchive/test/$(am__dirstamp) \
 	libarchive/test/$(DEPDIR)/$(am__dirstamp)
 libarchive/test/test-test_write_disk_failures.$(OBJEXT):  \
+	libarchive/test/$(am__dirstamp) \
+	libarchive/test/$(DEPDIR)/$(am__dirstamp)
+libarchive/test/test-test_write_disk_fixup.$(OBJEXT):  \
 	libarchive/test/$(am__dirstamp) \
 	libarchive/test/$(DEPDIR)/$(am__dirstamp)
 libarchive/test/test-test_write_disk_hardlink.$(OBJEXT):  \
@@ -6102,7 +6146,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_ar.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_by_name.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_cpio.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_cpio_binary.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_cpio_newc.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_cpio_odc.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_filter_by_ext.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_gnutar.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/archive_write_set_format_iso9660.Plo@am__quote@ # am--include-marker
@@ -6230,7 +6276,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_ar.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_by_name.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_cpio.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_filter_by_ext.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_gnutar.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/$(DEPDIR)/test-archive_write_set_format_iso9660.Po@am__quote@ # am--include-marker
@@ -6440,6 +6488,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_read_too_many_filters.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_read_truncated.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_read_truncated_filter.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_short_writes.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_sparse_basic.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_tar_filenames.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_tar_large.Po@am__quote@ # am--include-marker
@@ -6449,6 +6498,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_appledouble.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_failures.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_hardlink.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_hfs_compression.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libarchive/test/$(DEPDIR)/test-test_write_disk_lookup.Po@am__quote@ # am--include-marker
@@ -10187,6 +10237,20 @@ libarchive/test-archive_write_set_format_cpio.obj: libarchive/archive_write_set_
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio.obj `if test -f 'libarchive/archive_write_set_format_cpio.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio.c'; fi`
 
+libarchive/test-archive_write_set_format_cpio_binary.o: libarchive/archive_write_set_format_cpio_binary.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_cpio_binary.o -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Tpo -c -o libarchive/test-archive_write_set_format_cpio_binary.o `test -f 'libarchive/archive_write_set_format_cpio_binary.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_cpio_binary.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Tpo libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/archive_write_set_format_cpio_binary.c' object='libarchive/test-archive_write_set_format_cpio_binary.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio_binary.o `test -f 'libarchive/archive_write_set_format_cpio_binary.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_cpio_binary.c
+
+libarchive/test-archive_write_set_format_cpio_binary.obj: libarchive/archive_write_set_format_cpio_binary.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_cpio_binary.obj -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Tpo -c -o libarchive/test-archive_write_set_format_cpio_binary.obj `if test -f 'libarchive/archive_write_set_format_cpio_binary.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio_binary.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio_binary.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Tpo libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/archive_write_set_format_cpio_binary.c' object='libarchive/test-archive_write_set_format_cpio_binary.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio_binary.obj `if test -f 'libarchive/archive_write_set_format_cpio_binary.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio_binary.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio_binary.c'; fi`
+
 libarchive/test-archive_write_set_format_cpio_newc.o: libarchive/archive_write_set_format_cpio_newc.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_cpio_newc.o -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Tpo -c -o libarchive/test-archive_write_set_format_cpio_newc.o `test -f 'libarchive/archive_write_set_format_cpio_newc.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_cpio_newc.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Tpo libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Po
@@ -10200,6 +10264,20 @@ libarchive/test-archive_write_set_format_cpio_newc.obj: libarchive/archive_write
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/archive_write_set_format_cpio_newc.c' object='libarchive/test-archive_write_set_format_cpio_newc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio_newc.obj `if test -f 'libarchive/archive_write_set_format_cpio_newc.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio_newc.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio_newc.c'; fi`
+
+libarchive/test-archive_write_set_format_cpio_odc.o: libarchive/archive_write_set_format_cpio_odc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_cpio_odc.o -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Tpo -c -o libarchive/test-archive_write_set_format_cpio_odc.o `test -f 'libarchive/archive_write_set_format_cpio_odc.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_cpio_odc.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Tpo libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/archive_write_set_format_cpio_odc.c' object='libarchive/test-archive_write_set_format_cpio_odc.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio_odc.o `test -f 'libarchive/archive_write_set_format_cpio_odc.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_cpio_odc.c
+
+libarchive/test-archive_write_set_format_cpio_odc.obj: libarchive/archive_write_set_format_cpio_odc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_cpio_odc.obj -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Tpo -c -o libarchive/test-archive_write_set_format_cpio_odc.obj `if test -f 'libarchive/archive_write_set_format_cpio_odc.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio_odc.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio_odc.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Tpo libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/archive_write_set_format_cpio_odc.c' object='libarchive/test-archive_write_set_format_cpio_odc.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test-archive_write_set_format_cpio_odc.obj `if test -f 'libarchive/archive_write_set_format_cpio_odc.c'; then $(CYGPATH_W) 'libarchive/archive_write_set_format_cpio_odc.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/archive_write_set_format_cpio_odc.c'; fi`
 
 libarchive/test-archive_write_set_format_filter_by_ext.o: libarchive/archive_write_set_format_filter_by_ext.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test-archive_write_set_format_filter_by_ext.o -MD -MP -MF libarchive/$(DEPDIR)/test-archive_write_set_format_filter_by_ext.Tpo -c -o libarchive/test-archive_write_set_format_filter_by_ext.o `test -f 'libarchive/archive_write_set_format_filter_by_ext.c' || echo '$(srcdir)/'`libarchive/archive_write_set_format_filter_by_ext.c
@@ -13281,6 +13359,20 @@ libarchive/test/test-test_read_truncated_filter.obj: libarchive/test/test_read_t
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_read_truncated_filter.obj `if test -f 'libarchive/test/test_read_truncated_filter.c'; then $(CYGPATH_W) 'libarchive/test/test_read_truncated_filter.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_read_truncated_filter.c'; fi`
 
+libarchive/test/test-test_short_writes.o: libarchive/test/test_short_writes.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_short_writes.o -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_short_writes.Tpo -c -o libarchive/test/test-test_short_writes.o `test -f 'libarchive/test/test_short_writes.c' || echo '$(srcdir)/'`libarchive/test/test_short_writes.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/test/$(DEPDIR)/test-test_short_writes.Tpo libarchive/test/$(DEPDIR)/test-test_short_writes.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/test/test_short_writes.c' object='libarchive/test/test-test_short_writes.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_short_writes.o `test -f 'libarchive/test/test_short_writes.c' || echo '$(srcdir)/'`libarchive/test/test_short_writes.c
+
+libarchive/test/test-test_short_writes.obj: libarchive/test/test_short_writes.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_short_writes.obj -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_short_writes.Tpo -c -o libarchive/test/test-test_short_writes.obj `if test -f 'libarchive/test/test_short_writes.c'; then $(CYGPATH_W) 'libarchive/test/test_short_writes.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_short_writes.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/test/$(DEPDIR)/test-test_short_writes.Tpo libarchive/test/$(DEPDIR)/test-test_short_writes.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/test/test_short_writes.c' object='libarchive/test/test-test_short_writes.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_short_writes.obj `if test -f 'libarchive/test/test_short_writes.c'; then $(CYGPATH_W) 'libarchive/test/test_short_writes.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_short_writes.c'; fi`
+
 libarchive/test/test-test_sparse_basic.o: libarchive/test/test_sparse_basic.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_sparse_basic.o -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_sparse_basic.Tpo -c -o libarchive/test/test-test_sparse_basic.o `test -f 'libarchive/test/test_sparse_basic.c' || echo '$(srcdir)/'`libarchive/test/test_sparse_basic.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/test/$(DEPDIR)/test-test_sparse_basic.Tpo libarchive/test/$(DEPDIR)/test-test_sparse_basic.Po
@@ -13406,6 +13498,20 @@ libarchive/test/test-test_write_disk_failures.obj: libarchive/test/test_write_di
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/test/test_write_disk_failures.c' object='libarchive/test/test-test_write_disk_failures.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_write_disk_failures.obj `if test -f 'libarchive/test/test_write_disk_failures.c'; then $(CYGPATH_W) 'libarchive/test/test_write_disk_failures.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_write_disk_failures.c'; fi`
+
+libarchive/test/test-test_write_disk_fixup.o: libarchive/test/test_write_disk_fixup.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_write_disk_fixup.o -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Tpo -c -o libarchive/test/test-test_write_disk_fixup.o `test -f 'libarchive/test/test_write_disk_fixup.c' || echo '$(srcdir)/'`libarchive/test/test_write_disk_fixup.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Tpo libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/test/test_write_disk_fixup.c' object='libarchive/test/test-test_write_disk_fixup.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_write_disk_fixup.o `test -f 'libarchive/test/test_write_disk_fixup.c' || echo '$(srcdir)/'`libarchive/test/test_write_disk_fixup.c
+
+libarchive/test/test-test_write_disk_fixup.obj: libarchive/test/test_write_disk_fixup.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_write_disk_fixup.obj -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Tpo -c -o libarchive/test/test-test_write_disk_fixup.obj `if test -f 'libarchive/test/test_write_disk_fixup.c'; then $(CYGPATH_W) 'libarchive/test/test_write_disk_fixup.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_write_disk_fixup.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Tpo libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libarchive/test/test_write_disk_fixup.c' object='libarchive/test/test-test_write_disk_fixup.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libarchive/test/test-test_write_disk_fixup.obj `if test -f 'libarchive/test/test_write_disk_fixup.c'; then $(CYGPATH_W) 'libarchive/test/test_write_disk_fixup.c'; else $(CYGPATH_W) '$(srcdir)/libarchive/test/test_write_disk_fixup.c'; fi`
 
 libarchive/test/test-test_write_disk_hardlink.o: libarchive/test/test_write_disk_hardlink.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarchive_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libarchive/test/test-test_write_disk_hardlink.o -MD -MP -MF libarchive/test/$(DEPDIR)/test-test_write_disk_hardlink.Tpo -c -o libarchive/test/test-test_write_disk_hardlink.o `test -f 'libarchive/test/test_write_disk_hardlink.c' || echo '$(srcdir)/'`libarchive/test/test_write_disk_hardlink.c
@@ -15295,7 +15401,9 @@ distclean: distclean-am
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_ar.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_by_name.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio.Plo
+	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_binary.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_newc.Plo
+	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_odc.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_filter_by_ext.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_gnutar.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_iso9660.Plo
@@ -15423,7 +15531,9 @@ distclean: distclean-am
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_ar.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_by_name.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio.Po
+	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Po
+	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_filter_by_ext.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_gnutar.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_iso9660.Po
@@ -15633,6 +15743,7 @@ distclean: distclean-am
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_too_many_filters.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_truncated.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_truncated_filter.Po
+	-rm -f libarchive/test/$(DEPDIR)/test-test_short_writes.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_sparse_basic.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_tar_filenames.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_tar_large.Po
@@ -15642,6 +15753,7 @@ distclean: distclean-am
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_appledouble.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_failures.Po
+	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_hardlink.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_hfs_compression.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_lookup.Po
@@ -16031,7 +16143,9 @@ maintainer-clean: maintainer-clean-am
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_ar.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_by_name.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio.Plo
+	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_binary.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_newc.Plo
+	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_cpio_odc.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_filter_by_ext.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_gnutar.Plo
 	-rm -f libarchive/$(DEPDIR)/archive_write_set_format_iso9660.Plo
@@ -16159,7 +16273,9 @@ maintainer-clean: maintainer-clean-am
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_ar.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_by_name.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio.Po
+	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_binary.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_newc.Po
+	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_cpio_odc.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_filter_by_ext.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_gnutar.Po
 	-rm -f libarchive/$(DEPDIR)/test-archive_write_set_format_iso9660.Po
@@ -16369,6 +16485,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_too_many_filters.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_truncated.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_read_truncated_filter.Po
+	-rm -f libarchive/test/$(DEPDIR)/test-test_short_writes.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_sparse_basic.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_tar_filenames.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_tar_large.Po
@@ -16378,6 +16495,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_appledouble.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_failures.Po
+	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_fixup.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_hardlink.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_hfs_compression.Po
 	-rm -f libarchive/test/$(DEPDIR)/test-test_write_disk_lookup.Po

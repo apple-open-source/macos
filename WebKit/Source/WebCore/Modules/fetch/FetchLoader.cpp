@@ -69,7 +69,7 @@ void FetchLoader::startLoadingBlobURL(ScriptExecutionContext& context, const URL
 
     ResourceRequest request(m_urlForReading);
     request.setInitiatorIdentifier(context.resourceRequestIdentifier());
-    request.setHTTPMethod("GET");
+    request.setHTTPMethod("GET"_s);
 
     ThreadableLoaderOptions options;
     options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
@@ -109,11 +109,11 @@ void FetchLoader::start(ScriptExecutionContext& context, const FetchRequest& req
     }
 
     String referrer = request.internalRequestReferrer();
-    if (referrer == "no-referrer") {
+    if (referrer == "no-referrer"_s) {
         options.referrerPolicy = ReferrerPolicy::NoReferrer;
         referrer = String();
     } else
-        referrer = (referrer == "client") ? context.url().strippedForUseAsReferrer() : URL(context.url(), referrer).strippedForUseAsReferrer();
+        referrer = (referrer == "client"_s) ? context.url().strippedForUseAsReferrer() : URL(context.url(), referrer).strippedForUseAsReferrer();
     if (options.referrerPolicy == ReferrerPolicy::EmptyString)
         options.referrerPolicy = context.referrerPolicy();
 
@@ -157,9 +157,9 @@ void FetchLoader::didReceiveData(const SharedBuffer& buffer)
     m_consumer->append(buffer);
 }
 
-void FetchLoader::didFinishLoading(ResourceLoaderIdentifier)
+void FetchLoader::didFinishLoading(ResourceLoaderIdentifier, const NetworkLoadMetrics& metrics)
 {
-    m_client.didSucceed();
+    m_client.didSucceed(metrics);
 }
 
 void FetchLoader::didFail(const ResourceError& error)

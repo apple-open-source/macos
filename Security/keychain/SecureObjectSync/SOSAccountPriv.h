@@ -27,7 +27,6 @@
 #include "keychain/SecureObjectSync/SOSInternal.h"
 
 #include "keychain/SecureObjectSync/SOSCircle.h"
-#include "keychain/SecureObjectSync/SOSCircleV2.h"
 #include "keychain/SecureObjectSync/SOSRing.h"
 #include "keychain/SecureObjectSync/SOSRingUtils.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
@@ -130,6 +129,7 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (nonatomic, assign)     BOOL                        sosTestmode;
 @property   (nonatomic, assign)     BOOL                        consolidateKeyInterest;
 
+@property   (nonatomic, assign)     BOOL                        accountInScriptBypassMode;
 
 
 
@@ -137,6 +137,8 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
 
 - (void)startStateMachine;
+- (void)setAccountInBypassMode:(BOOL)inBypass;
+- (BOOL)getAccountInBypassMode;
 
 void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     CFStringRef ds_name,

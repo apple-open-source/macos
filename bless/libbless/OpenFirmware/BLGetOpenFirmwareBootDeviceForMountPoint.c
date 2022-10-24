@@ -39,7 +39,10 @@
 #include "bless.h"
 #include "bless_private.h"
 
-int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context, const char * mountpoint, char * ofstring) {
+int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
+                                             const char * mountpoint,
+                                             char * ofstring,
+                                             uint32_t ofstringSize) {
     char mntfrm[MAXPATHLEN];
     int err;
     struct stat sb;
@@ -55,6 +58,6 @@ int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context, const char * 
     }
 
     snprintf(mntfrm, MAXPATHLEN, "/dev/%s", devname(sb.st_dev, S_IFBLK));
-    return BLGetOpenFirmwareBootDevice(context, mntfrm, ofstring);
+    return BLGetOpenFirmwareBootDevice(context, mntfrm, ofstring, ofstringSize);
 }
     

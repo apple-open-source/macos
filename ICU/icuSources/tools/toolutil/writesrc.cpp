@@ -117,7 +117,7 @@ usrc_writeFileNameGeneratedBy(
     const struct tm *lt;
     time_t t;
 
-    const char *pattern = 
+    const char *const pattern = 
         "%s\n"
         "%s file name: %s\n"
         "%s\n"
@@ -294,7 +294,7 @@ usrc_writeUCPTrieStruct(FILE *f,
             indexName,
             dataName);
     }
-    const char* pattern =
+    const char *const pattern =
         (syntax == UPRV_TARGET_SYNTAX_CCODE) ?
         "    %ld, %ld,\n"       // indexLength, dataLength
         "    0x%lx, 0x%x,\n"    // highStart, shifted12HighStart

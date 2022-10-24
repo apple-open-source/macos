@@ -54,6 +54,12 @@ public:
         return m_done;
     }
 
+    void redirectReceived(const URL& redirectURL)
+    {
+        if (m_client)
+            m_client->redirectReceived(redirectURL);
+    }
+
     void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
     {
         if (m_client)
@@ -72,11 +78,11 @@ public:
             m_client->didReceiveData(buffer);
     }
 
-    void didFinishLoading(ResourceLoaderIdentifier identifier)
+    void didFinishLoading(ResourceLoaderIdentifier identifier, const NetworkLoadMetrics& metrics)
     {
         m_done = true;
         if (m_client)
-            m_client->didFinishLoading(identifier);
+            m_client->didFinishLoading(identifier, metrics);
     }
 
     void notifyIsDone(bool isDone)

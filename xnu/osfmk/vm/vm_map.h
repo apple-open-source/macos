@@ -104,7 +104,8 @@ extern kern_return_t    vm_map_exec(
 	cpu_type_t              cpu,
 	cpu_subtype_t           cpu_subtype,
 	boolean_t               reslide,
-	boolean_t               is_driverkit);
+	boolean_t               is_driverkit,
+	uint32_t                rsr_version);
 
 __END_DECLS
 
@@ -140,6 +141,11 @@ typedef struct vm_map_entry     *vm_map_entry_t;
 #define VM_MAP_ENTRY_NULL       ((vm_map_entry_t) NULL)
 
 
+#define named_entry_lock_init(object)   lck_mtx_init(&(object)->Lock, &vm_object_lck_grp, &vm_object_lck_attr)
+#define named_entry_lock_destroy(object)        lck_mtx_destroy(&(object)->Lock, &vm_object_lck_grp)
+#define named_entry_lock(object)                lck_mtx_lock(&(object)->Lock)
+#define named_entry_unlock(object)              lck_mtx_unlock(&(object)->Lock)
+
 /*
  *	Type:		vm_named_entry_t [internal use only]
  *
@@ -172,16 +178,12 @@ struct vm_named_entry {
 	/* boolean_t */ is_object:1,            /* ... a VM object (wrapped in a VM map copy) */
 	/* boolean_t */ internal:1,             /* ... an internal object */
 	/* boolean_t */ is_sub_map:1,           /* ... a submap? */
-	/* boolean_t */ is_copy:1;              /* ... a VM map copy */
+	/* boolean_t */ is_copy:1,              /* ... a VM map copy */
+	/* boolean_t */ is_fully_owned:1;       /* ... all objects are owned */
 #if VM_NAMED_ENTRY_DEBUG
 	uint32_t                named_entry_bt; /* btref_t */
 #endif /* VM_NAMED_ENTRY_DEBUG */
 };
-
-#define named_entry_lock_init(object)   lck_mtx_init(&(object)->Lock, &vm_object_lck_grp, &vm_object_lck_attr)
-#define named_entry_lock_destroy(object)        lck_mtx_destroy(&(object)->Lock, &vm_object_lck_grp)
-#define named_entry_lock(object)                lck_mtx_lock(&(object)->Lock)
-#define named_entry_unlock(object)              lck_mtx_unlock(&(object)->Lock)
 
 
 /*
@@ -296,7 +298,18 @@ struct vm_map_entry {
 	/* boolean_t         */ needs_copy:1,               /* object need to be copied? */
 
 	/* Only in task maps: */
-	/* vm_prot_t-like    */ protection:4,               /* protection code, bit3=UEXEC */
+#if defined(__arm64e__)
+	/*
+	 * On ARM, the fourth protection bit is unused (UEXEC is x86_64 only).
+	 * We reuse it here to keep track of mappings that have hardware support
+	 * for read-only/read-write trusted paths.
+	 */
+	/* vm_prot_t-like    */ protection:3,               /* protection code */
+	/* boolean_t         */ used_for_tpro:1,
+#else /* __arm64e__ */
+	/* vm_prot_t-like    */protection:4,                /* protection code, bit3=UEXEC */
+#endif /* __arm64e__ */
+
 	/* vm_prot_t-like    */ max_protection:4,           /* maximum protection, bit3=UEXEC */
 	/* vm_inherit_t      */ inheritance:2,              /* inheritance */
 
@@ -310,7 +323,7 @@ struct vm_map_entry {
 	 */
 	/* boolean_t         */ use_pmap:1,
 	/* boolean_t         */ no_cache:1,                 /* should new pages be cached? */
-	/* boolean_t         */ permanent:1,                /* mapping can not be removed */
+	/* boolean_t         */ vme_permanent:1,            /* mapping can not be removed */
 	/* boolean_t         */ superpage_size:1,           /* use superpages of a certain size */
 	/* boolean_t         */ map_aligned:1,              /* align to map's page size */
 	/*
@@ -463,14 +476,15 @@ VME_ALIAS_SET(
 static inline void
 VME_OBJECT_SHADOW(
 	vm_map_entry_t entry,
-	vm_object_size_t length)
+	vm_object_size_t length,
+	bool always)
 {
 	vm_object_t object;
 	vm_object_offset_t offset;
 
 	object = VME_OBJECT(entry);
 	offset = VME_OFFSET(entry);
-	vm_object_shadow(&object, &offset, length);
+	vm_object_shadow(&object, &offset, length, always);
 	if (object != VME_OBJECT(entry)) {
 #if __LP64__
 		entry->vme_object = VM_OBJECT_PACK(object);
@@ -560,6 +574,9 @@ struct _vm_map {
 	uint64_t                data_limit;     /* rlimit on data size */
 	vm_map_size_t           user_wire_limit;/* rlimit on user locked memory */
 	vm_map_size_t           user_wire_size; /* current size of user locked memory in this map */
+#if CONFIG_MAP_RANGES
+	struct mach_vm_range    user_range[UMEM_RANGE_COUNT]; /* user VM ranges */
+#endif
 #if XNU_TARGET_OS_OSX
 	vm_map_offset_t         vmmap_high_start;
 #endif /* XNU_TARGET_OS_OSX */
@@ -617,7 +634,8 @@ struct _vm_map {
 	/* boolean_t */ reserved_regions:1,      /* has reserved regions. The map size that userspace sees should ignore these. */
 	/* boolean_t */ single_jit:1,            /* only allow one JIT mapping */
 	/* boolean_t */ never_faults:1,          /* this map should never cause faults */
-	/* reserved  */ pad:13;
+	/* boolean_t */ uses_user_ranges:1,      /* has the map been configured to use user VM ranges */
+	/* reserved  */ pad:12;
 	unsigned int            timestamp;       /* Version number */
 };
 
@@ -692,6 +710,16 @@ struct vm_map_copy {
 		void *XNU_PTRAUTH_SIGNED_PTR("vm_map_copy.kdata") kdata;  /* KERNEL_BUFFER */
 	} c_u;
 };
+
+
+ZONE_DECLARE_ID(ZONE_ID_VM_MAP_ENTRY, struct vm_map_entry);
+#define vm_map_entry_zone       (&zone_array[ZONE_ID_VM_MAP_ENTRY])
+
+ZONE_DECLARE_ID(ZONE_ID_VM_MAP_HOLES, struct vm_map_links);
+#define vm_map_holes_zone       (&zone_array[ZONE_ID_VM_MAP_HOLES])
+
+ZONE_DECLARE_ID(ZONE_ID_VM_MAP, struct _vm_map);
+#define vm_map_zone             (&zone_array[ZONE_ID_VM_MAP])
 
 
 #define cpy_hdr                 c_u.hdr
@@ -834,7 +862,7 @@ extern void             vm_map_copy_remap(
 
 /* Find the VM object, offset, and protection for a given virtual address
  * in the specified map, assuming a page fault of the	type specified. */
-extern kern_return_t    vm_map_lookup_locked(
+extern kern_return_t    vm_map_lookup_and_lock_object(
 	vm_map_t                *var_map,                               /* IN/OUT */
 	vm_map_address_t        vaddr,
 	vm_prot_t               fault_type,
@@ -948,7 +976,8 @@ extern  kern_return_t   vm_map_enter_cpm(
 	vm_map_t                map,
 	vm_map_address_t        *addr,
 	vm_map_size_t           size,
-	int                     flags);
+	int                     flags,
+	vm_map_kernel_flags_t   vmk_flags);
 
 extern kern_return_t vm_map_remap(
 	vm_map_t                target_map,
@@ -1419,6 +1448,9 @@ extern boolean_t        vm_map_has_hard_pagezero(
 	vm_map_offset_t         pagezero_size);
 extern void             vm_commit_pagezero_status(vm_map_t      tmap);
 
+extern void             vm_map_set_tpro(
+	vm_map_t                map);
+
 #ifdef __arm__
 static inline boolean_t
 vm_map_is_64bit(__unused vm_map_t map)
@@ -1522,6 +1554,30 @@ mach_vm_range_overflows(mach_vm_offset_t addr, mach_vm_size_t size)
 
 #ifdef XNU_KERNEL_PRIVATE
 
+/* Support for vm_map ranges */
+extern kern_return_t    vm_map_range_configure(
+	vm_map_t                map);
+
+extern void             vm_map_range_fork(
+	vm_map_t                new_map,
+	vm_map_t                old_map);
+
+__attribute__((__overloadable__))
+extern vm_map_range_id_t vm_map_get_user_range_id(
+	vm_map_t                map,
+	uint16_t                tag);
+
+__attribute__((__overloadable__))
+extern vm_map_range_id_t vm_map_get_user_range_id(
+	vm_map_t                map,
+	mach_vm_offset_t        addr,
+	mach_vm_size_t          size);
+
+extern int               vm_map_get_user_range(
+	vm_map_t                map,
+	vm_map_range_id_t       range_id,
+	mach_vm_range_t         range);
+
 #if XNU_TARGET_OS_OSX
 extern void vm_map_mark_alien(vm_map_t map);
 extern void vm_map_single_jit(vm_map_t map);
@@ -1541,6 +1597,7 @@ extern kern_return_t vm_map_page_range_info_internal(
 	vm_page_info_flavor_t   flavor,
 	vm_page_info_t          info,
 	mach_msg_type_number_t  *count);
+
 #endif /* XNU_KERNEL_PRIVATE */
 
 
@@ -1705,6 +1762,22 @@ vm_prot_to_wimg(unsigned int prot, unsigned int *wimg)
 	}
 }
 
+static inline boolean_t
+vm_map_always_shadow(vm_map_t map)
+{
+	if (map->mapped_in_other_pmaps) {
+		/*
+		 * This is a submap, mapped in other maps.
+		 * Even if a VM object is mapped only once in this submap,
+		 * the submap itself could be mapped multiple times,
+		 * so vm_object_shadow() should always create a shadow
+		 * object, even if the object has only 1 reference.
+		 */
+		return TRUE;
+	}
+	return FALSE;
+}
+
 #endif /* MACH_KERNEL_PRIVATE */
 
 #ifdef XNU_KERNEL_PRIVATE
@@ -1783,6 +1856,12 @@ extern kern_return_t vm_map_freeze(
 #define FREEZER_ERROR_NO_SWAP_SPACE             (-5)
 
 #endif
+
+#if XNU_KERNEL_PRIVATE
+boolean_t        kdp_vm_map_is_acquired_exclusive(vm_map_t map);
+
+boolean_t        vm_map_entry_has_device_pager(vm_map_t, vm_map_offset_t vaddr);
+#endif /* XNU_KERNEL_PRIVATE */
 
 __END_DECLS
 

@@ -390,6 +390,7 @@
      <summary>interface for the encoding conversion functions</summary>
      <description>interface for the encoding conversion functions needed for XML basic encoding and iconv() support.  Related specs are rfc2044        (UTF-8 and UTF-16) F. Yergeau Alis Technologies [ISO-10646]    UTF-8 and UTF-16 in Annexes [ISO-8859-1]   ISO Latin-1 characters codes. [UNICODE]      The Unicode Consortium, &quot;The Unicode Standard -- Worldwide Character Encoding -- Version 1.0&quot;, Addison- Wesley, Volume 1, 1991, Volume 2, 1992.  UTF-8 is described in Unicode Technical Report #4. [US-ASCII]     Coded Character Set--7-bit American Standard Code for Information Interchange, ANSI X3.4-1986. </description>
      <author>Daniel Veillard </author>
+     <exports symbol='ICU_PIVOT_BUF_SIZE' type='macro'/>
      <exports symbol='XML_CHAR_ENCODING_UCS4LE' type='enum'/>
      <exports symbol='XML_CHAR_ENCODING_ERROR' type='enum'/>
      <exports symbol='XML_CHAR_ENCODING_8859_5' type='enum'/>
@@ -573,6 +574,7 @@
      <exports symbol='xmlHashCopy' type='function'/>
      <exports symbol='xmlHashScanFull3' type='function'/>
      <exports symbol='xmlHashUpdateEntry3' type='function'/>
+     <exports symbol='xmlHashDefaultDeallocator' type='function'/>
      <exports symbol='xmlHashLookup3' type='function'/>
      <exports symbol='xmlHashLookup2' type='function'/>
      <exports symbol='xmlHashRemoveEntry' type='function'/>
@@ -769,6 +771,7 @@
      <exports symbol='xmlParserNodeInfoSeq' type='typedef'/>
      <exports symbol='xmlFeature' type='typedef'/>
      <exports symbol='xmlParserMode' type='typedef'/>
+     <exports symbol='xmlStartTag' type='typedef'/>
      <exports symbol='xmlParserOption' type='typedef'/>
      <exports symbol='xmlSAXHandlerV1Ptr' type='typedef'/>
      <exports symbol='xmlParserNodeInfo' type='typedef'/>
@@ -1127,7 +1130,7 @@
     </file>
     <file name='schemasInternals'>
      <summary>internal interfaces for XML Schemas</summary>
-     <description>internal interfaces for the XML Schemas handling and schema validity checking The Schemas development is a Work In Progress. Some of those interfaces are not garanteed to be API or ABI stable ! </description>
+     <description>internal interfaces for the XML Schemas handling and schema validity checking The Schemas development is a Work In Progress. Some of those interfaces are not guaranteed to be API or ABI stable ! </description>
      <author>Daniel Veillard </author>
      <exports symbol='XML_SCHEMAS_BLOCK_DEFAULT_RESTRICTION' type='macro'/>
      <exports symbol='XML_SCHEMAS_FINAL_DEFAULT_EXTENSION' type='macro'/>
@@ -1903,6 +1906,7 @@
      <exports symbol='xmlInputMatchCallback' type='function'/>
      <exports symbol='xmlRegisterDefaultOutputCallbacks' type='function'/>
      <exports symbol='xmlFileClose' type='function'/>
+     <exports symbol='xmlPopOutputCallbacks' type='function'/>
      <exports symbol='xmlOutputMatchCallback' type='function'/>
      <exports symbol='xmlParserInputBufferPush' type='function'/>
      <exports symbol='xmlIOFTPRead' type='function'/>
@@ -2786,9 +2790,8 @@
     <file name='xmlexports'>
      <summary>macros for marking symbols as exportable/importable.</summary>
      <description>macros for marking symbols as exportable/importable. </description>
-     <author>Igor Zlatovic &lt;igor@zlatkovic.com&gt; </author>
-     <exports symbol='_REENTRANT' type='macro'/>
      <exports symbol='XMLCDECL' type='macro'/>
+     <exports symbol='XMLPUBLIC' type='macro'/>
      <exports symbol='XMLPUBVAR' type='macro'/>
      <exports symbol='LIBXML_DLL_IMPORT' type='macro'/>
      <exports symbol='XMLCALL' type='macro'/>
@@ -3377,8 +3380,8 @@
      <exports symbol='xmlUCSIsCatMe' type='function'/>
     </file>
     <file name='xmlversion'>
-     <summary>compile-time version informations</summary>
-     <description>compile-time version informations for the XML library </description>
+     <summary>compile-time version information</summary>
+     <description>compile-time version information for the XML library </description>
      <author>Daniel Veillard </author>
      <exports symbol='LIBXML_VERSION_EXTRA' type='macro'/>
      <exports symbol='LIBXML_MODULES_ENABLED' type='macro'/>
@@ -3534,7 +3537,7 @@
      <exports symbol='XPATH_UNDEF_VARIABLE_ERROR' type='enum'/>
      <exports symbol='XPATH_EXPRESSION_OK' type='enum'/>
      <exports symbol='XPATH_NODESET' type='enum'/>
-     <exports symbol='XPTR_SUB_RESOURCE_ERROR' type='enum'/>
+     <exports symbol='XPATH_OP_LIMIT_EXCEEDED' type='enum'/>
      <exports symbol='XPATH_VARIABLE_REF_ERROR' type='enum'/>
      <exports symbol='XPATH_ENCODING_ERROR' type='enum'/>
      <exports symbol='XPTR_RESOURCE_ERROR' type='enum'/>
@@ -3549,8 +3552,10 @@
      <exports symbol='XPATH_LOCATIONSET' type='enum'/>
      <exports symbol='XPATH_INVALID_CTXT' type='enum'/>
      <exports symbol='XPATH_INVALID_ARITY' type='enum'/>
+     <exports symbol='XPTR_SUB_RESOURCE_ERROR' type='enum'/>
      <exports symbol='XPATH_STRING' type='enum'/>
      <exports symbol='XPATH_INVALID_PREDICATE_ERROR' type='enum'/>
+     <exports symbol='XPATH_RECURSION_LIMIT_EXCEEDED' type='enum'/>
      <exports symbol='XPATH_XSLT_TREE' type='enum'/>
      <exports symbol='XPATH_EXPR_ERROR' type='enum'/>
      <exports symbol='XPATH_FORBID_VARIABLE_ERROR' type='enum'/>
@@ -3878,6 +3883,8 @@
     <macro name='HTML_TEXT_NODE' file='HTMLtree'>
       <info>Macro. A text node in a HTML document is really implemented the same way as a text node in an XML document.</info>
     </macro>
+    <macro name='ICU_PIVOT_BUF_SIZE' file='encoding'>
+    </macro>
     <macro name='INPUT_CHUNK' file='parserInternals'>
       <info>The parser tries to always have that amount of input ready. One of the point is providing context when reporting errors.</info>
     </macro>
@@ -3993,7 +4000,7 @@
       <info>the version string like &quot;1.2.3&quot;</info>
     </macro>
     <macro name='LIBXML_EXPR_ENABLED' file='xmlversion'>
-      <info>Whether the formal expressions interfaces are compiled in</info>
+      <info>Whether the formal expressions interfaces are compiled in  This code is unused and disabled unconditionally for now.</info>
     </macro>
     <macro name='LIBXML_FTP_ENABLED' file='xmlversion'>
       <info>Whether the FTP support is configured in</info>
@@ -4071,7 +4078,7 @@
       <info>the version number: 1.2.3 value is 10203</info>
     </macro>
     <macro name='LIBXML_VERSION_EXTRA' file='xmlversion'>
-      <info>extra version information, used to show a CVS compilation</info>
+      <info>extra version information, used to show a git commit description</info>
     </macro>
     <macro name='LIBXML_VERSION_STRING' file='xmlversion'>
       <info>the version number string, 1.2.3 value is &quot;10203&quot;</info>
@@ -4143,12 +4150,19 @@
       <info>Macro defining &quot;xpointer&quot;</info>
     </macro>
     <macro name='XMLCALL' file='xmlexports'>
+      <info>Macro which declares the calling convention for exported functions</info>
     </macro>
     <macro name='XMLCDECL' file='xmlexports'>
+      <info>Macro which declares the calling convention for exported functions that use &apos;...&apos;.</info>
     </macro>
     <macro name='XMLPUBFUN' file='xmlexports'>
+      <info>Macro which declares an exportable function</info>
+    </macro>
+    <macro name='XMLPUBLIC' file='xmlexports'>
+      <info>Macro which declares a public symbol</info>
     </macro>
     <macro name='XMLPUBVAR' file='xmlexports'>
+      <info>Macro which declares an exportable variable</info>
     </macro>
     <macro name='XML_CAST_FPTR' file='hash'>
       <info>Macro to do a casting from an object pointer to a function pointer without encountering a warning from gcc  #define XML_CAST_FPTR(fptr) (*(void **)(&amp;fptr)) This macro violated ISO C aliasing rules (gcc4 on s390 broke) so it is disabled now</info>
@@ -4158,7 +4172,7 @@
       <info>The namespace for the XML Catalogs elements.</info>
     </macro>
     <macro name='XML_CATALOG_PI' file='catalog'>
-      <info>The specific XML Catalog Processing Instuction name.</info>
+      <info>The specific XML Catalog Processing Instruction name.</info>
     </macro>
     <macro name='XML_COMPLETE_ATTRS' file='parser'>
       <info>Bit in the loadsubset context field to tell to do complete the elements attributes lists with the ones defaulted from the DTDs. Use it to initialize xmlLoadExtDtdDefaultValue.</info>
@@ -4194,7 +4208,7 @@
       <info>Identifiers can be longer, but this will be more costly at runtime.</info>
     </macro>
     <macro name='XML_MAX_NAME_LENGTH' file='parserInternals'>
-      <info>Maximum size allowed for a markup identitier This is not a limitation of the parser but a safety boundary feature, use XML_PARSE_HUGE option to override it. Note that with the use of parsing dictionaries overriding the limit may result in more runtime memory usage in face of &quot;unfriendly&apos; content Introduced in 2.9.0</info>
+      <info>Maximum size allowed for a markup identifier. This is not a limitation of the parser but a safety boundary feature, use XML_PARSE_HUGE option to override it. Note that with the use of parsing dictionaries overriding the limit may result in more runtime memory usage in face of &quot;unfriendly&apos; content Introduced in 2.9.0</info>
     </macro>
     <macro name='XML_MAX_TEXT_LENGTH' file='parserInternals'>
       <info>Maximum size allowed for a single text node when building a tree. This is not a limitation of the parser but a safety boundary feature, use XML_PARSE_HUGE option to override it. Introduced in 2.9.0</info>
@@ -4221,7 +4235,7 @@
       <info>Used by wildcards. Apply strict validation rules</info>
     </macro>
     <macro name='XML_SCHEMAS_ATTRGROUP_GLOBAL' file='schemasInternals'>
-      <info>The attribute wildcard has been already builded.</info>
+      <info>The attribute group has been defined.</info>
     </macro>
     <macro name='XML_SCHEMAS_ATTRGROUP_HAS_REFS' file='schemasInternals'>
       <info>Whether this attr. group contains attr. group references.</info>
@@ -4233,7 +4247,7 @@
       <info>The attr group was redefined.</info>
     </macro>
     <macro name='XML_SCHEMAS_ATTRGROUP_WILDCARD_BUILDED' file='schemasInternals'>
-      <info>The attribute wildcard has been already builded.</info>
+      <info>The attribute wildcard has been built.</info>
     </macro>
     <macro name='XML_SCHEMAS_ATTR_FIXED' file='schemasInternals'>
       <info>the attribute has a fixed value</info>
@@ -4278,7 +4292,7 @@
       <info>disallowed substitutions: &quot;restriction&quot;</info>
     </macro>
     <macro name='XML_SCHEMAS_ELEM_BLOCK_SUBSTITUTION' file='schemasInternals'>
-      <info>disallowed substitutions: &quot;substituion&quot;</info>
+      <info>disallowed substitutions: &quot;substitution&quot;</info>
     </macro>
     <macro name='XML_SCHEMAS_ELEM_CIRCULAR' file='schemasInternals'>
       <info>a helper flag for the search of circular references.</info>
@@ -4338,7 +4352,7 @@
       <info>the schema has &quot;extension&quot; in the set of finalDefault.</info>
     </macro>
     <macro name='XML_SCHEMAS_FINAL_DEFAULT_LIST' file='schemasInternals'>
-      <info>the cshema has &quot;list&quot; in the set of finalDefault.</info>
+      <info>the schema has &quot;list&quot; in the set of finalDefault.</info>
     </macro>
     <macro name='XML_SCHEMAS_FINAL_DEFAULT_RESTRICTION' file='schemasInternals'>
       <info>the schema has &quot;restriction&quot; in the set of finalDefault.</info>
@@ -4475,6 +4489,12 @@
     <macro name='XML_XPATH_NOVAR' file='xpath'>
       <info>forbid variables in expression</info>
     </macro>
+    <macro name='XPATH_LOCATIONSET' file='xpath'>
+    </macro>
+    <macro name='XPATH_POINT' file='xpath'>
+    </macro>
+    <macro name='XPATH_RANGE' file='xpath'>
+    </macro>
     <macro name='XP_ERROR' file='xpathInternals'>
       <info>Macro to raise an XPath error and return.</info>
       <arg name='X' info='the error code'/>
@@ -4482,8 +4502,6 @@
     <macro name='XP_ERROR0' file='xpathInternals'>
       <info>Macro to raise an XPath error and return 0.</info>
       <arg name='X' info='the error code'/>
-    </macro>
-    <macro name='_REENTRANT' file='xmlexports'>
     </macro>
     <macro name='htmlDefaultSubelement' file='HTMLparser'>
       <info>Returns the default subelement for this element</info>
@@ -4710,7 +4728,7 @@
     <enum name='XML_BUFFER_ALLOC_IMMUTABLE' file='tree' value='3' type='xmlBufferAllocationScheme' info='immutable buffer'/>
     <enum name='XML_BUFFER_ALLOC_IO' file='tree' value='4' type='xmlBufferAllocationScheme' info='special allocation scheme used for I/O'/>
     <enum name='XML_BUF_OVERFLOW' file='xmlerror' value='7000' type='xmlParserErrors'/>
-    <enum name='XML_C14N_1_0' file='c14n' value='0' type='xmlC14NMode' info='Origianal C14N 1.0 spec'/>
+    <enum name='XML_C14N_1_0' file='c14n' value='0' type='xmlC14NMode' info='Original C14N 1.0 spec'/>
     <enum name='XML_C14N_1_1' file='c14n' value='2' type='xmlC14NMode' info=' C14N 1.1 spec'/>
     <enum name='XML_C14N_CREATE_CTXT' file='xmlerror' value='1950' type='xmlParserErrors'/>
     <enum name='XML_C14N_CREATE_STACK' file='xmlerror' value='1952' type='xmlParserErrors' info='1952'/>
@@ -5159,7 +5177,7 @@ crash if you try to modify the tree)'/>
     <enum name='XML_PARSE_SAX' file='parser' value='2' type='xmlParserMode'/>
     <enum name='XML_PARSE_SAX1' file='parser' value='512' type='xmlParserOption' info='use the SAX1 interface internally'/>
     <enum name='XML_PARSE_UNKNOWN' file='parser' value='0' type='xmlParserMode'/>
-    <enum name='XML_PARSE_XINCLUDE' file='parser' value='1024' type='xmlParserOption' info='Implement XInclude substitition'/>
+    <enum name='XML_PARSE_XINCLUDE' file='parser' value='1024' type='xmlParserOption' info='Implement XInclude substitution'/>
     <enum name='XML_PATTERN_DEFAULT' file='pattern' value='0' type='xmlPatternFlags' info='simple pattern match'/>
     <enum name='XML_PATTERN_XPATH' file='pattern' value='1' type='xmlPatternFlags' info='standard XPath pattern'/>
     <enum name='XML_PATTERN_XSFIELD' file='pattern' value='4' type='xmlPatternFlags' info=' XPath subset for schema field'/>
@@ -5890,8 +5908,10 @@ crash if you try to modify the tree)'/>
     <enum name='XPATH_NODESET' file='xpath' value='1' type='xmlXPathObjectType'/>
     <enum name='XPATH_NUMBER' file='xpath' value='3' type='xmlXPathObjectType'/>
     <enum name='XPATH_NUMBER_ERROR' file='xpath' value='1' type='xmlXPathError'/>
+    <enum name='XPATH_OP_LIMIT_EXCEEDED' file='xpath' value='25' type='xmlXPathError'/>
     <enum name='XPATH_POINT' file='xpath' value='5' type='xmlXPathObjectType'/>
     <enum name='XPATH_RANGE' file='xpath' value='6' type='xmlXPathObjectType'/>
+    <enum name='XPATH_RECURSION_LIMIT_EXCEEDED' file='xpath' value='26' type='xmlXPathError'/>
     <enum name='XPATH_STACK_ERROR' file='xpath' value='23' type='xmlXPathError'/>
     <enum name='XPATH_START_LITERAL_ERROR' file='xpath' value='3' type='xmlXPathError'/>
     <enum name='XPATH_STRING' file='xpath' value='4' type='xmlXPathObjectType'/>
@@ -5961,6 +5981,9 @@ if necessary or NULL'/>
     <struct name='uconv_t' file='encoding' type='struct _uconv_t'>
       <field name='uconv' type='UConverter *' info=' for conversion between an encoding and UTF-16'/>
       <field name='utf8' type='UConverter *' info=' for conversion between UTF-8 and UTF-16'/>
+      <field name='pivot_buf' type='UCharpivot_buf[ICU_PIVOT_BUF_SIZE]' info=''/>
+      <field name='pivot_source' type='UChar *' info=''/>
+      <field name='pivot_target' type='UChar *' info=''/>
     </struct>
     <typedef name='xlinkActuate' file='xlink' type='enum'/>
     <typedef name='xlinkHRef' file='xlink' type='xmlChar *'/>
@@ -5986,7 +6009,7 @@ if necessary or NULL'/>
       <field name='doc' type='struct _xmlDoc *' info=' the containing document'/>
       <field name='ns' type='xmlNs *' info=' pointer to the associated namespace'/>
       <field name='atype' type='xmlAttributeType' info=' the attribute type if validating'/>
-      <field name='psvi' type='void *' info=' for type/PSVI informations'/>
+      <field name='psvi' type='void *' info=' for type/PSVI information'/>
     </struct>
     <typedef name='xmlAttrPtr' file='tree' type='xmlAttr *'/>
     <struct name='xmlAttribute' file='tree' type='struct _xmlAttribute'>
@@ -6108,10 +6131,10 @@ standalone attribute was specified'/>
       <field name='ids' type='void *' info=' Hash table for ID attributes if any'/>
       <field name='refs' type='void *' info=' Hash table for IDREFs attributes if any'/>
       <field name='URL' type='const xmlChar *' info=' The URI for that document'/>
-      <field name='charset' type='int' info=' encoding of the in-memory content
+      <field name='charset' type='int' info=' Internal flag for charset handling,
 actually an xmlCharEncoding'/>
       <field name='dict' type='struct _xmlDict *' info=' dict used to allocate names or NULL'/>
-      <field name='psvi' type='void *' info=' for type/PSVI informations'/>
+      <field name='psvi' type='void *' info=' for type/PSVI information'/>
       <field name='parseFlags' type='int' info=' set of xmlParserOption used to parse the
 document'/>
       <field name='properties' type='int' info=' set of xmlDocProperties for this document
@@ -6308,7 +6331,7 @@ set at the end of parsing'/>
       <field name='content' type='xmlChar *' info=' the content'/>
       <field name='properties' type='struct _xmlAttr *' info=' properties list'/>
       <field name='nsDef' type='xmlNs *' info=' namespace definitions on this node'/>
-      <field name='psvi' type='void *' info=' for type/PSVI informations'/>
+      <field name='psvi' type='void *' info=' for type/PSVI information'/>
       <field name='line' type='unsigned short' info=' line number'/>
       <field name='extra' type='unsigned short' info=' extra data for XPath/XSLT'/>
     </struct>
@@ -6316,7 +6339,7 @@ set at the end of parsing'/>
     <struct name='xmlNodeSet' file='xpath' type='struct _xmlNodeSet'>
       <field name='nodeNr' type='int' info=' number of nodes in the set'/>
       <field name='nodeMax' type='int' info=' size of the array as allocated'/>
-      <field name='nodeTab' type='xmlNodePtr *' info=' array of nodes in no particular order @@ with_ns to check wether namespace nodes should be looked at @@'/>
+      <field name='nodeTab' type='xmlNodePtr *' info=' array of nodes in no particular order @@ with_ns to check whether namespace nodes should be looked at @@'/>
     </struct>
     <typedef name='xmlNodeSetPtr' file='xpath' type='xmlNodeSet *'/>
     <struct name='xmlNotation' file='tree' type='struct _xmlNotation'>
@@ -6385,7 +6408,7 @@ set at the end of parsing'/>
       <field name='nameNr' type='int' info=' Depth of the parsing stack'/>
       <field name='nameMax' type='int' info=' Max depth of the parsing stack'/>
       <field name='nameTab' type='const xmlChar * *' info=' array of nodes'/>
-      <field name='nbChars' type='long' info=' number of xmlChar processed'/>
+      <field name='nbChars' type='long' info=' unused'/>
       <field name='checkIndex' type='long' info=' used by progressive parsing lookup'/>
       <field name='keepBlanks' type='int' info=' ugly but ...'/>
       <field name='disableSAX' type='int' info=' SAX callbacks are disabled'/>
@@ -6424,17 +6447,17 @@ actually an xmlCharEncoding'/>
       <field name='nsMax' type='int' info=' the size of the arrays'/>
       <field name='nsTab' type='const xmlChar * *' info=' the array of prefix/namespace name'/>
       <field name='attallocs' type='int *' info=' which attribute were allocated'/>
-      <field name='pushTab' type='void * *' info=' array of data for push'/>
+      <field name='pushTab' type='xmlStartTag *' info=' array of data for push'/>
       <field name='attsDefault' type='xmlHashTablePtr' info=' defaulted attributes if any'/>
       <field name='attsSpecial' type='xmlHashTablePtr' info=' non-CDATA attributes if any'/>
-      <field name='nsWellFormed' type='int' info=' is the document XML Nanespace okay'/>
-      <field name='options' type='int' info='* Those fields are needed only for treaming parsing so far
+      <field name='nsWellFormed' type='int' info=' is the document XML Namespace okay'/>
+      <field name='options' type='int' info='* Those fields are needed only for streaming parsing so far
 *'/>
       <field name='dictNames' type='int' info=' Use dictionary names for the tree'/>
       <field name='freeElemsNr' type='int' info=' number of freed element nodes'/>
       <field name='freeElems' type='xmlNodePtr' info=' List of freed element nodes'/>
       <field name='freeAttrsNr' type='int' info=' number of freed attributes nodes'/>
-      <field name='freeAttrs' type='xmlAttrPtr' info='* the complete error informations for the last error.
+      <field name='freeAttrs' type='xmlAttrPtr' info='* the complete error information for the last error.
 *'/>
       <field name='lastError' type='xmlError' info=''/>
       <field name='parseMode' type='xmlParserMode' info=' the parser mode'/>
@@ -6628,7 +6651,7 @@ actually an xmlCharEncoding'/>
       <field name='dict' type='xmlDictPtr' info=''/>
       <field name='includes' type='void *' info=' the includes, this is opaque for now'/>
       <field name='preserve' type='int' info=' whether to free the document'/>
-      <field name='counter' type='int' info=' used to give ononymous components unique names'/>
+      <field name='counter' type='int' info=' used to give anonymous components unique names'/>
       <field name='idcDef' type='xmlHashTablePtr' info=' All identity-constraint defs.'/>
       <field name='volatiles' type='void *' info=' Obsolete'/>
     </struct>
@@ -6709,7 +6732,7 @@ substitution group affiliation'/>
       <field name='contModel' type='xmlRegexpPtr' info=' Obsolete for WXS, maybe used for RelaxNG'/>
       <field name='contentType' type='xmlSchemaContentType' info=''/>
       <field name='refPrefix' type='const xmlChar *' info=' Deprecated; not used'/>
-      <field name='defVal' type='xmlSchemaValPtr' info=' The compiled value contraint.'/>
+      <field name='defVal' type='xmlSchemaValPtr' info=' The compiled value constraint.'/>
       <field name='idcs' type='void *' info=' The identity-constraint defs'/>
     </struct>
     <typedef name='xmlSchemaElementPtr' file='schemasInternals' type='xmlSchemaElement *'/>
@@ -6828,6 +6851,7 @@ Could we use @subtypes for this?'/>
       <field name='input' type='xmlShellReadlineFunc' info=''/>
     </struct>
     <typedef name='xmlShellCtxtPtr' file='debugXML' type='xmlShellCtxt *'/>
+    <struct name='xmlStartTag' file='parser' type='struct _xmlStartTag'/>
     <struct name='xmlStreamCtxt' file='pattern' type='struct _xmlStreamCtxt'/>
     <typedef name='xmlStreamCtxtPtr' file='pattern' type='xmlStreamCtxt *'/>
     <struct name='xmlTextReader' file='xmlreader' type='struct _xmlTextReader'/>
@@ -6923,7 +6947,10 @@ Could we use @subtypes for this?'/>
       <field name='debugNode' type='xmlNodePtr' info=' the source node XSLT dictionary'/>
       <field name='dict' type='xmlDictPtr' info=' dictionary if any'/>
       <field name='flags' type='int' info=' flags to control compilation Cache for reusal of XPath objects'/>
-      <field name='cache' type='void *' info=''/>
+      <field name='cache' type='void *' info=' Resource limits'/>
+      <field name='opLimit' type='unsigned long' info=''/>
+      <field name='opCount' type='unsigned long' info=''/>
+      <field name='depth' type='int' info=''/>
     </struct>
     <typedef name='xmlXPathContextPtr' file='xpath' type='xmlXPathContext *'/>
     <typedef name='xmlXPathError' file='xpath' type='enum'/>
@@ -7031,7 +7058,7 @@ Could we use @subtypes for this?'/>
     <function name='UTF8Toisolat1' file='encoding' module='encoding'>
       <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
       <info>Take a block of UTF-8 chars in and try to convert it to an ISO Latin 1 block of chars out.</info>
-      <return type='int' info='the number of bytes written if success, -2 if the transcoding fails, or -1 otherwise The value of @inlen after return is the number of octets consumed if the return value is positive, else unpredictable. The value of @outlen after return is the number of octets consumed.'/>
+      <return type='int' info='the number of bytes written if success, -2 if the transcoding fails, or -1 otherwise The value of @inlen after return is the number of octets consumed if the return value is positive, else unpredictable. The value of @outlen after return is the number of octets produced.'/>
       <arg name='out' type='unsigned char *' info='a pointer to an array of bytes to store the result'/>
       <arg name='outlen' type='int *' info='the length of @out'/>
       <arg name='in' type='const unsigned char *' info='a pointer to an array of UTF-8 chars'/>
@@ -7247,7 +7274,7 @@ Could we use @subtypes for this?'/>
       <arg name='name' type='const xmlChar *' info='The element name'/>
     </function>
     <functype name='endElementNsSAX2Func' file='parser' module='parser'>
-      <info>SAX2 callback when an element end has been detected by the parser. It provides the namespace informations for the element.</info>
+      <info>SAX2 callback when an element end has been detected by the parser. It provides the namespace information for the element.</info>
       <return type='void'/>
       <arg name='ctx' type='void *' info='the user data (XML parser context)'/>
       <arg name='localname' type='const xmlChar *' info='the local name of the element'/>
@@ -7540,16 +7567,16 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the HTML buffer output'/>
       <arg name='cur' type='xmlDocPtr' info='the document'/>
-      <arg name='encoding' type='const char *' info='the encoding string'/>
+      <arg name='encoding' type='const char *' info='the encoding string (unused)'/>
       <arg name='format' type='int' info='should formatting spaces been added'/>
     </function>
     <function name='htmlDocContentDumpOutput' file='HTMLtree' module='HTMLtree'>
       <cond>defined(LIBXML_HTML_ENABLED) &amp;&amp; defined(LIBXML_OUTPUT_ENABLED)</cond>
-      <info>Dump an HTML document. Formating return/spaces are added.</info>
+      <info>Dump an HTML document. Formatting return/spaces are added.</info>
       <return type='void'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the HTML buffer output'/>
       <arg name='cur' type='xmlDocPtr' info='the document'/>
-      <arg name='encoding' type='const char *' info='the encoding string'/>
+      <arg name='encoding' type='const char *' info='the encoding string (unused)'/>
     </function>
     <function name='htmlDocDump' file='HTMLtree' module='HTMLtree'>
       <cond>defined(LIBXML_HTML_ENABLED) &amp;&amp; defined(LIBXML_OUTPUT_ENABLED)</cond>
@@ -7631,7 +7658,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='htmlInitAutoClose' file='parserInternals' module='HTMLparser'>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
-      <info>Initialize the htmlStartCloseIndex for fast lookup of closing tags names. This is not reentrant. Call xmlInitParser() once before processing in case of use in multithreaded programs.</info>
+      <info>This is a no-op now.</info>
       <return type='void'/>
     </function>
     <function name='htmlIsAutoClosed' file='HTMLparser' module='HTMLparser'>
@@ -7705,7 +7732,7 @@ Could we use @subtypes for this?'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the HTML buffer output'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
       <arg name='cur' type='xmlNodePtr' info='the current node'/>
-      <arg name='encoding' type='const char *' info='the encoding string'/>
+      <arg name='encoding' type='const char *' info='the encoding string (unused)'/>
       <arg name='format' type='int' info='should formatting spaces been added'/>
     </function>
     <function name='htmlNodeDumpOutput' file='HTMLtree' module='HTMLtree'>
@@ -7715,7 +7742,7 @@ Could we use @subtypes for this?'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the HTML buffer output'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
       <arg name='cur' type='xmlNodePtr' info='the current node'/>
-      <arg name='encoding' type='const char *' info='the encoding string'/>
+      <arg name='encoding' type='const char *' info='the encoding string (unused)'/>
     </function>
     <function name='htmlNodeStatus' file='HTMLparser' module='HTMLparser'>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
@@ -7743,7 +7770,7 @@ Could we use @subtypes for this?'/>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
       <info>parse an HTML in-memory document and build a tree.</info>
       <return type='htmlDocPtr' info='the resulting document tree'/>
-      <arg name='cur' type='xmlChar *' info='a pointer to an array of xmlChar'/>
+      <arg name='cur' type='const xmlChar *' info='a pointer to an array of xmlChar'/>
       <arg name='encoding' type='const char *' info='a free form C string describing the HTML document encoding, or NULL'/>
     </function>
     <function name='htmlParseDocument' file='HTMLparser' module='HTMLparser'>
@@ -7783,7 +7810,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='htmlReadFd' file='HTMLparser' module='HTMLparser'>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
-      <info>parse an XML from a file descriptor and build a tree.</info>
+      <info>parse an HTML from a file descriptor and build a tree. NOTE that the file descriptor will not be closed when the reader is closed or reset.</info>
       <return type='htmlDocPtr' info='the resulting document tree'/>
       <arg name='fd' type='int' info='an open file descriptor'/>
       <arg name='URL' type='const char *' info='the base URL to use for the document'/>
@@ -7823,7 +7850,7 @@ Could we use @subtypes for this?'/>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
       <info>Parse an HTML in-memory document. If sax is not NULL, use the SAX callbacks to handle parse events. If sax is NULL, fallback to the default DOM behavior and return a tree.</info>
       <return type='htmlDocPtr' info='the resulting document tree unless SAX is NULL or the document is not well formed.'/>
-      <arg name='cur' type='xmlChar *' info='a pointer to an array of xmlChar'/>
+      <arg name='cur' type='const xmlChar *' info='a pointer to an array of xmlChar'/>
       <arg name='encoding' type='const char *' info='a free form C string describing the HTML document encoding, or NULL'/>
       <arg name='sax' type='htmlSAXHandlerPtr' info='the SAX handler block'/>
       <arg name='userData' type='void *' info='if using SAX, this pointer will be provided on callbacks.'/>
@@ -7954,7 +7981,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <function name='isolat1ToUTF8' file='encoding' module='encoding'>
       <info>Take a block of ISO Latin 1 chars in and try to convert it to an UTF-8 block of chars out.</info>
-      <return type='int' info='the number of bytes written if success, or -1 otherwise The value of @inlen after return is the number of octets consumed if the return value is positive, else unpredictable. The value of @outlen after return is the number of octets consumed.'/>
+      <return type='int' info='the number of bytes written if success, or -1 otherwise The value of @inlen after return is the number of octets consumed if the return value is positive, else unpredictable. The value of @outlen after return is the number of octets produced.'/>
       <arg name='out' type='unsigned char *' info='a pointer to an array of bytes to store the result'/>
       <arg name='outlen' type='int *' info='the length of @out'/>
       <arg name='in' type='const unsigned char *' info='a pointer to an array of ISO Latin 1 chars'/>
@@ -8090,7 +8117,7 @@ Could we use @subtypes for this?'/>
       <arg name='atts' type='const xmlChar **' info='An array of name/value attributes pairs, NULL terminated'/>
     </function>
     <functype name='startElementNsSAX2Func' file='parser' module='parser'>
-      <info>SAX2 callback when an element start has been detected by the parser. It provides the namespace informations for the element, as well as the new namespace declarations on the element.</info>
+      <info>SAX2 callback when an element start has been detected by the parser. It provides the namespace information for the element, as well as the new namespace declarations on the element.</info>
       <return type='void'/>
       <arg name='ctx' type='void *' info='the user data (XML parser context)'/>
       <arg name='localname' type='const xmlChar *' info='the local name of the element'/>
@@ -8136,8 +8163,8 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='valuePush' file='xpathInternals' module='xpath'>
       <cond>defined(LIBXML_XPATH_ENABLED)</cond>
-      <info>Pushes a new XPath object on top of the value stack</info>
-      <return type='int' info='the number of items on the value stack'/>
+      <info>Pushes a new XPath object on top of the value stack. If value is NULL, a memory error is recorded in the parser context.</info>
+      <return type='int' info='the number of items on the value stack, or -1 in case of error.'/>
       <arg name='ctxt' type='xmlXPathParserContextPtr' info='an XPath evaluation context'/>
       <arg name='value' type='xmlXPathObjectPtr' info='the XPath object'/>
     </function>
@@ -8436,8 +8463,8 @@ Could we use @subtypes for this?'/>
       <arg name='from' type='xmlAutomataStatePtr' info='the starting point of the transition'/>
       <arg name='to' type='xmlAutomataStatePtr' info='the target point of the transition or NULL'/>
       <arg name='token' type='const xmlChar *' info='the input string associated to that transition'/>
-      <arg name='min' type='int' info='the minimum successive occurences of token'/>
-      <arg name='max' type='int' info='the maximum successive occurences of token'/>
+      <arg name='min' type='int' info='the minimum successive occurrences of token'/>
+      <arg name='max' type='int' info='the maximum successive occurrences of token'/>
       <arg name='data' type='void *' info='data associated to the transition'/>
     </function>
     <function name='xmlAutomataNewCountTrans2' file='xmlautomata' module='xmlregexp'>
@@ -8449,8 +8476,8 @@ Could we use @subtypes for this?'/>
       <arg name='to' type='xmlAutomataStatePtr' info='the target point of the transition or NULL'/>
       <arg name='token' type='const xmlChar *' info='the input string associated to that transition'/>
       <arg name='token2' type='const xmlChar *' info='the second input string associated to that transition'/>
-      <arg name='min' type='int' info='the minimum successive occurences of token'/>
-      <arg name='max' type='int' info='the maximum successive occurences of token'/>
+      <arg name='min' type='int' info='the minimum successive occurrences of token'/>
+      <arg name='max' type='int' info='the maximum successive occurrences of token'/>
       <arg name='data' type='void *' info='data associated to the transition'/>
     </function>
     <function name='xmlAutomataNewCountedTrans' file='xmlautomata' module='xmlregexp'>
@@ -8506,8 +8533,8 @@ Could we use @subtypes for this?'/>
       <arg name='from' type='xmlAutomataStatePtr' info='the starting point of the transition'/>
       <arg name='to' type='xmlAutomataStatePtr' info='the target point of the transition or NULL'/>
       <arg name='token' type='const xmlChar *' info='the input string associated to that transition'/>
-      <arg name='min' type='int' info='the minimum successive occurences of token'/>
-      <arg name='max' type='int' info='the maximum successive occurences of token'/>
+      <arg name='min' type='int' info='the minimum successive occurrences of token'/>
+      <arg name='max' type='int' info='the maximum successive occurrences of token'/>
       <arg name='data' type='void *' info='data associated to the transition'/>
     </function>
     <function name='xmlAutomataNewOnceTrans2' file='xmlautomata' module='xmlregexp'>
@@ -8519,8 +8546,8 @@ Could we use @subtypes for this?'/>
       <arg name='to' type='xmlAutomataStatePtr' info='the target point of the transition or NULL'/>
       <arg name='token' type='const xmlChar *' info='the input string associated to that transition'/>
       <arg name='token2' type='const xmlChar *' info='the second input string associated to that transition'/>
-      <arg name='min' type='int' info='the minimum successive occurences of token'/>
-      <arg name='max' type='int' info='the maximum successive occurences of token'/>
+      <arg name='min' type='int' info='the minimum successive occurrences of token'/>
+      <arg name='max' type='int' info='the maximum successive occurrences of token'/>
       <arg name='data' type='void *' info='data associated to the transition'/>
     </function>
     <function name='xmlAutomataNewState' file='xmlautomata' module='xmlregexp'>
@@ -8723,7 +8750,7 @@ Could we use @subtypes for this?'/>
       <arg name='len' type='int' info='preallocated memory length'/>
     </function>
     <function name='xmlBuildRelativeURI' file='uri' module='uri'>
-      <info>Expresses the URI of the reference in terms relative to the base.  Some examples of this operation include: base = &quot;http://site1.com/docs/book1.html&quot; URI input                        URI returned docs/pic1.gif                    pic1.gif docs/img/pic1.gif                img/pic1.gif img/pic1.gif                     ../img/pic1.gif http://site1.com/docs/pic1.gif   pic1.gif http://site2.com/docs/pic1.gif   http://site2.com/docs/pic1.gif  base = &quot;docs/book1.html&quot; URI input                        URI returned docs/pic1.gif                    pic1.gif docs/img/pic1.gif                img/pic1.gif img/pic1.gif                     ../img/pic1.gif http://site1.com/docs/pic1.gif   http://site1.com/docs/pic1.gif   Note: if the URI reference is really wierd or complicated, it may be worthwhile to first convert it into a &quot;nice&quot; one by calling xmlBuildURI (using &apos;base&apos;) before calling this routine, since this routine (for reasonable efficiency) assumes URI has already been through some validation.</info>
+      <info>Expresses the URI of the reference in terms relative to the base.  Some examples of this operation include: base = &quot;http://site1.com/docs/book1.html&quot; URI input                        URI returned docs/pic1.gif                    pic1.gif docs/img/pic1.gif                img/pic1.gif img/pic1.gif                     ../img/pic1.gif http://site1.com/docs/pic1.gif   pic1.gif http://site2.com/docs/pic1.gif   http://site2.com/docs/pic1.gif  base = &quot;docs/book1.html&quot; URI input                        URI returned docs/pic1.gif                    pic1.gif docs/img/pic1.gif                img/pic1.gif img/pic1.gif                     ../img/pic1.gif http://site1.com/docs/pic1.gif   http://site1.com/docs/pic1.gif   Note: if the URI reference is really weird or complicated, it may be worthwhile to first convert it into a &quot;nice&quot; one by calling xmlBuildURI (using &apos;base&apos;) before calling this routine, since this routine (for reasonable efficiency) assumes URI has already been through some validation.</info>
       <return type='xmlChar *' info='a new URI string (to be freed by the caller) or NULL in case error.'/>
       <arg name='URI' type='const xmlChar *' info='the URI reference under consideration'/>
       <arg name='base' type='const xmlChar *' info='the base value'/>
@@ -8760,7 +8787,7 @@ Could we use @subtypes for this?'/>
       <arg name='inclusive_ns_prefixes' type='xmlChar **' info='the list of inclusive namespace prefixes ended with a NULL or NULL if there is no inclusive namespaces (only for exclusive canonicalization, ignored otherwise)'/>
       <arg name='with_comments' type='int' info='include comments in the result (!=0) or not (==0)'/>
       <arg name='filename' type='const char *' info='the filename to store canonical XML image'/>
-      <arg name='compression' type='int' info='the compression level (zlib requred): -1 - libxml default, 0 - uncompressed, &gt;0 - compression level'/>
+      <arg name='compression' type='int' info='the compression level (zlib required): -1 - libxml default, 0 - uncompressed, &gt;0 - compression level'/>
     </function>
     <function name='xmlC14NDocSaveTo' file='c14n' module='c14n'>
       <cond>defined(LIBXML_C14N_ENABLED) &amp;&amp; defined(LIBXML_OUTPUT_ENABLED)</cond>
@@ -8790,7 +8817,7 @@ Could we use @subtypes for this?'/>
       <info>Signature for a C14N callback on visible nodes</info>
       <return type='int' info='1 if the node should be included'/>
       <arg name='user_data' type='void *' info='user data'/>
-      <arg name='node' type='xmlNodePtr' info='the curent node'/>
+      <arg name='node' type='xmlNodePtr' info='the current node'/>
       <arg name='parent' type='xmlNodePtr' info='the parent node'/>
     </functype>
     <function name='xmlCanonicPath' file='uri' module='uri'>
@@ -8925,12 +8952,12 @@ Could we use @subtypes for this?'/>
     <function name='xmlCharEncCloseFunc' file='encoding' module='encoding'>
       <info>Generic front-end for encoding handler close function</info>
       <return type='int' info='0 if success, or -1 in case of error'/>
-      <arg name='handler' type='xmlCharEncodingHandler *' info='char enconding transformation data structure'/>
+      <arg name='handler' type='xmlCharEncodingHandler *' info='char encoding transformation data structure'/>
     </function>
     <function name='xmlCharEncFirstLine' file='encoding' module='encoding'>
       <info>Front-end for the encoding handler input function, but handle only the very first line, i.e. limit itself to 45 chars.</info>
       <return type='int' info='the number of byte written if success, or -1 general error -2 if the transcoding fails (for *in is not valid utf8 string or the result of transformation can&apos;t fit into the encoding we want), or'/>
-      <arg name='handler' type='xmlCharEncodingHandler *' info='char enconding transformation data structure'/>
+      <arg name='handler' type='xmlCharEncodingHandler *' info='char encoding transformation data structure'/>
       <arg name='out' type='xmlBufferPtr' info='an xmlBuffer for the output.'/>
       <arg name='in' type='xmlBufferPtr' info='an xmlBuffer for the input'/>
     </function>
@@ -8944,7 +8971,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlCharEncOutFunc' file='encoding' module='encoding'>
       <info>Generic front-end for the encoding handler output function a first call with @in == NULL has to be made firs to initiate the output in case of non-stateless encoding needing to initiate their state or the output (like the BOM in UTF16). In case of UTF8 sequence conversion errors for the given encoder, the content will be automatically remapped to a CharRef sequence.</info>
       <return type='int' info='the number of byte written if success, or -1 general error -2 if the transcoding fails (for *in is not valid utf8 string or the result of transformation can&apos;t fit into the encoding we want), or'/>
-      <arg name='handler' type='xmlCharEncodingHandler *' info='char enconding transformation data structure'/>
+      <arg name='handler' type='xmlCharEncodingHandler *' info='char encoding transformation data structure'/>
       <arg name='out' type='xmlBufferPtr' info='an xmlBuffer for the output.'/>
       <arg name='in' type='xmlBufferPtr' info='an xmlBuffer for the input'/>
     </function>
@@ -8993,7 +9020,7 @@ Could we use @subtypes for this?'/>
       <arg name='ret' type='xmlParserInputPtr' info='an XML parser input'/>
     </function>
     <function name='xmlCheckLanguageID' file='parserInternals' module='parser'>
-      <info>Checks that the value conforms to the LanguageID production:  NOTE: this is somewhat deprecated, those productions were removed from the XML Second edition.  [33] LanguageID ::= Langcode (&apos;-&apos; Subcode)* [34] Langcode ::= ISO639Code |  IanaCode |  UserCode [35] ISO639Code ::= ([a-z] | [A-Z]) ([a-z] | [A-Z]) [36] IanaCode ::= (&apos;i&apos; | &apos;I&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [37] UserCode ::= (&apos;x&apos; | &apos;X&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [38] Subcode ::= ([a-z] | [A-Z])+  The current REC reference the sucessors of RFC 1766, currently 5646  http://www.rfc-editor.org/rfc/rfc5646.txt langtag       = language [&quot;-&quot; script] [&quot;-&quot; region] *(&quot;-&quot; variant) *(&quot;-&quot; extension) [&quot;-&quot; privateuse] language      = 2*3ALPHA            ; shortest ISO 639 code [&quot;-&quot; extlang]       ; sometimes followed by ; extended language subtags / 4ALPHA              ; or reserved for future use / 5*8ALPHA            ; or registered language subtag  extlang       = 3ALPHA              ; selected ISO 639 codes *2(&quot;-&quot; 3ALPHA)      ; permanently reserved  script        = 4ALPHA              ; ISO 15924 code  region        = 2ALPHA              ; ISO 3166-1 code / 3DIGIT              ; UN M.49 code  variant       = 5*8alphanum         ; registered variants / (DIGIT 3alphanum)  extension     = singleton 1*(&quot;-&quot; (2*8alphanum))  ; Single alphanumerics ; &quot;x&quot; reserved for private use singleton     = DIGIT               ; 0 - 9 / %x41-57             ; A - W / %x59-5A             ; Y - Z / %x61-77             ; a - w / %x79-7A             ; y - z  it sounds right to still allow Irregular i-xxx IANA and user codes too The parser below doesn&apos;t try to cope with extension or privateuse that could be added but that&apos;s not interoperable anyway</info>
+      <info>Checks that the value conforms to the LanguageID production:  NOTE: this is somewhat deprecated, those productions were removed from the XML Second edition.  [33] LanguageID ::= Langcode (&apos;-&apos; Subcode)* [34] Langcode ::= ISO639Code |  IanaCode |  UserCode [35] ISO639Code ::= ([a-z] | [A-Z]) ([a-z] | [A-Z]) [36] IanaCode ::= (&apos;i&apos; | &apos;I&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [37] UserCode ::= (&apos;x&apos; | &apos;X&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [38] Subcode ::= ([a-z] | [A-Z])+  The current REC reference the successors of RFC 1766, currently 5646  http://www.rfc-editor.org/rfc/rfc5646.txt langtag       = language [&quot;-&quot; script] [&quot;-&quot; region] *(&quot;-&quot; variant) *(&quot;-&quot; extension) [&quot;-&quot; privateuse] language      = 2*3ALPHA            ; shortest ISO 639 code [&quot;-&quot; extlang]       ; sometimes followed by ; extended language subtags / 4ALPHA              ; or reserved for future use / 5*8ALPHA            ; or registered language subtag  extlang       = 3ALPHA              ; selected ISO 639 codes *2(&quot;-&quot; 3ALPHA)      ; permanently reserved  script        = 4ALPHA              ; ISO 15924 code  region        = 2ALPHA              ; ISO 3166-1 code / 3DIGIT              ; UN M.49 code  variant       = 5*8alphanum         ; registered variants / (DIGIT 3alphanum)  extension     = singleton 1*(&quot;-&quot; (2*8alphanum))  ; Single alphanumerics ; &quot;x&quot; reserved for private use singleton     = DIGIT               ; 0 - 9 / %x41-57             ; A - W / %x59-5A             ; Y - Z / %x61-77             ; a - w / %x79-7A             ; y - z  it sounds right to still allow Irregular i-xxx IANA and user codes too The parser below doesn&apos;t try to cope with extension or privateuse that could be added but that&apos;s not interoperable anyway</info>
       <return type='int' info='1 if correct 0 otherwise'/>
       <arg name='lang' type='const xmlChar *' info='pointer to the string value'/>
     </function>
@@ -9245,7 +9272,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlCtxtGetLastError' file='xmlerror' module='error'>
       <info>Get the last parsing error registered.</info>
-      <return type='xmlErrorPtr' info='NULL if no error occured or a pointer to the error'/>
+      <return type='xmlErrorPtr' info='NULL if no error occurred or a pointer to the error'/>
       <arg name='ctx' type='void *' info='an XML parser context'/>
     </function>
     <function name='xmlCtxtReadDoc' file='parser' module='parser'>
@@ -9419,7 +9446,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlDebugDumpDocumentHead' file='debugXML' module='debugXML'>
       <cond>defined(LIBXML_DEBUG_ENABLED)</cond>
-      <info>Dumps debug information cncerning the document, not recursive</info>
+      <info>Dumps debug information concerning the document, not recursive</info>
       <return type='void'/>
       <arg name='output' type='FILE *' info='the FILE * for the output'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
@@ -9457,7 +9484,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlDebugDumpString' file='debugXML' module='debugXML'>
       <cond>defined(LIBXML_DEBUG_ENABLED)</cond>
-      <info>Dumps informations about the string, shorten it if necessary</info>
+      <info>Dumps information about the string, shorten it if necessary</info>
       <return type='void'/>
       <arg name='output' type='FILE *' info='the FILE * for the output'/>
       <arg name='str' type='const xmlChar *' info='the string'/>
@@ -9504,11 +9531,11 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlDictCreate' file='dict' module='dict'>
       <info>Create a new dictionary</info>
-      <return type='xmlDictPtr' info='the newly created dictionary, or NULL if an error occured.'/>
+      <return type='xmlDictPtr' info='the newly created dictionary, or NULL if an error occurred.'/>
     </function>
     <function name='xmlDictCreateSub' file='dict' module='dict'>
       <info>Create a new dictionary, inheriting strings from the read-only dictionary @sub. On lookup, strings are first searched in the new dictionary, then in @sub, and if not found are created in the new dictionary.</info>
-      <return type='xmlDictPtr' info='the newly created dictionary, or NULL if an error occured.'/>
+      <return type='xmlDictPtr' info='the newly created dictionary, or NULL if an error occurred.'/>
       <arg name='sub' type='xmlDictPtr' info='an existing dictionary'/>
     </function>
     <function name='xmlDictExists' file='dict' module='dict'>
@@ -9536,7 +9563,7 @@ Could we use @subtypes for this?'/>
       <arg name='len' type='int' info='the length of the name, if -1 it is recomputed'/>
     </function>
     <function name='xmlDictOwns' file='dict' module='dict'>
-      <info>check if a string is owned by the disctionary</info>
+      <info>check if a string is owned by the dictionary</info>
       <return type='int' info='1 if true, 0 if false and -1 in case of error -1 in case of error'/>
       <arg name='dict' type='xmlDictPtr' info='the dictionary'/>
       <arg name='str' type='const xmlChar *' info='the string'/>
@@ -9742,7 +9769,7 @@ Could we use @subtypes for this?'/>
       <info>Handle a redefinition of attribute error</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
-      <arg name='extra' type='const char *' info='extra informations'/>
+      <arg name='extra' type='const char *' info='extra information'/>
     </function>
     <function name='xmlExpCtxtNbCons' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED) &amp;&amp; defined(LIBXML_EXPR_ENABLED)</cond>
@@ -9765,7 +9792,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlExpExpDerive' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED) &amp;&amp; defined(LIBXML_EXPR_ENABLED)</cond>
-      <info>Evaluates the expression resulting from @exp consuming a sub expression @sub Based on algebraic derivation and sometimes direct Brzozowski derivation it usually tatkes less than linear time and can handle expressions generating infinite languages.</info>
+      <info>Evaluates the expression resulting from @exp consuming a sub expression @sub Based on algebraic derivation and sometimes direct Brzozowski derivation it usually takes less than linear time and can handle expressions generating infinite languages.</info>
       <return type='xmlExpNodePtr' info='the resulting expression or NULL in case of internal error, the result must be freed'/>
       <arg name='ctxt' type='xmlExpCtxtPtr' info='the expressions context'/>
       <arg name='exp' type='xmlExpNodePtr' info='the englobing expression'/>
@@ -9804,7 +9831,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlExpIsNillable' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED) &amp;&amp; defined(LIBXML_EXPR_ENABLED)</cond>
-      <info>Finds if the expression is nillable, i.e. if it accepts the empty sequqnce</info>
+      <info>Finds if the expression is nillable, i.e. if it accepts the empty sequence</info>
       <return type='int' info='1 if nillable, 0 if not and -1 in case of error'/>
       <arg name='exp' type='xmlExpNodePtr' info='the expression'/>
     </function>
@@ -9878,7 +9905,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlExpSubsume' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED) &amp;&amp; defined(LIBXML_EXPR_ENABLED)</cond>
-      <info>Check whether @exp accepts all the languages accexpted by @sub the input being a subexpression.</info>
+      <info>Check whether @exp accepts all the languages accepted by @sub the input being a subexpression.</info>
       <return type='int' info='1 if true 0 if false and -1 in case of failure.'/>
       <arg name='ctxt' type='xmlExpCtxtPtr' info='the expressions context'/>
       <arg name='exp' type='xmlExpNodePtr' info='the englobing expression'/>
@@ -10116,7 +10143,7 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
       <arg name='ctx' type='void *' info='a parsing context'/>
       <arg name='msg' type='const char *' info='the message'/>
-      <arg name='...' type='...' info='the extra arguments of the varags to format the message'/>
+      <arg name='...' type='...' info='the extra arguments of the varargs to format the message'/>
     </functype>
     <function name='xmlGetBufferAllocationScheme' file='tree' module='tree'>
       <info>Types are XML_BUFFER_ALLOC_EXACT - use exact sizes, keeps memory usage down XML_BUFFER_ALLOC_DOUBLEIT - double buffer when extra needed, improves performance XML_BUFFER_ALLOC_HYBRID - use exact sizes on small strings to keep memory usage tight in normal usage, and doubleit on large strings to avoid pathological performance.</info>
@@ -10233,7 +10260,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlGetLastError' file='xmlerror' module='error'>
       <info>Get the last global error registered. This is per thread if compiled with thread support.</info>
-      <return type='xmlErrorPtr' info='NULL if no error occured or a pointer to the error'/>
+      <return type='xmlErrorPtr' info='NULL if no error occurred or a pointer to the error'/>
     </function>
     <function name='xmlGetLineNo' file='tree' module='tree'>
       <info>Get line number of @node. Try to override the limitation of lines being store in 16 bits ints if XML_PARSE_BIG_LINES parser option was used</info>
@@ -10352,7 +10379,7 @@ Could we use @subtypes for this?'/>
       <info>Callback to copy data from a hash.</info>
       <return type='void *' info='a copy of the data or NULL in case of error.'/>
       <arg name='payload' type='void *' info='the data in the hash'/>
-      <arg name='name' type='xmlChar *' info='the name associated'/>
+      <arg name='name' type='const xmlChar *' info='the name associated'/>
     </functype>
     <function name='xmlHashCopy' file='hash' module='hash'>
       <info>Scan the hash @table and applied @f to each value.</info>
@@ -10362,12 +10389,12 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlHashCreate' file='hash' module='hash'>
       <info>Create a new xmlHashTablePtr.</info>
-      <return type='xmlHashTablePtr' info='the newly created object, or NULL if an error occured.'/>
+      <return type='xmlHashTablePtr' info='the newly created object, or NULL if an error occurred.'/>
       <arg name='size' type='int' info='the size of the hash table'/>
     </function>
     <function name='xmlHashCreateDict' file='hash' module='hash'>
       <info>Create a new xmlHashTablePtr which will use @dict as the internal dictionary</info>
-      <return type='xmlHashTablePtr' info='the newly created object, or NULL if an error occured.'/>
+      <return type='xmlHashTablePtr' info='the newly created object, or NULL if an error occurred.'/>
       <arg name='size' type='int' info='the size of the hash table'/>
       <arg name='dict' type='xmlDictPtr' info='a dictionary to use for the hash'/>
     </function>
@@ -10375,8 +10402,14 @@ Could we use @subtypes for this?'/>
       <info>Callback to free data from a hash.</info>
       <return type='void'/>
       <arg name='payload' type='void *' info='the data in the hash'/>
-      <arg name='name' type='xmlChar *' info='the name associated'/>
+      <arg name='name' type='const xmlChar *' info='the name associated'/>
     </functype>
+    <function name='xmlHashDefaultDeallocator' file='hash' module='hash'>
+      <info>Free a hash table entry with xmlFree.</info>
+      <return type='void'/>
+      <arg name='entry' type='void *' info='the hash table entry'/>
+      <arg name='name' type='const xmlChar *' info='the entry&apos;s name'/>
+    </function>
     <function name='xmlHashFree' file='hash' module='hash'>
       <info>Free the hash @table and its contents. The userdata is deallocated with @f if provided.</info>
       <return type='void'/>
@@ -10493,14 +10526,14 @@ Could we use @subtypes for this?'/>
       <info>Callback when scanning data in a hash with the simple scanner.</info>
       <return type='void'/>
       <arg name='payload' type='void *' info='the data in the hash'/>
-      <arg name='data' type='void *' info='extra scannner data'/>
-      <arg name='name' type='xmlChar *' info='the name associated'/>
+      <arg name='data' type='void *' info='extra scanner data'/>
+      <arg name='name' type='const xmlChar *' info='the name associated'/>
     </functype>
     <functype name='xmlHashScannerFull' file='hash' module='hash'>
       <info>Callback when scanning data in a hash with the full scanner.</info>
       <return type='void'/>
       <arg name='payload' type='void *' info='the data in the hash'/>
-      <arg name='data' type='void *' info='extra scannner data'/>
+      <arg name='data' type='void *' info='extra scanner data'/>
       <arg name='name' type='const xmlChar *' info='the name associated'/>
       <arg name='name2' type='const xmlChar *' info='the second name associated'/>
       <arg name='name3' type='const xmlChar *' info='the third name associated'/>
@@ -10659,7 +10692,7 @@ Could we use @subtypes for this?'/>
       <arg name='context' type='void *' info='an Input context'/>
     </functype>
     <functype name='xmlInputMatchCallback' file='xmlIO' module='xmlIO'>
-      <info>Callback used in the I/O Input API to detect if the current handler can provide input fonctionnalities for this resource.</info>
+      <info>Callback used in the I/O Input API to detect if the current handler can provide input functionality for this resource.</info>
       <return type='int' info='1 if yes and 0 if another Input module should be used'/>
       <arg name='filename' type='char const *' info='the filename or URI'/>
     </functype>
@@ -10877,13 +10910,13 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlListRemoveFirst' file='list' module='list'>
       <info>Remove the first instance associated to data in the list</info>
-      <return type='int' info='1 if a deallocation occured, or 0 if not found'/>
+      <return type='int' info='1 if a deallocation occurred, or 0 if not found'/>
       <arg name='l' type='xmlListPtr' info='a list'/>
       <arg name='data' type='void *' info='list data'/>
     </function>
     <function name='xmlListRemoveLast' file='list' module='list'>
       <info>Remove the last instance associated to data in the list</info>
-      <return type='int' info='1 if a deallocation occured, or 0 if not found'/>
+      <return type='int' info='1 if a deallocation occurred, or 0 if not found'/>
       <arg name='l' type='xmlListPtr' info='a list'/>
       <arg name='data' type='void *' info='list data'/>
     </function>
@@ -10903,7 +10936,7 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
       <arg name='l' type='xmlListPtr' info='a list'/>
       <arg name='walker' type='xmlListWalker' info='a processing function'/>
-      <arg name='user' type='const void *' info='a user parameter passed to the walker function'/>
+      <arg name='user' type='void *' info='a user parameter passed to the walker function'/>
     </function>
     <function name='xmlListSearch' file='list' module='list'>
       <info>Search the list for an existing value of @data</info>
@@ -10926,13 +10959,13 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
       <arg name='l' type='xmlListPtr' info='a list'/>
       <arg name='walker' type='xmlListWalker' info='a processing function'/>
-      <arg name='user' type='const void *' info='a user parameter passed to the walker function'/>
+      <arg name='user' type='void *' info='a user parameter passed to the walker function'/>
     </function>
     <functype name='xmlListWalker' file='list' module='list'>
       <info>Callback function used when walking a list with xmlListWalk().</info>
       <return type='int' info='0 to stop walking the list, 1 otherwise.'/>
       <arg name='data' type='const void *' info='the data found in the list'/>
-      <arg name='user' type='const void *' info='extra user provided data to the walker'/>
+      <arg name='user' type='void *' info='extra user provided data to the walker'/>
     </functype>
     <function name='xmlLoadACatalog' file='catalog' module='catalog'>
       <cond>defined(LIBXML_CATALOG_ENABLED)</cond>
@@ -11088,14 +11121,14 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlModuleOpen' file='xmlmodule' module='xmlmodule'>
       <cond>defined(LIBXML_MODULES_ENABLED)</cond>
-      <info>Opens a module/shared library given its name or path NOTE: that due to portability issues, behaviour can only be guaranteed with @name using ASCII. We canot guarantee that an UTF-8 string would work, which is why name is a const char * and not a const xmlChar * . TODO: options are not yet implemented.</info>
+      <info>Opens a module/shared library given its name or path NOTE: that due to portability issues, behaviour can only be guaranteed with @name using ASCII. We cannot guarantee that an UTF-8 string would work, which is why name is a const char * and not a const xmlChar * . TODO: options are not yet implemented.</info>
       <return type='xmlModulePtr' info='a handle for the module or NULL in case of error'/>
       <arg name='name' type='const char *' info='the module name'/>
       <arg name='options' type='int' info='a set of xmlModuleOption'/>
     </function>
     <function name='xmlModuleSymbol' file='xmlmodule' module='xmlmodule'>
       <cond>defined(LIBXML_MODULES_ENABLED)</cond>
-      <info>Lookup for a symbol address in the given module NOTE: that due to portability issues, behaviour can only be guaranteed with @name using ASCII. We canot guarantee that an UTF-8 string would work, which is why name is a const char * and not a const xmlChar * .</info>
+      <info>Lookup for a symbol address in the given module NOTE: that due to portability issues, behaviour can only be guaranteed with @name using ASCII. We cannot guarantee that an UTF-8 string would work, which is why name is a const char * and not a const xmlChar * .</info>
       <return type='int' info='0 if the symbol was found, or -1 in case of error'/>
       <arg name='module' type='xmlModulePtr' info='the module'/>
       <arg name='name' type='const char *' info='the name of the symbol'/>
@@ -11138,19 +11171,19 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlNanoFTPCleanup' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
-      <info>Cleanup the FTP protocol layer. This cleanup proxy informations.</info>
+      <info>Cleanup the FTP protocol layer. This cleanup proxy information.</info>
       <return type='void'/>
     </function>
     <function name='xmlNanoFTPClose' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Close the connection and both control and transport</info>
-      <return type='int' info='-1 incase of error, 0 otherwise'/>
+      <return type='int' info='-1 in case of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
     </function>
     <function name='xmlNanoFTPCloseConnection' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Close the data connection from the server</info>
-      <return type='int' info='-1 incase of error, 0 otherwise'/>
+      <return type='int' info='-1 in case of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
     </function>
     <function name='xmlNanoFTPConnect' file='nanoftp' module='nanoftp'>
@@ -11169,14 +11202,14 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoFTPCwd' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Tries to change the remote directory</info>
-      <return type='int' info='-1 incase of error, 1 if CWD worked, 0 if it failed'/>
+      <return type='int' info='-1 in case of error, 1 if CWD worked, 0 if it failed'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
       <arg name='directory' type='const char *' info='a directory on the server'/>
     </function>
     <function name='xmlNanoFTPDele' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Tries to delete an item (file or directory) from server</info>
-      <return type='int' info='-1 incase of error, 1 if DELE worked, 0 if it failed'/>
+      <return type='int' info='-1 in case of error, 1 if DELE worked, 0 if it failed'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
       <arg name='file' type='const char *' info='a file or directory on the server'/>
     </function>
@@ -11189,7 +11222,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoFTPGet' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Fetch the given file from the server. All data are passed back in the callbacks. The last callback has a size of 0 block.</info>
-      <return type='int' info='-1 incase of error, 0 otherwise'/>
+      <return type='int' info='-1 in case of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
       <arg name='callback' type='ftpDataCallback' info='the user callback'/>
       <arg name='userData' type='void *' info='the user callback data'/>
@@ -11198,7 +11231,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoFTPGetConnection' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Try to open a data connection to the server. Currently only passive mode is supported.</info>
-      <return type='SOCKET' info='-1 incase of error, 0 otherwise'/>
+      <return type='SOCKET' info='-1 in case of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
     </function>
     <function name='xmlNanoFTPGetResponse' file='nanoftp' module='nanoftp'>
@@ -11216,13 +11249,13 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlNanoFTPInit' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
-      <info>Initialize the FTP protocol layer. Currently it just checks for proxy informations, and get the hostname</info>
+      <info>Initialize the FTP protocol layer. Currently it just checks for proxy information, and get the hostname</info>
       <return type='void'/>
     </function>
     <function name='xmlNanoFTPList' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Do a listing on the server. All files info are passed back in the callbacks.</info>
-      <return type='int' info='-1 incase of error, 0 otherwise'/>
+      <return type='int' info='-1 in case of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
       <arg name='callback' type='ftpListCallback' info='the user callback'/>
       <arg name='userData' type='void *' info='the user callback data'/>
@@ -11242,7 +11275,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlNanoFTPProxy' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
-      <info>Setup the FTP proxy informations. This can also be done by using ftp_proxy ftp_proxy_user and ftp_proxy_password environment variables.</info>
+      <info>Setup the FTP proxy information. This can also be done by using ftp_proxy ftp_proxy_user and ftp_proxy_password environment variables.</info>
       <return type='void'/>
       <arg name='host' type='const char *' info='the proxy host name'/>
       <arg name='port' type='int' info='the proxy port'/>
@@ -11266,7 +11299,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlNanoFTPScanProxy' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
-      <info>(Re)Initialize the FTP Proxy context by parsing the URL and finding the protocol host port it indicates. Should be like ftp://myproxy/ or ftp://myproxy:3128/ A NULL URL cleans up proxy informations.</info>
+      <info>(Re)Initialize the FTP Proxy context by parsing the URL and finding the protocol host port it indicates. Should be like ftp://myproxy/ or ftp://myproxy:3128/ A NULL URL cleans up proxy information.</info>
       <return type='void'/>
       <arg name='URL' type='const char *' info='The proxy URL used to initialize the proxy context'/>
     </function>
@@ -11309,14 +11342,14 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoHTTPFetch' file='nanohttp' module='nanohttp'>
       <cond>defined(LIBXML_HTTP_ENABLED)</cond>
       <info>This function try to fetch the indicated resource via HTTP GET and save it&apos;s content in the file.</info>
-      <return type='int' info='-1 in case of failure, 0 incase of success. The contentType, if provided must be freed by the caller'/>
+      <return type='int' info='-1 in case of failure, 0 in case of success. The contentType, if provided must be freed by the caller'/>
       <arg name='URL' type='const char *' info='The URL to load'/>
       <arg name='filename' type='const char *' info='the filename where the content should be saved'/>
       <arg name='contentType' type='char **' info='if available the Content-Type information will be returned at that location'/>
     </function>
     <function name='xmlNanoHTTPInit' file='nanohttp' module='nanohttp'>
       <cond>defined(LIBXML_HTTP_ENABLED)</cond>
-      <info>Initialize the HTTP protocol layer. Currently it just checks for proxy informations</info>
+      <info>Initialize the HTTP protocol layer. Currently it just checks for proxy information</info>
       <return type='void'/>
     </function>
     <function name='xmlNanoHTTPMethod' file='nanohttp' module='nanohttp'>
@@ -11386,13 +11419,13 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoHTTPSave' file='nanohttp' module='nanohttp'>
       <cond>defined(LIBXML_HTTP_ENABLED) &amp;&amp; defined(LIBXML_OUTPUT_ENABLED)</cond>
       <info>This function saves the output of the HTTP transaction to a file It closes and free the context at the end</info>
-      <return type='int' info='-1 in case of failure, 0 incase of success.'/>
+      <return type='int' info='-1 in case of failure, 0 in case of success.'/>
       <arg name='ctxt' type='void *' info='the HTTP context'/>
       <arg name='filename' type='const char *' info='the filename where the content should be saved'/>
     </function>
     <function name='xmlNanoHTTPScanProxy' file='nanohttp' module='nanohttp'>
       <cond>defined(LIBXML_HTTP_ENABLED)</cond>
-      <info>(Re)Initialize the HTTP Proxy context by parsing the URL and finding the protocol host port it indicates. Should be like http://myproxy/ or http://myproxy:3128/ A NULL URL cleans up proxy informations.</info>
+      <info>(Re)Initialize the HTTP Proxy context by parsing the URL and finding the protocol host port it indicates. Should be like http://myproxy/ or http://myproxy:3128/ A NULL URL cleans up proxy information.</info>
       <return type='void'/>
       <arg name='URL' type='const char *' info='The proxy URL used to initialize the proxy context'/>
     </function>
@@ -11489,7 +11522,7 @@ Could we use @subtypes for this?'/>
       <arg name='content' type='const xmlChar *' info='the PI content'/>
     </function>
     <function name='xmlNewDocProp' file='tree' module='tree'>
-      <info>Create a new property carried by a document.</info>
+      <info>Create a new property carried by a document. NOTE: @value is supposed to be a piece of XML CDATA, so it allows entity references, but XML special chars need to be escaped first by using xmlEncodeEntitiesReentrant(). Use xmlNewProp() if you don&apos;t need entities support.</info>
       <return type='xmlAttrPtr' info='a pointer to the attribute'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
       <arg name='name' type='const xmlChar *' info='the name of the attribute'/>
@@ -11532,7 +11565,7 @@ Could we use @subtypes for this?'/>
       <arg name='type' type='xmlElementContentType' info='the type of element content decl'/>
     </function>
     <function name='xmlNewEntity' file='entities' module='entities'>
-      <info>Create a new entity, this differs from xmlAddDocEntity() that if the document is NULL or has no internal subset defined, then an unlinked entity structure will be returned, it is then the responsability of the caller to link it to the document later or free it when not needed anymore.</info>
+      <info>Create a new entity, this differs from xmlAddDocEntity() that if the document is NULL or has no internal subset defined, then an unlinked entity structure will be returned, it is then the responsibility of the caller to link it to the document later or free it when not needed anymore.</info>
       <return type='xmlEntityPtr' info='a pointer to the entity or NULL in case of error'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
       <arg name='name' type='const xmlChar *' info='the entity name'/>
@@ -11765,7 +11798,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlNodeDump' file='tree' module='xmlsave'>
       <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
-      <info>Dump an XML node, recursive behaviour,children are printed too. Note that @format = 1 provide node indenting only if xmlIndentTreeOutput = 1 or xmlKeepBlanksDefault(0) was called Since this is using xmlBuffer structures it is limited to 2GB and somehow deprecated, use xmlBufNodeDump() instead.</info>
+      <info>Dump an XML node, recursive behaviour,children are printed too. Note that @format = 1 provide node indenting only if xmlIndentTreeOutput = 1 or xmlKeepBlanksDefault(0) was called. Since this is using xmlBuffer structures it is limited to 2GB and somehow deprecated, use xmlNodeDumpOutput() instead.</info>
       <return type='int' info='the number of bytes written to the buffer or -1 in case of error'/>
       <arg name='buf' type='xmlBufferPtr' info='the XML buffer output'/>
       <arg name='doc' type='xmlDocPtr' info='the document'/>
@@ -11961,7 +11994,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlOutputBufferWriteEscape' file='xmlIO' module='xmlIO'>
       <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
-      <info>Write the content of the string in the output I/O buffer This routine escapes the caracters and then handle the I18N transcoding from internal UTF-8 The buffer is lossless, i.e. will store in case of partial or delayed writes.</info>
+      <info>Write the content of the string in the output I/O buffer This routine escapes the characters and then handle the I18N transcoding from internal UTF-8 The buffer is lossless, i.e. will store in case of partial or delayed writes.</info>
       <return type='int' info='the number of chars immediately written, or -1 in case of error.'/>
       <arg name='out' type='xmlOutputBufferPtr' info='a buffered parser output'/>
       <arg name='str' type='const xmlChar *' info='a zero terminated UTF-8 string'/>
@@ -11982,7 +12015,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <functype name='xmlOutputMatchCallback' file='xmlIO' module='xmlIO'>
       <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
-      <info>Callback used in the I/O Output API to detect if the current handler can provide output fonctionnalities for this resource.</info>
+      <info>Callback used in the I/O Output API to detect if the current handler can provide output functionality for this resource.</info>
       <return type='int' info='1 if yes and 0 if another Output module should be used'/>
       <arg name='filename' type='char const *' info='the filename or URI'/>
     </functype>
@@ -12027,8 +12060,8 @@ Could we use @subtypes for this?'/>
       <cond>defined(LIBXML_SAX1_ENABLED)</cond>
       <info>Parse a well-balanced chunk of an XML document called by the parser The allowed sequence for the Well Balanced Chunk is the one defined by the content production in the XML grammar:  [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</info>
       <return type='int' info='0 if the chunk is well balanced, -1 in case of args problem and the parser error code otherwise'/>
-      <arg name='doc' type='xmlDocPtr' info='the document the chunk pertains to'/>
-      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler bloc (possibly NULL)'/>
+      <arg name='doc' type='xmlDocPtr' info='the document the chunk pertains to (must not be NULL)'/>
+      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler block (possibly NULL)'/>
       <arg name='user_data' type='void *' info='The user data returned on SAX callbacks (possibly NULL)'/>
       <arg name='depth' type='int' info='Used for loop detection, use 0'/>
       <arg name='string' type='const xmlChar *' info='the input string in UTF8 or ISO-Latin (zero terminated)'/>
@@ -12038,8 +12071,8 @@ Could we use @subtypes for this?'/>
       <cond>defined(LIBXML_SAX1_ENABLED)</cond>
       <info>Parse a well-balanced chunk of an XML document called by the parser The allowed sequence for the Well Balanced Chunk is the one defined by the content production in the XML grammar:  [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</info>
       <return type='int' info='0 if the chunk is well balanced, -1 in case of args problem and the parser error code otherwise  In case recover is set to 1, the nodelist will not be empty even if the parsed chunk is not well balanced, assuming the parsing succeeded to some extent.'/>
-      <arg name='doc' type='xmlDocPtr' info='the document the chunk pertains to'/>
-      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler bloc (possibly NULL)'/>
+      <arg name='doc' type='xmlDocPtr' info='the document the chunk pertains to (must not be NULL)'/>
+      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler block (possibly NULL)'/>
       <arg name='user_data' type='void *' info='The user data returned on SAX callbacks (possibly NULL)'/>
       <arg name='depth' type='int' info='Used for loop detection, use 0'/>
       <arg name='string' type='const xmlChar *' info='the input string in UTF8 or ISO-Latin (zero terminated)'/>
@@ -12088,7 +12121,7 @@ Could we use @subtypes for this?'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
     <function name='xmlParseContent' file='parserInternals' module='parser'>
-      <info>Parse a content:  [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</info>
+      <info>Parse a content sequence. Stops at EOF or &apos;&lt;/&apos;.  [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
@@ -12130,7 +12163,7 @@ Could we use @subtypes for this?'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
     <function name='xmlParseElement' file='parserInternals' module='parser'>
-      <info>parse an XML element, this is highly recursive  [39] element ::= EmptyElemTag | STag content ETag  [ WFC: Element Type Match ] The Name in an element&apos;s end-tag must match the element type in the start-tag.</info>
+      <info>parse an XML element  [39] element ::= EmptyElemTag | STag content ETag  [ WFC: Element Type Match ] The Name in an element&apos;s end-tag must match the element type in the start-tag.</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
@@ -12217,7 +12250,7 @@ Could we use @subtypes for this?'/>
       <info>Parse an external general entity An external general parsed entity is well-formed if it matches the production labeled extParsedEnt.  [78] extParsedEnt ::= TextDecl? content</info>
       <return type='int' info='0 if the entity is well formed, -1 in case of args problem and the parser error code otherwise'/>
       <arg name='doc' type='xmlDocPtr' info='the document the chunk pertains to'/>
-      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler bloc (possibly NULL)'/>
+      <arg name='sax' type='xmlSAXHandlerPtr' info='the SAX handler block (possibly NULL)'/>
       <arg name='user_data' type='void *' info='The user data returned on SAX callbacks (possibly NULL)'/>
       <arg name='depth' type='int' info='Used for loop detection, use 0'/>
       <arg name='URL' type='const xmlChar *' info='the URL for the entity to load'/>
@@ -12302,7 +12335,7 @@ Could we use @subtypes for this?'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
     <function name='xmlParsePI' file='parserInternals' module='parser'>
-      <info>parse an XML Processing Instruction.  [16] PI ::= &apos;&lt;?&apos; PITarget (S (Char* - (Char* &apos;?&gt;&apos; Char*)))? &apos;?&gt;&apos;  The processing is transfered to SAX once parsed.</info>
+      <info>parse an XML Processing Instruction.  [16] PI ::= &apos;&lt;?&apos; PITarget (S (Char* - (Char* &apos;?&gt;&apos; Char*)))? &apos;?&gt;&apos;  The processing is transferred to SAX once parsed.</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
@@ -12519,7 +12552,7 @@ Could we use @subtypes for this?'/>
       <arg name='input' type='xmlParserInputPtr' info='an xmlParserInputPtr input'/>
     </function>
     <function name='xmlParserPrintFileInfo' file='xmlerror' module='error'>
-      <info>Displays the associated file and line informations for the current input</info>
+      <info>Displays the associated file and line information for the current input</info>
       <return type='void'/>
       <arg name='input' type='xmlParserInputPtr' info='an xmlParserInputPtr input'/>
     </function>
@@ -12608,6 +12641,11 @@ Could we use @subtypes for this?'/>
     <function name='xmlPopInputCallbacks' file='xmlIO' module='xmlIO'>
       <info>Clear the top input callback from the input stack. this includes the compiled-in I/O.</info>
       <return type='int' info='the number of input callback registered or -1 in case of error.'/>
+    </function>
+    <function name='xmlPopOutputCallbacks' file='xmlIO' module='xmlIO'>
+      <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
+      <info>Remove the top output callbacks from the output stack. This includes the compiled-in I/O.</info>
+      <return type='int' info='the number of output callback registered or -1 in case of error.'/>
     </function>
     <function name='xmlPreviousElementSibling' file='tree' module='tree'>
       <cond>defined(LIBXML_TREE_ENABLED)</cond>
@@ -12842,7 +12880,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <function name='xmlRegExecErrInfo' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED)</cond>
-      <info>Extract error informations from the regexp execution, the parameter @string will be updated with the value pushed and not accepted, the parameter @values must point to an array of @nbval string pointers on return nbval will contain the number of possible strings in that state and the @values array will be updated with them. The string values</info>
+      <info>Extract error information from the regexp execution, the parameter @string will be updated with the value pushed and not accepted, the parameter @values must point to an array of @nbval string pointers on return nbval will contain the number of possible strings in that state and the @values array will be updated with them. The string values</info>
       <return type='int' info='will be freed with the @exec context and don&apos;t need to be deallocated.  Returns: 0 in case of success or -1 in case of error.'/>
       <arg name='exec' type='xmlRegExecCtxtPtr' info='a regexp execution context generating an error'/>
       <arg name='string' type='const xmlChar **' info='return value for the error string'/>
@@ -12853,7 +12891,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRegExecNextValues' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED)</cond>
-      <info>Extract informations from the regexp execution, the parameter @values must point to an array of @nbval string pointers on return nbval will contain the number of possible strings in that state and the @values array will be updated with them. The string values</info>
+      <info>Extract information from the regexp execution, the parameter @values must point to an array of @nbval string pointers on return nbval will contain the number of possible strings in that state and the @values array will be updated with them. The string values</info>
       <return type='int' info='will be freed with the @exec context and don&apos;t need to be deallocated.  Returns: 0 in case of success or -1 in case of error.'/>
       <arg name='exec' type='xmlRegExecCtxtPtr' info='a regexp execution context'/>
       <arg name='nbval' type='int *' info='pointer to the number of accepted values IN/OUT'/>
@@ -12880,9 +12918,9 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRegFreeExecCtxt' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED)</cond>
-      <info>Free the structures associated to a regular expression evaulation context.</info>
+      <info>Free the structures associated to a regular expression evaluation context.</info>
       <return type='void'/>
-      <arg name='exec' type='xmlRegExecCtxtPtr' info='a regular expression evaulation context'/>
+      <arg name='exec' type='xmlRegExecCtxtPtr' info='a regular expression evaluation context'/>
     </function>
     <function name='xmlRegFreeRegexp' file='xmlregexp' module='xmlregexp'>
       <cond>defined(LIBXML_REGEXP_ENABLED)</cond>
@@ -13018,7 +13056,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRelaxNGGetValidErrors' file='relaxng' module='relaxng'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Get the error and warning callback informations</info>
+      <info>Get the error and warning callback information</info>
       <return type='int' info='-1 in case of error and 0 otherwise'/>
       <arg name='ctxt' type='xmlRelaxNGValidCtxtPtr' info='a Relax-NG validation context'/>
       <arg name='err' type='xmlRelaxNGValidityErrorFunc *' info='the error function result'/>
@@ -13027,7 +13065,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRelaxNGInitTypes' file='relaxng' module='relaxng'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Initilize the default type libraries.</info>
+      <info>Initialize the default type libraries.</info>
       <return type='int' info='0 in case of success and -1 in case of error.'/>
     </function>
     <function name='xmlRelaxNGNewDocParserCtxt' file='relaxng' module='relaxng'>
@@ -13057,7 +13095,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRelaxNGParse' file='relaxng' module='relaxng'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>parse a schema definition resource and build an internal XML Shema struture which can be used to validate instances.</info>
+      <info>parse a schema definition resource and build an internal XML Schema structure which can be used to validate instances.</info>
       <return type='xmlRelaxNGPtr' info='the internal XML RelaxNG structure built from the resource or NULL in case of error'/>
       <arg name='ctxt' type='xmlRelaxNGParserCtxtPtr' info='a Relax-NG parser context'/>
     </function>
@@ -13080,7 +13118,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlRelaxNGSetValidErrors' file='relaxng' module='relaxng'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Set the error and warning callback informations</info>
+      <info>Set the error and warning callback information</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlRelaxNGValidCtxtPtr' info='a Relax-NG validation context'/>
       <arg name='err' type='xmlRelaxNGValidityErrorFunc' info='the error function'/>
@@ -13152,7 +13190,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <function name='xmlRelaxParserSetFlag' file='relaxng' module='relaxng'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Semi private function used to pass informations to a parser context which are a combination of xmlRelaxNGParserFlag .</info>
+      <info>Semi private function used to pass information to a parser context which are a combination of xmlRelaxNGParserFlag .</info>
       <return type='int' info='0 if success and -1 in case of error'/>
       <arg name='ctxt' type='xmlRelaxNGParserCtxtPtr' info='a RelaxNG parser context'/>
       <arg name='flags' type='int' info='a set of flags values'/>
@@ -13242,7 +13280,7 @@ Could we use @subtypes for this?'/>
       <arg name='name' type='const xmlChar *' info='The element name'/>
     </function>
     <function name='xmlSAX2EndElementNs' file='SAX2' module='SAX2'>
-      <info>SAX2 callback when an element end has been detected by the parser. It provides the namespace informations for the element.</info>
+      <info>SAX2 callback when an element end has been detected by the parser. It provides the namespace information for the element.</info>
       <return type='void'/>
       <arg name='ctx' type='void *' info='the user data (XML parser context)'/>
       <arg name='localname' type='const xmlChar *' info='the local name of the element'/>
@@ -13395,7 +13433,7 @@ Could we use @subtypes for this?'/>
       <arg name='atts' type='const xmlChar **' info='An array of name/value attributes pairs, NULL terminated'/>
     </function>
     <function name='xmlSAX2StartElementNs' file='SAX2' module='SAX2'>
-      <info>SAX2 callback when an element start has been detected by the parser. It provides the namespace informations for the element, as well as the new namespace declarations on the element.</info>
+      <info>SAX2 callback when an element start has been detected by the parser. It provides the namespace information for the element, as well as the new namespace declarations on the element.</info>
       <return type='void'/>
       <arg name='ctx' type='void *' info='the user data (XML parser context)'/>
       <arg name='localname' type='const xmlChar *' info='the local name of the element'/>
@@ -13538,7 +13576,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='the number of bytes written or -1 in case of failure.'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='an output I/O buffer'/>
       <arg name='cur' type='xmlDocPtr' info='the document'/>
-      <arg name='encoding' type='const char *' info='the encoding if any assuming the I/O layer handles the trancoding'/>
+      <arg name='encoding' type='const char *' info='the encoding if any assuming the I/O layer handles the transcoding'/>
     </function>
     <function name='xmlSaveFlush' file='xmlsave' module='xmlsave'>
       <cond>defined(LIBXML_OUTPUT_ENABLED)</cond>
@@ -13569,7 +13607,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='the number of bytes written or -1 in case of failure.'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='an output I/O buffer'/>
       <arg name='cur' type='xmlDocPtr' info='the document'/>
-      <arg name='encoding' type='const char *' info='the encoding if any assuming the I/O layer handles the trancoding'/>
+      <arg name='encoding' type='const char *' info='the encoding if any assuming the I/O layer handles the transcoding'/>
       <arg name='format' type='int' info='should formatting spaces been added'/>
     </function>
     <function name='xmlSaveSetAttrEscape' file='xmlsave' module='xmlsave'>
@@ -13625,7 +13663,7 @@ Could we use @subtypes for this?'/>
       <info>Save a subtree starting at the node parameter to a saving context TODO: The function is not fully implemented yet as it does not return the byte count but 0 instead</info>
       <return type='long' info='the number of byte written or -1 in case of error'/>
       <arg name='ctxt' type='xmlSaveCtxtPtr' info='a document saving context'/>
-      <arg name='node' type='xmlNodePtr' info='the top node of the subtree to save'/>
+      <arg name='cur' type='xmlNodePtr' info=''/>
     </function>
     <function name='xmlSaveUri' file='uri' module='uri'>
       <info>Save the URI as an escaped string</info>
@@ -13786,7 +13824,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlSchemaGetValidErrors' file='xmlschemas' module='xmlschemas'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Get the error and warning callback informations</info>
+      <info>Get the error and warning callback information</info>
       <return type='int' info='-1 in case of error and 0 otherwise'/>
       <arg name='ctxt' type='xmlSchemaValidCtxtPtr' info='a XML-Schema validation context'/>
       <arg name='err' type='xmlSchemaValidityErrorFunc *' info='the error function result'/>
@@ -13864,7 +13902,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlSchemaParse' file='xmlschemas' module='xmlschemas'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>parse a schema definition resource and build an internal XML Shema struture which can be used to validate instances.</info>
+      <info>parse a schema definition resource and build an internal XML Schema structure which can be used to validate instances.</info>
       <return type='xmlSchemaPtr' info='the internal XML Schema structure built from the resource or NULL in case of error'/>
       <arg name='ctxt' type='xmlSchemaParserCtxtPtr' info='a schema validation context'/>
     </function>
@@ -13901,7 +13939,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlSchemaSetValidErrors' file='xmlschemas' module='xmlschemas'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Set the error and warning callback informations</info>
+      <info>Set the error and warning callback information</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlSchemaValidCtxtPtr' info='a schema validation context'/>
       <arg name='err' type='xmlSchemaValidityErrorFunc' info='the error function'/>
@@ -14068,7 +14106,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <functype name='xmlSchemaValidityLocatorFunc' file='xmlschemas' module='xmlschemas'>
       <cond>defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>A schemas validation locator, a callback called by the validator. This is used when file or node informations are not available to find out what file and line number are affected</info>
+      <info>A schemas validation locator, a callback called by the validator. This is used when file or node information are not available to find out what file and line number are affected</info>
       <return type='int' info='0 in case of success and -1 in case of error'/>
       <arg name='ctx' type='void *' info='user provided context'/>
       <arg name='file' type='const char **' info='returned file information'/>
@@ -14159,7 +14197,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlSchematronParse' file='schematron' module='schematron'>
       <cond>defined(LIBXML_SCHEMATRON_ENABLED)</cond>
-      <info>parse a schema definition resource and build an internal XML Shema struture which can be used to validate instances.</info>
+      <info>parse a schema definition resource and build an internal XML Schema structure which can be used to validate instances.</info>
       <return type='xmlSchematronPtr' info='the internal XML Schematron structure built from the resource or NULL in case of error'/>
       <arg name='ctxt' type='xmlSchematronParserCtxtPtr' info='a schema validation context'/>
     </function>
@@ -14176,7 +14214,7 @@ Could we use @subtypes for this?'/>
       <info>Validate a tree instance against the schematron</info>
       <return type='int' info='0 in case of success, -1 in case of internal error and an error count otherwise.'/>
       <arg name='ctxt' type='xmlSchematronValidCtxtPtr' info='the schema validation context'/>
-      <arg name='instance' type='xmlDocPtr' info='the document instace tree'/>
+      <arg name='instance' type='xmlDocPtr' info='the document instance tree'/>
     </function>
     <functype name='xmlSchematronValidityErrorFunc' file='schematron' module='schematron'>
       <cond>defined(LIBXML_SCHEMATRON_ENABLED)</cond>
@@ -14336,7 +14374,7 @@ Could we use @subtypes for this?'/>
     </functype>
     <function name='xmlShellDir' file='debugXML' module='debugXML'>
       <cond>defined(LIBXML_DEBUG_ENABLED) &amp;&amp; defined(LIBXML_XPATH_ENABLED)</cond>
-      <info>Implements the XML shell function &quot;dir&quot; dumps informations about the node (namespace, attributes, content).</info>
+      <info>Implements the XML shell function &quot;dir&quot; dumps information about the node (namespace, attributes, content).</info>
       <return type='int' info='0'/>
       <arg name='ctxt' type='xmlShellCtxtPtr' info='the shell context'/>
       <arg name='arg' type='char *' info='unused'/>
@@ -14453,7 +14491,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlSplitQName2' file='tree' module='tree'>
       <info>parse an XML qualified name string  [NS 5] QName ::= (Prefix &apos;:&apos;)? LocalPart  [NS 6] Prefix ::= NCName  [NS 7] LocalPart ::= NCName</info>
-      <return type='xmlChar *' info='NULL if not a QName, otherwise the local part, and prefix is updated to get the Prefix if any.'/>
+      <return type='xmlChar *' info='NULL if the name doesn&apos;t have a prefix. Otherwise, returns the local part, and prefix is updated to get the Prefix. Both the return value and the prefix must be freed by the caller.'/>
       <arg name='name' type='const xmlChar *' info='the full QName'/>
       <arg name='prefix' type='xmlChar **' info='a xmlChar **'/>
     </function>
@@ -14519,7 +14557,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlStrcat' file='xmlstring' module='xmlstring'>
       <info>a strcat for array of xmlChar&apos;s. Since they are supposed to be encoded in UTF-8 or an encoding with 8bit based chars, we assume a termination mark of &apos;0&apos;.</info>
-      <return type='xmlChar *' info='a new xmlChar * containing the concatenated string.'/>
+      <return type='xmlChar *' info='a new xmlChar * containing the concatenated string. The original @cur is reallocated and should not be freed.'/>
       <arg name='cur' type='xmlChar *' info='the original xmlChar * array'/>
       <arg name='add' type='const xmlChar *' info='the xmlChar * array added'/>
     </function>
@@ -14637,7 +14675,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlStrncat' file='xmlstring' module='xmlstring'>
       <info>a strncat for array of xmlChar&apos;s, it will extend @cur with the len first bytes of @add. Note that if @len &lt; 0 then this is an API error and NULL will be returned.</info>
-      <return type='xmlChar *' info='a new xmlChar *, the original @cur is reallocated if needed and should not be freed'/>
+      <return type='xmlChar *' info='a new xmlChar *, the original @cur is reallocated and should not be freed.'/>
       <arg name='cur' type='xmlChar *' info='the original xmlChar * array'/>
       <arg name='add' type='const xmlChar *' info='the xmlChar * array added'/>
       <arg name='len' type='int' info='the length of @add'/>
@@ -14805,13 +14843,13 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlTextReaderCurrentDoc' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
-      <info>Hacking interface allowing to get the xmlDocPtr correponding to the current document being accessed by the xmlTextReader. NOTE: as a result of this call, the reader will not destroy the associated XML document and calling xmlFreeDoc() on the result is needed once the reader parsing has finished.</info>
+      <info>Hacking interface allowing to get the xmlDocPtr corresponding to the current document being accessed by the xmlTextReader. NOTE: as a result of this call, the reader will not destroy the associated XML document and calling xmlFreeDoc() on the result is needed once the reader parsing has finished.</info>
       <return type='xmlDocPtr' info='the xmlDocPtr or NULL in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderCurrentNode' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
-      <info>Hacking interface allowing to get the xmlNodePtr correponding to the current node being accessed by the xmlTextReader. This is dangerous because the underlying node may be destroyed on the next Reads.</info>
+      <info>Hacking interface allowing to get the xmlNodePtr corresponding to the current node being accessed by the xmlTextReader. This is dangerous because the underlying node may be destroyed on the next Reads.</info>
       <return type='xmlNodePtr' info='the xmlNodePtr or NULL in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
@@ -14828,7 +14866,7 @@ Could we use @subtypes for this?'/>
       <arg name='arg' type='void *' info='the user argument'/>
       <arg name='msg' type='const char *' info='the message'/>
       <arg name='severity' type='xmlParserSeverities' info='the severity of the error'/>
-      <arg name='locator' type='xmlTextReaderLocatorPtr' info='a locator indicating where the error occured'/>
+      <arg name='locator' type='xmlTextReaderLocatorPtr' info='a locator indicating where the error occurred'/>
     </functype>
     <function name='xmlTextReaderExpand' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
@@ -14887,7 +14925,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlTextReaderGetRemainder' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
-      <info>Method to get the remainder of the buffered XML. this method stops the parser, set its state to End Of File and return the input stream with what is left that the parser did not use.  The implementation is not good, the parser certainly procgressed past what&apos;s left in reader-&gt;input, and there is an allocation problem. Best would be to rewrite it differently.</info>
+      <info>Method to get the remainder of the buffered XML. this method stops the parser, set its state to End Of File and return the input stream with what is left that the parser did not use.  The implementation is not good, the parser certainly progressed past what&apos;s left in reader-&gt;input, and there is an allocation problem. Best would be to rewrite it differently.</info>
       <return type='xmlParserInputBufferPtr' info='the xmlParserInputBufferPtr attached to the XML or NULL in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
@@ -15019,12 +15057,12 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderNodeType' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>Get the node type of the current node Reference: http://www.gnu.org/software/dotgnu/pnetlib-doc/System/Xml/XmlNodeType.html</info>
-      <return type='int' info='the xmlNodeType of the current node or -1 in case of error'/>
+      <return type='int' info='the xmlReaderTypes of the current node or -1 in case of error'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderNormalization' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
-      <info>The value indicating whether to normalize white space and attribute values. Since attribute value and end of line normalizations are a MUST in the XML specification only the value true is accepted. The broken bahaviour of accepting out of range character entities like &amp;#0; is of course not supported either.</info>
+      <info>The value indicating whether to normalize white space and attribute values. Since attribute value and end of line normalizations are a MUST in the XML specification only the value true is accepted. The broken behaviour of accepting out of range character entities like &amp;#0; is of course not supported either.</info>
       <return type='int' info='1 or -1 in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
@@ -15043,7 +15081,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderPreservePattern' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED) &amp;&amp; defined(LIBXML_PATTERN_ENABLED)</cond>
       <info>This tells the XML Reader to preserve all nodes matched by the pattern. The caller must also use xmlTextReaderCurrentDoc() to keep an handle on the resulting document once parsing has finished</info>
-      <return type='int' info='a positive number in case of success and -1 in case of error'/>
+      <return type='int' info='a non-negative number in case of success and -1 in case of error'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
       <arg name='pattern' type='const xmlChar *' info='an XPath subset pattern'/>
       <arg name='namespaces' type='const xmlChar **' info='the prefix definitions, array of [URI, prefix] or NULL'/>
@@ -15063,7 +15101,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderReadAttributeValue' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>Parses an attribute value into one or more Text and EntityReference nodes.</info>
-      <return type='int' info='1 in case of success, 0 if the reader was not positionned on an ttribute node or all the attribute values have been read, or -1 in case of error.'/>
+      <return type='int' info='1 in case of success, 0 if the reader was not positioned on an attribute node or all the attribute values have been read, or -1 in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderReadInnerXml' file='xmlreader' module='xmlreader'>
@@ -15092,8 +15130,8 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlTextReaderRelaxNGSetSchema' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED) &amp;&amp; defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Use RelaxNG to validate the document as it is processed. Activation is only possible before the first Read(). if @schema is NULL, then RelaxNG validation is desactivated. @ The @schema should not be freed until the reader is deallocated or its use has been deactivated.</info>
-      <return type='int' info='0 in case the RelaxNG validation could be (des)activated and -1 in case of error.'/>
+      <info>Use RelaxNG to validate the document as it is processed. Activation is only possible before the first Read(). if @schema is NULL, then RelaxNG validation is deactivated. @ The @schema should not be freed until the reader is deallocated or its use has been deactivated.</info>
+      <return type='int' info='0 in case the RelaxNG validation could be (de)activated and -1 in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
       <arg name='schema' type='xmlRelaxNGPtr' info='a precompiled RelaxNG schema'/>
     </function>
@@ -15145,8 +15183,8 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlTextReaderSetSchema' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED) &amp;&amp; defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Use XSD Schema to validate the document as it is processed. Activation is only possible before the first Read(). if @schema is NULL, then Schema validation is desactivated. @ The @schema should not be freed until the reader is deallocated or its use has been deactivated.</info>
-      <return type='int' info='0 in case the Schema validation could be (des)activated and -1 in case of error.'/>
+      <info>Use XSD Schema to validate the document as it is processed. Activation is only possible before the first Read(). if @schema is NULL, then Schema validation is deactivated. The @schema should not be freed until the reader is deallocated or its use has been deactivated.</info>
+      <return type='int' info='0 in case the Schema validation could be (de)activated and -1 in case of error.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
       <arg name='schema' type='xmlSchemaPtr' info='a precompiled Schema schema'/>
     </function>
@@ -15200,7 +15238,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlTextWriterEndComment' file='xmlwriter' module='xmlwriter'>
       <cond>defined(LIBXML_WRITER_ENABLED)</cond>
-      <info>End the current xml coment.</info>
+      <info>End the current xml comment.</info>
       <return type='int' info='the bytes written (may be 0 because of buffering) or -1 in case of error'/>
       <arg name='writer' type='xmlTextWriterPtr' info='the xmlTextWriterPtr'/>
     </function>
@@ -16932,7 +16970,7 @@ Could we use @subtypes for this?'/>
       <arg name='pos' type='int' info='the position of the desired UTF8 char (in chars)'/>
     </function>
     <function name='xmlUTF8Strsize' file='xmlstring' module='xmlstring'>
-      <info>storage size of an UTF8 string the behaviour is not garanteed if the input string is not UTF-8</info>
+      <info>storage size of an UTF8 string the behaviour is not guaranteed if the input string is not UTF-8</info>
       <return type='int' info='the storage size of the first &apos;len&apos; characters of ARRAY'/>
       <arg name='utf' type='const xmlChar *' info='a sequence of UTF-8 encoded bytes'/>
       <arg name='len' type='int' info='the number of characters in the array'/>
@@ -17251,7 +17289,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlXIncludeProcessNode' file='xinclude' module='xinclude'>
       <cond>defined(LIBXML_XINCLUDE_ENABLED)</cond>
-      <info>Implement the XInclude substitution for the given subtree reusing the informations and data coming from the given context.</info>
+      <info>Implement the XInclude substitution for the given subtree reusing the information and data coming from the given context.</info>
       <return type='int' info='0 if no substitution were done, -1 if some processing failed or the number of substitutions done.'/>
       <arg name='ctxt' type='xmlXIncludeCtxtPtr' info='an existing XInclude context'/>
       <arg name='node' type='xmlNodePtr' info='a node in an XML document'/>
@@ -17450,7 +17488,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='0 if the setting succeeded, and -1 on API or internal errors.'/>
       <arg name='ctxt' type='xmlXPathContextPtr' info='the XPath context'/>
       <arg name='active' type='int' info='enables/disables (creates/frees) the cache'/>
-      <arg name='value' type='int' info='a value with semantics dependant on @options'/>
+      <arg name='value' type='int' info='a value with semantics dependent on @options'/>
       <arg name='options' type='int' info='options (currently only the value 0 is used)'/>
     </function>
     <function name='xmlXPathConvertBoolean' file='xpath' module='xpath'>
@@ -17561,7 +17599,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlXPathEvalExpression' file='xpath' module='xpath'>
       <cond>defined(LIBXML_XPATH_ENABLED)</cond>
-      <info>Evaluate the XPath expression in the given context.</info>
+      <info>Alias for xmlXPathEval().</info>
       <return type='xmlXPathObjectPtr' info='the xmlXPathObjectPtr resulting from the evaluation or NULL. the caller has to free the object.'/>
       <arg name='str' type='const xmlChar *' info='the XPath expression'/>
       <arg name='ctxt' type='xmlXPathContextPtr' info='the XPath context'/>
@@ -17695,13 +17733,13 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlXPathIsInf' file='xpath' module='xpath'>
       <cond>defined(LIBXML_XPATH_ENABLED) || defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Provides a portable isinf() function to detect whether a double is a +Infinite or -Infinite. Based on trio code http://sourceforge.net/projects/ctrio/</info>
-      <return type='int' info='1 vi the value is +Infinite, -1 if -Infinite, 0 otherwise'/>
+      <info></info>
+      <return type='int' info='1 if the value is +Infinite, -1 if -Infinite, 0 otherwise'/>
       <arg name='val' type='double' info='a double value'/>
     </function>
     <function name='xmlXPathIsNaN' file='xpath' module='xpath'>
       <cond>defined(LIBXML_XPATH_ENABLED) || defined(LIBXML_SCHEMAS_ENABLED)</cond>
-      <info>Provides a portable isnan() function to detect whether a double is a NotaNumber. Based on trio code http://sourceforge.net/projects/ctrio/</info>
+      <info></info>
       <return type='int' info='1 if the value is a NaN, 0 otherwise'/>
       <arg name='val' type='double' info='a double value'/>
     </function>
@@ -18200,7 +18238,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='xmlXPathRoundFunction' file='xpathInternals' module='xpath'>
       <cond>defined(LIBXML_XPATH_ENABLED)</cond>
-      <info>Implement the round() XPath function number round(number) The round function returns the number that is closest to the argument and that is an integer. If there are two such numbers, then the one that is even is returned.</info>
+      <info>Implement the round() XPath function number round(number) The round function returns the number that is closest to the argument and that is an integer. If there are two such numbers, then the one that is closest to positive infinity is returned.</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlXPathParserContextPtr' info='the XPath Parser context'/>
       <arg name='nargs' type='int' info='the number of arguments'/>
@@ -18364,7 +18402,7 @@ Could we use @subtypes for this?'/>
       <arg name='no' type='int' info='the error number'/>
     </function>
     <function name='xmlXPtrBuildNodeList' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Build a node list tree copy of the XPointer result. This will drop Attributes and Namespace declarations.</info>
       <return type='xmlNodePtr' info='an xmlNodePtr list or NULL. the caller has to free the node tree.'/>
       <arg name='obj' type='xmlXPathObjectPtr' info='the XPointer result from the evaluation.'/>
@@ -18377,53 +18415,53 @@ Could we use @subtypes for this?'/>
       <arg name='ctx' type='xmlXPathContextPtr' info='the XPointer context'/>
     </function>
     <function name='xmlXPtrEvalRangePredicate' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>[8]   Predicate ::=   &apos;[&apos; PredicateExpr &apos;]&apos; [9]   PredicateExpr ::=   Expr  Evaluate a predicate as in xmlXPathEvalPredicate() but for a Location Set instead of a node set</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlXPathParserContextPtr' info='the XPointer Parser context'/>
     </function>
     <function name='xmlXPtrFreeLocationSet' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Free the LocationSet compound (not the actual ranges !).</info>
       <return type='void'/>
       <arg name='obj' type='xmlLocationSetPtr' info='the xmlLocationSetPtr to free'/>
     </function>
     <function name='xmlXPtrLocationSetAdd' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>add a new xmlXPathObjectPtr to an existing LocationSet If the location already exist in the set @val is freed.</info>
       <return type='void'/>
       <arg name='cur' type='xmlLocationSetPtr' info='the initial range set'/>
       <arg name='val' type='xmlXPathObjectPtr' info='a new xmlXPathObjectPtr'/>
     </function>
     <function name='xmlXPtrLocationSetCreate' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlLocationSetPtr of type double and of value @val</info>
       <return type='xmlLocationSetPtr' info='the newly created object.'/>
       <arg name='val' type='xmlXPathObjectPtr' info='an initial xmlXPathObjectPtr, or NULL'/>
     </function>
     <function name='xmlXPtrLocationSetDel' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Removes an xmlXPathObjectPtr from an existing LocationSet</info>
       <return type='void'/>
       <arg name='cur' type='xmlLocationSetPtr' info='the initial range set'/>
       <arg name='val' type='xmlXPathObjectPtr' info='an xmlXPathObjectPtr'/>
     </function>
     <function name='xmlXPtrLocationSetMerge' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Merges two rangesets, all ranges from @val2 are added to @val1</info>
       <return type='xmlLocationSetPtr' info='val1 once extended or NULL in case of error.'/>
       <arg name='val1' type='xmlLocationSetPtr' info='the first LocationSet'/>
       <arg name='val2' type='xmlLocationSetPtr' info='the second LocationSet'/>
     </function>
     <function name='xmlXPtrLocationSetRemove' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Removes an entry from an existing LocationSet list.</info>
       <return type='void'/>
       <arg name='cur' type='xmlLocationSetPtr' info='the initial range set'/>
       <arg name='val' type='int' info='the index to remove'/>
     </function>
     <function name='xmlXPtrNewCollapsedRange' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range using a single nodes</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the starting and ending node'/>
@@ -18437,20 +18475,20 @@ Could we use @subtypes for this?'/>
       <arg name='origin' type='xmlNodePtr' info='the element from which a user or program initiated traversal of the link, or NULL.'/>
     </function>
     <function name='xmlXPtrNewLocationSetNodeSet' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type LocationSet and initialize it with all the nodes from @set</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='set' type='xmlNodeSetPtr' info='a node set'/>
     </function>
     <function name='xmlXPtrNewLocationSetNodes' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type LocationSet and initialize it with the single range made of the two nodes @start and @end</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the start NodePtr value'/>
       <arg name='end' type='xmlNodePtr' info='the end NodePtr value or NULL'/>
     </function>
     <function name='xmlXPtrNewRange' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the starting node'/>
@@ -18459,49 +18497,49 @@ Could we use @subtypes for this?'/>
       <arg name='endindex' type='int' info='the ending index'/>
     </function>
     <function name='xmlXPtrNewRangeNodeObject' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range from a not to an object</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the starting node'/>
       <arg name='end' type='xmlXPathObjectPtr' info='the ending object'/>
     </function>
     <function name='xmlXPtrNewRangeNodePoint' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range from a node to a point</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the starting node'/>
       <arg name='end' type='xmlXPathObjectPtr' info='the ending point'/>
     </function>
     <function name='xmlXPtrNewRangeNodes' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range using 2 nodes</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlNodePtr' info='the starting node'/>
       <arg name='end' type='xmlNodePtr' info='the ending node'/>
     </function>
     <function name='xmlXPtrNewRangePointNode' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range from a point to a node</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlXPathObjectPtr' info='the starting point'/>
       <arg name='end' type='xmlNodePtr' info='the ending node'/>
     </function>
     <function name='xmlXPtrNewRangePoints' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Create a new xmlXPathObjectPtr of type range using 2 Points</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='start' type='xmlXPathObjectPtr' info='the starting point'/>
       <arg name='end' type='xmlXPathObjectPtr' info='the ending point'/>
     </function>
     <function name='xmlXPtrRangeToFunction' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
-      <info>Implement the range-to() XPointer function</info>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
+      <info>Implement the range-to() XPointer function  Obsolete. range-to is not a real function but a special type of location step which is handled in xpath.c.</info>
       <return type='void'/>
       <arg name='ctxt' type='xmlXPathParserContextPtr' info='the XPointer Parser context'/>
       <arg name='nargs' type='int' info='the number of args'/>
     </function>
     <function name='xmlXPtrWrapLocationSet' file='xpointer' module='xpointer'>
-      <cond>defined(LIBXML_XPTR_ENABLED)</cond>
+      <cond>defined(LIBXML_XPTR_ENABLED) &amp;&amp; defined(LIBXML_XPTR_LOCS_ENABLED)</cond>
       <info>Wrap the LocationSet @val in a new xmlXPathObjectPtr</info>
       <return type='xmlXPathObjectPtr' info='the newly created object.'/>
       <arg name='val' type='xmlLocationSetPtr' info='the LocationSet value'/>

@@ -46,7 +46,9 @@ static Class kASAuthorizationControllerClass = NULL;
 static Class kASAuthorizationPasswordProviderClass = NULL;
 static Class kASPasswordCredentialClass = NULL;
 static Class kUIApplicationClass = NULL;
+#if TARGET_OS_OSX
 static Class kNSApplicationClass = NULL;
+#endif
 
 static void loadAuthenticationServices(void) {
     static dispatch_once_t onceToken;
@@ -78,6 +80,7 @@ static void loadUIKit(void) {
     });
 }
 
+#if TARGET_OS_OSX
 static void loadAppKit(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -88,31 +91,34 @@ static void loadAppKit(void) {
         }
     });
 }
+#endif
 
-static Class ASAuthorizationControllerClass() {
+static Class ASAuthorizationControllerClass(void) {
     loadAuthenticationServices();
     return kASAuthorizationControllerClass;
 }
 
-static Class ASAuthorizationPasswordProviderClass() {
+static Class ASAuthorizationPasswordProviderClass(void) {
     loadAuthenticationServices();
     return kASAuthorizationPasswordProviderClass;
 }
 
-static Class ASPasswordCredentialClass() {
+static Class ASPasswordCredentialClass(void) {
     loadAuthenticationServices();
     return kASPasswordCredentialClass;
 }
 
-static Class UIApplicationClass() {
+static Class UIApplicationClass(void) {
     loadUIKit();
     return kUIApplicationClass;
 }
 
-static Class NSApplicationClass() {
+#if TARGET_OS_OSX
+static Class NSApplicationClass(void) {
     loadAppKit();
     return kNSApplicationClass;
 }
+#endif
 
 @interface SharedCredentialController : NSObject
     <ASAuthorizationControllerDelegate,

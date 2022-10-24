@@ -22,7 +22,7 @@
  */
 
 #include "crc.h"
-const crcDescriptor crc16_verifone = {
+const crcDescriptor CC_crc16_verifone = {
     .name = "crc16-verifone",
     .defType = model,
     .def.parms.width = 2,

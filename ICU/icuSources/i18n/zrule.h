@@ -20,8 +20,6 @@
 
 #include "unicode/uobject.h"
 
-#ifndef UCNV_H
-
 /**
  * A TimeZoneRule.  Use the zrule_* API to manipulate.  Create with
  * zrule_open*, and destroy with zrule_close.
@@ -43,7 +41,6 @@ typedef struct IZRule IZRule;
 struct AZRule;
 typedef struct AZRule AZRule;
 
-#endif
 
 /*********************************************************************
  * ZRule API

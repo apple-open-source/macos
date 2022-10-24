@@ -431,6 +431,16 @@ audit_event(struct ssh *ssh, ssh_audit_event_t event)
 		break;
 
 	case SSH_CONNECTION_CLOSE:
+#ifdef __APPLE_AUDIT_BSM_LOGOUT_FIX__
+	/*
+	 * Treat CLOSE and ABANDON the same, as the most common case of
+	 * regular connection close emits an ABANDON, not a CLOSE,
+	 * and OpenBSM audit doesn't make the distinction anyway.
+	 * The use of CLOSE and ABANDON should probably be revisited
+	 * upstream.
+	 */
+	case SSH_CONNECTION_ABANDON:
+#endif
 		/*
 		 * We can also get a close event if the user attempted auth
 		 * but never succeeded.

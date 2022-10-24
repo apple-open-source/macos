@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>locate</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-11</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/locate?id=92b959f1208c3cfb5535129ea92f4369eb8d7757</string>
+		<key>OpenSourceImportDate</key>
+		<string>2022-01-04</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>locate.bigram.c: comment out capsicum support (72901629)</string>
+			<string>fastfind.c: better handling of corrupt db (5563864)</string>
+			<string>locate.1: correct paths for macOS (4693605, 5393718)</string>
+			<string>locate.c: describe how to create db if it doesn't exist (5393718)</string>
+			<string>updatedb.sh: reinvoke as nobody if run as root (5393718, 6170830)</string>
+			<string>updatedb.sh: add macOS FILESYSTEMS (4739976, 31872124)</string>
+			<string>updatedb.sh: add macOS PRUNEPATHS (5386141, 6167355)</string>
+			<string>updatedb.sh: exit in trap (4968689)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+	</dict>

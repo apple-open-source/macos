@@ -45,6 +45,7 @@ fr{
         an{"aragonais"}
         ang{"ancien anglais"}
         anp{"angika"}
+        apw{"apache occidental"}
         ar{"arabe"}
         ar_001{"arabe standard moderne"}
         arc{"araméen"}

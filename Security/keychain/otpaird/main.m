@@ -19,7 +19,7 @@ static void ids_retry_enable(bool);
 #endif /* TARGET_OS_WATCH */
 
 int
-main()
+main(void)
 {
     static OTPairingService *service;
 

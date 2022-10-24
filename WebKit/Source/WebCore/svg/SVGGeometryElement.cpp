@@ -138,7 +138,7 @@ void SVGGeometryElement::parseAttribute(const QualifiedName& name, const AtomStr
     if (name == SVGNames::pathLengthAttr) {
         m_pathLength->setBaseValInternal(value.toFloat());
         if (m_pathLength->baseVal() < 0)
-            document().accessSVGExtensions().reportError("A negative value for path attribute <pathLength> is not allowed");
+            document().accessSVGExtensions().reportError("A negative value for path attribute <pathLength> is not allowed"_s);
         return;
     }
 
@@ -147,9 +147,10 @@ void SVGGeometryElement::parseAttribute(const QualifiedName& name, const AtomStr
 
 void SVGGeometryElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (attrName == SVGNames::pathLengthAttr) {
+    if (PropertyRegistry::isKnownAttribute(attrName)) {
+        ASSERT(attrName == SVGNames::pathLengthAttr);
         InstanceInvalidationGuard guard(*this);
-        setSVGResourcesInAncestorChainAreDirty();
+        updateSVGRendererForElementChange();
         return;
     }
 

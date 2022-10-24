@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,8 @@
 
 #if ENABLE(WEB_AUTHN)
 
+#import "Logging.h"
+#import "AuthenticationServicesCoreSoftLink.h"
 #import <Security/SecItem.h>
 #import <WebCore/AuthenticatorAssertionResponse.h>
 #import <WebCore/AuthenticatorAttachment.h>
@@ -44,6 +46,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/Vector.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 #import <wtf/text/Base64.h>
@@ -55,20 +58,24 @@
 static void updateQueryIfNecessary(NSMutableDictionary *)
 {
 }
+static inline String groupForAttributes(NSDictionary *attributes)
+{
+    return nullString();
+}
+static bool shouldUpdateQuery()
+{
+    return false;
+}
 #endif
 
 namespace WebKit {
 using namespace fido;
 using namespace WebCore;
+using namespace WebAuthn;
 using CBOR = cbor::CBORValue;
 
 namespace LocalAuthenticatorInternal {
 
-// See https://www.w3.org/TR/webauthn/#flags.
-const uint8_t makeCredentialFlags = 0b01000101; // UP, UV and AT are set.
-const uint8_t otherMakeCredentialFlags = 0b01000001; // UP and AT are set.
-const uint8_t getAssertionFlags = 0b00000101; // UP and UV are set.
-const uint8_t otherGetAssertionFlags = 0b00000001; // UP is set.
 // Credential ID is currently SHA-1 of the corresponding public key.
 const uint16_t credentialIdLength = 20;
 const uint64_t counter = 0;
@@ -88,6 +95,18 @@ static inline HashSet<String> produceHashSet(const Vector<PublicKeyCredentialDes
             result.add(base64EncodeToString(credentialDescriptor.id.data(), credentialDescriptor.id.length()));
     }
     return result;
+}
+
+static inline uint8_t authDataFlags(ClientDataType type, LocalConnection::UserVerification verification, bool synchronizable)
+{
+    auto flags = userPresenceFlag;
+    if (verification != LocalConnection::UserVerification::Presence)
+        flags |= userVerifiedFlag;
+    if (type == ClientDataType::Create)
+        flags |= attestedCredentialDataIncludedFlag;
+    if (synchronizable)
+        flags |= backupEligibilityFlag | backupStateFlag;
+    return flags;
 }
 
 static inline Vector<uint8_t> aaguidVector()
@@ -120,19 +139,18 @@ static inline Ref<ArrayBuffer> toArrayBuffer(const Vector<uint8_t>& data)
 static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCredentials(const String& rpId)
 {
     // Search Keychain for existing credential matched the RP ID.
-    auto query = adoptNS([[NSMutableDictionary alloc] init]);
-    [query setDictionary:@{
+    NSDictionary *query = @{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
+        (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
         (id)kSecAttrLabel: rpId,
         (id)kSecReturnAttributes: @YES,
         (id)kSecMatchLimit: (id)kSecMatchLimitAll,
         (id)kSecUseDataProtectionKeychain: @YES
-    }];
-    updateQueryIfNecessary(query.get());
+    };
 
     CFTypeRef attributesArrayRef = nullptr;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query.get(), &attributesArrayRef);
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &attributesArrayRef);
     if (status && status != errSecItemNotFound)
         return std::nullopt;
     auto retainAttributesArray = adoptCF(attributesArrayRef);
@@ -150,12 +168,11 @@ static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCre
         }
         auto& responseMap = decodedResponse->getMap();
 
+        RefPtr<ArrayBuffer> userHandle;
         auto it = responseMap.find(CBOR(fido::kEntityIdMapKey));
-        if (it == responseMap.end() || !it->second.isByteString()) {
-            ASSERT_NOT_REACHED();
-            return std::nullopt;
+        if (it != responseMap.end() && it->second.isByteString()) {
+            userHandle = toArrayBuffer(it->second.getByteString());
         }
-        auto& userHandle = it->second.getByteString();
 
         it = responseMap.find(CBOR(fido::kEntityNameMapKey));
         if (it == responseMap.end() || !it->second.isString()) {
@@ -164,9 +181,28 @@ static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCre
         }
         auto& username = it->second.getString();
 
-        result.uncheckedAppend(AuthenticatorAssertionResponse::create(toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), toArrayBuffer(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform));
+        auto response = AuthenticatorAssertionResponse::create(toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), WTFMove(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform);
+
+        auto group = groupForAttributes(attributes);
+        if (!group.isNull())
+            response->setGroup(group);
+        if ([[attributes allKeys] containsObject:bridge_cast(kSecAttrSynchronizable)])
+            response->setSynchronizable([attributes[(id)kSecAttrSynchronizable] isEqual:@YES]);
+        it = responseMap.find(CBOR(fido::kDisplayNameMapKey));
+        if (it != responseMap.end() && it->second.isString())
+            response->setDisplayName(it->second.getString());
+
+        result.uncheckedAppend(WTFMove(response));
     }
     return result;
+}
+
+static Vector<AuthenticatorTransport> transports()
+{
+    Vector<WebCore::AuthenticatorTransport> transports = { WebCore::AuthenticatorTransport::Internal };
+    if (shouldUpdateQuery())
+        transports.append(WebCore::AuthenticatorTransport::Hybrid);
+    return transports;
 }
 
 } // LocalAuthenticatorInternal
@@ -177,7 +213,7 @@ void LocalAuthenticator::clearAllCredentials()
     auto query = adoptNS([[NSMutableDictionary alloc] init]);
     [query setDictionary:@{
         (id)kSecClass: (id)kSecClassKey,
-        (id)kSecAttrAccessGroup: (id)String(LocalAuthenticatiorAccessGroup),
+        (id)kSecAttrAccessGroup: @(LocalAuthenticatorAccessGroup),
         (id)kSecUseDataProtectionKeychain: @YES
     }];
     updateQueryIfNecessary(query.get());
@@ -205,7 +241,7 @@ void LocalAuthenticator::makeCredential()
     // Step 8 is implicitly captured by all UnknownError exception receiveResponds.
     // Skip Step 10 as counter is constantly 0.
     // Step 2.
-    if (notFound == creationOptions.pubKeyCredParams.findMatching([] (auto& pubKeyCredParam) {
+    if (notFound == creationOptions.pubKeyCredParams.findIf([] (auto& pubKeyCredParam) {
         return pubKeyCredParam.type == PublicKeyCredentialType::PublicKey && pubKeyCredParam.alg == COSE::ES256;
     })) {
         receiveException({ NotSupportedError, "The platform attached authenticator doesn't support any provided PublicKeyCredentialParameters."_s });
@@ -213,7 +249,8 @@ void LocalAuthenticator::makeCredential()
     }
 
     // Step 3.
-    auto existingCredentials = getExistingCredentials(creationOptions.rp.id);
+    ASSERT(creationOptions.rp.id);
+    auto existingCredentials = getExistingCredentials(*creationOptions.rp.id);
     if (!existingCredentials) {
         receiveException({ UnknownError, makeString("Couldn't get existing credentials") });
         return;
@@ -222,92 +259,26 @@ void LocalAuthenticator::makeCredential()
 
     auto excludeCredentialIds = produceHashSet(creationOptions.excludeCredentials);
     if (!excludeCredentialIds.isEmpty()) {
-        if (notFound != m_existingCredentials.findMatching([&excludeCredentialIds] (auto& credential) {
+        if (notFound != m_existingCredentials.findIf([&excludeCredentialIds] (auto& credential) {
             auto* rawId = credential->rawId();
             ASSERT(rawId);
             return excludeCredentialIds.contains(base64EncodeToString(rawId->data(), rawId->byteLength()));
         })) {
-            // Obtain consent per Step 3.1
-            auto callback = [weakThis = WeakPtr { *this }] (LocalAuthenticatorPolicy policy) {
-                ASSERT(RunLoop::isMain());
-                if (!weakThis)
-                    return;
-
-                if (policy == LocalAuthenticatorPolicy::Allow)
-                    weakThis->receiveException({ InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the platform attached authenticator."_s }, WebAuthenticationStatus::LAExcludeCredentialsMatched);
-                else
-                    weakThis->receiveException({ NotAllowedError, "This request has been cancelled by the user."_s });
-            };
-            // Similar to below, consent has already been given.
-            if (webAuthenticationModernEnabled())
-                callback(LocalAuthenticatorPolicy::Allow);
-            else
-                observer()->decidePolicyForLocalAuthenticator(WTFMove(callback));
+            receiveException({ InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the platform attached authenticator."_s }, WebAuthenticationStatus::LAExcludeCredentialsMatched);
             return;
         }
     }
 
-    // Step 6.
-    // Get user consent.
-    if (webAuthenticationModernEnabled()) {
-        if (auto* observer = this->observer()) {
-            auto callback = [weakThis = WeakPtr { *this }] (LAContext *context) {
-                ASSERT(RunLoop::isMain());
-                if (!weakThis)
-                    return;
-
-                weakThis->continueMakeCredentialAfterReceivingLAContext(context);
-            };
-            observer->requestLAContextForUserVerification(WTFMove(callback));
-        }
-
-        return;
-    }
-
     if (auto* observer = this->observer()) {
-        auto callback = [weakThis = WeakPtr { *this }] (LocalAuthenticatorPolicy policy) {
+        auto callback = [weakThis = WeakPtr { *this }] (LAContext *context) {
             ASSERT(RunLoop::isMain());
             if (!weakThis)
                 return;
 
-            weakThis->continueMakeCredentialAfterDecidePolicy(policy);
+            weakThis->continueMakeCredentialAfterReceivingLAContext(context);
         };
-        observer->decidePolicyForLocalAuthenticator(WTFMove(callback));
+        observer->requestLAContextForUserVerification(WTFMove(callback));
     }
-}
-
-void LocalAuthenticator::continueMakeCredentialAfterDecidePolicy(LocalAuthenticatorPolicy policy)
-{
-    ASSERT(m_state == State::RequestReceived);
-    m_state = State::PolicyDecided;
-
-    auto& creationOptions = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
-
-    if (policy == LocalAuthenticatorPolicy::Disallow) {
-        receiveRespond(ExceptionData { UnknownError, "Disallow local authenticator."_s });
-        return;
-    }
-
-    RetainPtr<SecAccessControlRef> accessControl;
-    {
-        CFErrorRef errorRef = nullptr;
-        accessControl = adoptCF(SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlPrivateKeyUsage | kSecAccessControlUserPresence, &errorRef));
-        auto retainError = adoptCF(errorRef);
-        if (errorRef) {
-            receiveException({ UnknownError, makeString("Couldn't create access control: ", String(((NSError*)errorRef).localizedDescription)) });
-            return;
-        }
-    }
-
-    SecAccessControlRef accessControlRef = accessControl.get();
-    auto callback = [accessControl = WTFMove(accessControl), weakThis = WeakPtr { *this }] (LocalConnection::UserVerification verification, LAContext *context) {
-        ASSERT(RunLoop::isMain());
-        if (!weakThis)
-            return;
-
-        weakThis->continueMakeCredentialAfterUserVerification(accessControl.get(), verification, context);
-    };
-    m_connection->verifyUser(creationOptions.rp.id, getClientDataType(requestData().options), accessControlRef, getUserVerificationRequirement(requestData().options), WTFMove(callback));
 }
 
 void LocalAuthenticator::continueMakeCredentialAfterReceivingLAContext(LAContext *context)
@@ -337,6 +308,19 @@ void LocalAuthenticator::continueMakeCredentialAfterReceivingLAContext(LAContext
     m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
 }
 
+void LocalAuthenticator::processClientExtensions(std::variant<Ref<AuthenticatorAttestationResponse>, Ref<AuthenticatorAssertionResponse>> response)
+{
+    WTF::switchOn(response, [&](const Ref<AuthenticatorAttestationResponse>& response) {
+        auto& creationOptions = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
+        if (creationOptions.extensions && creationOptions.extensions->credProps) {
+            auto extensionOutputs = response->extensions();
+            
+            extensionOutputs.credProps = AuthenticationExtensionsClientOutputs::CredentialPropertiesOutput { true /* rk */ };
+            response->setExtensions(WTFMove(extensionOutputs));
+        }
+    }, [&](const Ref<AuthenticatorAssertionResponse>& options) { });
+}
+
 void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessControlRef accessControlRef, LocalConnection::UserVerification verification, LAContext *context)
 {
     using namespace LocalAuthenticatorInternal;
@@ -354,7 +338,8 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
     // kSecAttrApplicationTag: { "id": UserEntity.id, "name": UserEntity.name, "displayName": UserEntity.name} (CBOR encoded)
     // Noted, the vale of kSecAttrApplicationLabel is automatically generated by the Keychain, which is a SHA-1 hash of
     // the public key.
-    const auto& secAttrLabel = creationOptions.rp.id;
+    ASSERT(creationOptions.rp.id);
+    const auto& secAttrLabel = *creationOptions.rp.id;
 
     // id, name, and displayName are required in PublicKeyCredentialUserEntity
     // https://www.w3.org/TR/webauthn-2/#dictdef-publickeycredentialuserentity
@@ -425,20 +410,22 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
         cosePublicKey = encodeES256PublicKeyAsCBOR(WTFMove(x), WTFMove(y));
     }
 
-    auto flags = verification == LocalConnection::UserVerification::Presence ? otherMakeCredentialFlags : makeCredentialFlags;
+    auto flags = authDataFlags(ClientDataType::Create, verification, shouldUpdateQuery());
     // Step 12.
     // Skip Apple Attestation for none attestation.
     if (creationOptions.attestation == AttestationConveyancePreference::None) {
         deleteDuplicateCredential();
 
-        auto authData = buildAuthData(creationOptions.rp.id, flags, counter, buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey));
-        auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
-        receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
+        auto authData = buildAuthData(*creationOptions.rp.id, flags, counter, buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey));
+        auto attestationObject = buildAttestationObject(WTFMove(authData), String { emptyString() }, { }, AttestationConveyancePreference::None);
+        auto response = AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports());
+        processClientExtensions(response);
+        receiveRespond(WTFMove(response));
         return;
     }
 
     // Step 13. Apple Attestation
-    auto authData = buildAuthData(creationOptions.rp.id, flags, counter, buildAttestedCredentialData(aaguidVector(), credentialId, cosePublicKey));
+    auto authData = buildAuthData(*creationOptions.rp.id, flags, counter, buildAttestedCredentialData(aaguidVector(), credentialId, cosePublicKey));
     auto nsAuthData = toNSData(authData);
     auto callback = [credentialId = WTFMove(credentialId), authData = WTFMove(authData), weakThis = WeakPtr { *this }] (NSArray * _Nullable certificates, NSError * _Nullable error) mutable {
         ASSERT(RunLoop::isMain());
@@ -459,8 +446,8 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
 
     if (error) {
         LOG_ERROR("Couldn't attest: %s", String(error.localizedDescription).utf8().data());
-        auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
-        receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
+        auto attestationObject = buildAttestationObject(WTFMove(authData), String { emptyString() }, { }, AttestationConveyancePreference::None);
+        receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports()));
         return;
     }
     // Attestation Certificate and Attestation Issuing CA
@@ -476,10 +463,12 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
             cborArray.append(cbor::CBORValue(vectorFromNSData((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)certificates[i])).get())));
         attestationStatementMap[cbor::CBORValue("x5c")] = cbor::CBORValue(WTFMove(cborArray));
     }
-    auto attestationObject = buildAttestationObject(WTFMove(authData), "apple", WTFMove(attestationStatementMap), creationOptions.attestation);
+    auto attestationObject = buildAttestationObject(WTFMove(authData), "apple"_s, WTFMove(attestationStatementMap), creationOptions.attestation);
 
     deleteDuplicateCredential();
-    receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
+    auto response = AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform, transports());
+    processClientExtensions(response);
+    receiveRespond(WTFMove(response));
 }
 
 void LocalAuthenticator::getAssertion()
@@ -498,13 +487,15 @@ void LocalAuthenticator::getAssertion()
     auto allowCredentialIds = produceHashSet(requestOptions.allowCredentials);
     if (!requestOptions.allowCredentials.isEmpty() && allowCredentialIds.isEmpty()) {
         receiveException({ NotAllowedError, "No matched credentials are found in the platform attached authenticator."_s }, WebAuthenticationStatus::LANoCredential);
+        RELEASE_LOG_ERROR(WebAuthn, "No matched credentials are found in the platform attached authenticator.");
         return;
     }
 
     // Search Keychain for the RP ID.
     auto existingCredentials = getExistingCredentials(requestOptions.rpId);
     if (!existingCredentials) {
-        receiveException({ UnknownError, makeString("Couldn't get existing credentials") });
+        receiveException({ UnknownError, "Couldn't get existing credentials"_s });
+        RELEASE_LOG_ERROR(WebAuthn, "Couldn't get existing credentials");
         return;
     }
     m_existingCredentials = WTFMove(*existingCredentials);
@@ -523,6 +514,7 @@ void LocalAuthenticator::getAssertion()
     }
     if (assertionResponses.isEmpty()) {
         receiveException({ NotAllowedError, "No matched credentials are found in the platform attached authenticator."_s }, WebAuthenticationStatus::LANoCredential);
+        RELEASE_LOG_ERROR(WebAuthn, "No matched credentials are found in the platform attached authenticator.");
         return;
     }
 
@@ -531,11 +523,11 @@ void LocalAuthenticator::getAssertion()
 
     if (auto* observer = this->observer()) {
         auto callback = [this, weakThis = WeakPtr { *this }] (AuthenticatorAssertionResponse* response) {
-            ASSERT(RunLoop::isMain());
+            RELEASE_ASSERT(RunLoop::isMain());
             if (!weakThis)
                 return;
 
-            auto result = m_existingCredentials.findMatching([expectedResponse = response] (auto& response) {
+            auto result = m_existingCredentials.findIf([expectedResponse = response] (auto& response) {
                 return response.ptr() == expectedResponse;
             });
             if (result == notFound)
@@ -551,38 +543,20 @@ void LocalAuthenticator::continueGetAssertionAfterResponseSelected(Ref<WebCore::
     ASSERT(m_state == State::RequestReceived);
     m_state = State::ResponseSelected;
 
-    if (webAuthenticationModernEnabled()) {
-        auto accessControlRef = response->accessControl();
-        LAContext *context = response->laContext();
-        auto callback = [
-            weakThis = WeakPtr { *this },
-            response = WTFMove(response)
-        ] (LocalConnection::UserVerification verification) mutable {
-            ASSERT(RunLoop::isMain());
-            if (!weakThis)
-                return;
-
-            weakThis->continueGetAssertionAfterUserVerification(WTFMove(response), verification, response->laContext());
-        };
-
-        m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
-        return;
-    }
-
-    auto& requestOptions = std::get<PublicKeyCredentialRequestOptions>(requestData().options);
-
     auto accessControlRef = response->accessControl();
+    LAContext *context = response->laContext();
     auto callback = [
         weakThis = WeakPtr { *this },
         response = WTFMove(response)
-    ] (LocalConnection::UserVerification verification, LAContext *context) mutable {
+    ] (LocalConnection::UserVerification verification) mutable {
         ASSERT(RunLoop::isMain());
         if (!weakThis)
             return;
 
-        weakThis->continueGetAssertionAfterUserVerification(WTFMove(response), verification, context);
+        weakThis->continueGetAssertionAfterUserVerification(WTFMove(response), verification, response->laContext());
     };
-    m_connection->verifyUser(requestOptions.rpId, getClientDataType(requestData().options), accessControlRef, getUserVerificationRequirement(requestData().options), WTFMove(callback));
+
+    m_connection->verifyUser(accessControlRef, context, WTFMove(callback));
 }
 
 void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::AuthenticatorAssertionResponse>&& response, LocalConnection::UserVerification verification, LAContext *context)
@@ -596,7 +570,8 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
 
     // Step 10.
     auto requestOptions = std::get<PublicKeyCredentialRequestOptions>(requestData().options);
-    auto authData = buildAuthData(requestOptions.rpId, verification == LocalConnection::UserVerification::Presence ? otherGetAssertionFlags : getAssertionFlags, counter, { });
+    auto flags = authDataFlags(ClientDataType::Get, verification, response->synchronizable());
+    auto authData = buildAuthData(requestOptions.rpId, flags, counter, { });
 
     // Step 11.
     RetainPtr<CFDataRef> signature;
@@ -605,6 +580,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
         NSMutableDictionary *queryDictionary = [@{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
             (id)kSecAttrApplicationLabel: nsCredentialId.get(),
             (id)kSecReturnRef: @YES,
             (id)kSecUseDataProtectionKeychain: @YES
@@ -614,12 +590,12 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
             queryDictionary[(id)kSecUseAuthenticationContext] = context;
 
         auto query = adoptNS(queryDictionary);
-        updateQueryIfNecessary(query.get());
 
         CFTypeRef privateKeyRef = nullptr;
         OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query.get(), &privateKeyRef);
         if (status) {
             receiveException({ UnknownError, makeString("Couldn't get the private key reference: ", status) });
+            RELEASE_LOG_ERROR(WebAuthn, "Couldn't get the private key reference: %d", status);
             return;
         }
         auto privateKey = adoptCF(privateKeyRef);
@@ -632,6 +608,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
         signature = adoptCF(SecKeyCreateSignature((__bridge SecKeyRef)((id)privateKeyRef), kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (__bridge CFDataRef)dataToSign, &errorRef));
         auto retainError = adoptCF(errorRef);
         if (errorRef) {
+            RELEASE_LOG_ERROR(WebAuthn, "Couldn't generate signature: %@", ((NSError*)errorRef).localizedDescription);
             receiveException({ UnknownError, makeString("Couldn't generate the signature: ", String(((NSError*)errorRef).localizedDescription)) });
             return;
         }
@@ -639,25 +616,25 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
 
     // Extra step: update the Keychain item with the same value to update its modification date such that LRU can be used
     // for selectAssertionResponse
-    auto query = adoptNS([[NSMutableDictionary alloc] init]);
-    [query setDictionary:@{
+    NSDictionary *query = @{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
+        (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
         (id)kSecAttrApplicationLabel: nsCredentialId.get(),
         (id)kSecUseDataProtectionKeychain: @YES
-    }];
-    updateQueryIfNecessary(query.get());
+    };
 
     NSDictionary *updateParams = @{
         (id)kSecAttrLabel: requestOptions.rpId,
     };
-    auto status = SecItemUpdate((__bridge CFDictionaryRef)query.get(), (__bridge CFDictionaryRef)updateParams);
+    auto status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)updateParams);
     if (status)
-        LOG_ERROR("Couldn't update the Keychain item: %d", status);
+        RELEASE_LOG_ERROR(WebAuthn, "Couldn't update the Keychain item: %d", status);
 
     // Step 13.
     response->setAuthenticatorData(WTFMove(authData));
     response->setSignature(toArrayBuffer((NSData *)signature.get()));
+    processClientExtensions(response);
     receiveRespond(WTFMove(response));
 }
 
@@ -677,7 +654,7 @@ void LocalAuthenticator::receiveException(ExceptionData&& exception, WebAuthenti
 
         OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query.get());
         if (status)
-            LOG_ERROR(makeString("Couldn't delete provisional credential while handling error: "_s, status).utf8().data());
+            RELEASE_LOG_ERROR(WebAuthn, "Couldn't delete provisional credential while handling error: %d", status);
     }
 
     if (auto* observer = this->observer())
@@ -692,7 +669,7 @@ void LocalAuthenticator::deleteDuplicateCredential() const
     using namespace LocalAuthenticatorInternal;
 
     auto& creationOptions = std::get<PublicKeyCredentialCreationOptions>(requestData().options);
-    m_existingCredentials.findMatching([creationOptions] (auto& credential) {
+    m_existingCredentials.findIf([creationOptions] (auto& credential) {
         auto* userHandle = credential->userHandle();
         ASSERT(userHandle);
         if (userHandle->byteLength() != creationOptions.user.id.length())
@@ -700,17 +677,16 @@ void LocalAuthenticator::deleteDuplicateCredential() const
         if (memcmp(userHandle->data(), creationOptions.user.id.data(), userHandle->byteLength()))
             return false;
 
-        auto query = adoptNS([[NSMutableDictionary alloc] init]);
-        [query setDictionary:@{
+        NSDictionary *query = @{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrApplicationLabel: toNSData(credential->rawId()).get(),
+            (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
             (id)kSecUseDataProtectionKeychain: @YES
-        }];
-        updateQueryIfNecessary(query.get());
+        };
 
-        OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query.get());
+        OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query);
         if (status && status != errSecItemNotFound)
-            LOG_ERROR(makeString("Couldn't delete older credential: "_s, status).utf8().data());
+            RELEASE_LOG_ERROR(WebAuthn, "Couldn't delete older credential: %d", status);
         return true;
     });
 }
@@ -725,6 +701,7 @@ bool LocalAuthenticator::validateUserVerification(LocalConnection::UserVerificat
 
     if (verification == LocalConnection::UserVerification::No) {
         receiveException({ NotAllowedError, "Couldn't verify user."_s });
+        RELEASE_LOG_ERROR(WebAuthn, "Could not verify user.");
         return false;
     }
 

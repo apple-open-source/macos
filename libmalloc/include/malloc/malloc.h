@@ -97,6 +97,10 @@ typedef struct _malloc_zone_t {
 	 * not yet been allocated. False negatives are not allowed.
 	 */
     boolean_t (* MALLOC_ZONE_FN_PTR(claimed_address))(struct _malloc_zone_t *zone, void *ptr);
+
+    /* For zone 0 implementations: try to free ptr, promising to call find_zone_and_free
+     * if it turns out not to belong to us */
+    void 	(* MALLOC_ZONE_FN_PTR(try_free_default))(struct _malloc_zone_t *zone, void *ptr);
 } malloc_zone_t;
 
 /*********	Creation and destruction	************/
@@ -331,6 +335,10 @@ extern void malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void 
 //   malloc_introspection_t::print_task
 // Version 12:
 //   malloc_introspection_t::task_statistics
+// Version 13:
+//   - malloc_zone_t::malloc and malloc_zone_t::calloc assume responsibility for
+//     setting errno to ENOMEM on failure
+//   - malloc_zone_t::try_free_default
 
 // These functions are optional and calling them requires two checks:
 //  * Check zone version to ensure zone struct is large enough to include the member.

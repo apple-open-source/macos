@@ -90,6 +90,7 @@ ifeq "$(CONTENT_PLATFORM)" "ios"
 	$(_v) $(LN) -fs ../private/var/preferences "$(Destination)/Library/Preferences"
 	$(_v) $(LN) -fs ../private/var/Keychains "$(Destination)/Library/Keychains"
 	$(_v) $(LN) -fs ../private/var/MobileDevice "$(Destination)/Library/MobileDevice"
+
 endif
 ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.com.apple.timemachine.donotpresent"
@@ -106,6 +107,7 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 
 	# <rdar://problem/63655752>
 	$(_v) $(LN) -fs SystemVersion.plist "$(Destination)/System/Library/CoreServices/.SystemVersionPlatform.plist"
+
 endif
 ifneq "$(CONTENT_PLATFORM)" "ios_sim"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
@@ -130,3 +132,10 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/System/Library/Sandbox/Profiles/bsd.sb"
 endif
 endif
+ifeq "$(CONTENT_PLATFORM)" "ios"
+	# rdar://90651194 (add mobile content in the user templates as well)
+	$(MKDIR) -p $(Destination)/System/Library/Templates/User/
+	# cp has -pR in the options..
+	$(_v) $(CP) "$(Destination)/private/var/mobile/" "$(Destination)/System/Library/Templates/User/"
+endif
+

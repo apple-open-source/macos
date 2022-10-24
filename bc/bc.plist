@@ -4,22 +4,21 @@
         <key>OpenSourceProject</key>
         <string>bc</string>
         <key>OpenSourceVersion</key>
-        <string>1.06</string>
+        <string>4.0.2</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://www.gnu.org/software/bc/</string>
+        <string>https://git.yzena.com/gavin/bc</string>
         <key>OpenSourceURL</key>
-        <string>http://ftp.gnu.org/gnu/bc/bc-1.06.tar.gz</string>
-        <key>OpenSourceMD5</key>
-        <string>d44b5dddebd8a7a7309aea6c36fda117</string>
+        <string>https://git.yzena.com/gavin/bc/archive/4.0.2.tar.gz</string>
+        <key>OpenSourceSHA512</key>
+        <string>b149fc0e1db619b1a6db078783d3ca36480bd87502e44ee6b3f0f92e294abe65a7339eb7b72c53c614ec9dccca24938b11843b4db90f1b35ff42ca83ee73739d</string>
         <key>OpenSourceImportDate</key>
-        <string>2004-10-24</string>
-        <key>OpenSourceModifications</key>
-        <array>
-        	<string>Force POSIX mode (3695459).</string>
-        	<string>Build fixes.</string>
-        </array>
+        <string>2021-05-18</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>history.c: pull in upsteam patch for emacs-style forward-delete (97632269)</string>
+	</array>
         <key>OpenSourceLicense</key>
-        <string>GPL</string>
+        <string>BSD</string>
         <key>OpenSourceLicenseFile</key>
         <string>bc.txt</string>
 </dict>

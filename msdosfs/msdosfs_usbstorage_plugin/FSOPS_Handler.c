@@ -7,6 +7,7 @@
  */
 
 #include "FSOPS_Handler.h"
+#include <sys/errno.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 #include <sys/attr.h>
@@ -86,7 +87,7 @@ FSOPS_CreateRootRecord(FileSystemRecord_s *psFSRecord, NodeRecord_s** ppvRootNod
     iErr = DIROPS_LookForDirEntry( *ppvRootNode, &sArgs, NULL, &sNodeDirEntriesData );
     if ( iErr == 0 )
     {
-        MSDOS_LOG( LEVEL_DEBUG, "FSOPS_CreateRootRecord: found volume entry.\n" );
+        MSDOS_LOG(LEVEL_DEBUG, "%s: found volume entry.", __FUNCTION__);
         (*ppvRootNode)->sRecordData.sNDE = sNodeDirEntriesData;
         (*ppvRootNode)->sRecordData.bIsNDEValid = true;
 
@@ -147,23 +148,25 @@ static void FSOPS_generate_volume_uuid(uuid_t result_uuid, uint8_t volumeID[4], 
  * extension.
  */
 extern u_int16_t dos2unicode[32];
-static void FSOPS_CopyVolumeLabel(FileSystemRecord_s *psFSRecord, int8_t* uVolShortName)
+static void FSOPS_CopyVolumeLabel(FileSystemRecord_s *psFSRecord, int8_t uVolShortName[SHORT_NAME_LEN])
 {
     unsigned char uc;
     int           i;
 
-    for (i=0; i<SHORT_NAME_LEN; i++) {
+    for (i=0; i<SHORT_NAME_LEN; i++)
+    {
         uc = uVolShortName[i];
         if (i==0 && uc == SLOT_E5)
+        {
             uc = 0xE5;
+        }
         psFSRecord->sFSInfo.uVolumeLabel[i] = (uc < 0x80 || uc > 0x9F ? uc : dos2unicode[uc - 0x80]);
     }
 
-    /* Remove trailing spaces, add NUL terminator */
-    for (i=10; i>=0 && psFSRecord->sFSInfo.uVolumeLabel[i]==' '; --i)
-        ;
-    psFSRecord->sFSInfo.uVolumeLabel[i+1] = '\0';
+    /* Remove trailing spaces, add NULL terminator */
+    for (i=10; (i >= 0) && (psFSRecord->sFSInfo.uVolumeLabel[i] == ' '); --i);
 
+    psFSRecord->sFSInfo.uVolumeLabel[i+1] = '\0';
     psFSRecord->sFSInfo.bVolumeLabelExist = true;
 }
 
@@ -179,6 +182,34 @@ FSOPS_CopyVolumeLabelFromVolumeEntry(FileSystemRecord_s *psFSRecord, struct dosd
     FSOPS_CopyVolumeLabel(psFSRecord, (int8_t*) psDosDirEntry->deName);
 }
 
+static int
+FSOPS_validateBootSectorSignature(union bootsector *boot)
+{
+    // The first three bytes are an Intel x86 jump instruction.  Windows only
+    // checks the first byte, so that's what we'll do, too.
+    if (boot->bs50.bsJump[0] != 0xE9 &&
+        boot->bs50.bsJump[0] != 0xEB)
+    {
+        MSDOS_LOG(LEVEL_ERROR, "%s: Invalid jump signature (0x%02X)\n",
+                  __FUNCTION__, boot->bs50.bsJump[0]);
+        return EINVAL;
+    }
+
+    if ((boot->bs50.bsBootSectSig0 != BOOTSIG0) || (boot->bs50.bsBootSectSig1 != BOOTSIG1) )
+    {
+        /*
+         * We do not return an error for unexpected boot signatures. In 94739808 we found that
+         * some volumes might not have the expected signature value set but can be mounted on
+         * different systems including Windows and our msdos.kext that we used in the past.
+         * Log a message to leave a bread crumb if we see strange things happening latter.
+         */
+        MSDOS_LOG(LEVEL_DEFAULT, "%s: Invalid boot signature (0x%02X 0x%02X)\n",
+                  __FUNCTION__, boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
+    }
+
+    return 0;
+}
+
 static void
 FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *psFSRecord, int* piErr, uint32_t uBytesPerSector, bool bFailForDirty)
 {
@@ -187,14 +218,12 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *
     if (*ppvBootSector == NULL)
     {
         *piErr = ENOMEM;
-        MSDOS_LOG(LEVEL_ERROR, "FSOPS_InitReadBootSectorAndSetFATType: failed to malloc pvBootSector\n");
         return;
     }
     
     if (pread(psFSRecord->iFD, *ppvBootSector, uBytesPerSector, 0) != uBytesPerSector)
     {
         *piErr = errno;
-        MSDOS_LOG(LEVEL_ERROR, "FSOPS_InitReadBootSectorAndSetFATType: failed to read boot record %d\n",*piErr);
         return;
     }
     
@@ -205,28 +234,14 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *
     char cOEMName[9] = {0};
     strlcpy(&cOEMName[0], (char *) boot->bs50.bsOemName , 8);
     cOEMName[8] = '\0';
-    
-    MSDOS_LOG(LEVEL_DEFAULT, "FSOPS_InitReadBootSectorAndSetFATType: OEMName: %s\n", cOEMName);
 
-    // The first three bytes are an Intel x86 jump instruction.  Windows only
-    // checks the first byte, so that's what we'll do, too.
-    
-    if (boot->bs50.bsJump[0] != 0xE9 &&
-        boot->bs50.bsJump[0] != 0xEB)
+    *piErr = FSOPS_validateBootSectorSignature(boot);
+
+    if (*piErr)
     {
-        *piErr = EINVAL;
-        MSDOS_LOG(LEVEL_ERROR, "FSOPS_InitReadBootSectorAndSetFATType: Invalid jump signature (0x%02X)\n", boot->bs50.bsJump[0]);
         return;
     }
-    
-    // Check the trailing "boot signature"
-    if ((boot->bs50.bsBootSectSig0 != BOOTSIG0) || (boot->bs50.bsBootSectSig1 != BOOTSIG1) )
-    {
-        *piErr = EINVAL;
-        MSDOS_LOG(LEVEL_ERROR, "FSOPS_InitReadBootSectorAndSetFATType: Invalid boot signature (0x%02X 0x%02X)\n", boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
-        return;
-    }
-    
+
     // Compute device quantities from the boot sector.
     psFSRecord->sFSInfo.uBytesPerSector = getuint16(b50->bpbBytesPerSec);
     unsigned uSectorsPerCluster = b50->bpbSecPerClust;
@@ -363,7 +378,7 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *
             psFSRecord->sFSInfo.bUUIDExist = true;
         }
 
-        // Get the Volume lable
+        // Get the Volume label
         FSOPS_CopyVolumeLabelFromBootSector(psFSRecord, extboot);
     }
 
@@ -577,6 +592,62 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector, FileSystemRecord_s *
             }
         }
     }
+}
+
+static int
+FSOPS_UpdateLabelInBootSector(FileSystemRecord_s *psFSRecord, int8_t fromShortNameLabel[SHORT_NAME_LEN], int8_t toShortNameLabel[SHORT_NAME_LEN])
+{
+    uint32_t uBytesPerSector = psFSRecord->sFSInfo.uBytesPerSector;
+    int iErr;
+
+    void* pvBootSector = malloc(uBytesPerSector);
+    if (pvBootSector == NULL)
+    {
+        return ENOMEM;
+    }
+    
+    if (pread(psFSRecord->iFD, pvBootSector, uBytesPerSector, 0) != uBytesPerSector)
+    {
+        iErr = errno;
+        goto free_out;
+    }
+    
+    union bootsector *boot = pvBootSector;
+    
+    iErr = FSOPS_validateBootSectorSignature(pvBootSector);
+
+    if (iErr)
+    {
+        goto free_out;
+    }
+    
+    struct extboot *extboot;
+
+    if (psFSRecord->sFatInfo.uFatMask == FAT32_MASK)
+    {
+        extboot = (struct extboot *)boot->bs710.bsExt;
+    }
+    else
+    {
+        extboot = (struct extboot *)boot->bs50.bsExt;
+    }
+
+    if (extboot->exBootSignature == EXBOOTSIG) // Make sure volume has ext boot
+    {
+        // Get the current label
+        memcpy(fromShortNameLabel, extboot->exVolumeLabel, SHORT_NAME_LEN);
+        // Update with the new label
+        memcpy(extboot->exVolumeLabel, toShortNameLabel, SHORT_NAME_LEN);
+    }
+    
+    if (pwrite(psFSRecord->iFD, pvBootSector, uBytesPerSector, 0) != uBytesPerSector)
+    {
+        iErr = errno;
+    }
+    
+free_out:
+    free(pvBootSector);
+    return iErr;
 }
 
 static int FSOPS_CollectFATStatistics(FileSystemRecord_s *psFSRecord)
@@ -1100,10 +1171,12 @@ MSDOS_Sync (UVFSFileNode node)
         goto exit;
     }
 
-    //We will set the device as not dirty, only if we
-    if (psFSRecord->uPreAllocatedOpenFiles == 0)
-    {
-        // Clear drive dirty bit.
+    /*
+     * We will set the device as not dirty, only if we have no pre
+     * allocated or open/unlinked files.
+     */
+    if (psFSRecord->uPreAllocatedOpenFiles == 0 && psFSRecord->uOpenUnlinkedFiles == 0) {
+        /* Clear drive dirty bit. */
         iErr = FATMOD_SetDriveDirtyBit( psFSRecord, false );
     }
 
@@ -1122,6 +1195,13 @@ MSDOS_Unmount (UVFSFileNode rootFileNode, UVFSUnmountHint hint)
 	int iError = 0;
     NodeRecord_s* pvRootRecord = GET_RECORD(rootFileNode);
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(pvRootRecord);
+
+    /* Verify that the FS is clean */
+    MultiReadSingleWrite_LockWrite(&psFSRecord->sDirtyBitLck);
+    if (!(hint & UVFSUnmountHintWasDisconnected) && (psFSRecord->sFATCache.bDriveDirtyBit)) {
+        MSDOS_LOG(LEVEL_FAULT, "%s: Unmounting a dirty file system", __func__);
+    }
+    MultiReadSingleWrite_FreeWrite(&psFSRecord->sDirtyBitLck);
     
     //Free the FAT cache
     FAT_Access_M_FATFini(GET_FSRECORD(pvRootRecord));
@@ -1163,6 +1243,15 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
     if (attr == NULL || val == NULL)
         return EINVAL;
     
+    if (strcmp(attr, UVFS_FSATTR_MOUNTFLAGS) == 0) {
+        *retlen = sizeof(uint64_t);
+        if (len < *retlen) {
+            return E2BIG;
+        }
+        val->fsa_number = LI_MNT_SUPPORT_OPEN_UNLINK;
+        return 0;
+    }
+
     if (strcmp(attr, UVFS_FSATTR_PC_LINK_MAX)==0) 
     {
         *retlen = sizeof(uint64_t);
@@ -1309,14 +1398,14 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
 
     if (strcmp(attr, UVFS_FSATTR_FSTYPENAME)==0) 
     {
-        *retlen = 4;
+        *retlen = 6;
         if (len < *retlen) 
         {
             return E2BIG;
         }
         // A string representing the type of file system
-        strcpy(val->fsa_string, "fat");
-        *(val->fsa_string+3) = 0; // Must be null terminated
+        strcpy(val->fsa_string, "msdos");
+        *(val->fsa_string+5) = 0; // Must be null terminated
         return 0;
     }
 
@@ -1338,12 +1427,37 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
                 strcpy(val->fsa_string, "fat16");
                 break;
             case FAT32_MASK:
-                strcpy(val->fsa_string, "fat32");
-                break;
             default:
+                strcpy(val->fsa_string, "fat32");
                 break;
         }
         *(val->fsa_string+5) = 0; // Must be null terminated
+        return 0;
+    }
+
+    if (strcmp(attr, UVFS_FSATTR_FSSUBTYPENUM)==0)
+    {
+        // A number representing the variant of the file system
+        // (Compatible with legacy KEXT.)
+        *retlen = sizeof(uint64_t);
+        if (len < *retlen)
+        {
+            return E2BIG;
+        }
+
+        switch (psNodeRecord->sRecordData.psFSRecord->sFatInfo.uFatMask)
+        {
+            case FAT12_MASK:
+                val->fsa_number = 0;
+                break;
+            case FAT16_MASK:
+                val->fsa_number = 1;
+                break;
+            case FAT32_MASK:
+            default:
+                val->fsa_number = 2;
+                break;
+        }
         return 0;
     }
 
@@ -1405,7 +1519,7 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
         {
             return E2BIG;
         }
-        val->fsa_number = 0;
+        val->fsa_number = VOL_CAP_INT_VOL_RENAME;
         return 0;
     }
 
@@ -1415,10 +1529,16 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
 static int
 MSDOS_SetFSAttr(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_value, size_t out_len)
 {
+    FileSystemRecord_s *psFSRecord;
+    NodeRecord_s* pRecord;
+
     VERIFY_NODE_IS_VALID(Node);
-    
+
+    pRecord = GET_RECORD(Node);
+    psFSRecord = GET_FSRECORD(pRecord);
+
     if (attr == NULL || val == NULL || out_value == NULL) return EINVAL;
-    
+
     if (strcmp(attr, LI_FSATTR_PREALLOCATE) == 0)
     {
         if (len < sizeof (LIFilePreallocateArgs_t) || out_len < sizeof (LIFilePreallocateArgs_t))
@@ -1428,9 +1548,72 @@ MSDOS_SetFSAttr(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue 
         LIFilePreallocateArgs_t* psPreAllocRes = (LIFilePreallocateArgs_t*) ((void *) out_value->fsa_opaque);
         
         memcpy (psPreAllocRes, psPreAllocReq, sizeof(LIFilePreallocateArgs_t));
-        return FILEOPS_PreAllocateClusters(Node, psPreAllocReq, psPreAllocRes);
+        return FILEOPS_PreAllocateClusters(pRecord, psPreAllocReq, psPreAllocRes);
     }
-    
+    else if (strcmp(attr, LI_FSATTR_VOLNAME) == 0)
+    {
+        int8_t fromLabel[SHORT_NAME_LEN];
+        int8_t toLabel[SHORT_NAME_LEN];
+        struct dosdirentry newEntry;
+        int iErr;
+
+        /* The volume name is stored in the root */
+        if (!IS_ROOT(pRecord)) {
+            return EINVAL;
+        }
+
+        iErr = CONV_LabelUTF8ToUTF16LocalEncoding(val->fsa_string, toLabel);
+
+        if (iErr)
+        {
+            return iErr;
+        }
+
+        FSOPS_SetDirtyBitAndAcquireLck(psFSRecord);
+        MultiReadSingleWrite_LockWrite(&pRecord->sRecordData.sRecordLck);
+
+        iErr = FSOPS_UpdateLabelInBootSector(psFSRecord, fromLabel, toLabel);
+
+        if (iErr)
+        {
+            goto error;
+        }
+
+        /*
+         * Update label in root directory, if any. For now, don't
+         * create one if it doesn't exist (in case devices like
+         * cameras don't understand them).
+         */
+        if (pRecord->sRecordData.bIsNDEValid)
+        {
+            newEntry = pRecord->sRecordData.sNDE.sDosDirEntry;
+            memcpy(newEntry.deName, toLabel, SHORT_NAME_LEN);
+            iErr = DIROPS_UpdateDirectoryEntry( pRecord, &pRecord->sRecordData.sNDE, &newEntry);
+
+            if (iErr)
+            {
+                /*
+                 * we failed to update the root dir entry but the boot sector
+                 * already updated. The volume name will be taken from the dir
+                 * entry when it exist so revert the boot sector change to avoid
+                 * names missmatch between the two locations.
+                 */
+                MSDOS_LOG(LEVEL_ERROR, "%s: revert boot sector change", __FUNCTION__);
+                FSOPS_UpdateLabelInBootSector(psFSRecord, toLabel, fromLabel);
+                goto error;
+            }
+        }
+
+        // All locations are now updated. Copy the new name into the FS record.
+        FSOPS_CopyVolumeLabel(psFSRecord, toLabel);
+
+    error:
+        MultiReadSingleWrite_FreeWrite(&pRecord->sRecordData.sRecordLck);
+        FSOPS_FlushCacheAndFreeLck(psFSRecord);
+
+        return iErr;
+    }
+
     // Reserved for future use
     return ENOTSUP;
 }
@@ -1489,7 +1672,11 @@ out:
     return error;
 }
 
+#if TARGET_OS_OSX
 #define PATH_TO_FSCK "/System/Library/Filesystems/msdos.fs/Contents/Resources/fsck_msdos"
+#else
+#define PATH_TO_FSCK "/System/Library/Filesystems/msdos.fs/fsck_msdos"
+#endif
 
 static int
 fsck_msdos(int fd,  check_flags_t how)
